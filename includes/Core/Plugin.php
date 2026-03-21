@@ -18,6 +18,9 @@ use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PollService;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\ShareService;
+use BuddyNext\Bridges\CareerBoard as CareerBoardBridge;
+use BuddyNext\Bridges\Jetonomy as JetonomyBridge;
+use BuddyNext\Bridges\WBGamification as WBGamificationBridge;
 use BuddyNext\Bridges\WPMediaVerse as WPMediaVerseBridge;
 use BuddyNext\Comments\CommentService;
 use BuddyNext\Hashtags\HashtagService;
@@ -76,6 +79,9 @@ class Plugin {
 			'buddynext_load_bridges',
 			function (): void {
 				( new WPMediaVerseBridge() )->init();
+				( new WBGamificationBridge() )->init();
+				( new JetonomyBridge() )->init();
+				( new CareerBoardBridge() )->init();
 			}
 		);
 
