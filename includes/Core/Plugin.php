@@ -18,9 +18,12 @@ use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PollService;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\ShareService;
+use BuddyNext\Comments\CommentService;
+use BuddyNext\Hashtags\HashtagService;
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Profile\ProfileService;
+use BuddyNext\Reactions\ReactionService;
 use BuddyNext\REST\Router;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
@@ -110,6 +113,9 @@ class Plugin {
 		$container->bind( 'space_members', fn() => new SpaceMemberService() );
 		$container->bind( 'notifications', fn() => new NotificationService() );
 		$container->bind( 'notification_prefs', fn() => new NotificationPrefService() );
+		$container->bind( 'reactions', fn() => new ReactionService() );
+		$container->bind( 'comments', fn() => new CommentService() );
+		$container->bind( 'hashtags', fn() => new HashtagService() );
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
 
