@@ -20,6 +20,8 @@ use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Comments\CommentService;
 use BuddyNext\Hashtags\HashtagService;
+use BuddyNext\Moderation\ModerationLogService;
+use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Profile\ProfileService;
@@ -116,6 +118,8 @@ class Plugin {
 		$container->bind( 'reactions', fn() => new ReactionService() );
 		$container->bind( 'comments', fn() => new CommentService() );
 		$container->bind( 'hashtags', fn() => new HashtagService() );
+		$container->bind( 'moderation', fn() => new ModerationService() );
+		$container->bind( 'mod_log', fn() => new ModerationLogService() );
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
 

@@ -25,6 +25,7 @@ use BuddyNext\REST\Controllers\SearchController;
 use BuddyNext\REST\Controllers\ShareController;
 use BuddyNext\REST\Controllers\CommentController;
 use BuddyNext\REST\Controllers\HashtagController;
+use BuddyNext\REST\Controllers\ModerationController;
 use BuddyNext\REST\Controllers\NotificationController;
 use BuddyNext\REST\Controllers\ReactionController;
 use BuddyNext\REST\Controllers\SpaceController;
@@ -63,5 +64,6 @@ class Router {
 		( new ReactionController() )->register_routes();
 		( new CommentController() )->register_routes();
 		( new HashtagController() )->register_routes();
+		( new ModerationController() )->register_routes();
 	}
 }

@@ -457,6 +457,54 @@ class Installer {
 				KEY         user_action (user_id, action, created_at)
 			) {$cs};",
 
+			// ── Moderation ─────────────────────────────────────────────────────
+
+			"CREATE TABLE {$p}bn_reports (
+				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				reporter_id BIGINT(20) UNSIGNED NOT NULL,
+				object_type VARCHAR(32) NOT NULL,
+				object_id   BIGINT(20) UNSIGNED NOT NULL,
+				reason      ENUM('spam','harassment','misinformation','inappropriate','fake','impersonation','other') NOT NULL DEFAULT 'other',
+				notes       TEXT DEFAULT NULL,
+				status      ENUM('pending','dismissed','escalated','resolved') NOT NULL DEFAULT 'pending',
+				resolved_by BIGINT(20) UNSIGNED DEFAULT NULL,
+				resolved_at DATETIME DEFAULT NULL,
+				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				UNIQUE KEY  one_per_reporter (reporter_id, object_type, object_id),
+				KEY         object_status (object_type, object_id, status),
+				KEY         status_date (status, created_at)
+			) {$cs};",
+
+			"CREATE TABLE {$p}bn_mod_log (
+				id             BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				actor_id       BIGINT(20) UNSIGNED NOT NULL,
+				action         VARCHAR(64) NOT NULL,
+				object_type    VARCHAR(32) DEFAULT NULL,
+				object_id      BIGINT(20) UNSIGNED DEFAULT NULL,
+				target_user_id BIGINT(20) UNSIGNED DEFAULT NULL,
+				note           TEXT DEFAULT NULL,
+				created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY    (id),
+				KEY            actor (actor_id),
+				KEY            target_user (target_user_id),
+				KEY            created (created_at)
+			) {$cs};",
+
+			"CREATE TABLE {$p}bn_user_strikes (
+				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id     BIGINT(20) UNSIGNED NOT NULL,
+				issued_by   BIGINT(20) UNSIGNED NOT NULL,
+				reason      TEXT DEFAULT NULL,
+				is_reversed TINYINT(1) NOT NULL DEFAULT 0,
+				reversed_by BIGINT(20) UNSIGNED DEFAULT NULL,
+				reversed_at DATETIME DEFAULT NULL,
+				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				KEY         user_active (user_id, is_reversed),
+				KEY         issued_by (issued_by)
+			) {$cs};",
+
 		);
 	}
 }
