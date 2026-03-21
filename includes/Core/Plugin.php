@@ -18,6 +18,7 @@ use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PollService;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\ShareService;
+use BuddyNext\Bridges\WPMediaVerse as WPMediaVerseBridge;
 use BuddyNext\Comments\CommentService;
 use BuddyNext\Hashtags\HashtagService;
 use BuddyNext\Moderation\ModerationLogService;
@@ -68,6 +69,15 @@ class Plugin {
 		}
 
 		$container->get( 'rest_router' )->register();
+
+		// Boot first-party bridges unconditionally — each bridge guards itself
+		// against its dependency being absent via class_exists checks at hook time.
+		add_action(
+			'buddynext_load_bridges',
+			function (): void {
+				( new WPMediaVerseBridge() )->init();
+			}
+		);
 
 		/**
 		 * Fires after BuddyNext services are registered.
