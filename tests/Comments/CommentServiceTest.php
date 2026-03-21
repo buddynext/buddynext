@@ -90,7 +90,33 @@ class CommentServiceTest extends \WP_UnitTestCase {
 		$result = $this->service->delete( $id, $this->user_id );
 
 		$this->assertTrue( $result );
-		$this->assertNull( $this->service->get( $id ) );
+		// Soft-delete: row still exists but is_deleted = true and content is blank.
+		$comment = $this->service->get( $id );
+		$this->assertNotNull( $comment );
+		$this->assertTrue( $comment['is_deleted'] );
+		$this->assertSame( '', $comment['content'] );
+	}
+
+	public function test_update_sets_is_edited(): void {
+		$id = $this->service->create( $this->user_id, 'post', $this->post_id, 'Original' );
+
+		$this->service->update( $id, $this->user_id, 'Updated' );
+
+		$comment = $this->service->get( $id );
+		$this->assertTrue( $comment['is_edited'] );
+	}
+
+	public function test_list_excludes_deleted_comments(): void {
+		$this->service->create( $this->user_id, 'post', $this->post_id, 'Visible' );
+		$del_id = $this->service->create( $this->user_id, 'post', $this->post_id, 'Deleted' );
+		$this->service->delete( $del_id, $this->user_id );
+
+		$result = $this->service->list_for_object( 'post', $this->post_id );
+
+		$contents = array_column( $result['items'], 'content' );
+		$this->assertContains( 'Visible', $contents );
+		$this->assertNotContains( 'Deleted', $contents );
+		$this->assertSame( 1, $result['total'] );
 	}
 
 	public function test_delete_by_non_owner_returns_error(): void {

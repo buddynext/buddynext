@@ -99,6 +99,28 @@ class HashtagServiceTest extends \WP_UnitTestCase {
 		$this->assertNull( $this->service->get_by_slug( 'nonexistentxyz' ) );
 	}
 
+	public function test_get_trending_returns_array(): void {
+		$this->service->sync( 'post', 50, array( 'trending1' ) );
+		$this->service->sync( 'post', 51, array( 'trending2' ) );
+
+		$results = $this->service->get_trending( 10 );
+
+		$this->assertIsArray( $results );
+		$slugs = array_column( $results, 'slug' );
+		$this->assertContains( 'trending1', $slugs );
+		$this->assertContains( 'trending2', $slugs );
+	}
+
+	public function test_get_trending_respects_limit(): void {
+		foreach ( range( 1, 5 ) as $i ) {
+			$this->service->sync( 'post', $i + 100, array( "limittag{$i}" ) );
+		}
+
+		$results = $this->service->get_trending( 2 );
+
+		$this->assertLessThanOrEqual( 2, count( $results ) );
+	}
+
 	public function test_sync_removes_old_links_on_update(): void {
 		global $wpdb;
 

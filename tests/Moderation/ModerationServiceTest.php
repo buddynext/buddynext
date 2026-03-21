@@ -165,4 +165,64 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 0, $this->service->get_active_strike_count( $this->user_id ) );
 	}
+
+	public function test_get_queue_returns_pending_reports(): void {
+		$other = self::factory()->user->create();
+		$this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
+		$this->service->report( $other, 'post', $this->post_id, 'harassment' );
+
+		$result = $this->service->get_queue();
+
+		$this->assertArrayHasKey( 'items', $result );
+		$this->assertArrayHasKey( 'total', $result );
+		$this->assertCount( 2, $result['items'] );
+		$this->assertSame( 2, $result['total'] );
+	}
+
+	public function test_get_queue_excludes_non_pending(): void {
+		$other      = self::factory()->user->create();
+		$report_id  = $this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
+		$this->service->report( $other, 'post', $this->post_id, 'harassment' );
+
+		// Dismiss one — should not appear in queue.
+		$this->service->dismiss( $report_id, $this->admin_id );
+
+		$result = $this->service->get_queue();
+
+		$this->assertSame( 1, $result['total'] );
+	}
+
+	public function test_get_queue_filters_by_object_type(): void {
+		$this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
+		$this->service->report( $this->user_id, 'user', 99, 'harassment' );
+
+		$result = $this->service->get_queue( array( 'object_type' => 'post' ) );
+
+		$this->assertSame( 1, $result['total'] );
+		$this->assertSame( 'post', $result['items'][0]['object_type'] );
+	}
+
+	public function test_get_queue_filters_by_reason(): void {
+		$other = self::factory()->user->create();
+		$this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
+		$this->service->report( $other, 'post', $this->post_id + 1, 'harassment' );
+
+		$result = $this->service->get_queue( array( 'reason' => 'spam' ) );
+
+		$this->assertSame( 1, $result['total'] );
+		$this->assertSame( 'spam', $result['items'][0]['reason'] );
+	}
+
+	public function test_get_queue_paginates(): void {
+		$users = array();
+		for ( $i = 0; $i < 5; $i++ ) {
+			$users[] = self::factory()->user->create();
+			$this->service->report( $users[ $i ], 'post', $this->post_id + $i, 'spam' );
+		}
+
+		$result = $this->service->get_queue( array( 'per_page' => 2, 'page' => 1 ) );
+
+		$this->assertSame( 5, $result['total'] );
+		$this->assertCount( 2, $result['items'] );
+	}
 }

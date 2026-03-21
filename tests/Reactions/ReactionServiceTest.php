@@ -102,4 +102,26 @@ class ReactionServiceTest extends \WP_UnitTestCase {
 
 		$this->assertNull( $emoji );
 	}
+
+	public function test_toggle_replaces_emoji_when_different(): void {
+		$this->service->react( $this->user_id, 'post', $this->post_id, 'like' );
+		$this->service->toggle( $this->user_id, 'post', $this->post_id, 'heart' );
+
+		$this->assertSame( 'heart', $this->service->get_user_emoji( $this->user_id, 'post', $this->post_id ) );
+		$this->assertSame( 1, $this->service->count( 'post', $this->post_id ) );
+	}
+
+	public function test_get_counts_returns_per_emoji_breakdown(): void {
+		$user_a = self::factory()->user->create();
+		$user_b = self::factory()->user->create();
+
+		$this->service->react( $user_a, 'post', $this->post_id, 'like' );
+		$this->service->react( $user_b, 'post', $this->post_id, 'like' );
+		$this->service->react( $this->user_id, 'post', $this->post_id, 'heart' );
+
+		$counts = $this->service->get_counts( 'post', $this->post_id );
+
+		$this->assertSame( 2, $counts['like'] );
+		$this->assertSame( 1, $counts['heart'] );
+	}
 }
