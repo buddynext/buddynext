@@ -88,7 +88,14 @@ class ProfileController {
 		$data    = (array) $request->get_body_params();
 
 		$service->save_profile( $user_id, $data );
-		$service->index_user( $user_id );
+
+		/**
+		 * Fire indexing as a pluggable action so Action Scheduler (Phase 6+)
+		 * can override the synchronous fallback with an async job.
+		 *
+		 * @param int $user_id User whose search index entry should be refreshed.
+		 */
+		do_action( 'buddynext_index_user', $user_id );
 
 		$profile = $service->get_profile( $user_id, $user_id );
 

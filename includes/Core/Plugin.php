@@ -54,6 +54,8 @@ use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
 use BuddyNext\Search\MemberDirectoryService;
 use BuddyNext\Search\SearchService;
+use BuddyNext\Auth\VerificationListener;
+use BuddyNext\Auth\VerificationService;
 use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\ConnectionService;
 use BuddyNext\SocialGraph\FollowService;
@@ -102,6 +104,19 @@ class Plugin {
 
 		// Wire cross-plugin event hooks to notification routing.
 		( new EventListener() )->init();
+
+		// Wire email verification hooks.
+		( new VerificationListener( $container->get( 'verification' ) ) )->init();
+
+		// Synchronous search-index fallback — Action Scheduler (Phase 6+) can
+		// override this by hooking buddynext_index_user at a higher priority and
+		// scheduling an async job instead.
+		add_action(
+			'buddynext_index_user',
+			static function ( int $user_id ): void {
+				( new \BuddyNext\Profile\ProfileService() )->index_user( $user_id );
+			}
+		);
 
 		// Wire email dispatch to the notification created action.
 		( new EmailDispatchListener(
@@ -209,6 +224,7 @@ class Plugin {
 		$container->bind( 'shortcodes', fn() => new ShortcodeService() );
 		$container->bind( 'widgets', fn() => new WidgetService() );
 		$container->bind( 'pwa', fn() => new PwaService() );
+		$container->bind( 'verification', fn() => new VerificationService() );
 
 		// Abilities must be registered at plugins_loaded:15 so they are
 		// available before rest_api_init and admin_menu fire.
