@@ -117,6 +117,25 @@ class SearchService {
 			$type_params = array( sanitize_key( $type ) );
 		}
 
+		/**
+		 * Allow an external search driver (Elasticsearch, Algolia, etc.) to
+		 * short-circuit the built-in SQL search. Return a non-null value from
+		 * this filter — shaped as `array{ items: array[], total: int }` — to
+		 * bypass the default query entirely.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param array|null $driver_result Null by default; return a result array to override.
+		 * @param string     $query         Raw (unsanitised) search string.
+		 * @param string     $type          Object-type filter, or '' for all types.
+		 * @param int        $per_page      Results per page.
+		 * @param int        $page          1-based page number.
+		 */
+		$driver_result = apply_filters( 'buddynext_search_results', null, $query, $type, $per_page, $page );
+		if ( null !== $driver_result ) {
+			return $driver_result;
+		}
+
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$total = (int) $wpdb->get_var(
 			$wpdb->prepare(

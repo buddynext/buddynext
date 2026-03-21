@@ -339,7 +339,7 @@ class Installer {
 				type          ENUM('text','textarea','url','date','select','checkbox','repeater') NOT NULL DEFAULT 'text',
 				options       JSON DEFAULT NULL,
 				is_required   TINYINT(1) NOT NULL DEFAULT 0,
-				visibility    ENUM('public','connections','private') NOT NULL DEFAULT 'public',
+				visibility    ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public',
 				group_name    VARCHAR(100) NOT NULL DEFAULT 'general',
 				sort_order    INT NOT NULL DEFAULT 0,
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,

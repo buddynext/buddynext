@@ -46,35 +46,116 @@ class MemberDirectoryService {
 	/**
 	 * Return a cursor-paginated list of members.
 	 *
+	 * Supported $filters keys:
+	 *   'location'   (string) — LIKE match against the `bn_field_location` usermeta key.
+	 *   'online_only' (bool)  — restrict to users active within the last 5 minutes
+	 *                           (reads `bn_last_active` usermeta, stored as a Unix timestamp).
+	 *   'sort'       (string) — 'newest' (default), 'alphabetical', 'most_active', or
+	 *                           'online' (alias: implies online_only + most_active order).
+	 *
 	 * @param int         $viewer_id ID of the viewing user (excluded from results).
 	 * @param string|null $cursor    Opaque pagination cursor from a previous page.
 	 * @param int         $per_page  Number of members per page (max 50).
+	 * @param array       $filters   Optional associative filter/sort options.
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
-	public function list_members( int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+	public function list_members( int $viewer_id = 0, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, array $filters = array() ): array {
 		global $wpdb;
 
 		$per_page    = min( $per_page, 50 );
 		$cursor_data = $this->decode_cursor( $cursor );
 
-		$cursor_where  = '';
-		$cursor_params = array();
+		// Normalise filter values.
+		$location    = isset( $filters['location'] ) ? trim( (string) $filters['location'] ) : '';
+		$online_only = ! empty( $filters['online_only'] );
+		$sort        = isset( $filters['sort'] ) ? (string) $filters['sort'] : 'newest';
 
-		if ( null !== $cursor_data ) {
-			$cursor_where  = 'AND (u.user_registered < %s OR (u.user_registered = %s AND u.ID < %d))';
-			$cursor_params = array( $cursor_data['registered_at'], $cursor_data['registered_at'], $cursor_data['id'] );
+		// 'online' sort implies online_only filtering as well.
+		if ( 'online' === $sort ) {
+			$online_only = true;
 		}
+
+		// ------------------------------------------------------------------ //
+		// Build JOIN clauses.
+		// ------------------------------------------------------------------ //
+
+		$joins  = array();
+		$params = array( $viewer_id );
+
+		// Location JOIN — usermeta row for bn_field_location.
+		if ( '' !== $location ) {
+			$joins[] = "INNER JOIN {$wpdb->usermeta} AS um_loc
+			            ON um_loc.user_id = u.ID
+			            AND um_loc.meta_key = 'bn_field_location'";
+		}
+
+		// Online-only JOIN — usermeta row for bn_last_active.
+		if ( $online_only || 'online' === $sort || 'most_active' === $sort ) {
+			$joins[] = "LEFT JOIN {$wpdb->usermeta} AS um_active
+			            ON um_active.user_id = u.ID
+			            AND um_active.meta_key = 'bn_last_active'";
+		}
+
+		$join_sql = $joins ? ( "\n" . implode( "\n", $joins ) ) : '';
+
+		// ------------------------------------------------------------------ //
+		// Build WHERE clauses.
+		// ------------------------------------------------------------------ //
+
+		$where_clauses = array( 'u.ID != %d' );
+
+		if ( '' !== $location ) {
+			$where_clauses[] = 'um_loc.meta_value LIKE %s';
+			$params[]        = '%' . $wpdb->esc_like( $location ) . '%';
+		}
+
+		if ( $online_only ) {
+			$where_clauses[] = 'CAST(um_active.meta_value AS UNSIGNED) > UNIX_TIMESTAMP() - 300';
+		}
+
+		// Cursor WHERE — only valid for 'newest' sort (datetime-based cursor).
+		// For other sort modes the cursor is omitted to avoid cross-sort confusion.
+		if ( null !== $cursor_data && 'newest' === $sort ) {
+			$where_clauses[] = '(u.user_registered < %s OR (u.user_registered = %s AND u.ID < %d))';
+			$params[]        = $cursor_data['registered_at'];
+			$params[]        = $cursor_data['registered_at'];
+			$params[]        = $cursor_data['id'];
+		}
+
+		$where_sql = implode( "\n   AND ", $where_clauses );
+
+		// ------------------------------------------------------------------ //
+		// Build ORDER BY clause.
+		// ------------------------------------------------------------------ //
+
+		switch ( $sort ) {
+			case 'alphabetical':
+				$order_sql = 'ORDER BY u.display_name ASC, u.ID ASC';
+				break;
+
+			case 'most_active':
+			case 'online':
+				$order_sql = 'ORDER BY CAST(COALESCE(um_active.meta_value, 0) AS UNSIGNED) DESC, u.ID DESC';
+				break;
+
+			case 'newest':
+			default:
+				$order_sql = 'ORDER BY u.user_registered DESC, u.ID DESC';
+				break;
+		}
+
+		$params[] = $per_page + 1;
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT u.ID, u.display_name, u.user_registered
 				 FROM {$wpdb->users} u
-				 WHERE u.ID != %d
-				   {$cursor_where}
-				 ORDER BY u.user_registered DESC, u.ID DESC
+				 {$join_sql}
+				 WHERE {$where_sql}
+				 {$order_sql}
 				 LIMIT %d",
-				...array_merge( array( $viewer_id ), $cursor_params, array( $per_page + 1 ) )
+				...$params
 			),
 			ARRAY_A
 		);

@@ -4,8 +4,8 @@
  *
  * Manages custom profile field definitions (bn_profile_fields) and per-user
  * values (bn_profile_values). Reads are cache-backed; writes invalidate the
- * relevant keys. Visibility ('public', 'connections', 'private') is enforced
- * in get_profile() when the viewer is not the profile owner.
+ * relevant keys. Visibility ('public', 'followers', 'connections', 'private')
+ * is enforced in get_profile() when the viewer is not the profile owner.
  *
  * @package BuddyNext\Profile
  */
@@ -28,6 +28,11 @@ class ProfileService {
 	 * Cache TTL in seconds (10 minutes).
 	 */
 	private const CACHE_TTL = 600;
+
+	/**
+	 * Completion score cache TTL in seconds (5 minutes).
+	 */
+	private const COMPLETION_CACHE_TTL = 300;
 
 	/**
 	 * Return all defined profile field definitions, ordered by sort_order.
@@ -145,7 +150,10 @@ class ProfileService {
 			}
 		}
 
-		wp_cache_delete( "profile_{$user_id}", self::CACHE_GROUP );
+		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
+		wp_cache_delete( "profile_{$user_id}_viewer_follower", self::CACHE_GROUP );
+		wp_cache_delete( "profile_{$user_id}_viewer_public", self::CACHE_GROUP );
+		wp_cache_delete( "completion_{$user_id}", self::CACHE_GROUP );
 
 		return true;
 	}
@@ -167,15 +175,37 @@ class ProfileService {
 			return null;
 		}
 
-		$is_owner  = ( $viewer_id === $profile_user_id );
-		$cache_key = "profile_{$profile_user_id}_viewer_" . ( $is_owner ? 'owner' : 'other' );
-		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		$is_owner = ( $viewer_id === $profile_user_id );
+
+		global $wpdb;
+
+		// Resolve follower status before cache lookup so the cache key captures it.
+		// Skip the query for owners and anonymous viewers — follower check is irrelevant.
+		$viewer_is_follower = false;
+		if ( ! $is_owner && $viewer_id > 0 ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$viewer_is_follower = (bool) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND following_id = %d LIMIT 1",
+					$viewer_id,
+					$profile_user_id
+				)
+			);
+		}
+
+		if ( $is_owner ) {
+			$cache_key = "profile_{$profile_user_id}_viewer_owner";
+		} elseif ( $viewer_is_follower ) {
+			$cache_key = "profile_{$profile_user_id}_viewer_follower";
+		} else {
+			$cache_key = "profile_{$profile_user_id}_viewer_public";
+		}
+
+		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
 			return (array) $cached;
 		}
-
-		global $wpdb;
 
 		// Load field values joined with field definitions.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -194,8 +224,13 @@ class ProfileService {
 		$fields = array();
 		foreach ( (array) $rows as $row ) {
 			// Enforce visibility for non-owners.
-			if ( ! $is_owner && 'private' === $row['visibility'] ) {
-				continue;
+			if ( ! $is_owner ) {
+				if ( 'private' === $row['visibility'] ) {
+					continue;
+				}
+				if ( 'followers' === $row['visibility'] && ! $viewer_is_follower ) {
+					continue;
+				}
 			}
 
 			$fields[] = array(
@@ -222,6 +257,126 @@ class ProfileService {
 		wp_cache_set( $cache_key, $profile, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $profile;
+	}
+
+	/**
+	 * Return the profile completion score for a user.
+	 *
+	 * Counts active profile fields and how many the user has filled in.
+	 * Required and recommended fields are tallied separately. The result is
+	 * cached for 5 minutes and invalidated whenever save_profile() runs.
+	 * Fires 'buddynext_profile_completion_changed' with the new percentage
+	 * every time the score is freshly calculated (cache miss).
+	 *
+	 * @param int $user_id User to score.
+	 * @return array {
+	 *     @type int $percent            Overall completion percentage (0–100).
+	 *     @type int $required_filled    Number of required fields filled.
+	 *     @type int $required_total     Total required fields.
+	 *     @type int $recommended_filled Number of non-required fields filled.
+	 *     @type int $recommended_total  Total non-required fields.
+	 * }
+	 */
+	public function get_completion_score( int $user_id ): array {
+		$cache_key = "completion_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		global $wpdb;
+
+		// Fetch all active fields. No user input — static query, no prepare needed.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		$fields = $wpdb->get_results(
+			"SELECT id, is_required FROM {$wpdb->prefix}bn_profile_fields WHERE is_active = 1 ORDER BY id ASC",
+			ARRAY_A
+		);
+
+		// Fallback: if is_active column does not exist yet, fetch all fields.
+		if ( null === $fields ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+			$fields = (array) $wpdb->get_results(
+				"SELECT id, is_required FROM {$wpdb->prefix}bn_profile_fields ORDER BY id ASC",
+				ARRAY_A
+			);
+		}
+
+		$fields = (array) $fields;
+
+		if ( empty( $fields ) ) {
+			$score = array(
+				'percent'            => 0,
+				'required_filled'    => 0,
+				'required_total'     => 0,
+				'recommended_filled' => 0,
+				'recommended_total'  => 0,
+			);
+
+			wp_cache_set( $cache_key, $score, self::CACHE_GROUP, self::COMPLETION_CACHE_TTL );
+
+			do_action( 'buddynext_profile_completion_changed', $user_id, 0 );
+
+			return $score;
+		}
+
+		// Build a set of field IDs the user has filled (non-empty value).
+		$field_ids    = array_column( $fields, 'id' );
+		$placeholders = implode( ', ', array_fill( 0, count( $field_ids ), '%d' ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$filled_rows = $wpdb->get_results(
+			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT field_id FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id IN ({$placeholders}) AND value IS NOT NULL AND value <> ''",
+				...array_merge( array( $user_id ), $field_ids )
+			),
+			ARRAY_A
+		);
+
+		$filled_ids = array_column( (array) $filled_rows, 'field_id' );
+		$filled_set = array_flip( $filled_ids );
+
+		$required_total     = 0;
+		$required_filled    = 0;
+		$recommended_total  = 0;
+		$recommended_filled = 0;
+
+		foreach ( $fields as $field ) {
+			$is_required = (bool) $field['is_required'];
+			$is_filled   = isset( $filled_set[ $field['id'] ] );
+
+			if ( $is_required ) {
+				++$required_total;
+				if ( $is_filled ) {
+					++$required_filled;
+				}
+			} else {
+				++$recommended_total;
+				if ( $is_filled ) {
+					++$recommended_filled;
+				}
+			}
+		}
+
+		$total_fields = $required_total + $recommended_total;
+		$total_filled = $required_filled + $recommended_filled;
+		$percent      = $total_fields > 0 ? (int) round( ( $total_filled / $total_fields ) * 100 ) : 0;
+
+		$score = array(
+			'percent'            => $percent,
+			'required_filled'    => $required_filled,
+			'required_total'     => $required_total,
+			'recommended_filled' => $recommended_filled,
+			'recommended_total'  => $recommended_total,
+		);
+
+		wp_cache_set( $cache_key, $score, self::CACHE_GROUP, self::COMPLETION_CACHE_TTL );
+
+		do_action( 'buddynext_profile_completion_changed', $user_id, $percent );
+
+		return $score;
 	}
 
 	/**

@@ -68,6 +68,8 @@ class ProfileController {
 			);
 		}
 
+		$profile['completion'] = $service->get_completion_score( $profile_user_id );
+
 		return new WP_REST_Response( $profile, 200 );
 	}
 

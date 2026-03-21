@@ -46,6 +46,42 @@ class SearchController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'list_members' ),
 				'permission_callback' => '__return_true',
+				'args'                => array(
+					'cursor'      => array(
+						'type'              => 'string',
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'per_page'    => array(
+						'type'              => 'integer',
+						'required'          => false,
+						'default'           => 20,
+						'minimum'           => 1,
+						'maximum'           => 50,
+						'sanitize_callback' => 'absint',
+					),
+					'location'    => array(
+						'description'       => __( 'Filter members by location (partial match).', 'buddynext' ),
+						'type'              => 'string',
+						'required'          => false,
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'online_only' => array(
+						'description' => __( 'When true, return only members active in the last 5 minutes.', 'buddynext' ),
+						'type'        => 'boolean',
+						'required'    => false,
+						'default'     => false,
+					),
+					'sort'        => array(
+						'description'       => __( 'Sort order: newest, alphabetical, most_active, or online.', 'buddynext' ),
+						'type'              => 'string',
+						'required'          => false,
+						'default'           => 'newest',
+						'enum'              => array( 'newest', 'alphabetical', 'most_active', 'online' ),
+						'sanitize_callback' => 'sanitize_key',
+					),
+				),
 			)
 		);
 	}
@@ -82,6 +118,8 @@ class SearchController {
 	/**
 	 * Return the paginated member directory.
 	 *
+	 * Accepts optional filter params: location, online_only, sort.
+	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
@@ -90,10 +128,17 @@ class SearchController {
 		$cursor    = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
 		$per_page  = min( (int) ( $request->get_param( 'per_page' ) ?? 20 ), 50 );
 
+		$filters = array(
+			'location'    => sanitize_text_field( (string) ( $request->get_param( 'location' ) ?? '' ) ),
+			'online_only' => (bool) $request->get_param( 'online_only' ),
+			'sort'        => sanitize_key( (string) ( $request->get_param( 'sort' ) ?? 'newest' ) ),
+		);
+
 		$result = ( new MemberDirectoryService( new FollowService() ) )->list_members(
 			$viewer_id,
 			$cursor,
-			$per_page
+			$per_page,
+			$filters
 		);
 
 		return new WP_REST_Response( $result, 200 );
