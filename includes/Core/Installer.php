@@ -505,6 +505,22 @@ class Installer {
 				KEY         issued_by (issued_by)
 			) {$cs};",
 
+			// ── Onboarding + Invites ───────────────────────────────────────────
+
+			"CREATE TABLE {$p}bn_invites (
+				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				email      VARCHAR(200) NOT NULL,
+				first_name VARCHAR(100) DEFAULT NULL,
+				token      VARCHAR(64) NOT NULL,
+				status     ENUM('pending','registered','bounced') NOT NULL DEFAULT 'pending',
+				expires_at DATETIME NOT NULL,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				UNIQUE KEY  token (token),
+				KEY         email (email),
+				KEY         status_expires (status, expires_at)
+			) {$cs};",
+
 		);
 	}
 }
