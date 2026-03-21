@@ -201,9 +201,17 @@ class ConnectionService {
 			array(
 				'requester_id' => $requester_id,
 				'recipient_id' => $recipient_id,
+				'status'       => 'pending',
 			),
-			array( '%d', '%d' )
+			array( '%d', '%d', '%s' )
 		);
+
+		if ( 0 === $wpdb->rows_affected ) {
+			return new WP_Error(
+				'not_found',
+				__( 'No pending request found.', 'buddynext' )
+			);
+		}
 
 		$this->invalidate_connection_cache( $requester_id, $recipient_id );
 
@@ -309,6 +317,40 @@ class ConnectionService {
 	}
 
 	/**
+	 * Return the list of recipient IDs for pending requests sent by the user.
+	 *
+	 * @param int $user_id The requesting user.
+	 * @return int[]
+	 */
+	public function pending_sent( int $user_id ): array {
+		global $wpdb;
+
+		$cache_key = "pending_sent_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT recipient_id
+				 FROM {$wpdb->prefix}bn_connections
+				 WHERE requester_id = %d AND status = 'pending'
+				 ORDER BY created_at DESC",
+				$user_id
+			)
+		);
+
+		$result = array_map( 'intval', (array) $rows );
+
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
+	}
+
+	/**
 	 * Return the list of requester IDs for pending requests received by the user.
 	 *
 	 * @param int $user_id The recipient user.
@@ -340,6 +382,48 @@ class ConnectionService {
 		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $result;
+	}
+
+	/**
+	 * Return user IDs that both $user_a and $user_b are each accepted-connected to.
+	 *
+	 * Because bn_connections is directional (one row per pair, either
+	 * requester_id or recipient_id can be the "acting" user), we first resolve
+	 * both users' full accepted-connection lists via the cache-backed
+	 * connections() method, then intersect them in PHP. This avoids a complex
+	 * bidirectional SQL join and re-uses cached data.
+	 *
+	 * @param int $user_a First user.
+	 * @param int $user_b Second user.
+	 * @return int[]
+	 */
+	public function mutual_connections( int $user_a, int $user_b ): array {
+		$connections_a = $this->connections( $user_a );
+		$connections_b = $this->connections( $user_b );
+
+		return array_values( array_intersect( $connections_a, $connections_b ) );
+	}
+
+	/**
+	 * Return the connection degree between two users.
+	 *
+	 * Degree 1 means the users are directly connected. Degree 2 means they
+	 * share at least one mutual connection. Degree 3+ covers all other cases.
+	 *
+	 * @param int $viewer_id  The viewing user.
+	 * @param int $subject_id The user being viewed.
+	 * @return int 1, 2, or 3.
+	 */
+	public function connection_degree( int $viewer_id, int $subject_id ): int {
+		if ( $this->are_connected( $viewer_id, $subject_id ) ) {
+			return 1;
+		}
+
+		if ( ! empty( $this->mutual_connections( $viewer_id, $subject_id ) ) ) {
+			return 2;
+		}
+
+		return 3;
 	}
 
 	/**
@@ -388,6 +472,8 @@ class ConnectionService {
 		wp_cache_delete( "connections_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "pending_received_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "pending_received_{$user_b}", self::CACHE_GROUP );
+		wp_cache_delete( "pending_sent_{$user_a}", self::CACHE_GROUP );
+		wp_cache_delete( "pending_sent_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "connection_count_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "connection_count_{$user_b}", self::CACHE_GROUP );
 	}

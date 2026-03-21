@@ -52,6 +52,29 @@ class FollowService {
 
 		global $wpdb;
 
+		// Enforce block guard: refuse the follow if either party has blocked the other.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$block = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT blocker_id
+				 FROM {$wpdb->prefix}bn_blocks
+				 WHERE ( blocker_id = %d AND blocked_id = %d )
+				    OR ( blocker_id = %d AND blocked_id = %d )
+				 LIMIT 1",
+				$follower_id,
+				$following_id,
+				$following_id,
+				$follower_id
+			)
+		);
+
+		if ( null !== $block ) {
+			return new WP_Error(
+				'blocked',
+				__( 'Cannot follow a blocked user.', 'buddynext' )
+			);
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
