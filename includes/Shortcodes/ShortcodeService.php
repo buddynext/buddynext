@@ -10,8 +10,9 @@
  *   [buddynext_spaces]   Spaces directory.
  *   [buddynext_profile]  Profile card for the current or a specific user.
  *
- * Each shortcode renders a loading wrapper div that is hydrated via the
- * WordPress Interactivity API (no build step required).
+ * Each shortcode renders the corresponding PHP template via TemplateLoader.
+ * When a template is absent (e.g. before the first deploy), the shortcode
+ * falls back to a minimal loading wrapper hydrated by the Interactivity API.
  *
  * @package BuddyNext\Shortcodes
  */
@@ -19,6 +20,8 @@
 declare( strict_types=1 );
 
 namespace BuddyNext\Shortcodes;
+
+use BuddyNext\Core\Container;
 
 /**
  * Registers and handles BuddyNext shortcodes.
@@ -64,10 +67,19 @@ class ShortcodeService {
 		$limit = absint( $atts['limit'] );
 		$type  = sanitize_key( (string) $atts['type'] );
 
-		return sprintf(
-			'<div class="buddynext-feed" data-limit="%d" data-type="%s" data-wp-interactive="buddynext/feed"></div>',
-			$limit,
-			esc_attr( $type )
+		return $this->capture(
+			'feed/home.php',
+			array(
+				'args' => array(
+					'limit' => $limit,
+					'type'  => $type,
+				),
+			),
+			sprintf(
+				'<div class="buddynext-feed" data-limit="%d" data-type="%s" data-wp-interactive="buddynext/feed"></div>',
+				$limit,
+				esc_attr( $type )
+			)
 		);
 	}
 
@@ -94,10 +106,19 @@ class ShortcodeService {
 		$limit   = absint( $atts['limit'] );
 		$orderby = sanitize_key( (string) $atts['orderby'] );
 
-		return sprintf(
-			'<div class="buddynext-members" data-limit="%d" data-orderby="%s" data-wp-interactive="buddynext/members"></div>',
-			$limit,
-			esc_attr( $orderby )
+		return $this->capture(
+			'directory/members.php',
+			array(
+				'args' => array(
+					'limit'   => $limit,
+					'orderby' => $orderby,
+				),
+			),
+			sprintf(
+				'<div class="buddynext-members" data-limit="%d" data-orderby="%s" data-wp-interactive="buddynext/members"></div>',
+				$limit,
+				esc_attr( $orderby )
+			)
 		);
 	}
 
@@ -124,10 +145,19 @@ class ShortcodeService {
 		$limit = absint( $atts['limit'] );
 		$type  = sanitize_key( (string) $atts['type'] );
 
-		return sprintf(
-			'<div class="buddynext-spaces" data-limit="%d" data-type="%s" data-wp-interactive="buddynext/spaces"></div>',
-			$limit,
-			esc_attr( $type )
+		return $this->capture(
+			'spaces/directory.php',
+			array(
+				'args' => array(
+					'limit' => $limit,
+					'type'  => $type,
+				),
+			),
+			sprintf(
+				'<div class="buddynext-spaces" data-limit="%d" data-type="%s" data-wp-interactive="buddynext/spaces"></div>',
+				$limit,
+				esc_attr( $type )
+			)
 		);
 	}
 
@@ -157,10 +187,38 @@ class ShortcodeService {
 		}
 		$view = sanitize_key( (string) $atts['view'] );
 
-		return sprintf(
-			'<div class="buddynext-profile" data-user-id="%d" data-view="%s" data-wp-interactive="buddynext/profile"></div>',
-			$user_id,
-			esc_attr( $view )
+		return $this->capture(
+			'profile/view.php',
+			array(
+				'user_id' => $user_id,
+				'view'    => $view,
+			),
+			sprintf(
+				'<div class="buddynext-profile" data-user-id="%d" data-view="%s" data-wp-interactive="buddynext/profile"></div>',
+				$user_id,
+				esc_attr( $view )
+			)
 		);
+	}
+
+	// ── Helpers ───────────────────────────────────────────────────────────────
+
+	/**
+	 * Render a template to a string, with a fallback wrapper when absent.
+	 *
+	 * @param string               $relative  Relative template path.
+	 * @param array<string, mixed> $variables Variables for the template.
+	 * @param string               $fallback  HTML to return when template is missing.
+	 * @return string Rendered HTML.
+	 */
+	private function capture( string $relative, array $variables, string $fallback ): string {
+		$loader = Container::instance()->get( 'template_loader' );
+		$html   = $loader->capture( $relative, $variables );
+
+		if ( '' === trim( preg_replace( '/<!--.*?-->/s', '', $html ) ?? '' ) ) {
+			return $fallback;
+		}
+
+		return $html;
 	}
 }

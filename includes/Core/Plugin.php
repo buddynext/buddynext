@@ -12,6 +12,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Core;
 
+use BuddyNext\Admin\EmailEditor;
 use BuddyNext\Admin\IntegrationHub;
 use BuddyNext\Admin\Members;
 use BuddyNext\Admin\NavManager;
@@ -20,10 +21,12 @@ use BuddyNext\Admin\Spaces;
 use BuddyNext\PWA\PwaService;
 use BuddyNext\Shortcodes\ShortcodeService;
 use BuddyNext\Widgets\WidgetService;
+use BuddyNext\Core\AssetService;
 use BuddyNext\Core\CacheService;
 use BuddyNext\Core\CounterService;
 use BuddyNext\Core\CronScheduler;
 use BuddyNext\Core\RoleService;
+use BuddyNext\Core\TemplateLoader;
 use BuddyNext\Theme\TokenService;
 use BuddyNext\Feed\BookmarkService;
 use BuddyNext\Feed\FeedService;
@@ -86,7 +89,11 @@ class Plugin {
 			$container->get( 'admin_spaces' )->register();
 			$container->get( 'admin_nav' )->register();
 			$container->get( 'admin_hub' )->register();
+			$container->get( 'admin_email_editor' )->register();
 		}
+
+		// Register and enqueue frontend assets.
+		$container->get( 'assets' )->init();
 
 		$container->get( 'rest_router' )->register();
 
@@ -175,11 +182,14 @@ class Plugin {
 		$container->bind( 'moderation', fn() => new ModerationService() );
 		$container->bind( 'mod_log', fn() => new ModerationLogService() );
 		$container->bind( 'rest_router', fn() => new Router() );
+		$container->bind( 'template_loader', fn() => new TemplateLoader() );
+		$container->bind( 'assets', fn() => new AssetService() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
 		$container->bind( 'admin_members', fn() => new Members() );
 		$container->bind( 'admin_spaces', fn() => new Spaces() );
 		$container->bind( 'admin_nav', fn() => new NavManager() );
 		$container->bind( 'admin_hub', fn() => new IntegrationHub() );
+		$container->bind( 'admin_email_editor', fn() => new EmailEditor() );
 		$container->bind( 'shortcodes', fn() => new ShortcodeService() );
 		$container->bind( 'widgets', fn() => new WidgetService() );
 		$container->bind( 'pwa', fn() => new PwaService() );
