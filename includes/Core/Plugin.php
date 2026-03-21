@@ -18,6 +18,8 @@ use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PollService;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\ShareService;
+use BuddyNext\Notifications\NotificationPrefService;
+use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Profile\ProfileService;
 use BuddyNext\REST\Router;
 use BuddyNext\Spaces\SpaceMemberService;
@@ -106,6 +108,8 @@ class Plugin {
 		$container->bind( 'member_directory', fn( $c ) => new MemberDirectoryService( $c->get( 'follows' ) ) );
 		$container->bind( 'spaces', fn() => new SpaceService() );
 		$container->bind( 'space_members', fn() => new SpaceMemberService() );
+		$container->bind( 'notifications', fn() => new NotificationService() );
+		$container->bind( 'notification_prefs', fn() => new NotificationPrefService() );
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
 
