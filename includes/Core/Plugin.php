@@ -12,7 +12,9 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Core;
 
+use BuddyNext\Admin\IntegrationHub;
 use BuddyNext\Admin\Members;
+use BuddyNext\Admin\NavManager;
 use BuddyNext\Admin\Settings;
 use BuddyNext\Admin\Spaces;
 use BuddyNext\Core\CacheService;
@@ -79,6 +81,8 @@ class Plugin {
 			$container->get( 'admin_settings' )->register();
 			$container->get( 'admin_members' )->register();
 			$container->get( 'admin_spaces' )->register();
+			$container->get( 'admin_nav' )->register();
+			$container->get( 'admin_hub' )->register();
 		}
 
 		$container->get( 'rest_router' )->register();
@@ -162,6 +166,8 @@ class Plugin {
 		$container->bind( 'admin_settings', fn() => new Settings() );
 		$container->bind( 'admin_members', fn() => new Members() );
 		$container->bind( 'admin_spaces', fn() => new Spaces() );
+		$container->bind( 'admin_nav', fn() => new NavManager() );
+		$container->bind( 'admin_hub', fn() => new IntegrationHub() );
 
 		// Abilities must be registered at plugins_loaded:15 so they are
 		// available before rest_api_init and admin_menu fire.
