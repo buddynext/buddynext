@@ -17,6 +17,9 @@ use BuddyNext\Admin\Members;
 use BuddyNext\Admin\NavManager;
 use BuddyNext\Admin\Settings;
 use BuddyNext\Admin\Spaces;
+use BuddyNext\PWA\PwaService;
+use BuddyNext\Shortcodes\ShortcodeService;
+use BuddyNext\Widgets\WidgetService;
 use BuddyNext\Core\CacheService;
 use BuddyNext\Core\CounterService;
 use BuddyNext\Core\CronScheduler;
@@ -89,6 +92,15 @@ class Plugin {
 
 		// Register Gutenberg blocks and block patterns.
 		( new BlockRegistrar() )->init();
+
+		// Register core shortcodes.
+		$container->get( 'shortcodes' )->init();
+
+		// Register sidebar widgets.
+		$container->get( 'widgets' )->init();
+
+		// Register PWA manifest + service worker.
+		$container->get( 'pwa' )->init();
 
 		// Emit CSS custom-property token block on wp_head.
 		( new TokenService() )->init();
@@ -168,6 +180,9 @@ class Plugin {
 		$container->bind( 'admin_spaces', fn() => new Spaces() );
 		$container->bind( 'admin_nav', fn() => new NavManager() );
 		$container->bind( 'admin_hub', fn() => new IntegrationHub() );
+		$container->bind( 'shortcodes', fn() => new ShortcodeService() );
+		$container->bind( 'widgets', fn() => new WidgetService() );
+		$container->bind( 'pwa', fn() => new PwaService() );
 
 		// Abilities must be registered at plugins_loaded:15 so they are
 		// available before rest_api_init and admin_menu fire.
