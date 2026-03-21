@@ -125,9 +125,12 @@ class CommentService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_comments',
-			array( 'content' => $content ),
+			array(
+				'content'   => $content,
+				'is_edited' => 1,
+			),
 			array( 'id' => $comment_id ),
-			array( '%s' ),
+			array( '%s', '%d' ),
 			array( '%d' )
 		);
 
@@ -156,10 +159,16 @@ class CommentService {
 
 		global $wpdb;
 
+		// Soft-delete: blank the content and mark deleted so threads remain intact.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
+		$wpdb->update(
 			$wpdb->prefix . 'bn_comments',
+			array(
+				'is_deleted' => 1,
+				'content'    => '',
+			),
 			array( 'id' => $comment_id ),
+			array( '%d', '%s' ),
 			array( '%d' )
 		);
 
@@ -191,7 +200,7 @@ class CommentService {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_comments
-				 WHERE object_type = %s AND object_id = %d AND parent_id IS NULL
+				 WHERE object_type = %s AND object_id = %d AND parent_id IS NULL AND is_deleted = 0
 				 ORDER BY created_at ASC
 				 LIMIT %d OFFSET %d",
 				sanitize_key( $object_type ),
@@ -206,7 +215,7 @@ class CommentService {
 		$total = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments
-				 WHERE object_type = %s AND object_id = %d AND parent_id IS NULL",
+				 WHERE object_type = %s AND object_id = %d AND parent_id IS NULL AND is_deleted = 0",
 				sanitize_key( $object_type ),
 				$object_id
 			)
@@ -232,6 +241,8 @@ class CommentService {
 			'object_id'   => (int) $row['object_id'],
 			'parent_id'   => isset( $row['parent_id'] ) ? (int) $row['parent_id'] : null,
 			'content'     => $row['content'],
+			'is_edited'   => (bool) $row['is_edited'],
+			'is_deleted'  => (bool) $row['is_deleted'],
 			'created_at'  => $row['created_at'],
 			'updated_at'  => $row['updated_at'],
 		);

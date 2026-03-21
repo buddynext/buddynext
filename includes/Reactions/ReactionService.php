@@ -87,7 +87,11 @@ class ReactionService {
 	}
 
 	/**
-	 * Toggle a reaction: add if absent, remove if present.
+	 * Toggle a reaction.
+	 *
+	 * - Same emoji as existing: removes the reaction.
+	 * - Different emoji from existing: replaces the existing reaction.
+	 * - No existing reaction: adds the reaction.
 	 *
 	 * @param int    $user_id     Reacting user.
 	 * @param string $object_type Object type.
@@ -95,11 +99,74 @@ class ReactionService {
 	 * @param string $emoji       Emoji identifier.
 	 */
 	public function toggle( int $user_id, string $object_type, int $object_id, string $emoji = 'like' ): void {
-		if ( $this->has_reacted( $user_id, $object_type, $object_id ) ) {
-			$this->unreact( $user_id, $object_type, $object_id );
-		} else {
+		$current = $this->get_user_emoji( $user_id, $object_type, $object_id );
+
+		if ( null === $current ) {
 			$this->react( $user_id, $object_type, $object_id, $emoji );
+			return;
 		}
+
+		if ( $current === $emoji ) {
+			$this->unreact( $user_id, $object_type, $object_id );
+			return;
+		}
+
+		// Replace the existing emoji with the new one.
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_reactions',
+			array( 'emoji' => sanitize_key( $emoji ) ),
+			array(
+				'user_id'     => $user_id,
+				'object_type' => sanitize_key( $object_type ),
+				'object_id'   => $object_id,
+			),
+			array( '%s' ),
+			array( '%d', '%s', '%d' )
+		);
+
+		$this->invalidate_cache( $object_type, $object_id, $user_id );
+	}
+
+	/**
+	 * Return per-emoji reaction counts for an object.
+	 *
+	 * @param string $object_type Object type.
+	 * @param int    $object_id   Object ID.
+	 * @return array<string, int> Emoji slug to count map.
+	 */
+	public function get_counts( string $object_type, int $object_id ): array {
+		$cache_key = "counts_{$object_type}_{$object_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT emoji, COUNT(*) AS cnt FROM {$wpdb->prefix}bn_reactions
+				 WHERE object_type = %s AND object_id = %d
+				 GROUP BY emoji",
+				sanitize_key( $object_type ),
+				$object_id
+			),
+			ARRAY_A
+		);
+
+		$counts = array();
+		foreach ( (array) $rows as $row ) {
+			$counts[ $row['emoji'] ] = (int) $row['cnt'];
+		}
+
+		wp_cache_set( $cache_key, $counts, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $counts;
 	}
 
 	/**
@@ -189,6 +256,7 @@ class ReactionService {
 	 */
 	private function invalidate_cache( string $object_type, int $object_id, int $user_id ): void {
 		wp_cache_delete( "count_{$object_type}_{$object_id}", self::CACHE_GROUP );
+		wp_cache_delete( "counts_{$object_type}_{$object_id}", self::CACHE_GROUP );
 		wp_cache_delete( "user_emoji_{$user_id}_{$object_type}_{$object_id}", self::CACHE_GROUP );
 	}
 }

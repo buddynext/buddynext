@@ -276,11 +276,14 @@ class Installer {
 				object_id   BIGINT(20) UNSIGNED NOT NULL,
 				parent_id   BIGINT(20) UNSIGNED DEFAULT NULL,
 				content     TEXT NOT NULL,
+				is_edited   TINYINT(1) NOT NULL DEFAULT 0,
+				is_deleted  TINYINT(1) NOT NULL DEFAULT 0,
 				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				KEY         thread (object_type, object_id, parent_id, created_at),
-				KEY         user (user_id)
+				KEY         user (user_id),
+				KEY         deleted (is_deleted)
 			) {$cs};",
 
 			// ── Hashtags ───────────────────────────────────────────────────────

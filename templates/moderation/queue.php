@@ -69,9 +69,9 @@ if ( ! $current_user_id || ! buddynext_can( $current_user_id, 'buddynext-moderat
 }
 
 // Allowed filter values.
-$allowed_obj_types = [ 'all', 'post', 'comment', 'user', 'space', 'message' ];
-$allowed_urgency   = [ 'all', 'urgent' ];
-$allowed_sorts     = [ 'newest', 'most_reported' ];
+$allowed_obj_types = array( 'all', 'post', 'comment', 'user', 'space', 'message' );
+$allowed_urgency   = array( 'all', 'urgent' );
+$allowed_sorts     = array( 'newest', 'most_reported' );
 
 $filter_type = isset( $_GET['type'] ) ? sanitize_key( wp_unslash( $_GET['type'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $filter_type, $allowed_obj_types, true ) ) {
@@ -89,56 +89,69 @@ if ( ! in_array( $sort_by, $allowed_sorts, true ) ) {
 }
 
 // Build SQL conditionals.
+// report_count is derived via subquery (no denormalized column in bn_reports).
 $type_sql    = ( 'all' !== $filter_type ) ? $wpdb->prepare( ' AND r.object_type = %s', $filter_type ) : '';
-$urgency_sql = ( 'urgent' === $filter_urgency ) ? ' AND r.report_count >= 3' : '';
-$sort_sql    = ( 'most_reported' === $sort_by ) ? 'ORDER BY r.report_count DESC, r.created_at DESC' : 'ORDER BY r.created_at DESC';
+$urgency_sql = ( 'urgent' === $filter_urgency ) ? ' HAVING report_count >= 3' : '';
+$sort_sql    = ( 'most_reported' === $sort_by ) ? 'ORDER BY report_count DESC, r.created_at DESC' : 'ORDER BY r.created_at DESC';
 
 // Stats query.
 // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching
 $stats = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 	"SELECT
-		SUM( CASE WHEN status = 'pending' AND report_count >= 3 THEN 1 ELSE 0 END ) AS urgent,
-		SUM( CASE WHEN status = 'pending' THEN 1 ELSE 0 END )                       AS pending,
-		SUM( CASE WHEN status IN ('dismissed','actioned') AND DATE(created_at) = CURDATE() THEN 1 ELSE 0 END ) AS resolved_today,
-		COUNT(*)                                                                      AS total_all_time
+		SUM( CASE WHEN status = 'pending' THEN 1 ELSE 0 END )                                             AS pending,
+		SUM( CASE WHEN status IN ('dismissed','resolved') AND DATE(created_at) = CURDATE() THEN 1 ELSE 0 END ) AS resolved_today,
+		COUNT(*)                                                                                           AS total_all_time
 	 FROM {$wpdb->prefix}bn_reports"
 );
 
-// Count currently suspended users.
+// Count users with 3+ active strikes (proxy for suspended/at-risk accounts).
 $suspended_count = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_strikes WHERE suspended = 1"
+	"SELECT COUNT(*) FROM (
+		SELECT user_id FROM {$wpdb->prefix}bn_user_strikes
+		WHERE is_reversed = 0
+		GROUP BY user_id HAVING COUNT(*) >= 3
+	 ) AS at_risk"
 );
 // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching
 
-$urgent_count   = (int) ( $stats->urgent ?? 0 );
+$urgent_count   = 0; // Computed after fetching reports (requires per-object count).
 $pending_count  = (int) ( $stats->pending ?? 0 );
 $resolved_today = (int) ( $stats->resolved_today ?? 0 );
 $total_all_time = (int) ( $stats->total_all_time ?? 0 );
 
-// Fetch pending reports.
-// $type_sql, $urgency_sql, $sort_sql are built from hardcoded literals + wpdb->prepare() — no raw user data.
+// Fetch pending reports grouped by reported object with aggregated counts.
+// $type_sql is built from wpdb->prepare(); $urgency_sql and $sort_sql use validated literals only.
 // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching
 $reports = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-	"SELECT r.id, r.reporter_id, r.object_type, r.object_id, r.reason, r.status,
-	        r.created_at, r.report_count,
-	        s.strikes_count, s.suspended,
+	"SELECT r.object_type, r.object_id, r.reason, MIN(r.status) AS status,
+	        MIN(r.created_at) AS created_at, COUNT(*) AS report_count,
+	        MAX(r.reporter_id) AS reporter_id, MAX(r.id) AS id,
+	        st.strikes_count,
 	        u.display_name AS offender_name, u.user_registered AS offender_joined
 	 FROM {$wpdb->prefix}bn_reports AS r
-	 LEFT JOIN {$wpdb->prefix}bn_user_strikes AS s ON s.user_id = r.reporter_id
+	 LEFT JOIN (
+		 SELECT user_id, COUNT(*) AS strikes_count
+		 FROM {$wpdb->prefix}bn_user_strikes
+		 WHERE is_reversed = 0
+		 GROUP BY user_id
+	 ) AS st ON st.user_id = r.object_id AND r.object_type = 'user'
 	 LEFT JOIN {$wpdb->users} AS u ON u.ID = r.object_id AND r.object_type = 'user'
 	 WHERE r.status = 'pending'
 	 $type_sql
+	 GROUP BY r.object_type, r.object_id, r.reason
 	 $urgency_sql
 	 $sort_sql
 	 LIMIT 50"
 );
 // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching
 
+$urgent_count = count( array_filter( (array) $reports, fn( $r ) => (int) $r->report_count >= 3 ) );
+
 // Collect all object IDs per type to resolve display content.
-$post_ids  = [];
-$user_ids  = [];
-$space_ids = [];
-foreach ( $reports ?? [] as $rpt ) {
+$post_ids  = array();
+$user_ids  = array();
+$space_ids = array();
+foreach ( $reports ?? array() as $rpt ) {
 	switch ( $rpt->object_type ) {
 		case 'post':
 		case 'comment':
@@ -154,7 +167,7 @@ foreach ( $reports ?? [] as $rpt ) {
 }
 
 // Batch-fetch post/comment content excerpts.
-$post_excerpts = [];
+$post_excerpts = array();
 if ( ! empty( $post_ids ) ) {
 	$placeholders = implode( ', ', array_fill( 0, count( $post_ids ), '%d' ) );
 	// $placeholders is built entirely from hardcoded '%d' strings — no user data.
@@ -166,16 +179,16 @@ if ( ! empty( $post_ids ) ) {
 		)
 	);
 	// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-	foreach ( $post_rows ?? [] as $pr ) {
-		$post_excerpts[ (int) $pr->id ] = [
+	foreach ( $post_rows ?? array() as $pr ) {
+		$post_excerpts[ (int) $pr->id ] = array(
 			'content'   => $pr->content,
 			'author_id' => (int) $pr->author_id,
-		];
+		);
 	}
 }
 
 // Batch-fetch space names.
-$space_names = [];
+$space_names = array();
 if ( ! empty( $space_ids ) ) {
 	$placeholders = implode( ', ', array_fill( 0, count( $space_ids ), '%d' ) );
 	// $placeholders is built entirely from hardcoded '%d' strings — no user data.
@@ -187,7 +200,7 @@ if ( ! empty( $space_ids ) ) {
 		)
 	);
 	// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-	foreach ( $space_rows ?? [] as $sr ) {
+	foreach ( $space_rows ?? array() as $sr ) {
 		$space_names[ (int) $sr->id ] = $sr->name;
 	}
 }
@@ -217,31 +230,31 @@ $severity_class = static function ( int $report_count, string $reason ): string 
  */
 $reason_badge = static function ( string $reason ): array {
 	if ( false !== stripos( $reason, 'hate' ) ) {
-		return [
+		return array(
 			'label' => __( 'Hate speech', 'buddynext' ),
 			'class' => 'bn-badge--hate',
-		];
+		);
 	}
 	if ( false !== stripos( $reason, 'harass' ) ) {
-		return [
+		return array(
 			'label' => __( 'Harassment', 'buddynext' ),
 			'class' => 'bn-badge--harass',
-		];
+		);
 	}
 	if ( false !== stripos( $reason, 'spam' ) || false !== stripos( $reason, 'promo' ) ) {
-		return [
+		return array(
 			'label' => __( 'Spam', 'buddynext' ),
 			'class' => 'bn-badge--spam',
-		];
+		);
 	}
-	return [
+	return array(
 		'label' => __( 'Off-topic', 'buddynext' ),
 		'class' => 'bn-badge--other',
-	];
+	);
 };
 
 // Avatar palette.
-$avatar_palette = [ '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0f766e', '#d97706', '#dc2626' ];
+$avatar_palette = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0f766e', '#d97706', '#dc2626' );
 $avatar_color   = static function ( int $uid ) use ( $avatar_palette ): string {
 	return $avatar_palette[ $uid % count( $avatar_palette ) ];
 };
@@ -541,7 +554,7 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 	<!-- Filter bar -->
 	<div class="bn-mod-filter-bar">
 		<?php
-		$type_filters = [
+		$type_filters = array(
 			'all'     => sprintf(
 				/* translators: %d is total pending reports. */
 				__( 'All (%d)', 'buddynext' ),
@@ -556,7 +569,7 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 			'comment' => __( 'Comments', 'buddynext' ),
 			'message' => __( 'DMs', 'buddynext' ),
 			'user'    => __( 'Profiles', 'buddynext' ),
-		];
+		);
 		foreach ( $type_filters as $fkey => $flabel ) :
 			$is_active = ( 'urgent' === $fkey )
 				? ( 'urgent' === $filter_urgency )
@@ -570,20 +583,20 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 			$fhref = ( 'urgent' === $fkey )
 				? esc_url(
 					add_query_arg(
-						[
+						array(
 							'type'    => 'all',
 							'urgency' => 'urgent',
 							'sort'    => $sort_by,
-						]
+						)
 					)
 				)
 				: esc_url(
 					add_query_arg(
-						[
+						array(
 							'type'    => $fkey,
 							'urgency' => 'all',
 							'sort'    => $sort_by,
-						]
+						)
 					)
 				);
 			?>
@@ -636,7 +649,7 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 
 			// Content preview snippet.
 			$content_excerpt = '';
-			if ( in_array( $obj_type, [ 'post', 'comment' ], true ) && isset( $post_excerpts[ $obj_id ] ) ) {
+			if ( in_array( $obj_type, array( 'post', 'comment' ), true ) && isset( $post_excerpts[ $obj_id ] ) ) {
 				$content_excerpt = substr( $post_excerpts[ $obj_id ]['content'], 0, 200 );
 			} elseif ( 'space' === $obj_type ) {
 				$content_excerpt = $space_names[ $obj_id ] ?? __( 'Space content', 'buddynext' );
@@ -758,7 +771,7 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 							&#x2713; <?php esc_html_e( 'Dismiss', 'buddynext' ); ?>
 						</button>
 
-						<?php if ( in_array( $obj_type, [ 'post', 'comment', 'message' ], true ) ) : ?>
+						<?php if ( in_array( $obj_type, array( 'post', 'comment', 'message' ), true ) ) : ?>
 							<button class="bn-action-btn bn-action-btn--remove"
 								data-wp-on--click="actions.removeContent"
 								data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"

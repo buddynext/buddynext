@@ -3,7 +3,11 @@
  * Hashtag REST controller.
  *
  * Routes (all under buddynext/v1):
- *   GET /hashtags/{slug} — look up a hashtag by slug (public)
+ *   GET /hashtags/trending       — top trending hashtags (public)
+ *   GET /hashtags/{slug}         — look up a hashtag by slug (public)
+ *
+ * The trending route is registered before the slug pattern to prevent it
+ * being captured by the slug regex.
  *
  * @package BuddyNext\REST\Controllers
  */
@@ -29,6 +33,26 @@ class HashtagController {
 	public function register_routes(): void {
 		register_rest_route(
 			'buddynext/v1',
+			'/hashtags/trending',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_trending' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'limit' => array(
+						'required'          => false,
+						'type'              => 'integer',
+						'default'           => 10,
+						'minimum'           => 1,
+						'maximum'           => 50,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/hashtags/(?P<slug>[a-zA-Z0-9_-]+)',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -43,6 +67,19 @@ class HashtagController {
 				),
 			)
 		);
+	}
+
+	/**
+	 * Return trending hashtags.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function get_trending( WP_REST_Request $request ): WP_REST_Response {
+		$limit  = (int) $request->get_param( 'limit' );
+		$result = ( new HashtagService() )->get_trending( $limit );
+
+		return new WP_REST_Response( $result, 200 );
 	}
 
 	/**

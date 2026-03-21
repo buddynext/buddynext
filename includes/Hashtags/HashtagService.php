@@ -158,6 +158,39 @@ class HashtagService {
 	}
 
 	/**
+	 * Return the top trending hashtags ordered by post count.
+	 *
+	 * @param int $limit Maximum number of hashtags to return (1–50). Default 10.
+	 * @return array[]
+	 */
+	public function get_trending( int $limit = 10 ): array {
+		$limit     = max( 1, min( 50, $limit ) );
+		$cache_key = "trending_{$limit}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_hashtags ORDER BY post_count DESC LIMIT %d",
+				$limit
+			),
+			ARRAY_A
+		);
+
+		$results = array_map( array( $this, 'hydrate' ), (array) $rows );
+
+		wp_cache_set( $cache_key, $results, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $results;
+	}
+
+	/**
 	 * Hydrate a raw DB row into a typed hashtag array.
 	 *
 	 * @param array $row Raw ARRAY_A row.

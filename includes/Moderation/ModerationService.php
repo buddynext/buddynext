@@ -234,6 +234,72 @@ class ModerationService {
 	}
 
 	/**
+	 * Return a paginated list of pending reports.
+	 *
+	 * Supported args:
+	 *   per_page    int     Reports per page. Default 20. Max 100.
+	 *   page        int     1-based page number. Default 1.
+	 *   object_type string  Filter by object type ('post','comment','user','space','message').
+	 *   reason      string  Filter by reason (one of REASONS).
+	 *
+	 * @param array<string, mixed> $args Query arguments.
+	 * @return array{items: array[], total: int}
+	 */
+	public function get_queue( array $args = array() ): array {
+		global $wpdb;
+
+		$per_page    = max( 1, min( 100, absint( $args['per_page'] ?? 20 ) ) );
+		$page        = max( 1, absint( $args['page'] ?? 1 ) );
+		$offset      = ( $page - 1 ) * $per_page;
+		$object_type = isset( $args['object_type'] ) ? sanitize_key( (string) $args['object_type'] ) : '';
+		$reason      = ( isset( $args['reason'] ) && in_array( $args['reason'], self::REASONS, true ) )
+			? sanitize_key( (string) $args['reason'] )
+			: '';
+
+		$where        = array( "status = 'pending'" );
+		$list_params  = array();
+		$count_params = array();
+
+		if ( '' !== $object_type ) {
+			$where[]        = 'object_type = %s';
+			$list_params[]  = $object_type;
+			$count_params[] = $object_type;
+		}
+
+		if ( '' !== $reason ) {
+			$where[]        = 'reason = %s';
+			$list_params[]  = $reason;
+			$count_params[] = $reason;
+		}
+
+		$where_sql   = 'WHERE ' . implode( ' AND ', $where );
+		$list_params = array_merge( $list_params, array( $per_page, $offset ) );
+
+		// $where_sql contains only hardcoded literals and validated enum values — no raw user data.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_reports {$where_sql} ORDER BY created_at DESC LIMIT %d OFFSET %d",
+				...$list_params
+			),
+			ARRAY_A
+		);
+
+		$count_sql = "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports {$where_sql}";
+		if ( empty( $count_params ) ) {
+			$total = (int) $wpdb->get_var( $count_sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		} else {
+			$total = (int) $wpdb->get_var( $wpdb->prepare( $count_sql, ...$count_params ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		}
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		return array(
+			'items' => array_map( array( $this, 'hydrate_report' ), (array) $rows ),
+			'total' => $total,
+		);
+	}
+
+	/**
 	 * Update report status (internal helper).
 	 *
 	 * @param int    $report_id Report ID.

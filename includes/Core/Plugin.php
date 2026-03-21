@@ -42,6 +42,7 @@ use BuddyNext\Comments\CommentService;
 use BuddyNext\Hashtags\HashtagService;
 use BuddyNext\Moderation\ModerationLogService;
 use BuddyNext\Moderation\ModerationService;
+use BuddyNext\Notifications\EventListener;
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Profile\ProfileService;
@@ -96,6 +97,9 @@ class Plugin {
 		$container->get( 'assets' )->init();
 
 		$container->get( 'rest_router' )->register();
+
+		// Wire cross-plugin event hooks to notification routing.
+		( new EventListener() )->init();
 
 		// Register Gutenberg blocks and block patterns.
 		( new BlockRegistrar() )->init();
