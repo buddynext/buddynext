@@ -13,6 +13,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Core;
 
 use BuddyNext\Admin\Settings;
+use BuddyNext\Theme\TokenService;
 use BuddyNext\Feed\BookmarkService;
 use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PollService;
@@ -76,6 +77,9 @@ class Plugin {
 
 		// Register Gutenberg blocks and block patterns.
 		( new BlockRegistrar() )->init();
+
+		// Emit CSS custom-property token block on wp_head.
+		( new TokenService() )->init();
 
 		// Boot first-party bridges unconditionally — each bridge guards itself
 		// against its dependency being absent via class_exists checks at hook time.
