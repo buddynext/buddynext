@@ -311,6 +311,32 @@ class Installer {
 				KEY         hashtag (hashtag_id)
 			) {$cs};",
 
+			// ── Profiles ───────────────────────────────────────────────────────
+
+			"CREATE TABLE {$p}bn_profile_fields (
+				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				field_key   VARCHAR(100) NOT NULL,
+				label       VARCHAR(255) NOT NULL,
+				type        ENUM('text','textarea','url','date','select','checkbox','repeater') NOT NULL DEFAULT 'text',
+				options     JSON DEFAULT NULL,
+				is_required TINYINT(1) NOT NULL DEFAULT 0,
+				visibility  ENUM('public','connections','private') NOT NULL DEFAULT 'public',
+				group_name  VARCHAR(100) NOT NULL DEFAULT 'general',
+				sort_order  INT NOT NULL DEFAULT 0,
+				PRIMARY KEY (id),
+				UNIQUE KEY  field_key (field_key)
+			) {$cs};",
+
+			"CREATE TABLE {$p}bn_profile_values (
+				id       BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id  BIGINT(20) UNSIGNED NOT NULL,
+				field_id BIGINT(20) UNSIGNED NOT NULL,
+				value    LONGTEXT DEFAULT NULL,
+				PRIMARY KEY (id),
+				UNIQUE KEY  user_field (user_id, field_id),
+				KEY         field (field_id)
+			) {$cs};",
+
 			// ── Search Index ───────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_search_index (

@@ -18,7 +18,10 @@ use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PollService;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\ShareService;
+use BuddyNext\Profile\ProfileService;
 use BuddyNext\REST\Router;
+use BuddyNext\Search\MemberDirectoryService;
+use BuddyNext\Search\SearchService;
 use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\ConnectionService;
 use BuddyNext\SocialGraph\FollowService;
@@ -96,6 +99,9 @@ class Plugin {
 		$container->bind( 'polls', fn() => new PollService() );
 		$container->bind( 'bookmarks', fn() => new BookmarkService() );
 		$container->bind( 'shares', fn() => new ShareService() );
+		$container->bind( 'profiles', fn() => new ProfileService() );
+		$container->bind( 'search', fn() => new SearchService() );
+		$container->bind( 'member_directory', fn( $c ) => new MemberDirectoryService( $c->get( 'follows' ) ) );
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
 

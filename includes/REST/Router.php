@@ -20,6 +20,8 @@ use BuddyNext\REST\Controllers\FeedController;
 use BuddyNext\REST\Controllers\FollowController;
 use BuddyNext\REST\Controllers\PollController;
 use BuddyNext\REST\Controllers\PostController;
+use BuddyNext\REST\Controllers\ProfileController;
+use BuddyNext\REST\Controllers\SearchController;
 use BuddyNext\REST\Controllers\ShareController;
 
 /**
@@ -49,5 +51,7 @@ class Router {
 		( new PollController() )->register_routes();
 		( new BookmarkController() )->register_routes();
 		( new ShareController() )->register_routes();
+		( new ProfileController() )->register_routes();
+		( new SearchController() )->register_routes();
 	}
 }
