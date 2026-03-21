@@ -1,0 +1,81 @@
+<?php
+/**
+ * Main plugin orchestrator.
+ *
+ * Boots at plugins_loaded:15 — after first-party addons (priority 10)
+ * and before BuddyNext Pro (priority 20).
+ *
+ * @package BuddyNext\Core
+ */
+
+declare( strict_types=1 );
+
+namespace BuddyNext\Core;
+
+use BuddyNext\Admin\Settings;
+use BuddyNext\REST\Router;
+
+/**
+ * Plugin bootstrap.
+ */
+class Plugin {
+
+	/**
+	 * Guards against double-boot.
+	 *
+	 * @var bool
+	 */
+	private static bool $booted = false;
+
+	/**
+	 * Boot the plugin.
+	 *
+	 * Called via add_action( 'plugins_loaded', ..., 15 ) in buddynext.php.
+	 */
+	public static function init(): void {
+		if ( static::$booted ) {
+			return;
+		}
+
+		static::$booted = true;
+
+		$container = Container::instance();
+		static::register_services( $container );
+
+		if ( is_admin() ) {
+			$container->get( 'admin_settings' )->register();
+		}
+
+		$container->get( 'rest_router' )->register();
+
+		/**
+		 * Fires after BuddyNext services are registered.
+		 *
+		 * Bridge classes (WPMediaVerse, Jetonomy, etc.) hook here to load.
+		 */
+		do_action( 'buddynext_load_bridges' );
+
+		/**
+		 * Fires when BuddyNext is fully initialised.
+		 *
+		 * Pro plugin and any third-party extensions hook here.
+		 */
+		do_action( 'buddynext_loaded' );
+	}
+
+	/**
+	 * Bind core services into the container.
+	 *
+	 * @param Container $container DI container.
+	 */
+	private static function register_services( Container $container ): void {
+		$container->bind( 'permissions',    fn() => new PermissionService() );
+		$container->bind( 'abilities',      fn() => new Abilities() );
+		$container->bind( 'rest_router',    fn() => new Router() );
+		$container->bind( 'admin_settings', fn() => new Settings() );
+
+		// Abilities must be registered at plugins_loaded:15 so they are
+		// available before rest_api_init and admin_menu fire.
+		$container->get( 'abilities' )->register();
+	}
+}

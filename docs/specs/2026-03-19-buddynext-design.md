@@ -1,319 +1,428 @@
 # BuddyNext — Product Design Spec
 
 **Date:** 2026-03-19
-**Status:** Draft — pending implementation planning
+**Status:** In progress — feature-by-feature review
 **Domain:** buddynext.com
 **Author:** Wbcom Designs
 
 ---
 
-## 1. What We're Building
+## Core Architectural Principle
 
-BuddyNext is the next-generation WordPress social community platform — a complete, modern alternative to BuddyPress, BuddyBoss, Circle.so, and Mighty Networks. It owns the social graph layer for WordPress, with Jetonomy (forums), WPMediaVerse (media), WBGamification (points/badges), and WP Career Board as optional integration modules.
-
-**Core positioning:**
-- vs BuddyBoss: Same power, modern stack, transparent pricing, no vendor lock-in
-- vs Circle/Mighty Networks: Data ownership, SEO, WordPress flexibility, predictable annual cost (not growing SaaS fees)
-- vs BuddyPress: Everything BuddyPress should have been — built for 2026+
+> **Minimal by default, extensible by design.**
+> Ship the essential feature. Cover it with hooks. Let the ecosystem add layers.
 
 ---
 
-## 2. Product Model
+## 1. Product Model
 
 ### Editions
 
-| Edition | What's Included | Who It's For |
-|---------|----------------|--------------|
-| **BuddyNext Free** | Full social core — profiles, connections, feed, spaces, directory, notifications, messaging, moderation | Anyone running a community on WordPress |
-| **BuddyNext Pro** | AI engine, Stripe membership tiers, gated spaces, real-time, mobile app, advanced analytics, white-label | Community builders monetizing their audience |
+| Edition | What's Included |
+|---------|----------------|
+| **BuddyNext Free** | Fully functional social core — no artificial feature gates. Complete enough to run a real community. |
+| **BuddyNext Pro** | Power + scale features: AI ranking, Stripe membership, real-time WebSocket, native mobile app, advanced analytics, white-label |
+
+### Free is fully functional — Pro is power/scale
+- DM → free (REST polling). Real-time WebSocket → Pro
+- Feed → free (chronological + connections-first). AI ranking → Pro
+- Spaces → free (all types). Paywall gating → Pro
+- Mobile → free (responsive web). Native app (React Native) → Pro
+- All Gutenberg blocks → free. Membership gate blocks → Pro
 
 ### Pro Bundles
 
-| Bundle | Plugins Included |
-|--------|-----------------|
-| **Community Bundle** | BuddyNext Pro + Jetonomy Pro + WPMediaVerse Pro + WBGamification |
-| **Complete Stack** | Community Bundle + WP Career Board Pro + BuddyX Pro |
-| **Agency Stack** | Complete Stack + Reign Theme |
+| Bundle | Plugins |
+|--------|---------|
+| Community Bundle | BuddyNext Pro + Jetonomy Pro + WPMediaVerse Pro + WBGamification |
+| Complete Stack | Community Bundle + WP Career Board Pro + BuddyX Pro |
+| Agency Stack | Complete Stack + Reign Theme |
 
-### What Is NOT in BuddyNext scope
-- Courses/LMS → separate plugin, future roadmap
+### Out of scope
+- Courses / LMS → separate plugin, future
 - Live streaming → YouTube/Zoom embed only
-- Email sequence builder → FluentCRM/Mailchimp hooks provided
-- PWA/offline mode → future roadmap
+- Email sequences → FluentCRM/Mailchimp hooks provided
 
 ---
 
-## 3. Technical Stack
-
-Identical to Jetonomy and WPMediaVerse to enable shared maintenance and deep integration.
+## 2. Technical Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Language | PHP 8.1+, WordPress 6.9+ |
+| PHP | 8.1+ |
+| WordPress | 6.9+ (Abilities API required from day 1) |
 | Architecture | DI Service Container (same pattern as WPMediaVerse) |
-| Extension surface | WordPress Abilities API (WP 6.9+) — every feature is an ability |
+| Extension surface | WordPress Abilities API — every feature is an ability |
 | Frontend reactivity | WordPress Interactivity API |
-| Embeddable components | Gutenberg blocks (12+ blocks) |
+| Blocks | Gutenberg (all core blocks free) |
 | Async jobs | Action Scheduler |
 | Autoloader | Composer PSR-4 |
 | REST API | Single source of truth — browser + mobile hit same endpoints |
-| Real-time transport | Swappable via `buddynext_messaging_transport` filter (REST polling default → WebSocket Pro) |
-| Mobile app | React Native / Expo (white-labelable, Pro only) |
-| Payments | Stripe (built-in, no WooCommerce dependency) |
+| Real-time transport | Swappable via `buddynext_messaging_transport` filter (REST polling free → WebSocket Pro) |
+| Mobile app | React Native / Expo, white-labelable (Pro only) |
+| Payments | Stripe SDK direct — no WooCommerce dependency |
 
-### Bootstrap Chain
+### Bootstrap chain
 
 ```
 plugins_loaded → BuddyNext\Core\Plugin::init() → fires buddynext_loaded
                                                             ↓
-                                        buddynext-pro hooks in via buddynext_loaded
-                                        jetonomy bridge (if jetonomy active)
-                                        wpmediaverse bridge (if mvs active)
-                                        wb-gamification bridge (if wb-gamification active)
-                                        wp-career-board bridge (if career board active)
+                                        buddynext-pro hooks via buddynext_loaded
+                                        JetonomyBridge (if jetonomy active)
+                                        WPMediaVerseBridge (if wpmediaverse active)
+                                        WBGamificationBridge (if wb-gamification active)
+                                        CareerBoardBridge (if wp-career-board active)
 ```
 
-### REST Namespaces
-
-| Namespace | Plugin |
-|-----------|--------|
-| `buddynext/v1` | Core (free) |
-| `buddynext-pro/v1` | Pro features |
+### REST namespaces
+- `buddynext/v1` — core free
+- `buddynext-pro/v1` — Pro features
 
 ---
 
-## 4. Free Core Features
+## 3. Social Graph ✅ LOCKED
 
-Everything below ships in the free plugin — complete enough to run a real community without upgrading.
+### Three relationship types
 
-### 4.1 Social Graph
-- Follow model (asymmetric) OR mutual connections (configurable per site)
-- Block/mute users
-- Connection suggestions (basic — algorithmic in Pro)
-- `buddynext/v1/connections` REST endpoints
+**Follow** (asymmetric, no approval)
+- Follow / unfollow anyone
+- Followers list, following list, counts
+- Powers feed — "show me posts from people I follow"
+- Follow = feed access
 
-### 4.2 User Profiles
-- Extended profile fields (bio, location, website, social links)
-- Cover photo + avatar
-- Profile visibility controls (public / logged-in / connections only)
-- Public profiles indexed by Google (SEO advantage over SaaS)
-- Profile completion progress indicator
-- `buddynext/v1/profiles` REST endpoints
+**Connection** (mutual, request → accept)
+- Send / accept / decline / withdraw request
+- Pending inbox (received + sent)
+- Connection list + count
+- Mutual connections count shown on profiles
+- Connection degree (1st, 2nd) shown in directory
+- Connection = private content access
 
-### 4.3 Activity Feed
-- Chronological feed (algorithmic ranking in Pro)
-- Post types: text, image, link preview, poll, check-in
-- WPMediaVerse media cards (if active)
-- Jetonomy discussion references (if active)
-- Per-item privacy (public / connections / space members / private)
-- `buddynext/v1/feed` REST endpoints
+**Block / Mute**
+- Block — hard. Can't see content, can't message, removed from feed
+- Mute — soft. Stays connected but invisible in feed. They never know.
 
-### 4.4 Spaces (Groups/Communities)
-- Types: Open, Private (request to join), Secret (invite only)
-- Space-scoped feed, member roster, roles (member / moderator / owner)
-- Space cover photo + avatar
-- BuddyPress group migration support
-- `buddynext/v1/spaces` REST endpoints
+### Privacy model (driven by graph)
+```
+Public      → everyone, indexed by Google
+Followers   → people who follow you
+Connections → mutual connections only
+Private     → just you
+```
 
-### 4.5 Member Directory
-- Searchable, filterable by profile fields
-- Online status indicator
-- Sort by: newest, most active, alphabetical
-- `buddynext/v1/members` REST endpoints
+### Follow suggestions ("People You May Know") — v1
+- People followed by people you follow
+- Shown in directory + sidebar widget
 
-### 4.6 Direct Messaging
-- 1:1 and group conversations
-- REST long-poll transport (default), WebSocket (Pro)
-- Chat panel in `wp_footer` (same pattern as WPMediaVerse Pro)
-- Full `/messages/` page
-- Config via `window.bnMessagingConfig` in `wp_head`
+### DB tables
+```
+bn_follows      (follower_id, following_id, created_at)
+bn_connections  (id, requester_id, recipient_id, status: pending|accepted|declined, created_at)
+bn_blocks       (blocker_id, blocked_id, type: block|mute, created_at)
+```
 
-### 4.7 Notifications
-- In-app notification bell (Interactivity API)
-- Email digest (daily/weekly, user configurable)
-- Notification types: mention, reaction, follow, space invite, comment, connection request
-- `buddynext/v1/notifications` REST endpoints
+### Developer hooks
+```php
+do_action( 'buddynext_user_followed', $follower_id, $following_id );
+do_action( 'buddynext_user_unfollowed', $follower_id, $following_id );
+do_action( 'buddynext_connection_requested', $requester_id, $recipient_id );
+do_action( 'buddynext_connection_accepted', $user1_id, $user2_id );
+do_action( 'buddynext_user_blocked', $blocker_id, $blocked_id );
+apply_filters( 'buddynext_can_view', true, $viewer_id, $owner_id, $visibility );
+```
 
-### 4.8 Reactions
-- Configurable emoji set (admin sets available reactions)
-- On: feed posts, comments, media, discussions
-- Integrates with WBGamification points on receive
+### WPMediaVerse bridge sync
+`mvs_user_followed` → sync to `bn_follows` and `buddynext_user_followed` → sync to `mvs_follows`. Loop-safe (checks origin before firing).
 
-### 4.9 Moderation
-- Report any object (post, comment, profile, space)
-- Admin moderation queue
-- Pre-moderation mode per space
-- User block/mute (stored in social graph layer)
-- AI spam scoring (Pro) — free tier: manual only
+---
 
-### 4.10 Onboarding
-- Setup wizard (first-run admin config)
-- New member profile completion flow
-- Welcome email hook (connect to any email plugin)
+## 4. Activity Feed ✅ LOCKED
 
-### 4.11 Migration (WP-CLI)
-```bash
-wp buddynext import-buddypress    # BuddyPress → BuddyNext
-wp buddynext import-buddyboss     # BuddyBoss → BuddyNext
-wp buddynext import-peepso        # PeepSo → BuddyNext
+### Feed scopes
+| Scope | Shows |
+|-------|-------|
+| Home | Posts from followed users + joined spaces |
+| Profile | Single user's posts |
+| Space | Posts within a space |
+| Explore | Public posts — no login needed, indexed by Google |
+
+### Post types
+| Type | Notes |
+|------|-------|
+| Text | Rich text, @mentions, #hashtags |
+| Link | URL auto-unfurl via oEmbed/meta tags |
+| Poll | 2-5 options, vote inline, results shown after vote |
+| Activity item | System-generated: "X followed Y", "X joined Space" |
+| Photo / Video | WPMediaVerse only — no standalone media upload in BuddyNext |
+
+Bridge-powered (only when plugin active):
+- Jetonomy discussion card
+- Career Board job card
+
+### Per-post privacy
+Public / Followers / Connections / Space members / Private
+
+### Post interactions
+React, Comment (threaded, one level deep), Share (repost with note), Bookmark (private), Report, Delete
+
+### Feed behavior
+- Cursor-based pagination
+- Connections-first ordering (free) — algorithmic AI ranking (Pro)
+- "New posts" indicator bar — no auto-scroll hijack
+- Infinite scroll
+
+### v1 includes (not deferred)
+- Scheduled posts
+- Post edit (last edited timestamp)
+- Pinned posts (per profile + per space)
+- Trending / hashtag explore
+
+### DB tables
+```
+bn_posts        (id, user_id, type, content, meta_json, privacy, space_id, scheduled_at, edited_at, is_pinned, created_at)
+bn_bookmarks    (user_id, post_id, created_at)
+bn_shares       (id, user_id, post_id, content, created_at)
+```
+
+### Developer hooks
+```php
+apply_filters( 'buddynext_feed_post_types', $types );
+apply_filters( 'buddynext_feed_query_args', $args, $scope, $user_id );
+do_action( 'buddynext_post_created', $post_id, $user_id, $type );
+do_action( 'buddynext_post_deleted', $post_id, $user_id );
 ```
 
 ---
 
-## 5. Pro Features
+## 5. Spaces / Groups ✅ LOCKED
 
-### 5.1 Stripe Membership
-- Unlimited membership tiers (free, paid, trial)
-- Stripe Checkout + Customer Portal (no custom payment UI)
-- Gated content: spaces, feed posts, profile sections
-- Webhook-driven subscription lifecycle (activate → cancel → expire)
-- No WooCommerce dependency — direct Stripe SDK
+### Space types
+| Type | Join model |
+|------|-----------|
+| Open | Anyone joins instantly |
+| Private | Request to join — approved by moderator |
+| Secret | Invite only — hidden from directory |
 
-### 5.2 AI Engine (Silent — no AI branding in UI)
-- Feed ranking (engagement signals → personalized order)
-- Spam/toxicity scoring (auto-hold for review above threshold)
-- Member recommendations (who to follow, which spaces to join)
-- Churn detection (flags disengaging members to admin)
-- Action Scheduler jobs — never blocks page load
+### Sub-spaces (one level deep)
+```
+Photography (Space)
+├── Portraits     (Sub-space)
+├── Landscapes    (Sub-space)
+└── Gear Talk     (Sub-space)
+```
+- Sub-space has own feed + member roster (subset of parent)
+- Inherits parent privacy + paywall by default, can override
+- `bn_spaces.parent_id` nullable — null = top-level
 
-### 5.3 Real-Time
-- WebSocket transport swap via `buddynext_messaging_transport` filter
-- Live feed updates (new posts appear without refresh)
-- Typing indicators in DMs
-- Online presence system
+### Categories
+- Admin-defined categories for space discovery (no tags)
+- Extensible via `buddynext_space_categories` filter
 
-### 5.4 Mobile App
-- React Native / Expo
-- White-labelable (app name, icon, colors via config)
-- Targets iOS + Android
-- Same REST API as web — no separate mobile backend
-- Push notifications (Expo Push Notification Service)
+### Roles
+| Role | Permissions |
+|------|------------|
+| Owner | Everything including delete space |
+| Moderator | Manage members, delete posts, pin posts |
+| Member | Post, react, comment |
 
-### 5.5 Advanced Analytics
-- Member growth, retention, churn rates
-- Content engagement heatmaps
-- Space health scores
-- CSV export
-- Admin dashboard + REST endpoints
+Extensible via `buddynext_space_roles` filter.
 
-### 5.6 White-Label
-- Remove all BuddyNext branding
-- Custom plugin name in admin
-- Agency license (deploy on multiple client sites)
+### Space management settings
+General (name, slug, description, avatar, cover), Privacy, Members (invite/remove/ban/promote), Moderation (pre-mod, banned words), Notifications, Integrations (Jetonomy forum tab, WPMediaVerse media tab), Danger zone (archive/delete)
 
-### 5.7 Gated Spaces
-- Membership-tier-gated space access
-- Trial access (X days free, then paywall)
-- Drip access (unlock content over time)
+Pro additions: Analytics tab, webhooks, export members
 
----
+### Paywall (Pro)
+**Model A — Tier-gated:** Requires BuddyNext membership tier subscription
+**Model B — Space-own price:** Own Stripe price, independent of site tiers
+Both support: free trial days, grandfathered members
 
-## 6. Integrations (Bridge Classes)
+### DB tables
+```
+bn_spaces (
+    id, parent_id, slug, name, description, type,
+    category_id, owner_id, member_count, avatar_url, cover_url,
+    required_tier_id, stripe_price_id, trial_days, grandfathered_before,
+    created_at
+)
+bn_space_members  (space_id, user_id, role, joined_at, notification_pref)
+bn_space_categories (id, name, slug, order)
+```
 
-Each bridge is a standalone class that activates only when the target plugin is detected. No hard dependencies.
-
-| Bridge | Detection | What It Enables |
-|--------|-----------|-----------------|
-| `JetonomyBridge` | `defined('JETONOMY_VERSION')` | Forum discussions appear in BuddyNext feed; space-scoped forums |
-| `WPMediaVerseBridge` | `defined('MVS_VERSION')` | Media cards in feed; media tab on profiles and spaces |
-| `WBGamificationBridge` | `defined('WB_GAM_VERSION')` | Earn points for BuddyNext actions; badges for community milestones |
-| `CareerBoardBridge` | `defined('WP_CAREER_BOARD_VERSION')` | Job posts in feed; hiring status on profiles |
-| `BuddyPressBridge` | `function_exists('buddypress')` | Migration only — not a runtime dependency |
-
----
-
-## 7. WordPress Abilities API
-
-Every BuddyNext feature is an ability — the primary extension surface for Pro bundles, themes, and third-party plugins.
-
-### Core Abilities (Free)
-| Category | Abilities |
-|----------|-----------|
-| `buddynext-profile` | view-profile, edit-profile, set-profile-visibility |
-| `buddynext-connections` | send-connection-request, accept-connection, block-user |
-| `buddynext-feed` | post-to-feed, delete-own-post, react-to-post |
-| `buddynext-spaces` | create-space, join-space, manage-space-members |
-| `buddynext-messaging` | send-message, list-conversations |
-| `buddynext-moderation` | report-content, manage-moderation-queue |
-
-### Pro Abilities
-| Category | Abilities |
-|----------|-----------|
-| `buddynext-membership` | create-membership-tier, gate-content, manage-subscriptions |
-| `buddynext-analytics` | view-analytics, export-analytics |
-| `buddynext-ai` | configure-ai-engine, view-ai-insights |
+### Developer hooks
+```php
+apply_filters( 'buddynext_can_join_space', true, $user_id, $space_id );
+apply_filters( 'buddynext_space_types', $types );
+apply_filters( 'buddynext_space_roles', $roles, $space_id );
+do_action( 'buddynext_space_created', $space_id, $user_id );
+do_action( 'buddynext_member_joined_space', $user_id, $space_id );
+```
 
 ---
 
-## 8. Database Tables
+## 6. Member Directory + Search ✅ LOCKED
 
-All tables prefixed `wp_bn_*`.
+### Member Directory
+Dedicated page with real-time filters:
+- Name / username (text search)
+- Location (from profile fields)
+- Skills (multi-select)
+- Space membership
+- Connection status (my connections / 2nd degree / everyone)
+- Online now (toggle)
+- Any profile field marked as searchable → auto-appears as filter
 
-| Table | Key Columns | Purpose |
-|-------|-------------|---------|
-| `bn_profiles` | user_id, bio, location, website, cover_url, visibility, completed_at | Extended profile data |
-| `bn_connections` | id, initiator_id, recipient_id, status, created_at | Follow/connection graph |
-| `bn_feed_items` | id, actor_id, verb, object_type, object_id, content, visibility, created_at | Activity feed (all verbs) |
-| `bn_feed_votes` | feed_item_id, user_id, reaction_type, created_at | Reactions on feed items |
-| `bn_spaces` | id, slug, name, type, owner_id, member_count, created_at | Communities/groups |
-| `bn_space_members` | space_id, user_id, role, joined_at, notification_pref | Space membership |
-| `bn_notifications` | id, recipient_id, type, actor_id, object_type, object_id, read_at, created_at | In-app notifications |
-| `bn_reports` | id, reporter_id, object_type, object_id, reason, status, created_at | User reports |
-| `bn_conversations` | id, type, created_by, last_message_at | DM threads |
-| `bn_conversation_participants` | conversation_id, user_id, last_read_at, is_muted | DM membership |
-| `bn_messages` | id, conversation_id, sender_id, content, created_at | DM messages |
+Sort: Newest / Most active / Alphabetical / Mutual connections
+Card view + list view. Follow + connect inline on cards.
 
-**Pro tables** (buddynext-pro):
+### Unified search — grouped results
+```
+Search: "photography"
 
-| Table | Purpose |
+Members (3)        Spaces (2)           Posts (12)         Discussions (5)
+───────────        ──────────           ──────────         ───────────────
+@jane_photo        Photography Club     "Best lenses..."   "Canon vs Nikon"
+@photo_bob         Street Photography   "Golden hour..."   "Film is back..."
+@lens_master       → See all            → See all          → See all
+```
+Top 3-5 per group. Click group → full filtered results.
+
+### Search architecture (built for scale)
+
+**Dedicated search index — async updated, never blocks:**
+```
+bn_search_index (
+    id, object_type, object_id,
+    title, content,        ← FULLTEXT INDEX on these two
+    meta_json,             ← searchable profile fields, space_id, etc
+    author_id, space_id, visibility,
+    indexed_at
+)
+```
+
+- Index updated async via Action Scheduler on content create/update/delete
+- Privacy-aware — visibility column filtered against viewer's graph
+- Re-index batch job on activation for existing content
+- Pluggable driver: MySQL FULLTEXT default → swap to ElasticSearch/Algolia/Typesense for 100k+ communities
+
+```php
+apply_filters( 'buddynext_search_driver', $driver );
+apply_filters( 'buddynext_directory_filters', $filters );
+apply_filters( 'buddynext_search_post_types', $types );
+do_action( 'buddynext_index_object', $object_type, $object_id );
+```
+
+---
+
+## 7. User Profiles ✅ LOCKED
+
+### Field architecture — 2 tables, developer-friendly
+
+```
+bn_profile_fields  (id, group_slug, type, label, slug, options_json, is_repeater, is_required, is_searchable, privacy_default, sort_order)
+bn_profile_values  (user_id, field_id, entry_index, value)
+```
+
+`entry_index` handles repeaters — 0,1,2 = three Work Experience entries. No separate entries table.
+
+### Built-in field groups
+| Group | Type | Fields |
+|-------|------|--------|
+| Basic Info | Flat | Bio, location, website, pronouns |
+| Social Links | Flat | Twitter/X, LinkedIn, GitHub, Instagram, YouTube (icon-type) |
+| Work Experience | Repeater | Company, title, location, daterange, currently working, description |
+| Education | Repeater | Institution, degree, field of study, daterange, currently attending |
+| Skills | Flat | Tag-based multi-select |
+
+Admin adds custom groups (flat or repeater) from UI. Developers register via filter.
+
+### Field types
+`text`, `textarea`, `url`, `social`, `select`, `multiselect`, `date`, `daterange`, `checkbox`, `number`
+
+### Developer API
+```php
+add_filter( 'buddynext_profile_groups', function( $groups ) {
+    $groups['portfolio'] = [
+        'label'    => 'Portfolio',
+        'repeater' => true,
+        'fields'   => [
+            [ 'slug' => 'project_name', 'type' => 'text', 'label' => 'Project Name' ],
+            [ 'slug' => 'project_url',  'type' => 'url',  'label' => 'URL' ],
+        ],
+    ];
+    return $groups;
+} );
+
+buddynext_get_profile_field( $user_id, 'location' );
+buddynext_get_profile_entries( $user_id, 'work_experience' );
+```
+
+Searchable flat fields denormalized to `wp_usermeta` on save (keyed `bn_field_{slug}`) for `WP_User_Query` filtering without joins.
+
+---
+
+## 8. WPMediaVerse Reuse Map
+
+Patterns to copy (BuddyNext uses own `bn_*` tables — no duplicate data):
+
+| WPMediaVerse | BuddyNext equivalent | Notes |
+|--------------|---------------------|-------|
+| `Social/FollowService.php` | `Graph/FollowService.php` | Same pattern, `bn_follows`, INSERT IGNORE |
+| `Social/ActivityService.php` | `Feed/ActivityService.php` | Extend with more verbs |
+| `Social/NotificationService.php` | `Notifications/NotificationService.php` | Same caching pattern |
+| `Core/ServiceContainer.php` | `Core/ServiceContainer.php` | Copy as-is |
+| Pro `Messaging/TransportInterface.php` | Pro `Messaging/TransportInterface.php` | Same interface |
+| Pro `Messaging/RestPollingTransport.php` | Pro `Messaging/RestPollingTransport.php` | Own REST namespace |
+
+---
+
+## 9. Features Pending Discussion
+
+| # | Feature | Status |
+|---|---------|--------|
+| 6 | Notifications | Pending |
+| 7 | Direct Messaging | Pending |
+| 8 | Reactions + Comments | Pending |
+| 9 | Moderation | Pending |
+| 10 | Onboarding + Setup Wizard | Pending |
+| 11 | Gutenberg Blocks | Pending |
+| 12 | WBGamification Bridge | Pending |
+| 13 | Jetonomy Bridge | Pending |
+| 14 | WPMediaVerse Bridge | Pending |
+| 15 | Career Board Bridge | Pending |
+| 16 | Admin Settings | Pending |
+| Pro | Stripe Membership | Pending |
+| Pro | AI Engine | Pending |
+| Pro | Mobile App | Pending |
+| Pro | Analytics | Pending |
+| Pro | White-label | Pending |
+
+---
+
+## 10. Database Tables Summary
+
+| Table | Feature |
 |-------|---------|
-| `bn_membership_tiers` | Tier definitions + Stripe price IDs |
-| `bn_subscriptions` | user_id, tier_id, status, stripe_subscription_id, expires_at |
-| `bn_ai_signals` | Behavioral signals for feed ranking (user_id, signal_type, object_id, weight) |
-| `bn_analytics_events` | Hourly-bucketed engagement stats per object |
+| `bn_follows` | Social graph — follows |
+| `bn_connections` | Social graph — mutual connections |
+| `bn_blocks` | Social graph — blocks + mutes |
+| `bn_posts` | Activity feed posts |
+| `bn_bookmarks` | Feed — saved posts |
+| `bn_shares` | Feed — reposts |
+| `bn_spaces` | Spaces + sub-spaces |
+| `bn_space_members` | Space membership + roles |
+| `bn_space_categories` | Space discovery categories |
+| `bn_profile_fields` | Profile field definitions |
+| `bn_profile_values` | Profile field values + repeater entries |
+| `bn_search_index` | Unified search index (async, FULLTEXT) |
+| *(pending)* | Notifications, DMs, Reactions, Comments |
+
+Pro tables *(pending)*: `bn_membership_tiers`, `bn_subscriptions`, `bn_ai_signals`, `bn_analytics_events`
 
 ---
 
-## 9. Key Filters & Actions
+## 11. Recent Changes
 
-| Hook | Type | Purpose |
-|------|------|---------|
-| `buddynext_loaded` | action | Plugin fully initialized — Pro + bridges hook here |
-| `buddynext_register_object_type` | filter | Register custom feed object types |
-| `buddynext_feed_query` | filter | Modify feed query (AI ranking hooks here in Pro) |
-| `buddynext_can_view_profile` | filter | Custom profile visibility rules |
-| `buddynext_messaging_transport` | filter | Swap messaging transport (REST → WebSocket in Pro) |
-| `buddynext_membership_gate` | filter | Custom membership gating logic |
-| `buddynext_ai_score` | filter | Override AI spam/toxicity score |
-| `buddynext_space_roles` | filter | Add custom space roles |
-
----
-
-## 10. Competitive Advantages (Ship These First)
-
-1. **SEO** — Profiles and public feed posts are indexed by Google. Circle/Mighty are invisible to search.
-2. **Data ownership** — One-click full export (JSON + CSV). SaaS platforms trap your data.
-3. **Bundle value** — BuddyNext + Jetonomy + WPMediaVerse + WBGamification + Career Board = complete platform. No SaaS can match this at $299/yr.
-4. **Pricing** — Flat annual renewal. No per-member fees. No surprise price hikes.
-5. **Theme-agnostic** — Works with BuddyX, BuddyX Pro, Reign, Twenty Twenty-Six, any theme.
-
----
-
-## 11. Out of Scope (Future Plugins)
-
-| Feature | Future Plugin |
-|---------|--------------|
-| Courses / LMS | BuddyNext Courses (separate plugin) |
-| Live streaming | BuddyNext Live (separate plugin) |
-| Email sequences | Integration hooks — use FluentCRM/Mailchimp |
-| Job board (advanced) | WP Career Board Pro handles this |
-
----
-
-## 12. Open Questions (Pre-Implementation)
-
-- [ ] Connection model: follow-only (asymmetric, like Twitter) OR mutual connections (like Facebook) OR both (configurable)?
-- [ ] Free tier: include DM or gate it in Pro? (Circle includes it free — probably must too)
-- [ ] Mobile app: ship with Pro v1 or v1.x?
-- [ ] Gutenberg blocks: how many for free vs Pro?
-- [ ] Feed: purely chronological in free, or lightweight ranking even in free?
+| Date | What |
+|------|------|
+| 2026-03-19 | Initial spec — product model, stack, all locked features |
