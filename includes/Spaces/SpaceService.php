@@ -68,6 +68,24 @@ class SpaceService {
 
 		$type = in_array( $data['type'] ?? 'open', self::ALLOWED_TYPES, true ) ? $data['type'] : 'open';
 
+		// Enforce two-level sub-space depth limit.
+		$parent_id = isset( $data['parent_id'] ) ? (int) $data['parent_id'] : null;
+		if ( null !== $parent_id && $parent_id > 0 ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$grandparent = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT parent_id FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
+					$parent_id
+				)
+			);
+			if ( null !== $grandparent && $grandparent > 0 ) {
+				return new WP_Error(
+					'max_depth_exceeded',
+					__( 'Spaces may only be nested two levels deep.', 'buddynext' )
+				);
+			}
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_spaces',
@@ -76,7 +94,7 @@ class SpaceService {
 				'slug'         => $slug,
 				'description'  => isset( $data['description'] ) ? sanitize_textarea_field( $data['description'] ) : null,
 				'category_id'  => isset( $data['category_id'] ) ? (int) $data['category_id'] : null,
-				'parent_id'    => isset( $data['parent_id'] ) ? (int) $data['parent_id'] : null,
+				'parent_id'    => $parent_id,
 				'type'         => $type,
 				'owner_id'     => $owner_id,
 				'member_count' => 1,
@@ -187,6 +205,32 @@ class SpaceService {
 			$fields['category_id'] = (int) $data['category_id'];
 			$format[]              = '%d';
 		}
+		if ( isset( $data['slug'] ) ) {
+			$new_slug = sanitize_title( $data['slug'] );
+			if ( '' !== $new_slug && $new_slug !== $space['slug'] ) {
+				// Ensure new slug is unique.
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$conflict = $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE slug = %s AND id != %d LIMIT 1",
+						$new_slug,
+						$space_id
+					)
+				);
+				if ( null === $conflict ) {
+					$fields['slug'] = $new_slug;
+					$format[]       = '%s';
+				}
+			}
+		}
+		if ( isset( $data['avatar_url'] ) ) {
+			$fields['avatar_url'] = esc_url_raw( $data['avatar_url'] );
+			$format[]             = '%s';
+		}
+		if ( isset( $data['cover_image_url'] ) ) {
+			$fields['cover_image_url'] = esc_url_raw( $data['cover_image_url'] );
+			$format[]                  = '%s';
+		}
 
 		if ( ! empty( $fields ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -269,7 +313,7 @@ class SpaceService {
 	 * @param array<string, mixed> $args Query arguments.
 	 * @return array[]
 	 */
-	public function list_spaces( array $args = [] ): array {
+	public function list_spaces( array $args = array() ): array {
 		global $wpdb;
 
 		$per_page    = max( 1, min( 100, absint( $args['per_page'] ?? 12 ) ) );
@@ -329,7 +373,7 @@ class SpaceService {
 	 * @param array<string, mixed> $args Optional per_page / page.
 	 * @return array[]
 	 */
-	public function search( string $term, array $args = [] ): array {
+	public function search( string $term, array $args = array() ): array {
 		global $wpdb;
 
 		$like     = '%' . $wpdb->esc_like( $term ) . '%';

@@ -140,6 +140,36 @@ class SpaceController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/members/(?P<user_id>[\d]+)/role',
+			array(
+				'methods'             => 'PUT',
+				'callback'            => array( $this, 'change_member_role' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/members/(?P<user_id>[\d]+)',
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( $this, 'remove_member' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/transfer-ownership',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'transfer_ownership' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
 	}
 
 	// ── Space CRUD ──────────────────────────────────────────────────────────
@@ -151,11 +181,16 @@ class SpaceController {
 	 * @return WP_REST_Response
 	 */
 	public function list_spaces( WP_REST_Request $request ): WP_REST_Response {
+		$per_page_param = $request->get_param( 'per_page' );
+		$page_param     = $request->get_param( 'page' );
+		$orderby_param  = $request->get_param( 'orderby' );
+		$order_param    = $request->get_param( 'order' );
+
 		$args = array(
-			'per_page' => absint( $request->get_param( 'per_page' ) ?: 12 ),
-			'page'     => absint( $request->get_param( 'page' ) ?: 1 ),
-			'orderby'  => sanitize_key( (string) ( $request->get_param( 'orderby' ) ?: 'member_count' ) ),
-			'order'    => sanitize_key( (string) ( $request->get_param( 'order' ) ?: 'DESC' ) ),
+			'per_page' => absint( null !== $per_page_param ? $per_page_param : 12 ),
+			'page'     => absint( null !== $page_param ? $page_param : 1 ),
+			'orderby'  => sanitize_key( (string) ( null !== $orderby_param ? $orderby_param : 'member_count' ) ),
+			'order'    => sanitize_key( (string) ( null !== $order_param ? $order_param : 'DESC' ) ),
 		);
 
 		if ( null !== $request->get_param( 'type' ) ) {
@@ -499,6 +534,143 @@ class SpaceController {
 		}
 
 		return new WP_REST_Response( array( 'banned' => true ), 200 );
+	}
+
+	/**
+	 * Change a member's role within a space.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function change_member_role( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id  = (int) $request->get_param( 'id' );
+		$target_id = (int) $request->get_param( 'user_id' );
+		$actor_id  = get_current_user_id();
+		$new_role  = sanitize_key( (string) $request->get_param( 'role' ) );
+
+		if ( ! in_array( $new_role, array( 'moderator', 'member' ), true ) ) {
+			return new WP_Error( 'invalid_role', __( 'Role must be moderator or member.', 'buddynext' ), array( 'status' => 400 ) );
+		}
+
+		$result = ( new SpaceMemberService() )->change_role( $space_id, $target_id, $new_role, $actor_id );
+
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( array( 'status' => 403 ) );
+			return $result;
+		}
+
+		return new WP_REST_Response( array( 'role' => $new_role ), 200 );
+	}
+
+	/**
+	 * Remove a member from a space (without banning).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function remove_member( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id  = (int) $request->get_param( 'id' );
+		$target_id = (int) $request->get_param( 'user_id' );
+		$actor_id  = get_current_user_id();
+
+		$service = new SpaceMemberService();
+		$role    = $service->get_role( $space_id, $actor_id );
+
+		if ( ! in_array( $role, array( 'owner', 'moderator' ), true ) && ! user_can( $actor_id, 'manage_options' ) ) {
+			return new WP_Error( 'forbidden', __( 'Only owners and moderators can remove members.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		// Cannot remove the owner.
+		$target_role = $service->get_role( $space_id, $target_id );
+		if ( 'owner' === $target_role ) {
+			return new WP_Error( 'cannot_remove_owner', __( 'The space owner cannot be removed.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		// Use leave() to cleanly remove and decrement count.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $target_id,
+			),
+			array( '%d', '%d' )
+		);
+
+		// Decrement member count.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_spaces SET member_count = GREATEST( member_count - 1, 0 ) WHERE id = %d",
+				$space_id
+			)
+		);
+
+		wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
+		wp_cache_delete( "members_{$space_id}", 'buddynext_spaces' );
+
+		return new WP_REST_Response( array( 'removed' => true ), 200 );
+	}
+
+	/**
+	 * Transfer space ownership to another member.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function transfer_ownership( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id     = (int) $request->get_param( 'id' );
+		$current_user = get_current_user_id();
+		$new_owner_id = absint( $request->get_param( 'new_owner_id' ) );
+
+		if ( 0 === $new_owner_id ) {
+			return new WP_Error( 'missing_new_owner_id', __( 'A new_owner_id is required.', 'buddynext' ), array( 'status' => 400 ) );
+		}
+
+		$space = ( new SpaceService() )->get( $space_id );
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		if ( $space['owner_id'] !== $current_user && ! user_can( $current_user, 'manage_options' ) ) {
+			return new WP_Error( 'forbidden', __( 'Only the space owner can transfer ownership.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$member_service = new SpaceMemberService();
+
+		// New owner must be an active member.
+		if ( ! $member_service->is_member( $space_id, $new_owner_id ) ) {
+			return new WP_Error( 'not_a_member', __( 'The new owner must be an active member of the space.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		global $wpdb;
+
+		// Demote current owner to member.
+		$member_service->change_role( $space_id, $current_user, 'member', $current_user );
+
+		// Promote new owner.
+		$member_service->change_role( $space_id, $new_owner_id, 'owner', $current_user );
+
+		// Update bn_spaces.owner_id — change_role alone does not do this.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_spaces',
+			array( 'owner_id' => $new_owner_id ),
+			array( 'id' => $space_id ),
+			array( '%d' ),
+			array( '%d' )
+		);
+
+		wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
+
+		return new WP_REST_Response(
+			array(
+				'transferred'  => true,
+				'new_owner_id' => $new_owner_id,
+			),
+			200
+		);
 	}
 
 	// ── Permissions ─────────────────────────────────────────────────────────
