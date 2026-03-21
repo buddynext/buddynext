@@ -13,6 +13,7 @@ declare( strict_types=1 );
 namespace BuddyNext\REST;
 
 use BuddyNext\REST\Controllers\AccessWebhookController;
+use BuddyNext\REST\Controllers\AuthController;
 use BuddyNext\REST\Controllers\BlockController;
 use BuddyNext\REST\Controllers\BookmarkController;
 use BuddyNext\REST\Controllers\ConnectionController;
@@ -49,6 +50,7 @@ class Router {
 	 */
 	public function register_routes(): void {
 		( new AccessWebhookController() )->register_routes();
+		( new AuthController() )->register_routes();
 		( new FollowController() )->register_routes();
 		( new ConnectionController() )->register_routes();
 		( new BlockController() )->register_routes();
