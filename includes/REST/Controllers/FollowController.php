@@ -16,8 +16,6 @@ declare( strict_types=1 );
 
 namespace BuddyNext\REST\Controllers;
 
-use BuddyNext\SocialGraph\BlockService;
-use BuddyNext\SocialGraph\FollowService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -89,7 +87,7 @@ class FollowController {
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
 
-		if ( ( new BlockService() )->is_blocking_either( $current_id, $target_id ) ) {
+		if ( buddynext_service( 'blocks' )->is_blocking_either( $current_id, $target_id ) ) {
 			return new WP_Error(
 				'buddynext_blocked',
 				__( 'You cannot follow this user.', 'buddynext' ),
@@ -97,7 +95,7 @@ class FollowController {
 			);
 		}
 
-		$result = ( new FollowService() )->follow( $current_id, $target_id );
+		$result = buddynext_service( 'follows' )->follow( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );
@@ -116,7 +114,7 @@ class FollowController {
 	public function unfollow( WP_REST_Request $request ): WP_REST_Response {
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
-		( new FollowService() )->unfollow( $current_id, $target_id );
+		buddynext_service( 'follows' )->unfollow( $current_id, $target_id );
 
 		return new WP_REST_Response( array( 'following' => false ), 200 );
 	}
@@ -129,7 +127,7 @@ class FollowController {
 	 */
 	public function get_followers( WP_REST_Request $request ): WP_REST_Response {
 		$user_id   = (int) $request->get_param( 'id' );
-		$followers = ( new FollowService() )->followers( $user_id );
+		$followers = buddynext_service( 'follows' )->followers( $user_id );
 
 		return new WP_REST_Response( array( 'ids' => $followers ), 200 );
 	}
@@ -142,7 +140,7 @@ class FollowController {
 	 */
 	public function get_following( WP_REST_Request $request ): WP_REST_Response {
 		$user_id   = (int) $request->get_param( 'id' );
-		$following = ( new FollowService() )->following( $user_id );
+		$following = buddynext_service( 'follows' )->following( $user_id );
 
 		return new WP_REST_Response( array( 'ids' => $following ), 200 );
 	}
@@ -154,7 +152,7 @@ class FollowController {
 	 */
 	public function get_suggestions(): WP_REST_Response {
 		$current_id  = get_current_user_id();
-		$suggestions = ( new FollowService() )->suggestions( $current_id );
+		$suggestions = buddynext_service( 'follows' )->suggestions( $current_id );
 
 		return new WP_REST_Response( array( 'ids' => $suggestions ), 200 );
 	}

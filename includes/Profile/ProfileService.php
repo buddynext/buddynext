@@ -197,17 +197,9 @@ class ProfileService {
 
 		// Resolve follower status before cache lookup so the cache key captures it.
 		// Skip the query for owners and anonymous viewers — follower check is irrelevant.
-		$viewer_is_follower = false;
-		if ( ! $is_owner && $viewer_id > 0 ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$viewer_is_follower = (bool) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT follower_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND following_id = %d LIMIT 1",
-					$viewer_id,
-					$profile_user_id
-				)
-			);
-		}
+		$viewer_is_follower = $viewer_id && ! $is_owner
+			? buddynext_service( 'follows' )->is_following( $viewer_id, $profile_user_id )
+			: false;
 
 		if ( $is_owner ) {
 			$cache_key = "profile_{$profile_user_id}_viewer_owner";
@@ -303,21 +295,12 @@ class ProfileService {
 
 		global $wpdb;
 
-		// Fetch all active fields. No user input — static query, no prepare needed.
+		// Fetch all profile fields. No user input — static query, no prepare needed.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		$fields = $wpdb->get_results(
-			"SELECT id, is_required FROM {$wpdb->prefix}bn_profile_fields WHERE is_active = 1 ORDER BY id ASC",
+			"SELECT id, is_required FROM {$wpdb->prefix}bn_profile_fields ORDER BY sort_order ASC, id ASC",
 			ARRAY_A
 		);
-
-		// Fallback: if is_active column does not exist yet, fetch all fields.
-		if ( null === $fields ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-			$fields = (array) $wpdb->get_results(
-				"SELECT id, is_required FROM {$wpdb->prefix}bn_profile_fields ORDER BY id ASC",
-				ARRAY_A
-			);
-		}
 
 		$fields = (array) $fields;
 

@@ -325,7 +325,9 @@ class ConnectionService {
 	public function status( int $user_a, int $user_b ): ?string {
 		global $wpdb;
 
-		$cache_key = "status_{$user_a}_{$user_b}";
+		$low       = min( $user_a, $user_b );
+		$high      = max( $user_a, $user_b );
+		$cache_key = "status_{$low}_{$high}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {

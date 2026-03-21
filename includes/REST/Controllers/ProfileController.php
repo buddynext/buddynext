@@ -15,7 +15,6 @@ declare( strict_types=1 );
 
 namespace BuddyNext\REST\Controllers;
 
-use BuddyNext\Profile\ProfileService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -63,17 +62,17 @@ class ProfileController {
 					'callback'            => array( $this, 'create_field' ),
 					'permission_callback' => array( $this, 'require_admin' ),
 					'args'                => array(
-						'field_key'  => array(
+						'field_key'   => array(
 							'required'          => true,
 							'type'              => 'string',
 							'sanitize_callback' => 'sanitize_key',
 						),
-						'label'      => array(
+						'label'       => array(
 							'required'          => true,
 							'type'              => 'string',
 							'sanitize_callback' => 'sanitize_text_field',
 						),
-						'type'       => array(
+						'type'        => array(
 							'required'          => false,
 							'type'              => 'string',
 							'default'           => 'text',
@@ -84,19 +83,19 @@ class ProfileController {
 							'type'     => 'boolean',
 							'default'  => false,
 						),
-						'visibility' => array(
+						'visibility'  => array(
 							'required'          => false,
 							'type'              => 'string',
 							'default'           => 'public',
 							'sanitize_callback' => 'sanitize_key',
 						),
-						'group_name' => array(
+						'group_name'  => array(
 							'required'          => false,
 							'type'              => 'string',
 							'default'           => 'general',
 							'sanitize_callback' => 'sanitize_key',
 						),
-						'sort_order' => array(
+						'sort_order'  => array(
 							'required'          => false,
 							'type'              => 'integer',
 							'default'           => 0,
@@ -117,7 +116,7 @@ class ProfileController {
 	public function get_profile( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$profile_user_id = (int) $request->get_param( 'id' );
 		$viewer_id       = get_current_user_id();
-		$service         = new ProfileService();
+		$service         = buddynext_service( 'profiles' );
 		$profile         = $service->get_profile( $profile_user_id, $viewer_id );
 
 		if ( null === $profile ) {
@@ -144,7 +143,7 @@ class ProfileController {
 	 */
 	public function update_profile( WP_REST_Request $request ): WP_REST_Response {
 		$user_id = get_current_user_id();
-		$service = new ProfileService();
+		$service = buddynext_service( 'profiles' );
 		$data    = (array) $request->get_body_params();
 
 		$service->save_profile( $user_id, $data );
@@ -168,7 +167,7 @@ class ProfileController {
 	 * @return WP_REST_Response
 	 */
 	public function list_fields(): WP_REST_Response {
-		$fields = ( new ProfileService() )->get_fields();
+		$fields = buddynext_service( 'profiles' )->get_fields();
 
 		return new WP_REST_Response( array( 'fields' => $fields ), 200 );
 	}
@@ -180,7 +179,7 @@ class ProfileController {
 	 * @return WP_REST_Response
 	 */
 	public function create_field( WP_REST_Request $request ): WP_REST_Response {
-		$field_id = ( new ProfileService() )->create_field( $request->get_params() );
+		$field_id = buddynext_service( 'profiles' )->create_field( $request->get_params() );
 
 		return new WP_REST_Response( array( 'id' => $field_id ), 201 );
 	}

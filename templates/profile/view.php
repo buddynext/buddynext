@@ -12,7 +12,7 @@
 declare(strict_types=1);
 
 // Guard: require a valid user ID.
-if ( empty( $user_id ) || ! is_int( $user_id ) ) {
+if ( empty( $user_id ) || (int) $user_id <= 0 ) {
 	return;
 }
 
@@ -25,6 +25,18 @@ global $wpdb;
 
 $current_user_id = get_current_user_id();
 $is_own_profile  = ( $current_user_id === $user_id );
+
+if ( ! $is_own_profile && ! current_user_can( 'manage_options' ) ) {
+	$privacy_svc = buddynext_service( 'privacy' );
+	if ( ! $privacy_svc->can_view_profile( $current_user_id, $user_id ) ) {
+		?>
+		<div class="bn-profile-private">
+			<p><?php esc_html_e( 'This profile is private.', 'buddynext' ); ?></p>
+		</div>
+		<?php
+		return;
+	}
+}
 
 // --- Avatar & display name ------------------------------------------------
 $avatar_url        = get_avatar_url( $user_id, array( 'size' => 96 ) );
@@ -119,21 +131,7 @@ if ( ! $is_own_profile && $current_user_id ) {
 // --- Mutual connections count ---------------------------------------------
 $mutual_count = 0;
 if ( ! $is_own_profile && $current_user_id ) {
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$mutual_count = (int) $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT COUNT(DISTINCT c2.recipient_id)
-			FROM {$wpdb->prefix}bn_connections c1
-			INNER JOIN {$wpdb->prefix}bn_connections c2
-			  ON c2.requester_id = c1.recipient_id
-			WHERE c1.requester_id = %d
-			  AND c2.recipient_id = %d
-			  AND c1.status = 'accepted'
-			  AND c2.status = 'accepted'",
-			$current_user_id,
-			$user_id
-		)
-	);
+	$mutual_count = count( buddynext_service( 'connections' )->mutual_connections( $current_user_id, $user_id ) );
 }
 
 // --- Custom profile fields ------------------------------------------------

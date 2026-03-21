@@ -112,7 +112,7 @@ class NotificationController {
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
-	public function unread_count( WP_REST_Request $request ): WP_REST_Response {
+	public function unread_count( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
 		$user_id = get_current_user_id();
 		$count   = ( new NotificationService() )->unread_count( $user_id );
 
@@ -143,7 +143,7 @@ class NotificationController {
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
-	public function mark_all_read( WP_REST_Request $request ): WP_REST_Response {
+	public function mark_all_read( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
 		$user_id = get_current_user_id();
 		( new NotificationService() )->mark_all_read( $user_id );
 
@@ -176,8 +176,8 @@ class NotificationController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function update_notification_prefs( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$user_id    = get_current_user_id();
-		$body       = $request->get_json_params();
+		$user_id = get_current_user_id();
+		$body    = $request->get_json_params();
 
 		if ( ! is_array( $body ) || empty( $body ) ) {
 			return new WP_Error(

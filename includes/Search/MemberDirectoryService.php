@@ -180,12 +180,17 @@ class MemberDirectoryService {
 		}
 
 		$items = array_map(
-			fn( $r ) => array(
-				'user_id'       => (int) $r['ID'],
-				'display_name'  => $r['display_name'],
-				'avatar_url'    => get_avatar_url( (int) $r['ID'], array( 'size' => 96 ) ),
-				'registered_at' => $r['user_registered'],
-			),
+			static function ( $r ) {
+				$uid = (int) $r['ID'];
+				$bio = get_user_meta( $uid, 'bn_field_bio', true );
+				return array(
+					'user_id'       => $uid,
+					'display_name'  => $r['display_name'],
+					'avatar_url'    => get_avatar_url( $uid, array( 'size' => 96 ) ),
+					'registered_at' => $r['user_registered'],
+					'bio'           => $bio ? $bio : '',
+				);
+			},
 			$rows
 		);
 

@@ -56,7 +56,13 @@ if ( $group ) {
 				<?php endif; ?>
 				<div class="bn-profile-field">
 					<dt class="bn-profile-field__label"><?php echo esc_html( $field['label'] ?? ucfirst( (string) $key ) ); ?></dt>
-					<dd class="bn-profile-field__value"><?php echo esc_html( $field['value'] ); ?></dd>
+					<dd class="bn-profile-field__value">
+					<?php if ( 'url' === ( $field['type'] ?? '' ) && ! empty( $field['value'] ) ) : ?>
+						<a href="<?php echo esc_url( $field['value'] ); ?>" class="bn-field-link" rel="nofollow noopener noreferrer" target="_blank"><?php echo esc_html( $field['value'] ); ?></a>
+					<?php else : ?>
+						<?php echo esc_html( $field['value'] ?? '' ); ?>
+					<?php endif; ?>
+				</dd>
 				</div>
 			<?php endforeach; ?>
 		</dl>

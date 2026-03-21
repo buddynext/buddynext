@@ -17,7 +17,6 @@ declare( strict_types=1 );
 
 namespace BuddyNext\REST\Controllers;
 
-use BuddyNext\SocialGraph\BlockService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -95,7 +94,7 @@ class BlockController {
 	public function block( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
-		$result     = ( new BlockService() )->block( $current_id, $target_id );
+		$result     = buddynext_service( 'blocks' )->block( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );
@@ -114,7 +113,7 @@ class BlockController {
 	public function unblock( WP_REST_Request $request ): WP_REST_Response {
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
-		( new BlockService() )->unblock( $current_id, $target_id );
+		buddynext_service( 'blocks' )->unblock( $current_id, $target_id );
 
 		return new WP_REST_Response( array( 'blocked' => false ), 200 );
 	}
@@ -128,7 +127,7 @@ class BlockController {
 	public function mute( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
-		$result     = ( new BlockService() )->mute( $current_id, $target_id );
+		$result     = buddynext_service( 'blocks' )->mute( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );
@@ -147,7 +146,7 @@ class BlockController {
 	public function unmute( WP_REST_Request $request ): WP_REST_Response {
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
-		( new BlockService() )->unmute( $current_id, $target_id );
+		buddynext_service( 'blocks' )->unmute( $current_id, $target_id );
 
 		return new WP_REST_Response( array( 'muted' => false ), 200 );
 	}
@@ -159,7 +158,7 @@ class BlockController {
 	 */
 	public function get_blocked(): WP_REST_Response {
 		$current_id = get_current_user_id();
-		$blocked    = ( new BlockService() )->blocked_users( $current_id );
+		$blocked    = buddynext_service( 'blocks' )->blocked_users( $current_id );
 
 		return new WP_REST_Response( array( 'ids' => $blocked ), 200 );
 	}
@@ -171,7 +170,7 @@ class BlockController {
 	 */
 	public function get_muted(): WP_REST_Response {
 		$current_id = get_current_user_id();
-		$muted      = ( new BlockService() )->muted_users( $current_id );
+		$muted      = buddynext_service( 'blocks' )->muted_users( $current_id );
 
 		return new WP_REST_Response( array( 'ids' => $muted ), 200 );
 	}

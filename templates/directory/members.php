@@ -94,7 +94,8 @@ $bn_avatar_colour = static function ( int $user_id ) use ( $avatar_colours ): st
 /**
  * Return the number of mutual connections between two users.
  *
- * Queries bn_follows if the table exists, otherwise returns 0.
+ * Delegates to the connections service so the query targets bn_connections,
+ * not bn_follows (follows and connections are separate social-graph concepts).
  *
  * @param int $user_a First user ID.
  * @param int $user_b Second user ID.
@@ -104,17 +105,7 @@ $bn_mutual_count = static function ( int $user_a, int $user_b ): int {
 	if ( 0 === $user_a || 0 === $user_b || $user_a === $user_b ) {
 		return 0;
 	}
-	global $wpdb;
-	$table = $wpdb->prefix . 'bn_follows';
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$count = (int) $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT COUNT(*) FROM {$table} a INNER JOIN {$table} b ON a.following_id = b.following_id WHERE a.follower_id = %d AND b.follower_id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$user_a,
-			$user_b
-		)
-	);
-	return $count;
+	return count( buddynext_service( 'connections' )->mutual_connections( $user_a, $user_b ) );
 };
 
 /**
@@ -156,6 +147,10 @@ $bn_paged_url = static function ( int $page_number ) use ( $search_term, $bn_ord
 	}
 	return esc_url( add_query_arg( $args ) );
 };
+
+// ── Messages page URL (hoisted — do not call inside member loop) ──────────────
+$bn_messages_page = get_page_by_path( 'messages' );
+$bn_messages_base = $bn_messages_page ? get_permalink( $bn_messages_page ) : home_url( '/messages/' );
 
 // ── Nonce for interactive actions ─────────────────────────────────────────────
 $action_nonce = wp_create_nonce( 'bn_member_action' );
@@ -598,16 +593,19 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 			if ( empty( $bio ) ) {
 				$bio = get_user_meta( $member_id, 'description', true );
 			}
-			$profile_url  = get_author_posts_url( $member_id );
-			$avatar_html  = get_avatar( $member_id, 64, '', esc_attr( $display_name ), array( 'force_display' => true ) );
-			$has_avatar   = false !== strpos( $avatar_html, 'src=' );
-			$initials     = $bn_initials( $display_name );
-			$bg_colour    = $bn_avatar_colour( $member_id );
-			$is_online    = $bn_is_online( $member_id );
-			$is_following = $bn_is_following( $member_id );
-			$mutual       = $bn_mutual_count( $current_user_id, $member_id );
-			$messages_url = add_query_arg( array( 'recipient' => $member_id ), get_permalink( get_page_by_path( 'messages' ) ) );
-			$follow_nonce = wp_create_nonce( 'bn_follow_' . $member_id );
+			$profile_url    = get_author_posts_url( $member_id );
+			$avatar_html    = get_avatar( $member_id, 64, '', esc_attr( $display_name ), array( 'force_display' => true ) );
+			$has_avatar     = false !== strpos( $avatar_html, 'src=' );
+			$initials       = $bn_initials( $display_name );
+			$bg_colour      = $bn_avatar_colour( $member_id );
+			$is_online      = $bn_is_online( $member_id );
+			$is_following   = $bn_is_following( $member_id );
+			$mutual         = $bn_mutual_count( $current_user_id, $member_id );
+			$messages_url   = add_query_arg( array( 'recipient' => $member_id ), $bn_messages_base );
+			$follow_nonce   = wp_create_nonce( 'bn_follow_' . $member_id );
+			$bn_conn_status = $current_user_id
+				? buddynext_service( 'connections' )->status( $current_user_id, $member_id )
+				: null;
 			?>
 			<article class="bn-member-card" role="listitem">
 
@@ -684,7 +682,22 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 							<?php echo $is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
 						</button>
 
-						<?php if ( ! $is_following ) : ?>
+						<?php if ( 'accepted' === $bn_conn_status ) : ?>
+							<a
+								href="<?php echo esc_url( $messages_url ); ?>"
+								class="bn-btn-message"
+								aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member display name */ __( 'Message %s', 'buddynext' ), $display_name ) ); ?>"
+							>&#128172;</a>
+						<?php elseif ( 'pending' === $bn_conn_status ) : ?>
+							<button
+								type="button"
+								class="bn-btn-connect"
+								disabled
+								aria-disabled="true"
+							>
+								<?php esc_html_e( 'Pending', 'buddynext' ); ?>
+							</button>
+						<?php elseif ( ! $is_following ) : ?>
 							<button
 								type="button"
 								class="bn-btn-connect"
