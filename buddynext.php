@@ -47,6 +47,25 @@ function buddynext_can( int $user_id, string $capability, array $context = array
 }
 
 /**
+ * Spend credits from a user's BuddyNext credit balance.
+ *
+ * Thin wrapper around RoleService::spend_credits() so callers throughout the
+ * codebase don't need to resolve the service container themselves.
+ *
+ * Returns false without deducting when the balance is insufficient.
+ *
+ * @param int    $user_id WordPress user ID.
+ * @param int    $amount  Credits to deduct.
+ * @param string $reason  Short description for audit (e.g. 'create-space').
+ * @return bool
+ */
+function buddynext_spend_credits( int $user_id, int $amount, string $reason ): bool {
+	return \BuddyNext\Core\Container::instance()
+		->get( 'roles' )
+		->spend_credits( $user_id, $amount, $reason );
+}
+
+/**
  * Retrieve a service from the BuddyNext container.
  *
  * @param string $key Service identifier as registered in Plugin::register_services().

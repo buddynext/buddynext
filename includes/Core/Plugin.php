@@ -13,6 +13,10 @@ declare( strict_types=1 );
 namespace BuddyNext\Core;
 
 use BuddyNext\Admin\Settings;
+use BuddyNext\Core\CacheService;
+use BuddyNext\Core\CounterService;
+use BuddyNext\Core\CronScheduler;
+use BuddyNext\Core\RoleService;
 use BuddyNext\Theme\TokenService;
 use BuddyNext\Feed\BookmarkService;
 use BuddyNext\Feed\FeedService;
@@ -81,6 +85,9 @@ class Plugin {
 		// Emit CSS custom-property token block on wp_head.
 		( new TokenService() )->init();
 
+		// Register WP-Cron schedules and recurring events.
+		( new CronScheduler() )->init();
+
 		// Boot first-party bridges unconditionally — each bridge guards itself
 		// against its dependency being absent via class_exists checks at hook time.
 		add_action(
@@ -115,6 +122,9 @@ class Plugin {
 	 */
 	private static function register_services( Container $container ): void {
 		$container->bind( 'permissions', fn() => new PermissionService() );
+		$container->bind( 'roles', fn() => new RoleService() );
+		$container->bind( 'cache', fn() => new CacheService() );
+		$container->bind( 'counters', fn() => new CounterService() );
 		$container->bind( 'abilities', fn() => new Abilities() );
 		$container->bind( 'follows', fn() => new FollowService() );
 		$container->bind( 'connections', fn() => new ConnectionService() );
