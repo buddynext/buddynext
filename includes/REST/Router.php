@@ -13,6 +13,9 @@ declare( strict_types=1 );
 namespace BuddyNext\REST;
 
 use BuddyNext\REST\Controllers\AccessWebhookController;
+use BuddyNext\REST\Controllers\BlockController;
+use BuddyNext\REST\Controllers\ConnectionController;
+use BuddyNext\REST\Controllers\FollowController;
 
 /**
  * Hooks REST controllers into rest_api_init.
@@ -33,5 +36,8 @@ class Router {
 	 */
 	public function register_routes(): void {
 		( new AccessWebhookController() )->register_routes();
+		( new FollowController() )->register_routes();
+		( new ConnectionController() )->register_routes();
+		( new BlockController() )->register_routes();
 	}
 }

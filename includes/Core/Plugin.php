@@ -14,6 +14,10 @@ namespace BuddyNext\Core;
 
 use BuddyNext\Admin\Settings;
 use BuddyNext\REST\Router;
+use BuddyNext\SocialGraph\BlockService;
+use BuddyNext\SocialGraph\ConnectionService;
+use BuddyNext\SocialGraph\FollowService;
+use BuddyNext\SocialGraph\PrivacyService;
 
 /**
  * Plugin bootstrap.
@@ -71,6 +75,17 @@ class Plugin {
 	private static function register_services( Container $container ): void {
 		$container->bind( 'permissions', fn() => new PermissionService() );
 		$container->bind( 'abilities', fn() => new Abilities() );
+		$container->bind( 'follows', fn() => new FollowService() );
+		$container->bind( 'connections', fn() => new ConnectionService() );
+		$container->bind( 'blocks', fn() => new BlockService() );
+		$container->bind(
+			'privacy',
+			fn( $c ) => new PrivacyService(
+				$c->get( 'follows' ),
+				$c->get( 'connections' ),
+				$c->get( 'blocks' )
+			)
+		);
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
 
