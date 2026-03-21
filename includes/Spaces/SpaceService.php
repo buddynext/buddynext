@@ -1,0 +1,278 @@
+<?php
+/**
+ * Space lifecycle service.
+ *
+ * Manages space creation, retrieval, updates, and deletion. Spaces are
+ * community containers that users can join. Each space has a unique slug,
+ * a type (open / private / secret), and is owned by the creator.
+ *
+ * When a space is created the owner is automatically inserted into
+ * bn_space_members with role='owner' and the member_count is set to 1.
+ *
+ * @package BuddyNext\Spaces
+ */
+
+declare( strict_types=1 );
+
+namespace BuddyNext\Spaces;
+
+use WP_Error;
+
+/**
+ * Handles space CRUD.
+ */
+class SpaceService {
+
+	/**
+	 * Cache group.
+	 */
+	private const CACHE_GROUP = 'buddynext_spaces';
+
+	/**
+	 * Cache TTL in seconds (10 minutes).
+	 */
+	private const CACHE_TTL = 600;
+
+	/**
+	 * Allowed space types.
+	 */
+	private const ALLOWED_TYPES = array( 'open', 'private', 'secret' );
+
+	/**
+	 * Create a new space.
+	 *
+	 * @param int   $owner_id Creator/owner user ID.
+	 * @param array $data     Space data: name (required), slug (required), type, description, category_id, parent_id.
+	 * @return int|WP_Error Inserted space ID or WP_Error on validation failure.
+	 */
+	public function create( int $owner_id, array $data ): int|WP_Error {
+		global $wpdb;
+
+		$slug = sanitize_title( $data['slug'] ?? '' );
+
+		if ( '' === $slug ) {
+			return new WP_Error( 'missing_slug', __( 'A space slug is required.', 'buddynext' ) );
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$existing = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE slug = %s",
+				$slug
+			)
+		);
+
+		if ( null !== $existing ) {
+			return new WP_Error( 'slug_taken', __( 'This slug is already taken.', 'buddynext' ) );
+		}
+
+		$type = in_array( $data['type'] ?? 'open', self::ALLOWED_TYPES, true ) ? $data['type'] : 'open';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_spaces',
+			array(
+				'name'         => sanitize_text_field( $data['name'] ?? '' ),
+				'slug'         => $slug,
+				'description'  => isset( $data['description'] ) ? sanitize_textarea_field( $data['description'] ) : null,
+				'category_id'  => isset( $data['category_id'] ) ? (int) $data['category_id'] : null,
+				'parent_id'    => isset( $data['parent_id'] ) ? (int) $data['parent_id'] : null,
+				'type'         => $type,
+				'owner_id'     => $owner_id,
+				'member_count' => 1,
+			),
+			array( '%s', '%s', '%s', '%d', '%d', '%s', '%d', '%d' )
+		);
+
+		$space_id = (int) $wpdb->insert_id;
+
+		// Auto-add owner as member.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $owner_id,
+				'role'     => 'owner',
+			),
+			array( '%d', '%d', '%s' )
+		);
+
+		/**
+		 * Fires after a new space is created.
+		 *
+		 * @param int $space_id  Newly created space ID.
+		 * @param int $owner_id  ID of the space owner.
+		 */
+		do_action( 'buddynext_space_created', $space_id, $owner_id );
+
+		return $space_id;
+	}
+
+	/**
+	 * Return a single space by ID.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return array|null Null if not found.
+	 */
+	public function get( int $space_id ): ?array {
+		$cache_key = "space_{$space_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
+				$space_id
+			),
+			ARRAY_A
+		);
+
+		if ( null === $row ) {
+			return null;
+		}
+
+		$space = $this->hydrate( $row );
+
+		wp_cache_set( $cache_key, $space, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $space;
+	}
+
+	/**
+	 * Update a space.
+	 *
+	 * Only the owner (or a user with manage_options) may update a space.
+	 *
+	 * @param int   $space_id  Space to update.
+	 * @param int   $user_id   User requesting the update.
+	 * @param array $data      Fields to update: name, description, type, category_id.
+	 * @return true|WP_Error
+	 */
+	public function update( int $space_id, int $user_id, array $data ): true|WP_Error {
+		$space = $this->get( $space_id );
+
+		if ( null === $space ) {
+			return new WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ) );
+		}
+
+		if ( $space['owner_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+			return new WP_Error( 'forbidden', __( 'You do not have permission to update this space.', 'buddynext' ) );
+		}
+
+		global $wpdb;
+
+		$fields = array();
+		$format = array();
+
+		if ( isset( $data['name'] ) ) {
+			$fields['name'] = sanitize_text_field( $data['name'] );
+			$format[]       = '%s';
+		}
+		if ( isset( $data['description'] ) ) {
+			$fields['description'] = sanitize_textarea_field( $data['description'] );
+			$format[]              = '%s';
+		}
+		if ( isset( $data['type'] ) && in_array( $data['type'], self::ALLOWED_TYPES, true ) ) {
+			$fields['type'] = $data['type'];
+			$format[]       = '%s';
+		}
+		if ( isset( $data['category_id'] ) ) {
+			$fields['category_id'] = (int) $data['category_id'];
+			$format[]              = '%d';
+		}
+
+		if ( ! empty( $fields ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_spaces',
+				$fields,
+				array( 'id' => $space_id ),
+				$format,
+				array( '%d' )
+			);
+		}
+
+		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+
+		return true;
+	}
+
+	/**
+	 * Delete a space.
+	 *
+	 * Only the owner (or manage_options) may delete. Also removes all
+	 * member rows for this space.
+	 *
+	 * @param int $space_id Space to delete.
+	 * @param int $user_id  User requesting the deletion.
+	 * @return true|WP_Error
+	 */
+	public function delete( int $space_id, int $user_id ): true|WP_Error {
+		$space = $this->get( $space_id );
+
+		if ( null === $space ) {
+			return new WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ) );
+		}
+
+		if ( $space['owner_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+			return new WP_Error( 'forbidden', __( 'You do not have permission to delete this space.', 'buddynext' ) );
+		}
+
+		global $wpdb;
+
+		// Remove all members first.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_members',
+			array( 'space_id' => $space_id ),
+			array( '%d' )
+		);
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_spaces',
+			array( 'id' => $space_id ),
+			array( '%d' )
+		);
+
+		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+
+		/**
+		 * Fires after a space is deleted.
+		 *
+		 * @param int $space_id Deleted space ID.
+		 * @param int $user_id  User who deleted it.
+		 */
+		do_action( 'buddynext_space_deleted', $space_id, $user_id );
+
+		return true;
+	}
+
+	/**
+	 * Hydrate a raw DB row into a typed space array.
+	 *
+	 * @param array $row Raw ARRAY_A row from bn_spaces.
+	 * @return array
+	 */
+	private function hydrate( array $row ): array {
+		return array(
+			'id'           => (int) $row['id'],
+			'name'         => $row['name'],
+			'slug'         => $row['slug'],
+			'description'  => $row['description'],
+			'category_id'  => isset( $row['category_id'] ) ? (int) $row['category_id'] : null,
+			'parent_id'    => isset( $row['parent_id'] ) ? (int) $row['parent_id'] : null,
+			'type'         => $row['type'],
+			'owner_id'     => (int) $row['owner_id'],
+			'member_count' => (int) $row['member_count'],
+			'created_at'   => $row['created_at'],
+		);
+	}
+}

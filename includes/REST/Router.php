@@ -23,6 +23,7 @@ use BuddyNext\REST\Controllers\PostController;
 use BuddyNext\REST\Controllers\ProfileController;
 use BuddyNext\REST\Controllers\SearchController;
 use BuddyNext\REST\Controllers\ShareController;
+use BuddyNext\REST\Controllers\SpaceController;
 
 /**
  * Hooks REST controllers into rest_api_init.
@@ -53,5 +54,6 @@ class Router {
 		( new ShareController() )->register_routes();
 		( new ProfileController() )->register_routes();
 		( new SearchController() )->register_routes();
+		( new SpaceController() )->register_routes();
 	}
 }

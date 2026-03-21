@@ -20,6 +20,8 @@ use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Profile\ProfileService;
 use BuddyNext\REST\Router;
+use BuddyNext\Spaces\SpaceMemberService;
+use BuddyNext\Spaces\SpaceService;
 use BuddyNext\Search\MemberDirectoryService;
 use BuddyNext\Search\SearchService;
 use BuddyNext\SocialGraph\BlockService;
@@ -102,6 +104,8 @@ class Plugin {
 		$container->bind( 'profiles', fn() => new ProfileService() );
 		$container->bind( 'search', fn() => new SearchService() );
 		$container->bind( 'member_directory', fn( $c ) => new MemberDirectoryService( $c->get( 'follows' ) ) );
+		$container->bind( 'spaces', fn() => new SpaceService() );
+		$container->bind( 'space_members', fn() => new SpaceMemberService() );
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
 
