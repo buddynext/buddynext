@@ -101,7 +101,57 @@ class FeedService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 		$rows = $wpdb->get_results( $sql, ARRAY_A );
 
-		return $this->paginate( (array) $rows, $per_page );
+		$result = $this->paginate( (array) $rows, $per_page );
+
+		// Prepend the active site-wide announcement on the first page only.
+		if ( null === $cursor ) {
+			$announcement = $this->active_announcement( $user_id );
+			if ( null !== $announcement ) {
+				array_unshift( $result['items'], $announcement );
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Return the active site-wide announcement for a user, or null.
+	 *
+	 * Returns null when:
+	 *  - No published announcement exists.
+	 *  - The announcement has expired (site_pin_expires_at < NOW()).
+	 *  - The user has already dismissed it (row in bn_announcement_dismissals).
+	 *
+	 * @param int $user_id Viewing user ID.
+	 * @return array|null Hydrated post array or null.
+	 */
+	public function active_announcement( int $user_id ): ?array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT p.* FROM {$wpdb->prefix}bn_posts p
+				 WHERE p.is_announcement = 1
+				   AND p.type = 'announcement'
+				   AND p.status = 'published'
+				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > NOW())
+				   AND NOT EXISTS (
+				         SELECT 1 FROM {$wpdb->prefix}bn_announcement_dismissals d
+				         WHERE d.post_id = p.id AND d.user_id = %d
+				       )
+				 ORDER BY p.created_at DESC
+				 LIMIT 1",
+				$user_id
+			),
+			ARRAY_A
+		);
+
+		if ( null === $row ) {
+			return null;
+		}
+
+		return $this->post_service->hydrate( $row );
 	}
 
 	/**

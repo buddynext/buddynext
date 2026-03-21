@@ -43,6 +43,16 @@ class EventListener {
 		add_action( 'buddynext_space_join_requested', array( $this, 'on_space_join_requested' ), 10, 2 );
 		add_action( 'buddynext_space_request_approved', array( $this, 'on_space_request_approved' ), 10, 2 );
 		add_action( 'buddynext_space_member_invited', array( $this, 'on_space_member_invited' ), 10, 3 );
+
+		// Moderation.
+		add_action( 'buddynext_strike_issued', array( $this, 'on_strike_issued' ), 10, 3 );
+
+		// WBGamification bridge (fires only when that plugin is active).
+		add_action( 'wb_gamification_badge_awarded', array( $this, 'on_badge_awarded' ), 10, 2 );
+		add_action( 'wb_gamification_level_changed', array( $this, 'on_level_changed' ), 10, 3 );
+
+		// Jetonomy bridge (fires only when Jetonomy is active).
+		add_action( 'jetonomy_after_create_reply', array( $this, 'on_jetonomy_reply' ), 10, 3 );
 	}
 
 	/**
@@ -425,6 +435,127 @@ class EventListener {
 				'object_type'  => 'space',
 				'object_id'    => $space_id,
 				'group_key'    => 'space_invite_' . $space_id . '_' . $invited_user_id,
+			)
+		);
+	}
+
+	/**
+	 * Notify the user when a moderation strike is issued against them.
+	 *
+	 * @param int $strike_id Strike record ID.
+	 * @param int $user_id   User who received the strike.
+	 * @param int $actor_id  Admin who issued the strike.
+	 */
+	public function on_strike_issued( int $strike_id, int $user_id, int $actor_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $user_id,
+				'sender_id'    => $actor_id,
+				'type'         => 'bn.strike_issued',
+				'object_type'  => 'strike',
+				'object_id'    => $strike_id,
+				'group_key'    => null,
+			)
+		);
+	}
+
+	/**
+	 * Notify the user when a gamification badge is awarded to them.
+	 *
+	 * Only fires when WBGamification plugin is active and awards a badge.
+	 *
+	 * @param int $user_id  User who earned the badge.
+	 * @param int $badge_id Badge that was awarded.
+	 */
+	public function on_badge_awarded( int $user_id, int $badge_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $user_id,
+				'sender_id'    => null,
+				'type'         => 'bn.badge_awarded',
+				'object_type'  => 'badge',
+				'object_id'    => $badge_id,
+				'group_key'    => null,
+			)
+		);
+	}
+
+	/**
+	 * Notify the user when their gamification level changes.
+	 *
+	 * Only fires when WBGamification plugin is active and changes user level.
+	 *
+	 * @param int $user_id   User whose level changed.
+	 * @param int $old_level Level before the change.
+	 * @param int $new_level Level after the change.
+	 */
+	public function on_level_changed( int $user_id, int $old_level, int $new_level ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $user_id,
+				'sender_id'    => null,
+				'type'         => 'bn.level_up',
+				'object_type'  => 'level',
+				'object_id'    => $new_level,
+				'group_key'    => null,
+				'data'         => array(
+					'old_level' => $old_level,
+					'new_level' => $new_level,
+				),
+			)
+		);
+	}
+
+	/**
+	 * Notify the Jetonomy post author when someone replies to their post.
+	 *
+	 * Only fires when Jetonomy plugin is active and a new reply is created.
+	 *
+	 * @param int $reply_id ID of the new reply.
+	 * @param int $post_id  ID of the Jetonomy post that received the reply.
+	 * @param int $user_id  User who wrote the reply.
+	 */
+	public function on_jetonomy_reply( int $reply_id, int $post_id, int $user_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// Jetonomy posts use the standard wp_posts table.
+		$author_id = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->prepare( "SELECT post_author FROM {$wpdb->posts} WHERE ID = %d LIMIT 1", $post_id )
+		);
+
+		if ( 0 === $author_id || $author_id === $user_id ) {
+			return;
+		}
+
+		if ( $this->is_blocked( $author_id, $user_id ) ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $author_id,
+				'sender_id'    => $user_id,
+				'type'         => 'bn.jetonomy_reply',
+				'object_type'  => 'jetonomy_post',
+				'object_id'    => $post_id,
+				'group_key'    => 'jt_reply_' . $post_id,
+				'data'         => array( 'reply_id' => $reply_id ),
 			)
 		);
 	}
