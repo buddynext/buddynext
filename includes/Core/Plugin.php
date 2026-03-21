@@ -12,7 +12,9 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Core;
 
+use BuddyNext\Admin\Members;
 use BuddyNext\Admin\Settings;
+use BuddyNext\Admin\Spaces;
 use BuddyNext\Core\CacheService;
 use BuddyNext\Core\CounterService;
 use BuddyNext\Core\CronScheduler;
@@ -75,6 +77,8 @@ class Plugin {
 
 		if ( is_admin() ) {
 			$container->get( 'admin_settings' )->register();
+			$container->get( 'admin_members' )->register();
+			$container->get( 'admin_spaces' )->register();
 		}
 
 		$container->get( 'rest_router' )->register();
@@ -156,6 +160,8 @@ class Plugin {
 		$container->bind( 'mod_log', fn() => new ModerationLogService() );
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
+		$container->bind( 'admin_members', fn() => new Members() );
+		$container->bind( 'admin_spaces', fn() => new Spaces() );
 
 		// Abilities must be registered at plugins_loaded:15 so they are
 		// available before rest_api_init and admin_menu fire.
