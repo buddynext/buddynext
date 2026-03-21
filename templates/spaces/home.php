@@ -63,12 +63,12 @@ if ( $current_user_id ) {
 }
 
 $is_member    = $membership && 'active' === $membership->status;
-$is_admin_mod = $membership && 'active' === $membership->status && in_array( $membership->role, [ 'admin', 'moderator' ], true );
+$is_admin_mod = $membership && 'active' === $membership->status && in_array( $membership->role, array( 'admin', 'moderator' ), true );
 $is_pending   = $membership && 'pending' === $membership->status;
 
 // ── Access gate: private spaces ───────────────────────────────────────────────
 
-if ( 'public' !== $space->visibility && ! $is_member && ! current_user_can( 'manage_options' ) ) {
+if ( 'public' !== $space->type && ! $is_member && ! current_user_can( 'manage_options' ) ) {
 	// Show teaser header only, gate the feed.
 	$gate_feed = true;
 } else {
@@ -77,7 +77,7 @@ if ( 'public' !== $space->visibility && ! $is_member && ! current_user_can( 'man
 
 // ── Fetch posts for the feed ──────────────────────────────────────────────────
 
-$feed_posts  = [];
+$feed_posts  = array();
 $pinned_post = null;
 
 if ( ! $gate_feed ) {
@@ -168,7 +168,7 @@ function bn_initials( string $name ): string {
  * @return string CSS hex colour.
  */
 function bn_avatar_color( int $user_id ): string {
-	$colors = [ '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#d97706' ];
+	$colors = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#d97706' );
 	return $colors[ $user_id % count( $colors ) ];
 }
 
@@ -186,7 +186,7 @@ $active_tab = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab
 
 $member_count_fmt = number_format_i18n( (int) $space->member_count );
 
-$privacy_label = match ( $space->visibility ) {
+$privacy_label = match ( $space->type ) {
 	'public'  => __( 'Public', 'buddynext' ),
 	'private' => __( 'Private', 'buddynext' ),
 	default   => __( 'Invite-only', 'buddynext' ),
@@ -700,7 +700,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 						data-wp-on--click="actions.cancelJoinRequest"
 					><?php esc_html_e( 'Request Pending', 'buddynext' ); ?></button>
 
-				<?php elseif ( 'public' === $space->visibility ) : ?>
+				<?php elseif ( 'public' === $space->type ) : ?>
 					<button
 						class="bn-btn-primary"
 						data-wp-on--click="actions.joinSpace"
@@ -717,11 +717,11 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 
 		<nav class="bn-sh-tabs" aria-label="<?php esc_attr_e( 'Space navigation', 'buddynext' ); ?>">
 			<?php
-			$bn_nav_tabs = [
+			$bn_nav_tabs = array(
 				'feed'    => __( 'Feed', 'buddynext' ),
 				'members' => __( 'Members', 'buddynext' ),
 				'about'   => __( 'About', 'buddynext' ),
-			];
+			);
 			foreach ( $bn_nav_tabs as $tab_key => $tab_label ) :
 				$tab_url = add_query_arg( 'bn_tab', $tab_key );
 				?>
@@ -830,7 +830,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 
 								<div>
 									<span class="bn-post-card__author"><?php echo esc_html( $author_name ); ?></span>
-									<?php if ( in_array( $author_role, [ 'admin', 'moderator' ], true ) ) : ?>
+									<?php if ( in_array( $author_role, array( 'admin', 'moderator' ), true ) ) : ?>
 										<span class="bn-post-card__role"><?php echo esc_html( ucfirst( $author_role ) ); ?></span>
 									<?php endif; ?>
 									<div class="bn-post-card__time"><?php echo esc_html( $post_time ); ?></div>

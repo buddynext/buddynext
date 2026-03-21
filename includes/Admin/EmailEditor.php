@@ -190,36 +190,36 @@ class EmailEditor {
 	 *
 	 * Returns null when no override exists (caller should fall back to catalogue).
 	 *
-	 * @param string $slug Template slug.
+	 * @param string $type Template type identifier.
 	 * @return object|null DB row or null.
 	 */
-	public function get_saved( string $slug ): ?object {
+	public function get_saved( string $type ): ?object {
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_email_templates';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
-			$wpdb->prepare( "SELECT * FROM {$table} WHERE slug = %s", $slug ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "SELECT * FROM {$table} WHERE type = %s", $type ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		);
-		return $row ?: null;
+		return $row ? $row : null;
 	}
 
 	/**
 	 * Save template fields to bn_email_templates (upsert).
 	 *
-	 * @param string $slug         Template slug.
+	 * @param string $type         Template type identifier.
 	 * @param string $subject      Email subject line.
 	 * @param string $preview_text Inbox preview text.
 	 * @param string $body_html    HTML body.
 	 * @param bool   $enabled      Whether the template is active.
 	 * @return bool True on success.
 	 */
-	public function save( string $slug, string $subject, string $preview_text, string $body_html, bool $enabled ): bool {
+	public function save( string $type, string $subject, string $preview_text, string $body_html, bool $enabled ): bool {
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_email_templates';
 
-		$existing = $this->get_saved( $slug );
+		$existing = $this->get_saved( $type );
 		$data     = array(
-			'slug'         => $slug,
+			'type'         => $type,
 			'subject'      => $subject,
 			'preview_text' => $preview_text,
 			'body_html'    => $body_html,
@@ -229,7 +229,7 @@ class EmailEditor {
 
 		if ( $existing ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$result = $wpdb->update( $table, $data, array( 'slug' => $slug ), $formats, array( '%s' ) );
+			$result = $wpdb->update( $table, $data, array( 'type' => $type ), $formats, array( '%s' ) );
 		} else {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$result = $wpdb->insert( $table, $data, $formats );
@@ -391,7 +391,7 @@ class EmailEditor {
 		$slug  = sanitize_key( wp_unslash( $_POST['template_slug'] ?? '' ) );
 		$table = $wpdb->prefix . 'bn_email_templates';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete( $table, array( 'slug' => $slug ), array( '%s' ) );
+		$wpdb->delete( $table, array( 'type' => $slug ), array( '%s' ) );
 
 		$redirect = add_query_arg(
 			array(

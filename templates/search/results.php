@@ -21,49 +21,49 @@ global $wpdb;
 $raw_query = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( $_GET['q'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 // Allowed tabs.
-$allowed_tabs = [ 'all', 'people', 'posts', 'spaces' ];
+$allowed_tabs = array( 'all', 'people', 'posts', 'spaces' );
 $active_tab   = isset( $_GET['type'] ) ? sanitize_key( wp_unslash( $_GET['type'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $active_tab, $allowed_tabs, true ) ) {
 	$active_tab = 'all';
 }
 
 // Allowed date filters.
-$allowed_dates = [ 'any', 'week', 'month', 'year' ];
+$allowed_dates = array( 'any', 'week', 'month', 'year' );
 $date_filter   = isset( $_GET['date'] ) ? sanitize_key( wp_unslash( $_GET['date'] ) ) : 'any'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $date_filter, $allowed_dates, true ) ) {
 	$date_filter = 'any';
 }
 
 // Allowed sort options.
-$allowed_sorts = [ 'relevant', 'recent', 'popular' ];
+$allowed_sorts = array( 'relevant', 'recent', 'popular' );
 $sort_by       = isset( $_GET['sort'] ) ? sanitize_key( wp_unslash( $_GET['sort'] ) ) : 'relevant'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $sort_by, $allowed_sorts, true ) ) {
 	$sort_by = 'relevant';
 }
 
 // Only run queries when there is a search term.
-$results_people = [];
-$results_posts  = [];
-$results_spaces = [];
-$total_counts   = [
+$results_people = array();
+$results_posts  = array();
+$results_spaces = array();
+$total_counts   = array(
 	'all'    => 0,
 	'people' => 0,
 	'posts'  => 0,
 	'spaces' => 0,
-];
+);
 
 if ( '' !== $raw_query ) {
 	// Date boundary SQL fragment — literal SQL, no user data.
 	$date_sql = '';
 	switch ( $date_filter ) {
 		case 'week':
-			$date_sql = ' AND s.indexed_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
+			$date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
 			break;
 		case 'month':
-			$date_sql = ' AND s.indexed_at >= DATE_SUB( NOW(), INTERVAL 1 MONTH )';
+			$date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 MONTH )';
 			break;
 		case 'year':
-			$date_sql = ' AND s.indexed_at >= DATE_SUB( NOW(), INTERVAL 1 YEAR )';
+			$date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 YEAR )';
 			break;
 	}
 
@@ -72,18 +72,18 @@ if ( '' !== $raw_query ) {
 	// Build the ORDER BY clause. When sorting by relevance, pass the query as a second %s.
 	// $date_sql and $sort_sql contain only literal SQL — no user input reaches them.
 	if ( 'recent' === $sort_by ) {
-		$order_sql  = 'ORDER BY s.indexed_at DESC';
-		$query_args = [ $boolean_query ];
+		$order_sql  = 'ORDER BY s.updated_at DESC';
+		$query_args = array( $boolean_query );
 	} else {
 		$order_sql  = 'ORDER BY MATCH( s.content ) AGAINST( %s IN BOOLEAN MODE ) DESC';
-		$query_args = [ $boolean_query, $boolean_query ];
+		$query_args = array( $boolean_query, $boolean_query );
 	}
 
 	// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 	// Fetch people.
 	if ( 'all' === $active_tab || 'people' === $active_tab ) {
 		$people_sql             = $wpdb->prepare(
-			"SELECT s.object_id, s.content, s.metadata_json
+			"SELECT s.object_id, s.content /* metadata_json not yet in schema */
 			 FROM {$wpdb->prefix}bn_search_index AS s
 			 WHERE s.object_type = 'user'
 			   AND MATCH( s.content ) AGAINST( %s IN BOOLEAN MODE )
@@ -92,14 +92,14 @@ if ( '' !== $raw_query ) {
 			 LIMIT 5",
 			...$query_args
 		);
-		$results_people         = $wpdb->get_results( $people_sql ) ?? []; // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
+		$results_people         = $wpdb->get_results( $people_sql ) ?? array(); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
 		$total_counts['people'] = count( $results_people );
 	}
 
 	// Fetch posts.
 	if ( 'all' === $active_tab || 'posts' === $active_tab ) {
 		$posts_sql             = $wpdb->prepare(
-			"SELECT s.object_id, s.content, s.metadata_json
+			"SELECT s.object_id, s.content /* metadata_json not yet in schema */
 			 FROM {$wpdb->prefix}bn_search_index AS s
 			 WHERE s.object_type = 'post'
 			   AND MATCH( s.content ) AGAINST( %s IN BOOLEAN MODE )
@@ -108,14 +108,14 @@ if ( '' !== $raw_query ) {
 			 LIMIT 5",
 			...$query_args
 		);
-		$results_posts         = $wpdb->get_results( $posts_sql ) ?? []; // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
+		$results_posts         = $wpdb->get_results( $posts_sql ) ?? array(); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
 		$total_counts['posts'] = count( $results_posts );
 	}
 
 	// Fetch spaces.
 	if ( 'all' === $active_tab || 'spaces' === $active_tab ) {
 		$spaces_sql             = $wpdb->prepare(
-			"SELECT s.object_id, s.content, s.metadata_json
+			"SELECT s.object_id, s.content /* metadata_json not yet in schema */
 			 FROM {$wpdb->prefix}bn_search_index AS s
 			 WHERE s.object_type = 'space'
 			   AND MATCH( s.content ) AGAINST( %s IN BOOLEAN MODE )
@@ -124,7 +124,7 @@ if ( '' !== $raw_query ) {
 			 LIMIT 5",
 			...$query_args
 		);
-		$results_spaces         = $wpdb->get_results( $spaces_sql ) ?? []; // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
+		$results_spaces         = $wpdb->get_results( $spaces_sql ) ?? array(); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
 		$total_counts['spaces'] = count( $results_spaces );
 	}
 	// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
@@ -133,7 +133,7 @@ if ( '' !== $raw_query ) {
 }
 
 // Avatar colour palette — deterministic from object ID.
-$avatar_palette = [ '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0f766e', '#d97706', '#475569' ];
+$avatar_palette = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0f766e', '#d97706', '#475569' );
 $avatar_color   = static function ( int $id ) use ( $avatar_palette ): string {
 	return $avatar_palette[ $id % count( $avatar_palette ) ];
 };
@@ -173,7 +173,7 @@ $highlight = static function ( string $text, string $query ): string {
 };
 
 $current_user_id = get_current_user_id();
-$search_url_base = esc_url( remove_query_arg( [ 'q', 'type', 'date', 'sort' ] ) );
+$search_url_base = esc_url( remove_query_arg( array( 'q', 'type', 'date', 'sort' ) ) );
 ?>
 <style>
 /* ── Design tokens ── */
@@ -598,32 +598,32 @@ $search_url_base = esc_url( remove_query_arg( [ 'q', 'type', 'date', 'sort' ] ) 
 	<!-- Type tabs -->
 	<nav class="bn-search-tabs" aria-label="<?php esc_attr_e( 'Search result types', 'buddynext' ); ?>">
 		<?php
-		$type_tabs = [
-			'all'    => [
+		$type_tabs = array(
+			'all'    => array(
 				'label' => __( 'All', 'buddynext' ),
 				'count' => $total_counts['all'],
-			],
-			'people' => [
+			),
+			'people' => array(
 				'label' => __( 'People', 'buddynext' ),
 				'count' => $total_counts['people'],
-			],
-			'posts'  => [
+			),
+			'posts'  => array(
 				'label' => __( 'Posts', 'buddynext' ),
 				'count' => $total_counts['posts'],
-			],
-			'spaces' => [
+			),
+			'spaces' => array(
 				'label' => __( 'Spaces', 'buddynext' ),
 				'count' => $total_counts['spaces'],
-			],
-		];
+			),
+		);
 		foreach ( $type_tabs as $tab_key => $search_tab ) :
 			$is_active = ( $tab_key === $active_tab );
 			$tab_href  = esc_url(
 				add_query_arg(
-					[
+					array(
 						'q'    => $raw_query,
 						'type' => $tab_key,
-					]
+					)
 				)
 			);
 			?>
@@ -658,10 +658,10 @@ $search_url_base = esc_url( remove_query_arg( [ 'q', 'type', 'date', 'sort' ] ) 
 							<?php
 							echo esc_url(
 								add_query_arg(
-									[
+									array(
 										'q'    => $raw_query,
 										'type' => 'people',
-									]
+									)
 								)
 							);
 							?>
@@ -678,7 +678,7 @@ $search_url_base = esc_url( remove_query_arg( [ 'q', 'type', 'date', 'sort' ] ) 
 					<?php foreach ( $results_people as $person ) : ?>
 						<?php
 						$pid          = (int) $person->object_id;
-						$pmeta        = ! empty( $person->metadata_json ) ? json_decode( $person->metadata_json, true ) : [];
+						$pmeta        = ! empty( $person->metadata_json ) ? json_decode( $person->metadata_json, true ) : array();
 						$puser        = get_userdata( $pid );
 						$pname        = $puser ? $puser->display_name : ( $pmeta['display_name'] ?? '' );
 						$pinits       = strtoupper( substr( $pname, 0, 1 ) . substr( strrchr( $pname, ' ' ), 1, 1 ) );
@@ -723,10 +723,10 @@ $search_url_base = esc_url( remove_query_arg( [ 'q', 'type', 'date', 'sort' ] ) 
 							<?php
 							echo esc_url(
 								add_query_arg(
-									[
+									array(
 										'q'    => $raw_query,
 										'type' => 'posts',
-									]
+									)
 								)
 							);
 							?>
@@ -743,7 +743,7 @@ $search_url_base = esc_url( remove_query_arg( [ 'q', 'type', 'date', 'sort' ] ) 
 					<?php foreach ( $results_posts as $post_item ) : ?>
 						<?php
 						$post_id_int  = (int) $post_item->object_id;
-						$pmeta        = ! empty( $post_item->metadata_json ) ? json_decode( $post_item->metadata_json, true ) : [];
+						$pmeta        = ! empty( $post_item->metadata_json ) ? json_decode( $post_item->metadata_json, true ) : array();
 						$author_id    = (int) ( $pmeta['author_id'] ?? 0 );
 						$author_user  = $author_id ? get_userdata( $author_id ) : null;
 						$author_name  = $author_user ? $author_user->display_name : __( 'Unknown', 'buddynext' );
@@ -790,10 +790,10 @@ $search_url_base = esc_url( remove_query_arg( [ 'q', 'type', 'date', 'sort' ] ) 
 							<?php
 							echo esc_url(
 								add_query_arg(
-									[
+									array(
 										'q'    => $raw_query,
 										'type' => 'spaces',
-									]
+									)
 								)
 							);
 							?>
@@ -810,7 +810,7 @@ $search_url_base = esc_url( remove_query_arg( [ 'q', 'type', 'date', 'sort' ] ) 
 					<?php foreach ( $results_spaces as $space ) : ?>
 						<?php
 						$space_id_int = (int) $space->object_id;
-						$smeta        = ! empty( $space->metadata_json ) ? json_decode( $space->metadata_json, true ) : [];
+						$smeta        = ! empty( $space->metadata_json ) ? json_decode( $space->metadata_json, true ) : array();
 						$space_name   = esc_html( $smeta['name'] ?? $space->content );
 						$space_desc   = esc_html( $smeta['description'] ?? '' );
 						$member_count = (int) ( $smeta['member_count'] ?? 0 );
@@ -871,21 +871,21 @@ $search_url_base = esc_url( remove_query_arg( [ 'q', 'type', 'date', 'sort' ] ) 
 
 				<div class="bn-filter-sublabel"><?php esc_html_e( 'Date Posted', 'buddynext' ); ?></div>
 				<?php
-				$date_opts = [
+				$date_opts = array(
 					'any'   => __( 'Any time', 'buddynext' ),
 					'week'  => __( 'Past week', 'buddynext' ),
 					'month' => __( 'Past month', 'buddynext' ),
 					'year'  => __( 'Past year', 'buddynext' ),
-				];
+				);
 				foreach ( $date_opts as $dval => $dlabel ) :
 					$dhref = esc_url(
 						add_query_arg(
-							[
+							array(
 								'q'    => $raw_query,
 								'type' => $active_tab,
 								'date' => $dval,
 								'sort' => $sort_by,
-							]
+							)
 						)
 					);
 					?>
@@ -900,19 +900,19 @@ $search_url_base = esc_url( remove_query_arg( [ 'q', 'type', 'date', 'sort' ] ) 
 
 				<div class="bn-filter-sublabel"><?php esc_html_e( 'Sort By', 'buddynext' ); ?></div>
 				<?php
-				$sort_opts = [
+				$sort_opts = array(
 					'relevant' => __( 'Most relevant', 'buddynext' ),
 					'recent'   => __( 'Most recent', 'buddynext' ),
-				];
+				);
 				foreach ( $sort_opts as $sval => $slabel ) :
 					$shref = esc_url(
 						add_query_arg(
-							[
+							array(
 								'q'    => $raw_query,
 								'type' => $active_tab,
 								'date' => $date_filter,
 								'sort' => $sval,
-							]
+							)
 						)
 					);
 					?>

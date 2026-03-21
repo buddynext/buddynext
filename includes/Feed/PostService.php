@@ -396,7 +396,7 @@ class PostService {
 	 * @param array $row Raw associative row from wpdb.
 	 * @return array
 	 */
-	private function hydrate( array $row ): array {
+	public function hydrate( array $row ): array {
 		$post = array(
 			'id'                  => (int) $row['id'],
 			'user_id'             => (int) $row['user_id'],

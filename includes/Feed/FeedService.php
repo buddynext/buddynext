@@ -18,6 +18,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Feed;
 
+use BuddyNext\Feed\PostService;
 use BuddyNext\SocialGraph\FollowService;
 
 /**
@@ -38,12 +39,21 @@ class FeedService {
 	private FollowService $follows;
 
 	/**
-	 * Inject the follow graph service.
+	 * Post service — used to hydrate raw database rows.
 	 *
-	 * @param FollowService $follows Follow service instance.
+	 * @var PostService
 	 */
-	public function __construct( FollowService $follows ) {
-		$this->follows = $follows;
+	private PostService $post_service;
+
+	/**
+	 * Inject dependencies.
+	 *
+	 * @param FollowService $follows      Follow service instance.
+	 * @param PostService   $post_service Post service instance.
+	 */
+	public function __construct( FollowService $follows, PostService $post_service ) {
+		$this->follows      = $follows;
+		$this->post_service = $post_service;
 	}
 
 	/**
@@ -112,8 +122,12 @@ class FeedService {
 			// Owner sees everything.
 			$privacy_clause = '';
 			$privacy_params = array();
+		} elseif ( $viewer_id > 0 && $this->follows->is_following( $viewer_id, $profile_user_id ) ) {
+			// Followers see public and followers-only posts.
+			$privacy_clause = "AND privacy IN ('public','followers')";
+			$privacy_params = array();
 		} else {
-			// Others see only public posts.
+			// Anonymous visitors and non-followers see only public posts.
 			$privacy_clause = "AND privacy = 'public'";
 			$privacy_params = array();
 		}
@@ -266,14 +280,7 @@ class FeedService {
 		}
 
 		$items = array_map(
-			fn( $row ) => array(
-				'id'         => (int) $row['id'],
-				'user_id'    => (int) $row['user_id'],
-				'type'       => $row['type'],
-				'content'    => $row['content'],
-				'privacy'    => $row['privacy'],
-				'created_at' => $row['created_at'],
-			),
+			fn( $row ) => $this->post_service->hydrate( $row ),
 			$rows
 		);
 

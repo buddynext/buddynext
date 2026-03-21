@@ -98,6 +98,7 @@ class Installer {
 				link_url            VARCHAR(2083) DEFAULT NULL,
 				link_meta           JSON DEFAULT NULL,
 				privacy             ENUM('public','followers','connections','space_members','private') NOT NULL DEFAULT 'public',
+				status              ENUM('published','draft','pending','deleted') NOT NULL DEFAULT 'published',
 				reaction_count      INT UNSIGNED NOT NULL DEFAULT 0,
 				comment_count       INT UNSIGNED NOT NULL DEFAULT 0,
 				share_count         INT UNSIGNED NOT NULL DEFAULT 0,
@@ -133,6 +134,17 @@ class Installer {
 				KEY         post_shares (post_id)
 			) {$cs};",
 
+			"CREATE TABLE {$p}bn_feed_items (
+				id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				recipient_id BIGINT(20) UNSIGNED NOT NULL,
+				post_id      BIGINT(20) UNSIGNED NOT NULL,
+				score        FLOAT NOT NULL DEFAULT 0,
+				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY  (id),
+				UNIQUE KEY   recipient_post (recipient_id, post_id),
+				KEY          recipient_score (recipient_id, score, created_at)
+			) {$cs};",
+
 			"CREATE TABLE {$p}bn_poll_options (
 				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				post_id       BIGINT(20) UNSIGNED NOT NULL,
@@ -157,20 +169,22 @@ class Installer {
 			// ── Spaces ─────────────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_spaces (
-				id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				name         VARCHAR(255) NOT NULL,
-				slug         VARCHAR(200) NOT NULL,
-				description  TEXT DEFAULT NULL,
-				category_id  BIGINT(20) UNSIGNED DEFAULT NULL,
-				parent_id    BIGINT(20) UNSIGNED DEFAULT NULL,
-				type         ENUM('open','private','secret') NOT NULL DEFAULT 'open',
-				owner_id     BIGINT(20) UNSIGNED NOT NULL,
-				member_count INT UNSIGNED NOT NULL DEFAULT 0,
-				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY  (id),
-				UNIQUE KEY   slug (slug),
-				KEY          owner (owner_id),
-				KEY          category (category_id)
+				id              BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				name            VARCHAR(255) NOT NULL,
+				slug            VARCHAR(200) NOT NULL,
+				description     TEXT DEFAULT NULL,
+				category_id     BIGINT(20) UNSIGNED DEFAULT NULL,
+				parent_id       BIGINT(20) UNSIGNED DEFAULT NULL,
+				type            ENUM('open','private','secret') NOT NULL DEFAULT 'open',
+				owner_id        BIGINT(20) UNSIGNED NOT NULL,
+				member_count    INT UNSIGNED NOT NULL DEFAULT 0,
+				cover_image_url VARCHAR(500) DEFAULT NULL,
+				avatar_url      VARCHAR(500) DEFAULT NULL,
+				created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY     (id),
+				UNIQUE KEY      slug (slug),
+				KEY             owner (owner_id),
+				KEY             category (category_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_members (
@@ -319,26 +333,28 @@ class Installer {
 			// ── Profiles ───────────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_profile_fields (
-				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				field_key   VARCHAR(100) NOT NULL,
-				label       VARCHAR(255) NOT NULL,
-				type        ENUM('text','textarea','url','date','select','checkbox','repeater') NOT NULL DEFAULT 'text',
-				options     JSON DEFAULT NULL,
-				is_required TINYINT(1) NOT NULL DEFAULT 0,
-				visibility  ENUM('public','connections','private') NOT NULL DEFAULT 'public',
-				group_name  VARCHAR(100) NOT NULL DEFAULT 'general',
-				sort_order  INT NOT NULL DEFAULT 0,
-				PRIMARY KEY (id),
-				UNIQUE KEY  field_key (field_key)
+				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				field_key     VARCHAR(100) NOT NULL,
+				label         VARCHAR(255) NOT NULL,
+				type          ENUM('text','textarea','url','date','select','checkbox','repeater') NOT NULL DEFAULT 'text',
+				options       JSON DEFAULT NULL,
+				is_required   TINYINT(1) NOT NULL DEFAULT 0,
+				visibility    ENUM('public','connections','private') NOT NULL DEFAULT 'public',
+				group_name    VARCHAR(100) NOT NULL DEFAULT 'general',
+				sort_order    INT NOT NULL DEFAULT 0,
+				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
+				PRIMARY KEY   (id),
+				UNIQUE KEY    field_key (field_key)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_profile_values (
-				id       BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id  BIGINT(20) UNSIGNED NOT NULL,
-				field_id BIGINT(20) UNSIGNED NOT NULL,
-				value    LONGTEXT DEFAULT NULL,
+				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id     BIGINT(20) UNSIGNED NOT NULL,
+				field_id    BIGINT(20) UNSIGNED NOT NULL,
+				entry_index SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+				value       LONGTEXT DEFAULT NULL,
 				PRIMARY KEY (id),
-				UNIQUE KEY  user_field (user_id, field_id),
+				UNIQUE KEY  user_field (user_id, field_id, entry_index),
 				KEY         field (field_id)
 			) {$cs};",
 
@@ -351,13 +367,15 @@ class Installer {
 				title       VARCHAR(500) NOT NULL DEFAULT '',
 				content     LONGTEXT DEFAULT NULL,
 				author_id   BIGINT(20) UNSIGNED DEFAULT NULL,
+				space_id    BIGINT(20) UNSIGNED DEFAULT NULL,
 				visibility  ENUM('public','private') NOT NULL DEFAULT 'public',
 				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				UNIQUE KEY  object (object_type, object_id),
 				KEY         visibility_type (visibility, object_type),
-				KEY         author (author_id)
+				KEY         author (author_id),
+				KEY         space (space_id)
 			) {$cs};",
 
 			// ── Roles + Permissions ────────────────────────────────────────────

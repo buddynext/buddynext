@@ -25,7 +25,7 @@ if ( ! $current_user_id ) {
 }
 
 // Resolve active filter tab (sanitized).
-$allowed_filters = [ 'all', 'reaction', 'comment', 'follow', 'space', 'message' ];
+$allowed_filters = array( 'all', 'reaction', 'comment', 'follow', 'space', 'message' );
 $active_filter   = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
 	$active_filter = 'all';
@@ -33,17 +33,17 @@ if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
 
 // Build WHERE clause for the active filter.
 $filter_sql   = '';
-$filter_types = [];
+$filter_types = array();
 if ( 'reaction' === $active_filter ) {
-	$filter_types = [ 'bn.new_reaction' ];
+	$filter_types = array( 'bn.new_reaction' );
 } elseif ( 'comment' === $active_filter ) {
-	$filter_types = [ 'bn.new_comment', 'bn.new_reply' ];
+	$filter_types = array( 'bn.new_comment', 'bn.new_reply' );
 } elseif ( 'follow' === $active_filter ) {
-	$filter_types = [ 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_request' ];
+	$filter_types = array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_request' );
 } elseif ( 'space' === $active_filter ) {
-	$filter_types = [ 'bn.space_invite', 'bn.space_join_request' ];
+	$filter_types = array( 'bn.space_invite', 'bn.space_join_request' );
 } elseif ( 'message' === $active_filter ) {
-	$filter_types = [ 'bn.new_message' ];
+	$filter_types = array( 'bn.new_message' );
 }
 
 if ( ! empty( $filter_types ) ) {
@@ -57,9 +57,9 @@ if ( ! empty( $filter_types ) ) {
 
 // Fetch up to 50 notifications for the current user, ordered newest first.
 // $filter_sql is fully prepared above; build final SQL by string concat before prepare().
-$base_sql = "SELECT n.id, n.type, n.actor_id, n.object_id, n.object_type, n.message, n.is_read, n.created_at
+$base_sql = "SELECT n.id, n.type, n.sender_id, n.object_id, n.object_type, n.message, n.is_read, n.created_at
 	 FROM {$wpdb->prefix}bn_notifications AS n
-	 WHERE n.user_id = %d"
+	 WHERE n.recipient_id = %d"
 	. $filter_sql .
 	' ORDER BY n.created_at DESC LIMIT 50';
 $rows     = $wpdb->get_results( $wpdb->prepare( $base_sql, $current_user_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
@@ -76,13 +76,13 @@ $unread_counts = $wpdb->get_results(
 			SUM( CASE WHEN is_read = 0 AND type IN ('bn.space_invite','bn.space_join_request') THEN 1 ELSE 0 END ) AS space_unread,
 			SUM( CASE WHEN is_read = 0 AND type IN ('bn.new_message') THEN 1 ELSE 0 END ) AS message_unread
 		 FROM {$wpdb->prefix}bn_notifications
-		 WHERE user_id = %d",
+		 WHERE recipient_id = %d",
 		$current_user_id
 	),
 	ARRAY_A
 );
 
-$counts          = ! empty( $unread_counts ) ? $unread_counts[0] : [];
+$counts          = ! empty( $unread_counts ) ? $unread_counts[0] : array();
 $total_unread    = (int) ( $counts['total_unread'] ?? 0 );
 $reaction_unread = (int) ( $counts['reaction_unread'] ?? 0 );
 $comment_unread  = (int) ( $counts['comment_unread'] ?? 0 );
@@ -91,28 +91,28 @@ $space_unread    = (int) ( $counts['space_unread'] ?? 0 );
 $message_unread  = (int) ( $counts['message_unread'] ?? 0 );
 
 // Prefetch actor display names and avatars in a single query to avoid N+1.
-$actor_ids  = array_unique( array_filter( array_column( $rows ?? [], 'actor_id' ) ) );
-$actor_data = [];
+$actor_ids  = array_unique( array_filter( array_column( $rows ?? array(), 'sender_id' ) ) );
+$actor_data = array();
 if ( ! empty( $actor_ids ) ) {
 	foreach ( $actor_ids as $actor_id ) {
 		$actor_id                = (int) $actor_id;
 		$actor_user              = get_userdata( $actor_id );
-		$actor_data[ $actor_id ] = [
+		$actor_data[ $actor_id ] = array(
 			'display_name' => $actor_user ? $actor_user->display_name : __( 'Someone', 'buddynext' ),
 			'initials'     => $actor_user ? strtoupper( substr( $actor_user->display_name, 0, 1 ) . substr( strrchr( $actor_user->display_name, ' ' ), 1, 1 ) ) : '?',
-		];
+		);
 	}
 }
 
 // Group rows into Today / Yesterday / Older.
 $today_ts     = strtotime( 'today midnight' );
 $yesterday_ts = strtotime( 'yesterday midnight' );
-$groups       = [
-	'today'     => [],
-	'yesterday' => [],
-	'older'     => [],
-];
-foreach ( $rows ?? [] as $row ) {
+$groups       = array(
+	'today'     => array(),
+	'yesterday' => array(),
+	'older'     => array(),
+);
+foreach ( $rows ?? array() as $row ) {
 	$row_ts = strtotime( $row->created_at );
 	if ( $row_ts >= $today_ts ) {
 		$groups['today'][] = $row;
@@ -124,55 +124,55 @@ foreach ( $rows ?? [] as $row ) {
 }
 
 // Map notification type → icon background colour and emoji.
-$type_meta = [
-	'bn.new_reaction'        => [
+$type_meta = array(
+	'bn.new_reaction'        => array(
 		'color' => '#dc2626',
 		'icon'  => '&#x2764;&#xFE0F;',
-	],
-	'bn.new_comment'         => [
+	),
+	'bn.new_comment'         => array(
 		'color' => '#0073aa',
 		'icon'  => '&#x1F4AC;',
-	],
-	'bn.new_reply'           => [
+	),
+	'bn.new_reply'           => array(
 		'color' => '#0073aa',
 		'icon'  => '&#x1F4AC;',
-	],
-	'bn.new_follower'        => [
+	),
+	'bn.new_follower'        => array(
 		'color' => '#059669',
 		'icon'  => '&#x1F464;',
-	],
-	'bn.connection_request'  => [
+	),
+	'bn.connection_request'  => array(
 		'color' => '#059669',
 		'icon'  => '&#x1F465;',
-	],
-	'bn.connection_accepted' => [
+	),
+	'bn.connection_accepted' => array(
 		'color' => '#22c55e',
 		'icon'  => '&#x1F465;',
-	],
-	'bn.space_invite'        => [
+	),
+	'bn.space_invite'        => array(
 		'color' => '#7c3aed',
 		'icon'  => '&#x1F3D8;&#xFE0F;',
-	],
-	'bn.space_join_request'  => [
+	),
+	'bn.space_join_request'  => array(
 		'color' => '#7c3aed',
 		'icon'  => '&#x1F3D8;&#xFE0F;',
-	],
-	'bn.new_message'         => [
+	),
+	'bn.new_message'         => array(
 		'color' => '#0073aa',
 		'icon'  => '&#x2709;&#xFE0F;',
-	],
-	'bn.badge_awarded'       => [
+	),
+	'bn.badge_awarded'       => array(
 		'color' => '#d97706',
 		'icon'  => '&#x1F3C5;',
-	],
-	'bn.mention'             => [
+	),
+	'bn.mention'             => array(
 		'color' => '#dc2626',
 		'icon'  => '&#x1F4E3;',
-	],
-];
+	),
+);
 
 // Avatar colour palette — deterministic from user ID.
-$avatar_palette = [ '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0f766e', '#d97706', '#475569' ];
+$avatar_palette = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0f766e', '#d97706', '#475569' );
 
 /**
  * Return a CSS background colour for an actor avatar from the palette.
@@ -245,12 +245,12 @@ $rest_url       = esc_url( rest_url( 'buddynext/v1/notifications/read-all' ) );
  */
 $render_row = static function ( object $row, callable $get_initials, callable $get_display_name, callable $time_ago, callable $avatar_color, array $type_meta ): void {
 	$is_unread  = ! (bool) $row->is_read;
-	$actor_id   = (int) $row->actor_id;
+	$actor_id   = (int) $row->sender_id;
 	$notif_type = $row->type ?? '';
-	$meta       = $type_meta[ $notif_type ] ?? [
+	$meta       = $type_meta[ $notif_type ] ?? array(
 		'color' => '#9b9b97',
 		'icon'  => '&#x1F514;',
-	];
+	);
 	$row_class  = 'bn-notif-row' . ( $is_unread ? ' bn-notif-row--unread' : '' );
 	?>
 	<div class="<?php echo esc_attr( $row_class ); ?>"
@@ -591,32 +591,32 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 	<!-- Filter tabs -->
 	<nav class="bn-notif-tabs" aria-label="<?php esc_attr_e( 'Notification filters', 'buddynext' ); ?>">
 		<?php
-		$notif_tabs = [
-			'all'      => [
+		$notif_tabs = array(
+			'all'      => array(
 				'label' => __( 'All', 'buddynext' ),
 				'count' => $total_unread,
-			],
-			'reaction' => [
+			),
+			'reaction' => array(
 				'label' => __( 'Reactions', 'buddynext' ),
 				'count' => $reaction_unread,
-			],
-			'comment'  => [
+			),
+			'comment'  => array(
 				'label' => __( 'Comments', 'buddynext' ),
 				'count' => $comment_unread,
-			],
-			'follow'   => [
+			),
+			'follow'   => array(
 				'label' => __( 'People', 'buddynext' ),
 				'count' => $follow_unread,
-			],
-			'space'    => [
+			),
+			'space'    => array(
 				'label' => __( 'Spaces', 'buddynext' ),
 				'count' => $space_unread,
-			],
-			'message'  => [
+			),
+			'message'  => array(
 				'label' => __( 'Messages', 'buddynext' ),
 				'count' => $message_unread,
-			],
-		];
+			),
+		);
 		foreach ( $notif_tabs as $key => $notif_tab ) :
 			$is_active = ( $key === $active_filter );
 			$tab_url   = esc_url( add_query_arg( 'filter', $key ) );
@@ -634,11 +634,11 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 	</nav>
 
 	<?php
-	$group_labels = [
+	$group_labels = array(
 		'today'     => __( 'Today', 'buddynext' ),
 		'yesterday' => __( 'Yesterday', 'buddynext' ),
 		'older'     => __( 'Older', 'buddynext' ),
-	];
+	);
 
 	$has_any = false;
 	foreach ( $groups as $group_key => $group_rows ) :

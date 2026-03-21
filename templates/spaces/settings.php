@@ -31,7 +31,7 @@ if ( ! $space_id ) {
 
 // ── Permission gate ───────────────────────────────────────────────────────────
 
-if ( ! buddynext_can( get_current_user_id(), 'manage-space', [ 'space_id' => $space_id ] ) ) {
+if ( ! buddynext_can( get_current_user_id(), 'manage-space', array( 'space_id' => $space_id ) ) ) {
 	wp_die( esc_html__( 'You do not have permission to manage this space.', 'buddynext' ) );
 }
 
@@ -68,7 +68,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_settings_nonce'] ) ), 'bn_space_settings_' . $space_id ) ) {
 		$save_notice = 'error';
 	} else {
-		$update_data = [];
+		$update_data = array();
 
 		if ( isset( $_POST['space_name'] ) ) {
 			$update_data['name'] = sanitize_text_field( wp_unslash( $_POST['space_name'] ) );
@@ -79,8 +79,8 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		if ( isset( $_POST['space_category_id'] ) ) {
 			$update_data['category_id'] = absint( $_POST['space_category_id'] );
 		}
-		if ( isset( $_POST['space_visibility'] ) && in_array( wp_unslash( $_POST['space_visibility'] ), [ 'public', 'private', 'secret' ], true ) ) {
-			$update_data['visibility'] = sanitize_key( wp_unslash( $_POST['space_visibility'] ) );
+		if ( isset( $_POST['space_type'] ) && in_array( wp_unslash( $_POST['space_type'] ), array( 'public', 'private', 'secret' ), true ) ) {
+			$update_data['type'] = sanitize_key( wp_unslash( $_POST['space_type'] ) );
 		}
 		if ( isset( $_POST['allow_member_posts'] ) ) {
 			update_option( 'bn_space_' . $space_id . '_allow_member_posts', 1 );
@@ -111,9 +111,9 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			$wpdb->update(
 				$wpdb->prefix . 'bn_spaces',
 				$update_data,
-				[ 'id' => $space_id ],
+				array( 'id' => $space_id ),
 				null,
-				[ '%d' ]
+				array( '%d' )
 			);
 		}
 
@@ -543,32 +543,32 @@ textarea.bn-text-input {
 			<!-- Sidebar nav -->
 			<nav class="bn-settings-nav" aria-label="<?php esc_attr_e( 'Settings sections', 'buddynext' ); ?>">
 				<?php
-				$nav_items = [
-					'general'       => [
+				$nav_items = array(
+					'general'       => array(
 						'icon'  => 'ℹ️',
 						'label' => __( 'General', 'buddynext' ),
-					],
-					'privacy'       => [
+					),
+					'privacy'       => array(
 						'icon'  => '🔒',
 						'label' => __( 'Privacy', 'buddynext' ),
-					],
-					'members'       => [
+					),
+					'members'       => array(
 						'icon'  => '👥',
 						'label' => __( 'Members', 'buddynext' ),
-					],
-					'moderation'    => [
+					),
+					'moderation'    => array(
 						'icon'  => '🛡️',
 						'label' => __( 'Moderation', 'buddynext' ),
-					],
-					'integrations'  => [
+					),
+					'integrations'  => array(
 						'icon'  => '🔗',
 						'label' => __( 'Integrations', 'buddynext' ),
-					],
-					'notifications' => [
+					),
+					'notifications' => array(
 						'icon'  => '📧',
 						'label' => __( 'Notifications', 'buddynext' ),
-					],
-				];
+					),
+				);
 				foreach ( $nav_items as $tab_key => $nav_item ) :
 					$is_active = ( $settings_tab === $tab_key );
 					?>
@@ -677,15 +677,15 @@ textarea.bn-text-input {
 								<p class="bn-settings-section__desc"><?php esc_html_e( 'Who can see and join your space', 'buddynext' ); ?></p>
 
 								<div class="bn-field">
-									<label for="space_visibility"><?php esc_html_e( 'Space Visibility', 'buddynext' ); ?></label>
-									<select name="space_visibility" id="space_visibility" class="bn-select-input">
-										<option value="public" <?php selected( $space->visibility, 'public' ); ?>>
+									<label for="space_type"><?php esc_html_e( 'Space Visibility', 'buddynext' ); ?></label>
+									<select name="space_type" id="space_type" class="bn-select-input">
+										<option value="public" <?php selected( $space->type, 'public' ); ?>>
 											<?php esc_html_e( 'Public — listed in directory, anyone can join', 'buddynext' ); ?>
 										</option>
-										<option value="private" <?php selected( $space->visibility, 'private' ); ?>>
+										<option value="private" <?php selected( $space->type, 'private' ); ?>>
 											<?php esc_html_e( 'Private — listed but requires approval to join', 'buddynext' ); ?>
 										</option>
-										<option value="secret" <?php selected( $space->visibility, 'secret' ); ?>>
+										<option value="secret" <?php selected( $space->type, 'secret' ); ?>>
 											<?php esc_html_e( 'Invite-only — not listed, admin invites only', 'buddynext' ); ?>
 										</option>
 									</select>

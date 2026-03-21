@@ -169,7 +169,7 @@ class Plugin {
 			)
 		);
 		$container->bind( 'post_service', fn() => new PostService() );
-		$container->bind( 'feed', fn( $c ) => new FeedService( $c->get( 'follows' ) ) );
+		$container->bind( 'feed', fn( $c ) => new FeedService( $c->get( 'follows' ), $c->get( 'post_service' ) ) );
 		$container->bind( 'polls', fn() => new PollService() );
 		$container->bind( 'bookmarks', fn() => new BookmarkService() );
 		$container->bind( 'shares', fn() => new ShareService() );

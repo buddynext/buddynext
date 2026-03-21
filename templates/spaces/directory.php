@@ -34,12 +34,12 @@ $bn_offset       = ( $bn_paged - 1 ) * $bn_per_page;
 
 // ── Build ORDER BY ────────────────────────────────────────────────────────────
 
-$order_map = [
+$order_map = array(
 	'popular'      => 's.member_count DESC',
 	'active'       => 's.member_count DESC',
 	'newest'       => 's.created_at DESC',
 	'alphabetical' => 's.name ASC',
-];
+);
 $order_sql = isset( $order_map[ $bn_orderby ] ) ? $order_map[ $bn_orderby ] : 's.member_count DESC';
 
 // ── Fetch categories ──────────────────────────────────────────────────────────
@@ -51,8 +51,8 @@ $categories = $wpdb->get_results(
 
 // ── Build main spaces query ────────────────────────────────────────────────────
 
-$where_parts = [ "s.visibility != 'secret'" ];
-$query_args  = [];
+$where_parts = array( "s.type != 'secret'" );
+$query_args  = array();
 
 if ( ! empty( $bn_search ) ) {
 	$where_parts[] = '( s.name LIKE %s OR s.description LIKE %s )';
@@ -66,8 +66,8 @@ if ( ! empty( $bn_cat_slug ) ) {
 	$query_args[]  = $bn_cat_slug;
 }
 
-if ( in_array( $bn_visibility, [ 'public', 'private' ], true ) ) {
-	$where_parts[] = 's.visibility = %s';
+if ( in_array( $bn_visibility, array( 'public', 'private' ), true ) ) {
+	$where_parts[] = 's.type = %s';
 	$query_args[]  = $bn_visibility;
 }
 
@@ -92,7 +92,7 @@ $total_pages = (int) ceil( $total_spaces / $bn_per_page );
 
 // Fetch spaces.
 // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$data_base = "SELECT s.id, s.name, s.slug, s.description, s.visibility, s.cover_image_url, s.member_count, s.created_at,
+$data_base = "SELECT s.id, s.name, s.slug, s.description, s.type, s.cover_image_url, s.member_count, s.created_at,
 	c.name AS category_name, c.slug AS category_slug
 	FROM {$wpdb->prefix}bn_spaces s
 	{$join_sql}
@@ -101,7 +101,7 @@ $data_base = "SELECT s.id, s.name, s.slug, s.description, s.visibility, s.cover_
 	LIMIT %d OFFSET %d";
 // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-$data_args   = array_merge( $query_args, [ $bn_per_page, $bn_offset ] );
+$data_args   = array_merge( $query_args, array( $bn_per_page, $bn_offset ) );
 $prepare_sql = ! empty( $data_args )
 	// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 	? $wpdb->prepare( $data_base, $data_args )
@@ -113,11 +113,11 @@ $spaces = $wpdb->get_results( $prepare_sql );
 
 // ── Fetch current user membership for all returned spaces ─────────────────────
 
-$membership_map = [];
+$membership_map = array();
 if ( $current_user_id && ! empty( $spaces ) ) {
 	$space_ids       = array_map( 'intval', wp_list_pluck( $spaces, 'id' ) );
 	$id_placeholders = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
-	$membership_args = array_merge( [ $current_user_id ], $space_ids );
+	$membership_args = array_merge( array( $current_user_id ), $space_ids );
 	// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	$memberships = $wpdb->get_results(
 		$wpdb->prepare(
@@ -140,16 +140,16 @@ if ( $current_user_id && ! empty( $spaces ) ) {
  * @return string CSS gradient value.
  */
 function bn_space_cover_gradient( int $space_id ): string {
-	$palettes = [
-		[ '#dbeafe', '#bfdbfe' ],
-		[ '#f3e8ff', '#e9d5ff' ],
-		[ '#fef3c7', '#fde68a' ],
-		[ '#dcfce7', '#bbf7d0' ],
-		[ '#fce7f3', '#fbcfe8' ],
-		[ '#e0e7ff', '#c7d2fe' ],
-		[ '#ffedd5', '#fed7aa' ],
-		[ '#f0fdf4', '#d1fae5' ],
-	];
+	$palettes = array(
+		array( '#dbeafe', '#bfdbfe' ),
+		array( '#f3e8ff', '#e9d5ff' ),
+		array( '#fef3c7', '#fde68a' ),
+		array( '#dcfce7', '#bbf7d0' ),
+		array( '#fce7f3', '#fbcfe8' ),
+		array( '#e0e7ff', '#c7d2fe' ),
+		array( '#ffedd5', '#fed7aa' ),
+		array( '#f0fdf4', '#d1fae5' ),
+	);
 	$pair     = $palettes[ $space_id % count( $palettes ) ];
 	return 'linear-gradient(135deg,' . $pair[0] . ',' . $pair[1] . ')';
 }
@@ -161,7 +161,7 @@ function bn_space_cover_gradient( int $space_id ): string {
  * @return string CSS background-color value.
  */
 function bn_space_avatar_bg( int $space_id ): string {
-	$bgs = [
+	$bgs = array(
 		'#eff6ff',
 		'#faf5ff',
 		'#fffbeb',
@@ -170,7 +170,7 @@ function bn_space_avatar_bg( int $space_id ): string {
 		'#eef2ff',
 		'#fff7ed',
 		'#ecfdf5',
-	];
+	);
 	return $bgs[ $space_id % count( $bgs ) ];
 }
 
@@ -181,7 +181,7 @@ function bn_space_avatar_bg( int $space_id ): string {
  * @return string Emoji character.
  */
 function bn_space_category_icon( ?string $cat_slug ): string {
-	$map = [
+	$map = array(
 		'technology'  => '&#x1F4BB;',
 		'design'      => '&#x1F3A8;',
 		'marketing'   => '&#x1F4E3;',
@@ -193,7 +193,7 @@ function bn_space_category_icon( ?string $cat_slug ): string {
 		'open-source' => '&#x1F30D;',
 		'business'    => '&#x1F4BC;',
 		'creative'    => '&#x1F3A4;',
-	];
+	);
 	return $map[ (string) $cat_slug ] ?? '&#x1F3D8;';
 }
 
@@ -668,16 +668,16 @@ function bn_space_category_icon( ?string $cat_slug ): string {
 				<?php
 				$space_id     = (int) $space->id;
 				$membership   = $membership_map[ $space_id ] ?? null;
-				$is_admin_mod = $membership && in_array( $membership->role, [ 'admin', 'moderator' ], true ) && 'active' === $membership->status;
+				$is_admin_mod = $membership && in_array( $membership->role, array( 'admin', 'moderator' ), true ) && 'active' === $membership->status;
 				$is_member    = $membership && 'active' === $membership->status;
 				$is_pending   = $membership && 'pending' === $membership->status;
 
-				$privacy_label = match ( $space->visibility ) {
+				$privacy_label = match ( $space->type ) {
 					'public'  => __( 'Public', 'buddynext' ),
 					'private' => __( 'Private', 'buddynext' ),
 					default   => __( 'Invite-only', 'buddynext' ),
 				};
-				$privacy_icon = match ( $space->visibility ) {
+				$privacy_icon = match ( $space->type ) {
 					'public'  => '&#x1F310;',
 					'private' => '&#x1F512;',
 					default   => '&#x1F4E7;',
@@ -745,7 +745,7 @@ function bn_space_category_icon( ?string $cat_slug ): string {
 									aria-label="<?php esc_attr_e( 'Request pending — click to cancel', 'buddynext' ); ?>"
 								><?php esc_html_e( 'Requested', 'buddynext' ); ?></button>
 
-							<?php elseif ( 'public' === $space->visibility ) : ?>
+							<?php elseif ( 'public' === $space->type ) : ?>
 								<button
 									class="bn-btn-join"
 									data-wp-on--click="actions.joinSpace"

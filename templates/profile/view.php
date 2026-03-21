@@ -27,7 +27,7 @@ $current_user_id = get_current_user_id();
 $is_own_profile  = ( $current_user_id === $user_id );
 
 // --- Avatar & display name ------------------------------------------------
-$avatar_url        = get_avatar_url( $user_id, [ 'size' => 96 ] );
+$avatar_url        = get_avatar_url( $user_id, array( 'size' => 96 ) );
 $display_name      = $profile_user->display_name;
 $profile_login     = $profile_user->user_login;
 $profile_email_raw = $profile_user->user_email;
@@ -38,7 +38,7 @@ $initials   = '';
 foreach ( array_slice( $name_parts, 0, 2 ) as $part ) {
 	$initials .= mb_strtoupper( mb_substr( $part, 0, 1 ) );
 }
-$initials = $initials ?: mb_strtoupper( mb_substr( $profile_login, 0, 2 ) );
+$initials = $initials ? $initials : mb_strtoupper( mb_substr( $profile_login, 0, 2 ) );
 
 // --- Profile meta from user meta ------------------------------------------
 $headline = (string) get_user_meta( $user_id, 'bn_headline', true );
@@ -140,11 +140,10 @@ if ( ! $is_own_profile && $current_user_id ) {
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $profile_fields = $wpdb->get_results(
 	$wpdb->prepare(
-		"SELECT f.id, f.field_label, f.field_type, v.value
+		"SELECT f.id, f.label, f.field_type, v.value
 		FROM {$wpdb->prefix}bn_profile_fields f
 		INNER JOIN {$wpdb->prefix}bn_profile_values v
 		  ON v.field_id = f.id AND v.user_id = %d
-		WHERE f.is_active = 1
 		ORDER BY f.sort_order ASC",
 		$user_id
 	)
@@ -577,12 +576,12 @@ $format_count = static function ( int $n ): string {
 	<?php
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
-		[
+		array(
 			'userId'      => $user_id,
 			'activeTab'   => 'posts',
 			'isFollowing' => $is_following,
 			'isConnected' => $is_connected,
-		]
+		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	?>
@@ -685,7 +684,10 @@ $format_count = static function ( int $n ): string {
 				<div class="bn-meta-item">
 					<span>&#128279;</span>
 					<a href="<?php echo esc_url( $website ); ?>" target="_blank" rel="noopener noreferrer">
-						<?php echo esc_html( wp_parse_url( $website, PHP_URL_HOST ) ?: $website ); ?>
+						<?php
+						$parsed_host = wp_parse_url( $website, PHP_URL_HOST );
+						echo esc_html( $parsed_host ? $parsed_host : $website );
+						?>
 					</a>
 				</div>
 			<?php endif; ?>
@@ -813,7 +815,7 @@ $format_count = static function ( int $n ): string {
 				<div class="bn-widget-title"><?php esc_html_e( 'Profile Details', 'buddynext' ); ?></div>
 				<?php foreach ( $profile_fields as $field ) : ?>
 					<div class="bn-field-row">
-						<span class="bn-field-label"><?php echo esc_html( $field->field_label ); ?></span>
+						<span class="bn-field-label"><?php echo esc_html( $field->label ); ?></span>
 						<span class="bn-field-value">
 							<?php if ( 'url' === $field->field_type ) : ?>
 								<a href="<?php echo esc_url( $field->value ); ?>"
