@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
 $count   = $count ?? 10;
 $display = $display ?? 'list';
 
-$hashtags = buddynext_service( 'hashtags' )->trending( array( 'limit' => $count ) );
+$hashtags = buddynext_service( 'hashtags' )->get_trending( $count );
 ?>
 <div class="bn-block-trending-hashtags bn-block-trending-hashtags--<?php echo esc_attr( $display ); ?>">
 	<h3 class="bn-block-heading"><?php esc_html_e( 'Trending', 'buddynext' ); ?></h3>

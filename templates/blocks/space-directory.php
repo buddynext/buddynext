@@ -14,14 +14,13 @@ defined( 'ABSPATH' ) || exit;
 $bn_per_page = $per_page ?? 12;
 $layout      = $layout ?? 'grid';
 
-$result   = buddynext_service( 'spaces' )->list_spaces(
+$spaces   = buddynext_service( 'spaces' )->list_spaces(
 	array(
 		'per_page' => $bn_per_page,
 		'type'     => 'open',
 	)
 );
-$spaces   = $result['spaces'] ?? array();
-$has_more = $result['has_more'] ?? false;
+$has_more = false;
 ?>
 <div class="bn-block-space-directory bn-block-space-directory--<?php echo esc_attr( $layout ); ?>">
 	<h3 class="bn-block-heading"><?php esc_html_e( 'Spaces', 'buddynext' ); ?></h3>

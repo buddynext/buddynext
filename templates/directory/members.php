@@ -21,23 +21,23 @@ $bn_current_page = max( 1, absint( get_query_var( 'paged', 1 ) ) );
 $bn_per_page     = 20;
 $search_term     = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );       // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $orderby_raw     = sanitize_key( $_GET['orderby'] ?? 'registered' );             // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$allowed_sort    = [ 'registered', 'display_name', 'post_count' ];
+$allowed_sort    = array( 'registered', 'display_name', 'post_count' );
 $bn_orderby      = in_array( $orderby_raw, $allowed_sort, true ) ? $orderby_raw : 'registered';
 $bn_order        = 'registered' === $bn_orderby ? 'DESC' : 'ASC';
 
 // ── Fetch users ───────────────────────────────────────────────────────────────
-$user_query_args = [
+$user_query_args = array(
 	'number'      => $bn_per_page,
 	'paged'       => $bn_current_page,
 	'orderby'     => $bn_orderby,
 	'order'       => $bn_order,
 	'fields'      => 'all',
 	'count_total' => true,
-];
+);
 
 if ( '' !== $search_term ) {
 	$user_query_args['search']         = '*' . $search_term . '*';
-	$user_query_args['search_columns'] = [ 'user_login', 'user_nicename', 'display_name', 'user_email' ];
+	$user_query_args['search_columns'] = array( 'user_login', 'user_nicename', 'display_name', 'user_email' );
 }
 
 $user_query  = new WP_User_Query( $user_query_args );
@@ -79,7 +79,7 @@ $bn_initials = static function ( string $name ): string {
 };
 
 // Avatar colour palette — cycles deterministically by user ID.
-$avatar_colours = [ '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' ];
+$avatar_colours = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' );
 
 /**
  * Pick an avatar background colour for a given user ID.
@@ -147,7 +147,7 @@ $bn_is_following = static function ( int $target_user_id ) use ( $current_user_i
  * @return string Escaped URL.
  */
 $bn_paged_url = static function ( int $page_number ) use ( $search_term, $bn_orderby ): string {
-	$args = [ 'paged' => $page_number ];
+	$args = array( 'paged' => $page_number );
 	if ( '' !== $search_term ) {
 		$args['s'] = $search_term;
 	}
@@ -599,14 +599,14 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 				$bio = get_user_meta( $member_id, 'description', true );
 			}
 			$profile_url  = get_author_posts_url( $member_id );
-			$avatar_html  = get_avatar( $member_id, 64, '', esc_attr( $display_name ), [ 'force_display' => true ] );
+			$avatar_html  = get_avatar( $member_id, 64, '', esc_attr( $display_name ), array( 'force_display' => true ) );
 			$has_avatar   = false !== strpos( $avatar_html, 'src=' );
 			$initials     = $bn_initials( $display_name );
 			$bg_colour    = $bn_avatar_colour( $member_id );
 			$is_online    = $bn_is_online( $member_id );
 			$is_following = $bn_is_following( $member_id );
 			$mutual       = $bn_mutual_count( $current_user_id, $member_id );
-			$messages_url = add_query_arg( [ 'recipient' => $member_id ], get_permalink( get_page_by_path( 'messages' ) ) );
+			$messages_url = add_query_arg( array( 'recipient' => $member_id ), get_permalink( get_page_by_path( 'messages' ) ) );
 			$follow_nonce = wp_create_nonce( 'bn_follow_' . $member_id );
 			?>
 			<article class="bn-member-card" role="listitem">
@@ -620,8 +620,8 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 						<?php
 						echo wp_kses(
 							$avatar_html,
-							[
-								'img' => [
+							array(
+								'img' => array(
 									'src'      => true,
 									'class'    => true,
 									'alt'      => true,
@@ -629,8 +629,8 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 									'height'   => true,
 									'loading'  => true,
 									'decoding' => true,
-								],
-							]
+								),
+							)
 						);
 						?>
 					<?php else : ?>

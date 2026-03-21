@@ -30,7 +30,7 @@ class CareerBoard {
 	 * Called from Plugin::init() via buddynext_load_bridges action.
 	 */
 	public function init(): void {
-		if ( ! function_exists( 'wcb_get_job' ) && ! class_exists( 'WCB_Career_Board' ) ) {
+		if ( ! function_exists( 'wcb_get_job' ) || ! class_exists( 'WCB_Career_Board' ) ) {
 			return;
 		}
 

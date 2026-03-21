@@ -39,20 +39,22 @@ class OutboundWebhookService {
 	 * is called with that event name and the relevant payload.
 	 */
 	public function init(): void {
-		add_action( 'buddynext_user_followed',        array( $this, 'on_user_followed' ),        10, 2 );
-		add_action( 'buddynext_post_created',         array( $this, 'on_post_created' ),         10, 3 );
-		add_action( 'buddynext_comment_created',      array( $this, 'on_comment_created' ),      10, 4 );
-		add_action( 'buddynext_reaction_added',       array( $this, 'on_reaction_added' ),       10, 4 );
-		add_action( 'buddynext_connection_accepted',  array( $this, 'on_connection_accepted' ),  10, 3 );
-		add_action( 'buddynext_space_member_joined',  array( $this, 'on_space_member_joined' ),  10, 3 );
-		add_action( 'buddynext_strike_issued',        array( $this, 'on_strike_issued' ),        10, 3 );
-		add_action( 'buddynext_member_suspended',     array( $this, 'on_member_suspended' ),     10, 2 );
-		add_action( 'buddynext_appeal_resolved',      array( $this, 'on_appeal_resolved' ),      10, 3 );
+		add_action( 'buddynext_user_followed', array( $this, 'on_user_followed' ), 10, 2 );
+		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
+		add_action( 'buddynext_comment_created', array( $this, 'on_comment_created' ), 10, 4 );
+		add_action( 'buddynext_reaction_added', array( $this, 'on_reaction_added' ), 10, 4 );
+		add_action( 'buddynext_connection_accepted', array( $this, 'on_connection_accepted' ), 10, 3 );
+		add_action( 'buddynext_space_member_joined', array( $this, 'on_space_member_joined' ), 10, 3 );
+		add_action( 'buddynext_strike_issued', array( $this, 'on_strike_issued' ), 10, 3 );
+		add_action( 'buddynext_member_suspended', array( $this, 'on_member_suspended' ), 10, 2 );
+		add_action( 'buddynext_appeal_resolved', array( $this, 'on_appeal_resolved' ), 10, 3 );
 	}
 
 	// ── Hook handlers ─────────────────────────────────────────────────────
 
 	/**
+	 * Dispatch webhook payload when a user follows another user.
+	 *
 	 * @param int $follower_id  User who followed.
 	 * @param int $following_id User being followed.
 	 */
@@ -67,6 +69,8 @@ class OutboundWebhookService {
 	}
 
 	/**
+	 * Dispatch webhook payload when a new post is created.
+	 *
 	 * @param int    $post_id Post ID.
 	 * @param int    $user_id Author ID.
 	 * @param string $type    Post type.
@@ -83,6 +87,8 @@ class OutboundWebhookService {
 	}
 
 	/**
+	 * Dispatch webhook payload when a comment is created.
+	 *
 	 * @param int    $comment_id  Comment ID.
 	 * @param string $object_type Object type.
 	 * @param int    $object_id   Object ID.
@@ -101,6 +107,8 @@ class OutboundWebhookService {
 	}
 
 	/**
+	 * Dispatch webhook payload when a reaction is added to a post or comment.
+	 *
 	 * @param string $object_type Object type.
 	 * @param int    $object_id   Object ID.
 	 * @param int    $user_id     Reactor ID.
@@ -119,6 +127,8 @@ class OutboundWebhookService {
 	}
 
 	/**
+	 * Dispatch webhook payload when a connection request is accepted.
+	 *
 	 * @param int $connection_id Connection ID.
 	 * @param int $user_a        First user.
 	 * @param int $user_b        Second user.
@@ -135,6 +145,8 @@ class OutboundWebhookService {
 	}
 
 	/**
+	 * Dispatch webhook payload when a member joins a space.
+	 *
 	 * @param int    $space_id Space ID.
 	 * @param int    $user_id  Joined user.
 	 * @param string $_role    Role assigned (not included in payload — preserved for hook arity).
@@ -150,6 +162,8 @@ class OutboundWebhookService {
 	}
 
 	/**
+	 * Dispatch webhook payload when a moderation strike is issued.
+	 *
 	 * @param int $strike_id Strike ID.
 	 * @param int $user_id   Struck user.
 	 * @param int $actor_id  Issuing moderator.
@@ -166,6 +180,8 @@ class OutboundWebhookService {
 	}
 
 	/**
+	 * Dispatch webhook payload when a member is suspended.
+	 *
 	 * @param int $user_id  Suspended user.
 	 * @param int $actor_id Admin performing the suspension.
 	 */
@@ -180,6 +196,8 @@ class OutboundWebhookService {
 	}
 
 	/**
+	 * Dispatch webhook payload when a moderation appeal is resolved.
+	 *
 	 * @param int    $appeal_id Appeal ID.
 	 * @param int    $user_id   Appellant.
 	 * @param string $decision  'approved' or 'denied'.
@@ -221,10 +239,10 @@ class OutboundWebhookService {
 
 		$body = wp_json_encode(
 			array(
-				'event'      => $event_name,
-				'payload'    => $payload,
-				'fired_at'   => gmdate( 'Y-m-d\TH:i:s\Z' ),
-				'site_url'   => get_site_url(),
+				'event'    => $event_name,
+				'payload'  => $payload,
+				'fired_at' => gmdate( 'Y-m-d\TH:i:s\Z' ),
+				'site_url' => get_site_url(),
 			)
 		);
 
@@ -273,7 +291,7 @@ class OutboundWebhookService {
 			)
 		);
 
-		$is_error     = is_wp_error( $response );
+		$is_error      = is_wp_error( $response );
 		$response_code = $is_error ? null : wp_remote_retrieve_response_code( $response );
 		$response_body = $is_error
 			? $response->get_error_message()

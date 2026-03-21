@@ -39,7 +39,9 @@ $is_following    = $viewer_id && $viewer_id !== $user_id
 	? $follow_svc->is_following( $viewer_id, $user_id )
 	: false;
 
-$bio = $profile['fields']['bio'] ?? get_user_meta( $user_id, 'description', true );
+$bio_fields = array_filter( $profile['fields'] ?? array(), fn( $f ) => 'bio' === ( $f['field_key'] ?? '' ) );
+$bio_field  = reset( $bio_fields );
+$bio        = $bio_field ? ( $bio_field['value'] ?? '' ) : get_user_meta( $user_id, 'description', true );
 ?>
 <div class="bn-block-profile-header" data-user-id="<?php echo absint( $user_id ); ?>">
 	<div class="bn-profile-header__cover"></div>

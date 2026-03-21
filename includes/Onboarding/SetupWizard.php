@@ -472,7 +472,7 @@ class SetupWizard {
 			),
 			array(
 				'name' => 'WBGamification',
-				'slug' => 'wbgamification/wbgamification.php',
+				'slug' => 'wb-gamification/wb-gamification.php',
 				'desc' => __( 'Points, badges, and leaderboards for community engagement.', 'buddynext' ),
 			),
 			array(

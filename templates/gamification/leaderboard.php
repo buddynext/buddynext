@@ -72,14 +72,14 @@ if ( ! class_exists( 'WBGamification\Plugin' ) ) {
 $current_user_id = get_current_user_id();
 
 // Period tab — week | month | alltime.
-$allowed_periods = [ 'week', 'month', 'alltime' ];
+$allowed_periods = array( 'week', 'month', 'alltime' );
 $period          = isset( $_GET['period'] ) ? sanitize_key( wp_unslash( $_GET['period'] ) ) : 'month'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $period, $allowed_periods, true ) ) {
 	$period = 'month';
 }
 
 // Category tab — contributors | connectors | rising.
-$allowed_cats = [ 'contributors', 'connectors', 'rising' ];
+$allowed_cats = array( 'contributors', 'connectors', 'rising' );
 $category     = isset( $_GET['category'] ) ? sanitize_key( wp_unslash( $_GET['category'] ) ) : 'contributors'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $category, $allowed_cats, true ) ) {
 	$category = 'contributors';
@@ -126,7 +126,7 @@ $leaderboard = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQu
 	 GROUP BY p.user_id
 	 ORDER BY total_points DESC
 	 LIMIT 10"
-) ?? [];
+) ?? array();
 
 // Fetch current user's rank.
 $current_user_rank = 0;
@@ -157,7 +157,7 @@ if ( $current_user_id ) {
 }
 
 // Fetch current user's badges.
-$user_badges = [];
+$user_badges = array();
 if ( $current_user_id ) {
 	$user_badges = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$wpdb->prepare(
@@ -168,11 +168,11 @@ if ( $current_user_id ) {
 			 LIMIT 8",
 			$current_user_id
 		)
-	) ?? [];
+	) ?? array();
 }
 
 // Fetch current user's points breakdown by event_type.
-$points_breakdown = [];
+$points_breakdown = array();
 if ( $current_user_id ) {
 	$points_breakdown = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$wpdb->prepare(
@@ -184,63 +184,63 @@ if ( $current_user_id ) {
 			 LIMIT 8",
 			$current_user_id
 		)
-	) ?? [];
+	) ?? array();
 }
 
 // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 // Map event_type to human-readable labels and colours.
-$event_labels = [
-	'bn_post_created' => [
+$event_labels = array(
+	'bn_post_created' => array(
 		'label' => __( 'Posts', 'buddynext' ),
 		'icon'  => '&#x270D;&#xFE0F;',
 		'color' => 'var(--brand)',
-	],
-	'bn_comment'      => [
+	),
+	'bn_comment'      => array(
 		'label' => __( 'Comments', 'buddynext' ),
 		'icon'  => '&#x1F4AC;',
 		'color' => 'var(--jetonomy, #5b21b6)',
-	],
-	'bn_reaction'     => [
+	),
+	'bn_reaction'     => array(
 		'label' => __( 'Reactions Given', 'buddynext' ),
 		'icon'  => '&#x2764;&#xFE0F;',
 		'color' => 'var(--red)',
-	],
-	'bn_space_joined' => [
+	),
+	'bn_space_joined' => array(
 		'label' => __( 'Space Contributions', 'buddynext' ),
 		'icon'  => '&#x1F3D8;&#xFE0F;',
 		'color' => 'var(--mvs, #0f766e)',
-	],
-	'bn_connected'    => [
+	),
+	'bn_connected'    => array(
 		'label' => __( 'New Connections', 'buddynext' ),
 		'icon'  => '&#x1F91D;',
 		'color' => 'var(--green)',
-	],
-	'bn_followed'     => [
+	),
+	'bn_followed'     => array(
 		'label' => __( 'Follows', 'buddynext' ),
 		'icon'  => '&#x1F464;',
 		'color' => 'var(--amber)',
-	],
-];
+	),
+);
 
 // Determine rank change (stub: compare to last-period snapshot if available).
 // WBGamification may store a rank_snapshot; fall back to 0 if not available.
-$rank_changes = [];
+$rank_changes = array();
 foreach ( $leaderboard as $idx => $entry ) {
 	$rank_changes[ (int) $entry->user_id ] = 0;
 }
 
 // Avatar palette.
-$avatar_palette = [ '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0f766e', '#d97706', '#475569' ];
+$avatar_palette = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0f766e', '#d97706', '#475569' );
 $avatar_color   = static function ( int $uid ) use ( $avatar_palette ): string {
 	return $avatar_palette[ $uid % count( $avatar_palette ) ];
 };
 
-$medal_icons = [
+$medal_icons = array(
 	1 => '&#x1F947;',
 	2 => '&#x1F948;',
 	3 => '&#x1F949;',
-];
+);
 
 // Compute next milestone for current user (simplistic: next 100-pt boundary).
 $next_milestone_pts  = $current_user_pts > 0 ? (int) ( ceil( ( $current_user_pts + 1 ) / 100 ) * 100 ) : 100;
@@ -607,18 +607,18 @@ $milestone_remaining = $next_milestone_pts - $current_user_pts;
 		<!-- Period tabs -->
 		<div class="bn-lb-period-tabs">
 			<?php
-			$period_tabs = [
+			$period_tabs = array(
 				'week'    => __( 'This Week', 'buddynext' ),
 				'month'   => __( 'This Month', 'buddynext' ),
 				'alltime' => __( 'All Time', 'buddynext' ),
-			];
+			);
 			foreach ( $period_tabs as $pkey => $plabel ) :
 				$phref = esc_url(
 					add_query_arg(
-						[
+						array(
 							'period'   => $pkey,
 							'category' => $category,
-						]
+						)
 					)
 				);
 				?>
@@ -632,18 +632,18 @@ $milestone_remaining = $next_milestone_pts - $current_user_pts;
 		<!-- Category tabs -->
 		<div class="bn-lb-cat-tabs">
 			<?php
-			$cat_tabs = [
+			$cat_tabs = array(
 				'contributors' => __( 'Top Contributors', 'buddynext' ),
 				'connectors'   => __( 'Top Connectors', 'buddynext' ),
 				'rising'       => __( 'Rising Stars', 'buddynext' ),
-			];
+			);
 			foreach ( $cat_tabs as $ckey => $clabel ) :
 				$chref = esc_url(
 					add_query_arg(
-						[
+						array(
 							'period'   => $period,
 							'category' => $ckey,
-						]
+						)
 					)
 				);
 				?>
@@ -670,24 +670,24 @@ $milestone_remaining = $next_milestone_pts - $current_user_pts;
 			$table = array_slice( $leaderboard, 3 );
 
 			// Podium order: 2nd, 1st, 3rd visually.
-			$podium_order = [];
+			$podium_order = array();
 			if ( isset( $top3[1] ) ) {
-				$podium_order[] = [
+				$podium_order[] = array(
 					'rank' => 2,
 					'row'  => $top3[1],
-				];
+				);
 			}
 			if ( isset( $top3[0] ) ) {
-				$podium_order[] = [
+				$podium_order[] = array(
 					'rank' => 1,
 					'row'  => $top3[0],
-				];
+				);
 			}
 			if ( isset( $top3[2] ) ) {
-				$podium_order[] = [
+				$podium_order[] = array(
 					'rank' => 3,
 					'row'  => $top3[2],
-				];
+				);
 			}
 			?>
 
@@ -857,11 +857,11 @@ $milestone_remaining = $next_milestone_pts - $current_user_pts;
 					foreach ( $points_breakdown as $bp ) :
 						$event  = $bp->event_type;
 						$pts_v  = (int) $bp->pts;
-						$evinfo = $event_labels[ $event ] ?? [
-							'label' => esc_html( ucwords( str_replace( [ 'bn_', '_' ], [ '', ' ' ], $event ) ) ),
+						$evinfo = $event_labels[ $event ] ?? array(
+							'label' => esc_html( ucwords( str_replace( array( 'bn_', '_' ), array( '', ' ' ), $event ) ) ),
 							'icon'  => '&#x2B50;',
 							'color' => 'var(--text-3)',
-						];
+						);
 						$bar_w  = (int) round( $pts_v / $max_pts * 100 );
 						?>
 						<div class="bn-points-item">

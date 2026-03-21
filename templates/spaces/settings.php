@@ -32,7 +32,7 @@ if ( ! $space_id ) {
 
 // ── Permission gate ───────────────────────────────────────────────────────────
 
-if ( ! buddynext_can( get_current_user_id(), 'manage-space', array( 'space_id' => $space_id ) ) ) {
+if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings', array( 'space_id' => $space_id ) ) ) {
 	wp_die( esc_html__( 'You do not have permission to manage this space.', 'buddynext' ) );
 }
 

@@ -32,7 +32,7 @@ class WBGamification {
 	 * Called from Plugin::init() via buddynext_load_bridges action.
 	 */
 	public function init(): void {
-		if ( ! class_exists( 'WBGamification\Plugin' ) && ! function_exists( 'wb_gamification_badge_awarded' ) ) {
+		if ( ! class_exists( 'WBGamification\Plugin' ) || ! function_exists( 'wb_gamification_badge_awarded' ) ) {
 			return;
 		}
 

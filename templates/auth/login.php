@@ -375,11 +375,11 @@ $redirect_to = isset( $_GET['redirect_to'] ) ? sanitize_url( wp_unslash( $_GET['
 	<?php
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
-		[
+		array(
 			'activeTab'     => $active_tab,
 			'pwStrength'    => 0,
 			'pwStrengthLbl' => '',
-		]
+		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	?>
@@ -573,8 +573,8 @@ $redirect_to = isset( $_GET['redirect_to'] ) ? sanitize_url( wp_unslash( $_GET['
 							sprintf(
 								/* translators: 1: Terms of Service URL, 2: Privacy Policy URL */
 								__( 'By signing up you agree to our <a href="%1$s">Terms of Service</a> and <a href="%2$s">Privacy Policy</a>', 'buddynext' ),
-								esc_url( get_privacy_policy_url() ?: home_url( '/terms/' ) ),
-								esc_url( get_privacy_policy_url() ?: home_url( '/privacy/' ) )
+								esc_url( get_privacy_policy_url() ? get_privacy_policy_url() : home_url( '/terms/' ) ),
+								esc_url( get_privacy_policy_url() ? get_privacy_policy_url() : home_url( '/privacy/' ) )
 							)
 						);
 						?>
@@ -605,7 +605,7 @@ $redirect_to = isset( $_GET['redirect_to'] ) ? sanitize_url( wp_unslash( $_GET['
 				<div class="bn-auth-wp-login-wrap">
 					<?php
 					wp_login_form(
-						[
+						array(
 							'echo'           => true,
 							'redirect'       => esc_url( $redirect_to ),
 							'label_username' => __( 'Username or Email Address', 'buddynext' ),
@@ -619,7 +619,7 @@ $redirect_to = isset( $_GET['redirect_to'] ) ? sanitize_url( wp_unslash( $_GET['
 							'remember'       => true,
 							'value_username' => '',
 							'value_remember' => false,
-						]
+						)
 					);
 					?>
 				</div>

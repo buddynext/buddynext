@@ -63,7 +63,7 @@ $popular_spaces = $wpdb->get_results(
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 
 // ── Avatar colour palette (deterministic by user ID) ──────────────────────
-$avatar_colours = [ 'av-brand', 'av-green', 'av-purple', 'av-orange', 'av-pink', 'av-jt', 'av-mvs' ];
+$avatar_colours = array( 'av-brand', 'av-green', 'av-purple', 'av-orange', 'av-pink', 'av-jt', 'av-mvs' );
 
 /**
  * Format a UTC timestamp as a human-readable relative time label.
@@ -71,24 +71,32 @@ $avatar_colours = [ 'av-brand', 'av-green', 'av-purple', 'av-orange', 'av-pink',
  * @param string $datetime MySQL datetime string.
  * @return string Escaped, translated relative time.
  */
-function bn_explore_relative_time( string $datetime ): string {
-	$diff = time() - (int) strtotime( $datetime );
-	if ( $diff < 60 ) {
-		return esc_html__( 'just now', 'buddynext' );
+if ( ! function_exists( 'bn_explore_relative_time' ) ) {
+	/**
+	 * Format a UTC timestamp as a human-readable relative time label.
+	 *
+	 * @param string $datetime MySQL datetime string.
+	 * @return string Escaped, translated relative time.
+	 */
+	function bn_explore_relative_time( string $datetime ): string {
+		$diff = time() - (int) strtotime( $datetime );
+		if ( $diff < 60 ) {
+			return esc_html__( 'just now', 'buddynext' );
+		}
+		if ( $diff < 3600 ) {
+			$mins = (int) round( $diff / 60 );
+			/* translators: %d: number of minutes */
+			return esc_html( sprintf( _n( '%dm ago', '%dm ago', $mins, 'buddynext' ), $mins ) );
+		}
+		if ( $diff < 86400 ) {
+			$hours = (int) round( $diff / 3600 );
+			/* translators: %d: number of hours */
+			return esc_html( sprintf( _n( '%dh ago', '%dh ago', $hours, 'buddynext' ), $hours ) );
+		}
+		$days = (int) round( $diff / 86400 );
+		/* translators: %d: number of days */
+		return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
 	}
-	if ( $diff < 3600 ) {
-		$mins = (int) round( $diff / 60 );
-		/* translators: %d: number of minutes */
-		return esc_html( sprintf( _n( '%dm ago', '%dm ago', $mins, 'buddynext' ), $mins ) );
-	}
-	if ( $diff < 86400 ) {
-		$hours = (int) round( $diff / 3600 );
-		/* translators: %d: number of hours */
-		return esc_html( sprintf( _n( '%dh ago', '%dh ago', $hours, 'buddynext' ), $hours ) );
-	}
-	$days = (int) round( $diff / 86400 );
-	/* translators: %d: number of days */
-	return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
 }
 
 /**
@@ -98,12 +106,21 @@ function bn_explore_relative_time( string $datetime ): string {
  * @param int    $max_length Maximum character count before truncation.
  * @return string Escaped, possibly truncated text.
  */
-function bn_excerpt( string $content, int $max_length = 140 ): string {
-	$plain = wp_strip_all_tags( $content );
-	if ( mb_strlen( $plain ) > $max_length ) {
-		$plain = mb_substr( $plain, 0, $max_length ) . '\u2026';
+if ( ! function_exists( 'bn_excerpt' ) ) {
+	/**
+	 * Truncate post content to a maximum character count, appending an ellipsis.
+	 *
+	 * @param string $content    Raw text content.
+	 * @param int    $max_length Maximum character count before truncation.
+	 * @return string Escaped, possibly truncated text.
+	 */
+	function bn_excerpt( string $content, int $max_length = 140 ): string {
+		$plain = wp_strip_all_tags( $content );
+		if ( mb_strlen( $plain ) > $max_length ) {
+			$plain = mb_substr( $plain, 0, $max_length ) . '\u2026';
+		}
+		return esc_html( $plain );
 	}
-	return esc_html( $plain );
 }
 ?>
 <style>
@@ -521,13 +538,13 @@ function bn_excerpt( string $content, int $max_length = 140 ): string {
 		<!-- Filter chips -->
 		<div class="bn-filter-row" role="group" aria-label="<?php esc_attr_e( 'Content type filter', 'buddynext' ); ?>">
 			<?php
-			$filters = [
+			$filters = array(
 				'all'    => __( 'All', 'buddynext' ),
 				'people' => __( 'People', 'buddynext' ),
 				'posts'  => __( 'Posts', 'buddynext' ),
 				'spaces' => __( 'Spaces', 'buddynext' ),
 				'media'  => __( 'Media', 'buddynext' ),
-			];
+			);
 			foreach ( $filters as $filter_key => $filter_label ) :
 				$is_active = ( 'all' === $filter_key );
 				?>
@@ -568,7 +585,7 @@ function bn_excerpt( string $content, int $max_length = 140 ): string {
 						$colour_class    = $avatar_colours[ $card_author_id % count( $avatar_colours ) ];
 						$card_parts      = explode( ' ', trim( $card_display ) );
 						$card_initials   = strtoupper( substr( $card_parts[0], 0, 1 ) . ( isset( $card_parts[1] ) ? substr( $card_parts[1], 0, 1 ) : '' ) );
-						$card_avatar_url = get_avatar_url( $card_author_id, [ 'size' => 52 ] );
+						$card_avatar_url = get_avatar_url( $card_author_id, array( 'size' => 52 ) );
 						$card_time       = bn_explore_relative_time( $card->created_at );
 						$card_excerpt    = bn_excerpt( $card->content );
 						$reaction_count  = absint( $card->reaction_count ?? 0 );
@@ -576,7 +593,7 @@ function bn_excerpt( string $content, int $max_length = 140 ): string {
 						$share_count     = absint( $card->share_count ?? 0 );
 
 						// Vary image heights for masonry effect.
-						$heights = [ 'h180', 'h120', 'h220' ];
+						$heights = array( 'h180', 'h120', 'h220' );
 						$img_cls = $heights[ $idx % 3 ];
 						$has_img = ( 'photo' === $card->type );
 						?>
@@ -672,7 +689,7 @@ function bn_excerpt( string $content, int $max_length = 140 ): string {
 					<div class="bn-widget-title"><?php esc_html_e( 'Browse Categories', 'buddynext' ); ?></div>
 					<div class="bn-cat-grid">
 						<?php
-						$categories = [
+						$categories = array(
 							'&#128187; ' . __( 'Dev', 'buddynext' ),
 							'&#127912; ' . __( 'Design', 'buddynext' ),
 							'&#128227; ' . __( 'Marketing', 'buddynext' ),
@@ -681,7 +698,7 @@ function bn_excerpt( string $content, int $max_length = 140 ): string {
 							'&#128202; ' . __( 'Data', 'buddynext' ),
 							'&#127919; ' . __( 'Product', 'buddynext' ),
 							'&#128221; ' . __( 'Writing', 'buddynext' ),
-						];
+						);
 						foreach ( $categories as $cat_label ) :
 							?>
 							<button class="bn-cat-pill" type="button" data-wp-on--click="actions.browseCategory">
@@ -742,12 +759,12 @@ function bn_excerpt( string $content, int $max_length = 140 ): string {
 	<script type="application/json" id="bn-feed-explore-config">
 	<?php
 	echo wp_json_encode(
-		[
+		array(
 			'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1/' ) ),
 			'restNonce' => $rest_nonce,
 			'userId'    => $current_user_id,
 			'isGuest'   => $is_guest,
-		]
+		)
 	);
 	?>
 	</script>

@@ -61,7 +61,7 @@ $is_member = $viewer_id
 				data-action="bn-join-space"
 				data-space-id="<?php echo absint( $space_id ); ?>"
 				data-nonce="<?php echo esc_attr( wp_create_nonce( 'buddynext_join_space_' . $space_id ) ); ?>">
-				<?php echo 'invite' === ( $space['type'] ?? '' ) ? esc_html__( 'Request to join', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
+				<?php echo 'private' === ( $space['type'] ?? '' ) ? esc_html__( 'Request to join', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
 			</button>
 		<?php endif; ?>
 	</div>

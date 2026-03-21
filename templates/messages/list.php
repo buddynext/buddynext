@@ -28,7 +28,7 @@ $current_user_id = get_current_user_id();
 
 // ── Active tab ────────────────────────────────────────────────────────────────
 $active_tab   = sanitize_key( $_GET['tab'] ?? 'all' );  // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$allowed_tabs = [ 'all', 'unread', 'requests', 'archived' ];
+$allowed_tabs = array( 'all', 'unread', 'requests', 'archived' );
 if ( ! in_array( $active_tab, $allowed_tabs, true ) ) {
 	$active_tab = 'all';
 }
@@ -40,41 +40,41 @@ $search_term = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );  // phpcs:
 $action_nonce  = wp_create_nonce( 'bn_messages_action' );
 $rest_nonce    = wp_create_nonce( 'wp_rest' );
 $mvs_rest_base = rest_url( 'mvs/v1' );
-$compose_url   = add_query_arg( [ 'action' => 'compose' ], get_permalink() );
-$requests_url  = add_query_arg( [ 'tab' => 'requests' ], get_permalink() );
+$compose_url   = add_query_arg( array( 'action' => 'compose' ), get_permalink() );
+$requests_url  = add_query_arg( array( 'tab' => 'requests' ), get_permalink() );
 
 // ── Fetch conversations via WPMediaVerse REST API (server-side bootstrap) ─────
-$conversations        = [];
+$conversations        = array();
 $unread_count         = 0;
 $request_count        = 0;
-$pinned_conversations = [];
-$recent_conversations = [];
+$pinned_conversations = array();
+$recent_conversations = array();
 
 if ( $mvs_active && $current_user_id > 0 ) {
 	$api_url = add_query_arg(
-		[
+		array(
 			'tab'      => $active_tab,
 			'search'   => $search_term,
 			'per_page' => 30,
-		],
+		),
 		rest_url( 'mvs/v1/me/conversations' )
 	);
 
 	$api_response = wp_remote_get(
 		$api_url,
-		[
-			'headers' => [
+		array(
+			'headers' => array(
 				'X-WP-Nonce' => $rest_nonce,
 				'Cookie'     => isset( $_SERVER['HTTP_COOKIE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_COOKIE'] ) ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			],
+			),
 			'timeout' => 5,
-		]
+		)
 	);
 
 	if ( ! is_wp_error( $api_response ) && 200 === wp_remote_retrieve_response_code( $api_response ) ) {
 		$body = json_decode( wp_remote_retrieve_body( $api_response ), true );
 		if ( is_array( $body ) ) {
-			$conversations = $body['conversations'] ?? [];
+			$conversations = $body['conversations'] ?? array();
 			$unread_count  = (int) ( $body['unread_total'] ?? 0 );
 			$request_count = (int) ( $body['request_count'] ?? 0 );
 		}
@@ -147,7 +147,7 @@ $bn_initials = static function ( string $name ): string {
 };
 
 // Avatar colour palette — cycles by user ID.
-$avatar_colours   = [ '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' ];
+$avatar_colours   = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' );
 $bn_avatar_colour = static function ( int $user_id ) use ( $avatar_colours ): string {
 	return $avatar_colours[ $user_id % count( $avatar_colours ) ];
 };
@@ -536,15 +536,15 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 	<nav class="bn-msg-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Message folders', 'buddynext' ); ?>">
 
 		<?php
-		$msg_tabs = [
+		$msg_tabs = array(
 			'all'      => __( 'All', 'buddynext' ),
 			'unread'   => __( 'Unread', 'buddynext' ),
 			'requests' => __( 'Requests', 'buddynext' ),
 			'archived' => __( 'Archived', 'buddynext' ),
-		];
+		);
 		foreach ( $msg_tabs as $tab_key => $tab_label ) :
 			$is_active = $tab_key === $active_tab;
-			$tab_url   = add_query_arg( [ 'tab' => $tab_key ], remove_query_arg( 's' ) );
+			$tab_url   = add_query_arg( array( 'tab' => $tab_key ), remove_query_arg( 's' ) );
 			?>
 			<a
 				href="<?php echo esc_url( $tab_url ); ?>"
@@ -601,7 +601,7 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 			$is_typing     = ! empty( $conv['other_user_typing'] );
 			$is_mine_last  = ! empty( $conv['last_message_is_mine'] );
 
-			$thread_url = add_query_arg( [ 'conversation' => $conv_id ], get_permalink() );
+			$thread_url = add_query_arg( array( 'conversation' => $conv_id ), get_permalink() );
 			$rel_time   = $bn_relative_time( $timestamp );
 			$initials   = $bn_initials( $other_name );
 			$bg_colour  = $bn_avatar_colour( $other_user_id );
@@ -638,12 +638,12 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 					aria-hidden="true"
 				>
 					<?php
-					$avatar_html = get_avatar( $other_user_id, 44, '', esc_attr( $other_name ), [ 'force_display' => true ] );
+					$avatar_html = get_avatar( $other_user_id, 44, '', esc_attr( $other_name ), array( 'force_display' => true ) );
 					if ( false !== strpos( $avatar_html, 'src=' ) ) {
 						echo wp_kses(
 							$avatar_html,
-							[
-								'img' => [
+							array(
+								'img' => array(
 									'src'      => true,
 									'class'    => true,
 									'alt'      => true,
@@ -651,8 +651,8 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 									'height'   => true,
 									'loading'  => true,
 									'decoding' => true,
-								],
-							]
+								),
+							)
 						);
 					} else {
 						echo esc_html( $initials );

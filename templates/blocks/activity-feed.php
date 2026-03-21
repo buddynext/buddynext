@@ -17,13 +17,13 @@ $bn_per_page = $per_page ?? 20;
 $feed_svc    = buddynext_service( 'feed' );
 
 if ( 'home' === $scope && $viewer_id ) {
-	$result = $feed_svc->home_feed( $viewer_id, array( 'per_page' => $bn_per_page ) );
+	$result = $feed_svc->home_feed( $viewer_id, null, $bn_per_page );
 } else {
-	$result = $feed_svc->explore_feed( array( 'per_page' => $bn_per_page ) );
+	$result = $feed_svc->explore_feed( null, $bn_per_page );
 }
 
-$bn_posts = $result['posts'] ?? array();
-$has_more = $result['has_more'] ?? false;
+$bn_posts = $result['items'] ?? array();
+$has_more = null !== ( $result['next_cursor'] ?? null );
 ?>
 <div class="bn-block-activity-feed" data-scope="<?php echo esc_attr( $scope ); ?>">
 	<?php if ( empty( $bn_posts ) ) : ?>
@@ -46,7 +46,7 @@ $has_more = $result['has_more'] ?? false;
 			</article>
 		<?php endforeach; ?>
 		<?php if ( $has_more ) : ?>
-			<button class="bn-load-more" data-scope="<?php echo esc_attr( $scope ); ?>" data-page="2" data-per-page="<?php echo absint( $bn_per_page ); ?>">
+			<button class="bn-load-more" data-scope="<?php echo esc_attr( $scope ); ?>" data-cursor="<?php echo esc_attr( $result['next_cursor'] ?? '' ); ?>" data-per-page="<?php echo absint( $bn_per_page ); ?>">
 				<?php esc_html_e( 'Load more', 'buddynext' ); ?>
 			</button>
 		<?php endif; ?>

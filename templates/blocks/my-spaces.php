@@ -17,13 +17,12 @@ if ( ! is_user_logged_in() ) {
 }
 
 $user_id = get_current_user_id();
-$result  = buddynext_service( 'spaces' )->list_spaces(
+$spaces  = buddynext_service( 'spaces' )->list_spaces(
 	array(
 		'per_page' => $limit,
 		'member'   => $user_id,
 	)
 );
-$spaces  = $result['spaces'] ?? array();
 ?>
 <div class="bn-block-my-spaces">
 	<h3 class="bn-block-heading"><?php esc_html_e( 'My Spaces', 'buddynext' ); ?></h3>

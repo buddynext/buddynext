@@ -22,7 +22,7 @@ global $wpdb;
 
 // ── Permission gate ───────────────────────────────────────────────────────────
 
-if ( ! current_user_can( 'manage_options' ) && ! buddynext_can( get_current_user_id(), 'community-admin' ) ) {
+if ( ! current_user_can( 'manage_options' ) && ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate' ) ) {
 	wp_die( esc_html__( 'You do not have permission to access the Community Admin Panel.', 'buddynext' ) );
 }
 
@@ -182,7 +182,7 @@ if ( ! function_exists( 'bn_avatar_color' ) ) {
 	 * @return string CSS hex colour.
 	 */
 	function bn_avatar_color( int $user_id ): string {
-		$colors = [ '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#d97706' ];
+		$colors = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#d97706' );
 		return $colors[ $user_id % count( $colors ) ];
 	}
 }
@@ -206,7 +206,7 @@ if ( ! function_exists( 'bn_time_diff' ) ) {
  * @return string HTML entity string for an emoji.
  */
 function bn_activity_icon( string $action ): string {
-	$map = [
+	$map = array(
 		'new_member'      => '&#x1F464;',
 		'space_created'   => '&#x1F3D8;',
 		'report_resolved' => '&#x1F6E1;&#xFE0F;',
@@ -217,7 +217,7 @@ function bn_activity_icon( string $action ): string {
 		'invite_sent'     => '&#x1F4E7;',
 		'space_approved'  => '&#x2705;',
 		'profile_flagged' => '&#x1F464;',
-	];
+	);
 	return $map[ $action ] ?? '&#x1F4CB;';
 }
 
@@ -682,37 +682,37 @@ $posts_pct = $posts_yesterday > 0
 				<div class="bn-ca-nav-header"><?php esc_html_e( 'Admin Navigation', 'buddynext' ); ?></div>
 
 				<?php
-				$nav_items = [
-					'overview'   => [
+				$nav_items = array(
+					'overview'   => array(
 						'icon'  => '&#x1F4CA;',
 						'label' => __( 'Overview', 'buddynext' ),
-					],
-					'members'    => [
+					),
+					'members'    => array(
 						'icon'  => '&#x1F465;',
 						'label' => __( 'Members', 'buddynext' ),
-					],
-					'spaces'     => [
+					),
+					'spaces'     => array(
 						'icon'  => '&#x1F3D8;',
 						'label' => __( 'Spaces', 'buddynext' ),
-					],
-					'moderation' => [
+					),
+					'moderation' => array(
 						'icon'  => '&#x1F6E1;&#xFE0F;',
 						'label' => __( 'Moderation', 'buddynext' ),
 						'badge' => $open_reports,
-					],
-					'reports'    => [
+					),
+					'reports'    => array(
 						'icon'  => '&#x1F4CB;',
 						'label' => __( 'Reports', 'buddynext' ),
-					],
-					'invites'    => [
+					),
+					'invites'    => array(
 						'icon'  => '&#x1F4E7;',
 						'label' => __( 'Email Invites', 'buddynext' ),
-					],
-					'settings'   => [
+					),
+					'settings'   => array(
 						'icon'  => '&#x2699;&#xFE0F;',
 						'label' => __( 'Settings', 'buddynext' ),
-					],
-				];
+					),
+				);
 				foreach ( $nav_items as $key => $item ) :
 					$is_active = ( $admin_section === $key );
 					?>
@@ -952,10 +952,10 @@ endif;
 									<?php
 									echo esc_url(
 										add_query_arg(
-											[
+											array(
 												'bn_admin' => 'reports',
 												'bn_report_id' => $rpt->id,
-											],
+											),
 											$admin_base
 										)
 									);

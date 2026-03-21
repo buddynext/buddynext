@@ -73,7 +73,7 @@ class TemplateLoader {
 	 * @param array<string, mixed> $variables Variables to extract into the template scope.
 	 * @return void
 	 */
-	public function render( string $relative, array $variables = [] ): void {
+	public function render( string $relative, array $variables = array() ): void {
 		$path = $this->locate( $relative );
 
 		if ( null === $path ) {
@@ -112,7 +112,7 @@ class TemplateLoader {
 	 * @param array<string, mixed> $variables Variables to pass to the template.
 	 * @return string Rendered HTML.
 	 */
-	public function capture( string $relative, array $variables = [] ): string {
+	public function capture( string $relative, array $variables = array() ): string {
 		ob_start();
 		$this->render( $relative, $variables );
 		return (string) ob_get_clean();

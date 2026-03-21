@@ -40,7 +40,7 @@ if ( $group ) {
 	$fields = array_filter(
 		$fields,
 		static function ( $field ) use ( $group ) {
-			return isset( $field['group'] ) && $field['group'] === $group;
+			return isset( $field['group_name'] ) && $field['group_name'] === $group;
 		}
 	);
 }

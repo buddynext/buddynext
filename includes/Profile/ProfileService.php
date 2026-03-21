@@ -179,6 +179,18 @@ class ProfileService {
 			return null;
 		}
 
+		// Return minimal profile for suspended users (unless viewer is an admin).
+		$is_suspended = buddynext_service( 'moderation' )->is_suspended( $profile_user_id );
+		if ( $is_suspended && ! current_user_can( 'manage_options' ) ) {
+			return array(
+				'user_id'      => $profile_user_id,
+				'display_name' => __( 'Suspended User', 'buddynext' ),
+				'is_suspended' => true,
+				'fields'       => array(),
+				'avatar_url'   => '',
+			);
+		}
+
 		$is_owner = ( $viewer_id === $profile_user_id );
 
 		global $wpdb;

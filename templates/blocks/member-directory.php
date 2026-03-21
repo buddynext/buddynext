@@ -16,8 +16,8 @@ $layout      = $layout ?? 'grid';
 $viewer_id   = get_current_user_id();
 
 $result   = buddynext_service( 'member_directory' )->list_members( $viewer_id, null, $bn_per_page );
-$members  = $result['members'] ?? array();
-$has_more = $result['has_more'] ?? false;
+$members  = $result['items'] ?? array();
+$has_more = null !== ( $result['next_cursor'] ?? null );
 $cursor   = $result['next_cursor'] ?? '';
 ?>
 <div class="bn-block-member-directory bn-block-member-directory--<?php echo esc_attr( $layout ); ?>"

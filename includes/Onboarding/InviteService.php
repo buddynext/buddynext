@@ -115,7 +115,7 @@ class InviteService {
 			ARRAY_A
 		);
 
-		return $rows ?: array();
+		return ! empty( $rows ) ? $rows : array();
 	}
 
 	// -------------------------------------------------------------------------

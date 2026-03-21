@@ -35,13 +35,13 @@ if ( ! in_array( $active_filter, $allowed_filters, true ) ) {
 $filter_sql   = '';
 $filter_types = array();
 if ( 'reaction' === $active_filter ) {
-	$filter_types = array( 'bn.new_reaction' );
+	$filter_types = array( 'bn.post_reacted' );
 } elseif ( 'comment' === $active_filter ) {
-	$filter_types = array( 'bn.new_comment', 'bn.new_reply' );
+	$filter_types = array( 'bn.post_commented' );
 } elseif ( 'follow' === $active_filter ) {
-	$filter_types = array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_request' );
+	$filter_types = array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' );
 } elseif ( 'space' === $active_filter ) {
-	$filter_types = array( 'bn.space_invite', 'bn.space_join_request' );
+	$filter_types = array( 'bn.space_invite', 'bn.space_join_requested' );
 } elseif ( 'message' === $active_filter ) {
 	$filter_types = array( 'bn.new_message' );
 }
@@ -70,10 +70,10 @@ $unread_counts = $wpdb->get_results(
 	$wpdb->prepare(
 		"SELECT
 			SUM( CASE WHEN is_read = 0 THEN 1 ELSE 0 END ) AS total_unread,
-			SUM( CASE WHEN is_read = 0 AND type IN ('bn.new_reaction') THEN 1 ELSE 0 END ) AS reaction_unread,
-			SUM( CASE WHEN is_read = 0 AND type IN ('bn.new_comment','bn.new_reply') THEN 1 ELSE 0 END ) AS comment_unread,
-			SUM( CASE WHEN is_read = 0 AND type IN ('bn.new_follower','bn.connection_accepted','bn.connection_request') THEN 1 ELSE 0 END ) AS follow_unread,
-			SUM( CASE WHEN is_read = 0 AND type IN ('bn.space_invite','bn.space_join_request') THEN 1 ELSE 0 END ) AS space_unread,
+			SUM( CASE WHEN is_read = 0 AND type IN ('bn.post_reacted') THEN 1 ELSE 0 END ) AS reaction_unread,
+			SUM( CASE WHEN is_read = 0 AND type IN ('bn.post_commented') THEN 1 ELSE 0 END ) AS comment_unread,
+			SUM( CASE WHEN is_read = 0 AND type IN ('bn.new_follower','bn.connection_accepted','bn.connection_requested') THEN 1 ELSE 0 END ) AS follow_unread,
+			SUM( CASE WHEN is_read = 0 AND type IN ('bn.space_invite','bn.space_join_requested') THEN 1 ELSE 0 END ) AS space_unread,
 			SUM( CASE WHEN is_read = 0 AND type IN ('bn.new_message') THEN 1 ELSE 0 END ) AS message_unread
 		 FROM {$wpdb->prefix}bn_notifications
 		 WHERE recipient_id = %d",
@@ -125,49 +125,61 @@ foreach ( $rows ?? array() as $row ) {
 
 // Map notification type → icon background colour and emoji.
 $type_meta = array(
-	'bn.new_reaction'        => array(
+	'bn.post_reacted'         => array(
 		'color' => '#dc2626',
 		'icon'  => '&#x2764;&#xFE0F;',
 	),
-	'bn.new_comment'         => array(
+	'bn.post_commented'       => array(
 		'color' => '#0073aa',
 		'icon'  => '&#x1F4AC;',
 	),
-	'bn.new_reply'           => array(
-		'color' => '#0073aa',
-		'icon'  => '&#x1F4AC;',
-	),
-	'bn.new_follower'        => array(
+	'bn.new_follower'         => array(
 		'color' => '#059669',
 		'icon'  => '&#x1F464;',
 	),
-	'bn.connection_request'  => array(
+	'bn.connection_requested' => array(
 		'color' => '#059669',
 		'icon'  => '&#x1F465;',
 	),
-	'bn.connection_accepted' => array(
+	'bn.connection_accepted'  => array(
 		'color' => '#22c55e',
 		'icon'  => '&#x1F465;',
 	),
-	'bn.space_invite'        => array(
+	'bn.space_invite'         => array(
 		'color' => '#7c3aed',
 		'icon'  => '&#x1F3D8;&#xFE0F;',
 	),
-	'bn.space_join_request'  => array(
+	'bn.space_join_requested' => array(
 		'color' => '#7c3aed',
 		'icon'  => '&#x1F3D8;&#xFE0F;',
 	),
-	'bn.new_message'         => array(
+	'bn.new_message'          => array(
 		'color' => '#0073aa',
 		'icon'  => '&#x2709;&#xFE0F;',
 	),
-	'bn.badge_awarded'       => array(
+	'bn.badge_awarded'        => array(
 		'color' => '#d97706',
 		'icon'  => '&#x1F3C5;',
 	),
-	'bn.mention'             => array(
+	'bn.mention'              => array(
 		'color' => '#dc2626',
 		'icon'  => '&#x1F4E3;',
+	),
+	'bn.strike_issued'        => array(
+		'color' => '#d97706',
+		'icon'  => '&#x26A0;&#xFE0F;',
+	),
+	'bn.strike_warning'       => array(
+		'color' => '#d97706',
+		'icon'  => '&#x26A0;&#xFE0F;',
+	),
+	'bn.member_suspended'     => array(
+		'color' => '#dc2626',
+		'icon'  => '&#x1F512;',
+	),
+	'bn.appeal_resolved'      => array(
+		'color' => '#059669',
+		'icon'  => '&#x2705;',
 	),
 );
 
@@ -244,28 +256,31 @@ $rest_url       = esc_url( rest_url( 'buddynext/v1/notifications/read-all' ) );
  * @param array    $type_meta        Type → icon/colour map.
  */
 $render_row = static function ( object $row, callable $get_initials, callable $get_display_name, callable $time_ago, callable $avatar_color, array $type_meta ): void {
-	$is_unread  = ! (bool) $row->is_read;
-	$actor_id   = (int) $row->sender_id;
-	$notif_type = $row->type ?? '';
-	$meta       = $type_meta[ $notif_type ] ?? array(
+	$is_unread     = ! (bool) $row->is_read;
+	$actor_id      = (int) $row->sender_id;
+	$notif_type    = $row->type ?? '';
+	$meta          = $type_meta[ $notif_type ] ?? array(
 		'color' => '#9b9b97',
 		'icon'  => '&#x1F514;',
 	);
 	$type_messages = array(
-		'bn.new_reaction'        => __( 'reacted to your post.', 'buddynext' ),
-		'bn.new_comment'         => __( 'commented on your post.', 'buddynext' ),
-		'bn.new_reply'           => __( 'replied to your comment.', 'buddynext' ),
-		'bn.new_follower'        => __( 'started following you.', 'buddynext' ),
-		'bn.connection_request'  => __( 'sent you a connection request.', 'buddynext' ),
-		'bn.connection_accepted' => __( 'accepted your connection request.', 'buddynext' ),
-		'bn.space_invite'        => __( 'invited you to a space.', 'buddynext' ),
-		'bn.space_join_request'  => __( 'requested to join your space.', 'buddynext' ),
-		'bn.new_message'         => __( 'sent you a message.', 'buddynext' ),
-		'bn.badge_awarded'       => __( 'You earned a new badge.', 'buddynext' ),
-		'bn.mention'             => __( 'mentioned you in a post.', 'buddynext' ),
+		'bn.post_reacted'         => __( 'reacted to your post.', 'buddynext' ),
+		'bn.post_commented'       => __( 'commented on your post.', 'buddynext' ),
+		'bn.new_follower'         => __( 'started following you.', 'buddynext' ),
+		'bn.connection_requested' => __( 'sent you a connection request.', 'buddynext' ),
+		'bn.connection_accepted'  => __( 'accepted your connection request.', 'buddynext' ),
+		'bn.space_invite'         => __( 'invited you to a space.', 'buddynext' ),
+		'bn.space_join_requested' => __( 'requested to join your space.', 'buddynext' ),
+		'bn.new_message'          => __( 'sent you a message.', 'buddynext' ),
+		'bn.badge_awarded'        => __( 'You earned a new badge.', 'buddynext' ),
+		'bn.mention'              => __( 'mentioned you in a post.', 'buddynext' ),
+		'bn.strike_issued'        => __( 'You received a strike.', 'buddynext' ),
+		'bn.strike_warning'       => __( 'Strike warning issued.', 'buddynext' ),
+		'bn.member_suspended'     => __( 'Your account has been suspended.', 'buddynext' ),
+		'bn.appeal_resolved'      => __( 'Your appeal has been reviewed.', 'buddynext' ),
 	);
 	$notif_message = $type_messages[ $notif_type ] ?? __( 'sent you a notification.', 'buddynext' );
-	$row_class  = 'bn-notif-row' . ( $is_unread ? ' bn-notif-row--unread' : '' );
+	$row_class     = 'bn-notif-row' . ( $is_unread ? ' bn-notif-row--unread' : '' );
 	?>
 	<div class="<?php echo esc_attr( $row_class ); ?>"
 		data-wp-on--click="actions.markRead"

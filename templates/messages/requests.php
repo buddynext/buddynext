@@ -31,7 +31,7 @@ $action_nonce  = wp_create_nonce( 'bn_messages_action' );
 $mvs_rest_base = rest_url( 'mvs/v1' );
 
 // ── Fetch pending requests via WPMediaVerse REST API ─────────────────────────
-$requests    = [];
+$requests    = array();
 $total_count = 0;
 
 if ( $mvs_active && $current_user_id > 0 ) {
@@ -39,26 +39,27 @@ if ( $mvs_active && $current_user_id > 0 ) {
 
 	$api_response = wp_remote_get(
 		$api_url,
-		[
-			'headers' => [
+		array(
+			'headers' => array(
 				'X-WP-Nonce' => $rest_nonce,
 				'Cookie'     => isset( $_SERVER['HTTP_COOKIE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_COOKIE'] ) ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			],
+			),
 			'timeout' => 5,
-		]
+		)
 	);
 
 	if ( ! is_wp_error( $api_response ) && 200 === wp_remote_retrieve_response_code( $api_response ) ) {
 		$body = json_decode( wp_remote_retrieve_body( $api_response ), true );
 		if ( is_array( $body ) ) {
-			$requests    = (array) ( $body['requests'] ?? [] );
+			$requests    = (array) ( $body['requests'] ?? array() );
 			$total_count = (int) ( $body['total'] ?? count( $requests ) );
 		}
 	}
 }
 
 // ── URLs ──────────────────────────────────────────────────────────────────────
-$messages_url = get_permalink( get_page_by_path( 'messages' ) ) ?: home_url( '/messages/' );
+$messages_url_raw = get_permalink( get_page_by_path( 'messages' ) );
+$messages_url     = ! empty( $messages_url_raw ) ? $messages_url_raw : home_url( '/messages/' );
 
 // ── Helper: avatar initials ───────────────────────────────────────────────────
 /**
@@ -76,7 +77,7 @@ $bn_initials = static function ( string $name ): string {
 };
 
 // Avatar colour palette.
-$avatar_colours   = [ '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' ];
+$avatar_colours   = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' );
 $bn_avatar_colour = static function ( int $user_id ) use ( $avatar_colours ): string {
 	return $avatar_colours[ $user_id % count( $avatar_colours ) ];
 };
@@ -455,7 +456,7 @@ $bn_relative_time = static function ( $timestamp ): string {
 				$req_initials  = $bn_initials( $sender_name );
 				$req_colour    = $bn_avatar_colour( $sender_id );
 				$req_time      = $bn_relative_time( $sent_at );
-				$sender_avatar = get_avatar( $sender_id, 48, '', esc_attr( $sender_name ), [ 'force_display' => true ] );
+				$sender_avatar = get_avatar( $sender_id, 48, '', esc_attr( $sender_name ), array( 'force_display' => true ) );
 				$accept_nonce  = wp_create_nonce( 'bn_req_accept_' . $req_id );
 				$delete_nonce  = wp_create_nonce( 'bn_req_delete_' . $req_id );
 				$block_nonce   = wp_create_nonce( 'bn_req_block_' . $sender_id );
@@ -476,8 +477,8 @@ $bn_relative_time = static function ( $timestamp ): string {
 								<?php
 								echo wp_kses(
 									$sender_avatar,
-									[
-										'img' => [
+									array(
+										'img' => array(
 											'src'      => true,
 											'class'    => true,
 											'alt'      => true,
@@ -485,8 +486,8 @@ $bn_relative_time = static function ( $timestamp ): string {
 											'height'   => true,
 											'loading'  => true,
 											'decoding' => true,
-										],
-									]
+										),
+									)
 								);
 								?>
 							<?php else : ?>

@@ -31,7 +31,7 @@ if ( ! $space_id ) {
 
 // ── Permission gate ───────────────────────────────────────────────────────────
 
-if ( ! buddynext_can( get_current_user_id(), 'manage-space', [ 'space_id' => $space_id ] ) ) {
+if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/moderate', array( 'space_id' => $space_id ) ) ) {
 	wp_die( esc_html__( 'You do not have permission to moderate this space.', 'buddynext' ) );
 }
 
@@ -152,7 +152,7 @@ $mod_log = $wpdb->get_results(
  * @return string Emoji character.
  */
 function bn_mod_action_icon( string $action ): string {
-	$map = [
+	$map = array(
 		'dismiss'        => '&#x2705;',
 		'remove'         => '&#x1F5D1;&#xFE0F;',
 		'warn'           => '&#x26A0;&#xFE0F;',
@@ -162,7 +162,7 @@ function bn_mod_action_icon( string $action ): string {
 		'remove_member'  => '&#x1F6AB;',
 		'pin'            => '&#x1F4CC;',
 		'unpin'          => '&#x1F4CD;',
-	];
+	);
 	return $map[ $action ] ?? '&#x1F4CB;';
 }
 
@@ -205,7 +205,7 @@ if ( ! function_exists( 'bn_avatar_color' ) ) {
 	 * @return string CSS hex colour.
 	 */
 	function bn_avatar_color( int $user_id ): string {
-		$colors = [ '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#d97706' ];
+		$colors = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#d97706' );
 		return $colors[ $user_id % count( $colors ) ];
 	}
 }

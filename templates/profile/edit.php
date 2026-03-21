@@ -47,9 +47,9 @@ $initials   = '';
 foreach ( array_slice( $name_parts, 0, 2 ) as $part ) {
 	$initials .= mb_strtoupper( mb_substr( $part, 0, 1 ) );
 }
-$initials = $initials ?: mb_strtoupper( mb_substr( $profile_login, 0, 2 ) );
+$initials = $initials ? $initials : mb_strtoupper( mb_substr( $profile_login, 0, 2 ) );
 
-$avatar_url = get_avatar_url( $user_id, [ 'size' => 80 ] );
+$avatar_url = get_avatar_url( $user_id, array( 'size' => 80 ) );
 
 // Profile meta.
 $headline         = (string) get_user_meta( $user_id, 'bn_headline', true );
@@ -606,13 +606,13 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 	<?php
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
-		[
+		array(
 			'userId'    => $user_id,
 			'restNonce' => $rest_nonce,
 			'saved'     => false,
 			'saving'    => false,
 			'interests' => array_values( $interests ),
-		]
+		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	?>
@@ -901,7 +901,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 					</div>
 					<div class="bn-ep-preview-name"><?php echo esc_html( $display_name ); ?></div>
 					<div class="bn-ep-preview-headline">
-						<?php echo esc_html( $headline ?: $location ); ?>
+						<?php echo esc_html( $headline ? $headline : $location ); ?>
 					</div>
 					<div class="bn-ep-preview-stats">
 						<div>

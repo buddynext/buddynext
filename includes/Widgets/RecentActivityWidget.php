@@ -98,7 +98,7 @@ class RecentActivityWidget extends \WP_Widget {
 	public function form( $instance ): string {
 		$title = esc_attr( $instance['title'] ?? __( 'Recent Activity', 'buddynext' ) );
 		$limit = absint( $instance['limit'] ?? 5 );
-		printf( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		printf(
 			'<p><label for="%1$s">%2$s</label>
 			<input class="widefat" id="%1$s" name="%3$s" type="text" value="%4$s"></p>
 			<p><label for="%5$s">%6$s</label>
@@ -106,11 +106,11 @@ class RecentActivityWidget extends \WP_Widget {
 			esc_attr( $this->get_field_id( 'title' ) ),
 			esc_html__( 'Title:', 'buddynext' ),
 			esc_attr( $this->get_field_name( 'title' ) ),
-			$title,
+			esc_attr( $title ),
 			esc_attr( $this->get_field_id( 'limit' ) ),
 			esc_html__( 'Number of items to show:', 'buddynext' ),
 			esc_attr( $this->get_field_name( 'limit' ) ),
-			$limit
+			absint( $limit )
 		);
 		return '';
 	}

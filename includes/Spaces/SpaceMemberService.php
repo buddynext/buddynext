@@ -325,14 +325,16 @@ class SpaceMemberService {
 	 *
 	 * The owner cannot be banned. Only the owner, a moderator, or a user with
 	 * manage_options can ban members. Banning an active member decrements the
-	 * member count.
+	 * member count. The ban is also written to bn_space_bans so it persists if
+	 * the membership row is later deleted.
 	 *
-	 * @param int $space_id Space ID.
-	 * @param int $actor_id User performing the ban.
-	 * @param int $user_id  User to ban.
+	 * @param int    $space_id Space ID.
+	 * @param int    $actor_id User performing the ban.
+	 * @param int    $user_id  User to ban.
+	 * @param string $reason   Optional reason for the ban.
 	 * @return true|WP_Error
 	 */
-	public function ban( int $space_id, int $actor_id, int $user_id ): true|WP_Error {
+	public function ban( int $space_id, int $actor_id, int $user_id, string $reason = '' ): true|WP_Error {
 		$actor_role = $this->get_role( $space_id, $actor_id );
 
 		if (
@@ -384,6 +386,18 @@ class SpaceMemberService {
 				)
 			);
 		}
+
+		// Record in permanent ban table so the ban persists if membership row is deleted.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_bans (space_id, user_id, banned_by, reason) VALUES (%d, %d, %d, %s)",
+				$space_id,
+				$user_id,
+				$actor_id,
+				$reason
+			)
+		);
 
 		if ( $was_active ) {
 			$this->adjust_member_count( $space_id, -1 );

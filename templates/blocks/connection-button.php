@@ -17,28 +17,20 @@ if ( ! $user_id || ! $viewer_id || $viewer_id === $user_id ) {
 	return;
 }
 
-// Possible values: null | 'connected' | 'pending_sent' | 'pending_received'.
+// ConnectionService::status() returns null, pending, accepted, declined, or withdrawn.
 $bn_status = buddynext_service( 'connections' )->status( $viewer_id, $user_id );
 
 $label = '';
 $class = 'bn-btn--primary';
 
-switch ( $bn_status ) {
-	case 'connected':
-		$label = __( 'Connected', 'buddynext' );
-		$class = 'bn-btn--secondary bn-connected';
-		break;
-	case 'pending_sent':
-		$label = __( 'Request sent', 'buddynext' );
-		$class = 'bn-btn--secondary bn-pending';
-		break;
-	case 'pending_received':
-		$label = __( 'Accept request', 'buddynext' );
-		$class = 'bn-btn--primary';
-		break;
-	default:
-		$label = __( 'Connect', 'buddynext' );
-		break;
+if ( 'accepted' === $bn_status ) {
+	$label = __( 'Connected', 'buddynext' );
+	$class = 'bn-btn--secondary bn-connected';
+} elseif ( 'pending' === $bn_status ) {
+	$label = __( 'Pending', 'buddynext' );
+	$class = 'bn-btn--secondary bn-pending';
+} else {
+	$label = __( 'Connect', 'buddynext' );
 }
 ?>
 <div class="bn-block-connection-button" data-user-id="<?php echo absint( $user_id ); ?>">

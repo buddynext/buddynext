@@ -200,10 +200,10 @@ class Spaces extends AdminPageBase {
 
 							$badge_class_map = array(
 								'open'    => 'bn-badge-active',
-								'private' => 'bn-badge-warn',
-								'secret'  => 'bn-badge-muted',
+								'private' => 'bn-badge-private',
+								'secret'  => 'bn-badge-secret',
 							);
-							$badge_class     = $badge_class_map[ $type_key ] ?? 'bn-badge-muted';
+							$badge_class     = $badge_class_map[ $type_key ] ?? 'bn-badge-secret';
 							?>
 							<tr>
 								<td>

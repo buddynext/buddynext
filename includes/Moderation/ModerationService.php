@@ -454,6 +454,68 @@ class ModerationService {
 	}
 
 	/**
+	 * Shadow-ban a user so their posts are hidden from feeds and search.
+	 *
+	 * @param int    $user_id  User to shadow-ban.
+	 * @param int    $actor_id Moderator performing the action.
+	 * @param string $reason   Reason for shadow-ban.
+	 * @return true|WP_Error
+	 */
+	public function shadow_ban( int $user_id, int $actor_id, string $reason = '' ): true|WP_Error {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		update_user_meta( $user_id, 'bn_shadow_banned', '1' );
+
+		/**
+		 * Fires after a user is shadow-banned.
+		 *
+		 * @param int    $user_id  Shadow-banned user ID.
+		 * @param int    $actor_id Moderator user ID.
+		 * @param string $reason   Reason for shadow-ban.
+		 */
+		do_action( 'buddynext_user_shadow_banned', $user_id, $actor_id, $reason );
+
+		return true;
+	}
+
+	/**
+	 * Remove a shadow-ban from a user.
+	 *
+	 * @param int $user_id  User to unshadow-ban.
+	 * @param int $actor_id Moderator performing the action.
+	 * @return true|WP_Error
+	 */
+	public function unshadow_ban( int $user_id, int $actor_id ): true|WP_Error {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		delete_user_meta( $user_id, 'bn_shadow_banned' );
+
+		/**
+		 * Fires after a shadow-ban is removed from a user.
+		 *
+		 * @param int $user_id  User ID.
+		 * @param int $actor_id Moderator user ID.
+		 */
+		do_action( 'buddynext_user_unshadow_banned', $user_id, $actor_id );
+
+		return true;
+	}
+
+	/**
+	 * Check whether a user is shadow-banned.
+	 *
+	 * @param int $user_id User to check.
+	 * @return bool
+	 */
+	public function is_shadow_banned( int $user_id ): bool {
+		return '1' === get_user_meta( $user_id, 'bn_shadow_banned', true );
+	}
+
+	/**
 	 * Check whether a user is currently suspended.
 	 *
 	 * A user is suspended if they have an active suspension row (lifted_at IS NULL)

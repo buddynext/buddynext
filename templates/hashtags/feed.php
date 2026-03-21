@@ -131,7 +131,7 @@ $top_contributors = $wpdb->get_results(
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 
 // ── Formatting helpers ─────────────────────────────────────────────────────
-$avatar_colours = [ 'av-brand', 'av-green', 'av-purple', 'av-orange', 'av-pink', 'av-jt', 'av-mvs' ];
+$avatar_colours = array( 'av-brand', 'av-green', 'av-purple', 'av-orange', 'av-pink', 'av-jt', 'av-mvs' );
 
 /**
  * Format a UTC timestamp as a relative human-readable string.
@@ -675,14 +675,14 @@ if ( $hashtag->created_at ) {
 	<?php
 	echo esc_attr(
 		wp_json_encode(
-			[
+			array(
 				'scope'     => 'hashtag',
 				'hashtag'   => $hashtag_slug,
 				'sort'      => 'top',
 				'tab'       => 'posts',
 				'page'      => 1,
 				'following' => $follows_hashtag,
-			]
+			)
 		)
 	);
 	?>
@@ -784,7 +784,7 @@ if ( $hashtag->created_at ) {
 					$colour_class    = $avatar_colours[ $post_author_id % count( $avatar_colours ) ];
 					$post_parts      = explode( ' ', trim( $post_display ) );
 					$post_initials   = strtoupper( substr( $post_parts[0], 0, 1 ) . ( isset( $post_parts[1] ) ? substr( $post_parts[1], 0, 1 ) : '' ) );
-					$post_avatar_url = get_avatar_url( $post_author_id, [ 'size' => 68 ] );
+					$post_avatar_url = get_avatar_url( $post_author_id, array( 'size' => 68 ) );
 					$post_time       = bn_tag_relative_time( $post_row->created_at );
 					$post_content    = wp_kses_post( $post_row->content );
 					$post_content    = bn_tag_linkify( $post_content );
@@ -890,7 +890,7 @@ if ( $hashtag->created_at ) {
 							$jt_colour    = $avatar_colours[ $jt_author_id % count( $avatar_colours ) ];
 							$jt_parts     = explode( ' ', trim( $jt_display ) );
 							$jt_initials  = strtoupper( substr( $jt_parts[0], 0, 1 ) . ( isset( $jt_parts[1] ) ? substr( $jt_parts[1], 0, 1 ) : '' ) );
-							$jt_avatar    = get_avatar_url( $jt_author_id, [ 'size' => 68 ] );
+							$jt_avatar    = get_avatar_url( $jt_author_id, array( 'size' => 68 ) );
 							?>
 							<article class="bn-tag-post-card jt-card">
 								<div class="bn-jt-source-label">
@@ -1087,7 +1087,7 @@ if ( $hashtag->created_at ) {
 						$contrib_colour  = $avatar_colours[ $contrib_id % count( $avatar_colours ) ];
 						$contrib_parts   = explode( ' ', trim( $contrib_display ) );
 						$contrib_init    = strtoupper( substr( $contrib_parts[0], 0, 1 ) . ( isset( $contrib_parts[1] ) ? substr( $contrib_parts[1], 0, 1 ) : '' ) );
-						$contrib_avatar  = get_avatar_url( $contrib_id, [ 'size' => 68 ] );
+						$contrib_avatar  = get_avatar_url( $contrib_id, array( 'size' => 68 ) );
 						?>
 						<div class="bn-member-row">
 							<?php if ( $contrib_avatar ) : ?>
@@ -1133,14 +1133,14 @@ if ( $hashtag->created_at ) {
 	<script type="application/json" id="bn-hashtag-feed-config">
 	<?php
 	echo wp_json_encode(
-		[
+		array(
 			'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1/' ) ),
 			'restNonce' => $rest_nonce,
 			'userId'    => $current_user_id,
 			'hashtag'   => $hashtag_slug,
 			'hashtagId' => (int) $hashtag->id,
 			'following' => $follows_hashtag,
-		]
+		)
 	);
 	?>
 	</script>

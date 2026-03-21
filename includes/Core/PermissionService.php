@@ -60,6 +60,7 @@ class PermissionService {
 	 * @var array<string, int>
 	 */
 	private const ROLE_HIERARCHY = array(
+		'owner'     => 4,
 		'admin'     => 3,
 		'moderator' => 2,
 		'member'    => 1,
@@ -111,6 +112,7 @@ class PermissionService {
 	 *
 	 * @param int    $user_id    WordPress user ID.
 	 * @param string $capability Capability slug.
+	 * @param array  $context    Optional context (e.g. ['space_id' => 42]).
 	 * @return bool
 	 */
 	private function passes_role_check( int $user_id, string $capability, array $context = array() ): bool {

@@ -307,6 +307,9 @@ class SpaceService {
 	 *   page        int     1-based page number. Default 1.
 	 *   type        string  Filter by type ('open', 'private', 'secret'). Default: exclude secret.
 	 *   category_id int     Filter by category. Default: no filter.
+	 *   member      int     Filter to spaces the given user_id is an active member of. When set,
+	 *                       the secret-type exclusion is lifted so the user can see their own
+	 *                       secret spaces.
 	 *   orderby     string  'member_count' | 'name' | 'created_at'. Default 'member_count'.
 	 *   order       string  'ASC' | 'DESC'. Default 'DESC'.
 	 *
@@ -321,6 +324,7 @@ class SpaceService {
 		$offset      = ( $page - 1 ) * $per_page;
 		$type        = isset( $args['type'] ) ? sanitize_key( (string) $args['type'] ) : '';
 		$category_id = isset( $args['category_id'] ) ? absint( $args['category_id'] ) : 0;
+		$member_id   = isset( $args['member'] ) ? absint( $args['member'] ) : 0;
 
 		$allowed_orderby = array( 'member_count', 'name', 'created_at' );
 		$raw_orderby     = isset( $args['orderby'] ) ? (string) $args['orderby'] : 'member_count';
@@ -333,8 +337,9 @@ class SpaceService {
 		if ( '' !== $type ) {
 			$where[]  = 'type = %s';
 			$params[] = $type;
-		} else {
+		} elseif ( 0 === $member_id ) {
 			// Exclude secret spaces from the public directory by default.
+			// When a member filter is set the user can see their own secret spaces.
 			$where[] = "type != 'secret'";
 		}
 
@@ -351,13 +356,24 @@ class SpaceService {
 		// $orderby is validated against an allowlist; $order is either 'ASC' or 'DESC'.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d",
-				...$params
-			),
-			ARRAY_A
-		);
+		if ( $member_id > 0 ) {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT s.* FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active' {$where_sql} ORDER BY s.{$orderby} {$order} LIMIT %d OFFSET %d",
+					$member_id,
+					...$params
+				),
+				ARRAY_A
+			);
+		} else {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d",
+					...$params
+				),
+				ARRAY_A
+			);
+		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 

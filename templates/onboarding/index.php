@@ -43,15 +43,15 @@ $initials   = '';
 foreach ( array_slice( $name_parts, 0, 2 ) as $part ) {
 	$initials .= mb_strtoupper( mb_substr( $part, 0, 1 ) );
 }
-$initials = $initials ?: mb_strtoupper( mb_substr( $current_login, 0, 2 ) );
+$initials = ! empty( $initials ) ? $initials : mb_strtoupper( mb_substr( $current_login, 0, 2 ) );
 
-$avatar_url = get_avatar_url( $ob_user_id, [ 'size' => 100 ] );
+$avatar_url = get_avatar_url( $ob_user_id, array( 'size' => 100 ) );
 $bio        = (string) get_user_meta( $ob_user_id, 'bn_bio', true );
 $location   = (string) get_user_meta( $ob_user_id, 'bn_location', true );
 $saved_step = max( 1, (int) get_user_meta( $ob_user_id, 'bn_onboarding_step', true ) );
 
 // Interests available for selection (step 2).
-$all_interests = [
+$all_interests = array(
 	'💻' => 'Web Dev',
 	'🎨' => 'Design',
 	'🤖' => 'AI & ML',
@@ -64,7 +64,7 @@ $all_interests = [
 	'🎮' => 'Gaming',
 	'🎵' => 'Music',
 	'📸' => 'Photography',
-];
+);
 
 $saved_interests_raw = (string) get_user_meta( $ob_user_id, 'bn_interests', true );
 $saved_interests     = array_filter( array_map( 'trim', explode( ',', $saved_interests_raw ) ) );
@@ -111,24 +111,24 @@ $already_following = array_map( 'intval', $already_following );
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 
 // Step config (label, icon).
-$steps       = [
-	1 => [
+$steps       = array(
+	1 => array(
 		'label' => __( 'Profile', 'buddynext' ),
 		'icon'  => '👤',
-	],
-	2 => [
+	),
+	2 => array(
 		'label' => __( 'Interests', 'buddynext' ),
 		'icon'  => '🎯',
-	],
-	3 => [
+	),
+	3 => array(
 		'label' => __( 'Spaces', 'buddynext' ),
 		'icon'  => '🏘️',
-	],
-	4 => [
+	),
+	4 => array(
 		'label' => __( 'People', 'buddynext' ),
 		'icon'  => '👥',
-	],
-];
+	),
+);
 $total_steps = count( $steps );
 ?>
 <style>
@@ -527,7 +527,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 	<?php
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
-		[
+		array(
 			'step'              => $saved_step,
 			'totalSteps'        => $total_steps,
 			'interests'         => array_values( $saved_interests ),
@@ -537,7 +537,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 			'displayName'       => $display_name,
 			'userLogin'         => $current_login,
 			'usernameAvailable' => true,
-		]
+		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	?>
@@ -811,9 +811,9 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 						$sug_id         = (int) $sug_user->ID;
 						$sug_name       = $sug_user->display_name;
 						$sug_login      = $sug_user->user_login;
-						$sug_headline   = $sug_user->headline ?: '';
+						$sug_headline   = ! empty( $sug_user->headline ) ? $sug_user->headline : '';
 						$sug_followers  = (int) $sug_user->follower_count;
-						$sug_avatar_url = get_avatar_url( $sug_id, [ 'size' => 38 ] );
+						$sug_avatar_url = get_avatar_url( $sug_id, array( 'size' => 38 ) );
 						$sug_initials   = '';
 						foreach ( array_slice( explode( ' ', $sug_name ), 0, 2 ) as $p ) {
 							$sug_initials .= mb_strtoupper( mb_substr( $p, 0, 1 ) );

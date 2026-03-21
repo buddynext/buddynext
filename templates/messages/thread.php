@@ -33,7 +33,7 @@ $conv_id = absint( $_GET['conversation'] ?? 0 );  // phpcs:ignore WordPress.Secu
 // ── Search / tab for conv list panel ─────────────────────────────────────────
 $list_search  = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );  // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $active_tab   = sanitize_key( $_GET['tab'] ?? 'all' );                   // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$allowed_tabs = [ 'all', 'unread', 'requests' ];
+$allowed_tabs = array( 'all', 'unread', 'requests' );
 if ( ! in_array( $active_tab, $allowed_tabs, true ) ) {
 	$active_tab = 'all';
 }
@@ -44,40 +44,40 @@ $action_nonce  = wp_create_nonce( 'bn_messages_action' );
 $mvs_rest_base = rest_url( 'mvs/v1' );
 
 // ── Bootstrap data (server-side) ──────────────────────────────────────────────
-$conversations        = [];
+$conversations        = array();
 $thread_data          = null;
 $other_user           = null;
-$messages             = [];
+$messages             = array();
 $unread_count         = 0;
 $request_count        = 0;
-$pinned_conversations = [];
-$recent_conversations = [];
+$pinned_conversations = array();
+$recent_conversations = array();
 
 if ( $mvs_active && $current_user_id > 0 ) {
 	// Conversation list.
 	$list_api_url = add_query_arg(
-		[
+		array(
 			'tab'      => $active_tab,
 			'per_page' => 30,
-		],
+		),
 		rest_url( 'mvs/v1/me/conversations' )
 	);
 
 	$list_response = wp_remote_get(
 		$list_api_url,
-		[
-			'headers' => [
+		array(
+			'headers' => array(
 				'X-WP-Nonce' => $rest_nonce,
 				'Cookie'     => isset( $_SERVER['HTTP_COOKIE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_COOKIE'] ) ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			],
+			),
 			'timeout' => 5,
-		]
+		)
 	);
 
 	if ( ! is_wp_error( $list_response ) && 200 === wp_remote_retrieve_response_code( $list_response ) ) {
 		$list_body = json_decode( wp_remote_retrieve_body( $list_response ), true );
 		if ( is_array( $list_body ) ) {
-			$conversations = $list_body['conversations'] ?? [];
+			$conversations = $list_body['conversations'] ?? array();
 			$unread_count  = (int) ( $list_body['unread_total'] ?? 0 );
 			$request_count = (int) ( $list_body['request_count'] ?? 0 );
 		}
@@ -97,20 +97,20 @@ if ( $mvs_active && $current_user_id > 0 ) {
 
 		$thread_response = wp_remote_get(
 			$thread_api_url,
-			[
-				'headers' => [
+			array(
+				'headers' => array(
 					'X-WP-Nonce' => $rest_nonce,
 					'Cookie'     => isset( $_SERVER['HTTP_COOKIE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_COOKIE'] ) ) : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-				],
+				),
 				'timeout' => 5,
-			]
+			)
 		);
 
 		if ( ! is_wp_error( $thread_response ) && 200 === wp_remote_retrieve_response_code( $thread_response ) ) {
 			$thread_body = json_decode( wp_remote_retrieve_body( $thread_response ), true );
 			if ( is_array( $thread_body ) ) {
 				$thread_data = $thread_body;
-				$messages    = $thread_body['messages'] ?? [];
+				$messages    = $thread_body['messages'] ?? array();
 				// Resolve other user details.
 				$other_user_id = (int) ( $thread_body['other_user_id'] ?? 0 );
 				if ( $other_user_id > 0 ) {
@@ -137,7 +137,7 @@ $bn_initials = static function ( string $name ): string {
 	return mb_strtoupper( mb_substr( $name, 0, 2 ) );
 };
 
-$avatar_colours   = [ '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' ];
+$avatar_colours   = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' );
 $bn_avatar_colour = static function ( int $user_id ) use ( $avatar_colours ): string {
 	return $avatar_colours[ $user_id % count( $avatar_colours ) ];
 };
@@ -216,7 +216,7 @@ if ( $thread_data && $other_user instanceof WP_User ) {
 }
 
 $messages_page_url = get_permalink( get_page_by_path( 'messages' ) );
-$compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_url );
+$compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_page_url );
 ?>
 <div
 	class="bn-messages-thread-shell"
@@ -847,11 +847,11 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 
 		<nav class="bn-conv-panel-tabs" role="tablist">
 			<?php
-			$panel_tabs = [
+			$panel_tabs = array(
 				'all'      => __( 'All', 'buddynext' ),
 				'unread'   => __( 'Unread', 'buddynext' ),
 				'requests' => __( 'Requests', 'buddynext' ),
-			];
+			);
 			foreach ( $panel_tabs as $tab_key => $tab_label ) :
 				$is_active_tab = $tab_key === $active_tab;
 				?>
@@ -860,10 +860,10 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 					<?php
 					echo esc_url(
 						add_query_arg(
-							[
+							array(
 								'tab'          => $tab_key,
-								'conversation' => $conv_id ?: false,
-							],
+								'conversation' => ! empty( $conv_id ) ? $conv_id : false,
+							),
 							get_permalink()
 						)
 					);
@@ -903,13 +903,13 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 					$c_initials  = $bn_initials( $c_name );
 					$c_colour    = $bn_avatar_colour( $c_uid );
 					$c_url       = add_query_arg(
-						[
+						array(
 							'conversation' => $c_id,
 							'tab'          => $active_tab,
-						],
+						),
 						get_permalink()
 					);
-					$c_av        = get_avatar( $c_uid, 40, '', esc_attr( $c_name ), [ 'force_display' => true ] );
+					$c_av        = get_avatar( $c_uid, 40, '', esc_attr( $c_name ), array( 'force_display' => true ) );
 					?>
 					<a
 						href="<?php echo esc_url( $c_url ); ?>"
@@ -922,8 +922,8 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 								<?php
 								echo wp_kses(
 									$c_av,
-									[
-										'img' => [
+									array(
+										'img' => array(
 											'src'      => true,
 											'class'    => true,
 											'alt'      => true,
@@ -931,8 +931,8 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 											'height'   => true,
 											'loading'  => true,
 											'decoding' => true,
-										],
-									]
+										),
+									)
 								);
 								?>
 							<?php else : ?>
@@ -978,13 +978,13 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 					$c_initials  = $bn_initials( $c_name );
 					$c_colour    = $bn_avatar_colour( $c_uid );
 					$c_url       = add_query_arg(
-						[
+						array(
 							'conversation' => $c_id,
 							'tab'          => $active_tab,
-						],
+						),
 						get_permalink()
 					);
-					$c_av        = get_avatar( $c_uid, 40, '', esc_attr( $c_name ), [ 'force_display' => true ] );
+					$c_av        = get_avatar( $c_uid, 40, '', esc_attr( $c_name ), array( 'force_display' => true ) );
 					?>
 					<a
 						href="<?php echo esc_url( $c_url ); ?>"
@@ -997,8 +997,8 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 								<?php
 								echo wp_kses(
 									$c_av,
-									[
-										'img' => [
+									array(
+										'img' => array(
 											'src'      => true,
 											'class'    => true,
 											'alt'      => true,
@@ -1006,8 +1006,8 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 											'height'   => true,
 											'loading'  => true,
 											'decoding' => true,
-										],
-									]
+										),
+									)
 								);
 								?>
 							<?php else : ?>
@@ -1065,7 +1065,7 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 				<?php
 				$th_colour   = $bn_avatar_colour( $other_user_id_th );
 				$th_initials = $bn_initials( $other_user_display );
-				$th_avatar   = get_avatar( $other_user_id_th, 36, '', esc_attr( $other_user_display ), [ 'force_display' => true ] );
+				$th_avatar   = get_avatar( $other_user_id_th, 36, '', esc_attr( $other_user_display ), array( 'force_display' => true ) );
 				$th_profile  = get_author_posts_url( $other_user_id_th );
 				?>
 				<div class="bn-thread-avatar" style="background:<?php echo esc_attr( $th_colour ); ?>;" aria-hidden="true">
@@ -1073,8 +1073,8 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 						<?php
 						echo wp_kses(
 							$th_avatar,
-							[
-								'img' => [
+							array(
+								'img' => array(
 									'src'      => true,
 									'class'    => true,
 									'alt'      => true,
@@ -1082,8 +1082,8 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 									'height'   => true,
 									'loading'  => true,
 									'decoding' => true,
-								],
-							]
+								),
+							)
 						);
 						?>
 					<?php else : ?>
@@ -1121,16 +1121,16 @@ $compose_url       = add_query_arg( [ 'action' => 'compose' ], $messages_page_ur
 					$msg_id      = absint( $msg['id'] ?? 0 );
 					$msg_body    = wp_kses(
 						$msg['body'] ?? '',
-						[
-							'br'     => [],
-							'em'     => [],
-							'strong' => [],
-						]
+						array(
+							'br'     => array(),
+							'em'     => array(),
+							'strong' => array(),
+						)
 					);
 					$msg_at      = $msg['created_at'] ?? '';
 					$msg_uid     = absint( $msg['sender_id'] ?? 0 );
 					$is_mine     = $msg_uid === $current_user_id;
-					$reactions   = (array) ( $msg['reactions'] ?? [] );
+					$reactions   = (array) ( $msg['reactions'] ?? array() );
 					$reply_to    = $msg['reply_to'] ?? null;
 					$read_by_all = ! empty( $msg['read_by_recipient'] );
 					$clock       = $bn_clock_time( $msg_at );
