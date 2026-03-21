@@ -39,7 +39,134 @@ class Installer {
 		$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		$wpdb->suppress_errors( false );
 
+		static::seed_email_templates( $wpdb->prefix );
+
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
+	}
+
+	/**
+	 * Insert default email templates using INSERT IGNORE so existing
+	 * customised templates are never overwritten on upgrade.
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function seed_email_templates( string $p ): void {
+		global $wpdb;
+
+		$templates = array(
+			array(
+				'type'      => 'email_verify',
+				'subject'   => 'Verify your email address — {{site_name}}',
+				'preheader' => 'Click the link to confirm your address',
+				'body'      => '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 24 hours.</p>',
+			),
+			array(
+				'type'      => 'welcome',
+				'subject'   => 'Welcome to {{site_name}}!',
+				'preheader' => 'Your community account is ready',
+				'body'      => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}! Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>',
+			),
+			array(
+				'type'      => 'bn.new_follower',
+				'subject'   => 'Someone followed you on {{site_name}}',
+				'preheader' => 'You have a new follower',
+				'body'      => '<p>Hi {{user_name}},</p><p>You have a new follower on {{site_name}}. <a href="{{site_url}}">See who it is.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.connection_requested',
+				'subject'   => 'New connection request on {{site_name}}',
+				'preheader' => 'Someone wants to connect with you',
+				'body'      => '<p>Hi {{user_name}},</p><p>You have a new connection request on {{site_name}}. <a href="{{site_url}}">View the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.connection_accepted',
+				'subject'   => 'Connection accepted on {{site_name}}',
+				'preheader' => 'You are now connected',
+				'body'      => '<p>Hi {{user_name}},</p><p>Your connection request was accepted on {{site_name}}. <a href="{{site_url}}">View your connections.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.mention',
+				'subject'   => 'You were mentioned on {{site_name}}',
+				'preheader' => 'Someone mentioned you in a post',
+				'body'      => '<p>Hi {{user_name}},</p><p>You were mentioned in a post on {{site_name}}. <a href="{{site_url}}">See the post.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.post_reacted',
+				'subject'   => 'Someone reacted to your post on {{site_name}}',
+				'preheader' => 'New reaction on your post',
+				'body'      => '<p>Hi {{user_name}},</p><p>Your post received a reaction on {{site_name}}. <a href="{{site_url}}">See the reactions.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.post_commented',
+				'subject'   => 'New comment on your post — {{site_name}}',
+				'preheader' => 'Someone commented on your post',
+				'body'      => '<p>Hi {{user_name}},</p><p>Your post received a new comment on {{site_name}}. <a href="{{site_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.post_shared',
+				'subject'   => 'Your post was shared on {{site_name}}',
+				'preheader' => 'Someone shared your post',
+				'body'      => '<p>Hi {{user_name}},</p><p>Your post was shared on {{site_name}}. <a href="{{site_url}}">View the share.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.space_invite',
+				'subject'   => 'You have been invited to a space on {{site_name}}',
+				'preheader' => 'Join this community space',
+				'body'      => '<p>Hi {{user_name}},</p><p>You have been invited to join a space on {{site_name}}. <a href="{{site_url}}">View the invitation.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.space_join_requested',
+				'subject'   => 'New join request for your space — {{site_name}}',
+				'preheader' => 'A member wants to join your space',
+				'body'      => '<p>Hi {{user_name}},</p><p>A new member has requested to join your space on {{site_name}}. <a href="{{site_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.space_request_approved',
+				'subject'   => 'Your space join request was approved — {{site_name}}',
+				'preheader' => 'Welcome to the space',
+				'body'      => '<p>Hi {{user_name}},</p><p>Your request to join a space on {{site_name}} has been approved. <a href="{{site_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.strike_issued',
+				'subject'   => 'A moderation action has been taken on your account — {{site_name}}',
+				'preheader' => 'Important account notice',
+				'body'      => '<p>Hi {{user_name}},</p><p>A moderation strike has been issued on your account at {{site_name}}. Please review the community guidelines to avoid further action.</p>',
+			),
+			array(
+				'type'      => 'bn.badge_awarded',
+				'subject'   => 'You earned a badge on {{site_name}}!',
+				'preheader' => 'Congratulations on your new badge',
+				'body'      => '<p>Hi {{user_name}},</p><p>Congratulations! You earned a new badge on {{site_name}}. <a href="{{site_url}}">View your profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.level_up',
+				'subject'   => 'You levelled up on {{site_name}}!',
+				'preheader' => 'Your community level increased',
+				'body'      => '<p>Hi {{user_name}},</p><p>You have reached a new level on {{site_name}}. <a href="{{site_url}}">See your new level.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'      => 'bn.jetonomy_reply',
+				'subject'   => 'New reply to your discussion — {{site_name}}',
+				'preheader' => 'Someone replied to your discussion',
+				'body'      => '<p>Hi {{user_name}},</p><p>Your discussion received a new reply on {{site_name}}. <a href="{{site_url}}">View the reply.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+		);
+
+		// Table name is a hardcoded constant — safe to interpolate. Values use prepare().
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		foreach ( $templates as $tpl ) {
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO `{$p}bn_email_templates` (type, subject, preheader, body)
+					 VALUES (%s, %s, %s, %s)",
+					$tpl['type'],
+					$tpl['subject'],
+					$tpl['preheader'],
+					$tpl['body']
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	/**
