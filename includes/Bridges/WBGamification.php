@@ -32,10 +32,14 @@ class WBGamification {
 	 * Called from Plugin::init() via buddynext_load_bridges action.
 	 */
 	public function init(): void {
+		if ( ! class_exists( 'WBGamification\Plugin' ) && ! function_exists( 'wb_gamification_badge_awarded' ) ) {
+			return;
+		}
+
 		add_action( 'buddynext_user_followed', array( $this, 'on_user_followed' ), 10, 2 );
-		add_action( 'buddynext_connection_accepted', array( $this, 'on_connection_accepted' ), 10, 2 );
+		add_action( 'buddynext_connection_accepted', array( $this, 'on_connection_accepted' ), 10, 3 );
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
-		add_action( 'buddynext_member_joined_space', array( $this, 'on_space_joined' ), 10, 2 );
+		add_action( 'buddynext_space_member_joined', array( $this, 'on_space_joined' ), 10, 3 );
 		add_action( 'buddynext_strike_issued', array( $this, 'on_strike_issued' ), 10, 3 );
 	}
 
@@ -52,10 +56,11 @@ class WBGamification {
 	/**
 	 * Translate buddynext_connection_accepted → bn_connected.
 	 *
-	 * @param int $user_a Initiating user.
-	 * @param int $user_b Accepting user.
+	 * @param int $connection_id Connection row ID (unused).
+	 * @param int $user_a        Initiating user.
+	 * @param int $user_b        Accepting user.
 	 */
-	public function on_connection_accepted( int $user_a, int $user_b ): void {
+	public function on_connection_accepted( int $connection_id, int $user_a, int $user_b ): void {
 		$this->fire( 'bn_connected', $user_a, array( 'peer_id' => $user_b ) );
 		$this->fire( 'bn_connected', $user_b, array( 'peer_id' => $user_a ) );
 	}
@@ -79,12 +84,13 @@ class WBGamification {
 	}
 
 	/**
-	 * Translate buddynext_member_joined_space → bn_space_joined.
+	 * Translate buddynext_space_member_joined → bn_space_joined.
 	 *
-	 * @param int $user_id  Joining user.
-	 * @param int $space_id Space joined.
+	 * @param int    $space_id Space joined.
+	 * @param int    $user_id  Joining user.
+	 * @param string $_role    Member role assigned (unused — required by hook contract).
 	 */
-	public function on_space_joined( int $user_id, int $space_id ): void {
+	public function on_space_joined( int $space_id, int $user_id, string $_role ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_role required by hook contract.
 		$this->fire( 'bn_space_joined', $user_id, array( 'space_id' => $space_id ) );
 	}
 

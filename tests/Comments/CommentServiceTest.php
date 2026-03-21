@@ -138,4 +138,54 @@ class CommentServiceTest extends \WP_UnitTestCase {
 		$comment = $this->service->get( $id );
 		$this->assertSame( 'Updated', $comment['content'] );
 	}
+
+	public function test_create_fires_buddynext_comment_created(): void {
+		$captured = null;
+		add_action(
+			'buddynext_comment_created',
+			function ( int $comment_id, string $object_type, int $object_id, int $user_id ) use ( &$captured ): void {
+				$captured = array( $comment_id, $object_type, $object_id, $user_id );
+			},
+			10,
+			4
+		);
+
+		$id = $this->service->create( $this->user_id, 'post', $this->post_id, 'Hello' );
+
+		$this->assertSame( array( $id, 'post', $this->post_id, $this->user_id ), $captured );
+	}
+
+	public function test_update_fires_buddynext_comment_updated(): void {
+		$captured = null;
+		add_action(
+			'buddynext_comment_updated',
+			function ( int $comment_id, int $user_id ) use ( &$captured ): void {
+				$captured = array( $comment_id, $user_id );
+			},
+			10,
+			2
+		);
+
+		$id = $this->service->create( $this->user_id, 'post', $this->post_id, 'Original' );
+		$this->service->update( $id, $this->user_id, 'Updated' );
+
+		$this->assertSame( array( $id, $this->user_id ), $captured );
+	}
+
+	public function test_delete_fires_buddynext_comment_deleted(): void {
+		$captured = null;
+		add_action(
+			'buddynext_comment_deleted',
+			function ( int $comment_id, int $user_id ) use ( &$captured ): void {
+				$captured = array( $comment_id, $user_id );
+			},
+			10,
+			2
+		);
+
+		$id = $this->service->create( $this->user_id, 'post', $this->post_id, 'Delete me' );
+		$this->service->delete( $id, $this->user_id );
+
+		$this->assertSame( array( $id, $this->user_id ), $captured );
+	}
 }

@@ -174,7 +174,7 @@ if ( ! empty( $post_ids ) ) {
 	// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 	$post_rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$wpdb->prepare(
-			"SELECT id, content, author_id FROM {$wpdb->prefix}bn_posts WHERE id IN ($placeholders)",
+			"SELECT id, content, user_id FROM {$wpdb->prefix}bn_posts WHERE id IN ($placeholders)",
 			...$post_ids
 		)
 	);
@@ -182,7 +182,7 @@ if ( ! empty( $post_ids ) ) {
 	foreach ( $post_rows ?? array() as $pr ) {
 		$post_excerpts[ (int) $pr->id ] = array(
 			'content'   => $pr->content,
-			'author_id' => (int) $pr->author_id,
+			'author_id' => (int) $pr->user_id,
 		);
 	}
 }

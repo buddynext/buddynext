@@ -1,7 +1,8 @@
 # BuddyNext — Master Development Plan
 
 **Created:** 2026-03-21
-**Status:** Active — Phase 1 starting
+**Updated:** 2026-03-21
+**Status:** Active — Backend completion pass in progress
 **Scope:** BuddyNext Free + Pro
 
 ---
@@ -62,55 +63,206 @@ Verify at desktop (1280px) and mobile (390px).
 
 | # | Phase | Status | Depends on |
 |---|-------|--------|-----------|
-| 1 | Core Foundation | 🔲 Not started | — |
-| 2 | Social Graph | 🔲 Not started | 1 |
-| 3 | Activity Feed | 🔲 Not started | 1, 2 |
-| 4 | Profiles + Member Directory + Search | 🔲 Not started | 1 |
-| 5 | Spaces | 🔲 Not started | 1, 2, 3 |
-| 6 | Notifications + Email | 🔲 Not started | 1, 2 |
-| 7 | Reactions + Comments + Hashtags | 🔲 Not started | 1, 3 |
-| 8 | Moderation | 🔲 Not started | 1, 3, 7 |
-| 9 | Direct Messaging (UI bridge) | 🔲 Not started | 1, 2, 6 |
-| 10 | Bridges | 🔲 Not started | 1–6 |
-| 11 | Gutenberg Blocks + Onboarding | 🔲 Not started | 1–5 |
+| 1 | Core Foundation | ⚠️ Backend done — schema additions needed | — |
+| 2 | Social Graph | ✅ Backend done | 1 |
+| 3 | Activity Feed | ⚠️ Backend mostly done — safeguards + content warnings missing | 1, 2 |
+| 4 | Profiles + Member Directory + Search | ⚠️ Backend done — suspended user filtering missing | 1 |
+| 5 | Spaces | ⚠️ Backend done — space bans + scoped mod missing | 1, 2, 3 |
+| 6 | Notifications + Email | ⚠️ Backend done — suspension/appeal/warn emails missing | 1, 2 |
+| 7 | Reactions + Comments + Hashtags | ✅ Backend done | 1, 3 |
+| 8 | Moderation | 🔲 Partially done — critical gaps remain | 1, 3, 7 |
+| 9 | Direct Messaging (UI bridge) | ✅ Backend + templates done | 1, 2, 6 |
+| 10 | Bridges | ✅ All 4 bridges done | 1–6 |
+| 11 | Gutenberg Blocks + Onboarding | ⚠️ BlockRegistrar exists — block callbacks + wizard incomplete | 1–5 |
+| 12 | Theme Integration | ✅ Done — theme.json + TokenService + buddynext_css_vars filter | 1 |
+| 16 | Admin Panel | 🔲 All 6 pages are stubs — no render_page() UI | 1–8 |
+
+**Legend:** ✅ Done · ⚠️ Partial (gaps listed below in each phase) · 🔲 Not done
+
+---
+
+## Remaining Backend Work — Priority Order
+
+Complete these before any template/UI work.
+
+### BLOCK 1 — Schema additions (Installer.php)
+
+- [ ] Add `bn_user_suspensions` table — tracks active and historical suspensions per user
+- [ ] Add `bn_appeals` table — stores user appeals against suspensions with admin review state
+- [ ] Add `bn_space_bans` table — tracks users banned from specific spaces
+- [ ] Add `bn_outbound_webhooks` table — stores registered external webhook endpoints
+- [ ] Add `bn_outbound_webhook_log` table — delivery log for outbound webhook attempts
+- [ ] Add `content_warning` and `content_warning_type` columns to `bn_posts`
+- [ ] Use `bn_shadow_banned` usermeta key (no table needed) for shadow ban flag
+
+---
+
+### BLOCK 2 — ModerationService additions
+
+`ModerationService` — add:
+- [ ] Shadow ban a user (sets usermeta flag)
+- [ ] Remove shadow ban
+- [ ] Check if user is shadow-banned
+- [ ] Suspend a user with reason, duration, and content visibility choice (keep or hide their posts)
+- [ ] Unsuspend a user
+- [ ] Check if user is suspended
+- [ ] Get active suspension details for a user
+- [ ] Issue a formal warning to a user
+- [ ] Submit an appeal against a suspension
+- [ ] Resolve an appeal (approve or deny)
+
+`SpaceMemberService` — add:
+- [ ] Ban a user from a specific space
+- [ ] Unban a user from a space
+- [ ] Check if a user is banned from a space
+
+---
+
+### BLOCK 3 — Feed / Search / Directory filtering
+
+- [ ] Home feed, explore feed, space feed: hide posts from shadow-banned users; hide posts from suspended users when their suspension uses "hide content" mode
+- [ ] Search results: exclude shadow-banned and suspended users
+- [ ] Member directory: exclude suspended users
+- [ ] Space roster: exclude suspended users from member lists
+
+---
+
+### BLOCK 4 — ModerationController new REST endpoints
+
+- [ ] Warn a user (moderator or admin)
+- [ ] Shadow-ban a user (admin only)
+- [ ] Remove shadow ban (admin only)
+- [ ] Suspend a user with reason and duration (admin only)
+- [ ] Unsuspend a user (admin only)
+- [ ] Get active suspension details for a user (admin only)
+- [ ] Submit an appeal — authenticated user, own account only
+- [ ] List pending appeals (admin only)
+- [ ] Approve an appeal (admin only)
+- [ ] Deny an appeal (admin only)
+- [ ] List bans for a space (space owner or admin)
+- [ ] Ban a user from a space (space owner or admin)
+- [ ] Unban a user from a space (space owner or admin)
+
+---
+
+### BLOCK 5 — SafeguardService (new class)
+
+New service that gates post creation. All checks run before a post is saved:
+- [ ] Banned word filter (admin-configurable list)
+- [ ] Post rate limit per user (admin-configurable max per minute)
+- [ ] Blocked domain / link filter (admin-configurable list)
+- [ ] New member gate — first N posts from new accounts go to pending review (admin-configurable threshold)
+- [ ] Wire into PostService so any failed check blocks the post and returns the reason to the caller
+
+---
+
+### BLOCK 6 — Content warnings on posts
+
+- [ ] PostController: accept content warning flag and type (nsfw, spoilers, violence, language) when creating or editing a post
+- [ ] PostService: save content warning fields on create and update
+- [ ] FeedService: include content warning fields in feed results so the frontend can blur/hide the post
+- [ ] ModerationController: admin endpoint to force-apply a content warning to any post
+
+---
+
+### BLOCK 7 — OutboundWebhookService (new class)
+
+New service that pushes signed event payloads to admin-registered external URLs:
+- [ ] Register, list, and delete webhook endpoints (admin only)
+- [ ] Dispatch events: sign payload with HMAC-SHA256, POST to matching active endpoints, log result
+- [ ] Auto-disable an endpoint after 3 consecutive delivery failures
+- [ ] WP-Cron retry job — re-attempt failed deliveries from the last 24 hours every 5 minutes
+- [ ] New REST controller with endpoints: list, register, delete, view delivery log, send test ping
+- [ ] Hook dispatch into all 13 spec events: member registered/verified/suspended, post created/deleted, space joined/left, connection accepted, user followed, reaction added, comment created, ability granted/revoked
+
+---
+
+### BLOCK 8 — Space-scoped permission enforcement
+
+- [ ] PermissionService: when checking space moderation ability, verify the user's role within that specific space (owner or moderator), not just their site-wide role
+- [ ] ModerationController: space moderators see only their own spaces' reports in the queue, not all reports site-wide
+
+---
+
+### BLOCK 9 — EventListener additions
+
+- [ ] User warned → in-app notification to the warned user
+- [ ] User suspended → send suspension email to the user with a link to submit an appeal
+- [ ] User unsuspended → send confirmation email to the user
+- [ ] Appeal submitted → in-app notification to all site admins
+- [ ] Appeal resolved → email the user with the outcome (approved or denied)
+- [ ] User shadow-banned → immediately remove all their posts from the search index
+- [ ] Daily cron job: if the moderation queue exceeds the admin-configured threshold, email the alert address
+
+---
+
+### BLOCK 10 — Admin premium wrapper + 6 page implementations
+
+- [ ] Create `AdminPageBase` — shared admin chrome: sidebar sub-nav, tab bar, section cards, save bar — matching `admin-settings.html` mockup
+- [ ] Settings page — 9 tabs: General, Registration, Social, Spaces, Notifications, Email, Moderation, Privacy & Data, Webhooks — matches `admin-settings.html`
+- [ ] Members page — stats cards (total / active / suspended), filterable member table with avatar and last-active, bulk actions — matches `admin-members.html`
+- [ ] Spaces page — table with owner, type, member count, pending requests, archive/delete actions — matches `admin-spaces.html`
+- [ ] Integration Hub page — addon status cards, per-addon feature toggles — matches `admin-integration-hub.html`
+- [ ] Nav Manager page — three-panel layout, drag-reorder navigation items, custom tab creation — matches `admin-nav-manager.html`
+- [ ] Email Editor page — template list with enable/disable, inline subject + body editor, variable reference — matches `email-editor.html`
+
+---
+
+### BLOCK 11 — Hook name alignment (HOOKS.md compliance)
+
+Several hooks in the implementation use wrong names or wrong argument order. This breaks addon integrations — WBGamification currently never receives reactions or space joins because it listens to the spec-correct names which the code doesn't fire.
+
+- [ ] Rename reaction hook to `buddynext_reaction_added` with correct argument order (ReactionService)
+- [ ] Add missing `buddynext_reaction_removed` hook (ReactionService)
+- [ ] Rename comment hook to `buddynext_comment_created` with correct argument order (CommentService)
+- [ ] Add missing `buddynext_comment_updated` and `buddynext_comment_deleted` hooks (CommentService)
+- [ ] Rename block/unblock hooks to `buddynext_block` and `buddynext_unblock` (BlockService)
+- [ ] Fix typo: rename `buddynext_onboarding_complete` → `buddynext_onboarding_completed` (OnboardingService)
+- [ ] Rename space member joined hook to `buddynext_space_member_joined` with correct argument order including role (SpaceMemberService)
+- [ ] Rename space member removed hook to `buddynext_space_member_removed` (SpaceMemberService)
+- [ ] Rename space member left hook to `buddynext_space_member_left` (SpaceMemberService)
+- [ ] Rename space join approved hook to `buddynext_space_join_approved` (SpaceMemberService)
+- [ ] Add missing connection ID argument to `buddynext_connection_requested` and `buddynext_connection_accepted` (ConnectionService)
+- [ ] Add `buddynext_report_created` hook to ModerationService when a report is submitted
+- [ ] Update CLAUDE.md Key Integration Hooks section to reflect corrected hook names
 
 ---
 
 ## Phase 1 — Core Foundation
 
-**Goal:** Bootable plugin with all 28 `bn_*` tables, `buddynext_can()` permission function, Abilities API, and webhook endpoint.
+**Goal:** Bootable plugin with all `bn_*` tables, `buddynext_can()` permission function, Abilities API, and webhook endpoint.
 
 **Detailed step-by-step:** `docs/superpowers/plans/2026-03-20-phase-1-core-foundation.md`
 
 ### Deliverables Checklist
 
-- [ ] `composer.json` with PSR-4 autoload + PHPUnit dev dependency
-- [ ] `phpunit.xml.dist` configured
-- [ ] `bin/install-wp-tests.sh`
-- [ ] `buddynext.php` — plugin header + constants + `plugins_loaded:15` bootstrap
-- [ ] `includes/Core/Container.php` — singleton DI container
-- [ ] `includes/Core/Plugin.php` — orchestrates boot sequence
-- [ ] `includes/Core/Installer.php` — all 28 `bn_*` tables via `dbDelta()`
-- [ ] `includes/Core/Abilities.php` — registers all `buddynext-*` abilities
-- [ ] `includes/Core/PermissionService.php` — `buddynext_can()` 4-layer implementation
-- [ ] `includes/REST/Router.php` — registers `buddynext/v1` namespace
-- [ ] `includes/REST/Controllers/AccessWebhookController.php`
-- [ ] `includes/Admin/Settings.php` — admin menu skeleton
-- [ ] `tests/Core/PluginBootTest.php`
-- [ ] `tests/Core/InstallerTest.php` — all 28 tables verified
-- [ ] `tests/Core/AbilitiesTest.php`
-- [ ] `tests/Core/PermissionServiceTest.php`
-- [ ] `tests/REST/AccessWebhookTest.php`
-- [ ] All files pass WPCS
-- [ ] PHPStan level 5 passes
+- [x] `composer.json` with PSR-4 autoload + PHPUnit dev dependency
+- [x] `phpunit.xml.dist` configured
+- [x] `buddynext.php` — plugin header + constants + `plugins_loaded:15` bootstrap
+- [x] `includes/Core/Container.php` — singleton DI container
+- [x] `includes/Core/Plugin.php` — orchestrates boot sequence
+- [x] `includes/Core/Installer.php` — 28 `bn_*` + bn_user_credits + bn_webhook_log tables
+- [x] `includes/Core/Abilities.php` — registers all `buddynext-*` abilities
+- [x] `includes/Core/PermissionService.php` — `buddynext_can()` 4-layer implementation
+- [x] `includes/REST/Router.php` — registers `buddynext/v1` namespace
+- [x] `includes/REST/Controllers/AccessWebhookController.php` — all 6 webhook actions
+- [x] `includes/Admin/Settings.php` — admin menu registered
+- [ ] `includes/Core/Installer.php` — **add 5 new tables** (see BLOCK 1 above)
+- [ ] `includes/Core/Installer.php` — **add 2 new columns** to bn_posts (see BLOCK 1 above)
 - [ ] All tests pass
-- [ ] Plugin activates cleanly, tables created, no PHP errors in debug.log
 
 ---
 
-## Phase 2 — Social Graph
+## Phase 2 — Social Graph ✅
 
 **Spec:** `docs/specs/features/01-social-graph.md`
+
+### Done
+- [x] FollowService, ConnectionService, BlockService (+ muted_users), PrivacyService
+- [x] All REST controllers + routes
+- [x] Block check before follow/connect
+- [x] ConnectionService::remove_connection() for accepted pairs
+- [x] ConnectionController DELETE fallback to remove_connection()
 
 ### Three relationship types
 - **Follow** — asymmetric, no approval. Powers feed access.
@@ -118,50 +270,45 @@ Verify at desktop (1280px) and mobile (390px).
 - **Block/Mute** — Block is hard (invisible + no DM). Mute is soft (invisible in feed only).
 
 ### DB Tables
-```sql
-bn_follows (follower_id, following_id, created_at)
-bn_connections (id, requester_id, recipient_id, status, created_at)
-bn_blocks (blocker_id, blocked_id, type: block|mute, created_at)
-```
+`bn_follows`, `bn_connections`, `bn_blocks`
 
 ### Services
-- `SocialGraph\FollowService` — follow, unfollow, is_following, followers_list, following_list, suggestions
-- `SocialGraph\ConnectionService` — request, accept, decline, withdraw, is_connected, mutual_count
-- `SocialGraph\BlockService` — block, unblock, mute, unmute, is_blocked, is_muted
+- FollowService — follow, unfollow, follow status, follower/following lists, suggestions
+- ConnectionService — request, accept, decline, withdraw, connection status, mutual count
+- BlockService — block, unblock, mute, unmute, block/mute status
 
-### REST Endpoints (`buddynext/v1`)
-- `POST /users/{id}/follow` · `DELETE /users/{id}/follow`
-- `POST /users/{id}/connect` · `PATCH /connections/{id}` · `DELETE /connections/{id}`
-- `POST /users/{id}/block` · `DELETE /users/{id}/block`
-- `GET /users/{id}/followers` · `GET /users/{id}/following`
-- `GET /users/{id}/connections`
-- `GET /users/suggestions`
+### REST Endpoints
+Follow, unfollow, connect, update connection, remove connection, block, unblock, list followers/following/connections, user suggestions
 
-### Actions fired
-```php
-do_action( 'buddynext_user_followed',            $follower_id, $following_id );
-do_action( 'buddynext_user_unfollowed',          $follower_id, $following_id );
-do_action( 'buddynext_connection_requested',     $requester_id, $recipient_id );
-do_action( 'buddynext_connection_accepted',      $user1_id, $user2_id );
-do_action( 'buddynext_connection_declined',      $requester_id, $recipient_id );
-do_action( 'buddynext_user_blocked',             $blocker_id, $blocked_id );
-```
+### Events fired
+- Follow / Unfollow
+- Connection requested / accepted / declined / withdrawn
+- Block / Unblock *(name fix pending — BLOCK 11)*
 
-### Filters
-```php
-apply_filters( 'buddynext_can_view', true, $viewer_id, $owner_id, $visibility );
-```
+### Privacy filter
+`buddynext_can_view` — lets addons extend visibility rules
 
 ### WPMediaVerse follow sync
-- `mvs_user_followed` → sync to `bn_follows` + fire `buddynext_user_followed` (loop-safe)
-- `buddynext_user_followed` → sync to WPMediaVerse follows (loop-safe)
+Follow events sync bidirectionally between BuddyNext and WPMediaVerse (loop-safe)
 
 ---
 
-## Phase 3 — Activity Feed
+## Phase 3 — Activity Feed ⚠️
 
 **Spec:** `docs/specs/features/02-activity-feed.md`
 **Mockup:** `home-feed.html`, `explore-feed.html`
+
+### Done
+- [x] PostService, FeedService, PollService, ShareService, BookmarkService
+- [x] FeedController, PostController, PollController, ShareController, BookmarkController
+- [x] is_announcement written + home_feed prepends announcement on page 1
+- [x] PostService::delete() cascades to bn_reactions + bn_comments + bn_poll_votes
+- [x] FeedController: POST /feed/announcements/{id}/dismiss
+
+### Remaining
+- [ ] SafeguardService check in PostService::create() (BLOCK 5)
+- [ ] Content warning columns written in PostService::create()/update() (BLOCK 6)
+- [ ] FeedService: exclude shadow-banned + suspended-hide users (BLOCK 3)
 
 ### Post Types
 | Type | Notes |
@@ -187,49 +334,52 @@ apply_filters( 'buddynext_can_view', true, $viewer_id, $owner_id, $visibility );
 - "New posts" bar — no auto-scroll
 
 ### DB Tables
-```sql
-bn_posts (id, user_id, type, content, meta_json, privacy, space_id, scheduled_at, edited_at, is_pinned, created_at)
-bn_bookmarks (user_id, post_id, created_at)
-bn_shares (id, user_id, post_id, content, created_at)
-bn_poll_options (id, post_id, text, vote_count, created_at)
-bn_poll_votes (post_id, option_id, user_id, created_at)
-bn_feed_items (id, user_id, post_id, source, score, created_at) -- pre-computed, enabled >1M members
-```
+`bn_posts`, `bn_bookmarks`, `bn_shares`, `bn_poll_options`, `bn_poll_votes`, `bn_feed_items` (pre-computed cache for >1M member communities)
 
 ---
 
-## Phase 4 — Profiles + Member Directory + Search
+## Phase 4 — Profiles + Member Directory + Search ⚠️
 
 **Spec:** `docs/specs/features/04-member-directory-search.md`, `05-user-profiles.md`
 **Mockups:** `user-profile.html`, `edit-profile.html`, `member-directory.html`, `search-results.html`
 
-### Profile Field Architecture
-```sql
-bn_profile_fields (id, group_slug, type, label, slug, options_json, is_repeater, is_required, is_searchable, privacy_default, sort_order)
-bn_profile_values (user_id, field_id, entry_index, value)
-```
+### Done
+- [x] ProfileService, SearchService, MemberDirectoryService
+- [x] ProfileController, SearchController
+- [x] SearchService passes viewer_id for block exclusion
+- [x] ProfileController: GET /profile-fields + POST /profile-fields (admin)
 
-`entry_index` handles repeaters — Work Experience entries are 0, 1, 2 on the same field_id.
+### Remaining
+- [ ] SearchService: exclude shadow-banned + suspended users (BLOCK 3)
+- [ ] MemberDirectoryService: exclude suspended users (BLOCK 3)
+
+### Profile Field Architecture
+`bn_profile_fields` and `bn_profile_values` — supports repeater fields (Work Experience, Education) where multiple entries exist for the same field per user.
 
 ### Built-in Field Groups
-- Basic Info (bio, location, website, pronouns)
-- Social Links (icon-type fields)
-- Work Experience (repeater)
-- Education (repeater)
-- Skills (tag-based multi-select)
+Basic Info, Social Links, Work Experience (repeater), Education (repeater), Skills (tag multi-select)
 
 ### Search Index
-```sql
-bn_search_index (id, object_type, object_id, title, content FULLTEXT, meta_json, author_id, space_id, visibility, indexed_at)
-```
-Updated async via Action Scheduler. Privacy-aware. MySQL FULLTEXT default, swappable to ElasticSearch/Algolia via `buddynext_search_driver` filter.
+`bn_search_index` — updated async, privacy-aware, MySQL FULLTEXT by default. Swappable to ElasticSearch or Algolia via filter.
 
 ---
 
-## Phase 5 — Spaces
+## Phase 5 — Spaces ⚠️
 
 **Spec:** `docs/specs/features/03-spaces.md`
 **Mockups:** `spaces-directory.html`, `space-home.html`, `space-settings.html`, `space-moderation.html`
+
+### Done
+- [x] SpaceService, SpaceMemberService, SpaceCategoryController, SpaceController
+- [x] SpaceService::hydrate() returns avatar_url + cover_image_url
+- [x] SpaceMemberService::adjust_member_count() busts cache
+- [x] SpaceController: GET /spaces/{id}/pending-requests
+- [x] SpaceController: 404 for secret spaces when viewer not member
+
+### Remaining
+- [ ] SpaceMemberService: ban_from_space, unban_from_space, is_banned_from_space (BLOCK 2)
+- [ ] SpaceMemberService::get_members(): exclude suspended users (BLOCK 3)
+- [ ] PermissionService: space-scoped `buddynext-spaces/moderate` check (BLOCK 8)
 
 ### Space Types
 - Open (instant join), Private (request to join), Secret (invite only)
@@ -241,64 +391,60 @@ One level deep. `bn_spaces.parent_id` nullable. Inherits parent privacy by defau
 Owner → Moderator → Member. Extensible via `buddynext_space_roles` filter.
 
 ### DB Tables
-```sql
-bn_spaces (id, parent_id, slug, name, description, type, category_id, owner_id, member_count, avatar_url, cover_url, required_tier_id, stripe_price_id, trial_days, grandfathered_before, created_at)
-bn_space_members (space_id, user_id, role, joined_at, notification_pref)
-bn_space_categories (id, name, slug, order)
-```
+`bn_spaces`, `bn_space_members`, `bn_space_categories`
 
 ---
 
-## Phase 6 — Notifications + Email
+## Phase 6 — Notifications + Email ⚠️
 
 **Spec:** `docs/specs/features/06-notifications-email.md`
 **Mockups:** `notifications.html`, `email-editor.html`
 
+### Done
+- [x] NotificationService (fires buddynext_notification_created, grouped events fixed)
+- [x] EmailSender, EmailDispatchListener
+- [x] NotificationPrefService: get_all_prefs() + set_all_prefs()
+- [x] NotificationController: GET/PUT /me/notification-prefs
+- [x] VerificationService + VerificationListener
+- [x] EventListener: follow, connection, reaction, comment, space, strike, badge handlers
+- [x] 16 email templates seeded in Installer
+
+### Remaining
+- [ ] EventListener: suspension email, unsuspend email, warning notification, appeal emails (BLOCK 9)
+- [ ] CronScheduler: buddynext_admin_alerts job for queue threshold alerts (BLOCK 9)
+- [ ] OutboundWebhookService — event dispatch on all 13 spec events (BLOCK 7)
+
 ### In-app Notifications
-```sql
-bn_notifications (id, user_id, type, actor_id, object_type, object_id, data_json, is_read, created_at)
-bn_notification_prefs (user_id, type, in_app, email, push)
-```
+`bn_notifications`, `bn_notification_prefs`
 
 ### Email System
-```sql
-bn_email_templates (id, slug, subject, body_html, body_text, variables_json, updated_at)
-bn_email_log (id, user_id, template_slug, sent_at, digest_key)
-```
-
-Action Scheduler handles email queue. Digest dedup via `bn_email_log.digest_key`.
+`bn_email_templates`, `bn_email_log` — email queue via WP-Cron, digest deduplication via digest key
 
 ### Email Catalog (free)
 New follower, Connection request/accepted, New post in space, Post reacted, Post commented, @mention, New DM (routed via `mvs_message_sent`), Space join request/accepted, Moderation action
 
 ---
 
-## Phase 7 — Reactions + Comments + Hashtags
+## Phase 7 — Reactions + Comments + Hashtags ✅
 
 **Spec:** `docs/specs/features/08-reactions-comments.md`, `18-hashtags.md`
 
-### Reactions
-6 emoji reactions on posts + comments. Stored in `bn_reactions`. One reaction per user per object (type changes on re-react).
+### Done
+- [x] ReactionService (fires buddynext_post_reacted, increments/decrements reaction_count)
+- [x] CommentService (fires buddynext_post_commented, increments/decrements comment_count)
+- [x] HashtagService (follow/unfollow/autocomplete, post_count maintenance, banned filter)
+- [x] HashtagController, ReactionController, CommentController
+- [x] PollController: GET /posts/{id}/my-vote
+- [x] Installer: bn_reactions PRIMARY KEY fixed (dbDelta requires PK)
 
-```sql
-bn_reactions (id, object_type, object_id, user_id, emoji, created_at)
-```
+### Reactions
+6 emoji reactions on posts and comments. One reaction per user per object — re-reacting changes the emoji rather than adding a second. `bn_reactions`
 
 ### Comments
-Threaded one level deep (comment + replies to comment). Rich text, @mentions.
-
-```sql
-bn_comments (id, object_type, object_id, parent_id, user_id, content, is_deleted, created_at)
-```
+Threaded one level deep (comment + replies). Rich text, @mentions supported. `bn_comments`
 
 ### Hashtags
-Registry + pivot + follows.
-
-```sql
-bn_hashtags (id, slug, post_count, created_at)
-bn_post_hashtags (post_id, hashtag_id)
-bn_hashtag_follows (user_id, hashtag_id, created_at)
-```
+Registry with post count, pivot table linking posts to hashtags, follow tracking per user. `bn_hashtags`, `bn_post_hashtags`, `bn_hashtag_follows`
 
 ---
 
@@ -309,65 +455,90 @@ bn_hashtag_follows (user_id, hashtag_id, created_at)
 
 Report → Review → Action → Log. All actions logged in `bn_mod_log`.
 
-```sql
-bn_reports (id, reporter_id, object_type, object_id, reason, notes, status, reviewed_by, reviewed_at, created_at)
-bn_mod_log (id, actor_id, target_user_id, action, reason, object_type, object_id, created_at)
-bn_user_strikes (id, user_id, reason, issued_by, expires_at, created_at)
-```
+### Done
+- [x] ModerationService: report(), dismiss(), escalate(), resolve(), issue_strike(), reverse_strike(), get_queue(), get_strikes(), get_active_strike_count()
+- [x] ModerationController: POST /reports, GET /reports, GET /reports/queue, POST /reports/{id}/dismiss|escalate|resolve, GET/POST /users/{id}/strikes, POST /users/{id}/strikes/{sid}/reverse
+- [x] ModerationLogService: log()
+- [x] EventListener: strike threshold enforcement (warn/suspend at configurable thresholds)
+
+### Remaining (see BLOCK 2–9 above)
+- [ ] ModerationService: shadow_ban, unshadow_ban, is_shadow_banned
+- [ ] ModerationService: suspend, unsuspend, is_suspended, get_active_suspension
+- [ ] ModerationService: warn, submit_appeal, resolve_appeal
+- [ ] SpaceMemberService: ban_from_space, unban_from_space, is_banned_from_space
+- [ ] SafeguardService (new) — banned words, rate limit, link blocklist, new member gate
+- [ ] Content warning columns + PostService/FeedService/ModerationController support
+- [ ] ModerationController: 13 new routes (shadow-ban, suspend, warn, appeals, space bans)
+- [ ] FeedService/SearchService/MemberDirectoryService: shadow-ban + suspension filtering
+- [ ] SearchService deindex triggered on shadow-ban and suspension
+- [ ] Space-scoped permission enforcement in PermissionService + ModerationController
+- [ ] EventListener: suspension email, appeal emails, admin alert cron
+- [ ] OutboundWebhookService (new) + OutboundWebhookController
+
+### DB Tables
+Existing: `bn_reports`, `bn_mod_log`, `bn_user_strikes`
+To add (BLOCK 1): `bn_user_suspensions`, `bn_appeals`, `bn_space_bans`
 
 ---
 
-## Phase 9 — Direct Messaging (UI Bridge)
+## Phase 9 — Direct Messaging (UI Bridge) ✅
 
 **Spec:** `docs/specs/features/07-direct-messaging.md`
 **Mockups:** `dm-list.html`, `dm-thread.html`, `message-requests.html`
 
 WPMediaVerse owns the engine. BuddyNext builds the UI that consumes WPMediaVerse REST API.
 
-### What BuddyNext builds in Phase 9
-- `includes/Bridges/WPMediaVerse.php` — hooks `mvs_buddynext_active` (returns true), `mvs_can_send_message` (checks `bn_blocks`), `mvs_message_sent` (creates `bn_notifications`)
-- `templates/messages/list.php` — conversation list matching `dm-list.html`
-- `templates/messages/thread.php` — chat thread matching `dm-thread.html`
-- `templates/messages/requests.php` — request inbox matching `message-requests.html`
-- Unread count badge in BuddyNext nav (polls `/mvs/v1/messaging/me/messages/unread-count`)
-- DM link injected on member profile cards and directory
+### Done
+- [x] WPMediaVerse bridge — mvs_buddynext_active, mvs_can_send_message, mvs_message_sent
+- [x] templates/messages/list.php, thread.php, requests.php
+- [x] Auth redirect guard on message templates
+- [x] REST route paths corrected (mvs/v1/... not mvs/v1/messaging/...)
 
-No BuddyNext tables for DM. All data from WPMediaVerse `mvs_*` tables.
+### What BuddyNext owns in Phase 9
+- Bridge that suppresses WPMediaVerse's own DM UI when BuddyNext is active
+- Block check: prevent sending a message to a blocked user
+- Route incoming DM notifications through BuddyNext notification system
+- Conversation list, chat thread, and message requests templates (matching mockups)
+- Unread DM count badge in BuddyNext navigation
+- DM link on member profile cards and member directory
+
+No BuddyNext tables for DM. All data lives in WPMediaVerse tables.
 
 ---
 
-## Phase 10 — Bridges
+## Phase 10 — Bridges ✅
 
 **Specs:** `docs/specs/features/12–15-*.md`
 
-### WPMediaVerse Bridge (`includes/Bridges/WPMediaVerse.php`)
-- Hooks `mvs_buddynext_active` filter → returns true
-- Hooks `mvs_can_send_message` → checks `bn_blocks`
-- Hooks `mvs_message_sent` → creates `bn_notifications` (type: `bn.new_message`)
-- Hooks `mvs_media_uploaded` → creates feed post (type: `photo`/`video`)
-- Hooks `mvs_favorite_toggled` (checks `$action === 'added'`) → notification
-- Hooks `mvs_reaction_added` → notification (deduped for emoji changes)
-- Injects media tab on space pages
-- Injects upload widget in post composer
+### Done
+- [x] All 4 bridges exist with class_exists guards in init()
+- [x] Bridges fire at plugins_loaded:25 (after Pro plugins at :20)
+- [x] Jetonomy bridge: duplicate handler removed; EventListener is authoritative
+- [x] CareerBoard bridge: accepted_args fixed (4→3), employer resolved via get_post_field
 
-### Jetonomy Bridge (`includes/Bridges/Jetonomy.php`)
-- Hooks `jetonomy_after_create_post` → optional feed entry (toggle default-off)
-- Hooks `jetonomy_after_create_reply` → notification
-- Parses `@username` mentions from Jetonomy post content → `bn_notifications`
-- Injects Forum tab on linked spaces
-- Provides Hot Topics block (scoped to linked forum)
+### WPMediaVerse Bridge
+- DM integration: BuddyNext UI replaces WPMediaVerse chat panel when both active
+- Block check prevents sending to blocked users
+- DM notifications routed through BuddyNext notification system
+- WPMediaVerse media uploads create feed posts in BuddyNext
+- Reactions and comments on WPMediaVerse media create BuddyNext notifications
+- Media tab injected on space pages; upload widget in post composer
 
-### WBGamification Bridge (`includes/Bridges/WBGamification.php`)
-- Hooks `wb_gamification_badge_awarded` → `bn_notifications`
-- Hooks `wb_gamification_level_changed` → `bn_notifications`
-- Feeds BuddyNext actions as gamification events (follow, post, comment, join space)
-- Leaderboard template (`templates/gamification/leaderboard.php`)
+### Jetonomy Bridge
+- Forum posts optionally appear in BuddyNext feed (admin toggle, default off)
+- Jetonomy replies create BuddyNext notifications
+- @mention parsing for Jetonomy post content
+- Forum tab injected on linked spaces
+- Hot Topics block scoped to linked forum
 
-### Career Board Bridge (`includes/Bridges/CareerBoard.php`)
-- Hooks `wcb_job_created` → feed post (type: `job_card`)
-- Hooks `wcb_application_submitted` → notification to employer
-- Hooks `wcb_application_withdrawn` → notification to employer
-- Hooks `wcb_application_status_changed` → notification to applicant
+### WBGamification Bridge
+- Badge awards and level changes create BuddyNext notifications
+- BuddyNext actions (follow, post, comment, join space) feed into gamification point system
+- Leaderboard template integrated
+
+### Career Board Bridge
+- New job postings appear as feed posts in BuddyNext
+- Application submitted/withdrawn/status-changed create notifications to employer or applicant
 
 ---
 
@@ -375,6 +546,17 @@ No BuddyNext tables for DM. All data from WPMediaVerse `mvs_*` tables.
 
 **Spec:** `docs/specs/features/10-onboarding-setup-wizard.md`, `11-gutenberg-blocks.md`
 **Mockups:** `widgets-blocks.html`, `onboarding.html`, `register-login.html`
+
+### Done
+- [x] BlockRegistrar — all 17 blocks registered with block.json
+
+### Remaining
+- [ ] Block render callbacks — all 17 blocks have stubs or missing PHP render functions
+- [ ] Block patterns (Community Home, Profile, Spaces Directory, Member Directory)
+- [ ] Block supports declarations in block.json (color, typography, spacing)
+- [ ] SetupWizard admin page — 6-step first-run wizard (currently stub)
+- [ ] OnboardingService nudge emails — WP-Cron jobs at +24h and +72h after registration
+- [ ] InviteService — admin CSV upload UI + 7-day expiry + resend
 
 ### Core Blocks (all free)
 Activity Feed, Member Directory, Space Directory, User Profile, Follow Button, Connect Button, Notification Bell, Unread DM Badge, Trending Hashtags, People You May Know, Hot Topics (Jetonomy bridge), Space Members, Leaderboard (Gamification bridge)
@@ -384,6 +566,40 @@ Membership Gate, Analytics Dashboard
 
 ### Setup Wizard
 6-step first-run wizard: Welcome → Create Profile → Find Members → Join Spaces → Connect Integrations → Done
+
+---
+
+## Phase 12 — Theme Integration ✅
+
+**Spec:** `docs/specs/features/20-theme-integration.md`
+
+Works out of the box on every theme — block themes, BuddyX, Reign, and classic themes all inherit BuddyNext styling automatically.
+
+### Done
+- [x] `theme.json` at plugin root — neutral defaults for color, typography, spacing. Active theme always overrides.
+- [x] `TokenService` — maps WordPress preset vars to `--bn-*` CSS tokens, output at `wp_head`. All component CSS uses `--bn-*` only.
+- [x] `buddynext_css_vars` filter — lets themes inject Customizer values (BuddyX Pro, Reign hook this to forward Kirki color and font settings)
+- [x] Gutenberg blocks declare `supports` in `block.json` so block editor controls inherit active theme palette and fonts
+
+---
+
+## Phase 16 — Admin Panel
+
+**Spec:** `docs/specs/features/16-admin-settings.md`
+**Mockups:** `admin-settings.html`, `admin-members.html`, `admin-spaces.html`, `admin-integration-hub.html`, `admin-nav-manager.html`, `email-editor.html`
+
+### Done
+- [x] All 6 admin classes registered + data layer methods exist (Settings, Members, Spaces, NavManager, IntegrationHub, EmailEditor)
+- [x] admin_post_ hookups for suspend/unsuspend/export (Members), delete space (Spaces)
+
+### Remaining (see BLOCK 10 above)
+- [ ] `AdminPageBase` abstract class — premium wrapper matching `admin-settings.html` design
+- [ ] `Settings.php` `render_page()` — all 9 tabs with real form fields
+- [ ] `Members.php` `render_page()` — stats cards, filterable table, bulk actions, pagination
+- [ ] `Spaces.php` `render_page()` — table with owner, type, member count, actions
+- [ ] `IntegrationHub.php` `render_page()` — addon cards, status badges, feature toggles
+- [ ] `NavManager.php` `render_page()` — drag-reorder panel, custom tab creation
+- [ ] `EmailEditor.php` `render_page()` — template list + inline editor + variable reference
 
 ---
 

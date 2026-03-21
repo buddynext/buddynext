@@ -76,10 +76,17 @@ class PermissionService {
 	public function can( int $user_id, string $capability, array $context = array() ): bool {
 		$user = get_userdata( $user_id );
 
+		// Hard-deny: space-banned users cannot perform any space action.
+		if ( isset( $context['space_id'] ) && str_starts_with( $capability, 'buddynext-spaces/' ) ) {
+			if ( $this->is_space_banned( $user_id, (int) $context['space_id'] ) ) {
+				return false;
+			}
+		}
+
 		if ( $user && $user->has_cap( 'manage_options' ) ) {
 			$result = true;
 		} else {
-			$result = $this->passes_role_check( $user_id, $capability );
+			$result = $this->passes_role_check( $user_id, $capability, $context );
 
 			if ( ! $result ) {
 				$result = $this->has_active_grant( $user_id, $capability );
@@ -106,18 +113,94 @@ class PermissionService {
 	 * @param string $capability Capability slug.
 	 * @return bool
 	 */
-	private function passes_role_check( int $user_id, string $capability ): bool {
+	private function passes_role_check( int $user_id, string $capability, array $context = array() ): bool {
 		$required = self::ROLE_MAP[ $capability ] ?? null;
 
 		if ( null === $required ) {
 			return false;
 		}
 
+		$req_level = self::ROLE_HIERARCHY[ $required ] ?? 1;
+
+		// Space-scoped check: when a space_id is in context, resolve the user's
+		// role within that specific space from bn_space_members.
+		if ( isset( $context['space_id'] ) && str_starts_with( $capability, 'buddynext-spaces/' ) ) {
+			$space_role = $this->get_space_role( $user_id, (int) $context['space_id'] );
+			$user_level = self::ROLE_HIERARCHY[ $space_role ] ?? 0;
+			return $user_level >= $req_level;
+		}
+
 		$user_role  = (string) ( get_user_meta( $user_id, 'bn_community_role', true ) ?: 'member' ); // phpcs:ignore Universal.Operators.DisallowShortTernary.Found
 		$user_level = self::ROLE_HIERARCHY[ $user_role ] ?? 1;
-		$req_level  = self::ROLE_HIERARCHY[ $required ] ?? 1;
 
 		return $user_level >= $req_level;
+	}
+
+	/**
+	 * Resolve a user's active role within a specific space.
+	 *
+	 * Returns 'owner', 'moderator', or 'member' for active membership,
+	 * or empty string when the user is not an active member.
+	 *
+	 * @param int $user_id  WordPress user ID.
+	 * @param int $space_id Space row ID.
+	 * @return string Role name or '' if not an active member.
+	 */
+	private function get_space_role( int $user_id, int $space_id ): string {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$role = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT role FROM {$wpdb->prefix}bn_space_members
+				 WHERE space_id = %d AND user_id = %d AND status = 'active'",
+				$space_id,
+				$user_id
+			)
+		);
+
+		return (string) ( $role ?? '' );
+	}
+
+	/**
+	 * Check whether a user is banned from a specific space.
+	 *
+	 * Checks both the bn_space_bans table (hard bans) and the
+	 * bn_space_members status='banned' row (soft bans set via member management).
+	 *
+	 * @param int $user_id  WordPress user ID.
+	 * @param int $space_id Space row ID.
+	 * @return bool True when the user is banned from the space.
+	 */
+	public function is_space_banned( int $user_id, int $space_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ban_count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_bans
+				 WHERE space_id = %d AND user_id = %d",
+				$space_id,
+				$user_id
+			)
+		);
+
+		if ( $ban_count > 0 ) {
+			return true;
+		}
+
+		// Also catch the member-status='banned' path used by SpaceMemberService.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$member_banned = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members
+				 WHERE space_id = %d AND user_id = %d AND status = 'banned'",
+				$space_id,
+				$user_id
+			)
+		);
+
+		return $member_banned > 0;
 	}
 
 	/**

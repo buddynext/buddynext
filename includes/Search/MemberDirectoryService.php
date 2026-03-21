@@ -102,7 +102,18 @@ class MemberDirectoryService {
 		// Build WHERE clauses.
 		// ------------------------------------------------------------------ //
 
-		$where_clauses = array( 'u.ID != %d' );
+		// Exclude suspended users.
+		$where_clauses = array(
+			'u.ID != %d',
+			"u.ID NOT IN (
+			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
+			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+			  )",
+			"u.ID NOT IN (
+			    SELECT user_id FROM {$wpdb->usermeta}
+			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
+			  )",
+		);
 
 		if ( '' !== $location ) {
 			$where_clauses[] = 'um_loc.meta_value LIKE %s';

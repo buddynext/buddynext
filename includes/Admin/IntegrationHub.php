@@ -25,7 +25,7 @@ namespace BuddyNext\Admin;
 /**
  * Admin hub for discovering and displaying BuddyNext addon status.
  */
-class IntegrationHub {
+class IntegrationHub extends AdminPageBase {
 
 	/**
 	 * Filter name for registering addon entries.
@@ -57,6 +57,106 @@ class IntegrationHub {
 			'buddynext-integrations',
 			array( $this, 'render_page' )
 		);
+	}
+
+	// ── AdminPageBase interface ────────────────────────────────────────────────
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @return string
+	 */
+	protected function get_title(): string {
+		return __( 'Integrations', 'buddynext' );
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @return string
+	 */
+	protected function get_subtitle(): string {
+		return __( 'Connect BuddyNext with your addon plugins', 'buddynext' );
+	}
+
+	/**
+	 * Render the integrations hub page content.
+	 *
+	 * @return void
+	 */
+	protected function render_content(): void {
+		$addons       = $this->get_addons();
+		$active       = array_values( array_filter( $addons, fn( array $a ) => $a['active'] ) );
+		$inactive     = array_values( array_filter( $addons, fn( array $a ) => ! $a['active'] ) );
+		$active_count = count( $active );
+		$total_count  = count( $addons );
+		?>
+
+		<p class="bn-integration-summary">
+			<?php
+			echo esc_html(
+				sprintf(
+					/* translators: 1: active count, 2: total count */
+					__( '%1$d of %2$d integrations active', 'buddynext' ),
+					$active_count,
+					$total_count
+				)
+			);
+			?>
+		</p>
+
+		<?php if ( ! empty( $active ) ) : ?>
+			<?php $this->open_section( __( 'Active Integrations', 'buddynext' ) ); ?>
+			<div class="bn-addon-grid">
+				<?php foreach ( $active as $addon ) : ?>
+					<div class="bn-addon-card bn-addon-card--active bn-addon-card--<?php echo esc_attr( sanitize_key( (string) $addon['id'] ) ); ?>">
+						<div class="bn-addon-card-header">
+							<strong class="bn-addon-label"><?php echo esc_html( (string) $addon['label'] ); ?></strong>
+							<span class="bn-row-badge bn-badge-active"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
+						</div>
+						<p class="bn-addon-desc"><?php echo esc_html( (string) $addon['description'] ); ?></p>
+					</div>
+				<?php endforeach; ?>
+			</div>
+			<?php $this->close_section(); ?>
+		<?php endif; ?>
+
+		<?php if ( ! empty( $inactive ) ) : ?>
+			<?php $this->open_section( __( 'Available Integrations', 'buddynext' ) ); ?>
+			<div class="bn-addon-grid">
+				<?php foreach ( $inactive as $addon ) : ?>
+					<div class="bn-addon-card bn-addon-card--available">
+						<div class="bn-addon-card-header">
+							<strong class="bn-addon-label"><?php echo esc_html( (string) $addon['label'] ); ?></strong>
+							<span class="bn-row-badge bn-badge-muted"><?php esc_html_e( 'Inactive', 'buddynext' ); ?></span>
+						</div>
+						<p class="bn-addon-desc"><?php echo esc_html( (string) $addon['description'] ); ?></p>
+						<?php if ( ! empty( $addon['url'] ) ) : ?>
+							<a href="<?php echo esc_url( (string) $addon['url'] ); ?>"
+								target="_blank"
+								rel="noopener noreferrer"
+								class="bn-btn">
+								<?php esc_html_e( 'Get Plugin', 'buddynext' ); ?>
+							</a>
+						<?php else : ?>
+							<code class="bn-addon-plugin-file">
+								<?php echo esc_html( (string) ( $addon['plugin_file'] ?? '' ) ); ?>
+							</code>
+						<?php endif; ?>
+					</div>
+				<?php endforeach; ?>
+			</div>
+			<?php $this->close_section(); ?>
+		<?php endif; ?>
+
+		<?php if ( empty( $addons ) ) : ?>
+			<p><?php esc_html_e( 'No integrations registered.', 'buddynext' ); ?></p>
+		<?php endif; ?>
+
+		<div class="bn-dev-bar">
+			<code>add_filter( '<?php echo esc_html( self::FILTER_ADDONS ); ?>', function( $addons ) { /* add your entry */ return $addons; } );</code>
+		</div>
+		<?php
 	}
 
 	// ── Addon registry ────────────────────────────────────────────────────────
@@ -101,34 +201,6 @@ class IntegrationHub {
 			}
 		}
 		return false;
-	}
-
-	// ── Render ─────────────────────────────────────────────────────────────────
-
-	/**
-	 * Render the integrations hub admin page.
-	 *
-	 * @return void
-	 */
-	public function render_page(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to view this page.', 'buddynext' ) );
-		}
-
-		$addons       = $this->get_addons();
-		$active_count = count( array_filter( $addons, fn( $a ) => $a['active'] ) );
-
-		echo '<div class="wrap">';
-		echo '<h1>' . esc_html__( 'BuddyNext Integrations', 'buddynext' ) . '</h1>';
-		echo '<p>' . esc_html(
-			sprintf(
-				/* translators: 1: active count, 2: total count */
-				__( '%1$d of %2$d integrations active', 'buddynext' ),
-				$active_count,
-				count( $addons )
-			)
-		) . '</p>';
-		echo '</div>';
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────

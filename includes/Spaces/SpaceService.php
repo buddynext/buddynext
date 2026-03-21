@@ -408,16 +408,18 @@ class SpaceService {
 	 */
 	private function hydrate( array $row ): array {
 		return array(
-			'id'           => (int) $row['id'],
-			'name'         => $row['name'],
-			'slug'         => $row['slug'],
-			'description'  => $row['description'],
-			'category_id'  => isset( $row['category_id'] ) ? (int) $row['category_id'] : null,
-			'parent_id'    => isset( $row['parent_id'] ) ? (int) $row['parent_id'] : null,
-			'type'         => $row['type'],
-			'owner_id'     => (int) $row['owner_id'],
-			'member_count' => (int) $row['member_count'],
-			'created_at'   => $row['created_at'],
+			'id'              => (int) $row['id'],
+			'name'            => $row['name'],
+			'slug'            => $row['slug'],
+			'description'     => $row['description'],
+			'category_id'     => isset( $row['category_id'] ) ? (int) $row['category_id'] : null,
+			'parent_id'       => isset( $row['parent_id'] ) ? (int) $row['parent_id'] : null,
+			'type'            => $row['type'],
+			'owner_id'        => (int) $row['owner_id'],
+			'member_count'    => (int) $row['member_count'],
+			'avatar_url'      => $row['avatar_url'] ?? null,
+			'cover_image_url' => $row['cover_image_url'] ?? null,
+			'created_at'      => $row['created_at'],
 		);
 	}
 }

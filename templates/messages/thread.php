@@ -6,7 +6,7 @@
  * active thread on the right. On mobile, only the active thread is shown.
  *
  * BuddyNext is the UI layer only. All message data is owned by WPMediaVerse
- * and loaded via the REST API at mvs/v1/messaging/*.
+ * and loaded via the REST API at mvs/v1/*.
  *
  * @package BuddyNext
  * @since   0.1.0
@@ -15,6 +15,11 @@
 declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
+
+if ( ! is_user_logged_in() ) {
+	wp_safe_redirect( wp_login_url( get_permalink() ) );
+	exit;
+}
 
 // ── WPMediaVerse dependency check ─────────────────────────────────────────────
 $mvs_active = class_exists( 'WPMediaVerse\Core\Plugin' );
@@ -36,7 +41,7 @@ if ( ! in_array( $active_tab, $allowed_tabs, true ) ) {
 // ── Nonces ────────────────────────────────────────────────────────────────────
 $rest_nonce    = wp_create_nonce( 'wp_rest' );
 $action_nonce  = wp_create_nonce( 'bn_messages_action' );
-$mvs_rest_base = rest_url( 'mvs/v1/messaging' );
+$mvs_rest_base = rest_url( 'mvs/v1' );
 
 // ── Bootstrap data (server-side) ──────────────────────────────────────────────
 $conversations        = [];
@@ -55,7 +60,7 @@ if ( $mvs_active && $current_user_id > 0 ) {
 			'tab'      => $active_tab,
 			'per_page' => 30,
 		],
-		rest_url( 'mvs/v1/messaging/conversations' )
+		rest_url( 'mvs/v1/me/conversations' )
 	);
 
 	$list_response = wp_remote_get(
@@ -88,7 +93,7 @@ if ( $mvs_active && $current_user_id > 0 ) {
 
 	// Active thread messages.
 	if ( $conv_id > 0 ) {
-		$thread_api_url = rest_url( 'mvs/v1/messaging/conversations/' . $conv_id . '/messages' );
+		$thread_api_url = rest_url( 'mvs/v1/conversations/' . $conv_id . '/messages' );
 
 		$thread_response = wp_remote_get(
 			$thread_api_url,

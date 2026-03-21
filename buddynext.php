@@ -74,3 +74,17 @@ function buddynext_spend_credits( int $user_id, int $amount, string $reason ): b
 function buddynext_service( string $key ): mixed {
 	return \BuddyNext\Core\Container::instance()->get( $key );
 }
+
+/**
+ * Render a BuddyNext template, with theme-override support.
+ *
+ * Delegates to the TemplateLoader service which checks child-theme, parent-theme,
+ * and plugin templates/ directory in order.
+ *
+ * @param string               $relative Relative template path (e.g. 'blocks/search-bar.php').
+ * @param array<string, mixed> $vars     Variables to extract into the template scope.
+ * @return void
+ */
+function buddynext_get_template( string $relative, array $vars = array() ): void {
+	buddynext_service( 'template_loader' )->render( $relative, $vars );
+}

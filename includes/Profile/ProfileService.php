@@ -148,6 +148,10 @@ class ProfileService {
 					array( '%d', '%d', '%s' )
 				);
 			}
+
+			// Denormalize flat fields to usermeta for fast WP_User_Query filtering in
+			// member directory (e.g. MemberDirectoryService queries bn_field_location).
+			update_user_meta( $user_id, 'bn_field_' . $key, $sanitized_val );
 		}
 
 		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
@@ -186,7 +190,7 @@ class ProfileService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$viewer_is_follower = (bool) $wpdb->get_var(
 				$wpdb->prepare(
-					"SELECT id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND following_id = %d LIMIT 1",
+					"SELECT follower_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND following_id = %d LIMIT 1",
 					$viewer_id,
 					$profile_user_id
 				)

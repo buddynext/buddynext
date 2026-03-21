@@ -79,33 +79,37 @@ class BlockServiceTest extends \WP_UnitTestCase {
 		$this->assertFalse( $this->service->is_muted( $this->alice, $this->bob ) );
 	}
 
-	public function test_block_fires_action(): void {
-		$fired = false;
+	public function test_block_fires_buddynext_block(): void {
+		$captured = null;
 		add_action(
-			'buddynext_user_blocked',
-			function () use ( &$fired ): void {
-				$fired = true;
-			}
+			'buddynext_block',
+			function ( int $blocker_id, int $blocked_id ) use ( &$captured ): void {
+				$captured = array( $blocker_id, $blocked_id );
+			},
+			10,
+			2
 		);
 
 		$this->service->block( $this->alice, $this->bob );
 
-		$this->assertTrue( $fired );
+		$this->assertSame( array( $this->alice, $this->bob ), $captured );
 	}
 
-	public function test_unblock_fires_action(): void {
-		$fired = false;
+	public function test_unblock_fires_buddynext_unblock(): void {
+		$captured = null;
 		add_action(
-			'buddynext_user_unblocked',
-			function () use ( &$fired ): void {
-				$fired = true;
-			}
+			'buddynext_unblock',
+			function ( int $blocker_id, int $blocked_id ) use ( &$captured ): void {
+				$captured = array( $blocker_id, $blocked_id );
+			},
+			10,
+			2
 		);
 
 		$this->service->block( $this->alice, $this->bob );
 		$this->service->unblock( $this->alice, $this->bob );
 
-		$this->assertTrue( $fired );
+		$this->assertSame( array( $this->alice, $this->bob ), $captured );
 	}
 
 	public function test_is_blocking_either_direction(): void {

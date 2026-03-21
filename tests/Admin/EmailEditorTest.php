@@ -43,12 +43,12 @@ class EmailEditorTest extends \WP_UnitTestCase {
 
 		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			"CREATE TABLE IF NOT EXISTS {$this->table} ( -- phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-				slug        VARCHAR(100) NOT NULL UNIQUE,
-				subject     TEXT NOT NULL,
+				id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+				type         VARCHAR(100) NOT NULL UNIQUE,
+				subject      TEXT NOT NULL,
 				preview_text TEXT NOT NULL,
-				body_html   LONGTEXT NOT NULL,
-				enabled     TINYINT(1) NOT NULL DEFAULT 1,
+				body_html    LONGTEXT NOT NULL,
+				enabled      TINYINT(1) NOT NULL DEFAULT 1,
 				PRIMARY KEY (id)
 			) {$wpdb->get_charset_collate()}" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		);

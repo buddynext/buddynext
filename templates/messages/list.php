@@ -3,7 +3,7 @@
  * DM Conversation List template.
  *
  * BuddyNext is the UI layer only. Conversation data is owned by WPMediaVerse
- * and fetched via the REST API at mvs/v1/messaging/conversations.
+ * and fetched via the REST API at mvs/v1/me/conversations.
  *
  * If WPMediaVerse is not active the template renders a dependency notice.
  *
@@ -14,6 +14,11 @@
 declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
+
+if ( ! is_user_logged_in() ) {
+	wp_safe_redirect( wp_login_url( get_permalink() ) );
+	exit;
+}
 
 // ── WPMediaVerse dependency check ─────────────────────────────────────────────
 $mvs_active = class_exists( 'WPMediaVerse\Core\Plugin' );
@@ -34,7 +39,7 @@ $search_term = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );  // phpcs:
 // ── Nonces for interactive actions ───────────────────────────────────────────
 $action_nonce  = wp_create_nonce( 'bn_messages_action' );
 $rest_nonce    = wp_create_nonce( 'wp_rest' );
-$mvs_rest_base = rest_url( 'mvs/v1/messaging' );
+$mvs_rest_base = rest_url( 'mvs/v1' );
 $compose_url   = add_query_arg( [ 'action' => 'compose' ], get_permalink() );
 $requests_url  = add_query_arg( [ 'tab' => 'requests' ], get_permalink() );
 
@@ -52,7 +57,7 @@ if ( $mvs_active && $current_user_id > 0 ) {
 			'search'   => $search_term,
 			'per_page' => 30,
 		],
-		rest_url( 'mvs/v1/messaging/conversations' )
+		rest_url( 'mvs/v1/me/conversations' )
 	);
 
 	$api_response = wp_remote_get(

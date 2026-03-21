@@ -114,4 +114,63 @@ class ShareService {
 
 		return array_map( 'intval', (array) $rows );
 	}
+
+	/**
+	 * Return a paginated share history for a user.
+	 *
+	 * Each item includes the share ID, post ID, optional note content, and the
+	 * timestamp the share was created.
+	 *
+	 * @param int $user_id  User whose share history to fetch.
+	 * @param int $per_page Number of items per page (1–100). Default 20.
+	 * @param int $page     1-based page number. Default 1.
+	 * @return array{items: array[], total: int}
+	 */
+	public function user_shares_paginated( int $user_id, int $per_page = 20, int $page = 1 ): array {
+		global $wpdb;
+
+		$per_page = max( 1, min( 100, $per_page ) );
+		$page     = max( 1, $page );
+		$offset   = ( $page - 1 ) * $per_page;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, post_id, content, created_at
+				 FROM {$wpdb->prefix}bn_shares
+				 WHERE user_id = %d
+				 ORDER BY created_at DESC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$per_page,
+				$offset
+			),
+			ARRAY_A
+		);
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$total = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_shares WHERE user_id = %d",
+				$user_id
+			)
+		);
+
+		$items = array_map(
+			static function ( array $r ): array {
+				return array(
+					'id'         => (int) $r['id'],
+					'post_id'    => (int) $r['post_id'],
+					'content'    => $r['content'],
+					'created_at' => $r['created_at'],
+				);
+			},
+			(array) $rows
+		);
+
+		return array(
+			'items' => $items,
+			'total' => $total,
+		);
+	}
 }

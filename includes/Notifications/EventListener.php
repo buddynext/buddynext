@@ -27,25 +27,27 @@ class EventListener {
 	 */
 	public function init(): void {
 		add_action( 'buddynext_user_followed', array( $this, 'on_user_followed' ), 10, 2 );
-		add_action( 'buddynext_member_joined_space', array( $this, 'on_member_joined_space' ), 10, 2 );
+		add_action( 'buddynext_space_member_joined', array( $this, 'on_space_member_joined' ), 10, 3 );
 
 		// Social Graph.
-		add_action( 'buddynext_connection_requested', array( $this, 'on_connection_requested' ), 10, 2 );
-		add_action( 'buddynext_connection_accepted', array( $this, 'on_connection_accepted' ), 10, 2 );
+		add_action( 'buddynext_connection_requested', array( $this, 'on_connection_requested' ), 10, 3 );
+		add_action( 'buddynext_connection_accepted', array( $this, 'on_connection_accepted' ), 10, 3 );
 
 		// Activity Feed.
-		add_action( 'buddynext_post_reacted', array( $this, 'on_post_reacted' ), 10, 3 );
-		add_action( 'buddynext_post_commented', array( $this, 'on_post_commented' ), 10, 3 );
+		add_action( 'buddynext_reaction_added', array( $this, 'on_reaction_added' ), 10, 4 );
+		add_action( 'buddynext_comment_created', array( $this, 'on_comment_created' ), 10, 4 );
 		add_action( 'buddynext_post_shared', array( $this, 'on_post_shared' ), 10, 2 );
 		add_action( 'buddynext_user_mentioned', array( $this, 'on_user_mentioned' ), 10, 3 );
 
 		// Spaces.
 		add_action( 'buddynext_space_join_requested', array( $this, 'on_space_join_requested' ), 10, 2 );
-		add_action( 'buddynext_space_request_approved', array( $this, 'on_space_request_approved' ), 10, 2 );
+		add_action( 'buddynext_space_join_approved', array( $this, 'on_space_join_approved' ), 10, 3 );
 		add_action( 'buddynext_space_member_invited', array( $this, 'on_space_member_invited' ), 10, 3 );
 
 		// Moderation.
 		add_action( 'buddynext_strike_issued', array( $this, 'on_strike_issued' ), 10, 3 );
+		add_action( 'buddynext_member_suspended', array( $this, 'on_member_suspended' ), 10, 2 );
+		add_action( 'buddynext_appeal_resolved', array( $this, 'on_appeal_resolved' ), 10, 3 );
 
 		// WBGamification bridge (fires only when that plugin is active).
 		add_action( 'wb_gamification_badge_awarded', array( $this, 'on_badge_awarded' ), 10, 2 );
@@ -86,10 +88,11 @@ class EventListener {
 	 * No notification is sent if the joining user is the space owner
 	 * (e.g. the owner re-joining after removal).
 	 *
-	 * @param int $user_id  User who joined the space.
-	 * @param int $space_id Space that was joined.
+	 * @param int    $space_id Space that was joined.
+	 * @param int    $user_id  User who joined the space.
+	 * @param string $_role    Member role assigned (unused — required by hook contract).
 	 */
-	public function on_member_joined_space( int $user_id, int $space_id ): void {
+	public function on_space_member_joined( int $space_id, int $user_id, string $_role ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_role required by hook contract.
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -125,10 +128,11 @@ class EventListener {
 	/**
 	 * Notify the addressee when someone requests a connection.
 	 *
-	 * @param int $requester_id User who sent the connection request.
-	 * @param int $addressee_id User who received the request (notification recipient).
+	 * @param int $connection_id Connection row ID (unused — provided for hook contract completeness).
+	 * @param int $requester_id  User who sent the connection request.
+	 * @param int $addressee_id  User who received the request (notification recipient).
 	 */
-	public function on_connection_requested( int $requester_id, int $addressee_id ): void {
+	public function on_connection_requested( int $connection_id, int $requester_id, int $addressee_id ): void {
 		if ( $requester_id === $addressee_id ) {
 			return;
 		}
@@ -156,10 +160,11 @@ class EventListener {
 	/**
 	 * Notify the original requester when their connection request is accepted.
 	 *
-	 * @param int $requester_id User who originally sent the request (notification recipient).
-	 * @param int $addressee_id User who accepted the request.
+	 * @param int $connection_id Connection row ID (unused — provided for hook contract completeness).
+	 * @param int $requester_id  User who originally sent the request (notification recipient).
+	 * @param int $addressee_id  User who accepted the request.
 	 */
-	public function on_connection_accepted( int $requester_id, int $addressee_id ): void {
+	public function on_connection_accepted( int $connection_id, int $requester_id, int $addressee_id ): void {
 		if ( $requester_id === $addressee_id ) {
 			return;
 		}
@@ -185,20 +190,27 @@ class EventListener {
 	}
 
 	/**
-	 * Notify the post owner when someone reacts to their post.
+	 * Notify the post owner when someone reacts to their content.
 	 *
-	 * @param int    $post_id Post that received the reaction.
-	 * @param int    $user_id User who reacted.
-	 * @param string $emoji   Emoji slug used for the reaction.
+	 * Only fires a notification for 'post' object type.
+	 *
+	 * @param string $object_type Object type (e.g. 'post', 'comment').
+	 * @param int    $object_id   Object ID.
+	 * @param int    $user_id     User who reacted.
+	 * @param string $emoji       Emoji slug used for the reaction.
 	 */
-	public function on_post_reacted( int $post_id, int $user_id, string $emoji ): void {
+	public function on_reaction_added( string $object_type, int $object_id, int $user_id, string $emoji ): void {
+		if ( 'post' !== $object_type ) {
+			return;
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$owner_id = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
-				$post_id
+				$object_id
 			)
 		);
 
@@ -220,28 +232,35 @@ class EventListener {
 				'sender_id'    => $user_id,
 				'type'         => 'bn.post_reacted',
 				'object_type'  => 'post',
-				'object_id'    => $post_id,
-				'group_key'    => 'post_reactions_' . $post_id,
+				'object_id'    => $object_id,
+				'group_key'    => 'post_reactions_' . $object_id,
 				'data'         => array( 'emoji' => $emoji ),
 			)
 		);
 	}
 
 	/**
-	 * Notify the post owner when someone comments on their post.
+	 * Notify the post owner when someone comments on their content.
 	 *
-	 * @param int $comment_id ID of the new comment.
-	 * @param int $post_id    Post that received the comment.
-	 * @param int $user_id    User who commented.
+	 * Only fires a notification for 'post' object type.
+	 *
+	 * @param int    $comment_id  ID of the new comment.
+	 * @param string $object_type Object type (e.g. 'post').
+	 * @param int    $object_id   Object ID.
+	 * @param int    $user_id     User who commented.
 	 */
-	public function on_post_commented( int $comment_id, int $post_id, int $user_id ): void {
+	public function on_comment_created( int $comment_id, string $object_type, int $object_id, int $user_id ): void {
+		if ( 'post' !== $object_type ) {
+			return;
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$owner_id = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
-				$post_id
+				$object_id
 			)
 		);
 
@@ -263,8 +282,8 @@ class EventListener {
 				'sender_id'    => $user_id,
 				'type'         => 'bn.post_commented',
 				'object_type'  => 'post',
-				'object_id'    => $post_id,
-				'group_key'    => 'post_comments_' . $post_id,
+				'object_id'    => $object_id,
+				'group_key'    => 'post_comments_' . $object_id,
 				'data'         => array( 'comment_id' => $comment_id ),
 			)
 		);
@@ -346,10 +365,10 @@ class EventListener {
 	/**
 	 * Notify the space owner when a user requests to join a private space.
 	 *
-	 * @param int $user_id  User requesting to join.
 	 * @param int $space_id Space that received the join request.
+	 * @param int $user_id  User requesting to join.
 	 */
-	public function on_space_join_requested( int $user_id, int $space_id ): void {
+	public function on_space_join_requested( int $space_id, int $user_id ): void {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -387,10 +406,11 @@ class EventListener {
 	/**
 	 * Notify the user when their space join request is approved.
 	 *
-	 * @param int $user_id  User whose request was approved (notification recipient).
-	 * @param int $space_id Space they have been approved to join.
+	 * @param int $space_id   Space they have been approved to join.
+	 * @param int $user_id    User whose request was approved (notification recipient).
+	 * @param int $_by_user_id User who approved the request (unused — required by hook contract).
 	 */
-	public function on_space_request_approved( int $user_id, int $space_id ): void {
+	public function on_space_join_approved( int $space_id, int $user_id, int $_by_user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_by_user_id required by hook contract.
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}
@@ -459,6 +479,80 @@ class EventListener {
 				'object_type'  => 'strike',
 				'object_id'    => $strike_id,
 				'group_key'    => null,
+			)
+		);
+
+		// Enforce configurable strike thresholds.
+		$warn_threshold    = (int) get_option( 'buddynext_strike_warn_threshold', 2 );
+		$suspend_threshold = (int) get_option( 'buddynext_strike_suspend_threshold', 5 );
+		$active_strikes    = buddynext_service( 'moderation' )->get_active_strike_count( $user_id );
+
+		if ( $active_strikes >= $suspend_threshold ) {
+			buddynext_service( 'admin_members' )->suspend_member( $user_id );
+		} elseif ( $active_strikes >= $warn_threshold ) {
+			buddynext_service( 'notifications' )->create(
+				array(
+					'recipient_id' => $user_id,
+					'sender_id'    => $actor_id,
+					'type'         => 'bn.strike_warning',
+					'object_type'  => 'strike',
+					'object_id'    => $strike_id,
+					'group_key'    => null,
+				)
+			);
+		}
+	}
+
+	/**
+	 * Notify the suspended user by email when their account is suspended.
+	 *
+	 * Creates a bn.member_suspended notification so the EmailDispatchListener
+	 * picks it up and sends the corresponding email template.
+	 *
+	 * @param int $user_id  The suspended user.
+	 * @param int $actor_id Admin who issued the suspension.
+	 */
+	public function on_member_suspended( int $user_id, int $actor_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $user_id,
+				'sender_id'    => $actor_id,
+				'type'         => 'bn.member_suspended',
+				'object_type'  => 'user',
+				'object_id'    => $user_id,
+				'group_key'    => null,
+			)
+		);
+	}
+
+	/**
+	 * Notify the appellant by email when their appeal is resolved.
+	 *
+	 * Creates a bn.appeal_resolved notification so the EmailDispatchListener
+	 * can deliver the outcome email with the decision included.
+	 *
+	 * @param int    $appeal_id Appeal row ID.
+	 * @param int    $user_id   User who submitted the appeal.
+	 * @param string $decision  Resolution decision: 'approved' or 'denied'.
+	 */
+	public function on_appeal_resolved( int $appeal_id, int $user_id, string $decision ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $user_id,
+				'sender_id'    => 0,
+				'type'         => 'bn.appeal_resolved',
+				'object_type'  => 'appeal',
+				'object_id'    => $appeal_id,
+				'group_key'    => null,
+				'data'         => array( 'decision' => $decision ),
 			)
 		);
 	}
@@ -576,7 +670,7 @@ class EventListener {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$blocked = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_blocks
+				"SELECT blocker_id FROM {$wpdb->prefix}bn_blocks
 				 WHERE ( blocker_id = %d AND blocked_id = %d )
 				    OR ( blocker_id = %d AND blocked_id = %d )
 				 LIMIT 1",

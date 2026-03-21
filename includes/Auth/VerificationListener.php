@@ -112,13 +112,13 @@ class VerificationListener {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$template = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT subject, body, is_active FROM {$wpdb->prefix}bn_email_templates
+				"SELECT subject, body_html, enabled FROM {$wpdb->prefix}bn_email_templates
 				 WHERE type = %s LIMIT 1",
 				'email_verify'
 			)
 		);
 
-		if ( null !== $template && (bool) $template->is_active ) {
+		if ( null !== $template && (bool) $template->enabled ) {
 			$data = array(
 				'verify_url' => $verify_url,
 				'user_name'  => '' !== $user->display_name ? $user->display_name : $user->user_login,
@@ -145,7 +145,7 @@ class VerificationListener {
 			}
 
 			$subject = str_replace( $tokens, $replace, (string) $template->subject );
-			$body    = str_replace( $tokens, $replace, (string) $template->body );
+			$body    = str_replace( $tokens, $replace, (string) $template->body_html );
 
 			wp_mail(
 				$user->user_email,

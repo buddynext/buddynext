@@ -77,7 +77,7 @@ class EmailSender {
 			return;
 		}
 
-		if ( ! (bool) $template->is_active ) {
+		if ( ! (bool) $template->enabled ) {
 			return;
 		}
 
@@ -87,7 +87,7 @@ class EmailSender {
 		}
 
 		$subject = $this->render( (string) $template->subject, $user_id, $data );
-		$body    = $this->render( (string) $template->body, $user_id, $data );
+		$body    = $this->render( (string) $template->body_html, $user_id, $data );
 
 		wp_mail(
 			$user->user_email,
@@ -185,7 +185,7 @@ class EmailSender {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT subject, body, is_active FROM {$wpdb->prefix}bn_email_templates WHERE type = %s",
+				"SELECT subject, body_html, enabled FROM {$wpdb->prefix}bn_email_templates WHERE type = %s",
 				$type
 			)
 		);

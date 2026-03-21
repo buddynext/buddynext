@@ -575,6 +575,21 @@ function bn_space_category_icon( ?string $cat_slug ): string {
 	.bn-dir-featured { padding: var(--s4); gap: var(--s3); }
 	.bn-dir-featured__icon { font-size: 36px; }
 }
+
+[data-theme="dark"] .bn-dir-featured__cta:hover {
+	background: #e8f4fb;
+}
+[data-theme="dark"] .bn-space-card:hover {
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+[data-theme="dark"] .bn-space-card__avatar {
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+[data-theme="dark"] .bn-btn-pending {
+	background: var(--amber-bg);
+	color: var(--amber);
+	border-color: var(--amber);
+}
 <?php /* phpcs:enable */ ?>
 </style>
 

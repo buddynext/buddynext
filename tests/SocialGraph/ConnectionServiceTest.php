@@ -149,4 +149,43 @@ class ConnectionServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 'accepted', $this->service->status( $this->bob, $this->alice ) );
 		$this->assertSame( 'accepted', $this->service->status( $this->alice, $this->bob ) );
 	}
+
+	public function test_send_request_fires_buddynext_connection_requested_with_connection_id(): void {
+		$captured = null;
+		add_action(
+			'buddynext_connection_requested',
+			function ( int $connection_id, int $requester_id, int $recipient_id ) use ( &$captured ): void {
+				$captured = array( $connection_id, $requester_id, $recipient_id );
+			},
+			10,
+			3
+		);
+
+		$this->service->send_request( $this->alice, $this->bob );
+
+		$this->assertNotNull( $captured );
+		$this->assertGreaterThan( 0, $captured[0] );
+		$this->assertSame( $this->alice, $captured[1] );
+		$this->assertSame( $this->bob, $captured[2] );
+	}
+
+	public function test_accept_fires_buddynext_connection_accepted_with_connection_id(): void {
+		$captured = null;
+		add_action(
+			'buddynext_connection_accepted',
+			function ( int $connection_id, int $user_id_1, int $user_id_2 ) use ( &$captured ): void {
+				$captured = array( $connection_id, $user_id_1, $user_id_2 );
+			},
+			10,
+			3
+		);
+
+		$this->service->send_request( $this->alice, $this->bob );
+		$this->service->accept_request( $this->bob, $this->alice );
+
+		$this->assertNotNull( $captured );
+		$this->assertGreaterThan( 0, $captured[0] );
+		$this->assertSame( $this->alice, $captured[1] );
+		$this->assertSame( $this->bob, $captured[2] );
+	}
 }

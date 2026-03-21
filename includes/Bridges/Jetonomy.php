@@ -6,7 +6,7 @@
  *
  * ALWAYS-ON:
  * - Discussion created/updated → bn_search_index (type: discussion)
- * - Reply created → bn_notifications (type: jt.discussion_reply) for post author
+ * - Reply notifications are handled by EventListener (jetonomy_after_create_reply)
  *
  * OPT-IN (admin toggle or per-space):
  * - Discussion created → bn_posts entry (type: discussion) if feed sync enabled
@@ -18,7 +18,6 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
-use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Search\SearchService;
 
 /**
@@ -32,40 +31,12 @@ class Jetonomy {
 	 * Called from Plugin::init() via buddynext_load_bridges action.
 	 */
 	public function init(): void {
-		// Notifications: reply → notify discussion author.
-		add_action( 'jetonomy_after_create_reply', array( $this, 'on_reply_created' ), 10, 4 );
-
-		// Search index: discussion created.
-		add_action( 'jetonomy_after_create_post', array( $this, 'on_post_created' ), 10, 4 );
-	}
-
-	/**
-	 * Create a jt.discussion_reply notification when a reply is posted.
-	 *
-	 * Hooked on: jetonomy_after_create_reply($reply_id, $post_id, $replier_id, $post_author_id)
-	 *
-	 * @param int $reply_id      New reply ID.
-	 * @param int $post_id       Parent discussion post ID.
-	 * @param int $replier_id    User who posted the reply.
-	 * @param int $post_author_id Author of the parent discussion.
-	 */
-	public function on_reply_created( int $reply_id, int $post_id, int $replier_id, int $post_author_id ): void {
-		// Never self-notify.
-		if ( $replier_id === $post_author_id ) {
+		if ( ! class_exists( 'Jetonomy\Core\Plugin' ) ) {
 			return;
 		}
 
-		( new NotificationService() )->create(
-			array(
-				'recipient_id' => $post_author_id,
-				'sender_id'    => $replier_id,
-				'type'         => 'jt.discussion_reply',
-				'object_type'  => 'discussion',
-				'object_id'    => $post_id,
-				'group_key'    => "jt_reply_{$post_id}_{$post_author_id}",
-				'data'         => array( 'reply_id' => $reply_id ),
-			)
-		);
+		// Search index: discussion created.
+		add_action( 'jetonomy_after_create_post', array( $this, 'on_post_created' ), 10, 4 );
 	}
 
 	/**

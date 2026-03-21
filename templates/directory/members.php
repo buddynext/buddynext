@@ -594,7 +594,10 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 			$member_id    = (int) $member->ID;
 			$display_name = $member->display_name;
 			$member_login = $member->user_login;
-			$bio          = get_user_meta( $member_id, 'description', true );
+			$bio          = get_user_meta( $member_id, 'bn_field_bio', true );
+			if ( empty( $bio ) ) {
+				$bio = get_user_meta( $member_id, 'description', true );
+			}
 			$profile_url  = get_author_posts_url( $member_id );
 			$avatar_html  = get_avatar( $member_id, 64, '', esc_attr( $display_name ), [ 'force_display' => true ] );
 			$has_avatar   = false !== strpos( $avatar_html, 'src=' );

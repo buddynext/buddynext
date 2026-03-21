@@ -29,6 +29,7 @@ use BuddyNext\REST\Controllers\HashtagController;
 use BuddyNext\REST\Controllers\ModerationController;
 use BuddyNext\REST\Controllers\NotificationController;
 use BuddyNext\REST\Controllers\ReactionController;
+use BuddyNext\REST\Controllers\SpaceCategoryController;
 use BuddyNext\REST\Controllers\SpaceController;
 
 /**
@@ -61,6 +62,7 @@ class Router {
 		( new ShareController() )->register_routes();
 		( new ProfileController() )->register_routes();
 		( new SearchController() )->register_routes();
+		( new SpaceCategoryController() )->register_routes();
 		( new SpaceController() )->register_routes();
 		( new NotificationController() )->register_routes();
 		( new ReactionController() )->register_routes();

@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Search;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Search\MemberDirectoryService;
 use BuddyNext\SocialGraph\FollowService;
 
@@ -19,13 +20,17 @@ use BuddyNext\SocialGraph\FollowService;
 class MemberDirectoryServiceTest extends \WP_UnitTestCase {
 
 	private MemberDirectoryService $service;
+	private ModerationService $moderation;
 	private int $viewer_id;
+	private int $admin_id;
 
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
-		$this->service   = new MemberDirectoryService( new FollowService() );
-		$this->viewer_id = self::factory()->user->create();
+		$this->service    = new MemberDirectoryService( new FollowService() );
+		$this->moderation = new ModerationService();
+		$this->viewer_id  = self::factory()->user->create();
+		$this->admin_id   = self::factory()->user->create( array( 'role' => 'administrator' ) );
 	}
 
 	public function test_list_members_returns_paginated_structure(): void {
@@ -87,5 +92,29 @@ class MemberDirectoryServiceTest extends \WP_UnitTestCase {
 		$result = $this->service->list_members( $this->viewer_id, null, 10 );
 
 		$this->assertNull( $result['next_cursor'] );
+	}
+
+	// ── Suspension + shadow-ban filtering ──────────────────────────────────
+
+	public function test_directory_excludes_suspended_users(): void {
+		$suspended = self::factory()->user->create();
+
+		wp_set_current_user( $this->admin_id );
+		$this->moderation->suspend_user( $suspended, $this->admin_id, 'test', array() );
+
+		$result = $this->service->list_members( $this->viewer_id );
+
+		$ids = array_column( $result['items'], 'user_id' );
+		$this->assertNotContains( $suspended, $ids );
+	}
+
+	public function test_directory_excludes_shadow_banned_users(): void {
+		$shadow = self::factory()->user->create();
+		update_user_meta( $shadow, 'bn_shadow_banned', '1' );
+
+		$result = $this->service->list_members( $this->viewer_id );
+
+		$ids = array_column( $result['items'], 'user_id' );
+		$this->assertNotContains( $shadow, $ids );
 	}
 }

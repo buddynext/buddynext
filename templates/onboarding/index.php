@@ -71,7 +71,7 @@ $saved_interests     = array_filter( array_map( 'trim', explode( ',', $saved_int
 
 // Recommended spaces (step 3) — pull from bn_spaces.
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-$recommended_spaces = $wpdb->get_results( "SELECT id, name, emoji, member_count, description FROM {$wpdb->prefix}bn_spaces WHERE is_active = 1 ORDER BY member_count DESC LIMIT 6" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+$recommended_spaces = $wpdb->get_results( "SELECT id, name, member_count, description FROM {$wpdb->prefix}bn_spaces ORDER BY member_count DESC LIMIT 6" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $joined_space_ids_raw = $wpdb->get_col(
@@ -747,7 +747,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 								data-wp-on--click="actions.toggleSpace"
 								aria-pressed="<?php echo in_array( $space_id, $joined_space_ids, true ) ? 'true' : 'false'; ?>">
 								<div class="bn-ob-space-icon">
-									<?php echo $space->emoji ? esc_html( $space->emoji ) : '&#127968;'; ?>
+									&#127968;
 								</div>
 								<div>
 									<div class="bn-ob-space-name"><?php echo esc_html( $space->name ); ?></div>

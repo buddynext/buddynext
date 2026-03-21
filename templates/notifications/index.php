@@ -57,7 +57,7 @@ if ( ! empty( $filter_types ) ) {
 
 // Fetch up to 50 notifications for the current user, ordered newest first.
 // $filter_sql is fully prepared above; build final SQL by string concat before prepare().
-$base_sql = "SELECT n.id, n.type, n.sender_id, n.object_id, n.object_type, n.message, n.is_read, n.created_at
+$base_sql = "SELECT n.id, n.type, n.sender_id, n.object_id, n.object_type, n.is_read, n.created_at
 	 FROM {$wpdb->prefix}bn_notifications AS n
 	 WHERE n.recipient_id = %d"
 	. $filter_sql .
@@ -251,6 +251,20 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 		'color' => '#9b9b97',
 		'icon'  => '&#x1F514;',
 	);
+	$type_messages = array(
+		'bn.new_reaction'        => __( 'reacted to your post.', 'buddynext' ),
+		'bn.new_comment'         => __( 'commented on your post.', 'buddynext' ),
+		'bn.new_reply'           => __( 'replied to your comment.', 'buddynext' ),
+		'bn.new_follower'        => __( 'started following you.', 'buddynext' ),
+		'bn.connection_request'  => __( 'sent you a connection request.', 'buddynext' ),
+		'bn.connection_accepted' => __( 'accepted your connection request.', 'buddynext' ),
+		'bn.space_invite'        => __( 'invited you to a space.', 'buddynext' ),
+		'bn.space_join_request'  => __( 'requested to join your space.', 'buddynext' ),
+		'bn.new_message'         => __( 'sent you a message.', 'buddynext' ),
+		'bn.badge_awarded'       => __( 'You earned a new badge.', 'buddynext' ),
+		'bn.mention'             => __( 'mentioned you in a post.', 'buddynext' ),
+	);
+	$notif_message = $type_messages[ $notif_type ] ?? __( 'sent you a notification.', 'buddynext' );
 	$row_class  = 'bn-notif-row' . ( $is_unread ? ' bn-notif-row--unread' : '' );
 	?>
 	<div class="<?php echo esc_attr( $row_class ); ?>"
@@ -266,7 +280,7 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 		<div class="bn-notif-content">
 			<div class="bn-notif-text">
 				<strong><?php echo $get_display_name( $actor_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped inside closure. ?></strong>
-				<?php echo esc_html( $row->message ); ?>
+				<?php echo esc_html( $notif_message ); ?>
 			</div>
 
 			<?php if ( 'bn.space_invite' === $notif_type ) : ?>

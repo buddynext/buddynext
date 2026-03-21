@@ -55,100 +55,118 @@ class Installer {
 
 		$templates = array(
 			array(
-				'type'      => 'email_verify',
-				'subject'   => 'Verify your email address — {{site_name}}',
-				'preheader' => 'Click the link to confirm your address',
-				'body'      => '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 24 hours.</p>',
+				'type'         => 'email_verify',
+				'subject'      => 'Verify your email address — {{site_name}}',
+				'preview_text' => 'Click the link to confirm your address',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 24 hours.</p>',
 			),
 			array(
-				'type'      => 'welcome',
-				'subject'   => 'Welcome to {{site_name}}!',
-				'preheader' => 'Your community account is ready',
-				'body'      => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}! Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>',
+				'type'         => 'welcome',
+				'subject'      => 'Welcome to {{site_name}}!',
+				'preview_text' => 'Your community account is ready',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Welcome to {{site_name}}! Your account is all set — <a href="{{site_url}}">start exploring</a>.</p>',
 			),
 			array(
-				'type'      => 'bn.new_follower',
-				'subject'   => 'Someone followed you on {{site_name}}',
-				'preheader' => 'You have a new follower',
-				'body'      => '<p>Hi {{user_name}},</p><p>You have a new follower on {{site_name}}. <a href="{{site_url}}">See who it is.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.new_follower',
+				'subject'      => 'Someone followed you on {{site_name}}',
+				'preview_text' => 'You have a new follower',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new follower on {{site_name}}. <a href="{{site_url}}">See who it is.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.connection_requested',
-				'subject'   => 'New connection request on {{site_name}}',
-				'preheader' => 'Someone wants to connect with you',
-				'body'      => '<p>Hi {{user_name}},</p><p>You have a new connection request on {{site_name}}. <a href="{{site_url}}">View the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.connection_requested',
+				'subject'      => 'New connection request on {{site_name}}',
+				'preview_text' => 'Someone wants to connect with you',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new connection request on {{site_name}}. <a href="{{site_url}}">View the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.connection_accepted',
-				'subject'   => 'Connection accepted on {{site_name}}',
-				'preheader' => 'You are now connected',
-				'body'      => '<p>Hi {{user_name}},</p><p>Your connection request was accepted on {{site_name}}. <a href="{{site_url}}">View your connections.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.connection_accepted',
+				'subject'      => 'Connection accepted on {{site_name}}',
+				'preview_text' => 'You are now connected',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your connection request was accepted on {{site_name}}. <a href="{{site_url}}">View your connections.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.mention',
-				'subject'   => 'You were mentioned on {{site_name}}',
-				'preheader' => 'Someone mentioned you in a post',
-				'body'      => '<p>Hi {{user_name}},</p><p>You were mentioned in a post on {{site_name}}. <a href="{{site_url}}">See the post.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.mention',
+				'subject'      => 'You were mentioned on {{site_name}}',
+				'preview_text' => 'Someone mentioned you in a post',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You were mentioned in a post on {{site_name}}. <a href="{{site_url}}">See the post.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.post_reacted',
-				'subject'   => 'Someone reacted to your post on {{site_name}}',
-				'preheader' => 'New reaction on your post',
-				'body'      => '<p>Hi {{user_name}},</p><p>Your post received a reaction on {{site_name}}. <a href="{{site_url}}">See the reactions.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.post_reacted',
+				'subject'      => 'Someone reacted to your post on {{site_name}}',
+				'preview_text' => 'New reaction on your post',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post received a reaction on {{site_name}}. <a href="{{site_url}}">See the reactions.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.post_commented',
-				'subject'   => 'New comment on your post — {{site_name}}',
-				'preheader' => 'Someone commented on your post',
-				'body'      => '<p>Hi {{user_name}},</p><p>Your post received a new comment on {{site_name}}. <a href="{{site_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.post_commented',
+				'subject'      => 'New comment on your post — {{site_name}}',
+				'preview_text' => 'Someone commented on your post',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post received a new comment on {{site_name}}. <a href="{{site_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.post_shared',
-				'subject'   => 'Your post was shared on {{site_name}}',
-				'preheader' => 'Someone shared your post',
-				'body'      => '<p>Hi {{user_name}},</p><p>Your post was shared on {{site_name}}. <a href="{{site_url}}">View the share.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.post_shared',
+				'subject'      => 'Your post was shared on {{site_name}}',
+				'preview_text' => 'Someone shared your post',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post was shared on {{site_name}}. <a href="{{site_url}}">View the share.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.space_invite',
-				'subject'   => 'You have been invited to a space on {{site_name}}',
-				'preheader' => 'Join this community space',
-				'body'      => '<p>Hi {{user_name}},</p><p>You have been invited to join a space on {{site_name}}. <a href="{{site_url}}">View the invitation.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.space_invite',
+				'subject'      => 'You have been invited to a space on {{site_name}}',
+				'preview_text' => 'Join this community space',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You have been invited to join a space on {{site_name}}. <a href="{{site_url}}">View the invitation.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.space_join_requested',
-				'subject'   => 'New join request for your space — {{site_name}}',
-				'preheader' => 'A member wants to join your space',
-				'body'      => '<p>Hi {{user_name}},</p><p>A new member has requested to join your space on {{site_name}}. <a href="{{site_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.space_join_requested',
+				'subject'      => 'New join request for your space — {{site_name}}',
+				'preview_text' => 'A member wants to join your space',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>A new member has requested to join your space on {{site_name}}. <a href="{{site_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.space_request_approved',
-				'subject'   => 'Your space join request was approved — {{site_name}}',
-				'preheader' => 'Welcome to the space',
-				'body'      => '<p>Hi {{user_name}},</p><p>Your request to join a space on {{site_name}} has been approved. <a href="{{site_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.space_request_approved',
+				'subject'      => 'Your space join request was approved — {{site_name}}',
+				'preview_text' => 'Welcome to the space',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your request to join a space on {{site_name}} has been approved. <a href="{{site_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.strike_issued',
-				'subject'   => 'A moderation action has been taken on your account — {{site_name}}',
-				'preheader' => 'Important account notice',
-				'body'      => '<p>Hi {{user_name}},</p><p>A moderation strike has been issued on your account at {{site_name}}. Please review the community guidelines to avoid further action.</p>',
+				'type'         => 'bn.strike_issued',
+				'subject'      => 'A moderation action has been taken on your account — {{site_name}}',
+				'preview_text' => 'Important account notice',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>A moderation strike has been issued on your account at {{site_name}}. Please review the community guidelines to avoid further action.</p>',
 			),
 			array(
-				'type'      => 'bn.badge_awarded',
-				'subject'   => 'You earned a badge on {{site_name}}!',
-				'preheader' => 'Congratulations on your new badge',
-				'body'      => '<p>Hi {{user_name}},</p><p>Congratulations! You earned a new badge on {{site_name}}. <a href="{{site_url}}">View your profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.badge_awarded',
+				'subject'      => 'You earned a badge on {{site_name}}!',
+				'preview_text' => 'Congratulations on your new badge',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Congratulations! You earned a new badge on {{site_name}}. <a href="{{site_url}}">View your profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.level_up',
-				'subject'   => 'You levelled up on {{site_name}}!',
-				'preheader' => 'Your community level increased',
-				'body'      => '<p>Hi {{user_name}},</p><p>You have reached a new level on {{site_name}}. <a href="{{site_url}}">See your new level.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.level_up',
+				'subject'      => 'You levelled up on {{site_name}}!',
+				'preview_text' => 'Your community level increased',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You have reached a new level on {{site_name}}. <a href="{{site_url}}">See your new level.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
-				'type'      => 'bn.jetonomy_reply',
-				'subject'   => 'New reply to your discussion — {{site_name}}',
-				'preheader' => 'Someone replied to your discussion',
-				'body'      => '<p>Hi {{user_name}},</p><p>Your discussion received a new reply on {{site_name}}. <a href="{{site_url}}">View the reply.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'type'         => 'bn.jetonomy_reply',
+				'subject'      => 'New reply to your discussion — {{site_name}}',
+				'preview_text' => 'Someone replied to your discussion',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your discussion received a new reply on {{site_name}}. <a href="{{site_url}}">View the reply.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'         => 'bn.strike_warning',
+				'subject'      => 'Warning: your account has received multiple strikes — {{site_name}}',
+				'preview_text' => 'You have received multiple moderation strikes',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has received multiple moderation strikes. Please review our community guidelines to avoid further action.</p><p>If you believe this is in error, you can contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'         => 'bn.member_suspended',
+				'subject'      => 'Your account has been suspended — {{site_name}}',
+				'preview_text' => 'Your account has been suspended',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your account on {{site_name}} has been suspended. You will not be able to post or interact with the community during this period.</p><p>If you believe this was done in error, you may submit an appeal from your account page.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'         => 'bn.appeal_resolved',
+				'subject'      => 'Your appeal has been reviewed — {{site_name}}',
+				'preview_text' => 'Your moderation appeal has been resolved',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your appeal on {{site_name}} has been reviewed and <strong>{{decision}}</strong>.</p><p>If you have questions about this decision, please contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 		);
 
@@ -157,12 +175,12 @@ class Installer {
 		foreach ( $templates as $tpl ) {
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO `{$p}bn_email_templates` (type, subject, preheader, body)
+					"INSERT IGNORE INTO `{$p}bn_email_templates` (type, subject, preview_text, body_html)
 					 VALUES (%s, %s, %s, %s)",
 					$tpl['type'],
 					$tpl['subject'],
-					$tpl['preheader'],
-					$tpl['body']
+					$tpl['preview_text'],
+					$tpl['body_html']
 				)
 			);
 		}
@@ -229,9 +247,11 @@ class Installer {
 				reaction_count      INT UNSIGNED NOT NULL DEFAULT 0,
 				comment_count       INT UNSIGNED NOT NULL DEFAULT 0,
 				share_count         INT UNSIGNED NOT NULL DEFAULT 0,
-				is_pinned           TINYINT(1) NOT NULL DEFAULT 0,
-				is_announcement     TINYINT(1) NOT NULL DEFAULT 0,
-				site_pin_expires_at DATETIME DEFAULT NULL,
+				is_pinned            TINYINT(1) NOT NULL DEFAULT 0,
+				is_announcement      TINYINT(1) NOT NULL DEFAULT 0,
+				content_warning      TINYINT(1) NOT NULL DEFAULT 0,
+				content_warning_type VARCHAR(32) DEFAULT NULL,
+				site_pin_expires_at  DATETIME DEFAULT NULL,
 				edited_at           DATETIME DEFAULT NULL,
 				scheduled_at        DATETIME DEFAULT NULL,
 				created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -365,14 +385,14 @@ class Installer {
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_email_templates (
-				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				type       VARCHAR(64) NOT NULL,
-				subject    VARCHAR(255) NOT NULL,
-				preheader  VARCHAR(255) DEFAULT NULL,
-				body       LONGTEXT NOT NULL,
-				is_active  TINYINT(1) NOT NULL DEFAULT 1,
-				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				type         VARCHAR(64) NOT NULL,
+				subject      VARCHAR(255) NOT NULL,
+				preview_text VARCHAR(255) DEFAULT NULL,
+				body_html    LONGTEXT NOT NULL,
+				enabled      TINYINT(1) NOT NULL DEFAULT 1,
+				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
 				UNIQUE KEY  type (type)
 			) {$cs};",
@@ -407,7 +427,7 @@ class Installer {
 				object_id   BIGINT(20) UNSIGNED NOT NULL,
 				emoji       VARCHAR(32) NOT NULL DEFAULT 'like',
 				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				UNIQUE KEY  one_per_user (user_id, object_type, object_id),
+				PRIMARY KEY (user_id, object_type, object_id),
 				KEY         object_reactions (object_type, object_id)
 			) {$cs};",
 
@@ -681,6 +701,78 @@ class Installer {
 				UNIQUE KEY  token (token),
 				KEY         email (email),
 				KEY         status_expires (status, expires_at)
+			) {$cs};",
+
+			// ── Moderation — Suspensions + Appeals + Space Bans ──────────────────
+
+			"CREATE TABLE {$p}bn_user_suspensions (
+				id           BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id      BIGINT(20) UNSIGNED NOT NULL,
+				suspended_by BIGINT(20) UNSIGNED NOT NULL,
+				reason       TEXT DEFAULT NULL,
+				duration_days INT UNSIGNED DEFAULT NULL,
+				hide_posts   TINYINT(1) NOT NULL DEFAULT 0,
+				expires_at   DATETIME DEFAULT NULL,
+				lifted_at    DATETIME DEFAULT NULL,
+				lifted_by    BIGINT(20) UNSIGNED DEFAULT NULL,
+				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY  (id),
+				KEY          user_active (user_id, expires_at),
+				KEY          suspended_by (suspended_by)
+			) {$cs};",
+
+			"CREATE TABLE {$p}bn_appeals (
+				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				suspension_id BIGINT(20) UNSIGNED NOT NULL,
+				user_id       BIGINT(20) UNSIGNED NOT NULL,
+				message       TEXT NOT NULL,
+				status        ENUM('pending','approved','denied') NOT NULL DEFAULT 'pending',
+				reviewed_by   BIGINT(20) UNSIGNED DEFAULT NULL,
+				reviewer_note TEXT DEFAULT NULL,
+				reviewed_at   DATETIME DEFAULT NULL,
+				created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY   (id),
+				KEY           user_status (user_id, status),
+				KEY           suspension (suspension_id)
+			) {$cs};",
+
+			"CREATE TABLE {$p}bn_space_bans (
+				space_id   BIGINT(20) UNSIGNED NOT NULL,
+				user_id    BIGINT(20) UNSIGNED NOT NULL,
+				banned_by  BIGINT(20) UNSIGNED NOT NULL,
+				reason     TEXT DEFAULT NULL,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (space_id, user_id),
+				KEY         user_bans (user_id)
+			) {$cs};",
+
+			// ── Outbound Webhooks ──────────────────────────────────────────────
+
+			"CREATE TABLE {$p}bn_outbound_webhooks (
+				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				label      VARCHAR(100) NOT NULL,
+				url        VARCHAR(2083) NOT NULL,
+				secret     VARCHAR(64) DEFAULT NULL,
+				events     JSON DEFAULT NULL,
+				is_active  TINYINT(1) NOT NULL DEFAULT 1,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				PRIMARY KEY (id)
+			) {$cs};",
+
+			"CREATE TABLE {$p}bn_outbound_webhook_log (
+				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				webhook_id    BIGINT(20) UNSIGNED NOT NULL,
+				event         VARCHAR(64) NOT NULL,
+				payload       JSON DEFAULT NULL,
+				response_code SMALLINT UNSIGNED DEFAULT NULL,
+				response_body TEXT DEFAULT NULL,
+				status        ENUM('success','error') NOT NULL DEFAULT 'success',
+				attempt       TINYINT UNSIGNED NOT NULL DEFAULT 1,
+				created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY   (id),
+				KEY           webhook_event (webhook_id, event, created_at),
+				KEY           status_date (status, created_at)
 			) {$cs};",
 
 		);

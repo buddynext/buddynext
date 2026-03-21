@@ -32,6 +32,7 @@ use BuddyNext\Feed\BookmarkService;
 use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PollService;
 use BuddyNext\Feed\PostService;
+use BuddyNext\Feed\SafeguardService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Blocks\BlockRegistrar;
 use BuddyNext\Bridges\CareerBoard as CareerBoardBridge;
@@ -56,6 +57,7 @@ use BuddyNext\Search\MemberDirectoryService;
 use BuddyNext\Search\SearchService;
 use BuddyNext\Auth\VerificationListener;
 use BuddyNext\Auth\VerificationService;
+use BuddyNext\Core\OutboundWebhookService;
 use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\ConnectionService;
 use BuddyNext\SocialGraph\FollowService;
@@ -95,6 +97,7 @@ class Plugin {
 			$container->get( 'admin_nav' )->register();
 			$container->get( 'admin_hub' )->register();
 			$container->get( 'admin_email_editor' )->register();
+			$container->get( 'setup_wizard' )->init();
 		}
 
 		// Register and enqueue frontend assets.
@@ -117,6 +120,9 @@ class Plugin {
 				( new \BuddyNext\Profile\ProfileService() )->index_user( $user_id );
 			}
 		);
+
+		// Wire outbound webhook dispatcher to BuddyNext events.
+		$container->get( 'webhooks' )->init();
 
 		// Wire email dispatch to the notification created action.
 		( new EmailDispatchListener(
@@ -142,8 +148,17 @@ class Plugin {
 		// Register WP-Cron schedules and recurring events.
 		( new CronScheduler() )->init();
 
-		// Boot first-party bridges unconditionally — each bridge guards itself
-		// against its dependency being absent via class_exists checks at hook time.
+		// Boot first-party bridges at plugins_loaded:25 so they fire after both
+		// BuddyNext (priority 15) and Pro plugins like Jetonomy Pro / WPMediaVerse Pro
+		// (priority 20). Each bridge guards itself via class_exists checks at hook time.
+		add_action(
+			'plugins_loaded',
+			static function (): void {
+				do_action( 'buddynext_load_bridges' );
+			},
+			25
+		);
+
 		add_action(
 			'buddynext_load_bridges',
 			function (): void {
@@ -153,13 +168,6 @@ class Plugin {
 				( new CareerBoardBridge() )->init();
 			}
 		);
-
-		/**
-		 * Fires after BuddyNext services are registered.
-		 *
-		 * Bridge classes (WPMediaVerse, Jetonomy, etc.) hook here to load.
-		 */
-		do_action( 'buddynext_load_bridges' );
 
 		/**
 		 * Fires when BuddyNext is fully initialised.
@@ -191,7 +199,8 @@ class Plugin {
 				$c->get( 'blocks' )
 			)
 		);
-		$container->bind( 'post_service', fn() => new PostService() );
+		$container->bind( 'safeguards', fn() => new SafeguardService() );
+		$container->bind( 'post_service', fn( $c ) => new PostService( $c->get( 'safeguards' ) ) );
 		$container->bind( 'feed', fn( $c ) => new FeedService( $c->get( 'follows' ), $c->get( 'post_service' ) ) );
 		$container->bind( 'polls', fn() => new PollService() );
 		$container->bind( 'bookmarks', fn() => new BookmarkService() );
@@ -224,7 +233,11 @@ class Plugin {
 		$container->bind( 'shortcodes', fn() => new ShortcodeService() );
 		$container->bind( 'widgets', fn() => new WidgetService() );
 		$container->bind( 'pwa', fn() => new PwaService() );
+		$container->bind( 'webhooks', fn() => new OutboundWebhookService() );
 		$container->bind( 'verification', fn() => new VerificationService() );
+		$container->bind( 'onboarding', fn() => new \BuddyNext\Onboarding\OnboardingService() );
+		$container->bind( 'invite', fn() => new \BuddyNext\Onboarding\InviteService() );
+		$container->bind( 'setup_wizard', fn() => new \BuddyNext\Onboarding\SetupWizard() );
 
 		// Abilities must be registered at plugins_loaded:15 so they are
 		// available before rest_api_init and admin_menu fire.

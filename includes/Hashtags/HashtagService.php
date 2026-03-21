@@ -42,8 +42,14 @@ class HashtagService {
 		}
 
 		$slugs = array_map( 'strtolower', $matches[1] );
+		$slugs = array_values( array_unique( $slugs ) );
 
-		return array_values( array_unique( $slugs ) );
+		$banned = (array) get_option( 'buddynext_banned_hashtags', array() );
+		if ( ! empty( $banned ) ) {
+			$slugs = array_values( array_diff( $slugs, $banned ) );
+		}
+
+		return $slugs;
 	}
 
 	/**
@@ -51,6 +57,7 @@ class HashtagService {
 	 *
 	 * Upserts each tag into bn_hashtags, then replaces the bn_post_hashtags
 	 * link set for this object so that stale tags are removed automatically.
+	 * Recomputes post_count for all affected hashtag IDs and busts trending cache.
 	 *
 	 * @param string   $object_type Object type (e.g. 'post', 'comment').
 	 * @param int      $object_id   Object ID.
@@ -60,6 +67,16 @@ class HashtagService {
 		global $wpdb;
 
 		$object_type = sanitize_key( $object_type );
+
+		// Capture old hashtag IDs before deleting so counts can be recomputed.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$old_hashtag_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT hashtag_id FROM {$wpdb->prefix}bn_post_hashtags WHERE post_id = %d AND object_type = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$object_id,
+				$object_type
+			)
+		);
 
 		// Remove all existing links for this object first.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -72,9 +89,28 @@ class HashtagService {
 			array( '%d', '%s' )
 		);
 
+		// Recompute counts for tags that were previously linked to this object.
+		foreach ( $old_hashtag_ids as $old_id ) {
+			$old_id = (int) $old_id;
+			if ( 0 === $old_id ) {
+				continue;
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_hashtags SET post_count = (SELECT COUNT(*) FROM {$wpdb->prefix}bn_post_hashtags WHERE hashtag_id = %d) WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$old_id,
+					$old_id
+				)
+			);
+		}
+
 		if ( empty( $slugs ) ) {
+			$this->bust_trending_cache();
 			return;
 		}
+
+		$new_hashtag_ids = array();
 
 		foreach ( $slugs as $slug ) {
 			$slug = sanitize_key( $slug );
@@ -120,8 +156,162 @@ class HashtagService {
 				)
 			);
 
+			$new_hashtag_ids[] = $hashtag_id;
+
 			wp_cache_delete( "hashtag_{$slug}", self::CACHE_GROUP );
 		}
+
+		// Recompute counts for newly linked tags.
+		foreach ( $new_hashtag_ids as $hashtag_id ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_hashtags SET post_count = (SELECT COUNT(*) FROM {$wpdb->prefix}bn_post_hashtags WHERE hashtag_id = %d) WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$hashtag_id,
+					$hashtag_id
+				)
+			);
+		}
+
+		$this->bust_trending_cache();
+	}
+
+	/**
+	 * Follow a hashtag.
+	 *
+	 * @param int $user_id    User who wants to follow.
+	 * @param int $hashtag_id Hashtag to follow.
+	 * @return bool True if newly followed, false if already following.
+	 */
+	public function follow( int $user_id, int $hashtag_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$inserted = $wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_hashtag_follows (user_id, hashtag_id) VALUES (%d, %d)",
+				$user_id,
+				$hashtag_id
+			)
+		);
+
+		if ( $inserted ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_hashtags SET follower_count = follower_count + 1 WHERE id = %d",
+					$hashtag_id
+				)
+			);
+			wp_cache_delete( "hashtag_following_{$user_id}_{$hashtag_id}", self::CACHE_GROUP );
+		}
+
+		return (bool) $inserted;
+	}
+
+	/**
+	 * Unfollow a hashtag.
+	 *
+	 * @param int $user_id    User who wants to unfollow.
+	 * @param int $hashtag_id Hashtag to unfollow.
+	 * @return bool True if unfollowed, false if was not following.
+	 */
+	public function unfollow( int $user_id, int $hashtag_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$deleted = $wpdb->delete(
+			$wpdb->prefix . 'bn_hashtag_follows',
+			array(
+				'user_id'    => $user_id,
+				'hashtag_id' => $hashtag_id,
+			),
+			array( '%d', '%d' )
+		);
+
+		if ( $deleted ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_hashtags SET follower_count = GREATEST(follower_count - 1, 0) WHERE id = %d",
+					$hashtag_id
+				)
+			);
+			wp_cache_delete( "hashtag_following_{$user_id}_{$hashtag_id}", self::CACHE_GROUP );
+		}
+
+		return (bool) $deleted;
+	}
+
+	/**
+	 * Check whether a user follows a given hashtag.
+	 *
+	 * @param int $user_id    User to check.
+	 * @param int $hashtag_id Hashtag to check.
+	 * @return bool
+	 */
+	public function is_following( int $user_id, int $hashtag_id ): bool {
+		$cache_key = "hashtag_following_{$user_id}_{$hashtag_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (bool) $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$result = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT 1 FROM {$wpdb->prefix}bn_hashtag_follows WHERE user_id = %d AND hashtag_id = %d",
+				$user_id,
+				$hashtag_id
+			)
+		);
+
+		wp_cache_set( $cache_key, (int) $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
+	}
+
+	/**
+	 * Return hashtag suggestions matching a prefix.
+	 *
+	 * @param string $prefix Search prefix (without #). Minimum 1 character.
+	 * @param int    $limit  Maximum results (1–20). Default 10.
+	 * @return array[]
+	 */
+	public function autocomplete( string $prefix, int $limit = 10 ): array {
+		$prefix = sanitize_key( $prefix );
+		if ( '' === $prefix ) {
+			return array();
+		}
+
+		$limit = max( 1, min( 20, $limit ) );
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, name, slug, post_count FROM {$wpdb->prefix}bn_hashtags WHERE slug LIKE %s ORDER BY post_count DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->esc_like( $prefix ) . '%',
+				$limit
+			),
+			ARRAY_A
+		);
+
+		return array_map(
+			static function ( array $row ): array {
+				return array(
+					'id'         => (int) $row['id'],
+					'slug'       => $row['slug'],
+					'name'       => $row['name'],
+					'post_count' => (int) $row['post_count'],
+				);
+			},
+			(array) $rows
+		);
 	}
 
 	/**
@@ -205,5 +395,16 @@ class HashtagService {
 			'follower_count' => (int) $row['follower_count'],
 			'created_at'     => $row['created_at'],
 		);
+	}
+
+	/**
+	 * Delete trending cache entries for the common limit values.
+	 *
+	 * Called whenever post_count values change so callers always get fresh data.
+	 */
+	private function bust_trending_cache(): void {
+		foreach ( array( 10, 20, 50 ) as $limit ) {
+			wp_cache_delete( "trending_{$limit}", self::CACHE_GROUP );
+		}
 	}
 }

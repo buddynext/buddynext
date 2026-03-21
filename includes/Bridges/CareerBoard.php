@@ -30,8 +30,12 @@ class CareerBoard {
 	 * Called from Plugin::init() via buddynext_load_bridges action.
 	 */
 	public function init(): void {
+		if ( ! function_exists( 'wcb_get_job' ) && ! class_exists( 'WCB_Career_Board' ) ) {
+			return;
+		}
+
 		add_action( 'wcb_job_created', array( $this, 'on_job_created' ), 10, 4 );
-		add_action( 'wcb_application_submitted', array( $this, 'on_application_submitted' ), 10, 4 );
+		add_action( 'wcb_application_submitted', array( $this, 'on_application_submitted' ), 10, 3 );
 		add_action( 'wcb_application_status_changed', array( $this, 'on_application_status_changed' ), 10, 4 );
 		add_action( 'wcb_application_withdrawn', array( $this, 'on_application_withdrawn' ), 10, 4 );
 	}
@@ -53,14 +57,22 @@ class CareerBoard {
 	/**
 	 * Notify employer when a candidate applies.
 	 *
-	 * Hooked on: wcb_application_submitted($app_id, $job_id, $candidate_id, $employer_id)
+	 * Hooked on: wcb_application_submitted($app_id, $job_id, $candidate_id)
 	 *
-	 * @param int $app_id      Application ID.
-	 * @param int $job_id      Job post ID.
+	 * The employer is resolved from the job post author so that no fourth
+	 * argument is required from the hook (which fires with 3 args).
+	 *
+	 * @param int $app_id       Application ID.
+	 * @param int $job_id       Job post ID.
 	 * @param int $candidate_id Applying candidate.
-	 * @param int $employer_id  Employer to notify.
 	 */
-	public function on_application_submitted( int $app_id, int $job_id, int $candidate_id, int $employer_id ): void {
+	public function on_application_submitted( int $app_id, int $job_id, int $candidate_id ): void {
+		$employer_id = (int) get_post_field( 'post_author', $job_id );
+
+		if ( 0 === $employer_id ) {
+			return;
+		}
+
 		( new NotificationService() )->create(
 			array(
 				'recipient_id' => $employer_id,

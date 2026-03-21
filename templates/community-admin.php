@@ -52,25 +52,22 @@ $new_today = (int) $wpdb->get_var(
 // Active spaces.
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $active_spaces = (int) $wpdb->get_var(
-	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces WHERE visibility != 'archived'"
+	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces"
 );
 
-// Spaces pending approval (creator is not yet confirmed = placeholder status).
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$pending_spaces = (int) $wpdb->get_var(
-	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces WHERE visibility = 'pending'"
-);
+// Spaces pending approval — bn_spaces has no approval-state column; always 0 until schema adds one.
+$pending_spaces = 0;
 
 // Open reports.
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $open_reports = (int) $wpdb->get_var(
-	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE status = 'open'"
+	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE status = 'pending'"
 );
 
 // Urgent (high reporter count) reports.
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $urgent_reports = (int) $wpdb->get_var(
-	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE status = 'open' AND reporter_count >= 3"
+	"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports r WHERE r.status = 'pending' AND ( SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type = r.object_type AND object_id = r.object_id ) >= 3"
 );
 
 // Posts today.
@@ -134,11 +131,12 @@ $pending_joins = $wpdb->get_results(
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $report_rows = $wpdb->get_results(
 	$wpdb->prepare(
-		"SELECT r.id, r.reason, r.reporter_count, r.created_at, s.name AS space_name
+		"SELECT r.id, r.reason, r.created_at, s.name AS space_name,
+		        ( SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type = r.object_type AND object_id = r.object_id ) AS reporter_count
 		FROM {$wpdb->prefix}bn_reports r
 		LEFT JOIN {$wpdb->prefix}bn_spaces s ON s.id = r.space_id
-		WHERE r.status = 'open'
-		ORDER BY r.reporter_count DESC, r.created_at ASC
+		WHERE r.status = 'pending'
+		ORDER BY reporter_count DESC, r.created_at ASC
 		LIMIT %d",
 		10
 	)

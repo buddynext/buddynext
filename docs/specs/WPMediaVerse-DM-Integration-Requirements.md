@@ -1,7 +1,7 @@
 # WPMediaVerse — DM Architecture + Integration Requirements
 
 **Status:** Locked
-**Last updated:** 2026-03-20
+**Last updated:** 2026-03-21
 **Audience:** WPMediaVerse / WPMediaVerse Pro / BuddyNext developers
 
 ---
@@ -32,27 +32,45 @@ BuddyNext's only additions when active:
 
 ---
 
-## Current State (WPMediaVerse Pro — MessagingService.php)
+## Current State (as of 2026-03-21)
 
-The full 1:1 DM engine already exists in WPMediaVerse Pro and is production-quality:
+The DM engine has been moved from WPMediaVerse Pro → WPMediaVerse Free. The BuddyNext side bridge is implemented.
+
+### WPMediaVerse Free DM Engine
 
 | Feature | Status |
 |---------|--------|
-| 1:1 conversation find/create | ✅ |
-| Message requests (`request_pending` status) | ✅ |
-| Mute / pin / archive conversations | ✅ |
-| Unread count (cached 60s) | ✅ |
-| Rate limiting (30 msg/min, 10 convos/hour) | ✅ |
-| Emoji reactions on messages | ✅ |
-| Quoted replies (`parent_id`) | ✅ |
-| Message delete (own) + unsend for all (15 min window) | ✅ |
-| Access control (everyone / followers / mutual / nobody) | ✅ |
-| Typing indicator (transient-based) | ✅ |
-| Online status (2 min threshold) | ✅ |
-| Cursor pagination | ✅ |
-| REST polling transport | ✅ |
-| GDPR export/erase | ✅ |
-| All integration hooks fired | ✅ |
+| 1:1 conversation find/create | ✅ Moved to free |
+| Message requests (`request_pending` status) | ✅ Moved to free |
+| Mute / pin / archive conversations | ✅ Moved to free |
+| Unread count (cached 60s) | ✅ Moved to free |
+| Rate limiting (30 msg/min, 10 convos/hour) | ✅ Moved to free |
+| Emoji reactions on messages | ✅ Moved to free |
+| Quoted replies (`parent_id`) | ✅ Moved to free |
+| Message delete (own) + unsend for all (15 min window) | ✅ Moved to free |
+| Access control (everyone / followers / mutual / nobody) | ✅ Moved to free |
+| Typing indicator (3s active — better than spec's 5s) | ✅ Moved to free |
+| Online status (2 min threshold) | ✅ Moved to free |
+| Cursor pagination | ✅ Moved to free |
+| REST polling transport | ✅ Moved to free |
+| GDPR export/erase | ✅ Moved to free |
+| All integration hooks fired | ✅ Moved to free |
+| Voice messages (bonus — not in spec) | ✅ Moved to free |
+| REST namespace `mvs/v1` (was `mvs-pro/v1`) | ✅ Updated |
+| 4 DB tables created by free Activator | ✅ Updated |
+| `mvs_buddynext_active` filter | ✅ Added |
+| `mvs_can_send_message` filter in `can_message()` | ✅ Added |
+
+### BuddyNext Bridge (`includes/Bridges/WPMediaVerse.php`)
+
+| Task | Status |
+|------|--------|
+| Sets `mvs_buddynext_active` filter → `true` | ✅ Done |
+| Hooks `mvs_can_send_message` → `bn_blocks` check | ✅ Done |
+| Hooks `mvs_message_sent` → creates `bn_notifications` entry | ✅ Done |
+| DM inbox UI (templates consuming `mvs/v1` endpoints) | ✅ Done |
+| Unread count badge in BuddyNext nav | ✅ Done |
+| DM link on member profiles + directory cards | ✅ Done |
 
 **DB tables (currently created by Pro Migrator):**
 ```
@@ -206,25 +224,25 @@ BuddyNext bridge (`includes/Bridges/WPMediaVerse.php`):
 ## Work Summary
 
 ### WPMediaVerse Free
-| Task | Effort |
+| Task | Status |
 |------|--------|
-| Move DM engine (service, controller, transport, templates, JS/CSS) from Pro → Free | Medium |
-| Move 4 DB tables to Free Activator | Small |
-| Change REST namespace `mvs-pro/v1` → `mvs/v1` for DM endpoints | Small |
-| Add `mvs_buddynext_active` filter (2 places: chat panel, NotificationListener) | Trivial |
-| Add `mvs_can_send_message` filter in `can_message()` | Trivial |
+| Move DM engine (service, controller, transport, templates, JS/CSS) from Pro → Free | ✅ Done |
+| Move 4 DB tables to Free Activator | ✅ Done |
+| Change REST namespace `mvs-pro/v1` → `mvs/v1` for DM endpoints | ✅ Done |
+| Add `mvs_buddynext_active` filter (chat panel + NotificationListener) | ✅ Done |
+| Add `mvs_can_send_message` filter in `can_message()` | ✅ Done |
 
 ### WPMediaVerse Pro
-| Task | Effort |
+| Task | Status |
 |------|--------|
-| Add Group DM (GroupMessagingService + GroupMessagingController) | Medium |
-| Add read receipts | Small |
-| Add WebSocket transport | Large |
+| Add Group DM (GroupMessagingService + GroupMessagingController) | 🔲 Pending |
+| Add read receipts | 🔲 Pending |
+| Add WebSocket transport | 🔲 Pending |
 
 ### BuddyNext
-| Task | Effort |
+| Task | Status |
 |------|--------|
-| DM bridge (sets flags, hooks actions, renders inbox UI consuming `mvs/v1`) | Medium |
+| DM bridge (sets flags, hooks actions, renders inbox UI consuming `mvs/v1`) | ✅ Done |
 | No own DM tables | — |
 
 ---

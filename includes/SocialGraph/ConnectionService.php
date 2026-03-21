@@ -86,15 +86,17 @@ class ConnectionService {
 			array( '%d', '%d', '%s' )
 		);
 
+		$connection_id = (int) $wpdb->insert_id;
 		$this->invalidate_connection_cache( $requester_id, $recipient_id );
 
 		/**
 		 * Fires after a connection request is sent.
 		 *
-		 * @param int $requester_id ID of the requesting user.
-		 * @param int $recipient_id ID of the recipient.
+		 * @param int $connection_id Connection row ID.
+		 * @param int $requester_id  ID of the requesting user.
+		 * @param int $recipient_id  ID of the recipient.
 		 */
-		do_action( 'buddynext_connection_requested', $requester_id, $recipient_id );
+		do_action( 'buddynext_connection_requested', $connection_id, $requester_id, $recipient_id );
 
 		return true;
 	}
@@ -131,13 +133,25 @@ class ConnectionService {
 
 		$this->invalidate_connection_cache( $requester_id, $recipient_id );
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$connection_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_connections
+				 WHERE requester_id = %d AND recipient_id = %d AND status = 'accepted'
+				 LIMIT 1",
+				$requester_id,
+				$recipient_id
+			)
+		);
+
 		/**
 		 * Fires after a connection request is accepted.
 		 *
-		 * @param int $requester_id ID of the original requester.
-		 * @param int $recipient_id ID of the accepting user.
+		 * @param int $connection_id Connection row ID.
+		 * @param int $requester_id  ID of the original requester.
+		 * @param int $recipient_id  ID of the accepting user.
 		 */
-		do_action( 'buddynext_connection_accepted', $requester_id, $recipient_id );
+		do_action( 'buddynext_connection_accepted', $connection_id, $requester_id, $recipient_id );
 
 		return true;
 	}
@@ -152,35 +166,43 @@ class ConnectionService {
 	public function decline_request( int $recipient_id, int $requester_id ): true|WP_Error {
 		global $wpdb;
 
+		// Fetch the connection ID before updating so we can pass it to the hook.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$updated = $wpdb->update(
-			$wpdb->prefix . 'bn_connections',
-			array( 'status' => 'declined' ),
-			array(
-				'requester_id' => $requester_id,
-				'recipient_id' => $recipient_id,
-				'status'       => 'pending',
-			),
-			array( '%s' ),
-			array( '%d', '%d', '%s' )
+		$connection_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_connections
+				 WHERE requester_id = %d AND recipient_id = %d AND status = 'pending'",
+				$requester_id,
+				$recipient_id
+			)
 		);
 
-		if ( ! $updated ) {
+		if ( 0 === $connection_id ) {
 			return new WP_Error(
 				'request_not_found',
 				__( 'No pending connection request was found.', 'buddynext' )
 			);
 		}
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_connections',
+			array( 'status' => 'declined' ),
+			array( 'id' => $connection_id ),
+			array( '%s' ),
+			array( '%d' )
+		);
+
 		$this->invalidate_connection_cache( $requester_id, $recipient_id );
 
 		/**
-		 * Fires after a connection request is declined.
+		 * Fires after a connection request is rejected.
 		 *
-		 * @param int $requester_id ID of the original requester.
-		 * @param int $recipient_id ID of the declining user.
+		 * @param int $connection_id ID of the connection row.
+		 * @param int $requester_id  ID of the original requester.
+		 * @param int $recipient_id  ID of the rejecting user.
 		 */
-		do_action( 'buddynext_connection_declined', $requester_id, $recipient_id );
+		do_action( 'buddynext_connection_rejected', $connection_id, $requester_id, $recipient_id );
 
 		return true;
 	}
@@ -195,33 +217,87 @@ class ConnectionService {
 	public function withdraw_request( int $requester_id, int $recipient_id ): true|WP_Error {
 		global $wpdb;
 
+		// Fetch the connection ID before deleting so we can pass it to the hook.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_connections',
-			array(
-				'requester_id' => $requester_id,
-				'recipient_id' => $recipient_id,
-				'status'       => 'pending',
-			),
-			array( '%d', '%d', '%s' )
+		$connection_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_connections
+				 WHERE requester_id = %d AND recipient_id = %d AND status = 'pending'",
+				$requester_id,
+				$recipient_id
+			)
 		);
 
-		if ( 0 === $wpdb->rows_affected ) {
+		if ( 0 === $connection_id ) {
 			return new WP_Error(
 				'not_found',
 				__( 'No pending request found.', 'buddynext' )
 			);
 		}
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_connections',
+			array( 'id' => $connection_id ),
+			array( '%d' )
+		);
+
 		$this->invalidate_connection_cache( $requester_id, $recipient_id );
 
 		/**
 		 * Fires after a connection request is withdrawn.
 		 *
-		 * @param int $requester_id ID of the withdrawing user.
-		 * @param int $recipient_id ID of the original recipient.
+		 * @param int $connection_id ID of the connection row.
+		 * @param int $requester_id  ID of the withdrawing user.
 		 */
-		do_action( 'buddynext_connection_withdrawn', $requester_id, $recipient_id );
+		do_action( 'buddynext_connection_withdrawn', $connection_id, $requester_id );
+
+		return true;
+	}
+
+	/**
+	 * Remove an accepted connection between two users.
+	 *
+	 * Either party may call this. The row is deleted regardless of which user
+	 * was the original requester.
+	 *
+	 * @param int $user_a First user.
+	 * @param int $user_b Second user.
+	 * @return true|WP_Error
+	 */
+	public function remove_connection( int $user_a, int $user_b ): true|WP_Error {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_connections
+				 WHERE status = 'accepted'
+				   AND ( ( requester_id = %d AND recipient_id = %d )
+				      OR ( requester_id = %d AND recipient_id = %d ) )",
+				$user_a,
+				$user_b,
+				$user_b,
+				$user_a
+			)
+		);
+
+		if ( 0 === $wpdb->rows_affected ) {
+			return new WP_Error(
+				'not_connected',
+				__( 'No accepted connection found.', 'buddynext' )
+			);
+		}
+
+		$this->invalidate_connection_cache( $user_a, $user_b );
+
+		/**
+		 * Fires after a connection is removed.
+		 *
+		 * @param int $user_a First user.
+		 * @param int $user_b Second user.
+		 */
+		do_action( 'buddynext_connection_removed', $user_a, $user_b );
 
 		return true;
 	}

@@ -3,17 +3,18 @@
  * REST controller for spaces.
  *
  * Routes (all under buddynext/v1):
- *   GET    /spaces                        — list spaces (public)
- *   POST   /spaces                        — create a space (auth required)
- *   GET    /spaces/{id}                   — get a space (public)
- *   PUT    /spaces/{id}                   — update a space (owner only)
- *   DELETE /spaces/{id}                   — delete a space (owner only)
- *   GET    /spaces/{id}/members           — list members (public for open/private)
- *   POST   /spaces/{id}/join              — join or request-to-join (auth required)
- *   POST   /spaces/{id}/leave             — leave a space (auth required)
- *   POST   /spaces/{id}/invite            — invite a user (owner/mod only)
- *   POST   /spaces/{id}/approve-request   — approve a pending request (owner/mod only)
- *   POST   /spaces/{id}/ban               — ban a member (owner/mod only)
+ *   GET    /spaces                              — list spaces (public)
+ *   POST   /spaces                              — create a space (auth required)
+ *   GET    /spaces/{id}                         — get a space (public)
+ *   PUT    /spaces/{id}                         — update a space (owner only)
+ *   DELETE /spaces/{id}                         — delete a space (owner only)
+ *   GET    /spaces/{id}/members                 — list members (public for open/private)
+ *   GET    /spaces/{id}/pending-requests        — list pending join requests (owner/mod only)
+ *   POST   /spaces/{id}/join                    — join or request-to-join (auth required)
+ *   POST   /spaces/{id}/leave                   — leave a space (auth required)
+ *   POST   /spaces/{id}/invite                  — invite a user (owner/mod only)
+ *   POST   /spaces/{id}/approve-request         — approve a pending request (owner/mod only)
+ *   POST   /spaces/{id}/ban                     — ban a member (owner/mod only)
  *
  * Join semantics by space type:
  *   Open    → status='active' immediately, returns {joined: true}
@@ -88,6 +89,16 @@ class SpaceController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_space_members' ),
 				'permission_callback' => '__return_true',
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/pending-requests',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_pending_requests' ),
+				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
 
@@ -258,6 +269,17 @@ class SpaceController {
 			);
 		}
 
+		if ( 'secret' === $space['type'] ) {
+			$viewer_id = get_current_user_id();
+			if ( 0 === $viewer_id || ! ( new SpaceMemberService() )->is_member( $space['id'], $viewer_id ) ) {
+				return new WP_Error(
+					'rest_forbidden',
+					__( 'Space not found.', 'buddynext' ),
+					array( 'status' => 404 )
+				);
+			}
+		}
+
 		return new WP_REST_Response( $space, 200 );
 	}
 
@@ -335,6 +357,49 @@ class SpaceController {
 		$members = ( new SpaceMemberService() )->get_members( $space_id );
 
 		return new WP_REST_Response( $members, 200 );
+	}
+
+	/**
+	 * Return pending join requests for a space.
+	 *
+	 * Only the space owner, a moderator, or a site admin may access this endpoint.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_pending_requests( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id   = (int) $request->get_param( 'id' );
+		$current_id = get_current_user_id();
+		$space      = ( new SpaceService() )->get( $space_id );
+
+		if ( null === $space ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$member_service = new SpaceMemberService();
+		$actor_role     = $member_service->get_role( $space_id, $current_id );
+
+		if ( ! in_array( $actor_role, array( 'owner', 'moderator' ), true ) && ! user_can( $current_id, 'manage_options' ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'Only space owners and moderators can view pending requests.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$requests = $member_service->get_pending_requests( $space_id );
+
+		return new WP_REST_Response(
+			array(
+				'items' => $requests,
+				'total' => count( $requests ),
+			),
+			200
+		);
 	}
 
 	/**

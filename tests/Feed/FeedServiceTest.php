@@ -12,6 +12,7 @@ namespace BuddyNext\Tests\Feed;
 use BuddyNext\Core\Installer;
 use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PostService;
+use BuddyNext\Moderation\ModerationService;
 use BuddyNext\SocialGraph\FollowService;
 
 /**
@@ -22,19 +23,23 @@ class FeedServiceTest extends \WP_UnitTestCase {
 	private FeedService $feed;
 	private PostService $posts;
 	private FollowService $follows;
+	private ModerationService $moderation;
 	private int $alice;
 	private int $bob;
 	private int $carol;
+	private int $admin_id;
 
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
-		$this->follows = new FollowService();
-		$this->posts   = new PostService();
-		$this->feed    = new FeedService( $this->follows );
-		$this->alice   = self::factory()->user->create();
-		$this->bob     = self::factory()->user->create();
-		$this->carol   = self::factory()->user->create();
+		$this->follows    = new FollowService();
+		$this->posts      = new PostService();
+		$this->feed       = new FeedService( $this->follows, $this->posts );
+		$this->moderation = new ModerationService();
+		$this->alice      = self::factory()->user->create();
+		$this->bob        = self::factory()->user->create();
+		$this->carol      = self::factory()->user->create();
+		$this->admin_id   = self::factory()->user->create( array( 'role' => 'administrator' ) );
 	}
 
 	public function test_home_feed_shows_followed_user_posts(): void {
@@ -190,5 +195,64 @@ class FeedServiceTest extends \WP_UnitTestCase {
 		$result = $this->feed->explore_feed( null, 20 );
 
 		$this->assertNull( $result['next_cursor'] );
+	}
+
+	// ── Suspension + shadow-ban filtering ──────────────────────────────────
+
+	public function test_home_feed_excludes_suspended_user_posts(): void {
+		$this->follows->follow( $this->alice, $this->bob );
+		$post_id = $this->posts->create(
+			$this->bob,
+			array( 'type' => 'text', 'content' => 'Bob suspended post', 'privacy' => 'public' )
+		);
+
+		wp_set_current_user( $this->admin_id );
+		$this->moderation->suspend_user( $this->bob, $this->admin_id, 'test', array() );
+
+		$result = $this->feed->home_feed( $this->alice );
+
+		$this->assertNotContains( $post_id, array_column( $result['items'], 'id' ) );
+	}
+
+	public function test_explore_feed_excludes_suspended_user_posts(): void {
+		$post_id = $this->posts->create(
+			$this->bob,
+			array( 'type' => 'text', 'content' => 'Bob public post', 'privacy' => 'public' )
+		);
+
+		wp_set_current_user( $this->admin_id );
+		$this->moderation->suspend_user( $this->bob, $this->admin_id, 'test', array() );
+
+		$result = $this->feed->explore_feed();
+
+		$this->assertNotContains( $post_id, array_column( $result['items'], 'id' ) );
+	}
+
+	public function test_home_feed_excludes_shadow_banned_user_posts(): void {
+		$this->follows->follow( $this->alice, $this->carol );
+		$post_id = $this->posts->create(
+			$this->carol,
+			array( 'type' => 'text', 'content' => 'Carol shadow post', 'privacy' => 'public' )
+		);
+
+		// Shadow-ban carol via usermeta.
+		update_user_meta( $this->carol, 'bn_shadow_banned', '1' );
+
+		$result = $this->feed->home_feed( $this->alice );
+
+		$this->assertNotContains( $post_id, array_column( $result['items'], 'id' ) );
+	}
+
+	public function test_explore_feed_excludes_shadow_banned_user_posts(): void {
+		$post_id = $this->posts->create(
+			$this->carol,
+			array( 'type' => 'text', 'content' => 'Carol public shadow post', 'privacy' => 'public' )
+		);
+
+		update_user_meta( $this->carol, 'bn_shadow_banned', '1' );
+
+		$result = $this->feed->explore_feed();
+
+		$this->assertNotContains( $post_id, array_column( $result['items'], 'id' ) );
 	}
 }

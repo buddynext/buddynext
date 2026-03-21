@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Search;
 
 use BuddyNext\Core\Installer;
+use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Search\SearchService;
 
 /**
@@ -18,13 +19,17 @@ use BuddyNext\Search\SearchService;
 class SearchServiceTest extends \WP_UnitTestCase {
 
 	private SearchService $service;
+	private ModerationService $moderation;
 	private int $author_id;
+	private int $admin_id;
 
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
-		$this->service   = new SearchService();
-		$this->author_id = self::factory()->user->create();
+		$this->service    = new SearchService();
+		$this->moderation = new ModerationService();
+		$this->author_id  = self::factory()->user->create();
+		$this->admin_id   = self::factory()->user->create( array( 'role' => 'administrator' ) );
 	}
 
 	public function test_index_creates_record(): void {
@@ -127,5 +132,32 @@ class SearchServiceTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 0, $results['total'] );
 		$this->assertEmpty( $results['items'] );
+	}
+
+	// ── Suspension + shadow-ban filtering ──────────────────────────────────
+
+	public function test_search_excludes_suspended_user_content(): void {
+		$suspended_user = self::factory()->user->create();
+		$this->service->index( 'post', 99, 'Suspended Content', 'visible test', $suspended_user );
+
+		wp_set_current_user( $this->admin_id );
+		$this->moderation->suspend_user( $suspended_user, $this->admin_id, 'test', array() );
+
+		$results = $this->service->search( 'visible test' );
+
+		$object_ids = array_column( $results['items'], 'object_id' );
+		$this->assertNotContains( 99, $object_ids );
+	}
+
+	public function test_search_excludes_shadow_banned_user_content(): void {
+		$shadow_user = self::factory()->user->create();
+		$this->service->index( 'post', 88, 'Shadow Content', 'shadow test', $shadow_user );
+
+		update_user_meta( $shadow_user, 'bn_shadow_banned', '1' );
+
+		$results = $this->service->search( 'shadow test' );
+
+		$object_ids = array_column( $results['items'], 'object_id' );
+		$this->assertNotContains( 88, $object_ids );
 	}
 }

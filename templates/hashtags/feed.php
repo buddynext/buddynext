@@ -40,7 +40,7 @@ $hashtags_table = $wpdb->prefix . 'bn_hashtags';
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 $hashtag = $wpdb->get_row(
 	$wpdb->prepare(
-		"SELECT id, slug, post_count, contributor_count, created_at
+		"SELECT id, slug, post_count, created_at
 		FROM {$hashtags_table}
 		WHERE slug = %s
 		LIMIT 1",
@@ -80,13 +80,13 @@ $post_hashtags_tbl = $wpdb->prefix . 'bn_post_hashtags';
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 $hashtag_posts = $wpdb->get_results(
 	$wpdb->prepare(
-		"SELECT p.id, p.user_id, p.content, p.post_type, p.created_at,
+		"SELECT p.id, p.user_id, p.content, p.type, p.created_at,
 		        p.reaction_count, p.comment_count, p.share_count
 		FROM {$posts_table} p
 		INNER JOIN {$post_hashtags_tbl} ph ON ph.post_id = p.id
 		WHERE ph.hashtag_id = %d
 		  AND p.status = 'published'
-		  AND p.visibility = 'public'
+		  AND p.privacy = 'public'
 		ORDER BY (p.reaction_count + p.comment_count * 2) DESC, p.created_at DESC
 		LIMIT %d",
 		(int) $hashtag->id,
@@ -699,10 +699,9 @@ if ( $hashtag->created_at ) {
 				<div class="bn-hashtag-stats">
 					<?php
 					printf(
-						/* translators: 1: post count, 2: contributor count */
-						esc_html__( '%1$s posts &middot; %2$s contributors', 'buddynext' ),
-						esc_html( number_format_i18n( absint( $hashtag->post_count ) ) ),
-						esc_html( number_format_i18n( absint( $hashtag->contributor_count ) ) )
+						/* translators: %s: post count */
+						esc_html__( '%s posts', 'buddynext' ),
+						esc_html( number_format_i18n( absint( $hashtag->post_count ) ) )
 					);
 					?>
 				</div>
@@ -1013,10 +1012,7 @@ if ( $hashtag->created_at ) {
 					<span class="bn-about-label"><?php esc_html_e( 'Posts this month', 'buddynext' ); ?></span>
 					<span class="bn-about-value"><?php echo esc_html( number_format_i18n( absint( $hashtag->post_count ) ) ); ?></span>
 				</div>
-				<div class="bn-about-row">
-					<span class="bn-about-label"><?php esc_html_e( 'Contributors', 'buddynext' ); ?></span>
-					<span class="bn-about-value"><?php echo esc_html( number_format_i18n( absint( $hashtag->contributor_count ) ) ); ?></span>
-				</div>
+
 				<?php if ( $first_used_label ) : ?>
 					<div class="bn-about-row">
 						<span class="bn-about-label"><?php esc_html_e( 'First used', 'buddynext' ); ?></span>

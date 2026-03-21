@@ -69,7 +69,27 @@ class CommentService {
 
 		$comment_id = (int) $wpdb->insert_id;
 
-		wp_cache_delete( "list_{$object_type}_{$object_id}", self::CACHE_GROUP );
+		$this->bust_cache( $object_type, $object_id );
+
+		if ( 'post' === $object_type ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_posts SET comment_count = comment_count + 1 WHERE id = %d",
+					$object_id
+				)
+			);
+		}
+
+		/**
+		 * Fires after a new comment is created.
+		 *
+		 * @param int    $comment_id  New comment ID.
+		 * @param string $object_type Object type.
+		 * @param int    $object_id   Object ID.
+		 * @param int    $user_id     Commenting user.
+		 */
+		do_action( 'buddynext_comment_created', $comment_id, $object_type, $object_id, $user_id );
 
 		return $comment_id;
 	}
@@ -134,7 +154,15 @@ class CommentService {
 			array( '%d' )
 		);
 
-		wp_cache_delete( "list_{$comment['object_type']}_{$comment['object_id']}", self::CACHE_GROUP );
+		$this->bust_cache( $comment['object_type'], (int) $comment['object_id'] );
+
+		/**
+		 * Fires after a comment is updated.
+		 *
+		 * @param int $comment_id Updated comment ID.
+		 * @param int $user_id    User who updated the comment.
+		 */
+		do_action( 'buddynext_comment_updated', $comment_id, $user_id );
 
 		return true;
 	}
@@ -172,7 +200,25 @@ class CommentService {
 			array( '%d' )
 		);
 
-		wp_cache_delete( "list_{$comment['object_type']}_{$comment['object_id']}", self::CACHE_GROUP );
+		$this->bust_cache( $comment['object_type'], (int) $comment['object_id'] );
+
+		if ( 'post' === $comment['object_type'] ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_posts SET comment_count = GREATEST(0, comment_count - 1) WHERE id = %d",
+					(int) $comment['object_id']
+				)
+			);
+		}
+
+		/**
+		 * Fires after a comment is deleted.
+		 *
+		 * @param int $comment_id Deleted comment ID.
+		 * @param int $user_id    User who deleted the comment.
+		 */
+		do_action( 'buddynext_comment_deleted', $comment_id, $user_id );
 
 		return true;
 	}
@@ -192,11 +238,18 @@ class CommentService {
 	public function list_for_object( string $object_type, int $object_id, int $per_page = self::DEFAULT_LIMIT, int $page = 1 ): array {
 		global $wpdb;
 
-		$per_page = min( $per_page, 50 );
-		$page     = max( 1, $page );
-		$offset   = ( $page - 1 ) * $per_page;
+		$per_page  = min( $per_page, 50 );
+		$page      = max( 1, $page );
+		$offset    = ( $page - 1 ) * $per_page;
+		$gen       = $this->get_generation( $object_type, $object_id );
+		$cache_key = "list_{$object_type}_{$object_id}_{$gen}_{$per_page}_{$page}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( false !== $cached && is_array( $cached ) ) {
+			return $cached;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_comments
@@ -211,7 +264,7 @@ class CommentService {
 			ARRAY_A
 		);
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$total = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments
@@ -221,10 +274,37 @@ class CommentService {
 			)
 		);
 
-		return array(
+		$result = array(
 			'items' => array_map( array( $this, 'hydrate' ), (array) $rows ),
 			'total' => $total,
 		);
+
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
+	}
+
+	/**
+	 * Return the current cache generation counter for an object.
+	 *
+	 * @param string $object_type Object type.
+	 * @param int    $object_id   Object ID.
+	 * @return int
+	 */
+	private function get_generation( string $object_type, int $object_id ): int {
+		$gen = wp_cache_get( "gen_{$object_type}_{$object_id}", self::CACHE_GROUP );
+		return is_int( $gen ) ? $gen : 0;
+	}
+
+	/**
+	 * Increment the cache generation to invalidate all paginated list keys for an object.
+	 *
+	 * @param string $object_type Object type.
+	 * @param int    $object_id   Object ID.
+	 */
+	private function bust_cache( string $object_type, int $object_id ): void {
+		$gen = $this->get_generation( $object_type, $object_id );
+		wp_cache_set( "gen_{$object_type}_{$object_id}", $gen + 1, self::CACHE_GROUP, self::CACHE_TTL );
 	}
 
 	/**

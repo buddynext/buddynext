@@ -112,6 +112,73 @@ class NotificationPrefService {
 	}
 
 	/**
+	 * Return all stored notification preferences for a user.
+	 *
+	 * Only types that have an explicit row in bn_notification_prefs are returned.
+	 * Types without a row use the implicit defaults (on_site=true, email_freq='immediate')
+	 * and do not appear in this list.
+	 *
+	 * @param int $user_id User ID.
+	 * @return array[] Keyed by notification type: type => {on_site, email_freq}.
+	 */
+	public function get_all_prefs( int $user_id ): array {
+		$cache_key = "all_prefs_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT type, on_site, email_freq FROM {$wpdb->prefix}bn_notification_prefs WHERE user_id = %d",
+				$user_id
+			),
+			ARRAY_A
+		);
+
+		$prefs = array();
+		foreach ( (array) $rows as $row ) {
+			$prefs[ $row['type'] ] = array(
+				'on_site'    => (bool) $row['on_site'],
+				'email_freq' => $row['email_freq'],
+			);
+		}
+
+		wp_cache_set( $cache_key, $prefs, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $prefs;
+	}
+
+	/**
+	 * Bulk-update notification preferences for a user from a map of type => data pairs.
+	 *
+	 * Each value in $prefs_map should be an array with optional keys:
+	 *   on_site    (bool)   — whether to show in-app notification.
+	 *   email_freq (string) — one of 'immediate', 'daily', 'weekly', 'off'.
+	 *
+	 * Unknown keys within each value are ignored. Unknown notification types
+	 * are stored as-is to be forward-compatible with new types.
+	 *
+	 * @param int   $user_id   User ID.
+	 * @param array $prefs_map Associative array of type => {on_site?, email_freq?}.
+	 */
+	public function set_all_prefs( int $user_id, array $prefs_map ): void {
+		foreach ( $prefs_map as $type => $data ) {
+			if ( ! is_array( $data ) ) {
+				continue;
+			}
+
+			$this->set_pref( $user_id, sanitize_text_field( (string) $type ), $data );
+		}
+
+		wp_cache_delete( "all_prefs_{$user_id}", self::CACHE_GROUP );
+	}
+
+	/**
 	 * Return the per-space notification preference for a user.
 	 *
 	 * Reads the notification_pref column from bn_space_members for the given

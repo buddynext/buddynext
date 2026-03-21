@@ -225,4 +225,297 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 5, $result['total'] );
 		$this->assertCount( 2, $result['items'] );
 	}
+
+	public function test_report_fires_buddynext_report_created(): void {
+		$captured = null;
+		add_action(
+			'buddynext_report_created',
+			function ( int $report_id, string $object_type, int $object_id, int $reporter_id ) use ( &$captured ): void {
+				$captured = array( $report_id, $object_type, $object_id, $reporter_id );
+			},
+			10,
+			4
+		);
+
+		$id = $this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
+
+		$this->assertSame( array( $id, 'post', $this->post_id, $this->user_id ), $captured );
+	}
+
+	// ── BLOCK 2: suspend / unsuspend / appeal ─────────────────────────────
+
+	/**
+	 * suspend_user() creates a row in bn_user_suspensions and returns its ID.
+	 */
+	public function test_suspend_user_creates_suspension_record(): void {
+		global $wpdb;
+
+		$suspension_id = $this->service->suspend_user(
+			$this->user_id,
+			$this->admin_id,
+			'Repeated violations',
+			array( 'duration_days' => 7 )
+		);
+
+		$this->assertIsInt( $suspension_id );
+		$this->assertGreaterThan( 0, $suspension_id );
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_user_suspensions WHERE id = %d",
+				$suspension_id
+			),
+			ARRAY_A
+		);
+
+		$this->assertNotNull( $row );
+		$this->assertSame( (string) $this->user_id, $row['user_id'] );
+		$this->assertSame( (string) $this->admin_id, $row['suspended_by'] );
+		$this->assertSame( 'Repeated violations', $row['reason'] );
+		$this->assertSame( '7', $row['duration_days'] );
+	}
+
+	/**
+	 * suspend_user() by non-admin returns WP_Error.
+	 */
+	public function test_suspend_user_by_non_admin_returns_error(): void {
+		$other  = self::factory()->user->create();
+		$result = $this->service->suspend_user( $this->user_id, $other, 'test', array() );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'forbidden', $result->get_error_code() );
+	}
+
+	/**
+	 * suspend_user() fires buddynext_member_suspended hook.
+	 */
+	public function test_suspend_user_fires_hook(): void {
+		$captured = null;
+		add_action(
+			'buddynext_member_suspended',
+			function ( int $user_id, int $by_user_id ) use ( &$captured ): void {
+				$captured = array( $user_id, $by_user_id );
+			},
+			10,
+			2
+		);
+
+		$this->service->suspend_user( $this->user_id, $this->admin_id, 'test', array() );
+
+		$this->assertSame( array( $this->user_id, $this->admin_id ), $captured );
+	}
+
+	/**
+	 * unsuspend_user() sets lifted_at on the active suspension.
+	 */
+	public function test_unsuspend_user_lifts_active_suspension(): void {
+		global $wpdb;
+
+		$suspension_id = $this->service->suspend_user(
+			$this->user_id,
+			$this->admin_id,
+			'test',
+			array()
+		);
+
+		$result = $this->service->unsuspend_user( $this->user_id, $this->admin_id );
+
+		$this->assertTrue( $result );
+
+		$lifted_at = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT lifted_at FROM {$wpdb->prefix}bn_user_suspensions WHERE id = %d",
+				$suspension_id
+			)
+		);
+
+		$this->assertNotNull( $lifted_at );
+	}
+
+	/**
+	 * unsuspend_user() by non-admin returns WP_Error.
+	 */
+	public function test_unsuspend_user_by_non_admin_returns_error(): void {
+		$other  = self::factory()->user->create();
+		$result = $this->service->unsuspend_user( $this->user_id, $other );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'forbidden', $result->get_error_code() );
+	}
+
+	/**
+	 * unsuspend_user() fires buddynext_member_unsuspended hook.
+	 */
+	public function test_unsuspend_user_fires_hook(): void {
+		$captured = null;
+		add_action(
+			'buddynext_member_unsuspended',
+			function ( int $user_id, int $by_user_id ) use ( &$captured ): void {
+				$captured = array( $user_id, $by_user_id );
+			},
+			10,
+			2
+		);
+
+		$this->service->suspend_user( $this->user_id, $this->admin_id, 'test', array() );
+		$this->service->unsuspend_user( $this->user_id, $this->admin_id );
+
+		$this->assertSame( array( $this->user_id, $this->admin_id ), $captured );
+	}
+
+	/**
+	 * submit_appeal() creates a row in bn_appeals linked to the suspension.
+	 */
+	public function test_submit_appeal_creates_record(): void {
+		global $wpdb;
+
+		$suspension_id = $this->service->suspend_user(
+			$this->user_id,
+			$this->admin_id,
+			'test',
+			array()
+		);
+
+		$appeal_id = $this->service->submit_appeal( $this->user_id, $suspension_id, 'I did nothing wrong.' );
+
+		$this->assertIsInt( $appeal_id );
+		$this->assertGreaterThan( 0, $appeal_id );
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
+				$appeal_id
+			),
+			ARRAY_A
+		);
+
+		$this->assertNotNull( $row );
+		$this->assertSame( (string) $this->user_id, $row['user_id'] );
+		$this->assertSame( (string) $suspension_id, $row['suspension_id'] );
+		$this->assertSame( 'I did nothing wrong.', $row['message'] );
+		$this->assertSame( 'pending', $row['status'] );
+	}
+
+	/**
+	 * submit_appeal() by a user who is not suspended returns WP_Error.
+	 */
+	public function test_submit_appeal_for_non_existent_suspension_returns_error(): void {
+		$result = $this->service->submit_appeal( $this->user_id, 9999, 'test' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'not_suspended', $result->get_error_code() );
+	}
+
+	/**
+	 * submit_appeal() fires buddynext_appeal_submitted hook.
+	 */
+	public function test_submit_appeal_fires_hook(): void {
+		$captured = null;
+		add_action(
+			'buddynext_appeal_submitted',
+			function ( int $appeal_id, int $user_id ) use ( &$captured ): void {
+				$captured = array( $appeal_id, $user_id );
+			},
+			10,
+			2
+		);
+
+		$suspension_id = $this->service->suspend_user( $this->user_id, $this->admin_id, 'test', array() );
+		$appeal_id     = $this->service->submit_appeal( $this->user_id, $suspension_id, 'Please reconsider.' );
+
+		$this->assertSame( array( $appeal_id, $this->user_id ), $captured );
+	}
+
+	/**
+	 * resolve_appeal() updates the appeal status and reviewer fields.
+	 */
+	public function test_resolve_appeal_updates_record(): void {
+		global $wpdb;
+
+		$suspension_id = $this->service->suspend_user( $this->user_id, $this->admin_id, 'test', array() );
+		$appeal_id     = $this->service->submit_appeal( $this->user_id, $suspension_id, 'test' );
+
+		$result = $this->service->resolve_appeal( $appeal_id, $this->admin_id, 'approved', 'Accepted.' );
+
+		$this->assertTrue( $result );
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT status, reviewed_by, reviewer_note FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
+				$appeal_id
+			),
+			ARRAY_A
+		);
+
+		$this->assertSame( 'approved', $row['status'] );
+		$this->assertSame( (string) $this->admin_id, $row['reviewed_by'] );
+		$this->assertSame( 'Accepted.', $row['reviewer_note'] );
+	}
+
+	/**
+	 * resolve_appeal() by non-admin returns WP_Error.
+	 */
+	public function test_resolve_appeal_by_non_admin_returns_error(): void {
+		$suspension_id = $this->service->suspend_user( $this->user_id, $this->admin_id, 'test', array() );
+		$appeal_id     = $this->service->submit_appeal( $this->user_id, $suspension_id, 'test' );
+		$other         = self::factory()->user->create();
+
+		$result = $this->service->resolve_appeal( $appeal_id, $other, 'approved', '' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'forbidden', $result->get_error_code() );
+	}
+
+	/**
+	 * resolve_appeal() rejects unknown decision values.
+	 */
+	public function test_resolve_appeal_with_invalid_decision_returns_error(): void {
+		$suspension_id = $this->service->suspend_user( $this->user_id, $this->admin_id, 'test', array() );
+		$appeal_id     = $this->service->submit_appeal( $this->user_id, $suspension_id, 'test' );
+
+		$result = $this->service->resolve_appeal( $appeal_id, $this->admin_id, 'banana', '' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'invalid_decision', $result->get_error_code() );
+	}
+
+	/**
+	 * resolve_appeal() fires buddynext_appeal_resolved hook.
+	 */
+	public function test_resolve_appeal_fires_hook(): void {
+		$captured = null;
+		add_action(
+			'buddynext_appeal_resolved',
+			function ( int $appeal_id, int $user_id, string $decision ) use ( &$captured ): void {
+				$captured = array( $appeal_id, $user_id, $decision );
+			},
+			10,
+			3
+		);
+
+		$suspension_id = $this->service->suspend_user( $this->user_id, $this->admin_id, 'test', array() );
+		$appeal_id     = $this->service->submit_appeal( $this->user_id, $suspension_id, 'test' );
+		$this->service->resolve_appeal( $appeal_id, $this->admin_id, 'denied', 'Upheld.' );
+
+		$this->assertSame( array( $appeal_id, $this->user_id, 'denied' ), $captured );
+	}
+
+	/**
+	 * is_suspended() returns true for a currently suspended user.
+	 */
+	public function test_is_suspended_returns_true_when_suspended(): void {
+		$this->service->suspend_user( $this->user_id, $this->admin_id, 'test', array() );
+
+		$this->assertTrue( $this->service->is_suspended( $this->user_id ) );
+	}
+
+	/**
+	 * is_suspended() returns false after the user is unsuspended.
+	 */
+	public function test_is_suspended_returns_false_after_unsuspend(): void {
+		$this->service->suspend_user( $this->user_id, $this->admin_id, 'test', array() );
+		$this->service->unsuspend_user( $this->user_id, $this->admin_id );
+
+		$this->assertFalse( $this->service->is_suspended( $this->user_id ) );
+	}
 }

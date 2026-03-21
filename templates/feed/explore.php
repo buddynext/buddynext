@@ -32,7 +32,7 @@ $posts_table = $wpdb->prefix . 'bn_posts';
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $grid_posts = $wpdb->get_results(
 	$wpdb->prepare(
-		"SELECT p.id, p.user_id, p.content, p.post_type, p.created_at, p.reaction_count, p.comment_count, p.share_count FROM {$posts_table} p WHERE p.status = 'published' AND p.visibility = 'public' ORDER BY (p.reaction_count + p.comment_count * 2 + p.share_count * 3) DESC, p.created_at DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		"SELECT p.id, p.user_id, p.content, p.type, p.created_at, p.reaction_count, p.comment_count, p.share_count FROM {$posts_table} p WHERE p.status = 'published' AND p.privacy = 'public' ORDER BY (p.reaction_count + p.comment_count * 2 + p.share_count * 3) DESC, p.created_at DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$limit
 	)
 );
@@ -54,7 +54,7 @@ $spaces_table = $wpdb->prefix . 'bn_spaces';
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $popular_spaces = $wpdb->get_results(
 	$wpdb->prepare(
-		"SELECT id, name, icon, member_count FROM {$spaces_table} WHERE status = 'active' AND visibility = 'public' ORDER BY member_count DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		"SELECT id, name, avatar_url, member_count FROM {$spaces_table} WHERE type = 'open' ORDER BY member_count DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		3
 	)
 );
@@ -578,7 +578,7 @@ function bn_excerpt( string $content, int $max_length = 140 ): string {
 						// Vary image heights for masonry effect.
 						$heights = [ 'h180', 'h120', 'h220' ];
 						$img_cls = $heights[ $idx % 3 ];
-						$has_img = ( 'photo' === $card->post_type );
+						$has_img = ( 'photo' === $card->type );
 						?>
 						<article class="bn-explore-card" data-post-id="<?php echo esc_attr( (string) $card->id ); ?>">
 							<?php if ( $has_img ) : ?>
@@ -698,7 +698,7 @@ function bn_excerpt( string $content, int $max_length = 140 ): string {
 						<?php foreach ( $popular_spaces as $space ) : ?>
 							<div class="bn-space-entry">
 								<div class="bn-space-icon" aria-hidden="true">
-									<?php echo esc_html( $space->icon ?: '&#127968;' ); ?>
+									<?php echo ! empty( $space->avatar_url ) ? esc_html( $space->avatar_url ) : '&#127968;'; ?>
 								</div>
 								<div class="bn-space-info">
 									<div class="bn-space-name"><?php echo esc_html( $space->name ); ?></div>

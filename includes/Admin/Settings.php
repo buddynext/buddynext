@@ -3,9 +3,8 @@
  * BuddyNext admin settings page.
  *
  * Registers the top-level BuddyNext menu and all settings tabs:
- * General, Registration, Social, Spaces, Notifications, Moderation,
- * Integrations, Webhooks. Settings are stored in wp_options with the
- * buddynext_ prefix.
+ * General, Registration, Social, Spaces, Moderation, Webhooks.
+ * Settings are stored in wp_options with the buddynext_ prefix.
  *
  * @package BuddyNext\Admin
  */
@@ -17,7 +16,7 @@ namespace BuddyNext\Admin;
 /**
  * Registers and renders the BuddyNext admin settings page.
  */
-class Settings {
+class Settings extends AdminPageBase {
 
 	/**
 	 * Option name for the webhook shared secret.
@@ -56,6 +55,8 @@ class Settings {
 		'buddynext_webhook_secret'           => array( 'string', 'sanitize_text_field', '' ),
 	);
 
+	// ── Boot ──────────────────────────────────────────────────────────────────
+
 	/**
 	 * Hook the admin menu and settings registration into WordPress.
 	 *
@@ -67,7 +68,7 @@ class Settings {
 	}
 
 	/**
-	 * Add the top-level BuddyNext menu and the General sub-page.
+	 * Add the top-level BuddyNext menu and the Settings sub-page.
 	 *
 	 * @return void
 	 */
@@ -93,7 +94,10 @@ class Settings {
 	}
 
 	/**
-	 * Register all settings, sections, and fields.
+	 * Register all settings with the WordPress Settings API.
+	 *
+	 * Registering options here ensures sanitize_callback is applied on save
+	 * even though rendering is handled manually via render_content().
 	 *
 	 * @return void
 	 */
@@ -101,7 +105,7 @@ class Settings {
 		foreach ( self::SETTINGS_MAP as $option => $config ) {
 			list( $type, $sanitize, $default ) = $config;
 			register_setting(
-				'buddynext_general',
+				'buddynext',
 				$option,
 				array(
 					'type'              => $type,
@@ -110,34 +114,9 @@ class Settings {
 				)
 			);
 		}
-
-		$this->add_sections_and_fields();
 	}
 
-	/**
-	 * Render the settings page.
-	 *
-	 * @return void
-	 */
-	public function render_page(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-		$active_tab = sanitize_key( $_GET['tab'] ?? 'general' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		?>
-		<div class="wrap">
-			<h1><?php esc_html_e( 'BuddyNext Settings', 'buddynext' ); ?></h1>
-			<?php $this->render_tabs( $active_tab ); ?>
-			<form method="post" action="options.php">
-				<?php
-				settings_fields( 'buddynext_general' );
-				do_settings_sections( 'buddynext_' . $active_tab );
-				submit_button();
-				?>
-			</form>
-		</div>
-		<?php
-	}
+	// ── Static helper ─────────────────────────────────────────────────────────
 
 	/**
 	 * Get a BuddyNext setting value.
@@ -150,218 +129,36 @@ class Settings {
 		return get_option( 'buddynext_' . $key, $fallback );
 	}
 
-	// -------------------------------------------------------------------------
-	// Private helpers
-	// -------------------------------------------------------------------------
+	// ── AdminPageBase interface ────────────────────────────────────────────────
 
 	/**
-	 * Register all settings sections and fields.
+	 * {@inheritDoc}
 	 *
-	 * @return void
+	 * @return string
 	 */
-	private function add_sections_and_fields(): void {
-		// General section.
-		add_settings_section(
-			'buddynext_general_section',
-			__( 'General', 'buddynext' ),
-			'__return_null',
-			'buddynext_general'
-		);
-
-		add_settings_field(
-			'buddynext_site_name',
-			__( 'Site Display Name', 'buddynext' ),
-			array( $this, 'render_text_field' ),
-			'buddynext_general',
-			'buddynext_general_section',
-			array( 'option' => 'buddynext_site_name' )
-		);
-
-		add_settings_field(
-			'buddynext_brand_color',
-			__( 'Brand Color', 'buddynext' ),
-			array( $this, 'render_color_field' ),
-			'buddynext_general',
-			'buddynext_general_section',
-			array( 'option' => 'buddynext_brand_color' )
-		);
-
-		// Registration section.
-		add_settings_section(
-			'buddynext_registration_section',
-			__( 'Registration', 'buddynext' ),
-			'__return_null',
-			'buddynext_general'
-		);
-
-		add_settings_field(
-			'buddynext_reg_mode',
-			__( 'Registration Mode', 'buddynext' ),
-			array( $this, 'render_select_field' ),
-			'buddynext_general',
-			'buddynext_registration_section',
-			array(
-				'option'  => 'buddynext_reg_mode',
-				'choices' => array(
-					'open'     => __( 'Open', 'buddynext' ),
-					'invite'   => __( 'Invite Only', 'buddynext' ),
-					'approval' => __( 'Admin Approval', 'buddynext' ),
-				),
-			)
-		);
-
-		add_settings_field(
-			'buddynext_email_verify',
-			__( 'Email Verification', 'buddynext' ),
-			array( $this, 'render_checkbox_field' ),
-			'buddynext_general',
-			'buddynext_registration_section',
-			array(
-				'option' => 'buddynext_email_verify',
-				'label'  => __( 'Require email verification', 'buddynext' ),
-			)
-		);
-
-		// Social section.
-		add_settings_section(
-			'buddynext_social_section',
-			__( 'Social', 'buddynext' ),
-			'__return_null',
-			'buddynext_general'
-		);
-
-		add_settings_field(
-			'buddynext_default_post_privacy',
-			__( 'Default Post Privacy', 'buddynext' ),
-			array( $this, 'render_select_field' ),
-			'buddynext_general',
-			'buddynext_social_section',
-			array(
-				'option'  => 'buddynext_default_post_privacy',
-				'choices' => array(
-					'public'      => __( 'Public', 'buddynext' ),
-					'followers'   => __( 'Followers', 'buddynext' ),
-					'connections' => __( 'Connections', 'buddynext' ),
-					'private'     => __( 'Only Me', 'buddynext' ),
-				),
-			)
-		);
-
-		add_settings_field(
-			'buddynext_allow_polls',
-			__( 'Allow Polls', 'buddynext' ),
-			array( $this, 'render_checkbox_field' ),
-			'buddynext_general',
-			'buddynext_social_section',
-			array(
-				'option' => 'buddynext_allow_polls',
-				'label'  => __( 'Members can create polls', 'buddynext' ),
-			)
-		);
-
-		add_settings_field(
-			'buddynext_post_edit_window',
-			__( 'Post Edit Window (minutes)', 'buddynext' ),
-			array( $this, 'render_number_field' ),
-			'buddynext_general',
-			'buddynext_social_section',
-			array(
-				'option' => 'buddynext_post_edit_window',
-				'min'    => 0,
-			)
-		);
-
-		// Spaces section.
-		add_settings_section(
-			'buddynext_spaces_section',
-			__( 'Spaces', 'buddynext' ),
-			'__return_null',
-			'buddynext_general'
-		);
-
-		add_settings_field(
-			'buddynext_space_creation_role',
-			__( 'Who can create spaces', 'buddynext' ),
-			array( $this, 'render_select_field' ),
-			'buddynext_general',
-			'buddynext_spaces_section',
-			array(
-				'option'  => 'buddynext_space_creation_role',
-				'choices' => array(
-					'member' => __( 'Any Member', 'buddynext' ),
-					'admin'  => __( 'Admin Only', 'buddynext' ),
-				),
-			)
-		);
-
-		// Moderation section.
-		add_settings_section(
-			'buddynext_moderation_section',
-			__( 'Moderation', 'buddynext' ),
-			'__return_null',
-			'buddynext_general'
-		);
-
-		add_settings_field(
-			'buddynext_auto_hide_threshold',
-			__( 'Auto-hide after N reports', 'buddynext' ),
-			array( $this, 'render_number_field' ),
-			'buddynext_general',
-			'buddynext_moderation_section',
-			array(
-				'option' => 'buddynext_auto_hide_threshold',
-				'min'    => 1,
-			)
-		);
-
-		add_settings_field(
-			'buddynext_strike_warn_threshold',
-			__( 'Strikes before warning', 'buddynext' ),
-			array( $this, 'render_number_field' ),
-			'buddynext_general',
-			'buddynext_moderation_section',
-			array(
-				'option' => 'buddynext_strike_warn_threshold',
-				'min'    => 1,
-			)
-		);
-
-		add_settings_field(
-			'buddynext_strike_suspend_threshold',
-			__( 'Strikes before suspension', 'buddynext' ),
-			array( $this, 'render_number_field' ),
-			'buddynext_general',
-			'buddynext_moderation_section',
-			array(
-				'option' => 'buddynext_strike_suspend_threshold',
-				'min'    => 1,
-			)
-		);
-
-		// Webhooks section.
-		add_settings_section(
-			'buddynext_webhooks_section',
-			__( 'Webhook Settings', 'buddynext' ),
-			array( $this, 'render_webhooks_section' ),
-			'buddynext_general'
-		);
-
-		add_settings_field(
-			self::OPTION_WEBHOOK_SECRET,
-			__( 'Webhook Secret', 'buddynext' ),
-			array( $this, 'render_webhook_secret_field' ),
-			'buddynext_general',
-			'buddynext_webhooks_section'
-		);
+	protected function get_title(): string {
+		return __( 'BuddyNext Settings', 'buddynext' );
 	}
 
 	/**
-	 * Render the settings tab navigation.
+	 * {@inheritDoc}
 	 *
-	 * @param string $active_tab Currently active tab slug.
+	 * @return string
+	 */
+	protected function get_subtitle(): string {
+		return __( 'Configure your community platform', 'buddynext' );
+	}
+
+	/**
+	 * Render the settings page content: tab bar + form with section cards.
+	 *
 	 * @return void
 	 */
-	private function render_tabs( string $active_tab ): void {
+	protected function render_content(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$active_tab = sanitize_key( wp_unslash( $_GET['tab'] ?? 'general' ) );
+		$base_url   = admin_url( 'admin.php?page=buddynext' );
+
 		$tabs = array(
 			'general'      => __( 'General', 'buddynext' ),
 			'registration' => __( 'Registration', 'buddynext' ),
@@ -370,144 +167,199 @@ class Settings {
 			'moderation'   => __( 'Moderation', 'buddynext' ),
 			'webhooks'     => __( 'Webhooks', 'buddynext' ),
 		);
-		echo '<nav class="nav-tab-wrapper">';
-		foreach ( $tabs as $slug => $label ) {
-			$class = ( $slug === $active_tab ) ? 'nav-tab nav-tab-active' : 'nav-tab';
-			printf(
-				'<a href="%s" class="%s">%s</a>',
-				esc_url( add_query_arg( 'tab', $slug ) ),
-				esc_attr( $class ),
-				esc_html( $label )
-			);
+
+		if ( ! array_key_exists( $active_tab, $tabs ) ) {
+			$active_tab = 'general';
 		}
-		echo '</nav>';
-	}
 
-	/**
-	 * Render a text input field.
-	 *
-	 * @param array<string, mixed> $args Field arguments including 'option' key.
-	 * @return void
-	 */
-	public function render_text_field( array $args ): void {
-		$option = (string) $args['option'];
-		$value  = (string) get_option( $option, '' );
-		printf(
-			'<input type="text" id="%s" name="%s" value="%s" class="regular-text" />',
-			esc_attr( $option ),
-			esc_attr( $option ),
-			esc_attr( $value )
-		);
-	}
-
-	/**
-	 * Render a color input field.
-	 *
-	 * @param array<string, mixed> $args Field arguments including 'option' key.
-	 * @return void
-	 */
-	public function render_color_field( array $args ): void {
-		$option = (string) $args['option'];
-		$value  = (string) get_option( $option, '#0073aa' );
-		printf(
-			'<input type="color" id="%s" name="%s" value="%s" />',
-			esc_attr( $option ),
-			esc_attr( $option ),
-			esc_attr( $value )
-		);
-	}
-
-	/**
-	 * Render a select field.
-	 *
-	 * @param array<string, mixed> $args Field arguments including 'option' and 'choices'.
-	 * @return void
-	 */
-	public function render_select_field( array $args ): void {
-		$option  = (string) $args['option'];
-		$choices = (array) ( $args['choices'] ?? array() );
-		$value   = (string) get_option( $option, '' );
-		printf( '<select id="%s" name="%s">', esc_attr( $option ), esc_attr( $option ) );
-		foreach ( $choices as $key => $label ) {
-			printf(
-				'<option value="%s"%s>%s</option>',
-				esc_attr( (string) $key ),
-				selected( $value, (string) $key, false ),
-				esc_html( (string) $label )
-			);
-		}
-		echo '</select>';
-	}
-
-	/**
-	 * Render a checkbox field.
-	 *
-	 * @param array<string, mixed> $args Field arguments including 'option' and 'label'.
-	 * @return void
-	 */
-	public function render_checkbox_field( array $args ): void {
-		$option = (string) $args['option'];
-		$label  = (string) ( $args['label'] ?? '' );
-		$value  = (bool) get_option( $option, false );
-		printf(
-			'<label><input type="checkbox" id="%s" name="%s" value="1"%s /> %s</label>',
-			esc_attr( $option ),
-			esc_attr( $option ),
-			checked( $value, true, false ),
-			esc_html( $label )
-		);
-	}
-
-	/**
-	 * Render a number input field.
-	 *
-	 * @param array<string, mixed> $args Field arguments including 'option' and optional 'min'.
-	 * @return void
-	 */
-	public function render_number_field( array $args ): void {
-		$option = (string) $args['option'];
-		$min    = isset( $args['min'] ) ? (int) $args['min'] : 0;
-		$value  = (int) get_option( $option, 0 );
-		printf( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-			'<input type="number" id="%s" name="%s" value="%d" min="%d" class="small-text" />',
-			esc_attr( $option ),
-			esc_attr( $option ),
-			(int) $value,
-			(int) $min
-		);
-	}
-
-	/**
-	 * Render the webhook section description.
-	 *
-	 * @return void
-	 */
-	public function render_webhooks_section(): void {
-		echo '<p>' . esc_html__(
-			'Set the shared secret used to verify inbound access webhooks. Every request to the POST buddynext/v1/webhook/access endpoint must carry a valid HMAC-SHA256 signature generated from this secret.',
-			'buddynext'
-		) . '</p>';
-	}
-
-	/**
-	 * Render the webhook secret input field.
-	 *
-	 * @return void
-	 */
-	public function render_webhook_secret_field(): void {
-		$value = (string) get_option( self::OPTION_WEBHOOK_SECRET, '' );
+		$this->render_tab_bar( $tabs, $active_tab, $base_url );
 		?>
-		<input
-			type="password"
-			id="<?php echo esc_attr( self::OPTION_WEBHOOK_SECRET ); ?>"
-			name="<?php echo esc_attr( self::OPTION_WEBHOOK_SECRET ); ?>"
-			value="<?php echo esc_attr( $value ); ?>"
-			class="regular-text"
-			autocomplete="new-password"
-		/>
-		<p class="description">
-			<?php esc_html_e( 'Generate a strong random string and share it with your webhook sender. Leave blank to disable signature verification.', 'buddynext' ); ?>
-		</p>
+		<form method="post" action="options.php">
+			<?php settings_fields( 'buddynext' ); ?>
+			<?php $this->{'render_tab_' . $active_tab}(); ?>
+			<?php $this->render_save_bar(); ?>
+		</form>
 		<?php
+	}
+
+	// ── Tab renderers ─────────────────────────────────────────────────────────
+
+	/**
+	 * Render the General settings tab.
+	 *
+	 * @return void
+	 */
+	private function render_tab_general(): void {
+		$this->open_section( __( 'Community Settings', 'buddynext' ) );
+
+		$this->render_text_row(
+			'buddynext_site_name',
+			__( 'Community Name', 'buddynext' ),
+			(string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) )
+		);
+
+		$this->render_text_row(
+			'buddynext_brand_color',
+			__( 'Brand Color', 'buddynext' ),
+			(string) get_option( 'buddynext_brand_color', '#0073aa' ),
+			__( 'Hex color used for buttons, links, and accents throughout the community UI.', 'buddynext' ),
+			140
+		);
+
+		$this->close_section();
+	}
+
+	/**
+	 * Render the Registration settings tab.
+	 *
+	 * @return void
+	 */
+	private function render_tab_registration(): void {
+		$this->open_section( __( 'Registration Settings', 'buddynext' ) );
+
+		$this->render_select_row(
+			'buddynext_reg_mode',
+			__( 'Registration Mode', 'buddynext' ),
+			(string) get_option( 'buddynext_reg_mode', 'open' ),
+			array(
+				'open'     => __( 'Open — anyone can register', 'buddynext' ),
+				'invite'   => __( 'Invite Only — requires an invitation', 'buddynext' ),
+				'approval' => __( 'Admin Approval — admin reviews each request', 'buddynext' ),
+			),
+			__( 'Controls who can create a new account on your community.', 'buddynext' )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_email_verify',
+			__( 'Require email verification', 'buddynext' ),
+			__( 'New registrations must verify their email before accessing the community.', 'buddynext' ),
+			(bool) get_option( 'buddynext_email_verify', false )
+		);
+
+		$this->close_section();
+	}
+
+	/**
+	 * Render the Social settings tab.
+	 *
+	 * @return void
+	 */
+	private function render_tab_social(): void {
+		$this->open_section( __( 'Activity Feed', 'buddynext' ) );
+
+		$this->render_select_row(
+			'buddynext_default_post_privacy',
+			__( 'Default post visibility', 'buddynext' ),
+			(string) get_option( 'buddynext_default_post_privacy', 'public' ),
+			array(
+				'public'      => __( 'Public', 'buddynext' ),
+				'followers'   => __( 'Followers only', 'buddynext' ),
+				'connections' => __( 'Connections only', 'buddynext' ),
+				'private'     => __( 'Only me', 'buddynext' ),
+			),
+			__( 'Members can override this in their own post composer.', 'buddynext' )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_allow_polls',
+			__( 'Allow polls', 'buddynext' ),
+			__( 'Members can attach a poll to their posts.', 'buddynext' ),
+			(bool) get_option( 'buddynext_allow_polls', true )
+		);
+
+		$this->render_number_row(
+			'buddynext_post_edit_window',
+			__( 'Post edit window (minutes)', 'buddynext' ),
+			(int) get_option( 'buddynext_post_edit_window', 60 ),
+			__( 'How many minutes after posting a member can edit their post. Set to 0 for no limit.', 'buddynext' ),
+			0
+		);
+
+		$this->close_section();
+	}
+
+	/**
+	 * Render the Spaces settings tab.
+	 *
+	 * @return void
+	 */
+	private function render_tab_spaces(): void {
+		$this->open_section( __( 'Space Settings', 'buddynext' ) );
+
+		$this->render_select_row(
+			'buddynext_space_creation_role',
+			__( 'Who can create spaces', 'buddynext' ),
+			(string) get_option( 'buddynext_space_creation_role', 'member' ),
+			array(
+				'member' => __( 'Any member', 'buddynext' ),
+				'admin'  => __( 'Admins only', 'buddynext' ),
+			),
+			__( 'Restricting to admins prevents members from creating unmoderated spaces.', 'buddynext' )
+		);
+
+		$this->close_section();
+	}
+
+	/**
+	 * Render the Moderation settings tab.
+	 *
+	 * @return void
+	 */
+	private function render_tab_moderation(): void {
+		$this->open_section( __( 'Auto-Moderation Thresholds', 'buddynext' ) );
+
+		$this->render_number_row(
+			'buddynext_auto_hide_threshold',
+			__( 'Auto-hide after N reports', 'buddynext' ),
+			(int) get_option( 'buddynext_auto_hide_threshold', 5 ),
+			__( 'Content is hidden automatically once it reaches this number of reports. Reviewable in the moderation queue.', 'buddynext' ),
+			1
+		);
+
+		$this->close_section();
+
+		$this->open_section( __( 'Strike System', 'buddynext' ) );
+
+		$this->render_number_row(
+			'buddynext_strike_warn_threshold',
+			__( 'Strikes before warning', 'buddynext' ),
+			(int) get_option( 'buddynext_strike_warn_threshold', 2 ),
+			__( 'A warning email is sent to the member after this many active strikes.', 'buddynext' ),
+			1
+		);
+
+		$this->render_number_row(
+			'buddynext_strike_suspend_threshold',
+			__( 'Strikes before suspension', 'buddynext' ),
+			(int) get_option( 'buddynext_strike_suspend_threshold', 5 ),
+			__( 'The member is automatically suspended after this many active strikes.', 'buddynext' ),
+			1
+		);
+
+		$this->close_section();
+	}
+
+	/**
+	 * Render the Webhooks settings tab.
+	 *
+	 * @return void
+	 */
+	private function render_tab_webhooks(): void {
+		$this->open_section( __( 'Webhook Secret', 'buddynext' ) );
+		?>
+		<div class="bn-field">
+			<label for="bn-webhook-secret"><?php esc_html_e( 'Shared Secret', 'buddynext' ); ?></label>
+			<input type="password"
+			       id="bn-webhook-secret"
+			       name="<?php echo esc_attr( self::OPTION_WEBHOOK_SECRET ); ?>"
+			       value="<?php echo esc_attr( (string) get_option( self::OPTION_WEBHOOK_SECRET, '' ) ); ?>"
+			       class="bn-text-input regular-text"
+			       autocomplete="new-password">
+			<span class="bn-field-hint">
+				<?php esc_html_e( 'Used to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Leave blank to disable signature verification.', 'buddynext' ); ?>
+			</span>
+		</div>
+		<?php
+		$this->close_section();
 	}
 }

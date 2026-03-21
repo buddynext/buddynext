@@ -95,13 +95,16 @@ class SearchService {
 	 * key the query planner will prefer the full-text index automatically once
 	 * the table is a real InnoDB table.
 	 *
-	 * @param string $query    Raw search string (sanitised internally).
-	 * @param string $type     Optional object_type filter. Empty = all types.
-	 * @param int    $per_page Results per page (max 50).
-	 * @param int    $page     1-based page number.
+	 * @param string $query     Raw search string (sanitised internally).
+	 * @param string $type      Optional object_type filter. Empty = all types.
+	 * @param int    $per_page  Results per page (max 50).
+	 * @param int    $page      1-based page number.
+	 * @param int    $viewer_id ID of the requesting user. When non-zero, users
+	 *                          who have a block relationship with this viewer are
+	 *                          excluded from results. Pass 0 to skip filtering.
 	 * @return array{items: array[], total: int}
 	 */
-	public function search( string $query, string $type = '', int $per_page = self::DEFAULT_LIMIT, int $page = 1 ): array {
+	public function search( string $query, string $type = '', int $per_page = self::DEFAULT_LIMIT, int $page = 1, int $viewer_id = 0 ): array {
 		global $wpdb;
 
 		$per_page = min( $per_page, 50 );
@@ -116,6 +119,30 @@ class SearchService {
 			$type_where  = ' AND object_type = %s';
 			$type_params = array( sanitize_key( $type ) );
 		}
+
+		$block_where  = '';
+		$block_params = array();
+
+		if ( $viewer_id > 0 ) {
+			$block_where  =
+				" AND object_id NOT IN (
+				    SELECT blocked_id FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d
+				    UNION
+				    SELECT blocker_id FROM {$wpdb->prefix}bn_blocks WHERE blocked_id = %d
+				  )";
+			$block_params = array( $viewer_id, $viewer_id );
+		}
+
+		// Exclude suspended and shadow-banned users' content from all search results.
+		$excluded_where =
+			" AND author_id NOT IN (
+			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
+			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+			  )
+			  AND author_id NOT IN (
+			    SELECT user_id FROM {$wpdb->usermeta}
+			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
+			  )";
 
 		/**
 		 * Allow an external search driver (Elasticsearch, Algolia, etc.) to
@@ -143,8 +170,10 @@ class SearchService {
 				 FROM {$wpdb->prefix}bn_search_index
 				 WHERE visibility = 'public'
 				   AND (title LIKE %s OR content LIKE %s)
-				   {$type_where}",
-				...array_merge( array( $like, $like ), $type_params )
+				   {$type_where}
+				   {$block_where}
+				   {$excluded_where}",
+				...array_merge( array( $like, $like ), $type_params, $block_params )
 			)
 		);
 
@@ -155,9 +184,11 @@ class SearchService {
 				 WHERE visibility = 'public'
 				   AND (title LIKE %s OR content LIKE %s)
 				   {$type_where}
+				   {$block_where}
+				   {$excluded_where}
 				 ORDER BY updated_at DESC
 				 LIMIT %d OFFSET %d",
-				...array_merge( array( $like, $like ), $type_params, array( $per_page, $offset ) )
+				...array_merge( array( $like, $like ), $type_params, $block_params, array( $per_page, $offset ) )
 			),
 			ARRAY_A
 		);

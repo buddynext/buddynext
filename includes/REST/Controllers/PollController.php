@@ -3,8 +3,9 @@
  * REST controller for poll voting.
  *
  * Routes (all under buddynext/v1):
- *   POST /posts/{id}/vote  — cast a vote (auth required)
- *   GET  /posts/{id}/poll  — get poll options and counts (public)
+ *   POST /posts/{id}/vote    — cast a vote (auth required)
+ *   GET  /posts/{id}/poll    — get poll options and counts (public)
+ *   GET  /posts/{id}/my-vote — get the current user's vote on a poll (auth required)
  *
  * @package BuddyNext\REST\Controllers
  */
@@ -44,6 +45,16 @@ class PollController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_results' ),
 				'permission_callback' => '__return_true',
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/posts/(?P<id>[\d]+)/my-vote',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'my_vote' ),
+				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
 	}
@@ -96,6 +107,23 @@ class PollController {
 		$results = ( new PollService() )->results( $post_id );
 
 		return new WP_REST_Response( array( 'results' => $results ), 200 );
+	}
+
+	/**
+	 * Return the current user's vote on a poll post.
+	 *
+	 * Returns {option_id: int} when the user has voted, or {option_id: null}
+	 * when they have not.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function my_vote( WP_REST_Request $request ): WP_REST_Response {
+		$post_id   = (int) $request->get_param( 'id' );
+		$user_id   = get_current_user_id();
+		$option_id = ( new PollService() )->user_vote( $user_id, $post_id );
+
+		return new WP_REST_Response( array( 'option_id' => $option_id ), 200 );
 	}
 
 	/**

@@ -41,6 +41,16 @@ if ( ! is_dir( $wp_tests_dir ) ) {
 // WordPress test config (DB credentials etc.) is written by the install script.
 require_once $wp_tests_dir . '/includes/functions.php';
 
+// ── Global stubs for optional addon plugins ──────────────────────────────────
+// These allow bridge tests to exercise hook registration without the real
+// external plugins being installed. Each stub is guarded so real plugin
+// functions take precedence when the actual plugin is active.
+
+if ( ! function_exists( 'wb_gamification_badge_awarded' ) ) {
+	/** Stub: WBGamification — lets WBGamification bridge init() register hooks. */
+	function wb_gamification_badge_awarded(): void {} // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+}
+
 /**
  * Manually load the plugin before the test suite boots.
  */

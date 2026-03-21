@@ -73,7 +73,7 @@ class BlockService {
 			 * @param int $blocker_id ID of the blocking user.
 			 * @param int $blocked_id ID of the blocked user.
 			 */
-			do_action( 'buddynext_user_blocked', $blocker_id, $blocked_id );
+			do_action( 'buddynext_block', $blocker_id, $blocked_id );
 		}
 
 		return true;
@@ -107,7 +107,7 @@ class BlockService {
 		 * @param int $blocker_id ID of the user removing the block.
 		 * @param int $blocked_id ID of the previously blocked user.
 		 */
-		do_action( 'buddynext_user_unblocked', $blocker_id, $blocked_id );
+		do_action( 'buddynext_unblock', $blocker_id, $blocked_id );
 	}
 
 	/**
@@ -265,6 +265,40 @@ class BlockService {
 	}
 
 	/**
+	 * Return the list of user IDs muted by the given user.
+	 *
+	 * @param int $user_id The muting user.
+	 * @return int[]
+	 */
+	public function muted_users( int $user_id ): array {
+		global $wpdb;
+
+		$cache_key = "muted_users_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT blocked_id
+				 FROM {$wpdb->prefix}bn_blocks
+				 WHERE blocker_id = %d AND type = 'mute'
+				 ORDER BY created_at DESC",
+				$user_id
+			)
+		);
+
+		$result = array_map( 'intval', (array) $rows );
+
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
+	}
+
+	/**
 	 * Return the list of user IDs blocked by the given user.
 	 *
 	 * @param int $user_id The blocking user.
@@ -308,5 +342,6 @@ class BlockService {
 		wp_cache_delete( "is_blocked_{$user_a}_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "is_muted_{$user_a}_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "blocked_users_{$user_a}", self::CACHE_GROUP );
+		wp_cache_delete( "muted_users_{$user_a}", self::CACHE_GROUP );
 	}
 }

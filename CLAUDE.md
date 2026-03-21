@@ -437,3 +437,78 @@ A phase is Done when ALL of:
 | Date | Phase | Type | Description |
 |------|-------|------|-------------|
 | 2026-03-21 | — | docs | Created CLAUDE.md — project instructions |
+| 2026-03-21 | 6 | feature | Created EmailSender — template fetch, placeholder render, HMAC unsub, send log |
+| 2026-03-21 | 6 | feature | Created EmailDispatchListener — hooks notification_created, handles ?bn_unsub= requests |
+| 2026-03-21 | 6 | feature | NotificationService now fires buddynext_notification_created after insert |
+| 2026-03-21 | 6 | fix | Aligned bn_email_templates schema: preheader→preview_text, body→body_html, is_active→enabled |
+| 2026-03-21 | 6 | fix | EmailSender + VerificationListener updated to use new column names |
+| 2026-03-21 | 6 | feature | Created VerificationService — token create/verify/resend, 24h expiry, usermeta flag |
+| 2026-03-21 | 6 | feature | Created VerificationListener — on_user_register, handle_verify_request, send_verification_email |
+| 2026-03-21 | 6 | feature | Created AuthController — POST /auth/verify/resend, GET /auth/verify/status |
+| 2026-03-21 | 3 | feature | FeedService: active_announcement() + home_feed prepend on first page only |
+| 2026-03-21 | 3 | feature | FeedController: POST /feed/announcements/{id}/dismiss |
+| 2026-03-21 | 8 | fix | ModerationService.report() + Installer: added space_id column to bn_reports + bn_mod_log |
+| 2026-03-21 | 1 | feature | Installer: added bn_announcement_dismissals table |
+| 2026-03-21 | 6 | feature | Installer: seeded 16 email templates via INSERT IGNORE |
+| 2026-03-21 | 4 | feature | ProfileController: async-pluggable indexing via do_action(buddynext_index_user) |
+| 2026-03-21 | 10 | feature | EventListener: added strike, badge, level-up, Jetonomy reply notification handlers |
+| 2026-03-21 | 5 | fix | templates/spaces/settings.php: renamed $current_user → $acting_user_id (WPCS fix) |
+| 2026-03-21 | — | fix | Tests: FeedServiceTest constructor arg count, EmailEditorTest table slug→type column |
+| 2026-03-21 | 3 | fix | templates/feed/explore.php: p.post_type→p.type, p.visibility→p.privacy, spaces WHERE type='open' |
+| 2026-03-21 | 6 | fix | templates/notifications/index.php: removed n.message (non-existent), added type-based message map |
+| 2026-03-21 | 4 | fix | templates/profile/view.php: f.field_type→f.type, removed s.emoji (non-existent column) |
+| 2026-03-21 | 2 | fix | FollowController + ConnectionController: block check before follow/connect via BlockService |
+| 2026-03-21 | 4 | fix | SearchService::search() + SearchController: pass viewer_id for block exclusion in results |
+| 2026-03-21 | 3 | fix | PostService::delete(): cascade delete bn_poll_votes before bn_poll_options |
+| 2026-03-21 | 7 | feature | HashtagService: follow/unfollow/is_following/autocomplete + post_count maintenance + banned filter |
+| 2026-03-21 | 7 | feature | HashtagController: POST/DELETE /hashtags/{slug}/follow + GET /hashtags/autocomplete |
+| 2026-03-21 | 9 | fix | templates/messages/*.php: mvs/v1/messaging/... → mvs/v1/... (correct WPMediaVerse route paths) |
+| 2026-03-21 | 8 | feature | EventListener::on_strike_issued: enforce warn/suspend thresholds from Settings options |
+| 2026-03-21 | 2 | feature | BlockService: added muted_users() + invalidate muted_users cache on block/mute changes |
+| 2026-03-21 | 3 | feature | ShareService: added user_shares_paginated() — paginated share history with total count |
+| 2026-03-21 | 6 | feature | NotificationPrefService: added get_all_prefs() + set_all_prefs() for bulk pref reads/writes |
+| 2026-03-21 | 8 | feature | ModerationService: added get_strikes() — all active strike rows for a user |
+| 2026-03-21 | 8 | fix | ModerationService.get_queue: filter now includes escalated reports (pending+escalated) |
+| 2026-03-21 | 2 | feature | BlockController: GET /me/muted — list muted users |
+| 2026-03-21 | 3 | feature | ShareController: GET /me/shares — paginated share history (per_page, page) |
+| 2026-03-21 | 4 | feature | ProfileController: GET /profile-fields (public) + POST /profile-fields (admin only) |
+| 2026-03-21 | 5 | feature | SpaceController: GET /spaces/{id}/pending-requests — owner/mod only |
+| 2026-03-21 | 8 | feature | ModerationController: GET /reports/queue — paginated pending+escalated queue |
+| 2026-03-21 | 8 | feature | ModerationController: GET /users/{id}/strikes — active strikes with count |
+| 2026-03-21 | 6 | feature | NotificationController: GET+PUT /me/notification-prefs — read/write all prefs |
+| 2026-03-21 | 3 | feature | PollController: GET /posts/{id}/my-vote — returns current user's vote option_id |
+| 2026-03-21 | 1 | fix | Installer: bn_reactions UNIQUE KEY → PRIMARY KEY (dbDelta requires PK to create table) |
+| 2026-03-21 | 7 | fix | CommentService: fire buddynext_post_commented hook + increment/decrement comment_count on bn_posts |
+| 2026-03-21 | 7 | fix | ReactionService: fire buddynext_post_reacted hook + increment/decrement reaction_count on bn_posts |
+| 2026-03-21 | 3 | fix | PostService::create(): write is_announcement=1 for announcement type |
+| 2026-03-21 | 3 | fix | PostService::delete(): cascade delete bn_reactions + bn_comments before removing post |
+| 2026-03-21 | 8 | fix | ModerationController::submit_report(): fix arg order — pass 0 as space_id, notes as 6th arg |
+| 2026-03-21 | 2 | feature | ConnectionService: added remove_connection() — delete accepted connection, fire hook, bust cache |
+| 2026-03-21 | 2 | fix | ConnectionController DELETE /users/{id}/connect: falls back to remove_connection() for accepted pairs |
+| 2026-03-21 | 7 | fix | templates/hashtags/feed.php: removed contributor_count (non-existent), p.post_type→type, visibility→privacy |
+| 2026-03-21 | 1 | fix | templates/auth/login.php: registration field name="bn_password" → name="user_pass" |
+| 2026-03-21 | 8 | fix | templates/spaces/moderation.php: status='open'→'pending', reported_user_id→object_id, moderator_id→actor_id, description→note, visibility→type |
+| 2026-03-21 | 8 | fix | templates/moderation/queue.php: author_id→user_id on bn_posts |
+| 2026-03-21 | 10 | fix | templates/onboarding/index.php: removed SELECT emoji + WHERE is_active=1 (non-existent columns) |
+| 2026-03-21 | 8 | fix | templates/community-admin.php: status='open'→'pending', reporter_count subquery, visibility→type |
+| 2026-03-21 | 5 | fix | templates/spaces/home.php: r.post_id→object_type+object_id, cm.post_id→object_type+object_id, role 'admin'→'owner' |
+| 2026-03-21 | 5 | fix | SpaceService::hydrate(): added avatar_url + cover_image_url to returned array |
+| 2026-03-21 | 5 | fix | SpaceMemberService::adjust_member_count(): bust SpaceService cache after member_count update |
+| 2026-03-21 | 6 | fix | NotificationService::create(): grouped-update branch now fires buddynext_notification_created |
+| 2026-03-21 | 1 | fix | AccessWebhookController: reject requests when webhook secret is unconfigured (empty string guard) |
+| 2026-03-21 | 5 | fix | SpaceController::get_space(): 404 for secret spaces when viewer is not an active member |
+| 2026-03-21 | 16 | fix | Admin\Members: admin_post_ hookups for suspend/unsuspend/export + nonce checks |
+| 2026-03-21 | 16 | fix | Admin\Spaces: creator_id→owner_id, remove status column refs, admin_post_bn_delete_space hookup |
+| 2026-03-21 | 16 | fix | Admin\EmailEditor: catalogue slugs aligned with seeded bn. prefix types; added 6 missing templates |
+| 2026-03-21 | 3 | fix | templates/feed/explore.php: SELECT icon→avatar_url from bn_spaces |
+| 2026-03-21 | 4 | fix | templates/directory/members.php: bio meta key description→bn_field_bio (with fallback) |
+| 2026-03-21 | 9 | fix | templates/messages/list.php + thread.php: added is_user_logged_in() redirect guard for guests |
+| 2026-03-21 | 1 | fix | Plugin.php: OnboardingService + InviteService + SetupWizard bound in container |
+| 2026-03-21 | 10 | fix | All 4 bridges: added class_exists guard in init() — bridges bail if external plugin absent |
+| 2026-03-21 | 13 | fix | Jetonomy bridge: removed duplicate jetonomy_after_create_reply handler (EventListener is authoritative) |
+| 2026-03-21 | 15 | fix | CareerBoard bridge: wcb_application_submitted accepted_args 4→3; employer_id resolved via get_post_field |
+| 2026-03-21 | 16 | fix | Admin\Settings: per-tab section registration — each tab's sections now use correct page slug |
+| 2026-03-21 | 12 | fix | templates/gamification/leaderboard.php: b.icon→b.image_url (correct wbg_badges column name) |
+| 2026-03-21 | 5 | feature | SpaceCategoryController: GET /space-categories (public) + POST + DELETE /{id} (admin only) |
+| 2026-03-21 | 1 | fix | Plugin.php: bridges now fire at plugins_loaded:25 — after Pro plugins boot at :20 |
+| 2026-03-21 | 5 | fix | templates/spaces/directory.php: added [data-theme="dark"] block for hardcoded light-mode values |

@@ -3,11 +3,11 @@
  * Message Requests template.
  *
  * Displays pending message requests from users the current user does not follow.
- * Requests arrive via WPMediaVerse (mvs/v1/messaging/requests). BuddyNext is
+ * Requests arrive via WPMediaVerse (mvs/v1/me/conversations?tab=requests). BuddyNext is
  * the UI layer only — it does not own conversation or message data.
  *
  * Actions:
- *   Accept  → conversation moves to main inbox (PUT mvs/v1/messaging/requests/{id}/accept)
+ *   Accept  → conversation moves to main inbox (POST mvs/v1/conversations/{id}/accept)
  *   Delete  → removes request, sender is not notified
  *   Block   → adds sender to bn_blocks, conversation is permanently removed
  *
@@ -28,14 +28,14 @@ $current_user_id = get_current_user_id();
 // ── Nonces ────────────────────────────────────────────────────────────────────
 $rest_nonce    = wp_create_nonce( 'wp_rest' );
 $action_nonce  = wp_create_nonce( 'bn_messages_action' );
-$mvs_rest_base = rest_url( 'mvs/v1/messaging' );
+$mvs_rest_base = rest_url( 'mvs/v1' );
 
 // ── Fetch pending requests via WPMediaVerse REST API ─────────────────────────
 $requests    = [];
 $total_count = 0;
 
 if ( $mvs_active && $current_user_id > 0 ) {
-	$api_url = rest_url( 'mvs/v1/messaging/requests' );
+	$api_url = rest_url( 'mvs/v1/me/conversations' );
 
 	$api_response = wp_remote_get(
 		$api_url,

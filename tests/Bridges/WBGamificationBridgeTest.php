@@ -22,12 +22,19 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
+
+		// Stub the WBGamification detection function so init() registers hooks.
+		if ( ! function_exists( 'wb_gamification_badge_awarded' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+			function wb_gamification_badge_awarded(): void {}
+		}
+
 		$this->bridge = new WBGamification();
 		$this->bridge->init();
 	}
 
 	public function test_user_followed_fires_wbgam_event(): void {
-		$fired  = false;
+		$fired      = false;
 		$fired_type = '';
 
 		add_action(
@@ -75,7 +82,8 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 			1
 		);
 
-		do_action( 'buddynext_member_joined_space', 1, 5 );
+		// Hook contract (BLOCK 11): buddynext_space_member_joined( space_id, user_id, role ).
+		do_action( 'buddynext_space_member_joined', 5, 1, 'member' );
 
 		$this->assertSame( 'bn_space_joined', $fired_type );
 	}
@@ -109,7 +117,8 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 			1
 		);
 
-		do_action( 'buddynext_connection_accepted', 1, 2 );
+		// Hook contract (BLOCK 11): buddynext_connection_accepted( connection_id, user_a, user_b ).
+		do_action( 'buddynext_connection_accepted', 0, 1, 2 );
 
 		$this->assertSame( 'bn_connected', $fired_type );
 	}

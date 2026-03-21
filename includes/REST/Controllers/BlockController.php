@@ -8,6 +8,7 @@
  *   POST   /users/{id}/mute  — mute a user
  *   DELETE /users/{id}/mute  — unmute a user
  *   GET    /me/blocked       — list blocked users
+ *   GET    /me/muted         — list muted users
  *
  * @package BuddyNext\REST\Controllers
  */
@@ -70,6 +71,16 @@ class BlockController {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_blocked' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/muted',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_muted' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
@@ -151,6 +162,18 @@ class BlockController {
 		$blocked    = ( new BlockService() )->blocked_users( $current_id );
 
 		return new WP_REST_Response( array( 'ids' => $blocked ), 200 );
+	}
+
+	/**
+	 * Return the list of users muted by the current user.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_muted(): WP_REST_Response {
+		$current_id = get_current_user_id();
+		$muted      = ( new BlockService() )->muted_users( $current_id );
+
+		return new WP_REST_Response( array( 'ids' => $muted ), 200 );
 	}
 
 	/**

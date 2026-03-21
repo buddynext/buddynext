@@ -110,7 +110,7 @@ class SearchController {
 		$per_page = min( (int) ( $request->get_param( 'per_page' ) ?? 20 ), 50 );
 		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
 
-		$results = ( new SearchService() )->search( $query, $type, $per_page, $page );
+		$results = ( new SearchService() )->search( $query, $type, $per_page, $page, get_current_user_id() );
 
 		return new WP_REST_Response( $results, 200 );
 	}

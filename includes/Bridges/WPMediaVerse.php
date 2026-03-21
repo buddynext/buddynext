@@ -33,6 +33,10 @@ class WPMediaVerse {
 	 * Called from Plugin::init() via buddynext_load_bridges action.
 	 */
 	public function init(): void {
+		if ( ! class_exists( 'WPMediaVerse\Core\Plugin' ) ) {
+			return;
+		}
+
 		// Tell WPMediaVerse that BuddyNext is active so it skips its own notification.
 		add_filter( 'mvs_buddynext_active', '__return_true' );
 

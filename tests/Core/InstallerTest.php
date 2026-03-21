@@ -12,26 +12,37 @@ namespace BuddyNext\Tests\Core;
 use BuddyNext\Core\Installer;
 
 /**
+ * Installer test suite.
+ *
  * @covers \BuddyNext\Core\Installer
  */
 class InstallerTest extends \WP_UnitTestCase {
 
+	/**
+	 * Run the installer before each test.
+	 */
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
 	}
 
 	/**
+	 * Verify each bn_* table exists after Installer::run().
+	 *
+	 * WP test suite converts CREATE TABLE → CREATE TEMPORARY TABLE so
+	 * SHOW TABLES LIKE cannot find them. SELECT 1 produces a DB error
+	 * only when the table is absent, which is what we assert on.
+	 *
 	 * @dataProvider table_provider
+	 * @param string $table Unprefixed table name.
 	 */
 	public function test_table_exists( string $table ): void {
 		global $wpdb;
 
 		$full = $wpdb->prefix . $table;
 
-		// WP test suite converts CREATE TABLE → CREATE TEMPORARY TABLE so
-		// SHOW TABLES LIKE cannot find them. Use a SELECT to verify instead.
 		$wpdb->suppress_errors( true );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->get_results( "SELECT 1 FROM `{$full}` LIMIT 1" );
 		$last_error = $wpdb->last_error;
 		$wpdb->suppress_errors( false );
@@ -40,6 +51,25 @@ class InstallerTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Verify that bn_posts has the content_warning and content_warning_type columns.
+	 */
+	public function test_posts_has_content_warning_columns(): void {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'bn_posts';
+
+		$wpdb->suppress_errors( true );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->get_results( "SELECT content_warning, content_warning_type FROM `{$table}` LIMIT 1" );
+		$last_error = $wpdb->last_error;
+		$wpdb->suppress_errors( false );
+
+		$this->assertEmpty( $last_error, "bn_posts must have content_warning and content_warning_type columns. DB error: {$last_error}" );
+	}
+
+	/**
+	 * Provides unprefixed table names to test_table_exists().
+	 *
 	 * @return array<int, array{string}>
 	 */
 	public static function table_provider(): array {
@@ -74,6 +104,12 @@ class InstallerTest extends \WP_UnitTestCase {
 				'bn_messages',
 				'bn_message_reactions',
 				'bn_activity_log',
+				// BLOCK 1 additions.
+				'bn_user_suspensions',
+				'bn_appeals',
+				'bn_space_bans',
+				'bn_outbound_webhooks',
+				'bn_outbound_webhook_log',
 			)
 		);
 	}

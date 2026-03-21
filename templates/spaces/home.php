@@ -63,7 +63,7 @@ if ( $current_user_id ) {
 }
 
 $is_member    = $membership && 'active' === $membership->status;
-$is_admin_mod = $membership && 'active' === $membership->status && in_array( $membership->role, array( 'admin', 'moderator' ), true );
+$is_admin_mod = $membership && 'active' === $membership->status && in_array( $membership->role, array( 'owner', 'moderator' ), true );
 $is_pending   = $membership && 'pending' === $membership->status;
 
 // ── Access gate: private spaces ───────────────────────────────────────────────
@@ -100,8 +100,8 @@ if ( ! $gate_feed ) {
 	$feed_posts = $wpdb->get_results(
 		$wpdb->prepare(
 			"SELECT p.*, u.display_name AS author_name,
-			( SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r WHERE r.post_id = p.id ) AS reaction_count,
-			( SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments cm WHERE cm.post_id = p.id ) AS comment_count,
+			( SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r WHERE r.object_type = 'post' AND r.object_id = p.id ) AS reaction_count,
+			( SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments cm WHERE cm.object_type = 'post' AND cm.object_id = p.id ) AS comment_count,
 			sm.role AS author_role
 			FROM {$wpdb->prefix}bn_posts p
 			INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
@@ -123,7 +123,7 @@ $sidebar_members = $wpdb->get_results(
 		FROM {$wpdb->prefix}bn_space_members sm
 		INNER JOIN {$wpdb->users} u ON u.ID = sm.user_id
 		WHERE sm.space_id = %d AND sm.status = 'active'
-		ORDER BY FIELD( sm.role, 'admin', 'moderator', 'member' ), sm.joined_at ASC
+		ORDER BY FIELD( sm.role, 'owner', 'moderator', 'member' ), sm.joined_at ASC
 		LIMIT 10",
 		$space_id
 	)
@@ -811,14 +811,14 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 
 					<?php foreach ( $feed_posts as $bn_post ) : ?>
 						<?php
-						$post_user_id    = (int) $post->user_id;
-						$author_name     = $post->author_name ?? __( 'Member', 'buddynext' );
+						$post_user_id    = (int) $bn_post->user_id;
+						$author_name     = $bn_post->author_name ?? __( 'Member', 'buddynext' );
 						$author_initials = bn_initials( $author_name );
 						$author_color    = bn_avatar_color( $post_user_id );
-						$reaction_count  = (int) ( $post->reaction_count ?? 0 );
-						$comment_count   = (int) ( $post->comment_count ?? 0 );
-						$post_time       = isset( $post->created_at ) ? bn_time_diff( $post->created_at ) : '';
-						$author_role     = $post->author_role ?? '';
+						$reaction_count  = (int) ( $bn_post->reaction_count ?? 0 );
+						$comment_count   = (int) ( $bn_post->comment_count ?? 0 );
+						$post_time       = isset( $bn_post->created_at ) ? bn_time_diff( $bn_post->created_at ) : '';
+						$author_role     = $bn_post->author_role ?? '';
 						?>
 						<article class="bn-post-card">
 							<div class="bn-post-card__header">
@@ -830,7 +830,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 
 								<div>
 									<span class="bn-post-card__author"><?php echo esc_html( $author_name ); ?></span>
-									<?php if ( in_array( $author_role, array( 'admin', 'moderator' ), true ) ) : ?>
+									<?php if ( in_array( $author_role, array( 'owner', 'moderator' ), true ) ) : ?>
 										<span class="bn-post-card__role"><?php echo esc_html( ucfirst( $author_role ) ); ?></span>
 									<?php endif; ?>
 									<div class="bn-post-card__time"><?php echo esc_html( $post_time ); ?></div>
@@ -840,15 +840,15 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 									class="bn-post-card__menu"
 									aria-label="<?php esc_attr_e( 'Post options', 'buddynext' ); ?>"
 									data-wp-on--click="actions.openPostMenu"
-									data-post-id="<?php echo esc_attr( (string) $post->id ); ?>"
+									data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>"
 								>&#x22EF;</button>
 							</div>
 
-							<p class="bn-post-card__text"><?php echo esc_html( $post->content ?? '' ); ?></p>
+							<p class="bn-post-card__text"><?php echo esc_html( $bn_post->content ?? '' ); ?></p>
 
-							<?php if ( ! empty( $post->link_url ) ) : ?>
+							<?php if ( ! empty( $bn_post->link_url ) ) : ?>
 								<div class="bn-post-card__link-preview">
-									&#x1F517; <?php echo esc_html( esc_url( $post->link_url ) ); ?>
+									&#x1F517; <?php echo esc_html( esc_url( $bn_post->link_url ) ); ?>
 								</div>
 							<?php endif; ?>
 
@@ -856,18 +856,18 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 								<button
 									class="bn-post-card__stat"
 									data-wp-on--click="actions.toggleReaction"
-									data-post-id="<?php echo esc_attr( (string) $post->id ); ?>"
+									data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>"
 									aria-label="<?php esc_attr_e( 'React to post', 'buddynext' ); ?>"
 								>&#x2764;&#xFE0F; <?php echo esc_html( (string) $reaction_count ); ?></button>
 
 								<button
 									class="bn-post-card__stat"
 									data-wp-on--click="actions.viewComments"
-									data-post-id="<?php echo esc_attr( (string) $post->id ); ?>"
+									data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>"
 									aria-label="<?php esc_attr_e( 'View comments', 'buddynext' ); ?>"
 								>&#x1F4AC; <?php echo esc_html( (string) $comment_count ); ?> <?php esc_html_e( 'comments', 'buddynext' ); ?></button>
 
-								<button class="bn-post-card__stat" data-wp-on--click="actions.sharePost" data-post-id="<?php echo esc_attr( (string) $post->id ); ?>">
+								<button class="bn-post-card__stat" data-wp-on--click="actions.sharePost" data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>">
 									&#x2197;&#xFE0F; <?php esc_html_e( 'Share', 'buddynext' ); ?>
 								</button>
 							</div>
@@ -925,7 +925,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 						><?php echo esc_html( $m_init ); ?></div>
 						<span class="bn-member-row__name">
 							<?php echo esc_html( $m_name ); ?>
-							<?php if ( 'admin' === $member->role ) : ?>
+							<?php if ( 'owner' === $member->role ) : ?>
 								<span class="bn-member-role-badge bn-member-role-badge--admin"><?php esc_html_e( 'Admin', 'buddynext' ); ?></span>
 							<?php elseif ( 'moderator' === $member->role ) : ?>
 								<span class="bn-member-role-badge bn-member-role-badge--mod"><?php esc_html_e( 'Mod', 'buddynext' ); ?></span>

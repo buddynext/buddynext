@@ -57,6 +57,28 @@ class FeedService {
 	}
 
 	/**
+	 * Build a SQL fragment that excludes suspended and shadow-banned users.
+	 *
+	 * The fragment is always prefixed with AND so it can be appended directly
+	 * to an existing WHERE clause. It uses two NOT IN subqueries:
+	 *  1. Active suspension rows in bn_user_suspensions.
+	 *  2. Users whose bn_shadow_banned usermeta = '1'.
+	 *
+	 * @return string Raw SQL fragment — no user-supplied data, safe to embed.
+	 */
+	private function excluded_users_where(): string {
+		global $wpdb;
+		return "AND user_id NOT IN (
+			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
+			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+			  )
+			  AND user_id NOT IN (
+			    SELECT user_id FROM {$wpdb->usermeta}
+			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
+			  )";
+	}
+
+	/**
 	 * Return the home feed for the given user.
 	 *
 	 * @param int         $user_id     Viewing user ID.
@@ -77,11 +99,13 @@ class FeedService {
 			);
 		}
 
-		$placeholders = implode( ',', array_fill( 0, count( $author_ids ), '%d' ) );
-		$cursor_where = $this->cursor_where( $cursor );
+		$placeholders   = implode( ',', array_fill( 0, count( $author_ids ), '%d' ) );
+		$cursor_where   = $this->cursor_where( $cursor );
+		$excluded_where = $this->excluded_users_where();
 
 		// $placeholders is built via array_fill('%d') — only integers, safe.
 		// $cursor_where is either '' or the single hardcoded SQL constant — safe.
+		// $excluded_where contains only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
@@ -91,6 +115,7 @@ class FeedService {
 			         OR (privacy IN ('public','followers'))
 			       )
 			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+			   {$excluded_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
@@ -253,15 +278,17 @@ class FeedService {
 	public function explore_feed( ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
 		global $wpdb;
 
-		$per_page     = min( $per_page, 50 );
-		$cursor_where = $this->cursor_where( $cursor );
+		$per_page       = min( $per_page, 50 );
+		$cursor_where   = $this->cursor_where( $cursor );
+		$excluded_where = $this->excluded_users_where();
 
-		// $cursor_where is either '' or the single hardcoded SQL constant — safe.
+		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE privacy = 'public'
 			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+			   {$excluded_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",

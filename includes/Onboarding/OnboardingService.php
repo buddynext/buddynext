@@ -3,7 +3,7 @@
  * Member onboarding wizard service.
  *
  * Tracks the four-step new-member onboarding flow. Wizard state is stored in
- * user meta. Calling finish() fires buddynext_onboarding_complete — but only
+ * user meta. Calling finish() fires buddynext_onboarding_completed — but only
  * on the first completion so downstream hooks (nudge email cancellation,
  * WBGam points) do not fire twice.
  *
@@ -103,7 +103,7 @@ class OnboardingService {
 	/**
 	 * Mark the wizard as finished for this user.
 	 *
-	 * Fires buddynext_onboarding_complete on first call only.
+	 * Fires buddynext_onboarding_completed on first call only.
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return void
@@ -118,7 +118,7 @@ class OnboardingService {
 		 *
 		 * @param int $user_id The user who completed onboarding.
 		 */
-		do_action( 'buddynext_onboarding_complete', $user_id );
+		do_action( 'buddynext_onboarding_completed', $user_id );
 	}
 
 	// -------------------------------------------------------------------------

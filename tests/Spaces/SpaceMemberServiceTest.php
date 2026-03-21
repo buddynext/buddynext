@@ -315,4 +315,114 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'active', $status );
 	}
+
+	// ── hook contract tests ──────────────────────────────────────────────────
+
+	public function test_join_fires_buddynext_space_member_joined(): void {
+		$captured = null;
+		$user_id  = self::factory()->user->create();
+		add_action(
+			'buddynext_space_member_joined',
+			function ( int $space_id, int $user_id, string $role ) use ( &$captured ): void {
+				$captured = array( $space_id, $user_id, $role );
+			},
+			10,
+			3
+		);
+
+		$this->service->join( $this->space_id, $user_id );
+
+		$this->assertSame( array( $this->space_id, $user_id, 'member' ), $captured );
+	}
+
+	public function test_leave_fires_buddynext_space_member_left(): void {
+		$user_id = self::factory()->user->create();
+		$this->service->join( $this->space_id, $user_id );
+
+		$captured = null;
+		add_action(
+			'buddynext_space_member_left',
+			function ( int $space_id, int $user_id ) use ( &$captured ): void {
+				$captured = array( $space_id, $user_id );
+			},
+			10,
+			2
+		);
+
+		$this->service->leave( $this->space_id, $user_id );
+
+		$this->assertSame( array( $this->space_id, $user_id ), $captured );
+	}
+
+	public function test_ban_fires_buddynext_space_member_removed(): void {
+		$user_id = self::factory()->user->create();
+		$this->service->join( $this->space_id, $user_id );
+
+		$captured = null;
+		add_action(
+			'buddynext_space_member_removed',
+			function ( int $space_id, int $user_id, int $by_user_id ) use ( &$captured ): void {
+				$captured = array( $space_id, $user_id, $by_user_id );
+			},
+			10,
+			3
+		);
+
+		$this->service->ban( $this->space_id, $this->owner_id, $user_id );
+
+		$this->assertSame( array( $this->space_id, $user_id, $this->owner_id ), $captured );
+	}
+
+	public function test_request_join_fires_buddynext_space_join_requested(): void {
+		$user_id    = self::factory()->user->create();
+		$private_id = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Private Hook Test',
+				'slug' => 'private-hook-test',
+				'type' => 'private',
+			)
+		);
+
+		$captured = null;
+		add_action(
+			'buddynext_space_join_requested',
+			function ( int $space_id, int $user_id ) use ( &$captured ): void {
+				$captured = array( $space_id, $user_id );
+			},
+			10,
+			2
+		);
+
+		$this->service->request_join( $private_id, $user_id );
+
+		$this->assertSame( array( $private_id, $user_id ), $captured );
+	}
+
+	public function test_approve_request_fires_buddynext_space_join_approved(): void {
+		$user_id    = self::factory()->user->create();
+		$private_id = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Private Approve Hook',
+				'slug' => 'private-approve-hook',
+				'type' => 'private',
+			)
+		);
+		$this->service->request_join( $private_id, $user_id );
+
+		$captured = null;
+		add_action(
+			'buddynext_space_join_approved',
+			function ( int $space_id, int $user_id, int $by_user_id ) use ( &$captured ): void {
+				$captured = array( $space_id, $user_id, $by_user_id );
+			},
+			10,
+			3
+		);
+
+		$this->service->approve_request( $private_id, $this->owner_id, $user_id );
+
+		$this->assertSame( array( $private_id, $user_id, $this->owner_id ), $captured );
+	}
 }

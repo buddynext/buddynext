@@ -57,7 +57,13 @@ class AccessWebhookController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function handle( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		if ( ! $this->verify_signature( $request ) ) {
+		$signature_check = $this->verify_signature( $request );
+
+		if ( $signature_check instanceof WP_Error ) {
+			return $signature_check;
+		}
+
+		if ( ! $signature_check ) {
 			return new WP_Error(
 				'invalid_signature',
 				__( 'Invalid webhook signature.', 'buddynext' ),
@@ -340,11 +346,23 @@ class AccessWebhookController {
 	/**
 	 * Verify the HMAC-SHA256 signature from the X-BuddyNext-Signature header.
 	 *
+	 * Returns a WP_Error when the secret is not configured, false when the
+	 * signature does not match, and true when it passes.
+	 *
 	 * @param WP_REST_Request $request Incoming request.
-	 * @return bool
+	 * @return true|false|WP_Error
 	 */
-	private function verify_signature( WP_REST_Request $request ): bool {
-		$secret   = (string) get_option( 'buddynext_webhook_secret', '' );
+	private function verify_signature( WP_REST_Request $request ): bool|WP_Error {
+		$secret = (string) get_option( 'buddynext_webhook_secret', '' );
+
+		if ( '' === $secret ) {
+			return new WP_Error(
+				'webhook_not_configured',
+				__( 'Webhook secret is not configured.', 'buddynext' ),
+				array( 'status' => 503 )
+			);
+		}
+
 		$header   = (string) ( $request->get_header( 'X-BuddyNext-Signature' ) ?? '' );
 		$expected = 'sha256=' . hash_hmac( 'sha256', $request->get_body(), $secret );
 

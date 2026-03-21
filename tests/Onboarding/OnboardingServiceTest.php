@@ -106,12 +106,12 @@ class OnboardingServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Calling finish() fires buddynext_onboarding_complete with the user ID.
+	 * Calling finish() fires buddynext_onboarding_completed with the user ID.
 	 */
-	public function test_finish_fires_buddynext_onboarding_complete(): void {
+	public function test_finish_fires_buddynext_onboarding_completed(): void {
 		$fired_user = 0;
 		add_action(
-			'buddynext_onboarding_complete',
+			'buddynext_onboarding_completed',
 			function ( int $uid ) use ( &$fired_user ): void {
 				$fired_user = $uid;
 			},
@@ -128,7 +128,7 @@ class OnboardingServiceTest extends \WP_UnitTestCase {
 	public function test_second_finish_does_not_double_fire(): void {
 		$count = 0;
 		add_action(
-			'buddynext_onboarding_complete',
+			'buddynext_onboarding_completed',
 			function () use ( &$count ): void {
 				++$count;
 			}

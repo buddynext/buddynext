@@ -140,7 +140,7 @@ if ( ! $is_own_profile && $current_user_id ) {
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $profile_fields = $wpdb->get_results(
 	$wpdb->prepare(
-		"SELECT f.id, f.label, f.field_type, v.value
+		"SELECT f.id, f.label, f.type, v.value
 		FROM {$wpdb->prefix}bn_profile_fields f
 		INNER JOIN {$wpdb->prefix}bn_profile_values v
 		  ON v.field_id = f.id AND v.user_id = %d
@@ -166,7 +166,7 @@ $recent_posts = $wpdb->get_results(
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $member_spaces = $wpdb->get_results(
 	$wpdb->prepare(
-		"SELECT s.id, s.name, s.emoji, sm.role
+		"SELECT s.id, s.name, sm.role
 		FROM {$wpdb->prefix}bn_spaces s
 		INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id
 		WHERE sm.user_id = %d AND sm.status = 'active'
@@ -817,7 +817,7 @@ $format_count = static function ( int $n ): string {
 					<div class="bn-field-row">
 						<span class="bn-field-label"><?php echo esc_html( $field->label ); ?></span>
 						<span class="bn-field-value">
-							<?php if ( 'url' === $field->field_type ) : ?>
+							<?php if ( 'url' === $field->type ) : ?>
 								<a href="<?php echo esc_url( $field->value ); ?>"
 									target="_blank" rel="noopener noreferrer">
 									<?php echo esc_html( $field->value ); ?>
@@ -848,7 +848,7 @@ $format_count = static function ( int $n ): string {
 				<?php foreach ( $member_spaces as $space ) : ?>
 					<div class="bn-space-row">
 						<div class="bn-space-icon">
-							<?php echo $space->emoji ? esc_html( $space->emoji ) : '&#127968;'; ?>
+							&#127968;
 						</div>
 						<div>
 							<div class="bn-space-name"><?php echo esc_html( $space->name ); ?></div>

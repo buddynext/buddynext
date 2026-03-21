@@ -56,6 +56,14 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function join( int $space_id, int $user_id ): true|WP_Error {
+		// Check hard ban (bn_space_bans) as well as soft ban (member status).
+		if ( $this->is_hard_banned( $space_id, $user_id ) ) {
+			return new WP_Error(
+				'user_banned',
+				__( 'You are banned from this space.', 'buddynext' )
+			);
+		}
+
 		$status = $this->get_status( $space_id, $user_id );
 
 		if ( 'banned' === $status ) {
@@ -107,10 +115,11 @@ class SpaceMemberService {
 		/**
 		 * Fires after a user becomes an active space member.
 		 *
-		 * @param int $user_id  Joining user.
-		 * @param int $space_id Space joined.
+		 * @param int    $space_id Space joined.
+		 * @param int    $user_id  Joining user.
+		 * @param string $role     Member role assigned (always 'member' on direct join).
 		 */
-		do_action( 'buddynext_member_joined_space', $user_id, $space_id );
+		do_action( 'buddynext_space_member_joined', $space_id, $user_id, 'member' );
 
 		return true;
 	}
@@ -126,6 +135,13 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function request_join( int $space_id, int $user_id ): true|WP_Error {
+		if ( $this->is_hard_banned( $space_id, $user_id ) ) {
+			return new WP_Error(
+				'user_banned',
+				__( 'You are banned from this space.', 'buddynext' )
+			);
+		}
+
 		$status = $this->get_status( $space_id, $user_id );
 
 		if ( 'banned' === $status ) {
@@ -156,10 +172,10 @@ class SpaceMemberService {
 		/**
 		 * Fires when a user requests to join a private space.
 		 *
-		 * @param int $user_id  Requesting user.
 		 * @param int $space_id Space requested.
+		 * @param int $user_id  Requesting user.
 		 */
-		do_action( 'buddynext_space_join_requested', $user_id, $space_id );
+		do_action( 'buddynext_space_join_requested', $space_id, $user_id );
 
 		return true;
 	}
@@ -286,12 +302,20 @@ class SpaceMemberService {
 		/**
 		 * Fires after a join request is approved.
 		 *
-		 * @param int $user_id  Newly approved member.
-		 * @param int $space_id Space ID.
-		 * @param int $actor_id User who approved.
+		 * @param int $space_id  Space ID.
+		 * @param int $user_id   Newly approved member.
+		 * @param int $actor_id  User who approved.
 		 */
-		do_action( 'buddynext_space_request_approved', $user_id, $space_id, $actor_id );
-		do_action( 'buddynext_member_joined_space', $user_id, $space_id );
+		do_action( 'buddynext_space_join_approved', $space_id, $user_id, $actor_id );
+
+		/**
+		 * Fires after a user becomes an active space member (via approval).
+		 *
+		 * @param int    $space_id Space joined.
+		 * @param int    $user_id  Joining user.
+		 * @param string $role     Member role assigned.
+		 */
+		do_action( 'buddynext_space_member_joined', $space_id, $user_id, 'member' );
 
 		return true;
 	}
@@ -368,13 +392,13 @@ class SpaceMemberService {
 		$this->invalidate_cache( $space_id, $user_id );
 
 		/**
-		 * Fires after a user is banned from a space.
+		 * Fires after a user is removed from a space by a moderator.
 		 *
-		 * @param int $user_id  Banned user.
-		 * @param int $space_id Space ID.
-		 * @param int $actor_id User who performed the ban.
+		 * @param int $space_id  Space ID.
+		 * @param int $user_id   Removed user.
+		 * @param int $actor_id  User who performed the removal.
 		 */
-		do_action( 'buddynext_space_member_banned', $user_id, $space_id, $actor_id );
+		do_action( 'buddynext_space_member_removed', $space_id, $user_id, $actor_id );
 
 		return true;
 	}
@@ -420,10 +444,10 @@ class SpaceMemberService {
 			/**
 			 * Fires after a user leaves a space.
 			 *
-			 * @param int $user_id  User who left.
 			 * @param int $space_id Space left.
+			 * @param int $user_id  User who left.
 			 */
-			do_action( 'buddynext_member_left_space', $user_id, $space_id );
+			do_action( 'buddynext_space_member_left', $space_id, $user_id );
 		}
 
 		return true;
@@ -658,6 +682,8 @@ class SpaceMemberService {
 				)
 			);
 		}
+
+		wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
 	}
 
 	/**
@@ -670,5 +696,29 @@ class SpaceMemberService {
 		wp_cache_delete( "role_{$space_id}_{$user_id}", self::CACHE_GROUP );
 		wp_cache_delete( "status_{$space_id}_{$user_id}", self::CACHE_GROUP );
 		wp_cache_delete( "members_{$space_id}", self::CACHE_GROUP );
+	}
+
+	/**
+	 * Check whether a user has a hard ban row in bn_space_bans for a space.
+	 *
+	 * Hard bans block join attempts even when no bn_space_members row exists,
+	 * preventing re-registration after a ban-and-remove sequence.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  User ID.
+	 * @return bool
+	 */
+	private function is_hard_banned( int $space_id, int $user_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_bans
+				 WHERE space_id = %d AND user_id = %d",
+				$space_id,
+				$user_id
+			)
+		) > 0;
 	}
 }

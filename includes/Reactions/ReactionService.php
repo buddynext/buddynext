@@ -57,6 +57,26 @@ class ReactionService {
 
 		if ( $wpdb->rows_affected > 0 ) {
 			$this->invalidate_cache( $object_type, $object_id, $user_id );
+
+			if ( 'post' === $object_type ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->query(
+					$wpdb->prepare(
+						"UPDATE {$wpdb->prefix}bn_posts SET reaction_count = reaction_count + 1 WHERE id = %d",
+						$object_id
+					)
+				);
+			}
+
+			/**
+			 * Fires after a reaction is added to an object.
+			 *
+			 * @param string $object_type Object type (e.g. 'post', 'comment').
+			 * @param int    $object_id   Object ID.
+			 * @param int    $user_id     Reacting user.
+			 * @param string $emoji       Emoji identifier.
+			 */
+			do_action( 'buddynext_reaction_added', $object_type, $object_id, $user_id, $emoji );
 		}
 
 		return true;
@@ -82,6 +102,27 @@ class ReactionService {
 			),
 			array( '%d', '%s', '%d' )
 		);
+
+		if ( $wpdb->rows_affected > 0 ) {
+			if ( 'post' === $object_type ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->query(
+					$wpdb->prepare(
+						"UPDATE {$wpdb->prefix}bn_posts SET reaction_count = GREATEST(0, reaction_count - 1) WHERE id = %d",
+						$object_id
+					)
+				);
+			}
+
+			/**
+			 * Fires after a reaction is removed from an object.
+			 *
+			 * @param string $object_type Object type (e.g. 'post', 'comment').
+			 * @param int    $object_id   Object ID.
+			 * @param int    $user_id     User who removed their reaction.
+			 */
+			do_action( 'buddynext_reaction_removed', $object_type, $object_id, $user_id );
+		}
 
 		$this->invalidate_cache( $object_type, $object_id, $user_id );
 	}

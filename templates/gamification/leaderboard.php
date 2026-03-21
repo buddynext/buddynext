@@ -161,10 +161,10 @@ $user_badges = [];
 if ( $current_user_id ) {
 	$user_badges = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$wpdb->prepare(
-			"SELECT b.name, b.icon, b.id AS badge_id
-			 FROM {$wbg_badges_table} AS b
-			 INNER JOIN {$wbg_badge_defs} AS d ON d.badge_id = b.id
-			 WHERE d.user_id = %d
+			"SELECT b.name, b.image_url, b.id AS badge_id
+			 FROM {$wbg_badges_table} AS ub
+			 INNER JOIN {$wbg_badge_defs} AS b ON b.id = ub.badge_id
+			 WHERE ub.user_id = %d
 			 LIMIT 8",
 			$current_user_id
 		)
@@ -824,7 +824,9 @@ $milestone_remaining = $next_milestone_pts - $current_user_pts;
 					<div class="bn-badge-grid">
 						<?php foreach ( $user_badges as $badge ) : ?>
 							<div class="bn-badge-cell" title="<?php echo esc_attr( $badge->name ); ?>">
-								<span aria-hidden="true"><?php echo esc_html( $badge->icon ); ?></span>
+								<?php if ( ! empty( $badge->image_url ) ) : ?>
+									<img src="<?php echo esc_url( $badge->image_url ); ?>" alt="<?php echo esc_attr( $badge->name ); ?>" class="bn-badge-img" />
+								<?php endif; ?>
 								<span class="bn-badge-label"><?php echo esc_html( $badge->name ); ?></span>
 							</div>
 						<?php endforeach; ?>

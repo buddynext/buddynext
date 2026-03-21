@@ -124,4 +124,37 @@ class ReactionServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 2, $counts['like'] );
 		$this->assertSame( 1, $counts['heart'] );
 	}
+
+	public function test_react_fires_buddynext_reaction_added(): void {
+		$captured = null;
+		add_action(
+			'buddynext_reaction_added',
+			function ( string $object_type, int $object_id, int $user_id, string $emoji ) use ( &$captured ): void {
+				$captured = array( $object_type, $object_id, $user_id, $emoji );
+			},
+			10,
+			4
+		);
+
+		$this->service->react( $this->user_id, 'post', $this->post_id, 'like' );
+
+		$this->assertSame( array( 'post', $this->post_id, $this->user_id, 'like' ), $captured );
+	}
+
+	public function test_unreact_fires_buddynext_reaction_removed(): void {
+		$captured = null;
+		add_action(
+			'buddynext_reaction_removed',
+			function ( string $object_type, int $object_id, int $user_id ) use ( &$captured ): void {
+				$captured = array( $object_type, $object_id, $user_id );
+			},
+			10,
+			3
+		);
+
+		$this->service->react( $this->user_id, 'post', $this->post_id, 'like' );
+		$this->service->unreact( $this->user_id, 'post', $this->post_id );
+
+		$this->assertSame( array( 'post', $this->post_id, $this->user_id ), $captured );
+	}
 }

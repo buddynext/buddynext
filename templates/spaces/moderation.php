@@ -38,7 +38,7 @@ if ( ! buddynext_can( get_current_user_id(), 'manage-space', [ 'space_id' => $sp
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $space = $wpdb->get_row(
 	$wpdb->prepare(
-		"SELECT id, name, slug, visibility, member_count FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1",
+		"SELECT id, name, slug, type, member_count FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1",
 		$space_id
 	)
 );
@@ -57,7 +57,7 @@ $mod_tab = isset( $_GET['bn_mtab'] ) ? sanitize_key( wp_unslash( $_GET['bn_mtab'
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $open_reports_count = (int) $wpdb->get_var(
 	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE space_id = %d AND status = 'open'",
+		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE space_id = %d AND status = 'pending'",
 		$space_id
 	)
 );
@@ -98,14 +98,14 @@ $open_reports = $wpdb->get_results(
 	$wpdb->prepare(
 		"SELECT r.*,
 		u.display_name AS reported_user_name,
-		( SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports r2 WHERE r2.reported_user_id = r.reported_user_id AND r2.space_id = %d ) AS reporter_count,
-		( SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_strikes us WHERE us.user_id = r.reported_user_id ) AS strike_count,
+		( SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports r2 WHERE r2.object_type = r.object_type AND r2.object_id = r.object_id AND r2.space_id = %d ) AS reporter_count,
+		( SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_strikes us WHERE us.user_id = r.object_id ) AS strike_count,
 		sm.joined_at
 		FROM {$wpdb->prefix}bn_reports r
-		LEFT JOIN {$wpdb->users} u ON u.ID = r.reported_user_id
-		LEFT JOIN {$wpdb->prefix}bn_space_members sm ON sm.user_id = r.reported_user_id AND sm.space_id = %d
-		WHERE r.space_id = %d AND r.status = 'open'
-		ORDER BY r.reporter_count DESC, r.created_at DESC
+		LEFT JOIN {$wpdb->users} u ON u.ID = r.object_id AND r.object_type = 'user'
+		LEFT JOIN {$wpdb->prefix}bn_space_members sm ON sm.user_id = r.object_id AND sm.space_id = %d
+		WHERE r.space_id = %d AND r.status = 'pending'
+		ORDER BY reporter_count DESC, r.created_at DESC
 		LIMIT 20",
 		$space_id,
 		$space_id,
@@ -135,7 +135,7 @@ $mod_log = $wpdb->get_results(
 	$wpdb->prepare(
 		"SELECT ml.*, u.display_name AS moderator_name
 		FROM {$wpdb->prefix}bn_mod_log ml
-		LEFT JOIN {$wpdb->users} u ON u.ID = ml.moderator_id
+		LEFT JOIN {$wpdb->users} u ON u.ID = ml.actor_id
 		WHERE ml.space_id = %d
 		ORDER BY ml.created_at DESC
 		LIMIT 20",
@@ -731,7 +731,7 @@ $current_uid  = get_current_user_id();
 			<div class="bn-mod-subheader__name"><?php echo esc_html( $space->name ?? '' ); ?></div>
 			<div class="bn-mod-subheader__meta">
 				<?php echo esc_html( $member_fmt ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?>
-				&middot; <?php echo esc_html( ucfirst( $space->visibility ?? '' ) ); ?>
+				&middot; <?php echo esc_html( ucfirst( $space->type ?? '' ) ); ?>
 			</div>
 		</div>
 		<span class="bn-mod-admin-badge"><?php esc_html_e( 'Space Admin', 'buddynext' ); ?></span>
@@ -832,7 +832,7 @@ $current_uid  = get_current_user_id();
 						<?php foreach ( $open_reports as $report ) : ?>
 							<?php
 							$priority     = bn_report_priority( (int) ( $report->reporter_count ?? 1 ) );
-							$reported_uid = (int) $report->reported_user_id;
+							$reported_uid = (int) $report->object_id;
 							$r_name       = $report->reported_user_name ?? __( 'Unknown', 'buddynext' );
 							$r_init       = bn_initials( $r_name );
 							$r_color      = bn_avatar_color( $reported_uid );
@@ -1043,11 +1043,11 @@ $current_uid  = get_current_user_id();
 								$log_action = $log->action ?? 'note';
 								$log_icon   = bn_mod_action_icon( $log_action );
 								$log_time   = isset( $log->created_at ) ? bn_time_diff( $log->created_at ) : '';
-								$log_is_me  = ( (int) $log->moderator_id === $current_uid );
+								$log_is_me  = ( (int) $log->actor_id === $current_uid );
 								?>
 								<div class="bn-log-row" role="listitem">
 									<span class="bn-log-icon" aria-hidden="true"><?php echo wp_kses_data( $log_icon ); ?></span>
-									<span class="bn-log-desc"><?php echo esc_html( $log->description ?? '' ); ?></span>
+									<span class="bn-log-desc"><?php echo esc_html( $log->note ?? '' ); ?></span>
 									<?php if ( $log_is_me ) : ?>
 										<span class="bn-log-actor"><?php esc_html_e( 'by You', 'buddynext' ); ?></span>
 									<?php elseif ( ! empty( $log->moderator_name ) ) : ?>

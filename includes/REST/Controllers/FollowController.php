@@ -16,6 +16,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\REST\Controllers;
 
+use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\FollowService;
 use WP_Error;
 use WP_REST_Request;
@@ -87,7 +88,16 @@ class FollowController {
 	public function follow( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
-		$result     = ( new FollowService() )->follow( $current_id, $target_id );
+
+		if ( ( new BlockService() )->is_blocking_either( $current_id, $target_id ) ) {
+			return new WP_Error(
+				'buddynext_blocked',
+				__( 'You cannot follow this user.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$result = ( new FollowService() )->follow( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );

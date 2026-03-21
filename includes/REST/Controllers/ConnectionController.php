@@ -17,6 +17,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\REST\Controllers;
 
+use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\ConnectionService;
 use WP_Error;
 use WP_REST_Request;
@@ -98,7 +99,16 @@ class ConnectionController {
 	public function send_request( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
-		$result     = ( new ConnectionService() )->send_request( $current_id, $target_id );
+
+		if ( ( new BlockService() )->is_blocking_either( $current_id, $target_id ) ) {
+			return new WP_Error(
+				'buddynext_blocked',
+				__( 'You cannot connect with this user.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$result = ( new ConnectionService() )->send_request( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );
@@ -147,7 +157,10 @@ class ConnectionController {
 	}
 
 	/**
-	 * Withdraw an outgoing connection request.
+	 * Withdraw a pending request or remove an accepted connection.
+	 *
+	 * Tries to withdraw a pending outgoing request first. If the connection is
+	 * already accepted (mutual friends), removes the accepted connection.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
@@ -155,7 +168,14 @@ class ConnectionController {
 	public function withdraw_request( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
-		$result     = ( new ConnectionService() )->withdraw_request( $current_id, $target_id );
+		$service    = new ConnectionService();
+
+		$result = $service->withdraw_request( $current_id, $target_id );
+
+		if ( is_wp_error( $result ) && 'not_found' === $result->get_error_code() ) {
+			// Pending request not found — try removing an accepted connection.
+			$result = $service->remove_connection( $current_id, $target_id );
+		}
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );

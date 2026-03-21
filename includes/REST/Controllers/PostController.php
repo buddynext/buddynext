@@ -91,25 +91,33 @@ class PostController {
 		$user_id = get_current_user_id();
 
 		$data = array(
-			'type'         => sanitize_key( $request->get_param( 'type' ) ?? 'text' ),
-			'content'      => wp_kses_post( (string) ( $request->get_param( 'content' ) ?? '' ) ),
-			'privacy'      => sanitize_key( $request->get_param( 'privacy' ) ?? 'public' ),
-			'space_id'     => $request->get_param( 'space_id' ) ? (int) $request->get_param( 'space_id' ) : null,
-			'media_ids'    => $request->get_param( 'media_ids' ),
-			'link_url'     => $this->parse_link_url( $request ),
-			'link_meta'    => $request->get_param( 'link_meta' ),
-			'options'      => $request->get_param( 'options' ),
-			'scheduled_at' => $request->get_param( 'scheduled_at' ),
+			'type'                 => sanitize_key( $request->get_param( 'type' ) ?? 'text' ),
+			'content'              => wp_kses_post( (string) ( $request->get_param( 'content' ) ?? '' ) ),
+			'privacy'              => sanitize_key( $request->get_param( 'privacy' ) ?? 'public' ),
+			'space_id'             => $request->get_param( 'space_id' ) ? (int) $request->get_param( 'space_id' ) : null,
+			'media_ids'            => $request->get_param( 'media_ids' ),
+			'link_url'             => $this->parse_link_url( $request ),
+			'link_meta'            => $request->get_param( 'link_meta' ),
+			'options'              => $request->get_param( 'options' ),
+			'content_warning'      => (bool) $request->get_param( 'content_warning' ),
+			'content_warning_type' => $request->get_param( 'content_warning_type' )
+				? sanitize_text_field( (string) $request->get_param( 'content_warning_type' ) )
+				: null,
+			'scheduled_at'         => $request->get_param( 'scheduled_at' ),
 		);
 
-		$result = ( new PostService() )->create( $user_id, $data );
+		$service = function_exists( 'buddynext_service' )
+			? buddynext_service( 'post_service' )
+			: new PostService();
+
+		$result = $service->create( $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );
 			return $result;
 		}
 
-		$post = ( new PostService() )->get( $result );
+		$post = $service->get( $result );
 
 		return new WP_REST_Response( $post, 201 );
 	}
@@ -164,6 +172,12 @@ class PostController {
 		}
 		if ( null !== $request->get_param( 'privacy' ) ) {
 			$data['privacy'] = sanitize_key( $request->get_param( 'privacy' ) );
+		}
+		if ( null !== $request->get_param( 'content_warning' ) ) {
+			$data['content_warning'] = (bool) $request->get_param( 'content_warning' );
+		}
+		if ( null !== $request->get_param( 'content_warning_type' ) ) {
+			$data['content_warning_type'] = sanitize_text_field( (string) $request->get_param( 'content_warning_type' ) );
 		}
 
 		$result = $service->update( $post_id, $user_id, $data );

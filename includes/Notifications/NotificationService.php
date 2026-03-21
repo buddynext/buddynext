@@ -85,6 +85,9 @@ class NotificationService {
 
 				wp_cache_delete( "unread_{$recipient_id}", self::CACHE_GROUP );
 
+				/** This action is documented in includes/Notifications/NotificationService.php */
+				do_action( 'buddynext_notification_created', (int) $existing_id, $recipient_id, $data );
+
 				return (int) $existing_id;
 			}
 		}

@@ -21,6 +21,22 @@ use WP_Error;
 class PostService {
 
 	/**
+	 * Content safeguard checks — banned words, rate limit, link throttle.
+	 * Null when running in a context where safeguards are deliberately absent
+	 * (e.g., unit tests that construct PostService directly).
+	 *
+	 * @var SafeguardService|null
+	 */
+	private ?SafeguardService $safeguards;
+
+	/**
+	 * @param SafeguardService|null $safeguards Optional safeguard service.
+	 */
+	public function __construct( ?SafeguardService $safeguards = null ) {
+		$this->safeguards = $safeguards;
+	}
+
+	/**
 	 * Allowed post types.
 	 *
 	 * @var string[]
@@ -93,26 +109,45 @@ class PostService {
 			);
 		}
 
+		// Run safeguard checks when the service is available.
+		if ( null !== $this->safeguards ) {
+			$content  = (string) ( $data['content'] ?? '' );
+			$link_url = (string) ( $data['link_url'] ?? '' );
+			$guard    = $this->safeguards->check( $user_id, $content, $link_url );
+			if ( is_wp_error( $guard ) ) {
+				return $guard;
+			}
+		}
+
 		global $wpdb;
 
 		$media_ids = isset( $data['media_ids'] ) ? wp_json_encode( $data['media_ids'] ) : null;
 		$link_meta = isset( $data['link_meta'] ) ? wp_json_encode( $data['link_meta'] ) : null;
 
+		// Resolve post status — new-member gate may hold posts for approval.
+		$status = ( null !== $this->safeguards )
+			? $this->safeguards->resolve_status( $user_id )
+			: 'published';
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_posts',
 			array(
-				'user_id'      => $user_id,
-				'space_id'     => $data['space_id'] ?? null,
-				'type'         => $type,
-				'content'      => $data['content'] ?? '',
-				'media_ids'    => $media_ids,
-				'link_url'     => $data['link_url'] ?? null,
-				'link_meta'    => $link_meta,
-				'privacy'      => $data['privacy'] ?? 'public',
-				'scheduled_at' => $data['scheduled_at'] ?? null,
+				'user_id'              => $user_id,
+				'space_id'             => $data['space_id'] ?? null,
+				'type'                 => $type,
+				'content'              => $data['content'] ?? '',
+				'media_ids'            => $media_ids,
+				'link_url'             => $data['link_url'] ?? null,
+				'link_meta'            => $link_meta,
+				'privacy'              => $data['privacy'] ?? 'public',
+				'status'               => $status,
+				'content_warning'      => ! empty( $data['content_warning'] ) ? 1 : 0,
+				'content_warning_type' => $data['content_warning_type'] ?? null,
+				'scheduled_at'         => $data['scheduled_at'] ?? null,
+				'is_announcement'      => 'announcement' === $type ? 1 : 0,
 			),
-			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d' )
 		);
 
 		$post_id = (int) $wpdb->insert_id;
@@ -201,6 +236,14 @@ class PostService {
 			$fields['privacy'] = $data['privacy'];
 			$formats[]         = '%s';
 		}
+		if ( array_key_exists( 'content_warning', $data ) ) {
+			$fields['content_warning'] = ! empty( $data['content_warning'] ) ? 1 : 0;
+			$formats[]                 = '%d';
+		}
+		if ( array_key_exists( 'content_warning_type', $data ) ) {
+			$fields['content_warning_type'] = $data['content_warning_type'] ?? null;
+			$formats[]                      = '%s';
+		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
@@ -234,10 +277,33 @@ class PostService {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $wpdb->prefix . 'bn_poll_votes', array( 'post_id' => $post_id ), array( '%d' ) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_poll_options',
 			array( 'post_id' => $post_id ),
 			array( '%d' )
+		);
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_reactions',
+			array(
+				'object_type' => 'post',
+				'object_id'   => $post_id,
+			),
+			array( '%s', '%d' )
+		);
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_comments',
+			array(
+				'object_type' => 'post',
+				'object_id'   => $post_id,
+			),
+			array( '%s', '%d' )
 		);
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -425,6 +491,8 @@ class PostService {
 			'share_count'         => (int) $row['share_count'],
 			'is_pinned'           => (int) $row['is_pinned'],
 			'is_announcement'     => (int) $row['is_announcement'],
+			'content_warning'     => (bool) ( $row['content_warning'] ?? false ),
+			'content_warning_type' => $row['content_warning_type'] ?? null,
 			'site_pin_expires_at' => $row['site_pin_expires_at'],
 			'edited_at'           => $row['edited_at'],
 			'scheduled_at'        => $row['scheduled_at'],
