@@ -110,4 +110,34 @@ class NotificationPrefService {
 
 		wp_cache_delete( "pref_{$user_id}_{$type}", self::CACHE_GROUP );
 	}
+
+	/**
+	 * Return the per-space notification preference for a user.
+	 *
+	 * Reads the notification_pref column from bn_space_members for the given
+	 * user/space pair. Returns 'all' when no membership row exists.
+	 *
+	 * @param int $user_id  User ID.
+	 * @param int $space_id Space ID.
+	 * @return string One of 'all', 'mentions', or 'none'.
+	 */
+	public function get_space_pref( int $user_id, int $space_id ): string {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$pref = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT notification_pref FROM {$wpdb->prefix}bn_space_members
+				 WHERE user_id = %d AND space_id = %d",
+				$user_id,
+				$space_id
+			)
+		);
+
+		if ( null === $pref || '' === $pref ) {
+			return 'all';
+		}
+
+		return (string) $pref;
+	}
 }

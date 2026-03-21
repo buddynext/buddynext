@@ -6,6 +6,7 @@
  *   GET /feed/home             — home feed (auth required)
  *   GET /feed/explore          — explore feed (public)
  *   GET /users/{id}/feed       — profile feed (public)
+ *   GET /spaces/{id}/feed      — space feed (public; access enforcement is caller's concern)
  *
  * All feeds support cursor-based pagination via ?cursor= and ?per_page= params.
  *
@@ -17,6 +18,7 @@ declare( strict_types=1 );
 namespace BuddyNext\REST\Controllers;
 
 use BuddyNext\Feed\FeedService;
+use BuddyNext\Feed\PostService;
 use BuddyNext\SocialGraph\FollowService;
 use WP_Error;
 use WP_REST_Request;
@@ -57,6 +59,16 @@ class FeedController {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'profile_feed' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/feed',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_space_feed' ),
 				'permission_callback' => '__return_true',
 			)
 		);
@@ -111,6 +123,26 @@ class FeedController {
 	}
 
 	/**
+	 * Return the feed for a given space.
+	 *
+	 * Space access enforcement is handled by the Spaces module; this endpoint
+	 * returns published posts without additional viewer-side privacy filtering.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function get_space_feed( WP_REST_Request $request ): WP_REST_Response {
+		$space_id  = (int) $request->get_param( 'id' );
+		$viewer_id = get_current_user_id();
+		$cursor    = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
+		$per_page  = $request->get_param( 'per_page' ) ? (int) $request->get_param( 'per_page' ) : 20;
+
+		$result = $this->feed_service()->space_feed( $space_id, $viewer_id, $cursor, $per_page );
+
+		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
 	 * Permission callback: require an authenticated user.
 	 *
 	 * @return true|WP_Error
@@ -128,11 +160,11 @@ class FeedController {
 	}
 
 	/**
-	 * Build the FeedService instance with its FollowService dependency.
+	 * Build the FeedService instance with its dependencies.
 	 *
 	 * @return FeedService
 	 */
 	private function feed_service(): FeedService {
-		return new FeedService( new FollowService() );
+		return new FeedService( new FollowService(), new PostService() );
 	}
 }

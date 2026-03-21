@@ -51,7 +51,7 @@ class PostService {
 	/**
 	 * Create a new post.
 	 *
-	 * For poll posts, $data['options'] must be an array of 2–5 non-empty strings.
+	 * For poll posts, $data['options'] must be an array of 2–5 non-empty strings (max 5 enforced).
 	 * The buddynext_post_created action fires after successful creation.
 	 *
 	 * @param int   $user_id Author user ID.
@@ -78,6 +78,19 @@ class PostService {
 					__( 'A poll requires at least two options.', 'buddynext' )
 				);
 			}
+			if ( count( $options ) > 5 ) {
+				return new WP_Error(
+					'too_many_options',
+					__( 'Polls may have at most 5 options.', 'buddynext' )
+				);
+			}
+		}
+
+		if ( 'announcement' === $type && ! user_can( $user_id, 'manage_options' ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only administrators can create announcements.', 'buddynext' )
+			);
 		}
 
 		global $wpdb;

@@ -33,7 +33,7 @@ class NotificationService {
 	/**
 	 * Cache TTL in seconds.
 	 */
-	private const CACHE_TTL = 300;
+	private const CACHE_TTL = 30;
 
 	/**
 	 * Default notifications per page.
@@ -57,13 +57,14 @@ class NotificationService {
 		$recipient_id = (int) $data['recipient_id'];
 		$group_key    = isset( $data['group_key'] ) ? sanitize_text_field( $data['group_key'] ) : null;
 
-		// Attempt to merge into an existing unread group row.
+		// Attempt to merge into an existing unread group row within the 24-hour window.
 		if ( null !== $group_key && '' !== $group_key ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$existing_id = $wpdb->get_var(
 				$wpdb->prepare(
 					"SELECT id FROM {$wpdb->prefix}bn_notifications
 					 WHERE recipient_id = %d AND group_key = %s AND is_read = 0
+					   AND created_at >= NOW() - INTERVAL 24 HOUR
 					 LIMIT 1",
 					$recipient_id,
 					$group_key

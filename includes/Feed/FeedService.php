@@ -2,7 +2,7 @@
 /**
  * Feed aggregation and pagination service.
  *
- * Builds the home, profile, and explore feeds using cursor-based pagination.
+ * Builds the home, profile, explore, and space feeds using cursor-based pagination.
  * The cursor encodes the created_at datetime and post id of the last seen item
  * so that new posts inserted between pages do not cause duplicates or gaps.
  *
@@ -146,6 +146,44 @@ class FeedService {
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
 			...array_merge( array( $profile_user_id ), $privacy_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		$rows = $wpdb->get_results( $sql, ARRAY_A );
+
+		return $this->paginate( (array) $rows, $per_page );
+	}
+
+	/**
+	 * Return the feed for a given space (published, non-scheduled posts only).
+	 *
+	 * Access control is the caller's responsibility — this method returns all
+	 * published posts in the space without additional viewer-side filtering.
+	 *
+	 * @param int         $space_id  Space whose posts to show.
+	 * @param int         $viewer_id Viewing user ID (reserved for future access checks).
+	 * @param string|null $cursor    Pagination cursor.
+	 * @param int         $per_page  Posts per page.
+	 * @return array{items: array[], next_cursor: string|null}
+	 */
+	public function space_feed( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+		global $wpdb;
+
+		$per_page     = min( $per_page, 50 );
+		$cursor_where = $this->cursor_where( $cursor );
+
+		// $cursor_where is either '' or the single hardcoded SQL constant — safe.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$sql = $wpdb->prepare(
+			"SELECT * FROM {$wpdb->prefix}bn_posts
+			 WHERE space_id = %d
+			   AND status = 'published'
+			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+			   {$cursor_where}
+			 ORDER BY created_at DESC, id DESC
+			 LIMIT %d",
+			...array_merge( array( $space_id ), $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
