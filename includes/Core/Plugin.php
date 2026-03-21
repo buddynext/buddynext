@@ -18,6 +18,7 @@ use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PollService;
 use BuddyNext\Feed\PostService;
 use BuddyNext\Feed\ShareService;
+use BuddyNext\Blocks\BlockRegistrar;
 use BuddyNext\Bridges\CareerBoard as CareerBoardBridge;
 use BuddyNext\Bridges\Jetonomy as JetonomyBridge;
 use BuddyNext\Bridges\WBGamification as WBGamificationBridge;
@@ -72,6 +73,9 @@ class Plugin {
 		}
 
 		$container->get( 'rest_router' )->register();
+
+		// Register Gutenberg blocks and block patterns.
+		( new BlockRegistrar() )->init();
 
 		// Boot first-party bridges unconditionally — each bridge guards itself
 		// against its dependency being absent via class_exists checks at hook time.

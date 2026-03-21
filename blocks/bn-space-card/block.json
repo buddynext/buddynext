@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "buddynext/space-card",
+	"title": "Space Card",
+	"category": "buddynext",
+	"description": "Single space card for featured space callouts.",
+	"keywords": [ "buddynext", "space", "card", "featured" ],
+	"textdomain": "buddynext",
+	"editorScript": "file:../../assets/js/blocks.js",
+	"style": "file:../../assets/css/blocks.css",
+	"supports": {
+		"color": { "background": true, "text": true },
+		"typography": { "fontSize": true },
+		"spacing": { "padding": true, "margin": true }
+	},
+	"attributes": {
+		"spaceId": {
+			"type": "integer",
+			"default": 0
+		}
+	},
+	"example": {}
+}

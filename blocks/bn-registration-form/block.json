@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "buddynext/registration-form",
+	"title": "Registration Form",
+	"category": "buddynext",
+	"description": "Signup form embeddable on any page.",
+	"keywords": [ "buddynext", "registration", "signup", "form" ],
+	"textdomain": "buddynext",
+	"editorScript": "file:../../assets/js/blocks.js",
+	"style": "file:../../assets/css/blocks.css",
+	"supports": {
+		"color": { "background": true, "text": true },
+		"typography": { "fontSize": true },
+		"spacing": { "padding": true, "margin": true }
+	},
+	"attributes": {
+		"redirectUrl": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"example": {}
+}

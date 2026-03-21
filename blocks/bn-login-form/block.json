@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "buddynext/login-form",
+	"title": "Login Form",
+	"category": "buddynext",
+	"description": "Login form wrapping WordPress native authentication.",
+	"keywords": [ "buddynext", "login", "form", "auth" ],
+	"textdomain": "buddynext",
+	"editorScript": "file:../../assets/js/blocks.js",
+	"style": "file:../../assets/css/blocks.css",
+	"supports": {
+		"color": { "background": true, "text": true },
+		"typography": { "fontSize": true },
+		"spacing": { "padding": true, "margin": true }
+	},
+	"attributes": {
+		"redirectUrl": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"example": {}
+}

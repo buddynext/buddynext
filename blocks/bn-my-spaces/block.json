@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "buddynext/my-spaces",
+	"title": "My Spaces",
+	"category": "buddynext",
+	"description": "Lists the spaces the current user is a member of.",
+	"keywords": [ "buddynext", "spaces", "my-spaces", "membership" ],
+	"textdomain": "buddynext",
+	"editorScript": "file:../../assets/js/blocks.js",
+	"style": "file:../../assets/css/blocks.css",
+	"supports": {
+		"color": { "background": true, "text": true },
+		"typography": { "fontSize": true },
+		"spacing": { "padding": true, "margin": true }
+	},
+	"attributes": {
+		"limit": {
+			"type": "integer",
+			"default": 10
+		}
+	},
+	"example": {}
+}

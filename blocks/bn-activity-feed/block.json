@@ -1,0 +1,29 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "buddynext/activity-feed",
+	"title": "Activity Feed",
+	"category": "buddynext",
+	"description": "Displays the community activity feed. Scope to home, profile, space, or explore.",
+	"keywords": [ "buddynext", "feed", "activity", "social" ],
+	"textdomain": "buddynext",
+	"editorScript": "file:../../assets/js/blocks.js",
+	"style": "file:../../assets/css/blocks.css",
+	"supports": {
+		"color": { "background": true, "text": true },
+		"typography": { "fontSize": true },
+		"spacing": { "padding": true, "margin": true }
+	},
+	"attributes": {
+		"scope": {
+			"type": "string",
+			"default": "home",
+			"enum": [ "home", "profile", "space", "explore" ]
+		},
+		"perPage": {
+			"type": "integer",
+			"default": 20
+		}
+	},
+	"example": {}
+}
