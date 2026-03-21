@@ -1,0 +1,150 @@
+<?php
+/**
+ * Poll voting and results service.
+ *
+ * Manages vote recording for poll posts. Each user may cast exactly one vote
+ * per poll (enforced by a UNIQUE KEY on bn_poll_votes). Votes also increment
+ * the denormalised vote_count on the relevant bn_poll_options row.
+ *
+ * @package BuddyNext\Feed
+ */
+
+declare( strict_types=1 );
+
+namespace BuddyNext\Feed;
+
+use WP_Error;
+
+/**
+ * Handles poll voting and result reads.
+ */
+class PollService {
+
+	/**
+	 * Cast a vote for an option in a poll.
+	 *
+	 * Returns WP_Error('not_a_poll') if the post is not a poll, or
+	 * WP_Error('already_voted') if the user has already voted in this poll.
+	 *
+	 * @param int $user_id   Voting user.
+	 * @param int $post_id   Poll post ID.
+	 * @param int $option_id Option to vote for.
+	 * @return true|WP_Error
+	 */
+	public function vote( int $user_id, int $post_id, int $option_id ): true|WP_Error {
+		global $wpdb;
+
+		// Verify the post is a poll.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$type = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT type FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+				$post_id
+			)
+		);
+
+		if ( 'poll' !== $type ) {
+			return new WP_Error(
+				'not_a_poll',
+				__( 'This post is not a poll.', 'buddynext' )
+			);
+		}
+
+		// Check for an existing vote.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$existing = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_poll_votes
+				 WHERE post_id = %d AND user_id = %d",
+				$post_id,
+				$user_id
+			)
+		);
+
+		if ( null !== $existing ) {
+			return new WP_Error(
+				'already_voted',
+				__( 'You have already voted in this poll.', 'buddynext' )
+			);
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_poll_votes',
+			array(
+				'post_id'   => $post_id,
+				'option_id' => $option_id,
+				'user_id'   => $user_id,
+			),
+			array( '%d', '%d', '%d' )
+		);
+
+		// Increment the denormalised count on the option row.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_poll_options
+				 SET vote_count = vote_count + 1
+				 WHERE id = %d",
+				$option_id
+			)
+		);
+
+		return true;
+	}
+
+	/**
+	 * Return the options and vote counts for a poll.
+	 *
+	 * @param int $post_id Poll post ID.
+	 * @return array[] Array of option rows: id, option_text, display_order, vote_count.
+	 */
+	public function results( int $post_id ): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, option_text, display_order, vote_count
+				 FROM {$wpdb->prefix}bn_poll_options
+				 WHERE post_id = %d
+				 ORDER BY display_order ASC",
+				$post_id
+			),
+			ARRAY_A
+		);
+
+		return array_map(
+			fn( $r ) => array(
+				'id'            => (int) $r['id'],
+				'option_text'   => $r['option_text'],
+				'display_order' => (int) $r['display_order'],
+				'vote_count'    => (int) $r['vote_count'],
+			),
+			(array) $rows
+		);
+	}
+
+	/**
+	 * Return the option ID the user voted for, or null if they have not voted.
+	 *
+	 * @param int $user_id User to check.
+	 * @param int $post_id Poll post ID.
+	 * @return int|null Option ID or null.
+	 */
+	public function user_vote( int $user_id, int $post_id ): ?int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$option_id = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT option_id FROM {$wpdb->prefix}bn_poll_votes
+				 WHERE post_id = %d AND user_id = %d",
+				$post_id,
+				$user_id
+			)
+		);
+
+		return null !== $option_id ? (int) $option_id : null;
+	}
+}

@@ -13,6 +13,11 @@ declare( strict_types=1 );
 namespace BuddyNext\Core;
 
 use BuddyNext\Admin\Settings;
+use BuddyNext\Feed\BookmarkService;
+use BuddyNext\Feed\FeedService;
+use BuddyNext\Feed\PollService;
+use BuddyNext\Feed\PostService;
+use BuddyNext\Feed\ShareService;
 use BuddyNext\REST\Router;
 use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\ConnectionService;
@@ -86,6 +91,11 @@ class Plugin {
 				$c->get( 'blocks' )
 			)
 		);
+		$container->bind( 'post_service', fn() => new PostService() );
+		$container->bind( 'feed', fn( $c ) => new FeedService( $c->get( 'follows' ) ) );
+		$container->bind( 'polls', fn() => new PollService() );
+		$container->bind( 'bookmarks', fn() => new BookmarkService() );
+		$container->bind( 'shares', fn() => new ShareService() );
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
 

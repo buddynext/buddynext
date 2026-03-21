@@ -89,24 +89,30 @@ class Installer {
 			// ── Activity Feed ──────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_posts (
-				id              BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id         BIGINT(20) UNSIGNED NOT NULL,
-				space_id        BIGINT(20) UNSIGNED DEFAULT NULL,
-				type            VARCHAR(32) NOT NULL DEFAULT 'text',
-				content         LONGTEXT DEFAULT NULL,
-				privacy         ENUM('public','followers','connections','space_members','private') NOT NULL DEFAULT 'public',
-				reaction_count  INT UNSIGNED NOT NULL DEFAULT 0,
-				comment_count   INT UNSIGNED NOT NULL DEFAULT 0,
-				is_pinned       TINYINT(1) NOT NULL DEFAULT 0,
-				is_announcement TINYINT(1) NOT NULL DEFAULT 0,
-				scheduled_at    DATETIME DEFAULT NULL,
-				created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-				PRIMARY KEY     (id),
-				KEY             user_feed (user_id, created_at),
-				KEY             space_feed (space_id, created_at),
-				KEY             explore (privacy, created_at),
-				KEY             scheduled (scheduled_at)
+				id                  BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id             BIGINT(20) UNSIGNED NOT NULL,
+				space_id            BIGINT(20) UNSIGNED DEFAULT NULL,
+				type                VARCHAR(32) NOT NULL DEFAULT 'text',
+				content             LONGTEXT DEFAULT NULL,
+				media_ids           JSON DEFAULT NULL,
+				link_url            VARCHAR(2083) DEFAULT NULL,
+				link_meta           JSON DEFAULT NULL,
+				privacy             ENUM('public','followers','connections','space_members','private') NOT NULL DEFAULT 'public',
+				reaction_count      INT UNSIGNED NOT NULL DEFAULT 0,
+				comment_count       INT UNSIGNED NOT NULL DEFAULT 0,
+				share_count         INT UNSIGNED NOT NULL DEFAULT 0,
+				is_pinned           TINYINT(1) NOT NULL DEFAULT 0,
+				is_announcement     TINYINT(1) NOT NULL DEFAULT 0,
+				site_pin_expires_at DATETIME DEFAULT NULL,
+				edited_at           DATETIME DEFAULT NULL,
+				scheduled_at        DATETIME DEFAULT NULL,
+				created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				PRIMARY KEY         (id),
+				KEY                 user_feed (user_id, created_at),
+				KEY                 space_feed (space_id, created_at),
+				KEY                 explore (privacy, created_at),
+				KEY                 scheduled (scheduled_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_bookmarks (
@@ -125,6 +131,27 @@ class Installer {
 				PRIMARY KEY (id),
 				KEY         user_shares (user_id),
 				KEY         post_shares (post_id)
+			) {$cs};",
+
+			"CREATE TABLE {$p}bn_poll_options (
+				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				post_id       BIGINT(20) UNSIGNED NOT NULL,
+				option_text   VARCHAR(500) NOT NULL,
+				display_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
+				vote_count    INT UNSIGNED NOT NULL DEFAULT 0,
+				PRIMARY KEY   (id),
+				KEY           post_options (post_id, display_order)
+			) {$cs};",
+
+			"CREATE TABLE {$p}bn_poll_votes (
+				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				post_id    BIGINT(20) UNSIGNED NOT NULL,
+				option_id  BIGINT(20) UNSIGNED NOT NULL,
+				user_id    BIGINT(20) UNSIGNED NOT NULL,
+				voted_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				UNIQUE KEY  one_vote_per_user (post_id, user_id),
+				KEY         option_votes (option_id)
 			) {$cs};",
 
 			// ── Spaces ─────────────────────────────────────────────────────────

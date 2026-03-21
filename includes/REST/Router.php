@@ -14,8 +14,13 @@ namespace BuddyNext\REST;
 
 use BuddyNext\REST\Controllers\AccessWebhookController;
 use BuddyNext\REST\Controllers\BlockController;
+use BuddyNext\REST\Controllers\BookmarkController;
 use BuddyNext\REST\Controllers\ConnectionController;
+use BuddyNext\REST\Controllers\FeedController;
 use BuddyNext\REST\Controllers\FollowController;
+use BuddyNext\REST\Controllers\PollController;
+use BuddyNext\REST\Controllers\PostController;
+use BuddyNext\REST\Controllers\ShareController;
 
 /**
  * Hooks REST controllers into rest_api_init.
@@ -39,5 +44,10 @@ class Router {
 		( new FollowController() )->register_routes();
 		( new ConnectionController() )->register_routes();
 		( new BlockController() )->register_routes();
+		( new PostController() )->register_routes();
+		( new FeedController() )->register_routes();
+		( new PollController() )->register_routes();
+		( new BookmarkController() )->register_routes();
+		( new ShareController() )->register_routes();
 	}
 }
