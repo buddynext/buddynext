@@ -30,14 +30,14 @@ class Container {
 	 *
 	 * @var array<string, callable>
 	 */
-	private array $bindings = [];
+	private array $bindings = []; // phpcs:ignore Universal.Arrays.DisallowShortArraySyntax.Found
 
 	/**
 	 * Resolved singletons.
 	 *
 	 * @var array<string, mixed>
 	 */
-	private array $resolved = [];
+	private array $resolved = []; // phpcs:ignore Universal.Arrays.DisallowShortArraySyntax.Found
 
 	/**
 	 * Private — use instance().
@@ -76,9 +76,8 @@ class Container {
 	public function get( string $key ): mixed {
 		if ( ! array_key_exists( $key, $this->resolved ) ) {
 			if ( ! isset( $this->bindings[ $key ] ) ) {
-				throw new RuntimeException(
-					sprintf( 'BuddyNext Container: no binding registered for "%s".', $key )
-				);
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+				throw new RuntimeException( sprintf( 'BuddyNext Container: no binding registered for "%s".', $key ) );
 			}
 
 			$this->resolved[ $key ] = ( $this->bindings[ $key ] )( $this );

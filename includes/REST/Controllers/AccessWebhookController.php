@@ -176,6 +176,7 @@ class AccessWebhookController {
 			);
 		}
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_user_abilities',
 			array(
@@ -219,6 +220,7 @@ class AccessWebhookController {
 			);
 		}
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_user_abilities',
 			array(
@@ -252,6 +254,7 @@ class AccessWebhookController {
 
 		$amount = abs( (int) ( $body['amount'] ?? 0 ) );
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_user_credits (user_id, balance)
@@ -278,6 +281,7 @@ class AccessWebhookController {
 
 		$amount = max( 0, (int) ( $body['amount'] ?? 0 ) );
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->replace(
 			$wpdb->prefix . 'bn_user_credits',
 			array(
@@ -301,6 +305,7 @@ class AccessWebhookController {
 
 		$amount = abs( (int) ( $body['amount'] ?? 0 ) );
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_user_credits (user_id, balance)
@@ -357,6 +362,7 @@ class AccessWebhookController {
 	private function log( string $action, int $user_id, array $body, string $status ): void {
 		global $wpdb;
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_webhook_log',
 			array(

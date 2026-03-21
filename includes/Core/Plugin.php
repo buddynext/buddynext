@@ -69,9 +69,9 @@ class Plugin {
 	 * @param Container $container DI container.
 	 */
 	private static function register_services( Container $container ): void {
-		$container->bind( 'permissions',    fn() => new PermissionService() );
-		$container->bind( 'abilities',      fn() => new Abilities() );
-		$container->bind( 'rest_router',    fn() => new Router() );
+		$container->bind( 'permissions', fn() => new PermissionService() );
+		$container->bind( 'abilities', fn() => new Abilities() );
+		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
 
 		// Abilities must be registered at plugins_loaded:15 so they are

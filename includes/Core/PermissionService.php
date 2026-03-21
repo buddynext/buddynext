@@ -25,7 +25,7 @@ class PermissionService {
 	/**
 	 * Minimum community role required per capability.
 	 *
-	 * null = no role-based default; the capability must be explicitly granted
+	 * Null = no role-based default; the capability must be explicitly granted
 	 * via a row in bn_user_abilities (or via the developer filter).
 	 *
 	 * @var array<string, string|null>
@@ -113,7 +113,7 @@ class PermissionService {
 			return false;
 		}
 
-		$user_role  = (string) ( get_user_meta( $user_id, 'bn_community_role', true ) ?: 'member' );
+		$user_role  = (string) ( get_user_meta( $user_id, 'bn_community_role', true ) ?: 'member' ); // phpcs:ignore Universal.Operators.DisallowShortTernary.Found
 		$user_level = self::ROLE_HIERARCHY[ $user_role ] ?? 1;
 		$req_level  = self::ROLE_HIERARCHY[ $required ] ?? 1;
 
@@ -130,6 +130,7 @@ class PermissionService {
 	private function has_active_grant( int $user_id, string $ability ): bool {
 		global $wpdb;
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*)

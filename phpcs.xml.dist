@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<ruleset name="BuddyNext">
+    <description>WordPress Coding Standards for BuddyNext — PSR-4 autoloading project.</description>
+
+    <file>buddynext.php</file>
+    <file>includes/</file>
+    <file>tests/</file>
+
+    <rule ref="WordPress"/>
+
+    <!--
+        Filename convention exclusion.
+        BuddyNext uses PSR-4 Composer autoloading which requires PascalCase filenames
+        (e.g. Container.php → BuddyNext\Core\Container). The WordPress class-foo.php
+        convention is incompatible with Composer PSR-4 and is excluded project-wide.
+    -->
+    <rule ref="WordPress.Files.FileName">
+        <exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
+        <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+    </rule>
+
+    <!-- Short array syntax is standard in PSR-4/modern PHP projects. -->
+    <rule ref="Universal.Arrays.DisallowShortArraySyntax">
+        <exclude name="Universal.Arrays.DisallowShortArraySyntax.Found"/>
+    </rule>
+
+    <!-- Short ternary (?:) is intentional where semantically correct. -->
+    <rule ref="Universal.Operators.DisallowShortTernary">
+        <exclude name="Universal.Operators.DisallowShortTernary.Found"/>
+    </rule>
+
+    <arg name="extensions" value="php"/>
+    <arg name="colors"/>
+    <arg value="s"/>
+</ruleset>

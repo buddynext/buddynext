@@ -36,10 +36,7 @@ class Installer {
 		// FULLTEXT cannot be created via dbDelta on temporary tables (test suite).
 		// Add it separately and suppress errors so tests pass without FULLTEXT.
 		$wpdb->suppress_errors( true );
-		$wpdb->query(
-			"ALTER TABLE {$wpdb->prefix}bn_search_index
-			 ADD FULLTEXT KEY ft_search (title, content)"
-		);
+		$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		$wpdb->suppress_errors( false );
 
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
