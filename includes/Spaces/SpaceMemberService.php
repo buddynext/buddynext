@@ -2,9 +2,16 @@
 /**
  * Space membership service.
  *
- * Manages join, leave, and role changes for space members. Member counts are
- * kept in sync with the denormalized bn_spaces.member_count column. The owner
- * cannot leave a space — they must delete it or transfer ownership first.
+ * Manages join, leave, invite, ban, and role changes for space members.
+ * Member counts are kept in sync with the denormalized bn_spaces.member_count
+ * column. The owner cannot leave — they must delete or transfer ownership.
+ *
+ * Membership lifecycle by space type:
+ *   Open    — user calls join() → status='active' immediately.
+ *   Private — user calls request_join() → status='pending';
+ *             owner/mod calls approve_request() → status='active'.
+ *   Secret  — owner/mod calls invite() → status='invited';
+ *             user calls join() → status converted to 'active'.
  *
  * @package BuddyNext\Spaces
  */
@@ -35,41 +42,339 @@ class SpaceMemberService {
 	 */
 	private const ALLOWED_ROLES = array( 'owner', 'moderator', 'member' );
 
+	// ── Public membership API ───────────────────────────────────────────────
+
 	/**
-	 * Join a space.
+	 * Join a space directly (open spaces or accepting an invitation).
 	 *
-	 * A duplicate join is silently ignored (INSERT IGNORE). Does not re-increment
-	 * member_count on a duplicate — only fires on a new insert.
+	 * For open spaces the status is set to 'active' immediately. If the user
+	 * was previously invited (status='invited') their row is promoted to
+	 * 'active'. A banned user cannot rejoin.
 	 *
 	 * @param int $space_id Space to join.
 	 * @param int $user_id  User joining.
-	 * @return true
+	 * @return true|WP_Error
 	 */
-	public function join( int $space_id, int $user_id ): true {
+	public function join( int $space_id, int $user_id ): true|WP_Error {
+		$status = $this->get_status( $space_id, $user_id );
+
+		if ( 'banned' === $status ) {
+			return new WP_Error(
+				'user_banned',
+				__( 'You are banned from this space.', 'buddynext' )
+			);
+		}
+
+		if ( 'active' === $status ) {
+			return true; // Already a member — idempotent.
+		}
+
+		global $wpdb;
+
+		if ( null !== $status ) {
+			// Row exists (pending/invited) — promote to active.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_space_members',
+				array( 'status' => 'active' ),
+				array(
+					'space_id' => $space_id,
+					'user_id'  => $user_id,
+				),
+				array( '%s' ),
+				array( '%d', '%d' )
+			);
+		} else {
+			// New member.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status)
+					 VALUES (%d, %d, 'member', 'active')",
+					$space_id,
+					$user_id
+				)
+			);
+
+			if ( 0 === $wpdb->rows_affected ) {
+				return true; // Race condition — already inserted.
+			}
+		}
+
+		$this->adjust_member_count( $space_id, 1 );
+		$this->invalidate_cache( $space_id, $user_id );
+
+		/**
+		 * Fires after a user becomes an active space member.
+		 *
+		 * @param int $user_id  Joining user.
+		 * @param int $space_id Space joined.
+		 */
+		do_action( 'buddynext_member_joined_space', $user_id, $space_id );
+
+		return true;
+	}
+
+	/**
+	 * Submit a join request for a private space (status='pending').
+	 *
+	 * A duplicate request is silently accepted (idempotent). A banned user
+	 * cannot request to join.
+	 *
+	 * @param int $space_id Space to request membership in.
+	 * @param int $user_id  User requesting membership.
+	 * @return true|WP_Error
+	 */
+	public function request_join( int $space_id, int $user_id ): true|WP_Error {
+		$status = $this->get_status( $space_id, $user_id );
+
+		if ( 'banned' === $status ) {
+			return new WP_Error(
+				'user_banned',
+				__( 'You are banned from this space.', 'buddynext' )
+			);
+		}
+
+		if ( 'active' === $status || 'pending' === $status ) {
+			return true; // Already a member or request already pending.
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role)
-				 VALUES (%d, %d, 'member')",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status)
+				 VALUES (%d, %d, 'member', 'pending')",
 				$space_id,
 				$user_id
 			)
 		);
 
-		if ( $wpdb->rows_affected > 0 ) {
-			$this->adjust_member_count( $space_id, 1 );
-			$this->invalidate_cache( $space_id, $user_id );
+		$this->invalidate_cache( $space_id, $user_id );
 
-			/**
-			 * Fires after a user joins a space.
-			 *
-			 * @param int $user_id  Joining user.
-			 * @param int $space_id Space joined.
-			 */
-			do_action( 'buddynext_member_joined_space', $user_id, $space_id );
+		/**
+		 * Fires when a user requests to join a private space.
+		 *
+		 * @param int $user_id  Requesting user.
+		 * @param int $space_id Space requested.
+		 */
+		do_action( 'buddynext_space_join_requested', $user_id, $space_id );
+
+		return true;
+	}
+
+	/**
+	 * Invite a user to a secret (or any) space (status='invited').
+	 *
+	 * Only the owner or a moderator may invite. If the user is already an
+	 * active member the call is a no-op.
+	 *
+	 * @param int $space_id         Space ID.
+	 * @param int $inviter_id       User sending the invitation.
+	 * @param int $invited_user_id  User being invited.
+	 * @return true|WP_Error
+	 */
+	public function invite( int $space_id, int $inviter_id, int $invited_user_id ): true|WP_Error {
+		$inviter_role = $this->get_role( $space_id, $inviter_id );
+
+		if (
+			! in_array( $inviter_role, array( 'owner', 'moderator' ), true )
+			&& ! user_can( $inviter_id, 'manage_options' )
+		) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can invite members.', 'buddynext' )
+			);
 		}
+
+		$current_status = $this->get_status( $space_id, $invited_user_id );
+
+		if ( 'active' === $current_status ) {
+			return true; // Already a member.
+		}
+
+		global $wpdb;
+
+		if ( null !== $current_status ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_space_members',
+				array( 'status' => 'invited' ),
+				array(
+					'space_id' => $space_id,
+					'user_id'  => $invited_user_id,
+				),
+				array( '%s' ),
+				array( '%d', '%d' )
+			);
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status)
+					 VALUES (%d, %d, 'member', 'invited')",
+					$space_id,
+					$invited_user_id
+				)
+			);
+		}
+
+		$this->invalidate_cache( $space_id, $invited_user_id );
+
+		/**
+		 * Fires when a user is invited to a space.
+		 *
+		 * @param int $invited_user_id Invited user.
+		 * @param int $space_id        Space ID.
+		 * @param int $inviter_id      User who sent the invitation.
+		 */
+		do_action( 'buddynext_space_member_invited', $invited_user_id, $space_id, $inviter_id );
+
+		return true;
+	}
+
+	/**
+	 * Approve a pending join request.
+	 *
+	 * Only the owner, a moderator, or a user with manage_options can approve.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $actor_id User approving the request.
+	 * @param int $user_id  User whose request is being approved.
+	 * @return true|WP_Error
+	 */
+	public function approve_request( int $space_id, int $actor_id, int $user_id ): true|WP_Error {
+		$actor_role = $this->get_role( $space_id, $actor_id );
+
+		if (
+			! in_array( $actor_role, array( 'owner', 'moderator' ), true )
+			&& ! user_can( $actor_id, 'manage_options' )
+		) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can approve join requests.', 'buddynext' )
+			);
+		}
+
+		$current_status = $this->get_status( $space_id, $user_id );
+
+		if ( 'pending' !== $current_status ) {
+			return new WP_Error(
+				'no_pending_request',
+				__( 'No pending join request found for this user.', 'buddynext' )
+			);
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_space_members',
+			array( 'status' => 'active' ),
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $user_id,
+			),
+			array( '%s' ),
+			array( '%d', '%d' )
+		);
+
+		$this->adjust_member_count( $space_id, 1 );
+		$this->invalidate_cache( $space_id, $user_id );
+
+		/**
+		 * Fires after a join request is approved.
+		 *
+		 * @param int $user_id  Newly approved member.
+		 * @param int $space_id Space ID.
+		 * @param int $actor_id User who approved.
+		 */
+		do_action( 'buddynext_space_request_approved', $user_id, $space_id, $actor_id );
+		do_action( 'buddynext_member_joined_space', $user_id, $space_id );
+
+		return true;
+	}
+
+	/**
+	 * Ban a user from a space.
+	 *
+	 * The owner cannot be banned. Only the owner, a moderator, or a user with
+	 * manage_options can ban members. Banning an active member decrements the
+	 * member count.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $actor_id User performing the ban.
+	 * @param int $user_id  User to ban.
+	 * @return true|WP_Error
+	 */
+	public function ban( int $space_id, int $actor_id, int $user_id ): true|WP_Error {
+		$actor_role = $this->get_role( $space_id, $actor_id );
+
+		if (
+			! in_array( $actor_role, array( 'owner', 'moderator' ), true )
+			&& ! user_can( $actor_id, 'manage_options' )
+		) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can ban members.', 'buddynext' )
+			);
+		}
+
+		$target_role = $this->get_role( $space_id, $user_id );
+
+		if ( 'owner' === $target_role ) {
+			return new WP_Error(
+				'cannot_ban_owner',
+				__( 'The space owner cannot be banned.', 'buddynext' )
+			);
+		}
+
+		$was_active = ( 'active' === $this->get_status( $space_id, $user_id ) );
+
+		global $wpdb;
+
+		$current_status = $this->get_status( $space_id, $user_id );
+
+		if ( null !== $current_status ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_space_members',
+				array( 'status' => 'banned' ),
+				array(
+					'space_id' => $space_id,
+					'user_id'  => $user_id,
+				),
+				array( '%s' ),
+				array( '%d', '%d' )
+			);
+		} else {
+			// No existing row — insert banned record to block future joins.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status)
+					 VALUES (%d, %d, 'member', 'banned')",
+					$space_id,
+					$user_id
+				)
+			);
+		}
+
+		if ( $was_active ) {
+			$this->adjust_member_count( $space_id, -1 );
+		}
+
+		$this->invalidate_cache( $space_id, $user_id );
+
+		/**
+		 * Fires after a user is banned from a space.
+		 *
+		 * @param int $user_id  Banned user.
+		 * @param int $space_id Space ID.
+		 * @param int $actor_id User who performed the ban.
+		 */
+		do_action( 'buddynext_space_member_banned', $user_id, $space_id, $actor_id );
 
 		return true;
 	}
@@ -91,6 +396,8 @@ class SpaceMemberService {
 			);
 		}
 
+		$was_active = ( 'active' === $this->get_status( $space_id, $user_id ) );
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -104,7 +411,10 @@ class SpaceMemberService {
 		);
 
 		if ( $wpdb->rows_affected > 0 ) {
-			$this->adjust_member_count( $space_id, -1 );
+			if ( $was_active ) {
+				$this->adjust_member_count( $space_id, -1 );
+			}
+
 			$this->invalidate_cache( $space_id, $user_id );
 
 			/**
@@ -119,8 +429,10 @@ class SpaceMemberService {
 		return true;
 	}
 
+	// ── Queries ─────────────────────────────────────────────────────────────
+
 	/**
-	 * Check whether a user is a member of a space.
+	 * Check whether a user is an active member of a space.
 	 *
 	 * @param int $space_id Space to check.
 	 * @param int $user_id  User to check.
@@ -131,7 +443,7 @@ class SpaceMemberService {
 	}
 
 	/**
-	 * Return the user's role in a space, or null if not a member.
+	 * Return the user's role in a space, or null if not an active member.
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $user_id  User ID.
@@ -150,16 +462,49 @@ class SpaceMemberService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$role = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT role FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND user_id = %d",
+				"SELECT role FROM {$wpdb->prefix}bn_space_members
+				 WHERE space_id = %d AND user_id = %d AND status = 'active'",
 				$space_id,
 				$user_id
 			)
 		);
 
-		// Cache empty string for "not a member" to distinguish from cache miss.
+		// Cache empty string for "not an active member" to distinguish from cache miss.
 		wp_cache_set( $cache_key, $role ?? '', self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $role;
+	}
+
+	/**
+	 * Return the raw membership status for a user/space pair, or null if no row exists.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  User ID.
+	 * @return string|null 'active', 'pending', 'invited', 'banned', or null.
+	 */
+	public function get_status( int $space_id, int $user_id ): ?string {
+		$cache_key = "status_{$space_id}_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return ( 'none' === $cached ) ? null : (string) $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$status = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT status FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND user_id = %d",
+				$space_id,
+				$user_id
+			)
+		);
+
+		// Cache 'none' sentinel so we can distinguish null (no row) from cache miss (false).
+		wp_cache_set( $cache_key, $status ?? 'none', self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $status;
 	}
 
 	/**
@@ -167,10 +512,10 @@ class SpaceMemberService {
 	 *
 	 * Only the owner or a user with manage_options can promote/demote members.
 	 *
-	 * @param int    $space_id    Space ID.
-	 * @param int    $target_id   User whose role is being changed.
-	 * @param string $new_role    New role: 'owner', 'moderator', or 'member'.
-	 * @param int    $actor_id    User performing the change.
+	 * @param int    $space_id  Space ID.
+	 * @param int    $target_id User whose role is being changed.
+	 * @param string $new_role  New role: 'owner', 'moderator', or 'member'.
+	 * @param int    $actor_id  User performing the change.
 	 * @return true|WP_Error
 	 */
 	public function change_role( int $space_id, int $target_id, string $new_role, int $actor_id ): true|WP_Error {
@@ -193,9 +538,10 @@ class SpaceMemberService {
 			array(
 				'space_id' => $space_id,
 				'user_id'  => $target_id,
+				'status'   => 'active',
 			),
 			array( '%s' ),
-			array( '%d', '%d' )
+			array( '%d', '%d', '%s' )
 		);
 
 		$this->invalidate_cache( $space_id, $target_id );
@@ -222,7 +568,7 @@ class SpaceMemberService {
 	}
 
 	/**
-	 * Return all members of a space with their roles.
+	 * Return all active members of a space with their roles.
 	 *
 	 * @param int $space_id Space ID.
 	 * @return array[] Each item: user_id, role, joined_at.
@@ -235,7 +581,7 @@ class SpaceMemberService {
 			$wpdb->prepare(
 				"SELECT user_id, role, joined_at
 				 FROM {$wpdb->prefix}bn_space_members
-				 WHERE space_id = %d
+				 WHERE space_id = %d AND status = 'active'
 				 ORDER BY joined_at ASC",
 				$space_id
 			),
@@ -251,6 +597,38 @@ class SpaceMemberService {
 			(array) $rows
 		);
 	}
+
+	/**
+	 * Return all pending join requests for a space.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return array[] Each item: user_id, joined_at (request date).
+	 */
+	public function get_pending_requests( int $space_id ): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT user_id, joined_at
+				 FROM {$wpdb->prefix}bn_space_members
+				 WHERE space_id = %d AND status = 'pending'
+				 ORDER BY joined_at ASC",
+				$space_id
+			),
+			ARRAY_A
+		);
+
+		return array_map(
+			fn( $r ) => array(
+				'user_id'      => (int) $r['user_id'],
+				'requested_at' => $r['joined_at'],
+			),
+			(array) $rows
+		);
+	}
+
+	// ── Helpers ─────────────────────────────────────────────────────────────
 
 	/**
 	 * Increment or decrement the member_count on the space row.
@@ -283,13 +661,14 @@ class SpaceMemberService {
 	}
 
 	/**
-	 * Invalidate role and member-list cache keys for a space/user pair.
+	 * Invalidate role, status, and member-list cache keys for a space/user pair.
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $user_id  User ID.
 	 */
 	private function invalidate_cache( int $space_id, int $user_id ): void {
 		wp_cache_delete( "role_{$space_id}_{$user_id}", self::CACHE_GROUP );
+		wp_cache_delete( "status_{$space_id}_{$user_id}", self::CACHE_GROUP );
 		wp_cache_delete( "members_{$space_id}", self::CACHE_GROUP );
 	}
 }

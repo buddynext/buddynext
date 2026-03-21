@@ -256,6 +256,107 @@ class SpaceService {
 	}
 
 	/**
+	 * Return a paginated list of spaces.
+	 *
+	 * Supported args:
+	 *   per_page    int     Spaces per page. Default 12. Max 100.
+	 *   page        int     1-based page number. Default 1.
+	 *   type        string  Filter by type ('open', 'private', 'secret'). Default: exclude secret.
+	 *   category_id int     Filter by category. Default: no filter.
+	 *   orderby     string  'member_count' | 'name' | 'created_at'. Default 'member_count'.
+	 *   order       string  'ASC' | 'DESC'. Default 'DESC'.
+	 *
+	 * @param array<string, mixed> $args Query arguments.
+	 * @return array[]
+	 */
+	public function list_spaces( array $args = [] ): array {
+		global $wpdb;
+
+		$per_page    = max( 1, min( 100, absint( $args['per_page'] ?? 12 ) ) );
+		$page        = max( 1, absint( $args['page'] ?? 1 ) );
+		$offset      = ( $page - 1 ) * $per_page;
+		$type        = isset( $args['type'] ) ? sanitize_key( (string) $args['type'] ) : '';
+		$category_id = isset( $args['category_id'] ) ? absint( $args['category_id'] ) : 0;
+
+		$allowed_orderby = array( 'member_count', 'name', 'created_at' );
+		$raw_orderby     = isset( $args['orderby'] ) ? (string) $args['orderby'] : 'member_count';
+		$orderby         = in_array( $raw_orderby, $allowed_orderby, true ) ? $raw_orderby : 'member_count';
+		$order           = isset( $args['order'] ) && 'ASC' === strtoupper( (string) $args['order'] ) ? 'ASC' : 'DESC';
+
+		$params = array();
+		$where  = array();
+
+		if ( '' !== $type ) {
+			$where[]  = 'type = %s';
+			$params[] = $type;
+		} else {
+			// Exclude secret spaces from the public directory by default.
+			$where[] = "type != 'secret'";
+		}
+
+		if ( $category_id > 0 ) {
+			$where[]  = 'category_id = %d';
+			$params[] = $category_id;
+		}
+
+		$where_sql = $where ? ( 'WHERE ' . implode( ' AND ', $where ) ) : '';
+		$params[]  = $per_page;
+		$params[]  = $offset;
+
+		// $where_sql contains only hardcoded strings or validated enum values.
+		// $orderby is validated against an allowlist; $order is either 'ASC' or 'DESC'.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_spaces {$where_sql} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d",
+				...$params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+
+		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Search spaces by name or description.
+	 *
+	 * Secret spaces are always excluded from search results.
+	 *
+	 * @param string               $term Search term.
+	 * @param array<string, mixed> $args Optional per_page / page.
+	 * @return array[]
+	 */
+	public function search( string $term, array $args = [] ): array {
+		global $wpdb;
+
+		$like     = '%' . $wpdb->esc_like( $term ) . '%';
+		$per_page = max( 1, min( 100, absint( $args['per_page'] ?? 12 ) ) );
+		$page     = max( 1, absint( $args['page'] ?? 1 ) );
+		$offset   = ( $page - 1 ) * $per_page;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_spaces
+				 WHERE type != 'secret' AND (name LIKE %s OR description LIKE %s)
+				 ORDER BY member_count DESC
+				 LIMIT %d OFFSET %d",
+				$like,
+				$like,
+				$per_page,
+				$offset
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
 	 * Hydrate a raw DB row into a typed space array.
 	 *
 	 * @param array $row Raw ARRAY_A row from bn_spaces.

@@ -188,6 +188,96 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 		$this->assertTrue( $fired );
 	}
 
+	public function test_list_spaces_returns_array(): void {
+		$this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Open A',
+				'slug' => 'open-a-list',
+				'type' => 'open',
+			)
+		);
+		$this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Open B',
+				'slug' => 'open-b-list',
+				'type' => 'open',
+			)
+		);
+
+		$spaces = $this->service->list_spaces();
+
+		$this->assertIsArray( $spaces );
+		$this->assertNotEmpty( $spaces );
+	}
+
+	public function test_list_spaces_excludes_secret_by_default(): void {
+		$this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Secret One',
+				'slug' => 'secret-one-list',
+				'type' => 'secret',
+			)
+		);
+
+		$spaces = $this->service->list_spaces();
+
+		$types = array_column( $spaces, 'type' );
+		$this->assertNotContains( 'secret', $types );
+	}
+
+	public function test_list_spaces_type_filter(): void {
+		$this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Private Type Filter',
+				'slug' => 'private-type-filter',
+				'type' => 'private',
+			)
+		);
+
+		$spaces = $this->service->list_spaces( array( 'type' => 'private' ) );
+
+		$types = array_column( $spaces, 'type' );
+		foreach ( $types as $t ) {
+			$this->assertSame( 'private', $t );
+		}
+	}
+
+	public function test_search_finds_by_name(): void {
+		$this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Photography Open',
+				'slug' => 'photography-open-srch',
+				'type' => 'open',
+			)
+		);
+
+		$results = $this->service->search( 'Photography' );
+
+		$names = array_column( $results, 'name' );
+		$this->assertContains( 'Photography Open', $names );
+	}
+
+	public function test_search_excludes_secret_spaces(): void {
+		$this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Photography Secret',
+				'slug' => 'photography-secret-srch',
+				'type' => 'secret',
+			)
+		);
+
+		$results = $this->service->search( 'Photography Secret' );
+
+		$types = array_column( $results, 'type' );
+		$this->assertNotContains( 'secret', $types );
+	}
+
 	public function test_create_auto_adds_owner_as_member(): void {
 		global $wpdb;
 

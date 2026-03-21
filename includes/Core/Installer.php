@@ -177,10 +177,12 @@ class Installer {
 				space_id          BIGINT(20) UNSIGNED NOT NULL,
 				user_id           BIGINT(20) UNSIGNED NOT NULL,
 				role              ENUM('owner','moderator','member') NOT NULL DEFAULT 'member',
+				status            ENUM('active','pending','invited','banned') NOT NULL DEFAULT 'active',
 				notification_pref ENUM('all','mentions','none') NOT NULL DEFAULT 'all',
 				joined_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY       (space_id, user_id),
-				KEY               user_role (user_id, role)
+				KEY               user_role (user_id, role),
+				KEY               user_status (user_id, status)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_categories (

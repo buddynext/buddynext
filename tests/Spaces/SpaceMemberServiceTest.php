@@ -139,4 +139,180 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 		$this->assertContains( $user_id, $user_ids );
 		$this->assertContains( $this->owner_id, $user_ids );
 	}
+
+	// ── request_join ────────────────────────────────────────────────────────
+
+	public function test_request_join_creates_pending_status(): void {
+		$user_id    = self::factory()->user->create();
+		$private_id = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Private Space',
+				'slug' => 'private-space-req',
+				'type' => 'private',
+			)
+		);
+
+		$this->service->request_join( $private_id, $user_id );
+
+		$this->assertSame( 'pending', $this->service->get_status( $private_id, $user_id ) );
+		$this->assertFalse( $this->service->is_member( $private_id, $user_id ) );
+	}
+
+	public function test_request_join_is_idempotent(): void {
+		$user_id    = self::factory()->user->create();
+		$private_id = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Private Idempotent',
+				'slug' => 'private-idempotent',
+				'type' => 'private',
+			)
+		);
+
+		$this->service->request_join( $private_id, $user_id );
+		$result = $this->service->request_join( $private_id, $user_id );
+
+		$this->assertTrue( $result );
+	}
+
+	// ── invite ──────────────────────────────────────────────────────────────
+
+	public function test_invite_creates_invited_status(): void {
+		$user_id    = self::factory()->user->create();
+		$secret_id  = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Secret Space',
+				'slug' => 'secret-space-invite',
+				'type' => 'secret',
+			)
+		);
+
+		$result = $this->service->invite( $secret_id, $this->owner_id, $user_id );
+
+		$this->assertTrue( $result );
+		$this->assertSame( 'invited', $this->service->get_status( $secret_id, $user_id ) );
+	}
+
+	public function test_invite_by_non_mod_returns_error(): void {
+		$user_a    = self::factory()->user->create();
+		$user_b    = self::factory()->user->create();
+		$secret_id = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Secret Perm',
+				'slug' => 'secret-perm-invite',
+				'type' => 'secret',
+			)
+		);
+		$this->service->join( $secret_id, $user_a ); // force join for test.
+
+		$result = $this->service->invite( $secret_id, $user_a, $user_b );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'forbidden', $result->get_error_code() );
+	}
+
+	// ── approve_request ─────────────────────────────────────────────────────
+
+	public function test_approve_request_makes_member_active(): void {
+		$user_id    = self::factory()->user->create();
+		$private_id = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Private Approve',
+				'slug' => 'private-approve',
+				'type' => 'private',
+			)
+		);
+		$this->service->request_join( $private_id, $user_id );
+
+		$result = $this->service->approve_request( $private_id, $this->owner_id, $user_id );
+
+		$this->assertTrue( $result );
+		$this->assertTrue( $this->service->is_member( $private_id, $user_id ) );
+		$this->assertSame( 'active', $this->service->get_status( $private_id, $user_id ) );
+	}
+
+	public function test_approve_request_no_pending_returns_error(): void {
+		$user_id = self::factory()->user->create();
+
+		$result = $this->service->approve_request( $this->space_id, $this->owner_id, $user_id );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'no_pending_request', $result->get_error_code() );
+	}
+
+	// ── ban ─────────────────────────────────────────────────────────────────
+
+	public function test_ban_removes_from_active_members(): void {
+		$user_id = self::factory()->user->create();
+		$this->service->join( $this->space_id, $user_id );
+
+		$this->service->ban( $this->space_id, $this->owner_id, $user_id );
+
+		$this->assertFalse( $this->service->is_member( $this->space_id, $user_id ) );
+		$this->assertSame( 'banned', $this->service->get_status( $this->space_id, $user_id ) );
+	}
+
+	public function test_banned_user_cannot_rejoin(): void {
+		$user_id = self::factory()->user->create();
+		$this->service->join( $this->space_id, $user_id );
+		$this->service->ban( $this->space_id, $this->owner_id, $user_id );
+
+		$result = $this->service->join( $this->space_id, $user_id );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'user_banned', $result->get_error_code() );
+	}
+
+	public function test_ban_owner_returns_error(): void {
+		$result = $this->service->ban( $this->space_id, $this->owner_id, $this->owner_id );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'cannot_ban_owner', $result->get_error_code() );
+	}
+
+	// ── get_pending_requests ─────────────────────────────────────────────────
+
+	public function test_get_pending_requests_returns_pending_users(): void {
+		$user_a     = self::factory()->user->create();
+		$user_b     = self::factory()->user->create();
+		$private_id = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Private Pending',
+				'slug' => 'private-pending-list',
+				'type' => 'private',
+			)
+		);
+		$this->service->request_join( $private_id, $user_a );
+		$this->service->request_join( $private_id, $user_b );
+
+		$requests = $this->service->get_pending_requests( $private_id );
+
+		$user_ids = array_column( $requests, 'user_id' );
+		$this->assertContains( $user_a, $user_ids );
+		$this->assertContains( $user_b, $user_ids );
+	}
+
+	// ── get_status ───────────────────────────────────────────────────────────
+
+	public function test_get_status_returns_null_for_unknown_user(): void {
+		$user_id = self::factory()->user->create();
+
+		$status = $this->service->get_status( $this->space_id, $user_id );
+
+		$this->assertNull( $status );
+	}
+
+	public function test_get_status_active_after_join(): void {
+		$user_id = self::factory()->user->create();
+		$this->service->join( $this->space_id, $user_id );
+
+		$status = $this->service->get_status( $this->space_id, $user_id );
+
+		$this->assertSame( 'active', $status );
+	}
 }

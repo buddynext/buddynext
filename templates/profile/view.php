@@ -68,7 +68,7 @@ $following_count = (int) $wpdb->get_var(
 $connection_count = (int) $wpdb->get_var(
 	$wpdb->prepare(
 		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_connections
-		WHERE ( user_id_a = %d OR user_id_b = %d ) AND status = 'accepted'",
+		WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'",
 		$user_id,
 		$user_id
 	)
@@ -103,8 +103,8 @@ if ( ! $is_own_profile && $current_user_id ) {
 	$is_connected = (bool) $wpdb->get_var(
 		$wpdb->prepare(
 			"SELECT 1 FROM {$wpdb->prefix}bn_connections
-			WHERE ( ( user_id_a = %d AND user_id_b = %d )
-			     OR ( user_id_a = %d AND user_id_b = %d ) )
+			WHERE ( ( requester_id = %d AND recipient_id = %d )
+			     OR ( requester_id = %d AND recipient_id = %d ) )
 			AND status = 'accepted'",
 			$current_user_id,
 			$user_id,
@@ -122,12 +122,12 @@ if ( ! $is_own_profile && $current_user_id ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	$mutual_count = (int) $wpdb->get_var(
 		$wpdb->prepare(
-			"SELECT COUNT(DISTINCT c2.user_id_b)
+			"SELECT COUNT(DISTINCT c2.recipient_id)
 			FROM {$wpdb->prefix}bn_connections c1
 			INNER JOIN {$wpdb->prefix}bn_connections c2
-			  ON c2.user_id_a = c1.user_id_b
-			WHERE c1.user_id_a = %d
-			  AND c2.user_id_b = %d
+			  ON c2.requester_id = c1.recipient_id
+			WHERE c1.requester_id = %d
+			  AND c2.recipient_id = %d
 			  AND c1.status = 'accepted'
 			  AND c2.status = 'accepted'",
 			$current_user_id,
