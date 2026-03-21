@@ -42,6 +42,8 @@ use BuddyNext\Comments\CommentService;
 use BuddyNext\Hashtags\HashtagService;
 use BuddyNext\Moderation\ModerationLogService;
 use BuddyNext\Moderation\ModerationService;
+use BuddyNext\Notifications\EmailDispatchListener;
+use BuddyNext\Notifications\EmailSender;
 use BuddyNext\Notifications\EventListener;
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Notifications\NotificationService;
@@ -100,6 +102,12 @@ class Plugin {
 
 		// Wire cross-plugin event hooks to notification routing.
 		( new EventListener() )->init();
+
+		// Wire email dispatch to the notification created action.
+		( new EmailDispatchListener(
+			$container->get( 'email_sender' ),
+			$container->get( 'notification_prefs' )
+		) )->init();
 
 		// Register Gutenberg blocks and block patterns.
 		( new BlockRegistrar() )->init();
@@ -180,6 +188,10 @@ class Plugin {
 		$container->bind( 'space_members', fn() => new SpaceMemberService() );
 		$container->bind( 'notifications', fn() => new NotificationService() );
 		$container->bind( 'notification_prefs', fn() => new NotificationPrefService() );
+		$container->bind(
+			'email_sender',
+			fn( $c ) => new EmailSender( $c->get( 'notification_prefs' ) )
+		);
 		$container->bind( 'reactions', fn() => new ReactionService() );
 		$container->bind( 'comments', fn() => new CommentService() );
 		$container->bind( 'hashtags', fn() => new HashtagService() );

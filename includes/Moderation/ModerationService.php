@@ -42,10 +42,11 @@ class ModerationService {
 	 * @param string $object_type Object type (e.g. 'post', 'comment', 'user').
 	 * @param int    $object_id   Object ID.
 	 * @param string $reason      Report reason (one of REASONS).
+	 * @param int    $space_id    Optional space context (0 = no space).
 	 * @param string $notes       Optional free-text notes.
 	 * @return int|WP_Error Inserted report ID or WP_Error on duplicate/validation.
 	 */
-	public function report( int $reporter_id, string $object_type, int $object_id, string $reason, string $notes = '' ): int|WP_Error {
+	public function report( int $reporter_id, string $object_type, int $object_id, string $reason, int $space_id = 0, string $notes = '' ): int|WP_Error {
 		$reason = sanitize_key( $reason );
 
 		if ( ! in_array( $reason, self::REASONS, true ) ) {
@@ -78,9 +79,10 @@ class ModerationService {
 				'object_type' => sanitize_key( $object_type ),
 				'object_id'   => $object_id,
 				'reason'      => $reason,
+				'space_id'    => $space_id > 0 ? $space_id : null,
 				'notes'       => sanitize_textarea_field( $notes ),
 			),
-			array( '%d', '%s', '%d', '%s', '%s' )
+			array( '%d', '%s', '%d', '%s', '%d', '%s' )
 		);
 
 		return (int) $wpdb->insert_id;

@@ -151,6 +151,7 @@ class Installer {
 				option_text   VARCHAR(500) NOT NULL,
 				display_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
 				vote_count    INT UNSIGNED NOT NULL DEFAULT 0,
+				end_date      DATETIME DEFAULT NULL,
 				PRIMARY KEY   (id),
 				KEY           post_options (post_id, display_order)
 			) {$cs};",
@@ -493,10 +494,12 @@ class Installer {
 				resolved_by BIGINT(20) UNSIGNED DEFAULT NULL,
 				resolved_at DATETIME DEFAULT NULL,
 				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				space_id    BIGINT(20) UNSIGNED DEFAULT NULL,
 				PRIMARY KEY (id),
 				UNIQUE KEY  one_per_reporter (reporter_id, object_type, object_id),
 				KEY         object_status (object_type, object_id, status),
-				KEY         status_date (status, created_at)
+				KEY         status_date (status, created_at),
+				KEY         space (space_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_mod_log (
@@ -507,11 +510,20 @@ class Installer {
 				object_id      BIGINT(20) UNSIGNED DEFAULT NULL,
 				target_user_id BIGINT(20) UNSIGNED DEFAULT NULL,
 				note           TEXT DEFAULT NULL,
+				space_id       BIGINT(20) UNSIGNED DEFAULT NULL,
 				created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY    (id),
 				KEY            actor (actor_id),
 				KEY            target_user (target_user_id),
-				KEY            created (created_at)
+				KEY            created (created_at),
+				KEY            space (space_id)
+			) {$cs};",
+
+			"CREATE TABLE {$p}bn_announcement_dismissals (
+				user_id    BIGINT(20) UNSIGNED NOT NULL,
+				post_id    BIGINT(20) UNSIGNED NOT NULL,
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (user_id, post_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_user_strikes (

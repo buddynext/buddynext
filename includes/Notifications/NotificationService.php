@@ -109,7 +109,21 @@ class NotificationService {
 
 		wp_cache_delete( "unread_{$recipient_id}", self::CACHE_GROUP );
 
-		return (int) $wpdb->insert_id;
+		$notif_id = (int) $wpdb->insert_id;
+
+		/**
+		 * Fires after a new notification row is inserted.
+		 *
+		 * EmailDispatchListener hooks here to send transactional emails.
+		 * Third-party integrations (e.g. mobile push) may also hook here.
+		 *
+		 * @param int   $notif_id     Notification row ID.
+		 * @param int   $recipient_id Recipient user ID.
+		 * @param array $data         Original $data array passed to create().
+		 */
+		do_action( 'buddynext_notification_created', $notif_id, $recipient_id, $data );
+
+		return $notif_id;
 	}
 
 	/**
