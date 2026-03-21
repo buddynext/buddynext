@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Register / Login (mobile)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+:root {
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --text-base: 15px; --leading-body: 1.6;
+  --bg: #ffffff; --bg-subtle: #f8f8f7; --bg-hover: #f1f1f0;
+  --surface: #ffffff; --border: #e8e8e5; --border-soft: #f1f1ee;
+  --text-1: #37352f; --text-2: #787774; --text-3: #aeaca8;
+  --brand: #0073aa; --brand-light: #e8f4fb; --brand-hover: #005f8e;
+  --jetonomy: #5b21b6; --jetonomy-bg: #f5f3ff;
+  --mvs: #0f766e; --mvs-bg: #f0fdf9;
+  --radius: 12px; --radius-sm: 8px; --radius-lg: 16px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #e5e5ea;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  font-family: var(--font-body);
+}
+
+.phone-wrap {
+  background: #e5e5ea;
+  padding: 20px 0 40px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.phone {
+  width: 390px;
+  min-height: 820px;
+  background: var(--bg);
+  border-radius: 44px;
+  box-shadow: 0 0 0 10px #1a1a1a, 0 0 0 11px #3a3a3a, 0 30px 80px rgba(0,0,0,0.35);
+  overflow: hidden;
+  position: relative;
+  font-family: var(--font-body);
+}
+
+/* Status bar */
+.status-bar {
+  background: #fff;
+  padding: 14px 28px 6px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* Top section */
+.top-section {
+  text-align: center;
+  padding: 32px 24px 20px;
+}
+
+.brand-logo {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--brand);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.brand-tagline {
+  font-size: 16px;
+  color: var(--text-2);
+  margin-bottom: 16px;
+}
+
+/* Social proof avatars */
+.social-proof {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.avatar-stack {
+  display: flex;
+}
+
+.avatar-mini {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  margin-left: -6px;
+  flex-shrink: 0;
+}
+
+.avatar-mini:first-child { margin-left: 0; background: #0073aa; }
+.avatar-mini:nth-child(2) { background: #7c3aed; }
+.avatar-mini:nth-child(3) { background: #0f766e; }
+.avatar-mini:nth-child(4) { background: #d97706; }
+
+.social-proof-text {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+/* Tab switcher */
+.tab-switcher {
+  margin: 16px 24px 0;
+  background: var(--bg-subtle);
+  border-radius: 12px;
+  padding: 4px;
+  display: flex;
+  gap: 0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 9px 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tab-btn.active {
+  background: #fff;
+  color: var(--text-1);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.tab-btn.inactive {
+  background: transparent;
+  color: var(--text-3);
+}
+
+/* Form area */
+.form-area {
+  padding: 20px 24px 0;
+}
+
+.form-heading {
+  margin-bottom: 16px;
+}
+
+.form-heading-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 2px;
+}
+
+.form-heading-sub {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* Social buttons */
+.social-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.social-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  color: var(--text-1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background 0.12s;
+}
+
+.social-btn:hover {
+  background: var(--bg-subtle);
+}
+
+/* Divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Form fields */
+.form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.field-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--text-1);
+  background: #fff;
+  outline: none;
+}
+
+.field-input::placeholder {
+  color: var(--text-3);
+}
+
+.field-hint {
+  font-size: 11px;
+  color: #059669;
+  padding-left: 2px;
+}
+
+/* Password strength */
+.password-strength-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: #e8e8e5;
+  margin-top: 5px;
+  overflow: hidden;
+}
+
+.strength-fill {
+  height: 100%;
+  width: 85%;
+  background: #059669;
+  border-radius: 2px;
+}
+
+.strength-label {
+  font-size: 10px;
+  color: #059669;
+  margin-top: 3px;
+  padding-left: 2px;
+}
+
+/* CTA button */
+.cta-btn {
+  width: 100%;
+  height: 52px;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 14px;
+}
+
+.cta-btn:hover {
+  background: var(--brand-hover);
+}
+
+/* Terms */
+.terms-text {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.terms-text a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.signin-link {
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-2);
+  margin-bottom: 24px;
+}
+
+.signin-link a {
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Verification state */
+.verify-section {
+  margin: 0 24px 28px;
+  background: var(--bg-subtle);
+  border: 1.5px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+
+.verify-heading {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 4px;
+}
+
+.verify-sub {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+.otp-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  justify-content: center;
+}
+
+.otp-box {
+  width: 40px;
+  height: 46px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-1);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.otp-box.filled {
+  border-color: var(--brand);
+  background: var(--brand-light);
+  color: var(--brand);
+}
+
+.otp-box.cursor {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(0,115,170,0.15);
+}
+
+.verify-btn {
+  width: 100%;
+  height: 42px;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.resend-text {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.resend-text a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+/* Spec notes */
+.spec-notes {
+  width: 390px;
+  background: #1a1a1a;
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 40px;
+}
+
+.spec-notes p {
+  font-size: 11px;
+  color: #a3a3a3;
+  line-height: 1.6;
+}
+
+.spec-notes strong {
+  color: #e5e5e5;
+}
+</style>
+</head>
+<body>
+
+<div class="phone-wrap">
+  <div class="phone">
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+      <span>9:41</span>
+      <span style="font-size:10px;">▲▲▲ WiFi ▓▓▓</span>
+    </div>
+
+    <!-- TOP SECTION -->
+    <div class="top-section">
+      <span class="brand-logo">BuddyNext</span>
+      <div class="brand-tagline">Your community, your way.</div>
+      <div class="social-proof">
+        <div class="avatar-stack">
+          <div class="avatar-mini">SR</div>
+          <div class="avatar-mini">AJ</div>
+          <div class="avatar-mini">TN</div>
+          <div class="avatar-mini">LP</div>
+        </div>
+        <span class="social-proof-text">Join 2,847 members</span>
+      </div>
+    </div>
+
+    <!-- TAB SWITCHER -->
+    <div class="tab-switcher">
+      <button class="tab-btn active">Create account</button>
+      <button class="tab-btn inactive">Sign in</button>
+    </div>
+
+    <!-- FORM AREA -->
+    <div class="form-area">
+      <div class="form-heading">
+        <div class="form-heading-title">Join the community</div>
+        <div class="form-heading-sub">Free forever.</div>
+      </div>
+
+      <!-- Social buttons -->
+      <div class="social-buttons">
+        <button class="social-btn">
+          <span style="font-size:16px;">🔵</span>
+          Continue with Google
+        </button>
+        <button class="social-btn">
+          <span style="font-size:16px;">⬛</span>
+          Continue with GitHub
+        </button>
+      </div>
+
+      <!-- Divider -->
+      <div class="divider">
+        <div class="divider-line"></div>
+        <span>or with email</span>
+        <div class="divider-line"></div>
+      </div>
+
+      <!-- Form fields -->
+      <div class="form-fields">
+        <div class="field-row">
+          <div class="field-wrap">
+            <input class="field-input" type="text" placeholder="First Name">
+          </div>
+          <div class="field-wrap">
+            <input class="field-input" type="text" placeholder="Last Name">
+          </div>
+        </div>
+        <div class="field-wrap">
+          <input class="field-input" type="email" placeholder="Email address">
+        </div>
+        <div class="field-wrap">
+          <input class="field-input" type="text" value="@varundubey" placeholder="Username">
+          <div class="field-hint">✓ available</div>
+        </div>
+        <div class="field-wrap">
+          <input class="field-input" type="password" value="••••••••••" placeholder="Password">
+          <div class="password-strength-bar">
+            <div class="strength-fill"></div>
+          </div>
+          <div class="strength-label">Strong password</div>
+        </div>
+      </div>
+
+      <!-- CTA button -->
+      <button class="cta-btn">Create account →</button>
+
+      <!-- Terms -->
+      <div class="terms-text">
+        By signing up you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+      </div>
+
+      <!-- Sign in link -->
+      <div class="signin-link">
+        Already have an account? <a href="#">Sign in</a>
+      </div>
+    </div>
+
+    <!-- EMAIL VERIFICATION PREVIEW STATE -->
+    <div class="verify-section">
+      <div class="verify-heading">📬 Check your inbox</div>
+      <div class="verify-sub">We sent a 6-digit code to varun@example.com</div>
+      <div class="otp-row">
+        <div class="otp-box filled">4</div>
+        <div class="otp-box filled">8</div>
+        <div class="otp-box filled cursor">3</div>
+        <div class="otp-box"></div>
+        <div class="otp-box"></div>
+        <div class="otp-box"></div>
+      </div>
+      <button class="verify-btn">Verify email</button>
+      <div class="resend-text">Didn't get it? <a href="#">Resend</a> (30s)</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- SPEC NOTES -->
+<div class="spec-notes">
+  <p><strong>Spec:</strong> Mobile register/login — full-screen isolated (no header/nav). Same two-panel flow as desktop but stacked (no marketing left panel). Social login via WP OAuth hooks. <strong>Email verification:</strong> 6-digit OTP auto-focuses next box on input. After register → Onboarding Wizard. After login → home feed or <code>redirect_to</code> param.</p>
+</div>
+
+<script src="nav.js"></script>
+</body>
+</html>

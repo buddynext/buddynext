@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   BUDDYNEXT DESIGN SYSTEM — CSS TOKENS
+   Copy the :root block into every wireframe for consistency.
+═══════════════════════════════════════════════════════════════ */
+:root {
+  /* Fonts */
+  --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+
+  /* Type scale — community-optimised (15px base for all ages) */
+  --text-xs:   11px;   /* timestamps · badges */
+  --text-sm:   13px;   /* meta · captions */
+  --text-base: 15px;   /* body · UI · nav items */
+  --text-lg:   17px;   /* section headings */
+  --text-xl:   20px;   /* sub-page titles */
+  --text-2xl:  24px;   /* page titles */
+  --text-3xl:  30px;   /* space/profile names */
+  --text-4xl:  38px;   /* hero only */
+
+  /* Line heights */
+  --leading-tight:  1.25;
+  --leading-normal: 1.5;
+  --leading-body:   1.7;  /* comfortable for any age reading long content */
+
+  /* Font weights */
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-heavy:    800;
+
+  /* ── Light mode colour tokens ── */
+  --bg:            #ffffff;
+  --bg-subtle:     #f8f8f7;   /* Notion warm white */
+  --bg-hover:      #f3f3f2;
+  --surface:       #ffffff;
+  --border:        #e8e8e5;
+  --border-strong: #c4c3bf;
+
+  --text-1: #37352f;   /* primary — warm dark, not harsh black */
+  --text-2: #787774;   /* secondary */
+  --text-3: #aeaca8;   /* muted / placeholder */
+
+  --brand:        #0073aa;   /* Wbcom ecosystem blue */
+  --brand-dark:   #005a87;
+  --brand-bg:     #e6f3fb;
+  --brand-border: #b3d9ef;
+
+  --green:     #0f7b4b; --green-bg:  #dcfce7;
+  --amber:     #92400e; --amber-bg:  #fef3c7;
+  --red:       #b91c1c; --red-bg:    #fee2e2;
+
+  /* Integration palette — Jetonomy (forums) */
+  --jetonomy:        #5b21b6;
+  --jetonomy-bg:     #f5f3ff;
+  --jetonomy-border: #ddd6fe;
+
+  /* Integration palette — WPMediaVerse (media) */
+  --mvs:        #0f766e;
+  --mvs-bg:     #f0fdf9;
+  --mvs-border: #99f6e4;
+
+  /* Spacing scale (4px grid) */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px; --s12: 48px;
+
+  /* Radius */
+  --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 12px 24px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04);
+}
+
+[data-theme="dark"] {
+  --bg:            #191919;
+  --bg-subtle:     #202020;
+  --bg-hover:      #2a2a2a;
+  --surface:       #252525;
+  --border:        #373737;
+  --border-strong: #4a4a4a;
+
+  --text-1: #e8e8e6;
+  --text-2: #9b9b99;
+  --text-3: #6b6b69;
+
+  --brand:        #4dabdb;
+  --brand-dark:   #65c0ea;
+  --brand-bg:     #1a2f3d;
+  --brand-border: #1e4a65;
+
+  --green:     #34d399; --green-bg:  #052e16;
+  --amber:     #fbbf24; --amber-bg:  #1c0f00;
+  --red:       #f87171; --red-bg:    #1c0505;
+
+  --jetonomy:        #a78bfa;
+  --jetonomy-bg:     #1e1535;
+  --jetonomy-border: #3b2d5e;
+
+  --mvs:        #34d399;
+  --mvs-bg:     #0a2e20;
+  --mvs-border: #1a4a35;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.4);
+  --shadow-lg: 0 12px 24px rgba(0,0,0,0.5);
+}
+
+/* ── Reset + Base ── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  color: var(--text-1);
+  background: var(--bg-subtle);
+  transition: background 0.25s, color 0.25s;
+}
+a { color: var(--brand); text-decoration: none; }
+
+/* ── Page wrapper ── */
+.sg-page { max-width: 960px; margin: 0 auto; padding: var(--s8) var(--s6); }
+
+/* ── Section headers ── */
+.sg-section { margin-bottom: var(--s10); }
+.sg-section-title {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  margin-bottom: var(--s5);
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Top bar (for this style guide) ── */
+.sg-topbar {
+  background: var(--brand);
+  color: #fff;
+  padding: var(--s3) var(--s6);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-body);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.sg-hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: var(--s10) var(--s8);
+  margin-bottom: var(--s8);
+  box-shadow: var(--shadow-sm);
+}
+.sg-hero-title {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-heavy);
+  color: var(--text-1);
+  letter-spacing: -0.03em;
+  line-height: var(--leading-tight);
+  margin-bottom: var(--s3);
+}
+.sg-hero-sub {
+  font-size: var(--text-lg);
+  color: var(--text-2);
+  line-height: var(--leading-body);
+}
+
+/* ── Theme toggle ── */
+.theme-toggle {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  padding: var(--s1) var(--s3);
+  border-radius: var(--r-full);
+  font-size: var(--text-sm);
+  font-family: var(--font-body);
+  cursor: pointer;
+  font-weight: var(--weight-medium);
+}
+.theme-toggle:hover { background: rgba(255,255,255,0.25); }
+
+/* ── Card wrapper ── */
+.sg-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s6);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Type specimens ── */
+.type-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s6);
+  padding: var(--s4) 0;
+  border-bottom: 1px solid var(--border);
+}
+.type-row:last-child { border-bottom: none; }
+.type-meta {
+  width: 120px;
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  font-family: monospace;
+  line-height: 1.4;
+}
+.type-sample { flex: 1; color: var(--text-1); }
+.type-sample.display { font-family: var(--font-display); }
+
+/* ── Colour swatches ── */
+.swatches { display: flex; flex-wrap: wrap; gap: var(--s3); }
+.swatch {
+  width: 100px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.swatch-color { height: 56px; }
+.swatch-label {
+  padding: var(--s2) var(--s3);
+  font-size: var(--text-xs);
+  background: var(--surface);
+  color: var(--text-2);
+  font-weight: var(--weight-medium);
+  line-height: 1.4;
+}
+
+/* ── Spacing demo ── */
+.spacing-row { display: flex; align-items: center; gap: var(--s4); margin-bottom: var(--s3); }
+.spacing-bar { background: var(--brand-bg); border: 1px solid var(--brand-border); border-radius: 2px; height: 20px; flex-shrink: 0; }
+.spacing-label { font-size: var(--text-xs); color: var(--text-3); font-family: monospace; }
+
+/* ── Components ── */
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  padding: 9px 18px;
+  border-radius: var(--r-md);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-body);
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.btn-primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+.btn-primary:hover { background: var(--brand-dark); }
+.btn-secondary { background: var(--bg-subtle); color: var(--text-1); border-color: var(--border); }
+.btn-secondary:hover { background: var(--bg-hover); }
+.btn-ghost { background: transparent; color: var(--brand); border-color: var(--brand-border); }
+.btn-ghost:hover { background: var(--brand-bg); }
+.btn-danger { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+.btn-sm { padding: 6px 12px; font-size: var(--text-sm); border-radius: var(--r-sm); }
+
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1.6;
+}
+.badge-brand    { background: var(--brand-bg);     color: var(--brand); }
+.badge-green    { background: var(--green-bg);     color: var(--green); }
+.badge-amber    { background: var(--amber-bg);     color: var(--amber); }
+.badge-red      { background: var(--red-bg);       color: var(--red); }
+.badge-neutral  { background: var(--bg-subtle);    color: var(--text-2); border: 1px solid var(--border); }
+.badge-jetonomy { background: var(--jetonomy-bg);  color: var(--jetonomy); }
+.badge-mvs      { background: var(--mvs-bg);       color: var(--mvs); }
+
+/* Avatars */
+.avatar {
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: var(--weight-bold);
+  color: #fff;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  background: var(--brand);
+}
+.av-sm  { width: 32px; height: 32px; font-size: 11px; }
+.av-md  { width: 40px; height: 40px; font-size: 14px; }
+.av-lg  { width: 56px; height: 56px; font-size: 18px; }
+.av-xl  { width: 72px; height: 72px; font-size: 22px; }
+.av-green  { background: #059669; }
+.av-purple { background: #7c3aed; }
+.av-orange { background: #ea580c; }
+.av-teal   { background: #0f766e; }
+.av-rose   { background: #e11d48; }
+
+/* Input */
+.input {
+  width: 100%; padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text-1);
+  font-size: var(--text-base);
+  font-family: var(--font-body);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-bg); }
+.input::placeholder { color: var(--text-3); }
+
+/* ── Post card components ── */
+.post-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s6);
+  margin-bottom: var(--s4);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s;
+}
+.post-card:hover { box-shadow: var(--shadow-md); }
+
+/* Integration variant: Jetonomy */
+.post-card--jetonomy {
+  border-left: 3px solid var(--jetonomy);
+  background: var(--surface);
+}
+/* Integration variant: WPMediaVerse */
+.post-card--mvs {
+  border-left: 3px solid var(--mvs);
+}
+
+.post-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s4); }
+.post-author { flex: 1; }
+.post-name { font-weight: var(--weight-semibold); font-size: var(--text-base); color: var(--text-1); }
+.post-meta { font-size: var(--text-xs); color: var(--text-3); margin-top: 1px; }
+.post-body { font-size: var(--text-base); line-height: var(--leading-body); color: var(--text-1); margin-bottom: var(--s4); }
+.post-actions { display: flex; gap: var(--s5); align-items: center; }
+.post-action {
+  display: flex; align-items: center; gap: var(--s1);
+  font-size: var(--text-sm); color: var(--text-2);
+  cursor: pointer;
+  padding: var(--s1) var(--s2); border-radius: var(--r-sm);
+  font-weight: var(--weight-medium);
+}
+.post-action:hover { color: var(--brand); background: var(--brand-bg); }
+
+/* Integration source label */
+.integration-label {
+  display: flex; align-items: center; gap: var(--s2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  margin-bottom: var(--s3);
+  padding: var(--s1) var(--s3);
+  border-radius: var(--r-full);
+  width: fit-content;
+}
+.integration-label--jetonomy {
+  background: var(--jetonomy-bg);
+  color: var(--jetonomy);
+  border: 1px solid var(--jetonomy-border);
+}
+.integration-label--mvs {
+  background: var(--mvs-bg);
+  color: var(--mvs);
+  border: 1px solid var(--mvs-border);
+}
+.post-thread-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--text-1);
+  margin-bottom: var(--s2);
+  line-height: var(--leading-tight);
+}
+
+/* Media grid */
+.media-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; border-radius: var(--r-md); overflow: hidden; margin-bottom: var(--s4); }
+.media-cell { background: var(--bg-hover); aspect-ratio: 1; }
+
+/* Divider rows */
+.comp-row { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; margin-bottom: var(--s4); }
+.comp-label { font-size: var(--text-xs); color: var(--text-3); width: 80px; flex-shrink: 0; }
+
+/* ── BuddyX inherited header demo ── */
+.buddyx-header-demo {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  margin-bottom: var(--s4);
+}
+.buddyx-header-bar {
+  background: var(--bg-subtle);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.buddyx-logo { font-weight: var(--weight-heavy); font-size: var(--text-xl); color: var(--text-1); }
+.buddyx-nav { display: flex; gap: var(--s5); }
+.buddyx-nav a { font-size: var(--text-sm); color: var(--text-2); font-weight: var(--weight-medium); }
+.buddynext-nav-bar {
+  background: var(--brand);
+  padding: 0 var(--s6);
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+}
+.bn-nav-item {
+  padding: 11px 14px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.bn-nav-item.active { color: #fff; border-bottom-color: #fff; }
+.bn-nav-right { margin-left: auto; display: flex; align-items: center; gap: var(--s2); }
+.bn-icon-btn {
+  width: 34px; height: 34px; border-radius: var(--r-md);
+  background: rgba(255,255,255,0.15);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 15px; color: #fff;
+}
+.bn-post-btn {
+  background: #fff; color: var(--brand);
+  padding: 6px 14px; border-radius: var(--r-md);
+  font-size: var(--text-sm); font-weight: var(--weight-bold);
+  cursor: pointer; margin-left: var(--s2);
+}
+.theme-annotation {
+  font-size: var(--text-xs); color: var(--text-3);
+  padding: var(--s2) var(--s6);
+  text-align: right;
+  font-style: italic;
+}
+</style>
+</head>
+<body>
+
+<!-- Top nav -->
+<div class="sg-topbar">
+  <span style="font-family:var(--font-display);font-weight:800;font-size:15px;">BuddyNext Design System</span>
+  <button class="theme-toggle" onclick="toggleTheme()">Toggle Dark Mode</button>
+</div>
+
+<div class="sg-page">
+
+  <!-- Hero -->
+  <div class="sg-hero">
+    <div class="sg-hero-title">BuddyNext<br>Design System</div>
+    <div class="sg-hero-sub" style="max-width:540px;">Tokens, typography, colours, and components for building BuddyNext — the social layer for WordPress. PHP templates + WP Interactivity API. Works within BuddyX, BuddyX Pro, and Reign.</div>
+    <div style="display:flex;gap:var(--s4);margin-top:var(--s6);flex-wrap:wrap;">
+      <span class="badge badge-brand">Inter — body</span>
+      <span class="badge badge-brand">Plus Jakarta Sans — display</span>
+      <span class="badge badge-jetonomy">Integrates Jetonomy</span>
+      <span class="badge badge-mvs">Integrates WPMediaVerse</span>
+      <span class="badge badge-green">Dark mode ready</span>
+    </div>
+  </div>
+
+  <!-- ── TYPOGRAPHY ── -->
+  <div class="sg-section">
+    <div class="sg-section-title">Typography</div>
+    <div class="sg-card">
+      <div style="margin-bottom:var(--s5);">
+        <div style="font-size:var(--text-xs);color:var(--text-3);margin-bottom:var(--s3);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Inter — Body, UI, navigation (all weights 400–700)</div>
+        <div style="font-size:var(--text-xs);color:var(--text-3);margin-bottom:var(--s2);">Designed for screens. Maximum legibility at small sizes. Used by GitHub, Linear, Vercel.</div>
+      </div>
+
+      <div class="type-row">
+        <div class="type-meta">4xl · 38px<br>800 Display</div>
+        <div class="type-sample display" style="font-size:var(--text-4xl);font-weight:800;line-height:1.1;letter-spacing:-0.03em;">Community</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">3xl · 30px<br>700 Display</div>
+        <div class="type-sample display" style="font-size:var(--text-3xl);font-weight:700;line-height:1.2;letter-spacing:-0.02em;">General Discussion</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">2xl · 24px<br>700 Display</div>
+        <div class="type-sample display" style="font-size:var(--text-2xl);font-weight:700;line-height:1.25;letter-spacing:-0.01em;">What's on your mind?</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">xl · 20px<br>600 Display</div>
+        <div class="type-sample display" style="font-size:var(--text-xl);font-weight:600;">Trending in Design</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">lg · 17px<br>600 Body</div>
+        <div class="type-sample" style="font-size:var(--text-lg);font-weight:600;">Section heading · Space name</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">base · 15px<br>400 Body</div>
+        <div class="type-sample" style="font-size:var(--text-base);line-height:var(--leading-body);">Post content and long-form text lives here. At 15px with 1.7 line-height, this is comfortable for readers of any age — not too small, not too large. Paragraphs breathe properly.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">sm · 13px<br>500 Body</div>
+        <div class="type-sample" style="font-size:var(--text-sm);font-weight:500;color:var(--text-2);">Meta · Secondary info · Member count · Space description</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">xs · 11px<br>500 Body</div>
+        <div class="type-sample" style="font-size:var(--text-xs);font-weight:500;color:var(--text-3);">Timestamps · Badges · Labels · "31 seconds ago"</div>
+      </div>
+    </div>
+
+    <div style="margin-top:var(--s4);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s5);">
+      <div style="font-size:var(--text-xs);color:var(--text-3);margin-bottom:var(--s3);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Plus Jakarta Sans — Page titles, space names, hero headings only</div>
+      <div style="font-family:var(--font-display);font-size:var(--text-3xl);font-weight:800;letter-spacing:-0.02em;color:var(--text-1);">BuddyNext</div>
+      <div style="font-family:var(--font-display);font-size:var(--text-2xl);font-weight:700;color:var(--text-1);">Design Community</div>
+      <div style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:600;color:var(--text-2);">Welcome back, Varun</div>
+      <div style="margin-top:var(--s3);font-size:var(--text-xs);color:var(--text-3);">Use Plus Jakarta Sans for display text only. Everything else is Inter.</div>
+    </div>
+  </div>
+
+  <!-- ── COLOURS ── -->
+  <div class="sg-section">
+    <div class="sg-section-title">Colour Tokens</div>
+
+    <div class="sg-card" style="margin-bottom:var(--s4);">
+      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-2);margin-bottom:var(--s4);">Brand · Ecosystem blue (Wbcom consistent)</div>
+      <div class="swatches">
+        <div class="swatch"><div class="swatch-color" style="background:#0073aa;"></div><div class="swatch-label">--brand<br>#0073aa</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#005a87;"></div><div class="swatch-label">--brand-dark<br>#005a87</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#e6f3fb;border:1px solid #b3d9ef;"></div><div class="swatch-label">--brand-bg<br>#e6f3fb</div></div>
+      </div>
+    </div>
+
+    <div class="sg-card" style="margin-bottom:var(--s4);">
+      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-2);margin-bottom:var(--s4);">Neutral · Notion warm grey scale</div>
+      <div class="swatches">
+        <div class="swatch"><div class="swatch-color" style="background:#37352f;"></div><div class="swatch-label">--text-1<br>#37352f</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#787774;"></div><div class="swatch-label">--text-2<br>#787774</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#aeaca8;"></div><div class="swatch-label">--text-3<br>#aeaca8</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#f8f8f7;border:1px solid #e8e8e5;"></div><div class="swatch-label">--bg-subtle<br>#f8f8f7</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#e8e8e5;"></div><div class="swatch-label">--border<br>#e8e8e5</div></div>
+      </div>
+    </div>
+
+    <div class="sg-card" style="margin-bottom:var(--s4);">
+      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-2);margin-bottom:var(--s4);">Integration colours — Jetonomy (forums) · WPMediaVerse (media)</div>
+      <div class="swatches">
+        <div class="swatch"><div class="swatch-color" style="background:#5b21b6;"></div><div class="swatch-label">--jetonomy<br>#5b21b6</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#f5f3ff;border:1px solid #ddd6fe;"></div><div class="swatch-label">--jetonomy-bg<br>#f5f3ff</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#0f766e;"></div><div class="swatch-label">--mvs<br>#0f766e</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#f0fdf9;border:1px solid #99f6e4;"></div><div class="swatch-label">--mvs-bg<br>#f0fdf9</div></div>
+      </div>
+    </div>
+
+    <div class="sg-card">
+      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-2);margin-bottom:var(--s4);">Dark mode equivalents — all via CSS custom properties</div>
+      <div style="background:#191919;border-radius:var(--r-md);padding:var(--s5);display:flex;gap:var(--s4);flex-wrap:wrap;">
+        <div class="swatch"><div class="swatch-color" style="background:#191919;border:1px solid #373737;"></div><div class="swatch-label" style="background:#252525;color:#9b9b99;">--bg<br>#191919</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#252525;border:1px solid #373737;"></div><div class="swatch-label" style="background:#252525;color:#9b9b99;">--surface<br>#252525</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#e8e8e6;"></div><div class="swatch-label" style="background:#252525;color:#9b9b99;">--text-1<br>#e8e8e6</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#4dabdb;"></div><div class="swatch-label" style="background:#252525;color:#9b9b99;">--brand<br>#4dabdb</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#a78bfa;"></div><div class="swatch-label" style="background:#252525;color:#9b9b99;">--jetonomy<br>#a78bfa</div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#34d399;"></div><div class="swatch-label" style="background:#252525;color:#9b9b99;">--mvs<br>#34d399</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SPACING ── -->
+  <div class="sg-section">
+    <div class="sg-section-title">Spacing (4px grid)</div>
+    <div class="sg-card">
+      <div class="spacing-row"><div class="spacing-bar" style="width:4px;"></div><div class="spacing-label">--s1 · 4px · tight gap between icon + label</div></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:8px;"></div><div class="spacing-label">--s2 · 8px · between inline elements</div></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:12px;"></div><div class="spacing-label">--s3 · 12px · avatar → username</div></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:16px;"></div><div class="spacing-label">--s4 · 16px · base element padding</div></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:20px;"></div><div class="spacing-label">--s5 · 20px · between card sections</div></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:24px;"></div><div class="spacing-label">--s6 · 24px · card padding · section gaps</div></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:32px;"></div><div class="spacing-label">--s8 · 32px · between cards in feed</div></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:40px;"></div><div class="spacing-label">--s10 · 40px · page section margin</div></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:48px;"></div><div class="spacing-label">--s12 · 48px · major page sections</div></div>
+    </div>
+  </div>
+
+  <!-- ── COMPONENTS ── -->
+  <div class="sg-section">
+    <div class="sg-section-title">Buttons</div>
+    <div class="sg-card">
+      <div class="comp-row">
+        <div class="comp-label">Primary</div>
+        <button class="btn btn-primary">Join Space</button>
+        <button class="btn btn-primary btn-sm">Follow</button>
+      </div>
+      <div class="comp-row">
+        <div class="comp-label">Secondary</div>
+        <button class="btn btn-secondary">View Profile</button>
+        <button class="btn btn-secondary btn-sm">Share</button>
+      </div>
+      <div class="comp-row">
+        <div class="comp-label">Ghost</div>
+        <button class="btn btn-ghost">Connect</button>
+        <button class="btn btn-ghost btn-sm">Message</button>
+      </div>
+      <div class="comp-row">
+        <div class="comp-label">Danger</div>
+        <button class="btn btn-danger">Suspend User</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sg-section">
+    <div class="sg-section-title">Badges</div>
+    <div class="sg-card">
+      <div class="comp-row" style="flex-wrap:wrap;">
+        <span class="badge badge-brand">Member</span>
+        <span class="badge badge-green">Active</span>
+        <span class="badge badge-amber">Pending</span>
+        <span class="badge badge-red">Suspended</span>
+        <span class="badge badge-neutral">Guest</span>
+        <span class="badge badge-jetonomy">💬 Jetonomy</span>
+        <span class="badge badge-mvs">🖼️ WPMediaVerse</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sg-section">
+    <div class="sg-section-title">Avatars</div>
+    <div class="sg-card">
+      <div class="comp-row">
+        <div class="comp-label">Sizes</div>
+        <div class="avatar av-sm av-purple">VD</div>
+        <div class="avatar av-md av-green">SR</div>
+        <div class="avatar av-lg av-orange">AJ</div>
+        <div class="avatar av-xl av-teal">TN</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sg-section">
+    <div class="sg-section-title">Input</div>
+    <div class="sg-card" style="max-width:480px;">
+      <input class="input" placeholder="Search members, posts, spaces…" style="margin-bottom:var(--s3);">
+      <input class="input" value="Varun Dubey">
+    </div>
+  </div>
+
+  <!-- ── POST CARDS ── -->
+  <div class="sg-section">
+    <div class="sg-section-title">Post Card Variants — BuddyNext · Jetonomy · WPMediaVerse</div>
+
+    <!-- BuddyNext native post -->
+    <div class="post-card">
+      <div class="post-head">
+        <div class="avatar av-md av-purple">VD</div>
+        <div class="post-author">
+          <div class="post-name">Varun Dubey</div>
+          <div class="post-meta">@varundubey · 2 hours ago · Public</div>
+        </div>
+        <span class="badge badge-neutral">Following</span>
+      </div>
+      <div class="post-body">
+        Just shipped the new onboarding flow for BuddyNext. The 4-step wizard (Profile → Interests → Spaces → People) reduces drop-off by helping new members find value immediately rather than landing on an empty feed.
+      </div>
+      <div class="post-actions">
+        <div class="post-action">❤️ 24</div>
+        <div class="post-action">💬 8 comments</div>
+        <div class="post-action">↗️ Share</div>
+        <div class="post-action" style="margin-left:auto;">🔖</div>
+      </div>
+    </div>
+
+    <!-- Jetonomy forum activity -->
+    <div class="post-card post-card--jetonomy">
+      <div class="integration-label integration-label--jetonomy">💬 Discussion · via Jetonomy</div>
+      <div class="post-head">
+        <div class="avatar av-md av-green">SR</div>
+        <div class="post-author">
+          <div class="post-name">Sarah Rodriguez</div>
+          <div class="post-meta">posted in <strong style="color:var(--jetonomy);">General Discussion</strong> · 45 min ago</div>
+        </div>
+      </div>
+      <div class="post-thread-title">What's everyone working on this week?</div>
+      <div class="post-body" style="color:var(--text-2);">Starting a weekly thread for sharing what you're building. I'm working on a new design system for our community platform — trying to nail the typography scale for both desktop and mobile users.</div>
+      <div class="post-actions">
+        <div class="post-action">▲ 12 votes</div>
+        <div class="post-action">💬 3 replies</div>
+        <a href="#" style="margin-left:auto;font-size:var(--text-sm);color:var(--jetonomy);font-weight:600;">View thread →</a>
+      </div>
+    </div>
+
+    <!-- WPMediaVerse media post -->
+    <div class="post-card post-card--mvs">
+      <div class="integration-label integration-label--mvs">🖼️ Media · via WPMediaVerse</div>
+      <div class="post-head">
+        <div class="avatar av-md av-teal">AJ</div>
+        <div class="post-author">
+          <div class="post-name">Alex Johnson</div>
+          <div class="post-meta">shared 4 photos · 1 hour ago</div>
+        </div>
+      </div>
+      <div class="post-body" style="margin-bottom:var(--s3);">Behind the scenes from our design sprint this week. Happy with how the components are coming together 🎨</div>
+      <div class="media-grid">
+        <div class="media-cell" style="background:linear-gradient(135deg,#e0e7ff,#c7d2fe);"></div>
+        <div class="media-cell" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);"></div>
+        <div class="media-cell" style="background:linear-gradient(135deg,#fef3c7,#fde68a);"></div>
+        <div class="media-cell" style="background:linear-gradient(135deg,#fce7f3,#fbcfe8);"></div>
+      </div>
+      <div class="post-actions">
+        <div class="post-action">❤️ 31</div>
+        <div class="post-action">💬 5</div>
+        <a href="#" style="margin-left:auto;font-size:var(--text-sm);color:var(--mvs);font-weight:600;">View album →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── NAVIGATION CONTEXT ── -->
+  <div class="sg-section">
+    <div class="sg-section-title">Navigation — BuddyX Theme Header + BuddyNext Secondary Nav</div>
+    <div class="buddyx-header-demo">
+      <div class="theme-annotation">↑ BuddyX / BuddyX Pro / Reign provides this — NOT owned by BuddyNext</div>
+      <div class="buddyx-header-bar">
+        <div class="buddyx-logo">forums</div>
+        <div class="buddyx-nav">
+          <a href="#">Explore Media</a>
+          <a href="#">My Media</a>
+          <a href="#">Sample Page</a>
+          <a href="#" style="color:var(--brand);font-weight:600;">Log in</a>
+        </div>
+      </div>
+      <div class="buddynext-nav-bar">
+        <a class="bn-nav-item active">🏠 Home</a>
+        <a class="bn-nav-item">🔍 Explore</a>
+        <a class="bn-nav-item">🏘️ Spaces</a>
+        <a class="bn-nav-item">👥 Members</a>
+        <div class="bn-nav-right">
+          <div class="bn-icon-btn" title="Notifications">🔔<span style="font-size:9px;background:#ef4444;color:#fff;border-radius:9px;padding:0 4px;margin-left:2px;">5</span></div>
+          <div class="bn-icon-btn" title="Messages">💬</div>
+          <div class="bn-post-btn">+ Post</div>
+        </div>
+      </div>
+      <div style="padding:var(--s6);background:var(--bg-subtle);">
+        <div style="font-size:var(--text-sm);color:var(--text-3);text-align:center;">↑ BuddyNext secondary nav registered via <code>register_nav_menus()</code> in BuddyX theme</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SPEC NOTES ── -->
+  <div style="background:#1a1a1a;color:#e6e6e6;padding:var(--s8);border-radius:var(--r-xl);font-size:var(--text-sm);line-height:1.8;">
+    <div style="font-family:var(--font-display);font-weight:800;color:#fff;font-size:var(--text-lg);margin-bottom:var(--s5);">Design System Decisions</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--s8);">
+      <div>
+        <div style="color:#4dabdb;font-weight:700;margin-bottom:var(--s3);">Typography</div>
+        <div style="color:#9b9b99;">• Inter for all body + UI text</div>
+        <div style="color:#9b9b99;">• Plus Jakarta Sans for display/headings only</div>
+        <div style="color:#9b9b99;">• 15px base (age-accessible)</div>
+        <div style="color:#9b9b99;">• 1.7 line-height for reading comfort</div>
+        <div style="color:#9b9b99;">• 4-size scale: xs(11) sm(13) base(15) lg(17)</div>
+      </div>
+      <div>
+        <div style="color:#4dabdb;font-weight:700;margin-bottom:var(--s3);">Colour</div>
+        <div style="color:#9b9b99;">• Warm grey neutrals (Notion palette)</div>
+        <div style="color:#9b9b99;">• #0073aa brand (Wbcom ecosystem)</div>
+        <div style="color:#9b9b99;">• #5b21b6 Jetonomy (forums)</div>
+        <div style="color:#9b9b99;">• #0f766e WPMediaVerse (media)</div>
+        <div style="color:#9b9b99;">• Full dark mode via CSS custom props</div>
+      </div>
+      <div>
+        <div style="color:#4dabdb;font-weight:700;margin-bottom:var(--s3);">Frontend Stack</div>
+        <div style="color:#9b9b99;">• PHP templates (theme-overridable)</div>
+        <div style="color:#9b9b99;">• WP Interactivity API (reactivity)</div>
+        <div style="color:#9b9b99;">• SSE for real-time counters</div>
+        <div style="color:#9b9b99;">• buddynext/v1 REST API (data)</div>
+        <div style="color:#9b9b99;">• Same pattern as Jetonomy + WPMediaVerse</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+}
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

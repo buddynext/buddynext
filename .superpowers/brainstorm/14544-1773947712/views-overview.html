@@ -1,0 +1,169 @@
+<style>
+.views-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 20px;
+}
+.view-card {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.view-card:hover { border-color: #0073aa; background: #e8f4fb; }
+.view-card .view-icon { font-size: 24px; margin-bottom: 8px; }
+.view-card .view-name { font-weight: 600; font-size: 14px; color: #1e1e1e; margin-bottom: 4px; }
+.view-card .view-desc { font-size: 12px; color: #6b7280; line-height: 1.4; }
+.view-card .view-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 6px;
+  font-weight: 600;
+}
+.badge-free { background: #d1fae5; color: #065f46; }
+.badge-pro  { background: #ede9fe; color: #5b21b6; }
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+  margin: 20px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e9ecef;
+}
+</style>
+
+<h2>BuddyNext — All Views to Design</h2>
+<p class="subtitle">We'll design each view one by one and save them as specs. Click any view to start.</p>
+
+<div class="section-title">Core Social Surfaces</div>
+<div class="views-grid">
+  <div class="view-card" data-choice="home-feed" onclick="toggleSelect(this)">
+    <div class="view-icon">📰</div>
+    <div class="view-name">Home Feed</div>
+    <div class="view-desc">Followed users + spaces + hashtags. Post composer inline.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="explore-feed" onclick="toggleSelect(this)">
+    <div class="view-icon">🔍</div>
+    <div class="view-name">Explore Feed</div>
+    <div class="view-desc">All public posts. Discovery view — no login required.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="user-profile" onclick="toggleSelect(this)">
+    <div class="view-icon">👤</div>
+    <div class="view-name">User Profile</div>
+    <div class="view-desc">Cover, avatar, bio, fields, follow/connect, profile feed.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="member-directory" onclick="toggleSelect(this)">
+    <div class="view-icon">👥</div>
+    <div class="view-name">Member Directory</div>
+    <div class="view-desc">Filterable grid. Mutual connections count. Degree badges.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="notifications" onclick="toggleSelect(this)">
+    <div class="view-icon">🔔</div>
+    <div class="view-name">Notifications</div>
+    <div class="view-desc">Bell dropdown + full /notifications/ page. Grouped.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="search" onclick="toggleSelect(this)">
+    <div class="view-icon">🔎</div>
+    <div class="view-name">Search Results</div>
+    <div class="view-desc">Unified search — people, posts, spaces, media, jobs.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+</div>
+
+<div class="section-title">Spaces</div>
+<div class="views-grid">
+  <div class="view-card" data-choice="spaces-directory" onclick="toggleSelect(this)">
+    <div class="view-icon">🏘️</div>
+    <div class="view-name">Spaces Directory</div>
+    <div class="view-desc">Filterable grid by category. Join/request buttons.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="space-home" onclick="toggleSelect(this)">
+    <div class="view-icon">🏠</div>
+    <div class="view-name">Space Home</div>
+    <div class="view-desc">Space feed, members panel, optional Forum + Media tabs.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="space-settings" onclick="toggleSelect(this)">
+    <div class="view-icon">⚙️</div>
+    <div class="view-name">Space Settings</div>
+    <div class="view-desc">General, Privacy, Members, Moderation, Integrations tabs.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+</div>
+
+<div class="section-title">Messaging</div>
+<div class="views-grid">
+  <div class="view-card" data-choice="dm-list" onclick="toggleSelect(this)">
+    <div class="view-icon">💬</div>
+    <div class="view-name">DM Conversation List</div>
+    <div class="view-desc">Conversation inbox. Unread badges. Pinned/archived.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="dm-thread" onclick="toggleSelect(this)">
+    <div class="view-icon">🗨️</div>
+    <div class="view-name">DM Thread</div>
+    <div class="view-desc">Message thread. Reactions, quoted replies, typing indicator.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="dm-request-inbox" onclick="toggleSelect(this)">
+    <div class="view-icon">📥</div>
+    <div class="view-name">Message Requests</div>
+    <div class="view-desc">Unknown senders land here. Accept/decline/block.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+</div>
+
+<div class="section-title">Onboarding + Auth</div>
+<div class="views-grid">
+  <div class="view-card" data-choice="onboarding" onclick="toggleSelect(this)">
+    <div class="view-icon">🚀</div>
+    <div class="view-name">Onboarding Wizard</div>
+    <div class="view-desc">Profile → Interests → Spaces → People. 4-step flow.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="register" onclick="toggleSelect(this)">
+    <div class="view-icon">📝</div>
+    <div class="view-name">Register / Login</div>
+    <div class="view-desc">Registration form + email verification state.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+</div>
+
+<div class="section-title">Admin</div>
+<div class="views-grid">
+  <div class="view-card" data-choice="admin-settings" onclick="toggleSelect(this)">
+    <div class="view-icon">🛠️</div>
+    <div class="view-name">Admin Settings</div>
+    <div class="view-desc">General, Integrations (Jetonomy/MVS toggles), Webhooks, Email.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="email-editor" onclick="toggleSelect(this)">
+    <div class="view-icon">📧</div>
+    <div class="view-name">Email Template Editor</div>
+    <div class="view-desc">Subject, body editor, token picker, preview, send test.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+  <div class="view-card" data-choice="moderation-queue" onclick="toggleSelect(this)">
+    <div class="view-icon">🛡️</div>
+    <div class="view-name">Moderation Queue</div>
+    <div class="view-desc">Reported content queue. Approve/remove/strike/suspend.</div>
+    <span class="view-badge badge-free">Free</span>
+  </div>
+</div>
+
+<p style="margin-top:24px; font-size:13px; color:#6b7280;">
+  <strong>14 views total.</strong> We'll design them one at a time. Tell me which one to start with, or I'll go left-to-right starting with <strong>Home Feed</strong>.
+</p>

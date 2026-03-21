@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BuddyNext — Navigation Manager</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f0f1; color: #1d2327; font-size: 13px; }
+.topbar { background: #0073aa; color: #fff; padding: 10px 20px; font-size: 13px; display: flex; align-items: center; gap: 12px; }
+
+/* WP admin sidebar */
+.wp-shell { display: flex; }
+.wp-sidebar { width: 200px; background: #1e1e1e; min-height: calc(100vh - 42px); padding-top: 16px; flex-shrink: 0; }
+.wp-nav { padding: 8px 0; }
+.wp-item { display: flex; align-items: center; gap: 8px; padding: 9px 16px; color: #ccc; font-size: 13px; cursor: pointer; }
+.wp-item:hover { background: #333; color: #fff; }
+.wp-item.active { background: #0073aa; color: #fff; }
+.wp-item .icon { font-size: 16px; width: 20px; }
+.wp-subnav { background: #111; }
+.wp-subitem { padding: 7px 16px 7px 44px; color: #bbb; font-size: 12px; cursor: pointer; }
+.wp-subitem:hover { color: #fff; }
+.wp-subitem.active { color: #0073aa; font-weight: 600; }
+
+/* Main content area */
+.wp-content { flex: 1; padding: 24px; min-width: 0; }
+
+/* Three-panel layout */
+.three-panel { display: flex; gap: 20px; align-items: flex-start; max-width: 1200px; }
+
+/* Left scope sidebar */
+.scope-sidebar { width: 240px; flex-shrink: 0; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; position: sticky; top: 20px; overflow: hidden; }
+.scope-sidebar-header { padding: 10px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #646970; border-bottom: 1px solid #f0f0f1; background: #f9f9f9; }
+.scope-item { display: flex; align-items: center; gap: 8px; padding: 9px 14px; color: #1d2327; font-size: 13px; cursor: pointer; border-bottom: 1px solid #f0f0f1; }
+.scope-item:hover { background: #f6f7f7; }
+.scope-item.active { background: #e8f4fb; color: #0073aa; font-weight: 600; border-left: 3px solid #0073aa; padding-left: 11px; }
+.scope-item:last-child { border-bottom: none; }
+.scope-separator { height: 1px; background: #c3c4c7; margin: 4px 0; }
+.scope-item.readonly { color: #646970; }
+.scope-item.readonly .scope-readonly-badge { font-size: 9px; background: #f0f0f1; color: #787c82; padding: 1px 5px; border-radius: 3px; margin-left: auto; }
+.scope-tip { padding: 12px 14px; font-size: 11px; color: #646970; line-height: 1.6; border-top: 1px solid #f0f0f1; background: #f9f9f9; }
+.scope-tip code { background: #f0f0f1; padding: 1px 4px; border-radius: 2px; font-family: monospace; font-size: 10px; color: #1d2327; }
+
+/* Center main panel */
+.main-panel { flex: 1; min-width: 0; }
+
+/* Page header */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; gap: 16px; }
+.page-header-text { }
+.page-title { font-size: 22px; font-weight: 700; color: #1d2327; margin-bottom: 4px; }
+.page-desc { font-size: 13px; color: #646970; line-height: 1.5; }
+.btn-save { background: #0073aa; color: #fff; padding: 8px 20px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; white-space: nowrap; flex-shrink: 0; }
+.btn-save:hover { background: #005f8c; }
+
+/* Section card */
+.nav-section { background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
+.section-header { padding: 12px 16px; border-bottom: 1px solid #f0f0f1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.section-title { font-weight: 700; font-size: 14px; color: #1d2327; }
+.section-badge { font-size: 11px; color: #646970; background: #f0f0f1; padding: 3px 8px; border-radius: 10px; }
+
+/* Drag-drop list */
+.nav-list { padding: 0; }
+
+/* Nav row card */
+.nav-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f6f7f7; transition: background 0.1s; }
+.nav-row:last-child { border-bottom: none; }
+.nav-row:hover { background: #f9fafb; }
+.nav-row.disabled-row { background: #fafafa; opacity: 0.75; }
+
+.drag-handle { display: flex; flex-direction: column; gap: 3px; cursor: grab; padding: 4px 2px; flex-shrink: 0; }
+.drag-handle span { display: block; width: 18px; height: 2px; background: #c3c4c7; border-radius: 1px; }
+.drag-handle:hover span { background: #8c8f94; }
+
+.row-icon { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
+
+.row-info { flex: 1; min-width: 0; }
+.row-name { font-weight: 600; font-size: 13px; color: #1d2327; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row-desc { font-size: 11px; color: #787c82; margin-top: 2px; }
+.row-disabled-note { font-size: 11px; color: #d63638; margin-top: 3px; }
+.row-disabled-note a { color: #0073aa; text-decoration: none; }
+.row-disabled-note a:hover { text-decoration: underline; }
+
+/* Source badges */
+.badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; line-height: 1.4; white-space: nowrap; }
+.badge-core { background: #0073aa; color: #fff; }
+.badge-core-v2 { background: #f59e0b; color: #fff; }
+.badge-woo { background: #f97316; color: #fff; }
+.badge-ld { background: #059669; color: #fff; }
+.badge-custom { background: #6b7280; color: #fff; }
+
+/* Row actions */
+.row-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.settings-btn { background: none; border: 1px solid #c3c4c7; border-radius: 3px; padding: 4px 8px; font-size: 12px; cursor: pointer; color: #646970; }
+.settings-btn:hover { background: #f0f0f1; color: #1d2327; border-color: #8c8f94; }
+
+/* Toggle switch */
+.toggle { width: 40px; height: 22px; background: #787c82; border-radius: 11px; position: relative; cursor: pointer; flex-shrink: 0; transition: background 0.2s; }
+.toggle.on { background: #00a32a; }
+.toggle.disabled-toggle { background: #c3c4c7; cursor: not-allowed; }
+.toggle::after { content: ''; position: absolute; width: 16px; height: 16px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.toggle.on::after { left: 21px; }
+
+/* Add custom tab button */
+.add-tab-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 16px; border: 2px dashed #c3c4c7; background: none; font-size: 13px; color: #646970; cursor: pointer; border-radius: 0 0 3px 3px; transition: all 0.15s; }
+.add-tab-btn:hover { background: #f6f7f7; border-color: #8c8f94; color: #1d2327; }
+
+/* Collapsed sections (accordion) */
+.nav-section.collapsed .section-header { border-bottom: none; cursor: pointer; }
+.nav-section.collapsed .section-header:hover { background: #f9fafb; }
+.collapse-arrow { display: inline-block; font-size: 11px; color: #646970; margin-left: 4px; transition: transform 0.2s; }
+.nav-section.collapsed .collapse-arrow { transform: rotate(-90deg); }
+.collapsed-summary { font-size: 12px; color: #787c82; margin-left: auto; padding-right: 8px; }
+
+/* Right config panel */
+.config-panel { width: 280px; flex-shrink: 0; position: sticky; top: 20px; }
+.config-card { background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; overflow: hidden; }
+.config-header { padding: 11px 14px; border-bottom: 1px solid #f0f0f1; background: #f9f9f9; }
+.config-breadcrumb { font-size: 11px; color: #646970; margin-bottom: 2px; }
+.config-title { font-size: 13px; font-weight: 700; color: #1d2327; }
+.config-body { padding: 14px; }
+.cf { margin-bottom: 14px; }
+.cf:last-child { margin-bottom: 0; }
+.cf label { display: block; font-weight: 600; font-size: 11px; color: #50575e; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 5px; }
+.cf input[type="text"], .cf input[type="number"], .cf select { width: 100%; border: 1px solid #c3c4c7; border-radius: 3px; padding: 6px 8px; font-size: 13px; color: #1d2327; background: #fff; font-family: inherit; }
+.cf input:focus, .cf select:focus { outline: none; border-color: #0073aa; box-shadow: 0 0 0 1px #0073aa; }
+.icon-picker { display: flex; align-items: center; gap: 8px; }
+.icon-display { font-size: 22px; width: 38px; height: 38px; border: 1px solid #c3c4c7; border-radius: 3px; display: flex; align-items: center; justify-content: center; background: #f9f9f9; cursor: pointer; }
+.icon-change { font-size: 11px; color: #0073aa; cursor: pointer; }
+.icon-change:hover { text-decoration: underline; }
+.config-divider { height: 1px; background: #f0f0f1; margin: 14px 0; }
+.config-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.config-toggle-label { font-weight: 600; font-size: 12px; color: #1d2327; }
+.config-toggle-sub { font-size: 11px; color: #787c82; margin-top: 1px; }
+.config-note { font-size: 11px; color: #646970; background: #f6f7f7; border: 1px solid #f0f0f1; border-radius: 3px; padding: 8px 10px; line-height: 1.5; }
+.config-note strong { color: #50575e; }
+.btn-apply { width: 100%; background: #0073aa; color: #fff; padding: 8px; border-radius: 3px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; margin-top: 14px; }
+.btn-apply:hover { background: #005f8c; }
+
+/* Developer bar at bottom */
+.dev-bar { background: #1e1e1e; color: #e5e7eb; padding: 20px 32px; font-size: 12px; line-height: 1.7; }
+.dev-bar-title { font-weight: 700; color: #fff; font-size: 13px; margin-bottom: 12px; }
+.dev-code { background: #1e1e1e; color: #e5e7eb; border: 1px solid #3a3a3a; border-radius: 6px; padding: 16px; font-family: 'Menlo', 'Consolas', 'Courier New', monospace; font-size: 12px; line-height: 1.65; white-space: pre; overflow-x: auto; margin: 8px 0 14px; }
+.dev-code .kw { color: #569cd6; }
+.dev-code .fn { color: #dcdcaa; }
+.dev-code .st { color: #ce9178; }
+.dev-code .cm { color: #6a9955; }
+.dev-code .arr { color: #9cdcfe; }
+.dev-bar-note { font-size: 11px; color: #9ca3af; }
+.dev-bar-note code { background: #2d2d2d; padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #e5e7eb; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <strong>BuddyNext View Design</strong> <span style="opacity:0.7;">→</span> <span>Navigation Manager</span>
+  <span style="margin-left:auto;opacity:0.7;font-size:11px;">Admin</span>
+</div>
+
+<div class="wp-shell">
+  <!-- WP Admin Sidebar -->
+  <div class="wp-sidebar">
+    <div class="wp-nav">
+      <div class="wp-item"><span class="icon">🏠</span> Dashboard</div>
+      <div class="wp-item"><span class="icon">📝</span> Posts</div>
+      <div class="wp-item active"><span class="icon">🔵</span> BuddyNext</div>
+      <div class="wp-subnav">
+        <div class="wp-subitem">⚙️ Settings</div>
+        <div class="wp-subitem">👥 Members</div>
+        <div class="wp-subitem">🏘️ Spaces</div>
+        <div class="wp-subitem">🛡️ Moderation</div>
+        <div class="wp-subitem active">🧭 Nav Manager</div>
+        <div class="wp-subitem">📧 Emails</div>
+        <div class="wp-subitem">📊 Analytics</div>
+      </div>
+      <div class="wp-item"><span class="icon">🔌</span> Plugins</div>
+      <div class="wp-item"><span class="icon">🎨</span> Appearance</div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="wp-content">
+    <div class="three-panel">
+
+      <!-- Left: Scope Sidebar -->
+      <div class="scope-sidebar">
+        <div class="scope-sidebar-header">Navigation Scope</div>
+        <div class="scope-item active">📋 Main Navigation</div>
+        <div class="scope-item">👤 Profile Tabs</div>
+        <div class="scope-item">🏠 Space Tabs</div>
+        <div class="scope-item">📱 Mobile Bottom Nav</div>
+        <div class="scope-tip">
+          💡 Any plugin can inject tabs into any scope using WordPress filters — <code>buddynext_main_nav_items</code>, <code>buddynext_profile_tabs</code>, <code>buddynext_space_tabs</code>. Registered tabs appear here automatically.
+        </div>
+      </div>
+
+      <!-- Center: Main Panel -->
+      <div class="main-panel">
+
+        <!-- Page header -->
+        <div class="page-header">
+          <div class="page-header-text">
+            <div class="page-title">Navigation Manager</div>
+            <div class="page-desc">Drag to reorder tabs. Toggle to show/hide. Add custom tabs or tabs from your connected plugins.</div>
+          </div>
+          <button class="btn-save">Save Changes</button>
+        </div>
+
+        <!-- Main Navigation section (expanded) -->
+        <div class="nav-section">
+          <div class="section-header">
+            <div class="section-title">Main Navigation <span style="color:#646970;font-weight:400;font-size:13px;">— Community Nav Bar</span></div>
+            <div class="section-badge">5 core items · plugins can add more</div>
+          </div>
+
+          <div class="nav-list">
+
+            <!-- Row 1: Home Feed -->
+            <div class="nav-row">
+              <div class="drag-handle" title="Drag to reorder">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="row-icon">📰</div>
+              <div class="row-info">
+                <div class="row-name">Home Feed <span class="badge badge-core">Core</span></div>
+                <div class="row-desc">Main community feed</div>
+              </div>
+              <div class="row-actions">
+                <div class="toggle on" title="Enabled"></div>
+                <button class="settings-btn" title="Configure">⚙️</button>
+              </div>
+            </div>
+
+            <!-- Row 2: Explore -->
+            <div class="nav-row">
+              <div class="drag-handle" title="Drag to reorder">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="row-icon">🔍</div>
+              <div class="row-info">
+                <div class="row-name">Explore <span class="badge badge-core">Core</span></div>
+                <div class="row-desc">Discover public content</div>
+              </div>
+              <div class="row-actions">
+                <div class="toggle on" title="Enabled"></div>
+                <button class="settings-btn" title="Configure">⚙️</button>
+              </div>
+            </div>
+
+            <!-- Row 3: Spaces -->
+            <div class="nav-row">
+              <div class="drag-handle" title="Drag to reorder">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="row-icon">🏘️</div>
+              <div class="row-info">
+                <div class="row-name">Spaces <span class="badge badge-core">Core</span></div>
+                <div class="row-desc">Browse and manage spaces</div>
+              </div>
+              <div class="row-actions">
+                <div class="toggle on" title="Enabled"></div>
+                <button class="settings-btn" title="Configure">⚙️</button>
+              </div>
+            </div>
+
+            <!-- Row 4: Messages -->
+            <div class="nav-row">
+              <div class="drag-handle" title="Drag to reorder">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="row-icon">💬</div>
+              <div class="row-info">
+                <div class="row-name">Messages <span class="badge badge-core-v2">Core · v2</span></div>
+                <div class="row-desc">Direct messages (requires v2)</div>
+              </div>
+              <div class="row-actions">
+                <div class="toggle on" title="Enabled"></div>
+                <button class="settings-btn" title="Configure">⚙️</button>
+              </div>
+            </div>
+
+            <!-- Row 5: Notifications -->
+            <div class="nav-row">
+              <div class="drag-handle" title="Drag to reorder">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="row-icon">🔔</div>
+              <div class="row-info">
+                <div class="row-name">Notifications <span class="badge badge-core">Core</span></div>
+                <div class="row-desc">Activity notifications</div>
+              </div>
+              <div class="row-actions">
+                <div class="toggle on" title="Enabled"></div>
+                <button class="settings-btn" title="Configure">⚙️</button>
+              </div>
+            </div>
+
+          </div><!-- /.nav-list -->
+
+          <!-- Add buttons -->
+          <div style="display:flex;gap:0;border-top:1px solid #f0f0f1;">
+            <button class="add-tab-btn" style="border-radius:0 0 0 3px;border-right:1px solid #e0e0e0;">
+              <span style="font-size:16px;line-height:1;">＋</span> Add Custom Tab
+            </button>
+            <button class="add-tab-btn" style="border-radius:0 0 3px 0;color:#0073aa;border-left:none;" title="Any connected plugin can inject tabs here via the buddynext_main_nav_items filter">
+              🔌 Tab from Plugin
+            </button>
+          </div>
+
+        </div><!-- /.nav-section main navigation -->
+
+        <!-- Profile Tabs (collapsed) -->
+        <div class="nav-section collapsed">
+          <div class="section-header">
+            <div class="section-title">
+              <span class="collapse-arrow">▾</span>
+              Profile Tabs
+            </div>
+            <div class="collapsed-summary">4 core · Posts, Media, Spaces, Friends · plugins can add more</div>
+            <div class="section-badge">4 core items</div>
+          </div>
+        </div>
+
+        <!-- Space Tabs (collapsed) -->
+        <div class="nav-section collapsed">
+          <div class="section-header">
+            <div class="section-title">
+              <span class="collapse-arrow">▾</span>
+              Space Tabs
+            </div>
+            <div class="collapsed-summary">4 core · Feed, Members, Forum, Media · plugins can add more</div>
+            <div class="section-badge">4 core items</div>
+          </div>
+        </div>
+
+        <!-- Mobile Bottom Nav (collapsed) -->
+        <div class="nav-section collapsed">
+          <div class="section-header">
+            <div class="section-title">
+              <span class="collapse-arrow">▾</span>
+              Mobile Bottom Nav
+            </div>
+            <div class="collapsed-summary">5 items · Feed, Explore, Spaces, Notifications, Messages</div>
+            <div class="section-badge">5 items</div>
+          </div>
+        </div>
+
+      </div><!-- /.main-panel -->
+
+      <!-- Right: Config Panel -->
+      <div class="config-panel">
+        <div class="config-card">
+          <div class="config-header">
+            <div class="config-breadcrumb">Main Navigation &rsaquo;</div>
+            <div class="config-title">📰 Home Feed</div>
+          </div>
+          <div class="config-body">
+
+            <div class="cf">
+              <label>Icon</label>
+              <div class="icon-picker">
+                <div class="icon-display">📰</div>
+                <span class="icon-change">Change icon…</span>
+              </div>
+            </div>
+
+            <div class="cf">
+              <label>Label</label>
+              <input type="text" value="Home Feed">
+            </div>
+
+            <div class="cf">
+              <label>URL / Template</label>
+              <input type="text" value="Community home — /community/" style="color:#646970;">
+            </div>
+
+            <div class="cf">
+              <label>Position</label>
+              <input type="number" value="1" style="width:80px;">
+            </div>
+
+            <div class="cf">
+              <label>Visibility</label>
+              <select>
+                <option selected>All members</option>
+                <option>Logged-in only</option>
+                <option>Admins only</option>
+                <option>Custom capability</option>
+              </select>
+            </div>
+
+            <div class="cf">
+              <label>Required Capability</label>
+              <input type="text" value="read">
+            </div>
+
+            <div class="config-divider"></div>
+
+            <div class="cf">
+              <div class="config-toggle-row">
+                <div>
+                  <div class="config-toggle-label">Login required</div>
+                  <div class="config-toggle-sub">Redirect guests to login page</div>
+                </div>
+                <div class="toggle on" style="flex-shrink:0;"></div>
+              </div>
+            </div>
+
+            <div class="cf">
+              <label>Guest Label</label>
+              <input type="text" value="Explore" placeholder="What guests see instead">
+              <div style="font-size:11px;color:#787c82;margin-top:4px;">Shown in nav when user is not logged in</div>
+            </div>
+
+            <div class="config-divider"></div>
+
+            <div class="cf">
+              <div class="config-note">
+                <strong>Core tab</strong> — This is a Core tab and cannot be removed, only hidden.
+              </div>
+            </div>
+
+            <button class="btn-apply">Apply</button>
+
+          </div>
+        </div>
+      </div><!-- /.config-panel -->
+
+    </div><!-- /.three-panel -->
+  </div><!-- /.wp-content -->
+</div><!-- /.wp-shell -->
+
+<!-- Developer info bar -->
+<div class="dev-bar">
+  <div class="dev-bar-title">🔌 How to register a custom tab from your plugin:</div>
+  <div class="dev-code"><span class="kw">add_filter</span>( <span class="st">'buddynext_main_nav_items'</span>, <span class="kw">function</span>( <span class="arr">$items</span> ) {
+    <span class="arr">$items</span>[] = [
+        <span class="st">'id'</span>         =&gt; <span class="st">'my-tab'</span>,
+        <span class="st">'label'</span>      =&gt; <span class="fn">__</span>( <span class="st">'My Tab'</span>, <span class="st">'my-plugin'</span> ),
+        <span class="st">'icon'</span>       =&gt; <span class="st">'⭐'</span>,
+        <span class="st">'url'</span>        =&gt; <span class="st">'/my-page/'</span>,
+        <span class="st">'position'</span>   =&gt; 60,
+        <span class="st">'capability'</span> =&gt; <span class="st">'read'</span>,
+    ];
+    <span class="kw">return</span> <span class="arr">$items</span>;
+} );</div>
+  <div class="dev-bar-note">Same filter pattern for profile tabs (<code>buddynext_profile_tabs</code>) and space tabs (<code>buddynext_space_tabs</code>).</div>
+</div>
+
+<script src="nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuddyNext — Forum Thread · Jetonomy (mobile)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+    :root {
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      --text-base: 15px; --leading-body: 1.6;
+      --bg: #ffffff; --bg-subtle: #f8f8f7; --bg-hover: #f1f1f0;
+      --surface: #ffffff; --border: #e8e8e5; --border-soft: #f1f1ee;
+      --text-1: #37352f; --text-2: #787774; --text-3: #aeaca8;
+      --brand: #0073aa; --brand-light: #e8f4fb; --brand-hover: #005f8e;
+      --jetonomy: #5b21b6; --jetonomy-bg: #f5f3ff; --jetonomy-light: #ede9fe;
+      --mvs: #0f766e; --mvs-bg: #f0fdf9;
+      --radius: 12px; --radius-sm: 8px; --radius-lg: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #e5e5ea;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0;
+      font-family: var(--font-body);
+    }
+
+    .phone-wrap {
+      background: #e5e5ea;
+      padding: 20px 0 40px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .phone {
+      width: 390px;
+      min-height: 820px;
+      background: var(--bg);
+      border-radius: 44px;
+      box-shadow: 0 0 0 10px #1a1a1a, 0 0 0 11px #3a3a3a, 0 30px 80px rgba(0,0,0,0.35);
+      overflow: hidden;
+      position: relative;
+      font-family: var(--font-body);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header bar */
+    .header-bar {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 56px;
+      flex-shrink: 0;
+    }
+    .header-back-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .header-back-arrow {
+      color: var(--text-2);
+      font-size: 20px;
+    }
+    .header-back-label {
+      font-size: 12px;
+      color: var(--text-2);
+    }
+    .header-spacer { flex: 1; }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+    .header-icon {
+      font-size: 18px;
+      cursor: pointer;
+      color: var(--text-2);
+    }
+
+    /* Scrollable content area */
+    .scroll-area {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* Thread header card */
+    .thread-card {
+      padding: 16px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      border-left: 4px solid var(--jetonomy);
+    }
+    .thread-card-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .badge-answered {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #f0fdf4;
+      color: #059669;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid #bbf7d0;
+    }
+    .badge-category {
+      display: inline-flex;
+      align-items: center;
+      background: var(--jetonomy-light);
+      color: var(--jetonomy);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-left: auto;
+    }
+    .thread-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-1);
+      line-height: 1.35;
+      margin-bottom: 12px;
+    }
+    .author-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      color: #fff;
+    }
+    .avatar-aj { background: #7c3aed; }
+    .avatar-sr { background: #059669; }
+    .avatar-mk { background: #d97706; }
+    .avatar-vd { background: #0073aa; }
+    .author-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-1);
+    }
+    .author-time {
+      font-size: 12px;
+      color: var(--text-3);
+    }
+    .badge-moderator {
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #bfdbfe;
+    }
+    .thread-body {
+      font-size: 14px;
+      color: var(--text-1);
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .code-block {
+      background: #f8f8f7;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 12px;
+      color: #5b21b6;
+      margin-bottom: 12px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .thread-stats-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .thread-stats-text {
+      font-size: 12px;
+      color: var(--text-3);
+    }
+    .share-icon {
+      font-size: 16px;
+      color: var(--text-3);
+      cursor: pointer;
+    }
+
+    /* Vote row */
+    .vote-row {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .vote-label {
+      font-size: 12px;
+      color: var(--text-2);
+      flex: 1;
+    }
+    .vote-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid;
+    }
+    .vote-btn-up {
+      border-color: var(--jetonomy);
+      color: var(--jetonomy);
+      background: var(--jetonomy-bg);
+    }
+    .vote-btn-down {
+      border-color: var(--border);
+      color: var(--text-2);
+      background: var(--bg);
+    }
+    .vote-btn-share {
+      border-color: var(--border);
+      color: var(--text-2);
+      background: var(--bg);
+    }
+
+    /* Replies section header */
+    .replies-header {
+      background: var(--bg-subtle);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .replies-count {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-1);
+    }
+    .replies-sort {
+      font-size: 12px;
+      color: var(--text-2);
+      cursor: pointer;
+    }
+
+    /* Reply rows */
+    .reply-row {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .reply-row.accepted {
+      background: #f0fdf4;
+      border-left: 3px solid #22c55e;
+    }
+    .reply-row.nested {
+      padding-left: 32px;
+      border-left: 3px solid var(--border);
+      margin-left: 16px;
+    }
+    .reply-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .accepted-badge {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #dcfce7;
+      color: #15803d;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 6px;
+      border: 1px solid #bbf7d0;
+    }
+    .op-badge {
+      background: #ede9fe;
+      color: var(--jetonomy);
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .reply-body {
+      font-size: 13px;
+      color: var(--text-1);
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .reply-code {
+      background: #f8f8f7;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 11px;
+      color: #059669;
+      margin-bottom: 8px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .reply-reactions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 12px;
+      color: var(--text-3);
+    }
+    .reaction-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    /* Load more */
+    .load-more-wrap {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .load-more-btn {
+      width: 100%;
+      padding: 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-2);
+      cursor: pointer;
+      text-align: center;
+    }
+
+    /* Compose reply area */
+    .compose-area {
+      position: sticky;
+      bottom: 0;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 10px 14px 28px;
+      flex-shrink: 0;
+    }
+    .compose-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .compose-input {
+      flex: 1;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 8px 14px;
+      font-size: 13px;
+      color: var(--text-3);
+      font-family: var(--font-body);
+    }
+    .compose-send {
+      width: 36px;
+      height: 36px;
+      background: var(--jetonomy);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+      flex-shrink: 0;
+      color: #fff;
+    }
+    .avatar-sm {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+      color: #fff;
+      background: #0073aa;
+    }
+  </style>
+</head>
+<body>
+
+<div class="phone-wrap">
+  <div class="phone">
+
+    <!-- STATUS BAR -->
+    <div style="background:#fff;padding:14px 28px 6px;display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:#1a1a1a;flex-shrink:0;">
+      <span>9:41</span><span style="font-size:10px;">▲▲▲ WiFi ▓▓▓</span>
+    </div>
+
+    <!-- HEADER BAR -->
+    <div class="header-bar">
+      <div class="header-back-group">
+        <span class="header-back-arrow">←</span>
+        <span class="header-back-label">Web Dev Forum</span>
+      </div>
+      <div class="header-spacer"></div>
+      <div class="header-actions">
+        <span class="header-icon">🔖</span>
+        <span class="header-icon">⋯</span>
+      </div>
+    </div>
+
+    <!-- SCROLLABLE CONTENT -->
+    <div class="scroll-area">
+
+      <!-- THREAD HEADER CARD -->
+      <div class="thread-card">
+        <div class="thread-card-top">
+          <span class="badge-answered">✅ Answered</span>
+          <span class="badge-category">TypeScript</span>
+        </div>
+        <div class="thread-title">Best practices for TypeScript generics? Struggling with conditional types</div>
+        <div class="author-row">
+          <div class="avatar avatar-aj">AJ</div>
+          <span class="author-name">Alex Johnson</span>
+          <span class="author-time">45 minutes ago</span>
+          <span class="badge-moderator">Moderator</span>
+        </div>
+        <div class="thread-body">I've been working on a utility type library and keep running into issues with conditional types. Specifically, distributive conditional types are tripping me up. Anyone have good patterns for this? Here's a simplified example of what I'm trying to do...</div>
+        <div class="code-block">type IsArray&lt;T&gt; = T extends any[] ? true : false;</div>
+        <div class="thread-stats-row">
+          <span class="thread-stats-text">💬 18 replies · 👁 142 views</span>
+          <span class="share-icon">↗</span>
+        </div>
+      </div>
+
+      <!-- VOTE ROW -->
+      <div class="vote-row">
+        <span class="vote-label">Was this helpful?</span>
+        <div class="vote-btn vote-btn-up">▲ <span>24</span></div>
+        <div class="vote-btn vote-btn-down">▼</div>
+        <div class="vote-btn vote-btn-share">↗ Share</div>
+      </div>
+
+      <!-- REPLIES SECTION HEADER -->
+      <div class="replies-header">
+        <span class="replies-count">18 Replies</span>
+        <span class="replies-sort">Best ▾</span>
+      </div>
+
+      <!-- REPLY 1: Accepted Answer -->
+      <div class="reply-row accepted">
+        <div class="reply-header">
+          <div class="avatar avatar-sr" style="width:32px;height:32px;font-size:12px;">SR</div>
+          <span style="font-size:13px;font-weight:700;color:var(--text-1);">Sarah Rodriguez</span>
+          <span style="font-size:11px;color:var(--text-3);">32m ago</span>
+          <span class="accepted-badge">✅ Accepted Answer</span>
+        </div>
+        <div class="reply-body">Great question! The key is understanding distributive conditional types vs mapped types. For your case, you want to use <code style="background:#f0fdf4;padding:1px 4px;border-radius:3px;font-size:12px;">[T] extends [any[]]</code> instead of <code style="background:#f0fdf4;padding:1px 4px;border-radius:3px;font-size:12px;">T extends any[]</code> to avoid distribution. Here's why...</div>
+        <div class="reply-code">type IsArray&lt;T&gt; = [T] extends [any[]] ? true : false;</div>
+        <div class="reply-reactions">
+          <span class="reaction-item">❤️ 12</span>
+          <span class="reaction-item">💬 Reply</span>
+          <span class="reaction-item">🔖 Save</span>
+        </div>
+      </div>
+
+      <!-- REPLY 2: Normal -->
+      <div class="reply-row">
+        <div class="reply-header">
+          <div class="avatar avatar-mk" style="width:32px;height:32px;font-size:12px;">MK</div>
+          <span style="font-size:13px;font-weight:700;color:var(--text-1);">Marcus Kim</span>
+          <span style="font-size:11px;color:var(--text-3);">28m ago</span>
+        </div>
+        <div class="reply-body">Also worth checking out Matt Pocock's TypeScript Wizard course — he has a whole module on this exact pattern.</div>
+        <div class="reply-reactions">
+          <span class="reaction-item">❤️ 4</span>
+          <span class="reaction-item">💬 Reply</span>
+        </div>
+      </div>
+
+      <!-- REPLY 3: Nested (OP reply) -->
+      <div class="reply-row nested">
+        <div class="reply-header">
+          <div class="avatar avatar-aj" style="width:32px;height:32px;font-size:12px;">AJ</div>
+          <span style="font-size:13px;font-weight:700;color:var(--text-1);">Alex Johnson</span>
+          <span class="op-badge">OP</span>
+          <span style="font-size:11px;color:var(--text-3);">20m ago</span>
+        </div>
+        <div class="reply-body">That makes total sense, thank you! The <code style="background:#ede9fe;padding:1px 4px;border-radius:3px;font-size:12px;">[T] extends [any[]]</code> pattern is exactly what I needed. Marking Sarah's answer as accepted ✅</div>
+        <div class="reply-reactions">
+          <span class="reaction-item">❤️ 3</span>
+          <span class="reaction-item">💬 Reply</span>
+        </div>
+      </div>
+
+      <!-- LOAD MORE -->
+      <div class="load-more-wrap">
+        <div class="load-more-btn">Load 15 more replies</div>
+      </div>
+
+    </div><!-- /.scroll-area -->
+
+    <!-- COMPOSE REPLY AREA -->
+    <div class="compose-area">
+      <div class="compose-row">
+        <div class="avatar-sm">VD</div>
+        <div class="compose-input">Write a reply…</div>
+        <div class="compose-send">➤</div>
+      </div>
+    </div>
+
+  </div><!-- /.phone -->
+</div><!-- /.phone-wrap -->
+
+<!-- SPEC NOTES -->
+<div style="width:390px;background:#1e1e1e;color:#e5e7eb;padding:20px 24px;font-size:12px;border-radius:0 0 16px 16px;line-height:1.7;">
+  <div style="font-weight:700;color:#a78bfa;margin-bottom:10px;font-size:13px;">Forum Thread — Jetonomy Integration</div>
+  <div style="color:#9ca3af;">• URL: <span style="color:#e5e7eb;">/community/spaces/web-dev/forum/thread/{slug}/</span></div>
+  <div style="color:#9ca3af;">• Template: Jetonomy thread template, theme-overridable via <span style="color:#e5e7eb;">theme/jetonomy/</span></div>
+  <div style="color:#9ca3af;">• Voting: <span style="color:#e5e7eb;">POST jetonomy/v1/threads/{id}/vote</span> · <span style="color:#e5e7eb;">POST jetonomy/v1/replies/{id}/vote</span> (requires login)</div>
+  <div style="color:#9ca3af;">• Accepted answer: <span style="color:#e5e7eb;">POST jetonomy/v1/threads/{id}/accept-reply/{reply_id}</span> — OP or space mod only</div>
+  <div style="color:#9ca3af;">• Nested replies: 1 level deep only (flat threading, not Reddit-style infinite nesting)</div>
+  <div style="color:#9ca3af;">• Reply composer: <span style="color:#e5e7eb;">WP Interactivity API store('jetonomy', {replyTo: null, body: ''})</span></div>
+  <div style="color:#9ca3af;">• "Mark as answer" UI: shown only to thread OP and space moderators</div>
+  <div style="color:#9ca3af;">• Bookmarks: stored in <span style="color:#e5e7eb;">wp_usermeta jt_bookmarks</span></div>
+  <div style="color:#9ca3af;">• REST: <span style="color:#e5e7eb;">GET jetonomy/v1/threads/{slug}</span> · <span style="color:#e5e7eb;">POST jetonomy/v1/threads/{slug}/replies</span></div>
+  <div style="color:#9ca3af;">• Pagination: 20 replies per page, sorted by Best (votes) or Chronological</div>
+</div>
+
+<script src="nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BuddyNext — Space Moderation Panel</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f7f6; color: #1e1e1e; font-size: 15px; }
+
+/* ── BuddyX Theme Header ── */
+.buddyx-header {
+  background: #1e1e1e;
+  color: #fff;
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.buddyx-logo { font-weight: 800; font-size: 18px; letter-spacing: -0.5px; }
+.buddyx-nav { display: flex; gap: 24px; font-size: 14px; opacity: 0.85; }
+.buddyx-nav a { color: #fff; text-decoration: none; }
+.buddyx-nav a:hover { opacity: 0.7; }
+.buddyx-user { display: flex; align-items: center; gap: 12px; }
+.user-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: #0073aa;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 12px; color: #fff;
+}
+
+/* ── BuddyNext Secondary Nav ── */
+.buddynext-nav {
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+  padding: 0 24px;
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+}
+.bnav-tab {
+  padding: 14px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  text-decoration: none;
+  display: block;
+}
+.bnav-tab:hover { color: #374151; }
+.bnav-tab.active {
+  color: #0073aa;
+  border-bottom-color: #0073aa;
+  font-weight: 600;
+}
+
+/* ── Space Context Sub-header (blue tint = inside a specific space) ── */
+.space-subheader {
+  background: #eff6ff;
+  border-bottom: 2px solid #bfdbfe;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.space-subheader-info { display: flex; flex-direction: column; gap: 2px; }
+.space-subheader-name { font-weight: 700; font-size: 14px; }
+.space-subheader-meta { font-size: 11px; color: #6b7280; }
+.space-admin-badge {
+  background: #0073aa; color: #fff;
+  font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px;
+  flex-shrink: 0;
+}
+.space-subheader-actions {
+  margin-left: auto;
+  display: flex; gap: 12px; align-items: center;
+}
+
+/* ── Space Tab Strip ── */
+.space-tabs {
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+  padding: 0 24px;
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+}
+.stab {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  text-decoration: none;
+  display: block;
+}
+.stab:hover { color: #374151; }
+.stab.active {
+  color: #0073aa;
+  border-bottom-color: #0073aa;
+  font-weight: 600;
+}
+
+/* ── Main content shell ── */
+.shell {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+/* ── Page title row ── */
+.page-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.page-title { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.page-subtitle { font-size: 13px; color: #6b7280; }
+.scope-badge {
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+/* ── Stats row ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 16px;
+}
+.stat-num { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
+.stat-label { font-size: 12px; color: #6b7280; }
+.num-red { color: #ef4444; }
+.num-amber { color: #f59e0b; }
+.num-orange { color: #ea580c; }
+.num-grey { color: #6b7280; }
+
+/* ── Tab filter bar ── */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.filter-pill {
+  padding: 6px 14px;
+  border-radius: 16px;
+  border: 1.5px solid #e9ecef;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #374151;
+}
+.filter-pill.active {
+  background: #0073aa;
+  border-color: #0073aa;
+  color: #fff;
+}
+
+/* ── Two-column layout ── */
+.content-layout {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* ── Report cards ── */
+.report-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.report-card.medium { border-left: 4px solid #f59e0b; }
+.report-card.low { border-left: 4px solid #9ca3af; }
+
+.rc-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fafafa;
+  border-bottom: 1px solid #f3f4f6;
+  flex-wrap: wrap;
+}
+.avatar {
+  border-radius: 50%; color: #fff; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.avatar.sm { width: 32px; height: 32px; font-size: 11px; }
+.av-orange { background: #ea580c; }
+.av-purple { background: #7c3aed; }
+.av-blue   { background: #0073aa; }
+.av-green  { background: #059669; }
+.av-teal   { background: #0d9488; }
+
+.rc-who { flex: 1; min-width: 0; }
+.rc-name { font-weight: 600; font-size: 13px; }
+.rc-meta { font-size: 11px; color: #9ca3af; }
+
+.rc-badge {
+  font-size: 10px; padding: 2px 8px; border-radius: 10px;
+  font-weight: 700; flex-shrink: 0;
+}
+.badge-spam    { background: #fef3c7; color: #92400e; }
+.badge-offtopic { background: #f3f4f6; color: #6b7280; }
+.badge-reports-amber { background: #fef3c7; color: #92400e; }
+.badge-reports-grey  { background: #f3f4f6; color: #9ca3af; }
+
+.rc-time { font-size: 11px; color: #9ca3af; flex-shrink: 0; }
+
+.rc-body { padding: 14px 16px; }
+.content-preview {
+  background: #f9fafb;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.report-reason { font-size: 12px; color: #6b7280; margin-bottom: 12px; }
+.report-reason strong { color: #374151; }
+
+.reporters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 14px;
+}
+.reporters-avatars { display: flex; }
+.ra {
+  width: 20px; height: 20px; border-radius: 50%;
+  margin-left: -4px; display: flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 700; color: #fff;
+  border: 1.5px solid #fff;
+}
+.ra:first-child { margin-left: 0; }
+
+.rc-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn {
+  padding: 6px 13px; border-radius: 6px;
+  font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid;
+}
+.btn-view    { border-color: #0073aa; background: #eff6ff; color: #0073aa; }
+.btn-dismiss { border-color: #e9ecef; background: #fff; color: #6b7280; }
+.btn-remove  { border-color: #fca5a5; background: #fff5f5; color: #ef4444; }
+.btn-warn    { border-color: #fde68a; background: #fffbeb; color: #92400e; }
+/* "Remove from Space" — distinct purple (space-level action) */
+.btn-space-remove { border-color: #7c3aed; background: #f5f3ff; color: #7c3aed; }
+
+.action-note {
+  font-size: 11px; color: #9ca3af; margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #f3f4f6;
+}
+
+/* ── Pending Members collapsed section ── */
+.section-collapsed {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.section-collapsed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+.section-collapsed-title {
+  font-size: 14px; font-weight: 700; color: #374151;
+}
+.section-collapsed-meta {
+  font-size: 12px; color: #6b7280; margin-left: 8px;
+}
+.btn-expand {
+  border: 1.5px solid #e9ecef;
+  background: #fff;
+  color: #374151;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pending-hint {
+  border-top: 1px solid #f3f4f6;
+  padding: 10px 16px;
+  background: #f9fafb;
+  font-size: 12px;
+  color: #9ca3af;
+}
+.pending-hint-avatars { display: flex; gap: 6px; align-items: center; }
+.ph-avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #e9ecef;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700; color: #6b7280;
+}
+
+/* ── Activity Log ── */
+.section-header {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e1e1e;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.activity-log {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.log-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  font-size: 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.log-row:last-child { border-bottom: none; }
+.log-row:nth-child(even) { background: #fafafa; }
+.log-icon { font-size: 13px; flex-shrink: 0; width: 18px; text-align: center; }
+.log-desc { flex: 1; color: #374151; line-height: 1.4; }
+.log-desc strong { color: #1e1e1e; }
+.log-actor { font-size: 11px; color: #9ca3af; }
+.log-time  { font-size: 11px; color: #9ca3af; white-space: nowrap; flex-shrink: 0; }
+
+/* ── Right sidebar — scope info card ── */
+.scope-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  overflow: hidden;
+  position: sticky;
+  top: 20px;
+}
+.scope-card-header {
+  background: #f0f9ff;
+  border-bottom: 1px solid #bae6fd;
+  padding: 12px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #0369a1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.scope-list { padding: 14px; }
+.scope-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 5px 0;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+}
+.scope-item:last-child { border-bottom: none; }
+.scope-dot-can  { color: #059669; font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.scope-dot-cant { color: #ef4444; font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.scope-card-footer {
+  padding: 12px 14px;
+  border-top: 1px solid #e9ecef;
+  background: #fafafa;
+}
+.scope-card-footer a {
+  font-size: 12px;
+  color: #0073aa;
+  font-weight: 600;
+  text-decoration: none;
+}
+</style>
+</head>
+<body>
+
+<!-- 1. BuddyX Theme Header -->
+<div class="buddyx-header">
+  <div class="buddyx-logo">BuddyX</div>
+  <nav class="buddyx-nav">
+    <a href="#">Home</a>
+    <a href="#">Community</a>
+    <a href="#">Shop</a>
+    <a href="#">Blog</a>
+  </nav>
+  <div class="buddyx-user">
+    <div class="user-avatar">VD</div>
+  </div>
+</div>
+
+<!-- 2. BuddyNext Secondary Nav -->
+<div class="buddynext-nav">
+  <a href="#" class="bnav-tab">Feed</a>
+  <a href="#" class="bnav-tab">Explore</a>
+  <a href="#" class="bnav-tab active">Spaces</a>
+  <a href="#" class="bnav-tab">Messages</a>
+  <a href="#" class="bnav-tab">Notifications</a>
+</div>
+
+<!-- 3. Space Context Sub-header (blue tint = inside a specific space) -->
+<div class="space-subheader">
+  <span style="font-size:20px;">💻</span>
+  <div class="space-subheader-info">
+    <div class="space-subheader-name">Web Dev Community</div>
+    <div class="space-subheader-meta">1,247 members · Open space</div>
+  </div>
+  <span class="space-admin-badge">Space Admin</span>
+  <div class="space-subheader-actions">
+    <a href="#" style="font-size:12px;color:#0073aa;text-decoration:none;font-weight:600;">← Back to Space</a>
+    <a href="#" style="font-size:12px;color:#6b7280;text-decoration:none;">Community Admin Panel</a>
+  </div>
+</div>
+
+<!-- 4. Space Tab Strip -->
+<div class="space-tabs">
+  <a href="#" class="stab">Feed</a>
+  <a href="#" class="stab">Members</a>
+  <a href="#" class="stab">Forum</a>
+  <a href="#" class="stab">Media</a>
+  <a href="#" class="stab">⚙️ Settings</a>
+  <a href="#" class="stab active">🛡️ Moderation</a>
+</div>
+
+<!-- 5. Main content area -->
+<div class="shell">
+
+  <!-- Page title row -->
+  <div class="page-title-row">
+    <div>
+      <div class="page-title">🛡️ Moderation — Web Dev Community</div>
+      <div class="page-subtitle">Reports and member actions scoped to this space only.</div>
+    </div>
+    <div class="scope-badge">Space scope · You cannot see reports from other spaces</div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-num num-red">2</div>
+      <div class="stat-label">Open Reports</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num num-amber">8</div>
+      <div class="stat-label">Pending Member Requests</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num num-orange">1</div>
+      <div class="stat-label">Members warned this week</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num num-grey">45</div>
+      <div class="stat-label">Actions taken (all time)</div>
+    </div>
+  </div>
+
+  <!-- Tab filter bar -->
+  <div class="filter-bar">
+    <div class="filter-pill active">Reports (2)</div>
+    <div class="filter-pill">Pending Members (8)</div>
+    <div class="filter-pill">Removed Content</div>
+    <div class="filter-pill">Activity Log</div>
+  </div>
+
+  <!-- Two-column layout: main + sidebar -->
+  <div class="content-layout">
+    <div>
+
+      <!-- REPORTS section -->
+
+      <!-- Report Card 1 — medium priority (spam) -->
+      <div class="report-card medium">
+        <div class="rc-header">
+          <div class="avatar sm av-orange">SP</div>
+          <div class="rc-who">
+            <div class="rc-name">SpamUser99</div>
+            <div class="rc-meta">Joined 1 week ago · 3 strikes · member of this space</div>
+          </div>
+          <div class="rc-badge badge-spam">Spam</div>
+          <div class="rc-time">30min ago</div>
+          <div class="rc-badge badge-reports-amber">2 reports</div>
+        </div>
+        <div class="rc-body">
+          <div class="content-preview">🤑 Make $500/day from home! Click this link: [link removed] — 100% guaranteed no risk. Join 50,000 happy members…</div>
+          <div class="report-reason"><strong>Reported for:</strong> Spam, unsolicited promotional content</div>
+          <div class="reporters">
+            <div class="reporters-avatars">
+              <div class="ra av-blue">LP</div>
+              <div class="ra av-teal">MK</div>
+            </div>
+            2 members from this space reported this
+          </div>
+          <div class="rc-actions">
+            <button class="btn btn-view">View Post</button>
+            <button class="btn btn-dismiss">✓ Dismiss</button>
+            <button class="btn btn-remove">🗑️ Remove</button>
+            <button class="btn btn-warn">⚠️ Warn</button>
+            <button class="btn btn-space-remove">🚫 Remove from Space</button>
+          </div>
+          <div class="action-note">
+            "Remove from Space" removes this member from <strong>Web Dev Community</strong> only — it does not suspend their platform account.
+          </div>
+        </div>
+      </div>
+
+      <!-- Report Card 2 — low priority (off-topic) -->
+      <div class="report-card low">
+        <div class="rc-header">
+          <div class="avatar sm av-purple">NM</div>
+          <div class="rc-who">
+            <div class="rc-name">New Member</div>
+            <div class="rc-meta">Joined 3 weeks ago · First report in this space</div>
+          </div>
+          <div class="rc-badge badge-offtopic">Off-topic</div>
+          <div class="rc-time">2h ago</div>
+          <div class="rc-badge badge-reports-grey">1 report</div>
+        </div>
+        <div class="rc-body">
+          <div class="content-preview">Check out my YouTube channel! I post coding tutorials every week. Subscribe and hit the bell! 🔔</div>
+          <div class="report-reason"><strong>Reported for:</strong> Self-promotion without value</div>
+          <div class="reporters">
+            <div class="reporters-avatars">
+              <div class="ra av-green">SR</div>
+            </div>
+            1 member from this space reported this
+          </div>
+          <div class="rc-actions">
+            <button class="btn btn-view">View Post</button>
+            <button class="btn btn-dismiss">✓ Dismiss (allowed)</button>
+            <button class="btn btn-remove">🗑️ Remove</button>
+            <button class="btn btn-warn">⚠️ Warn</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PENDING MEMBERS — collapsed section -->
+      <div class="section-collapsed">
+        <div class="section-collapsed-header">
+          <div>
+            <span class="section-collapsed-title">👥 Pending Member Requests</span>
+            <span class="section-collapsed-meta">8 requests awaiting approval</span>
+          </div>
+          <button class="btn-expand">Expand ▾</button>
+        </div>
+        <div class="pending-hint">
+          <div class="pending-hint-avatars">
+            <div class="ph-avatar">AJ</div>
+            <div class="ph-avatar">MR</div>
+            <div class="ph-avatar">TS</div>
+            <div class="ph-avatar">KP</div>
+            <div class="ph-avatar">+4</div>
+            <span style="margin-left:6px;color:#374151;">Expand to Approve / Decline / View Profile for each request.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY LOG section -->
+      <div class="section-header">📋 Recent Moderation Activity — Web Dev Community</div>
+      <div class="activity-log">
+        <div class="log-row">
+          <div class="log-icon">✅</div>
+          <div class="log-desc">Dismissed report — <strong>Off-topic post</strong> · No violation found</div>
+          <div class="log-actor">by You</div>
+          <div class="log-time">2h ago</div>
+        </div>
+        <div class="log-row">
+          <div class="log-icon">🗑️</div>
+          <div class="log-desc">Post removed — <strong>Spam detected</strong> · SpamUser99</div>
+          <div class="log-actor">by You</div>
+          <div class="log-time">3h ago</div>
+        </div>
+        <div class="log-row">
+          <div class="log-icon">⚠️</div>
+          <div class="log-desc">Warning sent — <strong>First warning</strong> · SpamUser99</div>
+          <div class="log-actor">by You</div>
+          <div class="log-time">3h ago</div>
+        </div>
+        <div class="log-row">
+          <div class="log-icon">✅</div>
+          <div class="log-desc">Member approved — <strong>Alex J.</strong> joined Web Dev Community</div>
+          <div class="log-actor"></div>
+          <div class="log-time">5h ago</div>
+        </div>
+        <div class="log-row">
+          <div class="log-icon">🚫</div>
+          <div class="log-desc">Member removed — <strong>Troll123</strong> removed from space</div>
+          <div class="log-actor">by You</div>
+          <div class="log-time">Yesterday</div>
+        </div>
+        <div class="log-row">
+          <div class="log-icon">📌</div>
+          <div class="log-desc">Post pinned — <strong>Welcome post</strong> pinned</div>
+          <div class="log-actor">by You</div>
+          <div class="log-time">Yesterday</div>
+        </div>
+        <div class="log-row">
+          <div class="log-icon">✅</div>
+          <div class="log-desc">Member approved — <strong>Maria K.</strong> joined</div>
+          <div class="log-actor"></div>
+          <div class="log-time">2 days ago</div>
+        </div>
+        <div class="log-row">
+          <div class="log-icon">🗑️</div>
+          <div class="log-desc">Post removed — <strong>Duplicate spam</strong></div>
+          <div class="log-actor">by You</div>
+          <div class="log-time">3 days ago</div>
+        </div>
+      </div>
+
+    </div><!-- /main col -->
+
+    <!-- Right sidebar — scope info card -->
+    <div>
+      <div class="scope-card">
+        <div class="scope-card-header">🔭 Your moderation scope</div>
+        <div class="scope-list">
+          <div class="scope-item">
+            <span class="scope-dot-can">✓</span>
+            <span>Moderate posts and comments in this space</span>
+          </div>
+          <div class="scope-item">
+            <span class="scope-dot-can">✓</span>
+            <span>Approve / decline join requests</span>
+          </div>
+          <div class="scope-item">
+            <span class="scope-dot-can">✓</span>
+            <span>Warn or remove members from this space</span>
+          </div>
+          <div class="scope-item">
+            <span class="scope-dot-cant">✕</span>
+            <span>Suspend accounts platform-wide <span style="color:#9ca3af;">(requires Community Admin)</span></span>
+          </div>
+          <div class="scope-item">
+            <span class="scope-dot-cant">✕</span>
+            <span>See reports from other spaces</span>
+          </div>
+        </div>
+        <div class="scope-card-footer">
+          <a href="#">Request platform-wide admin access →</a>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content-layout -->
+</div><!-- /shell -->
+
+<!-- Spec notes footer -->
+<div style="background:#1e1e1e;color:#e5e7eb;padding:20px 32px;font-size:12px;line-height:1.8;margin-top:16px;">
+  <div style="font-weight:700;color:#fff;margin-bottom:8px;">📋 Space Moderation — Spec Notes</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+    <div>
+      <div style="color:#60a5fa;font-weight:600;margin-bottom:6px;">Scope isolation</div>
+      <div>• Reports scoped to this space only</div>
+      <div>• Space admin cannot see reports in other spaces</div>
+      <div>• Separate from Community Admin panel (amber theme)</div>
+      <div>• Blue subheader = "inside a specific space" signal</div>
+    </div>
+    <div>
+      <div style="color:#60a5fa;font-weight:600;margin-bottom:6px;">Actions available</div>
+      <div>• Dismiss / Remove content / Warn — same as global queue</div>
+      <div>• "Remove from Space" — purple button, space-level only</div>
+      <div>• Cannot suspend platform account from here</div>
+      <div>• Pending members: approve / decline / view profile</div>
+    </div>
+    <div>
+      <div style="color:#60a5fa;font-weight:600;margin-bottom:6px;">Data / REST</div>
+      <div>• GET jetonomy/v1/spaces/{id}/reports</div>
+      <div>• POST jetonomy/v1/spaces/{id}/reports/{rid}/action</div>
+      <div>• GET jetonomy/v1/spaces/{id}/members?status=pending</div>
+      <div>• Activity log: GET jetonomy/v1/spaces/{id}/mod-log</div>
+    </div>
+  </div>
+</div>
+
+<script src="nav.js"></script>
+</body>
+</html>

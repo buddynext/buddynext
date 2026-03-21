@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Admin: Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+/* ── Design tokens ── */
+:root {
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --text-xs: 11px;  --text-sm: 13px;  --text-base: 15px;
+  --text-lg: 17px;  --text-xl: 20px;  --text-2xl: 24px;
+  --leading-body: 1.7;
+
+  /* Notion warm-grey palette — light */
+  --bg:           #ffffff;
+  --bg-subtle:    #f8f8f7;
+  --bg-hover:     #f1f1f0;
+  --surface:      #ffffff;
+  --border:       #e8e8e5;
+  --border-soft:  #f1f1ee;
+  --text-1:       #37352f;
+  --text-2:       #787774;
+  --text-3:       #aeaca8;
+
+  /* Brand + integration accents */
+  --brand:        #0073aa;
+  --brand-light:  #e8f4fb;
+  --brand-hover:  #005f8e;
+  --jetonomy:     #5b21b6;
+  --jetonomy-bg:  #f5f3ff;
+  --mvs:          #0f766e;
+  --mvs-bg:       #f0fdf9;
+
+  /* Semantic */
+  --green:        #059669;
+  --green-bg:     #ecfdf5;
+  --amber:        #d97706;
+  --amber-bg:     #fffbeb;
+  --red:          #dc2626;
+  --red-bg:       #fef2f2;
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px;
+  --s6: 24px; --s8: 32px;
+  --radius-sm: 6px; --radius: 10px; --radius-lg: 14px;
+}
+[data-theme="dark"] {
+  --bg:           #191919;
+  --bg-subtle:    #202020;
+  --bg-hover:     #2a2a2a;
+  --surface:      #252525;
+  --border:       #333330;
+  --border-soft:  #2c2c2a;
+  --text-1:       #e8e8e6;
+  --text-2:       #9b9b97;
+  --text-3:       #6b6b67;
+  --brand:        #4dabdb;
+  --brand-light:  #1a2e3a;
+  --brand-hover:  #5fbfe8;
+  --jetonomy:     #a78bfa;
+  --jetonomy-bg:  #1e1830;
+  --mvs:          #34d399;
+  --mvs-bg:       #0d2420;
+  --green:        #34d399;
+  --green-bg:     #0d2420;
+  --amber:        #fbbf24;
+  --amber-bg:     #2a2000;
+  --red:          #f87171;
+  --red-bg:       #2d0f0f;
+}
+
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1e1e1e;
+  background: #f0f0f1;
+  -webkit-font-smoothing: antialiased;
+}
+[data-theme="dark"] body { background: #111; color: #e8e8e6; }
+[data-theme="dark"] .wp-content-area { background: #111; }
+
+/* ── WP Admin Chrome ── */
+.wp-shell { display: flex; min-height: 100vh; }
+
+.wp-sidebar {
+  width: 200px;
+  background: #1e1e1e;
+  min-height: 100vh;
+  padding-top: 16px;
+  flex-shrink: 0;
+}
+.wp-nav { padding: 8px 0; }
+.wp-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  color: #ccc;
+  font-size: 13px;
+  cursor: pointer;
+}
+.wp-item:hover { background: #333; color: #fff; }
+.wp-item.active { background: #0073aa; color: #fff; }
+.wp-item .icon { font-size: 16px; width: 20px; }
+.wp-subnav { background: #111; }
+.wp-subitem {
+  padding: 7px 16px 7px 44px;
+  color: #bbb;
+  font-size: 12px;
+  cursor: pointer;
+}
+.wp-subitem:hover { color: #fff; }
+.wp-subitem.active { color: #0073aa; font-weight: 600; }
+
+/* ── Main content ── */
+.wp-content-area {
+  flex: 1;
+  padding: 24px;
+  background: #f0f0f1;
+  min-width: 0;
+}
+
+/* ── Info bar ── */
+.info-bar {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-size: 12px;
+  color: #1d4ed8;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+[data-theme="dark"] .info-bar { background: #1a2e3a; border-color: #2a4a6a; color: #93c5fd; }
+
+/* ── Admin page header ── */
+.admin-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.admin-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 3px; }
+.admin-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  font-family: var(--font-display);
+}
+[data-theme="dark"] .admin-title { color: #f3f4f6; }
+.pro-badge {
+  background: #7c3aed;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.admin-sub { font-size: 13px; color: #6b7280; }
+[data-theme="dark"] .admin-sub { color: #9b9b97; }
+.admin-header-actions { display: flex; gap: 8px; align-items: center; }
+
+.btn-secondary-admin {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.btn-secondary-admin:hover { background: #f9fafb; }
+.date-select {
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+[data-theme="dark"] .btn-secondary-admin { background: #2a2a2a; color: #e8e8e6; border-color: #444; }
+[data-theme="dark"] .date-select { background: #2a2a2a; color: #e8e8e6; border-color: #444; }
+
+.dark-toggle-admin {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ccc;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-body);
+}
+.dark-toggle-admin:hover { color: #fff; }
+
+/* ── Stat cards row ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px 16px 14px;
+}
+[data-theme="dark"] .stat-card { background: #252525; border-color: #333330; }
+.stat-label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+[data-theme="dark"] .stat-label { color: #9b9b97; }
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1;
+  font-family: var(--font-display);
+  margin-bottom: 6px;
+}
+[data-theme="dark"] .stat-value { color: #e8e8e6; }
+.stat-delta { font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 3px; }
+.delta-up { color: #059669; }
+.delta-down { color: #dc2626; }
+
+/* ── Chart row ── */
+.chart-row {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.chart-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 18px;
+}
+[data-theme="dark"] .chart-card { background: #252525; border-color: #333330; }
+.chart-title { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 6px; }
+[data-theme="dark"] .chart-title { color: #e8e8e6; }
+.chart-y-hint { font-size: 10px; color: #9ca3af; text-align: right; margin-bottom: 4px; }
+
+/* Bar chart */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 130px;
+}
+.bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+}
+.bar {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  background: #0073aa;
+  min-height: 4px;
+}
+[data-theme="dark"] .bar { background: #4dabdb; }
+.bar-label-wrap { margin-top: 5px; height: 32px; display: flex; align-items: flex-start; justify-content: center; }
+.bar-label {
+  font-size: 9px;
+  color: #9ca3af;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  line-height: 1;
+}
+
+/* Horizontal bars */
+.hbar-list { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.hbar-meta { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.hbar-name { font-size: 12px; font-weight: 500; color: #374151; }
+[data-theme="dark"] .hbar-name { color: #e8e8e6; }
+.hbar-pct { font-size: 12px; font-weight: 700; color: #6b7280; }
+.hbar-track { height: 8px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+[data-theme="dark"] .hbar-track { background: #333330; }
+.hbar-fill { height: 100%; border-radius: 4px; }
+
+.posts-total-divider { margin-top: 16px; padding-top: 14px; border-top: 1px solid #f3f4f6; }
+[data-theme="dark"] .posts-total-divider { border-color: #333330; }
+.posts-total-label { font-size: 11px; color: #6b7280; margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.posts-total-value { font-size: 22px; font-weight: 700; color: #111827; font-family: var(--font-display); }
+[data-theme="dark"] .posts-total-value { color: #e8e8e6; }
+.posts-total-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+/* ── Tables row ── */
+.tables-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.table-card { background: #fff; border: 1px solid #e9ecef; border-radius: 8px; overflow: hidden; }
+[data-theme="dark"] .table-card { background: #252525; border-color: #333330; }
+.table-card-title { font-size: 13px; font-weight: 700; color: #111827; padding: 14px 16px 12px; border-bottom: 1px solid #f3f4f6; }
+[data-theme="dark"] .table-card-title { color: #e8e8e6; border-color: #333330; }
+.inner-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.inner-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #f9fafb;
+  border-bottom: 1px solid #f3f4f6;
+}
+[data-theme="dark"] .inner-table th { background: #2a2a2a; color: #6b6b67; border-color: #333330; }
+.inner-table td { padding: 9px 12px; border-bottom: 1px solid #f9fafb; color: #374151; vertical-align: middle; }
+[data-theme="dark"] .inner-table td { color: #c8c8c4; border-color: #2c2c2a; }
+.inner-table tbody tr:last-child td { border-bottom: none; }
+.inner-table tbody tr:hover td { background: #fafafa; }
+[data-theme="dark"] .inner-table tbody tr:hover td { background: #2a2a2a; }
+.rank-num { color: #9ca3af; font-weight: 600; width: 20px; }
+.space-name-link { font-weight: 600; color: #0073aa; cursor: pointer; }
+.member-name-cell { display: flex; align-items: center; gap: 7px; font-weight: 600; color: #374151; cursor: pointer; }
+[data-theme="dark"] .member-name-cell { color: #e8e8e6; }
+.mini-av { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.score-chip { background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 8px; display: inline-block; }
+[data-theme="dark"] .score-chip { background: #1a2e3a; color: #93c5fd; }
+.eng-rate { font-weight: 600; color: #059669; }
+.tr-right { text-align: right; }
+
+/* ── Heatmap card ── */
+.heatmap-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 18px;
+}
+[data-theme="dark"] .heatmap-card { background: #252525; border-color: #333330; }
+.heatmap-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.heatmap-title { font-size: 13px; font-weight: 700; color: #111827; }
+[data-theme="dark"] .heatmap-title { color: #e8e8e6; }
+.heatmap-subtitle { font-size: 11px; color: #6b7280; margin-top: 2px; }
+.heatmap-darker-note { font-size: 11px; color: #9ca3af; }
+.heatmap-body { display: flex; gap: 10px; }
+.heatmap-y-labels { display: flex; flex-direction: column; justify-content: space-between; padding-top: 22px; padding-bottom: 2px; }
+.hm-y-label { font-size: 10px; color: #9ca3af; text-align: right; padding: 0 4px; line-height: 1; }
+.heatmap-main { flex: 1; }
+.heatmap-x-labels { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-bottom: 4px; }
+.hm-x-label { font-size: 10px; color: #9ca3af; text-align: center; }
+.heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.hm-cell { aspect-ratio: 1.4; border-radius: 3px; background: #0073aa; }
+[data-theme="dark"] .hm-cell { background: #4dabdb; }
+.heatmap-legend { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 10px; color: #9ca3af; }
+.legend-bar { height: 8px; width: 120px; border-radius: 4px; background: linear-gradient(to right, rgba(0,115,170,0.06), rgba(0,115,170,1)); }
+[data-theme="dark"] .legend-bar { background: linear-gradient(to right, rgba(77,171,219,0.06), rgba(77,171,219,1)); }
+.heatmap-tz { margin-top: 10px; font-size: 11px; color: #9ca3af; }
+
+/* ── Spec footer ── */
+.spec-footer { background: #1a1a18; color: #c8c8c4; padding: 32px; font-size: 12px; line-height: 1.8; }
+.spec-footer-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: #fff; margin-bottom: 16px; }
+.spec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.spec-col-title { color: #60a5fa; font-weight: 600; margin-bottom: 8px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="wp-shell">
+
+  <!-- ── WP Admin Sidebar ── -->
+  <div class="wp-sidebar">
+    <div class="wp-nav">
+      <div class="wp-item"><span class="icon">🏠</span> Dashboard</div>
+      <div class="wp-item"><span class="icon">📝</span> Posts</div>
+      <div class="wp-item active"><span class="icon">🔵</span> BuddyNext</div>
+      <div class="wp-subnav">
+        <div class="wp-subitem">⚙️ Settings</div>
+        <div class="wp-subitem">👥 Members</div>
+        <div class="wp-subitem">🏘️ Spaces</div>
+        <div class="wp-subitem">🛡️ Moderation</div>
+        <div class="wp-subitem">📧 Emails</div>
+        <div class="wp-subitem active">📊 Analytics</div>
+      </div>
+      <div class="wp-item"><span class="icon">🔌</span> Plugins</div>
+      <div class="wp-item"><span class="icon">🎨</span> Appearance</div>
+    </div>
+  </div>
+
+  <!-- ── Main content ── -->
+  <div class="wp-content-area">
+
+    <!-- Info bar -->
+    <div class="info-bar">
+      ℹ️ Analytics data collection started on Mar 1, 2026. 19 days of data available.
+    </div>
+
+    <!-- Page header -->
+    <div class="admin-header">
+      <div>
+        <div class="admin-title-row">
+          <span class="admin-title">Community Analytics</span>
+          <span class="pro-badge">Pro</span>
+        </div>
+        <div class="admin-sub">Track growth, engagement, and health across your community</div>
+      </div>
+      <div class="admin-header-actions">
+        <button class="dark-toggle-admin" onclick="toggleDark()">🌙 Dark</button>
+        <select class="date-select">
+          <option selected>Last 30 days</option>
+          <option>Last 7 days</option>
+          <option>Last 90 days</option>
+          <option>This year</option>
+          <option>Custom range…</option>
+        </select>
+        <button class="btn-secondary-admin">⬇ Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Row 1: Key metrics -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">New Members</div>
+        <div class="stat-value">127</div>
+        <div class="stat-delta delta-up">▲ +12% vs prev period</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active Users / Month</div>
+        <div class="stat-value">847</div>
+        <div class="stat-delta delta-down">▼ −3% vs prev period</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Posts</div>
+        <div class="stat-value">1,284</div>
+        <div class="stat-delta delta-up">▲ +8% vs prev period</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg Comments / Post</div>
+        <div class="stat-value">4.2</div>
+        <div class="stat-delta delta-up">▲ +5% vs prev period</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Engagement Rate</div>
+        <div class="stat-value">23%</div>
+        <div class="stat-delta delta-up">▲ +2% vs prev period</div>
+      </div>
+    </div>
+
+    <!-- Row 2: Charts -->
+    <div class="chart-row">
+
+      <!-- Member Growth bar chart -->
+      <div class="chart-card">
+        <div class="chart-title">Member Growth — last 12 months</div>
+        <div class="chart-y-hint">Cumulative members ↑</div>
+        <!-- bar chart built by script via DOM -->
+        <div class="bar-chart" id="barChart"></div>
+      </div>
+
+      <!-- Posts by Type horizontal bars -->
+      <div class="chart-card">
+        <div class="chart-title">Posts by Type</div>
+        <div class="hbar-list">
+          <div>
+            <div class="hbar-meta">
+              <span class="hbar-name">Text posts</span>
+              <span class="hbar-pct">68%</span>
+            </div>
+            <div class="hbar-track">
+              <div class="hbar-fill" style="width:68%;background:#0073aa;"></div>
+            </div>
+          </div>
+          <div>
+            <div class="hbar-meta">
+              <span class="hbar-name">Media posts</span>
+              <span class="hbar-pct">18%</span>
+            </div>
+            <div class="hbar-track">
+              <div class="hbar-fill" style="width:18%;background:#0f766e;"></div>
+            </div>
+          </div>
+          <div>
+            <div class="hbar-meta">
+              <span class="hbar-name">Forum activity (Jetonomy)</span>
+              <span class="hbar-pct">10%</span>
+            </div>
+            <div class="hbar-track">
+              <div class="hbar-fill" style="width:10%;background:#5b21b6;"></div>
+            </div>
+          </div>
+          <div>
+            <div class="hbar-meta">
+              <span class="hbar-name">Other</span>
+              <span class="hbar-pct">4%</span>
+            </div>
+            <div class="hbar-track">
+              <div class="hbar-fill" style="width:4%;background:#9ca3af;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="posts-total-divider">
+          <div class="posts-total-label">Total posts this period</div>
+          <div class="posts-total-value">1,284</div>
+          <div class="posts-total-sub">across all spaces and the main feed</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Two tables -->
+    <div class="tables-row">
+
+      <!-- Top Spaces by Activity -->
+      <div class="table-card">
+        <div class="table-card-title">Top Spaces by Activity</div>
+        <table class="inner-table">
+          <thead>
+            <tr>
+              <th style="width:20px;">#</th>
+              <th>Space</th>
+              <th class="tr-right">Posts</th>
+              <th class="tr-right">Members</th>
+              <th class="tr-right">Engagement</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="rank-num">1</td>
+              <td><span class="space-name-link">💻 Web Dev</span></td>
+              <td class="tr-right">143</td>
+              <td class="tr-right">1,247</td>
+              <td class="tr-right"><span class="eng-rate">31%</span></td>
+            </tr>
+            <tr>
+              <td class="rank-num">2</td>
+              <td><span class="space-name-link">🎨 Design</span></td>
+              <td class="tr-right">98</td>
+              <td class="tr-right">876</td>
+              <td class="tr-right"><span class="eng-rate">28%</span></td>
+            </tr>
+            <tr>
+              <td class="rank-num">3</td>
+              <td><span class="space-name-link">📣 Marketing</span></td>
+              <td class="tr-right">67</td>
+              <td class="tr-right">643</td>
+              <td class="tr-right"><span class="eng-rate">22%</span></td>
+            </tr>
+            <tr>
+              <td class="rank-num">4</td>
+              <td><span class="space-name-link">🔒 Pro Members</span></td>
+              <td class="tr-right">45</td>
+              <td class="tr-right">89</td>
+              <td class="tr-right"><span class="eng-rate" style="color:#059669;font-weight:700;">47%</span></td>
+            </tr>
+            <tr>
+              <td class="rank-num">5</td>
+              <td><span class="space-name-link">📱 Mobile Dev</span></td>
+              <td class="tr-right">38</td>
+              <td class="tr-right">412</td>
+              <td class="tr-right"><span class="eng-rate">19%</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Top Contributors -->
+      <div class="table-card">
+        <div class="table-card-title">Top Contributors</div>
+        <table class="inner-table">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th class="tr-right">Posts</th>
+              <th class="tr-right">Comments</th>
+              <th class="tr-right">Reactions</th>
+              <th class="tr-right">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="member-name-cell">
+                  <span class="mini-av" style="background:#0073aa;">VD</span>
+                  <span>Varun Dubey</span>
+                </div>
+              </td>
+              <td class="tr-right">84</td>
+              <td class="tr-right">156</td>
+              <td class="tr-right">423</td>
+              <td class="tr-right"><span class="score-chip">1,240</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="member-name-cell">
+                  <span class="mini-av" style="background:#7c3aed;">AJ</span>
+                  <span>Alex Johnson</span>
+                </div>
+              </td>
+              <td class="tr-right">56</td>
+              <td class="tr-right">124</td>
+              <td class="tr-right">287</td>
+              <td class="tr-right"><span class="score-chip">920</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="member-name-cell">
+                  <span class="mini-av" style="background:#059669;">SR</span>
+                  <span>Sarah Rodriguez</span>
+                </div>
+              </td>
+              <td class="tr-right">47</td>
+              <td class="tr-right">89</td>
+              <td class="tr-right">312</td>
+              <td class="tr-right"><span class="score-chip">840</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="member-name-cell">
+                  <span class="mini-av" style="background:#ea580c;">MK</span>
+                  <span>Marcus Kim</span>
+                </div>
+              </td>
+              <td class="tr-right">23</td>
+              <td class="tr-right">67</td>
+              <td class="tr-right">198</td>
+              <td class="tr-right"><span class="score-chip">540</span></td>
+            </tr>
+            <tr>
+              <td>
+                <div class="member-name-cell">
+                  <span class="mini-av" style="background:#db2777;">TN</span>
+                  <span>Tanya Nguyen</span>
+                </div>
+              </td>
+              <td class="tr-right">18</td>
+              <td class="tr-right">45</td>
+              <td class="tr-right">143</td>
+              <td class="tr-right"><span class="score-chip">380</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Row 4: Engagement Heatmap -->
+    <div class="heatmap-card">
+      <div class="heatmap-header">
+        <div>
+          <div class="heatmap-title">Engagement Heatmap</div>
+          <div class="heatmap-subtitle">When is your community most active?</div>
+        </div>
+        <div class="heatmap-darker-note">Darker = more activity</div>
+      </div>
+
+      <div class="heatmap-body">
+        <div class="heatmap-y-labels">
+          <div class="hm-y-label">12am</div>
+          <div class="hm-y-label">6am</div>
+          <div class="hm-y-label">12pm</div>
+          <div class="hm-y-label">6pm</div>
+          <div class="hm-y-label">11pm</div>
+        </div>
+        <div class="heatmap-main">
+          <div class="heatmap-x-labels">
+            <div class="hm-x-label">Mon</div>
+            <div class="hm-x-label">Tue</div>
+            <div class="hm-x-label">Wed</div>
+            <div class="hm-x-label">Thu</div>
+            <div class="hm-x-label">Fri</div>
+            <div class="hm-x-label">Sat</div>
+            <div class="hm-x-label">Sun</div>
+          </div>
+          <!-- 24 rows × 7 days grid, rendered via safe DOM in script -->
+          <div class="heatmap-grid" id="heatmapGrid"></div>
+          <div class="heatmap-legend">
+            <span>Less</span>
+            <div class="legend-bar"></div>
+            <span>More</span>
+          </div>
+          <div class="heatmap-tz">All times in your timezone (UTC+5:30)</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /wp-content-area -->
+</div><!-- /wp-shell -->
+
+<!-- ── Spec notes footer ── -->
+<div class="spec-footer">
+  <div class="spec-footer-title">📋 Admin: Analytics — Spec Notes</div>
+  <div class="spec-grid">
+    <div>
+      <div class="spec-col-title">Page &amp; Pro Gate</div>
+      <div>• Page: wp-admin → BuddyNext → Analytics</div>
+      <div>• Pro feature — License::can_use_feature('analytics')</div>
+      <div>• Shows upgrade prompt / locked UI if on free plan</div>
+      <div>• Date range filter applies to all widgets on the page</div>
+      <div>• Export: CSV of raw events or aggregated summary</div>
+      <div>• GDPR: events stored with user_id; users can request deletion</div>
+    </div>
+    <div>
+      <div class="spec-col-title">Data Layer</div>
+      <div>• Table: bn_analytics_events</div>
+      <div>• Columns: event_type, user_id, object_id, object_type, timestamp, meta JSON</div>
+      <div>• Events: page_view, post_created, comment_added, reaction_given, space_joined, member_registered</div>
+      <div>• Aggregations run nightly via WP-Cron into summary tables for fast dashboard loading</div>
+      <div>• Heatmap: hourly bucketed event counts per day-of-week (7×24 matrix)</div>
+    </div>
+    <div>
+      <div class="spec-col-title">REST API</div>
+      <div>• GET buddynext/v1/analytics/summary?range=30d</div>
+      <div>• GET buddynext/v1/analytics/growth?range=12m (member counts by month)</div>
+      <div>• GET buddynext/v1/analytics/heatmap (7×24 activity matrix)</div>
+      <div>• GET buddynext/v1/analytics/top-spaces</div>
+      <div>• GET buddynext/v1/analytics/top-contributors</div>
+      <div>• All admin endpoints require manage_options capability</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Dark mode toggle ── */
+function toggleDark() {
+  var html = document.documentElement;
+  var isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  var btn = document.querySelector('.dark-toggle-admin');
+  btn.textContent = isDark ? '\uD83C\uDF19 Dark' : '\u2600\uFE0F Light';
+  buildBarChart();
+  buildHeatmap();
+}
+
+/* ── Bar chart: Member Growth (DOM-based, no innerHTML) ── */
+var MONTHS = ['Mar 25','Apr 25','May 25','Jun 25','Jul 25','Aug 25','Sep 25','Oct 25','Nov 25','Dec 25','Jan 26','Feb 26'];
+var COUNTS = [850, 878, 906, 940, 968, 992, 1024, 1068, 1108, 1160, 1224, 1284];
+
+function buildBarChart() {
+  var container = document.getElementById('barChart');
+  if (!container) return;
+  var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  var barColor = isDark ? '#4dabdb' : '#0073aa';
+  var maxVal = Math.max.apply(null, COUNTS);
+
+  /* clear existing children safely */
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+
+  MONTHS.forEach(function(label, i) {
+    var heightPct = ((COUNTS[i] / maxVal) * 100).toFixed(1);
+
+    var wrap = document.createElement('div');
+    wrap.className = 'bar-wrap';
+
+    var bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = heightPct + '%';
+    bar.style.background = barColor;
+    bar.title = COUNTS[i] + ' members';
+
+    var labelWrap = document.createElement('div');
+    labelWrap.className = 'bar-label-wrap';
+
+    var lbl = document.createElement('div');
+    lbl.className = 'bar-label';
+    lbl.textContent = label;
+
+    labelWrap.appendChild(lbl);
+    wrap.appendChild(bar);
+    wrap.appendChild(labelWrap);
+    container.appendChild(wrap);
+  });
+}
+buildBarChart();
+
+/* ── Heatmap: 24 rows × 7 cols (DOM-based, no innerHTML) ── */
+/* Activity weights: hot Tue-Thu 10am-2pm, moderate Mon/Fri daytime, low nights/weekends */
+var WEIGHTS = [
+  /* hour 0  (12am) */ [0.04, 0.04, 0.04, 0.04, 0.03, 0.03, 0.03],
+  /* hour 1  (1am)  */ [0.03, 0.03, 0.03, 0.03, 0.02, 0.02, 0.02],
+  /* hour 2  (2am)  */ [0.03, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02],
+  /* hour 3  (3am)  */ [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02],
+  /* hour 4  (4am)  */ [0.03, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02],
+  /* hour 5  (5am)  */ [0.05, 0.04, 0.04, 0.04, 0.04, 0.03, 0.03],
+  /* hour 6  (6am)  */ [0.10, 0.12, 0.11, 0.11, 0.10, 0.06, 0.05],
+  /* hour 7  (7am)  */ [0.18, 0.20, 0.20, 0.19, 0.17, 0.09, 0.08],
+  /* hour 8  (8am)  */ [0.25, 0.30, 0.29, 0.28, 0.25, 0.12, 0.10],
+  /* hour 9  (9am)  */ [0.32, 0.45, 0.44, 0.43, 0.33, 0.14, 0.12],
+  /* hour 10 (10am) */ [0.40, 0.82, 0.85, 0.80, 0.41, 0.17, 0.14],
+  /* hour 11 (11am) */ [0.44, 0.90, 0.92, 0.88, 0.45, 0.18, 0.15],
+  /* hour 12 (12pm) */ [0.42, 0.88, 0.91, 0.86, 0.43, 0.19, 0.16],
+  /* hour 13 (1pm)  */ [0.41, 0.86, 0.89, 0.84, 0.42, 0.18, 0.15],
+  /* hour 14 (2pm)  */ [0.38, 0.78, 0.80, 0.77, 0.39, 0.16, 0.13],
+  /* hour 15 (3pm)  */ [0.35, 0.55, 0.58, 0.54, 0.36, 0.15, 0.12],
+  /* hour 16 (4pm)  */ [0.30, 0.42, 0.44, 0.41, 0.31, 0.14, 0.12],
+  /* hour 17 (5pm)  */ [0.26, 0.35, 0.36, 0.34, 0.27, 0.18, 0.16],
+  /* hour 18 (6pm)  */ [0.22, 0.28, 0.29, 0.27, 0.23, 0.22, 0.20],
+  /* hour 19 (7pm)  */ [0.18, 0.22, 0.23, 0.21, 0.19, 0.20, 0.18],
+  /* hour 20 (8pm)  */ [0.14, 0.17, 0.18, 0.16, 0.15, 0.16, 0.15],
+  /* hour 21 (9pm)  */ [0.10, 0.12, 0.12, 0.11, 0.11, 0.12, 0.11],
+  /* hour 22 (10pm) */ [0.07, 0.08, 0.08, 0.08, 0.07, 0.08, 0.08],
+  /* hour 23 (11pm) */ [0.05, 0.06, 0.06, 0.05, 0.05, 0.05, 0.05]
+];
+
+function buildHeatmap() {
+  var grid = document.getElementById('heatmapGrid');
+  if (!grid) return;
+  var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  var cellColor = isDark ? '#4dabdb' : '#0073aa';
+
+  while (grid.firstChild) {
+    grid.removeChild(grid.firstChild);
+  }
+
+  for (var hour = 0; hour < 24; hour++) {
+    for (var day = 0; day < 7; day++) {
+      var w = WEIGHTS[hour][day];
+      var cell = document.createElement('div');
+      cell.className = 'hm-cell';
+      cell.style.background = cellColor;
+      cell.style.opacity = String(Math.max(0.04, Math.min(1, w)));
+      grid.appendChild(cell);
+    }
+  }
+}
+buildHeatmap();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Integration Hub</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    color: #1d2327;
+    background: #f0f0f1;
+    line-height: 1.5;
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    background: #1d2327;
+    color: #a7aaad;
+    font-size: 12px;
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .topbar strong { color: #fff; }
+  .topbar span { color: #72aee6; }
+
+  /* ── Page wrapper ── */
+  .page-wrap {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  /* ── Page header ── */
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .page-header-left h1 {
+    font-size: 23px;
+    font-weight: 400;
+    color: #1d2327;
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+  .page-header-left p {
+    font-size: 13px;
+    color: #50575e;
+    max-width: 560px;
+  }
+  .header-stats {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-shrink: 0;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+  .stat-pill {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .stat-pill.active   { background: #d1fae5; color: #065f46; }
+  .stat-pill.avail    { background: #fef3c7; color: #92400e; }
+  .stat-pill.more     { background: #e0e7ff; color: #3730a3; }
+
+  /* ── Section headers ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+  }
+  .section-header-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .section-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+  }
+  .section-header.green .section-header-label { color: #15803d; }
+  .section-header.green::after               { background: #bbf7d0; }
+  .section-header.amber .section-header-label { color: #b45309; }
+  .section-header.amber::after               { background: #fde68a; }
+  .section-header.grey .section-header-label  { color: #50575e; }
+  .section-header.grey::after                { background: #dcdcde; }
+
+  .section-note {
+    font-size: 12px;
+    color: #50575e;
+    margin-bottom: 16px;
+    padding: 8px 12px;
+    border-left: 3px solid #dcdcde;
+    background: #fff;
+  }
+
+  /* ── Section spacing ── */
+  .section { margin-bottom: 36px; }
+
+  /* ── Card grid layouts ── */
+  .cards-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .cards-3col {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  /* ── Active integration card ── */
+  .card-active {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .card-active .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 12px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f1;
+  }
+  .card-active.jetonomy       { border-left: 4px solid #5b21b6; }
+  .card-active.wpmediaverse   { border-left: 4px solid #0f766e; }
+
+  .card-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card-logo-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .jetonomy     .card-logo-icon { background: #ede9fe; }
+  .wpmediaverse .card-logo-icon { background: #ccfbf1; }
+
+  .card-logo-text h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d2327;
+    line-height: 1.2;
+  }
+  .card-meta {
+    font-size: 11px;
+    color: #787c82;
+    margin-top: 2px;
+  }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .badge.green  { background: #d1fae5; color: #065f46; }
+  .badge.amber  { background: #fef3c7; color: #92400e; }
+  .badge.grey   { background: #f0f0f1; color: #50575e; }
+
+  .card-desc {
+    font-size: 12px;
+    color: #50575e;
+    margin-bottom: 14px;
+    padding-left: 12px;
+  }
+
+  .enables-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #787c82;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+    padding-left: 12px;
+  }
+  .enables-list {
+    list-style: none;
+    margin-bottom: 16px;
+    padding-left: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+  }
+  .enables-list li {
+    font-size: 12px;
+    color: #1d2327;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .enables-list li .check {
+    color: #16a34a;
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .enables-list li .locked {
+    color: #9ca3af;
+    font-size: 11px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .card-footer {
+    display: flex;
+    gap: 8px;
+    padding-left: 12px;
+    padding-top: 14px;
+    border-top: 1px solid #f0f0f1;
+    flex-wrap: wrap;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    text-decoration: none;
+    white-space: nowrap;
+    line-height: 1.6;
+  }
+  .btn-secondary {
+    background: #fff;
+    border-color: #c3c4c7;
+    color: #1d2327;
+  }
+  .btn-secondary:hover { border-color: #0073aa; color: #0073aa; }
+
+  .btn-primary {
+    background: #0073aa;
+    color: #fff;
+    border-color: #0073aa;
+  }
+  .btn-primary:hover { background: #005d87; }
+
+  .btn-orange  { background: #ea580c; color: #fff; border-color: #ea580c; }
+  .btn-orange:hover { background: #c2410c; }
+  .btn-teal    { background: #0f766e; color: #fff; border-color: #0f766e; }
+  .btn-teal:hover { background: #0d5e57; }
+  .btn-blue    { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+  .btn-blue:hover { background: #1e3a8a; }
+  .btn-green   { background: #16a34a; color: #fff; border-color: #16a34a; }
+  .btn-green:hover { background: #15803d; }
+  .btn-ghost   {
+    background: transparent;
+    color: #0073aa;
+    border-color: transparent;
+    padding-left: 0;
+  }
+  .btn-ghost:hover { text-decoration: underline; }
+
+  /* ── Available card (amber border) ── */
+  .card-avail {
+    background: #fff;
+    border: 2px solid #f59e0b;
+    border-radius: 8px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+  }
+  .card-avail .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f0f0f1;
+  }
+
+  /* ── Explore cards (dashed, lighter) ── */
+  .card-explore {
+    background: #fafafa;
+    border: 2px dashed #e9ecef;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .card-explore .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .card-explore .card-logo h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1d2327;
+  }
+  .card-explore .card-logo-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 15px;
+    background: #f0f0f1;
+    border-radius: 6px;
+  }
+  .card-explore .card-desc {
+    font-size: 12px;
+    color: #50575e;
+    margin-bottom: 10px;
+    padding-left: 0;
+  }
+  .explore-unlocks {
+    font-size: 11px;
+    color: #787c82;
+    margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .explore-unlocks span {
+    background: #f0f0f1;
+    border-radius: 3px;
+    padding: 2px 6px;
+  }
+  .card-explore .card-footer {
+    padding-left: 0;
+    padding-top: 10px;
+    border-top: 1px solid #ebebeb;
+  }
+
+  /* ── Developer bar ── */
+  .dev-bar {
+    background: #1e1e1e;
+    border-radius: 8px;
+    padding: 24px 28px;
+    color: #d4d4d4;
+  }
+  .dev-bar h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e5e7eb;
+    margin-bottom: 16px;
+  }
+  .code-block {
+    background: #0d0d0d;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 16px 20px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #9cdcfe;
+    overflow-x: auto;
+    margin-bottom: 14px;
+    white-space: pre;
+  }
+  .code-block .kw  { color: #c586c0; }
+  .code-block .fn  { color: #dcdcaa; }
+  .code-block .str { color: #ce9178; }
+  .code-block .cmt { color: #6a9955; }
+  .code-block .key { color: #9cdcfe; }
+  .code-block .arr { color: #4ec9b0; }
+  .dev-bar a {
+    color: #72aee6;
+    font-size: 12px;
+    text-decoration: none;
+  }
+  .dev-bar a:hover { text-decoration: underline; }
+
+  /* ── Avail card logo accents ── */
+  .card-avail.woo    { --accent: #ea580c; }
+  .card-avail.ld     { --accent: #16a34a; }
+  .card-avail.bp     { --accent: #1d4ed8; }
+  .card-avail .card-logo-icon {
+    background: color-mix(in srgb, var(--accent, #0073aa) 12%, #fff);
+  }
+
+  /* ── Responsive tweaks ── */
+  @media (max-width: 800px) {
+    .cards-2col, .cards-3col { grid-template-columns: 1fr; }
+    .page-header { flex-direction: column; }
+    .header-stats { justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <strong>BuddyNext View Design</strong>
+  &rarr;
+  <span>Integration Hub</span>
+</div>
+
+<!-- Page wrap -->
+<div class="page-wrap">
+
+  <!-- Page header -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>🔌 Integration Hub</h1>
+      <p>Connect BuddyNext with your WordPress ecosystem. Each integration adds new tabs, widgets, and features.</p>
+    </div>
+    <div class="header-stats">
+      <span class="stat-pill active">2 Active</span>
+      <span class="stat-pill avail">1 Available</span>
+      <span class="stat-pill more">5 More available</span>
+    </div>
+  </div>
+
+  <!-- ===== Section 1: Active Integrations ===== -->
+  <div class="section">
+    <div class="section-header green">
+      <span class="section-header-label">Active Integrations</span>
+    </div>
+
+    <div class="cards-2col">
+
+      <!-- Card: Jetonomy -->
+      <div class="card-active jetonomy">
+        <div class="card-header">
+          <div class="card-logo">
+            <div class="card-logo-icon">💬</div>
+            <div class="card-logo-text">
+              <h3>Jetonomy</h3>
+              <div class="card-meta">v1.0.0 &nbsp;·&nbsp; Forum Engine</div>
+            </div>
+          </div>
+          <span class="badge green">● Active</span>
+        </div>
+
+        <p class="card-desc">Adds community forum capabilities. Members can post threads, vote, mark accepted answers.</p>
+
+        <div class="enables-label">What this enables</div>
+        <ul class="enables-list">
+          <li><span class="check">✓</span> Forum tab in Spaces</li>
+          <li><span class="check">✓</span> Thread listing &amp; voting</li>
+          <li><span class="check">✓</span> Accepted answer system</li>
+          <li><span class="check">✓</span> Forum admin tools</li>
+          <li><span class="check">✓</span> Space-level forum moderation</li>
+          <li><span class="check">✓</span> forum-listing.html + forum-thread.html screens</li>
+        </ul>
+
+        <div class="card-footer">
+          <a href="#" class="btn btn-secondary">⚙️ Configure</a>
+          <a href="#" class="btn btn-ghost">View Screens →</a>
+        </div>
+      </div>
+
+      <!-- Card: WPMediaVerse -->
+      <div class="card-active wpmediaverse">
+        <div class="card-header">
+          <div class="card-logo">
+            <div class="card-logo-icon">🎬</div>
+            <div class="card-logo-text">
+              <h3>WPMediaVerse</h3>
+              <div class="card-meta">v1.0.0 &nbsp;·&nbsp; Media Sharing</div>
+            </div>
+          </div>
+          <span class="badge green">● Active</span>
+        </div>
+
+        <p class="card-desc">Adds media upload, gallery browsing, and video sharing to the community.</p>
+
+        <div class="enables-label">What this enables</div>
+        <ul class="enables-list">
+          <li><span class="check">✓</span> Media cards in feeds</li>
+          <li><span class="check">✓</span> Media tab in profiles</li>
+          <li><span class="check">✓</span> Media gallery in Spaces</li>
+          <li><span class="check">✓</span> Media upload in post composer</li>
+          <li><span class="check">✓</span> Media search results</li>
+        </ul>
+
+        <div class="card-footer">
+          <a href="#" class="btn btn-secondary">⚙️ Configure</a>
+          <a href="#" class="btn btn-ghost">View Screens →</a>
+        </div>
+      </div>
+
+    </div><!-- /.cards-2col -->
+  </div><!-- /.section -->
+
+
+  <!-- ===== Section 2: Available — Plugin Detected ===== -->
+  <div class="section">
+    <div class="section-header amber">
+      <span class="section-header-label">⚠️ Available — Plugin Detected</span>
+    </div>
+
+    <div class="section-note">
+      These plugins are installed on your site. Connect them to unlock BuddyNext features.
+    </div>
+
+    <div class="cards-3col">
+
+      <!-- Card: WooCommerce -->
+      <div class="card-avail woo">
+        <div class="card-header">
+          <div class="card-logo">
+            <div class="card-logo-icon" style="background:#fff1e6;">🛒</div>
+            <div class="card-logo-text">
+              <h3 style="font-size:13px;font-weight:600;">WooCommerce</h3>
+            </div>
+          </div>
+          <span class="badge amber">○ Not connected</span>
+        </div>
+
+        <p class="card-desc" style="padding-left:0;margin-bottom:12px;">Add shop navigation, purchases tab in profiles, product discussions, and member badges for customers.</p>
+
+        <div class="enables-label" style="padding-left:0;">Unlocks when connected</div>
+        <ul class="enables-list" style="padding-left:0;">
+          <li><span class="locked">–</span> 🛒 Shop tab in main nav (link to /shop)</li>
+          <li><span class="locked">–</span> 💳 Purchases tab in user profiles</li>
+          <li><span class="locked">–</span> 🏷️ "Verified Customer" badge on profiles</li>
+          <li><span class="locked">–</span> 💬 Product discussion threads</li>
+          <li><span class="locked">–</span> 📦 Space-linked product collections</li>
+          <li><span class="locked">–</span> 🛒 Shop tab in Spaces</li>
+        </ul>
+
+        <div class="card-footer" style="padding-left:0;padding-top:12px;border-top:1px solid #f0f0f1;">
+          <a href="#" class="btn btn-orange">🔌 Connect WooCommerce</a>
+        </div>
+      </div>
+
+      <!-- Card: LearnDash -->
+      <div class="card-avail ld">
+        <div class="card-header">
+          <div class="card-logo">
+            <div class="card-logo-icon" style="background:#dcfce7;">🎓</div>
+            <div class="card-logo-text">
+              <h3 style="font-size:13px;font-weight:600;">LearnDash</h3>
+            </div>
+          </div>
+          <span class="badge amber">○ Not connected</span>
+        </div>
+
+        <p class="card-desc" style="padding-left:0;margin-bottom:12px;">Surface course progress, enrolled courses, and lesson discussions inside the community.</p>
+
+        <div class="enables-label" style="padding-left:0;">Unlocks when connected</div>
+        <ul class="enables-list" style="padding-left:0;">
+          <li><span class="locked">–</span> 🎓 Courses tab in user profiles (enrolled, progress, completed)</li>
+          <li><span class="locked">–</span> 📚 Courses tab in Spaces (linked course content)</li>
+          <li><span class="locked">–</span> 👨‍🏫 Instructor badge + instructor profile additions</li>
+          <li><span class="locked">–</span> 💬 Per-lesson discussion threads (via Jetonomy)</li>
+          <li><span class="locked">–</span> 🏆 Course completion badges on profiles</li>
+          <li><span class="locked">–</span> 📊 Course engagement in Analytics</li>
+        </ul>
+
+        <div class="card-footer" style="padding-left:0;padding-top:12px;border-top:1px solid #f0f0f1;">
+          <a href="#" class="btn btn-green">🔌 Connect LearnDash</a>
+        </div>
+      </div>
+
+      <!-- Card: BuddyPress -->
+      <div class="card-avail bp">
+        <div class="card-header">
+          <div class="card-logo">
+            <div class="card-logo-icon" style="background:#dbeafe;">👥</div>
+            <div class="card-logo-text">
+              <h3 style="font-size:13px;font-weight:600;">BuddyPress</h3>
+              <div class="card-meta">Legacy bridge</div>
+            </div>
+          </div>
+          <span class="badge amber">○ Not connected</span>
+        </div>
+
+        <p class="card-desc" style="padding-left:0;margin-bottom:12px;">Running an existing BuddyPress community? Import members, groups as Spaces, and activity history.</p>
+
+        <div class="enables-label" style="padding-left:0;">Unlocks when connected</div>
+        <ul class="enables-list" style="padding-left:0;">
+          <li><span class="locked">–</span> 🔄 Member data migration tool</li>
+          <li><span class="locked">–</span> 🏘️ Groups → Spaces import</li>
+          <li><span class="locked">–</span> 📋 Activity stream import</li>
+          <li><span class="locked">–</span> 🔗 BuddyPress shortcode compatibility layer</li>
+          <li><span class="locked">–</span> 👤 Profile field mapping</li>
+        </ul>
+
+        <div class="card-footer" style="padding-left:0;padding-top:12px;border-top:1px solid #f0f0f1;">
+          <a href="#" class="btn btn-blue">🔌 Connect BuddyPress</a>
+        </div>
+      </div>
+
+    </div><!-- /.cards-3col -->
+  </div><!-- /.section -->
+
+
+  <!-- ===== Section 3: Explore More ===== -->
+  <div class="section">
+    <div class="section-header grey">
+      <span class="section-header-label">Explore More Integrations</span>
+    </div>
+
+    <div class="section-note">
+      These plugins are not installed. Install them to unlock additional BuddyNext features.
+    </div>
+
+    <div class="cards-3col">
+
+      <!-- MemberPress -->
+      <div class="card-explore">
+        <div class="card-header">
+          <div class="card-logo">
+            <div class="card-logo-icon">🔐</div>
+            <div class="card-logo-text">
+              <h3>MemberPress</h3>
+            </div>
+          </div>
+          <span class="badge grey">Not installed</span>
+        </div>
+        <p class="card-desc">Add membership gates to Spaces. Show membership level badges. Restrict content to members.</p>
+        <div class="explore-unlocks">
+          <span>Member-only Spaces</span>
+          <span>Membership badges</span>
+          <span>Upgrade modals</span>
+          <span>Content gates</span>
+        </div>
+        <div class="card-footer">
+          <a href="#" class="btn btn-secondary">Install Plugin ↗</a>
+        </div>
+      </div>
+
+      <!-- Paid Memberships Pro -->
+      <div class="card-explore">
+        <div class="card-header">
+          <div class="card-logo">
+            <div class="card-logo-icon">🔐</div>
+            <div class="card-logo-text">
+              <h3>Paid Memberships Pro</h3>
+            </div>
+          </div>
+          <span class="badge grey">Not installed</span>
+        </div>
+        <p class="card-desc">Alternative membership plugin. Same gates + badges as MemberPress.</p>
+        <div class="explore-unlocks">
+          <span>Member-only Spaces</span>
+          <span>Membership badges</span>
+          <span>Upgrade modals</span>
+          <span>Content gates</span>
+        </div>
+        <div class="card-footer">
+          <a href="#" class="btn btn-secondary">Install Plugin ↗</a>
+        </div>
+      </div>
+
+      <!-- The Events Calendar -->
+      <div class="card-explore">
+        <div class="card-header">
+          <div class="card-logo">
+            <div class="card-logo-icon">📅</div>
+            <div class="card-logo-text">
+              <h3>The Events Calendar</h3>
+            </div>
+          </div>
+          <span class="badge grey">Not installed</span>
+        </div>
+        <p class="card-desc">Add Events tab to Spaces. Show upcoming events in feeds. RSVP inside community.</p>
+        <div class="explore-unlocks">
+          <span>Events tab in Spaces</span>
+          <span>Event cards in feed</span>
+          <span>RSVP flow</span>
+        </div>
+        <div class="card-footer">
+          <a href="#" class="btn btn-secondary">Install Plugin ↗</a>
+        </div>
+      </div>
+
+      <!-- TutorLMS -->
+      <div class="card-explore">
+        <div class="card-header">
+          <div class="card-logo">
+            <div class="card-logo-icon">🎓</div>
+            <div class="card-logo-text">
+              <h3>TutorLMS</h3>
+            </div>
+          </div>
+          <span class="badge grey">Not installed</span>
+        </div>
+        <p class="card-desc">Alternative to LearnDash. Same courses tab and instructor features.</p>
+        <div class="explore-unlocks">
+          <span>Courses tab in profiles</span>
+          <span>Instructor badge</span>
+          <span>Completion badges</span>
+        </div>
+        <div class="card-footer">
+          <a href="#" class="btn btn-secondary">Install Plugin ↗</a>
+        </div>
+      </div>
+
+      <!-- bbPress -->
+      <div class="card-explore">
+        <div class="card-header">
+          <div class="card-logo">
+            <div class="card-logo-icon">💬</div>
+            <div class="card-logo-text">
+              <h3>bbPress</h3>
+            </div>
+          </div>
+          <span class="badge grey">Not installed</span>
+        </div>
+        <p class="card-desc">Migrating from bbPress? Import forums as Jetonomy spaces + threads.</p>
+        <div class="explore-unlocks">
+          <span>Forum import</span>
+          <span>Thread migration</span>
+          <span>Space mapping</span>
+        </div>
+        <div class="card-footer">
+          <a href="#" class="btn btn-secondary">Install Plugin ↗</a>
+        </div>
+      </div>
+
+      <!-- WP Job Manager -->
+      <div class="card-explore">
+        <div class="card-header">
+          <div class="card-logo">
+            <div class="card-logo-icon">💼</div>
+            <div class="card-logo-text">
+              <h3>WP Job Manager</h3>
+            </div>
+          </div>
+          <span class="badge grey">Not installed</span>
+        </div>
+        <p class="card-desc">Add Jobs tab to Spaces. Post jobs, apply, member hiring.</p>
+        <div class="explore-unlocks">
+          <span>Jobs tab in Spaces</span>
+          <span>Job listings</span>
+          <span>Member hiring</span>
+        </div>
+        <div class="card-footer">
+          <a href="#" class="btn btn-secondary">Install Plugin ↗</a>
+        </div>
+      </div>
+
+    </div><!-- /.cards-3col -->
+  </div><!-- /.section -->
+
+
+  <!-- ===== Section 4: Developer ===== -->
+  <div class="section">
+    <div class="dev-bar">
+      <h3>Building a plugin? Register it with BuddyNext Integration Hub</h3>
+      <div class="code-block"><span class="fn">add_filter</span>( <span class="str">'buddynext_integrations'</span>, <span class="kw">function</span>( <span class="key">$integrations</span> ) {
+    <span class="key">$integrations</span>[<span class="str">'my-plugin'</span>] = [
+        <span class="str">'name'</span>        =&gt; <span class="str">'My Plugin'</span>,
+        <span class="str">'icon'</span>        =&gt; <span class="str">'⭐'</span>,
+        <span class="str">'description'</span> =&gt; <span class="str">'What my plugin adds to the community.'</span>,
+        <span class="str">'profile_tabs'</span> =&gt; [ <span class="str">'my-tab'</span> ],
+        <span class="str">'space_tabs'</span>  =&gt; [ <span class="str">'my-space-tab'</span> ],
+        <span class="str">'nav_items'</span>   =&gt; [],
+        <span class="str">'active'</span>      =&gt; <span class="fn">class_exists</span>( <span class="str">'MyPlugin'</span> ),
+    ];
+    <span class="kw">return</span> <span class="key">$integrations</span>;
+} );</div>
+      <a href="#">📖 Read Integration API docs</a>
+    </div>
+  </div>
+
+</div><!-- /.page-wrap -->
+
+<script src="nav.js"></script>
+</body>
+</html>

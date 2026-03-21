@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext Platform — Team Briefing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0d12;
+  --surface: #111520;
+  --surface2: #161b28;
+  --border: rgba(255,255,255,0.07);
+  --text: #e8e4dc;
+  --muted: #6b7280;
+  --amber: #f5a623;
+  --teal: #2dd4bf;
+  --violet: #818cf8;
+  --rose: #f87171;
+  --green: #34d399;
+  --slide-h: 100vh;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); overflow: hidden; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* ── DECK WRAPPER ── */
+.deck { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 48px 64px;
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.55s cubic-bezier(.16,1,.3,1), transform 0.55s cubic-bezier(.16,1,.3,1);
+  pointer-events: none;
+}
+.slide.active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.slide.exit {
+  opacity: 0;
+  transform: translateY(-40px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* grid overlay */
+.slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 64px 64px;
+  pointer-events: none;
+  z-index: 0;
+}
+.slide > * { position: relative; z-index: 1; }
+
+/* ── TYPOGRAPHY ── */
+.label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.title-xl {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: clamp(52px, 7vw, 88px);
+  line-height: 1.0;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.title-xl em { font-style: italic; color: var(--amber); }
+.title-lg {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: clamp(36px, 4.5vw, 58px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.title-lg em { font-style: italic; color: var(--amber); }
+.title-md {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: clamp(24px, 3vw, 38px);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+.mono { font-family: 'DM Mono', monospace; font-size: 13px; }
+.muted { color: var(--muted); }
+.body { font-size: 17px; line-height: 1.65; color: #c4bfb6; max-width: 680px; }
+
+/* ── PILL / BADGE ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.pill-amber { background: rgba(245,166,35,.12); color: var(--amber); border: 1px solid rgba(245,166,35,.25); }
+.pill-teal  { background: rgba(45,212,191,.10); color: var(--teal);  border: 1px solid rgba(45,212,191,.25); }
+.pill-violet{ background: rgba(129,140,248,.10); color: var(--violet); border: 1px solid rgba(129,140,248,.25); }
+.pill-green { background: rgba(52,211,153,.10); color: var(--green);  border: 1px solid rgba(52,211,153,.25); }
+.pill-rose  { background: rgba(248,113,113,.10); color: var(--rose);  border: 1px solid rgba(248,113,113,.25); }
+
+/* ── CARD ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+}
+.card-sm {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+}
+
+/* ── NAV ── */
+.nav {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 100;
+  background: rgba(10,13,18,.8);
+  backdrop-filter: blur(12px);
+  padding: 10px 16px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+}
+.dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  cursor: pointer;
+  transition: all .3s ease;
+}
+.dot.active { background: var(--amber); width: 20px; border-radius: 3px; }
+
+.nav-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 2px 8px;
+  transition: color .2s;
+  font-family: monospace;
+}
+.nav-btn:hover { color: var(--text); }
+
+/* slide counter */
+.counter {
+  position: fixed;
+  top: 24px;
+  right: 32px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  z-index: 100;
+}
+
+/* brand top-left */
+.brand {
+  position: fixed;
+  top: 24px;
+  left: 32px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+
+/* ── SLIDE 1: TITLE ── */
+#s1 {
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(245,166,35,.08) 0%, transparent 70%);
+  text-align: center;
+}
+#s1 .title-xl { margin-bottom: 24px; }
+#s1 .body { text-align: center; }
+#s1 .pills { display: flex; gap: 10px; justify-content: center; margin-top: 32px; flex-wrap: wrap; }
+
+/* ── SLIDE 2: VISION ── */
+#s2 { text-align: left; align-items: flex-start; }
+.vision-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-top: 32px;
+  width: 100%;
+  max-width: 900px;
+}
+.vision-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+.vision-card .icon { font-size: 28px; margin-bottom: 12px; }
+.vision-card h3 { font-size: 15px; font-weight: 500; margin-bottom: 8px; color: var(--text); }
+.vision-card p { font-size: 14px; color: var(--muted); line-height: 1.55; }
+
+/* ── SLIDE 3: ECOSYSTEM ── */
+#s3 { align-items: center; }
+#s3 .slide-inner {
+  display: flex;
+  align-items: center;
+  gap: 64px;
+  width: 100%;
+  max-width: 1100px;
+}
+.eco-svg-wrap { flex: 0 0 520px; }
+.eco-legend { flex: 1; }
+.eco-legend h3 { font-size: 13px; color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 20px; }
+.eco-item { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.eco-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.eco-item h4 { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+.eco-item p { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+/* ── SLIDE 4: ARCHITECTURE PRINCIPLE ── */
+#s4 {
+  background: radial-gradient(ellipse 60% 50% at 30% 50%, rgba(45,212,191,.06) 0%, transparent 70%);
+  align-items: flex-start;
+}
+.arch-principle {
+  font-family: 'Instrument Serif', serif;
+  font-size: clamp(28px, 3.5vw, 46px);
+  line-height: 1.2;
+  max-width: 700px;
+  margin-bottom: 40px;
+  border-left: 3px solid var(--teal);
+  padding-left: 28px;
+}
+.arch-principle em { font-style: italic; color: var(--teal); }
+.defer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-width: 900px;
+  width: 100%;
+}
+.defer-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+.defer-card .from { font-size: 12px; color: var(--muted); margin-bottom: 6px; font-family: 'DM Mono', monospace; }
+.defer-card .arrow { color: var(--amber); font-size: 13px; margin: 4px 0; }
+.defer-card .to { font-size: 13px; color: var(--text); font-weight: 500; }
+
+/* ── SLIDE 5: FREE FEATURES ── */
+#s5 { align-items: flex-start; }
+.feat-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  max-width: 960px;
+  margin-top: 28px;
+}
+.feat-group h3 {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.feat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(255,255,255,.035);
+}
+.feat-item:last-child { border-bottom: none; }
+.feat-item .check { color: var(--green); font-size: 13px; }
+
+/* ── SLIDE 6: PRO FEATURES ── */
+#s6 {
+  background: radial-gradient(ellipse 70% 50% at 70% 50%, rgba(129,140,248,.06) 0%, transparent 70%);
+  align-items: flex-start;
+}
+.pro-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  width: 100%;
+  max-width: 1000px;
+  margin-top: 28px;
+}
+.pro-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+.pro-card .ico { font-size: 22px; margin-bottom: 10px; }
+.pro-card h3 { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+.pro-card ul { list-style: none; }
+.pro-card ul li { font-size: 12.5px; color: var(--muted); padding: 3px 0; padding-left: 14px; position: relative; }
+.pro-card ul li::before { content: '—'; position: absolute; left: 0; color: var(--violet); font-size: 11px; }
+
+/* ── SLIDE 7: DM ARCHITECTURE ── */
+#s7 { align-items: center; }
+#s7 .slide-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 56px;
+  width: 100%;
+  max-width: 1060px;
+}
+.dm-diagram { flex: 0 0 500px; }
+.dm-legend { flex: 1; }
+.dm-decision {
+  background: rgba(245,166,35,.06);
+  border: 1px solid rgba(245,166,35,.2);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.dm-decision p { font-size: 13.5px; line-height: 1.65; color: #c4bfb6; }
+.dm-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  align-items: flex-start;
+}
+.dm-row .badge {
+  flex-shrink: 0;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .08em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-top: 2px;
+}
+.badge-free { background: rgba(52,211,153,.12); color: var(--green); border: 1px solid rgba(52,211,153,.25); }
+.badge-pro  { background: rgba(129,140,248,.12); color: var(--violet); border: 1px solid rgba(129,140,248,.25); }
+.dm-row .dm-text { font-size: 13px; color: #c4bfb6; line-height: 1.55; }
+
+/* ── SLIDE 8: BRIDGE WIRING ── */
+#s8 { align-items: flex-start; }
+.hook-table {
+  width: 100%;
+  max-width: 880px;
+  margin-top: 24px;
+  border-collapse: collapse;
+}
+.hook-table thead tr {
+  border-bottom: 1px solid var(--border);
+}
+.hook-table th {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 16px;
+  text-align: left;
+}
+.hook-table td {
+  padding: 10px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  vertical-align: top;
+}
+.hook-table td:first-child {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--amber);
+}
+.hook-table td:nth-child(2) { color: var(--muted); font-size: 12px; }
+.hook-table td:nth-child(3) { color: #c4bfb6; }
+
+/* ── SLIDE 9: WORK BREAKDOWN ── */
+#s9 { align-items: flex-start; }
+.work-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+  max-width: 1000px;
+  margin-top: 28px;
+}
+.work-col h3 {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.work-col .sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.work-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.work-item .effort {
+  flex-shrink: 0;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: 2px 7px;
+  border-radius: 3px;
+  margin-top: 2px;
+}
+.eff-s { background: rgba(52,211,153,.1); color: var(--green); border: 1px solid rgba(52,211,153,.2); }
+.eff-m { background: rgba(245,166,35,.1); color: var(--amber); border: 1px solid rgba(245,166,35,.2); }
+.eff-l { background: rgba(248,113,113,.1); color: var(--rose); border: 1px solid rgba(248,113,113,.2); }
+.work-item .wt { font-size: 12.5px; color: #c4bfb6; line-height: 1.45; }
+
+/* ── SLIDE 10: DB TABLES ── */
+#s10 { align-items: flex-start; }
+.db-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  width: 100%;
+  max-width: 960px;
+  margin-top: 24px;
+}
+.db-section h3 {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.db-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+.db-item code {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--teal);
+}
+.db-item span { font-size: 11px; color: var(--muted); }
+
+/* ── SLIDE 11: NEXT STEPS ── */
+#s11 {
+  background: radial-gradient(ellipse 80% 60% at 50% 100%, rgba(245,166,35,.06) 0%, transparent 70%);
+  text-align: center;
+  align-items: center;
+}
+.steps-row {
+  display: flex;
+  gap: 0;
+  margin-top: 40px;
+  max-width: 900px;
+  width: 100%;
+  position: relative;
+}
+.steps-row::before {
+  content: '';
+  position: absolute;
+  top: 28px;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border) 20%, var(--border) 80%, transparent);
+}
+.step-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+}
+.step-num {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Instrument Serif', serif;
+  font-size: 22px;
+  color: var(--amber);
+  position: relative;
+  z-index: 1;
+}
+.step-item h3 { font-size: 14px; font-weight: 500; text-align: center; }
+.step-item p { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.45; }
+</style>
+</head>
+<body>
+
+<div class="brand"><div class="brand-dot"></div> BuddyNext Platform</div>
+<div class="counter" id="counter">1 / 11</div>
+
+<div class="deck" id="deck">
+
+<!-- ══════════════════════════════════════════
+     SLIDE 1 — TITLE
+══════════════════════════════════════════ -->
+<div class="slide active" id="s1">
+  <div class="label">Team Briefing — 2026</div>
+  <div class="title-xl">What We're<br>Building <em>Together</em></div>
+  <p class="body" style="margin-top:20px; text-align:center">
+    A complete community platform for WordPress — designed to replace BuddyPress and BuddyBoss with a modern, extensible plugin suite.
+  </p>
+  <div class="pills">
+    <span class="pill pill-amber">BuddyNext</span>
+    <span class="pill pill-teal">WPMediaVerse</span>
+    <span class="pill pill-violet">Jetonomy</span>
+    <span class="pill pill-green">WBGamification</span>
+    <span class="pill">Career Board</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SLIDE 2 — VISION
+══════════════════════════════════════════ -->
+<div class="slide" id="s2">
+  <div class="label">The Vision</div>
+  <div class="title-lg">Why We're Building This</div>
+  <div class="vision-grid">
+    <div class="vision-card">
+      <div class="icon">🎯</div>
+      <h3>Replace BuddyPress / BuddyBoss</h3>
+      <p>Free tier must be genuinely good enough to win on adoption. Pro must have features every growing community hits within 3–6 months.</p>
+    </div>
+    <div class="vision-card">
+      <div class="icon">🏗️</div>
+      <h3>Minimal by default, extensible by design</h3>
+      <p>Ship the essential feature. Cover it with hooks. Let the ecosystem add layers. No features for hypothetical users.</p>
+    </div>
+    <div class="vision-card">
+      <div class="icon">🔗</div>
+      <h3>One suite, not six silos</h3>
+      <p>Each plugin is standalone. Together they compose a complete platform. BuddyNext is the social layer — everything else contributes into it.</p>
+    </div>
+  </div>
+  <div style="margin-top:24px; display:flex; gap:32px; font-size:13px; color: var(--muted);">
+    <span><strong style="color:var(--text)">100K</strong> target community size</span>
+    <span><strong style="color:var(--text)">&lt;100ms</strong> every query on shared hosting</span>
+    <span><strong style="color:var(--text)">No Redis</strong> required for free tier</span>
+    <span><strong style="color:var(--text)">API-first</strong> REST at buddynext/v1</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SLIDE 3 — ECOSYSTEM DIAGRAM
+══════════════════════════════════════════ -->
+<div class="slide" id="s3">
+  <div class="label">Plugin Ecosystem</div>
+  <div class="title-md" style="margin-bottom:24px">Six plugins. One platform.</div>
+  <div class="slide-inner">
+    <div class="eco-svg-wrap">
+      <svg viewBox="0 0 520 420" fill="none" xmlns="http://www.w3.org/2000/svg" width="100%">
+        <!-- connection lines -->
+        <line x1="260" y1="130" x2="260" y2="210" stroke="rgba(245,166,35,.25)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <line x1="260" y1="130" x2="130" y2="210" stroke="rgba(45,212,191,.2)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <line x1="260" y1="130" x2="390" y2="210" stroke="rgba(45,212,191,.2)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <line x1="260" y1="130" x2="90" y2="300" stroke="rgba(129,140,248,.15)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <line x1="260" y1="130" x2="260" y2="310" stroke="rgba(129,140,248,.15)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <line x1="260" y1="130" x2="430" y2="300" stroke="rgba(129,140,248,.15)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <!-- mvs <-> jetonomy sibling line -->
+        <line x1="130" y1="230" x2="260" y2="230" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+        <line x1="260" y1="230" x2="390" y2="230" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+
+        <!-- BuddyNext (center) -->
+        <rect x="175" y="70" width="170" height="70" rx="12" fill="#1a1e2e" stroke="#f5a623" stroke-width="1.5"/>
+        <text x="260" y="98" text-anchor="middle" fill="#f5a623" font-family="DM Mono,monospace" font-size="11" letter-spacing="2">BUDDYNEXT</text>
+        <text x="260" y="116" text-anchor="middle" fill="#6b7280" font-family="DM Sans,sans-serif" font-size="10">Social layer + Community UI</text>
+        <text x="260" y="131" text-anchor="middle" fill="#6b7280" font-family="DM Mono,monospace" font-size="9">free + pro</text>
+
+        <!-- WPMediaVerse (bottom center) -->
+        <rect x="175" y="208" width="170" height="62" rx="10" fill="#111520" stroke="#2dd4bf" stroke-width="1.2"/>
+        <text x="260" y="231" text-anchor="middle" fill="#2dd4bf" font-family="DM Mono,monospace" font-size="10" letter-spacing="1.5">WPMEDIAVERSE</text>
+        <text x="260" y="248" text-anchor="middle" fill="#6b7280" font-family="DM Sans,sans-serif" font-size="10">Media engine + DM engine</text>
+        <text x="260" y="262" text-anchor="middle" fill="#6b7280" font-family="DM Mono,monospace" font-size="9">free + pro · mvs_* tables</text>
+
+        <!-- Jetonomy (bottom left) -->
+        <rect x="48" y="208" width="142" height="62" rx="10" fill="#111520" stroke="#2dd4bf" stroke-width="1.2"/>
+        <text x="119" y="231" text-anchor="middle" fill="#2dd4bf" font-family="DM Mono,monospace" font-size="10" letter-spacing="1.5">JETONOMY</text>
+        <text x="119" y="248" text-anchor="middle" fill="#6b7280" font-family="DM Sans,sans-serif" font-size="10">Forums + Discussions</text>
+        <text x="119" y="262" text-anchor="middle" fill="#6b7280" font-family="DM Mono,monospace" font-size="9">free + pro</text>
+
+        <!-- Career Board (bottom right) -->
+        <rect x="330" y="208" width="142" height="62" rx="10" fill="#111520" stroke="#2dd4bf" stroke-width="1.2"/>
+        <text x="401" y="231" text-anchor="middle" fill="#2dd4bf" font-family="DM Mono,monospace" font-size="10" letter-spacing="1">CAREER BOARD</text>
+        <text x="401" y="248" text-anchor="middle" fill="#6b7280" font-family="DM Sans,sans-serif" font-size="10">Job Listings</text>
+        <text x="401" y="262" text-anchor="middle" fill="#6b7280" font-family="DM Mono,monospace" font-size="9">free</text>
+
+        <!-- WBGamification (far left) -->
+        <rect x="20" y="298" width="140" height="60" rx="10" fill="#111520" stroke="#818cf8" stroke-width="1"/>
+        <text x="90" y="321" text-anchor="middle" fill="#818cf8" font-family="DM Mono,monospace" font-size="9.5" letter-spacing="1">WBGAMIFICATION</text>
+        <text x="90" y="337" text-anchor="middle" fill="#6b7280" font-family="DM Sans,sans-serif" font-size="10">Points + Badges</text>
+        <text x="90" y="350" text-anchor="middle" fill="#6b7280" font-family="DM Mono,monospace" font-size="9">addon</text>
+
+        <!-- Jetonomy Pro (center bottom) -->
+        <rect x="175" y="298" width="170" height="60" rx="10" fill="#111520" stroke="#818cf8" stroke-width="1"/>
+        <text x="260" y="321" text-anchor="middle" fill="#818cf8" font-family="DM Mono,monospace" font-size="9.5" letter-spacing="1">BUDDYNEXT PRO</text>
+        <text x="260" y="337" text-anchor="middle" fill="#6b7280" font-family="DM Sans,sans-serif" font-size="10">Pro features layer</text>
+        <text x="260" y="350" text-anchor="middle" fill="#6b7280" font-family="DM Mono,monospace" font-size="9">bundles mvs pro</text>
+
+        <!-- WPMediaVerse Pro (far right) -->
+        <rect x="360" y="298" width="140" height="60" rx="10" fill="#111520" stroke="#818cf8" stroke-width="1"/>
+        <text x="430" y="318" text-anchor="middle" fill="#818cf8" font-family="DM Mono,monospace" font-size="9.5" letter-spacing="1">WPMEDIAVERSE</text>
+        <text x="430" y="332" text-anchor="middle" fill="#818cf8" font-family="DM Mono,monospace" font-size="9.5" letter-spacing="1">PRO</text>
+        <text x="430" y="348" text-anchor="middle" fill="#6b7280" font-family="DM Sans,sans-serif" font-size="10">Group DM · WebSocket</text>
+
+        <!-- flow label -->
+        <text x="260" y="400" text-anchor="middle" fill="rgba(107,114,128,.5)" font-family="DM Mono,monospace" font-size="9" letter-spacing="1.5">BUDDYNEXT PRO BUNDLES WPMEDIAVERSE PRO</text>
+      </svg>
+    </div>
+    <div class="eco-legend">
+      <h3>Plugin Roles</h3>
+      <div class="eco-item">
+        <div class="eco-dot" style="background:var(--amber)"></div>
+        <div>
+          <h4>BuddyNext</h4>
+          <p>The social + community hub. Owns bn_* tables, social graph, activity feed, spaces, notifications, member profiles. UI layer for everything.</p>
+        </div>
+      </div>
+      <div class="eco-item">
+        <div class="eco-dot" style="background:var(--teal)"></div>
+        <div>
+          <h4>WPMediaVerse</h4>
+          <p>Media engine AND DM engine. Owns all mvs_* tables. Standalone or community mode — same tables, same code, no migration needed.</p>
+        </div>
+      </div>
+      <div class="eco-item">
+        <div class="eco-dot" style="background:var(--teal)"></div>
+        <div>
+          <h4>Jetonomy</h4>
+          <p>Forums and threaded discussions. Defers social graph to BuddyNext when active. Forum tab appears inside BuddyNext spaces.</p>
+        </div>
+      </div>
+      <div class="eco-item">
+        <div class="eco-dot" style="background:var(--violet)"></div>
+        <div>
+          <h4>WBGamification · Career Board</h4>
+          <p>Addons that hook into BuddyNext actions. Award points on post_created, follow, join. Jobs appear as cards in the activity feed.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SLIDE 4 — ARCHITECTURE PRINCIPLE
+══════════════════════════════════════════ -->
+<div class="slide" id="s4">
+  <div class="label">Architecture Principle</div>
+  <div class="arch-principle">
+    In BuddyNext mode, addons <em>defer</em> their social layer to BuddyNext.<br>
+    They contribute content — BuddyNext owns the graph.
+  </div>
+  <div class="defer-grid">
+    <div class="defer-card">
+      <div class="from">WPMediaVerse</div>
+      <div class="arrow">↓ defers</div>
+      <div class="to">Follow graph → bn_follows<br>Notifications → bn_notifications<br>Activity feed → bn_posts</div>
+    </div>
+    <div class="defer-card">
+      <div class="from">WPMediaVerse DM</div>
+      <div class="arrow">↓ never defers</div>
+      <div class="to">DM engine stays in WPMediaVerse<br>mvs_* tables always owned by MVS<br>BuddyNext renders the inbox UI only</div>
+    </div>
+    <div class="defer-card">
+      <div class="from">Jetonomy</div>
+      <div class="arrow">↓ defers</div>
+      <div class="to">Member profiles → BuddyNext<br>Discussion cards → bn_posts<br>Forum tab → buddynext_space_tabs filter</div>
+    </div>
+    <div class="defer-card">
+      <div class="from">WBGamification</div>
+      <div class="arrow">↓ hooks</div>
+      <div class="to">buddynext_post_created<br>buddynext_follow<br>buddynext_space_member_joined</div>
+    </div>
+    <div class="defer-card">
+      <div class="from">Career Board</div>
+      <div class="arrow">↓ bridge fires</div>
+      <div class="to">Job cards → bn_posts (type: job)<br>Hashtags → buddynext_index_hashtags<br>Search → bn_search_index</div>
+    </div>
+    <div class="defer-card">
+      <div class="from">All addons standalone</div>
+      <div class="arrow">↓ no BuddyNext</div>
+      <div class="to">Run their own social layer<br>No dependency on BuddyNext<br>Bridge simply not loaded</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SLIDE 5 — FREE FEATURES
+══════════════════════════════════════════ -->
+<div class="slide" id="s5">
+  <div class="label">BuddyNext Free</div>
+  <div class="title-lg"><em>Genuinely good.</em> Not a demo.</div>
+  <div class="feat-two-col">
+    <div>
+      <div class="feat-group">
+        <h3>Social Core</h3>
+        <div class="feat-item"><span class="check">✓</span> Follow / connect / block</div>
+        <div class="feat-item"><span class="check">✓</span> Activity feed — text, poll, link preview, photo/file</div>
+        <div class="feat-item"><span class="check">✓</span> React, comment, share, bookmark, report</div>
+        <div class="feat-item"><span class="check">✓</span> Hashtag feed + trending hashtags</div>
+        <div class="feat-item"><span class="check">✓</span> Explore feed (public, indexed by Google)</div>
+        <div class="feat-item"><span class="check">✓</span> Unlimited spaces — public + request-to-join</div>
+        <div class="feat-item"><span class="check">✓</span> 6-emoji reactions, threaded comments</div>
+      </div>
+      <div class="feat-group" style="margin-top:16px">
+        <h3>Profiles + Search</h3>
+        <div class="feat-item"><span class="check">✓</span> Avatar + cover (via WPMediaVerse)</div>
+        <div class="feat-item"><span class="check">✓</span> Up to 5 custom profile fields</div>
+        <div class="feat-item"><span class="check">✓</span> Full-text search: people, posts, spaces, hashtags</div>
+        <div class="feat-item"><span class="check">✓</span> Member directory with online status</div>
+      </div>
+    </div>
+    <div>
+      <div class="feat-group">
+        <h3>Messaging + Notifications</h3>
+        <div class="feat-item"><span class="check">✓</span> <strong>1:1 DM</strong> — powered by WPMediaVerse free</div>
+        <div class="feat-item"><span class="check">✓</span> Message requests, mute, pin, archive</div>
+        <div class="feat-item"><span class="check">✓</span> Emoji reactions on messages, quoted replies</div>
+        <div class="feat-item"><span class="check">✓</span> 5s REST polling transport</div>
+        <div class="feat-item"><span class="check">✓</span> In-app notification bell + /notifications/ page</div>
+        <div class="feat-item"><span class="check">✓</span> Transactional emails (follow, comment, DM, etc.)</div>
+      </div>
+      <div class="feat-group" style="margin-top:16px">
+        <h3>Platform</h3>
+        <div class="feat-item"><span class="check">✓</span> REST API at buddynext/v1 — fully API-first</div>
+        <div class="feat-item"><span class="check">✓</span> Gutenberg blocks, shortcodes, widgets</div>
+        <div class="feat-item"><span class="check">✓</span> Admin setup wizard + member onboarding</div>
+        <div class="feat-item"><span class="check">✓</span> Moderation queue, reports, suspend</div>
+        <div class="feat-item"><span class="check">✓</span> PWA (manifest + service worker)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SLIDE 6 — PRO FEATURES
+══════════════════════════════════════════ -->
+<div class="slide" id="s6">
+  <div class="label">BuddyNext Pro</div>
+  <div class="title-lg">Features every community <em>hits within 3–6 months.</em></div>
+  <div class="pro-grid">
+    <div class="pro-card">
+      <div class="ico">💬</div>
+      <h3>Group DM + Real-time</h3>
+      <ul>
+        <li>Group conversations, 2–49 members</li>
+        <li>WebSocket real-time (instant delivery)</li>
+        <li>Read receipts — sent/delivered/read</li>
+        <li>Typing indicator, online presence</li>
+        <li>Powered by WPMediaVerse Pro (bundled)</li>
+      </ul>
+    </div>
+    <div class="pro-card">
+      <div class="ico">📅</div>
+      <h3>Content + Scheduling</h3>
+      <ul>
+        <li>Scheduled posts (future datetime)</li>
+        <li>Recurring scheduled posts</li>
+        <li>Up to 10 pinned posts per space</li>
+        <li>Post reach stats per author</li>
+        <li>Custom reaction emoji set</li>
+      </ul>
+    </div>
+    <div class="pro-card">
+      <div class="ico">📧</div>
+      <h3>Broadcast + Drip Email</h3>
+      <ul>
+        <li>Broadcast campaigns to members/segments</li>
+        <li>Drip welcome sequences (day 0/3/7/14/30)</li>
+        <li>Space digest emails (weekly/monthly)</li>
+        <li>Campaign history + open rate / CTR</li>
+        <li>CAN-SPAM / GDPR compliant</li>
+      </ul>
+    </div>
+    <div class="pro-card">
+      <div class="ico">🚦</div>
+      <h3>Access + Spaces</h3>
+      <ul>
+        <li>Private spaces (invite-only)</li>
+        <li>Gated spaces (membership / ability)</li>
+        <li>Post approval queue per space</li>
+        <li>Member tiers + tier-gated access</li>
+        <li>Per-space custom branding</li>
+      </ul>
+    </div>
+    <div class="pro-card">
+      <div class="ico">🤖</div>
+      <h3>AI Engine</h3>
+      <ul>
+        <li>AI feed ranking (personalised)</li>
+        <li>AI content moderation (toxicity score)</li>
+        <li>Smart notifications (suppress low-signal)</li>
+        <li>"Spaces you might like" discovery</li>
+        <li>"People you might know" extended</li>
+      </ul>
+    </div>
+    <div class="pro-card">
+      <div class="ico">📊</div>
+      <h3>Analytics + Members</h3>
+      <ul>
+        <li>Full analytics dashboard (DAU/WAU/MAU)</li>
+        <li>Space-level analytics for admins</li>
+        <li>Custom member labels (Verified, Expert…)</li>
+        <li>Member segments + CSV export</li>
+        <li>Advanced profile fields + conditional</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SLIDE 7 — DM ARCHITECTURE
+══════════════════════════════════════════ -->
+<div class="slide" id="s7">
+  <div class="label">Key Architecture Decision — DM</div>
+  <div class="title-md" style="margin-bottom:20px"><em>WPMediaVerse owns DM.</em> BuddyNext is the UI layer.</div>
+  <div class="slide-inner">
+    <div class="dm-diagram">
+      <svg viewBox="0 0 500 360" fill="none" xmlns="http://www.w3.org/2000/svg" width="100%">
+        <!-- BuddyNext UI layer -->
+        <rect x="10" y="10" width="480" height="70" rx="10" fill="rgba(245,166,35,.06)" stroke="rgba(245,166,35,.3)" stroke-width="1.5"/>
+        <text x="30" y="35" fill="#f5a623" font-family="DM Mono,monospace" font-size="10" letter-spacing="2">BUDDYNEXT — UI LAYER ONLY</text>
+        <text x="30" y="55" fill="#9ca3af" font-family="DM Sans,sans-serif" font-size="12">Free: DM Inbox (mvs/v1) · Pro: Group DM UI (mvs-pro/v1)</text>
+        <text x="30" y="70" fill="#6b7280" font-family="DM Mono,monospace" font-size="10">No own DM tables. Renders WPMediaVerse REST endpoints.</text>
+
+        <!-- bridge hooks -->
+        <rect x="10" y="100" width="480" height="48" rx="8" fill="#111520" stroke="rgba(255,255,255,.06)" stroke-width="1"/>
+        <text x="30" y="120" fill="#6b7280" font-family="DM Mono,monospace" font-size="9.5" letter-spacing="1">BRIDGE  (includes/Bridges/WPMediaVerse.php)</text>
+        <text x="30" y="138" fill="#9ca3af" font-family="DM Sans,sans-serif" font-size="11">mvs_buddynext_active → true · mvs_can_send_message → bn_blocks check · mvs_message_sent → bn_notifications</text>
+
+        <!-- arrows down -->
+        <line x1="250" y1="148" x2="250" y2="168" stroke="rgba(45,212,191,.3)" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- WPMediaVerse Free -->
+        <rect x="10" y="168" width="480" height="72" rx="10" fill="rgba(45,212,191,.05)" stroke="rgba(45,212,191,.3)" stroke-width="1.5"/>
+        <text x="30" y="190" fill="#2dd4bf" font-family="DM Mono,monospace" font-size="10" letter-spacing="2">WPMEDIAVERSE FREE — DM ENGINE</text>
+        <text x="30" y="208" fill="#9ca3af" font-family="DM Sans,sans-serif" font-size="12">1:1 conversations · message requests · mute/pin/archive · emoji reactions</text>
+        <text x="30" y="223" fill="#9ca3af" font-family="DM Sans,sans-serif" font-size="12">quoted replies · rate limiting · REST polling · access control · GDPR</text>
+        <text x="30" y="235" fill="#6b7280" font-family="DM Mono,monospace" font-size="10">REST: mvs/v1/conversations  mvs/v1/messages  mvs/v1/messages/{id}/reactions</text>
+
+        <!-- arrow down -->
+        <line x1="250" y1="240" x2="250" y2="260" stroke="rgba(129,140,248,.3)" stroke-width="1.5"/>
+
+        <!-- WPMediaVerse Pro -->
+        <rect x="10" y="260" width="480" height="70" rx="10" fill="rgba(129,140,248,.05)" stroke="rgba(129,140,248,.3)" stroke-width="1.5"/>
+        <text x="30" y="282" fill="#818cf8" font-family="DM Mono,monospace" font-size="10" letter-spacing="2">WPMEDIAVERSE PRO (bundled in BuddyNext Pro)</text>
+        <text x="30" y="300" fill="#9ca3af" font-family="DM Sans,sans-serif" font-size="12">Group DM (2–49 members) · WebSocket real-time transport · Read receipts</text>
+        <text x="30" y="320" fill="#6b7280" font-family="DM Mono,monospace" font-size="10">REST: mvs-pro/v1/conversations  mvs-pro/v1/messages/{id}/receipts</text>
+
+        <!-- db tables label -->
+        <rect x="370" y="170" width="115" height="52" rx="6" fill="#0a0d12" stroke="rgba(45,212,191,.2)"/>
+        <text x="427" y="189" text-anchor="middle" fill="#2dd4bf" font-family="DM Mono,monospace" font-size="9" letter-spacing="1">DB TABLES</text>
+        <text x="427" y="204" text-anchor="middle" fill="#6b7280" font-family="DM Mono,monospace" font-size="9">mvs_conversations</text>
+        <text x="427" y="217" text-anchor="middle" fill="#6b7280" font-family="DM Mono,monospace" font-size="9">mvs_messages</text>
+
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 L2,4 Z" fill="rgba(45,212,191,.4)"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="dm-legend">
+      <div class="dm-decision">
+        <p><strong style="color:var(--amber)">Single source of truth.</strong> One set of tables (mvs_*), one codebase. WordPress wp_users is the same table in standalone and community mode — no user mapping, no migration, no dependency needed.</p>
+      </div>
+      <div class="dm-row">
+        <span class="badge badge-free">Free</span>
+        <div class="dm-text">1:1 DM works for all BuddyNext Free users if WPMediaVerse Free is active. DM tab hidden with a notice if WPMediaVerse not installed.</div>
+      </div>
+      <div class="dm-row">
+        <span class="badge badge-pro">Pro</span>
+        <div class="dm-text">WPMediaVerse Pro is bundled in BuddyNext Pro — every Pro user automatically gets Group DM, WebSocket real-time, and read receipts. No separate purchase.</div>
+      </div>
+      <div class="dm-row">
+        <span class="badge badge-free">Bridge</span>
+        <div class="dm-text">3 hooks only: set mvs_buddynext_active → true, inject bn_blocks check, route message notifications to bn_notifications.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SLIDE 8 — BRIDGE WIRING
+══════════════════════════════════════════ -->
+<div class="slide" id="s8">
+  <div class="label">Integration Pattern</div>
+  <div class="title-md" style="margin-bottom:8px">How addons plug into BuddyNext</div>
+  <p class="body" style="font-size:14px; margin-bottom:20px">BuddyNext never calls addon code directly. Every integration is hooks.</p>
+  <table class="hook-table">
+    <thead>
+      <tr>
+        <th>BuddyNext Action</th>
+        <th>Who hooks it</th>
+        <th>What they do</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>buddynext_post_created</td>
+        <td>WBGamification</td>
+        <td>Award points for posting</td>
+      </tr>
+      <tr>
+        <td>buddynext_follow</td>
+        <td>WBGamification</td>
+        <td>Award points for following</td>
+      </tr>
+      <tr>
+        <td>buddynext_space_member_joined</td>
+        <td>WBGamification</td>
+        <td>Award points for joining a space</td>
+      </tr>
+      <tr>
+        <td>mvs_media_uploaded</td>
+        <td>BuddyNext bridge</td>
+        <td>Creates bn_posts entry (type: media) + fires buddynext_index_hashtags</td>
+      </tr>
+      <tr>
+        <td>mvs_message_sent</td>
+        <td>BuddyNext bridge</td>
+        <td>Creates bn_notifications entry (type: bn.new_message)</td>
+      </tr>
+      <tr>
+        <td>jetonomy_discussion_created</td>
+        <td>BuddyNext bridge</td>
+        <td>Creates bn_posts entry (type: discussion) + indexes hashtags</td>
+      </tr>
+      <tr>
+        <td>buddynext_space_tabs (filter)</td>
+        <td>Jetonomy bridge</td>
+        <td>Injects Forum tab into linked BuddyNext spaces</td>
+      </tr>
+      <tr>
+        <td>buddynext_index_hashtags</td>
+        <td>BuddyNext core</td>
+        <td>Extracts #tags from content, populates bn_post_hashtags</td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="margin-top:16px; display:flex; gap:16px; flex-wrap:wrap;">
+    <span class="pill pill-teal" style="font-size:10px">BuddyNext fires actions</span>
+    <span class="pill pill-amber" style="font-size:10px">Addons hook in</span>
+    <span class="pill pill-violet" style="font-size:10px">BuddyNext bridges fire for each addon</span>
+    <span class="pill" style="font-size:10px; color:var(--muted); border-color:var(--border)">No direct addon-to-addon calls</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SLIDE 9 — WORK BREAKDOWN
+══════════════════════════════════════════ -->
+<div class="slide" id="s9">
+  <div class="label">Work Breakdown</div>
+  <div class="title-md" style="margin-bottom:4px">What each team needs to build</div>
+  <div class="work-grid">
+    <div class="work-col">
+      <h3 style="color:var(--teal)">WPMediaVerse Free</h3>
+      <div class="sub">DM engine migration</div>
+      <div class="work-item"><span class="effort eff-m">Med</span><div class="wt">Move MessagingService, Controller, Transport, templates, JS/CSS from Pro → Free</div></div>
+      <div class="work-item"><span class="effort eff-s">Sml</span><div class="wt">Move 4 DB tables (mvs_conversations etc.) to Free Activator</div></div>
+      <div class="work-item"><span class="effort eff-s">Sml</span><div class="wt">Change REST namespace: mvs-pro/v1 → mvs/v1 for DM endpoints</div></div>
+      <div class="work-item"><span class="effort eff-s">Triv</span><div class="wt">Add mvs_buddynext_active filter in chat panel + NotificationListener</div></div>
+      <div class="work-item"><span class="effort eff-s">Triv</span><div class="wt">Add mvs_can_send_message filter in can_message()</div></div>
+    </div>
+    <div class="work-col">
+      <h3 style="color:var(--violet)">WPMediaVerse Pro</h3>
+      <div class="sub">Advanced DM features</div>
+      <div class="work-item"><span class="effort eff-m">Med</span><div class="wt">Group DM: GroupMessagingService + GroupMessagingController (schema already ready — type='group' supported)</div></div>
+      <div class="work-item"><span class="effort eff-s">Sml</span><div class="wt">Read receipts: delivery status in mvs_messages.metadata JSON + GET receipts endpoint</div></div>
+      <div class="work-item"><span class="effort eff-l">Lrg</span><div class="wt">WebSocket transport: WebSocketTransport implementing TransportInterface. Shared Soketi server with BuddyNext Pro.</div></div>
+    </div>
+    <div class="work-col">
+      <h3 style="color:var(--amber)">BuddyNext</h3>
+      <div class="sub">DM bridge + full platform</div>
+      <div class="work-item"><span class="effort eff-m">Med</span><div class="wt">DM bridge: set flags, hook mvs_can_send_message + mvs_message_sent, render inbox UI consuming mvs/v1</div></div>
+      <div class="work-item"><span class="effort eff-s">—</span><div class="wt">No own DM tables. All messaging data lives in WPMediaVerse.</div></div>
+      <div class="work-item"><span class="effort eff-m">Big</span><div class="wt">Full BuddyNext platform: social graph, feed, spaces, notifications, search, profiles, moderation, blocks</div></div>
+      <div class="work-item"><span class="effort eff-m">Med</span><div class="wt">Bridge code for WPMediaVerse, Jetonomy, WBGamification, Career Board</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SLIDE 10 — DB TABLES
+══════════════════════════════════════════ -->
+<div class="slide" id="s10">
+  <div class="label">Data Model</div>
+  <div class="title-md" style="margin-bottom:16px">Who owns what data</div>
+  <div class="db-two-col">
+    <div>
+      <div class="db-section">
+        <h3>BuddyNext owns (bn_*)</h3>
+        <div class="db-item"><code>bn_follows</code><span>Social graph</span></div>
+        <div class="db-item"><code>bn_connections</code><span>Mutual connections</span></div>
+        <div class="db-item"><code>bn_blocks</code><span>Block / mute</span></div>
+        <div class="db-item"><code>bn_posts</code><span>Activity feed</span></div>
+        <div class="db-item"><code>bn_spaces / bn_space_members</code><span>Communities</span></div>
+        <div class="db-item"><code>bn_notifications</code><span>Bell + email trigger</span></div>
+        <div class="db-item"><code>bn_reactions / bn_comments</code><span>Interactions</span></div>
+        <div class="db-item"><code>bn_hashtags / bn_post_hashtags</code><span>Hashtag system</span></div>
+        <div class="db-item"><code>bn_profile_fields / _values</code><span>Custom profiles</span></div>
+        <div class="db-item"><code>bn_search_index</code><span>Unified search</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="db-section">
+        <h3>WPMediaVerse owns (mvs_*)</h3>
+        <div class="db-item"><code>mvs_conversations</code><span>DM threads (direct + group)</span></div>
+        <div class="db-item"><code>mvs_conversation_participants</code><span>Members, roles, mute/pin</span></div>
+        <div class="db-item"><code>mvs_messages</code><span>Message content + metadata</span></div>
+        <div class="db-item"><code>mvs_message_reactions</code><span>Emoji on messages</span></div>
+        <div class="db-item"><code>mvs_media_stats</code><span>Views, downloads, engagement</span></div>
+        <div class="db-item"><code>mvs_media_index</code><span>Denormalized media index</span></div>
+      </div>
+      <div class="db-section" style="margin-top:16px">
+        <h3>BuddyNext Pro adds</h3>
+        <div class="db-item"><code>bn_drip_sequences / _enrollments</code><span>Welcome email automation</span></div>
+        <div class="db-item"><code>bn_email_campaigns / _recipients</code><span>Broadcast email</span></div>
+        <div class="db-item"><code>bn_member_labels / _assignments</code><span>Verified, Expert, Staff…</span></div>
+        <div class="db-item"><code>bn_mod_rules / bn_mod_appeals</code><span>Advanced moderation</span></div>
+        <div class="db-item"><code>bn_ai_signals</code><span>AI ranking signals</span></div>
+        <div class="db-item"><code>bn_analytics_events</code><span>Platform analytics</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SLIDE 11 — NEXT STEPS
+══════════════════════════════════════════ -->
+<div class="slide" id="s11">
+  <div class="label">What's Next</div>
+  <div class="title-lg">Specs are locked.<br><em>Time to build.</em></div>
+  <div class="steps-row">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <h3>WPMediaVerse Free</h3>
+      <p>Move DM engine from Pro → Free. Add 2 integration hooks. Test standalone mode unchanged.</p>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <h3>BuddyNext Core</h3>
+      <p>Social graph, feed, spaces, notifications, search, profiles. REST at buddynext/v1.</p>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <h3>Bridge Layer</h3>
+      <p>WPMediaVerse + Jetonomy + WBGamification bridges. DM inbox UI. Hook wiring.</p>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <h3>WPMediaVerse Pro</h3>
+      <p>Group DM, read receipts, WebSocket transport. Bundled with BuddyNext Pro.</p>
+    </div>
+    <div class="step-item">
+      <div class="step-num">5</div>
+      <h3>BuddyNext Pro</h3>
+      <p>Scheduled posts, drip email, analytics, AI engine, advanced moderation, access gating.</p>
+    </div>
+  </div>
+  <p style="margin-top:32px; font-size:13px; color:var(--muted); font-family:'DM Mono',monospace;">
+    Specs: buddynext/docs/specs/ · DM reqs: WPMediaVerse-DM-Integration-Requirements.md · Hooks: HOOKS.md
+  </p>
+</div>
+
+</div><!-- /deck -->
+
+<!-- navigation -->
+<nav class="nav" id="nav"></nav>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+let current = 0;
+
+function goTo(n) {
+  slides[current].classList.remove('active');
+  slides[current].classList.add('exit');
+  setTimeout(() => slides[current > n ? n+1 : n-1]?.classList.remove('exit'), 350);
+  current = Math.max(0, Math.min(total - 1, n));
+  slides[current].classList.remove('exit');
+  slides[current].classList.add('active');
+  document.getElementById('counter').textContent = `${current+1} / ${total}`;
+  document.querySelectorAll('.dot').forEach((d,i) => d.classList.toggle('active', i === current));
+}
+
+// Build nav
+const nav = document.getElementById('nav');
+const prev = document.createElement('button');
+prev.className = 'nav-btn'; prev.textContent = '←';
+prev.onclick = () => goTo(current - 1);
+nav.appendChild(prev);
+
+for (let i = 0; i < total; i++) {
+  const d = document.createElement('div');
+  d.className = 'dot' + (i === 0 ? ' active' : '');
+  d.onclick = () => goTo(i);
+  nav.appendChild(d);
+}
+
+const next = document.createElement('button');
+next.className = 'nav-btn'; next.textContent = '→';
+next.onclick = () => goTo(current + 1);
+nav.appendChild(next);
+
+// keyboard
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') goTo(current + 1);
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goTo(current - 1);
+});
+</script>
+</body>
+</html>
