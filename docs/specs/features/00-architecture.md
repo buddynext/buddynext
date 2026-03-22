@@ -170,8 +170,10 @@ plugins_loaded:10  → WBGamification::boot()       (standalone mode by default)
 plugins_loaded:10  → WPCareerBoard::init()         (standalone mode by default)
 plugins_loaded:15  → BuddyNext\Core\Plugin::init()
                        → fires buddynext_loaded
-                       → loads bridges (set deferral flags on each addon)
 plugins_loaded:20  → BuddyNext Pro hooks in
+plugins_loaded:25  → BuddyNext bridges initialize
+                       (WPMediaVerseBridge, JetonomyBridge, WBGamificationBridge, CareerBoardBridge)
+                       → set deferral flags on each addon
 ```
 
 Addons must initialize first so BuddyNext can inspect their state and set deferral flags before any `init` hooks fire.

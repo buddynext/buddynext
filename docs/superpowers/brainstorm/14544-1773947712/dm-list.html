@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BuddyNext — DM Conversation List</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f3f5; color: #1e1e1e; font-size: 14px; }
+.topbar { background:#0073aa; color:#fff; padding:10px 20px; font-size:13px; display:flex; align-items:center; gap:12px; }
+.shell { max-width: 680px; margin: 40px auto; background: #fff; border: 1px solid #e9ecef; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+/* Header */
+.msg-header { padding: 18px 20px; border-bottom: 1px solid #e9ecef; display: flex; align-items: center; }
+.msg-title { font-size: 18px; font-weight: 800; flex: 1; }
+.compose-btn { background: #0073aa; color: #fff; padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; }
+/* Search */
+.search-row { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; }
+.search-input { width: 100%; border: 1.5px solid #e9ecef; border-radius: 8px; padding: 8px 12px 8px 32px; font-size: 13px; background: #f9fafb; position: relative; }
+.search-wrap { position: relative; }
+.search-wrap::before { content: '🔎'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 14px; }
+/* Tabs */
+.tabs { display: flex; border-bottom: 1px solid #e9ecef; padding: 0 12px; }
+.tab { padding: 11px 14px; font-size: 13px; font-weight: 500; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; }
+.tab.active { color: #0073aa; border-bottom-color: #0073aa; font-weight: 600; }
+.tab .badge { background: #ef4444; color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 8px; margin-left: 3px; font-weight: 700; }
+/* Section header */
+.section-head { padding: 8px 16px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; background: #f9fafb; border-bottom: 1px solid #f3f4f6; }
+/* Conversation item */
+.conv-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; border-bottom: 1px solid #f9fafb; transition: background 0.1s; }
+.conv-item:hover { background: #f9fafb; }
+.conv-item.unread { background: #f0f9ff; }
+.conv-item:last-child { border-bottom: none; }
+.avatar { border-radius: 50%; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; position: relative; }
+.avatar.md { width: 44px; height: 44px; font-size: 15px; }
+.online { position: absolute; bottom: 1px; right: 1px; width: 11px; height: 11px; background: #22c55e; border-radius: 50%; border: 2px solid #fff; }
+.av-blue{background:#0073aa;}.av-green{background:#059669;}.av-purple{background:#7c3aed;}.av-orange{background:#ea580c;}.av-pink{background:#db2777;}.av-teal{background:#0d9488;}
+.conv-main { flex: 1; min-width: 0; }
+.conv-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+.conv-name { font-weight: 600; font-size: 14px; }
+.conv-name.unread { font-weight: 700; }
+.conv-time { font-size: 11px; color: #9ca3af; }
+.conv-preview { font-size: 12.5px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-preview.unread { color: #1e1e1e; font-weight: 500; }
+.conv-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.unread-badge { background: #0073aa; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; min-width: 20px; text-align: center; }
+.muted-icon { color: #9ca3af; font-size: 12px; }
+.pinned-icon { color: #9ca3af; font-size: 12px; }
+/* Empty state */
+.empty { text-align: center; padding: 48px 20px; }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-title { font-weight: 700; font-size: 16px; margin-bottom: 6px; }
+.empty-sub { font-size: 13px; color: #6b7280; margin-bottom: 16px; }
+.btn-primary { background: #0073aa; color: #fff; padding: 9px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+/* Swipe action hint */
+.swipe-hint { padding: 8px 16px; font-size: 11px; color: #9ca3af; border-bottom: 1px solid #f3f4f6; text-align: center; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <strong>BuddyNext View Design</strong> <span style="opacity:0.7;">→</span> <span>DM Conversation List</span>
+  <span style="margin-left:auto;opacity:0.7;font-size:11px;">View 10 of 14</span>
+  <a href="/" style="color:#fff;text-decoration:none;font-size:11px;background:rgba(255,255,255,0.2);padding:3px 10px;border-radius:10px;">← All Views</a>
+</div>
+
+<div style="max-width:680px;margin:20px auto;padding:0 20px;">
+  <div style="background:#0073aa;color:#fff;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:13px;">
+    <strong>Context:</strong> This view is the /messages/ page. The same layout is used in the left panel of the DM Thread view (split view on desktop).
+  </div>
+</div>
+
+<div class="shell">
+  <div class="msg-header">
+    <div class="msg-title">💬 Messages</div>
+    <button class="compose-btn">+ New message</button>
+  </div>
+
+  <div class="search-row">
+    <div class="search-wrap">
+      <input class="search-input" type="text" placeholder="Search conversations and people…">
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active">All <span style="color:#6b7280;font-weight:400;">(8)</span></div>
+    <div class="tab">Unread <span class="badge">2</span></div>
+    <div class="tab">Requests <span class="badge">1</span></div>
+    <div class="tab">Archived</div>
+  </div>
+
+  <!-- Pinned -->
+  <div class="section-head">📌 Pinned</div>
+  <div class="conv-item">
+    <div class="avatar md av-orange" style="position:relative;">TN<div class="online"></div></div>
+    <div class="conv-main">
+      <div class="conv-top"><div class="conv-name">Tanya Nguyen</div><div class="conv-time">Now</div></div>
+      <div class="conv-preview">Typing…</div>
+    </div>
+    <div class="conv-right"><div class="pinned-icon">📌</div></div>
+  </div>
+
+  <!-- Recent -->
+  <div class="section-head">Recent</div>
+  <div class="conv-item unread">
+    <div class="avatar md av-green" style="position:relative;">SR<div class="online"></div></div>
+    <div class="conv-main">
+      <div class="conv-top"><div class="conv-name unread">Sarah Rodriguez</div><div class="conv-time" style="color:#0073aa;font-weight:600;">2m</div></div>
+      <div class="conv-preview unread">Haha yes exactly! The Suspense…</div>
+    </div>
+    <div class="conv-right"><div class="unread-badge">3</div></div>
+  </div>
+  <div class="conv-item unread">
+    <div class="avatar md av-purple">AJ</div>
+    <div class="conv-main">
+      <div class="conv-top"><div class="conv-name unread">Alex Johnson</div><div class="conv-time" style="color:#0073aa;font-weight:600;">1h</div></div>
+      <div class="conv-preview unread">Did you see the new PR I opened?</div>
+    </div>
+    <div class="conv-right"><div class="unread-badge">2</div></div>
+  </div>
+  <div class="conv-item">
+    <div class="avatar md av-pink">LP</div>
+    <div class="conv-main">
+      <div class="conv-top"><div class="conv-name">Lena Park</div><div class="conv-time">3h</div></div>
+      <div class="conv-preview">Thanks for the detailed feedback on the…</div>
+    </div>
+    <div class="conv-right"></div>
+  </div>
+  <div class="conv-item">
+    <div class="avatar md av-blue">MK</div>
+    <div class="conv-main">
+      <div class="conv-top"><div class="conv-name">Marcus Kim</div><div class="conv-time">1d</div></div>
+      <div class="conv-preview">You: let me check that and get back to you</div>
+    </div>
+    <div class="conv-right"></div>
+  </div>
+  <div class="conv-item">
+    <div class="avatar md av-teal">DR</div>
+    <div class="conv-main">
+      <div class="conv-top"><div class="conv-name">David Reyes</div><div class="conv-time">2d</div></div>
+      <div class="conv-preview" style="color:#9ca3af;font-style:italic;">🔇 Muted</div>
+    </div>
+    <div class="conv-right"><div class="muted-icon">🔇</div></div>
+  </div>
+
+  <div style="text-align:center;padding:16px;font-size:12px;color:#9ca3af;">
+    Swipe left on any conversation to mute, archive, or delete
+  </div>
+</div>
+
+<div style="background:#1e1e1e;color:#e5e7eb;padding:20px 32px;font-size:12px;line-height:1.8;margin-top:0;">
+  <div style="font-weight:700;color:#fff;margin-bottom:8px;">📋 DM List — Spec Notes</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+    <div><div style="color:#60a5fa;font-weight:600;margin-bottom:6px;">Tabs</div>
+      <div>• All — all active convos</div><div>• Unread — only convos with unread messages</div>
+      <div>• Requests — unknown senders pending acceptance</div><div>• Archived — hidden but accessible</div></div>
+    <div><div style="color:#60a5fa;font-weight:600;margin-bottom:6px;">Conversation Actions (long-press/swipe)</div>
+      <div>• Pin / Unpin</div><div>• Mute / Unmute (with duration)</div>
+      <div>• Archive</div><div>• Delete (clears for you, not recipient)</div><div>• Report</div></div>
+    <div><div style="color:#60a5fa;font-weight:600;margin-bottom:6px;">Access Control</div>
+      <div>• Rate limit: 10 new convos/hour</div><div>• Blocked users can't appear in list</div>
+      <div>• Unknown senders → Requests tab</div><div>• REST: GET buddynext/v1/conversations</div></div>
+  </div>
+</div>
+<script src="nav.js"></script>
+</body>
+</html>

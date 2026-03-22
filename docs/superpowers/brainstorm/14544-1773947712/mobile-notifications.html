@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuddyNext — Notifications (mobile)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+    :root {
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      --text-base: 15px; --leading-body: 1.6;
+      --bg: #ffffff; --bg-subtle: #f8f8f7; --bg-hover: #f1f1f0;
+      --surface: #ffffff; --border: #e8e8e5; --border-soft: #f1f1ee;
+      --text-1: #37352f; --text-2: #787774; --text-3: #aeaca8;
+      --brand: #0073aa; --brand-light: #e8f4fb; --brand-hover: #005f8e;
+      --jetonomy: #5b21b6; --jetonomy-bg: #f5f3ff;
+      --mvs: #0f766e; --mvs-bg: #f0fdf9;
+      --radius: 12px; --radius-sm: 8px; --radius-lg: 16px;
+    }
+    [data-theme="dark"] {
+      --bg: #191919; --bg-subtle: #222220; --bg-hover: #2a2a28;
+      --surface: #252525; --border: #333330; --border-soft: #2d2d2a;
+      --text-1: #e8e8e6; --text-2: #9b9b98; --text-3: #6b6b68;
+      --brand: #4dabdb; --brand-light: #1a3544;
+      --jetonomy: #a78bfa; --jetonomy-bg: #1e1a2e;
+      --mvs: #34d399; --mvs-bg: #0d1f1c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background: #e5e5ea;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0;
+    }
+
+    .phone-wrapper {
+      background: #e5e5ea;
+      padding: 20px 0 40px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .phone {
+      width: 390px;
+      min-height: 820px;
+      background: var(--bg);
+      border-radius: 44px;
+      box-shadow: 0 0 0 10px #1a1a1a, 0 0 0 11px #3a3a3a, 0 30px 80px rgba(0,0,0,0.35);
+      overflow: hidden;
+      position: relative;
+      font-family: var(--font-body);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .status-bar {
+      background: #fff;
+      padding: 14px 28px 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1a1a1a;
+      flex-shrink: 0;
+    }
+
+    .top-bar {
+      background: var(--bg);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .top-bar-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-1);
+    }
+
+    .mark-all-btn {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--brand);
+      cursor: pointer;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      border-bottom: 1px solid var(--border-soft);
+      flex-shrink: 0;
+    }
+
+    .filter-tabs::-webkit-scrollbar { display: none; }
+
+    .filter-tab {
+      flex-shrink: 0;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      background: var(--bg-subtle);
+      color: var(--text-2);
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .filter-tab.active {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand);
+      font-weight: 600;
+    }
+
+    .notif-scroll {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .group-header {
+      padding: 10px 16px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .notif-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-soft);
+      background: var(--bg);
+      position: relative;
+      cursor: pointer;
+    }
+
+    .notif-row.unread {
+      background: #f0f7fc;
+    }
+
+    .unread-dot {
+      position: absolute;
+      left: 5px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--brand);
+    }
+
+    .notif-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .notif-avatar.sr { background: #8b5cf6; }
+    .notif-avatar.aj { background: #0ea5e9; }
+    .notif-avatar.tn { background: #f59e0b; }
+    .notif-avatar.space { background: var(--bg-subtle); font-size: 20px; }
+    .notif-avatar.mk { background: #10b981; }
+
+    .notif-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .notif-text {
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-1);
+    }
+
+    .notif-text strong {
+      font-weight: 600;
+    }
+
+    .notif-time {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 3px;
+    }
+
+    .notif-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .notif-btn {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      color: var(--text-1);
+      background: var(--bg);
+    }
+
+    .notif-btn.brand {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand);
+    }
+
+    .mention-badge {
+      display: inline-block;
+      background: var(--jetonomy-bg);
+      color: var(--jetonomy);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-top: 4px;
+    }
+
+    .notif-time-col {
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--text-3);
+      padding-top: 2px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px 20px;
+      color: var(--text-3);
+    }
+
+    .empty-state .empty-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .bottom-nav {
+      position: sticky;
+      bottom: 0;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 8px 0 20px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--text-2);
+      font-size: 11px;
+      position: relative;
+    }
+
+    .nav-item.active {
+      color: var(--brand);
+      font-weight: 600;
+    }
+
+    .nav-item .icon { font-size: 22px; }
+
+    .nav-badge {
+      position: absolute;
+      top: -2px;
+      right: -6px;
+      background: #ef4444;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 8px;
+    }
+
+    .spec-notes {
+      width: 390px;
+      background: #1e1e1e;
+      border-radius: 0 0 16px 16px;
+      padding: 18px 20px 24px;
+      color: #a0a09e;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+
+    .spec-notes h4 {
+      color: #6b6b68;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="phone-wrapper">
+    <div class="phone">
+
+      <!-- STATUS BAR -->
+      <div class="status-bar">
+        <span>9:41</span>
+        <span style="font-size:10px;">▲▲▲ WiFi ▓▓▓</span>
+      </div>
+
+      <!-- TOP BAR -->
+      <div class="top-bar">
+        <div class="top-bar-title">Notifications</div>
+        <div class="mark-all-btn">Mark all read</div>
+      </div>
+
+      <!-- FILTER TABS -->
+      <div class="filter-tabs">
+        <div class="filter-tab active">All</div>
+        <div class="filter-tab">Mentions</div>
+        <div class="filter-tab">Follows</div>
+        <div class="filter-tab">Spaces</div>
+      </div>
+
+      <!-- NOTIFICATIONS LIST -->
+      <div class="notif-scroll">
+
+        <!-- Group: Today -->
+        <div class="group-header">Today</div>
+
+        <!-- Row 1: Follow (unread) -->
+        <div class="notif-row unread">
+          <div class="unread-dot"></div>
+          <div class="notif-avatar sr">SR</div>
+          <div class="notif-body">
+            <div class="notif-text"><strong>Sarah Rodriguez</strong> started following you.</div>
+            <div class="notif-actions">
+              <div class="notif-btn">Follow back</div>
+            </div>
+            <div class="notif-time">2m</div>
+          </div>
+        </div>
+
+        <!-- Row 2: Comment (unread) -->
+        <div class="notif-row unread">
+          <div class="unread-dot"></div>
+          <div class="notif-avatar aj">AJ</div>
+          <div class="notif-body">
+            <div class="notif-text"><strong>Alex Johnson</strong> commented on your post: "Great point about use() hooks, have you tried it with Suspense boundaries?"</div>
+            <div class="notif-time">1h</div>
+          </div>
+        </div>
+
+        <!-- Row 3: Mention (unread) -->
+        <div class="notif-row unread">
+          <div class="unread-dot"></div>
+          <div class="notif-avatar tn">TN</div>
+          <div class="notif-body">
+            <div class="notif-text"><strong>Tanya Nguyen</strong> mentioned you: "@varundubey love this design system breakdown!"</div>
+            <div class="mention-badge">@mention</div>
+            <div class="notif-time">3h</div>
+          </div>
+        </div>
+
+        <!-- Row 4: Space invite (read) -->
+        <div class="notif-row">
+          <div class="notif-avatar space">🏘️</div>
+          <div class="notif-body">
+            <div class="notif-text">You were invited to join <strong>Design Space</strong></div>
+            <div class="notif-actions">
+              <div class="notif-btn brand">View</div>
+            </div>
+            <div class="notif-time">1d</div>
+          </div>
+        </div>
+
+        <!-- Row 5: Like (read) -->
+        <div class="notif-row">
+          <div class="notif-avatar mk">MK</div>
+          <div class="notif-body">
+            <div class="notif-text"><strong>Marcus Kim</strong> liked your post</div>
+            <div class="notif-time">2d</div>
+          </div>
+        </div>
+
+        <!-- EMPTY STATE -->
+        <div class="empty-state">
+          <div class="empty-icon">✉️</div>
+          <p>You're all caught up!</p>
+        </div>
+
+        <div style="height:12px;"></div>
+      </div><!-- /notif-scroll -->
+
+      <!-- BOTTOM NAV -->
+      <div class="bottom-nav">
+        <div class="nav-item">
+          <span class="icon">🏠</span>Feed
+        </div>
+        <div class="nav-item">
+          <span class="icon">🔍</span>Explore
+        </div>
+        <div class="nav-item">
+          <span class="icon">🏘️</span>Spaces
+        </div>
+        <div class="nav-item active">
+          <span class="icon">🔔</span>
+          Notifs
+        </div>
+        <div class="nav-item">
+          <span class="icon">💬</span>
+          <span class="nav-badge">2</span>
+          Messages
+        </div>
+      </div>
+
+    </div><!-- /phone -->
+  </div><!-- /phone-wrapper -->
+
+  <!-- SPEC NOTES (outside phone) -->
+  <div class="spec-notes">
+    <h4>Layout Notes</h4>
+    Notification groups: Today / This week / Earlier. Unread count badge in bottom nav resets when this view is opened (SSE pushes new counts). Tapping a notification marks it read + navigates to context. REST: GET buddynext/v1/notifications?cursor=…
+  </div>
+
+  <script src="nav.js"></script>
+</body>
+</html>

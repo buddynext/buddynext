@@ -13,7 +13,7 @@ Extended user profiles beyond `wp_users`. Structured field groups (flat + repeat
 
 ## Field Architecture
 
-Two tables: `bn_profile_fields` (field definitions) + `bn_profile_values` (user values). An `entry_index` integer handles repeater entries — no extra table needed.
+Three tables: `bn_profile_groups` (group definitions) + `bn_profile_fields` (field definitions) + `bn_profile_values` (user values). An `entry_index` integer handles repeater entries — no extra table needed.
 
 Searchable flat fields are denormalized to `wp_usermeta` on save for fast directory filtering.
 
@@ -81,8 +81,11 @@ Points + badge counts shown on profile via bridge. Profile completion milestone 
 
 ## Data Stored
 
-`bn_profile_fields` — field definitions (type, label, slug, options, privacy default)
-`bn_profile_values` — user values (user_id, field_id, entry_index, value)
+Three tables:
+
+`bn_profile_groups` — group definitions (label, group_key, type: flat|repeater, visibility)
+`bn_profile_fields` — field definitions (type, label, field_key, options JSON, group_id, visibility, is_required, sort_order)
+`bn_profile_values` — user values (user_id, field_id, entry_index for repeaters, value)
 
 ---
 

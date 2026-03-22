@@ -35,6 +35,7 @@
 | 17 | [Roles + Permissions](features/17-roles-permissions.md) | ✅ Locked |
 | 18 | [Hashtags](features/18-hashtags.md) | ✅ Locked |
 | 19 | [Database + Scale](features/19-database-scale.md) | ✅ Locked |
+| 20 | [Theme Integration](features/20-theme-integration.md) | ✅ Locked |
 
 ## Integration Requirements (Other Plugins)
 
@@ -71,51 +72,61 @@
 
 ## DB Tables Master List
 
-| Table | Feature |
-|-------|---------|
+| Table | Feature Area |
+|-------|-------------|
 | `bn_follows` | Social Graph |
 | `bn_connections` | Social Graph |
 | `bn_blocks` | Social Graph |
-| `bn_posts` | Activity Feed — media_ids JSON refs WPMediaVerse for photo/file |
-| `bn_poll_options` | Activity Feed — poll choices |
-| `bn_poll_votes` | Activity Feed — poll responses |
+| `bn_posts` | Activity Feed |
+| `bn_poll_options` | Activity Feed |
+| `bn_poll_votes` | Activity Feed |
 | `bn_bookmarks` | Activity Feed |
 | `bn_shares` | Activity Feed |
+| `bn_announcement_dismissals` | Activity Feed |
 | `bn_spaces` | Spaces |
 | `bn_space_members` | Spaces |
 | `bn_space_categories` | Spaces |
-| `bn_hashtags` | Hashtags — registry |
-| `bn_post_hashtags` | Hashtags — post pivot |
-| `bn_hashtag_follows` | Hashtags — user follows hashtag |
+| `bn_space_bans` | Spaces / Moderation |
+| `bn_hashtags` | Hashtags |
+| `bn_post_hashtags` | Hashtags |
+| `bn_hashtag_follows` | Hashtags |
 | `bn_search_index` | Search |
+| `bn_profile_groups` | Profiles |
 | `bn_profile_fields` | Profiles |
 | `bn_profile_values` | Profiles |
 | `bn_notifications` | Notifications |
 | `bn_notification_prefs` | Notifications |
 | `bn_email_templates` | Email |
-| `bn_email_log` | Email (digest dedup) |
-| `bn_verify_tokens` | Registration |
-| `mvs_conversations` | Direct Messaging — owned by WPMediaVerse, BuddyNext bridges |
-| `mvs_conversation_participants` | Direct Messaging — owned by WPMediaVerse |
-| `mvs_messages` | Direct Messaging — owned by WPMediaVerse |
-| `mvs_message_reactions` | Direct Messaging — owned by WPMediaVerse |
+| `bn_email_log` | Email |
+| `bn_verify_tokens` | Auth / Registration |
+| `bn_invites` | Onboarding |
 | `bn_reactions` | Reactions |
 | `bn_comments` | Comments |
 | `bn_reports` | Moderation |
 | `bn_mod_log` | Moderation |
 | `bn_user_strikes` | Moderation |
-| `bn_user_abilities` | Roles — WP Abilities API grant/revoke log |
-| `bn_activity_log` | Platform — user action audit (login, post, join, follow) pruned 90d |
-| `bn_feed_items` | Platform — pre-computed feed cache (enabled above 1M members) |
+| `bn_user_suspensions` | Moderation |
+| `bn_appeals` | Moderation |
+| `bn_user_abilities` | Roles / Permissions |
+| `bn_activity_log` | Platform |
+| `bn_feed_items` | Platform (feed cache, >1M members) |
+| `bn_user_credits` | Platform |
+| `bn_webhook_log` | Webhooks (inbound) |
+| `bn_outbound_webhooks` | Webhooks (outbound) |
+| `bn_outbound_webhook_log` | Webhooks (outbound) |
+| `mvs_conversations` | Direct Messaging — owned by WPMediaVerse |
+| `mvs_conversation_participants` | Direct Messaging — owned by WPMediaVerse |
+| `mvs_messages` | Direct Messaging — owned by WPMediaVerse |
+| `mvs_message_reactions` | Direct Messaging — owned by WPMediaVerse |
 | `bn_membership_tiers` | Pro: Membership |
 | `bn_subscriptions` | Pro: Membership |
 | `bn_ai_signals` | Pro: AI |
 | `bn_analytics_events` | Pro: Analytics |
 | `bn_email_campaigns` | Pro: Broadcast Email |
 | `bn_campaign_recipients` | Pro: Broadcast Email |
-| `bn_drip_sequences` | Pro: Drip Welcome Sequences |
-| `bn_drip_enrollments` | Pro: Drip Welcome Sequences |
+| `bn_drip_sequences` | Pro: Drip Sequences |
+| `bn_drip_enrollments` | Pro: Drip Sequences |
 | `bn_mod_rules` | Pro: Advanced Moderation |
 | `bn_mod_appeals` | Pro: Advanced Moderation |
-| `bn_member_labels` | Pro: Custom Member Labels |
-| `bn_member_label_assignments` | Pro: Custom Member Labels |
+| `bn_member_labels` | Pro: Member Labels |
+| `bn_member_label_assignments` | Pro: Member Labels |

@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Home Feed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+/* ── Design tokens ── */
+:root {
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --text-xs: 11px;  --text-sm: 13px;  --text-base: 15px;
+  --text-lg: 17px;  --text-xl: 20px;  --text-2xl: 24px;
+  --leading-body: 1.7;
+
+  /* Notion warm-grey palette — light */
+  --bg:           #ffffff;
+  --bg-subtle:    #f8f8f7;
+  --bg-hover:     #f1f1f0;
+  --surface:      #ffffff;
+  --border:       #e8e8e5;
+  --border-soft:  #f1f1ee;
+  --text-1:       #37352f;
+  --text-2:       #787774;
+  --text-3:       #aeaca8;
+
+  /* Brand + integration accents */
+  --brand:        #0073aa;
+  --brand-light:  #e8f4fb;
+  --brand-hover:  #005f8e;
+  --jetonomy:     #5b21b6;
+  --jetonomy-bg:  #f5f3ff;
+  --mvs:          #0f766e;
+  --mvs-bg:       #f0fdf9;
+
+  /* Semantic */
+  --green:        #059669;
+  --green-bg:     #ecfdf5;
+  --amber:        #d97706;
+  --amber-bg:     #fffbeb;
+  --red:          #dc2626;
+  --red-bg:       #fef2f2;
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px;
+  --s6: 24px; --s8: 32px;
+  --radius-sm: 6px; --radius: 10px; --radius-lg: 14px;
+}
+[data-theme="dark"] {
+  --bg:           #191919;
+  --bg-subtle:    #202020;
+  --bg-hover:     #2a2a2a;
+  --surface:      #252525;
+  --border:       #333330;
+  --border-soft:  #2c2c2a;
+  --text-1:       #e8e8e6;
+  --text-2:       #9b9b97;
+  --text-3:       #6b6b67;
+  --brand:        #4dabdb;
+  --brand-light:  #1a2e3a;
+  --brand-hover:  #5fbfe8;
+  --jetonomy:     #a78bfa;
+  --jetonomy-bg:  #1e1830;
+  --mvs:          #34d399;
+  --mvs-bg:       #0d2420;
+  --green:        #34d399;
+  --green-bg:     #0d2420;
+  --amber:        #fbbf24;
+  --amber-bg:     #2a2000;
+  --red:          #f87171;
+  --red-bg:       #2d0f0f;
+}
+
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  color: var(--text-1);
+  background: var(--bg-subtle);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Theme header band (BuddyX inherited — not owned by BuddyNext) ── */
+.theme-header-band {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 var(--s8);
+  position: sticky; top: 0; z-index: 200;
+}
+.theme-header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  height: 60px;
+  gap: var(--s5);
+}
+.theme-logo {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 800;
+  color: var(--brand);
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+.theme-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  flex: 1;
+  padding-left: var(--s6);
+}
+.theme-nav-link {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-2);
+  padding: var(--s1) var(--s3);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  cursor: pointer;
+}
+.theme-nav-link:hover { background: var(--bg-hover); color: var(--text-1); }
+.theme-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-shrink: 0;
+}
+.avatar {
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+}
+.avatar.xs { width: 28px; height: 28px; font-size: 10px; }
+.avatar.sm { width: 34px; height: 34px; font-size: var(--text-xs); }
+.avatar.md { width: 42px; height: 42px; font-size: var(--text-sm); }
+.avatar.lg { width: 52px; height: 52px; font-size: var(--text-base); }
+.avatar.xl { width: 68px; height: 68px; font-size: var(--text-lg); }
+.av-brand   { background: var(--brand); }
+.av-green   { background: var(--green); }
+.av-purple  { background: #7c3aed; }
+.av-orange  { background: #ea580c; }
+.av-pink    { background: #db2777; }
+.av-jt      { background: var(--jetonomy); }
+.av-mvs     { background: var(--mvs); }
+
+.theme-annotation {
+  display: inline-block;
+  background: var(--amber-bg);
+  color: var(--amber);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 2px var(--s2);
+  border-radius: var(--radius-sm);
+  border: 1px solid currentColor;
+  margin-left: var(--s2);
+  opacity: 0.75;
+}
+
+/* ── BuddyNext secondary nav ── */
+.bn-subnav {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 var(--s8);
+  position: sticky; top: 60px; z-index: 190;
+}
+.bn-subnav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  gap: var(--s1);
+}
+.bn-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s1) var(--s3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  position: relative;
+}
+.bn-nav-item:hover { background: var(--bg-hover); color: var(--text-1); }
+.bn-nav-item.active {
+  color: var(--brand);
+  font-weight: 600;
+}
+.bn-nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 2px;
+  background: var(--brand);
+  border-radius: 2px;
+}
+.notif-pill {
+  background: var(--red);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bn-subnav-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.dark-toggle {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px var(--s2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.dark-toggle:hover { color: var(--text-1); background: var(--bg-hover); }
+
+/* ── Page shell ── */
+.page-shell {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: var(--s6) var(--s8);
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: var(--s6);
+  align-items: start;
+}
+
+/* ── Feed area ── */
+.feed-area { min-width: 0; }
+
+/* Feed tabs */
+.feed-tabs {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: var(--s4);
+}
+.feed-tab {
+  flex: 1;
+  text-align: center;
+  padding: var(--s2) var(--s3);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+}
+.feed-tab:last-child { border-right: none; }
+.feed-tab.active { background: var(--brand); color: #fff; font-weight: 600; }
+
+/* ── Composer ── */
+.composer {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--s4);
+  margin-bottom: var(--s3);
+}
+.composer-row { display: flex; gap: var(--s3); align-items: center; }
+.composer-input {
+  flex: 1;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: var(--s2) var(--s4);
+  font-size: var(--text-base);
+  color: var(--text-3);
+  cursor: text;
+  font-family: var(--font-body);
+}
+.composer-toolbar {
+  display: flex;
+  gap: var(--s1);
+  align-items: center;
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--border-soft);
+}
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: var(--s1) var(--s2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.toolbar-btn:hover { background: var(--bg-hover); color: var(--text-1); }
+.btn-primary {
+  margin-left: auto;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 7px var(--s4);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.btn-primary:hover { background: var(--brand-hover); }
+
+/* ── Post card — base ── */
+.post-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--s3);
+  overflow: hidden;
+}
+.post-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: var(--s4) var(--s4) 0;
+}
+.post-author { flex: 1; min-width: 0; }
+.post-author-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.3;
+}
+.post-author-meta {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+}
+.space-badge {
+  color: var(--brand);
+  font-weight: 500;
+}
+.post-more { color: var(--text-3); font-size: 18px; cursor: pointer; padding: 2px 4px; line-height: 1; }
+.post-body {
+  padding: var(--s3) var(--s4) var(--s3);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  color: var(--text-1);
+}
+.hashtag { color: var(--brand); font-weight: 500; }
+.post-reactions {
+  display: flex;
+  gap: var(--s1);
+  padding: 0 var(--s4) var(--s2);
+  flex-wrap: wrap;
+}
+.reaction-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px var(--s2);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  background: var(--bg-subtle);
+  color: var(--text-2);
+}
+.reaction-chip:hover { border-color: var(--brand); }
+.reaction-chip.mine { background: var(--brand-light); border-color: var(--brand); color: var(--brand); font-weight: 600; }
+.post-actions {
+  display: flex;
+  border-top: 1px solid var(--border-soft);
+}
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--s2) var(--s3);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.action-btn:hover { background: var(--bg-subtle); color: var(--text-1); }
+.action-btn.liked { color: var(--red); }
+
+/* Comment inline */
+.comment-preview {
+  padding: var(--s2) var(--s4) var(--s3);
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  gap: var(--s2);
+  align-items: flex-start;
+}
+.comment-bubble {
+  flex: 1;
+  background: var(--bg-subtle);
+  border-radius: 10px;
+  padding: var(--s2) var(--s3);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-1);
+}
+.comment-name { font-weight: 600; margin-right: 4px; }
+.view-comments {
+  text-align: center;
+  padding: var(--s2) var(--s4) var(--s3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--brand);
+  cursor: pointer;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* Post image placeholder */
+.post-image-placeholder {
+  width: 100%;
+  height: 200px;
+  background: linear-gradient(135deg, var(--bg-subtle) 0%, var(--border) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  font-size: var(--text-sm);
+}
+
+/* ── Jetonomy integration card ── */
+.post-card.jt-card {
+  border-left: 3px solid var(--jetonomy);
+}
+.jt-source-label {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s2) var(--s4) 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--jetonomy);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.jt-meta-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s1) var(--s4) var(--s2);
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+.jt-meta-row .jt-stat { display: flex; align-items: center; gap: 3px; }
+.jt-tag {
+  display: inline-block;
+  background: var(--jetonomy-bg);
+  color: var(--jetonomy);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 2px var(--s2);
+  border-radius: var(--radius-sm);
+  margin-right: var(--s1);
+}
+.jt-vote-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s4);
+  border-top: 1px solid var(--border-soft);
+}
+.vote-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: var(--s1) var(--s3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.vote-btn:hover { border-color: var(--jetonomy); color: var(--jetonomy); }
+.vote-btn.upvoted { background: var(--jetonomy-bg); border-color: var(--jetonomy); color: var(--jetonomy); }
+.jt-open-link {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--jetonomy);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── WPMediaVerse integration card ── */
+.post-card.mvs-card {
+  border-left: 3px solid var(--mvs);
+}
+.mvs-source-label {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s2) var(--s4) 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--mvs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.mvs-media-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  margin: var(--s2) 0;
+}
+.mvs-media-cell {
+  aspect-ratio: 16/9;
+  background: linear-gradient(135deg, var(--bg-subtle), var(--border));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  font-size: var(--text-xl);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.mvs-media-cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0);
+  transition: background 0.15s;
+}
+.mvs-media-cell:hover::after { background: rgba(0,0,0,0.08); }
+.mvs-media-cell .play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  opacity: 0.8;
+}
+.mvs-tag {
+  display: inline-block;
+  background: var(--mvs-bg);
+  color: var(--mvs);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 2px var(--s2);
+  border-radius: var(--radius-sm);
+  margin-right: var(--s1);
+}
+
+/* ── Sidebar ── */
+.sidebar { display: flex; flex-direction: column; gap: var(--s4); }
+.widget {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--s4);
+}
+.widget-title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: var(--s3);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.widget-title .source-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+.jt-source-tag { background: var(--jetonomy-bg); color: var(--jetonomy); }
+.mvs-source-tag { background: var(--mvs-bg); color: var(--mvs); }
+
+/* People to follow */
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.member-row:last-child { border-bottom: none; }
+.member-info { flex: 1; min-width: 0; }
+.member-name { font-size: var(--text-sm); font-weight: 600; color: var(--text-1); line-height: 1.2; }
+.member-sub { font-size: var(--text-xs); color: var(--text-3); }
+.btn-follow {
+  padding: 4px 12px;
+  border-radius: 14px;
+  border: 1.5px solid var(--brand);
+  color: var(--brand);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg);
+  white-space: nowrap;
+  font-family: var(--font-body);
+}
+.btn-follow:hover { background: var(--brand); color: #fff; }
+
+/* Jetonomy trending discussions */
+.discussion-row {
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
+}
+.discussion-row:last-child { border-bottom: none; }
+.discussion-title {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-1);
+  line-height: 1.4;
+  margin-bottom: 3px;
+}
+.discussion-title:hover { color: var(--jetonomy); }
+.discussion-meta {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  display: flex;
+  gap: var(--s2);
+}
+
+/* Spaces widget */
+.space-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
+}
+.space-row:last-child { border-bottom: none; }
+.space-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-lg);
+  flex-shrink: 0;
+}
+.space-info { flex: 1; min-width: 0; }
+.space-name { font-size: var(--text-sm); font-weight: 600; color: var(--text-1); }
+.space-meta { font-size: var(--text-xs); color: var(--text-3); }
+.space-new-badge {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--red-bg);
+  color: var(--red);
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+/* WPMediaVerse featured media */
+.media-thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s1);
+  margin-bottom: var(--s2);
+}
+.media-thumb {
+  aspect-ratio: 1;
+  background: linear-gradient(135deg, var(--bg-subtle), var(--border));
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xl);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+/* See all link */
+.widget-see-all {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--brand);
+  cursor: pointer;
+  margin-top: var(--s2);
+  display: block;
+}
+
+/* Load more */
+.load-more-zone {
+  text-align: center;
+  padding: var(--s4);
+  color: var(--text-3);
+  font-size: var(--text-sm);
+}
+
+/* Spec notes footer */
+.spec-footer {
+  background: #1a1a18;
+  color: #c8c8c4;
+  padding: var(--s8);
+  font-size: var(--text-sm);
+  line-height: 1.8;
+  margin-top: var(--s8);
+}
+.spec-footer-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: #fff;
+  margin-bottom: var(--s4);
+}
+.spec-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s6);
+}
+.spec-col-title { color: #60a5fa; font-weight: 600; margin-bottom: var(--s2); font-size: var(--text-sm); }
+</style>
+</head>
+<body>
+
+<!-- ── BuddyX Theme Header (inherited — not owned by BuddyNext) ── -->
+<header class="theme-header-band">
+  <div class="theme-header-inner">
+    <div class="theme-logo">MySite <span class="theme-annotation">BuddyX theme</span></div>
+    <nav class="theme-nav">
+      <a class="theme-nav-link">Home</a>
+      <a class="theme-nav-link">Blog</a>
+      <a class="theme-nav-link">Community</a>
+      <a class="theme-nav-link">Shop</a>
+    </nav>
+    <div class="theme-header-actions">
+      <div class="avatar sm av-brand">VD</div>
+    </div>
+  </div>
+</header>
+
+<!-- ── BuddyNext Secondary Nav (registered as WP menu location) ── -->
+<nav class="bn-subnav">
+  <div class="bn-subnav-inner">
+    <a class="bn-nav-item active">🏠 Feed</a>
+    <a class="bn-nav-item">🔍 Explore</a>
+    <a class="bn-nav-item">🏘️ Spaces</a>
+    <a class="bn-nav-item">
+      🔔 Notifications
+      <span class="notif-pill">4</span>
+    </a>
+    <a class="bn-nav-item">
+      💬 Messages
+      <span class="notif-pill">2</span>
+    </a>
+    <a class="bn-nav-item">👥 Members</a>
+    <div class="bn-subnav-right">
+      <button class="dark-toggle" onclick="toggleDark()">🌙 Dark</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Page content ── -->
+<div class="page-shell">
+
+  <!-- ── Feed column ── -->
+  <main class="feed-area">
+
+    <!-- Feed tabs -->
+    <div class="feed-tabs">
+      <div class="feed-tab active">Following</div>
+      <div class="feed-tab">Spaces</div>
+      <div class="feed-tab">Hashtags</div>
+      <div class="feed-tab">All</div>
+    </div>
+
+    <!-- Composer -->
+    <div class="composer">
+      <div class="composer-row">
+        <div class="avatar sm av-brand">VD</div>
+        <div class="composer-input">What's on your mind, Varun?</div>
+      </div>
+      <div class="composer-toolbar">
+        <div class="toolbar-btn">🖼️ Photo</div>
+        <div class="toolbar-btn">🔗 Link</div>
+        <div class="toolbar-btn">📊 Poll</div>
+        <div class="toolbar-btn">📎 File</div>
+        <div class="toolbar-btn">😊 Feeling</div>
+        <div class="toolbar-btn"># Tag</div>
+        <button class="btn-primary">Post</button>
+      </div>
+    </div>
+
+    <!-- ── Card 1: BuddyNext native post ── -->
+    <div class="post-card">
+      <div class="post-header">
+        <div class="avatar sm av-green">SR</div>
+        <div class="post-author">
+          <div class="post-author-name">Sarah Rodriguez</div>
+          <div class="post-author-meta">
+            Product Designer · 2h ago ·
+            <span class="space-badge">🎨 Design Space</span>
+          </div>
+        </div>
+        <div class="post-more">⋯</div>
+      </div>
+      <div class="post-body">
+        Just shipped the new onboarding flow! 6 months of iteration and user testing. Huge thanks to the whole team 🙏
+        <span class="hashtag">#ux</span> <span class="hashtag">#productdesign</span> <span class="hashtag">#shipped</span>
+      </div>
+      <div class="post-image-placeholder">📷 Onboarding flow screenshot</div>
+      <div class="post-reactions">
+        <div class="reaction-chip mine">❤️ 24</div>
+        <div class="reaction-chip">👏 12</div>
+        <div class="reaction-chip">🔥 8</div>
+        <div class="reaction-chip">+</div>
+      </div>
+      <div class="post-actions">
+        <div class="action-btn liked">❤️ Like</div>
+        <div class="action-btn">💬 Comment (7)</div>
+        <div class="action-btn">↗️ Share</div>
+        <div class="action-btn">🔖 Save</div>
+      </div>
+      <div class="comment-preview">
+        <div class="avatar xs av-purple">MK</div>
+        <div class="comment-bubble">
+          <span class="comment-name">Marcus Kim</span> This is brilliant! The progress indicator in step 2 is 🔥
+        </div>
+      </div>
+      <div class="view-comments">View all 7 comments</div>
+    </div>
+
+    <!-- ── Card 2: Jetonomy forum activity ── -->
+    <div class="post-card jt-card">
+      <div class="jt-source-label">
+        💬 Jetonomy Forums · Web Dev Space
+      </div>
+      <div class="post-header">
+        <div class="avatar sm av-jt">AJ</div>
+        <div class="post-author">
+          <div class="post-author-name">Alex Johnson</div>
+          <div class="post-author-meta">
+            Started a discussion · 4h ago ·
+            <span style="color: var(--jetonomy); font-weight:500;">📋 Q&amp;A</span>
+          </div>
+        </div>
+        <div class="post-more">⋯</div>
+      </div>
+      <div class="post-body">
+        <span class="jt-tag">Question</span>
+        Best approach for handling WP Interactivity API state across multiple blocks on the same page? Currently using a shared store but wondering if there's a cleaner pattern for complex nested components.
+      </div>
+      <div style="padding: 0 16px 4px;">
+        <span class="jt-tag">wordpress</span>
+        <span class="jt-tag">interactivity-api</span>
+        <span class="jt-tag">state-management</span>
+      </div>
+      <div class="jt-meta-row">
+        <span class="jt-stat">💬 14 replies</span>
+        <span class="jt-stat">👁️ 248 views</span>
+        <span class="jt-stat" style="color:var(--green); font-weight:600;">✓ Answered</span>
+      </div>
+      <div class="jt-vote-bar">
+        <button class="vote-btn upvoted">▲ 41</button>
+        <button class="vote-btn">▼</button>
+        <a class="jt-open-link">Open in forum →</a>
+      </div>
+    </div>
+
+    <!-- ── Card 3: BuddyNext native text post ── -->
+    <div class="post-card">
+      <div class="post-header">
+        <div class="avatar sm av-purple">TN</div>
+        <div class="post-author">
+          <div class="post-author-name">Tanya Nguyen</div>
+          <div class="post-author-meta">
+            Marketing Lead · 5h ago · 🌐 Public
+          </div>
+        </div>
+        <div class="post-more">⋯</div>
+      </div>
+      <div class="post-body">
+        Hot take: most community platforms fail because they treat content like social media and conversations like forums. You need both to feel native to each other. <span class="hashtag">#community</span> <span class="hashtag">#buildinpublic</span>
+      </div>
+      <div class="post-reactions">
+        <div class="reaction-chip">❤️ 41</div>
+        <div class="reaction-chip">💯 19</div>
+        <div class="reaction-chip">🤔 6</div>
+        <div class="reaction-chip">+</div>
+      </div>
+      <div class="post-actions">
+        <div class="action-btn">❤️ Like</div>
+        <div class="action-btn">💬 Comment (14)</div>
+        <div class="action-btn">↗️ Share</div>
+        <div class="action-btn">🔖 Save</div>
+      </div>
+    </div>
+
+    <!-- ── Card 4: WPMediaVerse media post ── -->
+    <div class="post-card mvs-card">
+      <div class="mvs-source-label">
+        🖼️ WPMediaVerse · Media Space
+      </div>
+      <div class="post-header">
+        <div class="avatar sm av-mvs">LP</div>
+        <div class="post-author">
+          <div class="post-author-name">Lena Park</div>
+          <div class="post-author-meta">
+            Photographer · 6h ago ·
+            <span style="color: var(--mvs); font-weight:500;">📸 Photography</span>
+          </div>
+        </div>
+        <div class="post-more">⋯</div>
+      </div>
+      <div class="post-body">
+        Behind the scenes from last week's product shoot. Loved working with natural light! <span class="hashtag">#photography</span> <span class="hashtag">#bts</span>
+        <span class="mvs-tag">Album · 4 photos</span>
+      </div>
+      <div class="mvs-media-grid">
+        <div class="mvs-media-cell" style="grid-column: span 2; aspect-ratio: 16/7;">📸</div>
+        <div class="mvs-media-cell">📷</div>
+        <div class="mvs-media-cell" style="position:relative;">
+          📷
+          <div style="position:absolute;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:var(--text-lg);font-weight:700;">+2</div>
+        </div>
+      </div>
+      <div class="post-actions" style="border-top: 1px solid var(--border-soft);">
+        <div class="action-btn">❤️ Like (18)</div>
+        <div class="action-btn">💬 Comment (5)</div>
+        <div class="action-btn">↗️ Share</div>
+        <div class="action-btn">🔖 Save</div>
+      </div>
+    </div>
+
+    <div class="load-more-zone">
+      Loading more posts…
+    </div>
+  </main>
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+
+    <!-- People to follow -->
+    <div class="widget">
+      <div class="widget-title">People to Follow</div>
+      <div class="member-row">
+        <div class="avatar sm av-orange">LM</div>
+        <div class="member-info">
+          <div class="member-name">Lena Martinez</div>
+          <div class="member-sub">3 mutual connections</div>
+        </div>
+        <button class="btn-follow">Follow</button>
+      </div>
+      <div class="member-row">
+        <div class="avatar sm av-green">DR</div>
+        <div class="member-info">
+          <div class="member-name">David Reyes</div>
+          <div class="member-sub">Follows you</div>
+        </div>
+        <button class="btn-follow">Follow</button>
+      </div>
+      <div class="member-row">
+        <div class="avatar sm av-purple">JP</div>
+        <div class="member-info">
+          <div class="member-name">Julia Park</div>
+          <div class="member-sub">5 mutual connections</div>
+        </div>
+        <button class="btn-follow">Follow</button>
+      </div>
+      <a class="widget-see-all">See all suggestions →</a>
+    </div>
+
+    <!-- Jetonomy trending discussions -->
+    <div class="widget">
+      <div class="widget-title">
+        Trending Discussions
+        <span class="source-tag jt-source-tag">via Jetonomy</span>
+      </div>
+      <div class="discussion-row">
+        <div class="discussion-title">Best approach for WP Interactivity API shared state across blocks</div>
+        <div class="discussion-meta">
+          <span>💬 14</span>
+          <span>▲ 41</span>
+          <span style="color:var(--green);">✓ Answered</span>
+        </div>
+      </div>
+      <div class="discussion-row">
+        <div class="discussion-title">How do you structure REST API controllers for performance at scale?</div>
+        <div class="discussion-meta">
+          <span>💬 28</span>
+          <span>▲ 36</span>
+          <span>🔥 Hot</span>
+        </div>
+      </div>
+      <div class="discussion-row">
+        <div class="discussion-title">Community guidelines thread — your input needed before Monday</div>
+        <div class="discussion-meta">
+          <span>💬 51</span>
+          <span>▲ 29</span>
+          <span style="color:var(--brand);">📌 Pinned</span>
+        </div>
+      </div>
+      <div class="discussion-row">
+        <div class="discussion-title">Show & tell: What are you building this month?</div>
+        <div class="discussion-meta">
+          <span>💬 67</span>
+          <span>▲ 22</span>
+        </div>
+      </div>
+      <a class="widget-see-all" style="color: var(--jetonomy);">Browse all discussions →</a>
+    </div>
+
+    <!-- Suggested spaces -->
+    <div class="widget">
+      <div class="widget-title">Active Spaces</div>
+      <div class="space-row">
+        <div class="space-icon-box">💻</div>
+        <div class="space-info">
+          <div class="space-name">Web Dev</div>
+          <div class="space-meta">1.2k members</div>
+        </div>
+        <span class="space-new-badge">12 new</span>
+      </div>
+      <div class="space-row">
+        <div class="space-icon-box">🎨</div>
+        <div class="space-info">
+          <div class="space-name">Design</div>
+          <div class="space-meta">876 members</div>
+        </div>
+        <span class="space-new-badge">8 new</span>
+      </div>
+      <div class="space-row">
+        <div class="space-icon-box">📣</div>
+        <div class="space-info">
+          <div class="space-name">Marketing</div>
+          <div class="space-meta">643 members</div>
+        </div>
+        <span class="space-new-badge">5 new</span>
+      </div>
+      <a class="widget-see-all">Browse all spaces →</a>
+    </div>
+
+    <!-- WPMediaVerse featured media -->
+    <div class="widget">
+      <div class="widget-title">
+        Featured Media
+        <span class="source-tag mvs-source-tag">via WPMediaVerse</span>
+      </div>
+      <div class="media-thumb-grid">
+        <div class="media-thumb">📸</div>
+        <div class="media-thumb">🎥</div>
+        <div class="media-thumb">📷</div>
+        <div class="media-thumb">🎬</div>
+        <div class="media-thumb">📸</div>
+        <div class="media-thumb" style="background: var(--mvs-bg); display:flex; align-items:center; justify-content:center; color:var(--mvs); font-size:var(--text-xl); font-weight:700;">+24</div>
+      </div>
+      <a class="widget-see-all" style="color: var(--mvs);">Browse media gallery →</a>
+    </div>
+
+  </aside>
+</div>
+
+<!-- Spec notes -->
+<div class="spec-footer">
+  <div class="spec-footer-title">📋 Home Feed — Spec Notes</div>
+  <div class="spec-grid">
+    <div>
+      <div class="spec-col-title">Layout & WordPress Context</div>
+      <div>• BuddyX / BuddyX Pro / Reign provide header + footer</div>
+      <div>• BuddyNext registers a secondary menu location below theme header</div>
+      <div>• Page content: max-width 1160px, two-column (feed + 300px sidebar)</div>
+      <div>• Template: templates/views/home-feed.php (overridable via theme/buddynext/)</div>
+      <div>• Auth redirect: unauthenticated users → login page</div>
+    </div>
+    <div>
+      <div class="spec-col-title">Feed Card Types</div>
+      <div>• BuddyNext native post — text, photo, link preview, poll, file</div>
+      <div>• Events addon (separate plugin) — event cards injected via feed hook</div>
+      <div>• Jetonomy forum card — purple left border, vote controls, opens in forum</div>
+      <div>• WPMediaVerse media card — teal left border, photo/video grid</div>
+      <div>• Toggled via Space settings: "Push forum activity to feed" (off by default)</div>
+      <div>• Toggled via Space settings: "Push media to feed" (on by default)</div>
+    </div>
+    <div>
+      <div class="spec-col-title">Frontend Architecture</div>
+      <div>• PHP templates + WP Interactivity API (no build step)</div>
+      <div>• store('buddynext', { state, actions }) — same pattern as Jetonomy</div>
+      <div>• SSE endpoint: /wp-json/buddynext/v1/sse — live notif + DM badge counts</div>
+      <div>• REST: GET buddynext/v1/feed?scope=home&amp;cursor=X (cursor pagination)</div>
+      <div>• Dark mode: CSS custom properties, toggle stores pref in localStorage</div>
+    </div>
+    <div>
+      <div class="spec-col-title">Sidebar Widgets</div>
+      <div>• "People to Follow" — friend-of-friend + follows-you signals</div>
+      <div>• "Trending Discussions" — Jetonomy integration, top posts last 24h</div>
+      <div>• "Active Spaces" — joined spaces with unread count</div>
+      <div>• "Featured Media" — WPMediaVerse integration, curated/recent</div>
+      <div>• All widgets hidden for guests; show prompts to join</div>
+    </div>
+    <div>
+      <div class="spec-col-title">Design System</div>
+      <div>• Font: Inter (body/UI) + Plus Jakarta Sans (display/headings)</div>
+      <div>• Base size: 15px, line-height: 1.7 (any-age readable)</div>
+      <div>• Colours: Notion warm greys (--text-1 #37352f)</div>
+      <div>• Brand: #0073aa / Dark: #4dabdb</div>
+      <div>• Integration accents: Jetonomy #5b21b6, WPMediaVerse #0f766e</div>
+    </div>
+    <div>
+      <div class="spec-col-title">Composer</div>
+      <div>• Click input → expands inline (no modal)</div>
+      <div>• Post types: text, photo(s), link preview, poll, file — all V1</div>
+      <div>• Audience: Public / Followers / Space (selector appears on expand)</div>
+      <div>• Max 4 images in 2×2 grid</div>
+      <div>• Character limit: 3000 with counter shown at 2500+</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleDark() {
+  var html = document.documentElement;
+  var isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  var btn = document.querySelector('.dark-toggle');
+  btn.textContent = isDark ? '🌙 Dark' : '☀️ Light';
+}
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuddyNext — Space Home (mobile)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+    :root {
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      --text-base: 15px; --leading-body: 1.6;
+      --bg: #ffffff; --bg-subtle: #f8f8f7; --bg-hover: #f1f1f0;
+      --surface: #ffffff; --border: #e8e8e5; --border-soft: #f1f1ee;
+      --text-1: #37352f; --text-2: #787774; --text-3: #aeaca8;
+      --brand: #0073aa; --brand-light: #e8f4fb; --brand-hover: #005f8e;
+      --jetonomy: #5b21b6; --jetonomy-bg: #f5f3ff;
+      --mvs: #0f766e; --mvs-bg: #f0fdf9;
+      --radius: 12px; --radius-sm: 8px; --radius-lg: 16px;
+    }
+    [data-theme="dark"] {
+      --bg: #191919; --bg-subtle: #222220; --bg-hover: #2a2a28;
+      --surface: #252525; --border: #333330; --border-soft: #2d2d2a;
+      --text-1: #e8e8e6; --text-2: #9b9b98; --text-3: #6b6b68;
+      --brand: #4dabdb; --brand-light: #1a3544;
+      --jetonomy: #a78bfa; --jetonomy-bg: #1e1a2e;
+      --mvs: #34d399; --mvs-bg: #0d1f1c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #e5e5ea;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0;
+      font-family: var(--font-body);
+    }
+
+    .phone-wrap {
+      background: #e5e5ea;
+      padding: 20px 0 40px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .phone {
+      width: 390px;
+      min-height: 820px;
+      background: var(--bg);
+      border-radius: 44px;
+      box-shadow: 0 0 0 10px #1a1a1a, 0 0 0 11px #3a3a3a, 0 30px 80px rgba(0,0,0,0.35);
+      overflow: hidden;
+      position: relative;
+      font-family: var(--font-body);
+    }
+
+    /* Status bar */
+    .status-bar {
+      background: #fff;
+      padding: 14px 28px 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    /* Header bar */
+    .header-bar {
+      background: var(--bg);
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .back-arrow {
+      font-size: 20px;
+      color: var(--text-2);
+    }
+    .back-label {
+      font-size: 13px;
+      color: var(--text-2);
+      font-weight: 500;
+    }
+    .header-icons {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+    .header-icon-btn {
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--text-2);
+    }
+
+    /* Cover photo */
+    .cover-photo {
+      height: 140px;
+      background: linear-gradient(135deg, #0073aa 0%, #1e40af 100%);
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cover-emoji {
+      font-size: 48px;
+    }
+
+    /* Space info section */
+    .space-info {
+      background: var(--bg);
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .space-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-1);
+      font-family: var(--font-display);
+      margin-bottom: 5px;
+    }
+    .space-meta {
+      font-size: 12px;
+      color: var(--text-2);
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .btn-joined {
+      width: 100%;
+      height: 38px;
+      background: transparent;
+      color: #16a34a;
+      border: 1.5px solid #16a34a;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font-body);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    /* Tab strip — pill style */
+    .tab-strip {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding: 10px 12px;
+      gap: 8px;
+    }
+    .tab-strip::-webkit-scrollbar { display: none; }
+    .tab-pill {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-2);
+      cursor: pointer;
+      white-space: nowrap;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      transition: all 0.15s;
+    }
+    .tab-pill.active {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand);
+      font-weight: 600;
+    }
+
+    /* Pinned announcement */
+    .pinned-card {
+      margin: 12px 12px 0;
+      background: #fffbeb;
+      border-left: 3px solid #f59e0b;
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+    }
+    .pinned-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #b45309;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+    .pinned-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-1);
+      margin-bottom: 3px;
+    }
+    .pinned-excerpt {
+      font-size: 12px;
+      color: var(--text-2);
+    }
+
+    /* Post cards */
+    .post-card {
+      margin: 12px 12px 0;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+    .post-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .post-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--brand-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--brand);
+      flex-shrink: 0;
+    }
+    .post-avatar.green {
+      background: #d1fae5;
+      color: #059669;
+    }
+    .post-meta {
+      flex: 1;
+    }
+    .post-author-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .post-author {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-1);
+    }
+    .moderator-badge {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--brand);
+      background: var(--brand-light);
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+    .post-time {
+      font-size: 11px;
+      color: var(--text-3);
+    }
+    .post-body {
+      font-size: 13px;
+      color: var(--text-1);
+      line-height: 1.55;
+      margin-bottom: 10px;
+    }
+    .reaction-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-soft);
+    }
+    .reaction-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-2);
+      cursor: pointer;
+    }
+
+    /* Bottom nav */
+    .bottom-nav {
+      position: sticky;
+      bottom: 0;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 8px 0 20px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 100;
+      margin-top: 16px;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--text-2);
+      font-size: 11px;
+      position: relative;
+    }
+    .nav-item.active {
+      color: var(--brand);
+    }
+    .nav-icon {
+      font-size: 22px;
+    }
+    .nav-badge {
+      position: absolute;
+      top: -2px;
+      right: -6px;
+      background: #ef4444;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 8px;
+    }
+
+    /* Spec notes footer */
+    .spec-notes {
+      width: 390px;
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 0 0 40px;
+      color: #a0a0a0;
+      font-family: 'Inter', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .spec-notes h4 {
+      color: #e0e0e0;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+    .spec-notes p {
+      color: #7a7a7a;
+    }
+    .spec-notes p + p {
+      margin-top: 6px;
+    }
+    .spec-notes code {
+      color: #79b8ff;
+      background: #2a2a2a;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="phone-wrap">
+    <div class="phone">
+
+      <!-- STATUS BAR -->
+      <div class="status-bar">
+        <span>9:41</span>
+        <span style="font-size:10px;">▲▲▲ WiFi ▓▓▓</span>
+      </div>
+
+      <!-- HEADER BAR -->
+      <div class="header-bar">
+        <div class="header-left">
+          <span class="back-arrow">←</span>
+          <span class="back-label">Spaces</span>
+        </div>
+        <div class="header-icons">
+          <span class="header-icon-btn">🔔</span>
+          <span class="header-icon-btn">⚙️</span>
+        </div>
+      </div>
+
+      <!-- COVER PHOTO -->
+      <div class="cover-photo">
+        <span class="cover-emoji">💻</span>
+      </div>
+
+      <!-- SPACE INFO -->
+      <div class="space-info">
+        <div class="space-name">Web Dev</div>
+        <div class="space-meta">👥 2,418 members &nbsp;·&nbsp; 📝 84 posts/week &nbsp;·&nbsp; 🌐 Public</div>
+        <button class="btn-joined">✓ Joined</button>
+      </div>
+
+      <!-- TAB STRIP — pill style -->
+      <div class="tab-strip">
+        <div class="tab-pill active">Feed</div>
+        <div class="tab-pill">Members</div>
+        <div class="tab-pill">Forum 💬</div>
+        <div class="tab-pill">Media 🖼️</div>
+        <div class="tab-pill">About</div>
+      </div>
+
+      <!-- PINNED ANNOUNCEMENT -->
+      <div class="pinned-card">
+        <div class="pinned-label">📌 Pinned</div>
+        <div class="pinned-title">Welcome to Web Dev Space — Community Rules</div>
+        <div class="pinned-excerpt">Be kind, share knowledge, no spam.</div>
+      </div>
+
+      <!-- POST CARD 1 -->
+      <div class="post-card">
+        <div class="post-header">
+          <div class="post-avatar">AJ</div>
+          <div class="post-meta">
+            <div class="post-author-row">
+              <span class="post-author">Alex Johnson</span>
+              <span class="moderator-badge">Moderator</span>
+            </div>
+            <div class="post-time">3h ago</div>
+          </div>
+        </div>
+        <div class="post-body">React 19 dropped and I've been digging into the new <code style="background:var(--bg-subtle);padding:1px 4px;border-radius:4px;font-size:12px;">use()</code> hook. Suspense boundaries feel much more ergonomic now — anyone else migrating already?</div>
+        <div class="reaction-bar">
+          <div class="reaction-btn">👍 <span>24</span></div>
+          <div class="reaction-btn">💬 <span>11</span></div>
+          <div class="reaction-btn">🔗 Share</div>
+        </div>
+      </div>
+
+      <!-- POST CARD 2 -->
+      <div class="post-card" style="margin-bottom:12px;">
+        <div class="post-header">
+          <div class="post-avatar green">SR</div>
+          <div class="post-meta">
+            <div class="post-author-row">
+              <span class="post-author">Sarah Rodriguez</span>
+            </div>
+            <div class="post-time">6h ago</div>
+          </div>
+        </div>
+        <div class="post-body">Quick reminder: the community office hours are tomorrow at 2 PM UTC. Drop your questions in the thread below!</div>
+        <div class="reaction-bar">
+          <div class="reaction-btn">👍 <span>18</span></div>
+          <div class="reaction-btn">💬 <span>6</span></div>
+          <div class="reaction-btn">🔗 Share</div>
+        </div>
+      </div>
+
+      <!-- BOTTOM NAV -->
+      <div class="bottom-nav">
+        <div class="nav-item">
+          <span class="nav-icon">🏠</span>
+          Feed
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">🔍</span>
+          Explore
+        </div>
+        <div class="nav-item active">
+          <span class="nav-icon">🏘️</span>
+          Spaces
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">🔔</span>
+          <span class="nav-badge">4</span>
+          Notifs
+        </div>
+        <div class="nav-item">
+          <span class="nav-icon">💬</span>
+          <span class="nav-badge">2</span>
+          Messages
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SPEC NOTES -->
+  <div class="spec-notes">
+    <h4>Spec Notes — mobile-space-home</h4>
+    <p>Mobile space: cover shows space emoji/image. Tab strip uses pill style (scrollable, not underline) to avoid content overflow at 390px.</p>
+    <p>Forum tab visible if Jetonomy is linked to this space. Media tab visible if WPMediaVerse enabled. Space admin sees ⚙️ in top-right.</p>
+  </div>
+
+  <script src="nav.js"></script>
+</body>
+</html>

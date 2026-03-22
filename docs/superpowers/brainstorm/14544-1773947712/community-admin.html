@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BuddyNext — Community Admin Panel</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f7f6; color: #1e1e1e; font-size: 15px; }
+
+/* ── BuddyX Theme Header ── */
+.buddyx-header {
+  background: #1e1e1e;
+  color: #fff;
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.buddyx-logo { font-weight: 800; font-size: 18px; letter-spacing: -0.5px; }
+.buddyx-nav { display: flex; gap: 24px; font-size: 14px; opacity: 0.85; }
+.buddyx-nav a { color: #fff; text-decoration: none; }
+.buddyx-nav a:hover { opacity: 0.7; }
+.buddyx-user { display: flex; align-items: center; gap: 12px; }
+.user-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: #0073aa;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 12px; color: #fff;
+}
+
+/* ── BuddyNext Secondary Nav ── */
+.buddynext-nav {
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+  padding: 0 24px;
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+}
+.bnav-tab {
+  padding: 14px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  text-decoration: none;
+  display: block;
+}
+.bnav-tab:hover { color: #374151; }
+
+/* ── Admin Sub-header ── */
+.admin-subheader {
+  background: #fffbeb;
+  border-bottom: 2px solid #fde68a;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.admin-subheader-title { font-size: 15px; font-weight: 700; }
+.admin-role-badge {
+  background: #d97706; color: #fff;
+  font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px;
+}
+.admin-site-label { color: #92400e; font-size: 12px; }
+.admin-subheader-actions { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+.admin-subheader-actions a { text-decoration: none; font-size: 12px; }
+.link-back { color: #0073aa; font-weight: 600; }
+.link-wpadmin { color: #6b7280; }
+
+/* ── Main Layout ── */
+.main-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  display: flex;
+  gap: 24px;
+}
+
+/* ── Left Sidebar ── */
+.admin-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  position: sticky;
+  top: 24px;
+}
+.sidebar-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.sidebar-nav-header {
+  font-size: 10px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 14px 14px 8px;
+}
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  text-decoration: none;
+  transition: background 0.1s;
+}
+.sidebar-nav-item:hover { background: #f9fafb; color: #1e1e1e; }
+.sidebar-nav-item.active {
+  border-left-color: #0073aa;
+  background: #e8f4fb;
+  color: #0073aa;
+  font-weight: 600;
+}
+.sidebar-badge {
+  margin-left: auto;
+  background: #ef4444; color: #fff;
+  font-size: 10px; font-weight: 700;
+  padding: 1px 6px; border-radius: 8px;
+}
+.sidebar-divider { height: 1px; background: #e9ecef; margin: 6px 0; }
+.sidebar-nav-item.external {
+  color: #9ca3af;
+  font-size: 12px;
+  border-left-color: transparent;
+}
+.sidebar-note {
+  padding: 10px 14px 14px;
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+/* ── Main Content ── */
+.admin-main { flex: 1; min-width: 0; }
+
+/* ── Stats Row ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  transition: box-shadow 0.15s;
+}
+.stat-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+.stat-number { font-size: 26px; font-weight: 700; color: #1e1e1e; margin-bottom: 2px; }
+.stat-label { font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+.stat-sub { font-size: 11px; display: flex; align-items: center; gap: 3px; }
+.stat-sub.green { color: #059669; }
+.stat-sub.amber { color: #d97706; }
+.stat-sub.red { color: #dc2626; }
+.stat-sub.grey { color: #6b7280; }
+
+/* ── Two-column Row ── */
+.two-col-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+/* ── Card ── */
+.card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+.card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f3f4f6;
+}
+.card-title { font-size: 14px; font-weight: 700; }
+.card-link { font-size: 12px; color: #0073aa; text-decoration: none; font-weight: 600; }
+.card-link:hover { text-decoration: underline; }
+.card-body { padding: 0; }
+
+/* ── Avatar chips ── */
+.avatar {
+  border-radius: 50%; color: #fff; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.av32 { width: 32px; height: 32px; font-size: 11px; }
+.av-blue  { background: #0073aa; }
+.av-green { background: #059669; }
+.av-purple{ background: #7c3aed; }
+.av-orange{ background: #ea580c; }
+.av-pink  { background: #db2777; }
+
+/* ── Recent Signups ── */
+.signup-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+}
+.signup-row:last-child { border-bottom: none; }
+.signup-info { flex: 1; min-width: 0; }
+.signup-name { font-weight: 600; font-size: 13px; }
+.signup-email { font-size: 11px; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.signup-time { font-size: 11px; color: #9ca3af; white-space: nowrap; }
+.btn-ghost {
+  background: #fff;
+  color: #6b7280;
+  border: 1px solid #e9ecef;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ── Pending Actions ── */
+.pending-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 10px 16px 6px;
+}
+.pending-count-badge {
+  background: #f3f4f6; color: #374151;
+  font-size: 11px; font-weight: 700;
+  padding: 2px 7px; border-radius: 8px;
+}
+.join-request-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid #f9fafb;
+}
+.join-request-row:last-of-type { border-bottom: none; }
+.join-info { flex: 1; }
+.join-space { font-weight: 600; font-size: 12px; }
+.join-member { color: #6b7280; font-size: 11px; }
+.join-actions { display: flex; gap: 5px; }
+.btn-approve {
+  background: #059669; color: #fff; border: none;
+  padding: 4px 10px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.btn-decline {
+  background: #fff; color: #6b7280; border: 1px solid #e9ecef;
+  padding: 4px 10px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.btn-review {
+  background: #eff6ff; color: #0073aa; border: 1px solid #bfdbfe;
+  padding: 4px 10px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.card-divider { height: 1px; background: #e9ecef; margin: 4px 0; }
+
+/* ── Report rows ── */
+.report-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 12px;
+  border-left: 3px solid transparent;
+}
+.report-row.red   { border-left-color: #ef4444; background: #fff8f8; }
+.report-row.amber { border-left-color: #f59e0b; background: #fffdf8; }
+.report-row.grey  { border-left-color: #d1d5db; background: #fafafa; }
+.report-info { flex: 1; }
+.report-type { font-weight: 600; font-size: 12px; }
+.report-meta { font-size: 11px; color: #9ca3af; }
+.more-link { font-size: 12px; color: #0073aa; font-weight: 600; text-decoration: none; padding: 8px 16px; display: block; }
+
+/* ── Activity Log ── */
+.activity-card { background: #fff; border: 1px solid #e9ecef; border-radius: 10px; overflow: hidden; }
+.activity-scroll { max-height: 280px; overflow-y: auto; }
+.activity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+}
+.activity-row:nth-child(even) { background: #fafafa; }
+.activity-row:nth-child(odd)  { background: #fff; }
+.activity-row:last-child { border-bottom: none; }
+.activity-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.activity-body { flex: 1; }
+.activity-desc { font-size: 13px; color: #1e1e1e; line-height: 1.4; }
+.activity-desc strong { font-weight: 600; }
+.activity-meta { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.activity-action { flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- 1. BuddyX Theme Header                        -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="buddyx-header">
+  <div class="buddyx-logo">BuddyX</div>
+  <nav class="buddyx-nav">
+    <a href="#">Home</a>
+    <a href="#">Community</a>
+    <a href="#">Shop</a>
+    <a href="#">Blog</a>
+  </nav>
+  <div class="buddyx-user">
+    <div class="user-avatar">VD</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- 2. BuddyNext Secondary Nav                    -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="buddynext-nav">
+  <a href="#" class="bnav-tab">📰 Feed</a>
+  <a href="#" class="bnav-tab">🔍 Explore</a>
+  <a href="#" class="bnav-tab">🏘️ Spaces</a>
+  <a href="#" class="bnav-tab">💬 Messages</a>
+  <a href="#" class="bnav-tab">🔔 Notifications</a>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- 3. Community Admin Sub-header                 -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="admin-subheader">
+  <span class="admin-subheader-title">🛡️ Community Admin Panel</span>
+  <span class="admin-role-badge">Community Manager</span>
+  <span class="admin-site-label">Managing: forums.local community</span>
+  <div class="admin-subheader-actions">
+    <a href="#" class="admin-subheader-actions link-back" style="color:#0073aa;font-size:12px;font-weight:600;text-decoration:none;">← Back to Community</a>
+    <a href="#" class="admin-subheader-actions link-wpadmin" style="color:#6b7280;font-size:12px;text-decoration:none;">⬡ WP Admin ↗</a>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- 4. Main Layout                                -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="main-wrap">
+
+  <!-- ── Left Sidebar ── -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-card">
+      <div class="sidebar-nav-header">Admin Navigation</div>
+
+      <a href="#" class="sidebar-nav-item active">📊 Overview</a>
+      <a href="#" class="sidebar-nav-item">👥 Members</a>
+      <a href="#" class="sidebar-nav-item">🏘️ Spaces</a>
+      <a href="#" class="sidebar-nav-item">
+        🛡️ Moderation
+        <span class="sidebar-badge">5</span>
+      </a>
+      <a href="#" class="sidebar-nav-item">📋 Reports</a>
+      <a href="#" class="sidebar-nav-item">📧 Email Invites</a>
+      <a href="#" class="sidebar-nav-item">⚙️ Settings</a>
+
+      <div class="sidebar-divider"></div>
+
+      <a href="#" class="sidebar-nav-item external">🔗 WordPress Admin ↗</a>
+
+      <div class="sidebar-note">Space admins only see their own space in this panel.</div>
+    </div>
+  </aside>
+
+  <!-- ── Main Content ── -->
+  <main class="admin-main">
+
+    <!-- Row 1: Stats Cards -->
+    <div class="stats-grid">
+
+      <div class="stat-card">
+        <div class="stat-label">Members</div>
+        <div class="stat-number">1,247</div>
+        <div class="stat-sub green">↑ 12 new today</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Active Spaces</div>
+        <div class="stat-number">34</div>
+        <div class="stat-sub amber">⚠ 3 pending approval</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Open Reports</div>
+        <div class="stat-number">5</div>
+        <div class="stat-sub red">🔴 2 urgent</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Posts Today</div>
+        <div class="stat-number">89</div>
+        <div class="stat-sub green">↑ 14% vs yesterday</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Pending Joins</div>
+        <div class="stat-number">8</div>
+        <div class="stat-sub grey">invite-only spaces</div>
+      </div>
+
+    </div>
+    <!-- /Stats -->
+
+    <!-- Row 2: Two-column -->
+    <div class="two-col-row">
+
+      <!-- Left: Recent Signups -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">👥 Recent Signups</span>
+          <a href="#" class="card-link">View All →</a>
+        </div>
+        <div class="card-body">
+
+          <div class="signup-row">
+            <div class="avatar av32 av-blue">VD</div>
+            <div class="signup-info">
+              <div class="signup-name">Varun Dubey</div>
+              <div class="signup-email">varun@example.com</div>
+            </div>
+            <div class="signup-time">5 min ago</div>
+            <button class="btn-ghost">View Profile</button>
+          </div>
+
+          <div class="signup-row">
+            <div class="avatar av32 av-green">SR</div>
+            <div class="signup-info">
+              <div class="signup-name">Sarah R.</div>
+              <div class="signup-email">sarah@example.com</div>
+            </div>
+            <div class="signup-time">22 min ago</div>
+            <button class="btn-ghost">View Profile</button>
+          </div>
+
+          <div class="signup-row">
+            <div class="avatar av32 av-purple">AJ</div>
+            <div class="signup-info">
+              <div class="signup-name">Alex J.</div>
+              <div class="signup-email">alex@example.com</div>
+            </div>
+            <div class="signup-time">1h ago</div>
+            <button class="btn-ghost">View Profile</button>
+          </div>
+
+          <div class="signup-row">
+            <div class="avatar av32 av-orange">MK</div>
+            <div class="signup-info">
+              <div class="signup-name">Maria K.</div>
+              <div class="signup-email">maria@example.com</div>
+            </div>
+            <div class="signup-time">2h ago</div>
+            <button class="btn-ghost">View Profile</button>
+          </div>
+
+          <div class="signup-row">
+            <div class="avatar av32 av-pink">LP</div>
+            <div class="signup-info">
+              <div class="signup-name">Leo P.</div>
+              <div class="signup-email">leo@example.com</div>
+            </div>
+            <div class="signup-time">3h ago</div>
+            <button class="btn-ghost">View Profile</button>
+          </div>
+
+        </div>
+      </div>
+      <!-- /Recent Signups -->
+
+      <!-- Right: Pending Actions -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">⚠️ Pending Actions</span>
+          <span class="pending-count-badge">8</span>
+        </div>
+        <div class="card-body">
+
+          <!-- Space Join Requests -->
+          <div class="pending-section-title">Space Join Requests (3)</div>
+
+          <div class="join-request-row">
+            <div class="join-info">
+              <div class="join-space">Web Dev Community</div>
+              <div class="join-member">Alex Johnson wants to join</div>
+            </div>
+            <div class="join-actions">
+              <button class="btn-approve">Approve</button>
+              <button class="btn-decline">Decline</button>
+            </div>
+          </div>
+
+          <div class="join-request-row">
+            <div class="join-info">
+              <div class="join-space">Design Circle</div>
+              <div class="join-member">Maria K wants to join</div>
+            </div>
+            <div class="join-actions">
+              <button class="btn-approve">Approve</button>
+              <button class="btn-decline">Decline</button>
+            </div>
+          </div>
+
+          <div class="join-request-row">
+            <div class="join-info">
+              <div class="join-space">StartupHub</div>
+              <div class="join-member">Leo P wants to join</div>
+            </div>
+            <div class="join-actions">
+              <button class="btn-approve">Approve</button>
+              <button class="btn-decline">Decline</button>
+            </div>
+          </div>
+
+          <div class="card-divider"></div>
+
+          <!-- Open Reports -->
+          <div class="pending-section-title">Open Reports (5)</div>
+
+          <div class="report-row red">
+            <div class="report-info">
+              <div class="report-type">🔴 Hate speech</div>
+              <div class="report-meta">3 reporters · 15 min ago</div>
+            </div>
+            <button class="btn-review">Review</button>
+          </div>
+
+          <div class="report-row amber">
+            <div class="report-info">
+              <div class="report-type">🟡 Spam</div>
+              <div class="report-meta">2 reporters · 1h ago</div>
+            </div>
+            <button class="btn-review">Review</button>
+          </div>
+
+          <div class="report-row grey">
+            <div class="report-info">
+              <div class="report-type">⚪ Off-topic</div>
+              <div class="report-meta">1 reporter · 3h ago</div>
+            </div>
+            <button class="btn-review">Review</button>
+          </div>
+
+          <a href="#" class="more-link">+ 2 more</a>
+
+        </div>
+      </div>
+      <!-- /Pending Actions -->
+
+    </div>
+    <!-- /Two-column Row -->
+
+    <!-- Row 3: Recent Activity (full width) -->
+    <div class="activity-card">
+      <div class="card-header">
+        <span class="card-title">📋 Recent Activity</span>
+        <a href="#" class="card-link">View Full Log →</a>
+      </div>
+      <div class="activity-scroll">
+
+        <div class="activity-row">
+          <div class="activity-icon">👤</div>
+          <div class="activity-body">
+            <div class="activity-desc"><strong>New member</strong> — Varun Dubey joined the community</div>
+            <div class="activity-meta">5 min ago</div>
+          </div>
+        </div>
+
+        <div class="activity-row">
+          <div class="activity-icon">🏘️</div>
+          <div class="activity-body">
+            <div class="activity-desc"><strong>Space created</strong> — "AI Builders" space created by Sarah R.</div>
+            <div class="activity-meta">22 min ago</div>
+          </div>
+        </div>
+
+        <div class="activity-row">
+          <div class="activity-icon">🛡️</div>
+          <div class="activity-body">
+            <div class="activity-desc"><strong>Report resolved</strong> — Spam post removed · by You</div>
+            <div class="activity-meta">45 min ago</div>
+          </div>
+        </div>
+
+        <div class="activity-row">
+          <div class="activity-icon">📝</div>
+          <div class="activity-body">
+            <div class="activity-desc"><strong>Post flagged</strong> — Reported by 3 members</div>
+            <div class="activity-meta">1h ago</div>
+          </div>
+          <div class="activity-action">
+            <button class="btn-review">Review</button>
+          </div>
+        </div>
+
+        <div class="activity-row">
+          <div class="activity-icon">✅</div>
+          <div class="activity-body">
+            <div class="activity-desc"><strong>Member approved</strong> — Alex J. approved for Web Dev Community</div>
+            <div class="activity-meta">2h ago</div>
+          </div>
+        </div>
+
+        <div class="activity-row">
+          <div class="activity-icon">🚫</div>
+          <div class="activity-body">
+            <div class="activity-desc"><strong>Member warned</strong> — Warning sent to SpamUser99</div>
+            <div class="activity-meta">3h ago</div>
+          </div>
+        </div>
+
+        <div class="activity-row">
+          <div class="activity-icon">🏘️</div>
+          <div class="activity-body">
+            <div class="activity-desc"><strong>Space request</strong> — "Crypto Talk" space requested by Leo P.</div>
+            <div class="activity-meta">4h ago</div>
+          </div>
+        </div>
+
+        <div class="activity-row">
+          <div class="activity-icon">📧</div>
+          <div class="activity-body">
+            <div class="activity-desc"><strong>Invite sent</strong> — 5 invites sent to marketing@company.com</div>
+            <div class="activity-meta">5h ago</div>
+          </div>
+        </div>
+
+        <div class="activity-row">
+          <div class="activity-icon">👤</div>
+          <div class="activity-body">
+            <div class="activity-desc"><strong>Profile flagged</strong> — Reported profile under review</div>
+            <div class="activity-meta">6h ago</div>
+          </div>
+        </div>
+
+        <div class="activity-row">
+          <div class="activity-icon">✅</div>
+          <div class="activity-body">
+            <div class="activity-desc"><strong>Space approved</strong> — "Design Circle" approved</div>
+            <div class="activity-meta">Yesterday</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- /Recent Activity -->
+
+  </main>
+  <!-- /Main Content -->
+
+</div>
+<!-- /Main Wrap -->
+
+<script src="nav.js"></script>
+</body>
+</html>

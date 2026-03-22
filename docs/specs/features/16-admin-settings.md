@@ -5,6 +5,13 @@
 
 ---
 
+## File Architecture
+
+All admin pages in this plugin follow the thin-controller + subdirectory + Helpers pattern.
+See `docs/specs/features/00-architecture.md` — Admin Layer File Organization section for the full convention and namespace map.
+
+---
+
 ## What It Does
 
 Central admin panel for configuring all BuddyNext features. Clean tabbed UI. Settings stored in `wp_options` under `buddynext_` prefix.

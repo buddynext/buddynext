@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuddyNext — DM Thread (mobile)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+    :root {
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      --text-base: 15px; --leading-body: 1.6;
+      --bg: #ffffff; --bg-subtle: #f8f8f7; --bg-hover: #f1f1f0;
+      --surface: #ffffff; --border: #e8e8e5; --border-soft: #f1f1ee;
+      --text-1: #37352f; --text-2: #787774; --text-3: #aeaca8;
+      --brand: #0073aa; --brand-light: #e8f4fb; --brand-hover: #005f8e;
+      --jetonomy: #5b21b6; --jetonomy-bg: #f5f3ff;
+      --mvs: #0f766e; --mvs-bg: #f0fdf9;
+      --radius: 12px; --radius-sm: 8px; --radius-lg: 16px;
+    }
+    [data-theme="dark"] {
+      --bg: #191919; --bg-subtle: #222220; --bg-hover: #2a2a28;
+      --surface: #252525; --border: #333330; --border-soft: #2d2d2a;
+      --text-1: #e8e8e6; --text-2: #9b9b98; --text-3: #6b6b68;
+      --brand: #4dabdb; --brand-light: #1a3544;
+      --jetonomy: #a78bfa; --jetonomy-bg: #1e1a2e;
+      --mvs: #34d399; --mvs-bg: #0d1f1c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #e5e5ea;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0;
+      font-family: var(--font-body);
+    }
+
+    .phone-wrap {
+      background: #e5e5ea;
+      padding: 20px 0 40px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .phone {
+      width: 390px;
+      min-height: 820px;
+      background: var(--bg);
+      border-radius: 44px;
+      box-shadow: 0 0 0 10px #1a1a1a, 0 0 0 11px #3a3a3a, 0 30px 80px rgba(0,0,0,0.35);
+      overflow: hidden;
+      position: relative;
+      font-family: var(--font-body);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Status bar */
+    .status-bar {
+      background: #fff;
+      padding: 14px 28px 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1a1a1a;
+      flex-shrink: 0;
+    }
+
+    /* Header bar — 56px, border-bottom */
+    .header-bar {
+      background: var(--bg);
+      height: 56px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .back-btn {
+      font-size: 20px;
+      color: var(--text-2);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .header-center {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .thread-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #d1fae5;
+      color: #059669;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .online-dot {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 9px;
+      height: 9px;
+      background: #22c55e;
+      border-radius: 50%;
+      border: 1.5px solid var(--bg);
+    }
+    .thread-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-1);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .header-actions {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header-action-btn {
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--text-2);
+    }
+
+    /* Messages area */
+    .messages-area {
+      flex: 1;
+      background: #f8f8f7;
+      padding: 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* Date divider */
+    .date-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 8px 0;
+    }
+    .date-divider::before,
+    .date-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .date-divider span {
+      font-size: 11px;
+      color: var(--text-3);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    /* Message bubbles */
+    .msg-row {
+      display: flex;
+      margin-bottom: 6px;
+    }
+    .msg-row.received {
+      justify-content: flex-start;
+    }
+    .msg-row.sent {
+      justify-content: flex-end;
+    }
+
+    .msg-group {
+      max-width: 78%;
+      display: flex;
+      flex-direction: column;
+    }
+    .msg-group.sent {
+      align-items: flex-end;
+    }
+    .msg-group.received {
+      align-items: flex-start;
+    }
+
+    .bubble {
+      padding: 10px 13px;
+      border-radius: 18px;
+      font-size: 13px;
+      line-height: 1.5;
+      position: relative;
+    }
+    .bubble.received {
+      background: var(--bg);
+      color: var(--text-1);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 6px;
+    }
+    .bubble.sent {
+      background: var(--brand);
+      color: #fff;
+      border-bottom-right-radius: 6px;
+    }
+
+    .msg-time {
+      font-size: 10px;
+      color: var(--text-3);
+      margin-top: 3px;
+      padding: 0 4px;
+    }
+    .msg-read {
+      font-size: 10px;
+      color: var(--text-3);
+    }
+
+    /* Reaction under bubble */
+    .bubble-reaction {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2px 8px;
+      font-size: 12px;
+      margin-top: 4px;
+      cursor: pointer;
+    }
+
+    /* Quoted reply */
+    .quoted-reply {
+      background: rgba(255,255,255,0.2);
+      border-left: 2px solid rgba(255,255,255,0.5);
+      border-radius: 8px;
+      padding: 6px 10px;
+      margin-bottom: 6px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.8);
+      line-height: 1.4;
+    }
+
+    /* Typing indicator */
+    .typing-indicator {
+      font-size: 11px;
+      color: var(--text-3);
+      font-style: italic;
+      padding: 4px 4px 8px;
+    }
+
+    /* Input bar */
+    .input-bar {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 8px 12px 28px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .input-icon {
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--text-2);
+      flex-shrink: 0;
+    }
+    .input-pill {
+      flex: 1;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 9px 14px;
+      font-size: 14px;
+      color: var(--text-3);
+      font-family: var(--font-body);
+      outline: none;
+      cursor: text;
+    }
+    .send-btn {
+      width: 36px;
+      height: 36px;
+      background: var(--brand);
+      border: none;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-size: 16px;
+      color: #fff;
+    }
+
+    /* Spec notes footer */
+    .spec-notes {
+      width: 390px;
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 0 0 40px;
+      color: #a0a0a0;
+      font-family: 'Inter', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .spec-notes h4 {
+      color: #e0e0e0;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+    .spec-notes p {
+      color: #7a7a7a;
+    }
+    .spec-notes p + p {
+      margin-top: 6px;
+    }
+    .spec-notes code {
+      color: #79b8ff;
+      background: #2a2a2a;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="phone-wrap">
+    <div class="phone">
+
+      <!-- STATUS BAR -->
+      <div class="status-bar">
+        <span>9:41</span>
+        <span style="font-size:10px;">▲▲▲ WiFi ▓▓▓</span>
+      </div>
+
+      <!-- HEADER BAR -->
+      <div class="header-bar">
+        <div class="back-btn">←</div>
+        <div class="header-center">
+          <div class="thread-avatar">
+            SR
+            <div class="online-dot"></div>
+          </div>
+          <div class="thread-name">Sarah Rodriguez</div>
+        </div>
+        <div class="header-actions">
+          <span class="header-action-btn">📞</span>
+          <span class="header-action-btn">⋯</span>
+        </div>
+      </div>
+
+      <!-- MESSAGES AREA -->
+      <div class="messages-area">
+
+        <!-- Date divider: Yesterday -->
+        <div class="date-divider"><span>Yesterday</span></div>
+
+        <!-- Received message 1 -->
+        <div class="msg-row received">
+          <div class="msg-group received">
+            <div class="bubble received">Hey! Loved your post about design systems this morning 🙌</div>
+            <div class="msg-time">10:32 AM</div>
+            <div class="bubble-reaction">👍 1</div>
+          </div>
+        </div>
+
+        <!-- Sent message 1 -->
+        <div class="msg-row sent">
+          <div class="msg-group sent">
+            <div class="bubble sent">Thanks Sarah! The response has been wild — wasn't expecting it to blow up like that</div>
+            <div class="msg-time"><span class="msg-read">✓✓ Read</span> &nbsp; 10:35 AM</div>
+          </div>
+        </div>
+
+        <!-- Received message 2 -->
+        <div class="msg-row received">
+          <div class="msg-group received">
+            <div class="bubble received">You have a really clear way of explaining complex stuff. Have you thought about doing a talk at our community meetup?</div>
+            <div class="msg-time">10:38 AM</div>
+          </div>
+        </div>
+
+        <!-- Sent message 2 — with quoted reply -->
+        <div class="msg-row sent">
+          <div class="msg-group sent">
+            <div class="bubble sent">
+              <div class="quoted-reply">You have a really clear way of explaining complex stuff...</div>
+              That would be amazing! I've been thinking about it. When's the next meetup?
+            </div>
+            <div class="msg-time"><span class="msg-read">✓✓ Read</span> &nbsp; 9:14 AM</div>
+          </div>
+        </div>
+
+        <!-- Received message 3 -->
+        <div class="msg-row received">
+          <div class="msg-group received">
+            <div class="bubble received">March 28! I'll send you the event link. 200-300 attendees, very engaged crowd 🎉</div>
+            <div class="msg-time">9:22 AM</div>
+          </div>
+        </div>
+
+        <!-- Sent message 3 -->
+        <div class="msg-row sent">
+          <div class="msg-group sent">
+            <div class="bubble sent">Perfect, count me in! I'll put together a 20-min talk on token architecture</div>
+            <div class="msg-time"><span class="msg-read">✓✓ Read</span> &nbsp; 9:45 AM</div>
+          </div>
+        </div>
+
+        <!-- Date divider: Today -->
+        <div class="date-divider"><span>Today</span></div>
+
+        <!-- Received message 4 + typing indicator -->
+        <div class="msg-row received">
+          <div class="msg-group received">
+            <div class="bubble received">Haha yes exactly! The Suspense boundary issue is a known gotcha...</div>
+            <div class="msg-time">Just now</div>
+          </div>
+        </div>
+        <div class="typing-indicator">Sarah is typing...</div>
+
+      </div>
+
+      <!-- INPUT BAR (no bottom nav — full screen DM) -->
+      <div class="input-bar">
+        <span class="input-icon">😊</span>
+        <span class="input-icon">📎</span>
+        <div class="input-pill">Type a message…</div>
+        <button class="send-btn">➤</button>
+      </div>
+
+      <!-- NO BOTTOM NAV — DM thread is full screen -->
+
+    </div>
+  </div>
+
+  <!-- SPEC NOTES -->
+  <div class="spec-notes">
+    <h4>Spec Notes — mobile-dm-thread</h4>
+    <p>Mobile DM: full-screen thread, no bottom nav. Back arrow returns to <code>/messages/</code> (DM list). Input bar at bottom uses <code>padding-bottom:28px</code> for safe area (iOS home indicator).</p>
+    <p>Quoted reply: long-press message → reply option. Reactions: long-press bubble → emoji picker.</p>
+    <p>REST: <code>GET/POST buddynext/v1/conversations/{id}/messages</code> &nbsp;·&nbsp; SSE: <code>buddynext/v1/sse</code> watches conversation for new messages.</p>
+  </div>
+
+  <script src="nav.js"></script>
+</body>
+</html>

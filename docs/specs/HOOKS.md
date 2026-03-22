@@ -46,7 +46,7 @@ do_action( 'buddynext_user_followed',  int $follower_id, int $following_id )
 do_action( 'buddynext_user_unfollowed', int $follower_id, int $following_id )
 
 do_action( 'buddynext_connection_requested', int $connection_id, int $requester_id, int $recipient_id )
-do_action( 'buddynext_connection_accepted',  int $connection_id, int $user_id_1,    int $user_id_2 )
+do_action( 'buddynext_connection_accepted',  int $connection_id, int $requester_id, int $recipient_id )
 do_action( 'buddynext_connection_rejected',  int $connection_id, int $requester_id, int $recipient_id )
 do_action( 'buddynext_connection_withdrawn', int $connection_id, int $requester_id )
 
@@ -121,7 +121,9 @@ do_action( 'buddynext_space_member_role_changed', int $space_id, int $user_id, s
 
 do_action( 'buddynext_space_join_requested', int $space_id, int $user_id )
 do_action( 'buddynext_space_join_approved',  int $space_id, int $user_id, int $by_user_id )
+do_action( 'buddynext_space_member_invited', int $user_id, int $space_id, int $inviter_id ) // ✅ Implemented
 do_action( 'buddynext_space_join_rejected',  int $space_id, int $user_id, int $by_user_id )
+// 🔲 Not yet fired — SpaceMemberService does not call this on rejection
 ```
 
 ---

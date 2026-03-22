@@ -172,12 +172,12 @@ Complete these before any template/UI work.
 
 ### BLOCK 1 — Schema additions (Installer.php)
 
-- [ ] Add `bn_user_suspensions` table — tracks active and historical suspensions per user
-- [ ] Add `bn_appeals` table — stores user appeals against suspensions with admin review state
-- [ ] Add `bn_space_bans` table — tracks users banned from specific spaces
-- [ ] Add `bn_outbound_webhooks` table — stores registered external webhook endpoints
-- [ ] Add `bn_outbound_webhook_log` table — delivery log for outbound webhook attempts
-- [ ] Add `content_warning` and `content_warning_type` columns to `bn_posts`
+- [x] Add `bn_user_suspensions` table — tracks active and historical suspensions per user
+- [x] Add `bn_appeals` table — stores user appeals against suspensions with admin review state
+- [x] Add `bn_space_bans` table — tracks users banned from specific spaces
+- [x] Add `bn_outbound_webhooks` table — stores registered external webhook endpoints
+- [x] Add `bn_outbound_webhook_log` table — delivery log for outbound webhook attempts
+- [x] Add `content_warning` and `content_warning_type` columns to `bn_posts` — already in Installer
 - [ ] Use `bn_shadow_banned` usermeta key (no table needed) for shadow ban flag
 
 ---
@@ -297,21 +297,21 @@ New service that pushes signed event payloads to admin-registered external URLs:
 
 ---
 
-### BLOCK 11 — Hook name alignment (HOOKS.md compliance)
+### BLOCK 11 — Hook name alignment (HOOKS.md compliance) ⚠️
 
 Several hooks in the implementation use wrong names or wrong argument order. This breaks addon integrations — WBGamification currently never receives reactions or space joins because it listens to the spec-correct names which the code doesn't fire.
 
-- [ ] Rename reaction hook to `buddynext_reaction_added` with correct argument order (ReactionService)
-- [ ] Add missing `buddynext_reaction_removed` hook (ReactionService)
-- [ ] Rename comment hook to `buddynext_comment_created` with correct argument order (CommentService)
-- [ ] Add missing `buddynext_comment_updated` and `buddynext_comment_deleted` hooks (CommentService)
-- [ ] Rename block/unblock hooks to `buddynext_block` and `buddynext_unblock` (BlockService)
-- [ ] Fix typo: rename `buddynext_onboarding_complete` → `buddynext_onboarding_completed` (OnboardingService)
-- [ ] Rename space member joined hook to `buddynext_space_member_joined` with correct argument order including role (SpaceMemberService)
-- [ ] Rename space member removed hook to `buddynext_space_member_removed` (SpaceMemberService)
-- [ ] Rename space member left hook to `buddynext_space_member_left` (SpaceMemberService)
-- [ ] Rename space join approved hook to `buddynext_space_join_approved` (SpaceMemberService)
-- [ ] Add missing connection ID argument to `buddynext_connection_requested` and `buddynext_connection_accepted` (ConnectionService)
+- [x] Rename reaction hook to `buddynext_reaction_added` with correct argument order (ReactionService)
+- [x] Add missing `buddynext_reaction_removed` hook (ReactionService)
+- [x] Rename comment hook to `buddynext_comment_created` with correct argument order (CommentService)
+- [x] Add missing `buddynext_comment_updated` and `buddynext_comment_deleted` hooks (CommentService)
+- [x] Rename block/unblock hooks to `buddynext_block` and `buddynext_unblock` (BlockService)
+- [x] Fix typo: rename `buddynext_onboarding_complete` → `buddynext_onboarding_completed` (OnboardingService)
+- [x] Rename space member joined hook to `buddynext_space_member_joined` with correct argument order including role (SpaceMemberService)
+- [x] Rename space member removed hook to `buddynext_space_member_removed` (SpaceMemberService)
+- [x] Rename space member left hook to `buddynext_space_member_left` (SpaceMemberService)
+- [x] Rename space join approved hook to `buddynext_space_join_approved` (SpaceMemberService)
+- [x] Add missing connection ID argument to `buddynext_connection_requested` and `buddynext_connection_accepted` (ConnectionService)
 - [ ] Add `buddynext_report_created` hook to ModerationService when a report is submitted
 - [ ] Update CLAUDE.md Key Integration Hooks section to reflect corrected hook names
 
@@ -330,7 +330,7 @@ Several hooks in the implementation use wrong names or wrong argument order. Thi
 - [x] `buddynext.php` — plugin header + constants + `plugins_loaded:15` bootstrap
 - [x] `includes/Core/Container.php` — singleton DI container
 - [x] `includes/Core/Plugin.php` — orchestrates boot sequence
-- [x] `includes/Core/Installer.php` — 28 `bn_*` + bn_user_credits + bn_webhook_log tables
+- [x] `includes/Core/Installer.php` — 45 `bn_*` tables created
 - [x] `includes/Core/Abilities.php` — registers all `buddynext-*` abilities
 - [x] `includes/Core/PermissionService.php` — `buddynext_can()` 4-layer implementation
 - [x] `includes/REST/Router.php` — registers `buddynext/v1` namespace
