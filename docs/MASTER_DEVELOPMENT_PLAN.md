@@ -206,9 +206,9 @@ Complete these before any template/UI work.
 ### BLOCK 3 — Feed / Search / Directory filtering
 
 - [x] Home feed, explore feed, space feed: hide posts from shadow-banned users; hide posts from suspended users when their suspension uses "hide content" mode
-- [ ] Search results: exclude shadow-banned and suspended users
-- [ ] Member directory: exclude suspended users
-- [ ] Space roster: exclude suspended users from member lists
+- [x] Search results: exclude shadow-banned and suspended users
+- [x] Member directory: exclude suspended users
+- [x] Space roster: exclude suspended users from member lists
 
 ---
 
