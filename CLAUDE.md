@@ -520,3 +520,5 @@ A phase is Done when ALL of:
 | 2026-03-22 | 8 | feature | EventListener: added buddynext_user_suspended hook + on_user_suspended handler (in-app + bn.suspension email); added bn.strike_warning email to on_strike_issued elseif branch; added bn.appeal_resolved email to on_appeal_resolved |
 | 2026-03-22 | 3 | fix | FeedService: apply excluded_users_where() to profile_feed() and space_feed() — all 4 feed methods now exclude suspended/shadow-banned users |
 | 2026-03-22 | 4 | fix | SearchService: fixed pre-existing WPCS alignment warnings; added UnfinishedPrepare to phpcs:disable for MATCH/$search_condition false-positive |
+| 2026-03-22 | — | fix | AvatarService: allow data: protocol for SVG initials avatars (kses_allowed_protocols filter) |
+| 2026-03-22 | 16 | feature | NavManager: full three-panel rewrite matching admin-nav-manager.html — scope sidebar, sortable tab list, per-item config panel (page assignment via wp_dropdown_pages, visibility, capability, login-required, guest label), page conflict validation, jQuery UI drag-reorder, developer filter bar |

@@ -926,7 +926,7 @@ Works out of the box on every theme — block themes, BuddyX, Reign, and classic
 - [ ] `Members.php` `render_page()` — stats cards, filterable table, bulk actions, pagination
 - [ ] `Spaces.php` `render_page()` — table with owner, type, member count, actions
 - [ ] `IntegrationHub.php` `render_page()` — addon cards, status badges, feature toggles
-- [ ] `NavManager.php` `render_page()` — drag-reorder panel, custom tab creation
+- [x] `NavManager.php` `render_page()` — three-panel layout, page assignments, visibility config, drag-reorder, conflict validation (2026-03-22)
 - [ ] `EmailEditor.php` `render_page()` — template list + inline editor + variable reference
 
 ---
