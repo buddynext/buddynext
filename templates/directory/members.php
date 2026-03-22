@@ -37,6 +37,32 @@ foreach ( $all_types_raw as $t ) {
 unset( $all_types_raw, $t );
 
 // ── Fetch users ───────────────────────────────────────────────────────────────
+
+// Resolve user IDs to exclude: active suspensions + shadow-banned users.
+// Both subqueries use only table/column names — no user-supplied data — so they
+// are safe to embed directly. Results are fetched once and passed as `exclude`
+// to WP_User_Query, keeping the main query fully WP-native.
+global $wpdb;
+
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+$bn_dir_suspended_ids = $wpdb->get_col(
+	"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
+	 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())"
+);
+
+$bn_dir_shadow_banned_ids = $wpdb->get_col(
+	$wpdb->prepare(
+		"SELECT user_id FROM {$wpdb->usermeta}
+		 WHERE meta_key = %s AND meta_value = '1'",
+		'bn_shadow_banned'
+	)
+);
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+$bn_dir_excluded_ids = array_unique(
+	array_map( 'intval', array_merge( $bn_dir_suspended_ids, $bn_dir_shadow_banned_ids ) )
+);
+
 $user_query_args = array(
 	'number'      => $bn_per_page,
 	'paged'       => $bn_current_page,
@@ -45,6 +71,10 @@ $user_query_args = array(
 	'fields'      => 'all',
 	'count_total' => true,
 );
+
+if ( ! empty( $bn_dir_excluded_ids ) ) {
+	$user_query_args['exclude'] = $bn_dir_excluded_ids;
+}
 
 if ( '' !== $search_term ) {
 	$user_query_args['search']         = '*' . $search_term . '*';

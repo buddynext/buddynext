@@ -53,14 +53,26 @@ $bn_offset   = ( $bn_paged - 1 ) * $bn_per_page;
 // ── Fetch members ───────────────────────────────────────────────────────────────
 $space_members_table = $wpdb->prefix . 'bn_space_members';
 
-// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $members = $wpdb->get_results(
 	$wpdb->prepare(
 		"SELECT u.ID, u.display_name, u.user_nicename, sm.role, sm.joined_at
 		 FROM {$space_members_table} sm
 		 JOIN {$wpdb->users} u ON u.ID = sm.user_id
-		 WHERE sm.space_id = %d AND sm.status = 'active'
+		 WHERE sm.space_id = %d
+		   AND sm.status = 'active'
+		   AND NOT EXISTS (
+		       SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions sus
+		       WHERE sus.user_id = sm.user_id
+		         AND sus.lifted_at IS NULL
+		         AND (sus.expires_at IS NULL OR sus.expires_at > NOW())
+		   )
+		   AND NOT EXISTS (
+		       SELECT 1 FROM {$wpdb->usermeta} um
+		       WHERE um.user_id = sm.user_id
+		         AND um.meta_key = 'bn_shadow_banned'
+		         AND um.meta_value = '1'
+		   )
 		 ORDER BY FIELD(sm.role, 'owner', 'mod', 'member'), sm.joined_at ASC
 		 LIMIT %d OFFSET %d",
 		$space_id,
@@ -68,7 +80,7 @@ $members = $wpdb->get_results(
 		$bn_offset
 	)
 );
-// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 $total_members = absint( $space->member_count );
 $total_pages   = (int) ceil( $total_members / $bn_per_page );
