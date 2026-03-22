@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * BuddyNext admin settings page.
  *
@@ -50,6 +50,27 @@ class Settings extends AdminPageBase {
 		'buddynext_auto_hide_threshold'      => array( 'integer', 'absint', 5 ),
 		'buddynext_strike_warn_threshold'    => array( 'integer', 'absint', 2 ),
 		'buddynext_strike_suspend_threshold' => array( 'integer', 'absint', 5 ),
+
+		// Notifications.
+		'buddynext_notif_default_follow'     => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_notif_default_connection' => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_notif_default_reaction'   => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_notif_default_comment'    => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_notif_default_mention'    => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_notif_default_space_join' => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_digest_frequency'         => array( 'string', 'sanitize_key', 'weekly' ),
+
+		// Email.
+		'buddynext_email_from_name'          => array( 'string', 'sanitize_text_field', '' ),
+		'buddynext_email_from_address'       => array( 'string', 'sanitize_email', '' ),
+		'buddynext_email_reply_to'           => array( 'string', 'sanitize_email', '' ),
+		'buddynext_email_footer_text'        => array( 'string', 'sanitize_textarea_field', '' ),
+
+		// Privacy & Data.
+		'buddynext_data_retention_days'      => array( 'integer', 'absint', 365 ),
+		'buddynext_allow_data_export'        => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_allow_account_deletion'   => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_anonymize_on_delete'      => array( 'boolean', 'rest_sanitize_boolean', true ),
 
 		// Navigation slugs.
 		'buddynext_slug_activity'            => array( 'string', 'sanitize_title', 'activity' ),
@@ -173,13 +194,16 @@ class Settings extends AdminPageBase {
 		$base_url   = admin_url( 'admin.php?page=buddynext' );
 
 		$tabs = array(
-			'general'      => __( 'General', 'buddynext' ),
-			'registration' => __( 'Registration', 'buddynext' ),
-			'social'       => __( 'Social', 'buddynext' ),
-			'spaces'       => __( 'Spaces', 'buddynext' ),
-			'moderation'   => __( 'Moderation', 'buddynext' ),
-			'navigation'   => __( 'Navigation', 'buddynext' ),
-			'webhooks'     => __( 'Webhooks', 'buddynext' ),
+			'general'       => __( 'General', 'buddynext' ),
+			'registration'  => __( 'Registration', 'buddynext' ),
+			'social'        => __( 'Social', 'buddynext' ),
+			'spaces'        => __( 'Spaces', 'buddynext' ),
+			'notifications' => __( 'Notifications', 'buddynext' ),
+			'email'         => __( 'Email', 'buddynext' ),
+			'moderation'    => __( 'Moderation', 'buddynext' ),
+			'privacy'       => __( 'Privacy & Data', 'buddynext' ),
+			'navigation'    => __( 'Navigation', 'buddynext' ),
+			'webhooks'      => __( 'Webhooks', 'buddynext' ),
 		);
 
 		if ( ! array_key_exists( $active_tab, $tabs ) ) {
@@ -435,6 +459,180 @@ class Settings extends AdminPageBase {
 			</div>
 			<?php
 		}
+
+		$this->close_section();
+	}
+
+	/**
+	 * Render the Notifications settings tab.
+	 *
+	 * Default notification preferences applied to new user accounts.
+	 * Individual users can override these from their own notification settings.
+	 *
+	 * @return void
+	 */
+	private function render_tab_notifications(): void {
+		$this->open_section( __( 'Default Notification Preferences', 'buddynext' ) );
+
+		$this->render_toggle_row(
+			'buddynext_notif_default_follow',
+			__( 'New follower', 'buddynext' ),
+			__( 'Notify users by default when someone follows them.', 'buddynext' ),
+			(bool) get_option( 'buddynext_notif_default_follow', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_notif_default_connection',
+			__( 'Connection request', 'buddynext' ),
+			__( 'Notify users by default when they receive a connection request.', 'buddynext' ),
+			(bool) get_option( 'buddynext_notif_default_connection', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_notif_default_reaction',
+			__( 'Reaction on post', 'buddynext' ),
+			__( 'Notify users by default when someone reacts to their post.', 'buddynext' ),
+			(bool) get_option( 'buddynext_notif_default_reaction', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_notif_default_comment',
+			__( 'Comment on post', 'buddynext' ),
+			__( 'Notify users by default when someone comments on their post.', 'buddynext' ),
+			(bool) get_option( 'buddynext_notif_default_comment', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_notif_default_mention',
+			__( '@mention in post or comment', 'buddynext' ),
+			__( 'Notify users by default when they are mentioned.', 'buddynext' ),
+			(bool) get_option( 'buddynext_notif_default_mention', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_notif_default_space_join',
+			__( 'New space member', 'buddynext' ),
+			__( 'Notify space owners by default when someone joins their space.', 'buddynext' ),
+			(bool) get_option( 'buddynext_notif_default_space_join', true )
+		);
+
+		$this->close_section();
+
+		$this->open_section( __( 'Email Digest', 'buddynext' ) );
+
+		$this->render_select_row(
+			'buddynext_digest_frequency',
+			__( 'Digest frequency', 'buddynext' ),
+			(string) get_option( 'buddynext_digest_frequency', 'weekly' ),
+			array(
+				'never'  => __( 'Disabled — no digest emails', 'buddynext' ),
+				'daily'  => __( 'Daily', 'buddynext' ),
+				'weekly' => __( 'Weekly (Sunday)', 'buddynext' ),
+			),
+			__( 'How often BuddyNext sends a digest of unread notifications. Individual users can opt out.', 'buddynext' )
+		);
+
+		$this->close_section();
+	}
+
+	/**
+	 * Render the Email settings tab.
+	 *
+	 * Controls the sender identity and footer for all BuddyNext system emails.
+	 *
+	 * @return void
+	 */
+	private function render_tab_email(): void {
+		$this->open_section( __( 'Sender Identity', 'buddynext' ) );
+
+		$this->render_text_row(
+			'buddynext_email_from_name',
+			__( 'From name', 'buddynext' ),
+			(string) get_option( 'buddynext_email_from_name', get_bloginfo( 'name' ) ),
+			__( 'Display name shown in the "From:" field of all community emails.', 'buddynext' ),
+			300
+		);
+
+		$this->render_text_row(
+			'buddynext_email_from_address',
+			__( 'From address', 'buddynext' ),
+			(string) get_option( 'buddynext_email_from_address', get_option( 'admin_email', '' ) ),
+			__( 'Sending address for all BuddyNext system emails. Must be a verified domain.', 'buddynext' ),
+			300
+		);
+
+		$this->render_text_row(
+			'buddynext_email_reply_to',
+			__( 'Reply-To address', 'buddynext' ),
+			(string) get_option( 'buddynext_email_reply_to', '' ),
+			__( 'Optional. If set, replies to community emails go here instead of the From address.', 'buddynext' ),
+			300
+		);
+
+		$this->close_section();
+
+		$this->open_section( __( 'Email Footer', 'buddynext' ) );
+		?>
+		<div class="bn-field">
+			<label for="bn-email-footer"><?php esc_html_e( 'Footer text', 'buddynext' ); ?></label>
+			<textarea
+				id="bn-email-footer"
+				name="buddynext_email_footer_text"
+				rows="3"
+				class="bn-text-input"
+				style="width:100%;max-width:540px;resize:vertical"
+			><?php echo esc_textarea( (string) get_option( 'buddynext_email_footer_text', '' ) ); ?></textarea>
+			<span class="bn-field-hint">
+				<?php esc_html_e( 'Appended to the bottom of every BuddyNext email. Supports plain text only.', 'buddynext' ); ?>
+			</span>
+		</div>
+		<?php
+		$this->close_section();
+	}
+
+	/**
+	 * Render the Privacy & Data settings tab.
+	 *
+	 * Controls data retention, member-initiated data export, and account deletion behaviour.
+	 *
+	 * @return void
+	 */
+	private function render_tab_privacy(): void {
+		$this->open_section( __( 'Data Retention', 'buddynext' ) );
+
+		$this->render_number_row(
+			'buddynext_data_retention_days',
+			__( 'Activity log retention (days)', 'buddynext' ),
+			(int) get_option( 'buddynext_data_retention_days', 365 ),
+			__( 'BuddyNext activity log entries older than this are purged automatically. Set to 0 to retain indefinitely.', 'buddynext' ),
+			0,
+			3650
+		);
+
+		$this->close_section();
+
+		$this->open_section( __( 'Member Rights', 'buddynext' ) );
+
+		$this->render_toggle_row(
+			'buddynext_allow_data_export',
+			__( 'Allow members to export their data', 'buddynext' ),
+			__( 'Adds a "Download my data" option on member profile settings. Generates a JSON archive of posts, reactions, and profile fields.', 'buddynext' ),
+			(bool) get_option( 'buddynext_allow_data_export', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_allow_account_deletion',
+			__( 'Allow members to delete their account', 'buddynext' ),
+			__( 'Adds a "Delete account" option on member profile settings. Admins can always delete accounts regardless of this setting.', 'buddynext' ),
+			(bool) get_option( 'buddynext_allow_account_deletion', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_anonymize_on_delete',
+			__( 'Anonymise posts on account deletion', 'buddynext' ),
+			__( 'When enabled, posts by deleted members are reassigned to an anonymous author rather than hard-deleted. Preserves community discussion threads.', 'buddynext' ),
+			(bool) get_option( 'buddynext_anonymize_on_delete', true )
+		);
 
 		$this->close_section();
 	}

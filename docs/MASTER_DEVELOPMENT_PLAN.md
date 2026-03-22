@@ -286,15 +286,15 @@ New service that pushes signed event payloads to admin-registered external URLs:
 **Spec:** `docs/specs/features/16-admin-settings.md`
 **File architecture:** `docs/specs/features/00-architecture.md` — Admin Layer section
 
-- [ ] Create `AdminPageBase` — shared admin chrome: sidebar sub-nav, tab bar, section cards, save bar — matching `admin-settings.html` mockup
-- [ ] Settings page — 9 tabs: General, Registration, Social, Spaces, Notifications, Email, Moderation, Privacy & Data, Webhooks — matches `admin-settings.html`
+- [x] Create `AdminPageBase` — shared admin chrome: sidebar sub-nav, tab bar, section cards, save bar — matching `admin-settings.html` mockup
+- [x] Settings page — 10 tabs: General, Registration, Social, Spaces, Notifications, Email, Moderation, Privacy & Data, Navigation, Webhooks — matches `admin-settings.html`
 - [x] Members page file architecture split — thin controller + Members/ subdirectory + Helpers/ (2026-03-22)
 - [x] Edit-member form — tabbed layout: fixed Account tab (photo + WP fields) + dynamic tabs one per `bn_profile_groups` row ordered by `group_order` (2026-03-22)
-- [ ] Members page — stats cards (total / active / suspended), filterable member table with avatar and last-active, bulk actions — matches `admin-members.html`
-- [ ] Spaces page — table with owner, type, member count, pending requests, archive/delete actions — matches `admin-spaces.html`
-- [ ] Integration Hub page — addon status cards, per-addon feature toggles — matches `admin-integration-hub.html`
-- [ ] Nav Manager page — three-panel layout, drag-reorder navigation items, custom tab creation — matches `admin-nav-manager.html`
-- [ ] Email Editor page — template list with enable/disable, inline subject + body editor, variable reference — matches `email-editor.html`
+- [x] Members page — stats cards (total / active / suspended), filterable member table with avatar and last-active, bulk actions — matches `admin-members.html`
+- [x] Spaces page — table with owner, type, member count, pending requests, archive/delete actions — matches `admin-spaces.html`
+- [x] Integration Hub page — addon status cards, per-addon feature toggles — matches `admin-integration-hub.html`
+- [x] Nav Manager page — three-panel layout, drag-reorder navigation items, custom tab creation — matches `admin-nav-manager.html`
+- [x] Email Editor page — template list with enable/disable, inline subject + body editor, variable reference — matches `email-editor.html`
 
 ---
 
@@ -367,8 +367,8 @@ Several hooks in the implementation use wrong names or wrong argument order. Thi
 
 #### 12e — Page existence assurance
 
-- [ ] Create `includes/Core/PageSetup.php`
-- [ ] Bind and init in `Plugin.php`
+- [x] Create `includes/Core/PageSetup.php`
+- [x] Bind and init in `Plugin.php`
 
 #### 12f — Avatar system & site-wide defaults (Members admin → Avatar & Cover tab)
 
@@ -548,11 +548,11 @@ templates/blocks/member-card.php     — type badge in card
 - [x] Add `bn_member_types` + `bn_member_type_assignments` to `Installer.php`; add `type_restriction` to `bn_profile_groups` schema
 - [x] Create `includes/MemberTypes/MemberTypeService.php` — CRUD, assign, cache, hooks
 - [x] Create `includes/REST/Controllers/MemberTypeController.php` — 7 routes
-- [ ] Create `includes/Admin/Members/MemberTypesManager.php` — admin tab + form handlers
-- [ ] Wire tab into `Members.php`; bind service in `Plugin.php`; register controller in `Router.php`
-- [ ] Update `PageRouter.php` — `/members/{type-slug}/` rewrite
-- [ ] Update `templates/directory/members.php` — type filter tabs + card badges
-- [ ] Update `templates/profile/view.php` — type badge in header
+- [x] Create `includes/Admin/Members/MemberTypesManager.php` — admin tab + form handlers
+- [x] Wire tab into `Members.php`; bind service in `Plugin.php`; register controller in `Router.php`
+- [x] Update `PageRouter.php` — `/members/{type-slug}/` rewrite
+- [x] Update `templates/directory/members.php` — type filter tabs + card badges
+- [x] Update `templates/profile/view.php` — type badge in header
 
 ---
 
