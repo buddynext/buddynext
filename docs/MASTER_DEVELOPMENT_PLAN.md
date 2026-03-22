@@ -877,14 +877,14 @@ No BuddyNext tables for DM. All data lives in WPMediaVerse tables.
 
 ### Done
 - [x] BlockRegistrar — all 17 blocks registered with block.json
+- [x] Block render callbacks — all 17 blocks have real PHP render functions (confirmed 2026-03-22)
+- [x] Block patterns — Community Home, Profile, Spaces Directory, Member Directory (confirmed 2026-03-22)
+- [x] Block supports declarations in block.json (color, typography, spacing) (confirmed 2026-03-22)
+- [x] SetupWizard admin page — 8-step wizard fully implemented (confirmed 2026-03-22)
 
-### Remaining
-- [ ] Block render callbacks — all 17 blocks have stubs or missing PHP render functions
-- [ ] Block patterns (Community Home, Profile, Spaces Directory, Member Directory)
-- [ ] Block supports declarations in block.json (color, typography, spacing)
-- [ ] SetupWizard admin page — 6-step first-run wizard (currently stub)
+### Remaining (see BLOCK 13 + BLOCK 14 below)
 - [ ] OnboardingService nudge emails — WP-Cron jobs at +24h and +72h after registration
-- [ ] InviteService — admin CSV upload UI + 7-day expiry + resend
+- [ ] InviteService — send email on create(), resend(), admin CSV upload UI + 7-day expiry
 
 ### Core Blocks (all free)
 Activity Feed, Member Directory, Space Directory, User Profile, Follow Button, Connect Button, Notification Bell, Unread DM Badge, Trending Hashtags, People You May Know, Hot Topics (Jetonomy bridge), Space Members, Leaderboard (Gamification bridge)
@@ -971,6 +971,112 @@ All 44 screen mockups in: `.superpowers/brainstorm/14544-1773947712/`
 | WBGamification | ✅ Installed | Bridge in Phase 10 |
 | Career Board | ✅ Installed | Bridge in Phase 10 |
 | BuddyX Theme | ✅ Active | Theme header band used — BuddyNext does not override it |
+
+---
+
+## Completion Blocks — Audit Pass (2026-03-22)
+
+Identified via deep code audit. All BLOCK 1–12 code exists but the following modules are half-cooked. Each block must pass all 5 gates before being marked done.
+
+---
+
+### BLOCK 13 — Cron Handlers (new `CronHandlers` class)
+
+**Spec:** `docs/specs/features/06-notifications-email.md`, `02-activity-feed.md`
+**Files:** `includes/Core/CronHandlers.php` (new), `includes/Core/CronScheduler.php`, `includes/Core/Plugin.php`
+**Dependencies:** None — all required services already exist
+
+7 cron jobs are scheduled by `CronScheduler` but have zero handler wiring. Every job fires and does nothing.
+
+- [ ] `buddynext_daily_digest` — query users with `email_freq = daily` from `bn_notification_prefs`, batch send digest email via `EmailSender`
+- [ ] `buddynext_weekly_digest` — same for `email_freq = weekly`
+- [ ] `buddynext_cleanup_tokens` — `DELETE FROM bn_verify_tokens WHERE expires_at < NOW()`
+- [ ] `buddynext_cleanup_notifications` — `DELETE FROM bn_notifications WHERE is_read = 1 AND created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)`
+- [ ] `buddynext_trending_hashtags` — recount `post_count` on `bn_hashtags` from `bn_post_hashtags` for last 7 days
+- [ ] `buddynext_recount_stats` — recount `reaction_count` + `comment_count` on `bn_posts` from child tables
+- [ ] `buddynext_publish_scheduled` — publish `bn_posts` with `status = scheduled` and `scheduled_at <= NOW()`
+- [ ] Wire all 7 via `add_action()` in `CronScheduler::init()` (or `CronHandlers` registered in `Plugin.php`)
+- [ ] Add `every_five_minutes` schedule consolidation — `OutboundWebhookService` uses duplicate schedule; migrate to `buddynext_5min`
+- [ ] Add `buddynext_webhook_retry` to `CronScheduler::clear_events()` so it unschedules on deactivation
+
+---
+
+### BLOCK 14 — Onboarding Module Completion
+
+**Spec:** `docs/specs/features/10-onboarding-setup-wizard.md`
+**Files:** `includes/Onboarding/OnboardingService.php`, `includes/Onboarding/InviteService.php`, `includes/Core/CronScheduler.php`, `includes/Notifications/EventListener.php`, `includes/Admin/Members/InviteManager.php` (new), `includes/Core/Installer.php`
+**Dependencies:** BLOCK 13 (CronHandlers pattern) — can run parallel if CronScheduler wiring done separately
+
+- [ ] `OnboardingService::save_step()` steps 3+4 — step 3 calls `SpaceMemberService::join()` for each submitted space ID; step 4 calls `FollowService::follow()` for each submitted user ID
+- [ ] Nudge email cron: on `user_register`, schedule `wp_schedule_single_event(+24h, 'bn_onboarding_nudge_24h', [$user_id])` and `wp_schedule_single_event(+72h, 'bn_onboarding_nudge_72h', [$user_id])`
+- [ ] `bn_onboarding_nudge_24h` handler: check `OnboardingService::is_complete($user_id)` — if false, send `bn.onboarding_nudge` email
+- [ ] `bn_onboarding_nudge_72h` handler: same check, send final nudge email
+- [ ] Cancel both nudges on `buddynext_onboarding_completed`: `wp_clear_scheduled_hook('bn_onboarding_nudge_24h', [$user_id])`
+- [ ] `InviteService::create()` — after DB insert, call `EmailSender::send($email, 'bn.bulk_invite', ['token', 'first_name', 'invite_url'])`
+- [ ] `InviteService::resend(int $invite_id)` — regenerate token, update `expires_at`, resend email
+- [ ] `InviteService::send_invite_email(array $invite)` — private helper, builds invite URL from token + site URL
+- [ ] Seed `bn.bulk_invite` email template in `Installer::seed_email_templates()` and `EmailEditor` catalogue
+- [ ] `Admin/Members/InviteManager.php` (new) — tab on Members admin page: CSV upload form, pending invite table (email, status, expires_at, resend button), `admin_post_bn_bulk_invite` handler, `admin_post_bn_resend_invite` handler, nonce on every action
+
+---
+
+### BLOCK 15 — Moderation Module Completion
+
+**Spec:** `docs/specs/features/09-moderation.md`
+**Files:** `includes/Moderation/ModerationService.php`, `includes/REST/Controllers/ModerationController.php`, `includes/Notifications/EventListener.php`
+**Dependencies:** None
+
+- [ ] Fix `buddynext_user_suspended` hook signature: standardize `suspend()` to fire `do_action('buddynext_user_suspended', $user_id, $actor_id, $reason, $expires_at)` matching `EventListener::on_user_suspended()` signature
+- [ ] `ModerationService::decide_appeal()` — add `do_action('buddynext_appeal_resolved', $appeal_id, $user_id, $decision)` after DB update; fetch `user_id` from `bn_appeals` within the method
+- [ ] Consolidate unsuspend to single REST path: remove `POST /users/{id}/unsuspend` route + callback from `ModerationController`; `DELETE /users/{id}/suspend` must call `ModerationService::unsuspend_user()` (audits lifted_at/lifted_by + fires hook)
+- [ ] Fix `EventListener::on_user_warned()` — change `'type' => 'user_warned'` to `'type' => 'bn.user_warned'`
+- [ ] Fix `EventListener::on_appeal_submitted()` — change `'type' => 'appeal_submitted'` to `'type' => 'bn.appeal_submitted'`
+- [ ] Wire 3 missing outbound webhook events in `EventListener::init()`: `buddynext_ability_granted` → `on_webhook_ability_granted()`, `buddynext_ability_revoked` → `on_webhook_ability_revoked()`, `buddynext_user_verified` → `on_webhook_member_verified()`
+
+---
+
+### BLOCK 16 — Asset Layer Completion
+
+**Spec:** `docs/specs/features/11-gutenberg-blocks.md`, `20-theme-integration.md`
+**Files:** `assets/css/` (6 new files), `assets/js/blocks.js` (new), `assets/css/blocks.css` (new)
+**Dependencies:** None — pure file creation
+
+All missing CSS/JS files registered by `AssetService` but absent on disk.
+
+- [ ] `assets/css/bn-base.css` — CSS custom property token declarations (`:root` + `[data-theme="dark"]` blocks from CLAUDE.md), reset/base rules; this is the dependency for all other BN CSS handles
+- [ ] `assets/css/bn-spaces.css` — space directory + space home component styles
+- [ ] `assets/css/bn-notifications.css` — notification list + bell dropdown styles
+- [ ] `assets/css/bn-search.css` — search results page styles
+- [ ] `assets/css/bn-gamification.css` — leaderboard + badge display styles
+- [ ] `assets/css/bn-moderation.css` — moderation queue + report card styles
+- [ ] `assets/js/blocks.js` — WordPress Interactivity API store for block editor preview interactions; referenced in all 17 `block.json` `"editorScript"` — without this file all blocks fail in the editor
+- [ ] `assets/css/blocks.css` — block frontend stylesheet referenced in all 17 `block.json` `"style"` — without this, block styles 404 sitewide
+- [ ] Each CSS file must have: design token vars used throughout, `@media (max-width: 640px)` mobile block, `[data-theme="dark"]` block
+
+---
+
+### BLOCK 17 — Code Quality + Minor Fixes
+
+**Files:** `includes/Admin/NavManager.php`, `includes/Search/MemberDirectoryService.php`, `includes/Core/OutboundWebhookService.php`
+**Dependencies:** None
+
+- [ ] `NavManager.php:721` — write the `render_hub_page_assignments()` method body (page-picker for hub pages that have no dedicated tab — Members, Auth)
+- [ ] `MemberDirectoryService` — replace `0 AS mutual_connection_count` hardcoded stub with a real correlated subquery counting mutual accepted connections between the viewer and each result user
+- [ ] `OutboundWebhookService::init()` — remove inline `cron_schedules` filter (use `buddynext_5min` from `CronScheduler` instead of `every_five_minutes`)
+
+---
+
+### Dependency Order for Completion Blocks
+
+```
+BLOCK 13 (Cron Handlers) — independent, no deps
+BLOCK 14 (Onboarding)    — touches EventListener; run after BLOCK 15
+BLOCK 15 (Moderation)    — touches EventListener; run first among 14+15
+BLOCK 16 (Assets)        — fully independent
+BLOCK 17 (Code Quality)  — fully independent
+```
+
+**Execution order:** 13 → 15 → 14 → 16 + 17 parallel
 
 ---
 
