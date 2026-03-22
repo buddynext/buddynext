@@ -53,6 +53,10 @@ class MemberEditForm {
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ) . '</p></div>';
 		} elseif ( 'slug_taken' === $bn_error ) {
 			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Profile URL slug is already in use. Please choose a different one.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'cover_size' === $bn_error ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Cover photo not saved: file exceeds the 5MB limit.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'cover_type' === $bn_error ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'Cover photo not saved: only JPEG, PNG, GIF, or WebP files are allowed.', 'buddynext' ) . '</p></div>';
 		}
 		?>
 		<style>
@@ -219,6 +223,29 @@ class MemberEditForm {
 						<?php endif; ?>
 						<input type="file" name="bn_avatar" accept="image/jpeg,image/png,image/gif,image/webp" style="font-size:13px;">
 						<p style="font-size:11px;color:#aeaca8;margin:6px 0 0;"><?php esc_html_e( 'Max 2MB. JPEG, PNG, GIF, or WebP.', 'buddynext' ); ?></p>
+					</div>
+				</div>
+				<?php
+				$this->close_section();
+
+				// ── Cover Photo ───────────────────────────────────────────────
+				$existing_cover = (string) get_user_meta( $user_id, 'buddynext_cover_url', true );
+				$this->open_section( __( 'Cover Photo', 'buddynext' ) );
+				?>
+				<div class="bn-field-row">
+					<div class="bn-label"><?php esc_html_e( 'Current Cover', 'buddynext' ); ?></div>
+					<div class="bn-control">
+						<?php if ( '' !== $existing_cover ) : ?>
+							<img src="<?php echo esc_url( $existing_cover ); ?>" alt="" style="max-height:80px;max-width:300px;border-radius:6px;object-fit:cover;display:block;margin-bottom:10px;">
+							<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#dc2626;margin-bottom:8px;">
+								<input type="checkbox" name="bn_remove_cover" value="1">
+								<?php esc_html_e( 'Remove current cover', 'buddynext' ); ?>
+							</label>
+						<?php else : ?>
+							<p style="font-size:13px;color:#9ca3af;margin:0 0 8px;"><?php esc_html_e( 'No cover photo set.', 'buddynext' ); ?></p>
+						<?php endif; ?>
+						<input type="file" name="bn_cover" accept="image/jpeg,image/png,image/gif,image/webp" style="font-size:13px;">
+						<p style="font-size:11px;color:#aeaca8;margin:6px 0 0;"><?php esc_html_e( 'Recommended: 1500×500px, max 5MB. JPEG, PNG, GIF, or WebP.', 'buddynext' ); ?></p>
 					</div>
 				</div>
 				<?php

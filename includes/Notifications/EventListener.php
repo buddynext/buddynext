@@ -53,6 +53,7 @@ class EventListener {
 		add_action( 'buddynext_user_unsuspended', array( $this, 'on_user_unsuspended' ), 10, 1 );
 		add_action( 'buddynext_appeal_submitted', array( $this, 'on_appeal_submitted' ), 10, 2 );
 		add_action( 'buddynext_user_shadow_banned', array( $this, 'on_user_shadow_banned' ), 10, 1 );
+		add_action( 'buddynext_user_shadow_ban_removed', array( $this, 'on_user_shadow_ban_removed' ), 10, 1 );
 		add_action( 'buddynext_daily_queue_check', array( $this, 'on_daily_queue_check' ), 10, 0 );
 
 		// Schedule daily moderation queue alert if not already registered.
@@ -865,6 +866,18 @@ class EventListener {
 			array( '%s', '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Re-index the user in the search index when a shadow ban is lifted.
+	 *
+	 * Fires the buddynext_index_user action so any registered indexer
+	 * (e.g. SearchService) can rebuild the user's search record.
+	 *
+	 * @param int $user_id User whose shadow ban was removed.
+	 */
+	public function on_user_shadow_ban_removed( int $user_id ): void {
+		do_action( 'buddynext_index_user', $user_id );
 	}
 
 	/**

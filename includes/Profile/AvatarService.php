@@ -151,8 +151,8 @@ class AvatarService {
 			return $custom;
 		}
 
-		// Locally uploaded avatar stored as usermeta.
-		$meta = (string) get_user_meta( $user->ID, 'buddynext_avatar_url', true );
+		// Locally uploaded avatar stored as usermeta (canonical key: bn_avatar).
+		$meta = (string) get_user_meta( $user->ID, 'bn_avatar', true );
 		if ( '' !== $meta ) {
 			return $meta;
 		}
@@ -169,7 +169,7 @@ class AvatarService {
 	 * @return void
 	 */
 	public function save_avatar_url( int $user_id, string $url ): void {
-		update_user_meta( $user_id, 'buddynext_avatar_url', $url );
+		update_user_meta( $user_id, 'bn_avatar', $url );
 	}
 
 	/**
@@ -179,7 +179,7 @@ class AvatarService {
 	 * @return void
 	 */
 	public function delete_avatar( int $user_id ): void {
-		delete_user_meta( $user_id, 'buddynext_avatar_url' );
+		delete_user_meta( $user_id, 'bn_avatar' );
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────

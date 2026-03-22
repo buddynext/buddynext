@@ -51,6 +51,7 @@ if ( ! $initials ) {
 }
 
 $avatar_url = get_avatar_url( $user_id, array( 'size' => 80 ) );
+$cover_url  = (string) get_user_meta( $user_id, 'buddynext_cover_url', true );
 
 // Load profile through service — reads from bn_profile_values.
 $service = buddynext_service( 'profiles' );
@@ -138,7 +139,7 @@ $rest_nonce = wp_create_nonce( 'wp_rest' );
 ?>
 <?php
 $bn_nav_active = '';
-include __DIR__ . '/../partials/nav.php';
+require __DIR__ . '/../partials/nav.php';
 ?>
 <style>
 /* ── Design tokens ─────────────────────────────────────────────────────── */
@@ -709,7 +710,11 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 
 			<!-- Cover + avatar hero -->
 			<div class="bn-ep-cover-section">
-				<div class="bn-ep-cover-photo">
+				<div class="bn-ep-cover-photo"
+				<?php
+				if ( '' !== $cover_url ) :
+					?>
+					style="background-image:url('<?php echo esc_url( $cover_url ); ?>');background-size:cover;background-position:center;"<?php endif; ?>>
 					<button class="bn-ep-cover-btn"
 						type="button"
 						data-wp-on--click="actions.triggerCoverUpload">

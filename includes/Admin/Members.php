@@ -444,6 +444,38 @@ class Members extends AdminPageBase {
 			}
 		}
 
+		// Handle cover photo removal.
+		if ( ! empty( $_POST['bn_remove_cover'] ) ) {
+			delete_user_meta( $user_id, 'buddynext_cover_url' );
+		}
+
+		// Handle cover photo upload.
+		if ( ! empty( $_FILES['bn_cover']['name'] ) ) {
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- size validated numerically
+			if ( isset( $_FILES['bn_cover']['size'] ) && (int) $_FILES['bn_cover']['size'] > 5 * 1024 * 1024 ) {
+				wp_safe_redirect( add_query_arg( 'bn_error', 'cover_size', $redirect_url ) );
+				exit;
+			}
+
+			$cover_allowed = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- type validated against allowlist
+			if ( isset( $_FILES['bn_cover']['type'] ) && ! in_array( $_FILES['bn_cover']['type'], $cover_allowed, true ) ) {
+				wp_safe_redirect( add_query_arg( 'bn_error', 'cover_type', $redirect_url ) );
+				exit;
+			}
+
+			if ( ! function_exists( 'wp_handle_upload' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+			}
+
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$cover_uploaded = wp_handle_upload( $_FILES['bn_cover'], array( 'test_form' => false ) );
+
+			if ( isset( $cover_uploaded['url'] ) && ! isset( $cover_uploaded['error'] ) ) {
+				update_user_meta( $user_id, 'buddynext_cover_url', esc_url_raw( $cover_uploaded['url'] ) );
+			}
+		}
+
 		// Handle display name update.
 		if ( isset( $_POST['display_name'] ) && '' !== $_POST['display_name'] ) {
 			wp_update_user(

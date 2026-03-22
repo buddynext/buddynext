@@ -437,6 +437,56 @@
 					}
 				} catch ( _e ) {}
 			},
+
+
+		/* ── More-options menu ───────────────────────────────────────── */
+
+		toggleMoreMenu: function () {
+			var ctx = getContext();
+			ctx.moreMenuOpen = ! ctx.moreMenuOpen;
+		},
+
+		toggleMute: async function () {
+			var ctx    = getContext();
+			var method = ctx.isMuted ? 'DELETE' : 'POST';
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/mute' ), {
+					method:  method,
+					headers: { 'X-WP-Nonce': ctx.restNonce },
+				} );
+				if ( res.ok ) {
+					ctx.isMuted      = ! ctx.isMuted;
+					ctx.moreMenuOpen = false;
+				}
+			} catch ( _e ) {}
+		},
+
+		toggleBlock: async function () {
+			var ctx    = getContext();
+			var method = ctx.isBlocked ? 'DELETE' : 'POST';
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/block' ), {
+					method:  method,
+					headers: { 'X-WP-Nonce': ctx.restNonce },
+				} );
+				if ( res.ok ) {
+					ctx.isBlocked    = ! ctx.isBlocked;
+					ctx.moreMenuOpen = false;
+				}
+			} catch ( _e ) {}
+		},
+
+		reportUser: async function () {
+			var ctx = getContext();
+			try {
+				await fetch( apiUrl( 'buddynext/v1/reports' ), {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
+					body:    JSON.stringify( { object_type: 'user', object_id: ctx.profileUserId } ),
+				} );
+			} catch ( _e ) {}
+			ctx.moreMenuOpen = false;
+		},
 		},
 	} );
 

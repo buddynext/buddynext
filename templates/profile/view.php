@@ -42,6 +42,7 @@ if ( ! $is_own_profile && ! current_user_can( 'manage_options' ) ) {
 // AvatarService hooks pre_get_avatar_data: returns custom upload or SVG initials
 // data-URI — no Gravatar lookup, works offline.
 $avatar_url   = (string) get_avatar_url( $user_id, array( 'size' => 96 ) );
+$cover_url    = (string) get_user_meta( $user_id, 'buddynext_cover_url', true );
 $display_name = $profile_user->display_name;
 
 $joined = gmdate( 'M Y', strtotime( $profile_user->user_registered ) );
@@ -85,6 +86,7 @@ $post_count = (int) $wpdb->get_var(
 $is_following = false;
 $is_connected = false;
 $is_blocked   = false;
+$is_muted     = false;
 $degree_badge = '';
 
 if ( ! $is_own_profile && $current_user_id ) {
@@ -113,6 +115,28 @@ if ( ! $is_own_profile && $current_user_id ) {
 	);
 
 	$degree_badge = $is_connected ? '1st' : ( $is_following ? '2nd' : '3rd+' );
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$is_blocked = (bool) $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT 1 FROM {$wpdb->prefix}bn_blocks
+			 WHERE blocker_id = %d AND blocked_id = %d AND type = 'block'
+			 LIMIT 1",
+			$current_user_id,
+			$user_id
+		)
+	);
+
+	$is_muted = (bool) $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT 1 FROM {$wpdb->prefix}bn_blocks
+			 WHERE blocker_id = %d AND blocked_id = %d AND type = 'mute'
+			 LIMIT 1",
+			$current_user_id,
+			$user_id
+		)
+	);
+	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 }
 
 // --- Mutual connections count ---------------------------------------------
@@ -415,6 +439,43 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 	line-height: 1;
 }
 .bn-btn-icon:hover { background: var(--bg-hover); }
+
+.bn-more-menu-wrap {
+	position: relative;
+	display: inline-block;
+}
+.bn-more-menu {
+	display: none;
+	position: absolute;
+	right: 0;
+	top: calc(100% + var(--s1));
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	box-shadow: 0 4px 16px rgba(0,0,0,.10);
+	min-width: 160px;
+	z-index: 100;
+	overflow: hidden;
+}
+.bn-more-menu-wrap.is-open .bn-more-menu { display: block; }
+.bn-more-menu-item {
+	display: block;
+	width: 100%;
+	text-align: left;
+	background: none;
+	border: none;
+	padding: var(--s3) var(--s4);
+	font-size: var(--text-sm);
+	color: var(--text-1);
+	cursor: pointer;
+	font-family: var(--font-body);
+}
+.bn-more-menu-item:hover { background: var(--bg-hover); }
+.bn-more-menu-item--danger { color: var(--red); }
+.bn-more-menu-item--danger:hover { background: var(--red-bg); }
+[data-theme="dark"] .bn-more-menu {
+	box-shadow: 0 4px 16px rgba(0,0,0,.35);
+}
 
 .bn-degree-badge {
 	display: inline-flex;
@@ -762,6 +823,9 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 			'connectionPending' => false,
 			'followerCount'     => $follower_count,
 			'restNonce'         => wp_create_nonce( 'wp_rest' ),
+			'isBlocked'         => $is_blocked,
+			'isMuted'           => $is_muted,
+			'moreMenuOpen'      => false,
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -769,7 +833,11 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 >
 
 	<!-- Cover photo -->
-	<div class="bn-cover">
+	<div class="bn-cover"
+	<?php
+	if ( '' !== $cover_url ) :
+		?>
+		style="background-image:url('<?php echo esc_url( $cover_url ); ?>');background-size:cover;background-position:center;"<?php endif; ?>>
 		<?php if ( $is_own_profile ) : ?>
 		<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"
 			class="bn-cover-edit" title="<?php esc_attr_e( 'Edit cover photo', 'buddynext' ); ?>">
@@ -808,7 +876,33 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 					class="bn-btn-secondary">
 					&#128172; <?php esc_html_e( 'Message', 'buddynext' ); ?>
 				</a>
-				<button class="bn-btn-icon" aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>">&#8943;</button>
+				<!-- More options dropdown -->
+				<div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen">
+					<button class="bn-btn-icon"
+						aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>"
+						aria-expanded="false"
+						data-wp-on--click="actions.toggleMoreMenu"
+						data-wp-bind--aria-expanded="context.moreMenuOpen">&#8943;</button>
+					<div class="bn-more-menu" role="menu">
+						<button class="bn-more-menu-item"
+							role="menuitem"
+							data-wp-on--click="actions.toggleMute"
+							data-wp-text="context.isMuted ? '<?php esc_attr_e( 'Unmute', 'buddynext' ); ?>' : '<?php esc_attr_e( 'Mute', 'buddynext' ); ?>'">
+							<?php esc_html_e( 'Mute', 'buddynext' ); ?>
+						</button>
+						<button class="bn-more-menu-item bn-more-menu-item--danger"
+							role="menuitem"
+							data-wp-on--click="actions.toggleBlock"
+							data-wp-text="context.isBlocked ? '<?php esc_attr_e( 'Unblock', 'buddynext' ); ?>' : '<?php esc_attr_e( 'Block', 'buddynext' ); ?>'">
+							<?php esc_html_e( 'Block', 'buddynext' ); ?>
+						</button>
+						<button class="bn-more-menu-item"
+							role="menuitem"
+							data-wp-on--click="actions.reportUser">
+							<?php esc_html_e( 'Report', 'buddynext' ); ?>
+						</button>
+					</div>
+				</div>
 			<?php endif; ?>
 		</div>
 

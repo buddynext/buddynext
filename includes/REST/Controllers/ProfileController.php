@@ -6,6 +6,8 @@
  *   GET    /users/{id}/profile              — get a user's profile (public)
  *   PUT    /users/{id}/profile              — update any user's profile (admin only)
  *   POST   /users/{id}/avatar               — set avatar for any user (admin only)
+ *   POST   /users/{id}/cover                — upload cover for any user (admin only)
+ *   DELETE /users/{id}/cover                — remove cover for any user (admin only)
  *   PUT    /me/profile                      — update own profile (auth required)
  *   POST   /me/avatar                       — upload own avatar (auth required)
  *   DELETE /me/avatar                       — remove own avatar (auth required)
@@ -83,6 +85,37 @@ class ProfileController {
 					'id' => array(
 						'type'              => 'integer',
 						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/cover',
+			array(
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'admin_upload_cover' ),
+					'permission_callback' => array( $this, 'require_admin' ),
+					'args'                => array(
+						'id' => array(
+							'required'          => true,
+							'type'              => 'integer',
+							'sanitize_callback' => 'absint',
+						),
+					),
+				),
+				array(
+					'methods'             => 'DELETE',
+					'callback'            => array( $this, 'admin_delete_cover' ),
+					'permission_callback' => array( $this, 'require_admin' ),
+					'args'                => array(
+						'id' => array(
+							'required'          => true,
+							'type'              => 'integer',
+							'sanitize_callback' => 'absint',
+						),
 					),
 				),
 			)
@@ -833,6 +866,40 @@ class ProfileController {
 		}
 
 		return $this->handle_avatar_upload( $user_id );
+	}
+
+	/**
+	 * POST /users/{id}/cover — upload cover photo for any user (admin only).
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function admin_upload_cover( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id = absint( $request->get_param( 'id' ) );
+
+		if ( ! get_userdata( $user_id ) ) {
+			return new WP_Error( 'not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		return $this->handle_cover_upload( $user_id );
+	}
+
+	/**
+	 * DELETE /users/{id}/cover — remove cover photo for any user (admin only).
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function admin_delete_cover( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id = absint( $request->get_param( 'id' ) );
+
+		if ( ! get_userdata( $user_id ) ) {
+			return new WP_Error( 'not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		delete_user_meta( $user_id, 'buddynext_cover_url' );
+
+		return new WP_REST_Response( array( 'deleted' => true ), 200 );
 	}
 
 	/**
