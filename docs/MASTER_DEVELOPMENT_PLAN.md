@@ -289,6 +289,7 @@ New service that pushes signed event payloads to admin-registered external URLs:
 - [ ] Create `AdminPageBase` — shared admin chrome: sidebar sub-nav, tab bar, section cards, save bar — matching `admin-settings.html` mockup
 - [ ] Settings page — 9 tabs: General, Registration, Social, Spaces, Notifications, Email, Moderation, Privacy & Data, Webhooks — matches `admin-settings.html`
 - [x] Members page file architecture split — thin controller + Members/ subdirectory + Helpers/ (2026-03-22)
+- [x] Edit-member form — tabbed layout: fixed Account tab (photo + WP fields) + dynamic tabs one per `bn_profile_groups` row ordered by `group_order` (2026-03-22)
 - [ ] Members page — stats cards (total / active / suspended), filterable member table with avatar and last-active, bulk actions — matches `admin-members.html`
 - [ ] Spaces page — table with owner, type, member count, pending requests, archive/delete actions — matches `admin-spaces.html`
 - [ ] Integration Hub page — addon status cards, per-addon feature toggles — matches `admin-integration-hub.html`

@@ -81,9 +81,18 @@ class MemberEditForm {
 		.bn-hero-danger-btn:hover { background:#fef2f2; border-color:#dc2626; }
 		.bn-hero-view-btn { background:#fff; border:1px solid #d1d5db; color:#374151; border-radius:5px; padding:7px 14px; font-size:13px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:5px; }
 		.bn-hero-view-btn:hover { background:#f3f4f6; border-color:#9ca3af; color:#111827; }
+		/* Tab nav */
+		.bn-edit-tabs { display:flex; flex-wrap:wrap; gap:2px; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:8px; padding:4px; margin-bottom:20px; }
+		.bn-edit-tab { flex:0 0 auto; background:none; border:none; padding:7px 16px; font-size:13px; font-weight:500; color:#6b7280; border-radius:5px; cursor:pointer; font-family:inherit; transition:background .15s,color .15s; white-space:nowrap; }
+		.bn-edit-tab.is-active { background:#fff; color:#111827; box-shadow:0 1px 3px rgba(0,0,0,.08); font-weight:600; }
+		.bn-edit-tab:hover:not(.is-active) { color:#374151; background:rgba(255,255,255,.6); }
+		/* Tab panels */
+		.bn-tab-panel { display:none; }
+		.bn-tab-panel.is-active { display:block; }
 		@media (max-width: 640px) {
 			.bn-member-hero { flex-direction:column; align-items:flex-start; }
 			.bn-member-hero-actions { width:100%; }
+			.bn-edit-tab { padding:6px 12px; font-size:12px; }
 		}
 		</style>
 
@@ -156,193 +165,227 @@ class MemberEditForm {
 		 * @param WP_User $wp_user WP_User object.
 		 */
 		do_action( 'buddynext_before_edit_member_form', $user_id, $wp_user );
+
+		// Build tab list: fixed Account tab first, then one per profile group.
+		$tab_list = array(
+			array(
+				'slug'  => 'account',
+				'label' => __( 'Account', 'buddynext' ),
+			),
+		);
+		foreach ( $groups as $group ) {
+			$tab_list[] = array(
+				'slug'  => 'group-' . absint( $group['id'] ),
+				'label' => $group['label'],
+			);
+		}
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
 			<input type="hidden" name="action" value="bn_save_member_profile">
 			<input type="hidden" name="user_id" value="<?php echo absint( $user_id ); ?>">
 			<?php wp_nonce_field( 'bn_save_member_profile' ); ?>
 
-			<?php
-			// Avatar section.
-			$existing_avatar = (string) get_user_meta( $user_id, 'bn_avatar', true );
-			$this->open_section( __( 'Profile Photo', 'buddynext' ) );
-			?>
-			<div class="bn-field-row">
-				<div class="bn-label"><?php esc_html_e( 'Current Photo', 'buddynext' ); ?></div>
-				<div class="bn-control">
-					<?php if ( '' !== $existing_avatar ) : ?>
-					<img src="<?php echo esc_url( $existing_avatar ); ?>" alt="" style="width:80px;height:80px;border-radius:50%;object-fit:cover;display:block;margin-bottom:10px;">
-				<?php else : ?>
-					<div class="bn-avatar-initials <?php echo esc_attr( MemberDisplay::get_avatar_color( $user_id ) ); ?>" style="width:80px;height:80px;font-size:28px;margin-bottom:10px;"><?php echo esc_html( MemberDisplay::get_initials( $wp_user->display_name ) ); ?></div>
-				<?php endif; ?>
-					<?php if ( '' !== $existing_avatar ) : ?>
-						<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#dc2626;margin-bottom:8px;">
-							<input type="checkbox" name="bn_remove_avatar" value="1">
-							<?php esc_html_e( 'Remove current photo', 'buddynext' ); ?>
-						</label>
-					<?php endif; ?>
-					<input type="file" name="bn_avatar" accept="image/jpeg,image/png,image/gif,image/webp" style="font-size:13px;">
-					<p style="font-size:11px;color:#aeaca8;margin:6px 0 0;"><?php esc_html_e( 'Max 2MB. JPEG, PNG, GIF, or WebP.', 'buddynext' ); ?></p>
-				</div>
+			<?php /* ── Tab nav bar ─────────────────────────────────────── */ ?>
+			<div class="bn-edit-tabs" role="tablist">
+				<?php foreach ( $tab_list as $idx => $tab ) : ?>
+					<button
+						type="button"
+						class="bn-edit-tab<?php echo 0 === $idx ? ' is-active' : ''; ?>"
+						data-panel="<?php echo esc_attr( $tab['slug'] ); ?>"
+						role="tab"
+						aria-controls="bn-panel-<?php echo esc_attr( $tab['slug'] ); ?>"
+						aria-selected="<?php echo 0 === $idx ? 'true' : 'false'; ?>"
+					><?php echo esc_html( $tab['label'] ); ?></button>
+				<?php endforeach; ?>
 			</div>
-			<?php
-			$this->close_section();
 
-			// Account section — core WP fields.
-			$slug         = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
-			$all_roles    = wp_roles()->get_names();
-			$current_role = ( (array) $wp_user->roles )[0] ?? '';
-			$this->open_section( __( 'Account', 'buddynext' ) );
-			$this->render_text_row(
-				'display_name',
-				__( 'Display Name', 'buddynext' ),
-				$wp_user->display_name,
-				__( 'Shown publicly across the community.', 'buddynext' )
-			);
-			?>
-			<div class="bn-field-row">
-				<div class="bn-label"><label for="bn-user-email"><?php esc_html_e( 'Email Address', 'buddynext' ); ?></label></div>
-				<div class="bn-control">
-					<input type="email"
-						id="bn-user-email"
-						name="bn_user_email"
-						value="<?php echo esc_attr( $wp_user->user_email ); ?>"
-						class="bn-text-input regular-text">
-				</div>
-			</div>
-			<div class="bn-field-row">
-				<div class="bn-label"><label for="bn-user-role"><?php esc_html_e( 'Role', 'buddynext' ); ?></label></div>
-				<div class="bn-control">
-					<select id="bn-user-role" name="bn_user_role" class="bn-text-input">
-						<?php foreach ( $all_roles as $role_key => $role_label ) : ?>
-							<option value="<?php echo esc_attr( $role_key ); ?>" <?php selected( $current_role, $role_key ); ?>>
-								<?php echo esc_html( translate_user_role( $role_label ) ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-				</div>
-			</div>
-			<div class="bn-field-row">
-				<div class="bn-label"><label for="bn-profile-slug"><?php esc_html_e( 'Profile URL Slug', 'buddynext' ); ?></label></div>
-				<div class="bn-control">
-					<input type="text"
-						id="bn-profile-slug"
-						name="bn_profile_slug"
-						value="<?php echo esc_attr( $slug ); ?>"
-						class="bn-text-input regular-text">
-					<p style="font-size:11px;color:#aeaca8;margin:4px 0 0;"><?php esc_html_e( 'Leave blank to use the default (user-{id}). Must be unique.', 'buddynext' ); ?></p>
-				</div>
-			</div>
-			<?php
-			$this->close_section();
-
-			// Render each profile group.
-			foreach ( $groups as $group ) :
-				$this->open_section( esc_html( $group['label'] ) );
-
-				if ( 'repeater' === $group['type'] ) :
-					$entries    = $group['entries'] ?? array();
-					$group_key  = $group['group_key'];
-					$group_id   = (int) $group['id'];
-					$field_defs = $this->get_group_field_defs( $group_id );
-					// Show existing entries; always show at least one blank entry row.
-					if ( empty( $entries ) ) {
-						$entries = array( array() );
-					}
-					?>
-					<div class="bn-repeater-entries" id="bn-repeater-<?php echo esc_attr( $group_key ); ?>">
-					<?php
-					foreach ( $entries as $e_idx => $entry_fields ) :
-						?>
-						<div class="bn-repeater-entry">
-							<div class="bn-repeater-entry-header">
-								<span class="bn-repeater-entry-label">
-									<?php
-									echo esc_html(
-										sprintf(
-											/* translators: %d: entry number */
-											__( 'Entry %d', 'buddynext' ),
-											(int) $e_idx + 1
-										)
-									);
-									?>
-								</span>
-								<?php if ( $e_idx > 0 ) : ?>
-									<button type="button" class="bn-repeater-remove" aria-label="<?php esc_attr_e( 'Remove entry', 'buddynext' ); ?>">&#x2715;</button>
-								<?php endif; ?>
-							</div>
-							<?php
-							foreach ( $entry_fields as $entry_field ) :
-								$this->render_repeater_field_input(
-									$group_key,
-									$e_idx,
-									$entry_field
-								);
-							endforeach;
-							// If no entry fields returned (blank entry), show all fields for the group.
-							if ( empty( $entry_fields ) ) :
-								foreach ( $field_defs as $field_def ) :
-									$this->render_repeater_field_input(
-										$group_key,
-										$e_idx,
-										array(
-											'field_key' => $field_def['field_key'],
-											'label'     => $field_def['label'],
-											'type'      => $field_def['type'],
-											'value'     => null,
-										)
-									);
-								endforeach;
-							endif;
-							?>
-						</div>
-						<?php
-					endforeach;
-					?>
+			<?php /* ── Account tab panel ──────────────────────────────── */ ?>
+			<div id="bn-panel-account" class="bn-tab-panel is-active" role="tabpanel">
+				<?php
+				$existing_avatar = (string) get_user_meta( $user_id, 'bn_avatar', true );
+				$this->open_section( __( 'Profile Photo', 'buddynext' ) );
+				?>
+				<div class="bn-field-row">
+					<div class="bn-label"><?php esc_html_e( 'Current Photo', 'buddynext' ); ?></div>
+					<div class="bn-control">
+						<?php if ( '' !== $existing_avatar ) : ?>
+							<img src="<?php echo esc_url( $existing_avatar ); ?>" alt="" style="width:80px;height:80px;border-radius:50%;object-fit:cover;display:block;margin-bottom:10px;">
+							<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#dc2626;margin-bottom:8px;">
+								<input type="checkbox" name="bn_remove_avatar" value="1">
+								<?php esc_html_e( 'Remove current photo', 'buddynext' ); ?>
+							</label>
+						<?php else : ?>
+							<div class="bn-avatar-initials <?php echo esc_attr( MemberDisplay::get_avatar_color( $user_id ) ); ?>" style="width:80px;height:80px;font-size:28px;margin-bottom:10px;"><?php echo esc_html( MemberDisplay::get_initials( $wp_user->display_name ) ); ?></div>
+						<?php endif; ?>
+						<input type="file" name="bn_avatar" accept="image/jpeg,image/png,image/gif,image/webp" style="font-size:13px;">
+						<p style="font-size:11px;color:#aeaca8;margin:6px 0 0;"><?php esc_html_e( 'Max 2MB. JPEG, PNG, GIF, or WebP.', 'buddynext' ); ?></p>
 					</div>
-					<template id="bn-repeater-tpl-<?php echo esc_attr( $group_key ); ?>">
-						<div class="bn-repeater-entry">
-							<div class="bn-repeater-entry-header">
-								<span class="bn-repeater-entry-label"></span>
-								<button type="button" class="bn-repeater-remove" aria-label="<?php esc_attr_e( 'Remove entry', 'buddynext' ); ?>">&#x2715;</button>
-							</div>
-							<?php foreach ( $field_defs as $field_def ) : ?>
-								<?php $this->render_repeater_field_template( $group_key, $field_def ); ?>
-							<?php endforeach; ?>
-						</div>
-					</template>
-					<button type="button" class="bn-repeater-add" data-group="<?php echo esc_attr( $group_key ); ?>">+ <?php esc_html_e( 'Add Entry', 'buddynext' ); ?></button>
-					<?php $this->output_repeater_js( $group_key ); ?>
-					<?php
-				else :
-					// Flat group.
-					$flat_fields = $group['fields'] ?? array();
-					foreach ( $flat_fields as $field ) :
-						$this->render_flat_field_input( $field );
-					endforeach;
-					if ( empty( $flat_fields ) ) :
-						echo '<p style="color:#9ca3af;font-size:12px;margin:0;">' . esc_html__( 'No fields in this group.', 'buddynext' ) . '</p>';
-					endif;
-				endif;
-
+				</div>
+				<?php
 				$this->close_section();
-			endforeach;
-			?>
+
+				$slug         = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+				$all_roles    = wp_roles()->get_names();
+				$current_role = ( (array) $wp_user->roles )[0] ?? '';
+				$this->open_section( __( 'Account', 'buddynext' ) );
+				$this->render_text_row(
+					'display_name',
+					__( 'Display Name', 'buddynext' ),
+					$wp_user->display_name,
+					__( 'Shown publicly across the community.', 'buddynext' )
+				);
+				?>
+				<div class="bn-field-row">
+					<div class="bn-label"><label for="bn-user-email"><?php esc_html_e( 'Email Address', 'buddynext' ); ?></label></div>
+					<div class="bn-control">
+						<input type="email" id="bn-user-email" name="bn_user_email" value="<?php echo esc_attr( $wp_user->user_email ); ?>" class="bn-text-input regular-text">
+					</div>
+				</div>
+				<div class="bn-field-row">
+					<div class="bn-label"><label for="bn-user-role"><?php esc_html_e( 'Role', 'buddynext' ); ?></label></div>
+					<div class="bn-control">
+						<select id="bn-user-role" name="bn_user_role" class="bn-text-input">
+							<?php foreach ( $all_roles as $role_key => $role_label ) : ?>
+								<option value="<?php echo esc_attr( $role_key ); ?>" <?php selected( $current_role, $role_key ); ?>>
+									<?php echo esc_html( translate_user_role( $role_label ) ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+				</div>
+				<div class="bn-field-row">
+					<div class="bn-label"><label for="bn-profile-slug"><?php esc_html_e( 'Profile URL Slug', 'buddynext' ); ?></label></div>
+					<div class="bn-control">
+						<input type="text" id="bn-profile-slug" name="bn_profile_slug" value="<?php echo esc_attr( $slug ); ?>" class="bn-text-input regular-text">
+						<p style="font-size:11px;color:#aeaca8;margin:4px 0 0;"><?php esc_html_e( 'Leave blank to use the default (user-{id}). Must be unique.', 'buddynext' ); ?></p>
+					</div>
+				</div>
+				<?php $this->close_section(); ?>
+			</div><!-- #bn-panel-account -->
+
+			<?php /* ── Dynamic group tab panels ───────────────────────── */ ?>
+			<?php foreach ( $groups as $group ) : ?>
+				<div id="bn-panel-group-<?php echo absint( $group['id'] ); ?>" class="bn-tab-panel" role="tabpanel">
+					<?php
+					$this->open_section( esc_html( $group['label'] ) );
+
+					if ( 'repeater' === $group['type'] ) :
+						$entries    = $group['entries'] ?? array();
+						$group_key  = $group['group_key'];
+						$group_id   = (int) $group['id'];
+						$field_defs = $this->get_group_field_defs( $group_id );
+						if ( empty( $entries ) ) {
+							$entries = array( array() );
+						}
+						?>
+						<div class="bn-repeater-entries" id="bn-repeater-<?php echo esc_attr( $group_key ); ?>">
+						<?php foreach ( $entries as $e_idx => $entry_fields ) : ?>
+							<div class="bn-repeater-entry">
+								<div class="bn-repeater-entry-header">
+									<span class="bn-repeater-entry-label">
+										<?php echo esc_html( sprintf( /* translators: %d: entry number */ __( 'Entry %d', 'buddynext' ), (int) $e_idx + 1 ) ); ?>
+									</span>
+									<?php if ( $e_idx > 0 ) : ?>
+										<button type="button" class="bn-repeater-remove" aria-label="<?php esc_attr_e( 'Remove entry', 'buddynext' ); ?>">&#x2715;</button>
+									<?php endif; ?>
+								</div>
+								<?php
+								foreach ( $entry_fields as $entry_field ) :
+									$this->render_repeater_field_input( $group_key, $e_idx, $entry_field );
+								endforeach;
+								if ( empty( $entry_fields ) ) :
+									foreach ( $field_defs as $field_def ) :
+										$this->render_repeater_field_input(
+											$group_key,
+											$e_idx,
+											array(
+												'field_key' => $field_def['field_key'],
+												'label' => $field_def['label'],
+												'type'  => $field_def['type'],
+												'value' => null,
+											)
+										);
+									endforeach;
+								endif;
+								?>
+							</div>
+						<?php endforeach; ?>
+						</div>
+						<template id="bn-repeater-tpl-<?php echo esc_attr( $group_key ); ?>">
+							<div class="bn-repeater-entry">
+								<div class="bn-repeater-entry-header">
+									<span class="bn-repeater-entry-label"></span>
+									<button type="button" class="bn-repeater-remove" aria-label="<?php esc_attr_e( 'Remove entry', 'buddynext' ); ?>">&#x2715;</button>
+								</div>
+								<?php foreach ( $field_defs as $field_def ) : ?>
+									<?php $this->render_repeater_field_template( $group_key, $field_def ); ?>
+								<?php endforeach; ?>
+							</div>
+						</template>
+						<button type="button" class="bn-repeater-add" data-group="<?php echo esc_attr( $group_key ); ?>">+ <?php esc_html_e( 'Add Entry', 'buddynext' ); ?></button>
+						<?php $this->output_repeater_js( $group_key ); ?>
+					<?php else : ?>
+						<?php
+						$flat_fields = $group['fields'] ?? array();
+						foreach ( $flat_fields as $field ) :
+							$this->render_flat_field_input( $field );
+						endforeach;
+						if ( empty( $flat_fields ) ) :
+							echo '<p style="color:#9ca3af;font-size:12px;margin:0;">' . esc_html__( 'No fields in this group.', 'buddynext' ) . '</p>';
+						endif;
+						?>
+					<?php endif; ?>
+
+					<?php $this->close_section(); ?>
+				</div><!-- #bn-panel-group-<?php echo absint( $group['id'] ); ?> -->
+			<?php endforeach; ?>
 
 			<?php
 			/**
-			 * Fires after all profile group sections inside the edit-member form.
-			 * Use this to append custom card sections before the Save button.
+			 * Fires after all profile group panels inside the edit-member form.
 			 *
 			 * @param int     $user_id User ID being edited.
 			 * @param WP_User $wp_user WP_User object.
 			 */
 			do_action( 'buddynext_edit_member_sections', $user_id, $wp_user );
 			?>
+
 			<div class="bn-save-bar">
-					<?php submit_button( __( 'Save Profile', 'buddynext' ), 'primary bn-btn-save', 'submit', false ); ?>
+				<?php submit_button( __( 'Save Profile', 'buddynext' ), 'primary bn-btn-save', 'submit', false ); ?>
 			</div>
 		</form>
+
+		<script>
+		(function() {
+			var storageKey = 'bn-edit-tab-<?php echo absint( $user_id ); ?>';
+			var tabs       = document.querySelectorAll( '.bn-edit-tab' );
+			var panels     = document.querySelectorAll( '.bn-tab-panel' );
+
+			function activate( slug ) {
+				tabs.forEach( function( t ) {
+					var isActive = t.dataset.panel === slug;
+					t.classList.toggle( 'is-active', isActive );
+					t.setAttribute( 'aria-selected', isActive ? 'true' : 'false' );
+				} );
+				panels.forEach( function( p ) {
+					p.classList.toggle( 'is-active', p.id === 'bn-panel-' + slug );
+				} );
+				try { sessionStorage.setItem( storageKey, slug ); } catch (e) {}
+			}
+
+			tabs.forEach( function( tab ) {
+				tab.addEventListener( 'click', function() { activate( tab.dataset.panel ); } );
+			} );
+
+			// Restore last active tab on page load.
+			try {
+				var last = sessionStorage.getItem( storageKey );
+				if ( last && document.getElementById( 'bn-panel-' + last ) ) {
+					activate( last );
+				}
+			} catch (e) {}
+		}());
+		</script>
 		<?php
 		/**
 		 * Fires after the edit-member admin form.
