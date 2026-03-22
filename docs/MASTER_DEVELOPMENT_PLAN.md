@@ -178,28 +178,28 @@ Complete these before any template/UI work.
 - [x] Add `bn_outbound_webhooks` table — stores registered external webhook endpoints
 - [x] Add `bn_outbound_webhook_log` table — delivery log for outbound webhook attempts
 - [x] Add `content_warning` and `content_warning_type` columns to `bn_posts` — already in Installer
-- [ ] Use `bn_shadow_banned` usermeta key (no table needed) for shadow ban flag
+- [x] Use `bn_shadow_banned` usermeta key (no table needed) for shadow ban flag
 
 ---
 
 ### BLOCK 2 — ModerationService additions
 
 `ModerationService` — add:
-- [ ] Shadow ban a user (sets usermeta flag)
-- [ ] Remove shadow ban
-- [ ] Check if user is shadow-banned
-- [ ] Suspend a user with reason, duration, and content visibility choice (keep or hide their posts)
-- [ ] Unsuspend a user
-- [ ] Check if user is suspended
-- [ ] Get active suspension details for a user
-- [ ] Issue a formal warning to a user
-- [ ] Submit an appeal against a suspension
-- [ ] Resolve an appeal (approve or deny)
+- [x] Shadow ban a user (sets usermeta flag)
+- [x] Remove shadow ban
+- [x] Check if user is shadow-banned
+- [x] Suspend a user with reason, duration, and content visibility choice (keep or hide their posts)
+- [x] Unsuspend a user
+- [x] Check if user is suspended
+- [x] Get active suspension details for a user
+- [x] Issue a formal warning to a user
+- [x] Submit an appeal against a suspension
+- [x] Resolve an appeal (approve or deny)
 
 `SpaceMemberService` — add:
-- [ ] Ban a user from a specific space
-- [ ] Unban a user from a space
-- [ ] Check if a user is banned from a space
+- [x] Ban a user from a specific space
+- [x] Unban a user from a space
+- [x] Check if a user is banned from a space
 
 ---
 
@@ -233,20 +233,20 @@ Complete these before any template/UI work.
 ### BLOCK 5 — SafeguardService (new class)
 
 New service that gates post creation. All checks run before a post is saved:
-- [ ] Banned word filter (admin-configurable list)
-- [ ] Post rate limit per user (admin-configurable max per minute)
-- [ ] Blocked domain / link filter (admin-configurable list)
-- [ ] New member gate — first N posts from new accounts go to pending review (admin-configurable threshold)
-- [ ] Wire into PostService so any failed check blocks the post and returns the reason to the caller
+- [x] Banned word filter (admin-configurable list)
+- [x] Post rate limit per user (admin-configurable max per minute)
+- [x] Blocked domain / link filter (admin-configurable list)
+- [x] New member gate — first N posts from new accounts go to pending review (admin-configurable threshold)
+- [x] Wire into PostService so any failed check blocks the post and returns the reason to the caller
 
 ---
 
 ### BLOCK 6 — Content warnings on posts
 
-- [ ] PostController: accept content warning flag and type (nsfw, spoilers, violence, language) when creating or editing a post
-- [ ] PostService: save content warning fields on create and update
-- [ ] FeedService: include content warning fields in feed results so the frontend can blur/hide the post
-- [ ] ModerationController: admin endpoint to force-apply a content warning to any post
+- [x] PostController: accept content warning flag and type (nsfw, spoilers, violence, language) when creating or editing a post
+- [x] PostService: save content warning fields on create and update
+- [x] FeedService: include content warning fields in feed results so the frontend can blur/hide the post
+- [x] ModerationController: admin endpoint to force-apply a content warning to any post
 
 ---
 
@@ -264,8 +264,8 @@ New service that pushes signed event payloads to admin-registered external URLs:
 
 ### BLOCK 8 — Space-scoped permission enforcement
 
-- [ ] PermissionService: when checking space moderation ability, verify the user's role within that specific space (owner or moderator), not just their site-wide role
-- [ ] ModerationController: space moderators see only their own spaces' reports in the queue, not all reports site-wide
+- [x] PermissionService: when checking space moderation ability, verify the user's role within that specific space (owner or moderator), not just their site-wide role
+- [x] ModerationController: space moderators see only their own spaces' reports in the queue, not all reports site-wide
 
 ---
 
@@ -313,8 +313,8 @@ Several hooks in the implementation use wrong names or wrong argument order. Thi
 - [x] Rename space member left hook to `buddynext_space_member_left` (SpaceMemberService)
 - [x] Rename space join approved hook to `buddynext_space_join_approved` (SpaceMemberService)
 - [x] Add missing connection ID argument to `buddynext_connection_requested` and `buddynext_connection_accepted` (ConnectionService)
-- [ ] Add `buddynext_report_created` hook to ModerationService when a report is submitted
-- [ ] Update CLAUDE.md Key Integration Hooks section to reflect corrected hook names
+- [x] Add `buddynext_report_created` hook to ModerationService when a report is submitted
+- [x] Update CLAUDE.md Key Integration Hooks section to reflect corrected hook names
 
 ---
 
@@ -348,7 +348,7 @@ Several hooks in the implementation use wrong names or wrong argument order. Thi
 - [x] Set `buddynext_page_feed`, `buddynext_page_members`, `buddynext_page_spaces` options (2026-03-22)
 - [x] Create `templates/partials/nav.php` — full implementation (2026-03-22)
 - [x] Wire nav partial into all 8 main templates (2026-03-22)
-- [ ] Register `buddynext-community` as WordPress menu location in `Core/Plugin.php`
+- [x] Register `buddynext-community` as WordPress menu location in `Core/Plugin.php`
 
 #### 12b — Profile owner action bar
 
