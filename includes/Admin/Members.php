@@ -93,8 +93,8 @@ class Members extends AdminPageBase {
 	 */
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'add_submenu' ) );
-		add_action( 'admin_post_bn_suspend_member',    array( $this, 'handle_suspend' ) );
-		add_action( 'admin_post_bn_unsuspend_member',  array( $this, 'handle_unsuspend' ) );
+		add_action( 'admin_post_bn_suspend_member', array( $this, 'handle_suspend' ) );
+		add_action( 'admin_post_bn_unsuspend_member', array( $this, 'handle_unsuspend' ) );
 		add_action( 'admin_post_bn_save_member_profile', array( $this, 'handle_save_member_profile' ) );
 		add_action( 'wp_login', array( $this, 'handle_last_login' ), 10, 2 );
 
@@ -206,16 +206,16 @@ class Members extends AdminPageBase {
 			global $wpdb;
 			$int_ids      = array_map( 'intval', $result_ids );
 			$placeholders = implode( ',', array_fill( 0, count( $int_ids ), '%d' ) );
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 			$suspended_set = array_flip(
 				(array) $wpdb->get_col(
-					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 					$wpdb->prepare(
-						"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions WHERE user_id IN ({$placeholders}) AND lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions WHERE user_id IN ({$placeholders}) AND lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())",
 						...$int_ids
 					)
 				)
 			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
 			// Prime usermeta cache for this batch — prevents extra queries during
 			// avatar rendering and any meta reads that follow in template loops.

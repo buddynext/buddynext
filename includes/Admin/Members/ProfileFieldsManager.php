@@ -88,9 +88,9 @@ class ProfileFieldsManager {
 		add_action( 'admin_post_bn_delete_profile_field', array( $this, 'handle_delete_field' ) );
 		add_action( 'admin_post_bn_update_profile_group', array( $this, 'handle_update_group' ) );
 		add_action( 'admin_post_bn_update_profile_field', array( $this, 'handle_update_field' ) );
-		add_action( 'admin_post_bn_edit_profile_field',   array( $this, 'handle_edit_field' ) );
-		add_action( 'admin_post_bn_reorder_group',        array( $this, 'handle_reorder_group' ) );
-		add_action( 'admin_post_bn_reorder_field',        array( $this, 'handle_reorder_field' ) );
+		add_action( 'admin_post_bn_edit_profile_field', array( $this, 'handle_edit_field' ) );
+		add_action( 'admin_post_bn_reorder_group', array( $this, 'handle_reorder_group' ) );
+		add_action( 'admin_post_bn_reorder_field', array( $this, 'handle_reorder_field' ) );
 	}
 
 	/**
@@ -863,7 +863,7 @@ class ProfileFieldsManager {
 
 		<div class="bn-pf-wrap">
 
-	<?php foreach ( $groups as $gi => $group ) : ?>
+		<?php foreach ( $groups as $gi => $group ) : ?>
 			<?php
 			$gid          = absint( $group['id'] );
 			$is_system    = ! empty( $group['is_system'] );

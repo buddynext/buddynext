@@ -313,7 +313,8 @@ class MemberEditForm {
 					</template>
 					<button type="button" class="bn-repeater-add" data-group="<?php echo esc_attr( $group_key ); ?>">+ <?php esc_html_e( 'Add Entry', 'buddynext' ); ?></button>
 					<?php $this->output_repeater_js( $group_key ); ?>
-				<?php else :
+					<?php
+				else :
 					// Flat group.
 					$flat_fields = $group['fields'] ?? array();
 					foreach ( $flat_fields as $field ) :
@@ -397,7 +398,7 @@ class MemberEditForm {
 		</select>
 		<?php elseif ( 'radio' === $type ) : ?>
 		<div class="bn-radio-group">
-		<?php foreach ( $options as $opt ) : ?>
+			<?php foreach ( $options as $opt ) : ?>
 			<label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:13px;">
 				<input type="radio"
 					name="<?php echo esc_attr( $key ); ?>"
@@ -409,11 +410,11 @@ class MemberEditForm {
 		</div>
 		<?php elseif ( 'checkbox' === $type ) : ?>
 		<div class="bn-checkbox-group">
-		<?php
-		$checked_vals = is_array( $value ) ? $value : (array) json_decode( $value, true );
-		foreach ( $options as $opt ) :
-			$is_chk = in_array( (string) $opt, array_map( 'strval', (array) $checked_vals ), true );
-			?>
+			<?php
+			$checked_vals = is_array( $value ) ? $value : (array) json_decode( $value, true );
+			foreach ( $options as $opt ) :
+				$is_chk = in_array( (string) $opt, array_map( 'strval', (array) $checked_vals ), true );
+				?>
 			<label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:13px;">
 				<input type="checkbox"
 					name="<?php echo esc_attr( $key ); ?>[]"
@@ -421,7 +422,7 @@ class MemberEditForm {
 					<?php echo $is_chk ? 'checked' : ''; ?>>
 				<?php echo esc_html( (string) $opt ); ?>
 			</label>
-		<?php endforeach; ?>
+			<?php endforeach; ?>
 		</div>
 		<?php elseif ( 'toggle' === $type ) : ?>
 		<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;">

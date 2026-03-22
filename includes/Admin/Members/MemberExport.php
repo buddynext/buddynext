@@ -74,13 +74,14 @@ class MemberExport {
 
 		// Pre-fetch ALL currently suspended user IDs in one query so the per-batch
 		// lookup below is an O(1) array_key_exists check with no extra queries.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$suspended_ids = array_flip(
 			(array) $wpdb->get_col(
 				"SELECT DISTINCT user_id FROM {$wpdb->prefix}bn_user_suspensions
 				 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())"
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$offset     = 0;
 		$batch_size = 500;
