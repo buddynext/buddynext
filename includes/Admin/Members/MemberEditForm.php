@@ -649,7 +649,7 @@ class MemberEditForm {
 	 * @return void
 	 */
 	private function open_section( string $title ): void {
-		echo '<div class="bn-settings-card"><div class="bn-settings-card-header"><h3>' . esc_html( $title ) . '</h3></div><div class="bn-settings-card-body">';
+		echo '<div class="bn-settings-section"><div class="bn-ss-header"><span class="bn-ss-title">' . esc_html( $title ) . '</span></div><div class="bn-ss-body">';
 	}
 
 	/**
@@ -658,7 +658,7 @@ class MemberEditForm {
 	 * @return void
 	 */
 	private function close_section(): void {
-		echo '</div></div>';
+		echo '</div></div><!-- .bn-settings-section -->';
 	}
 
 	/**
