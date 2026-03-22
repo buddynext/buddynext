@@ -18,7 +18,6 @@ declare( strict_types=1 );
 namespace BuddyNext\REST\Controllers;
 
 use BuddyNext\Feed\PostService;
-use BuddyNext\Feed\SafeguardService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -101,23 +100,9 @@ class PostController {
 			'link_meta'            => $request->get_param( 'link_meta' ),
 			'options'              => $request->get_param( 'options' ),
 			'content_warning'      => (bool) $request->get_param( 'content_warning' ),
-			'content_warning_type' => $request->get_param( 'content_warning_type' )
-				? sanitize_text_field( (string) $request->get_param( 'content_warning_type' ) )
-				: null,
+			'content_warning_type' => $this->sanitize_warning_type( $request->get_param( 'content_warning_type' ) ),
 			'scheduled_at'         => $request->get_param( 'scheduled_at' ),
 		);
-
-		// Run safeguard checks before delegating to the service layer.
-		$safeguard = function_exists( 'buddynext_service' )
-			? buddynext_service( 'safeguard' )
-			: null;
-
-		if ( null !== $safeguard ) {
-			$guard = $safeguard->check( $user_id, $data['content'] );
-			if ( is_wp_error( $guard ) ) {
-				return $guard;
-			}
-		}
 
 		$service = function_exists( 'buddynext_service' )
 			? buddynext_service( 'post_service' )
@@ -126,13 +111,12 @@ class PostController {
 		$result = $service->create( $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
+			// Safeguard errors already carry a status code; preserve it when present.
+			$error_data = $result->get_error_data();
+			if ( empty( $error_data['status'] ) ) {
+				$result->add_data( array( 'status' => 400 ) );
+			}
 			return $result;
-		}
-
-		// Increment the rate-limit counter only after a committed post.
-		if ( null !== $safeguard ) {
-			$safeguard->increment_rate_limit( $user_id );
 		}
 
 		$post = $service->get( $result );
@@ -195,7 +179,7 @@ class PostController {
 			$data['content_warning'] = (bool) $request->get_param( 'content_warning' );
 		}
 		if ( null !== $request->get_param( 'content_warning_type' ) ) {
-			$data['content_warning_type'] = sanitize_text_field( (string) $request->get_param( 'content_warning_type' ) );
+			$data['content_warning_type'] = $this->sanitize_warning_type( $request->get_param( 'content_warning_type' ) );
 		}
 
 		$result = $service->update( $post_id, $user_id, $data );
@@ -263,6 +247,25 @@ class PostController {
 		}
 
 		return new WP_REST_Response( array( 'pinned' => false ), 200 );
+	}
+
+	/**
+	 * Validate and return a content_warning_type value, or null when invalid/absent.
+	 *
+	 * Allowed types: nsfw, spoilers, violence, language.
+	 *
+	 * @param mixed $raw Raw value from the request parameter.
+	 * @return string|null
+	 */
+	private function sanitize_warning_type( mixed $raw ): ?string {
+		if ( null === $raw ) {
+			return null;
+		}
+
+		$allowed = array( 'nsfw', 'spoilers', 'violence', 'language' );
+		$value   = sanitize_key( (string) $raw );
+
+		return in_array( $value, $allowed, true ) ? $value : null;
 	}
 
 	/**

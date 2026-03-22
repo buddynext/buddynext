@@ -21,21 +21,9 @@ use WP_Error;
 class PostService {
 
 	/**
-	 * Content safeguard checks — banned words, rate limit, link throttle.
-	 * Null when running in a context where safeguards are deliberately absent
-	 * (e.g., unit tests that construct PostService directly).
-	 *
-	 * @var SafeguardService|null
+	 * Set up the post service (no required dependencies at construction time).
 	 */
-	private ?SafeguardService $safeguards;
-
-	/**
-	 * Set up the post service with an optional safeguard dependency.
-	 *
-	 * @param SafeguardService|null $safeguards Optional safeguard service.
-	 */
-	public function __construct( ?SafeguardService $safeguards = null ) {
-		$this->safeguards = $safeguards;
+	public function __construct() {
 	}
 
 	/**
@@ -111,13 +99,18 @@ class PostService {
 			);
 		}
 
-		// Run safeguard checks when the service is available.
-		if ( null !== $this->safeguards ) {
-			$content  = (string) ( $data['content'] ?? '' );
-			$link_url = (string) ( $data['link_url'] ?? '' );
-			$guard    = $this->safeguards->check( $user_id, $content, $link_url );
-			if ( is_wp_error( $guard ) ) {
-				return $guard;
+		// Run safeguard checks before any DB writes.
+		$safeguard_result = $this->get_safeguard()->check(
+			$user_id,
+			(string) ( $data['content'] ?? '' ),
+			(string) ( $data['link_url'] ?? '' )
+		);
+		if ( is_wp_error( $safeguard_result ) ) {
+			if ( 'pending_review' === $safeguard_result->get_error_code() ) {
+				// New-member gate: save the post but hold it for moderation review.
+				$data['status'] = 'pending';
+			} else {
+				return $safeguard_result;
 			}
 		}
 
@@ -126,10 +119,7 @@ class PostService {
 		$media_ids = isset( $data['media_ids'] ) ? wp_json_encode( $data['media_ids'] ) : null;
 		$link_meta = isset( $data['link_meta'] ) ? wp_json_encode( $data['link_meta'] ) : null;
 
-		// Resolve post status — new-member gate may hold posts for approval.
-		$status = ( null !== $this->safeguards )
-			? $this->safeguards->resolve_status( $user_id )
-			: 'published';
+		$status = $data['status'] ?? 'published';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
@@ -418,6 +408,22 @@ class PostService {
 		}
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+	}
+
+	/**
+	 * Resolve the safeguard service from the container.
+	 *
+	 * Returns the container-bound instance when the helper is available,
+	 * or a fresh instance as a fallback (e.g. unit-test contexts).
+	 *
+	 * @return SafeguardService
+	 */
+	private function get_safeguard(): SafeguardService {
+		if ( function_exists( 'buddynext_service' ) ) {
+			return buddynext_service( 'safeguard' );
+		}
+
+		return new SafeguardService();
 	}
 
 	/**

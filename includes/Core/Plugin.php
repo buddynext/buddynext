@@ -204,6 +204,9 @@ class Plugin {
 		// Register WP-Cron schedules and recurring events.
 		( new CronScheduler() )->init();
 
+		// Register navigation menu locations.
+		add_action( 'after_setup_theme', array( new static(), 'register_nav_menus' ) );
+
 		// Boot first-party bridges at plugins_loaded:25 so they fire after both
 		// BuddyNext (priority 15) and Pro plugins like Jetonomy Pro / WPMediaVerse Pro
 		// (priority 20). Each bridge guards itself via class_exists checks at hook time.
@@ -368,6 +371,22 @@ class Plugin {
 	}
 
 	/**
+	 * Register BuddyNext navigation menu locations with WordPress.
+	 *
+	 * Hooked to `after_setup_theme` so themes can override or extend these
+	 * locations in their own `after_setup_theme` callback.
+	 *
+	 * @return void
+	 */
+	public function register_nav_menus(): void {
+		register_nav_menus(
+			array(
+				'buddynext-community' => __( 'BuddyNext Community Nav', 'buddynext' ),
+			)
+		);
+	}
+
+	/**
 	 * Bind core services into the container.
 	 *
 	 * @param Container $container DI container.
@@ -389,8 +408,8 @@ class Plugin {
 				$c->get( 'blocks' )
 			)
 		);
-		$container->bind( 'safeguard', fn( $c ) => new SafeguardService( $c->get( 'cache' ) ) );
-		$container->bind( 'post_service', fn( $c ) => new PostService( $c->get( 'safeguard' ) ) );
+		$container->bind( 'safeguard', fn() => new SafeguardService() );
+		$container->bind( 'post_service', fn() => new PostService() );
 		$container->bind( 'feed', fn( $c ) => new FeedService( $c->get( 'follows' ), $c->get( 'post_service' ) ) );
 		$container->bind( 'polls', fn() => new PollService() );
 		$container->bind( 'bookmarks', fn() => new BookmarkService() );
