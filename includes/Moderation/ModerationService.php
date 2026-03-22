@@ -204,6 +204,51 @@ class ModerationService {
 	}
 
 	/**
+	 * Issue a formal warning to a user.
+	 *
+	 * Writes a 'warn' entry to the moderation log and fires
+	 * buddynext_member_warned so EventListener can dispatch
+	 * the in-app notification and warning email.
+	 *
+	 * @param int    $user_id  User being warned.
+	 * @param int    $actor_id Admin or moderator issuing the warning.
+	 * @param string $reason   Human-readable warning reason.
+	 * @return true|WP_Error
+	 */
+	public function warn( int $user_id, int $actor_id, string $reason = '' ): true|WP_Error {
+		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+			return new WP_Error( 'forbidden', __( 'You do not have permission to issue warnings.', 'buddynext' ) );
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_mod_log',
+			array(
+				'actor_id'       => $actor_id,
+				'action'         => 'warn',
+				'object_type'    => 'user',
+				'object_id'      => $user_id,
+				'target_user_id' => $user_id,
+				'note'           => sanitize_textarea_field( $reason ),
+			),
+			array( '%d', '%s', '%s', '%d', '%d', '%s' )
+		);
+
+		/**
+		 * Fires after a formal warning is issued to a user.
+		 *
+		 * @param int    $user_id  Warned user.
+		 * @param int    $actor_id Admin or moderator who issued the warning.
+		 * @param string $reason   Warning reason.
+		 */
+		do_action( 'buddynext_member_warned', $user_id, $actor_id, $reason );
+
+		return true;
+	}
+
+	/**
 	 * Reverse (nullify) a previously issued strike.
 	 *
 	 * @param int $strike_id Strike to reverse.
@@ -542,6 +587,51 @@ class ModerationService {
 		);
 
 		return $count > 0;
+	}
+
+	/**
+	 * Get the active suspension record for a user.
+	 *
+	 * Returns the full suspension row so callers can read the reason,
+	 * expiry date, and hide_posts flag in one query. Returns null if
+	 * the user has no active suspension.
+	 *
+	 * @param int $user_id User to check.
+	 * @return array<string, mixed>|null Hydrated suspension row, or null.
+	 */
+	public function get_active_suspension( int $user_id ): ?array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, user_id, suspended_by, reason, duration_days, hide_posts,
+				        expires_at, created_at
+				 FROM {$wpdb->prefix}bn_user_suspensions
+				 WHERE user_id = %d
+				   AND lifted_at IS NULL
+				   AND (expires_at IS NULL OR expires_at > NOW())
+				 ORDER BY id DESC
+				 LIMIT 1",
+				$user_id
+			),
+			ARRAY_A
+		);
+
+		if ( null === $row ) {
+			return null;
+		}
+
+		return array(
+			'id'            => (int) $row['id'],
+			'user_id'       => (int) $row['user_id'],
+			'suspended_by'  => (int) $row['suspended_by'],
+			'reason'        => (string) ( $row['reason'] ?? '' ),
+			'duration_days' => null !== $row['duration_days'] ? (int) $row['duration_days'] : null,
+			'hide_posts'    => (bool) $row['hide_posts'],
+			'expires_at'    => $row['expires_at'],
+			'created_at'    => $row['created_at'],
+		);
 	}
 
 	/**

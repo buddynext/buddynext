@@ -722,6 +722,92 @@ class SpaceMemberService {
 	 * @param int $user_id  User ID.
 	 * @return bool
 	 */
+	/**
+	 * Lift a space ban and allow the user to rejoin freely.
+	 *
+	 * Removes the permanent record from bn_space_bans and deletes the
+	 * banned membership row from bn_space_members. The user must
+	 * re-request to join if the space is private.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $actor_id Owner, moderator, or site admin lifting the ban.
+	 * @param int $user_id  User to unban.
+	 * @return true|WP_Error
+	 */
+	public function unban( int $space_id, int $actor_id, int $user_id ): true|WP_Error {
+		$actor_role = $this->get_role( $space_id, $actor_id );
+
+		if (
+			! in_array( $actor_role, array( 'owner', 'moderator' ), true )
+			&& ! user_can( $actor_id, 'manage_options' )
+		) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can lift bans.', 'buddynext' )
+			);
+		}
+
+		if ( ! $this->is_hard_banned( $space_id, $user_id ) ) {
+			return new WP_Error( 'not_banned', __( 'This user is not banned from the space.', 'buddynext' ) );
+		}
+
+		global $wpdb;
+
+		// Remove the permanent ban record.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_bans',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $user_id,
+			),
+			array( '%d', '%d' )
+		);
+
+		// Remove the banned membership row so the user may rejoin.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $user_id,
+				'status'   => 'banned',
+			),
+			array( '%d', '%d', '%s' )
+		);
+
+		$this->invalidate_cache( $space_id, $user_id );
+
+		/**
+		 * Fires after a space ban is lifted.
+		 *
+		 * @param int $space_id Space ID.
+		 * @param int $user_id  Unbanned user.
+		 * @param int $actor_id User who lifted the ban.
+		 */
+		do_action( 'buddynext_space_member_unbanned', $space_id, $user_id, $actor_id );
+
+		return true;
+	}
+
+	/**
+	 * Check whether a user is permanently banned from a space.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  User to check.
+	 * @return bool
+	 */
+	public function is_banned_from_space( int $space_id, int $user_id ): bool {
+		return $this->is_hard_banned( $space_id, $user_id );
+	}
+
+	/**
+	 * Check the permanent ban table for a space+user combination.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  User to check.
+	 * @return bool
+	 */
 	private function is_hard_banned( int $space_id, int $user_id ): bool {
 		global $wpdb;
 
