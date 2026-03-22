@@ -39,6 +39,8 @@ class MemberTypeService {
 	// ── Constructor ───────────────────────────────────────────────────────────
 
 	/**
+	 * Constructor.
+	 *
 	 * @param CacheService $cache Cache service.
 	 */
 	public function __construct( private readonly CacheService $cache ) {}
@@ -59,9 +61,8 @@ class MemberTypeService {
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_member_types';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			"SELECT * FROM {$table} ORDER BY sort_order ASC, id ASC", // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			"SELECT * FROM {$table} ORDER BY sort_order ASC, id ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
 			ARRAY_A
 		);
 
@@ -83,15 +84,16 @@ class MemberTypeService {
 		$types_table       = $wpdb->prefix . 'bn_member_types';
 		$assignments_table = $wpdb->prefix . 'bn_member_type_assignments';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			"SELECT t.*, COUNT(a.user_id) AS member_count
 			   FROM {$types_table} t
 			   LEFT JOIN {$assignments_table} a ON a.type_id = t.id
 			  GROUP BY t.id
-			  ORDER BY t.sort_order ASC, t.id ASC", // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			  ORDER BY t.sort_order ASC, t.id ASC",
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		return is_array( $rows ) ? $rows : array();
 	}
@@ -106,11 +108,12 @@ class MemberTypeService {
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_member_types';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$row = $wpdb->get_row(
-			$wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $id ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $id ),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		return is_array( $row ) ? $row : null;
 	}
@@ -125,11 +128,12 @@ class MemberTypeService {
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_member_types';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$row = $wpdb->get_row(
-			$wpdb->prepare( "SELECT * FROM {$table} WHERE slug = %s LIMIT 1", $slug ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "SELECT * FROM {$table} WHERE slug = %s LIMIT 1", $slug ),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		return is_array( $row ) ? $row : null;
 	}
@@ -165,7 +169,8 @@ class MemberTypeService {
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_member_types';
 
-		$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$inserted = $wpdb->insert(
 			$table,
 			array(
 				'slug'        => $validated['slug'],
@@ -180,6 +185,7 @@ class MemberTypeService {
 			),
 			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! $inserted ) {
 			return new WP_Error( 'db_error', __( 'Could not save member type.', 'buddynext' ) );
@@ -189,8 +195,8 @@ class MemberTypeService {
 
 		$this->cache->delete( 'bn_member_types_all' );
 
-		$type_data         = $validated;
-		$type_data['id']   = $new_id;
+		$type_data       = $validated;
+		$type_data['id'] = $new_id;
 		do_action( 'buddynext_member_type_created', $new_id, $type_data );
 
 		return $new_id;
@@ -228,7 +234,8 @@ class MemberTypeService {
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_member_types';
 
-		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
 			$table,
 			array(
 				'slug'        => $validated['slug'],
@@ -245,6 +252,7 @@ class MemberTypeService {
 			array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d' ),
 			array( '%d' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		// When slug changes, update the usermeta read cache for all assigned users.
 		if ( $validated['slug'] !== $existing['slug'] ) {
@@ -277,14 +285,15 @@ class MemberTypeService {
 		global $wpdb;
 		$assignments_table = $wpdb->prefix . 'bn_member_type_assignments';
 
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		// Collect affected user IDs before deleting so we can bust their caches.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$affected_users = $wpdb->get_col(
-			$wpdb->prepare( "SELECT user_id FROM {$assignments_table} WHERE type_id = %d", $id ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "SELECT user_id FROM {$assignments_table} WHERE type_id = %d", $id )
 		);
 
 		// Remove assignments.
-		$wpdb->delete( $assignments_table, array( 'type_id' => $id ), array( '%d' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$wpdb->delete( $assignments_table, array( 'type_id' => $id ), array( '%d' ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		// Clear usermeta read cache for affected users.
 		foreach ( $affected_users as $user_id ) {
@@ -295,7 +304,8 @@ class MemberTypeService {
 
 		// Clear profile group restrictions that referenced this type's slug.
 		$groups_table = $wpdb->prefix . 'bn_profile_groups';
-		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
 			$groups_table,
 			array( 'type_restriction' => null ),
 			array( 'type_restriction' => $type['slug'] ),
@@ -304,7 +314,8 @@ class MemberTypeService {
 		);
 
 		// Delete the type row.
-		$wpdb->delete( $wpdb->prefix . 'bn_member_types', array( 'id' => $id ), array( '%d' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$wpdb->delete( $wpdb->prefix . 'bn_member_types', array( 'id' => $id ), array( '%d' ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$this->cache->delete( 'bn_member_types_all' );
 		$this->cache->delete( 'bn_member_type_count_' . $id );
@@ -350,18 +361,19 @@ class MemberTypeService {
 		$types_table       = $wpdb->prefix . 'bn_member_types';
 		$assignments_table = $wpdb->prefix . 'bn_member_type_assignments';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT t.* FROM {$types_table} t
 				  INNER JOIN {$assignments_table} a ON a.type_id = t.id
 				  WHERE a.user_id = %d
 				  ORDER BY a.assigned_at ASC
-				  LIMIT 1",  // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				  LIMIT 1",
 				$user_id
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$type = is_array( $row ) ? $row : null;
 
@@ -404,10 +416,11 @@ class MemberTypeService {
 		$assignments_table = $wpdb->prefix . 'bn_member_type_assignments';
 
 		// Free-tier single-type enforcement: remove all existing assignments first.
-		$wpdb->delete( $assignments_table, array( 'user_id' => $user_id ), array( '%d' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $assignments_table, array( 'user_id' => $user_id ), array( '%d' ) );
 
 		// Insert new assignment. uq_user_type prevents double-write under race conditions.
-		$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$inserted = $wpdb->insert(
 			$assignments_table,
 			array(
 				'user_id'     => $user_id,
@@ -416,6 +429,7 @@ class MemberTypeService {
 			),
 			array( '%d', '%d', '%d' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! $inserted ) {
 			return new WP_Error( 'db_error', __( 'Could not assign member type.', 'buddynext' ) );
@@ -448,7 +462,9 @@ class MemberTypeService {
 		global $wpdb;
 		$assignments_table = $wpdb->prefix . 'bn_member_type_assignments';
 
-		$deleted = $wpdb->delete( $assignments_table, array( 'user_id' => $user_id ), array( '%d' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$deleted = $wpdb->delete( $assignments_table, array( 'user_id' => $user_id ), array( '%d' ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		delete_user_meta( $user_id, 'bn_member_type' );
 
@@ -480,10 +496,11 @@ class MemberTypeService {
 		global $wpdb;
 		$table = $wpdb->prefix . 'bn_member_type_assignments';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$count = (int) $wpdb->get_var(
-			$wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE type_id = %d", $type_id ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE type_id = %d", $type_id )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$this->cache->set( $cache_key, $count, self::CACHE_TTL );
 
@@ -506,7 +523,7 @@ class MemberTypeService {
 		$assignments_table = $wpdb->prefix . 'bn_member_type_assignments';
 		$types_table       = $wpdb->prefix . 'bn_member_types';
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT a.user_id
@@ -514,12 +531,13 @@ class MemberTypeService {
 				   INNER JOIN {$types_table} t ON t.id = a.type_id
 				   WHERE t.slug = %s
 				   ORDER BY a.assigned_at DESC
-				   LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				   LIMIT %d OFFSET %d",
 				$slug,
 				$limit,
 				$offset
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		return is_array( $ids ) ? array_map( 'absint', $ids ) : array();
 	}
@@ -573,13 +591,60 @@ class MemberTypeService {
 	 */
 	private function allowed_svg_tags(): array {
 		return array(
-			'svg'      => array( 'xmlns' => true, 'viewbox' => true, 'width' => true, 'height' => true, 'fill' => true, 'stroke' => true, 'stroke-width' => true, 'stroke-linecap' => true, 'stroke-linejoin' => true, 'aria-hidden' => true ),
-			'path'     => array( 'd' => true, 'fill' => true, 'stroke' => true, 'stroke-width' => true, 'stroke-linecap' => true, 'stroke-linejoin' => true ),
-			'circle'   => array( 'cx' => true, 'cy' => true, 'r' => true, 'fill' => true, 'stroke' => true, 'stroke-width' => true ),
-			'rect'     => array( 'x' => true, 'y' => true, 'width' => true, 'height' => true, 'rx' => true, 'fill' => true ),
-			'polyline' => array( 'points' => true, 'fill' => true, 'stroke' => true, 'stroke-width' => true ),
-			'line'     => array( 'x1' => true, 'y1' => true, 'x2' => true, 'y2' => true, 'stroke' => true, 'stroke-width' => true ),
-			'g'        => array( 'fill' => true, 'stroke' => true ),
+			'svg'      => array(
+				'xmlns'           => true,
+				'viewbox'         => true,
+				'width'           => true,
+				'height'          => true,
+				'fill'            => true,
+				'stroke'          => true,
+				'stroke-width'    => true,
+				'stroke-linecap'  => true,
+				'stroke-linejoin' => true,
+				'aria-hidden'     => true,
+			),
+			'path'     => array(
+				'd'               => true,
+				'fill'            => true,
+				'stroke'          => true,
+				'stroke-width'    => true,
+				'stroke-linecap'  => true,
+				'stroke-linejoin' => true,
+			),
+			'circle'   => array(
+				'cx'           => true,
+				'cy'           => true,
+				'r'            => true,
+				'fill'         => true,
+				'stroke'       => true,
+				'stroke-width' => true,
+			),
+			'rect'     => array(
+				'x'      => true,
+				'y'      => true,
+				'width'  => true,
+				'height' => true,
+				'rx'     => true,
+				'fill'   => true,
+			),
+			'polyline' => array(
+				'points'       => true,
+				'fill'         => true,
+				'stroke'       => true,
+				'stroke-width' => true,
+			),
+			'line'     => array(
+				'x1'           => true,
+				'y1'           => true,
+				'x2'           => true,
+				'y2'           => true,
+				'stroke'       => true,
+				'stroke-width' => true,
+			),
+			'g'        => array(
+				'fill'   => true,
+				'stroke' => true,
+			),
 		);
 	}
 

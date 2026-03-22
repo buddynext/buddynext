@@ -29,6 +29,8 @@ use WP_REST_Response;
 class MemberTypeController {
 
 	/**
+	 * Constructor.
+	 *
 	 * @param MemberTypeService $service Member type service.
 	 */
 	public function __construct( private readonly MemberTypeService $service ) {}
@@ -123,7 +125,7 @@ class MemberTypeController {
 				'callback'            => array( $this, 'set_user_type' ),
 				'permission_callback' => array( $this, 'can_set_user_type' ),
 				'args'                => array(
-					'id'      => array(
+					'id'        => array(
 						'required'          => true,
 						'type'              => 'integer',
 						'sanitize_callback' => 'absint',
@@ -160,9 +162,10 @@ class MemberTypeController {
 	/**
 	 * GET /member-types — list all member types.
 	 *
+	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response
 	 */
-	public function list_types( WP_REST_Request $request ): WP_REST_Response {
+	public function list_types( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
 		$types = $this->service->get_all();
 
 		$data = array_map( array( $this, 'prepare_type_for_response' ), $types );
@@ -179,17 +182,19 @@ class MemberTypeController {
 	public function create_type( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$params = $request->get_json_params() ?? $request->get_body_params();
 
-		$result = $this->service->create( array(
-			'slug'        => sanitize_key( (string) ( $params['slug'] ?? '' ) ),
-			'name'        => sanitize_text_field( (string) ( $params['name'] ?? '' ) ),
-			'description' => sanitize_textarea_field( (string) ( $params['description'] ?? '' ) ),
-			'color'       => sanitize_hex_color( (string) ( $params['color'] ?? '#0073aa' ) ) ?? '#0073aa',
-			'text_color'  => sanitize_hex_color( (string) ( $params['text_color'] ?? '#ffffff' ) ) ?? '#ffffff',
-			'icon_svg'    => (string) ( $params['icon_svg'] ?? '' ),
-			'sort_order'  => (int) ( $params['sort_order'] ?? 0 ),
-			'show_in_dir' => ! empty( $params['show_in_dir'] ),
-			'self_select' => ! empty( $params['self_select'] ),
-		) );
+		$result = $this->service->create(
+			array(
+				'slug'        => sanitize_key( (string) ( $params['slug'] ?? '' ) ),
+				'name'        => sanitize_text_field( (string) ( $params['name'] ?? '' ) ),
+				'description' => sanitize_textarea_field( (string) ( $params['description'] ?? '' ) ),
+				'color'       => sanitize_hex_color( (string) ( $params['color'] ?? '#0073aa' ) ) ?? '#0073aa',
+				'text_color'  => sanitize_hex_color( (string) ( $params['text_color'] ?? '#ffffff' ) ) ?? '#ffffff',
+				'icon_svg'    => (string) ( $params['icon_svg'] ?? '' ),
+				'sort_order'  => (int) ( $params['sort_order'] ?? 0 ),
+				'show_in_dir' => ! empty( $params['show_in_dir'] ),
+				'self_select' => ! empty( $params['self_select'] ),
+			)
+		);
 
 		if ( is_wp_error( $result ) ) {
 			return $result;
@@ -246,7 +251,13 @@ class MemberTypeController {
 			return $result;
 		}
 
-		return new WP_REST_Response( array( 'deleted' => true, 'slug' => $slug ), 200 );
+		return new WP_REST_Response(
+			array(
+				'deleted' => true,
+				'slug'    => $slug,
+			),
+			200
+		);
 	}
 
 	// ── User assignment handlers ──────────────────────────────────────────────
@@ -279,8 +290,8 @@ class MemberTypeController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function set_user_type( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$user_id    = absint( $request->get_param( 'id' ) );
-		$type_slug  = sanitize_key( (string) $request->get_param( 'type_slug' ) );
+		$user_id   = absint( $request->get_param( 'id' ) );
+		$type_slug = sanitize_key( (string) $request->get_param( 'type_slug' ) );
 
 		$type = $this->service->get_by_slug( $type_slug );
 		if ( ! $type ) {
