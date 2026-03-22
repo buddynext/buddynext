@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * REST controller for user profiles.
  *
@@ -9,6 +9,8 @@
  *   PUT    /me/profile                      — update own profile (auth required)
  *   POST   /me/avatar                       — upload own avatar (auth required)
  *   DELETE /me/avatar                       — remove own avatar (auth required)
+ *   POST   /me/cover                        — upload own cover photo (auth required)
+ *   DELETE /me/cover                        — remove own cover photo (auth required)
  *   GET    /me/profile-slug                 — get own profile slug + URL (auth required)
  *   PUT    /me/profile-slug                 — set own profile slug (auth required)
  *   GET    /profile-slug/check              — check if a slug is available (auth required)
@@ -98,6 +100,23 @@ class ProfileController {
 				array(
 					'methods'             => 'DELETE',
 					'callback'            => array( $this, 'delete_avatar' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/cover',
+			array(
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'upload_cover' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'DELETE',
+					'callback'            => array( $this, 'delete_cover' ),
 					'permission_callback' => array( $this, 'require_auth' ),
 				),
 			)
@@ -814,6 +833,110 @@ class ProfileController {
 		}
 
 		return $this->handle_avatar_upload( $user_id );
+	}
+
+	/**
+	 * Upload a cover photo for the current user.
+	 *
+	 * Expects a multipart/form-data POST with a single file field named "avatar".
+	 * Max size 5 MB. Allowed MIME types: JPEG, PNG, WebP.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function upload_cover(): WP_REST_Response|WP_Error {
+		return $this->handle_cover_upload( get_current_user_id() );
+	}
+
+	/**
+	 * Remove the current user's cover photo.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function delete_cover(): WP_REST_Response {
+		$user_id = get_current_user_id();
+		delete_user_meta( $user_id, 'buddynext_cover_url' );
+
+		return new WP_REST_Response( array( 'deleted' => true ), 200 );
+	}
+
+	/**
+	 * Shared cover upload logic.
+	 *
+	 * Validates the uploaded file, moves it to the uploads directory via the
+	 * WordPress upload handler, and stores the resulting URL in usermeta.
+	 *
+	 * @param int $user_id Target user ID.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private function handle_cover_upload( int $user_id ): WP_REST_Response|WP_Error {
+		/*
+		 * phpcs:disable WordPress.Security.NonceVerification.Missing
+		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		 */
+		$cover_file = isset( $_FILES['avatar'] ) && is_array( $_FILES['avatar'] )
+			? $_FILES['avatar']
+			: array();
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+
+		if ( empty( $cover_file ) || UPLOAD_ERR_OK !== (int) ( $cover_file['error'] ?? UPLOAD_ERR_NO_FILE ) ) {
+			return new WP_Error(
+				'cover_missing',
+				__( 'No file uploaded or upload error.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		if ( (int) ( $cover_file['size'] ?? 0 ) > 5 * 1024 * 1024 ) {
+			return new WP_Error(
+				'cover_too_large',
+				__( 'File must be under 5MB.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		$file_data = array(
+			'name'     => sanitize_file_name( (string) ( $cover_file['name'] ?? '' ) ),
+			'type'     => (string) ( $cover_file['type'] ?? '' ),
+			'tmp_name' => (string) ( $cover_file['tmp_name'] ?? '' ),
+			'error'    => (int) ( $cover_file['error'] ?? UPLOAD_ERR_NO_FILE ),
+			'size'     => (int) ( $cover_file['size'] ?? 0 ),
+		);
+
+		$check = wp_check_filetype_and_ext(
+			$file_data['tmp_name'],
+			$file_data['name']
+		);
+
+		$allowed = array( 'image/jpeg', 'image/png', 'image/webp' );
+
+		if ( empty( $check['type'] ) || ! in_array( $check['type'], $allowed, true ) ) {
+			return new WP_Error(
+				'cover_invalid_type',
+				__( 'Only JPEG, PNG, or WebP images are accepted.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		if ( ! function_exists( 'wp_handle_upload' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+
+		$result = wp_handle_upload( $file_data, array( 'test_form' => false ) );
+
+		if ( isset( $result['error'] ) ) {
+			return new WP_Error(
+				'cover_upload_failed',
+				$result['error'],
+				array( 'status' => 500 )
+			);
+		}
+
+		update_user_meta( $user_id, 'buddynext_cover_url', esc_url_raw( $result['url'] ) );
+
+		return new WP_REST_Response( array( 'cover_url' => $result['url'] ), 200 );
 	}
 
 	/**

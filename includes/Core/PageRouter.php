@@ -131,9 +131,36 @@ class PageRouter {
 		$page_url = trailingslashit( (string) get_permalink( $page_id ) );
 
 		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
-		$slug        = '' !== $custom_slug ? $custom_slug : 'user-' . $user_id;
+
+		if ( '' !== $custom_slug ) {
+			$slug = $custom_slug;
+		} else {
+			// Fall back to user_nicename — already URL-safe and human-readable.
+			$user     = get_userdata( $user_id );
+			$nicename = $user instanceof \WP_User ? $user->user_nicename : '';
+			$slug     = '' !== $nicename ? $nicename : 'user-' . $user_id;
+		}
 
 		return $page_url . rawurlencode( $slug ) . '/';
+	}
+
+	/**
+	 * Build the frontend Edit Profile URL.
+	 *
+	 * Returns the permalink of the page that holds [buddynext_edit_profile].
+	 * Falls back to the WP admin profile page when the edit-profile page has
+	 * not been created yet.
+	 *
+	 * @return string Absolute URL.
+	 */
+	public static function edit_profile_url(): string {
+		$page_id = (int) get_option( 'buddynext_page_edit_profile', 0 );
+
+		if ( $page_id > 0 && 'publish' === get_post_status( $page_id ) ) {
+			return (string) get_permalink( $page_id );
+		}
+
+		return get_edit_profile_url( get_current_user_id() );
 	}
 
 	/**
@@ -190,7 +217,7 @@ class PageRouter {
 	 * @return WP_User|null
 	 */
 	private function resolve_user( string $slug ): ?WP_User {
-		// Custom slug set by the member (meta lookup is intentional — indexed column).
+		// 1. Custom slug set by the member (meta lookup is intentional — indexed column).
 		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 		$by_meta = get_users(
 			array(
@@ -203,12 +230,14 @@ class PageRouter {
 			return $by_meta[0] instanceof WP_User ? $by_meta[0] : null;
 		}
 
-		// System default: "user-{id}" pattern.
+		// 2. Reserved "user-{id}" pattern (legacy default).
 		if ( preg_match( '/^user-(\d+)$/', $slug, $m ) ) {
 			$by_id = get_user_by( 'ID', (int) $m[1] );
 			return $by_id instanceof WP_User ? $by_id : null;
 		}
 
-		return null;
+		// 3. user_nicename fallback (used when no custom slug is set).
+		$by_nicename = get_user_by( 'slug', $slug );
+		return $by_nicename instanceof WP_User ? $by_nicename : null;
 	}
 }

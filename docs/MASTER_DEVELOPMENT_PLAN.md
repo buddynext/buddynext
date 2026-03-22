@@ -318,6 +318,244 @@ Several hooks in the implementation use wrong names or wrong argument order. Thi
 
 ---
 
+### BLOCK 12 — Frontend UX Completion (bridges the gap between "backend works" and "users can use it")
+
+**Context:** Backend services are functional. Templates render. But the product is not usable end-to-end because navigation doesn't exist, primary social actions (follow/connect) are wired to missing JS actions, and key editing flows point to WP admin. This block makes the product usable by real users.
+
+#### 12a — Global BuddyNext subnav (all pages)
+
+`templates/partials/nav.php` — sticky `.bn-subnav` partial included in every main template.
+
+- Links: Feed · Explore · Members · Spaces · Notifications (with unread pill) · Messages (with unread pill)
+- URLs resolved from `buddynext_page_*` options with `home_url()` fallbacks
+- Registered as WordPress menu location `buddynext-community` so admins can reorder/add items
+- Unread counts fetched from DB at render time (cached via `wp_cache_get`) — no JS polling needed at render
+- Dark mode toggle button
+- Mobile: collapses to horizontal scroll (`overflow-x: auto`, snap scrolling)
+- Desktop: sticky below theme header (`top: 60px` per wireframe)
+- Active item detected by comparing current URL to nav URL (`is_page()` / `get_query_var`)
+- Design: matches `home-feed.html` `.bn-subnav` exactly (44px tall, `.bn-nav-item.active` brand underline)
+
+**Options to set (WP-CLI on activation):**
+- `buddynext_page_feed` — ID of the Community Feed page
+- `buddynext_page_members` — ID of the Members page
+- `buddynext_page_spaces` — ID of the Spaces page
+- `buddynext_page_notifications` — ID of Notifications page (create if absent)
+- `buddynext_page_messages` — ID of Messages page (create if absent)
+
+**Wire into:** `templates/feed/home.php`, `templates/feed/explore.php`, `templates/profile/view.php`, `templates/profile/edit.php`, `templates/directory/members.php`, `templates/spaces/directory.php`, `templates/notifications/index.php`, `templates/messages/list.php`
+
+- [x] Set `buddynext_page_feed`, `buddynext_page_members`, `buddynext_page_spaces` options (2026-03-22)
+- [x] Create `templates/partials/nav.php` — full implementation (2026-03-22)
+- [x] Wire nav partial into all 8 main templates (2026-03-22)
+- [ ] Register `buddynext-community` as WordPress menu location in `Core/Plugin.php`
+
+#### 12b — Profile owner action bar
+
+- [x] Create `templates/partials/profile-actions.php` (2026-03-22)
+- [x] Remove inline edit link from `view.php` profile actions div (2026-03-22)
+- [x] Wire `profile-actions.php` into `templates/profile/view.php` (own-profile only) (2026-03-22)
+
+#### 12c — Follow / Unfollow / Connect in profile and directory
+
+- [x] Add follow/unfollow/connect to `assets/js/profile/store.js` (2026-03-22)
+- [x] Implement full `assets/js/members/store.js` (2026-03-22)
+
+#### 12d — Cover photo upload REST endpoint
+
+- [x] Add `POST /me/cover` + `DELETE /me/cover` to `ProfileController` (2026-03-22)
+
+#### 12e — Page existence assurance
+
+- [ ] Create `includes/Core/PageSetup.php`
+- [ ] Bind and init in `Plugin.php`
+
+#### 12f — Avatar system & site-wide defaults (Members admin → Avatar & Cover tab)
+
+`includes/Admin/Members/AvatarSettings.php` — new tab after Profile Fields.
+
+Settings:
+- `bn_avatar_style` — `initials` | `default_image` | `gravatar` (default: `initials`)
+  - **initials**: SVG data URI with coloured circle + member initials (fully offline, no Gravatar)
+  - **default_image**: single fallback image set by admin, shown for all members without a custom avatar
+  - **gravatar**: defers to WordPress core / Gravatar (custom uploads still win)
+- `bn_default_avatar_url` — URL of admin-uploaded fallback avatar image
+- `bn_default_cover_url` — URL of site-wide default cover photo (shown on profiles with no cover set)
+
+`AvatarService::filter_avatar_data()` updated to read these options — priority: user custom upload → site style setting → SVG initials fallback.
+
+Avatar `img src` in all templates uses `esc_attr()` (not `esc_url()`) so SVG data URIs render correctly.
+
+- [x] Create `includes/Admin/Members/AvatarSettings.php` (2026-03-22)
+- [x] Add "Avatar & Cover" tab to Members admin panel (2026-03-22)
+- [x] Update `AvatarService::filter_avatar_data()` to honour site style + default image options (2026-03-22)
+- [x] Fix `esc_url()` → `esc_attr()` for avatar src in all templates (directory, profile view, edit, onboarding) (2026-03-22)
+- [x] Add `POST /me/cover` + `DELETE /me/cover` REST endpoints (2026-03-22)
+
+#### 12g — Member Types (grouping / segmentation of members)
+
+A **Member Type** is an admin-defined label assigned to users (e.g. "Student", "Alumni", "Faculty", "Verified Creator"). Each user has one type at a time (Free tier). Types appear as badges on profile cards, profile pages, and directory filter tabs. Each type gets its own routable directory URL (`/members/alumni/`). Profile field groups can be scoped to a specific type.
+
+---
+
+##### Database Schema
+
+**`bn_member_types`** — type definitions:
+
+```sql
+CREATE TABLE bn_member_types (
+  id          INT UNSIGNED   NOT NULL AUTO_INCREMENT,
+  slug        VARCHAR(100)   NOT NULL,            -- 'alumni', 'student'
+  name        VARCHAR(100)   NOT NULL,            -- 'Alumni'
+  description TEXT           NOT NULL DEFAULT '',
+  color       VARCHAR(7)     NOT NULL DEFAULT '#0073aa',   -- badge background
+  text_color  VARCHAR(7)     NOT NULL DEFAULT '#ffffff',   -- badge text
+  icon_svg    MEDIUMTEXT     NOT NULL DEFAULT '',          -- inline SVG
+  sort_order  SMALLINT       NOT NULL DEFAULT 0,
+  show_in_dir TINYINT(1)     NOT NULL DEFAULT 1,  -- appear as directory tab
+  self_select TINYINT(1)     NOT NULL DEFAULT 0,  -- user can self-assign
+  created_at  DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY  uq_slug (slug),
+  KEY         idx_sort (sort_order)
+);
+```
+
+**`bn_member_type_assignments`** — user ↔ type mapping (source of truth):
+
+```sql
+CREATE TABLE bn_member_type_assignments (
+  id          INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+  user_id     BIGINT UNSIGNED NOT NULL,
+  type_id     INT UNSIGNED    NOT NULL,
+  assigned_by BIGINT UNSIGNED NOT NULL DEFAULT 0,  -- 0 = self-assigned
+  assigned_at DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY  uq_user_type (user_id, type_id),  -- no duplicate assignments
+  KEY         idx_user_id  (user_id),
+  KEY         idx_type_id  (type_id)
+);
+```
+
+**`bn_profile_groups`** — add `type_restriction` column (dbDelta adds it on next activation):
+
+```sql
+-- Column added to existing CREATE TABLE statement in Installer::schema()
+type_restriction VARCHAR(100) DEFAULT NULL
+-- NULL = visible to all types; 'alumni' = only shown for users with that type slug
+```
+
+---
+
+##### Scale Design — 100k Members
+
+The system uses a **write-through usermeta cache** pattern:
+
+| Layer | Purpose | Performance |
+|-------|---------|-------------|
+| `bn_member_type_assignments` | Source of truth + audit trail | Indexed JOIN, fast for admin/export |
+| `wp_usermeta` key `bn_member_type` | Denormalized read cache (slug) | Powers `WP_User_Query` `meta_query` — O(log n) indexed lookup |
+| `CacheService` key `bn_member_type_{user_id}` | In-memory type object cache | Zero DB hit on hot paths |
+| `CacheService` key `bn_member_types_all` | All-types list cache | One DB read for all filter tabs |
+| `CacheService` key `bn_member_type_count_{type_id}` | Count per type | Admin stats without per-request COUNT |
+
+**Assignment write path** (every `assign_type()` call):
+1. `DELETE FROM bn_member_type_assignments WHERE user_id = %d` (single-type enforcement in Free)
+2. `INSERT INTO bn_member_type_assignments ...` (protected by `uq_user_type` — safe under concurrent requests)
+3. `update_user_meta($user_id, 'bn_member_type', $slug)` — write-through to usermeta
+4. `CacheService::delete("bn_member_type_{$user_id}")` + `bn_member_type_count_{$type_id}`
+
+**Directory read path** (100k-safe):
+- `WP_User_Query` with `meta_query => [['key' => 'bn_member_type', 'value' => 'alumni']]`
+- Hits `wp_usermeta` index on `(meta_key, meta_value)` — no custom table JOINs in the hot path
+- Pagination is cursor-based (ID offset) for consistent performance at depth
+
+**Pro extension** (multi-type): no schema change needed. The assignments table already allows `(user_id=5, type_id=1)` + `(user_id=5, type_id=2)`. Free tier enforces single-type in service code only.
+
+---
+
+##### REST Endpoints
+
+| Method | Route | Auth | Description |
+|--------|-------|------|-------------|
+| `GET`    | `/member-types`                    | Public | List all types (id, slug, name, color, text_color, icon_svg, member_count) |
+| `POST`   | `/member-types`                    | Admin  | Create type |
+| `PUT`    | `/member-types/(?P<slug>[a-z0-9-]+)` | Admin  | Update type |
+| `DELETE` | `/member-types/(?P<slug>[a-z0-9-]+)` | Admin  | Delete type + cascade |
+| `GET`    | `/users/(?P<id>\d+)/member-type`   | Public | Get user's assigned type or null |
+| `PUT`    | `/users/(?P<id>\d+)/member-type`   | Admin or self (if self_select=1) | Assign type to user |
+| `DELETE` | `/users/(?P<id>\d+)/member-type`   | Admin  | Remove user's type |
+
+---
+
+##### Admin Tab — Members → Member Types
+
+`includes/Admin/Members/MemberTypesManager.php` — tab after Avatar & Cover.
+
+- **Types list table:** colored badge preview · name · slug · member count · edit · delete
+- **Create/Edit form:** name · auto-slug (JS-generated) · description · color picker (`<input type="color">`) · text_color · icon_svg textarea · sort_order · show_in_dir toggle · self_select toggle
+- **In Edit Member view:** "Member Type" dropdown — select or clear type
+- Form POSTs to `admin_post_bn_save_member_type` / `admin_post_bn_delete_member_type`
+- On delete: cascade assignment + profile field group cleanup shown as confirmation
+
+---
+
+##### Frontend Integration
+
+| Surface | What changes |
+|---------|-------------|
+| `templates/directory/members.php` | Type filter pill tabs above grid; small type badge chip on each member card |
+| `templates/profile/view.php` | Type badge chip in profile header (below display name) |
+| `includes/Core/PageRouter.php` | Rewrite rule for `/members/{type-slug}/` — resolves to directory template with `bn_member_type` query var |
+| `templates/blocks/member-card.php` | Type badge in card footer |
+
+---
+
+##### Hooks Fired
+
+```php
+do_action( 'buddynext_member_type_assigned', int $user_id, string $new_slug, string $old_slug );
+do_action( 'buddynext_member_type_removed',  int $user_id, string $removed_slug );
+do_action( 'buddynext_member_type_created',  int $type_id, array $type_data );
+do_action( 'buddynext_member_type_deleted',  int $type_id, string $slug );
+```
+
+---
+
+##### Files
+
+**New:**
+```
+includes/MemberTypes/MemberTypeService.php
+includes/REST/Controllers/MemberTypeController.php
+includes/Admin/Members/MemberTypesManager.php
+```
+
+**Modified:**
+```
+includes/Core/Installer.php          — add 2 tables + type_restriction column
+includes/Core/PageRouter.php         — /members/{type-slug}/ rewrite rule
+includes/Core/Plugin.php             — bind member_types service in container
+includes/REST/Router.php             — register MemberTypeController
+includes/Admin/Members.php           — add Member Types tab + wire MemberTypesManager
+templates/directory/members.php      — type filter tabs + card badges
+templates/profile/view.php           — type badge in header
+templates/blocks/member-card.php     — type badge in card
+```
+
+---
+
+- [ ] Add `bn_member_types` + `bn_member_type_assignments` to `Installer.php`; add `type_restriction` to `bn_profile_groups` schema
+- [ ] Create `includes/MemberTypes/MemberTypeService.php` — CRUD, assign, cache, hooks
+- [ ] Create `includes/REST/Controllers/MemberTypeController.php` — 7 routes
+- [ ] Create `includes/Admin/Members/MemberTypesManager.php` — admin tab + form handlers
+- [ ] Wire tab into `Members.php`; bind service in `Plugin.php`; register controller in `Router.php`
+- [ ] Update `PageRouter.php` — `/members/{type-slug}/` rewrite
+- [ ] Update `templates/directory/members.php` — type filter tabs + card badges
+- [ ] Update `templates/profile/view.php` — type badge in header
+
+---
+
 ## Phase 1 — Core Foundation
 
 **Goal:** Bootable plugin with all `bn_*` tables, `buddynext_can()` permission function, Abilities API, and webhook endpoint.

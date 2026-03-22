@@ -17,13 +17,24 @@ declare(strict_types=1);
 defined( 'ABSPATH' ) || exit;
 
 // ── Query parameters ──────────────────────────────────────────────────────────
-$bn_current_page = max( 1, absint( get_query_var( 'paged', 1 ) ) );
-$bn_per_page     = 20;
-$search_term     = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );       // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$orderby_raw     = sanitize_key( $_GET['orderby'] ?? 'registered' );             // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$allowed_sort    = array( 'registered', 'display_name', 'post_count' );
-$bn_orderby      = in_array( $orderby_raw, $allowed_sort, true ) ? $orderby_raw : 'registered';
-$bn_order        = 'registered' === $bn_orderby ? 'DESC' : 'ASC';
+$bn_current_page  = max( 1, absint( get_query_var( 'paged', 1 ) ) );
+$bn_per_page      = 20;
+$search_term      = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );       // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$orderby_raw      = sanitize_key( $_GET['orderby'] ?? 'registered' );             // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$type_slug_filter = sanitize_key( $_GET['type'] ?? '' );                          // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$allowed_sort     = array( 'registered', 'display_name', 'post_count' );
+$bn_orderby       = in_array( $orderby_raw, $allowed_sort, true ) ? $orderby_raw : 'registered';
+$bn_order         = 'registered' === $bn_orderby ? 'DESC' : 'ASC';
+
+// ── Member types for directory pill tabs and card badges ──────────────────────
+$all_types_raw = buddynext_service( 'member_types' )->get_all();
+$dir_types     = array_values( array_filter( $all_types_raw, static fn( $t ) => ! empty( $t['show_in_dir'] ) ) );
+// Flat slug → type data map for O(1) card badge lookup inside the member loop.
+$type_map = array();
+foreach ( $all_types_raw as $t ) {
+	$type_map[ (string) $t['slug'] ] = $t;
+}
+unset( $all_types_raw, $t );
 
 // ── Fetch users ───────────────────────────────────────────────────────────────
 $user_query_args = array(
@@ -38,6 +49,17 @@ $user_query_args = array(
 if ( '' !== $search_term ) {
 	$user_query_args['search']         = '*' . $search_term . '*';
 	$user_query_args['search_columns'] = array( 'user_login', 'user_nicename', 'display_name', 'user_email' );
+}
+
+// Filter by member type via denormalised usermeta (write-through cache — no JOIN needed).
+if ( '' !== $type_slug_filter ) {
+	$user_query_args['meta_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+		array(
+			'key'     => 'bn_member_type',
+			'value'   => $type_slug_filter,
+			'compare' => '=',
+		),
+	);
 }
 
 $user_query  = new WP_User_Query( $user_query_args );
@@ -158,6 +180,10 @@ $bn_messages_base = $bn_messages_page ? get_permalink( $bn_messages_page ) : hom
 $action_nonce = wp_create_nonce( 'bn_member_action' );
 $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 ?>
+<?php
+$bn_nav_active = 'members';
+require __DIR__ . '/../partials/nav.php';
+?>
 <div
 	class="bn-member-directory"
 	data-wp-interactive="buddynext/members"
@@ -246,15 +272,22 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 	top: 50%;
 	transform: translateY(-50%);
 	color: var(--text-3);
-	font-size: var(--text-base);
 	pointer-events: none;
-	line-height: 1;
+	width: 16px;
+	height: 16px;
+	display: flex;
+	align-items: center;
+}
+.bn-search-icon svg {
+	width: 16px;
+	height: 16px;
+	flex-shrink: 0;
 }
 .bn-search-input {
 	width: 100%;
 	border: 1.5px solid var(--border);
 	border-radius: var(--radius-sm);
-	padding: var(--s2) var(--s3) var(--s2) calc(var(--s3) + 20px);
+	padding: var(--s2) var(--s3) var(--s2) calc(var(--s3) + 24px);
 	font-size: var(--text-sm);
 	font-family: var(--font-body);
 	background: var(--bg);
@@ -530,6 +563,58 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 	.bn-dir-title { font-size: var(--text-xl); }
 	.bn-filter-bar { padding: var(--s3); }
 }
+
+/* ── Type filter pill tabs ───────────────────────────────── */
+.bn-type-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--s2);
+	margin-bottom: var(--s4);
+}
+.bn-type-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s1);
+	padding: 5px 14px;
+	border-radius: var(--r-full);
+	font-size: var(--text-xs);
+	font-weight: 600;
+	text-decoration: none;
+	border: 1.5px solid var(--border);
+	background: var(--surface);
+	color: var(--text-2);
+	transition: border-color 0.15s, background 0.15s, color 0.15s;
+	white-space: nowrap;
+}
+.bn-type-pill:hover { border-color: var(--brand); color: var(--brand); }
+.bn-type-pill.is-active {
+	border-color: var(--brand);
+	background: var(--brand-light);
+	color: var(--brand);
+}
+.bn-type-pill-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+/* ── Member type badge (card + profile) ──────────────────── */
+.bn-member-type-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: var(--r-full);
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	line-height: 1.6;
+	margin-top: var(--s1);
+}
+
+@media (max-width: 640px) {
+	.bn-type-pills { gap: var(--s1); }
+	.bn-type-pill { padding: 4px 10px; }
+}
 </style>
 
 <div class="bn-dir-header">
@@ -539,7 +624,7 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 
 <form class="bn-filter-bar" method="get" action="" role="search" aria-label="<?php esc_attr_e( 'Filter members', 'buddynext' ); ?>">
 	<div class="bn-search-wrap">
-		<span class="bn-search-icon" aria-hidden="true">&#128269;</span>
+		<span class="bn-search-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="6"/><line x1="13.5" y1="13.5" x2="18" y2="18"/></svg></span>
 		<input
 			class="bn-search-input"
 			type="search"
@@ -576,6 +661,27 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 	</span>
 </form>
 
+<?php if ( ! empty( $dir_types ) ) : ?>
+<div class="bn-type-pills" role="navigation" aria-label="<?php esc_attr_e( 'Filter by member type', 'buddynext' ); ?>">
+	<a
+		href="<?php echo esc_url( remove_query_arg( 'type' ) ); ?>"
+		class="bn-type-pill<?php echo '' === $type_slug_filter ? ' is-active' : ''; ?>"
+		aria-current="<?php echo '' === $type_slug_filter ? 'page' : 'false'; ?>"
+	><?php esc_html_e( 'All', 'buddynext' ); ?></a>
+
+	<?php foreach ( $dir_types as $dir_type ) : ?>
+		<a
+			href="<?php echo esc_url( add_query_arg( 'type', $dir_type['slug'] ) ); ?>"
+			class="bn-type-pill<?php echo $type_slug_filter === $dir_type['slug'] ? ' is-active' : ''; ?>"
+			aria-current="<?php echo $type_slug_filter === $dir_type['slug'] ? 'page' : 'false'; ?>"
+		>
+			<span class="bn-type-pill-dot" style="background:<?php echo esc_attr( $dir_type['color'] ); ?>;"></span>
+			<?php echo esc_html( $dir_type['name'] ); ?>
+		</a>
+	<?php endforeach; ?>
+</div>
+<?php endif; ?>
+
 <div class="bn-members-grid" data-wp-class--bn-list-view="state.isListView" role="list">
 
 	<?php if ( empty( $members ) ) : ?>
@@ -595,48 +701,32 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 			if ( empty( $bio ) ) {
 				$bio = get_user_meta( $member_id, 'description', true );
 			}
-			$profile_url    = \BuddyNext\Core\PageRouter::profile_url( $member_id );
-			$avatar_html    = get_avatar( $member_id, 64, '', esc_attr( $display_name ), array( 'force_display' => true ) );
-			$has_avatar     = false !== strpos( $avatar_html, 'src=' );
-			$initials       = $bn_initials( $display_name );
-			$bg_colour      = $bn_avatar_colour( $member_id );
-			$is_online      = $bn_is_online( $member_id );
-			$is_following   = $bn_is_following( $member_id );
-			$mutual         = $bn_mutual_count( $current_user_id, $member_id );
-			$messages_url   = add_query_arg( array( 'recipient' => $member_id ), $bn_messages_base );
-			$follow_nonce   = wp_create_nonce( 'bn_follow_' . $member_id );
-			$bn_conn_status = $current_user_id
+			$profile_url = \BuddyNext\Core\PageRouter::profile_url( $member_id );
+			// AvatarService hooks pre_get_avatar_data: always returns a valid URL
+			// (custom upload or SVG initials data-URI). No Gravatar network request.
+			$avatar_url       = (string) get_avatar_url( $member_id, array( 'size' => 64 ) );
+			$is_online        = $bn_is_online( $member_id );
+			$is_following     = $bn_is_following( $member_id );
+			$mutual           = $bn_mutual_count( $current_user_id, $member_id );
+			$member_type_slug = (string) get_user_meta( $member_id, 'bn_member_type', true );
+			$member_type_data = '' !== $member_type_slug ? ( $type_map[ $member_type_slug ] ?? null ) : null;
+			$messages_url     = add_query_arg( array( 'recipient' => $member_id ), $bn_messages_base );
+			$follow_nonce     = wp_create_nonce( 'bn_follow_' . $member_id );
+			$bn_conn_status   = $current_user_id
 				? buddynext_service( 'connections' )->status( $current_user_id, $member_id )
 				: null;
 			?>
 			<article class="bn-member-card" role="listitem">
 
-				<div
-					class="bn-avatar"
-					style="background: <?php echo esc_attr( $bg_colour ); ?>;"
-					aria-hidden="true"
-				>
-					<?php if ( $has_avatar ) : ?>
-						<?php
-						echo wp_kses(
-							$avatar_html,
-							array(
-								'img' => array(
-									'src'      => true,
-									'class'    => true,
-									'alt'      => true,
-									'width'    => true,
-									'height'   => true,
-									'loading'  => true,
-									'decoding' => true,
-								),
-							)
-						);
-						?>
-					<?php else : ?>
-						<?php echo esc_html( $initials ); ?>
-					<?php endif; ?>
-
+				<div class="bn-avatar" aria-hidden="true">
+					<img
+						src="<?php echo esc_attr( $avatar_url ); ?>"
+						alt="<?php echo esc_attr( $display_name ); ?>"
+						width="64"
+						height="64"
+						loading="lazy"
+						decoding="async"
+					>
 					<?php if ( $is_online ) : ?>
 						<span class="bn-online-dot" title="<?php esc_attr_e( 'Online', 'buddynext' ); ?>"></span>
 					<?php endif; ?>
@@ -649,6 +739,13 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 				</div>
 
 				<div class="bn-member-handle">@<?php echo esc_html( $member_login ); ?></div>
+
+				<?php if ( null !== $member_type_data ) : ?>
+					<span
+						class="bn-member-type-badge"
+						style="background:<?php echo esc_attr( $member_type_data['color'] ); ?>;color:<?php echo esc_attr( $member_type_data['text_color'] ); ?>;"
+					><?php echo esc_html( $member_type_data['name'] ); ?></span>
+				<?php endif; ?>
 
 				<?php if ( ! empty( $bio ) ) : ?>
 					<div class="bn-member-bio"><?php echo esc_html( wp_trim_words( $bio, 15 ) ); ?></div>

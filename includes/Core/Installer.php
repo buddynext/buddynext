@@ -558,15 +558,17 @@ class Installer {
 			// ── Profiles ───────────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_profile_groups (
-				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				group_key  VARCHAR(100) NOT NULL,
-				label      VARCHAR(255) NOT NULL,
-				type       ENUM('flat','repeater') NOT NULL DEFAULT 'flat',
-				visibility ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public',
-				is_system  TINYINT(1) NOT NULL DEFAULT 0,
-				sort_order INT NOT NULL DEFAULT 0,
+				id               BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				group_key        VARCHAR(100) NOT NULL,
+				label            VARCHAR(255) NOT NULL,
+				type             ENUM('flat','repeater') NOT NULL DEFAULT 'flat',
+				visibility       ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public',
+				is_system        TINYINT(1) NOT NULL DEFAULT 0,
+				sort_order       INT NOT NULL DEFAULT 0,
+				type_restriction VARCHAR(100) DEFAULT NULL,
 				PRIMARY KEY (id),
-				UNIQUE KEY  group_key (group_key)
+				UNIQUE KEY  group_key (group_key),
+				KEY         type_res (type_restriction)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_profile_fields (
@@ -842,6 +844,37 @@ class Installer {
 			) {$cs};",
 
 			// ── Outbound Webhooks ──────────────────────────────────────────────
+
+			// ── Member Types ───────────────────────────────────────────────────
+
+			"CREATE TABLE {$p}bn_member_types (
+				id          INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+				slug        VARCHAR(100)    NOT NULL,
+				name        VARCHAR(100)    NOT NULL,
+				description TEXT            NOT NULL DEFAULT '',
+				color       VARCHAR(7)      NOT NULL DEFAULT '#0073aa',
+				text_color  VARCHAR(7)      NOT NULL DEFAULT '#ffffff',
+				icon_svg    MEDIUMTEXT      NOT NULL DEFAULT '',
+				sort_order  SMALLINT        NOT NULL DEFAULT 0,
+				show_in_dir TINYINT(1)      NOT NULL DEFAULT 1,
+				self_select TINYINT(1)      NOT NULL DEFAULT 0,
+				created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				UNIQUE KEY  uq_slug (slug),
+				KEY         idx_sort (sort_order)
+			) {$cs};",
+
+			"CREATE TABLE {$p}bn_member_type_assignments (
+				id          INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+				user_id     BIGINT(20) UNSIGNED NOT NULL,
+				type_id     INT UNSIGNED     NOT NULL,
+				assigned_by BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+				assigned_at DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (id),
+				UNIQUE KEY  uq_user_type (user_id, type_id),
+				KEY         idx_user_id (user_id),
+				KEY         idx_type_id (type_id)
+			) {$cs};",
 
 			"CREATE TABLE {$p}bn_outbound_webhooks (
 				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,

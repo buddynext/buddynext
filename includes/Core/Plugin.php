@@ -49,6 +49,7 @@ use BuddyNext\Notifications\EmailSender;
 use BuddyNext\Notifications\EventListener;
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Notifications\NotificationService;
+use BuddyNext\Profile\AvatarService;
 use BuddyNext\Profile\ProfileService;
 use BuddyNext\Reactions\ReactionService;
 use BuddyNext\REST\Router;
@@ -159,6 +160,9 @@ class Plugin {
 		$container->get( 'assets' )->init();
 
 		$container->get( 'rest_router' )->register();
+
+		// Wire avatar filter — replaces Gravatar site-wide with BuddyNext initials SVG.
+		$container->get( 'avatars' )->init();
 
 		// Wire cross-plugin event hooks to notification routing.
 		( new EventListener() )->init();
@@ -392,6 +396,7 @@ class Plugin {
 		$container->bind( 'bookmarks', fn() => new BookmarkService() );
 		$container->bind( 'shares', fn() => new ShareService() );
 		$container->bind( 'profiles', fn() => new ProfileService() );
+		$container->bind( 'avatars', fn() => new AvatarService() );
 		$container->bind( 'search', fn() => new SearchService() );
 		$container->bind( 'search_index_listener', fn() => new SearchIndexListener() );
 		$container->bind( 'member_directory', fn( $c ) => new MemberDirectoryService( $c->get( 'follows' ) ) );
@@ -408,6 +413,7 @@ class Plugin {
 		$container->bind( 'hashtags', fn() => new HashtagService() );
 		$container->bind( 'moderation', fn() => new ModerationService() );
 		$container->bind( 'mod_log', fn() => new ModerationLogService() );
+		$container->bind( 'member_types', fn( $c ) => new \BuddyNext\MemberTypes\MemberTypeService( $c->get( 'cache' ) ) );
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'template_loader', fn() => new TemplateLoader() );
 		$container->bind( 'assets', fn() => new AssetService() );

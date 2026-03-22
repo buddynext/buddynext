@@ -123,6 +123,10 @@ if ( ! function_exists( 'bn_excerpt' ) ) {
 	}
 }
 ?>
+<?php
+$bn_nav_active = 'feed';
+include __DIR__ . '/../partials/nav.php';
+?>
 <style>
 /* ── BuddyNext design tokens ── */
 :root {

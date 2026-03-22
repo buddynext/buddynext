@@ -39,17 +39,10 @@ if ( ! $is_own_profile && ! current_user_can( 'manage_options' ) ) {
 }
 
 // --- Avatar & display name ------------------------------------------------
-$avatar_url   = get_avatar_url( $user_id, array( 'size' => 96 ) );
+// AvatarService hooks pre_get_avatar_data: returns custom upload or SVG initials
+// data-URI — no Gravatar lookup, works offline.
+$avatar_url   = (string) get_avatar_url( $user_id, array( 'size' => 96 ) );
 $display_name = $profile_user->display_name;
-// Initials fallback — display_name only (no WP credentials exposed).
-$name_parts = explode( ' ', $display_name );
-$initials   = '';
-foreach ( array_slice( $name_parts, 0, 2 ) as $part ) {
-	$initials .= mb_strtoupper( mb_substr( $part, 0, 1 ) );
-}
-if ( '' === $initials ) {
-	$initials = '?';
-}
 
 $joined = gmdate( 'M Y', strtotime( $profile_user->user_registered ) );
 
@@ -128,6 +121,9 @@ if ( ! $is_own_profile && $current_user_id ) {
 	$mutual_count = count( buddynext_service( 'connections' )->mutual_connections( $current_user_id, $user_id ) );
 }
 
+// --- Member type badge ---------------------------------------------------
+$member_type = buddynext_service( 'member_types' )->get_user_type( $user_id );
+
 // --- Profile data via ProfileService -------------------------------------
 $profile_svc  = buddynext_service( 'profiles' );
 $profile_data = $profile_svc->get_profile( $user_id, $current_user_id );
@@ -176,12 +172,30 @@ $social_links       = array_filter(
 	static fn( array $f ): bool => '' !== (string) ( $f['value'] ?? '' )
 );
 
-// Repeater groups.
-$work_entries = isset( $group_data['work_experience']['entries'] ) ? $group_data['work_experience']['entries'] : array();
-$edu_entries  = isset( $group_data['education']['entries'] ) ? $group_data['education']['entries'] : array();
+// Repeater groups — filter out blank entries so widget guards work correctly.
+$work_entries = array_values(
+	array_filter(
+		isset( $group_data['work_experience']['entries'] ) ? $group_data['work_experience']['entries'] : array(),
+		static function ( array $e ) use ( $entry_fv ): bool {
+			return '' !== $entry_fv( $e, 'work_company' ) || '' !== $entry_fv( $e, 'work_title' );
+		}
+	)
+);
+$edu_entries  = array_values(
+	array_filter(
+		isset( $group_data['education']['entries'] ) ? $group_data['education']['entries'] : array(),
+		static function ( array $e ) use ( $entry_fv ): bool {
+			return '' !== $entry_fv( $e, 'edu_institution' ) || '' !== $entry_fv( $e, 'edu_degree' );
+		}
+	)
+);
 
 // Profile URL slug (safe — never exposes WP login).
 $profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+if ( '' === $profile_slug ) {
+	// Fall back to user_nicename (already URL-safe, matches PageRouter::profile_url()).
+	$profile_slug = $profile_user instanceof WP_User ? $profile_user->user_nicename : 'user-' . $user_id;
+}
 
 // --- Recent posts (tab: Posts default) ------------------------------------
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -231,6 +245,13 @@ $format_count = static function ( int $n ): string {
 	}
 	return (string) $n;
 };
+?>
+<?php
+$bn_nav_active = '';
+require __DIR__ . '/../partials/nav.php';
+if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
+	include __DIR__ . '/../partials/profile-actions.php';
+}
 ?>
 <style>
 /* ── Design tokens ─────────────────────────────────────────────────────── */
@@ -311,6 +332,13 @@ $format_count = static function ( int $n ): string {
 	height: 96px;
 	border-radius: 50%;
 	background: var(--brand);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 32px;
+	font-weight: 700;
+	color: #fff;
+	font-family: var(--font-body);
 	color: #fff;
 	font-family: var(--font-display);
 	font-size: 28px;
@@ -399,6 +427,17 @@ $format_count = static function ( int $n ): string {
 	color: var(--brand);
 	margin-left: var(--s2);
 	vertical-align: middle;
+}
+
+.bn-profile-type-badge {
+	display: inline-block;
+	padding: 3px 10px;
+	border-radius: var(--r-full, 9999px);
+	font-size: var(--text-xs);
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	line-height: 1.6;
+	margin-top: var(--s2);
 }
 
 .bn-profile-name {
@@ -715,10 +754,14 @@ $format_count = static function ( int $n ): string {
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
 		array(
-			'userId'      => $user_id,
-			'activeTab'   => 'posts',
-			'isFollowing' => $is_following,
-			'isConnected' => $is_connected,
+			'userId'            => $user_id,
+			'profileUserId'     => $user_id,
+			'activeTab'         => 'posts',
+			'isFollowing'       => $is_following,
+			'isConnected'       => $is_connected,
+			'connectionPending' => false,
+			'followerCount'     => $follower_count,
+			'restNonce'         => wp_create_nonce( 'wp_rest' ),
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -728,7 +771,7 @@ $format_count = static function ( int $n ): string {
 	<!-- Cover photo -->
 	<div class="bn-cover">
 		<?php if ( $is_own_profile ) : ?>
-		<a href="<?php echo esc_url( get_edit_profile_url( $user_id ) ); ?>"
+		<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"
 			class="bn-cover-edit" title="<?php esc_attr_e( 'Edit cover photo', 'buddynext' ); ?>">
 			&#9998; <?php esc_html_e( 'Edit cover', 'buddynext' ); ?>
 		</a>
@@ -738,14 +781,9 @@ $format_count = static function ( int $n ): string {
 	<!-- Profile header -->
 	<div class="bn-profile-head">
 
-		<!-- Action buttons (top-right) -->
+		<!-- Action buttons (top-right) — shown for other users only; owners use the action bar above -->
 		<div class="bn-profile-actions">
-			<?php if ( $is_own_profile ) : ?>
-				<a href="<?php echo esc_url( get_edit_profile_url( $user_id ) ); ?>"
-					class="bn-btn-secondary">
-					&#9998; <?php esc_html_e( 'Edit Profile', 'buddynext' ); ?>
-				</a>
-			<?php elseif ( $current_user_id ) : ?>
+			<?php if ( ! $is_own_profile && $current_user_id ) : ?>
 				<?php if ( $is_following ) : ?>
 					<button class="bn-btn-secondary"
 						data-wp-on--click="actions.unfollow"
@@ -777,12 +815,14 @@ $format_count = static function ( int $n ): string {
 		<!-- Avatar -->
 		<div class="bn-avatar-wrap">
 			<div class="bn-avatar-lg">
-				<?php if ( $avatar_url ) : ?>
-					<img src="<?php echo esc_url( $avatar_url ); ?>"
-						alt="<?php echo esc_attr( $display_name ); ?>" />
-				<?php else : ?>
-					<?php echo esc_html( $initials ); ?>
-				<?php endif; ?>
+				<img src="<?php echo esc_attr( $avatar_url ); ?>"
+					alt="<?php echo esc_attr( $display_name ); ?>"
+					width="96"
+					height="96"
+					loading="eager"
+					decoding="async"
+					style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
+				/>
 			</div>
 			<?php if ( $is_online ) : ?>
 				<div class="bn-avatar-online" title="<?php esc_attr_e( 'Online', 'buddynext' ); ?>"></div>
@@ -796,6 +836,15 @@ $format_count = static function ( int $n ): string {
 				<span class="bn-degree-badge"><?php echo esc_html( $degree_badge ); ?></span>
 			<?php endif; ?>
 		</div>
+
+		<?php if ( $member_type ) : ?>
+			<div>
+				<span
+					class="bn-profile-type-badge"
+					style="background:<?php echo esc_attr( $member_type['color'] ); ?>;color:<?php echo esc_attr( $member_type['text_color'] ); ?>;"
+				><?php echo esc_html( $member_type['name'] ); ?></span>
+			</div>
+		<?php endif; ?>
 
 		<!-- Handle & headline -->
 		<div class="bn-profile-handle">
@@ -955,7 +1004,7 @@ $format_count = static function ( int $n ): string {
 				<?php
 				$c_pct      = (int) $completion['percent'];
 				$c_complete = 100 === $c_pct;
-				$edit_url   = esc_url( get_edit_profile_url( $user_id ) );
+				$edit_url   = esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() );
 				?>
 			<div class="bn-widget">
 				<div class="bn-widget-title"><?php esc_html_e( 'Profile Strength', 'buddynext' ); ?></div>

@@ -391,6 +391,52 @@
 					event.target.value = '';
 				}
 			},
+
+			/* ── Social actions (profile view page) ─────────────────────── */
+
+			follow: async function () {
+				var ctx = getContext();
+				if ( ctx.isFollowing ) { return; }
+				try {
+					var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/follow' ), {
+						method:  'POST',
+						headers: { 'X-WP-Nonce': ctx.restNonce },
+					} );
+					if ( res.ok ) {
+						ctx.isFollowing   = true;
+						ctx.followerCount = ( ctx.followerCount || 0 ) + 1;
+					}
+				} catch ( _e ) {}
+			},
+
+			unfollow: async function () {
+				var ctx = getContext();
+				if ( ! ctx.isFollowing ) { return; }
+				try {
+					var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/follow' ), {
+						method:  'DELETE',
+						headers: { 'X-WP-Nonce': ctx.restNonce },
+					} );
+					if ( res.ok ) {
+						ctx.isFollowing   = false;
+						ctx.followerCount = Math.max( 0, ( ctx.followerCount || 1 ) - 1 );
+					}
+				} catch ( _e ) {}
+			},
+
+			connect: async function () {
+				var ctx = getContext();
+				if ( ctx.isConnected || ctx.connectionPending ) { return; }
+				try {
+					var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect' ), {
+						method:  'POST',
+						headers: { 'X-WP-Nonce': ctx.restNonce },
+					} );
+					if ( res.ok ) {
+						ctx.connectionPending = true;
+					}
+				} catch ( _e ) {}
+			},
 		},
 	} );
 

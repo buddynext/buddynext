@@ -40,6 +40,7 @@ class ShortcodeService {
 		add_shortcode( 'buddynext_members', array( $this, 'render_members' ) );
 		add_shortcode( 'buddynext_spaces', array( $this, 'render_spaces' ) );
 		add_shortcode( 'buddynext_profile', array( $this, 'render_profile' ) );
+		add_shortcode( 'buddynext_edit_profile', array( $this, 'render_edit_profile' ) );
 	}
 
 	// ── Shortcode handlers ────────────────────────────────────────────────────
@@ -207,6 +208,36 @@ class ShortcodeService {
 				'<div class="buddynext-profile" data-user-id="%d" data-view="%s" data-wp-interactive="buddynext/profile"></div>',
 				$user_id,
 				esc_attr( $view )
+			)
+		);
+	}
+
+	/**
+	 * Render the edit profile shortcode.
+	 *
+	 * Always edits the current user's own profile. Redirects guests to login.
+	 *
+	 * @param array<string, mixed>|string $atts Shortcode attributes (unused).
+	 * @return string HTML output.
+	 */
+	public function render_edit_profile( $atts ): string {
+		$user_id = get_current_user_id();
+
+		if ( ! $user_id ) {
+			return sprintf(
+				'<p>%s <a href="%s">%s</a></p>',
+				esc_html__( 'You must be logged in to edit your profile.', 'buddynext' ),
+				esc_url( wp_login_url( get_permalink() ) ),
+				esc_html__( 'Log in', 'buddynext' )
+			);
+		}
+
+		return $this->capture(
+			'profile/edit.php',
+			array( 'user_id' => $user_id ),
+			sprintf(
+				'<div class="buddynext-edit-profile" data-user-id="%d" data-wp-interactive="buddynext/profile"></div>',
+				$user_id
 			)
 		);
 	}

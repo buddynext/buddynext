@@ -237,4 +237,39 @@ class CacheService {
 	public function invalidate_hashtag_autocomplete( string $query ): void {
 		wp_cache_delete( 'bn_hashtag_ac_' . md5( $query ), self::GROUP );
 	}
+
+	// ── Generic helpers ───────────────────────────────────────────────────────
+
+	/**
+	 * Read a raw cache entry. Returns null on miss.
+	 *
+	 * @param string $key Cache key.
+	 * @return mixed|null Cached value, or null on cache miss.
+	 */
+	public function get( string $key ): mixed {
+		$value = wp_cache_get( $key, self::GROUP );
+		return false === $value ? null : $value;
+	}
+
+	/**
+	 * Write a raw cache entry.
+	 *
+	 * @param string $key        Cache key.
+	 * @param mixed  $value      Value to cache.
+	 * @param int    $ttl        TTL in seconds. Default 3600.
+	 * @return void
+	 */
+	public function set( string $key, mixed $value, int $ttl = 3600 ): void {
+		wp_cache_set( $key, $value, self::GROUP, $ttl );
+	}
+
+	/**
+	 * Delete a raw cache entry.
+	 *
+	 * @param string $key Cache key.
+	 * @return void
+	 */
+	public function delete( string $key ): void {
+		wp_cache_delete( $key, self::GROUP );
+	}
 }

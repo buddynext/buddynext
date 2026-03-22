@@ -136,6 +136,10 @@ $format_count = static function ( int $n ): string {
 
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 ?>
+<?php
+$bn_nav_active = '';
+include __DIR__ . '/../partials/nav.php';
+?>
 <style>
 /* ── Design tokens ─────────────────────────────────────────────────────── */
 :root {
@@ -715,7 +719,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 						<div class="bn-ep-avatar-wrap">
 							<div class="bn-ep-avatar">
 								<?php if ( $avatar_url ) : ?>
-									<img src="<?php echo esc_url( $avatar_url ); ?>"
+									<img src="<?php echo esc_attr( $avatar_url ); ?>"
 										alt="<?php echo esc_attr( $display_name ); ?>" />
 								<?php else : ?>
 									<?php echo esc_html( $initials ); ?>
@@ -1186,7 +1190,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 				<div class="bn-ep-preview-body">
 					<div class="bn-ep-preview-avatar">
 						<?php if ( $avatar_url ) : ?>
-							<img src="<?php echo esc_url( $avatar_url ); ?>"
+							<img src="<?php echo esc_attr( $avatar_url ); ?>"
 								alt="<?php echo esc_attr( $display_name ); ?>" />
 						<?php else : ?>
 							<?php echo esc_html( $initials ); ?>

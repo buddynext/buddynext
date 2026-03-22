@@ -587,7 +587,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 						aria-label="<?php esc_attr_e( 'Upload profile photo', 'buddynext' ); ?>"
 						data-wp-on--click="actions.triggerAvatarUpload">
 						<?php if ( $avatar_url ) : ?>
-							<img src="<?php echo esc_url( $avatar_url ); ?>"
+							<img src="<?php echo esc_attr( $avatar_url ); ?>"
 								alt="<?php echo esc_attr( $display_name ); ?>" />
 						<?php else : ?>
 							<?php echo esc_html( $initials ); ?>
@@ -823,7 +823,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 						<div class="bn-ob-follow-person">
 							<div class="bn-ob-follow-av">
 								<?php if ( $sug_avatar_url ) : ?>
-									<img src="<?php echo esc_url( $sug_avatar_url ); ?>"
+									<img src="<?php echo esc_attr( $sug_avatar_url ); ?>"
 										alt="<?php echo esc_attr( $sug_name ); ?>" />
 								<?php else : ?>
 									<?php echo esc_html( $sug_initials ); ?>
