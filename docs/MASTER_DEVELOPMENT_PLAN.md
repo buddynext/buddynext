@@ -214,19 +214,19 @@ Complete these before any template/UI work.
 
 ### BLOCK 4 — ModerationController new REST endpoints
 
-- [ ] Warn a user (moderator or admin)
-- [ ] Shadow-ban a user (admin only)
-- [ ] Remove shadow ban (admin only)
-- [ ] Suspend a user with reason and duration (admin only)
-- [ ] Unsuspend a user (admin only)
-- [ ] Get active suspension details for a user (admin only)
-- [ ] Submit an appeal — authenticated user, own account only
-- [ ] List pending appeals (admin only)
-- [ ] Approve an appeal (admin only)
-- [ ] Deny an appeal (admin only)
-- [ ] List bans for a space (space owner or admin)
-- [ ] Ban a user from a space (space owner or admin)
-- [ ] Unban a user from a space (space owner or admin)
+- [x] Warn a user (moderator or admin)
+- [x] Shadow-ban a user (admin only)
+- [x] Remove shadow ban (admin only)
+- [x] Suspend a user with reason and duration (admin only)
+- [x] Unsuspend a user (admin only)
+- [x] Get active suspension details for a user (admin only)
+- [x] Submit an appeal — authenticated user, own account only
+- [x] List pending appeals (admin only)
+- [x] Approve an appeal (admin only)
+- [x] Deny an appeal (admin only)
+- [x] List bans for a space (space owner or admin)
+- [x] Ban a user from a space (space owner or admin)
+- [x] Unban a user from a space (space owner or admin)
 
 ---
 
@@ -271,13 +271,13 @@ New service that pushes signed event payloads to admin-registered external URLs:
 
 ### BLOCK 9 — EventListener additions
 
-- [ ] User warned → in-app notification to the warned user
-- [ ] User suspended → send suspension email to the user with a link to submit an appeal
-- [ ] User unsuspended → send confirmation email to the user
-- [ ] Appeal submitted → in-app notification to all site admins
-- [ ] Appeal resolved → email the user with the outcome (approved or denied)
-- [ ] User shadow-banned → immediately remove all their posts from the search index
-- [ ] Daily cron job: if the moderation queue exceeds the admin-configured threshold, email the alert address
+- [x] User warned → in-app notification to the warned user
+- [x] User suspended → send suspension email to the user with a link to submit an appeal
+- [x] User unsuspended → send confirmation email to the user
+- [x] Appeal submitted → in-app notification to all site admins
+- [x] Appeal resolved → email the user with the outcome (approved or denied)
+- [x] User shadow-banned → immediately remove all their posts from the search index
+- [x] Daily cron job: if the moderation queue exceeds the admin-configured threshold, email the alert address
 
 ---
 
@@ -738,8 +738,8 @@ Owner → Moderator → Member. Extensible via `buddynext_space_roles` filter.
 - [x] 16 email templates seeded in Installer
 
 ### Remaining
-- [ ] EventListener: suspension email, unsuspend email, warning notification, appeal emails (BLOCK 9)
-- [ ] CronScheduler: buddynext_admin_alerts job for queue threshold alerts (BLOCK 9)
+- [x] EventListener: suspension email, unsuspend email, warning notification, appeal emails (BLOCK 9)
+- [x] CronScheduler: buddynext_admin_alerts job for queue threshold alerts (BLOCK 9)
 - [ ] OutboundWebhookService — event dispatch on all 13 spec events (BLOCK 7)
 
 ### In-app Notifications
