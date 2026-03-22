@@ -29,9 +29,13 @@ class Installer {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
+		// Suppress echo of DB errors during schema creation so that WP-CLI
+		// and browser activation do not see unexpected HTML output from dbDelta.
+		$wpdb->suppress_errors( true );
 		foreach ( static::schema( $wpdb->prefix, $charset ) as $sql ) {
 			dbDelta( $sql );
 		}
+		$wpdb->suppress_errors( false );
 
 		// FULLTEXT cannot be created via dbDelta on temporary tables (test suite).
 		// Add it separately and suppress errors so tests pass without FULLTEXT.
