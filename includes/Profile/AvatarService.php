@@ -54,6 +54,23 @@ class AvatarService {
 	 */
 	public function init(): void {
 		add_filter( 'pre_get_avatar_data', array( $this, 'filter_avatar_data' ), 10, 2 );
+		add_filter( 'kses_allowed_protocols', array( $this, 'allow_data_protocol' ) );
+	}
+
+	/**
+	 * Allow data: URIs to pass through esc_url() so SVG initials avatars render.
+	 *
+	 * WordPress's esc_url() strips any URL whose scheme is not in the allowed
+	 * protocols list. Since our fallback avatar is a data:image/svg+xml;base64
+	 * data URI, we add 'data' here so it survives the img src attribute escaping
+	 * inside get_avatar().
+	 *
+	 * @param string[] $protocols Allowed URL protocols.
+	 * @return string[]
+	 */
+	public function allow_data_protocol( array $protocols ): array {
+		$protocols[] = 'data';
+		return $protocols;
 	}
 
 	// ── Filter ────────────────────────────────────────────────────────────────
