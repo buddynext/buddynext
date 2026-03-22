@@ -57,6 +57,7 @@ class Settings extends AdminPageBase {
 		'buddynext_slug_spaces'              => array( 'string', 'sanitize_title', 'spaces' ),
 		'buddynext_slug_messages'            => array( 'string', 'sanitize_title', 'messages' ),
 		'buddynext_slug_notifications'       => array( 'string', 'sanitize_title', 'notifications' ),
+		'buddynext_slug_auth'                => array( 'string', 'sanitize_title', 'login' ),
 
 		// Webhooks.
 		'buddynext_webhook_secret'           => array( 'string', 'sanitize_text_field', '' ),
@@ -74,7 +75,7 @@ class Settings extends AdminPageBase {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 
 		// Flush rewrite rules whenever any hub slug is changed.
-		foreach ( array( 'activity', 'people', 'spaces', 'messages', 'notifications' ) as $hub ) {
+		foreach ( array( 'activity', 'people', 'spaces', 'messages', 'notifications', 'auth' ) as $hub ) {
 			add_action( "update_option_buddynext_slug_{$hub}", 'flush_rewrite_rules' );
 		}
 	}
@@ -390,6 +391,11 @@ class Settings extends AdminPageBase {
 				'label'   => __( 'Notifications slug', 'buddynext' ),
 				'default' => 'notifications',
 				'hint'    => __( 'In-app notification centre.', 'buddynext' ),
+			),
+			'auth'          => array(
+				'label'   => __( 'Login / Register slug', 'buddynext' ),
+				'default' => 'login',
+				'hint'    => __( 'Login and registration page. Logged-in visitors are redirected to the activity feed automatically.', 'buddynext' ),
 			),
 		);
 

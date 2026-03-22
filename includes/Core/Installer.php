@@ -1022,6 +1022,13 @@ class Installer {
 				'shortcode'   => '[buddynext_notifications]',
 				'default'     => 'notifications',
 			),
+			'auth'          => array(
+				'option_slug' => 'buddynext_slug_auth',
+				'option_page' => 'buddynext_page_auth',
+				'title'       => __( 'Login', 'buddynext' ),
+				'shortcode'   => '[buddynext_auth]',
+				'default'     => 'login',
+			),
 		);
 
 		foreach ( $hubs as $hub ) {

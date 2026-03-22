@@ -58,7 +58,7 @@ class PageRouter {
 		add_action( 'pre_get_posts', array( $this, 'set_hub_vars' ) );
 
 		// Flush rewrites whenever any hub slug changes.
-		foreach ( array( 'activity', 'people', 'spaces', 'messages', 'notifications' ) as $hub ) {
+		foreach ( array( 'activity', 'people', 'spaces', 'messages', 'notifications', 'auth' ) as $hub ) {
 			add_action( 'update_option_buddynext_slug_' . $hub, array( $this, 'flush_on_slug_change' ) );
 		}
 	}
@@ -89,6 +89,7 @@ class PageRouter {
 		$this->register_spaces_rules();
 		$this->register_messages_rules();
 		$this->register_notifications_rules();
+		$this->register_auth_rules();
 	}
 
 	/**
@@ -232,6 +233,23 @@ class PageRouter {
 		add_rewrite_rule(
 			'^' . preg_quote( $n, '/' ) . '/?$',
 			'index.php?pagename=' . $n,
+			'top'
+		);
+	}
+
+	/**
+	 * Register Auth hub rewrite rules.
+	 *
+	 * Single rule — the auth hub has no sub-endpoints.
+	 *
+	 * @return void
+	 */
+	private function register_auth_rules(): void {
+		$a = self::hub_slug( 'buddynext_slug_auth', 'login' );
+
+		add_rewrite_rule(
+			'^' . preg_quote( $a, '/' ) . '/?$',
+			'index.php?pagename=' . $a,
 			'top'
 		);
 	}
@@ -524,6 +542,15 @@ class PageRouter {
 	}
 
 	/**
+	 * Return the Auth (login/register) hub base URL.
+	 *
+	 * @return string
+	 */
+	public static function auth_url(): string {
+		return self::hub_url( 'buddynext_slug_auth', 'buddynext_page_auth' );
+	}
+
+	/**
 	 * Check whether a profile slug is available for a given user to claim.
 	 *
 	 * A slug is unavailable when:
@@ -647,6 +674,7 @@ class PageRouter {
 			'buddynext_slug_spaces'        => 'spaces',
 			'buddynext_slug_messages'      => 'messages',
 			'buddynext_slug_notifications' => 'notifications',
+			'buddynext_slug_auth'          => 'login',
 		);
 		return $map[ $option_name ] ?? 'community';
 	}

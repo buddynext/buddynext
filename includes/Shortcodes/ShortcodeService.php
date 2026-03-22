@@ -41,6 +41,7 @@ class ShortcodeService {
 		add_shortcode( 'buddynext_spaces', array( $this, 'render_spaces' ) );
 		add_shortcode( 'buddynext_messages', array( $this, 'render_messages' ) );
 		add_shortcode( 'buddynext_notifications', array( $this, 'render_notifications' ) );
+		add_shortcode( 'buddynext_auth', array( $this, 'render_auth' ) );
 	}
 
 	// ── Shortcode handlers ────────────────────────────────────────────────────
@@ -215,6 +216,24 @@ class ShortcodeService {
 		}
 
 		return $this->capture( 'notifications/index.php', array() );
+	}
+
+	/**
+	 * Render the Auth hub shortcode.
+	 *
+	 * Logged-in users are redirected to the Activity hub immediately.
+	 * Guests are shown auth/login.php which handles both login and registration.
+	 *
+	 * @param array<string, mixed>|string $_atts Shortcode attributes (unused).
+	 * @return string HTML output.
+	 */
+	public function render_auth( $_atts ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		if ( is_user_logged_in() ) {
+			wp_safe_redirect( PageRouter::activity_url() );
+			exit;
+		}
+
+		return $this->capture( 'auth/login.php', array() );
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
