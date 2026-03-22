@@ -575,8 +575,8 @@ templates/blocks/member-card.php     — type badge in card
 - [x] `includes/REST/Router.php` — registers `buddynext/v1` namespace
 - [x] `includes/REST/Controllers/AccessWebhookController.php` — all 6 webhook actions
 - [x] `includes/Admin/Settings.php` — admin menu registered
-- [ ] `includes/Core/Installer.php` — **add 5 new tables** (see BLOCK 1 above)
-- [ ] `includes/Core/Installer.php` — **add 2 new columns** to bn_posts (see BLOCK 1 above)
+- [x] `includes/Core/Installer.php` — **add 5 new tables** (see BLOCK 1 above)
+- [x] `includes/Core/Installer.php` — **add 2 new columns** to bn_posts (see BLOCK 1 above)
 - [ ] All tests pass
 
 ---
@@ -634,9 +634,9 @@ Follow events sync bidirectionally between BuddyNext and WPMediaVerse (loop-safe
 - [x] FeedController: POST /feed/announcements/{id}/dismiss
 
 ### Remaining
-- [ ] SafeguardService check in PostService::create() (BLOCK 5)
-- [ ] Content warning columns written in PostService::create()/update() (BLOCK 6)
-- [ ] FeedService: exclude shadow-banned + suspended-hide users (BLOCK 3)
+- [x] SafeguardService check in PostService::create() (BLOCK 5)
+- [x] Content warning columns written in PostService::create()/update() (BLOCK 6)
+- [x] FeedService: exclude shadow-banned + suspended-hide users (BLOCK 3)
 
 ### Post Types
 | Type | Notes |
@@ -678,8 +678,8 @@ Follow events sync bidirectionally between BuddyNext and WPMediaVerse (loop-safe
 - [x] ProfileController: GET /profile-fields + POST /profile-fields (admin)
 
 ### Remaining
-- [ ] SearchService: exclude shadow-banned + suspended users (BLOCK 3)
-- [ ] MemberDirectoryService: exclude suspended users (BLOCK 3)
+- [x] SearchService: exclude shadow-banned + suspended users (BLOCK 3)
+- [x] MemberDirectoryService: exclude suspended users (BLOCK 3)
 
 ### Profile Field Architecture
 `bn_profile_fields` and `bn_profile_values` — supports repeater fields (Work Experience, Education) where multiple entries exist for the same field per user.
@@ -740,7 +740,7 @@ Owner → Moderator → Member. Extensible via `buddynext_space_roles` filter.
 ### Remaining
 - [x] EventListener: suspension email, unsuspend email, warning notification, appeal emails (BLOCK 9)
 - [x] CronScheduler: buddynext_admin_alerts job for queue threshold alerts (BLOCK 9)
-- [ ] OutboundWebhookService — event dispatch on all 13 spec events (BLOCK 7)
+- [x] OutboundWebhookService — event dispatch on all 13 spec events (BLOCK 7)
 
 ### In-app Notifications
 `bn_notifications`, `bn_notification_prefs`
@@ -790,18 +790,18 @@ Report → Review → Action → Log. All actions logged in `bn_mod_log`.
 - [x] EventListener: strike threshold enforcement (warn/suspend at configurable thresholds)
 
 ### Remaining (see BLOCK 2–9 above)
-- [ ] ModerationService: shadow_ban, unshadow_ban, is_shadow_banned
-- [ ] ModerationService: suspend, unsuspend, is_suspended, get_active_suspension
-- [ ] ModerationService: warn, submit_appeal, resolve_appeal
-- [ ] SpaceMemberService: ban_from_space, unban_from_space, is_banned_from_space
-- [ ] SafeguardService (new) — banned words, rate limit, link blocklist, new member gate
-- [ ] Content warning columns + PostService/FeedService/ModerationController support
-- [ ] ModerationController: 13 new routes (shadow-ban, suspend, warn, appeals, space bans)
-- [ ] FeedService/SearchService/MemberDirectoryService: shadow-ban + suspension filtering
-- [ ] SearchService deindex triggered on shadow-ban and suspension
-- [ ] Space-scoped permission enforcement in PermissionService + ModerationController
-- [ ] EventListener: suspension email, appeal emails, admin alert cron
-- [ ] OutboundWebhookService (new) + OutboundWebhookController
+- [x] ModerationService: shadow_ban, unshadow_ban, is_shadow_banned
+- [x] ModerationService: suspend, unsuspend, is_suspended, get_active_suspension
+- [x] ModerationService: warn, submit_appeal, resolve_appeal
+- [x] SpaceMemberService: ban_from_space, unban_from_space, is_banned_from_space
+- [x] SafeguardService (new) — banned words, rate limit, link blocklist, new member gate
+- [x] Content warning columns + PostService/FeedService/ModerationController support
+- [x] ModerationController: 13 new routes (shadow-ban, suspend, warn, appeals, space bans)
+- [x] FeedService/SearchService/MemberDirectoryService: shadow-ban + suspension filtering
+- [x] SearchService deindex triggered on shadow-ban and suspension
+- [x] Space-scoped permission enforcement in PermissionService + ModerationController
+- [x] EventListener: suspension email, appeal emails, admin alert cron
+- [x] OutboundWebhookService (new) + OutboundWebhookController
 
 ### DB Tables
 Existing: `bn_reports`, `bn_mod_log`, `bn_user_strikes`
@@ -921,13 +921,13 @@ Works out of the box on every theme — block themes, BuddyX, Reign, and classic
 - [x] admin_post_ hookups for suspend/unsuspend/export (Members), delete space (Spaces)
 
 ### Remaining (see BLOCK 10 above)
-- [ ] `AdminPageBase` abstract class — premium wrapper matching `admin-settings.html` design
-- [ ] `Settings.php` `render_page()` — all 9 tabs with real form fields
-- [ ] `Members.php` `render_page()` — stats cards, filterable table, bulk actions, pagination
-- [ ] `Spaces.php` `render_page()` — table with owner, type, member count, actions
-- [ ] `IntegrationHub.php` `render_page()` — addon cards, status badges, feature toggles
+- [x] `AdminPageBase` abstract class — premium wrapper matching `admin-settings.html` design
+- [x] `Settings.php` `render_page()` — 10 tabs with real form fields (2026-03-22)
+- [x] `Members.php` `render_page()` — stats cards, filterable table, bulk actions, pagination (2026-03-22)
+- [x] `Spaces.php` `render_page()` — table with owner, type, member count, actions (2026-03-22)
+- [x] `IntegrationHub.php` `render_page()` — addon cards, status badges, feature toggles (2026-03-22)
 - [x] `NavManager.php` `render_page()` — three-panel layout, page assignments, visibility config, drag-reorder, conflict validation (2026-03-22)
-- [ ] `EmailEditor.php` `render_page()` — template list + inline editor + variable reference
+- [x] `EmailEditor.php` `render_page()` — template list + inline editor + variable reference (2026-03-22)
 
 ---
 
