@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Moderation service.
  *
@@ -61,7 +61,7 @@ class ModerationService {
 		global $wpdb;
 
 		// Check for existing report by this user on this object.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$existing = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT id FROM {$wpdb->prefix}bn_reports
@@ -71,12 +71,13 @@ class ModerationService {
 				$object_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( null !== $existing ) {
 			return new WP_Error( 'already_reported', __( 'You have already reported this content.', 'buddynext' ) );
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_reports',
 			array(
@@ -89,6 +90,7 @@ class ModerationService {
 			),
 			array( '%d', '%s', '%d', '%s', '%d', '%s' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$report_id = (int) $wpdb->insert_id;
 
@@ -148,7 +150,7 @@ class ModerationService {
 	public function get_reports_for_object( string $object_type, int $object_id ): array {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_reports
@@ -159,6 +161,7 @@ class ModerationService {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map( array( $this, 'hydrate_report' ), (array) $rows );
 	}
@@ -178,7 +181,7 @@ class ModerationService {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_user_strikes',
 			array(
@@ -188,6 +191,7 @@ class ModerationService {
 			),
 			array( '%d', '%d', '%s' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$strike_id = (int) $wpdb->insert_id;
 
@@ -222,7 +226,7 @@ class ModerationService {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_mod_log',
 			array(
@@ -235,6 +239,7 @@ class ModerationService {
 			),
 			array( '%d', '%s', '%s', '%d', '%d', '%s' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		/**
 		 * Fires after a formal warning is issued to a user.
@@ -262,7 +267,7 @@ class ModerationService {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_user_strikes',
 			array(
@@ -274,6 +279,7 @@ class ModerationService {
 			array( '%d', '%d', '%s' ),
 			array( '%d' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return true;
 	}
@@ -287,7 +293,7 @@ class ModerationService {
 	public function get_strikes( int $user_id ): array {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, user_id, issued_by, reason, created_at
@@ -298,6 +304,7 @@ class ModerationService {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map(
 			static function ( array $r ): array {
@@ -322,7 +329,7 @@ class ModerationService {
 	public function get_active_strike_count( int $user_id ): int {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_strikes
@@ -330,6 +337,7 @@ class ModerationService {
 				$user_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**
@@ -479,7 +487,7 @@ class ModerationService {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_user_suspensions',
 			array(
@@ -492,6 +500,7 @@ class ModerationService {
 			),
 			array( '%d', '%d', '%s', $duration_days ? '%d' : 'NULL', '%d', $expires_at ? '%s' : 'NULL' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$suspension_id = (int) $wpdb->insert_id;
 
@@ -525,7 +534,7 @@ class ModerationService {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_user_suspensions
@@ -538,6 +547,7 @@ class ModerationService {
 				$user_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		/**
 		 * Fires after a user suspension is lifted.
@@ -546,6 +556,7 @@ class ModerationService {
 		 * @param int $actor_id Admin who lifted the suspension.
 		 */
 		do_action( 'buddynext_member_unsuspended', $user_id, $actor_id );
+		do_action( 'buddynext_user_unsuspended', $user_id );
 
 		return true;
 	}
@@ -624,7 +635,7 @@ class ModerationService {
 	public function is_suspended( int $user_id ): bool {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_suspensions
@@ -634,6 +645,7 @@ class ModerationService {
 				$user_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return $count > 0;
 	}
@@ -651,7 +663,7 @@ class ModerationService {
 	public function get_active_suspension( int $user_id ): ?array {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT id, user_id, suspended_by, reason, duration_days, hide_posts,
@@ -666,6 +678,7 @@ class ModerationService {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( null === $row ) {
 			return null;
@@ -698,7 +711,7 @@ class ModerationService {
 		global $wpdb;
 
 		// Verify the suspension exists and belongs to this user.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$suspension = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT id FROM {$wpdb->prefix}bn_user_suspensions
@@ -707,12 +720,13 @@ class ModerationService {
 				$user_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( null === $suspension ) {
 			return new WP_Error( 'not_suspended', __( 'No matching suspension found.', 'buddynext' ) );
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_appeals',
 			array(
@@ -722,6 +736,7 @@ class ModerationService {
 			),
 			array( '%d', '%d', '%s' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$appeal_id = (int) $wpdb->insert_id;
 
@@ -757,15 +772,16 @@ class ModerationService {
 		global $wpdb;
 
 		// Fetch user_id for the hook before updating.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$user_id = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT user_id FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
 				$appeal_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_appeals',
 			array(
@@ -778,6 +794,7 @@ class ModerationService {
 			array( '%s', '%d', '%s', '%s' ),
 			array( '%d' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		/**
 		 * Fires after an appeal is resolved.
@@ -806,7 +823,7 @@ class ModerationService {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_reports',
 			array(
@@ -818,6 +835,7 @@ class ModerationService {
 			array( '%s', '%d', '%s' ),
 			array( '%d' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return true;
 	}
@@ -944,15 +962,17 @@ class ModerationService {
 			return new WP_Error( 'db_error', $wpdb->last_error );
 		}
 
+		$actor_id = $suspended_by > 0 ? $suspended_by : get_current_user_id();
+
 		/**
 		 * Fires after a suspension record is created.
 		 *
-		 * @param int    $user_id       Suspended user.
-		 * @param string $reason        Suspension reason.
-		 * @param int    $duration_days Duration in days; 0 = permanent.
-		 * @param bool   $hide_content  Whether content is hidden.
+		 * @param int         $user_id    Suspended user.
+		 * @param int         $actor_id   Admin who performed the suspension.
+		 * @param string      $reason     Suspension reason.
+		 * @param string|null $expires_at Expiry timestamp (Y-m-d H:i:s), or null for permanent.
 		 */
-		do_action( 'buddynext_user_suspended', $user_id, $reason, $duration_days, $hide_content );
+		do_action( 'buddynext_user_suspended', $user_id, $actor_id, $reason, $expires_at );
 
 		return true;
 	}
@@ -1178,6 +1198,13 @@ class ModerationService {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$user_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
+				$appeal_id
+			)
+		);
+
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_appeals',
 			array(
@@ -1200,9 +1227,10 @@ class ModerationService {
 		 * Fires after an appeal is resolved.
 		 *
 		 * @param int    $appeal_id Appeal ID.
+		 * @param int    $user_id   User whose appeal was resolved.
 		 * @param string $decision  'approved' or 'denied'.
 		 */
-		do_action( 'buddynext_appeal_resolved', $appeal_id, $decision );
+		do_action( 'buddynext_appeal_resolved', $appeal_id, $user_id, $decision );
 
 		return true;
 	}

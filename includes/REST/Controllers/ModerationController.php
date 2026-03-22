@@ -253,23 +253,6 @@ class ModerationController {
 			)
 		);
 
-		register_rest_route(
-			'buddynext/v1',
-			'/users/(?P<id>[\d]+)/unsuspend',
-			array(
-				'methods'             => WP_REST_Server::CREATABLE,
-				'callback'            => array( $this, 'unsuspend_user' ),
-				'permission_callback' => array( $this, 'require_admin' ),
-				'args'                => array(
-					'id' => array(
-						'required' => true,
-						'type'     => 'integer',
-						'minimum'  => 1,
-					),
-				),
-			)
-		);
-
 		// Appeals.
 		register_rest_route(
 			'buddynext/v1',
@@ -889,10 +872,13 @@ class ModerationController {
 	/**
 	 * Lift an active user suspension.
 	 *
+	 * Unused — route removed. DELETE /users/{id}/suspend via delete_suspension()
+	 * is the canonical unsuspend path.
+	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response|WP_Error
 	 */
-	public function unsuspend_user( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+	private function unsuspend_user( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$user_id  = (int) $request->get_param( 'id' );
 		$actor_id = get_current_user_id();
 
@@ -1199,17 +1185,17 @@ class ModerationController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function delete_suspension( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$user_id = (int) $request->get_param( 'id' );
+		$user_id  = (int) $request->get_param( 'id' );
+		$actor_id = get_current_user_id();
 
-		$result = ( new ModerationService() )->unsuspend( $user_id );
+		$result = ( new ModerationService() )->unsuspend_user( $user_id, $actor_id );
 
-		if ( ! $result ) {
-			return new WP_Error(
-				'no_active_suspension',
-				__( 'No active suspension found for this user.', 'buddynext' ),
-				array( 'status' => 404 )
-			);
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( array( 'status' => 403 ) );
+			return $result;
 		}
+
+		( new ModerationLogService() )->log( $actor_id, 'unsuspend_user', array( 'target_user_id' => $user_id ) );
 
 		return new WP_REST_Response(
 			array(
