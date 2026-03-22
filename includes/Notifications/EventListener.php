@@ -83,6 +83,12 @@ class EventListener {
 
 		// Jetonomy bridge (fires only when Jetonomy is active).
 		add_action( 'jetonomy_after_create_reply', array( $this, 'on_jetonomy_reply' ), 10, 3 );
+
+		// Onboarding nudge emails.
+		add_action( 'user_register', array( $this, 'on_user_register_schedule_nudges' ), 15, 1 );
+		add_action( 'buddynext_onboarding_completed', array( $this, 'on_onboarding_completed_cancel_nudges' ), 10, 1 );
+		add_action( 'bn_onboarding_nudge_24h', array( $this, 'handle_onboarding_nudge' ), 10, 1 );
+		add_action( 'bn_onboarding_nudge_72h', array( $this, 'handle_onboarding_nudge' ), 10, 1 );
 	}
 
 	/**
@@ -1194,6 +1200,59 @@ class EventListener {
 			array(
 				'user_id' => $user_id,
 				'ability' => $ability,
+			)
+		);
+	}
+
+	// ── Onboarding nudge handlers ─────────────────────────────────────────────
+
+	/**
+	 * Schedule 24h and 72h nudge emails when a new user registers.
+	 *
+	 * @param int $user_id Newly registered user ID.
+	 */
+	public function on_user_register_schedule_nudges( int $user_id ): void {
+		wp_schedule_single_event( time() + DAY_IN_SECONDS, 'bn_onboarding_nudge_24h', array( $user_id ) );
+		wp_schedule_single_event( time() + ( 3 * DAY_IN_SECONDS ), 'bn_onboarding_nudge_72h', array( $user_id ) );
+	}
+
+	/**
+	 * Cancel pending nudge emails when a user completes onboarding.
+	 *
+	 * @param int $user_id User who completed onboarding.
+	 */
+	public function on_onboarding_completed_cancel_nudges( int $user_id ): void {
+		wp_clear_scheduled_hook( 'bn_onboarding_nudge_24h', array( $user_id ) );
+		wp_clear_scheduled_hook( 'bn_onboarding_nudge_72h', array( $user_id ) );
+	}
+
+	/**
+	 * Send an onboarding nudge email if the user has not yet completed onboarding.
+	 *
+	 * Shared handler for both the 24h and 72h nudge cron hooks.
+	 *
+	 * @param int $user_id User ID to nudge.
+	 */
+	public function handle_onboarding_nudge( int $user_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		if ( buddynext_service( 'onboarding' )->is_complete( $user_id ) ) {
+			return;
+		}
+
+		$user = get_userdata( $user_id );
+		if ( ! $user ) {
+			return;
+		}
+
+		buddynext_service( 'email_sender' )->send(
+			$user_id,
+			'bn.onboarding_nudge',
+			array(
+				'recipient_name' => $user->display_name,
+				'onboarding_url' => home_url( '/?bn_hub=profile&bn_endpoint=onboarding' ),
 			)
 		);
 	}

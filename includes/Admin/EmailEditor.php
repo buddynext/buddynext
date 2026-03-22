@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * BuddyNext Email Template Editor admin panel.
  *
@@ -214,6 +214,24 @@ class EmailEditor {
 					'subject' => '{{otp_code}} is your {{site_name}} verification code',
 					'preview' => 'Enter this code to verify your email address.',
 					'body'    => "Hi {{recipient_name}},\n\nYour verification code for {{site_name}} is:\n\n<strong style=\"font-size:28px;letter-spacing:4px;\">{{otp_code}}</strong>\n\nThis code expires in 15 minutes.",
+				),
+			),
+			__( 'Onboarding', 'buddynext' )   => array(
+				'bn.bulk_invite'      => array(
+					'name'    => __( 'Bulk Invite', 'buddynext' ),
+					'trigger' => __( 'Sent when an admin invites a member via CSV upload', 'buddynext' ),
+					'tokens'  => array( '{{first_name}}', '{{site_name}}', '{{invite_url}}' ),
+					'subject' => "You've been invited to join {{site_name}}",
+					'preview' => 'Accept your invitation and create your account.',
+					'body'    => "Hi {{first_name}},\n\nYou've been invited to join <strong>{{site_name}}</strong>!\n\n<a href=\"{{invite_url}}\">Accept invitation →</a>\n\nThis invitation expires in 7 days.",
+				),
+				'bn.onboarding_nudge' => array(
+					'name'    => __( 'Onboarding Nudge', 'buddynext' ),
+					'trigger' => __( 'Sent 24h and 72h after registration if onboarding is incomplete', 'buddynext' ),
+					'tokens'  => array( '{{recipient_name}}', '{{site_name}}', '{{onboarding_url}}' ),
+					'subject' => 'Finish setting up your {{site_name}} profile',
+					'preview' => 'Complete your onboarding to get the most out of the community.',
+					'body'    => "Hi {{recipient_name}},\n\nYou're almost there! Complete your profile setup on <strong>{{site_name}}</strong> to connect with the community.\n\n<a href=\"{{onboarding_url}}\">Complete your profile →</a>",
 				),
 			),
 		);

@@ -102,6 +102,7 @@ class Members extends AdminPageBase {
 		( new \BuddyNext\Admin\Members\MemberExport() )->register();
 		( new \BuddyNext\Admin\Members\AvatarSettings() )->register();
 		( new \BuddyNext\Admin\Members\MemberTypesManager() )->register();
+		( new \BuddyNext\Admin\Members\InviteManager() )->register();
 	}
 
 	/**
@@ -628,7 +629,7 @@ class Members extends AdminPageBase {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$active_tab = sanitize_key( wp_unslash( $_GET['tab'] ?? 'members' ) );
-		if ( ! in_array( $active_tab, array( 'members', 'profile-fields', 'avatar-settings', 'member-types' ), true ) ) {
+		if ( ! in_array( $active_tab, array( 'members', 'profile-fields', 'avatar-settings', 'member-types', 'invites' ), true ) ) {
 			$active_tab = 'members';
 		}
 
@@ -646,6 +647,7 @@ class Members extends AdminPageBase {
 				'profile-fields'  => __( 'Profile Fields', 'buddynext' ),
 				'avatar-settings' => __( 'Avatar & Cover', 'buddynext' ),
 				'member-types'    => __( 'Member Types', 'buddynext' ),
+				'invites'         => __( 'Invites', 'buddynext' ),
 			),
 			$active_tab,
 			$base_url
@@ -657,6 +659,8 @@ class Members extends AdminPageBase {
 			( new \BuddyNext\Admin\Members\AvatarSettings() )->render_avatar_settings_tab();
 		} elseif ( 'member-types' === $active_tab ) {
 			( new \BuddyNext\Admin\Members\MemberTypesManager() )->render_member_types_tab();
+		} elseif ( 'invites' === $active_tab ) {
+			( new \BuddyNext\Admin\Members\InviteManager() )->render_invites_tab();
 		} else {
 			$this->render_members_tab();
 		}

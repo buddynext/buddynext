@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Admin bulk invite service.
  *
@@ -55,7 +55,19 @@ class InviteService {
 			array( '%s', '%s', '%s', '%s', '%s' )
 		);
 
-		return (int) $wpdb->insert_id;
+		$invite_id = (int) $wpdb->insert_id;
+		if ( $invite_id > 0 ) {
+			$this->send_invite_email(
+				array(
+					'id'         => $invite_id,
+					'email'      => sanitize_email( $email ),
+					'first_name' => sanitize_text_field( $first_name ),
+					'token'      => $token,
+				)
+			);
+		}
+
+		return $invite_id;
 	}
 
 	/**
@@ -118,6 +130,50 @@ class InviteService {
 		return ! empty( $rows ) ? $rows : array();
 	}
 
+	/**
+	 * Regenerate the token and resend the invite email.
+	 *
+	 * Resets an existing invite (any status) to 'pending' with a fresh token
+	 * and a new expiry window, then dispatches the invite email again.
+	 *
+	 * @param int $invite_id Invite record ID.
+	 * @return bool True if the update succeeded and email was dispatched.
+	 */
+	public function resend( int $invite_id ): bool {
+		global $wpdb;
+
+		$token      = $this->generate_token();
+		$expires_at = gmdate( 'Y-m-d H:i:s', time() + ( self::DEFAULT_TTL_DAYS * DAY_IN_SECONDS ) );
+
+		$updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->prefix . 'bn_invites',
+			array(
+				'token'      => $token,
+				'expires_at' => $expires_at,
+				'status'     => 'pending',
+			),
+			array( 'id' => $invite_id ),
+			array( '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+
+		if ( false === $updated || 0 === $updated ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$invite = $wpdb->get_row(
+			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_invites WHERE id = %d", $invite_id ),
+			ARRAY_A
+		);
+
+		if ( $invite ) {
+			$this->send_invite_email( $invite );
+		}
+
+		return true;
+	}
+
 	// -------------------------------------------------------------------------
 	// Private helpers
 	// -------------------------------------------------------------------------
@@ -146,6 +202,58 @@ class InviteService {
 			array( 'id' => $invite_id ),
 			array( '%s' ),
 			array( '%d' )
+		);
+	}
+
+	/**
+	 * Send the invite email for a given invite row.
+	 *
+	 * Fetches the bn.bulk_invite template from the DB (enabled rows only),
+	 * replaces {{first_name}}, {{site_name}}, and {{invite_url}} placeholders,
+	 * and dispatches via wp_mail.
+	 *
+	 * @param array<string, mixed> $invite Invite row (must contain 'email', 'first_name', 'token').
+	 * @return void
+	 */
+	private function send_invite_email( array $invite ): void {
+		$to = sanitize_email( (string) ( $invite['email'] ?? '' ) );
+		if ( '' === $to ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$tpl = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT subject, body_html FROM {$wpdb->prefix}bn_email_templates WHERE type = %s AND enabled = 1",
+				'bn.bulk_invite'
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		if ( ! $tpl ) {
+			return;
+		}
+
+		$first_name = '' !== ( (string) ( $invite['first_name'] ?? '' ) ) ? (string) $invite['first_name'] : __( 'there', 'buddynext' );
+		$invite_url = add_query_arg( 'bn_invite', rawurlencode( (string) ( $invite['token'] ?? '' ) ), wp_registration_url() );
+		$site_name  = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+
+		$tokens = array(
+			'{{first_name}}' => esc_html( $first_name ),
+			'{{site_name}}'  => esc_html( $site_name ),
+			'{{invite_url}}' => esc_url( $invite_url ),
+		);
+
+		$subject = str_replace( array_keys( $tokens ), array_values( $tokens ), (string) $tpl->subject );
+		$body    = str_replace( array_keys( $tokens ), array_values( $tokens ), (string) $tpl->body_html );
+
+		wp_mail(
+			$to,
+			$subject,
+			'<html><body>' . $body . '</body></html>',
+			array( 'Content-Type: text/html; charset=UTF-8' )
 		);
 	}
 }

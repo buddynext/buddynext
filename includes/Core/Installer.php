@@ -190,6 +190,18 @@ class Installer {
 				'preview_text' => 'Here\'s your weekly round-up from {{site_name}}',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Here\'s a summary of your notifications from this week on <a href="{{site_url}}">{{site_name}}</a>:</p>{{notification_list}}<p><a href="{{unsubscribe_url}}">Unsubscribe from digest emails</a></p>',
 			),
+			array(
+				'type'         => 'bn.bulk_invite',
+				'subject'      => 'You\'ve been invited to join {{site_name}}',
+				'preview_text' => 'Accept your invitation and create your account',
+				'body_html'    => '<p>Hi {{first_name}},</p><p>You\'ve been invited to join <strong>{{site_name}}</strong>!</p><p><a href="{{invite_url}}">Accept invitation &rarr;</a></p><p>This invitation expires in 7 days.</p>',
+			),
+			array(
+				'type'         => 'bn.onboarding_nudge',
+				'subject'      => 'Finish setting up your {{site_name}} profile',
+				'preview_text' => 'Complete your onboarding to get the most out of the community',
+				'body_html'    => '<p>Hi {{recipient_name}},</p><p>You\'re almost there! Complete your profile setup on <strong>{{site_name}}</strong> to connect with the community.</p><p><a href="{{onboarding_url}}">Complete your profile &rarr;</a></p>',
+			),
 		);
 
 		// Table name is a hardcoded constant — safe to interpolate. Values use prepare().

@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Member onboarding wizard service.
  *
@@ -83,6 +83,12 @@ class OnboardingService {
 			case 2:
 				$this->save_step2( $user_id, $data );
 				break;
+			case 3:
+				$this->save_step3( $user_id, $data );
+				break;
+			case 4:
+				$this->save_step4( $user_id, $data );
+				break;
 			default:
 				break;
 		}
@@ -156,6 +162,46 @@ class OnboardingService {
 	private function save_step2( int $user_id, array $data ): void {
 		$ids = array_map( 'absint', (array) ( $data['interest_ids'] ?? array() ) );
 		update_user_meta( $user_id, self::META_INTERESTS, $ids );
+	}
+
+	/**
+	 * Save step 3 data — join suggested spaces.
+	 *
+	 * @param int                  $user_id WordPress user ID.
+	 * @param array<string, mixed> $data    Step data — expects 'space_ids' as int[].
+	 * @return void
+	 */
+	private function save_step3( int $user_id, array $data ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+		$space_members = buddynext_service( 'space_members' );
+		$space_ids     = array_map( 'absint', (array) ( $data['space_ids'] ?? array() ) );
+		foreach ( $space_ids as $space_id ) {
+			if ( $space_id > 0 ) {
+				$space_members->join( $space_id, $user_id );
+			}
+		}
+	}
+
+	/**
+	 * Save step 4 data — follow suggested members.
+	 *
+	 * @param int                  $user_id WordPress user ID.
+	 * @param array<string, mixed> $data    Step data — expects 'user_ids' as int[].
+	 * @return void
+	 */
+	private function save_step4( int $user_id, array $data ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+		$follows  = buddynext_service( 'follows' );
+		$user_ids = array_map( 'absint', (array) ( $data['user_ids'] ?? array() ) );
+		foreach ( $user_ids as $follow_id ) {
+			if ( $follow_id > 0 && $follow_id !== $user_id ) {
+				$follows->follow( $user_id, $follow_id );
+			}
+		}
 	}
 
 	// -------------------------------------------------------------------------
