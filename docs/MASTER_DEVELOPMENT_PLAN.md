@@ -205,7 +205,7 @@ Complete these before any template/UI work.
 
 ### BLOCK 3 — Feed / Search / Directory filtering
 
-- [ ] Home feed, explore feed, space feed: hide posts from shadow-banned users; hide posts from suspended users when their suspension uses "hide content" mode
+- [x] Home feed, explore feed, space feed: hide posts from shadow-banned users; hide posts from suspended users when their suspension uses "hide content" mode
 - [ ] Search results: exclude shadow-banned and suspended users
 - [ ] Member directory: exclude suspended users
 - [ ] Space roster: exclude suspended users from member lists
@@ -545,9 +545,9 @@ templates/blocks/member-card.php     — type badge in card
 
 ---
 
-- [ ] Add `bn_member_types` + `bn_member_type_assignments` to `Installer.php`; add `type_restriction` to `bn_profile_groups` schema
-- [ ] Create `includes/MemberTypes/MemberTypeService.php` — CRUD, assign, cache, hooks
-- [ ] Create `includes/REST/Controllers/MemberTypeController.php` — 7 routes
+- [x] Add `bn_member_types` + `bn_member_type_assignments` to `Installer.php`; add `type_restriction` to `bn_profile_groups` schema
+- [x] Create `includes/MemberTypes/MemberTypeService.php` — CRUD, assign, cache, hooks
+- [x] Create `includes/REST/Controllers/MemberTypeController.php` — 7 routes
 - [ ] Create `includes/Admin/Members/MemberTypesManager.php` — admin tab + form handlers
 - [ ] Wire tab into `Members.php`; bind service in `Plugin.php`; register controller in `Router.php`
 - [ ] Update `PageRouter.php` — `/members/{type-slug}/` rewrite
