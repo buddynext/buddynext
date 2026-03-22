@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Main plugin orchestrator.
  *
@@ -111,6 +111,7 @@ class Plugin {
 			$container->get( 'admin_hub' )->register();
 			$container->get( 'admin_email_editor' )->register();
 			$container->get( 'setup_wizard' )->init();
+			( new PageSetup() )->register();
 
 			// Redirect to setup wizard on first activation.
 			add_action(
