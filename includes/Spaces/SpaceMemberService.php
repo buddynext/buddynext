@@ -801,6 +801,117 @@ class SpaceMemberService {
 		return $this->is_hard_banned( $space_id, $user_id );
 	}
 
+	// ── Block 2 — service-layer ban API (callers own capability checks) ─────
+
+	/**
+	 * Ban a user from a space by inserting into bn_space_bans, removing them
+	 * from bn_space_members if they are an active member, and adjusting the
+	 * member count accordingly.
+	 *
+	 * Callers are responsible for capability checks before calling this method.
+	 *
+	 * @param int    $space_id  Space ID.
+	 * @param int    $user_id   User to ban.
+	 * @param int    $banned_by Actor user ID (0 = system).
+	 * @param string $reason    Optional ban reason.
+	 * @return bool|WP_Error True on success or WP_Error on validation/DB failure.
+	 */
+	public function ban_from_space( int $space_id, int $user_id, int $banned_by = 0, string $reason = '' ): bool|WP_Error {
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return new WP_Error( 'invalid_args', __( 'Invalid space or user ID.', 'buddynext' ) );
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$inserted = $wpdb->insert(
+			$wpdb->prefix . 'bn_space_bans',
+			array(
+				'space_id'  => $space_id,
+				'user_id'   => $user_id,
+				'banned_by' => $banned_by > 0 ? $banned_by : null,
+				'reason'    => sanitize_textarea_field( $reason ),
+			),
+			array( '%d', '%d', $banned_by > 0 ? '%d' : 'NULL', '%s' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false === $inserted || '' !== $wpdb->last_error ) {
+			return new WP_Error( 'db_error', $wpdb->last_error );
+		}
+
+		// Remove from active membership and adjust the count if they were a member.
+		$was_active = ( 'active' === $this->get_status( $space_id, $user_id ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $user_id,
+			),
+			array( '%d', '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( $was_active ) {
+			$this->adjust_member_count( $space_id, -1 );
+		}
+
+		$this->invalidate_cache( $space_id, $user_id );
+
+		/**
+		 * Fires after a user is banned from a space.
+		 *
+		 * @param int $space_id  Space ID.
+		 * @param int $user_id   Banned user.
+		 * @param int $banned_by Actor user ID.
+		 */
+		do_action( 'buddynext_space_user_banned', $space_id, $user_id, $banned_by );
+
+		return true;
+	}
+
+	/**
+	 * Remove a ban from a user for a given space by deleting the bn_space_bans row.
+	 *
+	 * Callers are responsible for capability checks before calling this method.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  User to unban.
+	 * @return bool True if the ban row was deleted, false if no row existed.
+	 */
+	public function unban_from_space( int $space_id, int $user_id ): bool {
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$deleted = $wpdb->delete(
+			$wpdb->prefix . 'bn_space_bans',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $user_id,
+			),
+			array( '%d', '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$this->invalidate_cache( $space_id, $user_id );
+
+		/**
+		 * Fires after a space ban is lifted.
+		 *
+		 * @param int $space_id Space ID.
+		 * @param int $user_id  Unbanned user.
+		 */
+		do_action( 'buddynext_space_user_unbanned', $space_id, $user_id );
+
+		return (bool) $deleted;
+	}
+
 	/**
 	 * Check the permanent ban table for a space+user combination.
 	 *

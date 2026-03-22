@@ -96,11 +96,11 @@ class ModerationService {
 		 * Fires after a report is submitted.
 		 *
 		 * @param int    $report_id   New report ID.
+		 * @param int    $reporter_id User who submitted the report.
 		 * @param string $object_type Object type reported.
 		 * @param int    $object_id   Object ID reported.
-		 * @param int    $reporter_id User who submitted the report.
 		 */
-		do_action( 'buddynext_report_created', $report_id, sanitize_key( $object_type ), $object_id, $reporter_id );
+		do_action( 'buddynext_report_created', $report_id, $reporter_id, sanitize_key( $object_type ), $object_id );
 
 		return $report_id;
 	}
@@ -340,6 +340,10 @@ class ModerationService {
 	 *   page        int     1-based page number. Default 1.
 	 *   object_type string  Filter by object type ('post','comment','user','space','message').
 	 *   reason      string  Filter by reason (one of REASONS).
+	 *   space_ids   int[]   When non-empty, restrict results to reports where space_id is in
+	 *                       this list. Used by space-scoped moderators who must only see reports
+	 *                       originating from spaces they manage. An empty array means no filter
+	 *                       (site admins see everything).
 	 *
 	 * @param array<string, mixed> $args Query arguments.
 	 * @return array{items: array[], total: int}
@@ -355,6 +359,17 @@ class ModerationService {
 			? sanitize_key( (string) $args['reason'] )
 			: '';
 
+		// Normalise space_ids: array of positive ints, empty = no restriction.
+		$space_ids = array();
+		if ( ! empty( $args['space_ids'] ) && is_array( $args['space_ids'] ) ) {
+			foreach ( $args['space_ids'] as $sid ) {
+				$sid = absint( $sid );
+				if ( $sid > 0 ) {
+					$space_ids[] = $sid;
+				}
+			}
+		}
+
 		$where        = array( "status IN ('pending','escalated')" );
 		$list_params  = array();
 		$count_params = array();
@@ -369,6 +384,16 @@ class ModerationService {
 			$where[]        = 'reason = %s';
 			$list_params[]  = $reason;
 			$count_params[] = $reason;
+		}
+
+		if ( ! empty( $space_ids ) ) {
+			// Build a safe IN() clause from already-validated positive integers.
+			$placeholders = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+			$where[]      = "space_id IN ({$placeholders})"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			foreach ( $space_ids as $sid ) {
+				$list_params[]  = $sid;
+				$count_params[] = $sid;
+			}
 		}
 
 		$where_sql   = 'WHERE ' . implode( ' AND ', $where );
@@ -396,6 +421,30 @@ class ModerationService {
 			'items' => array_map( array( $this, 'hydrate_report' ), (array) $rows ),
 			'total' => $total,
 		);
+	}
+
+	/**
+	 * Return the space IDs in which a user holds an owner or moderator role.
+	 *
+	 * Used by ModerationController to scope the report queue for non-admin moderators.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return int[] Array of space IDs (may be empty).
+	 */
+	public function get_moderated_space_ids( int $user_id ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT space_id FROM {$wpdb->prefix}bn_space_members
+				 WHERE user_id = %d AND role IN ('owner','moderator') AND status = 'active'",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'absint', (array) $rows );
 	}
 
 	/**
@@ -792,5 +841,369 @@ class ModerationService {
 			'resolved_at' => $row['resolved_at'],
 			'created_at'  => $row['created_at'],
 		);
+	}
+
+	// ── Block 2 — service-layer thin API (callers own capability checks) ─────
+
+	/**
+	 * Shadow-ban a user by setting usermeta key `bn_shadow_banned`.
+	 *
+	 * @param int $user_id User to shadow-ban.
+	 * @return bool True on success.
+	 */
+	public function set_shadow_ban( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		$result = update_user_meta( $user_id, 'bn_shadow_banned', '1' );
+
+		/**
+		 * Fires after a user is shadow-banned.
+		 *
+		 * @param int $user_id Shadow-banned user ID.
+		 */
+		do_action( 'buddynext_user_shadow_banned', $user_id );
+
+		return false !== $result;
+	}
+
+	/**
+	 * Remove the shadow-ban from a user by deleting the `bn_shadow_banned` usermeta key.
+	 *
+	 * @param int $user_id User whose shadow-ban should be lifted.
+	 * @return bool True.
+	 */
+	public function remove_shadow_ban( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		delete_user_meta( $user_id, 'bn_shadow_banned' );
+
+		/**
+		 * Fires after a shadow-ban is removed from a user.
+		 *
+		 * @param int $user_id User ID.
+		 */
+		do_action( 'buddynext_user_shadow_ban_removed', $user_id );
+
+		return true;
+	}
+
+	/**
+	 * Check whether a user has the shadow-ban usermeta flag set.
+	 *
+	 * @param int $user_id User to check.
+	 * @return bool
+	 */
+	public function check_shadow_ban( int $user_id ): bool {
+		return (bool) get_user_meta( $user_id, 'bn_shadow_banned', true );
+	}
+
+	/**
+	 * Insert an active suspension record into `bn_user_suspensions`.
+	 *
+	 * Duration_days = 0 means permanent (expires_at = NULL).
+	 * Callers are responsible for capability checks before calling this method.
+	 *
+	 * @param int    $user_id       User to suspend.
+	 * @param string $reason        Suspension reason.
+	 * @param int    $duration_days Duration in days; 0 = permanent.
+	 * @param bool   $hide_content  Whether to hide the user's content. Default false.
+	 * @param int    $suspended_by  Actor user ID (0 if system-initiated).
+	 * @return bool|WP_Error True on success or WP_Error on DB failure.
+	 */
+	public function suspend( int $user_id, string $reason, int $duration_days, bool $hide_content = false, int $suspended_by = 0 ): bool|WP_Error {
+		if ( $user_id <= 0 ) {
+			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ) );
+		}
+
+		$expires_at = null;
+		if ( $duration_days > 0 ) {
+			$expires_at = gmdate( 'Y-m-d H:i:s', strtotime( "+{$duration_days} days" ) );
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$inserted = $wpdb->insert(
+			$wpdb->prefix . 'bn_user_suspensions',
+			array(
+				'user_id'      => $user_id,
+				'suspended_by' => $suspended_by > 0 ? $suspended_by : null,
+				'reason'       => sanitize_textarea_field( $reason ),
+				'expires_at'   => $expires_at,
+				'hide_posts'   => $hide_content ? 1 : 0,
+			),
+			array( '%d', $suspended_by > 0 ? '%d' : 'NULL', '%s', $expires_at ? '%s' : 'NULL', '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false === $inserted || '' !== $wpdb->last_error ) {
+			return new WP_Error( 'db_error', $wpdb->last_error );
+		}
+
+		/**
+		 * Fires after a suspension record is created.
+		 *
+		 * @param int    $user_id       Suspended user.
+		 * @param string $reason        Suspension reason.
+		 * @param int    $duration_days Duration in days; 0 = permanent.
+		 * @param bool   $hide_content  Whether content is hidden.
+		 */
+		do_action( 'buddynext_user_suspended', $user_id, $reason, $duration_days, $hide_content );
+
+		return true;
+	}
+
+	/**
+	 * Delete an active suspension record for a user.
+	 *
+	 * Removes rows from bn_user_suspensions where user_id matches and the
+	 * suspension has not yet expired.
+	 * Callers are responsible for capability checks before calling this method.
+	 *
+	 * @param int $user_id User to unsuspend.
+	 * @return bool True if at least one row was deleted.
+	 */
+	public function unsuspend( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$deleted = $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_user_suspensions
+				 WHERE user_id = %d AND (expires_at IS NULL OR expires_at > NOW())",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		/**
+		 * Fires after a suspension is removed.
+		 *
+		 * @param int $user_id Unsuspended user.
+		 */
+		do_action( 'buddynext_user_unsuspended', $user_id );
+
+		return (bool) $deleted;
+	}
+
+	/**
+	 * Check whether a user has an active suspension row.
+	 *
+	 * A row is active when lifted_at IS NULL (or the column does not exist in the
+	 * schema variant used here) and expires_at IS NULL or expires_at > NOW().
+	 *
+	 * @param int $user_id User to check.
+	 * @return bool
+	 */
+	public function has_active_suspension( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_suspensions
+				 WHERE user_id = %d AND (expires_at IS NULL OR expires_at > NOW())",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $count > 0;
+	}
+
+	/**
+	 * Return the most-recent active suspension row for a user as an associative
+	 * array, or null if the user has no active suspension.
+	 *
+	 * @param int $user_id User to query.
+	 * @return array<string, mixed>|null
+	 */
+	public function get_suspension( int $user_id ): ?array {
+		if ( $user_id <= 0 ) {
+			return null;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_user_suspensions
+				 WHERE user_id = %d AND (expires_at IS NULL OR expires_at > NOW())
+				 ORDER BY id DESC LIMIT 1",
+				$user_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( null === $row ) {
+			return null;
+		}
+
+		return $row;
+	}
+
+	/**
+	 * Insert a warning entry into the moderation log.
+	 *
+	 * Writes object_type='user', action='warned' to bn_mod_log and fires
+	 * buddynext_user_warned so event listeners can dispatch the warning email.
+	 * Callers are responsible for capability checks before calling this method.
+	 *
+	 * @param int    $user_id   User receiving the warning.
+	 * @param string $message   Warning message text.
+	 * @param int    $warned_by Actor ID (0 = system).
+	 * @return bool|WP_Error True on success or WP_Error on DB failure.
+	 */
+	public function log_warning( int $user_id, string $message, int $warned_by = 0 ): bool|WP_Error {
+		if ( $user_id <= 0 ) {
+			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ) );
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$inserted = $wpdb->insert(
+			$wpdb->prefix . 'bn_mod_log',
+			array(
+				'object_type'    => 'user',
+				'object_id'      => $user_id,
+				'action'         => 'warned',
+				'note'           => sanitize_textarea_field( $message ),
+				'actor_id'       => $warned_by > 0 ? $warned_by : null,
+				'target_user_id' => $user_id,
+			),
+			array( '%s', '%d', '%s', '%s', $warned_by > 0 ? '%d' : 'NULL', '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false === $inserted || '' !== $wpdb->last_error ) {
+			return new WP_Error( 'db_error', $wpdb->last_error );
+		}
+
+		/**
+		 * Fires after a warning is issued to a user.
+		 *
+		 * @param int    $user_id   Warned user.
+		 * @param string $message   Warning message.
+		 * @param int    $warned_by Actor user ID (0 = system).
+		 */
+		do_action( 'buddynext_user_warned', $user_id, $message, $warned_by );
+
+		return true;
+	}
+
+	/**
+	 * Insert an appeal record into `bn_appeals`.
+	 *
+	 * This variant does not require a suspension_id — it records a general
+	 * appeal submitted by the user. Callers own validation of the user's
+	 * current moderation state before invoking this method.
+	 *
+	 * @param int    $user_id User submitting the appeal.
+	 * @param string $message Appeal message from the user.
+	 * @return int|WP_Error Inserted appeal ID or WP_Error on DB failure.
+	 */
+	public function create_appeal( int $user_id, string $message ): int|WP_Error {
+		if ( $user_id <= 0 ) {
+			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ) );
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$inserted = $wpdb->insert(
+			$wpdb->prefix . 'bn_appeals',
+			array(
+				'user_id' => $user_id,
+				'message' => sanitize_textarea_field( $message ),
+				'status'  => 'pending',
+			),
+			array( '%d', '%s', '%s' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false === $inserted || '' !== $wpdb->last_error ) {
+			return new WP_Error( 'db_error', $wpdb->last_error );
+		}
+
+		$insert_id = (int) $wpdb->insert_id;
+
+		/**
+		 * Fires after an appeal is submitted.
+		 *
+		 * @param int $user_id   User who submitted the appeal.
+		 * @param int $insert_id Inserted appeal ID.
+		 */
+		do_action( 'buddynext_appeal_submitted', $user_id, $insert_id );
+
+		return $insert_id;
+	}
+
+	/**
+	 * Update an appeal record with an admin decision.
+	 *
+	 * Decision must be 'approved' or 'denied'. Updates bn_appeals.status,
+	 * admin_note, resolved_by, and resolved_at. Callers are responsible for
+	 * capability checks before calling this method.
+	 *
+	 * @param int    $appeal_id    Appeal to resolve.
+	 * @param string $decision     'approved' or 'denied'.
+	 * @param string $admin_note   Optional admin note.
+	 * @param int    $resolved_by  Admin user ID (0 = system).
+	 * @return bool|WP_Error True on success or WP_Error on validation/DB failure.
+	 */
+	public function decide_appeal( int $appeal_id, string $decision, string $admin_note = '', int $resolved_by = 0 ): bool|WP_Error {
+		if ( ! in_array( $decision, self::APPEAL_DECISIONS, true ) ) {
+			return new WP_Error( 'invalid_decision', __( 'Decision must be "approved" or "denied".', 'buddynext' ) );
+		}
+
+		if ( $appeal_id <= 0 ) {
+			return new WP_Error( 'invalid_appeal', __( 'Invalid appeal ID.', 'buddynext' ) );
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_appeals',
+			array(
+				'status'      => $decision,
+				'admin_note'  => sanitize_textarea_field( $admin_note ),
+				'resolved_by' => $resolved_by > 0 ? $resolved_by : null,
+				'resolved_at' => current_time( 'mysql' ),
+			),
+			array( 'id' => $appeal_id ),
+			array( '%s', '%s', $resolved_by > 0 ? '%d' : 'NULL', '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false === $updated || '' !== $wpdb->last_error ) {
+			return new WP_Error( 'db_error', $wpdb->last_error );
+		}
+
+		/**
+		 * Fires after an appeal is resolved.
+		 *
+		 * @param int    $appeal_id Appeal ID.
+		 * @param string $decision  'approved' or 'denied'.
+		 */
+		do_action( 'buddynext_appeal_resolved', $appeal_id, $decision );
+
+		return true;
 	}
 }
