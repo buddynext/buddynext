@@ -3,15 +3,16 @@
  * Moderation REST controller.
  *
  * Routes (all under buddynext/v1):
- *   POST /reports                          — submit a report (auth required)
- *   GET  /reports                          — list reports for an object (admin only)
- *   GET  /reports/queue                    — paginated pending+escalated queue (admin only)
- *   POST /reports/{id}/dismiss             — dismiss a report (admin only)
- *   POST /reports/{id}/escalate            — escalate a report (admin only)
- *   POST /reports/{id}/resolve             — resolve a report (admin only)
- *   GET  /users/{id}/strikes               — list active strikes for a user (admin only)
- *   POST /users/{id}/strikes               — issue a strike (admin only)
- *   POST /users/{id}/strikes/{sid}/reverse — reverse a strike (admin only)
+ *   POST /reports                               — submit a report (auth required)
+ *   GET  /reports                               — list reports for an object (admin only)
+ *   GET  /reports/queue                         — paginated pending+escalated queue (admin/mod)
+ *   POST /reports/{id}/dismiss                  — dismiss a report (admin only)
+ *   POST /reports/{id}/escalate                 — escalate a report (admin only)
+ *   POST /reports/{id}/resolve                  — resolve a report (admin only)
+ *   GET  /users/{id}/strikes                    — list active strikes for a user (admin only)
+ *   POST /users/{id}/strikes                    — issue a strike (admin only)
+ *   POST /users/{id}/strikes/{sid}/reverse      — reverse a strike (admin only)
+ *   PUT  /posts/{id}/content-warning            — set/clear content warning (admin only)
  *
  * @package BuddyNext\REST\Controllers
  */
@@ -90,13 +91,14 @@ class ModerationController {
 		);
 
 		// Moderation queue — pending + escalated, paginated.
+		// Site admins see the full queue. Space moderators see only their spaces' reports.
 		register_rest_route(
 			'buddynext/v1',
 			'/reports/queue',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_queue' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_queue_access' ),
 				'args'                => array(
 					'per_page'    => array(
 						'type'              => 'integer',
@@ -305,6 +307,35 @@ class ModerationController {
 				),
 			)
 		);
+
+		// Content warning — admin can force-set or clear a warning on any post.
+		register_rest_route(
+			'buddynext/v1',
+			'/posts/(?P<id>[\d]+)/content-warning',
+			array(
+				'methods'             => WP_REST_Server::EDITABLE,
+				'callback'            => array( $this, 'set_content_warning' ),
+				'permission_callback' => array( $this, 'require_admin' ),
+				'args'                => array(
+					'id'                   => array(
+						'required'          => true,
+						'type'              => 'integer',
+						'minimum'           => 1,
+						'sanitize_callback' => 'absint',
+					),
+					'content_warning'      => array(
+						'required' => true,
+						'type'     => 'boolean',
+					),
+					'content_warning_type' => array(
+						'required'          => false,
+						'type'              => 'string',
+						'default'           => 'nsfw',
+						'sanitize_callback' => 'sanitize_key',
+					),
+				),
+			)
+		);
 	}
 
 	/**
@@ -495,10 +526,16 @@ class ModerationController {
 	/**
 	 * Return the paginated moderation queue (pending + escalated reports).
 	 *
+	 * Site admins receive the unfiltered global queue. Space moderators who do
+	 * not hold manage_options see only reports that belong to spaces they own or
+	 * moderate. If a space moderator manages no spaces the result is always empty.
+	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response
 	 */
 	public function get_queue( WP_REST_Request $request ): WP_REST_Response {
+		$service = new ModerationService();
+
 		$args = array(
 			'per_page' => absint( $request->get_param( 'per_page' ) ),
 			'page'     => absint( $request->get_param( 'page' ) ),
@@ -514,7 +551,12 @@ class ModerationController {
 			$args['reason'] = sanitize_key( (string) $reason_param );
 		}
 
-		$result = ( new ModerationService() )->get_queue( $args );
+		// Non-site-admin moderators may only see reports for their own spaces.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$args['space_ids'] = $service->get_moderated_space_ids( get_current_user_id() );
+		}
+
+		$result = $service->get_queue( $args );
 
 		return new WP_REST_Response( $result, 200 );
 	}
@@ -660,6 +702,77 @@ class ModerationController {
 	}
 
 	/**
+	 * Apply or remove a content warning on a post (admin only).
+	 *
+	 * Updates bn_posts: content_warning and content_warning_type columns.
+	 * content_warning_type must be one of: nsfw, spoilers, violence, language.
+	 * When content_warning is false the type is stored as-is but has no visual effect.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function set_content_warning( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		global $wpdb;
+
+		$post_id       = absint( $request->get_param( 'id' ) );
+		$has_warning   = (bool) $request->get_param( 'content_warning' );
+		$warning_type  = sanitize_key( (string) ( $request->get_param( 'content_warning_type' ) ?? 'nsfw' ) );
+		$allowed_types = array( 'nsfw', 'spoilers', 'violence', 'language' );
+
+		if ( ! in_array( $warning_type, $allowed_types, true ) ) {
+			return new WP_Error(
+				'invalid_content_warning_type',
+				__( 'content_warning_type must be one of: nsfw, spoilers, violence, language.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		// Confirm the post exists in bn_posts.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$exists = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
+				$post_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( null === $exists ) {
+			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'content_warning'      => $has_warning ? 1 : 0,
+				'content_warning_type' => $warning_type,
+			),
+			array( 'id' => $post_id ),
+			array( '%d', '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false === $updated ) {
+			return new WP_Error(
+				'db_error',
+				__( 'Failed to update content warning.', 'buddynext' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'id'                   => $post_id,
+				'content_warning'      => $has_warning,
+				'content_warning_type' => $warning_type,
+			),
+			200
+		);
+	}
+
+	/**
 	 * Require the user to be logged in.
 	 *
 	 * @return bool|WP_Error
@@ -684,5 +797,32 @@ class ModerationController {
 			return new WP_Error( 'rest_forbidden', __( 'Admins only.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 		return true;
+	}
+
+	/**
+	 * Permission callback for the moderation queue endpoint.
+	 *
+	 * Site admins (manage_options) pass unconditionally. Space moderators who
+	 * hold an owner or moderator role in at least one space also pass — the
+	 * get_queue() handler will then scope the results to their spaces only.
+	 *
+	 * @return bool|WP_Error
+	 */
+	public function require_queue_access(): bool|WP_Error {
+		if ( ! is_user_logged_in() ) {
+			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
+		}
+
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+
+		// Allow access if the user moderates at least one space.
+		$space_ids = ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() );
+		if ( ! empty( $space_ids ) ) {
+			return true;
+		}
+
+		return new WP_Error( 'rest_forbidden', __( 'You do not have permission to view the moderation queue.', 'buddynext' ), array( 'status' => 403 ) );
 	}
 }
