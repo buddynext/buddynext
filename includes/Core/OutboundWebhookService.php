@@ -1,15 +1,12 @@
-<?php // phpcs:ignore WordPress.Files.FileName.InvalidClassFileName, WordPress.Files.FileName.NotHyphenatedLowercase -- PSR-4 PascalCase naming is the project standard.
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Outbound webhook dispatch service.
  *
- * Reads active webhook configurations from bn_outbound_webhooks and dispatches
- * signed HTTP POST payloads whenever a subscribed BuddyNext event fires. Each
- * delivery attempt is logged in bn_outbound_webhook_log regardless of outcome.
- *
- * Webhook payloads are signed with an HMAC-SHA256 signature delivered via the
- * X-BuddyNext-Signature header so consumers can verify authenticity.
- *
- * Bind as 'outbound_webhooks' in Plugin.php and call ->init()
+ * Manages registered external endpoints in bn_outbound_webhooks, dispatches
+ * HMAC-SHA256-signed HTTP POST payloads on BuddyNext lifecycle events, logs
+ * every attempt in bn_outbound_webhook_log, and retries recent failures via a
+ * five-minute WP-Cron job. Endpoints that accumulate three consecutive delivery
+ * failures are automatically deactivated.
  *
  * @package BuddyNext\Core
  */
@@ -18,352 +15,474 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Core;
 
+use WP_Error;
+
 /**
- * Dispatches signed HTTP webhook payloads for configurable BuddyNext events.
+ * Registers, dispatches, logs, and retries outbound webhooks.
  */
 class OutboundWebhookService {
 
 	/**
-	 * Maximum length stored for response bodies in the log table.
+	 * Maximum characters stored for response bodies in bn_outbound_webhook_log.
 	 */
-	private const RESPONSE_BODY_MAX_LENGTH = 2000;
+	private const RESPONSE_BODY_MAX = 1000;
 
 	/**
-	 * HTTP timeout in seconds for outbound webhook requests.
+	 * HTTP POST timeout in seconds.
 	 */
-	private const HTTP_TIMEOUT = 10;
+	private const HTTP_TIMEOUT = 5;
 
 	/**
-	 * Initialise the service.
+	 * Consecutive failure threshold before an endpoint is deactivated.
 	 */
-	public function __construct() {}
-
-	// ── Registration ──────────────────────────────────────────────────────
+	private const MAX_CONSECUTIVE_FAILURES = 3;
 
 	/**
-	 * Register hooks so configured webhooks fire on BuddyNext events.
-	 *
-	 * Each BuddyNext action maps to an event-type string that webhook
-	 * subscribers list in their `events` JSON column. When the action fires,
-	 * dispatch() fans out to every matching active webhook.
+	 * Register the five-minute WP-Cron schedule, schedule the retry event, and
+	 * bind the retry handler. Called once during Plugin::init().
 	 */
 	public function init(): void {
-		add_action( 'buddynext_user_followed', array( $this, 'on_user_followed' ), 10, 2 );
-		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
-		add_action( 'buddynext_space_created', array( $this, 'on_space_created' ), 10, 2 );
-		add_action( 'buddynext_space_member_joined', array( $this, 'on_space_member_joined' ), 10, 3 );
-		add_action( 'buddynext_member_suspended', array( $this, 'on_member_suspended' ), 10, 2 );
-		add_action( 'buddynext_appeal_resolved', array( $this, 'on_appeal_resolved' ), 10, 3 );
-	}
-
-	// ── Hook handlers ─────────────────────────────────────────────────────
-
-	/**
-	 * Dispatch webhook payload when a user follows another user.
-	 *
-	 * @param int $follower_id  User who initiated the follow.
-	 * @param int $following_id User who was followed.
-	 */
-	public function on_user_followed( int $follower_id, int $following_id ): void {
-		$this->dispatch(
-			'user.followed',
-			array(
-				'follower_id'  => $follower_id,
-				'following_id' => $following_id,
-			)
-		);
-	}
-
-	/**
-	 * Dispatch webhook payload when a new post is created.
-	 *
-	 * @param int    $post_id Post ID.
-	 * @param int    $user_id Author ID.
-	 * @param string $type    Post type slug.
-	 */
-	public function on_post_created( int $post_id, int $user_id, string $type ): void {
-		$this->dispatch(
-			'post.created',
-			array(
-				'post_id' => $post_id,
-				'user_id' => $user_id,
-				'type'    => $type,
-			)
-		);
-	}
-
-	/**
-	 * Dispatch webhook payload when a new space is created.
-	 *
-	 * @param int $space_id Space ID.
-	 * @param int $user_id  Owner ID.
-	 */
-	public function on_space_created( int $space_id, int $user_id ): void {
-		$this->dispatch(
-			'space.created',
-			array(
-				'space_id' => $space_id,
-				'user_id'  => $user_id,
-			)
-		);
-	}
-
-	/**
-	 * Dispatch webhook payload when a member joins a space.
-	 *
-	 * The $_role parameter is received from the hook but intentionally excluded
-	 * from the payload — its only purpose is to satisfy the hook's arity.
-	 *
-	 * @param int    $space_id Space that was joined.
-	 * @param int    $user_id  User who joined.
-	 * @param string $_role    Role assigned (unused — required by hook contract).
-	 */
-	public function on_space_member_joined( int $space_id, int $user_id, string $_role ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_role required by hook contract.
-		$this->dispatch(
-			'space.member_joined',
-			array(
-				'user_id'  => $user_id,
-				'space_id' => $space_id,
-			)
-		);
-	}
-
-	/**
-	 * Dispatch webhook payload when a member is suspended.
-	 *
-	 * @param int $user_id  Suspended user ID.
-	 * @param int $mod_id   Moderator who issued the suspension.
-	 */
-	public function on_member_suspended( int $user_id, int $mod_id ): void {
-		$this->dispatch(
-			'user.suspended',
-			array(
-				'user_id' => $user_id,
-				'by'      => $mod_id,
-			)
-		);
-	}
-
-	/**
-	 * Dispatch webhook payload when a moderation appeal is resolved.
-	 *
-	 * @param int    $appeal_id Appeal row ID.
-	 * @param int    $user_id   Appellant user ID.
-	 * @param string $status    Resolution status: 'approved' or 'denied'.
-	 */
-	public function on_appeal_resolved( int $appeal_id, int $user_id, string $status ): void {
-		$this->dispatch(
-			'appeal.resolved',
-			array(
-				'appeal_id' => $appeal_id,
-				'status'    => $status,
-			)
-		);
-	}
-
-	// ── Core dispatch ─────────────────────────────────────────────────────
-
-	/**
-	 * Dispatch an event payload to all active webhooks subscribed to that event.
-	 *
-	 * Loads every active webhook row and, for each row whose `events` JSON array
-	 * includes $event_type, calls send() to deliver the payload.
-	 *
-	 * @param string $event_type Dot-notation event name (e.g. 'post.created').
-	 * @param array  $payload    Arbitrary data to include in the delivery body.
-	 */
-	public function dispatch( string $event_type, array $payload ): void {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$webhooks = $wpdb->get_results(
-			"SELECT id, label, url, secret, events, is_active FROM {$wpdb->prefix}bn_outbound_webhooks WHERE is_active = 1"
-		);
-
-		if ( empty( $webhooks ) ) {
-			return;
-		}
-
-		foreach ( $webhooks as $webhook ) {
-			$subscribed = json_decode( (string) ( $webhook->events ?? 'null' ), true );
-
-			if ( ! is_array( $subscribed ) || ! in_array( $event_type, $subscribed, true ) ) {
-				continue;
+		// phpcs:disable WordPress.WP.CronInterval.CronSchedulesInterval -- 5-minute retry interval required for reliable webhook delivery.
+		add_filter(
+			'cron_schedules',
+			static function ( array $schedules ): array {
+				if ( ! isset( $schedules['every_five_minutes'] ) ) {
+					$schedules['every_five_minutes'] = array(
+						'interval' => 300,
+						'display'  => __( 'Every 5 minutes', 'buddynext' ),
+					);
+				}
+				return $schedules;
 			}
+		);
+		// phpcs:enable WordPress.WP.CronInterval.CronSchedulesInterval
 
-			$this->send( $webhook, $event_type, $payload );
+		if ( ! wp_next_scheduled( 'buddynext_webhook_retry' ) ) {
+			wp_schedule_event( time(), 'every_five_minutes', 'buddynext_webhook_retry' );
 		}
+
+		add_action( 'buddynext_webhook_retry', array( $this, 'retry_failed' ) );
 	}
 
-	/**
-	 * Build, sign, send and log a single webhook delivery.
-	 *
-	 * The request body is a JSON object containing `event`, `timestamp`, and
-	 * `payload`. An HMAC-SHA256 signature over the raw body string is attached
-	 * via the X-BuddyNext-Signature header when the webhook has a secret.
-	 *
-	 * @param object $webhook    Webhook row from bn_outbound_webhooks.
-	 * @param string $event_type Dot-notation event name.
-	 * @param array  $payload    Event-specific data.
-	 */
-	public function send( object $webhook, string $event_type, array $payload ): void {
-		global $wpdb;
-
-		$body = wp_json_encode(
-			array(
-				'event'     => $event_type,
-				'timestamp' => gmdate( 'c' ),
-				'payload'   => $payload,
-			)
-		);
-
-		if ( false === $body ) {
-			return;
-		}
-
-		$secret    = (string) ( $webhook->secret ?? '' );
-		$signature = 'sha256=' . hash_hmac( 'sha256', $body, $secret );
-
-		$response = wp_remote_post(
-			(string) $webhook->url,
-			array(
-				'timeout'  => self::HTTP_TIMEOUT,
-				'blocking' => true,
-				'headers'  => array(
-					'Content-Type'          => 'application/json',
-					'X-BuddyNext-Signature' => $signature,
-					'X-BuddyNext-Event'     => $event_type,
-				),
-				'body'     => $body,
-			)
-		);
-
-		$is_error      = is_wp_error( $response );
-		$response_code = $is_error ? null : (int) wp_remote_retrieve_response_code( $response );
-		$response_body = $is_error
-			? $response->get_error_message()
-			: wp_remote_retrieve_body( $response );
-
-		if ( strlen( $response_body ) > self::RESPONSE_BODY_MAX_LENGTH ) {
-			$response_body = substr( $response_body, 0, self::RESPONSE_BODY_MAX_LENGTH );
-		}
-
-		$delivered_at = ( ! $is_error && null !== $response_code && $response_code < 400 )
-			? gmdate( 'Y-m-d H:i:s' )
-			: null;
-
-		$status = ( null !== $delivered_at ) ? 'success' : 'error';
-
-		$data    = array(
-			'webhook_id'    => (int) $webhook->id,
-			'event'         => $event_type,
-			'payload'       => $body,
-			'response_code' => $response_code,
-			'response_body' => $response_body,
-			'status'        => $status,
-		);
-		$formats = array( '%d', '%s', '%s', null !== $response_code ? '%d' : 'NULL', '%s', '%s' );
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_outbound_webhook_log',
-			$data,
-			$formats
-		);
-	}
-
-	// ── CRUD ──────────────────────────────────────────────────────────────
+	// ── Registration ──────────────────────────────────────────────────────────
 
 	/**
-	 * Return all webhook rows for the admin UI.
+	 * Register a new webhook endpoint.
 	 *
-	 * @return array<int, object> All rows from bn_outbound_webhooks.
+	 * The URL must be a valid https:// address. The label is derived from the
+	 * URL hostname and the registering user's display name.
+	 *
+	 * @param string        $url        Target URL — must begin with https://.
+	 * @param string        $secret     HMAC signing secret.
+	 * @param array<string> $events     Event slugs to subscribe to; empty = all events.
+	 * @param int           $created_by Admin user ID used to build the label.
+	 * @return int|WP_Error Inserted webhook ID on success, WP_Error on failure.
 	 */
-	public function get_webhooks(): array {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			"SELECT id, label, url, secret, events, is_active, created_at, updated_at FROM {$wpdb->prefix}bn_outbound_webhooks ORDER BY id ASC"
-		);
-
-		return $rows ? $rows : array();
-	}
-
-	/**
-	 * Insert a new webhook row.
-	 *
-	 * A random 40-character alphanumeric secret is generated automatically
-	 * when the caller passes an empty string.
-	 *
-	 * @param string   $label        Human-readable label.
-	 * @param string   $endpoint_url Destination URL.
-	 * @param string[] $events       Array of dot-notation event names to subscribe to.
-	 * @param string   $secret       Signing secret. Auto-generated when empty.
-	 * @return int|false Insert ID on success, false on failure.
-	 */
-	public function create_webhook( string $label, string $endpoint_url, array $events, string $secret = '' ): int|false {
-		global $wpdb;
-
-		if ( '' === $secret ) {
-			$secret = wp_generate_password( 40, false );
+	public function register( string $url, string $secret, array $events, int $created_by ): int|WP_Error {
+		if ( ! str_starts_with( $url, 'https://' ) ) {
+			return new WP_Error(
+				'invalid_url',
+				__( 'Webhook URL must begin with https://.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
 		}
 
-		$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		if ( ! filter_var( $url, FILTER_VALIDATE_URL ) ) {
+			return new WP_Error(
+				'invalid_url',
+				__( 'Webhook URL is not a valid URL.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		$host  = (string) wp_parse_url( $url, PHP_URL_HOST );
+		$user  = get_userdata( $created_by );
+		$label = sprintf(
+			'%s — %s',
+			'' !== $host ? $host : $url,
+			$user ? $user->display_name : 'User ' . $created_by
+		);
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'bn_outbound_webhooks',
 			array(
 				'label'     => $label,
-				'url'       => $endpoint_url,
+				'url'       => $url,
 				'secret'    => $secret,
-				'events'    => wp_json_encode( array_values( $events ) ),
+				'events'    => wp_json_encode( array_values( array_unique( $events ) ) ),
 				'is_active' => 1,
 			),
 			array( '%s', '%s', '%s', '%s', '%d' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
 
 		if ( false === $inserted ) {
-			return false;
+			return new WP_Error(
+				'db_insert_failed',
+				__( 'Failed to register webhook endpoint.', 'buddynext' ),
+				array( 'status' => 500 )
+			);
 		}
 
 		return (int) $wpdb->insert_id;
 	}
 
 	/**
-	 * Delete a webhook row and its associated log entries.
+	 * List all registered webhook endpoints ordered by id ascending.
 	 *
-	 * @param int $id Webhook row ID.
-	 * @return bool True when a row was deleted, false otherwise.
+	 * Decodes the events JSON column to an array for each row.
+	 *
+	 * @return array<array<string,mixed>>
 	 */
-	public function delete_webhook( int $id ): bool {
+	public function list_all(): array {
 		global $wpdb;
 
-		$deleted = $wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write operation; no read-cache to invalidate.
-			$wpdb->prefix . 'bn_outbound_webhooks',
-			array( 'id' => $id ),
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			"SELECT id, label, url, secret, events, is_active, created_at, updated_at
+			   FROM {$wpdb->prefix}bn_outbound_webhooks
+			  ORDER BY id ASC",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( ! is_array( $rows ) ) {
+			return array();
+		}
+
+		foreach ( $rows as &$row ) {
+			$decoded       = json_decode( (string) ( $row['events'] ?? 'null' ), true );
+			$row['events'] = is_array( $decoded ) ? $decoded : array();
+		}
+		unset( $row );
+
+		return $rows;
+	}
+
+	/**
+	 * Delete a webhook endpoint and all its log entries.
+	 *
+	 * Log entries are removed first to avoid orphaned rows.
+	 *
+	 * @param int $webhook_id Webhook row ID.
+	 * @return bool True when the endpoint was deleted, false when not found.
+	 */
+	public function delete( int $webhook_id ): bool {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_outbound_webhook_log',
+			array( 'webhook_id' => $webhook_id ),
 			array( '%d' )
 		);
+
+		$deleted = $wpdb->delete(
+			$wpdb->prefix . 'bn_outbound_webhooks',
+			array( 'id' => $webhook_id ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return false !== $deleted && $deleted > 0;
 	}
 
 	/**
-	 * Enable or disable a webhook.
+	 * Get paginated delivery log for a specific webhook endpoint.
 	 *
-	 * @param int  $id     Webhook row ID.
-	 * @param bool $active True to activate, false to deactivate.
-	 * @return bool True when the row was updated, false otherwise.
+	 * @param int $webhook_id Webhook row ID.
+	 * @param int $per_page   Rows per page; clamped to 1–100.
+	 * @param int $page       1-based page number.
+	 * @return array{items: array<array<string,mixed>>, total: int}
 	 */
-	public function toggle_webhook( int $id, bool $active ): bool {
+	public function get_log( int $webhook_id, int $per_page = 20, int $page = 1 ): array {
 		global $wpdb;
 
-		$updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write operation; no read-cache to invalidate.
-			$wpdb->prefix . 'bn_outbound_webhooks',
-			array( 'is_active' => (int) $active ),
-			array( 'id' => $id ),
-			array( '%d' ),
-			array( '%d' )
+		$per_page = max( 1, min( 100, $per_page ) );
+		$offset   = ( max( 1, $page ) - 1 ) * $per_page;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$total = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_outbound_webhook_log WHERE webhook_id = %d",
+				$webhook_id
+			)
 		);
 
-		return false !== $updated && $updated > 0;
+		$items = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, webhook_id, event, response_code, response_body, status, created_at
+				   FROM {$wpdb->prefix}bn_outbound_webhook_log
+				  WHERE webhook_id = %d
+				  ORDER BY id DESC
+				  LIMIT %d OFFSET %d",
+				$webhook_id,
+				$per_page,
+				$offset
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array(
+			'items' => is_array( $items ) ? $items : array(),
+			'total' => $total,
+		);
+	}
+
+	/**
+	 * Dispatch an event to all matching active endpoints.
+	 *
+	 * Webhooks with an empty events array receive all events. Webhooks with a
+	 * non-empty events array receive only the events listed.
+	 *
+	 * @param string              $event_slug Event slug, e.g. 'member.registered'.
+	 * @param array<string,mixed> $payload    Event-specific data.
+	 */
+	public function dispatch( string $event_slug, array $payload ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$webhooks = $wpdb->get_results(
+			"SELECT id, url, secret, events
+			   FROM {$wpdb->prefix}bn_outbound_webhooks
+			  WHERE is_active = 1",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( empty( $webhooks ) ) {
+			return;
+		}
+
+		foreach ( $webhooks as $webhook ) {
+			$subscribed = json_decode( (string) ( $webhook['events'] ?? 'null' ), true );
+
+			$matches_all   = ! is_array( $subscribed ) || count( $subscribed ) === 0;
+			$matches_event = is_array( $subscribed ) && in_array( $event_slug, $subscribed, true );
+
+			if ( ! $matches_all && ! $matches_event ) {
+				continue;
+			}
+
+			$this->deliver(
+				(int) $webhook['id'],
+				(string) $webhook['url'],
+				(string) $webhook['secret'],
+				$event_slug,
+				$payload
+			);
+		}
+	}
+
+	/**
+	 * Send a test ping to a specific webhook endpoint.
+	 *
+	 * Returns true when the endpoint responds with a 2xx HTTP status code.
+	 *
+	 * @param int $webhook_id Webhook row ID.
+	 * @return bool True on 2xx response, false on error or non-2xx.
+	 */
+	public function send_test_ping( int $webhook_id ): bool {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$webhook = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, url, secret FROM {$wpdb->prefix}bn_outbound_webhooks WHERE id = %d LIMIT 1",
+				$webhook_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( empty( $webhook ) ) {
+			return false;
+		}
+
+		$code = $this->deliver(
+			(int) $webhook['id'],
+			(string) $webhook['url'],
+			(string) $webhook['secret'],
+			'ping',
+			array( 'message' => 'BuddyNext webhook test ping' )
+		);
+
+		return $code >= 200 && $code < 300;
+	}
+
+	/**
+	 * Retry all failed deliveries from the past 24 hours.
+	 *
+	 * Selects error log rows joined to still-active webhooks, extracts the
+	 * original event slug and data from the stored payload envelope, and
+	 * re-delivers each one. Called by the buddynext_webhook_retry cron action.
+	 */
+	public function retry_failed(): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		$failed = $wpdb->get_results(
+			"SELECT l.webhook_id, l.event, l.payload, w.url, w.secret
+			   FROM {$wpdb->prefix}bn_outbound_webhook_log l
+			   JOIN {$wpdb->prefix}bn_outbound_webhooks w ON w.id = l.webhook_id
+			  WHERE l.status = 'error'
+			    AND l.created_at > DATE_SUB( NOW(), INTERVAL 24 HOUR )
+			    AND w.is_active = 1
+			  ORDER BY l.id ASC",
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+		if ( empty( $failed ) ) {
+			return;
+		}
+
+		foreach ( $failed as $row ) {
+			$envelope = json_decode( (string) ( $row['payload'] ?? '{}' ), true );
+			if ( ! is_array( $envelope ) ) {
+				continue;
+			}
+
+			$event_slug = isset( $envelope['event'] ) ? (string) $envelope['event'] : (string) $row['event'];
+			$data       = isset( $envelope['data'] ) && is_array( $envelope['data'] ) ? $envelope['data'] : array();
+
+			$this->deliver(
+				(int) $row['webhook_id'],
+				(string) $row['url'],
+				(string) $row['secret'],
+				$event_slug,
+				$data
+			);
+		}
+	}
+
+	// ── Internal ──────────────────────────────────────────────────────────────
+
+	/**
+	 * Build, sign, POST and log a single webhook delivery.
+	 *
+	 * The request body is a JSON envelope: { event, timestamp, data }. An
+	 * HMAC-SHA256 signature over the raw body string is sent via the
+	 * X-BuddyNext-Signature header. On failed delivery the consecutive failure
+	 * count is checked; three failures trigger automatic deactivation.
+	 *
+	 * @param int                 $webhook_id Webhook row ID.
+	 * @param string              $url        Destination URL.
+	 * @param string              $secret     HMAC signing secret.
+	 * @param string              $event_slug Event type slug.
+	 * @param array<string,mixed> $data       Event-specific data to include.
+	 * @return int HTTP response code, or 0 on a network-level error.
+	 */
+	private function deliver( int $webhook_id, string $url, string $secret, string $event_slug, array $data ): int {
+		global $wpdb;
+
+		$envelope = array(
+			'event'     => $event_slug,
+			'timestamp' => time(),
+			'data'      => $data,
+		);
+
+		$body = wp_json_encode( $envelope );
+		if ( false === $body ) {
+			return 0;
+		}
+
+		$signature = 'sha256=' . hash_hmac( 'sha256', $body, $secret );
+
+		$response = wp_remote_post(
+			$url,
+			array(
+				'timeout'  => self::HTTP_TIMEOUT,
+				'blocking' => true,
+				'headers'  => array(
+					'Content-Type'          => 'application/json',
+					'X-BuddyNext-Signature' => $signature,
+					'X-BuddyNext-Event'     => $event_slug,
+				),
+				'body'     => $body,
+			)
+		);
+
+		$is_error      = is_wp_error( $response );
+		$response_code = $is_error ? 0 : (int) wp_remote_retrieve_response_code( $response );
+		$response_body = $is_error
+			? $response->get_error_message()
+			: wp_remote_retrieve_body( $response );
+
+		if ( strlen( $response_body ) > self::RESPONSE_BODY_MAX ) {
+			$response_body = substr( $response_body, 0, self::RESPONSE_BODY_MAX );
+		}
+
+		$success = ! $is_error && $response_code >= 200 && $response_code < 300;
+		$status  = $success ? 'success' : 'error';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_outbound_webhook_log',
+			array(
+				'webhook_id'    => $webhook_id,
+				'event'         => $event_slug,
+				'payload'       => $body,
+				'response_code' => $response_code > 0 ? $response_code : null,
+				'response_body' => $response_body,
+				'status'        => $status,
+			),
+			array(
+				'%d',
+				'%s',
+				'%s',
+				$response_code > 0 ? '%d' : '%s',
+				'%s',
+				'%s',
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery
+
+		if ( ! $success ) {
+			$this->maybe_deactivate_on_failure( $webhook_id );
+		}
+
+		return $response_code;
+	}
+
+	/**
+	 * Deactivate a webhook when its last N deliveries were all failures.
+	 *
+	 * @param int $webhook_id Webhook row ID.
+	 */
+	private function maybe_deactivate_on_failure( int $webhook_id ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$error_count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*)
+				   FROM (
+				       SELECT status
+				         FROM {$wpdb->prefix}bn_outbound_webhook_log
+				        WHERE webhook_id = %d
+				        ORDER BY id DESC
+				        LIMIT %d
+				   ) AS recent
+				  WHERE status = 'error'",
+				$webhook_id,
+				self::MAX_CONSECUTIVE_FAILURES
+			)
+		);
+
+		if ( $error_count >= self::MAX_CONSECUTIVE_FAILURES ) {
+			$wpdb->update(
+				$wpdb->prefix . 'bn_outbound_webhooks',
+				array( 'is_active' => 0 ),
+				array( 'id' => $webhook_id ),
+				array( '%d' ),
+				array( '%d' )
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 }

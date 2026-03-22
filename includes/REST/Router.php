@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * REST API router.
  *
@@ -29,6 +29,7 @@ use BuddyNext\REST\Controllers\HashtagController;
 use BuddyNext\REST\Controllers\MemberTypeController;
 use BuddyNext\REST\Controllers\ModerationController;
 use BuddyNext\REST\Controllers\NotificationController;
+use BuddyNext\REST\Controllers\OutboundWebhookController;
 use BuddyNext\REST\Controllers\ReactionController;
 use BuddyNext\REST\Controllers\SpaceCategoryController;
 use BuddyNext\REST\Controllers\SpaceController;
@@ -71,5 +72,6 @@ class Router {
 		( new HashtagController() )->register_routes();
 		( new ModerationController() )->register_routes();
 		( new MemberTypeController( buddynext_service( 'member_types' ) ) )->register_routes();
+		( new OutboundWebhookController( buddynext_service( 'webhooks' ) ) )->register_routes();
 	}
 }
