@@ -510,20 +510,20 @@ class NavManager extends AdminPageBase {
 					</div>
 					<div data-config-scope="profile" hidden>
 						<?php
-						$prof_first = ! empty( \$profile_tabs ) ? sanitize_key( (string) ( \$profile_tabs[0]['slug'] ?? '' ) ) : '';
-						\$this->render_all_config_panels( 'profile', \$profile_tabs, \$prof_first );
+						$prof_first = ! empty( $profile_tabs ) ? sanitize_key( (string) ( $profile_tabs[0]['slug'] ?? '' ) ) : '';
+						$this->render_all_config_panels( 'profile', $profile_tabs, $prof_first );
 						?>
 					</div>
 					<div data-config-scope="space" hidden>
 						<?php
-						$space_first = ! empty( \$space_tabs ) ? sanitize_key( (string) ( \$space_tabs[0]['slug'] ?? '' ) ) : '';
-						\$this->render_all_config_panels( 'space', \$space_tabs, \$space_first );
+						$space_first = ! empty( $space_tabs ) ? sanitize_key( (string) ( $space_tabs[0]['slug'] ?? '' ) ) : '';
+						$this->render_all_config_panels( 'space', $space_tabs, $space_first );
 						?>
 					</div>
 					<div data-config-scope="mobile" hidden>
 						<?php
-						$mob_first = ! empty( \$mobile_tabs ) ? sanitize_key( (string) ( \$mobile_tabs[0]['slug'] ?? '' ) ) : '';
-						\$this->render_all_config_panels( 'mobile', \$mobile_tabs, \$mob_first );
+						$mob_first = ! empty( $mobile_tabs ) ? sanitize_key( (string) ( $mobile_tabs[0]['slug'] ?? '' ) ) : '';
+						$this->render_all_config_panels( 'mobile', $mobile_tabs, $mob_first );
 						?>
 					</div>
 				</div>
@@ -838,8 +838,8 @@ class NavManager extends AdminPageBase {
 			?>
 			<div class="bn-config-card"
 				id="<?php echo esc_attr( $panel_id ); ?>"
-				data-scope="<?php echo esc_attr( \$scope ); ?>"
-				<?php echo \$is_active ? '' : 'hidden'; ?>>
+				data-scope="<?php echo esc_attr( $scope ); ?>"
+				<?php echo $is_active ? '' : 'hidden'; ?>>
 				<?php $this->render_config_panel_for_tab( $scope, $tab ); ?>
 			</div>
 			<?php
