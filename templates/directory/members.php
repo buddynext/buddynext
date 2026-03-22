@@ -17,14 +17,18 @@ declare(strict_types=1);
 defined( 'ABSPATH' ) || exit;
 
 // ── Query parameters ──────────────────────────────────────────────────────────
-$bn_current_page  = max( 1, absint( get_query_var( 'paged', 1 ) ) );
-$bn_per_page      = 20;
-$search_term      = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );       // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$orderby_raw      = sanitize_key( $_GET['orderby'] ?? 'registered' );             // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$type_slug_filter = sanitize_key( $_GET['type'] ?? '' );                          // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$allowed_sort     = array( 'registered', 'display_name', 'post_count' );
-$bn_orderby       = in_array( $orderby_raw, $allowed_sort, true ) ? $orderby_raw : 'registered';
-$bn_order         = 'registered' === $bn_orderby ? 'DESC' : 'ASC';
+$bn_current_page = max( 1, absint( get_query_var( 'paged', 1 ) ) );
+$bn_per_page     = 20;
+$search_term     = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );       // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$orderby_raw     = sanitize_key( $_GET['orderby'] ?? 'registered' );             // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+// Accept type slug from the pretty URL rewrite (/members/{slug}/) or a ?type= query arg.
+$type_slug_filter = sanitize_key( (string) get_query_var( 'bn_member_type', '' ) );
+if ( '' === $type_slug_filter ) {
+	$type_slug_filter = sanitize_key( wp_unslash( $_GET['type'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+}
+$allowed_sort = array( 'registered', 'display_name', 'post_count' );
+$bn_orderby   = in_array( $orderby_raw, $allowed_sort, true ) ? $orderby_raw : 'registered';
+$bn_order     = 'registered' === $bn_orderby ? 'DESC' : 'ASC';
 
 // ── Member types for directory pill tabs and card badges ──────────────────────
 $all_types_raw = buddynext_service( 'member_types' )->get_all();
@@ -694,15 +698,15 @@ require __DIR__ . '/../partials/nav.php';
 <?php if ( ! empty( $dir_types ) ) : ?>
 <div class="bn-type-pills" role="navigation" aria-label="<?php esc_attr_e( 'Filter by member type', 'buddynext' ); ?>">
 	<a
-		href="<?php echo esc_url( remove_query_arg( 'type' ) ); ?>"
-		class="bn-type-pill<?php echo '' === $type_slug_filter ? ' is-active' : ''; ?>"
+		href="<?php echo esc_url( \BuddyNext\Core\PageRouter::people_url() ); ?>"
+		class="bn-type-pill<?php echo '' === $type_slug_filter ? esc_attr( ' is-active' ) : ''; ?>"
 		aria-current="<?php echo '' === $type_slug_filter ? 'page' : 'false'; ?>"
 	><?php esc_html_e( 'All', 'buddynext' ); ?></a>
 
 	<?php foreach ( $dir_types as $dir_type ) : ?>
 		<a
-			href="<?php echo esc_url( add_query_arg( 'type', $dir_type['slug'] ) ); ?>"
-			class="bn-type-pill<?php echo $type_slug_filter === $dir_type['slug'] ? ' is-active' : ''; ?>"
+			href="<?php echo esc_url( \BuddyNext\Core\PageRouter::member_type_url( (string) $dir_type['slug'] ) ); ?>"
+			class="bn-type-pill<?php echo $type_slug_filter === $dir_type['slug'] ? esc_attr( ' is-active' ) : ''; ?>"
 			aria-current="<?php echo $type_slug_filter === $dir_type['slug'] ? 'page' : 'false'; ?>"
 		>
 			<span class="bn-type-pill-dot" style="background:<?php echo esc_attr( $dir_type['color'] ); ?>;"></span>

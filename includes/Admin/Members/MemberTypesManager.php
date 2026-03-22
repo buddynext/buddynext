@@ -13,8 +13,6 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin\Members;
 
-use BuddyNext\MemberTypes\MemberTypeService;
-
 /**
  * Renders and processes the Member Types admin tab.
  */
@@ -355,7 +353,7 @@ class MemberTypesManager {
 			<div class="bn-data-table">
 				<div class="bn-table-header">
 					<strong style="font-size:14px;color:#111827"><?php esc_html_e( 'Defined Types', 'buddynext' ); ?></strong>
-					<span class="bn-badge" style="background:#e8f4fb;color:#0073aa"><?php echo count( $types ); ?></span>
+					<span class="bn-badge" style="background:#e8f4fb;color:#0073aa"><?php echo esc_html( (string) count( $types ) ); ?></span>
 				</div>
 				<table class="bn-table">
 					<thead>
@@ -415,20 +413,20 @@ class MemberTypesManager {
 												"
 										class="bn-action-link"><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
 									<div class="bn-more-menu">
-										<button class="bn-more-btn" type="button" aria-label="<?php esc_attr_e( 'More actions', 'buddynext' ); ?>">⋯</button>
+										<button class="bn-more-btn" type="button" aria-label="<?php esc_attr_e( 'More actions', 'buddynext' ); ?>">&#8943;</button>
 										<div class="bn-more-dropdown">
 											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 												<?php wp_nonce_field( 'bn_delete_member_type' ); ?>
 												<input type="hidden" name="action"  value="bn_delete_member_type">
 												<input type="hidden" name="type_id" value="<?php echo esc_attr( $t['id'] ); ?>">
-												<button type="submit" class="bn-dropdown-item bn-dropdown-danger"
 												<?php
 												/* translators: 1: member type name, 2: number of assignments */
 												$confirm_msg = esc_js( sprintf( __( 'Delete "%1$s"? All %2$d member assignments will be removed.', 'buddynext' ), $t['name'], (int) ( $t['member_count'] ?? 0 ) ) );
 												?>
 												<button type="submit" class="bn-dropdown-item bn-dropdown-danger"
-													onclick="return confirm('<?php echo $confirm_msg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied above ?>')"> 
+													onclick="return confirm('<?php echo $confirm_msg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied above ?>')">
 													<?php esc_html_e( 'Delete', 'buddynext' ); ?>
+												</button>
 											</form>
 										</div>
 									</div>

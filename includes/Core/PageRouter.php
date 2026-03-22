@@ -83,6 +83,7 @@ class PageRouter {
 		add_rewrite_tag( '%bn_space_action%', '([^/]*)' );
 		add_rewrite_tag( '%bn_conv_id%', '([0-9]+)' );
 		add_rewrite_tag( '%bn_msg_action%', '([^/]*)' );
+		add_rewrite_tag( '%bn_member_type%', '([a-z0-9-]+)' );
 
 		$this->register_activity_rules();
 		$this->register_people_rules();
@@ -154,6 +155,16 @@ class PageRouter {
 			'^' . preg_quote( $p, '/' ) . '/([^/]+)/?$',
 			'index.php?pagename=' . $p . '&bn_user_slug=$matches[1]',
 			'top'
+		);
+
+		// Member-type directory filter URL: /members/{type-slug}/
+		// Registered with 'bottom' priority so the user-slug rules above take precedence.
+		// The set_hub_vars() callback only stores bn_member_type when no user was resolved,
+		// preventing type slugs from incorrectly matching as user profile URLs.
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([a-z0-9-]+)/?$',
+			'index.php?pagename=' . $p . '&bn_member_type=$matches[1]',
+			'bottom'
 		);
 	}
 
@@ -281,6 +292,13 @@ class PageRouter {
 		if ( '' !== $raw_space_slug ) {
 			$space_id = $this->resolve_space( sanitize_title( $raw_space_slug ) );
 			$query->set( 'bn_resolved_space_id', $space_id );
+		}
+
+		// Member-type filter: the 'bottom'-priority rewrite rule populates bn_member_type
+		// only when no user slug matched. Sanitize and store it for the directory template.
+		$raw_type_slug = (string) $query->get( 'bn_member_type', '' );
+		if ( '' !== $raw_type_slug ) {
+			$query->set( 'bn_member_type', sanitize_key( $raw_type_slug ) );
 		}
 	}
 
@@ -468,6 +486,24 @@ class PageRouter {
 		}
 
 		return $base . 'user-' . $user_id . '/connections/';
+	}
+
+	/**
+	 * Return the member directory URL filtered to a specific member type.
+	 *
+	 * The URL uses the 'bottom'-priority rewrite rule registered in
+	 * register_people_rules() so that the user-slug rules always take
+	 * precedence when a URL segment also happens to be a valid user slug.
+	 *
+	 * @param string $type_slug Member type slug (lowercase alphanumeric + hyphens).
+	 * @return string Absolute trailing-slashed URL.
+	 */
+	public static function member_type_url( string $type_slug ): string {
+		if ( '' === $type_slug ) {
+			return self::people_url();
+		}
+
+		return self::people_url() . rawurlencode( sanitize_key( $type_slug ) ) . '/';
 	}
 
 	/**

@@ -568,3 +568,7 @@ A phase is Done when ALL of:
 | 2026-03-22 | 2 | feature | BlockService/BlockController: mute/unmute + GET /me/muted; profile view.php More Options dropdown (Mute/Block/Report) with Interactivity API store actions |
 | 2026-03-22 | 6 | fix | EventListener: on_user_shadow_ban_removed fires buddynext_index_user to re-index user on ban lift |
 | 2026-03-22 | 1 | feature | OutboundWebhookService: full rewrite — HMAC-SHA256 signing, 5-min cron retry, auto-deactivate after 3 failures, delivery log; OutboundWebhookController: 5 REST routes (list/create/delete/log/test); EventListener: 11 webhook dispatch handlers for all major events |
+| 2026-03-22 | 1 | feature | PageSetup: hub page integrity guard — version-gated admin_init routine that creates/adopts all 6 hub pages and sets buddynext_page_* options; wired into Plugin::init() inside is_admin() block |
+| 2026-03-22 | 12g | fix | MemberTypesManager: removed duplicate button tag, fixed unclosed delete button, escaped count() output, removed unused use import |
+| 2026-03-22 | 12g | feature | PageRouter: added bn_member_type rewrite tag, bottom-priority /members/{type-slug}/ rule, set_hub_vars storage, member_type_url() static builder |
+| 2026-03-22 | 12g | fix | templates/directory/members.php: read bn_member_type from get_query_var() (pretty URL) with ?type= fallback; pill links now use PageRouter::member_type_url() |
