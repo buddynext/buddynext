@@ -512,3 +512,11 @@ A phase is Done when ALL of:
 | 2026-03-21 | 5 | feature | SpaceCategoryController: GET /space-categories (public) + POST + DELETE /{id} (admin only) |
 | 2026-03-21 | 1 | fix | Plugin.php: bridges now fire at plugins_loaded:25 — after Pro plugins boot at :20 |
 | 2026-03-21 | 5 | fix | templates/spaces/directory.php: added [data-theme="dark"] block for hardcoded light-mode values |
+| 2026-03-22 | 12 | feature | PageRouter: full hub+endpoint routing — 5 hubs, 8 rewrite tags, all endpoint rules, slug resolver, URL builders |
+| 2026-03-22 | 12 | feature | ShortcodeService: replaced 5 legacy shortcodes with 5 hub shortcodes routing via query vars |
+| 2026-03-22 | 12 | feature | templates/feed/home.php: personalized feed with composer, sidebar, shadow-ban exclusion, dark mode, mobile CSS |
+| 2026-03-22 | 12 | feature | templates/profile/connections.php: accepted connections list with member cards, paginated 12/page |
+| 2026-03-22 | 12 | feature | templates/spaces/members.php: space member list ordered by role (owner→mod→member), paginated 24/page |
+| 2026-03-22 | 8 | feature | EventListener: added buddynext_user_suspended hook + on_user_suspended handler (in-app + bn.suspension email); added bn.strike_warning email to on_strike_issued elseif branch; added bn.appeal_resolved email to on_appeal_resolved |
+| 2026-03-22 | 3 | fix | FeedService: apply excluded_users_where() to profile_feed() and space_feed() — all 4 feed methods now exclude suspended/shadow-banned users |
+| 2026-03-22 | 4 | fix | SearchService: fixed pre-existing WPCS alignment warnings; added UnfinishedPrepare to phpcs:disable for MATCH/$search_condition false-positive |

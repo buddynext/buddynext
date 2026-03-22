@@ -162,10 +162,10 @@ class SearchService {
 	public function search( string $query, string $type = '', int $per_page = self::DEFAULT_LIMIT, int $page = 1, int $viewer_id = 0 ): array {
 		global $wpdb;
 
-		$per_page       = min( $per_page, 50 );
-		$page           = max( 1, $page );
-		$offset         = ( $page - 1 ) * $per_page;
-		$safe_query     = sanitize_text_field( $query );
+		$per_page   = min( $per_page, 50 );
+		$page       = max( 1, $page );
+		$offset     = ( $page - 1 ) * $per_page;
+		$safe_query = sanitize_text_field( $query );
 
 		$type_where  = '';
 		$type_params = array();
@@ -220,7 +220,11 @@ class SearchService {
 
 		if ( $this->has_fulltext_index() ) {
 			// FULLTEXT path — uses ft_search index for performance on production.
-			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// $search_condition is the output of a prior $wpdb->prepare() call — it is already
+			// escaped and safe to embed. $excluded_where and $block_where contain only
+			// table/column names with no user-supplied data. ReplacementsWrongNumber is a
+			// false-positive here because $search_condition contains MATCH syntax with '%'.
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 			$search_condition = $wpdb->prepare(
 				'MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)',
 				$safe_query . '*'

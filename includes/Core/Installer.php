@@ -39,10 +39,13 @@ class Installer {
 		$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		$wpdb->suppress_errors( false );
 
+		static::maybe_alter_tables( $wpdb->prefix );
 		static::seed_email_templates( $wpdb->prefix );
 		static::seed_default_profile_groups_and_fields( $wpdb->prefix );
 
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
+
+		static::create_hub_pages();
 
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
 	}
@@ -642,16 +645,18 @@ class Installer {
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_webhook_log (
-				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				source     VARCHAR(64) DEFAULT NULL,
-				action     VARCHAR(64) NOT NULL,
-				user_id    BIGINT(20) UNSIGNED DEFAULT NULL,
-				payload    JSON DEFAULT NULL,
-				status     ENUM('success','error') NOT NULL DEFAULT 'success',
-				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				id            BIGINT(20) NOT NULL AUTO_INCREMENT,
+				webhook_id    BIGINT(20) NOT NULL,
+				event_type    VARCHAR(100) NOT NULL,
+				payload       LONGTEXT NOT NULL,
+				response_code INT(11) DEFAULT NULL,
+				response_body TEXT DEFAULT NULL,
+				delivered_at  DATETIME DEFAULT NULL,
+				created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
-				KEY         user_action (user_id, action),
-				KEY         created (created_at)
+				KEY webhook_id (webhook_id),
+				KEY event_type (event_type),
+				KEY created_at (created_at)
 			) {$cs};",
 
 			// ── Direct Messaging ───────────────────────────────────────────────
@@ -904,5 +909,149 @@ class Installer {
 			) {$cs};",
 
 		);
+	}
+
+	/**
+	 * Apply column-level ALTER TABLE migrations that dbDelta cannot handle.
+	 *
+	 * Checks column existence via INFORMATION_SCHEMA before running each ALTER
+	 * so the method is safe to call on every activation without duplicate errors.
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function maybe_alter_tables( string $p ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		// ── bn_webhook_log — add outbound-delivery columns if upgrading from old schema ──
+
+		$existing_cols = $wpdb->get_col(
+			$wpdb->prepare(
+				'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+				  WHERE TABLE_SCHEMA = DATABASE()
+				    AND TABLE_NAME   = %s',
+				"{$p}bn_webhook_log"
+			)
+		);
+
+		if ( ! in_array( 'webhook_id', $existing_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_webhook_log` ADD COLUMN `webhook_id` BIGINT(20) NOT NULL DEFAULT 0 AFTER `id`" );
+		}
+
+		if ( ! in_array( 'event_type', $existing_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_webhook_log` ADD COLUMN `event_type` VARCHAR(100) NOT NULL DEFAULT '' AFTER `webhook_id`" );
+		}
+
+		if ( ! in_array( 'response_code', $existing_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_webhook_log` ADD COLUMN `response_code` INT(11) DEFAULT NULL" );
+		}
+
+		if ( ! in_array( 'response_body', $existing_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_webhook_log` ADD COLUMN `response_body` TEXT DEFAULT NULL" );
+		}
+
+		if ( ! in_array( 'delivered_at', $existing_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_webhook_log` ADD COLUMN `delivered_at` DATETIME DEFAULT NULL" );
+		}
+
+		// ── bn_appeals — add strike_id + resolved_at columns if missing ──
+
+		$appeals_cols = $wpdb->get_col(
+			$wpdb->prepare(
+				'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+				  WHERE TABLE_SCHEMA = DATABASE()
+				    AND TABLE_NAME   = %s',
+				"{$p}bn_appeals"
+			)
+		);
+
+		if ( ! in_array( 'strike_id', $appeals_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_appeals` ADD COLUMN `strike_id` BIGINT(20) DEFAULT NULL AFTER `suspension_id`" );
+		}
+
+		if ( ! in_array( 'resolved_at', $appeals_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_appeals` ADD COLUMN `resolved_at` DATETIME DEFAULT NULL" );
+		}
+
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Create the five BuddyNext hub pages on activation.
+	 *
+	 * Idempotent — skips any hub whose page option is already set to a
+	 * published page ID. Called from run() and from the setup wizard.
+	 *
+	 * @return void
+	 */
+	public static function create_hub_pages(): void {
+		$hubs = array(
+			'activity'      => array(
+				'option_slug' => 'buddynext_slug_activity',
+				'option_page' => 'buddynext_page_activity',
+				'title'       => __( 'Activity', 'buddynext' ),
+				'shortcode'   => '[buddynext_activity]',
+				'default'     => 'activity',
+			),
+			'people'        => array(
+				'option_slug' => 'buddynext_slug_people',
+				'option_page' => 'buddynext_page_people',
+				'title'       => __( 'Members', 'buddynext' ),
+				'shortcode'   => '[buddynext_people]',
+				'default'     => 'members',
+			),
+			'spaces'        => array(
+				'option_slug' => 'buddynext_slug_spaces',
+				'option_page' => 'buddynext_page_spaces',
+				'title'       => __( 'Spaces', 'buddynext' ),
+				'shortcode'   => '[buddynext_spaces]',
+				'default'     => 'spaces',
+			),
+			'messages'      => array(
+				'option_slug' => 'buddynext_slug_messages',
+				'option_page' => 'buddynext_page_messages',
+				'title'       => __( 'Messages', 'buddynext' ),
+				'shortcode'   => '[buddynext_messages]',
+				'default'     => 'messages',
+			),
+			'notifications' => array(
+				'option_slug' => 'buddynext_slug_notifications',
+				'option_page' => 'buddynext_page_notifications',
+				'title'       => __( 'Notifications', 'buddynext' ),
+				'shortcode'   => '[buddynext_notifications]',
+				'default'     => 'notifications',
+			),
+		);
+
+		foreach ( $hubs as $hub ) {
+			$existing_id = (int) get_option( $hub['option_page'], 0 );
+			if ( $existing_id > 0 && 'publish' === get_post_status( $existing_id ) ) {
+				continue;
+			}
+
+			$slug = (string) get_option( $hub['option_slug'], $hub['default'] );
+			if ( '' === $slug ) {
+				$slug = $hub['default'];
+			}
+
+			$page_id = wp_insert_post(
+				array(
+					'post_title'     => $hub['title'],
+					'post_name'      => $slug,
+					'post_content'   => $hub['shortcode'],
+					'post_status'    => 'publish',
+					'post_type'      => 'page',
+					'comment_status' => 'closed',
+				)
+			);
+
+			if ( ! is_wp_error( $page_id ) && $page_id > 0 ) {
+				update_option( $hub['option_page'], $page_id );
+				update_option( $hub['option_slug'], $slug );
+			}
+		}
+
+		flush_rewrite_rules();
 	}
 }

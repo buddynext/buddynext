@@ -30,6 +30,8 @@ class PostService {
 	private ?SafeguardService $safeguards;
 
 	/**
+	 * Set up the post service with an optional safeguard dependency.
+	 *
 	 * @param SafeguardService|null $safeguards Optional safeguard service.
 	 */
 	public function __construct( ?SafeguardService $safeguards = null ) {
@@ -477,27 +479,27 @@ class PostService {
 	 */
 	public function hydrate( array $row ): array {
 		$post = array(
-			'id'                  => (int) $row['id'],
-			'user_id'             => (int) $row['user_id'],
-			'space_id'            => isset( $row['space_id'] ) ? (int) $row['space_id'] : null,
-			'type'                => $row['type'],
-			'content'             => $row['content'],
-			'media_ids'           => isset( $row['media_ids'] ) ? json_decode( (string) $row['media_ids'], true ) : null,
-			'link_url'            => $row['link_url'],
-			'link_meta'           => isset( $row['link_meta'] ) ? json_decode( (string) $row['link_meta'], true ) : null,
-			'privacy'             => $row['privacy'],
-			'reaction_count'      => (int) $row['reaction_count'],
-			'comment_count'       => (int) $row['comment_count'],
-			'share_count'         => (int) $row['share_count'],
-			'is_pinned'           => (int) $row['is_pinned'],
-			'is_announcement'     => (int) $row['is_announcement'],
-			'content_warning'     => (bool) ( $row['content_warning'] ?? false ),
+			'id'                   => (int) $row['id'],
+			'user_id'              => (int) $row['user_id'],
+			'space_id'             => isset( $row['space_id'] ) ? (int) $row['space_id'] : null,
+			'type'                 => $row['type'],
+			'content'              => $row['content'],
+			'media_ids'            => isset( $row['media_ids'] ) ? json_decode( (string) $row['media_ids'], true ) : null,
+			'link_url'             => $row['link_url'],
+			'link_meta'            => isset( $row['link_meta'] ) ? json_decode( (string) $row['link_meta'], true ) : null,
+			'privacy'              => $row['privacy'],
+			'reaction_count'       => (int) $row['reaction_count'],
+			'comment_count'        => (int) $row['comment_count'],
+			'share_count'          => (int) $row['share_count'],
+			'is_pinned'            => (int) $row['is_pinned'],
+			'is_announcement'      => (int) $row['is_announcement'],
+			'content_warning'      => (bool) ( $row['content_warning'] ?? false ),
 			'content_warning_type' => $row['content_warning_type'] ?? null,
-			'site_pin_expires_at' => $row['site_pin_expires_at'],
-			'edited_at'           => $row['edited_at'],
-			'scheduled_at'        => $row['scheduled_at'],
-			'created_at'          => $row['created_at'],
-			'updated_at'          => $row['updated_at'],
+			'site_pin_expires_at'  => $row['site_pin_expires_at'],
+			'edited_at'            => $row['edited_at'],
+			'scheduled_at'         => $row['scheduled_at'],
+			'created_at'           => $row['created_at'],
+			'updated_at'           => $row['updated_at'],
 		);
 
 		if ( 'poll' === $row['type'] ) {

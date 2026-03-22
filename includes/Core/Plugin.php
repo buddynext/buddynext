@@ -389,8 +389,8 @@ class Plugin {
 				$c->get( 'blocks' )
 			)
 		);
-		$container->bind( 'safeguards', fn() => new SafeguardService() );
-		$container->bind( 'post_service', fn( $c ) => new PostService( $c->get( 'safeguards' ) ) );
+		$container->bind( 'safeguard', fn( $c ) => new SafeguardService( $c->get( 'cache' ) ) );
+		$container->bind( 'post_service', fn( $c ) => new PostService( $c->get( 'safeguard' ) ) );
 		$container->bind( 'feed', fn( $c ) => new FeedService( $c->get( 'follows' ), $c->get( 'post_service' ) ) );
 		$container->bind( 'polls', fn() => new PollService() );
 		$container->bind( 'bookmarks', fn() => new BookmarkService() );

@@ -1,13 +1,15 @@
-<?php
+<?php // phpcs:ignore WordPress.Files.FileName.InvalidClassFileName, WordPress.Files.FileName.NotHyphenatedLowercase -- PSR-4 PascalCase naming is the project standard.
 /**
  * Outbound webhook dispatch service.
  *
  * Reads active webhook configurations from bn_outbound_webhooks and dispatches
- * HTTP POST payloads whenever a subscribed BuddyNext event fires. Each delivery
- * attempt is logged in bn_outbound_webhook_log regardless of outcome.
+ * signed HTTP POST payloads whenever a subscribed BuddyNext event fires. Each
+ * delivery attempt is logged in bn_outbound_webhook_log regardless of outcome.
  *
- * Webhook payloads are signed with an HMAC-SHA256 signature in the
+ * Webhook payloads are signed with an HMAC-SHA256 signature delivered via the
  * X-BuddyNext-Signature header so consumers can verify authenticity.
+ *
+ * Bind as 'outbound_webhooks' in Plugin.php and call ->init()
  *
  * @package BuddyNext\Core
  */
@@ -22,30 +24,34 @@ namespace BuddyNext\Core;
 class OutboundWebhookService {
 
 	/**
-	 * Signature header sent with every delivery.
+	 * Maximum length stored for response bodies in the log table.
 	 */
-	private const SIG_HEADER = 'X-BuddyNext-Signature';
+	private const RESPONSE_BODY_MAX_LENGTH = 2000;
 
 	/**
-	 * Default HTTP timeout in seconds for outbound webhook requests.
+	 * HTTP timeout in seconds for outbound webhook requests.
 	 */
 	private const HTTP_TIMEOUT = 10;
 
 	/**
+	 * Initialise the service.
+	 */
+	public function __construct() {}
+
+	// ── Registration ──────────────────────────────────────────────────────
+
+	/**
 	 * Register hooks so configured webhooks fire on BuddyNext events.
 	 *
-	 * Each BuddyNext action maps to an event name that webhook subscribers
-	 * specify in their `events` JSON column. When the action fires, dispatch()
-	 * is called with that event name and the relevant payload.
+	 * Each BuddyNext action maps to an event-type string that webhook
+	 * subscribers list in their `events` JSON column. When the action fires,
+	 * dispatch() fans out to every matching active webhook.
 	 */
 	public function init(): void {
 		add_action( 'buddynext_user_followed', array( $this, 'on_user_followed' ), 10, 2 );
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
-		add_action( 'buddynext_comment_created', array( $this, 'on_comment_created' ), 10, 4 );
-		add_action( 'buddynext_reaction_added', array( $this, 'on_reaction_added' ), 10, 4 );
-		add_action( 'buddynext_connection_accepted', array( $this, 'on_connection_accepted' ), 10, 3 );
+		add_action( 'buddynext_space_created', array( $this, 'on_space_created' ), 10, 2 );
 		add_action( 'buddynext_space_member_joined', array( $this, 'on_space_member_joined' ), 10, 3 );
-		add_action( 'buddynext_strike_issued', array( $this, 'on_strike_issued' ), 10, 3 );
 		add_action( 'buddynext_member_suspended', array( $this, 'on_member_suspended' ), 10, 2 );
 		add_action( 'buddynext_appeal_resolved', array( $this, 'on_appeal_resolved' ), 10, 3 );
 	}
@@ -55,8 +61,8 @@ class OutboundWebhookService {
 	/**
 	 * Dispatch webhook payload when a user follows another user.
 	 *
-	 * @param int $follower_id  User who followed.
-	 * @param int $following_id User being followed.
+	 * @param int $follower_id  User who initiated the follow.
+	 * @param int $following_id User who was followed.
 	 */
 	public function on_user_followed( int $follower_id, int $following_id ): void {
 		$this->dispatch(
@@ -73,7 +79,7 @@ class OutboundWebhookService {
 	 *
 	 * @param int    $post_id Post ID.
 	 * @param int    $user_id Author ID.
-	 * @param string $type    Post type.
+	 * @param string $type    Post type slug.
 	 */
 	public function on_post_created( int $post_id, int $user_id, string $type ): void {
 		$this->dispatch(
@@ -87,73 +93,14 @@ class OutboundWebhookService {
 	}
 
 	/**
-	 * Dispatch webhook payload when a comment is created.
+	 * Dispatch webhook payload when a new space is created.
 	 *
-	 * @param int    $comment_id  Comment ID.
-	 * @param string $object_type Object type.
-	 * @param int    $object_id   Object ID.
-	 * @param int    $user_id     Author ID.
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  Owner ID.
 	 */
-	public function on_comment_created( int $comment_id, string $object_type, int $object_id, int $user_id ): void {
+	public function on_space_created( int $space_id, int $user_id ): void {
 		$this->dispatch(
-			'comment.created',
-			array(
-				'comment_id'  => $comment_id,
-				'object_type' => $object_type,
-				'object_id'   => $object_id,
-				'user_id'     => $user_id,
-			)
-		);
-	}
-
-	/**
-	 * Dispatch webhook payload when a reaction is added to a post or comment.
-	 *
-	 * @param string $object_type Object type.
-	 * @param int    $object_id   Object ID.
-	 * @param int    $user_id     Reactor ID.
-	 * @param string $emoji       Emoji used.
-	 */
-	public function on_reaction_added( string $object_type, int $object_id, int $user_id, string $emoji ): void {
-		$this->dispatch(
-			'reaction.added',
-			array(
-				'object_type' => $object_type,
-				'object_id'   => $object_id,
-				'user_id'     => $user_id,
-				'emoji'       => $emoji,
-			)
-		);
-	}
-
-	/**
-	 * Dispatch webhook payload when a connection request is accepted.
-	 *
-	 * @param int $connection_id Connection ID.
-	 * @param int $user_a        First user.
-	 * @param int $user_b        Second user.
-	 */
-	public function on_connection_accepted( int $connection_id, int $user_a, int $user_b ): void {
-		$this->dispatch(
-			'connection.accepted',
-			array(
-				'connection_id' => $connection_id,
-				'user_a'        => $user_a,
-				'user_b'        => $user_b,
-			)
-		);
-	}
-
-	/**
-	 * Dispatch webhook payload when a member joins a space.
-	 *
-	 * @param int    $space_id Space ID.
-	 * @param int    $user_id  Joined user.
-	 * @param string $_role    Role assigned (not included in payload — preserved for hook arity).
-	 */
-	public function on_space_member_joined( int $space_id, int $user_id, string $_role ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_role required by hook contract.
-		$this->dispatch(
-			'space.member_joined',
+			'space.created',
 			array(
 				'space_id' => $space_id,
 				'user_id'  => $user_id,
@@ -162,19 +109,21 @@ class OutboundWebhookService {
 	}
 
 	/**
-	 * Dispatch webhook payload when a moderation strike is issued.
+	 * Dispatch webhook payload when a member joins a space.
 	 *
-	 * @param int $strike_id Strike ID.
-	 * @param int $user_id   Struck user.
-	 * @param int $actor_id  Issuing moderator.
+	 * The $_role parameter is received from the hook but intentionally excluded
+	 * from the payload — its only purpose is to satisfy the hook's arity.
+	 *
+	 * @param int    $space_id Space that was joined.
+	 * @param int    $user_id  User who joined.
+	 * @param string $_role    Role assigned (unused — required by hook contract).
 	 */
-	public function on_strike_issued( int $strike_id, int $user_id, int $actor_id ): void {
+	public function on_space_member_joined( int $space_id, int $user_id, string $_role ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_role required by hook contract.
 		$this->dispatch(
-			'moderation.strike_issued',
+			'space.member_joined',
 			array(
-				'strike_id' => $strike_id,
-				'user_id'   => $user_id,
-				'actor_id'  => $actor_id,
+				'user_id'  => $user_id,
+				'space_id' => $space_id,
 			)
 		);
 	}
@@ -182,15 +131,15 @@ class OutboundWebhookService {
 	/**
 	 * Dispatch webhook payload when a member is suspended.
 	 *
-	 * @param int $user_id  Suspended user.
-	 * @param int $actor_id Admin performing the suspension.
+	 * @param int $user_id  Suspended user ID.
+	 * @param int $mod_id   Moderator who issued the suspension.
 	 */
-	public function on_member_suspended( int $user_id, int $actor_id ): void {
+	public function on_member_suspended( int $user_id, int $mod_id ): void {
 		$this->dispatch(
-			'moderation.member_suspended',
+			'user.suspended',
 			array(
-				'user_id'  => $user_id,
-				'actor_id' => $actor_id,
+				'user_id' => $user_id,
+				'by'      => $mod_id,
 			)
 		);
 	}
@@ -198,17 +147,16 @@ class OutboundWebhookService {
 	/**
 	 * Dispatch webhook payload when a moderation appeal is resolved.
 	 *
-	 * @param int    $appeal_id Appeal ID.
-	 * @param int    $user_id   Appellant.
-	 * @param string $decision  'approved' or 'denied'.
+	 * @param int    $appeal_id Appeal row ID.
+	 * @param int    $user_id   Appellant user ID.
+	 * @param string $status    Resolution status: 'approved' or 'denied'.
 	 */
-	public function on_appeal_resolved( int $appeal_id, int $user_id, string $decision ): void {
+	public function on_appeal_resolved( int $appeal_id, int $user_id, string $status ): void {
 		$this->dispatch(
-			'moderation.appeal_resolved',
+			'appeal.resolved',
 			array(
 				'appeal_id' => $appeal_id,
-				'user_id'   => $user_id,
-				'decision'  => $decision,
+				'status'    => $status,
 			)
 		);
 	}
@@ -218,31 +166,54 @@ class OutboundWebhookService {
 	/**
 	 * Dispatch an event payload to all active webhooks subscribed to that event.
 	 *
-	 * Webhooks with an empty events JSON array (or null) receive every event.
-	 * Otherwise, only webhooks whose events array includes $event_name fire.
+	 * Loads every active webhook row and, for each row whose `events` JSON array
+	 * includes $event_type, calls send() to deliver the payload.
 	 *
-	 * @param string $event_name Dot-notation event name (e.g. 'post.created').
-	 * @param array  $payload    Arbitrary data to serialize and send.
+	 * @param string $event_type Dot-notation event name (e.g. 'post.created').
+	 * @param array  $payload    Arbitrary data to include in the delivery body.
 	 */
-	public function dispatch( string $event_name, array $payload ): void {
+	public function dispatch( string $event_type, array $payload ): void {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$hooks = $wpdb->get_results(
-			"SELECT id, url, secret, events FROM {$wpdb->prefix}bn_outbound_webhooks WHERE is_active = 1",
-			ARRAY_A
+		$webhooks = $wpdb->get_results(
+			"SELECT id, label, url, secret, events, is_active FROM {$wpdb->prefix}bn_outbound_webhooks WHERE is_active = 1"
 		);
 
-		if ( empty( $hooks ) ) {
+		if ( empty( $webhooks ) ) {
 			return;
 		}
 
+		foreach ( $webhooks as $webhook ) {
+			$subscribed = json_decode( (string) ( $webhook->events ?? 'null' ), true );
+
+			if ( ! is_array( $subscribed ) || ! in_array( $event_type, $subscribed, true ) ) {
+				continue;
+			}
+
+			$this->send( $webhook, $event_type, $payload );
+		}
+	}
+
+	/**
+	 * Build, sign, send and log a single webhook delivery.
+	 *
+	 * The request body is a JSON object containing `event`, `timestamp`, and
+	 * `payload`. An HMAC-SHA256 signature over the raw body string is attached
+	 * via the X-BuddyNext-Signature header when the webhook has a secret.
+	 *
+	 * @param object $webhook    Webhook row from bn_outbound_webhooks.
+	 * @param string $event_type Dot-notation event name.
+	 * @param array  $payload    Event-specific data.
+	 */
+	public function send( object $webhook, string $event_type, array $payload ): void {
+		global $wpdb;
+
 		$body = wp_json_encode(
 			array(
-				'event'    => $event_name,
-				'payload'  => $payload,
-				'fired_at' => gmdate( 'Y-m-d\TH:i:s\Z' ),
-				'site_url' => get_site_url(),
+				'event'     => $event_type,
+				'timestamp' => gmdate( 'c' ),
+				'payload'   => $payload,
 			)
 		);
 
@@ -250,67 +221,149 @@ class OutboundWebhookService {
 			return;
 		}
 
-		foreach ( $hooks as $hook ) {
-			$subscribed = json_decode( (string) ( $hook['events'] ?? 'null' ), true );
-
-			// Empty or null events list means subscribe to everything.
-			if ( ! empty( $subscribed ) && ! in_array( $event_name, (array) $subscribed, true ) ) {
-				continue;
-			}
-
-			$this->send( (int) $hook['id'], (string) $hook['url'], (string) ( $hook['secret'] ?? '' ), $event_name, $body );
-		}
-	}
-
-	/**
-	 * Send a single HTTP POST and log the outcome.
-	 *
-	 * @param int    $webhook_id Webhook row ID.
-	 * @param string $url        Destination URL.
-	 * @param string $secret     Webhook signing secret (may be empty).
-	 * @param string $event_name Event name for the log row.
-	 * @param string $body       JSON-encoded request body.
-	 */
-	private function send( int $webhook_id, string $url, string $secret, string $event_name, string $body ): void {
-		global $wpdb;
-
-		$headers = array(
-			'Content-Type' => 'application/json',
-		);
-
-		if ( '' !== $secret ) {
-			$headers[ self::SIG_HEADER ] = 'sha256=' . hash_hmac( 'sha256', $body, $secret );
-		}
+		$secret    = (string) ( $webhook->secret ?? '' );
+		$signature = 'sha256=' . hash_hmac( 'sha256', $body, $secret );
 
 		$response = wp_remote_post(
-			$url,
+			(string) $webhook->url,
 			array(
-				'headers' => $headers,
-				'body'    => $body,
-				'timeout' => self::HTTP_TIMEOUT,
+				'timeout'  => self::HTTP_TIMEOUT,
+				'blocking' => true,
+				'headers'  => array(
+					'Content-Type'          => 'application/json',
+					'X-BuddyNext-Signature' => $signature,
+					'X-BuddyNext-Event'     => $event_type,
+				),
+				'body'     => $body,
 			)
 		);
 
 		$is_error      = is_wp_error( $response );
-		$response_code = $is_error ? null : wp_remote_retrieve_response_code( $response );
+		$response_code = $is_error ? null : (int) wp_remote_retrieve_response_code( $response );
 		$response_body = $is_error
 			? $response->get_error_message()
 			: wp_remote_retrieve_body( $response );
 
-		$status = ( ! $is_error && $response_code >= 200 && $response_code < 300 ) ? 'success' : 'error';
+		if ( strlen( $response_body ) > self::RESPONSE_BODY_MAX_LENGTH ) {
+			$response_body = substr( $response_body, 0, self::RESPONSE_BODY_MAX_LENGTH );
+		}
+
+		$delivered_at = ( ! $is_error && null !== $response_code && $response_code < 400 )
+			? gmdate( 'Y-m-d H:i:s' )
+			: null;
+
+		$status = ( null !== $delivered_at ) ? 'success' : 'error';
+
+		$data    = array(
+			'webhook_id'    => (int) $webhook->id,
+			'event'         => $event_type,
+			'payload'       => $body,
+			'response_code' => $response_code,
+			'response_body' => $response_body,
+			'status'        => $status,
+		);
+		$formats = array( '%d', '%s', '%s', null !== $response_code ? '%d' : 'NULL', '%s', '%s' );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_outbound_webhook_log',
-			array(
-				'webhook_id'    => $webhook_id,
-				'event'         => $event_name,
-				'payload'       => $body,
-				'response_code' => $response_code,
-				'response_body' => $response_body,
-				'status'        => $status,
-			),
-			array( '%d', '%s', '%s', $response_code ? '%d' : 'NULL', '%s', '%s' )
+			$data,
+			$formats
 		);
+	}
+
+	// ── CRUD ──────────────────────────────────────────────────────────────
+
+	/**
+	 * Return all webhook rows for the admin UI.
+	 *
+	 * @return array<int, object> All rows from bn_outbound_webhooks.
+	 */
+	public function get_webhooks(): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			"SELECT id, label, url, secret, events, is_active, created_at, updated_at FROM {$wpdb->prefix}bn_outbound_webhooks ORDER BY id ASC"
+		);
+
+		return $rows ? $rows : array();
+	}
+
+	/**
+	 * Insert a new webhook row.
+	 *
+	 * A random 40-character alphanumeric secret is generated automatically
+	 * when the caller passes an empty string.
+	 *
+	 * @param string   $label        Human-readable label.
+	 * @param string   $endpoint_url Destination URL.
+	 * @param string[] $events       Array of dot-notation event names to subscribe to.
+	 * @param string   $secret       Signing secret. Auto-generated when empty.
+	 * @return int|false Insert ID on success, false on failure.
+	 */
+	public function create_webhook( string $label, string $endpoint_url, array $events, string $secret = '' ): int|false {
+		global $wpdb;
+
+		if ( '' === $secret ) {
+			$secret = wp_generate_password( 40, false );
+		}
+
+		$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+			$wpdb->prefix . 'bn_outbound_webhooks',
+			array(
+				'label'     => $label,
+				'url'       => $endpoint_url,
+				'secret'    => $secret,
+				'events'    => wp_json_encode( array_values( $events ) ),
+				'is_active' => 1,
+			),
+			array( '%s', '%s', '%s', '%s', '%d' )
+		);
+
+		if ( false === $inserted ) {
+			return false;
+		}
+
+		return (int) $wpdb->insert_id;
+	}
+
+	/**
+	 * Delete a webhook row and its associated log entries.
+	 *
+	 * @param int $id Webhook row ID.
+	 * @return bool True when a row was deleted, false otherwise.
+	 */
+	public function delete_webhook( int $id ): bool {
+		global $wpdb;
+
+		$deleted = $wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write operation; no read-cache to invalidate.
+			$wpdb->prefix . 'bn_outbound_webhooks',
+			array( 'id' => $id ),
+			array( '%d' )
+		);
+
+		return false !== $deleted && $deleted > 0;
+	}
+
+	/**
+	 * Enable or disable a webhook.
+	 *
+	 * @param int  $id     Webhook row ID.
+	 * @param bool $active True to activate, false to deactivate.
+	 * @return bool True when the row was updated, false otherwise.
+	 */
+	public function toggle_webhook( int $id, bool $active ): bool {
+		global $wpdb;
+
+		$updated = $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- write operation; no read-cache to invalidate.
+			$wpdb->prefix . 'bn_outbound_webhooks',
+			array( 'is_active' => (int) $active ),
+			array( 'id' => $id ),
+			array( '%d' ),
+			array( '%d' )
+		);
+
+		return false !== $updated && $updated > 0;
 	}
 }

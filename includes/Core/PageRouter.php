@@ -1,22 +1,37 @@
 <?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
- * BuddyNext front-end URL router.
+ * BuddyNext front-end URL router — Hub + Endpoint model.
  *
- * Registers rewrite rules and tags so community pages have clean URLs:
+ * Five configurable-slug hubs, each with sub-endpoints:
  *
- *   /profile/{slug}/    → member profile (slug = bn_profile_slug meta or user-{id})
+ *   Activity hub  /activity/          → home feed
+ *                 /activity/explore/  → explore
+ *                 /activity/hashtag/{tag}/ → hashtag feed
+ *                 /activity/search/   → search results
+ *                 /activity/leaderboard/ → leaderboard
  *
- * Profile slugs are stored separately from WP credentials — changing a slug
- * never modifies user_login, user_nicename, or email. The default slug is
- * "user-{id}" so no login information is exposed in URLs by default.
+ *   People hub    /members/           → member directory
+ *                 /members/{slug}/    → profile view
+ *                 /members/{slug}/edit/        → profile edit
+ *                 /members/{slug}/connections/ → connections
  *
- * A static helper, profile_url(), builds the canonical profile URL for any
- * user ID and is used by all templates to generate member links.
+ *   Spaces hub    /spaces/            → spaces directory
+ *                 /spaces/{slug}/     → space home
+ *                 /spaces/{slug}/members/    → members list
+ *                 /spaces/{slug}/settings/   → settings
+ *                 /spaces/{slug}/moderation/ → moderation
+ *                 /spaces/{slug}/admin/      → admin panel
  *
- * Flush rewrites (Settings → Permalinks or wp rewrite flush) whenever
- * community pages are created or their slugs change.
+ *   Messages hub  /messages/          → conversation list
+ *                 /messages/requests/ → message requests
+ *                 /messages/{id}/     → conversation thread
+ *
+ *   Notifications hub /notifications/ → notifications
+ *
+ * Hub slugs are configurable via options and flush rewrite rules on change.
  *
  * @package BuddyNext\Core
+ * @since   1.0.0
  */
 
 declare( strict_types=1 );
@@ -27,7 +42,7 @@ use WP_Query;
 use WP_User;
 
 /**
- * Manages BuddyNext rewrite rules for pretty profile URLs.
+ * Manages BuddyNext rewrite rules and URL builders for all five community hubs.
  */
 class PageRouter {
 
@@ -40,37 +55,183 @@ class PageRouter {
 	 */
 	public function init(): void {
 		add_action( 'init', array( $this, 'register_rewrites' ) );
-		add_action( 'pre_get_posts', array( $this, 'set_profile_user' ) );
+		add_action( 'pre_get_posts', array( $this, 'set_hub_vars' ) );
+
+		// Flush rewrites whenever any hub slug changes.
+		foreach ( array( 'activity', 'people', 'spaces', 'messages', 'notifications' ) as $hub ) {
+			add_action( 'update_option_buddynext_slug_' . $hub, array( $this, 'flush_on_slug_change' ) );
+		}
 	}
 
-	// ── Rewrite rules ─────────────────────────────────────────────────────────
+	// ── Rewrite registration ──────────────────────────────────────────────────
 
 	/**
-	 * Register the bn_profile_slug rewrite tag and the profile pretty-URL rule.
+	 * Register all rewrite tags and hub rewrite rules.
 	 *
-	 * Pattern: /{profile-page-slug}/{user-slug}/
-	 * Resolves to: index.php?pagename={profile-page-slug}&bn_profile_slug={user-slug}
-	 *
-	 * WordPress then loads the profile page normally (theme page template + the
-	 * [buddynext_profile] shortcode), and set_profile_user() stores the resolved
-	 * user ID in a query var for the shortcode to read.
+	 * Called on the 'init' action. Specific patterns are always registered
+	 * before catch-all patterns so WordPress matches them first ('top' priority).
 	 *
 	 * @return void
 	 */
 	public function register_rewrites(): void {
-		add_rewrite_tag( '%bn_profile_slug%', '([^/]+)' );
+		// ── Rewrite tags ──────────────────────────────────────────────────────
+		add_rewrite_tag( '%bn_activity_action%', '([^/]*)' );
+		add_rewrite_tag( '%bn_hashtag%', '([^/]+)' );
+		add_rewrite_tag( '%bn_user_slug%', '([^/]+)' );
+		add_rewrite_tag( '%bn_profile_action%', '([^/]*)' );
+		add_rewrite_tag( '%bn_space_slug%', '([^/]+)' );
+		add_rewrite_tag( '%bn_space_action%', '([^/]*)' );
+		add_rewrite_tag( '%bn_conv_id%', '([0-9]+)' );
+		add_rewrite_tag( '%bn_msg_action%', '([^/]*)' );
 
-		$page_id   = (int) get_option( 'buddynext_page_profile', 0 );
-		$page_slug = $page_id > 0 ? (string) get_post_field( 'post_name', $page_id ) : 'profile';
-		$page_slug = trim( $page_slug );
+		$this->register_activity_rules();
+		$this->register_people_rules();
+		$this->register_spaces_rules();
+		$this->register_messages_rules();
+		$this->register_notifications_rules();
+	}
 
-		if ( '' === $page_slug ) {
-			return;
-		}
+	/**
+	 * Register Activity hub rewrite rules.
+	 *
+	 * @return void
+	 */
+	private function register_activity_rules(): void {
+		$a = self::hub_slug( 'buddynext_slug_activity', 'activity' );
 
 		add_rewrite_rule(
-			'^' . preg_quote( $page_slug, '/' ) . '/([^/]+)/?$',
-			'index.php?pagename=' . $page_slug . '&bn_profile_slug=$matches[1]',
+			'^' . preg_quote( $a, '/' ) . '/?$',
+			'index.php?pagename=' . $a,
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $a, '/' ) . '/explore/?$',
+			'index.php?pagename=' . $a . '&bn_activity_action=explore',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $a, '/' ) . '/hashtag/([^/]+)/?$',
+			'index.php?pagename=' . $a . '&bn_activity_action=hashtag&bn_hashtag=$matches[1]',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $a, '/' ) . '/search/?$',
+			'index.php?pagename=' . $a . '&bn_activity_action=search',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $a, '/' ) . '/leaderboard/?$',
+			'index.php?pagename=' . $a . '&bn_activity_action=leaderboard',
+			'top'
+		);
+	}
+
+	/**
+	 * Register People hub rewrite rules.
+	 *
+	 * @return void
+	 */
+	private function register_people_rules(): void {
+		$p = self::hub_slug( 'buddynext_slug_people', 'members' );
+
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/?$',
+			'index.php?pagename=' . $p,
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/edit/?$',
+			'index.php?pagename=' . $p . '&bn_user_slug=$matches[1]&bn_profile_action=edit',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/connections/?$',
+			'index.php?pagename=' . $p . '&bn_user_slug=$matches[1]&bn_profile_action=connections',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/?$',
+			'index.php?pagename=' . $p . '&bn_user_slug=$matches[1]',
+			'top'
+		);
+	}
+
+	/**
+	 * Register Spaces hub rewrite rules.
+	 *
+	 * @return void
+	 */
+	private function register_spaces_rules(): void {
+		$s = self::hub_slug( 'buddynext_slug_spaces', 'spaces' );
+
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/?$',
+			'index.php?pagename=' . $s,
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/([^/]+)/members/?$',
+			'index.php?pagename=' . $s . '&bn_space_slug=$matches[1]&bn_space_action=members',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/([^/]+)/settings/?$',
+			'index.php?pagename=' . $s . '&bn_space_slug=$matches[1]&bn_space_action=settings',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/([^/]+)/moderation/?$',
+			'index.php?pagename=' . $s . '&bn_space_slug=$matches[1]&bn_space_action=moderation',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/([^/]+)/admin/?$',
+			'index.php?pagename=' . $s . '&bn_space_slug=$matches[1]&bn_space_action=admin',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/([^/]+)/?$',
+			'index.php?pagename=' . $s . '&bn_space_slug=$matches[1]',
+			'top'
+		);
+	}
+
+	/**
+	 * Register Messages hub rewrite rules.
+	 *
+	 * @return void
+	 */
+	private function register_messages_rules(): void {
+		$m = self::hub_slug( 'buddynext_slug_messages', 'messages' );
+
+		add_rewrite_rule(
+			'^' . preg_quote( $m, '/' ) . '/?$',
+			'index.php?pagename=' . $m,
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $m, '/' ) . '/requests/?$',
+			'index.php?pagename=' . $m . '&bn_msg_action=requests',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $m, '/' ) . '/([0-9]+)/?$',
+			'index.php?pagename=' . $m . '&bn_conv_id=$matches[1]',
+			'top'
+		);
+	}
+
+	/**
+	 * Register Notifications hub rewrite rules.
+	 *
+	 * @return void
+	 */
+	private function register_notifications_rules(): void {
+		$n = self::hub_slug( 'buddynext_slug_notifications', 'notifications' );
+
+		add_rewrite_rule(
+			'^' . preg_quote( $n, '/' ) . '/?$',
+			'index.php?pagename=' . $n,
 			'top'
 		);
 	}
@@ -78,102 +239,301 @@ class PageRouter {
 	// ── Query filter ──────────────────────────────────────────────────────────
 
 	/**
-	 * Resolve bn_profile_slug to a user ID and store it as bn_resolved_user_id.
+	 * Resolve hub query vars on the main query and store resolved IDs.
 	 *
-	 * Runs on the main query only. The [buddynext_profile] shortcode reads
-	 * get_query_var('bn_resolved_user_id') to determine whose profile to display.
+	 * Resolves bn_user_slug → bn_resolved_user_id
+	 * Resolves bn_space_slug → bn_resolved_space_id
 	 *
-	 * @param WP_Query $query Current main query.
+	 * @param WP_Query $query Current WordPress query.
 	 * @return void
 	 */
-	public function set_profile_user( WP_Query $query ): void {
+	public function set_hub_vars( WP_Query $query ): void {
 		if ( ! $query->is_main_query() ) {
 			return;
 		}
 
-		$raw_slug = $query->get( 'bn_profile_slug', '' );
-		if ( '' === (string) $raw_slug ) {
-			return;
+		$raw_user_slug = (string) $query->get( 'bn_user_slug', '' );
+		if ( '' !== $raw_user_slug ) {
+			$user    = $this->resolve_user( sanitize_title( $raw_user_slug ) );
+			$user_id = $user instanceof WP_User ? $user->ID : 0;
+			$query->set( 'bn_resolved_user_id', $user_id );
 		}
 
-		$user    = $this->resolve_user( sanitize_title( (string) $raw_slug ) );
-		$user_id = $user instanceof WP_User ? $user->ID : 0;
-		$query->set( 'bn_resolved_user_id', $user_id );
+		$raw_space_slug = (string) $query->get( 'bn_space_slug', '' );
+		if ( '' !== $raw_space_slug ) {
+			$space_id = $this->resolve_space( sanitize_title( $raw_space_slug ) );
+			$query->set( 'bn_resolved_space_id', $space_id );
+		}
 	}
 
-	// ── Static helpers ────────────────────────────────────────────────────────
+	// ── Slug-change flush ─────────────────────────────────────────────────────
 
 	/**
-	 * Build the canonical BuddyNext profile URL for a user.
+	 * Flush rewrite rules after a hub slug option changes.
 	 *
-	 * Priority:
+	 * Registered on update_option_buddynext_slug_{hub} for all five hubs.
+	 *
+	 * @return void
+	 */
+	public function flush_on_slug_change(): void {
+		flush_rewrite_rules();
+	}
+
+	// ── Static URL builders ───────────────────────────────────────────────────
+
+	/**
+	 * Build the base URL for a hub using its page option.
+	 *
+	 * Falls back to home_url('/hub-slug/') when the page option is not set
+	 * so that URL builders always return a usable string.
+	 *
+	 * @param string $slug_option The option name for the hub's slug.
+	 * @param string $page_option The option name for the hub's page ID.
+	 * @return string Trailing-slashed absolute URL.
+	 */
+	public static function hub_url( string $slug_option, string $page_option ): string {
+		$page_id = (int) get_option( $page_option, 0 );
+
+		if ( $page_id > 0 && 'publish' === get_post_status( $page_id ) ) {
+			return trailingslashit( (string) get_permalink( $page_id ) );
+		}
+
+		$slug = self::hub_slug( $slug_option, self::default_slug( $slug_option ) );
+		return trailingslashit( home_url( '/' . $slug ) );
+	}
+
+	/**
+	 * Return the Activity hub base URL.
+	 *
+	 * @return string
+	 */
+	public static function activity_url(): string {
+		return self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' );
+	}
+
+	/**
+	 * Return the Explore sub-page URL.
+	 *
+	 * @return string
+	 */
+	public static function explore_url(): string {
+		return self::activity_url() . 'explore/';
+	}
+
+	/**
+	 * Return the hashtag feed URL for a given hashtag.
+	 *
+	 * @param string $hashtag Hashtag slug (without the # character).
+	 * @return string
+	 */
+	public static function hashtag_feed_url( string $hashtag ): string {
+		return self::activity_url() . 'hashtag/' . rawurlencode( sanitize_title( $hashtag ) ) . '/';
+	}
+
+	/**
+	 * Return the search results URL, optionally pre-filling the query string.
+	 *
+	 * @param string $query Search query to append as ?q=...
+	 * @return string
+	 */
+	public static function search_url( string $query = '' ): string {
+		$url = self::activity_url() . 'search/';
+		if ( '' !== $query ) {
+			$url = add_query_arg( 'q', rawurlencode( $query ), $url );
+		}
+		return $url;
+	}
+
+	/**
+	 * Return the Leaderboard page URL.
+	 *
+	 * @return string
+	 */
+	public static function leaderboard_url(): string {
+		return self::activity_url() . 'leaderboard/';
+	}
+
+	/**
+	 * Return the People (member directory) hub base URL.
+	 *
+	 * @return string
+	 */
+	public static function people_url(): string {
+		return self::hub_url( 'buddynext_slug_people', 'buddynext_page_people' );
+	}
+
+	/**
+	 * Return the canonical profile URL for a user.
+	 *
+	 * Slug priority:
 	 *   1. bn_profile_slug usermeta (custom slug chosen by the member)
-	 *   2. "user-{id}" — safe default that never exposes WP credentials
-	 *
-	 * Falls back to the WP author archive when the profile page has not been
-	 * created yet (e.g. before the setup wizard page step runs).
+	 *   2. user_nicename (URL-safe, human-readable)
+	 *   3. user-{id} (safe fallback — never exposes WP credentials)
 	 *
 	 * @param int $user_id WordPress user ID.
-	 * @return string Absolute URL.
+	 * @return string Absolute URL, or empty string when user_id is invalid.
 	 */
 	public static function profile_url( int $user_id ): string {
 		if ( $user_id <= 0 ) {
 			return '';
 		}
 
-		$page_id = (int) get_option( 'buddynext_page_profile', 0 );
-
-		if ( $page_id <= 0 || 'publish' !== get_post_status( $page_id ) ) {
-			// Profile page not yet created — fall back to WP author archive.
-			return get_author_posts_url( $user_id );
-		}
-
-		$page_url = trailingslashit( (string) get_permalink( $page_id ) );
+		$base = self::people_url();
 
 		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
-
 		if ( '' !== $custom_slug ) {
-			$slug = $custom_slug;
-		} else {
-			// Fall back to user_nicename — already URL-safe and human-readable.
-			$user     = get_userdata( $user_id );
-			$nicename = $user instanceof \WP_User ? $user->user_nicename : '';
-			$slug     = '' !== $nicename ? $nicename : 'user-' . $user_id;
+			return $base . rawurlencode( $custom_slug ) . '/';
 		}
 
-		return $page_url . rawurlencode( $slug ) . '/';
+		$user = get_userdata( $user_id );
+		if ( $user instanceof WP_User && '' !== $user->user_nicename ) {
+			return $base . rawurlencode( $user->user_nicename ) . '/';
+		}
+
+		return $base . 'user-' . $user_id . '/';
 	}
 
 	/**
-	 * Build the frontend Edit Profile URL.
+	 * Return the Edit Profile URL for a user.
 	 *
-	 * Returns the permalink of the page that holds [buddynext_edit_profile].
-	 * Falls back to the WP admin profile page when the edit-profile page has
-	 * not been created yet.
+	 * When $user_id is 0, uses the currently logged-in user.
+	 * Falls back to the WP admin profile page when the page option is not set.
 	 *
+	 * @param int $user_id WordPress user ID (0 = current user).
 	 * @return string Absolute URL.
 	 */
-	public static function edit_profile_url(): string {
-		$page_id = (int) get_option( 'buddynext_page_edit_profile', 0 );
-
-		if ( $page_id > 0 && 'publish' === get_post_status( $page_id ) ) {
-			return (string) get_permalink( $page_id );
+	public static function edit_profile_url( int $user_id = 0 ): string {
+		if ( 0 === $user_id ) {
+			$user_id = get_current_user_id();
 		}
 
-		return get_edit_profile_url( get_current_user_id() );
+		if ( $user_id <= 0 ) {
+			return get_edit_profile_url( 0 );
+		}
+
+		$base = self::people_url();
+
+		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+		if ( '' !== $custom_slug ) {
+			return $base . rawurlencode( $custom_slug ) . '/edit/';
+		}
+
+		$user = get_userdata( $user_id );
+		if ( $user instanceof WP_User && '' !== $user->user_nicename ) {
+			return $base . rawurlencode( $user->user_nicename ) . '/edit/';
+		}
+
+		return $base . 'user-' . $user_id . '/edit/';
+	}
+
+	/**
+	 * Return the Connections page URL for a user.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return string Absolute URL.
+	 */
+	public static function connections_url( int $user_id ): string {
+		if ( $user_id <= 0 ) {
+			return self::people_url();
+		}
+
+		$base = self::people_url();
+
+		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+		if ( '' !== $custom_slug ) {
+			return $base . rawurlencode( $custom_slug ) . '/connections/';
+		}
+
+		$user = get_userdata( $user_id );
+		if ( $user instanceof WP_User && '' !== $user->user_nicename ) {
+			return $base . rawurlencode( $user->user_nicename ) . '/connections/';
+		}
+
+		return $base . 'user-' . $user_id . '/connections/';
+	}
+
+	/**
+	 * Return the Spaces hub base URL.
+	 *
+	 * @return string
+	 */
+	public static function spaces_url(): string {
+		return self::hub_url( 'buddynext_slug_spaces', 'buddynext_page_spaces' );
+	}
+
+	/**
+	 * Return the canonical URL for a single space.
+	 *
+	 * Queries the bn_spaces table for the space's post_name (slug) by ID.
+	 *
+	 * @param int $space_id Space primary key.
+	 * @return string Absolute URL, or spaces hub URL when space not found.
+	 */
+	public static function space_url( int $space_id ): string {
+		if ( $space_id <= 0 ) {
+			return self::spaces_url();
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_name = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT post_name FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$space_id
+			)
+		);
+
+		if ( null === $post_name || '' === (string) $post_name ) {
+			return self::spaces_url();
+		}
+
+		return self::spaces_url() . rawurlencode( (string) $post_name ) . '/';
+	}
+
+	/**
+	 * Return the Messages hub base URL.
+	 *
+	 * @return string
+	 */
+	public static function messages_url(): string {
+		return self::hub_url( 'buddynext_slug_messages', 'buddynext_page_messages' );
+	}
+
+	/**
+	 * Return the URL for a specific conversation thread.
+	 *
+	 * @param int $conv_id Conversation ID.
+	 * @return string Absolute URL.
+	 */
+	public static function conversation_url( int $conv_id ): string {
+		if ( $conv_id <= 0 ) {
+			return self::messages_url();
+		}
+
+		return self::messages_url() . $conv_id . '/';
+	}
+
+	/**
+	 * Return the Notifications hub base URL.
+	 *
+	 * @return string
+	 */
+	public static function notifications_url(): string {
+		return self::hub_url( 'buddynext_slug_notifications', 'buddynext_page_notifications' );
 	}
 
 	/**
 	 * Check whether a profile slug is available for a given user to claim.
 	 *
 	 * A slug is unavailable when:
-	 *   - Another user already holds it as bn_profile_slug.
-	 *   - It matches the reserved "user-{numeric_id}" pattern for any user other
-	 *     than the requesting user (these are auto-generated default slugs).
+	 *   - Another user already holds it as bn_profile_slug usermeta.
+	 *   - It matches the reserved "user-{numeric_id}" pattern for any user
+	 *     other than the requesting user.
 	 *
 	 * @param string $slug    Proposed slug (sanitized with sanitize_title internally).
 	 * @param int    $user_id User requesting the slug (excluded from conflict checks).
-	 * @return bool
+	 * @return bool True when the slug is available.
 	 */
 	public static function is_slug_available( string $slug, int $user_id ): bool {
 		$slug = sanitize_title( $slug );
@@ -187,7 +547,7 @@ class PageRouter {
 		}
 
 		// Check bn_profile_slug usermeta (indexed; slow-query warning is a false positive).
-		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 		$taken_by_meta = get_users(
 			array(
 				'meta_key'   => 'bn_profile_slug',
@@ -197,6 +557,7 @@ class PageRouter {
 				'fields'     => 'ID',
 			)
 		);
+		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 
 		return empty( $taken_by_meta );
 	}
@@ -206,19 +567,17 @@ class PageRouter {
 	/**
 	 * Resolve a URL slug to a WordPress user.
 	 *
-	 * Checks in order:
-	 *   1. bn_profile_slug usermeta (custom slug set by the member)
-	 *   2. Reserved "user-{id}" pattern (system default — never exposes credentials)
-	 *
-	 * user_nicename and user_login are intentionally not checked here so that
-	 * WP login names are never exposed through profile URLs.
+	 * Check order:
+	 *   1. bn_profile_slug usermeta (custom slug set by the member).
+	 *   2. Reserved "user-{id}" pattern (system default).
+	 *   3. user_nicename fallback.
 	 *
 	 * @param string $slug URL-decoded, sanitized slug.
 	 * @return WP_User|null
 	 */
 	private function resolve_user( string $slug ): ?WP_User {
 		// 1. Custom slug set by the member (meta lookup is intentional — indexed column).
-		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 		$by_meta = get_users(
 			array(
 				'meta_key'   => 'bn_profile_slug',
@@ -226,18 +585,69 @@ class PageRouter {
 				'number'     => 1,
 			)
 		);
+		// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 		if ( ! empty( $by_meta ) ) {
 			return $by_meta[0] instanceof WP_User ? $by_meta[0] : null;
 		}
 
-		// 2. Reserved "user-{id}" pattern (legacy default).
+		// 2. Reserved "user-{id}" pattern.
 		if ( preg_match( '/^user-(\d+)$/', $slug, $m ) ) {
 			$by_id = get_user_by( 'ID', (int) $m[1] );
 			return $by_id instanceof WP_User ? $by_id : null;
 		}
 
-		// 3. user_nicename fallback (used when no custom slug is set).
+		// 3. user_nicename fallback.
 		$by_nicename = get_user_by( 'slug', $slug );
 		return $by_nicename instanceof WP_User ? $by_nicename : null;
+	}
+
+	/**
+	 * Resolve a space URL slug to its primary-key ID.
+	 *
+	 * @param string $slug URL-decoded, sanitized slug.
+	 * @return int Space ID, or 0 when not found.
+	 */
+	private function resolve_space( string $slug ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE post_name = %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$slug
+			)
+		);
+
+		return (int) $space_id;
+	}
+
+	/**
+	 * Read a hub's slug from options, falling back to a sensible default.
+	 *
+	 * @param string $option_name The option key, e.g. 'buddynext_slug_activity'.
+	 * @param string $fallback    Default slug value when option is empty.
+	 * @return string
+	 */
+	private static function hub_slug( string $option_name, string $fallback ): string {
+		$slug = (string) get_option( $option_name, $fallback );
+		$slug = trim( $slug );
+		return '' !== $slug ? $slug : $fallback;
+	}
+
+	/**
+	 * Return the built-in default slug for a hub slug option.
+	 *
+	 * @param string $option_name The option key.
+	 * @return string
+	 */
+	private static function default_slug( string $option_name ): string {
+		$map = array(
+			'buddynext_slug_activity'      => 'activity',
+			'buddynext_slug_people'        => 'members',
+			'buddynext_slug_spaces'        => 'spaces',
+			'buddynext_slug_messages'      => 'messages',
+			'buddynext_slug_notifications' => 'notifications',
+		);
+		return $map[ $option_name ] ?? 'community';
 	}
 }

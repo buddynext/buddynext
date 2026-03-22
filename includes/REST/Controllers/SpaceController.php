@@ -154,6 +154,23 @@ class SpaceController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/ban/(?P<user_id>[\d]+)',
+			array(
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'ban_user' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'DELETE',
+					'callback'            => array( $this, 'unban_user' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)/members/(?P<user_id>[\d]+)/role',
 			array(
 				'methods'             => 'PUT',
@@ -423,6 +440,25 @@ class SpaceController {
 
 		$members = new SpaceMemberService();
 
+		// Enforce space ban at the REST layer before any join path executes.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$is_banned = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_bans WHERE space_id = %d AND user_id = %d",
+				$space_id,
+				$user_id
+			)
+		);
+
+		if ( $is_banned ) {
+			return new WP_Error(
+				'space_banned',
+				__( 'You have been banned from this space.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// Secret spaces are invite-only.
 		if ( 'secret' === $space['type'] ) {
 			if ( 'invited' !== $members->get_status( $space_id, $user_id ) ) {
@@ -599,6 +635,183 @@ class SpaceController {
 		}
 
 		return new WP_REST_Response( array( 'banned' => true ), 200 );
+	}
+
+	/**
+	 * Ban a user from a space via POST /spaces/{id}/ban/{user_id}.
+	 *
+	 * Requires buddynext-moderate-space on the acting user. Inserts a hard ban
+	 * row into bn_space_bans and removes any active membership row.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function ban_user( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id    = (int) $request->get_param( 'id' );
+		$ban_user_id = (int) $request->get_param( 'user_id' );
+		$actor_id    = get_current_user_id();
+
+		if ( 0 === $ban_user_id ) {
+			return new WP_Error(
+				'missing_user_id',
+				__( 'A valid user_id is required.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$space = ( new SpaceService() )->get( $space_id );
+
+		if ( null === $space ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		if ( ! buddynext_can( $actor_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'You do not have permission to moderate this space.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$reason_param = $request->get_param( 'reason' );
+		$reason       = null !== $reason_param ? sanitize_textarea_field( (string) $reason_param ) : '';
+
+		global $wpdb;
+
+		// Write hard ban row (INSERT IGNORE — idempotent if already banned).
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_bans (space_id, user_id, banned_by, reason)
+				 VALUES (%d, %d, %d, %s)",
+				$space_id,
+				$ban_user_id,
+				$actor_id,
+				$reason
+			)
+		);
+
+		// Remove the user from active membership, decrementing the count only
+		// when they were previously an active member.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$was_active = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members
+				 WHERE space_id = %d AND user_id = %d AND status = 'active'",
+				$space_id,
+				$ban_user_id
+			)
+		);
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $ban_user_id,
+			),
+			array( '%d', '%d' )
+		);
+
+		if ( $was_active ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_spaces
+					 SET member_count = GREATEST( member_count - 1, 0 )
+					 WHERE id = %d",
+					$space_id
+				)
+			);
+		}
+
+		wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
+		wp_cache_delete( "members_{$space_id}", 'buddynext_spaces' );
+		wp_cache_delete( "role_{$space_id}_{$ban_user_id}", 'buddynext_space_members' );
+		wp_cache_delete( "status_{$space_id}_{$ban_user_id}", 'buddynext_space_members' );
+
+		/**
+		 * Fires after a user is banned from a space via the REST ban endpoint.
+		 *
+		 * @param int    $space_id    Space ID.
+		 * @param int    $ban_user_id User who was banned.
+		 * @param int    $actor_id    User who performed the ban.
+		 * @param string $reason      Ban reason (may be empty).
+		 */
+		do_action( 'buddynext_space_user_banned', $space_id, $ban_user_id, $actor_id, $reason );
+
+		return new WP_REST_Response( array( 'banned' => true ), 200 );
+	}
+
+	/**
+	 * Unban a user from a space via DELETE /spaces/{id}/ban/{user_id}.
+	 *
+	 * Requires buddynext-moderate-space on the acting user. Removes the hard
+	 * ban row from bn_space_bans; does not reinstate membership.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function unban_user( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id    = (int) $request->get_param( 'id' );
+		$ban_user_id = (int) $request->get_param( 'user_id' );
+		$actor_id    = get_current_user_id();
+
+		if ( 0 === $ban_user_id ) {
+			return new WP_Error(
+				'missing_user_id',
+				__( 'A valid user_id is required.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$space = ( new SpaceService() )->get( $space_id );
+
+		if ( null === $space ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		if ( ! buddynext_can( $actor_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'You do not have permission to moderate this space.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_bans',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $ban_user_id,
+			),
+			array( '%d', '%d' )
+		);
+
+		wp_cache_delete( "role_{$space_id}_{$ban_user_id}", 'buddynext_space_members' );
+		wp_cache_delete( "status_{$space_id}_{$ban_user_id}", 'buddynext_space_members' );
+
+		/**
+		 * Fires after a space ban is lifted via the REST unban endpoint.
+		 *
+		 * @param int $space_id    Space ID.
+		 * @param int $ban_user_id User who was unbanned.
+		 * @param int $actor_id    User who lifted the ban.
+		 */
+		do_action( 'buddynext_space_user_unbanned', $space_id, $ban_user_id, $actor_id );
+
+		return new WP_REST_Response( array( 'unbanned' => true ), 200 );
 	}
 
 	/**

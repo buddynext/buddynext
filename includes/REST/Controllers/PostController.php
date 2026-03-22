@@ -18,6 +18,7 @@ declare( strict_types=1 );
 namespace BuddyNext\REST\Controllers;
 
 use BuddyNext\Feed\PostService;
+use BuddyNext\Feed\SafeguardService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -106,6 +107,18 @@ class PostController {
 			'scheduled_at'         => $request->get_param( 'scheduled_at' ),
 		);
 
+		// Run safeguard checks before delegating to the service layer.
+		$safeguard = function_exists( 'buddynext_service' )
+			? buddynext_service( 'safeguard' )
+			: null;
+
+		if ( null !== $safeguard ) {
+			$guard = $safeguard->check( $user_id, $data['content'] );
+			if ( is_wp_error( $guard ) ) {
+				return $guard;
+			}
+		}
+
 		$service = function_exists( 'buddynext_service' )
 			? buddynext_service( 'post_service' )
 			: new PostService();
@@ -115,6 +128,11 @@ class PostController {
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );
 			return $result;
+		}
+
+		// Increment the rate-limit counter only after a committed post.
+		if ( null !== $safeguard ) {
+			$safeguard->increment_rate_limit( $user_id );
 		}
 
 		$post = $service->get( $result );

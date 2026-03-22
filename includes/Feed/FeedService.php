@@ -182,6 +182,10 @@ class FeedService {
 	/**
 	 * Return the profile feed for a given user as seen by a viewer.
 	 *
+	 * Suspended and shadow-banned users' posts are hidden from all viewers,
+	 * including the profile owner themselves, so that moderation is transparent
+	 * at the data layer rather than relying on template-level checks.
+	 *
 	 * @param int         $profile_user_id  User whose posts to show.
 	 * @param int         $viewer_id        Viewing user ID (0 = anonymous).
 	 * @param string|null $cursor           Pagination cursor.
@@ -194,7 +198,7 @@ class FeedService {
 		$per_page = min( $per_page, 50 );
 
 		if ( $viewer_id === $profile_user_id ) {
-			// Owner sees everything.
+			// Owner sees everything — but suspended/shadow-banned posts are still hidden.
 			$privacy_clause = '';
 			$privacy_params = array();
 		} elseif ( $viewer_id > 0 && $this->follows->is_following( $viewer_id, $profile_user_id ) ) {
@@ -207,16 +211,19 @@ class FeedService {
 			$privacy_params = array();
 		}
 
-		$cursor_where = $this->cursor_where( $cursor );
+		$cursor_where   = $this->cursor_where( $cursor );
+		$excluded_where = $this->excluded_users_where();
 
 		// $privacy_clause is a hardcoded SQL constant — safe.
 		// $cursor_where is either '' or the single hardcoded SQL constant — safe.
+		// $excluded_where contains only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE user_id = %d
 			   {$privacy_clause}
 			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+			   {$excluded_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
@@ -235,6 +242,7 @@ class FeedService {
 	 *
 	 * Access control is the caller's responsibility — this method returns all
 	 * published posts in the space without additional viewer-side filtering.
+	 * Posts authored by suspended or shadow-banned users are always excluded.
 	 *
 	 * @param int         $space_id  Space whose posts to show.
 	 * @param int         $viewer_id Viewing user ID (reserved for future access checks).
@@ -245,16 +253,18 @@ class FeedService {
 	public function space_feed( int $space_id, int $viewer_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
 		global $wpdb;
 
-		$per_page     = min( $per_page, 50 );
-		$cursor_where = $this->cursor_where( $cursor );
+		$per_page       = min( $per_page, 50 );
+		$cursor_where   = $this->cursor_where( $cursor );
+		$excluded_where = $this->excluded_users_where();
 
-		// $cursor_where is either '' or the single hardcoded SQL constant — safe.
+		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE space_id = %d
 			   AND status = 'published'
 			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+			   {$excluded_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",

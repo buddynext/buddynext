@@ -47,6 +47,7 @@ class EventListener {
 		// Moderation.
 		add_action( 'buddynext_strike_issued', array( $this, 'on_strike_issued' ), 10, 3 );
 		add_action( 'buddynext_member_suspended', array( $this, 'on_member_suspended' ), 10, 2 );
+		add_action( 'buddynext_user_suspended', array( $this, 'on_user_suspended' ), 10, 4 );
 		add_action( 'buddynext_appeal_resolved', array( $this, 'on_appeal_resolved' ), 10, 3 );
 
 		// WBGamification bridge (fires only when that plugin is active).
@@ -500,6 +501,12 @@ class EventListener {
 					'group_key'    => null,
 				)
 			);
+
+			buddynext_service( 'email_sender' )->send(
+				$user_id,
+				'bn.strike_warning',
+				array( 'count' => $active_strikes )
+			);
 		}
 	}
 
@@ -530,6 +537,44 @@ class EventListener {
 	}
 
 	/**
+	 * Notify and email a user when their account is suspended via the extended hook.
+	 *
+	 * Fires from the buddynext_user_suspended action, which carries the full
+	 * suspension context (reason, optional expiry). Creates an in-app notification
+	 * and dispatches a transactional suspension email.
+	 *
+	 * @param int         $user_id    The suspended user.
+	 * @param int         $mod_id     Moderator or admin who issued the suspension.
+	 * @param string      $reason     Human-readable reason for the suspension.
+	 * @param string|null $expires_at ISO 8601 expiry timestamp, or null for permanent.
+	 */
+	public function on_user_suspended( int $user_id, int $mod_id, string $reason, ?string $expires_at ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $user_id,
+				'sender_id'    => $mod_id,
+				'type'         => 'bn.member_suspended',
+				'object_type'  => 'user',
+				'object_id'    => $user_id,
+				'group_key'    => null,
+			)
+		);
+
+		buddynext_service( 'email_sender' )->send(
+			$user_id,
+			'bn.suspension',
+			array(
+				'reason'     => $reason,
+				'expires_at' => $expires_at ?? __( 'permanent', 'buddynext' ),
+			)
+		);
+	}
+
+	/**
 	 * Notify the appellant by email when their appeal is resolved.
 	 *
 	 * Creates a bn.appeal_resolved notification so the EmailDispatchListener
@@ -554,6 +599,12 @@ class EventListener {
 				'group_key'    => null,
 				'data'         => array( 'decision' => $decision ),
 			)
+		);
+
+		buddynext_service( 'email_sender' )->send(
+			$user_id,
+			'bn.appeal_resolved',
+			array( 'status' => $decision )
 		);
 	}
 

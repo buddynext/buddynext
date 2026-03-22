@@ -28,6 +28,10 @@ class PermissionService {
 	 * Null = no role-based default; the capability must be explicitly granted
 	 * via a row in bn_user_abilities (or via the developer filter).
 	 *
+	 * Space-scoped capabilities (buddynext-moderate-space, buddynext-manage-space)
+	 * bypass the generic role-map path and are resolved by dedicated methods that
+	 * query bn_space_members and bn_space_privileges directly.
+	 *
 	 * @var array<string, string|null>
 	 */
 	private const ROLE_MAP = array(
@@ -52,6 +56,9 @@ class PermissionService {
 		'buddynext-moderation/review-queue' => 'moderator',
 		'buddynext-moderation/issue-strike' => 'moderator',
 		'buddynext-moderation/suspend-user' => 'admin',
+		// Space-scoped capabilities — resolved by can_moderate_space() / can_manage_space().
+		'buddynext-moderate-space'          => null,
+		'buddynext-manage-space'            => null,
 	);
 
 	/**
@@ -86,6 +93,12 @@ class PermissionService {
 
 		if ( $user && $user->has_cap( 'manage_options' ) ) {
 			$result = true;
+		} elseif ( 'buddynext-moderate-space' === $capability ) {
+			$space_id = isset( $context['space_id'] ) ? (int) $context['space_id'] : 0;
+			$result   = $space_id > 0 && $this->can_moderate_space( $user_id, $space_id );
+		} elseif ( 'buddynext-manage-space' === $capability ) {
+			$space_id = isset( $context['space_id'] ) ? (int) $context['space_id'] : 0;
+			$result   = $space_id > 0 && $this->can_manage_space( $user_id, $space_id );
 		} else {
 			$result = $this->passes_role_check( $user_id, $capability, $context );
 
@@ -136,6 +149,122 @@ class PermissionService {
 		$user_level = self::ROLE_HIERARCHY[ $user_role ] ?? 1;
 
 		return $user_level >= $req_level;
+	}
+
+	/**
+	 * Determine whether a user may moderate a specific space.
+	 *
+	 * A user can moderate a space when they are:
+	 * - the space owner (role = 'owner'), OR
+	 * - a space moderator (role = 'moderator') AND either:
+	 *     a) bn_space_privileges has no row for this user AND scoped_mod = 0
+	 *        (global moderator, not restricted to any specific space), OR
+	 *     b) bn_space_privileges has a row WHERE space_id = $space_id AND scoped_mod = 1.
+	 *
+	 * @param int $user_id  WordPress user ID.
+	 * @param int $space_id Space ID.
+	 * @return bool
+	 */
+	private function can_moderate_space( int $user_id, int $space_id ): bool {
+		$role = $this->get_space_role( $user_id, $space_id );
+
+		if ( 'owner' === $role ) {
+			return true;
+		}
+
+		if ( 'moderator' !== $role ) {
+			return false;
+		}
+
+		return $this->mod_scope_allows( $user_id, $space_id );
+	}
+
+	/**
+	 * Determine whether a user may manage settings for a specific space.
+	 *
+	 * Only the space owner holds manage authority.
+	 *
+	 * @param int $user_id  WordPress user ID.
+	 * @param int $space_id Space ID.
+	 * @return bool
+	 */
+	private function can_manage_space( int $user_id, int $space_id ): bool {
+		return 'owner' === $this->get_space_role( $user_id, $space_id );
+	}
+
+	/**
+	 * Check whether a space moderator's privilege scope allows them to act in a given space.
+	 *
+	 * Rules (evaluated against bn_space_privileges):
+	 * - No privilege row at all → global moderator, unrestricted → allowed.
+	 * - Has a row with scoped_mod = 0 → globally restricted away → denied.
+	 * - Has a row with scoped_mod = 1 AND space_id matches → scoped in → allowed.
+	 * - Has a row but space_id does not match → scoped elsewhere → denied.
+	 *
+	 * If the bn_space_privileges table does not exist yet (pre-migration), falls back
+	 * to allowing all moderators (no restriction applied).
+	 *
+	 * @param int $user_id  WordPress user ID.
+	 * @param int $space_id Space ID.
+	 * @return bool
+	 */
+	private function mod_scope_allows( int $user_id, int $space_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$table_exists = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = %s AND table_name = %s',
+				DB_NAME,
+				$wpdb->prefix . 'bn_space_privileges'
+			)
+		);
+
+		if ( ! $table_exists ) {
+			// Table not yet created — treat moderator as unrestricted.
+			return true;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT space_id, scoped_mod FROM {$wpdb->prefix}bn_space_privileges WHERE user_id = %d LIMIT 1",
+				$user_id
+			),
+			ARRAY_A
+		);
+
+		if ( null === $row ) {
+			// No privilege row — global moderator, unrestricted.
+			return true;
+		}
+
+		// Row exists: allow only when scoped_mod = 1 and space_id matches.
+		return ( 1 === (int) $row['scoped_mod'] && (int) $row['space_id'] === $space_id );
+	}
+
+	/**
+	 * Check if user has an active role of 'owner' or 'moderator' in a specific space.
+	 *
+	 * @param int $user_id  WordPress user ID.
+	 * @param int $space_id Space ID.
+	 * @return bool
+	 */
+	private function is_space_mod( int $user_id, int $space_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$role = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT role FROM {$wpdb->prefix}bn_space_members
+				 WHERE user_id = %d AND space_id = %d AND status = 'active'
+				 LIMIT 1",
+				$user_id,
+				$space_id
+			)
+		);
+
+		return in_array( $role, array( 'owner', 'moderator' ), true );
 	}
 
 	/**
