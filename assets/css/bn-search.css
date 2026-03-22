@@ -1,0 +1,199 @@
+/*
+ * BuddyNext — Search CSS
+ *
+ * Search input bar, tab switcher (members/spaces/posts), result cards,
+ * pagination, keyword highlight.
+ */
+
+/* ── Search bar ─────────────────────────────────────────────────────────── */
+
+.bn-search-wrap {
+	position: relative;
+}
+
+.bn-search-input {
+	width: 100%;
+	padding: var(--s2) var(--s4) var(--s2) 36px;
+	border: 1px solid var(--border);
+	border-radius: var(--r-full);
+	background: var(--bg-subtle);
+	font-family: var(--font-body);
+	font-size: var(--text-sm);
+	color: var(--text-1);
+	transition: border-color 0.15s, background 0.15s;
+	outline: none;
+}
+
+.bn-search-input:focus {
+	border-color: var(--brand);
+	background: var(--surface);
+}
+
+.bn-search-input::placeholder {
+	color: var(--text-3);
+}
+
+.bn-search-icon {
+	position: absolute;
+	left: var(--s3);
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--text-3);
+	pointer-events: none;
+}
+
+/* ── Results page ───────────────────────────────────────────────────────── */
+
+.bn-search-results {
+	max-width: 720px;
+	margin: 0 auto;
+}
+
+.bn-search-results__query {
+	font-size: var(--text-sm);
+	color: var(--text-2);
+	margin-bottom: var(--s4);
+}
+
+/* ── Tab bar ────────────────────────────────────────────────────────────── */
+
+.bn-search-tabs {
+	display: flex;
+	border-bottom: 1px solid var(--border);
+	margin-bottom: var(--s4);
+}
+
+.bn-search-tab {
+	padding: var(--s3) var(--s4);
+	font-size: var(--text-sm);
+	font-weight: 500;
+	color: var(--text-2);
+	border-bottom: 2px solid transparent;
+	cursor: pointer;
+	text-decoration: none;
+	transition: color 0.1s;
+	white-space: nowrap;
+}
+
+.bn-search-tab--active,
+.bn-search-tab:hover {
+	color: var(--brand);
+	border-bottom-color: var(--brand);
+}
+
+/* ── Result list ────────────────────────────────────────────────────────── */
+
+.bn-result-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s3);
+}
+
+.bn-result-item {
+	display: flex;
+	gap: var(--s3);
+	padding: var(--s4);
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	text-decoration: none;
+	transition: box-shadow 0.12s, background 0.12s;
+}
+
+.bn-result-item:hover {
+	background: var(--bg-hover);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.bn-result-item__thumb {
+	width: 48px;
+	height: 48px;
+	border-radius: var(--r-md);
+	overflow: hidden;
+	flex-shrink: 0;
+	background: var(--bg-subtle);
+}
+
+.bn-result-item__thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.bn-result-item__body {
+	flex: 1;
+	min-width: 0;
+}
+
+.bn-result-item__title {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--text-1);
+	margin: 0 0 var(--s1);
+}
+
+.bn-result-item__excerpt {
+	font-size: var(--text-xs);
+	color: var(--text-2);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	line-height: var(--leading-normal);
+}
+
+.bn-result-item__meta {
+	font-size: var(--text-xs);
+	color: var(--text-3);
+	margin-top: var(--s1);
+}
+
+/* ── Keyword highlight ──────────────────────────────────────────────────── */
+
+.bn-highlight {
+	background: var(--amber-bg);
+	color: var(--amber);
+	border-radius: 2px;
+	padding: 0 2px;
+}
+
+/* ── No results ─────────────────────────────────────────────────────────── */
+
+.bn-search-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: var(--s12) var(--s6);
+	text-align: center;
+	color: var(--text-3);
+	gap: var(--s3);
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+
+[data-theme="dark"] .bn-result-item:hover {
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .bn-search-input {
+	background: var(--bg-subtle);
+	color: var(--text-1);
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+	.bn-search-tabs {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.bn-result-item {
+		padding: var(--s3);
+	}
+
+	.bn-result-item__thumb {
+		width: 40px;
+		height: 40px;
+	}
+}

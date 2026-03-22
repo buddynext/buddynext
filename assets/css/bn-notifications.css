@@ -1,0 +1,198 @@
+/*
+ * BuddyNext — Notifications CSS
+ *
+ * Full-page notification list, unread badge, bell icon dropdown,
+ * per-type icon mapping, mark-all-read controls.
+ */
+
+/* ── Notification page layout ───────────────────────────────────────────── */
+
+.bn-notifications {
+	max-width: 680px;
+	margin: 0 auto;
+}
+
+.bn-notifications__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: var(--s4);
+}
+
+.bn-notifications__title {
+	font-size: var(--text-2xl);
+	font-weight: 700;
+	font-family: var(--font-display);
+	color: var(--text-1);
+	margin: 0;
+}
+
+/* ── Notification item ──────────────────────────────────────────────────── */
+
+.bn-notif-item {
+	display: flex;
+	gap: var(--s3);
+	padding: var(--s4);
+	border-bottom: 1px solid var(--border-soft);
+	background: var(--surface);
+	transition: background 0.1s;
+	position: relative;
+	cursor: pointer;
+}
+
+.bn-notif-item:first-child {
+	border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+
+.bn-notif-item:last-child {
+	border-radius: 0 0 var(--r-lg) var(--r-lg);
+	border-bottom: none;
+}
+
+.bn-notif-item:hover {
+	background: var(--bg-hover);
+}
+
+.bn-notif-item--unread {
+	background: var(--brand-light);
+}
+
+.bn-notif-item--unread::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 3px;
+	background: var(--brand);
+	border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+
+.bn-notif-item__icon {
+	width: 40px;
+	height: 40px;
+	border-radius: var(--r-full);
+	background: var(--bg-subtle);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	font-size: 18px;
+}
+
+.bn-notif-item__body {
+	flex: 1;
+	min-width: 0;
+}
+
+.bn-notif-item__text {
+	font-size: var(--text-sm);
+	color: var(--text-1);
+	margin: 0 0 var(--s1);
+	line-height: var(--leading-normal);
+}
+
+.bn-notif-item__time {
+	font-size: var(--text-xs);
+	color: var(--text-3);
+}
+
+/* ── Bell dropdown ──────────────────────────────────────────────────────── */
+
+.bn-bell-wrap {
+	position: relative;
+}
+
+.bn-bell-dropdown {
+	position: absolute;
+	top: calc(100% + var(--s2));
+	right: 0;
+	width: 360px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+	z-index: 999;
+	overflow: hidden;
+}
+
+.bn-bell-dropdown__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--s3) var(--s4);
+	border-bottom: 1px solid var(--border-soft);
+}
+
+.bn-bell-dropdown__title {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--text-1);
+}
+
+.bn-bell-dropdown__list {
+	max-height: 400px;
+	overflow-y: auto;
+}
+
+.bn-bell-dropdown__footer {
+	padding: var(--s3) var(--s4);
+	border-top: 1px solid var(--border-soft);
+	text-align: center;
+}
+
+/* ── Unread badge ───────────────────────────────────────────────────────── */
+
+.bn-notif-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 var(--s1);
+	border-radius: var(--r-full);
+	background: var(--red);
+	color: #fff;
+	font-size: var(--text-xs);
+	font-weight: 700;
+	line-height: 1;
+}
+
+/* ── Notification filters ───────────────────────────────────────────────── */
+
+.bn-notif-filters {
+	display: flex;
+	gap: var(--s2);
+	padding: var(--s3) 0;
+	margin-bottom: var(--s3);
+	border-bottom: 1px solid var(--border-soft);
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+
+[data-theme="dark"] .bn-notif-item--unread {
+	background: var(--brand-light);
+}
+
+[data-theme="dark"] .bn-bell-dropdown {
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+	.bn-bell-dropdown {
+		width: calc(100vw - var(--s8));
+		right: calc(var(--s4) * -1);
+	}
+
+	.bn-notif-item {
+		padding: var(--s3);
+	}
+
+	.bn-notifications__header {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--s3);
+	}
+}

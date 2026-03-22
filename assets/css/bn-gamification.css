@@ -1,0 +1,184 @@
+/*
+ * BuddyNext — Gamification CSS
+ *
+ * Leaderboard table, badge grid, badge cards (earned/locked),
+ * XP/level progress bar, level badge pill.
+ */
+
+/* ── Leaderboard ────────────────────────────────────────────────────────── */
+
+.bn-leaderboard {
+	max-width: 680px;
+	margin: 0 auto;
+}
+
+.bn-leaderboard__list {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	overflow: hidden;
+}
+
+.bn-leaderboard-row {
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+	padding: var(--s3) var(--s4);
+	border-bottom: 1px solid var(--border-soft);
+	transition: background 0.1s;
+}
+
+.bn-leaderboard-row:last-child {
+	border-bottom: none;
+}
+
+.bn-leaderboard-row:hover {
+	background: var(--bg-hover);
+}
+
+.bn-leaderboard__rank {
+	width: 28px;
+	text-align: center;
+	font-size: var(--text-sm);
+	font-weight: 700;
+	color: var(--text-3);
+	flex-shrink: 0;
+}
+
+.bn-leaderboard__rank--1 { color: #f59e0b; }
+.bn-leaderboard__rank--2 { color: #9ca3af; }
+.bn-leaderboard__rank--3 { color: #b45309; }
+
+.bn-leaderboard__user {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+	min-width: 0;
+	text-decoration: none;
+}
+
+.bn-leaderboard__name {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--text-1);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bn-leaderboard__points {
+	font-size: var(--text-sm);
+	font-weight: 700;
+	color: var(--brand);
+	flex-shrink: 0;
+}
+
+/* ── Badges grid ────────────────────────────────────────────────────────── */
+
+.bn-badges-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+	gap: var(--s4);
+}
+
+.bn-badge-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--s2);
+	padding: var(--s4) var(--s3);
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	text-align: center;
+	transition: box-shadow 0.12s;
+}
+
+.bn-badge-item:hover {
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.bn-badge-item--locked {
+	opacity: 0.45;
+	filter: grayscale(1);
+}
+
+.bn-badge-item__icon {
+	width: 48px;
+	height: 48px;
+	object-fit: contain;
+}
+
+.bn-badge-item__name {
+	font-size: var(--text-xs);
+	font-weight: 600;
+	color: var(--text-1);
+	line-height: var(--leading-tight);
+}
+
+.bn-badge-item__desc {
+	font-size: var(--text-xs);
+	color: var(--text-3);
+	line-height: var(--leading-normal);
+}
+
+/* ── XP / level progress bar ────────────────────────────────────────────── */
+
+.bn-xp-bar {
+	background: var(--border);
+	border-radius: var(--r-full);
+	height: 8px;
+	overflow: hidden;
+}
+
+.bn-xp-bar__fill {
+	height: 100%;
+	background: linear-gradient(90deg, var(--brand), var(--brand-hover));
+	border-radius: var(--r-full);
+	transition: width 0.6s ease;
+}
+
+.bn-level-label {
+	display: flex;
+	justify-content: space-between;
+	font-size: var(--text-xs);
+	color: var(--text-3);
+	margin-bottom: var(--s1);
+}
+
+/* ── Level badge ────────────────────────────────────────────────────────── */
+
+.bn-level-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s1);
+	padding: 2px var(--s2);
+	border-radius: var(--r-full);
+	background: var(--brand-light);
+	color: var(--brand);
+	font-size: var(--text-xs);
+	font-weight: 700;
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+
+[data-theme="dark"] .bn-badge-item:hover {
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+	.bn-badges-grid {
+		grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+	}
+
+	.bn-leaderboard-row {
+		padding: var(--s3);
+	}
+
+	.bn-badge-item {
+		padding: var(--s3) var(--s2);
+	}
+}

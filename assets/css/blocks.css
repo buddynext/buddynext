@@ -1,0 +1,892 @@
+/*
+ * BuddyNext — Blocks CSS
+ *
+ * Frontend stylesheet loaded for all 17 BuddyNext Gutenberg blocks.
+ * Referenced as "style" in every block.json. Covers:
+ *   - wp-block-buddynext-* wrapper containment + alignment
+ *   - Activity feed block
+ *   - Post composer block
+ *   - Trending hashtags block
+ *   - Member directory + member card blocks
+ *   - Follow button + connection button blocks
+ *   - Space directory + space card + my-spaces blocks
+ *   - Profile header + profile fields + completion bar blocks
+ *   - Registration + login form blocks
+ *   - Notification bell block
+ *   - Search bar block
+ */
+
+/* ── Block wrappers ─────────────────────────────────────────────────── */
+
+[class*="wp-block-buddynext-"] {
+	font-family: var(--font-body);
+	font-size: var(--text-base);
+	color: var(--text-1);
+	box-sizing: border-box;
+}
+
+[class*="wp-block-buddynext-"] *,
+[class*="wp-block-buddynext-"] *::before,
+[class*="wp-block-buddynext-"] *::after {
+	box-sizing: inherit;
+}
+
+/* Alignment */
+.wp-block-buddynext-activity-feed.alignwide,
+.wp-block-buddynext-member-directory.alignwide,
+.wp-block-buddynext-space-directory.alignwide {
+	max-width: 100%;
+}
+
+.wp-block-buddynext-activity-feed.alignfull,
+.wp-block-buddynext-member-directory.alignfull,
+.wp-block-buddynext-space-directory.alignfull {
+	max-width: 100%;
+	padding-left: var(--s4);
+	padding-right: var(--s4);
+}
+
+/* ── Activity feed block ────────────────────────────────────────────── */
+
+.wp-block-buddynext-activity-feed {
+	max-width: 720px;
+	margin: 0 auto;
+}
+
+.bn-feed-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s3);
+}
+
+.bn-post-card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	padding: var(--s4);
+}
+
+.bn-post-card__header {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--s3);
+	margin-bottom: var(--s3);
+}
+
+.bn-post-card__meta {
+	flex: 1;
+	min-width: 0;
+}
+
+.bn-post-card__author {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--text-1);
+	text-decoration: none;
+}
+
+.bn-post-card__time {
+	font-size: var(--text-xs);
+	color: var(--text-3);
+}
+
+.bn-post-card__body {
+	font-size: var(--text-sm);
+	color: var(--text-1);
+	line-height: var(--leading-body);
+	margin-bottom: var(--s3);
+}
+
+.bn-post-card__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+	padding-top: var(--s3);
+	border-top: 1px solid var(--border-soft);
+}
+
+.bn-post-card__action {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s1);
+	font-size: var(--text-xs);
+	color: var(--text-3);
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: var(--s1) var(--s2);
+	border-radius: var(--r-md);
+	transition: background 0.1s, color 0.1s;
+}
+
+.bn-post-card__action:hover {
+	background: var(--bg-hover);
+	color: var(--brand);
+}
+
+.bn-post-card__action--active {
+	color: var(--brand);
+}
+
+.bn-feed-load-more {
+	display: flex;
+	justify-content: center;
+	padding: var(--s4) 0;
+}
+
+/* ── Post composer block ────────────────────────────────────────────── */
+
+.wp-block-buddynext-post-composer {
+	max-width: 720px;
+	margin: 0 auto var(--s4);
+}
+
+.bn-composer {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	padding: var(--s4);
+}
+
+.bn-composer__row {
+	display: flex;
+	gap: var(--s3);
+	align-items: flex-start;
+}
+
+.bn-composer__textarea {
+	flex: 1;
+	min-height: 80px;
+	resize: vertical;
+	padding: var(--s3);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	font-family: var(--font-body);
+	font-size: var(--text-sm);
+	color: var(--text-1);
+	background: var(--bg-subtle);
+	line-height: var(--leading-body);
+	transition: border-color 0.15s, background 0.15s;
+	outline: none;
+}
+
+.bn-composer__textarea:focus {
+	border-color: var(--brand);
+	background: var(--surface);
+}
+
+.bn-composer__textarea::placeholder {
+	color: var(--text-3);
+}
+
+.bn-composer__footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--s3);
+	margin-top: var(--s3);
+}
+
+.bn-composer__tools {
+	display: flex;
+	gap: var(--s1);
+}
+
+.bn-composer__tool {
+	width: 32px;
+	height: 32px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	background: none;
+	color: var(--text-3);
+	border-radius: var(--r-md);
+	cursor: pointer;
+	transition: background 0.1s, color 0.1s;
+}
+
+.bn-composer__tool:hover {
+	background: var(--bg-hover);
+	color: var(--brand);
+}
+
+/* ── Trending hashtags block ────────────────────────────────────────── */
+
+.wp-block-buddynext-trending-hashtags {
+	/* width controlled by theme */
+}
+
+.bn-hashtags-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	overflow: hidden;
+}
+
+.bn-hashtag-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--s3) var(--s4);
+	border-bottom: 1px solid var(--border-soft);
+	text-decoration: none;
+	transition: background 0.1s;
+}
+
+.bn-hashtag-row:last-child {
+	border-bottom: none;
+}
+
+.bn-hashtag-row:hover {
+	background: var(--bg-hover);
+}
+
+.bn-hashtag-row__tag {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--brand);
+}
+
+.bn-hashtag-row__count {
+	font-size: var(--text-xs);
+	color: var(--text-3);
+}
+
+/* ── Member directory block ─────────────────────────────────────────── */
+
+.wp-block-buddynext-member-directory {
+	max-width: 960px;
+	margin: 0 auto;
+}
+
+.bn-dir-filters {
+	display: flex;
+	gap: var(--s2);
+	margin-bottom: var(--s4);
+	flex-wrap: wrap;
+	align-items: center;
+}
+
+.bn-dir-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+	gap: var(--s4);
+}
+
+/* ── Member card block ──────────────────────────────────────────────── */
+
+.bn-member-card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	padding: var(--s4);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	gap: var(--s2);
+	text-decoration: none;
+	transition: box-shadow 0.12s;
+}
+
+.bn-member-card:hover {
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.bn-member-card__name {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--text-1);
+	margin: 0;
+}
+
+.bn-member-card__role {
+	font-size: var(--text-xs);
+	color: var(--text-3);
+}
+
+/* ── Follow button block ────────────────────────────────────────────── */
+
+.wp-block-buddynext-follow-button {
+	display: inline-block;
+}
+
+.bn-follow-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s1);
+	padding: var(--s2) var(--s4);
+	border-radius: var(--r-full);
+	font-family: var(--font-body);
+	font-size: var(--text-sm);
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s, border-color 0.15s;
+	border: 1px solid transparent;
+}
+
+.bn-follow-btn--follow {
+	background: var(--brand);
+	color: #fff;
+	border-color: var(--brand);
+}
+
+.bn-follow-btn--follow:hover {
+	background: var(--brand-hover);
+	border-color: var(--brand-hover);
+}
+
+.bn-follow-btn--following {
+	background: var(--surface);
+	color: var(--text-2);
+	border-color: var(--border);
+}
+
+.bn-follow-btn--following:hover {
+	background: var(--red-bg);
+	color: var(--red);
+	border-color: var(--red);
+}
+
+.bn-follow-btn[disabled],
+.bn-follow-btn--loading {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+/* ── Connection button block ────────────────────────────────────────── */
+
+.wp-block-buddynext-connection-button {
+	display: inline-block;
+}
+
+.bn-connect-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s1);
+	padding: var(--s2) var(--s4);
+	border-radius: var(--r-full);
+	font-family: var(--font-body);
+	font-size: var(--text-sm);
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s, border-color 0.15s;
+	border: 1px solid var(--border);
+	background: var(--surface);
+	color: var(--text-1);
+}
+
+.bn-connect-btn:hover {
+	border-color: var(--brand);
+	color: var(--brand);
+}
+
+.bn-connect-btn--pending {
+	color: var(--amber);
+	border-color: var(--amber);
+}
+
+.bn-connect-btn--connected {
+	background: var(--brand-light);
+	color: var(--brand);
+	border-color: var(--brand-light);
+}
+
+.bn-connect-btn[disabled],
+.bn-connect-btn--loading {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+/* ── Space directory block ──────────────────────────────────────────── */
+
+.wp-block-buddynext-space-directory {
+	max-width: 960px;
+	margin: 0 auto;
+}
+
+/* ── Space card block ───────────────────────────────────────────────── */
+
+.wp-block-buddynext-space-card {
+	/* inline card — uses .bn-space-card classes from bn-spaces.css */
+}
+
+/* ── My spaces block ────────────────────────────────────────────────── */
+
+.wp-block-buddynext-my-spaces {
+	/* sidebar widget */
+}
+
+.bn-my-spaces-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s2);
+}
+
+.bn-my-spaces-item {
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+	padding: var(--s2) var(--s3);
+	border-radius: var(--r-md);
+	text-decoration: none;
+	transition: background 0.1s;
+}
+
+.bn-my-spaces-item:hover {
+	background: var(--bg-hover);
+}
+
+.bn-my-spaces-item__name {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--text-1);
+	flex: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bn-my-spaces-item__count {
+	font-size: var(--text-xs);
+	color: var(--text-3);
+	flex-shrink: 0;
+}
+
+/* ── Profile header block ───────────────────────────────────────────── */
+
+.wp-block-buddynext-profile-header {
+	margin-bottom: var(--s6);
+}
+
+.bn-profile-header {
+	position: relative;
+	border-radius: var(--r-lg);
+	overflow: hidden;
+}
+
+.bn-profile-header__cover {
+	height: 200px;
+	background: var(--brand-light);
+	object-fit: cover;
+	width: 100%;
+	display: block;
+}
+
+.bn-profile-header__body {
+	display: flex;
+	align-items: flex-end;
+	gap: var(--s4);
+	padding: 0 var(--s6) var(--s4);
+	margin-top: -40px;
+}
+
+.bn-profile-header__avatar {
+	width: 80px;
+	height: 80px;
+	border-radius: var(--r-full);
+	border: 3px solid var(--surface);
+	overflow: hidden;
+	flex-shrink: 0;
+	background: var(--bg-subtle);
+}
+
+.bn-profile-header__avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.bn-profile-header__info {
+	flex: 1;
+	min-width: 0;
+}
+
+.bn-profile-header__name {
+	font-size: var(--text-2xl);
+	font-weight: 700;
+	font-family: var(--font-display);
+	color: var(--text-1);
+	margin: 0 0 var(--s1);
+}
+
+.bn-profile-header__stats {
+	display: flex;
+	gap: var(--s4);
+	font-size: var(--text-xs);
+	color: var(--text-3);
+}
+
+.bn-profile-header__stat strong {
+	color: var(--text-1);
+	font-weight: 700;
+}
+
+/* ── Profile fields block ───────────────────────────────────────────── */
+
+.wp-block-buddynext-profile-fields {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	padding: var(--s4);
+}
+
+.bn-profile-fields-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s3);
+}
+
+.bn-profile-field {
+	display: flex;
+	gap: var(--s4);
+}
+
+.bn-profile-field__label {
+	width: 120px;
+	flex-shrink: 0;
+	font-size: var(--text-xs);
+	font-weight: 700;
+	color: var(--text-3);
+	text-transform: uppercase;
+	letter-spacing: 0.07em;
+	padding-top: 2px;
+}
+
+.bn-profile-field__value {
+	flex: 1;
+	font-size: var(--text-sm);
+	color: var(--text-1);
+	line-height: var(--leading-body);
+}
+
+/* ── Profile completion bar block ───────────────────────────────────── */
+
+.wp-block-buddynext-profile-completion-bar {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	padding: var(--s4);
+}
+
+.bn-completion-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: var(--s3);
+}
+
+.bn-completion-title {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--text-1);
+	margin: 0;
+}
+
+.bn-completion-pct {
+	font-size: var(--text-sm);
+	font-weight: 700;
+	color: var(--brand);
+}
+
+.bn-completion-bar {
+	background: var(--border);
+	border-radius: var(--r-full);
+	height: 8px;
+	overflow: hidden;
+	margin-bottom: var(--s3);
+}
+
+.bn-completion-bar__fill {
+	height: 100%;
+	background: linear-gradient(90deg, var(--brand), var(--brand-hover));
+	border-radius: var(--r-full);
+	transition: width 0.8s cubic-bezier(0.25, 0.8, 0.25, 1);
+	width: 0;
+}
+
+.bn-completion-bar__fill--animated {
+	/* JS sets width via inline style after mount */
+}
+
+.bn-completion-steps {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s2);
+	margin-top: var(--s3);
+}
+
+.bn-completion-step {
+	display: flex;
+	align-items: center;
+	gap: var(--s2);
+	font-size: var(--text-xs);
+	color: var(--text-2);
+}
+
+.bn-completion-step--done {
+	color: var(--green);
+}
+
+.bn-completion-step--done .bn-completion-step__icon {
+	color: var(--green);
+}
+
+/* ── Login form block ───────────────────────────────────────────────── */
+
+.wp-block-buddynext-login-form {
+	max-width: 420px;
+	margin: 0 auto;
+}
+
+.bn-auth-card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-xl);
+	padding: var(--s8);
+}
+
+.bn-auth-card__title {
+	font-size: var(--text-2xl);
+	font-weight: 700;
+	font-family: var(--font-display);
+	color: var(--text-1);
+	margin: 0 0 var(--s1);
+	text-align: center;
+}
+
+.bn-auth-card__sub {
+	font-size: var(--text-sm);
+	color: var(--text-3);
+	text-align: center;
+	margin-bottom: var(--s6);
+}
+
+.bn-form-group {
+	margin-bottom: var(--s4);
+}
+
+.bn-form-label {
+	display: block;
+	font-size: var(--text-xs);
+	font-weight: 600;
+	color: var(--text-2);
+	margin-bottom: var(--s1);
+}
+
+.bn-form-input {
+	width: 100%;
+	padding: var(--s3) var(--s4);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	font-family: var(--font-body);
+	font-size: var(--text-sm);
+	color: var(--text-1);
+	background: var(--bg-subtle);
+	transition: border-color 0.15s, background 0.15s;
+	outline: none;
+}
+
+.bn-form-input:focus {
+	border-color: var(--brand);
+	background: var(--surface);
+}
+
+.bn-form-submit {
+	width: 100%;
+	padding: var(--s3) var(--s4);
+	background: var(--brand);
+	color: #fff;
+	border: none;
+	border-radius: var(--r-md);
+	font-family: var(--font-body);
+	font-size: var(--text-sm);
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.15s;
+	margin-top: var(--s2);
+}
+
+.bn-form-submit:hover {
+	background: var(--brand-hover);
+}
+
+.bn-form-submit:disabled {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.bn-auth-links {
+	text-align: center;
+	margin-top: var(--s4);
+	font-size: var(--text-xs);
+	color: var(--text-3);
+}
+
+.bn-auth-links a {
+	color: var(--brand);
+	text-decoration: none;
+}
+
+/* ── Registration form block ────────────────────────────────────────── */
+
+.wp-block-buddynext-registration-form {
+	max-width: 480px;
+	margin: 0 auto;
+}
+
+/* Inherits .bn-auth-card + .bn-form-* from login form above */
+
+.bn-form-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--s3);
+}
+
+.bn-password-strength {
+	margin-top: var(--s1);
+}
+
+.bn-password-strength__bar {
+	height: 4px;
+	background: var(--border);
+	border-radius: var(--r-full);
+	overflow: hidden;
+}
+
+.bn-password-strength__fill {
+	height: 100%;
+	border-radius: var(--r-full);
+	transition: width 0.3s, background 0.3s;
+}
+
+.bn-password-strength--weak   .bn-password-strength__fill { width: 33%; background: var(--red); }
+.bn-password-strength--fair   .bn-password-strength__fill { width: 66%; background: var(--amber); }
+.bn-password-strength--strong .bn-password-strength__fill { width: 100%; background: var(--green); }
+
+/* ── Notification bell block ────────────────────────────────────────── */
+
+.wp-block-buddynext-notification-bell {
+	display: inline-block;
+}
+
+/* Uses .bn-bell-wrap + .bn-bell-dropdown from bn-notifications.css */
+
+/* ── Search bar block ───────────────────────────────────────────────── */
+
+.wp-block-buddynext-search-bar {
+	/* Uses .bn-search-wrap + .bn-search-input from bn-search.css */
+}
+
+/* ── Block titles (widget headings) ─────────────────────────────────── */
+
+.bn-block-title {
+	font-size: var(--text-xs);
+	font-weight: 700;
+	color: var(--text-3);
+	text-transform: uppercase;
+	letter-spacing: 0.07em;
+	margin: 0 0 var(--s3);
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────── */
+
+[data-theme="dark"] .bn-post-card,
+[data-theme="dark"] .bn-composer,
+[data-theme="dark"] .bn-auth-card,
+[data-theme="dark"] .wp-block-buddynext-profile-fields,
+[data-theme="dark"] .wp-block-buddynext-profile-completion-bar {
+	background: var(--surface);
+	border-color: var(--border);
+}
+
+[data-theme="dark"] .bn-member-card:hover {
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .bn-post-card:hover {
+	background: var(--bg-hover);
+}
+
+[data-theme="dark"] .bn-composer__textarea,
+[data-theme="dark"] .bn-form-input {
+	background: var(--bg-subtle);
+	color: var(--text-1);
+}
+
+[data-theme="dark"] .bn-profile-header__avatar {
+	border-color: var(--surface);
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+	.wp-block-buddynext-activity-feed,
+	.wp-block-buddynext-post-composer,
+	.wp-block-buddynext-member-directory,
+	.wp-block-buddynext-space-directory {
+		max-width: 100%;
+	}
+
+	.bn-dir-grid {
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	}
+
+	.bn-post-card__actions {
+		gap: var(--s2);
+	}
+
+	.bn-post-card__action {
+		font-size: 11px;
+		padding: var(--s1);
+	}
+
+	.bn-profile-header__cover {
+		height: 120px;
+	}
+
+	.bn-profile-header__body {
+		padding: 0 var(--s4) var(--s3);
+		margin-top: -28px;
+	}
+
+	.bn-profile-header__avatar {
+		width: 60px;
+		height: 60px;
+	}
+
+	.bn-profile-header__name {
+		font-size: var(--text-xl);
+	}
+
+	.bn-profile-header__stats {
+		gap: var(--s3);
+	}
+
+	.bn-profile-field {
+		flex-direction: column;
+		gap: var(--s1);
+	}
+
+	.bn-profile-field__label {
+		width: auto;
+	}
+
+	.bn-form-row {
+		grid-template-columns: 1fr;
+	}
+
+	.bn-auth-card {
+		padding: var(--s6) var(--s4);
+	}
+
+	.bn-composer__footer {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+}
