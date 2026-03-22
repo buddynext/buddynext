@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Search index service.
  *
@@ -349,9 +349,24 @@ class SearchService {
 	public static function schedule_reindex_all(): void {
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action( 'buddynext_reindex_all', array(), 'buddynext' );
-		} else {
-			static::reindex_all_sync();
+		} elseif ( ! wp_next_scheduled( 'buddynext_reindex_all_cron' ) ) {
+			// Schedule via WP-Cron so the container is fully bootstrapped before
+			// reindex_all_sync() calls buddynext_service(). Running it inline here
+			// would fire before plugins_loaded and the container would be empty.
+			wp_schedule_single_event( time() + 30, 'buddynext_reindex_all_cron' );
 		}
+	}
+
+	/**
+	 * WP-Cron callback for the one-time post-activation reindex.
+	 *
+	 * Registered in Plugin::init() so the container is fully bootstrapped
+	 * by the time this fires (unlike Installer::run() which runs at activation).
+	 *
+	 * @return void
+	 */
+	public static function reindex_all_cron(): void {
+		static::reindex_all_sync();
 	}
 
 	/**

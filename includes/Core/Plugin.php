@@ -205,6 +205,10 @@ class Plugin {
 		// Register WP-Cron schedules and recurring events.
 		( new CronScheduler() )->init();
 
+		// Handle the one-time post-activation reindex cron (scheduled by Installer
+		// when Action Scheduler is absent and the container is not yet available).
+		add_action( 'buddynext_reindex_all_cron', array( SearchService::class, 'reindex_all_cron' ) );
+
 		// Register navigation menu locations.
 		add_action( 'after_setup_theme', array( new static(), 'register_nav_menus' ) );
 

@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Database installer.
  *
@@ -856,10 +856,10 @@ class Installer {
 				id          INT UNSIGNED    NOT NULL AUTO_INCREMENT,
 				slug        VARCHAR(100)    NOT NULL,
 				name        VARCHAR(100)    NOT NULL,
-				description TEXT            NOT NULL DEFAULT '',
+				description TEXT            DEFAULT NULL,
 				color       VARCHAR(7)      NOT NULL DEFAULT '#0073aa',
 				text_color  VARCHAR(7)      NOT NULL DEFAULT '#ffffff',
-				icon_svg    MEDIUMTEXT      NOT NULL DEFAULT '',
+				icon_svg    MEDIUMTEXT      DEFAULT NULL,
 				sort_order  SMALLINT        NOT NULL DEFAULT 0,
 				show_in_dir TINYINT(1)      NOT NULL DEFAULT 1,
 				self_select TINYINT(1)      NOT NULL DEFAULT 0,
