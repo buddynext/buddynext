@@ -30,9 +30,16 @@ class NavManager extends AdminPageBase {
 	public const FILTER_TABS = 'buddynext_nav_tabs';
 
 	/**
-	 * Option key for persisted admin overrides.
+	 * Map of scope slug → WP option key for persisted overrides.
+	 *
+	 * @var array<string, string>
 	 */
-	private const OPTION_OVERRIDES = 'buddynext_nav_overrides';
+	private const SCOPE_OPTION_MAP = array(
+		'main'    => 'buddynext_nav_overrides',
+		'profile' => 'buddynext_nav_overrides_profile',
+		'space'   => 'buddynext_nav_overrides_space',
+		'mobile'  => 'buddynext_nav_overrides_mobile',
+	);
 
 	/**
 	 * Map of core tab slug → buddynext_page_* option name.
@@ -48,6 +55,31 @@ class NavManager extends AdminPageBase {
 		'spaces'        => 'buddynext_page_spaces',
 		'messages'      => 'buddynext_page_messages',
 		'notifications' => 'buddynext_page_notifications',
+	);
+
+	/**
+	 * Hub pages that have no main-nav tab but still require admin page assignment.
+	 *
+	 * Rendered as a standalone section below the nav list.
+	 *
+	 * @var array<string, array{label: string, option: string, hint: string}>
+	 */
+	/**
+	 * Base path to the admin SVG icon directory.
+	 */
+	private const SVG_DIR = __DIR__ . '/../../assets/svg/admin/';
+
+	private const STANDALONE_PAGES = array(
+		'people' => array(
+			'label'  => 'Member Directory',
+			'option' => 'buddynext_page_people',
+			'hint'   => 'Page that renders the member directory and individual profile URLs.',
+		),
+		'auth'   => array(
+			'label'  => 'Login / Register',
+			'option' => 'buddynext_page_auth',
+			'hint'   => 'Page that renders the login, registration, and password reset forms.',
+		),
 	);
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
@@ -143,6 +175,239 @@ class NavManager extends AdminPageBase {
 		return array_values( $tabs );
 	}
 
+	/**
+	 * Return the sorted, override-applied tab list for any scope.
+	 *
+	 * Applies the relevant filter and merges admin overrides.
+	 *
+	 * @param string $scope One of: main, profile, space, mobile.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function get_tabs_for_scope( string $scope ): array {
+		switch ( $scope ) {
+			case 'profile':
+				$defaults = $this->default_profile_tabs();
+				break;
+			case 'space':
+				$defaults = $this->default_space_tabs();
+				break;
+			case 'mobile':
+				$defaults = $this->default_mobile_tabs();
+				break;
+			default:
+				$defaults = $this->default_tabs();
+				break;
+		}
+
+		$overrides = $this->get_overrides_for_scope( $scope );
+
+		foreach ( $defaults as &$tab ) {
+			if ( ! isset( $tab['order'] ) ) {
+				$tab['order'] = 10;
+			}
+			$slug = sanitize_key( (string) ( $tab['slug'] ?? '' ) );
+			if ( ! isset( $overrides[ $slug ] ) ) {
+				continue;
+			}
+			$ov = $overrides[ $slug ];
+			foreach ( array( 'label', 'icon', 'visibility', 'capability', 'guest_label' ) as $field ) {
+				if ( isset( $ov[ $field ] ) && '' !== $ov[ $field ] ) {
+					$tab[ $field ] = sanitize_text_field( (string) $ov[ $field ] );
+				}
+			}
+			if ( isset( $ov['order'] ) ) {
+				$tab['order'] = (int) $ov['order'];
+			}
+			if ( isset( $ov['hidden'] ) ) {
+				$tab['hidden'] = (bool) $ov['hidden'];
+			}
+			if ( isset( $ov['login_required'] ) ) {
+				$tab['login_required'] = (bool) $ov['login_required'];
+			}
+		}
+		unset( $tab );
+
+		// Append custom tabs stored in overrides.
+		foreach ( $overrides as $slug => $ov ) {
+			if ( empty( $ov['custom'] ) ) {
+				continue;
+			}
+			// Skip if already in defaults.
+			$already = false;
+			foreach ( $defaults as $t ) {
+				if ( sanitize_key( (string) ( $t['slug'] ?? '' ) ) === $slug ) {
+					$already = true;
+					break;
+				}
+			}
+			if ( $already ) {
+				continue;
+			}
+			$defaults[] = array(
+				'slug'        => $slug,
+				'label'       => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
+				'order'       => (int) ( $ov['order'] ?? 99 ),
+				'icon'        => 'tab-custom',
+				'description' => sanitize_text_field( (string) ( $ov['description'] ?? '' ) ),
+				'capability'  => sanitize_text_field( (string) ( $ov['capability'] ?? 'read' ) ),
+				'url'         => esc_url_raw( (string) ( $ov['url'] ?? '' ) ),
+				'hidden'      => (bool) ( $ov['hidden'] ?? false ),
+				'custom'      => true,
+			);
+		}
+
+		usort(
+			$defaults,
+			fn( array $a, array $b ) => ( $a['order'] ?? 10 ) <=> ( $b['order'] ?? 10 )
+		);
+
+		return array_values( $defaults );
+	}
+
+	/**
+	 * Built-in profile page tabs.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function default_profile_tabs(): array {
+		return array(
+			array(
+				'slug'        => 'about',
+				'label'       => __( 'About', 'buddynext' ),
+				'order'       => 10,
+				'icon'        => 'tab-about',
+				'description' => __( 'Bio, location, and profile fields', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'activity',
+				'label'       => __( 'Activity', 'buddynext' ),
+				'order'       => 20,
+				'icon'        => 'tab-feed',
+				'description' => __( 'Member\'s public posts', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'connections',
+				'label'       => __( 'Connections', 'buddynext' ),
+				'order'       => 30,
+				'icon'        => 'tab-connections',
+				'description' => __( 'Followers and following', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'media',
+				'label'       => __( 'Media', 'buddynext' ),
+				'order'       => 40,
+				'icon'        => 'tab-media',
+				'description' => __( 'Photos and videos shared by this member', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'badges',
+				'label'       => __( 'Badges', 'buddynext' ),
+				'order'       => 50,
+				'icon'        => 'tab-badges',
+				'description' => __( 'Earned badges and achievements', 'buddynext' ),
+				'capability'  => 'read',
+			),
+		);
+	}
+
+	/**
+	 * Built-in space detail page tabs.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function default_space_tabs(): array {
+		return array(
+			array(
+				'slug'        => 'feed',
+				'label'       => __( 'Feed', 'buddynext' ),
+				'order'       => 10,
+				'icon'        => 'tab-feed',
+				'description' => __( 'Posts and activity inside this space', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'members',
+				'label'       => __( 'Members', 'buddynext' ),
+				'order'       => 20,
+				'icon'        => 'tab-connections',
+				'description' => __( 'Members of this space', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'media',
+				'label'       => __( 'Media', 'buddynext' ),
+				'order'       => 30,
+				'icon'        => 'tab-media',
+				'description' => __( 'Media shared inside this space', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'about',
+				'label'       => __( 'About', 'buddynext' ),
+				'order'       => 40,
+				'icon'        => 'tab-about',
+				'description' => __( 'Space description and details', 'buddynext' ),
+				'capability'  => 'read',
+			),
+		);
+	}
+
+	/**
+	 * Built-in mobile bottom navigation items.
+	 *
+	 * Shares slugs with the main nav so page assignments are inherited.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function default_mobile_tabs(): array {
+		return array(
+			array(
+				'slug'        => 'feed',
+				'label'       => __( 'Home', 'buddynext' ),
+				'order'       => 10,
+				'icon'        => 'tab-feed',
+				'description' => __( 'Home feed (inherits main nav page)', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'explore',
+				'label'       => __( 'Explore', 'buddynext' ),
+				'order'       => 20,
+				'icon'        => 'tab-explore',
+				'description' => __( 'Explore public content', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'spaces',
+				'label'       => __( 'Spaces', 'buddynext' ),
+				'order'       => 30,
+				'icon'        => 'tab-spaces',
+				'description' => __( 'Browse spaces', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'notifications',
+				'label'       => __( 'Alerts', 'buddynext' ),
+				'order'       => 40,
+				'icon'        => 'tab-notifications',
+				'description' => __( 'Notification badge', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'messages',
+				'label'       => __( 'Messages', 'buddynext' ),
+				'order'       => 50,
+				'icon'        => 'tab-messages',
+				'description' => __( 'Direct messages badge', 'buddynext' ),
+				'capability'  => 'read',
+			),
+		);
+	}
+
 	// ── AdminPageBase interface ────────────────────────────────────────────────
 
 	/**
@@ -169,8 +434,11 @@ class NavManager extends AdminPageBase {
 	 * @return void
 	 */
 	protected function render_content(): void {
-		$tabs       = $this->get_tabs();
-		$first_slug = ! empty( $tabs ) ? sanitize_key( (string) ( $tabs[0]['slug'] ?? '' ) ) : '';
+		$main_tabs    = $this->get_tabs_for_scope( 'main' );
+		$profile_tabs = $this->get_tabs_for_scope( 'profile' );
+		$space_tabs   = $this->get_tabs_for_scope( 'space' );
+		$mobile_tabs  = $this->get_tabs_for_scope( 'mobile' );
+		$first_slug   = ! empty( $main_tabs ) ? sanitize_key( (string) ( $main_tabs[0]['slug'] ?? '' ) ) : '';
 
 		$this->render_nav_styles();
 
@@ -212,30 +480,52 @@ class NavManager extends AdminPageBase {
 						</button>
 					</div>
 
-					<?php $this->render_nav_section( $tabs ); ?>
+					<!-- Main Navigation scope panel -->
+					<div class="bn-scope-panel" data-scope-panel="main">
+						<?php $this->render_nav_section( 'main', $main_tabs, __( 'Main Navigation', 'buddynext' ), __( '— Community Nav Bar', 'buddynext' ) ); ?>
+						<?php $this->render_standalone_pages_section(); ?>
+					</div>
 
-					<?php
-					$this->render_collapsed_section(
-						__( 'Profile Tabs', 'buddynext' ),
-						__( '4 core · Posts, Media, Spaces, Friends · plugins can add more', 'buddynext' ),
-						__( '4 core items', 'buddynext' )
-					);
-					$this->render_collapsed_section(
-						__( 'Space Tabs', 'buddynext' ),
-						__( '4 core · Feed, Members, Forum, Media · plugins can add more', 'buddynext' ),
-						__( '4 core items', 'buddynext' )
-					);
-					$this->render_collapsed_section(
-						__( 'Mobile Bottom Nav', 'buddynext' ),
-						__( '5 items · Feed, Explore, Spaces, Notifications, Messages', 'buddynext' ),
-						__( '5 items', 'buddynext' )
-					);
-					?>
+					<!-- Profile Tabs scope panel -->
+					<div class="bn-scope-panel" data-scope-panel="profile" hidden>
+						<?php $this->render_nav_section( 'profile', $profile_tabs, __( 'Profile Tabs', 'buddynext' ), __( '— Member profile pages', 'buddynext' ) ); ?>
+					</div>
+
+					<!-- Space Tabs scope panel -->
+					<div class="bn-scope-panel" data-scope-panel="space" hidden>
+						<?php $this->render_nav_section( 'space', $space_tabs, __( 'Space Tabs', 'buddynext' ), __( '— Space detail pages', 'buddynext' ) ); ?>
+					</div>
+
+					<!-- Mobile Bottom Nav scope panel -->
+					<div class="bn-scope-panel" data-scope-panel="mobile" hidden>
+						<?php $this->render_nav_section( 'mobile', $mobile_tabs, __( 'Mobile Bottom Nav', 'buddynext' ), __( '— Bottom navigation bar', 'buddynext' ) ); ?>
+						<?php $this->render_mobile_note(); ?>
+					</div>
 
 				</div><!-- /.bn-nav-main-panel -->
 
 				<div class="bn-nav-config-panel">
-					<?php $this->render_all_config_panels( $tabs, $first_slug ); ?>
+					<div data-config-scope="main">
+						<?php $this->render_all_config_panels( 'main', $main_tabs, $first_slug ); ?>
+					</div>
+					<div data-config-scope="profile" hidden>
+						<?php
+						$prof_first = ! empty( \$profile_tabs ) ? sanitize_key( (string) ( \$profile_tabs[0]['slug'] ?? '' ) ) : '';
+						\$this->render_all_config_panels( 'profile', \$profile_tabs, \$prof_first );
+						?>
+					</div>
+					<div data-config-scope="space" hidden>
+						<?php
+						$space_first = ! empty( \$space_tabs ) ? sanitize_key( (string) ( \$space_tabs[0]['slug'] ?? '' ) ) : '';
+						\$this->render_all_config_panels( 'space', \$space_tabs, \$space_first );
+						?>
+					</div>
+					<div data-config-scope="mobile" hidden>
+						<?php
+						$mob_first = ! empty( \$mobile_tabs ) ? sanitize_key( (string) ( \$mobile_tabs[0]['slug'] ?? '' ) ) : '';
+						\$this->render_all_config_panels( 'mobile', \$mobile_tabs, \$mob_first );
+						?>
+					</div>
 				</div>
 
 			</div><!-- /.bn-three-panel -->
@@ -257,14 +547,34 @@ class NavManager extends AdminPageBase {
 		?>
 		<div class="bn-nav-scope-sidebar">
 			<div class="bn-scope-header"><?php esc_html_e( 'Navigation Scope', 'buddynext' ); ?></div>
-			<div class="bn-scope-item bn-scope-active">📋 <?php esc_html_e( 'Main Navigation', 'buddynext' ); ?></div>
-			<div class="bn-scope-item bn-scope-soon">👤 <?php esc_html_e( 'Profile Tabs', 'buddynext' ); ?></div>
-			<div class="bn-scope-item bn-scope-soon">🏠 <?php esc_html_e( 'Space Tabs', 'buddynext' ); ?></div>
-			<div class="bn-scope-item bn-scope-soon">📱 <?php esc_html_e( 'Mobile Bottom Nav', 'buddynext' ); ?></div>
+			<div class="bn-scope-item bn-scope-active" data-scope="main" role="button" tabindex="0">
+				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
+				echo $this->svg( 'scope-main' );
+				?>
+				<?php esc_html_e( 'Main Navigation', 'buddynext' ); ?>
+			</div>
+			<div class="bn-scope-item" data-scope="profile" role="button" tabindex="0">
+				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
+				echo $this->svg( 'scope-profile' );
+				?>
+				<?php esc_html_e( 'Profile Tabs', 'buddynext' ); ?>
+			</div>
+			<div class="bn-scope-item" data-scope="space" role="button" tabindex="0">
+				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
+				echo $this->svg( 'scope-space' );
+				?>
+				<?php esc_html_e( 'Space Tabs', 'buddynext' ); ?>
+			</div>
+			<div class="bn-scope-item" data-scope="mobile" role="button" tabindex="0">
+				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
+				echo $this->svg( 'scope-mobile' );
+				?>
+				<?php esc_html_e( 'Mobile Bottom Nav', 'buddynext' ); ?>
+			</div>
 			<div class="bn-scope-tip">
 				<?php
 				echo wp_kses(
-					__( '💡 Any plugin can inject tabs into any scope using filters — <code>buddynext_main_nav_items</code>, <code>buddynext_profile_tabs</code>, <code>buddynext_space_tabs</code>.', 'buddynext' ),
+					__( 'Any plugin can inject tabs into any scope using filters — <code>buddynext_main_nav_items</code>, <code>buddynext_profile_tabs</code>, <code>buddynext_space_tabs</code>.', 'buddynext' ),
 					array( 'code' => array() )
 				);
 				?>
@@ -276,49 +586,54 @@ class NavManager extends AdminPageBase {
 	// ── Render: main nav section ──────────────────────────────────────────────
 
 	/**
-	 * Render the Main Navigation section card with the sortable tab list.
+	 * Render a nav section card with the sortable tab list for a scope.
 	 *
-	 * @param array<int, array<string, mixed>> $tabs Ordered tab list.
+	 * @param string                           $scope Scope slug (main|profile|space|mobile).
+	 * @param array<int, array<string, mixed>> $tabs  Ordered tab list.
+	 * @param string                           $title Section heading.
+	 * @param string                           $sub   Subtitle shown next to the heading.
 	 * @return void
 	 */
-	private function render_nav_section( array $tabs ): void {
-		$count = count( $tabs );
+	private function render_nav_section( string $scope, array $tabs, string $title, string $sub ): void {
+		$count   = count( $tabs );
+		$list_id = "bn-nav-sortable-{$scope}";
 		?>
 		<div class="bn-nav-section">
 			<div class="bn-nav-section-header">
 				<div class="bn-nav-section-title">
-					<?php esc_html_e( 'Main Navigation', 'buddynext' ); ?>
-					<span class="bn-nav-section-sub"><?php esc_html_e( '— Community Nav Bar', 'buddynext' ); ?></span>
+					<?php echo esc_html( $title ); ?>
+					<span class="bn-nav-section-sub"><?php echo esc_html( $sub ); ?></span>
 				</div>
 				<div class="bn-nav-section-badge">
 					<?php
 					echo esc_html(
 						sprintf(
-							/* translators: %d: number of core items */
-							_n( '%d core item', '%d core items', $count, 'buddynext' ),
+							/* translators: %d: number of items */
+							_n( '%d item', '%d items', $count, 'buddynext' ),
 							$count
 						)
 					);
 					?>
-					&nbsp;&middot;&nbsp;<?php esc_html_e( 'plugins can add more', 'buddynext' ); ?>
 				</div>
 			</div>
 
-			<ul class="bn-nav-list" id="bn-nav-sortable">
+			<ul class="bn-nav-list" id="<?php echo esc_attr( $list_id ); ?>">
 				<?php foreach ( $tabs as $idx => $tab ) : ?>
-					<?php $this->render_nav_row( $tab, $idx ); ?>
+					<?php $this->render_nav_row( $scope, $tab, $idx ); ?>
 				<?php endforeach; ?>
 			</ul>
 
 			<div class="bn-nav-add-row">
-				<button type="button" class="bn-add-tab-btn" disabled title="<?php esc_attr_e( 'Custom tab creation coming soon', 'buddynext' ); ?>">
-					<span aria-hidden="true">＋</span>
+				<button type="button" class="bn-add-tab-btn"
+					data-scope="<?php echo esc_attr( $scope ); ?>"
+					data-action="bn-open-add-tab"
+					aria-label="<?php esc_attr_e( 'Add a custom tab to this scope', 'buddynext' ); ?>">
+					<span aria-hidden="true">+</span>
 					<?php esc_html_e( 'Add Custom Tab', 'buddynext' ); ?>
 				</button>
-				<button type="button" class="bn-add-tab-btn bn-add-plugin-btn" disabled title="<?php esc_attr_e( 'Use the buddynext_main_nav_items filter to inject tabs from your plugin', 'buddynext' ); ?>">
-					🔌 <?php esc_html_e( 'Tab from Plugin', 'buddynext' ); ?>
-				</button>
 			</div>
+
+			<?php $this->render_add_tab_form( $scope ); ?>
 		</div>
 		<?php
 	}
@@ -326,30 +641,37 @@ class NavManager extends AdminPageBase {
 	/**
 	 * Render a single nav item row inside the sortable list.
 	 *
-	 * @param array<string, mixed> $tab Resolved tab entry.
-	 * @param int                  $idx Zero-based index used for input names.
+	 * @param string               $scope Scope slug.
+	 * @param array<string, mixed> $tab   Resolved tab entry.
+	 * @param int                  $idx   Zero-based index used for input names.
 	 * @return void
 	 */
-	private function render_nav_row( array $tab, int $idx ): void {
+	private function render_nav_row( string $scope, array $tab, int $idx ): void {
 		$slug    = sanitize_key( (string) ( $tab['slug'] ?? '' ) );
 		$label   = (string) ( $tab['label'] ?? '' );
 		$icon    = (string) ( $tab['icon'] ?? '' );
 		$hidden  = ! empty( $tab['hidden'] );
 		$is_core = empty( $tab['custom'] );
+		$row_id  = 'bn-row-' . $scope . '-' . $slug;
 		?>
 		<li class="bn-nav-row<?php echo $hidden ? ' bn-row-hidden' : ''; ?>"
 			data-slug="<?php echo esc_attr( $slug ); ?>"
-			id="bn-row-<?php echo esc_attr( $slug ); ?>">
+			data-scope="<?php echo esc_attr( $scope ); ?>"
+			id="<?php echo esc_attr( $row_id ); ?>">
 
 			<input type="hidden"
-					name="bn_nav_slug[<?php echo esc_attr( (string) $idx ); ?>]"
+					name="bn_nav_slug[<?php echo esc_attr( $scope ); ?>][<?php echo esc_attr( (string) $idx ); ?>]"
 					value="<?php echo esc_attr( $slug ); ?>">
 
 			<div class="bn-drag-handle" title="<?php esc_attr_e( 'Drag to reorder', 'buddynext' ); ?>" aria-hidden="true">
 				<span></span><span></span><span></span>
 			</div>
 
-			<div class="bn-row-icon" aria-hidden="true"><?php echo esc_html( $icon ); ?></div>
+			<div class="bn-row-icon" aria-hidden="true">
+				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
+				echo $this->svg( $icon );
+				?>
+			</div>
 
 			<div class="bn-row-info">
 				<div class="bn-row-name">
@@ -366,15 +688,18 @@ class NavManager extends AdminPageBase {
 			<div class="bn-row-actions">
 				<button type="button"
 						class="bn-config-btn"
+						data-scope="<?php echo esc_attr( $scope ); ?>"
 						data-slug="<?php echo esc_attr( $slug ); ?>"
 						aria-label="<?php echo esc_attr( sprintf( /* translators: %s: tab label */ __( 'Configure %s', 'buddynext' ), $label ) ); ?>">
-					⚙
+					<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
+					echo $this->svg( 'icon-config' );
+					?>
 				</button>
 				<label class="bn-toggle-wrap"
 						title="<?php echo $hidden ? esc_attr__( 'Hidden — click to show', 'buddynext' ) : esc_attr__( 'Visible — click to hide', 'buddynext' ); ?>">
 					<input type="checkbox"
 							class="bn-toggle-input"
-							name="bn_nav_visible[<?php echo esc_attr( $slug ); ?>]"
+							name="bn_nav_visible[<?php echo esc_attr( $scope ); ?>][<?php echo esc_attr( $slug ); ?>]"
 							value="1"
 							<?php checked( ! $hidden ); ?>>
 					<span class="bn-toggle<?php echo ! $hidden ? ' bn-toggle-on' : ''; ?>" aria-hidden="true"></span>
@@ -412,27 +737,110 @@ class NavManager extends AdminPageBase {
 		<?php
 	}
 
+	/**
+	 * Render the standalone hub page assignments section.
+	 *
+	 * Shows a simple page-picker row for each hub that has no main-nav tab
+	 * (Member Directory and Login/Register). Conflict validation in
+	 * handle_save_nav() covers these alongside the nav-tab page options.
+	 *
+	 * @return void
+	 */
+	private function render_standalone_pages_section(): void {
+		?>
+		<div class="bn-nav-section">
+			<div class="bn-nav-section-header">
+				<div class="bn-nav-section-title">
+					<?php esc_html_e( 'Additional Hub Pages', 'buddynext' ); ?>
+					<span class="bn-nav-section-sub"><?php esc_html_e( '— Not in main nav', 'buddynext' ); ?></span>
+				</div>
+				<div class="bn-nav-section-badge">
+					<?php esc_html_e( '2 required', 'buddynext' ); ?>
+				</div>
+			</div>
+			<div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
+				<?php foreach ( self::STANDALONE_PAGES as $key => $cfg ) : ?>
+					<?php
+					$page_id  = (int) get_option( $cfg['option'], 0 );
+					$input_id = 'bn-standalone-page-' . sanitize_key( $key );
+					?>
+					<div>
+						<label for="<?php echo esc_attr( $input_id ); ?>"
+								style="display:block;font-weight:600;font-size:12px;color:#1d2327;margin-bottom:5px;">
+							<?php echo esc_html( $cfg['label'] ); ?>
+						</label>
+						<?php
+						// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_dropdown_pages() escapes its own output; values are sanitized above.
+						wp_dropdown_pages(
+							array(
+								'name'              => 'bn_standalone_page[' . $key . ']',
+								'id'                => $input_id,
+								'selected'          => $page_id,
+								'show_option_none'  => __( '— Auto (installer default) —', 'buddynext' ),
+								'option_none_value' => '0',
+							)
+						);
+						// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+						?>
+						<span style="display:block;font-size:11px;color:#787c82;margin-top:4px;">
+							<?php echo esc_html( $cfg['hint'] ); ?>
+						</span>
+					</div>
+				<?php endforeach; ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render a "coming soon" placeholder panel for an unbuilt scope.
+	 *
+	 * @param string $title   Scope title.
+	 * @param string $message Explanation shown to the admin.
+	 * @return void
+	 */
+	private function render_coming_soon_panel( string $title, string $message ): void {
+		?>
+		<div class="bn-nav-section">
+			<div class="bn-nav-section-header">
+				<div class="bn-nav-section-title"><?php echo esc_html( $title ); ?></div>
+			</div>
+			<div style="padding:32px 20px;text-align:center;color:#787c82;">
+				<div class="bn-coming-soon-icon" aria-hidden="true">
+				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
+				echo $this->svg( 'icon-coming-soon' );
+				?>
+			</div>
+				<p style="font-size:13px;margin:0;"><?php echo esc_html( $message ); ?></p>
+			</div>
+		</div>
+		<?php
+	}
+
 	// ── Render: config panels ─────────────────────────────────────────────────
 
 	/**
-	 * Render all per-tab config panels, hiding all but the active one.
+	 * Render all per-tab config panels for a scope, hiding all but the active one.
 	 *
 	 * Each panel is pre-rendered and shown/hidden via JS when the user clicks
-	 * the ⚙ button on the corresponding nav row.
+	 * the config button on the corresponding nav row.
 	 *
+	 * @param string                           $scope      Scope slug.
 	 * @param array<int, array<string, mixed>> $tabs       Ordered tab list.
 	 * @param string                           $first_slug Slug of the initially visible panel.
 	 * @return void
 	 */
-	private function render_all_config_panels( array $tabs, string $first_slug ): void {
+	private function render_all_config_panels( string $scope, array $tabs, string $first_slug ): void {
 		foreach ( $tabs as $tab ) {
 			$slug      = sanitize_key( (string) ( $tab['slug'] ?? '' ) );
+			$panel_id  = 'bn-config-' . $scope . '-' . $slug;
 			$is_active = ( $slug === $first_slug );
 			?>
 			<div class="bn-config-card"
-				id="bn-config-<?php echo esc_attr( $slug ); ?>"
-				<?php echo $is_active ? '' : 'hidden'; ?>>
-				<?php $this->render_config_panel_for_tab( $tab ); ?>
+				id="<?php echo esc_attr( $panel_id ); ?>"
+				data-scope="<?php echo esc_attr( \$scope ); ?>"
+				<?php echo \$is_active ? '' : 'hidden'; ?>>
+				<?php $this->render_config_panel_for_tab( $scope, $tab ); ?>
 			</div>
 			<?php
 		}
@@ -441,14 +849,15 @@ class NavManager extends AdminPageBase {
 	/**
 	 * Render the config panel body for a single tab.
 	 *
-	 * For core tabs that have a PAGE_OPTIONS mapping, a wp_dropdown_pages()
+	 * For main-scope core tabs that have a PAGE_OPTIONS mapping, a wp_dropdown_pages()
 	 * selector is shown so the admin can assign (or reassign) the WordPress
 	 * page that serves this hub.
 	 *
-	 * @param array<string, mixed> $tab Resolved tab entry.
+	 * @param string               $scope Scope slug.
+	 * @param array<string, mixed> $tab   Resolved tab entry.
 	 * @return void
 	 */
-	private function render_config_panel_for_tab( array $tab ): void {
+	private function render_config_panel_for_tab( string $scope, array $tab ): void {
 		$slug        = sanitize_key( (string) ( $tab['slug'] ?? '' ) );
 		$label       = (string) ( $tab['label'] ?? '' );
 		$icon        = (string) ( $tab['icon'] ?? '' );
@@ -458,17 +867,22 @@ class NavManager extends AdminPageBase {
 		$login_req   = ! empty( $tab['login_required'] );
 		$guest_label = (string) ( $tab['guest_label'] ?? '' );
 		$is_core     = empty( $tab['custom'] );
-		$page_opt    = self::PAGE_OPTIONS[ $slug ] ?? '';
+		$page_opt    = ( 'main' === $scope ) ? ( self::PAGE_OPTIONS[ $slug ] ?? '' ) : '';
 		$page_id     = $page_opt ? (int) get_option( $page_opt, 0 ) : 0;
 
-		// Helper: generate namespaced input name for this tab's config.
-		$n = static function ( string $field ) use ( $slug ): string {
-			return 'bn_nav_config[' . $slug . '][' . $field . ']';
+		// Helper: generate scope-namespaced input name for this tab's config.
+		$n = static function ( string $field ) use ( $scope, $slug ): string {
+			return 'bn_nav_config[' . $scope . '][' . $slug . '][' . $field . ']';
 		};
 		?>
 		<div class="bn-config-header">
-			<div class="bn-config-breadcrumb"><?php esc_html_e( 'Main Navigation', 'buddynext' ); ?> &rsaquo;</div>
-			<div class="bn-config-title"><?php echo esc_html( trim( $icon . ' ' . $label ) ); ?></div>
+			<div class="bn-config-breadcrumb"><?php echo esc_html( ucwords( str_replace( '-', ' ', $scope ) ) ); ?> &rsaquo;</div>
+			<div class="bn-config-title" style="display:flex;align-items:center;gap:6px;">
+			<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
+			echo $this->svg( $icon );
+			?>
+			<?php echo esc_html( $label ); ?>
+		</div>
 		</div>
 
 		<div class="bn-config-body">
@@ -602,6 +1016,73 @@ class NavManager extends AdminPageBase {
 		<?php
 	}
 
+	// ── Render: mobile note + add-tab form ──────────────────────────────────
+
+	/**
+	 * Render the mobile bottom nav note (max 5 visible items).
+	 *
+	 * @return void
+	 */
+	private function render_mobile_note(): void {
+		?>
+		<div class="bn-nav-section">
+			<div class="bn-nav-section-header">
+				<div class="bn-nav-section-title"><?php esc_html_e( 'Mobile Nav Note', 'buddynext' ); ?></div>
+			</div>
+			<p style="padding:12px 16px;margin:0;font-size:12px;color:#646970;">
+				<?php esc_html_e( 'Only the top 5 visible items are displayed in the mobile bottom bar. Drag to reorder; toggle to include or exclude.', 'buddynext' ); ?>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the hidden inline "Add Custom Tab" form for a scope.
+	 *
+	 * Shown/hidden by JS; submitted with the main form so PHP reads
+	 * bn_new_tab[scope] and merges into overrides on save.
+	 *
+	 * @param string $scope Scope slug.
+	 * @return void
+	 */
+	private function render_add_tab_form( string $scope ): void {
+		$form_id = 'bn-add-tab-form-' . sanitize_key( $scope );
+		?>
+		<div id="<?php echo esc_attr( $form_id ); ?>" class="bn-add-tab-inline" hidden>
+			<div class="bn-add-tab-inline-inner">
+				<div class="bn-cf">
+					<label for="bn-new-tab-label-<?php echo esc_attr( $scope ); ?>">
+						<?php esc_html_e( 'Tab Label', 'buddynext' ); ?>
+					</label>
+					<input type="text"
+						id="bn-new-tab-label-<?php echo esc_attr( $scope ); ?>"
+						name="bn_new_tab[<?php echo esc_attr( $scope ); ?>][label]"
+						placeholder="<?php esc_attr_e( 'e.g. Resources', 'buddynext' ); ?>"
+						maxlength="50">
+				</div>
+				<div class="bn-cf">
+					<label for="bn-new-tab-url-<?php echo esc_attr( $scope ); ?>">
+						<?php esc_html_e( 'URL', 'buddynext' ); ?>
+					</label>
+					<input type="url"
+						id="bn-new-tab-url-<?php echo esc_attr( $scope ); ?>"
+						name="bn_new_tab[<?php echo esc_attr( $scope ); ?>][url]"
+						placeholder="<?php esc_attr_e( 'https://...', 'buddynext' ); ?>">
+				</div>
+				<div class="bn-add-tab-inline-actions">
+					<button type="submit" class="button button-primary button-small">
+						<?php esc_html_e( 'Add Tab', 'buddynext' ); ?>
+					</button>
+					<button type="button" class="button button-small bn-cancel-add-tab"
+						data-scope="<?php echo esc_attr( $scope ); ?>">
+						<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+					</button>
+				</div>
+			</div>
+		</div>
+		<?php
+	}
+
 	// ── Render: developer info bar ────────────────────────────────────────────
 
 	/**
@@ -613,7 +1094,7 @@ class NavManager extends AdminPageBase {
 		?>
 		<div class="bn-dev-bar">
 			<div class="bn-dev-bar-title">
-				<?php esc_html_e( '🔌 How to register a custom tab from your plugin:', 'buddynext' ); ?>
+				<?php esc_html_e( 'How to register a custom tab from your plugin:', 'buddynext' ); ?>
 			</div>
 			<pre class="bn-dev-code">add_filter( 'buddynext_nav_tabs', function( $tabs ) {
 	$tabs[] = [
@@ -657,12 +1138,15 @@ class NavManager extends AdminPageBase {
 		/* Scope sidebar */
 		.bn-nav-scope-sidebar{width:220px;flex-shrink:0;background:#fff;border:1px solid #c3c4c7;border-radius:4px;overflow:hidden;position:sticky;top:32px}
 		.bn-scope-header{padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#646970;border-bottom:1px solid #f0f0f1;background:#f9f9f9}
-		.bn-scope-item{padding:9px 14px;color:#1d2327;font-size:13px;border-bottom:1px solid #f0f0f1}
+		.bn-scope-item{display:flex;align-items:center;gap:8px;padding:9px 14px;color:#1d2327;font-size:13px;border-bottom:1px solid #f0f0f1;cursor:pointer;user-select:none}
 		.bn-scope-item:last-of-type{border-bottom:none}
+		.bn-scope-item svg{width:16px;height:16px;flex-shrink:0;opacity:.6}
 		.bn-scope-active{background:#e8f4fb;color:#0073aa;font-weight:600;border-left:3px solid #0073aa;padding-left:11px}
-		.bn-scope-soon{color:#9ca3af;cursor:default}
+		.bn-scope-active svg{opacity:1}
 		.bn-scope-tip{padding:12px 14px;font-size:11px;color:#646970;line-height:1.6;border-top:1px solid #f0f0f1;background:#f9f9f9}
 		.bn-scope-tip code{background:#f0f0f1;padding:1px 4px;border-radius:2px;font-size:10px;font-family:monospace}
+		.bn-coming-soon-icon{width:40px;height:40px;margin:0 auto 12px;color:#c3c4c7}
+		.bn-coming-soon-icon svg{width:40px;height:40px}
 
 		/* Main panel */
 		.bn-nav-main-panel{flex:1;min-width:0}
@@ -712,8 +1196,11 @@ class NavManager extends AdminPageBase {
 
 		/* Add tab row */
 		.bn-nav-add-row{display:flex;border-top:1px solid #f0f0f1}
-		.bn-add-tab-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;border:none;border-right:1px solid #f0f0f1;background:none;font-size:13px;color:#9ca3af;cursor:not-allowed}
-		.bn-add-plugin-btn{border-right:none;color:#9ca3af}
+		.bn-add-tab-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;border:none;background:none;font-size:13px;color:#0073aa;cursor:pointer;font-weight:600}
+		.bn-add-tab-btn:hover{background:#f0f7fb}
+		.bn-add-tab-inline{border-top:1px solid #f0f0f1;padding:14px 16px;background:#f9f9f9}
+		.bn-add-tab-inline-inner{display:flex;flex-direction:column;gap:10px}
+		.bn-add-tab-inline-actions{display:flex;gap:8px;align-items:center}
 
 		/* Config panel */
 		.bn-nav-config-panel{width:280px;flex-shrink:0;position:sticky;top:32px}
@@ -776,37 +1263,93 @@ class NavManager extends AdminPageBase {
 		(function () {
 			'use strict';
 
+			// ── Scope switching ────────────────────────────────────────────
+			function showScope( scope ) {
+				// Update sidebar active state.
+				document.querySelectorAll( '.bn-scope-item' ).forEach( function ( el ) {
+					el.classList.remove( 'bn-scope-active' );
+				} );
+				var activeItem = document.querySelector( '.bn-scope-item[data-scope="' + scope + '"]' );
+				if ( activeItem ) {
+					activeItem.classList.add( 'bn-scope-active' );
+				}
+
+				// Show/hide center scope panels.
+				document.querySelectorAll( '[data-scope-panel]' ).forEach( function ( panel ) {
+					panel.hidden = ( panel.dataset.scopePanel !== scope );
+				} );
+
+				// Show/hide right config-scope containers.
+				document.querySelectorAll( '[data-config-scope]' ).forEach( function ( ctr ) {
+					ctr.hidden = ( ctr.dataset.configScope !== scope );
+				} );
+
+				// Activate the first config panel of the newly shown scope.
+				var firstBtn = document.querySelector(
+					'[data-scope-panel="' + scope + '"] .bn-config-btn'
+				);
+				if ( firstBtn ) {
+					showPanel( scope, firstBtn.dataset.slug );
+				}
+			}
+
+			document.querySelectorAll( '.bn-scope-item[data-scope]' ).forEach( function ( item ) {
+				item.addEventListener( 'click', function () {
+					showScope( this.dataset.scope );
+				} );
+				item.addEventListener( 'keydown', function ( e ) {
+					if ( 'Enter' === e.key || ' ' === e.key ) {
+						e.preventDefault();
+						showScope( this.dataset.scope );
+					}
+				} );
+			} );
+
 			// ── Config panel switching ─────────────────────────────────────
-			var activeSlug = <?php echo wp_json_encode( $first_slug ); ?>;
+			var activeSlug  = <?php echo wp_json_encode( $first_slug ); ?>;
+			var activeScope = 'main';
 
-			function showPanel( slug ) {
-				document.querySelectorAll( '.bn-config-card' ).forEach( function ( el ) {
-					el.hidden = true;
-				} );
-				document.querySelectorAll( '.bn-config-btn' ).forEach( function ( b ) {
-					b.classList.remove( 'bn-config-btn-active' );
-				} );
+			function showPanel( scope, slug ) {
+				// Hide all cards in this scope's container.
+				var ctr = document.querySelector( '[data-config-scope="' + scope + '"]' );
+				if ( ctr ) {
+					ctr.querySelectorAll( '.bn-config-card' ).forEach( function ( el ) {
+						el.hidden = true;
+					} );
+				}
 
-				var panel = document.getElementById( 'bn-config-' + slug );
+				// Clear active state from all config buttons in this scope's panel.
+				var scopePanel = document.querySelector( '[data-scope-panel="' + scope + '"]' );
+				if ( scopePanel ) {
+					scopePanel.querySelectorAll( '.bn-config-btn' ).forEach( function ( b ) {
+						b.classList.remove( 'bn-config-btn-active' );
+					} );
+				}
+
+				var panelId = 'bn-config-' + scope + '-' + slug;
+				var panel   = document.getElementById( panelId );
 				if ( panel ) {
 					panel.hidden = false;
 					activeSlug   = slug;
+					activeScope  = scope;
 				}
 
-				var btn = document.querySelector( '.bn-config-btn[data-slug="' + slug + '"]' );
+				var btn = document.querySelector(
+					'[data-scope-panel="' + scope + '"] .bn-config-btn[data-slug="' + slug + '"]'
+				);
 				if ( btn ) {
 					btn.classList.add( 'bn-config-btn-active' );
 				}
 			}
 
-			// Mark initial active button.
+			// Mark initial active panel (main scope, first slug).
 			if ( activeSlug ) {
-				showPanel( activeSlug );
+				showPanel( 'main', activeSlug );
 			}
 
 			document.querySelectorAll( '.bn-config-btn' ).forEach( function ( btn ) {
 				btn.addEventListener( 'click', function () {
-					showPanel( this.dataset.slug );
+					showPanel( this.dataset.scope, this.dataset.slug );
 				} );
 			} );
 
@@ -825,30 +1368,62 @@ class NavManager extends AdminPageBase {
 				} );
 			} );
 
-			// ── Drag-reorder via jQuery UI Sortable ────────────────────────
-			if ( window.jQuery && jQuery.fn.sortable ) {
-				jQuery( '#bn-nav-sortable' ).sortable( {
-					handle      : '.bn-drag-handle',
-					axis        : 'y',
-					containment : 'parent',
-					update      : function () {
-						jQuery( '#bn-nav-sortable .bn-nav-row' ).each( function ( i ) {
-							var slug        = this.dataset.slug;
-							var orderInput  = document.querySelector(
-								'#bn-config-' + slug + ' input[type="number"]'
-							);
-							if ( orderInput ) {
-								orderInput.value = ( i + 1 ) * 10;
-							}
+			// ── Add Custom Tab toggle ──────────────────────────────────────
+			document.querySelectorAll( '[data-action="bn-open-add-tab"]' ).forEach( function ( btn ) {
+				btn.addEventListener( 'click', function () {
+					var scope  = this.dataset.scope;
+					var formEl = document.getElementById( 'bn-add-tab-form-' + scope );
+					if ( formEl ) {
+						formEl.hidden = false;
+						var firstInput = formEl.querySelector( 'input[type="text"]' );
+						if ( firstInput ) { firstInput.focus(); }
+					}
+				} );
+			} );
+
+			document.querySelectorAll( '.bn-cancel-add-tab' ).forEach( function ( btn ) {
+				btn.addEventListener( 'click', function () {
+					var scope  = this.dataset.scope;
+					var formEl = document.getElementById( 'bn-add-tab-form-' + scope );
+					if ( formEl ) {
+						formEl.hidden = true;
+						formEl.querySelectorAll( 'input' ).forEach( function ( inp ) {
+							inp.value = '';
 						} );
 					}
-				} ).disableSelection();
+				} );
+			} );
+
+			// ── Drag-reorder via jQuery UI Sortable (per scope) ────────────
+			if ( window.jQuery && jQuery.fn.sortable ) {
+				var scopes = [ 'main', 'profile', 'space', 'mobile' ];
+				scopes.forEach( function ( sc ) {
+					var listId = '#bn-nav-sortable-' + sc;
+					if ( jQuery( listId ).length ) {
+						jQuery( listId ).sortable( {
+							handle      : '.bn-drag-handle',
+							axis        : 'y',
+							containment : 'parent',
+							update      : function () {
+								jQuery( listId + ' .bn-nav-row' ).each( function ( i ) {
+									var slug       = this.dataset.slug;
+									var panelId    = 'bn-config-' + sc + '-' + slug;
+									var orderInput = document.querySelector(
+										'#' + panelId + ' input[type="number"]'
+									);
+									if ( orderInput ) {
+										orderInput.value = ( i + 1 ) * 10;
+									}
+								} );
+							}
+						} ).disableSelection();
+					}
+				} );
 			}
 		}());
 		</script>
 		<?php
 	}
-
 	// ── Admin-post handler ─────────────────────────────────────────────────────
 
 	/**
@@ -867,26 +1442,34 @@ class NavManager extends AdminPageBase {
 
 		check_admin_referer( 'bn_save_nav' );
 
-		// ── 1. Which slugs are visible (checkbox = visible) ───────────────
+		// ── 1. Raw POST data ──────────────────────────────────────────────
 		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		$visible_slugs = array_map(
-			'sanitize_key',
-			array_keys( (array) wp_unslash( $_POST['bn_nav_visible'] ?? array() ) )
-		);
+		$raw_visible    = (array) wp_unslash( $_POST['bn_nav_visible'] ?? array() );
+		$raw_config_all = (array) wp_unslash( $_POST['bn_nav_config'] ?? array() );
+		$raw_standalone = array_map( 'absint', (array) wp_unslash( $_POST['bn_standalone_page'] ?? array() ) );
+		$raw_new_tabs   = (array) wp_unslash( $_POST['bn_new_tab'] ?? array() );
 		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
-		// ── 2. Per-tab config ─────────────────────────────────────────────
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		$raw_config = (array) wp_unslash( $_POST['bn_nav_config'] ?? array() );
-
-		// ── 3. Page conflict check ────────────────────────────────────────
+		// ── 2. Page conflict check (main nav tabs + standalone combined) ──
 		$seen_pages = array();
-		foreach ( $raw_config as $slug => $cfg ) {
-			$slug = sanitize_key( (string) $slug );
-			if ( ! isset( self::PAGE_OPTIONS[ $slug ] ) ) {
+
+		$main_config = (array) ( $raw_config_all['main'] ?? array() );
+		foreach ( $main_config as $slug => $cfg ) {
+			$slug    = sanitize_key( (string) $slug );
+			$page_id = absint( ( (array) $cfg )['page_id'] ?? 0 );
+			if ( 0 === $page_id || ! isset( self::PAGE_OPTIONS[ $slug ] ) ) {
 				continue;
 			}
-			$page_id = absint( ( (array) $cfg )['page_id'] ?? 0 );
+			if ( in_array( $page_id, $seen_pages, true ) ) {
+				wp_safe_redirect(
+					add_query_arg( 'bn_notice', 'page_conflict', admin_url( 'admin.php?page=buddynext-nav' ) )
+				);
+				exit;
+			}
+			$seen_pages[] = $page_id;
+		}
+
+		foreach ( $raw_standalone as $page_id ) {
 			if ( 0 === $page_id ) {
 				continue;
 			}
@@ -899,49 +1482,118 @@ class NavManager extends AdminPageBase {
 			$seen_pages[] = $page_id;
 		}
 
-		// ── 4. Persist page assignments + build overrides ─────────────────
-		$overrides = array();
-
-		foreach ( $raw_config as $slug => $cfg ) {
-			$slug = sanitize_key( (string) $slug );
-			if ( '' === $slug ) {
-				continue;
+		// ── 3. Persist standalone page assignments ────────────────────────
+		foreach ( $raw_standalone as $key => $page_id ) {
+			$key = sanitize_key( (string) $key );
+			if ( isset( self::STANDALONE_PAGES[ $key ] ) ) {
+				update_option( self::STANDALONE_PAGES[ $key ]['option'], $page_id );
 			}
-			$cfg = (array) $cfg;
-
-			// Page assignment for core hubs.
-			if ( isset( self::PAGE_OPTIONS[ $slug ] ) ) {
-				update_option( self::PAGE_OPTIONS[ $slug ], absint( $cfg['page_id'] ?? 0 ) );
-			}
-
-			$overrides[ $slug ] = array(
-				'label'          => sanitize_text_field( (string) ( $cfg['label'] ?? '' ) ),
-				'order'          => max( 1, absint( $cfg['order'] ?? 10 ) ),
-				'hidden'         => ! in_array( $slug, $visible_slugs, true ),
-				'visibility'     => sanitize_key( (string) ( $cfg['visibility'] ?? 'all' ) ),
-				'capability'     => sanitize_text_field( (string) ( $cfg['capability'] ?? 'read' ) ),
-				'login_required' => ! empty( $cfg['login_required'] ),
-				'guest_label'    => sanitize_text_field( (string) ( $cfg['guest_label'] ?? '' ) ),
-			);
 		}
 
-		update_option( self::OPTION_OVERRIDES, $overrides );
+		// ── 4. Persist overrides for each scope ───────────────────────────
+		foreach ( self::SCOPE_OPTION_MAP as $scope => $option_key ) {
+			$scope_config  = (array) ( $raw_config_all[ $scope ] ?? array() );
+			$scope_visible = (array) ( $raw_visible[ $scope ] ?? array() );
+			$visible_slugs = array_map( 'sanitize_key', array_keys( $scope_visible ) );
+
+			$overrides = array();
+
+			foreach ( $scope_config as $slug => $cfg ) {
+				$slug = sanitize_key( (string) $slug );
+				if ( '' === $slug ) {
+					continue;
+				}
+				$cfg = (array) $cfg;
+
+				// Page assignment for main-scope core hubs only.
+				if ( 'main' === $scope && isset( self::PAGE_OPTIONS[ $slug ] ) ) {
+					update_option( self::PAGE_OPTIONS[ $slug ], absint( $cfg['page_id'] ?? 0 ) );
+				}
+
+				$overrides[ $slug ] = array(
+					'label'          => sanitize_text_field( (string) ( $cfg['label'] ?? '' ) ),
+					'order'          => max( 1, absint( $cfg['order'] ?? 10 ) ),
+					'hidden'         => ! in_array( $slug, $visible_slugs, true ),
+					'visibility'     => sanitize_key( (string) ( $cfg['visibility'] ?? 'all' ) ),
+					'capability'     => sanitize_text_field( (string) ( $cfg['capability'] ?? 'read' ) ),
+					'login_required' => ! empty( $cfg['login_required'] ),
+					'guest_label'    => sanitize_text_field( (string) ( $cfg['guest_label'] ?? '' ) ),
+				);
+			}
+
+			// Merge in any new custom tab submitted for this scope.
+			$new_tab   = (array) ( $raw_new_tabs[ $scope ] ?? array() );
+			$new_label = sanitize_text_field( (string) ( $new_tab['label'] ?? '' ) );
+			$new_url   = esc_url_raw( (string) ( $new_tab['url'] ?? '' ) );
+
+			if ( '' !== $new_label ) {
+				$new_slug = sanitize_key( $new_label );
+				// Ensure uniqueness.
+				$base    = $new_slug;
+				$counter = 1;
+				while ( isset( $overrides[ $new_slug ] ) ) {
+					$new_slug = $base . '-' . $counter;
+					++$counter;
+				}
+				$overrides[ $new_slug ] = array(
+					'label'          => $new_label,
+					'order'          => 99,
+					'hidden'         => false,
+					'visibility'     => 'all',
+					'capability'     => 'read',
+					'login_required' => false,
+					'guest_label'    => '',
+					'url'            => $new_url,
+					'custom'         => true,
+				);
+			}
+
+			update_option( $option_key, $overrides );
+		}
 
 		wp_safe_redirect(
 			add_query_arg( 'bn_notice', 'saved', admin_url( 'admin.php?page=buddynext-nav' ) )
 		);
 		exit;
 	}
-
 	// ── Private helpers ───────────────────────────────────────────────────────
 
 	/**
-	 * Return persisted admin overrides keyed by tab slug.
+	 * Return the inline SVG markup for a named admin icon.
+	 *
+	 * Reads from assets/svg/admin/{name}.svg. Returns an empty string if the
+	 * file does not exist so missing icons fail silently.
+	 *
+	 * @param string $name Filename without extension, e.g. 'scope-main'.
+	 * @return string Safe SVG markup (already sanitised at authoring time).
+	 */
+	private function svg( string $name ): string {
+		$path = self::SVG_DIR . sanitize_file_name( $name ) . '.svg';
+		if ( ! file_exists( $path ) ) {
+			return '';
+		}
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		return (string) file_get_contents( $path );
+	}
+
+	/**
+	 * Return persisted overrides for a given scope, keyed by tab slug.
+	 *
+	 * @param string $scope One of: main, profile, space, mobile.
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function get_overrides_for_scope( string $scope ): array {
+		$option = self::SCOPE_OPTION_MAP[ $scope ] ?? self::SCOPE_OPTION_MAP['main'];
+		return (array) get_option( $option, array() );
+	}
+
+	/**
+	 * Return persisted overrides for the main scope (backward-compat helper).
 	 *
 	 * @return array<string, array<string, mixed>>
 	 */
 	private function get_overrides(): array {
-		return (array) get_option( self::OPTION_OVERRIDES, array() );
+		return $this->get_overrides_for_scope( 'main' );
 	}
 
 	/**
@@ -959,7 +1611,7 @@ class NavManager extends AdminPageBase {
 				'slug'        => 'feed',
 				'label'       => __( 'Home Feed', 'buddynext' ),
 				'order'       => 10,
-				'icon'        => '📰',
+				'icon'        => 'tab-feed',
 				'description' => __( 'Main community feed', 'buddynext' ),
 				'capability'  => 'read',
 			),
@@ -967,7 +1619,7 @@ class NavManager extends AdminPageBase {
 				'slug'        => 'explore',
 				'label'       => __( 'Explore', 'buddynext' ),
 				'order'       => 20,
-				'icon'        => '🔍',
+				'icon'        => 'tab-explore',
 				'description' => __( 'Discover public content', 'buddynext' ),
 				'capability'  => 'read',
 			),
@@ -975,7 +1627,7 @@ class NavManager extends AdminPageBase {
 				'slug'        => 'spaces',
 				'label'       => __( 'Spaces', 'buddynext' ),
 				'order'       => 30,
-				'icon'        => '🏘️',
+				'icon'        => 'tab-spaces',
 				'description' => __( 'Browse and manage spaces', 'buddynext' ),
 				'capability'  => 'read',
 			),
@@ -983,7 +1635,7 @@ class NavManager extends AdminPageBase {
 				'slug'        => 'messages',
 				'label'       => __( 'Messages', 'buddynext' ),
 				'order'       => 40,
-				'icon'        => '💬',
+				'icon'        => 'tab-messages',
 				'description' => __( 'Direct messages', 'buddynext' ),
 				'capability'  => 'read',
 			),
@@ -991,7 +1643,7 @@ class NavManager extends AdminPageBase {
 				'slug'        => 'notifications',
 				'label'       => __( 'Notifications', 'buddynext' ),
 				'order'       => 50,
-				'icon'        => '🔔',
+				'icon'        => 'tab-notifications',
 				'description' => __( 'Activity notifications', 'buddynext' ),
 				'capability'  => 'read',
 			),
