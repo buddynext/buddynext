@@ -253,12 +253,12 @@ New service that gates post creation. All checks run before a post is saved:
 ### BLOCK 7 — OutboundWebhookService (new class)
 
 New service that pushes signed event payloads to admin-registered external URLs:
-- [ ] Register, list, and delete webhook endpoints (admin only)
-- [ ] Dispatch events: sign payload with HMAC-SHA256, POST to matching active endpoints, log result
-- [ ] Auto-disable an endpoint after 3 consecutive delivery failures
-- [ ] WP-Cron retry job — re-attempt failed deliveries from the last 24 hours every 5 minutes
-- [ ] New REST controller with endpoints: list, register, delete, view delivery log, send test ping
-- [ ] Hook dispatch into all 13 spec events: member registered/verified/suspended, post created/deleted, space joined/left, connection accepted, user followed, reaction added, comment created, ability granted/revoked
+- [x] Register, list, and delete webhook endpoints (admin only)
+- [x] Dispatch events: sign payload with HMAC-SHA256, POST to matching active endpoints, log result
+- [x] Auto-disable an endpoint after 3 consecutive delivery failures
+- [x] WP-Cron retry job — re-attempt failed deliveries from the last 24 hours every 5 minutes
+- [x] New REST controller with endpoints: list, register, delete, view delivery log, send test ping
+- [x] Hook dispatch into all 13 spec events: member registered/verified/suspended, post created/deleted, space joined/left, connection accepted, user followed, reaction added, comment created, ability granted/revoked
 
 ---
 
@@ -705,9 +705,9 @@ Basic Info, Social Links, Work Experience (repeater), Education (repeater), Skil
 - [x] SpaceController: 404 for secret spaces when viewer not member
 
 ### Remaining
-- [ ] SpaceMemberService: ban_from_space, unban_from_space, is_banned_from_space (BLOCK 2)
-- [ ] SpaceMemberService::get_members(): exclude suspended users (BLOCK 3)
-- [ ] PermissionService: space-scoped `buddynext-spaces/moderate` check (BLOCK 8)
+- [x] SpaceMemberService: ban_from_space, unban_from_space, is_banned_from_space (BLOCK 2)
+- [x] SpaceMemberService::get_members(): exclude suspended users (BLOCK 3)
+- [x] PermissionService: space-scoped `buddynext-spaces/moderate` check (BLOCK 8)
 
 ### Space Types
 - Open (instant join), Private (request to join), Secret (invite only)
