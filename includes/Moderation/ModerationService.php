@@ -404,10 +404,13 @@ class ModerationService {
 		/**
 		 * Fires after a user is suspended.
 		 *
-		 * @param int $user_id  Suspended user.
-		 * @param int $actor_id Admin who suspended them.
+		 * @param int         $user_id    Suspended user.
+		 * @param int         $actor_id   Admin who suspended them.
+		 * @param string      $reason     Suspension reason.
+		 * @param string|null $expires_at Expiry timestamp, or null for permanent.
 		 */
 		do_action( 'buddynext_member_suspended', $user_id, $actor_id );
+		do_action( 'buddynext_user_suspended', $user_id, $actor_id, $reason, $expires_at );
 
 		return $suspension_id;
 	}

@@ -566,7 +566,7 @@ class EventListener {
 
 		buddynext_service( 'email_sender' )->send(
 			$user_id,
-			'bn.suspension',
+			'bn.member_suspended',
 			array(
 				'reason'     => $reason,
 				'expires_at' => $expires_at ?? __( 'permanent', 'buddynext' ),
