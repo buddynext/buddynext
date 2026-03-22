@@ -356,10 +356,42 @@ wp --path="..." db tables --all-tables | grep bn_
 
 ### BuddyNext fires → Addons listen
 ```php
-do_action( 'buddynext_user_followed',       $follower_id, $following_id );
-do_action( 'buddynext_post_created',        $post_id, $user_id, $type );
-do_action( 'buddynext_space_created',       $space_id, $user_id );
-do_action( 'buddynext_member_joined_space', $user_id, $space_id );
+do_action( 'buddynext_user_followed',          $follower_id, $following_id );
+do_action( 'buddynext_user_unfollowed',        $follower_id, $following_id );
+do_action( 'buddynext_connection_requested',   $connection_id, $requester_id, $requestee_id );
+do_action( 'buddynext_connection_accepted',    $connection_id, $requester_id, $requestee_id );
+do_action( 'buddynext_connection_declined',    $connection_id, $requester_id, $requestee_id );
+do_action( 'buddynext_connection_withdrawn',   $connection_id, $requester_id, $requestee_id );
+do_action( 'buddynext_block',                  $blocker_id, $blocked_id );
+do_action( 'buddynext_unblock',                $blocker_id, $blocked_id );
+do_action( 'buddynext_post_created',           $post_id, $user_id, $type );
+do_action( 'buddynext_post_deleted',           $post_id, $user_id );
+do_action( 'buddynext_reaction_added',         $reaction_id, $post_id, $user_id, $emoji );
+do_action( 'buddynext_reaction_removed',       $post_id, $user_id, $emoji );
+do_action( 'buddynext_comment_created',        $comment_id, $post_id, $user_id );
+do_action( 'buddynext_comment_updated',        $comment_id, $post_id, $user_id );
+do_action( 'buddynext_comment_deleted',        $comment_id, $post_id, $user_id );
+do_action( 'buddynext_space_created',          $space_id, $user_id );
+do_action( 'buddynext_space_member_joined',    $user_id, $space_id, $role );
+do_action( 'buddynext_space_member_left',      $user_id, $space_id );
+do_action( 'buddynext_space_member_removed',   $user_id, $space_id, $removed_by );
+do_action( 'buddynext_space_join_approved',    $user_id, $space_id );
+do_action( 'buddynext_member_type_assigned',   $user_id, $new_slug, $old_slug );
+do_action( 'buddynext_member_type_removed',    $user_id, $removed_slug );
+do_action( 'buddynext_member_type_created',    $type_id, $type_data );
+do_action( 'buddynext_member_type_deleted',    $type_id, $slug );
+do_action( 'buddynext_report_created',         $report_id, $reporter_id, $object_type, $object_id );
+do_action( 'buddynext_user_warned',            $user_id, $message, $warned_by );
+do_action( 'buddynext_user_suspended',         $user_id, $reason, $duration_days, $hide_content );
+do_action( 'buddynext_user_unsuspended',       $user_id );
+do_action( 'buddynext_user_shadow_banned',     $user_id );
+do_action( 'buddynext_user_shadow_ban_removed', $user_id );
+do_action( 'buddynext_appeal_submitted',       $user_id, $appeal_id );
+do_action( 'buddynext_appeal_resolved',        $appeal_id, $decision );
+do_action( 'buddynext_space_user_banned',      $space_id, $user_id, $banned_by );
+do_action( 'buddynext_space_user_unbanned',    $space_id, $user_id );
+do_action( 'buddynext_onboarding_completed',   $user_id );
+do_action( 'buddynext_notification_created',   $notification_id, $user_id, $type );
 ```
 
 ### Addons fire → BuddyNext listens
@@ -522,3 +554,8 @@ A phase is Done when ALL of:
 | 2026-03-22 | 4 | fix | SearchService: fixed pre-existing WPCS alignment warnings; added UnfinishedPrepare to phpcs:disable for MATCH/$search_condition false-positive |
 | 2026-03-22 | — | fix | AvatarService: allow data: protocol for SVG initials avatars (kses_allowed_protocols filter) |
 | 2026-03-22 | 16 | feature | NavManager: full three-panel rewrite matching admin-nav-manager.html — scope sidebar, sortable tab list, per-item config panel (page assignment via wp_dropdown_pages, visibility, capability, login-required, guest label), page conflict validation, jQuery UI drag-reorder, developer filter bar |
+| 2026-03-22 | 12g | fix | MemberTypeService + MemberTypeController: converted all phpcs:ignore to phpcs:disable/enable blocks — both files now pass WPCS with zero violations |
+| 2026-03-22 | 8 | feature | ModerationService::get_queue(): added space_ids arg — builds WHERE space_id IN (...) for space-scoped moderators |
+| 2026-03-22 | 8 | feature | ModerationService::get_moderated_space_ids(): queries bn_space_members for spaces where user is owner/moderator |
+| 2026-03-22 | 8 | feature | ModerationController: GET /reports/queue now uses require_queue_access() — site admins see all, space mods see their spaces only |
+| 2026-03-22 | 6 | feature | ModerationController: PUT /posts/{id}/content-warning — admin sets content_warning + content_warning_type (nsfw/spoilers/violence/language) on bn_posts |
