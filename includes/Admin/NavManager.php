@@ -52,35 +52,18 @@ class NavManager extends AdminPageBase {
 	 */
 	private const PAGE_OPTIONS = array(
 		'feed'          => 'buddynext_page_activity',
+		'explore'       => 'buddynext_page_explore',
 		'spaces'        => 'buddynext_page_spaces',
 		'messages'      => 'buddynext_page_messages',
 		'notifications' => 'buddynext_page_notifications',
+		'people'        => 'buddynext_page_people',
+		'auth'          => 'buddynext_page_auth',
 	);
 
-	/**
-	 * Hub pages that have no main-nav tab but still require admin page assignment.
-	 *
-	 * Rendered as a standalone section below the nav list.
-	 *
-	 * @var array<string, array{label: string, option: string, hint: string}>
-	 */
 	/**
 	 * Base path to the admin SVG icon directory.
 	 */
 	private const SVG_DIR = __DIR__ . '/../../assets/svg/admin/';
-
-	private const STANDALONE_PAGES = array(
-		'people' => array(
-			'label'  => 'Member Directory',
-			'option' => 'buddynext_page_people',
-			'hint'   => 'Page that renders the member directory and individual profile URLs.',
-		),
-		'auth'   => array(
-			'label'  => 'Login / Register',
-			'option' => 'buddynext_page_auth',
-			'hint'   => 'Page that renders the login, registration, and password reset forms.',
-		),
-	);
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -483,7 +466,6 @@ class NavManager extends AdminPageBase {
 					<!-- Main Navigation scope panel -->
 					<div class="bn-scope-panel" data-scope-panel="main">
 						<?php $this->render_nav_section( 'main', $main_tabs, __( 'Main Navigation', 'buddynext' ), __( '— Community Nav Bar', 'buddynext' ) ); ?>
-						<?php $this->render_standalone_pages_section(); ?>
 					</div>
 
 					<!-- Profile Tabs scope panel -->
@@ -532,8 +514,7 @@ class NavManager extends AdminPageBase {
 		</form>
 
 		<?php
-		$this->render_dev_bar();
-		$this->render_nav_script( $first_slug );
+			$this->render_nav_script( $first_slug );
 	}
 
 	// ── Render: scope sidebar ─────────────────────────────────────────────────
@@ -746,51 +727,7 @@ class NavManager extends AdminPageBase {
 	 *
 	 * @return void
 	 */
-	private function render_standalone_pages_section(): void {
-		?>
-		<div class="bn-nav-section">
-			<div class="bn-nav-section-header">
-				<div class="bn-nav-section-title">
-					<?php esc_html_e( 'Additional Hub Pages', 'buddynext' ); ?>
-					<span class="bn-nav-section-sub"><?php esc_html_e( '— Not in main nav', 'buddynext' ); ?></span>
-				</div>
-				<div class="bn-nav-section-badge">
-					<?php esc_html_e( '2 required', 'buddynext' ); ?>
-				</div>
-			</div>
-			<div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
-				<?php foreach ( self::STANDALONE_PAGES as $key => $cfg ) : ?>
-					<?php
-					$page_id  = (int) get_option( $cfg['option'], 0 );
-					$input_id = 'bn-standalone-page-' . sanitize_key( $key );
-					?>
-					<div>
-						<label for="<?php echo esc_attr( $input_id ); ?>"
-								style="display:block;font-weight:600;font-size:12px;color:#1d2327;margin-bottom:5px;">
-							<?php echo esc_html( $cfg['label'] ); ?>
-						</label>
-						<?php
-						// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_dropdown_pages() escapes its own output; values are sanitized above.
-						wp_dropdown_pages(
-							array(
-								'name'              => 'bn_standalone_page[' . $key . ']',
-								'id'                => $input_id,
-								'selected'          => $page_id,
-								'show_option_none'  => __( '— Auto (installer default) —', 'buddynext' ),
-								'option_none_value' => '0',
-							)
-						);
-						// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
-						?>
-						<span style="display:block;font-size:11px;color:#787c82;margin-top:4px;">
-							<?php echo esc_html( $cfg['hint'] ); ?>
-						</span>
-					</div>
-				<?php endforeach; ?>
-			</div>
-		</div>
-		<?php
-	}
+
 
 	/**
 	 * Render a "coming soon" placeholder panel for an unbuilt scope.
@@ -1090,35 +1027,7 @@ class NavManager extends AdminPageBase {
 	 *
 	 * @return void
 	 */
-	private function render_dev_bar(): void {
-		?>
-		<div class="bn-dev-bar">
-			<div class="bn-dev-bar-title">
-				<?php esc_html_e( 'How to register a custom tab from your plugin:', 'buddynext' ); ?>
-			</div>
-			<pre class="bn-dev-code">add_filter( 'buddynext_nav_tabs', function( $tabs ) {
-	$tabs[] = [
-		'slug'        => 'my-tab',
-		'label'       => __( 'My Tab', 'my-plugin' ),
-		'icon'        => '⭐',
-		'description' => __( 'My custom tab', 'my-plugin' ),
-		'order'       => 60,
-		'capability'  => 'read',
-		'custom'      => true,
-	];
-	return $tabs;
-} );</pre>
-			<p class="bn-dev-bar-note">
-				<?php
-				echo wp_kses(
-					__( 'Same filter pattern for profile tabs (<code>buddynext_profile_tabs</code>) and space tabs (<code>buddynext_space_tabs</code>).', 'buddynext' ),
-					array( 'code' => array() )
-				);
-				?>
-			</p>
-		</div>
-		<?php
-	}
+
 
 	// ── Render: inline styles ─────────────────────────────────────────────────
 
@@ -1446,7 +1355,6 @@ class NavManager extends AdminPageBase {
 		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$raw_visible    = (array) wp_unslash( $_POST['bn_nav_visible'] ?? array() );
 		$raw_config_all = (array) wp_unslash( $_POST['bn_nav_config'] ?? array() );
-		$raw_standalone = array_map( 'absint', (array) wp_unslash( $_POST['bn_standalone_page'] ?? array() ) );
 		$raw_new_tabs   = (array) wp_unslash( $_POST['bn_new_tab'] ?? array() );
 		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
@@ -1469,28 +1377,7 @@ class NavManager extends AdminPageBase {
 			$seen_pages[] = $page_id;
 		}
 
-		foreach ( $raw_standalone as $page_id ) {
-			if ( 0 === $page_id ) {
-				continue;
-			}
-			if ( in_array( $page_id, $seen_pages, true ) ) {
-				wp_safe_redirect(
-					add_query_arg( 'bn_notice', 'page_conflict', admin_url( 'admin.php?page=buddynext-nav' ) )
-				);
-				exit;
-			}
-			$seen_pages[] = $page_id;
-		}
-
-		// ── 3. Persist standalone page assignments ────────────────────────
-		foreach ( $raw_standalone as $key => $page_id ) {
-			$key = sanitize_key( (string) $key );
-			if ( isset( self::STANDALONE_PAGES[ $key ] ) ) {
-				update_option( self::STANDALONE_PAGES[ $key ]['option'], $page_id );
-			}
-		}
-
-		// ── 4. Persist overrides for each scope ───────────────────────────
+		// ── 3. Persist overrides for each scope ───────────────────────────
 		foreach ( self::SCOPE_OPTION_MAP as $scope => $option_key ) {
 			$scope_config  = (array) ( $raw_config_all[ $scope ] ?? array() );
 			$scope_visible = (array) ( $raw_visible[ $scope ] ?? array() );
@@ -1646,6 +1533,24 @@ class NavManager extends AdminPageBase {
 				'icon'        => 'tab-notifications',
 				'description' => __( 'Activity notifications', 'buddynext' ),
 				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'people',
+				'label'       => __( 'Member Directory', 'buddynext' ),
+				'order'       => 60,
+				'icon'        => 'tab-people',
+				'description' => __( 'Page that renders the member directory and individual profile URLs.', 'buddynext' ),
+				'capability'  => 'read',
+				'hidden'      => true,
+			),
+			array(
+				'slug'        => 'auth',
+				'label'       => __( 'Login / Register', 'buddynext' ),
+				'order'       => 70,
+				'icon'        => 'tab-auth',
+				'description' => __( 'Page that renders the login, registration, and password reset forms.', 'buddynext' ),
+				'capability'  => 'read',
+				'hidden'      => true,
 			),
 		);
 	}
