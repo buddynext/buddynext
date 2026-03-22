@@ -66,7 +66,7 @@ if ( $bn_nav_current_user ) {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 		$cached_notifs = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE user_id = %d AND is_read = 0",
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND is_read = 0",
 				$bn_nav_current_user
 			)
 		);
