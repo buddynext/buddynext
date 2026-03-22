@@ -2284,6 +2284,8 @@ if ( 'avatar_size' === $bn_error ) {
 		.bn-member-hero-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
 		.bn-hero-danger-btn { background:#fff; border:1px solid #fca5a5; color:#dc2626; border-radius:5px; padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
 		.bn-hero-danger-btn:hover { background:#fef2f2; border-color:#dc2626; }
+		.bn-hero-view-btn { background:#fff; border:1px solid #d1d5db; color:#374151; border-radius:5px; padding:7px 14px; font-size:13px; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:5px; }
+		.bn-hero-view-btn:hover { background:#f3f4f6; border-color:#9ca3af; color:#111827; }
 		@media (max-width: 640px) {
 			.bn-member-hero { flex-direction:column; align-items:flex-start; }
 			.bn-member-hero-actions { width:100%; }
@@ -2327,6 +2329,10 @@ if ( 'avatar_size' === $bn_error ) {
 				</div>
 			</div>
 			<div class="bn-member-hero-actions">
+				<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ); ?>" target="_blank" rel="noopener noreferrer" class="bn-hero-view-btn">
+					<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+					<?php esc_html_e( 'View Profile', 'buddynext' ); ?>
+				</a>
 				<?php if ( buddynext_service( 'moderation' )->is_suspended( $user_id ) ) : ?>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<input type="hidden" name="action" value="bn_unsuspend_member">
