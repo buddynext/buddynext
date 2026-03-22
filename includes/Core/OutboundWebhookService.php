@@ -42,23 +42,9 @@ class OutboundWebhookService {
 	 * bind the retry handler. Called once during Plugin::init().
 	 */
 	public function init(): void {
-		// phpcs:disable WordPress.WP.CronInterval.CronSchedulesInterval -- 5-minute retry interval required for reliable webhook delivery.
-		add_filter(
-			'cron_schedules',
-			static function ( array $schedules ): array {
-				if ( ! isset( $schedules['every_five_minutes'] ) ) {
-					$schedules['every_five_minutes'] = array(
-						'interval' => 300,
-						'display'  => __( 'Every 5 minutes', 'buddynext' ),
-					);
-				}
-				return $schedules;
-			}
-		);
-		// phpcs:enable WordPress.WP.CronInterval.CronSchedulesInterval
-
+		// buddynext_5min schedule is registered by CronScheduler — no duplicate needed here.
 		if ( ! wp_next_scheduled( 'buddynext_webhook_retry' ) ) {
-			wp_schedule_event( time(), 'every_five_minutes', 'buddynext_webhook_retry' );
+			wp_schedule_event( time(), 'buddynext_5min', 'buddynext_webhook_retry' );
 		}
 
 		add_action( 'buddynext_webhook_retry', array( $this, 'retry_failed' ) );

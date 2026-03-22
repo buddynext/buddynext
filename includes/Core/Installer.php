@@ -178,6 +178,18 @@ class Installer {
 				'preview_text' => 'Your moderation appeal has been resolved',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your appeal on {{site_name}} has been reviewed and <strong>{{decision}}</strong>.</p><p>If you have questions about this decision, please contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
+			array(
+				'type'         => 'bn.daily_digest',
+				'subject'      => 'Your daily digest from {{site_name}}',
+				'preview_text' => 'Here\'s what happened on {{site_name}} today',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Here\'s a summary of your notifications from today on <a href="{{site_url}}">{{site_name}}</a>:</p>{{notification_list}}<p><a href="{{unsubscribe_url}}">Unsubscribe from digest emails</a></p>',
+			),
+			array(
+				'type'         => 'bn.weekly_digest',
+				'subject'      => 'Your weekly digest from {{site_name}}',
+				'preview_text' => 'Here\'s your weekly round-up from {{site_name}}',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Here\'s a summary of your notifications from this week on <a href="{{site_url}}">{{site_name}}</a>:</p>{{notification_list}}<p><a href="{{unsubscribe_url}}">Unsubscribe from digest emails</a></p>',
+			),
 		);
 
 		// Table name is a hardcoded constant — safe to interpolate. Values use prepare().
@@ -326,7 +338,7 @@ class Installer {
 				link_url            VARCHAR(2083) DEFAULT NULL,
 				link_meta           JSON DEFAULT NULL,
 				privacy             ENUM('public','followers','connections','space_members','private') NOT NULL DEFAULT 'public',
-				status              ENUM('published','draft','pending','deleted') NOT NULL DEFAULT 'published',
+				status              ENUM('published','draft','pending','scheduled','deleted') NOT NULL DEFAULT 'published',
 				reaction_count      INT UNSIGNED NOT NULL DEFAULT 0,
 				comment_count       INT UNSIGNED NOT NULL DEFAULT 0,
 				share_count         INT UNSIGNED NOT NULL DEFAULT 0,
@@ -976,6 +988,23 @@ class Installer {
 
 		if ( ! in_array( 'resolved_at', $appeals_cols, true ) ) {
 			$wpdb->query( "ALTER TABLE `{$p}bn_appeals` ADD COLUMN `resolved_at` DATETIME DEFAULT NULL" );
+		}
+
+		// ── bn_posts — add 'scheduled' to status ENUM if missing ──────────────
+
+		$post_status_enum = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COLUMN_TYPE
+				   FROM INFORMATION_SCHEMA.COLUMNS
+				  WHERE TABLE_SCHEMA = DATABASE()
+				    AND TABLE_NAME   = %s
+				    AND COLUMN_NAME  = 'status'",
+				"{$p}bn_posts"
+			)
+		);
+
+		if ( is_string( $post_status_enum ) && false === strpos( $post_status_enum, "'scheduled'" ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_posts` MODIFY COLUMN `status` ENUM('published','draft','pending','scheduled','deleted') NOT NULL DEFAULT 'published'" );
 		}
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared

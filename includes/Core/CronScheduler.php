@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * WP-Cron job registration for BuddyNext background tasks.
  *
@@ -67,13 +67,23 @@ class CronScheduler {
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
-	 * Attach scheduler hooks.
+	 * Attach scheduler hooks and wire all job handlers.
 	 *
 	 * @return void
 	 */
 	public function init(): void {
 		add_filter( 'cron_schedules', array( $this, 'add_custom_schedules' ) ); // phpcs:ignore WordPress.WP.CronInterval.CronSchedulesInterval
 		add_action( 'wp_loaded', array( $this, 'schedule_events' ) );
+
+		// Wire cron job handlers — one action per job defined above.
+		$handlers = new CronHandlers();
+		add_action( self::JOB_DAILY_DIGEST, array( $handlers, 'handle_daily_digest' ) );
+		add_action( self::JOB_WEEKLY_DIGEST, array( $handlers, 'handle_weekly_digest' ) );
+		add_action( self::JOB_CLEANUP_TOKENS, array( $handlers, 'handle_cleanup_tokens' ) );
+		add_action( self::JOB_CLEANUP_NOTIFICATIONS, array( $handlers, 'handle_cleanup_notifications' ) );
+		add_action( self::JOB_TRENDING_HASHTAGS, array( $handlers, 'handle_trending_hashtags' ) );
+		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
+		add_action( self::JOB_PUBLISH_SCHEDULED, array( $handlers, 'handle_publish_scheduled' ) );
 	}
 
 	/**
@@ -139,6 +149,7 @@ class CronScheduler {
 			self::JOB_TRENDING_HASHTAGS,
 			self::JOB_RECOUNT_STATS,
 			self::JOB_PUBLISH_SCHEDULED,
+			'buddynext_webhook_retry',
 		);
 
 		foreach ( $jobs as $hook ) {
