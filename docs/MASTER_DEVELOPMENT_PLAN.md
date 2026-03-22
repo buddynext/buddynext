@@ -1,9 +1,94 @@
 # BuddyNext — Master Development Plan
 
 **Created:** 2026-03-21
-**Updated:** 2026-03-21
+**Updated:** 2026-03-22
 **Status:** Active — Backend completion pass in progress
 **Scope:** BuddyNext Free + Pro
+
+---
+
+## Resources
+
+### Feature Specs (all locked 2026-03-20)
+`docs/specs/features/` — 20 free specs + 6 Pro specs + HOOKS.md + FREE-VS-PRO.md
+
+| Spec | File |
+|------|------|
+| 00 Architecture | `docs/specs/features/00-architecture.md` |
+| 01 Social Graph | `docs/specs/features/01-social-graph.md` |
+| 02 Activity Feed | `docs/specs/features/02-activity-feed.md` |
+| 03 Spaces | `docs/specs/features/03-spaces.md` |
+| 04 Member Directory + Search | `docs/specs/features/04-member-directory-search.md` |
+| 05 User Profiles | `docs/specs/features/05-user-profiles.md` |
+| 06 Notifications + Email | `docs/specs/features/06-notifications-email.md` |
+| 07 Direct Messaging | `docs/specs/features/07-direct-messaging.md` |
+| 08 Reactions + Comments | `docs/specs/features/08-reactions-comments.md` |
+| 09 Moderation | `docs/specs/features/09-moderation.md` |
+| 10 Onboarding + Setup Wizard | `docs/specs/features/10-onboarding-setup-wizard.md` |
+| 11 Gutenberg Blocks | `docs/specs/features/11-gutenberg-blocks.md` |
+| 12 WBGamification Bridge | `docs/specs/features/12-wbgamification-bridge.md` |
+| 13 Jetonomy Bridge | `docs/specs/features/13-jetonomy-bridge.md` |
+| 14 WPMediaVerse Bridge | `docs/specs/features/14-wpmediaverse-bridge.md` |
+| 15 Career Board Bridge | `docs/specs/features/15-career-board-bridge.md` |
+| 16 Admin Settings | `docs/specs/features/16-admin-settings.md` |
+| 17 Roles + Permissions | `docs/specs/features/17-roles-permissions.md` |
+| 18 Hashtags | `docs/specs/features/18-hashtags.md` |
+| 19 Database + Scale | `docs/specs/features/19-database-scale.md` |
+| 20 Theme Integration | `docs/specs/features/20-theme-integration.md` |
+| Free vs Pro | `docs/specs/features/FREE-VS-PRO.md` |
+| Hook Reference | `docs/specs/HOOKS.md` |
+| WPMediaVerse DM Integration | `docs/specs/WPMediaVerse-DM-Integration-Requirements.md` |
+| P1 Stripe Membership | `docs/specs/features/P1-stripe-membership.md` |
+| P2 AI Engine | `docs/specs/features/P2-ai-engine.md` |
+| P3 Real-time WebSocket | `docs/specs/features/P3-realtime-websocket.md` |
+| P4 Mobile App | `docs/specs/features/P4-mobile-app.md` |
+| P5 Analytics | `docs/specs/features/P5-analytics.md` |
+| P6 White-label | `docs/specs/features/P6-white-label.md` |
+
+### HTML Wireframes
+`docs/superpowers/brainstorm/14544-1773947712/` — 48 files
+
+| Screen | File | Mobile variant |
+|--------|------|----------------|
+| Home feed | `home-feed.html` | `mobile-home-feed.html` |
+| Explore feed | `explore-feed.html` | `mobile-explore-feed.html` |
+| User profile (view) | `user-profile.html` | `mobile-user-profile.html` |
+| Edit profile | `edit-profile.html` | — |
+| Member directory | `member-directory.html` | — |
+| Spaces directory | `spaces-directory.html` | — |
+| Space home | `space-home.html` | `mobile-space-home.html` |
+| Space settings | `space-settings.html` | — |
+| Space moderation | `space-moderation.html` | — |
+| Community admin | `community-admin.html` | — |
+| DM list | `dm-list.html` | — |
+| DM thread | `dm-thread.html` | `mobile-dm-thread.html` |
+| Message requests | `message-requests.html` | — |
+| Notifications | `notifications.html` | `mobile-notifications.html` |
+| Search results | `search-results.html` | — |
+| Hashtag feed | `hashtag-feed.html` | — |
+| Register / Login | `register-login.html` | `mobile-register-login.html` |
+| Onboarding | `onboarding.html` | `mobile-onboarding.html` |
+| Leaderboard | `leaderboard.html` | — |
+| Widgets + Blocks | `widgets-blocks.html` | — |
+| Forum listing | `forum-listing.html` | `mobile-forum-listing.html` |
+| Forum thread | `forum-thread.html` | `mobile-forum-thread.html` |
+| Moderation queue | `moderation-queue.html` | — |
+| Admin: Settings | `admin-settings.html` | — |
+| Admin: Members | `admin-members.html` | — |
+| Admin: Spaces | `admin-spaces.html` | — |
+| Admin: Nav Manager | `admin-nav-manager.html` | — |
+| Admin: Integration Hub | `admin-integration-hub.html` | — |
+| Admin: Analytics | `admin-analytics.html` | — |
+| Admin: Email Editor | `email-editor.html` | — |
+| Style Guide | `style-guide.html` | — |
+| Views overview | `views-overview.html` | — |
+
+### Implementation Plans
+`docs/superpowers/plans/`
+
+| Plan | File |
+|------|------|
+| Phase 1 — Core Foundation | `docs/superpowers/plans/2026-03-20-phase-1-core-foundation.md` |
 
 ---
 
@@ -198,8 +283,12 @@ New service that pushes signed event payloads to admin-registered external URLs:
 
 ### BLOCK 10 — Admin premium wrapper + 6 page implementations
 
+**Spec:** `docs/specs/features/16-admin-settings.md`
+**File architecture:** `docs/specs/features/00-architecture.md` — Admin Layer section
+
 - [ ] Create `AdminPageBase` — shared admin chrome: sidebar sub-nav, tab bar, section cards, save bar — matching `admin-settings.html` mockup
 - [ ] Settings page — 9 tabs: General, Registration, Social, Spaces, Notifications, Email, Moderation, Privacy & Data, Webhooks — matches `admin-settings.html`
+- [x] Members page file architecture split — thin controller + Members/ subdirectory + Helpers/ (2026-03-22)
 - [ ] Members page — stats cards (total / active / suspended), filterable member table with avatar and last-active, bulk actions — matches `admin-members.html`
 - [ ] Spaces page — table with owner, type, member count, pending requests, archive/delete actions — matches `admin-spaces.html`
 - [ ] Integration Hub page — addon status cards, per-addon feature toggles — matches `admin-integration-hub.html`

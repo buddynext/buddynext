@@ -230,6 +230,51 @@ When a site running WPMediaVerse or Jetonomy standalone installs BuddyNext:
 
 ---
 
+## Admin Layer File Organization
+
+**Last updated:** 2026-03-22
+
+Every admin page follows the thin-controller + subdirectory pattern. No single admin file grows beyond ~400 lines.
+
+```
+includes/Admin/
+├── AdminPageBase.php                    ← abstract base: shared chrome, tab bar, section cards
+├── {PageName}.php                       ← thin controller: menu registration, routing, list queries
+├── {PageName}/
+│   ├── {Feature}Manager.php             ← form submission handlers + tab renderer for one domain
+│   ├── {PageName}EditForm.php           ← form rendering + inline rendering helpers
+│   └── {PageName}Export.php             ← export handler (if the page has one)
+└── Helpers/
+    └── {Domain}Display.php              ← static display utilities — reusable across admin pages
+```
+
+**Namespace convention**
+
+| Path | Namespace |
+|------|-----------|
+| `includes/Admin/{PageName}.php` | `BuddyNext\Admin` |
+| `includes/Admin/{PageName}/*.php` | `BuddyNext\Admin\{PageName}` |
+| `includes/Admin/Helpers/*.php` | `BuddyNext\Admin\Helpers` |
+
+**Boot wiring rule:** The thin controller's `register()` instantiates its sub-handlers and calls their `register()`. Sub-handlers never self-register — the parent class owns the hook registration sequence.
+
+**Current state (2026-03-22)**
+
+```
+includes/Admin/
+├── Members.php                          ← thin controller (query + suspend/unsuspend + save profile)
+├── Members/
+│   ├── ProfileFieldsManager.php         ← 14 profile field CRUD handlers + profile fields tab
+│   ├── MemberEditForm.php               ← edit-member form renderer + repeater UI
+│   └── MemberExport.php                 ← CSV export
+└── Helpers/
+    └── MemberDisplay.php                ← get_initials, get_avatar_color, render_role_badge, human_time_diff_short
+```
+
+Apply the same pattern to Spaces.php and NavManager.php when those admin pages are implemented.
+
+---
+
 ## Summary
 
 | Question | Answer |
