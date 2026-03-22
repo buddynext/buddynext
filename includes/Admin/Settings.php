@@ -350,11 +350,11 @@ class Settings extends AdminPageBase {
 		<div class="bn-field">
 			<label for="bn-webhook-secret"><?php esc_html_e( 'Shared Secret', 'buddynext' ); ?></label>
 			<input type="password"
-			       id="bn-webhook-secret"
-			       name="<?php echo esc_attr( self::OPTION_WEBHOOK_SECRET ); ?>"
-			       value="<?php echo esc_attr( (string) get_option( self::OPTION_WEBHOOK_SECRET, '' ) ); ?>"
-			       class="bn-text-input regular-text"
-			       autocomplete="new-password">
+					id="bn-webhook-secret"
+					name="<?php echo esc_attr( self::OPTION_WEBHOOK_SECRET ); ?>"
+					value="<?php echo esc_attr( (string) get_option( self::OPTION_WEBHOOK_SECRET, '' ) ); ?>"
+					class="bn-text-input regular-text"
+					autocomplete="new-password">
 			<span class="bn-field-hint">
 				<?php esc_html_e( 'Used to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Leave blank to disable signature verification.', 'buddynext' ); ?>
 			</span>

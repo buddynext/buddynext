@@ -41,6 +41,7 @@ class WBGamification {
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
 		add_action( 'buddynext_space_member_joined', array( $this, 'on_space_joined' ), 10, 3 );
 		add_action( 'buddynext_strike_issued', array( $this, 'on_strike_issued' ), 10, 3 );
+		add_action( 'buddynext_profile_completion_changed', array( $this, 'on_profile_completion_changed' ), 10, 2 );
 	}
 
 	/**
@@ -110,6 +111,24 @@ class WBGamification {
 				'actor_id'  => $actor_id,
 			)
 		);
+	}
+
+	/**
+	 * Translate buddynext_profile_completion_changed → bn_profile_completed (100%) or bn_profile_updated.
+	 *
+	 * Fires bn_profile_completed only on first 100% milestone so WBGam can award
+	 * a one-time badge. Also fires bn_profile_updated for any completion change so
+	 * admins can configure incremental point rewards.
+	 *
+	 * @param int $user_id User whose profile completion changed.
+	 * @param int $percent New completion percentage (0–100).
+	 */
+	public function on_profile_completion_changed( int $user_id, int $percent ): void {
+		$this->fire( 'bn_profile_updated', $user_id, array( 'percent' => $percent ) );
+
+		if ( 100 === $percent ) {
+			$this->fire( 'bn_profile_completed', $user_id, array( 'percent' => 100 ) );
+		}
 	}
 
 	/**

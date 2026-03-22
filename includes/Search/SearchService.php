@@ -4,9 +4,9 @@
  *
  * Manages the bn_search_index table — a lightweight unified index over posts,
  * users, and spaces. Index writes use INSERT ... ON DUPLICATE KEY UPDATE so
- * they are idempotent. Reads use a LIKE-based fallback rather than FULLTEXT
- * so tests pass on the WP test suite's TEMPORARY tables (which do not support
- * FULLTEXT indexes).
+ * they are idempotent. Reads use FULLTEXT MATCH … AGAINST when the ft_search
+ * index exists on the production table, and fall back to LIKE-based matching
+ * in test environments where TEMPORARY tables do not support FULLTEXT indexes.
  *
  * @package BuddyNext\Search
  */
@@ -68,6 +68,62 @@ class SearchService {
 	}
 
 	/**
+	 * Run a grouped search across all indexed content types.
+	 *
+	 * Returns up to $per_group results per content type, keyed by type.
+	 * Types searched are discovered dynamically from the index table so the
+	 * result adapts automatically as new object types are indexed by addons.
+	 *
+	 * @param string $query     Search term.
+	 * @param int    $viewer_id Viewer user ID for block/suspension exclusions.
+	 *                          Pass 0 to skip block filtering.
+	 * @param int    $per_group Max results per content type.
+	 * @return array {
+	 *     @type array[] $types {
+	 *         @type string  $type    Object type slug (e.g. 'user', 'space', 'post').
+	 *         @type array[] $results Flat result rows (same shape as search() items).
+	 *         @type int     $total   Total matching records for this type in the index.
+	 *     }
+	 * }
+	 */
+	public function grouped_search( string $query, int $viewer_id, int $per_group = 5 ): array {
+		global $wpdb;
+
+		// Discover active object types from the index — adapts to addon content.
+		// Cached for 5 minutes: the type list is stable between deploys and does
+		// not need to reflect brand-new addon registrations immediately.
+		$types = wp_cache_get( 'search_object_types', 'buddynext' );
+		if ( false === $types ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$types = $wpdb->get_col( "SELECT DISTINCT object_type FROM {$wpdb->prefix}bn_search_index" );
+			wp_cache_set( 'search_object_types', $types, 'buddynext', 300 );
+		}
+
+		$type_groups = array();
+
+		foreach ( (array) $types as $type ) {
+			$type = sanitize_key( (string) $type );
+			if ( '' === $type ) {
+				continue;
+			}
+
+			$result = $this->search( $query, $type, $per_group, 1, $viewer_id );
+
+			if ( empty( $result['items'] ) ) {
+				continue;
+			}
+
+			$type_groups[] = array(
+				'type'    => $type,
+				'results' => $result['items'],
+				'total'   => $result['total'],
+			);
+		}
+
+		return array( 'types' => $type_groups );
+	}
+
+	/**
 	 * Remove an object from the search index.
 	 *
 	 * @param string $object_type Type identifier.
@@ -90,10 +146,9 @@ class SearchService {
 	/**
 	 * Search the index for the given query string.
 	 *
-	 * Uses LIKE matching so results are available in the test suite (TEMPORARY
-	 * tables do not support FULLTEXT). On a production table with the FULLTEXT
-	 * key the query planner will prefer the full-text index automatically once
-	 * the table is a real InnoDB table.
+	 * Uses FULLTEXT MATCH … AGAINST when the ft_search index exists on the
+	 * production table. Falls back to LIKE matching in environments where the
+	 * index is absent (e.g. the WP test suite's TEMPORARY tables).
 	 *
 	 * @param string $query     Raw search string (sanitised internally).
 	 * @param string $type      Optional object_type filter. Empty = all types.
@@ -107,16 +162,16 @@ class SearchService {
 	public function search( string $query, string $type = '', int $per_page = self::DEFAULT_LIMIT, int $page = 1, int $viewer_id = 0 ): array {
 		global $wpdb;
 
-		$per_page = min( $per_page, 50 );
-		$page     = max( 1, $page );
-		$offset   = ( $page - 1 ) * $per_page;
-		$like     = '%' . $wpdb->esc_like( sanitize_text_field( $query ) ) . '%';
+		$per_page       = min( $per_page, 50 );
+		$page           = max( 1, $page );
+		$offset         = ( $page - 1 ) * $per_page;
+		$safe_query     = sanitize_text_field( $query );
 
 		$type_where  = '';
 		$type_params = array();
 
 		if ( '' !== $type ) {
-			$type_where  = ' AND object_type = %s';
+			$type_where  = ' AND si.object_type = %s';
 			$type_params = array( sanitize_key( $type ) );
 		}
 
@@ -125,7 +180,7 @@ class SearchService {
 
 		if ( $viewer_id > 0 ) {
 			$block_where  =
-				" AND object_id NOT IN (
+				" AND si.object_id NOT IN (
 				    SELECT blocked_id FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d
 				    UNION
 				    SELECT blocker_id FROM {$wpdb->prefix}bn_blocks WHERE blocked_id = %d
@@ -135,11 +190,11 @@ class SearchService {
 
 		// Exclude suspended and shadow-banned users' content from all search results.
 		$excluded_where =
-			" AND author_id NOT IN (
+			" AND si.author_id NOT IN (
 			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
 			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
 			  )
-			  AND author_id NOT IN (
+			  AND si.author_id NOT IN (
 			    SELECT user_id FROM {$wpdb->usermeta}
 			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
 			  )";
@@ -163,36 +218,81 @@ class SearchService {
 			return $driver_result;
 		}
 
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$total = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*)
-				 FROM {$wpdb->prefix}bn_search_index
-				 WHERE visibility = 'public'
-				   AND (title LIKE %s OR content LIKE %s)
-				   {$type_where}
-				   {$block_where}
-				   {$excluded_where}",
-				...array_merge( array( $like, $like ), $type_params, $block_params )
-			)
-		);
+		if ( $this->has_fulltext_index() ) {
+			// FULLTEXT path — uses ft_search index for performance on production.
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$search_condition = $wpdb->prepare(
+				'MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)',
+				$safe_query . '*'
+			);
+			$order_clause     = 'relevance DESC, si.updated_at DESC';
 
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT object_type, object_id, title, author_id, visibility, created_at
-				 FROM {$wpdb->prefix}bn_search_index
-				 WHERE visibility = 'public'
-				   AND (title LIKE %s OR content LIKE %s)
-				   {$type_where}
-				   {$block_where}
-				   {$excluded_where}
-				 ORDER BY updated_at DESC
-				 LIMIT %d OFFSET %d",
-				...array_merge( array( $like, $like ), $type_params, $block_params, array( $per_page, $offset ) )
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+			$total = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*)
+					 FROM {$wpdb->prefix}bn_search_index si
+					 WHERE si.visibility = 'public'
+					   AND {$search_condition}
+					   {$type_where}
+					   {$block_where}
+					   {$excluded_where}",
+					...array_merge( $type_params, $block_params )
+				)
+			);
+
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT si.object_type, si.object_id, si.title, si.author_id, si.visibility, si.created_at,
+					        MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE) AS relevance
+					 FROM {$wpdb->prefix}bn_search_index si
+					 WHERE si.visibility = 'public'
+					   AND MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)
+					   {$type_where}
+					   {$block_where}
+					   {$excluded_where}
+					 ORDER BY {$order_clause}
+					 LIMIT %d OFFSET %d",
+					...array_merge( array( $safe_query . '*', $safe_query . '*' ), $type_params, $block_params, array( $per_page, $offset ) )
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		} else {
+			// LIKE fallback — used in test environments where TEMPORARY tables
+			// do not support FULLTEXT indexes.
+			$like = '%' . $wpdb->esc_like( $safe_query ) . '%';
+
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$total = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*)
+					 FROM {$wpdb->prefix}bn_search_index si
+					 WHERE si.visibility = 'public'
+					   AND (si.title LIKE %s OR si.content LIKE %s)
+					   {$type_where}
+					   {$block_where}
+					   {$excluded_where}",
+					...array_merge( array( $like, $like ), $type_params, $block_params )
+				)
+			);
+
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT si.object_type, si.object_id, si.title, si.author_id, si.visibility, si.created_at
+					 FROM {$wpdb->prefix}bn_search_index si
+					 WHERE si.visibility = 'public'
+					   AND (si.title LIKE %s OR si.content LIKE %s)
+					   {$type_where}
+					   {$block_where}
+					   {$excluded_where}
+					 ORDER BY si.updated_at DESC
+					 LIMIT %d OFFSET %d",
+					...array_merge( array( $like, $like ), $type_params, $block_params, array( $per_page, $offset ) )
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		}
 
 		$items = array_map(
 			fn( $r ) => array(
@@ -209,5 +309,64 @@ class SearchService {
 			'items' => $items,
 			'total' => $total,
 		);
+	}
+
+	/**
+	 * Check whether the FULLTEXT index exists on the search index table.
+	 *
+	 * Returns false in test environments where the table is a TEMPORARY table
+	 * (which does not support FULLTEXT). The result is not cached because the
+	 * index may be added after initial activation.
+	 *
+	 * @return bool True when the ft_search FULLTEXT index is present.
+	 */
+	private function has_fulltext_index(): bool {
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_search_index';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$result = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE table_schema = DATABASE() AND table_name = %s AND index_name = %s',
+				$table,
+				'ft_search'
+			)
+		);
+		return (bool) $result;
+	}
+
+	/**
+	 * Enqueue a full re-index of all users and spaces.
+	 *
+	 * Called on plugin activation. Uses Action Scheduler when available,
+	 * otherwise runs synchronously (development/small-site fallback).
+	 *
+	 * @return void
+	 */
+	public static function schedule_reindex_all(): void {
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( 'buddynext_reindex_all', array(), 'buddynext' );
+		} else {
+			static::reindex_all_sync();
+		}
+	}
+
+	/**
+	 * Synchronously re-index all users.
+	 *
+	 * Only used as fallback when Action Scheduler is absent. Capped at 500
+	 * users to stay within acceptable execution time on small sites.
+	 *
+	 * @return void
+	 */
+	private static function reindex_all_sync(): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$user_ids = $wpdb->get_col( "SELECT ID FROM {$wpdb->users} LIMIT 500" );
+
+		$profiles = buddynext_service( 'profiles' );
+		foreach ( $user_ids as $uid ) {
+			$profiles->index_user( (int) $uid );
+		}
 	}
 }

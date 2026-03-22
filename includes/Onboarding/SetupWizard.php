@@ -22,7 +22,7 @@ class SetupWizard {
 	/**
 	 * Total number of wizard steps.
 	 */
-	public const TOTAL_STEPS = 6;
+	public const TOTAL_STEPS = 8;
 
 	/**
 	 * Option key tracking the current step.
@@ -177,6 +177,14 @@ class SetupWizard {
 				break;
 
 			case 3:
+				// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified above.
+				$selected = isset( $_POST['profile_groups'] ) && is_array( $_POST['profile_groups'] )
+					? array_map( 'sanitize_key', wp_unslash( $_POST['profile_groups'] ) )
+					: array();
+				$this->provision_profile_group_presets( $selected );
+				break;
+
+			case 4:
 				$this->save_default_notification_prefs(
 					array(
 						'follow'     => isset( $_POST['notif_follow'] ),
@@ -188,17 +196,28 @@ class SetupWizard {
 				);
 				break;
 
-			case 4:
+			case 5:
 				$this->save_space_categories(
 					sanitize_textarea_field( wp_unslash( $_POST['categories'] ?? '' ) )
 				);
 				break;
 
-			case 5:
-				// Step 5 is informational — no settings to save.
+			case 6:
+				$page_keys  = array( 'feed', 'members', 'profile', 'spaces' );
+				$page_slugs = array();
+				foreach ( $page_keys as $pk ) {
+					if ( isset( $_POST[ 'page_create_' . $pk ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified above
+						$page_slugs[ $pk ] = sanitize_title( wp_unslash( $_POST[ 'page_slug_' . $pk ] ?? $pk ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+					}
+				}
+				$this->create_community_pages( $page_slugs );
 				break;
 
-			case 6:
+			case 7:
+				// Step 7 is informational — no settings to save.
+				break;
+
+			case 8:
 				$this->finish();
 				wp_safe_redirect( admin_url( 'admin.php?page=buddynext&wizard=done' ) );
 				exit;
@@ -237,10 +256,12 @@ class SetupWizard {
 		$step_labels = array(
 			1 => __( 'Branding', 'buddynext' ),
 			2 => __( 'Registration', 'buddynext' ),
-			3 => __( 'Notifications', 'buddynext' ),
-			4 => __( 'Spaces', 'buddynext' ),
-			5 => __( 'Addons', 'buddynext' ),
-			6 => __( 'Done', 'buddynext' ),
+			3 => __( 'Profile Fields', 'buddynext' ),
+			4 => __( 'Notifications', 'buddynext' ),
+			5 => __( 'Spaces', 'buddynext' ),
+			6 => __( 'Pages', 'buddynext' ),
+			7 => __( 'Addons', 'buddynext' ),
+			8 => __( 'Done', 'buddynext' ),
 		);
 		?>
 		<div class="bn-wizard-wrap">
@@ -298,15 +319,21 @@ class SetupWizard {
 								$this->render_step_registration();
 								break;
 							case 3:
-								$this->render_step_notifications();
+								$this->render_step_profile_fields();
 								break;
 							case 4:
-								$this->render_step_spaces();
+								$this->render_step_notifications();
 								break;
 							case 5:
-								$this->render_step_addons();
+								$this->render_step_spaces();
 								break;
 							case 6:
+								$this->render_step_pages();
+								break;
+							case 7:
+								$this->render_step_addons();
+								break;
+							case 8:
 								$this->render_step_done();
 								break;
 						}
@@ -398,7 +425,168 @@ class SetupWizard {
 	}
 
 	/**
-	 * Step 3: Default notification preferences.
+	 * Step 3: Profile field group presets.
+	 *
+	 * Admins choose which optional group templates to add. Basic Info is already
+	 * seeded on install and is not shown here. All groups remain deletable later.
+	 *
+	 * @return void
+	 */
+	private function render_step_profile_fields(): void {
+		$presets = $this->get_profile_group_presets();
+		?>
+		<h2 class="bn-wizard__step-title"><?php esc_html_e( 'Profile Fields', 'buddynext' ); ?></h2>
+		<p class="bn-wizard__step-desc">
+			<?php esc_html_e( 'Basic Info (headline, bio, location) is ready to go. Choose any additional profile sections that fit your community. You can add, edit, or delete these at any time from the Members admin page.', 'buddynext' ); ?>
+		</p>
+
+		<div class="bn-wizard__preset-grid">
+			<?php foreach ( $presets as $key => $preset ) : ?>
+				<label class="bn-wizard__preset-card">
+					<input type="checkbox" name="profile_groups[]" value="<?php echo esc_attr( $key ); ?>" checked>
+					<span class="bn-wizard__preset-icon"><?php echo esc_html( $preset['icon'] ); ?></span>
+					<span class="bn-wizard__preset-name"><?php echo esc_html( $preset['label'] ); ?></span>
+					<span class="bn-wizard__preset-desc"><?php echo esc_html( $preset['description'] ); ?></span>
+				</label>
+			<?php endforeach; ?>
+		</div>
+
+		<p class="bn-wizard__step-hint">
+			<?php esc_html_e( 'Unchecked groups will not be created. You can add them manually later.', 'buddynext' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Returns the available profile group preset definitions.
+	 *
+	 * Each preset defines a group and its default fields. Used by both the
+	 * render and save methods to keep labels, keys, and fields in one place.
+	 *
+	 * @return array<string, array{label: string, icon: string, description: string, type: string, fields: array}>
+	 */
+	private function get_profile_group_presets(): array {
+		return array(
+			'social_links'    => array(
+				'label'       => __( 'Social Links', 'buddynext' ),
+				'icon'        => '🔗',
+				'description' => __( 'Twitter/X, LinkedIn, GitHub, Instagram, YouTube', 'buddynext' ),
+				'type'        => 'flat',
+				'fields'      => array(
+					array( 'social_twitter', 'Twitter / X', 'social' ),
+					array( 'social_linkedin', 'LinkedIn', 'social' ),
+					array( 'social_github', 'GitHub', 'social' ),
+					array( 'social_instagram', 'Instagram', 'social' ),
+					array( 'social_youtube', 'YouTube', 'social' ),
+				),
+			),
+			'work_experience' => array(
+				'label'       => __( 'Work Experience', 'buddynext' ),
+				'icon'        => '💼',
+				'description' => __( 'Company, job title, date range — repeatable entries', 'buddynext' ),
+				'type'        => 'repeater',
+				'fields'      => array(
+					array( 'work_company', 'Company', 'text' ),
+					array( 'work_title', 'Job Title', 'text' ),
+					array( 'work_location', 'Location', 'text' ),
+					array( 'work_daterange', 'Date Range', 'daterange' ),
+					array( 'work_current', 'Currently working here', 'toggle' ),
+					array( 'work_description', 'Description', 'textarea' ),
+				),
+			),
+			'education'       => array(
+				'label'       => __( 'Education', 'buddynext' ),
+				'icon'        => '🎓',
+				'description' => __( 'Institution, degree, field of study — repeatable entries', 'buddynext' ),
+				'type'        => 'repeater',
+				'fields'      => array(
+					array( 'edu_institution', 'Institution', 'text' ),
+					array( 'edu_degree', 'Degree', 'text' ),
+					array( 'edu_field', 'Field of Study', 'text' ),
+					array( 'edu_daterange', 'Date Range', 'daterange' ),
+					array( 'edu_current', 'Currently attending', 'toggle' ),
+				),
+			),
+			'skills'          => array(
+				'label'       => __( 'Skills', 'buddynext' ),
+				'icon'        => '⚡',
+				'description' => __( 'A multi-select skills field', 'buddynext' ),
+				'type'        => 'flat',
+				'fields'      => array(
+					array( 'skills', 'Skills', 'multiselect' ),
+				),
+			),
+			'interests'       => array(
+				'label'       => __( 'Interests', 'buddynext' ),
+				'icon'        => '❤️',
+				'description' => __( 'Hobbies, passions, topics — what members care about', 'buddynext' ),
+				'type'        => 'flat',
+				'fields'      => array(
+					array( 'interests', 'Interests', 'multiselect' ),
+				),
+			),
+		);
+	}
+
+	/**
+	 * Create the selected profile group presets via ProfileService.
+	 *
+	 * Skips groups that already exist (INSERT IGNORE equivalent — checks by group_key
+	 * before inserting so duplicate wizard runs are safe).
+	 *
+	 * @param string[] $selected group_key values chosen by the admin.
+	 * @return void
+	 */
+	private function provision_profile_group_presets( array $selected ): void {
+		if ( empty( $selected ) ) {
+			return;
+		}
+
+		$presets = $this->get_profile_group_presets();
+		$service = buddynext_service( 'profiles' );
+
+		// Fetch existing group keys to skip duplicates.
+		$existing_groups = $service->get_groups();
+		$existing_keys   = array_column( $existing_groups, 'group_key' );
+		$next_sort_order = count( $existing_groups ) + 1;
+
+		foreach ( $selected as $key ) {
+			if ( ! isset( $presets[ $key ] ) ) {
+				continue;
+			}
+
+			if ( in_array( $key, $existing_keys, true ) ) {
+				continue;
+			}
+
+			$preset   = $presets[ $key ];
+			$group_id = $service->create_group(
+				array(
+					'group_key'  => $key,
+					'label'      => $preset['label'],
+					'type'       => $preset['type'],
+					'visibility' => 'public',
+					'sort_order' => $next_sort_order,
+				)
+			);
+			++$next_sort_order;
+
+			foreach ( $preset['fields'] as $i => $field ) {
+				$service->create_field(
+					array(
+						'group_id'   => $group_id,
+						'field_key'  => $field[0],
+						'label'      => $field[1],
+						'type'       => $field[2],
+						'sort_order' => $i + 1,
+					)
+				);
+			}
+		}
+	}
+
+	/**
+	 * Step 4: Default notification preferences.
 	 *
 	 * @return void
 	 */
@@ -454,7 +642,98 @@ class SetupWizard {
 	}
 
 	/**
-	 * Step 5: Review active addons.
+	 * Step 5: Create community pages.
+	 *
+	 * Shows 4 core pages (Feed, Members, Profile, Spaces) with editable slugs.
+	 * Pages that already exist are shown with a "Created" badge and are skipped
+	 * on form submission.
+	 *
+	 * @return void
+	 */
+	private function render_step_pages(): void {
+		$page_defs = array(
+			'feed'    => array(
+				'title'        => __( 'Community Feed', 'buddynext' ),
+				'default_slug' => 'community-feed',
+				'shortcode'    => '[buddynext_feed]',
+				'desc'         => __( 'Main activity stream for your community.', 'buddynext' ),
+			),
+			'members' => array(
+				'title'        => __( 'Members', 'buddynext' ),
+				'default_slug' => 'members',
+				'shortcode'    => '[buddynext_members]',
+				'desc'         => __( 'Browse and search community members.', 'buddynext' ),
+			),
+			'profile' => array(
+				'title'        => __( 'Member Profile', 'buddynext' ),
+				'default_slug' => 'profile',
+				'shortcode'    => '[buddynext_profile]',
+				'desc'         => __( 'Individual member profile page. Append ?user_id=X to view any member.', 'buddynext' ),
+			),
+			'spaces'  => array(
+				'title'        => __( 'Spaces', 'buddynext' ),
+				'default_slug' => 'spaces',
+				'shortcode'    => '[buddynext_spaces]',
+				'desc'         => __( 'Browse and join community spaces.', 'buddynext' ),
+			),
+		);
+		?>
+		<h2 class="bn-wizard__title"><?php esc_html_e( 'Community pages', 'buddynext' ); ?></h2>
+		<p class="bn-wizard__desc"><?php esc_html_e( 'BuddyNext will create these pages on your site. Each page embeds a community interface via shortcode.', 'buddynext' ); ?></p>
+
+		<div class="bn-wizard__pages-list">
+			<?php foreach ( $page_defs as $key => $def ) : ?>
+				<?php
+				$option_key  = 'buddynext_page_' . $key;
+				$existing_id = (int) get_option( $option_key, 0 );
+				$exists      = $existing_id > 0 && 'publish' === get_post_status( $existing_id );
+				$slug_value  = $exists ? (string) get_post_field( 'post_name', $existing_id ) : $def['default_slug'];
+				?>
+				<div class="bn-wizard__page-row">
+					<label class="bn-wizard__page-check">
+						<input type="checkbox"
+							name="page_create_<?php echo esc_attr( $key ); ?>"
+							value="1"
+							<?php checked( true ); ?>
+							<?php if ( $exists ) : // phpcs:ignore Squiz.ControlStructures.ControlSignature.NewlineAfterOpenBrace ?>disabled aria-disabled="true"<?php endif; ?>>
+					</label>
+					<div class="bn-wizard__page-info">
+						<strong><?php echo esc_html( $def['title'] ); ?></strong>
+						<code class="bn-wizard__shortcode"><?php echo esc_html( $def['shortcode'] ); ?></code>
+						<span class="bn-wizard__page-desc"><?php echo esc_html( $def['desc'] ); ?></span>
+					</div>
+					<div class="bn-wizard__page-slug">
+						<?php if ( $exists ) : ?>
+							<a href="<?php echo esc_url( (string) get_permalink( $existing_id ) ); ?>"
+								class="bn-wizard__page-link"
+								target="_blank"
+								rel="noopener noreferrer">
+								/<?php echo esc_html( $slug_value ); ?>/
+							</a>
+							<span class="bn-wizard__page-badge"><?php esc_html_e( 'Created', 'buddynext' ); ?></span>
+						<?php else : ?>
+							<div class="bn-wizard__slug-row">
+								<span class="bn-wizard__slug-sep">/</span>
+								<input type="text"
+									name="page_slug_<?php echo esc_attr( $key ); ?>"
+									class="bn-wizard__slug-input"
+									value="<?php echo esc_attr( $slug_value ); ?>"
+									placeholder="<?php echo esc_attr( $def['default_slug'] ); ?>"
+									aria-label="<?php echo esc_attr( sprintf( /* translators: %s: page title */ __( 'URL slug for %s', 'buddynext' ), $def['title'] ) ); ?>">
+								<span class="bn-wizard__slug-sep">/</span>
+							</div>
+						<?php endif; ?>
+					</div>
+				</div>
+			<?php endforeach; ?>
+		</div>
+
+		<p class="bn-wizard__hint"><?php esc_html_e( 'Uncheck any page you do not want created. You can change page slugs or create them manually later.', 'buddynext' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * Step 6: Review active addons.
 	 *
 	 * @return void
 	 */
@@ -590,6 +869,72 @@ class SetupWizard {
 	}
 
 	/**
+	 * Create the community pages from the wizard form data.
+	 *
+	 * For each key in $pages, inserts a published WP page with the corresponding
+	 * BuddyNext shortcode. Skips pages that already exist (option set + published).
+	 * Stores the new page ID in wp_options as buddynext_page_{key}.
+	 *
+	 * @param array<string, string> $pages Map of page key → desired slug.
+	 * @return void
+	 */
+	private function create_community_pages( array $pages ): void {
+		$definitions = array(
+			'feed'    => array(
+				'title'     => __( 'Community Feed', 'buddynext' ),
+				'shortcode' => '[buddynext_feed]',
+			),
+			'members' => array(
+				'title'     => __( 'Members', 'buddynext' ),
+				'shortcode' => '[buddynext_members]',
+			),
+			'profile' => array(
+				'title'     => __( 'Member Profile', 'buddynext' ),
+				'shortcode' => '[buddynext_profile]',
+			),
+			'spaces'  => array(
+				'title'     => __( 'Spaces', 'buddynext' ),
+				'shortcode' => '[buddynext_spaces]',
+			),
+		);
+
+		foreach ( $pages as $key => $slug ) {
+			if ( ! array_key_exists( $key, $definitions ) ) {
+				continue;
+			}
+
+			$option_key  = 'buddynext_page_' . $key;
+			$existing_id = (int) get_option( $option_key, 0 );
+
+			// Skip if the page already exists and is published.
+			if ( $existing_id > 0 && 'publish' === get_post_status( $existing_id ) ) {
+				continue;
+			}
+
+			$def     = $definitions[ $key ];
+			$slug    = '' !== $slug ? sanitize_title( $slug ) : $key;
+			$post_id = wp_insert_post(
+				array(
+					'post_title'   => $def['title'],
+					'post_name'    => $slug,
+					'post_content' => $def['shortcode'],
+					'post_status'  => 'publish',
+					'post_type'    => 'page',
+					'post_author'  => get_current_user_id(),
+				),
+				true
+			);
+
+			if ( ! is_wp_error( $post_id ) ) {
+				update_option( $option_key, $post_id );
+			}
+		}
+
+		// Flush rewrite rules so pretty profile URLs work immediately.
+		flush_rewrite_rules( false );
+	}
+
+	/**
 	 * Inline CSS for the wizard chrome.
 	 *
 	 * Scoped to .bn-wizard-wrap so it cannot leak into the surrounding admin.
@@ -641,6 +986,30 @@ class SetupWizard {
 		.bn-wizard-btn:hover{background:var(--brand-hover)}
 		.bn-wizard-btn--secondary{background:transparent;color:var(--brand);border:1.5px solid var(--border)}
 		.bn-wizard-btn--secondary:hover{border-color:var(--brand)}
+		.bn-wizard__preset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--s3);margin:var(--s4) 0}
+		.bn-wizard__preset-card{display:flex;flex-direction:column;gap:6px;padding:var(--s4);border:1.5px solid var(--border);border-radius:var(--r-md);cursor:pointer;transition:border-color .15s,background .15s}
+		.bn-wizard__preset-card:hover{border-color:var(--brand);background:var(--bg-subtle)}
+		.bn-wizard__preset-card input[type=checkbox]{position:absolute;opacity:0;pointer-events:none}
+		.bn-wizard__preset-card:has(input:checked){border-color:var(--brand);background:#e8f4fb}
+		.bn-wizard__preset-icon{font-size:24px;line-height:1}
+		.bn-wizard__preset-name{font-weight:600;font-size:14px;color:var(--text-1)}
+		.bn-wizard__preset-desc{font-size:12px;color:var(--text-2);line-height:1.4}
+		.bn-wizard__step-hint{font-size:13px;color:var(--text-3);margin-top:var(--s2)}
+		.bn-wizard__pages-list{display:flex;flex-direction:column;gap:var(--s3)}
+		.bn-wizard__page-row{display:flex;align-items:flex-start;gap:var(--s3);padding:var(--s3) var(--s4);border:1.5px solid var(--border);border-radius:var(--r-md)}
+		.bn-wizard__page-check{flex-shrink:0;padding-top:3px}
+		.bn-wizard__page-info{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+		.bn-wizard__page-info strong{font-size:14px;font-weight:600}
+		.bn-wizard__shortcode{font-size:12px;font-family:monospace;background:var(--bg-subtle);padding:2px 6px;border-radius:4px;color:var(--brand);border:1px solid var(--border-soft)}
+		.bn-wizard__page-desc{font-size:12px;color:var(--text-2)}
+		.bn-wizard__page-slug{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:140px}
+		.bn-wizard__slug-row{display:flex;align-items:center;gap:2px}
+		.bn-wizard__slug-sep{font-size:13px;color:var(--text-2)}
+		.bn-wizard__slug-input{width:100px;padding:4px 8px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:13px;font-family:monospace;color:var(--text-1);background:var(--bg)}
+		.bn-wizard__slug-input:focus{outline:none;border-color:var(--brand)}
+		.bn-wizard__page-link{font-size:12px;font-family:monospace;color:var(--brand);text-decoration:none}
+		.bn-wizard__page-link:hover{text-decoration:underline}
+		.bn-wizard__page-badge{font-size:11px;font-weight:600;color:var(--green);background:var(--green-bg);padding:2px 6px;border-radius:var(--r-full)}
 		</style>
 		<?php
 	}

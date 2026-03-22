@@ -148,9 +148,11 @@ $bn_paged_url = static function ( int $page_number ) use ( $search_term, $bn_ord
 	return esc_url( add_query_arg( $args ) );
 };
 
-// ── Messages page URL (hoisted — do not call inside member loop) ──────────────
+// ── Page URLs (hoisted — do not call inside member loop) ─────────────────────
 $bn_messages_page = get_page_by_path( 'messages' );
 $bn_messages_base = $bn_messages_page ? get_permalink( $bn_messages_page ) : home_url( '/messages/' );
+
+// PageRouter resolves /profile/{slug}/ pretty URLs for each member card.
 
 // ── Nonce for interactive actions ─────────────────────────────────────────────
 $action_nonce = wp_create_nonce( 'bn_member_action' );
@@ -593,7 +595,7 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 			if ( empty( $bio ) ) {
 				$bio = get_user_meta( $member_id, 'description', true );
 			}
-			$profile_url    = get_author_posts_url( $member_id );
+			$profile_url    = \BuddyNext\Core\PageRouter::profile_url( $member_id );
 			$avatar_html    = get_avatar( $member_id, 64, '', esc_attr( $display_name ), array( 'force_display' => true ) );
 			$has_avatar     = false !== strpos( $avatar_html, 'src=' );
 			$initials       = $bn_initials( $display_name );

@@ -36,6 +36,31 @@ class SearchController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'search' ),
 				'permission_callback' => '__return_true',
+				'args'                => array(
+					'q'        => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'type'     => array(
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_key',
+						'default'           => '',
+					),
+					'per_page' => array(
+						'required'          => false,
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+						'default'           => 20,
+					),
+					'page'     => array(
+						'required'          => false,
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+						'default'           => 1,
+					),
+				),
 			)
 		);
 
@@ -47,12 +72,12 @@ class SearchController {
 				'callback'            => array( $this, 'list_members' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'cursor'      => array(
+					'cursor'            => array(
 						'type'              => 'string',
 						'required'          => false,
 						'sanitize_callback' => 'sanitize_text_field',
 					),
-					'per_page'    => array(
+					'per_page'          => array(
 						'type'              => 'integer',
 						'required'          => false,
 						'default'           => 20,
@@ -60,20 +85,46 @@ class SearchController {
 						'maximum'           => 50,
 						'sanitize_callback' => 'absint',
 					),
-					'location'    => array(
+					'search'            => array(
+						'description'       => __( 'Filter members by name or username (partial match).', 'buddynext' ),
+						'type'              => 'string',
+						'required'          => false,
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'location'          => array(
 						'description'       => __( 'Filter members by location (partial match).', 'buddynext' ),
 						'type'              => 'string',
 						'required'          => false,
 						'default'           => '',
 						'sanitize_callback' => 'sanitize_text_field',
 					),
-					'online_only' => array(
+					'skills'            => array(
+						'description'       => __( 'Filter members by skills (partial match).', 'buddynext' ),
+						'type'              => 'string',
+						'required'          => false,
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'space_id'          => array(
+						'description'       => __( 'Return only members of this space ID.', 'buddynext' ),
+						'required'          => false,
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
+					'connection_status' => array(
+						'description'       => __( 'connections = only viewer\'s accepted connections; everyone = all members (default).', 'buddynext' ),
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'online_only'       => array(
 						'description' => __( 'When true, return only members active in the last 5 minutes.', 'buddynext' ),
 						'type'        => 'boolean',
 						'required'    => false,
 						'default'     => false,
 					),
-					'sort'        => array(
+					'sort'              => array(
 						'description'       => __( 'Sort order: newest, alphabetical, most_active, or online.', 'buddynext' ),
 						'type'              => 'string',
 						'required'          => false,
@@ -89,8 +140,9 @@ class SearchController {
 	/**
 	 * Perform a unified search.
 	 *
-	 * Requires the `q` parameter. Optional `type` filters to a specific
-	 * object_type (post, user, space). Optional `per_page` and `page`.
+	 * When no `type` is provided, returns grouped results keyed by content type
+	 * (up to 5 results per type). When `type` is provided, returns a flat
+	 * paginated result list for that specific type.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
@@ -106,11 +158,24 @@ class SearchController {
 			);
 		}
 
-		$type     = sanitize_key( (string) ( $request->get_param( 'type' ) ?? '' ) );
+		$type      = (string) ( $request->get_param( 'type' ) ?? '' );
+		$viewer_id = get_current_user_id();
+		$service   = new SearchService();
+
+		if ( '' === $type ) {
+			$grouped = $service->grouped_search( $query, $viewer_id );
+			return new WP_REST_Response(
+				array(
+					'grouped' => true,
+					'results' => $grouped,
+				),
+				200
+			);
+		}
+
 		$per_page = min( (int) ( $request->get_param( 'per_page' ) ?? 20 ), 50 );
 		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
-
-		$results = ( new SearchService() )->search( $query, $type, $per_page, $page, get_current_user_id() );
+		$results  = $service->search( $query, $type, $per_page, $page, $viewer_id );
 
 		return new WP_REST_Response( $results, 200 );
 	}
@@ -118,7 +183,8 @@ class SearchController {
 	/**
 	 * Return the paginated member directory.
 	 *
-	 * Accepts optional filter params: location, online_only, sort.
+	 * Accepts optional filter params: search, location, skills, space_id,
+	 * connection_status, online_only, sort.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
@@ -129,9 +195,13 @@ class SearchController {
 		$per_page  = min( (int) ( $request->get_param( 'per_page' ) ?? 20 ), 50 );
 
 		$filters = array(
-			'location'    => sanitize_text_field( (string) ( $request->get_param( 'location' ) ?? '' ) ),
-			'online_only' => (bool) $request->get_param( 'online_only' ),
-			'sort'        => sanitize_key( (string) ( $request->get_param( 'sort' ) ?? 'newest' ) ),
+			'search'            => sanitize_text_field( (string) ( $request->get_param( 'search' ) ?? '' ) ),
+			'location'          => sanitize_text_field( (string) ( $request->get_param( 'location' ) ?? '' ) ),
+			'skills'            => sanitize_text_field( (string) ( $request->get_param( 'skills' ) ?? '' ) ),
+			'space_id'          => absint( $request->get_param( 'space_id' ) ?? 0 ),
+			'connection_status' => sanitize_key( (string) ( $request->get_param( 'connection_status' ) ?? 'everyone' ) ),
+			'online_only'       => (bool) $request->get_param( 'online_only' ),
+			'sort'              => sanitize_key( (string) ( $request->get_param( 'sort' ) ?? 'newest' ) ),
 		);
 
 		$result = ( new MemberDirectoryService( new FollowService() ) )->list_members(

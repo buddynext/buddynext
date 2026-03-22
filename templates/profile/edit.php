@@ -38,7 +38,6 @@ if ( ! $profile_user ) {
 global $wpdb;
 
 $display_name      = $profile_user->display_name;
-$profile_login     = $profile_user->user_login;
 $profile_email_raw = $profile_user->user_email;
 
 // Avatar initials.
@@ -47,21 +46,61 @@ $initials   = '';
 foreach ( array_slice( $name_parts, 0, 2 ) as $part ) {
 	$initials .= mb_strtoupper( mb_substr( $part, 0, 1 ) );
 }
-$initials = $initials ? $initials : mb_strtoupper( mb_substr( $profile_login, 0, 2 ) );
+if ( ! $initials ) {
+	$initials = mb_strtoupper( mb_substr( $profile_user->user_login, 0, 2 ) );
+}
 
 $avatar_url = get_avatar_url( $user_id, array( 'size' => 80 ) );
 
-// Profile meta.
-$headline         = (string) get_user_meta( $user_id, 'bn_headline', true );
-$bio              = (string) get_user_meta( $user_id, 'bn_bio', true );
-$location         = (string) get_user_meta( $user_id, 'bn_location', true );
-$website          = (string) get_user_meta( $user_id, 'bn_website', true );
-$social_twitter   = (string) get_user_meta( $user_id, 'bn_social_twitter', true );
-$social_linkedin  = (string) get_user_meta( $user_id, 'bn_social_linkedin', true );
-$social_github    = (string) get_user_meta( $user_id, 'bn_social_github', true );
-$social_instagram = (string) get_user_meta( $user_id, 'bn_social_instagram', true );
-$interests_raw    = (string) get_user_meta( $user_id, 'bn_interests', true );
-$interests        = array_filter( array_map( 'trim', explode( ',', $interests_raw ) ) );
+// Load profile through service — reads from bn_profile_values.
+$service = buddynext_service( 'profiles' );
+$profile = $service->get_profile( $user_id, $user_id );
+
+// Build flat key=>value map for basic/social fields.
+$fv = array();
+if ( isset( $profile['groups'] ) ) {
+	foreach ( $profile['groups'] as $grp ) {
+		if ( 'flat' === $grp['type'] ) {
+			foreach ( $grp['fields'] as $f ) {
+				$fv[ $f['field_key'] ] = $f['value'] ?? '';
+			}
+		}
+	}
+}
+
+// Repeater entries keyed by group_key.
+$work_entries = array();
+$edu_entries  = array();
+if ( isset( $profile['groups'] ) ) {
+	foreach ( $profile['groups'] as $grp ) {
+		if ( 'repeater' === $grp['type'] ) {
+			if ( 'work_experience' === $grp['group_key'] ) {
+				$work_entries = $grp['entries'] ?? array();
+			} elseif ( 'education' === $grp['group_key'] ) {
+				$edu_entries = $grp['entries'] ?? array();
+			}
+		}
+	}
+}
+
+// Convenience vars used in template.
+$headline      = $fv['headline'] ?? '';
+$bio           = $fv['bio'] ?? '';
+$location      = $fv['location'] ?? '';
+$website       = $fv['website'] ?? '';
+$pronouns      = $fv['pronouns'] ?? '';
+$interests_str = $fv['interests'] ?? '';
+$interests     = array_filter( array_map( 'trim', explode( ',', $interests_str ) ) );
+
+$social_twitter   = $fv['social_twitter'] ?? '';
+$social_linkedin  = $fv['social_linkedin'] ?? '';
+$social_github    = $fv['social_github'] ?? '';
+$social_instagram = $fv['social_instagram'] ?? '';
+$social_youtube   = $fv['social_youtube'] ?? '';
+
+// Profile URL slug.
+$profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
+$profile_url  = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 
 // Stats for preview widget.
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -599,6 +638,33 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 	.bn-ep-save-bar { padding: 0 var(--s4); }
 	.bn-ep-save-status { display: none; }
 }
+
+/* Repeater entries */
+.bn-ep-repeater-entry { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s4); margin-bottom: var(--s4); }
+.bn-ep-repeater-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s3); }
+.bn-ep-repeater-num { font-size: var(--text-sm); font-weight: 600; color: var(--text-2); }
+.bn-ep-repeater-remove { background: none; border: none; cursor: pointer; color: var(--text-3); font-size: var(--text-lg); padding: 0 var(--s1); line-height: 1; }
+.bn-ep-repeater-remove:hover { color: var(--red); }
+.bn-ep-repeater-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s4); }
+.bn-ep-card-footer { padding: var(--s3) var(--s6) var(--s4); }
+.bn-ep-btn-add-entry { background: none; border: 1px dashed var(--border); border-radius: var(--r-md); color: var(--brand); font-size: var(--text-sm); padding: var(--s2) var(--s4); cursor: pointer; width: 100%; }
+.bn-ep-btn-add-entry:hover { background: var(--brand-light); border-color: var(--brand); }
+/* Slug field */
+.bn-ep-slug-row { flex-direction: column; align-items: flex-start; gap: var(--s2); }
+.bn-ep-slug-base { font-size: var(--text-sm); color: var(--text-2); }
+.bn-ep-slug-field { display: flex; align-items: center; gap: var(--s2); width: 100%; }
+.bn-ep-slug-input-wrap { position: relative; flex: 1; }
+.bn-ep-slug-input { padding-right: 32px; }
+.bn-ep-slug-indicator { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: var(--text-sm); }
+.bn-ep-slug-ok { color: var(--green); }
+.bn-ep-slug-err { color: var(--red); }
+.bn-ep-btn-slug { white-space: nowrap; padding: var(--s2) var(--s4); border-radius: var(--r-md); border: 1px solid var(--brand); background: var(--brand); color: #fff; font-size: var(--text-sm); cursor: pointer; }
+.bn-ep-btn-slug:disabled { opacity: .5; cursor: not-allowed; }
+/* Responsive */
+@media (max-width: 640px) {
+	.bn-ep-repeater-row { grid-template-columns: 1fr; }
+	.bn-ep-slug-field { flex-wrap: wrap; }
+}
 </style>
 
 <div class="bn-ep-wrap"
@@ -607,11 +673,19 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
 		array(
-			'userId'    => $user_id,
-			'restNonce' => $rest_nonce,
-			'saved'     => false,
-			'saving'    => false,
-			'interests' => array_values( $interests ),
+			'userId'        => $user_id,
+			'restNonce'     => $rest_nonce,
+			'saved'         => false,
+			'saving'        => false,
+			'interests'     => array_values( $interests ),
+			'profileSlug'   => $profile_slug,
+			'profileUrl'    => $profile_url,
+			'slugAvailable' => null,
+			'slugChecking'  => false,
+			'slugSaved'     => false,
+			'slugSaving'    => false,
+			'workEntries'   => array_values( $work_entries ),
+			'eduEntries'    => array_values( $edu_entries ),
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -656,6 +730,20 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 						</div>
 					</div>
 				</div>
+				<input
+					type="file"
+					id="bn-ep-avatar-file"
+					accept="image/jpeg,image/png,image/gif,image/webp"
+					style="display:none"
+					data-wp-on--change="actions.handleAvatarFileChange"
+				/>
+				<input
+					type="file"
+					id="bn-ep-cover-file"
+					accept="image/jpeg,image/png,image/gif,image/webp"
+					style="display:none"
+					data-wp-on--change="actions.handleCoverFileChange"
+				/>
 			</div>
 
 			<!-- Section: Basic Info -->
@@ -686,7 +774,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 						<input class="bn-ep-input"
 							type="text"
 							id="bn-ep-headline"
-							name="bn_headline"
+							name="headline"
 							value="<?php echo esc_attr( $headline ); ?>"
 							placeholder="<?php esc_attr_e( 'e.g. Software Engineer at Acme Co.', 'buddynext' ); ?>"
 							data-wp-on--blur="actions.autosave" />
@@ -698,7 +786,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 						<input class="bn-ep-input"
 							type="text"
 							id="bn-ep-location"
-							name="bn_location"
+							name="location"
 							value="<?php echo esc_attr( $location ); ?>"
 							placeholder="<?php esc_attr_e( 'City, Country', 'buddynext' ); ?>"
 							data-wp-on--blur="actions.autosave" />
@@ -710,9 +798,21 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 						<input class="bn-ep-input"
 							type="url"
 							id="bn-ep-website"
-							name="bn_website"
+							name="website"
 							value="<?php echo esc_attr( $website ); ?>"
 							placeholder="https://yoursite.com"
+							data-wp-on--blur="actions.autosave" />
+					</div>
+					<div class="bn-ep-group">
+						<label class="bn-ep-label" for="bn-ep-pronouns">
+							<?php esc_html_e( 'Pronouns', 'buddynext' ); ?>
+						</label>
+						<input class="bn-ep-input"
+							type="text"
+							id="bn-ep-pronouns"
+							name="pronouns"
+							value="<?php echo esc_attr( $pronouns ); ?>"
+							placeholder="<?php esc_attr_e( 'e.g. they/them', 'buddynext' ); ?>"
 							data-wp-on--blur="actions.autosave" />
 					</div>
 					<div class="bn-ep-group">
@@ -724,7 +824,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 						</label>
 						<textarea class="bn-ep-input"
 							id="bn-ep-bio"
-							name="bn_bio"
+							name="bio"
 							rows="4"
 							placeholder="<?php esc_attr_e( 'Tell the community a bit about yourself\xe2\x80\xa6', 'buddynext' ); ?>"
 							data-wp-on--blur="actions.autosave"><?php echo esc_textarea( $bio ); ?></textarea>
@@ -748,7 +848,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 								<input class="bn-ep-input"
 									type="url"
 									id="bn-ep-twitter"
-									name="bn_social_twitter"
+									name="social_twitter"
 									value="<?php echo esc_attr( $social_twitter ); ?>"
 									placeholder="https://twitter.com/you"
 									data-wp-on--blur="actions.autosave" />
@@ -763,7 +863,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 								<input class="bn-ep-input"
 									type="url"
 									id="bn-ep-linkedin"
-									name="bn_social_linkedin"
+									name="social_linkedin"
 									value="<?php echo esc_attr( $social_linkedin ); ?>"
 									placeholder="https://linkedin.com/in/you"
 									data-wp-on--blur="actions.autosave" />
@@ -778,7 +878,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 								<input class="bn-ep-input"
 									type="url"
 									id="bn-ep-github"
-									name="bn_social_github"
+									name="social_github"
 									value="<?php echo esc_attr( $social_github ); ?>"
 									placeholder="https://github.com/you"
 									data-wp-on--blur="actions.autosave" />
@@ -793,15 +893,169 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 								<input class="bn-ep-input"
 									type="url"
 									id="bn-ep-instagram"
-									name="bn_social_instagram"
+									name="social_instagram"
 									value="<?php echo esc_attr( $social_instagram ); ?>"
 									placeholder="https://instagram.com/you"
+									data-wp-on--blur="actions.autosave" />
+							</div>
+						</div>
+						<div class="bn-ep-group">
+							<label class="bn-ep-label" for="bn-ep-youtube">
+								<?php esc_html_e( 'YouTube', 'buddynext' ); ?>
+							</label>
+							<div class="bn-ep-social-wrap">
+								<span class="bn-ep-social-icon" aria-hidden="true">&#9654;</span>
+								<input class="bn-ep-input"
+									type="url"
+									id="bn-ep-youtube"
+									name="social_youtube"
+									value="<?php echo esc_attr( $social_youtube ); ?>"
+									placeholder="https://youtube.com/@you"
 									data-wp-on--blur="actions.autosave" />
 							</div>
 						</div>
 					</div>
 				</div>
 			</div><!-- /Social Links -->
+
+			<!-- Section: Work Experience -->
+			<div class="bn-ep-card">
+				<div class="bn-ep-card-header">
+					<div class="bn-ep-card-title"><?php esc_html_e( 'Work Experience', 'buddynext' ); ?></div>
+				</div>
+				<div class="bn-ep-card-body" id="bn-ep-work-entries">
+					<?php foreach ( $work_entries as $idx => $entry ) : ?>
+					<div class="bn-ep-repeater-entry" data-entry-index="<?php echo (int) $idx; ?>">
+						<div class="bn-ep-repeater-header">
+							<span class="bn-ep-repeater-num"><?php echo absint( $idx + 1 ); ?></span>
+							<button class="bn-ep-repeater-remove" type="button"
+								data-group="work_experience"
+								data-entry-index="<?php echo (int) $idx; ?>"
+								data-wp-on--click="actions.removeEntry"
+								aria-label="<?php esc_attr_e( 'Remove this position', 'buddynext' ); ?>">
+								&times;
+							</button>
+						</div>
+						<div class="bn-ep-repeater-row">
+							<div class="bn-ep-group">
+								<label class="bn-ep-label"><?php esc_html_e( 'Company', 'buddynext' ); ?></label>
+								<input class="bn-ep-input" type="text"
+									name="work_experience[<?php echo (int) $idx; ?>][work_company]"
+									value="<?php echo esc_attr( $entry['work_company'] ?? '' ); ?>"
+									placeholder="<?php esc_attr_e( 'Company name', 'buddynext' ); ?>"
+									data-wp-on--blur="actions.autosave" />
+							</div>
+							<div class="bn-ep-group">
+								<label class="bn-ep-label"><?php esc_html_e( 'Job Title', 'buddynext' ); ?></label>
+								<input class="bn-ep-input" type="text"
+									name="work_experience[<?php echo (int) $idx; ?>][work_title]"
+									value="<?php echo esc_attr( $entry['work_title'] ?? '' ); ?>"
+									placeholder="<?php esc_attr_e( 'Your role', 'buddynext' ); ?>"
+									data-wp-on--blur="actions.autosave" />
+							</div>
+						</div>
+						<div class="bn-ep-repeater-row">
+							<div class="bn-ep-group">
+								<label class="bn-ep-label"><?php esc_html_e( 'Location', 'buddynext' ); ?></label>
+								<input class="bn-ep-input" type="text"
+									name="work_experience[<?php echo (int) $idx; ?>][work_location]"
+									value="<?php echo esc_attr( $entry['work_location'] ?? '' ); ?>"
+									placeholder="<?php esc_attr_e( 'City or Remote', 'buddynext' ); ?>"
+									data-wp-on--blur="actions.autosave" />
+							</div>
+							<div class="bn-ep-group">
+								<label class="bn-ep-label"><?php esc_html_e( 'Date Range', 'buddynext' ); ?></label>
+								<input class="bn-ep-input" type="text"
+									name="work_experience[<?php echo (int) $idx; ?>][work_daterange]"
+									value="<?php echo esc_attr( $entry['work_daterange'] ?? '' ); ?>"
+									placeholder="<?php esc_attr_e( 'e.g. Jan 2020 – Present', 'buddynext' ); ?>"
+									data-wp-on--blur="actions.autosave" />
+							</div>
+						</div>
+						<div class="bn-ep-group">
+							<label class="bn-ep-label"><?php esc_html_e( 'Description', 'buddynext' ); ?></label>
+							<textarea class="bn-ep-input" rows="3"
+								name="work_experience[<?php echo (int) $idx; ?>][work_description]"
+								placeholder="<?php esc_attr_e( 'Brief description of your role', 'buddynext' ); ?>"
+								data-wp-on--blur="actions.autosave"><?php echo esc_textarea( $entry['work_description'] ?? '' ); ?></textarea>
+						</div>
+					</div>
+					<?php endforeach; ?>
+				</div>
+				<div class="bn-ep-card-footer">
+					<button class="bn-ep-btn-add-entry" type="button"
+						data-group="work_experience"
+						data-wp-on--click="actions.addEntry">
+						+ <?php esc_html_e( 'Add position', 'buddynext' ); ?>
+					</button>
+				</div>
+			</div><!-- /Work Experience -->
+
+			<!-- Section: Education -->
+			<div class="bn-ep-card">
+				<div class="bn-ep-card-header">
+					<div class="bn-ep-card-title"><?php esc_html_e( 'Education', 'buddynext' ); ?></div>
+				</div>
+				<div class="bn-ep-card-body" id="bn-ep-edu-entries">
+					<?php foreach ( $edu_entries as $idx => $entry ) : ?>
+					<div class="bn-ep-repeater-entry" data-entry-index="<?php echo (int) $idx; ?>">
+						<div class="bn-ep-repeater-header">
+							<span class="bn-ep-repeater-num"><?php echo absint( $idx + 1 ); ?></span>
+							<button class="bn-ep-repeater-remove" type="button"
+								data-group="education"
+								data-entry-index="<?php echo (int) $idx; ?>"
+								data-wp-on--click="actions.removeEntry"
+								aria-label="<?php esc_attr_e( 'Remove this entry', 'buddynext' ); ?>">
+								&times;
+							</button>
+						</div>
+						<div class="bn-ep-repeater-row">
+							<div class="bn-ep-group">
+								<label class="bn-ep-label"><?php esc_html_e( 'Institution', 'buddynext' ); ?></label>
+								<input class="bn-ep-input" type="text"
+									name="education[<?php echo (int) $idx; ?>][edu_institution]"
+									value="<?php echo esc_attr( $entry['edu_institution'] ?? '' ); ?>"
+									placeholder="<?php esc_attr_e( 'School or University', 'buddynext' ); ?>"
+									data-wp-on--blur="actions.autosave" />
+							</div>
+							<div class="bn-ep-group">
+								<label class="bn-ep-label"><?php esc_html_e( 'Degree', 'buddynext' ); ?></label>
+								<input class="bn-ep-input" type="text"
+									name="education[<?php echo (int) $idx; ?>][edu_degree]"
+									value="<?php echo esc_attr( $entry['edu_degree'] ?? '' ); ?>"
+									placeholder="<?php esc_attr_e( 'e.g. Bachelor of Science', 'buddynext' ); ?>"
+									data-wp-on--blur="actions.autosave" />
+							</div>
+						</div>
+						<div class="bn-ep-repeater-row">
+							<div class="bn-ep-group">
+								<label class="bn-ep-label"><?php esc_html_e( 'Field of Study', 'buddynext' ); ?></label>
+								<input class="bn-ep-input" type="text"
+									name="education[<?php echo (int) $idx; ?>][edu_field]"
+									value="<?php echo esc_attr( $entry['edu_field'] ?? '' ); ?>"
+									placeholder="<?php esc_attr_e( 'e.g. Computer Science', 'buddynext' ); ?>"
+									data-wp-on--blur="actions.autosave" />
+							</div>
+							<div class="bn-ep-group">
+								<label class="bn-ep-label"><?php esc_html_e( 'Date Range', 'buddynext' ); ?></label>
+								<input class="bn-ep-input" type="text"
+									name="education[<?php echo (int) $idx; ?>][edu_daterange]"
+									value="<?php echo esc_attr( $entry['edu_daterange'] ?? '' ); ?>"
+									placeholder="<?php esc_attr_e( 'e.g. 2016 – 2020', 'buddynext' ); ?>"
+									data-wp-on--blur="actions.autosave" />
+							</div>
+						</div>
+					</div>
+					<?php endforeach; ?>
+				</div>
+				<div class="bn-ep-card-footer">
+					<button class="bn-ep-btn-add-entry" type="button"
+						data-group="education"
+						data-wp-on--click="actions.addEntry">
+						+ <?php esc_html_e( 'Add education', 'buddynext' ); ?>
+					</button>
+				</div>
+			</div><!-- /Education -->
 
 			<!-- Section: Community Interests -->
 			<div class="bn-ep-card">
@@ -851,6 +1105,45 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 					<div class="bn-ep-card-title"><?php esc_html_e( 'Account', 'buddynext' ); ?></div>
 				</div>
 				<div class="bn-ep-card-body bn-ep-account-rows">
+					<!-- Profile URL row -->
+					<div class="bn-ep-account-row bn-ep-slug-row">
+						<div>
+							<div class="bn-ep-account-label"><?php esc_html_e( 'Profile URL', 'buddynext' ); ?></div>
+							<div class="bn-ep-account-value bn-ep-slug-base">
+								<?php
+								$profile_base_url = rtrim( (string) get_permalink( (int) get_option( 'buddynext_page_profile', 0 ) ), '/' );
+								echo esc_html( $profile_base_url ? $profile_base_url : home_url( '/profile' ) );
+								?>
+							/
+							</div>
+						</div>
+						<div class="bn-ep-slug-field">
+							<div class="bn-ep-slug-input-wrap">
+								<input class="bn-ep-input bn-ep-slug-input"
+									type="text"
+									id="bn-ep-slug"
+									autocomplete="off"
+									spellcheck="false"
+									value="<?php echo esc_attr( $profile_slug ); ?>"
+									placeholder="<?php esc_attr_e( 'your-custom-url', 'buddynext' ); ?>"
+									data-wp-on--input="actions.checkSlug" />
+								<span class="bn-ep-slug-indicator"
+									data-wp-bind--hidden="context.slugChecking || context.slugAvailable === null"
+									data-wp-class--bn-ep-slug-ok="context.slugAvailable === true"
+									data-wp-class--bn-ep-slug-err="context.slugAvailable === false">
+									<span data-wp-bind--hidden="!context.slugAvailable">&#10003;</span>
+									<span data-wp-bind--hidden="context.slugAvailable !== false"><?php esc_html_e( 'Taken', 'buddynext' ); ?></span>
+								</span>
+							</div>
+							<button class="bn-ep-btn-slug"
+								type="button"
+								data-wp-on--click="actions.saveSlug"
+								data-wp-bind--disabled="!context.slugAvailable || context.slugSaving">
+								<span data-wp-bind--hidden="context.slugSaved"><?php esc_html_e( 'Update URL', 'buddynext' ); ?></span>
+								<span data-wp-bind--hidden="!context.slugSaved">&#10003; <?php esc_html_e( 'Saved', 'buddynext' ); ?></span>
+							</button>
+						</div>
+					</div>
 					<div class="bn-ep-account-row">
 						<div>
 							<div class="bn-ep-account-label"><?php esc_html_e( 'Email address', 'buddynext' ); ?></div>
@@ -965,7 +1258,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 			</div>
 			<div class="bn-ep-save-actions">
 				<a class="bn-ep-btn-cancel"
-					href="<?php echo esc_url( home_url( '/members/' . $profile_login . '/profile/' ) ); ?>">
+					href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ); ?>">
 					<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
 				</a>
 				<button class="bn-ep-btn-save"

@@ -40,8 +40,11 @@ class Installer {
 		$wpdb->suppress_errors( false );
 
 		static::seed_email_templates( $wpdb->prefix );
+		static::seed_default_profile_groups_and_fields( $wpdb->prefix );
 
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
+
+		\BuddyNext\Search\SearchService::schedule_reindex_all();
 	}
 
 	/**
@@ -188,6 +191,78 @@ class Installer {
 	}
 
 	/**
+	 * Seed the five built-in profile groups and their fields.
+	 *
+	 * Uses INSERT IGNORE throughout so re-running the installer never destroys
+	 * customised data. Fields are inserted with a subquery that resolves the
+	 * group_id by group_key so the seed is order-independent.
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function seed_default_profile_groups_and_fields( string $p ): void {
+		global $wpdb;
+
+		// ── 1. Groups ──────────────────────────────────────────────────────────
+
+		// Only Basic Info is seeded on install. All other groups (Social Links,
+		// Work Experience, Education, Skills, etc.) are offered as optional presets
+		// in the setup wizard so admins can build the structure that fits their community.
+		$groups = array(
+			array( 'basic_info', 'Basic Info', 'flat', 'public', 0, 1 ),
+		);
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		foreach ( $groups as $g ) {
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO `{$p}bn_profile_groups`
+					    (group_key, label, type, visibility, is_system, sort_order)
+					 VALUES (%s, %s, %s, %s, %d, %d)",
+					$g[0],
+					$g[1],
+					$g[2],
+					$g[3],
+					$g[4],
+					$g[5]
+				)
+			);
+		}
+
+		// ── 2. Fields ─────────────────────────────────────────────────────────
+		// Each INSERT uses a subquery to resolve group_id by group_key.
+
+		$fields = array(
+			// basic_info — always seeded.
+			array( 'basic_info', 'headline', 'Headline', 'text', 0, 0, 1 ),
+			array( 'basic_info', 'bio', 'Bio', 'textarea', 0, 0, 2 ),
+			array( 'basic_info', 'location', 'Location', 'text', 0, 1, 3 ),
+			array( 'basic_info', 'website', 'Website', 'url', 0, 0, 4 ),
+			array( 'basic_info', 'pronouns', 'Pronouns', 'text', 0, 0, 5 ),
+			array( 'basic_info', 'birth_date', 'Birth Date', 'date', 0, 0, 6 ),
+		);
+
+		foreach ( $fields as $f ) {
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO `{$p}bn_profile_fields`
+					    (group_id, field_key, label, type, is_required, is_searchable, sort_order)
+					 SELECT id, %s, %s, %s, %d, %d, %d
+					   FROM `{$p}bn_profile_groups`
+					  WHERE group_key = %s",
+					$f[1],
+					$f[2],
+					$f[3],
+					$f[4],
+					$f[5],
+					$f[6],
+					$f[0]
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
 	 * Return the full set of CREATE TABLE statements.
 	 *
 	 * Each statement is passed individually to dbDelta() so a failure in one
@@ -218,6 +293,7 @@ class Installer {
 				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				UNIQUE KEY   pair (requester_id, recipient_id),
+				KEY          recipient_lookup (recipient_id),
 				KEY          recipient_status (recipient_id, status),
 				KEY          requester_status (requester_id, status)
 			) {$cs};",
@@ -258,7 +334,8 @@ class Installer {
 				updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY         (id),
 				KEY                 user_feed (user_id, created_at),
-				KEY                 space_feed (space_id, created_at),
+				KEY                 space_feed (space_id, status, created_at),
+				KEY                 announcement_feed (is_announcement, status, created_at),
 				KEY                 explore (privacy, created_at),
 				KEY                 scheduled (scheduled_at)
 			) {$cs};",
@@ -480,30 +557,45 @@ class Installer {
 
 			// ── Profiles ───────────────────────────────────────────────────────
 
+			"CREATE TABLE {$p}bn_profile_groups (
+				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				group_key  VARCHAR(100) NOT NULL,
+				label      VARCHAR(255) NOT NULL,
+				type       ENUM('flat','repeater') NOT NULL DEFAULT 'flat',
+				visibility ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public',
+				is_system  TINYINT(1) NOT NULL DEFAULT 0,
+				sort_order INT NOT NULL DEFAULT 0,
+				PRIMARY KEY (id),
+				UNIQUE KEY  group_key (group_key)
+			) {$cs};",
+
 			"CREATE TABLE {$p}bn_profile_fields (
 				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				group_id      BIGINT(20) UNSIGNED NOT NULL,
 				field_key     VARCHAR(100) NOT NULL,
 				label         VARCHAR(255) NOT NULL,
-				type          ENUM('text','textarea','url','date','select','checkbox','repeater') NOT NULL DEFAULT 'text',
+				type          ENUM('text','textarea','url','social','select','multiselect','date','daterange','number','checkbox') NOT NULL DEFAULT 'text',
 				options       JSON DEFAULT NULL,
 				is_required   TINYINT(1) NOT NULL DEFAULT 0,
-				visibility    ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public',
-				group_name    VARCHAR(100) NOT NULL DEFAULT 'general',
-				sort_order    INT NOT NULL DEFAULT 0,
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
+				visibility    ENUM('public','followers','private') NOT NULL DEFAULT 'public',
+				sort_order    INT NOT NULL DEFAULT 0,
 				PRIMARY KEY   (id),
-				UNIQUE KEY    field_key (field_key)
+				UNIQUE KEY    field_key (field_key),
+				KEY           group_idx (group_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_profile_values (
-				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id     BIGINT(20) UNSIGNED NOT NULL,
-				field_id    BIGINT(20) UNSIGNED NOT NULL,
-				entry_index SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-				value       LONGTEXT DEFAULT NULL,
-				PRIMARY KEY (id),
-				UNIQUE KEY  user_field (user_id, field_id, entry_index),
-				KEY         field (field_id)
+				id               BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				user_id          BIGINT(20) UNSIGNED NOT NULL,
+				field_id         BIGINT(20) UNSIGNED NOT NULL,
+				entry_index      SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+				value            LONGTEXT DEFAULT NULL,
+				entry_visibility ENUM('public','followers','connections','private') DEFAULT NULL,
+				PRIMARY KEY      (id),
+				UNIQUE KEY       user_field_entry (user_id, field_id, entry_index),
+				KEY              field_idx (field_id),
+				KEY              user_idx (user_id)
 			) {$cs};",
 
 			// ── Search Index ───────────────────────────────────────────────────
@@ -523,7 +615,8 @@ class Installer {
 				UNIQUE KEY  object (object_type, object_id),
 				KEY         visibility_type (visibility, object_type),
 				KEY         author (author_id),
-				KEY         space (space_id)
+				KEY         space (space_id),
+				KEY         updated_order (updated_at)
 			) {$cs};",
 
 			// ── Roles + Permissions ────────────────────────────────────────────
@@ -625,7 +718,8 @@ class Installer {
 				object_id   BIGINT(20) UNSIGNED DEFAULT NULL,
 				created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
-				KEY         user_action (user_id, action, created_at)
+				KEY         user_action (user_id, action, created_at),
+				KEY         created_at (created_at)
 			) {$cs};",
 
 			// ── Moderation ─────────────────────────────────────────────────────
@@ -718,6 +812,7 @@ class Installer {
 				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				KEY          user_active (user_id, expires_at),
+				KEY          active_check (lifted_at, expires_at, user_id),
 				KEY          suspended_by (suspended_by)
 			) {$cs};",
 

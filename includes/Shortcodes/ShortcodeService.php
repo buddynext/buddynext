@@ -182,9 +182,19 @@ class ShortcodeService {
 		);
 
 		$user_id = absint( $atts['user_id'] );
+
+		// Pretty URL: /profile/{slug}/ — PageRouter resolves the slug and stores the ID.
+		if ( 0 === $user_id ) {
+			$user_id = (int) get_query_var( 'bn_resolved_user_id', 0 );
+		}
+		// Legacy query-param fallback for any existing links: /profile/?user_id=123
+		if ( 0 === $user_id ) {
+			$user_id = absint( sanitize_text_field( wp_unslash( $_GET['user_id'] ?? '' ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		}
 		if ( 0 === $user_id ) {
 			$user_id = get_current_user_id();
 		}
+
 		$view = sanitize_key( (string) $atts['view'] );
 
 		return $this->capture(

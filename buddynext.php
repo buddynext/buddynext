@@ -25,6 +25,9 @@ define( 'BUDDYNEXT_BASENAME', plugin_basename( __FILE__ ) );
 require_once BUDDYNEXT_DIR . 'vendor/autoload.php';
 
 register_activation_hook( __FILE__, array( \BuddyNext\Core\Installer::class, 'run' ) );
+register_activation_hook( __FILE__, static function (): void {
+	set_transient( 'buddynext_do_activation_redirect', '1', 30 );
+} );
 
 add_action( 'plugins_loaded', array( \BuddyNext\Core\Plugin::class, 'init' ), 15 );
 

@@ -98,8 +98,8 @@ abstract class AdminPageBase {
 		<div class="bn-admin-tabs" role="tablist">
 			<?php foreach ( $tabs as $slug => $label ) : ?>
 				<a href="<?php echo esc_url( add_query_arg( 'tab', $slug, $base_url ) ); ?>"
-				   class="bn-atab<?php echo $slug === $active_tab ? ' active' : ''; ?>"
-				   role="tab">
+					class="bn-atab<?php echo $slug === $active_tab ? ' active' : ''; ?>"
+					role="tab">
 					<?php echo esc_html( $label ); ?>
 				</a>
 			<?php endforeach; ?>
@@ -174,11 +174,11 @@ abstract class AdminPageBase {
 			</div>
 			<label class="bn-toggle<?php echo $value ? ' on' : ''; ?>">
 				<input type="checkbox"
-				       id="<?php echo esc_attr( $input_id ); ?>"
-				       name="<?php echo esc_attr( $option_name ); ?>"
-				       value="1"
-				       class="screen-reader-text"
-				       <?php checked( $value ); ?>>
+						id="<?php echo esc_attr( $input_id ); ?>"
+						name="<?php echo esc_attr( $option_name ); ?>"
+						value="1"
+						class="screen-reader-text"
+						<?php checked( $value ); ?>>
 			</label>
 		</div>
 		<?php
@@ -206,11 +206,11 @@ abstract class AdminPageBase {
 		<div class="bn-field">
 			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
 			<input type="text"
-			       id="<?php echo esc_attr( $input_id ); ?>"
-			       name="<?php echo esc_attr( $option_name ); ?>"
-			       value="<?php echo esc_attr( $value ); ?>"
-			       class="bn-text-input regular-text"
-			       style="max-width:<?php echo absint( $max_width ); ?>px">
+					id="<?php echo esc_attr( $input_id ); ?>"
+					name="<?php echo esc_attr( $option_name ); ?>"
+					value="<?php echo esc_attr( $value ); ?>"
+					class="bn-text-input regular-text"
+					style="max-width:<?php echo absint( $max_width ); ?>px">
 			<?php if ( '' !== $hint ) : ?>
 				<span class="bn-field-hint"><?php echo esc_html( $hint ); ?></span>
 			<?php endif; ?>
@@ -240,12 +240,12 @@ abstract class AdminPageBase {
 		<div class="bn-field">
 			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
 			<input type="number"
-			       id="<?php echo esc_attr( $input_id ); ?>"
-			       name="<?php echo esc_attr( $option_name ); ?>"
-			       value="<?php echo absint( $value ); ?>"
-			       min="<?php echo absint( $min ); ?>"
-			       class="bn-text-input small-text"
-			       style="max-width:100px">
+					id="<?php echo esc_attr( $input_id ); ?>"
+					name="<?php echo esc_attr( $option_name ); ?>"
+					value="<?php echo absint( $value ); ?>"
+					min="<?php echo absint( $min ); ?>"
+					class="bn-text-input small-text"
+					style="max-width:100px">
 			<?php if ( '' !== $hint ) : ?>
 				<span class="bn-field-hint"><?php echo esc_html( $hint ); ?></span>
 			<?php endif; ?>
@@ -275,8 +275,8 @@ abstract class AdminPageBase {
 		<div class="bn-field">
 			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
 			<select id="<?php echo esc_attr( $input_id ); ?>"
-			        name="<?php echo esc_attr( $option_name ); ?>"
-			        class="bn-select-input">
+					name="<?php echo esc_attr( $option_name ); ?>"
+					class="bn-select-input">
 				<?php foreach ( $options as $opt_value => $opt_label ) : ?>
 					<option value="<?php echo esc_attr( $opt_value ); ?>" <?php selected( $value, $opt_value ); ?>>
 						<?php echo esc_html( $opt_label ); ?>
@@ -376,8 +376,9 @@ abstract class AdminPageBase {
 		/* ── Stats cards ───────────────────────────────────────────── */
 		.bn-stats-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
 		.bn-stat-card { background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 16px 20px; flex: 1; min-width: 140px; }
-		.bn-stat-val { font-size: 26px; font-weight: 700; color: #111827; line-height: 1; margin-bottom: 4px; }
-		.bn-stat-label { font-size: 12px; color: #6b7280; }
+		.bn-stat-label { font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+		.bn-stat-val { font-size: 28px; font-weight: 800; color: #111827; line-height: 1.1; letter-spacing: -0.5px; }
+		.bn-stat-danger { color: #dc2626; }
 
 		/* ── Data table ────────────────────────────────────────────── */
 		.bn-data-table { background: #fff; border: 1px solid #e9ecef; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
@@ -431,6 +432,74 @@ abstract class AdminPageBase {
 		.bn-page-link.current { background: #0073aa; color: #fff !important; border-color: #0073aa; }
 		.bn-page-link:hover:not(.current) { background: #f3f4f6; }
 
+		/* ── Member cell — stacked name + username ── */
+		.bn-member-cell { display: flex; align-items: center; gap: 10px; }
+		.bn-member-info { display: flex; flex-direction: column; }
+		.bn-member-name { font-weight: 600; font-size: 13px; color: #111827; line-height: 1.2; }
+		.bn-member-username { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
+		/* ── Avatar initials ── */
+		.bn-avatar-initials { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; letter-spacing: 0.02em; }
+		.av-brand  { background: #0073aa; }
+		.av-green  { background: #059669; }
+		.av-purple { background: #7c3aed; }
+		.av-orange { background: #ea580c; }
+		.av-pink   { background: #db2777; }
+		.av-teal   { background: #0d9488; }
+		.av-rose   { background: #e11d48; }
+		.av-indigo { background: #4f46e5; }
+
+		/* ── Role badges ── */
+		.bn-badge-role-admin   { background: #fee2e2; color: #991b1b; }
+		.bn-badge-role-editor  { background: #fef3c7; color: #92400e; }
+		.bn-badge-role-author  { background: #dbeafe; color: #1e40af; }
+		.bn-badge-role-contrib { background: #f3e8ff; color: #6b21a8; }
+		.bn-badge-role-member  { background: #d1fae5; color: #065f46; }
+
+		/* ── Action row (above filter bar) ── */
+		.bn-action-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+		.bn-filter-tab { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #6b7280; text-decoration: none; background: transparent; }
+		.bn-filter-tab.active { background: #0073aa; color: #fff; }
+		.bn-filter-tab:hover:not(.active) { background: #f3f4f6; color: #374151; }
+		.bn-btn-secondary { background: #fff; border: 1px solid #ddd; color: #374151; border-radius: 5px; padding: 6px 12px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; }
+		.bn-btn-secondary:hover { background: #f9fafb; border-color: #aaa; }
+
+		/* ── Filter bar ── */
+		.bn-filter-bar { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; background: #f9fafb; }
+		.bn-filter-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+		.bn-search-input { flex: 1; min-width: 200px; border: 1px solid #ddd !important; border-radius: 5px !important; padding: 7px 10px !important; font-size: 13px !important; box-shadow: none !important; background: #fff !important; }
+		.bn-search-input:focus { border-color: #0073aa !important; box-shadow: 0 0 0 1px #0073aa !important; outline: none !important; }
+		.bn-filter-select { border: 1px solid #ddd; border-radius: 5px; padding: 7px 10px; font-size: 13px; background: #fff; color: #374151; height: auto; cursor: pointer; }
+
+		/* ── Table columns ── */
+		.bn-col-email { color: #374151; font-size: 13px; }
+		.bn-col-muted { color: #9ca3af; font-size: 12px; white-space: nowrap; }
+
+		/* ── Row actions ── */
+		.bn-row-actions { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+		.bn-action-link { font-size: 13px; font-weight: 500; color: #0073aa; text-decoration: none; }
+		.bn-action-link:hover { text-decoration: underline; }
+
+		/* ── More menu dropdown ── */
+		.bn-more-menu { position: relative; display: inline-block; }
+		.bn-more-btn { background: transparent; border: 1px solid #e5e7eb; border-radius: 4px; width: 28px; height: 28px; font-size: 16px; color: #9ca3af; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
+		.bn-more-btn:hover { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
+		.bn-more-dropdown { display: none; position: absolute; right: 0; top: calc(100% + 4px); background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); min-width: 140px; z-index: 100; overflow: hidden; }
+		.bn-more-menu.open .bn-more-dropdown { display: block; }
+		.bn-dropdown-item { display: block; width: 100%; text-align: left; padding: 8px 14px; font-size: 13px; font-weight: 500; color: #374151; background: none; border: none; cursor: pointer; font-family: inherit; white-space: nowrap; }
+		.bn-dropdown-item:hover { background: #f9fafb; }
+		.bn-dropdown-danger { color: #dc2626; }
+		.bn-dropdown-danger:hover { background: #fef2f2; }
+
+		/* ── Edit member form fields ── */
+		.bn-field-row { margin-bottom: 16px; }
+		.bn-field-row:last-child { margin-bottom: 0; }
+		.bn-label { display: block; font-weight: 600; font-size: 13px; color: #374151; margin-bottom: 6px; }
+		.bn-label label { font-weight: 600; font-size: 13px; color: #374151; cursor: pointer; }
+		.bn-control { }
+		select.bn-text-input { border: 1px solid #ddd !important; border-radius: 4px !important; padding: 7px 10px !important; font-size: 13px !important; background: #fff !important; height: auto !important; line-height: 1.4 !important; color: #374151 !important; display: block; width: 100%; max-width: 400px; }
+		select.bn-text-input:focus { border-color: #0073aa !important; box-shadow: 0 0 0 1px #0073aa !important; outline: none !important; }
+
 		/* ── Responsive ────────────────────────────────────────────── */
 		@media (max-width: 782px) {
 			.bn-admin-tabs { flex-wrap: wrap; }
@@ -439,6 +508,11 @@ abstract class AdminPageBase {
 			.bn-addon-grid { grid-template-columns: 1fr; }
 			.bn-table-header { flex-direction: column; align-items: flex-start; }
 			input.bn-table-search { width: 100% !important; }
+		}
+		@media (max-width: 640px) {
+			.bn-member-cell { gap: 8px; }
+			.bn-avatar-initials { width: 28px; height: 28px; font-size: 9px; }
+			.bn-col-email, .bn-col-muted { display: none; }
 		}
 		</style>
 		<?php

@@ -27,6 +27,7 @@ use BuddyNext\Core\CounterService;
 use BuddyNext\Core\CronScheduler;
 use BuddyNext\Core\RoleService;
 use BuddyNext\Core\TemplateLoader;
+use BuddyNext\Core\PageRouter;
 use BuddyNext\Theme\TokenService;
 use BuddyNext\Feed\BookmarkService;
 use BuddyNext\Feed\FeedService;
@@ -54,6 +55,7 @@ use BuddyNext\REST\Router;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
 use BuddyNext\Search\MemberDirectoryService;
+use BuddyNext\Search\SearchIndexListener;
 use BuddyNext\Search\SearchService;
 use BuddyNext\Auth\VerificationListener;
 use BuddyNext\Auth\VerificationService;
@@ -74,6 +76,16 @@ class Plugin {
 	 * @var bool
 	 */
 	private static bool $booted = false;
+
+	/**
+	 * In-process cache of bn_avatar usermeta values, keyed by user ID.
+	 *
+	 * Populated lazily in filter_avatar_data() and busted by bust_avatar_cache()
+	 * whenever a user's avatar is written or removed.
+	 *
+	 * @var array<int, string>
+	 */
+	private static array $avatar_cache = array();
 
 	/**
 	 * Boot the plugin.
@@ -98,7 +110,50 @@ class Plugin {
 			$container->get( 'admin_hub' )->register();
 			$container->get( 'admin_email_editor' )->register();
 			$container->get( 'setup_wizard' )->init();
+
+			// Redirect to setup wizard on first activation.
+			add_action(
+				'admin_init',
+				static function (): void {
+					if ( ! get_transient( 'buddynext_do_activation_redirect' ) ) {
+						return;
+					}
+					delete_transient( 'buddynext_do_activation_redirect' );
+					if ( current_user_can( 'manage_options' ) && '1' !== (string) get_option( 'buddynext_setup_complete', '0' ) ) {
+						wp_safe_redirect( admin_url( 'admin.php?page=buddynext-setup' ) );
+						exit;
+					}
+				}
+			);
+
+			// Admin notice: prompt admins to complete setup when wizard is not done.
+			add_action(
+				'admin_notices',
+				static function (): void {
+					if ( '1' === (string) get_option( 'buddynext_setup_complete', '0' ) ) {
+						return;
+					}
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return;
+					}
+					// Suppress on the wizard page itself.
+					$screen = get_current_screen();
+					if ( $screen && str_contains( (string) $screen->id, 'buddynext-setup' ) ) {
+						return;
+					}
+					$wizard_url = admin_url( 'admin.php?page=buddynext-setup' );
+					printf(
+						'<div class="notice notice-info"><p><strong>%s</strong> — <a href="%s">%s</a></p></div>',
+						esc_html__( 'BuddyNext setup is not complete.', 'buddynext' ),
+						esc_url( $wizard_url ),
+						esc_html__( 'Run the setup wizard', 'buddynext' )
+					);
+				}
+			);
 		}
+
+		// Override get_avatar_url() with the user's custom BuddyNext avatar when set.
+		add_filter( 'pre_get_avatar_data', array( new static(), 'filter_avatar_data' ), 10, 2 );
 
 		// Register and enqueue frontend assets.
 		$container->get( 'assets' )->init();
@@ -111,15 +166,9 @@ class Plugin {
 		// Wire email verification hooks.
 		( new VerificationListener( $container->get( 'verification' ) ) )->init();
 
-		// Synchronous search-index fallback — Action Scheduler (Phase 6+) can
-		// override this by hooking buddynext_index_user at a higher priority and
-		// scheduling an async job instead.
-		add_action(
-			'buddynext_index_user',
-			static function ( int $user_id ): void {
-				( new \BuddyNext\Profile\ProfileService() )->index_user( $user_id );
-			}
-		);
+		// Wire search index lifecycle hooks — handles async dispatch via Action
+		// Scheduler when available, or falls back to synchronous inline indexing.
+		$container->get( 'search_index_listener' )->init();
 
 		// Wire outbound webhook dispatcher to BuddyNext events.
 		$container->get( 'webhooks' )->init();
@@ -132,6 +181,9 @@ class Plugin {
 
 		// Register Gutenberg blocks and block patterns.
 		( new BlockRegistrar() )->init();
+
+		// Register URL rewrite rules for pretty profile URLs.
+		( new PageRouter() )->init();
 
 		// Register core shortcodes.
 		$container->get( 'shortcodes' )->init();
@@ -178,6 +230,140 @@ class Plugin {
 	}
 
 	/**
+	 * Override avatar URL with BuddyNext custom avatar or a generated initials SVG.
+	 *
+	 * Priority:
+	 *   1. `bn_avatar` usermeta (uploaded photo)
+	 *   2. Colored initials SVG — deterministic color by user ID, letters from display name
+	 *   3. WP/Gravatar default — only for non-user sources (comments without accounts, etc.)
+	 *
+	 * Hooked to `pre_get_avatar_data` at priority 10 so the URL is set before
+	 * WordPress makes any Gravatar requests.
+	 *
+	 * @param array $args        Avatar data args passed by WordPress.
+	 * @param mixed $id_or_email User ID, email address, WP_User, WP_Post, or WP_Comment.
+	 * @return array
+	 */
+	public function filter_avatar_data( array $args, $id_or_email ): array {
+		$user_id = 0;
+
+		if ( is_numeric( $id_or_email ) ) {
+			$user_id = (int) $id_or_email;
+		} elseif ( $id_or_email instanceof \WP_User ) {
+			$user_id = $id_or_email->ID;
+		} elseif ( $id_or_email instanceof \WP_Comment ) {
+			$user_id = (int) $id_or_email->user_id;
+		} elseif ( $id_or_email instanceof \WP_Post ) {
+			$user_id = (int) $id_or_email->post_author;
+		} elseif ( is_string( $id_or_email ) && str_contains( $id_or_email, '@' ) ) {
+			$user = get_user_by( 'email', $id_or_email );
+			if ( $user ) {
+				$user_id = $user->ID;
+			}
+		}
+
+		if ( $user_id > 0 ) {
+			if ( ! array_key_exists( $user_id, self::$avatar_cache ) ) {
+				self::$avatar_cache[ $user_id ] = (string) get_user_meta( $user_id, 'bn_avatar', true );
+			}
+			$custom = self::$avatar_cache[ $user_id ];
+			if ( '' !== $custom ) {
+				$args['url']          = $custom;
+				$args['found_avatar'] = true;
+			} else {
+				$size                 = max( 16, (int) ( $args['size'] ?? 96 ) );
+				$args['url']          = $this->generate_initials_avatar( $user_id, $size );
+				$args['found_avatar'] = true;
+			}
+		}
+
+		return $args;
+	}
+
+	/**
+	 * Generate a base64-encoded SVG data URI showing the user's initials on a
+	 * coloured circle. The colour is deterministic (user_id mod 8) so it is
+	 * stable across page loads without any storage.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @param int $size    Requested avatar size in pixels.
+	 * @return string      Data URI string safe for use in <img src>.
+	 */
+	private function generate_initials_avatar( int $user_id, int $size ): string {
+		$colors   = array(
+			'#0073aa',
+			'#059669',
+			'#7c3aed',
+			'#ea580c',
+			'#db2777',
+			'#0d9488',
+			'#e11d48',
+			'#4f46e5',
+		);
+		$color    = $colors[ $user_id % count( $colors ) ];
+		$initials = $this->get_user_initials( $user_id );
+
+		$font_size = (int) round( $size * 0.38 );
+		$half      = (int) round( $size / 2 );
+
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$svg = sprintf(
+			'<svg xmlns="http://www.w3.org/2000/svg" width="%1$d" height="%1$d" viewBox="0 0 %1$d %1$d">'
+			. '<rect width="%1$d" height="%1$d" rx="%1$d" fill="%2$s"/>'
+			. '<text x="%3$d" y="%3$d" text-anchor="middle" dominant-baseline="central" '
+			. 'font-family="-apple-system,BlinkMacSystemFont,\'Segoe UI\',Arial,sans-serif" '
+			. 'font-size="%4$d" font-weight="700" fill="#fff" letter-spacing="0.5">%5$s</text>'
+			. '</svg>',
+			$size,
+			$color,
+			$half,
+			$font_size,
+			esc_html( $initials )
+		);
+		// phpcs:enable
+
+		return 'data:image/svg+xml;base64,' . base64_encode( $svg ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+	}
+
+	/**
+	 * Derive up to two initials from a user's display name.
+	 *
+	 * Falls back to the first character of user_login when display_name is empty.
+	 * Uses the WP user object cache so no extra DB query is issued for users
+	 * already loaded in the current request.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return string One or two uppercase letters.
+	 */
+	private function get_user_initials( int $user_id ): string {
+		$user = get_userdata( $user_id );
+		if ( ! $user ) {
+			return '?';
+		}
+		$name  = trim( $user->display_name );
+		$parts = array_values( array_filter( explode( ' ', $name ) ) );
+		if ( empty( $parts ) ) {
+			return mb_strtoupper( mb_substr( $user->user_login, 0, 1 ) );
+		}
+		$first = mb_strtoupper( mb_substr( $parts[0], 0, 1 ) );
+		$last  = count( $parts ) > 1 ? mb_strtoupper( mb_substr( end( $parts ), 0, 1 ) ) : '';
+		return $first . $last;
+	}
+
+	/**
+	 * Remove a single user's avatar from the in-process cache.
+	 *
+	 * Call this immediately after writing or deleting the bn_avatar usermeta
+	 * so the next call to filter_avatar_data() re-reads from the database.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return void
+	 */
+	public static function bust_avatar_cache( int $user_id ): void {
+		unset( self::$avatar_cache[ $user_id ] );
+	}
+
+	/**
 	 * Bind core services into the container.
 	 *
 	 * @param Container $container DI container.
@@ -207,6 +393,7 @@ class Plugin {
 		$container->bind( 'shares', fn() => new ShareService() );
 		$container->bind( 'profiles', fn() => new ProfileService() );
 		$container->bind( 'search', fn() => new SearchService() );
+		$container->bind( 'search_index_listener', fn() => new SearchIndexListener() );
 		$container->bind( 'member_directory', fn( $c ) => new MemberDirectoryService( $c->get( 'follows' ) ) );
 		$container->bind( 'spaces', fn() => new SpaceService() );
 		$container->bind( 'space_members', fn() => new SpaceMemberService() );

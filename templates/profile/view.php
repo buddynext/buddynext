@@ -39,25 +39,19 @@ if ( ! $is_own_profile && ! current_user_can( 'manage_options' ) ) {
 }
 
 // --- Avatar & display name ------------------------------------------------
-$avatar_url        = get_avatar_url( $user_id, array( 'size' => 96 ) );
-$display_name      = $profile_user->display_name;
-$profile_login     = $profile_user->user_login;
-$profile_email_raw = $profile_user->user_email;
-
-// Initials fallback for generated avatar.
+$avatar_url   = get_avatar_url( $user_id, array( 'size' => 96 ) );
+$display_name = $profile_user->display_name;
+// Initials fallback — display_name only (no WP credentials exposed).
 $name_parts = explode( ' ', $display_name );
 $initials   = '';
 foreach ( array_slice( $name_parts, 0, 2 ) as $part ) {
 	$initials .= mb_strtoupper( mb_substr( $part, 0, 1 ) );
 }
-$initials = $initials ? $initials : mb_strtoupper( mb_substr( $profile_login, 0, 2 ) );
+if ( '' === $initials ) {
+	$initials = '?';
+}
 
-// --- Profile meta from user meta ------------------------------------------
-$headline = (string) get_user_meta( $user_id, 'bn_headline', true );
-$bio      = (string) get_user_meta( $user_id, 'bn_bio', true );
-$location = (string) get_user_meta( $user_id, 'bn_location', true );
-$website  = (string) get_user_meta( $user_id, 'bn_website', true );
-$joined   = gmdate( 'M Y', strtotime( $profile_user->user_registered ) );
+$joined = gmdate( 'M Y', strtotime( $profile_user->user_registered ) );
 
 // --- Stats ----------------------------------------------------------------
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -134,18 +128,60 @@ if ( ! $is_own_profile && $current_user_id ) {
 	$mutual_count = count( buddynext_service( 'connections' )->mutual_connections( $current_user_id, $user_id ) );
 }
 
-// --- Custom profile fields ------------------------------------------------
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$profile_fields = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT f.id, f.label, f.type, v.value
-		FROM {$wpdb->prefix}bn_profile_fields f
-		INNER JOIN {$wpdb->prefix}bn_profile_values v
-		  ON v.field_id = f.id AND v.user_id = %d
-		ORDER BY f.sort_order ASC",
-		$user_id
-	)
+// --- Profile data via ProfileService -------------------------------------
+$profile_svc  = buddynext_service( 'profiles' );
+$profile_data = $profile_svc->get_profile( $user_id, $current_user_id );
+
+// Build group_key → group data lookup.
+$group_data = array();
+if ( is_array( $profile_data ) ) {
+	foreach ( $profile_data['groups'] as $group ) {
+		$group_data[ $group['group_key'] ] = $group;
+	}
+}
+
+// Helper: get a single field value from a flat group.
+$get_fv = static function ( string $group_key, string $field_key ) use ( $group_data ): string {
+	if ( ! isset( $group_data[ $group_key ]['fields'] ) ) {
+		return '';
+	}
+	foreach ( $group_data[ $group_key ]['fields'] as $field ) {
+		if ( $field['field_key'] === $field_key ) {
+			return (string) ( $field['value'] ?? '' );
+		}
+	}
+	return '';
+};
+
+// Helper: get a field value from a repeater entry array by field_key.
+$entry_fv = static function ( array $entry_fields, string $fkey ): string {
+	foreach ( $entry_fields as $f ) {
+		if ( $f['field_key'] === $fkey ) {
+			return (string) ( $f['value'] ?? '' );
+		}
+	}
+	return '';
+};
+
+$headline = $get_fv( 'basic_info', 'headline' );
+$bio      = $get_fv( 'basic_info', 'bio' );
+$location = $get_fv( 'basic_info', 'location' );
+$website  = $get_fv( 'basic_info', 'website' );
+$pronouns = $get_fv( 'basic_info', 'pronouns' );
+
+// Social links: only show fields that have a value.
+$social_link_fields = isset( $group_data['social_links']['fields'] ) ? $group_data['social_links']['fields'] : array();
+$social_links       = array_filter(
+	$social_link_fields,
+	static fn( array $f ): bool => '' !== (string) ( $f['value'] ?? '' )
 );
+
+// Repeater groups.
+$work_entries = isset( $group_data['work_experience']['entries'] ) ? $group_data['work_experience']['entries'] : array();
+$edu_entries  = isset( $group_data['education']['entries'] ) ? $group_data['education']['entries'] : array();
+
+// Profile URL slug (safe — never exposes WP login).
+$profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
 
 // --- Recent posts (tab: Posts default) ------------------------------------
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -174,9 +210,15 @@ $member_spaces = $wpdb->get_results(
 	)
 );
 
-// --- Interests (from profile field id 'interests' or user meta) -----------
-$interests_raw = (string) get_user_meta( $user_id, 'bn_interests', true );
+// --- Interests — stored as comma-separated in the skills group ------------
+$interests_raw = $get_fv( 'skills', 'interests' );
 $interests     = array_filter( array_map( 'trim', explode( ',', $interests_raw ) ) );
+
+// --- Profile completion (only fetched for profile owner) ------------------
+$completion = null;
+if ( $is_own_profile ) {
+	$completion = $profile_svc->get_completion_score( $user_id );
+}
 
 // --- Online indicator -----------------------------------------------------
 $last_active = (int) get_user_meta( $user_id, 'bn_last_active', true );
@@ -547,6 +589,104 @@ $format_count = static function ( int $n ): string {
 .bn-space-name { font-weight: 600; font-size: var(--text-xs); }
 .bn-space-role { font-size: 11px; color: var(--text-2); }
 
+/* Repeater entries in sidebar */
+.bn-repeater-entry {
+	margin-bottom: var(--s4);
+	padding-bottom: var(--s4);
+	border-bottom: 1px solid var(--border-soft);
+}
+.bn-repeater-entry:last-child {
+	margin-bottom: 0;
+	padding-bottom: 0;
+	border-bottom: none;
+}
+.bn-entry-title {
+	font-weight: 600;
+	font-size: var(--text-sm);
+	color: var(--text-1);
+	margin-bottom: 2px;
+}
+.bn-entry-sub {
+	font-size: var(--text-xs);
+	color: var(--text-2);
+	margin-bottom: 2px;
+}
+.bn-entry-meta {
+	font-size: var(--text-xs);
+	color: var(--text-3);
+	margin-bottom: 4px;
+}
+.bn-entry-desc {
+	font-size: var(--text-xs);
+	color: var(--text-2);
+	line-height: 1.5;
+	margin-top: var(--s1);
+}
+
+/* Completion bar widget */
+.bn-completion-bar-wrap {
+	margin-bottom: var(--s3);
+}
+.bn-completion-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: var(--s2);
+}
+.bn-completion-label {
+	font-size: var(--text-xs);
+	font-weight: 600;
+	color: var(--text-1);
+}
+.bn-completion-pct {
+	font-size: var(--text-xs);
+	font-weight: 700;
+	color: var(--brand);
+}
+.bn-completion-track {
+	background: var(--bg-hover);
+	border-radius: var(--r-full, 9999px);
+	height: 7px;
+	overflow: hidden;
+}
+.bn-completion-fill {
+	background: var(--brand);
+	height: 100%;
+	border-radius: var(--r-full, 9999px);
+	transition: width 0.4s ease;
+}
+.bn-completion-fill.bn-complete { background: var(--green); }
+
+/* Prompt cards */
+.bn-prompt-cards {
+	margin-top: var(--s3);
+	display: flex;
+	flex-direction: column;
+	gap: var(--s2);
+}
+.bn-prompt-card {
+	display: flex;
+	align-items: center;
+	gap: var(--s2);
+	padding: var(--s2) var(--s3);
+	border-radius: var(--r-md, 8px);
+	background: var(--brand-light);
+	font-size: var(--text-xs);
+	color: var(--brand);
+	font-weight: 500;
+	text-decoration: none;
+	border: 1px solid transparent;
+}
+.bn-prompt-card:hover {
+	background: var(--bg-hover);
+	border-color: var(--border);
+	color: var(--text-1);
+}
+.bn-prompt-card-icon {
+	font-size: 15px;
+	flex-shrink: 0;
+}
+
 /* ── Mobile ── */
 @media (max-width: 640px) {
 	.bn-cover { height: 140px; }
@@ -659,7 +799,10 @@ $format_count = static function ( int $n ): string {
 
 		<!-- Handle & headline -->
 		<div class="bn-profile-handle">
-			@<?php echo esc_html( $profile_login ); ?>
+			@<?php echo esc_html( '' !== $profile_slug ? $profile_slug : 'user-' . $user_id ); ?>
+			<?php if ( $pronouns ) : ?>
+				&nbsp;(<?php echo esc_html( $pronouns ); ?>)
+			<?php endif; ?>
 			<?php if ( $headline ) : ?>
 				&nbsp;&middot;&nbsp;<?php echo esc_html( $headline ); ?>
 			<?php endif; ?>
@@ -808,22 +951,144 @@ $format_count = static function ( int $n ): string {
 		<!-- Right: sidebar widgets -->
 		<aside>
 
-			<?php if ( $profile_fields ) : ?>
+			<?php if ( $is_own_profile && null !== $completion ) : ?>
+				<?php
+				$c_pct      = (int) $completion['percent'];
+				$c_complete = 100 === $c_pct;
+				$edit_url   = esc_url( get_edit_profile_url( $user_id ) );
+				?>
 			<div class="bn-widget">
-				<div class="bn-widget-title"><?php esc_html_e( 'Profile Details', 'buddynext' ); ?></div>
-				<?php foreach ( $profile_fields as $field ) : ?>
-					<div class="bn-field-row">
-						<span class="bn-field-label"><?php echo esc_html( $field->label ); ?></span>
-						<span class="bn-field-value">
-							<?php if ( 'url' === $field->type ) : ?>
-								<a href="<?php echo esc_url( $field->value ); ?>"
-									target="_blank" rel="noopener noreferrer">
-									<?php echo esc_html( $field->value ); ?>
-								</a>
-							<?php else : ?>
-								<?php echo esc_html( $field->value ); ?>
-							<?php endif; ?>
+				<div class="bn-widget-title"><?php esc_html_e( 'Profile Strength', 'buddynext' ); ?></div>
+				<div class="bn-completion-bar-wrap">
+					<div class="bn-completion-header">
+						<span class="bn-completion-label">
+							<?php
+							echo $c_complete
+								? esc_html__( 'Complete!', 'buddynext' )
+								: esc_html__( 'Profile completion', 'buddynext' );
+							?>
 						</span>
+						<span class="bn-completion-pct"><?php echo esc_html( $c_pct . '%' ); ?></span>
+					</div>
+					<div class="bn-completion-track">
+						<div class="bn-completion-fill<?php echo $c_complete ? ' bn-complete' : ''; ?>"
+							style="width:<?php echo esc_attr( $c_pct . '%' ); ?>"></div>
+					</div>
+				</div>
+				<?php if ( ! $c_complete ) : ?>
+				<div class="bn-prompt-cards">
+					<?php if ( '' === $get_fv( 'basic_info', 'bio' ) ) : ?>
+					<a href="<?php echo $edit_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped above ?>" class="bn-prompt-card">
+						<span class="bn-prompt-card-icon">&#128221;</span>
+						<?php esc_html_e( 'Add a bio', 'buddynext' ); ?>
+					</a>
+					<?php endif; ?>
+					<?php if ( empty( $work_entries ) ) : ?>
+					<a href="<?php echo $edit_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>" class="bn-prompt-card">
+						<span class="bn-prompt-card-icon">&#128188;</span>
+						<?php esc_html_e( 'Add your work experience', 'buddynext' ); ?>
+					</a>
+					<?php endif; ?>
+					<?php if ( empty( $interests ) ) : ?>
+					<a href="<?php echo $edit_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>" class="bn-prompt-card">
+						<span class="bn-prompt-card-icon">&#127959;</span>
+						<?php esc_html_e( 'Add your skills', 'buddynext' ); ?>
+					</a>
+					<?php endif; ?>
+				</div>
+				<?php endif; ?>
+			</div>
+			<?php endif; ?>
+
+			<?php if ( $social_links ) : ?>
+			<div class="bn-widget">
+				<div class="bn-widget-title"><?php esc_html_e( 'Connect', 'buddynext' ); ?></div>
+				<?php foreach ( $social_links as $field ) : ?>
+					<div class="bn-field-row">
+						<span class="bn-field-label"><?php echo esc_html( $field['label'] ); ?></span>
+						<span class="bn-field-value">
+							<a href="<?php echo esc_url( (string) ( $field['value'] ?? '' ) ); ?>"
+								target="_blank" rel="noopener noreferrer me">
+								<?php
+								$parsed_host = wp_parse_url( (string) ( $field['value'] ?? '' ), PHP_URL_HOST );
+								echo esc_html( $parsed_host ? $parsed_host : (string) ( $field['value'] ?? '' ) );
+								?>
+							</a>
+						</span>
+					</div>
+				<?php endforeach; ?>
+			</div>
+			<?php endif; ?>
+
+			<?php if ( $work_entries ) : ?>
+			<div class="bn-widget">
+				<div class="bn-widget-title"><?php esc_html_e( 'Work Experience', 'buddynext' ); ?></div>
+				<?php foreach ( $work_entries as $entry_fields ) : ?>
+					<?php
+					$we_company     = $entry_fv( $entry_fields, 'work_company' );
+					$we_title       = $entry_fv( $entry_fields, 'work_title' );
+					$we_location    = $entry_fv( $entry_fields, 'work_location' );
+					$we_daterange   = $entry_fv( $entry_fields, 'work_daterange' );
+					$we_current     = $entry_fv( $entry_fields, 'work_current' );
+					$we_description = $entry_fv( $entry_fields, 'work_description' );
+					if ( '' === $we_company && '' === $we_title ) {
+						continue;
+					}
+					$we_date_display = '' !== $we_daterange
+						? ( '1' === $we_current
+							? $we_daterange . ' &ndash; ' . esc_html__( 'Present', 'buddynext' )
+							: $we_daterange )
+						: ( '1' === $we_current ? esc_html__( 'Current', 'buddynext' ) : '' );
+					?>
+					<div class="bn-repeater-entry">
+						<?php if ( $we_title ) : ?>
+							<div class="bn-entry-title"><?php echo esc_html( $we_title ); ?></div>
+						<?php endif; ?>
+						<?php if ( $we_company ) : ?>
+							<div class="bn-entry-sub"><?php echo esc_html( $we_company ); ?></div>
+						<?php endif; ?>
+						<?php if ( '' !== $we_location ) : ?>
+							<div class="bn-entry-sub"><?php echo esc_html( $we_location ); ?></div>
+						<?php endif; ?>
+						<?php if ( '' !== $we_date_display ) : ?>
+							<div class="bn-entry-meta"><?php echo wp_kses( $we_date_display, array() ); ?></div>
+						<?php endif; ?>
+						<?php if ( $we_description ) : ?>
+							<div class="bn-entry-desc"><?php echo wp_kses_post( $we_description ); ?></div>
+						<?php endif; ?>
+					</div>
+				<?php endforeach; ?>
+			</div>
+			<?php endif; ?>
+
+			<?php if ( $edu_entries ) : ?>
+			<div class="bn-widget">
+				<div class="bn-widget-title"><?php esc_html_e( 'Education', 'buddynext' ); ?></div>
+				<?php foreach ( $edu_entries as $entry_fields ) : ?>
+					<?php
+					$edu_institution = $entry_fv( $entry_fields, 'edu_institution' );
+					$edu_degree      = $entry_fv( $entry_fields, 'edu_degree' );
+					$edu_field_study = $entry_fv( $entry_fields, 'edu_field' );
+					$edu_daterange   = $entry_fv( $entry_fields, 'edu_daterange' );
+					$edu_current     = $entry_fv( $entry_fields, 'edu_current' );
+					if ( '' === $edu_institution ) {
+						continue;
+					}
+					$edu_degree_line  = implode( ', ', array_filter( array( $edu_degree, $edu_field_study ) ) );
+					$edu_date_display = '' !== $edu_daterange
+						? ( '1' === $edu_current
+							? $edu_daterange . ' &ndash; ' . esc_html__( 'Present', 'buddynext' )
+							: $edu_daterange )
+						: ( '1' === $edu_current ? esc_html__( 'Current', 'buddynext' ) : '' );
+					?>
+					<div class="bn-repeater-entry">
+						<div class="bn-entry-title"><?php echo esc_html( $edu_institution ); ?></div>
+						<?php if ( $edu_degree_line ) : ?>
+							<div class="bn-entry-sub"><?php echo esc_html( $edu_degree_line ); ?></div>
+						<?php endif; ?>
+						<?php if ( '' !== $edu_date_display ) : ?>
+							<div class="bn-entry-meta"><?php echo wp_kses( $edu_date_display, array() ); ?></div>
+						<?php endif; ?>
 					</div>
 				<?php endforeach; ?>
 			</div>
