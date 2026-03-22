@@ -511,6 +511,9 @@ class NavManager extends AdminPageBase {
 				</div>
 
 			</div><!-- /.bn-three-panel -->
+
+			<?php $this->render_hub_page_assignments(); ?>
+
 		</form>
 
 		<?php
@@ -727,7 +730,51 @@ class NavManager extends AdminPageBase {
 	 *
 	 * @return void
 	 */
-
+	private function render_hub_page_assignments(): void {
+		$hubs = array(
+			'people' => array(
+				'label'       => __( 'Member Directory', 'buddynext' ),
+				'description' => __( 'Page that renders the member directory and individual profile URLs.', 'buddynext' ),
+				'option'      => 'buddynext_page_people',
+			),
+			'auth'   => array(
+				'label'       => __( 'Login / Register', 'buddynext' ),
+				'description' => __( 'Page that renders the login, registration, and password reset forms.', 'buddynext' ),
+				'option'      => 'buddynext_page_auth',
+			),
+		);
+		?>
+		<div class="bn-nav-section">
+			<div class="bn-nav-section-header">
+				<div class="bn-nav-section-title"><?php esc_html_e( 'Hub Page Assignments', 'buddynext' ); ?></div>
+				<div class="bn-nav-section-desc"><?php esc_html_e( 'Assign WordPress pages to the hubs below. These hubs do not appear in the main navigation bar.', 'buddynext' ); ?></div>
+			</div>
+			<div class="bn-hub-pages-list">
+				<?php foreach ( $hubs as $slug => $hub ) : ?>
+				<div class="bn-hub-page-row">
+					<div class="bn-hub-page-info">
+						<span class="bn-hub-page-label"><?php echo esc_html( $hub['label'] ); ?></span>
+						<span class="bn-hub-page-desc"><?php echo esc_html( $hub['description'] ); ?></span>
+					</div>
+					<div class="bn-hub-page-picker">
+						<?php
+						wp_dropdown_pages(
+							array(
+								'name'              => 'bn_nav_config[main][' . esc_attr( $slug ) . '][page_id]',
+								'id'                => 'bn-hub-page-' . esc_attr( $slug ),
+								'selected'          => (int) get_option( $hub['option'], 0 ),
+								'show_option_none'  => esc_html__( '— Select a page —', 'buddynext' ),
+								'option_none_value' => '0',
+							)
+						);
+						?>
+					</div>
+				</div>
+				<?php endforeach; ?>
+			</div>
+		</div>
+		<?php
+	}
 
 	/**
 	 * Render a "coming soon" placeholder panel for an unbuilt scope.

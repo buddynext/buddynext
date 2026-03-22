@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Member directory service.
  *
@@ -100,8 +100,24 @@ class MemberDirectoryService {
 
 		$follower_count_subquery = "(SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows f WHERE f.following_id = u.ID) AS follower_count";
 
-		// TODO: mutual connections require a graph pre-computation layer; returns 0 until implemented.
-		$mutual_subquery = '0 AS mutual_connection_count';
+		// Correlated subquery: count users who are accepted connections of both the
+		// viewer and the result user. Uses integer-cast viewer ID — safe to interpolate.
+		$viewer_id_safe  = (int) $viewer_id;
+		$mutual_subquery = "(SELECT COUNT(*)
+		    FROM {$wpdb->prefix}bn_connections vc
+		    INNER JOIN {$wpdb->prefix}bn_connections tc
+		        ON tc.status = 'accepted'
+		        AND ( CASE WHEN vc.requester_id = {$viewer_id_safe}
+		                   THEN vc.recipient_id
+		                   ELSE vc.requester_id
+		              END )
+		          = ( CASE WHEN tc.requester_id = u.ID
+		                   THEN tc.recipient_id
+		                   ELSE tc.requester_id
+		              END )
+		    WHERE ( vc.requester_id = {$viewer_id_safe} OR vc.recipient_id = {$viewer_id_safe} )
+		      AND vc.status = 'accepted'
+		) AS mutual_connection_count";
 
 		// ------------------------------------------------------------------ //
 		// Build JOIN clauses.
@@ -318,8 +334,7 @@ class MemberDirectoryService {
 					'bio'                     => $bio ? $bio : '',
 					'is_online'               => $is_online,
 					'follower_count'          => (int) $r['follower_count'],
-					// TODO: mutual connections require a graph pre-computation layer; returns 0 until implemented.
-					'mutual_connection_count' => 0,
+					'mutual_connection_count' => (int) ( \$r['mutual_connection_count'] ?? 0 ),
 				);
 			},
 			$rows

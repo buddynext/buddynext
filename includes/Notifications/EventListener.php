@@ -68,6 +68,9 @@ class EventListener {
 		add_action( 'buddynext_comment_created', array( $this, 'on_webhook_comment_created' ), 10, 3 );
 		add_action( 'buddynext_user_suspended', array( $this, 'on_webhook_user_suspended' ), 10, 4 );
 		add_action( 'buddynext_user_unsuspended', array( $this, 'on_webhook_user_unsuspended' ), 10, 1 );
+		add_action( 'buddynext_ability_granted', array( $this, 'on_webhook_ability_granted' ), 10, 2 );
+		add_action( 'buddynext_ability_revoked', array( $this, 'on_webhook_ability_revoked' ), 10, 2 );
+		add_action( 'buddynext_user_verified', array( $this, 'on_webhook_member_verified' ), 10, 1 );
 
 		// Schedule daily moderation queue alert if not already registered.
 		if ( ! wp_next_scheduled( 'buddynext_daily_queue_check' ) ) {
@@ -748,7 +751,7 @@ class EventListener {
 			array(
 				'recipient_id' => $user_id,
 				'sender_id'    => $warned_by,
-				'type'         => 'user_warned',
+				'type'         => 'bn.user_warned',
 				'object_type'  => 'user',
 				'object_id'    => $user_id,
 				'group_key'    => null,
@@ -844,7 +847,7 @@ class EventListener {
 				array(
 					'recipient_id' => (int) $admin_id,
 					'sender_id'    => $user_id,
-					'type'         => 'appeal_submitted',
+					'type'         => 'bn.appeal_submitted',
 					'object_type'  => 'appeal',
 					'object_id'    => $appeal_id,
 					'group_key'    => 'appeal_submitted_' . $appeal_id,
@@ -1159,6 +1162,59 @@ class EventListener {
 			'user.unsuspended',
 			array(
 				'user_id' => $user_id,
+			)
+		);
+	}
+
+	/**
+	 * Dispatch member.ability_granted when a custom ability is granted to a user.
+	 *
+	 * @param int    $user_id User who received the ability.
+	 * @param string $ability Ability slug (e.g. 'bn-post-in-feed').
+	 */
+	public function on_webhook_ability_granted( int $user_id, string $ability ): void {
+		buddynext_service( 'webhooks' )->dispatch(
+			'member.ability_granted',
+			array(
+				'user_id' => $user_id,
+				'ability' => $ability,
+			)
+		);
+	}
+
+	/**
+	 * Dispatch member.ability_revoked when a custom ability is removed from a user.
+	 *
+	 * @param int    $user_id User whose ability was revoked.
+	 * @param string $ability Ability slug.
+	 */
+	public function on_webhook_ability_revoked( int $user_id, string $ability ): void {
+		buddynext_service( 'webhooks' )->dispatch(
+			'member.ability_revoked',
+			array(
+				'user_id' => $user_id,
+				'ability' => $ability,
+			)
+		);
+	}
+
+	/**
+	 * Dispatch member.verified when a user completes email verification.
+	 *
+	 * @param int $user_id Verified user ID.
+	 */
+	public function on_webhook_member_verified( int $user_id ): void {
+		$user = get_userdata( $user_id );
+		if ( ! $user ) {
+			return;
+		}
+
+		buddynext_service( 'webhooks' )->dispatch(
+			'member.verified',
+			array(
+				'user_id'      => $user_id,
+				'display_name' => $user->display_name,
+				'user_email'   => $user->user_email,
 			)
 		);
 	}
