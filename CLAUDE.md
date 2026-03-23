@@ -575,4 +575,9 @@ A phase is Done when ALL of:
 | 2026-03-22 | 8 | fix | ModerationService::suspend(): buddynext_user_suspended hook now fires with correct signature ($user_id, $actor_id, $reason, $expires_at) matching EventListener::on_user_suspended |
 | 2026-03-22 | 8 | fix | ModerationService::decide_appeal(): fetch appellant user_id from bn_appeals before update; buddynext_appeal_resolved now fires with 3 args ($appeal_id, $user_id, $decision) matching on_appeal_resolved |
 | 2026-03-22 | 8 | fix | ModerationService::unsuspend_user(): now fires buddynext_user_unsuspended in addition to buddynext_member_unsuspended so notification listener triggers |
+| 2026-03-23 | 2 | fix | FollowService: add get_followers()/get_following() spec-named paginated aliases; unfollow() return type void→bool |
+| 2026-03-23 | 2 | fix | BlockService: is_blocked() made bidirectional per spec; has_blocked() added for single-direction check |
+| 2026-03-23 | 2 | fix | follow-button.php: add data-wp-interactive, data-wp-context, wp-on--click, nonce key aligned to bn-follow |
+| 2026-03-23 | 2 | fix | connection-button.php: add data-wp-interactive; handle all 5 states (null/pending-sent/pending-received/accepted/blocked) |
+| 2026-03-23 | 2 | feature | assets/css/bn-members.css: full 340-line implementation — member card, follow/connect buttons, directory grid/list, search, filter sidebar, pagination, dark mode, mobile ≤640px |
 | 2026-03-22 | 8 | fix | ModerationController: removed POST /users/{id}/unsuspend route; DELETE /users/{id}/suspend (delete_suspension) is now the sole unsuspend path, calling unsuspend_user() for audit trail and hook; unsuspend_user() method made private |
