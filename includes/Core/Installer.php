@@ -235,11 +235,17 @@ class Installer {
 
 		// ── 1. Groups ──────────────────────────────────────────────────────────
 
-		// Only Basic Info is seeded on install. All other groups (Social Links,
-		// Work Experience, Education, Skills, etc.) are offered as optional presets
-		// in the setup wizard so admins can build the structure that fits their community.
+		// All five built-in groups are seeded on install (INSERT IGNORE is safe
+		// on re-runs). The spec defines these as the canonical group set:
+		// Basic Info (flat), Social Links (flat), Work Experience (repeater),
+		// Education (repeater), Skills (flat).
+		// Format: group_key, label, type, visibility, is_system, sort_order.
 		$groups = array(
-			array( 'basic_info', 'Basic Info', 'flat', 'public', 0, 1 ),
+			array( 'basic_info', 'Basic Info', 'flat', 'public', 1, 1 ),
+			array( 'social_links', 'Social Links', 'flat', 'public', 1, 2 ),
+			array( 'work_experience', 'Work Experience', 'repeater', 'public', 1, 3 ),
+			array( 'education', 'Education', 'repeater', 'public', 1, 4 ),
+			array( 'skills', 'Skills', 'flat', 'public', 1, 5 ),
 		);
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -261,15 +267,43 @@ class Installer {
 
 		// ── 2. Fields ─────────────────────────────────────────────────────────
 		// Each INSERT uses a subquery to resolve group_id by group_key.
+		// Format: group_key, field_key, label, type, is_required, is_searchable, sort_order
 
 		$fields = array(
-			// basic_info — always seeded.
+			// basic_info.
 			array( 'basic_info', 'headline', 'Headline', 'text', 0, 0, 1 ),
 			array( 'basic_info', 'bio', 'Bio', 'textarea', 0, 0, 2 ),
 			array( 'basic_info', 'location', 'Location', 'text', 0, 1, 3 ),
 			array( 'basic_info', 'website', 'Website', 'url', 0, 0, 4 ),
 			array( 'basic_info', 'pronouns', 'Pronouns', 'text', 0, 0, 5 ),
 			array( 'basic_info', 'birth_date', 'Birth Date', 'date', 0, 0, 6 ),
+
+			// social_links.
+			array( 'social_links', 'social_twitter', 'Twitter / X', 'url', 0, 0, 1 ),
+			array( 'social_links', 'social_linkedin', 'LinkedIn', 'url', 0, 0, 2 ),
+			array( 'social_links', 'social_github', 'GitHub', 'url', 0, 0, 3 ),
+			array( 'social_links', 'social_instagram', 'Instagram', 'url', 0, 0, 4 ),
+			array( 'social_links', 'social_youtube', 'YouTube', 'url', 0, 0, 5 ),
+
+			// work_experience (repeater).
+			array( 'work_experience', 'work_company', 'Company', 'text', 0, 0, 1 ),
+			array( 'work_experience', 'work_title', 'Job Title', 'text', 0, 0, 2 ),
+			array( 'work_experience', 'work_location', 'Location', 'text', 0, 0, 3 ),
+			array( 'work_experience', 'work_start_date', 'Start Date', 'date', 0, 0, 4 ),
+			array( 'work_experience', 'work_end_date', 'End Date', 'date', 0, 0, 5 ),
+			array( 'work_experience', 'work_current', 'Currently Working', 'checkbox', 0, 0, 6 ),
+			array( 'work_experience', 'work_description', 'Description', 'textarea', 0, 0, 7 ),
+
+			// education (repeater).
+			array( 'education', 'edu_institution', 'Institution', 'text', 0, 0, 1 ),
+			array( 'education', 'edu_degree', 'Degree', 'text', 0, 0, 2 ),
+			array( 'education', 'edu_field', 'Field of Study', 'text', 0, 0, 3 ),
+			array( 'education', 'edu_start_year', 'Start Year', 'number', 0, 0, 4 ),
+			array( 'education', 'edu_end_year', 'End Year', 'number', 0, 0, 5 ),
+			array( 'education', 'edu_current', 'Currently Attending', 'checkbox', 0, 0, 6 ),
+
+			// skills (flat).
+			array( 'skills', 'interests', 'Skills / Interests', 'text', 0, 1, 1 ),
 		);
 
 		foreach ( $fields as $f ) {

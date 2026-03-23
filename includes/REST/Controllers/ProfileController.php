@@ -159,9 +159,16 @@ class ProfileController {
 			'buddynext/v1',
 			'/me/profile',
 			array(
-				'methods'             => 'PUT',
-				'callback'            => array( $this, 'update_profile' ),
-				'permission_callback' => array( $this, 'require_auth' ),
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'get_own_profile' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'PUT',
+					'callback'            => array( $this, 'update_profile' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
 			)
 		);
 
@@ -469,6 +476,34 @@ class ProfileController {
 		}
 
 		$profile['completion'] = $service->get_completion_score( $profile_user_id );
+
+		return new WP_REST_Response( $profile, 200 );
+	}
+
+	/**
+	 * GET /me/profile — return the authenticated user's own full profile.
+	 *
+	 * Returns all field groups regardless of visibility (owner view), plus
+	 * completion score and social graph counts. Equivalent to calling
+	 * GET /users/{id}/profile as the profile owner.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_own_profile(): WP_REST_Response {
+		$user_id = get_current_user_id();
+		$service = buddynext_service( 'profiles' );
+		$profile = $service->get_profile( $user_id, $user_id );
+
+		if ( null === $profile ) {
+			// Should not happen for an authenticated user, but guard defensively.
+			$profile = array(
+				'user_id' => $user_id,
+				'groups'  => array(),
+				'fields'  => array(),
+			);
+		}
+
+		$profile['completion'] = $service->get_completion_score( $user_id );
 
 		return new WP_REST_Response( $profile, 200 );
 	}
