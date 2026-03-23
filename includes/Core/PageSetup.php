@@ -27,7 +27,7 @@ class PageSetup {
 	 *
 	 * Bump this constant to force a re-run after hub definitions change.
 	 */
-	public const PAGES_VERSION = 1;
+	public const PAGES_VERSION = 2;
 
 	/**
 	 * Hub page definitions.
@@ -40,33 +40,33 @@ class PageSetup {
 	 */
 	private const HUBS = array(
 		'buddynext_page_activity'      => array(
-			'title'     => 'Community Feed',
-			'slug'      => 'community-feed',
+			'title'     => 'BuddyNext Feed',
+			'slug'      => 'bn-feed',
 			'shortcode' => '[buddynext_activity]',
 		),
 		'buddynext_page_spaces'        => array(
-			'title'     => 'Spaces',
-			'slug'      => 'spaces',
+			'title'     => 'BuddyNext Spaces',
+			'slug'      => 'bn-spaces',
 			'shortcode' => '[buddynext_spaces]',
 		),
 		'buddynext_page_people'        => array(
-			'title'     => 'Members',
-			'slug'      => 'members',
+			'title'     => 'BuddyNext Members',
+			'slug'      => 'bn-members',
 			'shortcode' => '[buddynext_people]',
 		),
 		'buddynext_page_notifications' => array(
-			'title'     => 'Notifications',
-			'slug'      => 'notifications',
+			'title'     => 'BuddyNext Notifications',
+			'slug'      => 'bn-notifications',
 			'shortcode' => '[buddynext_notifications]',
 		),
 		'buddynext_page_messages'      => array(
-			'title'     => 'Messages',
-			'slug'      => 'messages',
+			'title'     => 'BuddyNext Messages',
+			'slug'      => 'bn-messages',
 			'shortcode' => '[buddynext_messages]',
 		),
 		'buddynext_page_auth'          => array(
-			'title'     => 'Login',
-			'slug'      => 'login',
+			'title'     => 'BuddyNext Login',
+			'slug'      => 'bn-login',
 			'shortcode' => '[buddynext_auth]',
 		),
 	);
