@@ -886,149 +886,40 @@ require __DIR__ . '/../partials/nav.php';
 		<?php if ( ! empty( $feed_posts ) ) : ?>
 			<?php foreach ( $feed_posts as $feed_post ) : ?>
 				<?php
-				$post_author_id = (int) $feed_post->user_id;
-				$post_author    = get_userdata( $post_author_id );
-				$display_name   = $post_author ? $post_author->display_name : __( 'Community Member', 'buddynext' );
-				$avatar_url     = get_avatar_url( $post_author_id, array( 'size' => 68 ) );
-				$initials       = bn_home_initials( $display_name );
-				$avatar_colour  = $bn_avatar_colours[ $post_author_id % count( $bn_avatar_colours ) ];
-				$post_time      = bn_home_relative_time( $feed_post->created_at );
-				$profile_link   = PageRouter::profile_url( $post_author_id );
-				$reaction_count = absint( $feed_post->reaction_count ?? 0 );
-				$comment_count  = absint( $feed_post->comment_count ?? 0 );
-				$share_count    = absint( $feed_post->share_count ?? 0 );
-
-				// Resolve space name when the post belongs to a space.
-				$space_name = '';
-				if ( ! empty( $feed_post->space_id ) ) {
-					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$space_name = (string) $wpdb->get_var(
-						$wpdb->prepare(
-							"SELECT name FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-							(int) $feed_post->space_id
-						)
-					);
-				}
+				// Normalise stdClass row to array for the post-card partial.
+				$partial_post = array(
+					'id'             => (int) $feed_post->id,
+					'user_id'        => (int) $feed_post->user_id,
+					'type'           => $feed_post->type ?? 'text',
+					'content'        => $feed_post->content ?? '',
+					'privacy'        => $feed_post->privacy ?? 'public',
+					'space_id'       => isset( $feed_post->space_id ) ? (int) $feed_post->space_id : null,
+					'media_ids'      => null,
+					'link_url'       => $feed_post->link_url ?? null,
+					'link_meta'      => null,
+					'poll_options'   => array(),
+					'is_pinned'      => (int) ( $feed_post->is_pinned ?? 0 ),
+					'is_announcement' => (int) ( $feed_post->is_announcement ?? 0 ),
+					'content_warning'      => ! empty( $feed_post->content_warning ),
+					'content_warning_type' => $feed_post->content_warning_type ?? null,
+					'reaction_count' => absint( $feed_post->reaction_count ?? 0 ),
+					'comment_count'  => absint( $feed_post->comment_count ?? 0 ),
+					'share_count'    => absint( $feed_post->share_count ?? 0 ),
+					'edited_at'      => $feed_post->edited_at ?? null,
+					'created_at'     => $feed_post->created_at ?? '',
+					'updated_at'     => $feed_post->updated_at ?? null,
+				);
 				?>
-				<article
-					class="bn-post-card"
-					data-post-id="<?php echo absint( $feed_post->id ); ?>"
-					aria-labelledby="bn-post-author-<?php echo absint( $feed_post->id ); ?>"
-				>
-					<div class="bn-post-header">
-						<?php if ( $avatar_url ) : ?>
-							<img
-								src="<?php echo esc_url( $avatar_url ); ?>"
-								alt="<?php echo esc_attr( $display_name ); ?>"
-								class="bn-avatar sm"
-								width="34"
-								height="34"
-								loading="lazy"
-							>
-						<?php else : ?>
-							<div
-								class="bn-avatar sm"
-								style="background:<?php echo esc_attr( $avatar_colour ); ?>;"
-								aria-hidden="true"
-							><?php echo esc_html( $initials ); ?></div>
-						<?php endif; ?>
-						<div class="bn-post-author">
-							<a
-								id="bn-post-author-<?php echo absint( $feed_post->id ); ?>"
-								href="<?php echo esc_url( $profile_link ); ?>"
-								class="bn-post-author-name"
-							><?php echo esc_html( $display_name ); ?></a>
-							<div class="bn-post-author-meta">
-								<span><?php echo esc_html( $post_time ); ?></span>
-								<?php if ( '' !== $space_name ) : ?>
-									<span aria-hidden="true">·</span>
-									<span class="bn-space-badge">
-										<?php echo esc_html( $space_name ); ?>
-									</span>
-								<?php endif; ?>
-							</div>
-						</div>
-						<button
-							type="button"
-							class="bn-post-more"
-							aria-label="<?php esc_attr_e( 'Post options', 'buddynext' ); ?>"
-							data-wp-on--click="actions.openPostMenu"
-							data-post-id="<?php echo absint( $feed_post->id ); ?>"
-						>&#8943;</button>
-					</div>
-
-					<div class="bn-post-body">
-						<?php echo wp_kses( nl2br( esc_html( $feed_post->content ) ), array( 'br' => array() ) ); ?>
-					</div>
-
-					<?php if ( $reaction_count > 0 || $comment_count > 0 || $share_count > 0 ) : ?>
-						<div class="bn-post-reactions" aria-label="<?php esc_attr_e( 'Reactions', 'buddynext' ); ?>">
-							<?php if ( $reaction_count > 0 ) : ?>
-								<button
-									type="button"
-									class="bn-reaction-chip"
-									data-wp-on--click="actions.toggleReaction"
-									data-post-id="<?php echo absint( $feed_post->id ); ?>"
-									aria-label="
-									<?php
-										/* translators: %d: reaction count */
-										printf( esc_attr__( '%d reactions', 'buddynext' ), (int) $reaction_count );
-									?>
-									"
-								>&#10084;&#65039; <?php echo esc_html( (string) $reaction_count ); ?></button>
-							<?php endif; ?>
-							<?php if ( $comment_count > 0 ) : ?>
-								<button
-									type="button"
-									class="bn-reaction-chip"
-									aria-label="
-									<?php
-										/* translators: %d: comment count */
-										printf( esc_attr__( '%d comments', 'buddynext' ), (int) $comment_count );
-									?>
-									"
-								>&#128172; <?php echo esc_html( (string) $comment_count ); ?></button>
-							<?php endif; ?>
-						</div>
-					<?php endif; ?>
-
-					<div class="bn-post-actions">
-						<button
-							type="button"
-							class="bn-action-btn"
-							data-wp-on--click="actions.toggleReaction"
-							data-post-id="<?php echo absint( $feed_post->id ); ?>"
-						>&#10084;&#65039; <?php esc_html_e( 'Like', 'buddynext' ); ?></button>
-						<button
-							type="button"
-							class="bn-action-btn"
-							data-wp-on--click="actions.openComments"
-							data-post-id="<?php echo absint( $feed_post->id ); ?>"
-						>
-							&#128172;
-							<?php
-							if ( $comment_count > 0 ) {
-								/* translators: %d: comment count */
-								printf( esc_html__( 'Comment (%d)', 'buddynext' ), (int) $comment_count );
-							} else {
-								esc_html_e( 'Comment', 'buddynext' );
-							}
-							?>
-						</button>
-						<button
-							type="button"
-							class="bn-action-btn"
-							data-wp-on--click="actions.sharePost"
-							data-post-id="<?php echo absint( $feed_post->id ); ?>"
-						>&#8599;&#65039; <?php esc_html_e( 'Share', 'buddynext' ); ?></button>
-						<button
-							type="button"
-							class="bn-action-btn"
-							data-wp-on--click="actions.bookmarkPost"
-							data-post-id="<?php echo absint( $feed_post->id ); ?>"
-						>&#128278; <?php esc_html_e( 'Save', 'buddynext' ); ?></button>
-					</div>
-				</article>
+				<?php
+				buddynext_get_template(
+					'partials/post-card',
+					array(
+						'post'            => $partial_post,
+						'current_user_id' => $viewer_id,
+						'context'         => 'home',
+					)
+				);
+				?>
 			<?php endforeach; ?>
 		<?php else : ?>
 			<!-- Empty feed state -->

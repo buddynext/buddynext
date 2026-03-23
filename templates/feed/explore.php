@@ -581,67 +581,40 @@ include __DIR__ . '/../partials/nav.php';
 			<div class="bn-explore-grid" role="feed" aria-label="<?php esc_attr_e( 'Explore posts', 'buddynext' ); ?>">
 
 				<?php if ( ! empty( $grid_posts ) ) : ?>
-					<?php foreach ( $grid_posts as $idx => $card ) : ?>
+					<?php foreach ( $grid_posts as $card ) : ?>
 						<?php
-						$card_author_id  = (int) $card->user_id;
-						$card_author     = get_userdata( $card_author_id );
-						$card_display    = $card_author instanceof WP_User ? $card_author->display_name : __( 'Community Member', 'buddynext' );
-						$colour_class    = $avatar_colours[ $card_author_id % count( $avatar_colours ) ];
-						$card_parts      = explode( ' ', trim( $card_display ) );
-						$card_initials   = strtoupper( substr( $card_parts[0], 0, 1 ) . ( isset( $card_parts[1] ) ? substr( $card_parts[1], 0, 1 ) : '' ) );
-						$card_avatar_url = get_avatar_url( $card_author_id, array( 'size' => 52 ) );
-						$card_time       = bn_explore_relative_time( $card->created_at );
-						$card_excerpt    = bn_excerpt( $card->content );
-						$reaction_count  = absint( $card->reaction_count ?? 0 );
-						$comment_count   = absint( $card->comment_count ?? 0 );
-						$share_count     = absint( $card->share_count ?? 0 );
-
-						// Vary image heights for masonry effect.
-						$heights = array( 'h180', 'h120', 'h220' );
-						$img_cls = $heights[ $idx % 3 ];
-						$has_img = ( 'photo' === $card->type );
+						// Normalise stdClass row to array for the post-card partial.
+						$explore_post = array(
+							'id'                   => (int) $card->id,
+							'user_id'              => (int) $card->user_id,
+							'type'                 => $card->type ?? 'text',
+							'content'              => $card->content ?? '',
+							'privacy'              => 'public',
+							'space_id'             => null,
+							'media_ids'            => null,
+							'link_url'             => $card->link_url ?? null,
+							'link_meta'            => null,
+							'poll_options'         => array(),
+							'is_pinned'            => 0,
+							'is_announcement'      => 0,
+							'content_warning'      => false,
+							'content_warning_type' => null,
+							'reaction_count'       => absint( $card->reaction_count ?? 0 ),
+							'comment_count'        => absint( $card->comment_count ?? 0 ),
+							'share_count'          => absint( $card->share_count ?? 0 ),
+							'edited_at'            => null,
+							'created_at'           => $card->created_at ?? '',
+							'updated_at'           => null,
+						);
+						buddynext_get_template(
+							'partials/post-card',
+							array(
+								'post'            => $explore_post,
+								'current_user_id' => $current_user_id,
+								'context'         => 'explore',
+							)
+						);
 						?>
-						<article class="bn-explore-card" data-post-id="<?php echo esc_attr( (string) $card->id ); ?>">
-							<?php if ( $has_img ) : ?>
-								<div class="bn-card-img <?php echo esc_attr( $img_cls ); ?>" aria-hidden="true">
-									&#128247;
-								</div>
-							<?php endif; ?>
-							<div class="bn-card-body">
-								<div class="bn-card-author">
-									<?php if ( $card_avatar_url ) : ?>
-										<img
-											src="<?php echo esc_url( $card_avatar_url ); ?>"
-											alt="<?php echo esc_attr( $card_display ); ?>"
-											class="avatar xs"
-											loading="lazy"
-											width="26"
-											height="26"
-										>
-									<?php else : ?>
-										<div class="avatar xs <?php echo esc_attr( $colour_class ); ?>" aria-hidden="true">
-											<?php echo esc_html( $card_initials ); ?>
-										</div>
-									<?php endif; ?>
-									<div>
-										<div class="bn-card-author-name"><?php echo esc_html( $card_display ); ?></div>
-										<div class="bn-card-author-time"><?php echo esc_html( $card_time ); ?></div>
-									</div>
-								</div>
-								<div class="bn-card-text"><?php echo esc_html( $card_excerpt ); ?></div>
-								<div class="bn-card-stats">
-									<?php if ( $reaction_count > 0 ) : ?>
-										<span class="bn-card-stat">&#10084;&#65039; <?php echo esc_html( (string) $reaction_count ); ?></span>
-									<?php endif; ?>
-									<?php if ( $comment_count > 0 ) : ?>
-										<span class="bn-card-stat">&#128172; <?php echo esc_html( (string) $comment_count ); ?></span>
-									<?php endif; ?>
-									<?php if ( $share_count > 0 ) : ?>
-										<span class="bn-card-stat">&#8599;&#65039; <?php echo esc_html( (string) $share_count ); ?></span>
-									<?php endif; ?>
-								</div>
-							</div>
-						</article>
 					<?php endforeach; ?>
 				<?php else : ?>
 					<!-- Empty state — shown when no public posts exist yet -->
