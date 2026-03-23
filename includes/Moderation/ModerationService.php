@@ -1234,4 +1234,39 @@ class ModerationService {
 
 		return true;
 	}
+
+	// ── Spec-named aliases ────────────────────────────────────────────────────
+
+	/**
+	 * Spec alias: issue a strike against a user.
+	 *
+	 * Delegates to issue_strike() — included so callers can use the spec
+	 * method name `strike()` as documented in the moderation spec.
+	 *
+	 * @param int    $actor_id Admin issuing the strike.
+	 * @param int    $user_id  User receiving the strike.
+	 * @param string $reason   Reason for the strike.
+	 * @return int|WP_Error Strike ID or WP_Error.
+	 */
+	public function strike( int $actor_id, int $user_id, string $reason = '' ): int|WP_Error {
+		return $this->issue_strike( $user_id, $actor_id, $reason );
+	}
+
+	/**
+	 * Spec alias: remove the shadow-ban from a user.
+	 *
+	 * Delegates to remove_shadow_ban() — included so callers can use the spec
+	 * method name `shadow_unban()` as documented in the moderation spec.
+	 *
+	 * @param int $actor_id Moderator performing the action.
+	 * @param int $user_id  User to unshadow-ban.
+	 * @return bool True on success.
+	 */
+	public function shadow_unban( int $actor_id, int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		return $this->remove_shadow_ban( $user_id );
+	}
 }

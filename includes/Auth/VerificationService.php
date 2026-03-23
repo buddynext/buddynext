@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Email verification token management.
  *
@@ -117,6 +117,13 @@ class VerificationService {
 			array( 'id' => (int) $row->id ),
 			array( '%d' )
 		);
+
+		/**
+		 * Fires after a user successfully verifies their email address.
+		 *
+		 * @param int $user_id Verified user ID.
+		 */
+		do_action( 'buddynext_user_verified', $user_id );
 
 		return $user_id;
 	}
