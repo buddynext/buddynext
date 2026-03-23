@@ -26,12 +26,12 @@
  *   POST   /spaces/{id}/bans                      — ban a user from a space (owner/admin)
  *   DELETE /spaces/{id}/bans/{user_id}            — unban a user from a space (owner/admin)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Moderation
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Moderation;
 
 use BuddyNext\Moderation\ModerationLogService;
 use BuddyNext\Moderation\ModerationService;

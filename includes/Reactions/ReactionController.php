@@ -6,12 +6,12 @@
  *   POST /reactions/toggle — toggle a reaction for the current user (auth required)
  *   GET  /reactions        — get reaction count + current user status (public)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Reactions
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Reactions;
 
 use BuddyNext\Reactions\ReactionService;
 use WP_Error;

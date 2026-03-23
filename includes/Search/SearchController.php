@@ -6,12 +6,12 @@
  *   GET /search   — full-text search across posts, users, spaces (public)
  *   GET /members  — paginated member directory (public)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Search
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Search;
 
 use BuddyNext\Search\MemberDirectoryService;
 use BuddyNext\Search\SearchService;

@@ -12,12 +12,12 @@
  * Literal-path routes (trending, autocomplete, follow) are registered before
  * the /{slug} wildcard to prevent them being captured by the slug regex.
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Hashtags
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Hashtags;
 
 use BuddyNext\Hashtags\HashtagService;
 use WP_Error;

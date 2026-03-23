@@ -18,12 +18,12 @@
  *
  * Every call is written to bn_webhook_log for auditing.
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Outbound
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Outbound;
 
 use WP_Error;
 use WP_REST_Request;

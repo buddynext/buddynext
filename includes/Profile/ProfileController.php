@@ -27,12 +27,12 @@
  *   DELETE /profile-groups/{id}             — delete a group (admin only)
  *   POST   /profile-groups/{id}/reorder     — reorder a group (admin only)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Profile
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Profile;
 
 use WP_Error;
 use WP_REST_Request;

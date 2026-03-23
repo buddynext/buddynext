@@ -8,12 +8,12 @@
  *   PUT    /comments/{id}           — update a comment (owner or admin)
  *   DELETE /comments/{id}           — delete a comment (owner or admin)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Comments
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Comments;
 
 use BuddyNext\Comments\CommentService;
 use WP_Error;

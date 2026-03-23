@@ -9,12 +9,12 @@
  *   GET    /webhooks/{id}/log     — paginated delivery log (per_page, page)
  *   POST   /webhooks/{id}/test    — send a test ping
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Outbound
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Outbound;
 
 use BuddyNext\Core\OutboundWebhookService;
 use WP_Error;

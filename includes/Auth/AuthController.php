@@ -6,12 +6,12 @@
  *   POST /auth/verify/resend  — resend email verification for current user
  *   GET  /auth/verify/status  — check email verification status for current user
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Auth
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Auth;
 
 use BuddyNext\Auth\VerificationService;
 use WP_Error;

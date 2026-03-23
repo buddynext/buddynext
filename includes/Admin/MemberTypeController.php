@@ -11,12 +11,12 @@
  *   PUT    /users/(?P<id>\d+)/member-type          — assign type to user (admin or self if self_select)
  *   DELETE /users/(?P<id>\d+)/member-type          — remove user's type (admin only)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Admin
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Admin;
 
 use BuddyNext\MemberTypes\MemberTypeService;
 use WP_Error;

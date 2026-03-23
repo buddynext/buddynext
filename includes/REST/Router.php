@@ -12,8 +12,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\REST;
 
-use BuddyNext\REST\Controllers\AccessWebhookController;
-use BuddyNext\REST\Controllers\AuthController;
+use BuddyNext\Outbound\AccessWebhookController;
+use BuddyNext\Auth\AuthController;
 use BuddyNext\SocialGraph\BlockController;
 use BuddyNext\Feed\BookmarkController;
 use BuddyNext\SocialGraph\ConnectionController;
@@ -21,16 +21,16 @@ use BuddyNext\Feed\FeedController;
 use BuddyNext\SocialGraph\FollowController;
 use BuddyNext\Feed\PollController;
 use BuddyNext\Feed\PostController;
-use BuddyNext\REST\Controllers\ProfileController;
-use BuddyNext\REST\Controllers\SearchController;
+use BuddyNext\Profile\ProfileController;
+use BuddyNext\Search\SearchController;
 use BuddyNext\Feed\ShareController;
-use BuddyNext\REST\Controllers\CommentController;
-use BuddyNext\REST\Controllers\HashtagController;
-use BuddyNext\REST\Controllers\MemberTypeController;
-use BuddyNext\REST\Controllers\ModerationController;
-use BuddyNext\REST\Controllers\NotificationController;
-use BuddyNext\REST\Controllers\OutboundWebhookController;
-use BuddyNext\REST\Controllers\ReactionController;
+use BuddyNext\Comments\CommentController;
+use BuddyNext\Hashtags\HashtagController;
+use BuddyNext\Admin\MemberTypeController;
+use BuddyNext\Moderation\ModerationController;
+use BuddyNext\Notifications\NotificationController;
+use BuddyNext\Outbound\OutboundWebhookController;
+use BuddyNext\Reactions\ReactionController;
 use BuddyNext\Spaces\SpaceCategoryController;
 use BuddyNext\Spaces\SpaceController;
 

@@ -10,12 +10,12 @@
  *   GET  /me/notification-prefs         — get notification preferences (auth required)
  *   PUT  /me/notification-prefs         — update notification preferences (auth required)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Notifications
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Notifications;
 
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Notifications\NotificationService;
