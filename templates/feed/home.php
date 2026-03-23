@@ -33,103 +33,76 @@ global $wpdb;
 $viewer_id = get_current_user_id();
 $is_guest  = ( 0 === $viewer_id );
 
-// ── Pagination ─────────────────────────────────────────────────────────────────
-$bn_per_page = 12;
-$bn_paged    = max( 1, absint( get_query_var( 'paged', 1 ) ) );
-$bn_offset   = ( $bn_paged - 1 ) * $bn_per_page;
+// ── Cursor-based pagination ─────────────────────────────────────────────────────
+// Cursor encodes the last seen post's created_at + id (via FeedService::encode_cursor).
+// First page: no cursor. Next page: cursor from the previous response's next_cursor value.
+$bn_per_page   = 12;
+$bn_raw_cursor = isset( $_GET['after'] ) ? sanitize_text_field( wp_unslash( $_GET['after'] ) ) : null; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_cursor     = ( '' !== (string) $bn_raw_cursor && null !== $bn_raw_cursor ) ? $bn_raw_cursor : null;
 
 // ── Feed posts query ───────────────────────────────────────────────────────────
 $posts_table   = $wpdb->prefix . 'bn_posts';
 $follows_table = $wpdb->prefix . 'bn_follows';
 $spaces_table  = $wpdb->prefix . 'bn_space_members';
 
-// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 if ( $is_guest ) {
-	// Guests: show latest public posts (no personalization).
+	// Guests: show latest public posts via cursor pagination.
+	// Build cursor WHERE fragment inline — guests do not go through FeedService.
+	$guest_cursor_where  = '';
+	$guest_cursor_params = array();
+	if ( null !== $bn_cursor ) {
+		$raw_decoded = base64_decode( $bn_cursor, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+		if ( false !== $raw_decoded ) {
+			$cursor_parts = explode( '|', $raw_decoded, 2 );
+			if ( 2 === count( $cursor_parts ) ) {
+				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				$guest_cursor_where  = 'AND (p.created_at < %s OR (p.created_at = %s AND p.id < %d))';
+				$guest_cursor_params = array( $cursor_parts[0], $cursor_parts[0], (int) $cursor_parts[1] );
+			}
+		}
+	}
+
+	// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$feed_posts = $wpdb->get_results(
+	$feed_rows = $wpdb->get_results(
 		$wpdb->prepare(
 			"SELECT p.id, p.user_id, p.content, p.type, p.privacy, p.space_id,
-			        p.created_at, p.reaction_count, p.comment_count, p.share_count
+			        p.created_at, p.reaction_count, p.comment_count, p.share_count,
+			        p.is_pinned, p.is_announcement, p.content_warning, p.content_warning_type,
+			        p.link_url, p.edited_at, p.updated_at
 			 FROM {$posts_table} p
 			 WHERE p.status = 'published'
 			   AND p.privacy = 'public'
 			   AND p.user_id NOT IN (
-			       SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
+			       SELECT user_id FROM {$wpdb->usermeta}
+			       WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
 			   )
-			 ORDER BY p.created_at DESC
-			 LIMIT %d OFFSET %d",
-			$bn_per_page,
-			$bn_offset
-		)
+			   {$guest_cursor_where}
+			 ORDER BY p.created_at DESC, p.id DESC
+			 LIMIT %d",
+			...array_merge( $guest_cursor_params, array( $bn_per_page + 1 ) )
+		),
+		ARRAY_A
 	);
+	// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-	$total_posts = (int) $wpdb->get_var(
-		"SELECT COUNT(*) FROM {$posts_table} p
-		 WHERE p.status = 'published'
-		   AND p.privacy = 'public'
-		   AND p.user_id NOT IN (
-		       SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
-		   )"
-	);
+	$guest_has_more = count( (array) $feed_rows ) > $bn_per_page;
+	if ( $guest_has_more ) {
+		$feed_rows = array_slice( (array) $feed_rows, 0, $bn_per_page );
+	}
+	$feed_posts     = (array) $feed_rows;
+	$bn_next_cursor = null;
+	if ( $guest_has_more && ! empty( $feed_rows ) ) {
+		$last_row       = end( $feed_rows );
+		$bn_next_cursor = base64_encode( $last_row['created_at'] . '|' . $last_row['id'] ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+	}
 } else {
-	// Authenticated: personalized feed — own posts + followed users + joined spaces.
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$feed_posts = $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT p.id, p.user_id, p.content, p.type, p.privacy, p.space_id,
-			        p.created_at, p.reaction_count, p.comment_count, p.share_count
-			 FROM {$posts_table} p
-			 WHERE p.status = 'published'
-			   AND (
-			       p.user_id = %d
-			       OR p.user_id IN (
-			           SELECT following_id FROM {$follows_table} WHERE follower_id = %d
-			       )
-			       OR p.space_id IN (
-			           SELECT space_id FROM {$spaces_table} WHERE user_id = %d AND status = 'active'
-			       )
-			   )
-			   AND p.user_id NOT IN (
-			       SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
-			   )
-			 ORDER BY p.created_at DESC
-			 LIMIT %d OFFSET %d",
-			$viewer_id,
-			$viewer_id,
-			$viewer_id,
-			$bn_per_page,
-			$bn_offset
-		)
-	);
-
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$total_posts = (int) $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT COUNT(*) FROM {$posts_table} p
-			 WHERE p.status = 'published'
-			   AND (
-			       p.user_id = %d
-			       OR p.user_id IN (
-			           SELECT following_id FROM {$follows_table} WHERE follower_id = %d
-			       )
-			       OR p.space_id IN (
-			           SELECT space_id FROM {$spaces_table} WHERE user_id = %d AND status = 'active'
-			       )
-			   )
-			   AND p.user_id NOT IN (
-			       SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
-			   )",
-			$viewer_id,
-			$viewer_id,
-			$viewer_id
-		)
-	);
+	// Authenticated: delegate entirely to FeedService for cursor pagination.
+	$feed_service   = buddynext_service( 'feed' );
+	$feed_result    = $feed_service->home_feed( $viewer_id, $bn_cursor, $bn_per_page );
+	$feed_posts     = $feed_result['items'];
+	$bn_next_cursor = $feed_result['next_cursor'];
 }
-// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-$total_pages = (int) ceil( $total_posts / $bn_per_page );
 
 // ── Sidebar: suggested follows (users viewer does not yet follow) ──────────────
 $suggested_users = array();
@@ -586,28 +559,25 @@ require __DIR__ . '/../partials/nav.php';
 .bn-avatar.sm { width: 34px; height: 34px; font-size: var(--text-xs); }
 .bn-avatar.xs { width: 28px; height: 28px; font-size: 10px; }
 
-/* ── Pagination ── */
-.bn-pagination {
+/* ── Load more ── */
+.bn-load-more-wrap {
 	display: flex;
 	justify-content: center;
-	gap: var(--s2);
 	margin-top: var(--s5);
-	flex-wrap: wrap;
 }
-.bn-page-btn {
-	padding: var(--s2) var(--s3);
+.bn-load-more-btn {
+	padding: var(--s2) var(--s6);
 	border: 1.5px solid var(--border);
 	border-radius: var(--radius-sm);
 	font-size: var(--text-sm);
 	font-weight: 500;
 	color: var(--text-2);
 	background: var(--surface);
-	text-decoration: none;
+	cursor: pointer;
+	font-family: var(--font-body);
 	transition: border-color 0.12s, color 0.12s, background 0.12s;
 }
-.bn-page-btn:hover { border-color: var(--brand); color: var(--brand); }
-.bn-page-btn.current { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 700; }
-.bn-page-btn[disabled] { opacity: 0.4; pointer-events: none; }
+.bn-load-more-btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-light); }
 
 /* ── Sidebar ── */
 .bn-home-sidebar { display: flex; flex-direction: column; gap: var(--s4); }
@@ -774,7 +744,7 @@ require __DIR__ . '/../partials/nav.php';
 <div
 	class="bn-home-feed"
 	data-wp-interactive="buddynext/feed"
-	data-wp-context='{"scope":"home","page":<?php echo absint( $bn_paged ); ?>,"viewerId":<?php echo absint( $viewer_id ); ?>,"restNonce":"<?php echo esc_js( $rest_nonce ); ?>","restUrl":"<?php echo esc_js( rest_url( 'buddynext/v1' ) ); ?>"}'
+	data-wp-context='{"scope":"home","nextCursor":<?php echo wp_json_encode( $bn_next_cursor ); ?>,"viewerId":<?php echo absint( $viewer_id ); ?>,"restNonce":"<?php echo esc_js( $rest_nonce ); ?>","restUrl":"<?php echo esc_js( rest_url( 'buddynext/v1' ) ); ?>"}'
 >
 <div class="bn-home-shell">
 
@@ -885,28 +855,29 @@ require __DIR__ . '/../partials/nav.php';
 		<?php if ( ! empty( $feed_posts ) ) : ?>
 			<?php foreach ( $feed_posts as $feed_post ) : ?>
 				<?php
-				// Normalise stdClass row to array for the post-card partial.
+				// Both paths (guest ARRAY_A rows + FeedService hydrated arrays) return arrays.
+				$fp           = is_array( $feed_post ) ? $feed_post : (array) $feed_post;
 				$partial_post = array(
-					'id'             => (int) $feed_post->id,
-					'user_id'        => (int) $feed_post->user_id,
-					'type'           => $feed_post->type ?? 'text',
-					'content'        => $feed_post->content ?? '',
-					'privacy'        => $feed_post->privacy ?? 'public',
-					'space_id'       => isset( $feed_post->space_id ) ? (int) $feed_post->space_id : null,
-					'media_ids'      => null,
-					'link_url'       => $feed_post->link_url ?? null,
-					'link_meta'      => null,
-					'poll_options'   => array(),
-					'is_pinned'      => (int) ( $feed_post->is_pinned ?? 0 ),
-					'is_announcement' => (int) ( $feed_post->is_announcement ?? 0 ),
-					'content_warning'      => ! empty( $feed_post->content_warning ),
-					'content_warning_type' => $feed_post->content_warning_type ?? null,
-					'reaction_count' => absint( $feed_post->reaction_count ?? 0 ),
-					'comment_count'  => absint( $feed_post->comment_count ?? 0 ),
-					'share_count'    => absint( $feed_post->share_count ?? 0 ),
-					'edited_at'      => $feed_post->edited_at ?? null,
-					'created_at'     => $feed_post->created_at ?? '',
-					'updated_at'     => $feed_post->updated_at ?? null,
+					'id'                   => (int) ( $fp['id'] ?? 0 ),
+					'user_id'              => (int) ( $fp['user_id'] ?? 0 ),
+					'type'                 => $fp['type'] ?? 'text',
+					'content'              => $fp['content'] ?? '',
+					'privacy'              => $fp['privacy'] ?? 'public',
+					'space_id'             => isset( $fp['space_id'] ) ? (int) $fp['space_id'] : null,
+					'media_ids'            => is_array( $fp['media_ids'] ?? null ) ? $fp['media_ids'] : array(),
+					'link_url'             => $fp['link_url'] ?? null,
+					'link_meta'            => is_array( $fp['link_meta'] ?? null ) ? $fp['link_meta'] : array(),
+					'poll_options'         => is_array( $fp['poll_options'] ?? null ) ? $fp['poll_options'] : array(),
+					'is_pinned'            => (int) ( $fp['is_pinned'] ?? 0 ),
+					'is_announcement'      => (int) ( $fp['is_announcement'] ?? 0 ),
+					'content_warning'      => ! empty( $fp['content_warning'] ),
+					'content_warning_type' => $fp['content_warning_type'] ?? null,
+					'reaction_count'       => absint( $fp['reaction_count'] ?? 0 ),
+					'comment_count'        => absint( $fp['comment_count'] ?? 0 ),
+					'share_count'          => absint( $fp['share_count'] ?? 0 ),
+					'edited_at'            => $fp['edited_at'] ?? null,
+					'created_at'           => $fp['created_at'] ?? '',
+					'updated_at'           => $fp['updated_at'] ?? null,
 				);
 				?>
 				<?php
@@ -937,39 +908,15 @@ require __DIR__ . '/../partials/nav.php';
 		<?php endif; ?>
 		</div><!-- .bn-feed-list -->
 
-		<?php if ( $total_pages > 1 ) : ?>
-			<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Feed page navigation', 'buddynext' ); ?>">
-				<?php if ( $bn_paged > 1 ) : ?>
-					<a
-						href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged - 1 ) ); ?>"
-						class="bn-page-btn"
-						aria-label="<?php esc_attr_e( 'Previous page', 'buddynext' ); ?>"
-					>&#8592;</a>
-				<?php endif; ?>
-
-				<?php
-				$bn_page_start = max( 1, $bn_paged - 2 );
-				$bn_page_end   = min( $total_pages, $bn_paged + 2 );
-				for ( $page_num = $bn_page_start; $page_num <= $bn_page_end; $page_num++ ) :
-					?>
-					<?php if ( $page_num === $bn_paged ) : ?>
-						<span class="bn-page-btn current" aria-current="page"><?php echo esc_html( (string) $page_num ); ?></span>
-					<?php else : ?>
-						<a
-							href="<?php echo esc_url( add_query_arg( 'paged', $page_num ) ); ?>"
-							class="bn-page-btn"
-						><?php echo esc_html( (string) $page_num ); ?></a>
-					<?php endif; ?>
-				<?php endfor; ?>
-
-				<?php if ( $bn_paged < $total_pages ) : ?>
-					<a
-						href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged + 1 ) ); ?>"
-						class="bn-page-btn"
-						aria-label="<?php esc_attr_e( 'Next page', 'buddynext' ); ?>"
-					>&#8594;</a>
-				<?php endif; ?>
-			</nav>
+		<?php if ( null !== $bn_next_cursor ) : ?>
+			<div class="bn-load-more-wrap">
+				<button
+					type="button"
+					class="bn-load-more-btn"
+					data-cursor="<?php echo esc_attr( $bn_next_cursor ); ?>"
+					data-wp-on--click="actions.loadMore"
+				><?php esc_html_e( 'Load more', 'buddynext' ); ?></button>
+			</div>
 		<?php endif; ?>
 
 	</main>

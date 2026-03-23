@@ -143,15 +143,20 @@ if ( 'poll' === $bn_post_type && ! empty( $poll_options ) ) {
 }
 
 // ── Privacy label ──────────────────────────────────────────────────────────────
-$privacy_label = '';
-$privacy_icon  = '';
-if ( 'followers' === $post_privacy ) {
-	$privacy_label = esc_html__( 'Followers only', 'buddynext' );
-	$privacy_icon  = '&#128100;';
-} elseif ( 'connections' === $post_privacy ) {
-	$privacy_label = esc_html__( 'Connections only', 'buddynext' );
-	$privacy_icon  = '&#128101;';
-}
+$privacy_labels = array(
+	'followers'     => __( 'Followers only', 'buddynext' ),
+	'connections'   => __( 'Connections only', 'buddynext' ),
+	'space_members' => __( 'Space members', 'buddynext' ),
+	'private'       => __( 'Only me', 'buddynext' ),
+);
+$privacy_icons  = array(
+	'followers'     => '&#128100;',
+	'connections'   => '&#128101;',
+	'space_members' => '&#128274;',
+	'private'       => '&#128274;',
+);
+$privacy_label  = isset( $privacy_labels[ $post_privacy ] ) ? esc_html( $privacy_labels[ $post_privacy ] ) : '';
+$privacy_icon   = $privacy_icons[ $post_privacy ] ?? '';
 
 // ── Content warning label ──────────────────────────────────────────────────────
 $cw_labels  = array(
