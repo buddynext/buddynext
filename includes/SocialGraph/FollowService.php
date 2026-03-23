@@ -105,8 +105,9 @@ class FollowService {
 	 *
 	 * @param int $follower_id  ID of the user doing the unfollowing.
 	 * @param int $following_id ID of the user being unfollowed.
+	 * @return bool True when a row was deleted, false if no relationship existed.
 	 */
-	public function unfollow( int $follower_id, int $following_id ): void {
+	public function unfollow( int $follower_id, int $following_id ): bool {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -119,6 +120,8 @@ class FollowService {
 			array( '%d', '%d' )
 		);
 
+		$deleted = $wpdb->rows_affected > 0;
+
 		$this->invalidate_follow_cache( $follower_id, $following_id );
 
 		/**
@@ -128,6 +131,8 @@ class FollowService {
 		 * @param int $following_id ID of the user being unfollowed.
 		 */
 		do_action( 'buddynext_user_unfollowed', $follower_id, $following_id );
+
+		return $deleted;
 	}
 
 	/**
@@ -291,6 +296,46 @@ class FollowService {
 		wp_cache_set( $cache_key, $count, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $count;
+	}
+
+	/**
+	 * Return the paginated list of user IDs who follow the given user.
+	 *
+	 * Spec-named alias for followers(). Supports optional pagination/limit args:
+	 *   'per_page' (int, default 20) — number of IDs to return.
+	 *   'page'     (int, default 1)  — 1-based page offset.
+	 *
+	 * @param int   $user_id User being followed.
+	 * @param array $args    Optional query args (per_page, page).
+	 * @return int[]
+	 */
+	public function get_followers( int $user_id, array $args = array() ): array {
+		$all      = $this->followers( $user_id );
+		$per_page = isset( $args['per_page'] ) ? max( 1, (int) $args['per_page'] ) : 20;
+		$page     = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
+		$offset   = ( $page - 1 ) * $per_page;
+
+		return array_values( array_slice( $all, $offset, $per_page ) );
+	}
+
+	/**
+	 * Return the paginated list of user IDs that the given user follows.
+	 *
+	 * Spec-named alias for following(). Supports optional pagination/limit args:
+	 *   'per_page' (int, default 20) — number of IDs to return.
+	 *   'page'     (int, default 1)  — 1-based page offset.
+	 *
+	 * @param int   $user_id The following user.
+	 * @param array $args    Optional query args (per_page, page).
+	 * @return int[]
+	 */
+	public function get_following( int $user_id, array $args = array() ): array {
+		$all      = $this->following( $user_id );
+		$per_page = isset( $args['per_page'] ) ? max( 1, (int) $args['per_page'] ) : 20;
+		$page     = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
+		$offset   = ( $page - 1 ) * $per_page;
+
+		return array_values( array_slice( $all, $offset, $per_page ) );
 	}
 
 	/**

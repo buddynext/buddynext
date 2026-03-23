@@ -171,13 +171,28 @@ class BlockService {
 	}
 
 	/**
-	 * Check whether a user has blocked another.
+	 * Check whether either user has blocked the other (bidirectional).
+	 *
+	 * Per spec: is_blocked( $user_a, $user_b ) returns true if user_a has
+	 * blocked user_b OR if user_b has blocked user_a. Use has_blocked() for a
+	 * single-direction check.
+	 *
+	 * @param int $user_a First user.
+	 * @param int $user_b Second user.
+	 * @return bool
+	 */
+	public function is_blocked( int $user_a, int $user_b ): bool {
+		return $this->is_blocking_either( $user_a, $user_b );
+	}
+
+	/**
+	 * Check whether user_a has specifically blocked user_b (one direction only).
 	 *
 	 * @param int $blocker_id ID of the potential blocker.
 	 * @param int $blocked_id ID of the potentially blocked user.
 	 * @return bool
 	 */
-	public function is_blocked( int $blocker_id, int $blocked_id ): bool {
+	public function has_blocked( int $blocker_id, int $blocked_id ): bool {
 		global $wpdb;
 
 		$cache_key = "is_blocked_{$blocker_id}_{$blocked_id}";
