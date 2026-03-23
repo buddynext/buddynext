@@ -64,6 +64,7 @@ use BuddyNext\Search\SearchService;
 use BuddyNext\Auth\VerificationListener;
 use BuddyNext\Auth\VerificationService;
 use BuddyNext\Core\OutboundWebhookService;
+use BuddyNext\Onboarding\OnboardingListener;
 use BuddyNext\Outbound\OutboundWebhookListener;
 use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\ConnectionService;
@@ -187,6 +188,9 @@ class Plugin {
 
 		// Wire moderation notification/email handlers and daily cron alert.
 		( new ModerationListener() )->register();
+
+		// Wire onboarding nudge scheduling and cron handlers.
+		( new OnboardingListener() )->register();
 
 		// Wire outbound webhook service (cron retry) and domain event listener.
 		$container->get( 'webhooks' )->init();
