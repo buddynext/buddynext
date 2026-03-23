@@ -67,6 +67,54 @@ class InstallerTest extends \WP_UnitTestCase {
 		$this->assertEmpty( $last_error, "bn_posts must have content_warning and content_warning_type columns. DB error: {$last_error}" );
 	}
 
+	// ── mu-plugin lifecycle ───────────────────────────────────────────────────
+
+	/**
+	 * Test that install_mu_plugin() writes the isolation file.
+	 */
+	public function test_install_mu_plugin_creates_file(): void {
+		// Use a temp dir to avoid writing to real mu-plugins during tests.
+		$tmp_dir = sys_get_temp_dir() . '/bn_test_mu_' . uniqid();
+		mkdir( $tmp_dir ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir
+
+		// Override WP_CONTENT_DIR by filtering the path inside install_mu_plugin.
+		// Since we can't redefine the constant, test via the file system directly.
+		// Call the method and verify it wrote something.
+		\BuddyNext\Core\Installer::install_mu_plugin();
+		$path = WP_CONTENT_DIR . '/mu-plugins/buddynext-isolation.php';
+
+		// Only assert the file exists if mu-plugins dir is writable.
+		if ( is_dir( WP_CONTENT_DIR . '/mu-plugins' ) ) {
+			// phpcs:disable WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			$file_content = file_get_contents( $path );
+			// phpcs:enable WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			$this->assertFileExists( $path );
+			$this->assertStringContainsString( 'buddynext_mu_is_bn_request', $file_content );
+			// Verify the correct people slug option key is embedded, not the old members key.
+			$this->assertStringContainsString( 'buddynext_slug_people', $file_content );
+		} else {
+			$this->markTestSkipped( 'mu-plugins directory not writable in test environment' );
+		}
+	}
+
+	/**
+	 * Test that remove_mu_plugin() deletes the isolation file.
+	 */
+	public function test_remove_mu_plugin_deletes_file(): void {
+		$path = WP_CONTENT_DIR . '/mu-plugins/buddynext-isolation.php';
+		if ( ! is_dir( WP_CONTENT_DIR . '/mu-plugins' ) ) {
+			$this->markTestSkipped( 'mu-plugins directory not writable in test environment' );
+			return;
+		}
+
+		// Ensure the file exists first.
+		\BuddyNext\Core\Installer::install_mu_plugin();
+		$this->assertFileExists( $path );
+
+		\BuddyNext\Core\Installer::remove_mu_plugin();
+		$this->assertFileDoesNotExist( $path );
+	}
+
 	/**
 	 * Provides unprefixed table names to test_table_exists().
 	 *

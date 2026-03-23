@@ -1029,6 +1029,7 @@ class Installer {
 			return;
 		}
 
+		wp_mkdir_p( WP_CONTENT_DIR . '/mu-plugins/' );
 		file_put_contents( $dest, $content ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
 	}
 
@@ -1041,7 +1042,7 @@ class Installer {
 		$dest = WP_CONTENT_DIR . '/mu-plugins/' . self::MU_PLUGIN_SLUG;
 
 		if ( file_exists( $dest ) ) {
-			wp_delete_file( $dest );
+			unlink( $dest ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
 		}
 	}
 
@@ -1104,7 +1105,7 @@ function buddynext_mu_is_bn_request() {
 	// Fetch all six slug options in a single query.
 	$option_names = array(
 		'buddynext_slug_activity',
-		'buddynext_slug_members',
+		'buddynext_slug_people',
 		'buddynext_slug_spaces',
 		'buddynext_slug_messages',
 		'buddynext_slug_notifications',
@@ -1133,7 +1134,7 @@ function buddynext_mu_is_bn_request() {
 
 	$defaults = array(
 		'buddynext_slug_activity'      => 'activity',
-		'buddynext_slug_members'       => 'members',
+		'buddynext_slug_people'        => 'members',
 		'buddynext_slug_spaces'        => 'spaces',
 		'buddynext_slug_messages'      => 'messages',
 		'buddynext_slug_notifications' => 'notifications',
