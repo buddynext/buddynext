@@ -183,4 +183,35 @@ class PageRouterTest extends \WP_UnitTestCase {
 		$result = $this->router->suppress_default_query( $vars );
 		$this->assertSame( $vars, $result );
 	}
+
+	// ── Hook wiring ───────────────────────────────────────────────────────────
+
+	/**
+	 * Calling init() registers the request filter and template_redirect action.
+	 *
+	 * @return void
+	 */
+	public function test_init_registers_request_filter_and_template_redirect(): void {
+		// Create a fresh router to avoid the already-registered hooks from set_up().
+		$router = new PageRouter();
+		// Remove any previously registered hooks from set_up() first.
+		remove_filter( 'request', array( $router, 'suppress_default_query' ) );
+		remove_action( 'template_redirect', array( $router, 'dispatch_hub_template' ) );
+
+		$this->assertFalse(
+			has_filter( 'request', array( $router, 'suppress_default_query' ) ),
+			'Hook should not be registered before init()'
+		);
+
+		$router->init();
+
+		$this->assertNotFalse(
+			has_filter( 'request', array( $router, 'suppress_default_query' ) ),
+			'request filter must be registered after init()'
+		);
+		$this->assertNotFalse(
+			has_action( 'template_redirect', array( $router, 'dispatch_hub_template' ) ),
+			'template_redirect action must be registered after init()'
+		);
+	}
 }
