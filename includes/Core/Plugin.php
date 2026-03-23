@@ -48,6 +48,7 @@ use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Notifications\EmailDispatchListener;
 use BuddyNext\Notifications\EmailSender;
 use BuddyNext\Notifications\EventListener;
+use BuddyNext\Notifications\NotificationListener;
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Profile\AvatarService;
@@ -166,7 +167,10 @@ class Plugin {
 		// Wire avatar filter — replaces Gravatar site-wide with BuddyNext initials SVG.
 		$container->get( 'avatars' )->init();
 
-		// Wire cross-plugin event hooks to notification routing.
+		// Wire social-event hooks to in-app notification routing.
+		( new NotificationListener() )->register();
+
+		// Wire cross-plugin event hooks to moderation, webhooks, gamification, and onboarding.
 		( new EventListener() )->init();
 
 		// Wire email verification hooks.
