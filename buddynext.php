@@ -17,17 +17,20 @@
 defined( 'ABSPATH' ) || exit;
 
 define( 'BUDDYNEXT_VERSION', '0.1.0' );
-define( 'BUDDYNEXT_FILE',    __FILE__ );
-define( 'BUDDYNEXT_DIR',     plugin_dir_path( __FILE__ ) );
-define( 'BUDDYNEXT_URL',     plugin_dir_url( __FILE__ ) );
+define( 'BUDDYNEXT_FILE', __FILE__ );
+define( 'BUDDYNEXT_DIR', plugin_dir_path( __FILE__ ) );
+define( 'BUDDYNEXT_URL', plugin_dir_url( __FILE__ ) );
 define( 'BUDDYNEXT_BASENAME', plugin_basename( __FILE__ ) );
 
 require_once BUDDYNEXT_DIR . 'vendor/autoload.php';
 
 register_activation_hook( __FILE__, array( \BuddyNext\Core\Installer::class, 'run' ) );
-register_activation_hook( __FILE__, static function (): void {
-	set_transient( 'buddynext_do_activation_redirect', '1', 30 );
-} );
+register_activation_hook(
+	__FILE__,
+	static function (): void {
+		set_transient( 'buddynext_do_activation_redirect', '1', 30 );
+	}
+);
 
 add_action( 'plugins_loaded', array( \BuddyNext\Core\Plugin::class, 'init' ), 15 );
 
@@ -90,4 +93,33 @@ function buddynext_service( string $key ): mixed {
  */
 function buddynext_get_template( string $relative, array $vars = array() ): void {
 	buddynext_service( 'template_loader' )->render( $relative, $vars );
+}
+
+/**
+ * Return the canonical URL for a single space by its slug.
+ *
+ * Thin procedural wrapper around PageRouter::spaces_url() so templates do not
+ * need a direct dependency on the PageRouter class.
+ *
+ * @param string $slug The space's slug (post_name) as stored in bn_spaces.slug.
+ * @return string Absolute URL.
+ */
+function buddynext_space_url( string $slug ): string {
+	if ( '' === $slug ) {
+		return \BuddyNext\Core\PageRouter::spaces_url();
+	}
+
+	return \BuddyNext\Core\PageRouter::spaces_url() . rawurlencode( sanitize_title( $slug ) ) . '/';
+}
+
+/**
+ * Return the URL for the "create a space" flow.
+ *
+ * Routes to the spaces hub with the ?bn_action=create query argument which
+ * the directory template and PageRouter use to open the creation modal.
+ *
+ * @return string Absolute URL.
+ */
+function buddynext_create_space_url(): string {
+	return add_query_arg( 'bn_action', 'create', \BuddyNext\Core\PageRouter::spaces_url() );
 }
