@@ -661,7 +661,16 @@ A phase is Done when ALL of:
 | 2026-03-24 | — | fix | templates/feed/home.php: composer action icons (image/bar-chart/link) via buddynext_icon() |
 | 2026-03-24 | — | fix | templates/onboarding/index.php: $all_interests restructured to icon/label pairs; step headers &#128100; etc. replaced with buddynext_icon() calls; .bn-ob-step-icon CSS updated for SVG sizing |
 | 2026-03-24 | — | docs | CLAUDE.md: added rule §5 "No Emoji — Ever" with icon system usage guide |
+| 2026-03-24 | — | refactor | Contracts/ListenerInterface.php: new interface with register(): void — implemented by all new domain listeners |
+| 2026-03-24 | — | refactor | Feed controllers: PostController, FeedController, PollController, BookmarkController, ShareController moved from REST/Controllers/ → Feed/ (namespace BuddyNext\Feed) |
+| 2026-03-24 | — | refactor | SocialGraph controllers: FollowController, ConnectionController, BlockController moved → SocialGraph/ (namespace BuddyNext\SocialGraph) |
+| 2026-03-24 | — | refactor | Spaces controllers: SpaceController, SpaceCategoryController moved → Spaces/ (namespace BuddyNext\Spaces) |
+| 2026-03-24 | — | refactor | Remaining 11 controllers moved to domain namespaces: Notifications, Profile, Reactions, Comments, Hashtags, Search, Moderation, Auth, Outbound (×2), Admin |
+| 2026-03-24 | — | refactor | REST/Router.php updated — all use imports now point to domain namespaces; REST/Controllers/ folder deleted |
+| 2026-03-24 | 6 | refactor | NotificationListener: extracted 11 notification hooks from Notifications/EventListener into dedicated Notifications/NotificationListener (implements ListenerInterface); wired in Plugin::init() |
 | 2026-03-24 | 8 | refactor | ModerationListener: extracted 10 moderation hooks from Notifications/EventListener into dedicated Moderation/ModerationListener (implements ListenerInterface) — strikes, suspensions, appeals, shadow bans, daily queue cron; wired in Plugin::init() |
 | 2026-03-24 | 1 | refactor | OutboundWebhookListener: extracted 14 on_webhook_* handlers from Notifications/EventListener into dedicated Outbound/OutboundWebhookListener (implements ListenerInterface); wired in Plugin::init() alongside OutboundWebhookService::init() |
 | 2026-03-24 | 11 | refactor | OnboardingListener: extracted 4 onboarding hooks + 3 handler methods from Notifications/EventListener into dedicated Onboarding/OnboardingListener (implements ListenerInterface); wired in Plugin::init() |
-| 2026-03-24 | 1 | refactor | Plugin.php: removed EventListener use import + ->init() call — all 42 hooks now in 6 domain listeners; deleted empty includes/Notifications/EventListener.php and untracked includes/REST/Controllers/ directory |
+| 2026-03-24 | 10 | refactor | JetonomyBridgeListener + GamificationBridgeListener: extracted bridge hooks into Bridges/ — class_exists() guards, implements ListenerInterface |
+| 2026-03-24 | 1 | refactor | Plugin.php: removed EventListener use import + ->init() call — all 42 hooks now in 6 domain listeners; deleted includes/Notifications/EventListener.php and includes/REST/Controllers/ |
+| 2026-03-24 | — | verified | Code organization refactor browser-verified: /activity/ + /members/ + /spaces/ load with zero PHP errors, zero JS errors, all routes resolve — WPCS clean on all 7 new domain listener files |
