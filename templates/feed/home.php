@@ -6,7 +6,7 @@
  *   - Posts from users the viewer follows (bn_follows)
  *   - Posts from spaces the viewer has joined (bn_space_members, status='active')
  *   - The viewer's own posts
- *   - Shadow-banned users' posts are excluded (bn_user_strikes.shadow_banned = 1)
+ *   - Shadow-banned users' posts are excluded (usermeta: bn_shadow_banned = 1)
  *   - Results ordered by created_at DESC, paginated 12 per page
  *
  * Guests see the Explore feed instead (handled by [buddynext_activity] shortcode).
@@ -42,7 +42,6 @@ $bn_offset   = ( $bn_paged - 1 ) * $bn_per_page;
 $posts_table   = $wpdb->prefix . 'bn_posts';
 $follows_table = $wpdb->prefix . 'bn_follows';
 $spaces_table  = $wpdb->prefix . 'bn_space_members';
-$strikes_table = $wpdb->prefix . 'bn_user_strikes';
 
 // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 if ( $is_guest ) {
@@ -56,7 +55,7 @@ if ( $is_guest ) {
 			 WHERE p.status = 'published'
 			   AND p.privacy = 'public'
 			   AND p.user_id NOT IN (
-			       SELECT user_id FROM {$strikes_table} WHERE shadow_banned = 1
+			       SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
 			   )
 			 ORDER BY p.created_at DESC
 			 LIMIT %d OFFSET %d",
@@ -71,7 +70,7 @@ if ( $is_guest ) {
 		 WHERE p.status = 'published'
 		   AND p.privacy = 'public'
 		   AND p.user_id NOT IN (
-		       SELECT user_id FROM {$strikes_table} WHERE shadow_banned = 1
+		       SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
 		   )"
 	);
 } else {
@@ -93,7 +92,7 @@ if ( $is_guest ) {
 			       )
 			   )
 			   AND p.user_id NOT IN (
-			       SELECT user_id FROM {$strikes_table} WHERE shadow_banned = 1
+			       SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
 			   )
 			 ORDER BY p.created_at DESC
 			 LIMIT %d OFFSET %d",
@@ -120,7 +119,7 @@ if ( $is_guest ) {
 			       )
 			   )
 			   AND p.user_id NOT IN (
-			       SELECT user_id FROM {$strikes_table} WHERE shadow_banned = 1
+			       SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
 			   )",
 			$viewer_id,
 			$viewer_id,
@@ -146,7 +145,7 @@ if ( ! $is_guest ) {
 			       SELECT following_id FROM {$follows_table} WHERE follower_id = %d
 			   )
 			   AND u.ID NOT IN (
-			       SELECT user_id FROM {$strikes_table} WHERE shadow_banned = 1
+			       SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
 			   )
 			 ORDER BY RAND()
 			 LIMIT 4",
