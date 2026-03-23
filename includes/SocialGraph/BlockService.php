@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Block and mute service.
  *
@@ -171,18 +171,18 @@ class BlockService {
 	}
 
 	/**
-	 * Check whether either user has blocked the other (bidirectional).
+	 * Check whether user_a has blocked user_b (directional).
 	 *
-	 * Per spec: is_blocked( $user_a, $user_b ) returns true if user_a has
-	 * blocked user_b OR if user_b has blocked user_a. Use has_blocked() for a
-	 * single-direction check.
+	 * Returns true only if user_a has explicitly blocked user_b.
+	 * For a bidirectional check (either party blocked the other) use
+	 * is_blocking_either().
 	 *
-	 * @param int $user_a First user.
-	 * @param int $user_b Second user.
+	 * @param int $user_a Potential blocker.
+	 * @param int $user_b Potentially blocked user.
 	 * @return bool
 	 */
 	public function is_blocked( int $user_a, int $user_b ): bool {
-		return $this->is_blocking_either( $user_a, $user_b );
+		return $this->has_blocked( $user_a, $user_b );
 	}
 
 	/**

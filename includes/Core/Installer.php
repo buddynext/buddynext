@@ -887,12 +887,14 @@ class Installer {
 			"CREATE TABLE {$p}bn_appeals (
 				id            BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				suspension_id BIGINT(20) UNSIGNED NOT NULL,
+				strike_id     BIGINT(20) DEFAULT NULL,
 				user_id       BIGINT(20) UNSIGNED NOT NULL,
 				message       TEXT NOT NULL,
 				status        ENUM('pending','approved','denied') NOT NULL DEFAULT 'pending',
 				reviewed_by   BIGINT(20) UNSIGNED DEFAULT NULL,
 				reviewer_note TEXT DEFAULT NULL,
 				reviewed_at   DATETIME DEFAULT NULL,
+				resolved_at   DATETIME DEFAULT NULL,
 				created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY   (id),
 				KEY           user_status (user_id, status),
@@ -984,25 +986,6 @@ class Installer {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		// ── bn_appeals — add strike_id + resolved_at columns if missing ──
-
-		$appeals_cols = $wpdb->get_col(
-			$wpdb->prepare(
-				'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-				  WHERE TABLE_SCHEMA = DATABASE()
-				    AND TABLE_NAME   = %s',
-				"{$p}bn_appeals"
-			)
-		);
-
-		if ( ! in_array( 'strike_id', $appeals_cols, true ) ) {
-			$wpdb->query( "ALTER TABLE `{$p}bn_appeals` ADD COLUMN `strike_id` BIGINT(20) DEFAULT NULL AFTER `suspension_id`" );
-		}
-
-		if ( ! in_array( 'resolved_at', $appeals_cols, true ) ) {
-			$wpdb->query( "ALTER TABLE `{$p}bn_appeals` ADD COLUMN `resolved_at` DATETIME DEFAULT NULL" );
-		}
 
 		// ── bn_posts — add 'scheduled' to status ENUM if missing ──────────────
 

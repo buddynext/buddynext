@@ -330,8 +330,8 @@ class MemberDirectoryService {
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			if ( ! empty( $viewer_peer_ids ) ) {
-				$uid_in   = implode( ',', array_map( 'intval', $user_ids ) );
-				$peer_in  = implode( ',', array_map( 'intval', $viewer_peer_ids ) );
+				$uid_in  = implode( ',', array_map( 'intval', $user_ids ) );
+				$peer_in = implode( ',', array_map( 'intval', $viewer_peer_ids ) );
 				// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$m_rows = $wpdb->get_results(
 					"SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id

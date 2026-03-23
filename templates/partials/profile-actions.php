@@ -122,7 +122,38 @@ if ( empty( $bn_owner_actions ) ) {
 			<a href="<?php echo esc_url( $bn_action['url'] ); ?>"
 				class="bn-owner-action bn-owner-action--<?php echo esc_attr( $bn_action['key'] ); ?>"
 				data-action-key="<?php echo esc_attr( $bn_action['key'] ); ?>">
-				<?php echo wp_kses( $bn_action['icon'], array( 'svg' => array( 'width' => true, 'height' => true, 'viewBox' => true, 'fill' => true, 'stroke' => true, 'stroke-width' => true, 'stroke-linecap' => true, 'stroke-linejoin' => true, 'aria-hidden' => true ), 'path' => array( 'd' => true ), 'circle' => array( 'cx' => true, 'cy' => true, 'r' => true ), 'polyline' => array( 'points' => true ), 'rect' => array( 'x' => true, 'y' => true, 'width' => true, 'height' => true, 'rx' => true ) ) ); ?>
+				<?php
+				echo wp_kses(
+					$bn_action['icon'],
+					array(
+						'svg'      => array(
+							'width'           => true,
+							'height'          => true,
+							'viewBox'         => true,
+							'fill'            => true,
+							'stroke'          => true,
+							'stroke-width'    => true,
+							'stroke-linecap'  => true,
+							'stroke-linejoin' => true,
+							'aria-hidden'     => true,
+						),
+						'path'     => array( 'd' => true ),
+						'circle'   => array(
+							'cx' => true,
+							'cy' => true,
+							'r'  => true,
+						),
+						'polyline' => array( 'points' => true ),
+						'rect'     => array(
+							'x'      => true,
+							'y'      => true,
+							'width'  => true,
+							'height' => true,
+							'rx'     => true,
+						),
+					)
+				);
+				?>
 				<?php echo esc_html( $bn_action['label'] ); ?>
 			</a>
 		<?php endforeach; ?>

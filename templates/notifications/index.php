@@ -327,7 +327,7 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 ?>
 <?php
 $bn_nav_active = 'notifications';
-include __DIR__ . '/../partials/nav.php';
+require __DIR__ . '/../partials/nav.php';
 ?>
 <style>
 /* ── Design tokens ── */

@@ -608,3 +608,10 @@ A phase is Done when ALL of:
 | 2026-03-23 | 11 | fix | BlockRegistrar.php: pre-registers buddynext-blocks-editor handle with wp-server-side-render dep before register_block_type() calls; adds phpcs:disable filename comment |
 | 2026-03-23 | 11 | fix | blocks.js: ssrEdit() resolves ServerSideRender defensively at call time, falls back to static placeholder if undefined — prevents React Error #130 |
 | 2026-03-23 | 11 | fix | All 17 block.json: editorScript changed from file path to named handle buddynext-blocks-editor to pick up declared dependencies |
+| 2026-03-23 | — | fix | HashtagService.php: removed duplicate $wpdb-> call lines (607→571 lines); ProfileService.php same fix (1303→1251 lines) |
+| 2026-03-23 | 3 | fix | templates/feed/home.php: recreated from scratch after file was missing (PHP fatal on feed page) |
+| 2026-03-23 | — | fix | templates/partials/nav.php: Yoda conditions on active-item detection + phpcs:disable block for NoCaching |
+| 2026-03-23 | — | fix | templates/partials/profile-actions.php: expanded inline wp_kses array to multi-line (WPCS AssociativeArrayFound) |
+| 2026-03-23 | — | fix | templates/spaces/directory.php, feed/explore.php, notifications/index.php: auto-fixed UseRequire warnings |
+| 2026-03-23 | 18 | feature | templates/auth/verify.php: created — email verification page with success/error/pending states, resend button via REST, dark mode, mobile |
+| 2026-03-23 | — | docs | MASTER_DEVELOPMENT_PLAN.md: all phases marked verified 2026-03-23; Pass 1 Integration Test results section added |

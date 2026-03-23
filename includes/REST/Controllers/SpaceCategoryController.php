@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Space categories REST controller.
  *
@@ -95,7 +95,8 @@ class SpaceCategoryController {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			"SELECT id, name, slug, description, sort_order FROM {$table} ORDER BY sort_order ASC, id ASC" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		) ?? [];
+		);
+		$rows = $rows ?? array();
 
 		$categories = array_map(
 			static function ( object $row ): array {
@@ -197,9 +198,9 @@ class SpaceCategoryController {
 	public function delete_category( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		global $wpdb;
 
-		$id             = (int) $request->get_param( 'id' );
-		$cat_table      = $wpdb->prefix . 'bn_space_categories';
-		$spaces_table   = $wpdb->prefix . 'bn_spaces';
+		$id           = (int) $request->get_param( 'id' );
+		$cat_table    = $wpdb->prefix . 'bn_space_categories';
+		$spaces_table = $wpdb->prefix . 'bn_spaces';
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 		$exists = $wpdb->get_var(
@@ -242,7 +243,7 @@ class SpaceCategoryController {
 			);
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 		$deleted = $wpdb->delete(
 			$cat_table,
 			array( 'id' => $id ),

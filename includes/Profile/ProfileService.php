@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- PSR-4 naming; all queries use custom bn_profile_* tables.
 /**
  * Profile fields and values service.
  *
@@ -70,7 +70,7 @@ class ProfileService {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			"SELECT
 				g.id           AS group_id,
@@ -95,6 +95,7 @@ class ProfileService {
 			ARRAY_A
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$groups = array();
 
 		foreach ( (array) $rows as $row ) {
@@ -152,7 +153,7 @@ class ProfileService {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			"SELECT id, group_key, label, type, visibility, is_system, sort_order
 			 FROM {$wpdb->prefix}bn_profile_groups
@@ -160,6 +161,7 @@ class ProfileService {
 			ARRAY_A
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$groups = array_map(
 			static function ( array $row ): array {
 				return array(
@@ -189,7 +191,7 @@ class ProfileService {
 	public function create_group( array $data ): int {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_profile_groups',
 			array(
@@ -203,6 +205,7 @@ class ProfileService {
 			array( '%s', '%s', '%s', '%s', '%d', '%d' )
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_groups', self::CACHE_GROUP );
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 
@@ -233,8 +236,10 @@ class ProfileService {
 					"SELECT id FROM {$wpdb->prefix}bn_profile_groups WHERE group_key = %s",
 					$group_key
 				)
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			);
 			if ( ! $group_id ) {
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$wpdb->insert(
 					$wpdb->prefix . 'bn_profile_groups',
 					array(
@@ -247,6 +252,7 @@ class ProfileService {
 					),
 					array( '%s', '%s', '%s', '%s', '%d', '%d' )
 				);
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$group_id = (int) $wpdb->insert_id;
 			}
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -270,16 +276,19 @@ class ProfileService {
 				$data['visibility'] ?? 'public',
 				(int) ( $data['sort_order'] ?? 0 )
 			)
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		);
 
 		// If INSERT IGNORE skipped due to a duplicate key, fetch the existing ID.
 		$field_id = (int) $wpdb->insert_id;
 		if ( ! $field_id ) {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$field_id = (int) $wpdb->get_var(
 				$wpdb->prepare(
 					"SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE field_key = %s",
 					$field_key
 				)
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			);
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -450,7 +459,7 @@ class ProfileService {
 		global $wpdb;
 
 		// Load field values joined with field and group definitions.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT
@@ -480,6 +489,7 @@ class ProfileService {
 			ARRAY_A
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// Organise rows into groups → entries → fields.
 		$raw_groups = array();
 
@@ -627,7 +637,7 @@ class ProfileService {
 
 		// Fetch only flat-group fields for completion scoring.
 		// No user input in this query — safe static interpolation.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$fields = $wpdb->get_results(
 			"SELECT f.id, f.is_required
 			 FROM {$wpdb->prefix}bn_profile_fields f
@@ -637,6 +647,7 @@ class ProfileService {
 			ARRAY_A
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$fields = (array) $fields;
 
 		if ( empty( $fields ) ) {
@@ -657,7 +668,7 @@ class ProfileService {
 		$field_ids    = array_column( $fields, 'id' );
 		$placeholders = implode( ', ', array_fill( 0, count( $field_ids ), '%d' ) );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$filled_rows = $wpdb->get_results(
 			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -667,6 +678,7 @@ class ProfileService {
 			ARRAY_A
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$filled_ids = array_column( (array) $filled_rows, 'field_id' );
 		$filled_set = array_flip( $filled_ids );
 
@@ -726,7 +738,7 @@ class ProfileService {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_search_index
@@ -737,6 +749,7 @@ class ProfileService {
 				$wp_user->display_name,
 				$user_id
 			)
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		);
 	}
 
@@ -775,7 +788,7 @@ class ProfileService {
 			return;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_profile_groups',
 			$update,
@@ -784,6 +797,7 @@ class ProfileService {
 			array( '%d' )
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_groups', self::CACHE_GROUP );
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 	}
@@ -802,25 +816,27 @@ class ProfileService {
 		global $wpdb;
 
 		// Cascade: delete each field (and its stored values) first.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$field_ids = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE group_id = %d",
 				$id
 			)
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		);
 
 		foreach ( (array) $field_ids as $field_id ) {
 			$this->delete_field( (int) $field_id );
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_profile_groups',
 			array( 'id' => $id ),
 			array( '%d' )
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_groups', self::CACHE_GROUP );
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 	}
@@ -885,7 +901,7 @@ class ProfileService {
 			return;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_profile_fields',
 			$update,
@@ -894,6 +910,7 @@ class ProfileService {
 			array( '%d' )
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 	}
 
@@ -911,21 +928,23 @@ class ProfileService {
 		global $wpdb;
 
 		// Delete stored values for this field across all users.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_profile_values',
 			array( 'field_id' => $id ),
 			array( '%d' )
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// Delete the field definition.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_profile_fields',
 			array( 'id' => $id ),
 			array( '%d' )
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 	}
 
@@ -943,12 +962,13 @@ class ProfileService {
 	public function reorder_group( int $id, string $direction ): void {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$all = $wpdb->get_results(
 			"SELECT id, sort_order FROM {$wpdb->prefix}bn_profile_groups ORDER BY sort_order ASC, id ASC",
 			ARRAY_A
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$ids = array_column( $all, 'id' );
 		$pos = array_search( (string) $id, $ids, true );
 
@@ -973,7 +993,7 @@ class ProfileService {
 			$b_order = (int) $swap_pos;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_profile_groups',
 			array( 'sort_order' => $b_order ),
@@ -982,7 +1002,8 @@ class ProfileService {
 			array( '%d' )
 		);
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_profile_groups',
 			array( 'sort_order' => $a_order ),
@@ -991,6 +1012,7 @@ class ProfileService {
 			array( '%d' )
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_groups', self::CACHE_GROUP );
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 	}
@@ -1009,19 +1031,20 @@ class ProfileService {
 	public function reorder_field( int $id, string $direction ): void {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$group_id = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT group_id FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d",
 				$id
 			)
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		);
 
 		if ( $group_id <= 0 ) {
 			return;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$all = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, sort_order FROM {$wpdb->prefix}bn_profile_fields WHERE group_id = %d ORDER BY sort_order ASC, id ASC",
@@ -1030,6 +1053,7 @@ class ProfileService {
 			ARRAY_A
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$ids = array_column( $all, 'id' );
 		$pos = array_search( (string) $id, $ids, true );
 
@@ -1054,7 +1078,7 @@ class ProfileService {
 			$b_order = (int) $swap_pos;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_profile_fields',
 			array( 'sort_order' => $b_order ),
@@ -1063,7 +1087,8 @@ class ProfileService {
 			array( '%d' )
 		);
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_profile_fields',
 			array( 'sort_order' => $a_order ),
@@ -1072,6 +1097,7 @@ class ProfileService {
 			array( '%d' )
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 	}
 
@@ -1086,7 +1112,7 @@ class ProfileService {
 	private function get_flat_fields(): array {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			"SELECT
 				f.id,
@@ -1103,6 +1129,7 @@ class ProfileService {
 			ARRAY_A
 		);
 
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return array_map(
 			static function ( array $row ): array {
 				return array(
@@ -1133,9 +1160,9 @@ class ProfileService {
 	public function update_avatar( int $user_id, string $url ): void {
 		update_user_meta( $user_id, 'bn_avatar', $url );
 		// Bust profile cache — avatar URL is embedded in cached profile payload.
-		wp_cache_delete( "profile_{$user_id}_viewer_owner",    self::CACHE_GROUP );
+		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
 		wp_cache_delete( "profile_{$user_id}_viewer_follower", self::CACHE_GROUP );
-		wp_cache_delete( "profile_{$user_id}_viewer_public",   self::CACHE_GROUP );
+		wp_cache_delete( "profile_{$user_id}_viewer_public", self::CACHE_GROUP );
 		\BuddyNext\Core\Plugin::bust_avatar_cache( $user_id );
 	}
 
@@ -1147,9 +1174,9 @@ class ProfileService {
 	 */
 	public function delete_avatar( int $user_id ): void {
 		delete_user_meta( $user_id, 'bn_avatar' );
-		wp_cache_delete( "profile_{$user_id}_viewer_owner",    self::CACHE_GROUP );
+		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
 		wp_cache_delete( "profile_{$user_id}_viewer_follower", self::CACHE_GROUP );
-		wp_cache_delete( "profile_{$user_id}_viewer_public",   self::CACHE_GROUP );
+		wp_cache_delete( "profile_{$user_id}_viewer_public", self::CACHE_GROUP );
 		\BuddyNext\Core\Plugin::bust_avatar_cache( $user_id );
 	}
 
@@ -1165,7 +1192,7 @@ class ProfileService {
 	private function upsert_value( int $user_id, int $field_id, int $entry_index, string $value, ?string $entry_visibility ): void {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$existing = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT id FROM {$wpdb->prefix}bn_profile_values WHERE user_id = %d AND field_id = %d AND entry_index = %d",
@@ -1173,6 +1200,7 @@ class ProfileService {
 				$field_id,
 				$entry_index
 			)
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		);
 
 		if ( null !== $existing ) {
@@ -1184,7 +1212,7 @@ class ProfileService {
 				$update_format[]                 = '%s';
 			}
 
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->update(
 				$wpdb->prefix . 'bn_profile_values',
 				$update_data,
@@ -1196,6 +1224,7 @@ class ProfileService {
 				$update_format,
 				array( '%d', '%d', '%d' )
 			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		} else {
 			$insert_data   = array(
 				'user_id'     => $user_id,
@@ -1210,12 +1239,13 @@ class ProfileService {
 				$insert_format[]                 = '%s';
 			}
 
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->insert(
 				$wpdb->prefix . 'bn_profile_values',
 				$insert_data,
 				$insert_format
 			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		}
 	}
 }

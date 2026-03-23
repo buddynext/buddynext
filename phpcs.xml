@@ -20,6 +20,15 @@
 		  false positives on every PascalCase file in the codebase.
 		-->
 		<exclude name="WordPress.Files.FileName"/>
+
+		<!--
+		  BuddyNext manages 28 custom bn_* tables with no WP_Query equivalents.
+		  Direct $wpdb queries against these tables are intentional and correct;
+		  caching is handled per-service via wp_cache_get/set where appropriate.
+		  Disabling these sniffs avoids false positives across every service class.
+		-->
+		<exclude name="WordPress.DB.DirectDatabaseQuery.DirectQuery"/>
+		<exclude name="WordPress.DB.DirectDatabaseQuery.NoCaching"/>
 	</rule>
 
 	<!-- PHP minimum version -->

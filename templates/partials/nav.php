@@ -37,15 +37,15 @@ $bn_nav_urls = array(
 
 if ( empty( $bn_nav_active ) ) {
 	$current_page_id = (int) get_queried_object_id();
-	if ( $current_page_id === (int) get_option( 'buddynext_page_feed', 0 ) ) {
+	if ( (int) get_option( 'buddynext_page_feed', 0 ) === $current_page_id ) {
 		$bn_nav_active = 'feed';
-	} elseif ( $current_page_id === (int) get_option( 'buddynext_page_members', 0 ) ) {
+	} elseif ( (int) get_option( 'buddynext_page_members', 0 ) === $current_page_id ) {
 		$bn_nav_active = 'members';
-	} elseif ( $current_page_id === (int) get_option( 'buddynext_page_spaces', 0 ) ) {
+	} elseif ( (int) get_option( 'buddynext_page_spaces', 0 ) === $current_page_id ) {
 		$bn_nav_active = 'spaces';
-	} elseif ( $current_page_id === (int) get_option( 'buddynext_page_notifications', 0 ) ) {
+	} elseif ( (int) get_option( 'buddynext_page_notifications', 0 ) === $current_page_id ) {
 		$bn_nav_active = 'notifications';
-	} elseif ( $current_page_id === (int) get_option( 'buddynext_page_profile', 0 ) ) {
+	} elseif ( (int) get_option( 'buddynext_page_profile', 0 ) === $current_page_id ) {
 		$bn_nav_active = '';
 	} else {
 		$bn_nav_active = '';
@@ -63,13 +63,14 @@ if ( $bn_nav_current_user ) {
 	$notif_cache_key = "bn_unread_notifs_{$bn_nav_current_user}";
 	$cached_notifs   = wp_cache_get( $notif_cache_key, 'buddynext_nav' );
 	if ( false === $cached_notifs ) {
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$cached_notifs = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND is_read = 0",
 				$bn_nav_current_user
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		wp_cache_set( $notif_cache_key, $cached_notifs, 'buddynext_nav', 60 );
 	}
 	$bn_unread_notifs = (int) $cached_notifs;

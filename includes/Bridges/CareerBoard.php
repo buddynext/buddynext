@@ -35,9 +35,9 @@ class CareerBoard {
 		}
 
 		add_action( 'wcb_job_created', array( $this, 'on_job_created' ), 10, 4 );
-		add_action( 'wcb_application_submitted', array( $this, 'on_application_submitted' ), 10, 3 );
+		add_action( 'wcb_application_submitted', array( $this, 'on_application_submitted' ), 10, 4 );
 		add_action( 'wcb_application_status_changed', array( $this, 'on_application_status_changed' ), 10, 4 );
-		add_action( 'wcb_application_withdrawn', array( $this, 'on_application_withdrawn' ), 10, 3 );
+		add_action( 'wcb_application_withdrawn', array( $this, 'on_application_withdrawn' ), 10, 4 );
 	}
 
 	/**
@@ -57,18 +57,14 @@ class CareerBoard {
 	/**
 	 * Notify employer when a candidate applies.
 	 *
-	 * Hooked on: wcb_application_submitted($app_id, $job_id, $candidate_id)
-	 *
-	 * Employer ID is resolved from the job post's post_author field rather than
-	 * being passed as a hook argument (Career Board fires 3 args, not 4).
+	 * Hooked on: wcb_application_submitted($app_id, $job_id, $candidate_id, $employer_id)
 	 *
 	 * @param int $app_id       Application ID.
 	 * @param int $job_id       Job post ID.
 	 * @param int $candidate_id Applying candidate.
+	 * @param int $employer_id  Employer user ID.
 	 */
-	public function on_application_submitted( int $app_id, int $job_id, int $candidate_id ): void {
-		$employer_id = (int) get_post_field( 'post_author', $job_id );
-
+	public function on_application_submitted( int $app_id, int $job_id, int $candidate_id, int $employer_id ): void {
 		if ( 0 === $employer_id ) {
 			return;
 		}
@@ -114,16 +110,17 @@ class CareerBoard {
 	/**
 	 * Notify employer when a candidate withdraws their application.
 	 *
-	 * Hooked on: wcb_application_withdrawn($app_id, $job_id, $candidate_id)
-	 *
-	 * Employer ID is resolved from the job post's post_author field.
+	 * Hooked on: wcb_application_withdrawn($app_id, $job_id, $candidate_id, $employer_id)
 	 *
 	 * @param int $app_id       Application ID.
 	 * @param int $job_id       Job post ID.
 	 * @param int $candidate_id Withdrawing candidate.
+	 * @param int $employer_id  Employer user ID.
 	 */
-	public function on_application_withdrawn( int $app_id, int $job_id, int $candidate_id ): void {
-		$employer_id = (int) get_post_field( 'post_author', $job_id );
+	public function on_application_withdrawn( int $app_id, int $job_id, int $candidate_id, int $employer_id ): void {
+		if ( 0 === $employer_id ) {
+			return;
+		}
 
 		( new NotificationService() )->create(
 			array(

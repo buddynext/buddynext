@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * BuddyNext admin spaces panel.
  *
@@ -96,8 +96,9 @@ class Spaces extends AdminPageBase {
 
 		$base_url = admin_url( 'admin.php?page=buddynext-spaces' );
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
 		if ( ! empty( $_GET['deleted'] ) ) {
+			// phpcs:enable WordPress.Security.NonceVerification.Recommended
 			?>
 			<div class="notice notice-success is-dismissible">
 				<p><?php esc_html_e( 'Space deleted successfully.', 'buddynext' ); ?></p>

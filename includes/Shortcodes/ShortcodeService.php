@@ -95,13 +95,24 @@ class ShortcodeService {
 	 *   connections → profile/connections.php
 	 *   (default)   → profile/view.php
 	 *
-	 * @param array<string, mixed>|string $_atts Shortcode attributes (unused).
+	 * @param array<string, mixed>|string $atts Shortcode attributes.
 	 * @return string HTML output.
 	 */
-	public function render_people( $_atts ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+	public function render_people( $atts ): string {
+		$atts      = shortcode_atts( array( 'view' => '' ), $atts, 'buddynext_people' );
+		$view      = (string) $atts['view'];
 		$user_slug = (string) get_query_var( 'bn_user_slug', '' );
 
+		// No user slug — decide by view mode.
 		if ( '' === $user_slug ) {
+			// view=profile: show the current user's own profile (redirect guests to login).
+			if ( 'profile' === $view ) {
+				if ( ! is_user_logged_in() ) {
+					return $this->login_required_html();
+				}
+				return $this->capture( 'profile/view.php', array( 'user_id' => get_current_user_id() ) );
+			}
+			// Default (members hub): show the member directory.
 			return $this->capture( 'directory/members.php', array() );
 		}
 
