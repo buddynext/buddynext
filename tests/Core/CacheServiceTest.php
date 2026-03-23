@@ -72,7 +72,12 @@ class CacheServiceTest extends \WP_UnitTestCase {
 	 * Trending hashtags can be stored and retrieved.
 	 */
 	public function test_set_and_get_trending_hashtags(): void {
-		$tags = array( array( 'id' => 1, 'name' => 'php' ) );
+		$tags = array(
+			array(
+				'id'   => 1,
+				'name' => 'php',
+			),
+		);
 		$this->cache->set_trending_hashtags( $tags );
 		$this->assertSame( $tags, $this->cache->get_trending_hashtags() );
 	}
@@ -125,7 +130,10 @@ class CacheServiceTest extends \WP_UnitTestCase {
 	 * Follow counts can be stored and retrieved.
 	 */
 	public function test_set_and_get_follow_counts(): void {
-		$counts = array( 'followers' => 10, 'following' => 5 );
+		$counts = array(
+			'followers' => 10,
+			'following' => 5,
+		);
 		$this->cache->set_follow_counts( 3, $counts );
 		$this->assertSame( $counts, $this->cache->get_follow_counts( 3 ) );
 	}
@@ -134,7 +142,13 @@ class CacheServiceTest extends \WP_UnitTestCase {
 	 * Invalidating follow counts removes the cached value.
 	 */
 	public function test_invalidate_follow_counts(): void {
-		$this->cache->set_follow_counts( 3, array( 'followers' => 1, 'following' => 1 ) );
+		$this->cache->set_follow_counts(
+			3,
+			array(
+				'followers' => 1,
+				'following' => 1,
+			)
+		);
 		$this->cache->invalidate_follow_counts( 3 );
 		$this->assertNull( $this->cache->get_follow_counts( 3 ) );
 	}
@@ -179,7 +193,12 @@ class CacheServiceTest extends \WP_UnitTestCase {
 	 * Hashtag autocomplete can be stored and retrieved.
 	 */
 	public function test_set_and_get_hashtag_autocomplete(): void {
-		$results = array( array( 'id' => 1, 'name' => 'php' ) );
+		$results = array(
+			array(
+				'id'   => 1,
+				'name' => 'php',
+			),
+		);
 		$this->cache->set_hashtag_autocomplete( 'ph', $results );
 		$this->assertSame( $results, $this->cache->get_hashtag_autocomplete( 'ph' ) );
 	}
@@ -191,5 +210,57 @@ class CacheServiceTest extends \WP_UnitTestCase {
 		$this->cache->set_hashtag_autocomplete( 'ph', array( 'x' ) );
 		$this->cache->invalidate_hashtag_autocomplete( 'ph' );
 		$this->assertNull( $this->cache->get_hashtag_autocomplete( 'ph' ) );
+	}
+
+	// ── remember() ────────────────────────────────────────────────────────────
+
+	/**
+	 * Remember computes and stores value on cache miss.
+	 */
+	public function test_remember_computes_and_stores_on_miss(): void {
+		$called = 0;
+		$result = $this->cache->remember(
+			'test_key',
+			60,
+			static function () use ( &$called ): string {
+				++$called;
+				return 'computed';
+			}
+		);
+
+		$this->assertSame( 'computed', $result );
+		$this->assertSame( 1, $called );
+	}
+
+	/**
+	 * Remember returns cached value without calling callback.
+	 */
+	public function test_remember_returns_cached_value_without_calling_callback(): void {
+		$this->cache->set( 'test_key2', 'cached', 60 );
+		$called = 0;
+		$result = $this->cache->remember(
+			'test_key2',
+			60,
+			static function () use ( &$called ): string {
+				++$called;
+				return 'should-not-be-called';
+			}
+		);
+
+		$this->assertSame( 'cached', $result );
+		$this->assertSame( 0, $called );
+	}
+
+	// ── forget_group() ─────────────────────────────────────────────────────────
+
+	/**
+	 * Forget group does not throw.
+	 */
+	public function test_forget_group_does_not_throw(): void {
+		$this->cache->set( 'key_a', 'value_a', 60 );
+		// forget_group() either flushes (if wp_cache_flush_group exists) or is a no-op.
+		// Either way it must not throw.
+		$this->cache->forget_group( 'buddynext' );
+		$this->addToAssertionCount( 1 ); // explicit assertion that we got here.
 	}
 }

@@ -272,4 +272,43 @@ class CacheService {
 	public function delete( string $key ): void {
 		wp_cache_delete( $key, self::GROUP );
 	}
+
+	/**
+	 * Return cached value or compute and cache it.
+	 *
+	 * Calls $callback only on a cache miss, stores the result, and returns it.
+	 *
+	 * @param string   $key      Cache key.
+	 * @param int      $ttl      TTL in seconds.
+	 * @param callable $callback Callable that produces the value on a cache miss.
+	 * @return mixed
+	 */
+	public function remember( string $key, int $ttl, callable $callback ): mixed {
+		$cached = $this->get( $key );
+
+		if ( null !== $cached ) {
+			return $cached;
+		}
+
+		$value = $callback();
+		$this->set( $key, $value, $ttl );
+
+		return $value;
+	}
+
+	/**
+	 * Flush all cache entries in the BuddyNext cache group.
+	 *
+	 * Delegates to wp_cache_flush_group() when available (Redis Object Cache,
+	 * Memcached). Silent no-op on in-process object cache (entries expire at
+	 * the end of the request anyway).
+	 *
+	 * @param string $group Cache group name. Defaults to the BuddyNext group.
+	 * @return void
+	 */
+	public function forget_group( string $group = self::GROUP ): void {
+		if ( function_exists( 'wp_cache_flush_group' ) ) {
+			wp_cache_flush_group( $group );
+		}
+	}
 }
