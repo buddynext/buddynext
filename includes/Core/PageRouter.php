@@ -61,6 +61,167 @@ class PageRouter {
 		foreach ( array( 'activity', 'people', 'spaces', 'messages', 'notifications', 'auth' ) as $hub ) {
 			add_action( 'update_option_buddynext_slug_' . $hub, array( $this, 'flush_on_slug_change' ) );
 		}
+
+		add_filter( 'request', array( $this, 'suppress_default_query' ) );
+		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
+	}
+
+	// ── Request filter ────────────────────────────────────────────────────────
+
+	/**
+	 * Rewrite the WP_Query vars for BuddyNext hub requests.
+	 *
+	 * Fires on the 'request' filter, before WP_Query runs. When a hub
+	 * is matched the expensive slug-based post lookup is replaced with a
+	 * fast primary-key lookup so WP always has a real page object in
+	 * context (helpful for SEO plugins) while serving BuddyNext's own
+	 * template.
+	 *
+	 * @param array<string,mixed> $query_vars Parsed query vars from WP::parse_request().
+	 * @return array<string,mixed>
+	 */
+	public function suppress_default_query( array $query_vars ): array {
+		if ( ! isset( $query_vars['bn_hub'] ) ) {
+			return $query_vars;
+		}
+
+		$hub_page_map = array(
+			'feed'          => 'buddynext_page_activity',
+			'people'        => 'buddynext_page_people',
+			'spaces'        => 'buddynext_page_spaces',
+			'messages'      => 'buddynext_page_messages',
+			'notifications' => 'buddynext_page_notifications',
+			'auth'          => 'buddynext_page_auth',
+		);
+
+		$hub        = (string) $query_vars['bn_hub'];
+		$option_key = $hub_page_map[ $hub ] ?? '';
+		$page_id    = '' !== $option_key ? (int) get_option( $option_key, 0 ) : 0;
+
+		unset( $query_vars['pagename'], $query_vars['name'], $query_vars['page'] );
+
+		$query_vars['post_type'] = 'page';
+		$query_vars['p']         = $page_id > 0 ? $page_id : -1;
+
+		return $query_vars;
+	}
+
+	// ── Template dispatcher ───────────────────────────────────────────────────
+
+	/**
+	 * Load a BuddyNext hub template and short-circuit WordPress's own output.
+	 *
+	 * Hooked on 'template_redirect'. When the current request is a BuddyNext
+	 * hub route this method resolves the correct relative template path,
+	 * fires a before-hub action for third-party hooks, loads the template
+	 * through the TemplateLoader, then exits so WordPress never renders its
+	 * own page content.
+	 *
+	 * @return void
+	 */
+	public function dispatch_hub_template(): void {
+		$hub = (string) get_query_var( 'bn_hub', '' );
+		if ( '' === $hub ) {
+			return;
+		}
+
+		$template = $this->resolve_hub_template( $hub );
+		if ( null === $template ) {
+			return;
+		}
+
+		do_action( 'buddynext_before_hub', $hub, $template );
+
+		buddynext_get_template( $template );
+
+		exit;
+	}
+
+	/**
+	 * Map a hub + active sub-action query vars to a relative template path.
+	 *
+	 * Returns null when the hub value is not recognised, which causes
+	 * dispatch_hub_template() to fall through and let WordPress handle the
+	 * request normally (e.g. during unit tests or misconfigured setups).
+	 *
+	 * @param string $hub The bn_hub query var value.
+	 * @return string|null Relative path without extension, e.g. 'feed/home'.
+	 */
+	private function resolve_hub_template( string $hub ): ?string {
+		switch ( $hub ) {
+			case 'feed':
+				$action = (string) get_query_var( 'bn_activity_action', '' );
+				switch ( $action ) {
+					case 'explore':
+						return 'feed/explore';
+					case 'hashtag':
+						return 'hashtags/feed';
+					case 'search':
+						return 'search/results';
+					case 'leaderboard':
+						return 'gamification/leaderboard';
+					default:
+						return 'feed/home';
+				}
+
+			case 'people':
+				$user_slug = (string) get_query_var( 'bn_user_slug', '' );
+				if ( '' !== $user_slug ) {
+					$profile_action = (string) get_query_var( 'bn_profile_action', '' );
+					switch ( $profile_action ) {
+						case 'edit':
+							return 'profile/edit';
+						case 'connections':
+							return 'profile/connections';
+						case 'media':
+							return 'profile/media';
+						case 'badges':
+							return 'profile/badges';
+						default:
+							return 'profile/view';
+					}
+				}
+				return 'directory/members';
+
+			case 'spaces':
+				$space_slug = (string) get_query_var( 'bn_space_slug', '' );
+				if ( '' !== $space_slug ) {
+					$space_action = (string) get_query_var( 'bn_space_action', '' );
+					switch ( $space_action ) {
+						case 'members':
+							return 'spaces/members';
+						case 'settings':
+							return 'spaces/settings';
+						case 'moderation':
+							return 'spaces/moderation';
+						case 'admin':
+							return 'spaces/admin';
+						default:
+							return 'spaces/home';
+					}
+				}
+				return 'spaces/directory';
+
+			case 'messages':
+				$conv_id    = (int) get_query_var( 'bn_conv_id', 0 );
+				$msg_action = (string) get_query_var( 'bn_msg_action', '' );
+				if ( $conv_id > 0 ) {
+					return 'messages/thread';
+				}
+				if ( 'requests' === $msg_action ) {
+					return 'messages/requests';
+				}
+				return 'messages/list';
+
+			case 'notifications':
+				return 'notifications/index';
+
+			case 'auth':
+				return 'auth/login';
+
+			default:
+				return null;
+		}
 	}
 
 	// ── Rewrite registration ──────────────────────────────────────────────────

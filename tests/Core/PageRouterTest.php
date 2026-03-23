@@ -145,4 +145,42 @@ class PageRouterTest extends \WP_UnitTestCase {
 		$url     = PageRouter::profile_url( $user_id );
 		$this->assertStringContainsString( 'testuser', $url );
 	}
+
+	// ── request filter ────────────────────────────────────────────────────────
+
+	/**
+	 * Request filter sets p to the hub page ID when bn_hub is present.
+	 *
+	 * @return void
+	 */
+	public function test_suppress_query_sets_p_when_bn_hub_set(): void {
+		update_option( 'buddynext_page_activity', 99 );
+		$result = $this->router->suppress_default_query( array( 'bn_hub' => 'feed' ) );
+		$this->assertSame( 99, $result['p'] );
+		$this->assertSame( 'page', $result['post_type'] );
+		$this->assertArrayNotHasKey( 'pagename', $result );
+		delete_option( 'buddynext_page_activity' );
+	}
+
+	/**
+	 * Request filter sets p to -1 when the page option is not configured.
+	 *
+	 * @return void
+	 */
+	public function test_suppress_query_sets_p_minus_one_when_page_not_configured(): void {
+		delete_option( 'buddynext_page_activity' );
+		$result = $this->router->suppress_default_query( array( 'bn_hub' => 'feed' ) );
+		$this->assertSame( -1, $result['p'] );
+	}
+
+	/**
+	 * Non-BuddyNext requests pass through the filter unmodified.
+	 *
+	 * @return void
+	 */
+	public function test_suppress_query_does_not_modify_non_bn_requests(): void {
+		$vars   = array( 'pagename' => 'about' );
+		$result = $this->router->suppress_default_query( $vars );
+		$this->assertSame( $vars, $result );
+	}
 }
