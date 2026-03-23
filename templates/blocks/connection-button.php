@@ -49,7 +49,7 @@ $nonce = wp_create_nonce( 'bn-connect' );
 ?>
 <div
 	class="bn-block-connection-button"
-	data-wp-interactive="buddynext/connection"
+	data-wp-interactive="buddynext/connection-button"
 	data-user-id="<?php echo absint( $user_id ); ?>"
 	data-wp-context='{"userId":<?php echo absint( $user_id ); ?>,"status":<?php echo wp_json_encode( $bn_status ?? '' ); ?>}'
 >

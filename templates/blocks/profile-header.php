@@ -3,15 +3,19 @@
  * Block template: Profile Header
  *
  * Variables:
- *   int $user_id WordPress user ID (0 = viewed profile from URL context, falls back to current user)
+ *   int  $user_id      WordPress user ID (0 = viewed profile from URL context, falls back to current user)
+ *   bool $show_stats   Whether to render follower/following counts (default true)
+ *   bool $show_actions Whether to render follow/edit profile actions (default true)
  *
  * @package BuddyNext
  */
 
 defined( 'ABSPATH' ) || exit;
 
-$user_id   = $user_id ?? 0;
-$viewer_id = get_current_user_id();
+$user_id      = $user_id ?? 0;
+$show_stats   = isset( $show_stats ) ? (bool) $show_stats : true;
+$show_actions = isset( $show_actions ) ? (bool) $show_actions : true;
+$viewer_id    = get_current_user_id();
 
 if ( ! $user_id ) {
 	$user_id = (int) get_query_var( 'author' );
@@ -52,6 +56,7 @@ $bio        = $bio_field ? ( $bio_field['value'] ?? '' ) : get_user_meta( $user_
 			<?php if ( ! empty( $bio ) ) : ?>
 				<p class="bn-profile-header__bio"><?php echo esc_html( $bio ); ?></p>
 			<?php endif; ?>
+			<?php if ( $show_stats ) : ?>
 			<div class="bn-profile-header__stats">
 				<span class="bn-profile-stat">
 					<strong><?php echo absint( $follower_count ); ?></strong>
@@ -62,22 +67,25 @@ $bio        = $bio_field ? ( $bio_field['value'] ?? '' ) : get_user_meta( $user_
 					<?php esc_html_e( 'following', 'buddynext' ); ?>
 				</span>
 			</div>
+		<?php endif; ?>
 		</div>
-		<?php if ( $viewer_id && $viewer_id !== $user_id ) : ?>
-			<div class="bn-profile-header__actions">
-				<button class="bn-btn bn-btn--sm <?php echo $is_following ? 'bn-btn--secondary bn-following' : 'bn-btn--primary'; ?>"
-					data-action="bn-toggle-follow"
-					data-user-id="<?php echo absint( $user_id ); ?>"
-					data-nonce="<?php echo esc_attr( wp_create_nonce( 'buddynext_follow_' . $user_id ) ); ?>">
-					<?php echo $is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
-				</button>
-			</div>
-		<?php elseif ( $viewer_id === $user_id ) : ?>
-			<div class="bn-profile-header__actions">
-				<a href="<?php echo esc_url( home_url( '/profile/edit/' ) ); ?>" class="bn-btn bn-btn--sm bn-btn--secondary">
-					<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
-				</a>
-			</div>
+		<?php if ( $show_actions ) : ?>
+			<?php if ( $viewer_id && $viewer_id !== $user_id ) : ?>
+				<div class="bn-profile-header__actions">
+					<button class="bn-btn bn-btn--sm <?php echo $is_following ? 'bn-btn--secondary bn-following' : 'bn-btn--primary'; ?>"
+						data-action="bn-toggle-follow"
+						data-user-id="<?php echo absint( $user_id ); ?>"
+						data-nonce="<?php echo esc_attr( wp_create_nonce( 'buddynext_follow_' . $user_id ) ); ?>">
+						<?php echo $is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
+					</button>
+				</div>
+			<?php elseif ( $viewer_id === $user_id ) : ?>
+				<div class="bn-profile-header__actions">
+					<a href="<?php echo esc_url( home_url( '/profile/edit/' ) ); ?>" class="bn-btn bn-btn--sm bn-btn--secondary">
+						<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
+					</a>
+				</div>
+			<?php endif; ?>
 		<?php endif; ?>
 	</div>
 </div>

@@ -596,3 +596,11 @@ A phase is Done when ALL of:
 | 2026-03-23 | 7 | fix | Plugin.php: wire HashtagListener in init() alongside SearchIndexListener |
 | 2026-03-23 | 7 | feature | assets/css/bn-hashtags.css: full 205-line implementation — hashtag chip, inline #tag link, trending list (rank/name/count/trend arrow), pills variant, hashtag feed hero header, follow/unfollow button, sidebar widget, dark mode, mobile ≤640px |
 | 2026-03-23 | 11 | feature | assets/css/bn-onboarding.css: full 1,169-line implementation — admin setup wizard (8-step progress bar, all step forms), member onboarding flow (4-step progress, interests grid, space cards, people list), invite email rows, CSV drop zone, dark mode, mobile ≤640px |
+| 2026-03-23 | 8 | fix | VerificationService::verify(): fire buddynext_user_verified after usermeta set — webhook handler was wired but action was never dispatched (BLOCK 15 Fix 5) |
+| 2026-03-23 | 8 | fix | ModerationService: added strike() + shadow_unban() spec-named aliases delegating to issue_strike() / remove_shadow_ban() |
+| 2026-03-23 | 11 | fix | follow-button.php: data-wp-interactive store name corrected buddynext/follow → buddynext/follow-button |
+| 2026-03-23 | 11 | fix | connection-button.php: data-wp-interactive store name corrected buddynext/connection → buddynext/connection-button |
+| 2026-03-23 | 11 | fix | blocks/bn-profile-header/block.json: added showStats + showActions boolean attributes (default true) |
+| 2026-03-23 | 11 | fix | BlockRegistrar::render_profile_header(): pass show_stats + show_actions to template |
+| 2026-03-23 | 11 | fix | templates/blocks/profile-header.php: guard stats + actions sections with $show_stats / $show_actions flags |
+| 2026-03-23 | 11 | feature | assets/js/blocks.js: added buddynext/post-card store (reactions, bookmark, content-warning) + buddynext/post-composer store (submit, privacy, onInput) |

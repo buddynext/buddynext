@@ -18,6 +18,14 @@
 		"userId": {
 			"type": "integer",
 			"default": 0
+		},
+		"showStats": {
+			"type": "boolean",
+			"default": true
+		},
+		"showActions": {
+			"type": "boolean",
+			"default": true
 		}
 	},
 	"example": {}

@@ -344,10 +344,15 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	public function render_profile_header( array $attributes ): string {
-		$user_id = (int) ( $attributes['userId'] ?? 0 );
+		$user_id      = (int) ( $attributes['userId'] ?? 0 );
+		$show_stats   = (bool) ( $attributes['showStats'] ?? true );
+		$show_actions = (bool) ( $attributes['showActions'] ?? true );
 
 		ob_start();
-		buddynext_get_template( 'blocks/profile-header.php', compact( 'user_id' ) );
+		buddynext_get_template(
+			'blocks/profile-header.php',
+			compact( 'user_id', 'show_stats', 'show_actions' )
+		);
 		return (string) ob_get_clean();
 	}
 

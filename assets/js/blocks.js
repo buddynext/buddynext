@@ -347,4 +347,114 @@
 		},
 	} );
 
+	/* ── Post card ──────────────────────────────────────────────────── */
+
+	store( 'buddynext/post-card', {
+		state: {
+			loading:       false,
+			reactionOpen:  false,
+			bookmarked:    false,
+		},
+		actions: {
+			toggleReaction: function* () {
+				var ctx = getContext();
+				if ( ctx.loading ) {
+					return;
+				}
+				ctx.loading = true;
+				yield window.fetch(
+					( window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '' )
+					+ '/buddynext/v1/posts/' + ctx.postId + '/react',
+					{
+						method:  'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'X-WP-Nonce':   window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
+						},
+						body: JSON.stringify( { emoji: ctx.reactionEmoji } ),
+					}
+				);
+				ctx.loading = false;
+			},
+			toggleBookmark: function* () {
+				var ctx    = getContext();
+				ctx.loading = true;
+				var method  = ctx.bookmarked ? 'DELETE' : 'POST';
+				yield window.fetch(
+					( window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '' )
+					+ '/buddynext/v1/posts/' + ctx.postId + '/bookmark',
+					{
+						method:  method,
+						headers: {
+							'X-WP-Nonce': window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
+						},
+					}
+				);
+				ctx.bookmarked = ! ctx.bookmarked;
+				ctx.loading    = false;
+			},
+			dismissContentWarning: function () {
+				var ctx           = getContext();
+				ctx.warningDismissed = true;
+			},
+			openReactionPicker: function () {
+				var ctx          = getContext();
+				ctx.reactionOpen = true;
+			},
+			closeReactionPicker: function () {
+				var ctx          = getContext();
+				ctx.reactionOpen = false;
+			},
+		},
+	} );
+
+	/* ── Post composer ──────────────────────────────────────────────── */
+
+	store( 'buddynext/post-composer', {
+		state: {
+			submitting: false,
+			content:    '',
+			privacy:    'public',
+			type:       'text',
+		},
+		actions: {
+			onInput: function () {
+				var ctx = getContext();
+				var el  = getElement();
+				ctx.content = el && el.ref ? el.ref.value : '';
+			},
+			submit: function* () {
+				var ctx = getContext();
+				if ( ctx.submitting || ! ctx.content.trim() ) {
+					return;
+				}
+				ctx.submitting = true;
+				yield window.fetch(
+					( window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '' )
+					+ '/buddynext/v1/posts',
+					{
+						method:  'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'X-WP-Nonce':   window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
+						},
+						body: JSON.stringify( {
+							content: ctx.content,
+							privacy: ctx.privacy,
+							type:    ctx.type,
+						} ),
+					}
+				);
+				ctx.content    = '';
+				ctx.submitting = false;
+				window.location.reload();
+			},
+			setPrivacy: function () {
+				var ctx = getContext();
+				var el  = getElement();
+				ctx.privacy = el && el.ref ? el.ref.value : 'public';
+			},
+		},
+	} );
+
 } )();

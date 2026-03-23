@@ -21,7 +21,7 @@ $is_following = buddynext_service( 'follows' )->is_following( $viewer_id, $user_
 ?>
 <div
 	class="bn-block-follow-button"
-	data-wp-interactive="buddynext/follow"
+	data-wp-interactive="buddynext/follow-button"
 	data-user-id="<?php echo absint( $user_id ); ?>"
 	data-wp-context='{"userId":<?php echo absint( $user_id ); ?>,"isFollowing":<?php echo $is_following ? 'true' : 'false'; ?>}'
 >
