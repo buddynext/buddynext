@@ -3,9 +3,9 @@
  * BuddyNext — Post card partial.
  *
  * Reusable post card rendered across home, explore, profile, and space feeds.
- * Receives $args['post'] (hydrated array from FeedService/PostService),
- * $args['current_user_id'] (int, 0 for guests), and $args['context']
- * (string: home|explore|profile|space).
+ * Receives $post (hydrated array from FeedService/PostService),
+ * $current_user_id (int, 0 for guests), and $context
+ * (string: home|explore|profile|space) — variables extracted by TemplateLoader::render().
  *
  * Supported post types: text, photo, file, link, poll, announcement,
  *   activity, media, discussion, job, share.
@@ -15,11 +15,9 @@
  * @package BuddyNext
  * @since   1.0.0
  *
- * @var array{
- *   post: array,
- *   current_user_id: int,
- *   context: string
- * } $args
+ * @var array    $post            Hydrated post array.
+ * @var int       $current_user_id Viewing user ID.
+ * @var string    $context         Feed context (home|explore|profile|space).
  */
 
 declare( strict_types=1 );
@@ -28,10 +26,10 @@ defined( 'ABSPATH' ) || exit;
 
 use BuddyNext\Core\PageRouter;
 
-$bn_post         = $args['post'] ?? array();
-$current_user_id = absint( $args['current_user_id'] ?? 0 );
-$context         = in_array( $args['context'] ?? '', array( 'home', 'explore', 'profile', 'space' ), true )
-	? ( $args['context'] )
+$bn_post         = $post ?? array();
+$current_user_id = absint( $current_user_id ?? 0 );
+$context         = in_array( $context ?? '', array( 'home', 'explore', 'profile', 'space' ), true )
+	? ( $context )
 	: 'home';
 
 if ( empty( $bn_post ) || empty( $bn_post['id'] ) ) {
@@ -379,7 +377,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 	<div
 		class="bn-post-card__body"
 		<?php if ( $has_cw ) : ?>
-			data-wp-bind--class="state.showContent ? '' : 'bn-post-card__body--blurred'"
+			data-wp-bind--class="state.bodyClass"
 		<?php endif; ?>
 	>
 
@@ -594,9 +592,9 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				class="bn-post-card__action-btn bn-post-card__action-btn--react"
 				aria-label="<?php esc_attr_e( 'React to post', 'buddynext' ); ?>"
 				data-wp-on--click="actions.toggleReactionPicker"
-				data-wp-bind--class="state.reactionType ? 'bn-post-card__action-btn bn-post-card__action-btn--react is-reacted' : 'bn-post-card__action-btn bn-post-card__action-btn--react'"
+				data-wp-bind--class="state.reactBtnClass"
 			>
-				<span data-wp-text="state.reactionType ? state.reactionEmoji : '&#10084;&#65039;'">&#10084;&#65039;</span>
+				<span data-wp-text="state.reactionEmoji">&#10084;&#65039;</span>
 				<?php esc_html_e( 'React', 'buddynext' ); ?>
 			</button>
 
@@ -681,7 +679,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				aria-label="<?php esc_attr_e( 'Bookmark post', 'buddynext' ); ?>"
 				data-wp-on--click="actions.toggleBookmark"
 				data-post-id="<?php echo absint( $bn_post_id ); ?>"
-				data-wp-bind--class="state.bookmarked ? 'bn-post-card__action-btn is-bookmarked' : 'bn-post-card__action-btn'"
+				data-wp-bind--class="state.bookmarkBtnClass"
 			>
 				<span data-wp-bind--aria-pressed="state.bookmarked">&#128278;</span>
 				<?php esc_html_e( 'Save', 'buddynext' ); ?>

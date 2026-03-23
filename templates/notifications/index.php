@@ -5,7 +5,7 @@
  * Displays grouped, filterable notifications for the current user.
  * Supports filter tabs (All, Reactions, Comments, People, Spaces, Messages),
  * read/unread state, inline actions (accept/decline space invites), and a
- * "Mark all read" button that calls buddynext/v1/notifications/read-all.
+ * "Mark all read" button that calls buddynext/v1/me/notifications/read-all.
  *
  * @package BuddyNext
  */
@@ -243,7 +243,7 @@ $time_ago = static function ( string $created_at ): string {
 };
 
 $mark_all_nonce = wp_create_nonce( 'bn_notifications_read_all' );
-$rest_url       = esc_url( rest_url( 'buddynext/v1/notifications/read-all' ) );
+$rest_url       = esc_url( rest_url( 'buddynext/v1/me/notifications/read-all' ) );
 
 /**
  * Render a single notification row.
@@ -600,7 +600,7 @@ require __DIR__ . '/../partials/nav.php';
 
 <div class="bn-notifs-shell"
 	data-wp-interactive="buddynext/notifications"
-	data-wp-context='{"markedAll":false,"activeFilter":"<?php echo esc_attr( $active_filter ); ?>","nonce":"<?php echo esc_attr( $mark_all_nonce ); ?>","restUrl":"<?php echo esc_url( rest_url( 'buddynext/v1/notifications' ) ); ?>"}'>
+	data-wp-context='{"markedAll":false,"activeFilter":"<?php echo esc_attr( $active_filter ); ?>","nonce":"<?php echo esc_attr( $mark_all_nonce ); ?>","restUrl":"<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications' ) ); ?>"}'>
 
 	<div class="bn-notifs-header">
 		<h1 class="bn-notifs-title">

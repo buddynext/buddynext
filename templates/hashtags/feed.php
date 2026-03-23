@@ -29,28 +29,29 @@ $hashtag_slug = isset( $args['hashtag_slug'] )
 	? sanitize_title( $args['hashtag_slug'] )
 	: sanitize_title( get_query_var( 'bn_hashtag', '' ) );
 
-if ( ! $hashtag_slug ) {
-	wp_safe_redirect( home_url( '/community/' ) );
-	exit;
-}
+// Headers are already sent by wp_head() when this template runs — use an
+// inline not-found state rather than wp_safe_redirect().
+$hashtag_not_found = ! $hashtag_slug;
 
 // ── Load hashtag row ───────────────────────────────────────────────────────
+$hashtag        = null;
 $hashtags_table = $wpdb->prefix . 'bn_hashtags';
 
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$hashtag = $wpdb->get_row(
-	$wpdb->prepare(
-		"SELECT id, slug, post_count, created_at
-		FROM {$hashtags_table}
-		WHERE slug = %s
-		LIMIT 1",
-		$hashtag_slug
-	)
-); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+if ( $hashtag_slug ) {
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$hashtag = $wpdb->get_row(
+		$wpdb->prepare(
+			"SELECT id, slug, post_count, created_at
+			FROM {$hashtags_table}
+			WHERE slug = %s
+			LIMIT 1",
+			$hashtag_slug
+		)
+	); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-if ( ! $hashtag ) {
-	wp_safe_redirect( home_url( '/community/' ), 302 );
-	exit;
+	if ( ! $hashtag ) {
+		$hashtag_not_found = true;
+	}
 }
 
 // ── Current user context ───────────────────────────────────────────────────
@@ -58,74 +59,80 @@ $current_user_id = get_current_user_id();
 $is_logged_in    = ( $current_user_id > 0 );
 
 // ── Check if current user follows this hashtag ────────────────────────────
-$follows_hashtag = false;
-if ( $is_logged_in ) {
-	$hashtag_follows_table = $wpdb->prefix . 'bn_hashtag_follows';
-
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$follows_hashtag = (bool) $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT 1 FROM {$hashtag_follows_table} WHERE user_id = %d AND hashtag_id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$current_user_id,
-			(int) $hashtag->id
-		)
-	);
-}
-
-// ── Feed posts for this hashtag ────────────────────────────────────────────
-$limit             = absint( $args['limit'] ?? 10 );
+$follows_hashtag   = false;
+$hashtag_posts     = array();
+$related_tags      = array();
+$top_contributors  = array();
 $posts_table       = $wpdb->prefix . 'bn_posts';
 $post_hashtags_tbl = $wpdb->prefix . 'bn_post_hashtags';
 
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$hashtag_posts = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT p.id, p.user_id, p.content, p.type, p.created_at,
-		        p.reaction_count, p.comment_count, p.share_count
-		FROM {$posts_table} p
-		INNER JOIN {$post_hashtags_tbl} ph ON ph.post_id = p.id
-		WHERE ph.hashtag_id = %d
-		  AND p.status = 'published'
-		  AND p.privacy = 'public'
-		ORDER BY (p.reaction_count + p.comment_count * 2) DESC, p.created_at DESC
-		LIMIT %d",
-		(int) $hashtag->id,
-		$limit
-	)
-); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+if ( ! $hashtag_not_found ) {
+	if ( $is_logged_in ) {
+		$hashtag_follows_table = $wpdb->prefix . 'bn_hashtag_follows';
 
-// ── Related hashtags ───────────────────────────────────────────────────────
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$related_tags = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT h2.slug, h2.post_count
-		FROM {$post_hashtags_tbl} ph1
-		INNER JOIN {$post_hashtags_tbl} ph2 ON ph2.post_id = ph1.post_id AND ph2.hashtag_id != %d
-		INNER JOIN {$hashtags_table} h2 ON h2.id = ph2.hashtag_id
-		WHERE ph1.hashtag_id = %d
-		GROUP BY h2.id
-		ORDER BY COUNT(*) DESC, h2.post_count DESC
-		LIMIT 4",
-		(int) $hashtag->id,
-		(int) $hashtag->id
-	)
-); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$follows_hashtag = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT 1 FROM {$hashtag_follows_table} WHERE user_id = %d AND hashtag_id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$current_user_id,
+				(int) $hashtag->id
+			)
+		);
+	}
 
-// ── Top contributors ───────────────────────────────────────────────────────
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$top_contributors = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT p.user_id, COUNT(*) AS post_count
-		FROM {$posts_table} p
-		INNER JOIN {$post_hashtags_tbl} ph ON ph.post_id = p.id
-		WHERE ph.hashtag_id = %d
-		  AND p.status = 'published'
-		GROUP BY p.user_id
-		ORDER BY post_count DESC
-		LIMIT 3",
-		(int) $hashtag->id
-	)
-); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	// ── Feed posts for this hashtag ─────────────────────────────────────────
+	$limit = absint( $args['limit'] ?? 10 );
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$hashtag_posts = (array) $wpdb->get_results(
+		$wpdb->prepare(
+			"SELECT p.id, p.user_id, p.content, p.type, p.created_at,
+			        p.reaction_count, p.comment_count, p.share_count
+			FROM {$posts_table} p
+			INNER JOIN {$post_hashtags_tbl} ph ON ph.post_id = p.id
+			WHERE ph.hashtag_id = %d
+			  AND p.status = 'published'
+			  AND p.privacy = 'public'
+			ORDER BY (p.reaction_count + p.comment_count * 2) DESC, p.created_at DESC
+			LIMIT %d",
+			(int) $hashtag->id,
+			$limit
+		)
+	); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+	// ── Related hashtags ─────────────────────────────────────────────────────
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$related_tags = (array) $wpdb->get_results(
+		$wpdb->prepare(
+			"SELECT h2.slug, h2.post_count
+			FROM {$post_hashtags_tbl} ph1
+			INNER JOIN {$post_hashtags_tbl} ph2 ON ph2.post_id = ph1.post_id AND ph2.hashtag_id != %d
+			INNER JOIN {$hashtags_table} h2 ON h2.id = ph2.hashtag_id
+			WHERE ph1.hashtag_id = %d
+			GROUP BY h2.id
+			ORDER BY COUNT(*) DESC, h2.post_count DESC
+			LIMIT 4",
+			(int) $hashtag->id,
+			(int) $hashtag->id
+		)
+	); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+	// ── Top contributors ─────────────────────────────────────────────────────
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$top_contributors = (array) $wpdb->get_results(
+		$wpdb->prepare(
+			"SELECT p.user_id, COUNT(*) AS post_count
+			FROM {$posts_table} p
+			INNER JOIN {$post_hashtags_tbl} ph ON ph.post_id = p.id
+			WHERE ph.hashtag_id = %d
+			  AND p.status = 'published'
+			GROUP BY p.user_id
+			ORDER BY post_count DESC
+			LIMIT 3",
+			(int) $hashtag->id
+		)
+	); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+}
 
 // ── REST nonce ─────────────────────────────────────────────────────────────
 $rest_nonce = wp_create_nonce( 'wp_rest' );
@@ -655,19 +662,39 @@ function bn_tag_linkify( string $content ): string {
 </style>
 
 <?php
-// ── Build page title for SEO / accessibility ───────────────────────────────
-$page_title = sprintf(
-	/* translators: %s: hashtag slug */
-	__( '#%s — BuddyNext', 'buddynext' ),
-	$hashtag_slug
-);
+if ( $hashtag_not_found ) :
+	?>
+	<div class="bn-hashtag-feed">
+		<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:var(--s12) var(--s4);text-align:center;">
+			<span style="font-size:48px;margin-bottom:var(--s4);">#</span>
+			<h1 style="font-size:var(--text-xl);font-weight:600;color:var(--text-1);margin:0 0 var(--s2);">
+				<?php
+				echo $hashtag_slug
+					? esc_html( sprintf( /* translators: %s: hashtag */ __( '#%s not found', 'buddynext' ), $hashtag_slug ) )
+					: esc_html__( 'Hashtag not found', 'buddynext' );
+				?>
+			</h1>
+			<p style="color:var(--text-2);font-size:var(--text-sm);">
+				<?php esc_html_e( 'This hashtag does not exist yet. Be the first to use it!', 'buddynext' ); ?>
+			</p>
+		</div>
+	</div>
+	<?php
+else :
 
-// ── First-use date label ───────────────────────────────────────────────────
-$first_used_label = '';
-if ( $hashtag->created_at ) {
-	$first_used_label = date_i18n( get_option( 'date_format' ), (int) strtotime( $hashtag->created_at ) );
-}
-?>
+	// ── Build page title for SEO / accessibility ─────────────────────────────
+	$page_title = sprintf(
+	/* translators: %s: hashtag slug */
+		__( '#%s — BuddyNext', 'buddynext' ),
+		$hashtag_slug
+	);
+
+	// ── First-use date label ──────────────────────────────────────────────────
+	$first_used_label = '';
+	if ( null !== $hashtag && $hashtag->created_at ) {
+		$first_used_label = date_i18n( get_option( 'date_format' ), (int) strtotime( $hashtag->created_at ) );
+	}
+	?>
 <div
 	class="bn-hashtag-feed"
 	data-wp-interactive="buddynext/feed"
@@ -1145,3 +1172,4 @@ if ( $hashtag->created_at ) {
 	?>
 	</script>
 </div>
+<?php endif; ?>

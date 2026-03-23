@@ -245,6 +245,15 @@ class SpaceService {
 
 		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
 
+		/**
+		 * Fires after a space is updated.
+		 *
+		 * @param int   $space_id Space ID.
+		 * @param int   $user_id  User who updated the space.
+		 * @param array $data     Fields that were updated.
+		 */
+		do_action( 'buddynext_space_updated', $space_id, $user_id, $fields );
+
 		return true;
 	}
 

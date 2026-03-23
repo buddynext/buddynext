@@ -618,3 +618,22 @@ A phase is Done when ALL of:
 | 2026-03-23 | 12 | fix | PageRouter::resolve_hub_template(): all return values now include .php extension — TemplateLoader::locate() does not auto-append |
 | 2026-03-23 | 3 | fix | templates/feed/home.php: SELECT query + $home_post array corrected — replaced non-existent link_title/link_description/link_image with link_meta (JSON column per bn_posts schema) |
 | 2026-03-23 | — | verified | Browser test: /activity/ /members/ /spaces/ /notifications/ /wp-admin/ all render correctly — no PHP errors, no DB errors |
+| 2026-03-23 | — | fix | PageRouter: dispatch_hub_template() outputs full HTML document (DOCTYPE+html+head+wp_head+body+wp_footer) — WP scripts/styles now load on BN pages |
+| 2026-03-23 | — | fix | AssetService: removed wp_register_script() with wp-interactivity dep; added register_script_modules() using wp_register_script_module() + @wordpress/interactivity |
+| 2026-03-23 | — | fix | All 12 assets/js/{feature}/store.js: converted from IIFE (window.wp.interactivity) to ES module (import { store, getContext } from '@wordpress/interactivity') |
+| 2026-03-23 | 2 | fix | templates/profile/view.php: follow/unfollow buttons use data-wp-bind--hidden for reactive toggle; added connectionPending PHP check + showConnect context key; added Pending + Connected buttons |
+| 2026-03-23 | — | fix | assets/css/bn-base.css: added [hidden] { display: none !important; } to prevent flex/grid component rules overriding browser hidden attribute |
+| 2026-03-23 | 2 | fix | assets/js/profile/store.js: connect action guards on !ctx.showConnect; sets ctx.showConnect=false on success |
+| 2026-03-23 | 2 | verified | Phase 2 Social Graph browser-verified: follow/unfollow (count reactive), connection request→Pending, acceptance→1st degree+count=1, block→DB record, mute→INSERT IGNORE preserves block |
+| 2026-03-23 | 3 | fix | assets/js/feed/store.js: WP Interactivity API does not evaluate inline ternary expressions in data-wp-bind — moved all class ternaries to computed state getters (reactBtnClass, bodyClass, bookmarkBtnClass) |
+| 2026-03-23 | 3 | fix | templates/partials/post-card.php: replaced inline ternary data-wp-bind--class with state.reactBtnClass, state.bodyClass, state.bookmarkBtnClass; data-wp-text simplified to state.reactionEmoji |
+| 2026-03-23 | 3 | verified | Phase 3 Activity Feed browser-verified: home feed renders at 1280px + 390px, WP Interactivity API directives processing (reactBtnClass/bookmarkBtnClass set correctly, emoji via WP img), zero JS errors |
+| 2026-03-23 | 1 | fix | PageRouter: auth hub redirect — hub_url() called with both slug_option + page_option args (was passing single arg causing fatal) |
+| 2026-03-23 | 11 | feature | PageRouter: onboarding hub registered — register_onboarding_rules(), case in resolve_hub_template + enqueue_hub_assets, buddynext_slug_onboarding default slug, added to hub flush loop and hub_page_map |
+| 2026-03-23 | 11 | feature | WP page ID 35 created (slug: onboarding); buddynext_page_onboarding option set; rewrite rules flushed |
+| 2026-03-23 | 11 | fix | templates/onboarding/index.php: bio placeholder escape sequence \xe2\x80\xa6 → literal ... (was rendering raw hex bytes in placeholder attribute) |
+| 2026-03-23 | 11 | verified | Phase 11 browser-verified: onboarding page renders at 1280px + 390px — 4-step progress bar, avatar initials, all form fields, Skip/Continue buttons. Zero JS errors. WPCS clean. |
+| 2026-03-23 | 12 | fix | Admin\Spaces: type-filter + pagination href attributes — inline esc_url() call, eliminated leading/trailing whitespace in rendered href values |
+| 2026-03-23 | 12 | verified | Phase 12 browser-verified: all 6 admin pages render with real data — Settings (10 tabs), Members (stats + table), Spaces (stats + filter + table), NavManager (3-panel drag UI), IntegrationHub (1/4 active), EmailEditor (16+ templates). Zero JS errors. WPCS clean. |
+| 2026-03-23 | 13 | feature | mu-plugins/buddynext-early-router.php: plugin isolation — strips non-BN plugins on front-end BN routes via option_active_plugins filter; is_admin() + WP_CLI guards; buddynext_isolation_whitelist filter; WPCS clean |
+| 2026-03-23 | 13 | verified | Phase 13 browser-verified: activity feed renders with isolation active; admin panel loads full plugin set (is_admin guard confirmed); zero JS errors |

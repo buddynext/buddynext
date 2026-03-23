@@ -42,12 +42,22 @@ class OutboundWebhookService {
 	 * bind the retry handler. Called once during Plugin::init().
 	 */
 	public function init(): void {
+		// Defer wp_schedule_event() to the init hook so it runs after after_setup_theme.
+		// Calling it during plugins_loaded triggers cron_schedules → __() calls before
+		// textdomains are loaded, causing _load_textdomain_just_in_time notices in WP 6.7+.
+		add_action( 'init', array( $this, 'schedule_cron' ) );
+
+		add_action( 'buddynext_webhook_retry', array( $this, 'retry_failed' ) );
+	}
+
+	/**
+	 * Schedule the webhook retry cron event. Deferred to the init hook.
+	 */
+	public function schedule_cron(): void {
 		// buddynext_5min schedule is registered by CronScheduler — no duplicate needed here.
 		if ( ! wp_next_scheduled( 'buddynext_webhook_retry' ) ) {
 			wp_schedule_event( time(), 'buddynext_5min', 'buddynext_webhook_retry' );
 		}
-
-		add_action( 'buddynext_webhook_retry', array( $this, 'retry_failed' ) );
 	}
 
 	// ── Registration ──────────────────────────────────────────────────────────

@@ -68,7 +68,7 @@ $is_pending   = $membership && 'pending' === $membership->status;
 
 // ── Access gate: private spaces ───────────────────────────────────────────────
 
-if ( 'public' !== $space->type && ! $is_member && ! current_user_can( 'manage_options' ) ) {
+if ( 'open' !== $space->type && ! $is_member && ! current_user_can( 'manage_options' ) ) {
 	// Show teaser header only, gate the feed.
 	$gate_feed = true;
 } else {
@@ -187,7 +187,7 @@ $active_tab = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab
 $member_count_fmt = number_format_i18n( (int) $space->member_count );
 
 $privacy_label = match ( $space->type ) {
-	'public'  => __( 'Public', 'buddynext' ),
+	'open'    => __( 'Open', 'buddynext' ),
 	'private' => __( 'Private', 'buddynext' ),
 	default   => __( 'Invite-only', 'buddynext' ),
 };

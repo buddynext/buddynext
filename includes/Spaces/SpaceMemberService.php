@@ -321,6 +321,65 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Decline a pending join request.
+	 *
+	 * Only the owner, a moderator, or a user with manage_options can decline.
+	 * The pending membership row is deleted so the user may re-apply later.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $actor_id User declining the request.
+	 * @param int $user_id  User whose request is being declined.
+	 * @return true|WP_Error
+	 */
+	public function decline_request( int $space_id, int $actor_id, int $user_id ): true|WP_Error {
+		$actor_role = $this->get_role( $space_id, $actor_id );
+
+		if (
+			! in_array( $actor_role, array( 'owner', 'moderator' ), true )
+			&& ! user_can( $actor_id, 'manage_options' )
+		) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Only the space owner or a moderator can decline join requests.', 'buddynext' )
+			);
+		}
+
+		$current_status = $this->get_status( $space_id, $user_id );
+
+		if ( 'pending' !== $current_status ) {
+			return new WP_Error(
+				'no_pending_request',
+				__( 'No pending join request found for this user.', 'buddynext' )
+			);
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $user_id,
+			),
+			array( '%d', '%d' )
+		);
+
+		$this->invalidate_cache( $space_id, $user_id );
+
+		/**
+		 * Fires after a join request is declined.
+		 *
+		 * @param int $space_id  Space ID.
+		 * @param int $user_id   User whose request was declined.
+		 * @param int $actor_id  User who declined.
+		 */
+		do_action( 'buddynext_space_join_declined', $space_id, $user_id, $actor_id );
+
+		return true;
+	}
+
+	/**
 	 * Ban a user from a space.
 	 *
 	 * The owner cannot be banned. Only the owner, a moderator, or a user with
@@ -608,23 +667,41 @@ class SpaceMemberService {
 	/**
 	 * Return all active members of a space with their roles.
 	 *
-	 * @param int $space_id Space ID.
+	 * @param int $space_id  Space ID.
+	 * @param int $viewer_id Viewing user ID; when non-zero, blocked users are excluded.
 	 * @return array[] Each item: user_id, role, joined_at.
 	 */
-	public function get_members( int $space_id ): array {
+	public function get_members( int $space_id, int $viewer_id = 0 ): array {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$block_where = '';
+		if ( $viewer_id > 0 ) {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$block_where = $wpdb->prepare(
+				" AND sm.user_id NOT IN (
+				      SELECT blocked_id  FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d
+				      UNION
+				      SELECT blocker_id  FROM {$wpdb->prefix}bn_blocks WHERE blocked_id  = %d
+				  )",
+				$viewer_id,
+				$viewer_id
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT user_id, role, joined_at
-				 FROM {$wpdb->prefix}bn_space_members
-				 WHERE space_id = %d AND status = 'active'
-				 ORDER BY joined_at ASC",
+				"SELECT sm.user_id, sm.role, sm.joined_at
+				 FROM {$wpdb->prefix}bn_space_members sm
+				 WHERE sm.space_id = %d AND sm.status = 'active'
+				   {$block_where}
+				 ORDER BY sm.joined_at ASC",
 				$space_id
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map(
 			fn( $r ) => array(
@@ -645,7 +722,7 @@ class SpaceMemberService {
 	public function get_pending_requests( int $space_id ): array {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT user_id, joined_at
@@ -656,6 +733,7 @@ class SpaceMemberService {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map(
 			fn( $r ) => array(
@@ -679,8 +757,8 @@ class SpaceMemberService {
 	private function adjust_member_count( int $space_id, int $delta ): void {
 		global $wpdb;
 
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( $delta > 0 ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
 					"UPDATE {$wpdb->prefix}bn_spaces SET member_count = member_count + 1 WHERE id = %d",
@@ -688,7 +766,6 @@ class SpaceMemberService {
 				)
 			);
 		} else {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
 					"UPDATE {$wpdb->prefix}bn_spaces SET member_count = GREATEST(0, member_count - 1) WHERE id = %d",
@@ -696,6 +773,7 @@ class SpaceMemberService {
 				)
 			);
 		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
 	}
@@ -753,8 +831,8 @@ class SpaceMemberService {
 
 		global $wpdb;
 
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// Remove the permanent ban record.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_space_bans',
 			array(
@@ -765,7 +843,6 @@ class SpaceMemberService {
 		);
 
 		// Remove the banned membership row so the user may rejoin.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_space_members',
 			array(
@@ -775,6 +852,7 @@ class SpaceMemberService {
 			),
 			array( '%d', '%d', '%s' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$this->invalidate_cache( $space_id, $user_id );
 

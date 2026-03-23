@@ -50,6 +50,8 @@ class EmailDispatchListener {
 	 */
 	public function init(): void {
 		add_action( 'buddynext_notification_created', array( $this, 'on_notification_created' ), 10, 3 );
+		add_action( 'buddynext_send_notification_email', array( $this, 'on_send_notification_email' ), 10, 3 );
+		add_action( 'buddynext_queue_email_digest', array( $this, 'on_queue_email_digest' ), 10, 3 );
 		add_action( 'init', array( $this, 'handle_unsubscribe_request' ) );
 	}
 
@@ -73,6 +75,47 @@ class EmailDispatchListener {
 		}
 
 		$this->sender->send( $recipient_id, $type, $data );
+	}
+
+	/**
+	 * Action Scheduler callback: send a notification email now.
+	 *
+	 * Registered as the `buddynext_send_notification_email` action callback so
+	 * that immediate emails are dispatched asynchronously and do not block the
+	 * originating request.
+	 *
+	 * @param int    $user_id           Recipient user ID.
+	 * @param string $notification_type Notification type key.
+	 * @param array  $data              Notification data payload.
+	 * @return void
+	 */
+	public function on_send_notification_email( int $user_id, string $notification_type, array $data ): void {
+		$this->sender->send_now( $user_id, $notification_type, $data );
+	}
+
+	/**
+	 * Queue a notification for digest delivery.
+	 *
+	 * Appends the notification to a per-user, per-frequency user meta list.
+	 * A daily or weekly cron processes these lists and sends batched digest emails.
+	 *
+	 * @param int    $user_id           Recipient user ID.
+	 * @param string $notification_type Notification type key.
+	 * @param array  $data              Notification data (includes email_freq key).
+	 * @return void
+	 */
+	public function on_queue_email_digest( int $user_id, string $notification_type, array $data ): void {
+		$freq  = isset( $data['email_freq'] ) ? sanitize_key( (string) $data['email_freq'] ) : 'daily';
+		$key   = "buddynext_digest_queue_{$freq}";
+		$queue = (array) get_user_meta( $user_id, $key, true );
+
+		$queue[] = array(
+			'type'   => $notification_type,
+			'data'   => $data,
+			'queued' => time(),
+		);
+
+		update_user_meta( $user_id, $key, $queue );
 	}
 
 	/**

@@ -65,13 +65,43 @@ class EmailSender {
 			 *
 			 * @param int    $user_id           Recipient user ID.
 			 * @param string $notification_type Notification type key.
-			 * @param array  $data              Notification data payload.
+			 * @param array  $data              Notification data payload (includes email_freq key).
 			 */
-			do_action( 'buddynext_queue_email_digest', $user_id, $notification_type, $data );
+			do_action( 'buddynext_queue_email_digest', $user_id, $notification_type, array_merge( $data, array( 'email_freq' => $email_freq ) ) );
 			return;
 		}
 
-		// Immediate send — fetch and render the template.
+		// Immediate send — dispatch asynchronously via Action Scheduler when
+		// available so it does not block the current request.
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action(
+				'buddynext_send_notification_email',
+				array(
+					'user_id'           => $user_id,
+					'notification_type' => $notification_type,
+					'data'              => $data,
+				),
+				'buddynext'
+			);
+			return;
+		}
+
+		// Fallback: send synchronously when Action Scheduler is not loaded.
+		$this->send_now( $user_id, $notification_type, $data );
+	}
+
+	/**
+	 * Perform the actual template render and wp_mail() dispatch.
+	 *
+	 * Called directly by the Action Scheduler callback or as a synchronous
+	 * fallback when Action Scheduler is not available.
+	 *
+	 * @param int    $user_id           Recipient user ID.
+	 * @param string $notification_type Notification type key.
+	 * @param array  $data              Notification data payload.
+	 * @return void
+	 */
+	public function send_now( int $user_id, string $notification_type, array $data ): void {
 		$template = $this->get_template( $notification_type );
 		if ( null === $template ) {
 			return;

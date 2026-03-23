@@ -45,6 +45,9 @@ class WPMediaVerse {
 
 		// Route new-message events into bn_notifications.
 		add_action( 'mvs_message_sent', array( $this, 'on_message_sent' ), 10, 4 );
+
+		// Notify media owner when someone favourites their content.
+		add_action( 'mvs_favorite_toggled', array( $this, 'on_favorite_toggled' ), 10, 3 );
 	}
 
 	/**
@@ -77,6 +80,41 @@ class WPMediaVerse {
 		);
 
 		return null === $block;
+	}
+
+	/**
+	 * Notify the media owner when their content is favourited.
+	 *
+	 * Only fires a notification on 'added' — not on 'removed' — to avoid
+	 * spamming the owner when a user toggles the favourite off.
+	 *
+	 * Hooked on: mvs_favorite_toggled ($media_id, $user_id, $action)
+	 *
+	 * @param int    $media_id Media item ID.
+	 * @param int    $user_id  User who toggled the favourite.
+	 * @param string $action   'added' or 'removed'.
+	 */
+	public function on_favorite_toggled( int $media_id, int $user_id, string $action ): void {
+		if ( 'added' !== $action ) {
+			return;
+		}
+
+		$owner_id = (int) get_post_field( 'post_author', $media_id );
+		if ( 0 === $owner_id || $owner_id === $user_id ) {
+			return;
+		}
+
+		( new NotificationService() )->create(
+			array(
+				'recipient_id' => $owner_id,
+				'sender_id'    => $user_id,
+				'type'         => 'bn.media_favorited',
+				'object_type'  => 'media',
+				'object_id'    => $media_id,
+				'group_key'    => "mvs_fav_{$media_id}",
+				'data'         => array( 'media_id' => $media_id ),
+			)
+		);
 	}
 
 	/**

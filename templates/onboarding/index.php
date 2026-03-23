@@ -636,7 +636,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 						id="bn-ob-bio"
 						name="bn_bio"
 						rows="3"
-						placeholder="<?php esc_attr_e( 'Tell the community a bit about yourself\xe2\x80\xa6', 'buddynext' ); ?>"><?php echo esc_textarea( $bio ); ?></textarea>
+						placeholder="<?php esc_attr_e( 'Tell the community a bit about yourself...', 'buddynext' ); ?>"><?php echo esc_textarea( $bio ); ?></textarea>
 				</div>
 
 				<div class="bn-ob-field">

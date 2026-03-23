@@ -14,11 +14,8 @@
 
 declare(strict_types=1);
 
-// Redirect logged-in users.
-if ( is_user_logged_in() ) {
-	wp_safe_redirect( home_url( '/feed/' ) );
-	exit;
-}
+// Logged-in redirect is handled upstream in PageRouter::dispatch_hub_template()
+// before any output is sent, so this template never runs for logged-in users.
 
 // Determine active tab from query string (default: login).
 $active_tab = ( isset( $_GET['tab'] ) && 'register' === sanitize_key( $_GET['tab'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended

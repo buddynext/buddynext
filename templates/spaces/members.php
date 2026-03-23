@@ -73,7 +73,7 @@ $members = $wpdb->get_results(
 		         AND um.meta_key = 'bn_shadow_banned'
 		         AND um.meta_value = '1'
 		   )
-		 ORDER BY FIELD(sm.role, 'owner', 'mod', 'member'), sm.joined_at ASC
+		 ORDER BY FIELD(sm.role, 'owner', 'moderator', 'member'), sm.joined_at ASC
 		 LIMIT %d OFFSET %d",
 		$space_id,
 		$bn_per_page,

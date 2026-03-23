@@ -106,9 +106,16 @@ class SpaceController {
 			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)/join',
 			array(
-				'methods'             => 'POST',
-				'callback'            => array( $this, 'join_space' ),
-				'permission_callback' => array( $this, 'require_auth' ),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'join_space' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'DELETE',
+					'callback'            => array( $this, 'leave_space' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
 			)
 		);
 
@@ -132,6 +139,28 @@ class SpaceController {
 			)
 		);
 
+		// Spec-conformant approve/decline endpoints: POST /spaces/{id}/members/{user_id}/approve|decline.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/members/(?P<user_id>[\d]+)/approve',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'approve_request' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/members/(?P<user_id>[\d]+)/decline',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'decline_request' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		// Legacy approve-request endpoint (kept for backwards compatibility).
 		register_rest_route(
 			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)/approve-request',
@@ -360,8 +389,9 @@ class SpaceController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_space_members( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$space_id = (int) $request->get_param( 'id' );
-		$space    = ( new SpaceService() )->get( $space_id );
+		$space_id  = (int) $request->get_param( 'id' );
+		$space     = ( new SpaceService() )->get( $space_id );
+		$viewer_id = get_current_user_id();
 
 		if ( null === $space ) {
 			return new WP_Error(
@@ -371,7 +401,19 @@ class SpaceController {
 			);
 		}
 
-		$members = ( new SpaceMemberService() )->get_members( $space_id );
+		// Secret spaces: only active members and site admins may see the roster.
+		if ( 'secret' === $space['type'] && ! user_can( $viewer_id, 'manage_options' ) ) {
+			$member_service = new SpaceMemberService();
+			if ( 'active' !== $member_service->get_status( $space_id, $viewer_id ) ) {
+				return new WP_Error(
+					'forbidden',
+					__( 'You do not have access to this space.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+		}
+
+		$members = ( new SpaceMemberService() )->get_members( $space_id, $viewer_id );
 
 		return new WP_REST_Response( $members, 200 );
 	}
@@ -596,6 +638,46 @@ class SpaceController {
 		}
 
 		return new WP_REST_Response( array( 'approved' => true ), 200 );
+	}
+
+	/**
+	 * Decline a pending join request.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function decline_request( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$actor_id = get_current_user_id();
+		$user_id  = absint( $request->get_param( 'user_id' ) );
+
+		if ( 0 === $user_id ) {
+			return new WP_Error(
+				'missing_user_id',
+				__( 'A user_id parameter is required.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$space = ( new SpaceService() )->get( $space_id );
+
+		if ( null === $space ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$result = ( new SpaceMemberService() )->decline_request( $space_id, $actor_id, $user_id );
+
+		if ( is_wp_error( $result ) ) {
+			$status_code = 'no_pending_request' === $result->get_error_code() ? 404 : 403;
+			$result->add_data( array( 'status' => $status_code ) );
+			return $result;
+		}
+
+		return new WP_REST_Response( array( 'declined' => true ), 200 );
 	}
 
 	/**
@@ -887,6 +969,15 @@ class SpaceController {
 
 		wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
 		wp_cache_delete( "members_{$space_id}", 'buddynext_spaces' );
+
+		/**
+		 * Fires after a moderator removes a member from a space.
+		 *
+		 * @param int $target_id  User who was removed.
+		 * @param int $space_id   Space ID.
+		 * @param int $actor_id   User who performed the removal.
+		 */
+		do_action( 'buddynext_space_member_removed', $target_id, $space_id, $actor_id );
 
 		return new WP_REST_Response( array( 'removed' => true ), 200 );
 	}

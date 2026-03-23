@@ -56,9 +56,17 @@ class NotificationController {
 			'buddynext/v1',
 			'/me/notifications/read-all',
 			array(
-				'methods'             => 'POST',
-				'callback'            => array( $this, 'mark_all_read' ),
-				'permission_callback' => array( $this, 'require_auth' ),
+				array(
+					'methods'             => 'PUT',
+					'callback'            => array( $this, 'mark_all_read' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				// Keep POST for backwards compatibility.
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'mark_all_read' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
 			)
 		);
 
@@ -66,8 +74,26 @@ class NotificationController {
 			'buddynext/v1',
 			'/me/notifications/(?P<id>[\d]+)/read',
 			array(
-				'methods'             => 'POST',
-				'callback'            => array( $this, 'mark_read' ),
+				array(
+					'methods'             => 'PUT',
+					'callback'            => array( $this, 'mark_read' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				// Keep POST for backwards compatibility.
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'mark_read' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/notifications/(?P<id>[\d]+)',
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( $this, 'delete_notification' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
@@ -148,6 +174,24 @@ class NotificationController {
 		( new NotificationService() )->mark_all_read( $user_id );
 
 		return new WP_REST_Response( array( 'read' => true ), 200 );
+	}
+
+	/**
+	 * Delete a single notification for the current user.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function delete_notification( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$notif_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+		$result   = ( new NotificationService() )->delete( $notif_id, $user_id );
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return new WP_REST_Response( array( 'deleted' => true ), 200 );
 	}
 
 	/**

@@ -80,7 +80,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		if ( isset( $_POST['space_category_id'] ) ) {
 			$update_data['category_id'] = absint( $_POST['space_category_id'] );
 		}
-		if ( isset( $_POST['space_type'] ) && in_array( wp_unslash( $_POST['space_type'] ), array( 'public', 'private', 'secret' ), true ) ) {
+		if ( isset( $_POST['space_type'] ) && in_array( wp_unslash( $_POST['space_type'] ), array( 'open', 'private', 'secret' ), true ) ) {
 			$update_data['type'] = sanitize_key( wp_unslash( $_POST['space_type'] ) );
 		}
 		if ( isset( $_POST['allow_member_posts'] ) ) {
@@ -1113,8 +1113,8 @@ textarea.bn-text-input {
 									<div class="bn-field">
 										<label for="space_type"><?php esc_html_e( 'Space Visibility', 'buddynext' ); ?></label>
 										<select name="space_type" id="space_type" class="bn-select-input">
-											<option value="public" <?php selected( $space->type, 'public' ); ?>>
-												<?php esc_html_e( 'Public — listed in directory, anyone can join', 'buddynext' ); ?>
+											<option value="open" <?php selected( $space->type, 'open' ); ?>>
+												<?php esc_html_e( 'Open — listed in directory, anyone can join', 'buddynext' ); ?>
 											</option>
 											<option value="private" <?php selected( $space->type, 'private' ); ?>>
 												<?php esc_html_e( 'Private — listed but requires approval to join', 'buddynext' ); ?>

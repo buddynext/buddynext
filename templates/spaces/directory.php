@@ -642,7 +642,7 @@ require __DIR__ . '/../partials/nav.php';
 
 		<select name="bn_type" class="bn-dir-select">
 			<option value=""><?php esc_html_e( 'All Types', 'buddynext' ); ?></option>
-			<option value="public" <?php selected( $bn_visibility, 'public' ); ?>><?php esc_html_e( 'Public', 'buddynext' ); ?></option>
+			<option value="open" <?php selected( $bn_visibility, 'open' ); ?>><?php esc_html_e( 'Open', 'buddynext' ); ?></option>
 			<option value="private" <?php selected( $bn_visibility, 'private' ); ?>><?php esc_html_e( 'Private', 'buddynext' ); ?></option>
 		</select>
 

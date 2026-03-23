@@ -651,7 +651,7 @@ class Installer {
 				options       JSON DEFAULT NULL,
 				is_required   TINYINT(1) NOT NULL DEFAULT 0,
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
-				visibility    ENUM('public','followers','private') NOT NULL DEFAULT 'public',
+				visibility    ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public',
 				sort_order    INT NOT NULL DEFAULT 0,
 				PRIMARY KEY   (id),
 				UNIQUE KEY    field_key (field_key),

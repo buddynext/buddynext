@@ -58,7 +58,7 @@ class PageRouter {
 		add_action( 'pre_get_posts', array( $this, 'set_hub_vars' ) );
 
 		// Flush rewrites whenever any hub slug changes.
-		foreach ( array( 'activity', 'people', 'spaces', 'messages', 'notifications', 'auth' ) as $hub ) {
+		foreach ( array( 'activity', 'people', 'spaces', 'messages', 'notifications', 'auth', 'onboarding' ) as $hub ) {
 			add_action( 'update_option_buddynext_slug_' . $hub, array( $this, 'flush_on_slug_change' ) );
 		}
 
@@ -92,6 +92,7 @@ class PageRouter {
 			'messages'      => 'buddynext_page_messages',
 			'notifications' => 'buddynext_page_notifications',
 			'auth'          => 'buddynext_page_auth',
+			'onboarding'    => 'buddynext_page_onboarding',
 		);
 
 		$hub        = (string) $query_vars['bn_hub'];
@@ -113,9 +114,10 @@ class PageRouter {
 	 *
 	 * Hooked on 'template_redirect'. When the current request is a BuddyNext
 	 * hub route this method resolves the correct relative template path,
-	 * fires a before-hub action for third-party hooks, loads the template
-	 * through the TemplateLoader, then exits so WordPress never renders its
-	 * own page content.
+	 * enqueues hub-specific assets, fires a before-hub action, and outputs a
+	 * complete HTML document — including wp_head() + wp_footer() — so the
+	 * WordPress Interactivity API runtime and all enqueued scripts load.
+	 * Calls exit so WordPress never renders its own page content.
 	 *
 	 * @return void
 	 */
@@ -130,11 +132,151 @@ class PageRouter {
 			return;
 		}
 
+		$context = $this->build_hub_context( $hub );
+
+		// Auth hub: redirect logged-in users before any output is sent so
+		// wp_safe_redirect() can still set Location headers.
+		if ( 'auth' === $hub && is_user_logged_in() ) {
+			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
+			exit;
+		}
+
+		// Enqueue hub-specific asset bundles before wp_head() fires.
+		$this->enqueue_hub_assets( $hub, $context );
+
 		do_action( 'buddynext_before_hub', $hub, $template );
 
-		buddynext_get_template( $template );
+		// Output a full HTML document so wp_head() / wp_footer() run and the
+		// WordPress Interactivity API runtime (+ all enqueued scripts) load.
+		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo '<!DOCTYPE html>' . "\n";
+		echo '<html ' . get_language_attributes() . '>' . "\n";
+		echo '<head>' . "\n";
+		echo '<meta charset="' . esc_attr( get_bloginfo( 'charset' ) ) . '">' . "\n";
+		echo '<meta name="viewport" content="width=device-width, initial-scale=1">' . "\n";
+		wp_head();
+		echo '</head>' . "\n";
+		echo '<body class="bn-page bn-hub-' . esc_attr( $hub ) . '">' . "\n";
+		wp_body_open();
+		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+
+		buddynext_get_template( $template, $context );
+
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo "\n";
+		wp_footer();
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo '</body>' . "\n" . '</html>' . "\n";
 
 		exit;
+	}
+
+	/**
+	 * Enqueue the CSS/JS bundle(s) for the current hub before wp_head() fires.
+	 *
+	 * Called from dispatch_hub_template() after the hub and context are known,
+	 * so per-hub and per-action asset decisions can be made accurately.
+	 *
+	 * @param string               $hub     Active bn_hub value.
+	 * @param array<string, mixed> $context Template context built by build_hub_context().
+	 * @return void
+	 */
+	private function enqueue_hub_assets( string $hub, array $context ): void {
+		$assets = buddynext_service( 'assets' );
+
+		switch ( $hub ) {
+			case 'feed':
+				$assets->enqueue( 'feed' );
+				break;
+
+			case 'people':
+				// Single-profile view vs. member directory.
+				if ( ! empty( $context['user_id'] ) ) {
+					$assets->enqueue( 'profile' );
+				} else {
+					$assets->enqueue( 'members' );
+				}
+				break;
+
+			case 'spaces':
+				$assets->enqueue( 'spaces' );
+				break;
+
+			case 'messages':
+				$assets->enqueue( 'messages' );
+				break;
+
+			case 'notifications':
+				$assets->enqueue( 'notifications' );
+				break;
+
+			case 'auth':
+				$assets->enqueue( 'auth' );
+				break;
+
+			case 'moderation':
+				$assets->enqueue( 'moderation' );
+				break;
+
+			case 'onboarding':
+				$assets->enqueue( 'onboarding' );
+				break;
+		}
+	}
+
+	/**
+	 * Build the template context array for the current hub request.
+	 *
+	 * Resolves URL-segment query vars (user slugs, space slugs, conversation
+	 * IDs) into the scalar values each template expects as local variables.
+	 *
+	 * @param string $hub The active bn_hub query var value.
+	 * @return array<string,mixed>
+	 */
+	private function build_hub_context( string $hub ): array {
+		global $wpdb;
+
+		$context = array();
+
+		switch ( $hub ) {
+			case 'people':
+				$user_slug = (string) get_query_var( 'bn_user_slug', '' );
+				if ( '' !== $user_slug ) {
+					$user               = get_user_by( 'slug', $user_slug );
+					$context['user_id'] = $user instanceof WP_User ? (int) $user->ID : 0;
+				}
+				$context['profile_action'] = (string) get_query_var( 'bn_profile_action', '' );
+				break;
+
+			case 'spaces':
+				$space_slug = (string) get_query_var( 'bn_space_slug', '' );
+				if ( '' !== $space_slug ) {
+					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$space_id = (int) $wpdb->get_var(
+						$wpdb->prepare(
+							"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE slug = %s LIMIT 1",
+							$space_slug
+						)
+					);
+					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$context['space_id'] = $space_id;
+				}
+				$context['space_slug']   = $space_slug;
+				$context['space_action'] = (string) get_query_var( 'bn_space_action', '' );
+				break;
+
+			case 'messages':
+				$context['conv_id']    = (int) get_query_var( 'bn_conv_id', 0 );
+				$context['msg_action'] = (string) get_query_var( 'bn_msg_action', '' );
+				break;
+
+			case 'feed':
+				$context['activity_action'] = (string) get_query_var( 'bn_activity_action', '' );
+				$context['hashtag']         = (string) get_query_var( 'bn_hashtag', '' );
+				break;
+		}
+
+		return $context;
 	}
 
 	/**
@@ -219,6 +361,12 @@ class PageRouter {
 			case 'auth':
 				return 'auth/login.php';
 
+			case 'moderation':
+				return 'moderation/queue.php';
+
+			case 'onboarding':
+				return 'onboarding/index.php';
+
 			default:
 				return null;
 		}
@@ -253,6 +401,8 @@ class PageRouter {
 		$this->register_messages_rules();
 		$this->register_notifications_rules();
 		$this->register_auth_rules();
+		$this->register_moderation_rules();
+		$this->register_onboarding_rules();
 	}
 
 	/**
@@ -420,6 +570,23 @@ class PageRouter {
 	}
 
 	/**
+	 * Register Moderation hub rewrite rules.
+	 *
+	 * Single rule — the moderation hub has no sub-endpoints.
+	 *
+	 * @return void
+	 */
+	private function register_moderation_rules(): void {
+		$m = self::hub_slug( 'buddynext_slug_moderation', 'moderation' );
+
+		add_rewrite_rule(
+			'^' . preg_quote( $m, '/' ) . '/?$',
+			'index.php?bn_hub=moderation',
+			'top'
+		);
+	}
+
+	/**
 	 * Register Auth hub rewrite rules.
 	 *
 	 * Single rule — the auth hub has no sub-endpoints.
@@ -432,6 +599,23 @@ class PageRouter {
 		add_rewrite_rule(
 			'^' . preg_quote( $a, '/' ) . '/?$',
 			'index.php?bn_hub=auth',
+			'top'
+		);
+	}
+
+	/**
+	 * Register Onboarding hub rewrite rules.
+	 *
+	 * Single rule — the onboarding hub has no sub-endpoints.
+	 *
+	 * @return void
+	 */
+	private function register_onboarding_rules(): void {
+		$o = self::hub_slug( 'buddynext_slug_onboarding', 'onboarding' );
+
+		add_rewrite_rule(
+			'^' . preg_quote( $o, '/' ) . '/?$',
+			'index.php?bn_hub=onboarding',
 			'top'
 		);
 	}
@@ -712,13 +896,14 @@ class PageRouter {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$post_name = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT post_name FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$space_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( null === $post_name || '' === (string) $post_name ) {
 			return self::spaces_url();
@@ -855,13 +1040,14 @@ class PageRouter {
 	private function resolve_space( string $slug ): int {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$space_id = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE post_name = %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$slug
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return (int) $space_id;
 	}
@@ -893,6 +1079,7 @@ class PageRouter {
 			'buddynext_slug_messages'      => 'messages',
 			'buddynext_slug_notifications' => 'notifications',
 			'buddynext_slug_auth'          => 'login',
+			'buddynext_slug_onboarding'    => 'onboarding',
 		);
 		return $map[ $option_name ] ?? 'community';
 	}

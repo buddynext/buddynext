@@ -172,6 +172,47 @@ class NotificationService {
 	}
 
 	/**
+	 * Delete a single notification belonging to the given user.
+	 *
+	 * Returns a WP_Error with status 403 when the notification does not belong
+	 * to $user_id so that the REST layer can propagate the correct HTTP code.
+	 *
+	 * @param int $notif_id Notification row ID.
+	 * @param int $user_id  Requesting user ID.
+	 * @return true|WP_Error
+	 */
+	public function delete( int $notif_id, int $user_id ): true|WP_Error {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$recipient_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT recipient_id FROM {$wpdb->prefix}bn_notifications WHERE id = %d",
+				$notif_id
+			)
+		);
+
+		if ( 0 === $recipient_id || $recipient_id !== $user_id ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'You cannot delete this notification.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_notifications',
+			array( 'id' => $notif_id ),
+			array( '%d' )
+		);
+
+		wp_cache_delete( "unread_{$user_id}", self::CACHE_GROUP );
+
+		return true;
+	}
+
+	/**
 	 * Mark all of a user's notifications as read.
 	 *
 	 * @param int $user_id User whose notifications to mark.

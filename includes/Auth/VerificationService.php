@@ -41,7 +41,7 @@ class VerificationService {
 				'user_id'    => $user_id,
 				'token'      => $token,
 				'type'       => 'email_verify',
-				'expires_at' => gmdate( 'Y-m-d H:i:s', strtotime( '+24 hours' ) ),
+				'expires_at' => gmdate( 'Y-m-d H:i:s', strtotime( '+48 hours' ) ),
 			),
 			array( '%d', '%s', '%s', '%s' )
 		);

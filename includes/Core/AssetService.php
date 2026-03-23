@@ -49,6 +49,8 @@ class AssetService {
 	public function init(): void {
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ) );
 		add_action( 'wp_head', array( $this, 'output_google_fonts' ), 1 );
+		// Script Modules registration hook (WP 6.5+).
+		add_action( 'wp_enqueue_scripts', array( $this, 'register_script_modules' ) );
 	}
 
 	/**
@@ -108,46 +110,59 @@ class AssetService {
 				$v
 			);
 		}
+	}
 
-		// ── Interactivity API stores ────────────────────────────────────────────
-		$feature_scripts = array(
-			'bn-feed'          => 'feed/store',
-			'bn-profile'       => 'profile/store',
-			'bn-spaces'        => 'spaces/store',
-			'bn-members'       => 'members/store',
-			'bn-messages'      => 'messages/store',
-			'bn-notifications' => 'notifications/store',
-			'bn-search'        => 'search/store',
-			'bn-hashtags'      => 'hashtags/store',
-			'bn-auth'          => 'auth/store',
-			'bn-onboarding'    => 'onboarding/store',
-			'bn-gamification'  => 'gamification/store',
-			'bn-moderation'    => 'moderation/store',
+	/**
+	 * Register BuddyNext Interactivity API stores as WordPress Script Modules.
+	 *
+	 * WordPress 6.5+ uses the Script Modules system for the Interactivity API.
+	 * Store files are ES modules that import from '@wordpress/interactivity'.
+	 * Registered IDs follow the '@buddynext/{feature}' convention.
+	 *
+	 * @return void
+	 */
+	public function register_script_modules(): void {
+		$v = self::VERSION;
+
+		$feature_modules = array(
+			'@buddynext/feed'          => 'feed/store',
+			'@buddynext/profile'       => 'profile/store',
+			'@buddynext/spaces'        => 'spaces/store',
+			'@buddynext/members'       => 'members/store',
+			'@buddynext/messages'      => 'messages/store',
+			'@buddynext/notifications' => 'notifications/store',
+			'@buddynext/search'        => 'search/store',
+			'@buddynext/hashtags'      => 'hashtags/store',
+			'@buddynext/auth'          => 'auth/store',
+			'@buddynext/onboarding'    => 'onboarding/store',
+			'@buddynext/gamification'  => 'gamification/store',
+			'@buddynext/moderation'    => 'moderation/store',
 		);
 
-		foreach ( $feature_scripts as $handle => $path ) {
-			wp_register_script(
-				$handle,
+		foreach ( $feature_modules as $id => $path ) {
+			wp_register_script_module(
+				$id,
 				$this->assets_url . 'js/' . $path . '.js',
-				array( 'wp-interactivity' ),
-				$v,
-				array( 'strategy' => 'defer' )
+				array( '@wordpress/interactivity' ),
+				$v
 			);
 		}
 	}
 
 	/**
-	 * Enqueue a named feature bundle (CSS + JS together).
+	 * Enqueue a named feature bundle (CSS + Script Module together).
 	 *
-	 * Convenience method called from shortcodes and templates:
-	 *   buddynext_service('assets')->enqueue('feed');
+	 * Enqueues the CSS stylesheet and the WP Script Module for the given
+	 * feature slug. Called from PageRouter before wp_head() fires so both
+	 * assets are included in the page output.
 	 *
-	 * @param string $feature Feature slug without 'bn-' prefix (e.g. 'feed').
+	 * @param string $feature Feature slug without prefix (e.g. 'feed', 'profile').
 	 * @return void
 	 */
 	public function enqueue( string $feature ): void {
-		$handle = 'bn-' . sanitize_key( $feature );
+		$slug   = sanitize_key( $feature );
+		$handle = 'bn-' . $slug;
 		wp_enqueue_style( $handle );
-		wp_enqueue_script( $handle );
+		wp_enqueue_script_module( '@buddynext/' . $slug );
 	}
 }

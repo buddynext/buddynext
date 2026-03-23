@@ -510,12 +510,33 @@ class ProfileService {
 						$effective_vis = 'private';
 						break;
 					}
-					if ( 'followers' === $v ) {
+					if ( 'connections' === $v && 'private' !== $effective_vis ) {
+						$effective_vis = 'connections';
+					}
+					if ( 'followers' === $v && 'private' !== $effective_vis && 'connections' !== $effective_vis ) {
 						$effective_vis = 'followers';
 					}
 				}
 				if ( 'private' === $effective_vis ) {
 					continue;
+				}
+				if ( 'connections' === $effective_vis ) {
+					// Check mutual connection.
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$is_connected = (bool) $wpdb->get_var(
+						$wpdb->prepare(
+							"SELECT 1 FROM {$wpdb->prefix}bn_connections
+							 WHERE status = 'accepted'
+							   AND ( (requester_id = %d AND requestee_id = %d) OR (requester_id = %d AND requestee_id = %d) )",
+							$viewer_id,
+							$profile_user_id,
+							$profile_user_id,
+							$viewer_id
+						)
+					);
+					if ( ! $is_connected ) {
+						continue;
+					}
 				}
 				if ( 'followers' === $effective_vis && ! $viewer_is_follower ) {
 					continue;

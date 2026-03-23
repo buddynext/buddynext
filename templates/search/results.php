@@ -67,15 +67,26 @@ if ( '' !== $raw_query ) {
 			break;
 	}
 
+	// Excluded user IDs (suspended + shadow-banned) — literal ints, safe to interpolate.
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+	$excluded_raw = (array) $wpdb->get_col(
+		"SELECT DISTINCT user_id FROM {$wpdb->prefix}usermeta
+		 WHERE meta_key IN ('bn_suspended','bn_shadow_banned') AND meta_value = '1'"
+	);
+	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+	$excluded_sql = ! empty( $excluded_raw )
+		? ' AND s.author_id NOT IN (' . implode( ',', array_map( 'absint', $excluded_raw ) ) . ')'
+		: '';
+
 	$boolean_query = '+' . implode( ' +', array_map( 'trim', explode( ' ', $raw_query ) ) );
 
 	// Build the ORDER BY clause. When sorting by relevance, pass the query as a second %s.
-	// $date_sql and $sort_sql contain only literal SQL — no user input reaches them.
+	// $date_sql, $excluded_sql, and $order_sql contain only literal SQL — no user input.
 	if ( 'recent' === $sort_by ) {
 		$order_sql  = 'ORDER BY s.updated_at DESC';
 		$query_args = array( $boolean_query );
 	} else {
-		$order_sql  = 'ORDER BY MATCH( s.content ) AGAINST( %s IN BOOLEAN MODE ) DESC';
+		$order_sql  = 'ORDER BY MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE ) DESC';
 		$query_args = array( $boolean_query, $boolean_query );
 	}
 
@@ -83,11 +94,12 @@ if ( '' !== $raw_query ) {
 	// Fetch people.
 	if ( 'all' === $active_tab || 'people' === $active_tab ) {
 		$people_sql             = $wpdb->prepare(
-			"SELECT s.object_id, s.content /* metadata_json not yet in schema */
+			"SELECT s.object_id, s.content, s.author_id
 			 FROM {$wpdb->prefix}bn_search_index AS s
 			 WHERE s.object_type = 'user'
-			   AND MATCH( s.content ) AGAINST( %s IN BOOLEAN MODE )
-			   {$date_sql}
+			   AND s.visibility = 'public'
+			   AND MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE )
+			   {$date_sql}{$excluded_sql}
 			 {$order_sql}
 			 LIMIT 5",
 			...$query_args
@@ -99,11 +111,12 @@ if ( '' !== $raw_query ) {
 	// Fetch posts.
 	if ( 'all' === $active_tab || 'posts' === $active_tab ) {
 		$posts_sql             = $wpdb->prepare(
-			"SELECT s.object_id, s.content /* metadata_json not yet in schema */
+			"SELECT s.object_id, s.content, s.author_id
 			 FROM {$wpdb->prefix}bn_search_index AS s
 			 WHERE s.object_type = 'post'
-			   AND MATCH( s.content ) AGAINST( %s IN BOOLEAN MODE )
-			   {$date_sql}
+			   AND s.visibility = 'public'
+			   AND MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE )
+			   {$date_sql}{$excluded_sql}
 			 {$order_sql}
 			 LIMIT 5",
 			...$query_args
@@ -115,11 +128,12 @@ if ( '' !== $raw_query ) {
 	// Fetch spaces.
 	if ( 'all' === $active_tab || 'spaces' === $active_tab ) {
 		$spaces_sql             = $wpdb->prepare(
-			"SELECT s.object_id, s.content /* metadata_json not yet in schema */
+			"SELECT s.object_id, s.content, s.author_id
 			 FROM {$wpdb->prefix}bn_search_index AS s
 			 WHERE s.object_type = 'space'
-			   AND MATCH( s.content ) AGAINST( %s IN BOOLEAN MODE )
-			   {$date_sql}
+			   AND s.visibility = 'public'
+			   AND MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE )
+			   {$date_sql}{$excluded_sql}
 			 {$order_sql}
 			 LIMIT 5",
 			...$query_args
@@ -678,11 +692,11 @@ $search_url_base = esc_url( remove_query_arg( array( 'q', 'type', 'date', 'sort'
 					<?php foreach ( $results_people as $person ) : ?>
 						<?php
 						$pid          = (int) $person->object_id;
-						$pmeta        = ! empty( $person->metadata_json ) ? json_decode( $person->metadata_json, true ) : array();
 						$puser        = get_userdata( $pid );
-						$pname        = $puser ? $puser->display_name : ( $pmeta['display_name'] ?? '' );
-						$pinits       = strtoupper( substr( $pname, 0, 1 ) . substr( strrchr( $pname, ' ' ), 1, 1 ) );
-						$pmeta_tx     = esc_html( $pmeta['tagline'] ?? $pmeta['bio'] ?? '' );
+						$pname        = $puser ? $puser->display_name : '';
+						$pinits       = strtoupper( substr( $pname, 0, 1 ) . substr( (string) strrchr( $pname, ' ' ), 1, 1 ) );
+						$bio_raw      = (string) get_user_meta( $pid, 'bn_field_bio', true );
+						$pmeta_tx     = esc_html( $bio_raw ? $bio_raw : '' );
 						$is_following = (bool) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 							$wpdb->prepare(
 								"SELECT 1 FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND following_id = %d",
@@ -742,16 +756,17 @@ $search_url_base = esc_url( remove_query_arg( array( 'q', 'type', 'date', 'sort'
 
 					<?php foreach ( $results_posts as $post_item ) : ?>
 						<?php
-						$post_id_int  = (int) $post_item->object_id;
-						$pmeta        = ! empty( $post_item->metadata_json ) ? json_decode( $post_item->metadata_json, true ) : array();
-						$author_id    = (int) ( $pmeta['author_id'] ?? 0 );
+						$post_id_int = (int) $post_item->object_id;
+						// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+						$bn_post_row  = $wpdb->get_row( $wpdb->prepare( "SELECT user_id, created_at, reaction_count, comment_count, share_count FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id_int ) );
+						$author_id    = $bn_post_row ? (int) $bn_post_row->user_id : (int) $post_item->author_id;
 						$author_user  = $author_id ? get_userdata( $author_id ) : null;
 						$author_name  = $author_user ? $author_user->display_name : __( 'Unknown', 'buddynext' );
-						$author_inits = strtoupper( substr( $author_name, 0, 1 ) . substr( strrchr( $author_name, ' ' ), 1, 1 ) );
-						$post_age     = ! empty( $pmeta['created_at'] ) ? human_time_diff( (int) strtotime( $pmeta['created_at'] ), time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
-						$reactions    = (int) ( $pmeta['reaction_count'] ?? 0 );
-						$comments_c   = (int) ( $pmeta['comment_count'] ?? 0 );
-						$shares_c     = (int) ( $pmeta['share_count'] ?? 0 );
+						$author_inits = strtoupper( substr( $author_name, 0, 1 ) . substr( (string) strrchr( $author_name, ' ' ), 1, 1 ) );
+						$post_age     = $bn_post_row ? human_time_diff( (int) strtotime( (string) $bn_post_row->created_at ), time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
+						$reactions    = $bn_post_row ? (int) $bn_post_row->reaction_count : 0;
+						$comments_c   = $bn_post_row ? (int) $bn_post_row->comment_count : 0;
+						$shares_c     = $bn_post_row ? (int) $bn_post_row->share_count : 0;
 						?>
 						<div class="bn-post-result">
 							<div class="bn-post-author-row">
@@ -810,10 +825,11 @@ $search_url_base = esc_url( remove_query_arg( array( 'q', 'type', 'date', 'sort'
 					<?php foreach ( $results_spaces as $space ) : ?>
 						<?php
 						$space_id_int = (int) $space->object_id;
-						$smeta        = ! empty( $space->metadata_json ) ? json_decode( $space->metadata_json, true ) : array();
-						$space_name   = esc_html( $smeta['name'] ?? $space->content );
-						$space_desc   = esc_html( $smeta['description'] ?? '' );
-						$member_count = (int) ( $smeta['member_count'] ?? 0 );
+						// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+						$bn_space_row = $wpdb->get_row( $wpdb->prepare( "SELECT name, description, member_count FROM {$wpdb->prefix}bn_spaces WHERE id = %d", $space_id_int ) );
+						$space_name   = esc_html( $bn_space_row ? (string) $bn_space_row->name : $space->content );
+						$space_desc   = esc_html( $bn_space_row ? (string) $bn_space_row->description : '' );
+						$member_count = $bn_space_row ? (int) $bn_space_row->member_count : 0;
 						$is_member    = $current_user_id ? (bool) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 							$wpdb->prepare(
 								"SELECT 1 FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND user_id = %d",

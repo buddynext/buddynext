@@ -67,6 +67,10 @@ if ( ! empty( $excluded_ids ) ) {
 }
 
 // ── Pinned announcement ─────────────────────────────────────────────────────
+// Matches FeedService::active_announcement() — uses bn_announcement_dismissals,
+// not usermeta, so REST dismiss endpoint and PHP render are consistent.
+$dismissals_table = $wpdb->prefix . 'bn_announcement_dismissals';
+
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 $announcement = $wpdb->get_row(
 	$wpdb->prepare(
@@ -75,20 +79,20 @@ $announcement = $wpdb->get_row(
 		  WHERE p.type = 'announcement'
 		    AND p.is_announcement = 1
 		    AND p.status = 'published'
-		    AND p.is_pinned = 1
+		    AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > NOW())
+		    AND NOT EXISTS (
+		          SELECT 1 FROM {$dismissals_table} d
+		           WHERE d.post_id = p.id AND d.user_id = %d
+		        )
 		  ORDER BY p.created_at DESC
 		  LIMIT %d",
+		$current_user_id,
 		1
 	)
 );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-// Check if current user dismissed this announcement.
-$show_announcement = false;
-if ( $announcement ) {
-	$dismissed         = get_user_meta( $current_user_id, 'bn_dismissed_announcement_' . (int) $announcement->id, true );
-	$show_announcement = empty( $dismissed );
-}
+$show_announcement = null !== $announcement;
 
 // ── Home feed posts ─────────────────────────────────────────────────────────
 // Include own posts + posts from followed users.
@@ -553,7 +557,7 @@ require __DIR__ . '/../partials/nav.php';
 }
 </style>
 
-<div class="bn-home">
+<div class="bn-home" data-bn-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>" data-bn-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>">
 	<div class="bn-home-shell">
 
 		<!-- ── Main feed column ──────────────────────────────────────────── -->
@@ -591,7 +595,9 @@ require __DIR__ . '/../partials/nav.php';
 			<?php endif; ?>
 
 			<!-- Post composer -->
-			<div class="bn-composer">
+			<div class="bn-composer"
+				data-wp-interactive="buddynext/post-composer"
+				data-wp-context='<?php echo esc_attr( wp_json_encode( array( "restUrl" => rest_url( "buddynext/v1" ), "restNonce" => $rest_nonce, "composerOpen" => false, "composerType" => "text", "privacy" => "public", "content" => "", "submitting" => false ) ) ); ?>'>
 				<div class="bn-composer__top">
 					<div class="bn-composer__avatar" aria-hidden="true">
 						<?php
@@ -665,7 +671,7 @@ require __DIR__ . '/../partials/nav.php';
 							'updated_at'           => $row->updated_at ?? null,
 						);
 						buddynext_get_template(
-							'partials/post-card',
+							'partials/post-card.php',
 							array(
 								'post'            => $home_post,
 								'current_user_id' => $current_user_id,

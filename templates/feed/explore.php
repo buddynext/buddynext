@@ -26,16 +26,69 @@ $current_user_id = get_current_user_id();
 $is_guest        = ( 0 === $current_user_id );
 
 // ── Grid posts (public, sorted by trending score) ─────────────────────────
-$limit       = absint( $args['limit'] ?? 9 );
-$posts_table = $wpdb->prefix . 'bn_posts';
+$bn_explore_per_page = 12;
+$posts_table         = $wpdb->prefix . 'bn_posts';
+$user_meta_table     = $wpdb->usermeta;
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+// Cursor-based pagination: cursor encodes last-seen created_at|id.
+$explore_raw_cursor = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$explore_cursor_sql = '';
+if ( $explore_raw_cursor ) {
+	$decoded = base64_decode( $explore_raw_cursor, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+	if ( $decoded && 2 === count( explode( '|', $decoded ) ) ) {
+		list( $cursor_dt, $cursor_id ) = explode( '|', $decoded, 2 );
+		$cursor_id                     = absint( $cursor_id );
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$explore_cursor_sql = $wpdb->prepare( ' AND (p.created_at < %s OR (p.created_at = %s AND p.id < %d))', $cursor_dt, $cursor_dt, $cursor_id );
+	}
+}
+
+// Suspended / shadow-banned exclusion — mirrors FeedService::excluded_users_where().
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+$explore_suspended = $wpdb->get_col(
+	"SELECT user_id FROM {$user_meta_table} WHERE meta_key = 'bn_suspended' AND meta_value = '1'"
+);
+$explore_shadow    = $wpdb->get_col(
+	"SELECT user_id FROM {$user_meta_table} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'"
+);
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+$explore_excluded = array_unique( array_map( 'intval', array_merge( $explore_suspended ?? array(), $explore_shadow ?? array() ) ) );
+$explore_excl_sql = '';
+if ( ! empty( $explore_excluded ) ) {
+	$excl_placeholders = implode( ',', array_fill( 0, count( $explore_excluded ), '%d' ) );
+	// $excl_placeholders is built via array_fill('%d') — only integers, safe to interpolate.
+	// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+	$explore_excl_sql = $wpdb->prepare( " AND p.user_id NOT IN ({$excl_placeholders})", $explore_excluded );
+	// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+}
+
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 $grid_posts = $wpdb->get_results(
 	$wpdb->prepare(
-		"SELECT p.id, p.user_id, p.content, p.type, p.created_at, p.reaction_count, p.comment_count, p.share_count FROM {$posts_table} p WHERE p.status = 'published' AND p.privacy = 'public' ORDER BY (p.reaction_count + p.comment_count * 2 + p.share_count * 3) DESC, p.created_at DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$limit
+		"SELECT p.id, p.user_id, p.content, p.type, p.media_ids, p.link_url, p.link_meta,
+		        p.created_at, p.reaction_count, p.comment_count, p.share_count
+		   FROM {$posts_table} p
+		  WHERE p.status = 'published'
+		    AND p.privacy = 'public'
+		    {$explore_excl_sql}
+		    {$explore_cursor_sql}
+		  ORDER BY (p.reaction_count + p.comment_count * 2 + p.share_count * 3) DESC, p.created_at DESC, p.id DESC
+		  LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$bn_explore_per_page + 1
 	)
 );
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+$explore_has_more = count( $grid_posts ) > $bn_explore_per_page;
+if ( $explore_has_more ) {
+	array_pop( $grid_posts );
+}
+$explore_next_cursor = '';
+if ( $explore_has_more && ! empty( $grid_posts ) ) {
+	$last_explore        = end( $grid_posts );
+	$explore_next_cursor = base64_encode( $last_explore->created_at . '|' . $last_explore->id ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+}
 
 // ── Trending hashtags ──────────────────────────────────────────────────────
 $hashtags_table = $wpdb->prefix . 'bn_hashtags';
@@ -591,9 +644,9 @@ require __DIR__ . '/../partials/nav.php';
 							'content'              => $card->content ?? '',
 							'privacy'              => 'public',
 							'space_id'             => null,
-							'media_ids'            => null,
+							'media_ids'            => isset( $card->media_ids ) ? json_decode( (string) $card->media_ids, true ) : null,
 							'link_url'             => $card->link_url ?? null,
-							'link_meta'            => null,
+							'link_meta'            => isset( $card->link_meta ) ? json_decode( (string) $card->link_meta, true ) : null,
 							'poll_options'         => array(),
 							'is_pinned'            => 0,
 							'is_announcement'      => 0,
@@ -607,7 +660,7 @@ require __DIR__ . '/../partials/nav.php';
 							'updated_at'           => null,
 						);
 						buddynext_get_template(
-							'partials/post-card',
+							'partials/post-card.php',
 							array(
 								'post'            => $explore_post,
 								'current_user_id' => $current_user_id,
@@ -629,6 +682,16 @@ require __DIR__ . '/../partials/nav.php';
 					</div>
 				<?php endif; ?>
 			</div>
+
+			<?php if ( $explore_has_more && $explore_next_cursor ) : ?>
+				<div class="bn-load-more" style="text-align:center;padding:var(--s5) 0;">
+					<a href="<?php echo esc_url( add_query_arg( 'cursor', $explore_next_cursor ) ); ?>"
+						class="bn-load-more__btn"
+						style="display:inline-flex;align-items:center;gap:var(--s2);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:var(--s2) var(--s6);font-size:var(--text-sm);font-weight:600;color:var(--text-1);cursor:pointer;text-decoration:none;">
+						<?php esc_html_e( 'Load more', 'buddynext' ); ?>
+					</a>
+				</div>
+			<?php endif; ?>
 
 			<!-- Sidebar -->
 			<aside class="bn-explore-sidebar" aria-label="<?php esc_attr_e( 'Explore sidebar', 'buddynext' ); ?>">

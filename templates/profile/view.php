@@ -83,11 +83,12 @@ $post_count = (int) $wpdb->get_var(
 );
 
 // --- Social graph state (viewer vs. this profile) -------------------------
-$is_following = false;
-$is_connected = false;
-$is_blocked   = false;
-$is_muted     = false;
-$degree_badge = '';
+$is_following        = false;
+$is_connected        = false;
+$connection_pending  = false;
+$is_blocked          = false;
+$is_muted            = false;
+$degree_badge        = '';
 
 if ( ! $is_own_profile && $current_user_id ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -111,6 +112,16 @@ if ( ! $is_own_profile && $current_user_id ) {
 			$user_id,
 			$user_id,
 			$current_user_id
+		)
+	);
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$connection_pending = ! $is_connected && (bool) $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT 1 FROM {$wpdb->prefix}bn_connections
+			WHERE requester_id = %d AND recipient_id = %d AND status = 'pending'",
+			$current_user_id,
+			$user_id
 		)
 	);
 
@@ -820,7 +831,8 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 			'activeTab'         => 'posts',
 			'isFollowing'       => $is_following,
 			'isConnected'       => $is_connected,
-			'connectionPending' => false,
+			'connectionPending' => $connection_pending,
+			'showConnect'       => ! $is_connected && ! $connection_pending,
 			'followerCount'     => $follower_count,
 			'restNonce'         => wp_create_nonce( 'wp_rest' ),
 			'isBlocked'         => $is_blocked,
@@ -852,25 +864,38 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 		<!-- Action buttons (top-right) — shown for other users only; owners use the action bar above -->
 		<div class="bn-profile-actions">
 			<?php if ( ! $is_own_profile && $current_user_id ) : ?>
-				<?php if ( $is_following ) : ?>
-					<button class="bn-btn-secondary"
-						data-wp-on--click="actions.unfollow"
-						data-wp-text="state.followLabel">
-						<?php esc_html_e( 'Following', 'buddynext' ); ?>
-					</button>
-				<?php else : ?>
-					<button class="bn-btn-primary"
-						data-wp-on--click="actions.follow">
-						+ <?php esc_html_e( 'Follow', 'buddynext' ); ?>
-					</button>
-				<?php endif; ?>
+				<!-- Follow button: visible when NOT following; hidden reactively by Interactivity API -->
+				<button class="bn-btn-primary"
+					data-wp-on--click="actions.follow"
+					data-wp-bind--hidden="context.isFollowing"
+					<?php echo $is_following ? 'hidden' : ''; ?>>
+					+ <?php esc_html_e( 'Follow', 'buddynext' ); ?>
+				</button>
+				<!-- Unfollow button: visible when following -->
+				<button class="bn-btn-secondary"
+					data-wp-on--click="actions.unfollow"
+					data-wp-bind--hidden="!context.isFollowing"
+					<?php echo $is_following ? '' : 'hidden'; ?>>
+					<?php esc_html_e( 'Following', 'buddynext' ); ?>
+				</button>
 
-				<?php if ( ! $is_connected ) : ?>
-					<button class="bn-btn-secondary"
-						data-wp-on--click="actions.connect">
-						<?php esc_html_e( 'Connect', 'buddynext' ); ?>
-					</button>
-				<?php endif; ?>
+				<!-- Connect / Pending / Connected states -->
+				<button class="bn-btn-secondary"
+					data-wp-on--click="actions.connect"
+					data-wp-bind--hidden="!context.showConnect"
+					<?php echo ( $is_connected || $connection_pending ) ? 'hidden' : ''; ?>>
+					<?php esc_html_e( 'Connect', 'buddynext' ); ?>
+				</button>
+				<button class="bn-btn-secondary"
+					data-wp-bind--hidden="!context.connectionPending"
+					<?php echo $connection_pending ? '' : 'hidden'; ?>>
+					<?php esc_html_e( 'Pending', 'buddynext' ); ?>
+				</button>
+				<button class="bn-btn-secondary"
+					data-wp-bind--hidden="!context.isConnected"
+					<?php echo $is_connected ? '' : 'hidden'; ?>>
+					&#10003; <?php esc_html_e( 'Connected', 'buddynext' ); ?>
+				</button>
 
 				<a href="<?php echo esc_url( home_url( '/messages/?with=' . $user_id ) ); ?>"
 					class="bn-btn-secondary">
@@ -1005,7 +1030,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 				<div class="bn-stat-lbl"><?php esc_html_e( 'Posts', 'buddynext' ); ?></div>
 			</div>
 			<div class="bn-stat">
-				<div class="bn-stat-num"><?php echo esc_html( $format_count( $follower_count ) ); ?></div>
+				<div class="bn-stat-num" data-wp-text="context.followerCount"><?php echo esc_html( $format_count( $follower_count ) ); ?></div>
 				<div class="bn-stat-lbl"><?php esc_html_e( 'Followers', 'buddynext' ); ?></div>
 			</div>
 			<div class="bn-stat">

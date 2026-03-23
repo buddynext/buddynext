@@ -34,6 +34,7 @@ class SearchService {
 	 * @param string $content     Searchable body content (may be empty).
 	 * @param int    $author_id   User who owns/created this object.
 	 * @param string $visibility  'public' or 'private'.
+	 * @param int    $space_id    Space ID for space-scoped content (0 = no space).
 	 */
 	public function index(
 		string $object_type,
@@ -41,7 +42,8 @@ class SearchService {
 		string $title,
 		string $content,
 		int $author_id,
-		string $visibility = 'public'
+		string $visibility = 'public',
+		int $space_id = 0
 	): void {
 		global $wpdb;
 
@@ -49,12 +51,13 @@ class SearchService {
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_search_index
-				    (object_type, object_id, title, content, author_id, visibility)
-				 VALUES (%s, %d, %s, %s, %d, %s)
+				    (object_type, object_id, title, content, author_id, space_id, visibility)
+				 VALUES (%s, %d, %s, %s, %d, %d, %s)
 				 ON DUPLICATE KEY UPDATE
 				    title = VALUES(title),
 				    content = VALUES(content),
 				    author_id = VALUES(author_id),
+				    space_id = VALUES(space_id),
 				    visibility = VALUES(visibility),
 				    updated_at = NOW()",
 				$object_type,
@@ -62,6 +65,7 @@ class SearchService {
 				$title,
 				$content,
 				$author_id,
+				$space_id,
 				$visibility
 			)
 		);

@@ -33,6 +33,7 @@ class SearchIndexListener {
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
 		add_action( 'buddynext_post_deleted', array( $this, 'on_post_deleted' ), 10, 1 );
 		add_action( 'buddynext_space_created', array( $this, 'on_space_created' ), 10, 2 );
+		add_action( 'buddynext_space_updated', array( $this, 'on_space_updated' ), 10, 1 );
 		add_action( 'buddynext_space_deleted', array( $this, 'on_space_deleted' ), 10, 1 );
 
 		// Synchronous fallback handlers — run inline when Action Scheduler is absent.
@@ -92,6 +93,16 @@ class SearchIndexListener {
 	 * @return void
 	 */
 	public function on_space_created( int $space_id, int $user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
+		$this->dispatch( 'buddynext_async_index_space', array( $space_id ) );
+	}
+
+	/**
+	 * Handle buddynext_space_updated — re-index a space after an update.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return void
+	 */
+	public function on_space_updated( int $space_id ): void {
 		$this->dispatch( 'buddynext_async_index_space', array( $space_id ) );
 	}
 

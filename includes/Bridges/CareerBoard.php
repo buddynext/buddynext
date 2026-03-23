@@ -35,7 +35,7 @@ class CareerBoard {
 		}
 
 		add_action( 'wcb_job_created', array( $this, 'on_job_created' ), 10, 4 );
-		add_action( 'wcb_application_submitted', array( $this, 'on_application_submitted' ), 10, 4 );
+		add_action( 'wcb_application_submitted', array( $this, 'on_application_submitted' ), 10, 3 );
 		add_action( 'wcb_application_status_changed', array( $this, 'on_application_status_changed' ), 10, 4 );
 		add_action( 'wcb_application_withdrawn', array( $this, 'on_application_withdrawn' ), 10, 4 );
 	}
@@ -57,14 +57,15 @@ class CareerBoard {
 	/**
 	 * Notify employer when a candidate applies.
 	 *
-	 * Hooked on: wcb_application_submitted($app_id, $job_id, $candidate_id, $employer_id)
+	 * Hooked on: wcb_application_submitted($app_id, $job_id, $candidate_id) — 3 args.
+	 * Employer ID is resolved from the job post's author field.
 	 *
 	 * @param int $app_id       Application ID.
 	 * @param int $job_id       Job post ID.
 	 * @param int $candidate_id Applying candidate.
-	 * @param int $employer_id  Employer user ID.
 	 */
-	public function on_application_submitted( int $app_id, int $job_id, int $candidate_id, int $employer_id ): void {
+	public function on_application_submitted( int $app_id, int $job_id, int $candidate_id ): void {
+		$employer_id = (int) get_post_field( 'post_author', $job_id );
 		if ( 0 === $employer_id ) {
 			return;
 		}
