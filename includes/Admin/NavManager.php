@@ -61,6 +61,48 @@ class NavManager extends AdminPageBase {
 	);
 
 	/**
+	 * Map of main-nav tab slug → buddynext_slug_* option key.
+	 *
+	 * Used to render a URL-slug input inside each hub's config panel and to
+	 * persist slug changes when the nav form is saved.  The option keys match
+	 * those used by PageRouter; PageRouter listens on update_option_buddynext_slug_*
+	 * and calls flush_rewrite_rules() automatically, so no explicit flush is
+	 * needed here.
+	 *
+	 * @var array<string, string>
+	 */
+	private const SLUG_OPTIONS = array(
+		'feed'          => 'buddynext_slug_activity',
+		'spaces'        => 'buddynext_slug_spaces',
+		'messages'      => 'buddynext_slug_messages',
+		'notifications' => 'buddynext_slug_notifications',
+		'people'        => 'buddynext_slug_people',
+		'auth'          => 'buddynext_slug_auth',
+	);
+
+	/**
+	 * WordPress core URL slugs and feed endpoints that must not be used as hub slugs.
+	 *
+	 * @var array<int, string>
+	 */
+	private const RESERVED_SLUGS = array(
+		'wp-admin',
+		'wp-login',
+		'wp-content',
+		'wp-includes',
+		'wp-json',
+		'feed',
+		'rss',
+		'rss2',
+		'atom',
+		'rdf',
+		'comments',
+		'trackback',
+		'embed',
+		'wp-cron',
+	);
+
+	/**
 	 * Base path to the admin SVG icon directory.
 	 */
 	private const SVG_DIR = __DIR__ . '/../../assets/svg/admin/';
@@ -75,6 +117,7 @@ class NavManager extends AdminPageBase {
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'add_submenu' ) );
 		add_action( 'admin_post_bn_save_nav', array( $this, 'handle_save_nav' ) );
+		add_action( 'wp_ajax_bn_check_slug', array( $this, 'handle_check_slug_ajax' ) );
 	}
 
 	/**
@@ -875,6 +918,8 @@ class NavManager extends AdminPageBase {
 		$is_core     = empty( $tab['custom'] );
 		$page_opt    = ( 'main' === $scope ) ? ( self::PAGE_OPTIONS[ $slug ] ?? '' ) : '';
 		$page_id     = $page_opt ? (int) get_option( $page_opt, 0 ) : 0;
+		$slug_opt    = ( 'main' === $scope ) ? ( self::SLUG_OPTIONS[ $slug ] ?? '' ) : '';
+		$url_slug    = $slug_opt ? (string) get_option( $slug_opt, '' ) : '';
 
 		// Helper: generate scope-namespaced input name for this tab's config.
 		$n = static function ( string $field ) use ( $scope, $slug ): string {
@@ -937,6 +982,25 @@ class NavManager extends AdminPageBase {
 				?>
 				<span class="bn-cf-hint">
 					<?php esc_html_e( 'The WordPress page that serves this hub. Each page can only be assigned to one hub.', 'buddynext' ); ?>
+				</span>
+			</div>
+			<?php endif; ?>
+
+			<?php if ( '' !== $slug_opt ) : ?>
+			<div class="bn-cf">
+				<label for="bn-cfg-urlslug-<?php echo esc_attr( $slug ); ?>">
+					<?php esc_html_e( 'URL Slug', 'buddynext' ); ?>
+				</label>
+				<input type="text"
+						id="bn-cfg-urlslug-<?php echo esc_attr( $slug ); ?>"
+						name="<?php echo esc_attr( $n( 'url_slug' ) ); ?>"
+						value="<?php echo esc_attr( $url_slug ); ?>"
+						maxlength="80"
+						pattern="[a-z0-9\-]+"
+						title="<?php esc_attr_e( 'Lowercase letters, numbers, and hyphens only.', 'buddynext' ); ?>"
+						style="max-width:200px;">
+				<span class="bn-cf-hint">
+					<?php esc_html_e( 'URL path for this hub, e.g. "members" → /members/. Saving flushes rewrite rules automatically.', 'buddynext' ); ?>
 				</span>
 			</div>
 			<?php endif; ?>
@@ -1398,6 +1462,64 @@ class NavManager extends AdminPageBase {
 					}
 				} );
 			}
+
+		// ── Slug conflict detection ────────────────────────────────────────────────
+		// The nonce below is generated fresh on each admin page load.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		var bnSlugNonce = <?php echo wp_json_encode( wp_create_nonce( 'bn_nav_manager' ) ); ?>;
+
+		function bnSetSlugHint( hintEl, status ) {
+			hintEl.className = 'bn-cf-hint bn-cf-hint--' + status;
+			if ( 'free' === status ) {
+				hintEl.textContent = '✅ Slug is available';
+			} else if ( 'warn' === status ) {
+				hintEl.textContent = '⚠️ An existing page uses this slug — it will become unreachable';
+			} else {
+				hintEl.textContent = '❌ This slug is reserved or used by another hub';
+			}
+		}
+
+		document.querySelectorAll( 'input[name$="[url_slug]"]' ).forEach( function ( input ) {
+			var match = input.name.match( /\[main\]\[([^\]]+)\]\[url_slug\]/ );
+			if ( ! match ) {
+				return;
+			}
+			var hub    = match[1];
+			var hintEl = input.parentNode ? input.parentNode.querySelector( '.bn-cf-hint' ) : null;
+			var timer  = null;
+
+			if ( ! hintEl ) {
+				return;
+			}
+
+			input.addEventListener( 'input', function () {
+				var slugVal = input.value.trim();
+				clearTimeout( timer );
+
+				if ( '' === slugVal ) {
+					hintEl.className   = 'bn-cf-hint';
+					hintEl.textContent = <?php echo wp_json_encode( __( 'URL path for this hub, e.g. "members" → /members/. Saving flushes rewrite rules automatically.', 'buddynext' ) ); ?>;
+					return;
+				}
+
+				timer = setTimeout( function () {
+					var data = new window.FormData();
+					data.append( 'action', 'bn_check_slug' );
+					data.append( 'nonce',  bnSlugNonce );
+					data.append( 'slug',   slugVal );
+					data.append( 'hub',    hub );
+
+					window.fetch( window.ajaxurl, { method: 'POST', body: data } )
+						.then( function ( r ) { return r.json(); } )
+						.then( function ( json ) {
+							if ( json && json.success && json.data && json.data.status ) {
+								bnSetSlugHint( hintEl, json.data.status );
+							}
+						} )
+						.catch( function () {} );
+				}, 300 );
+			} );
+		} );
 		}());
 		</script>
 		<?php
@@ -1466,6 +1588,14 @@ class NavManager extends AdminPageBase {
 					update_option( self::PAGE_OPTIONS[ $slug ], absint( $cfg['page_id'] ?? 0 ) );
 				}
 
+				// URL slug for main-scope hubs that have a SLUG_OPTIONS mapping.
+				if ( 'main' === $scope && isset( self::SLUG_OPTIONS[ $slug ] ) ) {
+					$new_url_slug = sanitize_title( (string) ( $cfg['url_slug'] ?? '' ) );
+					if ( '' !== $new_url_slug ) {
+						update_option( self::SLUG_OPTIONS[ $slug ], $new_url_slug );
+					}
+				}
+
 				$overrides[ $slug ] = array(
 					'label'          => sanitize_text_field( (string) ( $cfg['label'] ?? '' ) ),
 					'order'          => max( 1, absint( $cfg['order'] ?? 10 ) ),
@@ -1512,6 +1642,96 @@ class NavManager extends AdminPageBase {
 		);
 		exit;
 	}
+	// ── Slug conflict detection ───────────────────────────────────────────────
+
+	/**
+	 * Check whether a proposed hub URL slug is available.
+	 *
+	 * Returns:
+	 *   'free'  — slug is unclaimed, safe to use
+	 *   'warn'  — slug matches an existing WP post/page (BN rewrite wins but
+	 *             the existing page becomes unreachable via its old URL)
+	 *   'block' — slug is a reserved WP keyword or claimed by another BN hub
+	 *
+	 * @param string $slug         Proposed slug (sanitized internally).
+	 * @param string $current_hub  Hub slug making the request (excluded from
+	 *                             conflict check against other hubs).
+	 * @return string 'free' | 'warn' | 'block'
+	 */
+	public function check_slug_status( string $slug, string $current_hub ): string {
+		$slug = sanitize_title( $slug );
+
+		if ( '' === $slug ) {
+			return 'block';
+		}
+
+		// 1. Reserved WordPress keywords.
+		if ( in_array( $slug, self::RESERVED_SLUGS, true ) ) {
+			return 'block';
+		}
+
+		// 2. Another BN hub already uses this slug.
+		$hub_options = array(
+			'feed'          => 'buddynext_slug_activity',
+			'people'        => 'buddynext_slug_people',
+			'spaces'        => 'buddynext_slug_spaces',
+			'messages'      => 'buddynext_slug_messages',
+			'notifications' => 'buddynext_slug_notifications',
+			'auth'          => 'buddynext_slug_auth',
+		);
+
+		foreach ( $hub_options as $hub => $option ) {
+			if ( $hub === $current_hub ) {
+				continue;
+			}
+			$existing = (string) get_option( $option, '' );
+			if ( '' !== $existing && $existing === $slug ) {
+				return 'block';
+			}
+		}
+
+		// 3. Existing WP post or page has this slug.
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->posts}
+				  WHERE post_name   = %s
+				    AND post_status = 'publish'
+				    AND post_type   IN ('post', 'page')",
+				$slug
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( $count > 0 ) {
+			return 'warn';
+		}
+
+		return 'free';
+	}
+
+	/**
+	 * Handle wp_ajax_bn_check_slug — return slug conflict status as JSON.
+	 *
+	 * @return void
+	 */
+	public function handle_check_slug_ajax(): void {
+		check_ajax_referer( 'bn_nav_manager', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Forbidden' ), 403 );
+			return;
+		}
+
+		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		$slug = sanitize_title( (string) wp_unslash( $_POST['slug'] ?? '' ) );
+		$hub  = sanitize_key( (string) wp_unslash( $_POST['hub'] ?? '' ) );
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+
+		wp_send_json_success( array( 'status' => $this->check_slug_status( $slug, $hub ) ) );
+	}
+
 	// ── Private helpers ───────────────────────────────────────────────────────
 
 	/**

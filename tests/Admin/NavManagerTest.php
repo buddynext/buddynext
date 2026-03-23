@@ -34,7 +34,7 @@ class NavManagerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * register() adds the admin_menu hook.
+	 * Register() adds the admin_menu hook.
 	 */
 	public function test_register_adds_admin_menu_hook(): void {
 		$this->nav->register();
@@ -44,7 +44,7 @@ class NavManagerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_tabs() returns a non-empty array.
+	 * Get_tabs() returns a non-empty array.
 	 */
 	public function test_get_tabs_returns_array(): void {
 		$tabs = $this->nav->get_tabs();
@@ -53,7 +53,7 @@ class NavManagerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_tabs() includes a 'slug' key in every entry.
+	 * Get_tabs() includes a 'slug' key in every entry.
 	 */
 	public function test_get_tabs_entries_have_slug(): void {
 		foreach ( $this->nav->get_tabs() as $tab ) {
@@ -62,7 +62,7 @@ class NavManagerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_tabs() includes a 'label' key in every entry.
+	 * Get_tabs() includes a 'label' key in every entry.
 	 */
 	public function test_get_tabs_entries_have_label(): void {
 		foreach ( $this->nav->get_tabs() as $tab ) {
@@ -71,7 +71,7 @@ class NavManagerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * buddynext_nav_tabs filter can add a custom tab.
+	 * Buddynext_nav_tabs filter can add a custom tab.
 	 */
 	public function test_filter_can_add_tab(): void {
 		add_filter(
@@ -93,7 +93,7 @@ class NavManagerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * buddynext_nav_tabs filter can remove a tab by slug.
+	 * Buddynext_nav_tabs filter can remove a tab by slug.
 	 */
 	public function test_filter_can_remove_tab(): void {
 		$tabs = $this->nav->get_tabs();
@@ -121,16 +121,28 @@ class NavManagerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_tabs() returns tabs sorted by 'order' key ascending.
+	 * Get_tabs() returns tabs sorted by 'order' key ascending.
 	 */
 	public function test_get_tabs_are_sorted_by_order(): void {
 		add_filter(
 			'buddynext_nav_tabs',
 			function (): array {
 				return array(
-					array( 'slug' => 'z-tab', 'label' => 'Z', 'order' => 50 ),
-					array( 'slug' => 'a-tab', 'label' => 'A', 'order' => 10 ),
-					array( 'slug' => 'm-tab', 'label' => 'M', 'order' => 30 ),
+					array(
+						'slug'  => 'z-tab',
+						'label' => 'Z',
+						'order' => 50,
+					),
+					array(
+						'slug'  => 'a-tab',
+						'label' => 'A',
+						'order' => 10,
+					),
+					array(
+						'slug'  => 'm-tab',
+						'label' => 'M',
+						'order' => 30,
+					),
 				);
 			}
 		);
@@ -142,11 +154,59 @@ class NavManagerTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_active_tab() returns the first tab slug when none is requested.
+	 * Get_active_tab() returns the first tab slug when none is requested.
 	 */
 	public function test_get_active_tab_returns_first_when_no_request(): void {
 		$tabs   = $this->nav->get_tabs();
 		$active = $this->nav->get_active_tab();
 		$this->assertEquals( $tabs[0]['slug'], $active );
+	}
+
+	// ── Slug conflict detection ───────────────────────────────────────────────
+
+	/**
+	 * Check_slug_status() returns 'free' for an unclaimed slug.
+	 */
+	public function test_check_slug_returns_free_for_unused_slug(): void {
+		$nav    = new \BuddyNext\Admin\NavManager();
+		$result = $nav->check_slug_status( 'my-community', 'feed' );
+		$this->assertSame( 'free', $result );
+	}
+
+	/**
+	 * Check_slug_status() returns 'block' for a reserved WordPress keyword.
+	 */
+	public function test_check_slug_returns_block_for_reserved_word(): void {
+		$nav    = new \BuddyNext\Admin\NavManager();
+		$result = $nav->check_slug_status( 'wp-admin', 'feed' );
+		$this->assertSame( 'block', $result );
+	}
+
+	/**
+	 * Check_slug_status() returns 'block' when another BN hub owns the slug.
+	 */
+	public function test_check_slug_returns_block_for_another_bn_hub_slug(): void {
+		update_option( 'buddynext_slug_spaces', 'spaces' );
+		$nav    = new \BuddyNext\Admin\NavManager();
+		$result = $nav->check_slug_status( 'spaces', 'feed' );
+		$this->assertSame( 'block', $result );
+		delete_option( 'buddynext_slug_spaces' );
+	}
+
+	/**
+	 * Check_slug_status() returns 'warn' when an existing WP page uses the slug.
+	 */
+	public function test_check_slug_returns_warn_for_existing_wp_page(): void {
+		$page_id = self::factory()->post->create(
+			array(
+				'post_type'   => 'page',
+				'post_name'   => 'about-us',
+				'post_status' => 'publish',
+			)
+		);
+		$nav     = new \BuddyNext\Admin\NavManager();
+		$result  = $nav->check_slug_status( 'about-us', 'feed' );
+		$this->assertSame( 'warn', $result );
+		wp_delete_post( $page_id, true );
 	}
 }
