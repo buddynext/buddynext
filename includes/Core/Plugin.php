@@ -43,6 +43,7 @@ use BuddyNext\Bridges\WPMediaVerse as WPMediaVerseBridge;
 use BuddyNext\Comments\CommentService;
 use BuddyNext\Hashtags\HashtagListener;
 use BuddyNext\Hashtags\HashtagService;
+use BuddyNext\Moderation\ModerationListener;
 use BuddyNext\Moderation\ModerationLogService;
 use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Notifications\EmailDispatchListener;
@@ -182,6 +183,9 @@ class Plugin {
 
 		// Wire hashtag extraction to post_created and bridge index actions.
 		( new HashtagListener( $container->get( 'hashtags' ) ) )->init();
+
+		// Wire moderation notification/email handlers and daily cron alert.
+		( new ModerationListener() )->register();
 
 		// Wire outbound webhook dispatcher to BuddyNext events.
 		$container->get( 'webhooks' )->init();

@@ -661,3 +661,4 @@ A phase is Done when ALL of:
 | 2026-03-24 | — | fix | templates/feed/home.php: composer action icons (image/bar-chart/link) via buddynext_icon() |
 | 2026-03-24 | — | fix | templates/onboarding/index.php: $all_interests restructured to icon/label pairs; step headers &#128100; etc. replaced with buddynext_icon() calls; .bn-ob-step-icon CSS updated for SVG sizing |
 | 2026-03-24 | — | docs | CLAUDE.md: added rule §5 "No Emoji — Ever" with icon system usage guide |
+| 2026-03-24 | 8 | refactor | ModerationListener: extracted 10 moderation hooks from Notifications/EventListener into dedicated Moderation/ModerationListener (implements ListenerInterface) — strikes, suspensions, appeals, shadow bans, daily queue cron; wired in Plugin::init() |
