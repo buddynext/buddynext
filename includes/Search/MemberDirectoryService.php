@@ -100,24 +100,10 @@ class MemberDirectoryService {
 
 		$follower_count_subquery = "(SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows f WHERE f.following_id = u.ID) AS follower_count";
 
-		// Correlated subquery: count users who are accepted connections of both the
-		// viewer and the result user. Uses integer-cast viewer ID — safe to interpolate.
-		$viewer_id_safe  = (int) $viewer_id;
-		$mutual_subquery = "(SELECT COUNT(*)
-		    FROM {$wpdb->prefix}bn_connections vc
-		    INNER JOIN {$wpdb->prefix}bn_connections tc
-		        ON tc.status = 'accepted'
-		        AND ( CASE WHEN vc.requester_id = {$viewer_id_safe}
-		                   THEN vc.recipient_id
-		                   ELSE vc.requester_id
-		              END )
-		          = ( CASE WHEN tc.requester_id = u.ID
-		                   THEN tc.recipient_id
-		                   ELSE tc.requester_id
-		              END )
-		    WHERE ( vc.requester_id = {$viewer_id_safe} OR vc.recipient_id = {$viewer_id_safe} )
-		      AND vc.status = 'accepted'
-		) AS mutual_connection_count";
+		// mutual_connection_count is computed post-query to avoid the MySQL 5.7
+		// "Can't reopen table" error that occurs when bn_connections is referenced
+		// twice inside a correlated SELECT-list subquery (even with different aliases).
+		$viewer_id_safe = (int) $viewer_id;
 
 		// ------------------------------------------------------------------ //
 		// Build JOIN clauses.
@@ -176,16 +162,22 @@ class MemberDirectoryService {
 		// Build WHERE clauses.
 		// ------------------------------------------------------------------ //
 
-		// Exclude suspended users.
+		// Exclude suspended and shadow-banned users.
+		// Uses NOT EXISTS instead of NOT IN to avoid MySQL 5.7 "Can't reopen table" error
+		// when combined with the self-joined bn_connections mutual_subquery.
 		$where_clauses = array(
 			'u.ID != %d',
-			"u.ID NOT IN (
-			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+			"NOT EXISTS (
+			    SELECT 1 FROM {$wpdb->prefix}bn_user_suspensions s_ex
+			    WHERE s_ex.user_id = u.ID
+			      AND s_ex.lifted_at IS NULL
+			      AND (s_ex.expires_at IS NULL OR s_ex.expires_at > NOW())
 			  )",
-			"u.ID NOT IN (
-			    SELECT user_id FROM {$wpdb->usermeta}
-			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
+			"NOT EXISTS (
+			    SELECT 1 FROM {$wpdb->usermeta} um_ban
+			    WHERE um_ban.user_id = u.ID
+			      AND um_ban.meta_key = 'bn_shadow_banned'
+			      AND um_ban.meta_value = '1'
 			  )",
 		);
 
@@ -275,8 +267,7 @@ class MemberDirectoryService {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT u.ID, u.display_name, u.user_login, u.user_registered,
-				        {$follower_count_subquery},
-				        {$mutual_subquery}
+				        {$follower_count_subquery}
 				 FROM {$wpdb->users} u
 				 {$join_sql}
 				 WHERE {$where_sql}
@@ -319,9 +310,52 @@ class MemberDirectoryService {
 			update_meta_cache( 'user', $user_ids );
 		}
 
+		// Compute mutual connection counts post-query in a single batch to avoid
+		// the MySQL 5.7 "Can't reopen table" error that would occur if bn_connections
+		// were referenced twice in correlated SELECT-list subqueries.
+		$mutual_counts = array();
+		if ( $viewer_id_safe > 0 && ! empty( $user_ids ) ) {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$viewer_peer_ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT CASE WHEN c.requester_id = %d THEN c.recipient_id ELSE c.requester_id END
+					 FROM {$wpdb->prefix}bn_connections c
+					 WHERE c.status = 'accepted'
+					   AND ( c.requester_id = %d OR c.recipient_id = %d )",
+					$viewer_id_safe,
+					$viewer_id_safe,
+					$viewer_id_safe
+				)
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			if ( ! empty( $viewer_peer_ids ) ) {
+				$uid_in   = implode( ',', array_map( 'intval', $user_ids ) );
+				$peer_in  = implode( ',', array_map( 'intval', $viewer_peer_ids ) );
+				// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$m_rows = $wpdb->get_results(
+					"SELECT CASE WHEN c.requester_id IN ({$uid_in}) THEN c.requester_id
+					            ELSE c.recipient_id END AS target_id,
+					        COUNT(*) AS cnt
+					 FROM {$wpdb->prefix}bn_connections c
+					 WHERE c.status = 'accepted'
+					   AND ( c.requester_id IN ({$uid_in}) OR c.recipient_id IN ({$uid_in}) )
+					   AND ( CASE WHEN c.requester_id IN ({$uid_in})
+					             THEN c.recipient_id
+					             ELSE c.requester_id END ) IN ({$peer_in})
+					 GROUP BY target_id",
+					ARRAY_A
+				);
+				// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				foreach ( (array) $m_rows as $mr ) {
+					$mutual_counts[ (int) $mr['target_id'] ] = (int) $mr['cnt'];
+				}
+			}
+		}
+
 		$sort_ref = $sort; // Capture for use inside closure.
 		$items    = array_map(
-			static function ( $r ) use ( $sort_ref ) {
+			static function ( $r ) use ( $sort_ref, $mutual_counts ) {
 				$uid         = (int) $r['ID'];
 				$bio         = get_user_meta( $uid, 'bn_field_bio', true );
 				$last_active = (int) get_user_meta( $uid, 'bn_last_active', true );
@@ -334,7 +368,7 @@ class MemberDirectoryService {
 					'bio'                     => $bio ? $bio : '',
 					'is_online'               => $is_online,
 					'follower_count'          => (int) $r['follower_count'],
-					'mutual_connection_count' => (int) ( \$r['mutual_connection_count'] ?? 0 ),
+					'mutual_connection_count' => $mutual_counts[ $uid ] ?? 0,
 				);
 			},
 			$rows

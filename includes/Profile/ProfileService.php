@@ -212,36 +212,81 @@ class ProfileService {
 	/**
 	 * Create a new profile field definition.
 	 *
-	 * Accepts group_id (int) instead of the former group_name string.
-	 * Visibility is no longer stored per-field — it lives on the group.
+	 * Accepts either group_id (int) or group_name (string). When group_name is
+	 * provided, the group is looked up by group_key and created on-the-fly if it
+	 * does not yet exist.
 	 *
-	 * @param array $data Field data: group_id, field_key, label, type, options,
-	 *                    is_required, is_searchable, visibility, sort_order.
+	 * @param array $data Field data: group_id|group_name, field_key, label, type,
+	 *                    options, is_required, is_searchable, visibility, sort_order.
 	 * @return int Inserted field ID.
 	 */
 	public function create_field( array $data ): int {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_profile_fields',
-			array(
-				'group_id'      => (int) ( $data['group_id'] ?? 0 ),
-				'field_key'     => sanitize_key( $data['field_key'] ),
-				'label'         => sanitize_text_field( $data['label'] ),
-				'type'          => $data['type'] ?? 'text',
-				'options'       => isset( $data['options'] ) ? wp_json_encode( $data['options'] ) : null,
-				'is_required'   => (int) ( $data['is_required'] ?? 0 ),
-				'is_searchable' => (int) ( $data['is_searchable'] ?? 0 ),
-				'visibility'    => $data['visibility'] ?? 'public',
-				'sort_order'    => (int) ( $data['sort_order'] ?? 0 ),
-			),
-			array( '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d' )
+		// Resolve group_id from group_name when not supplied directly.
+		$group_id = (int) ( $data['group_id'] ?? 0 );
+		if ( $group_id <= 0 && isset( $data['group_name'] ) ) {
+			$group_key = sanitize_key( (string) $data['group_name'] );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$group_id = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_profile_groups WHERE group_key = %s",
+					$group_key
+				)
+			);
+			if ( ! $group_id ) {
+				$wpdb->insert(
+					$wpdb->prefix . 'bn_profile_groups',
+					array(
+						'group_key'  => $group_key,
+						'label'      => ucwords( str_replace( '_', ' ', $group_key ) ),
+						'type'       => 'flat',
+						'visibility' => 'public',
+						'is_system'  => 0,
+						'sort_order' => 0,
+					),
+					array( '%s', '%s', '%s', '%s', '%d', '%d' )
+				);
+				$group_id = (int) $wpdb->insert_id;
+			}
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		}
+
+		$field_key = sanitize_key( (string) ( $data['field_key'] ?? '' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_profile_fields
+					(group_id, field_key, label, type, options, is_required, is_searchable, visibility, sort_order)
+				 VALUES (%d, %s, %s, %s, %s, %d, %d, %s, %d)",
+				$group_id,
+				$field_key,
+				sanitize_text_field( (string) ( $data['label'] ?? '' ) ),
+				$data['type'] ?? 'text',
+				wp_json_encode( $data['options'] ?? null ),
+				(int) ( $data['is_required'] ?? 0 ),
+				(int) ( $data['is_searchable'] ?? 0 ),
+				$data['visibility'] ?? 'public',
+				(int) ( $data['sort_order'] ?? 0 )
+			)
 		);
+
+		// If INSERT IGNORE skipped due to a duplicate key, fetch the existing ID.
+		$field_id = (int) $wpdb->insert_id;
+		if ( ! $field_id ) {
+			$field_id = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$wpdb->prefix}bn_profile_fields WHERE field_key = %s",
+					$field_key
+				)
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 
-		return (int) $wpdb->insert_id;
+		return $field_id;
 	}
 
 	/**
@@ -420,6 +465,7 @@ class ProfileService {
 					f.label        AS field_label,
 					f.type         AS field_type,
 					f.options,
+					f.visibility   AS field_visibility,
 					f.sort_order   AS field_sort_order,
 					v.entry_index,
 					v.value,
@@ -444,9 +490,20 @@ class ProfileService {
 			$gtype = $row['group_type'];
 			$gvis  = $row['group_visibility'];
 
-			// Enforce group-level visibility for non-owners.
+			// Enforce group/field/entry visibility for non-owners (most restrictive wins).
 			if ( ! $is_owner ) {
-				$effective_vis = $row['entry_visibility'] ?? $gvis;
+				$fvis          = $row['field_visibility'] ?? 'public';
+				$evis          = $row['entry_visibility'] ?? 'public';
+				$effective_vis = 'public';
+				foreach ( array( $gvis, $fvis, $evis ) as $v ) {
+					if ( 'private' === $v ) {
+						$effective_vis = 'private';
+						break;
+					}
+					if ( 'followers' === $v ) {
+						$effective_vis = 'followers';
+					}
+				}
 				if ( 'private' === $effective_vis ) {
 					continue;
 				}
@@ -515,12 +572,23 @@ class ProfileService {
 			$output_groups[] = $out;
 		}
 
+		// Collect a flat list of all fields from non-repeater groups for quick access.
+		$flat_fields = array();
+		foreach ( $output_groups as $group ) {
+			if ( isset( $group['fields'] ) ) {
+				foreach ( $group['fields'] as $field ) {
+					$flat_fields[] = $field;
+				}
+			}
+		}
+
 		$profile = array(
 			'user_id'       => $profile_user_id,
 			'display_name'  => $wp_user->display_name,
 			'avatar_url'    => get_avatar_url( $profile_user_id, array( 'size' => 96 ) ),
 			'registered_at' => $wp_user->user_registered,
 			'groups'        => $output_groups,
+			'fields'        => $flat_fields,
 		);
 
 		wp_cache_set( $cache_key, $profile, self::CACHE_GROUP, self::CACHE_TTL );

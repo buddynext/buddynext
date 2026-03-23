@@ -159,6 +159,28 @@ class NavManager extends AdminPageBase {
 	}
 
 	/**
+	 * Return the slug of the currently active main-nav tab.
+	 *
+	 * Reads the `bn_nav_scope` request parameter (set by JS when the admin
+	 * clicks a scope in the sidebar). Falls back to the first tab slug.
+	 *
+	 * @return string Active tab slug.
+	 */
+	public function get_active_tab(): string {
+		$tabs = $this->get_tabs();
+		if ( empty( $tabs ) ) {
+			return '';
+		}
+		$requested = sanitize_key( (string) ( $_GET['bn_nav_scope'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		foreach ( $tabs as $tab ) {
+			if ( sanitize_key( (string) ( $tab['slug'] ?? '' ) ) === $requested ) {
+				return $requested;
+			}
+		}
+		return sanitize_key( (string) ( $tabs[0]['slug'] ?? '' ) );
+	}
+
+	/**
 	 * Return the sorted, override-applied tab list for any scope.
 	 *
 	 * Applies the relevant filter and merges admin overrides.

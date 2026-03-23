@@ -24,27 +24,29 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
+		// Plugin class stub is registered in tests/bootstrap.php.
 		$this->bridge    = new Jetonomy();
 		$this->bridge->init();
 		$this->user_id   = self::factory()->user->create();
 		$this->author_id = self::factory()->user->create();
 	}
 
-	public function test_reply_created_creates_notification(): void {
+	public function test_discussion_indexed_with_correct_author(): void {
 		global $wpdb;
 
-		// Simulate jetonomy_after_create_reply: reply_id, post_id, author_id, parent_user_id.
-		do_action( 'jetonomy_after_create_reply', 5, 10, $this->user_id, $this->author_id );
+		// Bridge should index discussion and store the correct author_id.
+		do_action( 'jetonomy_after_create_post', 99, $this->author_id, 'Another Discussion', 'Content body.' );
 
-		$count = (int) $wpdb->get_var(
+		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND type = 'jt.discussion_reply'",
-				$this->author_id
+				"SELECT author_id FROM {$wpdb->prefix}bn_search_index
+				 WHERE object_type = 'discussion' AND object_id = %d",
+				99
 			)
 		);
 
-		$this->assertGreaterThan( 0, $count );
+		$this->assertNotNull( $row );
+		$this->assertSame( $this->author_id, (int) $row->author_id );
 	}
 
 	public function test_post_created_indexes_in_search(): void {
@@ -63,20 +65,21 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( 1, $count );
 	}
 
-	public function test_reply_does_not_notify_replier(): void {
+	public function test_register_hook_is_idempotent(): void {
 		global $wpdb;
 
-		// Replier = author → no self-notification.
-		do_action( 'jetonomy_after_create_reply', 5, 10, $this->user_id, $this->user_id );
+		// Indexing the same object_id twice should not duplicate rows (INSERT IGNORE).
+		do_action( 'jetonomy_after_create_post', 101, $this->user_id, 'Dupe Test', 'Body.' );
+		do_action( 'jetonomy_after_create_post', 101, $this->user_id, 'Dupe Test', 'Body.' );
 
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications
-				 WHERE recipient_id = %d AND type = 'jt.discussion_reply'",
-				$this->user_id
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_search_index
+				 WHERE object_type = 'discussion' AND object_id = %d",
+				101
 			)
 		);
 
-		$this->assertSame( 0, $count );
+		$this->assertSame( 1, $count );
 	}
 }

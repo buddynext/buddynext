@@ -284,27 +284,108 @@ class Members extends AdminPageBase {
 	/**
 	 * Suspend a community member.
 	 *
-	 * Delegates to ModerationService so the suspension is recorded in
-	 * bn_user_suspensions — the single source of truth checked by is_suspended().
+	 * Sets the bn_suspended usermeta flag and fires buddynext_member_suspended.
+	 * Also writes a row to bn_user_suspensions so ModerationService::is_suspended()
+	 * reflects the change.
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return void
 	 */
 	public function suspend_member( int $user_id ): void {
-		buddynext_service( 'moderation' )->suspend_user( $user_id, get_current_user_id() );
+		update_user_meta( $user_id, 'bn_suspended', '1' );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_user_suspensions',
+			array(
+				'user_id'      => $user_id,
+				'suspended_by' => get_current_user_id(),
+				'reason'       => '',
+				'hide_posts'   => 0,
+			),
+			array( '%d', '%d', '%s', '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		/**
+		 * Fires after an admin suspends a member via the Members panel.
+		 *
+		 * @param int $user_id   Suspended user ID.
+		 * @param int $actor_id  Admin user who performed the suspension.
+		 */
+		do_action( 'buddynext_member_suspended', $user_id, get_current_user_id() );
 	}
 
 	/**
 	 * Lift the suspension for a community member.
 	 *
-	 * Delegates to ModerationService so the bn_user_suspensions row is updated
-	 * and all systems that call is_suspended() reflect the change immediately.
+	 * Removes the bn_suspended usermeta flag, marks the most-recent
+	 * bn_user_suspensions row as lifted, and fires buddynext_member_unsuspended.
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return void
 	 */
 	public function unsuspend_member( int $user_id ): void {
-		buddynext_service( 'moderation' )->unsuspend_user( $user_id, get_current_user_id() );
+		delete_user_meta( $user_id, 'bn_suspended' );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_user_suspensions
+				 SET lifted_at = %s, lifted_by = %d
+				 WHERE user_id = %d AND lifted_at IS NULL
+				 ORDER BY id DESC
+				 LIMIT 1",
+				current_time( 'mysql' ),
+				get_current_user_id(),
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		/**
+		 * Fires after an admin lifts a member suspension via the Members panel.
+		 *
+		 * @param int $user_id Unsuspended user ID.
+		 */
+		do_action( 'buddynext_member_unsuspended', $user_id );
+	}
+
+	/**
+	 * Export all community members as a CSV string.
+	 *
+	 * Returns a UTF-8 CSV with a header row and one data row per member,
+	 * ordered by registration date ascending.
+	 *
+	 * @return string CSV content ready to stream or save.
+	 */
+	public function export_members_csv(): string {
+		$users = get_users(
+			array(
+				'orderby' => 'registered',
+				'order'   => 'ASC',
+				'fields'  => array( 'ID', 'user_login', 'user_email', 'user_registered' ),
+			)
+		);
+
+		$rows   = array();
+		$rows[] = 'ID,Login,Email,Registered';
+
+		foreach ( $users as $user ) {
+			$rows[] = implode(
+				',',
+				array(
+					(int) $user->ID,
+					'"' . str_replace( '"', '""', $user->user_login ) . '"',
+					'"' . str_replace( '"', '""', $user->user_email ) . '"',
+					'"' . str_replace( '"', '""', $user->user_registered ) . '"',
+				)
+			);
+		}
+
+		return implode( "\n", $rows );
 	}
 
 	// ── Admin-post handlers ────────────────────────────────────────────────────

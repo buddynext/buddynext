@@ -120,7 +120,7 @@ class SetupWizard {
 		/**
 		 * Fires when the BuddyNext admin setup wizard is completed.
 		 */
-		do_action( 'buddynext_onboarding_completed', 0 );
+		do_action( 'buddynext_setup_complete' );
 	}
 
 	/**

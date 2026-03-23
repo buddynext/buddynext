@@ -65,7 +65,7 @@ class EventListener {
 		add_action( 'buddynext_connection_accepted', array( $this, 'on_webhook_connection_accepted' ), 10, 3 );
 		add_action( 'buddynext_user_followed', array( $this, 'on_webhook_user_followed' ), 10, 2 );
 		add_action( 'buddynext_reaction_added', array( $this, 'on_webhook_reaction_added' ), 10, 4 );
-		add_action( 'buddynext_comment_created', array( $this, 'on_webhook_comment_created' ), 10, 3 );
+		add_action( 'buddynext_comment_created', array( $this, 'on_webhook_comment_created' ), 10, 4 );
 		add_action( 'buddynext_user_suspended', array( $this, 'on_webhook_user_suspended' ), 10, 4 );
 		add_action( 'buddynext_user_unsuspended', array( $this, 'on_webhook_user_unsuspended' ), 10, 1 );
 		add_action( 'buddynext_ability_granted', array( $this, 'on_webhook_ability_granted' ), 10, 2 );
@@ -1100,17 +1100,19 @@ class EventListener {
 	/**
 	 * Dispatch reaction.added when a user reacts to content.
 	 *
-	 * @param int    $reaction_id Reaction row ID.
-	 * @param int    $post_id     Post that received the reaction.
+	 * Matches buddynext_reaction_added hook: object_type, object_id, user_id, emoji.
+	 *
+	 * @param string $object_type Object type (e.g. 'post', 'comment').
+	 * @param int    $object_id   Object that received the reaction.
 	 * @param int    $user_id     User who reacted.
 	 * @param string $emoji       Emoji slug used for the reaction.
 	 */
-	public function on_webhook_reaction_added( int $reaction_id, int $post_id, int $user_id, string $emoji ): void {
+	public function on_webhook_reaction_added( string $object_type, int $object_id, int $user_id, string $emoji ): void {
 		buddynext_service( 'webhooks' )->dispatch(
 			'reaction.added',
 			array(
-				'reaction_id' => $reaction_id,
-				'post_id'     => $post_id,
+				'object_type' => $object_type,
+				'object_id'   => $object_id,
 				'user_id'     => $user_id,
 				'emoji'       => $emoji,
 			)
@@ -1120,17 +1122,22 @@ class EventListener {
 	/**
 	 * Dispatch comment.created when a new comment is posted.
 	 *
-	 * @param int $comment_id Comment row ID.
-	 * @param int $post_id    Post that received the comment.
-	 * @param int $user_id    User who wrote the comment.
+	 * Matches the 4-arg buddynext_comment_created hook:
+	 * comment_id, object_type, object_id, user_id.
+	 *
+	 * @param int    $comment_id  Comment row ID.
+	 * @param string $object_type Object type the comment belongs to (e.g. 'post').
+	 * @param int    $object_id   ID of the commented object.
+	 * @param int    $user_id     User who wrote the comment.
 	 */
-	public function on_webhook_comment_created( int $comment_id, int $post_id, int $user_id ): void {
+	public function on_webhook_comment_created( int $comment_id, string $object_type, int $object_id, int $user_id ): void {
 		buddynext_service( 'webhooks' )->dispatch(
 			'comment.created',
 			array(
-				'comment_id' => $comment_id,
-				'post_id'    => $post_id,
-				'user_id'    => $user_id,
+				'comment_id'  => $comment_id,
+				'object_type' => $object_type,
+				'object_id'   => $object_id,
+				'user_id'     => $user_id,
 			)
 		);
 	}

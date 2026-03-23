@@ -46,6 +46,7 @@ class SearchControllerTest extends \WP_Test_REST_TestCase {
 	public function test_search_response_shape(): void {
 		$request = new WP_REST_Request( 'GET', '/buddynext/v1/search' );
 		$request->set_param( 'q', 'test' );
+		$request->set_param( 'type', 'post' );
 		$response = rest_do_request( $request );
 		$data     = $response->get_data();
 
@@ -58,6 +59,7 @@ class SearchControllerTest extends \WP_Test_REST_TestCase {
 
 		$request = new WP_REST_Request( 'GET', '/buddynext/v1/search' );
 		$request->set_param( 'q', 'Unique Search Term XYZ' );
+		$request->set_param( 'type', 'post' );
 		$response = rest_do_request( $request );
 		$data     = $response->get_data();
 

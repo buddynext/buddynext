@@ -102,7 +102,7 @@ class ModerationService {
 		 * @param string $object_type Object type reported.
 		 * @param int    $object_id   Object ID reported.
 		 */
-		do_action( 'buddynext_report_created', $report_id, $reporter_id, sanitize_key( $object_type ), $object_id );
+		do_action( 'buddynext_report_created', $report_id, sanitize_key( $object_type ), $object_id, $reporter_id );
 
 		return $report_id;
 	}

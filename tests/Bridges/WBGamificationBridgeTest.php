@@ -22,13 +22,7 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
-
-		// Stub the WBGamification detection function so init() registers hooks.
-		if ( ! function_exists( 'wb_gamification_badge_awarded' ) ) {
-			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
-			function wb_gamification_badge_awarded(): void {}
-		}
-
+		// Plugin class and function stubs are registered in tests/bootstrap.php.
 		$this->bridge = new WBGamification();
 		$this->bridge->init();
 	}

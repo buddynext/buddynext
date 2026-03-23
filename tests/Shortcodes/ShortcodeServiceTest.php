@@ -35,17 +35,17 @@ class ShortcodeServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * init() registers the buddynext_feed shortcode.
+	 * init() registers the buddynext_activity shortcode.
 	 */
 	public function test_registers_feed_shortcode(): void {
-		$this->assertTrue( shortcode_exists( 'buddynext_feed' ) );
+		$this->assertTrue( shortcode_exists( 'buddynext_activity' ) );
 	}
 
 	/**
-	 * init() registers the buddynext_members shortcode.
+	 * init() registers the buddynext_people shortcode.
 	 */
 	public function test_registers_members_shortcode(): void {
-		$this->assertTrue( shortcode_exists( 'buddynext_members' ) );
+		$this->assertTrue( shortcode_exists( 'buddynext_people' ) );
 	}
 
 	/**
@@ -56,10 +56,10 @@ class ShortcodeServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * init() registers the buddynext_profile shortcode.
+	 * init() registers the buddynext_auth shortcode.
 	 */
 	public function test_registers_profile_shortcode(): void {
-		$this->assertTrue( shortcode_exists( 'buddynext_profile' ) );
+		$this->assertTrue( shortcode_exists( 'buddynext_auth' ) );
 	}
 
 	/**

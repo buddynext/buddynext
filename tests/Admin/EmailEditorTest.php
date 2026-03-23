@@ -66,21 +66,21 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	// ── Catalogue ─────────────────────────────────────────────────────────────
 
 	/**
-	 * get_catalogue() returns an array with four categories.
+	 * get_catalogue() returns an array with seven categories.
 	 */
 	public function test_catalogue_has_four_categories(): void {
 		$catalogue = $this->editor->get_catalogue();
-		$this->assertCount( 4, $catalogue );
+		$this->assertCount( 7, $catalogue );
 	}
 
 	/**
-	 * get_catalogue() includes the new_follower template.
+	 * get_catalogue() includes the bn.new_follower template.
 	 */
 	public function test_catalogue_contains_new_follower(): void {
 		$catalogue = $this->editor->get_catalogue();
 		$found     = false;
 		foreach ( $catalogue as $templates ) {
-			if ( isset( $templates['new_follower'] ) ) {
+			if ( isset( $templates['bn.new_follower'] ) ) {
 				$found = true;
 				break;
 			}
@@ -89,7 +89,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * get_catalogue() includes all 12 templates.
+	 * get_catalogue() includes all 18 templates.
 	 */
 	public function test_catalogue_has_twelve_templates(): void {
 		$catalogue = $this->editor->get_catalogue();
@@ -97,7 +97,7 @@ class EmailEditorTest extends \WP_UnitTestCase {
 		foreach ( $catalogue as $templates ) {
 			$total += count( $templates );
 		}
-		$this->assertSame( 12, $total );
+		$this->assertSame( 18, $total );
 	}
 
 	/**

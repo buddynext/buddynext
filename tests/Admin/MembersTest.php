@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Tests\Admin;
 
 use BuddyNext\Admin\Members;
+use BuddyNext\Core\Installer;
 
 /**
  * Verifies member listing, suspension, and export logic.
@@ -30,6 +31,7 @@ class MembersTest extends \WP_UnitTestCase {
 	 */
 	public function set_up(): void {
 		parent::set_up();
+		Installer::run();
 		$this->members = new Members();
 	}
 

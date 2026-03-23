@@ -572,3 +572,7 @@ A phase is Done when ALL of:
 | 2026-03-22 | 12g | fix | MemberTypesManager: removed duplicate button tag, fixed unclosed delete button, escaped count() output, removed unused use import |
 | 2026-03-22 | 12g | feature | PageRouter: added bn_member_type rewrite tag, bottom-priority /members/{type-slug}/ rule, set_hub_vars storage, member_type_url() static builder |
 | 2026-03-22 | 12g | fix | templates/directory/members.php: read bn_member_type from get_query_var() (pretty URL) with ?type= fallback; pill links now use PageRouter::member_type_url() |
+| 2026-03-22 | 8 | fix | ModerationService::suspend(): buddynext_user_suspended hook now fires with correct signature ($user_id, $actor_id, $reason, $expires_at) matching EventListener::on_user_suspended |
+| 2026-03-22 | 8 | fix | ModerationService::decide_appeal(): fetch appellant user_id from bn_appeals before update; buddynext_appeal_resolved now fires with 3 args ($appeal_id, $user_id, $decision) matching on_appeal_resolved |
+| 2026-03-22 | 8 | fix | ModerationService::unsuspend_user(): now fires buddynext_user_unsuspended in addition to buddynext_member_unsuspended so notification listener triggers |
+| 2026-03-22 | 8 | fix | ModerationController: removed POST /users/{id}/unsuspend route; DELETE /users/{id}/suspend (delete_suspension) is now the sole unsuspend path, calling unsuspend_user() for audit trail and hook; unsuspend_user() method made private |

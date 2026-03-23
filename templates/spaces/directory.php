@@ -197,7 +197,6 @@ function bn_space_category_icon( ?string $cat_slug ): string {
 	return $map[ (string) $cat_slug ] ?? '&#x1F3D8;';
 }
 
-<?php
 $bn_nav_active = 'spaces';
 include __DIR__ . '/../partials/nav.php';
 ?>

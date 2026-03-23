@@ -24,6 +24,7 @@ class CareerBoardBridgeTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
+		// Function and class stubs are registered in tests/bootstrap.php.
 		$this->bridge       = new CareerBoard();
 		$this->bridge->init();
 		$this->employer_id  = self::factory()->user->create();

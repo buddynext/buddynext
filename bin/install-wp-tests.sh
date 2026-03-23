@@ -122,7 +122,7 @@ if [ "$DB_HOST" != "localhost" ]; then
 fi
 
 mysql \
-	"${EXTRA_ARGS[@]}" \
+	"${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}" \
 	--user="$DB_USER" \
 	--password="$DB_PASS" \
 	--execute="DROP DATABASE IF EXISTS \`${DB_NAME}\`; CREATE DATABASE \`${DB_NAME}\`;" \

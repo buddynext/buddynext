@@ -33,14 +33,14 @@ class SpacesTest extends \WP_UnitTestCase {
 		global $wpdb;
 		$this->spaces = new Spaces();
 
-		// Ensure bn_spaces table exists for tests.
+		// Ensure bn_spaces table exists for tests (matches production schema columns).
 		$wpdb->query(
 			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}bn_spaces (
 				id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 				name VARCHAR(255) NOT NULL,
-				creator_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+				owner_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
 				member_count INT UNSIGNED NOT NULL DEFAULT 0,
-				status VARCHAR(20) NOT NULL DEFAULT 'active',
+				type ENUM('open','private','secret') NOT NULL DEFAULT 'open',
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 			) ENGINE=InnoDB"
 		);
@@ -93,7 +93,7 @@ class SpacesTest extends \WP_UnitTestCase {
 			$wpdb->prefix . 'bn_spaces',
 			array(
 				'name'       => 'Test Space',
-				'creator_id' => 1,
+				'owner_id' => 1,
 			)
 		);
 		$this->assertEquals( 1, $this->spaces->get_space_count() );
@@ -108,7 +108,7 @@ class SpacesTest extends \WP_UnitTestCase {
 			$wpdb->prefix . 'bn_spaces',
 			array(
 				'name'       => 'To Delete',
-				'creator_id' => 1,
+				'owner_id' => 1,
 			)
 		);
 		$space_id = (int) $wpdb->insert_id;
@@ -130,7 +130,7 @@ class SpacesTest extends \WP_UnitTestCase {
 			$wpdb->prefix . 'bn_spaces',
 			array(
 				'name'       => 'Action Space',
-				'creator_id' => 1,
+				'owner_id' => 1,
 			)
 		);
 		$space_id = (int) $wpdb->insert_id;
@@ -159,7 +159,7 @@ class SpacesTest extends \WP_UnitTestCase {
 				$wpdb->prefix . 'bn_spaces',
 				array(
 					'name'       => "Space {$i}",
-					'creator_id' => 1,
+					'owner_id' => 1,
 				)
 			);
 		}

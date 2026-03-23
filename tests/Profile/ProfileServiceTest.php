@@ -53,9 +53,14 @@ class ProfileServiceTest extends \WP_UnitTestCase {
 		$this->assertIsInt( $field_id );
 		$this->assertGreaterThan( 0, $field_id );
 
-		$fields = $this->service->get_fields();
-		$keys   = array_column( $fields, 'field_key' );
-		$this->assertContains( 'bio', $keys );
+		$fields   = $this->service->get_fields();
+		$all_keys = array();
+		foreach ( $fields as $group ) {
+			foreach ( $group['fields'] as $field ) {
+				$all_keys[] = $field['field_key'];
+			}
+		}
+		$this->assertContains( 'bio', $all_keys );
 	}
 
 	public function test_save_and_get_profile_value(): void {

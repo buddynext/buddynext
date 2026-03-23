@@ -50,7 +50,6 @@ class ModerationControllerTest extends \WP_UnitTestCase {
 		$routes = rest_get_server()->get_routes( 'buddynext/v1' );
 
 		$this->assertArrayHasKey( '/buddynext/v1/users/(?P<id>[\d]+)/suspend', $routes );
-		$this->assertArrayHasKey( '/buddynext/v1/users/(?P<id>[\d]+)/unsuspend', $routes );
 		$this->assertArrayHasKey( '/buddynext/v1/appeals', $routes );
 		$this->assertArrayHasKey( '/buddynext/v1/appeals/(?P<id>[\d]+)/resolve', $routes );
 	}
@@ -91,17 +90,17 @@ class ModerationControllerTest extends \WP_UnitTestCase {
 		$this->service->suspend_user( $this->user_id, $this->admin_id, 'test', array() );
 		wp_set_current_user( $this->admin_id );
 
-		$request  = new WP_REST_Request( 'POST', "/buddynext/v1/users/{$this->user_id}/unsuspend" );
+		$request  = new WP_REST_Request( 'DELETE', "/buddynext/v1/users/{$this->user_id}/suspend" );
 		$response = rest_do_request( $request );
 
 		$this->assertSame( 200, $response->get_status() );
-		$this->assertTrue( $response->get_data()['unsuspended'] );
+		$this->assertFalse( $response->get_data()['suspended'] );
 	}
 
 	public function test_unsuspend_requires_admin(): void {
 		wp_set_current_user( $this->user_id );
 
-		$request  = new WP_REST_Request( 'POST', "/buddynext/v1/users/{$this->user_id}/unsuspend" );
+		$request  = new WP_REST_Request( 'DELETE', "/buddynext/v1/users/{$this->user_id}/suspend" );
 		$response = rest_do_request( $request );
 
 		$this->assertSame( 403, $response->get_status() );

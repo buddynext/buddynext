@@ -44,11 +44,38 @@ require_once $wp_tests_dir . '/includes/functions.php';
 // ── Global stubs for optional addon plugins ──────────────────────────────────
 // These allow bridge tests to exercise hook registration without the real
 // external plugins being installed. Each stub is guarded so real plugin
-// functions take precedence when the actual plugin is active.
+// functions/classes take precedence when the actual plugin is active.
+//
+// Note: class_alias() requires a user-defined source class, so we declare
+// a single base stub and alias it to every needed namespaced class.
 
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound
+/** Base stub used as source for class_alias() calls below. */
+class BuddyNext_Test_Addon_Stub {}
+// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound
+
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
 if ( ! function_exists( 'wb_gamification_badge_awarded' ) ) {
-	/** Stub: WBGamification — lets WBGamification bridge init() register hooks. */
-	function wb_gamification_badge_awarded(): void {} // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+	/** Stub: WBGamification badge_awarded function. */
+	function wb_gamification_badge_awarded(): void {}
+}
+if ( ! function_exists( 'wcb_get_job' ) ) {
+	/** Stub: Career Board wcb_get_job function. */
+	function wcb_get_job(): void {}
+}
+// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
+
+if ( ! class_exists( 'WCB_Career_Board' ) ) {
+	class_alias( BuddyNext_Test_Addon_Stub::class, 'WCB_Career_Board' );
+}
+if ( ! class_exists( 'Jetonomy\Core\Plugin' ) ) {
+	class_alias( BuddyNext_Test_Addon_Stub::class, 'Jetonomy\Core\Plugin' );
+}
+if ( ! class_exists( 'WBGamification\Plugin' ) ) {
+	class_alias( BuddyNext_Test_Addon_Stub::class, 'WBGamification\Plugin' );
+}
+if ( ! class_exists( 'WPMediaVerse\Core\Plugin' ) ) {
+	class_alias( BuddyNext_Test_Addon_Stub::class, 'WPMediaVerse\Core\Plugin' );
 }
 
 /**

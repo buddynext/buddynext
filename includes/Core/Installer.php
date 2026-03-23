@@ -673,17 +673,16 @@ class Installer {
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_webhook_log (
-				id            BIGINT(20) NOT NULL AUTO_INCREMENT,
-				webhook_id    BIGINT(20) NOT NULL,
-				event_type    VARCHAR(100) NOT NULL,
-				payload       LONGTEXT NOT NULL,
-				response_code INT(11) DEFAULT NULL,
-				response_body TEXT DEFAULT NULL,
-				delivered_at  DATETIME DEFAULT NULL,
-				created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				id         BIGINT(20) NOT NULL AUTO_INCREMENT,
+				source     VARCHAR(100) NOT NULL DEFAULT '',
+				action     VARCHAR(100) NOT NULL DEFAULT '',
+				user_id    BIGINT(20) NOT NULL DEFAULT 0,
+				payload    LONGTEXT NOT NULL,
+				status     VARCHAR(20) NOT NULL DEFAULT 'success',
+				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
-				KEY webhook_id (webhook_id),
-				KEY event_type (event_type),
+				KEY action (action),
+				KEY user_id (user_id),
 				KEY created_at (created_at)
 			) {$cs};",
 
@@ -951,37 +950,6 @@ class Installer {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		// ── bn_webhook_log — add outbound-delivery columns if upgrading from old schema ──
-
-		$existing_cols = $wpdb->get_col(
-			$wpdb->prepare(
-				'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-				  WHERE TABLE_SCHEMA = DATABASE()
-				    AND TABLE_NAME   = %s',
-				"{$p}bn_webhook_log"
-			)
-		);
-
-		if ( ! in_array( 'webhook_id', $existing_cols, true ) ) {
-			$wpdb->query( "ALTER TABLE `{$p}bn_webhook_log` ADD COLUMN `webhook_id` BIGINT(20) NOT NULL DEFAULT 0 AFTER `id`" );
-		}
-
-		if ( ! in_array( 'event_type', $existing_cols, true ) ) {
-			$wpdb->query( "ALTER TABLE `{$p}bn_webhook_log` ADD COLUMN `event_type` VARCHAR(100) NOT NULL DEFAULT '' AFTER `webhook_id`" );
-		}
-
-		if ( ! in_array( 'response_code', $existing_cols, true ) ) {
-			$wpdb->query( "ALTER TABLE `{$p}bn_webhook_log` ADD COLUMN `response_code` INT(11) DEFAULT NULL" );
-		}
-
-		if ( ! in_array( 'response_body', $existing_cols, true ) ) {
-			$wpdb->query( "ALTER TABLE `{$p}bn_webhook_log` ADD COLUMN `response_body` TEXT DEFAULT NULL" );
-		}
-
-		if ( ! in_array( 'delivered_at', $existing_cols, true ) ) {
-			$wpdb->query( "ALTER TABLE `{$p}bn_webhook_log` ADD COLUMN `delivered_at` DATETIME DEFAULT NULL" );
-		}
 
 		// ── bn_appeals — add strike_id + resolved_at columns if missing ──
 

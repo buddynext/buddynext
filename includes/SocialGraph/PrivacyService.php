@@ -152,8 +152,8 @@ class PrivacyService {
 		}
 
 		if ( 'followers' === $preference ) {
-			// "followers" means: the actor must already follow the target.
-			return $this->follows->is_following( $actor_id, $target_id );
+			// "followers" means: the target must already follow the actor back (target follows actor).
+			return $this->follows->is_following( $target_id, $actor_id );
 		}
 
 		return false;
