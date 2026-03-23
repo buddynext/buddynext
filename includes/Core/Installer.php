@@ -18,6 +18,11 @@ namespace BuddyNext\Core;
 class Installer {
 
 	/**
+	 * Filename for the mu-plugin that provides front-end plugin isolation.
+	 */
+	private const MU_PLUGIN_SLUG = 'buddynext-isolation.php';
+
+	/**
 	 * Run the installer.
 	 *
 	 * Called on register_activation_hook and on manual version upgrades.
@@ -50,6 +55,7 @@ class Installer {
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
 
 		static::create_hub_pages();
+		static::install_mu_plugin();
 
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
 	}
@@ -1008,10 +1014,184 @@ class Installer {
 	}
 
 	/**
-	 * Create the five BuddyNext hub pages on activation.
+	 * Write the BuddyNext isolation mu-plugin to wp-content/mu-plugins/.
 	 *
-	 * Idempotent — skips any hub whose page option is already set to a
-	 * published page ID. Called from run() and from the setup wizard.
+	 * Skips the write when the file already exists with identical content so
+	 * that repeated activations (e.g. during automated upgrades) are cheap.
+	 *
+	 * @return void
+	 */
+	public static function install_mu_plugin(): void {
+		$dest    = WP_CONTENT_DIR . '/mu-plugins/' . self::MU_PLUGIN_SLUG;
+		$content = self::mu_plugin_content();
+
+		if ( file_exists( $dest ) && file_get_contents( $dest ) === $content ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			return;
+		}
+
+		file_put_contents( $dest, $content ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+	}
+
+	/**
+	 * Delete the BuddyNext isolation mu-plugin on deactivation.
+	 *
+	 * @return void
+	 */
+	public static function remove_mu_plugin(): void {
+		$dest = WP_CONTENT_DIR . '/mu-plugins/' . self::MU_PLUGIN_SLUG;
+
+		if ( file_exists( $dest ) ) {
+			wp_delete_file( $dest );
+		}
+	}
+
+	/**
+	 * Return the PHP source for the buddynext-isolation mu-plugin.
+	 *
+	 * Kept as a private method so the content is compiled once and can be
+	 * compared byte-for-byte in install_mu_plugin() to avoid unnecessary writes.
+	 *
+	 * @return string
+	 */
+	private static function mu_plugin_content(): string {
+		// phpcs:disable Squiz.Strings.DoubleQuoteUsage.NotRequired
+		return <<<'MUPLUGIN'
+<?php
+/**
+ * Plugin Name: BuddyNext Isolation
+ * Description: Strips non-essential plugins on BuddyNext front-end routes to save 20-40 MB per request.
+ * Version:     1.0.0
+ * Author:      Wbcom Designs
+ *
+ * @package BuddyNext
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+// No-op on admin pages and WP-CLI runs — isolation is for front-end only.
+if ( is_admin() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
+	return;
+}
+
+/**
+ * Determine whether the current HTTP request targets a BuddyNext front-end route.
+ *
+ * Queries wp_options directly via $wpdb — WordPress option API is not yet
+ * available this early in the bootstrap sequence.
+ *
+ * Uses a static guard so the DB query runs at most once per request.
+ *
+ * @return bool
+ */
+function buddynext_mu_is_bn_request() {
+	static $result = null;
+
+	if ( null !== $result ) {
+		return $result;
+	}
+
+	// Parse the bare path from REQUEST_URI and strip the leading slash.
+	$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- raw comparison only, never output.
+	$path        = ltrim( strtok( $request_uri, '?' ), '/' );
+
+	if ( '' === $path ) {
+		$result = false;
+		return false;
+	}
+
+	global $wpdb;
+
+	// Fetch all six slug options in a single query.
+	$option_names = array(
+		'buddynext_slug_activity',
+		'buddynext_slug_members',
+		'buddynext_slug_spaces',
+		'buddynext_slug_messages',
+		'buddynext_slug_notifications',
+		'buddynext_slug_auth',
+	);
+
+	$placeholders = implode( ', ', array_fill( 0, count( $option_names ), "'%s'" ) );
+
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+	$rows = $wpdb->get_results(
+		$wpdb->prepare(
+			"SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name IN ( {$placeholders} )",
+			$option_names
+		),
+		ARRAY_A
+	);
+	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+
+	// Build a map of option_name => value, then merge with hard-coded defaults.
+	$fetched = array();
+	if ( is_array( $rows ) ) {
+		foreach ( $rows as $row ) {
+			$fetched[ $row['option_name'] ] = $row['option_value'];
+		}
+	}
+
+	$defaults = array(
+		'buddynext_slug_activity'      => 'activity',
+		'buddynext_slug_members'       => 'members',
+		'buddynext_slug_spaces'        => 'spaces',
+		'buddynext_slug_messages'      => 'messages',
+		'buddynext_slug_notifications' => 'notifications',
+		'buddynext_slug_auth'          => 'login',
+	);
+
+	$slugs = array_merge( $defaults, $fetched );
+
+	foreach ( $slugs as $slug ) {
+		if ( '' !== $slug && 0 === strpos( $path, $slug ) ) {
+			$result = true;
+			return true;
+		}
+	}
+
+	$result = false;
+	return false;
+}
+
+if ( buddynext_mu_is_bn_request() ) {
+	/**
+	 * Strip all non-whitelisted plugins before WordPress loads them.
+	 *
+	 * The whitelist is filterable so site owners can add cache or security
+	 * plugins that must remain active on every request.
+	 *
+	 * @param string[]|mixed $plugins List of active plugin paths from wp_options.
+	 * @return string[] Filtered list.
+	 */
+	add_filter(
+		'option_active_plugins',
+		static function ( $plugins ) {
+			$whitelist = apply_filters(
+				'buddynext_isolation_whitelist',
+				array(
+					'buddynext/buddynext.php',
+					'redis-cache/redis-cache.php',
+				)
+			);
+
+			if ( ! is_array( $plugins ) ) {
+				return $plugins;
+			}
+
+			return array_values( array_intersect( $plugins, $whitelist ) );
+		}
+	);
+}
+MUPLUGIN;
+		// phpcs:enable Squiz.Strings.DoubleQuoteUsage.NotRequired
+	}
+
+	/**
+	 * Create the six BuddyNext hub pages (activity, members, spaces, messages,
+	 * notifications, auth/login) if they do not already exist.
+	 *
+	 * Safe to call on every activation — existing published pages are left
+	 * untouched.
 	 *
 	 * @return void
 	 */

@@ -31,6 +31,12 @@ register_activation_hook(
 		set_transient( 'buddynext_do_activation_redirect', '1', 30 );
 	}
 );
+register_deactivation_hook(
+	__FILE__,
+	static function (): void {
+		\BuddyNext\Core\Installer::remove_mu_plugin();
+	}
+);
 
 add_action( 'plugins_loaded', array( \BuddyNext\Core\Plugin::class, 'init' ), 15 );
 
