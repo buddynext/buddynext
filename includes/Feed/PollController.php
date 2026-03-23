@@ -7,12 +7,12 @@
  *   GET  /posts/{id}/poll    — get poll options and counts (public)
  *   GET  /posts/{id}/my-vote — get the current user's vote on a poll (auth required)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Feed
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Feed;
 
 use BuddyNext\Feed\PollService;
 use WP_Error;

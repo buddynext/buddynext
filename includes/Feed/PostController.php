@@ -10,12 +10,12 @@
  *   POST   /posts/{id}/pin  — pin a post (owner only)
  *   DELETE /posts/{id}/pin  — unpin a post (owner only)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Feed
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Feed;
 
 use BuddyNext\Feed\PostService;
 use WP_Error;

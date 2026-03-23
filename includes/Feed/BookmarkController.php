@@ -7,12 +7,12 @@
  *   DELETE /posts/{id}/bookmark — remove bookmark (auth required)
  *   GET    /me/bookmarks        — list bookmarked post IDs (auth required)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Feed
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Feed;
 
 use BuddyNext\Feed\BookmarkService;
 use WP_Error;

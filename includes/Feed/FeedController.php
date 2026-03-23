@@ -10,12 +10,12 @@
  *
  * All feeds support cursor-based pagination via ?cursor= and ?per_page= params.
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Feed
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Feed;
 
 use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PostService;

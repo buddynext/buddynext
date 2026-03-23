@@ -7,12 +7,12 @@
  *   DELETE /posts/{id}/share — unshare a post (auth required)
  *   GET    /me/shares        — share history for the current user (auth required)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Feed
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Feed;
 
 use BuddyNext\Feed\ShareService;
 use WP_Error;
