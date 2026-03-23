@@ -1,1 +1,322 @@
-/* BuddyNext — Hashtags component styles. */
+/* BuddyNext — Hashtags component styles.
+ * Covers: hashtag chip, trending list, feed page header, inline #tag links.
+ * Dark mode via [data-theme="dark"]. Mobile ≤640px. */
+
+/* ── Custom properties ──────────────────────────────────────────────────── */
+:root {
+	--bn-ht-chip-bg:        var(--brand-light, #e8f4fb);
+	--bn-ht-chip-color:     var(--brand,       #0073aa);
+	--bn-ht-chip-radius:    var(--r-full,      9999px);
+	--bn-ht-chip-px:        var(--s2,          8px);
+	--bn-ht-chip-py:        2px;
+	--bn-ht-chip-font:      var(--text-sm,     13px);
+	--bn-ht-rank-color:     var(--text-3,      #aeaca8);
+	--bn-ht-rank-w:         28px;
+	--bn-ht-trend-up:       var(--green,       #059669);
+	--bn-ht-trend-down:     var(--red,         #dc2626);
+	--bn-ht-follow-bg:      var(--brand,       #0073aa);
+	--bn-ht-follow-color:   #fff;
+	--bn-ht-follow-hover:   var(--brand-hover, #005f8e);
+	--bn-ht-following-bg:   var(--bg-hover,    #f1f1f0);
+	--bn-ht-following-color:var(--text-1,      #37352f);
+}
+
+[data-theme="dark"] {
+	--bn-ht-chip-bg:         var(--brand-light, #1a2e3a);
+	--bn-ht-chip-color:      var(--brand,       #4dabdb);
+	--bn-ht-follow-bg:       var(--brand,       #4dabdb);
+	--bn-ht-follow-color:    #0d1a24;
+	--bn-ht-follow-hover:    var(--brand-hover, #5fbfe8);
+	--bn-ht-following-bg:    var(--bg-hover,    #2a2a2a);
+	--bn-ht-following-color: var(--text-1,      #e8e8e6);
+}
+
+/* ── Hashtag chip (pill in post body or tag list) ───────────────────────── */
+.bn-hashtag-chip,
+a.bn-hashtag-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: var(--bn-ht-chip-py) var(--bn-ht-chip-px);
+	background: var(--bn-ht-chip-bg);
+	color: var(--bn-ht-chip-color);
+	border-radius: var(--bn-ht-chip-radius);
+	font-size: var(--bn-ht-chip-font);
+	font-weight: 500;
+	line-height: 1.4;
+	text-decoration: none;
+	transition: filter 0.15s ease, opacity 0.15s ease;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.bn-hashtag-chip:hover,
+a.bn-hashtag-chip:hover {
+	filter: brightness(0.92);
+	text-decoration: none;
+}
+
+/* ── Inline #hashtag link (inside post content) ─────────────────────────── */
+a.bn-hashtag {
+	color: var(--brand, #0073aa);
+	text-decoration: none;
+	font-weight: 500;
+}
+
+a.bn-hashtag:hover {
+	text-decoration: underline;
+}
+
+[data-theme="dark"] a.bn-hashtag {
+	color: var(--brand, #4dabdb);
+}
+
+/* ── Trending hashtags list ─────────────────────────────────────────────── */
+.bn-hashtag-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+}
+
+.bn-hashtag-item {
+	border-bottom: 1px solid var(--border-soft, #f1f1ee);
+}
+
+.bn-hashtag-item:last-child {
+	border-bottom: none;
+}
+
+.bn-hashtag-link {
+	display: flex;
+	align-items: center;
+	gap: var(--s2, 8px);
+	padding: var(--s2, 8px) var(--s3, 12px);
+	text-decoration: none;
+	color: inherit;
+	transition: background 0.12s ease;
+	border-radius: var(--r-md, 8px);
+}
+
+.bn-hashtag-link:hover {
+	background: var(--bg-hover, #f1f1f0);
+	text-decoration: none;
+}
+
+.bn-hashtag-rank {
+	width: var(--bn-ht-rank-w);
+	flex-shrink: 0;
+	font-size: var(--text-xs, 11px);
+	font-weight: 700;
+	color: var(--bn-ht-rank-color);
+	text-align: center;
+}
+
+.bn-hashtag-name {
+	flex: 1;
+	font-size: var(--text-sm, 13px);
+	font-weight: 600;
+	color: var(--text-1, #37352f);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-hashtag-count {
+	font-size: var(--text-xs, 11px);
+	color: var(--text-2, #787774);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+/* Trend indicator arrow */
+.bn-hashtag-trend {
+	flex-shrink: 0;
+	font-size: 10px;
+	line-height: 1;
+}
+
+.bn-hashtag-trend--up   { color: var(--bn-ht-trend-up); }
+.bn-hashtag-trend--down { color: var(--bn-ht-trend-down); }
+.bn-hashtag-trend--flat { color: var(--text-3, #aeaca8); }
+
+/* Pills display variant for block */
+.bn-block-trending-hashtags--pills .bn-hashtag-list {
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: var(--s1, 4px);
+}
+
+.bn-block-trending-hashtags--pills .bn-hashtag-item {
+	border-bottom: none;
+}
+
+.bn-block-trending-hashtags--pills .bn-hashtag-link {
+	padding: 3px var(--s2, 8px);
+	background: var(--bn-ht-chip-bg);
+	color: var(--bn-ht-chip-color);
+	border-radius: var(--bn-ht-chip-radius);
+	font-size: var(--bn-ht-chip-font);
+	font-weight: 500;
+}
+
+.bn-block-trending-hashtags--pills .bn-hashtag-rank,
+.bn-block-trending-hashtags--pills .bn-hashtag-count,
+.bn-block-trending-hashtags--pills .bn-hashtag-trend {
+	display: none;
+}
+
+/* Block heading */
+.bn-block-trending-hashtags .bn-block-heading {
+	font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+	font-size: var(--text-sm, 13px);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-2, #787774);
+	margin: 0 0 var(--s2, 8px) var(--s3, 12px);
+}
+
+/* ── Hashtag feed page header ────────────────────────────────────────────── */
+.bn-hashtag-hero {
+	background: var(--surface, #ffffff);
+	border: 1px solid var(--border, #e8e8e5);
+	border-radius: var(--r-lg, 12px);
+	padding: var(--s6, 24px);
+	margin-bottom: var(--s4, 16px);
+}
+
+.bn-hashtag-hero__title {
+	font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
+	font-size: var(--text-2xl, 24px);
+	font-weight: 700;
+	color: var(--text-1, #37352f);
+	margin: 0 0 var(--s1, 4px) 0;
+	line-height: var(--leading-tight, 1.25);
+}
+
+.bn-hashtag-hero__meta {
+	display: flex;
+	align-items: center;
+	gap: var(--s4, 16px);
+	flex-wrap: wrap;
+	margin-bottom: var(--s4, 16px);
+}
+
+.bn-hashtag-hero__stat {
+	font-size: var(--text-sm, 13px);
+	color: var(--text-2, #787774);
+}
+
+.bn-hashtag-hero__stat strong {
+	color: var(--text-1, #37352f);
+	font-weight: 600;
+}
+
+.bn-hashtag-hero__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--s2, 8px);
+}
+
+/* Follow / Unfollow button */
+.bn-btn-follow-hashtag {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s1, 4px);
+	padding: 6px var(--s4, 16px);
+	background: var(--bn-ht-follow-bg);
+	color: var(--bn-ht-follow-color);
+	border: none;
+	border-radius: var(--r-full, 9999px);
+	font-size: var(--text-sm, 13px);
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.15s ease;
+	text-decoration: none;
+	line-height: 1.4;
+}
+
+.bn-btn-follow-hashtag:hover {
+	background: var(--bn-ht-follow-hover);
+	text-decoration: none;
+}
+
+.bn-btn-follow-hashtag.is-following {
+	background: var(--bn-ht-following-bg);
+	color: var(--bn-ht-following-color);
+	border: 1px solid var(--border, #e8e8e5);
+}
+
+.bn-btn-follow-hashtag.is-following:hover {
+	background: var(--bg-hover, #f1f1f0);
+	border-color: var(--border, #e8e8e5);
+}
+
+/* ── Sidebar widget container ────────────────────────────────────────────── */
+.bn-hashtag-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s4, 16px);
+}
+
+.bn-hashtag-widget {
+	background: var(--surface, #ffffff);
+	border: 1px solid var(--border, #e8e8e5);
+	border-radius: var(--r-lg, 12px);
+	padding: var(--s4, 16px);
+}
+
+.bn-hashtag-widget__heading {
+	font-size: var(--text-xs, 11px);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-2, #787774);
+	margin: 0 0 var(--s3, 12px) 0;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.bn-empty {
+	font-size: var(--text-sm, 13px);
+	color: var(--text-2, #787774);
+	text-align: center;
+	padding: var(--s4, 16px);
+}
+
+/* ── Mobile ≤640px ───────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+	.bn-hashtag-shell {
+		grid-template-columns: 1fr;
+		padding: var(--s3, 12px) var(--s4, 16px);
+		gap: var(--s4, 16px);
+	}
+
+	.bn-hashtag-sidebar {
+		display: none; /* collapsed on mobile — sidebar hidden; content takes full width */
+	}
+
+	.bn-hashtag-hero {
+		padding: var(--s4, 16px);
+		border-radius: var(--r-md, 8px);
+	}
+
+	.bn-hashtag-hero__title {
+		font-size: var(--text-xl, 20px);
+	}
+
+	.bn-hashtag-hero__meta {
+		gap: var(--s2, 8px);
+	}
+
+	.bn-hashtag-link {
+		padding: var(--s2, 8px) var(--s1, 4px);
+	}
+
+	.bn-btn-follow-hashtag {
+		padding: 6px var(--s3, 12px);
+		font-size: var(--text-xs, 11px);
+	}
+}

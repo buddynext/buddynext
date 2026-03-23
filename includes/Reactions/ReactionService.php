@@ -128,6 +128,45 @@ class ReactionService {
 	}
 
 	/**
+	 * Allowed reaction types — the canonical six.
+	 */
+	public const REACTION_TYPES = array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' );
+
+	/**
+	 * Toggle a reaction and return the updated counts for all types.
+	 *
+	 * Spec-named alias for toggle() that also returns a full counts array.
+	 *
+	 * - Same emoji as existing: removes the reaction.
+	 * - Different emoji from existing: replaces the existing reaction.
+	 * - No existing reaction: adds the reaction.
+	 *
+	 * @param int    $user_id     Reacting user.
+	 * @param string $object_type Object type.
+	 * @param int    $object_id   Object ID.
+	 * @param string $reaction_type Emoji identifier (one of the six allowed types).
+	 * @return array New reaction counts keyed by emoji slug.
+	 */
+	public function toggle_reaction( int $user_id, string $object_type, int $object_id, string $reaction_type ): array {
+		$this->toggle( $user_id, $object_type, $object_id, $reaction_type );
+		return $this->get_counts( $object_type, $object_id );
+	}
+
+	/**
+	 * Return the reaction type a user used on an object, or null if none.
+	 *
+	 * Spec-named alias for get_user_emoji().
+	 *
+	 * @param int    $user_id     User to check.
+	 * @param string $object_type Object type.
+	 * @param int    $object_id   Object ID.
+	 * @return string|null
+	 */
+	public function get_user_reaction( int $user_id, string $object_type, int $object_id ): ?string {
+		return $this->get_user_emoji( $user_id, $object_type, $object_id );
+	}
+
+	/**
 	 * Toggle a reaction.
 	 *
 	 * - Same emoji as existing: removes the reaction.

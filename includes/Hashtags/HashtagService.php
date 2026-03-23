@@ -29,6 +29,147 @@ class HashtagService {
 	private const CACHE_TTL = 300;
 
 	/**
+	 * Extract unique hashtag slugs from a string (spec-named alias for extract()).
+	 *
+	 * @param string $text Raw text that may contain #tags.
+	 * @return string[] Lowercased, deduplicated array of tag slugs (no leading #).
+	 */
+	public function extract_from_text( string $text ): array {
+		return $this->extract( $text );
+	}
+
+	/**
+	 * Ensure a hashtag exists and return its ID (spec-named registration method).
+	 *
+	 * If the hashtag already exists the existing row ID is returned. If not, a
+	 * new row is created. Returns 0 when the slug is empty or banned.
+	 *
+	 * @param string $tag Hashtag slug (with or without leading #).
+	 * @return int Hashtag ID, or 0 on failure.
+	 */
+	public function register( string $tag ): int {
+		$slug = sanitize_key( ltrim( $tag, '#' ) );
+
+		if ( '' === $slug ) {
+			return 0;
+		}
+
+		$banned = (array) get_option( 'buddynext_banned_hashtags', array() );
+		if ( in_array( $slug, $banned, true ) ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT INTO {$wpdb->prefix}bn_hashtags (name, slug)
+				 VALUES (%s, %s)
+				 ON DUPLICATE KEY UPDATE name = VALUES(name)",
+				$slug,
+				$slug
+			)
+		);
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$hashtag_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_hashtags WHERE slug = %s",
+				$slug
+			)
+		);
+
+		if ( $hashtag_id > 0 ) {
+			wp_cache_delete( "hashtag_{$slug}", self::CACHE_GROUP );
+		}
+
+		return $hashtag_id;
+	}
+
+	/**
+	 * Return the top trending hashtags (spec-named alias for get_trending()).
+	 *
+	 * In production the post_count is maintained async by a cron job (see
+	 * CronHandlers) — this method reads the cached counter column directly.
+	 *
+	 * @param int $limit Maximum number to return (1–50). Default 10.
+	 * @return array[]
+	 */
+	public function trending( int $limit = 10 ): array {
+		return $this->get_trending( $limit );
+	}
+
+	/**
+	 * Return paginated public posts associated with a hashtag.
+	 *
+	 * Only public, published BuddyNext feed posts are surfaced here — the spec
+	 * states that followers-only/private posts must not appear in hashtag feeds.
+	 *
+	 * @param string $tag  Hashtag slug (without #).
+	 * @param array  $args Optional args: per_page (int, max 50), page (int).
+	 * @return array{items: array[], total: int, hashtag: array|null}
+	 */
+	public function get_feed( string $tag, array $args = array() ): array {
+		$slug    = sanitize_key( ltrim( $tag, '#' ) );
+		$hashtag = $this->get_by_slug( $slug );
+
+		if ( null === $hashtag ) {
+			return array(
+				'items'   => array(),
+				'total'   => 0,
+				'hashtag' => null,
+			);
+		}
+
+		$per_page = min( (int) ( $args['per_page'] ?? 20 ), 50 );
+		$page     = max( 1, (int) ( $args['page'] ?? 1 ) );
+		$offset   = ( $page - 1 ) * $per_page;
+
+		global $wpdb;
+
+		$posts_tbl = $wpdb->prefix . 'bn_posts';
+		$pivot_tbl = $wpdb->prefix . 'bn_post_hashtags';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.id, p.user_id, p.content, p.type, p.privacy,
+				        p.reaction_count, p.comment_count, p.share_count, p.created_at
+				 FROM {$posts_tbl} p
+				 INNER JOIN {$pivot_tbl} ph ON ph.post_id = p.id AND ph.object_type = 'post'
+				 WHERE ph.hashtag_id = %d
+				   AND p.status     = 'published'
+				   AND p.privacy    = 'public'
+				 ORDER BY p.created_at DESC
+				 LIMIT %d OFFSET %d",
+				$hashtag['id'],
+				$per_page,
+				$offset
+			),
+			ARRAY_A
+		);
+
+		$total = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$posts_tbl} p
+				 INNER JOIN {$pivot_tbl} ph ON ph.post_id = p.id AND ph.object_type = 'post'
+				 WHERE ph.hashtag_id = %d
+				   AND p.status     = 'published'
+				   AND p.privacy    = 'public'",
+				$hashtag['id']
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array(
+			'items'   => (array) $rows,
+			'total'   => $total,
+			'hashtag' => $hashtag,
+		);
+	}
+
+	/**
 	 * Extract unique hashtag slugs from a string.
 	 *
 	 * @param string $content Raw content that may contain #tags.

@@ -41,6 +41,7 @@ use BuddyNext\Bridges\Jetonomy as JetonomyBridge;
 use BuddyNext\Bridges\WBGamification as WBGamificationBridge;
 use BuddyNext\Bridges\WPMediaVerse as WPMediaVerseBridge;
 use BuddyNext\Comments\CommentService;
+use BuddyNext\Hashtags\HashtagListener;
 use BuddyNext\Hashtags\HashtagService;
 use BuddyNext\Moderation\ModerationLogService;
 use BuddyNext\Moderation\ModerationService;
@@ -174,6 +175,9 @@ class Plugin {
 		// Wire search index lifecycle hooks — handles async dispatch via Action
 		// Scheduler when available, or falls back to synchronous inline indexing.
 		$container->get( 'search_index_listener' )->init();
+
+		// Wire hashtag extraction to post_created and bridge index actions.
+		( new HashtagListener( $container->get( 'hashtags' ) ) )->init();
 
 		// Wire outbound webhook dispatcher to BuddyNext events.
 		$container->get( 'webhooks' )->init();
