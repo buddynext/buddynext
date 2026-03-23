@@ -48,6 +48,9 @@
 	--mvs-bg:          #f0fdf9;
 	--mvs-border:      #99f6e4;
 
+	/* Neutral */
+	--white: #fff;
+
 	/* Semantic */
 	--green:    #059669;
 	--green-bg: #ecfdf5;

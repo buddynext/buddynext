@@ -396,7 +396,7 @@
 .bn-btn--primary {
 	background: var(--brand);
 	border-color: var(--brand);
-	color: #fff;
+	color: var(--white);
 }
 
 .bn-btn--primary:hover:not(:disabled) {
@@ -449,7 +449,7 @@
 .bn-btn.bn-pending:hover:not(:disabled) {
 	background: var(--amber);
 	border-color: var(--amber);
-	color: #fff;
+	color: var(--white);
 }
 
 /* Pending-received: accept/decline pair rendered inline */
@@ -461,7 +461,7 @@
 .bn-btn.bn-accept {
 	background: var(--green);
 	border-color: var(--green);
-	color: #fff;
+	color: var(--white);
 }
 
 .bn-btn.bn-accept:hover:not(:disabled) {
@@ -598,7 +598,7 @@
 .bn-members__pagination .current {
 	background: var(--brand);
 	border-color: var(--brand);
-	color: #fff;
+	color: var(--white);
 }
 
 /* ── Dark mode ──────────────────────────────────────────────────────────────── */
@@ -614,7 +614,7 @@
 [data-theme="dark"] .bn-btn--primary {
 	background: var(--brand);
 	border-color: var(--brand);
-	color: #fff;
+	color: var(--white);
 }
 
 [data-theme="dark"] .bn-members__search-input {
