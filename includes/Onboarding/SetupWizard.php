@@ -444,7 +444,7 @@ class SetupWizard {
 			<?php foreach ( $presets as $key => $preset ) : ?>
 				<label class="bn-wizard__preset-card">
 					<input type="checkbox" name="profile_groups[]" value="<?php echo esc_attr( $key ); ?>" checked>
-					<span class="bn-wizard__preset-icon"><?php echo esc_html( $preset['icon'] ); ?></span>
+					<span class="bn-wizard__preset-icon"><?php echo \BuddyNext\Core\IconService::render( $preset['icon'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-sanitized via wp_kses() inside IconService::render(). ?></span>
 					<span class="bn-wizard__preset-name"><?php echo esc_html( $preset['label'] ); ?></span>
 					<span class="bn-wizard__preset-desc"><?php echo esc_html( $preset['description'] ); ?></span>
 				</label>
@@ -469,7 +469,7 @@ class SetupWizard {
 		return array(
 			'social_links'    => array(
 				'label'       => __( 'Social Links', 'buddynext' ),
-				'icon'        => '🔗',
+				'icon'        => 'link',
 				'description' => __( 'Twitter/X, LinkedIn, GitHub, Instagram, YouTube', 'buddynext' ),
 				'type'        => 'flat',
 				'fields'      => array(
@@ -482,7 +482,7 @@ class SetupWizard {
 			),
 			'work_experience' => array(
 				'label'       => __( 'Work Experience', 'buddynext' ),
-				'icon'        => '💼',
+				'icon'        => 'briefcase',
 				'description' => __( 'Company, job title, date range — repeatable entries', 'buddynext' ),
 				'type'        => 'repeater',
 				'fields'      => array(
@@ -496,7 +496,7 @@ class SetupWizard {
 			),
 			'education'       => array(
 				'label'       => __( 'Education', 'buddynext' ),
-				'icon'        => '🎓',
+				'icon'        => 'graduation-cap',
 				'description' => __( 'Institution, degree, field of study — repeatable entries', 'buddynext' ),
 				'type'        => 'repeater',
 				'fields'      => array(
@@ -509,7 +509,7 @@ class SetupWizard {
 			),
 			'skills'          => array(
 				'label'       => __( 'Skills', 'buddynext' ),
-				'icon'        => '⚡',
+				'icon'        => 'zap',
 				'description' => __( 'A multi-select skills field', 'buddynext' ),
 				'type'        => 'flat',
 				'fields'      => array(
@@ -518,7 +518,7 @@ class SetupWizard {
 			),
 			'interests'       => array(
 				'label'       => __( 'Interests', 'buddynext' ),
-				'icon'        => '❤️',
+				'icon'        => 'heart',
 				'description' => __( 'Hobbies, passions, topics — what members care about', 'buddynext' ),
 				'type'        => 'flat',
 				'fields'      => array(

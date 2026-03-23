@@ -52,18 +52,54 @@ $saved_step = max( 1, (int) get_user_meta( $ob_user_id, 'bn_onboarding_step', tr
 
 // Interests available for selection (step 2).
 $all_interests = array(
-	'💻' => 'Web Dev',
-	'🎨' => 'Design',
-	'🤖' => 'AI & ML',
-	'🚀' => 'Startups',
-	'📣' => 'Marketing',
-	'📊' => 'Data',
-	'🎯' => 'Product',
-	'📝' => 'Writing',
-	'🌍' => 'Open Source',
-	'🎮' => 'Gaming',
-	'🎵' => 'Music',
-	'📸' => 'Photography',
+	array(
+		'icon'  => 'code',
+		'label' => 'Web Dev',
+	),
+	array(
+		'icon'  => 'palette',
+		'label' => 'Design',
+	),
+	array(
+		'icon'  => 'cpu',
+		'label' => 'AI & ML',
+	),
+	array(
+		'icon'  => 'rocket',
+		'label' => 'Startups',
+	),
+	array(
+		'icon'  => 'megaphone',
+		'label' => 'Marketing',
+	),
+	array(
+		'icon'  => 'bar-chart',
+		'label' => 'Data',
+	),
+	array(
+		'icon'  => 'target',
+		'label' => 'Product',
+	),
+	array(
+		'icon'  => 'edit',
+		'label' => 'Writing',
+	),
+	array(
+		'icon'  => 'globe',
+		'label' => 'Open Source',
+	),
+	array(
+		'icon'  => 'gamepad',
+		'label' => 'Gaming',
+	),
+	array(
+		'icon'  => 'music',
+		'label' => 'Music',
+	),
+	array(
+		'icon'  => 'camera',
+		'label' => 'Photography',
+	),
 );
 
 $saved_interests_raw = (string) get_user_meta( $ob_user_id, 'bn_interests', true );
@@ -114,19 +150,19 @@ $rest_nonce = wp_create_nonce( 'wp_rest' );
 $steps       = array(
 	1 => array(
 		'label' => __( 'Profile', 'buddynext' ),
-		'icon'  => '👤',
+		'icon'  => 'user',
 	),
 	2 => array(
 		'label' => __( 'Interests', 'buddynext' ),
-		'icon'  => '🎯',
+		'icon'  => 'target',
 	),
 	3 => array(
 		'label' => __( 'Spaces', 'buddynext' ),
-		'icon'  => '🏘️',
+		'icon'  => 'building',
 	),
 	4 => array(
 		'label' => __( 'People', 'buddynext' ),
-		'icon'  => '👥',
+		'icon'  => 'users',
 	),
 );
 $total_steps = count( $steps );
@@ -243,7 +279,8 @@ $total_steps = count( $steps );
 	text-align: center;
 	margin-bottom: var(--s8);
 }
-.bn-ob-step-icon { font-size: 40px; margin-bottom: var(--s3); line-height: 1; }
+.bn-ob-step-icon { width: 40px; height: 40px; margin-bottom: var(--s3); color: var(--brand); }
+.bn-ob-step-icon svg { width: 100%; height: 100%; display: block; }
 .bn-ob-step-title {
 	font-family: var(--font-display);
 	font-size: 22px;
@@ -574,7 +611,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 			data-step="1">
 
 			<div class="bn-ob-step-header">
-				<div class="bn-ob-step-icon">&#128100;</div>
+				<div class="bn-ob-step-icon"><?php buddynext_icon( 'user' ); ?></div>
 				<div class="bn-ob-step-title"><?php esc_html_e( 'Set up your profile', 'buddynext' ); ?></div>
 				<div class="bn-ob-step-sub"><?php esc_html_e( 'Help others discover you. You can change this any time.', 'buddynext' ); ?></div>
 			</div>
@@ -674,19 +711,19 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 			data-step="2">
 
 			<div class="bn-ob-step-header">
-				<div class="bn-ob-step-icon">&#127919;</div>
+				<div class="bn-ob-step-icon"><?php buddynext_icon( 'target' ); ?></div>
 				<div class="bn-ob-step-title"><?php esc_html_e( 'Pick your interests', 'buddynext' ); ?></div>
 				<div class="bn-ob-step-sub"><?php esc_html_e( "We'll show you relevant posts and spaces based on what you choose.", 'buddynext' ); ?></div>
 			</div>
 
 			<div class="bn-ob-card">
 				<div class="bn-ob-chips-grid">
-					<?php foreach ( $all_interests as $icon => $label ) : ?>
-						<button class="bn-ob-chip <?php echo in_array( $label, $saved_interests, true ) ? 'selected' : ''; ?>"
+					<?php foreach ( $all_interests as $interest ) : ?>
+						<button class="bn-ob-chip <?php echo in_array( $interest['label'], $saved_interests, true ) ? 'selected' : ''; ?>"
 							type="button"
-							data-interest="<?php echo esc_attr( $label ); ?>"
+							data-interest="<?php echo esc_attr( $interest['label'] ); ?>"
 							data-wp-on--click="actions.toggleInterest">
-							<?php echo esc_html( $icon ); ?> <?php echo esc_html( $label ); ?>
+							<?php buddynext_icon( $interest['icon'] ); ?> <?php echo esc_html( $interest['label'] ); ?>
 						</button>
 					<?php endforeach; ?>
 				</div>
@@ -731,7 +768,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 			data-step="3">
 
 			<div class="bn-ob-step-header">
-				<div class="bn-ob-step-icon">&#127960;</div>
+				<div class="bn-ob-step-icon"><?php buddynext_icon( 'building' ); ?></div>
 				<div class="bn-ob-step-title"><?php esc_html_e( 'Join some spaces', 'buddynext' ); ?></div>
 				<div class="bn-ob-step-sub"><?php esc_html_e( 'Spaces are topic-focused communities. Join the ones that interest you.', 'buddynext' ); ?></div>
 			</div>
@@ -747,7 +784,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 								data-wp-on--click="actions.toggleSpace"
 								aria-pressed="<?php echo in_array( $space_id, $joined_space_ids, true ) ? 'true' : 'false'; ?>">
 								<div class="bn-ob-space-icon">
-									&#127968;
+									<?php buddynext_icon( 'home' ); ?>
 								</div>
 								<div>
 									<div class="bn-ob-space-name"><?php echo esc_html( $space->name ); ?></div>
@@ -799,7 +836,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 			data-step="4">
 
 			<div class="bn-ob-step-header">
-				<div class="bn-ob-step-icon">&#128101;</div>
+				<div class="bn-ob-step-icon"><?php buddynext_icon( 'users' ); ?></div>
 				<div class="bn-ob-step-title"><?php esc_html_e( 'Follow some members', 'buddynext' ); ?></div>
 				<div class="bn-ob-step-sub"><?php esc_html_e( 'Start building your feed by following members in your areas of interest.', 'buddynext' ); ?></div>
 			</div>

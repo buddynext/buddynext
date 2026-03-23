@@ -597,7 +597,23 @@ require __DIR__ . '/../partials/nav.php';
 			<!-- Post composer -->
 			<div class="bn-composer"
 				data-wp-interactive="buddynext/post-composer"
-				data-wp-context='<?php echo esc_attr( wp_json_encode( array( "restUrl" => rest_url( "buddynext/v1" ), "restNonce" => $rest_nonce, "composerOpen" => false, "composerType" => "text", "privacy" => "public", "content" => "", "submitting" => false ) ) ); ?>'>
+				data-wp-context='
+				<?php
+				echo esc_attr(
+					wp_json_encode(
+						array(
+							'restUrl'      => rest_url( 'buddynext/v1' ),
+							'restNonce'    => $rest_nonce,
+							'composerOpen' => false,
+							'composerType' => 'text',
+							'privacy'      => 'public',
+							'content'      => '',
+							'submitting'   => false,
+						)
+					)
+				);
+				?>
+				'>
 				<div class="bn-composer__top">
 					<div class="bn-composer__avatar" aria-hidden="true">
 						<?php
@@ -623,21 +639,21 @@ require __DIR__ . '/../partials/nav.php';
 							data-wp-interactive="buddynext/post-composer"
 							data-wp-on--click="actions.openPhoto"
 							type="button">
-						<span class="bn-composer__action-icon" aria-hidden="true">🖼️</span>
+						<span class="bn-composer__action-icon" aria-hidden="true"><?php buddynext_icon( 'image' ); ?></span>
 						<?php esc_html_e( 'Photo', 'buddynext' ); ?>
 					</button>
 					<button class="bn-composer__action-btn"
 							data-wp-interactive="buddynext/post-composer"
 							data-wp-on--click="actions.openPoll"
 							type="button">
-						<span class="bn-composer__action-icon" aria-hidden="true">📊</span>
+						<span class="bn-composer__action-icon" aria-hidden="true"><?php buddynext_icon( 'bar-chart' ); ?></span>
 						<?php esc_html_e( 'Poll', 'buddynext' ); ?>
 					</button>
 					<button class="bn-composer__action-btn"
 							data-wp-interactive="buddynext/post-composer"
 							data-wp-on--click="actions.openLink"
 							type="button">
-						<span class="bn-composer__action-icon" aria-hidden="true">🔗</span>
+						<span class="bn-composer__action-icon" aria-hidden="true"><?php buddynext_icon( 'link' ); ?></span>
 						<?php esc_html_e( 'Link', 'buddynext' ); ?>
 					</button>
 				</div>

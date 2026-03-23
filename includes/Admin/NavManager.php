@@ -1471,11 +1471,11 @@ class NavManager extends AdminPageBase {
 		function bnSetSlugHint( hintEl, status ) {
 			hintEl.className = 'bn-cf-hint bn-cf-hint--' + status;
 			if ( 'free' === status ) {
-				hintEl.textContent = '✅ Slug is available';
+				hintEl.textContent = 'Slug is available';
 			} else if ( 'warn' === status ) {
-				hintEl.textContent = '⚠️ An existing page uses this slug — it will become unreachable';
+				hintEl.textContent = 'An existing page uses this slug — it will become unreachable';
 			} else {
-				hintEl.textContent = '❌ This slug is reserved or used by another hub';
+				hintEl.textContent = 'This slug is reserved or used by another hub';
 			}
 		}
 

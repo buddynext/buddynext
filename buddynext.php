@@ -139,3 +139,32 @@ function buddynext_space_url( string $slug ): string {
 function buddynext_create_space_url(): string {
 	return add_query_arg( 'bn_action', 'create', \BuddyNext\Core\PageRouter::spaces_url() );
 }
+
+/**
+ * Echo a BuddyNext SVG icon inline.
+ *
+ * Reads the named SVG from assets/icons/<name>.svg, sanitizes it via
+ * wp_kses(), and echoes the result. Safe for direct use in templates.
+ *
+ * @param string $name      Icon slug, e.g. 'user', 'bell', 'graduation-cap'.
+ * @param string $css_class Optional CSS class(es) to add to the <svg> element.
+ * @return void
+ */
+function buddynext_icon( string $name, string $css_class = '' ): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- output is pre-sanitized via wp_kses() inside IconService::render().
+	echo \BuddyNext\Core\IconService::render( $name, $css_class );
+}
+
+/**
+ * Return a BuddyNext SVG icon as a string.
+ *
+ * Same as buddynext_icon() but returns the markup instead of echoing it.
+ * Useful when the icon needs to be passed as a variable or concatenated.
+ *
+ * @param string $name      Icon slug, e.g. 'user', 'bell', 'graduation-cap'.
+ * @param string $css_class Optional CSS class(es) to add to the <svg> element.
+ * @return string Sanitized SVG markup, safe to echo.
+ */
+function buddynext_get_icon( string $name, string $css_class = '' ): string {
+	return \BuddyNext\Core\IconService::render( $name, $css_class );
+}

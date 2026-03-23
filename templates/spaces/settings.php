@@ -751,27 +751,27 @@ textarea.bn-text-input {
 				<?php
 				$nav_items = array(
 					'general'       => array(
-						'icon'  => 'ℹ️',
+						'icon'  => 'info',
 						'label' => __( 'General', 'buddynext' ),
 					),
 					'privacy'       => array(
-						'icon'  => '🔒',
+						'icon'  => 'lock',
 						'label' => __( 'Privacy', 'buddynext' ),
 					),
 					'members'       => array(
-						'icon'  => '👥',
+						'icon'  => 'users',
 						'label' => __( 'Members', 'buddynext' ),
 					),
 					'moderation'    => array(
-						'icon'  => '🛡️',
+						'icon'  => 'shield',
 						'label' => __( 'Moderation', 'buddynext' ),
 					),
 					'integrations'  => array(
-						'icon'  => '🔗',
+						'icon'  => 'link',
 						'label' => __( 'Integrations', 'buddynext' ),
 					),
 					'notifications' => array(
-						'icon'  => '📧',
+						'icon'  => 'mail',
 						'label' => __( 'Notifications', 'buddynext' ),
 					),
 				);
@@ -783,7 +783,7 @@ textarea.bn-text-input {
 						class="bn-settings-nav__item<?php echo $is_active ? ' bn-settings-nav__item--active' : ''; ?>"
 						aria-current="<?php echo $is_active ? 'page' : 'false'; ?>"
 					>
-						<span aria-hidden="true"><?php echo esc_html( $nav_item['icon'] ); ?></span>
+						<span aria-hidden="true"><?php buddynext_icon( $nav_item['icon'] ); ?></span>
 						<?php echo esc_html( $nav_item['label'] ); ?>
 					</a>
 				<?php endforeach; ?>
@@ -794,7 +794,7 @@ textarea.bn-text-input {
 					href="<?php echo esc_url( add_query_arg( 'bn_stab', 'danger', $settings_base ) ); ?>"
 					class="bn-settings-nav__item bn-settings-nav__item--danger"
 				>
-					<span aria-hidden="true">&#x26A0;&#xFE0F;</span>
+					<span aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
 					<?php esc_html_e( 'Danger Zone', 'buddynext' ); ?>
 				</a>
 			</nav>

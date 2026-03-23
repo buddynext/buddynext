@@ -69,6 +69,21 @@ Every template must match the HTML mockups in `.superpowers/brainstorm/14544-177
 - Mobile (every layout ≤640px must be tested — full-width, no horizontal scroll)
 - Interactions (hover states, focus rings, loading states — all from mockups)
 
+### 5. No Emoji — Ever
+
+BuddyNext targets premium UX on par with Notion, Asana, LinkedIn, and Facebook. Emoji are a legacy pattern incompatible with that bar.
+
+**Rules:**
+- **Never** use Unicode emoji characters (😀 🔗 👤 ✅) anywhere — PHP, JS, CSS, HTML, or comments.
+- **Never** use HTML entities that render emoji (`&#128100;`, `&#x1F4BB;`, `&#x26A0;&#xFE0F;`).
+- **Always** use SVG icons from `assets/icons/` via:
+  - Templates: `buddynext_icon( 'icon-name' )` — echoes inline SVG
+  - PHP classes: `echo \BuddyNext\Core\IconService::render( 'icon-name' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped`
+  - JS status hints: use CSS class-based colored text — no emoji in `textContent`
+- **Adding new icons:** Drop a Lucide-style SVG (no width/height, `stroke="currentColor"`, `viewBox="0 0 24 24"`) into `assets/icons/<slug>.svg`.
+- **55+ icons already in `assets/icons/`** — check before creating a new one.
+- `IconService::render()` returns `wp_kses()`-sanitized markup — always safe to echo.
+
 ---
 
 ## Tech Stack
@@ -637,3 +652,12 @@ A phase is Done when ALL of:
 | 2026-03-23 | 12 | verified | Phase 12 browser-verified: all 6 admin pages render with real data — Settings (10 tabs), Members (stats + table), Spaces (stats + filter + table), NavManager (3-panel drag UI), IntegrationHub (1/4 active), EmailEditor (16+ templates). Zero JS errors. WPCS clean. |
 | 2026-03-23 | 13 | feature | mu-plugins/buddynext-early-router.php: plugin isolation — strips non-BN plugins on front-end BN routes via option_active_plugins filter; is_admin() + WP_CLI guards; buddynext_isolation_whitelist filter; WPCS clean |
 | 2026-03-23 | 13 | verified | Phase 13 browser-verified: activity feed renders with isolation active; admin panel loads full plugin set (is_admin guard confirmed); zero JS errors |
+| 2026-03-24 | — | feature | IconService: new static class — reads SVG from assets/icons/, sanitizes via wp_kses(), injects CSS class; buddynext_icon() + buddynext_get_icon() global helpers |
+| 2026-03-24 | — | feature | assets/icons/: 55 Lucide-style SVG icons created (all required + community extras: bell, bookmark, share, crown, star, flag, ban, trending, etc.) |
+| 2026-03-24 | — | fix | Emoji audit: replaced all Unicode emoji + HTML entity icons across 5 files with buddynext_icon() SVG calls |
+| 2026-03-24 | — | fix | NavManager: removed emoji from JS slug-check hint textContent; status conveyed by CSS class only |
+| 2026-03-24 | — | fix | SetupWizard: preset icon values link/briefcase/graduation-cap/zap/heart; render via IconService::render() |
+| 2026-03-24 | — | fix | templates/spaces/settings.php: nav icon slugs info/lock/users/shield/link/mail; danger zone uses alert-triangle SVG |
+| 2026-03-24 | — | fix | templates/feed/home.php: composer action icons (image/bar-chart/link) via buddynext_icon() |
+| 2026-03-24 | — | fix | templates/onboarding/index.php: $all_interests restructured to icon/label pairs; step headers &#128100; etc. replaced with buddynext_icon() calls; .bn-ob-step-icon CSS updated for SVG sizing |
+| 2026-03-24 | — | docs | CLAUDE.md: added rule §5 "No Emoji — Ever" with icon system usage guide |
