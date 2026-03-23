@@ -615,3 +615,6 @@ A phase is Done when ALL of:
 | 2026-03-23 | — | fix | templates/spaces/directory.php, feed/explore.php, notifications/index.php: auto-fixed UseRequire warnings |
 | 2026-03-23 | 18 | feature | templates/auth/verify.php: created — email verification page with success/error/pending states, resend button via REST, dark mode, mobile |
 | 2026-03-23 | — | docs | MASTER_DEVELOPMENT_PLAN.md: all phases marked verified 2026-03-23; Pass 1 Integration Test results section added |
+| 2026-03-23 | 12 | fix | PageRouter::resolve_hub_template(): all return values now include .php extension — TemplateLoader::locate() does not auto-append |
+| 2026-03-23 | 3 | fix | templates/feed/home.php: SELECT query + $home_post array corrected — replaced non-existent link_title/link_description/link_image with link_meta (JSON column per bn_posts schema) |
+| 2026-03-23 | — | verified | Browser test: /activity/ /members/ /spaces/ /notifications/ /wp-admin/ all render correctly — no PHP errors, no DB errors |

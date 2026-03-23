@@ -97,14 +97,6 @@ class Settings extends AdminPageBase {
 		'buddynext_allow_account_deletion'     => array( 'boolean', 'rest_sanitize_boolean', true ),
 		'buddynext_anonymize_on_delete'        => array( 'boolean', 'rest_sanitize_boolean', true ),
 
-		// Navigation slugs.
-		'buddynext_slug_activity'              => array( 'string', 'sanitize_title', 'activity' ),
-		'buddynext_slug_people'                => array( 'string', 'sanitize_title', 'members' ),
-		'buddynext_slug_spaces'                => array( 'string', 'sanitize_title', 'spaces' ),
-		'buddynext_slug_messages'              => array( 'string', 'sanitize_title', 'messages' ),
-		'buddynext_slug_notifications'         => array( 'string', 'sanitize_title', 'notifications' ),
-		'buddynext_slug_auth'                  => array( 'string', 'sanitize_title', 'login' ),
-
 		// Webhooks.
 		'buddynext_webhook_secret'             => array( 'string', 'sanitize_text_field', '' ),
 	);
@@ -119,11 +111,6 @@ class Settings extends AdminPageBase {
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
-
-		// Flush rewrite rules whenever any hub slug is changed.
-		foreach ( array( 'activity', 'people', 'spaces', 'messages', 'notifications', 'auth' ) as $hub ) {
-			add_action( "update_option_buddynext_slug_{$hub}", 'flush_rewrite_rules' );
-		}
 	}
 
 	/**
@@ -228,7 +215,6 @@ class Settings extends AdminPageBase {
 			'moderation'    => __( 'Moderation', 'buddynext' ),
 			'integrations'  => __( 'Integrations', 'buddynext' ),
 			'privacy'       => __( 'Privacy & Data', 'buddynext' ),
-			'navigation'    => __( 'Navigation', 'buddynext' ),
 			'webhooks'      => __( 'Webhooks', 'buddynext' ),
 		);
 
@@ -587,92 +573,6 @@ class Settings extends AdminPageBase {
 			__( 'Posts by members with fewer than this many published posts are held for review. Set to 0 to disable.', 'buddynext' ),
 			0
 		);
-
-		$this->close_section();
-	}
-
-	/**
-	 * Render the Navigation settings tab.
-	 *
-	 * Shows slug inputs for all 5 community hubs. Saving any slug triggers a
-	 * rewrite flush via the update_option_buddynext_slug_* hooks registered
-	 * in register(). Hub pages are auto-created by the installer; admins only
-	 * need to set the slug (e.g. change "members" to "players").
-	 *
-	 * @return void
-	 */
-	private function render_tab_navigation(): void {
-		$site_url = trailingslashit( home_url() );
-
-		$hubs = array(
-			'activity'      => array(
-				'label'   => __( 'Activity Feed slug', 'buddynext' ),
-				'default' => 'activity',
-				'hint'    => __( 'Main activity feed and explore pages.', 'buddynext' ),
-			),
-			'people'        => array(
-				'label'   => __( 'Members slug', 'buddynext' ),
-				'default' => 'members',
-				'hint'    => __( 'Member directory and individual profile pages. Change to "players", "students", "athletes", etc.', 'buddynext' ),
-			),
-			'spaces'        => array(
-				'label'   => __( 'Spaces slug', 'buddynext' ),
-				'default' => 'spaces',
-				'hint'    => __( 'Spaces directory and individual space pages. Change to "groups", "clubs", "channels", etc.', 'buddynext' ),
-			),
-			'messages'      => array(
-				'label'   => __( 'Messages slug', 'buddynext' ),
-				'default' => 'messages',
-				'hint'    => __( 'Direct messaging inbox and conversation threads.', 'buddynext' ),
-			),
-			'notifications' => array(
-				'label'   => __( 'Notifications slug', 'buddynext' ),
-				'default' => 'notifications',
-				'hint'    => __( 'In-app notification centre.', 'buddynext' ),
-			),
-			'auth'          => array(
-				'label'   => __( 'Login / Register slug', 'buddynext' ),
-				'default' => 'login',
-				'hint'    => __( 'Login and registration page. Logged-in visitors are redirected to the activity feed automatically.', 'buddynext' ),
-			),
-		);
-
-		$this->open_section( __( 'Hub URL Slugs', 'buddynext' ) );
-		?>
-		<p style="font-size:13px;color:#6b7280;margin:0 0 20px;">
-			<?php esc_html_e( 'Each hub is a single WordPress page auto-created on activation. Change the slug here to rename the URL across your entire community — no page editing required. Saving flushes rewrite rules automatically.', 'buddynext' ); ?>
-		</p>
-		<?php
-
-		foreach ( $hubs as $key => $config ) {
-			$option  = "buddynext_slug_{$key}";
-			$value   = (string) get_option( $option, $config['default'] );
-			$preview = $site_url . trailingslashit( $value );
-			$hint    = $config['hint'] . ' — <strong>' . esc_url( $preview ) . '</strong>';
-
-			$input_id = 'bn-field-' . sanitize_key( $option );
-			?>
-			<div class="bn-field">
-				<label for="<?php echo esc_attr( $input_id ); ?>">
-					<?php echo esc_html( $config['label'] ); ?>
-				</label>
-				<input type="text"
-						id="<?php echo esc_attr( $input_id ); ?>"
-						name="<?php echo esc_attr( $option ); ?>"
-						value="<?php echo esc_attr( $value ); ?>"
-						class="bn-text-input regular-text"
-						style="max-width:240px"
-						pattern="[a-z0-9\-]+"
-						title="<?php esc_attr_e( 'Lowercase letters, numbers, and hyphens only.', 'buddynext' ); ?>">
-				<span class="bn-field-hint">
-					<?php
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-					echo wp_kses( $hint, array( 'strong' => array() ) );
-					?>
-				</span>
-			</div>
-			<?php
-		}
 
 		$this->close_section();
 	}

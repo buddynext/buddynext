@@ -153,15 +153,15 @@ class PageRouter {
 				$action = (string) get_query_var( 'bn_activity_action', '' );
 				switch ( $action ) {
 					case 'explore':
-						return 'feed/explore';
+						return 'feed/explore.php';
 					case 'hashtag':
-						return 'hashtags/feed';
+						return 'hashtags/feed.php';
 					case 'search':
-						return 'search/results';
+						return 'search/results.php';
 					case 'leaderboard':
-						return 'gamification/leaderboard';
+						return 'gamification/leaderboard.php';
 					default:
-						return 'feed/home';
+						return 'feed/home.php';
 				}
 
 			case 'people':
@@ -170,18 +170,18 @@ class PageRouter {
 					$profile_action = (string) get_query_var( 'bn_profile_action', '' );
 					switch ( $profile_action ) {
 						case 'edit':
-							return 'profile/edit';
+							return 'profile/edit.php';
 						case 'connections':
-							return 'profile/connections';
+							return 'profile/connections.php';
 						case 'media':
-							return 'profile/media';
+							return 'profile/media.php';
 						case 'badges':
-							return 'profile/badges';
+							return 'profile/badges.php';
 						default:
-							return 'profile/view';
+							return 'profile/view.php';
 					}
 				}
-				return 'directory/members';
+				return 'directory/members.php';
 
 			case 'spaces':
 				$space_slug = (string) get_query_var( 'bn_space_slug', '' );
@@ -189,35 +189,35 @@ class PageRouter {
 					$space_action = (string) get_query_var( 'bn_space_action', '' );
 					switch ( $space_action ) {
 						case 'members':
-							return 'spaces/members';
+							return 'spaces/members.php';
 						case 'settings':
-							return 'spaces/settings';
+							return 'spaces/settings.php';
 						case 'moderation':
-							return 'spaces/moderation';
+							return 'spaces/moderation.php';
 						case 'admin':
-							return 'spaces/admin';
+							return 'spaces/admin.php';
 						default:
-							return 'spaces/home';
+							return 'spaces/home.php';
 					}
 				}
-				return 'spaces/directory';
+				return 'spaces/directory.php';
 
 			case 'messages':
 				$conv_id    = (int) get_query_var( 'bn_conv_id', 0 );
 				$msg_action = (string) get_query_var( 'bn_msg_action', '' );
 				if ( $conv_id > 0 ) {
-					return 'messages/thread';
+					return 'messages/thread.php';
 				}
 				if ( 'requests' === $msg_action ) {
-					return 'messages/requests';
+					return 'messages/requests.php';
 				}
-				return 'messages/list';
+				return 'messages/list.php';
 
 			case 'notifications':
-				return 'notifications/index';
+				return 'notifications/index.php';
 
 			case 'auth':
-				return 'auth/login';
+				return 'auth/login.php';
 
 			default:
 				return null;
