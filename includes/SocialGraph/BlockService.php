@@ -350,13 +350,24 @@ class BlockService {
 	/**
 	 * Invalidate all cache keys affected by a block or mute state change.
 	 *
+	 * Clears both directions: acting user (user_a) and target user (user_b).
+	 * Without the reverse keys, user_b would see stale has_blocked/is_muted
+	 * results for up to CACHE_TTL seconds after the relationship changed.
+	 *
 	 * @param int $user_a The acting user.
 	 * @param int $user_b The target user.
 	 */
 	private function invalidate_block_cache( int $user_a, int $user_b ): void {
+		// Forward direction: user_a acted on user_b.
 		wp_cache_delete( "is_blocked_{$user_a}_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "is_muted_{$user_a}_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "blocked_users_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "muted_users_{$user_a}", self::CACHE_GROUP );
+
+		// Reverse direction: user_b's perspective of the relationship.
+		wp_cache_delete( "is_blocked_{$user_b}_{$user_a}", self::CACHE_GROUP );
+		wp_cache_delete( "is_muted_{$user_b}_{$user_a}", self::CACHE_GROUP );
+		wp_cache_delete( "blocked_users_{$user_b}", self::CACHE_GROUP );
+		wp_cache_delete( "muted_users_{$user_b}", self::CACHE_GROUP );
 	}
 }

@@ -183,12 +183,12 @@
 
 .bn-btn-primary {
 	background: var(--brand);
-	color: #fff;
+	color: var(--white);
 }
 
 .bn-btn-primary:hover {
 	background: var(--brand-hover);
-	color: #fff;
+	color: var(--white);
 }
 
 .bn-btn-ghost {

@@ -16,10 +16,10 @@
 		<!--
 		  The project uses Composer PSR-4 autoloading which requires PascalCase filenames
 		  (e.g. CommentService.php). WordPress expects class-comment-service.php.
-		  PSR-4 takes precedence — suppress the conflicting file-naming rules.
+		  PSR-4 takes precedence — suppress the entire file-naming sniff to avoid
+		  false positives on every PascalCase file in the codebase.
 		-->
-		<exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
-		<exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+		<exclude name="WordPress.Files.FileName"/>
 	</rule>
 
 	<!-- PHP minimum version -->
