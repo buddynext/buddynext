@@ -14,11 +14,11 @@ namespace BuddyNext\REST;
 
 use BuddyNext\REST\Controllers\AccessWebhookController;
 use BuddyNext\REST\Controllers\AuthController;
-use BuddyNext\REST\Controllers\BlockController;
+use BuddyNext\SocialGraph\BlockController;
 use BuddyNext\Feed\BookmarkController;
-use BuddyNext\REST\Controllers\ConnectionController;
+use BuddyNext\SocialGraph\ConnectionController;
 use BuddyNext\Feed\FeedController;
-use BuddyNext\REST\Controllers\FollowController;
+use BuddyNext\SocialGraph\FollowController;
 use BuddyNext\Feed\PollController;
 use BuddyNext\Feed\PostController;
 use BuddyNext\REST\Controllers\ProfileController;
@@ -31,8 +31,8 @@ use BuddyNext\REST\Controllers\ModerationController;
 use BuddyNext\REST\Controllers\NotificationController;
 use BuddyNext\REST\Controllers\OutboundWebhookController;
 use BuddyNext\REST\Controllers\ReactionController;
-use BuddyNext\REST\Controllers\SpaceCategoryController;
-use BuddyNext\REST\Controllers\SpaceController;
+use BuddyNext\Spaces\SpaceCategoryController;
+use BuddyNext\Spaces\SpaceController;
 
 /**
  * Hooks REST controllers into rest_api_init.

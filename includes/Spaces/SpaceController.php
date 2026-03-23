@@ -21,12 +21,12 @@
  *   Private → status='pending' (request), returns {requested: true}
  *   Secret  → invite-only; 403 unless user has a pending 'invited' status
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Spaces
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Spaces;
 
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;

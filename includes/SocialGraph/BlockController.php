@@ -10,12 +10,12 @@
  *   GET    /me/blocked       — list blocked users
  *   GET    /me/muted         — list muted users
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\SocialGraph
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\SocialGraph;
 
 use WP_Error;
 use WP_REST_Request;

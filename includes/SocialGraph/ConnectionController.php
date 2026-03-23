@@ -10,12 +10,12 @@
  *   GET    /me/connections             — list accepted connections
  *   GET    /me/connection-requests     — list pending received requests
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\SocialGraph
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\SocialGraph;
 
 use WP_Error;
 use WP_REST_Request;

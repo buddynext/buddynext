@@ -7,12 +7,12 @@
  *   POST   /space-categories        — create a category (manage_options only)
  *   DELETE /space-categories/{id}   — delete a category (manage_options only, 409 if spaces use it)
  *
- * @package BuddyNext\REST\Controllers
+ * @package BuddyNext\Spaces
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\REST\Controllers;
+namespace BuddyNext\Spaces;
 
 use WP_Error;
 use WP_REST_Request;
