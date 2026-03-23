@@ -580,4 +580,9 @@ A phase is Done when ALL of:
 | 2026-03-23 | 2 | fix | follow-button.php: add data-wp-interactive, data-wp-context, wp-on--click, nonce key aligned to bn-follow |
 | 2026-03-23 | 2 | fix | connection-button.php: add data-wp-interactive; handle all 5 states (null/pending-sent/pending-received/accepted/blocked) |
 | 2026-03-23 | 2 | feature | assets/css/bn-members.css: full 340-line implementation — member card, follow/connect buttons, directory grid/list, search, filter sidebar, pagination, dark mode, mobile ≤640px |
+| 2026-03-23 | 3 | feature | templates/partials/post-card.php: new reusable partial — all 10 post types, content warning overlay, 6-emoji reaction picker, privacy badge, member type badge, bookmark/report/edit/delete/pin menu, full WP Interactivity API, zero WPCS violations |
+| 2026-03-23 | 3 | feature | assets/css/bn-feed.css: full 560-line implementation — post card, composer, skeleton loader, reaction bar, poll fill bars, link preview, bridge cards, sidebar widgets, dark mode, responsive ≤640px |
+| 2026-03-23 | 3 | fix | templates/feed/home.php: inline post card loop replaced with buddynext_get_template(partials/post-card); shadow-ban subquery fixed (usermeta bn_shadow_banned not bn_user_strikes.shadow_banned) |
+| 2026-03-23 | 3 | fix | templates/feed/explore.php: inline grid card loop replaced with buddynext_get_template(partials/post-card) with context=explore |
+| 2026-03-23 | 3 | fix | Explore page created (ID 69); buddynext_page_explore option set |
 | 2026-03-22 | 8 | fix | ModerationController: removed POST /users/{id}/unsuspend route; DELETE /users/{id}/suspend (delete_suspension) is now the sole unsuspend path, calling unsuspend_user() for audit trail and hook; unsuspend_user() method made private |
