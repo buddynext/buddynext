@@ -219,6 +219,43 @@ abstract class AdminPageBase {
 	}
 
 	/**
+	 * Render a labelled textarea field.
+	 *
+	 * @param string $option_name WP option name.
+	 * @param string $label       Field label.
+	 * @param string $value       Current value.
+	 * @param string $hint        Optional hint text beneath the textarea.
+	 * @param int    $rows        Visible row count. Default 4.
+	 * @param int    $max_width   Textarea max-width in px. Default 540.
+	 * @return void
+	 */
+	protected function render_textarea_row(
+		string $option_name,
+		string $label,
+		string $value,
+		string $hint = '',
+		int $rows = 4,
+		int $max_width = 540
+	): void {
+		$input_id = 'bn-field-' . sanitize_key( $option_name );
+		?>
+		<div class="bn-field">
+			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
+			<textarea
+				id="<?php echo esc_attr( $input_id ); ?>"
+				name="<?php echo esc_attr( $option_name ); ?>"
+				rows="<?php echo absint( $rows ); ?>"
+				class="bn-text-input"
+				style="width:100%;max-width:<?php echo absint( $max_width ); ?>px;resize:vertical"
+			><?php echo esc_textarea( $value ); ?></textarea>
+			<?php if ( '' !== $hint ) : ?>
+				<span class="bn-field-hint"><?php echo esc_html( $hint ); ?></span>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render a labelled number input field.
 	 *
 	 * @param string $option_name WP option name.

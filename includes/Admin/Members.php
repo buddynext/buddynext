@@ -284,9 +284,10 @@ class Members extends AdminPageBase {
 	/**
 	 * Suspend a community member.
 	 *
-	 * Sets the bn_suspended usermeta flag and fires buddynext_member_suspended.
-	 * Also writes a row to bn_user_suspensions so ModerationService::is_suspended()
-	 * reflects the change.
+	 * Sets the bn_suspended usermeta flag, writes a row to bn_user_suspensions,
+	 * and fires both buddynext_user_suspended (canonical — EventListener listens
+	 * here for email/notification dispatch) and the legacy buddynext_member_suspended
+	 * hook for any third-party listeners.
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return void
@@ -308,20 +309,34 @@ class Members extends AdminPageBase {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		$actor_id = get_current_user_id();
+
 		/**
 		 * Fires after an admin suspends a member via the Members panel.
+		 * Signature matches ModerationService::suspend() so EventListener picks it up.
+		 *
+		 * @param int    $user_id     Suspended user ID.
+		 * @param int    $actor_id    Admin who performed the suspension.
+		 * @param string $reason      Reason string (empty for panel suspensions).
+		 * @param null   $expires_at  NULL = indefinite suspension.
+		 */
+		do_action( 'buddynext_user_suspended', $user_id, $actor_id, '', null );
+
+		/**
+		 * Legacy hook — kept for backwards compatibility with third-party listeners.
 		 *
 		 * @param int $user_id   Suspended user ID.
 		 * @param int $actor_id  Admin user who performed the suspension.
 		 */
-		do_action( 'buddynext_member_suspended', $user_id, get_current_user_id() );
+		do_action( 'buddynext_member_suspended', $user_id, $actor_id );
 	}
 
 	/**
 	 * Lift the suspension for a community member.
 	 *
 	 * Removes the bn_suspended usermeta flag, marks the most-recent
-	 * bn_user_suspensions row as lifted, and fires buddynext_member_unsuspended.
+	 * bn_user_suspensions row as lifted, and fires both buddynext_user_unsuspended
+	 * (canonical) and the legacy buddynext_member_unsuspended hook.
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return void
@@ -346,7 +361,16 @@ class Members extends AdminPageBase {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		/**
-		 * Fires after an admin lifts a member suspension via the Members panel.
+		 * Fires after an admin lifts a suspension.
+		 * Signature matches ModerationService::unsuspend_user() so EventListener
+		 * sends the confirmation email/notification.
+		 *
+		 * @param int $user_id Unsuspended user ID.
+		 */
+		do_action( 'buddynext_user_unsuspended', $user_id );
+
+		/**
+		 * Legacy hook — kept for backwards compatibility with third-party listeners.
 		 *
 		 * @param int $user_id Unsuspended user ID.
 		 */

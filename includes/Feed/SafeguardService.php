@@ -64,14 +64,14 @@ class SafeguardService {
 	/**
 	 * Check whether $content contains a banned word or phrase.
 	 *
-	 * Reads option bn_banned_words (newline-separated). Matching is
+	 * Reads option buddynext_banned_words (newline-separated). Matching is
 	 * case-insensitive; any substring match causes a failure.
 	 *
 	 * @param string $content Post content to inspect.
 	 * @return true|WP_Error
 	 */
 	private function check_banned_words( string $content ): true|WP_Error {
-		$raw   = (string) get_option( 'bn_banned_words', '' );
+		$raw   = (string) get_option( 'buddynext_banned_words', '' );
 		$words = array_filter( array_map( 'trim', explode( "\n", $raw ) ) );
 
 		if ( empty( $words ) ) {
@@ -96,7 +96,7 @@ class SafeguardService {
 	/**
 	 * Check whether the $url's hostname matches a blocked domain.
 	 *
-	 * Reads option bn_blocked_domains (newline-separated). Skipped when $url
+	 * Reads option buddynext_blocked_domains (newline-separated). Skipped when $url
 	 * is an empty string.
 	 *
 	 * @param string $url URL attached to the post (may be empty).
@@ -107,7 +107,7 @@ class SafeguardService {
 			return true;
 		}
 
-		$raw     = (string) get_option( 'bn_blocked_domains', '' );
+		$raw     = (string) get_option( 'buddynext_blocked_domains', '' );
 		$domains = array_filter( array_map( 'trim', explode( "\n", $raw ) ) );
 
 		if ( empty( $domains ) ) {
@@ -136,15 +136,15 @@ class SafeguardService {
 	/**
 	 * Check whether the user has exceeded the per-minute post rate limit.
 	 *
-	 * Reads option bn_post_rate_limit (int, default 10). A value of 0 or below
-	 * disables the check. Counts rows in bn_posts authored by the user within
-	 * the last 60 seconds using a DB query.
+	 * Reads option buddynext_post_rate_limit (int, default 10). A value of 0 or
+	 * below disables the check. Counts rows in bn_posts authored by the user
+	 * within the last 60 seconds using a DB query.
 	 *
 	 * @param int $user_id Author user ID.
 	 * @return true|WP_Error
 	 */
 	private function check_rate_limit( int $user_id ): true|WP_Error {
-		$limit = (int) get_option( 'bn_post_rate_limit', 10 );
+		$limit = (int) get_option( 'buddynext_post_rate_limit', 10 );
 
 		if ( $limit <= 0 ) {
 			return true;
@@ -177,16 +177,16 @@ class SafeguardService {
 	/**
 	 * Check whether the user's total post count meets the new-member threshold.
 	 *
-	 * Reads option bn_new_member_post_threshold (int, default 0). A value of 0
-	 * disables the gate. When the user's total published post count is below the
-	 * threshold a pending_review WP_Error is returned — callers must save the
-	 * post with status='pending' rather than rejecting it outright.
+	 * Reads option buddynext_new_member_post_threshold (int, default 0). A
+	 * value of 0 disables the gate. When the user's total published post count
+	 * is below the threshold a pending_review WP_Error is returned — callers
+	 * must save the post with status='pending' rather than rejecting it outright.
 	 *
 	 * @param int $user_id Author user ID.
 	 * @return true|WP_Error
 	 */
 	private function check_new_member_gate( int $user_id ): true|WP_Error {
-		$threshold = (int) get_option( 'bn_new_member_post_threshold', 0 );
+		$threshold = (int) get_option( 'buddynext_new_member_post_threshold', 0 );
 
 		if ( $threshold <= 0 ) {
 			return true;

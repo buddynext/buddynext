@@ -31,57 +31,71 @@ class Settings extends AdminPageBase {
 	 */
 	private const SETTINGS_MAP = array(
 		// General.
-		'buddynext_site_name'                => array( 'string', 'sanitize_text_field', '' ),
-		'buddynext_brand_color'              => array( 'string', 'sanitize_hex_color', '#0073aa' ),
+		'buddynext_site_name'                 => array( 'string', 'sanitize_text_field', '' ),
+		'buddynext_brand_color'               => array( 'string', 'sanitize_hex_color', '#0073aa' ),
+		'buddynext_description'               => array( 'string', 'sanitize_textarea_field', '' ),
+		'buddynext_public_explore'            => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_enable_dm'                 => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_default_dm_access'         => array( 'string', 'sanitize_key', 'everyone' ),
+		'buddynext_show_onboarding'           => array( 'boolean', 'rest_sanitize_boolean', true ),
 
 		// Registration.
-		'buddynext_reg_mode'                 => array( 'string', 'sanitize_key', 'open' ),
-		'buddynext_email_verify'             => array( 'boolean', 'rest_sanitize_boolean', false ),
+		'buddynext_reg_mode'                  => array( 'string', 'sanitize_key', 'open' ),
+		'buddynext_email_verify'              => array( 'boolean', 'rest_sanitize_boolean', false ),
 
 		// Social.
-		'buddynext_default_post_privacy'     => array( 'string', 'sanitize_key', 'public' ),
-		'buddynext_allow_polls'              => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_post_edit_window'         => array( 'integer', 'absint', 60 ),
+		'buddynext_default_post_privacy'      => array( 'string', 'sanitize_key', 'public' ),
+		'buddynext_allow_polls'               => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_allow_shares'              => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_allow_bookmarks'           => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_post_edit_window'          => array( 'integer', 'absint', 60 ),
 
 		// Spaces.
-		'buddynext_space_creation_role'      => array( 'string', 'sanitize_key', 'member' ),
+		'buddynext_enable_spaces'             => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_space_creation_role'       => array( 'string', 'sanitize_key', 'member' ),
 
 		// Moderation.
-		'buddynext_auto_hide_threshold'      => array( 'integer', 'absint', 5 ),
-		'buddynext_strike_warn_threshold'    => array( 'integer', 'absint', 2 ),
-		'buddynext_strike_suspend_threshold' => array( 'integer', 'absint', 5 ),
+		'buddynext_auto_hide_threshold'       => array( 'integer', 'absint', 5 ),
+		'buddynext_strike_warn_threshold'     => array( 'integer', 'absint', 2 ),
+		'buddynext_strike_suspend_threshold'  => array( 'integer', 'absint', 5 ),
+		'buddynext_mod_queue_alert_threshold' => array( 'integer', 'absint', 20 ),
+		'buddynext_banned_words'              => array( 'string', 'sanitize_textarea_field', '' ),
+		'buddynext_blocked_domains'           => array( 'string', 'sanitize_textarea_field', '' ),
+		'buddynext_banned_hashtags'           => array( 'string', 'sanitize_textarea_field', '' ),
+		'buddynext_post_rate_limit'           => array( 'integer', 'absint', 10 ),
+		'buddynext_new_member_post_threshold' => array( 'integer', 'absint', 0 ),
 
 		// Notifications.
-		'buddynext_notif_default_follow'     => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_notif_default_connection' => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_notif_default_reaction'   => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_notif_default_comment'    => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_notif_default_mention'    => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_notif_default_space_join' => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_digest_frequency'         => array( 'string', 'sanitize_key', 'weekly' ),
+		'buddynext_notif_default_follow'      => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_notif_default_connection'  => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_notif_default_reaction'    => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_notif_default_comment'     => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_notif_default_mention'     => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_notif_default_space_join'  => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_digest_frequency'          => array( 'string', 'sanitize_key', 'weekly' ),
 
 		// Email.
-		'buddynext_email_from_name'          => array( 'string', 'sanitize_text_field', '' ),
-		'buddynext_email_from_address'       => array( 'string', 'sanitize_email', '' ),
-		'buddynext_email_reply_to'           => array( 'string', 'sanitize_email', '' ),
-		'buddynext_email_footer_text'        => array( 'string', 'sanitize_textarea_field', '' ),
+		'buddynext_email_from_name'           => array( 'string', 'sanitize_text_field', '' ),
+		'buddynext_email_from_address'        => array( 'string', 'sanitize_email', '' ),
+		'buddynext_email_reply_to'            => array( 'string', 'sanitize_email', '' ),
+		'buddynext_email_footer_text'         => array( 'string', 'sanitize_textarea_field', '' ),
 
 		// Privacy & Data.
-		'buddynext_data_retention_days'      => array( 'integer', 'absint', 365 ),
-		'buddynext_allow_data_export'        => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_allow_account_deletion'   => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_anonymize_on_delete'      => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_data_retention_days'       => array( 'integer', 'absint', 365 ),
+		'buddynext_allow_data_export'         => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_allow_account_deletion'    => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_anonymize_on_delete'       => array( 'boolean', 'rest_sanitize_boolean', true ),
 
 		// Navigation slugs.
-		'buddynext_slug_activity'            => array( 'string', 'sanitize_title', 'activity' ),
-		'buddynext_slug_people'              => array( 'string', 'sanitize_title', 'members' ),
-		'buddynext_slug_spaces'              => array( 'string', 'sanitize_title', 'spaces' ),
-		'buddynext_slug_messages'            => array( 'string', 'sanitize_title', 'messages' ),
-		'buddynext_slug_notifications'       => array( 'string', 'sanitize_title', 'notifications' ),
-		'buddynext_slug_auth'                => array( 'string', 'sanitize_title', 'login' ),
+		'buddynext_slug_activity'             => array( 'string', 'sanitize_title', 'activity' ),
+		'buddynext_slug_people'               => array( 'string', 'sanitize_title', 'members' ),
+		'buddynext_slug_spaces'               => array( 'string', 'sanitize_title', 'spaces' ),
+		'buddynext_slug_messages'             => array( 'string', 'sanitize_title', 'messages' ),
+		'buddynext_slug_notifications'        => array( 'string', 'sanitize_title', 'notifications' ),
+		'buddynext_slug_auth'                 => array( 'string', 'sanitize_title', 'login' ),
 
 		// Webhooks.
-		'buddynext_webhook_secret'           => array( 'string', 'sanitize_text_field', '' ),
+		'buddynext_webhook_secret'            => array( 'string', 'sanitize_text_field', '' ),
 	);
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
@@ -228,12 +242,14 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_tab_general(): void {
-		$this->open_section( __( 'Community Settings', 'buddynext' ) );
+		$this->open_section( __( 'Community Identity', 'buddynext' ) );
 
 		$this->render_text_row(
 			'buddynext_site_name',
 			__( 'Community Name', 'buddynext' ),
-			(string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) )
+			(string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) ),
+			__( 'Displayed in the site header, emails, and browser title.', 'buddynext' ),
+			360
 		);
 
 		$this->render_text_row(
@@ -242,6 +258,60 @@ class Settings extends AdminPageBase {
 			(string) get_option( 'buddynext_brand_color', '#0073aa' ),
 			__( 'Hex color used for buttons, links, and accents throughout the community UI.', 'buddynext' ),
 			140
+		);
+
+		$this->render_textarea_row(
+			'buddynext_description',
+			__( 'Community Description', 'buddynext' ),
+			(string) get_option( 'buddynext_description', '' ),
+			__( 'Short description shown on the community landing page and in meta tags.', 'buddynext' ),
+			3,
+			540
+		);
+
+		$this->close_section();
+
+		$this->open_section( __( 'Discovery', 'buddynext' ) );
+
+		$this->render_toggle_row(
+			'buddynext_public_explore',
+			__( 'Public explore feed', 'buddynext' ),
+			__( 'Allow guests to browse the explore feed without logging in.', 'buddynext' ),
+			(bool) get_option( 'buddynext_public_explore', true )
+		);
+
+		$this->close_section();
+
+		$this->open_section( __( 'Direct Messaging', 'buddynext' ) );
+
+		$this->render_toggle_row(
+			'buddynext_enable_dm',
+			__( 'Enable direct messaging', 'buddynext' ),
+			__( 'Allow members to send private messages. Requires the WPMediaVerse plugin.', 'buddynext' ),
+			(bool) get_option( 'buddynext_enable_dm', true )
+		);
+
+		$this->render_select_row(
+			'buddynext_default_dm_access',
+			__( 'Who can DM me (default)', 'buddynext' ),
+			(string) get_option( 'buddynext_default_dm_access', 'everyone' ),
+			array(
+				'everyone'    => __( 'Everyone', 'buddynext' ),
+				'connections' => __( 'Connections only', 'buddynext' ),
+				'followers'   => __( 'Followers only', 'buddynext' ),
+			),
+			__( 'Default setting applied to new accounts. Members can override this in their own privacy settings.', 'buddynext' )
+		);
+
+		$this->close_section();
+
+		$this->open_section( __( 'Onboarding', 'buddynext' ) );
+
+		$this->render_toggle_row(
+			'buddynext_show_onboarding',
+			__( 'Show onboarding wizard to new members', 'buddynext' ),
+			__( 'Guides new members through setting up their profile, following people, and joining spaces after first login.', 'buddynext' ),
+			(bool) get_option( 'buddynext_show_onboarding', true )
 		);
 
 		$this->close_section();
@@ -305,6 +375,20 @@ class Settings extends AdminPageBase {
 			(bool) get_option( 'buddynext_allow_polls', true )
 		);
 
+		$this->render_toggle_row(
+			'buddynext_allow_shares',
+			__( 'Allow re-shares', 'buddynext' ),
+			__( 'Members can share other members\' posts to their own feed.', 'buddynext' ),
+			(bool) get_option( 'buddynext_allow_shares', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_allow_bookmarks',
+			__( 'Allow bookmarks', 'buddynext' ),
+			__( 'Members can save posts to a private bookmarks list.', 'buddynext' ),
+			(bool) get_option( 'buddynext_allow_bookmarks', true )
+		);
+
 		$this->render_number_row(
 			'buddynext_post_edit_window',
 			__( 'Post edit window (minutes)', 'buddynext' ),
@@ -323,6 +407,13 @@ class Settings extends AdminPageBase {
 	 */
 	private function render_tab_spaces(): void {
 		$this->open_section( __( 'Space Settings', 'buddynext' ) );
+
+		$this->render_toggle_row(
+			'buddynext_enable_spaces',
+			__( 'Enable Spaces', 'buddynext' ),
+			__( 'Spaces let members form communities within your community. Disable to hide the Spaces hub entirely.', 'buddynext' ),
+			(bool) get_option( 'buddynext_enable_spaces', true )
+		);
 
 		$this->render_select_row(
 			'buddynext_space_creation_role',
@@ -354,6 +445,14 @@ class Settings extends AdminPageBase {
 			1
 		);
 
+		$this->render_number_row(
+			'buddynext_mod_queue_alert_threshold',
+			__( 'Queue alert threshold', 'buddynext' ),
+			(int) get_option( 'buddynext_mod_queue_alert_threshold', 20 ),
+			__( 'Send a daily email to admins when the moderation queue exceeds this many unreviewed items. Set to 0 to disable.', 'buddynext' ),
+			0
+		);
+
 		$this->close_section();
 
 		$this->open_section( __( 'Strike System', 'buddynext' ) );
@@ -372,6 +471,53 @@ class Settings extends AdminPageBase {
 			(int) get_option( 'buddynext_strike_suspend_threshold', 5 ),
 			__( 'The member is automatically suspended after this many active strikes.', 'buddynext' ),
 			1
+		);
+
+		$this->close_section();
+
+		$this->open_section( __( 'Content Safeguards', 'buddynext' ) );
+
+		$this->render_textarea_row(
+			'buddynext_banned_words',
+			__( 'Banned words', 'buddynext' ),
+			(string) get_option( 'buddynext_banned_words', '' ),
+			__( 'One word or phrase per line. Posts containing any of these are rejected. Case-insensitive substring match.', 'buddynext' ),
+			5,
+			480
+		);
+
+		$this->render_textarea_row(
+			'buddynext_banned_hashtags',
+			__( 'Banned hashtags', 'buddynext' ),
+			(string) get_option( 'buddynext_banned_hashtags', '' ),
+			__( 'One hashtag per line (without the # sign). Posts using these tags are rejected.', 'buddynext' ),
+			4,
+			480
+		);
+
+		$this->render_textarea_row(
+			'buddynext_blocked_domains',
+			__( 'Blocked link domains', 'buddynext' ),
+			(string) get_option( 'buddynext_blocked_domains', '' ),
+			__( 'One domain per line (e.g. spam.example.com). Posts linking to these domains are rejected.', 'buddynext' ),
+			4,
+			480
+		);
+
+		$this->render_number_row(
+			'buddynext_post_rate_limit',
+			__( 'Post rate limit (per minute)', 'buddynext' ),
+			(int) get_option( 'buddynext_post_rate_limit', 10 ),
+			__( 'Maximum number of posts a member can create per minute. Set to 0 to disable rate limiting.', 'buddynext' ),
+			0
+		);
+
+		$this->render_number_row(
+			'buddynext_new_member_post_threshold',
+			__( 'New member review threshold', 'buddynext' ),
+			(int) get_option( 'buddynext_new_member_post_threshold', 0 ),
+			__( 'Posts by members with fewer than this many published posts are held for review. Set to 0 to disable.', 'buddynext' ),
+			0
 		);
 
 		$this->close_section();
@@ -572,21 +718,16 @@ class Settings extends AdminPageBase {
 		$this->close_section();
 
 		$this->open_section( __( 'Email Footer', 'buddynext' ) );
-		?>
-		<div class="bn-field">
-			<label for="bn-email-footer"><?php esc_html_e( 'Footer text', 'buddynext' ); ?></label>
-			<textarea
-				id="bn-email-footer"
-				name="buddynext_email_footer_text"
-				rows="3"
-				class="bn-text-input"
-				style="width:100%;max-width:540px;resize:vertical"
-			><?php echo esc_textarea( (string) get_option( 'buddynext_email_footer_text', '' ) ); ?></textarea>
-			<span class="bn-field-hint">
-				<?php esc_html_e( 'Appended to the bottom of every BuddyNext email. Supports plain text only.', 'buddynext' ); ?>
-			</span>
-		</div>
-		<?php
+
+		$this->render_textarea_row(
+			'buddynext_email_footer_text',
+			__( 'Footer text', 'buddynext' ),
+			(string) get_option( 'buddynext_email_footer_text', '' ),
+			__( 'Appended to the bottom of every BuddyNext email. Supports plain text only.', 'buddynext' ),
+			3,
+			540
+		);
+
 		$this->close_section();
 	}
 
