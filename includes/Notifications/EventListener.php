@@ -729,7 +729,7 @@ class EventListener {
 			array(
 				'recipient_id' => $author_id,
 				'sender_id'    => $user_id,
-				'type'         => 'bn.jetonomy_reply',
+				'type'         => 'jt.discussion_reply',
 				'object_type'  => 'jetonomy_post',
 				'object_id'    => $post_id,
 				'group_key'    => 'jt_reply_' . $post_id,
