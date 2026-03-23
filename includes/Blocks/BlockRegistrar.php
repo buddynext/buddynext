@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Gutenberg block and pattern registration.
  *
@@ -78,8 +78,35 @@ class BlockRegistrar {
 
 	/**
 	 * Register all 17 dynamic blocks.
+	 *
+	 * The shared editor script (blocks.js) uses `wp.serverSideRender` to render
+	 * live SSR previews inside the block editor. That component ships as the
+	 * `wp-server-side-render` script handle. WordPress does not auto-add it as
+	 * a dependency when the handle is declared via `editorScript` in block.json,
+	 * so we pre-register the handle here with the correct dependency list before
+	 * any block type is registered.  If the handle was already registered by an
+	 * earlier code path we skip re-registration to avoid overwriting its URL.
 	 */
 	public function register_blocks(): void {
+		$editor_script_src = dirname( __DIR__, 2 ) . '/assets/js/blocks.js';
+		$editor_script_url = plugins_url( 'assets/js/blocks.js', dirname( __DIR__, 2 ) . '/buddynext.php' );
+
+		if ( ! wp_script_is( 'buddynext-blocks-editor', 'registered' ) ) {
+			wp_register_script(
+				'buddynext-blocks-editor',
+				$editor_script_url,
+				array(
+					'wp-blocks',
+					'wp-element',
+					'wp-block-editor',
+					'wp-components',
+					'wp-server-side-render',
+				),
+				BUDDYNEXT_VERSION,
+				true
+			);
+		}
+
 		$blocks = array(
 			// Social / Feed.
 			'bn-activity-feed'          => array( $this, 'render_activity_feed' ),

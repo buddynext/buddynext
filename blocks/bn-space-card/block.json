@@ -7,7 +7,7 @@
 	"description": "Single space card for featured space callouts.",
 	"keywords": [ "buddynext", "space", "card", "featured" ],
 	"textdomain": "buddynext",
-	"editorScript": "file:../../assets/js/blocks.js",
+	"editorScript": "buddynext-blocks-editor",
 	"style": "file:../../assets/css/blocks.css",
 	"supports": {
 		"color": { "background": true, "text": true },

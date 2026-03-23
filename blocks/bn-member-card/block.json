@@ -7,7 +7,7 @@
 	"description": "Single user card with avatar, name, and follow button. Ideal for widgets and sidebars.",
 	"keywords": [ "buddynext", "member", "card", "user", "widget" ],
 	"textdomain": "buddynext",
-	"editorScript": "file:../../assets/js/blocks.js",
+	"editorScript": "buddynext-blocks-editor",
 	"style": "file:../../assets/css/blocks.css",
 	"supports": {
 		"color": { "background": true, "text": true },

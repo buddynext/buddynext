@@ -22,16 +22,43 @@
 	/**
 	 * Edit function: server-side-rendered live preview via REST.
 	 *
+	 * Falls back to a static placeholder when `wp.serverSideRender` has not
+	 * been loaded yet — this prevents React Error #130 ("element type is
+	 * invalid — got: undefined") which occurs in the block editor if the
+	 * `wp-server-side-render` script was not enqueued before blocks.js runs.
+	 *
 	 * @param {string} name Block name (e.g. buddynext/activity-feed).
 	 * @return {Function} Edit component.
 	 */
 	function ssrEdit( name ) {
 		return function ( props ) {
 			var blockProps = useBlockProps();
+
+			// Guard: if ServerSideRender is not yet available, render a neutral
+			// placeholder so React never receives undefined as an element type.
+			var SSR = serverSideRender || ( window.wp && window.wp.serverSideRender );
+			if ( ! SSR ) {
+				return el(
+					'div',
+					Object.assign( {}, blockProps, {
+						style: {
+							padding:      '16px',
+							background:   '#f8f8f7',
+							border:       '1px dashed #aeaca8',
+							borderRadius: '8px',
+							textAlign:    'center',
+							color:        '#787774',
+							fontSize:     '13px',
+						},
+					} ),
+					el( 'p', { className: 'buddynext-editor-loading', style: { margin: 0 } }, 'BuddyNext loading\u2026' )
+				);
+			}
+
 			return el(
 				'div',
 				blockProps,
-				el( serverSideRender, {
+				el( SSR, {
 					block:      name,
 					attributes: props.attributes,
 				} )

@@ -87,11 +87,21 @@ function buddynext_service( string $key ): mixed {
  * Delegates to the TemplateLoader service which checks child-theme, parent-theme,
  * and plugin templates/ directory in order.
  *
+ * When called during a Gutenberg server-side-render (SSR) preview before the
+ * BuddyNext DI container has finished bootstrapping (i.e. before buddynext_loaded
+ * has fired), the function returns a neutral placeholder instead of throwing.
+ * This prevents React Error #130 in the block editor caused by an exception
+ * propagating through the REST block-renderer endpoint.
+ *
  * @param string               $relative Relative template path (e.g. 'blocks/search-bar.php').
  * @param array<string, mixed> $vars     Variables to extract into the template scope.
  * @return void
  */
 function buddynext_get_template( string $relative, array $vars = array() ): void {
+	if ( ! did_action( 'buddynext_loaded' ) ) {
+		echo '<p class="buddynext-editor-loading">' . esc_html__( 'BuddyNext loading…', 'buddynext' ) . '</p>';
+		return;
+	}
 	buddynext_service( 'template_loader' )->render( $relative, $vars );
 }
 

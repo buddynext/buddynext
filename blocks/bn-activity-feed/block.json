@@ -7,7 +7,7 @@
 	"description": "Displays the community activity feed. Scope to home, profile, space, or explore.",
 	"keywords": [ "buddynext", "feed", "activity", "social" ],
 	"textdomain": "buddynext",
-	"editorScript": "file:../../assets/js/blocks.js",
+	"editorScript": "buddynext-blocks-editor",
 	"style": "file:../../assets/css/blocks.css",
 	"supports": {
 		"color": { "background": true, "text": true },
