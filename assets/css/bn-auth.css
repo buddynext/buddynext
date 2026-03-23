@@ -1,1 +1,662 @@
-/* BuddyNext — Auth (login/register) stylesheet. Enqueued via BuddyNext\Templates\AuthLoader. */
+/*
+ * BuddyNext — Auth stylesheet
+ *
+ * Covers:
+ *   - Full-page auth layout (.bn-auth-wrap) — login/register split-panel
+ *   - Block login/register forms (.bn-block-login-form, .bn-block-registration-form)
+ *   - Email verification card (.bn-auth-verify)
+ *   - Shared form components (.bn-form__*)
+ *   - Error/success/info alert states
+ *   - Dark mode via [data-theme="dark"]
+ *   - Mobile ≤640px: full-width card, no horizontal scroll
+ */
+
+/* ── Full-page auth layout ──────────────────────────────────────────────── */
+
+.bn-auth-wrap {
+	font-family: var(--font-body);
+	font-size: var(--text-base);
+	color: var(--text-1);
+	background: var(--bg-subtle);
+	-webkit-font-smoothing: antialiased;
+	min-height: 100vh;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+}
+
+/* Brand panel (left) */
+.bn-auth-brand {
+	background: linear-gradient(135deg, #0073aa 0%, #1d4ed8 60%, #7c3aed 100%);
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	padding: 60px 48px;
+	color: #fff;
+}
+
+.bn-auth-logo {
+	font-family: var(--font-display);
+	font-size: 28px;
+	font-weight: 900;
+	margin-bottom: 40px;
+	letter-spacing: -1px;
+}
+
+.bn-auth-logo span { opacity: 0.7; }
+
+.bn-auth-headline {
+	font-family: var(--font-display);
+	font-size: 36px;
+	font-weight: 800;
+	line-height: 1.2;
+	margin-bottom: var(--s4);
+}
+
+.bn-auth-sub {
+	font-size: var(--text-base);
+	opacity: 0.85;
+	margin-bottom: 40px;
+	line-height: var(--leading-body);
+}
+
+.bn-auth-features { display: flex; flex-direction: column; gap: var(--s4); }
+
+.bn-auth-feature { display: flex; align-items: flex-start; gap: var(--s3); }
+
+.bn-auth-feature-icon { font-size: 20px; margin-top: 2px; flex-shrink: 0; }
+
+.bn-auth-feature-text { font-size: var(--text-sm); opacity: 0.9; line-height: 1.55; }
+
+.bn-auth-feature-text strong { font-weight: 700; }
+
+.bn-auth-member-count {
+	margin-top: 48px;
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+}
+
+.bn-auth-mc-avatars { display: flex; }
+
+.bn-auth-mc-av {
+	width: 32px;
+	height: 32px;
+	border-radius: var(--r-full);
+	border: 2px solid rgba(255, 255, 255, 0.8);
+	background: rgba(255, 255, 255, 0.3);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	font-weight: 700;
+	color: #fff;
+	margin-left: -8px;
+}
+
+.bn-auth-mc-av:first-child { margin-left: 0; }
+
+.bn-auth-mc-text { font-size: var(--text-sm); opacity: 0.9; }
+
+/* Form panel (right) */
+.bn-auth-form-panel {
+	background: var(--surface);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 40px var(--s8);
+}
+
+.bn-auth-form-inner {
+	width: 100%;
+	max-width: 380px;
+}
+
+/* ── Tab toggle ─────────────────────────────────────────────────────────── */
+
+.bn-auth-tabs {
+	display: flex;
+	background: var(--bg-hover);
+	border-radius: var(--r-md);
+	padding: 4px;
+	margin-bottom: 28px;
+}
+
+.bn-auth-tab {
+	flex: 1;
+	text-align: center;
+	padding: 9px;
+	border-radius: var(--r-sm);
+	font-size: var(--text-sm);
+	font-weight: 600;
+	cursor: pointer;
+	color: var(--text-2);
+	text-decoration: none;
+	transition: background 0.15s, color 0.15s;
+}
+
+.bn-auth-tab.active,
+.bn-auth-tab[aria-selected="true"] {
+	background: var(--surface);
+	color: var(--brand);
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.bn-auth-tab:not(.active):hover { color: var(--text-1); }
+
+/* Tab content */
+.bn-auth-tab-content { display: none; }
+.bn-auth-tab-content.active { display: block; }
+
+/* ── Form headings ──────────────────────────────────────────────────────── */
+
+.bn-auth-form-title {
+	font-family: var(--font-display);
+	font-size: 22px;
+	font-weight: 800;
+	margin-bottom: 4px;
+	color: var(--text-1);
+}
+
+.bn-auth-form-sub {
+	font-size: var(--text-sm);
+	color: var(--text-2);
+	margin-bottom: var(--s6);
+	line-height: 1.5;
+}
+
+/* ── Fields ─────────────────────────────────────────────────────────────── */
+
+.bn-auth-field { margin-bottom: var(--s4); }
+
+.bn-auth-label {
+	display: block;
+	font-size: var(--text-sm);
+	font-weight: 600;
+	margin-bottom: 6px;
+	color: var(--text-1);
+}
+
+.bn-auth-input {
+	width: 100%;
+	border: 1.5px solid var(--border);
+	border-radius: var(--r-sm);
+	padding: 10px var(--s3);
+	font-size: var(--text-base);
+	font-family: var(--font-body);
+	color: var(--text-1);
+	background: var(--bg);
+	box-sizing: border-box;
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.bn-auth-input:focus {
+	outline: none;
+	border-color: var(--brand);
+	box-shadow: 0 0 0 3px rgba(0, 115, 170, 0.12);
+}
+
+.bn-auth-input::placeholder { color: var(--text-3); }
+
+/* Error/success input states */
+.bn-auth-input--error {
+	border-color: var(--red);
+}
+
+.bn-auth-input--error:focus {
+	box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.bn-auth-input--success {
+	border-color: var(--green);
+}
+
+.bn-auth-input--success:focus {
+	box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+}
+
+.bn-auth-field-error {
+	font-size: var(--text-xs);
+	color: var(--red);
+	margin-top: 4px;
+}
+
+.bn-auth-field-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--s3);
+	margin-bottom: var(--s4);
+}
+
+.bn-auth-field-row .bn-auth-field { margin-bottom: 0; }
+
+/* Forgot password link */
+.bn-auth-forgot {
+	font-size: var(--text-xs);
+	color: var(--brand);
+	cursor: pointer;
+	float: right;
+	margin-top: 4px;
+	text-decoration: none;
+}
+
+.bn-auth-forgot:hover { text-decoration: underline; }
+
+/* ── Password strength indicator ────────────────────────────────────────── */
+
+.bn-auth-strength { margin-top: 6px; }
+
+.bn-auth-strength-bar {
+	height: 4px;
+	background: var(--border);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.bn-auth-strength-fill {
+	height: 100%;
+	border-radius: 2px;
+	background: var(--green);
+	width: 0;
+	transition: width 0.3s, background 0.3s;
+}
+
+.bn-auth-strength-label {
+	font-size: var(--text-xs);
+	color: var(--green);
+	margin-top: 3px;
+	font-weight: 600;
+}
+
+/* ── Submit button ──────────────────────────────────────────────────────── */
+
+.bn-auth-submit {
+	width: 100%;
+	background: var(--brand);
+	color: #fff;
+	padding: 12px;
+	border-radius: var(--r-sm);
+	font-size: var(--text-sm);
+	font-weight: 700;
+	cursor: pointer;
+	border: none;
+	font-family: var(--font-body);
+	margin-top: 4px;
+	transition: background 0.15s;
+}
+
+.bn-auth-submit:hover { background: var(--brand-hover); }
+
+.bn-auth-submit:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+/* ── Terms + switch links ───────────────────────────────────────────────── */
+
+.bn-auth-terms {
+	font-size: var(--text-xs);
+	color: var(--text-3);
+	margin-top: var(--s3);
+	text-align: center;
+	line-height: 1.5;
+}
+
+.bn-auth-terms a { color: var(--brand); text-decoration: none; }
+.bn-auth-terms a:hover { text-decoration: underline; }
+
+.bn-auth-switch {
+	text-align: center;
+	margin-top: var(--s5);
+	font-size: var(--text-sm);
+	color: var(--text-2);
+}
+
+.bn-auth-switch a { color: var(--brand); font-weight: 600; text-decoration: none; }
+.bn-auth-switch a:hover { text-decoration: underline; }
+
+/* ── WP login_form overrides ────────────────────────────────────────────── */
+
+.bn-auth-wp-login-wrap #loginform label { display: none; }
+
+.bn-auth-wp-login-wrap #loginform input[type="text"],
+.bn-auth-wp-login-wrap #loginform input[type="password"] {
+	width: 100%;
+	border: 1.5px solid var(--border);
+	border-radius: var(--r-sm);
+	padding: 10px var(--s3);
+	font-size: var(--text-base);
+	font-family: var(--font-body);
+	color: var(--text-1);
+	background: var(--bg);
+	margin-bottom: var(--s4);
+	box-sizing: border-box;
+}
+
+.bn-auth-wp-login-wrap #loginform input[type="text"]:focus,
+.bn-auth-wp-login-wrap #loginform input[type="password"]:focus {
+	outline: none;
+	border-color: var(--brand);
+	box-shadow: 0 0 0 3px rgba(0, 115, 170, 0.12);
+}
+
+.bn-auth-wp-login-wrap #loginform .forgetmenot {
+	font-size: var(--text-sm);
+	color: var(--text-2);
+}
+
+.bn-auth-wp-login-wrap #loginform .submit input[type="submit"] {
+	width: 100%;
+	background: var(--brand);
+	color: #fff;
+	padding: 12px;
+	border-radius: var(--r-sm);
+	font-size: var(--text-sm);
+	font-weight: 700;
+	cursor: pointer;
+	border: none;
+	font-family: var(--font-body);
+}
+
+.bn-auth-wp-login-wrap #loginform .submit input[type="submit"]:hover {
+	background: var(--brand-hover);
+}
+
+/* ── Alert / notice boxes ───────────────────────────────────────────────── */
+
+.bn-auth-error,
+.bn-auth-notice {
+	border-radius: var(--r-sm);
+	padding: var(--s2) var(--s3);
+	font-size: var(--text-sm);
+	margin-bottom: var(--s4);
+	display: flex;
+	align-items: flex-start;
+	gap: var(--s2);
+}
+
+.bn-auth-error {
+	background: var(--red-bg);
+	color: var(--red);
+	border: 1px solid var(--red);
+}
+
+.bn-auth-notice--success {
+	background: var(--green-bg);
+	color: var(--green);
+	border: 1px solid var(--green);
+}
+
+.bn-auth-notice--info {
+	background: var(--brand-light);
+	color: var(--brand);
+	border: 1px solid var(--brand);
+}
+
+.bn-auth-notice--warning {
+	background: var(--amber-bg);
+	color: var(--amber);
+	border: 1px solid var(--amber);
+}
+
+/* ── Email verification card ────────────────────────────────────────────── */
+
+.bn-auth-verify {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 100vh;
+	background: var(--bg-subtle);
+	padding: var(--s6);
+	font-family: var(--font-body);
+}
+
+.bn-auth-verify-card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	padding: var(--s10) var(--s8);
+	max-width: 420px;
+	width: 100%;
+	text-align: center;
+}
+
+.bn-auth-verify-icon {
+	font-size: 48px;
+	margin-bottom: var(--s4);
+	line-height: 1;
+}
+
+.bn-auth-verify-title {
+	font-family: var(--font-display);
+	font-size: var(--text-2xl);
+	font-weight: 800;
+	color: var(--text-1);
+	margin-bottom: var(--s3);
+}
+
+.bn-auth-verify-msg {
+	font-size: var(--text-base);
+	color: var(--text-2);
+	line-height: var(--leading-body);
+	margin-bottom: var(--s8);
+}
+
+.bn-auth-verify-email {
+	font-weight: 700;
+	color: var(--text-1);
+}
+
+.bn-auth-verify-actions {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s3);
+}
+
+.bn-auth-verify-resend {
+	width: 100%;
+	background: var(--brand);
+	color: #fff;
+	padding: 11px var(--s4);
+	border-radius: var(--r-sm);
+	font-size: var(--text-sm);
+	font-weight: 700;
+	cursor: pointer;
+	border: none;
+	font-family: var(--font-body);
+	transition: background 0.15s;
+}
+
+.bn-auth-verify-resend:hover { background: var(--brand-hover); }
+
+.bn-auth-verify-resend:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.bn-auth-verify-back {
+	font-size: var(--text-sm);
+	color: var(--text-2);
+	text-decoration: none;
+	padding: var(--s2);
+}
+
+.bn-auth-verify-back:hover { color: var(--text-1); text-decoration: underline; }
+
+.bn-auth-verify-resent {
+	font-size: var(--text-sm);
+	color: var(--green);
+	font-weight: 600;
+	margin-top: var(--s2);
+}
+
+/* ── Block form components (.bn-form__*) ────────────────────────────────── */
+
+.bn-block-login-form,
+.bn-block-registration-form {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	padding: var(--s8) var(--s6);
+	max-width: 400px;
+	width: 100%;
+	font-family: var(--font-body);
+}
+
+.bn-block-heading {
+	font-family: var(--font-display);
+	font-size: var(--text-xl);
+	font-weight: 800;
+	color: var(--text-1);
+	margin: 0 0 var(--s6);
+}
+
+.bn-form__group {
+	margin-bottom: var(--s4);
+}
+
+.bn-form__label {
+	display: block;
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--text-1);
+	margin-bottom: 6px;
+}
+
+.bn-form__input {
+	width: 100%;
+	border: 1.5px solid var(--border);
+	border-radius: var(--r-sm);
+	padding: 10px var(--s3);
+	font-size: var(--text-base);
+	font-family: var(--font-body);
+	color: var(--text-1);
+	background: var(--bg);
+	box-sizing: border-box;
+	transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.bn-form__input:focus {
+	outline: none;
+	border-color: var(--brand);
+	box-shadow: 0 0 0 3px rgba(0, 115, 170, 0.12);
+}
+
+.bn-form__input::placeholder { color: var(--text-3); }
+
+.bn-form__input--error { border-color: var(--red); }
+.bn-form__input--success { border-color: var(--green); }
+
+.bn-form__group--inline {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.bn-form__checkbox {
+	display: flex;
+	align-items: center;
+	gap: var(--s2);
+	font-size: var(--text-sm);
+	color: var(--text-2);
+	cursor: pointer;
+}
+
+.bn-form__checkbox input[type="checkbox"] {
+	accent-color: var(--brand);
+	width: 15px;
+	height: 15px;
+	cursor: pointer;
+}
+
+.bn-form__link {
+	font-size: var(--text-xs);
+	color: var(--brand);
+	text-decoration: none;
+}
+
+.bn-form__link:hover { text-decoration: underline; }
+
+.bn-form__actions { margin-top: var(--s5); }
+
+.bn-btn--full { width: 100%; justify-content: center; }
+
+.bn-btn--primary {
+	background: var(--brand);
+	color: #fff;
+	padding: 11px var(--s4);
+	border-radius: var(--r-sm);
+	font-size: var(--text-sm);
+	font-weight: 700;
+	cursor: pointer;
+	border: none;
+	font-family: var(--font-body);
+	display: inline-flex;
+	align-items: center;
+	transition: background 0.15s;
+}
+
+.bn-btn--primary:hover { background: var(--brand-hover); }
+
+.bn-form__footer {
+	text-align: center;
+	font-size: var(--text-sm);
+	color: var(--text-2);
+	margin-top: var(--s4);
+	margin-bottom: 0;
+}
+
+.bn-form__footer a { color: var(--brand); font-weight: 600; text-decoration: none; }
+.bn-form__footer a:hover { text-decoration: underline; }
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+
+[data-theme="dark"] .bn-auth-input:focus,
+[data-theme="dark"] .bn-auth-wp-login-wrap #loginform input[type="text"]:focus,
+[data-theme="dark"] .bn-auth-wp-login-wrap #loginform input[type="password"]:focus,
+[data-theme="dark"] .bn-form__input:focus {
+	box-shadow: 0 0 0 3px rgba(77, 171, 219, 0.2);
+}
+
+[data-theme="dark"] .bn-auth-tab.active,
+[data-theme="dark"] .bn-auth-tab[aria-selected="true"] {
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .bn-auth-notice--info {
+	background: var(--brand-light);
+	border-color: var(--brand);
+}
+
+/* ── Mobile ≤640px ──────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+	.bn-auth-wrap {
+		grid-template-columns: 1fr;
+		min-height: auto;
+	}
+
+	.bn-auth-brand { display: none; }
+
+	.bn-auth-form-panel {
+		padding: var(--s6) var(--s4);
+		min-height: 100vh;
+		align-items: flex-start;
+		padding-top: 40px;
+	}
+
+	.bn-auth-field-row { grid-template-columns: 1fr; }
+
+	.bn-auth-verify-card {
+		padding: var(--s8) var(--s4);
+		border: none;
+		border-radius: var(--r-md);
+	}
+
+	.bn-block-login-form,
+	.bn-block-registration-form {
+		padding: var(--s6) var(--s4);
+		border: none;
+		border-radius: 0;
+		max-width: 100%;
+	}
+}
