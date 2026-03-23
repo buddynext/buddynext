@@ -75,6 +75,7 @@ class PageRouter {
 	 */
 	public function register_rewrites(): void {
 		// ── Rewrite tags ──────────────────────────────────────────────────────
+		add_rewrite_tag( '%bn_hub%', '([a-z]+)' );
 		add_rewrite_tag( '%bn_activity_action%', '([^/]*)' );
 		add_rewrite_tag( '%bn_hashtag%', '([^/]+)' );
 		add_rewrite_tag( '%bn_user_slug%', '([^/]+)' );
@@ -102,28 +103,28 @@ class PageRouter {
 		$a = self::hub_slug( 'buddynext_slug_activity', 'activity' );
 
 		add_rewrite_rule(
-			'^' . preg_quote( $a, '/' ) . '/?$',
-			'index.php?pagename=' . $a,
-			'top'
-		);
-		add_rewrite_rule(
 			'^' . preg_quote( $a, '/' ) . '/explore/?$',
-			'index.php?pagename=' . $a . '&bn_activity_action=explore',
+			'index.php?bn_hub=feed&bn_activity_action=explore',
 			'top'
 		);
 		add_rewrite_rule(
 			'^' . preg_quote( $a, '/' ) . '/hashtag/([^/]+)/?$',
-			'index.php?pagename=' . $a . '&bn_activity_action=hashtag&bn_hashtag=$matches[1]',
+			'index.php?bn_hub=feed&bn_activity_action=hashtag&bn_hashtag=$matches[1]',
 			'top'
 		);
 		add_rewrite_rule(
 			'^' . preg_quote( $a, '/' ) . '/search/?$',
-			'index.php?pagename=' . $a . '&bn_activity_action=search',
+			'index.php?bn_hub=feed&bn_activity_action=search',
 			'top'
 		);
 		add_rewrite_rule(
 			'^' . preg_quote( $a, '/' ) . '/leaderboard/?$',
-			'index.php?pagename=' . $a . '&bn_activity_action=leaderboard',
+			'index.php?bn_hub=feed&bn_activity_action=leaderboard',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $a, '/' ) . '/?$',
+			'index.php?bn_hub=feed',
 			'top'
 		);
 	}
@@ -137,34 +138,39 @@ class PageRouter {
 		$p = self::hub_slug( 'buddynext_slug_people', 'members' );
 
 		add_rewrite_rule(
-			'^' . preg_quote( $p, '/' ) . '/?$',
-			'index.php?pagename=' . $p,
-			'top'
-		);
-		add_rewrite_rule(
 			'^' . preg_quote( $p, '/' ) . '/([^/]+)/edit/?$',
-			'index.php?pagename=' . $p . '&bn_user_slug=$matches[1]&bn_profile_action=edit',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=edit',
 			'top'
 		);
 		add_rewrite_rule(
 			'^' . preg_quote( $p, '/' ) . '/([^/]+)/connections/?$',
-			'index.php?pagename=' . $p . '&bn_user_slug=$matches[1]&bn_profile_action=connections',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=connections',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/media/?$',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=media',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/badges/?$',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=badges',
 			'top'
 		);
 		add_rewrite_rule(
 			'^' . preg_quote( $p, '/' ) . '/([^/]+)/?$',
-			'index.php?pagename=' . $p . '&bn_user_slug=$matches[1]',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]',
 			'top'
 		);
-
-		// Member-type directory filter URL: /members/{type-slug}/
-		// Registered with 'bottom' priority so the user-slug rules above take precedence.
-		// The set_hub_vars() callback only stores bn_member_type when no user was resolved,
-		// preventing type slugs from incorrectly matching as user profile URLs.
 		add_rewrite_rule(
 			'^' . preg_quote( $p, '/' ) . '/([a-z0-9-]+)/?$',
-			'index.php?pagename=' . $p . '&bn_member_type=$matches[1]',
+			'index.php?bn_hub=people&bn_member_type=$matches[1]',
 			'bottom'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/?$',
+			'index.php?bn_hub=people',
+			'top'
 		);
 	}
 
@@ -177,33 +183,33 @@ class PageRouter {
 		$s = self::hub_slug( 'buddynext_slug_spaces', 'spaces' );
 
 		add_rewrite_rule(
-			'^' . preg_quote( $s, '/' ) . '/?$',
-			'index.php?pagename=' . $s,
-			'top'
-		);
-		add_rewrite_rule(
 			'^' . preg_quote( $s, '/' ) . '/([^/]+)/members/?$',
-			'index.php?pagename=' . $s . '&bn_space_slug=$matches[1]&bn_space_action=members',
+			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=members',
 			'top'
 		);
 		add_rewrite_rule(
 			'^' . preg_quote( $s, '/' ) . '/([^/]+)/settings/?$',
-			'index.php?pagename=' . $s . '&bn_space_slug=$matches[1]&bn_space_action=settings',
+			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=settings',
 			'top'
 		);
 		add_rewrite_rule(
 			'^' . preg_quote( $s, '/' ) . '/([^/]+)/moderation/?$',
-			'index.php?pagename=' . $s . '&bn_space_slug=$matches[1]&bn_space_action=moderation',
+			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=moderation',
 			'top'
 		);
 		add_rewrite_rule(
 			'^' . preg_quote( $s, '/' ) . '/([^/]+)/admin/?$',
-			'index.php?pagename=' . $s . '&bn_space_slug=$matches[1]&bn_space_action=admin',
+			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]&bn_space_action=admin',
 			'top'
 		);
 		add_rewrite_rule(
 			'^' . preg_quote( $s, '/' ) . '/([^/]+)/?$',
-			'index.php?pagename=' . $s . '&bn_space_slug=$matches[1]',
+			'index.php?bn_hub=spaces&bn_space_slug=$matches[1]',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $s, '/' ) . '/?$',
+			'index.php?bn_hub=spaces',
 			'top'
 		);
 	}
@@ -217,18 +223,18 @@ class PageRouter {
 		$m = self::hub_slug( 'buddynext_slug_messages', 'messages' );
 
 		add_rewrite_rule(
-			'^' . preg_quote( $m, '/' ) . '/?$',
-			'index.php?pagename=' . $m,
-			'top'
-		);
-		add_rewrite_rule(
 			'^' . preg_quote( $m, '/' ) . '/requests/?$',
-			'index.php?pagename=' . $m . '&bn_msg_action=requests',
+			'index.php?bn_hub=messages&bn_msg_action=requests',
 			'top'
 		);
 		add_rewrite_rule(
 			'^' . preg_quote( $m, '/' ) . '/([0-9]+)/?$',
-			'index.php?pagename=' . $m . '&bn_conv_id=$matches[1]',
+			'index.php?bn_hub=messages&bn_conv_id=$matches[1]',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $m, '/' ) . '/?$',
+			'index.php?bn_hub=messages',
 			'top'
 		);
 	}
@@ -243,7 +249,7 @@ class PageRouter {
 
 		add_rewrite_rule(
 			'^' . preg_quote( $n, '/' ) . '/?$',
-			'index.php?pagename=' . $n,
+			'index.php?bn_hub=notifications',
 			'top'
 		);
 	}
@@ -260,7 +266,7 @@ class PageRouter {
 
 		add_rewrite_rule(
 			'^' . preg_quote( $a, '/' ) . '/?$',
-			'index.php?pagename=' . $a,
+			'index.php?bn_hub=auth',
 			'top'
 		);
 	}
@@ -313,6 +319,17 @@ class PageRouter {
 	 */
 	public function flush_on_slug_change(): void {
 		flush_rewrite_rules();
+	}
+
+	/**
+	 * Return true when the current request is a BuddyNext hub route.
+	 *
+	 * Safe to call from any hook after parse_request.
+	 *
+	 * @return bool
+	 */
+	public static function is_bn_route(): bool {
+		return '' !== (string) get_query_var( 'bn_hub', '' );
 	}
 
 	// ── Static URL builders ───────────────────────────────────────────────────
