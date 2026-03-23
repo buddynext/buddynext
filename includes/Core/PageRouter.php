@@ -162,6 +162,10 @@ class PageRouter {
 			'index.php?bn_hub=people&bn_user_slug=$matches[1]',
 			'top'
 		);
+		// Member-type directory filter URL: /members/{type-slug}/
+		// Registered with 'bottom' priority so the user-slug rules above take precedence.
+		// The set_hub_vars() callback only stores bn_member_type when no user was resolved,
+		// preventing type slugs from incorrectly matching as user profile URLs.
 		add_rewrite_rule(
 			'^' . preg_quote( $p, '/' ) . '/([a-z0-9-]+)/?$',
 			'index.php?bn_hub=people&bn_member_type=$matches[1]',

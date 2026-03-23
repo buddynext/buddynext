@@ -43,6 +43,17 @@ class PageRouterTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * Reset permalink structure after each test to avoid cross-test pollution.
+	 *
+	 * @return void
+	 */
+	public function tear_down(): void {
+		global $wp_rewrite;
+		$wp_rewrite->set_permalink_structure( '' );
+		parent::tear_down();
+	}
+
+	/**
 	 * Activity hub base rule must target bn_hub=feed, never pagename.
 	 *
 	 * @return void
