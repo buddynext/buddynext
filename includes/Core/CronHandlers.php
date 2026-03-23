@@ -223,24 +223,28 @@ class CronHandlers {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// bn_reactions uses object_type + object_id (not post_id).
 		$wpdb->query(
 			"UPDATE {$wpdb->prefix}bn_posts p
 			 INNER JOIN (
-			     SELECT post_id, COUNT(*) AS cnt
+			     SELECT object_id, COUNT(*) AS cnt
 			       FROM {$wpdb->prefix}bn_reactions
-			      GROUP BY post_id
-			 ) r ON r.post_id = p.id
+			      WHERE object_type = 'post'
+			      GROUP BY object_id
+			 ) r ON r.object_id = p.id
 			 SET p.reaction_count = r.cnt"
 		);
 
+		// bn_comments uses object_type + object_id (not post_id).
 		$wpdb->query(
 			"UPDATE {$wpdb->prefix}bn_posts p
 			 INNER JOIN (
-			     SELECT post_id, COUNT(*) AS cnt
+			     SELECT object_id, COUNT(*) AS cnt
 			       FROM {$wpdb->prefix}bn_comments
 			      WHERE is_deleted = 0
-			      GROUP BY post_id
-			 ) c ON c.post_id = p.id
+			        AND object_type = 'post'
+			      GROUP BY object_id
+			 ) c ON c.object_id = p.id
 			 SET p.comment_count = c.cnt"
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared

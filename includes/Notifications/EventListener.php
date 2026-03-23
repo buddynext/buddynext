@@ -790,7 +790,7 @@ class EventListener {
 			array(
 				'recipient_id' => $user_id,
 				'sender_id'    => null,
-				'type'         => 'user_unsuspended',
+				'type'         => 'bn.user_unsuspended',
 				'object_type'  => 'user',
 				'object_id'    => $user_id,
 				'group_key'    => null,
