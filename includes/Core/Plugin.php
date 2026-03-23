@@ -37,7 +37,9 @@ use BuddyNext\Feed\SafeguardService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Blocks\BlockRegistrar;
 use BuddyNext\Bridges\CareerBoard as CareerBoardBridge;
+use BuddyNext\Bridges\GamificationBridgeListener;
 use BuddyNext\Bridges\Jetonomy as JetonomyBridge;
+use BuddyNext\Bridges\JetonomyBridgeListener;
 use BuddyNext\Bridges\WBGamification as WBGamificationBridge;
 use BuddyNext\Bridges\WPMediaVerse as WPMediaVerseBridge;
 use BuddyNext\Comments\CommentService;
@@ -248,6 +250,11 @@ class Plugin {
 				( new WBGamificationBridge() )->init();
 				( new JetonomyBridge() )->init();
 				( new CareerBoardBridge() )->init();
+
+				// Bridge-specific notification listeners — each guards via class_exists
+				// internally and bails when the paired plugin is not active.
+				( new GamificationBridgeListener() )->register();
+				( new JetonomyBridgeListener() )->register();
 			}
 		);
 
