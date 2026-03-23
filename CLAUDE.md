@@ -604,3 +604,7 @@ A phase is Done when ALL of:
 | 2026-03-23 | 11 | fix | BlockRegistrar::render_profile_header(): pass show_stats + show_actions to template |
 | 2026-03-23 | 11 | fix | templates/blocks/profile-header.php: guard stats + actions sections with $show_stats / $show_actions flags |
 | 2026-03-23 | 11 | feature | assets/js/blocks.js: added buddynext/post-card store (reactions, bookmark, content-warning) + buddynext/post-composer store (submit, privacy, onInput) |
+| 2026-03-23 | 11 | fix | buddynext.php: buddynext_get_template() guards did_action('buddynext_loaded') — returns placeholder instead of throwing if container not yet booted |
+| 2026-03-23 | 11 | fix | BlockRegistrar.php: pre-registers buddynext-blocks-editor handle with wp-server-side-render dep before register_block_type() calls; adds phpcs:disable filename comment |
+| 2026-03-23 | 11 | fix | blocks.js: ssrEdit() resolves ServerSideRender defensively at call time, falls back to static placeholder if undefined — prevents React Error #130 |
+| 2026-03-23 | 11 | fix | All 17 block.json: editorScript changed from file path to named handle buddynext-blocks-editor to pick up declared dependencies |
