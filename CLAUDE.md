@@ -662,3 +662,5 @@ A phase is Done when ALL of:
 | 2026-03-24 | — | fix | templates/onboarding/index.php: $all_interests restructured to icon/label pairs; step headers &#128100; etc. replaced with buddynext_icon() calls; .bn-ob-step-icon CSS updated for SVG sizing |
 | 2026-03-24 | — | docs | CLAUDE.md: added rule §5 "No Emoji — Ever" with icon system usage guide |
 | 2026-03-24 | 8 | refactor | ModerationListener: extracted 10 moderation hooks from Notifications/EventListener into dedicated Moderation/ModerationListener (implements ListenerInterface) — strikes, suspensions, appeals, shadow bans, daily queue cron; wired in Plugin::init() |
+| 2026-03-24 | 1 | refactor | OutboundWebhookListener: extracted 14 on_webhook_* handlers from Notifications/EventListener into dedicated Outbound/OutboundWebhookListener (implements ListenerInterface); wired in Plugin::init() alongside OutboundWebhookService::init() |
+| 2026-03-24 | 11 | refactor | OnboardingListener: extracted 4 onboarding hooks + 3 handler methods from Notifications/EventListener into dedicated Onboarding/OnboardingListener (implements ListenerInterface); wired in Plugin::init() |
