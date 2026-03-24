@@ -85,17 +85,34 @@ class TokenService {
 			// ── Typography ─────────────────────────────────────────────────────
 			'--font-body'       => "var(--wp--preset--font-family--body, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif)",
 			'--font-display'    => "var(--wp--preset--font-family--display, 'Plus Jakarta Sans', 'Inter', sans-serif)",
+			'--text-2xs'        => 'var(--wp--preset--font-size--2xs, 9px)',
 			'--text-xs'         => 'var(--wp--preset--font-size--xs, 11px)',
 			'--text-sm'         => 'var(--wp--preset--font-size--sm, 13px)',
+			'--text-md'         => 'var(--wp--preset--font-size--md, 14px)',
 			'--text-base'       => 'var(--wp--preset--font-size--medium, 15px)',
 			'--text-lg'         => 'var(--wp--preset--font-size--large, 17px)',
 			'--text-xl'         => 'var(--wp--preset--font-size--xl, 20px)',
 			'--text-2xl'        => 'var(--wp--preset--font-size--2xl, 24px)',
 			'--text-3xl'        => 'var(--wp--preset--font-size--3xl, 30px)',
 			'--text-4xl'        => 'var(--wp--preset--font-size--4xl, 38px)',
-			'--leading-tight'   => '1.25',
+			'--text-5xl'        => 'var(--wp--preset--font-size--5xl, 48px)',
+			'--leading-tight'   => '1.2',
+			'--leading-snug'    => '1.35',
 			'--leading-normal'  => '1.5',
 			'--leading-body'    => '1.7',
+
+			// ── Font weight ────────────────────────────────────────────────────────
+			'--fw-normal'       => '400',
+			'--fw-medium'       => '500',
+			'--fw-semibold'     => '600',
+			'--fw-bold'         => '700',
+			'--fw-extrabold'    => '800',
+
+			// ── Letter spacing ─────────────────────────────────────────────────────
+			'--ls-tight'        => '-0.02em',
+			'--ls-normal'       => '0em',
+			'--ls-wide'         => '0.04em',
+			'--ls-wider'        => '0.08em',
 
 			// ── Spacing — 4 px grid ────────────────────────────────────────────
 			'--s1'              => '4px',
@@ -107,6 +124,8 @@ class TokenService {
 			'--s8'              => '32px',
 			'--s10'             => '40px',
 			'--s12'             => '48px',
+			'--s14'             => '56px',
+			'--s16'             => '64px',
 
 			// ── Border radius ──────────────────────────────────────────────────
 			'--r-sm'            => '4px',

@@ -85,14 +85,24 @@
         }
       ],
       "fontSizes": [
-        { "slug": "xs",   "size": "11px", "name": "BuddyNext XS" },
-        { "slug": "sm",   "size": "13px", "name": "BuddyNext SM" },
+        { "slug": "2xs",    "size": "9px",  "name": "BuddyNext 2XS" },
+        { "slug": "xs",     "size": "11px", "name": "BuddyNext XS" },
+        { "slug": "sm",     "size": "13px", "name": "BuddyNext SM" },
+        { "slug": "md",     "size": "14px", "name": "BuddyNext MD" },
         { "slug": "medium", "size": "15px", "name": "BuddyNext Base" },
         { "slug": "large",  "size": "17px", "name": "BuddyNext LG" },
-        { "slug": "xl",   "size": "20px", "name": "BuddyNext XL" },
-        { "slug": "2xl",  "size": "24px", "name": "BuddyNext 2XL" },
-        { "slug": "3xl",  "size": "30px", "name": "BuddyNext 3XL" },
-        { "slug": "4xl",  "size": "38px", "name": "BuddyNext 4XL" }
+        { "slug": "xl",     "size": "20px", "name": "BuddyNext XL" },
+        { "slug": "2xl",    "size": "24px", "name": "BuddyNext 2XL" },
+        { "slug": "3xl",    "size": "30px", "name": "BuddyNext 3XL" },
+        { "slug": "4xl",    "size": "38px", "name": "BuddyNext 4XL" },
+        { "slug": "5xl",    "size": "48px", "name": "BuddyNext 5XL" }
+      ],
+      "fontWeights": [
+        { "slug": "normal",    "weight": "400", "name": "Normal" },
+        { "slug": "medium",    "weight": "500", "name": "Medium" },
+        { "slug": "semibold",  "weight": "600", "name": "Semibold" },
+        { "slug": "bold",      "weight": "700", "name": "Bold" },
+        { "slug": "extrabold", "weight": "800", "name": "Extra Bold" }
       ]
     },
     "spacing": {
@@ -105,7 +115,9 @@
         { "slug": "60",  "size": "24px", "name": "BuddyNext Space 6" },
         { "slug": "80",  "size": "32px", "name": "BuddyNext Space 8" },
         { "slug": "100", "size": "40px", "name": "BuddyNext Space 10" },
-        { "slug": "120", "size": "48px", "name": "BuddyNext Space 12" }
+        { "slug": "120", "size": "48px", "name": "BuddyNext Space 12" },
+        { "slug": "140", "size": "56px", "name": "BuddyNext Space 14" },
+        { "slug": "160", "size": "64px", "name": "BuddyNext Space 16" }
       ]
     },
     "custom": {
