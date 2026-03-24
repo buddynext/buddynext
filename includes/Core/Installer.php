@@ -37,7 +37,7 @@ class Installer {
 		// Suppress echo of DB errors during schema creation so that WP-CLI
 		// and browser activation do not see unexpected HTML output from dbDelta.
 		$wpdb->suppress_errors( true );
-		foreach ( static::schema( $wpdb->prefix, $charset ) as $sql ) {
+		foreach ( self::schema( $wpdb->prefix, $charset ) as $sql ) {
 			dbDelta( $sql );
 		}
 		$wpdb->suppress_errors( false );
@@ -48,14 +48,14 @@ class Installer {
 		$wpdb->query( "ALTER TABLE {$wpdb->prefix}bn_search_index ADD FULLTEXT KEY ft_search (title, content)" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		$wpdb->suppress_errors( false );
 
-		static::maybe_alter_tables( $wpdb->prefix );
-		static::seed_email_templates( $wpdb->prefix );
-		static::seed_default_profile_groups_and_fields( $wpdb->prefix );
+		self::maybe_alter_tables( $wpdb->prefix );
+		self::seed_email_templates( $wpdb->prefix );
+		self::seed_default_profile_groups_and_fields( $wpdb->prefix );
 
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
 
-		static::create_hub_pages();
-		static::install_mu_plugin();
+		self::create_hub_pages();
+		self::install_mu_plugin();
 
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
 	}
@@ -1264,7 +1264,7 @@ MUPLUGIN;
 				)
 			);
 
-			if ( ! is_wp_error( $page_id ) && $page_id > 0 ) {
+			if ( $page_id > 0 ) {
 				update_option( $hub['option_page'], $page_id );
 				update_option( $hub['option_slug'], $slug );
 			}

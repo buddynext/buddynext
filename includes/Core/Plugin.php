@@ -100,14 +100,14 @@ class Plugin {
 	 * Called via add_action( 'plugins_loaded', ..., 15 ) in buddynext.php.
 	 */
 	public static function init(): void {
-		if ( static::$booted ) {
+		if ( self::$booted ) {
 			return;
 		}
 
-		static::$booted = true;
+		self::$booted = true;
 
 		$container = Container::instance();
-		static::register_services( $container );
+		self::register_services( $container );
 
 		if ( is_admin() ) {
 			$container->get( 'admin_settings' )->register();
@@ -161,7 +161,7 @@ class Plugin {
 		}
 
 		// Override get_avatar_url() with the user's custom BuddyNext avatar when set.
-		add_filter( 'pre_get_avatar_data', array( new static(), 'filter_avatar_data' ), 10, 2 );
+		add_filter( 'pre_get_avatar_data', array( new self(), 'filter_avatar_data' ), 10, 2 );
 
 		// Register and enqueue frontend assets.
 		$container->get( 'assets' )->init();
@@ -226,7 +226,7 @@ class Plugin {
 		add_action( 'buddynext_reindex_all_cron', array( SearchService::class, 'reindex_all_cron' ) );
 
 		// Register navigation menu locations.
-		add_action( 'after_setup_theme', array( new static(), 'register_nav_menus' ) );
+		add_action( 'after_setup_theme', array( new self(), 'register_nav_menus' ) );
 
 		// Boot first-party bridges at plugins_loaded:25 so they fire after both
 		// BuddyNext (priority 15) and Pro plugins like Jetonomy Pro / WPMediaVerse Pro
@@ -444,7 +444,7 @@ class Plugin {
 		$container->bind( 'avatars', fn() => new AvatarService() );
 		$container->bind( 'search', fn() => new SearchService() );
 		$container->bind( 'search_index_listener', fn() => new SearchIndexListener() );
-		$container->bind( 'member_directory', fn( $c ) => new MemberDirectoryService( $c->get( 'follows' ) ) );
+		$container->bind( 'member_directory', fn() => new MemberDirectoryService() );
 		$container->bind( 'spaces', fn() => new SpaceService() );
 		$container->bind( 'space_members', fn() => new SpaceMemberService() );
 		$container->bind( 'notifications', fn() => new NotificationService() );

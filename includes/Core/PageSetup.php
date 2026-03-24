@@ -145,7 +145,7 @@ class PageSetup {
 			)
 		);
 
-		if ( ! is_wp_error( $new_id ) && $new_id > 0 ) {
+		if ( $new_id > 0 ) {
 			update_option( $option_key, $new_id );
 		}
 	}

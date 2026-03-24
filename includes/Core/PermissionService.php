@@ -135,7 +135,7 @@ class PermissionService {
 			return false;
 		}
 
-		$req_level = self::ROLE_HIERARCHY[ $required ] ?? 1;
+		$req_level = self::ROLE_HIERARCHY[ $required ];
 
 		// Space-scoped check: when a space_id is in context, resolve the user's
 		// role within that specific space from bn_space_members.
@@ -241,30 +241,6 @@ class PermissionService {
 
 		// Row exists: allow only when scoped_mod = 1 and space_id matches.
 		return ( 1 === (int) $row['scoped_mod'] && (int) $row['space_id'] === $space_id );
-	}
-
-	/**
-	 * Check if user has an active role of 'owner' or 'moderator' in a specific space.
-	 *
-	 * @param int $user_id  WordPress user ID.
-	 * @param int $space_id Space ID.
-	 * @return bool
-	 */
-	private function is_space_mod( int $user_id, int $space_id ): bool {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$role = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT role FROM {$wpdb->prefix}bn_space_members
-				 WHERE user_id = %d AND space_id = %d AND status = 'active'
-				 LIMIT 1",
-				$user_id,
-				$space_id
-			)
-		);
-
-		return in_array( $role, array( 'owner', 'moderator' ), true );
 	}
 
 	/**

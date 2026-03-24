@@ -7,3 +7,5 @@ parameters:
         - includes
     bootstrapFiles:
         - vendor/szepeviktor/phpstan-wordpress/bootstrap.php
+        - phpstan-bootstrap.php
+    treatPhpDocTypesAsCertain: false

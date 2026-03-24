@@ -143,7 +143,7 @@ class AssetService {
 			wp_register_script_module(
 				$id,
 				$this->assets_url . 'js/' . $path . '.js',
-				array( '@wordpress/interactivity' ),
+				array( array( 'id' => '@wordpress/interactivity' ) ),
 				$v
 			);
 		}

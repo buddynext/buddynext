@@ -21,7 +21,7 @@ class Container {
 	/**
 	 * Singleton instance.
 	 *
-	 * @var static|null
+	 * @var self|null
 	 */
 	private static ?self $instance = null;
 
@@ -46,13 +46,15 @@ class Container {
 
 	/**
 	 * Return the shared container instance.
+	 *
+	 * @return self
 	 */
-	public static function instance(): static {
-		if ( null === static::$instance ) {
-			static::$instance = new static();
+	public static function instance(): self {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
 		}
 
-		return static::$instance;
+		return self::$instance;
 	}
 
 	/**

@@ -884,7 +884,7 @@ class PageRouter {
 	/**
 	 * Return the canonical URL for a single space.
 	 *
-	 * Queries the bn_spaces table for the space's post_name (slug) by ID.
+	 * Queries the bn_spaces table for the space's slug by ID.
 	 *
 	 * @param int $space_id Space primary key.
 	 * @return string Absolute URL, or spaces hub URL when space not found.
@@ -897,19 +897,19 @@ class PageRouter {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$post_name = $wpdb->get_var(
+		$slug = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT post_name FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT slug FROM {$wpdb->prefix}bn_spaces WHERE id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$space_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( null === $post_name || '' === (string) $post_name ) {
+		if ( null === $slug || '' === (string) $slug ) {
 			return self::spaces_url();
 		}
 
-		return self::spaces_url() . rawurlencode( (string) $post_name ) . '/';
+		return self::spaces_url() . rawurlencode( (string) $slug ) . '/';
 	}
 
 	/**
@@ -1043,7 +1043,7 @@ class PageRouter {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$space_id = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE post_name = %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT id FROM {$wpdb->prefix}bn_spaces WHERE slug = %s LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$slug
 			)
 		);
