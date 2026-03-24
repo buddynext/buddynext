@@ -220,7 +220,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 ?>
 <?php
 $bn_nav_active = 'messages';
-require __DIR__ . '/../partials/nav.php';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <div
 	class="bn-messages-thread-shell"

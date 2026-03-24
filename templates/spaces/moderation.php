@@ -228,6 +228,8 @@ $mod_base_url = buddynext_space_moderation_url( $space->slug ?? '' );
 $member_fmt   = number_format_i18n( (int) $space->member_count );
 $current_uid  = get_current_user_id();
 
+$bn_nav_active = 'spaces';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 <?php /* phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- inline CSS token block */ ?>

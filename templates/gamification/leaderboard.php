@@ -246,6 +246,9 @@ $medal_icons = array(
 $next_milestone_pts  = $current_user_pts > 0 ? (int) ( ceil( ( $current_user_pts + 1 ) / 100 ) * 100 ) : 100;
 $milestone_progress  = $next_milestone_pts > 0 ? min( 100, (int) ( ( $current_user_pts % 100 ) ) ) : 0;
 $milestone_remaining = $next_milestone_pts - $current_user_pts;
+
+$bn_nav_active = 'feed';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 /* ── Design tokens ── */

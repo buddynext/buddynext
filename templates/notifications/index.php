@@ -327,7 +327,7 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 ?>
 <?php
 $bn_nav_active = 'notifications';
-require __DIR__ . '/../partials/nav.php';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 /* ── Design tokens ── */

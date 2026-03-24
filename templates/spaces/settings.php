@@ -279,6 +279,8 @@ $space_members = $wpdb->get_results(
 $space_url     = buddynext_space_url( $space->slug ?? '' );
 $settings_base = buddynext_space_settings_url( $space->slug ?? '' );
 
+$bn_nav_active = 'spaces';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 <?php /* phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- inline CSS token block */ ?>

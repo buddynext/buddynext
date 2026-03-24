@@ -215,7 +215,7 @@ $rest_url     = esc_url( rest_url( 'buddynext/v1/members' ) );
 ?>
 <?php
 $bn_nav_active = 'members';
-require __DIR__ . '/../partials/nav.php';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <div
 	class="bn-member-directory"

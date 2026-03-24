@@ -220,6 +220,8 @@ $privacy_label = match ( $space->type ) {
 
 $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 
+$bn_nav_active = 'spaces';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 <?php /* phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- inline CSS token block */ ?>
@@ -794,7 +796,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 								placeholder="
 								<?php
 								// translators: %s is the space name.
-								echo esc_attr( sprintf( __( 'Share something with %s\u{2026}', 'buddynext' ), $space->name ) );
+								echo esc_attr( sprintf( __( 'Share something with %s...', 'buddynext' ), $space->name ) );
 								?>
 								"
 								data-wp-on--focus="actions.openComposer"

@@ -240,6 +240,8 @@ $posts_pct = $posts_yesterday > 0
 	? (int) round( ( ( $posts_today - $posts_yesterday ) / $posts_yesterday ) * 100 )
 	: 0;
 
+$bn_nav_active = '';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 <?php /* phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- inline CSS token block */ ?>

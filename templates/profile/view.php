@@ -283,7 +283,7 @@ $format_count = static function ( int $n ): string {
 ?>
 <?php
 $bn_nav_active = '';
-require __DIR__ . '/../partials/nav.php';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 	include __DIR__ . '/../partials/profile-actions.php';
 }

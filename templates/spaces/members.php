@@ -135,6 +135,9 @@ if ( ! function_exists( 'bn_space_role_label' ) ) {
 		return $labels[ $role ] ?? ucfirst( $role );
 	}
 }
+
+$bn_nav_active = 'spaces';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 /* ── BuddyNext design tokens ── */

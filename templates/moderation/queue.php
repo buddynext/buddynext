@@ -260,6 +260,9 @@ $avatar_color   = static function ( int $uid ) use ( $avatar_palette ): string {
 };
 
 $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
+
+$bn_nav_active = '';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 /* ── Design tokens ── */

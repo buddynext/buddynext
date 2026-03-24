@@ -183,6 +183,9 @@ function bn_tag_linkify( string $content ): string {
 		$content
 	) ?? $content;
 }
+
+$bn_nav_active = 'feed';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 /* ── BuddyNext design tokens ── */

@@ -188,6 +188,9 @@ $highlight = static function ( string $text, string $query ): string {
 
 $current_user_id = get_current_user_id();
 $search_url_base = esc_url( remove_query_arg( array( 'q', 'type', 'date', 'sort' ) ) );
+
+$bn_nav_active = 'feed';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 /* ── Design tokens ── */

@@ -199,7 +199,7 @@ function bn_space_category_icon( ?string $cat_slug ): string {
 }
 
 $bn_nav_active = 'spaces';
-require __DIR__ . '/../partials/nav.php';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 <?php /* phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- inline CSS block, no user data */ ?>

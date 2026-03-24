@@ -107,6 +107,9 @@ if ( ! function_exists( 'bn_connections_initials' ) ) {
 		return strtoupper( substr( $name, 0, 2 ) );
 	}
 }
+
+$bn_nav_active = '';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 /* ── BuddyNext design tokens ── */

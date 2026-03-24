@@ -139,7 +139,7 @@ $rest_nonce = wp_create_nonce( 'wp_rest' );
 ?>
 <?php
 $bn_nav_active = '';
-require __DIR__ . '/../partials/nav.php';
+buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <style>
 /* ── Design tokens ─────────────────────────────────────────────────────── */
