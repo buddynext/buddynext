@@ -764,7 +764,7 @@ class NavManager extends AdminPageBase {
 	// ── Render: collapsed section placeholder ─────────────────────────────────
 
 	/**
-	 * Render a collapsed (stub) section card for future scopes.
+	 * Render a collapsed section card for future nav scopes (e.g. member-type scoped tabs).
 	 *
 	 * @param string $title   Section title.
 	 * @param string $summary One-line summary shown in collapsed state.

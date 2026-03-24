@@ -223,8 +223,8 @@ $event_labels = array(
 	),
 );
 
-// Determine rank change (stub: compare to last-period snapshot if available).
-// WBGamification may store a rank_snapshot; fall back to 0 if not available.
+// Determine rank change — WBGamification does not currently expose a rank_snapshot API.
+// Default to 0 (no change) until the bridge data source is available.
 $rank_changes = array();
 foreach ( $leaderboard as $idx => $entry ) {
 	$rank_changes[ (int) $entry->user_id ] = 0;
