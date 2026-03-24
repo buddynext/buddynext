@@ -1,8 +1,8 @@
 # BuddyNext — Master Development Plan
 
 **Created:** 2026-03-21
-**Updated:** 2026-03-23
-**Status:** Pass 1 Integration Test complete — all 18 tasks verified (verified 2026-03-23)
+**Updated:** 2026-03-24
+**Status:** Phase 13 — Unified Platform in progress. Messages shell wrap done. All prior phases verified 2026-03-23.
 **Scope:** BuddyNext Free + Pro
 
 ---
@@ -161,6 +161,7 @@ Verify at desktop (1280px) and mobile (390px).
 | 11 | Gutenberg Blocks + Onboarding | ✅ Verified 2026-03-23 | 1–5 |
 | 12 | Theme Integration | ✅ Verified 2026-03-23 | 1 |
 | 16 | Admin Panel | ✅ Verified 2026-03-23 | 1–8 |
+| 13 | Unified Platform (BuddyNext as Master) | 🔲 In Progress | 10, 12 |
 
 **Legend:** ✅ Done · ⚠️ Partial (gaps listed below in each phase) · 🔲 Not done
 
@@ -1008,6 +1009,183 @@ All 44 screen mockups in: `.superpowers/brainstorm/14544-1773947712/`
 
 ---
 
+## Phase 13 — Unified Platform (BuddyNext as Master)
+
+**Status:** In Progress
+**Created:** 2026-03-24
+**Principle:** BuddyNext is the boss. WPMediaVerse and Jetonomy are native sections of BuddyNext — not standalone plugins with their own chrome. Every community page renders inside BuddyNext's hub shell with the unified nav and community sidebar.
+
+### Architecture
+
+```
+┌─────────────────── BuddyNext Hub Shell (1100px grid: 1fr + 300px) ──────────────┐
+│                                                                                    │
+│  ┌── Content Area (1fr) ──────────────────────────┐  ┌── Community Sidebar ──────┐ │
+│  │                                                 │  │ Trending Topics           │ │
+│  │  BuddyNext pages: Feed, Members, Spaces,       │  │ People to Follow          │ │
+│  │    Notifications, Community Admin               │  │ Your Spaces               │ │
+│  │                                                 │  │                           │ │
+│  │  WPMediaVerse pages: Media Explore, Dashboard,  │  │ (shared across ALL pages) │ │
+│  │    Single Media, Albums, Collections            │  │                           │ │
+│  │                                                 │  │                           │ │
+│  │  Jetonomy pages: Forum Listing, Thread,         │  │                           │ │
+│  │    Category, User Topics                        │  │                           │ │
+│  │                                                 │  │                           │ │
+│  │  WPMediaVerse DM: Chat List + Thread ✅ DONE    │  │                           │ │
+│  └─────────────────────────────────────────────────┘  └───────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### URL Map (target state)
+
+| URL | Plugin | Content inside BuddyNext shell |
+|-----|--------|-------------------------------|
+| `/activity/` | BuddyNext | Home feed (includes media + forum activity) |
+| `/activity/explore/` | BuddyNext | Explore feed |
+| `/members/` | BuddyNext | Member directory |
+| `/members/{slug}/` | BuddyNext | Unified profile (posts + media gallery + forum tab) |
+| `/spaces/` | BuddyNext | Spaces directory |
+| `/spaces/{slug}/` | BuddyNext | Space home (feed + forum tab + media tab) |
+| `/media/` | WPMediaVerse | Media explore inside BN shell + sidebar |
+| `/media/my/` | WPMediaVerse | User media dashboard inside BN shell |
+| `/media/{id}/` | WPMediaVerse | Single media view inside BN shell |
+| `/media/albums/` | WPMediaVerse | Albums inside BN shell |
+| `/discussion/` | Jetonomy | Forum listing inside BN shell + sidebar |
+| `/discussion/{slug}/` | Jetonomy | Forum thread inside BN shell + sidebar |
+| `/discussion/{slug}/{topic}/` | Jetonomy | Topic/thread inside BN shell |
+| `/messages/` | WPMediaVerse engine | Two-pane chat inside BN shell ✅ DONE |
+| `/notifications/` | BuddyNext | All notifications (from all 3 plugins) |
+
+### Integration Layers
+
+**Layer 1 — Shell Wrapping (BN hub shell + sidebar on every page)**
+
+Each plugin fires `before_content` / `after_content` actions. BuddyNext bridges hook them to inject the hub shell.
+
+| Plugin | Hook | Bridge method |
+|--------|------|---------------|
+| WPMediaVerse | `mvs_before_content` | Opens `<div class="bn-hub-shell"><div class="bn-mvs-content">` |
+| WPMediaVerse | `mvs_after_content` | Closes content div + renders sidebar + closes hub shell |
+| Jetonomy | `jetonomy_before_content` | Opens `<div class="bn-hub-shell"><div class="bn-jt-content">` |
+| Jetonomy | `jetonomy_after_content` | Closes content div + renders sidebar + closes hub shell |
+| Messages | `buddynext_render_messages` | ✅ DONE — two-pane chat + sidebar |
+
+- [ ] **WPMediaVerseBridge shell wrap** — hook `mvs_before_content` / `mvs_after_content` to wrap all MVS pages in BN hub shell + sidebar
+- [ ] **JetonomyBridge shell wrap** — hook `jetonomy_before_content` / `jetonomy_after_content` to wrap all JT pages in BN hub shell + sidebar
+- [ ] **Verify `mvs_before_content` fires on all MVS templates** — check explore, dashboard, media-single, album, collection, profile-edit
+- [ ] **Verify `jetonomy_before_content` fires on all JT templates** — check community listing, topic, category, user-topics
+
+**Layer 2 — Profile Unification (one profile shows everything)**
+
+User profile at `/members/{slug}/` should have tabs for all content types:
+
+| Tab | Source | Status |
+|-----|--------|--------|
+| Posts | BuddyNext `bn_posts` | ✅ Exists |
+| Media | WPMediaVerse `mvs_media` where author = user | New |
+| Discussions | Jetonomy topics where author = user | New |
+| Connections | BuddyNext `bn_connections` | ✅ Exists |
+| Badges | WBGamification via bridge | Exists (bridge done) |
+
+- [ ] **Profile media tab** — WPMediaVerseBridge renders media grid on profile view via `buddynext_profile_tabs` filter
+- [ ] **Profile discussions tab** — JetonomyBridge renders user's forum topics on profile view via `buddynext_profile_tabs` filter
+- [ ] **Profile tab filter** — add `buddynext_profile_tabs` filter in `templates/profile/view.php` for extensible tab system
+
+**Layer 3 — Feed Unification (all activity in one stream)**
+
+Home feed at `/activity/` should show activity from all 3 plugins:
+
+| Content type | Source | Feed entry type | Status |
+|---|---|---|---|
+| Text/poll/link posts | BuddyNext | `text`, `poll`, `link` | ✅ |
+| Media uploads | WPMediaVerse | `media_share` | Opt-in via bridge |
+| Forum posts/replies | Jetonomy | `forum_post` | Opt-in via bridge (buddynext_jetonomy_feed_sync) |
+| Job listings | Career Board | `job_post` | ✅ via bridge |
+| Shared posts | BuddyNext | `share` | ✅ |
+
+- [ ] **WPMediaVerse feed sync** — media uploads create `bn_posts` entries (type: `media_share`) with thumbnail + link
+- [ ] **Feed card rendering** — `partials/post-card.php` renders `media_share` and `forum_post` types with appropriate previews
+- [ ] **Admin toggle** — Settings page toggle for each feed sync source (media, discussions, jobs)
+
+**Layer 4 — Search Unification (one search, all content)**
+
+Search at `/activity/search/` already queries `bn_search_index`. Bridges index their content there:
+
+| Content | Indexed by | Status |
+|---|---|---|
+| BuddyNext posts | SearchIndexListener | ✅ |
+| Users | SearchIndexListener | ✅ |
+| Spaces | SearchIndexListener | ✅ |
+| Jetonomy discussions | JetonomyBridge | ✅ (on post create) |
+| Career Board jobs | CareerBoardBridge | ✅ (on job create) |
+| WPMediaVerse media | WPMediaVerseBridge | New |
+
+- [ ] **Media search indexing** — WPMediaVerseBridge indexes media titles/descriptions in `bn_search_index` on `publish_mvs_media`
+- [ ] **Search results rendering** — `templates/search/results.php` renders media and discussion results with type badges
+
+**Layer 5 — Space Integration (spaces have media + forum tabs)**
+
+Spaces at `/spaces/{slug}/` should have tabs for sub-content:
+
+| Tab | Source | Status |
+|-----|--------|--------|
+| Feed | BuddyNext space posts | ✅ |
+| Forum | Jetonomy linked forum | Partially done (bridge injects tab) |
+| Media | WPMediaVerse space gallery | New |
+| Members | BuddyNext space members | ✅ |
+
+- [ ] **Space media tab** — WPMediaVerseBridge injects media gallery tab on space pages via `buddynext_space_tabs` filter
+- [ ] **Space media upload** — post composer in space supports media attachment via MVS upload
+- [ ] **Space tabs filter** — add `buddynext_space_tabs` filter in `templates/spaces/home.php`
+
+**Layer 6 — Notification Unification**
+
+All notifications from all plugins flow through BuddyNext's notification system. **Already complete** via bridges:
+
+| Source | Notification types | Status |
+|---|---|---|
+| BuddyNext | follow, connect, react, comment, mention, space_join, etc. | ✅ |
+| WPMediaVerse | new_message, media_favorited | ✅ |
+| Jetonomy | discussion_reply, mention | ✅ |
+| WBGamification | badge_awarded, level_changed | ✅ |
+| Career Board | application_received, application_status | ✅ |
+
+### Execution Priority
+
+**Wave 1 — Shell Wrapping (immediate)**
+1. WPMediaVerse shell wrap (all MVS pages inside BN hub shell + sidebar)
+2. Jetonomy shell wrap (all JT pages inside BN hub shell + sidebar)
+3. Browser-verify unified nav on all pages
+
+**Wave 2 — Profile + Space Tabs**
+4. Profile tabs filter + media tab + discussions tab
+5. Space tabs filter + media tab
+6. Browser-verify profile and space pages
+
+**Wave 3 — Feed + Search**
+7. Media feed sync (MVS uploads → bn_posts)
+8. Media search indexing
+9. Post card rendering for media_share + forum_post types
+10. Search results for all content types
+
+### Design Constraints
+
+- Hub shell is always `max-width: 1100px; grid-template-columns: 1fr 300px`
+- Content area gets `min-width: 0` to prevent overflow
+- Sidebar hidden at `≤640px` (mobile)
+- Each plugin's content area CSS uses its own prefix (`bn-mvs-content`, `bn-jt-content`)
+- Design tokens flow from BuddyNext → plugin via CSS custom properties (BLOCK DT done)
+- Dark mode controlled by BuddyNext `[data-theme="dark"]` (BLOCK DT done)
+
+### Standalone Safety
+
+Each plugin must work independently without BuddyNext:
+- WPMediaVerse: renders its own pages with `get_header()` / `get_footer()` when BuddyNext absent
+- Jetonomy: renders its own community pages with own nav when BuddyNext absent
+- All bridge hooks guarded by `class_exists()` — zero coupling when counterpart is deactivated
+
+---
+
 ## BLOCK BX — BuddyX Full-Width Canvas Integration
 
 **Goal:** All BuddyNext, Jetonomy, and WPMediaVerse pages render with the SAME visual flow: BuddyX provides a full-width canvas (no container, no sidebar), and each plugin manages its own layout, nav, and sidebar on that canvas. Navigating between any community page — /activity/, /community/, /explore/ — must feel like one seamless product.
@@ -1119,6 +1297,57 @@ All 44 screen mockups in: `.superpowers/brainstorm/14544-1773947712/`
 - [x] WPMediaVerse dark mode selector → `:root:not([data-theme="dark"])`
 - [x] Jetonomy CLAUDE.md updated
 - [x] WPMediaVerse CLAUDE.md updated
+
+---
+
+### BLOCK NAV — Unified Navigation System (BuddyNext as Master)
+
+**Goal:** One navigation bar across all three plugins. BuddyNext renders the subnav, bridges inject plugin-specific items, each plugin works standalone without fatal errors.
+
+**Architecture:**
+- BuddyNext `partials/nav.php` is the sole nav bar — renders Feed, Members, Spaces, [bridge items], Notifications, Messages
+- `buddynext_nav_items` filter allows bridges to inject items (Discussions, Media)
+- Each bridge renders BuddyNext nav on its plugin's pages via `{plugin}_before_content` hook
+- Each bridge suppresses the plugin's own nav when BuddyNext is active
+- When BuddyNext is absent, each plugin renders its own standalone nav (or none)
+
+**Nav bar order:**
+Feed | Members | Spaces | Discussions (Jetonomy) | Media (WPMediaVerse) | Notifications | Messages | Dark toggle
+
+**Files changed:**
+
+| File | Plugin | Change |
+|---|---|---|
+| `includes/Bridges/WPMediaVerseBridge.php` | BuddyNext | Added `inject_media_nav_item()` + `render_buddynext_nav_on_mvs()` |
+| `includes/Bridges/JetonomyBridge.php` | BuddyNext | Already done — `inject_discussions_nav_item()` + `render_buddynext_nav_on_jetonomy()` |
+| `templates/explore.php` | WPMediaVerse | Added `do_action('mvs_before_content')` |
+| `templates/dashboard.php` | WPMediaVerse | Added `do_action('mvs_before_content')` |
+| `templates/media-single.php` | WPMediaVerse | Added `do_action('mvs_before_content')` |
+| `templates/album.php` | WPMediaVerse | Added `do_action('mvs_before_content')` |
+| `templates/collection.php` | WPMediaVerse | Added `do_action('mvs_before_content')` |
+| `templates/profile-edit.php` | WPMediaVerse | Added `do_action('mvs_before_content')` |
+| `includes/functions.php` | Jetonomy | Added `base_url()` helper — reads `base_slug` from settings |
+| 25 template/include files | Jetonomy | Replaced hardcoded `/community` with `\Jetonomy\base_url()` |
+
+**Standalone safety:**
+
+| Scenario | Behavior |
+|---|---|
+| BuddyNext + Jetonomy + MVS | BuddyNext nav on all pages; Discussions + Media items injected |
+| BuddyNext + Jetonomy | BuddyNext nav; Discussions injected; no Media item |
+| BuddyNext + MVS | BuddyNext nav; Media injected; no Discussions item |
+| BuddyNext alone | BuddyNext nav; no extra items |
+| Jetonomy alone | Jetonomy's own nav bar (Community, Search, Leaderboard, Messages) |
+| MVS alone | No subnav (media-focused pages, no community nav needed) |
+| All plugins off | Each plugin's templates work independently |
+
+- [x] WPMediaVerse `mvs_before_content` action hook added to all 6 templates
+- [x] WPMediaVerseBridge: `inject_media_nav_item()` — SVG icon, archive URL, active via REQUEST_URI
+- [x] WPMediaVerseBridge: `render_buddynext_nav_on_mvs()` — renders `partials/nav` on MVS pages
+- [x] JetonomyBridge: active state already reads dynamic `base_slug` from settings
+- [x] Jetonomy `base_url()` helper + 30 hardcoded `/community` references replaced
+- [ ] Browser-verify: BuddyNext nav appears on MVS `/media/` page with Media item active
+- [ ] Browser-verify: BuddyNext nav appears on Jetonomy `/discussion/` with Discussions item active
 
 ### Completed Tasks
 
