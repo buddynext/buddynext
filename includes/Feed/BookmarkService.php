@@ -39,7 +39,7 @@ class BookmarkService {
 	public function bookmark( int $user_id, int $post_id ): void {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->prefix}bn_bookmarks (user_id, post_id)
@@ -48,6 +48,7 @@ class BookmarkService {
 				$post_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "bookmarks_{$user_id}", self::CACHE_GROUP );
 	}
@@ -61,7 +62,7 @@ class BookmarkService {
 	public function unbookmark( int $user_id, int $post_id ): void {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_bookmarks',
 			array(
@@ -70,6 +71,7 @@ class BookmarkService {
 			),
 			array( '%d', '%d' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "bookmarks_{$user_id}", self::CACHE_GROUP );
 	}
@@ -101,7 +103,7 @@ class BookmarkService {
 			return (array) $cached;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT post_id FROM {$wpdb->prefix}bn_bookmarks
@@ -110,6 +112,7 @@ class BookmarkService {
 				$user_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$result = array_map( 'intval', (array) $rows );
 		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );

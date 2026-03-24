@@ -34,14 +34,15 @@ class PollService {
 	public function vote( int $user_id, int $post_id, int $option_id ): true|WP_Error {
 		global $wpdb;
 
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// Verify the post is a poll.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$type = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT type FROM {$wpdb->prefix}bn_posts WHERE id = %d",
 				$post_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( 'poll' !== $type ) {
 			return new WP_Error(
@@ -50,8 +51,8 @@ class PollService {
 			);
 		}
 
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// Check for an existing vote.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$existing = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT id FROM {$wpdb->prefix}bn_poll_votes
@@ -60,6 +61,7 @@ class PollService {
 				$user_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( null !== $existing ) {
 			return new WP_Error(
@@ -68,7 +70,7 @@ class PollService {
 			);
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_poll_votes',
 			array(
@@ -80,7 +82,6 @@ class PollService {
 		);
 
 		// Increment the denormalised count on the option row.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_poll_options
@@ -89,6 +90,7 @@ class PollService {
 				$option_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return true;
 	}
@@ -102,7 +104,7 @@ class PollService {
 	public function results( int $post_id ): array {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT id, option_text, display_order, vote_count
@@ -113,6 +115,7 @@ class PollService {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map(
 			fn( $r ) => array(
@@ -135,7 +138,7 @@ class PollService {
 	public function user_vote( int $user_id, int $post_id ): ?int {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$option_id = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT option_id FROM {$wpdb->prefix}bn_poll_votes
@@ -144,6 +147,7 @@ class PollService {
 				$user_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return null !== $option_id ? (int) $option_id : null;
 	}
