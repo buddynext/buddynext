@@ -10,6 +10,8 @@
  * - Discussion deleted → removes entry from bn_search_index
  * - Discussion deleted → removes feed card from bn_posts (when feed sync is active)
  * - Reply notifications are handled by JetonomyBridgeListener (jetonomy_after_create_reply)
+ * - Unified nav: BuddyNext subnav injected on all Jetonomy pages (jetonomy_before_content)
+ * - Unified nav: Jetonomy's own community nav suppressed (jetonomy_show_community_nav → false)
  *
  * OPT-IN (admin toggle buddynext_jetonomy_feed_sync, default off):
  * - Discussion created → bn_posts entry (type: forum_post)
@@ -45,10 +47,15 @@ class JetonomyBridge {
 		// jetonomy_post_deleted fires ($post_id, $space_id, $user_id) — 3 args.
 		add_action( 'jetonomy_post_deleted', array( $this, 'on_post_deleted' ), 10, 3 );
 
-		// Inject a Forum link into the BuddyNext top nav bar.
-		add_filter( 'buddynext_nav_items', array( $this, 'inject_forum_nav_item' ) );
+		// Inject a Discussions link into the BuddyNext top nav bar.
+		add_filter( 'buddynext_nav_items', array( $this, 'inject_discussions_nav_item' ) );
 
-		// Inject a Forum tab into BuddyNext spaces that have a linked Jetonomy forum.
+		// On Jetonomy pages: replace Jetonomy's own nav with the BuddyNext subnav
+		// so the whole platform shares one unified navigation system.
+		add_action( 'jetonomy_before_content', array( $this, 'render_buddynext_nav_on_jetonomy' ), 5 );
+		add_filter( 'jetonomy_show_community_nav', '__return_false' );
+
+		// Inject a Discussions tab into BuddyNext spaces that have a linked Jetonomy forum.
 		add_filter( 'buddynext_space_tabs', array( $this, 'inject_space_forum_tab' ), 10, 2 );
 
 		// Inject a Discussions stat block into BuddyNext user profiles.
@@ -190,9 +197,9 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Inject a Forum link into the BuddyNext top navigation bar.
+	 * Inject a Discussions link into the BuddyNext top navigation bar.
 	 *
-	 * Appends a public "Forum" nav item pointing to the Jetonomy community home.
+	 * Appends a public "Discussions" nav item pointing to the Jetonomy community home.
 	 * Active state is detected by comparing the current REQUEST_URI against the
 	 * Jetonomy base path so the item highlights on every forum page.
 	 *
@@ -201,7 +208,7 @@ class JetonomyBridge {
 	 * @param array<int, array{label: string, url: string, icon?: string, active?: bool}> $items Existing nav items.
 	 * @return array<int, array{label: string, url: string, icon?: string, active?: bool}>
 	 */
-	public function inject_forum_nav_item( array $items ): array {
+	public function inject_discussions_nav_item( array $items ): array {
 		$settings  = get_option( 'jetonomy_settings', array() );
 		$base_slug = isset( $settings['base_slug'] ) ? (string) $settings['base_slug'] : 'community';
 
@@ -214,14 +221,34 @@ class JetonomyBridge {
 		$is_active   = str_starts_with( $request_uri, $forum_path );
 
 		$items[] = array(
-			'key'    => 'forum',
-			'label'  => __( 'Forum', 'buddynext' ),
+			'key'    => 'discussions',
+			'label'  => __( 'Discussions', 'buddynext' ),
 			'url'    => $forum_url,
 			'icon'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
 			'active' => $is_active,
 		);
 
 		return $items;
+	}
+
+	/**
+	 * Render the BuddyNext subnav on Jetonomy pages.
+	 *
+	 * Fired early (priority 5) on jetonomy_before_content so the unified nav
+	 * appears before Jetonomy's header partial. Jetonomy's own community nav is
+	 * suppressed via the jetonomy_show_community_nav → false filter, making
+	 * BuddyNext the sole navigation across both plugin surfaces.
+	 *
+	 * Bails silently when BuddyNext is not yet fully booted (e.g. during cron)
+	 * so no output is generated before headers are sent.
+	 *
+	 * Hooked on: jetonomy_before_content( array $data )
+	 */
+	public function render_buddynext_nav_on_jetonomy(): void {
+		if ( ! function_exists( 'buddynext_get_template' ) || ! did_action( 'buddynext_loaded' ) ) {
+			return;
+		}
+		buddynext_get_template( 'partials/nav' );
 	}
 
 	/**
@@ -261,8 +288,8 @@ class JetonomyBridge {
 		$settings  = get_option( 'jetonomy_settings', array() );
 		$base_slug = isset( $settings['base_slug'] ) ? (string) $settings['base_slug'] : 'community';
 
-		$tabs['forum'] = array(
-			'label' => __( 'Forum', 'buddynext' ),
+		$tabs['discussions'] = array(
+			'label' => __( 'Discussions', 'buddynext' ),
 			'url'   => home_url( '/' . $base_slug . '/s/' . rawurlencode( (string) $jt_slug ) . '/' ),
 		);
 
