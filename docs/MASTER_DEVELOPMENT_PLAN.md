@@ -1168,6 +1168,19 @@ All notifications from all plugins flow through BuddyNext's notification system.
 9. Post card rendering for media_share + forum_post types
 10. Search results for all content types
 
+**Wave 4 — Dedicated Content Integration (no patchwork)**
+11. Hashtag ↔ Tag bridge (see BLOCK HT below)
+12. Post card unification — all templates use shared `partials/post-card.php`
+13. Composer unification — same composer with media upload on activity + spaces
+14. WP Menu System — `register_nav_menus()` meta box for all BuddyNext URLs
+
+**Wave 5 — Level 2 Context Nav**
+15. Context nav bar (slim secondary bar below platform nav)
+16. Discussion context: Home | Search | Leaderboard
+17. Space context: Feed | Forum | Media | Members | Settings
+18. Media context: Explore | My Media | Albums
+19. Community Admin context: Settings | Members | Reports
+
 ### Design Constraints
 
 - Hub shell is always `max-width: 1100px; grid-template-columns: 1fr 300px`
@@ -1176,6 +1189,209 @@ All notifications from all plugins flow through BuddyNext's notification system.
 - Each plugin's content area CSS uses its own prefix (`bn-mvs-content`, `bn-jt-content`)
 - Design tokens flow from BuddyNext → plugin via CSS custom properties (BLOCK DT done)
 - Dark mode controlled by BuddyNext `[data-theme="dark"]` (BLOCK DT done)
+
+### Shared Sidebar Widget Spec — All Plugins Must Follow
+
+Every sidebar widget across BuddyNext, Jetonomy, WPMediaVerse, and Jetonomy Pro MUST use the same card skeleton. No plugin invents its own card structure.
+
+**Widget Wrapper Rules (ALL plugins MUST follow):**
+
+Rule 1: Every sidebar widget is ONE `bn-sidebar-card` div. No bare `<div>`, no `<section>`, no `<aside>` inside the sidebar.
+
+Rule 2: Every card has exactly TWO children — `__header` and `__body`. No exceptions.
+
+Rule 3: `__header` contains ONLY a plain text label. No HTML tags inside, no icons, no links. Uppercase via CSS.
+
+Rule 4: `__body` contains the widget content. All spacing/padding comes from `__body`, not the card.
+
+Rule 5: List-based widgets (trending, members, tags) use separator rows inside `__body`. Last row has no border.
+
+Rule 6: Empty state — if a widget has zero items, do NOT render the card at all. No "Nothing to show" messages.
+
+Rule 7: Detection — use `did_action('buddynext_loaded')` (PHP) to choose skeleton. Never check `class_exists`.
+
+Rule 8: Standalone — when BuddyNext is NOT active, output plugin's native card class (`jt-card`, `mvs-card`). The plugin's own CSS styles it.
+
+**HTML skeleton (when BuddyNext active):**
+
+```html
+<div class="bn-sidebar-card">
+  <div class="bn-sidebar-card__header">SECTION TITLE</div>
+  <div class="bn-sidebar-card__body">
+    <!-- Widget content here -->
+  </div>
+</div>
+```
+
+**HTML skeleton (standalone fallback — Jetonomy example):**
+
+```html
+<div class="jt-card jt-mb-md">
+  <h4>Section Title</h4>
+  <!-- Widget content here -->
+</div>
+```
+
+**PHP detection pattern (copy-paste into any sidebar partial):**
+
+```php
+$bn_active = did_action( 'buddynext_loaded' );
+$card_class   = $bn_active ? 'bn-sidebar-card' : 'jt-card jt-mb-md';
+$header_tag   = $bn_active ? 'div' : 'h4';
+$header_class = $bn_active ? ' class="bn-sidebar-card__header"' : '';
+$body_open    = $bn_active ? '<div class="bn-sidebar-card__body">' : '';
+$body_close   = $bn_active ? '</div>' : '';
+```
+
+**CSS tokens used by `bn-sidebar-card` (defined in `bn-base.css`):**
+
+| Class | Tokens |
+|---|---|
+| `.bn-sidebar-card` | `background: var(--surface)`, `border: 1px solid var(--border)`, `border-radius: var(--r-lg)`, `overflow: hidden` |
+| `.bn-sidebar-card__header` | `padding: var(--s3) var(--s4)`, `border-bottom: 1px solid var(--border-soft)`, `font-size: var(--text-xs)`, `font-weight: 700`, `text-transform: uppercase`, `letter-spacing: var(--ls-wider)`, `color: var(--text-3)` |
+| `.bn-sidebar-card__body` | `padding: var(--s3) var(--s4)` |
+
+**Content patterns inside `__body`:**
+
+| Pattern | HTML | Tokens |
+|---|---|---|
+| Separator row | `<div class="bn-sbar-row">...</div>` | `padding: var(--s2) 0`, `border-bottom: 1px solid var(--border-soft)`, last-child no border |
+| Row with avatar | avatar (36px circle) + name + meta in flex row | avatar `var(--r-full)`, name `var(--text-sm) 600`, meta `var(--text-xs) var(--text-3)` |
+| Row with rank number | rank `var(--text-xs) var(--text-3)` + content | rank fixed 16px width |
+| Primary text | strong link | `var(--text-sm)`, `font-weight: 600`, `color: var(--text-1)`, hover `var(--brand)` |
+| Secondary/meta text | span | `var(--text-xs)`, `color: var(--text-3)` |
+| Tag chips | `<a class="bn-sbar-tag">` | `var(--text-xs)`, inline-flex, `padding: var(--s1) var(--s2)`, `border-radius: var(--r-sm)`, `background: var(--bg-subtle)` |
+| Stats row | two stat blocks side by side | value `var(--text-lg) 700`, label `var(--text-xs) uppercase var(--text-3)` |
+| Action link | `<a>See all</a>` at bottom | `var(--text-sm)`, `color: var(--brand)`, `font-weight: 500` |
+
+**Already implemented:**
+- [x] BuddyNext sidebar (`partials/sidebar.php`) — native `bn-sidebar-card`
+- [x] Jetonomy sidebar (`partials/sidebar.php`) — detects BuddyNext, outputs `bn-sidebar-card` when active, `jt-card` when standalone
+- [ ] WPMediaVerse sidebar — needs same dual-output approach if/when MVS adds sidebar widgets
+- [ ] Jetonomy Pro sidebar widgets (messaging, analytics) — must adopt `bn-sidebar-card` skeleton
+
+### Completed (Wave 1 — 2026-03-25)
+
+- [x] WPMediaVerse shell wrap — all MVS archive/single/taxonomy pages inside BN hub shell + sidebar
+- [x] Jetonomy shell wrap — all JT pages inside BN hub shell + sidebar
+- [x] Unified nav consistent on ALL 57 routes (mu-plugin whitelist fixed)
+- [x] SVG icons for Media + Discussions nav items (wp_kses_post fix)
+- [x] Messages rewrite — thin wrapper embedding MVS chat (-2,249 lines)
+- [x] Virtual pages — no backing WP pages needed (BuddyPress technique)
+- [x] Media upload in composer — Photo button → MVS REST upload → media_ids in bn_posts
+- [x] Composer action buttons (Photo/Poll/Link) + Cancel in expanded view
+- [x] Max 5 media per post enforcement
+- [x] Hashtag page Like/Comment/Share/Save actions wired to correct REST endpoints
+
+### Pending
+
+- [ ] **BLOCK HT — Hashtag ↔ Tag Bridge** (see below)
+- [ ] **BLOCK PC — Post Card Unification** — hashtag feed uses inline HTML; must use shared `partials/post-card.php` so Interactivity API store is consistent everywhere
+- [ ] **BLOCK MC — Media Composer on Spaces** — space composer (`spaces/home.php`) needs same Photo button + MVS upload as activity feed
+- [ ] **BLOCK MN — WP Menu System** — `register_nav_menus()` + custom meta box in Appearance > Menus for all BuddyNext/MVS/JT URLs
+- [ ] **BLOCK L2 — Level 2 Context Nav** — slim secondary bar below platform nav, populated per section via filter
+- [ ] **Profile tabs** — Media tab (MVS), Discussions tab (JT) on `/members/{slug}/`
+- [ ] **Space tabs** — Media tab, Forum tab on `/spaces/{slug}/`
+- [ ] **Media search indexing** — MVS media titles/descriptions in `bn_search_index`
+- [ ] **Feed card rendering** — `media_share` + `forum_post` post types in `partials/post-card.php`
+- [ ] **Remove raw JT query from hashtag template** — replace with bridge filter (BLOCK HT)
+
+---
+
+### BLOCK HT — Hashtag ↔ Tag Bridge (Dedicated Integration)
+
+**Problem:** The hashtag feed template (`hashtags/feed.php`) has a raw SQL query against `wp_jt_posts` to show Jetonomy discussions alongside BuddyNext posts. This is wrong:
+1. Different schemas — `jt_posts.author_id` not `user_id` (causes DB error)
+2. Different tag systems — `bn_hashtags` vs `jt_tags` (separate data)
+3. Tight coupling — BuddyNext template shouldn't know Jetonomy's internals
+
+**Principle:** Each plugin owns its own data. Cross-plugin content flows through bridge APIs only.
+
+**Architecture:**
+
+```
+BuddyNext (owner)              Jetonomy (provider)
+─────────────────               ───────────────────
+bn_hashtags                     jt_tags
+bn_post_hashtags                jt_post_tags
+
+HashtagService                  Tag model
+  get_feed($slug)                 list_by_tag($slug)
+  get_trending()                  list_popular()
+
+hashtags/feed.php               (no template involvement)
+  queries bn_posts only
+  fires filter for related
+
+JetonomyBridge (in BuddyNext)
+  hooks buddynext_hashtag_related_discussions
+  calls Jetonomy\Models\Tag::list_by_tag()
+  returns structured array
+```
+
+**Plugin-level changes:**
+
+| Plugin | File | Change |
+|--------|------|--------|
+| **Jetonomy** | `includes/models/class-tag.php` | Add `list_by_tag($slug, $limit)` public static method — returns posts with that tag, using Jetonomy's own schema |
+| **Jetonomy** | `includes/models/class-tag.php` | Add `exists($slug)` method — check if a tag exists in `jt_tags` |
+| **BuddyNext** | `templates/hashtags/feed.php` | Remove ALL raw `jt_posts` queries. Add `apply_filters('buddynext_hashtag_related_discussions', [], $hashtag_slug)` |
+| **BuddyNext** | `includes/Bridges/JetonomyBridge.php` | Hook `buddynext_hashtag_related_discussions` — call `Tag::list_by_tag()`, return structured data |
+| **BuddyNext** | `templates/hashtags/feed.php` | Render related discussions in a separate labeled section (if filter returns data) |
+
+**Data flow:**
+
+```
+User visits /activity/hashtag/buddynext/
+
+1. BuddyNext queries bn_posts via bn_post_hashtags WHERE slug = 'buddynext'
+   → Renders post cards (shared partial)
+
+2. BuddyNext fires: apply_filters('buddynext_hashtag_related_discussions', [], 'buddynext')
+
+3. JetonomyBridge hooks it:
+   - Calls Tag::list_by_tag('buddynext', 5)
+   - Jetonomy queries jt_posts via jt_post_tags WHERE tag.slug = 'buddynext'
+   - Returns: [{id, title, slug, space_slug, reply_count, vote_score, author_name}]
+
+4. Template renders "Related Discussions" section with JT data
+   - Each item links to /discussion/s/{space}/t/{slug}/
+   - "View all" links to /discussion/tag/buddynext/
+   - Section doesn't render when Jetonomy is inactive (filter returns [])
+```
+
+**No raw cross-plugin SQL. No schema assumptions. Clean bridge API.**
+
+---
+
+### BLOCK PC — Post Card Unification
+
+**Problem:** Multiple templates render post cards with inline HTML instead of the shared `partials/post-card.php`. Each has its own Interactivity API action names, leading to:
+- Actions not working (wrong store namespace)
+- Inconsistent rendering (different HTML structure per page)
+- Duplicate code that drifts over time
+
+**Templates using inline post cards (must be converted):**
+- `templates/hashtags/feed.php` — uses `buddynext/feed` store with `actions.react/share/bookmark`
+- `templates/feed/explore.php` — may have inline cards
+- `templates/spaces/home.php` — space feed cards
+
+**Target:** Every template that shows posts calls `buddynext_get_template('partials/post-card.php', ['bn_post' => $row])`. One partial, one Interactivity API store (`buddynext/post-card`), one set of actions.
+
+---
+
+### BLOCK MC — Media Composer on All Surfaces
+
+**Problem:** Media upload (Photo button → MVS REST → media_ids) only works on the activity feed. Spaces and profiles need the same capability.
+
+**Templates needing the composer:**
+- `templates/feed/home.php` — ✅ Done (Photo/Poll/Link + MVS upload)
+- `templates/spaces/home.php` — Needs same composer with `space_id` in context
+- Profile pages — If user can post from their profile
+
+**Implementation:** Extract the composer HTML into a shared partial `partials/composer.php` that reads `space_id` from context. All pages include the same partial.
+
+---
 
 ### Standalone Safety
 
