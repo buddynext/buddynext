@@ -1,0 +1,1558 @@
+/**
+ * BuddyNext Admin — Premium Chrome Styles
+ *
+ * Replaces the inline <style> block emitted by AdminPageBase::output_shared_styles().
+ * Covers every component class rendered by AdminPageBase and all BuddyNext admin
+ * sub-pages: Settings, Members, Spaces, NavManager, IntegrationHub, EmailEditor,
+ * Analytics, and MemberTypes.
+ *
+ * File structure:
+ *   1. :root — component-specific design tokens (--bn-a-* prefix)
+ *   2. [data-theme="dark"] — dark palette overrides
+ *   3. Component rules — desktop-first
+ *   4. @media breakpoints — 782px and 640px
+ *
+ * @package BuddyNext
+ * @since   1.0.0
+ */
+
+/* ==========================================================================
+   1. DESIGN TOKENS
+   ========================================================================== */
+
+:root {
+	/* -- Brand ------------------------------------------------------------ */
+	--bn-a-brand:             #0073aa;
+	--bn-a-brand-hover:       #005f8e;
+	--bn-a-brand-light:       #e8f4fb;
+
+	/* -- Backgrounds ------------------------------------------------------ */
+	--bn-a-bg:                #ffffff;
+	--bn-a-bg-subtle:         #f8f8f7;
+	--bn-a-bg-hover:          #f1f1f0;
+
+	/* -- Borders ---------------------------------------------------------- */
+	--bn-a-border:            #e8e8e5;
+	--bn-a-border-soft:       #f1f1ee;
+
+	/* -- Text ------------------------------------------------------------- */
+	--bn-a-text-1:            #37352f;
+	--bn-a-text-2:            #787774;
+	--bn-a-text-3:            #aeaca8;
+
+	/* -- Semantic --------------------------------------------------------- */
+	--bn-a-green:             #059669;
+	--bn-a-green-bg:          #ecfdf5;
+	--bn-a-amber:             #d97706;
+	--bn-a-amber-bg:          #fffbeb;
+	--bn-a-red:               #dc2626;
+	--bn-a-red-bg:            #fef2f2;
+
+	/* -- Integration accents --------------------------------------------- */
+	--bn-a-jetonomy:          #5b21b6;
+	--bn-a-jetonomy-bg:       #f5f3ff;
+	--bn-a-jetonomy-border:   #ddd6fe;
+	--bn-a-mvs:               #0f766e;
+	--bn-a-mvs-bg:            #f0fdf9;
+	--bn-a-mvs-border:        #99f6e4;
+	--bn-a-gamif:             #b45309;
+	--bn-a-gamif-bg:          #fffbeb;
+	--bn-a-gamif-border:      #fde68a;
+	--bn-a-career:            #1d4ed8;
+	--bn-a-career-bg:         #eff6ff;
+	--bn-a-career-border:     #bfdbfe;
+
+	/* -- Spacing (4px grid) ----------------------------------------------- */
+	--bn-a-s1:                4px;
+	--bn-a-s2:                8px;
+	--bn-a-s3:                12px;
+	--bn-a-s4:                16px;
+	--bn-a-s5:                20px;
+	--bn-a-s6:                24px;
+	--bn-a-s8:                32px;
+	--bn-a-s10:               40px;
+
+	/* -- Border radius ---------------------------------------------------- */
+	--bn-a-r-sm:              4px;
+	--bn-a-r-md:              8px;
+	--bn-a-r-lg:              12px;
+
+	/* -- Typography ------------------------------------------------------- */
+	--bn-a-font-body:         'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+	--bn-a-font-display:      'Plus Jakarta Sans', 'Inter', sans-serif;
+	--bn-a-text-xs:           11px;
+	--bn-a-text-sm:           13px;
+	--bn-a-text-md:           14px;
+	--bn-a-text-base:         15px;
+	--bn-a-text-lg:           18px;
+	--bn-a-text-xl:           20px;
+	--bn-a-text-2xl:          24px;
+	--bn-a-fw-normal:         400;
+	--bn-a-fw-medium:         500;
+	--bn-a-fw-semibold:       600;
+	--bn-a-fw-bold:           700;
+	--bn-a-fw-extrabold:      800;
+
+	/* -- Shadows ---------------------------------------------------------- */
+	--bn-a-shadow-sm:         0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+	--bn-a-shadow-md:         0 4px 12px rgba(0, 0, 0, 0.08);
+
+	/* -- Transitions ------------------------------------------------------ */
+	--bn-a-transition:        0.14s ease;
+
+	/* -- Avatar accent colours not covered by semantic tokens -------------- */
+	--bn-a-av-pink:           #db2777;
+
+	/* -- Structural / component sizes ------------------------------------ */
+	--bn-a-page-max-w:        1100px;
+	--bn-a-table-search-w:    240px;
+	--bn-a-addon-accent-w:    3px;
+	--bn-a-row-badge-py:      2px;
+	--bn-a-row-badge-px:      7px;
+
+	/* -- Toggle dimensions ----------------------------------------------- */
+	--bn-a-toggle-w:          40px;
+	--bn-a-toggle-h:          22px;
+	--bn-a-toggle-r:          11px;
+	--bn-a-toggle-knob:       16px;
+	--bn-a-toggle-knob-off:   3px;
+	--bn-a-toggle-knob-on:    21px;
+
+	/* -- Avatar dimensions ----------------------------------------------- */
+	--bn-a-avatar-sz:         34px;
+	--bn-a-avatar-sz-sm:      28px;
+
+	/* -- More-menu button size ------------------------------------------- */
+	--bn-a-more-btn-sz:       28px;
+
+	/* -- Input constraints ----------------------------------------------- */
+	--bn-a-input-min-w:       200px;
+	--bn-a-field-max-w:       400px;
+
+	/* -- Card / dropdown min-widths -------------------------------------- */
+	--bn-a-stat-card-min-w:   140px;
+	--bn-a-dropdown-min-w:    140px;
+
+	/* -- Drag handle dimensions ------------------------------------------ */
+	--bn-a-drag-bar-w:        18px;
+	--bn-a-drag-bar-h:        2px;
+	--bn-a-drag-bar-gap:      3px;
+
+	/* -- Typography specifics -------------------------------------------- */
+	--bn-a-ls-stat:           -0.5px;
+	--bn-a-outline-offset-in: -2px;
+	--bn-a-outline-offset:    2px;
+
+	/* -- Code background (developer bar) ---------------------------------- */
+	--bn-a-bg-code:           #1a1a1a;
+	--bn-a-code-text:         #86efac;
+}
+
+/* ==========================================================================
+   2. DARK MODE
+   ========================================================================== */
+
+[data-theme="dark"] {
+	--bn-a-bg:           #191919;
+	--bn-a-bg-subtle:    #202020;
+	--bn-a-bg-hover:     #2a2a2a;
+	--bn-a-border:       #333330;
+	--bn-a-border-soft:  #2c2c2a;
+	--bn-a-text-1:       #e8e8e6;
+	--bn-a-text-2:       #9b9b97;
+	--bn-a-text-3:       #6b6b67;
+	--bn-a-brand:        #4dabdb;
+	--bn-a-brand-light:  #1a2e3a;
+	--bn-a-brand-hover:  #5fbfe8;
+}
+
+/* Integration Hub dark mode overrides */
+[data-theme="dark"] .bn-logo-bg--purple {
+	background: var(--bn-a-jetonomy-bg);
+	color: #a78bfa;
+}
+
+[data-theme="dark"] .bn-logo-bg--teal {
+	background: var(--bn-a-mvs-bg);
+	color: #34d399;
+}
+
+[data-theme="dark"] .bn-logo-bg--amber {
+	background: var(--bn-a-gamif-bg);
+	color: #fbbf24;
+}
+
+[data-theme="dark"] .bn-logo-bg--blue {
+	background: var(--bn-a-career-bg);
+	color: #93c5fd;
+}
+
+[data-theme="dark"] .bn-section-divider--green::after {
+	background: rgba(5, 150, 105, 0.2);
+}
+
+[data-theme="dark"] .bn-section-divider--amber::after {
+	background: rgba(217, 119, 6, 0.2);
+}
+
+/* ==========================================================================
+   3. COMPONENT RULES
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Page wrap
+   -------------------------------------------------------------------------- */
+
+.bn-admin-wrap {
+	max-width: var(--bn-a-page-max-w);
+	font-family: var(--bn-a-font-body);
+}
+
+/* --------------------------------------------------------------------------
+   Page header
+   -------------------------------------------------------------------------- */
+
+.bn-admin-header {
+	margin-bottom: var(--bn-a-s6);
+}
+
+.bn-admin-title {
+	font-family: var(--bn-a-font-display);
+	font-size: var(--bn-a-text-2xl) !important;
+	font-weight: var(--bn-a-fw-bold) !important;
+	color: var(--bn-a-text-1) !important;
+	margin: 0 0 var(--bn-a-s1) !important;
+	line-height: 1.3 !important;
+}
+
+.bn-admin-sub {
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-2);
+	margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Tab bar
+   -------------------------------------------------------------------------- */
+
+.bn-admin-tabs {
+	display: flex;
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	overflow: hidden;
+	margin-bottom: var(--bn-a-s6);
+}
+
+.bn-atab {
+	padding: var(--bn-a-s2) var(--bn-a-s5);
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-medium);
+	color: var(--bn-a-text-2);
+	cursor: pointer;
+	border-right: 1px solid var(--bn-a-border);
+	text-decoration: none;
+	display: inline-block;
+	white-space: nowrap;
+	transition: background var(--bn-a-transition), color var(--bn-a-transition);
+}
+
+.bn-atab:last-child {
+	border-right: none;
+}
+
+.bn-atab.active,
+.bn-atab.active:visited {
+	background: var(--bn-a-brand);
+	color: var(--bn-a-bg);
+	font-weight: var(--bn-a-fw-semibold);
+}
+
+.bn-atab:hover:not(.active) {
+	background: var(--bn-a-bg-subtle);
+	color: var(--bn-a-text-1);
+}
+
+.bn-atab:focus-visible {
+	outline: 2px solid var(--bn-a-brand);
+	outline-offset: var(--bn-a-outline-offset-in);
+}
+
+/* --------------------------------------------------------------------------
+   Section cards
+   -------------------------------------------------------------------------- */
+
+.bn-settings-section {
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	margin-bottom: var(--bn-a-s4);
+	overflow: hidden;
+}
+
+.bn-ss-header {
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	border-bottom: 1px solid var(--bn-a-border-soft);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-a-s3);
+}
+
+.bn-ss-title {
+	font-weight: var(--bn-a-fw-semibold);
+	font-size: var(--bn-a-text-md);
+	color: var(--bn-a-text-1);
+}
+
+.bn-ss-body {
+	padding: var(--bn-a-s4);
+}
+
+/* --------------------------------------------------------------------------
+   Form fields
+   -------------------------------------------------------------------------- */
+
+.bn-field {
+	margin-bottom: var(--bn-a-s4);
+}
+
+.bn-field:last-child {
+	margin-bottom: 0;
+}
+
+.bn-field > label {
+	display: block;
+	font-weight: var(--bn-a-fw-semibold);
+	font-size: var(--bn-a-text-sm);
+	margin-bottom: var(--bn-a-s1);
+	color: var(--bn-a-text-1);
+}
+
+.bn-field-hint {
+	display: block;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+	margin-top: var(--bn-a-s1);
+}
+
+input.bn-text-input {
+	border: 1px solid var(--bn-a-border) !important;
+	border-radius: var(--bn-a-r-sm) !important;
+	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
+	font-size: var(--bn-a-text-sm) !important;
+	box-shadow: none !important;
+	line-height: 1.4 !important;
+	background: var(--bn-a-bg) !important;
+	color: var(--bn-a-text-1) !important;
+}
+
+input.bn-text-input:focus {
+	border-color: var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	outline: none !important;
+}
+
+textarea.bn-text-input {
+	border: 1px solid var(--bn-a-border) !important;
+	border-radius: var(--bn-a-r-sm) !important;
+	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
+	font-size: var(--bn-a-text-sm) !important;
+	box-shadow: none !important;
+	line-height: 1.4 !important;
+	background: var(--bn-a-bg) !important;
+	color: var(--bn-a-text-1) !important;
+}
+
+textarea.bn-text-input:focus {
+	border-color: var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	outline: none !important;
+}
+
+select.bn-select-input {
+	border: 1px solid var(--bn-a-border) !important;
+	border-radius: var(--bn-a-r-sm) !important;
+	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
+	font-size: var(--bn-a-text-sm) !important;
+	background: var(--bn-a-bg) !important;
+	color: var(--bn-a-text-1) !important;
+	height: auto !important;
+	min-width: var(--bn-a-input-min-w);
+	line-height: 1.4 !important;
+}
+
+select.bn-select-input:focus {
+	border-color: var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	outline: none !important;
+}
+
+select.bn-text-input {
+	border: 1px solid var(--bn-a-border) !important;
+	border-radius: var(--bn-a-r-sm) !important;
+	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
+	font-size: var(--bn-a-text-sm) !important;
+	background: var(--bn-a-bg) !important;
+	color: var(--bn-a-text-1) !important;
+	height: auto !important;
+	line-height: 1.4 !important;
+	display: block;
+	width: 100%;
+	max-width: var(--bn-a-field-max-w);
+}
+
+select.bn-text-input:focus {
+	border-color: var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	outline: none !important;
+}
+
+/* Edit member form rows (used by MemberEditForm) */
+.bn-field-row {
+	margin-bottom: var(--bn-a-s4);
+}
+
+.bn-field-row:last-child {
+	margin-bottom: 0;
+}
+
+.bn-label {
+	display: block;
+	font-weight: var(--bn-a-fw-semibold);
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-1);
+	margin-bottom: var(--bn-a-s1);
+}
+
+.bn-label label {
+	font-weight: var(--bn-a-fw-semibold);
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-1);
+	cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   Toggle rows
+   -------------------------------------------------------------------------- */
+
+.bn-toggle-row {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--bn-a-s4);
+	padding: var(--bn-a-s3) 0;
+	border-bottom: 1px solid var(--bn-a-border-soft);
+}
+
+.bn-toggle-row:last-child {
+	border-bottom: none;
+}
+
+.bn-tl-label {
+	flex: 1;
+}
+
+.bn-tl-title {
+	display: block;
+	font-weight: var(--bn-a-fw-semibold);
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-1);
+	cursor: pointer;
+}
+
+.bn-tl-desc {
+	display: block;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-2);
+	margin-top: var(--bn-a-s1);
+}
+
+.bn-toggle {
+	width: var(--bn-a-toggle-w);
+	height: var(--bn-a-toggle-h);
+	background: var(--bn-a-bg-hover);
+	border-radius: var(--bn-a-toggle-r);
+	position: relative;
+	cursor: pointer;
+	flex-shrink: 0;
+	display: inline-block;
+	transition: background var(--bn-a-transition);
+}
+
+.bn-toggle.on {
+	background: var(--bn-a-brand);
+}
+
+.bn-toggle::after {
+	content: '';
+	position: absolute;
+	width: var(--bn-a-toggle-knob);
+	height: var(--bn-a-toggle-knob);
+	background: var(--bn-a-bg);
+	border-radius: 50%;
+	top: var(--bn-a-toggle-knob-off);
+	left: var(--bn-a-toggle-knob-off);
+	transition: left var(--bn-a-transition);
+	box-shadow: var(--bn-a-shadow-sm);
+}
+
+.bn-toggle.on::after {
+	left: var(--bn-a-toggle-knob-on);
+}
+
+.bn-toggle .screen-reader-text {
+	border: 0;
+	clip: rect(1px, 1px, 1px, 1px);
+	-webkit-clip-path: inset(50%);
+	clip-path: inset(50%);
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute;
+	width: 1px;
+	word-wrap: normal !important;
+}
+
+/* --------------------------------------------------------------------------
+   Save bar
+   -------------------------------------------------------------------------- */
+
+.bn-save-bar {
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--bn-a-s3);
+	margin-top: var(--bn-a-s2);
+}
+
+.bn-save-msg {
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-green);
+	font-weight: var(--bn-a-fw-semibold);
+	margin-right: auto;
+}
+
+input.bn-btn-save.button-primary {
+	background: var(--bn-a-brand) !important;
+	border-color: var(--bn-a-brand-hover) !important;
+	color: var(--bn-a-bg) !important;
+	padding: var(--bn-a-s2) var(--bn-a-s5) !important;
+	border-radius: var(--bn-a-r-sm) !important;
+	font-size: var(--bn-a-text-sm) !important;
+	font-weight: var(--bn-a-fw-semibold) !important;
+	cursor: pointer !important;
+	box-shadow: none !important;
+}
+
+input.bn-btn-save.button-primary:hover {
+	background: var(--bn-a-brand-hover) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Stats cards
+   -------------------------------------------------------------------------- */
+
+.bn-stats-row {
+	display: flex;
+	gap: var(--bn-a-s4);
+	margin-bottom: var(--bn-a-s6);
+	flex-wrap: wrap;
+}
+
+.bn-stat-card {
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	padding: var(--bn-a-s4) var(--bn-a-s5);
+	flex: 1;
+	min-width: var(--bn-a-stat-card-min-w);
+}
+
+.bn-stat-label {
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-bold);
+	color: var(--bn-a-text-3);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	margin-bottom: var(--bn-a-s1);
+}
+
+.bn-stat-val {
+	font-size: var(--bn-a-text-2xl);
+	font-weight: var(--bn-a-fw-extrabold);
+	color: var(--bn-a-text-1);
+	line-height: 1.1;
+	letter-spacing: var(--bn-a-ls-stat);
+}
+
+.bn-stat-danger {
+	color: var(--bn-a-red);
+}
+
+/* --------------------------------------------------------------------------
+   Data table
+   -------------------------------------------------------------------------- */
+
+.bn-data-table {
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	overflow: hidden;
+	margin-bottom: var(--bn-a-s4);
+}
+
+.bn-table-header {
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	border-bottom: 1px solid var(--bn-a-border-soft);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-a-s3);
+	flex-wrap: wrap;
+}
+
+input.bn-table-search {
+	border: 1px solid var(--bn-a-border) !important;
+	border-radius: var(--bn-a-r-sm) !important;
+	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
+	font-size: var(--bn-a-text-sm) !important;
+	width: var(--bn-a-table-search-w) !important;
+	box-shadow: none !important;
+	background: var(--bn-a-bg) !important;
+	color: var(--bn-a-text-1) !important;
+}
+
+input.bn-table-search:focus {
+	border-color: var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	outline: none !important;
+}
+
+table.bn-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+table.bn-table th {
+	padding: var(--bn-a-s2) var(--bn-a-s4);
+	text-align: left;
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-bold);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--bn-a-text-3);
+	border-bottom: 1px solid var(--bn-a-border-soft);
+	background: var(--bn-a-bg-subtle);
+}
+
+table.bn-table td {
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-1);
+	border-bottom: 1px solid var(--bn-a-border-soft);
+	vertical-align: middle;
+}
+
+table.bn-table tr:last-child td {
+	border-bottom: none;
+}
+
+table.bn-table tr:hover td {
+	background: var(--bn-a-bg-hover);
+}
+
+/* --------------------------------------------------------------------------
+   Badges
+   -------------------------------------------------------------------------- */
+
+.bn-badge {
+	display: inline-block;
+	padding: 2px var(--bn-a-s2);
+	border-radius: var(--bn-a-r-lg);
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-bold);
+}
+
+.bn-badge-active {
+	background: var(--bn-a-green-bg);
+	color: var(--bn-a-green);
+}
+
+.bn-badge-suspended {
+	background: var(--bn-a-red-bg);
+	color: var(--bn-a-red);
+}
+
+.bn-badge-open {
+	background: var(--bn-a-career-bg);
+	color: var(--bn-a-career);
+}
+
+.bn-badge-private {
+	background: var(--bn-a-bg-subtle);
+	color: var(--bn-a-text-2);
+}
+
+.bn-badge-secret {
+	background: var(--bn-a-amber-bg);
+	color: var(--bn-a-amber);
+}
+
+/* Role badges */
+.bn-badge-role-admin {
+	background: var(--bn-a-red-bg);
+	color: var(--bn-a-red);
+}
+
+.bn-badge-role-editor {
+	background: var(--bn-a-amber-bg);
+	color: var(--bn-a-amber);
+}
+
+.bn-badge-role-author {
+	background: var(--bn-a-career-bg);
+	color: var(--bn-a-career);
+}
+
+.bn-badge-role-contrib {
+	background: var(--bn-a-jetonomy-bg);
+	color: var(--bn-a-jetonomy);
+}
+
+.bn-badge-role-member {
+	background: var(--bn-a-green-bg);
+	color: var(--bn-a-green);
+}
+
+/* --------------------------------------------------------------------------
+   Integration Hub — page header stat pills
+   -------------------------------------------------------------------------- */
+
+.bn-ih-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--bn-a-s4);
+	flex-wrap: wrap;
+	margin-bottom: var(--bn-a-s6);
+}
+
+.bn-ih-header-left {
+	flex: 1 1 auto;
+}
+
+/* Overrides the default bn-admin-header bottom margin since bn-ih-header handles it */
+.bn-ih-header.bn-admin-header {
+	margin-bottom: 0;
+}
+
+.bn-ih-stats {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	flex-wrap: wrap;
+	flex-shrink: 0;
+	margin-top: var(--bn-a-s1);
+}
+
+.bn-ih-stat-pill {
+	display: inline-block;
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-semibold);
+	padding: 4px 10px;
+	border-radius: var(--bn-a-r-lg);
+	white-space: nowrap;
+}
+
+.bn-ih-stat-pill--active {
+	background: var(--bn-a-green-bg);
+	color: var(--bn-a-green);
+}
+
+.bn-ih-stat-pill--available {
+	background: var(--bn-a-amber-bg);
+	color: var(--bn-a-amber);
+}
+
+/* --------------------------------------------------------------------------
+   Integration Hub — section divider
+   -------------------------------------------------------------------------- */
+
+.bn-section-divider {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	margin-bottom: var(--bn-a-s4);
+	margin-top: var(--bn-a-s6);
+}
+
+.bn-section-divider:first-child {
+	margin-top: 0;
+}
+
+.bn-section-divider::after {
+	content: '';
+	flex: 1;
+	height: 1px;
+}
+
+.bn-section-divider-label {
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-semibold);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.bn-section-divider--green .bn-section-divider-label {
+	color: var(--bn-a-green);
+}
+
+.bn-section-divider--green::after {
+	background: var(--bn-a-green-bg);
+}
+
+.bn-section-divider--amber .bn-section-divider-label {
+	color: var(--bn-a-amber);
+}
+
+.bn-section-divider--amber::after {
+	background: var(--bn-a-amber-bg);
+}
+
+.bn-section-divider--grey .bn-section-divider-label {
+	color: var(--bn-a-text-3);
+}
+
+.bn-section-divider--grey::after {
+	background: var(--bn-a-border);
+}
+
+/* --------------------------------------------------------------------------
+   Integration addon cards
+   -------------------------------------------------------------------------- */
+
+.bn-addon-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--bn-a-s4);
+	margin-bottom: var(--bn-a-s8);
+}
+
+.bn-addon-card {
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-left: 4px solid transparent;
+	border-radius: var(--bn-a-r-md);
+	padding: var(--bn-a-s5);
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s3);
+}
+
+/* Active: shadow + per-integration accent border */
+.bn-addon-card--active {
+	box-shadow: var(--bn-a-shadow-sm);
+}
+
+.bn-addon-card--jetonomy.bn-addon-card--active {
+	border-left-color: var(--bn-a-jetonomy);
+}
+
+.bn-addon-card--wpmediaverse.bn-addon-card--active {
+	border-left-color: var(--bn-a-mvs);
+}
+
+.bn-addon-card--wb-gamification.bn-addon-card--active {
+	border-left-color: var(--bn-a-gamif);
+}
+
+.bn-addon-card--career-board.bn-addon-card--active {
+	border-left-color: var(--bn-a-career);
+}
+
+/* Available (not installed): same base card, no accent, muted shadow */
+.bn-addon-card--available {
+	background: var(--bn-a-bg-subtle);
+	border-left-color: transparent;
+}
+
+/* Card header: logo row + badge, separated by bottom border */
+.bn-addon-card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-a-s2);
+	padding-bottom: var(--bn-a-s3);
+	border-bottom: 1px solid var(--bn-a-border-soft);
+}
+
+/* Logo: icon box + text column */
+.bn-addon-logo {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s3);
+	min-width: 0;
+}
+
+.bn-addon-logo-icon {
+	width: 36px;
+	height: 36px;
+	border-radius: var(--bn-a-r-md);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.bn-addon-logo-icon svg {
+	width: 18px;
+	height: 18px;
+}
+
+/* Logo background colour variants */
+.bn-logo-bg--purple {
+	background: var(--bn-a-jetonomy-bg);
+	color: var(--bn-a-jetonomy);
+}
+
+.bn-logo-bg--teal {
+	background: var(--bn-a-mvs-bg);
+	color: var(--bn-a-mvs);
+}
+
+.bn-logo-bg--amber {
+	background: var(--bn-a-gamif-bg);
+	color: var(--bn-a-gamif);
+}
+
+.bn-logo-bg--blue {
+	background: var(--bn-a-career-bg);
+	color: var(--bn-a-career);
+}
+
+/* Muted modifier for not-installed cards */
+.bn-logo-bg--muted {
+	background: var(--bn-a-bg-hover);
+	color: var(--bn-a-text-3);
+}
+
+.bn-addon-logo-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.bn-addon-label {
+	display: block;
+	font-size: var(--bn-a-text-md);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-1);
+	line-height: 1.3;
+}
+
+.bn-addon-logo-meta {
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+	line-height: 1.3;
+}
+
+/* Description */
+.bn-addon-desc {
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-2);
+	line-height: 1.5;
+}
+
+/* "What this enables" / "Unlocks when installed" label */
+.bn-enables-label {
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-3);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	margin-bottom: calc( var(--bn-a-s1) * -1 );
+}
+
+/* Feature list */
+.bn-addon-features {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}
+
+.bn-addon-features li {
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-1);
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-a-s2);
+}
+
+.bn-feature-check {
+	color: var(--bn-a-green);
+	flex-shrink: 0;
+	margin-top: 1px;
+}
+
+.bn-feature-check svg {
+	width: 13px;
+	height: 13px;
+}
+
+.bn-feature-locked-item {
+	color: var(--bn-a-text-3);
+}
+
+.bn-feature-locked {
+	color: var(--bn-a-text-3);
+	flex-shrink: 0;
+	margin-top: 1px;
+}
+
+.bn-feature-locked svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* Card footer */
+.bn-addon-footer {
+	margin-top: auto;
+	padding-top: var(--bn-a-s3);
+	border-top: 1px solid var(--bn-a-border-soft);
+	display: flex;
+	gap: var(--bn-a-s2);
+}
+
+/* Plugin file hint (fallback when no URL) */
+.bn-addon-plugin-file {
+	font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+}
+
+/* --------------------------------------------------------------------------
+   Nav manager rows
+   -------------------------------------------------------------------------- */
+
+.bn-nav-row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s3);
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	border-bottom: 1px solid var(--bn-a-border-soft);
+}
+
+.bn-nav-row:last-child {
+	border-bottom: none;
+}
+
+.bn-drag-handle {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-drag-bar-gap);
+	padding: var(--bn-a-s1) var(--bn-a-drag-bar-h);
+	flex-shrink: 0;
+	cursor: grab;
+	opacity: 0.5;
+}
+
+.bn-drag-handle span {
+	display: block;
+	width: var(--bn-a-drag-bar-w);
+	height: var(--bn-a-drag-bar-h);
+	background: var(--bn-a-border);
+	border-radius: var(--bn-a-drag-bar-h);
+}
+
+.bn-row-info {
+	flex: 1;
+}
+
+.bn-row-name {
+	font-weight: var(--bn-a-fw-semibold);
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-1);
+}
+
+.bn-row-desc {
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-2);
+	margin-top: var(--bn-a-s1);
+}
+
+/* --------------------------------------------------------------------------
+   Row badge
+   -------------------------------------------------------------------------- */
+
+.bn-row-badge {
+	display: inline-block;
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-bold);
+	padding: var(--bn-a-row-badge-py) var(--bn-a-row-badge-px);
+	border-radius: var(--bn-a-r-lg);
+	margin-left: var(--bn-a-s2);
+	background: var(--bn-a-brand);
+	color: var(--bn-a-bg);
+	vertical-align: middle;
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+
+.bn-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	padding: var(--bn-a-s1) var(--bn-a-s3);
+	border-radius: var(--bn-a-r-sm);
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-medium);
+	cursor: pointer;
+	text-decoration: none;
+	border: 1px solid var(--bn-a-border);
+	background: var(--bn-a-bg);
+	color: var(--bn-a-text-1);
+	transition: background var(--bn-a-transition), border-color var(--bn-a-transition), color var(--bn-a-transition);
+}
+
+.bn-btn:focus-visible {
+	outline: 2px solid var(--bn-a-brand);
+	outline-offset: var(--bn-a-outline-offset);
+}
+
+.bn-btn-primary {
+	background: var(--bn-a-brand);
+	color: var(--bn-a-bg);
+	border-color: transparent;
+}
+
+.bn-btn-primary:hover {
+	background: var(--bn-a-brand-hover);
+	color: var(--bn-a-bg);
+}
+
+.bn-btn-secondary {
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	color: var(--bn-a-text-1);
+	border-radius: var(--bn-a-r-sm);
+	padding: var(--bn-a-s1) var(--bn-a-s3);
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-medium);
+	cursor: pointer;
+	font-family: var(--bn-a-font-body);
+}
+
+.bn-btn-secondary:hover {
+	background: var(--bn-a-bg-subtle);
+	border-color: var(--bn-a-text-3);
+}
+
+a.bn-btn-danger,
+button.bn-btn-danger {
+	border-color: var(--bn-a-red) !important;
+	color: var(--bn-a-red) !important;
+	background: var(--bn-a-red-bg);
+}
+
+a.bn-btn-danger:hover,
+button.bn-btn-danger:hover {
+	background: var(--bn-a-red-bg);
+	border-color: var(--bn-a-red) !important;
+}
+
+.bn-toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   Pagination
+   -------------------------------------------------------------------------- */
+
+.bn-pagination {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s1);
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	border-top: 1px solid var(--bn-a-border-soft);
+	justify-content: center;
+}
+
+.bn-page-link {
+	padding: 5px var(--bn-a-s3);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-sm);
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-1);
+	text-decoration: none;
+	transition: background var(--bn-a-transition), color var(--bn-a-transition);
+}
+
+.bn-page-link.current {
+	background: var(--bn-a-brand);
+	color: var(--bn-a-bg) !important;
+	border-color: var(--bn-a-brand);
+}
+
+.bn-page-link:hover:not(.current) {
+	background: var(--bn-a-bg-hover);
+}
+
+/* --------------------------------------------------------------------------
+   Member cell
+   -------------------------------------------------------------------------- */
+
+.bn-member-cell {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+}
+
+.bn-member-info {
+	display: flex;
+	flex-direction: column;
+}
+
+.bn-member-name {
+	font-weight: var(--bn-a-fw-semibold);
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-1);
+	line-height: 1.2;
+}
+
+.bn-member-username {
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+	margin-top: var(--bn-a-s1);
+}
+
+/* --------------------------------------------------------------------------
+   Avatar initials
+   -------------------------------------------------------------------------- */
+
+.bn-avatar-initials {
+	width: var(--bn-a-avatar-sz);
+	height: var(--bn-a-avatar-sz);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-bold);
+	color: var(--bn-a-bg);
+	flex-shrink: 0;
+	letter-spacing: 0.02em;
+}
+
+.av-brand  { background: var(--bn-a-brand); }
+.av-green  { background: var(--bn-a-green); }
+.av-purple { background: var(--bn-a-jetonomy); }
+.av-orange { background: var(--bn-a-gamif); }
+.av-pink   { background: var(--bn-a-av-pink); }
+.av-teal   { background: var(--bn-a-mvs); }
+.av-rose   { background: var(--bn-a-red); }
+.av-indigo { background: var(--bn-a-career); }
+
+/* --------------------------------------------------------------------------
+   Filter bar
+   -------------------------------------------------------------------------- */
+
+.bn-filter-bar {
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	border-bottom: 1px solid var(--bn-a-border-soft);
+	background: var(--bn-a-bg-subtle);
+}
+
+.bn-filter-form {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	flex-wrap: wrap;
+}
+
+.bn-search-input {
+	flex: 1;
+	min-width: var(--bn-a-input-min-w);
+	border: 1px solid var(--bn-a-border) !important;
+	border-radius: var(--bn-a-r-sm) !important;
+	padding: var(--bn-a-s2) var(--bn-a-s3) !important;
+	font-size: var(--bn-a-text-sm) !important;
+	box-shadow: none !important;
+	background: var(--bn-a-bg) !important;
+	color: var(--bn-a-text-1) !important;
+}
+
+.bn-search-input:focus {
+	border-color: var(--bn-a-brand) !important;
+	box-shadow: 0 0 0 1px var(--bn-a-brand) !important;
+	outline: none !important;
+}
+
+.bn-filter-select {
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-sm);
+	padding: var(--bn-a-s2) var(--bn-a-s3);
+	font-size: var(--bn-a-text-sm);
+	background: var(--bn-a-bg);
+	color: var(--bn-a-text-1);
+	height: auto;
+	cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   Action row
+   -------------------------------------------------------------------------- */
+
+.bn-action-row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	margin-bottom: var(--bn-a-s3);
+	flex-wrap: wrap;
+}
+
+.bn-filter-tab {
+	padding: var(--bn-a-s1) var(--bn-a-s3);
+	border-radius: var(--bn-a-r-lg);
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-2);
+	text-decoration: none;
+	background: transparent;
+	transition: background var(--bn-a-transition), color var(--bn-a-transition);
+}
+
+.bn-filter-tab.active {
+	background: var(--bn-a-brand);
+	color: var(--bn-a-bg);
+}
+
+.bn-filter-tab:hover:not(.active) {
+	background: var(--bn-a-bg-hover);
+	color: var(--bn-a-text-1);
+}
+
+/* --------------------------------------------------------------------------
+   Table columns
+   -------------------------------------------------------------------------- */
+
+.bn-col-email {
+	color: var(--bn-a-text-1);
+	font-size: var(--bn-a-text-sm);
+}
+
+.bn-col-muted {
+	color: var(--bn-a-text-3);
+	font-size: var(--bn-a-text-xs);
+	white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Row actions
+   -------------------------------------------------------------------------- */
+
+.bn-row-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s2);
+	white-space: nowrap;
+}
+
+.bn-action-link {
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-medium);
+	color: var(--bn-a-brand);
+	text-decoration: none;
+}
+
+.bn-action-link:hover {
+	text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   More menu dropdown
+   -------------------------------------------------------------------------- */
+
+.bn-more-menu {
+	position: relative;
+	display: inline-block;
+}
+
+.bn-more-btn {
+	background: transparent;
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-sm);
+	width: var(--bn-a-more-btn-sz);
+	height: var(--bn-a-more-btn-sz);
+	font-size: var(--bn-a-text-lg);
+	color: var(--bn-a-text-3);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	line-height: 1;
+	transition: background var(--bn-a-transition), color var(--bn-a-transition), border-color var(--bn-a-transition);
+}
+
+.bn-more-btn:hover {
+	background: var(--bn-a-bg-hover);
+	color: var(--bn-a-text-1);
+	border-color: var(--bn-a-text-3);
+}
+
+.bn-more-dropdown {
+	display: none;
+	position: absolute;
+	right: 0;
+	top: calc(100% + var(--bn-a-s1));
+	background: var(--bn-a-bg);
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md);
+	box-shadow: var(--bn-a-shadow-md);
+	min-width: var(--bn-a-dropdown-min-w);
+	z-index: 100;
+	overflow: hidden;
+}
+
+.bn-more-menu.open .bn-more-dropdown {
+	display: block;
+}
+
+.bn-dropdown-item {
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: var(--bn-a-s2) var(--bn-a-s4);
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-medium);
+	color: var(--bn-a-text-1);
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-family: var(--bn-a-font-body);
+	white-space: nowrap;
+	transition: background var(--bn-a-transition);
+}
+
+.bn-dropdown-item:hover {
+	background: var(--bn-a-bg-subtle);
+}
+
+.bn-dropdown-danger {
+	color: var(--bn-a-red);
+}
+
+.bn-dropdown-danger:hover {
+	background: var(--bn-a-red-bg);
+}
+
+/* --------------------------------------------------------------------------
+   Developer bar
+   -------------------------------------------------------------------------- */
+
+.bn-dev-bar {
+	background: var(--bn-a-bg-code);
+	border-radius: var(--bn-a-r-md);
+	padding: var(--bn-a-s4);
+}
+
+.bn-dev-bar code {
+	font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-code-text);
+	word-break: break-all;
+	background: transparent;
+	display: block;
+	line-height: 1.6;
+}
+
+/* ==========================================================================
+   4. RESPONSIVE BREAKPOINTS
+   ========================================================================== */
+
+@media (max-width: 782px) {
+	.bn-admin-tabs {
+		flex-wrap: wrap;
+	}
+
+	.bn-atab {
+		border-right: none;
+		border-bottom: 1px solid var(--bn-a-border);
+		flex: 1 1 auto;
+		text-align: center;
+	}
+
+	.bn-stats-row {
+		flex-direction: column;
+	}
+
+	.bn-addon-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.bn-ih-header {
+		flex-direction: column;
+		gap: var(--bn-a-s3);
+	}
+
+	.bn-ih-stats {
+		justify-content: flex-start;
+	}
+
+	.bn-table-header {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	input.bn-table-search {
+		width: 100% !important;
+	}
+}
+
+@media (max-width: 640px) {
+	.bn-member-cell {
+		gap: var(--bn-a-s2);
+	}
+
+	.bn-avatar-initials {
+		width: var(--bn-a-avatar-sz-sm);
+		height: var(--bn-a-avatar-sz-sm);
+		font-size: var(--bn-a-text-xs);
+	}
+
+	.bn-col-email,
+	.bn-col-muted {
+		display: none;
+	}
+
+	.bn-save-bar {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.bn-save-msg {
+		margin-right: 0;
+		text-align: center;
+	}
+
+	input.bn-btn-save.button-primary {
+		width: 100%;
+	}
+}

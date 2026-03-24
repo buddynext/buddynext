@@ -1,10 +1,13 @@
 <?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
- * Frontend asset registration and enqueueing.
+ * Frontend and admin asset registration and enqueueing.
  *
  * Registers all BuddyNext CSS and JS handles on wp_enqueue_scripts.
  * Individual handles are enqueued lazily by the ShortcodeService,
  * template partials, or the Interactivity API stores.
+ *
+ * Admin assets (bn-admin.css) are enqueued on admin_enqueue_scripts
+ * for any BuddyNext submenu page.
  *
  * Enqueue handles from any template:
  *   wp_enqueue_style( 'bn-feed' );
@@ -42,13 +45,43 @@ class AssetService {
 	}
 
 	/**
-	 * Register assets and hook into wp_enqueue_scripts.
+	 * Register assets and hook into wp_enqueue_scripts and admin_enqueue_scripts.
 	 *
 	 * @return void
 	 */
 	public function init(): void {
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_script_modules' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+	}
+
+	/**
+	 * Enqueue BuddyNext admin CSS on BuddyNext admin pages.
+	 *
+	 * Only fires when the current admin page slug contains 'buddynext'
+	 * (covers both the top-level page and all submenu pages).
+	 *
+	 * @param string $hook_suffix The hook suffix for the current admin page.
+	 * @return void
+	 */
+	public function enqueue_admin_assets( string $hook_suffix ): void {
+		if ( false === strpos( $hook_suffix, 'buddynext' ) ) {
+			return;
+		}
+
+		wp_register_style(
+			'bn-fonts',
+			$this->assets_url . 'css/bn-fonts.css',
+			array(),
+			self::VERSION
+		);
+
+		wp_enqueue_style(
+			'bn-admin',
+			$this->assets_url . 'css/bn-admin.css',
+			array( 'bn-fonts' ),
+			self::VERSION
+		);
 	}
 
 	/**
