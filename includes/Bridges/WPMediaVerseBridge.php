@@ -53,8 +53,9 @@ class WPMediaVerseBridge {
 		// Unified nav: inject "Media" link into BuddyNext top nav.
 		add_filter( 'buddynext_nav_items', array( $this, 'inject_media_nav_item' ) );
 
-		// Unified nav: render BuddyNext subnav on all WPMediaVerse pages.
-		add_action( 'mvs_before_content', array( $this, 'render_buddynext_nav_on_mvs' ) );
+		// Shell wrapping: BuddyNext hub shell + sidebar on all WPMediaVerse pages.
+		add_action( 'mvs_before_content', array( $this, 'open_hub_shell' ) );
+		add_action( 'mvs_after_content', array( $this, 'close_hub_shell' ) );
 
 		// Render MVS chat components inside BuddyNext's messages hub shell.
 		add_action( 'buddynext_render_messages', array( $this, 'render_messages' ) );
@@ -202,11 +203,40 @@ class WPMediaVerseBridge {
 	 * Hooked on mvs_before_content (fired by all MVS templates after
 	 * get_header). Bails silently when BuddyNext is not fully booted.
 	 */
-	public function render_buddynext_nav_on_mvs(): void {
+	/**
+	 * Open the BuddyNext hub shell on WPMediaVerse pages.
+	 *
+	 * Renders BuddyNext nav + opens the hub-shell grid container. The
+	 * close_hub_shell() method on mvs_after_content renders the sidebar
+	 * and closes the grid.
+	 *
+	 * @return void
+	 */
+	public function open_hub_shell(): void {
 		if ( ! function_exists( 'buddynext_get_template' ) || ! did_action( 'buddynext_loaded' ) ) {
 			return;
 		}
-		buddynext_get_template( 'partials/nav' );
+
+		// Ensure BuddyNext base CSS is loaded (hub shell grid, sidebar, nav styles).
+		wp_enqueue_style( 'bn-base' );
+
+		buddynext_get_template( 'partials/nav.php' );
+		echo '<div class="bn-hub-shell"><div class="bn-mvs-content">';
+	}
+
+	/**
+	 * Close the BuddyNext hub shell + render community sidebar.
+	 *
+	 * @return void
+	 */
+	public function close_hub_shell(): void {
+		if ( ! function_exists( 'buddynext_get_template' ) || ! did_action( 'buddynext_loaded' ) ) {
+			return;
+		}
+
+		echo '</div>'; // .bn-mvs-content
+		buddynext_get_template( 'partials/sidebar.php' );
+		echo '</div>'; // .bn-hub-shell
 	}
 
 	/**

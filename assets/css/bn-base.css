@@ -429,6 +429,35 @@
 	align-items: start;
 }
 
+/* ── Content wrappers (1fr grid children) ── */
+/* Each plugin's content area prevents overflow in the 1fr column. */
+.bn-mvs-content,
+.bn-jt-content,
+.bn-messages-content {
+	min-width: 0;
+}
+
+/* When Jetonomy renders inside BN shell, its own two-col layout becomes
+   single-column (BN's sidebar replaces Jetonomy's sidebar). */
+.bn-jt-content .jt-two-col {
+	display: block;
+}
+.bn-jt-content .jt-sidebar {
+	display: none;
+}
+
+/* WPMediaVerse pages inside the shell lose their own max-width since
+   the hub shell already constrains to 1100px. */
+.bn-mvs-content .mvs-explore-page,
+.bn-mvs-content .mvs-single-media,
+.bn-mvs-content .mvs-single-album,
+.bn-mvs-content .mvs-single-collection,
+.bn-mvs-content .mvs-profile-edit {
+	max-width: none;
+	margin: 0;
+	padding: 0;
+}
+
 /* ── Community sidebar (right 300px column) ── */
 .bn-hub-sidebar {
 	display: flex;

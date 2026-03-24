@@ -37,7 +37,7 @@ class JetonomyBridge {
 	 * Bails when Jetonomy is not active so no hooks are wasted on other sites.
 	 */
 	public function init(): void {
-		if ( ! class_exists( 'Jetonomy\Core\Plugin' ) ) {
+		if ( ! class_exists( 'Jetonomy\Jetonomy' ) ) {
 			return;
 		}
 
@@ -50,10 +50,12 @@ class JetonomyBridge {
 		// Inject a Discussions link into the BuddyNext top nav bar.
 		add_filter( 'buddynext_nav_items', array( $this, 'inject_discussions_nav_item' ) );
 
-		// On Jetonomy pages: replace Jetonomy's own nav with the BuddyNext subnav
-		// so the whole platform shares one unified navigation system.
-		add_action( 'jetonomy_before_content', array( $this, 'render_buddynext_nav_on_jetonomy' ), 5 );
+		// Shell wrapping: replace Jetonomy's own nav with BuddyNext hub shell
+		// so all Jetonomy pages render inside the unified platform layout.
+		add_action( 'jetonomy_before_content', array( $this, 'open_hub_shell' ), 5 );
+		add_action( 'jetonomy_after_content', array( $this, 'close_hub_shell' ) );
 		add_filter( 'jetonomy_show_community_nav', '__return_false' );
+		add_filter( 'jetonomy_show_sidebar', '__return_false' );
 
 		// Inject a Discussions tab into BuddyNext spaces that have a linked Jetonomy forum.
 		add_filter( 'buddynext_space_tabs', array( $this, 'inject_space_forum_tab' ), 10, 2 );
@@ -244,11 +246,40 @@ class JetonomyBridge {
 	 *
 	 * Hooked on: jetonomy_before_content( array $data )
 	 */
-	public function render_buddynext_nav_on_jetonomy(): void {
+	/**
+	 * Open the BuddyNext hub shell on Jetonomy pages.
+	 *
+	 * Renders BuddyNext nav + opens the hub-shell grid container. The
+	 * close_hub_shell() method on jetonomy_after_content renders the
+	 * sidebar and closes the grid.
+	 *
+	 * @return void
+	 */
+	public function open_hub_shell(): void {
 		if ( ! function_exists( 'buddynext_get_template' ) || ! did_action( 'buddynext_loaded' ) ) {
 			return;
 		}
-		buddynext_get_template( 'partials/nav' );
+
+		// Ensure BuddyNext base CSS is loaded (hub shell grid, sidebar, nav styles).
+		wp_enqueue_style( 'bn-base' );
+
+		buddynext_get_template( 'partials/nav.php' );
+		echo '<div class="bn-hub-shell"><div class="bn-jt-content">';
+	}
+
+	/**
+	 * Close the BuddyNext hub shell + render community sidebar.
+	 *
+	 * @return void
+	 */
+	public function close_hub_shell(): void {
+		if ( ! function_exists( 'buddynext_get_template' ) || ! did_action( 'buddynext_loaded' ) ) {
+			return;
+		}
+
+		echo '</div>'; // .bn-jt-content
+		buddynext_get_template( 'partials/sidebar.php' );
+		echo '</div>'; // .bn-hub-shell
 	}
 
 	/**
