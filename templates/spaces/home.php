@@ -752,13 +752,38 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				'members' => __( 'Members', 'buddynext' ),
 				'about'   => __( 'About', 'buddynext' ),
 			);
-			foreach ( $bn_nav_tabs as $tab_key => $tab_label ) :
-				$tab_url = add_query_arg( 'bn_tab', $tab_key );
+
+			/**
+			 * Filters the tab list shown in the space navigation bar.
+			 *
+			 * Addons can append additional tabs. Each entry is either:
+			 *   string  — translated label for an internal ?bn_tab={key} link.
+			 *   array   — ['label' => string, 'url' => string] for an external link.
+			 *
+			 * @param array $tabs     Associative array: tab_key => label|config.
+			 * @param int   $space_id BuddyNext space ID.
+			 */
+			$bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id );
+
+			foreach ( $bn_nav_tabs as $tab_key => $tab_data ) :
+				if ( is_array( $tab_data ) ) {
+					// External-link tab injected by an addon.
+					$tab_label  = $tab_data['label'] ?? $tab_key;
+					$tab_url    = $tab_data['url']   ?? '#';
+					$tab_active = false;
+					$tab_rel    = 'noopener';
+				} else {
+					$tab_label  = $tab_data;
+					$tab_url    = add_query_arg( 'bn_tab', $tab_key );
+					$tab_active = ( $active_tab === $tab_key );
+					$tab_rel    = '';
+				}
 				?>
 				<a
 					href="<?php echo esc_url( $tab_url ); ?>"
-					class="bn-sh-tab<?php echo ( $active_tab === $tab_key ) ? ' bn-sh-tab--active' : ''; ?>"
-					aria-current="<?php echo ( $active_tab === $tab_key ) ? 'page' : 'false'; ?>"
+					class="bn-sh-tab<?php echo $tab_active ? ' bn-sh-tab--active' : ''; ?>"
+					aria-current="<?php echo $tab_active ? 'page' : 'false'; ?>"
+					<?php echo $tab_rel ? 'rel="' . esc_attr( $tab_rel ) . '"' : ''; ?>
 				><?php echo esc_html( $tab_label ); ?></a>
 			<?php endforeach; ?>
 		</nav>

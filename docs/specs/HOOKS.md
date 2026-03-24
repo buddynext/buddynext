@@ -171,9 +171,29 @@ do_action( 'buddynext_index_hashtags', string $object_type, int $object_id, stri
 ## Filters Provided by BuddyNext
 
 ```php
-// Inject tabs into a space
+// Inject tabs into a space nav bar.
 apply_filters( 'buddynext_space_tabs', array $tabs, int $space_id )
-// Each tab: [ 'id', 'label', 'icon', 'callback' ]
+// $tabs is a key→value map. Two value formats are supported:
+//   string  — built-in BuddyNext tab; rendered as an internal ?bn_tab=<key> link.
+//   array   — external-link tab; must contain 'label' (string) and 'url' (string).
+//
+// Example — add an external Forum tab when Jetonomy is linked:
+//   add_filter( 'buddynext_space_tabs', function( $tabs, $space_id ) {
+//       $tabs['forum'] = [ 'label' => 'Forum', 'url' => 'https://example.com/community/s/general/' ];
+//       return $tabs;
+//   }, 10, 2 );
+
+// Inject extra stat blocks into the profile header stat row.
+apply_filters( 'buddynext_profile_extra_data', array $extra, int $user_id )
+// Each entry: [ 'label' => string, 'value' => string|int ]
+// Entries with a missing 'label' or unset 'value' are silently skipped.
+//
+// Example — add a Discussions count from Jetonomy:
+//   add_filter( 'buddynext_profile_extra_data', function( $extra, $user_id ) {
+//       $count    = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE author_id = %d AND status = 'publish'", $user_id ) );
+//       $extra[]  = [ 'label' => 'Discussions', 'value' => $count ];
+//       return $extra;
+//   }, 10, 2 );
 
 // Inject items into main navigation
 apply_filters( 'buddynext_nav_items', array $items )

@@ -44,6 +44,12 @@ class JetonomyBridge {
 
 		// jetonomy_post_deleted fires ($post_id, $space_id, $user_id) — 3 args.
 		add_action( 'jetonomy_post_deleted', array( $this, 'on_post_deleted' ), 10, 3 );
+
+		// Inject a Forum tab into BuddyNext spaces that have a linked Jetonomy forum.
+		add_filter( 'buddynext_space_tabs', array( $this, 'inject_space_forum_tab' ), 10, 2 );
+
+		// Inject a Discussions stat block into BuddyNext user profiles.
+		add_filter( 'buddynext_profile_extra_data', array( $this, 'inject_profile_discussion_count' ), 10, 2 );
 	}
 
 	/**
@@ -145,11 +151,11 @@ class JetonomyBridge {
 	 * Deletes the bn_search_index entry and, when feed sync is active,
 	 * removes the linked forum_post card from bn_posts.
 	 *
-	 * @param int $post_id  Jetonomy discussion ID.
-	 * @param int $space_id Jetonomy space ID (unused — kept for hook signature).
-	 * @param int $user_id  User who deleted the discussion (unused — kept for hook signature).
+	 * @param int $post_id   Jetonomy discussion ID.
+	 * @param int $_space_id Jetonomy space ID (unused — kept for hook signature).
+	 * @param int $_user_id  User who deleted the discussion (unused — kept for hook signature).
 	 */
-	public function on_post_deleted( int $post_id, int $space_id, int $user_id ): void {
+	public function on_post_deleted( int $post_id, int $_space_id, int $_user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- hook signature requires all 3 args.
 		global $wpdb;
 
 		// Always-on: remove from search index.
@@ -178,5 +184,82 @@ class JetonomyBridge {
 			}
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Inject a Forum tab into BuddyNext space navigation when a Jetonomy forum is linked.
+	 *
+	 * Reads the `bn_space_{space_id}_jetonomy_forum_id` option (set via Space Settings).
+	 * When non-zero, fetches the Jetonomy space slug from jt_spaces and appends an
+	 * external-link tab pointing to the forum URL.
+	 *
+	 * Hooked on: buddynext_space_tabs( array $tabs, int $space_id )
+	 *
+	 * @param array<string, string|array<string,string>> $tabs     Existing tab map (key → label or ['label','url']).
+	 * @param int                                        $space_id BuddyNext space ID.
+	 * @return array<string, string|array<string,string>>
+	 */
+	public function inject_space_forum_tab( array $tabs, int $space_id ): array {
+		$forum_id = (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', 0 );
+		if ( 0 === $forum_id ) {
+			return $tabs;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$jt_slug = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT slug FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1",
+				$forum_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( null === $jt_slug ) {
+			return $tabs;
+		}
+
+		$settings  = get_option( 'jetonomy_settings', array() );
+		$base_slug = isset( $settings['base_slug'] ) ? (string) $settings['base_slug'] : 'community';
+
+		$tabs['forum'] = array(
+			'label' => __( 'Forum', 'buddynext' ),
+			'url'   => home_url( '/' . $base_slug . '/s/' . rawurlencode( (string) $jt_slug ) . '/' ),
+		);
+
+		return $tabs;
+	}
+
+	/**
+	 * Inject a Discussions stat block into BuddyNext user profiles.
+	 *
+	 * Counts published Jetonomy discussions authored by the profile user and
+	 * appends a stat entry so the number shows in the profile header stat row.
+	 *
+	 * Hooked on: buddynext_profile_extra_data( array $extra, int $user_id )
+	 *
+	 * @param array<int, array{label: string, value: string|int}> $extra           Existing extra stat entries.
+	 * @param int                                                 $profile_user_id ID of the user whose profile is being viewed.
+	 * @return array<int, array{label: string, value: string|int}>
+	 */
+	public function inject_profile_discussion_count( array $extra, int $profile_user_id ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}jt_posts WHERE author_id = %d AND status = 'publish'",
+				$profile_user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$extra[] = array(
+			'label' => __( 'Discussions', 'buddynext' ),
+			'value' => $count,
+		);
+
+		return $extra;
 	}
 }

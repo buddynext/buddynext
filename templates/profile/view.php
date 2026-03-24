@@ -83,13 +83,13 @@ $post_count = (int) $wpdb->get_var(
 );
 
 // --- Social graph state (viewer vs. this profile) -------------------------
-$is_following       = false;
+$is_following        = false;
 $is_connected        = false;
 $connection_pending  = false;
 $connection_received = false;
-$is_blocked         = false;
-$is_muted           = false;
-$degree_badge       = '';
+$is_blocked          = false;
+$is_muted            = false;
+$degree_badge        = '';
 
 if ( ! $is_own_profile && $current_user_id ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -838,19 +838,19 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
 		array(
-			'userId'            => $user_id,
-			'profileUserId'     => $user_id,
-			'activeTab'         => 'posts',
-			'isFollowing'       => $is_following,
+			'userId'             => $user_id,
+			'profileUserId'      => $user_id,
+			'activeTab'          => 'posts',
+			'isFollowing'        => $is_following,
 			'isConnected'        => $is_connected,
 			'connectionPending'  => $connection_pending,
 			'connectionReceived' => $connection_received,
 			'showConnect'        => ! $is_connected && ! $connection_pending && ! $connection_received,
-			'followerCount'     => $follower_count,
-			'restNonce'         => wp_create_nonce( 'wp_rest' ),
-			'isBlocked'         => $is_blocked,
-			'isMuted'           => $is_muted,
-			'moreMenuOpen'      => false,
+			'followerCount'      => $follower_count,
+			'restNonce'          => wp_create_nonce( 'wp_rest' ),
+			'isBlocked'          => $is_blocked,
+			'isMuted'            => $is_muted,
+			'moreMenuOpen'       => false,
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -1068,6 +1068,25 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 				<div class="bn-stat-num"><?php echo esc_html( $format_count( $connection_count ) ); ?></div>
 				<div class="bn-stat-lbl"><?php esc_html_e( 'Connections', 'buddynext' ); ?></div>
 			</div>
+			<?php
+			/**
+			 * Extra stat blocks injected by bridge plugins (e.g. Jetonomy discussion count,
+			 * WBGamification points). Each entry must be an array with 'label' and 'value' keys.
+			 *
+			 * @param array[] $extra           Array of ['label' => string, 'value' => string|int].
+			 * @param int     $user_id         ID of the profile being viewed.
+			 */
+			$bn_extra_stats = apply_filters( 'buddynext_profile_extra_data', array(), (int) $user_id );
+			foreach ( $bn_extra_stats as $bn_extra_stat ) :
+				if ( empty( $bn_extra_stat['label'] ) || ! isset( $bn_extra_stat['value'] ) ) {
+					continue;
+				}
+				?>
+				<div class="bn-stat">
+					<div class="bn-stat-num"><?php echo esc_html( (string) $bn_extra_stat['value'] ); ?></div>
+					<div class="bn-stat-lbl"><?php echo esc_html( $bn_extra_stat['label'] ); ?></div>
+				</div>
+			<?php endforeach; ?>
 		</div>
 
 	</div><!-- /bn-profile-head -->
