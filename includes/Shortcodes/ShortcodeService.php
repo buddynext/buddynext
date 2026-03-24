@@ -42,6 +42,7 @@ class ShortcodeService {
 		add_shortcode( 'buddynext_messages', array( $this, 'render_messages' ) );
 		add_shortcode( 'buddynext_notifications', array( $this, 'render_notifications' ) );
 		add_shortcode( 'buddynext_auth', array( $this, 'render_auth' ) );
+		add_shortcode( 'buddynext_community_admin', array( $this, 'render_community_admin' ) );
 	}
 
 	// ── Shortcode handlers ────────────────────────────────────────────────────
@@ -245,6 +246,23 @@ class ShortcodeService {
 		}
 
 		return $this->capture( 'auth/login.php', array() );
+	}
+
+	/**
+	 * Render the Community Admin Panel shortcode.
+	 *
+	 * Site-wide admin overview for community managers. Requires manage_options
+	 * or the buddynext-spaces/moderate ability.
+	 *
+	 * @param array<string, mixed>|string $_atts Shortcode attributes (unused).
+	 * @return string HTML output.
+	 */
+	public function render_community_admin( $_atts ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		if ( ! is_user_logged_in() ) {
+			return $this->login_required_html();
+		}
+
+		return $this->capture( 'community-admin.php', array() );
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
