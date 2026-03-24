@@ -86,8 +86,8 @@
       ],
       "fontSizes": [
         { "slug": "2xs",    "size": "9px",  "name": "BuddyNext 2XS" },
-        { "slug": "xs",     "size": "11px", "name": "BuddyNext XS" },
-        { "slug": "sm",     "size": "13px", "name": "BuddyNext SM" },
+        { "slug": "xs",     "size": "12px", "name": "BuddyNext XS" },
+        { "slug": "sm",     "size": "14px", "name": "BuddyNext SM" },
         { "slug": "md",     "size": "14px", "name": "BuddyNext MD" },
         { "slug": "medium", "size": "16px", "name": "BuddyNext Base (16px)" },
         { "slug": "large",  "size": "18px", "name": "BuddyNext LG (18px)" },

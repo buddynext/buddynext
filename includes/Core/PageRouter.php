@@ -204,6 +204,7 @@ class PageRouter {
 
 			case 'spaces':
 				$assets->enqueue( 'spaces' );
+				$assets->enqueue( 'feed' ); // Post cards on space pages use bn-feed.css classes.
 				break;
 
 			case 'messages':

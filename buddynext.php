@@ -208,8 +208,11 @@ function buddynext_get_icon( string $name, string $css_class = '' ): string {
  * @return string HTML-safe content with linked tags and mentions.
  */
 function buddynext_format_content( string $content ): string {
-	// Escape the raw content first, then linkify so our <a> tags survive wp_kses.
-	$escaped = esc_html( $content );
+	// Encode only the three characters dangerous in HTML text content (<, >, &).
+	// esc_html() also encodes apostrophes to &#039; which wp_kses() then
+	// double-encodes (&→&amp;), causing the entity to display literally in the
+	// browser. Single quotes are perfectly safe in HTML text nodes.
+	$escaped = htmlspecialchars( $content, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8' );
 
 	// Replace #hashtag with a link (word boundary; allow hyphens and underscores).
 	$escaped = preg_replace_callback(

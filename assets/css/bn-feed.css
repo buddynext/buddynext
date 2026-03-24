@@ -11,12 +11,12 @@
 	--bn-font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 	--bn-font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
 
-	--bn-text-xs:   11px;
-	--bn-text-sm:   13px;
-	--bn-text-base: 15px;
-	--bn-text-lg:   17px;
-	--bn-text-xl:   20px;
-	--bn-text-2xl:  24px;
+	--bn-text-xs:   var(--text-xs);
+	--bn-text-sm:   var(--text-sm);
+	--bn-text-base: var(--text-base);
+	--bn-text-lg:   var(--text-lg);
+	--bn-text-xl:   var(--text-xl);
+	--bn-text-2xl:  var(--text-2xl);
 
 	--bn-leading-body: 1.7;
 
