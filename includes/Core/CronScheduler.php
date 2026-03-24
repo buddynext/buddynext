@@ -76,7 +76,7 @@ class CronScheduler {
 		add_action( 'wp_loaded', array( $this, 'schedule_events' ) );
 
 		// Wire cron job handlers — one action per job defined above.
-		$handlers = new CronHandlers();
+		$handlers = new CronService();
 		add_action( self::JOB_DAILY_DIGEST, array( $handlers, 'handle_daily_digest' ) );
 		add_action( self::JOB_WEEKLY_DIGEST, array( $handlers, 'handle_weekly_digest' ) );
 		add_action( self::JOB_CLEANUP_TOKENS, array( $handlers, 'handle_cleanup_tokens' ) );

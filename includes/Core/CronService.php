@@ -25,7 +25,7 @@ namespace BuddyNext\Core;
 /**
  * Implements all BuddyNext WP-Cron job callbacks.
  */
-class CronHandlers {
+class CronService {
 
 	/**
 	 * Maximum users processed per digest run to avoid PHP timeout.
