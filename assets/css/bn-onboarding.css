@@ -65,7 +65,7 @@
 /* ── Layout wrapper ──────────────────────────────────────────────────── */
 .bn-onboarding-wrap {
 	font-family: var(--bn-ob-font-body);
-	font-size: 15px;
+	font-size: var(--text-base);
 	color: var(--bn-ob-text-1);
 	background: var(--bn-ob-bg);
 	min-height: 100vh;
@@ -78,7 +78,7 @@
 /* ── Setup wizard chrome ─────────────────────────────────────────────── */
 .bn-wizard-wrap {
 	font-family: var(--bn-ob-font-body);
-	font-size: 15px;
+	font-size: var(--text-base);
 	color: var(--bn-ob-text-1);
 	padding: var(--bn-ob-s8) var(--bn-ob-s4);
 }
@@ -107,13 +107,13 @@
 	align-items: center;
 	gap: var(--bn-ob-s2);
 	font-family: var(--bn-ob-font-display);
-	font-size: 15px;
-	font-weight: 600;
+	font-size: var(--text-base);
+	font-weight: var(--fw-semibold);
 	color: var(--bn-ob-text-1);
 }
 
 .bn-wizard__skip {
-	font-size: 13px;
+	font-size: var(--text-sm);
 	color: var(--bn-ob-text-2);
 	text-decoration: none;
 	transition: color 0.15s;
@@ -142,8 +142,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 12px;
-	font-weight: 600;
+	font-size: var(--text-xs);
+	font-weight: var(--fw-semibold);
 	color: var(--bn-ob-text-3);
 	background: var(--bn-ob-bg);
 	transition: background 0.2s, border-color 0.2s, color 0.2s;
@@ -168,10 +168,10 @@
 }
 
 .bn-wizard__step-label {
-	font-size: 12px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-text-2);
 	text-transform: uppercase;
-	letter-spacing: 0.05em;
+	letter-spacing: var(--ls-wider);
 	margin: 0 0 var(--bn-ob-s4);
 }
 
@@ -179,19 +179,19 @@
 .bn-wizard__title,
 .bn-wizard__step-title {
 	font-family: var(--bn-ob-font-display);
-	font-size: 20px;
-	font-weight: 700;
+	font-size: var(--text-xl);
+	font-weight: var(--fw-bold);
 	color: var(--bn-ob-text-1);
 	margin: 0 0 var(--bn-ob-s2);
-	line-height: 1.25;
+	line-height: var(--leading-tight);
 }
 
 .bn-wizard__desc,
 .bn-wizard__step-desc {
-	font-size: 14px;
+	font-size: var(--text-md);
 	color: var(--bn-ob-text-2);
 	margin: 0 0 var(--bn-ob-s6);
-	line-height: 1.6;
+	line-height: var(--leading-body);
 }
 
 /* Form fields */
@@ -201,8 +201,8 @@
 
 .bn-wizard__label {
 	display: block;
-	font-size: 13px;
-	font-weight: 600;
+	font-size: var(--text-sm);
+	font-weight: var(--fw-semibold);
 	color: var(--bn-ob-text-1);
 	margin-bottom: var(--bn-ob-s2);
 }
@@ -212,7 +212,7 @@
 	width: 100%;
 	padding: var(--bn-ob-s2) var(--bn-ob-s3);
 	font-family: var(--bn-ob-font-body);
-	font-size: 14px;
+	font-size: var(--text-md);
 	color: var(--bn-ob-text-1);
 	background: var(--bn-ob-bg);
 	border: 1px solid var(--bn-ob-border);
@@ -247,7 +247,7 @@
 }
 
 .bn-wizard__color-preview {
-	font-size: 13px;
+	font-size: var(--text-sm);
 	color: var(--bn-ob-text-2);
 	font-family: monospace;
 }
@@ -264,7 +264,7 @@
 	display: flex;
 	align-items: center;
 	gap: var(--bn-ob-s2);
-	font-size: 14px;
+	font-size: var(--text-md);
 	color: var(--bn-ob-text-1);
 	cursor: pointer;
 	padding: var(--bn-ob-s2) var(--bn-ob-s3);
@@ -286,7 +286,7 @@
 	display: flex;
 	align-items: center;
 	gap: var(--bn-ob-s2);
-	font-size: 14px;
+	font-size: var(--text-md);
 	color: var(--bn-ob-text-1);
 	cursor: pointer;
 	margin-bottom: var(--bn-ob-s2);
@@ -301,7 +301,7 @@
 
 /* Hint text */
 .bn-wizard__hint {
-	font-size: 12px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-text-3);
 	margin: var(--bn-ob-s2) 0 0;
 }
@@ -339,25 +339,25 @@
 }
 
 .bn-wizard__preset-icon {
-	font-size: 20px;
+	font-size: var(--text-xl);
 	line-height: 1;
 }
 
 .bn-wizard__preset-name {
-	font-size: 13px;
-	font-weight: 600;
+	font-size: var(--text-sm);
+	font-weight: var(--fw-semibold);
 	color: var(--bn-ob-text-1);
 }
 
 .bn-wizard__preset-desc {
-	font-size: 11px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-text-2);
-	line-height: 1.4;
+	line-height: var(--leading-snug);
 }
 
 /* Space categories step */
 .bn-wizard__step-hint {
-	font-size: 12px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-text-3);
 	margin-top: var(--bn-ob-s2);
 }
@@ -394,12 +394,12 @@
 }
 
 .bn-wizard__page-info strong {
-	font-size: 13px;
+	font-size: var(--text-sm);
 	color: var(--bn-ob-text-1);
 }
 
 .bn-wizard__shortcode {
-	font-size: 11px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-brand);
 	background: var(--bn-ob-brand-light);
 	padding: 1px var(--bn-ob-s1);
@@ -408,7 +408,7 @@
 }
 
 .bn-wizard__page-desc {
-	font-size: 11px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-text-3);
 }
 
@@ -425,7 +425,7 @@
 }
 
 .bn-wizard__slug-sep {
-	font-size: 13px;
+	font-size: var(--text-sm);
 	color: var(--bn-ob-text-3);
 }
 
@@ -434,7 +434,7 @@
 }
 
 .bn-wizard__page-link {
-	font-size: 12px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-brand);
 	text-decoration: none;
 }
@@ -444,8 +444,8 @@
 }
 
 .bn-wizard__page-badge {
-	font-size: 11px;
-	font-weight: 600;
+	font-size: var(--text-xs);
+	font-weight: var(--fw-semibold);
 	color: var(--bn-ob-green);
 	background: var(--bn-ob-green-bg);
 	padding: 2px var(--bn-ob-s2);
@@ -495,18 +495,18 @@
 }
 
 .bn-wizard__addon-info strong {
-	font-size: 13px;
+	font-size: var(--text-sm);
 	color: var(--bn-ob-text-1);
 }
 
 .bn-wizard__addon-info span {
-	font-size: 12px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-text-2);
 }
 
 .bn-wizard__addon-status {
-	font-size: 11px;
-	font-weight: 600;
+	font-size: var(--text-xs);
+	font-weight: var(--fw-semibold);
 }
 
 .bn-wizard__addon.is-active .bn-wizard__addon-status {
@@ -552,8 +552,8 @@
 	height: 36px;
 	padding: 0 var(--bn-ob-s5);
 	font-family: var(--bn-ob-font-body);
-	font-size: 14px;
-	font-weight: 600;
+	font-size: var(--text-md);
+	font-weight: var(--fw-semibold);
 	color: #fff;
 	background: var(--bn-ob-brand);
 	border: none;
@@ -636,8 +636,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 11px;
-	font-weight: 700;
+	font-size: var(--text-xs);
+	font-weight: var(--fw-bold);
 	color: var(--bn-ob-text-3);
 	z-index: 1;
 	position: relative;
@@ -657,31 +657,31 @@
 }
 
 .bn-ob-progress__label {
-	font-size: 11px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-text-2);
 	text-align: center;
 }
 
 .bn-ob-progress__step.is-active .bn-ob-progress__label {
 	color: var(--bn-ob-brand);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 }
 
 /* Step heading */
 .bn-ob-heading {
 	font-family: var(--bn-ob-font-display);
-	font-size: 22px;
-	font-weight: 700;
+	font-size: var(--text-2xl);
+	font-weight: var(--fw-bold);
 	color: var(--bn-ob-text-1);
 	margin: 0 0 var(--bn-ob-s2);
-	line-height: 1.2;
+	line-height: var(--leading-tight);
 }
 
 .bn-ob-subheading {
-	font-size: 14px;
+	font-size: var(--text-md);
 	color: var(--bn-ob-text-2);
 	margin: 0 0 var(--bn-ob-s6);
-	line-height: 1.6;
+	line-height: var(--leading-body);
 }
 
 /* "Complete your profile" CTA card */
@@ -698,9 +698,9 @@
 }
 
 .bn-ob-cta__text {
-	font-size: 14px;
+	font-size: var(--text-md);
 	color: var(--bn-ob-brand);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 }
 
 .bn-ob-cta__btn {
@@ -708,8 +708,8 @@
 	align-items: center;
 	height: 32px;
 	padding: 0 var(--bn-ob-s4);
-	font-size: 13px;
-	font-weight: 600;
+	font-size: var(--text-sm);
+	font-weight: var(--fw-semibold);
 	color: #fff;
 	background: var(--bn-ob-brand);
 	border-radius: var(--bn-ob-r-md);
@@ -739,7 +739,7 @@
 	border: 2px solid var(--bn-ob-border);
 	border-radius: var(--bn-ob-r-full);
 	background: var(--bn-ob-bg);
-	font-size: 13px;
+	font-size: var(--text-sm);
 	color: var(--bn-ob-text-1);
 	cursor: pointer;
 	transition: border-color 0.15s, background 0.15s;
@@ -756,7 +756,7 @@
 	border-color: var(--bn-ob-brand);
 	background: var(--bn-ob-brand-light);
 	color: var(--bn-ob-brand);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 }
 
 /* Space cards (step 3) */
@@ -790,13 +790,13 @@
 }
 
 .bn-ob-space-card__name {
-	font-size: 14px;
-	font-weight: 600;
+	font-size: var(--text-md);
+	font-weight: var(--fw-semibold);
 	color: var(--bn-ob-text-1);
 }
 
 .bn-ob-space-card__meta {
-	font-size: 12px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-text-2);
 }
 
@@ -841,13 +841,13 @@
 }
 
 .bn-ob-person__name {
-	font-size: 14px;
-	font-weight: 600;
+	font-size: var(--text-md);
+	font-weight: var(--fw-semibold);
 	color: var(--bn-ob-text-1);
 }
 
 .bn-ob-person__meta {
-	font-size: 12px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-text-2);
 }
 
@@ -855,8 +855,8 @@
 	flex-shrink: 0;
 	height: 30px;
 	padding: 0 var(--bn-ob-s3);
-	font-size: 12px;
-	font-weight: 600;
+	font-size: var(--text-xs);
+	font-weight: var(--fw-semibold);
 	color: var(--bn-ob-brand);
 	background: var(--bn-ob-brand-light);
 	border: 1px solid var(--bn-ob-brand);
@@ -890,8 +890,8 @@
 	height: 38px;
 	padding: 0 var(--bn-ob-s5);
 	font-family: var(--bn-ob-font-body);
-	font-size: 14px;
-	font-weight: 600;
+	font-size: var(--text-md);
+	font-weight: var(--fw-semibold);
 	border-radius: var(--bn-ob-r-md);
 	cursor: pointer;
 	transition: background 0.15s, color 0.15s;
@@ -955,7 +955,7 @@
 	width: 100%;
 	padding: var(--bn-ob-s2) var(--bn-ob-s3);
 	font-family: var(--bn-ob-font-body);
-	font-size: 14px;
+	font-size: var(--text-md);
 	color: var(--bn-ob-text-1);
 	background: var(--bn-ob-bg);
 	border: 1px solid var(--bn-ob-border);
@@ -982,7 +982,7 @@
 	color: var(--bn-ob-text-3);
 	cursor: pointer;
 	border-radius: var(--bn-ob-r-sm);
-	font-size: 16px;
+	font-size: var(--text-base);
 	transition: color 0.15s, background 0.15s;
 }
 
@@ -996,7 +996,7 @@
 }
 
 .bn-invite-add-link {
-	font-size: 13px;
+	font-size: var(--text-sm);
 	color: var(--bn-ob-brand);
 	text-decoration: none;
 	cursor: pointer;
@@ -1015,8 +1015,8 @@
 	height: 38px;
 	padding: 0 var(--bn-ob-s6);
 	font-family: var(--bn-ob-font-body);
-	font-size: 14px;
-	font-weight: 600;
+	font-size: var(--text-md);
+	font-weight: var(--fw-semibold);
 	color: #fff;
 	background: var(--bn-ob-brand);
 	border: none;
@@ -1052,19 +1052,19 @@
 }
 
 .bn-csv-dropzone__icon {
-	font-size: 32px;
+	font-size: var(--text-3xl);
 	line-height: 1;
 	color: var(--bn-ob-text-3);
 }
 
 .bn-csv-dropzone__title {
-	font-size: 15px;
-	font-weight: 600;
+	font-size: var(--text-base);
+	font-weight: var(--fw-semibold);
 	color: var(--bn-ob-text-1);
 }
 
 .bn-csv-dropzone__hint {
-	font-size: 12px;
+	font-size: var(--text-xs);
 	color: var(--bn-ob-text-2);
 }
 
@@ -1073,7 +1073,7 @@
 }
 
 .bn-csv-dropzone__browse {
-	font-size: 13px;
+	font-size: var(--text-sm);
 	color: var(--bn-ob-brand);
 	text-decoration: underline;
 	cursor: pointer;
@@ -1102,7 +1102,7 @@
 	.bn-wizard__step-dot {
 		width: 24px;
 		height: 24px;
-		font-size: 11px;
+		font-size: var(--text-xs);
 	}
 
 	.bn-wizard__preset-grid {
@@ -1141,7 +1141,7 @@
 	}
 
 	.bn-ob-heading {
-		font-size: 18px;
+		font-size: var(--text-lg);
 	}
 
 	.bn-ob-nav {
