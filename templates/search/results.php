@@ -67,12 +67,27 @@ if ( '' !== $raw_query ) {
 			break;
 	}
 
-	// Excluded user IDs (suspended + shadow-banned) — literal ints, safe to interpolate.
+	// Excluded user IDs (suspended + shadow-banned + blocked by viewer) — literal ints, safe to interpolate.
+	$viewer_id = get_current_user_id();
 	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 	$excluded_raw = (array) $wpdb->get_col(
 		"SELECT DISTINCT user_id FROM {$wpdb->prefix}usermeta
 		 WHERE meta_key IN ('bn_suspended','bn_shadow_banned') AND meta_value = '1'"
 	);
+	// Add users blocked by (or who blocked) the current viewer.
+	if ( $viewer_id > 0 ) {
+		$blocked_raw  = (array) $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT IF( blocker_id = %d, blocked_id, blocker_id )
+				 FROM {$wpdb->prefix}bn_blocks
+				 WHERE blocker_id = %d OR blocked_id = %d",
+				$viewer_id,
+				$viewer_id,
+				$viewer_id
+			)
+		);
+		$excluded_raw = array_unique( array_merge( $excluded_raw, $blocked_raw ) );
+	}
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 	$excluded_sql = ! empty( $excluded_raw )
 		? ' AND s.author_id NOT IN (' . implode( ',', array_map( 'absint', $excluded_raw ) ) . ')'

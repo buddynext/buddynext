@@ -159,6 +159,25 @@ class PostService {
 		 */
 		do_action( 'buddynext_post_created', $post_id, $user_id, $type );
 
+		// Parse @username mentions and fire buddynext_user_mentioned for each.
+		if ( $content ) {
+			preg_match_all( '/@([a-zA-Z0-9_-]+)/u', $content, $mention_matches );
+			foreach ( $mention_matches[1] as $raw_username ) {
+				$username       = sanitize_user( (string) $raw_username, true );
+				$mentioned_user = get_user_by( 'login', $username );
+				if ( $mentioned_user instanceof \WP_User && $mentioned_user->ID !== $user_id ) {
+					/**
+					 * Fires when a user is @mentioned in a BuddyNext post.
+					 *
+					 * @param int $mentioned_user_id ID of the user who was mentioned.
+					 * @param int $mentioner_id      ID of the user who wrote the post.
+					 * @param int $post_id           Post ID containing the mention.
+					 */
+					do_action( 'buddynext_user_mentioned', $mentioned_user->ID, $user_id, $post_id );
+				}
+			}
+		}
+
 		return $post_id;
 	}
 
@@ -454,7 +473,16 @@ class PostService {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		foreach ( array_values( $options ) as $i => $text ) {
+		foreach ( array_values( $options ) as $i => $raw ) {
+			// Accept both flat string values and associative arrays with label/text keys.
+			if ( is_array( $raw ) ) {
+				$text = (string) ( $raw['label'] ?? $raw['text'] ?? $raw['option_text'] ?? '' );
+			} else {
+				$text = (string) $raw;
+			}
+			if ( '' === trim( $text ) ) {
+				continue;
+			}
 			$wpdb->insert(
 				$wpdb->prefix . 'bn_poll_options',
 				array(
@@ -483,6 +511,7 @@ class PostService {
 			'id'                   => (int) $row['id'],
 			'user_id'              => (int) $row['user_id'],
 			'space_id'             => isset( $row['space_id'] ) ? (int) $row['space_id'] : null,
+			'shared_post_id'       => isset( $row['shared_post_id'] ) ? (int) $row['shared_post_id'] : null,
 			'type'                 => $row['type'],
 			'content'              => $row['content'],
 			'media_ids'            => isset( $row['media_ids'] ) ? json_decode( (string) $row['media_ids'], true ) : null,

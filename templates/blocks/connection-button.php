@@ -45,67 +45,86 @@ if ( 'pending' === $bn_status ) {
 	}
 }
 
-$nonce = wp_create_nonce( 'bn-connect' );
+// Build direction-aware status for the Interactivity API context.
+if ( $pending_sent ) {
+	$ctx_status = 'pending-sent';
+} elseif ( $pending_recv ) {
+	$ctx_status = 'pending-received';
+} elseif ( 'accepted' === $bn_status ) {
+	$ctx_status = 'accepted';
+} else {
+	$ctx_status = '';
+}
+
+$nonce        = wp_create_nonce( 'wp_rest' );
+$context_json = (string) wp_json_encode(
+	array(
+		'userId'  => $user_id,
+		'status'  => $ctx_status,
+		'nonce'   => $nonce,
+		'restUrl' => rest_url( 'buddynext/v1' ),
+	)
+);
 ?>
 <div
 	class="bn-block-connection-button"
 	data-wp-interactive="buddynext/connection-button"
 	data-user-id="<?php echo absint( $user_id ); ?>"
-	data-wp-context='{"userId":<?php echo absint( $user_id ); ?>,"status":<?php echo wp_json_encode( $bn_status ?? '' ); ?>}'
+	data-wp-context="<?php echo esc_attr( $context_json ); ?>"
 >
-	<?php if ( $pending_recv ) : ?>
-		<span class="bn-connect-received">
-			<button
-				class="bn-btn bn-btn--sm bn-accept"
-				data-wp-on--click="actions.acceptRequest"
-				data-action="bn-accept-connect"
-				data-user-id="<?php echo absint( $user_id ); ?>"
-				data-nonce="<?php echo esc_attr( $nonce ); ?>"
-			>
-				<?php esc_html_e( 'Accept', 'buddynext' ); ?>
-			</button>
-			<button
-				class="bn-btn bn-btn--sm bn-decline"
-				data-wp-on--click="actions.declineRequest"
-				data-action="bn-decline-connect"
-				data-user-id="<?php echo absint( $user_id ); ?>"
-				data-nonce="<?php echo esc_attr( $nonce ); ?>"
-			>
-				<?php esc_html_e( 'Decline', 'buddynext' ); ?>
-			</button>
-		</span>
-	<?php elseif ( 'accepted' === $bn_status ) : ?>
+	<span
+		class="bn-connect-received"
+		data-wp-bind--hidden="!state.showAcceptDecline"
+		<?php echo $pending_recv ? '' : 'hidden'; ?>
+	>
 		<button
-			class="bn-btn bn-btn--sm bn-btn--secondary bn-connected"
-			data-wp-on--click="actions.disconnect"
-			data-action="bn-toggle-connect"
+			class="bn-btn bn-btn--sm bn-accept"
+			data-wp-on--click="actions.acceptRequest"
+			data-action="bn-accept-connect"
 			data-user-id="<?php echo absint( $user_id ); ?>"
-			data-status="accepted"
-			data-nonce="<?php echo esc_attr( $nonce ); ?>"
 		>
-			<?php esc_html_e( 'Connected', 'buddynext' ); ?>
+			<?php esc_html_e( 'Accept', 'buddynext' ); ?>
 		</button>
-	<?php elseif ( $pending_sent ) : ?>
 		<button
-			class="bn-btn bn-btn--sm bn-btn--secondary bn-pending"
-			data-wp-on--click="actions.withdrawRequest"
-			data-action="bn-toggle-connect"
+			class="bn-btn bn-btn--sm bn-decline"
+			data-wp-on--click="actions.declineRequest"
+			data-action="bn-decline-connect"
 			data-user-id="<?php echo absint( $user_id ); ?>"
-			data-status="pending-sent"
-			data-nonce="<?php echo esc_attr( $nonce ); ?>"
 		>
-			<?php esc_html_e( 'Pending', 'buddynext' ); ?>
+			<?php esc_html_e( 'Decline', 'buddynext' ); ?>
 		</button>
-	<?php else : ?>
-		<button
-			class="bn-btn bn-btn--sm bn-btn--primary"
-			data-wp-on--click="actions.sendRequest"
-			data-action="bn-toggle-connect"
-			data-user-id="<?php echo absint( $user_id ); ?>"
-			data-status=""
-			data-nonce="<?php echo esc_attr( $nonce ); ?>"
-		>
-			<?php esc_html_e( 'Connect', 'buddynext' ); ?>
-		</button>
-	<?php endif; ?>
+	</span>
+
+	<button
+		class="bn-btn bn-btn--sm bn-btn--secondary bn-connected"
+		data-wp-on--click="actions.disconnect"
+		data-action="bn-toggle-connect"
+		data-user-id="<?php echo absint( $user_id ); ?>"
+		data-wp-bind--hidden="!state.showConnected"
+		<?php echo 'accepted' === $bn_status ? '' : 'hidden'; ?>
+	>
+		<?php esc_html_e( 'Connected', 'buddynext' ); ?>
+	</button>
+
+	<button
+		class="bn-btn bn-btn--sm bn-btn--secondary bn-pending"
+		data-wp-on--click="actions.withdrawRequest"
+		data-action="bn-toggle-connect"
+		data-user-id="<?php echo absint( $user_id ); ?>"
+		data-wp-bind--hidden="!state.showPending"
+		<?php echo $pending_sent ? '' : 'hidden'; ?>
+	>
+		<?php esc_html_e( 'Pending', 'buddynext' ); ?>
+	</button>
+
+	<button
+		class="bn-btn bn-btn--sm bn-btn--primary"
+		data-wp-on--click="actions.sendRequest"
+		data-action="bn-toggle-connect"
+		data-user-id="<?php echo absint( $user_id ); ?>"
+		data-wp-bind--hidden="!state.showConnect"
+		<?php echo ( '' === $ctx_status ) ? '' : 'hidden'; ?>
+	>
+		<?php esc_html_e( 'Connect', 'buddynext' ); ?>
+	</button>
 </div>

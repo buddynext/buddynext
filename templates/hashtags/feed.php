@@ -57,6 +57,7 @@ if ( $hashtag_slug ) {
 // ── Current user context ───────────────────────────────────────────────────
 $current_user_id = get_current_user_id();
 $is_logged_in    = ( $current_user_id > 0 );
+$rest_nonce      = wp_create_nonce( 'wp_rest' );
 
 // ── Check if current user follows this hashtag ────────────────────────────
 $follows_hashtag   = false;
@@ -712,6 +713,9 @@ else :
 				'tab'       => 'posts',
 				'page'      => 1,
 				'following' => $follows_hashtag,
+				'restUrl'   => rest_url( 'buddynext/v1/' ),
+				'restNonce' => $rest_nonce,
+				'userId'    => $current_user_id,
 			)
 		)
 	);
@@ -1159,20 +1163,5 @@ else :
 		</aside>
 	</div>
 
-	<!-- REST config -->
-	<script type="application/json" id="bn-hashtag-feed-config">
-	<?php
-	echo wp_json_encode(
-		array(
-			'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1/' ) ),
-			'restNonce' => $rest_nonce,
-			'userId'    => $current_user_id,
-			'hashtag'   => $hashtag_slug,
-			'hashtagId' => (int) $hashtag->id,
-			'following' => $follows_hashtag,
-		)
-	);
-	?>
-	</script>
 </div>
 <?php endif; ?>

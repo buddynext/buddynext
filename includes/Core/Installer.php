@@ -384,6 +384,7 @@ class Installer {
 				id                  BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				user_id             BIGINT(20) UNSIGNED NOT NULL,
 				space_id            BIGINT(20) UNSIGNED DEFAULT NULL,
+				shared_post_id      BIGINT(20) UNSIGNED DEFAULT NULL,
 				type                VARCHAR(32) NOT NULL DEFAULT 'text',
 				content             LONGTEXT DEFAULT NULL,
 				media_ids           JSON DEFAULT NULL,
@@ -408,7 +409,8 @@ class Installer {
 				KEY                 space_feed (space_id, status, created_at),
 				KEY                 announcement_feed (is_announcement, status, created_at),
 				KEY                 explore (privacy, created_at),
-				KEY                 scheduled (scheduled_at)
+				KEY                 scheduled (scheduled_at),
+				KEY                 shared_post (shared_post_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_bookmarks (

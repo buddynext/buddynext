@@ -219,6 +219,7 @@ $privacy_label = match ( $space->type ) {
 };
 
 $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
+$rest_nonce      = wp_create_nonce( 'wp_rest' );
 
 $bn_nav_active = 'spaces';
 buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
@@ -674,6 +675,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	class="bn-space-home"
 	data-wp-interactive="buddynext/spaces"
 	data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+	data-wp-context='<?php echo esc_attr( wp_json_encode( array( 'restNonce' => $rest_nonce, 'restUrl' => rest_url( 'buddynext/v1' ) ) ) ); ?>'
 >
 
 	<!-- Space header -->

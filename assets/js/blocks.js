@@ -200,28 +200,27 @@
 
 	store( 'buddynext/follow-button', {
 		state: {
-			loading: false,
+			get buttonClass() {
+				var ctx = getContext();
+				return ctx.isFollowing
+					? 'bn-btn bn-btn--sm bn-btn--secondary bn-following'
+					: 'bn-btn bn-btn--sm bn-btn--primary';
+			},
+			get label() {
+				return getContext().isFollowing ? 'Following' : 'Follow';
+			},
 		},
 		actions: {
-			toggle: function* () {
-				var ctx = getContext();
-				if ( ctx.loading ) {
-					return;
+			toggleFollow: function* () {
+				var ctx    = getContext();
+				var method = ctx.isFollowing ? 'DELETE' : 'POST';
+				var res    = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/follow', {
+					method:  method,
+					headers: { 'X-WP-Nonce': ctx.nonce },
+				} );
+				if ( res.ok ) {
+					ctx.isFollowing = ! ctx.isFollowing;
 				}
-				ctx.loading = true;
-				var method  = ctx.following ? 'DELETE' : 'POST';
-				yield window.fetch(
-					( window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '' )
-					+ '/buddynext/v1/follows/' + ctx.userId,
-					{
-						method:  method,
-						headers: {
-							'X-WP-Nonce': window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
-						},
-					}
-				);
-				ctx.following = ! ctx.following;
-				ctx.loading   = false;
 			},
 		},
 	} );
@@ -230,27 +229,69 @@
 
 	store( 'buddynext/connection-button', {
 		state: {
-			loading: false,
+			get showConnect() {
+				return getContext().status === '';
+			},
+			get showPending() {
+				return getContext().status === 'pending-sent';
+			},
+			get showAcceptDecline() {
+				return getContext().status === 'pending-received';
+			},
+			get showConnected() {
+				return getContext().status === 'accepted';
+			},
 		},
 		actions: {
-			toggle: function* () {
+			sendRequest: function* () {
 				var ctx = getContext();
-				if ( ctx.loading ) {
-					return;
+				var res = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/connect', {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.nonce },
+				} );
+				if ( res.ok ) {
+					ctx.status = 'pending-sent';
 				}
-				ctx.loading = true;
-				var method  = ctx.connected ? 'DELETE' : 'POST';
-				yield window.fetch(
-					( window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '' )
-					+ '/buddynext/v1/connections/' + ctx.userId,
-					{
-						method:  method,
-						headers: {
-							'X-WP-Nonce': window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
-						},
-					}
-				);
-				ctx.loading = false;
+			},
+			withdrawRequest: function* () {
+				var ctx = getContext();
+				var res = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/connect', {
+					method:  'DELETE',
+					headers: { 'X-WP-Nonce': ctx.nonce },
+				} );
+				if ( res.ok ) {
+					ctx.status = '';
+				}
+			},
+			acceptRequest: function* () {
+				var ctx = getContext();
+				var res = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/connect/accept', {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.nonce },
+				} );
+				if ( res.ok ) {
+					ctx.status = 'accepted';
+				}
+			},
+			declineRequest: function* () {
+				var ctx = getContext();
+				var res = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/connect/decline', {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.nonce },
+				} );
+				if ( res.ok ) {
+					ctx.status = '';
+				}
+			},
+			disconnect: function* () {
+				var ctx = getContext();
+				var res = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/connect', {
+					method:  'DELETE',
+					headers: { 'X-WP-Nonce': ctx.nonce },
+				} );
+				if ( res.ok ) {
+					ctx.status = '';
+				}
 			},
 		},
 	} );

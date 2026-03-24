@@ -187,6 +187,10 @@ class PageRouter {
 		switch ( $hub ) {
 			case 'feed':
 				$assets->enqueue( 'feed' );
+				// Hashtag feed additionally needs the hashtag store module.
+				if ( 'hashtag' === (string) get_query_var( 'bn_activity_action', '' ) ) {
+					$assets->enqueue( 'hashtags' );
+				}
 				break;
 
 			case 'people':

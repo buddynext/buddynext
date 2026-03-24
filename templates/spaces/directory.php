@@ -31,6 +31,7 @@ $bn_orderby      = isset( $_GET['bn_sort'] ) ? sanitize_key( wp_unslash( $_GET['
 $bn_paged        = isset( $_GET['bn_page'] ) ? max( 1, absint( $_GET['bn_page'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_per_page     = 18;
 $bn_offset       = ( $bn_paged - 1 ) * $bn_per_page;
+$rest_nonce      = wp_create_nonce( 'wp_rest' );
 
 // ── Build ORDER BY ────────────────────────────────────────────────────────────
 
@@ -599,6 +600,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 <div
 	class="bn-spaces-dir"
 	data-wp-interactive="buddynext/spaces"
+	data-wp-context='<?php echo esc_attr( wp_json_encode( array( 'restNonce' => $rest_nonce, 'restUrl' => rest_url( 'buddynext/v1' ) ) ) ); ?>'
 >
 
 	<?php if ( current_user_can( 'read' ) ) : ?>

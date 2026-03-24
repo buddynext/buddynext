@@ -59,11 +59,42 @@ class ShareService {
 			),
 			array( '%d', '%d', '%s' )
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$share_id = (int) $wpdb->insert_id;
 
+		// Publish a feed post so the share card appears in the home feed.
+		// Inherit the original post's privacy so visibility rules are respected.
+		$original_privacy = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT privacy FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
+				$post_id
+			)
+		);
+		$privacy          = in_array( $original_privacy, array( 'public', 'followers', 'connections', 'space_members', 'private' ), true )
+			? $original_privacy
+			: 'public';
+
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'user_id'        => $user_id,
+				'shared_post_id' => $post_id,
+				'type'           => 'share',
+				'content'        => $content,
+				'privacy'        => $privacy,
+				'status'         => 'published',
+			),
+			array( '%d', '%d', '%s', '%s', '%s', '%s' )
+		);
+
+		$feed_post_id = (int) $wpdb->insert_id;
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
 		( new PostService() )->adjust_share_count( $post_id, 1 );
+
+		if ( $feed_post_id > 0 ) {
+			do_action( 'buddynext_post_created', $feed_post_id, $user_id, 'share' );
+		}
 
 		return $share_id;
 	}

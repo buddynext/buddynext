@@ -62,6 +62,22 @@ $has_cw      = ! empty( $bn_post['content_warning'] );
 $cw_type_raw = $bn_post['content_warning_type'] ?? '';
 $cw_type     = in_array( $cw_type_raw, array( 'nsfw', 'spoilers', 'violence', 'language' ), true ) ? $cw_type_raw : '';
 
+// ── Shared post (type='share' only) ─────────────────────────────────────────────
+$shared_post    = null;
+$shared_post_id = absint( $bn_post['shared_post_id'] ?? 0 );
+if ( 'share' === $bn_post_type && $shared_post_id > 0 ) {
+	global $wpdb;
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$shared_post = $wpdb->get_row(
+		$wpdb->prepare(
+			"SELECT * FROM {$wpdb->prefix}bn_posts WHERE id = %d AND status = 'published' LIMIT 1",
+			$shared_post_id
+		),
+		ARRAY_A
+	);
+	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+}
+
 // ── Author ─────────────────────────────────────────────────────────────────────
 $author       = get_userdata( $post_author_id );
 $display_name = $author ? $author->display_name : __( 'Community Member', 'buddynext' );
@@ -93,25 +109,31 @@ $member_type_label = $member_type_slug ? get_user_meta( $post_author_id, 'bn_mem
  * @return string Escaped relative label.
  */
 if ( ! function_exists( 'bn_post_card_relative_time' ) ) :
-function bn_post_card_relative_time( string $datetime ): string {
-	$diff = time() - (int) strtotime( $datetime );
-	if ( $diff < 60 ) {
-		return esc_html__( 'just now', 'buddynext' );
+	/**
+	 * Return a human-readable relative time string for a datetime.
+	 *
+	 * @param string $datetime MySQL datetime string.
+	 * @return string
+	 */
+	function bn_post_card_relative_time( string $datetime ): string {
+		$diff = time() - (int) strtotime( $datetime );
+		if ( $diff < 60 ) {
+			return esc_html__( 'just now', 'buddynext' );
+		}
+		if ( $diff < 3600 ) {
+			$mins = (int) round( $diff / 60 );
+			/* translators: %d: number of minutes */
+			return esc_html( sprintf( _n( '%dm ago', '%dm ago', $mins, 'buddynext' ), $mins ) );
+		}
+		if ( $diff < 86400 ) {
+			$hours = (int) round( $diff / 3600 );
+			/* translators: %d: number of hours */
+			return esc_html( sprintf( _n( '%dh ago', '%dh ago', $hours, 'buddynext' ), $hours ) );
+		}
+		$days = (int) round( $diff / 86400 );
+		/* translators: %d: number of days */
+		return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
 	}
-	if ( $diff < 3600 ) {
-		$mins = (int) round( $diff / 60 );
-		/* translators: %d: number of minutes */
-		return esc_html( sprintf( _n( '%dm ago', '%dm ago', $mins, 'buddynext' ), $mins ) );
-	}
-	if ( $diff < 86400 ) {
-		$hours = (int) round( $diff / 3600 );
-		/* translators: %d: number of hours */
-		return esc_html( sprintf( _n( '%dh ago', '%dh ago', $hours, 'buddynext' ), $hours ) );
-	}
-	$days = (int) round( $diff / 86400 );
-	/* translators: %d: number of days */
-	return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
-}
 endif;
 
 $post_time    = bn_post_card_relative_time( $created_at );
@@ -126,20 +148,48 @@ $can_pin      = $is_own_post || $is_admin;
 $can_report   = ( $current_user_id > 0 && ! $is_own_post );
 $can_bookmark = ( $current_user_id > 0 );
 
-// ── Nonces ─────────────────────────────────────────────────────────────────────
-$react_nonce    = $current_user_id > 0 ? wp_create_nonce( 'bn_react_' . $bn_post_id ) : '';
-$share_nonce    = $current_user_id > 0 ? wp_create_nonce( 'bn_share_' . $bn_post_id ) : '';
-$bookmark_nonce = $current_user_id > 0 ? wp_create_nonce( 'bn_bookmark_' . $bn_post_id ) : '';
-$report_nonce   = $can_report ? wp_create_nonce( 'bn_report_' . $bn_post_id ) : '';
-$dismiss_nonce  = $is_announcement ? wp_create_nonce( 'bn_dismiss_ann_' . $bn_post_id ) : '';
-$poll_nonce     = ( 'poll' === $bn_post_type && $current_user_id > 0 ) ? wp_create_nonce( 'bn_poll_vote_' . $bn_post_id ) : '';
+// ── Nonces — all REST calls use the wp_rest nonce ──────────────────────────────
+$rest_nonce     = $current_user_id > 0 ? wp_create_nonce( 'wp_rest' ) : '';
+$react_nonce    = $rest_nonce;
+$share_nonce    = $rest_nonce;
+$bookmark_nonce = $rest_nonce;
+$report_nonce   = $can_report ? $rest_nonce : '';
+$dismiss_nonce  = $is_announcement ? $rest_nonce : '';
+$poll_nonce     = ( 'poll' === $bn_post_type && $current_user_id > 0 ) ? $rest_nonce : '';
 
-// ── Poll totals ────────────────────────────────────────────────────────────────
-$poll_total_votes = 0;
+// ── Poll totals + reactive context ─────────────────────────────────────────────
+$poll_total_votes   = 0;
+$poll_options_ctx   = array();
+$my_voted_option_id = 0;
 if ( 'poll' === $bn_post_type && ! empty( $poll_options ) ) {
 	foreach ( $poll_options as $opt ) {
 		$poll_total_votes += absint( $opt['vote_count'] );
 	}
+	foreach ( $poll_options as $opt ) {
+		$v                  = absint( $opt['vote_count'] );
+		$p                  = $poll_total_votes > 0 ? (int) round( ( $v / $poll_total_votes ) * 100 ) : 0;
+		$poll_options_ctx[] = array(
+			'id'    => absint( $opt['id'] ),
+			'text'  => (string) ( $opt['option_text'] ?? '' ),
+			'votes' => $v,
+			'pct'   => $p,
+		);
+	}
+	if ( $current_user_id > 0 ) {
+		$my_voted_option_id = (int) ( buddynext_service( 'polls' )->user_vote( $current_user_id, $bn_post_id ) ?? 0 );
+	}
+}
+
+// ── User's existing reaction ───────────────────────────────────────────────────
+$my_reaction_type = null;
+if ( $current_user_id > 0 ) {
+	$my_reaction_type = buddynext_service( 'reactions' )->get_user_reaction( $current_user_id, 'post', $bn_post_id );
+}
+
+// ── User's bookmark state ──────────────────────────────────────────────────────
+$is_bookmarked = false;
+if ( $current_user_id > 0 ) {
+	$is_bookmarked = buddynext_service( 'bookmarks' )->is_bookmarked( $current_user_id, $bn_post_id );
 }
 
 // ── Privacy label ──────────────────────────────────────────────────────────────
@@ -195,21 +245,28 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 	<?php
 		echo wp_json_encode(
 			array(
-				'postId'        => $bn_post_id,
-				'authorId'      => $post_author_id,
-				'currentUserId' => $current_user_id,
-				'postType'      => $bn_post_type,
-				'showContent'   => ! $has_cw,
-				'bookmarked'    => false,
-				'reactionType'  => null,
-				'reactNonce'    => $react_nonce,
-				'shareNonce'    => $share_nonce,
-				'bookmarkNonce' => $bookmark_nonce,
-				'reportNonce'   => $report_nonce,
-				'dismissNonce'  => $dismiss_nonce,
-				'pollNonce'     => $poll_nonce,
-				'restUrl'       => rest_url( 'buddynext/v1' ),
-				'context'       => $context,
+				'postId'            => $bn_post_id,
+				'authorId'          => $post_author_id,
+				'currentUserId'     => $current_user_id,
+				'postType'          => $bn_post_type,
+				'showContent'       => ! $has_cw,
+				'bookmarked'        => $is_bookmarked,
+				'reactionType'      => $my_reaction_type,
+				'reactNonce'        => $react_nonce,
+				'shareNonce'        => $share_nonce,
+				'bookmarkNonce'     => $bookmark_nonce,
+				'reportNonce'       => $report_nonce,
+				'dismissNonce'      => $dismiss_nonce,
+				'pollNonce'         => $poll_nonce,
+				'pollOptions'       => $poll_options_ctx,
+				'pollVotedOptionId' => $my_voted_option_id,
+				'pollTotalVotes'    => $poll_total_votes,
+				'commentsOpen'      => false,
+				'commentCount'      => $comment_count,
+				'shareCount'        => $share_count,
+				'shareShared'       => false,
+				'restUrl'           => rest_url( 'buddynext/v1' ),
+				'context'           => $context,
 			)
 		);
 		?>
@@ -387,20 +444,16 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			<!-- Text / activity post content -->
 			<div class="bn-post-card__content">
 				<?php
-				echo wp_kses_post(
-					nl2br(
-						wp_kses(
-							$post_content,
-							array(
-								'br'     => array(),
-								'a'      => array(
-									'href'  => array(),
-									'class' => array(),
-								),
-								'strong' => array(),
-								'em'     => array(),
-							)
-						)
+				echo wp_kses(
+					nl2br( buddynext_format_content( $post_content ) ),
+					array(
+						'br'     => array(),
+						'a'      => array(
+							'href'  => array(),
+							'class' => array(),
+						),
+						'strong' => array(),
+						'em'     => array(),
 					)
 				);
 				?>
@@ -492,24 +545,35 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 						$opt_text  = $option['option_text'] ?? '';
 						$opt_votes = absint( $option['vote_count'] );
 						$opt_pct   = $poll_total_votes > 0 ? (int) round( ( $opt_votes / $poll_total_votes ) * 100 ) : 0;
+						$opt_voted = ( $my_voted_option_id === $opt_id && $opt_id > 0 );
 						?>
 						<button
 							type="button"
-							class="bn-post-card__poll-option"
+							class="bn-post-card__poll-option<?php echo $opt_voted ? ' is-voted' : ''; ?>"
+							data-wp-context='<?php echo wp_json_encode( array( 'optionId' => $opt_id ) ); ?>'
+							data-wp-bind--class="state.pollOptionBtnClass"
 							data-wp-on--click="actions.votePoll"
 							data-option-id="<?php echo absint( $opt_id ); ?>"
 							aria-label="<?php echo esc_attr( sprintf( '%s — %d%%', $opt_text, $opt_pct ) ); ?>"
 						>
 							<div
 								class="bn-post-card__poll-fill"
-								style="width:<?php echo absint( $opt_pct ); ?>%;"
+								style="width:<?php echo absint( $opt_pct ); ?>%"
+								data-wp-bind--style="state.pollFillStyle"
 								aria-hidden="true"
 							></div>
 							<span class="bn-post-card__poll-option-text"><?php echo esc_html( $opt_text ); ?></span>
-							<span class="bn-post-card__poll-pct" aria-hidden="true"><?php echo absint( $opt_pct ); ?>%</span>
+							<span
+								class="bn-post-card__poll-pct"
+								data-wp-text="state.pollOptionPctText"
+								aria-hidden="true"
+							><?php echo absint( $opt_pct ); ?>%</span>
 						</button>
 					<?php endforeach; ?>
-					<p class="bn-post-card__poll-total">
+					<p
+						class="bn-post-card__poll-total"
+						data-wp-text="state.pollTotalVotesText"
+					>
 						<?php
 						/* translators: %d: total vote count */
 						echo esc_html( sprintf( _n( '%d vote', '%d votes', $poll_total_votes, 'buddynext' ), $poll_total_votes ) );
@@ -555,6 +619,59 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 					<p class="bn-post-card__bridge-text"><?php echo wp_kses_post( wp_trim_words( $post_content, 20 ) ); ?></p>
 				</div>
 			</div>
+
+		<?php elseif ( 'share' === $bn_post_type ) : ?>
+			<!-- Share card: optional note + embedded original post -->
+			<?php if ( ! empty( $post_content ) ) : ?>
+				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( $post_content ) ); ?></div>
+			<?php endif; ?>
+			<?php if ( null !== $shared_post ) : ?>
+				<?php
+				$orig_author   = get_userdata( (int) ( $shared_post['user_id'] ?? 0 ) );
+				$orig_name     = $orig_author ? esc_html( $orig_author->display_name ) : esc_html__( 'Community Member', 'buddynext' );
+				$orig_username = $orig_author ? esc_html( $orig_author->user_nicename ) : '';
+				$orig_avatar   = get_avatar_url( (int) ( $shared_post['user_id'] ?? 0 ), array( 'size' => 40 ) );
+				$orig_time     = bn_post_card_relative_time( $shared_post['created_at'] ?? '' );
+				$orig_content  = $shared_post['content'] ?? '';
+				$orig_post_url = PageRouter::profile_url( (int) ( $shared_post['user_id'] ?? 0 ) );
+				$orig_parts    = array_filter( explode( ' ', trim( (string) $orig_name ) ) );
+				if ( count( $orig_parts ) >= 2 ) {
+					$orig_initials = strtoupper( substr( (string) reset( $orig_parts ), 0, 1 ) . substr( (string) end( $orig_parts ), 0, 1 ) );
+				} else {
+					$orig_initials = strtoupper( substr( (string) $orig_name, 0, 2 ) );
+				}
+				$orig_palette = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' );
+				$orig_color   = $orig_palette[ (int) ( $shared_post['user_id'] ?? 0 ) % count( $orig_palette ) ];
+				?>
+				<div class="bn-post-card__shared-embed" role="article" aria-label="<?php esc_attr_e( 'Shared post', 'buddynext' ); ?>">
+					<div class="bn-post-card__shared-header">
+						<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-avatar" aria-hidden="true">
+							<?php if ( $orig_avatar ) : ?>
+								<img src="<?php echo esc_attr( $orig_avatar ); ?>" alt="<?php echo esc_attr( $orig_name ); ?>" width="40" height="40">
+							<?php else : ?>
+								<span style="background:<?php echo esc_attr( $orig_color ); ?>;"><?php echo esc_html( $orig_initials ); ?></span>
+							<?php endif; ?>
+						</a>
+						<div class="bn-post-card__shared-meta">
+							<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-name"><?php echo esc_html( $orig_name ); ?></a>
+							<?php if ( $orig_username ) : ?>
+								<span class="bn-post-card__shared-username">@<?php echo esc_html( $orig_username ); ?></span>
+							<?php endif; ?>
+							<span class="bn-post-card__shared-time"><?php echo esc_html( $orig_time ); ?></span>
+						</div>
+					</div>
+					<?php if ( ! empty( $orig_content ) ) : ?>
+						<div class="bn-post-card__shared-content"><?php echo wp_kses_post( nl2br( wp_trim_words( $orig_content, 60 ) ) ); ?></div>
+					<?php else : ?>
+						<p class="bn-post-card__shared-empty"><?php esc_html_e( '[No text content]', 'buddynext' ); ?></p>
+					<?php endif; ?>
+				</div>
+			<?php else : ?>
+				<div class="bn-post-card__shared-missing">
+					<span><?php buddynext_icon( 'share' ); ?></span>
+					<p><?php esc_html_e( 'Original post is no longer available.', 'buddynext' ); ?></p>
+				</div>
+			<?php endif; ?>
 
 		<?php else : ?>
 			<!-- Fallback for unknown/future types -->
@@ -609,13 +726,13 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			>
 				<?php
 				$reaction_icons = array(
-				'like'  => 'thumbs-up',
-				'love'  => 'heart',
-				'haha'  => 'reaction-haha',
-				'wow'   => 'reaction-wow',
-				'sad'   => 'reaction-sad',
-				'angry' => 'reaction-angry',
-			);
+					'like'  => 'thumbs-up',
+					'love'  => 'heart',
+					'haha'  => 'reaction-haha',
+					'wow'   => 'reaction-wow',
+					'sad'   => 'reaction-sad',
+					'angry' => 'reaction-angry',
+				);
 				foreach ( $reaction_icons as $reaction_key => $icon_slug ) :
 					?>
 					<button
@@ -643,35 +760,28 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			data-post-id="<?php echo absint( $bn_post_id ); ?>"
 		>
 			<?php buddynext_icon( 'message-circle' ); ?>
+			<?php esc_html_e( 'Comment', 'buddynext' ); ?>
 			<?php if ( $comment_count > 0 ) : ?>
-				<?php
-				/* translators: %d: comment count */
-				printf( esc_html__( 'Comment (%d)', 'buddynext' ), (int) $comment_count );
-				?>
+				<span class="bn-comment-count"><?php echo esc_html( (string) $comment_count ); ?></span>
 			<?php else : ?>
-				<?php esc_html_e( 'Comment', 'buddynext' ); ?>
+				<span class="bn-comment-count" style="display:none">0</span>
 			<?php endif; ?>
 		</button>
 
 		<!-- Share -->
+		<?php if ( 'share' !== $bn_post_type ) : ?>
 		<button
 			type="button"
 			class="bn-post-card__action-btn"
-			aria-label="
-			<?php
-				/* translators: %d: share count */
-				echo esc_attr( sprintf( _n( '%d share', '%d shares', $share_count, 'buddynext' ), $share_count ) );
-			?>
-			"
+			data-wp-bind--class="state.shareBtnClass"
+			aria-label="<?php esc_attr_e( 'Share post', 'buddynext' ); ?>"
 			data-wp-on--click="actions.sharePost"
 			data-post-id="<?php echo absint( $bn_post_id ); ?>"
 		>
 			<?php buddynext_icon( 'share' ); ?>
-			<?php if ( $share_count > 0 ) : ?>
-				<?php echo esc_html( (string) $share_count ); ?>
-			<?php endif; ?>
-			<?php esc_html_e( 'Share', 'buddynext' ); ?>
+			<span data-wp-text="state.shareLabel"></span>
 		</button>
+		<?php endif; ?>
 
 		<!-- Bookmark -->
 		<?php if ( $can_bookmark ) : ?>
@@ -689,5 +799,43 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		<?php endif; ?>
 
 	</div><!-- .bn-post-card__actions -->
+
+	<!-- ── Comments section ─────────────────────────────────────────────── -->
+	<div
+		class="bn-post-card__comments"
+		hidden
+		data-wp-bind--hidden="state.commentsHidden"
+		data-post-id="<?php echo absint( $bn_post_id ); ?>"
+	>
+		<div class="bn-comment-list" data-comment-list="<?php echo absint( $bn_post_id ); ?>"></div>
+
+		<?php if ( $current_user_id > 0 ) : ?>
+		<div class="bn-comment-form">
+			<div class="bn-comment-form__avatar" aria-hidden="true">
+				<?php
+				$current_display_name = (string) get_the_author_meta( 'display_name', $current_user_id );
+				$name_for_initials    = '' !== $current_display_name ? $current_display_name : 'U';
+				$current_initials     = implode( '', array_map( fn( string $w ) => strtoupper( mb_substr( $w, 0, 1 ) ), explode( ' ', $name_for_initials ) ) );
+				echo esc_html( mb_substr( $current_initials, 0, 2 ) );
+				?>
+			</div>
+			<textarea
+				class="bn-comment-form__input"
+				placeholder="<?php esc_attr_e( 'Write a comment...', 'buddynext' ); ?>"
+				aria-label="<?php esc_attr_e( 'Comment text', 'buddynext' ); ?>"
+				data-comment-input="<?php echo absint( $bn_post_id ); ?>"
+				rows="1"
+			></textarea>
+			<button
+				type="button"
+				class="bn-comment-form__submit"
+				data-wp-on--click="actions.submitComment"
+				aria-label="<?php esc_attr_e( 'Post comment', 'buddynext' ); ?>"
+			>
+				<?php buddynext_icon( 'send' ); ?>
+			</button>
+		</div>
+		<?php endif; ?>
+	</div><!-- .bn-post-card__comments -->
 
 </article>

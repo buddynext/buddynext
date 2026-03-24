@@ -188,6 +188,10 @@ function buildEntryNode( group, index ) {
 /* ── Store ─────────────────────────────────────────────────────────── */
 
 store( 'buddynext/profile', {
+	state: {
+		get muteLabel()  { return getContext().isMuted   ? 'Unmute'  : 'Mute'; },
+		get blockLabel() { return getContext().isBlocked ? 'Unblock' : 'Block'; },
+	},
 	actions: {
 
 		/* Main profile save (blur autosave and explicit save button). */
@@ -428,6 +432,64 @@ store( 'buddynext/profile', {
 				if ( res.ok ) {
 					ctx.connectionPending = true;
 					ctx.showConnect       = false;
+				}
+			} catch ( _e ) {}
+		},
+
+		withdrawRequest: async function () {
+			var ctx = getContext();
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect' ), {
+					method:  'DELETE',
+					headers: { 'X-WP-Nonce': ctx.restNonce },
+				} );
+				if ( res.ok ) {
+					ctx.connectionPending = false;
+					ctx.showConnect       = true;
+				}
+			} catch ( _e ) {}
+		},
+
+		acceptRequest: async function () {
+			var ctx = getContext();
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect/accept' ), {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.restNonce },
+				} );
+				if ( res.ok ) {
+					ctx.connectionReceived = false;
+					ctx.isConnected        = true;
+					ctx.showConnect        = false;
+				}
+			} catch ( _e ) {}
+		},
+
+		declineRequest: async function () {
+			var ctx = getContext();
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect/decline' ), {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.restNonce },
+				} );
+				if ( res.ok ) {
+					ctx.connectionReceived = false;
+					ctx.showConnect        = true;
+				}
+			} catch ( _e ) {}
+		},
+
+		disconnectUser: async function () {
+			var ctx = getContext();
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect' ), {
+					method:  'DELETE',
+					headers: { 'X-WP-Nonce': ctx.restNonce },
+				} );
+				if ( res.ok ) {
+					ctx.isConnected       = false;
+					ctx.showConnect       = true;
+					ctx.connectionPending = false;
 				}
 			} catch ( _e ) {}
 		},

@@ -23,7 +23,7 @@ $is_following = buddynext_service( 'follows' )->is_following( $viewer_id, $user_
 	class="bn-block-follow-button"
 	data-wp-interactive="buddynext/follow-button"
 	data-user-id="<?php echo absint( $user_id ); ?>"
-	data-wp-context='{"userId":<?php echo absint( $user_id ); ?>,"isFollowing":<?php echo $is_following ? 'true' : 'false'; ?>}'
+	data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'userId' => $user_id, 'isFollowing' => $is_following, 'nonce' => wp_create_nonce( 'wp_rest' ), 'restUrl' => rest_url( 'buddynext/v1' ) ) ) ); ?>"
 >
 	<button
 		class="bn-btn bn-btn--sm <?php echo $is_following ? 'bn-btn--secondary bn-following' : 'bn-btn--primary'; ?>"
@@ -31,7 +31,6 @@ $is_following = buddynext_service( 'follows' )->is_following( $viewer_id, $user_
 		data-wp-bind--class="state.buttonClass"
 		data-action="bn-toggle-follow"
 		data-user-id="<?php echo absint( $user_id ); ?>"
-		data-nonce="<?php echo esc_attr( wp_create_nonce( 'bn-follow' ) ); ?>"
 		data-wp-text="state.label"
 		aria-label="<?php echo $is_following ? esc_attr__( 'Unfollow user', 'buddynext' ) : esc_attr__( 'Follow user', 'buddynext' ); ?>"
 	>

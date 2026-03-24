@@ -246,7 +246,7 @@ $time_ago = static function ( string $created_at ): string {
 	return esc_html( sprintf( _n( '%dd ago', '%dd ago', $d, 'buddynext' ), $d ) );
 };
 
-$mark_all_nonce = wp_create_nonce( 'bn_notifications_read_all' );
+$mark_all_nonce = wp_create_nonce( 'wp_rest' );
 $rest_url       = esc_url( rest_url( 'buddynext/v1/me/notifications/read-all' ) );
 
 /**
@@ -269,6 +269,20 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 	);
 	$group_count = isset( $row->group_count ) ? (int) $row->group_count : 1;
 	$row_class   = 'bn-notif-row' . ( $is_unread ? ' bn-notif-row--unread' : '' );
+	$object_id   = isset( $row->object_id ) ? (int) $row->object_id : 0;
+
+	// Derive the navigation URL for this notification type.
+	$link_url = match ( $notif_type ) {
+		'bn.new_follower', 'bn.connection_requested', 'bn.connection_accepted'
+			=> $actor_id ? \BuddyNext\Core\PageRouter::profile_url( $actor_id ) : '',
+		'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post'
+			=> $object_id ? \BuddyNext\Core\PageRouter::space_url( $object_id ) : '',
+		'bn.new_message'
+			=> \BuddyNext\Core\PageRouter::messages_url(),
+		'bn.post_reacted', 'bn.post_commented', 'bn.mention'
+			=> $object_id ? add_query_arg( 'post_id', $object_id, \BuddyNext\Core\PageRouter::activity_url() ) : '',
+		default => '',
+	};
 
 	// Grouped notification messages: show "X and N others did Y" when group_count > 1.
 	// Singular messages are used for group_count === 1.
@@ -305,7 +319,8 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 			?>
 			<div class="<?php echo esc_attr( $row_class ); ?>"
 				data-wp-on--click="actions.markRead"
-				data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>">
+				data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>"
+				<?php if ( $link_url ) : ?>data-notif-link="<?php echo esc_url( $link_url ); ?>"<?php endif; ?>>
 
 				<div class="bn-notif-ava" style="background:<?php echo esc_attr( $avatar_color( $actor_id ) ); ?>;">
 					<?php echo $get_initials( $actor_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped inside closure. ?>
@@ -368,7 +383,8 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 	?>
 	<div class="<?php echo esc_attr( $row_class ); ?>"
 		data-wp-on--click="actions.markRead"
-		data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>">
+		data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>"
+		<?php if ( $link_url ) : ?>data-notif-link="<?php echo esc_url( $link_url ); ?>"<?php endif; ?>>
 
 		<div class="bn-notif-ava" style="background:<?php echo esc_attr( $avatar_color( $actor_id ) ); ?>;">
 			<?php echo $get_initials( $actor_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped inside closure. ?>

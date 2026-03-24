@@ -131,7 +131,7 @@ $ht_follows_table      = $wpdb->prefix . 'bn_hashtag_follows';
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 $feed_posts = $wpdb->get_results(
 	$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		"SELECT p.id, p.user_id, p.content, p.type, p.privacy,
+		"SELECT p.id, p.user_id, p.space_id, p.shared_post_id, p.content, p.type, p.privacy,
 		        p.media_ids, p.link_url, p.link_meta,
 		        p.is_pinned, p.is_announcement, p.content_warning, p.content_warning_type,
 		        p.reaction_count, p.comment_count, p.share_count,
@@ -459,6 +459,98 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	color: var(--text-1);
 }
 .bn-composer__action-icon { font-size: 16px; }
+.bn-composer__expanded { display: flex; flex-direction: column; gap: var(--s3); }
+.bn-composer__body {
+	display: flex;
+	gap: var(--s3);
+	align-items: flex-start;
+}
+.bn-composer__textarea {
+	flex: 1;
+	background: var(--bg-subtle);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	padding: var(--s3) var(--s4);
+	font-size: var(--text-base);
+	font-family: var(--font-body);
+	color: var(--text-1);
+	resize: none;
+	min-height: 88px;
+	outline: none;
+	transition: border-color .15s;
+}
+.bn-composer__textarea:focus { border-color: var(--brand); }
+.bn-composer__textarea::placeholder { color: var(--text-3); }
+.bn-composer__footer {
+	display: flex;
+	align-items: center;
+	gap: var(--s2);
+	justify-content: flex-end;
+}
+.bn-composer__select {
+	background: var(--bg-subtle);
+	border: 1px solid var(--border);
+	border-radius: var(--r-sm);
+	padding: var(--s1) var(--s3);
+	font-size: var(--text-sm);
+	color: var(--text-2);
+	cursor: pointer;
+}
+.bn-composer__submit {
+	background: var(--brand);
+	color: #fff;
+	border: none;
+	border-radius: var(--r-sm);
+	padding: var(--s2) var(--s5);
+	font-size: var(--text-sm);
+	font-weight: 600;
+	cursor: pointer;
+	transition: background .15s;
+}
+.bn-composer__submit:hover { background: var(--brand-hover); }
+.bn-composer__submit:disabled { opacity: 0.5; cursor: not-allowed; }
+[data-theme="dark"] .bn-composer__textarea {
+	background: var(--bg-subtle);
+	border-color: var(--border);
+	color: var(--text-1);
+}
+[data-theme="dark"] .bn-composer__select {
+	background: var(--bg-subtle);
+	border-color: var(--border);
+	color: var(--text-2);
+}
+.bn-composer__poll-options {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s2);
+	margin-bottom: var(--s2);
+}
+.bn-composer__poll-option {
+	width: 100%;
+	background: var(--bg-subtle);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	padding: var(--s2) var(--s3);
+	font-size: var(--text-sm);
+	font-family: var(--font-body);
+	color: var(--text-1);
+}
+.bn-composer__poll-option:focus {
+	outline: none;
+	border-color: var(--brand);
+}
+.bn-composer__poll-option::placeholder { color: var(--text-3); }
+.bn-composer__poll-question {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--text-2);
+	margin-bottom: var(--s1);
+}
+[data-theme="dark"] .bn-composer__poll-option {
+	background: var(--bg-subtle);
+	border-color: var(--border);
+	color: var(--text-1);
+}
 
 /* ── Feed list ──────────────────────────────────────────────────────────── */
 .bn-feed-list { display: flex; flex-direction: column; gap: var(--s4); }
@@ -671,48 +763,106 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				);
 				?>
 				'>
-				<div class="bn-composer__top">
-					<div class="bn-composer__avatar" aria-hidden="true">
-						<?php
-						$avatar_src = get_avatar_url( $current_user_id, array( 'size' => 76 ) );
-						if ( $avatar_src ) {
-							echo '<img src="' . esc_url( $avatar_src ) . '" alt="" width="38" height="38">';
-						} else {
-							echo esc_html( mb_substr( $display_name, 0, 1 ) );
-						}
-						?>
+				<!-- Collapsed trigger (hidden when open) -->
+				<div data-wp-bind--hidden="state.open">
+					<div class="bn-composer__top">
+						<div class="bn-composer__avatar" aria-hidden="true">
+							<?php
+							$avatar_src = get_avatar_url( $current_user_id, array( 'size' => 76 ) );
+							if ( $avatar_src ) {
+								echo '<img src="' . esc_url( $avatar_src ) . '" alt="" width="38" height="38">';
+							} else {
+								echo esc_html( mb_substr( $display_name, 0, 1 ) );
+							}
+							?>
+						</div>
+						<div class="bn-composer__input"
+							role="button"
+							tabindex="0"
+							data-wp-on--click="actions.open"
+							data-wp-on--keydown="actions.openOnEnter">
+							<?php esc_html_e( "What's on your mind?", 'buddynext' ); ?>
+						</div>
 					</div>
-					<div class="bn-composer__input"
-						role="button"
-						tabindex="0"
-						data-wp-interactive="buddynext/post-composer"
-						data-wp-on--click="actions.open"
-						data-wp-on--keydown="actions.openOnEnter">
-						<?php esc_html_e( "What's on your mind?", 'buddynext' ); ?>
+					<div class="bn-composer__actions">
+						<button class="bn-composer__action-btn"
+								data-wp-on--click="actions.openPhoto"
+								type="button">
+							<span class="bn-composer__action-icon" aria-hidden="true"><?php buddynext_icon( 'image' ); ?></span>
+							<?php esc_html_e( 'Photo', 'buddynext' ); ?>
+						</button>
+						<button class="bn-composer__action-btn"
+								data-wp-on--click="actions.openPoll"
+								type="button">
+							<span class="bn-composer__action-icon" aria-hidden="true"><?php buddynext_icon( 'bar-chart' ); ?></span>
+							<?php esc_html_e( 'Poll', 'buddynext' ); ?>
+						</button>
+						<button class="bn-composer__action-btn"
+								data-wp-on--click="actions.openLink"
+								type="button">
+							<span class="bn-composer__action-icon" aria-hidden="true"><?php buddynext_icon( 'link' ); ?></span>
+							<?php esc_html_e( 'Link', 'buddynext' ); ?>
+						</button>
 					</div>
 				</div>
-				<div class="bn-composer__actions">
-					<button class="bn-composer__action-btn"
-							data-wp-interactive="buddynext/post-composer"
-							data-wp-on--click="actions.openPhoto"
-							type="button">
-						<span class="bn-composer__action-icon" aria-hidden="true"><?php buddynext_icon( 'image' ); ?></span>
-						<?php esc_html_e( 'Photo', 'buddynext' ); ?>
-					</button>
-					<button class="bn-composer__action-btn"
-							data-wp-interactive="buddynext/post-composer"
-							data-wp-on--click="actions.openPoll"
-							type="button">
-						<span class="bn-composer__action-icon" aria-hidden="true"><?php buddynext_icon( 'bar-chart' ); ?></span>
-						<?php esc_html_e( 'Poll', 'buddynext' ); ?>
-					</button>
-					<button class="bn-composer__action-btn"
-							data-wp-interactive="buddynext/post-composer"
-							data-wp-on--click="actions.openLink"
-							type="button">
-						<span class="bn-composer__action-icon" aria-hidden="true"><?php buddynext_icon( 'link' ); ?></span>
-						<?php esc_html_e( 'Link', 'buddynext' ); ?>
-					</button>
+				<!-- Expanded composer form (shown when open) -->
+				<div class="bn-composer__expanded"
+					hidden
+					data-wp-bind--hidden="!state.open">
+					<div class="bn-composer__body">
+						<div class="bn-composer__avatar" aria-hidden="true">
+							<?php
+							if ( $avatar_src ) {
+								echo '<img src="' . esc_url( $avatar_src ) . '" alt="" width="38" height="38">';
+							} else {
+								echo esc_html( mb_substr( $display_name, 0, 1 ) );
+							}
+							?>
+						</div>
+						<div style="flex:1;display:flex;flex-direction:column;gap:var(--s2);">
+							<textarea
+								class="bn-composer__textarea"
+								placeholder="<?php esc_attr_e( "What's on your mind?", 'buddynext' ); ?>"
+								data-wp-on--input="actions.onInput"
+								rows="4"
+								aria-label="<?php esc_attr_e( 'Post content', 'buddynext' ); ?>"></textarea>
+							<!-- Poll options — shown only in poll mode -->
+							<div class="bn-composer__poll-options"
+								hidden
+								data-wp-bind--hidden="state.isNotPoll">
+								<p class="bn-composer__poll-question"><?php esc_html_e( 'Poll options (min 2)', 'buddynext' ); ?></p>
+								<input type="text" class="bn-composer__poll-option"
+									placeholder="<?php esc_attr_e( 'Option 1', 'buddynext' ); ?>"
+									aria-label="<?php esc_attr_e( 'Poll option 1', 'buddynext' ); ?>">
+								<input type="text" class="bn-composer__poll-option"
+									placeholder="<?php esc_attr_e( 'Option 2', 'buddynext' ); ?>"
+									aria-label="<?php esc_attr_e( 'Poll option 2', 'buddynext' ); ?>">
+								<input type="text" class="bn-composer__poll-option"
+									placeholder="<?php esc_attr_e( 'Option 3 (optional)', 'buddynext' ); ?>"
+									aria-label="<?php esc_attr_e( 'Poll option 3', 'buddynext' ); ?>">
+								<input type="text" class="bn-composer__poll-option"
+									placeholder="<?php esc_attr_e( 'Option 4 (optional)', 'buddynext' ); ?>"
+									aria-label="<?php esc_attr_e( 'Poll option 4', 'buddynext' ); ?>">
+							</div>
+						</div>
+					</div>
+					<div class="bn-composer__footer">
+						<select
+							class="bn-composer__select"
+							data-wp-on--change="actions.setPrivacy"
+							aria-label="<?php esc_attr_e( 'Post privacy', 'buddynext' ); ?>">
+							<option value="public"><?php esc_html_e( 'Public', 'buddynext' ); ?></option>
+							<option value="followers"><?php esc_html_e( 'Followers', 'buddynext' ); ?></option>
+							<option value="private"><?php esc_html_e( 'Only me', 'buddynext' ); ?></option>
+						</select>
+						<button
+							class="bn-composer__submit"
+							type="button"
+							data-wp-on--click="actions.submit"
+							data-wp-bind--disabled="state.submitting">
+							<?php esc_html_e( 'Post', 'buddynext' ); ?>
+						</button>
+					</div>
 				</div>
 			</div>
 
@@ -727,7 +877,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 							'type'                 => $row->type ?? 'text',
 							'content'              => $row->content ?? '',
 							'privacy'              => $row->privacy ?? 'public',
-							'space_id'             => null,
+							'space_id'             => isset( $row->space_id ) ? (int) $row->space_id : null,
+							'shared_post_id'       => isset( $row->shared_post_id ) ? (int) $row->shared_post_id : null,
 							'media_ids'            => $row->media_ids ?? null,
 							'link_url'             => $row->link_url ?? null,
 							'link_meta'            => $row->link_meta ?? null,
@@ -743,6 +894,13 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 							'created_at'           => $row->created_at ?? '',
 							'updated_at'           => $row->updated_at ?? null,
 						);
+						// Hydrate poll options for poll-type posts.
+						if ( 'poll' === $home_post['type'] ) {
+							$hydrated = buddynext_service( 'post_service' )->get( $home_post['id'] );
+							if ( $hydrated && ! empty( $hydrated['poll_options'] ) ) {
+								$home_post['poll_options'] = $hydrated['poll_options'];
+							}
+						}
 						buddynext_get_template(
 							'partials/post-card.php',
 							array(

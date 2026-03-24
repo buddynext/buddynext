@@ -49,7 +49,8 @@ $context_attr = esc_attr(
 		array(
 			'userId'      => $user_id,
 			'isFollowing' => $is_following,
-			'nonce'       => wp_create_nonce( 'bn-follow' ),
+			'nonce'       => wp_create_nonce( 'wp_rest' ),
+			'restUrl'     => rest_url( 'buddynext/v1' ),
 		)
 	)
 );

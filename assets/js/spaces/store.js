@@ -8,13 +8,23 @@ function apiUrl( path ) {
 }
 
 /**
- * Resolve nonce. Tries the Interactivity API context first, then falls
- * back to the global wpApiSettings nonce (set by wp_localize_script).
+ * Resolve nonce. Tries the Interactivity API context first (works when
+ * called inside a directive callback), then reads the data-wp-context
+ * attribute from the root interactive element (works from plain DOM
+ * event listeners where getContext() has no active element scope), then
+ * falls back to the global wpApiSettings nonce.
  */
 function resolveNonce() {
 	try {
 		var ctx = getContext();
 		if ( ctx && ctx.restNonce ) { return ctx.restNonce; }
+	} catch ( _e ) {}
+	try {
+		var root = document.querySelector( '[data-wp-interactive="buddynext/spaces"]' );
+		if ( root && root.dataset.wpContext ) {
+			var rootCtx = JSON.parse( root.dataset.wpContext );
+			if ( rootCtx && rootCtx.restNonce ) { return rootCtx.restNonce; }
+		}
 	} catch ( _e ) {}
 	return ( window.wpApiSettings && window.wpApiSettings.nonce ) || '';
 }
@@ -97,11 +107,12 @@ function swapButtonState( btn, newState ) {
 	// class to decide the real action path on the NEXT click).
 	btn.dataset.wpOnClick   = 'actions.' + actionMap[ newState ];
 	btn.dataset.currentState = newState;
+	btn.disabled = false;
 }
 
 /* ── Store ─────────────────────────────────────────────────────────── */
 
-store( 'buddynext/spaces', {
+var storeInstance = store( 'buddynext/spaces', {
 
 	actions: {
 
@@ -200,7 +211,7 @@ store( 'buddynext/spaces', {
 
 				if ( res.ok && data.left ) {
 					// Decide button to show based on card privacy badge.
-					var card = btn ? btn.closest( '[data-space-id]' ) || btn.closest( '.bn-space-card' ) : null;
+					var card = btn ? btn.closest( '.bn-space-card__footer' ) || btn.closest( '.bn-space-card' ) : null;
 					var privacyEl = card ? card.querySelector( '.bn-space-card__privacy' ) : null;
 					var isPrivate = privacyEl && privacyEl.textContent.toLowerCase().indexOf( 'public' ) === -1;
 					swapButtonState( btn, isPrivate ? 'request' : 'join' );
@@ -290,14 +301,18 @@ store( 'buddynext/spaces', {
 				var submitBtn = document.createElement( 'button' );
 				submitBtn.type      = 'button';
 				submitBtn.className = 'bn-btn-primary bn-composer__submit';
-				submitBtn.setAttribute( 'data-wp-on--click', 'actions.submitPost' );
 				submitBtn.textContent = 'Post';
+				submitBtn.addEventListener( 'click', function ( ev ) {
+					storeInstance.actions.submitPost( ev );
+				} );
 
 				var cancelBtn = document.createElement( 'button' );
 				cancelBtn.type      = 'button';
 				cancelBtn.className = 'bn-btn-secondary bn-composer__cancel';
-				cancelBtn.setAttribute( 'data-wp-on--click', 'actions.closeComposer' );
 				cancelBtn.textContent = 'Cancel';
+				cancelBtn.addEventListener( 'click', function () {
+					storeInstance.actions.closeComposer();
+				} );
 
 				actions.appendChild( cancelBtn );
 				actions.appendChild( submitBtn );

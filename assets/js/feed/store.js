@@ -1,6 +1,171 @@
 /* BuddyNext — Feed Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
 
+/* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
+
+function timeAgo( dateStr ) {
+	const secs = Math.floor( ( Date.now() - new Date( dateStr ).getTime() ) / 1000 );
+	if ( secs < 60 )    return 'just now';
+	if ( secs < 3600 )  return Math.floor( secs / 60 ) + 'm ago';
+	if ( secs < 86400 ) return Math.floor( secs / 3600 ) + 'h ago';
+	return Math.floor( secs / 86400 ) + 'd ago';
+}
+
+/**
+ * Build a comment DOM node using safe DOM methods (no innerHTML for user content).
+ *
+ * @param {Object}  comment       Comment data from the REST API.
+ * @param {number}  currentUserId Current user's WordPress ID.
+ * @param {number}  postId        Post ID the comment belongs to.
+ * @param {string}  restUrl       buddynext/v1 REST root.
+ * @param {string}  nonce         WP REST nonce.
+ * @param {boolean} isReply       Whether this node is a threaded reply.
+ * @return {HTMLElement}
+ */
+function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, isReply ) {
+	const wrap = document.createElement( 'div' );
+	wrap.className = isReply ? 'bn-comment bn-comment--reply' : 'bn-comment';
+	wrap.dataset.commentId = comment.id;
+
+	// Avatar initials.
+	const avatar = document.createElement( 'div' );
+	avatar.className = 'bn-comment__avatar';
+	avatar.setAttribute( 'aria-hidden', 'true' );
+	avatar.textContent = ( comment.author_name || 'U' ).split( ' ' ).map( ( w ) => w[ 0 ] || '' ).join( '' ).slice( 0, 2 ).toUpperCase();
+	wrap.appendChild( avatar );
+
+	const body = document.createElement( 'div' );
+	body.className = 'bn-comment__body';
+
+	// Header: author name + timestamp.
+	const header = document.createElement( 'div' );
+	header.className = 'bn-comment__header';
+	const authorSpan = document.createElement( 'span' );
+	authorSpan.className = 'bn-comment__author';
+	authorSpan.textContent = comment.author_name || 'User';
+	const timeEl = document.createElement( 'time' );
+	timeEl.className = 'bn-comment__time';
+	timeEl.textContent = timeAgo( comment.created_at );
+	header.appendChild( authorSpan );
+	header.appendChild( timeEl );
+	body.appendChild( header );
+
+	// Content paragraph.
+	const para = document.createElement( 'p' );
+	para.className = 'bn-comment__content';
+	para.textContent = comment.content;
+	body.appendChild( para );
+
+	// Action buttons.
+	const actions = document.createElement( 'div' );
+	actions.className = 'bn-comment__actions';
+	body.appendChild( actions );
+
+	const canDelete = parseInt( comment.user_id, 10 ) === currentUserId;
+
+	if ( ! isReply ) {
+		const replyBtn = document.createElement( 'button' );
+		replyBtn.type = 'button';
+		replyBtn.className = 'bn-comment__reply-btn';
+		replyBtn.textContent = 'Reply';
+		actions.appendChild( replyBtn );
+	}
+
+	if ( canDelete ) {
+		const delBtn = document.createElement( 'button' );
+		delBtn.type = 'button';
+		delBtn.className = 'bn-comment__delete-btn';
+		delBtn.textContent = 'Delete';
+		delBtn.addEventListener( 'click', async () => {
+			if ( ! window.confirm( 'Delete this comment?' ) ) {
+				return;
+			}
+			const res = await fetch( restUrl + '/comments/' + comment.id, {
+				method: 'DELETE', headers: { 'X-WP-Nonce': nonce },
+			} );
+			if ( res.ok ) {
+				wrap.remove();
+				adjustCommentCount( postId, -1 );
+			}
+		} );
+		actions.appendChild( delBtn );
+	}
+
+	if ( ! isReply ) {
+		// Reply form (hidden by default).
+		const replyForm = document.createElement( 'div' );
+		replyForm.className = 'bn-comment__reply-form';
+		replyForm.hidden = true;
+
+		const replyTextarea = document.createElement( 'textarea' );
+		replyTextarea.className = 'bn-comment-form__input';
+		replyTextarea.placeholder = 'Write a reply...';
+		replyTextarea.rows = 1;
+		replyForm.appendChild( replyTextarea );
+
+		const replySubmit = document.createElement( 'button' );
+		replySubmit.type = 'button';
+		replySubmit.className = 'bn-comment-form__submit';
+		replySubmit.setAttribute( 'aria-label', 'Post reply' );
+		replySubmit.textContent = 'Reply';
+		replyForm.appendChild( replySubmit );
+
+		const replyCancel = document.createElement( 'button' );
+		replyCancel.type = 'button';
+		replyCancel.className = 'bn-comment__reply-cancel';
+		replyCancel.textContent = 'Cancel';
+		replyForm.appendChild( replyCancel );
+
+		body.appendChild( replyForm );
+
+		// Wire reply-form toggle.
+		actions.querySelector( '.bn-comment__reply-btn' )?.addEventListener( 'click', () => {
+			replyForm.hidden = ! replyForm.hidden;
+		} );
+		replyCancel.addEventListener( 'click', () => { replyForm.hidden = true; } );
+
+		replySubmit.addEventListener( 'click', async () => {
+			const content = replyTextarea.value.trim();
+			if ( ! content ) {
+				return;
+			}
+			const res = await fetch( restUrl + '/comments', {
+				method:  'POST',
+				headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+				body:    JSON.stringify( { object_type: 'post', object_id: postId, content, parent_id: comment.id } ),
+			} );
+			if ( res.ok ) {
+				const reply       = await res.json();
+				reply.author_name = reply.author_name || 'You';
+				repliesEl.appendChild( buildCommentNode( reply, currentUserId, postId, restUrl, nonce, true ) );
+				replyTextarea.value = '';
+				replyForm.hidden    = true;
+			}
+		} );
+
+		// Replies container.
+		const repliesEl = document.createElement( 'div' );
+		repliesEl.className = 'bn-comment__replies';
+		( comment.replies || [] ).forEach( ( r ) => {
+			repliesEl.appendChild( buildCommentNode( r, currentUserId, postId, restUrl, nonce, true ) );
+		} );
+		body.appendChild( repliesEl );
+	}
+
+	wrap.appendChild( body );
+	return wrap;
+}
+
+function adjustCommentCount( postId, delta ) {
+	const card = document.querySelector( 'article[data-post-id="' + postId + '"]' );
+	const btn  = card?.querySelector( '[data-wp-on--click="actions.openComments"]' );
+	const span = btn?.querySelector( '.bn-comment-count' );
+	if ( span ) {
+		const n = Math.max( 0, parseInt( span.textContent || '0', 10 ) + delta );
+		span.textContent = String( n );
+	}
+}
+
 /* ── Post card ───────────────────────────────────────────────────────────── */
 
 store( 'buddynext/post-card', {
@@ -32,6 +197,33 @@ store( 'buddynext/post-card', {
 		get reactionType() {
 			try { return getContext().reactionType || null; } catch ( _e ) { return null; }
 		},
+		get pollOptionPctText() {
+			try {
+				const ctx = getContext();
+				const opt = ( ctx.pollOptions || [] ).find( ( o ) => o.id === ctx.optionId );
+				return opt ? opt.pct + '%' : '0%';
+			} catch ( _e ) { return '0%'; }
+		},
+		get pollFillStyle() {
+			try {
+				const ctx = getContext();
+				const opt = ( ctx.pollOptions || [] ).find( ( o ) => o.id === ctx.optionId );
+				return 'width:' + ( opt ? opt.pct : 0 ) + '%';
+			} catch ( _e ) { return 'width:0%'; }
+		},
+		get pollOptionBtnClass() {
+			try {
+				const ctx     = getContext();
+				const isVoted = ctx.pollVotedOptionId && ctx.pollVotedOptionId === ctx.optionId;
+				return 'bn-post-card__poll-option' + ( isVoted ? ' is-voted' : '' );
+			} catch ( _e ) { return 'bn-post-card__poll-option'; }
+		},
+		get pollTotalVotesText() {
+			try {
+				const n = getContext().pollTotalVotes || 0;
+				return n === 1 ? '1 vote' : n + ' votes';
+			} catch ( _e ) { return '0 votes'; }
+		},
 		get reactBtnClass() {
 			try {
 				return getContext().reactionType
@@ -57,6 +249,30 @@ store( 'buddynext/post-card', {
 					: 'bn-post-card__action-btn';
 			} catch ( _e ) {
 				return 'bn-post-card__action-btn';
+			}
+		},
+		get commentsHidden() {
+			try { return ! getContext().commentsOpen; } catch ( _e ) { return true; }
+		},
+		get shareBtnClass() {
+			try {
+				return getContext().shareShared
+					? 'bn-post-card__action-btn is-shared'
+					: 'bn-post-card__action-btn';
+			} catch ( _e ) {
+				return 'bn-post-card__action-btn';
+			}
+		},
+		get shareLabel() {
+			try {
+				const ctx   = getContext();
+				const count = ctx.shareCount || 0;
+				if ( ctx.shareShared ) {
+					return count > 0 ? 'Shared \u00b7 ' + count : 'Shared';
+				}
+				return count > 0 ? 'Share \u00b7 ' + count : 'Share';
+			} catch ( _e ) {
+				return 'Share';
 			}
 		},
 	},
@@ -125,10 +341,14 @@ store( 'buddynext/post-card', {
 		* sharePost() {
 			const ctx = getContext();
 			try {
-				yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/share', {
+				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/share', {
 					method:  'POST',
 					headers: { 'X-WP-Nonce': ctx.shareNonce },
 				} );
+				if ( res.ok ) {
+					ctx.shareCount  = ( ctx.shareCount || 0 ) + 1;
+					ctx.shareShared = true;
+				}
 			} catch ( _e ) {}
 		},
 		* reportPost() {
@@ -148,19 +368,91 @@ store( 'buddynext/post-card', {
 				+ '/activity/?edit=' + ctx.postId;
 		},
 		pinPost() {},
-		openComments() {},
+		* openComments() {
+			const ctx = getContext();
+			ctx.commentsOpen = ! ctx.commentsOpen;
+
+			if ( ! ctx.commentsOpen ) {
+				return;
+			}
+
+			const listEl = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
+			if ( ! listEl || listEl.dataset.loaded ) {
+				return;
+			}
+
+			try {
+				const res = yield fetch(
+					ctx.restUrl + '/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20',
+					{ headers: { 'X-WP-Nonce': ctx.reactNonce } }
+				);
+				if ( res.ok ) {
+					const data = yield res.json();
+					listEl.dataset.loaded = '1';
+					( data.items || [] ).forEach( ( comment ) => {
+						listEl.appendChild(
+							buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, false )
+						);
+					} );
+				}
+			} catch ( _e ) {}
+		},
+		* submitComment() {
+			const ctx     = getContext();
+			const inputEl = document.querySelector( '[data-comment-input="' + ctx.postId + '"]' );
+			const content = inputEl?.value.trim() || '';
+			if ( ! content ) {
+				return;
+			}
+
+			try {
+				const res = yield fetch( ctx.restUrl + '/comments', {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.reactNonce },
+					body:    JSON.stringify( { object_type: 'post', object_id: ctx.postId, content } ),
+				} );
+				if ( res.ok ) {
+					const comment       = yield res.json();
+					comment.author_name = comment.author_name || 'You';
+					const listEl        = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
+					if ( listEl ) {
+						listEl.dataset.loaded = '1';
+						listEl.appendChild( buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, false ) );
+					}
+					if ( inputEl ) {
+						inputEl.value = '';
+					}
+					adjustCommentCount( ctx.postId, 1 );
+					ctx.commentCount = ( ctx.commentCount || 0 ) + 1;
+				}
+			} catch ( _e ) {}
+		},
 		* votePoll( event ) {
 			const ctx      = getContext();
-			const optionId = event.target.closest( '[data-option-id]' )?.dataset.optionId;
+			const optionId = parseInt( event.target.closest( '[data-option-id]' )?.dataset.optionId || '0', 10 );
 			if ( ! optionId ) {
 				return;
 			}
 			try {
-				yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/vote', {
+				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/vote', {
 					method:  'POST',
 					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.pollNonce },
-					body:    JSON.stringify( { option_id: parseInt( optionId, 10 ) } ),
+					body:    JSON.stringify( { option_id: optionId } ),
 				} );
+				if ( res.ok ) {
+					const data = yield res.json();
+					if ( data.results ) {
+						const total = data.results.reduce( ( s, r ) => s + r.vote_count, 0 );
+						ctx.pollTotalVotes    = total;
+						ctx.pollVotedOptionId = optionId;
+						ctx.pollOptions       = data.results.map( ( r ) => ( {
+							id:    r.id,
+							text:  r.option_text,
+							votes: r.vote_count,
+							pct:   total > 0 ? Math.round( ( r.vote_count / total ) * 100 ) : 0,
+						} ) );
+					}
+				}
 			} catch ( _e ) {}
 		},
 		* dismissAnnouncement() {
@@ -185,6 +477,12 @@ store( 'buddynext/post-composer', {
 		},
 		get submitting() {
 			try { return !! getContext().submitting; } catch ( _e ) { return false; }
+		},
+		get isPoll() {
+			try { return getContext().composerType === 'poll'; } catch ( _e ) { return false; }
+		},
+		get isNotPoll() {
+			try { return getContext().composerType !== 'poll'; } catch ( _e ) { return true; }
 		},
 	},
 	actions: {
@@ -221,15 +519,34 @@ store( 'buddynext/post-composer', {
 				return;
 			}
 			ctx.submitting = true;
+
+			// Collect poll options when in poll mode.
+			const body = {
+				content,
+				privacy: ctx.privacy || 'public',
+				type:    ctx.composerType || 'text',
+			};
+			if ( ctx.composerType === 'poll' ) {
+				const optionInputs = document.querySelectorAll( '.bn-composer__poll-option' );
+				const options = [];
+				optionInputs.forEach( ( el ) => {
+					const val = el.value.trim();
+					if ( val ) {
+						options.push( { label: val } );
+					}
+				} );
+				if ( options.length < 2 ) {
+					ctx.submitting = false;
+					return;
+				}
+				body.options = options.map( ( o ) => o.label );
+			}
+
 			try {
 				const res = yield fetch( ctx.restUrl + '/posts', {
 					method:  'POST',
 					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
-					body:    JSON.stringify( {
-						content,
-						privacy: ctx.privacy || 'public',
-						type:    ctx.composerType || 'text',
-					} ),
+					body:    JSON.stringify( body ),
 				} );
 				if ( res.ok ) {
 					window.location.reload();

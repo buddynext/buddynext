@@ -164,17 +164,32 @@ class CommentController {
 		$per_page    = (int) ( $request->get_param( 'per_page' ) ?? 20 );
 		$page        = (int) ( $request->get_param( 'page' ) ?? 1 );
 
-		return new WP_REST_Response(
-			$service->list(
-				$object_type,
-				$object_id,
-				array(
-					'per_page' => $per_page,
-					'page'     => $page,
-				)
-			),
-			200
+		$result = $service->list(
+			$object_type,
+			$object_id,
+			array(
+				'per_page' => $per_page,
+				'page'     => $page,
+			)
 		);
+
+		// Enrich each comment with author display name and avatar URL.
+		$enrich = function ( array $comment ): array {
+			$comment['author_name']       = (string) get_the_author_meta( 'display_name', $comment['user_id'] );
+			$comment['author_avatar_url'] = (string) get_avatar_url( $comment['user_id'], array( 'size' => 40 ) );
+			return $comment;
+		};
+
+		$result['items'] = array_map(
+			function ( array $comment ) use ( $enrich ): array {
+				$comment            = $enrich( $comment );
+				$comment['replies'] = array_map( $enrich, $comment['replies'] ?? array() );
+				return $comment;
+			},
+			$result['items']
+		);
+
+		return new WP_REST_Response( $result, 200 );
 	}
 
 	/**

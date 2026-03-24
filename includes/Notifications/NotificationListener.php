@@ -36,8 +36,8 @@ class NotificationListener implements ListenerInterface {
 		add_action( 'buddynext_connection_accepted', array( $this, 'on_connection_accepted' ), 10, 3 );
 
 		// Activity Feed.
-		add_action( 'buddynext_reaction_added', array( $this, 'on_reaction_added' ), 10, 4 );
-		add_action( 'buddynext_comment_created', array( $this, 'on_comment_created' ), 10, 4 );
+		add_action( 'buddynext_reaction_added', array( $this, 'on_reaction_added' ), 10, 5 );
+		add_action( 'buddynext_comment_created', array( $this, 'on_comment_created' ), 10, 3 );
 		add_action( 'buddynext_post_shared', array( $this, 'on_post_shared' ), 10, 2 );
 		add_action( 'buddynext_user_mentioned', array( $this, 'on_user_mentioned' ), 10, 3 );
 
@@ -195,7 +195,7 @@ class NotificationListener implements ListenerInterface {
 	 * @param int    $user_id     User who reacted.
 	 * @param string $emoji       Emoji slug used for the reaction.
 	 */
-	public function on_reaction_added( string $object_type, int $object_id, int $user_id, string $emoji ): void {
+	public function on_reaction_added( int $reaction_id, string $object_type, int $object_id, int $user_id, string $emoji ): void {
 		if ( 'post' !== $object_type ) {
 			return;
 		}
@@ -238,25 +238,18 @@ class NotificationListener implements ListenerInterface {
 	/**
 	 * Notify the post owner when someone comments on their content.
 	 *
-	 * Only fires a notification for 'post' object type.
-	 *
-	 * @param int    $comment_id  ID of the new comment.
-	 * @param string $object_type Object type (e.g. 'post').
-	 * @param int    $object_id   Object ID.
-	 * @param int    $user_id     User who commented.
+	 * @param int $comment_id ID of the new comment.
+	 * @param int $post_id    Post that was commented on.
+	 * @param int $user_id    User who commented.
 	 */
-	public function on_comment_created( int $comment_id, string $object_type, int $object_id, int $user_id ): void {
-		if ( 'post' !== $object_type ) {
-			return;
-		}
-
+	public function on_comment_created( int $comment_id, int $post_id, int $user_id ): void {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$owner_id = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
-				$object_id
+				$post_id
 			)
 		);
 
@@ -278,8 +271,8 @@ class NotificationListener implements ListenerInterface {
 				'sender_id'    => $user_id,
 				'type'         => 'bn.post_commented',
 				'object_type'  => 'post',
-				'object_id'    => $object_id,
-				'group_key'    => 'post_comments_' . $object_id,
+				'object_id'    => $post_id,
+				'group_key'    => 'post_comments_' . $post_id,
 				'data'         => array( 'comment_id' => $comment_id ),
 			)
 		);

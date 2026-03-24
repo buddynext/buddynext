@@ -197,3 +197,40 @@ function buddynext_icon( string $name, string $css_class = '' ): void {
 function buddynext_get_icon( string $name, string $css_class = '' ): string {
 	return \BuddyNext\Core\IconService::render( $name, $css_class );
 }
+
+/**
+ * Format post content: convert #hashtag and @mention patterns to clickable links.
+ *
+ * Hashtags link to the BuddyNext hashtag feed (/activity/hashtag/{slug}/).
+ * Mentions link to the member profile (/members/{username}/).
+ *
+ * @param string $content Raw post text.
+ * @return string HTML-safe content with linked tags and mentions.
+ */
+function buddynext_format_content( string $content ): string {
+	// Escape the raw content first, then linkify so our <a> tags survive wp_kses.
+	$escaped = esc_html( $content );
+
+	// Replace #hashtag with a link (word boundary; allow hyphens and underscores).
+	$escaped = preg_replace_callback(
+		'/#([a-zA-Z0-9_-]+)/u',
+		static function ( array $m ): string {
+			$slug = sanitize_title( $m[1] );
+			$url  = home_url( '/activity/hashtag/' . $slug . '/' );
+			return '<a href="' . esc_url( $url ) . '" class="bn-hashtag">#' . esc_html( $m[1] ) . '</a>';
+		},
+		$escaped
+	);
+
+	// Replace @username with a link to the member profile.
+	$escaped = preg_replace_callback(
+		'/@([a-zA-Z0-9_-]+)/u',
+		static function ( array $m ): string {
+			$url = home_url( '/members/' . rawurlencode( $m[1] ) . '/' );
+			return '<a href="' . esc_url( $url ) . '" class="bn-mention">@' . esc_html( $m[1] ) . '</a>';
+		},
+		$escaped
+	);
+
+	return $escaped;
+}

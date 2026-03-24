@@ -84,8 +84,9 @@ $post_count = (int) $wpdb->get_var(
 
 // --- Social graph state (viewer vs. this profile) -------------------------
 $is_following       = false;
-$is_connected       = false;
-$connection_pending = false;
+$is_connected        = false;
+$connection_pending  = false;
+$connection_received = false;
 $is_blocked         = false;
 $is_muted           = false;
 $degree_badge       = '';
@@ -122,6 +123,17 @@ if ( ! $is_own_profile && $current_user_id ) {
 			WHERE requester_id = %d AND recipient_id = %d AND status = 'pending'",
 			$current_user_id,
 			$user_id
+		)
+	);
+
+	// Viewer received a request from this profile user (pending-received direction).
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$connection_received = ! $is_connected && ! $connection_pending && (bool) $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT 1 FROM {$wpdb->prefix}bn_connections
+			WHERE requester_id = %d AND recipient_id = %d AND status = 'pending'",
+			$user_id,
+			$current_user_id
 		)
 	);
 
@@ -830,9 +842,10 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 			'profileUserId'     => $user_id,
 			'activeTab'         => 'posts',
 			'isFollowing'       => $is_following,
-			'isConnected'       => $is_connected,
-			'connectionPending' => $connection_pending,
-			'showConnect'       => ! $is_connected && ! $connection_pending,
+			'isConnected'        => $is_connected,
+			'connectionPending'  => $connection_pending,
+			'connectionReceived' => $connection_received,
+			'showConnect'        => ! $is_connected && ! $connection_pending && ! $connection_received,
 			'followerCount'     => $follower_count,
 			'restNonce'         => wp_create_nonce( 'wp_rest' ),
 			'isBlocked'         => $is_blocked,
@@ -879,19 +892,33 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 					<?php esc_html_e( 'Following', 'buddynext' ); ?>
 				</button>
 
-				<!-- Connect / Pending / Connected states -->
+				<!-- Connect / Pending / Connected / Accept+Decline states -->
 				<button class="bn-btn-secondary"
 					data-wp-on--click="actions.connect"
 					data-wp-bind--hidden="!context.showConnect"
-					<?php echo ( $is_connected || $connection_pending ) ? 'hidden' : ''; ?>>
+					<?php echo ( $is_connected || $connection_pending || $connection_received ) ? 'hidden' : ''; ?>>
 					<?php esc_html_e( 'Connect', 'buddynext' ); ?>
 				</button>
 				<button class="bn-btn-secondary"
+					data-wp-on--click="actions.withdrawRequest"
 					data-wp-bind--hidden="!context.connectionPending"
 					<?php echo $connection_pending ? '' : 'hidden'; ?>>
 					<?php esc_html_e( 'Pending', 'buddynext' ); ?>
 				</button>
+				<span class="bn-connect-received-wrap"
+					data-wp-bind--hidden="!context.connectionReceived"
+					<?php echo $connection_received ? '' : 'hidden'; ?>>
+					<button class="bn-btn-secondary bn-accept"
+						data-wp-on--click="actions.acceptRequest">
+						<?php esc_html_e( 'Accept', 'buddynext' ); ?>
+					</button>
+					<button class="bn-btn-secondary bn-decline"
+						data-wp-on--click="actions.declineRequest">
+						<?php esc_html_e( 'Decline', 'buddynext' ); ?>
+					</button>
+				</span>
 				<button class="bn-btn-secondary"
+					data-wp-on--click="actions.disconnectUser"
 					data-wp-bind--hidden="!context.isConnected"
 					<?php echo $is_connected ? '' : 'hidden'; ?>>
 					<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Connected', 'buddynext' ); ?>
@@ -912,13 +939,13 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 						<button class="bn-more-menu-item"
 							role="menuitem"
 							data-wp-on--click="actions.toggleMute"
-							data-wp-text="context.isMuted ? '<?php esc_attr_e( 'Unmute', 'buddynext' ); ?>' : '<?php esc_attr_e( 'Mute', 'buddynext' ); ?>'">
+							data-wp-text="state.muteLabel">
 							<?php esc_html_e( 'Mute', 'buddynext' ); ?>
 						</button>
 						<button class="bn-more-menu-item bn-more-menu-item--danger"
 							role="menuitem"
 							data-wp-on--click="actions.toggleBlock"
-							data-wp-text="context.isBlocked ? '<?php esc_attr_e( 'Unblock', 'buddynext' ); ?>' : '<?php esc_attr_e( 'Block', 'buddynext' ); ?>'">
+							data-wp-text="state.blockLabel">
 							<?php esc_html_e( 'Block', 'buddynext' ); ?>
 						</button>
 						<button class="bn-more-menu-item"

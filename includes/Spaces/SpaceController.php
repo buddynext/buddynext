@@ -558,7 +558,7 @@ class SpaceController {
 			return $result;
 		}
 
-		return new WP_REST_Response( array( 'joined' => false ), 200 );
+		return new WP_REST_Response( array( 'left' => true, 'joined' => false ), 200 );
 	}
 
 	/**

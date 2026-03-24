@@ -795,3 +795,9 @@ A phase is Done when ALL of:
 | 2026-03-24 | 12 | fix | theme.json: preset slugs normalized (bn-primary → primary, bn-bg → base, etc.) |
 | 2026-03-24 | 12 | fix | TokenService: init() docblock capitalization fixed; uses wp_add_inline_style() |
 | 2026-03-24 | 3 | fix | FeedService: home feed includes posts from joined spaces (bn_space_members subquery) + followed hashtags (bn_hashtag_follows + bn_post_hashtags); profile feed privacy enforced |
+| 2026-03-24 | QA | fix | assets/js/spaces/store.js: openComposer submit/cancel buttons use addEventListener (WP Interactivity API does not bind events on dynamically injected DOM) |
+| 2026-03-24 | QA | fix | templates/spaces/home.php: added restNonce + restUrl to data-wp-context on root interactive div (missing context caused 403 on all space composer REST calls) |
+| 2026-03-24 | QA | fix | templates/search/results.php: added bidirectional bn_blocks exclusion to $excluded_sql — blocked users now correctly hidden from search results |
+| 2026-03-24 | QA | fix | assets/js/hashtags/store.js: implemented full store under buddynext/feed namespace — toggleFollowHashtag, setSort, openComposerWithTag, voteJt |
+| 2026-03-24 | QA | fix | templates/hashtags/feed.php: added restNonce/restUrl/userId to root data-wp-context; removed redundant inline script block |
+| 2026-03-24 | QA | fix | includes/Core/PageRouter.php: enqueue hashtags asset bundle when bn_activity_action=hashtag (was missing — Follow button had no JS) |

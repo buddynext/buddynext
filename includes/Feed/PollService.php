@@ -21,10 +21,13 @@ use WP_Error;
 class PollService {
 
 	/**
-	 * Cast a vote for an option in a poll.
+	 * Cast or switch a vote for an option in a poll.
 	 *
-	 * Returns WP_Error('not_a_poll') if the post is not a poll, or
-	 * WP_Error('already_voted') if the user has already voted in this poll.
+	 * If the user has already voted for a different option, the old vote is
+	 * removed and the new vote inserted (vote switching). If they click the
+	 * same option they already voted for, the vote is removed (toggle off).
+	 *
+	 * Returns WP_Error('not_a_poll') if the post is not a poll.
 	 *
 	 * @param int $user_id   Voting user.
 	 * @param int $post_id   Poll post ID.
@@ -52,10 +55,10 @@ class PollService {
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		// Check for an existing vote.
-		$existing = $wpdb->get_var(
+		// Fetch existing vote (returns option_id or null).
+		$existing_option_id = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_poll_votes
+				"SELECT option_id FROM {$wpdb->prefix}bn_poll_votes
 				 WHERE post_id = %d AND user_id = %d",
 				$post_id,
 				$user_id
@@ -63,14 +66,34 @@ class PollService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( null !== $existing ) {
-			return new WP_Error(
-				'already_voted',
-				__( 'You have already voted in this poll.', 'buddynext' )
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( null !== $existing_option_id ) {
+			// Remove previous vote and decrement its count.
+			$wpdb->delete(
+				$wpdb->prefix . 'bn_poll_votes',
+				array(
+					'post_id' => $post_id,
+					'user_id' => $user_id,
+				),
+				array( '%d', '%d' )
 			);
+			$wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_poll_options
+					 SET vote_count = GREATEST(0, vote_count - 1)
+					 WHERE id = %d",
+					(int) $existing_option_id
+				)
+			);
+
+			// Same option clicked again → toggle off, we're done.
+			if ( (int) $existing_option_id === $option_id ) {
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				return true;
+			}
 		}
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Insert new vote and increment its count.
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_poll_votes',
 			array(
@@ -80,8 +103,6 @@ class PollService {
 			),
 			array( '%d', '%d', '%d' )
 		);
-
-		// Increment the denormalised count on the option row.
 		$wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->prefix}bn_poll_options

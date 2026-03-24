@@ -78,7 +78,7 @@ class ReactionService {
 			 * @param int    $user_id     Reacting user.
 			 * @param string $emoji       Emoji identifier.
 			 */
-			do_action( 'buddynext_reaction_added', $reaction_id, $object_id, $user_id, $emoji );
+			do_action( 'buddynext_reaction_added', $reaction_id, $object_type, $object_id, $user_id, $emoji );
 		}
 
 		return true;
@@ -192,6 +192,12 @@ class ReactionService {
 	 * @param string $emoji       Emoji identifier.
 	 */
 	public function toggle( int $user_id, string $object_type, int $object_id, string $emoji = 'like' ): void {
+		// Empty emoji means the client wants to remove the reaction entirely.
+		if ( '' === $emoji ) {
+			$this->unreact( $user_id, $object_type, $object_id );
+			return;
+		}
+
 		$current = $this->get_user_emoji( $user_id, $object_type, $object_id );
 
 		if ( null === $current ) {
