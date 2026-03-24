@@ -2,21 +2,21 @@
 /**
  * Tests for ModerationController REST endpoints (BLOCK 4: suspend / unsuspend / appeals).
  *
- * @package BuddyNext\Tests\REST
+ * @package BuddyNext\Tests\Moderation
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\REST;
+namespace BuddyNext\Tests\Moderation;
 
 use BuddyNext\Core\Installer;
 use BuddyNext\Moderation\ModerationService;
-use BuddyNext\REST\Controllers\ModerationController;
+use BuddyNext\Moderation\ModerationController;
 use WP_REST_Request;
 use WP_REST_Server;
 
 /**
- * @covers \BuddyNext\REST\Controllers\ModerationController
+ * @covers \BuddyNext\Moderation\ModerationController
  */
 class ModerationControllerTest extends \WP_UnitTestCase {
 

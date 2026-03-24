@@ -2,19 +2,19 @@
 /**
  * Tests for SearchController REST endpoints.
  *
- * @package BuddyNext\Tests\REST
+ * @package BuddyNext\Tests\Search
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\REST;
+namespace BuddyNext\Tests\Search;
 
 use BuddyNext\Core\Installer;
 use BuddyNext\Search\SearchService;
 use WP_REST_Request;
 
 /**
- * @covers \BuddyNext\REST\Controllers\SearchController
+ * @covers \BuddyNext\Search\SearchController
  */
 class SearchControllerTest extends \WP_Test_REST_TestCase {
 

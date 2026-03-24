@@ -2,12 +2,12 @@
 /**
  * Tests for PostController REST endpoints.
  *
- * @package BuddyNext\Tests\REST
+ * @package BuddyNext\Tests\Feed
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\REST;
+namespace BuddyNext\Tests\Feed;
 
 use BuddyNext\Core\Installer;
 use BuddyNext\REST\Router;
@@ -15,7 +15,7 @@ use WP_REST_Request;
 use WP_REST_Server;
 
 /**
- * @covers \BuddyNext\REST\Controllers\PostController
+ * @covers \BuddyNext\Feed\PostController
  */
 class PostControllerTest extends \WP_UnitTestCase {
 

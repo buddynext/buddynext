@@ -2,19 +2,19 @@
 /**
  * Tests for ProfileController REST endpoints.
  *
- * @package BuddyNext\Tests\REST
+ * @package BuddyNext\Tests\Profile
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\REST;
+namespace BuddyNext\Tests\Profile;
 
 use BuddyNext\Core\Installer;
 use BuddyNext\Profile\ProfileService;
 use WP_REST_Request;
 
 /**
- * @covers \BuddyNext\REST\Controllers\ProfileController
+ * @covers \BuddyNext\Profile\ProfileController
  */
 class ProfileControllerTest extends \WP_Test_REST_TestCase {
 

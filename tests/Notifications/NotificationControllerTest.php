@@ -2,19 +2,19 @@
 /**
  * Tests for NotificationController REST endpoints.
  *
- * @package BuddyNext\Tests\REST
+ * @package BuddyNext\Tests\Notifications
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\REST;
+namespace BuddyNext\Tests\Notifications;
 
 use BuddyNext\Core\Installer;
 use BuddyNext\Notifications\NotificationService;
 use WP_REST_Request;
 
 /**
- * @covers \BuddyNext\REST\Controllers\NotificationController
+ * @covers \BuddyNext\Notifications\NotificationController
  */
 class NotificationControllerTest extends \WP_Test_REST_TestCase {
 

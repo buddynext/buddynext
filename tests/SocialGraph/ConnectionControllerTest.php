@@ -2,20 +2,20 @@
 /**
  * Tests for ConnectionController REST endpoints.
  *
- * @package BuddyNext\Tests\REST
+ * @package BuddyNext\Tests\SocialGraph
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\REST;
+namespace BuddyNext\Tests\SocialGraph;
 
 use BuddyNext\Core\Installer;
-use BuddyNext\REST\Controllers\ConnectionController;
+use BuddyNext\SocialGraph\ConnectionController;
 use WP_REST_Request;
 use WP_REST_Server;
 
 /**
- * @covers \BuddyNext\REST\Controllers\ConnectionController
+ * @covers \BuddyNext\SocialGraph\ConnectionController
  */
 class ConnectionControllerTest extends \WP_UnitTestCase {
 

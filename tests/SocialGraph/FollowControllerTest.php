@@ -2,20 +2,20 @@
 /**
  * Tests for FollowController REST endpoints.
  *
- * @package BuddyNext\Tests\REST
+ * @package BuddyNext\Tests\SocialGraph
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\REST;
+namespace BuddyNext\Tests\SocialGraph;
 
 use BuddyNext\Core\Installer;
-use BuddyNext\REST\Controllers\FollowController;
+use BuddyNext\SocialGraph\FollowController;
 use WP_REST_Request;
 use WP_REST_Server;
 
 /**
- * @covers \BuddyNext\REST\Controllers\FollowController
+ * @covers \BuddyNext\SocialGraph\FollowController
  */
 class FollowControllerTest extends \WP_UnitTestCase {
 

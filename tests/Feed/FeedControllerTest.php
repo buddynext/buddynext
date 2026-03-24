@@ -2,12 +2,12 @@
 /**
  * Tests for FeedController REST endpoints.
  *
- * @package BuddyNext\Tests\REST
+ * @package BuddyNext\Tests\Feed
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\REST;
+namespace BuddyNext\Tests\Feed;
 
 use BuddyNext\Core\Installer;
 use BuddyNext\Feed\PostService;
@@ -17,7 +17,7 @@ use WP_REST_Request;
 use WP_REST_Server;
 
 /**
- * @covers \BuddyNext\REST\Controllers\FeedController
+ * @covers \BuddyNext\Feed\FeedController
  */
 class FeedControllerTest extends \WP_UnitTestCase {
 

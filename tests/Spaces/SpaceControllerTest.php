@@ -2,19 +2,19 @@
 /**
  * Tests for SpaceController REST endpoints.
  *
- * @package BuddyNext\Tests\REST
+ * @package BuddyNext\Tests\Spaces
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\REST;
+namespace BuddyNext\Tests\Spaces;
 
 use BuddyNext\Core\Installer;
 use BuddyNext\Spaces\SpaceService;
 use WP_REST_Request;
 
 /**
- * @covers \BuddyNext\REST\Controllers\SpaceController
+ * @covers \BuddyNext\Spaces\SpaceController
  */
 class SpaceControllerTest extends \WP_Test_REST_TestCase {
 

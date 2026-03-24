@@ -2,19 +2,19 @@
 /**
  * Tests for the POST buddynext/v1/webhook/access endpoint.
  *
- * @package BuddyNext\Tests\REST
+ * @package BuddyNext\Tests\Outbound
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\REST;
+namespace BuddyNext\Tests\Outbound;
 
 use BuddyNext\Core\Installer;
 use BuddyNext\Core\PermissionService;
 use BuddyNext\REST\Router;
 
 /**
- * @covers \BuddyNext\REST\Controllers\AccessWebhookController
+ * @covers \BuddyNext\Outbound\AccessWebhookController
  */
 class AccessWebhookTest extends \WP_Test_REST_TestCase {
 
