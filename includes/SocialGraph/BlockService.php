@@ -171,18 +171,17 @@ class BlockService {
 	}
 
 	/**
-	 * Check whether user_a has blocked user_b (directional).
+	 * Check whether a block exists between two users (bidirectional).
 	 *
-	 * Returns true only if user_a has explicitly blocked user_b.
-	 * For a bidirectional check (either party blocked the other) use
-	 * is_blocking_either().
+	 * Returns true when user_a has blocked user_b OR user_b has blocked
+	 * user_a. Use has_blocked() when you need a single-direction check.
 	 *
-	 * @param int $user_a Potential blocker.
-	 * @param int $user_b Potentially blocked user.
+	 * @param int $user_a First user.
+	 * @param int $user_b Second user.
 	 * @return bool
 	 */
 	public function is_blocked( int $user_a, int $user_b ): bool {
-		return $this->has_blocked( $user_a, $user_b );
+		return $this->is_blocking_either( $user_a, $user_b );
 	}
 
 	/**
