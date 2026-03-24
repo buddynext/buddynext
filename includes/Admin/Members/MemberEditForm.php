@@ -313,7 +313,7 @@ class MemberEditForm {
 										<?php echo esc_html( sprintf( /* translators: %d: entry number */ __( 'Entry %d', 'buddynext' ), (int) $e_idx + 1 ) ); ?>
 									</span>
 									<?php if ( $e_idx > 0 ) : ?>
-										<button type="button" class="bn-repeater-remove" aria-label="<?php esc_attr_e( 'Remove entry', 'buddynext' ); ?>">&#x2715;</button>
+										<button type="button" class="bn-repeater-remove" aria-label="<?php esc_attr_e( 'Remove entry', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
 									<?php endif; ?>
 								</div>
 								<?php
@@ -342,7 +342,7 @@ class MemberEditForm {
 							<div class="bn-repeater-entry">
 								<div class="bn-repeater-entry-header">
 									<span class="bn-repeater-entry-label"></span>
-									<button type="button" class="bn-repeater-remove" aria-label="<?php esc_attr_e( 'Remove entry', 'buddynext' ); ?>">&#x2715;</button>
+									<button type="button" class="bn-repeater-remove" aria-label="<?php esc_attr_e( 'Remove entry', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
 								</div>
 								<?php foreach ( $field_defs as $field_def ) : ?>
 									<?php $this->render_repeater_field_template( $group_key, $field_def ); ?>

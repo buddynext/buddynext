@@ -58,7 +58,7 @@ if ( ! class_exists( 'WBGamification\Plugin' ) ) {
 	</style>
 	<div class="bn-lb-shell">
 		<div class="bn-lb-notice">
-			<span class="bn-lb-notice-icon" aria-hidden="true">&#x1F3C6;</span>
+			<span class="bn-lb-notice-icon" aria-hidden="true"><?php buddynext_icon( 'award' ); ?></span>
 			<h2><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h2>
 			<p>
 				<?php esc_html_e( 'The leaderboard requires the WBGamification plugin to be active. Install and activate WBGamification to start earning points and see where you rank in the community.', 'buddynext' ); ?>
@@ -193,32 +193,32 @@ if ( $current_user_id ) {
 $event_labels = array(
 	'bn_post_created' => array(
 		'label' => __( 'Posts', 'buddynext' ),
-		'icon'  => '&#x270D;&#xFE0F;',
+		'icon'  => buddynext_get_icon( 'edit' ),
 		'color' => 'var(--brand)',
 	),
 	'bn_comment'      => array(
 		'label' => __( 'Comments', 'buddynext' ),
-		'icon'  => '&#x1F4AC;',
+		'icon'  => buddynext_get_icon( 'message-circle' ),
 		'color' => 'var(--jetonomy, #5b21b6)',
 	),
 	'bn_reaction'     => array(
 		'label' => __( 'Reactions Given', 'buddynext' ),
-		'icon'  => '&#x2764;&#xFE0F;',
+		'icon'  => buddynext_get_icon( 'heart' ),
 		'color' => 'var(--red)',
 	),
 	'bn_space_joined' => array(
 		'label' => __( 'Space Contributions', 'buddynext' ),
-		'icon'  => '&#x1F3D8;&#xFE0F;',
+		'icon'  => buddynext_get_icon( 'home' ),
 		'color' => 'var(--mvs, #0f766e)',
 	),
 	'bn_connected'    => array(
 		'label' => __( 'New Connections', 'buddynext' ),
-		'icon'  => '&#x1F91D;',
+		'icon'  => buddynext_get_icon( 'users' ),
 		'color' => 'var(--green)',
 	),
 	'bn_followed'     => array(
 		'label' => __( 'Follows', 'buddynext' ),
-		'icon'  => '&#x1F464;',
+		'icon'  => buddynext_get_icon( 'user' ),
 		'color' => 'var(--amber)',
 	),
 );
@@ -237,9 +237,9 @@ $avatar_color   = static function ( int $uid ) use ( $avatar_palette ): string {
 };
 
 $medal_icons = array(
-	1 => '&#x1F947;',
-	2 => '&#x1F948;',
-	3 => '&#x1F949;',
+	1 => '<span class="bn-rank-medal bn-rank-medal--gold">1</span>',
+	2 => '<span class="bn-rank-medal bn-rank-medal--silver">2</span>',
+	3 => '<span class="bn-rank-medal bn-rank-medal--bronze">3</span>',
 );
 
 // Compute next milestone for current user (simplistic: next 100-pt boundary).
@@ -598,7 +598,7 @@ $milestone_remaining = $next_milestone_pts - $current_user_pts;
 	<div class="bn-lb-page-header">
 		<div class="bn-lb-header-top">
 			<h1 class="bn-lb-title"><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h1>
-			<span class="bn-lb-integration-badge">&#x1F3C6; <?php esc_html_e( 'via WBGamification', 'buddynext' ); ?></span>
+			<span class="bn-lb-integration-badge"><?php buddynext_icon( 'award' ); ?> <?php esc_html_e( 'via WBGamification', 'buddynext' ); ?></span>
 		</div>
 		<div class="bn-lb-subtitle">
 			<?php esc_html_e( 'Top contributors this period', 'buddynext' ); ?>
@@ -704,7 +704,7 @@ $milestone_remaining = $next_milestone_pts - $current_user_pts;
 					$medal    = $medal_icons[ $rank_num ] ?? '';
 					?>
 					<div class="bn-podium-card <?php echo esc_attr( $card_mod ); ?>">
-						<span class="bn-podium-medal" aria-hidden="true"><?php echo $medal; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML entity, no user data. ?></span>
+						<span class="bn-podium-medal" aria-hidden="true"><?php echo $medal; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static CSS class span, no user data. ?></span>
 						<div class="bn-podium-ava" style="background:<?php echo esc_attr( $avatar_color( (int) $pod['row']->user_id ) ); ?>;">
 							<?php echo esc_html( $pinits ); ?>
 						</div>
@@ -819,7 +819,7 @@ $milestone_remaining = $next_milestone_pts - $current_user_pts;
 
 			<!-- Your Badges -->
 			<div class="bn-widget">
-				<div class="bn-widget-title">&#x1F3C5; <?php esc_html_e( 'Your Badges', 'buddynext' ); ?></div>
+				<div class="bn-widget-title"><?php buddynext_icon( 'award' ); ?> <?php esc_html_e( 'Your Badges', 'buddynext' ); ?></div>
 				<?php if ( ! empty( $user_badges ) ) : ?>
 					<div class="bn-badge-grid">
 						<?php foreach ( $user_badges as $badge ) : ?>
@@ -852,14 +852,14 @@ $milestone_remaining = $next_milestone_pts - $current_user_pts;
 				$total_pts_sum = array_sum( array_column( array_map( 'get_object_vars', $points_breakdown ), 'pts' ) );
 				?>
 				<div class="bn-widget">
-					<div class="bn-widget-title">&#x1F4CA; <?php esc_html_e( 'Points Breakdown', 'buddynext' ); ?></div>
+					<div class="bn-widget-title"><?php buddynext_icon( 'bar-chart' ); ?> <?php esc_html_e( 'Points Breakdown', 'buddynext' ); ?></div>
 					<?php
 					foreach ( $points_breakdown as $bp ) :
 						$event  = $bp->event_type;
 						$pts_v  = (int) $bp->pts;
 						$evinfo = $event_labels[ $event ] ?? array(
 							'label' => esc_html( ucwords( str_replace( array( 'bn_', '_' ), array( '', ' ' ), $event ) ) ),
-							'icon'  => '&#x2B50;',
+							'icon'  => buddynext_get_icon( 'star' ),
 							'color' => 'var(--text-3)',
 						);
 						$bar_w  = (int) round( $pts_v / $max_pts * 100 );
@@ -867,7 +867,7 @@ $milestone_remaining = $next_milestone_pts - $current_user_pts;
 						<div class="bn-points-item">
 							<div class="bn-points-item-top">
 								<span class="bn-points-item-label">
-									<?php echo $evinfo['icon']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML entity. ?>
+									<?php echo $evinfo['icon']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG via buddynext_get_icon(), already wp_kses() sanitized. ?>
 									<?php echo esc_html( $evinfo['label'] ); ?>
 								</span>
 								<span class="bn-points-item-val">
@@ -898,7 +898,7 @@ $milestone_remaining = $next_milestone_pts - $current_user_pts;
 			<!-- Next Milestone -->
 			<?php if ( $current_user_id ) : ?>
 				<div class="bn-widget">
-					<div class="bn-widget-title">&#x1F3AF; <?php esc_html_e( 'Next Milestone', 'buddynext' ); ?></div>
+					<div class="bn-widget-title"><?php buddynext_icon( 'target' ); ?> <?php esc_html_e( 'Next Milestone', 'buddynext' ); ?></div>
 					<div class="bn-milestone-name">
 						<?php
 						// translators: %d is the total points target.

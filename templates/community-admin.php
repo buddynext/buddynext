@@ -200,25 +200,25 @@ if ( ! function_exists( 'bn_time_diff' ) ) {
 }
 
 /**
- * Return an activity log icon based on action type.
+ * Return an activity log SVG icon based on action type.
  *
  * @param string $action Activity action slug.
- * @return string HTML entity string for an emoji.
+ * @return string SVG icon markup via buddynext_get_icon().
  */
 function bn_activity_icon( string $action ): string {
 	$map = array(
-		'new_member'      => '&#x1F464;',
-		'space_created'   => '&#x1F3D8;',
-		'report_resolved' => '&#x1F6E1;&#xFE0F;',
-		'post_flagged'    => '&#x1F4DD;',
-		'member_approved' => '&#x2705;',
-		'member_warned'   => '&#x1F6AB;',
-		'space_requested' => '&#x1F3D8;',
-		'invite_sent'     => '&#x1F4E7;',
-		'space_approved'  => '&#x2705;',
-		'profile_flagged' => '&#x1F464;',
+		'new_member'      => buddynext_get_icon( 'user' ),
+		'space_created'   => buddynext_get_icon( 'home' ),
+		'report_resolved' => buddynext_get_icon( 'shield' ),
+		'post_flagged'    => buddynext_get_icon( 'flag' ),
+		'member_approved' => buddynext_get_icon( 'check-circle' ),
+		'member_warned'   => buddynext_get_icon( 'ban' ),
+		'space_requested' => buddynext_get_icon( 'home' ),
+		'invite_sent'     => buddynext_get_icon( 'mail' ),
+		'space_approved'  => buddynext_get_icon( 'check-circle' ),
+		'profile_flagged' => buddynext_get_icon( 'user' ),
 	);
-	return $map[ $action ] ?? '&#x1F4CB;';
+	return $map[ $action ] ?? buddynext_get_icon( 'copy' );
 }
 
 /**
@@ -660,7 +660,7 @@ $posts_pct = $posts_yesterday > 0
 
 	<!-- Admin subheader -->
 	<div class="bn-ca-subheader">
-		<span class="bn-ca-subheader__title">&#x1F6E1;&#xFE0F; <?php esc_html_e( 'Community Admin Panel', 'buddynext' ); ?></span>
+		<span class="bn-ca-subheader__title"><?php buddynext_icon( 'shield' ); ?> <?php esc_html_e( 'Community Admin Panel', 'buddynext' ); ?></span>
 		<span class="bn-ca-role-badge"><?php esc_html_e( 'Community Manager', 'buddynext' ); ?></span>
 		<span class="bn-ca-site-label">
 			<?php
@@ -670,7 +670,7 @@ $posts_pct = $posts_yesterday > 0
 		</span>
 		<div class="bn-ca-subheader__actions">
 			<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="bn-ca-link-back">&#x2190; <?php esc_html_e( 'Back to Community', 'buddynext' ); ?></a>
-			<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-link-wpadmin">&#x2B21; <?php esc_html_e( 'WP Admin', 'buddynext' ); ?> &#x2197;</a>
+			<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-link-wpadmin"><?php esc_html_e( 'WP Admin', 'buddynext' ); ?></a>
 		</div>
 	</div>
 
@@ -684,32 +684,32 @@ $posts_pct = $posts_yesterday > 0
 				<?php
 				$nav_items = array(
 					'overview'   => array(
-						'icon'  => '&#x1F4CA;',
+						'icon'  => buddynext_get_icon( 'bar-chart' ),
 						'label' => __( 'Overview', 'buddynext' ),
 					),
 					'members'    => array(
-						'icon'  => '&#x1F465;',
+						'icon'  => buddynext_get_icon( 'users' ),
 						'label' => __( 'Members', 'buddynext' ),
 					),
 					'spaces'     => array(
-						'icon'  => '&#x1F3D8;',
+						'icon'  => buddynext_get_icon( 'home' ),
 						'label' => __( 'Spaces', 'buddynext' ),
 					),
 					'moderation' => array(
-						'icon'  => '&#x1F6E1;&#xFE0F;',
+						'icon'  => buddynext_get_icon( 'shield' ),
 						'label' => __( 'Moderation', 'buddynext' ),
 						'badge' => $open_reports,
 					),
 					'reports'    => array(
-						'icon'  => '&#x1F4CB;',
+						'icon'  => buddynext_get_icon( 'copy' ),
 						'label' => __( 'Reports', 'buddynext' ),
 					),
 					'invites'    => array(
-						'icon'  => '&#x1F4E7;',
+						'icon'  => buddynext_get_icon( 'mail' ),
 						'label' => __( 'Email Invites', 'buddynext' ),
 					),
 					'settings'   => array(
-						'icon'  => '&#x2699;&#xFE0F;',
+						'icon'  => buddynext_get_icon( 'settings' ),
 						'label' => __( 'Settings', 'buddynext' ),
 					),
 				);
@@ -721,7 +721,7 @@ $posts_pct = $posts_yesterday > 0
 						class="bn-ca-nav-item<?php echo $is_active ? ' bn-ca-nav-item--active' : ''; ?>"
 						aria-current="<?php echo $is_active ? 'page' : 'false'; ?>"
 					>
-						<span aria-hidden="true"><?php echo wp_kses_data( $item['icon'] ); ?></span>
+						<span aria-hidden="true"><?php echo $item['icon']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG via buddynext_get_icon(), already wp_kses() sanitized. ?></span>
 						<?php echo esc_html( $item['label'] ); ?>
 						<?php if ( ! empty( $item['badge'] ) && (int) $item['badge'] > 0 ) : ?>
 							<span class="bn-ca-nav-badge"><?php echo esc_html( (string) $item['badge'] ); ?></span>
@@ -732,7 +732,7 @@ $posts_pct = $posts_yesterday > 0
 				<div class="bn-ca-nav-divider"></div>
 
 				<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-nav-item bn-ca-nav-item--external">
-					&#x1F517; <?php esc_html_e( 'WordPress Admin', 'buddynext' ); ?> &#x2197;
+					<?php buddynext_icon( 'link' ); ?> <?php esc_html_e( 'WordPress Admin', 'buddynext' ); ?>
 				</a>
 
 				<p class="bn-ca-sidebar-note"><?php esc_html_e( 'Space admins only see their own space in this panel.', 'buddynext' ); ?></p>
@@ -762,7 +762,7 @@ $posts_pct = $posts_yesterday > 0
 					<div class="bn-ca-stat__number"><?php echo esc_html( number_format_i18n( $active_spaces ) ); ?></div>
 					<?php if ( $pending_spaces > 0 ) : ?>
 						<div class="bn-ca-stat__sub bn-ca-stat__sub--amber">
-							&#x26A0;
+							<?php buddynext_icon( 'alert-triangle' ); ?>
 							<?php
 							// translators: %d is number of spaces pending approval.
 							printf( esc_html__( '%d pending approval', 'buddynext' ), absint( $pending_spaces ) );
@@ -777,7 +777,7 @@ $posts_pct = $posts_yesterday > 0
 					<div class="bn-ca-stat__label"><?php esc_html_e( 'Open Reports', 'buddynext' ); ?></div>
 					<div class="bn-ca-stat__number"><?php echo esc_html( (string) $open_reports ); ?></div>
 					<div class="bn-ca-stat__sub bn-ca-stat__sub--red">
-						&#x1F534;
+						<span class="bn-status-dot bn-status-dot--high"></span>
 						<?php
 						// translators: %d is the number of urgent reports.
 						printf( esc_html__( '%d urgent', 'buddynext' ), absint( $urgent_reports ) );
@@ -811,7 +811,7 @@ $posts_pct = $posts_yesterday > 0
 				<!-- Recent Signups -->
 				<div class="bn-ca-card">
 					<div class="bn-ca-card__header">
-						<span class="bn-ca-card__title">&#x1F465; <?php esc_html_e( 'Recent Signups', 'buddynext' ); ?></span>
+						<span class="bn-ca-card__title"><?php buddynext_icon( 'users' ); ?> <?php esc_html_e( 'Recent Signups', 'buddynext' ); ?></span>
 						<a href="<?php echo esc_url( add_query_arg( 'bn_admin', 'members', $admin_base ) ); ?>" class="bn-ca-card__link">
 							<?php esc_html_e( 'View All', 'buddynext' ); ?> &rarr;
 						</a>
@@ -852,7 +852,7 @@ $posts_pct = $posts_yesterday > 0
 				<!-- Pending Actions -->
 				<div class="bn-ca-card">
 					<div class="bn-ca-card__header">
-						<span class="bn-ca-card__title">&#x26A0;&#xFE0F; <?php esc_html_e( 'Pending Actions', 'buddynext' ); ?></span>
+						<span class="bn-ca-card__title"><?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Pending Actions', 'buddynext' ); ?></span>
 						<span class="bn-ca-pending-badge"><?php echo esc_html( (string) ( count( $pending_joins ) + count( $report_rows ) ) ); ?></span>
 					</div>
 
@@ -931,15 +931,15 @@ endif;
 							$rpt_reason   = ucfirst( $rpt->reason ?? __( 'Report', 'buddynext' ) );
 							$rpt_time     = isset( $rpt->created_at ) ? bn_time_diff( $rpt->created_at ) : '';
 							$rpt_icon     = match ( $rpt_severity ) {
-								'high'   => '&#x1F534;',
-								'medium' => '&#x1F7E1;',
-								default  => '&#x26AA;',
+								'high'   => '<span class="bn-status-dot bn-status-dot--high"></span>',
+								'medium' => '<span class="bn-status-dot bn-status-dot--medium"></span>',
+								default  => '<span class="bn-status-dot"></span>',
 							};
 							++$displayed;
 	?>
 							<div class="bn-ca-report-row bn-ca-report-row--<?php echo esc_attr( $rpt_severity ); ?>">
 								<div class="bn-ca-report__info">
-									<div class="bn-ca-report__type"><?php echo wp_kses_data( $rpt_icon ); ?> <?php echo esc_html( $rpt_reason ); ?></div>
+									<div class="bn-ca-report__type"><?php echo $rpt_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static CSS class span, no user data. ?> <?php echo esc_html( $rpt_reason ); ?></div>
 									<div class="bn-ca-report__meta">
 										<?php
 										// translators: 1: reporter count, 2: time ago.
@@ -989,7 +989,7 @@ endif;
 			<!-- Recent activity (full width) -->
 			<div class="bn-ca-activity-card">
 				<div class="bn-ca-card__header">
-					<span class="bn-ca-card__title">&#x1F4CB; <?php esc_html_e( 'Recent Activity', 'buddynext' ); ?></span>
+					<span class="bn-ca-card__title"><?php buddynext_icon( 'copy' ); ?> <?php esc_html_e( 'Recent Activity', 'buddynext' ); ?></span>
 					<a
 						href="<?php echo esc_url( add_query_arg( 'bn_admin', 'log', $admin_base ) ); ?>"
 						class="bn-ca-card__link"
@@ -1014,7 +1014,7 @@ endif;
 							$act_report = ( 'post_flagged' === $act_action );
 							?>
 							<div class="bn-ca-activity-row">
-								<div class="bn-ca-activity__icon" aria-hidden="true"><?php echo wp_kses_data( $act_icon ); ?></div>
+								<div class="bn-ca-activity__icon" aria-hidden="true"><?php echo $act_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG via buddynext_get_icon(), already wp_kses() sanitized. ?></div>
 								<div class="bn-ca-activity__body">
 									<div class="bn-ca-activity__desc"><?php echo esc_html( $act_desc ); ?></div>
 									<div class="bn-ca-activity__meta"><?php echo esc_html( $act_meta ); ?></div>

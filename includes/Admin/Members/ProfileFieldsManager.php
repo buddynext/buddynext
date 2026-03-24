@@ -1051,12 +1051,12 @@ class ProfileFieldsManager {
 									<div class="bn-pf-action-cell">
 										<button type="button" class="bn-pf-edit-btn"
 											onclick="bnPfToggleEdit('bn-ef-row-<?php echo absint( $fid ); ?>')"
-											title="<?php esc_attr_e( 'Edit field', 'buddynext' ); ?>">&#x270E;</button>
+											title="<?php esc_attr_e( 'Edit field', 'buddynext' ); ?>"><?php buddynext_icon( 'edit' ); ?></button>
 										<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="margin:0;" class="bn-del-form">
 											<input type="hidden" name="action" value="bn_delete_profile_field">
 											<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
 											<?php wp_nonce_field( 'bn_delete_profile_field_' . $fid ); ?>
-											<button type="button" class="bn-pf-del-field bn-del-trigger" title="<?php esc_attr_e( 'Remove field', 'buddynext' ); ?>">&#x2715;</button>
+											<button type="button" class="bn-pf-del-field bn-del-trigger" title="<?php esc_attr_e( 'Remove field', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></button>
 											<button type="submit" class="bn-del-confirm" style="display:none;"><?php esc_html_e( 'Delete?', 'buddynext' ); ?></button>
 											<button type="button" class="bn-del-cancel" style="display:none;"><?php esc_html_e( 'No', 'buddynext' ); ?></button>
 										</form>

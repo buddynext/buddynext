@@ -59,7 +59,7 @@ if ( ! $current_user_id || ! buddynext_can( $current_user_id, 'buddynext-moderat
 	</style>
 	<div class="bn-mod-restricted">
 		<div class="bn-mod-restricted-box">
-			<span class="bn-mod-restricted-icon" aria-hidden="true">&#x1F6AB;</span>
+			<span class="bn-mod-restricted-icon" aria-hidden="true"><?php buddynext_icon( 'ban' ); ?></span>
 			<h2><?php esc_html_e( 'Access Restricted', 'buddynext' ); ?></h2>
 			<p><?php esc_html_e( 'You do not have permission to access the moderation queue. If you believe this is an error, contact a community administrator.', 'buddynext' ); ?></p>
 		</div>
@@ -524,7 +524,7 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 	data-wp-interactive="buddynext/moderation"
 	data-wp-context='{"nonce":"<?php echo esc_attr( $mod_nonce ); ?>","restBase":"<?php echo esc_attr( rest_url( 'buddynext/v1/moderation' ) ); ?>"}'>
 
-	<h1 class="bn-mod-page-title">&#x1F6E1;&#xFE0F; <?php esc_html_e( 'Moderation Queue', 'buddynext' ); ?></h1>
+	<h1 class="bn-mod-page-title"><?php buddynext_icon( 'shield' ); ?> <?php esc_html_e( 'Moderation Queue', 'buddynext' ); ?></h1>
 	<div class="bn-mod-page-sub"><?php esc_html_e( 'Review and act on reported content', 'buddynext' ); ?></div>
 
 	<!-- Stats row -->
@@ -618,7 +618,7 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 	<!-- Report cards -->
 	<?php if ( empty( $reports ) ) : ?>
 		<div class="bn-mod-empty">
-			<span class="bn-mod-empty-icon" aria-hidden="true">&#x2705;</span>
+			<span class="bn-mod-empty-icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
 			<?php esc_html_e( 'No pending reports matching the current filter.', 'buddynext' ); ?>
 		</div>
 	<?php else : ?>
@@ -768,7 +768,7 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 						<button class="bn-action-btn bn-action-btn--dismiss"
 							data-wp-on--click="actions.dismiss"
 							data-report-id="<?php echo esc_attr( (string) $report_id ); ?>">
-							&#x2713; <?php esc_html_e( 'Dismiss', 'buddynext' ); ?>
+							<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Dismiss', 'buddynext' ); ?>
 						</button>
 
 						<?php if ( in_array( $obj_type, array( 'post', 'comment', 'message' ), true ) ) : ?>
@@ -777,7 +777,7 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 								data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
 								data-object-type="<?php echo esc_attr( $obj_type ); ?>"
 								data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-								&#x1F5D1; <?php esc_html_e( 'Remove content', 'buddynext' ); ?>
+								<?php buddynext_icon( 'trash' ); ?> <?php esc_html_e( 'Remove content', 'buddynext' ); ?>
 							</button>
 						<?php endif; ?>
 
@@ -785,7 +785,7 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 							data-wp-on--click="actions.warnUser"
 							data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
 							data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-							&#x26A0;&#xFE0F; <?php esc_html_e( 'Warn user', 'buddynext' ); ?>
+							<?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Warn user', 'buddynext' ); ?>
 						</button>
 
 						<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/issue-strike' ) ) : ?>
@@ -793,7 +793,7 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 								data-wp-on--click="actions.strikeUser"
 								data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
 								data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-								&#x26A1; <?php esc_html_e( 'Strike user', 'buddynext' ); ?>
+								<?php buddynext_icon( 'zap' ); ?> <?php esc_html_e( 'Strike user', 'buddynext' ); ?>
 							</button>
 						<?php endif; ?>
 
@@ -802,7 +802,7 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 								data-wp-on--click="actions.suspendUser"
 								data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
 								data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-								&#x1F6AB; <?php esc_html_e( 'Suspend account', 'buddynext' ); ?>
+								<?php buddynext_icon( 'ban' ); ?> <?php esc_html_e( 'Suspend account', 'buddynext' ); ?>
 							</button>
 						<?php endif; ?>
 					</div>
