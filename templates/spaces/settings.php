@@ -732,7 +732,7 @@ textarea.bn-text-input {
 			&rsaquo; <?php esc_html_e( 'Settings', 'buddynext' ); ?>
 		</nav>
 
-		<h1 class="bn-settings__heading">&#x2699;&#xFE0F; <?php esc_html_e( 'Space Settings', 'buddynext' ); ?></h1>
+		<h1 class="bn-settings__heading"><?php buddynext_icon( 'settings' ); ?> <?php esc_html_e( 'Space Settings', 'buddynext' ); ?></h1>
 
 		<?php if ( 'success' === $save_notice ) : ?>
 			<div class="bn-notice bn-notice--success" role="alert">
@@ -1158,7 +1158,7 @@ textarea.bn-text-input {
 
 									<div class="bn-toggle-row">
 										<div class="bn-toggle-label">
-											<p class="bn-toggle-label__title">&#x1F4AC; <?php esc_html_e( 'Linked Forum (Jetonomy)', 'buddynext' ); ?></p>
+											<p class="bn-toggle-label__title"><?php buddynext_icon( 'message-circle' ); ?> <?php esc_html_e( 'Linked Forum (Jetonomy)', 'buddynext' ); ?></p>
 											<p class="bn-toggle-label__desc"><?php esc_html_e( 'Link a Jetonomy forum to show a Forum tab in this space.', 'buddynext' ); ?></p>
 											<?php if ( class_exists( 'Jetonomy\Core\Plugin' ) ) : ?>
 												<div style="margin-top:var(--s2);">
@@ -1188,7 +1188,7 @@ textarea.bn-text-input {
 
 									<div class="bn-toggle-row">
 										<div class="bn-toggle-label">
-											<p class="bn-toggle-label__title">&#x1F5BC;&#xFE0F; <?php esc_html_e( 'Media tab (WPMediaVerse)', 'buddynext' ); ?></p>
+											<p class="bn-toggle-label__title"><?php buddynext_icon( 'image' ); ?> <?php esc_html_e( 'Media tab (WPMediaVerse)', 'buddynext' ); ?></p>
 											<p class="bn-toggle-label__desc"><?php esc_html_e( 'Show a Media tab for uploading and sharing files in this space.', 'buddynext' ); ?></p>
 										</div>
 										<label class="bn-toggle" aria-label="<?php esc_attr_e( 'Enable Media tab', 'buddynext' ); ?>">
@@ -1228,7 +1228,7 @@ textarea.bn-text-input {
 				<?php endif; ?>
 
 				<div class="bn-danger-zone">
-					<h2 class="bn-danger-zone__title">&#x26A0;&#xFE0F; <?php esc_html_e( 'Danger Zone', 'buddynext' ); ?></h2>
+					<h2 class="bn-danger-zone__title"><?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Danger Zone', 'buddynext' ); ?></h2>
 					<p class="bn-danger-zone__desc"><?php esc_html_e( 'These actions are permanent and cannot be undone.', 'buddynext' ); ?></p>
 					<div style="display:flex;gap:var(--s2);flex-wrap:wrap;">
 						<button

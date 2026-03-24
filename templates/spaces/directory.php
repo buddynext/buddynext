@@ -175,26 +175,27 @@ function bn_space_avatar_bg( int $space_id ): string {
 }
 
 /**
- * Returns an emoji icon for a space category slug.
+ * Returns an SVG icon for a space category slug.
  *
  * @param string|null $cat_slug Category slug.
- * @return string Emoji character.
+ * @return string SVG markup.
  */
 function bn_space_category_icon( ?string $cat_slug ): string {
-	$map = array(
-		'technology'  => '&#x1F4BB;',
-		'design'      => '&#x1F3A8;',
-		'marketing'   => '&#x1F4E3;',
-		'startups'    => '&#x1F680;',
-		'ai-ml'       => '&#x1F916;',
-		'data'        => '&#x1F4CA;',
-		'product'     => '&#x1F3AF;',
-		'writing'     => '&#x1F4DD;',
-		'open-source' => '&#x1F30D;',
-		'business'    => '&#x1F4BC;',
-		'creative'    => '&#x1F3A4;',
+	$map  = array(
+		'technology'  => 'cpu',
+		'design'      => 'image',
+		'marketing'   => 'megaphone',
+		'startups'    => 'rocket',
+		'ai-ml'       => 'cpu',
+		'data'        => 'bar-chart',
+		'product'     => 'target',
+		'writing'     => 'edit',
+		'open-source' => 'globe',
+		'business'    => 'briefcase',
+		'creative'    => 'star',
 	);
-	return $map[ (string) $cat_slug ] ?? '&#x1F3D8;';
+	$slug = $map[ (string) $cat_slug ] ?? 'home';
+	return buddynext_get_icon( $slug );
 }
 
 $bn_nav_active = 'spaces';
@@ -602,7 +603,7 @@ require __DIR__ . '/../partials/nav.php';
 
 	<?php if ( current_user_can( 'read' ) ) : ?>
 	<div class="bn-dir-featured">
-		<div class="bn-dir-featured__icon">&#x1F3D8;</div>
+		<div class="bn-dir-featured__icon"><?php buddynext_icon( 'home' ); ?></div>
 		<div class="bn-dir-featured__text">
 			<div class="bn-dir-featured__title"><?php esc_html_e( 'Find Your Community', 'buddynext' ); ?></div>
 			<p class="bn-dir-featured__sub"><?php esc_html_e( 'Join spaces around topics you care about. Share ideas, ask questions, collaborate.', 'buddynext' ); ?></p>
@@ -614,7 +615,7 @@ require __DIR__ . '/../partials/nav.php';
 	</div>
 	<?php endif; ?>
 
-	<h1 class="bn-dir-heading">&#x1F3D8; <?php esc_html_e( 'Spaces', 'buddynext' ); ?></h1>
+	<h1 class="bn-dir-heading"><?php buddynext_icon( 'home' ); ?> <?php esc_html_e( 'Spaces', 'buddynext' ); ?></h1>
 	<p class="bn-dir-subheading"><?php esc_html_e( 'Browse all community spaces', 'buddynext' ); ?></p>
 
 	<form
@@ -674,7 +675,7 @@ require __DIR__ . '/../partials/nav.php';
 
 		<?php if ( empty( $spaces ) ) : ?>
 			<div class="bn-dir-empty" role="listitem">
-				<div class="bn-dir-empty__icon">&#x1F50D;</div>
+				<div class="bn-dir-empty__icon"><?php buddynext_icon( 'search' ); ?></div>
 				<p class="bn-dir-empty__title"><?php esc_html_e( 'No spaces found', 'buddynext' ); ?></p>
 				<p><?php esc_html_e( 'Try adjusting your search or filters.', 'buddynext' ); ?></p>
 			</div>
@@ -695,9 +696,9 @@ require __DIR__ . '/../partials/nav.php';
 					default   => __( 'Invite-only', 'buddynext' ),
 				};
 				$privacy_icon = match ( $space->type ) {
-					'public'  => '&#x1F310;',
-					'private' => '&#x1F512;',
-					default   => '&#x1F4E7;',
+					'public'  => buddynext_get_icon( 'globe' ),
+					'private' => buddynext_get_icon( 'lock' ),
+					default   => buddynext_get_icon( 'mail' ),
 				};
 
 				$cover_bg  = bn_space_cover_gradient( $space_id );
@@ -732,7 +733,7 @@ require __DIR__ . '/../partials/nav.php';
 						<?php endif; ?>
 
 						<div class="bn-space-card__stats">
-							<span>&#x1F465; <?php echo esc_html( $member_count ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
+							<span><?php buddynext_icon( 'users' ); ?> <?php echo esc_html( $member_count ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
 						</div>
 
 						<div class="bn-space-card__footer">
@@ -752,7 +753,7 @@ require __DIR__ . '/../partials/nav.php';
 									data-wp-on--click="actions.leaveSpace"
 									data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 									aria-label="<?php esc_attr_e( 'Joined — click to leave', 'buddynext' ); ?>"
-								>&#x2713; <?php esc_html_e( 'Joined', 'buddynext' ); ?></button>
+								><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Joined', 'buddynext' ); ?></button>
 
 							<?php elseif ( $is_pending ) : ?>
 								<button

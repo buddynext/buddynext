@@ -668,9 +668,9 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 			<div class="bn-sh-info">
 				<h1 class="bn-sh-name"><?php echo esc_html( $space->name ); ?></h1>
 				<div class="bn-sh-meta">
-					<span>&#x1F465; <?php echo esc_html( $member_count_fmt ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
+					<span><?php buddynext_icon( 'users' ); ?> <?php echo esc_html( $member_count_fmt ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
 					<?php if ( ! empty( $space->category_name ) ) : ?>
-						<span>&#x1F3F7;&#xFE0F; <?php echo esc_html( $space->category_name ); ?></span>
+						<span><?php buddynext_icon( 'hash' ); ?> <?php echo esc_html( $space->category_name ); ?></span>
 					<?php endif; ?>
 					<span><?php echo esc_html( $privacy_label ); ?></span>
 				</div>
@@ -681,18 +681,18 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 					<a
 						href="<?php echo esc_url( buddynext_space_settings_url( $space->slug ) ); ?>"
 						class="bn-btn-secondary"
-					>&#x2699;&#xFE0F; <?php esc_html_e( 'Settings', 'buddynext' ); ?></a>
+					><?php buddynext_icon( 'settings' ); ?> <?php esc_html_e( 'Settings', 'buddynext' ); ?></a>
 					<a
 						href="<?php echo esc_url( buddynext_space_moderation_url( $space->slug ) ); ?>"
 						class="bn-btn-secondary"
-					>&#x1F6E1;&#xFE0F; <?php esc_html_e( 'Moderation', 'buddynext' ); ?></a>
+					><?php buddynext_icon( 'shield' ); ?> <?php esc_html_e( 'Moderation', 'buddynext' ); ?></a>
 
 				<?php elseif ( $is_member ) : ?>
 					<button
 						class="bn-btn-primary"
 						data-wp-on--click="actions.leaveSpace"
-					>&#x2713; <?php esc_html_e( 'Joined', 'buddynext' ); ?></button>
-					<button class="bn-btn-secondary">&#x1F514; <?php esc_html_e( 'Notifications', 'buddynext' ); ?></button>
+					><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Joined', 'buddynext' ); ?></button>
+					<button class="bn-btn-secondary"><?php buddynext_icon( 'bell' ); ?> <?php esc_html_e( 'Notifications', 'buddynext' ); ?></button>
 
 				<?php elseif ( $is_pending ) : ?>
 					<button
@@ -743,7 +743,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 			<?php if ( $gate_feed ) : ?>
 
 				<div class="bn-space-gate">
-					<div class="bn-space-gate__icon">&#x1F512;</div>
+					<div class="bn-space-gate__icon"><?php buddynext_icon( 'lock' ); ?></div>
 					<h2 class="bn-space-gate__title"><?php esc_html_e( 'This is a private space', 'buddynext' ); ?></h2>
 					<p style="color:var(--text-2);font-size:var(--text-sm);margin-bottom:var(--s4);">
 						<?php esc_html_e( 'Join to read posts and participate in discussions.', 'buddynext' ); ?>
@@ -783,7 +783,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 
 				<?php if ( $pinned_post ) : ?>
 					<div class="bn-pinned">
-						<div class="bn-pinned__label">&#x1F4CC; <?php esc_html_e( 'Pinned announcement', 'buddynext' ); ?></div>
+						<div class="bn-pinned__label"><?php buddynext_icon( 'bookmark' ); ?> <?php esc_html_e( 'Pinned announcement', 'buddynext' ); ?></div>
 						<p class="bn-pinned__title"><?php echo esc_html( wp_trim_words( $pinned_post->content ?? '', 12 ) ); ?></p>
 						<p class="bn-pinned__meta">
 							<?php
@@ -848,7 +848,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 
 							<?php if ( ! empty( $bn_post->link_url ) ) : ?>
 								<div class="bn-post-card__link-preview">
-									&#x1F517; <?php echo esc_html( esc_url( $bn_post->link_url ) ); ?>
+									<?php buddynext_icon( 'link' ); ?> <?php echo esc_html( esc_url( $bn_post->link_url ) ); ?>
 								</div>
 							<?php endif; ?>
 
@@ -858,17 +858,17 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 									data-wp-on--click="actions.toggleReaction"
 									data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>"
 									aria-label="<?php esc_attr_e( 'React to post', 'buddynext' ); ?>"
-								>&#x2764;&#xFE0F; <?php echo esc_html( (string) $reaction_count ); ?></button>
+								><?php buddynext_icon( 'heart' ); ?> <?php echo esc_html( (string) $reaction_count ); ?></button>
 
 								<button
 									class="bn-post-card__stat"
 									data-wp-on--click="actions.viewComments"
 									data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>"
 									aria-label="<?php esc_attr_e( 'View comments', 'buddynext' ); ?>"
-								>&#x1F4AC; <?php echo esc_html( (string) $comment_count ); ?> <?php esc_html_e( 'comments', 'buddynext' ); ?></button>
+								><?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) $comment_count ); ?> <?php esc_html_e( 'comments', 'buddynext' ); ?></button>
 
 								<button class="bn-post-card__stat" data-wp-on--click="actions.sharePost" data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>">
-									&#x2197;&#xFE0F; <?php esc_html_e( 'Share', 'buddynext' ); ?>
+									<?php buddynext_icon( 'share' ); ?> <?php esc_html_e( 'Share', 'buddynext' ); ?>
 								</button>
 							</div>
 						</article>
@@ -890,7 +890,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 				<?php endif; ?>
 				<div class="bn-sidebar-meta">
 					<?php if ( ! empty( $space->created_at ) ) : ?>
-						<div>&#x1F4C5; 
+						<div><?php buddynext_icon( 'calendar' ); ?>
 						<?php
 							// translators: %s is the formatted date.
 							printf( esc_html__( 'Created %s', 'buddynext' ), esc_html( date_i18n( get_option( 'date_format' ), strtotime( $space->created_at ) ) ) );
@@ -899,7 +899,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 					<?php endif; ?>
 					<div><?php echo esc_html( $privacy_label ); ?></div>
 					<?php if ( ! empty( $space->category_name ) ) : ?>
-						<div>&#x1F3F7;&#xFE0F; <?php echo esc_html( $space->category_name ); ?></div>
+						<div><?php buddynext_icon( 'hash' ); ?> <?php echo esc_html( $space->category_name ); ?></div>
 					<?php endif; ?>
 				</div>
 			</div>
@@ -942,7 +942,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 
 			<?php if ( ! empty( $top_contributors ) ) : ?>
 				<div class="bn-sidebar-widget">
-					<h2 class="bn-sidebar-widget__title">&#x1F3C6; <?php esc_html_e( 'Top Contributors', 'buddynext' ); ?></h2>
+					<h2 class="bn-sidebar-widget__title"><?php buddynext_icon( 'award' ); ?> <?php esc_html_e( 'Top Contributors', 'buddynext' ); ?></h2>
 
 					<?php foreach ( $top_contributors as $rank => $contrib ) : ?>
 						<?php

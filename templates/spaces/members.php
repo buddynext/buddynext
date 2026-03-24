@@ -418,7 +418,7 @@ if ( ! function_exists( 'bn_space_role_label' ) ) {
 					loading="lazy"
 				>
 			<?php else : ?>
-				&#127970;
+				<?php buddynext_icon( 'home' ); ?>
 			<?php endif; ?>
 		</div>
 		<h1 class="bn-sm-title">
@@ -529,14 +529,14 @@ if ( ! function_exists( 'bn_space_role_label' ) ) {
 									printf( esc_attr__( 'Message %s', 'buddynext' ), esc_attr( $member_name ) );
 								?>
 								"
-							>&#128172;</a>
+							><?php buddynext_icon( 'message-circle' ); ?></a>
 						<?php endif; ?>
 					</div>
 				</article>
 			<?php endforeach; ?>
 		<?php else : ?>
 			<div class="bn-empty-state">
-				<div class="bn-empty-icon" aria-hidden="true">&#127970;</div>
+				<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'home' ); ?></div>
 				<div class="bn-empty-title"><?php esc_html_e( 'No members found', 'buddynext' ); ?></div>
 				<p class="bn-empty-text"><?php esc_html_e( 'This space has no active members yet.', 'buddynext' ); ?></p>
 			</div>

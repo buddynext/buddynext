@@ -146,24 +146,25 @@ $mod_log = $wpdb->get_results(
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Return an action icon emoji based on a mod log action type.
+ * Return an SVG icon for a mod log action type.
  *
  * @param string $action Moderation action slug.
- * @return string Emoji character.
+ * @return string SVG markup.
  */
 function bn_mod_action_icon( string $action ): string {
-	$map = array(
-		'dismiss'        => '&#x2705;',
-		'remove'         => '&#x1F5D1;&#xFE0F;',
-		'warn'           => '&#x26A0;&#xFE0F;',
-		'ban'            => '&#x1F6AB;',
-		'approve_member' => '&#x2705;',
-		'decline_member' => '&#x274C;',
-		'remove_member'  => '&#x1F6AB;',
-		'pin'            => '&#x1F4CC;',
-		'unpin'          => '&#x1F4CD;',
+	$map  = array(
+		'dismiss'        => 'check-circle',
+		'remove'         => 'trash',
+		'warn'           => 'alert-triangle',
+		'ban'            => 'ban',
+		'approve_member' => 'check-circle',
+		'decline_member' => 'x-circle',
+		'remove_member'  => 'ban',
+		'pin'            => 'bookmark',
+		'unpin'          => 'bookmark',
 	);
-	return $map[ $action ] ?? '&#x1F4CB;';
+	$slug = $map[ $action ] ?? 'copy';
+	return buddynext_get_icon( $slug );
 }
 
 /**
@@ -726,7 +727,7 @@ $current_uid  = get_current_user_id();
 
 	<!-- Space context subheader -->
 	<div class="bn-mod-subheader">
-		<span class="bn-mod-subheader__icon" aria-hidden="true">&#x1F4BB;</span>
+		<span class="bn-mod-subheader__icon" aria-hidden="true"><?php buddynext_icon( 'cpu' ); ?></span>
 		<div class="bn-mod-subheader__info">
 			<div class="bn-mod-subheader__name"><?php echo esc_html( $space->name ?? '' ); ?></div>
 			<div class="bn-mod-subheader__meta">
@@ -745,8 +746,8 @@ $current_uid  = get_current_user_id();
 	<nav class="bn-mod-tabs" aria-label="<?php esc_attr_e( 'Space tabs', 'buddynext' ); ?>">
 		<a href="<?php echo esc_url( $space_url ); ?>" class="bn-mod-tab"><?php esc_html_e( 'Feed', 'buddynext' ); ?></a>
 		<a href="<?php echo esc_url( add_query_arg( 'bn_tab', 'members', $space_url ) ); ?>" class="bn-mod-tab"><?php esc_html_e( 'Members', 'buddynext' ); ?></a>
-		<a href="<?php echo esc_url( buddynext_space_settings_url( $space->slug ?? '' ) ); ?>" class="bn-mod-tab">&#x2699;&#xFE0F; <?php esc_html_e( 'Settings', 'buddynext' ); ?></a>
-		<a href="<?php echo esc_url( $mod_base_url ); ?>" class="bn-mod-tab bn-mod-tab--active" aria-current="page">&#x1F6E1;&#xFE0F; <?php esc_html_e( 'Moderation', 'buddynext' ); ?></a>
+		<a href="<?php echo esc_url( buddynext_space_settings_url( $space->slug ?? '' ) ); ?>" class="bn-mod-tab"><?php buddynext_icon( 'settings' ); ?> <?php esc_html_e( 'Settings', 'buddynext' ); ?></a>
+		<a href="<?php echo esc_url( $mod_base_url ); ?>" class="bn-mod-tab bn-mod-tab--active" aria-current="page"><?php buddynext_icon( 'shield' ); ?> <?php esc_html_e( 'Moderation', 'buddynext' ); ?></a>
 	</nav>
 
 	<!-- Main content -->
@@ -755,7 +756,7 @@ $current_uid  = get_current_user_id();
 		<!-- Page title row -->
 		<div class="bn-mod-title-row">
 			<div>
-				<h1 class="bn-mod-title">&#x1F6E1;&#xFE0F; 
+				<h1 class="bn-mod-title"><?php buddynext_icon( 'shield' ); ?>
 				<?php
 				// translators: %s is the space name.
 				printf( esc_html__( 'Moderation &mdash; %s', 'buddynext' ), esc_html( $space->name ?? '' ) );
@@ -822,7 +823,7 @@ $current_uid  = get_current_user_id();
 
 					<?php if ( empty( $open_reports ) ) : ?>
 						<div class="bn-empty">
-							<div class="bn-empty__icon">&#x2705;</div>
+							<div class="bn-empty__icon"><?php buddynext_icon( 'check-circle' ); ?></div>
 							<p class="bn-empty__title"><?php esc_html_e( 'No open reports', 'buddynext' ); ?></p>
 							<p><?php esc_html_e( 'This space has no reports requiring attention.', 'buddynext' ); ?></p>
 						</div>
@@ -918,14 +919,14 @@ $current_uid  = get_current_user_id();
 											class="bn-rc-btn bn-rc-btn--dismiss"
 											data-wp-on--click="actions.dismissReport"
 											data-report-id="<?php echo esc_attr( (string) $report->id ); ?>"
-										>&#x2713; <?php esc_html_e( 'Dismiss', 'buddynext' ); ?></button>
+										><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Dismiss', 'buddynext' ); ?></button>
 
 										<button
 											type="button"
 											class="bn-rc-btn bn-rc-btn--remove"
 											data-wp-on--click="actions.removeContent"
 											data-report-id="<?php echo esc_attr( (string) $report->id ); ?>"
-										>&#x1F5D1;&#xFE0F; <?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
+										><?php buddynext_icon( 'trash' ); ?> <?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
 
 										<button
 											type="button"
@@ -933,7 +934,7 @@ $current_uid  = get_current_user_id();
 											data-wp-on--click="actions.warnMember"
 											data-report-id="<?php echo esc_attr( (string) $report->id ); ?>"
 											data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
-										>&#x26A0;&#xFE0F; <?php esc_html_e( 'Warn', 'buddynext' ); ?></button>
+										><?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Warn', 'buddynext' ); ?></button>
 
 										<button
 											type="button"
@@ -942,7 +943,7 @@ $current_uid  = get_current_user_id();
 											data-report-id="<?php echo esc_attr( (string) $report->id ); ?>"
 											data-user-id="<?php echo esc_attr( (string) $reported_uid ); ?>"
 											data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
-										>&#x1F6AB; <?php esc_html_e( 'Remove from Space', 'buddynext' ); ?></button>
+										><?php buddynext_icon( 'ban' ); ?> <?php esc_html_e( 'Remove from Space', 'buddynext' ); ?></button>
 									</div>
 
 									<p class="bn-rc-action-note">
@@ -961,7 +962,7 @@ $current_uid  = get_current_user_id();
 
 					<?php if ( empty( $pending_members ) ) : ?>
 						<div class="bn-empty">
-							<div class="bn-empty__icon">&#x1F465;</div>
+							<div class="bn-empty__icon"><?php buddynext_icon( 'users' ); ?></div>
 							<p class="bn-empty__title"><?php esc_html_e( 'No pending requests', 'buddynext' ); ?></p>
 							<p><?php esc_html_e( 'All join requests have been reviewed.', 'buddynext' ); ?></p>
 						</div>
@@ -971,7 +972,7 @@ $current_uid  = get_current_user_id();
 						<div class="bn-section-collapsed">
 							<div class="bn-section-collapsed__header">
 								<div>
-									<span class="bn-section-collapsed__title">&#x1F465; <?php esc_html_e( 'Pending Member Requests', 'buddynext' ); ?></span>
+									<span class="bn-section-collapsed__title"><?php buddynext_icon( 'users' ); ?> <?php esc_html_e( 'Pending Member Requests', 'buddynext' ); ?></span>
 									<span class="bn-section-collapsed__meta">
 										<?php
 										// translators: %d is the pending count.
@@ -1024,7 +1025,7 @@ $current_uid  = get_current_user_id();
 				<?php elseif ( 'log' === $mod_tab ) : ?>
 
 					<div class="bn-section-header">
-						&#x1F4CB; 
+						<?php buddynext_icon( 'copy' ); ?>
 						<?php
 						// translators: %s is the space name.
 						printf( esc_html__( 'Recent Moderation Activity &mdash; %s', 'buddynext' ), esc_html( $space->name ?? '' ) );
@@ -1033,7 +1034,7 @@ $current_uid  = get_current_user_id();
 
 					<?php if ( empty( $mod_log ) ) : ?>
 						<div class="bn-empty">
-							<div class="bn-empty__icon">&#x1F4CB;</div>
+							<div class="bn-empty__icon"><?php buddynext_icon( 'copy' ); ?></div>
 							<p class="bn-empty__title"><?php esc_html_e( 'No activity yet', 'buddynext' ); ?></p>
 						</div>
 					<?php else : ?>
@@ -1066,29 +1067,29 @@ $current_uid  = get_current_user_id();
 			<!-- Sidebar: scope info card -->
 			<aside aria-label="<?php esc_attr_e( 'Moderation scope', 'buddynext' ); ?>">
 				<div class="bn-scope-card">
-					<div class="bn-scope-card__header">&#x1F50D; <?php esc_html_e( 'Your moderation scope', 'buddynext' ); ?></div>
+					<div class="bn-scope-card__header"><?php buddynext_icon( 'search' ); ?> <?php esc_html_e( 'Your moderation scope', 'buddynext' ); ?></div>
 					<div class="bn-scope-list">
 						<div class="bn-scope-item">
-							<span class="bn-scope-can" aria-label="<?php esc_attr_e( 'Can', 'buddynext' ); ?>">&#x2713;</span>
+							<span class="bn-scope-can" aria-label="<?php esc_attr_e( 'Can', 'buddynext' ); ?>"><?php buddynext_icon( 'check' ); ?></span>
 							<span><?php esc_html_e( 'Moderate posts and comments in this space', 'buddynext' ); ?></span>
 						</div>
 						<div class="bn-scope-item">
-							<span class="bn-scope-can" aria-label="<?php esc_attr_e( 'Can', 'buddynext' ); ?>">&#x2713;</span>
+							<span class="bn-scope-can" aria-label="<?php esc_attr_e( 'Can', 'buddynext' ); ?>"><?php buddynext_icon( 'check' ); ?></span>
 							<span><?php esc_html_e( 'Approve / decline join requests', 'buddynext' ); ?></span>
 						</div>
 						<div class="bn-scope-item">
-							<span class="bn-scope-can" aria-label="<?php esc_attr_e( 'Can', 'buddynext' ); ?>">&#x2713;</span>
+							<span class="bn-scope-can" aria-label="<?php esc_attr_e( 'Can', 'buddynext' ); ?>"><?php buddynext_icon( 'check' ); ?></span>
 							<span><?php esc_html_e( 'Warn or remove members from this space', 'buddynext' ); ?></span>
 						</div>
 						<div class="bn-scope-item">
-							<span class="bn-scope-cant" aria-label="<?php esc_attr_e( 'Cannot', 'buddynext' ); ?>">&#x2715;</span>
+							<span class="bn-scope-cant" aria-label="<?php esc_attr_e( 'Cannot', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></span>
 							<span>
 								<?php esc_html_e( 'Suspend accounts platform-wide', 'buddynext' ); ?>
 								<span style="color:var(--text-3);"><?php esc_html_e( '(requires Community Admin)', 'buddynext' ); ?></span>
 							</span>
 						</div>
 						<div class="bn-scope-item">
-							<span class="bn-scope-cant" aria-label="<?php esc_attr_e( 'Cannot', 'buddynext' ); ?>">&#x2715;</span>
+							<span class="bn-scope-cant" aria-label="<?php esc_attr_e( 'Cannot', 'buddynext' ); ?>"><?php buddynext_icon( 'x' ); ?></span>
 							<span><?php esc_html_e( 'See reports from other spaces', 'buddynext' ); ?></span>
 						</div>
 					</div>
