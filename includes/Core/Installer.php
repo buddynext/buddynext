@@ -1117,7 +1117,12 @@ if ( buddynext_mu_is_bn_request() ) {
 				'buddynext_isolation_whitelist',
 				array(
 					'buddynext/buddynext.php',
+					'wpmediaverse/wpmediaverse.php',
+					'wpmediaverse-pro/wpmediaverse-pro.php',
+					'jetonomy/jetonomy.php',
+					'jetonomy-pro/jetonomy-pro.php',
 					'redis-cache/redis-cache.php',
+					'query-monitor/query-monitor.php',
 				)
 			);
 
