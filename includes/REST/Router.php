@@ -26,7 +26,7 @@ use BuddyNext\Search\SearchController;
 use BuddyNext\Feed\ShareController;
 use BuddyNext\Comments\CommentController;
 use BuddyNext\Hashtags\HashtagController;
-use BuddyNext\Admin\MemberTypeController;
+use BuddyNext\MemberTypes\MemberTypeController;
 use BuddyNext\Moderation\ModerationController;
 use BuddyNext\Notifications\NotificationController;
 use BuddyNext\Outbound\OutboundWebhookController;
