@@ -36,12 +36,17 @@ if ( ! in_array( $active_tab, $allowed_tabs, true ) ) {
 // ── Search term ───────────────────────────────────────────────────────────────
 $search_term = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );  // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
+// ── Compose mode ─────────────────────────────────────────────────────────────
+$is_compose = isset( $_GET['action'] ) && 'compose' === sanitize_key( $_GET['action'] );  // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
 // ── Nonces for interactive actions ───────────────────────────────────────────
 $action_nonce  = wp_create_nonce( 'bn_messages_action' );
 $rest_nonce    = wp_create_nonce( 'wp_rest' );
 $mvs_rest_base = rest_url( 'mvs/v1' );
-$compose_url   = add_query_arg( array( 'action' => 'compose' ), get_permalink() );
-$requests_url  = add_query_arg( array( 'tab' => 'requests' ), get_permalink() );
+$bn_rest_base  = rest_url( 'buddynext/v1' );
+$messages_url  = \BuddyNext\Core\PageRouter::messages_url();
+$compose_url   = add_query_arg( array( 'action' => 'compose' ), $messages_url );
+$requests_url  = add_query_arg( array( 'tab' => 'requests' ), $messages_url );
 
 // ── Fetch conversations via WPMediaVerse REST API (server-side bootstrap) ─────
 $conversations        = array();
@@ -164,51 +169,18 @@ $bn_nav_active = 'messages';
 buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
 <div
-	class="bn-messages-list"
+	class="bn-messages-list bn-hub-shell"
 	data-wp-interactive="buddynext/messages"
-	data-wp-context='{"tab":"<?php echo esc_js( $active_tab ); ?>","search":"<?php echo esc_js( $search_term ); ?>","nonce":"<?php echo esc_js( $action_nonce ); ?>","restNonce":"<?php echo esc_js( $rest_nonce ); ?>","mvsRestBase":"<?php echo esc_js( $mvs_rest_base ); ?>"}'
+	data-wp-context='{"tab":"<?php echo esc_js( $active_tab ); ?>","search":"<?php echo esc_js( $search_term ); ?>","nonce":"<?php echo esc_js( $action_nonce ); ?>","restNonce":"<?php echo esc_js( $rest_nonce ); ?>","mvsRestBase":"<?php echo esc_js( $mvs_rest_base ); ?>","bnRestBase":"<?php echo esc_js( $bn_rest_base ); ?>","messagesUrl":"<?php echo esc_js( $messages_url ); ?>","isCompose":<?php echo $is_compose ? 'true' : 'false'; ?>,"composeQuery":"","composeResults":[]}'
 >
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap');
-
+/* Token aliases for legacy --radius-* references in this template. */
+/* All canonical tokens injected by TokenService — no overrides here. */
 :root {
-	--font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-	--font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
-	--text-xs:  11px;  --text-sm: 13px;  --text-base: 15px;
-	--text-lg:  17px;  --text-xl: 20px;  --text-2xl: 24px;
-	--leading-body: 1.7;
-	--bg:          #ffffff;
-	--bg-subtle:   #f8f8f7;
-	--bg-hover:    #f1f1f0;
-	--surface:     #ffffff;
-	--border:      #e8e8e5;
-	--border-soft: #f1f1ee;
-	--text-1:      #37352f;
-	--text-2:      #787774;
-	--text-3:      #aeaca8;
-	--brand:       #0073aa;
-	--brand-light: #e8f4fb;
-	--brand-hover: #005f8e;
-	--green:    #059669;
-	--red:      #dc2626;
-	--s1: 4px;  --s2: 8px;   --s3: 12px;  --s4: 16px;
-	--s5: 20px; --s6: 24px;  --s8: 32px;
-	--radius-sm: 6px; --radius: 10px; --radius-lg: 14px;
-}
-[data-theme="dark"] {
-	--bg:          #191919;
-	--bg-subtle:   #202020;
-	--bg-hover:    #2a2a2a;
-	--surface:     #252525;
-	--border:      #333330;
-	--border-soft: #2c2c2a;
-	--text-1:      #e8e8e6;
-	--text-2:      #9b9b97;
-	--text-3:      #6b6b67;
-	--brand:       #4dabdb;
-	--brand-light: #1a2e3a;
-	--brand-hover: #5fbfe8;
+	--radius-sm: var(--r-sm);
+	--radius:    var(--r-md);
+	--radius-lg: var(--r-lg);
 }
 
 /* ── Shell ───────────────────────────────────────────────── */
@@ -217,8 +189,6 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	font-size: var(--text-base);
 	color: var(--text-1);
 	line-height: var(--leading-body);
-	max-width: 680px;
-	margin: 0 auto;
 }
 .bn-msg-shell {
 	background: var(--surface);
@@ -226,6 +196,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	border-radius: var(--radius-lg);
 	overflow: hidden;
 	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+	position: relative;
 }
 
 /* ── Header ──────────────────────────────────────────────── */
@@ -492,12 +463,88 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	text-align: center;
 }
 
+/* ── Compose overlay ─────────────────────────────────────── */
+.bn-compose-overlay {
+	position: absolute;
+	inset: 0;
+	background: var(--bg);
+	border-radius: var(--radius);
+	z-index: 10;
+	display: flex;
+	flex-direction: column;
+}
+.bn-compose-overlay[hidden] { display: none; }
+.bn-compose-panel { display: flex; flex-direction: column; height: 100%; }
+.bn-compose-header {
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+	padding: var(--s4) var(--s4) var(--s3);
+	border-bottom: 1px solid var(--border);
+}
+.bn-compose-back {
+	background: none; border: none; cursor: pointer; padding: var(--s1);
+	color: var(--text-2); border-radius: var(--radius-sm); line-height: 0;
+}
+.bn-compose-back:hover { background: var(--bg-hover); color: var(--text-1); }
+.bn-compose-back svg { width: 18px; height: 18px; }
+.bn-compose-title { font-weight: 600; font-size: var(--text-base); color: var(--text-1); }
+.bn-compose-to-row {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--s2);
+	padding: var(--s3) var(--s4);
+	border-bottom: 1px solid var(--border-soft);
+	min-height: 44px;
+}
+.bn-compose-to-label {
+	font-size: var(--text-sm); color: var(--text-2); font-weight: 500;
+	padding-top: 2px; flex-shrink: 0;
+}
+.bn-compose-to-wrap { flex: 1; display: flex; flex-wrap: wrap; gap: var(--s1); align-items: center; }
+.bn-compose-recipient-pill {
+	display: inline-flex; align-items: center; gap: var(--s1);
+	background: var(--brand-light); color: var(--brand);
+	border-radius: var(--radius-sm); padding: 2px var(--s2);
+	font-size: var(--text-sm); font-weight: 500;
+}
+.bn-compose-recipient-pill[hidden] { display: none; }
+.bn-compose-pill-remove {
+	background: none; border: none; cursor: pointer; padding: 0;
+	color: var(--brand); line-height: 0; opacity: 0.7;
+}
+.bn-compose-pill-remove:hover { opacity: 1; }
+.bn-compose-pill-remove svg { width: 12px; height: 12px; }
+.bn-compose-search-input {
+	flex: 1; border: none; outline: none; background: transparent;
+	font-size: var(--text-sm); color: var(--text-1); min-width: 120px;
+}
+.bn-compose-search-input[hidden] { display: none; }
+.bn-compose-search-input::placeholder { color: var(--text-3); }
+.bn-compose-results {
+	list-style: none; margin: 0; padding: var(--s1) 0;
+	border-bottom: 1px solid var(--border-soft); max-height: 240px; overflow-y: auto;
+}
+.bn-compose-results[hidden] { display: none; }
+.bn-compose-result-item {
+	display: flex; align-items: center; gap: var(--s3);
+	padding: var(--s2) var(--s4); cursor: pointer;
+}
+.bn-compose-result-item:hover { background: var(--bg-hover); }
+.bn-compose-result-name { font-size: var(--text-sm); color: var(--text-1); font-weight: 500; }
+.bn-compose-footer {
+	padding: var(--s4); margin-top: auto;
+	border-top: 1px solid var(--border-soft);
+}
+.bn-compose-start-btn { width: 100%; justify-content: center; }
+.bn-compose-start-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 640px) {
-	.bn-messages-list { margin: 0; }
 	.bn-msg-shell { border-radius: 0; border-left: none; border-right: none; }
 	.bn-msg-header { padding: var(--s3) var(--s4); }
 	.bn-msg-title { font-size: var(--text-lg); }
+	.bn-compose-overlay { border-radius: 0; }
 }
 </style>
 
@@ -513,13 +560,93 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 <?php else : ?>
 
+<div class="bn-msg-grid">
+
 <div class="bn-msg-shell">
 
 	<div class="bn-msg-header">
 		<h1 class="bn-msg-title"><?php esc_html_e( 'Messages', 'buddynext' ); ?></h1>
-		<a href="<?php echo esc_url( $compose_url ); ?>" class="bn-compose-btn">
+		<a
+			href="<?php echo esc_url( $compose_url ); ?>"
+			class="bn-compose-btn"
+			data-wp-on--click="actions.openCompose"
+		>
 			+ <?php esc_html_e( 'New message', 'buddynext' ); ?>
 		</a>
+	</div>
+
+	<?php /* ── Compose overlay ── */ ?>
+	<div
+		class="bn-compose-overlay"
+		data-wp-bind--hidden="!context.isCompose"
+		aria-modal="true"
+		role="dialog"
+		aria-label="<?php esc_attr_e( 'New message', 'buddynext' ); ?>"
+	>
+		<div class="bn-compose-panel">
+			<div class="bn-compose-header">
+				<button
+					class="bn-compose-back"
+					type="button"
+					aria-label="<?php esc_attr_e( 'Cancel', 'buddynext' ); ?>"
+					data-wp-on--click="actions.closeCompose"
+				>
+					<?php buddynext_icon( 'arrow-left' ); ?>
+				</button>
+				<span class="bn-compose-title"><?php esc_html_e( 'New message', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-compose-to-row">
+				<span class="bn-compose-to-label"><?php esc_html_e( 'To:', 'buddynext' ); ?></span>
+				<div class="bn-compose-to-wrap">
+					<div
+						class="bn-compose-recipient-pill"
+						data-wp-bind--hidden="!state.composeRecipientId"
+					>
+						<span data-wp-text="state.composeRecipientName"></span>
+						<button
+							type="button"
+							class="bn-compose-pill-remove"
+							aria-label="<?php esc_attr_e( 'Remove recipient', 'buddynext' ); ?>"
+							data-wp-on--click="actions.clearRecipient"
+						><?php buddynext_icon( 'x' ); ?></button>
+					</div>
+					<input
+						type="search"
+						class="bn-compose-search-input"
+						placeholder="<?php esc_attr_e( 'Search people&hellip;', 'buddynext' ); ?>"
+						autocomplete="off"
+						data-wp-bind--hidden="state.composeRecipientId"
+						data-wp-on--input="actions.onComposeSearch"
+					>
+				</div>
+			</div>
+			<ul
+				class="bn-compose-results"
+				data-wp-bind--hidden="!context.composeResults.length"
+				role="listbox"
+			>
+				<template data-wp-each--user="context.composeResults">
+					<li
+						class="bn-compose-result-item"
+						role="option"
+						data-wp-on--click="actions.selectRecipient"
+					>
+						<span class="bn-compose-result-name" data-wp-text="context.user.name"></span>
+					</li>
+				</template>
+			</ul>
+			<div class="bn-compose-footer">
+				<button
+					type="button"
+					class="bn-btn-primary bn-compose-start-btn"
+					data-wp-bind--disabled="state.composeIsDisabled"
+					data-wp-on--click="actions.startConversation"
+				>
+					<span data-wp-bind--hidden="state.composeBusy"><?php esc_html_e( 'Start conversation', 'buddynext' ); ?></span>
+					<span data-wp-bind--hidden="!state.composeBusy"><?php esc_html_e( 'Starting&hellip;', 'buddynext' ); ?></span>
+				</button>
+			</div>
+		</div>
 	</div>
 
 	<div class="bn-msg-search-row">
@@ -724,8 +851,28 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 	<?php endif; ?>
 
-</div>
+</div><!-- .bn-msg-shell -->
+
+	<!-- Right column: welcome state (shown when no conversation is open) -->
+	<div class="bn-msg-welcome" aria-label="<?php esc_attr_e( 'Select a conversation', 'buddynext' ); ?>">
+		<div class="bn-msg-welcome-icon" aria-hidden="true">
+			<?php buddynext_icon( 'message-circle' ); ?>
+		</div>
+		<p class="bn-msg-welcome-title"><?php esc_html_e( 'Your messages', 'buddynext' ); ?></p>
+		<p class="bn-msg-welcome-sub"><?php esc_html_e( 'Select a conversation from the list or start a new one.', 'buddynext' ); ?></p>
+		<a
+			href="<?php echo esc_url( add_query_arg( 'action', 'compose', $messages_url ) ); ?>"
+			class="bn-compose-btn"
+			data-wp-on--click="actions.openCompose"
+		>
+			+ <?php esc_html_e( 'New message', 'buddynext' ); ?>
+		</a>
+	</div>
+
+</div><!-- .bn-msg-grid -->
 
 <?php endif; ?>
+
+<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
 
 </div>

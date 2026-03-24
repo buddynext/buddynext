@@ -37,8 +37,14 @@
 	font-size: var(--text-base);
 	color: var(--text-1);
 	line-height: var(--leading-body);
-	max-width: 680px;
-	margin: 0 auto;
+}
+
+/* ── Two-pane grid: conversation list (left) + thread/welcome (right) ── */
+.bn-msg-grid {
+	display: grid;
+	grid-template-columns: 300px 1fr;
+	gap: var(--s6);
+	align-items: start;
 }
 
 .bn-msg-shell {
@@ -46,7 +52,62 @@
 	border: 1px solid var(--border);
 	border-radius: var(--r-lg);
 	overflow: hidden;
-	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Welcome panel (right column — no conversation open) ── */
+.bn-msg-welcome {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--s4);
+	padding: var(--s12) var(--s8);
+	min-height: 520px;
+	text-align: center;
+}
+
+.bn-msg-welcome-icon {
+	width: 64px;
+	height: 64px;
+	background: var(--brand-light);
+	border-radius: var(--r-full);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--brand);
+}
+
+.bn-msg-welcome-icon svg {
+	width: 28px;
+	height: 28px;
+}
+
+.bn-msg-welcome-title {
+	font-family: var(--font-display);
+	font-size: var(--text-xl);
+	font-weight: 700;
+	color: var(--text-1);
+	letter-spacing: -0.3px;
+}
+
+.bn-msg-welcome-sub {
+	font-size: var(--text-sm);
+	color: var(--text-2);
+	max-width: 280px;
+	line-height: 1.5;
+}
+
+[data-theme="dark"] .bn-msg-welcome {
+	background: var(--surface);
+	border-color: var(--border);
+}
+
+[data-theme="dark"] .bn-msg-welcome-icon {
+	background: var(--brand-light);
 }
 
 /* ── Header ────────────────────────────────────────────────────────────────── */
@@ -1460,9 +1521,12 @@
 }
 
 @media (max-width: 640px) {
-	/* Conversation list page */
-	.bn-messages-list {
-		margin: 0;
+	.bn-msg-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.bn-msg-welcome {
+		display: none;
 	}
 
 	.bn-msg-shell {

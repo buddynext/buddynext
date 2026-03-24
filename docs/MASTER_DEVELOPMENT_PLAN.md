@@ -1004,7 +1004,123 @@ All 44 screen mockups in: `.superpowers/brainstorm/14544-1773947712/`
 | Jetonomy Pro | ✅ Active | Reactions hook verified |
 | WBGamification | ✅ Installed | Bridge in Phase 10 |
 | Career Board | ✅ Installed | Bridge in Phase 10 |
-| BuddyX Theme | ✅ Active | Theme header band used — BuddyNext does not override it |
+| BuddyX Theme | ✅ Active | Full-width canvas — see BLOCK BX below |
+
+---
+
+## BLOCK BX — BuddyX Full-Width Canvas Integration
+
+**Goal:** All BuddyNext, Jetonomy, and WPMediaVerse pages render with the SAME visual flow: BuddyX provides a full-width canvas (no container, no sidebar), and each plugin manages its own layout, nav, and sidebar on that canvas. Navigating between any community page — /activity/, /community/, /explore/ — must feel like one seamless product.
+
+**Why this exists:**
+- BuddyX `header.php` and `footer.php` wrap content in `<div class="container">` by default. Community plugin pages need full-width treatment so their own layout takes over.
+- BuddyX `page.php` renders a page title, breadcrumb, and sidebar for shortcode-based pages (e.g. /explore/). These must be suppressed.
+- Each plugin must signal "full-width intent" to BuddyX using a dedicated body class: `bn-page` (BuddyNext), `jt-page` (Jetonomy), `mvs-page` (WPMediaVerse).
+- BuddyX checks for these classes in `header.php` + `footer.php` and skips the container wrapper. Each plugin then renders its own full-width layout.
+- This must work in three standalone modes (BuddyNext alone, Jetonomy alone, WPMediaVerse alone) and in the combined stack.
+
+**Architecture decision:**
+- BuddyX owns the "is full-width?" check — it checks body classes, never plugin-specific logic.
+- Each plugin adds its own body class before `get_header()` fires so BuddyX detects it on the very first `body_class` call.
+- For `template_redirect` pages (BuddyNext hub routes, Jetonomy community pages, WPMediaVerse pages): body class added inside `dispatch_hub_template()` / `Template_Loader::render()` / WPMediaVerse template loader.
+- For shortcode-rendered hub pages (regular WP pages with `[buddynext_*]` shortcodes): body class added via `PageRouter::maybe_add_hub_body_class()` on the `wp` action hook (after query resolves, before template loads).
+- The `buddyx_is_full_width_page` filter is the escape hatch for cases where a body class can't be added (e.g. WPMediaVerse pages that don't call our code).
+
+### Files Changed
+
+| File | Plugin | What | Why |
+|------|--------|------|-----|
+| `wp-content/themes/buddyx/header.php` | BuddyX theme | Extended container-skip logic to check `bn-page`, `jt-page`, `mvs-page` body classes and `buddyx_is_full_width_page` filter | Container was only skipped for built-in template classes; community plugin pages were always wrapped |
+| `wp-content/themes/buddyx/footer.php` | BuddyX theme | Same container-skip logic as header | Container close `</div>` must be skipped if header skipped the open |
+| `wp-content/themes/buddyx/page-templates/community-full-width.php` | BuddyX theme | New WP page template (`Template Name: Community Full Width`) — no sidebar, no page title, no breadcrumb; renders `the_content()` at full width | Shortcode hub pages (BuddyNext pages assigned in PageSetup) need a template that suppresses BuddyX page chrome; assign this template to all hub pages |
+| `wp-content/plugins/buddynext/includes/Bridges/BuddyXBridge.php` | BuddyNext | New bridge class; hooks `buddyx_is_full_width_page` to detect WPMediaVerse pages by option IDs | WPMediaVerse doesn't add a body class yet; BuddyXBridge checks `mvs_page_*` options as fallback |
+| `wp-content/plugins/buddynext/includes/Core/Plugin.php` | BuddyNext | Added `BuddyXBridge` instantiation in `buddynext_load_bridges` callback | Bridge must register before `wp` action fires |
+| `wp-content/plugins/buddynext/includes/Core/PageRouter.php` | BuddyNext | Added `maybe_add_hub_body_class()` on `wp` action; adds `bn-page` + `bn-hub-{name}` + `no-sidebar` body classes for shortcode-rendered hub pages | `/explore/`, `/activity/`, `/members/` etc. are regular WP pages served via `page.php` — `template_redirect` never fires for them, so body class must be added earlier |
+| `wp-content/plugins/jetonomy/includes/class-template-loader.php` | Jetonomy | Added `jt-page` body class filter before `get_header()` | BuddyX needs to see `jt-page` in `body_class` to skip container on all Jetonomy community pages |
+| `wp-content/themes/buddyx/page.php` | BuddyX theme | Added community page guard at top: when `bn-page`, `jt-page`, or `mvs-page` is in body class, skip sub-header/breadcrumb, skip all sidebars, and output only `the_content()` | For shortcode-rendered hub pages (e.g. /explore/), `page.php` normally renders page title, breadcrumb, and sidebars. This suppresses all BuddyX page chrome so the plugin's own layout takes over at full width. |
+
+### Remaining Tasks
+
+- [x] **Fix `maybe_add_hub_body_class()` hub_options map** — replaced static 7-hub map with `wp_load_alloptions()` scan of all `buddynext_page_*` options dynamically; future hubs added via PageSetup work automatically.
+- [x] **Suppress BuddyX page chrome on shortcode hub pages** — modified `page.php` to check for `bn-page`/`jt-page`/`mvs-page` body classes; when present, skips `buddyx_sub_header` (title/breadcrumb), skips all sidebars, and outputs only `the_content()`. The `community-full-width.php` template remains available as an explicit-assignment alternative for edge cases.
+- [x] **WPMediaVerse `mvs-page` body class** — added `maybe_add_mvs_body_class()` to `WPMediaVerse\Core\TemplateLoader`; hooks at `wp` action; detects CPT pages via WP conditional tags and shortcode pages (e.g. dashboard) via `mvs_page_*` alloptions scan. `BuddyXBridge` filter fallback retained for Pro-only pages.
+- [ ] **BuddyNext subnav on WPMediaVerse pages** — `WPMediaVerseBridge` needs a hook into WPMediaVerse template output to inject BuddyNext nav (equivalent to `jetonomy_before_content` hook used for Jetonomy pages).
+- [x] **Browser-verify all three scenarios** — BuddyNext `/activity/` (template_redirect path), `/explore/` (shortcode path), Jetonomy `/community/`, WPMediaVerse `/media/` archive — all confirmed with consistent full-width layout, no BuddyX page chrome (no title/breadcrumb/sidebar); `mvs-page no-sidebar` body class verified live.
+
+### Completed Tasks
+
+- [x] BuddyX `header.php` — extended full-width check: `bn-page`, `jt-page`, `mvs-page`, `buddyx_is_full_width_page` filter
+- [x] BuddyX `footer.php` — same extended check
+- [x] BuddyX `community-full-width.php` page template created
+- [x] `BuddyXBridge.php` created — `buddyx_is_full_width_page` hook for WPMediaVerse
+- [x] `Plugin.php` — BuddyXBridge wired in bridges callback
+- [x] `PageRouter::maybe_add_hub_body_class()` — `wp` action hook, adds body class for shortcode hub pages
+- [x] `Jetonomy Template_Loader` — `jt-page` body class added before `get_header()`
+- [x] `BuddyX page.php` — community page guard: skips title/breadcrumb/sidebar when `bn-page`/`jt-page`/`mvs-page` in body class
+- [x] `PageRouter::maybe_add_hub_body_class()` — upgraded to dynamic `wp_load_alloptions()` scan; covers all current and future hub pages
+- [x] `WPMediaVerse TemplateLoader::maybe_add_mvs_body_class()` — `wp` action hook; CPT pages via WP conditional tags, shortcode pages via `mvs_page_*` alloptions scan
+- [x] Browser-verified: `/media/` archive = `mvs-page no-sidebar`; alloptions scan confirmed for dashboard page ID 38
+
+---
+
+### BLOCK DT — Unified Design Token Bridge (BuddyNext as Master)
+
+**Spec:** BuddyNext owns the design token layer. Jetonomy's `--jt-*` and WPMediaVerse's `--mvs-*` tokens must reference BuddyNext's CSS custom properties first in their `var()` chains, with their own fallbacks preserved. Dark mode flows automatically via the CSS cascade — BuddyNext's `[data-theme="dark"]` overrides the underlying tokens (`--bg`, `--text-1`, etc.) that `--jt-*` and `--mvs-*` reference.
+
+**Files:**
+- `jetonomy/assets/css/jetonomy.css` — `:root, .jt-app` token block
+- `wpmediaverse/assets/css/frontend.css` — `:root` token block + dark mode selector
+- `jetonomy/CLAUDE.md` — Recent Changes
+- `wpmediaverse/CLAUDE.md` — Recent Changes
+
+**Architecture:**
+- Jetonomy: `--jt-accent: var(--brand, var(--wp--preset--color--primary, #3B82F6))` — BuddyNext first, WP theme.json second, hardcode last
+- WPMediaVerse: `--mvs-primary: var(--brand, #0073aa)` — BuddyNext first, hardcode fallback
+- WPMediaVerse dark mode: `@media (prefers-color-scheme: dark) { :root:not([data-theme="dark"]) { ... } }` — OS dark mode only when BuddyNext is NOT controlling it
+- Jetonomy `.jt-dark` selector unchanged — only applies when BuddyNext is absent; when BuddyNext is active, `[data-theme="dark"]` overrides the underlying tokens automatically
+
+**Token mapping:**
+
+| BuddyNext token | Jetonomy `--jt-*` | WPMediaVerse `--mvs-*` |
+|---|---|---|
+| `--brand` | `--jt-accent` | `--mvs-primary` |
+| `--brand-hover` | — | `--mvs-primary-hover` |
+| `--bg` | `--jt-bg` | `--mvs-bg` |
+| `--bg-subtle` | — | `--mvs-surface` |
+| `--bg-hover` | — | `--mvs-surface-2` |
+| `--text-1` | `--jt-text` | `--mvs-text` |
+| `--text-2` | — | `--mvs-text-secondary` |
+| `--text-3` | — | `--mvs-text-muted` |
+| `--border` | — | `--mvs-border` |
+| `--border-soft` | — | `--mvs-border-light` |
+| `--font-body` | `--jt-font` | — |
+| `--font-display` | `--jt-font-heading` | — |
+| `--green` | `--jt-success` | `--mvs-success` |
+| `--green-bg` | `--jt-success-light` | — |
+| `--amber` | `--jt-warn` | — |
+| `--amber-bg` | `--jt-warn-light` | — |
+| `--red` | `--jt-danger` | `--mvs-danger` |
+| `--red-bg` | `--jt-danger-light` | — |
+| `--r-sm` | `--jt-radius-sm` | `--mvs-radius-sm` |
+| `--r-md` | `--jt-radius` | `--mvs-radius-md` |
+| `--r-lg` | `--jt-radius-lg` | `--mvs-radius-lg` |
+| `--r-full` | `--jt-radius-full` | `--mvs-radius-pill` |
+
+- [x] Jetonomy `--jt-font` → `var(--font-body, var(--wp--preset--font-family--body, inherit))`
+- [x] Jetonomy `--jt-font-heading` → `var(--font-display, var(--wp--preset--font-family--heading, inherit))`
+- [x] Jetonomy `--jt-accent` → `var(--brand, var(--wp--preset--color--primary, #3B82F6))`
+- [x] Jetonomy `--jt-text` → `var(--text-1, var(--wp--preset--color--contrast, #1a1a1a))`
+- [x] Jetonomy `--jt-bg` → `var(--bg, var(--wp--preset--color--base, #ffffff))`
+- [x] Jetonomy `--jt-radius` → `var(--r-md, var(--wp--custom--border-radius, 8px))`
+- [x] Jetonomy `--jt-radius-sm/lg/full` → `var(--r-sm/lg/full, calc(...))`
+- [x] Jetonomy `--jt-success/warn/danger` → `var(--green/amber/red, #hex)`
+- [x] Jetonomy `--jt-success-light/warn-light/danger-light` → `var(--green-bg/amber-bg/red-bg, #hex)`
+- [x] WPMediaVerse all `--mvs-*` tokens → BuddyNext-first `var()` chains
+- [x] WPMediaVerse dark mode selector → `:root:not([data-theme="dark"])`
+- [x] Jetonomy CLAUDE.md updated
+- [x] WPMediaVerse CLAUDE.md updated
+
+### Completed Tasks
 
 ---
 

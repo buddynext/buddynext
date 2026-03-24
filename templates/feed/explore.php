@@ -260,11 +260,9 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	-webkit-font-smoothing: antialiased;
 }
 
-/* Page shell — 2-column on desktop */
-.bn-explore-shell {
-	max-width: 1160px;
-	margin: 0 auto;
-	padding: var(--s6) var(--s8);
+/* Page content column (sits inside .bn-hub-shell 1fr column) */
+.bn-explore-content {
+	min-width: 0;
 }
 
 .bn-explore-page-header { margin-bottom: var(--s5); }
@@ -359,13 +357,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 .bn-filter-chip.active { background: var(--brand); border-color: var(--brand); color: #fff; }
 .bn-filter-chip:hover:not(.active) { border-color: var(--brand); color: var(--brand); }
 
-/* 2-column layout: grid + sidebar */
-.bn-explore-layout {
-	display: grid;
-	grid-template-columns: 1fr 280px;
-	gap: var(--s6);
-	align-items: start;
-}
+/* Explore grid occupies the full content column */
 
 /* Masonry grid */
 .bn-explore-grid {
@@ -431,8 +423,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 .bn-card-stats { display: flex; gap: var(--s3); font-size: var(--text-xs); color: var(--text-3); }
 .bn-card-stat  { display: flex; align-items: center; gap: 3px; }
 
-/* Sidebar widgets */
-.bn-explore-sidebar { display: flex; flex-direction: column; gap: var(--s4); }
+/* Sidebar — replaced by shared community sidebar partial (bn-hub-sidebar) */
 .bn-widget {
 	background: var(--surface);
 	border: 1px solid var(--border);
@@ -521,17 +512,12 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 /* ── Mobile responsive ── */
 @media (max-width: 1024px) {
-	.bn-explore-shell   { padding: var(--s4) var(--s4); }
-	.bn-explore-layout  { grid-template-columns: 1fr 240px; gap: var(--s4); }
 	.bn-explore-grid    { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 640px) {
-	.bn-explore-shell   { padding: var(--s3); }
-	.bn-explore-layout  { grid-template-columns: 1fr; }
-	.bn-explore-sidebar { display: none; }
 	.bn-explore-grid    { grid-template-columns: 1fr; }
 	.bn-filter-row      { gap: var(--s1); }
-	.bn-filter-chip     { font-size: 11px; padding: 5px 10px; }
+	.bn-filter-chip     { font-size: var(--text-xs); padding: var(--s1) var(--s3); }
 	.bn-explore-title   { font-size: var(--text-xl); }
 }
 </style>
@@ -541,7 +527,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	data-wp-interactive="buddynext/feed"
 	data-wp-context='{"scope":"explore","sort":"trending","filter":"all","page":1}'
 >
-	<div class="bn-explore-shell">
+	<div class="bn-hub-shell">
+	<div class="bn-explore-content">
 
 		<!-- Page header -->
 		<div class="bn-explore-page-header">
@@ -627,8 +614,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 			<?php endif; ?>
 		</div>
 
-		<!-- 2-column: grid + sidebar -->
-		<div class="bn-explore-layout">
+		<!-- Post grid -->
 
 			<!-- Main masonry grid -->
 			<div class="bn-explore-grid" role="feed" aria-label="<?php esc_attr_e( 'Explore posts', 'buddynext' ); ?>">
@@ -693,107 +679,9 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				</div>
 			<?php endif; ?>
 
-			<!-- Sidebar -->
-			<aside class="bn-explore-sidebar" aria-label="<?php esc_attr_e( 'Explore sidebar', 'buddynext' ); ?>">
-
-				<!-- Trending topics -->
-				<div class="bn-widget">
-					<div class="bn-widget-title"><?php buddynext_icon( 'trending' ); ?> <?php esc_html_e( 'Trending Topics', 'buddynext' ); ?></div>
-					<?php if ( ! empty( $trending_tags ) ) : ?>
-						<?php foreach ( $trending_tags as $tag_item ) : ?>
-							<div class="bn-trending-tag">
-								<a
-									class="bn-tag-name"
-									href="<?php echo esc_url( \BuddyNext\Core\PageRouter::hashtag_feed_url( $tag_item->slug ) ); ?>"
-								>#<?php echo esc_html( $tag_item->slug ); ?></a>
-								<span class="bn-tag-count">
-									<?php
-									printf(
-										/* translators: %s: number of posts */
-										esc_html__( '%s posts', 'buddynext' ),
-										esc_html( number_format_i18n( absint( $tag_item->post_count ) ) )
-									);
-									?>
-								</span>
-							</div>
-						<?php endforeach; ?>
-					<?php else : ?>
-						<p style="font-size:var(--text-sm);color:var(--text-3);">
-							<?php esc_html_e( 'No trending topics yet.', 'buddynext' ); ?>
-						</p>
-					<?php endif; ?>
-				</div>
-
-				<!-- Browse categories -->
-				<div class="bn-widget">
-					<div class="bn-widget-title"><?php esc_html_e( 'Browse Categories', 'buddynext' ); ?></div>
-					<div class="bn-cat-grid">
-						<?php
-						$categories = array(
-							__( 'Dev', 'buddynext' ),
-							__( 'Design', 'buddynext' ),
-							__( 'Marketing', 'buddynext' ),
-							__( 'Startups', 'buddynext' ),
-							__( 'AI', 'buddynext' ),
-							__( 'Data', 'buddynext' ),
-							__( 'Product', 'buddynext' ),
-							__( 'Writing', 'buddynext' ),
-						);
-						foreach ( $categories as $cat_label ) :
-							?>
-							<button class="bn-cat-pill" type="button" data-wp-on--click="actions.browseCategory">
-								<?php echo esc_html( $cat_label ); ?>
-							</button>
-						<?php endforeach; ?>
-					</div>
-				</div>
-
-				<!-- Popular spaces -->
-				<div class="bn-widget">
-					<div class="bn-widget-title"><?php esc_html_e( 'Popular Spaces', 'buddynext' ); ?></div>
-					<?php if ( ! empty( $popular_spaces ) ) : ?>
-						<?php foreach ( $popular_spaces as $space ) : ?>
-							<div class="bn-space-entry">
-								<div class="bn-space-icon" aria-hidden="true">
-									<?php echo ! empty( $space->avatar_url ) ? esc_html( $space->avatar_url ) : ''; ?>
-								</div>
-								<div class="bn-space-info">
-									<div class="bn-space-name"><?php echo esc_html( $space->name ); ?></div>
-									<div class="bn-space-meta">
-										<?php
-										printf(
-											/* translators: %s: member count */
-											esc_html__( '%s members', 'buddynext' ),
-											esc_html( number_format_i18n( absint( $space->member_count ) ) )
-										);
-										?>
-									</div>
-								</div>
-								<?php if ( ! $is_guest ) : ?>
-									<button
-										class="bn-btn-join"
-										type="button"
-										data-wp-on--click="actions.joinSpace"
-										data-space-id="<?php echo esc_attr( (string) $space->id ); ?>"
-									><?php esc_html_e( 'Join', 'buddynext' ); ?></button>
-								<?php else : ?>
-									<a
-										class="bn-btn-join"
-										href="<?php echo esc_url( wp_registration_url() ); ?>"
-									><?php esc_html_e( 'Join', 'buddynext' ); ?></a>
-								<?php endif; ?>
-							</div>
-						<?php endforeach; ?>
-					<?php else : ?>
-						<p style="font-size:var(--text-sm);color:var(--text-3);">
-							<?php esc_html_e( 'No public spaces yet.', 'buddynext' ); ?>
-						</p>
-					<?php endif; ?>
-				</div>
-
-			</aside>
-		</div>
-	</div>
+	</div><!-- /.bn-explore-content -->
+	<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
+	</div><!-- /.bn-hub-shell -->
 
 	<!-- REST config for Interactivity API store -->
 	<script type="application/json" id="bn-feed-explore-config">

@@ -199,41 +199,45 @@ if ( ! function_exists( 'bn_time_diff' ) ) {
 	}
 }
 
-/**
- * Return an activity log SVG icon based on action type.
- *
- * @param string $action Activity action slug.
- * @return string SVG icon markup via buddynext_get_icon().
- */
-function bn_activity_icon( string $action ): string {
-	$map = array(
-		'new_member'      => buddynext_get_icon( 'user' ),
-		'space_created'   => buddynext_get_icon( 'home' ),
-		'report_resolved' => buddynext_get_icon( 'shield' ),
-		'post_flagged'    => buddynext_get_icon( 'flag' ),
-		'member_approved' => buddynext_get_icon( 'check-circle' ),
-		'member_warned'   => buddynext_get_icon( 'ban' ),
-		'space_requested' => buddynext_get_icon( 'home' ),
-		'invite_sent'     => buddynext_get_icon( 'mail' ),
-		'space_approved'  => buddynext_get_icon( 'check-circle' ),
-		'profile_flagged' => buddynext_get_icon( 'user' ),
-	);
-	return $map[ $action ] ?? buddynext_get_icon( 'copy' );
+if ( ! function_exists( 'bn_activity_icon' ) ) {
+	/**
+	 * Return an activity log SVG icon based on action type.
+	 *
+	 * @param string $action Activity action slug.
+	 * @return string SVG icon markup via buddynext_get_icon().
+	 */
+	function bn_activity_icon( string $action ): string {
+		$map = array(
+			'new_member'      => buddynext_get_icon( 'user' ),
+			'space_created'   => buddynext_get_icon( 'home' ),
+			'report_resolved' => buddynext_get_icon( 'shield' ),
+			'post_flagged'    => buddynext_get_icon( 'flag' ),
+			'member_approved' => buddynext_get_icon( 'check-circle' ),
+			'member_warned'   => buddynext_get_icon( 'ban' ),
+			'space_requested' => buddynext_get_icon( 'home' ),
+			'invite_sent'     => buddynext_get_icon( 'mail' ),
+			'space_approved'  => buddynext_get_icon( 'check-circle' ),
+			'profile_flagged' => buddynext_get_icon( 'user' ),
+		);
+		return $map[ $action ] ?? buddynext_get_icon( 'copy' );
+	}
 }
 
-/**
- * Return a report severity label from reporter count.
- *
- * @param int $count Number of reporters.
- * @return string Severity label: 'high', 'medium', or 'low'.
- */
-function bn_report_severity( int $count ): string {
-	if ( $count >= 3 ) {
-		return 'high';
-	} elseif ( $count >= 2 ) {
-		return 'medium';
+if ( ! function_exists( 'bn_report_severity' ) ) {
+	/**
+	 * Return a report severity label from reporter count.
+	 *
+	 * @param int $count Number of reporters.
+	 * @return string Severity label: 'high', 'medium', or 'low'.
+	 */
+	function bn_report_severity( int $count ): string {
+		if ( $count >= 3 ) {
+			return 'high';
+		} elseif ( $count >= 2 ) {
+			return 'medium';
+		}
+		return 'low';
 	}
-	return 'low';
 }
 
 $posts_pct = $posts_yesterday > 0
@@ -246,27 +250,14 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 <style>
 <?php /* phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- inline CSS token block */ ?>
 :root {
-	--font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-	--font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
-	--text-xs: 11px; --text-sm: 13px; --text-base: 15px;
-	--text-lg: 17px; --text-xl: 20px; --text-2xl: 24px;
-	--leading-body: 1.7;
-	--bg: #ffffff; --bg-subtle: #f8f8f7; --bg-hover: #f1f1f0;
-	--surface: #ffffff; --border: #e8e8e5; --border-soft: #f1f1ee;
-	--text-1: #37352f; --text-2: #787774; --text-3: #aeaca8;
-	--brand: #0073aa; --brand-light: #e8f4fb; --brand-hover: #005f8e;
-	--green: #059669; --green-bg: #ecfdf5;
-	--amber: #d97706; --amber-bg: #fffbeb;
-	--red: #dc2626; --red-bg: #fef2f2;
-	--s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px;
-	--s6: 24px; --s8: 32px;
-	--radius-sm: 6px; --radius: 10px; --radius-lg: 14px;
-}
-[data-theme="dark"] {
-	--bg: #191919; --bg-subtle: #202020; --bg-hover: #2a2a2a;
-	--surface: #252525; --border: #333330; --border-soft: #2c2c2a;
-	--text-1: #e8e8e6; --text-2: #9b9b97; --text-3: #6b6b67;
-	--brand: #4dabdb; --brand-light: #1a2e3a; --brand-hover: #5fbfe8;
+	/* Local radius aliases → canonical tokens */
+	--radius-sm: var(--r-sm);
+	--radius:    var(--r-md);
+	--radius-lg: var(--r-lg);
+	/* Shadow token */
+	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
+	/* Badge white */
+	--color-on-brand: #fff;
 }
 
 .bn-ca {
@@ -279,7 +270,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 /* ── Admin subheader ── */
 .bn-ca-subheader {
 	background: var(--amber-bg);
-	border-bottom: 2px solid #fde68a;
+	border-bottom: 2px solid var(--border);
 	padding: 10px var(--s6);
 	display: flex;
 	align-items: center;
@@ -292,15 +283,15 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 }
 .bn-ca-role-badge {
 	background: var(--amber);
-	color: #fff;
+	color: var(--color-on-brand);
 	font-size: var(--text-xs);
-	font-weight: 700;
-	padding: 2px 8px;
-	border-radius: 10px;
+	font-weight: var(--fw-bold);
+	padding: 2px var(--s2);
+	border-radius: var(--r-full);
 	flex-shrink: 0;
 }
 .bn-ca-site-label {
-	color: #92400e;
+	color: var(--amber);
 	font-size: var(--text-xs);
 }
 .bn-ca-subheader__actions {
@@ -316,13 +307,11 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 .bn-ca-link-back    { color: var(--brand); font-weight: 600; }
 .bn-ca-link-wpadmin { color: var(--text-2); }
 
-/* ── Main layout ── */
+/* ── Main layout (sits inside .bn-hub-shell grid column) ── */
 .bn-ca-wrap {
-	max-width: 1100px;
-	margin: 0 auto;
-	padding: var(--s6) var(--s5);
 	display: flex;
 	gap: var(--s6);
+	min-width: 0;
 }
 
 /* ── Sidebar ── */
@@ -340,12 +329,12 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	overflow: hidden;
 }
 .bn-ca-nav-header {
-	font-size: 10px;
-	font-weight: 700;
+	font-size: var(--text-2xs);
+	font-weight: var(--fw-bold);
 	color: var(--text-3);
 	text-transform: uppercase;
-	letter-spacing: 0.08em;
-	padding: 14px 14px 8px;
+	letter-spacing: var(--ls-wider);
+	padding: var(--s3) var(--s3) var(--s2);
 }
 .bn-ca-nav-item {
 	display: flex;
@@ -374,11 +363,11 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 .bn-ca-nav-badge {
 	margin-left: auto;
 	background: var(--red);
-	color: #fff;
-	font-size: 10px;
-	font-weight: 700;
-	padding: 1px 6px;
-	border-radius: var(--radius-sm);
+	color: var(--color-on-brand);
+	font-size: var(--text-2xs);
+	font-weight: var(--fw-bold);
+	padding: 1px var(--s2);
+	border-radius: var(--r-sm);
 }
 .bn-ca-nav-divider { height: 1px; background: var(--border); margin: 6px 0; }
 .bn-ca-sidebar-note {
@@ -405,7 +394,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	padding: var(--s4);
 	transition: box-shadow 0.15s;
 }
-.bn-ca-stat:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+.bn-ca-stat:hover { box-shadow: var(--shadow-sm); }
 .bn-ca-stat__label {
 	font-size: var(--text-xs);
 	color: var(--text-2);
@@ -415,10 +404,10 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	margin-bottom: var(--s1);
 }
 .bn-ca-stat__number {
-	font-size: 26px;
-	font-weight: 700;
+	font-size: var(--text-2xl);
+	font-weight: var(--fw-bold);
 	color: var(--text-1);
-	margin-bottom: 6px;
+	margin-bottom: var(--s1);
 }
 .bn-ca-stat__sub {
 	font-size: var(--text-xs);
@@ -638,7 +627,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	.bn-ca-stats { grid-template-columns: repeat(3, 1fr); }
 	.bn-ca-wrap  { flex-direction: column; gap: var(--s3); }
 	.bn-ca-sidebar { width: 100%; position: static; }
-	.bn-ca-sidebar-card { display: flex; flex-wrap: wrap; overflow-x: auto; border-radius: var(--radius-sm); }
+	.bn-ca-sidebar-card { display: flex; flex-wrap: wrap; overflow-x: auto; border-radius: var(--r-sm); }
 	.bn-ca-nav-header  { display: none; }
 	.bn-ca-nav-item    { border-left: none; border-bottom: 2px solid transparent; white-space: nowrap; }
 	.bn-ca-nav-item--active { border-left: none; border-bottom-color: var(--brand); }
@@ -646,7 +635,6 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	.bn-ca-sidebar-note { display: none; }
 }
 @media (max-width: 640px) {
-	.bn-ca-wrap { padding: var(--s3); }
 	.bn-ca-stats { grid-template-columns: repeat(2, 1fr); gap: var(--s2); }
 	.bn-ca-two-col { grid-template-columns: 1fr; }
 	.bn-ca-subheader { padding: var(--s2) var(--s3); }
@@ -676,6 +664,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 		</div>
 	</div>
 
+	<div class="bn-hub-shell">
 	<div class="bn-ca-wrap">
 
 		<!-- Sidebar -->
@@ -1048,5 +1037,7 @@ endif;
 		</main>
 
 	</div><!-- /.bn-ca-wrap -->
+	<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
+	</div><!-- /.bn-hub-shell -->
 
 </div><!-- /.bn-ca -->

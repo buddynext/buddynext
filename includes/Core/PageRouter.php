@@ -64,6 +64,69 @@ class PageRouter {
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
+
+		// For BuddyNext hub pages rendered via shortcode (page.php path rather than
+		// template_redirect), add the bn-page body class at the wp hook so themes
+		// can skip their container wrapper even before the_content() runs.
+		add_action( 'wp', array( $this, 'maybe_add_hub_body_class' ) );
+	}
+
+	/**
+	 * Add bn-page body class for hub pages rendered via shortcode (not template_redirect).
+	 *
+	 * When a BuddyNext hub page is a regular WP page with a shortcode (e.g. the
+	 * Explore, Hashtags, or Profile page), template_redirect is not intercepted,
+	 * so the standard body_class filter added there never runs. This method fires
+	 * on the `wp` action — after the main query resolves but before the template
+	 * is chosen — and adds bn-page to the body class if the current singular page
+	 * matches any buddynext_page_* option.
+	 *
+	 * Uses wp_load_alloptions() to match against all buddynext_page_* options
+	 * without a static list that would need updating each time a new hub is added.
+	 *
+	 * @return void
+	 */
+	public function maybe_add_hub_body_class(): void {
+		if ( ! is_singular() ) {
+			return;
+		}
+
+		$queried_id = (int) get_queried_object_id();
+		if ( 0 === $queried_id ) {
+			return;
+		}
+
+		// Scan the alloptions cache — already loaded at this point — for any
+		// buddynext_page_* option whose value matches the current page ID.
+		$all_options = wp_load_alloptions();
+		$matched_hub = null;
+		foreach ( $all_options as $option_key => $option_value ) {
+			if (
+				str_starts_with( $option_key, 'buddynext_page_' )
+				&& 'buddynext_pages_version' !== $option_key
+				&& (int) $option_value === $queried_id
+			) {
+				$matched_hub = substr( $option_key, strlen( 'buddynext_page_' ) );
+				break;
+			}
+		}
+
+		if ( null === $matched_hub ) {
+			return;
+		}
+
+		$hub_snapshot = $matched_hub;
+		add_filter(
+			'body_class',
+			static function ( array $classes ) use ( $hub_snapshot ): array {
+				if ( ! in_array( 'bn-page', $classes, true ) ) {
+					$classes[] = 'bn-page';
+					$classes[] = 'bn-hub-' . $hub_snapshot;
+					$classes[] = 'no-sidebar';
+				}
+				return $classes;
+			}
+		);
 	}
 
 	// ── Request filter ────────────────────────────────────────────────────────
@@ -119,9 +182,11 @@ class PageRouter {
 	 * get_footer() — so the theme's navigation, widgets, and footer render
 	 * exactly as they do on every other page of the site.
 	 *
-	 * The 'no-sidebar' body class is added so themes that check for it (BuddyX,
-	 * GeneratePress, Astra, etc.) suppress their sidebar column, giving
-	 * BuddyNext's own right-column widgets the full layout width.
+	 * The 'bn-page' body class is the primary integration signal. BuddyXBridge
+	 * reads it so BuddyX skips its .container wrapper on hub pages. The
+	 * 'no-sidebar' class is kept for other popular themes (Astra, GeneratePress,
+	 * etc.) that suppress their sidebar based on body class — BuddyX does not
+	 * use it; its layout is controlled via the buddyx_is_full_width_page filter.
 	 *
 	 * Calls exit so WordPress never renders its own page content.
 	 *
@@ -153,8 +218,8 @@ class PageRouter {
 
 		// Inject BuddyNext body classes via the standard body_class filter so
 		// the active theme's <body> tag carries them alongside its own classes.
-		// 'no-sidebar' tells BuddyX (and most popular themes) to suppress the
-		// sidebar column for this page.
+		// 'bn-page' is the BuddyX signal (see BuddyXBridge + header.php);
+		// 'no-sidebar' is kept for other themes that honour it.
 		$hub_snapshot = $hub; // Capture for use inside the closure.
 		add_filter(
 			'body_class',
@@ -706,12 +771,8 @@ class PageRouter {
 	 * @return string Trailing-slashed absolute URL.
 	 */
 	public static function hub_url( string $slug_option, string $page_option ): string {
-		$page_id = (int) get_option( $page_option, 0 );
-
-		if ( $page_id > 0 && 'publish' === get_post_status( $page_id ) ) {
-			return trailingslashit( (string) get_permalink( $page_id ) );
-		}
-
+		// Always use the configurable slug — the WP page is a backing object
+		// for WP_Query resolution, not the canonical URL source.
 		$slug = self::hub_slug( $slug_option, self::default_slug( $slug_option ) );
 		return trailingslashit( home_url( '/' . $slug ) );
 	}

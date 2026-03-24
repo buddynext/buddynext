@@ -36,6 +36,7 @@ use BuddyNext\Feed\PostService;
 use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Blocks\BlockRegistrar;
+use BuddyNext\Bridges\BuddyXBridge;
 use BuddyNext\Bridges\CareerBoardBridge;
 use BuddyNext\Bridges\GamificationBridge;
 use BuddyNext\Bridges\GamificationBridgeListener;
@@ -242,6 +243,7 @@ class Plugin {
 		add_action(
 			'buddynext_load_bridges',
 			function (): void {
+				( new BuddyXBridge() )->init();
 				( new WPMediaVerseBridge() )->init();
 				( new GamificationBridge() )->init();
 				( new JetonomyBridge() )->init();

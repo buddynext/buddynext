@@ -14,22 +14,14 @@
 
 declare( strict_types=1 );
 
-// ── URL resolution ──────────────────────────────────────────────────────────
-
-$bn_nav_page_url = static function ( string $option_key, string $fallback_slug ): string {
-	$page_id = (int) get_option( $option_key, 0 );
-	if ( $page_id > 0 && 'publish' === get_post_status( $page_id ) ) {
-		return (string) get_permalink( $page_id );
-	}
-	return trailingslashit( home_url( $fallback_slug ) );
-};
+// ── URL resolution (delegates to PageRouter static builders) ─────────────────
 
 $bn_nav_urls = array(
-	'feed'          => $bn_nav_page_url( 'buddynext_page_feed', 'community-feed' ),
-	'explore'       => $bn_nav_page_url( 'buddynext_page_feed', 'community-feed' ) . '#explore',
-	'members'       => $bn_nav_page_url( 'buddynext_page_members', 'members' ),
-	'spaces'        => $bn_nav_page_url( 'buddynext_page_spaces', 'spaces' ),
-	'notifications' => $bn_nav_page_url( 'buddynext_page_notifications', 'notifications' ),
+	'feed'          => \BuddyNext\Core\PageRouter::activity_url(),
+	'explore'       => \BuddyNext\Core\PageRouter::explore_url(),
+	'members'       => \BuddyNext\Core\PageRouter::people_url(),
+	'spaces'        => \BuddyNext\Core\PageRouter::spaces_url(),
+	'notifications' => \BuddyNext\Core\PageRouter::notifications_url(),
 	'messages'      => \BuddyNext\Core\PageRouter::messages_url(),
 );
 
@@ -37,16 +29,18 @@ $bn_nav_urls = array(
 
 if ( empty( $bn_nav_active ) ) {
 	$current_page_id = (int) get_queried_object_id();
-	if ( (int) get_option( 'buddynext_page_feed', 0 ) === $current_page_id ) {
+	$bn_hub_var      = (string) get_query_var( 'bn_hub', '' );
+
+	if ( 'feed' === $bn_hub_var || (int) get_option( 'buddynext_page_activity', 0 ) === $current_page_id ) {
 		$bn_nav_active = 'feed';
-	} elseif ( (int) get_option( 'buddynext_page_members', 0 ) === $current_page_id ) {
+	} elseif ( 'people' === $bn_hub_var || (int) get_option( 'buddynext_page_people', 0 ) === $current_page_id ) {
 		$bn_nav_active = 'members';
-	} elseif ( (int) get_option( 'buddynext_page_spaces', 0 ) === $current_page_id ) {
+	} elseif ( 'spaces' === $bn_hub_var || (int) get_option( 'buddynext_page_spaces', 0 ) === $current_page_id ) {
 		$bn_nav_active = 'spaces';
-	} elseif ( (int) get_option( 'buddynext_page_notifications', 0 ) === $current_page_id ) {
+	} elseif ( 'notifications' === $bn_hub_var || (int) get_option( 'buddynext_page_notifications', 0 ) === $current_page_id ) {
 		$bn_nav_active = 'notifications';
-	} elseif ( (int) get_option( 'buddynext_page_profile', 0 ) === $current_page_id ) {
-		$bn_nav_active = '';
+	} elseif ( 'messages' === $bn_hub_var || (int) get_option( 'buddynext_page_messages', 0 ) === $current_page_id ) {
+		$bn_nav_active = 'messages';
 	} else {
 		$bn_nav_active = '';
 	}

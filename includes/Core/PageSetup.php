@@ -27,7 +27,7 @@ class PageSetup {
 	 *
 	 * Bump this constant to force a re-run after hub definitions change.
 	 */
-	public const PAGES_VERSION = 3;
+	public const PAGES_VERSION = 4;
 
 	/**
 	 * Hub page definitions.

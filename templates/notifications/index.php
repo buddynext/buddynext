@@ -320,7 +320,10 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 			<div class="<?php echo esc_attr( $row_class ); ?>"
 				data-wp-on--click="actions.markRead"
 				data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>"
-				<?php if ( $link_url ) : ?>data-notif-link="<?php echo esc_url( $link_url ); ?>"<?php endif; ?>>
+				<?php
+				if ( $link_url ) :
+					?>
+					data-notif-link="<?php echo esc_url( $link_url ); ?>"<?php endif; ?>>
 
 				<div class="bn-notif-ava" style="background:<?php echo esc_attr( $avatar_color( $actor_id ) ); ?>;">
 					<?php echo $get_initials( $actor_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped inside closure. ?>
@@ -384,7 +387,10 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 	<div class="<?php echo esc_attr( $row_class ); ?>"
 		data-wp-on--click="actions.markRead"
 		data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>"
-		<?php if ( $link_url ) : ?>data-notif-link="<?php echo esc_url( $link_url ); ?>"<?php endif; ?>>
+		<?php
+		if ( $link_url ) :
+			?>
+			data-notif-link="<?php echo esc_url( $link_url ); ?>"<?php endif; ?>>
 
 		<div class="bn-notif-ava" style="background:<?php echo esc_attr( $avatar_color( $actor_id ) ); ?>;">
 			<?php echo $get_initials( $actor_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped inside closure. ?>
@@ -471,14 +477,82 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	--red-bg:      #2d0f0f;
 }
 
-/* ── Shell ── */
+/* ── Shell — hub two-column grid ── */
 .bn-notifs-shell {
-	max-width: 780px;
+	max-width: 1100px;
 	margin: 0 auto;
-	padding: var(--s6) var(--s5);
+	padding: var(--s6) var(--s8);
+	display: grid;
+	grid-template-columns: 1fr 300px;
+	gap: var(--s6);
+	align-items: start;
 	font-family: var(--font-body);
 	font-size: var(--text-base);
 	color: var(--text-1);
+}
+
+/* ── Main column (notification list) ── */
+.bn-notifs-main { min-width: 0; }
+
+/* ── Sidebar (right column) ── */
+.bn-notifs-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s5);
+}
+
+.bn-notif-pref-card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	overflow: hidden;
+}
+
+.bn-notif-pref-head {
+	padding: var(--s3) var(--s4);
+	font-size: var(--text-xs);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--text-3);
+	border-bottom: 1px solid var(--border-soft);
+}
+
+.bn-notif-pref-row {
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+	padding: var(--s3) var(--s4);
+	border-bottom: 1px solid var(--border-soft);
+	font-size: var(--text-sm);
+	color: var(--text-2);
+}
+
+.bn-notif-pref-row:last-child { border-bottom: none; }
+
+.bn-notif-pref-row svg {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+	color: var(--text-3);
+}
+
+.bn-notif-pref-label { flex: 1; color: var(--text-1); }
+
+.bn-notif-pref-count {
+	font-size: var(--text-xs);
+	font-weight: 600;
+	background: var(--brand);
+	color: #fff;
+	padding: 1px 7px;
+	border-radius: var(--radius-full, 9999px);
+	min-width: 20px;
+	text-align: center;
+}
+
+[data-theme="dark"] .bn-notif-pref-card {
+	background: var(--surface);
+	border-color: var(--border);
 }
 
 /* ── Page header ── */
@@ -689,7 +763,11 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 /* ── Responsive ── */
 @media ( max-width: 640px ) {
-	.bn-notifs-shell { padding: var(--s4) var(--s3); }
+	.bn-notifs-shell {
+		grid-template-columns: 1fr;
+		padding: var(--s4) var(--s3);
+	}
+	.bn-notifs-sidebar { display: none; }
 	.bn-notifs-header { flex-direction: column; align-items: flex-start; }
 	.bn-notif-tabs { overflow-x: auto; border-radius: var(--radius-sm); }
 	.bn-ntab { flex: 0 0 auto; padding: 9px var(--s3); }
@@ -701,6 +779,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 <div class="bn-notifs-shell"
 	data-wp-interactive="buddynext/notifications"
 	data-wp-context='{"markedAll":false,"activeFilter":"<?php echo esc_attr( $active_filter ); ?>","nonce":"<?php echo esc_attr( $mark_all_nonce ); ?>","restUrl":"<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications' ) ); ?>"}'>
+
+<div class="bn-notifs-main">
 
 	<div class="bn-notifs-header">
 		<h1 class="bn-notifs-title">
@@ -808,4 +888,128 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 		</div>
 	<?php endif; ?>
 
-</div>
+</div><!-- .bn-notifs-main -->
+
+<!-- ── Sidebar ── -->
+<aside class="bn-notifs-sidebar" aria-label="<?php esc_attr_e( 'Notification summary', 'buddynext' ); ?>">
+
+	<div class="bn-notif-pref-card">
+		<div class="bn-notif-pref-head"><?php esc_html_e( 'By type', 'buddynext' ); ?></div>
+
+		<?php
+		$sidebar_types = array(
+			'reaction' => array(
+				'label' => __( 'Reactions', 'buddynext' ),
+				'icon'  => 'heart',
+				'count' => $reaction_unread,
+				'url'   => add_query_arg( 'filter', 'reaction' ),
+			),
+			'comment'  => array(
+				'label' => __( 'Comments', 'buddynext' ),
+				'icon'  => 'message-circle',
+				'count' => $comment_unread,
+				'url'   => add_query_arg( 'filter', 'comment' ),
+			),
+			'follow'   => array(
+				'label' => __( 'People', 'buddynext' ),
+				'icon'  => 'users',
+				'count' => $follow_unread,
+				'url'   => add_query_arg( 'filter', 'follow' ),
+			),
+			'space'    => array(
+				'label' => __( 'Spaces', 'buddynext' ),
+				'icon'  => 'home',
+				'count' => $space_unread,
+				'url'   => add_query_arg( 'filter', 'space' ),
+			),
+			'message'  => array(
+				'label' => __( 'Messages', 'buddynext' ),
+				'icon'  => 'mail',
+				'count' => $message_unread,
+				'url'   => add_query_arg( 'filter', 'message' ),
+			),
+		);
+		foreach ( $sidebar_types as $stype ) :
+			?>
+			<a href="<?php echo esc_url( $stype['url'] ); ?>" class="bn-notif-pref-row">
+				<?php buddynext_icon( $stype['icon'] ); ?>
+				<span class="bn-notif-pref-label"><?php echo esc_html( $stype['label'] ); ?></span>
+				<?php if ( $stype['count'] > 0 ) : ?>
+					<span class="bn-notif-pref-count"><?php echo esc_html( (string) min( $stype['count'], 99 ) ); ?></span>
+				<?php endif; ?>
+			</a>
+		<?php endforeach; ?>
+	</div>
+
+	<?php
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$notif_sbar_user     = get_current_user_id();
+	$notif_sbar_trending = $wpdb->get_results(
+		$wpdb->prepare(
+			'SELECT slug, post_count FROM ' . $wpdb->prefix . 'bn_hashtags ORDER BY post_count DESC LIMIT %d',
+			5
+		)
+	);
+	$notif_sbar_spaces   = $notif_sbar_user ? $wpdb->get_results(
+		$wpdb->prepare(
+			'SELECT s.id, s.name, s.slug, s.member_count, s.avatar_url
+			 FROM ' . $wpdb->prefix . 'bn_spaces s
+			 INNER JOIN ' . $wpdb->prefix . 'bn_space_members sm
+			   ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = %s
+			 ORDER BY s.member_count DESC
+			 LIMIT %d',
+			$notif_sbar_user,
+			'active',
+			3
+		)
+	) : array();
+	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	?>
+
+	<?php if ( ! empty( $notif_sbar_trending ) ) : ?>
+	<div class="bn-sidebar-card">
+		<div class="bn-sidebar-card__header"><?php esc_html_e( 'Trending Topics', 'buddynext' ); ?></div>
+		<div class="bn-sidebar-card__body">
+			<ul class="bn-htag-list">
+				<?php foreach ( $notif_sbar_trending as $notif_htag ) : ?>
+				<li class="bn-htag-item">
+					<a
+						href="<?php echo esc_url( home_url( '/activity/hashtag/' . rawurlencode( $notif_htag->slug ) . '/' ) ); ?>"
+						class="bn-htag-item__link"
+					>#<?php echo esc_html( $notif_htag->slug ); ?></a>
+					<span class="bn-htag-item__count"><?php echo esc_html( number_format_i18n( (int) $notif_htag->post_count ) ); ?></span>
+				</li>
+				<?php endforeach; ?>
+			</ul>
+		</div>
+	</div>
+	<?php endif; ?>
+
+	<?php if ( ! empty( $notif_sbar_spaces ) ) : ?>
+	<div class="bn-sidebar-card">
+		<div class="bn-sidebar-card__header"><?php esc_html_e( 'Your Spaces', 'buddynext' ); ?></div>
+		<div class="bn-sidebar-card__body">
+			<?php foreach ( $notif_sbar_spaces as $notif_sp ) : ?>
+				<?php $notif_sp_url = home_url( '/spaces/' . $notif_sp->slug . '/' ); ?>
+			<a href="<?php echo esc_url( $notif_sp_url ); ?>" class="bn-sbar-space-row">
+				<span class="bn-sbar-space-icon" aria-hidden="true">
+					<?php if ( ! empty( $notif_sp->avatar_url ) ) : ?>
+						<img src="<?php echo esc_attr( $notif_sp->avatar_url ); ?>" alt="" width="32" height="32" loading="lazy">
+					<?php else : ?>
+						<?php echo esc_html( strtoupper( mb_substr( (string) $notif_sp->name, 0, 2 ) ) ); ?>
+					<?php endif; ?>
+				</span>
+				<span class="bn-sbar-space-info">
+					<span class="bn-sbar-space-name"><?php echo esc_html( $notif_sp->name ); ?></span>
+					<span class="bn-sbar-space-meta"><?php echo esc_html( number_format_i18n( (int) $notif_sp->member_count ) ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
+				</span>
+			</a>
+			<?php endforeach; ?>
+			<a href="<?php echo esc_url( home_url( '/spaces/' ) ); ?>" class="bn-sidebar-see-all"><?php esc_html_e( 'Browse all spaces', 'buddynext' ); ?></a>
+		</div>
+	</div>
+	<?php endif; ?>
+
+</aside>
+
+</div><!-- .bn-notifs-shell -->
