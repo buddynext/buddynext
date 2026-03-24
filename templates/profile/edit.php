@@ -734,7 +734,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 								type="button"
 								title="<?php esc_attr_e( 'Change profile photo', 'buddynext' ); ?>"
 								data-wp-on--click="actions.triggerAvatarUpload">
-								&#9998;
+								<?php buddynext_icon( 'edit' ); ?>
 							</button>
 						</div>
 					</div>
@@ -883,7 +883,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 								<?php esc_html_e( 'GitHub', 'buddynext' ); ?>
 							</label>
 							<div class="bn-ep-social-wrap">
-								<span class="bn-ep-social-icon" aria-hidden="true">&#9997;</span>
+								<span class="bn-ep-social-icon" aria-hidden="true"><?php buddynext_icon( 'edit' ); ?></span>
 								<input class="bn-ep-input"
 									type="url"
 									id="bn-ep-github"
@@ -898,7 +898,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 								<?php esc_html_e( 'Instagram', 'buddynext' ); ?>
 							</label>
 							<div class="bn-ep-social-wrap">
-								<span class="bn-ep-social-icon" aria-hidden="true">&#9678;</span>
+								<span class="bn-ep-social-icon" aria-hidden="true"><?php buddynext_icon( 'globe' ); ?></span>
 								<input class="bn-ep-input"
 									type="url"
 									id="bn-ep-instagram"
@@ -913,7 +913,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 								<?php esc_html_e( 'YouTube', 'buddynext' ); ?>
 							</label>
 							<div class="bn-ep-social-wrap">
-								<span class="bn-ep-social-icon" aria-hidden="true">&#9654;</span>
+								<span class="bn-ep-social-icon" aria-hidden="true"><?php buddynext_icon( 'arrow-right' ); ?></span>
 								<input class="bn-ep-input"
 									type="url"
 									id="bn-ep-youtube"
@@ -1140,7 +1140,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 									data-wp-bind--hidden="context.slugChecking || context.slugAvailable === null"
 									data-wp-class--bn-ep-slug-ok="context.slugAvailable === true"
 									data-wp-class--bn-ep-slug-err="context.slugAvailable === false">
-									<span data-wp-bind--hidden="!context.slugAvailable">&#10003;</span>
+									<span data-wp-bind--hidden="!context.slugAvailable"><?php buddynext_icon( 'check' ); ?></span>
 									<span data-wp-bind--hidden="context.slugAvailable !== false"><?php esc_html_e( 'Taken', 'buddynext' ); ?></span>
 								</span>
 							</div>
@@ -1149,7 +1149,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 								data-wp-on--click="actions.saveSlug"
 								data-wp-bind--disabled="!context.slugAvailable || context.slugSaving">
 								<span data-wp-bind--hidden="context.slugSaved"><?php esc_html_e( 'Update URL', 'buddynext' ); ?></span>
-								<span data-wp-bind--hidden="!context.slugSaved">&#10003; <?php esc_html_e( 'Saved', 'buddynext' ); ?></span>
+								<span data-wp-bind--hidden="!context.slugSaved"><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Saved', 'buddynext' ); ?></span>
 							</button>
 						</div>
 					</div>
@@ -1263,7 +1263,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 		<div class="bn-ep-save-bar-inner">
 			<div class="bn-ep-save-status"
 				data-wp-bind--hidden="!context.saved">
-				&#10003; <?php esc_html_e( 'All changes saved', 'buddynext' ); ?>
+				<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'All changes saved', 'buddynext' ); ?>
 			</div>
 			<div class="bn-ep-save-actions">
 				<a class="bn-ep-btn-cancel"

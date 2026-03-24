@@ -853,7 +853,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 		<?php if ( $is_own_profile ) : ?>
 		<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"
 			class="bn-cover-edit" title="<?php esc_attr_e( 'Edit cover photo', 'buddynext' ); ?>">
-			&#9998; <?php esc_html_e( 'Edit cover', 'buddynext' ); ?>
+			<?php buddynext_icon( 'edit' ); ?> <?php esc_html_e( 'Edit cover', 'buddynext' ); ?>
 		</a>
 		<?php endif; ?>
 	</div>
@@ -894,7 +894,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 				<button class="bn-btn-secondary"
 					data-wp-bind--hidden="!context.isConnected"
 					<?php echo $is_connected ? '' : 'hidden'; ?>>
-					&#10003; <?php esc_html_e( 'Connected', 'buddynext' ); ?>
+					<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Connected', 'buddynext' ); ?>
 				</button>
 
 				<a href="<?php echo esc_url( home_url( '/messages/?with=' . $user_id ) ); ?>"
@@ -907,7 +907,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 						aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>"
 						aria-expanded="false"
 						data-wp-on--click="actions.toggleMoreMenu"
-						data-wp-bind--aria-expanded="context.moreMenuOpen">&#8943;</button>
+						data-wp-bind--aria-expanded="context.moreMenuOpen"><?php buddynext_icon( 'more-horizontal' ); ?></button>
 					<div class="bn-more-menu" role="menu">
 						<button class="bn-more-menu-item"
 							role="menuitem"

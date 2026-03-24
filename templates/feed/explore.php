@@ -170,7 +170,7 @@ if ( ! function_exists( 'bn_excerpt' ) ) {
 	function bn_excerpt( string $content, int $max_length = 140 ): string {
 		$plain = wp_strip_all_tags( $content );
 		if ( mb_strlen( $plain ) > $max_length ) {
-			$plain = mb_substr( $plain, 0, $max_length ) . '\u2026';
+			$plain = mb_substr( $plain, 0, $max_length ) . '...';
 		}
 		return esc_html( $plain );
 	}
@@ -586,7 +586,7 @@ require __DIR__ . '/../partials/nav.php';
 			<input
 				id="bn-explore-search-input"
 				type="search"
-				placeholder="<?php esc_attr_e( 'Search posts, people, spaces, hashtags\u2026', 'buddynext' ); ?>"
+				placeholder="<?php esc_attr_e( 'Search posts, people, spaces, hashtags...', 'buddynext' ); ?>"
 				autocomplete="off"
 				data-wp-on--input="actions.onSearch"
 			>
@@ -704,7 +704,7 @@ require __DIR__ . '/../partials/nav.php';
 							<div class="bn-trending-tag">
 								<a
 									class="bn-tag-name"
-									href="<?php echo esc_url( home_url( '/community/tag/' . sanitize_title( $tag_item->slug ) . '/' ) ); ?>"
+									href="<?php echo esc_url( \BuddyNext\Core\PageRouter::hashtag_feed_url( $tag_item->slug ) ); ?>"
 								>#<?php echo esc_html( $tag_item->slug ); ?></a>
 								<span class="bn-tag-count">
 									<?php

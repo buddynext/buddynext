@@ -437,7 +437,7 @@ if ( ! function_exists( 'bn_space_role_label' ) ) {
 			?>
 		</span>
 		<a href="<?php echo esc_url( PageRouter::space_url( $space_id ) ); ?>" class="bn-sm-back">
-			&#8592; <?php esc_html_e( 'Back to space', 'buddynext' ); ?>
+			<?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Back to space', 'buddynext' ); ?>
 		</a>
 	</div>
 
@@ -550,7 +550,7 @@ if ( ! function_exists( 'bn_space_role_label' ) ) {
 					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged - 1 ) ); ?>"
 					class="bn-page-btn"
 					aria-label="<?php esc_attr_e( 'Previous page', 'buddynext' ); ?>"
-				>&#8592;</a>
+				><?php buddynext_icon( 'chevron-left' ); ?></a>
 			<?php endif; ?>
 
 			<?php
@@ -573,7 +573,7 @@ if ( ! function_exists( 'bn_space_role_label' ) ) {
 					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged + 1 ) ); ?>"
 					class="bn-page-btn"
 					aria-label="<?php esc_attr_e( 'Next page', 'buddynext' ); ?>"
-				>&#8594;</a>
+				><?php buddynext_icon( 'chevron-right' ); ?></a>
 			<?php endif; ?>
 		</nav>
 	<?php endif; ?>

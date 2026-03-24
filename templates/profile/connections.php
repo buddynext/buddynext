@@ -383,7 +383,7 @@ if ( ! function_exists( 'bn_connections_initials' ) ) {
 			</span>
 		<?php endif; ?>
 		<a href="<?php echo esc_url( PageRouter::profile_url( $user_id ) ); ?>" class="bn-connections-back">
-			&#8592; <?php esc_html_e( 'Back to profile', 'buddynext' ); ?>
+			<?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Back to profile', 'buddynext' ); ?>
 		</a>
 	</div>
 
@@ -431,7 +431,7 @@ if ( ! function_exists( 'bn_connections_initials' ) ) {
 					<div class="bn-member-handle"><?php echo esc_html( $conn_handle ); ?></div>
 
 					<div class="bn-connected-badge" aria-label="<?php esc_attr_e( 'Connected', 'buddynext' ); ?>">
-						&#10003; <?php esc_html_e( 'Connected', 'buddynext' ); ?>
+						<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Connected', 'buddynext' ); ?>
 					</div>
 
 					<div class="bn-card-actions">
@@ -489,7 +489,7 @@ if ( ! function_exists( 'bn_connections_initials' ) ) {
 					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged - 1 ) ); ?>"
 					class="bn-page-btn"
 					aria-label="<?php esc_attr_e( 'Previous page', 'buddynext' ); ?>"
-				>&#8592;</a>
+				><?php buddynext_icon( 'chevron-left' ); ?></a>
 			<?php endif; ?>
 
 			<?php
@@ -512,7 +512,7 @@ if ( ! function_exists( 'bn_connections_initials' ) ) {
 					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged + 1 ) ); ?>"
 					class="bn-page-btn"
 					aria-label="<?php esc_attr_e( 'Next page', 'buddynext' ); ?>"
-				>&#8594;</a>
+				><?php buddynext_icon( 'chevron-right' ); ?></a>
 			<?php endif; ?>
 		</nav>
 	<?php endif; ?>

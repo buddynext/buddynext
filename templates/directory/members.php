@@ -865,7 +865,7 @@ require __DIR__ . '/../partials/nav.php';
 		class="bn-page-btn<?php echo 1 === $bn_current_page ? ' disabled' : ''; ?>"
 		aria-label="<?php esc_attr_e( 'Previous page', 'buddynext' ); ?>"
 		<?php echo 1 === $bn_current_page ? 'aria-disabled="true"' : ''; ?>
-	>&#8592;</a>
+	><?php buddynext_icon( 'chevron-left' ); ?></a>
 
 	<?php
 	$window_start = max( 1, $bn_current_page - 2 );
@@ -901,7 +901,7 @@ require __DIR__ . '/../partials/nav.php';
 		class="bn-page-btn<?php echo $bn_current_page >= $total_pages ? ' disabled' : ''; ?>"
 		aria-label="<?php esc_attr_e( 'Next page', 'buddynext' ); ?>"
 		<?php echo $bn_current_page >= $total_pages ? 'aria-disabled="true"' : ''; ?>
-	>&#8594;</a>
+	><?php buddynext_icon( 'chevron-right' ); ?></a>
 
 </nav>
 <?php endif; ?>

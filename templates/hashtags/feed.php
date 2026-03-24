@@ -742,7 +742,7 @@ else :
 							aria-pressed="<?php echo $follows_hashtag ? 'true' : 'false'; ?>"
 						>
 							<?php if ( $follows_hashtag ) : ?>
-								&#10003; <?php esc_html_e( 'Following', 'buddynext' ); ?>
+								<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Following', 'buddynext' ); ?>
 							<?php else : ?>
 								<?php
 								printf(
@@ -759,7 +759,7 @@ else :
 							data-wp-on--click="actions.openComposerWithTag"
 							data-hashtag="<?php echo esc_attr( $hashtag_slug ); ?>"
 						>
-							&#9998;&#65039; <?php esc_html_e( 'Create post', 'buddynext' ); ?>
+							<?php buddynext_icon( 'edit' ); ?> <?php esc_html_e( 'Create post', 'buddynext' ); ?>
 						</button>
 					<?php else : ?>
 						<a
@@ -844,7 +844,7 @@ else :
 									<?php echo esc_html( $post_time ); ?>
 								</div>
 							</div>
-							<button class="bn-post-more" type="button" aria-label="<?php esc_attr_e( 'Post options', 'buddynext' ); ?>">&#8943;</button>
+							<button class="bn-post-more" type="button" aria-label="<?php esc_attr_e( 'Post options', 'buddynext' ); ?>"><?php buddynext_icon( 'more-horizontal' ); ?></button>
 						</div>
 
 						<div class="bn-post-body">
@@ -942,7 +942,7 @@ else :
 										<div class="bn-post-author-name"><?php echo esc_html( $jt_display ); ?></div>
 										<div class="bn-post-author-meta"><?php esc_html_e( 'Started a discussion', 'buddynext' ); ?></div>
 									</div>
-									<button class="bn-post-more" type="button" aria-label="<?php esc_attr_e( 'Post options', 'buddynext' ); ?>">&#8943;</button>
+									<button class="bn-post-more" type="button" aria-label="<?php esc_attr_e( 'Post options', 'buddynext' ); ?>"><?php buddynext_icon( 'more-horizontal' ); ?></button>
 								</div>
 								<div class="bn-post-body">
 									<span class="bn-jt-tag"><?php esc_html_e( 'Discussion', 'buddynext' ); ?></span>
@@ -952,15 +952,15 @@ else :
 									<span class="bn-jt-stat"><?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) absint( $jt_post->reply_count ) ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?></span>
 									<span class="bn-jt-stat"><?php buddynext_icon( 'eye' ); ?> <?php echo esc_html( (string) absint( $jt_post->view_count ) ); ?> <?php esc_html_e( 'views', 'buddynext' ); ?></span>
 									<?php if ( $jt_post->is_answered ) : ?>
-										<span class="bn-jt-stat bn-jt-answered">&#10003; <?php esc_html_e( 'Answered', 'buddynext' ); ?></span>
+										<span class="bn-jt-stat bn-jt-answered"><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Answered', 'buddynext' ); ?></span>
 									<?php endif; ?>
 								</div>
 								<div class="bn-jt-vote-bar">
 									<button class="bn-vote-btn" type="button" data-wp-on--click="actions.voteJt" data-jt-id="<?php echo esc_attr( (string) $jt_post->id ); ?>" data-direction="up">
-										&#9650; <?php echo esc_html( (string) absint( $jt_post->vote_count ) ); ?>
+										<?php buddynext_icon( 'arrow-up' ); ?> <?php echo esc_html( (string) absint( $jt_post->vote_count ) ); ?>
 									</button>
 									<button class="bn-vote-btn" type="button" data-wp-on--click="actions.voteJt" data-jt-id="<?php echo esc_attr( (string) $jt_post->id ); ?>" data-direction="down">
-										&#9660;
+										<?php buddynext_icon( 'arrow-down' ); ?>
 									</button>
 									<a class="bn-jt-open-link" href="<?php echo esc_url( home_url( '/forums/post/' . (int) $jt_post->id . '/' ) ); ?>">
 										<?php esc_html_e( 'Open in forum', 'buddynext' ); ?> &rarr;
@@ -990,7 +990,7 @@ else :
 										data-hashtag="<?php echo esc_attr( $hashtag_slug ); ?>"
 										style="display:inline-flex;margin:0 auto;"
 									>
-										&#9998;&#65039; <?php esc_html_e( 'Be the first to post', 'buddynext' ); ?>
+										<?php buddynext_icon( 'edit' ); ?> <?php esc_html_e( 'Be the first to post', 'buddynext' ); ?>
 									</button>
 								</div>
 							<?php endif; ?>
