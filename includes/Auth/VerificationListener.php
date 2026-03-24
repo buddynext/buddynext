@@ -12,10 +12,12 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Auth;
 
+use BuddyNext\Contracts\ListenerInterface;
+
 /**
  * Registers all hooks required by the email verification flow.
  */
-class VerificationListener {
+class VerificationListener implements ListenerInterface {
 
 	/**
 	 * Verification service.
@@ -38,7 +40,7 @@ class VerificationListener {
 	 *
 	 * Called once during Plugin::init(), after services are bound.
 	 */
-	public function init(): void {
+	public function register(): void {
 		add_action( 'user_register', array( $this, 'on_user_register' ) );
 		add_action( 'init', array( $this, 'handle_verify_request' ) );
 		add_action( 'buddynext_send_verification_email', array( $this, 'send_verification_email' ), 10, 2 );

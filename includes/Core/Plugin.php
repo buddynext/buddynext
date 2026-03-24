@@ -175,14 +175,14 @@ class Plugin {
 		( new NotificationListener() )->register();
 
 		// Wire email verification hooks.
-		( new VerificationListener( $container->get( 'verification' ) ) )->init();
+		( new VerificationListener( $container->get( 'verification' ) ) )->register();
 
 		// Wire search index lifecycle hooks — handles async dispatch via Action
 		// Scheduler when available, or falls back to synchronous inline indexing.
-		$container->get( 'search_index_listener' )->init();
+		$container->get( 'search_index_listener' )->register();
 
 		// Wire hashtag extraction to post_created and bridge index actions.
-		( new HashtagListener( $container->get( 'hashtags' ) ) )->init();
+		( new HashtagListener( $container->get( 'hashtags' ) ) )->register();
 
 		// Wire moderation notification/email handlers and daily cron alert.
 		( new ModerationListener() )->register();
@@ -198,7 +198,7 @@ class Plugin {
 		( new EmailDispatchListener(
 			$container->get( 'email_sender' ),
 			$container->get( 'notification_prefs' )
-		) )->init();
+		) )->register();
 
 		// Register Gutenberg blocks and block patterns.
 		( new BlockRegistrar() )->init();

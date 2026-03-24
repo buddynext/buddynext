@@ -13,10 +13,12 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Search;
 
+use BuddyNext\Contracts\ListenerInterface;
+
 /**
  * Wires lifecycle hooks to search index writes via Action Scheduler or inline.
  */
-class SearchIndexListener {
+class SearchIndexListener implements ListenerInterface {
 
 	/**
 	 * Register all action hooks for index maintenance.
@@ -27,7 +29,7 @@ class SearchIndexListener {
 	 *
 	 * @return void
 	 */
-	public function init(): void {
+	public function register(): void {
 		// Lifecycle hooks — dispatch to async or inline.
 		add_action( 'buddynext_index_user', array( $this, 'on_index_user' ), 10, 1 );
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );

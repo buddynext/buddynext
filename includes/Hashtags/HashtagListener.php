@@ -21,12 +21,13 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Hashtags;
 
+use BuddyNext\Contracts\ListenerInterface;
 use BuddyNext\Feed\PostService;
 
 /**
  * Wires lifecycle hooks to hashtag extraction and sync.
  */
-class HashtagListener {
+class HashtagListener implements ListenerInterface {
 
 	/**
 	 * Hashtag service instance.
@@ -49,7 +50,7 @@ class HashtagListener {
 	 *
 	 * @return void
 	 */
-	public function init(): void {
+	public function register(): void {
 		// Native BuddyNext feed posts.
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
 

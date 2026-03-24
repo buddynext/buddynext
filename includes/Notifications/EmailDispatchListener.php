@@ -13,10 +13,12 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Notifications;
 
+use BuddyNext\Contracts\ListenerInterface;
+
 /**
  * Wires email sending into the notification lifecycle.
  */
-class EmailDispatchListener {
+class EmailDispatchListener implements ListenerInterface {
 
 	/**
 	 * Email sender service.
@@ -48,7 +50,7 @@ class EmailDispatchListener {
 	 *
 	 * @return void
 	 */
-	public function init(): void {
+	public function register(): void {
 		add_action( 'buddynext_notification_created', array( $this, 'on_notification_created' ), 10, 3 );
 		add_action( 'buddynext_send_notification_email', array( $this, 'on_send_notification_email' ), 10, 3 );
 		add_action( 'buddynext_queue_email_digest', array( $this, 'on_queue_email_digest' ), 10, 3 );
