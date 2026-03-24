@@ -14,6 +14,7 @@ namespace BuddyNext\REST;
 
 use BuddyNext\Outbound\AccessWebhookController;
 use BuddyNext\Auth\AuthController;
+use BuddyNext\Onboarding\InviteController;
 use BuddyNext\SocialGraph\BlockController;
 use BuddyNext\Feed\BookmarkController;
 use BuddyNext\SocialGraph\ConnectionController;
@@ -54,6 +55,7 @@ class Router {
 	public function register_routes(): void {
 		( new AccessWebhookController() )->register_routes();
 		( new AuthController() )->register_routes();
+		( new InviteController() )->register_routes();
 		( new FollowController() )->register_routes();
 		( new ConnectionController() )->register_routes();
 		( new BlockController() )->register_routes();

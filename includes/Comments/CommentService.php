@@ -84,12 +84,11 @@ class CommentService {
 		/**
 		 * Fires after a new comment is created.
 		 *
-		 * @param int    $comment_id  New comment ID.
-		 * @param string $object_type Object type.
-		 * @param int    $object_id   Object ID.
-		 * @param int    $user_id     Commenting user.
+		 * @param int $comment_id New comment ID.
+		 * @param int $post_id    Object ID the comment was created on.
+		 * @param int $user_id    Commenting user.
 		 */
-		do_action( 'buddynext_comment_created', $comment_id, $object_type, $object_id, $user_id );
+		do_action( 'buddynext_comment_created', $comment_id, $object_id, $user_id );
 
 		return $comment_id;
 	}
@@ -160,9 +159,10 @@ class CommentService {
 		 * Fires after a comment is updated.
 		 *
 		 * @param int $comment_id Updated comment ID.
+		 * @param int $post_id    Object ID the comment belongs to.
 		 * @param int $user_id    User who updated the comment.
 		 */
-		do_action( 'buddynext_comment_updated', $comment_id, $user_id );
+		do_action( 'buddynext_comment_updated', $comment_id, (int) $comment['object_id'], $user_id );
 
 		return true;
 	}
@@ -216,9 +216,10 @@ class CommentService {
 		 * Fires after a comment is deleted.
 		 *
 		 * @param int $comment_id Deleted comment ID.
+		 * @param int $post_id    Object ID the comment belonged to.
 		 * @param int $user_id    User who deleted the comment.
 		 */
-		do_action( 'buddynext_comment_deleted', $comment_id, $user_id );
+		do_action( 'buddynext_comment_deleted', $comment_id, (int) $comment['object_id'], $user_id );
 
 		return true;
 	}

@@ -87,7 +87,7 @@ class ConnectionService {
 		);
 
 		$connection_id = (int) $wpdb->insert_id;
-		$this->invalidate_connection_cache( $requester_id, $recipient_id );
+		$this->invalidate_connection_cache();
 
 		/**
 		 * Fires after a connection request is sent.
@@ -131,7 +131,7 @@ class ConnectionService {
 			);
 		}
 
-		$this->invalidate_connection_cache( $requester_id, $recipient_id );
+		$this->invalidate_connection_cache();
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$connection_id = (int) $wpdb->get_var(
@@ -193,16 +193,16 @@ class ConnectionService {
 			array( '%d' )
 		);
 
-		$this->invalidate_connection_cache( $requester_id, $recipient_id );
+		$this->invalidate_connection_cache();
 
 		/**
-		 * Fires after a connection request is rejected.
+		 * Fires after a connection request is declined.
 		 *
 		 * @param int $connection_id ID of the connection row.
 		 * @param int $requester_id  ID of the original requester.
-		 * @param int $recipient_id  ID of the rejecting user.
+		 * @param int $recipient_id  ID of the declining user.
 		 */
-		do_action( 'buddynext_connection_rejected', $connection_id, $requester_id, $recipient_id );
+		do_action( 'buddynext_connection_declined', $connection_id, $requester_id, $recipient_id );
 
 		return true;
 	}
@@ -242,15 +242,16 @@ class ConnectionService {
 			array( '%d' )
 		);
 
-		$this->invalidate_connection_cache( $requester_id, $recipient_id );
+		$this->invalidate_connection_cache();
 
 		/**
 		 * Fires after a connection request is withdrawn.
 		 *
 		 * @param int $connection_id ID of the connection row.
 		 * @param int $requester_id  ID of the withdrawing user.
+		 * @param int $recipient_id  ID of the original recipient.
 		 */
-		do_action( 'buddynext_connection_withdrawn', $connection_id, $requester_id );
+		do_action( 'buddynext_connection_withdrawn', $connection_id, $requester_id, $recipient_id );
 
 		return true;
 	}
@@ -289,7 +290,7 @@ class ConnectionService {
 			);
 		}
 
-		$this->invalidate_connection_cache( $user_a, $user_b );
+		$this->invalidate_connection_cache();
 
 		/**
 		 * Fires after a connection is removed.
@@ -356,22 +357,24 @@ class ConnectionService {
 	}
 
 	/**
-	 * Return the list of user IDs the given user is connected with (accepted only).
+	 * Return a paginated list of user IDs the given user is connected with (accepted only).
 	 *
 	 * @param int $user_id The user.
+	 * @param int $limit   Maximum number of results to return. Default 20.
+	 * @param int $offset  Number of rows to skip. Default 0.
 	 * @return int[]
 	 */
-	public function connections( int $user_id ): array {
+	public function connections( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "connections_{$user_id}";
+		$cache_key = "connections_{$user_id}_{$limit}_{$offset}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
 			return (array) $cached;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT CASE
@@ -380,12 +383,16 @@ class ConnectionService {
 				 END
 				 FROM {$wpdb->prefix}bn_connections
 				 WHERE ( requester_id = %d OR recipient_id = %d )
-				   AND status = 'accepted'",
+				   AND status = 'accepted'
+				 LIMIT %d OFFSET %d",
 				$user_id,
 				$user_id,
-				$user_id
+				$user_id,
+				$limit,
+				$offset
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$result = array_map( 'intval', (array) $rows );
 
@@ -395,31 +402,37 @@ class ConnectionService {
 	}
 
 	/**
-	 * Return the list of recipient IDs for pending requests sent by the user.
+	 * Return a paginated list of recipient IDs for pending requests sent by the user.
 	 *
 	 * @param int $user_id The requesting user.
+	 * @param int $limit   Maximum number of results to return. Default 20.
+	 * @param int $offset  Number of rows to skip. Default 0.
 	 * @return int[]
 	 */
-	public function pending_sent( int $user_id ): array {
+	public function pending_sent( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "pending_sent_{$user_id}";
+		$cache_key = "pending_sent_{$user_id}_{$limit}_{$offset}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
 			return (array) $cached;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT recipient_id
 				 FROM {$wpdb->prefix}bn_connections
 				 WHERE requester_id = %d AND status = 'pending'
-				 ORDER BY created_at DESC",
-				$user_id
+				 ORDER BY created_at DESC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$limit,
+				$offset
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$result = array_map( 'intval', (array) $rows );
 
@@ -429,31 +442,37 @@ class ConnectionService {
 	}
 
 	/**
-	 * Return the list of requester IDs for pending requests received by the user.
+	 * Return a paginated list of requester IDs for pending requests received by the user.
 	 *
 	 * @param int $user_id The recipient user.
+	 * @param int $limit   Maximum number of results to return. Default 20.
+	 * @param int $offset  Number of rows to skip. Default 0.
 	 * @return int[]
 	 */
-	public function pending_received( int $user_id ): array {
+	public function pending_received( int $user_id, int $limit = 20, int $offset = 0 ): array {
 		global $wpdb;
 
-		$cache_key = "pending_received_{$user_id}";
+		$cache_key = "pending_received_{$user_id}_{$limit}_{$offset}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
 			return (array) $cached;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT requester_id
 				 FROM {$wpdb->prefix}bn_connections
 				 WHERE recipient_id = %d AND status = 'pending'
-				 ORDER BY created_at DESC",
-				$user_id
+				 ORDER BY created_at DESC
+				 LIMIT %d OFFSET %d",
+				$user_id,
+				$limit,
+				$offset
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$result = array_map( 'intval', (array) $rows );
 
@@ -538,21 +557,14 @@ class ConnectionService {
 	}
 
 	/**
-	 * Invalidate all cache keys affected by a connection state change.
+	 * Invalidate all connection cache entries.
 	 *
-	 * @param int $user_a First user.
-	 * @param int $user_b Second user.
+	 * The paginated list keys (connections, pending_sent, pending_received) embed
+	 * limit/offset in their cache key, making targeted deletion impractical. A full
+	 * group flush is the correct approach for WP 6.1+ (this plugin requires WP 6.9+).
+	 * Status and count keys are also covered by the group flush.
 	 */
-	private function invalidate_connection_cache( int $user_a, int $user_b ): void {
-		wp_cache_delete( "status_{$user_a}_{$user_b}", self::CACHE_GROUP );
-		wp_cache_delete( "status_{$user_b}_{$user_a}", self::CACHE_GROUP );
-		wp_cache_delete( "connections_{$user_a}", self::CACHE_GROUP );
-		wp_cache_delete( "connections_{$user_b}", self::CACHE_GROUP );
-		wp_cache_delete( "pending_received_{$user_a}", self::CACHE_GROUP );
-		wp_cache_delete( "pending_received_{$user_b}", self::CACHE_GROUP );
-		wp_cache_delete( "pending_sent_{$user_a}", self::CACHE_GROUP );
-		wp_cache_delete( "pending_sent_{$user_b}", self::CACHE_GROUP );
-		wp_cache_delete( "connection_count_{$user_a}", self::CACHE_GROUP );
-		wp_cache_delete( "connection_count_{$user_b}", self::CACHE_GROUP );
+	private function invalidate_connection_cache(): void {
+		wp_cache_flush_group( self::CACHE_GROUP );
 	}
 }

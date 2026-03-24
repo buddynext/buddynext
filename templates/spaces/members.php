@@ -116,21 +116,21 @@ if ( ! function_exists( 'bn_space_members_initials' ) ) {
 /**
  * Return the display label for a space member role.
  *
- * @param string $role Role slug: 'owner', 'mod', or 'member'.
+ * @param string $role Role slug: 'owner', 'moderator', or 'member'.
  * @return string Translated label.
  */
 if ( ! function_exists( 'bn_space_role_label' ) ) {
 	/**
 	 * Return the display label for a space member role.
 	 *
-	 * @param string $role Role slug: 'owner', 'mod', or 'member'.
+	 * @param string $role Role slug: 'owner', 'moderator', or 'member'.
 	 * @return string Translated label.
 	 */
 	function bn_space_role_label( string $role ): string {
 		$labels = array(
-			'owner'  => __( 'Owner', 'buddynext' ),
-			'mod'    => __( 'Moderator', 'buddynext' ),
-			'member' => __( 'Member', 'buddynext' ),
+			'owner'     => __( 'Owner', 'buddynext' ),
+			'moderator' => __( 'Moderator', 'buddynext' ),
+			'member'    => __( 'Member', 'buddynext' ),
 		);
 		return $labels[ $role ] ?? ucfirst( $role );
 	}
@@ -466,7 +466,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				// Determine badge CSS class.
 				if ( 'owner' === $member_role ) {
 					$role_class = 'bn-role-owner';
-				} elseif ( 'mod' === $member_role ) {
+				} elseif ( 'moderator' === $member_role ) {
 					$role_class = 'bn-role-mod';
 				} else {
 					$role_class = 'bn-role-member';

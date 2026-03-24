@@ -5,67 +5,67 @@
     "color": {
       "palette": [
         {
-          "slug": "bn-primary",
+          "slug": "primary",
           "color": "#0073aa",
           "name": "BuddyNext Primary"
         },
         {
-          "slug": "bn-primary-hover",
+          "slug": "primary-hover",
           "color": "#005f8e",
           "name": "BuddyNext Primary Hover"
         },
         {
-          "slug": "bn-primary-light",
+          "slug": "primary-light",
           "color": "#e8f4fb",
           "name": "BuddyNext Primary Light"
         },
         {
-          "slug": "bn-bg",
+          "slug": "base",
           "color": "#ffffff",
           "name": "BuddyNext Background"
         },
         {
-          "slug": "bn-bg-subtle",
+          "slug": "base-subtle",
           "color": "#f8f8f7",
           "name": "BuddyNext Background Subtle"
         },
         {
-          "slug": "bn-bg-hover",
+          "slug": "base-hover",
           "color": "#f1f1f0",
           "name": "BuddyNext Background Hover"
         },
         {
-          "slug": "bn-text-primary",
+          "slug": "foreground",
           "color": "#37352f",
           "name": "BuddyNext Text Primary"
         },
         {
-          "slug": "bn-text-secondary",
+          "slug": "foreground-secondary",
           "color": "#787774",
           "name": "BuddyNext Text Secondary"
         },
         {
-          "slug": "bn-text-tertiary",
+          "slug": "foreground-tertiary",
           "color": "#aeaca8",
           "name": "BuddyNext Text Tertiary"
         },
         {
-          "slug": "bn-border",
+          "slug": "border",
           "color": "#e8e8e5",
           "name": "BuddyNext Border"
         },
         {
-          "slug": "bn-green",
+          "slug": "success",
           "color": "#059669",
           "name": "BuddyNext Green"
         },
         {
-          "slug": "bn-amber",
+          "slug": "warning",
           "color": "#d97706",
           "name": "BuddyNext Amber"
         },
         {
-          "slug": "bn-red",
+          "slug": "error",
           "color": "#dc2626",
           "name": "BuddyNext Red"
         }
@@ -74,38 +74,38 @@
     "typography": {
       "fontFamilies": [
         {
-          "slug": "bn-body",
+          "slug": "body",
           "name": "BuddyNext Body",
           "fontFamily": "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
         },
         {
-          "slug": "bn-display",
+          "slug": "display",
           "name": "BuddyNext Display",
           "fontFamily": "'Plus Jakarta Sans', 'Inter', sans-serif"
         }
       ],
       "fontSizes": [
-        { "slug": "bn-xs",   "size": "11px", "name": "BuddyNext XS" },
-        { "slug": "bn-sm",   "size": "13px", "name": "BuddyNext SM" },
-        { "slug": "bn-base", "size": "15px", "name": "BuddyNext Base" },
-        { "slug": "bn-lg",   "size": "17px", "name": "BuddyNext LG" },
-        { "slug": "bn-xl",   "size": "20px", "name": "BuddyNext XL" },
-        { "slug": "bn-2xl",  "size": "24px", "name": "BuddyNext 2XL" },
-        { "slug": "bn-3xl",  "size": "30px", "name": "BuddyNext 3XL" },
-        { "slug": "bn-4xl",  "size": "38px", "name": "BuddyNext 4XL" }
+        { "slug": "xs",   "size": "11px", "name": "BuddyNext XS" },
+        { "slug": "sm",   "size": "13px", "name": "BuddyNext SM" },
+        { "slug": "medium", "size": "15px", "name": "BuddyNext Base" },
+        { "slug": "large",  "size": "17px", "name": "BuddyNext LG" },
+        { "slug": "xl",   "size": "20px", "name": "BuddyNext XL" },
+        { "slug": "2xl",  "size": "24px", "name": "BuddyNext 2XL" },
+        { "slug": "3xl",  "size": "30px", "name": "BuddyNext 3XL" },
+        { "slug": "4xl",  "size": "38px", "name": "BuddyNext 4XL" }
       ]
     },
     "spacing": {
       "spacingSizes": [
-        { "slug": "bn-1",  "size": "4px",  "name": "BuddyNext Space 1" },
-        { "slug": "bn-2",  "size": "8px",  "name": "BuddyNext Space 2" },
-        { "slug": "bn-3",  "size": "12px", "name": "BuddyNext Space 3" },
-        { "slug": "bn-4",  "size": "16px", "name": "BuddyNext Space 4" },
-        { "slug": "bn-5",  "size": "20px", "name": "BuddyNext Space 5" },
-        { "slug": "bn-6",  "size": "24px", "name": "BuddyNext Space 6" },
-        { "slug": "bn-8",  "size": "32px", "name": "BuddyNext Space 8" },
-        { "slug": "bn-10", "size": "40px", "name": "BuddyNext Space 10" },
-        { "slug": "bn-12", "size": "48px", "name": "BuddyNext Space 12" }
+        { "slug": "10",  "size": "4px",  "name": "BuddyNext Space 1" },
+        { "slug": "20",  "size": "8px",  "name": "BuddyNext Space 2" },
+        { "slug": "30",  "size": "12px", "name": "BuddyNext Space 3" },
+        { "slug": "40",  "size": "16px", "name": "BuddyNext Space 4" },
+        { "slug": "50",  "size": "20px", "name": "BuddyNext Space 5" },
+        { "slug": "60",  "size": "24px", "name": "BuddyNext Space 6" },
+        { "slug": "80",  "size": "32px", "name": "BuddyNext Space 8" },
+        { "slug": "100", "size": "40px", "name": "BuddyNext Space 10" },
+        { "slug": "120", "size": "48px", "name": "BuddyNext Space 12" }
       ]
     },
     "custom": {

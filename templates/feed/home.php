@@ -41,7 +41,23 @@ $space_mem_table = $wpdb->prefix . 'bn_space_members';
 $user_meta_table = $wpdb->usermeta;
 
 $bn_per_page = 15;
-$cursor      = isset( $_GET['cursor'] ) ? absint( $_GET['cursor'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+// Cursor is base64( "created_at|id" ) — same format as FeedService::encode_cursor().
+// Decode defensively; fall back to no cursor (first page) on any invalid input.
+$raw_cursor     = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$decoded_cursor = null;
+if ( '' !== $raw_cursor ) {
+	$raw_decoded = base64_decode( $raw_cursor, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+	if ( false !== $raw_decoded ) {
+		$cursor_parts = explode( '|', $raw_decoded, 2 );
+		if ( 2 === count( $cursor_parts ) && '' !== $cursor_parts[0] && ctype_digit( $cursor_parts[1] ) ) {
+			$decoded_cursor = array(
+				'created_at' => $cursor_parts[0],
+				'id'         => (int) $cursor_parts[1],
+			);
+		}
+	}
+}
 
 // ── Suspended / shadow-banned exclusion ────────────────────────────────────
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -95,12 +111,26 @@ $announcement = $wpdb->get_row(
 $show_announcement = null !== $announcement;
 
 // ── Home feed posts ─────────────────────────────────────────────────────────
-// Include own posts + posts from followed users.
-$cursor_sql = $cursor > 0 ? $wpdb->prepare( ' AND p.id < %d', $cursor ) : '';
+// Sources:
+// 1. Viewer's own posts (any privacy).
+// 2. Public/followers posts from followed users.
+// 3. Published posts from spaces the viewer has actively joined.
+// 4. Published posts containing a hashtag the viewer follows.
+// Cursor: compound keyset on (created_at DESC, id DESC) — base64("created_at|id").
+// $exclusion_sql is built above via $wpdb->prepare() with %d placeholders — safe.
+$cursor_sql    = '';
+$cursor_params = array();
+if ( null !== $decoded_cursor ) {
+	$cursor_sql    = 'AND (p.created_at < %s OR (p.created_at = %s AND p.id < %d))';
+	$cursor_params = array( $decoded_cursor['created_at'], $decoded_cursor['created_at'], $decoded_cursor['id'] );
+}
+
+$hashtag_follows_table = $wpdb->prefix . 'bn_post_hashtags';
+$ht_follows_table      = $wpdb->prefix . 'bn_hashtag_follows';
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 $feed_posts = $wpdb->get_results(
-	$wpdb->prepare(
+	$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		"SELECT p.id, p.user_id, p.content, p.type, p.privacy,
 		        p.media_ids, p.link_url, p.link_meta,
 		        p.is_pinned, p.is_announcement, p.content_warning, p.content_warning_type,
@@ -108,21 +138,42 @@ $feed_posts = $wpdb->get_results(
 		        p.edited_at, p.created_at, p.updated_at
 		   FROM {$posts_table} p
 		  WHERE p.status = 'published'
+		    AND (p.scheduled_at IS NULL OR p.scheduled_at <= NOW())
 		    AND (
 		          p.user_id = %d
-		       OR p.user_id IN (
-		            SELECT f.following_id
-		              FROM {$follows_table} f
-		             WHERE f.follower_id = %d
+		       OR (
+		            p.user_id IN (
+		              SELECT f.following_id
+		                FROM {$follows_table} f
+		               WHERE f.follower_id = %d
+		            )
+		            AND p.privacy IN ('public','followers')
+		          )
+		       OR p.space_id IN (
+		            SELECT m.space_id
+		              FROM {$space_mem_table} m
+		             WHERE m.user_id = %d AND m.status = 'active'
+		          )
+		       OR p.id IN (
+		            SELECT ph.post_id
+		              FROM {$hashtag_follows_table} ph
+		             WHERE ph.object_type = 'post'
+		               AND ph.hashtag_id IN (
+		                     SELECT hf.hashtag_id
+		                       FROM {$ht_follows_table} hf
+		                      WHERE hf.user_id = %d
+		                   )
 		          )
 		        )
 		    {$exclusion_sql}
 		    {$cursor_sql}
-		  ORDER BY p.created_at DESC
+		  ORDER BY p.created_at DESC, p.id DESC
 		  LIMIT %d",  // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$current_user_id,
-		$current_user_id,
-		$bn_per_page + 1
+		...array_merge(
+			array( $current_user_id, $current_user_id, $current_user_id, $current_user_id ),
+			$cursor_params,
+			array( $bn_per_page + 1 )
+		)
 	)
 );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -131,7 +182,13 @@ $has_more = count( $feed_posts ) > $bn_per_page;
 if ( $has_more ) {
 	array_pop( $feed_posts );
 }
-$next_cursor = $has_more && ! empty( $feed_posts ) ? (int) end( $feed_posts )->id : 0;
+
+// Encode next cursor as base64("created_at|id") matching FeedService::encode_cursor().
+$next_cursor = '';
+if ( $has_more && ! empty( $feed_posts ) ) {
+	$last_post   = end( $feed_posts );
+	$next_cursor = base64_encode( $last_post->created_at . '|' . $last_post->id ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+}
 
 // ── Trending hashtags sidebar ───────────────────────────────────────────────
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -698,9 +755,9 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 					<?php endforeach; ?>
 				</div>
 
-				<?php if ( $has_more && $next_cursor > 0 ) : ?>
+				<?php if ( $has_more && '' !== $next_cursor ) : ?>
 					<div class="bn-load-more">
-						<a href="<?php echo esc_url( add_query_arg( 'cursor', $next_cursor, PageRouter::activity_url() ) ); ?>"
+						<a href="<?php echo esc_url( add_query_arg( 'cursor', rawurlencode( $next_cursor ), PageRouter::activity_url() ) ); ?>"
 							class="bn-load-more__btn">
 							<?php esc_html_e( 'Load more', 'buddynext' ); ?>
 						</a>

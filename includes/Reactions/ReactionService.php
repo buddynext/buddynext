@@ -56,6 +56,8 @@ class ReactionService {
 		);
 
 		if ( $wpdb->rows_affected > 0 ) {
+			$reaction_id = (int) $wpdb->insert_id;
+
 			$this->invalidate_cache( $object_type, $object_id, $user_id );
 
 			if ( 'post' === $object_type ) {
@@ -71,12 +73,12 @@ class ReactionService {
 			/**
 			 * Fires after a reaction is added to an object.
 			 *
-			 * @param string $object_type Object type (e.g. 'post', 'comment').
-			 * @param int    $object_id   Object ID.
+			 * @param int    $reaction_id ID of the newly inserted row in bn_reactions.
+			 * @param int    $post_id     Object ID (post, comment, etc.).
 			 * @param int    $user_id     Reacting user.
 			 * @param string $emoji       Emoji identifier.
 			 */
-			do_action( 'buddynext_reaction_added', $object_type, $object_id, $user_id, $emoji );
+			do_action( 'buddynext_reaction_added', $reaction_id, $object_id, $user_id, $emoji );
 		}
 
 		return true;
@@ -91,6 +93,17 @@ class ReactionService {
 	 */
 	public function unreact( int $user_id, string $object_type, int $object_id ): void {
 		global $wpdb;
+
+		// Fetch the emoji before deleting so it can be passed to the hook.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$emoji = (string) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT emoji FROM {$wpdb->prefix}bn_reactions WHERE user_id = %d AND object_type = %s AND object_id = %d",
+				$user_id,
+				sanitize_key( $object_type ),
+				$object_id
+			)
+		);
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
@@ -117,11 +130,11 @@ class ReactionService {
 			/**
 			 * Fires after a reaction is removed from an object.
 			 *
-			 * @param string $object_type Object type (e.g. 'post', 'comment').
-			 * @param int    $object_id   Object ID.
-			 * @param int    $user_id     User who removed their reaction.
+			 * @param int    $post_id Object ID (post, comment, etc.).
+			 * @param int    $user_id User who removed their reaction.
+			 * @param string $emoji   Emoji identifier that was removed.
 			 */
-			do_action( 'buddynext_reaction_removed', $object_type, $object_id, $user_id );
+			do_action( 'buddynext_reaction_removed', $object_id, $user_id, $emoji );
 		}
 
 		$this->invalidate_cache( $object_type, $object_id, $user_id );

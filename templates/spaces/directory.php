@@ -66,7 +66,7 @@ if ( ! empty( $bn_cat_slug ) ) {
 	$query_args[]  = $bn_cat_slug;
 }
 
-if ( in_array( $bn_visibility, array( 'public', 'private' ), true ) ) {
+if ( in_array( $bn_visibility, array( 'open', 'private' ), true ) ) {
 	$where_parts[] = 's.type = %s';
 	$query_args[]  = $bn_visibility;
 }
@@ -691,12 +691,12 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				$is_pending   = $membership && 'pending' === $membership->status;
 
 				$privacy_label = match ( $space->type ) {
-					'public'  => __( 'Public', 'buddynext' ),
+					'open'    => __( 'Public', 'buddynext' ),
 					'private' => __( 'Private', 'buddynext' ),
 					default   => __( 'Invite-only', 'buddynext' ),
 				};
 				$privacy_icon = match ( $space->type ) {
-					'public'  => buddynext_get_icon( 'globe' ),
+					'open'    => buddynext_get_icon( 'globe' ),
 					'private' => buddynext_get_icon( 'lock' ),
 					default   => buddynext_get_icon( 'mail' ),
 				};
@@ -763,7 +763,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 									aria-label="<?php esc_attr_e( 'Request pending — click to cancel', 'buddynext' ); ?>"
 								><?php esc_html_e( 'Requested', 'buddynext' ); ?></button>
 
-							<?php elseif ( 'public' === $space->type ) : ?>
+							<?php elseif ( 'open' === $space->type ) : ?>
 								<button
 									class="bn-btn-join"
 									data-wp-on--click="actions.joinSpace"

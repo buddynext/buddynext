@@ -41,7 +41,7 @@ if ( 'reaction' === $active_filter ) {
 } elseif ( 'follow' === $active_filter ) {
 	$filter_types = array( 'bn.new_follower', 'bn.connection_accepted', 'bn.connection_requested' );
 } elseif ( 'space' === $active_filter ) {
-	$filter_types = array( 'bn.space_invite', 'bn.space_join_requested' );
+	$filter_types = array( 'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post' );
 } elseif ( 'message' === $active_filter ) {
 	$filter_types = array( 'bn.new_message' );
 }
@@ -57,7 +57,7 @@ if ( ! empty( $filter_types ) ) {
 
 // Fetch up to 50 notifications for the current user, ordered newest first.
 // $filter_sql is fully prepared above; build final SQL by string concat before prepare().
-$base_sql = "SELECT n.id, n.type, n.sender_id, n.object_id, n.object_type, n.is_read, n.created_at
+$base_sql = "SELECT n.id, n.type, n.sender_id, n.object_id, n.object_type, n.group_key, n.group_count, n.is_read, n.created_at
 	 FROM {$wpdb->prefix}bn_notifications AS n
 	 WHERE n.recipient_id = %d"
 	. $filter_sql .
@@ -73,7 +73,7 @@ $unread_counts = $wpdb->get_results(
 			SUM( CASE WHEN is_read = 0 AND type IN ('bn.post_reacted') THEN 1 ELSE 0 END ) AS reaction_unread,
 			SUM( CASE WHEN is_read = 0 AND type IN ('bn.post_commented') THEN 1 ELSE 0 END ) AS comment_unread,
 			SUM( CASE WHEN is_read = 0 AND type IN ('bn.new_follower','bn.connection_accepted','bn.connection_requested') THEN 1 ELSE 0 END ) AS follow_unread,
-			SUM( CASE WHEN is_read = 0 AND type IN ('bn.space_invite','bn.space_join_requested') THEN 1 ELSE 0 END ) AS space_unread,
+			SUM( CASE WHEN is_read = 0 AND type IN ('bn.space_invite','bn.space_join_requested','bn.space_new_post') THEN 1 ELSE 0 END ) AS space_unread,
 			SUM( CASE WHEN is_read = 0 AND type IN ('bn.new_message') THEN 1 ELSE 0 END ) AS message_unread
 		 FROM {$wpdb->prefix}bn_notifications
 		 WHERE recipient_id = %d",
@@ -99,7 +99,7 @@ if ( ! empty( $actor_ids ) ) {
 		$actor_user              = get_userdata( $actor_id );
 		$actor_data[ $actor_id ] = array(
 			'display_name' => $actor_user ? $actor_user->display_name : __( 'Someone', 'buddynext' ),
-			'initials'     => $actor_user ? strtoupper( substr( $actor_user->display_name, 0, 1 ) . substr( (string) ( strrchr( $actor_user->display_name, ' ' ) ?: '' ), 1, 1 ) ) : '?',
+			'initials'     => $actor_user ? strtoupper( substr( $actor_user->display_name, 0, 1 ) . substr( (string) ( strrchr( $actor_user->display_name, ' ' ) ? strrchr( $actor_user->display_name, ' ' ) : '' ), 1, 1 ) ) : '?',
 		);
 	}
 }
@@ -181,6 +181,10 @@ $type_meta = array(
 		'color' => '#059669',
 		'icon'  => buddynext_get_icon( 'check-circle' ),
 	),
+	'bn.space_new_post'       => array(
+		'color' => '#7c3aed',
+		'icon'  => buddynext_get_icon( 'home' ),
+	),
 );
 
 // Avatar colour palette — deterministic from user ID.
@@ -256,13 +260,93 @@ $rest_url       = esc_url( rest_url( 'buddynext/v1/me/notifications/read-all' ) 
  * @param array    $type_meta        Type → icon/colour map.
  */
 $render_row = static function ( object $row, callable $get_initials, callable $get_display_name, callable $time_ago, callable $avatar_color, array $type_meta ): void {
-	$is_unread     = ! (bool) $row->is_read;
-	$actor_id      = (int) $row->sender_id;
-	$notif_type    = $row->type ?? '';
-	$meta          = $type_meta[ $notif_type ] ?? array(
+	$is_unread   = ! (bool) $row->is_read;
+	$actor_id    = (int) $row->sender_id;
+	$notif_type  = $row->type ?? '';
+	$meta        = $type_meta[ $notif_type ] ?? array(
 		'color' => '#9b9b97',
 		'icon'  => buddynext_get_icon( 'bell' ),
 	);
+	$group_count = isset( $row->group_count ) ? (int) $row->group_count : 1;
+	$row_class   = 'bn-notif-row' . ( $is_unread ? ' bn-notif-row--unread' : '' );
+
+	// Grouped notification messages: show "X and N others did Y" when group_count > 1.
+	// Singular messages are used for group_count === 1.
+	if ( $group_count > 1 ) {
+		$others           = $group_count - 1;
+		$grouped_messages = array(
+			'bn.new_follower'   => sprintf(
+				/* translators: 1: actor display name, 2: number of other users */
+				_n( '%1$s and %2$d other started following you.', '%1$s and %2$d others started following you.', $others, 'buddynext' ),
+				$get_display_name( $actor_id ),
+				$others
+			),
+			'bn.post_reacted'   => sprintf(
+				/* translators: 1: actor display name, 2: number of other users */
+				_n( '%1$s and %2$d other reacted to your post.', '%1$s and %2$d others reacted to your post.', $others, 'buddynext' ),
+				$get_display_name( $actor_id ),
+				$others
+			),
+			'bn.post_commented' => sprintf(
+				/* translators: 1: actor display name, 2: number of other users */
+				_n( '%1$s and %2$d other commented on your post.', '%1$s and %2$d others commented on your post.', $others, 'buddynext' ),
+				$get_display_name( $actor_id ),
+				$others
+			),
+			'bn.space_new_post' => sprintf(
+				/* translators: 1: actor display name, 2: number of other users */
+				_n( '%1$s and %2$d other posted in a space you follow.', '%1$s and %2$d others posted in a space you follow.', $others, 'buddynext' ),
+				$get_display_name( $actor_id ),
+				$others
+			),
+		);
+
+		if ( isset( $grouped_messages[ $notif_type ] ) ) {
+			?>
+			<div class="<?php echo esc_attr( $row_class ); ?>"
+				data-wp-on--click="actions.markRead"
+				data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>">
+
+				<div class="bn-notif-ava" style="background:<?php echo esc_attr( $avatar_color( $actor_id ) ); ?>;">
+					<?php echo $get_initials( $actor_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped inside closure. ?>
+					<span class="bn-notif-type-icon" style="background:<?php echo esc_attr( $meta['color'] ); ?>;"
+						aria-hidden="true"><?php echo $meta['icon']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML entity literals, no user data. ?></span>
+				</div>
+
+				<div class="bn-notif-content">
+					<div class="bn-notif-text">
+						<?php echo esc_html( $grouped_messages[ $notif_type ] ); ?>
+					</div>
+
+					<?php if ( 'bn.space_invite' === $notif_type ) : ?>
+						<div class="bn-notif-actions">
+							<button class="bn-btn bn-btn--primary bn-btn--xs"
+								data-wp-on--click="actions.acceptSpaceInvite"
+								data-object-id="<?php echo esc_attr( (string) $row->object_id ); ?>"
+								data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>">
+								<?php esc_html_e( 'Accept', 'buddynext' ); ?>
+							</button>
+							<button class="bn-btn bn-btn--ghost bn-btn--xs"
+								data-wp-on--click="actions.declineSpaceInvite"
+								data-object-id="<?php echo esc_attr( (string) $row->object_id ); ?>"
+								data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>">
+								<?php esc_html_e( 'Decline', 'buddynext' ); ?>
+							</button>
+						</div>
+					<?php endif; ?>
+
+					<div class="bn-notif-time"><?php echo $time_ago( $row->created_at ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped inside closure. ?></div>
+				</div>
+
+				<?php if ( $is_unread ) : ?>
+					<div class="bn-notif-unread-dot" aria-label="<?php esc_attr_e( 'Unread', 'buddynext' ); ?>"></div>
+				<?php endif; ?>
+			</div>
+			<?php
+			return;
+		}
+	}
+
 	$type_messages = array(
 		'bn.post_reacted'         => __( 'reacted to your post.', 'buddynext' ),
 		'bn.post_commented'       => __( 'commented on your post.', 'buddynext' ),
@@ -278,9 +362,9 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 		'bn.strike_warning'       => __( 'Strike warning issued.', 'buddynext' ),
 		'bn.member_suspended'     => __( 'Your account has been suspended.', 'buddynext' ),
 		'bn.appeal_resolved'      => __( 'Your appeal has been reviewed.', 'buddynext' ),
+		'bn.space_new_post'       => __( 'posted in a space you follow.', 'buddynext' ),
 	);
 	$notif_message = $type_messages[ $notif_type ] ?? __( 'sent you a notification.', 'buddynext' );
-	$row_class     = 'bn-notif-row' . ( $is_unread ? ' bn-notif-row--unread' : '' );
 	?>
 	<div class="<?php echo esc_attr( $row_class ); ?>"
 		data-wp-on--click="actions.markRead"

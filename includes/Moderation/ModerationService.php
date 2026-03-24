@@ -211,7 +211,7 @@ class ModerationService {
 	 * Issue a formal warning to a user.
 	 *
 	 * Writes a 'warn' entry to the moderation log and fires
-	 * buddynext_member_warned so EventListener can dispatch
+	 * buddynext_user_warned so listeners can dispatch
 	 * the in-app notification and warning email.
 	 *
 	 * @param int    $user_id  User being warned.
@@ -241,14 +241,17 @@ class ModerationService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		$warning_count = $this->get_active_strike_count( $user_id );
+
 		/**
 		 * Fires after a formal warning is issued to a user.
 		 *
-		 * @param int    $user_id  Warned user.
-		 * @param int    $actor_id Admin or moderator who issued the warning.
-		 * @param string $reason   Warning reason.
+		 * @param int    $user_id       Warned user.
+		 * @param int    $actor_id      Admin or moderator who issued the warning.
+		 * @param string $reason        Warning reason.
+		 * @param int    $warning_count Total active strike count after this warning.
 		 */
-		do_action( 'buddynext_member_warned', $user_id, $actor_id, $reason );
+		do_action( 'buddynext_user_warned', $user_id, $actor_id, $reason, $warning_count );
 
 		return true;
 	}
@@ -612,10 +615,10 @@ class ModerationService {
 		/**
 		 * Fires after a shadow-ban is removed from a user.
 		 *
-		 * @param int $user_id  User ID.
-		 * @param int $actor_id Moderator user ID.
+		 * @param int $user_id    User ID.
+		 * @param int $removed_by Moderator user ID.
 		 */
-		do_action( 'buddynext_user_unshadow_banned', $user_id, $actor_id );
+		do_action( 'buddynext_user_shadow_ban_removed', $user_id, $actor_id );
 
 		return true;
 	}
@@ -750,10 +753,12 @@ class ModerationService {
 		/**
 		 * Fires after an appeal is submitted.
 		 *
-		 * @param int $appeal_id Appeal ID.
-		 * @param int $user_id   User who submitted the appeal.
+		 * @param int    $appeal_id   Appeal ID.
+		 * @param int    $user_id     User who submitted the appeal.
+		 * @param string $target_type Type of the appealed object ('suspension').
+		 * @param int    $target_id   ID of the appealed object.
 		 */
-		do_action( 'buddynext_appeal_submitted', $appeal_id, $user_id );
+		do_action( 'buddynext_appeal_submitted', $appeal_id, $user_id, 'suspension', $suspension_id );
 
 		return $appeal_id;
 	}

@@ -2,7 +2,7 @@
 /**
  * CSS custom-property token service.
  *
- * Generates the :root { --bn-* } block that maps BuddyNext design tokens to
+ * Generates the :root { --* } block that maps BuddyNext design tokens to
  * WordPress theme-preset variables (or hard-coded defaults when no preset
  * exists).  The buddynext_css_vars filter lets themes and child plugins
  * override individual token values at run-time.
@@ -23,51 +23,129 @@ namespace BuddyNext\Theme;
 class TokenService {
 
 	/**
-	 * Register the wp_head hook so tokens are emitted on every page.
+	 * Register hooks so tokens are attached to the base stylesheet.
+	 *
+	 * Requires the target handle to be registered via wp_add_inline_style(),
+	 * which happens on wp_enqueue_scripts.  We hook at priority 20 so
+	 * AssetService::register_assets() (priority 10) has already run.
 	 *
 	 * @return void
 	 */
 	public function init(): void {
-		add_action( 'wp_head', array( $this, 'output_css' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'attach_tokens' ), 20 );
 	}
 
 	/**
-	 * Return the default token map.
+	 * Return the default light-mode token map.
 	 *
-	 * Values intentionally reference wp--preset-- variables so that active
-	 * block-theme palettes are respected.  Hard-coded hex fallbacks are used
-	 * only for tokens that have no direct preset equivalent.
+	 * Values reference wp--preset-- variables so that active block-theme
+	 * palettes are respected.  Hard-coded fallbacks are used only for tokens
+	 * that have no direct preset equivalent.
 	 *
 	 * @return array<string, string>
 	 */
 	public function get_defaults(): array {
 		return array(
-			// Colour tokens — delegate to block-theme colour palette.
-			'--bn-color-primary'       => 'var(--wp--preset--color--primary, #0073aa)',
-			'--bn-color-secondary'     => 'var(--wp--preset--color--secondary, #005f8e)',
-			'--bn-color-bg'            => 'var(--wp--preset--color--background, #ffffff)',
-			'--bn-color-surface'       => 'var(--wp--preset--color--tertiary, #f8f8f7)',
-			'--bn-color-text'          => 'var(--wp--preset--color--foreground, #37352f)',
+			// ── Brand ──────────────────────────────────────────────────────────
+			'--brand'           => 'var(--wp--preset--color--primary, #0073aa)',
+			'--brand-hover'     => 'var(--wp--preset--color--primary-hover, #005f8e)',
+			'--brand-light'     => 'var(--wp--preset--color--primary-light, #e8f4fb)',
 
-			// Typography tokens — use block-theme font families when available.
-			'--bn-font-family'         => "var(--wp--preset--font-family--body, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif)",
-			'--bn-font-family-display' => "var(--wp--preset--font-family--display, 'Plus Jakarta Sans', 'Inter', sans-serif)",
-			'--bn-font-size-base'      => 'var(--wp--preset--font-size--medium, 15px)',
-			'--bn-font-size-sm'        => 'var(--wp--preset--font-size--small, 13px)',
-			'--bn-font-size-lg'        => 'var(--wp--preset--font-size--large, 17px)',
+			// ── Backgrounds ────────────────────────────────────────────────────
+			'--bg'              => 'var(--wp--preset--color--base, #ffffff)',
+			'--bg-subtle'       => 'var(--wp--preset--color--base-subtle, #f8f8f7)',
+			'--bg-hover'        => 'var(--wp--preset--color--base-hover, #f1f1f0)',
+			'--surface'         => 'var(--wp--preset--color--base, #ffffff)',
 
-			// Spacing tokens — 4 px grid.
-			'--bn-space-xs'            => '4px',
-			'--bn-space-sm'            => '8px',
-			'--bn-space-md'            => '16px',
-			'--bn-space-lg'            => '24px',
-			'--bn-space-xl'            => '32px',
+			// ── Borders ────────────────────────────────────────────────────────
+			'--border'          => 'var(--wp--preset--color--border, #e8e8e5)',
+			'--border-soft'     => '#f1f1ee',
 
-			// Border radius tokens.
-			'--bn-radius-sm'           => '4px',
-			'--bn-radius-md'           => '8px',
-			'--bn-radius-lg'           => '12px',
-			'--bn-radius-full'         => '9999px',
+			// ── Text ───────────────────────────────────────────────────────────
+			'--text-1'          => 'var(--wp--preset--color--foreground, #37352f)',
+			'--text-2'          => 'var(--wp--preset--color--foreground-secondary, #787774)',
+			'--text-3'          => 'var(--wp--preset--color--foreground-tertiary, #aeaca8)',
+
+			// ── Semantic ───────────────────────────────────────────────────────
+			'--green'           => 'var(--wp--preset--color--success, #059669)',
+			'--green-bg'        => '#ecfdf5',
+			'--amber'           => 'var(--wp--preset--color--warning, #d97706)',
+			'--amber-bg'        => '#fffbeb',
+			'--red'             => 'var(--wp--preset--color--error, #dc2626)',
+			'--red-bg'          => '#fef2f2',
+
+			// ── Integration accents ────────────────────────────────────────────
+			'--jetonomy'        => '#5b21b6',
+			'--jetonomy-bg'     => '#f5f3ff',
+			'--jetonomy-border' => '#ddd6fe',
+			'--mvs'             => '#0f766e',
+			'--mvs-bg'          => '#f0fdf9',
+			'--mvs-border'      => '#99f6e4',
+
+			// ── Typography ─────────────────────────────────────────────────────
+			'--font-body'       => "var(--wp--preset--font-family--body, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif)",
+			'--font-display'    => "var(--wp--preset--font-family--display, 'Plus Jakarta Sans', 'Inter', sans-serif)",
+			'--text-xs'         => 'var(--wp--preset--font-size--xs, 11px)',
+			'--text-sm'         => 'var(--wp--preset--font-size--sm, 13px)',
+			'--text-base'       => 'var(--wp--preset--font-size--medium, 15px)',
+			'--text-lg'         => 'var(--wp--preset--font-size--large, 17px)',
+			'--text-xl'         => 'var(--wp--preset--font-size--xl, 20px)',
+			'--text-2xl'        => 'var(--wp--preset--font-size--2xl, 24px)',
+			'--text-3xl'        => 'var(--wp--preset--font-size--3xl, 30px)',
+			'--text-4xl'        => 'var(--wp--preset--font-size--4xl, 38px)',
+			'--leading-tight'   => '1.25',
+			'--leading-normal'  => '1.5',
+			'--leading-body'    => '1.7',
+
+			// ── Spacing — 4 px grid ────────────────────────────────────────────
+			'--s1'              => '4px',
+			'--s2'              => '8px',
+			'--s3'              => '12px',
+			'--s4'              => '16px',
+			'--s5'              => '20px',
+			'--s6'              => '24px',
+			'--s8'              => '32px',
+			'--s10'             => '40px',
+			'--s12'             => '48px',
+
+			// ── Border radius ──────────────────────────────────────────────────
+			'--r-sm'            => '4px',
+			'--r-md'            => '8px',
+			'--r-lg'            => '12px',
+			'--r-xl'            => '16px',
+			'--r-full'          => '9999px',
+		);
+	}
+
+	/**
+	 * Return the dark-mode token overrides applied under [data-theme="dark"].
+	 *
+	 * @return array<string, string>
+	 */
+	public function get_dark_overrides(): array {
+		return array(
+			'--bg'          => '#191919',
+			'--bg-subtle'   => '#202020',
+			'--bg-hover'    => '#2a2a2a',
+			'--surface'     => '#252525',
+			'--border'      => '#333330',
+			'--border-soft' => '#2c2c2a',
+			'--text-1'      => '#e8e8e6',
+			'--text-2'      => '#9b9b97',
+			'--text-3'      => '#6b6b67',
+			'--brand'       => '#4dabdb',
+			'--brand-light' => '#1a2e3a',
+			'--brand-hover' => '#5fbfe8',
+			'--jetonomy'    => '#a78bfa',
+			'--jetonomy-bg' => '#1e1830',
+			'--mvs'         => '#34d399',
+			'--mvs-bg'      => '#0d2420',
+			'--green'       => '#34d399',
+			'--green-bg'    => '#0d2420',
+			'--amber'       => '#fbbf24',
+			'--amber-bg'    => '#2a2000',
+			'--red'         => '#f87171',
+			'--red-bg'      => '#2d0f0f',
 		);
 	}
 
@@ -77,31 +155,50 @@ class TokenService {
 	 * Applies the buddynext_css_vars filter so themes / bridges can override
 	 * individual token values.
 	 *
-	 * @return string CSS string including :root { … } wrapper.
+	 * @return string CSS string including :root { … } and [data-theme="dark"] { … } wrappers.
 	 */
 	public function build_css(): string {
 		/**
 		 * Filter the BuddyNext CSS custom-property token map.
 		 *
-		 * @param array<string, string> $vars Token name → value pairs.
+		 * @param array<string, string> $vars Token name => value pairs.
 		 */
 		$vars = apply_filters( 'buddynext_css_vars', $this->get_defaults() );
 
-		$declarations = '';
+		$root_declarations = '';
 		foreach ( $vars as $property => $value ) {
-			$declarations .= sprintf( "\t%s: %s;\n", $property, $value );
+			$root_declarations .= sprintf( "\t%s: %s;\n", $property, $value );
 		}
 
-		return sprintf( ":root {\n%s}\n", $declarations );
+		/**
+		 * Filter the BuddyNext dark-mode CSS custom-property overrides.
+		 *
+		 * @param array<string, string> $overrides Token name => value pairs.
+		 */
+		$dark = apply_filters( 'buddynext_css_vars_dark', $this->get_dark_overrides() );
+
+		$dark_declarations = '';
+		foreach ( $dark as $property => $value ) {
+			$dark_declarations .= sprintf( "\t%s: %s;\n", $property, $value );
+		}
+
+		return sprintf(
+			":root {\n%s}\n\n[data-theme=\"dark\"] {\n%s}\n",
+			$root_declarations,
+			$dark_declarations
+		);
 	}
 
 	/**
-	 * Emit the CSS block inside a <style> tag on wp_head.
+	 * Attach the CSS token block as inline styles on the base stylesheet handle.
+	 *
+	 * Using wp_add_inline_style() instead of raw echo keeps all output inside
+	 * the WordPress style queue so it is correctly positioned and can be
+	 * dequeued by child themes.
 	 *
 	 * @return void
 	 */
-	public function output_css(): void {
-		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-		echo '<style id="buddynext-tokens">' . $this->build_css() . '</style>' . "\n";
+	public function attach_tokens(): void {
+		wp_add_inline_style( 'bn-base', $this->build_css() );
 	}
 }

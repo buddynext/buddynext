@@ -756,3 +756,23 @@ A phase is Done when ALL of:
 | 2026-03-24 | 3 | feature | audit(feed) Gate 1: assets/icons/reaction-haha.svg, reaction-wow.svg, reaction-sad.svg, reaction-angry.svg: 4 new Lucide-style SVG reaction icons |
 | 2026-03-24 | 3 | fix | audit(feed) Gate 1+CSS: assets/css/bn-feed.css: added .bn-reaction-icon and .bn-post-card__react-icon CSS rules with per-type color accents via --bn-* tokens |
 | 2026-03-24 | 3 | fix | audit(feed) Gate 2: includes/Feed/PostService.php, FeedService.php, PollService.php, ShareService.php, BookmarkService.php, FeedController.php: converted all phpcs:ignore WordPress.DB.* to phpcs:disable/enable blocks |
+| 2026-03-24 | 11 | fix | templates/onboarding/index.php: meta key bn_onboarding_completed → bn_onboarding_complete (canonical key matches OnboardingService::META_COMPLETE) |
+| 2026-03-24 | 11 | feature | InviteService: added import_from_csv(int $inviter_id, string $csv_path): array — fopen/fgetcsv loop, header skip, is_email() validation, finally-block fclose, imported/skipped/errors summary |
+| 2026-03-24 | 11 | feature | InviteController: new REST controller — POST /buddynext/v1/invites/import-csv; finfo MIME check (text/csv + text/plain + application/csv + vnd.ms-excel); require_admin (logged in + manage_options); wired in REST/Router.php |
+| 2026-03-24 | 6 | fix | templates/notifications/index.php: SELECT now includes group_count + group_key; render_row shows "X and N others" for grouped types (follower/reaction/comment/space_new_post) when group_count > 1 |
+| 2026-03-24 | 6 | fix | NotificationListener: added buddynext_post_created hook → on_post_created_in_space(); notifies active space members (exc. author) via Action Scheduler (sync fallback); respects space pref + block list |
+| 2026-03-24 | 6 | fix | NotificationListener: added async_space_new_post_notification() AS worker + buddynext_async_space_new_post_notification hook registration |
+| 2026-03-24 | 6 | fix | NotificationPrefService: added set_space_pref(user_id, space_id, pref) — validates against 'all'/'mentions_only'/'none', UPDATE bn_space_members.notification_pref; added VALID_SPACE_PREFS const |
+| 2026-03-24 | 6 | fix | EmailSender::render(): added {{actor_name}} (display name of sender_id) and {{notification_message}} (data['message'] key) to token replacement map |
+| 2026-03-24 | 6 | fix | templates/notifications/index.php: bn.space_new_post added to space filter_types, type_meta map, and space_unread badge SUM |
+| 2026-03-24 | 5 | fix | SpaceMemberService: add remove() method — permission check (owner/mod/admin), delete row, adjust member_count, invalidate cache, fire buddynext_member_removed_from_space |
+| 2026-03-24 | 5 | fix | SpaceMemberService: fix hook arg order — buddynext_space_member_joined, buddynext_space_join_approved, buddynext_space_member_removed, buddynext_space_member_left all now fire ($user_id, $space_id) per spec |
+| 2026-03-24 | 5 | fix | templates/spaces/directory.php: 'public' → 'open' in visibility filter IN array, privacy_label match, privacy_icon match, and join button elseif |
+| 2026-03-24 | 5 | fix | templates/spaces/home.php: 'public' → 'open' in join button elseif |
+| 2026-03-24 | 5 | fix | templates/spaces/members.php: 'mod' → 'moderator' in bn_space_role_label() labels array and role_class elseif |
+| 2026-03-24 | 5 | fix | templates/spaces/settings.php: invite() arg order — was invite($space_id, $invite_user->ID, $acting_user_id), now invite($space_id, $acting_user_id, $invite_user->ID) |
+| 2026-03-24 | 10 | fix | JetonomyBridge: added @mention parsing in on_post_created — preg_match_all + sanitize_user() + buddynext_user_mentioned action per matched username |
+| 2026-03-24 | 10 | fix | JetonomyBridge: added opt-in feed sync — direct bn_posts INSERT (type: forum_post) when buddynext_jetonomy_feed_sync option is truthy |
+| 2026-03-24 | 10 | fix | CareerBoardBridge: wcb_job_created accepted_args 4→3; callback now on_job_created($job_id, $job_data, $user_id) — title/description extracted from $job_data array |
+| 2026-03-24 | 10 | fix | CareerBoardBridge: added wcb_job_expired handler — deletes bn_posts entry (type: job_post) matched by link_url |
+| 2026-03-24 | 10 | fix | WPMediaVerseBridge: mvs_favorite_toggled action value 'added'→'add' per hook spec ($action is 'add' or 'remove') |

@@ -728,7 +728,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 						data-wp-on--click="actions.cancelJoinRequest"
 					><?php esc_html_e( 'Request Pending', 'buddynext' ); ?></button>
 
-				<?php elseif ( 'public' === $space->type ) : ?>
+				<?php elseif ( 'open' === $space->type ) : ?>
 					<button
 						class="bn-btn-primary"
 						data-wp-on--click="actions.joinSpace"

@@ -12,6 +12,7 @@
  *   GET    /users/{id}/strikes                    — list active strikes for a user (admin only)
  *   POST   /users/{id}/strikes                    — issue a strike (admin only)
  *   POST   /users/{id}/strikes/{sid}/reverse      — reverse a strike (admin only)
+ *   GET    /posts/{id}/content-warning            — get content warning state (public)
  *   PUT    /posts/{id}/content-warning            — set/clear content warning (admin only)
  *   POST   /users/{id}/warn                       — issue a warning to a user (admin only)
  *   POST   /users/{id}/shadow-ban                 — shadow-ban a user (admin only)
@@ -155,7 +156,7 @@ class ModerationController {
 			'buddynext/v1',
 			'/reports/(?P<id>[\d]+)/escalate',
 			array(
-				'methods'             => WP_REST_Server::CREATABLE,
+				'methods'             => WP_REST_Server::EDITABLE,
 				'callback'            => array( $this, 'escalate_report' ),
 				'permission_callback' => array( $this, 'require_admin' ),
 			)
@@ -165,7 +166,7 @@ class ModerationController {
 			'buddynext/v1',
 			'/reports/(?P<id>[\d]+)/resolve',
 			array(
-				'methods'             => WP_REST_Server::CREATABLE,
+				'methods'             => WP_REST_Server::EDITABLE,
 				'callback'            => array( $this, 'resolve_report' ),
 				'permission_callback' => array( $this, 'require_admin' ),
 			)
@@ -553,30 +554,45 @@ class ModerationController {
 			)
 		);
 
-		// Content warning — admin can force-set or clear a warning on any post.
+		// Content warning — public GET to check warning state; admin PUT to set/clear.
 		register_rest_route(
 			'buddynext/v1',
 			'/posts/(?P<id>[\d]+)/content-warning',
 			array(
-				'methods'             => WP_REST_Server::EDITABLE,
-				'callback'            => array( $this, 'set_content_warning' ),
-				'permission_callback' => array( $this, 'require_admin' ),
-				'args'                => array(
-					'id'                   => array(
-						'required'          => true,
-						'type'              => 'integer',
-						'minimum'           => 1,
-						'sanitize_callback' => 'absint',
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_content_warning' ),
+					'permission_callback' => '__return_true',
+					'args'                => array(
+						'id' => array(
+							'required'          => true,
+							'type'              => 'integer',
+							'minimum'           => 1,
+							'sanitize_callback' => 'absint',
+						),
 					),
-					'content_warning'      => array(
-						'required' => true,
-						'type'     => 'boolean',
-					),
-					'content_warning_type' => array(
-						'required'          => false,
-						'type'              => 'string',
-						'default'           => 'nsfw',
-						'sanitize_callback' => 'sanitize_key',
+				),
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => array( $this, 'set_content_warning' ),
+					'permission_callback' => array( $this, 'require_admin' ),
+					'args'                => array(
+						'id'                   => array(
+							'required'          => true,
+							'type'              => 'integer',
+							'minimum'           => 1,
+							'sanitize_callback' => 'absint',
+						),
+						'content_warning'      => array(
+							'required' => true,
+							'type'     => 'boolean',
+						),
+						'content_warning_type' => array(
+							'required'          => false,
+							'type'              => 'string',
+							'default'           => 'nsfw',
+							'sanitize_callback' => 'sanitize_key',
+						),
 					),
 				),
 			)
@@ -1383,6 +1399,48 @@ class ModerationController {
 				'banned'   => true,
 				'space_id' => $space_id,
 				'user_id'  => $user_id,
+			),
+			200
+		);
+	}
+
+	/**
+	 * Return the content warning state for a post.
+	 *
+	 * Public — anyone may check whether a post carries a content warning before
+	 * deciding whether to view it. Returns has_warning, warning_type, and
+	 * warning_text from bn_posts. Returns 404 when the post does not exist.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_content_warning( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		global $wpdb;
+
+		$post_id = absint( $request->get_param( 'id' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT content_warning, content_warning_type, content_warning_text
+				 FROM {$wpdb->prefix}bn_posts
+				 WHERE id = %d
+				 LIMIT 1",
+				$post_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( null === $row ) {
+			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'has_warning'  => (bool) $row['content_warning'],
+				'warning_type' => (string) ( $row['content_warning_type'] ?? '' ),
+				'warning_text' => (string) ( $row['content_warning_text'] ?? '' ),
 			),
 			200
 		);

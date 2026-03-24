@@ -726,62 +726,6 @@ class Installer {
 				KEY created_at (created_at)
 			) {$cs};",
 
-			// ── Direct Messaging ───────────────────────────────────────────────
-
-			"CREATE TABLE {$p}bn_conversations (
-				id               BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				type             ENUM('direct','group') NOT NULL DEFAULT 'direct',
-				title            VARCHAR(255) DEFAULT NULL,
-				created_by       BIGINT(20) UNSIGNED NOT NULL,
-				last_message_id  BIGINT(20) UNSIGNED DEFAULT NULL,
-				last_activity_at DATETIME DEFAULT NULL,
-				created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY      (id),
-				KEY              created_by (created_by),
-				KEY              last_activity (last_activity_at)
-			) {$cs};",
-
-			"CREATE TABLE {$p}bn_conversation_participants (
-				conversation_id BIGINT(20) UNSIGNED NOT NULL,
-				user_id         BIGINT(20) UNSIGNED NOT NULL,
-				role            ENUM('admin','member') NOT NULL DEFAULT 'member',
-				last_read_at    DATETIME DEFAULT NULL,
-				is_muted        TINYINT(1) NOT NULL DEFAULT 0,
-				muted_until     DATETIME DEFAULT NULL,
-				is_pinned       TINYINT(1) NOT NULL DEFAULT 0,
-				is_archived     TINYINT(1) NOT NULL DEFAULT 0,
-				status          ENUM('active','left','removed') NOT NULL DEFAULT 'active',
-				joined_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY     (conversation_id, user_id),
-				KEY             user_conversations (user_id, status, last_read_at)
-			) {$cs};",
-
-			"CREATE TABLE {$p}bn_messages (
-				id              BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				conversation_id BIGINT(20) UNSIGNED NOT NULL,
-				sender_id       BIGINT(20) UNSIGNED NOT NULL,
-				content         TEXT DEFAULT NULL,
-				message_type    ENUM('text','media','system') NOT NULL DEFAULT 'text',
-				attachment_id   BIGINT(20) UNSIGNED DEFAULT NULL,
-				media_id        BIGINT(20) UNSIGNED DEFAULT NULL,
-				parent_id       BIGINT(20) UNSIGNED DEFAULT NULL,
-				metadata        JSON DEFAULT NULL,
-				is_deleted      TINYINT(1) NOT NULL DEFAULT 0,
-				deleted_for_all TINYINT(1) NOT NULL DEFAULT 0,
-				created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY     (id),
-				KEY             conversation (conversation_id, created_at),
-				KEY             sender (sender_id)
-			) {$cs};",
-
-			"CREATE TABLE {$p}bn_message_reactions (
-				message_id BIGINT(20) UNSIGNED NOT NULL,
-				user_id    BIGINT(20) UNSIGNED NOT NULL,
-				emoji      VARCHAR(32) NOT NULL,
-				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY (message_id, user_id)
-			) {$cs};",
-
 			// ── Activity Log ───────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_activity_log (

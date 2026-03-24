@@ -85,17 +85,17 @@ class WPMediaVerseBridge {
 	/**
 	 * Notify the media owner when their content is favourited.
 	 *
-	 * Only fires a notification on 'added' — not on 'removed' — to avoid
+	 * Only fires a notification on 'add' — not on 'remove' — to avoid
 	 * spamming the owner when a user toggles the favourite off.
 	 *
 	 * Hooked on: mvs_favorite_toggled ($media_id, $user_id, $action)
 	 *
 	 * @param int    $media_id Media item ID.
 	 * @param int    $user_id  User who toggled the favourite.
-	 * @param string $action   'added' or 'removed'.
+	 * @param string $action   'add' or 'remove'.
 	 */
 	public function on_favorite_toggled( int $media_id, int $user_id, string $action ): void {
-		if ( 'added' !== $action ) {
+		if ( 'add' !== $action ) {
 			return;
 		}
 

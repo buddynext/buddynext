@@ -45,6 +45,12 @@ class NotificationListener implements ListenerInterface {
 		add_action( 'buddynext_space_join_requested', array( $this, 'on_space_join_requested' ), 10, 2 );
 		add_action( 'buddynext_space_join_approved', array( $this, 'on_space_join_approved' ), 10, 3 );
 		add_action( 'buddynext_space_member_invited', array( $this, 'on_space_member_invited' ), 10, 3 );
+
+		// Space posts.
+		add_action( 'buddynext_post_created', array( $this, 'on_post_created_in_space' ), 10, 3 );
+
+		// Async worker — runs inline when Action Scheduler is absent.
+		add_action( 'buddynext_async_space_new_post_notification', array( $this, 'async_space_new_post_notification' ), 10, 1 );
 	}
 
 	/**
@@ -445,6 +451,129 @@ class NotificationListener implements ListenerInterface {
 				'object_type'  => 'space',
 				'object_id'    => $space_id,
 				'group_key'    => 'space_invite_' . $space_id . '_' . $invited_user_id,
+			)
+		);
+	}
+
+	/**
+	 * Notify active space members when a new post is created in their space.
+	 *
+	 * Skips the post author, users who have opted out via space notification
+	 * preferences, and users in a block relationship with the author.
+	 * Uses Action Scheduler for bulk dispatch to avoid synchronous N+1 sends.
+	 *
+	 * @param int    $post_id Post that was created.
+	 * @param int    $user_id Author of the post.
+	 * @param string $_type   Post type (unused — required by hook contract).
+	 */
+	public function on_post_created_in_space( int $post_id, int $user_id, string $_type ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_type required by hook contract.
+		global $wpdb;
+
+		// Resolve the space this post belongs to.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
+				$post_id
+			)
+		);
+
+		if ( 0 === $space_id ) {
+			return;
+		}
+
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		// Fetch all active space member IDs except the author.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$member_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->prefix}bn_space_members
+				 WHERE space_id = %d AND status = 'active' AND user_id != %d",
+				$space_id,
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( empty( $member_ids ) ) {
+			return;
+		}
+
+		$pref_service = buddynext_service( 'notification_prefs' );
+
+		foreach ( $member_ids as $member_id ) {
+			$member_id = (int) $member_id;
+
+			// Respect per-space notification preference.
+			$space_pref = $pref_service->get_space_pref( $member_id, $space_id );
+			if ( 'none' === $space_pref ) {
+				continue;
+			}
+
+			// Skip users in a block relationship with the author.
+			if ( $this->is_blocked( $member_id, $user_id ) ) {
+				continue;
+			}
+
+			if ( function_exists( 'as_enqueue_async_action' ) ) {
+				as_enqueue_async_action(
+					'buddynext_async_space_new_post_notification',
+					array(
+						'post_id'      => $post_id,
+						'space_id'     => $space_id,
+						'author_id'    => $user_id,
+						'recipient_id' => $member_id,
+					),
+					'buddynext'
+				);
+			} else {
+				buddynext_service( 'notifications' )->create(
+					array(
+						'recipient_id' => $member_id,
+						'sender_id'    => $user_id,
+						'type'         => 'bn.space_new_post',
+						'object_type'  => 'post',
+						'object_id'    => $post_id,
+						'group_key'    => 'space_new_post_' . $space_id . '_' . $member_id,
+					)
+				);
+			}
+		}
+	}
+
+	/**
+	 * Action Scheduler worker: create a single space_new_post notification.
+	 *
+	 * Action Scheduler passes all arguments as a single associative array when
+	 * the action was enqueued with an array as the sole argument.
+	 *
+	 * @param array $args Keys: post_id, space_id, author_id, recipient_id.
+	 */
+	public function async_space_new_post_notification( array $args ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		$post_id      = (int) ( $args['post_id'] ?? 0 );
+		$space_id     = (int) ( $args['space_id'] ?? 0 );
+		$author_id    = (int) ( $args['author_id'] ?? 0 );
+		$recipient_id = (int) ( $args['recipient_id'] ?? 0 );
+
+		if ( 0 === $post_id || 0 === $space_id || 0 === $author_id || 0 === $recipient_id ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $recipient_id,
+				'sender_id'    => $author_id,
+				'type'         => 'bn.space_new_post',
+				'object_type'  => 'post',
+				'object_id'    => $post_id,
+				'group_key'    => 'space_new_post_' . $space_id . '_' . $recipient_id,
 			)
 		);
 	}

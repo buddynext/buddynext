@@ -179,6 +179,11 @@ class NotificationPrefService {
 	}
 
 	/**
+	 * Valid per-space notification preference values.
+	 */
+	private const VALID_SPACE_PREFS = array( 'all', 'mentions_only', 'none' );
+
+	/**
 	 * Return the per-space notification preference for a user.
 	 *
 	 * Reads the notification_pref column from bn_space_members for the given
@@ -186,7 +191,7 @@ class NotificationPrefService {
 	 *
 	 * @param int $user_id  User ID.
 	 * @param int $space_id Space ID.
-	 * @return string One of 'all', 'mentions', or 'none'.
+	 * @return string One of 'all', 'mentions_only', or 'none'.
 	 */
 	public function get_space_pref( int $user_id, int $space_id ): string {
 		global $wpdb;
@@ -206,5 +211,39 @@ class NotificationPrefService {
 		}
 
 		return (string) $pref;
+	}
+
+	/**
+	 * Set the per-space notification preference for a user.
+	 *
+	 * Only updates membership rows that already exist — a user must be a member
+	 * of the space before their notification preference can be set.
+	 *
+	 * @param int    $user_id  User ID.
+	 * @param int    $space_id Space ID.
+	 * @param string $pref     One of 'all', 'mentions_only', or 'none'.
+	 * @return bool True when the preference was saved, false when the user has
+	 *              no active membership in the given space or $pref is invalid.
+	 */
+	public function set_space_pref( int $user_id, int $space_id, string $pref ): bool {
+		if ( ! in_array( $pref, self::VALID_SPACE_PREFS, true ) ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_space_members',
+			array( 'notification_pref' => $pref ),
+			array(
+				'user_id'  => $user_id,
+				'space_id' => $space_id,
+			),
+			array( '%s' ),
+			array( '%d', '%d' )
+		);
+
+		return ( false !== $updated && $updated > 0 );
 	}
 }

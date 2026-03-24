@@ -12,7 +12,7 @@ namespace BuddyNext\Tests\Theme;
 use BuddyNext\Theme\TokenService;
 
 /**
- * Verifies that --bn-* CSS tokens are generated correctly.
+ * Verifies that CSS custom-property tokens are generated correctly.
  *
  * @covers \BuddyNext\Theme\TokenService
  */
@@ -34,27 +34,56 @@ class TokenServiceTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * The default token map contains the primary color token.
+	 * The default token map contains the brand color token.
 	 */
-	public function test_get_defaults_includes_primary_color(): void {
+	public function test_get_defaults_includes_brand_color(): void {
 		$defaults = $this->service->get_defaults();
-		$this->assertArrayHasKey( '--bn-color-primary', $defaults );
+		$this->assertArrayHasKey( '--brand', $defaults );
 	}
 
 	/**
-	 * The default token map contains the font family token.
+	 * The default token map contains the font-body token.
 	 */
-	public function test_get_defaults_includes_font_family(): void {
+	public function test_get_defaults_includes_font_body(): void {
 		$defaults = $this->service->get_defaults();
-		$this->assertArrayHasKey( '--bn-font-family', $defaults );
+		$this->assertArrayHasKey( '--font-body', $defaults );
 	}
 
 	/**
-	 * The default token map contains the base spacing token.
+	 * The default token map contains the s4 spacing token (16 px base).
 	 */
-	public function test_get_defaults_includes_space_md(): void {
+	public function test_get_defaults_includes_s4_spacing(): void {
 		$defaults = $this->service->get_defaults();
-		$this->assertArrayHasKey( '--bn-space-md', $defaults );
+		$this->assertArrayHasKey( '--s4', $defaults );
+	}
+
+	/**
+	 * The default token map contains all nine spacing steps.
+	 */
+	public function test_get_defaults_includes_all_spacing_steps(): void {
+		$defaults = $this->service->get_defaults();
+		foreach ( array( '--s1', '--s2', '--s3', '--s4', '--s5', '--s6', '--s8', '--s10', '--s12' ) as $token ) {
+			$this->assertArrayHasKey( $token, $defaults, "Missing spacing token: $token" );
+		}
+	}
+
+	/**
+	 * The default token map contains all five radius tokens.
+	 */
+	public function test_get_defaults_includes_all_radius_tokens(): void {
+		$defaults = $this->service->get_defaults();
+		foreach ( array( '--r-sm', '--r-md', '--r-lg', '--r-xl', '--r-full' ) as $token ) {
+			$this->assertArrayHasKey( $token, $defaults, "Missing radius token: $token" );
+		}
+	}
+
+	/**
+	 * The default token map contains dark-mode-related integration accent tokens.
+	 */
+	public function test_get_defaults_includes_integration_accents(): void {
+		$defaults = $this->service->get_defaults();
+		$this->assertArrayHasKey( '--jetonomy', $defaults );
+		$this->assertArrayHasKey( '--mvs', $defaults );
 	}
 
 	/**
@@ -64,13 +93,13 @@ class TokenServiceTest extends \WP_UnitTestCase {
 		add_filter(
 			'buddynext_css_vars',
 			function ( array $vars ): array {
-				$vars['--bn-color-primary'] = '#ff0000';
+				$vars['--brand'] = '#ff0000';
 				return $vars;
 			}
 		);
 
 		$css = $this->service->build_css();
-		$this->assertStringContainsString( '--bn-color-primary: #ff0000', $css );
+		$this->assertStringContainsString( '--brand: #ff0000', $css );
 	}
 
 	/**
@@ -79,6 +108,14 @@ class TokenServiceTest extends \WP_UnitTestCase {
 	public function test_build_css_outputs_root_block(): void {
 		$css = $this->service->build_css();
 		$this->assertStringContainsString( ':root {', $css );
+	}
+
+	/**
+	 * The built CSS contains a dark-mode override block.
+	 */
+	public function test_build_css_outputs_dark_mode_block(): void {
+		$css = $this->service->build_css();
+		$this->assertStringContainsString( '[data-theme="dark"]', $css );
 	}
 
 	/**
@@ -94,16 +131,33 @@ class TokenServiceTest extends \WP_UnitTestCase {
 	 */
 	public function test_defaults_use_wp_preset_vars(): void {
 		$defaults = $this->service->get_defaults();
-		$this->assertStringContainsString( '--wp--preset--', $defaults['--bn-color-primary'] );
+		$this->assertStringContainsString( '--wp--preset--', $defaults['--brand'] );
 	}
 
 	/**
-	 * Calling init() attaches the wp_head hook.
+	 * Calling init() attaches the wp_enqueue_scripts hook at priority 20.
 	 */
-	public function test_init_adds_wp_head_hook(): void {
+	public function test_init_adds_wp_enqueue_scripts_hook(): void {
 		$this->service->init();
-		$this->assertNotFalse(
-			has_action( 'wp_head', array( $this->service, 'output_css' ) )
+		$this->assertSame(
+			20,
+			has_action( 'wp_enqueue_scripts', array( $this->service, 'attach_tokens' ) )
 		);
+	}
+
+	/**
+	 * The buddynext_css_vars_dark filter can override dark-mode token values.
+	 */
+	public function test_buddynext_css_vars_dark_filter_overrides_value(): void {
+		add_filter(
+			'buddynext_css_vars_dark',
+			function ( array $vars ): array {
+				$vars['--bg'] = '#000000';
+				return $vars;
+			}
+		);
+
+		$css = $this->service->build_css();
+		$this->assertStringContainsString( '--bg: #000000', $css );
 	}
 }

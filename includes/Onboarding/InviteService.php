@@ -174,6 +174,79 @@ class InviteService {
 		return true;
 	}
 
+	/**
+	 * Import invites from a CSV file.
+	 *
+	 * Reads the file at $csv_path, skips the header row, and attempts to
+	 * create one invite per row. Each row must have the email address in the
+	 * first column; an optional second column is treated as the recipient's
+	 * first name.
+	 *
+	 * Rows with an invalid email format are counted as skipped. Rows that
+	 * fail to insert (e.g. duplicate email in a pending state) are counted
+	 * as errors with a descriptive message. The file handle is always closed.
+	 *
+	 * @param int    $inviter_id User ID of the person sending invites (reserved for capability checks by callers).
+	 * @param string $csv_path   Absolute path to the uploaded CSV file.
+	 * @return array{imported: int, skipped: int, errors: string[]} Import summary.
+	 */
+	public function import_from_csv( int $inviter_id, string $csv_path ): array {
+		$summary = array(
+			'imported' => 0,
+			'skipped'  => 0,
+			'errors'   => array(),
+		);
+
+		if ( ! is_readable( $csv_path ) ) {
+			$summary['errors'][] = __( 'CSV file is not readable.', 'buddynext' );
+			return $summary;
+		}
+
+		$handle = fopen( $csv_path, 'r' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+		if ( false === $handle ) {
+			$summary['errors'][] = __( 'Could not open CSV file.', 'buddynext' );
+			return $summary;
+		}
+
+		try {
+			// Skip header row.
+			fgetcsv( $handle );
+
+			while ( true ) {
+				$row = fgetcsv( $handle );
+				if ( false === $row ) {
+					break;
+				}
+
+				$raw_email = isset( $row[0] ) ? trim( (string) $row[0] ) : '';
+				if ( '' === $raw_email ) {
+					++$summary['skipped'];
+					continue;
+				}
+
+				$email = is_email( $raw_email );
+				if ( false === $email ) {
+					++$summary['skipped'];
+					continue;
+				}
+
+				$first_name = isset( $row[1] ) ? sanitize_text_field( trim( (string) $row[1] ) ) : '';
+				$invite_id  = $this->create( $email, $first_name );
+
+				if ( $invite_id > 0 ) {
+					++$summary['imported'];
+				} else {
+					/* translators: %s: email address */
+					$summary['errors'][] = sprintf( __( 'Failed to create invite for %s.', 'buddynext' ), $email );
+				}
+			}
+		} finally {
+			fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		}
+
+		return $summary;
+	}
+
 	// -------------------------------------------------------------------------
 	// Private helpers
 	// -------------------------------------------------------------------------

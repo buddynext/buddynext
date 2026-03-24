@@ -46,7 +46,7 @@ class SearchIndexListener implements ListenerInterface {
 		add_action( 'buddynext_async_deindex_space', array( $this, 'async_deindex_space' ), 10, 1 );
 
 		// Batch re-index handler (triggered by activation or manual schedule).
-		add_action( 'buddynext_reindex_all', array( SearchService::class, 'schedule_reindex_all' ) );
+		add_action( 'buddynext_reindex_all', array( $this, 'handle_reindex_all' ) );
 	}
 
 	/**
@@ -235,6 +235,110 @@ class SearchIndexListener implements ListenerInterface {
 	 */
 	public function async_deindex_space( int $space_id ): void {
 		buddynext_service( 'search' )->deindex( 'space', $space_id );
+	}
+
+	/**
+	 * Perform the full batch reindex of all posts, users, and spaces.
+	 *
+	 * This is the handler for the `buddynext_reindex_all` action hook. It does
+	 * the actual indexing work in batches of 100 rows per entity type and fires
+	 * `buddynext_reindex_complete` when finished. It must never call
+	 * SearchService::schedule_reindex_all() — that would re-enqueue the same
+	 * action and create an infinite loop.
+	 *
+	 * @return void
+	 */
+	public function handle_reindex_all(): void {
+		global $wpdb;
+
+		$search_service = buddynext_service( 'search' );
+		$batch_size     = 100;
+
+		// Index posts.
+		$offset = 0;
+		do {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT id, user_id, content, privacy, status
+					 FROM {$wpdb->prefix}bn_posts
+					 WHERE status = 'published'
+					 LIMIT %d OFFSET %d",
+					$batch_size,
+					$offset
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			foreach ( (array) $rows as $row ) {
+				$visibility = 'public' === $row['privacy'] ? 'public' : 'private';
+				$search_service->index(
+					'post',
+					(int) $row['id'],
+					'',
+					wp_strip_all_tags( (string) $row['content'] ),
+					(int) $row['user_id'],
+					$visibility
+				);
+			}
+
+			$offset += $batch_size;
+		} while ( ! empty( $rows ) );
+
+		// Index users.
+		$profiles_service = buddynext_service( 'profiles' );
+		$offset           = 0;
+		do {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+			$user_ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT ID FROM {$wpdb->users} LIMIT %d OFFSET %d",
+					$batch_size,
+					$offset
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			foreach ( (array) $user_ids as $uid ) {
+				$profiles_service->index_user( (int) $uid );
+			}
+
+			$offset += $batch_size;
+		} while ( ! empty( $user_ids ) );
+
+		// Index spaces.
+		$offset = 0;
+		do {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+			$space_rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT id, name, description, type, owner_id
+					 FROM {$wpdb->prefix}bn_spaces
+					 LIMIT %d OFFSET %d",
+					$batch_size,
+					$offset
+				),
+				ARRAY_A
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			foreach ( (array) $space_rows as $space_row ) {
+				$visibility = 'secret' === $space_row['type'] ? 'private' : 'public';
+				$search_service->index(
+					'space',
+					(int) $space_row['id'],
+					(string) $space_row['name'],
+					wp_strip_all_tags( (string) ( $space_row['description'] ?? '' ) ),
+					(int) $space_row['owner_id'],
+					$visibility
+				);
+			}
+
+			$offset += $batch_size;
+		} while ( ! empty( $space_rows ) );
+
+		do_action( 'buddynext_reindex_complete' );
 	}
 
 	/**

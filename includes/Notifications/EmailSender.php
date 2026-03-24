@@ -144,11 +144,16 @@ class EmailSender {
 	private function render( string $template, int $user_id, array $data ): string {
 		$notification_type = (string) ( $data['type'] ?? '' );
 
+		$actor_id   = isset( $data['sender_id'] ) ? (int) $data['sender_id'] : 0;
+		$actor_name = $actor_id > 0 ? $this->get_display_name( $actor_id ) : '';
+
 		$tokens = array(
-			'{{site_name}}'       => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
-			'{{site_url}}'        => esc_url( home_url( '/' ) ),
-			'{{user_name}}'       => $this->get_display_name( $user_id ),
-			'{{unsubscribe_url}}' => $this->unsubscribe_url( $user_id, $notification_type ),
+			'{{site_name}}'            => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+			'{{site_url}}'             => esc_url( home_url( '/' ) ),
+			'{{user_name}}'            => $this->get_display_name( $user_id ),
+			'{{actor_name}}'           => $actor_name,
+			'{{notification_message}}' => (string) ( $data['message'] ?? '' ),
+			'{{unsubscribe_url}}'      => $this->unsubscribe_url( $user_id, $notification_type ),
 		);
 
 		foreach ( $data as $key => $value ) {

@@ -115,11 +115,11 @@ class SpaceMemberService {
 		/**
 		 * Fires after a user becomes an active space member.
 		 *
-		 * @param int    $space_id Space joined.
 		 * @param int    $user_id  Joining user.
+		 * @param int    $space_id Space joined.
 		 * @param string $role     Member role assigned (always 'member' on direct join).
 		 */
-		do_action( 'buddynext_space_member_joined', $space_id, $user_id, 'member' );
+		do_action( 'buddynext_space_member_joined', $user_id, $space_id, 'member' );
 
 		return true;
 	}
@@ -302,20 +302,19 @@ class SpaceMemberService {
 		/**
 		 * Fires after a join request is approved.
 		 *
-		 * @param int $space_id  Space ID.
 		 * @param int $user_id   Newly approved member.
-		 * @param int $actor_id  User who approved.
+		 * @param int $space_id  Space ID.
 		 */
-		do_action( 'buddynext_space_join_approved', $space_id, $user_id, $actor_id );
+		do_action( 'buddynext_space_join_approved', $user_id, $space_id );
 
 		/**
 		 * Fires after a user becomes an active space member (via approval).
 		 *
-		 * @param int    $space_id Space joined.
 		 * @param int    $user_id  Joining user.
+		 * @param int    $space_id Space joined.
 		 * @param string $role     Member role assigned.
 		 */
-		do_action( 'buddynext_space_member_joined', $space_id, $user_id, 'member' );
+		do_action( 'buddynext_space_member_joined', $user_id, $space_id, 'member' );
 
 		return true;
 	}
@@ -465,13 +464,13 @@ class SpaceMemberService {
 		$this->invalidate_cache( $space_id, $user_id );
 
 		/**
-		 * Fires after a user is removed from a space by a moderator.
+		 * Fires after a user is banned from a space by a moderator.
 		 *
-		 * @param int $space_id  Space ID.
 		 * @param int $user_id   Removed user.
+		 * @param int $space_id  Space ID.
 		 * @param int $actor_id  User who performed the removal.
 		 */
-		do_action( 'buddynext_space_member_removed', $space_id, $user_id, $actor_id );
+		do_action( 'buddynext_space_member_removed', $user_id, $space_id, $actor_id );
 
 		return true;
 	}
@@ -517,10 +516,10 @@ class SpaceMemberService {
 			/**
 			 * Fires after a user leaves a space.
 			 *
-			 * @param int $space_id Space left.
 			 * @param int $user_id  User who left.
+			 * @param int $space_id Space left.
 			 */
-			do_action( 'buddynext_space_member_left', $space_id, $user_id );
+			do_action( 'buddynext_space_member_left', $user_id, $space_id );
 		}
 
 		return true;
@@ -605,6 +604,69 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Remove a member from a space (non-ban forceful removal).
+	 *
+	 * Only the space owner, a moderator, or a site admin may remove members.
+	 * The owner of a space cannot be removed. On success the member_count is
+	 * decremented and the `buddynext_member_removed_from_space` action fires.
+	 *
+	 * @param int $space_id       Space ID.
+	 * @param int $user_id        User to remove.
+	 * @param int $acting_user_id User performing the removal.
+	 * @return bool True on success, false if no row deleted or permission denied.
+	 */
+	public function remove( int $space_id, int $user_id, int $acting_user_id ): bool {
+		$acting_role = $this->get_role( $space_id, $acting_user_id );
+
+		if (
+			! in_array( $acting_role, array( 'owner', 'moderator' ), true )
+			&& ! user_can( $acting_user_id, 'manage_options' )
+		) {
+			return false;
+		}
+
+		if ( 'owner' === $this->get_role( $space_id, $user_id ) ) {
+			return false;
+		}
+
+		$was_active = ( 'active' === $this->get_status( $space_id, $user_id ) );
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $user_id,
+			),
+			array( '%d', '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( 0 === $wpdb->rows_affected ) {
+			return false;
+		}
+
+		if ( $was_active ) {
+			$this->adjust_member_count( $space_id, -1 );
+		}
+
+		$this->invalidate_cache( $space_id, $user_id );
+
+		/**
+		 * Fires after a member is forcefully removed from a space.
+		 *
+		 * @param int $space_id       Space ID.
+		 * @param int $user_id        Removed user.
+		 * @param int $acting_user_id User who performed the removal.
+		 */
+		do_action( 'buddynext_member_removed_from_space', $space_id, $user_id, $acting_user_id );
+
+		return true;
+	}
+
+	/**
 	 * Change a member's role within a space.
 	 *
 	 * Only the owner or a user with manage_options can promote/demote members.
@@ -628,7 +690,7 @@ class SpaceMemberService {
 
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(
 			$wpdb->prefix . 'bn_space_members',
 			array( 'role' => $new_role ),
@@ -640,6 +702,7 @@ class SpaceMemberService {
 			array( '%s' ),
 			array( '%d', '%d', '%s' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$this->invalidate_cache( $space_id, $target_id );
 
@@ -655,13 +718,14 @@ class SpaceMemberService {
 	public function member_count( int $space_id ): int {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT member_count FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
 				$space_id
 			)
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**

@@ -164,7 +164,17 @@ class CommentController {
 		$per_page    = (int) ( $request->get_param( 'per_page' ) ?? 20 );
 		$page        = (int) ( $request->get_param( 'page' ) ?? 1 );
 
-		return new WP_REST_Response( $service->list_for_object( $object_type, $object_id, $per_page, $page ), 200 );
+		return new WP_REST_Response(
+			$service->list(
+				$object_type,
+				$object_id,
+				array(
+					'per_page' => $per_page,
+					'page'     => $page,
+				)
+			),
+			200
+		);
 	}
 
 	/**

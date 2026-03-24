@@ -6,9 +6,11 @@
  * The cursor encodes the created_at datetime and post id of the last seen item
  * so that new posts inserted between pages do not cause duplicates or gaps.
  *
- * Home-feed privacy rules (Phase 3 — spaces and hashtags deferred):
- *   - public or followers posts from followed users are shown.
+ * Home-feed sources:
  *   - The viewer's own posts (any privacy) are always included.
+ *   - Public or followers posts from followed users are shown.
+ *   - Posts from spaces the viewer has joined (status = 'active' in bn_space_members).
+ *   - Posts from posts that contain a hashtag the viewer follows (bn_hashtag_follows).
  *   - Scheduled posts (scheduled_at in the future) are excluded.
  *
  * @package BuddyNext\Feed
@@ -89,37 +91,51 @@ class FeedService {
 	public function home_feed( int $user_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
 		global $wpdb;
 
-		$per_page   = min( $per_page, 50 );
-		$author_ids = array_merge( array( $user_id ), $this->follows->following( $user_id ) );
-
-		if ( empty( $author_ids ) ) {
-			return array(
-				'items'       => array(),
-				'next_cursor' => null,
-			);
-		}
-
-		$placeholders   = implode( ',', array_fill( 0, count( $author_ids ), '%d' ) );
+		$per_page       = min( $per_page, 50 );
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
 
-		// $placeholders is built via array_fill('%d') — only integers, safe.
-		// $cursor_where is either '' or the single hardcoded SQL constant — safe.
-		// $excluded_where contains only table/column names — no user data, safe.
+		// All three OR branches use subqueries — no PHP-side ID arrays, no interpolation.
+		// Source 1: viewer's own posts (any privacy) + followed users' public/followers posts.
+		// Source 2: posts from spaces the viewer has actively joined.
+		// Source 3: posts that contain a hashtag the viewer follows.
+		// $cursor_where and $excluded_where contain only hardcoded table/column names — safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
-			 WHERE user_id IN ({$placeholders})
-			   AND (
-			         (user_id = %d)
-			         OR (privacy IN ('public','followers'))
-			       )
+			 WHERE status = 'published'
 			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+			   AND (
+			         (
+			           user_id IN (
+			             SELECT following_id
+			               FROM {$wpdb->prefix}bn_follows
+			              WHERE follower_id = %d
+			           )
+			           AND privacy IN ('public','followers')
+			         )
+			         OR user_id = %d
+			         OR space_id IN (
+			              SELECT space_id
+			                FROM {$wpdb->prefix}bn_space_members
+			               WHERE user_id = %d AND status = 'active'
+			            )
+			         OR id IN (
+			              SELECT ph.post_id
+			                FROM {$wpdb->prefix}bn_post_hashtags ph
+			               WHERE ph.object_type = 'post'
+			                 AND ph.hashtag_id IN (
+			                       SELECT hf.hashtag_id
+			                         FROM {$wpdb->prefix}bn_hashtag_follows hf
+			                        WHERE hf.user_id = %d
+			                     )
+			            )
+			       )
 			   {$excluded_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( $author_ids, array( $user_id ), $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( array( $user_id, $user_id, $user_id, $user_id ), $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 

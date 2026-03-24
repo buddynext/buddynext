@@ -238,7 +238,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_members_nonce'] ) ) {
 						? get_user_by( 'email', $invite_identifier )
 						: get_user_by( 'login', $invite_identifier );
 					if ( $invite_user ) {
-						$invite_result = $member_service->invite( $space_id, $invite_user->ID, $acting_user_id );
+						$invite_result = $member_service->invite( $space_id, $acting_user_id, $invite_user->ID );
 						$save_notice   = ( ! is_wp_error( $invite_result ) ) ? 'success' : 'error';
 					} else {
 						$save_notice = 'error';

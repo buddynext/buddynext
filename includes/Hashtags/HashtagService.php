@@ -508,7 +508,11 @@ class HashtagService {
 	}
 
 	/**
-	 * Return the top trending hashtags ordered by post count.
+	 * Return the top trending hashtags by usage in the last 24 hours.
+	 *
+	 * Counts only bn_post_hashtags rows whose created_at falls within the
+	 * rolling 24-hour window so trending reflects recent activity, not
+	 * all-time post_count totals.
 	 *
 	 * @param int $limit Maximum number of hashtags to return (1–50). Default 10.
 	 * @return array[]
@@ -524,16 +528,23 @@ class HashtagService {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_hashtags ORDER BY post_count DESC LIMIT %d",
+				"SELECT h.id, h.name, h.slug, h.post_count, h.follower_count, h.created_at,
+				        COUNT(ph.hashtag_id) AS recent_count
+				 FROM {$wpdb->prefix}bn_hashtags h
+				 INNER JOIN {$wpdb->prefix}bn_post_hashtags ph ON ph.hashtag_id = h.id
+				 WHERE ph.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+				 GROUP BY h.id
+				 ORDER BY recent_count DESC, h.post_count DESC
+				 LIMIT %d",
 				$limit
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$results = array_map( array( $this, 'hydrate' ), (array) $rows );
 
 		wp_cache_set( $cache_key, $results, self::CACHE_GROUP, self::CACHE_TTL );
