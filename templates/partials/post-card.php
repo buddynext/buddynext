@@ -466,9 +466,24 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			<?php endif; ?>
 			<?php if ( ! empty( $media_ids ) ) : ?>
 				<div class="bn-post-card__media-grid bn-post-card__media-grid--<?php echo count( $media_ids ) >= 4 ? '4' : esc_attr( (string) count( $media_ids ) ); ?>">
-					<?php foreach ( array_slice( $media_ids, 0, 4 ) as $media_id ) : ?>
-						<div class="bn-post-card__media-item" data-media-id="<?php echo absint( $media_id ); ?>">
-							<span class="bn-post-card__media-placeholder" aria-hidden="true"><?php buddynext_icon( 'camera' ); ?></span>
+					<?php
+					foreach ( array_slice( $media_ids, 0, 4 ) as $media_id ) :
+						$media_id  = absint( $media_id );
+						$media_url = '';
+						// Try WPMediaVerse file URL meta first, then WP thumbnail.
+						if ( $media_id > 0 ) {
+							$media_url = (string) get_post_meta( $media_id, '_mvs_file_url', true );
+							if ( '' === $media_url ) {
+								$media_url = (string) get_the_post_thumbnail_url( $media_id, 'medium' );
+							}
+						}
+						?>
+						<div class="bn-post-card__media-item" data-media-id="<?php echo esc_attr( (string) $media_id ); ?>">
+							<?php if ( '' !== $media_url ) : ?>
+								<img src="<?php echo esc_url( $media_url ); ?>" alt="" loading="lazy">
+							<?php else : ?>
+								<span class="bn-post-card__media-placeholder" aria-hidden="true"><?php buddynext_icon( 'camera' ); ?></span>
+							<?php endif; ?>
 						</div>
 					<?php endforeach; ?>
 				</div>

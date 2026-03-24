@@ -509,6 +509,46 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 }
 .bn-composer__submit:hover { background: var(--brand-hover); }
 .bn-composer__submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Media upload preview in composer ───────────────── */
+.bn-composer__media-preview {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--s2);
+	padding: var(--s2) 0;
+}
+.bn-composer__media-thumb {
+	position: relative;
+	width: 80px;
+	height: 80px;
+	border-radius: var(--r-md);
+	overflow: hidden;
+	border: 1px solid var(--border);
+}
+.bn-composer__media-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.bn-composer__media-remove {
+	position: absolute;
+	top: 2px;
+	right: 2px;
+	width: 20px;
+	height: 20px;
+	border-radius: var(--r-full);
+	background: rgba(0, 0, 0, 0.6);
+	color: #fff;
+	border: none;
+	font-size: 14px;
+	line-height: 1;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.bn-composer__media-remove:hover { background: var(--red); }
+
 [data-theme="dark"] .bn-composer__textarea {
 	background: var(--bg-subtle);
 	border-color: var(--border);
@@ -737,12 +777,16 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 					wp_json_encode(
 						array(
 							'restUrl'      => rest_url( 'buddynext/v1' ),
+							'mvsRestBase'  => rest_url( 'mvs/v1' ),
 							'restNonce'    => $rest_nonce,
 							'composerOpen' => false,
 							'composerType' => 'text',
 							'privacy'      => 'public',
 							'content'      => '',
 							'submitting'   => false,
+							'mediaIds'     => array(),
+							'mediaPreviews' => array(),
+							'mediaUploading' => false,
 						)
 					)
 				);
@@ -811,6 +855,31 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 								data-wp-on--input="actions.onInput"
 								rows="4"
 								aria-label="<?php esc_attr_e( 'Post content', 'buddynext' ); ?>"></textarea>
+							<!-- Hidden file input for media uploads -->
+							<input
+								type="file"
+								class="bn-composer__file-input"
+								accept="image/*,video/*"
+								multiple
+								hidden
+								data-wp-on--change="actions.handleMediaUpload"
+								aria-label="<?php esc_attr_e( 'Upload media', 'buddynext' ); ?>">
+							<!-- Media preview thumbnails -->
+							<div class="bn-composer__media-preview"
+								hidden
+								data-wp-bind--hidden="!state.hasMedia">
+								<template data-wp-each="state.mediaPreviews">
+									<div class="bn-composer__media-thumb">
+										<img data-wp-bind--src="context.item.url" alt="" width="80" height="80" loading="lazy">
+										<button
+											class="bn-composer__media-remove"
+											type="button"
+											data-wp-on--click="actions.removeMedia"
+											data-wp-bind--data-media-id="context.item.id"
+											aria-label="<?php esc_attr_e( 'Remove', 'buddynext' ); ?>">&times;</button>
+									</div>
+								</template>
+							</div>
 							<!-- Poll options — shown only in poll mode -->
 							<div class="bn-composer__poll-options"
 								hidden

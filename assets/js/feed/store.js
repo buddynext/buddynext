@@ -484,6 +484,15 @@ store( 'buddynext/post-composer', {
 		get isNotPoll() {
 			try { return getContext().composerType !== 'poll'; } catch ( _e ) { return true; }
 		},
+		get hasMedia() {
+			try { return ( getContext().mediaIds || [] ).length > 0; } catch ( _e ) { return false; }
+		},
+		get mediaPreviews() {
+			try { return getContext().mediaPreviews || []; } catch ( _e ) { return []; }
+		},
+		get mediaUploading() {
+			try { return !! getContext().mediaUploading; } catch ( _e ) { return false; }
+		},
 	},
 	actions: {
 		open() {
@@ -498,6 +507,78 @@ store( 'buddynext/post-composer', {
 			const ctx        = getContext();
 			ctx.composerOpen = true;
 			ctx.composerType = 'photo';
+
+			// Trigger hidden file input for media upload.
+			const fileInput = document.querySelector( '.bn-composer__file-input' );
+			if ( fileInput ) {
+				fileInput.click();
+			}
+		},
+
+		/**
+		 * Handle file selection — upload to WPMediaVerse REST API.
+		 *
+		 * Reads the selected file from the hidden input, uploads via
+		 * POST /mvs/v1/media (FormData), stores the returned media_id
+		 * in ctx.mediaIds, and shows a thumbnail preview.
+		 */
+		* handleMediaUpload( event ) {
+			const ctx   = getContext();
+			const files = event.target.files;
+			if ( ! files || ! files.length ) {
+				return;
+			}
+
+			if ( ! ctx.mediaIds ) {
+				ctx.mediaIds = [];
+			}
+			if ( ! ctx.mediaPreviews ) {
+				ctx.mediaPreviews = [];
+			}
+
+			ctx.mediaUploading = true;
+
+			for ( let i = 0; i < files.length; i++ ) {
+				const file     = files[ i ];
+				const formData = new FormData();
+				formData.append( 'file', file );
+
+				try {
+					// Upload to WPMediaVerse REST endpoint.
+					const mvsBase = ctx.mvsRestBase || ctx.restUrl.replace( '/buddynext/v1', '/mvs/v1' );
+					const res     = yield fetch( mvsBase + '/media', {
+						method:  'POST',
+						headers: { 'X-WP-Nonce': ctx.restNonce },
+						body:    formData,
+					} );
+
+					if ( res.ok ) {
+						const data = yield res.json();
+						const mediaId  = data.id || data.media_id;
+						const thumbUrl = data.thumbnail_url || data.source_url || data._mvs_file_url || '';
+
+						ctx.mediaIds.push( mediaId );
+						ctx.mediaPreviews.push( { id: mediaId, url: thumbUrl, name: file.name } );
+					}
+				} catch ( _e ) {
+					// Upload failed — skip this file silently.
+				}
+			}
+
+			ctx.mediaUploading = false;
+			// Reset file input so the same file can be re-selected.
+			event.target.value = '';
+		},
+
+		removeMedia( event ) {
+			const ctx     = getContext();
+			const btn     = event.target.closest( '[data-media-id]' );
+			const mediaId = btn ? parseInt( btn.dataset.mediaId, 10 ) : 0;
+			if ( ! mediaId ) {
+				return;
+			}
+			ctx.mediaIds     = ( ctx.mediaIds || [] ).filter( ( id ) => id !== mediaId );
+			ctx.mediaPreviews = ( ctx.mediaPreviews || [] ).filter( ( p ) => p.id !== mediaId );
 		},
 		openPoll() {
 			const ctx        = getContext();
@@ -520,12 +601,21 @@ store( 'buddynext/post-composer', {
 			}
 			ctx.submitting = true;
 
-			// Collect poll options when in poll mode.
+			// Collect poll options and media attachments.
 			const body = {
 				content,
 				privacy: ctx.privacy || 'public',
 				type:    ctx.composerType || 'text',
 			};
+
+			// Attach media IDs from WPMediaVerse uploads.
+			if ( ctx.mediaIds && ctx.mediaIds.length ) {
+				body.media_ids = ctx.mediaIds;
+				// If user selected Photo mode, set type to 'photo'.
+				if ( body.type === 'photo' || body.type === 'text' ) {
+					body.type = 'photo';
+				}
+			}
 			if ( ctx.composerType === 'poll' ) {
 				const optionInputs = document.querySelectorAll( '.bn-composer__poll-option' );
 				const options = [];
