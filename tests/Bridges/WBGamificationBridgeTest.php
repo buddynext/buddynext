@@ -9,21 +9,21 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Tests\Bridges;
 
-use BuddyNext\Bridges\WBGamification;
+use BuddyNext\Bridges\GamificationBridge;
 use BuddyNext\Core\Installer;
 
 /**
- * @covers \BuddyNext\Bridges\WBGamification
+ * @covers \BuddyNext\Bridges\GamificationBridge
  */
 class WBGamificationBridgeTest extends \WP_UnitTestCase {
 
-	private WBGamification $bridge;
+	private GamificationBridge $bridge;
 
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
 		// Plugin class and function stubs are registered in tests/bootstrap.php.
-		$this->bridge = new WBGamification();
+		$this->bridge = new GamificationBridge();
 		$this->bridge->init();
 	}
 

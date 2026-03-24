@@ -19,7 +19,7 @@ namespace BuddyNext\Bridges;
 /**
  * WBGamification ↔ BuddyNext event bridge.
  */
-class WBGamification {
+class GamificationBridge {
 
 	/**
 	 * Supported BuddyNext action → WBGam event type mappings.

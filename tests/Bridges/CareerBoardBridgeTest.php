@@ -9,15 +9,15 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Tests\Bridges;
 
-use BuddyNext\Bridges\CareerBoard;
+use BuddyNext\Bridges\CareerBoardBridge;
 use BuddyNext\Core\Installer;
 
 /**
- * @covers \BuddyNext\Bridges\CareerBoard
+ * @covers \BuddyNext\Bridges\CareerBoardBridge
  */
 class CareerBoardBridgeTest extends \WP_UnitTestCase {
 
-	private CareerBoard $bridge;
+	private CareerBoardBridge $bridge;
 	private int $employer_id;
 	private int $candidate_id;
 
@@ -25,7 +25,7 @@ class CareerBoardBridgeTest extends \WP_UnitTestCase {
 		parent::set_up();
 		Installer::run();
 		// Function and class stubs are registered in tests/bootstrap.php.
-		$this->bridge       = new CareerBoard();
+		$this->bridge       = new CareerBoardBridge();
 		$this->bridge->init();
 		$this->employer_id  = self::factory()->user->create();
 		$this->candidate_id = self::factory()->user->create();

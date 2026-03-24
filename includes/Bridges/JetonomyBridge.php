@@ -23,7 +23,7 @@ use BuddyNext\Search\SearchService;
 /**
  * Jetonomy ↔ BuddyNext integration layer.
  */
-class Jetonomy {
+class JetonomyBridge {
 
 	/**
 	 * Attach hooks.

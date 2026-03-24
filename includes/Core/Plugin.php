@@ -36,12 +36,12 @@ use BuddyNext\Feed\PostService;
 use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Blocks\BlockRegistrar;
-use BuddyNext\Bridges\CareerBoard as CareerBoardBridge;
+use BuddyNext\Bridges\CareerBoardBridge;
+use BuddyNext\Bridges\GamificationBridge;
 use BuddyNext\Bridges\GamificationBridgeListener;
-use BuddyNext\Bridges\Jetonomy as JetonomyBridge;
+use BuddyNext\Bridges\JetonomyBridge;
 use BuddyNext\Bridges\JetonomyBridgeListener;
-use BuddyNext\Bridges\WBGamification as WBGamificationBridge;
-use BuddyNext\Bridges\WPMediaVerse as WPMediaVerseBridge;
+use BuddyNext\Bridges\WPMediaVerseBridge;
 use BuddyNext\Comments\CommentService;
 use BuddyNext\Hashtags\HashtagListener;
 use BuddyNext\Hashtags\HashtagService;
@@ -243,7 +243,7 @@ class Plugin {
 			'buddynext_load_bridges',
 			function (): void {
 				( new WPMediaVerseBridge() )->init();
-				( new WBGamificationBridge() )->init();
+				( new GamificationBridge() )->init();
 				( new JetonomyBridge() )->init();
 				( new CareerBoardBridge() )->init();
 

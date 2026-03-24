@@ -22,7 +22,7 @@ use BuddyNext\Search\SearchService;
 /**
  * Career Board ↔ BuddyNext integration layer.
  */
-class CareerBoard {
+class CareerBoardBridge {
 
 	/**
 	 * Attach hooks.

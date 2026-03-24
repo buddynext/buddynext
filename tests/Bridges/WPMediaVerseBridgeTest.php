@@ -9,15 +9,15 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Tests\Bridges;
 
-use BuddyNext\Bridges\WPMediaVerse;
+use BuddyNext\Bridges\WPMediaVerseBridge;
 use BuddyNext\Core\Installer;
 
 /**
- * @covers \BuddyNext\Bridges\WPMediaVerse
+ * @covers \BuddyNext\Bridges\WPMediaVerseBridge
  */
 class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 
-	private WPMediaVerse $bridge;
+	private WPMediaVerseBridge $bridge;
 	private int $sender_id;
 	private int $recipient_id;
 
@@ -25,7 +25,7 @@ class WPMediaVerseBridgeTest extends \WP_UnitTestCase {
 		parent::set_up();
 		Installer::run();
 		// Plugin class stub is registered in tests/bootstrap.php.
-		$this->bridge       = new WPMediaVerse();
+		$this->bridge       = new WPMediaVerseBridge();
 		$this->bridge->init();
 		$this->sender_id    = self::factory()->user->create();
 		$this->recipient_id = self::factory()->user->create();

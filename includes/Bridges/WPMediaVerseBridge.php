@@ -25,7 +25,7 @@ use BuddyNext\Notifications\NotificationService;
 /**
  * WPMediaVerse ↔ BuddyNext integration layer.
  */
-class WPMediaVerse {
+class WPMediaVerseBridge {
 
 	/**
 	 * Attach all hooks.

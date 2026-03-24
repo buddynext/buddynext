@@ -9,15 +9,15 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Tests\Bridges;
 
-use BuddyNext\Bridges\Jetonomy;
+use BuddyNext\Bridges\JetonomyBridge;
 use BuddyNext\Core\Installer;
 
 /**
- * @covers \BuddyNext\Bridges\Jetonomy
+ * @covers \BuddyNext\Bridges\JetonomyBridge
  */
 class JetonomyBridgeTest extends \WP_UnitTestCase {
 
-	private Jetonomy $bridge;
+	private JetonomyBridge $bridge;
 	private int $user_id;
 	private int $author_id;
 
@@ -25,7 +25,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		parent::set_up();
 		Installer::run();
 		// Plugin class stub is registered in tests/bootstrap.php.
-		$this->bridge    = new Jetonomy();
+		$this->bridge    = new JetonomyBridge();
 		$this->bridge->init();
 		$this->user_id   = self::factory()->user->create();
 		$this->author_id = self::factory()->user->create();
