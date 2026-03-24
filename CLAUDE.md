@@ -776,3 +776,22 @@ A phase is Done when ALL of:
 | 2026-03-24 | 10 | fix | CareerBoardBridge: wcb_job_created accepted_args 4→3; callback now on_job_created($job_id, $job_data, $user_id) — title/description extracted from $job_data array |
 | 2026-03-24 | 10 | fix | CareerBoardBridge: added wcb_job_expired handler — deletes bn_posts entry (type: job_post) matched by link_url |
 | 2026-03-24 | 10 | fix | WPMediaVerseBridge: mvs_favorite_toggled action value 'added'→'add' per hook spec ($action is 'add' or 'remove') |
+| 2026-03-24 | 2 | fix | ConnectionService: buddynext_connection_rejected → buddynext_connection_declined; buddynext_connection_withdrawn fires 3rd arg; connections()/pending_sent()/pending_received() accept limit/offset |
+| 2026-03-24 | 4 | fix | SearchIndexListener: buddynext_reindex_all → handle_reindex_all() (was schedule_reindex_all — infinite cron loop); iterates bn_posts + users + bn_spaces in batches of 100; fires buddynext_reindex_complete |
+| 2026-03-24 | 5 | fix | SpaceMemberService: remove() method added; all 5 membership hooks now fire ($user_id, $space_id) per spec; phpcs:ignore → phpcs:disable/enable for multi-line DB calls |
+| 2026-03-24 | 6 | fix | NotificationListener: buddynext_post_created → on_post_created_in_space(); async Action Scheduler dispatch; respects space notification pref + block list |
+| 2026-03-24 | 6 | fix | NotificationPrefService: set_space_pref() method added; EmailSender: {{actor_name}} + {{notification_message}} tokens added |
+| 2026-03-24 | 6 | fix | templates/notifications/index.php: group_count/group_key grouping ("X and N others") + short ternary on line 102 fixed |
+| 2026-03-24 | 7 | fix | ReactionService: buddynext_reaction_added fires ($reaction_id, $post_id, $user_id, $emoji) via pre-delete SELECT |
+| 2026-03-24 | 7 | fix | CommentService: buddynext_comment_created/updated/deleted fire ($comment_id, $post_id, $user_id); CommentController: list_for_object() → list() |
+| 2026-03-24 | 7 | fix | HashtagService: get_trending() uses 24h rolling window (DATE_SUB NOW INTERVAL 24 HOUR) |
+| 2026-03-24 | 8 | fix | ModerationService: buddynext_member_warned → buddynext_user_warned; buddynext_user_unshadow_banned → buddynext_user_shadow_ban_removed; appeal arg order fixed |
+| 2026-03-24 | 8 | fix | ModerationController: escalate/resolve routes POST→PUT; GET /posts/{id}/content-warning endpoint added |
+| 2026-03-24 | 9 | fix | Installer: removed bn_conversations, bn_conversation_participants, bn_messages, bn_message_reactions — DM tables belong to WPMediaVerse, not BuddyNext |
+| 2026-03-24 | 10 | fix | JetonomyBridge: hook names corrected (jetonomy_after_create_post); @mention parsing added; opt-in feed sync to bn_posts; short ternary on get_permalink() fixed |
+| 2026-03-24 | 10 | fix | CareerBoardBridge: wcb_job_created accepted_args 4→3; title/description from $job_data array; wcb_job_expired handler added |
+| 2026-03-24 | 11 | fix | templates/onboarding/index.php: bn_onboarding_completed → bn_onboarding_complete (canonical meta key) |
+| 2026-03-24 | 11 | fix | InviteService: import_from_csv() method added; InviteController: POST /invites/import-csv with MIME check; REST/Router.php: InviteController registered |
+| 2026-03-24 | 12 | fix | theme.json: preset slugs normalized (bn-primary → primary, bn-bg → base, etc.) |
+| 2026-03-24 | 12 | fix | TokenService: init() docblock capitalization fixed; uses wp_add_inline_style() |
+| 2026-03-24 | 3 | fix | FeedService: home feed includes posts from joined spaces (bn_space_members subquery) + followed hashtags (bn_hashtag_follows + bn_post_hashtags); profile feed privacy enforced |
