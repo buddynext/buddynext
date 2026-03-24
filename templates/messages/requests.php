@@ -385,7 +385,7 @@ $bn_relative_time = static function ( $timestamp ): string {
 	<span class="bn-req-breadcrumb-current"><?php esc_html_e( 'Requests', 'buddynext' ); ?></span>
 </nav>
 
-<h1 class="bn-req-title">&#128229; <?php esc_html_e( 'Message Requests', 'buddynext' ); ?></h1>
+<h1 class="bn-req-title"><?php esc_html_e( 'Message Requests', 'buddynext' ); ?></h1>
 <p class="bn-req-subtitle">
 	<?php esc_html_e( 'These are from people you don&rsquo;t follow. Accepting lets them message you. They can&rsquo;t see if you&rsquo;ve read the preview until you accept.', 'buddynext' ); ?>
 </p>
@@ -393,7 +393,7 @@ $bn_relative_time = static function ( $timestamp ): string {
 <?php if ( ! $mvs_active ) : ?>
 
 	<div class="bn-dependency-notice">
-		<div class="bn-dependency-notice-icon" aria-hidden="true">&#128172;</div>
+		<div class="bn-dependency-notice-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></div>
 		<div class="bn-dependency-notice-title"><?php esc_html_e( 'Direct messaging requires WPMediaVerse', 'buddynext' ); ?></div>
 		<p class="bn-dependency-notice-body">
 			<?php esc_html_e( 'Install and activate the WPMediaVerse plugin to enable direct messaging in BuddyNext.', 'buddynext' ); ?>
@@ -403,7 +403,7 @@ $bn_relative_time = static function ( $timestamp ): string {
 <?php elseif ( ! is_user_logged_in() ) : ?>
 
 	<div class="bn-dependency-notice">
-		<div class="bn-dependency-notice-icon" aria-hidden="true">&#128274;</div>
+		<div class="bn-dependency-notice-icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>
 		<div class="bn-dependency-notice-title"><?php esc_html_e( 'Please sign in', 'buddynext' ); ?></div>
 		<p class="bn-dependency-notice-body">
 			<?php esc_html_e( 'You need to be signed in to view your message requests.', 'buddynext' ); ?>

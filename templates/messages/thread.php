@@ -821,7 +821,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 <?php if ( ! $mvs_active ) : ?>
 
 	<div class="bn-dependency-notice">
-		<div class="bn-dependency-notice-icon" aria-hidden="true">&#128172;</div>
+		<div class="bn-dependency-notice-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></div>
 		<div class="bn-dependency-notice-title"><?php esc_html_e( 'Direct messaging requires WPMediaVerse', 'buddynext' ); ?></div>
 		<p class="bn-dependency-notice-body">
 			<?php esc_html_e( 'Install and activate the WPMediaVerse plugin to enable direct messaging in BuddyNext.', 'buddynext' ); ?>
@@ -838,7 +838,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 			<input
 				class="bn-conv-panel-search"
 				type="search"
-				placeholder="&#128269; <?php esc_attr_e( 'Search conversations&hellip;', 'buddynext' ); ?>"
+				placeholder="<?php esc_attr_e( 'Search conversations&hellip;', 'buddynext' ); ?>"
 				value="<?php echo esc_attr( $list_search ); ?>"
 				aria-label="<?php esc_attr_e( 'Search conversations', 'buddynext' ); ?>"
 				data-wp-on--input="actions.onPanelSearchInput"
@@ -889,7 +889,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 		<div class="bn-conv-list" role="list">
 
 			<?php if ( ! empty( $pinned_conversations ) ) : ?>
-				<div class="bn-conv-list-section-head">&#128204; <?php esc_html_e( 'Pinned', 'buddynext' ); ?></div>
+				<div class="bn-conv-list-section-head"><?php buddynext_icon( 'bookmark' ); ?> <?php esc_html_e( 'Pinned', 'buddynext' ); ?></div>
 				<?php foreach ( $pinned_conversations as $conv ) : ?>
 					<?php
 					$c_id        = absint( $conv['id'] ?? 0 );
@@ -955,7 +955,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 							<span class="bn-conv-panel-unread"><?php echo esc_html( (string) min( $c_unread, 99 ) ); ?></span>
 						<?php endif; ?>
 						<?php if ( ! empty( $conv['is_pinned'] ) ) : ?>
-							<span style="font-size:12px;color:var(--text-3);" aria-hidden="true">&#128204;</span>
+							<span style="font-size:12px;color:var(--text-3);" aria-hidden="true"><?php buddynext_icon( 'bookmark' ); ?></span>
 						<?php endif; ?>
 					</a>
 				<?php endforeach; ?>
@@ -1049,7 +1049,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 		<?php if ( 0 === $conv_id || null === $thread_data ) : ?>
 
 			<div class="bn-thread-empty">
-				<div class="bn-thread-empty-icon" aria-hidden="true">&#128172;</div>
+				<div class="bn-thread-empty-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></div>
 				<div class="bn-thread-empty-title"><?php esc_html_e( 'Select a conversation', 'buddynext' ); ?></div>
 				<p><?php esc_html_e( 'Choose from your existing conversations or start a new one.', 'buddynext' ); ?></p>
 			</div>
@@ -1107,7 +1107,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 				</div>
 
 				<div class="bn-thread-actions">
-					<span class="bn-icon-btn" title="<?php esc_attr_e( 'Search in conversation', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Search messages', 'buddynext' ); ?>">&#128269;</span>
+					<span class="bn-icon-btn" title="<?php esc_attr_e( 'Search in conversation', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Search messages', 'buddynext' ); ?>"><?php buddynext_icon( 'search' ); ?></span>
 					<span class="bn-icon-btn" title="<?php esc_attr_e( 'More options', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>" data-wp-on--click="actions.openThreadOptions">&#8943;</span>
 				</div>
 			</div>
@@ -1235,8 +1235,8 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 				</div>
 
 				<div class="bn-input-row">
-					<button type="button" class="bn-input-icon" aria-label="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>" data-wp-on--click="actions.openEmojiPicker">&#128522;</button>
-					<button type="button" class="bn-input-icon" aria-label="<?php esc_attr_e( 'Attach file', 'buddynext' ); ?>" data-wp-on--click="actions.openAttachment">&#128206;</button>
+					<button type="button" class="bn-input-icon" aria-label="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>" data-wp-on--click="actions.openEmojiPicker"><?php buddynext_icon( 'star' ); ?></button>
+					<button type="button" class="bn-input-icon" aria-label="<?php esc_attr_e( 'Attach file', 'buddynext' ); ?>" data-wp-on--click="actions.openAttachment"><?php buddynext_icon( 'link' ); ?></button>
 					<textarea
 						class="bn-msg-input"
 						rows="1"

@@ -500,7 +500,7 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 <?php if ( ! $mvs_active ) : ?>
 
 	<div class="bn-dependency-notice">
-		<div class="bn-dependency-notice-icon" aria-hidden="true">&#128172;</div>
+		<div class="bn-dependency-notice-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></div>
 		<div class="bn-dependency-notice-title"><?php esc_html_e( 'Direct messaging requires WPMediaVerse', 'buddynext' ); ?></div>
 		<p class="bn-dependency-notice-body">
 			<?php esc_html_e( 'Install and activate the WPMediaVerse plugin to enable direct messaging in BuddyNext.', 'buddynext' ); ?>
@@ -512,7 +512,7 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 <div class="bn-msg-shell">
 
 	<div class="bn-msg-header">
-		<h1 class="bn-msg-title">&#128172; <?php esc_html_e( 'Messages', 'buddynext' ); ?></h1>
+		<h1 class="bn-msg-title"><?php esc_html_e( 'Messages', 'buddynext' ); ?></h1>
 		<a href="<?php echo esc_url( $compose_url ); ?>" class="bn-compose-btn">
 			+ <?php esc_html_e( 'New message', 'buddynext' ); ?>
 		</a>
@@ -520,7 +520,7 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 
 	<div class="bn-msg-search-row">
 		<form class="bn-msg-search-wrap" method="get" action="" role="search" aria-label="<?php esc_attr_e( 'Search conversations', 'buddynext' ); ?>">
-			<span class="bn-msg-search-icon" aria-hidden="true">&#128269;</span>
+			<span class="bn-msg-search-icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></span>
 			<input
 				class="bn-msg-search-input"
 				type="search"
@@ -569,7 +569,7 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 	<?php if ( empty( $conversations ) ) : ?>
 
 		<div class="bn-msg-empty">
-			<div class="bn-msg-empty-icon" aria-hidden="true">&#128172;</div>
+			<div class="bn-msg-empty-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></div>
 			<div class="bn-msg-empty-title"><?php esc_html_e( 'No conversations yet', 'buddynext' ); ?></div>
 			<p class="bn-msg-empty-sub"><?php esc_html_e( 'Start a conversation with someone from the community.', 'buddynext' ); ?></p>
 			<a href="<?php echo esc_url( $compose_url ); ?>" class="bn-btn-primary">
@@ -614,7 +614,7 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 
 			if ( $is_muted ) {
 				$preview_class = 'bn-conv-preview bn-muted';
-				$preview       = '&#128263; ' . esc_html__( 'Muted', 'buddynext' );
+				$preview       = esc_html__( 'Muted', 'buddynext' );
 			} elseif ( $is_typing ) {
 				$preview_class = 'bn-conv-preview bn-typing';
 				$preview       = esc_html__( 'Typing&hellip;', 'buddynext' );
@@ -675,7 +675,7 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 					<div class="<?php echo esc_attr( $preview_class ); ?>">
 						<?php
 						if ( $is_muted ) {
-							echo '&#128263; ' . esc_html__( 'Muted', 'buddynext' );
+							echo esc_html__( 'Muted', 'buddynext' );
 						} elseif ( $is_typing ) {
 							esc_html_e( 'Typing&hellip;', 'buddynext' );
 						} else {
@@ -687,10 +687,10 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 
 				<div class="bn-conv-right">
 					<?php if ( $is_pinned ) : ?>
-						<span class="bn-conv-icon" aria-label="<?php esc_attr_e( 'Pinned', 'buddynext' ); ?>">&#128204;</span>
+						<span class="bn-conv-icon" aria-label="<?php esc_attr_e( 'Pinned', 'buddynext' ); ?>"><?php buddynext_icon( 'bookmark' ); ?></span>
 					<?php endif; ?>
 					<?php if ( $is_muted ) : ?>
-						<span class="bn-conv-icon" aria-label="<?php esc_attr_e( 'Muted', 'buddynext' ); ?>">&#128263;</span>
+						<span class="bn-conv-icon" aria-label="<?php esc_attr_e( 'Muted', 'buddynext' ); ?>"></span>
 					<?php elseif ( $unread > 0 ) : ?>
 						<span class="bn-unread-badge"><?php echo esc_html( (string) min( $unread, 99 ) ); ?></span>
 					<?php endif; ?>
@@ -701,7 +701,7 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 	?>
 
 		<?php if ( ! empty( $pinned_conversations ) ) : ?>
-			<div class="bn-conv-section-head">&#128204; <?php esc_html_e( 'Pinned', 'buddynext' ); ?></div>
+			<div class="bn-conv-section-head"><?php buddynext_icon( 'bookmark' ); ?> <?php esc_html_e( 'Pinned', 'buddynext' ); ?></div>
 			<?php foreach ( $pinned_conversations as $conv ) : ?>
 				<?php $render_conv_item( $conv, $bn_relative_time, $bn_initials, $bn_avatar_colour, $bn_is_online ); ?>
 			<?php endforeach; ?>
