@@ -162,10 +162,10 @@
 
 .bn-members__filter-heading {
 	font-size: var(--text-sm);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 	color: var(--text-2);
 	text-transform: uppercase;
-	letter-spacing: 0.06em;
+	letter-spacing: var(--ls-wider);
 	margin: 0 0 var(--s2);
 }
 
@@ -283,7 +283,7 @@
 /* ── Card text ──────────────────────────────────────────────────────────────── */
 .bn-member-card__name {
 	font-size: var(--text-base);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 	color: var(--text-1);
 	margin: 0 0 var(--s1);
 	line-height: var(--leading-tight);
@@ -301,13 +301,13 @@
 .bn-member-card__type {
 	display: inline-block;
 	font-size: var(--text-xs);
-	font-weight: 500;
+	font-weight: var(--fw-medium);
 	color: var(--brand);
 	background: var(--brand-light);
 	border-radius: var(--r-full);
 	padding: 2px var(--s2);
 	margin-bottom: var(--s2);
-	line-height: 1.4;
+	line-height: var(--leading-snug);
 }
 
 .bn-member-card__bio {
@@ -362,7 +362,7 @@
 	justify-content: center;
 	gap: var(--s1);
 	font-family: var(--font-body);
-	font-weight: 500;
+	font-weight: var(--fw-medium);
 	line-height: 1;
 	border: 1px solid transparent;
 	cursor: pointer;

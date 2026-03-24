@@ -70,7 +70,7 @@
 
 .bn-space-card__name {
 	font-size: var(--text-base);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 	color: var(--text-1);
 	margin: 0 0 var(--s1);
 	white-space: nowrap;
@@ -112,10 +112,10 @@
 
 .bn-space-about__title {
 	font-size: var(--text-xs);
-	font-weight: 700;
+	font-weight: var(--fw-bold);
 	color: var(--text-3);
 	text-transform: uppercase;
-	letter-spacing: 0.07em;
+	letter-spacing: var(--ls-wider);
 	margin: 0 0 var(--s3);
 }
 
@@ -155,7 +155,7 @@
 
 .bn-space-header__name {
 	font-size: var(--text-2xl);
-	font-weight: 700;
+	font-weight: var(--fw-bold);
 	font-family: var(--font-display);
 	color: var(--text-1);
 	margin: 0 0 var(--s1);
