@@ -147,7 +147,7 @@ $report_rows = $wpdb->get_results(
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $activity_rows = $wpdb->get_results(
 	$wpdb->prepare(
-		"SELECT al.action, al.description, al.created_at, u.display_name AS actor_name
+		"SELECT al.action, al.object_type, al.object_id, al.created_at, u.display_name AS actor_name
 		FROM {$wpdb->prefix}bn_activity_log al
 		LEFT JOIN {$wpdb->users} u ON u.ID = al.user_id
 		ORDER BY al.created_at DESC
@@ -1015,7 +1015,9 @@ endif;
 							<?php
 							$act_action = $act->action ?? 'note';
 							$act_icon   = bn_activity_icon( $act_action );
-							$act_desc   = $act->description ?? '';
+							$act_desc   = isset( $act->action, $act->object_type )
+							? ucfirst( str_replace( '_', ' ', (string) $act->action ) ) . ' (' . (string) $act->object_type . ')'
+							: '';
 							$act_meta   = isset( $act->created_at ) ? bn_time_diff( $act->created_at ) : '';
 							$act_report = ( 'post_flagged' === $act_action );
 							?>
