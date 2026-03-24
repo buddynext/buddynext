@@ -65,80 +65,17 @@ class PageRouter {
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
 
-		// For BuddyNext hub pages rendered via shortcode (page.php path rather than
-		// template_redirect), add the bn-page body class at the wp hook so themes
-		// can skip their container wrapper even before the_content() runs.
-		add_action( 'wp', array( $this, 'maybe_add_hub_body_class' ) );
-	}
-
-	/**
-	 * Add bn-page body class for hub pages rendered via shortcode (not template_redirect).
-	 *
-	 * When a BuddyNext hub page is a regular WP page with a shortcode (e.g. the
-	 * Explore, Hashtags, or Profile page), template_redirect is not intercepted,
-	 * so the standard body_class filter added there never runs. This method fires
-	 * on the `wp` action — after the main query resolves but before the template
-	 * is chosen — and adds bn-page to the body class if the current singular page
-	 * matches any buddynext_page_* option.
-	 *
-	 * Uses wp_load_alloptions() to match against all buddynext_page_* options
-	 * without a static list that would need updating each time a new hub is added.
-	 *
-	 * @return void
-	 */
-	public function maybe_add_hub_body_class(): void {
-		if ( ! is_singular() ) {
-			return;
-		}
-
-		$queried_id = (int) get_queried_object_id();
-		if ( 0 === $queried_id ) {
-			return;
-		}
-
-		// Scan the alloptions cache — already loaded at this point — for any
-		// buddynext_page_* option whose value matches the current page ID.
-		$all_options = wp_load_alloptions();
-		$matched_hub = null;
-		foreach ( $all_options as $option_key => $option_value ) {
-			if (
-				str_starts_with( $option_key, 'buddynext_page_' )
-				&& 'buddynext_pages_version' !== $option_key
-				&& (int) $option_value === $queried_id
-			) {
-				$matched_hub = substr( $option_key, strlen( 'buddynext_page_' ) );
-				break;
-			}
-		}
-
-		if ( null === $matched_hub ) {
-			return;
-		}
-
-		$hub_snapshot = $matched_hub;
-		add_filter(
-			'body_class',
-			static function ( array $classes ) use ( $hub_snapshot ): array {
-				if ( ! in_array( 'bn-page', $classes, true ) ) {
-					$classes[] = 'bn-page';
-					$classes[] = 'bn-hub-' . $hub_snapshot;
-					$classes[] = 'no-sidebar';
-				}
-				return $classes;
-			}
-		);
 	}
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
 	/**
-	 * Rewrite the WP_Query vars for BuddyNext hub requests.
+	 * Suppress the default WP_Query for BuddyNext hub requests.
 	 *
-	 * Fires on the 'request' filter, before WP_Query runs. When a hub
-	 * is matched the expensive slug-based post lookup is replaced with a
-	 * fast primary-key lookup so WP always has a real page object in
-	 * context (helpful for SEO plugins) while serving BuddyNext's own
-	 * template.
+	 * No backing WordPress pages are needed. The hub route is handled
+	 * entirely by dispatch_hub_template() at template_redirect. This
+	 * method simply prevents WP from running a pointless slug-based
+	 * query that would return a 404.
 	 *
 	 * @param array<string,mixed> $query_vars Parsed query vars from WP::parse_request().
 	 * @return array<string,mixed>
@@ -148,24 +85,12 @@ class PageRouter {
 			return $query_vars;
 		}
 
-		$hub_page_map = array(
-			'feed'          => 'buddynext_page_activity',
-			'people'        => 'buddynext_page_people',
-			'spaces'        => 'buddynext_page_spaces',
-			'messages'      => 'buddynext_page_messages',
-			'notifications' => 'buddynext_page_notifications',
-			'auth'          => 'buddynext_page_auth',
-			'onboarding'    => 'buddynext_page_onboarding',
-		);
-
-		$hub        = (string) $query_vars['bn_hub'];
-		$option_key = $hub_page_map[ $hub ] ?? '';
-		$page_id    = '' !== $option_key ? (int) get_option( $option_key, 0 ) : 0;
-
+		// Strip slug-based lookups so WP_Query does not try to resolve a
+		// page by post_name (which would 404 since no backing page exists).
 		unset( $query_vars['pagename'], $query_vars['name'], $query_vars['page'] );
 
-		$query_vars['post_type'] = 'page';
-		$query_vars['p']         = $page_id > 0 ? $page_id : -1;
+		// Return an empty query — dispatch_hub_template() handles output.
+		$query_vars['post__in'] = array( 0 );
 
 		return $query_vars;
 	}
@@ -212,6 +137,36 @@ class PageRouter {
 			exit;
 		}
 
+		// ── Virtual page setup ────────────────────────────────────────────
+		// No backing WordPress pages exist. Tell WP this is a real page so
+		// it sends 200, generates correct <title>, and themes render their
+		// full-width layout. Same technique BuddyPress uses for component
+		// pages without cluttering the site owner's Pages list.
+		global $wp_query;
+		$wp_query->is_404  = false;
+		$wp_query->is_page = true;
+		status_header( 200 );
+
+		// Set the document <title> via the standard wp_title parts filter.
+		$hub_titles   = array(
+			'feed'          => __( 'Activity Feed', 'buddynext' ),
+			'people'        => __( 'Members', 'buddynext' ),
+			'spaces'        => __( 'Spaces', 'buddynext' ),
+			'messages'      => __( 'Messages', 'buddynext' ),
+			'notifications' => __( 'Notifications', 'buddynext' ),
+			'auth'          => __( 'Login', 'buddynext' ),
+			'onboarding'    => __( 'Get Started', 'buddynext' ),
+		);
+		$hub_title    = $hub_titles[ $hub ] ?? ucfirst( $hub );
+		$title_frozen = $hub_title;
+		add_filter(
+			'document_title_parts',
+			static function ( array $parts ) use ( $title_frozen ): array {
+				$parts['title'] = $title_frozen;
+				return $parts;
+			}
+		);
+
 		// Enqueue hub-specific asset bundles before wp_head() fires (which
 		// happens inside get_header() → theme's header.php).
 		$this->enqueue_hub_assets( $hub, $context );
@@ -220,7 +175,7 @@ class PageRouter {
 		// the active theme's <body> tag carries them alongside its own classes.
 		// 'bn-page' is the BuddyX signal (see BuddyXBridge + header.php);
 		// 'no-sidebar' is kept for other themes that honour it.
-		$hub_snapshot = $hub; // Capture for use inside the closure.
+		$hub_snapshot = $hub;
 		add_filter(
 			'body_class',
 			static function ( array $classes ) use ( $hub_snapshot ): array {
