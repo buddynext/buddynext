@@ -16,7 +16,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Outbound;
 
-use BuddyNext\Core\OutboundWebhookService;
+use BuddyNext\Outbound\OutboundWebhookService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;

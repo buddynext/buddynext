@@ -64,7 +64,7 @@ use BuddyNext\Search\SearchIndexListener;
 use BuddyNext\Search\SearchService;
 use BuddyNext\Auth\VerificationListener;
 use BuddyNext\Auth\VerificationService;
-use BuddyNext\Core\OutboundWebhookService;
+use BuddyNext\Outbound\OutboundWebhookService;
 use BuddyNext\Onboarding\OnboardingListener;
 use BuddyNext\Outbound\OutboundWebhookListener;
 use BuddyNext\SocialGraph\BlockService;

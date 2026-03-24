@@ -8,12 +8,12 @@
  * five-minute WP-Cron job. Endpoints that accumulate three consecutive delivery
  * failures are automatically deactivated.
  *
- * @package BuddyNext\Core
+ * @package BuddyNext\Outbound
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Core;
+namespace BuddyNext\Outbound;
 
 use WP_Error;
 
