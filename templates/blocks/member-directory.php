@@ -31,7 +31,7 @@ $cursor   = $result['next_cursor'] ?? '';
 		<ul class="bn-member-list">
 			<?php foreach ( $members as $member ) : ?>
 				<li class="bn-member-item">
-					<a href="<?php echo esc_url( get_author_posts_url( (int) $member['user_id'] ) ); ?>" class="bn-member-link">
+					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( (int) $member['user_id'] ) ); ?>" class="bn-member-link">
 						<?php echo get_avatar( (int) $member['user_id'], 48, '', '', array( 'class' => 'bn-avatar' ) ); ?>
 						<span class="bn-member-name"><?php echo esc_html( $member['display_name'] ?? '' ); ?></span>
 						<?php if ( ! empty( $member['bio'] ) ) : ?>

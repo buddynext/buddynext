@@ -847,7 +847,7 @@ $posts_pct = $posts_yesterday > 0
 								</div>
 								<div class="bn-ca-signup__time"><?php echo esc_html( $su_time ); ?></div>
 								<a
-									href="<?php echo esc_url( get_author_posts_url( $su_uid ) ); ?>"
+									href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $su_uid ) ); ?>"
 									class="bn-ca-btn-ghost"
 								><?php esc_html_e( 'View Profile', 'buddynext' ); ?></a>
 							</div>

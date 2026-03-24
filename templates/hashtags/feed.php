@@ -836,7 +836,7 @@ else :
 							<?php endif; ?>
 							<div class="bn-post-author">
 								<div class="bn-post-author-name">
-									<a href="<?php echo esc_url( get_author_posts_url( $post_author_id ) ); ?>">
+									<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $post_author_id ) ); ?>">
 										<?php echo esc_html( $post_display ); ?>
 									</a>
 								</div>

@@ -455,7 +455,7 @@ require __DIR__ . '/../partials/nav.php';
 				$mutual_count  = absint( $request['mutual_connections'] ?? 0 );
 				$sent_at       = $request['sent_at'] ?? '';
 				$preview_text  = sanitize_text_field( $request['preview'] ?? '' );
-				$profile_url   = get_author_posts_url( $sender_id );
+				$profile_url   = \BuddyNext\Core\PageRouter::profile_url( $sender_id );
 				$req_initials  = $bn_initials( $sender_name );
 				$req_colour    = $bn_avatar_colour( $sender_id );
 				$req_time      = $bn_relative_time( $sent_at );

@@ -33,7 +33,7 @@ $is_following   = $viewer_id && $viewer_id !== $user_id
 		<?php echo get_avatar( $user_id, 64, '', '', array( 'class' => 'bn-avatar bn-avatar--lg' ) ); ?>
 	</div>
 	<div class="bn-member-card__body">
-		<a href="<?php echo esc_url( get_author_posts_url( $user_id ) ); ?>" class="bn-member-card__name">
+		<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ); ?>" class="bn-member-card__name">
 			<?php echo esc_html( $user->display_name ); ?>
 		</a>
 		<span class="bn-member-card__followers">

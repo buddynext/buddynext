@@ -1070,7 +1070,7 @@ require __DIR__ . '/../partials/nav.php';
 				$th_colour   = $bn_avatar_colour( $other_user_id_th );
 				$th_initials = $bn_initials( $other_user_display );
 				$th_avatar   = get_avatar( $other_user_id_th, 36, '', esc_attr( $other_user_display ), array( 'force_display' => true ) );
-				$th_profile  = get_author_posts_url( $other_user_id_th );
+				$th_profile  = \BuddyNext\Core\PageRouter::profile_url( $other_user_id_th );
 				?>
 				<div class="bn-thread-avatar" style="background:<?php echo esc_attr( $th_colour ); ?>;" aria-hidden="true">
 					<?php if ( false !== strpos( $th_avatar, 'src=' ) ) : ?>
