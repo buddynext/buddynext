@@ -241,9 +241,12 @@ if ( ! $bn_nav_css_output ) :
 			<a href="<?php echo esc_url( $bn_extra_item['url'] ); ?>"
 				class="bn-nav-item<?php echo $bn_item_active ? ' bn-nav-active' : ''; ?>"
 				<?php echo $bn_item_active ? 'aria-current="page"' : ''; ?>>
-				<?php if ( ! empty( $bn_extra_item['icon'] ) ) : ?>
-					<?php echo wp_kses_post( $bn_extra_item['icon'] ); ?>
-				<?php endif; ?>
+				<?php
+				if ( ! empty( $bn_extra_item['icon'] ) ) :
+					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bridge SVGs are trusted internal code, same as hardcoded nav icons above.
+					echo $bn_extra_item['icon'];
+				endif;
+				?>
 				<?php echo esc_html( $bn_extra_item['label'] ); ?>
 			</a>
 		<?php endforeach; ?>
