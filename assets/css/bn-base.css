@@ -437,17 +437,35 @@
 	min-width: 0;
 }
 
-/* When Jetonomy renders inside BN shell, its own two-col layout becomes
-   single-column (BN's sidebar replaces Jetonomy's sidebar). */
+/* ── Jetonomy inside BN shell ─────────────────────────────────────────── */
+/* Single-column: BN sidebar replaces Jetonomy's sidebar. */
 .bn-jt-content .jt-two-col {
 	display: block;
 }
 .bn-jt-content .jt-sidebar {
 	display: none;
 }
+/* Jetonomy's own container must not add extra max-width or padding —
+   the hub shell already constrains to 1100px with its own padding. */
+.bn-jt-content .container {
+	max-width: none;
+	padding-left: 0;
+	padding-right: 0;
+}
+/* Tighten Jetonomy content to fit the narrower 1fr column (~760px). */
+.bn-jt-content .jt-space-header h1 {
+	font-size: var(--text-xl);
+}
+.bn-jt-content .jt-btn-primary {
+	font-size: var(--text-sm);
+	padding: var(--s2) var(--s4);
+}
+.bn-jt-content .jt-row {
+	font-size: var(--text-sm);
+}
 
-/* WPMediaVerse pages inside the shell lose their own max-width since
-   the hub shell already constrains to 1100px. */
+/* ── WPMediaVerse inside BN shell ────────────────────────────────────── */
+/* MVS pages lose their own max-width — hub shell constrains to 1100px. */
 .bn-mvs-content .mvs-explore-page,
 .bn-mvs-content .mvs-single-media,
 .bn-mvs-content .mvs-single-album,
