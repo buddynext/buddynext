@@ -254,7 +254,7 @@ class ModerationListener implements ListenerInterface {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$template_exists = (bool) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_email_templates WHERE slug = %s AND enabled = 1 LIMIT 1",
+				"SELECT id FROM {$wpdb->prefix}bn_email_templates WHERE type = %s AND enabled = 1 LIMIT 1",
 				'bn.unsuspension_confirmation'
 			)
 		);

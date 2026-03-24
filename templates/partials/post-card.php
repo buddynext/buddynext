@@ -92,6 +92,7 @@ $member_type_label = $member_type_slug ? get_user_meta( $post_author_id, 'bn_mem
  * @param string $datetime UTC MySQL datetime.
  * @return string Escaped relative label.
  */
+if ( ! function_exists( 'bn_post_card_relative_time' ) ) :
 function bn_post_card_relative_time( string $datetime ): string {
 	$diff = time() - (int) strtotime( $datetime );
 	if ( $diff < 60 ) {
@@ -111,6 +112,7 @@ function bn_post_card_relative_time( string $datetime ): string {
 	/* translators: %d: number of days */
 	return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
 }
+endif;
 
 $post_time    = bn_post_card_relative_time( $created_at );
 $edited_label = $edited_at ? esc_html__( '(edited)', 'buddynext' ) : '';

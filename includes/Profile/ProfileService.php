@@ -527,7 +527,7 @@ class ProfileService {
 						$wpdb->prepare(
 							"SELECT 1 FROM {$wpdb->prefix}bn_connections
 							 WHERE status = 'accepted'
-							   AND ( (requester_id = %d AND requestee_id = %d) OR (requester_id = %d AND requestee_id = %d) )",
+							   AND ( (requester_id = %d AND recipient_id = %d) OR (requester_id = %d AND recipient_id = %d) )",
 							$viewer_id,
 							$profile_user_id,
 							$profile_user_id,
