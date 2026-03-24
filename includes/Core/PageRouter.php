@@ -963,6 +963,15 @@ class PageRouter {
 	}
 
 	/**
+	 * Return the Community Admin Panel URL.
+	 *
+	 * @return string
+	 */
+	public static function community_admin_url(): string {
+		return self::hub_url( 'buddynext_slug_community_admin', 'buddynext_page_community_admin' );
+	}
+
+	/**
 	 * Check whether a profile slug is available for a given user to claim.
 	 *
 	 * A slug is unavailable when:
@@ -1082,13 +1091,14 @@ class PageRouter {
 	 */
 	private static function default_slug( string $option_name ): string {
 		$map = array(
-			'buddynext_slug_activity'      => 'activity',
-			'buddynext_slug_people'        => 'members',
-			'buddynext_slug_spaces'        => 'spaces',
-			'buddynext_slug_messages'      => 'messages',
-			'buddynext_slug_notifications' => 'notifications',
-			'buddynext_slug_auth'          => 'login',
-			'buddynext_slug_onboarding'    => 'onboarding',
+			'buddynext_slug_activity'        => 'activity',
+			'buddynext_slug_people'          => 'members',
+			'buddynext_slug_spaces'          => 'spaces',
+			'buddynext_slug_messages'        => 'messages',
+			'buddynext_slug_notifications'   => 'notifications',
+			'buddynext_slug_auth'            => 'login',
+			'buddynext_slug_onboarding'      => 'onboarding',
+			'buddynext_slug_community_admin' => 'bn-community-admin',
 		);
 		return $map[ $option_name ] ?? 'community';
 	}

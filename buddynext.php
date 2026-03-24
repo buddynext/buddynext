@@ -149,6 +149,15 @@ function buddynext_space_moderation_url( string $slug ): string {
 }
 
 /**
+ * Return the Community Admin Panel URL.
+ *
+ * @return string Absolute URL.
+ */
+function buddynext_community_admin_url(): string {
+	return \BuddyNext\Core\PageRouter::community_admin_url();
+}
+
+/**
  * Return the URL for the "create a space" flow.
  *
  * Routes to the spaces hub with the ?bn_action=create query argument which

@@ -27,7 +27,7 @@ class PageSetup {
 	 *
 	 * Bump this constant to force a re-run after hub definitions change.
 	 */
-	public const PAGES_VERSION = 2;
+	public const PAGES_VERSION = 3;
 
 	/**
 	 * Hub page definitions.
@@ -68,6 +68,11 @@ class PageSetup {
 			'title'     => 'BuddyNext Login',
 			'slug'      => 'bn-login',
 			'shortcode' => '[buddynext_auth]',
+		),
+		'buddynext_page_community_admin' => array(
+			'title'     => 'BuddyNext Community Admin',
+			'slug'      => 'bn-community-admin',
+			'shortcode' => '[buddynext_community_admin]',
 		),
 	);
 
