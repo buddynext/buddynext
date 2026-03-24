@@ -510,6 +510,53 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 .bn-composer__submit:hover { background: var(--brand-hover); }
 .bn-composer__submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── Composer footer layout ────────────────────────── */
+.bn-composer__footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--s2) 0 0;
+	border-top: 1px solid var(--border-soft);
+}
+.bn-composer__footer-actions {
+	display: flex;
+	gap: var(--s1);
+}
+.bn-composer__footer-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border: none;
+	background: transparent;
+	border-radius: var(--r-md);
+	color: var(--text-2);
+	cursor: pointer;
+	transition: background 0.12s, color 0.12s;
+}
+.bn-composer__footer-btn:hover {
+	background: var(--bg-hover);
+	color: var(--brand);
+}
+.bn-composer__footer-btn svg { width: 18px; height: 18px; }
+.bn-composer__footer-right {
+	display: flex;
+	align-items: center;
+	gap: var(--s2);
+}
+.bn-composer__cancel {
+	padding: var(--s2) var(--s4);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	background: transparent;
+	color: var(--text-2);
+	font-size: var(--text-sm);
+	font-weight: var(--fw-medium);
+	cursor: pointer;
+}
+.bn-composer__cancel:hover { background: var(--bg-hover); color: var(--text-1); }
+
 /* ── Media upload preview in composer ───────────────── */
 .bn-composer__media-preview {
 	display: flex;
@@ -901,21 +948,40 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 						</div>
 					</div>
 					<div class="bn-composer__footer">
-						<select
-							class="bn-composer__select"
-							data-wp-on--change="actions.setPrivacy"
-							aria-label="<?php esc_attr_e( 'Post privacy', 'buddynext' ); ?>">
-							<option value="public"><?php esc_html_e( 'Public', 'buddynext' ); ?></option>
-							<option value="followers"><?php esc_html_e( 'Followers', 'buddynext' ); ?></option>
-							<option value="private"><?php esc_html_e( 'Only me', 'buddynext' ); ?></option>
-						</select>
-						<button
-							class="bn-composer__submit"
-							type="button"
-							data-wp-on--click="actions.submit"
-							data-wp-bind--disabled="state.submitting">
-							<?php esc_html_e( 'Post', 'buddynext' ); ?>
-						</button>
+						<div class="bn-composer__footer-actions">
+							<button class="bn-composer__footer-btn" type="button" data-wp-on--click="actions.pickMedia" title="<?php esc_attr_e( 'Photo / Video', 'buddynext' ); ?>">
+								<?php buddynext_icon( 'image' ); ?>
+							</button>
+							<button class="bn-composer__footer-btn" type="button" data-wp-on--click="actions.openPoll" title="<?php esc_attr_e( 'Poll', 'buddynext' ); ?>">
+								<?php buddynext_icon( 'bar-chart' ); ?>
+							</button>
+							<button class="bn-composer__footer-btn" type="button" data-wp-on--click="actions.openLink" title="<?php esc_attr_e( 'Link', 'buddynext' ); ?>">
+								<?php buddynext_icon( 'link' ); ?>
+							</button>
+						</div>
+						<div class="bn-composer__footer-right">
+							<select
+								class="bn-composer__select"
+								data-wp-on--change="actions.setPrivacy"
+								aria-label="<?php esc_attr_e( 'Post privacy', 'buddynext' ); ?>">
+								<option value="public"><?php esc_html_e( 'Public', 'buddynext' ); ?></option>
+								<option value="followers"><?php esc_html_e( 'Followers', 'buddynext' ); ?></option>
+								<option value="private"><?php esc_html_e( 'Only me', 'buddynext' ); ?></option>
+							</select>
+							<button
+								class="bn-composer__cancel"
+								type="button"
+								data-wp-on--click="actions.cancel">
+								<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+							</button>
+							<button
+								class="bn-composer__submit"
+								type="button"
+								data-wp-on--click="actions.submit"
+								data-wp-bind--disabled="state.submitting">
+								<?php esc_html_e( 'Post', 'buddynext' ); ?>
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>

@@ -507,8 +507,13 @@ store( 'buddynext/post-composer', {
 			const ctx        = getContext();
 			ctx.composerOpen = true;
 			ctx.composerType = 'photo';
+		},
 
-			// Trigger hidden file input for media upload.
+		/**
+		 * Trigger the hidden file input from a dedicated "add media" button.
+		 * Separated from openPhoto() to avoid file picker firing on page load.
+		 */
+		pickMedia() {
 			const fileInput = document.querySelector( '.bn-composer__file-input' );
 			if ( fileInput ) {
 				fileInput.click();
@@ -644,6 +649,16 @@ store( 'buddynext/post-composer', {
 			} catch ( _e ) {
 				ctx.submitting = false;
 			}
+		},
+		cancel() {
+			const ctx          = getContext();
+			ctx.composerOpen   = false;
+			ctx.composerType   = 'text';
+			ctx.content        = '';
+			ctx.mediaIds       = [];
+			ctx.mediaPreviews  = [];
+			ctx.mediaUploading = false;
+			ctx.submitting     = false;
 		},
 		setPrivacy( event ) {
 			getContext().privacy = event.target.value;
