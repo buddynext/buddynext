@@ -47,8 +47,8 @@
 .bn-auth-headline {
 	font-family: var(--font-display);
 	font-size: 36px;
-	font-weight: 800;
-	line-height: 1.2;
+	font-weight: var(--fw-extrabold);
+	line-height: var(--leading-tight);
 	margin-bottom: var(--s4);
 }
 
@@ -63,11 +63,11 @@
 
 .bn-auth-feature { display: flex; align-items: flex-start; gap: var(--s3); }
 
-.bn-auth-feature-icon { font-size: 20px; margin-top: 2px; flex-shrink: 0; }
+.bn-auth-feature-icon { font-size: var(--text-xl); margin-top: 2px; flex-shrink: 0; }
 
-.bn-auth-feature-text { font-size: var(--text-sm); opacity: 0.9; line-height: 1.55; }
+.bn-auth-feature-text { font-size: var(--text-sm); opacity: 0.9; line-height: var(--leading-normal); }
 
-.bn-auth-feature-text strong { font-weight: 700; }
+.bn-auth-feature-text strong { font-weight: var(--fw-bold); }
 
 .bn-auth-member-count {
 	margin-top: 48px;
@@ -87,8 +87,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 10px;
-	font-weight: 700;
+	font-size: var(--text-xs);
+	font-weight: var(--fw-bold);
 	color: #fff;
 	margin-left: -8px;
 }
@@ -127,7 +127,7 @@
 	padding: 9px;
 	border-radius: var(--r-sm);
 	font-size: var(--text-sm);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 	cursor: pointer;
 	color: var(--text-2);
 	text-decoration: none;
@@ -152,7 +152,7 @@
 .bn-auth-form-title {
 	font-family: var(--font-display);
 	font-size: 22px;
-	font-weight: 800;
+	font-weight: var(--fw-extrabold);
 	margin-bottom: 4px;
 	color: var(--text-1);
 }
@@ -161,7 +161,7 @@
 	font-size: var(--text-sm);
 	color: var(--text-2);
 	margin-bottom: var(--s6);
-	line-height: 1.5;
+	line-height: var(--leading-normal);
 }
 
 /* ── Fields ─────────────────────────────────────────────────────────────── */
@@ -171,7 +171,7 @@
 .bn-auth-label {
 	display: block;
 	font-size: var(--text-sm);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 	margin-bottom: 6px;
 	color: var(--text-1);
 }
@@ -264,7 +264,7 @@
 	font-size: var(--text-xs);
 	color: var(--green);
 	margin-top: 3px;
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 }
 
 /* ── Submit button ──────────────────────────────────────────────────────── */
@@ -276,7 +276,7 @@
 	padding: 12px;
 	border-radius: var(--r-sm);
 	font-size: var(--text-sm);
-	font-weight: 700;
+	font-weight: var(--fw-bold);
 	cursor: pointer;
 	border: none;
 	font-family: var(--font-body);
@@ -298,7 +298,7 @@
 	color: var(--text-3);
 	margin-top: var(--s3);
 	text-align: center;
-	line-height: 1.5;
+	line-height: var(--leading-normal);
 }
 
 .bn-auth-terms a { color: var(--brand); text-decoration: none; }
@@ -311,7 +311,7 @@
 	color: var(--text-2);
 }
 
-.bn-auth-switch a { color: var(--brand); font-weight: 600; text-decoration: none; }
+.bn-auth-switch a { color: var(--brand); font-weight: var(--fw-semibold); text-decoration: none; }
 .bn-auth-switch a:hover { text-decoration: underline; }
 
 /* ── WP login_form overrides ────────────────────────────────────────────── */
@@ -351,7 +351,7 @@
 	padding: 12px;
 	border-radius: var(--r-sm);
 	font-size: var(--text-sm);
-	font-weight: 700;
+	font-weight: var(--fw-bold);
 	cursor: pointer;
 	border: none;
 	font-family: var(--font-body);
@@ -421,7 +421,7 @@
 }
 
 .bn-auth-verify-icon {
-	font-size: 48px;
+	font-size: var(--text-5xl);
 	margin-bottom: var(--s4);
 	line-height: 1;
 }
@@ -429,7 +429,7 @@
 .bn-auth-verify-title {
 	font-family: var(--font-display);
 	font-size: var(--text-2xl);
-	font-weight: 800;
+	font-weight: var(--fw-extrabold);
 	color: var(--text-1);
 	margin-bottom: var(--s3);
 }
@@ -442,7 +442,7 @@
 }
 
 .bn-auth-verify-email {
-	font-weight: 700;
+	font-weight: var(--fw-bold);
 	color: var(--text-1);
 }
 
@@ -459,7 +459,7 @@
 	padding: 11px var(--s4);
 	border-radius: var(--r-sm);
 	font-size: var(--text-sm);
-	font-weight: 700;
+	font-weight: var(--fw-bold);
 	cursor: pointer;
 	border: none;
 	font-family: var(--font-body);
@@ -485,7 +485,7 @@
 .bn-auth-verify-resent {
 	font-size: var(--text-sm);
 	color: var(--green);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 	margin-top: var(--s2);
 }
 
@@ -505,7 +505,7 @@
 .bn-block-heading {
 	font-family: var(--font-display);
 	font-size: var(--text-xl);
-	font-weight: 800;
+	font-weight: var(--fw-extrabold);
 	color: var(--text-1);
 	margin: 0 0 var(--s6);
 }
@@ -517,7 +517,7 @@
 .bn-form__label {
 	display: block;
 	font-size: var(--text-sm);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 	color: var(--text-1);
 	margin-bottom: 6px;
 }
@@ -586,7 +586,7 @@
 	padding: 11px var(--s4);
 	border-radius: var(--r-sm);
 	font-size: var(--text-sm);
-	font-weight: 700;
+	font-weight: var(--fw-bold);
 	cursor: pointer;
 	border: none;
 	font-family: var(--font-body);
@@ -605,7 +605,7 @@
 	margin-bottom: 0;
 }
 
-.bn-form__footer a { color: var(--brand); font-weight: 600; text-decoration: none; }
+.bn-form__footer a { color: var(--brand); font-weight: var(--fw-semibold); text-decoration: none; }
 .bn-form__footer a:hover { text-decoration: underline; }
 
 /* ── Dark mode ──────────────────────────────────────────────────────────── */
