@@ -127,59 +127,59 @@ foreach ( $rows ?? array() as $row ) {
 $type_meta = array(
 	'bn.post_reacted'         => array(
 		'color' => '#dc2626',
-		'icon'  => '&#x2764;&#xFE0F;',
+		'icon'  => buddynext_get_icon( 'heart' ),
 	),
 	'bn.post_commented'       => array(
 		'color' => '#0073aa',
-		'icon'  => '&#x1F4AC;',
+		'icon'  => buddynext_get_icon( 'message-circle' ),
 	),
 	'bn.new_follower'         => array(
 		'color' => '#059669',
-		'icon'  => '&#x1F464;',
+		'icon'  => buddynext_get_icon( 'user' ),
 	),
 	'bn.connection_requested' => array(
 		'color' => '#059669',
-		'icon'  => '&#x1F465;',
+		'icon'  => buddynext_get_icon( 'users' ),
 	),
 	'bn.connection_accepted'  => array(
 		'color' => '#22c55e',
-		'icon'  => '&#x1F465;',
+		'icon'  => buddynext_get_icon( 'users' ),
 	),
 	'bn.space_invite'         => array(
 		'color' => '#7c3aed',
-		'icon'  => '&#x1F3D8;&#xFE0F;',
+		'icon'  => buddynext_get_icon( 'home' ),
 	),
 	'bn.space_join_requested' => array(
 		'color' => '#7c3aed',
-		'icon'  => '&#x1F3D8;&#xFE0F;',
+		'icon'  => buddynext_get_icon( 'home' ),
 	),
 	'bn.new_message'          => array(
 		'color' => '#0073aa',
-		'icon'  => '&#x2709;&#xFE0F;',
+		'icon'  => buddynext_get_icon( 'mail' ),
 	),
 	'bn.badge_awarded'        => array(
 		'color' => '#d97706',
-		'icon'  => '&#x1F3C5;',
+		'icon'  => buddynext_get_icon( 'award' ),
 	),
 	'bn.mention'              => array(
 		'color' => '#dc2626',
-		'icon'  => '&#x1F4E3;',
+		'icon'  => buddynext_get_icon( 'megaphone' ),
 	),
 	'bn.strike_issued'        => array(
 		'color' => '#d97706',
-		'icon'  => '&#x26A0;&#xFE0F;',
+		'icon'  => buddynext_get_icon( 'alert-triangle' ),
 	),
 	'bn.strike_warning'       => array(
 		'color' => '#d97706',
-		'icon'  => '&#x26A0;&#xFE0F;',
+		'icon'  => buddynext_get_icon( 'alert-triangle' ),
 	),
 	'bn.member_suspended'     => array(
 		'color' => '#dc2626',
-		'icon'  => '&#x1F512;',
+		'icon'  => buddynext_get_icon( 'lock' ),
 	),
 	'bn.appeal_resolved'      => array(
 		'color' => '#059669',
-		'icon'  => '&#x2705;',
+		'icon'  => buddynext_get_icon( 'check-circle' ),
 	),
 );
 
@@ -261,7 +261,7 @@ $render_row = static function ( object $row, callable $get_initials, callable $g
 	$notif_type    = $row->type ?? '';
 	$meta          = $type_meta[ $notif_type ] ?? array(
 		'color' => '#9b9b97',
-		'icon'  => '&#x1F514;',
+		'icon'  => buddynext_get_icon( 'bell' ),
 	);
 	$type_messages = array(
 		'bn.post_reacted'         => __( 'reacted to your post.', 'buddynext' ),
@@ -703,7 +703,7 @@ require __DIR__ . '/../partials/nav.php';
 
 	<?php if ( ! $has_any ) : ?>
 		<div class="bn-notif-empty">
-			<span class="bn-notif-empty-icon" aria-hidden="true">&#x1F514;</span>
+			<span class="bn-notif-empty-icon" aria-hidden="true"><?php buddynext_icon( 'bell' ); ?></span>
 			<?php esc_html_e( 'No notifications here yet.', 'buddynext' ); ?>
 		</div>
 	<?php endif; ?>

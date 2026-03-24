@@ -546,7 +546,7 @@ require __DIR__ . '/../partials/nav.php';
 		<!-- Page header -->
 		<div class="bn-explore-page-header">
 			<h1 class="bn-explore-title">
-				&#128269; <?php esc_html_e( 'Explore', 'buddynext' ); ?>
+				<?php buddynext_icon( 'search' ); ?> <?php esc_html_e( 'Explore', 'buddynext' ); ?>
 			</h1>
 			<p class="bn-explore-sub">
 				<?php esc_html_e( 'Discover posts, people, and spaces from the community', 'buddynext' ); ?>
@@ -579,7 +579,7 @@ require __DIR__ . '/../partials/nav.php';
 
 		<!-- Search bar -->
 		<div class="bn-explore-search" role="search">
-			<span class="bn-explore-search-icon" aria-hidden="true">&#128270;</span>
+			<span class="bn-explore-search-icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></span>
 			<label for="bn-explore-search-input" class="screen-reader-text">
 				<?php esc_html_e( 'Search the community', 'buddynext' ); ?>
 			</label>
@@ -672,7 +672,7 @@ require __DIR__ . '/../partials/nav.php';
 				<?php else : ?>
 					<!-- Empty state — shown when no public posts exist yet -->
 					<div style="grid-column:1/-1;text-align:center;padding:var(--s8);color:var(--text-3);">
-						<div style="font-size:32px;margin-bottom:var(--s3);">&#128269;</div>
+						<div style="font-size:32px;margin-bottom:var(--s3);"><?php buddynext_icon( 'search' ); ?></div>
 						<div style="font-size:var(--text-base);font-weight:600;color:var(--text-2);">
 							<?php esc_html_e( 'Nothing to explore yet', 'buddynext' ); ?>
 						</div>
@@ -698,7 +698,7 @@ require __DIR__ . '/../partials/nav.php';
 
 				<!-- Trending topics -->
 				<div class="bn-widget">
-					<div class="bn-widget-title">&#128293; <?php esc_html_e( 'Trending Topics', 'buddynext' ); ?></div>
+					<div class="bn-widget-title"><?php buddynext_icon( 'trending' ); ?> <?php esc_html_e( 'Trending Topics', 'buddynext' ); ?></div>
 					<?php if ( ! empty( $trending_tags ) ) : ?>
 						<?php foreach ( $trending_tags as $tag_item ) : ?>
 							<div class="bn-trending-tag">
@@ -730,19 +730,19 @@ require __DIR__ . '/../partials/nav.php';
 					<div class="bn-cat-grid">
 						<?php
 						$categories = array(
-							'&#128187; ' . __( 'Dev', 'buddynext' ),
-							'&#127912; ' . __( 'Design', 'buddynext' ),
-							'&#128227; ' . __( 'Marketing', 'buddynext' ),
-							'&#128640; ' . __( 'Startups', 'buddynext' ),
-							'&#129302; ' . __( 'AI', 'buddynext' ),
-							'&#128202; ' . __( 'Data', 'buddynext' ),
-							'&#127919; ' . __( 'Product', 'buddynext' ),
-							'&#128221; ' . __( 'Writing', 'buddynext' ),
+							__( 'Dev', 'buddynext' ),
+							__( 'Design', 'buddynext' ),
+							__( 'Marketing', 'buddynext' ),
+							__( 'Startups', 'buddynext' ),
+							__( 'AI', 'buddynext' ),
+							__( 'Data', 'buddynext' ),
+							__( 'Product', 'buddynext' ),
+							__( 'Writing', 'buddynext' ),
 						);
 						foreach ( $categories as $cat_label ) :
 							?>
 							<button class="bn-cat-pill" type="button" data-wp-on--click="actions.browseCategory">
-								<?php echo esc_html( html_entity_decode( $cat_label, ENT_HTML5, 'UTF-8' ) ); ?>
+								<?php echo esc_html( $cat_label ); ?>
 							</button>
 						<?php endforeach; ?>
 					</div>
@@ -755,7 +755,7 @@ require __DIR__ . '/../partials/nav.php';
 						<?php foreach ( $popular_spaces as $space ) : ?>
 							<div class="bn-space-entry">
 								<div class="bn-space-icon" aria-hidden="true">
-									<?php echo ! empty( $space->avatar_url ) ? esc_html( $space->avatar_url ) : '&#127968;'; ?>
+									<?php echo ! empty( $space->avatar_url ) ? esc_html( $space->avatar_url ) : ''; ?>
 								</div>
 								<div class="bn-space-info">
 									<div class="bn-space-name"><?php echo esc_html( $space->name ); ?></div>
