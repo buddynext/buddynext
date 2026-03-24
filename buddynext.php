@@ -129,6 +129,26 @@ function buddynext_space_url( string $slug ): string {
 }
 
 /**
+ * Return the settings page URL for a single space.
+ *
+ * @param string $slug The space's slug as stored in bn_spaces.slug.
+ * @return string Absolute URL.
+ */
+function buddynext_space_settings_url( string $slug ): string {
+	return buddynext_space_url( $slug ) . 'settings/';
+}
+
+/**
+ * Return the moderation page URL for a single space.
+ *
+ * @param string $slug The space's slug as stored in bn_spaces.slug.
+ * @return string Absolute URL.
+ */
+function buddynext_space_moderation_url( string $slug ): string {
+	return buddynext_space_url( $slug ) . 'moderation/';
+}
+
+/**
  * Return the URL for the "create a space" flow.
  *
  * Routes to the spaces hub with the ?bn_action=create query argument which
