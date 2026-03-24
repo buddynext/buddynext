@@ -223,6 +223,37 @@ if ( ! $bn_nav_css_output ) :
 			<?php esc_html_e( 'Spaces', 'buddynext' ); ?>
 		</a>
 
+		<?php
+		/**
+		 * Filters the public nav items rendered after Feed / Members / Spaces.
+		 *
+		 * Bridge plugins use this to inject addon surface links (e.g. a Forum
+		 * link pointing to Jetonomy). Auth-gated links belong in the bridge
+		 * callback, not here — the nav renders every returned item unconditionally.
+		 *
+		 * Each item must be an array with at minimum 'label' and 'url'. Optional
+		 * keys: 'icon' (raw inline SVG string) and 'active' (bool — marks the
+		 * current-page item).
+		 *
+		 * @param array[] $items Nav item definitions. Default empty array.
+		 */
+		$bn_extra_nav_items = apply_filters( 'buddynext_nav_items', array() );
+		foreach ( $bn_extra_nav_items as $bn_extra_item ) :
+			if ( empty( $bn_extra_item['label'] ) || empty( $bn_extra_item['url'] ) ) {
+				continue;
+			}
+			$bn_item_active = ! empty( $bn_extra_item['active'] );
+			?>
+			<a href="<?php echo esc_url( $bn_extra_item['url'] ); ?>"
+				class="bn-nav-item<?php echo $bn_item_active ? ' bn-nav-active' : ''; ?>"
+				<?php echo $bn_item_active ? 'aria-current="page"' : ''; ?>>
+				<?php if ( ! empty( $bn_extra_item['icon'] ) ) : ?>
+					<?php echo wp_kses_post( $bn_extra_item['icon'] ); ?>
+				<?php endif; ?>
+				<?php echo esc_html( $bn_extra_item['label'] ); ?>
+			</a>
+		<?php endforeach; ?>
+
 		<?php if ( $bn_nav_current_user ) : ?>
 
 		<a href="<?php echo esc_url( $bn_nav_urls['notifications'] ); ?>"

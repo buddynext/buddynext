@@ -195,8 +195,17 @@ apply_filters( 'buddynext_profile_extra_data', array $extra, int $user_id )
 //       return $extra;
 //   }, 10, 2 );
 
-// Inject items into main navigation
+// Inject items into the main community nav bar (after Feed / Members / Spaces).
 apply_filters( 'buddynext_nav_items', array $items )
+// Each item: [ 'label' => string, 'url' => string, 'icon' => string (raw SVG), 'active' => bool ]
+// 'label' and 'url' are required. Items missing either are silently skipped.
+// 'active' sets aria-current="page" and the bn-nav-active CSS class.
+//
+// Example — Jetonomy Forum link (auto-active on any /community/* URL):
+//   add_filter( 'buddynext_nav_items', function( $items ) {
+//       $items[] = [ 'label' => 'Forum', 'url' => home_url( '/community/' ), 'active' => false ];
+//       return $items;
+//   } );
 
 // Extend unified search results
 apply_filters( 'buddynext_search_results', array $results, string $query, array $args )

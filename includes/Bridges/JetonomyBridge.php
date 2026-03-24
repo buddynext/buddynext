@@ -45,6 +45,9 @@ class JetonomyBridge {
 		// jetonomy_post_deleted fires ($post_id, $space_id, $user_id) — 3 args.
 		add_action( 'jetonomy_post_deleted', array( $this, 'on_post_deleted' ), 10, 3 );
 
+		// Inject a Forum link into the BuddyNext top nav bar.
+		add_filter( 'buddynext_nav_items', array( $this, 'inject_forum_nav_item' ) );
+
 		// Inject a Forum tab into BuddyNext spaces that have a linked Jetonomy forum.
 		add_filter( 'buddynext_space_tabs', array( $this, 'inject_space_forum_tab' ), 10, 2 );
 
@@ -184,6 +187,41 @@ class JetonomyBridge {
 			}
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Inject a Forum link into the BuddyNext top navigation bar.
+	 *
+	 * Appends a public "Forum" nav item pointing to the Jetonomy community home.
+	 * Active state is detected by comparing the current REQUEST_URI against the
+	 * Jetonomy base path so the item highlights on every forum page.
+	 *
+	 * Hooked on: buddynext_nav_items( array $items )
+	 *
+	 * @param array<int, array{label: string, url: string, icon?: string, active?: bool}> $items Existing nav items.
+	 * @return array<int, array{label: string, url: string, icon?: string, active?: bool}>
+	 */
+	public function inject_forum_nav_item( array $items ): array {
+		$settings  = get_option( 'jetonomy_settings', array() );
+		$base_slug = isset( $settings['base_slug'] ) ? (string) $settings['base_slug'] : 'community';
+
+		// Derive the forum base path from home_url() so subdirectory installs work.
+		$forum_url  = home_url( '/' . $base_slug . '/' );
+		$forum_path = (string) ( wp_parse_url( $forum_url, PHP_URL_PATH ) ?? '/' . $base_slug . '/' );
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+		$is_active   = str_starts_with( $request_uri, $forum_path );
+
+		$items[] = array(
+			'key'    => 'forum',
+			'label'  => __( 'Forum', 'buddynext' ),
+			'url'    => $forum_url,
+			'icon'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+			'active' => $is_active,
+		);
+
+		return $items;
 	}
 
 	/**
