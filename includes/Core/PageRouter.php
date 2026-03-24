@@ -110,13 +110,19 @@ class PageRouter {
 	// ── Template dispatcher ───────────────────────────────────────────────────
 
 	/**
-	 * Load a BuddyNext hub template and short-circuit WordPress's own output.
+	 * Load a BuddyNext hub template using the active theme's header and footer.
 	 *
 	 * Hooked on 'template_redirect'. When the current request is a BuddyNext
 	 * hub route this method resolves the correct relative template path,
-	 * enqueues hub-specific assets, fires a before-hub action, and outputs a
-	 * complete HTML document — including wp_head() + wp_footer() — so the
-	 * WordPress Interactivity API runtime and all enqueued scripts load.
+	 * enqueues hub-specific assets, injects BuddyNext body classes, then
+	 * delegates the full page frame to the active theme via get_header() and
+	 * get_footer() — so the theme's navigation, widgets, and footer render
+	 * exactly as they do on every other page of the site.
+	 *
+	 * The 'no-sidebar' body class is added so themes that check for it (BuddyX,
+	 * GeneratePress, Astra, etc.) suppress their sidebar column, giving
+	 * BuddyNext's own right-column widgets the full layout width.
+	 *
 	 * Calls exit so WordPress never renders its own page content.
 	 *
 	 * @return void
@@ -141,32 +147,33 @@ class PageRouter {
 			exit;
 		}
 
-		// Enqueue hub-specific asset bundles before wp_head() fires.
+		// Enqueue hub-specific asset bundles before wp_head() fires (which
+		// happens inside get_header() → theme's header.php).
 		$this->enqueue_hub_assets( $hub, $context );
+
+		// Inject BuddyNext body classes via the standard body_class filter so
+		// the active theme's <body> tag carries them alongside its own classes.
+		// 'no-sidebar' tells BuddyX (and most popular themes) to suppress the
+		// sidebar column for this page.
+		$hub_snapshot = $hub; // Capture for use inside the closure.
+		add_filter(
+			'body_class',
+			static function ( array $classes ) use ( $hub_snapshot ): array {
+				$classes[] = 'bn-page';
+				$classes[] = 'bn-hub-' . $hub_snapshot;
+				$classes[] = 'no-sidebar';
+				return $classes;
+			}
+		);
 
 		do_action( 'buddynext_before_hub', $hub, $template );
 
-		// Output a full HTML document so wp_head() / wp_footer() run and the
-		// WordPress Interactivity API runtime (+ all enqueued scripts) load.
-		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
-		echo '<!DOCTYPE html>' . "\n";
-		echo '<html ' . get_language_attributes() . '>' . "\n";
-		echo '<head>' . "\n";
-		echo '<meta charset="' . esc_attr( get_bloginfo( 'charset' ) ) . '">' . "\n";
-		echo '<meta name="viewport" content="width=device-width, initial-scale=1">' . "\n";
-		wp_head();
-		echo '</head>' . "\n";
-		echo '<body class="bn-page bn-hub-' . esc_attr( $hub ) . '">' . "\n";
-		wp_body_open();
-		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
-
+		// Delegate the full page frame to the active theme. get_header() fires
+		// wp_head() internally, and get_footer() fires wp_footer() — so the
+		// WordPress Interactivity API runtime and all enqueued scripts load.
+		get_header();
 		buddynext_get_template( $template, $context );
-
-		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-		echo "\n";
-		wp_footer();
-		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-		echo '</body>' . "\n" . '</html>' . "\n";
+		get_footer();
 
 		exit;
 	}
