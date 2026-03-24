@@ -131,5 +131,78 @@ store( 'buddynext/feed', {
 				} );
 			} catch ( _e ) {}
 		},
+
+		/* ── Post actions (Like / Comment / Share / Save) ───────────────── */
+
+		react: async function ( event ) {
+			var ctx = getContext();
+			if ( ! ctx || ! ctx.restNonce ) { return; }
+
+			var btn    = event.target.closest( '[data-post-id]' );
+			var postId = btn ? btn.dataset.postId : null;
+			if ( ! postId ) { return; }
+
+			try {
+				var res = await fetch( ctx.restUrl + 'reactions/toggle', {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
+					body:    JSON.stringify( { object_type: 'post', object_id: parseInt( postId, 10 ), emoji: 'like' } ),
+				} );
+				if ( res.ok ) {
+					btn.classList.toggle( 'active' );
+					// Also toggle the reaction pill in the summary row.
+					var card = btn.closest( 'article' );
+					if ( card ) {
+						var pill = card.querySelector( '.bn-reaction-pill, .bn-react-summary' );
+						if ( pill ) { pill.classList.toggle( 'active' ); }
+					}
+				}
+			} catch ( _e ) {}
+		},
+
+		openComments: function ( event ) {
+			var btn    = event.target.closest( '[data-post-id]' );
+			var postId = btn ? btn.dataset.postId : null;
+			if ( ! postId ) { return; }
+			window.location.href = '/activity/?post=' + postId + '#comments';
+		},
+
+		share: async function ( event ) {
+			var ctx = getContext();
+			if ( ! ctx || ! ctx.restNonce ) { return; }
+
+			var btn    = event.target.closest( '[data-post-id]' );
+			var postId = btn ? btn.dataset.postId : null;
+			if ( ! postId ) { return; }
+
+			try {
+				var res = await fetch( ctx.restUrl + 'posts/' + postId + '/share', {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
+				} );
+				if ( res.ok ) {
+					btn.classList.add( 'active' );
+				}
+			} catch ( _e ) {}
+		},
+
+		bookmark: async function ( event ) {
+			var ctx = getContext();
+			if ( ! ctx || ! ctx.restNonce ) { return; }
+
+			var btn    = event.target.closest( '[data-post-id]' );
+			var postId = btn ? btn.dataset.postId : null;
+			if ( ! postId ) { return; }
+
+			try {
+				var res = await fetch( ctx.restUrl + 'posts/' + postId + '/bookmark', {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
+				} );
+				if ( res.ok ) {
+					btn.classList.toggle( 'active' );
+				}
+			} catch ( _e ) {}
+		},
 	},
 } );
