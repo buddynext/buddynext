@@ -24,7 +24,7 @@ $hashtags = buddynext_service( 'hashtags' )->get_trending( $count );
 		<ul class="bn-hashtag-list">
 			<?php foreach ( $hashtags as $idx => $bn_tag ) : ?>
 				<li class="bn-hashtag-item">
-					<a href="<?php echo esc_url( home_url( '/hashtag/' . rawurlencode( $bn_tag['slug'] ) ) ); ?>" class="bn-hashtag-link">
+					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::hashtag_feed_url( $bn_tag['slug'] ) ); ?>" class="bn-hashtag-link">
 						<span class="bn-hashtag-rank"><?php echo absint( $idx + 1 ); ?></span>
 						<span class="bn-hashtag-name">#<?php echo esc_html( $bn_tag['slug'] ); ?></span>
 						<span class="bn-hashtag-count"><?php echo absint( $bn_tag['post_count'] ?? 0 ); ?></span>

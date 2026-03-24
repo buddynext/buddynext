@@ -177,7 +177,7 @@ function bn_tag_linkify( string $content ): string {
 		'/#([a-zA-Z0-9_]+)/',
 		static function ( array $m ): string {
 			$slug = sanitize_title( $m[1] );
-			$url  = home_url( '/community/tag/' . $slug . '/' );
+			$url  = \BuddyNext\Core\PageRouter::hashtag_feed_url( $slug );
 			return '<a href="' . esc_url( $url ) . '" class="bn-hashtag">#' . esc_html( $m[1] ) . '</a>';
 		},
 		$content
@@ -1086,7 +1086,7 @@ else :
 						<div class="bn-related-tag-row">
 							<a
 								class="bn-related-tag-name"
-								href="<?php echo esc_url( home_url( '/community/tag/' . sanitize_title( $rel_tag->slug ) . '/' ) ); ?>"
+								href="<?php echo esc_url( \BuddyNext\Core\PageRouter::hashtag_feed_url( $rel_tag->slug ) ); ?>"
 							>#<?php echo esc_html( $rel_tag->slug ); ?></a>
 							<span class="bn-related-tag-count">
 								<?php
@@ -1148,7 +1148,7 @@ else :
 					<?php endforeach; ?>
 					<a
 						class="bn-widget-see-all"
-						href="<?php echo esc_url( home_url( '/community/members/?hashtag=' . rawurlencode( $hashtag_slug ) ) ); ?>"
+						href="<?php echo esc_url( add_query_arg( 'hashtag', rawurlencode( $hashtag_slug ), \BuddyNext\Core\PageRouter::people_url() ) ); ?>"
 					><?php esc_html_e( 'See all contributors', 'buddynext' ); ?> &rarr;</a>
 				</div>
 			<?php endif; ?>
