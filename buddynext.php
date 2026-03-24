@@ -170,6 +170,23 @@ function buddynext_create_space_url(): string {
 }
 
 /**
+ * Return a deterministic avatar background colour for a user ID.
+ *
+ * Used as a fallback behind avatar images so the placeholder is visually
+ * distinct per user while the image loads or when no Gravatar exists.
+ *
+ * @param int $user_id WordPress user ID.
+ * @return string Hex colour string, e.g. '#0073aa'.
+ */
+function buddynext_avatar_colour( int $user_id ): string {
+	static $palette = array(
+		'#0073aa', '#059669', '#7c3aed', '#d97706',
+		'#dc2626', '#0891b2', '#c2410c', '#4f46e5',
+	);
+	return $palette[ abs( $user_id ) % count( $palette ) ];
+}
+
+/**
  * Echo a BuddyNext SVG icon inline.
  *
  * Reads the named SVG from assets/icons/<name>.svg, sanitizes it via
