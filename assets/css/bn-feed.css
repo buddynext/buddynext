@@ -8,8 +8,8 @@
 
 /* ── Custom properties (design tokens) ─────────────────────────────────────── */
 :root {
-	--bn-font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-	--bn-font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+	--bn-font-body:    var(--font-body);
+	--bn-font-display: var(--font-display);
 
 	--bn-text-xs:   var(--text-xs);
 	--bn-text-sm:   var(--text-sm);

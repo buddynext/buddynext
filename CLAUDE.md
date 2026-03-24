@@ -170,17 +170,23 @@ includes/SocialGraph/FollowController.php  →  tests/SocialGraph/FollowControll
 
 ## Design System Tokens
 
-These tokens are the source of truth. Use them in every template's `<style>` block.
+These tokens are the **single source of truth** — injected by `TokenService` via `wp_add_inline_style('bn-base', ...)`. Never hardcode px, hex, or font values in CSS files. Always reference these tokens.
+
+**Premium social scale** — matches LinkedIn/Twitter/Facebook defaults:
 
 ```css
 :root {
   /* Typography */
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
-  --text-xs:  11px;  --text-sm: 13px;  --text-base: 15px;
-  --text-lg:  17px;  --text-xl: 20px;  --text-2xl: 24px;
-  --text-3xl: 30px;  --text-4xl: 38px;
-  --leading-tight: 1.25;  --leading-normal: 1.5;  --leading-body: 1.7;
+  --text-2xs: 9px;   --text-xs: 12px;  --text-sm: 14px;  --text-md: 15px;
+  --text-base: 16px; --text-lg: 18px;  --text-xl: 20px;  --text-2xl: 24px;
+  --text-3xl: 30px;  --text-4xl: 38px; --text-5xl: 48px;
+  --fw-normal: 400; --fw-medium: 500; --fw-semibold: 600;
+  --fw-bold: 700;   --fw-extrabold: 800; --fw-black: 900;
+  --leading-tight: 1.2; --leading-snug: 1.35; --leading-normal: 1.5; --leading-body: 1.7;
+  --ls-display: -0.04em; --ls-tight: -0.02em; --ls-normal: 0em;
+  --ls-wide: 0.04em; --ls-wider: 0.08em;
 
   /* Colours — light mode (Notion warm-grey) */
   --bg:          #ffffff;
@@ -241,6 +247,92 @@ These tokens are the source of truth. Use them in every template's `<style>` blo
 ```
 
 Full component library in: `.superpowers/brainstorm/14544-1773947712/style-guide.html`
+
+---
+
+## CSS & JS Coding Standards — Non-Negotiable
+
+### CSS Token Rules
+
+**The golden rule: never write a hardcoded px, hex, or font-family value in any CSS file.**
+
+| What you need | How to write it |
+|---------------|-----------------|
+| Font size | `var(--text-sm)`, `var(--text-base)`, etc. |
+| Font weight | `var(--fw-semibold)`, `var(--fw-bold)`, etc. |
+| Line height | `var(--leading-body)`, `var(--leading-normal)`, etc. |
+| Letter spacing | `var(--ls-tight)`, `var(--ls-normal)`, etc. |
+| Colors | `var(--bg)`, `var(--text-1)`, `var(--brand)`, etc. |
+| Spacing | `var(--s1)` through `var(--s16)` (4px grid) |
+| Border radius | `var(--r-sm)` through `var(--r-full)` |
+| Font family | `var(--font-body)` or `var(--font-display)` |
+
+**Where tokens come from:**
+- `TokenService` (`includes/Theme/TokenService.php`) injects all `--text-*`, `--fw-*`, `--leading-*`, `--ls-*`, `--bg`, `--text-1`, `--brand`, `--s*`, `--r-*` tokens via `wp_add_inline_style('bn-base')`.
+- `theme.json` registers the preset slugs so block themes can override via child theme.
+- `bn-base.css` defines `--bn-text-*` as **aliases** to the global tokens: `--bn-text-base: var(--text-base)`.
+
+**CSS file `:root` blocks — allowed vs forbidden:**
+
+```css
+/* ✅ ALLOWED — component-specific tokens not in the global system */
+:root {
+  --bn-shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --bn-transition: 0.14s ease;
+}
+
+/* ✅ ALLOWED — aliasing global tokens for a local shorthand */
+:root {
+  --bn-text-base: var(--text-base); /* alias, not hardcode */
+}
+
+/* ❌ FORBIDDEN — hardcoded typography/color/spacing */
+:root {
+  --bn-text-base: 15px;   /* ← never do this */
+  --bn-bg: #ffffff;       /* ← never do this */
+  --bn-s4: 16px;          /* ← never do this */
+}
+```
+
+**Font loading** — Inter and Plus Jakarta Sans must be loaded in `AssetService`. Never import from Google Fonts in CSS files. The `--font-body` and `--font-display` tokens carry the full stack including system-font fallbacks.
+
+### CSS File Structure
+
+Every `assets/css/bn-{feature}.css` file must follow this order:
+
+```css
+/* 1. File header comment — describes what this file covers */
+
+/* 2. :root block — ONLY component-specific tokens (shadows, transitions)
+      and --bn-* aliases to global tokens. No hardcoded values. */
+:root { ... }
+
+/* 3. [data-theme="dark"] block — dark mode overrides only */
+[data-theme="dark"] { ... }
+
+/* 4. Component rules — desktop-first */
+.bn-component { ... }
+
+/* 5. Mobile at end — @media (max-width: 640px) for every layout section */
+@media (max-width: 640px) { ... }
+```
+
+### JavaScript / Interactivity API Rules
+
+- **All JS stores** use ES module syntax with `import { store, getContext } from '@wordpress/interactivity'`.
+- **Store namespace** always `buddynext/{feature-name}` — e.g. `buddynext/feed`, `buddynext/follow-button`.
+- **No window globals** — never `window.wp.interactivity.store(...)`.
+- **No inline `<script>` in templates** — all JS must be in `assets/js/{feature}/store.js` and loaded via `AssetService`.
+- **REST calls in stores** use `fetch()` with the `restUrl` and `restNonce` context values passed from PHP via `data-wp-context`.
+- **Computed state** for all class/text bindings — never inline ternaries in `data-wp-bind` attributes.
+- **No jQuery** — Interactivity API + vanilla fetch only.
+
+### Adding a New CSS/JS Bundle
+
+1. Create `assets/css/bn-{feature}.css` and `assets/js/{feature}/store.js`.
+2. Register both in `AssetService::register_assets()`.
+3. Enqueue in `PageRouter::enqueue_hub_assets()` for the relevant hub case.
+4. Store shares the `restNonce` and `restUrl` context — pass them from the template via `data-wp-context`.
 
 ---
 

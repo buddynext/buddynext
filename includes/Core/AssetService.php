@@ -48,23 +48,7 @@ class AssetService {
 	 */
 	public function init(): void {
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ) );
-		add_action( 'wp_head', array( $this, 'output_google_fonts' ), 1 );
-		// Script Modules registration hook (WP 6.5+).
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_script_modules' ) );
-	}
-
-	/**
-	 * Output Google Fonts preconnect + stylesheet link.
-	 *
-	 * Hooked at priority 1 so it runs before other wp_head output.
-	 *
-	 * @return void
-	 */
-	public function output_google_fonts(): void {
-		echo '<link rel="preconnect" href="https://fonts.googleapis.com">' . "\n";
-		echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' . "\n";
-		// phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet
-		echo '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap" rel="stylesheet">' . "\n";
 	}
 
 	/**
@@ -77,11 +61,25 @@ class AssetService {
 	public function register_assets(): void {
 		$v = self::VERSION;
 
+		// ── Web fonts — self-hosted Inter + Plus Jakarta Sans ─────────────────
+		// Fonts live in assets/fonts/ — no Google Fonts, no network dependency.
+		// bn-base depends on this so fonts load whenever BuddyNext is active.
+		// Theme override: if the active theme's theme.json defines a "body" or
+		// "display" font-family preset, WordPress generates
+		// --wp--preset--font-family--body / --wp--preset--font-family--display
+		// which override --font-body / --font-display in TokenService.
+		wp_register_style(
+			'bn-fonts',
+			$this->assets_url . 'css/bn-fonts.css',
+			array(),
+			$v
+		);
+
 		// ── Global base styles ─────────────────────────────────────────────────
 		wp_register_style(
 			'bn-base',
 			$this->assets_url . 'css/bn-base.css',
-			array(),
+			array( 'bn-fonts' ),
 			$v
 		);
 

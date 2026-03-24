@@ -110,7 +110,7 @@ class TokenService {
 			'--text-2xs'        => 'var(--wp--preset--font-size--2xs, 9px)',
 			'--text-xs'         => 'var(--wp--preset--font-size--xs, 12px)',
 			'--text-sm'         => 'var(--wp--preset--font-size--sm, 14px)',
-			'--text-md'         => 'var(--wp--preset--font-size--md, 14px)',
+			'--text-md'         => 'var(--wp--preset--font-size--md, 15px)',
 			'--text-base'       => 'var(--wp--preset--font-size--medium, 16px)',
 			'--text-lg'         => 'var(--wp--preset--font-size--large, 18px)',
 			'--text-xl'         => 'var(--wp--preset--font-size--xl, 20px)',
