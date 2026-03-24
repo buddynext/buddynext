@@ -89,8 +89,8 @@
         { "slug": "xs",     "size": "11px", "name": "BuddyNext XS" },
         { "slug": "sm",     "size": "13px", "name": "BuddyNext SM" },
         { "slug": "md",     "size": "14px", "name": "BuddyNext MD" },
-        { "slug": "medium", "size": "15px", "name": "BuddyNext Base" },
-        { "slug": "large",  "size": "17px", "name": "BuddyNext LG" },
+        { "slug": "medium", "size": "16px", "name": "BuddyNext Base (16px)" },
+        { "slug": "large",  "size": "18px", "name": "BuddyNext LG (18px)" },
         { "slug": "xl",     "size": "20px", "name": "BuddyNext XL" },
         { "slug": "2xl",    "size": "24px", "name": "BuddyNext 2XL" },
         { "slug": "3xl",    "size": "30px", "name": "BuddyNext 3XL" },
@@ -102,7 +102,8 @@
         { "slug": "medium",    "weight": "500", "name": "Medium" },
         { "slug": "semibold",  "weight": "600", "name": "Semibold" },
         { "slug": "bold",      "weight": "700", "name": "Bold" },
-        { "slug": "extrabold", "weight": "800", "name": "Extra Bold" }
+        { "slug": "extrabold", "weight": "800", "name": "Extra Bold" },
+        { "slug": "black",     "weight": "900", "name": "Black" }
       ]
     },
     "spacing": {

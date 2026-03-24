@@ -36,17 +36,17 @@
 
 .bn-auth-logo {
 	font-family: var(--font-display);
-	font-size: 28px;
-	font-weight: 900;
+	font-size: var(--text-3xl);
+	font-weight: var(--fw-black);
 	margin-bottom: 40px;
-	letter-spacing: -1px;
+	letter-spacing: var(--ls-display);
 }
 
 .bn-auth-logo span { opacity: 0.7; }
 
 .bn-auth-headline {
 	font-family: var(--font-display);
-	font-size: 36px;
+	font-size: var(--text-4xl);
 	font-weight: var(--fw-extrabold);
 	line-height: var(--leading-tight);
 	margin-bottom: var(--s4);
@@ -151,7 +151,7 @@
 
 .bn-auth-form-title {
 	font-family: var(--font-display);
-	font-size: 22px;
+	font-size: var(--text-2xl);
 	font-weight: var(--fw-extrabold);
 	margin-bottom: 4px;
 	color: var(--text-1);
