@@ -595,7 +595,13 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 				<div class="bn-ob-step-item">
 					<div class="bn-ob-step-dot <?php echo $step_num < $saved_step ? 'done' : ( $step_num === $saved_step ? 'active' : '' ); ?>"
 						aria-label="<?php echo esc_attr( $step_info['label'] ); ?>">
-						<?php echo $step_num < $saved_step ? '&#10003;' : esc_html( (string) $step_num ); ?>
+						<?php
+					if ( $step_num < $saved_step ) {
+						buddynext_icon( 'check' );
+					} else {
+						echo esc_html( (string) $step_num );
+					}
+					?>
 					</div>
 					<div class="bn-ob-step-label"><?php echo esc_html( $step_info['label'] ); ?></div>
 				</div>
@@ -629,7 +635,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 						<?php else : ?>
 							<?php echo esc_html( $initials ); ?>
 						<?php endif; ?>
-						<span class="bn-ob-avatar-edit" aria-hidden="true">&#9998;</span>
+						<span class="bn-ob-avatar-edit" aria-hidden="true"><?php buddynext_icon( 'edit' ); ?></span>
 					</button>
 					<div class="bn-ob-avatar-hint"><?php esc_html_e( 'Tap to upload photo', 'buddynext' ); ?></div>
 				</div>
@@ -660,7 +666,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 					<div class="bn-ob-username-hint available"
 						data-wp-text="state.usernameHint"
 						data-wp-bind--hidden="!state.usernameHint">
-						&#10003; <?php echo esc_html( $current_login ); ?> <?php esc_html_e( 'is available', 'buddynext' ); ?>
+						<?php buddynext_icon( 'check' ); ?> <?php echo esc_html( $current_login ); ?> <?php esc_html_e( 'is available', 'buddynext' ); ?>
 					</div>
 				</div>
 

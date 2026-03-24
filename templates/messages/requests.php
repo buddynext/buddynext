@@ -380,7 +380,7 @@ $bn_relative_time = static function ( $timestamp ): string {
 </style>
 
 <nav class="bn-req-breadcrumb" aria-label="<?php esc_attr_e( 'Breadcrumb', 'buddynext' ); ?>">
-	<a href="<?php echo esc_url( $messages_url ); ?>">&#8592; <?php esc_html_e( 'Messages', 'buddynext' ); ?></a>
+	<a href="<?php echo esc_url( $messages_url ); ?>"><?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Messages', 'buddynext' ); ?></a>
 	<span class="bn-req-breadcrumb-sep" aria-hidden="true">/</span>
 	<span class="bn-req-breadcrumb-current"><?php esc_html_e( 'Requests', 'buddynext' ); ?></span>
 </nav>
@@ -432,7 +432,7 @@ $bn_relative_time = static function ( $timestamp ): string {
 	<?php if ( empty( $requests ) ) : ?>
 
 		<div class="bn-req-empty">
-			<div class="bn-req-empty-icon" aria-hidden="true">&#9993;</div>
+			<div class="bn-req-empty-icon" aria-hidden="true"><?php buddynext_icon( 'mail' ); ?></div>
 			<div class="bn-req-empty-title"><?php esc_html_e( 'No pending requests', 'buddynext' ); ?></div>
 			<p class="bn-req-empty-sub">
 				<?php esc_html_e( 'When someone who doesn&rsquo;t follow you sends a message, it will appear here first.', 'buddynext' ); ?>
@@ -518,7 +518,7 @@ $bn_relative_time = static function ( $timestamp ): string {
 
 							<?php if ( $mutual_count > 0 ) : ?>
 								<div class="bn-req-mutual">
-									&#10003;
+									<?php buddynext_icon( 'check' ); ?>
 									<?php
 									echo esc_html(
 										sprintf(
@@ -549,7 +549,7 @@ $bn_relative_time = static function ( $timestamp ): string {
 							data-nonce="<?php echo esc_attr( $accept_nonce ); ?>"
 							data-wp-on--click="actions.acceptRequest"
 						>
-							&#10003; <?php esc_html_e( 'Accept', 'buddynext' ); ?>
+							<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Accept', 'buddynext' ); ?>
 						</button>
 
 						<button
@@ -580,7 +580,7 @@ $bn_relative_time = static function ( $timestamp ): string {
 
 		<!-- Empty state shown after all requests are actioned (client-side) -->
 		<div class="bn-req-empty" style="display:none;" data-wp-class--bn-visible="state.allRequestsActioned">
-			<div class="bn-req-empty-icon" aria-hidden="true">&#9993;</div>
+			<div class="bn-req-empty-icon" aria-hidden="true"><?php buddynext_icon( 'mail' ); ?></div>
 			<div class="bn-req-empty-title"><?php esc_html_e( 'All caught up!', 'buddynext' ); ?></div>
 			<p class="bn-req-empty-sub">
 				<?php esc_html_e( 'When someone who doesn&rsquo;t follow you sends a message, it will appear here first.', 'buddynext' ); ?>

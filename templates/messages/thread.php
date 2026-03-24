@@ -1059,7 +1059,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 			<!-- Thread header -->
 			<div class="bn-thread-header">
 				<a href="<?php echo esc_url( remove_query_arg( 'conversation' ) ); ?>" class="bn-mobile-back" aria-label="<?php esc_attr_e( 'Back to conversations', 'buddynext' ); ?>">
-					&#8592;
+					<?php buddynext_icon( 'chevron-left' ); ?>
 				</a>
 
 				<?php
@@ -1108,7 +1108,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 
 				<div class="bn-thread-actions">
 					<span class="bn-icon-btn" title="<?php esc_attr_e( 'Search in conversation', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Search messages', 'buddynext' ); ?>"><?php buddynext_icon( 'search' ); ?></span>
-					<span class="bn-icon-btn" title="<?php esc_attr_e( 'More options', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>" data-wp-on--click="actions.openThreadOptions">&#8943;</span>
+					<span class="bn-icon-btn" title="<?php esc_attr_e( 'More options', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>" data-wp-on--click="actions.openThreadOptions"><?php buddynext_icon( 'more-horizontal' ); ?></span>
 				</div>
 			</div>
 
@@ -1194,7 +1194,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 							<?php endif; ?>
 
 							<?php if ( $is_mine && $read_by_all ) : ?>
-								<div class="bn-read-receipt"><?php esc_html_e( '&#10003;&#10003; Read', 'buddynext' ); ?></div>
+								<div class="bn-read-receipt" aria-label="<?php esc_attr_e( 'Read', 'buddynext' ); ?>"><?php buddynext_icon( 'check-double' ); ?> <?php esc_html_e( 'Read', 'buddynext' ); ?></div>
 							<?php endif; ?>
 						</div>
 					</div>
@@ -1231,7 +1231,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 			<div class="bn-input-bar">
 				<div class="bn-reply-preview" data-wp-class--bn-hidden="!state.replyToId" style="display:none;">
 					<span class="bn-reply-preview-text" data-wp-text="state.replyToText"></span>
-					<button type="button" class="bn-reply-clear" aria-label="<?php esc_attr_e( 'Cancel reply', 'buddynext' ); ?>" data-wp-on--click="actions.clearReply">&#10005;</button>
+					<button type="button" class="bn-reply-clear" aria-label="<?php esc_attr_e( 'Cancel reply', 'buddynext' ); ?>" data-wp-on--click="actions.clearReply"><?php buddynext_icon( 'x' ); ?></button>
 				</div>
 
 				<div class="bn-input-row">
@@ -1251,7 +1251,7 @@ $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_pa
 						aria-label="<?php esc_attr_e( 'Send message', 'buddynext' ); ?>"
 						data-conv-id="<?php echo esc_attr( (string) $conv_id ); ?>"
 						data-wp-on--click="actions.sendMessage"
-					>&#8593;</button>
+					><?php buddynext_icon( 'send' ); ?></button>
 				</div>
 			</div>
 

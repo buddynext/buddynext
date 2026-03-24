@@ -15,8 +15,6 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Profile;
 
-use BuddyNext\SocialGraph\FollowService;
-
 /**
  * Handles paginated member directory reads.
  */
@@ -26,22 +24,6 @@ class MemberDirectoryService {
 	 * Default members per page.
 	 */
 	private const DEFAULT_LIMIT = 20;
-
-	/**
-	 * Follow graph service — available for future "followed by viewer" sorting.
-	 *
-	 * @var FollowService
-	 */
-	private FollowService $follows;
-
-	/**
-	 * Inject the follow graph service.
-	 *
-	 * @param FollowService $follows Follow service instance.
-	 */
-	public function __construct( FollowService $follows ) {
-		$this->follows = $follows;
-	}
 
 	/**
 	 * Return a cursor-paginated list of members.
@@ -353,9 +335,8 @@ class MemberDirectoryService {
 			}
 		}
 
-		$sort_ref = $sort; // Capture for use inside closure.
-		$items    = array_map(
-			static function ( $r ) use ( $sort_ref, $mutual_counts ) {
+		$items = array_map(
+			static function ( $r ) use ( $mutual_counts ) {
 				$uid         = (int) $r['ID'];
 				$bio         = get_user_meta( $uid, 'bn_field_bio', true );
 				$last_active = (int) get_user_meta( $uid, 'bn_last_active', true );

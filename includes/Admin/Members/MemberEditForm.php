@@ -101,7 +101,7 @@ class MemberEditForm {
 		</style>
 
 		<a href="<?php echo esc_url( $back_url ); ?>" class="bn-edit-member-back">
-			&#8592; <?php esc_html_e( 'Back to Members', 'buddynext' ); ?>
+			<?php echo \BuddyNext\Core\IconService::render( 'chevron-left' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?> <?php esc_html_e( 'Back to Members', 'buddynext' ); ?>
 		</a>
 
 		<div class="bn-member-hero">

@@ -12,7 +12,6 @@ namespace BuddyNext\Tests\Profile;
 use BuddyNext\Core\Installer;
 use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Profile\MemberDirectoryService;
-use BuddyNext\SocialGraph\FollowService;
 
 /**
  * @covers \BuddyNext\Profile\MemberDirectoryService
@@ -27,7 +26,7 @@ class MemberDirectoryServiceTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
-		$this->service    = new MemberDirectoryService( new FollowService() );
+		$this->service = new MemberDirectoryService();
 		$this->moderation = new ModerationService();
 		$this->viewer_id  = self::factory()->user->create();
 		$this->admin_id   = self::factory()->user->create( array( 'role' => 'administrator' ) );

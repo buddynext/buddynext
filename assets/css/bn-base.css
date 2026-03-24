@@ -154,6 +154,47 @@
 	--red-bg:      #2d0f0f;
 }
 
+/* ── Icon system ────────────────────────────────────────────────────────── */
+/*
+ * .bn-icon is auto-injected by IconService::render() onto every SVG.
+ * SVG files have no width/height attributes so this class provides the
+ * em-based default that scales naturally with surrounding text.
+ */
+
+.bn-icon {
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	vertical-align: -0.125em; /* align with text cap-height */
+	flex-shrink: 0;
+	overflow: visible;
+}
+
+/* Explicit fixed sizes — use when not inline with body text */
+.bn-icon--xs  { width: 12px; height: 12px; }
+.bn-icon--sm  { width: 14px; height: 14px; }
+.bn-icon--md  { width: 16px; height: 16px; }
+.bn-icon--lg  { width: 20px; height: 20px; }
+.bn-icon--xl  { width: 24px; height: 24px; }
+.bn-icon--2xl { width: 32px; height: 32px; }
+.bn-icon--3xl { width: 48px; height: 48px; }
+
+/* Empty-state icons: fixed 32 px, centred, dimmed */
+.bn-empty__icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	margin-bottom: var(--s2);
+	opacity: 0.35;
+}
+
+.bn-empty__icon .bn-icon {
+	width: 48px;
+	height: 48px;
+}
+
 /* ── Hidden attribute — enforce display:none regardless of component rules */
 
 [hidden] { display: none !important; }
@@ -319,11 +360,6 @@
 	color: var(--text-3);
 	text-align: center;
 	gap: var(--s3);
-}
-
-.bn-empty__icon {
-	font-size: 32px;
-	opacity: 0.4;
 }
 
 /* ── Tag / pill ─────────────────────────────────────────────────────────── */

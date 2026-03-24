@@ -594,7 +594,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				data-wp-on--click="actions.toggleReactionPicker"
 				data-wp-bind--class="state.reactBtnClass"
 			>
-				<span data-wp-text="state.reactionEmoji"><?php buddynext_icon( 'heart' ); ?></span>
+				<span data-wp-bind--class="state.reactionIconClass" aria-hidden="true"><?php buddynext_icon( 'heart' ); ?></span>
 				<?php esc_html_e( 'React', 'buddynext' ); ?>
 			</button>
 
@@ -606,15 +606,15 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				data-wp-bind--hidden="!state.showReactionPicker"
 			>
 				<?php
-				$emojis = array(
-					'like'  => '<span class="bn-reaction-emoji" aria-hidden="true">👍</span>',
-					'love'  => '<span class="bn-reaction-emoji" aria-hidden="true">❤️</span>',
-					'haha'  => '<span class="bn-reaction-emoji" aria-hidden="true">😂</span>',
-					'wow'   => '<span class="bn-reaction-emoji" aria-hidden="true">😮</span>',
-					'sad'   => '<span class="bn-reaction-emoji" aria-hidden="true">😢</span>',
-					'angry' => '<span class="bn-reaction-emoji" aria-hidden="true">😡</span>',
-				);
-				foreach ( $emojis as $reaction_key => $emoji_html ) :
+				$reaction_icons = array(
+				'like'  => 'thumbs-up',
+				'love'  => 'heart',
+				'haha'  => 'reaction-haha',
+				'wow'   => 'reaction-wow',
+				'sad'   => 'reaction-sad',
+				'angry' => 'reaction-angry',
+			);
+				foreach ( $reaction_icons as $reaction_key => $icon_slug ) :
 					?>
 					<button
 						type="button"
@@ -622,7 +622,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 						aria-label="<?php echo esc_attr( $reaction_key ); ?>"
 						data-wp-on--click="actions.setReaction"
 						data-reaction-type="<?php echo esc_attr( $reaction_key ); ?>"
-					><?php echo $emoji_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static Unicode emoji in sanitized span ?></button>
+					><span class="bn-reaction-icon bn-reaction-icon--<?php echo esc_attr( $reaction_key ); ?>" aria-hidden="true"><?php buddynext_icon( $icon_slug ); ?></span></button>
 				<?php endforeach; ?>
 			</div>
 		</div><!-- .bn-post-card__react-wrap -->

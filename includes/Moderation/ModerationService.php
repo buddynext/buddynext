@@ -102,7 +102,7 @@ class ModerationService {
 		 * @param string $object_type Object type reported.
 		 * @param int    $object_id   Object ID reported.
 		 */
-		do_action( 'buddynext_report_created', $report_id, sanitize_key( $object_type ), $object_id, $reporter_id );
+		do_action( 'buddynext_report_created', $report_id, $reporter_id, sanitize_key( $object_type ), $object_id );
 
 		return $report_id;
 	}
@@ -505,6 +505,14 @@ class ModerationService {
 		$suspension_id = (int) $wpdb->insert_id;
 
 		/**
+		 * Legacy compat hook — fires after a user is suspended.
+		 *
+		 * @param int $user_id   Suspended user.
+		 * @param int $actor_id  Admin who suspended them.
+		 */
+		do_action( 'buddynext_member_suspended', $user_id, $actor_id );
+
+		/**
 		 * Fires after a user is suspended.
 		 *
 		 * @param int         $user_id    Suspended user.
@@ -512,7 +520,6 @@ class ModerationService {
 		 * @param string      $reason     Suspension reason.
 		 * @param string|null $expires_at Expiry timestamp, or null for permanent.
 		 */
-		do_action( 'buddynext_member_suspended', $user_id, $actor_id );
 		do_action( 'buddynext_user_suspended', $user_id, $actor_id, $reason, $expires_at );
 
 		return $suspension_id;

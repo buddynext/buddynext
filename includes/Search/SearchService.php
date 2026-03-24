@@ -370,7 +370,7 @@ class SearchService {
 	 * @return void
 	 */
 	public static function reindex_all_cron(): void {
-		static::reindex_all_sync();
+		self::reindex_all_sync();
 	}
 
 	/**

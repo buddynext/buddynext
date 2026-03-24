@@ -510,10 +510,10 @@ class ProfileService {
 						$effective_vis = 'private';
 						break;
 					}
-					if ( 'connections' === $v && 'private' !== $effective_vis ) {
+					if ( 'connections' === $v ) {
 						$effective_vis = 'connections';
 					}
-					if ( 'followers' === $v && 'private' !== $effective_vis && 'connections' !== $effective_vis ) {
+					if ( 'followers' === $v && 'connections' !== $effective_vis ) {
 						$effective_vis = 'followers';
 					}
 				}
@@ -522,7 +522,7 @@ class ProfileService {
 				}
 				if ( 'connections' === $effective_vis ) {
 					// Check mutual connection.
-					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 					$is_connected = (bool) $wpdb->get_var(
 						$wpdb->prepare(
 							"SELECT 1 FROM {$wpdb->prefix}bn_connections
@@ -534,6 +534,7 @@ class ProfileService {
 							$viewer_id
 						)
 					);
+					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 					if ( ! $is_connected ) {
 						continue;
 					}

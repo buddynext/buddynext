@@ -15,7 +15,6 @@ namespace BuddyNext\Search;
 
 use BuddyNext\Profile\MemberDirectoryService;
 use BuddyNext\Search\SearchService;
-use BuddyNext\SocialGraph\FollowService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -204,7 +203,7 @@ class SearchController {
 			'sort'              => sanitize_key( (string) ( $request->get_param( 'sort' ) ?? 'newest' ) ),
 		);
 
-		$result = ( new MemberDirectoryService( new FollowService() ) )->list_members(
+		$result = ( new MemberDirectoryService() )->list_members(
 			$viewer_id,
 			$cursor,
 			$per_page,

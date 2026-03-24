@@ -743,3 +743,10 @@ A phase is Done when ALL of:
 | 2026-03-24 | 1 | fix | AssetService: wp_register_script_module deps changed to array{id: string} form (PHPStan argument.type) |
 | 2026-03-24 | 1 | fix | PermissionService: removed unreachable ?? on ROLE_HIERARCHY lookup; dropped unused is_space_mod() private method |
 | 2026-03-24 | 1 | fix | phpstan.neon: switched to phpstan-bootstrap.php; added treatPhpDocTypesAsCertain: false — Core now passes PHPStan level 5 with zero errors |
+| 2026-03-24 | 10 | fix | audit(phases-9-12) Gate 1: GamificationBridge: removed spurious function_exists('wb_gamification_badge_awarded') guard — it is a hook name not a function |
+| 2026-03-24 | 9 | fix | audit(phases-9-12) Gate 1: templates/messages/thread.php: replaced 5 HTML entity icons (&#8592; &#8943; &#10003;&#10003; &#10005; &#8593;) with buddynext_icon() SVG calls; added send.svg + check-double.svg icons |
+| 2026-03-24 | 9 | fix | audit(phases-9-12) Gate 1: templates/messages/requests.php: replaced 5 HTML entity icons (&#8592; &#9993;×2 &#10003;×2) with buddynext_icon() SVG calls |
+| 2026-03-24 | 11 | fix | audit(phases-9-12) Gate 1: templates/onboarding/index.php: replaced 3 HTML entity icons (&#10003;×2 &#9998;) with buddynext_icon() SVG calls |
+| 2026-03-24 | 12 | fix | audit(phases-9-12) Gate 1: templates/community-admin.php: replaced 3 HTML entity icons (&#x2190; &#x2191;×2 &#x2193;) with buddynext_icon() SVG calls; added arrow-up.svg + arrow-down.svg icons |
+| 2026-03-24 | 12 | fix | audit(phases-9-12) Gate 1: Admin/Members/MemberTypesManager.php: replaced &#8943; with IconService::render('more-horizontal') |
+| 2026-03-24 | 12 | fix | audit(phases-9-12) Gate 1: Admin/Members/MemberEditForm.php: replaced &#8592; with IconService::render('chevron-left') |

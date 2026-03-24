@@ -77,9 +77,10 @@ class IconService {
 			return '';
 		}
 
-		if ( '' !== $css_class ) {
-			$svg = str_replace( '<svg ', '<svg class="' . esc_attr( $css_class ) . '" ', $svg );
-		}
+		// Always inject bn-icon as base class so every icon gets the
+		// sizing, stroke, and display rules from bn-base.css.
+		$classes = 'bn-icon' . ( '' !== $css_class ? ' ' . $css_class : '' );
+		$svg     = str_replace( '<svg ', '<svg class="' . esc_attr( $classes ) . '" ', $svg );
 
 		return wp_kses( $svg, self::allowed_tags() );
 	}

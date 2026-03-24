@@ -581,7 +581,7 @@ require __DIR__ . '/../partials/nav.php';
 				<div class="bn-announcement"
 					data-wp-interactive="buddynext/announcement"
 					data-wp-context='{"announcementId":<?php echo (int) $announcement->id; ?>}'>
-					<span class="bn-announcement__icon" aria-hidden="true">📢</span>
+					<span class="bn-announcement__icon" aria-hidden="true"><?php buddynext_icon( 'megaphone' ); ?></span>
 					<div class="bn-announcement__body">
 						<?php echo wp_kses_post( $announcement->content ); ?>
 					</div>
@@ -709,7 +709,7 @@ require __DIR__ . '/../partials/nav.php';
 
 			<?php else : ?>
 				<div class="bn-feed-empty" role="status">
-					<div class="bn-feed-empty__icon" aria-hidden="true">👋</div>
+					<div class="bn-feed-empty__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
 					<div class="bn-feed-empty__title">
 						<?php esc_html_e( 'Your feed is empty', 'buddynext' ); ?>
 					</div>

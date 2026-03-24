@@ -870,31 +870,6 @@ class ModerationController {
 	}
 
 	/**
-	 * Lift an active user suspension.
-	 *
-	 * Unused — route removed. DELETE /users/{id}/suspend via delete_suspension()
-	 * is the canonical unsuspend path.
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	private function unsuspend_user( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$user_id  = (int) $request->get_param( 'id' );
-		$actor_id = get_current_user_id();
-
-		$result = ( new ModerationService() )->unsuspend_user( $user_id, $actor_id );
-
-		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
-			return $result;
-		}
-
-		( new ModerationLogService() )->log( $actor_id, 'unsuspend_user', array( 'target_user_id' => $user_id ) );
-
-		return new WP_REST_Response( array( 'unsuspended' => true ), 200 );
-	}
-
-	/**
 	 * Submit a suspension appeal.
 	 *
 	 * @param WP_REST_Request $request Request object.

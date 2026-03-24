@@ -669,7 +669,7 @@ $posts_pct = $posts_yesterday > 0
 			?>
 		</span>
 		<div class="bn-ca-subheader__actions">
-			<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="bn-ca-link-back">&#x2190; <?php esc_html_e( 'Back to Community', 'buddynext' ); ?></a>
+			<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="bn-ca-link-back"><?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Back to Community', 'buddynext' ); ?></a>
 			<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-link-wpadmin"><?php esc_html_e( 'WP Admin', 'buddynext' ); ?></a>
 		</div>
 	</div>
@@ -749,7 +749,7 @@ $posts_pct = $posts_yesterday > 0
 					<div class="bn-ca-stat__label"><?php esc_html_e( 'Members', 'buddynext' ); ?></div>
 					<div class="bn-ca-stat__number"><?php echo esc_html( number_format_i18n( $total_members ) ); ?></div>
 					<div class="bn-ca-stat__sub bn-ca-stat__sub--green">
-						&#x2191; 
+						<?php buddynext_icon( 'arrow-up' ); ?>
 						<?php
 						// translators: %d is the number of new members today.
 						printf( esc_html__( '%d new today', 'buddynext' ), absint( $new_today ) );
@@ -789,7 +789,13 @@ $posts_pct = $posts_yesterday > 0
 					<div class="bn-ca-stat__label"><?php esc_html_e( 'Posts Today', 'buddynext' ); ?></div>
 					<div class="bn-ca-stat__number"><?php echo esc_html( (string) $posts_today ); ?></div>
 					<div class="bn-ca-stat__sub<?php echo $posts_pct >= 0 ? ' bn-ca-stat__sub--green' : ' bn-ca-stat__sub--red'; ?>">
-						<?php echo $posts_pct >= 0 ? '&#x2191;' : '&#x2193;'; ?>
+						<?php
+					if ( $posts_pct >= 0 ) {
+						buddynext_icon( 'arrow-up' );
+					} else {
+						buddynext_icon( 'arrow-down' );
+					}
+					?>
 						<?php
 						// translators: %d is the percentage change vs yesterday.
 						printf( esc_html__( '%d%% vs yesterday', 'buddynext' ), absint( $posts_pct ) );

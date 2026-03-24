@@ -872,6 +872,26 @@
 	background: var(--bn-bg-hover);
 }
 
+/* Reaction icon inside picker buttons */
+.bn-reaction-icon {
+	display: inline-flex;
+	width: 20px;
+	height: 20px;
+	color: var(--bn-text-2);
+}
+
+.bn-reaction-icon svg { width: 20px; height: 20px; }
+
+/* Reaction trigger button: current-reaction colour accents */
+.bn-post-card__react-icon { display: inline-flex; width: 16px; height: 16px; }
+.bn-post-card__react-icon svg { width: 16px; height: 16px; }
+.bn-post-card__react-icon--like  { color: var(--bn-brand); }
+.bn-post-card__react-icon--love  { color: var(--bn-red); }
+.bn-post-card__react-icon--haha  { color: var(--bn-amber); }
+.bn-post-card__react-icon--wow   { color: var(--bn-amber); }
+.bn-post-card__react-icon--sad   { color: var(--bn-brand); }
+.bn-post-card__react-icon--angry { color: var(--bn-red); }
+
 /* ── Sidebar ────────────────────────────────────────────────────────────────── */
 .bn-feed-sidebar {
 	display: flex;

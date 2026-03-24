@@ -5,14 +5,16 @@ import { store, getContext } from '@wordpress/interactivity';
 
 store( 'buddynext/post-card', {
 	state: {
-		// Reaction emoji map — derived from per-element context when directives run.
-		get reactionEmoji() {
+		// Reaction icon class — applied to the reaction button inner span to indicate current reaction type.
+		get reactionIconClass() {
 			try {
-				const ctx = getContext();
-				const map = { like: '\u2764\uFE0F', love: '\uD83D\uDE0D', laugh: '\uD83D\uDE02', wow: '\uD83D\uDE2E', sad: '\uD83D\uDE22', angry: '\uD83D\uDE21' };
-				return ctx.reactionType ? ( map[ ctx.reactionType ] || '\u2764\uFE0F' ) : '\u2764\uFE0F';
+				const ctx  = getContext();
+				const type = ctx.reactionType;
+				return type
+					? 'bn-post-card__react-icon bn-post-card__react-icon--' + type
+					: 'bn-post-card__react-icon';
 			} catch ( _e ) {
-				return '\u2764\uFE0F';
+				return 'bn-post-card__react-icon';
 			}
 		},
 		get showReactionPicker() {
