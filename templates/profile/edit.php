@@ -718,7 +718,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 					<button class="bn-ep-cover-btn"
 						type="button"
 						data-wp-on--click="actions.triggerCoverUpload">
-						&#128247; <?php esc_html_e( 'Change cover', 'buddynext' ); ?>
+						<?php buddynext_icon( 'camera' ); ?> <?php esc_html_e( 'Change cover', 'buddynext' ); ?>
 					</button>
 					<div class="bn-ep-avatar-overlap">
 						<div class="bn-ep-avatar-wrap">
@@ -853,7 +853,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 								<?php esc_html_e( 'Twitter / X', 'buddynext' ); ?>
 							</label>
 							<div class="bn-ep-social-wrap">
-								<span class="bn-ep-social-icon" aria-hidden="true">&#120143;</span>
+								<span class="bn-ep-social-icon bn-social-x" aria-hidden="true">X</span>
 								<input class="bn-ep-input"
 									type="url"
 									id="bn-ep-twitter"

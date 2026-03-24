@@ -910,7 +910,7 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 				<button class="bn-ob-btn-next"
 					type="button"
 					data-wp-on--click="actions.completeOnboarding">
-					&#127881; <?php esc_html_e( "Let's go!", 'buddynext' ); ?>
+					<?php esc_html_e( "Let's go!", 'buddynext' ); ?>
 				</button>
 			</div>
 

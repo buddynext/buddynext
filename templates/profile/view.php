@@ -83,12 +83,12 @@ $post_count = (int) $wpdb->get_var(
 );
 
 // --- Social graph state (viewer vs. this profile) -------------------------
-$is_following        = false;
-$is_connected        = false;
-$connection_pending  = false;
-$is_blocked          = false;
-$is_muted            = false;
-$degree_badge        = '';
+$is_following       = false;
+$is_connected       = false;
+$connection_pending = false;
+$is_blocked         = false;
+$is_muted           = false;
+$degree_badge       = '';
 
 if ( ! $is_own_profile && $current_user_id ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -899,7 +899,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 
 				<a href="<?php echo esc_url( home_url( '/messages/?with=' . $user_id ) ); ?>"
 					class="bn-btn-secondary">
-					&#128172; <?php esc_html_e( 'Message', 'buddynext' ); ?>
+					<?php buddynext_icon( 'message-circle' ); ?> <?php esc_html_e( 'Message', 'buddynext' ); ?>
 				</a>
 				<!-- More options dropdown -->
 				<div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen">
@@ -985,13 +985,13 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 		<div class="bn-profile-meta">
 			<?php if ( $location ) : ?>
 				<div class="bn-meta-item">
-					<span>&#128205;</span>
+					<span><?php buddynext_icon( 'at-sign' ); ?></span>
 					<?php echo esc_html( $location ); ?>
 				</div>
 			<?php endif; ?>
 			<?php if ( $website ) : ?>
 				<div class="bn-meta-item">
-					<span>&#128279;</span>
+					<span><?php buddynext_icon( 'link' ); ?></span>
 					<a href="<?php echo esc_url( $website ); ?>" target="_blank" rel="noopener noreferrer">
 						<?php
 						$parsed_host = wp_parse_url( $website, PHP_URL_HOST );
@@ -1001,7 +1001,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 				</div>
 			<?php endif; ?>
 			<div class="bn-meta-item">
-				<span>&#128197;</span>
+				<span><?php buddynext_icon( 'calendar' ); ?></span>
 				<?php
 				/* translators: %s: month and year the member joined */
 				echo esc_html( sprintf( __( 'Joined %s', 'buddynext' ), $joined ) );
@@ -1009,7 +1009,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 			</div>
 			<?php if ( $mutual_count > 0 ) : ?>
 				<div class="bn-meta-item">
-					<span>&#128101;</span>
+					<span><?php buddynext_icon( 'users' ); ?></span>
 					<?php
 					echo esc_html(
 						sprintf(
@@ -1090,9 +1090,9 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 							<?php echo wp_kses_post( $post_row->content ); ?>
 						</div>
 						<div class="bn-post-stats">
-							<span>&#10084;&#65039; <?php echo esc_html( (string) $post_row->reaction_count ); ?></span>
-							<span>&#128172; <?php echo esc_html( (string) $post_row->comment_count ); ?></span>
-							<span>&#8599;&#65039; <?php echo esc_html( (string) $post_row->share_count ); ?></span>
+							<span><?php buddynext_icon( 'heart' ); ?> <?php echo esc_html( (string) $post_row->reaction_count ); ?></span>
+							<span><?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) $post_row->comment_count ); ?></span>
+							<span><?php buddynext_icon( 'share' ); ?> <?php echo esc_html( (string) $post_row->share_count ); ?></span>
 							<span class="bn-post-age">
 								<?php echo esc_html( human_time_diff( strtotime( $post_row->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?>
 							</span>
@@ -1147,19 +1147,19 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 				<div class="bn-prompt-cards">
 					<?php if ( '' === $get_fv( 'basic_info', 'bio' ) ) : ?>
 					<a href="<?php echo $edit_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped above ?>" class="bn-prompt-card">
-						<span class="bn-prompt-card-icon">&#128221;</span>
+						<span class="bn-prompt-card-icon"><?php buddynext_icon( 'edit' ); ?></span>
 						<?php esc_html_e( 'Add a bio', 'buddynext' ); ?>
 					</a>
 					<?php endif; ?>
 					<?php if ( empty( $work_entries ) ) : ?>
 					<a href="<?php echo $edit_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>" class="bn-prompt-card">
-						<span class="bn-prompt-card-icon">&#128188;</span>
+						<span class="bn-prompt-card-icon"><?php buddynext_icon( 'briefcase' ); ?></span>
 						<?php esc_html_e( 'Add your work experience', 'buddynext' ); ?>
 					</a>
 					<?php endif; ?>
 					<?php if ( empty( $interests ) ) : ?>
 					<a href="<?php echo $edit_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>" class="bn-prompt-card">
-						<span class="bn-prompt-card-icon">&#127959;</span>
+						<span class="bn-prompt-card-icon"><?php buddynext_icon( 'layers' ); ?></span>
 						<?php esc_html_e( 'Add your skills', 'buddynext' ); ?>
 					</a>
 					<?php endif; ?>
@@ -1279,7 +1279,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 				<?php foreach ( $member_spaces as $space ) : ?>
 					<div class="bn-space-row">
 						<div class="bn-space-icon">
-							&#127968;
+							<?php buddynext_icon( 'home' ); ?>
 						</div>
 						<div>
 							<div class="bn-space-name"><?php echo esc_html( $space->name ); ?></div>

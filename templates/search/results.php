@@ -575,7 +575,7 @@ $search_url_base = esc_url( remove_query_arg( array( 'q', 'type', 'date', 'sort'
 	<!-- Search hero -->
 	<div class="bn-search-hero">
 		<form action="" method="get" class="bn-search-wrap" role="search">
-			<span class="bn-search-icon" aria-hidden="true">&#x1F50D;</span>
+			<span class="bn-search-icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></span>
 			<input
 				class="bn-search-input"
 				type="search"
@@ -654,7 +654,7 @@ $search_url_base = esc_url( remove_query_arg( array( 'q', 'type', 'date', 'sort'
 
 	<?php if ( '' === $raw_query ) : ?>
 		<div class="bn-search-empty">
-			<span class="bn-search-empty-icon" aria-hidden="true">&#x1F50D;</span>
+			<span class="bn-search-empty-icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></span>
 			<?php esc_html_e( 'Enter a search term above to find people, posts, and spaces.', 'buddynext' ); ?>
 		</div>
 	<?php else : ?>
@@ -783,11 +783,11 @@ $search_url_base = esc_url( remove_query_arg( array( 'q', 'type', 'date', 'sort'
 							</div>
 							<?php if ( $reactions || $comments_c || $shares_c ) : ?>
 								<div class="bn-post-stats">
-									&#x2764;&#xFE0F; <?php echo esc_html( (string) $reactions ); ?>
+									<?php buddynext_icon( 'heart' ); ?> <?php echo esc_html( (string) $reactions ); ?>
 									&nbsp;&middot;&nbsp;
-									&#x1F4AC; <?php echo esc_html( (string) $comments_c ); ?>
+									<?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) $comments_c ); ?>
 									&nbsp;&middot;&nbsp;
-									&#x2197;&#xFE0F; <?php echo esc_html( (string) $shares_c ); ?>
+									<?php buddynext_icon( 'share' ); ?> <?php echo esc_html( (string) $shares_c ); ?>
 								</div>
 							<?php endif; ?>
 						</div>
@@ -839,7 +839,7 @@ $search_url_base = esc_url( remove_query_arg( array( 'q', 'type', 'date', 'sort'
 						) : false;
 						?>
 						<div class="bn-space-result">
-							<div class="bn-space-icon" aria-hidden="true">&#x1F3D8;&#xFE0F;</div>
+							<div class="bn-space-icon" aria-hidden="true"><?php buddynext_icon( 'home' ); ?></div>
 							<div class="bn-space-info">
 								<div class="bn-space-name"><?php echo $space_name; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped above. ?></div>
 								<?php if ( $space_desc ) : ?>
@@ -870,7 +870,7 @@ $search_url_base = esc_url( remove_query_arg( array( 'q', 'type', 'date', 'sort'
 			<!-- No results state -->
 			<?php if ( 0 === $total_counts['all'] ) : ?>
 				<div class="bn-search-empty">
-					<span class="bn-search-empty-icon" aria-hidden="true">&#x1F50D;</span>
+					<span class="bn-search-empty-icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></span>
 					<?php
 					// translators: %s is the search query.
 					printf( esc_html__( 'Nothing found for "%s". Try different keywords.', 'buddynext' ), esc_html( $raw_query ) );

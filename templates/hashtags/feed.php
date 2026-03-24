@@ -860,7 +860,7 @@ else :
 								data-reaction="heart"
 								aria-label="<?php esc_attr_e( 'Like', 'buddynext' ); ?>"
 							>
-								&#10084;&#65039;
+								<?php buddynext_icon( 'heart' ); ?>
 								<?php if ( $reaction_count > 0 ) : ?>
 									<span><?php echo esc_html( (string) $reaction_count ); ?></span>
 								<?php endif; ?>
@@ -870,10 +870,10 @@ else :
 
 						<div class="bn-post-actions">
 							<button class="bn-action-btn" type="button" data-wp-on--click="actions.react" data-post-id="<?php echo esc_attr( (string) $post_row->id ); ?>">
-								&#10084;&#65039; <?php esc_html_e( 'Like', 'buddynext' ); ?>
+								<?php buddynext_icon( 'heart' ); ?> <?php esc_html_e( 'Like', 'buddynext' ); ?>
 							</button>
 							<button class="bn-action-btn" type="button" data-wp-on--click="actions.openComments" data-post-id="<?php echo esc_attr( (string) $post_row->id ); ?>">
-								&#128172;
+								<?php buddynext_icon( 'message-circle' ); ?>
 								<?php
 								if ( $comment_count > 0 ) {
 									printf(
@@ -887,10 +887,10 @@ else :
 								?>
 							</button>
 							<button class="bn-action-btn" type="button" data-wp-on--click="actions.share" data-post-id="<?php echo esc_attr( (string) $post_row->id ); ?>">
-								&#8599;&#65039; <?php esc_html_e( 'Share', 'buddynext' ); ?>
+								<?php buddynext_icon( 'share' ); ?> <?php esc_html_e( 'Share', 'buddynext' ); ?>
 							</button>
 							<button class="bn-action-btn" type="button" data-wp-on--click="actions.bookmark" data-post-id="<?php echo esc_attr( (string) $post_row->id ); ?>">
-								&#128214; <?php esc_html_e( 'Save', 'buddynext' ); ?>
+								<?php buddynext_icon( 'bookmark' ); ?> <?php esc_html_e( 'Save', 'buddynext' ); ?>
 							</button>
 						</div>
 					</article>
@@ -921,7 +921,7 @@ else :
 							?>
 							<article class="bn-tag-post-card jt-card">
 								<div class="bn-jt-source-label">
-									&#128172; <?php esc_html_e( 'Jetonomy Forums', 'buddynext' ); ?>
+									<?php buddynext_icon( 'message-circle' ); ?> <?php esc_html_e( 'Jetonomy Forums', 'buddynext' ); ?>
 								</div>
 								<div class="bn-post-header">
 									<?php if ( $jt_avatar ) : ?>
@@ -949,8 +949,8 @@ else :
 									<?php echo esc_html( $jt_post->title ); ?>
 								</div>
 								<div class="bn-jt-meta-row">
-									<span class="bn-jt-stat">&#128172; <?php echo esc_html( (string) absint( $jt_post->reply_count ) ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?></span>
-									<span class="bn-jt-stat">&#128065;&#65039; <?php echo esc_html( (string) absint( $jt_post->view_count ) ); ?> <?php esc_html_e( 'views', 'buddynext' ); ?></span>
+									<span class="bn-jt-stat"><?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) absint( $jt_post->reply_count ) ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?></span>
+									<span class="bn-jt-stat"><?php buddynext_icon( 'eye' ); ?> <?php echo esc_html( (string) absint( $jt_post->view_count ) ); ?> <?php esc_html_e( 'views', 'buddynext' ); ?></span>
 									<?php if ( $jt_post->is_answered ) : ?>
 										<span class="bn-jt-stat bn-jt-answered">&#10003; <?php esc_html_e( 'Answered', 'buddynext' ); ?></span>
 									<?php endif; ?>

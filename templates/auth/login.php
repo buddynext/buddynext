@@ -396,21 +396,21 @@ $redirect_to = isset( $_GET['redirect_to'] ) ? sanitize_url( wp_unslash( $_GET['
 		</div>
 		<div class="bn-auth-features">
 			<div class="bn-auth-feature">
-				<div class="bn-auth-feature-icon">&#127960;</div>
+				<div class="bn-auth-feature-icon"><?php buddynext_icon( 'home' ); ?></div>
 				<div class="bn-auth-feature-text">
 					<strong><?php esc_html_e( 'Spaces', 'buddynext' ); ?></strong>
 					&mdash; <?php esc_html_e( 'Topic-focused communities with feeds, forums, and media', 'buddynext' ); ?>
 				</div>
 			</div>
 			<div class="bn-auth-feature">
-				<div class="bn-auth-feature-icon">&#128240;</div>
+				<div class="bn-auth-feature-icon"><?php buddynext_icon( 'edit' ); ?></div>
 				<div class="bn-auth-feature-text">
 					<strong><?php esc_html_e( 'Home Feed', 'buddynext' ); ?></strong>
 					&mdash; <?php esc_html_e( 'See posts from people and spaces you follow', 'buddynext' ); ?>
 				</div>
 			</div>
 			<div class="bn-auth-feature">
-				<div class="bn-auth-feature-icon">&#128172;</div>
+				<div class="bn-auth-feature-icon"><?php buddynext_icon( 'message-circle' ); ?></div>
 				<div class="bn-auth-feature-text">
 					<strong><?php esc_html_e( 'Direct Messages', 'buddynext' ); ?></strong>
 					&mdash; <?php esc_html_e( 'Private conversations with anyone in the community', 'buddynext' ); ?>

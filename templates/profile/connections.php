@@ -448,14 +448,14 @@ if ( ! function_exists( 'bn_connections_initials' ) ) {
 									printf( esc_attr__( 'Message %s', 'buddynext' ), esc_attr( $conn_name ) );
 								?>
 								"
-							>&#128172;</a>
+							><?php buddynext_icon( 'message-circle' ); ?></a>
 						<?php endif; ?>
 					</div>
 				</article>
 			<?php endforeach; ?>
 		<?php else : ?>
 			<div class="bn-empty-state">
-				<div class="bn-empty-icon" aria-hidden="true">&#128101;</div>
+				<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
 				<div class="bn-empty-title">
 					<?php
 					if ( $is_own_profile ) {

@@ -720,7 +720,7 @@ require __DIR__ . '/../partials/nav.php';
 
 	<?php if ( empty( $members ) ) : ?>
 		<div class="bn-no-results">
-			<div class="bn-no-results-icon">&#128101;</div>
+			<div class="bn-no-results-icon"><?php buddynext_icon( 'users' ); ?></div>
 			<div class="bn-no-results-title"><?php esc_html_e( 'No members found', 'buddynext' ); ?></div>
 			<p><?php esc_html_e( 'Try a different search term or clear your filters.', 'buddynext' ); ?></p>
 		</div>
@@ -820,7 +820,7 @@ require __DIR__ . '/../partials/nav.php';
 								href="<?php echo esc_url( $messages_url ); ?>"
 								class="bn-btn-message"
 								aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member display name */ __( 'Message %s', 'buddynext' ), $display_name ) ); ?>"
-							>&#128172;</a>
+							><?php buddynext_icon( 'message-circle' ); ?></a>
 						<?php elseif ( 'pending' === $bn_conn_status ) : ?>
 							<button
 								type="button"
@@ -845,7 +845,7 @@ require __DIR__ . '/../partials/nav.php';
 								href="<?php echo esc_url( $messages_url ); ?>"
 								class="bn-btn-message"
 								aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member display name */ __( 'Message %s', 'buddynext' ), $display_name ) ); ?>"
-							>&#128172;</a>
+							><?php buddynext_icon( 'message-circle' ); ?></a>
 						<?php endif; ?>
 					<?php endif; ?>
 				</div>
