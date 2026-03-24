@@ -18,6 +18,32 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( ! function_exists( 'bn_space_category_icon' ) ) {
+	/**
+	 * Return inline SVG for a space category slug.
+	 *
+	 * @param string|null $cat_slug Category slug.
+	 * @return string SVG markup.
+	 */
+	function bn_space_category_icon( ?string $cat_slug ): string {
+		$map  = array(
+			'technology'  => 'cpu',
+			'design'      => 'image',
+			'marketing'   => 'megaphone',
+			'startups'    => 'rocket',
+			'ai-ml'       => 'cpu',
+			'data'        => 'bar-chart',
+			'product'     => 'target',
+			'writing'     => 'edit',
+			'open-source' => 'globe',
+			'business'    => 'briefcase',
+			'creative'    => 'star',
+		);
+		$slug = $map[ (string) $cat_slug ] ?? 'home';
+		return buddynext_get_icon( $slug );
+	}
+}
+
 global $wpdb;
 
 // ── Resolve space ─────────────────────────────────────────────────────────────
