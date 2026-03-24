@@ -1265,6 +1265,22 @@ class NavManager extends AdminPageBase {
 		.bn-config-note{font-size:11px;color:#646970;background:#f6f7f7;border:1px solid #f0f0f1;border-radius:3px;padding:8px 10px;line-height:1.5}
 		.bn-config-note strong{color:#50575e}
 
+		/* Hub page assignments */
+		.bn-nav-section-desc{font-size:12px;color:#787c82;line-height:1.5;margin-left:auto;text-align:right;max-width:420px}
+		.bn-hub-pages-list{padding:0;margin:0}
+		.bn-hub-page-row{display:grid;grid-template-columns:1fr 220px;align-items:center;gap:24px;padding:16px;border-bottom:1px solid #f0f0f1}
+		.bn-hub-page-row:last-child{border-bottom:none}
+		.bn-hub-page-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+		.bn-hub-page-label{font-weight:600;font-size:13px;color:#1d2327;line-height:1.4}
+		.bn-hub-page-desc{font-size:11px;color:#787c82;line-height:1.5}
+		.bn-hub-page-picker{flex-shrink:0}
+		.bn-hub-page-picker select{width:100%;border:1px solid #c3c4c7;border-radius:3px;padding:6px 8px;font-size:13px;color:#1d2327;background:#fff;font-family:inherit;box-sizing:border-box;cursor:pointer;line-height:1.4}
+		.bn-hub-page-picker select:focus{outline:none;border-color:#0073aa;box-shadow:0 0 0 1px #0073aa}
+		@media screen and (max-width:640px){
+			.bn-hub-page-row{grid-template-columns:1fr;gap:10px}
+			.bn-nav-section-desc{margin-left:0;text-align:left;max-width:none}
+		}
+
 		/* Developer bar */
 		.bn-dev-bar{background:#1e1e1e;color:#e5e7eb;padding:20px 32px;font-size:12px;line-height:1.7;margin-top:32px;border-radius:4px}
 		.bn-dev-bar-title{font-weight:700;color:#fff;font-size:13px;margin-bottom:12px}
