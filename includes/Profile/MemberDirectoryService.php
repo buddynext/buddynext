@@ -8,12 +8,12 @@
  * (sort_key_value, user_id) pair as base64 JSON so that every sort mode
  * supports stable keyset pagination.
  *
- * @package BuddyNext\Search
+ * @package BuddyNext\Profile
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Search;
+namespace BuddyNext\Profile;
 
 use BuddyNext\SocialGraph\FollowService;
 

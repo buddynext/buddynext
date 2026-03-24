@@ -59,7 +59,7 @@ use BuddyNext\Reactions\ReactionService;
 use BuddyNext\REST\Router;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
-use BuddyNext\Search\MemberDirectoryService;
+use BuddyNext\Profile\MemberDirectoryService;
 use BuddyNext\Search\SearchIndexListener;
 use BuddyNext\Search\SearchService;
 use BuddyNext\Auth\VerificationListener;

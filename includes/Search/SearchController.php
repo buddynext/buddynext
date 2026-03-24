@@ -13,7 +13,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Search;
 
-use BuddyNext\Search\MemberDirectoryService;
+use BuddyNext\Profile\MemberDirectoryService;
 use BuddyNext\Search\SearchService;
 use BuddyNext\SocialGraph\FollowService;
 use WP_Error;

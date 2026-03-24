@@ -2,20 +2,20 @@
 /**
  * Tests for MemberDirectoryService.
  *
- * @package BuddyNext\Tests\Search
+ * @package BuddyNext\Tests\Profile
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Tests\Search;
+namespace BuddyNext\Tests\Profile;
 
 use BuddyNext\Core\Installer;
 use BuddyNext\Moderation\ModerationService;
-use BuddyNext\Search\MemberDirectoryService;
+use BuddyNext\Profile\MemberDirectoryService;
 use BuddyNext\SocialGraph\FollowService;
 
 /**
- * @covers \BuddyNext\Search\MemberDirectoryService
+ * @covers \BuddyNext\Profile\MemberDirectoryService
  */
 class MemberDirectoryServiceTest extends \WP_UnitTestCase {
 
