@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Feed;
 
 use WP_Error;
+use BuddyNext\Moderation\SafeguardService;
 
 /**
  * Manages post lifecycle: create, read, update, delete, pin.

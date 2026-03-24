@@ -11,12 +11,12 @@
  * All thresholds are stored as WordPress options so admins can change them
  * without a code deploy.
  *
- * @package BuddyNext\Feed
+ * @package BuddyNext\Moderation
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Feed;
+namespace BuddyNext\Moderation;
 
 use WP_Error;
 

@@ -33,7 +33,7 @@ use BuddyNext\Feed\BookmarkService;
 use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PollService;
 use BuddyNext\Feed\PostService;
-use BuddyNext\Feed\SafeguardService;
+use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Blocks\BlockRegistrar;
 use BuddyNext\Bridges\CareerBoard as CareerBoardBridge;
