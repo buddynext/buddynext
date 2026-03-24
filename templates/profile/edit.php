@@ -835,7 +835,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 							id="bn-ep-bio"
 							name="bio"
 							rows="4"
-							placeholder="<?php esc_attr_e( 'Tell the community a bit about yourself\xe2\x80\xa6', 'buddynext' ); ?>"
+							placeholder="<?php esc_attr_e( 'Tell the community a bit about yourself...', 'buddynext' ); ?>"
 							data-wp-on--blur="actions.autosave"><?php echo esc_textarea( $bio ); ?></textarea>
 					</div>
 				</div>
@@ -1120,8 +1120,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 							<div class="bn-ep-account-label"><?php esc_html_e( 'Profile URL', 'buddynext' ); ?></div>
 							<div class="bn-ep-account-value bn-ep-slug-base">
 								<?php
-								$profile_base_url = rtrim( (string) get_permalink( (int) get_option( 'buddynext_page_profile', 0 ) ), '/' );
-								echo esc_html( $profile_base_url ? $profile_base_url : rtrim( \BuddyNext\Core\PageRouter::people_url(), '/' ) );
+									echo esc_html( rtrim( \BuddyNext\Core\PageRouter::people_url(), '/' ) );
 								?>
 							/
 							</div>

@@ -645,7 +645,8 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 				$offender_name = __( 'Reported Content', 'buddynext' );
 				$joined_date   = '';
 			}
-			$offender_inits = strtoupper( substr( $offender_name, 0, 1 ) . substr( strrchr( $offender_name, ' ' ), 1, 1 ) );
+			$offender_last  = strrchr( $offender_name, ' ' );
+		$offender_inits = strtoupper( substr( $offender_name, 0, 1 ) . ( false !== $offender_last ? substr( $offender_last, 1, 1 ) : '' ) );
 
 			// Content preview snippet.
 			$content_excerpt = '';
@@ -665,7 +666,12 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 			// Gather reporter user IDs (simplified — the row has reporter_id).
 			$reporter_id    = (int) $report->reporter_id;
 			$reporter_user  = get_userdata( $reporter_id );
-			$reporter_inits = $reporter_user ? strtoupper( substr( $reporter_user->display_name, 0, 1 ) . substr( strrchr( $reporter_user->display_name, ' ' ), 1, 1 ) ) : '?';
+			if ( $reporter_user ) {
+			$rep_last       = strrchr( $reporter_user->display_name, ' ' );
+			$reporter_inits = strtoupper( substr( $reporter_user->display_name, 0, 1 ) . ( false !== $rep_last ? substr( $rep_last, 1, 1 ) : '' ) );
+		} else {
+			$reporter_inits = '?';
+		}
 			?>
 			<div class="bn-report-card bn-report-card--<?php echo esc_attr( $severity ); ?>"
 				data-report-id="<?php echo esc_attr( (string) $report_id ); ?>">
