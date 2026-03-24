@@ -29,42 +29,59 @@ class JetonomyBridgeListener implements ListenerInterface {
 			return;
 		}
 
-		add_action( 'jetonomy_after_create_reply', array( $this, 'on_jetonomy_reply' ), 10, 3 );
+		// jetonomy_after_create_reply fires ($reply_id, $post_id) — 2 args only.
+		// The replier's user ID is fetched from jt_replies inside the callback.
+		add_action( 'jetonomy_after_create_reply', array( $this, 'on_jetonomy_reply' ), 10, 2 );
 	}
 
 	/**
 	 * Notify the Jetonomy post author when someone replies to their post.
 	 *
-	 * Only fires when Jetonomy plugin is active and a new reply is created.
+	 * Hooked on: jetonomy_after_create_reply( int $reply_id, int $post_id )
 	 *
-	 * @param int $reply_id ID of the new reply.
+	 * Note: Jetonomy fires only 2 args — reply_id and post_id. The replier's
+	 * user ID and the post author are both fetched from the DB to avoid relying
+	 * on a wider hook signature.
+	 *
+	 * @param int $reply_id ID of the new reply (jt_replies.id).
 	 * @param int $post_id  ID of the Jetonomy post that received the reply.
-	 * @param int $user_id  User who wrote the reply.
 	 */
-	public function on_jetonomy_reply( int $reply_id, int $post_id, int $user_id ): void {
+	public function on_jetonomy_reply( int $reply_id, int $post_id ): void {
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}
 
 		global $wpdb;
 
-		// Jetonomy posts use the standard wp_posts table.
-		$author_id = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prepare( "SELECT post_author FROM {$wpdb->posts} WHERE ID = %d LIMIT 1", $post_id )
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$reply_author_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT author_id FROM {$wpdb->prefix}jt_replies WHERE id = %d LIMIT 1",
+				$reply_id
+			)
 		);
 
-		if ( 0 === $author_id || $author_id === $user_id ) {
+		$post_author_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT author_id FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1",
+				$post_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// Skip when IDs couldn't be resolved or the replier is the post author.
+		if ( 0 === $reply_author_id || 0 === $post_author_id || $reply_author_id === $post_author_id ) {
 			return;
 		}
 
-		if ( $this->is_blocked( $author_id, $user_id ) ) {
+		if ( $this->is_blocked( $post_author_id, $reply_author_id ) ) {
 			return;
 		}
 
 		buddynext_service( 'notifications' )->create(
 			array(
-				'recipient_id' => $author_id,
-				'sender_id'    => $user_id,
+				'recipient_id' => $post_author_id,
+				'sender_id'    => $reply_author_id,
 				'type'         => 'jt.discussion_reply',
 				'object_type'  => 'jetonomy_post',
 				'object_id'    => $post_id,
