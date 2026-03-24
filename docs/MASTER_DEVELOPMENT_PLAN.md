@@ -1014,10 +1014,10 @@ Identified via deep code audit. All BLOCK 1–12 code exists but the following m
 
 ---
 
-### BLOCK 13 — Cron Handlers (new `CronHandlers` class)
+### BLOCK 13 — Cron Handlers (new `CronService` class)
 
 **Spec:** `docs/specs/features/06-notifications-email.md`, `02-activity-feed.md`
-**Files:** `includes/Core/CronHandlers.php` (new), `includes/Core/CronScheduler.php`, `includes/Core/Plugin.php`
+**Files:** `includes/Core/CronService.php` (new), `includes/Core/CronScheduler.php`, `includes/Core/Plugin.php`
 **Dependencies:** None — all required services already exist
 
 7 cron jobs are scheduled by `CronScheduler` but have zero handler wiring. Every job fires and does nothing.
@@ -1029,7 +1029,7 @@ Identified via deep code audit. All BLOCK 1–12 code exists but the following m
 - [x] `buddynext_trending_hashtags` — recount `post_count` on `bn_hashtags` from `bn_post_hashtags` for last 7 days
 - [x] `buddynext_recount_stats` — recount `reaction_count` + `comment_count` on `bn_posts` from child tables
 - [x] `buddynext_publish_scheduled` — publish `bn_posts` with `status = scheduled` and `scheduled_at <= NOW()`
-- [x] Wire all 7 via `add_action()` in `CronScheduler::init()` (or `CronHandlers` registered in `Plugin.php`)
+- [x] Wire all 7 via `add_action()` in `CronScheduler::init()` (or `CronService` registered in `Plugin.php`)
 - [x] Add `every_five_minutes` schedule consolidation — `OutboundWebhookService` uses duplicate schedule; migrate to `buddynext_5min`
 - [x] Add `buddynext_webhook_retry` to `CronScheduler::clear_events()` so it unschedules on deactivation
 
@@ -1039,7 +1039,7 @@ Identified via deep code audit. All BLOCK 1–12 code exists but the following m
 
 **Spec:** `docs/specs/features/10-onboarding-setup-wizard.md`
 **Files:** `includes/Onboarding/OnboardingService.php`, `includes/Onboarding/InviteService.php`, `includes/Core/CronScheduler.php`, `includes/Notifications/EventListener.php`, `includes/Admin/Members/InviteManager.php` (new), `includes/Core/Installer.php`
-**Dependencies:** BLOCK 13 (CronHandlers pattern) — can run parallel if CronScheduler wiring done separately
+**Dependencies:** BLOCK 13 (CronService pattern) — can run parallel if CronScheduler wiring done separately
 
 - [x] `OnboardingService::save_step()` steps 3+4 — step 3 calls `SpaceMemberService::join()` for each submitted space ID; step 4 calls `FollowService::follow()` for each submitted user ID
 - [x] Nudge email cron: on `user_register`, schedule `wp_schedule_single_event(+24h, 'bn_onboarding_nudge_24h', [$user_id])` and `wp_schedule_single_event(+72h, 'bn_onboarding_nudge_72h', [$user_id])`
@@ -1091,7 +1091,7 @@ All missing CSS/JS files registered by `AssetService` but absent on disk.
 
 ### BLOCK 17 — Code Quality + Minor Fixes
 
-**Files:** `includes/Admin/NavManager.php`, `includes/Search/MemberDirectoryService.php`, `includes/Core/OutboundWebhookService.php`
+**Files:** `includes/Admin/NavManager.php`, `includes/Profile/MemberDirectoryService.php`, `includes/Outbound/OutboundWebhookService.php`
 **Dependencies:** None
 
 - [x] `NavManager.php:721` — write the `render_hub_page_assignments()` method body (page-picker for hub pages that have no dedicated tab — Members, Auth)

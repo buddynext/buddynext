@@ -93,7 +93,7 @@ class HashtagService {
 	 * Return the top trending hashtags (spec-named alias for get_trending()).
 	 *
 	 * In production the post_count is maintained async by a cron job (see
-	 * CronHandlers) — this method reads the cached counter column directly.
+	 * CronService) — this method reads the cached counter column directly.
 	 *
 	 * @param int $limit Maximum number to return (1–50). Default 10.
 	 * @return array[]
