@@ -438,12 +438,13 @@
 }
 
 /* ── Jetonomy inside BN shell ─────────────────────────────────────────── */
-/* Single-column: BN sidebar replaces Jetonomy's sidebar. */
+/* Single-column: BN sidebar replaces Jetonomy's sidebar.
+   Jetonomy uses display: grid !important on .jt-two-col — must match. */
 .bn-jt-content .jt-two-col {
-	display: block;
+	grid-template-columns: 1fr !important;
 }
 .bn-jt-content .jt-sidebar {
-	display: none;
+	display: none !important;
 }
 /* Jetonomy's own container must not add extra max-width or padding —
    the hub shell already constrains to 1100px with its own padding. */
