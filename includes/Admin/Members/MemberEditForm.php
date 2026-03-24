@@ -12,7 +12,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin\Members;
 
-use BuddyNext\Admin\Helpers\MemberDisplay;
+use BuddyNext\Admin\Members\MemberDisplay;
 
 /**
  * Renders the edit-member admin view for a single user.

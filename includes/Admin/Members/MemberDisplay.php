@@ -5,12 +5,12 @@
  * Static utility methods for rendering member avatars, initials, role badges,
  * and time differences in the admin UI. Usable from any admin page.
  *
- * @package BuddyNext\Admin\Helpers
+ * @package BuddyNext\Admin\Members
  */
 
 declare( strict_types=1 );
 
-namespace BuddyNext\Admin\Helpers;
+namespace BuddyNext\Admin\Members;
 
 /**
  * Static utility methods for member display in admin UI.

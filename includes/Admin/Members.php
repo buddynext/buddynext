@@ -14,7 +14,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Admin;
 
-use BuddyNext\Admin\Helpers\MemberDisplay;
+use BuddyNext\Admin\Members\MemberDisplay;
 
 /**
  * Admin panel for managing BuddyNext community members.
