@@ -858,7 +858,7 @@ $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 									data-wp-on--click="actions.toggleReaction"
 									data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>"
 									aria-label="<?php esc_attr_e( 'React to post', 'buddynext' ); ?>"
-								><?php buddynext_icon( 'heart' ); ?> <?php echo esc_html( (string) $reaction_count ); ?></button>
+								><?php buddynext_icon( 'heart' ); ?> <span class="bn-reaction-count"><?php echo esc_html( (string) $reaction_count ); ?></span></button>
 
 								<button
 									class="bn-post-card__stat"

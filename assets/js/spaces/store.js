@@ -72,7 +72,7 @@ function swapButtonState( btn, newState ) {
 		request: 'bn-btn-request',
 	};
 	var labelMap = {
-		joined:  '\u2713 Joined',
+		joined:  'Joined',
 		pending: 'Requested',
 		join:    'Join',
 		request: 'Request to join',
@@ -372,9 +372,8 @@ store( 'buddynext/spaces', {
 		},
 
 		/**
-		 * Toggle a heart reaction on a post.
-		 * If the user has not reacted, POST to create; if they have
-		 * (button has class bn-reacted), DELETE to remove.
+		 * Toggle a reaction on a post via POST /reactions/toggle.
+		 * The endpoint handles both add and remove based on current state.
 		 * Updates the displayed count optimistically.
 		 */
 		toggleReaction: async function ( event ) {
@@ -382,12 +381,11 @@ store( 'buddynext/spaces', {
 			var postId = resolvePostId( btn );
 			if ( ! postId || ! btn ) { return; }
 
+			var countEl    = btn.querySelector( '.bn-reaction-count' );
 			var hasReacted = btn.classList.contains( 'bn-reacted' );
+			var count      = countEl ? ( parseInt( countEl.textContent, 10 ) || 0 ) : 0;
 
 			// Optimistic update.
-			var countMatch = btn.textContent.match( /(\d+)/ );
-			var count      = countMatch ? parseInt( countMatch[1], 10 ) : 0;
-
 			if ( hasReacted ) {
 				count = Math.max( 0, count - 1 );
 				btn.classList.remove( 'bn-reacted' );
@@ -395,49 +393,21 @@ store( 'buddynext/spaces', {
 				count = count + 1;
 				btn.classList.add( 'bn-reacted' );
 			}
-
-			btn.textContent = '\u2764\uFE0F ' + count;
+			if ( countEl ) { countEl.textContent = String( count ); }
 
 			try {
-				if ( hasReacted ) {
-					// Find the stored reaction id on the button, fall back to
-					// a DELETE by object type/id if the endpoint supports it.
-					var reactionId = btn.dataset.reactionId;
-					if ( reactionId ) {
-						await fetch( apiUrl( 'buddynext/v1/reactions/' + reactionId ), {
-							method:  'DELETE',
-							headers: { 'X-WP-Nonce': resolveNonce() },
-						} );
-					} else {
-						// Endpoint does not surface a reaction ID in the template —
-						// issue a generic DELETE with query params as a best-effort.
-						await fetch( apiUrl( 'buddynext/v1/reactions?object_type=post&object_id=' + postId + '&emoji=%E2%9D%A4%EF%B8%8F' ), {
-							method:  'DELETE',
-							headers: { 'X-WP-Nonce': resolveNonce() },
-						} );
-					}
-				} else {
-					var res  = await fetch( apiUrl( 'buddynext/v1/reactions' ), {
-						method:  'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-WP-Nonce':   resolveNonce(),
-						},
-						body: JSON.stringify( {
-							object_type: 'post',
-							object_id:   parseInt( postId, 10 ),
-							emoji:       '\u2764\uFE0F',
-						} ),
-					} );
-					if ( res.ok ) {
-						var data = await res.json();
-						// Store the new reaction id on the button so a subsequent
-						// toggle can DELETE by id.
-						if ( data && data.id ) {
-							btn.dataset.reactionId = String( data.id );
-						}
-					}
-				}
+				await fetch( apiUrl( 'buddynext/v1/reactions/toggle' ), {
+					method:  'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( {
+						object_type: 'post',
+						object_id:   parseInt( postId, 10 ),
+						emoji:       'love',
+					} ),
+				} );
 			} catch ( _e ) {
 				// Revert optimistic update on network failure.
 				if ( hasReacted ) {
@@ -447,7 +417,7 @@ store( 'buddynext/spaces', {
 					count = Math.max( 0, count - 1 );
 					btn.classList.remove( 'bn-reacted' );
 				}
-				btn.textContent = '\u2764\uFE0F ' + count;
+				if ( countEl ) { countEl.textContent = String( count ); }
 			}
 		},
 
@@ -540,9 +510,7 @@ store( 'buddynext/spaces', {
 		},
 
 		/**
-		 * Share a post.  Calls POST /buddynext/v1/shares (not listed in
-		 * the spec as /shares but the outbound webhook spec mentions
-		 * bn_shares table — endpoint is wired via PostController).
+		 * Share a post. Calls POST /buddynext/v1/posts/{id}/share.
 		 * Shows a brief "Shared!" label on the button after success.
 		 */
 		sharePost: async function ( event ) {
@@ -554,19 +522,17 @@ store( 'buddynext/spaces', {
 			btn.disabled = true;
 
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/shares' ), {
+				var res = await fetch( apiUrl( 'buddynext/v1/posts/' + postId + '/share' ), {
 					method:  'POST',
 					headers: {
 						'Content-Type': 'application/json',
 						'X-WP-Nonce':   resolveNonce(),
 					},
-					body: JSON.stringify( {
-						post_id: parseInt( postId, 10 ),
-					} ),
+					body: JSON.stringify( {} ),
 				} );
 
 				if ( res.ok ) {
-					btn.textContent = '\u2197\uFE0F Shared!';
+					btn.textContent = 'Shared!';
 					setTimeout( function () {
 						btn.textContent = origText;
 						btn.disabled    = false;

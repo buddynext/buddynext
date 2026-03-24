@@ -677,9 +677,9 @@ require __DIR__ . '/../partials/nav.php';
 
 	<div class="bn-view-toggle" role="group" aria-label="<?php esc_attr_e( 'View layout', 'buddynext' ); ?>">
 		<button type="button" class="bn-view-btn active" aria-pressed="true" aria-label="<?php esc_attr_e( 'Grid view', 'buddynext' ); ?>"
-			data-wp-on--click="actions.setGridView">&#10799;</button>
+			data-wp-on--click="actions.setGridView"><?php buddynext_icon( 'grid' ); ?></button>
 		<button type="button" class="bn-view-btn" aria-pressed="false" aria-label="<?php esc_attr_e( 'List view', 'buddynext' ); ?>"
-			data-wp-on--click="actions.setListView">&#9776;</button>
+			data-wp-on--click="actions.setListView"><?php buddynext_icon( 'list' ); ?></button>
 	</div>
 
 	<span class="bn-result-count">

@@ -159,6 +159,10 @@ $bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): 
 	return $last_active >= $online_threshold;
 };
 ?>
+<?php
+$bn_nav_active = 'messages';
+require __DIR__ . '/../partials/nav.php';
+?>
 <div
 	class="bn-messages-list"
 	data-wp-interactive="buddynext/messages"

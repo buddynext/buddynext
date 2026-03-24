@@ -73,10 +73,10 @@ store( 'buddynext/post-card', {
 			const newType          = ctx.reactionType === type ? null : type;
 
 			try {
-				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/react', {
+				const res = yield fetch( ctx.restUrl + '/reactions/toggle', {
 					method:  'POST',
 					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.reactNonce },
-					body:    JSON.stringify( { emoji: newType } ),
+					body:    JSON.stringify( { object_type: 'post', object_id: ctx.postId, emoji: newType } ),
 				} );
 				if ( res.ok ) {
 					ctx.reactionType = newType;

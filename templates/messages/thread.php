@@ -218,6 +218,10 @@ if ( $thread_data && $other_user instanceof WP_User ) {
 $messages_page_url = get_permalink( get_page_by_path( 'messages' ) );
 $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_page_url );
 ?>
+<?php
+$bn_nav_active = 'messages';
+require __DIR__ . '/../partials/nav.php';
+?>
 <div
 	class="bn-messages-thread-shell"
 	data-wp-interactive="buddynext/messages"
