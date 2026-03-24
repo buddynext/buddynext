@@ -37,7 +37,8 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		// Tell WPMediaVerse that BuddyNext is active so it skips its own notification.
+		// Tell WPMediaVerse that BuddyNext is active so it skips its own
+		// floating chat panel, standalone messages page, and notifications.
 		add_filter( 'mvs_buddynext_active', '__return_true' );
 
 		// Gate DMs on bn_blocks.
@@ -48,6 +49,164 @@ class WPMediaVerseBridge {
 
 		// Notify media owner when someone favourites their content.
 		add_action( 'mvs_favorite_toggled', array( $this, 'on_favorite_toggled' ), 10, 3 );
+
+		// Unified nav: inject "Media" link into BuddyNext top nav.
+		add_filter( 'buddynext_nav_items', array( $this, 'inject_media_nav_item' ) );
+
+		// Unified nav: render BuddyNext subnav on all WPMediaVerse pages.
+		add_action( 'mvs_before_content', array( $this, 'render_buddynext_nav_on_mvs' ) );
+
+		// Render MVS chat components inside BuddyNext's messages hub shell.
+		add_action( 'buddynext_render_messages', array( $this, 'render_messages' ) );
+	}
+
+	/**
+	 * Enqueue WPMediaVerse messaging assets on BuddyNext's messages page.
+	 *
+	 * Called early from render_messages() so CSS/JS are available when
+	 * wp_head() fires inside get_header(). Must bypass the mvs_buddynext_active
+	 * guard that normally suppresses MVS asset loading.
+	 *
+	 * @return void
+	 */
+	public function enqueue_messaging_assets(): void {
+		wp_enqueue_style(
+			'mvs-messaging',
+			MVS_PLUGIN_URL . 'assets/css/messaging.css',
+			array(),
+			MVS_VERSION
+		);
+
+		wp_register_script_module(
+			'mvs-messaging',
+			MVS_PLUGIN_URL . 'assets/js/messaging.js',
+			array(
+				array(
+					'id'     => '@wordpress/interactivity',
+					'import' => 'static',
+				),
+			),
+			MVS_VERSION
+		);
+		wp_enqueue_script_module( 'mvs-messaging' );
+	}
+
+	/**
+	 * Print the MVS messaging runtime config (REST base, nonce, current user).
+	 *
+	 * Rendered inline before the chat templates so the Interactivity API store
+	 * can read it on init.
+	 *
+	 * @return void
+	 */
+	private function print_messaging_config(): void {
+		$user   = wp_get_current_user();
+		$config = array(
+			'restBase'    => esc_url_raw( rest_url( 'mvs/v1' ) ),
+			'nonce'       => wp_create_nonce( 'wp_rest' ),
+			'currentUser' => array(
+				'id'           => $user->ID,
+				'display_name' => $user->display_name,
+				'avatar_url'   => get_avatar_url( $user->ID, array( 'size' => 64 ) ),
+			),
+		);
+
+		if ( class_exists( 'WPMediaVerse\Messaging\RestPollingTransport' ) ) {
+			$transport           = apply_filters(
+				'mvs_messaging_transport',
+				new \WPMediaVerse\Messaging\RestPollingTransport()
+			);
+			$config['transport'] = $transport->get_client_config();
+		}
+
+		wp_print_inline_script_tag(
+			'window.mvsMessagingConfig = ' . wp_json_encode( $config ) . ';',
+			array( 'id' => 'mvs-messaging-config' )
+		);
+	}
+
+	/**
+	 * Render the WPMediaVerse two-pane chat UI inside BuddyNext's hub shell.
+	 *
+	 * Outputs the conversation list panel (280px) and the thread panel (1fr)
+	 * wrapped in a flex container that becomes a single grid child inside
+	 * .bn-hub-shell's 1fr column.
+	 *
+	 * @return void
+	 */
+	public function render_messages(): void {
+		$this->enqueue_messaging_assets();
+		$this->print_messaging_config();
+
+		$partials = MVS_PLUGIN_DIR . 'templates/partials/';
+		?>
+		<div
+			class="bn-msg-shell"
+			data-wp-interactive="mvs/messaging"
+			data-wp-init="callbacks.onInit"
+			data-wp-bind--data-active-conv="state.activeConversationId"
+		>
+			<div class="bn-msg-sidebar">
+				<?php require $partials . 'chat-list.php'; ?>
+			</div>
+
+			<div class="bn-msg-thread" data-wp-bind--hidden="!state.activeConversationId">
+				<?php require $partials . 'chat-conversation.php'; ?>
+			</div>
+
+			<div class="bn-msg-empty" data-wp-bind--hidden="state.activeConversationId">
+				<div class="bn-msg-empty-icon" aria-hidden="true">
+					<?php echo \BuddyNext\Core\IconService::render( 'message-circle' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+				</div>
+				<p class="bn-msg-empty-title"><?php esc_html_e( 'Your messages', 'buddynext' ); ?></p>
+				<p class="bn-msg-empty-sub"><?php esc_html_e( 'Select a conversation or start a new one.', 'buddynext' ); ?></p>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Inject a "Media" link into the BuddyNext top navigation bar.
+	 *
+	 * Uses the mvs_media post type archive URL. Active state is detected by
+	 * checking whether the current page has the mvs-page body class (set by
+	 * WPMediaVerse's TemplateLoader::maybe_add_mvs_body_class).
+	 *
+	 * Hooked on: buddynext_nav_items( array $items )
+	 *
+	 * @param array<int, array{label: string, url: string, icon?: string, active?: bool}> $items Existing nav items.
+	 * @return array<int, array{label: string, url: string, icon?: string, active?: bool}>
+	 */
+	public function inject_media_nav_item( array $items ): array {
+		$media_url  = get_post_type_archive_link( 'mvs_media' );
+		$media_path = (string) ( wp_parse_url( (string) $media_url, PHP_URL_PATH ) ?? '/media/' );
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+		$is_active   = str_starts_with( $request_uri, $media_path );
+
+		$items[] = array(
+			'key'    => 'media',
+			'label'  => __( 'Media', 'buddynext' ),
+			'url'    => (string) $media_url,
+			'icon'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+			'active' => $is_active,
+		);
+
+		return $items;
+	}
+
+	/**
+	 * Render the BuddyNext subnav on WPMediaVerse pages.
+	 *
+	 * Hooked on mvs_before_content (fired by all MVS templates after
+	 * get_header). Bails silently when BuddyNext is not fully booted.
+	 */
+	public function render_buddynext_nav_on_mvs(): void {
+		if ( ! function_exists( 'buddynext_get_template' ) || ! did_action( 'buddynext_loaded' ) ) {
+			return;
+		}
+		buddynext_get_template( 'partials/nav' );
 	}
 
 	/**
