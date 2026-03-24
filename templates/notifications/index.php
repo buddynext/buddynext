@@ -99,7 +99,7 @@ if ( ! empty( $actor_ids ) ) {
 		$actor_user              = get_userdata( $actor_id );
 		$actor_data[ $actor_id ] = array(
 			'display_name' => $actor_user ? $actor_user->display_name : __( 'Someone', 'buddynext' ),
-			'initials'     => $actor_user ? strtoupper( substr( $actor_user->display_name, 0, 1 ) . substr( strrchr( $actor_user->display_name, ' ' ), 1, 1 ) ) : '?',
+			'initials'     => $actor_user ? strtoupper( substr( $actor_user->display_name, 0, 1 ) . substr( (string) ( strrchr( $actor_user->display_name, ' ' ) ?: '' ), 1, 1 ) ) : '?',
 		);
 	}
 }
