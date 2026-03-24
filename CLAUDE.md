@@ -86,6 +86,66 @@ BuddyNext targets premium UX on par with Notion, Asana, LinkedIn, and Facebook. 
 
 ---
 
+## File Placement Rules — Where Every New File Goes
+
+These rules are enforced on every PR. When in doubt, follow the pattern already in the nearest domain folder.
+
+### Domain Principle
+
+Every feature domain owns its full stack in one folder:
+
+```
+includes/{Domain}/
+  {Domain}Service.php        ← business logic
+  {Domain}Controller.php     ← REST endpoints
+  {Domain}Listener.php       ← WordPress hooks (implements ListenerInterface)
+```
+
+If a new file's name starts with the domain prefix, it goes in that domain folder. If it doesn't, pick the domain whose description best matches the file's responsibility.
+
+### Mandatory Placement Rules
+
+| File type | Belongs in | Example |
+|---|---|---|
+| Outbound webhook service, controller, listener | `Outbound/` | `OutboundWebhookService` |
+| Content moderation logic (banned words, rate limits, safeguards) | `Moderation/` | `SafeguardService` |
+| REST controller for a domain | Same folder as its Service | `MemberTypeController` → `MemberTypes/` |
+| Bridge adapter classes | `Bridges/` with `Bridge` suffix | `JetonomyBridge.php` |
+| Bridge listener classes | `Bridges/` with `BridgeListener` suffix | `JetonomyBridgeListener.php` |
+| Admin-only UI helpers | `Admin/{SubPage}/` not `Admin/Helpers/` | `MemberDisplay` → `Admin/Members/` |
+| Directory/listing service | `Profile/` if it queries `WP_User_Query`; `Search/` only if it queries `bn_search_index` | `MemberDirectoryService` → `Profile/` |
+| Cron job runner | `Core/CronService.php` — no `Handlers` suffix | — |
+
+### Listener Convention
+
+Every class that ends in `Listener` **must**:
+
+1. `implement BuddyNext\Contracts\ListenerInterface`
+2. Expose `public function register(): void` (not `init()`)
+3. Be wired in `Plugin::init()` as `( new XxxListener() )->register()`
+
+Never use `init()` on a listener. The only classes that use `init()` are Services and Admin registrars.
+
+### Bridge Naming Convention
+
+```
+Bridges/JetonomyBridge.php          class JetonomyBridge          ← adapter (no alias needed in Plugin.php)
+Bridges/JetonomyBridgeListener.php  class JetonomyBridgeListener  ← hook registrar
+```
+
+Never name a bridge adapter `class Jetonomy` — it reads like the external plugin class.
+
+### Tests Mirror Source
+
+```
+includes/Feed/PostController.php           →  tests/Feed/PostControllerTest.php
+includes/SocialGraph/FollowController.php  →  tests/SocialGraph/FollowControllerTest.php
+```
+
+`tests/REST/` must stay empty. All controller tests live in the controller's domain folder.
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
