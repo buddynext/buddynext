@@ -750,3 +750,9 @@ A phase is Done when ALL of:
 | 2026-03-24 | 12 | fix | audit(phases-9-12) Gate 1: templates/community-admin.php: replaced 3 HTML entity icons (&#x2190; &#x2191;×2 &#x2193;) with buddynext_icon() SVG calls; added arrow-up.svg + arrow-down.svg icons |
 | 2026-03-24 | 12 | fix | audit(phases-9-12) Gate 1: Admin/Members/MemberTypesManager.php: replaced &#8943; with IconService::render('more-horizontal') |
 | 2026-03-24 | 12 | fix | audit(phases-9-12) Gate 1: Admin/Members/MemberEditForm.php: replaced &#8592; with IconService::render('chevron-left') |
+| 2026-03-24 | 3 | fix | audit(feed) Gate 1: templates/feed/home.php: replaced 2 Unicode emoji (📢 👋) with buddynext_icon() SVG calls |
+| 2026-03-24 | 3 | fix | audit(feed) Gate 1: templates/partials/post-card.php: $emojis array → $reaction_icons array with icon slugs; reaction buttons render SVG via buddynext_icon(); trigger span uses data-wp-bind--class=state.reactionIconClass |
+| 2026-03-24 | 3 | fix | audit(feed) Gate 1: assets/js/feed/store.js: removed reactionEmoji getter (returned Unicode escape sequences); added reactionIconClass getter (returns CSS class string) |
+| 2026-03-24 | 3 | feature | audit(feed) Gate 1: assets/icons/reaction-haha.svg, reaction-wow.svg, reaction-sad.svg, reaction-angry.svg: 4 new Lucide-style SVG reaction icons |
+| 2026-03-24 | 3 | fix | audit(feed) Gate 1+CSS: assets/css/bn-feed.css: added .bn-reaction-icon and .bn-post-card__react-icon CSS rules with per-type color accents via --bn-* tokens |
+| 2026-03-24 | 3 | fix | audit(feed) Gate 2: includes/Feed/PostService.php, FeedService.php, PollService.php, ShareService.php, BookmarkService.php, FeedController.php: converted all phpcs:ignore WordPress.DB.* to phpcs:disable/enable blocks |
