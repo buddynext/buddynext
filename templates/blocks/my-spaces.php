@@ -32,7 +32,7 @@ $spaces  = buddynext_service( 'spaces' )->list_spaces(
 		<ul class="bn-my-spaces-list">
 			<?php foreach ( $spaces as $space ) : ?>
 				<li class="bn-my-spaces-item">
-					<a href="<?php echo esc_url( home_url( '/spaces/' . rawurlencode( $space['slug'] ?? '' ) . '/' ) ); ?>" class="bn-my-spaces-link">
+					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::space_url( (int) ( $space['id'] ?? 0 ) ) ); ?>" class="bn-my-spaces-link">
 						<?php if ( ! empty( $space['avatar_url'] ) ) : ?>
 							<img src="<?php echo esc_url( $space['avatar_url'] ); ?>" alt="" class="bn-space-avatar bn-space-avatar--sm" width="32" height="32" loading="lazy">
 						<?php else : ?>

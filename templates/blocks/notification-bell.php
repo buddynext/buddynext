@@ -22,7 +22,7 @@ $aria_label   = sprintf(
 );
 ?>
 <div class="bn-block-notification-bell" data-user-id="<?php echo absint( $user_id ); ?>">
-	<a href="<?php echo esc_url( home_url( '/notifications/' ) ); ?>"
+	<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::notifications_url() ); ?>"
 		class="bn-notification-bell-link"
 		aria-label="<?php echo esc_attr( $aria_label ); ?>">
 		<span class="bn-notification-bell-icon" aria-hidden="true">

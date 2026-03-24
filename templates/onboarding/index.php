@@ -29,7 +29,7 @@ if ( ! $ob_user ) {
 // Already completed onboarding?
 $onboarding_done = (bool) get_user_meta( $ob_user_id, 'bn_onboarding_completed', true );
 if ( $onboarding_done && ! isset( $_GET['redo'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-	wp_safe_redirect( home_url( '/feed/' ) );
+	wp_safe_redirect( \BuddyNext\Core\PageRouter::activity_url() );
 	exit;
 }
 

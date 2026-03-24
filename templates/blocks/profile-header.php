@@ -81,7 +81,7 @@ $bio        = $bio_field ? ( $bio_field['value'] ?? '' ) : get_user_meta( $user_
 				</div>
 			<?php elseif ( $viewer_id === $user_id ) : ?>
 				<div class="bn-profile-header__actions">
-					<a href="<?php echo esc_url( home_url( '/profile/edit/' ) ); ?>" class="bn-btn bn-btn--sm bn-btn--secondary">
+					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>" class="bn-btn bn-btn--sm bn-btn--secondary">
 						<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
 					</a>
 				</div>

@@ -897,7 +897,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 					<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Connected', 'buddynext' ); ?>
 				</button>
 
-				<a href="<?php echo esc_url( home_url( '/messages/?with=' . $user_id ) ); ?>"
+				<a href="<?php echo esc_url( add_query_arg( 'with', $user_id, \BuddyNext\Core\PageRouter::messages_url() ) ); ?>"
 					class="bn-btn-secondary">
 					<?php buddynext_icon( 'message-circle' ); ?> <?php esc_html_e( 'Message', 'buddynext' ); ?>
 				</a>

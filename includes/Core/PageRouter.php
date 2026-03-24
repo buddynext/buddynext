@@ -954,6 +954,15 @@ class PageRouter {
 	}
 
 	/**
+	 * Return the Onboarding hub base URL.
+	 *
+	 * @return string
+	 */
+	public static function onboarding_url(): string {
+		return self::hub_url( 'buddynext_slug_onboarding', 'buddynext_page_onboarding' );
+	}
+
+	/**
 	 * Check whether a profile slug is available for a given user to claim.
 	 *
 	 * A slug is unavailable when:

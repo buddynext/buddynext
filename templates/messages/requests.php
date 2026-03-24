@@ -58,8 +58,7 @@ if ( $mvs_active && $current_user_id > 0 ) {
 }
 
 // ── URLs ──────────────────────────────────────────────────────────────────────
-$messages_url_raw = get_permalink( get_page_by_path( 'messages' ) );
-$messages_url     = ! empty( $messages_url_raw ) ? $messages_url_raw : home_url( '/messages/' );
+$messages_url = \BuddyNext\Core\PageRouter::messages_url();
 
 // ── Helper: avatar initials ───────────────────────────────────────────────────
 /**

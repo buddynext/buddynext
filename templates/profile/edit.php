@@ -1121,7 +1121,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 							<div class="bn-ep-account-value bn-ep-slug-base">
 								<?php
 								$profile_base_url = rtrim( (string) get_permalink( (int) get_option( 'buddynext_page_profile', 0 ) ), '/' );
-								echo esc_html( $profile_base_url ? $profile_base_url : home_url( '/profile' ) );
+								echo esc_html( $profile_base_url ? $profile_base_url : rtrim( \BuddyNext\Core\PageRouter::people_url(), '/' ) );
 								?>
 							/
 							</div>
@@ -1175,7 +1175,7 @@ textarea.bn-ep-input { resize: vertical; line-height: 1.6; min-height: 90px; }
 					<div class="bn-ep-account-row">
 						<div class="bn-ep-account-label"><?php esc_html_e( 'Notification preferences', 'buddynext' ); ?></div>
 						<a class="bn-ep-account-link"
-							href="<?php echo esc_url( home_url( '/settings/notifications/' ) ); ?>">
+							href="<?php echo esc_url( \BuddyNext\Core\PageRouter::notifications_url() ); ?>">
 							<?php esc_html_e( 'Manage notifications', 'buddynext' ); ?> &rarr;
 						</a>
 					</div>

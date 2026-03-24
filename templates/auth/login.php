@@ -50,7 +50,7 @@ $register_url = wp_registration_url();
 $login_url    = wp_login_url();
 
 $current_url = ( is_ssl() ? 'https://' : 'http://' ) . sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ?? '' ) ) . sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) );
-$redirect_to = isset( $_GET['redirect_to'] ) ? sanitize_url( wp_unslash( $_GET['redirect_to'] ) ) : home_url( '/feed/' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$redirect_to = isset( $_GET['redirect_to'] ) ? sanitize_url( wp_unslash( $_GET['redirect_to'] ) ) : \BuddyNext\Core\PageRouter::activity_url(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 ?>
 <style>
 /* ── Design tokens ─────────────────────────────────────────────────────── */
@@ -558,7 +558,7 @@ $redirect_to = isset( $_GET['redirect_to'] ) ? sanitize_url( wp_unslash( $_GET['
 					</div>
 
 					<?php wp_nonce_field( 'bn_register', 'bn_register_nonce' ); ?>
-					<input type="hidden" name="redirect_to" value="<?php echo esc_attr( home_url( '/onboarding/' ) ); ?>" />
+					<input type="hidden" name="redirect_to" value="<?php echo esc_attr( \BuddyNext\Core\PageRouter::onboarding_url() ); ?>" />
 
 					<button class="bn-auth-submit" type="submit">
 						<?php esc_html_e( 'Create account', 'buddynext' ); ?> &rarr;

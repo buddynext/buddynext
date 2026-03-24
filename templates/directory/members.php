@@ -205,8 +205,7 @@ $bn_paged_url = static function ( int $page_number ) use ( $search_term, $bn_ord
 };
 
 // ── Page URLs (hoisted — do not call inside member loop) ─────────────────────
-$bn_messages_page = get_page_by_path( 'messages' );
-$bn_messages_base = $bn_messages_page ? get_permalink( $bn_messages_page ) : home_url( '/messages/' );
+$bn_messages_base = \BuddyNext\Core\PageRouter::messages_url();
 
 // PageRouter resolves /profile/{slug}/ pretty URLs for each member card.
 

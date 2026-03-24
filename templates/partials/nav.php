@@ -30,7 +30,7 @@ $bn_nav_urls = array(
 	'members'       => $bn_nav_page_url( 'buddynext_page_members', 'members' ),
 	'spaces'        => $bn_nav_page_url( 'buddynext_page_spaces', 'spaces' ),
 	'notifications' => $bn_nav_page_url( 'buddynext_page_notifications', 'notifications' ),
-	'messages'      => trailingslashit( home_url( 'messages' ) ),
+	'messages'      => \BuddyNext\Core\PageRouter::messages_url(),
 );
 
 // ── Active item detection ───────────────────────────────────────────────────

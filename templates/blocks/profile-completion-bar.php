@@ -44,7 +44,7 @@ $missing_recommended = ( $completion['recommended_total'] ?? 0 ) - ( $completion
 						absint( $missing_required )
 					);
 					?>
-					<a href="<?php echo esc_url( home_url( '/profile/edit/' ) ); ?>"><?php esc_html_e( 'Add', 'buddynext' ); ?></a>
+					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"><?php esc_html_e( 'Add', 'buddynext' ); ?></a>
 				</li>
 			<?php endif; ?>
 			<?php if ( $missing_recommended > 0 ) : ?>
@@ -56,7 +56,7 @@ $missing_recommended = ( $completion['recommended_total'] ?? 0 ) - ( $completion
 						absint( $missing_recommended )
 					);
 					?>
-					<a href="<?php echo esc_url( home_url( '/profile/edit/' ) ); ?>"><?php esc_html_e( 'Add', 'buddynext' ); ?></a>
+					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"><?php esc_html_e( 'Add', 'buddynext' ); ?></a>
 				</li>
 			<?php endif; ?>
 		</ul>

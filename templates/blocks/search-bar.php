@@ -16,7 +16,7 @@ if ( '' === $placeholder ) {
 }
 ?>
 <div class="bn-block-search-bar">
-	<form class="bn-search-form" role="search" action="<?php echo esc_url( home_url( '/search/' ) ); ?>" method="get">
+	<form class="bn-search-form" role="search" action="<?php echo esc_url( \BuddyNext\Core\PageRouter::search_url() ); ?>" method="get">
 		<label for="bn-search-input" class="screen-reader-text"><?php esc_html_e( 'Search', 'buddynext' ); ?></label>
 		<div class="bn-search-input-wrap">
 			<span class="bn-search-icon" aria-hidden="true">

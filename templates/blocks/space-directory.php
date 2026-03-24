@@ -30,7 +30,7 @@ $has_more = false;
 		<ul class="bn-space-list">
 			<?php foreach ( $spaces as $space ) : ?>
 				<li class="bn-space-item">
-					<a href="<?php echo esc_url( home_url( '/spaces/' . rawurlencode( $space['slug'] ?? '' ) . '/' ) ); ?>" class="bn-space-link">
+					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::space_url( (int) ( $space['id'] ?? 0 ) ) ); ?>" class="bn-space-link">
 						<?php if ( ! empty( $space['avatar_url'] ) ) : ?>
 							<img src="<?php echo esc_url( $space['avatar_url'] ); ?>" alt="" class="bn-space-avatar" width="40" height="40" loading="lazy">
 						<?php else : ?>

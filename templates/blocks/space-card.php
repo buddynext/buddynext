@@ -37,7 +37,7 @@ $is_member = $viewer_id
 		<?php if ( ! empty( $space['avatar_url'] ) ) : ?>
 			<img src="<?php echo esc_url( $space['avatar_url'] ); ?>" alt="" class="bn-space-avatar" width="48" height="48" loading="lazy">
 		<?php endif; ?>
-		<a href="<?php echo esc_url( home_url( '/spaces/' . rawurlencode( $space['slug'] ?? '' ) . '/' ) ); ?>" class="bn-space-card__name">
+		<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::space_url( $space_id ) ); ?>" class="bn-space-card__name">
 			<?php echo esc_html( $space['name'] ?? '' ); ?>
 		</a>
 		<?php if ( ! empty( $space['description'] ) ) : ?>
