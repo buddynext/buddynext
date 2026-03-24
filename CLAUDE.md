@@ -734,3 +734,12 @@ A phase is Done when ALL of:
 | 2026-03-24 | 10 | refactor | JetonomyBridgeListener + GamificationBridgeListener: extracted bridge hooks into Bridges/ — class_exists() guards, implements ListenerInterface |
 | 2026-03-24 | 1 | refactor | Plugin.php: removed EventListener use import + ->init() call — all 42 hooks now in 6 domain listeners; deleted includes/Notifications/EventListener.php and includes/REST/Controllers/ |
 | 2026-03-24 | — | verified | Code organization refactor browser-verified: /activity/ + /members/ + /spaces/ load with zero PHP errors, zero JS errors, all routes resolve — WPCS clean on all 7 new domain listener files |
+| 2026-03-24 | 2 | fix | BlockService: is_blocked() corrected to bidirectional (delegates to is_blocking_either()); has_blocked() remains for single-direction checks |
+| 2026-03-24 | 2 | feature | templates/partials/follow-button.php: created missing partial — block guard, WP Interactivity API store buddynext/follow-button, esc_attr JSON context, PHPStan level 5 clean |
+| 2026-03-24 | 2 | feature | templates/partials/connection-button.php: created missing partial — all 5 states (null/pending-sent/pending-received/accepted/blocked), PHPStan level 5 clean |
+| 2026-03-24 | 1 | fix | PageRouter: space_url() + resolve_space() queried non-existent `post_name` column on bn_spaces — corrected to `slug` (Gate 1 audit bug) |
+| 2026-03-24 | 1 | fix | Container/Plugin/Installer: static:: → self:: on private members; new static() → new self() (PHPStan staticClassAccess) |
+| 2026-03-24 | 1 | fix | Installer/PageSetup: removed redundant is_wp_error() on wp_insert_post() return (PHPStan function.impossibleType) |
+| 2026-03-24 | 1 | fix | AssetService: wp_register_script_module deps changed to array{id: string} form (PHPStan argument.type) |
+| 2026-03-24 | 1 | fix | PermissionService: removed unreachable ?? on ROLE_HIERARCHY lookup; dropped unused is_space_mod() private method |
+| 2026-03-24 | 1 | fix | phpstan.neon: switched to phpstan-bootstrap.php; added treatPhpDocTypesAsCertain: false — Core now passes PHPStan level 5 with zero errors |
