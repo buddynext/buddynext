@@ -42,8 +42,8 @@ a.bn-hashtag-chip {
 	color: var(--bn-ht-chip-color);
 	border-radius: var(--bn-ht-chip-radius);
 	font-size: var(--bn-ht-chip-font);
-	font-weight: 500;
-	line-height: 1.4;
+	font-weight: var(--fw-medium);
+	line-height: var(--leading-snug);
 	text-decoration: none;
 	transition: filter 0.15s ease, opacity 0.15s ease;
 	white-space: nowrap;
@@ -60,7 +60,7 @@ a.bn-hashtag-chip:hover {
 a.bn-hashtag {
 	color: var(--brand, #0073aa);
 	text-decoration: none;
-	font-weight: 500;
+	font-weight: var(--fw-medium);
 }
 
 a.bn-hashtag:hover {
@@ -109,7 +109,7 @@ a.bn-hashtag:hover {
 	width: var(--bn-ht-rank-w);
 	flex-shrink: 0;
 	font-size: var(--text-xs, 11px);
-	font-weight: 700;
+	font-weight: var(--fw-bold);
 	color: var(--bn-ht-rank-color);
 	text-align: center;
 }
@@ -117,7 +117,7 @@ a.bn-hashtag:hover {
 .bn-hashtag-name {
 	flex: 1;
 	font-size: var(--text-sm, 13px);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 	color: var(--text-1, #37352f);
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -134,7 +134,7 @@ a.bn-hashtag:hover {
 /* Trend indicator arrow */
 .bn-hashtag-trend {
 	flex-shrink: 0;
-	font-size: 10px;
+	font-size: var(--text-xs);
 	line-height: 1;
 }
 
@@ -159,7 +159,7 @@ a.bn-hashtag:hover {
 	color: var(--bn-ht-chip-color);
 	border-radius: var(--bn-ht-chip-radius);
 	font-size: var(--bn-ht-chip-font);
-	font-weight: 500;
+	font-weight: var(--fw-medium);
 }
 
 .bn-block-trending-hashtags--pills .bn-hashtag-rank,
@@ -172,9 +172,9 @@ a.bn-hashtag:hover {
 .bn-block-trending-hashtags .bn-block-heading {
 	font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
 	font-size: var(--text-sm, 13px);
-	font-weight: 700;
+	font-weight: var(--fw-bold);
 	text-transform: uppercase;
-	letter-spacing: 0.06em;
+	letter-spacing: var(--ls-wider);
 	color: var(--text-2, #787774);
 	margin: 0 0 var(--s2, 8px) var(--s3, 12px);
 }
@@ -191,7 +191,7 @@ a.bn-hashtag:hover {
 .bn-hashtag-hero__title {
 	font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
 	font-size: var(--text-2xl, 24px);
-	font-weight: 700;
+	font-weight: var(--fw-bold);
 	color: var(--text-1, #37352f);
 	margin: 0 0 var(--s1, 4px) 0;
 	line-height: var(--leading-tight, 1.25);
@@ -212,7 +212,7 @@ a.bn-hashtag:hover {
 
 .bn-hashtag-hero__stat strong {
 	color: var(--text-1, #37352f);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 }
 
 .bn-hashtag-hero__actions {
@@ -232,11 +232,11 @@ a.bn-hashtag:hover {
 	border: none;
 	border-radius: var(--r-full, 9999px);
 	font-size: var(--text-sm, 13px);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 	cursor: pointer;
 	transition: background 0.15s ease;
 	text-decoration: none;
-	line-height: 1.4;
+	line-height: var(--leading-snug);
 }
 
 .bn-btn-follow-hashtag:hover {
@@ -271,9 +271,9 @@ a.bn-hashtag:hover {
 
 .bn-hashtag-widget__heading {
 	font-size: var(--text-xs, 11px);
-	font-weight: 700;
+	font-weight: var(--fw-bold);
 	text-transform: uppercase;
-	letter-spacing: 0.06em;
+	letter-spacing: var(--ls-wider);
 	color: var(--text-2, #787774);
 	margin: 0 0 var(--s3, 12px) 0;
 }

@@ -76,8 +76,8 @@
 	padding: 2px var(--s2);
 	border-radius: var(--r-full);
 	font-size: var(--text-xs);
-	font-weight: 600;
-	line-height: 1.5;
+	font-weight: var(--fw-semibold);
+	line-height: var(--leading-normal);
 }
 
 .bn-status--pending   { background: var(--amber-bg);    color: var(--amber); }
@@ -160,13 +160,13 @@
 }
 
 .bn-content-warning__icon {
-	font-size: 24px;
+	font-size: var(--text-2xl);
 	opacity: 0.6;
 }
 
 .bn-content-warning__label {
 	font-size: var(--text-sm);
-	font-weight: 600;
+	font-weight: var(--fw-semibold);
 	color: var(--text-2);
 }
 
