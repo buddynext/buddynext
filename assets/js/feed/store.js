@@ -528,8 +528,10 @@ store( 'buddynext/post-composer', {
 		 * in ctx.mediaIds, and shows a thumbnail preview.
 		 */
 		* handleMediaUpload( event ) {
-			const ctx   = getContext();
-			const files = event.target.files;
+			const ctx      = getContext();
+			const files    = event.target.files;
+			const MAX_MEDIA = 5;
+
 			if ( ! files || ! files.length ) {
 				return;
 			}
@@ -541,9 +543,16 @@ store( 'buddynext/post-composer', {
 				ctx.mediaPreviews = [];
 			}
 
+			// Enforce max 5 media per post.
+			const remaining = MAX_MEDIA - ctx.mediaIds.length;
+			if ( remaining <= 0 ) {
+				return;
+			}
+
 			ctx.mediaUploading = true;
 
-			for ( let i = 0; i < files.length; i++ ) {
+			const uploadCount = Math.min( files.length, remaining );
+			for ( let i = 0; i < uploadCount; i++ ) {
 				const file     = files[ i ];
 				const formData = new FormData();
 				formData.append( 'file', file );
