@@ -1283,18 +1283,31 @@ $body_close   = $bn_active ? '</div>' : '';
 - [x] Max 5 media per post enforcement
 - [x] Hashtag page Like/Comment/Share/Save actions wired to correct REST endpoints
 
-### Pending
+### Pending (priority order)
 
-- [ ] **BLOCK HT — Hashtag ↔ Tag Bridge** (see below)
-- [ ] **BLOCK PC — Post Card Unification** — hashtag feed uses inline HTML; must use shared `partials/post-card.php` so Interactivity API store is consistent everywhere
-- [ ] **BLOCK MC — Media Composer on Spaces** — space composer (`spaces/home.php`) needs same Photo button + MVS upload as activity feed
-- [ ] **BLOCK MN — WP Menu System** — `register_nav_menus()` + custom meta box in Appearance > Menus for all BuddyNext/MVS/JT URLs
-- [ ] **BLOCK L2 — Level 2 Context Nav** — slim secondary bar below platform nav, populated per section via filter
-- [ ] **Profile tabs** — Media tab (MVS), Discussions tab (JT) on `/members/{slug}/`
-- [ ] **Space tabs** — Media tab, Forum tab on `/spaces/{slug}/`
-- [ ] **Media search indexing** — MVS media titles/descriptions in `bn_search_index`
-- [ ] **Feed card rendering** — `media_share` + `forum_post` post types in `partials/post-card.php`
-- [ ] **Remove raw JT query from hashtag template** — replace with bridge filter (BLOCK HT)
+**P0 — Zero non-functional buttons (user experience)**
+- [ ] **BLOCK PC** — Remove inline JT post cards from `hashtags/feed.php` (source of broken Like/Comment buttons)
+- [ ] **BLOCK PC** — Convert `blocks/activity-feed.php` to use shared partial
+- [ ] **BLOCK PC** — Full action audit: visit every page, click every button, verify REST succeeds
+
+**P1 — Unified composer (consistency)**
+- [ ] **BLOCK MC** — Extract composer into `partials/composer.php` shared partial
+- [ ] **BLOCK MC** — Verify spaces composer has Photo/Poll/Link footer + Cancel + media preview
+
+**P2 — Hashtag/Tag bridge (dedicated integration)**
+- [ ] **BLOCK HT** — Add `Tag::list_by_tag()` to Jetonomy
+- [ ] **BLOCK HT** — Add `buddynext_hashtag_related_discussions` filter in `hashtags/feed.php`
+- [ ] **BLOCK HT** — JetonomyBridge hooks filter, renders separate "Related Discussions" section
+
+**P3 — Navigation & menus**
+- [ ] **BLOCK MN** — WP Menu System meta box for all BuddyNext/MVS/JT URLs
+- [ ] **BLOCK L2** — Level 2 context nav bar per section
+
+**P4 — Profile & space deep integration**
+- [ ] Profile tabs — Media tab (MVS), Discussions tab (JT) on `/members/{slug}/`
+- [ ] Space tabs — Media tab, Forum tab on `/spaces/{slug}/`
+- [ ] Media search indexing — MVS media in `bn_search_index`
+- [ ] Feed card rendering — `media_share` + `forum_post` types in post-card partial
 
 ---
 
@@ -1364,32 +1377,49 @@ User visits /activity/hashtag/buddynext/
 
 ---
 
-### BLOCK PC — Post Card Unification
+### BLOCK PC — Post Card + Action Consistency
 
-**Problem:** Multiple templates render post cards with inline HTML instead of the shared `partials/post-card.php`. Each has its own Interactivity API action names, leading to:
-- Actions not working (wrong store namespace)
-- Inconsistent rendering (different HTML structure per page)
-- Duplicate code that drifts over time
+**Audit result (2026-03-25):** 6 of 7 templates already use shared `partials/post-card.php`.
 
-**Templates using inline post cards (must be converted):**
-- `templates/hashtags/feed.php` — uses `buddynext/feed` store with `actions.react/share/bookmark`
-- `templates/feed/explore.php` — may have inline cards
-- `templates/spaces/home.php` — space feed cards
+| Template | Shared partial | Store | Actions work | Composer | Media upload |
+|---|:---:|---|:---:|:---:|:---:|
+| `feed/home.php` | Yes | `buddynext/post-card` | Yes | Yes | Yes |
+| `feed/explore.php` | Yes | `buddynext/post-card` | Yes | No | No |
+| `profile/view.php` | Yes | `buddynext/post-card` | Yes | No | No |
+| `spaces/home.php` | Yes | `buddynext/post-card` | Yes | Yes | Yes |
+| `hashtags/feed.php` | Yes (BN posts) | `buddynext/post-card` | Yes | No | No |
+| `search/results.php` | Yes | `buddynext/post-card` | Yes | No | No |
+| `blocks/activity-feed.php` | **No — inline** | `buddynext/post-card` | **No** | No | No |
 
-**Target:** Every template that shows posts calls `buddynext_get_template('partials/post-card.php', ['bn_post' => $row])`. One partial, one Interactivity API store (`buddynext/post-card`), one set of actions.
+**Remaining issues:**
+- [ ] `hashtags/feed.php` has EXTRA inline HTML for Jetonomy discussion cards (raw `jt_posts` query) — these render non-functional Like/Comment buttons. Remove this section (BLOCK HT replaces it with bridge filter).
+- [ ] `blocks/activity-feed.php` has inline post card with display-only counts (no interactive actions). Convert to shared partial or add action support.
+- [ ] Audit ALL pages at 1280px: click every Like/Comment/Share/Save button, verify REST call succeeds. Zero non-functional buttons allowed.
+
+**The `buddynext/post-card` store is the single source of truth for post actions.** Any template that shows posts must use the shared partial. Period.
 
 ---
 
-### BLOCK MC — Media Composer on All Surfaces
+### BLOCK MC — Unified Composer Partial
 
-**Problem:** Media upload (Photo button → MVS REST → media_ids) only works on the activity feed. Spaces and profiles need the same capability.
+**Audit result (2026-03-25):** Both `feed/home.php` and `spaces/home.php` already have composers with file upload support.
 
-**Templates needing the composer:**
-- `templates/feed/home.php` — ✅ Done (Photo/Poll/Link + MVS upload)
-- `templates/spaces/home.php` — Needs same composer with `space_id` in context
-- Profile pages — If user can post from their profile
+| Template | Composer | Photo button | MVS upload | Poll | Link | Cancel | Privacy |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `feed/home.php` | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| `spaces/home.php` | Yes | Yes | Yes | Yes | Yes | Needs check | Needs check |
 
-**Implementation:** Extract the composer HTML into a shared partial `partials/composer.php` that reads `space_id` from context. All pages include the same partial.
+**Problem:** The composer HTML is duplicated in both templates (~80 lines each). Changes made to one (like adding the Photo button footer) don't automatically appear in the other.
+
+**Solution:** Extract into a shared partial `partials/composer.php` that both pages include.
+
+- [ ] Create `templates/partials/composer.php` — accepts `space_id` (null for activity feed) via context
+- [ ] `feed/home.php` includes it with `['space_id' => null]`
+- [ ] `spaces/home.php` includes it with `['space_id' => $space_id]`
+- [ ] Composer context passes `space_id` to REST POST body (space-scoped posts)
+- [ ] `mvsRestBase` included in context for MVS media upload
+- [ ] CSS for composer moves to `bn-feed.css` (shared, not inline)
+- [ ] Verify: activity post + space post + photo post all work end-to-end
 
 ---
 
