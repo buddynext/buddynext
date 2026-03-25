@@ -176,7 +176,11 @@ if ( ! $bn_nav_css_output ) :
 }
 /* Notification dropdown */
 .bn-nav-notif-wrap { position: relative; }
-.bn-nav-notif-wrap button.bn-nav-item { background: none; border: none; cursor: pointer; }
+.bn-nav-notif-wrap button.bn-nav-item {
+	background: none; border: none; cursor: pointer;
+	font-size: 12.5px; font-weight: 500; font-family: inherit;
+	color: var(--text-2, #787774);
+}
 .bn-notif-dropdown {
 	position: absolute;
 	top: calc(100% + 8px);
@@ -261,7 +265,6 @@ if ( ! $bn_nav_css_output ) :
 	.bn-subnav-right { display: none; }
 }
 </style>
-<script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
 <script id="bn-font-scale-js">
 (function () {
 	var scales = ['100', '110', '120'];
@@ -724,7 +727,7 @@ window.bnToast = function(msg, type) {
 
 <!-- BuddyNext Community Nav -->
 <nav class="bn-subnav" aria-label="<?php esc_attr_e( 'Community navigation', 'buddynext' ); ?>">
-	<div class="bn-subnav-inner" hx-boost="true" hx-target="#bn-main-content" hx-swap="innerHTML show:top" hx-indicator=".bn-subnav">
+	<div class="bn-subnav-inner">
 
 		<a href="<?php echo esc_url( $bn_nav_urls['feed'] ); ?>"
 			class="bn-nav-item<?php echo 'feed' === $bn_nav_active ? ' bn-nav-active' : ''; ?>"
