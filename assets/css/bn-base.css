@@ -414,6 +414,42 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   LEVEL 2 CONTEXT NAV — per-section sub-navigation
+   Only renders when buddynext_context_nav filter returns items.
+   ════════════════════════════════════════════════════════════════════════════ */
+.bn-context-nav {
+	border-bottom: 1px solid var(--border);
+	background: var(--bg);
+}
+.bn-context-nav__inner {
+	max-width: 1100px;
+	margin: 0 auto;
+	padding: 0 var(--s8);
+	display: flex;
+	gap: var(--s1);
+	overflow-x: auto;
+}
+.bn-context-nav__item {
+	padding: var(--s2) var(--s4);
+	font-size: var(--text-sm);
+	font-weight: var(--fw-medium);
+	color: var(--text-2);
+	text-decoration: none;
+	white-space: nowrap;
+	border-bottom: 2px solid transparent;
+	transition: color 0.12s, border-color 0.12s;
+}
+.bn-context-nav__item:hover { color: var(--text-1); }
+.bn-context-nav__item--active {
+	color: var(--brand);
+	border-bottom-color: var(--brand);
+}
+@media (max-width: 640px) {
+	.bn-context-nav__inner { padding: 0 var(--s3); }
+	.bn-context-nav__item { padding: var(--s2) var(--s3); font-size: var(--text-xs); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    UNIVERSAL HUB SHELL + COMMUNITY SIDEBAR
    All hub pages use .bn-hub-shell for consistent layout.
    ════════════════════════════════════════════════════════════════════════════ */

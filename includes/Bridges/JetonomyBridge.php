@@ -54,6 +54,9 @@ class JetonomyBridge {
 		// related Jetonomy discussions that share the same tag slug.
 		add_filter( 'buddynext_hashtag_related_discussions', array( $this, 'get_related_discussions' ), 10, 2 );
 
+		// Level 2 context nav: Discussion sub-pages (Home / Search / Leaderboard).
+		add_filter( 'buddynext_context_nav', array( $this, 'inject_discussion_context_nav' ), 10, 2 );
+
 		// Unified nav: inject BuddyNext nav above Jetonomy content, suppress
 		// Jetonomy's own nav. Jetonomy keeps its own sidebar — no hub shell
 		// wrapper (avoids double-sidebar overlap).
@@ -361,6 +364,42 @@ class JetonomyBridge {
 		);
 
 		return $extra;
+	}
+
+	/**
+	 * Inject Discussion context nav items (Home / Search / Leaderboard).
+	 *
+	 * Only fires when the main nav section is "discussions".
+	 *
+	 * @param array  $items   Existing context nav items.
+	 * @param string $section Current active section.
+	 * @return array
+	 */
+	public function inject_discussion_context_nav( array $items, string $section ): array {
+		if ( 'discussions' !== $section ) {
+			return $items;
+		}
+
+		$base        = function_exists( 'Jetonomy\base_url' ) ? \Jetonomy\base_url() : home_url( '/community' );
+		$current_url = home_url( add_query_arg( array() ) );
+
+		$items[] = array(
+			'label'  => __( 'Home', 'buddynext' ),
+			'url'    => $base . '/',
+			'active' => trailingslashit( $current_url ) === trailingslashit( $base . '/' ),
+		);
+		$items[] = array(
+			'label'  => __( 'Search', 'buddynext' ),
+			'url'    => $base . '/search/',
+			'active' => false !== strpos( $current_url, '/search/' ),
+		);
+		$items[] = array(
+			'label'  => __( 'Leaderboard', 'buddynext' ),
+			'url'    => $base . '/leaderboard/',
+			'active' => false !== strpos( $current_url, '/leaderboard/' ),
+		);
+
+		return $items;
 	}
 
 	/**

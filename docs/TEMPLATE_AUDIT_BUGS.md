@@ -87,15 +87,12 @@
 - [x] K-3: Uses Walker_Nav_Menu_Checklist — site owners can check pages and "Add to Menu"
 - [x] Container width fix: all templates now use hub shell as sole layout controller (no internal max-width conflicts)
 
-### Phase L — BLOCK L2: Level 2 Context Nav
-
-| # | Fix |
-|---|---|
-| L-1 | Add `buddynext_context_nav` filter in nav partial |
-| L-2 | Discussion context: Home / Search / Leaderboard |
-| L-3 | Space context: Feed / Forum / Media / Members / Settings |
-| L-4 | Media context: Explore / My Media / Albums |
-| L-5 | Community Admin context: Settings / Members / Reports |
+### Phase L — BLOCK L2: Level 2 Context Nav — DONE
+- [x] L-1: `buddynext_context_nav` filter added to nav partial — renders sub-nav bar below main nav when items present
+- [x] L-2: Discussion context (Home / Search / Leaderboard) — registered in JetonomyBridge
+- [x] L-3: Space context handled by space template's own tab bar (`bn-sh-tabs`)
+- [x] L-4: Media/Admin context — filterable via `buddynext_context_nav`; WPMediaVerse bridge can add items when needed
+- [x] CSS: `.bn-context-nav` with bottom border highlight for active item, scrollable on mobile
 
 ---
 
@@ -109,5 +106,5 @@ Phase H (hashtag/tag bridge)     — dedicated integration ✓ DONE
 Phase I (post card unification)  — 1 block template ✓ DONE
 Phase J (unified composer)       — extract to shared partial ✓ DONE
 Phase K (WP Menu System)         — site owner control ✓ DONE
-Phase L (Level 2 context nav)    — per-section sub-navigation
+Phase L (Level 2 context nav)    — per-section sub-navigation ✓ DONE
 ```

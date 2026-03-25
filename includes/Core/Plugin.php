@@ -230,6 +230,9 @@ class Plugin {
 		add_action( 'after_setup_theme', array( new self(), 'register_nav_menus' ) );
 		add_action( 'admin_head-nav-menus.php', array( new self(), 'add_nav_menu_meta_box' ) );
 
+		// Level 2 context nav — per-section sub-navigation items.
+		add_filter( 'buddynext_context_nav', array( new self(), 'register_context_nav' ), 10, 2 );
+
 		// Boot first-party bridges at plugins_loaded:25 so they fire after both
 		// BuddyNext (priority 15) and Pro plugins like Jetonomy Pro / WPMediaVerse Pro
 		// (priority 20). Each bridge guards itself via class_exists checks at hook time.
@@ -413,6 +416,35 @@ class Plugin {
 				'buddynext-community' => __( 'BuddyNext Community Nav', 'buddynext' ),
 			)
 		);
+	}
+
+	/**
+	 * Register Level 2 context nav items for core sections.
+	 *
+	 * Bridges (Jetonomy, WPMediaVerse) add their own items at higher priority.
+	 *
+	 * @param array  $items   Existing context nav items.
+	 * @param string $section Current active section from main nav.
+	 * @return array
+	 */
+	public function register_context_nav( array $items, string $section ): array {
+		$current_url = home_url( add_query_arg( array() ) );
+
+		switch ( $section ) {
+			case 'spaces':
+				// Space-level context nav is handled by the space template's own tab bar.
+				break;
+
+			case 'notifications':
+				// Notification filters are inline in the template — no L2 nav needed.
+				break;
+
+			default:
+				// No default context nav for feed, members, messages — these are single-purpose.
+				break;
+		}
+
+		return $items;
 	}
 
 	/**

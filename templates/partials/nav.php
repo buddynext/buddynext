@@ -312,3 +312,29 @@ if ( ! $bn_nav_css_output ) :
 
 	</div>
 </nav>
+<?php
+/**
+ * Level 2 Context Nav — per-section sub-navigation.
+ *
+ * Plugins and bridges inject items via the buddynext_context_nav filter.
+ * Each item: array( 'label' => string, 'url' => string, 'active' => bool ).
+ * The bar only renders when items are present.
+ *
+ * @param array  $items      Sub-navigation items (empty by default).
+ * @param string $bn_section Current active section from the main nav.
+ */
+$bn_context_items = apply_filters( 'buddynext_context_nav', array(), $bn_nav_active );
+if ( ! empty( $bn_context_items ) ) :
+	?>
+<nav class="bn-context-nav" aria-label="<?php esc_attr_e( 'Section navigation', 'buddynext' ); ?>">
+	<div class="bn-context-nav__inner">
+		<?php foreach ( $bn_context_items as $ctx_item ) : ?>
+			<a href="<?php echo esc_url( $ctx_item['url'] ); ?>"
+				class="bn-context-nav__item<?php echo ! empty( $ctx_item['active'] ) ? ' bn-context-nav__item--active' : ''; ?>"
+				<?php echo ! empty( $ctx_item['active'] ) ? 'aria-current="page"' : ''; ?>>
+				<?php echo esc_html( $ctx_item['label'] ); ?>
+			</a>
+		<?php endforeach; ?>
+	</div>
+</nav>
+<?php endif; ?>
