@@ -608,6 +608,42 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 }
 .bn-ptab:not(.active):hover { background: var(--bg-hover); color: var(--text-1); }
 
+/* Reply card */
+.bn-reply-card, .bn-like-card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	padding: var(--s3) var(--s4);
+	margin-bottom: var(--s2);
+}
+.bn-reply-card__meta, .bn-like-card__meta {
+	display: flex; align-items: center; gap: var(--s2);
+	font-size: var(--text-xs); color: var(--text-2); margin-bottom: var(--s1);
+}
+.bn-reply-card__meta svg, .bn-like-card__meta svg { width: 14px; height: 14px; }
+.bn-reply-card__time, .bn-like-card__time { margin-left: auto; }
+.bn-reply-card__content, .bn-like-card__content { font-size: var(--text-sm); color: var(--text-1); }
+.bn-reply-card__context { font-size: var(--text-xs); color: var(--text-3); margin-top: var(--s1); font-style: italic; }
+
+/* Profile media grid */
+.bn-profile-media-grid {
+	display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2);
+}
+.bn-profile-media-item {
+	aspect-ratio: 1; border-radius: var(--r-md); overflow: hidden; background: var(--bg-subtle);
+	display: flex; align-items: center; justify-content: center;
+}
+.bn-profile-media-item a { display: block; width: 100%; height: 100%; }
+.bn-profile-media-item img { width: 100%; height: 100%; object-fit: cover; }
+.bn-profile-media-video, .bn-profile-media-placeholder {
+	color: var(--text-3); display: flex; align-items: center; justify-content: center;
+	width: 100%; height: 100%;
+}
+.bn-profile-media-video svg, .bn-profile-media-placeholder svg { width: 32px; height: 32px; }
+@media (max-width: 640px) {
+	.bn-profile-media-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* Post card */
 .bn-post-card {
 	background: var(--surface);
@@ -1119,6 +1155,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 			</div>
 
 			<!-- Posts list -->
+			<div class="bn-profile-posts-panel" data-tab-panel="posts">
 			<?php if ( $recent_posts ) : ?>
 				<?php
 				foreach ( $recent_posts as $post_arr ) {
@@ -1151,6 +1188,128 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 					?>
 				</div>
 			<?php endif; ?>
+			</div><!-- /.bn-profile-posts-panel -->
+
+			<!-- Replies tab content -->
+			<?php
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$user_replies = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT c.id, c.content, c.created_at, c.object_id,
+					        p.content AS post_content, p.type AS post_type,
+					        u.display_name AS post_author_name
+					 FROM {$wpdb->prefix}bn_comments c
+					 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post'
+					 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
+					 WHERE c.user_id = %d
+					 ORDER BY c.created_at DESC
+					 LIMIT 20",
+					$user_id
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			?>
+			<div class="bn-profile-tab-panel" data-tab-panel="replies" hidden>
+				<?php if ( $user_replies ) : ?>
+					<?php foreach ( $user_replies as $reply ) : ?>
+					<div class="bn-reply-card">
+						<div class="bn-reply-card__meta">
+							<?php buddynext_icon( 'message-circle' ); ?>
+							<span><?php echo esc_html( sprintf( /* translators: %s: author name */ __( 'Replied to %s', 'buddynext' ), $reply->post_author_name ) ); ?></span>
+							<span class="bn-reply-card__time"><?php echo esc_html( human_time_diff( strtotime( $reply->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?></span>
+						</div>
+						<div class="bn-reply-card__content"><?php echo wp_kses_post( wp_trim_words( $reply->content, 30 ) ); ?></div>
+						<div class="bn-reply-card__context"><?php echo wp_kses_post( wp_trim_words( $reply->post_content, 15 ) ); ?></div>
+					</div>
+					<?php endforeach; ?>
+				<?php else : ?>
+					<div class="bn-empty-state"><?php esc_html_e( 'No replies yet.', 'buddynext' ); ?></div>
+				<?php endif; ?>
+			</div>
+
+			<!-- Media tab content -->
+			<?php
+			$user_media = array();
+			if ( class_exists( 'WPMediaVerse\Core\Plugin' ) && post_type_exists( 'mvs_media' ) ) {
+				$user_media = get_posts(
+					array(
+						'post_type'   => 'mvs_media',
+						'author'      => $user_id,
+						'numberposts' => 24,
+						'post_status' => 'publish',
+					)
+				);
+			}
+			?>
+			<div class="bn-profile-tab-panel" data-tab-panel="media" hidden>
+				<?php if ( $user_media ) : ?>
+					<div class="bn-profile-media-grid mvs-activity-media-grid">
+						<?php foreach ( $user_media as $media_post ) : ?>
+							<?php
+							$thumb_url = get_post_meta( $media_post->ID, '_mvs_file_url', true );
+							if ( ! $thumb_url ) {
+								$thumb_url = wp_get_attachment_image_url( $media_post->ID, 'medium' );
+							}
+							if ( ! $thumb_url ) {
+								$thumb_url = wp_get_attachment_url( $media_post->ID );
+							}
+							$full_url   = wp_get_attachment_url( $media_post->ID );
+							$media_type = get_post_meta( $media_post->ID, '_mvs_media_type', true ) ?: 'image';
+							?>
+							<div class="bn-profile-media-item mvs-activity-media" data-mvs-media-id="<?php echo esc_attr( (string) $media_post->ID ); ?>" data-mvs-src="<?php echo esc_url( (string) $full_url ); ?>">
+								<?php if ( $thumb_url && 'image' === $media_type ) : ?>
+									<a href="<?php echo esc_url( (string) $full_url ); ?>" class="mvs-grid-item-link">
+										<img src="<?php echo esc_url( $thumb_url ); ?>" alt="<?php echo esc_attr( $media_post->post_title ); ?>" loading="lazy">
+									</a>
+								<?php elseif ( 'video' === $media_type ) : ?>
+									<div class="bn-profile-media-video"><?php buddynext_icon( 'play-circle' ); ?></div>
+								<?php else : ?>
+									<div class="bn-profile-media-placeholder"><?php buddynext_icon( 'camera' ); ?></div>
+								<?php endif; ?>
+							</div>
+						<?php endforeach; ?>
+					</div>
+				<?php else : ?>
+					<div class="bn-empty-state"><?php esc_html_e( 'No media uploaded yet.', 'buddynext' ); ?></div>
+				<?php endif; ?>
+			</div>
+
+			<!-- Likes tab content -->
+			<?php
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$user_likes = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT r.emoji, r.created_at, r.object_id,
+					        p.content, p.type, p.user_id AS post_author_id,
+					        u.display_name AS post_author_name
+					 FROM {$wpdb->prefix}bn_reactions r
+					 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post'
+					 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
+					 WHERE r.user_id = %d
+					 ORDER BY r.created_at DESC
+					 LIMIT 20",
+					$user_id
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			?>
+			<div class="bn-profile-tab-panel" data-tab-panel="likes" hidden>
+				<?php if ( $user_likes ) : ?>
+					<?php foreach ( $user_likes as $liked ) : ?>
+					<div class="bn-like-card">
+						<div class="bn-like-card__meta">
+							<?php buddynext_icon( 'heart' ); ?>
+							<span><?php echo esc_html( sprintf( /* translators: %s: author name */ __( 'Liked %s\'s post', 'buddynext' ), $liked->post_author_name ) ); ?></span>
+							<span class="bn-like-card__time"><?php echo esc_html( human_time_diff( strtotime( $liked->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?></span>
+						</div>
+						<div class="bn-like-card__content"><?php echo wp_kses_post( wp_trim_words( $liked->content, 30 ) ); ?></div>
+					</div>
+					<?php endforeach; ?>
+				<?php else : ?>
+					<div class="bn-empty-state"><?php esc_html_e( 'No liked posts yet.', 'buddynext' ); ?></div>
+				<?php endif; ?>
+			</div>
+
 		</div><!-- /left column -->
 
 		<!-- Right: sidebar widgets -->

@@ -194,6 +194,31 @@ store( 'buddynext/profile', {
 	},
 	actions: {
 
+		/* Profile tab switching — Posts / Replies / Media / Likes */
+		setTab( event ) {
+			const tab    = event.target.closest( '[data-tab]' );
+			if ( ! tab ) { return; }
+			const tabId  = tab.dataset.tab;
+
+			// Toggle active class on tab buttons.
+			document.querySelectorAll( '.bn-ptab' ).forEach( function ( t ) {
+				const isActive = t.dataset.tab === tabId;
+				t.classList.toggle( 'active', isActive );
+				t.setAttribute( 'aria-selected', isActive ? 'true' : 'false' );
+			} );
+
+			// Show/hide tab panels — posts panel is the default (no data-tab-panel wrapper).
+			document.querySelectorAll( '[data-tab-panel]' ).forEach( function ( p ) {
+				p.hidden = p.dataset.tabPanel !== tabId;
+			} );
+
+			// Posts content is not inside a data-tab-panel wrapper — toggle via class.
+			const postsContent = document.querySelector( '.bn-profile-posts-panel' );
+			if ( postsContent ) {
+				postsContent.hidden = tabId !== 'posts';
+			}
+		},
+
 		/* Main profile save (blur autosave and explicit save button). */
 		autosave:    function () { doSave( getContext() ); },
 		saveProfile: function () { doSave( getContext() ); },
