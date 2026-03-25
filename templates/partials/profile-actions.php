@@ -70,7 +70,7 @@ if ( empty( $bn_owner_actions ) ) {
 	padding: 0 var(--s8, 32px);
 }
 .bn-profile-actions-bar-inner {
-	max-width: 1200px;
+	max-width: var(--bn-container, 1100px);
 	margin: 0 auto;
 	display: flex;
 	align-items: center;

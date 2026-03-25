@@ -86,7 +86,7 @@ if ( ! $bn_nav_css_output ) :
 	z-index: 190;
 }
 .bn-subnav-inner {
-	max-width: 1200px;
+	max-width: var(--bn-container, 1100px);
 	margin: 0 auto;
 	display: flex;
 	align-items: center;
