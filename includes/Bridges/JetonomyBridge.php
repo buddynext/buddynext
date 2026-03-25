@@ -50,6 +50,10 @@ class JetonomyBridge {
 		// Inject a Discussions link into the BuddyNext top nav bar.
 		add_filter( 'buddynext_nav_items', array( $this, 'inject_discussions_nav_item' ) );
 
+		// Bridge: hashtag ↔ tag — when BuddyNext renders a hashtag feed, pull
+		// related Jetonomy discussions that share the same tag slug.
+		add_filter( 'buddynext_hashtag_related_discussions', array( $this, 'get_related_discussions' ), 10, 2 );
+
 		// Unified nav: inject BuddyNext nav above Jetonomy content, suppress
 		// Jetonomy's own nav. Jetonomy keeps its own sidebar — no hub shell
 		// wrapper (avoids double-sidebar overlap).
@@ -357,5 +361,44 @@ class JetonomyBridge {
 		);
 
 		return $extra;
+	}
+
+	/**
+	 * Filter callback: return Jetonomy discussions tagged with the given slug.
+	 *
+	 * Hooked to `buddynext_hashtag_related_discussions` so the hashtag feed
+	 * template can display "Related Discussions" from Jetonomy forums.
+	 *
+	 * @param array  $discussions Existing discussions array (empty by default).
+	 * @param string $hashtag_slug The hashtag/tag slug to search for.
+	 * @return array Array of discussion objects with id, title, post_slug, author_name, reply_count, vote_score, created_at.
+	 */
+	public function get_related_discussions( array $discussions, string $hashtag_slug ): array {
+		if ( ! class_exists( 'Jetonomy\Models\Tag' ) ) {
+			return $discussions;
+		}
+
+		if ( ! \Jetonomy\Models\Tag::exists( $hashtag_slug ) ) {
+			return $discussions;
+		}
+
+		$jt_posts = \Jetonomy\Models\Tag::list_by_tag( $hashtag_slug, 5 );
+
+		foreach ( $jt_posts as $jt_post ) {
+			$discussions[] = array(
+				'id'          => (int) $jt_post->id,
+				'title'       => $jt_post->title,
+				'slug'        => $jt_post->post_slug,
+				'space_id'    => (int) $jt_post->space_id,
+				'author_id'   => (int) $jt_post->author_id,
+				'author_name' => $jt_post->author_name,
+				'reply_count' => (int) $jt_post->reply_count,
+				'vote_score'  => (int) $jt_post->vote_score,
+				'created_at'  => $jt_post->created_at,
+				'source'      => 'jetonomy',
+			);
+		}
+
+		return $discussions;
 	}
 }

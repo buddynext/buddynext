@@ -62,14 +62,11 @@
 - [x] G-3: Jetonomy header — localStorage JS added (shares `bn_font_scale` key with BuddyNext)
 - [x] G-4: WPMediaVerse — N/A (no standalone community nav; uses theme header when BuddyNext absent)
 
-### Phase H — BLOCK HT: Hashtag ↔ Tag Bridge (dedicated integration)
-
-| # | Plugin | File | Fix |
-|---|---|---|---|
-| H-1 | Jetonomy | `includes/models/class-tag.php` | Add `list_by_tag($slug, $limit)` public static method |
-| H-2 | Jetonomy | `includes/models/class-tag.php` | Add `exists($slug)` method |
-| H-3 | BuddyNext | `includes/Bridges/JetonomyBridge.php` | Hook `buddynext_hashtag_related_discussions` filter |
-| H-4 | BuddyNext | `templates/hashtags/feed.php` | Render "Related Discussions" section from bridge data |
+### Phase H — BLOCK HT: Hashtag ↔ Tag Bridge — DONE
+- [x] H-1: Jetonomy `Tag::list_by_tag($slug, $limit)` — returns posts joined through jt_post_tags with author display_name
+- [x] H-2: Jetonomy `Tag::exists($slug)` — simple slug check
+- [x] H-3: BuddyNext `JetonomyBridge::get_related_discussions()` — hooked to `buddynext_hashtag_related_discussions` filter
+- [x] H-4: `hashtags/feed.php` — fixed undefined `$jt_author_id`, replaced `view_count`/`vote_count`/`is_answered` with correct `vote_score`, proper Jetonomy URL via space slug lookup
 
 ### Phase I — BLOCK PC: Post Card Unification
 
@@ -114,7 +111,7 @@
 Phase D (hub shell rollout)      — 8 templates ✓ DONE
 Phase F (CSS/UX polish)          — 7 fixes ✓ DONE
 Phase G (standalone font control) — Jetonomy + WPMediaVerse ✓ DONE
-Phase H (hashtag/tag bridge)     — dedicated integration
+Phase H (hashtag/tag bridge)     — dedicated integration ✓ DONE
 Phase I (post card unification)  — 1 block template
 Phase J (unified composer)       — extract to shared partial
 Phase K (WP Menu System)         — site owner control

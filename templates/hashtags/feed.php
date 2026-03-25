@@ -862,11 +862,12 @@ else :
 						<?php foreach ( $jt_posts as $jt_post ) : ?>
 							<?php
 							$jt_post = (object) $jt_post;
-							$jt_display = $jt_post->author_name ?? __( 'Community Member', 'buddynext' );
-							$jt_colour  = '#7c3aed';
-							$jt_parts   = explode( ' ', trim( $jt_display ) );
+							$jt_display   = $jt_post->author_name ?? __( 'Community Member', 'buddynext' );
+							$jt_author_id = (int) ( $jt_post->author_id ?? 0 );
+							$jt_colour    = '#7c3aed';
+							$jt_parts     = explode( ' ', trim( $jt_display ) );
 							$jt_initials  = strtoupper( substr( $jt_parts[0], 0, 1 ) . ( isset( $jt_parts[1] ) ? substr( $jt_parts[1], 0, 1 ) : '' ) );
-							$jt_avatar    = get_avatar_url( $jt_author_id, array( 'size' => 68 ) );
+							$jt_avatar    = $jt_author_id ? get_avatar_url( $jt_author_id, array( 'size' => 68 ) ) : '';
 							?>
 							<article class="bn-tag-post-card jt-card">
 								<div class="bn-jt-source-label">
@@ -898,20 +899,33 @@ else :
 									<?php echo esc_html( $jt_post->title ); ?>
 								</div>
 								<div class="bn-jt-meta-row">
-									<span class="bn-jt-stat"><?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) absint( $jt_post->reply_count ) ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?></span>
-									<span class="bn-jt-stat"><?php buddynext_icon( 'eye' ); ?> <?php echo esc_html( (string) absint( $jt_post->view_count ) ); ?> <?php esc_html_e( 'views', 'buddynext' ); ?></span>
-									<?php if ( $jt_post->is_answered ) : ?>
-										<span class="bn-jt-stat bn-jt-answered"><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Answered', 'buddynext' ); ?></span>
-									<?php endif; ?>
+									<span class="bn-jt-stat"><?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) absint( $jt_post->reply_count ?? 0 ) ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?></span>
+									<span class="bn-jt-stat"><?php buddynext_icon( 'trending-up' ); ?> <?php echo esc_html( (string) ( (int) ( $jt_post->vote_score ?? 0 ) ) ); ?> <?php esc_html_e( 'votes', 'buddynext' ); ?></span>
 								</div>
 								<div class="bn-jt-vote-bar">
 									<button class="bn-vote-btn" type="button" data-wp-on--click="actions.voteJt" data-jt-id="<?php echo esc_attr( (string) $jt_post->id ); ?>" data-direction="up">
-										<?php buddynext_icon( 'arrow-up' ); ?> <?php echo esc_html( (string) absint( $jt_post->vote_count ) ); ?>
+										<?php buddynext_icon( 'arrow-up' ); ?> <?php echo esc_html( (string) absint( $jt_post->vote_score ?? 0 ) ); ?>
 									</button>
 									<button class="bn-vote-btn" type="button" data-wp-on--click="actions.voteJt" data-jt-id="<?php echo esc_attr( (string) $jt_post->id ); ?>" data-direction="down">
 										<?php buddynext_icon( 'arrow-down' ); ?>
 									</button>
-									<a class="bn-jt-open-link" href="<?php echo esc_url( home_url( '/forums/post/' . (int) $jt_post->id . '/' ) ); ?>">
+									<?php
+									$jt_space_slug = '';
+									if ( ! empty( $jt_post->space_id ) && function_exists( 'Jetonomy\\table' ) ) {
+										// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+										$jt_space_slug = $GLOBALS['wpdb']->get_var(
+											$GLOBALS['wpdb']->prepare(
+												'SELECT slug FROM ' . \Jetonomy\table( 'spaces' ) . ' WHERE id = %d',
+												(int) $jt_post->space_id
+											)
+										);
+										// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+									}
+									$jt_post_url = $jt_space_slug
+										? home_url( '/community/s/' . $jt_space_slug . '/t/' . ( $jt_post->slug ?? $jt_post->id ) . '/' )
+										: home_url( '/community/' );
+									?>
+									<a class="bn-jt-open-link" href="<?php echo esc_url( $jt_post_url ); ?>">
 										<?php esc_html_e( 'Open in forum', 'buddynext' ); ?> &rarr;
 									</a>
 								</div>
