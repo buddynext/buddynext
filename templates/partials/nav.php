@@ -384,6 +384,130 @@ window.bnMarkAllRead = function() {
 	});
 };
 
+/* ── Search overlay (cmd+K) ── */
+window.bnSearchOverlay = {
+	el: null,
+	init: function() {
+		if (this.el) return;
+		var ov = document.createElement('div');
+		ov.className = 'bn-search-overlay';
+		ov.hidden = true;
+
+		var inner = document.createElement('div');
+		inner.className = 'bn-search-overlay__inner';
+
+		var inputWrap = document.createElement('div');
+		inputWrap.className = 'bn-search-overlay__input-wrap';
+
+		var icon = document.createElement('span');
+		icon.className = 'bn-search-overlay__icon';
+		icon.textContent = '\u2315'; // search icon
+
+		var input = document.createElement('input');
+		input.type = 'search';
+		input.className = 'bn-search-overlay__input';
+		input.placeholder = 'Search posts, people, spaces, discussions...';
+		input.setAttribute('autocomplete', 'off');
+
+		var kbd = document.createElement('kbd');
+		kbd.className = 'bn-search-overlay__kbd';
+		kbd.textContent = 'Esc';
+
+		inputWrap.appendChild(icon);
+		inputWrap.appendChild(input);
+		inputWrap.appendChild(kbd);
+		inner.appendChild(inputWrap);
+
+		var results = document.createElement('div');
+		results.className = 'bn-search-overlay__results';
+		results.id = 'bn-search-results';
+		inner.appendChild(results);
+
+		ov.appendChild(inner);
+		document.body.appendChild(ov);
+		this.el = ov;
+
+		var self = this;
+		ov.addEventListener('click', function(e) { if (e.target === ov) self.close(); });
+		input.addEventListener('keydown', function(e) { if (e.key === 'Escape') self.close(); });
+
+		var timer = null;
+		input.addEventListener('input', function() {
+			clearTimeout(timer);
+			var q = input.value.trim();
+			if (q.length < 2) { results.textContent = ''; return; }
+			timer = setTimeout(function() { self.search(q, results); }, 300);
+		});
+	},
+	open: function() {
+		this.init();
+		this.el.hidden = false;
+		this.el.querySelector('input').value = '';
+		this.el.querySelector('input').focus();
+		document.getElementById('bn-search-results').textContent = '';
+	},
+	close: function() { if (this.el) this.el.hidden = true; },
+	search: function(q, resultsEl) {
+		resultsEl.textContent = '';
+		var loading = document.createElement('div');
+		loading.className = 'bn-search-overlay__loading';
+		loading.textContent = 'Searching...';
+		resultsEl.appendChild(loading);
+
+		var nonce = '<?php echo esc_js( wp_create_nonce( "wp_rest" ) ); ?>';
+		var url   = '<?php echo esc_url( rest_url( "buddynext/v1/search" ) ); ?>?q=' + encodeURIComponent(q) + '&per_page=8';
+
+		fetch(url, { headers: { 'X-WP-Nonce': nonce } })
+			.then(function(r) { return r.json(); })
+			.then(function(data) {
+				resultsEl.textContent = '';
+				var items = data.items || data.results || data;
+				if (!items || !items.length) {
+					var empty = document.createElement('div');
+					empty.className = 'bn-search-overlay__empty';
+					empty.textContent = 'No results for "' + q + '"';
+					resultsEl.appendChild(empty);
+					return;
+				}
+				items.forEach(function(item) {
+					var a = document.createElement('a');
+					a.className = 'bn-search-overlay__result';
+					a.href = item.url || item.permalink || '#';
+
+					var title = document.createElement('div');
+					title.className = 'bn-search-overlay__result-title';
+					title.textContent = item.title || item.content || '';
+
+					var meta = document.createElement('div');
+					meta.className = 'bn-search-overlay__result-meta';
+					meta.textContent = (item.type || 'post') + (item.author_name ? ' by ' + item.author_name : '');
+
+					a.appendChild(title);
+					a.appendChild(meta);
+					resultsEl.appendChild(a);
+				});
+			})
+			.catch(function() {
+				resultsEl.textContent = '';
+				var err = document.createElement('div');
+				err.className = 'bn-search-overlay__empty';
+				err.textContent = 'Search failed';
+				resultsEl.appendChild(err);
+			});
+	}
+};
+// Keyboard shortcut: cmd+K or ctrl+K
+document.addEventListener('keydown', function(e) {
+	if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+		e.preventDefault();
+		bnSearchOverlay.open();
+	}
+	if (e.key === '/' && !e.target.closest('input,textarea,[contenteditable]')) {
+		e.preventDefault();
+		bnSearchOverlay.open();
+	}
+});
+
 /* ── User hover card ── */
 (function() {
 	var card = null;

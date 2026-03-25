@@ -271,6 +271,94 @@
 	line-height: var(--leading-normal);
 }
 
+/* ── Search overlay (cmd+K) ───────────────────────────────────────────── */
+.bn-search-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 10000;
+	background: rgba(0, 0, 0, 0.4);
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	padding-top: 15vh;
+	animation: bn-overlay-in 0.15s ease;
+}
+@keyframes bn-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+.bn-search-overlay__inner {
+	width: 100%;
+	max-width: 580px;
+	background: var(--bg);
+	border-radius: var(--r-xl);
+	box-shadow: 0 16px 64px rgba(0, 0, 0, 0.2);
+	overflow: hidden;
+	animation: bn-dropdown-in 0.2s ease;
+}
+.bn-search-overlay__input-wrap {
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+	padding: var(--s4) var(--s5);
+	border-bottom: 1px solid var(--border-soft);
+}
+.bn-search-overlay__icon {
+	font-size: 20px;
+	color: var(--text-3);
+	flex-shrink: 0;
+}
+.bn-search-overlay__input {
+	flex: 1;
+	border: none;
+	outline: none;
+	font-size: var(--text-lg);
+	font-family: var(--font-body);
+	color: var(--text-1);
+	background: transparent;
+}
+.bn-search-overlay__input::placeholder { color: var(--text-3); }
+.bn-search-overlay__kbd {
+	font-size: 11px;
+	padding: 2px 6px;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	color: var(--text-3);
+	font-family: var(--font-body);
+}
+.bn-search-overlay__results {
+	max-height: 400px;
+	overflow-y: auto;
+}
+.bn-search-overlay__loading,
+.bn-search-overlay__empty {
+	padding: var(--s6);
+	text-align: center;
+	color: var(--text-3);
+	font-size: var(--text-sm);
+}
+.bn-search-overlay__result {
+	display: block;
+	padding: var(--s3) var(--s5);
+	text-decoration: none;
+	transition: background 0.1s;
+}
+.bn-search-overlay__result:hover { background: var(--bg-hover); }
+.bn-search-overlay__result-title {
+	font-size: var(--text-sm);
+	font-weight: var(--fw-medium);
+	color: var(--text-1);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.bn-search-overlay__result-meta {
+	font-size: var(--text-xs);
+	color: var(--text-3);
+	margin-top: 2px;
+}
+@media (max-width: 640px) {
+	.bn-search-overlay { padding-top: var(--s4); }
+	.bn-search-overlay__inner { max-width: calc(100vw - 16px); border-radius: var(--r-lg); }
+}
+
 /* ── User hover card ──────────────────────────────────────────────────── */
 .bn-hover-card {
 	position: fixed;

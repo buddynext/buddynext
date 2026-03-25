@@ -830,10 +830,9 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	gap: 5px;
+	gap: 4px;
 	padding: var(--bn-s2) var(--bn-s3);
-	font-size: var(--bn-text-sm);
-	font-weight: var(--fw-medium);
+	font-size: 0; /* Hide text labels — icon + count only */
 	color: var(--bn-text-2);
 	cursor: pointer;
 	background: none;
@@ -841,6 +840,11 @@
 	font-family: var(--bn-font-body);
 	transition: background var(--bn-transition), color var(--bn-transition);
 }
+/* Show SVG icons and count spans at normal size */
+.bn-post-card__action-btn svg,
+.bn-post-card__action-btn img { width: 18px; height: 18px; font-size: initial; }
+.bn-post-card__action-btn span,
+.bn-post-card__action-btn .bn-comment-count { font-size: var(--bn-text-xs); font-weight: var(--fw-semibold); }
 
 .bn-post-card__action-btn:hover {
 	background: var(--bn-bg-subtle);
