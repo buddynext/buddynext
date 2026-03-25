@@ -478,7 +478,6 @@
 .bn-mvs-content,
 .bn-jt-content,
 .bn-messages-content,
-.bn-profile-wrap,
 .bn-space-home,
 .bn-spaces-dir,
 .bn-hub-content,
@@ -503,7 +502,6 @@
 .bn-hub-shell > .bn-lb-shell,
 .bn-hub-shell > .bn-search-shell,
 .bn-hub-shell > .bn-hashtag-feed,
-.bn-hub-shell > .bn-profile-wrap,
 .bn-hub-shell > .bn-space-home,
 .bn-hub-shell > .bn-spaces-dir,
 .bn-hub-shell > .bn-hub-content {
@@ -525,11 +523,18 @@
 	grid-template-columns: 1fr;
 }
 
-/* Profile + space-home keep their internal two-column layout
-   (posts/tab area + contextual right widgets like Profile Strength,
-   Member of, About space). The hub shell adds the community discovery
-   sidebar alongside as a third visual column. */
-.bn-hub-shell > .bn-profile-wrap .bn-profile-layout,
+/* Profile uses full-width container (Facebook-style, no community sidebar).
+   Profile has its own contextual widgets — community sidebar is redundant. */
+.bn-profile-container {
+	max-width: var(--bn-container);
+	margin: 0 auto;
+	padding: var(--s6) var(--s8);
+}
+@media (max-width: 640px) {
+	.bn-profile-container { padding: 0 var(--s3) var(--s8); }
+}
+
+/* Space-home keeps internal two-column layout inside hub shell. */
 .bn-hub-shell > .bn-space-home .bn-sh-layout {
 	max-width: none;
 }
