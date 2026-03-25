@@ -439,10 +439,13 @@ For a demo as "modern SaaS community alternative":
 - [x] Phase 1 complete (all clicks work, zero dead buttons) — DONE 2026-03-25
 - [x] Phase 2 mostly complete (hover, transitions, toasts, skeleton, empty states) — DONE 2026-03-25
 - [x] Phase 3 complete (notification dropdown, hover cards, @mentions, gallery) — DONE 2026-03-25
-- [x] Phase 4 partial (unified search overlay cmd+K, cross-plugin notifications) — DONE 2026-03-25
-- [x] Phase 5 partial (mobile bottom nav, optimistic UI, keyboard shortcuts, infinite scroll) — DONE 2026-03-25
-- [x] Phase 6 partial (pin posts, poll vote animation) — DONE 2026-03-25
-- [ ] Phase 5.1 (htmx partial page swaps — biggest remaining wow factor)
+- [x] Phase 4 complete (unified search, cross-plugin notifications, hover card stats, profile discussions) — DONE 2026-03-25
+- [x] Phase 5 complete (htmx SPA navigation, mobile bottom nav, optimistic UI, keyboard shortcuts, infinite scroll) — DONE 2026-03-25
+- [x] Phase 6 mostly complete (pin posts, poll animation, OG fetch, onboarding tour, scheduling) — DONE 2026-03-25
+- [ ] Phase 6.1 Rich text composer (TipTap) — separate project, requires build pipeline
+- [ ] Phase 6.2 Real-time WebSocket (Soketi) — separate project, requires server infra
+- [ ] Phase 6.4 Custom reactions — admin settings page needed
+- [ ] Phase 6.8 Thread/discussion mode — Jetonomy already handles this
 - [ ] 10+ demo users with real avatars and diverse content
 - [ ] 3+ spaces with posts, media, and discussions
 - [ ] Mobile responsive verified at 390px on all pages
