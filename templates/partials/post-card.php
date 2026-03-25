@@ -470,11 +470,14 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 					foreach ( array_slice( $media_ids, 0, 4 ) as $media_id ) :
 						$media_id  = absint( $media_id );
 						$media_url = '';
-						// Try WPMediaVerse file URL meta first, then WP thumbnail.
+						// Try WPMediaVerse file URL meta first, then WP attachment URL.
 						if ( $media_id > 0 ) {
 							$media_url = (string) get_post_meta( $media_id, '_mvs_file_url', true );
 							if ( '' === $media_url ) {
-								$media_url = (string) get_the_post_thumbnail_url( $media_id, 'medium' );
+								$media_url = (string) wp_get_attachment_image_url( $media_id, 'medium' );
+							}
+							if ( ! $media_url ) {
+								$media_url = (string) wp_get_attachment_url( $media_id );
 							}
 						}
 						?>
