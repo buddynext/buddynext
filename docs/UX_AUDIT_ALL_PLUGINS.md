@@ -239,6 +239,143 @@ CSS-level changes, no structural rewrites. Biggest visual impact for presentatio
 
 ---
 
+---
+
+## Widgets & Blocks Strategy
+
+Site owners need to embed community features on any page — landing pages, sidebars, footers, WooCommerce shops, LMS course pages. Blocks are the primary delivery mechanism.
+
+### Current Inventory
+
+| Plugin | Blocks | Shortcodes | Widgets | Gap |
+|--------|--------|------------|---------|-----|
+| **BuddyNext** | 17 registered | 0 | 0 | Blocks exist but many are SSR stubs — need real editor previews |
+| **WPMediaVerse** | 12 built (src + build) | Has shortcodes | 0 | Full build pipeline, Interactivity API |
+| **Jetonomy** | 0 | 0 | 0 | **Critical gap — no way to embed forum content anywhere** |
+
+### BuddyNext Blocks (17) — Audit
+
+| Block | Category | Renders | Editor Preview | Sidebar-safe | Priority |
+|-------|----------|---------|----------------|-------------|----------|
+| `bn-activity-feed` | Content | Yes (uses shared post-card) | SSR placeholder | No (needs full width) | P1 |
+| `bn-post-composer` | Content | Yes | SSR placeholder | No | P1 |
+| `bn-member-directory` | Directory | Yes | SSR placeholder | No | P2 |
+| `bn-space-directory` | Directory | Yes | SSR placeholder | No | P2 |
+| `bn-profile-header` | Profile | Yes | SSR placeholder | No | P2 |
+| `bn-member-card` | Widget | Yes | SSR placeholder | **Yes** | P1 — sidebar/footer |
+| `bn-space-card` | Widget | Yes | SSR placeholder | **Yes** | P1 — sidebar/footer |
+| `bn-follow-button` | Widget | Yes | SSR placeholder | **Yes** | P1 |
+| `bn-connection-button` | Widget | Yes | SSR placeholder | **Yes** | P1 |
+| `bn-notification-bell` | Widget | Yes | SSR placeholder | **Yes** | P1 — header/nav |
+| `bn-search-bar` | Widget | Yes | SSR placeholder | **Yes** | P1 — header/nav |
+| `bn-trending-hashtags` | Widget | Yes | SSR placeholder | **Yes** | P1 — sidebar |
+| `bn-my-spaces` | Widget | Yes | SSR placeholder | **Yes** | P1 — sidebar |
+| `bn-login-form` | Auth | Yes | SSR placeholder | **Yes** | P1 |
+| `bn-registration-form` | Auth | Yes | SSR placeholder | No | P2 |
+| `bn-profile-fields` | Profile | Yes | SSR placeholder | No | P3 |
+| `bn-profile-completion-bar` | Widget | Yes | SSR placeholder | **Yes** | P2 |
+
+### WPMediaVerse Blocks (12) — Already Built
+
+| Block | Category | Sidebar-safe |
+|-------|----------|-------------|
+| `media-grid` | Content | **Yes** — responsive grid |
+| `media-upload` | Content | No |
+| `media-player` | Content | **Yes** |
+| `media-social` | Widget | **Yes** |
+| `media-stats` | Widget | **Yes** |
+| `explore-feed` | Content | No |
+| `explore-view` | Content | No |
+| `dashboard-view` | Content | No |
+| `album-viewer` | Content | No |
+| `story-viewer` | Content | No |
+| `lock-overlay` | Utility | **Yes** |
+| `shared-ui` | Utility | — |
+
+### Jetonomy Blocks — NEED TO CREATE
+
+| Block | Use Case | Priority |
+|-------|----------|----------|
+| `jt-recent-discussions` | Sidebar/page — shows latest 5 discussions with title, reply count, author | P1 |
+| `jt-popular-discussions` | Sidebar/page — top discussions by vote score | P1 |
+| `jt-space-list` | Sidebar/page — list of forum spaces with post counts | P1 |
+| `jt-leaderboard-widget` | Sidebar — top 5 contributors with points | P2 |
+| `jt-new-post-button` | Page — CTA button to create new discussion | P2 |
+| `jt-tag-cloud` | Sidebar — popular tags | P2 |
+| `jt-user-stats` | Sidebar — logged-in user's forum stats (posts, replies, reputation) | P2 |
+| `jt-single-space` | Page — embed a specific space's topic list | P3 |
+| `jt-search-bar` | Header/sidebar — forum search | P2 |
+
+### Cross-Plugin Widget Blocks — NEW
+
+These combine data from all 3 plugins into unified widgets:
+
+| Block | Source | Use Case | Priority |
+|-------|--------|----------|----------|
+| `bn-community-feed` | BN + JT + MVS | Unified feed showing posts + discussions + media uploads in one stream | P2 |
+| `bn-community-stats` | BN + JT + MVS | Site-wide stats: X members, Y posts, Z discussions, W media items | P1 |
+| `bn-online-members` | BN | Show currently active/recent members with avatars | P1 |
+| `bn-community-cta` | BN | "Join our community" CTA with member count + space count + sign-up button | P1 — landing pages |
+| `bn-recent-activity` | BN + JT | Compact activity stream for sidebars — "Alice posted in Tech Talk", "Bob replied to..." | P1 |
+
+### Widget Placement Strategy
+
+Where site owners will want to place these:
+
+```
+Landing Page:
+┌─────────────────────────────────────────────┐
+│ [bn-community-cta]                          │ — Hero section: "Join 500+ members"
+│ [bn-activity-feed scope="explore" limit=3]  │ — Preview of community activity
+│ [bn-space-directory limit=6]                │ — Featured spaces
+│ [jt-popular-discussions limit=5]            │ — Hot discussions
+│ [media-grid limit=8]                        │ — Recent media
+└─────────────────────────────────────────────┘
+
+Blog Sidebar:
+┌──────────────────────┐
+│ [bn-community-stats] │
+│ [bn-online-members]  │
+│ [bn-trending-hashtags]│
+│ [jt-recent-discussions]│
+│ [bn-my-spaces]       │
+└──────────────────────┘
+
+WooCommerce Shop:
+┌──────────────────────┐
+│ [bn-community-cta]   │ — "Discuss this product"
+│ [jt-space-list]      │ — Product support forums
+└──────────────────────┘
+
+LMS Course Page:
+┌──────────────────────┐
+│ [jt-single-space]    │ — Course discussion embedded
+│ [bn-member-card]     │ — Instructor profile card
+└──────────────────────┘
+
+Mobile App (Flavor theme / AppBoss):
+┌──────────────────────┐
+│ Bottom nav icons map  │
+│ to BN hub routes      │
+│ Blocks render in      │
+│ webview containers    │
+└──────────────────────┘
+```
+
+### Block Development Priority
+
+**Immediate (for presentation):**
+1. Jetonomy: `jt-recent-discussions` + `jt-popular-discussions` + `jt-space-list`
+2. Cross-plugin: `bn-community-stats` + `bn-community-cta` + `bn-recent-activity`
+3. BuddyNext: fix SSR previews for existing 17 blocks (editor shows "BuddyNext: Activity Feed" placeholder, not actual content)
+
+**Post-launch:**
+4. Full editor InspectorControls for all blocks (limit, columns, style variant)
+5. Block patterns: "Community Landing Page", "Forum Sidebar", "Member Showcase"
+6. Full Site Editing: community template parts for block themes
+
+---
+
 ## Presentation Readiness Checklist
 
 For a demo as "modern SaaS community alternative":

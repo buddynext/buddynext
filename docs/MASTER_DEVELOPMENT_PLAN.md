@@ -1,9 +1,21 @@
 # BuddyNext — Master Development Plan
 
 **Created:** 2026-03-21
-**Updated:** 2026-03-24
-**Status:** Phase 13 — Unified Platform in progress. Messages shell wrap done. All prior phases verified 2026-03-23.
-**Scope:** BuddyNext Free + Pro
+**Updated:** 2026-03-25
+**Status:** Phases 1-13 verified. Template audit (D-L) complete. UX planning in progress.
+**Scope:** BuddyNext Free + Pro + Jetonomy + WPMediaVerse (unified platform)
+
+---
+
+## Key Documents
+
+| Document | Path | Purpose |
+|----------|------|---------|
+| **UX Audit + Plan** | `docs/UX_AUDIT_ALL_PLUGINS.md` | 85 templates audited, 6-phase UX plan, widgets/blocks strategy, presentation checklist |
+| **Template Audit** | `docs/TEMPLATE_AUDIT_BUGS.md` | Phases A-L execution tracking (all complete) |
+| **Plugin CLAUDE.md** | `CLAUDE.md` | Coding standards, design tokens, file conventions |
+| **Feature Specs** | `docs/specs/features/` | 20 free + 6 Pro locked specs |
+| **HTML Mockups** | `.superpowers/brainstorm/14544-1773947712/` | 48 HTML wireframes — pixel-match targets |
 
 ---
 
