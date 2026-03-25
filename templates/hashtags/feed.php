@@ -959,20 +959,6 @@ else :
 							<?php endif; ?>
 						</div>
 					<?php endif; ?>
-				<?php else : ?>
-					<div class="bn-tag-post-card" style="text-align:center;padding:var(--s8);color:var(--text-3);">
-						<div style="font-size:32px;margin-bottom:var(--s3);">#</div>
-						<div style="font-size:var(--text-base);font-weight:600;color:var(--text-2);">
-							<?php
-							printf(
-								/* translators: %s: hashtag slug */
-								esc_html__( 'No posts with #%s yet', 'buddynext' ),
-								esc_html( $hashtag_slug )
-							);
-							?>
-						</div>
-					</div>
-				<?php endif; ?>
 			<?php endif; ?>
 
 			<div class="bn-load-more" data-wp-bind--hidden="!state.hasMore" aria-live="polite">

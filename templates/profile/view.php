@@ -1326,7 +1326,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 			$jt_discussions = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
-					        s.name AS space_name, s.slug AS space_slug
+					        s.title AS space_name, s.slug AS space_slug
 					 FROM {$wpdb->prefix}jt_posts p
 					 LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
 					 WHERE p.author_id = %d AND p.status = 'publish'
