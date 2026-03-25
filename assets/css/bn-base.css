@@ -667,26 +667,12 @@
    and WPMediaVerse pages (inside .bn-mvs-content).
    ========================================================================== */
 
+/* Works like browser zoom — sets the root font-size so every rem value
+   in BuddyNext, Jetonomy, and WPMediaVerse scales uniformly. Affects
+   text, spacing, padding, icons — everything measured in rem. */
+
 /* A+ (110%) */
-[data-bn-font-scale="110"] .bn-subnav,
-[data-bn-font-scale="110"] .bn-hub-shell,
-[data-bn-font-scale="110"] .bn-post-card,
-[data-bn-font-scale="110"] .bn-hub-sidebar,
-[data-bn-font-scale="110"] .bn-jt-content,
-[data-bn-font-scale="110"] .bn-mvs-content,
-[data-bn-font-scale="110"] .bn-messages-content,
-[data-bn-font-scale="110"] .bn-msg-shell {
-	font-size: 110%;
-}
+html[data-bn-font-scale="110"] { font-size: 110%; }
 
 /* A++ (120%) */
-[data-bn-font-scale="120"] .bn-subnav,
-[data-bn-font-scale="120"] .bn-hub-shell,
-[data-bn-font-scale="120"] .bn-post-card,
-[data-bn-font-scale="120"] .bn-hub-sidebar,
-[data-bn-font-scale="120"] .bn-jt-content,
-[data-bn-font-scale="120"] .bn-mvs-content,
-[data-bn-font-scale="120"] .bn-messages-content,
-[data-bn-font-scale="120"] .bn-msg-shell {
-	font-size: 120%;
-}
+html[data-bn-font-scale="120"] { font-size: 120%; }
