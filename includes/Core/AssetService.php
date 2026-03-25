@@ -53,6 +53,24 @@ class AssetService {
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'register_script_modules' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+
+		// BuddyNext is the style-guide boss: always load bn-base (fonts + tokens)
+		// on every frontend page so Jetonomy and WPMediaVerse pick up the design
+		// system via their var() token chains regardless of which plugin's page
+		// the visitor is on.
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_global_tokens' ), 15 );
+	}
+
+	/**
+	 * Enqueue the base stylesheet (fonts + token attachment point) globally.
+	 *
+	 * Fires at priority 15 — after register_assets() (10) registers the handles,
+	 * before TokenService::attach_tokens() (20) injects the inline CSS.
+	 */
+	public function enqueue_global_tokens(): void {
+		if ( ! is_admin() ) {
+			wp_enqueue_style( 'bn-base' );
+		}
 	}
 
 	/**
@@ -130,6 +148,8 @@ class AssetService {
 			'bn-onboarding',
 			'bn-gamification',
 			'bn-moderation',
+			'bn-connections',
+			'bn-space-members',
 		);
 
 		foreach ( $feature_styles as $handle ) {
@@ -156,18 +176,20 @@ class AssetService {
 		$v = self::VERSION;
 
 		$feature_modules = array(
-			'@buddynext/feed'          => 'feed/store',
-			'@buddynext/profile'       => 'profile/store',
-			'@buddynext/spaces'        => 'spaces/store',
-			'@buddynext/members'       => 'members/store',
-			'@buddynext/messages'      => 'messages/store',
-			'@buddynext/notifications' => 'notifications/store',
-			'@buddynext/search'        => 'search/store',
-			'@buddynext/hashtags'      => 'hashtags/store',
-			'@buddynext/auth'          => 'auth/store',
-			'@buddynext/onboarding'    => 'onboarding/store',
-			'@buddynext/gamification'  => 'gamification/store',
-			'@buddynext/moderation'    => 'moderation/store',
+			'@buddynext/feed'           => 'feed/store',
+			'@buddynext/profile'        => 'profile/store',
+			'@buddynext/spaces'         => 'spaces/store',
+			'@buddynext/members'        => 'members/store',
+			'@buddynext/messages'       => 'messages/store',
+			'@buddynext/notifications'  => 'notifications/store',
+			'@buddynext/search'         => 'search/store',
+			'@buddynext/hashtags'       => 'hashtags/store',
+			'@buddynext/auth'           => 'auth/store',
+			'@buddynext/onboarding'     => 'onboarding/store',
+			'@buddynext/gamification'   => 'gamification/store',
+			'@buddynext/moderation'     => 'moderation/store',
+			'@buddynext/connections'    => 'connections/store',
+			'@buddynext/space-members'  => 'space-members/store',
 		);
 
 		foreach ( $feature_modules as $id => $path ) {

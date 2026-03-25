@@ -227,10 +227,115 @@ class TokenService {
 			$dark_declarations .= sprintf( "\t%s: %s;\n", $property, $value );
 		}
 
+		// ── Plugin style-guide takeover ─────────────────────────────────────
+		// BuddyNext is the boss: when active, ALL integrated plugin surfaces
+		// use BuddyNext's font stack, base size, color, and line-height.
+		// Targets every possible wrapper — not just known class names.
+		// When BuddyNext is deactivated this entire block disappears and each
+		// plugin falls back to its own theme.json / CSS defaults.
+		$takeover = '';
+
+		// Jetonomy — .jt-app wraps every Jetonomy page.
+		$takeover .= ".jt-app {\n";
+		$takeover .= "\tfont-family: var(--font-body);\n";
+		$takeover .= "\tfont-size: var(--text-md);\n";
+		$takeover .= "\tline-height: var(--leading-body);\n";
+		$takeover .= "\tcolor: var(--text-1);\n";
+		$takeover .= "}\n";
+		$takeover .= ".jt-app h1, .jt-app h2, .jt-app h3 {\n";
+		$takeover .= "\tfont-family: var(--font-display);\n";
+		$takeover .= "}\n";
+
+		// Jetonomy sidebar — when BuddyNext is active, the sidebar partial
+		// outputs bn-sidebar-card HTML structure directly (same skeleton as
+		// BuddyNext's own sidebar). Only minimal bridging CSS needed here
+		// for inner Jetonomy elements inside the BuddyNext card skeleton.
+		$takeover .= ".jt-app .bn-sidebar-card .jt-trend,\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-leader {\n";
+		$takeover .= "\tpadding: var(--s2) 0;\n";
+		$takeover .= "\tborder-bottom: 1px solid var(--border-soft);\n";
+		$takeover .= "}\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-trend:last-child,\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-leader:last-of-type { border-bottom: none; }\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-trend-title { font-size: var(--text-sm); font-weight: 600; }\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-trend-title a { color: var(--text-1); }\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-trend-title a:hover { color: var(--brand); }\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-trend-meta { font-size: var(--text-xs); color: var(--text-3); }\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-trend-n { font-size: var(--text-xs); color: var(--text-3); min-width: 16px; }\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-leader-name a { font-size: var(--text-sm); font-weight: 600; color: var(--text-1); }\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-leader-name a:hover { color: var(--brand); }\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-leader-pts { font-size: var(--text-xs); color: var(--text-3); }\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-leader-rank { font-size: var(--text-xs); color: var(--text-3); }\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-sidebar-link a { font-size: var(--text-sm); color: var(--brand); font-weight: 500; }\n";
+		$takeover .= ".jt-app .bn-sidebar-card .jt-tag { font-size: var(--text-xs); }\n";
+		$takeover .= ".jt-app .jt-sidebar { display: flex; flex-direction: column; gap: var(--s5); }\n";
+		$takeover .= ".jt-app .jt-sidebar .bn-sidebar-card + .bn-sidebar-card { margin-top: 0; }\n";
+
+		// WPMediaVerse — target the page-level body class instead of individual wrappers.
+		$takeover .= "body.mvs-page {\n";
+		$takeover .= "\tfont-family: var(--font-body);\n";
+		$takeover .= "\tfont-size: var(--text-md);\n";
+		$takeover .= "\tline-height: var(--leading-body);\n";
+		$takeover .= "\tcolor: var(--text-1);\n";
+		$takeover .= "}\n";
+		$takeover .= "body.mvs-page h1, body.mvs-page h2, body.mvs-page h3 {\n";
+		$takeover .= "\tfont-family: var(--font-display);\n";
+		$takeover .= "}\n";
+
+		// ── Shared animations — apply BuddyNext motion to Jetonomy + MVS ──
+		// Jetonomy list/card entrances.
+		$takeover .= ".jt-app .jt-topics > a,\n";
+		$takeover .= ".jt-app .jt-topics > div,\n";
+		$takeover .= ".jt-app .jt-space-grid > *,\n";
+		$takeover .= ".jt-app section,\n";
+		$takeover .= ".jt-app .jt-leader,\n";
+		$takeover .= ".jt-app .jt-badge-card,\n";
+		$takeover .= ".jt-app .jt-sidebar > *,\n";
+		$takeover .= ".jt-app .jt-notif-item {\n";
+		$takeover .= "\tanimation: bn-slide-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;\n";
+		$takeover .= "}\n";
+
+		// Jetonomy stagger delays for topic rows.
+		for ( $i = 1; $i <= 5; $i++ ) {
+			$delay    = ( $i - 1 ) * 0.03;
+			$takeover .= ".jt-app .jt-topics > a:nth-child({$i}) { animation-delay: {$delay}s; }\n";
+		}
+		$takeover .= ".jt-app .jt-topics > a:nth-child(n+6) { animation-delay: 0.12s; }\n";
+
+		// Jetonomy headings and breadcrumbs.
+		$takeover .= ".jt-app .jt-page-title,\n";
+		$takeover .= ".jt-app .jt-space-head h1,\n";
+		$takeover .= ".jt-app .jt-post-head h1 {\n";
+		$takeover .= "\tanimation: bn-fade-title 0.5s ease both;\n";
+		$takeover .= "}\n";
+		$takeover .= ".jt-app .jt-crumb { animation: bn-fade-in 0.4s ease both; animation-delay: 0.05s; }\n";
+
+		// WPMediaVerse grid/card entrances.
+		$takeover .= "body.mvs-page .mvs-grid-item,\n";
+		$takeover .= "body.mvs-page .mvs-album-item,\n";
+		$takeover .= "body.mvs-page .mvs-collection-item,\n";
+		$takeover .= "body.mvs-page .mvs-comment,\n";
+		$takeover .= "body.mvs-page .mvs-notification-item {\n";
+		$takeover .= "\tanimation: bn-slide-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;\n";
+		$takeover .= "}\n";
+
+		// WPMediaVerse heading entrances.
+		$takeover .= "body.mvs-page .mvs-profile-header-name,\n";
+		$takeover .= "body.mvs-page .mvs-single-media h1,\n";
+		$takeover .= "body.mvs-page .mvs-single-album h1 {\n";
+		$takeover .= "\tanimation: bn-fade-title 0.5s ease both;\n";
+		$takeover .= "}\n";
+
+		// Respect reduced motion for all takeover animations.
+		$takeover .= "@media (prefers-reduced-motion: reduce) {\n";
+		$takeover .= "\t.jt-app *, body.mvs-page * { animation: none !important; }\n";
+		$takeover .= "}\n";
+
 		return sprintf(
-			":root {\n%s}\n\n[data-theme=\"dark\"] {\n%s}\n",
+			":root {\n%s}\n\n[data-theme=\"dark\"] {\n%s}\n\n/* BuddyNext style-guide takeover */\n%s",
 			$root_declarations,
-			$dark_declarations
+			$dark_declarations,
+			$takeover
 		);
 	}
 

@@ -191,71 +191,10 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 <style>
 /* ── BuddyNext design tokens ── */
 :root {
-	--font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-	--font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
-	--text-xs:  11px;
-	--text-sm:  13px;
-	--text-base: 15px;
-	--text-lg:  17px;
-	--text-xl:  20px;
-	--text-2xl: 24px;
-	--leading-body: 1.7;
-	--bg:          #ffffff;
-	--bg-subtle:   #f8f8f7;
-	--bg-hover:    #f1f1f0;
-	--surface:     #ffffff;
-	--border:      #e8e8e5;
-	--border-soft: #f1f1ee;
-	--text-1:      #37352f;
-	--text-2:      #787774;
-	--text-3:      #aeaca8;
-	--brand:       #0073aa;
-	--brand-light: #e8f4fb;
-	--brand-hover: #005f8e;
-	--jetonomy:    #5b21b6;
-	--jetonomy-bg: #f5f3ff;
-	--mvs:         #0f766e;
-	--mvs-bg:      #f0fdf9;
-	--green:       #059669;
-	--green-bg:    #ecfdf5;
-	--amber:       #d97706;
-	--amber-bg:    #fffbeb;
-	--red:         #dc2626;
-	--red-bg:      #fef2f2;
-	--s1: 4px;
-	--s2: 8px;
-	--s3: 12px;
-	--s4: 16px;
-	--s5: 20px;
-	--s6: 24px;
-	--s8: 32px;
-	--radius-sm: 6px;
-	--radius:    10px;
-	--radius-lg: 14px;
-}
-[data-theme="dark"] {
-	--bg:          #191919;
-	--bg-subtle:   #202020;
-	--bg-hover:    #2a2a2a;
-	--surface:     #252525;
-	--border:      #333330;
-	--border-soft: #2c2c2a;
-	--text-1:      #e8e8e6;
-	--text-2:      #9b9b97;
-	--text-3:      #6b6b67;
-	--brand:       #4dabdb;
-	--brand-light: #1a2e3a;
-	--brand-hover: #5fbfe8;
-	--jetonomy:    #a78bfa;
-	--jetonomy-bg: #1e1830;
-	--mvs:         #34d399;
-	--mvs-bg:      #0d2420;
-	--green:       #34d399;
-	--green-bg:    #0d2420;
-	--amber:       #fbbf24;
-	--amber-bg:    #2a2000;
-	--red:         #f87171;
-	--red-bg:      #2d0f0f;
+	--radius-sm: var(--r-sm);
+	--radius:    var(--r-md);
+	--radius-lg: var(--r-lg);
+	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
 }
 
 /* ── Component styles ── */
@@ -903,26 +842,27 @@ else :
 					</article>
 				<?php endforeach; ?>
 			<?php else : ?>
-				<!-- Jetonomy bridged card (shown when no BuddyNext posts exist for this tag yet) -->
-				<?php if ( defined( 'JETONOMY_VERSION' ) ) : ?>
-					<?php
-					$jt_posts_table = $wpdb->prefix . 'jt_posts';
-					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$jt_posts = $wpdb->get_results(
-						$wpdb->prepare(
-							"SELECT jp.id, jp.user_id, jp.title, jp.reply_count, jp.vote_count, jp.view_count, jp.is_answered FROM {$jt_posts_table} jp WHERE jp.status = 'published' AND jp.content LIKE %s ORDER BY jp.vote_count DESC LIMIT 3", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-							'%#' . $wpdb->esc_like( $hashtag_slug ) . '%'
-						)
-					);
-					?>
+				<!-- Related discussions from bridge plugins (Jetonomy, etc.) -->
+				<?php
+				/**
+				 * Filter: related discussions for this hashtag from bridge plugins.
+				 *
+				 * JetonomyBridge hooks this to query jt_tags for matching tag via
+				 * Jetonomy's own model API. No raw cross-plugin SQL.
+				 *
+				 * @param array  $discussions Empty array — bridges append results.
+				 * @param string $hashtag_slug The hashtag being viewed.
+				 * @return array Each item: {id, title, url, reply_count, vote_count, author_name}
+				 */
+				$jt_posts = apply_filters( 'buddynext_hashtag_related_discussions', array(), $hashtag_slug );
+				?>
 					<?php if ( ! empty( $jt_posts ) ) : ?>
 						<?php foreach ( $jt_posts as $jt_post ) : ?>
 							<?php
-							$jt_author_id = (int) $jt_post->user_id;
-							$jt_author    = get_userdata( $jt_author_id );
-							$jt_display   = $jt_author instanceof WP_User ? $jt_author->display_name : __( 'Community Member', 'buddynext' );
-							$jt_colour    = $avatar_colours[ $jt_author_id % count( $avatar_colours ) ];
-							$jt_parts     = explode( ' ', trim( $jt_display ) );
+							$jt_post = (object) $jt_post;
+							$jt_display = $jt_post->author_name ?? __( 'Community Member', 'buddynext' );
+							$jt_colour  = '#7c3aed';
+							$jt_parts   = explode( ' ', trim( $jt_display ) );
 							$jt_initials  = strtoupper( substr( $jt_parts[0], 0, 1 ) . ( isset( $jt_parts[1] ) ? substr( $jt_parts[1], 0, 1 ) : '' ) );
 							$jt_avatar    = get_avatar_url( $jt_author_id, array( 'size' => 68 ) );
 							?>

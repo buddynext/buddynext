@@ -28,22 +28,11 @@ if ( ! $current_user_id || ! buddynext_can( $current_user_id, 'buddynext-moderat
 	?>
 	<style>
 	:root {
-		--font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-		--text-sm: 13px; --text-base: 15px; --text-2xl: 24px;
-		--bg: #ffffff; --surface: #ffffff; --border: #e8e8e5;
-		--text-1: #37352f; --text-2: #787774; --text-3: #aeaca8;
-		--brand: #0073aa; --brand-light: #e8f4fb;
-		--red: #dc2626; --red-bg: #fef2f2;
-		--s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px;
-		--radius-lg: 14px;
-	}
-	[data-theme="dark"] {
-		--bg: #191919; --surface: #252525; --border: #333330;
-		--text-1: #e8e8e6; --text-2: #9b9b97; --text-3: #6b6b67;
-		--brand: #4dabdb; --brand-light: #1a2e3a;
-		--red: #f87171; --red-bg: #2d0f0f;
-	}
-	.bn-mod-restricted {
+	--radius-sm: var(--r-sm);
+	--radius:    var(--r-md);
+	--radius-lg: var(--r-lg);
+	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
+}.bn-mod-restricted {
 		max-width: 600px; margin: var(--s8) auto; padding: 0 var(--s5);
 		font-family: var(--font-body); text-align: center;
 	}
@@ -267,47 +256,10 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 <style>
 /* ── Design tokens ── */
 :root {
-	--font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-	--font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
-	--text-xs:  11px; --text-sm: 13px; --text-base: 15px;
-	--text-lg:  17px; --text-xl: 20px; --text-2xl: 24px;
-	--leading-body: 1.7;
-	--bg:          #ffffff;
-	--bg-subtle:   #f8f8f7;
-	--bg-hover:    #f1f1f0;
-	--surface:     #ffffff;
-	--border:      #e8e8e5;
-	--border-soft: #f1f1ee;
-	--text-1:      #37352f;
-	--text-2:      #787774;
-	--text-3:      #aeaca8;
-	--brand:       #0073aa;
-	--brand-light: #e8f4fb;
-	--brand-hover: #005f8e;
-	--green:       #059669; --green-bg:  #ecfdf5;
-	--amber:       #d97706; --amber-bg:  #fffbeb;
-	--red:         #dc2626; --red-bg:    #fef2f2;
-	--orange:      #ea580c; --orange-bg: #fff7ed;
-	--s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px;
-	--radius-sm: 6px; --radius: 10px; --radius-lg: 14px;
-}
-[data-theme="dark"] {
-	--bg:          #191919;
-	--bg-subtle:   #202020;
-	--bg-hover:    #2a2a2a;
-	--surface:     #252525;
-	--border:      #333330;
-	--border-soft: #2c2c2a;
-	--text-1:      #e8e8e6;
-	--text-2:      #9b9b97;
-	--text-3:      #6b6b67;
-	--brand:       #4dabdb;
-	--brand-light: #1a2e3a;
-	--brand-hover: #5fbfe8;
-	--green:       #34d399; --green-bg:  #0d2420;
-	--amber:       #fbbf24; --amber-bg:  #2a2000;
-	--red:         #f87171; --red-bg:    #2d0f0f;
-	--orange:      #fb923c; --orange-bg: #271500;
+	--radius-sm: var(--r-sm);
+	--radius:    var(--r-md);
+	--radius-lg: var(--r-lg);
+	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
 }
 
 /* ── Shell ── */
