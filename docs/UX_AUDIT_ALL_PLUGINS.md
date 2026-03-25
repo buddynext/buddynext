@@ -217,7 +217,7 @@ CSS-level changes, no structural rewrites. Biggest visual impact for presentatio
 
 | # | Task | Effort | Impact |
 |---|------|--------|--------|
-| 5.1 | **WP Interactivity API navigation** — use `data-wp-router-link` for in-app navigation without full page reload (WP 6.5+ feature) | 4h | Huge — SPA feel |
+| 5.1 | **HTMX partial page swaps** — add `hx-get` + `hx-target="#bn-main"` on nav links so only the content area swaps, nav/sidebar persist. Lightweight (14kb), no build step, works with PHP templates. Falls back to normal navigation gracefully. | 4h | Huge — SPA feel |
 | 5.2 | **Infinite scroll with cursor pagination** — load more posts on scroll, preserve scroll position on back | 2h | High |
 | 5.3 | **Keyboard shortcuts** — `/` search, `n` new post, `j`/`k` navigate posts, `l` like, `Esc` close modals | 2h | Medium — power users |
 | 5.4 | **Mobile bottom tab bar** — on ≤640px, move nav to fixed bottom bar (5 icons: Feed, Spaces, Create+, Notifications, Profile) | 3h | High — mobile UX |
@@ -238,6 +238,62 @@ CSS-level changes, no structural rewrites. Biggest visual impact for presentatio
 | 6.8 | **Thread/discussion mode** — long-form post with structured replies (like Reddit threads) | 4h | High |
 
 ---
+
+---
+
+## Container & Width Rules (Single Source of Truth)
+
+Blocks, templates, and widgets follow different width rules depending on where they render:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Theme Header (full viewport width — theme controls)             │
+├─────────────────────────────────────────────────────────────────┤
+│ BuddyNext Nav Bar (.bn-subnav-inner: --bn-container centered)  │
+├─────────────────────────────────────────────────────────────────┤
+│ Context Nav (.bn-context-nav__inner: --bn-container centered)   │
+├─────────────────────────────────────────────────────────────────┤
+│                    --bn-container (1100px)                       │
+│ ┌──────────────────────────────┐ ┌───────────────────┐          │
+│ │ Content (1fr)                │ │ Sidebar (300px)   │          │
+│ │                              │ │ Trending Topics   │          │
+│ │ Post cards, member grid,     │ │ People to Follow  │          │
+│ │ space feed, notifications    │ │ Your Spaces       │          │
+│ │                              │ │                   │          │
+│ └──────────────────────────────┘ └───────────────────┘          │
+├─────────────────────────────────────────────────────────────────┤
+│ Theme Footer (full viewport width — theme controls)             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Width Rules
+
+| Context | Width | CSS | Who controls |
+|---------|-------|-----|-------------|
+| **Community pages** (feed, members, spaces, notifications, messages, search, hashtags, leaderboard) | `--bn-container` (1100px) with 1fr + 300px sidebar | `.bn-hub-shell` | BuddyNext `bn-base.css` |
+| **Profile page** | `--bn-container` (1100px) full-width, no sidebar | `.bn-profile-container` | BuddyNext `bn-base.css` |
+| **Jetonomy pages** inside BuddyNext | `--bn-container` override on `.jt-container` | `.bn-jt-content .jt-container` | BuddyNext `bn-base.css` |
+| **MVS pages** inside BuddyNext | Hub shell controls width | `.bn-hub-shell > .bn-mvs-content` | BuddyNext `bn-base.css` |
+| **Blocks on landing pages** | `width: 100%` — fills theme column | Block has NO max-width | Theme |
+| **Blocks in sidebar** | Sidebar width (typically 300-360px) | Block is `width: 100%` | Theme sidebar |
+| **Blocks in footer** | Footer column width | Block is `width: 100%` | Theme footer |
+| **Settings/edit forms** | 900px max (narrower for readability) | Per-template `.bn-*-form` | Template |
+
+### Block Width Rule (CRITICAL)
+
+**Blocks must NEVER set their own max-width.** They render at `width: 100%` of their parent container. The parent decides the width:
+- On a community page: hub shell gives it the 1fr column
+- On a landing page: theme's content column gives it whatever width
+- In a sidebar: theme sidebar gives it 300px
+- In a footer: theme footer column gives it that width
+
+```css
+/* CORRECT — block fills parent */
+.bn-block-activity-feed { width: 100%; }
+
+/* WRONG — block sets its own width */
+.bn-block-activity-feed { max-width: 800px; margin: 0 auto; }
+```
 
 ---
 
