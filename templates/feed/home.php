@@ -280,15 +280,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	background:  var(--bg-subtle);
 	-webkit-font-smoothing: antialiased;
 }
-.bn-hub-shell {
-	max-width: 1100px;
-	margin: 0 auto;
-	padding: var(--s6) var(--s8);
-	display: grid;
-	grid-template-columns: 1fr 300px;
-	gap: var(--s6);
-	align-items: start;
-}
+/* Hub shell layout is in bn-base.css — no duplication needed here. */
 
 /* ── Feed tabs ─────────────────────────────────────────────────────────── */
 .bn-feed-tabs {

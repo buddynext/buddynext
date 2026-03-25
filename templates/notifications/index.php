@@ -444,13 +444,10 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
 }
 
-/* ── Shell — hub two-column grid ── */
+/* ── Shell — layout handled by bn-hub-shell (bn-base.css) ── */
 .bn-notifs-shell {
-	max-width: 1100px;
-	margin: 0 auto;
-	padding: var(--s6) var(--s8);
 	display: grid;
-	grid-template-columns: 1fr 300px;
+	grid-template-columns: 1fr;
 	gap: var(--s6);
 	align-items: start;
 	font-family: var(--font-body);

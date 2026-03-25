@@ -32,7 +32,9 @@ if ( ! class_exists( 'WBGamification\Plugin' ) ) {
 	--radius:    var(--r-md);
 	--radius-lg: var(--r-lg);
 	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
-}.bn-lb-shell { max-width: 780px; margin: 0 auto; padding: var(--s8) var(--s5); font-family: var(--font-body); }
+}
+/* Layout handled by bn-hub-shell (bn-base.css) — no internal max-width */
+.bn-lb-shell { font-family: var(--font-body); }
 	.bn-lb-notice {
 		background: var(--amber-bg);
 		border: 1px solid var(--amber);
@@ -248,11 +250,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
 }
 
-/* ── Shell ── */
+/* ── Shell — layout handled by bn-hub-shell (bn-base.css) ── */
 .bn-lb-shell {
-	max-width: 1100px;
-	margin: 0 auto;
-	padding: var(--s6) var(--s8);
 	font-family: var(--font-body);
 	font-size: var(--text-base);
 	color: var(--text-1);
