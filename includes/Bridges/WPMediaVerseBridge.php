@@ -63,6 +63,11 @@ class WPMediaVerseBridge {
 		// Enqueue MVS lightbox on all BuddyNext front-end pages so photo posts
 		// open in the full Instagram-style lightbox with reactions, comments, favorites.
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_lightbox' ) );
+
+		// Sync MVS lightbox comments → BuddyNext activity comments.
+		// When a user comments on a photo via the lightbox, create a matching
+		// bn_comments entry threaded under the BuddyNext post that holds the media.
+		add_action( 'mvs_comment_created', array( $this, 'sync_lightbox_comment' ), 10, 2 );
 	}
 
 	/**
@@ -389,6 +394,77 @@ class WPMediaVerseBridge {
 					'data'         => array( 'message_id' => $message_id ),
 				)
 			);
+		}
+	}
+
+	/**
+	 * Sync a WPMediaVerse lightbox comment to the BuddyNext activity feed.
+	 *
+	 * When a user comments on a photo via the MVS lightbox, find the bn_posts
+	 * entry that contains that media_id and create a bn_comments row threaded
+	 * under it — so the comment appears in the BuddyNext feed as a regular
+	 * post comment.
+	 *
+	 * @param int $comment_id WP comment ID created by MVS.
+	 * @param int $media_id   MVS media post ID.
+	 */
+	public function sync_lightbox_comment( int $comment_id, int $media_id ): void {
+		$comment = get_comment( $comment_id );
+		if ( ! $comment ) {
+			return;
+		}
+
+		$user_id = (int) $comment->user_id;
+		if ( ! $user_id ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// Find the BuddyNext post that has this media_id in its media_ids JSON array.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$bn_post_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts
+				 WHERE media_ids LIKE %s AND status = 'published'
+				 ORDER BY created_at DESC LIMIT 1",
+				'%' . $wpdb->esc_like( (string) $media_id ) . '%'
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( ! $bn_post_id ) {
+			return;
+		}
+
+		// Create the bn_comments entry.
+		$now = current_time( 'mysql' );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_comments',
+			array(
+				'object_type' => 'post',
+				'object_id'   => $bn_post_id,
+				'user_id'     => $user_id,
+				'content'     => wp_kses_post( $comment->comment_content ),
+				'parent_id'   => 0,
+				'created_at'  => $now,
+			)
+		);
+
+		// Increment comment count on the bn_posts row.
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET comment_count = comment_count + 1 WHERE id = %d",
+				$bn_post_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// Fire BuddyNext hook so notifications/webhooks pick it up.
+		$new_comment_id = (int) $wpdb->insert_id;
+		if ( $new_comment_id > 0 ) {
+			do_action( 'buddynext_comment_created', $new_comment_id, $bn_post_id, $user_id );
 		}
 	}
 }
