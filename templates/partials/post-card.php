@@ -40,7 +40,7 @@ if ( empty( $bn_post ) || empty( $bn_post['id'] ) ) {
 $bn_post_id      = absint( $bn_post['id'] );
 $bn_post_type    = $bn_post['type'] ?? 'text';
 $post_author_id  = absint( $bn_post['user_id'] ?? 0 );
-$post_content    = $bn_post['content'] ?? '';
+$post_content    = wp_specialchars_decode( $bn_post['content'] ?? '', ENT_QUOTES );
 $post_privacy    = $bn_post['privacy'] ?? 'public';
 $post_privacy    = in_array( $post_privacy, array( 'public', 'followers', 'connections', 'space_members', 'private' ), true )
 	? $post_privacy

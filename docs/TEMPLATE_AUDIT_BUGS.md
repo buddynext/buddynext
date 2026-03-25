@@ -30,36 +30,31 @@
 - [x] localStorage persistence + page-load application
 - [x] Post card explicit font reset to prevent theme CSS bleeding in
 
+### Phase D — Hub Shell Rollout (8 templates) — DONE
+- [x] D-1: `profile/view.php` — wrapped in hub shell + community sidebar
+- [x] D-2: `spaces/home.php` — wrapped in hub shell + community sidebar
+- [x] D-3: `spaces/directory.php` — wrapped in hub shell + community sidebar
+- [x] D-4: `directory/members.php` — wrapped in hub shell + community sidebar (with `bn-hub-content` wrapper)
+- [x] D-5: `search/results.php` — wrapped in hub shell + community sidebar
+- [x] D-6: `hashtags/feed.php` — wrapped in hub shell + community sidebar
+- [x] D-7: `notifications/index.php` — wrapped in hub shell + community sidebar; removed duplicate trending/spaces widgets from internal sidebar
+- [x] D-8: `gamification/leaderboard.php` — wrapped in hub shell + community sidebar
+- [x] `bn-base.css`: added `min-width: 0` for all content wrappers; CSS overrides to flatten internal two-column grids inside hub shell
+- [x] Browser verified: all 8 pages render with consistent layout at 1280px
+
 ---
 
 ## Remaining — Next Session
 
-### Phase D — Hub Shell Rollout (8 templates need sidebar)
-
-Templates that should render inside `bn-hub-shell` with community sidebar:
-
-| # | Template | Current state | Fix |
-|---|---|---|---|
-| D-1 | `profile/view.php` | No hub shell | Wrap in hub shell + sidebar |
-| D-2 | `spaces/home.php` | No hub shell | Wrap in hub shell + sidebar |
-| D-3 | `spaces/directory.php` | No hub shell | Wrap in hub shell + sidebar |
-| D-4 | `directory/members.php` | No hub shell | Wrap in hub shell + sidebar |
-| D-5 | `search/results.php` | No hub shell | Wrap in hub shell + sidebar |
-| D-6 | `hashtags/feed.php` | Has own sidebar | Convert to hub shell pattern |
-| D-7 | `notifications/index.php` | Has own sidebar | Convert to hub shell pattern |
-| D-8 | `gamification/leaderboard.php` | No hub shell | Wrap in hub shell + sidebar |
-
-### Phase F — CSS/UX Polish
-
-| # | Issue | Template(s) | Fix |
-|---|---|---|---|
-| F-1 | Sidebar "Your Spaces" layout broken | `partials/sidebar.php` | CSS classes changed by user; sidebar CSS needs to match modified HTML structure |
-| F-2 | Post card font too large on some themes | All post cards | Verify `--text-md` (0.9375rem) renders correctly across BuddyX, Flavor, Reign |
-| F-3 | Action bar inconsistency | Some cards show Share, some don't | Ensure all post cards show same 4 actions: React, Comment, Share, Save |
-| F-4 | `&amp;` entity in post content | `partials/post-card.php` | Use `wp_specialchars_decode()` or `html_entity_decode()` on content |
-| F-5 | Avatar initials display | Post cards + sidebar | Verify avatar fallback shows 2-letter initials centered in colored circle |
-| F-6 | A/A+/A++ control visual | `partials/nav.php` | Verify active state styling, verify scaling at 110% and 120% on all pages |
-| F-7 | bn-feed.css hardcoded color tokens | `bn-feed.css` `:root` block | Replace `--bn-bg: #ffffff` etc. with `var(--bg)` references (lines 23-55) |
+### Phase F — CSS/UX Polish — DONE
+- [x] F-1: Sidebar layout — verified correct with current sidebar.php structure
+- [x] F-2: Post card font — `--text-md` (0.9375rem) renders correctly, explicit reset prevents theme bleed
+- [x] F-3: Action bar — all non-share posts show 4 actions (React, Comment, Share, Save); share posts correctly omit Share (can't reshare)
+- [x] F-4: `&amp;` entity — added `wp_specialchars_decode()` on content in post-card.php
+- [x] F-5: Avatar initials — 2-letter initials centered in colored circles, verified on feed + sidebar + members
+- [x] F-6: A/A+/A++ — active state styling works, 110% and 120% scale uniformly across all pages
+- [x] F-7: bn-feed.css — replaced all hardcoded hex/px values with `var(--global-token)` references; dark mode block reduced to shadow-only overrides
+- [x] Member directory grid changed from 4 to 3 columns (better fit with hub shell sidebar)
 
 ### Phase G — Jetonomy + WPMediaVerse Standalone Font Control
 
@@ -121,8 +116,8 @@ When BuddyNext is NOT active, each plugin should have its own A/A+/A++ control:
 ## Execution Priority (next session)
 
 ```
-Phase D (hub shell rollout)      — 8 templates
-Phase F (CSS/UX polish)          — 7 fixes
+Phase D (hub shell rollout)      — 8 templates ✓ DONE
+Phase F (CSS/UX polish)          — 7 fixes ✓ DONE
 Phase G (standalone font control) — Jetonomy + WPMediaVerse
 Phase H (hashtag/tag bridge)     — dedicated integration
 Phase I (post card unification)  — 1 block template

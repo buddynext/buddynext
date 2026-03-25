@@ -815,6 +815,8 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 }
 </style>
 
+<div class="bn-hub-shell">
+
 <div class="bn-profile-wrap"
 	data-wp-interactive="buddynext/profile"
 	<?php
@@ -1324,3 +1326,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 	</div><!-- /bn-profile-layout -->
 
 </div><!-- /bn-profile-wrap -->
+
+<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
+
+</div><!-- /.bn-hub-shell -->

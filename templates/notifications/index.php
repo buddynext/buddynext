@@ -743,6 +743,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 }
 </style>
 
+<div class="bn-hub-shell">
+
 <div class="bn-notifs-shell"
 	data-wp-interactive="buddynext/notifications"
 	data-wp-context='{"markedAll":false,"activeFilter":"<?php echo esc_attr( $active_filter ); ?>","nonce":"<?php echo esc_attr( $mark_all_nonce ); ?>","restUrl":"<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications' ) ); ?>"}'>
@@ -909,74 +911,15 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	</div>
 
 	<?php
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$notif_sbar_user     = get_current_user_id();
-	$notif_sbar_trending = $wpdb->get_results(
-		$wpdb->prepare(
-			'SELECT slug, post_count FROM ' . $wpdb->prefix . 'bn_hashtags ORDER BY post_count DESC LIMIT %d',
-			5
-		)
-	);
-	$notif_sbar_spaces   = $notif_sbar_user ? $wpdb->get_results(
-		$wpdb->prepare(
-			'SELECT s.id, s.name, s.slug, s.member_count, s.avatar_url
-			 FROM ' . $wpdb->prefix . 'bn_spaces s
-			 INNER JOIN ' . $wpdb->prefix . 'bn_space_members sm
-			   ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = %s
-			 ORDER BY s.member_count DESC
-			 LIMIT %d',
-			$notif_sbar_user,
-			'active',
-			3
-		)
-	) : array();
-	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	// Trending Topics and Your Spaces are now provided by the community sidebar
+	// (partials/sidebar.php) via the hub shell. Only the "By type" filter above
+	// remains in the notification-specific sidebar.
 	?>
-
-	<?php if ( ! empty( $notif_sbar_trending ) ) : ?>
-	<div class="bn-sidebar-card">
-		<div class="bn-sidebar-card__header"><?php esc_html_e( 'Trending Topics', 'buddynext' ); ?></div>
-		<div class="bn-sidebar-card__body">
-			<ul class="bn-htag-list">
-				<?php foreach ( $notif_sbar_trending as $notif_htag ) : ?>
-				<li class="bn-htag-item">
-					<a
-						href="<?php echo esc_url( home_url( '/activity/hashtag/' . rawurlencode( $notif_htag->slug ) . '/' ) ); ?>"
-						class="bn-htag-item__link"
-					>#<?php echo esc_html( $notif_htag->slug ); ?></a>
-					<span class="bn-htag-item__count"><?php echo esc_html( number_format_i18n( (int) $notif_htag->post_count ) ); ?></span>
-				</li>
-				<?php endforeach; ?>
-			</ul>
-		</div>
-	</div>
-	<?php endif; ?>
-
-	<?php if ( ! empty( $notif_sbar_spaces ) ) : ?>
-	<div class="bn-sidebar-card">
-		<div class="bn-sidebar-card__header"><?php esc_html_e( 'Your Spaces', 'buddynext' ); ?></div>
-		<div class="bn-sidebar-card__body">
-			<?php foreach ( $notif_sbar_spaces as $notif_sp ) : ?>
-				<?php $notif_sp_url = home_url( '/spaces/' . $notif_sp->slug . '/' ); ?>
-			<a href="<?php echo esc_url( $notif_sp_url ); ?>" class="bn-sbar-space-row">
-				<span class="bn-sbar-space-icon" aria-hidden="true">
-					<?php if ( ! empty( $notif_sp->avatar_url ) ) : ?>
-						<img src="<?php echo esc_attr( $notif_sp->avatar_url ); ?>" alt="" width="32" height="32" loading="lazy">
-					<?php else : ?>
-						<?php echo esc_html( strtoupper( mb_substr( (string) $notif_sp->name, 0, 2 ) ) ); ?>
-					<?php endif; ?>
-				</span>
-				<span class="bn-sbar-space-info">
-					<span class="bn-sbar-space-name"><?php echo esc_html( $notif_sp->name ); ?></span>
-					<span class="bn-sbar-space-meta"><?php echo esc_html( number_format_i18n( (int) $notif_sp->member_count ) ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
-				</span>
-			</a>
-			<?php endforeach; ?>
-			<a href="<?php echo esc_url( home_url( '/spaces/' ) ); ?>" class="bn-sidebar-see-all"><?php esc_html_e( 'Browse all spaces', 'buddynext' ); ?></a>
-		</div>
-	</div>
-	<?php endif; ?>
 
 </aside>
 
 </div><!-- .bn-notifs-shell -->
+
+<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
+
+</div><!-- /.bn-hub-shell -->

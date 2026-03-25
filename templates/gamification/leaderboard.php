@@ -537,6 +537,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 }
 </style>
 
+<div class="bn-hub-shell">
+
 <div class="bn-lb-shell"
 	data-wp-interactive="buddynext/gamification"
 	data-wp-context='{"period":"<?php echo esc_attr( $period ); ?>","category":"<?php echo esc_attr( $category ); ?>"}'>
@@ -878,4 +880,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	</div><!-- /lb-grid -->
 
 	<?php endif; // End: leaderboard data check. ?>
-</div>
+</div><!-- /.bn-lb-shell -->
+
+<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
+
+</div><!-- /.bn-hub-shell -->

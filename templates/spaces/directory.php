@@ -580,6 +580,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 <?php /* phpcs:enable */ ?>
 </style>
 
+<div class="bn-hub-shell">
+
 <div
 	class="bn-spaces-dir"
 	data-wp-interactive="buddynext/spaces"
@@ -783,4 +785,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 		</nav>
 	<?php endif; ?>
 
-</div>
+</div><!-- /.bn-spaces-dir -->
+
+<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
+
+</div><!-- /.bn-hub-shell -->

@@ -337,7 +337,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 /* ── Grid ───────────────────────────────────────────────── */
 .bn-members-grid {
 	display: grid;
-	grid-template-columns: repeat(4, 1fr);
+	grid-template-columns: repeat(3, 1fr);
 	gap: var(--s3);
 }
 .bn-member-card {
@@ -548,7 +548,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 1024px) {
-	.bn-members-grid { grid-template-columns: repeat(3, 1fr); }
+	.bn-members-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 768px) {
 	.bn-members-grid { grid-template-columns: repeat(2, 1fr); }
@@ -615,6 +615,9 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	.bn-type-pill { padding: 4px 10px; }
 }
 </style>
+
+<div class="bn-hub-shell">
+<div class="bn-hub-content">
 
 <div class="bn-dir-header">
 	<h1 class="bn-dir-title"><?php esc_html_e( 'Member Directory', 'buddynext' ); ?></h1>
@@ -871,4 +874,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 </nav>
 <?php endif; ?>
 
-</div>
+</div><!-- /.bn-hub-content -->
+
+<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
+
+</div><!-- /.bn-hub-shell -->

@@ -604,6 +604,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 }
 </style>
 
+<div class="bn-hub-shell">
+
 <?php
 if ( $hashtag_not_found ) :
 	?>
@@ -1103,5 +1105,9 @@ else :
 		</aside>
 	</div>
 
-</div>
+</div><!-- /.bn-hashtag-feed -->
 <?php endif; ?>
+
+<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
+
+</div><!-- /.bn-hub-shell -->

@@ -433,8 +433,52 @@
 /* Each plugin's content area prevents overflow in the 1fr column. */
 .bn-mvs-content,
 .bn-jt-content,
-.bn-messages-content {
+.bn-messages-content,
+.bn-profile-wrap,
+.bn-space-home,
+.bn-spaces-dir,
+.bn-hub-content,
+.bn-search-shell,
+.bn-hashtag-feed,
+.bn-notifs-shell,
+.bn-lb-shell {
 	min-width: 0;
+}
+
+/* ── Templates inside hub shell — flatten internal two-column grids ─── */
+/* These templates had their own 1fr+300px sidebar grids. Now that the
+   community sidebar occupies the hub shell's right column, the internal
+   grids collapse to single-column so content doesn't double-sidebar. */
+/* Notification shell — flatten to single column, hub shell owns the grid */
+.bn-hub-shell > .bn-notifs-shell {
+	max-width: none;
+	padding: 0;
+	grid-template-columns: 1fr;
+}
+/* Hashtag shell — flatten internal two-col grid */
+.bn-hub-shell > .bn-hashtag-feed .bn-hashtag-shell {
+	grid-template-columns: 1fr;
+}
+/* Leaderboard grid — flatten to single column */
+.bn-hub-shell > .bn-lb-shell {
+	max-width: none;
+	padding: 0;
+}
+.bn-hub-shell > .bn-lb-shell .bn-lb-grid {
+	grid-template-columns: 1fr;
+}
+/* Search layout — flatten internal sidebar */
+.bn-hub-shell > .bn-search-shell .bn-search-layout {
+	grid-template-columns: 1fr;
+}
+/* Profile and space-home keep their internal layout (own right widgets
+   are contextual, not the community sidebar). Hub shell sidebar adds
+   the community discovery widgets alongside. */
+.bn-hub-shell > .bn-profile-wrap,
+.bn-hub-shell > .bn-space-home,
+.bn-hub-shell > .bn-spaces-dir,
+.bn-hub-shell > .bn-hub-content {
+	max-width: none;
 }
 
 /* ── Jetonomy inside BuddyNext ────────────────────────────────────────── */

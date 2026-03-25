@@ -555,6 +555,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 }
 </style>
 
+<div class="bn-hub-shell">
+
 <div class="bn-search-shell"
 	data-wp-interactive="buddynext/search"
 	data-wp-context='{"query":"<?php echo esc_attr( $raw_query ); ?>","activeTab":"<?php echo esc_attr( $active_tab ); ?>"}'>
@@ -950,4 +952,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	</div><!-- /layout -->
 
 	<?php endif; // End: raw_query check. ?>
-</div>
+</div><!-- /.bn-search-shell -->
+
+<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
+
+</div><!-- /.bn-hub-shell -->

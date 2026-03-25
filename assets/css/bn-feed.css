@@ -18,81 +18,65 @@
 	--bn-text-xl:   var(--text-xl);
 	--bn-text-2xl:  var(--text-2xl);
 
-	--bn-leading-body: 1.7;
+	--bn-leading-body: var(--leading-body);
 
-	--bn-bg:          #ffffff;
-	--bn-bg-subtle:   #f8f8f7;
-	--bn-bg-hover:    #f1f1f0;
-	--bn-surface:     #ffffff;
-	--bn-border:      #e8e8e5;
-	--bn-border-soft: #f1f1ee;
+	/* Aliases to global colour tokens — TokenService handles light/dark. */
+	--bn-bg:          var(--bg);
+	--bn-bg-subtle:   var(--bg-subtle);
+	--bn-bg-hover:    var(--bg-hover);
+	--bn-surface:     var(--surface);
+	--bn-border:      var(--border);
+	--bn-border-soft: var(--border-soft);
 
-	--bn-text-1: #37352f;
-	--bn-text-2: #787774;
-	--bn-text-3: #aeaca8;
+	--bn-text-1: var(--text-1);
+	--bn-text-2: var(--text-2);
+	--bn-text-3: var(--text-3);
 
-	--bn-brand:       #0073aa;
-	--bn-brand-light: #e8f4fb;
-	--bn-brand-hover: #005f8e;
+	--bn-brand:       var(--brand);
+	--bn-brand-light: var(--brand-light);
+	--bn-brand-hover: var(--brand-hover);
 
-	--bn-green:    #059669;
-	--bn-green-bg: #ecfdf5;
-	--bn-amber:    #d97706;
-	--bn-amber-bg: #fffbeb;
-	--bn-red:      #dc2626;
-	--bn-red-bg:   #fef2f2;
+	--bn-green:    var(--green);
+	--bn-green-bg: var(--green-bg);
+	--bn-amber:    var(--amber);
+	--bn-amber-bg: var(--amber-bg);
+	--bn-red:      var(--red);
+	--bn-red-bg:   var(--red-bg);
 
-	--bn-jetonomy:    #5b21b6;
-	--bn-jetonomy-bg: #f5f3ff;
-	--bn-mvs:         #0f766e;
-	--bn-mvs-bg:      #f0fdf9;
+	--bn-jetonomy:    var(--jetonomy);
+	--bn-jetonomy-bg: var(--jetonomy-bg);
+	--bn-mvs:         var(--mvs);
+	--bn-mvs-bg:      var(--mvs-bg);
 
-	--bn-s1:  4px;
-	--bn-s2:  8px;
-	--bn-s3:  12px;
-	--bn-s4:  16px;
-	--bn-s5:  20px;
-	--bn-s6:  24px;
-	--bn-s8:  32px;
-	--bn-s10: 40px;
-	--bn-s12: 48px;
+	/* Aliases to global spacing tokens */
+	--bn-s1:  var(--s1);
+	--bn-s2:  var(--s2);
+	--bn-s3:  var(--s3);
+	--bn-s4:  var(--s4);
+	--bn-s5:  var(--s5);
+	--bn-s6:  var(--s6);
+	--bn-s8:  var(--s8);
+	--bn-s10: var(--s10);
+	--bn-s12: var(--s12);
 
-	--bn-r-sm:   4px;
-	--bn-r-md:   8px;
-	--bn-r-lg:   12px;
-	--bn-r-xl:   16px;
-	--bn-r-full: 9999px;
+	/* Aliases to global radius tokens */
+	--bn-r-sm:   var(--r-sm);
+	--bn-r-md:   var(--r-md);
+	--bn-r-lg:   var(--r-lg);
+	--bn-r-xl:   var(--r-xl);
+	--bn-r-full: var(--r-full);
 
+	/* Component-specific tokens (not in global system) */
 	--bn-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
 	--bn-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
 	--bn-transition: 0.14s ease;
 }
 
+/* Dark mode — only component-specific overrides (shadows).
+   Colour/spacing aliases inherit automatically from TokenService. */
 [data-theme="dark"] {
-	--bn-bg:          #191919;
-	--bn-bg-subtle:   #202020;
-	--bn-bg-hover:    #2a2a2a;
-	--bn-surface:     #252525;
-	--bn-border:      #333330;
-	--bn-border-soft: #2c2c2a;
-	--bn-text-1:      #e8e8e6;
-	--bn-text-2:      #9b9b97;
-	--bn-text-3:      #6b6b67;
-	--bn-brand:       #4dabdb;
-	--bn-brand-light: #1a2e3a;
-	--bn-brand-hover: #5fbfe8;
-	--bn-green:       #34d399;
-	--bn-green-bg:    #0d2420;
-	--bn-amber:       #fbbf24;
-	--bn-amber-bg:    #2a2000;
-	--bn-red:         #f87171;
-	--bn-red-bg:      #2d0f0f;
-	--bn-jetonomy:    #a78bfa;
-	--bn-jetonomy-bg: #1e1830;
-	--bn-mvs:         #34d399;
-	--bn-mvs-bg:      #0d2420;
-	--bn-shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.24);
-	--bn-shadow-md:   0 4px 12px rgba(0, 0, 0, 0.32);
+	--bn-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.24);
+	--bn-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32);
 }
 
 /* ── Feed page shell ────────────────────────────────────────────────────────── */
