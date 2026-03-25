@@ -326,7 +326,10 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				<a
 					id="bn-post-author-<?php echo absint( $bn_post_id ); ?>"
 					href="<?php echo esc_url( $profile_link ); ?>"
-					class="bn-post-card__author-name"
+					class="bn-post-card__author-name bn-hover-user"
+					data-bn-user-id="<?php echo absint( $post_author_id ); ?>"
+					data-bn-user-name="<?php echo esc_attr( $display_name ); ?>"
+					data-bn-user-handle="<?php echo esc_attr( $username ); ?>"
 				><?php echo esc_html( $display_name ); ?></a>
 
 				<?php if ( $username ) : ?>
@@ -462,7 +465,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		<?php elseif ( 'photo' === $bn_post_type ) : ?>
 			<!-- Photo post -->
 			<?php if ( $post_content ) : ?>
-				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( $post_content ) ); ?></div>
+				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 			<?php endif; ?>
 			<?php if ( ! empty( $media_ids ) ) : ?>
 				<div class="bn-post-card__media-grid mvs-activity-media-grid bn-post-card__media-grid--<?php echo count( $media_ids ) >= 4 ? '4' : esc_attr( (string) count( $media_ids ) ); ?>">
@@ -505,7 +508,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		<?php elseif ( 'file' === $bn_post_type ) : ?>
 			<!-- File post -->
 			<?php if ( $post_content ) : ?>
-				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( $post_content ) ); ?></div>
+				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 			<?php endif; ?>
 			<?php if ( ! empty( $media_ids ) ) : ?>
 				<div class="bn-post-card__file-list">
@@ -521,7 +524,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		<?php elseif ( 'link' === $bn_post_type ) : ?>
 			<!-- Link post -->
 			<?php if ( $post_content ) : ?>
-				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( $post_content ) ); ?></div>
+				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 			<?php endif; ?>
 			<?php if ( $link_url ) : ?>
 				<a
@@ -558,7 +561,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			<!-- Poll post -->
 			<?php if ( $post_content ) : ?>
 				<div class="bn-post-card__content bn-post-card__poll-question">
-					<?php echo wp_kses_post( nl2br( $post_content ) ); ?>
+					<?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?>
 				</div>
 			<?php endif; ?>
 			<?php if ( ! empty( $poll_options ) ) : ?>
@@ -613,13 +616,13 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		<?php elseif ( 'announcement' === $bn_post_type ) : ?>
 			<!-- Announcement body -->
 			<div class="bn-post-card__content bn-post-card__content--announcement">
-				<?php echo wp_kses_post( nl2br( $post_content ) ); ?>
+				<?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?>
 			</div>
 
 		<?php elseif ( 'media' === $bn_post_type ) : ?>
 			<!-- WPMediaVerse bridge: media card -->
 			<?php if ( $post_content ) : ?>
-				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( $post_content ) ); ?></div>
+				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 			<?php endif; ?>
 			<?php if ( ! empty( $media_ids ) ) : ?>
 				<div class="bn-post-card__media-bridge" data-mvs-ids="<?php echo esc_attr( implode( ',', array_map( 'absint', $media_ids ) ) ); ?>">
@@ -651,7 +654,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		<?php elseif ( 'share' === $bn_post_type ) : ?>
 			<!-- Share card: optional note + embedded original post -->
 			<?php if ( ! empty( $post_content ) ) : ?>
-				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( $post_content ) ); ?></div>
+				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 			<?php endif; ?>
 			<?php if ( null !== $shared_post ) : ?>
 				<?php
@@ -703,7 +706,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 
 		<?php else : ?>
 			<!-- Fallback for unknown/future types -->
-			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( $post_content ) ); ?></div>
+			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 		<?php endif; ?>
 
 	</div><!-- .bn-post-card__body -->

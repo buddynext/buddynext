@@ -271,6 +271,39 @@
 	line-height: var(--leading-normal);
 }
 
+/* ── User hover card ──────────────────────────────────────────────────── */
+.bn-hover-card {
+	position: fixed;
+	z-index: 9000;
+	width: 280px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+	padding: var(--s4);
+	pointer-events: auto;
+	animation: bn-dropdown-in 0.15s ease;
+}
+.bn-hover-card__header { display: flex; gap: var(--s3); align-items: flex-start; margin-bottom: var(--s3); }
+.bn-hover-card__avatar {
+	width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+	background: var(--brand-light); color: var(--brand); font-size: 18px; font-weight: 700;
+	display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.bn-hover-card__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.bn-hover-card__name { font-weight: var(--fw-bold); font-size: var(--text-base); color: var(--text-1); }
+.bn-hover-card__handle { font-size: var(--text-xs); color: var(--text-3); }
+.bn-hover-card__bio { font-size: var(--text-sm); color: var(--text-2); margin-bottom: var(--s3); line-height: 1.4; }
+.bn-hover-card__stats { display: flex; gap: var(--s4); font-size: var(--text-xs); color: var(--text-2); }
+.bn-hover-card__stat-num { font-weight: var(--fw-bold); color: var(--text-1); }
+.bn-hover-card__follow {
+	margin-top: var(--s3); width: 100%; padding: var(--s2); border: 1px solid var(--brand);
+	border-radius: var(--r-full); background: transparent; color: var(--brand);
+	font-size: var(--text-sm); font-weight: var(--fw-semibold); cursor: pointer;
+	transition: all 0.15s ease;
+}
+.bn-hover-card__follow:hover { background: var(--brand); color: #fff; }
+
 /* ── Box-sizing reset ───────────────────────────────────────────────────── */
 
 .bn-wrap *,

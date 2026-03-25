@@ -174,6 +174,59 @@ if ( ! $bn_nav_css_output ) :
 	flex-shrink: 0;
 	padding-left: var(--s4, 16px);
 }
+/* Notification dropdown */
+.bn-nav-notif-wrap { position: relative; }
+.bn-nav-notif-wrap button.bn-nav-item { background: none; border: none; cursor: pointer; }
+.bn-notif-dropdown {
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 0;
+	width: 360px;
+	max-height: 440px;
+	background: var(--bg, #fff);
+	border: 1px solid var(--border, #e8e8e5);
+	border-radius: 12px;
+	box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+	z-index: 200;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	animation: bn-dropdown-in 0.15s ease;
+}
+@keyframes bn-dropdown-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.bn-notif-dropdown__header {
+	display: flex; align-items: center; justify-content: space-between;
+	padding: 12px 16px; border-bottom: 1px solid var(--border-soft, #f1f1ee);
+}
+.bn-notif-dropdown__title { font-weight: 700; font-size: 14px; color: var(--text-1, #37352f); }
+.bn-notif-dropdown__mark-read { background: none; border: none; color: var(--brand, #0073aa); font-size: 12px; font-weight: 600; cursor: pointer; }
+.bn-notif-dropdown__mark-read:hover { text-decoration: underline; }
+.bn-notif-dropdown__list { flex: 1; overflow-y: auto; }
+.bn-notif-dropdown__loading { padding: 24px; text-align: center; color: var(--text-3); font-size: 13px; }
+.bn-notif-dropdown__item {
+	display: flex; gap: 10px; padding: 10px 16px; cursor: pointer;
+	transition: background 0.1s;
+}
+.bn-notif-dropdown__item:hover { background: var(--bg-hover, #f1f1f0); }
+.bn-notif-dropdown__item--unread { background: var(--brand-light, #e8f4fb); }
+.bn-notif-dropdown__avatar {
+	width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+	background: var(--brand-light); color: var(--brand); font-size: 13px; font-weight: 700;
+	display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.bn-notif-dropdown__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.bn-notif-dropdown__body { flex: 1; min-width: 0; }
+.bn-notif-dropdown__text { font-size: 13px; color: var(--text-1); line-height: 1.4; }
+.bn-notif-dropdown__text strong { font-weight: 600; }
+.bn-notif-dropdown__time { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.bn-notif-dropdown__see-all {
+	display: block; text-align: center; padding: 10px; font-size: 13px; font-weight: 600;
+	color: var(--brand); text-decoration: none; border-top: 1px solid var(--border-soft);
+}
+.bn-notif-dropdown__see-all:hover { background: var(--bg-hover); }
+@media (max-width: 640px) {
+	.bn-notif-dropdown { width: calc(100vw - 16px); right: -60px; }
+}
 /* ── Font size control (A / A+ / A++) ────────────── */
 .bn-font-scale {
 	display: flex;
@@ -247,6 +300,140 @@ if ( ! $bn_nav_css_output ) :
 			syncButtons(s);
 		}
 	};
+})();
+
+/* ── Notification dropdown ── */
+window.bnToggleNotifDropdown = function(btn) {
+	var wrap = btn.closest('.bn-nav-notif-wrap');
+	var dd   = wrap.querySelector('.bn-notif-dropdown');
+	var open = !dd.hidden;
+	dd.hidden = open;
+	btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+	if (!open && !dd.dataset.loaded) {
+		dd.dataset.loaded = '1';
+		fetch('<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ); ?>', {
+			headers: { 'X-WP-Nonce': '<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>' }
+		}).then(function(r) { return r.json(); }).then(function(data) {
+			var list = document.getElementById('bn-notif-dropdown-list');
+			if (!list) return;
+			var items = data.items || data;
+			if (!items.length) {
+				list.textContent = '';
+				var empty = document.createElement('div');
+				empty.className = 'bn-notif-dropdown__loading';
+				empty.textContent = 'No notifications yet';
+				list.appendChild(empty);
+				return;
+			}
+			list.textContent = '';
+			items.forEach(function(n) {
+				var div    = document.createElement('div');
+				div.className = 'bn-notif-dropdown__item' + (n.is_read ? '' : ' bn-notif-dropdown__item--unread');
+				var avatar = document.createElement('div');
+				avatar.className = 'bn-notif-dropdown__avatar';
+				avatar.textContent = (n.sender_name || 'U').split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+				var body   = document.createElement('div');
+				body.className = 'bn-notif-dropdown__body';
+				var text   = document.createElement('div');
+				text.className = 'bn-notif-dropdown__text';
+				var strong = document.createElement('strong');
+				strong.textContent = n.sender_name || '';
+				text.appendChild(strong);
+				text.appendChild(document.createTextNode(' ' + (n.message || n.type || '')));
+				var time   = document.createElement('div');
+				time.className = 'bn-notif-dropdown__time';
+				time.textContent = n.time_ago || '';
+				body.appendChild(text);
+				body.appendChild(time);
+				div.appendChild(avatar);
+				div.appendChild(body);
+				list.appendChild(div);
+			});
+		}).catch(function() {
+			var list = document.getElementById('bn-notif-dropdown-list');
+			if (list) {
+				list.textContent = '';
+				var err = document.createElement('div');
+				err.className = 'bn-notif-dropdown__loading';
+				err.textContent = 'Could not load';
+				list.appendChild(err);
+			}
+		});
+	}
+};
+document.addEventListener('click', function(e) {
+	var wrap = document.querySelector('.bn-nav-notif-wrap');
+	if (wrap && !wrap.contains(e.target)) {
+		var dd = wrap.querySelector('.bn-notif-dropdown');
+		if (dd) { dd.hidden = true; }
+		var btn = wrap.querySelector('[aria-expanded]');
+		if (btn) { btn.setAttribute('aria-expanded', 'false'); }
+	}
+});
+window.bnMarkAllRead = function() {
+	fetch('<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications/read-all' ) ); ?>', {
+		method: 'PUT',
+		headers: { 'X-WP-Nonce': '<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>' }
+	}).then(function() {
+		var pill = document.querySelector('.bn-nav-notif-wrap .bn-nav-pill');
+		if (pill) pill.remove();
+		document.querySelectorAll('.bn-notif-dropdown__item--unread').forEach(function(el) {
+			el.classList.remove('bn-notif-dropdown__item--unread');
+		});
+		if (window.bnToast) { window.bnToast('All notifications marked read'); }
+	});
+};
+
+/* ── User hover card ── */
+(function() {
+	var card = null;
+	var hoverTimer = null;
+	var leaveTimer = null;
+	document.addEventListener('mouseenter', function(e) {
+		var el = e.target.closest('.bn-hover-user');
+		if (!el) return;
+		clearTimeout(leaveTimer);
+		hoverTimer = setTimeout(function() {
+			var userId = el.dataset.bnUserId;
+			var name   = el.dataset.bnUserName || '';
+			var handle = el.dataset.bnUserHandle || '';
+			if (!card) {
+				card = document.createElement('div');
+				card.className = 'bn-hover-card';
+				document.body.appendChild(card);
+				card.addEventListener('mouseenter', function() { clearTimeout(leaveTimer); });
+				card.addEventListener('mouseleave', function() { card.hidden = true; });
+			}
+			var initials = name.split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+			card.textContent = '';
+			var header = document.createElement('div');
+			header.className = 'bn-hover-card__header';
+			var av = document.createElement('div');
+			av.className = 'bn-hover-card__avatar';
+			av.textContent = initials;
+			var info = document.createElement('div');
+			var nm = document.createElement('div');
+			nm.className = 'bn-hover-card__name';
+			nm.textContent = name;
+			var hd = document.createElement('div');
+			hd.className = 'bn-hover-card__handle';
+			hd.textContent = handle ? '@' + handle : '';
+			info.appendChild(nm);
+			info.appendChild(hd);
+			header.appendChild(av);
+			header.appendChild(info);
+			card.appendChild(header);
+			var rect = el.getBoundingClientRect();
+			card.style.top  = (rect.bottom + 8) + 'px';
+			card.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 296)) + 'px';
+			card.hidden = false;
+		}, 400);
+	}, true);
+	document.addEventListener('mouseleave', function(e) {
+		if (!e.target.closest('.bn-hover-user')) return;
+		clearTimeout(hoverTimer);
+		leaveTimer = setTimeout(function() { if (card) card.hidden = true; }, 200);
+	}, true);
 })();
 
 /* ── Toast notification helper ── */
@@ -327,15 +514,31 @@ window.bnToast = function(msg, type) {
 
 		<?php if ( $bn_nav_current_user ) : ?>
 
-		<a href="<?php echo esc_url( $bn_nav_urls['notifications'] ); ?>"
-			class="bn-nav-item<?php echo 'notifications' === $bn_nav_active ? ' bn-nav-active' : ''; ?>"
-			<?php echo 'notifications' === $bn_nav_active ? 'aria-current="page"' : ''; ?>>
-			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-			<?php esc_html_e( 'Notifications', 'buddynext' ); ?>
-			<?php if ( $bn_unread_notifs > 0 ) : ?>
-				<span class="bn-nav-pill"><?php echo esc_html( $bn_unread_notifs > 99 ? '99+' : (string) $bn_unread_notifs ); ?></span>
-			<?php endif; ?>
-		</a>
+		<div class="bn-nav-notif-wrap">
+			<button type="button"
+				class="bn-nav-item<?php echo 'notifications' === $bn_nav_active ? ' bn-nav-active' : ''; ?>"
+				onclick="bnToggleNotifDropdown(this)"
+				aria-expanded="false"
+				aria-haspopup="true">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+				<?php esc_html_e( 'Notifications', 'buddynext' ); ?>
+				<?php if ( $bn_unread_notifs > 0 ) : ?>
+					<span class="bn-nav-pill"><?php echo esc_html( $bn_unread_notifs > 99 ? '99+' : (string) $bn_unread_notifs ); ?></span>
+				<?php endif; ?>
+			</button>
+			<div class="bn-notif-dropdown" hidden>
+				<div class="bn-notif-dropdown__header">
+					<span class="bn-notif-dropdown__title"><?php esc_html_e( 'Notifications', 'buddynext' ); ?></span>
+					<?php if ( $bn_unread_notifs > 0 ) : ?>
+						<button type="button" class="bn-notif-dropdown__mark-read" onclick="bnMarkAllRead()"><?php esc_html_e( 'Mark all read', 'buddynext' ); ?></button>
+					<?php endif; ?>
+				</div>
+				<div class="bn-notif-dropdown__list" id="bn-notif-dropdown-list">
+					<div class="bn-notif-dropdown__loading"><?php esc_html_e( 'Loading...', 'buddynext' ); ?></div>
+				</div>
+				<a href="<?php echo esc_url( $bn_nav_urls['notifications'] ); ?>" class="bn-notif-dropdown__see-all"><?php esc_html_e( 'See all notifications', 'buddynext' ); ?></a>
+			</div>
+		</div>
 
 		<a href="<?php echo esc_url( $bn_nav_urls['messages'] ); ?>"
 			class="bn-nav-item<?php echo 'messages' === $bn_nav_active ? ' bn-nav-active' : ''; ?>"
