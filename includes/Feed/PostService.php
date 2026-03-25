@@ -118,6 +118,12 @@ class PostService {
 		global $wpdb;
 
 		$media_ids = isset( $data['media_ids'] ) ? wp_json_encode( $data['media_ids'] ) : null;
+
+		// Auto-fetch OG metadata when link_url is set but link_meta is empty.
+		if ( ! empty( $data['link_url'] ) && empty( $data['link_meta'] ) ) {
+			$data['link_meta'] = self::fetch_og_meta( (string) $data['link_url'] );
+		}
+
 		$link_meta = isset( $data['link_meta'] ) ? wp_json_encode( $data['link_meta'] ) : null;
 
 		$status = $data['status'] ?? 'published';
@@ -570,5 +576,53 @@ class PostService {
 			),
 			(array) $rows
 		);
+	}
+
+	/**
+	 * Fetch Open Graph metadata from a URL.
+	 *
+	 * Uses wp_remote_get with a 5s timeout. Extracts og:title, og:description,
+	 * og:image from <meta> tags. Falls back to <title> tag.
+	 *
+	 * @param string $url URL to fetch.
+	 * @return array{title: string, description: string, thumbnail: string}
+	 */
+	private static function fetch_og_meta( string $url ): array {
+		$meta = array( 'title' => '', 'description' => '', 'thumbnail' => '' );
+
+		$response = wp_remote_get( $url, array(
+			'timeout'    => 5,
+			'user-agent' => 'BuddyNext/1.0 (Link Preview)',
+		) );
+
+		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+			return $meta;
+		}
+
+		$body = wp_remote_retrieve_body( $response );
+		if ( empty( $body ) ) {
+			return $meta;
+		}
+
+		// Extract og:title.
+		if ( preg_match( '/<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']|<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']/', $body, $m ) ) {
+			$meta['title'] = html_entity_decode( trim( $m[1] ?: $m[2] ), ENT_QUOTES, 'UTF-8' );
+		} elseif ( preg_match( '/<title[^>]*>([^<]+)<\/title>/i', $body, $m ) ) {
+			$meta['title'] = html_entity_decode( trim( $m[1] ), ENT_QUOTES, 'UTF-8' );
+		}
+
+		// Extract og:description.
+		if ( preg_match( '/<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']|<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:description["\']/', $body, $m ) ) {
+			$meta['description'] = html_entity_decode( trim( $m[1] ?: $m[2] ), ENT_QUOTES, 'UTF-8' );
+		} elseif ( preg_match( '/<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)["\']/', $body, $m ) ) {
+			$meta['description'] = html_entity_decode( trim( $m[1] ), ENT_QUOTES, 'UTF-8' );
+		}
+
+		// Extract og:image.
+		if ( preg_match( '/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']|<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']/', $body, $m ) ) {
+			$meta['thumbnail'] = esc_url_raw( trim( $m[1] ?: $m[2] ) );
+		}
+
+		return $meta;
 	}
 }

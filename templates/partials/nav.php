@@ -261,6 +261,7 @@ if ( ! $bn_nav_css_output ) :
 	.bn-subnav-right { display: none; }
 }
 </style>
+<script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
 <script id="bn-font-scale-js">
 (function () {
 	var scales = ['100', '110', '120'];
@@ -574,10 +575,60 @@ document.addEventListener('keydown', function(e) {
 			header.appendChild(av);
 			header.appendChild(info);
 			card.appendChild(header);
+			// Stats section (populated async)
+			var stats = document.createElement('div');
+			stats.className = 'bn-hover-card__stats';
+			stats.textContent = '';
+			card.appendChild(stats);
+
+			// Follow button
+			var followBtn = document.createElement('button');
+			followBtn.className = 'bn-hover-card__follow';
+			followBtn.textContent = 'Follow';
+			followBtn.onclick = function() {
+				fetch('<?php echo esc_url( rest_url( "buddynext/v1/users/" ) ); ?>' + userId + '/follow', {
+					method: 'POST',
+					headers: { 'X-WP-Nonce': '<?php echo esc_js( wp_create_nonce( "wp_rest" ) ); ?>' }
+				}).then(function() {
+					followBtn.textContent = 'Following';
+					followBtn.style.background = 'var(--brand)';
+					followBtn.style.color = '#fff';
+					if (window.bnToast) window.bnToast('Followed ' + name);
+				});
+			};
+			card.appendChild(followBtn);
+
 			var rect = el.getBoundingClientRect();
 			card.style.top  = (rect.bottom + 8) + 'px';
 			card.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 296)) + 'px';
 			card.hidden = false;
+
+			// Fetch user stats async
+			fetch('<?php echo esc_url( rest_url( "buddynext/v1/users/" ) ); ?>' + userId, {
+				headers: { 'X-WP-Nonce': '<?php echo esc_js( wp_create_nonce( "wp_rest" ) ); ?>' }
+			}).then(function(r) { return r.json(); }).then(function(u) {
+				stats.textContent = '';
+				var pairs = [
+					['Posts', u.post_count || 0],
+					['Followers', u.follower_count || 0],
+					['Following', u.following_count || 0]
+				];
+				pairs.forEach(function(p) {
+					var s = document.createElement('span');
+					var n = document.createElement('span');
+					n.className = 'bn-hover-card__stat-num';
+					n.textContent = p[1];
+					s.appendChild(n);
+					s.appendChild(document.createTextNode(' ' + p[0]));
+					stats.appendChild(s);
+				});
+				if (u.bio) {
+					var bio = document.createElement('div');
+					bio.className = 'bn-hover-card__bio';
+					bio.textContent = u.bio.substring(0, 100);
+					card.insertBefore(bio, stats);
+				}
+			}).catch(function() {});
 		}, 400);
 	}, true);
 	document.addEventListener('mouseleave', function(e) {
@@ -585,6 +636,72 @@ document.addEventListener('keydown', function(e) {
 		clearTimeout(hoverTimer);
 		leaveTimer = setTimeout(function() { if (card) card.hidden = true; }, 200);
 	}, true);
+})();
+
+/* ── Onboarding tour (first visit) ── */
+(function() {
+	if (localStorage.getItem('bn_tour_done')) return;
+	var steps = [
+		{ sel: '.bn-nav-item:first-child', text: 'Your activity feed — see posts from people you follow', pos: 'below' },
+		{ sel: '.bn-nav-notif-wrap', text: 'Notifications — reactions, comments, and mentions appear here', pos: 'below' },
+		{ sel: '.bn-composer__input', text: 'Share your thoughts — post text, photos, polls, and links', pos: 'below' },
+		{ sel: '.bn-hub-sidebar', text: 'Discover trending topics, people to follow, and spaces to join', pos: 'left' }
+	];
+	var step = 0;
+	var overlay = null;
+	var tooltip = null;
+
+	function show() {
+		if (step >= steps.length) { finish(); return; }
+		var el = document.querySelector(steps[step].sel);
+		if (!el) { step++; show(); return; }
+		if (!overlay) {
+			overlay = document.createElement('div');
+			overlay.style.cssText = 'position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,0.5);';
+			overlay.onclick = next;
+			document.body.appendChild(overlay);
+			tooltip = document.createElement('div');
+			tooltip.style.cssText = 'position:fixed;z-index:99991;background:var(--bg,#fff);color:var(--text-1,#333);padding:16px 20px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.2);max-width:280px;font-size:14px;line-height:1.5;';
+			document.body.appendChild(tooltip);
+		}
+		el.style.position = 'relative';
+		el.style.zIndex = '99991';
+		el.style.background = 'var(--bg,#fff)';
+		el.style.borderRadius = '8px';
+		tooltip.textContent = '';
+		var text = document.createElement('p');
+		text.style.margin = '0 0 10px';
+		text.textContent = steps[step].text;
+		var btn = document.createElement('button');
+		btn.textContent = step < steps.length - 1 ? 'Next' : 'Got it!';
+		btn.style.cssText = 'background:var(--brand,#0073aa);color:#fff;border:none;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;';
+		btn.onclick = function(e) { e.stopPropagation(); next(); };
+		var counter = document.createElement('span');
+		counter.style.cssText = 'float:right;font-size:11px;color:var(--text-3,#999);margin-top:4px;';
+		counter.textContent = (step+1) + '/' + steps.length;
+		tooltip.appendChild(text);
+		tooltip.appendChild(btn);
+		tooltip.appendChild(counter);
+		var r = el.getBoundingClientRect();
+		tooltip.style.top = (r.bottom + 12) + 'px';
+		tooltip.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 300)) + 'px';
+	}
+	function next() {
+		var prev = document.querySelector(steps[step]?.sel);
+		if (prev) { prev.style.position = ''; prev.style.zIndex = ''; prev.style.background = ''; }
+		step++;
+		show();
+	}
+	function finish() {
+		if (overlay) overlay.remove();
+		if (tooltip) tooltip.remove();
+		localStorage.setItem('bn_tour_done', '1');
+	}
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', function() { setTimeout(show, 1000); });
+	} else {
+		setTimeout(show, 1000);
+	}
 })();
 
 /* ── Toast notification helper ── */
@@ -606,7 +723,7 @@ window.bnToast = function(msg, type) {
 
 <!-- BuddyNext Community Nav -->
 <nav class="bn-subnav" aria-label="<?php esc_attr_e( 'Community navigation', 'buddynext' ); ?>">
-	<div class="bn-subnav-inner">
+	<div class="bn-subnav-inner" hx-boost="true" hx-target="#bn-main-content" hx-swap="innerHTML show:top" hx-indicator=".bn-subnav">
 
 		<a href="<?php echo esc_url( $bn_nav_urls['feed'] ); ?>"
 			class="bn-nav-item<?php echo 'feed' === $bn_nav_active ? ' bn-nav-active' : ''; ?>"

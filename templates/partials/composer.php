@@ -190,6 +190,10 @@ $composer_placeholder = $composer_space
 				<button class="bn-composer__footer-btn" type="button" data-wp-on--click="actions.openLink" title="<?php esc_attr_e( 'Link', 'buddynext' ); ?>">
 					<?php buddynext_icon( 'link' ); ?>
 				</button>
+				<label class="bn-composer__footer-btn bn-composer__schedule-label" title="<?php esc_attr_e( 'Schedule post', 'buddynext' ); ?>">
+					<?php buddynext_icon( 'clock' ); ?>
+					<input type="datetime-local" class="bn-composer__schedule-input" style="position:absolute;opacity:0;width:0;height:0;" aria-label="<?php esc_attr_e( 'Schedule date', 'buddynext' ); ?>">
+				</label>
 			</div>
 			<div class="bn-composer__footer-right">
 				<?php if ( ! $composer_space ) : ?>

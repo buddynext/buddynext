@@ -342,6 +342,22 @@
 	.bn-profile-container { padding-bottom: 72px; }
 }
 
+/* ── htmx page transition indicator ───────────────────────────────────── */
+.bn-subnav.htmx-request::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	height: 2px;
+	background: var(--brand);
+	animation: bn-htmx-progress 1.5s ease infinite;
+}
+@keyframes bn-htmx-progress {
+	0%   { width: 0; left: 0; }
+	50%  { width: 60%; left: 20%; }
+	100% { width: 0; left: 100%; }
+}
+
 /* ── Search overlay (cmd+K) ───────────────────────────────────────────── */
 .bn-search-overlay {
 	position: fixed;
