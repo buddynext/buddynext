@@ -438,8 +438,11 @@ For a demo as "modern SaaS community alternative":
 
 - [x] Phase 1 complete (all clicks work, zero dead buttons) — DONE 2026-03-25
 - [x] Phase 2 mostly complete (hover, transitions, toasts, skeleton, empty states) — DONE 2026-03-25
-- [x] Phase 3 mostly complete (notification dropdown, hover cards, @mentions, gallery) — DONE 2026-03-25
-- [ ] Phase 5.1 (htmx partial page swaps — biggest wow factor)
+- [x] Phase 3 complete (notification dropdown, hover cards, @mentions, gallery) — DONE 2026-03-25
+- [x] Phase 4 partial (unified search overlay cmd+K, cross-plugin notifications) — DONE 2026-03-25
+- [x] Phase 5 partial (mobile bottom nav, optimistic UI, keyboard shortcuts, infinite scroll) — DONE 2026-03-25
+- [x] Phase 6 partial (pin posts, poll vote animation) — DONE 2026-03-25
+- [ ] Phase 5.1 (htmx partial page swaps — biggest remaining wow factor)
 - [ ] 10+ demo users with real avatars and diverse content
 - [ ] 3+ spaces with posts, media, and discussions
 - [ ] Mobile responsive verified at 390px on all pages
