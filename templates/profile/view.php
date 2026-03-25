@@ -1152,6 +1152,15 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 					data-tab="likes">
 					<?php esc_html_e( 'Likes', 'buddynext' ); ?>
 				</div>
+				<?php if ( class_exists( 'Jetonomy\Jetonomy' ) ) : ?>
+				<div class="bn-ptab"
+					role="tab"
+					aria-selected="false"
+					data-wp-on--click="actions.setTab"
+					data-tab="discussions">
+					<?php esc_html_e( 'Discussions', 'buddynext' ); ?>
+				</div>
+				<?php endif; ?>
 			</div>
 
 			<!-- Posts list -->
@@ -1309,6 +1318,47 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 					<div class="bn-empty-state"><?php esc_html_e( 'No liked posts yet.', 'buddynext' ); ?></div>
 				<?php endif; ?>
 			</div>
+
+			<!-- Discussions tab content (Jetonomy) -->
+			<?php if ( class_exists( 'Jetonomy\Models\Post' ) ) : ?>
+			<?php
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$jt_discussions = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
+					        s.name AS space_name, s.slug AS space_slug
+					 FROM {$wpdb->prefix}jt_posts p
+					 LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
+					 WHERE p.author_id = %d AND p.status = 'publish'
+					 ORDER BY p.created_at DESC
+					 LIMIT 20",
+					$user_id
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			?>
+			<div class="bn-profile-tab-panel" data-tab-panel="discussions" hidden>
+				<?php if ( $jt_discussions ) : ?>
+					<?php foreach ( $jt_discussions as $disc ) : ?>
+					<a href="<?php echo esc_url( home_url( '/community/s/' . ( $disc->space_slug ?: 'general' ) . '/t/' . $disc->slug . '/' ) ); ?>" class="bn-reply-card" style="text-decoration:none;display:block;">
+						<div class="bn-reply-card__meta">
+							<?php buddynext_icon( 'message-circle' ); ?>
+							<span><?php echo esc_html( $disc->space_name ?: __( 'General', 'buddynext' ) ); ?></span>
+							<span class="bn-reply-card__time"><?php echo esc_html( human_time_diff( strtotime( $disc->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?></span>
+						</div>
+						<div class="bn-reply-card__content" style="font-weight:600;"><?php echo esc_html( $disc->title ); ?></div>
+						<div class="bn-reply-card__context">
+							<?php echo esc_html( (string) $disc->reply_count ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?>
+							&middot;
+							<?php echo esc_html( (string) $disc->vote_score ); ?> <?php esc_html_e( 'votes', 'buddynext' ); ?>
+						</div>
+					</a>
+					<?php endforeach; ?>
+				<?php else : ?>
+					<div class="bn-empty-state"><?php esc_html_e( 'No discussions yet.', 'buddynext' ); ?></div>
+				<?php endif; ?>
+			</div>
+			<?php endif; ?>
 
 		</div><!-- /left column -->
 
