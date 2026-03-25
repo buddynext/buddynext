@@ -68,6 +68,27 @@ if ( $bn_nav_current_user ) {
 		wp_cache_set( $notif_cache_key, $cached_notifs, 'buddynext_nav', 60 );
 	}
 	$bn_unread_notifs = (int) $cached_notifs;
+
+	// Unread messages count (from WPMediaVerse conversations).
+	if ( class_exists( 'WPMediaVerse\Core\Plugin' ) ) {
+		$msg_cache_key = "bn_unread_msgs_{$bn_nav_current_user}";
+		$cached_msgs   = wp_cache_get( $msg_cache_key, 'buddynext_nav' );
+		if ( false === $cached_msgs ) {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$cached_msgs = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}mvs_conversations c
+					 INNER JOIN {$wpdb->prefix}mvs_conversation_participants cp
+					   ON cp.conversation_id = c.id AND cp.user_id = %d AND cp.status = 'active'
+					 WHERE c.last_activity_at > COALESCE(cp.last_read_at, '1970-01-01')",
+					$bn_nav_current_user
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			wp_cache_set( $msg_cache_key, $cached_msgs, 'buddynext_nav', 60 );
+		}
+		$bn_unread_messages = (int) $cached_msgs;
+	}
 }
 
 // ── CSS (output once per page) ──────────────────────────────────────────────
@@ -306,6 +327,9 @@ if ( ! $bn_nav_css_output ) :
 			<?php echo 'messages' === $bn_nav_active ? 'aria-current="page"' : ''; ?>>
 			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
 			<?php esc_html_e( 'Messages', 'buddynext' ); ?>
+			<?php if ( $bn_unread_messages > 0 ) : ?>
+				<span class="bn-nav-pill"><?php echo esc_html( $bn_unread_messages > 99 ? '99+' : (string) $bn_unread_messages ); ?></span>
+			<?php endif; ?>
 		</a>
 
 		<?php endif; ?>
