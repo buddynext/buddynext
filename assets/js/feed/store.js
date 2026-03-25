@@ -514,74 +514,71 @@ store( 'buddynext/post-composer', {
 		 * Separated from openPhoto() to avoid file picker firing on page load.
 		 */
 		pickMedia() {
+			const ctx       = getContext();
 			const fileInput = document.querySelector( '.bn-composer__file-input' );
-			if ( fileInput ) {
-				fileInput.click();
-			}
-		},
-
-		/**
-		 * Handle file selection — upload to WPMediaVerse REST API.
-		 *
-		 * Reads the selected file from the hidden input, uploads via
-		 * POST /mvs/v1/media (FormData), stores the returned media_id
-		 * in ctx.mediaIds, and shows a thumbnail preview.
-		 */
-		* handleMediaUpload( event ) {
-			const ctx      = getContext();
-			const files    = event.target.files;
-			const MAX_MEDIA = 5;
-
-			if ( ! files || ! files.length ) {
+			if ( ! fileInput ) {
 				return;
 			}
 
-			if ( ! ctx.mediaIds ) {
-				ctx.mediaIds = [];
-			}
-			if ( ! ctx.mediaPreviews ) {
-				ctx.mediaPreviews = [];
-			}
+			// Wire the change handler natively — WP Interactivity API directives
+			// don't reliably fire on hidden inputs triggered via .click().
+			if ( ! fileInput._bnWired ) {
+				fileInput._bnWired = true;
+				fileInput.addEventListener( 'change', async function () {
+					const files     = fileInput.files;
+					const MAX_MEDIA = 5;
 
-			// Enforce max 5 media per post.
-			const remaining = MAX_MEDIA - ctx.mediaIds.length;
-			if ( remaining <= 0 ) {
-				return;
-			}
-
-			ctx.mediaUploading = true;
-
-			const uploadCount = Math.min( files.length, remaining );
-			for ( let i = 0; i < uploadCount; i++ ) {
-				const file     = files[ i ];
-				const formData = new FormData();
-				formData.append( 'file', file );
-
-				try {
-					// Upload to WPMediaVerse REST endpoint.
-					const mvsBase = ctx.mvsRestBase || ctx.restUrl.replace( '/buddynext/v1', '/mvs/v1' );
-					const res     = yield fetch( mvsBase + '/media', {
-						method:  'POST',
-						headers: { 'X-WP-Nonce': ctx.restNonce },
-						body:    formData,
-					} );
-
-					if ( res.ok ) {
-						const data = yield res.json();
-						const mediaId  = data.id || data.media_id;
-						const thumbUrl = data.thumbnail_url || data.source_url || data._mvs_file_url || '';
-
-						ctx.mediaIds.push( mediaId );
-						ctx.mediaPreviews.push( { id: mediaId, url: thumbUrl, name: file.name } );
+					if ( ! files || ! files.length ) {
+						return;
 					}
-				} catch ( _e ) {
-					// Upload failed — skip this file silently.
-				}
+
+					if ( ! ctx.mediaIds ) {
+						ctx.mediaIds = [];
+					}
+					if ( ! ctx.mediaPreviews ) {
+						ctx.mediaPreviews = [];
+					}
+
+					const remaining = MAX_MEDIA - ctx.mediaIds.length;
+					if ( remaining <= 0 ) {
+						return;
+					}
+
+					ctx.mediaUploading = true;
+
+					const uploadCount = Math.min( files.length, remaining );
+					for ( let i = 0; i < uploadCount; i++ ) {
+						const file     = files[ i ];
+						const formData = new FormData();
+						formData.append( 'file', file );
+
+						try {
+							const mvsBase = ctx.mvsRestBase || ctx.restUrl.replace( '/buddynext/v1', '/mvs/v1' );
+							const res = await fetch( mvsBase + '/media', {
+								method:  'POST',
+								headers: { 'X-WP-Nonce': ctx.restNonce },
+								body:    formData,
+							} );
+
+							if ( res.ok ) {
+								const data     = await res.json();
+								const mediaId  = data.id || data.media_id;
+								const thumbUrl = data.thumbnail_url || data.source_url || data._mvs_file_url || '';
+
+								ctx.mediaIds.push( mediaId );
+								ctx.mediaPreviews.push( { id: mediaId, url: thumbUrl, name: file.name } );
+							}
+						} catch ( _e ) {
+							// Upload failed — skip silently.
+						}
+					}
+
+					ctx.mediaUploading = false;
+					fileInput.value = '';
+				} );
 			}
 
-			ctx.mediaUploading = false;
-			// Reset file input so the same file can be re-selected.
-			event.target.value = '';
+			fileInput.click();
 		},
 
 		removeMedia( event ) {

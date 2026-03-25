@@ -135,14 +135,13 @@ $composer_placeholder = $composer_space
 					data-wp-on--input="actions.onInput"
 					rows="4"
 					aria-label="<?php esc_attr_e( 'Post content', 'buddynext' ); ?>"></textarea>
-				<!-- Hidden file input for media uploads -->
+				<!-- Hidden file input for media uploads (change handler wired in pickMedia() via native addEventListener) -->
 				<input
 					type="file"
 					class="bn-composer__file-input"
 					accept="image/*,video/*"
 					multiple
 					hidden
-					data-wp-on--change="actions.handleMediaUpload"
 					aria-label="<?php esc_attr_e( 'Upload media', 'buddynext' ); ?>">
 				<!-- Media preview thumbnails -->
 				<div class="bn-composer__media-preview"
