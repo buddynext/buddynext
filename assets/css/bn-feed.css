@@ -245,7 +245,14 @@
 }
 
 /* ── Post card ──────────────────────────────────────────────────────────────── */
+/* Reset font properties on the card to prevent theme CSS from bleeding in.
+   BuddyX, Reign, and other community themes set body/entry font sizes that
+   are too large for social feed cards. The card owns its typography. */
 .bn-post-card {
+	font-family: var(--font-body);
+	font-size: var(--text-md, 15px);
+	line-height: var(--leading-normal, 1.5);
+	color: var(--text-1);
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-border);
 	border-radius: var(--bn-r-xl);
