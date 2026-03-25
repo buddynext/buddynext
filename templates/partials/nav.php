@@ -190,33 +190,41 @@ if ( ! $bn_nav_css_output ) :
 <script id="bn-font-scale-js">
 (function () {
 	var scales = ['100', '110', '120'];
-	var labels = { '100': 'A', '110': 'A+', '120': 'A++' };
 
-	function applyScale(s) {
-		document.documentElement.setAttribute('data-bn-font-scale', s);
-		try { localStorage.setItem('bn_font_scale', s); } catch (_) {}
-		// Update active button state.
-		var btns = document.querySelectorAll('.bn-font-scale__btn');
-		btns.forEach(function (b) {
-			b.classList.toggle('active', b.dataset.scale === s);
-		});
-	}
-
-	// Apply saved preference on load (before paint).
+	// Apply scale immediately (prevents FOUC — html element already exists).
 	var saved = '100';
 	try { saved = localStorage.getItem('bn_font_scale') || '100'; } catch (_) {}
 	if (scales.indexOf(saved) === -1) { saved = '100'; }
-	applyScale(saved);
+	document.documentElement.setAttribute('data-bn-font-scale', saved);
 
-	// Also keep dark mode support (reads OS preference).
+	// Dark mode (reads OS preference).
 	var theme = '';
 	try { theme = localStorage.getItem('bn_theme') || ''; } catch (_) {}
 	if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
 		document.documentElement.setAttribute('data-theme', 'dark');
 	}
 
+	// Toggle button active states — deferred until buttons exist in DOM.
+	function syncButtons(s) {
+		var btns = document.querySelectorAll('.bn-font-scale__btn');
+		btns.forEach(function (b) {
+			b.classList.toggle('active', b.dataset.scale === s);
+		});
+	}
+
+	// Sync on DOMContentLoaded (buttons haven't been parsed when this script runs).
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', function () { syncButtons(saved); });
+	} else {
+		syncButtons(saved);
+	}
+
 	window.bnSetFontScale = function (s) {
-		if (scales.indexOf(s) !== -1) { applyScale(s); }
+		if (scales.indexOf(s) !== -1) {
+			document.documentElement.setAttribute('data-bn-font-scale', s);
+			try { localStorage.setItem('bn_font_scale', s); } catch (_) {}
+			syncButtons(s);
+		}
 	};
 })();
 </script>
