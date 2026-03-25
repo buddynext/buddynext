@@ -375,7 +375,24 @@ store( 'buddynext/post-card', {
 			window.location.href = ctx.restUrl.replace( '/wp-json/buddynext/v1', '' )
 				+ '/activity/?edit=' + ctx.postId;
 		},
-		pinPost() {},
+		* pinPost() {
+			const ctx  = getContext();
+			const prev = ctx.isPinned;
+			ctx.isPinned = ! prev;
+			try {
+				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/pin', {
+					method: prev ? 'DELETE' : 'POST',
+					headers: { 'X-WP-Nonce': ctx.reactNonce },
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( ctx.isPinned ? 'Post pinned' : 'Post unpinned' ); }
+				} else {
+					ctx.isPinned = prev;
+				}
+			} catch ( _e ) {
+				ctx.isPinned = prev;
+			}
+		},
 		* openComments() {
 			const ctx = getContext();
 			ctx.commentsOpen = ! ctx.commentsOpen;
@@ -450,6 +467,7 @@ store( 'buddynext/post-card', {
 				} );
 				if ( res.ok ) {
 					const data = yield res.json();
+					if ( window.bnToast ) { window.bnToast( 'Vote recorded' ); }
 					if ( data.results ) {
 						const total = data.results.reduce( ( s, r ) => s + r.vote_count, 0 );
 						ctx.pollTotalVotes    = total;
