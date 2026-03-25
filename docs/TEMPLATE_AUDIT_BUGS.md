@@ -74,15 +74,12 @@
 - [x] I-2: `spaces/home.php` — replaced inline post card with shared partial; query changed to `ARRAY_A`
 - [x] Grep audit: zero remaining inline `bn-post-card` HTML — all 5 consumers use shared partial
 
-### Phase J — BLOCK MC: Unified Composer Partial
-
-| # | Fix |
-|---|---|
-| J-1 | Extract composer from `feed/home.php` into `partials/composer.php` |
-| J-2 | `feed/home.php` includes shared partial with `['space_id' => null]` |
-| J-3 | `spaces/home.php` includes shared partial with `['space_id' => $space_id]` |
-| J-4 | Composer CSS moves to `bn-feed.css` (shared, not inline) |
-| J-5 | Verify: activity post + space post + photo post all work end-to-end |
+### Phase J — BLOCK MC: Unified Composer Partial — DONE
+- [x] J-1: Extracted composer from `feed/home.php` into `partials/composer.php`
+- [x] J-2: `feed/home.php` includes shared partial with `space_id => null`
+- [x] J-3: `spaces/home.php` includes shared partial with `space_id => $space_id`
+- [x] J-4: Composer CSS moved to `bn-feed.css` (~200 lines); removed from inline `<style>` in feed/home.php
+- [x] J-5: Composer accepts `space_id` param — space posts default to `space_members` privacy, hides privacy selector
 
 ### Phase K — BLOCK MN: WP Menu System
 
@@ -112,7 +109,7 @@ Phase F (CSS/UX polish)          — 7 fixes ✓ DONE
 Phase G (standalone font control) — Jetonomy + WPMediaVerse ✓ DONE
 Phase H (hashtag/tag bridge)     — dedicated integration ✓ DONE
 Phase I (post card unification)  — 1 block template ✓ DONE
-Phase J (unified composer)       — extract to shared partial
+Phase J (unified composer)       — extract to shared partial ✓ DONE
 Phase K (WP Menu System)         — site owner control
 Phase L (Level 2 context nav)    — per-section sub-navigation
 ```

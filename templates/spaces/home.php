@@ -797,29 +797,15 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 			<?php else : ?>
 
 				<?php if ( $is_member && $bn_current_user ) : ?>
-					<div class="bn-composer">
-						<div class="bn-composer__row">
-							<div
-								class="bn-composer__avatar"
-								style="background:<?php echo esc_attr( bn_avatar_color( $current_user_id ) ); ?>;"
-							><?php echo esc_html( bn_initials( $bn_current_user->display_name ) ); ?></div>
-							<input
-								type="text"
-								class="bn-composer__input"
-								placeholder="
-								<?php
-								// translators: %s is the space name.
-								echo esc_attr( sprintf( __( 'Share something with %s...', 'buddynext' ), $space->name ) );
-								?>
-								"
-								data-wp-on--focus="actions.openComposer"
-								readonly
-							>
-							<button class="bn-composer__btn" data-wp-on--click="actions.openComposer">
-								<?php esc_html_e( 'Post', 'buddynext' ); ?>
-							</button>
-						</div>
-					</div>
+					<?php
+					buddynext_get_template(
+						'partials/composer.php',
+						array(
+							'space_id'        => $space_id,
+							'current_user_id' => $current_user_id,
+						)
+					);
+					?>
 				<?php endif; ?>
 
 				<?php if ( $pinned_post ) : ?>

@@ -1609,3 +1609,231 @@
 	background: var(--bn-bg-subtle);
 	border-color: var(--bn-border);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SHARED COMPOSER (partials/composer.php)
+   Used on home feed (space_id=null) and space feeds (space_id set).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.bn-composer {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	padding: var(--s4);
+	margin-bottom: var(--s4);
+}
+.bn-composer__top {
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+}
+.bn-composer__avatar {
+	width: 38px;
+	height: 38px;
+	border-radius: 50%;
+	background: var(--brand-light);
+	color: var(--brand);
+	font-size: var(--text-sm);
+	font-weight: 700;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	overflow: hidden;
+}
+.bn-composer__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.bn-composer__input {
+	flex: 1;
+	background: var(--bg-subtle);
+	border: 1px solid var(--border);
+	border-radius: 20px;
+	padding: var(--s2) var(--s4);
+	font-size: var(--text-base);
+	color: var(--text-2);
+	cursor: pointer;
+	user-select: none;
+	transition: background .15s, border-color .15s;
+}
+.bn-composer__input:hover {
+	background: var(--bg-hover);
+	border-color: var(--brand);
+	color: var(--text-1);
+}
+.bn-composer__actions {
+	display: flex;
+	gap: var(--s2);
+	margin-top: var(--s3);
+	padding-top: var(--s3);
+	border-top: 1px solid var(--border-soft);
+}
+.bn-composer__action-btn {
+	display: flex;
+	align-items: center;
+	gap: var(--s1);
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: var(--text-sm);
+	color: var(--text-2);
+	padding: var(--s1) var(--s2);
+	border-radius: var(--r-sm);
+	transition: background .15s, color .15s;
+}
+.bn-composer__action-btn:hover {
+	background: var(--bg-hover);
+	color: var(--text-1);
+}
+.bn-composer__action-icon { font-size: 16px; }
+.bn-composer__expanded { display: flex; flex-direction: column; gap: var(--s3); }
+.bn-composer__body {
+	display: flex;
+	gap: var(--s3);
+	align-items: flex-start;
+}
+.bn-composer__textarea {
+	flex: 1;
+	background: var(--bg-subtle);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	padding: var(--s3) var(--s4);
+	font-size: var(--text-base);
+	font-family: var(--font-body);
+	color: var(--text-1);
+	resize: none;
+	min-height: 88px;
+	outline: none;
+	transition: border-color .15s;
+}
+.bn-composer__textarea:focus { border-color: var(--brand); }
+.bn-composer__textarea::placeholder { color: var(--text-3); }
+.bn-composer__footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--s2) 0 0;
+	border-top: 1px solid var(--border-soft);
+}
+.bn-composer__footer-actions {
+	display: flex;
+	gap: var(--s1);
+}
+.bn-composer__footer-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border: none;
+	background: transparent;
+	border-radius: var(--r-md);
+	color: var(--text-2);
+	cursor: pointer;
+	transition: background 0.12s, color 0.12s;
+}
+.bn-composer__footer-btn:hover {
+	background: var(--bg-hover);
+	color: var(--brand);
+}
+.bn-composer__footer-btn svg { width: 18px; height: 18px; }
+.bn-composer__footer-right {
+	display: flex;
+	align-items: center;
+	gap: var(--s2);
+}
+.bn-composer__select {
+	background: var(--bg-subtle);
+	border: 1px solid var(--border);
+	border-radius: var(--r-sm);
+	padding: var(--s1) var(--s3);
+	font-size: var(--text-sm);
+	color: var(--text-2);
+	cursor: pointer;
+}
+.bn-composer__submit {
+	background: var(--brand);
+	color: #fff;
+	border: none;
+	border-radius: var(--r-sm);
+	padding: var(--s2) var(--s5);
+	font-size: var(--text-sm);
+	font-weight: 600;
+	cursor: pointer;
+	transition: background .15s;
+}
+.bn-composer__submit:hover { background: var(--brand-hover); }
+.bn-composer__submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.bn-composer__cancel {
+	padding: var(--s2) var(--s4);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	background: transparent;
+	color: var(--text-2);
+	font-size: var(--text-sm);
+	font-weight: var(--fw-medium);
+	cursor: pointer;
+}
+.bn-composer__cancel:hover { background: var(--bg-hover); color: var(--text-1); }
+.bn-composer__media-preview {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--s2);
+	padding: var(--s2) 0;
+}
+.bn-composer__media-thumb {
+	position: relative;
+	width: 80px;
+	height: 80px;
+	border-radius: var(--r-md);
+	overflow: hidden;
+	border: 1px solid var(--border);
+}
+.bn-composer__media-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.bn-composer__media-remove {
+	position: absolute;
+	top: 2px;
+	right: 2px;
+	width: 20px;
+	height: 20px;
+	border-radius: var(--r-full);
+	background: rgba(0, 0, 0, 0.6);
+	color: #fff;
+	border: none;
+	font-size: 14px;
+	line-height: 1;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.bn-composer__media-remove:hover { background: var(--red); }
+.bn-composer__poll-options {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s2);
+	margin-bottom: var(--s2);
+}
+.bn-composer__poll-option {
+	width: 100%;
+	background: var(--bg-subtle);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	padding: var(--s2) var(--s3);
+	font-size: var(--text-sm);
+	font-family: var(--font-body);
+	color: var(--text-1);
+}
+.bn-composer__poll-option:focus { outline: none; border-color: var(--brand); }
+.bn-composer__poll-option::placeholder { color: var(--text-3); }
+.bn-composer__poll-question {
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--text-2);
+	margin-bottom: var(--s1);
+}
+[data-theme="dark"] .bn-composer__textarea { background: var(--bg-subtle); border-color: var(--border); color: var(--text-1); }
+[data-theme="dark"] .bn-composer__select { background: var(--bg-subtle); border-color: var(--border); color: var(--text-2); }
+[data-theme="dark"] .bn-composer__poll-option { background: var(--bg-subtle); border-color: var(--border); color: var(--text-1); }
+
+@media (max-width: 640px) {
+	.bn-composer { border-radius: 0; border-left: none; border-right: none; }
+}
