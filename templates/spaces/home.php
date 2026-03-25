@@ -838,6 +838,9 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 					<?php
 					foreach ( $feed_posts as $post_arr ) {
+						if ( isset( $post_arr['media_ids'] ) && is_string( $post_arr['media_ids'] ) ) {
+							$post_arr['media_ids'] = json_decode( $post_arr['media_ids'], true );
+						}
 						buddynext_get_template(
 							'partials/post-card.php',
 							array(

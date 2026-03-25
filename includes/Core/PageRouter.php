@@ -224,6 +224,7 @@ class PageRouter {
 				// Single-profile view vs. member directory.
 				if ( ! empty( $context['user_id'] ) ) {
 					$assets->enqueue( 'profile' );
+					$assets->enqueue( 'feed' ); // Post cards on profile use bn-feed.css classes.
 				} else {
 					$assets->enqueue( 'members' );
 				}

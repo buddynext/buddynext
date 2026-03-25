@@ -249,7 +249,7 @@ if ( '' === $profile_slug ) {
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $recent_posts = $wpdb->get_results(
 	$wpdb->prepare(
-		"SELECT id, type, user_id, content, privacy, reaction_count, comment_count,
+		"SELECT id, type, user_id, content, privacy, media_ids, reaction_count, comment_count,
 		        share_count, is_pinned, is_announcement, content_warning,
 		        content_warning_type, shared_post_id, link_meta, created_at
 		FROM {$wpdb->prefix}bn_posts
@@ -1122,6 +1122,10 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 			<?php if ( $recent_posts ) : ?>
 				<?php
 				foreach ( $recent_posts as $post_arr ) {
+					// Decode media_ids JSON string for the post-card partial.
+					if ( isset( $post_arr['media_ids'] ) && is_string( $post_arr['media_ids'] ) ) {
+						$post_arr['media_ids'] = json_decode( $post_arr['media_ids'], true );
+					}
 					buddynext_get_template(
 						'partials/post-card.php',
 						array(
