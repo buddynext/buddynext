@@ -56,16 +56,11 @@
 - [x] F-7: bn-feed.css — replaced all hardcoded hex/px values with `var(--global-token)` references; dark mode block reduced to shadow-only overrides
 - [x] Member directory grid changed from 4 to 3 columns (better fit with hub shell sidebar)
 
-### Phase G — Jetonomy + WPMediaVerse Standalone Font Control
-
-When BuddyNext is NOT active, each plugin should have its own A/A+/A++ control:
-
-| # | Plugin | File | Fix |
-|---|---|---|---|
-| G-1 | Jetonomy | `templates/partials/header.php` | Add A/A+/A++ buttons to Jetonomy's own nav bar |
-| G-2 | Jetonomy | `assets/css/jetonomy.css` | Add `html[data-bn-font-scale="110|120"] { font-size: 110%|120%; }` |
-| G-3 | Jetonomy | `templates/partials/header.php` | Add localStorage JS (same pattern as BuddyNext) |
-| G-4 | WPMediaVerse | If standalone pages have a nav | Same A/A+/A++ pattern |
+### Phase G — Jetonomy + WPMediaVerse Standalone Font Control — DONE
+- [x] G-1: Jetonomy header — A/A+/A++ buttons added to `jt-community-nav-actions`, guarded by `! did_action('buddynext_loaded')`
+- [x] G-2: Jetonomy CSS — `html[data-bn-font-scale="110|120"]` rules added to `jetonomy.css`
+- [x] G-3: Jetonomy header — localStorage JS added (shares `bn_font_scale` key with BuddyNext)
+- [x] G-4: WPMediaVerse — N/A (no standalone community nav; uses theme header when BuddyNext absent)
 
 ### Phase H — BLOCK HT: Hashtag ↔ Tag Bridge (dedicated integration)
 
@@ -118,7 +113,7 @@ When BuddyNext is NOT active, each plugin should have its own A/A+/A++ control:
 ```
 Phase D (hub shell rollout)      — 8 templates ✓ DONE
 Phase F (CSS/UX polish)          — 7 fixes ✓ DONE
-Phase G (standalone font control) — Jetonomy + WPMediaVerse
+Phase G (standalone font control) — Jetonomy + WPMediaVerse ✓ DONE
 Phase H (hashtag/tag bridge)     — dedicated integration
 Phase I (post card unification)  — 1 block template
 Phase J (unified composer)       — extract to shared partial
