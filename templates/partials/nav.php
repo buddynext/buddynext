@@ -496,15 +496,42 @@ window.bnSearchOverlay = {
 			});
 	}
 };
-// Keyboard shortcut: cmd+K or ctrl+K
+// Keyboard shortcuts — premium SaaS feel.
 document.addEventListener('keydown', function(e) {
+	var inInput = e.target.closest('input,textarea,[contenteditable]');
+
+	// cmd+K or ctrl+K — search overlay.
 	if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
 		e.preventDefault();
 		bnSearchOverlay.open();
+		return;
 	}
-	if (e.key === '/' && !e.target.closest('input,textarea,[contenteditable]')) {
-		e.preventDefault();
-		bnSearchOverlay.open();
+	if (inInput) return; // Remaining shortcuts only outside inputs.
+
+	// / — search overlay.
+	if (e.key === '/') { e.preventDefault(); bnSearchOverlay.open(); return; }
+
+	// n — new post (navigate to feed with compose flag).
+	if (e.key === 'n') { window.location = '<?php echo esc_url( $bn_nav_urls['feed'] ); ?>?compose=1'; return; }
+
+	// g then f — go to feed, g then m — go to members, g then s — go to spaces.
+	if (e.key === 'g') {
+		var _bnGo = function(ev) {
+			document.removeEventListener('keydown', _bnGo);
+			var map = { f: 'feed', m: 'members', s: 'spaces', n: 'notifications', d: 'messages' };
+			var urls = <?php echo wp_json_encode( $bn_nav_urls ); ?>;
+			if (map[ev.key] && urls[map[ev.key]]) { ev.preventDefault(); window.location = urls[map[ev.key]]; }
+		};
+		document.addEventListener('keydown', _bnGo, { once: true });
+		setTimeout(function() { document.removeEventListener('keydown', _bnGo); }, 1000);
+		return;
+	}
+
+	// ? — show keyboard shortcut help.
+	if (e.key === '?') {
+		if (window.bnToast) {
+			window.bnToast('/ search  |  n new post  |  g+f feed  |  g+s spaces  |  g+m members');
+		}
 	}
 });
 
