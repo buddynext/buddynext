@@ -465,11 +465,12 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( $post_content ) ); ?></div>
 			<?php endif; ?>
 			<?php if ( ! empty( $media_ids ) ) : ?>
-				<div class="bn-post-card__media-grid bn-post-card__media-grid--<?php echo count( $media_ids ) >= 4 ? '4' : esc_attr( (string) count( $media_ids ) ); ?>">
+				<div class="bn-post-card__media-grid mvs-activity-media-grid bn-post-card__media-grid--<?php echo count( $media_ids ) >= 4 ? '4' : esc_attr( (string) count( $media_ids ) ); ?>">
 					<?php
 					foreach ( array_slice( $media_ids, 0, 4 ) as $media_id ) :
 						$media_id  = absint( $media_id );
 						$media_url = '';
+						$full_url  = '';
 						// Try WPMediaVerse file URL meta first, then WP attachment URL.
 						if ( $media_id > 0 ) {
 							$media_url = (string) get_post_meta( $media_id, '_mvs_file_url', true );
@@ -479,11 +480,16 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 							if ( ! $media_url ) {
 								$media_url = (string) wp_get_attachment_url( $media_id );
 							}
+							$full_url = (string) wp_get_attachment_url( $media_id );
 						}
+						$media_permalink = get_permalink( $media_id );
 						?>
-						<div class="bn-post-card__media-item" data-media-id="<?php echo esc_attr( (string) $media_id ); ?>">
+						<?php // MVS-compatible wrapper: mvs-activity-media + data-mvs-media-id for lightbox detection. ?>
+						<div class="bn-post-card__media-item mvs-activity-media" data-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-src="<?php echo esc_url( $full_url ); ?>">
 							<?php if ( '' !== $media_url ) : ?>
-								<img src="<?php echo esc_url( $media_url ); ?>" alt="" loading="lazy">
+								<a href="<?php echo esc_url( $full_url ?: $media_url ); ?>" class="mvs-grid-item-link" data-mvs-permalink="<?php echo esc_url( (string) $media_permalink ); ?>">
+									<img src="<?php echo esc_url( $media_url ); ?>" alt="" loading="lazy">
+								</a>
 							<?php else : ?>
 								<span class="bn-post-card__media-placeholder" aria-hidden="true"><?php buddynext_icon( 'camera' ); ?></span>
 							<?php endif; ?>

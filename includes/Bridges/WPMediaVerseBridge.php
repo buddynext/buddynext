@@ -59,6 +59,10 @@ class WPMediaVerseBridge {
 
 		// Render MVS chat components inside BuddyNext's messages hub shell.
 		add_action( 'buddynext_render_messages', array( $this, 'render_messages' ) );
+
+		// Enqueue MVS lightbox on all BuddyNext front-end pages so photo posts
+		// open in the full Instagram-style lightbox with reactions, comments, favorites.
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_lightbox' ) );
 	}
 
 	/**
@@ -222,6 +226,54 @@ class WPMediaVerseBridge {
 
 		buddynext_get_template( 'partials/nav.php' );
 		echo '<div class="bn-hub-shell"><div class="bn-mvs-content">';
+	}
+
+	/**
+	 * Enqueue MVS lightbox JS + CSS on BuddyNext pages.
+	 *
+	 * This enables the Instagram-style lightbox (reactions, comments, favorites,
+	 * gallery nav) for photo posts in the BuddyNext feed. The lightbox listens
+	 * for clicks on .mvs-activity-media[data-mvs-media-id] elements.
+	 */
+	public function enqueue_lightbox(): void {
+		// Only on front-end BuddyNext hub pages.
+		if ( is_admin() || ! did_action( 'buddynext_loaded' ) ) {
+			return;
+		}
+
+		// Enqueue the lightbox script (already registered by MVS on non-MVS pages).
+		if ( wp_script_is( 'mvs-lightbox', 'registered' ) ) {
+			wp_enqueue_script( 'mvs-lightbox' );
+		} elseif ( defined( 'MVS_PLUGIN_URL' ) && defined( 'MVS_VERSION' ) ) {
+			wp_enqueue_script(
+				'mvs-lightbox',
+				MVS_PLUGIN_URL . 'assets/js/mvs-lightbox.js',
+				array(),
+				MVS_VERSION,
+				true
+			);
+			wp_localize_script(
+				'mvs-lightbox',
+				'mvsLightboxData',
+				array(
+					'restUrl'    => esc_url_raw( rest_url( 'mvs/v1/' ) ),
+					'nonce'      => wp_create_nonce( 'wp_rest' ),
+					'isLoggedIn' => is_user_logged_in(),
+				)
+			);
+		}
+
+		// Also enqueue MVS frontend CSS for lightbox styling.
+		if ( wp_style_is( 'mvs-frontend', 'registered' ) ) {
+			wp_enqueue_style( 'mvs-frontend' );
+		} elseif ( defined( 'MVS_PLUGIN_URL' ) && defined( 'MVS_VERSION' ) ) {
+			wp_enqueue_style(
+				'mvs-frontend',
+				MVS_PLUGIN_URL . 'assets/css/frontend.css',
+				array(),
+				MVS_VERSION
+			);
+		}
 	}
 
 	/**
