@@ -286,7 +286,11 @@ store( 'buddynext/post-card', {
 			const type = event.target.closest( '[data-reaction-type]' )?.dataset.reactionType || 'like';
 
 			ctx.reactionPickerOpen = false;
-			const newType          = ctx.reactionType === type ? null : type;
+			const newType = ctx.reactionType === type ? null : type;
+			const prev    = ctx.reactionType;
+
+			// Optimistic update — apply immediately, revert on failure.
+			ctx.reactionType = newType;
 
 			try {
 				const res = yield fetch( ctx.restUrl + '/reactions/toggle', {
@@ -294,10 +298,12 @@ store( 'buddynext/post-card', {
 					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.reactNonce },
 					body:    JSON.stringify( { object_type: 'post', object_id: ctx.postId, emoji: newType } ),
 				} );
-				if ( res.ok ) {
-					ctx.reactionType = newType;
+				if ( ! res.ok ) {
+					ctx.reactionType = prev; // Revert on failure.
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				ctx.reactionType = prev; // Revert on error.
+			}
 		},
 		* toggleBookmark() {
 			const ctx    = getContext();
