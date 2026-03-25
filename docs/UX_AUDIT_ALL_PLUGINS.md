@@ -136,26 +136,119 @@
 
 ---
 
-## Priority Execution Plan
+## Premium UX Benchmark — Circle.so / Mighty Networks / Bettermode
 
-### Wave 1 — Fix Broken Features (P0)
-1. Profile tabs: wire Media (fetch MVS media), Replies (fetch bn_comments), Likes (fetch bn_reactions)
-2. Inline comment expansion — wire openComments to toggle comment list visibility + load comments via REST
-3. Space Media tab — fetch MVS media for space
+What makes SaaS community platforms feel premium vs. our current state:
 
-### Wave 2 — Premium Polish (P1)
-4. Move all inline `<style>` to external CSS files (bn-feed.css, bn-profile.css, etc.)
-5. Post card hover elevation + transitions
-6. Icon-only action bar with counts
-7. Link preview card rendering from link_meta JSON
-8. Notification badge on nav bell icon
+| Pattern | Circle/Mighty | BuddyNext Current | Gap |
+|---------|--------------|-------------------|-----|
+| Page transitions | SPA — no full reloads | Full page reload every click | Large |
+| Post composer | Rich text, @mentions, emoji, drag-drop, inline preview | Plain textarea + file picker | Large |
+| Inline comments | Expand under post, threaded, real-time | Click calls JS but doesn't expand visually | Medium — wiring exists |
+| Notification UX | Bell → dropdown panel, mark read inline | Bell → full page navigation | Medium |
+| Card interactions | Hover lift, like animation, toast confirmations | Flat, no transitions, no feedback | Small — CSS only |
+| Action bar | Icon-only with counts, tooltip on hover | Text labels (React, Comment, Share, Save) | Small — CSS only |
+| Link previews | Auto-fetch OG image + title + domain | link_meta exists in DB, never rendered | Medium |
+| User hover cards | Hover avatar → mini profile popup | Click navigates to full profile page | Medium |
+| Empty states | SVG illustrations, personality text | Plain "No posts yet" text | Small |
+| Skeleton loading | Shimmer placeholder cards on page load | Blank → instant render (flash) | Small — CSS only |
+| Real-time | New posts appear, typing indicators, presence dots | Static — requires page refresh | Large — needs WebSocket |
+| Search | Unified overlay, all content types, instant results | Separate page, BN posts only | Large |
+| Mobile nav | Bottom tab bar, swipe gestures | Top nav (scrolls away), no gestures | Medium |
+| Keyboard shortcuts | / search, n new post, j/k navigate posts | None | Small |
+| Dark mode | Smooth toggle, persisted, system-aware | Toggle exists but dark mode incomplete | Medium |
+| Onboarding | Guided tour, progress bar, personalized feed | 4-step wizard exists but no guided tour | Medium |
 
-### Wave 3 — Deep Integration (P3)
-9. Profile Media tab → query mvs_media by author
-10. Space Media tab → query mvs_media by space
-11. Profile Discussions → query jt_posts by author
-12. Unified search bridge across all 3 plugins
+---
 
-### Wave 4 — Container Cleanup (P2)
-13. Replace remaining hardcoded max-widths with var(--bn-container)
-14. Move remaining inline CSS to external files
+## Execution Plan — 6 Phases
+
+### Phase 1 — Core Social UX (P0 fixes — make it work)
+
+Everything a user tries must work. Zero dead clicks.
+
+| # | Task | Plugin | Files |
+|---|------|--------|-------|
+| 1.1 | **Inline comment expansion** — openComments toggles comment section visible, fetches from `GET /comments?object_type=post&object_id={id}`, renders via `buildCommentNode()`, submit wired to `POST /comments` | BN | `post-card.php`, `feed/store.js`, `bn-feed.css` |
+| 1.2 | **Profile Media tab** — fetch `mvs_media` CPT where `post_author = user_id`, render as MVS grid with lightbox | BN + MVS | `profile/view.php` |
+| 1.3 | **Profile Replies tab** — fetch `bn_comments` where `user_id = profile_user_id`, show post title + comment excerpt | BN | `profile/view.php` |
+| 1.4 | **Profile Likes tab** — fetch `bn_reactions` where `user_id = profile_user_id`, show reacted posts | BN | `profile/view.php` |
+| 1.5 | **Space Media tab** — add "Media" tab to space tabs, fetch MVS media where meta `_mvs_space_id = space_id` or uploaded in space context | BN + MVS | `spaces/home.php` |
+| 1.6 | **Notification badge count** — style the unread count badge on nav bell icon (query already exists) | BN | `partials/nav.php` |
+| 1.7 | **Message unread count** — show badge on Messages nav link | BN + MVS | `partials/nav.php` |
+
+### Phase 2 — Visual Polish (make it feel premium)
+
+CSS-level changes, no structural rewrites. Biggest visual impact for presentation.
+
+| # | Task | Effort | Files |
+|---|------|--------|-------|
+| 2.1 | **Post card elevation + hover** — `box-shadow: 0 1px 3px rgba(0,0,0,0.04)`, hover: `0 4px 12px rgba(0,0,0,0.08)` + `translateY(-1px)`, `transition: all 0.2s ease` | 30m | `bn-feed.css` |
+| 2.2 | **Icon-only action bar** — hide text labels, show icon + count only, tooltip on hover via `title` attr | 30m | `post-card.php`, `bn-feed.css` |
+| 2.3 | **Smooth transitions** — add `transition: 0.15s ease` to all interactive elements (buttons, links, cards, inputs) | 30m | `bn-base.css`, `bn-feed.css` |
+| 2.4 | **Skeleton loading** — CSS-only shimmer placeholder for post cards, member cards, sidebar widgets shown during page paint | 1h | `bn-feed.css`, `bn-base.css` |
+| 2.5 | **Beautiful empty states** — SVG illustration + friendly copy for: empty feed, no search results, no members, empty space, no notifications | 1h | Multiple templates |
+| 2.6 | **Toast notifications** — floating bottom-center toast for: "Post published", "Comment added", "Followed user", "Bookmarked". Auto-dismiss after 3s. | 1h | `assets/js/feed/store.js`, `bn-base.css` |
+| 2.7 | **Sidebar card refinement** — softer borders, section headers in small caps with letter-spacing, "See all" links more subtle | 30m | `bn-base.css` |
+| 2.8 | **Nav bar polish** — slim height (40px), active item bottom-border indicator, proper icon alignment, notification badges | 30m | `partials/nav.php`, `bn-base.css` |
+
+### Phase 3 — Rich Content (make posts interesting)
+
+| # | Task | Effort | Files |
+|---|------|--------|-------|
+| 3.1 | **Link preview cards** — parse `link_meta` JSON, render OG image + title + description + domain in a card below post text | 2h | `post-card.php`, `bn-feed.css` |
+| 3.2 | **@mention rendering** — detect `@username` in post content, linkify to profile URL with hover card trigger | 1h | `post-card.php` |
+| 3.3 | **#hashtag rendering** — detect `#tag` in content, linkify to hashtag feed (already partially done) | 30m | `post-card.php` |
+| 3.4 | **User hover cards** — CSS popup on avatar/name hover showing mini profile: avatar, name, bio, follower count, follow button | 2h | New partial `partials/hover-card.php`, `bn-feed.css` |
+| 3.5 | **Notification dropdown panel** — bell click opens dropdown overlay (not full page nav), show last 5 notifications, "See all" links to full page | 2h | `partials/nav.php`, `assets/js/notifications/store.js` |
+| 3.6 | **Photo gallery layout** — 1 photo: full-width, 2: side by side, 3: 1 big + 2 small, 4: 2x2 grid (Instagram pattern) | 1h | `post-card.php`, `bn-feed.css` |
+
+### Phase 4 — Deep Integration (cross-plugin unified experience)
+
+| # | Task | Effort | Plugins |
+|---|------|--------|---------|
+| 4.1 | **Unified search overlay** — cmd+K / ctrl+K opens search overlay, searches across BN posts + JT discussions + MVS media in tabs | 4h | All 3 |
+| 4.2 | **Profile activity timeline** — merge BN posts + JT discussions + MVS uploads into single chronological timeline on profile | 3h | All 3 |
+| 4.3 | **Space unified feed** — space feed shows BN posts + JT discussions + MVS media in single stream | 3h | All 3 |
+| 4.4 | **Cross-plugin notifications** — JT reply, MVS comment, MVS reaction all appear in BN notification center | 2h | All 3 |
+| 4.5 | **Unified user card** — hover card shows BN follower count + JT reputation + MVS media count | 2h | All 3 |
+
+### Phase 5 — Modern Interactions (SPA-like feel without SPA)
+
+| # | Task | Effort | Impact |
+|---|------|--------|--------|
+| 5.1 | **WP Interactivity API navigation** — use `data-wp-router-link` for in-app navigation without full page reload (WP 6.5+ feature) | 4h | Huge — SPA feel |
+| 5.2 | **Infinite scroll with cursor pagination** — load more posts on scroll, preserve scroll position on back | 2h | High |
+| 5.3 | **Keyboard shortcuts** — `/` search, `n` new post, `j`/`k` navigate posts, `l` like, `Esc` close modals | 2h | Medium — power users |
+| 5.4 | **Mobile bottom tab bar** — on ≤640px, move nav to fixed bottom bar (5 icons: Feed, Spaces, Create+, Notifications, Profile) | 3h | High — mobile UX |
+| 5.5 | **Swipe gestures on mobile** — swipe left on post card for quick actions (bookmark, share) | 2h | Medium |
+| 5.6 | **Optimistic UI** — like/bookmark/follow update instantly, revert on API failure | 2h | High — feels instant |
+
+### Phase 6 — Premium Features (SaaS differentiators)
+
+| # | Task | Effort | Impact |
+|---|------|--------|--------|
+| 6.1 | **Rich text composer** — TipTap or ProseMirror editor with inline formatting, @mentions autocomplete, emoji picker, link auto-embed | 8h | Huge |
+| 6.2 | **Real-time updates** — Soketi/Pusher WebSocket for live post feed, typing indicators, presence dots | 8h | Huge — feels alive |
+| 6.3 | **Guided onboarding tour** — first-login overlay highlighting Feed, Spaces, Profile with step-by-step progression | 3h | Medium |
+| 6.4 | **Custom reactions** — admin-configurable reaction set (not just 6 emoji), animated reaction picker | 3h | Medium |
+| 6.5 | **Content scheduling** — compose now, publish later with date picker | 2h | Medium |
+| 6.6 | **Pin posts to space/feed** — admin/mod pins important announcements | 1h | Medium |
+| 6.7 | **Polls with real-time results** — vote → bar animates to new percentage without reload | 2h | High |
+| 6.8 | **Thread/discussion mode** — long-form post with structured replies (like Reddit threads) | 4h | High |
+
+---
+
+## Presentation Readiness Checklist
+
+For a demo as "modern SaaS community alternative":
+
+- [ ] Phase 1 complete (all clicks work, zero dead buttons)
+- [ ] Phase 2 complete (looks and feels premium)
+- [ ] Phase 3.1 + 3.4 + 3.5 (link previews, hover cards, notification dropdown)
+- [ ] Phase 5.1 (SPA-like navigation — biggest wow factor)
+- [ ] 10+ demo users with real avatars and diverse content
+- [ ] 3+ spaces with posts, media, and discussions
+- [ ] Mobile responsive verified at 390px on all pages
+- [ ] Dark mode toggle working on all pages
+- [ ] A/A+/A++ scaling verified at all sizes
