@@ -153,40 +153,70 @@ if ( ! $bn_nav_css_output ) :
 	flex-shrink: 0;
 	padding-left: var(--s4, 16px);
 }
-.bn-dark-toggle {
+/* ── Font size control (A / A+ / A++) ────────────── */
+.bn-font-scale {
+	display: flex;
+	align-items: center;
+	gap: 2px;
 	background: var(--bg-hover, #f1f1f0);
 	border: 1px solid var(--border, #e8e8e5);
 	border-radius: 6px;
-	padding: 4px 10px;
+	padding: 2px;
+}
+.bn-font-scale__btn {
+	border: none;
+	background: transparent;
+	border-radius: 4px;
+	padding: 3px 8px;
 	font-size: 11px;
 	font-weight: 600;
 	color: var(--text-2, #787774);
 	cursor: pointer;
-	display: flex;
-	align-items: center;
-	gap: 5px;
 	white-space: nowrap;
+	transition: background 0.12s, color 0.12s;
+	line-height: 1.4;
 }
-.bn-dark-toggle:hover { color: var(--text-1, #37352f); }
+.bn-font-scale__btn:hover { color: var(--text-1, #37352f); }
+.bn-font-scale__btn.active {
+	background: var(--brand, #0073aa);
+	color: #fff;
+	border-radius: 4px;
+}
 @media (max-width: 640px) {
 	.bn-subnav { padding: 0 var(--s2, 8px); }
 	.bn-subnav-right { display: none; }
 }
 </style>
-<script id="bn-dark-toggle-js">
+<script id="bn-font-scale-js">
 (function () {
-	function applyTheme(t) {
-		document.documentElement.setAttribute('data-theme', t);
-		try { localStorage.setItem('bn_theme', t); } catch (_) {}
+	var scales = ['100', '110', '120'];
+	var labels = { '100': 'A', '110': 'A+', '120': 'A++' };
+
+	function applyScale(s) {
+		document.documentElement.setAttribute('data-bn-font-scale', s);
+		try { localStorage.setItem('bn_font_scale', s); } catch (_) {}
+		// Update active button state.
+		var btns = document.querySelectorAll('.bn-font-scale__btn');
+		btns.forEach(function (b) {
+			b.classList.toggle('active', b.dataset.scale === s);
+		});
 	}
-	var saved = '';
-	try { saved = localStorage.getItem('bn_theme') || ''; } catch (_) {}
-	if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-		applyTheme('dark');
+
+	// Apply saved preference on load (before paint).
+	var saved = '100';
+	try { saved = localStorage.getItem('bn_font_scale') || '100'; } catch (_) {}
+	if (scales.indexOf(saved) === -1) { saved = '100'; }
+	applyScale(saved);
+
+	// Also keep dark mode support (reads OS preference).
+	var theme = '';
+	try { theme = localStorage.getItem('bn_theme') || ''; } catch (_) {}
+	if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+		document.documentElement.setAttribute('data-theme', 'dark');
 	}
-	window.bnToggleDark = function () {
-		var current = document.documentElement.getAttribute('data-theme');
-		applyTheme(current === 'dark' ? 'light' : 'dark');
+
+	window.bnSetFontScale = function (s) {
+		if (scales.indexOf(s) !== -1) { applyScale(s); }
 	};
 })();
 </script>
@@ -273,10 +303,11 @@ if ( ! $bn_nav_css_output ) :
 		<?php endif; ?>
 
 		<div class="bn-subnav-right">
-			<button class="bn-dark-toggle" onclick="bnToggleDark()" aria-label="<?php esc_attr_e( 'Toggle dark mode', 'buddynext' ); ?>">
-				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-				<?php esc_html_e( 'Dark', 'buddynext' ); ?>
-			</button>
+			<div class="bn-font-scale" role="group" aria-label="<?php esc_attr_e( 'Font size', 'buddynext' ); ?>">
+				<button class="bn-font-scale__btn active" type="button" data-scale="100" onclick="bnSetFontScale('100')" aria-label="<?php esc_attr_e( 'Default font size', 'buddynext' ); ?>">A</button>
+				<button class="bn-font-scale__btn" type="button" data-scale="110" onclick="bnSetFontScale('110')" aria-label="<?php esc_attr_e( 'Large font size', 'buddynext' ); ?>">A+</button>
+				<button class="bn-font-scale__btn" type="button" data-scale="120" onclick="bnSetFontScale('120')" aria-label="<?php esc_attr_e( 'Extra large font size', 'buddynext' ); ?>">A++</button>
+			</div>
 		</div>
 
 	</div>

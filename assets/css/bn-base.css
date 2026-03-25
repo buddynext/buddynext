@@ -654,3 +654,39 @@
 	}
 	.bn-anim-pulse { animation-duration: 10s; }
 }
+
+/* ==========================================================================
+   Font Size Scaling — A / A+ / A++ Accessibility Control
+   ──────────────────────────────────────────────────────────────────────────
+   The data-bn-font-scale attribute on <html> scales ALL BuddyNext content
+   uniformly. Because all --text-* tokens use rem, adjusting font-size on
+   the hub shell containers makes everything scale proportionally — text,
+   spacing, icons.
+
+   This applies to BuddyNext pages, Jetonomy pages (inside .bn-jt-content),
+   and WPMediaVerse pages (inside .bn-mvs-content).
+   ========================================================================== */
+
+/* A+ (110%) */
+[data-bn-font-scale="110"] .bn-subnav,
+[data-bn-font-scale="110"] .bn-hub-shell,
+[data-bn-font-scale="110"] .bn-post-card,
+[data-bn-font-scale="110"] .bn-hub-sidebar,
+[data-bn-font-scale="110"] .bn-jt-content,
+[data-bn-font-scale="110"] .bn-mvs-content,
+[data-bn-font-scale="110"] .bn-messages-content,
+[data-bn-font-scale="110"] .bn-msg-shell {
+	font-size: 110%;
+}
+
+/* A++ (120%) */
+[data-bn-font-scale="120"] .bn-subnav,
+[data-bn-font-scale="120"] .bn-hub-shell,
+[data-bn-font-scale="120"] .bn-post-card,
+[data-bn-font-scale="120"] .bn-hub-sidebar,
+[data-bn-font-scale="120"] .bn-jt-content,
+[data-bn-font-scale="120"] .bn-mvs-content,
+[data-bn-font-scale="120"] .bn-messages-content,
+[data-bn-font-scale="120"] .bn-msg-shell {
+	font-size: 120%;
+}
