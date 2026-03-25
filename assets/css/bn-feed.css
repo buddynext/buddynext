@@ -243,10 +243,13 @@
 	margin-bottom: var(--bn-s3);
 	overflow: visible;
 	box-shadow: var(--bn-shadow-sm);
-	transition: box-shadow var(--bn-transition);
+	transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.bn-post-card:hover { box-shadow: var(--bn-shadow-md); }
+.bn-post-card:hover {
+	box-shadow: var(--bn-shadow-md);
+	transform: translateY(-1px);
+}
 
 /* Announcement variant */
 .bn-post-card--announcement {
@@ -835,7 +838,9 @@
 .bn-post-card__action-btn:hover {
 	background: var(--bn-bg-subtle);
 	color: var(--bn-text-1);
+	transform: scale(1.02);
 }
+.bn-post-card__action-btn { transition: all 0.15s ease; }
 
 .bn-post-card__action-btn:focus-visible {
 	outline: 2px solid var(--bn-brand) inset;
