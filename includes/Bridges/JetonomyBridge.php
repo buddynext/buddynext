@@ -64,6 +64,9 @@ class JetonomyBridge {
 		add_action( 'jetonomy_after_content', array( $this, 'close_hub_shell' ) );
 		add_filter( 'jetonomy_show_community_nav', '__return_false' );
 
+		// Cross-plugin notifications: JT reply → BN notification for post author.
+		add_action( 'jetonomy_after_create_reply', array( $this, 'notify_discussion_reply' ), 10, 2 );
+
 		// Inject a Discussions tab into BuddyNext spaces that have a linked Jetonomy forum.
 		add_filter( 'buddynext_space_tabs', array( $this, 'inject_space_forum_tab' ), 10, 2 );
 
@@ -375,6 +378,54 @@ class JetonomyBridge {
 	 * @param string $section Current active section.
 	 * @return array
 	 */
+	/**
+	 * Create a BuddyNext notification when someone replies to a Jetonomy discussion.
+	 *
+	 * @param int $reply_id Jetonomy reply ID.
+	 * @param int $space_id Jetonomy space ID.
+	 */
+	public function notify_discussion_reply( int $reply_id, int $space_id ): void {
+		if ( ! class_exists( 'Jetonomy\Models\Reply' ) || ! class_exists( 'Jetonomy\Models\Post' ) ) {
+			return;
+		}
+
+		$reply = \Jetonomy\Models\Reply::find( $reply_id );
+		if ( ! $reply ) {
+			return;
+		}
+
+		$post = \Jetonomy\Models\Post::find( (int) $reply->post_id );
+		if ( ! $post ) {
+			return;
+		}
+
+		$reply_author_id = (int) $reply->author_id;
+		$post_author_id  = (int) $post->author_id;
+
+		// Don't notify yourself.
+		if ( $reply_author_id === $post_author_id || 0 === $post_author_id ) {
+			return;
+		}
+
+		$replier = get_userdata( $reply_author_id );
+		$replier_name = $replier ? $replier->display_name : __( 'Someone', 'buddynext' );
+
+		( new \BuddyNext\Notifications\NotificationService() )->create(
+			array(
+				'recipient_id' => $post_author_id,
+				'sender_id'    => $reply_author_id,
+				'type'         => 'bn.jetonomy_reply',
+				'object_type'  => 'jetonomy_post',
+				'object_id'    => (int) $reply->post_id,
+				'message'      => sprintf(
+					/* translators: %s: replier name */
+					__( '%s replied to your discussion', 'buddynext' ),
+					$replier_name
+				),
+			)
+		);
+	}
+
 	public function inject_discussion_context_nav( array $items, string $section ): array {
 		if ( 'discussions' !== $section ) {
 			return $items;

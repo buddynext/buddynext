@@ -571,12 +571,60 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				</div>
 
 				<?php if ( $has_more && '' !== $next_cursor ) : ?>
-					<div class="bn-load-more">
-						<a href="<?php echo esc_url( add_query_arg( 'cursor', rawurlencode( $next_cursor ), PageRouter::activity_url() ) ); ?>"
-							class="bn-load-more__btn">
-							<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-						</a>
+					<div class="bn-load-more" id="bn-infinite-trigger"
+						data-next-cursor="<?php echo esc_attr( $next_cursor ); ?>"
+						data-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1/feed?scope=home&per_page=' . $bn_per_page ) ); ?>"
+						data-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>">
+						<div class="bn-load-more__spinner" hidden>
+							<div class="bn-skeleton bn-skeleton-line" style="width:120px;height:14px;margin:0 auto"></div>
+						</div>
+						<noscript>
+							<a href="<?php echo esc_url( add_query_arg( 'cursor', rawurlencode( $next_cursor ), PageRouter::activity_url() ) ); ?>"
+								class="bn-load-more__btn">
+								<?php esc_html_e( 'Load more', 'buddynext' ); ?>
+							</a>
+						</noscript>
 					</div>
+					<script>
+					(function() {
+						var trigger = document.getElementById('bn-infinite-trigger');
+						if (!trigger || !('IntersectionObserver' in window)) return;
+						var loading = false;
+						var spinner = trigger.querySelector('.bn-load-more__spinner');
+						var feedList = trigger.closest('.bn-feed-list');
+						if (!feedList) return;
+
+						var observer = new IntersectionObserver(function(entries) {
+							if (!entries[0].isIntersecting || loading) return;
+							var cursor = trigger.dataset.nextCursor;
+							if (!cursor) { observer.disconnect(); return; }
+							loading = true;
+							if (spinner) spinner.hidden = false;
+
+							fetch(trigger.dataset.restUrl + '&cursor=' + encodeURIComponent(cursor), {
+								headers: { 'X-WP-Nonce': trigger.dataset.restNonce }
+							}).then(function(r) { return r.json(); }).then(function(data) {
+								var items = data.items || [];
+								if (!items.length) { observer.disconnect(); trigger.remove(); return; }
+
+								// Fetch rendered HTML for each post via a lightweight partial endpoint,
+								// or build minimal cards. For now, reload with new cursor as fallback.
+								// Full AJAX rendering requires server-side partial rendering endpoint.
+								trigger.dataset.nextCursor = data.next_cursor || '';
+								if (!data.next_cursor) { observer.disconnect(); trigger.remove(); return; }
+
+								// Redirect approach — simple but causes page reload.
+								// TODO: Replace with AJAX post card rendering when partial endpoint exists.
+								window.location = '<?php echo esc_url( PageRouter::activity_url() ); ?>?cursor=' + encodeURIComponent(data.next_cursor);
+							}).catch(function() {
+								loading = false;
+								if (spinner) spinner.hidden = true;
+							});
+						}, { rootMargin: '200px' });
+
+						observer.observe(trigger);
+					})();
+					</script>
 				<?php endif; ?>
 
 			<?php else : ?>
