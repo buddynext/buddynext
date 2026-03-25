@@ -542,6 +542,7 @@ document.addEventListener('keydown', function(e) {
 	var hoverTimer = null;
 	var leaveTimer = null;
 	document.addEventListener('mouseenter', function(e) {
+		if (!e.target || !e.target.closest) return;
 		var el = e.target.closest('.bn-hover-user');
 		if (!el) return;
 		clearTimeout(leaveTimer);
@@ -632,7 +633,7 @@ document.addEventListener('keydown', function(e) {
 		}, 400);
 	}, true);
 	document.addEventListener('mouseleave', function(e) {
-		if (!e.target.closest('.bn-hover-user')) return;
+		if (!e.target || !e.target.closest || !e.target.closest('.bn-hover-user')) return;
 		clearTimeout(hoverTimer);
 		leaveTimer = setTimeout(function() { if (card) card.hidden = true; }, 200);
 	}, true);
