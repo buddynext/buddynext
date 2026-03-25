@@ -1,145 +1,132 @@
-# BuddyNext Template Audit — Bug Report
+# BuddyNext Template Audit — Bug Report + Execution Plan
 
 **Audited:** 2026-03-25
+**Updated:** 2026-03-25
 **Total templates:** 27
-**Total gaps found:** 45+
 
 ---
 
-## P0 — CRITICAL: Dead Buttons (8 missing Interactivity API JS stores)
+## Completed (2026-03-25)
 
-Templates use `data-wp-interactive="buddynext/{store}"` but NO JavaScript store is registered. Every `data-wp-on--click` button in these templates does NOTHING when clicked.
+### Phase A — Missing JS Stores (P0) — DONE
+- [x] 8 stores created: auth, moderation, onboarding, search, gamification, connections, space-members
+- [x] Registered in AssetService (script modules + CSS handles)
+- [x] ~40 dead buttons now have working actions calling correct REST endpoints
 
-| # | Store | Template(s) | Dead buttons | Status |
-|---|---|---|---|---|
-| P0-1 | `buddynext/auth` | `auth/login.php` | Tab switch (Login/Register) — 2 buttons | - [ ] |
-| P0-2 | `buddynext/connections` | `profile/connections.php` | Connection actions | - [ ] |
-| P0-3 | `buddynext/gamification` | `gamification/leaderboard.php` | Leaderboard interactions | - [ ] |
-| P0-4 | `buddynext/moderation` | `moderation/queue.php` | Report queue actions — 7 buttons | - [ ] |
-| P0-5 | `buddynext/moderation` | `spaces/moderation.php` | View/Dismiss/Remove/Warn — 4 buttons | - [ ] |
-| P0-6 | `buddynext/onboarding` | `onboarding/index.php` | Skip/Next/Avatar/Interests — 14 buttons | - [ ] |
-| P0-7 | `buddynext/search` | `search/results.php` | Follow/Space join toggles — 2 buttons | - [ ] |
-| P0-8 | `buddynext/space-members` | `spaces/members.php` | Member role/remove actions | - [ ] |
+### Phase B — Token Cleanup (P1) — DONE
+- [x] 20 templates: replaced wrong `:root` blocks with canonical alias-only version
+- [x] Removed all duplicate `[data-theme="dark"]` blocks (TokenService handles dark mode)
+- [x] 3 templates: removed Google Fonts `@import` (fonts via AssetService)
 
-**Fix:** Create 8 JS store files in `assets/js/{feature}/store.js`, register in `AssetService`, implement actions that call the correct REST endpoints.
+### Phase C — Cross-Plugin Fix (P2) — DONE
+- [x] Removed raw `jt_posts` SQL from `hashtags/feed.php`
+- [x] Added `apply_filters('buddynext_hashtag_related_discussions')` bridge pattern
+- [x] Hashtag Like/Comment/Share/Save actions wired to correct REST endpoints
 
----
-
-## P1 — HIGH: Wrong `:root` Token Overrides (19 templates)
-
-Every template below has an inline `<style>` block with a `:root` that overrides TokenService with WRONG values:
-- `--text-xs: 11px` (canonical: `12px`)
-- `--text-sm: 13px` (canonical: `14px`)
-- `--text-base: 15px` (canonical: `16px`)
-- `--radius-sm: 6px; --radius: 10px; --radius-lg: 14px` (should use `var(--r-sm)`, `var(--r-md)`, `var(--r-lg)`)
-- Full `[data-theme="dark"]` block duplicating TokenService dark mode
-
-| # | Template | Status |
-|---|---|---|
-| P1-1 | `feed/home.php` | - [ ] |
-| P1-2 | `feed/explore.php` | - [ ] |
-| P1-3 | `hashtags/feed.php` | - [ ] |
-| P1-4 | `spaces/home.php` | - [ ] |
-| P1-5 | `spaces/directory.php` | - [ ] |
-| P1-6 | `spaces/settings.php` | - [ ] |
-| P1-7 | `spaces/moderation.php` | - [ ] |
-| P1-8 | `spaces/members.php` | - [ ] |
-| P1-9 | `profile/view.php` | - [ ] |
-| P1-10 | `profile/edit.php` | - [ ] |
-| P1-11 | `profile/connections.php` | - [ ] |
-| P1-12 | `directory/members.php` | - [ ] |
-| P1-13 | `notifications/index.php` | - [ ] |
-| P1-14 | `messages/requests.php` | - [ ] |
-| P1-15 | `messages/thread.php` | - [ ] |
-| P1-16 | `search/results.php` | - [ ] |
-| P1-17 | `onboarding/index.php` | - [ ] |
-| P1-18 | `gamification/leaderboard.php` | - [ ] |
-| P1-19 | `moderation/queue.php` | - [ ] |
-
-**Fix:** Replace each `:root` block with canonical token aliases only (same pattern as `community-admin.php`):
-```css
-:root {
-    --radius-sm: var(--r-sm);
-    --radius:    var(--r-md);
-    --radius-lg: var(--r-lg);
-}
-```
-Remove ALL hardcoded `--text-*`, `--bg`, `--border`, `--brand`, color, and spacing values.
-Remove ALL `[data-theme="dark"]` blocks (TokenService handles dark mode).
+### Phase E — Typography System — DONE
+- [x] TokenService: all `--text-*` tokens converted from px to rem
+- [x] Nav bar: Dark toggle replaced with A | A+ | A++ font size control
+- [x] `bn-base.css`: `html[data-bn-font-scale="110|120"]` scales everything uniformly
+- [x] localStorage persistence + page-load application
+- [x] Post card explicit font reset to prevent theme CSS bleeding in
 
 ---
 
-## P2 — HIGH: Raw Cross-Plugin SQL
+## Remaining — Next Session
 
-| # | Template | Line | Table | Issue | Status |
-|---|---|---|---|---|---|
-| P2-1 | `hashtags/feed.php` | 909-918 | `wp_jt_posts` | Wrong column `jp.user_id` (should be `author_id`). Raw SQL against Jetonomy tables. Causes DB error. | - [ ] |
+### Phase D — Hub Shell Rollout (8 templates need sidebar)
 
-**Fix:** Remove entire Jetonomy query block. Replace with `apply_filters('buddynext_hashtag_related_discussions', [], $hashtag_slug)` — bridge provides data (BLOCK HT).
+Templates that should render inside `bn-hub-shell` with community sidebar:
 
----
-
-## P3 — MEDIUM: Google Fonts @import in Inline Styles
-
-| # | Template | Line | Status |
+| # | Template | Current state | Fix |
 |---|---|---|---|
-| P3-1 | `messages/requests.php` | 135 | - [ ] |
-| P3-2 | `messages/thread.php` | 232 | - [ ] |
-| P3-3 | `directory/members.php` | 227 | - [ ] |
+| D-1 | `profile/view.php` | No hub shell | Wrap in hub shell + sidebar |
+| D-2 | `spaces/home.php` | No hub shell | Wrap in hub shell + sidebar |
+| D-3 | `spaces/directory.php` | No hub shell | Wrap in hub shell + sidebar |
+| D-4 | `directory/members.php` | No hub shell | Wrap in hub shell + sidebar |
+| D-5 | `search/results.php` | No hub shell | Wrap in hub shell + sidebar |
+| D-6 | `hashtags/feed.php` | Has own sidebar | Convert to hub shell pattern |
+| D-7 | `notifications/index.php` | Has own sidebar | Convert to hub shell pattern |
+| D-8 | `gamification/leaderboard.php` | No hub shell | Wrap in hub shell + sidebar |
 
-**Fix:** Remove `@import url('https://fonts.googleapis.com/...')` lines. Fonts loaded via `AssetService` → `bn-fonts` handle.
+### Phase F — CSS/UX Polish
+
+| # | Issue | Template(s) | Fix |
+|---|---|---|---|
+| F-1 | Sidebar "Your Spaces" layout broken | `partials/sidebar.php` | CSS classes changed by user; sidebar CSS needs to match modified HTML structure |
+| F-2 | Post card font too large on some themes | All post cards | Verify `--text-md` (0.9375rem) renders correctly across BuddyX, Flavor, Reign |
+| F-3 | Action bar inconsistency | Some cards show Share, some don't | Ensure all post cards show same 4 actions: React, Comment, Share, Save |
+| F-4 | `&amp;` entity in post content | `partials/post-card.php` | Use `wp_specialchars_decode()` or `html_entity_decode()` on content |
+| F-5 | Avatar initials display | Post cards + sidebar | Verify avatar fallback shows 2-letter initials centered in colored circle |
+| F-6 | A/A+/A++ control visual | `partials/nav.php` | Verify active state styling, verify scaling at 110% and 120% on all pages |
+| F-7 | bn-feed.css hardcoded color tokens | `bn-feed.css` `:root` block | Replace `--bn-bg: #ffffff` etc. with `var(--bg)` references (lines 23-55) |
+
+### Phase G — Jetonomy + WPMediaVerse Standalone Font Control
+
+When BuddyNext is NOT active, each plugin should have its own A/A+/A++ control:
+
+| # | Plugin | File | Fix |
+|---|---|---|---|
+| G-1 | Jetonomy | `templates/partials/header.php` | Add A/A+/A++ buttons to Jetonomy's own nav bar |
+| G-2 | Jetonomy | `assets/css/jetonomy.css` | Add `html[data-bn-font-scale="110|120"] { font-size: 110%|120%; }` |
+| G-3 | Jetonomy | `templates/partials/header.php` | Add localStorage JS (same pattern as BuddyNext) |
+| G-4 | WPMediaVerse | If standalone pages have a nav | Same A/A+/A++ pattern |
+
+### Phase H — BLOCK HT: Hashtag ↔ Tag Bridge (dedicated integration)
+
+| # | Plugin | File | Fix |
+|---|---|---|---|
+| H-1 | Jetonomy | `includes/models/class-tag.php` | Add `list_by_tag($slug, $limit)` public static method |
+| H-2 | Jetonomy | `includes/models/class-tag.php` | Add `exists($slug)` method |
+| H-3 | BuddyNext | `includes/Bridges/JetonomyBridge.php` | Hook `buddynext_hashtag_related_discussions` filter |
+| H-4 | BuddyNext | `templates/hashtags/feed.php` | Render "Related Discussions" section from bridge data |
+
+### Phase I — BLOCK PC: Post Card Unification
+
+| # | Template | Issue | Fix |
+|---|---|---|---|
+| I-1 | `blocks/activity-feed.php` | Inline HTML, no interactive actions | Convert to `buddynext_get_template('partials/post-card.php')` |
+| I-2 | All templates | Verify shared partial used everywhere | Grep audit + browser verify |
+
+### Phase J — BLOCK MC: Unified Composer Partial
+
+| # | Fix |
+|---|---|
+| J-1 | Extract composer from `feed/home.php` into `partials/composer.php` |
+| J-2 | `feed/home.php` includes shared partial with `['space_id' => null]` |
+| J-3 | `spaces/home.php` includes shared partial with `['space_id' => $space_id]` |
+| J-4 | Composer CSS moves to `bn-feed.css` (shared, not inline) |
+| J-5 | Verify: activity post + space post + photo post all work end-to-end |
+
+### Phase K — BLOCK MN: WP Menu System
+
+| # | Fix |
+|---|---|
+| K-1 | `register_nav_menus()` for BuddyNext menu location |
+| K-2 | Custom meta box in Appearance > Menus with all BuddyNext/MVS/JT URLs |
+| K-3 | Site owners can add Feed, Members, Spaces, Media, Discussion to any menu |
+
+### Phase L — BLOCK L2: Level 2 Context Nav
+
+| # | Fix |
+|---|---|
+| L-1 | Add `buddynext_context_nav` filter in nav partial |
+| L-2 | Discussion context: Home / Search / Leaderboard |
+| L-3 | Space context: Feed / Forum / Media / Members / Settings |
+| L-4 | Media context: Explore / My Media / Albums |
+| L-5 | Community Admin context: Settings / Members / Reports |
 
 ---
 
-## P4 — MEDIUM: Hub Shell Missing (15 templates lack sidebar + consistent layout)
+## Execution Priority (next session)
 
-Only 4 templates use `bn-hub-shell`: `feed/home.php`, `feed/explore.php`, `messages/list.php`, `community-admin.php`.
-
-All other templates render without the hub shell grid, meaning no community sidebar. These should be evaluated per-page — some (like auth/onboarding) intentionally skip the shell.
-
-**Templates that SHOULD have hub shell:**
-- `profile/view.php` — user profile with sidebar
-- `spaces/home.php` — space feed with sidebar
-- `spaces/directory.php` — space listing with sidebar
-- `directory/members.php` — member listing with sidebar
-- `search/results.php` — search with sidebar
-- `hashtags/feed.php` — hashtag feed with sidebar
-- `notifications/index.php` — already has its own sidebar
-- `gamification/leaderboard.php` — leaderboard with sidebar
-
-**Templates that correctly skip hub shell:**
-- `auth/login.php` — pre-login, centered layout
-- `auth/verify.php` — verification, centered layout
-- `onboarding/index.php` — wizard, full-width
-- `spaces/settings.php` — admin panel, own layout
-- `spaces/moderation.php` — admin panel, own layout
-- `moderation/queue.php` — admin panel, own layout
-- `messages/thread.php` — replaced by MVS chat
-- `messages/requests.php` — replaced by MVS chat
-
----
-
-## Execution Plan
-
-**Phase A — Missing JS Stores (P0)**
-Fix 8 missing stores. Each store needs:
-1. `assets/js/{feature}/store.js` — register store with actions
-2. Each action calls the correct BuddyNext REST endpoint
-3. Each action updates UI on success (toggle class, update count, show confirmation)
-4. Register in `AssetService::register_script_modules()`
-5. Browser-verify: click every button, confirm REST call + UI update
-
-**Phase B — Token Cleanup (P1)**
-Fix 19 templates. For each:
-1. Replace `:root` block with alias-only version
-2. Remove `[data-theme="dark"]` block
-3. Remove Google Fonts `@import` if present
-4. Browser-verify: page looks correct, dark mode works
-
-**Phase C — Cross-Plugin Fix (P2)**
-1. Remove raw `jt_posts` query from `hashtags/feed.php`
-2. Add `buddynext_hashtag_related_discussions` filter
-3. Wire JetonomyBridge to provide data
-
-**Phase D — Hub Shell Rollout (P4)**
-Add `bn-hub-shell` + sidebar to 8 additional templates.
+```
+Phase D (hub shell rollout)      — 8 templates
+Phase F (CSS/UX polish)          — 7 fixes
+Phase G (standalone font control) — Jetonomy + WPMediaVerse
+Phase H (hashtag/tag bridge)     — dedicated integration
+Phase I (post card unification)  — 1 block template
+Phase J (unified composer)       — extract to shared partial
+Phase K (WP Menu System)         — site owner control
+Phase L (Level 2 context nav)    — per-section sub-navigation
+```
