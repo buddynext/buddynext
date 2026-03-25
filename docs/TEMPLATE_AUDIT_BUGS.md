@@ -68,12 +68,11 @@
 - [x] H-3: BuddyNext `JetonomyBridge::get_related_discussions()` — hooked to `buddynext_hashtag_related_discussions` filter
 - [x] H-4: `hashtags/feed.php` — fixed undefined `$jt_author_id`, replaced `view_count`/`vote_count`/`is_answered` with correct `vote_score`, proper Jetonomy URL via space slug lookup
 
-### Phase I — BLOCK PC: Post Card Unification
-
-| # | Template | Issue | Fix |
-|---|---|---|---|
-| I-1 | `blocks/activity-feed.php` | Inline HTML, no interactive actions | Convert to `buddynext_get_template('partials/post-card.php')` |
-| I-2 | All templates | Verify shared partial used everywhere | Grep audit + browser verify |
+### Phase I — BLOCK PC: Post Card Unification — DONE
+- [x] I-1: `blocks/activity-feed.php` — replaced inline HTML with `buddynext_get_template('partials/post-card.php')`
+- [x] I-2: `profile/view.php` — replaced inline post card with shared partial; expanded query to `ARRAY_A` with all needed columns
+- [x] I-2: `spaces/home.php` — replaced inline post card with shared partial; query changed to `ARRAY_A`
+- [x] Grep audit: zero remaining inline `bn-post-card` HTML — all 5 consumers use shared partial
 
 ### Phase J — BLOCK MC: Unified Composer Partial
 
@@ -112,7 +111,7 @@ Phase D (hub shell rollout)      — 8 templates ✓ DONE
 Phase F (CSS/UX polish)          — 7 fixes ✓ DONE
 Phase G (standalone font control) — Jetonomy + WPMediaVerse ✓ DONE
 Phase H (hashtag/tag bridge)     — dedicated integration ✓ DONE
-Phase I (post card unification)  — 1 block template
+Phase I (post card unification)  — 1 block template ✓ DONE
 Phase J (unified composer)       — extract to shared partial
 Phase K (WP Menu System)         — site owner control
 Phase L (Level 2 context nav)    — per-section sub-navigation

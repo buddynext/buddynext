@@ -136,7 +136,8 @@ if ( ! $gate_feed ) {
 			ORDER BY p.created_at DESC
 			LIMIT 20",
 			$space_id
-		)
+		),
+		ARRAY_A
 	);
 }
 
@@ -849,70 +850,18 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 				<?php else : ?>
 
-					<?php foreach ( $feed_posts as $bn_post ) : ?>
-						<?php
-						$post_user_id    = (int) $bn_post->user_id;
-						$author_name     = $bn_post->author_name ?? __( 'Member', 'buddynext' );
-						$author_initials = bn_initials( $author_name );
-						$author_color    = bn_avatar_color( $post_user_id );
-						$reaction_count  = (int) ( $bn_post->reaction_count ?? 0 );
-						$comment_count   = (int) ( $bn_post->comment_count ?? 0 );
-						$post_time       = isset( $bn_post->created_at ) ? bn_time_diff( $bn_post->created_at ) : '';
-						$author_role     = $bn_post->author_role ?? '';
-						?>
-						<article class="bn-post-card">
-							<div class="bn-post-card__header">
-								<div
-									class="bn-avatar bn-avatar--sm"
-									style="background:<?php echo esc_attr( $author_color ); ?>;"
-									aria-label="<?php echo esc_attr( $author_name ); ?>"
-								><?php echo esc_html( $author_initials ); ?></div>
-
-								<div>
-									<span class="bn-post-card__author"><?php echo esc_html( $author_name ); ?></span>
-									<?php if ( in_array( $author_role, array( 'owner', 'moderator' ), true ) ) : ?>
-										<span class="bn-post-card__role"><?php echo esc_html( ucfirst( $author_role ) ); ?></span>
-									<?php endif; ?>
-									<div class="bn-post-card__time"><?php echo esc_html( $post_time ); ?></div>
-								</div>
-
-								<button
-									class="bn-post-card__menu"
-									aria-label="<?php esc_attr_e( 'Post options', 'buddynext' ); ?>"
-									data-wp-on--click="actions.openPostMenu"
-									data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>"
-								>&#x22EF;</button>
-							</div>
-
-							<p class="bn-post-card__text"><?php echo esc_html( $bn_post->content ?? '' ); ?></p>
-
-							<?php if ( ! empty( $bn_post->link_url ) ) : ?>
-								<div class="bn-post-card__link-preview">
-									<?php buddynext_icon( 'link' ); ?> <?php echo esc_html( esc_url( $bn_post->link_url ) ); ?>
-								</div>
-							<?php endif; ?>
-
-							<div class="bn-post-card__stats">
-								<button
-									class="bn-post-card__stat"
-									data-wp-on--click="actions.toggleReaction"
-									data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>"
-									aria-label="<?php esc_attr_e( 'React to post', 'buddynext' ); ?>"
-								><?php buddynext_icon( 'heart' ); ?> <span class="bn-reaction-count"><?php echo esc_html( (string) $reaction_count ); ?></span></button>
-
-								<button
-									class="bn-post-card__stat"
-									data-wp-on--click="actions.viewComments"
-									data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>"
-									aria-label="<?php esc_attr_e( 'View comments', 'buddynext' ); ?>"
-								><?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) $comment_count ); ?> <?php esc_html_e( 'comments', 'buddynext' ); ?></button>
-
-								<button class="bn-post-card__stat" data-wp-on--click="actions.sharePost" data-post-id="<?php echo esc_attr( (string) $bn_post->id ); ?>">
-									<?php buddynext_icon( 'share' ); ?> <?php esc_html_e( 'Share', 'buddynext' ); ?>
-								</button>
-							</div>
-						</article>
-					<?php endforeach; ?>
+					<?php
+					foreach ( $feed_posts as $post_arr ) {
+						buddynext_get_template(
+							'partials/post-card.php',
+							array(
+								'post'            => $post_arr,
+								'current_user_id' => $current_user_id,
+								'context'         => 'space',
+							)
+						);
+					}
+					?>
 
 				<?php endif; ?>
 

@@ -246,16 +246,21 @@ if ( '' === $profile_slug ) {
 
 // --- Recent posts (tab: Posts default) ------------------------------------
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $recent_posts = $wpdb->get_results(
 	$wpdb->prepare(
-		"SELECT id, content, reaction_count, comment_count, share_count, created_at
+		"SELECT id, type, user_id, content, privacy, reaction_count, comment_count,
+		        share_count, is_pinned, is_announcement, content_warning,
+		        content_warning_type, shared_post_id, link_meta, created_at
 		FROM {$wpdb->prefix}bn_posts
 		WHERE user_id = %d AND status = 'published'
 		ORDER BY created_at DESC
 		LIMIT 10",
 		$user_id
-	)
+	),
+	ARRAY_A
 );
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 // --- Spaces the user is a member of ---------------------------------------
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1115,21 +1120,18 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 
 			<!-- Posts list -->
 			<?php if ( $recent_posts ) : ?>
-				<?php foreach ( $recent_posts as $post_row ) : ?>
-					<div class="bn-post-card">
-						<div class="bn-post-text">
-							<?php echo wp_kses_post( $post_row->content ); ?>
-						</div>
-						<div class="bn-post-stats">
-							<span><?php buddynext_icon( 'heart' ); ?> <?php echo esc_html( (string) $post_row->reaction_count ); ?></span>
-							<span><?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) $post_row->comment_count ); ?></span>
-							<span><?php buddynext_icon( 'share' ); ?> <?php echo esc_html( (string) $post_row->share_count ); ?></span>
-							<span class="bn-post-age">
-								<?php echo esc_html( human_time_diff( strtotime( $post_row->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?>
-							</span>
-						</div>
-					</div>
-				<?php endforeach; ?>
+				<?php
+				foreach ( $recent_posts as $post_arr ) {
+					buddynext_get_template(
+						'partials/post-card.php',
+						array(
+							'post'            => $post_arr,
+							'current_user_id' => $current_user_id,
+							'context'         => 'profile',
+						)
+					);
+				}
+				?>
 			<?php else : ?>
 				<div class="bn-empty-state">
 					<?php
