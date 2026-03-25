@@ -309,7 +309,9 @@ store( 'buddynext/post-card', {
 					method,
 					headers: { 'X-WP-Nonce': ctx.bookmarkNonce },
 				} );
-				if ( ! res.ok ) {
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( ctx.bookmarked ? 'Saved' : 'Removed from saved' ); }
+				} else {
 					ctx.bookmarked = prev;
 				}
 			} catch ( _e ) {
@@ -424,6 +426,7 @@ store( 'buddynext/post-card', {
 					}
 					adjustCommentCount( ctx.postId, 1 );
 					ctx.commentCount = ( ctx.commentCount || 0 ) + 1;
+					if ( window.bnToast ) { window.bnToast( 'Comment added' ); }
 				}
 			} catch ( _e ) {}
 		},
@@ -674,7 +677,8 @@ store( 'buddynext/post-composer', {
 					body:    JSON.stringify( body ),
 				} );
 				if ( res.ok ) {
-					window.location.reload();
+					if ( window.bnToast ) { window.bnToast( 'Post published', 'success' ); }
+					setTimeout( function () { window.location.reload(); }, 500 );
 				}
 			} catch ( _e ) {
 				ctx.submitting = false;

@@ -111,8 +111,8 @@ if ( ! $bn_nav_css_output ) :
 	margin: 0 auto;
 	display: flex;
 	align-items: center;
-	height: 48px;
-	gap: 2px;
+	height: 42px;
+	gap: 0;
 	overflow-x: auto;
 	scrollbar-width: none;
 	-ms-overflow-style: none;
@@ -121,10 +121,10 @@ if ( ! $bn_nav_css_output ) :
 .bn-nav-item {
 	display: flex;
 	align-items: center;
-	gap: 6px;
-	padding: 6px 12px;
+	gap: 5px;
+	padding: 6px 10px;
 	border-radius: 6px;
-	font-size: 13px;
+	font-size: 12.5px;
 	font-weight: 500;
 	color: var(--text-2, #787774);
 	text-decoration: none;
@@ -144,11 +144,11 @@ if ( ! $bn_nav_css_output ) :
 .bn-nav-item.bn-nav-active::after {
 	content: '';
 	position: absolute;
-	bottom: -14px;
+	bottom: -11px;
 	left: 50%;
 	transform: translateX(-50%);
-	width: 70%;
-	height: 2px;
+	width: 80%;
+	height: 2.5px;
 	background: var(--brand, #0073aa);
 	border-radius: 2px;
 }
@@ -248,6 +248,21 @@ if ( ! $bn_nav_css_output ) :
 		}
 	};
 })();
+
+/* ── Toast notification helper ── */
+window.bnToast = function(msg, type) {
+	var c = document.querySelector('.bn-toast-container');
+	if (!c) {
+		c = document.createElement('div');
+		c.className = 'bn-toast-container';
+		document.body.appendChild(c);
+	}
+	var t = document.createElement('div');
+	t.className = 'bn-toast' + (type ? ' bn-toast--' + type : '');
+	t.textContent = msg;
+	c.appendChild(t);
+	setTimeout(function() { t.remove(); }, 3000);
+};
 </script>
 <?php endif; ?>
 
