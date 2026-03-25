@@ -544,15 +544,19 @@
 	margin-top: var(--bn-s2);
 }
 
+/* Instagram-style photo gallery layouts */
 .bn-post-card__media-grid--1 { grid-template-columns: 1fr; }
+.bn-post-card__media-grid--1 .bn-post-card__media-item { aspect-ratio: 4 / 3; max-height: 480px; }
 .bn-post-card__media-grid--2 { grid-template-columns: 1fr 1fr; }
-.bn-post-card__media-grid--3 { grid-template-columns: 1fr 1fr; }
-.bn-post-card__media-grid--3 .bn-post-card__media-item:first-child { grid-column: 1 / -1; }
+.bn-post-card__media-grid--2 .bn-post-card__media-item { aspect-ratio: 1; }
+.bn-post-card__media-grid--3 { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
+.bn-post-card__media-grid--3 .bn-post-card__media-item:first-child { grid-column: 1 / -1; aspect-ratio: 16 / 9; }
+.bn-post-card__media-grid--3 .bn-post-card__media-item:not(:first-child) { aspect-ratio: 1; }
 .bn-post-card__media-grid--4 { grid-template-columns: 1fr 1fr; }
+.bn-post-card__media-grid--4 .bn-post-card__media-item { aspect-ratio: 1; }
 
 .bn-post-card__media-item {
 	background: var(--bn-bg-hover);
-	aspect-ratio: 16 / 9;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -566,6 +570,7 @@
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
+	transition: transform 0.25s ease;
 }
 
 /* File list */
@@ -789,6 +794,8 @@
 	font-size: var(--bn-text-sm);
 	color: var(--bn-text-2);
 }
+
+.bn-post-card__media-item:hover img { transform: scale(1.03); }
 
 .bn-post-card__media-placeholder { font-size: var(--text-xl); }
 
