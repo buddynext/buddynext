@@ -483,12 +483,16 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 							$full_url = (string) wp_get_attachment_url( $media_id );
 						}
 						$media_permalink = get_permalink( $media_id );
+						$media_title    = get_the_title( $media_id );
+						if ( ! $media_title ) {
+							$media_title = wp_trim_words( $post_content, 12, '' );
+						}
 						?>
 						<?php // MVS-compatible wrapper: mvs-activity-media + data-mvs-media-id for lightbox detection. ?>
 						<div class="bn-post-card__media-item mvs-activity-media" data-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-src="<?php echo esc_url( $full_url ); ?>">
 							<?php if ( '' !== $media_url ) : ?>
 								<a href="<?php echo esc_url( $full_url ?: $media_url ); ?>" class="mvs-grid-item-link" data-mvs-permalink="<?php echo esc_url( (string) $media_permalink ); ?>">
-									<img src="<?php echo esc_url( $media_url ); ?>" alt="" loading="lazy">
+									<img src="<?php echo esc_url( $media_url ); ?>" alt="<?php echo esc_attr( $media_title ); ?>" loading="lazy">
 								</a>
 							<?php else : ?>
 								<span class="bn-post-card__media-placeholder" aria-hidden="true"><?php buddynext_icon( 'camera' ); ?></span>
