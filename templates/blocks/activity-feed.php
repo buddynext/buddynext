@@ -32,7 +32,11 @@ $context  = in_array( $scope, array( 'home', 'explore', 'profile' ), true ) ? $s
 ?>
 <div class="bn-block-activity-feed" data-scope="<?php echo esc_attr( $scope ); ?>">
 	<?php if ( empty( $bn_posts ) ) : ?>
-		<p class="bn-empty"><?php esc_html_e( 'No posts yet. Be the first to share something!', 'buddynext' ); ?></p>
+		<div class="bn-empty-state">
+			<?php buddynext_icon( 'message-circle' ); ?>
+			<div class="bn-empty-state__title"><?php esc_html_e( 'No posts yet', 'buddynext' ); ?></div>
+			<p><?php esc_html_e( 'Be the first to share something with the community!', 'buddynext' ); ?></p>
+		</div>
 	<?php else : ?>
 		<?php
 		foreach ( $bn_posts as $bn_post ) {

@@ -242,6 +242,35 @@
 @keyframes bn-toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes bn-toast-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-10px); } }
 
+/* ── Empty states (global) ─────────────────────────────────────────────── */
+.bn-empty-state {
+	text-align: center;
+	padding: var(--s12) var(--s6);
+	color: var(--text-3);
+}
+.bn-empty-state svg {
+	width: 56px;
+	height: 56px;
+	margin: 0 auto var(--s4);
+	opacity: 0.3;
+	display: block;
+}
+.bn-empty-state__title {
+	font-size: var(--text-lg);
+	font-weight: var(--fw-semibold);
+	color: var(--text-2);
+	margin: 0 0 var(--s2);
+}
+.bn-empty-state p {
+	font-size: var(--text-sm);
+	color: var(--text-3);
+	margin: 0;
+	max-width: 320px;
+	margin-left: auto;
+	margin-right: auto;
+	line-height: var(--leading-normal);
+}
+
 /* ── Box-sizing reset ───────────────────────────────────────────────────── */
 
 .bn-wrap *,

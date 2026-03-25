@@ -637,6 +637,24 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 }
 .bn-top-contrib-count { color: var(--text-3); }
 
+/* ── Space media grid ── */
+.bn-space-media-grid {
+	display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2);
+}
+.bn-space-media-item {
+	aspect-ratio: 1; border-radius: var(--r-md); overflow: hidden; background: var(--bg-subtle);
+}
+.bn-space-media-item a { display: block; width: 100%; height: 100%; }
+.bn-space-media-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s ease; }
+.bn-space-media-item:hover img { transform: scale(1.03); }
+
+/* ── Empty state ── */
+.bn-empty-state {
+	text-align: center; padding: var(--s10) var(--s6); color: var(--text-3);
+}
+.bn-empty-state svg { width: 48px; height: 48px; margin-bottom: var(--s3); opacity: 0.4; }
+.bn-empty-state p { font-size: var(--text-sm); margin: 0; }
+
 /* ── Responsive ── */
 @media (max-width: 1024px) {
 	.bn-sh-layout { grid-template-columns: 1fr; }
@@ -736,6 +754,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 			$bn_nav_tabs = array(
 				'feed'    => __( 'Feed', 'buddynext' ),
 				'members' => __( 'Members', 'buddynext' ),
+				'media'   => __( 'Media', 'buddynext' ),
 				'about'   => __( 'About', 'buddynext' ),
 			);
 
@@ -834,7 +853,82 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 						<p><?php esc_html_e( 'Be the first to post in this space.', 'buddynext' ); ?></p>
 					</div>
 
+				<?php elseif ( 'media' === $active_tab ) : ?>
+
+				<?php
+				// Media tab — show all MVS media uploaded in this space.
+				$space_media = array();
+				if ( class_exists( 'WPMediaVerse\Core\Plugin' ) && post_type_exists( 'mvs_media' ) ) {
+					$space_media = get_posts(
+						array(
+							'post_type'   => 'mvs_media',
+							'numberposts' => 24,
+							'post_status' => 'publish',
+							'meta_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+								array(
+									'key'   => '_mvs_space_id',
+									'value' => $space_id,
+								),
+							),
+						)
+					);
+					// Fallback: also get media from photo-type posts in this space.
+					if ( empty( $space_media ) ) {
+						// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+						$photo_ids_raw = $wpdb->get_col(
+							$wpdb->prepare(
+								"SELECT media_ids FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND type = 'photo' AND media_ids IS NOT NULL AND media_ids != '' AND status = 'published' ORDER BY created_at DESC LIMIT 24",
+								$space_id
+							)
+						);
+						// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+						$all_ids = array();
+						foreach ( $photo_ids_raw as $json_str ) {
+							$decoded = json_decode( $json_str, true );
+							if ( is_array( $decoded ) ) {
+								$all_ids = array_merge( $all_ids, $decoded );
+							}
+						}
+						if ( $all_ids ) {
+							$space_media = get_posts(
+								array(
+									'post_type'   => 'attachment',
+									'post__in'    => array_slice( array_map( 'absint', $all_ids ), 0, 24 ),
+									'post_status' => 'inherit',
+								)
+							);
+						}
+					}
+				}
+				?>
+				<?php if ( $space_media ) : ?>
+					<div class="bn-space-media-grid mvs-activity-media-grid">
+						<?php foreach ( $space_media as $sm ) : ?>
+							<?php
+							$sm_url = get_post_meta( $sm->ID, '_mvs_file_url', true );
+							if ( ! $sm_url ) {
+								$sm_url = wp_get_attachment_image_url( $sm->ID, 'medium' );
+							}
+							if ( ! $sm_url ) {
+								$sm_url = wp_get_attachment_url( $sm->ID );
+							}
+							$sm_full = wp_get_attachment_url( $sm->ID );
+							?>
+							<div class="bn-space-media-item mvs-activity-media" data-mvs-media-id="<?php echo esc_attr( (string) $sm->ID ); ?>" data-mvs-src="<?php echo esc_url( (string) $sm_full ); ?>">
+								<a href="<?php echo esc_url( (string) ( $sm_full ?: $sm_url ) ); ?>" class="mvs-grid-item-link">
+									<img src="<?php echo esc_url( (string) $sm_url ); ?>" alt="<?php echo esc_attr( $sm->post_title ); ?>" loading="lazy">
+								</a>
+							</div>
+						<?php endforeach; ?>
+					</div>
 				<?php else : ?>
+					<div class="bn-empty-state">
+						<?php buddynext_icon( 'camera' ); ?>
+						<p><?php esc_html_e( 'No media in this space yet. Share a photo to get started!', 'buddynext' ); ?></p>
+					</div>
+				<?php endif; ?>
+
+			<?php else : ?>
 
 					<?php
 					foreach ( $feed_posts as $post_arr ) {
