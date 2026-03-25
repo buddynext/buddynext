@@ -271,6 +271,77 @@
 	line-height: var(--leading-normal);
 }
 
+/* ── Mobile bottom tab bar ────────────────────────────────────────────── */
+.bn-mobile-nav {
+	display: none; /* Hidden on desktop */
+}
+@media (max-width: 640px) {
+	.bn-mobile-nav {
+		display: flex;
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		z-index: 9500;
+		background: var(--bg);
+		border-top: 1px solid var(--border);
+		padding: var(--s1) 0 calc(var(--s1) + env(safe-area-inset-bottom, 0px));
+		box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+	}
+	.bn-mobile-nav__item {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 2px;
+		padding: var(--s1) 0;
+		font-size: 10px;
+		color: var(--text-3);
+		text-decoration: none;
+		background: none;
+		border: none;
+		cursor: pointer;
+		position: relative;
+		transition: color 0.15s ease;
+	}
+	.bn-mobile-nav__item--active { color: var(--brand); }
+	.bn-mobile-nav__item--active svg { stroke: var(--brand); }
+	.bn-mobile-nav__item--create {
+		background: var(--brand);
+		color: #fff;
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
+		margin-top: -12px;
+		box-shadow: 0 2px 12px rgba(0, 115, 170, 0.3);
+		padding: 0;
+		flex: 0 0 auto;
+		justify-content: center;
+	}
+	.bn-mobile-nav__item--create svg { stroke: #fff; }
+	.bn-mobile-nav__item--create span { display: none; }
+	.bn-mobile-nav__badge {
+		position: absolute;
+		top: 0;
+		right: calc(50% - 16px);
+		background: var(--red);
+		color: #fff;
+		font-size: 9px;
+		font-weight: 700;
+		min-width: 14px;
+		height: 14px;
+		border-radius: 7px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0 3px;
+		line-height: 1;
+	}
+	/* Add bottom padding to page content so it doesn't hide behind the nav */
+	.bn-hub-shell,
+	.bn-profile-container { padding-bottom: 72px; }
+}
+
 /* ── Search overlay (cmd+K) ───────────────────────────────────────────── */
 .bn-search-overlay {
 	position: fixed;
