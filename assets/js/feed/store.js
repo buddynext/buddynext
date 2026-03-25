@@ -470,6 +470,10 @@ store( 'buddynext/post-card', {
 
 /* ── Post composer ───────────────────────────────────────────────────────── */
 
+// Module-level media state — shared between native event handler and store actions.
+// WP Interactivity API getContext() doesn't work in native addEventListener callbacks.
+const _mediaState = { ids: [], previews: [] };
+
 store( 'buddynext/post-composer', {
 	state: {
 		get open() {
@@ -514,11 +518,16 @@ store( 'buddynext/post-composer', {
 		 * Separated from openPhoto() to avoid file picker firing on page load.
 		 */
 		pickMedia() {
-			const ctx       = getContext();
-			const fileInput = document.querySelector( '.bn-composer__file-input' );
-			if ( ! fileInput ) {
+			const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+			const fileInput  = document.querySelector( '.bn-composer__file-input' );
+			if ( ! fileInput || ! composerEl ) {
 				return;
 			}
+
+			// Read REST config from the composer element's data-wp-context.
+			const ctxData = JSON.parse( composerEl.getAttribute( 'data-wp-context' ) || '{}' );
+			const mvsBase = ctxData.mvsRestBase || ( ctxData.restUrl || '' ).replace( '/buddynext/v1', '/mvs/v1' );
+			const nonce   = ctxData.restNonce || '';
 
 			// Wire the change handler natively — WP Interactivity API directives
 			// don't reliably fire on hidden inputs triggered via .click().
@@ -532,19 +541,16 @@ store( 'buddynext/post-composer', {
 						return;
 					}
 
-					if ( ! ctx.mediaIds ) {
-						ctx.mediaIds = [];
-					}
-					if ( ! ctx.mediaPreviews ) {
-						ctx.mediaPreviews = [];
-					}
-
-					const remaining = MAX_MEDIA - ctx.mediaIds.length;
+					const remaining = MAX_MEDIA - _mediaState.ids.length;
 					if ( remaining <= 0 ) {
 						return;
 					}
 
-					ctx.mediaUploading = true;
+					// Show preview area.
+					const previewArea = document.querySelector( '.bn-composer__media-preview' );
+					if ( previewArea ) {
+						previewArea.hidden = false;
+					}
 
 					const uploadCount = Math.min( files.length, remaining );
 					for ( let i = 0; i < uploadCount; i++ ) {
@@ -553,27 +559,46 @@ store( 'buddynext/post-composer', {
 						formData.append( 'file', file );
 
 						try {
-							const mvsBase = ctx.mvsRestBase || ctx.restUrl.replace( '/buddynext/v1', '/mvs/v1' );
 							const res = await fetch( mvsBase + '/media', {
 								method:  'POST',
-								headers: { 'X-WP-Nonce': ctx.restNonce },
+								headers: { 'X-WP-Nonce': nonce },
 								body:    formData,
 							} );
 
 							if ( res.ok ) {
-								const data     = await res.json();
-								const mediaId  = data.id || data.media_id;
-								const thumbUrl = data.thumbnail_url || data.source_url || data._mvs_file_url || '';
+								const text = await res.text();
+								// MVS may prepend DB error HTML before JSON — extract JSON.
+								const jsonStart = text.indexOf( '{' );
+								const data      = jsonStart >= 0 ? JSON.parse( text.substring( jsonStart ) ) : {};
+								const mediaId   = data.id || data.media_id;
+								const thumbUrl  = data.thumbnail_url || data.source_url || data._mvs_file_url || '';
 
-								ctx.mediaIds.push( mediaId );
-								ctx.mediaPreviews.push( { id: mediaId, url: thumbUrl, name: file.name } );
+								_mediaState.ids.push( mediaId );
+								_mediaState.previews.push( { id: mediaId, url: thumbUrl, name: file.name } );
+
+								// Append preview thumbnail to DOM.
+								if ( previewArea && thumbUrl ) {
+									const thumb = document.createElement( 'div' );
+									thumb.className = 'bn-composer__media-thumb';
+									thumb.dataset.mediaId = mediaId;
+									thumb.innerHTML = '<img src="' + thumbUrl + '" alt="" width="80" height="80" loading="lazy">'
+										+ '<button class="bn-composer__media-remove" type="button" data-media-id="' + mediaId + '">&times;</button>';
+									thumb.querySelector( '.bn-composer__media-remove' ).addEventListener( 'click', function () {
+										_mediaState.ids = _mediaState.ids.filter( ( id ) => id !== mediaId );
+										_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
+										thumb.remove();
+										if ( ! _mediaState.ids.length && previewArea ) {
+											previewArea.hidden = true;
+										}
+									} );
+									previewArea.appendChild( thumb );
+								}
 							}
 						} catch ( _e ) {
 							// Upload failed — skip silently.
 						}
 					}
 
-					ctx.mediaUploading = false;
 					fileInput.value = '';
 				} );
 			}
@@ -619,10 +644,9 @@ store( 'buddynext/post-composer', {
 				type:    ctx.composerType || 'text',
 			};
 
-			// Attach media IDs from WPMediaVerse uploads.
-			if ( ctx.mediaIds && ctx.mediaIds.length ) {
-				body.media_ids = ctx.mediaIds;
-				// If user selected Photo mode, set type to 'photo'.
+			// Attach media IDs from WPMediaVerse uploads (stored in module-level state).
+			if ( _mediaState.ids.length ) {
+				body.media_ids = [ ..._mediaState.ids ];
 				if ( body.type === 'photo' || body.type === 'text' ) {
 					body.type = 'photo';
 				}
@@ -661,10 +685,15 @@ store( 'buddynext/post-composer', {
 			ctx.composerOpen   = false;
 			ctx.composerType   = 'text';
 			ctx.content        = '';
-			ctx.mediaIds       = [];
-			ctx.mediaPreviews  = [];
-			ctx.mediaUploading = false;
 			ctx.submitting     = false;
+			// Clear module-level media state + remove DOM previews.
+			_mediaState.ids      = [];
+			_mediaState.previews = [];
+			const previewArea = document.querySelector( '.bn-composer__media-preview' );
+			if ( previewArea ) {
+				previewArea.hidden = true;
+				previewArea.querySelectorAll( '.bn-composer__media-thumb' ).forEach( ( el ) => el.remove() );
+			}
 		},
 		setPrivacy( event ) {
 			getContext().privacy = event.target.value;
