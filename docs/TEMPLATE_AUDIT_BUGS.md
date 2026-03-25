@@ -81,13 +81,11 @@
 - [x] J-4: Composer CSS moved to `bn-feed.css` (~200 lines); removed from inline `<style>` in feed/home.php
 - [x] J-5: Composer accepts `space_id` param — space posts default to `space_members` privacy, hides privacy selector
 
-### Phase K — BLOCK MN: WP Menu System
-
-| # | Fix |
-|---|---|
-| K-1 | `register_nav_menus()` for BuddyNext menu location |
-| K-2 | Custom meta box in Appearance > Menus with all BuddyNext/MVS/JT URLs |
-| K-3 | Site owners can add Feed, Members, Spaces, Media, Discussion to any menu |
+### Phase K — BLOCK MN: WP Menu System — DONE
+- [x] K-1: `register_nav_menus('buddynext-community')` — already existed in Plugin.php
+- [x] K-2: Custom meta box "BuddyNext Pages" in Appearance > Menus — 8 core pages + Discussions (Jetonomy) + Media (WPMediaVerse) when active
+- [x] K-3: Uses Walker_Nav_Menu_Checklist — site owners can check pages and "Add to Menu"
+- [x] Container width fix: all templates now use hub shell as sole layout controller (no internal max-width conflicts)
 
 ### Phase L — BLOCK L2: Level 2 Context Nav
 
@@ -110,6 +108,6 @@ Phase G (standalone font control) — Jetonomy + WPMediaVerse ✓ DONE
 Phase H (hashtag/tag bridge)     — dedicated integration ✓ DONE
 Phase I (post card unification)  — 1 block template ✓ DONE
 Phase J (unified composer)       — extract to shared partial ✓ DONE
-Phase K (WP Menu System)         — site owner control
+Phase K (WP Menu System)         — site owner control ✓ DONE
 Phase L (Level 2 context nav)    — per-section sub-navigation
 ```

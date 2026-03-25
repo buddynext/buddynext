@@ -226,8 +226,9 @@ class Plugin {
 		// when Action Scheduler is absent and the container is not yet available).
 		add_action( 'buddynext_reindex_all_cron', array( SearchService::class, 'reindex_all_cron' ) );
 
-		// Register navigation menu locations.
+		// Register navigation menu locations + custom meta box in Appearance > Menus.
 		add_action( 'after_setup_theme', array( new self(), 'register_nav_menus' ) );
+		add_action( 'admin_head-nav-menus.php', array( new self(), 'add_nav_menu_meta_box' ) );
 
 		// Boot first-party bridges at plugins_loaded:25 so they fire after both
 		// BuddyNext (priority 15) and Pro plugins like Jetonomy Pro / WPMediaVerse Pro
@@ -412,6 +413,97 @@ class Plugin {
 				'buddynext-community' => __( 'BuddyNext Community Nav', 'buddynext' ),
 			)
 		);
+	}
+
+	/**
+	 * Add a "BuddyNext Pages" meta box to Appearance > Menus.
+	 *
+	 * Lists all community pages so site owners can add Feed, Members, Spaces,
+	 * Media, Discussions, Notifications, Messages to any WP nav menu.
+	 */
+	public function add_nav_menu_meta_box(): void {
+		add_meta_box(
+			'buddynext-nav-menu-pages',
+			__( 'BuddyNext Pages', 'buddynext' ),
+			array( $this, 'render_nav_menu_meta_box' ),
+			'nav-menus',
+			'side',
+			'default'
+		);
+	}
+
+	/**
+	 * Render the BuddyNext pages meta box content.
+	 *
+	 * Uses the Walker_Nav_Menu_Checklist pattern so checked items can be
+	 * added to the menu via the standard "Add to Menu" button.
+	 */
+	public function render_nav_menu_meta_box(): void {
+		$pages = array(
+			array( 'title' => __( 'Feed', 'buddynext' ),          'url' => PageRouter::activity_url() ),
+			array( 'title' => __( 'Explore', 'buddynext' ),       'url' => PageRouter::explore_url() ),
+			array( 'title' => __( 'Members', 'buddynext' ),       'url' => PageRouter::people_url() ),
+			array( 'title' => __( 'Spaces', 'buddynext' ),        'url' => PageRouter::spaces_url() ),
+			array( 'title' => __( 'Notifications', 'buddynext' ), 'url' => PageRouter::notifications_url() ),
+			array( 'title' => __( 'Messages', 'buddynext' ),      'url' => PageRouter::messages_url() ),
+			array( 'title' => __( 'Search', 'buddynext' ),        'url' => PageRouter::search_url() ),
+			array( 'title' => __( 'Leaderboard', 'buddynext' ),   'url' => PageRouter::leaderboard_url() ),
+		);
+
+		// Add Jetonomy pages if active.
+		if ( class_exists( 'Jetonomy\Jetonomy' ) && function_exists( 'Jetonomy\base_url' ) ) {
+			$jt_base  = \Jetonomy\base_url();
+			$pages[] = array( 'title' => __( 'Discussions', 'buddynext' ), 'url' => $jt_base . '/' );
+		}
+
+		// Add WPMediaVerse pages if active.
+		if ( class_exists( 'WPMediaVerse\Core\Plugin' ) ) {
+			$pages[] = array( 'title' => __( 'Media', 'buddynext' ), 'url' => home_url( '/media/' ) );
+		}
+
+		// Build fake post objects for Walker_Nav_Menu_Checklist.
+		$items = array();
+		$i     = -1;
+		foreach ( $pages as $page ) {
+			$item                   = new \stdClass();
+			$item->ID               = $i;
+			$item->object_id        = $i;
+			$item->db_id            = 0;
+			$item->object           = 'buddynext';
+			$item->menu_item_parent = 0;
+			$item->type             = 'custom';
+			$item->title            = $page['title'];
+			$item->url              = $page['url'];
+			$item->target           = '';
+			$item->attr_title       = '';
+			$item->description      = '';
+			$item->classes          = array();
+			$item->xfn              = '';
+			$items[]                = $item;
+			--$i;
+		}
+
+		$walker = new \Walker_Nav_Menu_Checklist( array() );
+		?>
+		<div id="buddynext-pages" class="posttypediv">
+			<div id="tabs-panel-buddynext-pages" class="tabs-panel tabs-panel-active">
+				<ul id="buddynext-pages-checklist" class="categorychecklist form-no-clear">
+					<?php echo walk_nav_menu_tree( array_map( 'wp_setup_nav_menu_item', $items ), 0, (object) array( 'walker' => $walker ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- walker generates escaped HTML ?>
+				</ul>
+			</div>
+			<p class="button-controls wp-clearfix">
+				<span class="list-controls">
+					<label class="arrangement-fields">
+						<input type="checkbox" class="select-all" value="1">
+						<?php esc_html_e( 'Select All', 'buddynext' ); ?>
+					</label>
+				</span>
+				<span class="add-to-menu">
+					<input type="submit"<?php wp_nav_menu_disabled_check( nav_menu_selected_id() ); ?> class="button-secondary submit-add-to-menu right" value="<?php esc_attr_e( 'Add to Menu', 'buddynext' ); ?>" name="add-buddynext-pages-menu-item" id="submit-buddynext-pages">
+				</span>
+			</p>
+		</div>
+		<?php
 	}
 
 	/**
