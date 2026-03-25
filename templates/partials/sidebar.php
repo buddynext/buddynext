@@ -76,7 +76,7 @@ if ( $sidebar_user_id ) {
 		$wpdb->prepare(
 			'SELECT id, name, slug, member_count, avatar_url
 			 FROM ' . $wpdb->prefix . 'bn_spaces
-			 WHERE privacy = %s
+			 WHERE type = %s
 			 ORDER BY member_count DESC
 			 LIMIT %d',
 			'open',
