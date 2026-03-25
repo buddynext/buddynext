@@ -436,10 +436,10 @@ Mobile App (Flavor theme / AppBoss):
 
 For a demo as "modern SaaS community alternative":
 
-- [ ] Phase 1 complete (all clicks work, zero dead buttons)
-- [ ] Phase 2 complete (looks and feels premium)
-- [ ] Phase 3.1 + 3.4 + 3.5 (link previews, hover cards, notification dropdown)
-- [ ] Phase 5.1 (SPA-like navigation — biggest wow factor)
+- [x] Phase 1 complete (all clicks work, zero dead buttons) — DONE 2026-03-25
+- [x] Phase 2 mostly complete (hover, transitions, toasts, skeleton, empty states) — DONE 2026-03-25
+- [x] Phase 3 mostly complete (notification dropdown, hover cards, @mentions, gallery) — DONE 2026-03-25
+- [ ] Phase 5.1 (htmx partial page swaps — biggest wow factor)
 - [ ] 10+ demo users with real avatars and diverse content
 - [ ] 3+ spaces with posts, media, and discussions
 - [ ] Mobile responsive verified at 390px on all pages
