@@ -331,7 +331,7 @@
 
 .bn-follow-btn--follow {
 	background: var(--brand);
-	color: #fff;
+	color: var(--text-on-brand);
 	border-color: var(--brand);
 }
 
@@ -701,7 +701,7 @@
 	width: 100%;
 	padding: var(--s3) var(--s4);
 	background: var(--brand);
-	color: #fff;
+	color: var(--text-on-brand);
 	border: none;
 	border-radius: var(--r-md);
 	font-family: var(--font-body);

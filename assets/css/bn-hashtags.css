@@ -58,7 +58,7 @@ a.bn-hashtag-chip:hover {
 
 /* ── Inline #hashtag link (inside post content) ─────────────────────────── */
 a.bn-hashtag {
-	color: var(--brand, #0073aa);
+	color: var(--brand, var(--auth-grad-from));
 	text-decoration: none;
 	font-weight: var(--fw-medium);
 }
@@ -181,7 +181,7 @@ a.bn-hashtag:hover {
 
 /* ── Hashtag feed page header ────────────────────────────────────────────── */
 .bn-hashtag-hero {
-	background: var(--surface, #ffffff);
+	background: var(--surface, var(--text-on-brand));
 	border: 1px solid var(--border, #e8e8e5);
 	border-radius: var(--r-lg, 12px);
 	padding: var(--s6, 24px);
@@ -263,7 +263,7 @@ a.bn-hashtag:hover {
 }
 
 .bn-hashtag-widget {
-	background: var(--surface, #ffffff);
+	background: var(--surface, var(--text-on-brand));
 	border: 1px solid var(--border, #e8e8e5);
 	border-radius: var(--r-lg, 12px);
 	padding: var(--s4, 16px);

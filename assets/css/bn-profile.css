@@ -84,7 +84,7 @@
 	aspect-ratio: 3 / 1;
 	min-height: 160px;
 	max-height: 260px;
-	background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 50%, #db2777 100%);
+	background: linear-gradient(135deg, var(--auth-grad-via) 0%, var(--auth-grad-to) 50%, var(--pink) 100%);
 	background-size: cover;
 	background-position: center;
 	position: relative;
@@ -257,7 +257,7 @@
 
 .bn-btn--primary {
 	background: var(--bn-p-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 	border: 1.5px solid var(--bn-p-brand);
 	padding: 8px var(--bn-p-s5);
 	border-radius: var(--bn-p-r-full);
@@ -266,7 +266,7 @@
 .bn-btn--primary:focus {
 	background: var(--bn-p-brand-hover);
 	border-color: var(--bn-p-brand-hover);
-	color: #fff;
+	color: var(--text-on-brand);
 }
 
 .bn-btn--secondary {
@@ -562,7 +562,7 @@
 }
 .bn-completion-tip a:hover {
 	background: var(--bn-p-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 }
 
 /* ── Profile Edit Form (Edit Profile Page) ────────────────────────────────── */
@@ -724,7 +724,7 @@
 	align-items: center;
 	justify-content: center;
 	background: rgba(0, 0, 0, 0.38);
-	color: #fff;
+	color: var(--text-on-brand);
 	font-size: var(--bn-p-text-xs);
 	font-weight: var(--fw-semibold);
 	gap: var(--bn-p-s1);
@@ -758,7 +758,7 @@
 	width: 28px;
 	height: 28px;
 	background: var(--bn-p-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 	border-radius: var(--bn-p-r-full);
 	border: 2px solid var(--bn-p-bg);
 	display: flex;

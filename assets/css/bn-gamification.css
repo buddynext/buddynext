@@ -45,9 +45,9 @@
 	flex-shrink: 0;
 }
 
-.bn-leaderboard__rank--1 { color: #f59e0b; }
-.bn-leaderboard__rank--2 { color: #9ca3af; }
-.bn-leaderboard__rank--3 { color: #b45309; }
+.bn-leaderboard__rank--1 { color: var(--amber-light); }
+.bn-leaderboard__rank--2 { color: var(--silver); }
+.bn-leaderboard__rank--3 { color: var(--bronze); }
 
 .bn-leaderboard__user {
 	flex: 1;

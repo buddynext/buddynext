@@ -193,7 +193,7 @@
 .bn-composer-submit {
 	margin-left: auto;
 	background: var(--bn-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 	border: none;
 	border-radius: var(--bn-r-full);
 	padding: 7px var(--bn-s4);
@@ -327,7 +327,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: #fff;
+	color: var(--text-on-brand);
 	font-weight: var(--fw-bold);
 	font-size: var(--bn-text-xs);
 	letter-spacing: var(--ls-wide);
@@ -1028,7 +1028,7 @@
 
 .bn-feed-widget__follow-btn:hover {
 	background: var(--bn-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 }
 
 /* Spaces widget */
@@ -1110,7 +1110,7 @@
 }
 
 .bn-feed-tab:last-child { border-right: none; }
-.bn-feed-tab.active { background: var(--bn-brand); color: #fff; font-weight: var(--fw-semibold); }
+.bn-feed-tab.active { background: var(--bn-brand); color: var(--text-on-brand); font-weight: var(--fw-semibold); }
 
 .bn-feed-tab:hover:not(.active) {
 	background: var(--bn-bg-hover);
@@ -1146,7 +1146,7 @@
 .bn-feed-empty__cta {
 	display: inline-block;
 	background: var(--bn-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 	padding: var(--bn-s2) var(--bn-s5);
 	border-radius: var(--bn-r-full);
 	font-size: var(--bn-text-sm);
@@ -1155,7 +1155,7 @@
 	transition: background var(--bn-transition);
 }
 
-.bn-feed-empty__cta:hover { background: var(--bn-brand-hover); color: #fff; }
+.bn-feed-empty__cta:hover { background: var(--bn-brand-hover); color: var(--text-on-brand); }
 
 /* ── Skeleton loader ────────────────────────────────────────────────────────── */
 @keyframes bn-shimmer {
@@ -1242,7 +1242,7 @@
 .bn-feed-page-btn.current {
 	background: var(--bn-brand);
 	border-color: var(--bn-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 	font-weight: var(--fw-bold);
 }
 
@@ -1254,7 +1254,7 @@
 /* ── Shared avatar utility ──────────────────────────────────────────────────── */
 .bn-avatar {
 	border-radius: 50%;
-	color: #fff;
+	color: var(--text-on-brand);
 	font-weight: var(--fw-bold);
 	display: flex;
 	align-items: center;
@@ -1369,7 +1369,7 @@
 	height: 32px;
 	border-radius: var(--bn-r-full);
 	background: var(--bn-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 	font-size: var(--bn-text-xs);
 	font-weight: var(--fw-semibold);
 	display: flex;
@@ -1456,7 +1456,7 @@
 	height: 32px;
 	border-radius: var(--bn-r-full);
 	background: var(--bn-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 	font-size: var(--bn-text-xs);
 	font-weight: var(--fw-semibold);
 	display: flex;
@@ -1497,7 +1497,7 @@
 	justify-content: center;
 	cursor: pointer;
 	flex-shrink: 0;
-	color: #fff;
+	color: var(--text-on-brand);
 	padding: 0;
 	transition: background 0.15s;
 }
@@ -1576,7 +1576,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: #fff;
+	color: var(--text-on-brand);
 	font-size: var(--bn-text-sm);
 	font-weight: var(--fw-semibold);
 }
@@ -1767,7 +1767,7 @@
 }
 .bn-composer__submit {
 	background: var(--brand);
-	color: #fff;
+	color: var(--text-on-brand);
 	border: none;
 	border-radius: var(--r-sm);
 	padding: var(--s2) var(--s5);
@@ -1812,7 +1812,7 @@
 	height: 20px;
 	border-radius: var(--r-full);
 	background: rgba(0, 0, 0, 0.6);
-	color: #fff;
+	color: var(--text-on-brand);
 	border: none;
 	font-size: 14px;
 	line-height: 1;

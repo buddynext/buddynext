@@ -152,7 +152,7 @@
 	padding: 0 var(--s1);
 	border-radius: var(--r-full);
 	background: var(--red);
-	color: #fff;
+	color: var(--text-on-brand);
 	font-size: var(--text-xs);
 	font-weight: var(--fw-bold);
 	line-height: 1;

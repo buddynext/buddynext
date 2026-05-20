@@ -153,7 +153,7 @@
 .bn-wizard__step-dot.is-active {
 	background: var(--bn-ob-brand);
 	border-color: var(--bn-ob-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 }
 
 .bn-wizard__step-dot.is-done {
@@ -554,7 +554,7 @@
 	font-family: var(--bn-ob-font-body);
 	font-size: var(--text-md);
 	font-weight: var(--fw-semibold);
-	color: #fff;
+	color: var(--text-on-brand);
 	background: var(--bn-ob-brand);
 	border: none;
 	border-radius: var(--bn-ob-r-md);
@@ -566,7 +566,7 @@
 
 .bn-wizard-btn:hover {
 	background: var(--bn-ob-brand-hover);
-	color: #fff;
+	color: var(--text-on-brand);
 }
 
 .bn-wizard-btn--secondary {
@@ -647,7 +647,7 @@
 .bn-ob-progress__step.is-active .bn-ob-progress__dot {
 	background: var(--bn-ob-brand);
 	border-color: var(--bn-ob-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 }
 
 .bn-ob-progress__step.is-done .bn-ob-progress__dot {
@@ -710,7 +710,7 @@
 	padding: 0 var(--bn-ob-s4);
 	font-size: var(--text-sm);
 	font-weight: var(--fw-semibold);
-	color: #fff;
+	color: var(--text-on-brand);
 	background: var(--bn-ob-brand);
 	border-radius: var(--bn-ob-r-md);
 	text-decoration: none;
@@ -720,7 +720,7 @@
 
 .bn-ob-cta__btn:hover {
 	background: var(--bn-ob-brand-hover);
-	color: #fff;
+	color: var(--text-on-brand);
 }
 
 /* Interests grid (step 2) */
@@ -869,7 +869,7 @@
 .bn-ob-person__btn:hover,
 .bn-ob-person__btn.is-following {
 	background: var(--bn-ob-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 }
 
 /* Navigation buttons */
@@ -901,12 +901,12 @@
 
 .bn-ob-btn--primary {
 	background: var(--bn-ob-brand);
-	color: #fff;
+	color: var(--text-on-brand);
 }
 
 .bn-ob-btn--primary:hover {
 	background: var(--bn-ob-brand-hover);
-	color: #fff;
+	color: var(--text-on-brand);
 }
 
 .bn-ob-btn--ghost {
@@ -922,12 +922,12 @@
 
 .bn-ob-btn--finish {
 	background: var(--bn-ob-green);
-	color: #fff;
+	color: var(--text-on-brand);
 }
 
 .bn-ob-btn--finish:hover {
-	background: #047857;
-	color: #fff;
+	background: var(--green-dark);
+	color: var(--text-on-brand);
 }
 
 /* ── Invite form — email input rows ──────────────────────────────────── */
@@ -1017,7 +1017,7 @@
 	font-family: var(--bn-ob-font-body);
 	font-size: var(--text-md);
 	font-weight: var(--fw-semibold);
-	color: #fff;
+	color: var(--text-on-brand);
 	background: var(--bn-ob-brand);
 	border: none;
 	border-radius: var(--bn-ob-r-md);
