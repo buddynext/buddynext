@@ -1,5 +1,7 @@
 # CLAUDE.md — BuddyNext
 
+> **READ FIRST:** [`audit/manifest.json`](audit/manifest.json) is the canonical inventory — 115 REST endpoints, 41 tables, 21 capabilities, 48 services. Use this before grepping. See also [`audit/FEATURE_AUDIT.md`](audit/FEATURE_AUDIT.md), [`audit/CODE_FLOWS.md`](audit/CODE_FLOWS.md), [`audit/ROLE_MATRIX.md`](audit/ROLE_MATRIX.md). Refresh after non-trivial changes.
+
 ## What Is BuddyNext
 
 Enterprise-grade social community platform for WordPress (free + pro). Owned by Wbcom Designs.

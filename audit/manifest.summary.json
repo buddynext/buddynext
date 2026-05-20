@@ -1,0 +1,52 @@
+{
+  "plugin": "buddynext",
+  "version": "0.2.0",
+  "schema_version": "v2.2",
+  "generated_at": "2026-05-20T09:00:00Z",
+  "branch": "master",
+  "counts": {
+    "rest_endpoints": 115,
+    "ajax_actions": 1,
+    "admin_pages": 8,
+    "tables": 41,
+    "services": 48,
+    "hooks_fired": {
+      "actions": 75,
+      "filters": 24,
+      "total": 99
+    },
+    "capabilities": 3,
+    "cron_jobs": 12,
+    "blocks": 17,
+    "shortcodes": 7,
+    "js_files": 15,
+    "css_files": 16
+  },
+  "detail_files": {
+    "full_manifest": "audit/manifest.json",
+    "feature_audit": "audit/FEATURE_AUDIT.md",
+    "code_flows": "audit/CODE_FLOWS.md",
+    "role_matrix": "audit/ROLE_MATRIX.md"
+  },
+  "domains": [
+    "Feed",
+    "SocialGraph (Follow/Connection/Block)",
+    "Spaces",
+    "Profile",
+    "Search",
+    "Hashtags",
+    "Notifications",
+    "Moderation",
+    "MemberTypes",
+    "Auth/Verification",
+    "Onboarding",
+    "Outbound Webhooks",
+    "PWA",
+    "Admin",
+    "Blocks",
+    "Bridges (BuddyX, WPMediaVerse, Jetonomy, Gamification, CareerBoard)",
+    "Realtime",
+    "Gamification",
+    "Core (Container, PermissionService, RoleService, CronScheduler, AssetService)"
+  ]
+}
