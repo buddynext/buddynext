@@ -163,6 +163,24 @@ class MemberDirectoryService {
 			  )",
 		);
 
+		// Bidirectional block exclusion — viewer should not see users they have
+		// blocked, AND users who have blocked the viewer should not appear either.
+		// Skip for logged-out viewers (viewer_id=0) since there's no relationship.
+		if ( $viewer_id > 0 ) {
+			$where_clauses[] = $wpdb->prepare(
+				"NOT EXISTS (
+				    SELECT 1 FROM {$wpdb->prefix}bn_blocks b
+				    WHERE b.type = 'block'
+				      AND (
+				          (b.blocker_id = %d AND b.blocked_id = u.ID)
+				          OR (b.blocker_id = u.ID AND b.blocked_id = %d)
+				      )
+				  )",
+				$viewer_id,
+				$viewer_id
+			);
+		}
+
 		if ( '' !== $search ) {
 			$where_clauses[] = '(u.display_name LIKE %s OR u.user_login LIKE %s)';
 			$like_search     = '%' . $wpdb->esc_like( $search ) . '%';
