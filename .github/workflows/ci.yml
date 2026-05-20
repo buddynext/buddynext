@@ -38,6 +38,8 @@ jobs:
           php-version: ${{ matrix.php }}
           tools: composer:v2
           coverage: none
+      - name: Install svn (required by bin/install-wp-tests.sh)
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends subversion
       - name: Composer install
         run: composer install --no-interaction --no-progress
       - name: Install WP test suite
