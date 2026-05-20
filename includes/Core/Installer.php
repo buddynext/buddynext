@@ -467,22 +467,25 @@ class Installer {
 			// ── Spaces ─────────────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_spaces (
-				id              BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				name            VARCHAR(255) NOT NULL,
-				slug            VARCHAR(200) NOT NULL,
-				description     TEXT DEFAULT NULL,
-				category_id     BIGINT(20) UNSIGNED DEFAULT NULL,
-				parent_id       BIGINT(20) UNSIGNED DEFAULT NULL,
-				type            ENUM('open','private','secret') NOT NULL DEFAULT 'open',
-				owner_id        BIGINT(20) UNSIGNED NOT NULL,
-				member_count    INT UNSIGNED NOT NULL DEFAULT 0,
-				cover_image_url VARCHAR(500) DEFAULT NULL,
-				avatar_url      VARCHAR(500) DEFAULT NULL,
-				created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY     (id),
-				UNIQUE KEY      slug (slug),
-				KEY             owner (owner_id),
-				KEY             category (category_id)
+				id                 BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				name               VARCHAR(255) NOT NULL,
+				slug               VARCHAR(200) NOT NULL,
+				description        TEXT DEFAULT NULL,
+				category_id        BIGINT(20) UNSIGNED DEFAULT NULL,
+				parent_id          BIGINT(20) UNSIGNED DEFAULT NULL,
+				type               ENUM('open','private','secret') NOT NULL DEFAULT 'open',
+				owner_id           BIGINT(20) UNSIGNED NOT NULL,
+				member_count       INT UNSIGNED NOT NULL DEFAULT 0,
+				cover_image_url    VARCHAR(500) DEFAULT NULL,
+				avatar_url         VARCHAR(500) DEFAULT NULL,
+				required_ability   VARCHAR(64) NULL DEFAULT NULL,
+				accent_color       VARCHAR(16) NULL DEFAULT NULL,
+				description_layout VARCHAR(32) NULL DEFAULT 'standard',
+				created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY        (id),
+				UNIQUE KEY         slug (slug),
+				KEY                owner (owner_id),
+				KEY                category (category_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_members (
@@ -955,6 +958,37 @@ class Installer {
 		if ( is_string( $post_status_enum ) && false === strpos( $post_status_enum, "'scheduled'" ) ) {
 			$wpdb->query( "ALTER TABLE `{$p}bn_posts` MODIFY COLUMN `status` ENUM('published','draft','pending','scheduled','deleted') NOT NULL DEFAULT 'published'" );
 		}
+
+		// ── bn_spaces — add Pro-extension columns if missing ─────────────────
+
+		$spaces_cols = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT COLUMN_NAME
+				   FROM INFORMATION_SCHEMA.COLUMNS
+				  WHERE TABLE_SCHEMA = DATABASE()
+				    AND TABLE_NAME   = %s",
+				"{$p}bn_spaces"
+			)
+		);
+
+		// Suppress errors: test suite runs Installer::run() multiple times against
+		// a persistent TEMPORARY table, causing "Duplicate column" notices on
+		// second+ calls. These are harmless — the column already exists.
+		$wpdb->suppress_errors( true );
+
+		if ( is_array( $spaces_cols ) && ! in_array( 'required_ability', $spaces_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_spaces` ADD COLUMN `required_ability` VARCHAR(64) NULL DEFAULT NULL" );
+		}
+
+		if ( is_array( $spaces_cols ) && ! in_array( 'accent_color', $spaces_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_spaces` ADD COLUMN `accent_color` VARCHAR(16) NULL DEFAULT NULL" );
+		}
+
+		if ( is_array( $spaces_cols ) && ! in_array( 'description_layout', $spaces_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_spaces` ADD COLUMN `description_layout` VARCHAR(32) NULL DEFAULT 'standard'" );
+		}
+
+		$wpdb->suppress_errors( false );
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}

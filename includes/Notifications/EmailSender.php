@@ -119,11 +119,39 @@ class EmailSender {
 		$subject = $this->render( (string) $template->subject, $user_id, $data );
 		$body    = $this->render( (string) $template->body_html, $user_id, $data );
 
+		$payload = array(
+			'to'      => $user->user_email,
+			'subject' => $subject,
+			'body'    => '<html><body>' . $body . '</body></html>',
+			'headers' => array( 'Content-Type: text/html; charset=UTF-8' ),
+		);
+
+		/**
+		 * Filter the email payload immediately before wp_mail() is called.
+		 *
+		 * Allows Pro to modify recipients, subject, or body before dispatch.
+		 * Return an array with 'send' => false to suppress the wp_mail() call —
+		 * Pro uses this for broadcast campaign batching where emails are queued
+		 * rather than sent inline.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param array  $payload       Email payload: to, subject, body, headers.
+		 * @param string $template_slug Notification type slug (matches bn_email_templates.type).
+		 * @param array  $context       Original notification data array passed to send_now().
+		 */
+		$payload = (array) apply_filters( 'buddynext_email_payload', $payload, $notification_type, $data );
+
+		if ( isset( $payload['send'] ) && false === $payload['send'] ) {
+			// Pro has captured the email for batch/campaign delivery — skip wp_mail().
+			return;
+		}
+
 		wp_mail(
-			$user->user_email,
-			$subject,
-			'<html><body>' . $body . '</body></html>',
-			array( 'Content-Type: text/html; charset=UTF-8' )
+			$payload['to'],
+			$payload['subject'],
+			$payload['body'],
+			$payload['headers']
 		);
 
 		$this->log_sent( $user_id, $notification_type );

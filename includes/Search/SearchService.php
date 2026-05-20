@@ -204,6 +204,35 @@ class SearchService {
 			  )";
 
 		/**
+		 * Filter the query args before SQL is built for the search.
+		 *
+		 * Use this filter to modify per_page, page, or append additional WHERE
+		 * constraints before the database query executes. Complements the
+		 * buddynext_search_results filter which operates on the result set.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param array  $args      Query args: per_page, page, type, viewer_id.
+		 * @param string $query     Raw (unsanitised) search string.
+		 * @param int    $viewer_id Viewing user ID.
+		 */
+		$search_args = apply_filters(
+			'buddynext_search_query_args',
+			array(
+				'per_page'  => $per_page,
+				'page'      => $page,
+				'type'      => $type,
+				'viewer_id' => $viewer_id,
+			),
+			$query,
+			$viewer_id
+		);
+
+		$per_page  = min( (int) ( $search_args['per_page'] ?? $per_page ), 50 );
+		$page      = max( 1, (int) ( $search_args['page'] ?? $page ) );
+		$offset    = ( $page - 1 ) * $per_page;
+
+		/**
 		 * Allow an external search driver (Elasticsearch, Algolia, etc.) to
 		 * short-circuit the built-in SQL search. Return a non-null value from
 		 * this filter — shaped as `array{ items: array[], total: int }` — to
@@ -313,10 +342,42 @@ class SearchService {
 			(array) $rows
 		);
 
-		return array(
+		$results = array(
 			'items' => $items,
 			'total' => $total,
 		);
+
+		// Apply the existing buddynext_search_results filter (results side).
+		// Note: the filter is already applied above in the driver short-circuit path.
+		// This second call is intentionally skipped here to avoid double-filtering.
+
+		/**
+		 * Fires after a search is performed and results are computed.
+		 *
+		 * Use: Pro saved searches, AI relevance signals. Viewer ID is available
+		 * for personalised logging without altering the returned result set.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param string $query     Sanitised search query string.
+		 * @param int    $viewer_id Viewing user ID (0 = anonymous).
+		 * @param array  $args      Query args used: per_page, page, type, viewer_id.
+		 * @param array  $results   Result set: items[], total.
+		 */
+		do_action(
+			'buddynext_search_performed',
+			$safe_query,
+			$viewer_id,
+			array(
+				'per_page'  => $per_page,
+				'page'      => $page,
+				'type'      => $type,
+				'viewer_id' => $viewer_id,
+			),
+			$results
+		);
+
+		return $results;
 	}
 
 	/**

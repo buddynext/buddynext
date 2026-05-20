@@ -339,17 +339,52 @@ class PostService {
 	/**
 	 * Pin a post to the author's profile.
 	 *
-	 * @param int $post_id Post to pin.
-	 * @param int $user_id Requesting user (must be owner).
+	 * @param int      $post_id  Post to pin.
+	 * @param int      $user_id  Requesting user (must be owner).
+	 * @param int|null $space_id Optional space context for space-pinning (null = profile pin).
 	 * @return true|WP_Error
 	 */
-	public function pin( int $post_id, int $user_id ): true|WP_Error {
+	public function pin( int $post_id, int $user_id, ?int $space_id = null ): true|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
 			return $ownership;
 		}
 
+		/**
+		 * Filter the maximum number of posts a user may pin per scope.
+		 *
+		 * Free behaviour: 1 pin per scope (profile or space). Pro can raise this
+		 * limit for premium members by returning a higher integer.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param int      $limit    Maximum pinned posts allowed. Default 1.
+		 * @param int|null $space_id Space ID when pinning inside a space, null for profile pins.
+		 * @param int      $user_id  The user performing the pin action.
+		 */
+		$pin_limit = (int) apply_filters( 'buddynext_post_pin_limit', 1, $space_id, $user_id );
+
 		global $wpdb;
+
+		if ( $pin_limit > 0 ) {
+			$pin_where  = null === $space_id ? 'AND space_id IS NULL' : $wpdb->prepare( 'AND space_id = %d', $space_id );
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$pinned_count = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+					 WHERE user_id = %d AND is_pinned = 1 {$pin_where}",
+					$user_id
+				)
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			if ( $pinned_count >= $pin_limit ) {
+				return new WP_Error(
+					'pin_limit_reached',
+					__( 'You have reached the maximum number of pinned posts.', 'buddynext' )
+				);
+			}
+		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->update(

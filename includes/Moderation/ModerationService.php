@@ -94,6 +94,16 @@ class ModerationService {
 
 		$report_id = (int) $wpdb->insert_id;
 
+		$report_row = array(
+			'report_id'   => $report_id,
+			'reporter_id' => $reporter_id,
+			'object_type' => sanitize_key( $object_type ),
+			'object_id'   => $object_id,
+			'reason'      => $reason,
+			'space_id'    => $space_id > 0 ? $space_id : null,
+			'notes'       => sanitize_textarea_field( $notes ),
+		);
+
 		/**
 		 * Fires after a report is submitted.
 		 *
@@ -103,6 +113,57 @@ class ModerationService {
 		 * @param int    $reporter_id User who submitted the report.
 		 */
 		do_action( 'buddynext_report_created', $report_id, sanitize_key( $object_type ), $object_id, $reporter_id );
+
+		/**
+		 * Filter the list of automated actions to apply after a report is inserted.
+		 *
+		 * Free always returns an empty array (no auto-actions). Pro rules engines
+		 * stack actions here. Each action is an associative array with at minimum
+		 * an 'action' key. Supported action shapes:
+		 *   ['action' => 'remove',  'reason' => string]
+		 *   ['action' => 'warn',    'user_id' => int, 'reason' => string]
+		 *   ['action' => 'suspend', 'user_id' => int, 'reason' => string, 'duration_days' => int]
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param array $actions    Array of auto-action descriptors. Default empty array.
+		 * @param array $report     Inserted report data including report_id.
+		 */
+		$auto_actions = (array) apply_filters( 'buddynext_moderation_auto_actions', array(), $report_row );
+
+		foreach ( $auto_actions as $auto_action ) {
+			if ( ! is_array( $auto_action ) || empty( $auto_action['action'] ) ) {
+				continue;
+			}
+
+			$action_slug = sanitize_key( (string) $auto_action['action'] );
+
+			switch ( $action_slug ) {
+				case 'remove':
+					/**
+					 * Fires when an automated moderation action removes content.
+					 *
+					 * @param string $object_type Content type being removed.
+					 * @param int    $object_id   Content ID.
+					 * @param int    $actor_id    System actor (0 = automated).
+					 */
+					do_action( 'buddynext_content_removed', sanitize_key( $object_type ), $object_id, 0 );
+					break;
+
+				case 'warn':
+					if ( ! empty( $auto_action['user_id'] ) ) {
+						/**
+						 * Fires when an automated moderation action warns a user.
+						 *
+						 * @param int    $user_id  User being warned.
+						 * @param string $message  Warning message/reason.
+						 * @param int    $actor_id System actor (0 = automated).
+						 */
+						do_action( 'buddynext_user_warned', (int) $auto_action['user_id'], (string) ( $auto_action['reason'] ?? '' ), 0 );
+					}
+					break;
+			}
+		}
 
 		return $report_id;
 	}

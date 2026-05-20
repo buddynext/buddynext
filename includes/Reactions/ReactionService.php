@@ -142,8 +142,38 @@ class ReactionService {
 
 	/**
 	 * Allowed reaction types — the canonical six.
+	 *
+	 * Use reaction_types() instead of this constant when you need the filterable
+	 * list — Pro extends this via the buddynext_reaction_types filter.
 	 */
 	public const REACTION_TYPES = array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' );
+
+	/**
+	 * Return the filterable list of allowed reaction type slugs.
+	 *
+	 * Pro plugins extend this by hooking buddynext_reaction_types to inject
+	 * additional reaction types (e.g. 'celebrate', 'insightful'). Free returns
+	 * the canonical six defined in REACTION_TYPES.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string[] Ordered list of reaction type slugs.
+	 */
+	public static function reaction_types(): array {
+		/**
+		 * Filter the allowed reaction type slugs.
+		 *
+		 * Return an array of lowercase alphanumeric slugs. Each slug must have a
+		 * corresponding SVG at assets/icons/reaction-{slug}.svg and a CSS colour
+		 * token --bn-reaction-{slug}. Adding a new type here without providing
+		 * the icon/CSS will cause a broken UI in the reaction picker.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param string[] $types The current list of reaction type slugs.
+		 */
+		return (array) apply_filters( 'buddynext_reaction_types', self::REACTION_TYPES );
+	}
 
 	/**
 	 * Toggle a reaction and return the updated counts for all types.

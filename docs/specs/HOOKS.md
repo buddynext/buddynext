@@ -168,6 +168,146 @@ do_action( 'buddynext_index_hashtags', string $object_type, int $object_id, stri
 
 ---
 
+## Pro Extension Filters (added 2026-05-20)
+
+These filters expose the seams that BuddyNext Pro attaches to without re-implementing Free code.
+
+### Feed
+
+```php
+// Filter paginated feed items before returning (all three feed methods + explore).
+// Use: AI reranking, sponsored-post injection.
+apply_filters( 'buddynext_feed_items', array $items, string $scope, int $viewer_id, array $args )
+// $scope: 'home' | 'profile' | 'space'
+// $args keys vary by scope: per_page, cursor, user_id | profile_user_id | space_id
+
+// Filter query args before SQL is built (home, profile, space feeds).
+// Use: Pro tier-based filtering.
+apply_filters( 'buddynext_feed_query_args', array $args, string $scope, int $viewer_id )
+
+// Filter the max pinned-post count per scope.
+// Use: Pro premium members get more pins.
+apply_filters( 'buddynext_post_pin_limit', int $limit, ?int $space_id, int $user_id )
+// Default: 1
+
+// Filter the allowed reaction type slugs.
+// Use: Pro adds custom reaction types.
+apply_filters( 'buddynext_reaction_types', string[] $types )
+// Default: ['like', 'love', 'haha', 'wow', 'sad', 'angry']
+// Call via ReactionService::reaction_types() — never reference the const directly.
+```
+
+### Spaces
+
+```php
+// Filter whether a user may join or request membership in a space.
+// Return false to block access (Pro gated spaces).
+apply_filters( 'buddynext_can_join_space', bool $can, array $space, int $user_id, string $action )
+// $action: 'join' | 'request'
+// Default: true
+```
+
+### Notifications + Email
+
+```php
+// Filter whether a notification should be persisted at all.
+// Return false to suppress silently (Pro AI fatigue detection).
+apply_filters( 'buddynext_notification_should_send', bool $should, array $payload )
+// Default: true
+
+// Filter the deferred send time for a notification.
+// Return an ISO timestamp string to schedule for later (Pro quiet-hours / digest).
+// Free stores the value in the data payload but does not actively delay the insert.
+apply_filters( 'buddynext_notification_send_at', ?string $send_at, array $payload )
+// Default: null (send immediately)
+
+// Filter the wp_mail() payload before dispatch.
+// Return ['send' => false] to suppress (Pro broadcast capture).
+apply_filters( 'buddynext_email_payload', array $payload, string $template_slug, array $context )
+// $payload keys: to, subject, body, headers
+```
+
+### Moderation
+
+```php
+// Filter the final SafeguardService result.
+// Return WP_Error to block (Pro keyword blocklist / ML scoring).
+apply_filters( 'buddynext_safeguard_check', true|WP_Error $result, int $user_id, string $content, string $link_url )
+
+// Filter the list of auto-actions to apply after a report row is inserted.
+// Free returns [] (no auto-actions). Pro rules engine populates this.
+apply_filters( 'buddynext_moderation_auto_actions', array $actions, array $report )
+// $report keys: report_id, reporter_id, object_type, object_id, reason, space_id, notes
+// Action shapes:
+//   ['action' => 'remove',  'reason' => string]
+//   ['action' => 'warn',    'user_id' => int, 'reason' => string]
+//   ['action' => 'suspend', 'user_id' => int, 'reason' => string, 'duration_days' => int]
+```
+
+### Profile
+
+```php
+// Filter the allowed profile field type slugs.
+// Use: Pro adds custom field types (file, video, map, etc.).
+apply_filters( 'buddynext_profile_field_types', string[] $types )
+// Default: 15 built-in types (text, textarea, email, phone, url, social, number,
+//           date, daterange, select, multiselect, radio, checkbox, toggle, rating)
+// Call via ProfileFieldsManager::field_types() — never reference the const directly.
+```
+
+### Search
+
+```php
+// Filter search query args before SQL is built.
+// Complements buddynext_search_results (results side).
+apply_filters( 'buddynext_search_query_args', array $args, string $query, int $viewer_id )
+// $args keys: per_page, page, type, viewer_id
+```
+
+### Outbound
+
+```php
+// Filter the maximum number of outbound webhook endpoints a site may register.
+// Free: 1. Pro sets PHP_INT_MAX.
+apply_filters( 'buddynext_outbound_webhook_limit', int $limit )
+// Default: 1
+```
+
+### White-label
+
+```php
+// Filter the plugin brand name shown in the UI.
+// Call via Plugin::brand_name().
+apply_filters( 'buddynext_brand_name', string $name )
+// Default: 'BuddyNext'
+
+// Filter the plugin brand logo URL shown in the UI.
+// Call via Plugin::brand_logo_url().
+apply_filters( 'buddynext_brand_logo_url', ?string $url )
+// Default: null (use text / default icon)
+```
+
+## Pro Extension Actions (added 2026-05-20)
+
+```php
+// Fires after a user's profile page is served to a different viewer.
+// Does NOT fire for self-views. Use: Pro reach analytics.
+do_action( 'buddynext_profile_viewed', int $profile_user_id, int $viewer_id )
+
+// Fires for each post item in every feed response (home, profile, space, explore).
+// Does NOT fire when viewer_id === 0 (anonymous visitors). Use: Pro post-reach stats.
+do_action( 'buddynext_post_impression', int $post_id, int $viewer_id, string $surface )
+// $surface: 'home_feed' | 'profile_feed' | 'space_feed' | 'explore_feed'
+
+// Fires after SearchService::search() computes results and buddynext_search_results runs.
+// Use: Pro saved searches, AI relevance signals.
+do_action( 'buddynext_search_performed', string $query, int $viewer_id, array $args, array $results )
+// $args keys: per_page, page, type, viewer_id
+// $results keys: items[], total
+```
+
+---
+
 ## Filters Provided by BuddyNext
 
 ```php

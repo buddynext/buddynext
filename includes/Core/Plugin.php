@@ -607,4 +607,60 @@ class Plugin {
 		// available before rest_api_init and admin_menu fire.
 		$container->get( 'abilities' )->register();
 	}
+
+	// ── White-label helpers ───────────────────────────────────────────────────
+
+	/**
+	 * Return the filterable brand name for this plugin.
+	 *
+	 * Pro white-label builds hook buddynext_brand_name to substitute the
+	 * operator's own product name throughout the UI without forking templates.
+	 * Free always returns 'BuddyNext'.
+	 *
+	 * Note: This helper exposes the seam only — the current codebase does NOT
+	 * automatically replace every hardcoded 'BuddyNext' string in templates.
+	 * A future Pro feature audit will sweep templates and call Plugin::brand_name()
+	 * where the string is user-visible.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string Brand name. Default 'BuddyNext'.
+	 */
+	public static function brand_name(): string {
+		/**
+		 * Filter the plugin brand name shown in the community UI.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param string $name Default brand name. Default 'BuddyNext'.
+		 */
+		return (string) apply_filters( 'buddynext_brand_name', 'BuddyNext' );
+	}
+
+	/**
+	 * Return the filterable brand logo URL for this plugin, or null when unset.
+	 *
+	 * Pro white-label builds hook buddynext_brand_logo_url to supply a custom
+	 * logo image URL. Free returns null (no custom logo — templates fall back
+	 * to text or the default SVG icon).
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string|null Absolute URL to the logo image, or null if not configured.
+	 */
+	public static function brand_logo_url(): ?string {
+		/**
+		 * Filter the plugin brand logo URL shown in the community UI.
+		 *
+		 * Return an absolute https:// URL pointing to the logo image (PNG or SVG
+		 * recommended). Return null to use the default text/icon fallback.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param string|null $url Logo image URL or null. Default null.
+		 */
+		$url = apply_filters( 'buddynext_brand_logo_url', null );
+
+		return ( null !== $url && '' !== $url ) ? (string) $url : null;
+	}
 }

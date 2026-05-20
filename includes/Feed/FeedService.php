@@ -95,6 +95,32 @@ class FeedService {
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
 
+		/**
+		 * Filter the query args before SQL is built for the home feed.
+		 *
+		 * Use this filter to modify pagination or inject scope-specific IDs before
+		 * the database query executes. Pro can use it for tier-based filtering.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param array  $args      Query args: per_page, cursor, user_id.
+		 * @param string $scope     Feed scope — always 'home' for this method.
+		 * @param int    $viewer_id Viewing user ID.
+		 */
+		$query_args = apply_filters(
+			'buddynext_feed_query_args',
+			array(
+				'per_page' => $per_page,
+				'cursor'   => $cursor,
+				'user_id'  => $user_id,
+			),
+			'home',
+			$user_id
+		);
+
+		$per_page = (int) ( $query_args['per_page'] ?? $per_page );
+		$per_page = min( $per_page, 50 );
+
 		// All three OR branches use subqueries — no PHP-side ID arrays, no interpolation.
 		// Source 1: viewer's own posts (any privacy) + followed users' public/followers posts.
 		// Source 2: posts from spaces the viewer has actively joined.
@@ -153,6 +179,49 @@ class FeedService {
 				array_unshift( $result['items'], $announcement );
 			}
 		}
+
+		/**
+		 * Fire an impression event for each post shown in the home feed.
+		 *
+		 * Only fires when the viewer is a logged-in user (viewer_id > 0).
+		 * Use: Pro post-reach analytics.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param int    $post_id   Post ID.
+		 * @param int    $viewer_id Viewing user ID.
+		 * @param string $surface   Feed surface — always 'home_feed' here.
+		 */
+		if ( $user_id > 0 ) {
+			foreach ( $result['items'] as $item ) {
+				do_action( 'buddynext_post_impression', (int) $item['id'], $user_id, 'home_feed' );
+			}
+		}
+
+		/**
+		 * Filter the home feed items immediately before they are returned.
+		 *
+		 * Allows Pro to rerank, inject sponsored posts, or remove items.
+		 * The default value preserves the existing SQL-ordered result set.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param array  $items     Paginated item array (hydrated post arrays).
+		 * @param string $scope     Feed scope — always 'home' for this method.
+		 * @param int    $viewer_id Viewing user ID.
+		 * @param array  $args      Original query args passed to home_feed().
+		 */
+		$result['items'] = apply_filters(
+			'buddynext_feed_items',
+			$result['items'],
+			'home',
+			$user_id,
+			array(
+				'per_page' => $per_page,
+				'cursor'   => $cursor,
+				'user_id'  => $user_id,
+			)
+		);
 
 		return $result;
 	}
@@ -216,6 +285,31 @@ class FeedService {
 
 		$per_page = min( $per_page, 50 );
 
+		/**
+		 * Filter the query args before SQL is built for the profile feed.
+		 *
+		 * Use this filter to modify pagination or inject scope-specific IDs before
+		 * the database query executes. Pro can use it for tier-based filtering.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param array  $args      Query args: per_page, cursor, profile_user_id.
+		 * @param string $scope     Feed scope — always 'profile' for this method.
+		 * @param int    $viewer_id Viewing user ID.
+		 */
+		$query_args = apply_filters(
+			'buddynext_feed_query_args',
+			array(
+				'per_page'        => $per_page,
+				'cursor'          => $cursor,
+				'profile_user_id' => $profile_user_id,
+			),
+			'profile',
+			$viewer_id
+		);
+
+		$per_page = min( (int) ( $query_args['per_page'] ?? $per_page ), 50 );
+
 		if ( $viewer_id === $profile_user_id ) {
 			// Owner sees everything — but suspended/shadow-banned posts are still hidden.
 			$privacy_clause = '';
@@ -255,7 +349,52 @@ class FeedService {
 		$rows = $wpdb->get_results( $sql, ARRAY_A );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
-		return $this->paginate( (array) $rows, $per_page );
+		$result = $this->paginate( (array) $rows, $per_page );
+
+		/**
+		 * Fire an impression event for each post shown in the profile feed.
+		 *
+		 * Only fires when the viewer is a logged-in user (viewer_id > 0).
+		 * Use: Pro post-reach analytics.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param int    $post_id   Post ID.
+		 * @param int    $viewer_id Viewing user ID.
+		 * @param string $surface   Feed surface — always 'profile_feed' here.
+		 */
+		if ( $viewer_id > 0 ) {
+			foreach ( $result['items'] as $item ) {
+				do_action( 'buddynext_post_impression', (int) $item['id'], $viewer_id, 'profile_feed' );
+			}
+		}
+
+		/**
+		 * Filter the profile feed items immediately before they are returned.
+		 *
+		 * Allows Pro to rerank or remove items. The default value preserves the
+		 * existing SQL-ordered result set.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param array  $items     Paginated item array (hydrated post arrays).
+		 * @param string $scope     Feed scope — always 'profile' for this method.
+		 * @param int    $viewer_id Viewing user ID.
+		 * @param array  $args      Original query args passed to profile_feed().
+		 */
+		$result['items'] = apply_filters(
+			'buddynext_feed_items',
+			$result['items'],
+			'profile',
+			$viewer_id,
+			array(
+				'per_page'        => $per_page,
+				'cursor'          => $cursor,
+				'profile_user_id' => $profile_user_id,
+			)
+		);
+
+		return $result;
 	}
 
 	/**
@@ -278,6 +417,31 @@ class FeedService {
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
 
+		/**
+		 * Filter the query args before SQL is built for the space feed.
+		 *
+		 * Use this filter to modify pagination or inject scope-specific IDs before
+		 * the database query executes. Pro can use it for tier-based filtering.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param array  $args      Query args: per_page, cursor, space_id.
+		 * @param string $scope     Feed scope — always 'space' for this method.
+		 * @param int    $viewer_id Viewing user ID.
+		 */
+		$query_args = apply_filters(
+			'buddynext_feed_query_args',
+			array(
+				'per_page' => $per_page,
+				'cursor'   => $cursor,
+				'space_id' => $space_id,
+			),
+			'space',
+			$viewer_id
+		);
+
+		$per_page = min( (int) ( $query_args['per_page'] ?? $per_page ), 50 );
+
 		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
@@ -298,7 +462,52 @@ class FeedService {
 		$rows = $wpdb->get_results( $sql, ARRAY_A );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
-		return $this->paginate( (array) $rows, $per_page );
+		$result = $this->paginate( (array) $rows, $per_page );
+
+		/**
+		 * Fire an impression event for each post shown in the space feed.
+		 *
+		 * Only fires when the viewer is a logged-in user (viewer_id > 0).
+		 * Use: Pro post-reach analytics.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param int    $post_id   Post ID.
+		 * @param int    $viewer_id Viewing user ID.
+		 * @param string $surface   Feed surface — always 'space_feed' here.
+		 */
+		if ( $viewer_id > 0 ) {
+			foreach ( $result['items'] as $item ) {
+				do_action( 'buddynext_post_impression', (int) $item['id'], $viewer_id, 'space_feed' );
+			}
+		}
+
+		/**
+		 * Filter the space feed items immediately before they are returned.
+		 *
+		 * Allows Pro to rerank or remove items. The default value preserves the
+		 * existing SQL-ordered result set.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param array  $items     Paginated item array (hydrated post arrays).
+		 * @param string $scope     Feed scope — always 'space' for this method.
+		 * @param int    $viewer_id Viewing user ID.
+		 * @param array  $args      Original query args passed to space_feed().
+		 */
+		$result['items'] = apply_filters(
+			'buddynext_feed_items',
+			$result['items'],
+			'space',
+			$viewer_id,
+			array(
+				'per_page' => $per_page,
+				'cursor'   => $cursor,
+				'space_id' => $space_id,
+			)
+		);
+
+		return $result;
 	}
 
 	/**
@@ -334,7 +543,28 @@ class FeedService {
 		$rows = $wpdb->get_results( $sql, ARRAY_A );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
-		return $this->paginate( (array) $rows, $per_page );
+		$result      = $this->paginate( (array) $rows, $per_page );
+		$viewer_id   = get_current_user_id();
+
+		/**
+		 * Fire an impression event for each post shown in the explore feed.
+		 *
+		 * Only fires when the viewer is a logged-in user (viewer_id > 0).
+		 * Use: Pro post-reach analytics.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param int    $post_id   Post ID.
+		 * @param int    $viewer_id Viewing user ID.
+		 * @param string $surface   Feed surface — always 'explore_feed' here.
+		 */
+		if ( $viewer_id > 0 ) {
+			foreach ( $result['items'] as $item ) {
+				do_action( 'buddynext_post_impression', (int) $item['id'], $viewer_id, 'explore_feed' );
+			}
+		}
+
+		return $result;
 	}
 
 	/**

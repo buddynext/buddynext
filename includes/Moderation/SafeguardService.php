@@ -58,7 +58,21 @@ class SafeguardService {
 			return $gate;
 		}
 
-		return true;
+		/**
+		 * Filter the final safeguard check result.
+		 *
+		 * Pro keyword blocklists and ML scoring hooks stack here. Return a
+		 * WP_Error to block the post, or return true to allow it through.
+		 * The $result parameter will be true when all built-in checks pass.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param true|WP_Error $result   True when all built-in checks pass; WP_Error on failure.
+		 * @param int           $user_id  Author user ID.
+		 * @param string        $content  Post content to inspect.
+		 * @param string        $link_url Optional URL attached to the post.
+		 */
+		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url );
 	}
 
 	/**

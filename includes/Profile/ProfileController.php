@@ -477,6 +477,21 @@ class ProfileController {
 
 		$profile['completion'] = $service->get_completion_score( $profile_user_id );
 
+		/**
+		 * Fires after a user's profile is loaded and the response is built.
+		 *
+		 * Only fires when the viewer is different from the profile owner (self-views
+		 * are not counted). Use: Pro analytics reach tracking and profile view events.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param int $profile_user_id User ID of the profile being viewed.
+		 * @param int $viewer_id       User ID of the person viewing the profile (0 = anonymous).
+		 */
+		if ( $viewer_id !== $profile_user_id ) {
+			do_action( 'buddynext_profile_viewed', $profile_user_id, $viewer_id );
+		}
+
 		return new WP_REST_Response( $profile, 200 );
 	}
 

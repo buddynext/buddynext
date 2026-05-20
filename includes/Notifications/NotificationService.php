@@ -92,6 +92,47 @@ class NotificationService {
 			}
 		}
 
+		/**
+		 * Filter whether a new notification should be persisted at all.
+		 *
+		 * Pro AI notification fatigue detection hooks here to suppress low-signal
+		 * notifications before they reach the DB or trigger email dispatch.
+		 * Returning false causes create() to silently return 0 (no notification sent).
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param bool  $should  Whether to proceed with sending. Default true.
+		 * @param array $payload The full $data array passed to create().
+		 */
+		$should_send = (bool) apply_filters( 'buddynext_notification_should_send', true, $data );
+		if ( ! $should_send ) {
+			return 0;
+		}
+
+		/**
+		 * Filter the scheduled send time for a notification.
+		 *
+		 * Return a non-null ISO 8601 / MySQL datetime string to schedule the
+		 * notification for deferred delivery. Pro uses this for batched digest
+		 * and quiet-hours features.
+		 *
+		 * Note: BuddyNext Free stores the value in the data JSON column but does
+		 * not actively delay the DB insert — deferred scheduling requires Pro's
+		 * Action Scheduler integration. The value is documented here so Pro can
+		 * read it from the data payload and reschedule accordingly.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param string|null $send_at ISO timestamp for deferred delivery, or null for immediate.
+		 * @param array       $payload The full $data array passed to create().
+		 */
+		$send_at = apply_filters( 'buddynext_notification_send_at', null, $data );
+		if ( null !== $send_at ) {
+			// Attach the scheduled time to the data payload so Pro can read and
+			// act on it after the row is inserted.
+			$data['send_at'] = (string) $send_at;
+		}
+
 		// Insert a new notification row.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(

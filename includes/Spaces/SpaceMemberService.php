@@ -56,6 +56,28 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function join( int $space_id, int $user_id ): true|WP_Error {
+		/**
+		 * Filter whether the user is permitted to join a space.
+		 *
+		 * Pro can return false to block access for non-members of a gated tier.
+		 * When false is returned the method short-circuits with a WP_Error before
+		 * any DB work is performed.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param bool  $can      Whether the user may proceed. Default true.
+		 * @param array $space    Space data array from bn_spaces (empty array when space not pre-loaded).
+		 * @param int   $user_id  User attempting to join.
+		 * @param string $action  Action being performed — always 'join' from this method.
+		 */
+		$can = (bool) apply_filters( 'buddynext_can_join_space', true, array(), $user_id, 'join' );
+		if ( ! $can ) {
+			return new WP_Error(
+				'cannot_join_space',
+				__( 'You cannot join this space.', 'buddynext' )
+			);
+		}
+
 		// Check hard ban (bn_space_bans) as well as soft ban (member status).
 		if ( $this->is_hard_banned( $space_id, $user_id ) ) {
 			return new WP_Error(
@@ -135,6 +157,28 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function request_join( int $space_id, int $user_id ): true|WP_Error {
+		/**
+		 * Filter whether the user is permitted to request membership in a space.
+		 *
+		 * Pro can return false to block access for non-members of a gated tier.
+		 * When false is returned the method short-circuits with a WP_Error before
+		 * any DB work is performed.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param bool   $can     Whether the user may proceed. Default true.
+		 * @param array  $space   Space data array from bn_spaces (empty array when space not pre-loaded).
+		 * @param int    $user_id User attempting to request membership.
+		 * @param string $action  Action being performed — always 'request' from this method.
+		 */
+		$can = (bool) apply_filters( 'buddynext_can_join_space', true, array(), $user_id, 'request' );
+		if ( ! $can ) {
+			return new WP_Error(
+				'cannot_join_space',
+				__( 'You cannot join this space.', 'buddynext' )
+			);
+		}
+
 		if ( $this->is_hard_banned( $space_id, $user_id ) ) {
 			return new WP_Error(
 				'user_banned',

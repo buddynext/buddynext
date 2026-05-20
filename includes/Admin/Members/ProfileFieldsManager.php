@@ -21,6 +21,9 @@ class ProfileFieldsManager {
 	/**
 	 * Allowed field types for profile fields.
 	 *
+	 * Use field_types() instead of this constant where you need the filterable
+	 * list — Pro extends the available types via buddynext_profile_field_types.
+	 *
 	 * @var string[]
 	 */
 	private const FIELD_TYPES = array(
@@ -40,6 +43,32 @@ class ProfileFieldsManager {
 		'toggle',
 		'rating',
 	);
+
+	/**
+	 * Return the filterable list of allowed profile field type slugs.
+	 *
+	 * Pro plugins add custom field types (e.g. 'file', 'video', 'map') by
+	 * hooking buddynext_profile_field_types. The whitelist enforcement in
+	 * handle_create_field() and handle_update_field() calls this method so
+	 * Pro-registered types are automatically accepted.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string[] Ordered list of field type slugs.
+	 */
+	public static function field_types(): array {
+		/**
+		 * Filter the allowed profile field type slugs.
+		 *
+		 * Return an array of lowercase, hyphen/underscore-safe slugs. Each Pro
+		 * type must be handled in the render layer and in ProfileService::get_field_value().
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param string[] $types The current list of field type slugs.
+		 */
+		return (array) apply_filters( 'buddynext_profile_field_types', self::FIELD_TYPES );
+	}
 
 	/**
 	 * Field types that require an options list (stored as JSON array).
@@ -175,7 +204,7 @@ class ProfileFieldsManager {
 		// Auto-generate field_key from label — no technical input required from admins.
 		$field_key = sanitize_key( str_replace( '-', '_', sanitize_title( $label ) ) );
 
-		if ( ! in_array( $type, self::FIELD_TYPES, true ) ) {
+		if ( ! in_array( $type, self::field_types(), true ) ) {
 			$type = 'text';
 		}
 
@@ -476,7 +505,7 @@ class ProfileFieldsManager {
 			exit;
 		}
 
-		if ( ! in_array( $type, self::FIELD_TYPES, true ) ) {
+		if ( ! in_array( $type, self::field_types(), true ) ) {
 			$type = 'text';
 		}
 

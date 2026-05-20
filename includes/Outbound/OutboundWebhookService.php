@@ -91,6 +91,34 @@ class OutboundWebhookService {
 			);
 		}
 
+		/**
+		 * Filter the maximum number of outbound webhook endpoints a site may register.
+		 *
+		 * Free limits sites to 1 webhook. Pro lifts this cap by returning PHP_INT_MAX
+		 * or a higher integer. The count is checked against all registered endpoints
+		 * (active or inactive) in bn_outbound_webhooks.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param int $limit Maximum webhook registrations allowed. Default 1.
+		 */
+		$webhook_limit = (int) apply_filters( 'buddynext_outbound_webhook_limit', 1 );
+
+		if ( $webhook_limit > 0 ) {
+			global $wpdb;
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$current_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_outbound_webhooks" );
+
+			if ( $current_count >= $webhook_limit ) {
+				return new WP_Error(
+					'webhook_limit_reached',
+					__( 'You have reached the maximum number of registered webhook endpoints.', 'buddynext' ),
+					array( 'status' => 422 )
+				);
+			}
+		}
+
 		$host  = (string) wp_parse_url( $url, PHP_URL_HOST );
 		$user  = get_userdata( $created_by );
 		$label = sprintf(
