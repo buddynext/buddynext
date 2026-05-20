@@ -543,8 +543,8 @@ class FeedService {
 		$rows = $wpdb->get_results( $sql, ARRAY_A );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
-		$result      = $this->paginate( (array) $rows, $per_page );
-		$viewer_id   = get_current_user_id();
+		$result    = $this->paginate( (array) $rows, $per_page );
+		$viewer_id = get_current_user_id();
 
 		/**
 		 * Fire an impression event for each post shown in the explore feed.

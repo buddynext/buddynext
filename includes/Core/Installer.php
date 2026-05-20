@@ -963,10 +963,10 @@ class Installer {
 
 		$spaces_cols = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT COLUMN_NAME
+				'SELECT COLUMN_NAME
 				   FROM INFORMATION_SCHEMA.COLUMNS
 				  WHERE TABLE_SCHEMA = DATABASE()
-				    AND TABLE_NAME   = %s",
+				    AND TABLE_NAME   = %s',
 				"{$p}bn_spaces"
 			)
 		);

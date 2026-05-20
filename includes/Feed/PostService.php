@@ -367,7 +367,7 @@ class PostService {
 		global $wpdb;
 
 		if ( $pin_limit > 0 ) {
-			$pin_where  = null === $space_id ? 'AND space_id IS NULL' : $wpdb->prepare( 'AND space_id = %d', $space_id );
+			$pin_where = null === $space_id ? 'AND space_id IS NULL' : $wpdb->prepare( 'AND space_id = %d', $space_id );
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$pinned_count = (int) $wpdb->get_var(
 				$wpdb->prepare(
@@ -624,12 +624,19 @@ class PostService {
 	 * @return array{title: string, description: string, thumbnail: string}
 	 */
 	private static function fetch_og_meta( string $url ): array {
-		$meta = array( 'title' => '', 'description' => '', 'thumbnail' => '' );
+		$meta = array(
+			'title'       => '',
+			'description' => '',
+			'thumbnail'   => '',
+		);
 
-		$response = wp_remote_get( $url, array(
-			'timeout'    => 5,
-			'user-agent' => 'BuddyNext/1.0 (Link Preview)',
-		) );
+		$response = wp_remote_get(
+			$url,
+			array(
+				'timeout'    => 5,
+				'user-agent' => 'BuddyNext/1.0 (Link Preview)',
+			)
+		);
 
 		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
 			return $meta;
@@ -642,21 +649,21 @@ class PostService {
 
 		// Extract og:title.
 		if ( preg_match( '/<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']|<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']/', $body, $m ) ) {
-			$meta['title'] = html_entity_decode( trim( $m[1] ?: $m[2] ), ENT_QUOTES, 'UTF-8' );
+			$meta['title'] = html_entity_decode( trim( $m[1] ? $m[1] : $m[2] ), ENT_QUOTES, 'UTF-8' );
 		} elseif ( preg_match( '/<title[^>]*>([^<]+)<\/title>/i', $body, $m ) ) {
 			$meta['title'] = html_entity_decode( trim( $m[1] ), ENT_QUOTES, 'UTF-8' );
 		}
 
 		// Extract og:description.
 		if ( preg_match( '/<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']|<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:description["\']/', $body, $m ) ) {
-			$meta['description'] = html_entity_decode( trim( $m[1] ?: $m[2] ), ENT_QUOTES, 'UTF-8' );
+			$meta['description'] = html_entity_decode( trim( $m[1] ? $m[1] : $m[2] ), ENT_QUOTES, 'UTF-8' );
 		} elseif ( preg_match( '/<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)["\']/', $body, $m ) ) {
 			$meta['description'] = html_entity_decode( trim( $m[1] ), ENT_QUOTES, 'UTF-8' );
 		}
 
 		// Extract og:image.
 		if ( preg_match( '/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']|<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']/', $body, $m ) ) {
-			$meta['thumbnail'] = esc_url_raw( trim( $m[1] ?: $m[2] ) );
+			$meta['thumbnail'] = esc_url_raw( trim( $m[1] ? $m[1] : $m[2] ) );
 		}
 
 		return $meta;

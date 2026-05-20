@@ -228,9 +228,9 @@ class SearchService {
 			$viewer_id
 		);
 
-		$per_page  = min( (int) ( $search_args['per_page'] ?? $per_page ), 50 );
-		$page      = max( 1, (int) ( $search_args['page'] ?? $page ) );
-		$offset    = ( $page - 1 ) * $per_page;
+		$per_page = min( (int) ( $search_args['per_page'] ?? $per_page ), 50 );
+		$page     = max( 1, (int) ( $search_args['page'] ?? $page ) );
+		$offset   = ( $page - 1 ) * $per_page;
 
 		/**
 		 * Allow an external search driver (Elasticsearch, Algolia, etc.) to

@@ -472,25 +472,55 @@ class Plugin {
 	 */
 	public function render_nav_menu_meta_box(): void {
 		$pages = array(
-			array( 'title' => __( 'Feed', 'buddynext' ),          'url' => PageRouter::activity_url() ),
-			array( 'title' => __( 'Explore', 'buddynext' ),       'url' => PageRouter::explore_url() ),
-			array( 'title' => __( 'Members', 'buddynext' ),       'url' => PageRouter::people_url() ),
-			array( 'title' => __( 'Spaces', 'buddynext' ),        'url' => PageRouter::spaces_url() ),
-			array( 'title' => __( 'Notifications', 'buddynext' ), 'url' => PageRouter::notifications_url() ),
-			array( 'title' => __( 'Messages', 'buddynext' ),      'url' => PageRouter::messages_url() ),
-			array( 'title' => __( 'Search', 'buddynext' ),        'url' => PageRouter::search_url() ),
-			array( 'title' => __( 'Leaderboard', 'buddynext' ),   'url' => PageRouter::leaderboard_url() ),
+			array(
+				'title' => __( 'Feed', 'buddynext' ),
+				'url'   => PageRouter::activity_url(),
+			),
+			array(
+				'title' => __( 'Explore', 'buddynext' ),
+				'url'   => PageRouter::explore_url(),
+			),
+			array(
+				'title' => __( 'Members', 'buddynext' ),
+				'url'   => PageRouter::people_url(),
+			),
+			array(
+				'title' => __( 'Spaces', 'buddynext' ),
+				'url'   => PageRouter::spaces_url(),
+			),
+			array(
+				'title' => __( 'Notifications', 'buddynext' ),
+				'url'   => PageRouter::notifications_url(),
+			),
+			array(
+				'title' => __( 'Messages', 'buddynext' ),
+				'url'   => PageRouter::messages_url(),
+			),
+			array(
+				'title' => __( 'Search', 'buddynext' ),
+				'url'   => PageRouter::search_url(),
+			),
+			array(
+				'title' => __( 'Leaderboard', 'buddynext' ),
+				'url'   => PageRouter::leaderboard_url(),
+			),
 		);
 
 		// Add Jetonomy pages if active.
 		if ( class_exists( 'Jetonomy\Jetonomy' ) && function_exists( 'Jetonomy\base_url' ) ) {
-			$jt_base  = \Jetonomy\base_url();
-			$pages[] = array( 'title' => __( 'Discussions', 'buddynext' ), 'url' => $jt_base . '/' );
+			$jt_base = \Jetonomy\base_url();
+			$pages[] = array(
+				'title' => __( 'Discussions', 'buddynext' ),
+				'url'   => $jt_base . '/',
+			);
 		}
 
 		// Add WPMediaVerse pages if active.
 		if ( class_exists( 'WPMediaVerse\Core\Plugin' ) ) {
-			$pages[] = array( 'title' => __( 'Media', 'buddynext' ), 'url' => home_url( '/media/' ) );
+			$pages[] = array(
+				'title' => __( 'Media', 'buddynext' ),
+				'url'   => home_url( '/media/' ),
+			);
 		}
 
 		// Build fake post objects for Walker_Nav_Menu_Checklist.
