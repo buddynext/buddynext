@@ -71,8 +71,9 @@ class EmailEditor {
 	/**
 	 * Return the catalogue of built-in templates grouped by category.
 	 *
-	 * @return array<string, array<string, array<string, string>>>
+	 * @return array<string, array<string, array<string, string|list<string>>>>
 	 *   [ 'Category' => [ 'slug' => [ 'name', 'trigger', 'tokens', 'subject', 'preview', 'body' ] ] ]
+	 *   The 'tokens' key holds a list<string>; all other keys are plain strings.
 	 */
 	public function get_catalogue(): array {
 		return array(
@@ -690,7 +691,8 @@ class EmailEditor {
 							<div class="bn-token-picker-title"><?php esc_html_e( 'Available Tokens (click to insert)', 'buddynext' ); ?></div>
 							<div class="bn-tokens-grid">
 								<?php
-								foreach ( $active_def['tokens'] as $token ) :
+								$tokens = is_array( $active_def['tokens'] ) ? $active_def['tokens'] : array();
+								foreach ( $tokens as $token ) :
 									$desc = str_replace( array( '{{', '}}', '_' ), array( '', '', ' ' ), $token );
 									?>
 								<button type="button" class="bn-token" onclick="document.getElementById('bn-body').value += '<?php echo esc_js( $token ); ?>';">

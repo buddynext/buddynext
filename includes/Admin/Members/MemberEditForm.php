@@ -166,7 +166,7 @@ class MemberEditForm {
 		 * Fires before the edit-member admin form.
 		 *
 		 * @param int     $user_id User ID being edited.
-		 * @param WP_User $wp_user WP_User object.
+		 * @param \WP_User $wp_user WP_User object.
 		 */
 		do_action( 'buddynext_before_edit_member_form', $user_id, $wp_user );
 
@@ -372,7 +372,7 @@ class MemberEditForm {
 			 * Fires after all profile group panels inside the edit-member form.
 			 *
 			 * @param int     $user_id User ID being edited.
-			 * @param WP_User $wp_user WP_User object.
+			 * @param \WP_User $wp_user WP_User object.
 			 */
 			do_action( 'buddynext_edit_member_sections', $user_id, $wp_user );
 			?>
@@ -418,7 +418,7 @@ class MemberEditForm {
 		 * Fires after the edit-member admin form.
 		 *
 		 * @param int     $user_id User ID being edited.
-		 * @param WP_User $wp_user WP_User object.
+		 * @param \WP_User $wp_user WP_User object.
 		 */
 		do_action( 'buddynext_after_edit_member_form', $user_id, $wp_user );
 	}

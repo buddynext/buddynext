@@ -198,7 +198,7 @@ class NavManager extends AdminPageBase {
 			fn( array $a, array $b ) => ( $a['order'] ?? 10 ) <=> ( $b['order'] ?? 10 )
 		);
 
-		return array_values( $tabs );
+		return $tabs;
 	}
 
 	/**
@@ -309,7 +309,7 @@ class NavManager extends AdminPageBase {
 			fn( array $a, array $b ) => ( $a['order'] ?? 10 ) <=> ( $b['order'] ?? 10 )
 		);
 
-		return array_values( $defaults );
+		return $defaults;
 	}
 
 	/**
@@ -761,31 +761,6 @@ class NavManager extends AdminPageBase {
 		<?php
 	}
 
-	// ── Render: collapsed section placeholder ─────────────────────────────────
-
-	/**
-	 * Render a collapsed section card for future nav scopes (e.g. member-type scoped tabs).
-	 *
-	 * @param string $title   Section title.
-	 * @param string $summary One-line summary shown in collapsed state.
-	 * @param string $badge   Badge label (item count).
-	 * @return void
-	 */
-	private function render_collapsed_section( string $title, string $summary, string $badge ): void {
-		?>
-		<div class="bn-nav-section bn-nav-section-collapsed">
-			<div class="bn-nav-section-header">
-				<div class="bn-nav-section-title">
-					<span class="bn-collapse-arrow" aria-hidden="true">▾</span>
-					<?php echo esc_html( $title ); ?>
-				</div>
-				<div class="bn-nav-collapsed-summary"><?php echo esc_html( $summary ); ?></div>
-				<div class="bn-nav-section-badge"><?php echo esc_html( $badge ); ?></div>
-			</div>
-		</div>
-		<?php
-	}
-
 	/**
 	 * Render the standalone hub page assignments section.
 	 *
@@ -836,31 +811,6 @@ class NavManager extends AdminPageBase {
 					</div>
 				</div>
 				<?php endforeach; ?>
-			</div>
-		</div>
-		<?php
-	}
-
-	/**
-	 * Render a "coming soon" placeholder panel for an unbuilt scope.
-	 *
-	 * @param string $title   Scope title.
-	 * @param string $message Explanation shown to the admin.
-	 * @return void
-	 */
-	private function render_coming_soon_panel( string $title, string $message ): void {
-		?>
-		<div class="bn-nav-section">
-			<div class="bn-nav-section-header">
-				<div class="bn-nav-section-title"><?php echo esc_html( $title ); ?></div>
-			</div>
-			<div style="padding:32px 20px;text-align:center;color:#787c82;">
-				<div class="bn-coming-soon-icon" aria-hidden="true">
-				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
-				echo $this->svg( 'icon-coming-soon' );
-				?>
-			</div>
-				<p style="font-size:13px;margin:0;"><?php echo esc_html( $message ); ?></p>
 			</div>
 		</div>
 		<?php
@@ -1737,7 +1687,6 @@ class NavManager extends AdminPageBase {
 
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Forbidden' ), 403 );
-			return;
 		}
 
 		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized

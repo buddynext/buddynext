@@ -253,9 +253,9 @@ class AccessWebhookController {
 	 *
 	 * @param int   $user_id User ID.
 	 * @param array $body    Request body.
-	 * @return true|WP_Error
+	 * @return true
 	 */
-	private function action_add_credits( int $user_id, array $body ): true|WP_Error {
+	private function action_add_credits( int $user_id, array $body ): true {
 		global $wpdb;
 
 		$amount = abs( (int) ( $body['amount'] ?? 0 ) );
@@ -280,9 +280,9 @@ class AccessWebhookController {
 	 *
 	 * @param int   $user_id User ID.
 	 * @param array $body    Request body.
-	 * @return true|WP_Error
+	 * @return true
 	 */
-	private function action_set_credits( int $user_id, array $body ): true|WP_Error {
+	private function action_set_credits( int $user_id, array $body ): true {
 		global $wpdb;
 
 		$amount = max( 0, (int) ( $body['amount'] ?? 0 ) );
@@ -304,9 +304,9 @@ class AccessWebhookController {
 	 *
 	 * @param int   $user_id User ID.
 	 * @param array $body    Request body.
-	 * @return true|WP_Error
+	 * @return true
 	 */
-	private function action_deduct_credits( int $user_id, array $body ): true|WP_Error {
+	private function action_deduct_credits( int $user_id, array $body ): true {
 		global $wpdb;
 
 		$amount = abs( (int) ( $body['amount'] ?? 0 ) );

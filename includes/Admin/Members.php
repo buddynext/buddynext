@@ -26,64 +26,6 @@ class Members extends AdminPageBase {
 	 */
 	private const DEFAULT_PER_PAGE = 20;
 
-	/**
-	 * Allowed field types for profile fields.
-	 *
-	 * @var string[]
-	 */
-	private const FIELD_TYPES = array(
-		'text',
-		'textarea',
-		'email',
-		'phone',
-		'url',
-		'social',
-		'number',
-		'date',
-		'daterange',
-		'select',
-		'multiselect',
-		'radio',
-		'checkbox',
-		'toggle',
-		'rating',
-	);
-
-	/**
-	 * Field types that require an options list (stored as JSON array).
-	 *
-	 * @var string[]
-	 */
-	private const CHOICE_TYPES = array( 'select', 'multiselect', 'radio', 'checkbox' );
-
-	/**
-	 * Field types that require date display configuration.
-	 *
-	 * @var string[]
-	 */
-	private const DATE_TYPES = array( 'date', 'daterange' );
-
-	/**
-	 * Allowed date display modes.
-	 *
-	 * @var string[]
-	 */
-	private const DATE_DISPLAY = array( 'date', 'month_year', 'year', 'age' );
-
-	/**
-	 * Allowed group types.
-	 *
-	 * @var string[]
-	 */
-	private const GROUP_TYPES = array( 'flat', 'repeater' );
-
-	/**
-	 * Allowed visibility values.
-	 *
-	 * @var string[]
-	 */
-	private const VISIBILITY_VALUES = array( 'public', 'followers', 'private' );
-
 	// ── Boot ──────────────────────────────────────────────────────────────────
 
 	/**
@@ -689,9 +631,9 @@ class Members extends AdminPageBase {
 		 * Fires after BuddyNext has finished saving a member's profile from the admin.
 		 * Use this to save additional custom field values.
 		 *
-		 * @param int     $user_id   User ID that was saved.
-		 * @param WP_User $wp_user   WP_User object.
-		 * @param array   $post_data Raw $_POST data (already nonce-verified).
+		 * @param int      $user_id   User ID that was saved.
+		 * @param \WP_User $wp_user   WP_User object.
+		 * @param array    $post_data Raw $_POST data (already nonce-verified).
 		 */
 		do_action( 'buddynext_admin_member_profile_saved', $user_id, $wp_user, $_POST );
 

@@ -1,0 +1,30 @@
+parameters:
+    ignoreErrors:
+        # Cluster 7: MVS_PLUGIN_URL, MVS_VERSION, MVS_PLUGIN_DIR are defined by
+        # WPMediaVerse when it is active. WPMediaVerseBridge::init() is guarded
+        # by class_exists('WPMediaVerse\Core\Plugin'), so these constants are
+        # always present when the code runs. PHPStan cannot infer this at
+        # analysis time because WPMediaVerse is an external plugin, not a
+        # Composer dependency.
+        -
+            message: "#^Constant MVS_PLUGIN_URL not found\\.$#"
+            path: includes/Bridges/WPMediaVerseBridge.php
+            count: 2
+        -
+            message: "#^Constant MVS_VERSION not found\\.$#"
+            path: includes/Bridges/WPMediaVerseBridge.php
+            count: 2
+        -
+            message: "#^Constant MVS_PLUGIN_DIR not found\\.$#"
+            path: includes/Bridges/WPMediaVerseBridge.php
+            count: 1
+
+        # Cluster 8: nav_menu_selected_id() is a WordPress admin function used
+        # inside the nav-menus admin screen. It is declared in
+        # wp-admin/includes/nav-menu.php which is loaded late in the admin
+        # bootstrap. The WordPress stubs shipped with phpstan-wordpress do not
+        # declare this function, producing a false-positive here.
+        -
+            message: "#^Function nav_menu_selected_id not found\\.$#"
+            path: includes/Core/Plugin.php
+            count: 1

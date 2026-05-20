@@ -462,7 +462,7 @@ class MemberTypesManager {
 					style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
 					<?php wp_nonce_field( 'bn_assign_member_type' ); ?>
 					<input type="hidden" name="action"  value="bn_assign_member_type">
-					<input type="hidden" name="user_id" value="<?php echo esc_attr( $user_id ); ?>">
+					<input type="hidden" name="user_id" value="<?php echo esc_attr( (string) $user_id ); ?>">
 
 					<select id="bn-member-type-select" name="type_slug" class="bn-text-input" style="min-width:200px">
 						<option value="none"><?php esc_html_e( '— No type —', 'buddynext' ); ?></option>

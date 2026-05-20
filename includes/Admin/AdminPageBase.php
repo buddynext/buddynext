@@ -258,11 +258,12 @@ abstract class AdminPageBase {
 	/**
 	 * Render a labelled number input field.
 	 *
-	 * @param string $option_name WP option name.
-	 * @param string $label       Field label.
-	 * @param int    $value       Current value.
-	 * @param string $hint        Optional hint text beneath the input.
-	 * @param int    $min         Minimum allowed value. Default 0.
+	 * @param string   $option_name WP option name.
+	 * @param string   $label       Field label.
+	 * @param int      $value       Current value.
+	 * @param string   $hint        Optional hint text beneath the input.
+	 * @param int      $min         Minimum allowed value. Default 0.
+	 * @param int|null $max         Maximum allowed value. Null means no maximum.
 	 * @return void
 	 */
 	protected function render_number_row(
@@ -270,7 +271,8 @@ abstract class AdminPageBase {
 		string $label,
 		int $value,
 		string $hint = '',
-		int $min = 0
+		int $min = 0,
+		?int $max = null
 	): void {
 		$input_id = 'bn-field-' . sanitize_key( $option_name );
 		?>
@@ -281,6 +283,9 @@ abstract class AdminPageBase {
 					name="<?php echo esc_attr( $option_name ); ?>"
 					value="<?php echo absint( $value ); ?>"
 					min="<?php echo absint( $min ); ?>"
+					<?php if ( null !== $max ) : ?>
+					max="<?php echo absint( $max ); ?>"
+					<?php endif; ?>
 					class="bn-text-input small-text"
 					style="max-width:100px">
 			<?php if ( '' !== $hint ) : ?>
