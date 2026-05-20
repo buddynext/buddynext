@@ -6,7 +6,7 @@
  *   GET /feed/home             — home feed (auth required)
  *   GET /feed/explore          — explore feed (public)
  *   GET /users/{id}/feed       — profile feed (public)
- *   GET /spaces/{id}/feed      — space feed (public; access enforcement is caller's concern)
+ *   GET /spaces/{id}/feed      — space feed (public; secret spaces gated to members)
  *
  * All feeds support cursor-based pagination via ?cursor= and ?per_page= params.
  *
@@ -20,6 +20,8 @@ namespace BuddyNext\Feed;
 use BuddyNext\Feed\FeedService;
 use BuddyNext\Feed\PostService;
 use BuddyNext\SocialGraph\FollowService;
+use BuddyNext\Spaces\SpaceMemberService;
+use BuddyNext\Spaces\SpaceService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -135,17 +137,39 @@ class FeedController {
 	/**
 	 * Return the feed for a given space.
 	 *
-	 * Space access enforcement is handled by the Spaces module; this endpoint
-	 * returns published posts without additional viewer-side privacy filtering.
+	 * Enforces secret-space membership before returning posts: secret spaces
+	 * are only readable by active members and site admins. Open and private
+	 * spaces are listed publicly (private spaces show metadata; member-only
+	 * content is gated by the post-privacy layer in PostController::get_post).
 	 *
 	 * @param WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function get_space_feed( WP_REST_Request $request ): WP_REST_Response {
+	public function get_space_feed( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$space_id  = (int) $request->get_param( 'id' );
 		$viewer_id = get_current_user_id();
 		$cursor    = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
 		$per_page  = $request->get_param( 'per_page' ) ? (int) $request->get_param( 'per_page' ) : 20;
+
+		$space = ( new SpaceService() )->get( $space_id );
+		if ( null === $space ) {
+			return new WP_Error(
+				'space_not_found',
+				__( 'Space not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		if ( 'secret' === ( $space['type'] ?? '' ) ) {
+			$is_member = $viewer_id > 0 && ( new SpaceMemberService() )->is_member( $space_id, $viewer_id );
+			if ( ! $is_member && ! user_can( $viewer_id, 'manage_options' ) ) {
+				return new WP_Error(
+					'space_not_found',
+					__( 'Space not found.', 'buddynext' ),
+					array( 'status' => 404 )
+				);
+			}
+		}
 
 		$result = $this->feed_service()->space_feed( $space_id, $viewer_id, $cursor, $per_page );
 

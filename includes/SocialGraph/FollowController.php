@@ -122,27 +122,68 @@ class FollowController {
 	/**
 	 * Return the list of followers for a user.
 	 *
+	 * Bidirectional block list is applied: any user that has blocked the viewer
+	 * (or that the viewer has blocked) is omitted so block boundaries hold even
+	 * on this public endpoint.
+	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
 	public function get_followers( WP_REST_Request $request ): WP_REST_Response {
 		$user_id   = (int) $request->get_param( 'id' );
+		$viewer_id = get_current_user_id();
 		$followers = buddynext_service( 'follows' )->followers( $user_id );
 
-		return new WP_REST_Response( array( 'ids' => $followers ), 200 );
+		return new WP_REST_Response(
+			array( 'ids' => $this->filter_blocked( $followers, $viewer_id ) ),
+			200
+		);
 	}
 
 	/**
 	 * Return the list of users that a given user follows.
+	 *
+	 * Same block-list filter as get_followers().
 	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
 	public function get_following( WP_REST_Request $request ): WP_REST_Response {
 		$user_id   = (int) $request->get_param( 'id' );
+		$viewer_id = get_current_user_id();
 		$following = buddynext_service( 'follows' )->following( $user_id );
 
-		return new WP_REST_Response( array( 'ids' => $following ), 200 );
+		return new WP_REST_Response(
+			array( 'ids' => $this->filter_blocked( $following, $viewer_id ) ),
+			200
+		);
+	}
+
+	/**
+	 * Drop any ID that has a block relationship with the viewer in either direction.
+	 *
+	 * For logged-out viewers (viewer_id === 0) the list is returned untouched —
+	 * there is no relationship to filter against.
+	 *
+	 * @param array<int, int> $ids       List of user IDs from the follow service.
+	 * @param int             $viewer_id Current user (0 if logged out).
+	 * @return array<int, int>
+	 */
+	private function filter_blocked( array $ids, int $viewer_id ): array {
+		if ( $viewer_id <= 0 || empty( $ids ) ) {
+			return array_values( array_map( 'intval', $ids ) );
+		}
+
+		$blocks = buddynext_service( 'blocks' );
+
+		return array_values(
+			array_filter(
+				array_map( 'intval', $ids ),
+				static function ( int $other_id ) use ( $blocks, $viewer_id ): bool {
+					return $other_id === $viewer_id || ! $blocks->is_blocking_either( $viewer_id, $other_id );
+				}
+			)
+		);
 	}
 
 	/**

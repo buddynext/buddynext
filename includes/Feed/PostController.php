@@ -18,6 +18,10 @@ declare( strict_types=1 );
 namespace BuddyNext\Feed;
 
 use BuddyNext\Feed\PostService;
+use BuddyNext\SocialGraph\BlockService;
+use BuddyNext\SocialGraph\FollowService;
+use BuddyNext\Spaces\SpaceMemberService;
+use BuddyNext\Spaces\SpaceService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -127,7 +131,15 @@ class PostController {
 	/**
 	 * Get a single post.
 	 *
-	 * Private posts are only visible to their author.
+	 * Enforces four authorization gates so that a `__return_true` permission
+	 * callback never leaks privacy-restricted content:
+	 *   1. Block list — if either user has blocked the other, return 404 so the
+	 *      post's existence is not disclosed.
+	 *   2. Secret-space membership — posts in spaces of type `secret` are only
+	 *      visible to active space members and site admins.
+	 *   3. Followers-only privacy — `followers` posts are visible to the author
+	 *      and to users following the author at request time.
+	 *   4. Private privacy — `private` posts are visible to the author only.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response|WP_Error
@@ -145,8 +157,55 @@ class PostController {
 		}
 
 		$viewer_id = get_current_user_id();
+		$author_id = (int) ( $post['user_id'] ?? 0 );
 
-		if ( 'private' === $post['privacy'] && $post['user_id'] !== $viewer_id ) {
+		// Gate 1 — block list (bidirectional). Return 404 to avoid existence leak.
+		if ( $viewer_id > 0 && $author_id > 0 && $viewer_id !== $author_id ) {
+			$blocks = function_exists( 'buddynext_service' )
+				? buddynext_service( 'blocks' )
+				: new BlockService();
+			if ( $blocks->is_blocking_either( $viewer_id, $author_id ) ) {
+				return new WP_Error(
+					'post_not_found',
+					__( 'Post not found.', 'buddynext' ),
+					array( 'status' => 404 )
+				);
+			}
+		}
+
+		// Gate 2 — secret-space membership.
+		$space_id = (int) ( $post['space_id'] ?? 0 );
+		if ( $space_id > 0 ) {
+			$space = ( new SpaceService() )->get( $space_id );
+			if ( null !== $space && 'secret' === ( $space['type'] ?? '' ) ) {
+				$is_member = $viewer_id > 0 && ( new SpaceMemberService() )->is_member( $space_id, $viewer_id );
+				if ( ! $is_member && ! user_can( $viewer_id, 'manage_options' ) ) {
+					return new WP_Error(
+						'post_not_found',
+						__( 'Post not found.', 'buddynext' ),
+						array( 'status' => 404 )
+					);
+				}
+			}
+		}
+
+		// Gate 3 — followers-only privacy.
+		if ( 'followers' === $post['privacy'] && $author_id !== $viewer_id ) {
+			$follows     = function_exists( 'buddynext_service' )
+				? buddynext_service( 'follows' )
+				: new FollowService();
+			$is_follower = $viewer_id > 0 && $follows->is_following( $viewer_id, $author_id );
+			if ( ! $is_follower ) {
+				return new WP_Error(
+					'post_forbidden',
+					__( 'You do not have permission to view this post.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+		}
+
+		// Gate 4 — private posts (author-only).
+		if ( 'private' === $post['privacy'] && $author_id !== $viewer_id ) {
 			return new WP_Error(
 				'post_forbidden',
 				__( 'You do not have permission to view this post.', 'buddynext' ),
