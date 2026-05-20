@@ -68,6 +68,7 @@ use BuddyNext\Auth\VerificationService;
 use BuddyNext\Outbound\OutboundWebhookService;
 use BuddyNext\Onboarding\OnboardingListener;
 use BuddyNext\Outbound\OutboundWebhookListener;
+use BuddyNext\Realtime\TransportFactory;
 use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\ConnectionService;
 use BuddyNext\SocialGraph\FollowService;
@@ -632,6 +633,7 @@ class Plugin {
 		$container->bind( 'onboarding', fn() => new \BuddyNext\Onboarding\OnboardingService() );
 		$container->bind( 'invite', fn() => new \BuddyNext\Onboarding\InviteService() );
 		$container->bind( 'setup_wizard', fn() => new \BuddyNext\Onboarding\SetupWizard() );
+		$container->bind( 'realtime', fn() => TransportFactory::current() );
 
 		// Abilities must be registered at plugins_loaded:15 so they are
 		// available before rest_api_init and admin_menu fire.

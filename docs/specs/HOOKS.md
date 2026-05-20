@@ -287,6 +287,26 @@ apply_filters( 'buddynext_brand_logo_url', ?string $url )
 // Default: null (use text / default icon)
 ```
 
+### Real-time transport
+
+```php
+// Filter the active real-time transport.
+// Call via TransportFactory::current() — never instantiate transports directly.
+// The returned value must implement BuddyNext\Realtime\RealtimeTransport.
+// A non-conforming return silently falls back to PollingTransport.
+apply_filters( 'buddynext_realtime_transport', RealtimeTransport $transport )
+// Default: new PollingTransport() (no-op — clients poll via REST)
+//
+// Pro use: Returns a WebSocket-backed transport (Soketi / Ratchet) so events
+// are pushed to connected clients instantly instead of waiting for a poll cycle.
+//
+// Example — Pro WebSocket transport registration:
+//   add_filter(
+//       'buddynext_realtime_transport',
+//       static fn() => new \BuddyNextPro\Realtime\WebSocketTransport( $config )
+//   );
+```
+
 ## Pro Extension Actions (added 2026-05-20)
 
 ```php

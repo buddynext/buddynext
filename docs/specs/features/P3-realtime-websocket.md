@@ -26,7 +26,7 @@ Upgrades the free polling-based real-time approximation to true WebSocket connec
 ## Architecture
 
 - WebSocket server: Ratchet (self-hosted) or Soketi (managed, drop-in Pusher compatible)
-- Swap via `buddynext_messaging_transport` filter — same service layer, different transport
+- Swap via `buddynext_realtime_transport` filter — same service layer, different transport
 - Free tier gracefully degrades to polling when Pro is not active (no broken features, just slower)
 
 ---
