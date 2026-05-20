@@ -94,11 +94,33 @@ class AssetService {
 			self::VERSION
 		);
 
+		// bn-admin.css depends on bn-base.css for the v2 --bn-* token
+		// source (canvas, ink, accent ramp, etc.). Without this, the admin
+		// surface renders against unresolved aliases.
+		wp_register_style(
+			'bn-base',
+			$this->assets_url . 'css/bn-base.css',
+			array( 'bn-fonts' ),
+			self::VERSION
+		);
+
 		wp_enqueue_style(
 			'bn-admin',
 			$this->assets_url . 'css/bn-admin.css',
-			array( 'bn-fonts' ),
+			array( 'bn-fonts', 'bn-base' ),
 			self::VERSION
+		);
+
+		// Stamp v2 theme + density attributes on the admin <html> so the
+		// [data-bn-*] selectors fire on every BuddyNext admin page.
+		add_filter(
+			'language_attributes',
+			static function ( string $output ): string {
+				if ( false !== strpos( $output, 'data-bn-theme=' ) ) {
+					return $output;
+				}
+				return $output . ' data-bn-theme="light" data-bn-density="comfortable"';
+			}
 		);
 	}
 

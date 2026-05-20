@@ -186,6 +186,21 @@ class PageRouter {
 			}
 		);
 
+		// v2 token system reads density/theme/text-scale modes off <html>
+		// via [data-bn-*] selectors. Stamp them through language_attributes
+		// so the v2 attribute API is live before the theme's own
+		// data-theme toggle (if any) fires. Theme-agnostic: the namespaced
+		// data-bn-* attributes never collide with host-theme data-theme.
+		add_filter(
+			'language_attributes',
+			static function ( string $output ): string {
+				if ( false !== strpos( $output, 'data-bn-theme=' ) ) {
+					return $output;
+				}
+				return $output . ' data-bn-theme="light" data-bn-density="comfortable"';
+			}
+		);
+
 		do_action( 'buddynext_before_hub', $hub, $template );
 
 		// htmx partial swap: when request has HX-Request header, return only
