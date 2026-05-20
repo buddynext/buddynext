@@ -973,11 +973,11 @@ class SpaceController {
 		/**
 		 * Fires after a moderator removes a member from a space.
 		 *
-		 * @param int $target_id  User who was removed.
-		 * @param int $space_id   Space ID.
-		 * @param int $actor_id   User who performed the removal.
+		 * @param int $space_id     Space ID.
+		 * @param int $user_id      User who was removed.
+		 * @param int $by_user_id   User who performed the removal.
 		 */
-		do_action( 'buddynext_space_member_removed', $target_id, $space_id, $actor_id );
+		do_action( 'buddynext_space_member_removed', $space_id, $target_id, $actor_id );
 
 		return new WP_REST_Response( array( 'removed' => true ), 200 );
 	}

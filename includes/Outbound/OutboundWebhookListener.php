@@ -35,8 +35,8 @@ class OutboundWebhookListener implements ListenerInterface {
 		add_action( 'buddynext_space_member_left', array( $this, 'on_webhook_space_left' ), 10, 2 );
 		add_action( 'buddynext_connection_accepted', array( $this, 'on_webhook_connection_accepted' ), 10, 3 );
 		add_action( 'buddynext_user_followed', array( $this, 'on_webhook_user_followed' ), 10, 2 );
-		add_action( 'buddynext_reaction_added', array( $this, 'on_webhook_reaction_added' ), 10, 5 );
-		add_action( 'buddynext_comment_created', array( $this, 'on_webhook_comment_created' ), 10, 3 );
+		add_action( 'buddynext_reaction_added', array( $this, 'on_webhook_reaction_added' ), 10, 4 );
+		add_action( 'buddynext_comment_created', array( $this, 'on_webhook_comment_created' ), 10, 4 );
 		add_action( 'buddynext_user_suspended', array( $this, 'on_webhook_user_suspended' ), 10, 4 );
 		add_action( 'buddynext_user_unsuspended', array( $this, 'on_webhook_user_unsuspended' ), 10, 1 );
 		add_action( 'buddynext_ability_granted', array( $this, 'on_webhook_ability_granted' ), 10, 2 );
@@ -103,11 +103,11 @@ class OutboundWebhookListener implements ListenerInterface {
 	/**
 	 * Dispatch space.joined when a user becomes a member of a space.
 	 *
-	 * @param int    $user_id  User who joined.
 	 * @param int    $space_id Space that was joined.
+	 * @param int    $user_id  User who joined.
 	 * @param string $role     Role assigned to the new member.
 	 */
-	public function on_webhook_space_joined( int $user_id, int $space_id, string $role ): void {
+	public function on_webhook_space_joined( int $space_id, int $user_id, string $role ): void {
 		buddynext_service( 'webhooks' )->dispatch(
 			'space.joined',
 			array(
@@ -121,10 +121,10 @@ class OutboundWebhookListener implements ListenerInterface {
 	/**
 	 * Dispatch space.left when a user leaves a space voluntarily.
 	 *
-	 * @param int $user_id  User who left.
 	 * @param int $space_id Space that was left.
+	 * @param int $user_id  User who left.
 	 */
-	public function on_webhook_space_left( int $user_id, int $space_id ): void {
+	public function on_webhook_space_left( int $space_id, int $user_id ): void {
 		buddynext_service( 'webhooks' )->dispatch(
 			'space.left',
 			array(
@@ -178,7 +178,7 @@ class OutboundWebhookListener implements ListenerInterface {
 	 * @param int    $user_id     User who reacted.
 	 * @param string $emoji       Emoji slug used for the reaction.
 	 */
-	public function on_webhook_reaction_added( int $reaction_id, string $object_type, int $object_id, int $user_id, string $emoji ): void {
+	public function on_webhook_reaction_added( string $object_type, int $object_id, int $user_id, string $emoji ): void {
 		buddynext_service( 'webhooks' )->dispatch(
 			'reaction.added',
 			array(
@@ -193,20 +193,21 @@ class OutboundWebhookListener implements ListenerInterface {
 	/**
 	 * Dispatch comment.created when a new comment is posted.
 	 *
-	 * Matches the 3-arg buddynext_comment_created hook:
-	 * comment_id, post_id, user_id.
+	 * Matches the 4-arg buddynext_comment_created hook:
+	 * comment_id, object_type, object_id, user_id.
 	 *
-	 * @param int $comment_id Comment row ID.
-	 * @param int $post_id    Post the comment belongs to.
-	 * @param int $user_id    User who wrote the comment.
+	 * @param int    $comment_id  Comment row ID.
+	 * @param string $object_type Object type ('post', 'media', etc.).
+	 * @param int    $object_id   Object the comment belongs to.
+	 * @param int    $user_id     User who wrote the comment.
 	 */
-	public function on_webhook_comment_created( int $comment_id, int $post_id, int $user_id ): void {
+	public function on_webhook_comment_created( int $comment_id, string $object_type, int $object_id, int $user_id ): void {
 		buddynext_service( 'webhooks' )->dispatch(
 			'comment.created',
 			array(
 				'comment_id'  => $comment_id,
-				'object_type' => 'post',
-				'object_id'   => $post_id,
+				'object_type' => $object_type,
+				'object_id'   => $object_id,
 				'user_id'     => $user_id,
 			)
 		);

@@ -71,6 +71,10 @@ if ( ! class_exists( 'WCB_Career_Board' ) ) {
 if ( ! class_exists( 'Jetonomy\Core\Plugin' ) ) {
 	class_alias( BuddyNext_Test_Addon_Stub::class, 'Jetonomy\Core\Plugin' );
 }
+if ( ! class_exists( 'Jetonomy\Jetonomy' ) ) {
+	// JetonomyBridge::init() guards on the unprefixed class name.
+	class_alias( BuddyNext_Test_Addon_Stub::class, 'Jetonomy\Jetonomy' );
+}
 if ( ! class_exists( 'WBGamification\Plugin' ) ) {
 	class_alias( BuddyNext_Test_Addon_Stub::class, 'WBGamification\Plugin' );
 }

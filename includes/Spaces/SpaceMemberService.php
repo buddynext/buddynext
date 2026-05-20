@@ -115,11 +115,11 @@ class SpaceMemberService {
 		/**
 		 * Fires after a user becomes an active space member.
 		 *
-		 * @param int    $user_id  Joining user.
 		 * @param int    $space_id Space joined.
+		 * @param int    $user_id  Joining user.
 		 * @param string $role     Member role assigned (always 'member' on direct join).
 		 */
-		do_action( 'buddynext_space_member_joined', $user_id, $space_id, 'member' );
+		do_action( 'buddynext_space_member_joined', $space_id, $user_id, 'member' );
 
 		return true;
 	}
@@ -302,19 +302,20 @@ class SpaceMemberService {
 		/**
 		 * Fires after a join request is approved.
 		 *
-		 * @param int $user_id   Newly approved member.
-		 * @param int $space_id  Space ID.
+		 * @param int $space_id    Space ID.
+		 * @param int $user_id     Newly approved member.
+		 * @param int $by_user_id  Moderator / owner who approved the request.
 		 */
-		do_action( 'buddynext_space_join_approved', $user_id, $space_id );
+		do_action( 'buddynext_space_join_approved', $space_id, $user_id, $actor_id );
 
 		/**
 		 * Fires after a user becomes an active space member (via approval).
 		 *
-		 * @param int    $user_id  Joining user.
 		 * @param int    $space_id Space joined.
+		 * @param int    $user_id  Joining user.
 		 * @param string $role     Member role assigned.
 		 */
-		do_action( 'buddynext_space_member_joined', $user_id, $space_id, 'member' );
+		do_action( 'buddynext_space_member_joined', $space_id, $user_id, 'member' );
 
 		return true;
 	}
@@ -466,11 +467,11 @@ class SpaceMemberService {
 		/**
 		 * Fires after a user is banned from a space by a moderator.
 		 *
-		 * @param int $user_id   Removed user.
-		 * @param int $space_id  Space ID.
-		 * @param int $actor_id  User who performed the removal.
+		 * @param int $space_id     Space ID.
+		 * @param int $user_id      Removed user.
+		 * @param int $by_user_id   User who performed the removal.
 		 */
-		do_action( 'buddynext_space_member_removed', $user_id, $space_id, $actor_id );
+		do_action( 'buddynext_space_member_removed', $space_id, $user_id, $actor_id );
 
 		return true;
 	}
@@ -516,10 +517,10 @@ class SpaceMemberService {
 			/**
 			 * Fires after a user leaves a space.
 			 *
-			 * @param int $user_id  User who left.
 			 * @param int $space_id Space left.
+			 * @param int $user_id  User who left.
 			 */
-			do_action( 'buddynext_space_member_left', $user_id, $space_id );
+			do_action( 'buddynext_space_member_left', $space_id, $user_id );
 		}
 
 		return true;

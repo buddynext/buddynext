@@ -67,12 +67,26 @@ class PollServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 2, $option_a['vote_count'] );
 	}
 
-	public function test_vote_returns_error_on_duplicate(): void {
+	public function test_repeat_vote_on_same_option_toggles_off(): void {
+		// First vote — counts as a vote for option A.
 		$this->service->vote( $this->bob, $this->poll_id, $this->option_a );
-		$result = $this->service->vote( $this->bob, $this->poll_id, $this->option_a );
 
-		$this->assertWPError( $result );
-		$this->assertSame( 'already_voted', $result->get_error_code() );
+		// Same option a second time — service treats this as "un-vote" toggle.
+		$result = $this->service->vote( $this->bob, $this->poll_id, $this->option_a );
+		$this->assertTrue( $result );
+
+		// After toggling off, the user's vote should be cleared and the option
+		// count back to whatever it was before bob voted.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT option_id FROM {$wpdb->prefix}bn_poll_votes WHERE post_id = %d AND user_id = %d",
+				$this->poll_id,
+				$this->bob
+			)
+		);
+		$this->assertNull( $row, 'Bob should no longer have a vote row after toggling.' );
 	}
 
 	public function test_vote_returns_error_for_wrong_post(): void {

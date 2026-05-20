@@ -36,8 +36,8 @@ class NotificationListener implements ListenerInterface {
 		add_action( 'buddynext_connection_accepted', array( $this, 'on_connection_accepted' ), 10, 3 );
 
 		// Activity Feed.
-		add_action( 'buddynext_reaction_added', array( $this, 'on_reaction_added' ), 10, 5 );
-		add_action( 'buddynext_comment_created', array( $this, 'on_comment_created' ), 10, 3 );
+		add_action( 'buddynext_reaction_added', array( $this, 'on_reaction_added' ), 10, 4 );
+		add_action( 'buddynext_comment_created', array( $this, 'on_comment_created' ), 10, 4 );
 		add_action( 'buddynext_post_shared', array( $this, 'on_post_shared' ), 10, 2 );
 		add_action( 'buddynext_user_mentioned', array( $this, 'on_user_mentioned' ), 10, 3 );
 
@@ -195,7 +195,7 @@ class NotificationListener implements ListenerInterface {
 	 * @param int    $user_id     User who reacted.
 	 * @param string $emoji       Emoji slug used for the reaction.
 	 */
-	public function on_reaction_added( int $reaction_id, string $object_type, int $object_id, int $user_id, string $emoji ): void {
+	public function on_reaction_added( string $object_type, int $object_id, int $user_id, string $emoji ): void {
 		if ( 'post' !== $object_type ) {
 			return;
 		}
@@ -238,11 +238,21 @@ class NotificationListener implements ListenerInterface {
 	/**
 	 * Notify the post owner when someone comments on their content.
 	 *
-	 * @param int $comment_id ID of the new comment.
-	 * @param int $post_id    Post that was commented on.
-	 * @param int $user_id    User who commented.
+	 * Only handles 'post' object types; comments on other surfaces (e.g. media)
+	 * route through their own listeners.
+	 *
+	 * @param int    $comment_id  ID of the new comment.
+	 * @param string $object_type Object type the comment is attached to.
+	 * @param int    $object_id   Object that was commented on.
+	 * @param int    $user_id     User who commented.
 	 */
-	public function on_comment_created( int $comment_id, int $post_id, int $user_id ): void {
+	public function on_comment_created( int $comment_id, string $object_type, int $object_id, int $user_id ): void {
+		if ( 'post' !== $object_type ) {
+			return;
+		}
+
+		$post_id = $object_id;
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

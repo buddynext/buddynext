@@ -38,11 +38,17 @@ class BlockServiceTest extends \WP_UnitTestCase {
 		$this->assertTrue( $this->service->is_blocked( $this->alice, $this->bob ) );
 	}
 
-	public function test_block_is_asymmetric(): void {
+	public function test_has_blocked_is_asymmetric(): void {
 		$this->service->block( $this->alice, $this->bob );
 
+		// has_blocked() is the directional check — only true for the blocker.
+		$this->assertTrue( $this->service->has_blocked( $this->alice, $this->bob ) );
+		$this->assertFalse( $this->service->has_blocked( $this->bob, $this->alice ) );
+
+		// is_blocked() is bidirectional per spec 01-social-graph — both sides
+		// see the relationship so neither can interact with the other.
 		$this->assertTrue( $this->service->is_blocked( $this->alice, $this->bob ) );
-		$this->assertFalse( $this->service->is_blocked( $this->bob, $this->alice ) );
+		$this->assertTrue( $this->service->is_blocked( $this->bob, $this->alice ) );
 	}
 
 	public function test_cannot_block_self(): void {

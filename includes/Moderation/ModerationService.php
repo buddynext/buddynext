@@ -98,11 +98,11 @@ class ModerationService {
 		 * Fires after a report is submitted.
 		 *
 		 * @param int    $report_id   New report ID.
-		 * @param int    $reporter_id User who submitted the report.
 		 * @param string $object_type Object type reported.
 		 * @param int    $object_id   Object ID reported.
+		 * @param int    $reporter_id User who submitted the report.
 		 */
-		do_action( 'buddynext_report_created', $report_id, $reporter_id, sanitize_key( $object_type ), $object_id );
+		do_action( 'buddynext_report_created', $report_id, sanitize_key( $object_type ), $object_id, $reporter_id );
 
 		return $report_id;
 	}

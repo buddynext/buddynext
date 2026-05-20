@@ -34,8 +34,20 @@ class CareerBoardBridgeTest extends \WP_UnitTestCase {
 	public function test_application_submitted_notifies_employer(): void {
 		global $wpdb;
 
-		// wcb_application_submitted( $app_id, $job_id, $candidate_id, $employer_id ).
-		do_action( 'wcb_application_submitted', 1, 10, $this->candidate_id, $this->employer_id );
+		// Bridge resolves the employer from the job post's author. Create a
+		// real WP post owned by the employer so get_post_field returns the
+		// expected user ID.
+		$job_id = self::factory()->post->create(
+			array(
+				'post_author' => $this->employer_id,
+				'post_type'   => 'post',
+				'post_status' => 'publish',
+				'post_title'  => 'Senior PHP Developer',
+			)
+		);
+
+		// wcb_application_submitted( $app_id, $job_id, $candidate_id ) — 3 args.
+		do_action( 'wcb_application_submitted', 1, $job_id, $this->candidate_id );
 
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -68,8 +80,17 @@ class CareerBoardBridgeTest extends \WP_UnitTestCase {
 	public function test_job_created_indexes_in_search(): void {
 		global $wpdb;
 
-		// wcb_job_created( $job_id, $employer_id, $title, $description ).
-		do_action( 'wcb_job_created', 55, $this->employer_id, 'Senior PHP Developer', 'Job description.' );
+		// wcb_job_created( $job_id, $job_data, $user_id ) — 3 args; title and
+		// description are extracted from the $job_data associative array.
+		do_action(
+			'wcb_job_created',
+			55,
+			array(
+				'title'       => 'Senior PHP Developer',
+				'description' => 'Job description.',
+			),
+			$this->employer_id
+		);
 
 		$count = (int) $wpdb->get_var(
 			$wpdb->prepare(

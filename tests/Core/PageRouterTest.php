@@ -149,28 +149,40 @@ class PageRouterTest extends \WP_UnitTestCase {
 	// ── request filter ────────────────────────────────────────────────────────
 
 	/**
-	 * Request filter sets p to the hub page ID when bn_hub is present.
+	 * Request filter blanks slug-based query vars when bn_hub is present so the
+	 * default WP_Query resolves to "no posts" — the actual hub template is
+	 * rendered later by dispatch_hub_template() during template_redirect.
 	 *
 	 * @return void
 	 */
-	public function test_suppress_query_sets_p_when_bn_hub_set(): void {
-		update_option( 'buddynext_page_activity', 99 );
-		$result = $this->router->suppress_default_query( array( 'bn_hub' => 'feed' ) );
-		$this->assertSame( 99, $result['p'] );
-		$this->assertSame( 'page', $result['post_type'] );
+	public function test_suppress_query_strips_slug_lookups_when_bn_hub_set(): void {
+		$result = $this->router->suppress_default_query(
+			array(
+				'bn_hub'   => 'feed',
+				'pagename' => 'activity',
+				'name'     => 'activity',
+				'page'     => 1,
+			)
+		);
+
+		$this->assertSame( array( 0 ), $result['post__in'] );
 		$this->assertArrayNotHasKey( 'pagename', $result );
-		delete_option( 'buddynext_page_activity' );
+		$this->assertArrayNotHasKey( 'name', $result );
+		$this->assertArrayNotHasKey( 'page', $result );
 	}
 
 	/**
-	 * Request filter sets p to -1 when the page option is not configured.
+	 * Suppression is independent of whether the hub's page option is set —
+	 * the new implementation never consults the option here. The fallback
+	 * (-1 / not-found) path is handled by dispatch_hub_template(), not the
+	 * request filter.
 	 *
 	 * @return void
 	 */
-	public function test_suppress_query_sets_p_minus_one_when_page_not_configured(): void {
+	public function test_suppress_query_does_not_depend_on_page_option(): void {
 		delete_option( 'buddynext_page_activity' );
 		$result = $this->router->suppress_default_query( array( 'bn_hub' => 'feed' ) );
-		$this->assertSame( -1, $result['p'] );
+		$this->assertSame( array( 0 ), $result['post__in'] );
 	}
 
 	/**

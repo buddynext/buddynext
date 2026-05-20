@@ -73,12 +73,12 @@ class ReactionService {
 			/**
 			 * Fires after a reaction is added to an object.
 			 *
-			 * @param int    $reaction_id ID of the newly inserted row in bn_reactions.
-			 * @param int    $post_id     Object ID (post, comment, etc.).
+			 * @param string $object_type Object type ('post', 'comment', etc.).
+			 * @param int    $object_id   Object ID.
 			 * @param int    $user_id     Reacting user.
 			 * @param string $emoji       Emoji identifier.
 			 */
-			do_action( 'buddynext_reaction_added', $reaction_id, $object_type, $object_id, $user_id, $emoji );
+			do_action( 'buddynext_reaction_added', $object_type, $object_id, $user_id, $emoji );
 		}
 
 		return true;
@@ -130,11 +130,11 @@ class ReactionService {
 			/**
 			 * Fires after a reaction is removed from an object.
 			 *
-			 * @param int    $post_id Object ID (post, comment, etc.).
-			 * @param int    $user_id User who removed their reaction.
-			 * @param string $emoji   Emoji identifier that was removed.
+			 * @param string $object_type Object type ('post', 'comment', etc.).
+			 * @param int    $object_id   Object ID.
+			 * @param int    $user_id     User who removed their reaction.
 			 */
-			do_action( 'buddynext_reaction_removed', $object_id, $user_id, $emoji );
+			do_action( 'buddynext_reaction_removed', $object_type, $object_id, $user_id );
 		}
 
 		$this->invalidate_cache( $object_type, $object_id, $user_id );
