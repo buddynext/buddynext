@@ -166,7 +166,8 @@ class PostService {
 		do_action( 'buddynext_post_created', $post_id, $user_id, $type );
 
 		// Parse @username mentions and fire buddynext_user_mentioned for each.
-		if ( $content ) {
+		$content = (string) ( $data['content'] ?? '' );
+		if ( '' !== $content ) {
 			preg_match_all( '/@([a-zA-Z0-9_-]+)/u', $content, $mention_matches );
 			foreach ( $mention_matches[1] as $raw_username ) {
 				$username       = sanitize_user( (string) $raw_username, true );

@@ -105,11 +105,15 @@ if [ ! -f "$WP_TESTS_DIR/wp-tests-config.php" ]; then
 		"https://develop.svn.wordpress.org/${WP_TESTS_TAG}/wp-tests-config-sample.php" \
 		"$WP_TESTS_DIR/wp-tests-config.php"
 
-	sed -i "s|dirname( __FILE__ ) . '/src/'|'${WP_CORE_DIR}/'|" "$WP_TESTS_DIR/wp-tests-config.php"
-	sed -i "s|youremptytestdbnamehere|${DB_NAME}|"               "$WP_TESTS_DIR/wp-tests-config.php"
-	sed -i "s|yourusernamehere|${DB_USER}|"                      "$WP_TESTS_DIR/wp-tests-config.php"
-	sed -i "s|yourpasswordhere|${DB_PASS}|"                      "$WP_TESTS_DIR/wp-tests-config.php"
-	sed -i "s|localhost|${DB_HOST}|"                             "$WP_TESTS_DIR/wp-tests-config.php"
+	# sed -i has incompatible BSD (macOS) and GNU forms — use -i.bak then
+	# remove the backup for portability across both.
+	SED_INPLACE=( -i.bak )
+	sed "${SED_INPLACE[@]}" "s|dirname( __FILE__ ) . '/src/'|'${WP_CORE_DIR}/'|" "$WP_TESTS_DIR/wp-tests-config.php"
+	sed "${SED_INPLACE[@]}" "s|youremptytestdbnamehere|${DB_NAME}|"               "$WP_TESTS_DIR/wp-tests-config.php"
+	sed "${SED_INPLACE[@]}" "s|yourusernamehere|${DB_USER}|"                      "$WP_TESTS_DIR/wp-tests-config.php"
+	sed "${SED_INPLACE[@]}" "s|yourpasswordhere|${DB_PASS}|"                      "$WP_TESTS_DIR/wp-tests-config.php"
+	sed "${SED_INPLACE[@]}" "s|localhost|${DB_HOST}|"                             "$WP_TESTS_DIR/wp-tests-config.php"
+	rm -f "$WP_TESTS_DIR/wp-tests-config.php.bak"
 fi
 
 # ---------------------------------------------------------------------------
