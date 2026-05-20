@@ -895,7 +895,7 @@ textarea.bn-text-input {
 														<button
 															type="submit"
 															class="bn-btn-action bn-btn-action--danger"
-															onclick="return confirm('<?php echo esc_js( __( 'Remove this member from the space?', 'buddynext' ) ); ?>')"
+															data-bn-confirm="<?php echo esc_attr( __( 'Remove this member from the space?', 'buddynext' ) ); ?>"
 														>
 															<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 														</button>
@@ -908,7 +908,7 @@ textarea.bn-text-input {
 														<button
 															type="submit"
 															class="bn-btn-action bn-btn-action--danger"
-															onclick="return confirm('<?php echo esc_js( __( 'Ban this member? They will not be able to rejoin.', 'buddynext' ) ); ?>')"
+															data-bn-confirm="<?php echo esc_attr( __( 'Ban this member? They will not be able to rejoin.', 'buddynext' ) ); ?>"
 														>
 															<?php esc_html_e( 'Ban', 'buddynext' ); ?>
 														</button>
@@ -1261,3 +1261,14 @@ textarea.bn-text-input {
 		</div>
 	</div>
 </div>
+<script>
+/* Delegated confirm handler for data-bn-confirm buttons in spaces settings. */
+document.addEventListener('click', function (e) {
+	var t = e.target.closest('[data-bn-confirm]');
+	if (!t) return;
+	if (!window.confirm(t.dataset.bnConfirm)) {
+		e.preventDefault();
+		e.stopImmediatePropagation();
+	}
+}, true);
+</script>

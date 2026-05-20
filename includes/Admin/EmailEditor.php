@@ -695,7 +695,7 @@ class EmailEditor {
 								foreach ( $tokens as $token ) :
 									$desc = str_replace( array( '{{', '}}', '_' ), array( '', '', ' ' ), $token );
 									?>
-								<button type="button" class="bn-token" onclick="document.getElementById('bn-body').value += '<?php echo esc_js( $token ); ?>';">
+								<button type="button" class="bn-token" data-bn-token="<?php echo esc_attr( $token ); ?>">
 									<?php echo esc_html( $token ); ?>
 									<span class="bn-token-desc"><?php echo esc_html( ucfirst( $desc ) ); ?></span>
 								</button>
@@ -737,6 +737,17 @@ class EmailEditor {
 
 		</div><!-- .bn-email-shell -->
 		</div><!-- .wrap -->
+		<script>
+		document.addEventListener('click', function (e) {
+			var t = e.target.closest('[data-bn-token]');
+			if (!t) return;
+			var body = document.getElementById('bn-body');
+			if (body) {
+				body.value += t.dataset.bnToken;
+				body.focus();
+			}
+		});
+		</script>
 		<?php
 	}
 }

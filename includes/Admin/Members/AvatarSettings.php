@@ -152,6 +152,16 @@ class AvatarSettings {
 				openMediaPicker('bn_default_cover_url', 'bn-cover-preview');
 			});
 		});
+
+		// Delegated confirm handler — replaces inline confirm dialogs (F2 compliance).
+		document.addEventListener('click', function (e) {
+			var t = e.target.closest('[data-bn-confirm]');
+			if (!t) return;
+			if (!window.confirm(t.dataset.bnConfirm)) {
+				e.preventDefault();
+				e.stopImmediatePropagation();
+			}
+		}, true);
 		</script>
 
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
@@ -293,7 +303,7 @@ class AvatarSettings {
 							<?php if ( '' !== $current_url ) : ?>
 								<button type="submit" name="bn_remove_default_avatar" value="1"
 									class="button bn-btn-danger"
-									onclick="return confirm('<?php echo esc_js( __( 'Remove the default avatar?', 'buddynext' ) ); ?>')">
+									data-bn-confirm="<?php echo esc_attr( __( 'Remove the default avatar?', 'buddynext' ) ); ?>">
 									<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 								</button>
 							<?php endif; ?>
@@ -344,7 +354,7 @@ class AvatarSettings {
 							<?php if ( '' !== $current_url ) : ?>
 								<button type="submit" name="bn_remove_default_cover" value="1"
 									class="button bn-btn-danger"
-									onclick="return confirm('<?php echo esc_js( __( 'Remove the default cover?', 'buddynext' ) ); ?>')">
+									data-bn-confirm="<?php echo esc_attr( __( 'Remove the default cover?', 'buddynext' ) ); ?>">
 									<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 								</button>
 							<?php endif; ?>

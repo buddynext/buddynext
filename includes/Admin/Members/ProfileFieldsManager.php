@@ -966,7 +966,7 @@ class ProfileFieldsManager {
 
 						<a href="#<?php echo esc_attr( $panel_id ); ?>"
 							class="bn-pf-add-btn"
-							onclick="event.preventDefault();bnPfToggle('<?php echo esc_js( $panel_id ); ?>');">
+							data-bn-pf-toggle="<?php echo esc_attr( $panel_id ); ?>">
 							+ <?php esc_html_e( 'Add Field', 'buddynext' ); ?>
 						</a>
 
@@ -1079,7 +1079,7 @@ class ProfileFieldsManager {
 								<td>
 									<div class="bn-pf-action-cell">
 										<button type="button" class="bn-pf-edit-btn"
-											onclick="bnPfToggleEdit('bn-ef-row-<?php echo absint( $fid ); ?>')"
+											data-bn-pf-toggle-edit="bn-ef-row-<?php echo absint( $fid ); ?>"
 											title="<?php esc_attr_e( 'Edit field', 'buddynext' ); ?>"><?php buddynext_icon( 'edit' ); ?></button>
 										<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="margin:0;" class="bn-del-form">
 											<input type="hidden" name="action" value="bn_delete_profile_field">
@@ -1169,7 +1169,7 @@ class ProfileFieldsManager {
 											</div>
 											<div class="bn-pf-af-actions">
 												<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Changes', 'buddynext' ); ?></button>
-												<button type="button" class="button" onclick="bnPfToggleEdit('<?php echo esc_js( $edit_panel_id ); ?>')"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+												<button type="button" class="button" data-bn-pf-toggle-edit="<?php echo esc_attr( $edit_panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 											</div>
 										</form>
 									</div>
@@ -1246,7 +1246,7 @@ class ProfileFieldsManager {
 						</div>
 						<div class="bn-pf-af-actions">
 							<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Field', 'buddynext' ); ?></button>
-							<button type="button" class="button" onclick="bnPfToggle('<?php echo esc_js( $panel_id ); ?>')"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+							<button type="button" class="button" data-bn-pf-toggle="<?php echo esc_attr( $panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 						</div>
 					</form>
 				</div><!-- .bn-pf-af-panel -->
@@ -1338,6 +1338,21 @@ class ProfileFieldsManager {
 			if (optWrap)  { optWrap.style.display  = BN_CHOICE_TYPES.indexOf(type) >= 0 ? 'block' : 'none'; }
 			if (dateWrap) { dateWrap.style.display = BN_DATE_TYPES.indexOf(type) >= 0 ? 'block' : 'none'; }
 		}
+
+		// Delegated handlers for data-bn-pf-toggle and data-bn-pf-toggle-edit attributes.
+		document.addEventListener('click', function(e) {
+			var toggleEl = e.target.closest('[data-bn-pf-toggle]');
+			if (toggleEl) {
+				e.preventDefault();
+				bnPfToggle(toggleEl.dataset.bnPfToggle);
+				return;
+			}
+			var toggleEditEl = e.target.closest('[data-bn-pf-toggle-edit]');
+			if (toggleEditEl) {
+				bnPfToggleEdit(toggleEditEl.dataset.bnPfToggleEdit);
+				return;
+			}
+		});
 
 		// Inline two-step delete confirmation — no browser dialogs.
 		document.addEventListener('click', function(e) {

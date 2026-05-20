@@ -247,6 +247,16 @@ class MemberTypesManager {
 				document.querySelectorAll('.bn-more-menu.open').forEach(function(m) { m.classList.remove('open'); });
 			});
 		});
+
+		// Delegated confirm handler — replaces inline confirm dialogs (F2 compliance).
+		document.addEventListener('click', function (e) {
+			var t = e.target.closest('[data-bn-confirm]');
+			if (!t) return;
+			if (!window.confirm(t.dataset.bnConfirm)) {
+				e.preventDefault();
+				e.stopImmediatePropagation();
+			}
+		}, true);
 		</script>
 
 		<?php /* ── Create / Edit form ── */ ?>
@@ -421,10 +431,10 @@ class MemberTypesManager {
 												<input type="hidden" name="type_id" value="<?php echo esc_attr( $t['id'] ); ?>">
 												<?php
 												/* translators: 1: member type name, 2: number of assignments */
-												$confirm_msg = esc_js( sprintf( __( 'Delete "%1$s"? All %2$d member assignments will be removed.', 'buddynext' ), $t['name'], (int) ( $t['member_count'] ?? 0 ) ) );
+												$confirm_msg = esc_attr( sprintf( __( 'Delete "%1$s"? All %2$d member assignments will be removed.', 'buddynext' ), $t['name'], (int) ( $t['member_count'] ?? 0 ) ) );
 												?>
 												<button type="submit" class="bn-dropdown-item bn-dropdown-danger"
-													onclick="return confirm('<?php echo $confirm_msg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_js() applied above ?>')">
+													data-bn-confirm="<?php echo $confirm_msg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_attr() applied above ?>">
 													<?php esc_html_e( 'Delete', 'buddynext' ); ?>
 												</button>
 											</form>

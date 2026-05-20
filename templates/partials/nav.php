@@ -297,96 +297,113 @@ if ( ! $bn_nav_css_output ) :
 		syncButtons(saved);
 	}
 
-	window.bnSetFontScale = function (s) {
+	// Delegated handler for font-scale buttons (replaces inline onclick).
+	document.addEventListener('click', function (e) {
+		var t = e.target.closest('.bn-font-scale__btn');
+		if (!t) return;
+		var s = t.dataset.scale;
 		if (scales.indexOf(s) !== -1) {
 			document.documentElement.setAttribute('data-bn-font-scale', s);
 			try { localStorage.setItem('bn_font_scale', s); } catch (_) {}
 			syncButtons(s);
 		}
-	};
+	});
 })();
 
-/* ── Notification dropdown ── */
-window.bnToggleNotifDropdown = function(btn) {
-	var wrap = btn.closest('.bn-nav-notif-wrap');
-	var dd   = wrap.querySelector('.bn-notif-dropdown');
-	var open = !dd.hidden;
-	dd.hidden = open;
-	btn.setAttribute('aria-expanded', open ? 'false' : 'true');
-	if (!open && !dd.dataset.loaded) {
-		dd.dataset.loaded = '1';
-		fetch('<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ); ?>', {
-			headers: { 'X-WP-Nonce': '<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>' }
-		}).then(function(r) { return r.json(); }).then(function(data) {
-			var list = document.getElementById('bn-notif-dropdown-list');
-			if (!list) return;
-			var items = data.items || data;
-			if (!items.length) {
+/* ── Notification dropdown — delegated handlers ── */
+(function () {
+	function bnOpenNotifDropdown(btn) {
+		var wrap = btn.closest('.bn-nav-notif-wrap');
+		var dd   = wrap ? wrap.querySelector('.bn-notif-dropdown') : null;
+		if (!dd) return;
+		var open = !dd.hidden;
+		dd.hidden = open;
+		btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+		if (!open && !dd.dataset.loaded) {
+			dd.dataset.loaded = '1';
+			fetch('<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ); ?>', {
+				headers: { 'X-WP-Nonce': '<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>' }
+			}).then(function(r) { return r.json(); }).then(function(data) {
+				var list = document.getElementById('bn-notif-dropdown-list');
+				if (!list) return;
+				var items = data.items || data;
+				if (!items.length) {
+					list.textContent = '';
+					var empty = document.createElement('div');
+					empty.className = 'bn-notif-dropdown__loading';
+					empty.textContent = 'No notifications yet';
+					list.appendChild(empty);
+					return;
+				}
 				list.textContent = '';
-				var empty = document.createElement('div');
-				empty.className = 'bn-notif-dropdown__loading';
-				empty.textContent = 'No notifications yet';
-				list.appendChild(empty);
-				return;
-			}
-			list.textContent = '';
-			items.forEach(function(n) {
-				var div    = document.createElement('div');
-				div.className = 'bn-notif-dropdown__item' + (n.is_read ? '' : ' bn-notif-dropdown__item--unread');
-				var avatar = document.createElement('div');
-				avatar.className = 'bn-notif-dropdown__avatar';
-				avatar.textContent = (n.sender_name || 'U').split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
-				var body   = document.createElement('div');
-				body.className = 'bn-notif-dropdown__body';
-				var text   = document.createElement('div');
-				text.className = 'bn-notif-dropdown__text';
-				var strong = document.createElement('strong');
-				strong.textContent = n.sender_name || '';
-				text.appendChild(strong);
-				text.appendChild(document.createTextNode(' ' + (n.message || n.type || '')));
-				var time   = document.createElement('div');
-				time.className = 'bn-notif-dropdown__time';
-				time.textContent = n.time_ago || '';
-				body.appendChild(text);
-				body.appendChild(time);
-				div.appendChild(avatar);
-				div.appendChild(body);
-				list.appendChild(div);
+				items.forEach(function(n) {
+					var div    = document.createElement('div');
+					div.className = 'bn-notif-dropdown__item' + (n.is_read ? '' : ' bn-notif-dropdown__item--unread');
+					var avatar = document.createElement('div');
+					avatar.className = 'bn-notif-dropdown__avatar';
+					avatar.textContent = (n.sender_name || 'U').split(' ').map(function(w){return w[0];}).join('').toUpperCase().slice(0,2);
+					var body   = document.createElement('div');
+					body.className = 'bn-notif-dropdown__body';
+					var text   = document.createElement('div');
+					text.className = 'bn-notif-dropdown__text';
+					var strong = document.createElement('strong');
+					strong.textContent = n.sender_name || '';
+					text.appendChild(strong);
+					text.appendChild(document.createTextNode(' ' + (n.message || n.type || '')));
+					var time   = document.createElement('div');
+					time.className = 'bn-notif-dropdown__time';
+					time.textContent = n.time_ago || '';
+					body.appendChild(text);
+					body.appendChild(time);
+					div.appendChild(avatar);
+					div.appendChild(body);
+					list.appendChild(div);
+				});
+			}).catch(function() {
+				var list = document.getElementById('bn-notif-dropdown-list');
+				if (list) {
+					list.textContent = '';
+					var err = document.createElement('div');
+					err.className = 'bn-notif-dropdown__loading';
+					err.textContent = 'Could not load';
+					list.appendChild(err);
+				}
 			});
-		}).catch(function() {
-			var list = document.getElementById('bn-notif-dropdown-list');
-			if (list) {
-				list.textContent = '';
-				var err = document.createElement('div');
-				err.className = 'bn-notif-dropdown__loading';
-				err.textContent = 'Could not load';
-				list.appendChild(err);
-			}
-		});
+		}
 	}
-};
-document.addEventListener('click', function(e) {
-	var wrap = document.querySelector('.bn-nav-notif-wrap');
-	if (wrap && !wrap.contains(e.target)) {
-		var dd = wrap.querySelector('.bn-notif-dropdown');
-		if (dd) { dd.hidden = true; }
-		var btn = wrap.querySelector('[aria-expanded]');
-		if (btn) { btn.setAttribute('aria-expanded', 'false'); }
-	}
-});
-window.bnMarkAllRead = function() {
-	fetch('<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications/read-all' ) ); ?>', {
-		method: 'PUT',
-		headers: { 'X-WP-Nonce': '<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>' }
-	}).then(function() {
-		var pill = document.querySelector('.bn-nav-notif-wrap .bn-nav-pill');
-		if (pill) pill.remove();
-		document.querySelectorAll('.bn-notif-dropdown__item--unread').forEach(function(el) {
-			el.classList.remove('bn-notif-dropdown__item--unread');
-		});
-		if (window.bnToast) { window.bnToast('All notifications marked read'); }
+
+	// Toggle dropdown on button click.
+	document.addEventListener('click', function(e) {
+		var t = e.target.closest('[data-bn-action="toggle-notif-dropdown"]');
+		if (t) { bnOpenNotifDropdown(t); return; }
+
+		// Mark all read.
+		var m = e.target.closest('[data-bn-action="mark-all-read"]');
+		if (m) {
+			fetch('<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications/read-all' ) ); ?>', {
+				method: 'PUT',
+				headers: { 'X-WP-Nonce': '<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>' }
+			}).then(function() {
+				var pill = document.querySelector('.bn-nav-notif-wrap .bn-nav-pill');
+				if (pill) pill.remove();
+				document.querySelectorAll('.bn-notif-dropdown__item--unread').forEach(function(el) {
+					el.classList.remove('bn-notif-dropdown__item--unread');
+				});
+				if (window.bnToast) { window.bnToast('All notifications marked read'); }
+			});
+			return;
+		}
+
+		// Close dropdown when clicking outside.
+		var wrap = document.querySelector('.bn-nav-notif-wrap');
+		if (wrap && !wrap.contains(e.target)) {
+			var dd = wrap.querySelector('.bn-notif-dropdown');
+			if (dd) { dd.hidden = true; }
+			var btn = wrap.querySelector('[aria-expanded]');
+			if (btn) { btn.setAttribute('aria-expanded', 'false'); }
+		}
 	});
-};
+}());
 
 /* ── Search overlay (cmd+K) ── */
 window.bnSearchOverlay = {
@@ -789,7 +806,7 @@ window.bnToast = function(msg, type) {
 		<div class="bn-nav-notif-wrap">
 			<button type="button"
 				class="bn-nav-item<?php echo 'notifications' === $bn_nav_active ? ' bn-nav-active' : ''; ?>"
-				onclick="bnToggleNotifDropdown(this)"
+				data-bn-action="toggle-notif-dropdown"
 				aria-expanded="false"
 				aria-haspopup="true">
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -802,7 +819,7 @@ window.bnToast = function(msg, type) {
 				<div class="bn-notif-dropdown__header">
 					<span class="bn-notif-dropdown__title"><?php esc_html_e( 'Notifications', 'buddynext' ); ?></span>
 					<?php if ( $bn_unread_notifs > 0 ) : ?>
-						<button type="button" class="bn-notif-dropdown__mark-read" onclick="bnMarkAllRead()"><?php esc_html_e( 'Mark all read', 'buddynext' ); ?></button>
+						<button type="button" class="bn-notif-dropdown__mark-read" data-bn-action="mark-all-read"><?php esc_html_e( 'Mark all read', 'buddynext' ); ?></button>
 					<?php endif; ?>
 				</div>
 				<div class="bn-notif-dropdown__list" id="bn-notif-dropdown-list">
@@ -826,9 +843,9 @@ window.bnToast = function(msg, type) {
 
 		<div class="bn-subnav-right">
 			<div class="bn-font-scale" role="group" aria-label="<?php esc_attr_e( 'Font size', 'buddynext' ); ?>">
-				<button class="bn-font-scale__btn active" type="button" data-scale="100" onclick="bnSetFontScale('100')" aria-label="<?php esc_attr_e( 'Default font size', 'buddynext' ); ?>">A</button>
-				<button class="bn-font-scale__btn" type="button" data-scale="110" onclick="bnSetFontScale('110')" aria-label="<?php esc_attr_e( 'Large font size', 'buddynext' ); ?>">A+</button>
-				<button class="bn-font-scale__btn" type="button" data-scale="120" onclick="bnSetFontScale('120')" aria-label="<?php esc_attr_e( 'Extra large font size', 'buddynext' ); ?>">A++</button>
+				<button class="bn-font-scale__btn active" type="button" data-scale="100" aria-label="<?php esc_attr_e( 'Default font size', 'buddynext' ); ?>">A</button>
+				<button class="bn-font-scale__btn" type="button" data-scale="110" aria-label="<?php esc_attr_e( 'Large font size', 'buddynext' ); ?>">A+</button>
+				<button class="bn-font-scale__btn" type="button" data-scale="120" aria-label="<?php esc_attr_e( 'Extra large font size', 'buddynext' ); ?>">A++</button>
 			</div>
 		</div>
 
@@ -871,9 +888,9 @@ if ( ! empty( $bn_context_items ) ) :
 		<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
 		<span><?php esc_html_e( 'Spaces', 'buddynext' ); ?></span>
 	</a>
-	<button type="button" class="bn-mobile-nav__item bn-mobile-nav__item--create" onclick="window.location='<?php echo esc_url( $bn_nav_urls['feed'] ); ?>?compose=1'">
+	<a href="<?php echo esc_url( $bn_nav_urls['feed'] ); ?>?compose=1" class="bn-mobile-nav__item bn-mobile-nav__item--create" aria-label="<?php esc_attr_e( 'Create post', 'buddynext' ); ?>">
 		<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-	</button>
+	</a>
 	<a href="<?php echo esc_url( $bn_nav_urls['notifications'] ); ?>" class="bn-mobile-nav__item<?php echo 'notifications' === $bn_nav_active ? ' bn-mobile-nav__item--active' : ''; ?>">
 		<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
 		<?php if ( $bn_unread_notifs > 0 ) : ?>
