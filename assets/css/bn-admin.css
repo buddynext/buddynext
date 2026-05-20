@@ -21,87 +21,91 @@
    ========================================================================== */
 
 :root {
+	/* --bn-a-* tokens alias the v2 --bn-* source in bn-base.css. They exist
+	 * only to preserve the admin's class surface; new admin code should
+	 * reference --bn-* directly. Dark mode flips through the v2 source. */
+
 	/* -- Brand ------------------------------------------------------------ */
-	--bn-a-brand:             #0073aa;
-	--bn-a-brand-hover:       #005f8e;
-	--bn-a-brand-light:       #e8f4fb;
+	--bn-a-brand:             var(--bn-accent);
+	--bn-a-brand-hover:       var(--bn-accent-700);
+	--bn-a-brand-light:       var(--bn-accent-100);
 
 	/* -- Backgrounds ------------------------------------------------------ */
-	--bn-a-bg:                #ffffff;
-	--bn-a-bg-subtle:         #f8f8f7;
-	--bn-a-bg-hover:          #f1f1f0;
+	--bn-a-bg:                var(--bn-canvas);
+	--bn-a-bg-subtle:         var(--bn-sunken);
+	--bn-a-bg-hover:          var(--bn-sunken);
 
 	/* -- Borders ---------------------------------------------------------- */
-	--bn-a-border:            #e8e8e5;
-	--bn-a-border-soft:       #f1f1ee;
+	--bn-a-border:            var(--bn-line);
+	--bn-a-border-soft:       var(--bn-line-faint);
 
 	/* -- Text ------------------------------------------------------------- */
-	--bn-a-text-1:            #37352f;
-	--bn-a-text-2:            #787774;
-	--bn-a-text-3:            #aeaca8;
+	--bn-a-text-1:            var(--bn-ink);
+	--bn-a-text-2:            var(--bn-ink-2);
+	--bn-a-text-3:            var(--bn-ink-3);
 
 	/* -- Semantic --------------------------------------------------------- */
-	--bn-a-green:             #059669;
-	--bn-a-green-bg:          #ecfdf5;
-	--bn-a-amber:             #d97706;
-	--bn-a-amber-bg:          #fffbeb;
-	--bn-a-red:               #dc2626;
-	--bn-a-red-bg:            #fef2f2;
+	--bn-a-green:             var(--bn-success);
+	--bn-a-green-bg:          var(--bn-success-bg);
+	--bn-a-amber:             var(--bn-warn);
+	--bn-a-amber-bg:          var(--bn-warn-bg);
+	--bn-a-red:               var(--bn-danger);
+	--bn-a-red-bg:            var(--bn-danger-bg);
 
-	/* -- Integration accents --------------------------------------------- */
-	--bn-a-jetonomy:          #5b21b6;
-	--bn-a-jetonomy-bg:       #f5f3ff;
-	--bn-a-jetonomy-border:   #ddd6fe;
-	--bn-a-mvs:               #0f766e;
-	--bn-a-mvs-bg:            #f0fdf9;
-	--bn-a-mvs-border:        #99f6e4;
-	--bn-a-gamif:             #b45309;
-	--bn-a-gamif-bg:          #fffbeb;
-	--bn-a-gamif-border:      #fde68a;
-	--bn-a-career:            #1d4ed8;
-	--bn-a-career-bg:         #eff6ff;
-	--bn-a-career-border:     #bfdbfe;
+	/* -- Sibling-product accents (hue-derived in bn-base.css) ----------- */
+	--bn-a-jetonomy:          var(--bn-jetonomy);
+	--bn-a-jetonomy-bg:       var(--bn-jetonomy-bg);
+	--bn-a-jetonomy-border:   var(--bn-jetonomy-bg);
+	--bn-a-mvs:               var(--bn-media);
+	--bn-a-mvs-bg:            var(--bn-media-bg);
+	--bn-a-mvs-border:        var(--bn-media-bg);
+	--bn-a-gamif:             var(--bn-events);
+	--bn-a-gamif-bg:          var(--bn-events-bg);
+	--bn-a-gamif-border:      var(--bn-events-bg);
+	--bn-a-career:            var(--bn-info);
+	--bn-a-career-bg:         var(--bn-info-bg);
+	--bn-a-career-border:     var(--bn-info-bg);
 
 	/* -- Spacing (4px grid) ----------------------------------------------- */
-	--bn-a-s1:                4px;
-	--bn-a-s2:                8px;
-	--bn-a-s3:                12px;
-	--bn-a-s4:                16px;
-	--bn-a-s5:                20px;
-	--bn-a-s6:                24px;
-	--bn-a-s8:                32px;
-	--bn-a-s10:               40px;
+	--bn-a-s1:                var(--bn-s1);
+	--bn-a-s2:                var(--bn-s2);
+	--bn-a-s3:                var(--bn-s3);
+	--bn-a-s4:                var(--bn-s4);
+	--bn-a-s5:                var(--bn-s5);
+	--bn-a-s6:                var(--bn-s6);
+	--bn-a-s8:                var(--bn-s8);
+	--bn-a-s10:               var(--bn-s10);
 
 	/* -- Border radius ---------------------------------------------------- */
-	--bn-a-r-sm:              4px;
-	--bn-a-r-md:              8px;
-	--bn-a-r-lg:              12px;
+	--bn-a-r-sm:              var(--bn-r-sm);
+	--bn-a-r-md:              var(--bn-r-md);
+	--bn-a-r-lg:              var(--bn-r-lg);
 
 	/* -- Typography ------------------------------------------------------- */
-	--bn-a-font-body:         'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-	--bn-a-font-display:      'Plus Jakarta Sans', 'Inter', sans-serif;
-	--bn-a-text-xs:           11px;
-	--bn-a-text-sm:           13px;
-	--bn-a-text-md:           14px;
-	--bn-a-text-base:         15px;
-	--bn-a-text-lg:           18px;
-	--bn-a-text-xl:           20px;
-	--bn-a-text-2xl:          24px;
-	--bn-a-fw-normal:         400;
-	--bn-a-fw-medium:         500;
-	--bn-a-fw-semibold:       600;
-	--bn-a-fw-bold:           700;
-	--bn-a-fw-extrabold:      800;
+	--bn-a-font-body:         var(--bn-font-ui);
+	--bn-a-font-display:      var(--bn-font-display);
+	--bn-a-text-xs:           var(--bn-text-xs);
+	--bn-a-text-sm:           var(--bn-text-sm);
+	--bn-a-text-md:           var(--bn-text-md);
+	--bn-a-text-base:         var(--bn-text-base);
+	--bn-a-text-lg:           var(--bn-text-lg);
+	--bn-a-text-xl:           var(--bn-text-xl);
+	--bn-a-text-2xl:          var(--bn-text-2xl);
+	--bn-a-fw-normal:         var(--bn-fw-normal);
+	--bn-a-fw-medium:         var(--bn-fw-medium);
+	--bn-a-fw-semibold:       var(--bn-fw-semibold);
+	--bn-a-fw-bold:           var(--bn-fw-bold);
+	--bn-a-fw-extrabold:      var(--bn-fw-extrabold);
 
 	/* -- Shadows ---------------------------------------------------------- */
-	--bn-a-shadow-sm:         0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-	--bn-a-shadow-md:         0 4px 12px rgba(0, 0, 0, 0.08);
+	--bn-a-shadow-sm:         var(--bn-shadow-sm);
+	--bn-a-shadow-md:         var(--bn-shadow-md);
 
 	/* -- Transitions ------------------------------------------------------ */
-	--bn-a-transition:        0.14s ease;
+	--bn-a-transition:        var(--bn-dur) var(--bn-ease);
 
 	/* -- Avatar accent colours not covered by semantic tokens -------------- */
-	--bn-a-av-pink:           #db2777;
+	--bn-a-av-pink:           oklch(60% 0.20 350);
 
 	/* -- Structural / component sizes ------------------------------------ */
 	--bn-a-page-max-w:        1100px;
@@ -144,56 +148,35 @@
 	--bn-a-outline-offset:    2px;
 
 	/* -- Code background (developer bar) ---------------------------------- */
-	--bn-a-bg-code:           #1a1a1a;
-	--bn-a-code-text:         #86efac;
+	--bn-a-bg-code:           oklch(18% 0.005 var(--bn-hue));
+	--bn-a-code-text:         oklch(82% 0.18 145);
 }
 
 /* ==========================================================================
    2. DARK MODE
    ========================================================================== */
 
-[data-theme="dark"] {
-	--bn-a-bg:           #191919;
-	--bn-a-bg-subtle:    #202020;
-	--bn-a-bg-hover:     #2a2a2a;
-	--bn-a-border:       #333330;
-	--bn-a-border-soft:  #2c2c2a;
-	--bn-a-text-1:       #e8e8e6;
-	--bn-a-text-2:       #9b9b97;
-	--bn-a-text-3:       #6b6b67;
-	--bn-a-brand:        #4dabdb;
-	--bn-a-brand-light:  #1a2e3a;
-	--bn-a-brand-hover:  #5fbfe8;
-}
+/* Dark-mode token shifts come from the v2 source (bn-base.css). The aliases
+ * above already re-resolve, so no admin-scoped dark overrides are required.
+ * Logo-tile foreground colours below ride the same accent-bg pairings so
+ * the contrast holds under either theme. */
+[data-bn-theme="dark"] .bn-logo-bg--purple,
+[data-theme="dark"]    .bn-logo-bg--purple { background: var(--bn-a-jetonomy-bg); color: var(--bn-jetonomy); }
 
-/* Integration Hub dark mode overrides */
-[data-theme="dark"] .bn-logo-bg--purple {
-	background: var(--bn-a-jetonomy-bg);
-	color: #a78bfa;
-}
+[data-bn-theme="dark"] .bn-logo-bg--teal,
+[data-theme="dark"]    .bn-logo-bg--teal   { background: var(--bn-a-mvs-bg); color: var(--bn-media); }
 
-[data-theme="dark"] .bn-logo-bg--teal {
-	background: var(--bn-a-mvs-bg);
-	color: #34d399;
-}
+[data-bn-theme="dark"] .bn-logo-bg--amber,
+[data-theme="dark"]    .bn-logo-bg--amber  { background: var(--bn-a-gamif-bg); color: var(--bn-events); }
 
-[data-theme="dark"] .bn-logo-bg--amber {
-	background: var(--bn-a-gamif-bg);
-	color: #fbbf24;
-}
+[data-bn-theme="dark"] .bn-logo-bg--blue,
+[data-theme="dark"]    .bn-logo-bg--blue   { background: var(--bn-a-career-bg); color: var(--bn-info); }
 
-[data-theme="dark"] .bn-logo-bg--blue {
-	background: var(--bn-a-career-bg);
-	color: #93c5fd;
-}
+[data-bn-theme="dark"] .bn-section-divider--green::after,
+[data-theme="dark"]    .bn-section-divider--green::after { background: color-mix(in oklch, var(--bn-success) 20%, transparent); }
 
-[data-theme="dark"] .bn-section-divider--green::after {
-	background: rgba(5, 150, 105, 0.2);
-}
-
-[data-theme="dark"] .bn-section-divider--amber::after {
-	background: rgba(217, 119, 6, 0.2);
-}
+[data-bn-theme="dark"] .bn-section-divider--amber::after,
+[data-theme="dark"]    .bn-section-divider--amber::after { background: color-mix(in oklch, var(--bn-warn) 20%, transparent); }
 
 /* ==========================================================================
    3. COMPONENT RULES

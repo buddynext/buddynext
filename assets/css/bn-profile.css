@@ -1,72 +1,55 @@
 /* BuddyNext — Profile stylesheet. Enqueued via BuddyNext\Templates\ProfileLoader. */
 
 /* ── CSS Custom Properties ───────────────────────────────────────────────── */
+/* All --bn-p-* tokens are aliases of the v2 --bn-* source in bn-base.css.
+ * They exist only to preserve the existing class-name surface; new code
+ * should reference --bn-* directly. Dark mode flips automatically because
+ * each alias resolves through the v2 source under [data-bn-theme="dark"]. */
 :root {
-	--bn-p-font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-	--bn-p-font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+	--bn-p-font-body:    var(--bn-font-ui);
+	--bn-p-font-display: var(--bn-font-display);
 
-	--bn-p-bg:           #ffffff;
-	--bn-p-bg-subtle:    #f8f8f7;
-	--bn-p-bg-hover:     #f1f1f0;
-	--bn-p-surface:      #ffffff;
-	--bn-p-border:       #e8e8e5;
-	--bn-p-border-soft:  #f1f1ee;
-	--bn-p-text-1:       #37352f;
-	--bn-p-text-2:       #787774;
-	--bn-p-text-3:       #aeaca8;
+	--bn-p-bg:           var(--bn-canvas);
+	--bn-p-bg-subtle:    var(--bn-sunken);
+	--bn-p-bg-hover:     var(--bn-sunken);
+	--bn-p-surface:      var(--bn-surface);
+	--bn-p-border:       var(--bn-line);
+	--bn-p-border-soft:  var(--bn-line-faint);
+	--bn-p-text-1:       var(--bn-ink);
+	--bn-p-text-2:       var(--bn-ink-2);
+	--bn-p-text-3:       var(--bn-ink-3);
 
-	--bn-p-brand:        #0073aa;
-	--bn-p-brand-light:  #e8f4fb;
-	--bn-p-brand-hover:  #005f8e;
+	--bn-p-brand:        var(--bn-accent);
+	--bn-p-brand-light:  var(--bn-accent-100);
+	--bn-p-brand-hover:  var(--bn-accent-700);
 
-	--bn-p-green:        #059669;
-	--bn-p-green-bg:     #ecfdf5;
-	--bn-p-amber:        #d97706;
-	--bn-p-amber-bg:     #fffbeb;
-	--bn-p-red:          #dc2626;
-	--bn-p-red-bg:       #fef2f2;
+	--bn-p-green:        var(--bn-success);
+	--bn-p-green-bg:     var(--bn-success-bg);
+	--bn-p-amber:        var(--bn-warn);
+	--bn-p-amber-bg:     var(--bn-warn-bg);
+	--bn-p-red:          var(--bn-danger);
+	--bn-p-red-bg:       var(--bn-danger-bg);
 
-	--bn-p-s1: 4px;
-	--bn-p-s2: 8px;
-	--bn-p-s3: 12px;
-	--bn-p-s4: 16px;
-	--bn-p-s5: 20px;
-	--bn-p-s6: 24px;
-	--bn-p-s8: 32px;
+	--bn-p-s1: var(--bn-s1);
+	--bn-p-s2: var(--bn-s2);
+	--bn-p-s3: var(--bn-s3);
+	--bn-p-s4: var(--bn-s4);
+	--bn-p-s5: var(--bn-s5);
+	--bn-p-s6: var(--bn-s6);
+	--bn-p-s8: var(--bn-s8);
 
-	--bn-p-r-sm:   4px;
-	--bn-p-r-md:   8px;
-	--bn-p-r-lg:   12px;
-	--bn-p-r-xl:   16px;
-	--bn-p-r-full: 9999px;
+	--bn-p-r-sm:   var(--bn-r-sm);
+	--bn-p-r-md:   var(--bn-r-md);
+	--bn-p-r-lg:   var(--bn-r-lg);
+	--bn-p-r-xl:   var(--bn-r-xl);
+	--bn-p-r-full: var(--bn-r-full);
 
-	--bn-p-text-xs:   11px;
-	--bn-p-text-sm:   13px;
-	--bn-p-text-base: 15px;
-	--bn-p-text-lg:   17px;
-	--bn-p-text-xl:   20px;
-	--bn-p-text-2xl:  24px;
-}
-
-[data-theme="dark"] {
-	--bn-p-bg:          #191919;
-	--bn-p-bg-subtle:   #202020;
-	--bn-p-bg-hover:    #2a2a2a;
-	--bn-p-surface:     #252525;
-	--bn-p-border:      #333330;
-	--bn-p-border-soft: #2c2c2a;
-	--bn-p-text-1:      #e8e8e6;
-	--bn-p-text-2:      #9b9b97;
-	--bn-p-text-3:      #6b6b67;
-	--bn-p-brand:       #4dabdb;
-	--bn-p-brand-light: #1a2e3a;
-	--bn-p-brand-hover: #5fbfe8;
-	--bn-p-green:       #34d399;
-	--bn-p-green-bg:    #0d2420;
-	--bn-p-amber:       #fbbf24;
-	--bn-p-amber-bg:    #2a2000;
-	--bn-p-red:         #f87171;
-	--bn-p-red-bg:      #2d0f0f;
+	--bn-p-text-xs:   var(--bn-text-xs);
+	--bn-p-text-sm:   var(--bn-text-sm);
+	--bn-p-text-base: var(--bn-text-base);
+	--bn-p-text-lg:   var(--bn-text-lg);
+	--bn-p-text-xl:   var(--bn-text-xl);
+	--bn-p-text-2xl:  var(--bn-text-2xl);
 }
 
 /* ── Profile Header Block ─────────────────────────────────────────────────── */

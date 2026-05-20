@@ -4,62 +4,44 @@
  * Enqueued via BuddyNext\Templates\OnboardingLoader. */
 
 /* ── CSS custom properties ───────────────────────────────────────────── */
+/* All --bn-ob-* tokens alias the v2 --bn-* source in bn-base.css. They
+ * exist only to preserve the existing class-name surface; new code should
+ * reference --bn-* directly. Dark mode flips through the v2 source. */
 :root {
-	--bn-ob-font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-	--bn-ob-font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
-	--bn-ob-bg:           #ffffff;
-	--bn-ob-bg-subtle:    #f8f8f7;
-	--bn-ob-bg-hover:     #f1f1f0;
-	--bn-ob-surface:      #ffffff;
-	--bn-ob-border:       #e8e8e5;
-	--bn-ob-border-soft:  #f1f1ee;
-	--bn-ob-text-1:       #37352f;
-	--bn-ob-text-2:       #787774;
-	--bn-ob-text-3:       #aeaca8;
-	--bn-ob-brand:        #0073aa;
-	--bn-ob-brand-light:  #e8f4fb;
-	--bn-ob-brand-hover:  #005f8e;
-	--bn-ob-green:        #059669;
-	--bn-ob-green-bg:     #ecfdf5;
-	--bn-ob-red:          #dc2626;
-	--bn-ob-red-bg:       #fef2f2;
-	--bn-ob-amber:        #d97706;
-	--bn-ob-amber-bg:     #fffbeb;
-	--bn-ob-r-sm:  4px;
-	--bn-ob-r-md:  8px;
-	--bn-ob-r-lg:  12px;
-	--bn-ob-r-xl:  16px;
-	--bn-ob-r-full: 9999px;
-	--bn-ob-s1:  4px;
-	--bn-ob-s2:  8px;
-	--bn-ob-s3:  12px;
-	--bn-ob-s4:  16px;
-	--bn-ob-s5:  20px;
-	--bn-ob-s6:  24px;
-	--bn-ob-s8:  32px;
-	--bn-ob-s10: 40px;
-	--bn-ob-s12: 48px;
-}
-
-[data-theme="dark"] {
-	--bn-ob-bg:          #191919;
-	--bn-ob-bg-subtle:   #202020;
-	--bn-ob-bg-hover:    #2a2a2a;
-	--bn-ob-surface:     #252525;
-	--bn-ob-border:      #333330;
-	--bn-ob-border-soft: #2c2c2a;
-	--bn-ob-text-1:      #e8e8e6;
-	--bn-ob-text-2:      #9b9b97;
-	--bn-ob-text-3:      #6b6b67;
-	--bn-ob-brand:       #4dabdb;
-	--bn-ob-brand-light: #1a2e3a;
-	--bn-ob-brand-hover: #5fbfe8;
-	--bn-ob-green:       #34d399;
-	--bn-ob-green-bg:    #0d2420;
-	--bn-ob-red:         #f87171;
-	--bn-ob-red-bg:      #2d0f0f;
-	--bn-ob-amber:       #fbbf24;
-	--bn-ob-amber-bg:    #2a2000;
+	--bn-ob-font-body:    var(--bn-font-ui);
+	--bn-ob-font-display: var(--bn-font-display);
+	--bn-ob-bg:           var(--bn-canvas);
+	--bn-ob-bg-subtle:    var(--bn-sunken);
+	--bn-ob-bg-hover:     var(--bn-sunken);
+	--bn-ob-surface:      var(--bn-surface);
+	--bn-ob-border:       var(--bn-line);
+	--bn-ob-border-soft:  var(--bn-line-faint);
+	--bn-ob-text-1:       var(--bn-ink);
+	--bn-ob-text-2:       var(--bn-ink-2);
+	--bn-ob-text-3:       var(--bn-ink-3);
+	--bn-ob-brand:        var(--bn-accent);
+	--bn-ob-brand-light:  var(--bn-accent-100);
+	--bn-ob-brand-hover:  var(--bn-accent-700);
+	--bn-ob-green:        var(--bn-success);
+	--bn-ob-green-bg:     var(--bn-success-bg);
+	--bn-ob-red:          var(--bn-danger);
+	--bn-ob-red-bg:       var(--bn-danger-bg);
+	--bn-ob-amber:        var(--bn-warn);
+	--bn-ob-amber-bg:     var(--bn-warn-bg);
+	--bn-ob-r-sm:  var(--bn-r-sm);
+	--bn-ob-r-md:  var(--bn-r-md);
+	--bn-ob-r-lg:  var(--bn-r-lg);
+	--bn-ob-r-xl:  var(--bn-r-xl);
+	--bn-ob-r-full: var(--bn-r-full);
+	--bn-ob-s1:  var(--bn-s1);
+	--bn-ob-s2:  var(--bn-s2);
+	--bn-ob-s3:  var(--bn-s3);
+	--bn-ob-s4:  var(--bn-s4);
+	--bn-ob-s5:  var(--bn-s5);
+	--bn-ob-s6:  var(--bn-s6);
+	--bn-ob-s8:  var(--bn-s8);
+	--bn-ob-s10: var(--bn-s10);
+	--bn-ob-s12: var(--bn-s12);
 }
 
 /* ── Layout wrapper ──────────────────────────────────────────────────── */

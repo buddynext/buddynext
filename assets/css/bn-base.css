@@ -8,175 +8,371 @@
 
 /* ── Design tokens ──────────────────────────────────────────────────────── */
 
-:root {
-	/* Typography */
-	--font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-	--font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
-	--text-xs:   11px;
-	--text-sm:   13px;
-	--text-base: 15px;
-	--text-lg:   17px;
-	--text-xl:   20px;
-	--text-2xl:  24px;
-	--text-3xl:  30px;
-	--text-4xl:  38px;
-	--leading-tight:  1.25;
-	--leading-snug:   1.35;
-	--leading-normal: 1.5;
-	--leading-body:   1.7;
+/* ────────────────────────────────────────────────────────────────────────
+ * v2 token system (canonical) — mirrors docs/v2 Plans/tokens.css.
+ * Single `--bn-*` namespace, OKLCH-derived from one rotatable hue so
+ * whitelabel rebrand only flips --bn-hue. Theme-agnostic: nothing leaks
+ * into the host theme's global `--text-*` / `--bg` / `--brand` names —
+ * legacy aliases at the bottom map old names onto the v2 source so any
+ * pre-v2 CSS keeps rendering against the new palette.
+ * ──────────────────────────────────────────────────────────────────────── */
 
-	/* Font weight */
-	--fw-normal:    400;
-	--fw-medium:    500;
-	--fw-semibold:  600;
-	--fw-bold:      700;
-	--fw-extrabold: 800;
+:root,
+[data-bn-theme="light"] {
+	/* Brand hue — rotate per whitelabel; everything else derives from it. */
+	--bn-hue:           var(--bn-accent-hue, 252);   /* 252 = indigo. 200 blue, 160 teal, 25 orange. */
+	--bn-hue-jetonomy:  285;
+	--bn-hue-media:     175;
+	--bn-hue-events:    45;
+	--bn-hue-paid:      145;
 
-	/* Letter spacing */
-	--ls-tight:  -0.02em;
-	--ls-normal: 0em;
-	--ls-wide:   0.03em;
-	--ls-wider:  0.06em;
+	/* Chroma (saturation depth). Lower = more neutral, higher = more vivid. */
+	--bn-chroma: 0.16;
 
-	/* Colours — light mode (Notion warm-grey) */
-	--bg:          #ffffff;
-	--bg-subtle:   #f8f8f7;
-	--bg-hover:    #f1f1f0;
-	--surface:     #ffffff;
-	--border:      #e8e8e5;
-	--border-soft: #f1f1ee;
-	--text-1:      #37352f;
-	--text-2:      #787774;
-	--text-3:      #aeaca8;
+	/* Accent ramp */
+	--bn-accent-50:  oklch(97% 0.02 var(--bn-hue));
+	--bn-accent-100: oklch(94% 0.04 var(--bn-hue));
+	--bn-accent-200: oklch(88% 0.07 var(--bn-hue));
+	--bn-accent-400: oklch(70% 0.13 var(--bn-hue));
+	--bn-accent-500: oklch(58% var(--bn-chroma) var(--bn-hue));
+	--bn-accent-600: oklch(50% var(--bn-chroma) var(--bn-hue));
+	--bn-accent-700: oklch(42% calc(var(--bn-chroma) * 0.9) var(--bn-hue));
+	--bn-accent:     var(--bn-accent-500);
+	--bn-accent-fg:  oklch(99% 0 0);
 
-	/* Brand */
-	--brand:       #0073aa;
-	--brand-light: #e8f4fb;
-	--brand-hover: #005f8e;
+	/* Surfaces (three-layer system) */
+	--bn-canvas:   oklch(99% 0.002 var(--bn-hue));
+	--bn-surface:  oklch(100% 0 0);
+	--bn-raised:   oklch(99% 0.003 var(--bn-hue));
+	--bn-sunken:   oklch(97% 0.004 var(--bn-hue));
 
-	/* Integration accents */
-	--jetonomy:        #5b21b6;
-	--jetonomy-bg:     #f5f3ff;
-	--jetonomy-border: #ddd6fe;
-	--mvs:             #0f766e;
-	--mvs-bg:          #f0fdf9;
-	--mvs-border:      #99f6e4;
+	/* Borders */
+	--bn-line:        oklch(92% 0.005 var(--bn-hue));
+	--bn-line-strong: oklch(86% 0.008 var(--bn-hue));
+	--bn-line-faint:  oklch(95% 0.003 var(--bn-hue));
 
-	/* Neutral */
-	--white:          #fff;
-	--text-on-brand:  #fff;   /* semantic: text on brand-coloured backgrounds */
+	/* Text (AAA contrast) */
+	--bn-ink:    oklch(20% 0.01 var(--bn-hue));
+	--bn-ink-2:  oklch(40% 0.01 var(--bn-hue));
+	--bn-ink-3:  oklch(58% 0.008 var(--bn-hue));
+	--bn-ink-4:  oklch(72% 0.005 var(--bn-hue));
 
 	/* Semantic */
-	--green:       #059669;
-	--green-bg:    #ecfdf5;
-	--green-dark:  #047857;   /* hover / contrast variant for green */
-	--amber:       #d97706;
-	--amber-bg:    #fffbeb;
-	--amber-light: #f59e0b;   /* lighter shade used in leaderboard gold rank */
-	--red:         #dc2626;
-	--red-bg:      #fef2f2;
-	--bronze:      #b45309;   /* leaderboard rank #3 */
-	--silver:      #9ca3af;   /* leaderboard rank #2 */
-	--pink:        #db2777;   /* secondary accent (badges, highlights) */
+	--bn-success:    oklch(55% 0.15 145);
+	--bn-success-bg: oklch(96% 0.04 145);
+	--bn-warn:       oklch(65% 0.16 75);
+	--bn-warn-bg:    oklch(96% 0.05 75);
+	--bn-danger:     oklch(58% 0.20 25);
+	--bn-danger-bg:  oklch(96% 0.04 25);
+	--bn-info:       oklch(58% 0.14 230);
+	--bn-info-bg:    oklch(96% 0.04 230);
 
-	/* Auth-page gradient stops */
-	--auth-grad-from:  #0073aa;
-	--auth-grad-via:   #1d4ed8;
-	--auth-grad-to:    #7c3aed;
+	/* Sibling-product accents (derived) */
+	--bn-jetonomy:    oklch(58% var(--bn-chroma) var(--bn-hue-jetonomy));
+	--bn-jetonomy-bg: oklch(96% 0.03 var(--bn-hue-jetonomy));
+	--bn-media:       oklch(58% var(--bn-chroma) var(--bn-hue-media));
+	--bn-media-bg:    oklch(96% 0.03 var(--bn-hue-media));
+	--bn-events:      oklch(60% var(--bn-chroma) var(--bn-hue-events));
+	--bn-events-bg:   oklch(96% 0.04 var(--bn-hue-events));
+	--bn-paid:        oklch(55% var(--bn-chroma) var(--bn-hue-paid));
+	--bn-paid-bg:     oklch(96% 0.03 var(--bn-hue-paid));
+
+	/* Type families — whitelabel-overridable.
+	 * v2 design uses Geist; we currently self-host Inter + Plus Jakarta only.
+	 * Inter is named first so the loaded font wins; Geist will join the list
+	 * (and become primary) when its woff2 files land under assets/fonts/. */
+	--bn-font-ui:      'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+	--bn-font-display: 'Plus Jakarta Sans', 'Inter', var(--bn-font-ui);
+	--bn-font-mono:    ui-monospace, SFMono-Regular, Menlo, 'Geist Mono', monospace;
+
+	/* Type scale */
+	--bn-text-scale: 1;
+	--bn-text-2xs:  calc(11px * var(--bn-text-scale));
+	--bn-text-xs:   calc(12px * var(--bn-text-scale));
+	--bn-text-sm:   calc(13px * var(--bn-text-scale));
+	--bn-text-base: calc(15px * var(--bn-text-scale));
+	--bn-text-md:   calc(16px * var(--bn-text-scale));
+	--bn-text-lg:   calc(18px * var(--bn-text-scale));
+	--bn-text-xl:   calc(22px * var(--bn-text-scale));
+	--bn-text-2xl:  calc(28px * var(--bn-text-scale));
+	--bn-text-3xl:  calc(36px * var(--bn-text-scale));
+	--bn-text-4xl:  calc(48px * var(--bn-text-scale));
 
 	/* Spacing — 4px grid */
-	--s1:  4px;
-	--s2:  8px;
-	--s3:  12px;
-	--s4:  16px;
-	--s5:  20px;
-	--s6:  24px;
-	--s8:  32px;
-	--s10: 40px;
-	--s12: 48px;
+	--bn-density: 1;
+	--bn-s1:  calc(4px  * var(--bn-density));
+	--bn-s2:  calc(8px  * var(--bn-density));
+	--bn-s3:  calc(12px * var(--bn-density));
+	--bn-s4:  calc(16px * var(--bn-density));
+	--bn-s5:  calc(20px * var(--bn-density));
+	--bn-s6:  calc(24px * var(--bn-density));
+	--bn-s8:  calc(32px * var(--bn-density));
+	--bn-s10: calc(40px * var(--bn-density));
+	--bn-s12: calc(48px * var(--bn-density));
+	--bn-s16: calc(64px * var(--bn-density));
 
-	/* Radius */
-	--r-sm:   4px;
-	--r-md:   8px;
-	--r-lg:   12px;
-	--r-xl:   16px;
-	--r-full: 9999px;
+	/* Radius — single source */
+	--bn-radius-base: calc(10px * var(--bn-radius-scale, 1));
+	--bn-r-sm:   calc(var(--bn-radius-base) * 0.5);
+	--bn-r-md:   var(--bn-radius-base);
+	--bn-r-lg:   calc(var(--bn-radius-base) * 1.4);
+	--bn-r-xl:   calc(var(--bn-radius-base) * 2);
+	--bn-r-full: 9999px;
 
 	/* Shadows */
-	--shadow-sm: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
-	--shadow-md: 0 4px 12px rgba(0,0,0,.10), 0 2px 4px rgba(0,0,0,.06);
+	--bn-shadow-xs: 0 1px 2px oklch(0% 0 0 / 0.04);
+	--bn-shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.04), 0 2px 4px oklch(0% 0 0 / 0.04);
+	--bn-shadow-md: 0 2px 4px oklch(0% 0 0 / 0.04), 0 8px 16px oklch(0% 0 0 / 0.06);
+	--bn-shadow-lg: 0 8px 16px oklch(0% 0 0 / 0.06), 0 24px 48px oklch(0% 0 0 / 0.08);
+	--bn-ring:      0 0 0 3px oklch(58% var(--bn-chroma) var(--bn-hue) / 0.18);
+
+	/* Motion */
+	--bn-ease:     cubic-bezier(0.2, 0.8, 0.2, 1);
+	--bn-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--bn-dur-fast: 120ms;
+	--bn-dur:      200ms;
+	--bn-dur-slow: 400ms;
+
+	/* Layout */
+	--bn-topbar-h:     56px;
+	--bn-railw:        260px;
+	--bn-content-max:  720px;
+	--bn-content-wide: 1080px;
+
+	/* Font weight */
+	--bn-fw-normal:    400;
+	--bn-fw-medium:    500;
+	--bn-fw-semibold:  600;
+	--bn-fw-bold:      700;
+	--bn-fw-extrabold: 800;
+
+	/* Letter spacing */
+	--bn-ls-tight:  -0.02em;
+	--bn-ls-normal: 0em;
+	--bn-ls-wide:   0.03em;
+	--bn-ls-wider:  0.06em;
+
+	/* Leading */
+	--bn-leading-tight:  1.25;
+	--bn-leading-snug:   1.35;
+	--bn-leading-normal: 1.5;
+	--bn-leading-body:   1.7;
+
+	/* ── Legacy aliases — pre-v2 names that already ship in 16 CSS files.
+	 *    Mapped onto the v2 source so old class rules keep rendering
+	 *    against the new palette. Do NOT add new consumers of these names;
+	 *    new code uses --bn-* directly.
+	 * ──────────────────────────────────────────────────────────────────── */
+
+	/* Typography */
+	--font-body:    var(--bn-font-ui);
+	--font-display: var(--bn-font-display);
+	--text-xs:      var(--bn-text-xs);
+	--text-sm:      var(--bn-text-sm);
+	--text-base:    var(--bn-text-base);
+	--text-lg:      var(--bn-text-lg);
+	--text-xl:      var(--bn-text-xl);
+	--text-2xl:     var(--bn-text-2xl);
+	--text-3xl:     var(--bn-text-3xl);
+	--text-4xl:     var(--bn-text-4xl);
+	--leading-tight:  var(--bn-leading-tight);
+	--leading-snug:   var(--bn-leading-snug);
+	--leading-normal: var(--bn-leading-normal);
+	--leading-body:   var(--bn-leading-body);
+
+	/* Font weight */
+	--fw-normal:    var(--bn-fw-normal);
+	--fw-medium:    var(--bn-fw-medium);
+	--fw-semibold:  var(--bn-fw-semibold);
+	--fw-bold:      var(--bn-fw-bold);
+	--fw-extrabold: var(--bn-fw-extrabold);
+
+	/* Letter spacing */
+	--ls-tight:  var(--bn-ls-tight);
+	--ls-normal: var(--bn-ls-normal);
+	--ls-wide:   var(--bn-ls-wide);
+	--ls-wider:  var(--bn-ls-wider);
+
+	/* Surfaces */
+	--bg:          var(--bn-canvas);
+	--bg-subtle:   var(--bn-sunken);
+	--bg-hover:    var(--bn-sunken);
+	--surface:     var(--bn-surface);
+	--border:      var(--bn-line);
+	--border-soft: var(--bn-line-faint);
+	--text-1:      var(--bn-ink);
+	--text-2:      var(--bn-ink-2);
+	--text-3:      var(--bn-ink-3);
+
+	/* Brand */
+	--brand:       var(--bn-accent);
+	--brand-light: var(--bn-accent-100);
+	--brand-hover: var(--bn-accent-700);
+
+	/* Integration accents */
+	--jetonomy:        var(--bn-jetonomy);
+	--jetonomy-bg:     var(--bn-jetonomy-bg);
+	--jetonomy-border: var(--bn-jetonomy-bg);
+	--mvs:             var(--bn-media);
+	--mvs-bg:          var(--bn-media-bg);
+	--mvs-border:      var(--bn-media-bg);
+
+	/* Neutral */
+	--white:          oklch(100% 0 0);
+	--text-on-brand:  var(--bn-accent-fg);
+
+	/* Semantic */
+	--green:       var(--bn-success);
+	--green-bg:    var(--bn-success-bg);
+	--green-dark:  oklch(45% 0.15 145);
+	--amber:       var(--bn-warn);
+	--amber-bg:    var(--bn-warn-bg);
+	--amber-light: oklch(72% 0.16 75);
+	--red:         var(--bn-danger);
+	--red-bg:      var(--bn-danger-bg);
+	--bronze:      oklch(52% 0.12 60);
+	--silver:      oklch(70% 0.005 var(--bn-hue));
+	--pink:        oklch(60% 0.20 350);
+
+	/* Auth-page gradient stops */
+	--auth-grad-from: var(--bn-accent);
+	--auth-grad-via:  oklch(50% 0.20 270);
+	--auth-grad-to:   oklch(52% 0.22 295);
+
+	/* Spacing */
+	--s1:  var(--bn-s1);
+	--s2:  var(--bn-s2);
+	--s3:  var(--bn-s3);
+	--s4:  var(--bn-s4);
+	--s5:  var(--bn-s5);
+	--s6:  var(--bn-s6);
+	--s8:  var(--bn-s8);
+	--s10: var(--bn-s10);
+	--s12: var(--bn-s12);
+
+	/* Radius */
+	--r-sm:   var(--bn-r-sm);
+	--r-md:   var(--bn-r-md);
+	--r-lg:   var(--bn-r-lg);
+	--r-xl:   var(--bn-r-xl);
+	--r-full: var(--bn-r-full);
+
+	/* Shadows */
+	--shadow-sm: var(--bn-shadow-sm);
+	--shadow-md: var(--bn-shadow-md);
 
 	/* Transition */
-	--transition: 0.15s ease;
+	--transition: var(--bn-dur) var(--bn-ease);
 
-	/* ── --bn-* aliases (used by bn-feed.css and bn-hashtags.css) ── */
-	--bn-bg:           var(--bg);
-	--bn-bg-subtle:    var(--bg-subtle);
-	--bn-bg-hover:     var(--bg-hover);
-	--bn-surface:      var(--surface);
-	--bn-border:       var(--border);
-	--bn-border-soft:  var(--border-soft);
-	--bn-text-1:       var(--text-1);
-	--bn-text-2:       var(--text-2);
-	--bn-text-3:       var(--text-3);
-	--bn-text-xs:      var(--text-xs);
-	--bn-text-sm:      var(--text-sm);
-	--bn-text-base:    var(--text-base);
-	--bn-text-lg:      var(--text-lg);
-	--bn-leading-body: var(--leading-body);
-	--bn-font-body:    var(--font-body);
-	--bn-font-display: var(--font-display);
-	--bn-brand:        var(--brand);
-	--bn-brand-light:  var(--brand-light);
-	--bn-brand-hover:  var(--brand-hover);
-	--bn-jetonomy:     var(--jetonomy);
-	--bn-red:          var(--red);
-	--bn-red-bg:       var(--red-bg);
-	--bn-amber:        var(--amber);
-	--bn-amber-bg:     var(--amber-bg);
-	--bn-s1:           var(--s1);
-	--bn-s2:           var(--s2);
-	--bn-s3:           var(--s3);
-	--bn-s4:           var(--s4);
-	--bn-s5:           var(--s5);
-	--bn-s6:           var(--s6);
-	--bn-s8:           var(--s8);
-	--bn-s10:          var(--s10);
-	--bn-r-sm:         var(--r-sm);
-	--bn-r-md:         var(--r-md);
-	--bn-r-lg:         var(--r-lg);
-	--bn-r-xl:         var(--r-xl);
-	--bn-r-full:       var(--r-full);
-	--bn-shadow-sm:    var(--shadow-sm);
-	--bn-shadow-md:    var(--shadow-md);
-	--bn-transition:   var(--transition);
+	/* Legacy --bn-* names not yet covered above (a few CSS files use these). */
+	--bn-bg:           var(--bn-canvas);
+	--bn-bg-subtle:    var(--bn-sunken);
+	--bn-bg-hover:     var(--bn-sunken);
+	--bn-border:       var(--bn-line);
+	--bn-border-soft:  var(--bn-line-faint);
+	--bn-text-1:       var(--bn-ink);
+	--bn-text-2:       var(--bn-ink-2);
+	--bn-text-3:       var(--bn-ink-3);
+	--bn-font-body:    var(--bn-font-ui);
+	--bn-brand:        var(--bn-accent);
+	--bn-brand-light:  var(--bn-accent-100);
+	--bn-brand-hover:  var(--bn-accent-700);
+	--bn-red:          var(--bn-danger);
+	--bn-red-bg:       var(--bn-danger-bg);
+	--bn-amber:        var(--bn-warn);
+	--bn-amber-bg:     var(--bn-warn-bg);
+	--bn-transition:   var(--bn-dur) var(--bn-ease);
 }
 
-/* ── Dark mode overrides ────────────────────────────────────────────────── */
+/* ── Density modes ────────────────────────────────────────────────────── */
+[data-bn-density="compact"] {
+	--bn-density: 0.8;
+	--bn-text-scale: 0.93;
+	--bn-radius-base: 8px;
+}
 
+/* ── Large-text accessibility ─────────────────────────────────────────── */
+[data-bn-text="large"]  { --bn-text-scale: 1.15; }
+[data-bn-text="xlarge"] { --bn-text-scale: 1.3; }
+
+/* ── Dyslexia-friendly font swap (opt-in).
+ * Falls through to Inter until Atkinson Hyperlegible is self-hosted. */
+[data-bn-dyslexia="on"] {
+	--bn-font-ui:      'Atkinson Hyperlegible', 'Inter', system-ui, sans-serif;
+	--bn-font-display: 'Atkinson Hyperlegible', 'Inter', system-ui, sans-serif;
+}
+
+/* ── Dark mode ──
+ * Triggered by either [data-bn-theme="dark"] (v2 canonical) or the legacy
+ * [data-theme="dark"] (existing templates). Templates will migrate to the
+ * v2 attribute in a follow-up sweep.
+ * ──────────────────────────────────────────────────────────────────── */
+[data-bn-theme="dark"],
 [data-theme="dark"] {
-	--bg:          #191919;
-	--bg-subtle:   #202020;
-	--bg-hover:    #2a2a2a;
-	--surface:     #252525;
-	--border:      #333330;
-	--border-soft: #2c2c2a;
-	--text-1:      #e8e8e6;
-	--text-2:      #9b9b97;
-	--text-3:      #6b6b67;
-	--brand:       #4dabdb;
-	--brand-light: #1a2e3a;
-	--brand-hover: #5fbfe8;
-	--jetonomy:    #a78bfa;
-	--jetonomy-bg: #1e1830;
-	--mvs:         #34d399;
-	--mvs-bg:      #0d2420;
-	--green:       #34d399;
-	--green-bg:    #0d2420;
-	--amber:       #fbbf24;
-	--amber-bg:    #2a2000;
-	--red:         #f87171;
-	--red-bg:      #2d0f0f;
+	--bn-canvas:   oklch(15% 0.008 var(--bn-hue));
+	--bn-surface:  oklch(19% 0.01  var(--bn-hue));
+	--bn-raised:   oklch(22% 0.012 var(--bn-hue));
+	--bn-sunken:   oklch(13% 0.006 var(--bn-hue));
+
+	--bn-line:        oklch(28% 0.012 var(--bn-hue));
+	--bn-line-strong: oklch(36% 0.014 var(--bn-hue));
+	--bn-line-faint:  oklch(24% 0.01  var(--bn-hue));
+
+	--bn-ink:    oklch(96% 0.005 var(--bn-hue));
+	--bn-ink-2:  oklch(78% 0.008 var(--bn-hue));
+	--bn-ink-3:  oklch(60% 0.008 var(--bn-hue));
+	--bn-ink-4:  oklch(45% 0.008 var(--bn-hue));
+
+	--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
+	--bn-accent-600: oklch(78% var(--bn-chroma) var(--bn-hue));
+	--bn-accent-700: oklch(85% calc(var(--bn-chroma) * 0.9) var(--bn-hue));
+	--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
+	--bn-accent-200: oklch(35% 0.08 var(--bn-hue));
+	--bn-accent-50:  oklch(22% 0.03 var(--bn-hue));
+	--bn-accent:     var(--bn-accent-500);
+	--bn-accent-fg:  oklch(15% 0.008 var(--bn-hue));
+
+	--bn-success-bg: oklch(25% 0.05 145);
+	--bn-warn-bg:    oklch(25% 0.05 75);
+	--bn-danger-bg:  oklch(25% 0.06 25);
+	--bn-info-bg:    oklch(25% 0.05 230);
+
+	--bn-jetonomy-bg: oklch(25% 0.04 var(--bn-hue-jetonomy));
+	--bn-media-bg:    oklch(25% 0.04 var(--bn-hue-media));
+	--bn-events-bg:   oklch(25% 0.04 var(--bn-hue-events));
+	--bn-paid-bg:     oklch(25% 0.04 var(--bn-hue-paid));
+
+	--bn-shadow-xs: 0 1px 2px oklch(0% 0 0 / 0.4);
+	--bn-shadow-sm: 0 1px 2px oklch(0% 0 0 / 0.4), 0 2px 4px oklch(0% 0 0 / 0.3);
+	--bn-shadow-md: 0 2px 4px oklch(0% 0 0 / 0.3), 0 8px 16px oklch(0% 0 0 / 0.4);
+	--bn-shadow-lg: 0 8px 16px oklch(0% 0 0 / 0.4), 0 24px 48px oklch(0% 0 0 / 0.5);
+	--bn-ring:      0 0 0 3px oklch(72% var(--bn-chroma) var(--bn-hue) / 0.3);
+}
+
+/* Auto from system preference */
+@media (prefers-color-scheme: dark) {
+	[data-bn-theme="auto"] {
+		--bn-canvas:   oklch(15% 0.008 var(--bn-hue));
+		--bn-surface:  oklch(19% 0.01  var(--bn-hue));
+		--bn-raised:   oklch(22% 0.012 var(--bn-hue));
+		--bn-sunken:   oklch(13% 0.006 var(--bn-hue));
+		--bn-line:        oklch(28% 0.012 var(--bn-hue));
+		--bn-line-strong: oklch(36% 0.014 var(--bn-hue));
+		--bn-line-faint:  oklch(24% 0.01  var(--bn-hue));
+		--bn-ink:   oklch(96% 0.005 var(--bn-hue));
+		--bn-ink-2: oklch(78% 0.008 var(--bn-hue));
+		--bn-ink-3: oklch(60% 0.008 var(--bn-hue));
+		--bn-ink-4: oklch(45% 0.008 var(--bn-hue));
+		--bn-accent-500: oklch(72% var(--bn-chroma) var(--bn-hue));
+		--bn-accent-100: oklch(28% 0.05 var(--bn-hue));
+		--bn-accent:     var(--bn-accent-500);
+		--bn-accent-fg:  oklch(15% 0.008 var(--bn-hue));
+	}
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	:root { --bn-dur-fast: 0ms; --bn-dur: 0ms; --bn-dur-slow: 0ms; }
 }
 
 /* ── Icon system ────────────────────────────────────────────────────────── */
