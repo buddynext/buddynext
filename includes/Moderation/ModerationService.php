@@ -897,7 +897,7 @@ class ModerationService {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update(
+		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_reports',
 			array(
 				'status'      => $status,
@@ -909,6 +909,16 @@ class ModerationService {
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// $wpdb->update returns false on SQL error, int (rows affected) otherwise.
+		// 0 affected means the report ID didn't exist — return WP_Error so callers
+		// (especially Pro's BulkModService) don't claim phantom successes.
+		if ( false === $updated ) {
+			return new WP_Error( 'db_error', __( 'Database error updating report status.', 'buddynext' ) );
+		}
+		if ( 0 === $updated ) {
+			return new WP_Error( 'report_not_found', __( 'Report not found.', 'buddynext' ) );
+		}
 
 		return true;
 	}
