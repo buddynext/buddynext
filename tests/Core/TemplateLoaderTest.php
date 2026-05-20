@@ -62,22 +62,25 @@ class TemplateLoaderTest extends \WP_UnitTestCase {
 
 	/**
 	 * locate() returns the plugin path when the plugin template exists.
+	 *
+	 * Uses a test-only filename so we never collide with a shipped template —
+	 * previously this overwrote then unlink()'d `templates/feed/home.php`,
+	 * destroying the real production template on every test run.
 	 */
 	public function test_locate_finds_plugin_template(): void {
-		$relative = 'feed/home.php';
+		$relative = '__phpunit-locate-plugin-template.php';
 		$target   = BUDDYNEXT_DIR . 'templates/' . $relative;
 
-		// Create a temporary placeholder file.
-		$dir = dirname( $target );
-		if ( ! is_dir( $dir ) ) {
-			mkdir( $dir, 0755, true );
-		}
 		file_put_contents( $target, '<?php // test' );
 
-		$result = $this->loader->locate( $relative );
-		$this->assertSame( $target, $result );
-
-		unlink( $target );
+		try {
+			$result = $this->loader->locate( $relative );
+			$this->assertSame( $target, $result );
+		} finally {
+			if ( file_exists( $target ) ) {
+				unlink( $target );
+			}
+		}
 	}
 
 	/**
