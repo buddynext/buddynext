@@ -71,8 +71,11 @@ do_action( 'buddynext_onboarding_completed', int $user_id )
 ## Activity Feed
 
 ```php
-do_action( 'buddynext_post_created', int $post_id, int $user_id, array $data )
-// $data keys: type, content, privacy, space_id, media_ids, link_url
+do_action( 'buddynext_post_created', int $post_id, int $user_id, string $type )
+// $type is one of: 'text', 'photo', 'file', 'link', 'poll', 'announcement',
+// 'activity', 'media', 'discussion', 'job', 'share'. Listeners that need more
+// post fields (content, privacy, space_id, etc.) should re-fetch by ID via
+// buddynext_service('post_service')->get( $post_id ).
 
 do_action( 'buddynext_post_updated', int $post_id, int $user_id )
 do_action( 'buddynext_post_deleted', int $post_id, int $user_id )
