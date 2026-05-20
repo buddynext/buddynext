@@ -1261,3 +1261,240 @@ html[data-bn-font-scale="110"] { font-size: 110%; }
 
 /* A++ (120%) */
 html[data-bn-font-scale="120"] { font-size: 120%; }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * v2 COMPONENT PRIMITIVES
+ *
+ * Attribute-driven API mirrored from docs/v2 Plans/tokens.css. Existing
+ * class-based variants (.bn-btn-primary, .bn-btn-ghost, .bn-btn-danger,
+ * .bn-avatar-sm/md/lg/xl, .bn-card, .bn-pill) keep working unchanged so
+ * any template already using them renders the same. New templates and
+ * sweeps use the attribute form below:
+ *
+ *   <button class="bn-btn" data-variant="primary" data-size="md">…
+ *   <span class="bn-badge" data-tone="success">…
+ *   <span class="bn-avatar" data-size="lg" data-presence="online">…
+ *
+ * The attribute selectors are layered over the legacy rules; when a
+ * data-variant or data-tone or data-size attribute is set, the v2
+ * styling wins on declaration order. The two systems share tokens, so
+ * the only visible drift is the v2 fixed-height button (36px) vs the
+ * legacy padding-based button — opt-in per surface.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Focus ring (shared by inputs + buttons) ─────────────────────────── */
+.bn-wrap :focus-visible,
+.bn-btn:focus-visible,
+.bn-input:focus-visible,
+.bn-textarea:focus-visible,
+.bn-select:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+	border-color: var(--bn-accent);
+}
+
+/* ── Button — v2 attribute API ───────────────────────────────────────── */
+.bn-btn[data-variant] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s2);
+	padding: 0 var(--bn-s4);
+	height: 36px;
+	border-radius: var(--bn-r-md);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-sm);
+	font-weight: 550;
+	letter-spacing: -0.005em;
+	border: 1px solid transparent;
+	transition: background var(--bn-dur) var(--bn-ease),
+				border-color var(--bn-dur) var(--bn-ease),
+				color var(--bn-dur) var(--bn-ease),
+				transform var(--bn-dur-fast) var(--bn-ease);
+	white-space: nowrap;
+	cursor: pointer;
+}
+.bn-btn[data-variant]:active { transform: scale(0.98); }
+
+.bn-btn[data-size="sm"] {
+	height: 28px;
+	padding: 0 var(--bn-s3);
+	font-size: var(--bn-text-xs);
+	border-radius: var(--bn-r-sm);
+}
+.bn-btn[data-size="lg"] {
+	height: 44px;
+	padding: 0 var(--bn-s5);
+	font-size: var(--bn-text-base);
+}
+
+.bn-btn[data-variant="primary"] {
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+}
+.bn-btn[data-variant="primary"]:hover { background: var(--bn-accent-700); }
+
+.bn-btn[data-variant="secondary"] {
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	border-color: var(--bn-line-strong);
+}
+.bn-btn[data-variant="secondary"]:hover { background: var(--bn-sunken); }
+
+.bn-btn[data-variant="ghost"] {
+	background: transparent;
+	color: var(--bn-ink-2);
+}
+.bn-btn[data-variant="ghost"]:hover { background: var(--bn-sunken); color: var(--bn-ink); }
+
+.bn-btn[data-variant="danger"] {
+	background: var(--bn-danger);
+	color: oklch(99% 0 0);
+}
+.bn-btn[data-variant="danger"]:hover { filter: brightness(1.05); }
+
+.bn-btn[data-variant="ai"] {
+	background: linear-gradient(135deg, var(--bn-accent), var(--bn-jetonomy));
+	color: var(--bn-accent-fg);
+}
+
+.bn-btn[data-variant][disabled],
+.bn-btn[data-variant][aria-disabled="true"] {
+	opacity: 0.55;
+	cursor: not-allowed;
+	transform: none;
+}
+
+/* ── Input / Textarea / Select — v2 ─────────────────────────────────── */
+.bn-input,
+.bn-textarea,
+.bn-select {
+	width: 100%;
+	padding: 0 var(--bn-s3);
+	height: 36px;
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	color: var(--bn-ink);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-sm);
+	transition: border-color var(--bn-dur) var(--bn-ease),
+				box-shadow var(--bn-dur) var(--bn-ease);
+}
+.bn-textarea {
+	padding: var(--bn-s3);
+	height: auto;
+	min-height: 80px;
+	line-height: 1.5;
+	resize: vertical;
+}
+.bn-input::placeholder,
+.bn-textarea::placeholder { color: var(--bn-ink-4); }
+.bn-input:disabled,
+.bn-textarea:disabled,
+.bn-select:disabled {
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
+	cursor: not-allowed;
+}
+
+/* ── Badge / Chip — v2 attribute tone API ───────────────────────────── */
+.bn-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 8px;
+	height: 20px;
+	font-size: var(--bn-text-2xs);
+	font-weight: 550;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
+	border: 1px solid var(--bn-line);
+}
+.bn-badge[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-700); border-color: transparent; }
+.bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: var(--bn-success); border-color: transparent; }
+.bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: var(--bn-warn); border-color: transparent; }
+.bn-badge[data-tone="danger"]   { background: var(--bn-danger-bg); color: var(--bn-danger); border-color: transparent; }
+.bn-badge[data-tone="info"]     { background: var(--bn-info-bg); color: var(--bn-info); border-color: transparent; }
+.bn-badge[data-tone="jetonomy"] { background: var(--bn-jetonomy-bg); color: var(--bn-jetonomy); border-color: transparent; }
+.bn-badge[data-tone="media"]    { background: var(--bn-media-bg); color: var(--bn-media); border-color: transparent; }
+.bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: var(--bn-events); border-color: transparent; }
+.bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: var(--bn-paid); border-color: transparent; }
+
+/* ── Avatar — v2 size + presence attribute API ──────────────────────── */
+.bn-avatar[data-size] {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-accent-200);
+	color: var(--bn-accent-700);
+	font-weight: 600;
+	font-family: var(--bn-font-display);
+	flex-shrink: 0;
+	user-select: none;
+	overflow: hidden;
+}
+.bn-avatar[data-size="xs"]  { width: 20px; height: 20px; font-size: 10px; }
+.bn-avatar[data-size="sm"]  { width: 28px; height: 28px; font-size: 11px; }
+.bn-avatar[data-size="md"]  { width: 36px; height: 36px; font-size: 13px; }
+.bn-avatar[data-size="lg"]  { width: 48px; height: 48px; font-size: 16px; }
+.bn-avatar[data-size="xl"]  { width: 72px; height: 72px; font-size: 22px; }
+.bn-avatar[data-size="2xl"] { width: 96px; height: 96px; font-size: 30px; }
+
+.bn-avatar[data-presence]::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	width: 28%;
+	height: 28%;
+	min-width: 8px;
+	min-height: 8px;
+	border-radius: 50%;
+	border: 2px solid var(--bn-surface);
+}
+.bn-avatar[data-presence="online"]::after  { background: var(--bn-success); }
+.bn-avatar[data-presence="away"]::after    { background: var(--bn-warn); }
+.bn-avatar[data-presence="dnd"]::after     { background: var(--bn-danger); }
+.bn-avatar[data-presence="offline"]::after { background: var(--bn-ink-4); }
+
+/* ── Card — v2 attribute API ────────────────────────────────────────── */
+.bn-card[data-v2],
+.bn-card[data-interactive] {
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	transition: border-color var(--bn-dur) var(--bn-ease);
+}
+.bn-card[data-interactive]:hover { border-color: var(--bn-line-strong); }
+
+/* ── Kbd — v2 ────────────────────────────────────────────────────────── */
+.bn-kbd {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	font-family: var(--bn-font-mono);
+	font-size: 11px;
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
+	border: 1px solid var(--bn-line);
+	border-bottom-width: 2px;
+	border-radius: 4px;
+}
+
+/* ── Hairline divider — v2 ──────────────────────────────────────────── */
+.bn-hr {
+	height: 1px;
+	background: var(--bn-line);
+	border: none;
+	margin: 0;
+}
+
+/* ── Focus ring helper ──────────────────────────────────────────────── */
+.bn-ring { box-shadow: var(--bn-ring); }
