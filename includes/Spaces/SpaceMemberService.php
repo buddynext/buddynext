@@ -56,6 +56,10 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function join( int $space_id, int $user_id ): true|WP_Error {
+		// Pre-load space row so listeners on buddynext_can_join_space (including
+		// Pro's gated-space gate) receive the actual required_ability + type.
+		$space = $this->load_space_row( $space_id );
+
 		/**
 		 * Filter whether the user is permitted to join a space.
 		 *
@@ -65,12 +69,12 @@ class SpaceMemberService {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param bool  $can      Whether the user may proceed. Default true.
-		 * @param array $space    Space data array from bn_spaces (empty array when space not pre-loaded).
-		 * @param int   $user_id  User attempting to join.
-		 * @param string $action  Action being performed — always 'join' from this method.
+		 * @param bool   $can      Whether the user may proceed. Default true.
+		 * @param array  $space    Space row from bn_spaces (empty array when row missing).
+		 * @param int    $user_id  User attempting to join.
+		 * @param string $action   Action being performed — always 'join' from this method.
 		 */
-		$can = (bool) apply_filters( 'buddynext_can_join_space', true, array(), $user_id, 'join' );
+		$can = (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'join' );
 		if ( ! $can ) {
 			return new WP_Error(
 				'cannot_join_space',
@@ -157,6 +161,9 @@ class SpaceMemberService {
 	 * @return true|WP_Error
 	 */
 	public function request_join( int $space_id, int $user_id ): true|WP_Error {
+		// Pre-load space row so listeners receive the actual required_ability + type.
+		$space = $this->load_space_row( $space_id );
+
 		/**
 		 * Filter whether the user is permitted to request membership in a space.
 		 *
@@ -167,11 +174,11 @@ class SpaceMemberService {
 		 * @since 1.0.0
 		 *
 		 * @param bool   $can     Whether the user may proceed. Default true.
-		 * @param array  $space   Space data array from bn_spaces (empty array when space not pre-loaded).
+		 * @param array  $space   Space row from bn_spaces (empty array when row missing).
 		 * @param int    $user_id User attempting to request membership.
 		 * @param string $action  Action being performed — always 'request' from this method.
 		 */
-		$can = (bool) apply_filters( 'buddynext_can_join_space', true, array(), $user_id, 'request' );
+		$can = (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'request' );
 		if ( ! $can ) {
 			return new WP_Error(
 				'cannot_join_space',
@@ -1120,5 +1127,31 @@ class SpaceMemberService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 		return $count > 0;
+	}
+
+	/**
+	 * Load a single bn_spaces row as an associative array. Returns [] on miss.
+	 *
+	 * Used by join() / request_join() to give the buddynext_can_join_space
+	 * filter listeners the actual space data (notably required_ability for the
+	 * Pro gated-spaces gate).
+	 *
+	 * @param int $space_id Space ID.
+	 * @return array<string, mixed>
+	 */
+	private function load_space_row( int $space_id ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_spaces WHERE id = %d",
+				$space_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $row ) ? $row : array();
 	}
 }
