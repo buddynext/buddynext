@@ -150,7 +150,21 @@ class NotificationPrefService {
 
 		wp_cache_set( $cache_key, $prefs, self::CACHE_GROUP, self::CACHE_TTL );
 
-		return $prefs;
+		/**
+		 * Filter the resolved notification preferences for a user.
+		 *
+		 * Pro / bridge plugins use this to append channel-specific pref rows
+		 * (e.g., push, SMS) without modifying Free. Each entry should follow
+		 * the same array shape as Free's entries: at minimum
+		 * { on_site: bool, email_freq: string }, plus any channel keys the
+		 * extending plugin owns (e.g., push_enabled: bool).
+		 *
+		 * @since 1.2.0
+		 *
+		 * @param array[] $prefs    Resolved prefs keyed by type.
+		 * @param int     $user_id  Owner.
+		 */
+		return (array) apply_filters( 'buddynext_notification_prefs', $prefs, $user_id );
 	}
 
 	/**
