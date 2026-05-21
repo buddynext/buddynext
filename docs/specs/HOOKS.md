@@ -188,6 +188,13 @@ apply_filters( 'buddynext_feed_items', array $items, string $scope, int $viewer_
 // Use: Pro tier-based filtering.
 apply_filters( 'buddynext_feed_query_args', array $args, string $scope, int $viewer_id )
 
+// Filter the ORDER BY clause used by the home feed SQL.
+// Use: Pro AI Feed ranking — swap chronological order for an affinity-weighted ordering.
+// IMPORTANT: the returned string is embedded directly into SQL. Callers MUST return only
+// hardcoded column references + direction keywords. Never include user-supplied data.
+apply_filters( 'buddynext_feed_order_by', string $order_by, int $user_id, array $query_args )
+// Default: 'created_at DESC, id DESC'
+
 // Filter the max pinned-post count per scope.
 // Use: Pro premium members get more pins.
 apply_filters( 'buddynext_post_pin_limit', int $limit, ?int $space_id, int $user_id )

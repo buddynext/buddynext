@@ -121,11 +121,32 @@ class FeedService {
 		$per_page = (int) ( $query_args['per_page'] ?? $per_page );
 		$per_page = min( $per_page, 50 );
 
+		/**
+		 * Filter the ORDER BY clause used by the home feed SQL.
+		 *
+		 * Allows Pro to swap the chronological ORDER BY for an affinity-weighted
+		 * ordering (AI Feed ranking). The returned fragment is embedded directly
+		 * into the SQL — it MUST contain only safe column references and
+		 * direction keywords, never user data.
+		 *
+		 * @since 1.1.0
+		 *
+		 * @param string $order_by   Default ORDER BY clause (without the keyword).
+		 * @param int    $user_id    Viewing user ID.
+		 * @param array  $query_args Resolved query args after buddynext_feed_query_args.
+		 */
+		$order_by = (string) apply_filters( 'buddynext_feed_order_by', 'created_at DESC, id DESC', $user_id, $query_args );
+		if ( '' === $order_by ) {
+			$order_by = 'created_at DESC, id DESC';
+		}
+
 		// All three OR branches use subqueries — no PHP-side ID arrays, no interpolation.
 		// Source 1: viewer's own posts (any privacy) + followed users' public/followers posts.
 		// Source 2: posts from spaces the viewer has actively joined.
 		// Source 3: posts that contain a hashtag the viewer follows.
 		// $cursor_where and $excluded_where contain only hardcoded table/column names — safe.
+		// $order_by is filter-supplied; callers are contractually required to return only
+		// hardcoded SQL column references + direction keywords (documented on the filter).
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
@@ -159,7 +180,7 @@ class FeedService {
 			       )
 			   {$excluded_where}
 			   {$cursor_where}
-			 ORDER BY created_at DESC, id DESC
+			 ORDER BY {$order_by}
 			 LIMIT %d",
 			...array_merge( array( $user_id, $user_id, $user_id, $user_id ), $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
