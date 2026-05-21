@@ -265,25 +265,17 @@ body.admin-bar .bn-app {
 
 .bn-app__main {
 	min-width: 0;
-	padding: var(--bn-s6, 24px) var(--bn-s5, 20px);
+	padding: var(--bn-s5, 20px) var(--bn-s5, 20px);
 }
 
-/* Main column gets an inner content max-width for readability. Hub
- * templates that want to render edge-to-edge can opt out with
- * data-bn-main-edge="true" on .bn-app__main, set via context. */
+/* Main column flows at full available width. Hub templates own their
+ * own internal layout (the feed template has its own feed+sidebar
+ * 2-column grid, the profile template has its hero+tabs, etc.) — the
+ * shell does not constrain them. */
 .bn-app__main > * {
-	max-width: var(--bn-content-max, 720px);
-	margin-inline: auto;
-}
-
-.bn-app__main[data-bn-main-edge="true"] > * {
+	width: 100%;
 	max-width: none;
-}
-
-/* When the right sidebar is present, the main column reads wider since
- * the sidebar takes the wide-content overflow. */
-.bn-app__shell--with-sidebar .bn-app__main > * {
-	max-width: none;
+	margin-inline: 0;
 }
 
 .bn-app__right {
