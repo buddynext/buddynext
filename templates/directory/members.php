@@ -1,38 +1,50 @@
 <?php
 /**
- * Member Directory template (v2 design system).
+ * BuddyNext — Member directory inner template (v2 design system).
  *
- * Displays a searchable, filterable grid of WordPress users with
- * social-graph context (follow status, mutual connections, online status).
+ * Renders inside the shell main column (`<main class="bn-app__main">`,
+ * see `templates/shell/hub-shell.php`). This inner template does NOT
+ * own the topbar, the rail, the page chrome, or the 2-column grid —
+ * the shell handles all of that. Sidebar widgets (online-now, role
+ * counts) are registered on the `buddynext_right_sidebar` action; the
+ * shell auto-renders the right column when callbacks are present.
  *
- * Renders against the v2 attribute API (.bn-card[data-interactive],
- * .bn-btn[data-variant], .bn-input, .bn-badge[data-tone],
- * .bn-avatar[data-size][data-presence], .bn-tabs/.bn-tab). All visual
- * styling lives in assets/css/bn-members.css using v2 tokens — no inline
- * <style> blocks, no raw hex/px values in this template.
+ * Canonical layout: `docs/v2 Plans/v2/member-directory.html` plus the
+ * 9-rule contract in `docs/v2 Plans/TEMPLATE-REFACTOR-PLAN.md`.
  *
- * Variables expected from the rendering context:
- *   (none required — all data fetched internally)
+ * Composition: `parts/section-head.php` for the page heading,
+ * `parts/filter-strip.php` for tabs + search + sorts,
+ * `blocks/member-card.php` per member in `.bn-md-grid`,
+ * `parts/pagination.php` for paging,
+ * `parts/sidebar-card.php` widgets via the right-sidebar action.
+ *
+ * Overridable: copy to `{theme}/buddynext/directory/members.php`.
+ *
+ * REST endpoint: GET buddynext/v1/members.
  *
  * @package BuddyNext
- * @since   0.1.0
+ * @since   1.0.0
  */
 
-declare(strict_types=1);
+declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-// ── Query parameters ──────────────────────────────────────────────────────────
+use BuddyNext\Core\PageRouter;
+
+// ── Query parameters ──────────────────────────────────────────────────────
 $bn_current_page = max( 1, absint( get_query_var( 'paged', 1 ) ) );
 $bn_per_page     = 20;
-$search_term     = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );       // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$orderby_raw     = sanitize_key( $_GET['orderby'] ?? 'registered' );             // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$relation_raw    = sanitize_key( $_GET['relation'] ?? 'all' );                   // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$search_term     = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );          // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$orderby_raw     = sanitize_key( $_GET['orderby'] ?? 'registered' );                // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$relation_raw    = sanitize_key( $_GET['relation'] ?? 'all' );                      // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
 // Accept type slug from the pretty URL rewrite (/members/{slug}/) or a ?type= query arg.
 $type_slug_filter = sanitize_key( (string) get_query_var( 'bn_member_type', '' ) );
 if ( '' === $type_slug_filter ) {
-	$type_slug_filter = sanitize_key( wp_unslash( $_GET['type'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$type_slug_filter = sanitize_key( wp_unslash( $_GET['type'] ?? '' ) );          // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 }
+
 $allowed_sort = array( 'registered', 'display_name', 'post_count' );
 $bn_orderby   = in_array( $orderby_raw, $allowed_sort, true ) ? $orderby_raw : 'registered';
 $bn_order     = 'registered' === $bn_orderby ? 'DESC' : 'ASC';
@@ -40,10 +52,10 @@ $bn_order     = 'registered' === $bn_orderby ? 'DESC' : 'ASC';
 $allowed_relations = array( 'all', 'following', 'connections' );
 $bn_relation       = in_array( $relation_raw, $allowed_relations, true ) ? $relation_raw : 'all';
 
-// ── Current user context ──────────────────────────────────────────────────────
+// ── Current user context ──────────────────────────────────────────────────
 $current_user_id = get_current_user_id();
 
-// ── Member types for directory pill tabs and card badges ──────────────────────
+// ── Member types for directory pill tabs and card badges ──────────────────
 $all_types_raw = buddynext_service( 'member_types' )->get_all();
 $dir_types     = array_values( array_filter( $all_types_raw, static fn( $t ) => ! empty( $t['show_in_dir'] ) ) );
 // Flat slug → type data map for O(1) card badge lookup inside the member loop.
@@ -53,8 +65,7 @@ foreach ( $all_types_raw as $t ) {
 }
 unset( $all_types_raw, $t );
 
-// ── Fetch users ───────────────────────────────────────────────────────────────
-
+// ── Fetch users ───────────────────────────────────────────────────────────
 // Resolve user IDs to exclude: active suspensions + shadow-banned users.
 global $wpdb;
 
@@ -133,13 +144,13 @@ if ( '' !== $type_slug_filter ) {
 $user_query  = new WP_User_Query( $user_query_args );
 $members     = $user_query->get_results();
 $total_users = (int) $user_query->get_total();
-$total_pages = (int) ceil( $total_users / $bn_per_page );
+$total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 
-// ── Helper: online status (last_active within 5 minutes) ─────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
 $online_threshold = time() - 300;
 
 /**
- * Determine if a user is considered online.
+ * Determine if a user is considered online (last_active within 5 minutes).
  *
  * @param int $user_id WordPress user ID.
  * @return bool
@@ -202,27 +213,7 @@ $bn_is_following = static function ( int $target_user_id ) use ( $current_user_i
 };
 
 /**
- * Build a pagination URL preserving current query args.
- *
- * @param int $page_number Target page number.
- * @return string Escaped URL.
- */
-$bn_paged_url = static function ( int $page_number ) use ( $search_term, $bn_orderby, $bn_relation ): string {
-	$args = array( 'paged' => $page_number );
-	if ( '' !== $search_term ) {
-		$args['s'] = $search_term;
-	}
-	if ( 'registered' !== $bn_orderby ) {
-		$args['orderby'] = $bn_orderby;
-	}
-	if ( 'all' !== $bn_relation ) {
-		$args['relation'] = $bn_relation;
-	}
-	return esc_url( add_query_arg( $args ) );
-};
-
-/**
- * Build a relation-tab URL.
+ * Build a relation-tab URL preserving current search/sort.
  *
  * @param string $relation Relation slug.
  * @return string Escaped URL.
@@ -241,17 +232,14 @@ $bn_relation_url = static function ( string $relation ) use ( $search_term, $bn_
 	return esc_url( add_query_arg( $args, remove_query_arg( array( 'relation', 'paged' ) ) ) );
 };
 
-// ── Page URLs (hoisted — do not call inside member loop) ─────────────────────
-$bn_messages_base = \BuddyNext\Core\PageRouter::messages_url();
+// ── Page URLs ─────────────────────────────────────────────────────────────
+$bn_messages_base = PageRouter::messages_url();
 
-// PageRouter resolves /profile/{slug}/ pretty URLs for each member card.
-
-// ── Nonce for interactive actions ─────────────────────────────────────────────
-$action_nonce = wp_create_nonce( 'bn_member_action' );
-
-// Avatar tone palette — cycles deterministically by user ID.
+// ── Avatar tone palette — cycles deterministically by user ID ─────────────
 $bn_avatar_tones = array( 'accent', 'success', 'jetonomy', 'media', 'events', 'warn', 'danger', 'info' );
 
+// ── Interactivity context ─────────────────────────────────────────────────
+$action_nonce         = wp_create_nonce( 'bn_member_action' );
 $bn_directory_context = wp_json_encode(
 	array(
 		'search'   => $search_term,
@@ -264,175 +252,265 @@ $bn_directory_context = wp_json_encode(
 if ( false === $bn_directory_context ) {
 	$bn_directory_context = '{}';
 }
-?>
-<?php
-$bn_nav_active = 'members';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+
+// ── Sidebar widgets — hooked into the shell's right-sidebar slot ──────────
+// Online-now widget: top 6 users with bn_last_active within the threshold.
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+$bn_online_rows = $wpdb->get_results(
+	$wpdb->prepare(
+		"SELECT u.ID, u.display_name, u.user_login
+		   FROM {$wpdb->users} u
+		   JOIN {$wpdb->usermeta} um ON um.user_id = u.ID
+		  WHERE um.meta_key = %s
+			AND CAST(um.meta_value AS UNSIGNED) >= %d
+		  ORDER BY CAST(um.meta_value AS UNSIGNED) DESC
+		  LIMIT %d",
+		'bn_last_active',
+		$online_threshold,
+		6
+	)
+);
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+if ( ! empty( $bn_online_rows ) ) {
+	$bn_online_count = (int) count( $bn_online_rows );
+	add_action(
+		'buddynext_right_sidebar',
+		static function () use ( $bn_online_rows, $bn_avatar_tones, $bn_initials, $bn_online_count ) {
+			ob_start();
+			?>
+			<ul class="bn-md-sidebar-list">
+				<?php foreach ( $bn_online_rows as $bn_row ) : ?>
+					<?php
+					$bn_row_id    = (int) $bn_row->ID;
+					$bn_row_name  = (string) $bn_row->display_name;
+					$bn_row_login = (string) $bn_row->user_login;
+					$bn_row_url   = PageRouter::profile_url( $bn_row_id );
+					$bn_row_av    = (string) get_avatar_url( $bn_row_id, array( 'size' => 56 ) );
+					$bn_row_tone  = $bn_avatar_tones[ $bn_row_id % count( $bn_avatar_tones ) ];
+					?>
+					<li class="bn-md-sidebar-item">
+						<a class="bn-md-sidebar-item__link" href="<?php echo esc_url( $bn_row_url ); ?>">
+							<span
+								class="bn-avatar"
+								data-size="sm"
+								data-presence="online"
+								data-tone="<?php echo esc_attr( $bn_row_tone ); ?>"
+							>
+								<?php if ( '' !== $bn_row_av ) : ?>
+									<img
+										src="<?php echo esc_url( $bn_row_av ); ?>"
+										alt=""
+										width="28"
+										height="28"
+										loading="lazy"
+										decoding="async"
+									>
+								<?php else : ?>
+									<?php echo esc_html( $bn_initials( $bn_row_name ) ); ?>
+								<?php endif; ?>
+							</span>
+							<span class="bn-md-sidebar-item__text">
+								<span class="bn-md-sidebar-item__name"><?php echo esc_html( $bn_row_name ); ?></span>
+								<span class="bn-md-sidebar-item__handle">@<?php echo esc_html( $bn_row_login ); ?></span>
+							</span>
+						</a>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+			<?php
+			$bn_body = (string) ob_get_clean();
+			buddynext_get_template(
+				'parts/sidebar-card.php',
+				array(
+					'id'         => 'online-now',
+					'title'      => sprintf(
+						/* translators: %s: number of online members */
+						__( 'Online now (%s)', 'buddynext' ),
+						number_format_i18n( $bn_online_count )
+					),
+					'title_icon' => 'users',
+					'body_html'  => $bn_body,
+				)
+			);
+		}
+	);
+}
+
+// Member-type counts widget.
+if ( ! empty( $dir_types ) ) {
+	add_action(
+		'buddynext_right_sidebar',
+		static function () use ( $dir_types, $type_slug_filter ) {
+			ob_start();
+			?>
+			<ul class="bn-md-sidebar-list bn-md-sidebar-list--rows">
+				<?php
+				// "All" row.
+				$bn_all_url    = PageRouter::people_url();
+				$bn_all_active = ( '' === $type_slug_filter );
+				?>
+				<li class="bn-md-sidebar-row">
+					<a
+						class="bn-md-sidebar-row__link<?php echo $bn_all_active ? ' is-active' : ''; ?>"
+						href="<?php echo esc_url( $bn_all_url ); ?>"
+						<?php echo $bn_all_active ? 'aria-current="page"' : ''; ?>
+					>
+						<span class="bn-md-sidebar-row__label"><?php esc_html_e( 'All members', 'buddynext' ); ?></span>
+					</a>
+				</li>
+				<?php foreach ( $dir_types as $bn_type ) : ?>
+					<?php
+					$bn_type_slug   = (string) $bn_type['slug'];
+					$bn_type_name   = (string) $bn_type['name'];
+					$bn_type_count  = isset( $bn_type['count'] ) ? (int) $bn_type['count'] : 0;
+					$bn_type_url    = PageRouter::member_type_url( $bn_type_slug );
+					$bn_type_active = ( $bn_type_slug === $type_slug_filter );
+					?>
+					<li class="bn-md-sidebar-row">
+						<a
+							class="bn-md-sidebar-row__link<?php echo $bn_type_active ? ' is-active' : ''; ?>"
+							href="<?php echo esc_url( $bn_type_url ); ?>"
+							<?php echo $bn_type_active ? 'aria-current="page"' : ''; ?>
+						>
+							<span class="bn-md-sidebar-row__label"><?php echo esc_html( $bn_type_name ); ?></span>
+							<?php if ( $bn_type_count > 0 ) : ?>
+								<span class="bn-md-sidebar-row__count"><?php echo esc_html( number_format_i18n( $bn_type_count ) ); ?></span>
+							<?php endif; ?>
+						</a>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+			<?php
+			$bn_body = (string) ob_get_clean();
+			buddynext_get_template(
+				'parts/sidebar-card.php',
+				array(
+					'id'         => 'by-role',
+					'title'      => __( 'By type', 'buddynext' ),
+					'title_icon' => 'tag',
+					'body_html'  => $bn_body,
+				)
+			);
+		}
+	);
+}
+
+/**
+ * Fires before the members directory inner content.
+ *
+ * @param int $current_user_id Current user ID.
+ */
+do_action( 'buddynext_members_before', $current_user_id );
+
+// Section-head meta + actions slot HTML.
+$bn_head_subtitle = sprintf(
+	/* translators: %s: formatted member count */
+	__( '%s members in the community', 'buddynext' ),
+	number_format_i18n( $total_users )
+);
+
+$bn_head_actions = '';
+if ( $current_user_id > 0 ) {
+	$bn_head_actions = sprintf(
+		'<a class="bn-btn" data-variant="secondary" data-size="md" href="%1$s"><span>%2$s</span></a>',
+		esc_url( admin_url( 'profile.php' ) ),
+		esc_html__( 'Edit profile', 'buddynext' )
+	);
+}
+
+// Filter-strip tabs (relation filter) — logged-in only.
+$bn_strip_tabs = array();
+if ( $current_user_id > 0 ) {
+	$bn_strip_tabs = array(
+		array(
+			'key'   => 'all',
+			'label' => __( 'All members', 'buddynext' ),
+			'href'  => $bn_relation_url( 'all' ),
+		),
+		array(
+			'key'   => 'following',
+			'label' => __( 'Following', 'buddynext' ),
+			'href'  => $bn_relation_url( 'following' ),
+		),
+		array(
+			'key'   => 'connections',
+			'label' => __( 'Connections', 'buddynext' ),
+			'href'  => $bn_relation_url( 'connections' ),
+		),
+	);
+}
+
+$bn_strip_hidden = array();
+if ( 'all' !== $bn_relation ) {
+	$bn_strip_hidden['relation'] = $bn_relation;
+}
+if ( '' !== $type_slug_filter ) {
+	$bn_strip_hidden['type'] = $type_slug_filter;
+}
 ?>
 <div
-	class="bn-member-directory"
+	class="bn-member-directory bn-md-stack"
 	data-wp-interactive="buddynext/members"
 	data-wp-context="<?php echo esc_attr( (string) $bn_directory_context ); ?>"
 >
 
-<div class="bn-hub-shell">
-<div class="bn-hub-content">
+	<?php
+	buddynext_get_template(
+		'parts/section-head.php',
+		array(
+			'title'         => __( 'Members', 'buddynext' ),
+			'subtitle'      => $bn_head_subtitle,
+			'heading_level' => 'h1',
+			'actions_html'  => $bn_head_actions,
+		)
+	);
+	?>
 
-	<header class="bn-md-header">
-		<div>
-			<h1 class="bn-md-title"><?php esc_html_e( 'Member Directory', 'buddynext' ); ?></h1>
-			<p class="bn-md-sub">
-				<?php
-				echo esc_html(
-					sprintf(
-						/* translators: %s: formatted number of community members */
-						__( '%s members in the community', 'buddynext' ),
-						number_format_i18n( $total_users )
-					)
-				);
-				?>
-			</p>
-		</div>
-		<?php if ( $current_user_id > 0 ) : ?>
-			<a
-				class="bn-btn"
-				data-variant="secondary"
-				data-size="md"
-				href="<?php echo esc_url( admin_url( 'profile.php' ) ); ?>"
-			>
-				<?php buddynext_icon( 'edit' ); ?>
-				<span><?php esc_html_e( 'Edit profile', 'buddynext' ); ?></span>
-			</a>
-		<?php endif; ?>
-	</header>
+	<?php
+	buddynext_get_template(
+		'parts/filter-strip.php',
+		array(
+			'tabs'    => $bn_strip_tabs,
+			'active'  => $bn_relation,
+			'search'  => array(
+				'name'        => 's',
+				'value'       => $search_term,
+				'placeholder' => __( 'Search by name, skills, location…', 'buddynext' ),
+				'aria_label'  => __( 'Search members', 'buddynext' ),
+			),
+			'selects' => array(
+				array(
+					'name'       => 'orderby',
+					'value'      => $bn_orderby,
+					'aria_label' => __( 'Sort members', 'buddynext' ),
+					'options'    => array(
+						'registered'   => __( 'Newest first', 'buddynext' ),
+						'display_name' => __( 'Alphabetical', 'buddynext' ),
+						'post_count'   => __( 'Most active', 'buddynext' ),
+					),
+				),
+			),
+			'hidden'  => $bn_strip_hidden,
+			'classes' => array( 'bn-md-strip' ),
+		)
+	);
+	?>
 
-	<?php if ( $current_user_id > 0 ) : ?>
-	<nav class="bn-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Member filter', 'buddynext' ); ?>">
-		<a
-			class="bn-tab"
-			href="<?php echo esc_url( $bn_relation_url( 'all' ) ); ?>"
-			role="tab"
-			aria-selected="<?php echo 'all' === $bn_relation ? 'true' : 'false'; ?>"
-		>
-			<?php esc_html_e( 'All members', 'buddynext' ); ?>
-		</a>
-		<a
-			class="bn-tab"
-			href="<?php echo esc_url( $bn_relation_url( 'following' ) ); ?>"
-			role="tab"
-			aria-selected="<?php echo 'following' === $bn_relation ? 'true' : 'false'; ?>"
-		>
-			<?php esc_html_e( 'Following', 'buddynext' ); ?>
-		</a>
-		<a
-			class="bn-tab"
-			href="<?php echo esc_url( $bn_relation_url( 'connections' ) ); ?>"
-			role="tab"
-			aria-selected="<?php echo 'connections' === $bn_relation ? 'true' : 'false'; ?>"
-		>
-			<?php esc_html_e( 'Connections', 'buddynext' ); ?>
-		</a>
-	</nav>
-	<?php endif; ?>
+	<?php if ( empty( $members ) ) : ?>
+		<?php
+		buddynext_get_template(
+			'parts/empty-state.php',
+			array(
+				'icon'  => 'users',
+				'title' => __( 'No members found', 'buddynext' ),
+				'body'  => __( 'Try a different search term or clear your filters.', 'buddynext' ),
+			)
+		);
+		?>
+	<?php else : ?>
 
-	<form class="bn-md-filters" method="get" action="" role="search" aria-label="<?php esc_attr_e( 'Filter members', 'buddynext' ); ?>">
-		<div class="bn-md-search">
-			<label class="screen-reader-text" for="bn-md-search-input">
-				<?php esc_html_e( 'Search members', 'buddynext' ); ?>
-			</label>
-			<span class="bn-md-search__icon" aria-hidden="true">
-				<?php buddynext_icon( 'search' ); ?>
-			</span>
-			<input
-				id="bn-md-search-input"
-				class="bn-input bn-md-search__input"
-				type="search"
-				name="s"
-				value="<?php echo esc_attr( $search_term ); ?>"
-				placeholder="<?php esc_attr_e( 'Search by name, skills, location...', 'buddynext' ); ?>"
-			>
-		</div>
-
-		<label class="screen-reader-text" for="bn-md-sort"><?php esc_html_e( 'Sort members', 'buddynext' ); ?></label>
-		<select id="bn-md-sort" class="bn-select bn-md-filters__sort" name="orderby">
-			<option value="registered" <?php selected( $bn_orderby, 'registered' ); ?>><?php esc_html_e( 'Newest first', 'buddynext' ); ?></option>
-			<option value="display_name" <?php selected( $bn_orderby, 'display_name' ); ?>><?php esc_html_e( 'Alphabetical', 'buddynext' ); ?></option>
-			<option value="post_count" <?php selected( $bn_orderby, 'post_count' ); ?>><?php esc_html_e( 'Most active', 'buddynext' ); ?></option>
-		</select>
-
-		<?php if ( 'all' !== $bn_relation ) : ?>
-			<input type="hidden" name="relation" value="<?php echo esc_attr( $bn_relation ); ?>">
-		<?php endif; ?>
-
-		<div class="bn-md-filters__view" role="group" aria-label="<?php esc_attr_e( 'View layout', 'buddynext' ); ?>">
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="ghost"
-				data-size="sm"
-				data-view="grid"
-				aria-label="<?php esc_attr_e( 'Grid view', 'buddynext' ); ?>"
-				data-wp-on--click="actions.setGridView"
-				data-wp-bind--aria-pressed="state.isGridPressed"
-			>
-				<?php buddynext_icon( 'grid' ); ?>
-			</button>
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="ghost"
-				data-size="sm"
-				data-view="list"
-				aria-label="<?php esc_attr_e( 'List view', 'buddynext' ); ?>"
-				data-wp-on--click="actions.setListView"
-				data-wp-bind--aria-pressed="state.isListPressed"
-			>
-				<?php buddynext_icon( 'list' ); ?>
-			</button>
-		</div>
-
-		<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
-			<?php esc_html_e( 'Apply', 'buddynext' ); ?>
-		</button>
-	</form>
-
-	<?php if ( ! empty( $dir_types ) ) : ?>
-	<div class="bn-md-types" role="navigation" aria-label="<?php esc_attr_e( 'Filter by member type', 'buddynext' ); ?>">
-		<a
-			href="<?php echo esc_url( \BuddyNext\Core\PageRouter::people_url() ); ?>"
-			class="bn-badge bn-md-type-pill"
-			data-tone="<?php echo '' === $type_slug_filter ? 'accent' : ''; ?>"
-			aria-current="<?php echo '' === $type_slug_filter ? 'page' : 'false'; ?>"
-		><?php esc_html_e( 'All', 'buddynext' ); ?></a>
-
-		<?php foreach ( $dir_types as $dir_type ) : ?>
-			<?php $bn_pill_active = $type_slug_filter === $dir_type['slug']; ?>
-			<a
-				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::member_type_url( (string) $dir_type['slug'] ) ); ?>"
-				class="bn-badge bn-md-type-pill"
-				data-tone="<?php echo $bn_pill_active ? 'accent' : ''; ?>"
-				aria-current="<?php echo $bn_pill_active ? 'page' : 'false'; ?>"
-			>
-				<?php echo esc_html( $dir_type['name'] ); ?>
-			</a>
-		<?php endforeach; ?>
-	</div>
-	<?php endif; ?>
-
-	<div
-		class="bn-md-grid"
-		data-wp-class--is-list="state.isListView"
-		role="list"
-	>
-
-		<?php if ( empty( $members ) ) : ?>
-			<div class="bn-md-empty">
-				<div class="bn-md-empty__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
-				<h2 class="bn-md-empty__title"><?php esc_html_e( 'No members found', 'buddynext' ); ?></h2>
-				<p class="bn-md-empty__hint"><?php esc_html_e( 'Try a different search term or clear your filters.', 'buddynext' ); ?></p>
-			</div>
-		<?php else : ?>
-
+		<div class="bn-md-grid" role="list">
 			<?php foreach ( $members as $member ) : ?>
 				<?php
 				$member_id    = (int) $member->ID;
@@ -442,7 +520,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				if ( '' === $bio ) {
 					$bio = (string) get_user_meta( $member_id, 'description', true );
 				}
-				$profile_url      = \BuddyNext\Core\PageRouter::profile_url( $member_id );
+				$profile_url      = PageRouter::profile_url( $member_id );
 				$avatar_url       = (string) get_avatar_url( $member_id, array( 'size' => 96 ) );
 				$is_online        = $bn_is_online( $member_id );
 				$is_following     = $bn_is_following( $member_id );
@@ -605,71 +683,26 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 				</article>
 			<?php endforeach; ?>
-
-		<?php endif; ?>
-
-	</div>
-
-	<?php if ( $total_pages > 1 ) : ?>
-	<nav class="bn-md-pagination" aria-label="<?php esc_attr_e( 'Member directory pages', 'buddynext' ); ?>">
-
-		<?php $bn_prev_disabled = 1 === $bn_current_page; ?>
-		<a
-			href="<?php echo $bn_prev_disabled ? '#' : $bn_paged_url( $bn_current_page - 1 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>"
-			class="bn-btn"
-			data-variant="ghost"
-			data-size="sm"
-			aria-label="<?php esc_attr_e( 'Previous page', 'buddynext' ); ?>"
-			<?php echo $bn_prev_disabled ? 'aria-disabled="true"' : ''; ?>
-		><?php buddynext_icon( 'chevron-left' ); ?></a>
+		</div>
 
 		<?php
-		$window_start = max( 1, $bn_current_page - 2 );
-		$window_end   = min( $total_pages, $bn_current_page + 2 );
+		buddynext_get_template(
+			'parts/pagination.php',
+			array(
+				'current'    => $bn_current_page,
+				'total'      => $total_pages,
+				'aria_label' => __( 'Member directory pages', 'buddynext' ),
+			)
+		);
+		?>
 
-		if ( $window_start > 1 ) :
-			?>
-			<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo $bn_paged_url( 1 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>">1</a>
-			<?php if ( $window_start > 2 ) : ?>
-				<span class="bn-md-pagination__gap" aria-hidden="true">&hellip;</span>
-			<?php endif; ?>
-		<?php endif; ?>
-
-		<?php for ( $p = $window_start; $p <= $window_end; $p++ ) : ?>
-			<a
-				class="bn-btn"
-				data-variant="<?php echo $p === $bn_current_page ? 'primary' : 'ghost'; ?>"
-				data-size="sm"
-				href="<?php echo $bn_paged_url( $p ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>"
-				<?php echo $p === $bn_current_page ? 'aria-current="page"' : ''; ?>
-			><?php echo esc_html( (string) $p ); ?></a>
-		<?php endfor; ?>
-
-		<?php if ( $window_end < $total_pages ) : ?>
-			<?php if ( $window_end < $total_pages - 1 ) : ?>
-				<span class="bn-md-pagination__gap" aria-hidden="true">&hellip;</span>
-			<?php endif; ?>
-			<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo $bn_paged_url( $total_pages ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>">
-				<?php echo esc_html( (string) $total_pages ); ?>
-			</a>
-		<?php endif; ?>
-
-		<?php $bn_next_disabled = $bn_current_page >= $total_pages; ?>
-		<a
-			href="<?php echo $bn_next_disabled ? '#' : $bn_paged_url( $bn_current_page + 1 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>"
-			class="bn-btn"
-			data-variant="ghost"
-			data-size="sm"
-			aria-label="<?php esc_attr_e( 'Next page', 'buddynext' ); ?>"
-			<?php echo $bn_next_disabled ? 'aria-disabled="true"' : ''; ?>
-		><?php buddynext_icon( 'chevron-right' ); ?></a>
-
-	</nav>
 	<?php endif; ?>
 
-</div><!-- /.bn-hub-content -->
-
-<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
-
-</div><!-- /.bn-hub-shell -->
-</div><!-- /.bn-member-directory -->
+</div>
+<?php
+/**
+ * Fires after the members directory inner content.
+ *
+ * @param int $current_user_id Current user ID.
+ */
+do_action( 'buddynext_members_after', $current_user_id );

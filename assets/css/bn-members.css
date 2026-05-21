@@ -1,170 +1,63 @@
 /* BuddyNext — Member Directory styles (v2 design system).
  *
- * Layout shell, member card composition, filter bar, pagination.
+ * The shell (templates/shell/hub-shell.php) owns the topbar, rail, main
+ * column, and the optional right-sidebar column. The inner member-directory
+ * template renders the section-head, filter-strip, card grid, and pagination
+ * inside the shell main column — there is no page-frame, no 2-column grid,
+ * no theme-aware wrapper in this stylesheet.
+ *
  * Buttons, inputs, badges, avatars, and the card container come from the
  * v2 attribute API in bn-base.css (.bn-btn[data-variant], .bn-input,
  * .bn-badge[data-tone], .bn-avatar[data-size][data-presence],
  * .bn-card[data-interactive]).
  *
- * Tokens: every value reads from --bn-* (canonical) — no raw hex or px in
- * component rules. Mobile breakpoints use logical properties.
+ * Tokens-only — every value reads from --bn-* (canonical). Logical
+ * properties throughout for RTL parity.
  *
  * Legacy class rules (.bn-member-card, .bn-member-name, .bn-member-handle,
  * .bn-card-actions, .bn-btn-message, .bn-pagination, .bn-page-btn) are
- * preserved for templates/spaces/members.php and templates/profile/connections.php
- * which still consume them. Those surfaces will migrate in their own sweeps.
+ * preserved for templates/spaces/members.php and
+ * templates/profile/connections.php which still consume them. Those
+ * surfaces will migrate in their own sweeps.
  */
 
-/* ── Directory shell ──────────────────────────────────────────────────────── */
-.bn-member-directory {
-	font-family: var(--bn-font-ui);
-	font-size: var(--bn-text-base);
-	color: var(--bn-ink);
-	line-height: var(--bn-leading-body);
-	background: var(--bn-canvas);
-	min-block-size: 100vh;
-	padding-block: var(--bn-s6);
-	padding-inline: var(--bn-s5);
-}
-
-.bn-md-header {
+/* ── Inner stack (inside .bn-app__main from the shell) ─────────────────────
+ * Owns vertical rhythm only. The shell provides the column width and the
+ * top/side padding around the main content. */
+.bn-member-directory.bn-md-stack {
 	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: var(--bn-s4);
-	margin-block-end: var(--bn-s4);
-	flex-wrap: wrap;
+	flex-direction: column;
+	gap: var(--bn-s5);
 }
 
-.bn-md-title {
-	font-family: var(--bn-font-display);
-	font-size: var(--bn-text-2xl);
-	font-weight: var(--bn-fw-extrabold);
-	letter-spacing: var(--bn-ls-tight);
-	color: var(--bn-ink);
-	margin: 0 0 var(--bn-s1);
+/* ── Filter strip overrides (composes parts/filter-strip.php) ─────────────
+ * The base .bn-filter-strip stacks tabs above the form on small screens.
+ * The members hub overlays a bottom border to separate the strip from the
+ * grid below. */
+.bn-md-strip {
+	padding-block-end: var(--bn-s3);
+	border-block-end: 1px solid var(--bn-line-faint);
 }
 
-.bn-md-sub {
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-2);
-	margin: 0;
-}
-
-/* ── Filter bar ───────────────────────────────────────────────────────────── */
-.bn-md-filters {
-	display: flex;
-	gap: var(--bn-s3);
-	align-items: center;
-	flex-wrap: wrap;
-	padding-block: var(--bn-s3);
-	margin-block-end: var(--bn-s4);
-	border-block-end: 1px solid var(--bn-line);
-}
-
-.bn-md-search {
-	flex: 1 1 240px;
-	min-inline-size: 200px;
-	position: relative;
-}
-
-.bn-md-search__icon {
-	position: absolute;
-	inset-inline-start: var(--bn-s3);
-	inset-block-start: 50%;
-	transform: translateY(-50%);
-	inline-size: 16px;
-	block-size: 16px;
-	color: var(--bn-ink-3);
-	pointer-events: none;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.bn-md-search__icon svg {
-	inline-size: 16px;
-	block-size: 16px;
-}
-
-.bn-md-search__input {
-	padding-inline-start: calc(var(--bn-s3) + 24px);
-}
-
-.bn-md-filters__view {
-	display: inline-flex;
-	gap: 4px;
-	padding: 2px;
-	background: var(--bn-sunken);
-	border-radius: var(--bn-r-md);
-}
-
-.bn-md-filters__view .bn-btn[aria-pressed="true"] {
-	background: var(--bn-surface);
-	color: var(--bn-ink);
-	box-shadow: var(--bn-shadow-xs);
-}
-
-.bn-md-filters__sort {
-	flex: 0 0 auto;
-	inline-size: auto;
-	min-inline-size: 160px;
-}
-
-/* ── Member type pill row ─────────────────────────────────────────────────── */
-.bn-md-types {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--bn-s2);
-	margin-block-end: var(--bn-s4);
-}
-
-/* Pill = .bn-badge with anchor behaviour. Bumped to interactive sizing. */
-.bn-md-type-pill {
-	min-block-size: 28px;
-	padding-inline: var(--bn-s3);
-	font-size: var(--bn-text-xs);
-	font-weight: var(--bn-fw-semibold);
-	text-decoration: none;
-	cursor: pointer;
-	transition:
-		background var(--bn-dur) var(--bn-ease),
-		color var(--bn-dur) var(--bn-ease),
-		border-color var(--bn-dur) var(--bn-ease);
-}
-
-.bn-md-type-pill:hover,
-.bn-md-type-pill:focus-visible {
-	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
-}
-
-.bn-md-type-pill:focus-visible {
-	outline: none;
-	box-shadow: var(--bn-ring);
-}
-
-/* ── Member grid ──────────────────────────────────────────────────────────── */
+/* ── Member grid ──────────────────────────────────────────────────────────
+ * Auto-fill grid that yields 4 cards desktop, 3 on iPad landscape, 2 on
+ * iPad portrait + small viewports, 1 on mobile. The shell collapses the
+ * right column at ≤ 1024px so the main column widens accordingly. */
 .bn-md-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 	gap: var(--bn-s4);
 	list-style: none;
 	margin: 0;
 	padding: 0;
 }
 
-.bn-md-grid.is-list {
-	grid-template-columns: 1fr;
-	gap: var(--bn-s2);
-}
-
-/* ── Member card composition (uses .bn-card[data-interactive] from base) ─── */
+/* ── Member card composition (uses .bn-card[data-interactive] from base) ── */
 .bn-md-card {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 6px;
+	gap: var(--bn-s1);
 	padding: var(--bn-s4);
 	text-align: center;
 	transition: transform var(--bn-dur-fast) var(--bn-ease);
@@ -174,25 +67,11 @@
 	transform: translateY(-1px);
 }
 
-.bn-md-grid.is-list .bn-md-card {
-	flex-direction: row;
-	align-items: center;
-	text-align: start;
-	gap: var(--bn-s4);
-	padding-block: var(--bn-s3);
-	padding-inline: var(--bn-s4);
-}
-
 .bn-md-card__avatar-link {
 	display: inline-block;
 	margin-block-end: var(--bn-s2);
 	text-decoration: none;
 	color: inherit;
-}
-
-.bn-md-grid.is-list .bn-md-card__avatar-link {
-	margin-block-end: 0;
-	flex-shrink: 0;
 }
 
 .bn-md-card__avatar {
@@ -205,12 +84,6 @@
 	object-fit: cover;
 	border-radius: var(--bn-r-full);
 	display: block;
-}
-
-.bn-md-grid.is-list .bn-md-card__avatar {
-	inline-size: 48px;
-	block-size: 48px;
-	font-size: var(--bn-text-base);
 }
 
 .bn-md-card__name {
@@ -265,7 +138,7 @@
 }
 
 .bn-md-card__type {
-	margin-block-start: 2px;
+	margin-block-start: var(--bn-s1);
 }
 
 .bn-md-card__actions {
@@ -288,134 +161,128 @@
 	min-inline-size: 40px;
 }
 
-.bn-md-grid.is-list .bn-md-card__actions {
-	inline-size: auto;
-	margin-block-start: 0;
-	margin-inline-start: auto;
-	padding-block-start: 0;
-	justify-content: flex-end;
-}
-
-/* ── Empty / no-results ───────────────────────────────────────────────────── */
-.bn-md-empty {
-	grid-column: 1 / -1;
+/* ── Sidebar widgets (rendered via parts/sidebar-card.php) ────────────────
+ * Two cards: online-now list (avatars + names) and by-type counts. */
+.bn-md-sidebar-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: var(--bn-s3);
-	padding-block: var(--bn-s12);
-	padding-inline: var(--bn-s4);
-	text-align: center;
-	color: var(--bn-ink-2);
+	gap: var(--bn-s2);
 }
 
-.bn-md-empty__icon {
-	inline-size: 48px;
-	block-size: 48px;
-	color: var(--bn-ink-3);
+.bn-md-sidebar-list--rows {
+	gap: 0;
 }
 
-.bn-md-empty__icon svg {
-	inline-size: 100%;
-	block-size: 100%;
-}
-
-.bn-md-empty__title {
-	font-family: var(--bn-font-display);
-	font-size: var(--bn-text-lg);
-	font-weight: var(--bn-fw-bold);
-	color: var(--bn-ink);
-	margin: 0;
-}
-
-.bn-md-empty__hint {
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-2);
-	margin: 0;
-}
-
-/* ── Pagination (v2) ──────────────────────────────────────────────────────── */
-.bn-md-pagination {
+.bn-md-sidebar-item__link {
 	display: flex;
-	justify-content: center;
 	align-items: center;
-	gap: var(--bn-s1);
-	margin-block-start: var(--bn-s6);
-	padding-block: var(--bn-s4);
-	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	text-decoration: none;
+	color: inherit;
+	padding-block: var(--bn-s1);
+	border-radius: var(--bn-r-sm);
+	transition: background var(--bn-dur-fast) var(--bn-ease);
 }
 
-.bn-md-pagination .bn-btn {
-	min-inline-size: 36px;
-	min-block-size: 36px;
+.bn-md-sidebar-item__link:hover,
+.bn-md-sidebar-item__link:focus-visible {
+	background: var(--bn-sunken);
 }
 
-.bn-md-pagination__gap {
-	font-family: var(--bn-font-mono);
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-3);
-	padding-inline: var(--bn-s2);
-	user-select: none;
-}
-
-/* ── Focus rings (Gate 5) ─────────────────────────────────────────────────── */
-.bn-member-directory .bn-btn:focus-visible,
-.bn-member-directory .bn-input:focus-visible,
-.bn-member-directory .bn-select:focus-visible,
-.bn-member-directory .bn-tab:focus-visible {
+.bn-md-sidebar-item__link:focus-visible {
 	outline: none;
 	box-shadow: var(--bn-ring);
 }
 
-/* ── Reduced motion ───────────────────────────────────────────────────────── */
+.bn-md-sidebar-item__text {
+	display: flex;
+	flex-direction: column;
+	min-inline-size: 0;
+}
+
+.bn-md-sidebar-item__name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-md-sidebar-item__handle {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+.bn-md-sidebar-row__link {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+	padding-block: var(--bn-s2);
+	padding-inline: var(--bn-s2);
+	text-decoration: none;
+	color: var(--bn-ink);
+	border-radius: var(--bn-r-sm);
+	transition: background var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-md-sidebar-row__link:hover,
+.bn-md-sidebar-row__link:focus-visible {
+	background: var(--bn-sunken);
+}
+
+.bn-md-sidebar-row__link.is-active {
+	background: var(--bn-accent-100);
+	color: var(--bn-accent-700);
+}
+
+.bn-md-sidebar-row__link:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-md-sidebar-row__label {
+	font-size: var(--bn-text-sm);
+}
+
+.bn-md-sidebar-row__count {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
 	.bn-md-card,
 	.bn-md-card:hover,
-	.bn-md-type-pill {
+	.bn-md-sidebar-item__link,
+	.bn-md-sidebar-row__link {
 		transition: none;
 		transform: none;
 	}
 }
 
-/* ── Responsive ───────────────────────────────────────────────────────────── */
+/* ── Responsive ───────────────────────────────────────────────────────────
+ * The shell collapses its right rail at ≤ 1024px and the left rail at
+ * ≤ 768px — we only manage the inner grid density here. */
 @media (max-width: 1024px) {
 	.bn-md-grid {
-		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 	}
 }
 
 @media (max-width: 768px) {
-	.bn-md-filters {
-		flex-direction: column;
-		align-items: stretch;
-	}
-
-	.bn-md-search {
-		min-inline-size: 0;
-	}
-
-	.bn-md-filters__sort {
-		inline-size: 100%;
-	}
-
-	.bn-md-filters__view {
-		align-self: flex-start;
-	}
-}
-
-@media (max-width: 640px) {
-	.bn-member-directory {
-		padding-block: var(--bn-s4);
-		padding-inline: var(--bn-s3);
-	}
-
-	.bn-md-title {
-		font-size: var(--bn-text-xl);
+	.bn-member-directory.bn-md-stack {
+		gap: var(--bn-s4);
 	}
 
 	.bn-md-grid {
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--bn-s3);
 	}
 
@@ -426,17 +293,11 @@
 	.bn-md-card__bio {
 		display: none;
 	}
-
-	.bn-md-types {
-		overflow-x: auto;
-		flex-wrap: nowrap;
-		padding-block-end: var(--bn-s1);
-	}
 }
 
-@media (max-width: 390px) {
+@media (max-width: 480px) {
 	.bn-md-grid {
-		grid-template-columns: 1fr;
+		grid-template-columns: minmax(0, 1fr);
 	}
 }
 
