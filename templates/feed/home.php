@@ -1,15 +1,19 @@
 <?php
 /**
- * BuddyNext home feed template.
+ * BuddyNext home feed template (v2 inner).
  *
- * Personalised activity feed for the logged-in user.  Shows posts from
- * followed accounts and the viewer's own posts, ordered by recency.
- * Guests are redirected to the auth page.
+ * Personalised activity feed for the logged-in user. Renders inside the
+ * shell main column (`<main class="bn-app__main">` — see
+ * templates/shell/hub-shell.php) — this inner template does NOT own the
+ * topbar, the rail, or the 2-column page grid. Sidebar widgets are
+ * registered on the `buddynext_right_sidebar` action; the shell auto
+ * renders the right column whenever the action has callbacks.
  *
  * Features: post composer, announcement banner, cursor pagination,
- * trending-hashtags sidebar, suggested-spaces sidebar, dark mode, mobile.
+ * trending-hashtags sidebar widget, suggested-spaces sidebar widget.
+ * Guests are redirected to the auth page.
  *
- * Overridable: copy to {theme}/buddynext/feed/home.php
+ * Overridable: copy to {theme}/buddynext/feed/home.php.
  *
  * REST endpoint: GET buddynext/v1/feed?scope=home
  *
@@ -93,13 +97,13 @@ $announcement = $wpdb->get_row(
 		"SELECT p.id, p.user_id, p.content, p.created_at
 		   FROM {$posts_table} p
 		  WHERE p.type = 'announcement'
-		    AND p.is_announcement = 1
-		    AND p.status = 'published'
-		    AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > NOW())
-		    AND NOT EXISTS (
-		          SELECT 1 FROM {$dismissals_table} d
-		           WHERE d.post_id = p.id AND d.user_id = %d
-		        )
+			AND p.is_announcement = 1
+			AND p.status = 'published'
+			AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > NOW())
+			AND NOT EXISTS (
+				  SELECT 1 FROM {$dismissals_table} d
+				   WHERE d.post_id = p.id AND d.user_id = %d
+				)
 		  ORDER BY p.created_at DESC
 		  LIMIT %d",
 		$current_user_id,
@@ -132,41 +136,41 @@ $ht_follows_table      = $wpdb->prefix . 'bn_hashtag_follows';
 $feed_posts = $wpdb->get_results(
 	$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		"SELECT p.id, p.user_id, p.space_id, p.shared_post_id, p.content, p.type, p.privacy,
-		        p.media_ids, p.link_url, p.link_meta,
-		        p.is_pinned, p.is_announcement, p.content_warning, p.content_warning_type,
-		        p.reaction_count, p.comment_count, p.share_count,
-		        p.edited_at, p.created_at, p.updated_at
+				p.media_ids, p.link_url, p.link_meta,
+				p.is_pinned, p.is_announcement, p.content_warning, p.content_warning_type,
+				p.reaction_count, p.comment_count, p.share_count,
+				p.edited_at, p.created_at, p.updated_at
 		   FROM {$posts_table} p
 		  WHERE p.status = 'published'
-		    AND (p.scheduled_at IS NULL OR p.scheduled_at <= NOW())
-		    AND (
-		          p.user_id = %d
-		       OR (
-		            p.user_id IN (
-		              SELECT f.following_id
-		                FROM {$follows_table} f
-		               WHERE f.follower_id = %d
-		            )
-		            AND p.privacy IN ('public','followers')
-		          )
-		       OR p.space_id IN (
-		            SELECT m.space_id
-		              FROM {$space_mem_table} m
-		             WHERE m.user_id = %d AND m.status = 'active'
-		          )
-		       OR p.id IN (
-		            SELECT ph.post_id
-		              FROM {$hashtag_follows_table} ph
-		             WHERE ph.object_type = 'post'
-		               AND ph.hashtag_id IN (
-		                     SELECT hf.hashtag_id
-		                       FROM {$ht_follows_table} hf
-		                      WHERE hf.user_id = %d
-		                   )
-		          )
-		        )
-		    {$exclusion_sql}
-		    {$cursor_sql}
+			AND (p.scheduled_at IS NULL OR p.scheduled_at <= NOW())
+			AND (
+				  p.user_id = %d
+			   OR (
+					p.user_id IN (
+					  SELECT f.following_id
+						FROM {$follows_table} f
+					   WHERE f.follower_id = %d
+					)
+					AND p.privacy IN ('public','followers')
+				  )
+			   OR p.space_id IN (
+					SELECT m.space_id
+					  FROM {$space_mem_table} m
+					 WHERE m.user_id = %d AND m.status = 'active'
+				  )
+			   OR p.id IN (
+					SELECT ph.post_id
+					  FROM {$hashtag_follows_table} ph
+					 WHERE ph.object_type = 'post'
+					   AND ph.hashtag_id IN (
+							 SELECT hf.hashtag_id
+							   FROM {$ht_follows_table} hf
+							  WHERE hf.user_id = %d
+						   )
+				  )
+				)
+			{$exclusion_sql}
+			{$cursor_sql}
 		  ORDER BY p.created_at DESC, p.id DESC
 		  LIMIT %d",  // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		...array_merge(
@@ -190,40 +194,9 @@ if ( $has_more && ! empty( $feed_posts ) ) {
 	$next_cursor = base64_encode( $last_post->created_at . '|' . $last_post->id ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 }
 
-// ── Trending hashtags sidebar ───────────────────────────────────────────────
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$trending_tags = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT slug, post_count FROM {$hashtags_table} WHERE post_count > 0 ORDER BY post_count DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		8
-	)
-);
-
-// ── Suggested spaces sidebar ─────────────────────────────────────────────────
-// Open spaces the user has not yet joined.
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$suggested_spaces = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT s.id, s.name, s.avatar_url, s.member_count
-		   FROM {$spaces_table} s
-		  WHERE s.type = 'open'
-		    AND NOT EXISTS (
-		          SELECT 1 FROM {$space_mem_table} m
-		           WHERE m.space_id = s.id AND m.user_id = %d AND m.status = 'active'
-		        )
-		  ORDER BY s.member_count DESC
-		  LIMIT %d",
-		$current_user_id,
-		4
-	)
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-// ── REST nonce ──────────────────────────────────────────────────────────────
-$rest_nonce      = wp_create_nonce( 'wp_rest' );
-$explore_url     = PageRouter::explore_url();
-$bn_current_user = get_userdata( $current_user_id );
-$display_name    = $bn_current_user ? esc_attr( $bn_current_user->display_name ) : '';
+// ── REST nonce + URLs ───────────────────────────────────────────────────────
+$rest_nonce  = wp_create_nonce( 'wp_rest' );
+$explore_url = PageRouter::explore_url();
 
 /**
  * Format a UTC timestamp as a human-readable relative time label.
@@ -258,151 +231,170 @@ if ( ! function_exists( 'bn_home_relative_time' ) ) {
 		return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
 	}
 }
+
+// ── Right sidebar widgets ────────────────────────────────────────────────
+// Register sidebar widget callbacks on the shared hub-shell action. The shell
+// detects via has_action() (after this template's output buffer flushes) and
+// renders the right column automatically. The action is registered before any
+// output, so the detection in templates/shell/hub-shell.php sees it.
+add_action(
+	'buddynext_right_sidebar',
+	static function () use ( $current_user_id ) {
+		buddynext_get_template(
+			'partials/sidebar.php',
+			array(
+				'sidebar_user_id' => $current_user_id,
+			)
+		);
+	}
+);
+
+/**
+ * Fires before the home feed inner content.
+ *
+ * @param int $current_user_id Current user ID.
+ */
+do_action( 'buddynext_feed_home_before', $current_user_id );
 ?>
-<?php
-$bn_nav_active = 'feed';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
-?>
+<div class="bn-feed-stack"
+	data-bn-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
+	data-bn-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>">
 
-<div class="bn-home" data-bn-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>" data-bn-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1' ) ); ?>">
-	<div class="bn-hub-shell">
+	<!-- Post composer -->
+	<?php
+	buddynext_get_template(
+		'partials/composer.php',
+		array(
+			'space_id'        => null,
+			'current_user_id' => $current_user_id,
+		)
+	);
+	?>
 
-		<!-- ── Main feed column ──────────────────────────────────────────── -->
-		<main class="bn-home-main" role="main">
+	<!-- Feed tabs -->
+	<div class="bn-tabs bn-feed-tabs" role="tablist">
+		<a href="<?php echo esc_url( PageRouter::activity_url() ); ?>"
+			class="bn-tab"
+			role="tab"
+			aria-selected="true">
+			<?php esc_html_e( 'Home', 'buddynext' ); ?>
+		</a>
+		<a href="<?php echo esc_url( $explore_url ); ?>"
+			class="bn-tab"
+			role="tab"
+			aria-selected="false">
+			<?php esc_html_e( 'Explore', 'buddynext' ); ?>
+		</a>
+	</div>
 
-			<!-- Feed tabs -->
-			<div class="bn-tabs bn-feed-tabs" role="tablist">
-				<a href="<?php echo esc_url( PageRouter::activity_url() ); ?>"
-					class="bn-tab"
-					role="tab" aria-selected="true">
-					<?php esc_html_e( 'Home', 'buddynext' ); ?>
-				</a>
-				<a href="<?php echo esc_url( $explore_url ); ?>"
-					class="bn-tab"
-					role="tab" aria-selected="false">
-					<?php esc_html_e( 'Explore', 'buddynext' ); ?>
-				</a>
+	<?php if ( $show_announcement && $announcement ) : ?>
+		<div class="bn-announcement"
+			data-wp-interactive="buddynext/announcement"
+			data-wp-context='{"announcementId":<?php echo (int) $announcement->id; ?>}'>
+			<span class="bn-announcement__icon" aria-hidden="true"><?php buddynext_icon( 'megaphone' ); ?></span>
+			<div class="bn-announcement__body">
+				<?php echo wp_kses_post( $announcement->content ); ?>
 			</div>
+			<button
+				class="bn-announcement__dismiss"
+				data-wp-on--click="actions.dismiss"
+				aria-label="<?php esc_attr_e( 'Dismiss announcement', 'buddynext' ); ?>">
+				&times;
+			</button>
+		</div>
+	<?php endif; ?>
 
-			<?php if ( $show_announcement && $announcement ) : ?>
-				<div class="bn-announcement"
-					data-wp-interactive="buddynext/announcement"
-					data-wp-context='{"announcementId":<?php echo (int) $announcement->id; ?>}'>
-					<span class="bn-announcement__icon" aria-hidden="true"><?php buddynext_icon( 'megaphone' ); ?></span>
-					<div class="bn-announcement__body">
-						<?php echo wp_kses_post( $announcement->content ); ?>
-					</div>
-					<button
-						class="bn-announcement__dismiss"
-						data-wp-on--click="actions.dismiss"
-						aria-label="<?php esc_attr_e( 'Dismiss announcement', 'buddynext' ); ?>">
-						&times;
-					</button>
+	<?php if ( ! empty( $feed_posts ) ) : ?>
+		<div class="bn-feed-list" role="feed" aria-label="<?php esc_attr_e( 'Home feed', 'buddynext' ); ?>">
+			<?php foreach ( $feed_posts as $row ) : ?>
+				<?php
+				$home_post = array(
+					'id'                   => (int) $row->id,
+					'user_id'              => (int) $row->user_id,
+					'type'                 => $row->type ?? 'text',
+					'content'              => $row->content ?? '',
+					'privacy'              => $row->privacy ?? 'public',
+					'space_id'             => isset( $row->space_id ) ? (int) $row->space_id : null,
+					'shared_post_id'       => isset( $row->shared_post_id ) ? (int) $row->shared_post_id : null,
+					'media_ids'            => isset( $row->media_ids ) ? json_decode( (string) $row->media_ids, true ) : null,
+					'link_url'             => $row->link_url ?? null,
+					'link_meta'            => $row->link_meta ?? null,
+					'poll_options'         => array(),
+					'is_pinned'            => (int) ( $row->is_pinned ?? 0 ),
+					'is_announcement'      => (int) ( $row->is_announcement ?? 0 ),
+					'content_warning'      => (bool) ( $row->content_warning ?? false ),
+					'content_warning_type' => $row->content_warning_type ?? null,
+					'reaction_count'       => absint( $row->reaction_count ?? 0 ),
+					'comment_count'        => absint( $row->comment_count ?? 0 ),
+					'share_count'          => absint( $row->share_count ?? 0 ),
+					'edited_at'            => $row->edited_at ?? null,
+					'created_at'           => $row->created_at ?? '',
+					'updated_at'           => $row->updated_at ?? null,
+				);
+				// Hydrate poll options for poll-type posts.
+				if ( 'poll' === $home_post['type'] ) {
+					$hydrated = buddynext_service( 'post_service' )->get( $home_post['id'] );
+					if ( $hydrated && ! empty( $hydrated['poll_options'] ) ) {
+						$home_post['poll_options'] = $hydrated['poll_options'];
+					}
+				}
+				buddynext_get_template(
+					'partials/post-card.php',
+					array(
+						'post'            => $home_post,
+						'current_user_id' => $current_user_id,
+						'context'         => 'home',
+					)
+				);
+				?>
+			<?php endforeach; ?>
+		</div>
+
+		<?php if ( $has_more && '' !== $next_cursor ) : ?>
+			<div
+				class="bn-load-more"
+				id="bn-infinite-trigger"
+				data-bn-infinite-feed
+				data-next-cursor="<?php echo esc_attr( $next_cursor ); ?>"
+				data-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1/feed?scope=home&per_page=' . $bn_per_page ) ); ?>"
+				data-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
+				data-fallback-url="<?php echo esc_url( PageRouter::activity_url() ); ?>"
+			>
+				<div class="bn-load-more__spinner" hidden>
+					<span class="bn-skeleton bn-load-more__spinner-line"></span>
 				</div>
-			<?php endif; ?>
-
-			<!-- Post composer -->
-			<?php
-			buddynext_get_template(
-				'partials/composer.php',
-				array(
-					'space_id'        => null,
-					'current_user_id' => $current_user_id,
-				)
-			);
-			?>
-
-			<!-- Feed posts -->
-			<?php if ( ! empty( $feed_posts ) ) : ?>
-				<div class="bn-feed-list" role="feed" aria-label="<?php esc_attr_e( 'Home feed', 'buddynext' ); ?>">
-					<?php foreach ( $feed_posts as $row ) : ?>
-						<?php
-						$home_post = array(
-							'id'                   => (int) $row->id,
-							'user_id'              => (int) $row->user_id,
-							'type'                 => $row->type ?? 'text',
-							'content'              => $row->content ?? '',
-							'privacy'              => $row->privacy ?? 'public',
-							'space_id'             => isset( $row->space_id ) ? (int) $row->space_id : null,
-							'shared_post_id'       => isset( $row->shared_post_id ) ? (int) $row->shared_post_id : null,
-							'media_ids'            => isset( $row->media_ids ) ? json_decode( (string) $row->media_ids, true ) : null,
-							'link_url'             => $row->link_url ?? null,
-							'link_meta'            => $row->link_meta ?? null,
-							'poll_options'         => array(),
-							'is_pinned'            => (int) ( $row->is_pinned ?? 0 ),
-							'is_announcement'      => (int) ( $row->is_announcement ?? 0 ),
-							'content_warning'      => (bool) ( $row->content_warning ?? false ),
-							'content_warning_type' => $row->content_warning_type ?? null,
-							'reaction_count'       => absint( $row->reaction_count ?? 0 ),
-							'comment_count'        => absint( $row->comment_count ?? 0 ),
-							'share_count'          => absint( $row->share_count ?? 0 ),
-							'edited_at'            => $row->edited_at ?? null,
-							'created_at'           => $row->created_at ?? '',
-							'updated_at'           => $row->updated_at ?? null,
-						);
-						// Hydrate poll options for poll-type posts.
-						if ( 'poll' === $home_post['type'] ) {
-							$hydrated = buddynext_service( 'post_service' )->get( $home_post['id'] );
-							if ( $hydrated && ! empty( $hydrated['poll_options'] ) ) {
-								$home_post['poll_options'] = $hydrated['poll_options'];
-							}
-						}
-						buddynext_get_template(
-							'partials/post-card.php',
-							array(
-								'post'            => $home_post,
-								'current_user_id' => $current_user_id,
-								'context'         => 'home',
-							)
-						);
-						?>
-					<?php endforeach; ?>
-				</div>
-
-				<?php if ( $has_more && '' !== $next_cursor ) : ?>
-					<div
-						class="bn-load-more"
-						id="bn-infinite-trigger"
-						data-bn-infinite-feed
-						data-next-cursor="<?php echo esc_attr( $next_cursor ); ?>"
-						data-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1/feed?scope=home&per_page=' . $bn_per_page ) ); ?>"
-						data-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
-						data-fallback-url="<?php echo esc_url( PageRouter::activity_url() ); ?>"
+				<noscript>
+					<a
+						href="<?php echo esc_url( add_query_arg( 'cursor', rawurlencode( $next_cursor ), PageRouter::activity_url() ) ); ?>"
+						class="bn-btn bn-load-more__btn"
+						data-variant="secondary"
 					>
-						<div class="bn-load-more__spinner" hidden>
-							<span class="bn-skeleton bn-load-more__spinner-line"></span>
-						</div>
-						<noscript>
-							<a
-								href="<?php echo esc_url( add_query_arg( 'cursor', rawurlencode( $next_cursor ), PageRouter::activity_url() ) ); ?>"
-								class="bn-btn bn-load-more__btn"
-								data-variant="secondary"
-							>
-								<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-							</a>
-						</noscript>
-					</div>
-				<?php endif; ?>
-
-			<?php else : ?>
-				<div class="bn-feed-empty" role="status">
-					<div class="bn-feed-empty__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
-					<div class="bn-feed-empty__title">
-						<?php esc_html_e( 'Your feed is empty', 'buddynext' ); ?>
-					</div>
-					<p class="bn-feed-empty__text">
-						<?php esc_html_e( 'Follow members or join spaces to start seeing posts here.', 'buddynext' ); ?>
-					</p>
-					<a href="<?php echo esc_url( PageRouter::people_url() ); ?>" class="bn-btn bn-feed-empty__cta" data-variant="primary">
-						<?php esc_html_e( 'Discover Members', 'buddynext' ); ?>
+						<?php esc_html_e( 'Load more', 'buddynext' ); ?>
 					</a>
-				</div>
-			<?php endif; ?>
+				</noscript>
+			</div>
+		<?php endif; ?>
 
-		</main>
+	<?php else : ?>
+		<div class="bn-feed-empty" role="status">
+			<div class="bn-feed-empty__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
+			<div class="bn-feed-empty__title">
+				<?php esc_html_e( 'Your feed is empty', 'buddynext' ); ?>
+			</div>
+			<p class="bn-feed-empty__text">
+				<?php esc_html_e( 'Follow members or join spaces to start seeing posts here.', 'buddynext' ); ?>
+			</p>
+			<a href="<?php echo esc_url( PageRouter::people_url() ); ?>" class="bn-btn bn-feed-empty__cta" data-variant="primary">
+				<?php esc_html_e( 'Discover Members', 'buddynext' ); ?>
+			</a>
+		</div>
+	<?php endif; ?>
 
-		<!-- ── Sidebar ──────────────────────────────────────────────────── -->
-		<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
-
-	</div><!-- .bn-hub-shell -->
-</div><!-- .bn-home -->
+</div>
+<?php
+/**
+ * Fires after the home feed inner content.
+ *
+ * @param int $current_user_id Current user ID.
+ */
+do_action( 'buddynext_feed_home_after', $current_user_id );
