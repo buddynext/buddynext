@@ -111,6 +111,7 @@ class ProfileFieldsManager {
 	 * @return void
 	 */
 	public function register(): void {
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_bn_create_profile_group', array( $this, 'handle_create_group' ) );
 		add_action( 'admin_post_bn_create_profile_field', array( $this, 'handle_create_field' ) );
 		add_action( 'admin_post_bn_delete_profile_group', array( $this, 'handle_delete_group' ) );
@@ -120,6 +121,34 @@ class ProfileFieldsManager {
 		add_action( 'admin_post_bn_edit_profile_field', array( $this, 'handle_edit_field' ) );
 		add_action( 'admin_post_bn_reorder_group', array( $this, 'handle_reorder_group' ) );
 		add_action( 'admin_post_bn_reorder_field', array( $this, 'handle_reorder_field' ) );
+	}
+
+	/**
+	 * Enqueue the Profile Fields tab JS on the Members admin page.
+	 *
+	 * Loads only when the active tab is "profile-fields".
+	 *
+	 * @param string $hook_suffix Hook suffix for the current admin page.
+	 * @return void
+	 */
+	public function enqueue_assets( string $hook_suffix ): void {
+		if ( false === strpos( $hook_suffix, 'buddynext-members' ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$tab = sanitize_key( wp_unslash( $_GET['tab'] ?? '' ) );
+		if ( 'profile-fields' !== $tab ) {
+			return;
+		}
+
+		wp_enqueue_script(
+			'bn-profile-fields',
+			BUDDYNEXT_URL . 'assets/js/admin/profile-fields.js',
+			array(),
+			BUDDYNEXT_VERSION,
+			true
+		);
 	}
 
 	/**
@@ -748,148 +777,6 @@ class ProfileFieldsManager {
 		);
 		?>
 
-		<style>
-		/* === BuddyNext Profile Fields Admin — Premium UI === */
-		.bn-pf-wrap { display:flex; flex-direction:column; gap:20px; margin-top:20px; }
-
-		/* Group card */
-		.bn-pf-card { background:#fff; border:1px solid #e8e8e5; border-radius:12px; overflow:hidden; }
-		.bn-pf-card-head { display:flex; align-items:center; gap:10px; padding:16px 20px; background:#f8f8f7; border-bottom:1px solid #e8e8e5; flex-wrap:wrap; }
-		.bn-pf-card-head [data-theme="dark"] { background:#202020; }
-		.bn-pf-group-name { font-family:'Plus Jakarta Sans','Inter',sans-serif; font-size:16px; font-weight:700; color:#37352f; flex:1; min-width:100px; }
-		.bn-pf-meta { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-
-		/* Badges */
-		.bn-pf-badge { display:inline-flex; align-items:center; padding:3px 9px; border-radius:99px; font-size:11px; font-weight:700; white-space:nowrap; }
-		.bn-pf-b-system   { background:#fffbeb; color:#d97706; }
-		.bn-pf-b-flat     { background:#e8f4fb; color:#0073aa; }
-		.bn-pf-b-repeater { background:#f5f3ff; color:#5b21b6; }
-		.bn-pf-b-public   { background:#ecfdf5; color:#059669; }
-		.bn-pf-b-followers{ background:#fffbeb; color:#d97706; }
-		.bn-pf-b-private  { background:#fef2f2; color:#dc2626; }
-		.bn-pf-field-count{ font-size:12px; color:#aeaca8; }
-
-		/* Group header actions */
-		.bn-pf-head-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; margin-left:auto; }
-		.bn-pf-icon-btn { background:#fff; border:1px solid #e8e8e5; border-radius:6px; padding:5px 9px; font-size:13px; color:#787774; cursor:pointer; line-height:1.2; }
-		.bn-pf-icon-btn:hover { background:#f1f1f0; color:#37352f; }
-		.bn-pf-add-btn { display:inline-flex; align-items:center; gap:4px; padding:6px 12px; background:#fff; border:1px solid #0073aa; color:#0073aa; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none; }
-		.bn-pf-add-btn:hover { background:#e8f4fb; }
-		.bn-pf-del-group-btn { padding:6px 12px; background:#fff; border:1px solid #e8e8e5; color:#787774; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; }
-		.bn-pf-del-group-btn:hover { border-color:#dc2626; color:#dc2626; background:#fef2f2; }
-
-		/* Visibility inline form in header */
-		.bn-pf-vis-grp { font-size:12px; border:1px solid #e8e8e5; border-radius:6px; padding:4px 8px; background:#fff; color:#37352f; cursor:pointer; }
-		.bn-pf-vis-grp:focus { outline:none; border-color:#0073aa; }
-
-		/* Fields table */
-		.bn-pf-table { width:100%; border-collapse:collapse; font-family:'Inter',sans-serif; }
-		.bn-pf-table th { padding:9px 16px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#aeaca8; text-align:left; background:#f8f8f7; border-bottom:1px solid #f1f1ee; }
-		.bn-pf-table td { padding:13px 16px; font-size:13px; color:#37352f; border-bottom:1px solid #f1f1ee; vertical-align:middle; }
-		.bn-pf-table tbody tr:last-child td { border-bottom:none; }
-		.bn-pf-table tbody tr:hover td { background:#f8f8f7; }
-		.bn-pf-field-name { font-weight:600; color:#37352f; }
-		.bn-pf-type-pill { display:inline-flex; align-items:center; padding:3px 9px; border-radius:99px; font-size:11px; font-weight:600; background:#f1f1f0; color:#787774; border:1px solid #e8e8e5; }
-
-		/* Required toggle */
-		.bn-pf-req-wrap { display:flex; align-items:center; gap:6px; font-size:13px; color:#37352f; }
-		.bn-pf-req-check { width:16px; height:16px; cursor:pointer; accent-color:#0073aa; flex-shrink:0; }
-
-		/* Per-field visibility select */
-		.bn-pf-vis-field { font-size:12px; border:1px solid #e8e8e5; border-radius:6px; padding:5px 8px; background:#fff; color:#37352f; cursor:pointer; min-width:120px; }
-		.bn-pf-vis-field:focus { outline:none; border-color:#0073aa; }
-
-		/* Order buttons */
-		.bn-pf-order-cell { display:flex; gap:3px; align-items:center; }
-
-		/* Edit / delete field action cell */
-		.bn-pf-action-cell { display:flex; gap:3px; align-items:center; justify-content:flex-end; }
-		.bn-pf-edit-btn { background:none; border:none; padding:5px 7px; cursor:pointer; color:#787774; font-size:15px; line-height:1; border-radius:6px; }
-		.bn-pf-edit-btn:hover { color:#0073aa; background:#e8f4fb; }
-		.bn-pf-del-field { background:none; border:none; padding:5px 7px; cursor:pointer; color:#aeaca8; font-size:16px; line-height:1; border-radius:6px; }
-		.bn-pf-del-field:hover { color:#dc2626; background:#fef2f2; }
-		.bn-del-confirm { background:#fef2f2; border:1px solid #dc2626; color:#dc2626; padding:3px 10px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600; }
-		.bn-del-confirm:hover { background:#dc2626; color:#fff; }
-		.bn-del-cancel { background:none; border:1px solid #e8e8e5; color:#787774; padding:3px 8px; border-radius:6px; cursor:pointer; font-size:13px; margin-left:2px; }
-		.bn-del-cancel:hover { background:#f1f1f0; }
-
-		/* Edit field inline panel */
-		.bn-pf-ef-panel { padding:18px 20px; background:#f8f8f7; border-top:1px dashed #e8e8e5; }
-		.bn-pf-ef-panel tr.bn-pf-ef-row > td { padding:0; }
-
-		/* Options textarea (select / multiselect / checkbox) */
-		.bn-pf-opts-wrap { margin-top:12px; }
-		.bn-pf-opts-wrap > label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#787774; display:block; margin-bottom:5px; }
-		.bn-pf-opts-textarea { width:100%; border:1px solid #e8e8e5; border-radius:6px; padding:8px 10px; font-size:13px; font-family:'Inter',sans-serif; resize:vertical; min-height:100px; background:#fff; color:#37352f; box-sizing:border-box; }
-		.bn-pf-opts-textarea:focus { outline:none; border-color:#0073aa; box-shadow:0 0 0 2px #e8f4fb; }
-		.bn-pf-opts-hint { font-size:11px; color:#aeaca8; margin:5px 0 0; }
-
-		/* Empty state */
-		.bn-pf-empty { padding:24px; text-align:center; color:#aeaca8; font-size:13px; font-style:italic; }
-
-		/* Add field panel */
-		.bn-pf-af-panel { padding:18px 20px; background:#f8f8f7; border-top:1px dashed #e8e8e5; display:none; }
-		.bn-pf-af-panel.bn-open { display:block; }
-		.bn-pf-af-title { font-size:13px; font-weight:700; color:#37352f; margin:0 0 14px; }
-		.bn-pf-af-row { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
-		.bn-pf-af-row .bn-pf-af-field { flex:1; min-width:150px; }
-		.bn-pf-af-row .bn-pf-af-field label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#787774; display:block; margin-bottom:5px; }
-		.bn-pf-af-row .bn-pf-af-field input[type="text"],
-		.bn-pf-af-row .bn-pf-af-field select { font-size:13px; width:100%; border:1px solid #e8e8e5; border-radius:6px; padding:8px 10px; background:#fff; color:#37352f; box-sizing:border-box; }
-		.bn-pf-af-row .bn-pf-af-field input:focus,
-		.bn-pf-af-row .bn-pf-af-field select:focus { outline:none; border-color:#0073aa; box-shadow:0 0 0 2px #e8f4fb; }
-		.bn-pf-af-req-row { display:flex; align-items:center; gap:8px; font-size:13px; color:#37352f; margin-top:10px; }
-		.bn-pf-af-req-row input[type="checkbox"] { width:16px; height:16px; accent-color:#0073aa; }
-		.bn-pf-af-actions { display:flex; gap:8px; margin-top:14px; }
-
-		/* Add group section */
-		.bn-pf-add-group-btn { display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border:1px solid #0073aa; border-radius:6px; color:#0073aa; background:#fff; font-size:13px; font-weight:600; cursor:pointer; text-decoration:none; }
-		.bn-pf-add-group-btn:hover { background:#e8f4fb; }
-		.bn-pf-ag-card { background:#fff; border:1px solid #e8e8e5; border-radius:12px; padding:20px; }
-		.bn-pf-ag-card h3 { font-family:'Plus Jakarta Sans','Inter',sans-serif; font-size:15px; font-weight:700; color:#37352f; margin:0 0 16px; }
-		.bn-pf-ag-row { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
-		.bn-pf-ag-row .bn-pf-ag-field { flex:1; min-width:150px; }
-		.bn-pf-ag-row .bn-pf-ag-field label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#787774; display:block; margin-bottom:5px; }
-		.bn-pf-ag-row .bn-pf-ag-field input[type="text"],
-		.bn-pf-ag-row .bn-pf-ag-field select { font-size:13px; width:100%; border:1px solid #e8e8e5; border-radius:6px; padding:8px 10px; background:#fff; color:#37352f; box-sizing:border-box; }
-		.bn-pf-ag-row .bn-pf-ag-field input:focus,
-		.bn-pf-ag-row .bn-pf-ag-field select:focus { outline:none; border-color:#0073aa; box-shadow:0 0 0 2px #e8f4fb; }
-		.bn-pf-ag-note { font-size:12px; color:#aeaca8; margin-top:10px; }
-		.bn-pf-ag-actions { display:flex; gap:8px; margin-top:16px; }
-
-		/* Dark mode */
-		[data-theme="dark"] .bn-pf-card { background:#252525; border-color:#333330; }
-		[data-theme="dark"] .bn-pf-card-head { background:#202020; border-color:#333330; }
-		[data-theme="dark"] .bn-pf-group-name { color:#e8e8e6; }
-		[data-theme="dark"] .bn-pf-b-flat { background:#1a2e3a; color:#4dabdb; }
-		[data-theme="dark"] .bn-pf-table th { background:#202020; color:#6b6b67; border-color:#2c2c2a; }
-		[data-theme="dark"] .bn-pf-table td { color:#e8e8e6; border-color:#2c2c2a; }
-		[data-theme="dark"] .bn-pf-table tbody tr:hover td { background:#202020; }
-		[data-theme="dark"] .bn-pf-type-pill { background:#2a2a2a; color:#9b9b97; border-color:#333330; }
-		[data-theme="dark"] .bn-pf-icon-btn,
-		[data-theme="dark"] .bn-pf-vis-grp,
-		[data-theme="dark"] .bn-pf-vis-field { background:#252525; border-color:#333330; color:#9b9b97; }
-		[data-theme="dark"] .bn-pf-af-panel,
-		[data-theme="dark"] .bn-pf-ef-panel { background:#202020; }
-		[data-theme="dark"] .bn-pf-af-row .bn-pf-af-field input,
-		[data-theme="dark"] .bn-pf-af-row .bn-pf-af-field select { background:#252525; border-color:#333330; color:#e8e8e6; }
-		[data-theme="dark"] .bn-pf-opts-textarea { background:#252525; border-color:#333330; color:#e8e8e6; }
-
-		/* Responsive */
-		@media (max-width: 1024px) {
-			.bn-pf-head-actions { gap:4px; }
-		}
-		@media (max-width: 782px) {
-			.bn-pf-card-head { gap:8px; }
-			.bn-pf-table th:nth-child(5), .bn-pf-table td:nth-child(5) { display:none; }
-			.bn-pf-af-row, .bn-pf-ag-row { flex-direction:column; }
-		}
-		@media (max-width: 640px) {
-			.bn-pf-table th:nth-child(3), .bn-pf-table td:nth-child(3) { display:none; }
-			.bn-pf-table th:nth-child(4), .bn-pf-table td:nth-child(4) { display:none; }
-		}
-		</style>
-
 		<div class="bn-pf-wrap">
 
 		<?php foreach ( $groups as $gi => $group ) : ?>
@@ -921,7 +808,7 @@ class ProfileFieldsManager {
 							<input type="hidden" name="action" value="bn_update_profile_group">
 							<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 							<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
-							<select class="bn-pf-vis-grp" name="visibility" onchange="this.form.submit()" title="<?php esc_attr_e( 'Group visibility', 'buddynext' ); ?>">
+							<select class="bn-pf-vis-grp" name="visibility" data-bn-autosubmit title="<?php esc_attr_e( 'Group visibility', 'buddynext' ); ?>">
 								<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
 									<option value="<?php echo esc_attr( $vis_val ); ?>" <?php selected( $group['visibility'], $vis_val ); ?>>
 										<?php echo esc_html( $vis_lbl ); ?>
@@ -1052,7 +939,7 @@ class ProfileFieldsManager {
 												name="is_required"
 												value="1"
 												<?php checked( $field['is_required'] ); ?>
-												onchange="this.form.submit()">
+												data-bn-autosubmit>
 											<span><?php esc_html_e( 'Required', 'buddynext' ); ?></span>
 										</label>
 									</form>
@@ -1065,7 +952,7 @@ class ProfileFieldsManager {
 										<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
 										<input type="hidden" name="attr" value="visibility">
 										<?php wp_nonce_field( 'bn_update_profile_field_' . $fid ); ?>
-										<select class="bn-pf-vis-field" name="visibility" onchange="this.form.submit()">
+										<select class="bn-pf-vis-field" name="visibility" data-bn-autosubmit>
 											<?php foreach ( $vis_labels as $vis_val => $vis_lbl ) : ?>
 												<option value="<?php echo esc_attr( $vis_val ); ?>" <?php selected( $field_vis, $vis_val ); ?>>
 													<?php echo esc_html( $vis_lbl ); ?>
@@ -1120,7 +1007,7 @@ class ProfileFieldsManager {
 												<div class="bn-pf-af-field" style="flex:0 0 180px;">
 													<label for="bn-ef-type-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Field Type', 'buddynext' ); ?></label>
 													<select id="bn-ef-type-<?php echo absint( $fid ); ?>" name="type"
-														onchange="bnPfOnTypeChange(this,'bn-ef-opts-<?php echo absint( $fid ); ?>','bn-ef-date-<?php echo absint( $fid ); ?>')">
+														data-bn-pf-opts-wrap="bn-ef-opts-<?php echo absint( $fid ); ?>" data-bn-pf-date-wrap="bn-ef-date-<?php echo absint( $fid ); ?>">
 														<?php foreach ( $field_type_labels as $ft_val => $ft_lbl ) : ?>
 														<option value="<?php echo esc_attr( $ft_val ); ?>" <?php selected( $field['type'], $ft_val ); ?>>
 															<?php echo esc_html( $ft_lbl ); ?>
@@ -1201,7 +1088,7 @@ class ProfileFieldsManager {
 							<div class="bn-pf-af-field" style="flex:0 0 180px;">
 								<label for="bn-af-type-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Field Type', 'buddynext' ); ?></label>
 								<select id="bn-af-type-<?php echo absint( $gid ); ?>" name="type"
-									onchange="bnPfOnTypeChange(this,'bn-af-opts-<?php echo absint( $gid ); ?>','bn-af-date-<?php echo absint( $gid ); ?>')">
+									data-bn-pf-opts-wrap="bn-af-opts-<?php echo absint( $gid ); ?>" data-bn-pf-date-wrap="bn-af-date-<?php echo absint( $gid ); ?>">
 									<?php foreach ( $field_type_labels as $ft_val => $ft_lbl ) : ?>
 										<option value="<?php echo esc_attr( $ft_val ); ?>"><?php echo esc_html( $ft_lbl ); ?></option>
 									<?php endforeach; ?>
@@ -1301,77 +1188,6 @@ class ProfileFieldsManager {
 		</div>
 
 		</div><!-- .bn-pf-wrap -->
-
-		<script>
-		var BN_CHOICE_TYPES = ['select', 'multiselect', 'radio', 'checkbox'];
-		var BN_DATE_TYPES   = ['date', 'daterange'];
-
-		function bnPfToggle(panelId) {
-			var el = document.getElementById(panelId);
-			if (!el) return;
-			if (el.classList.contains('bn-open')) {
-				el.classList.remove('bn-open');
-			} else {
-				document.querySelectorAll('.bn-pf-af-panel.bn-open').forEach(function(p) { p.classList.remove('bn-open'); });
-				el.classList.add('bn-open');
-				var inp = el.querySelector('input[type="text"]');
-				if (inp) { inp.focus(); }
-			}
-		}
-
-		function bnPfToggleEdit(rowId) {
-			var row = document.getElementById(rowId);
-			if (!row) return;
-			var isHidden = (row.style.display === 'none' || row.style.display === '');
-			document.querySelectorAll('tr[id^="bn-ef-row-"]').forEach(function(r) {
-				r.style.display = 'none';
-			});
-			if (isHidden) {
-				row.style.display = 'table-row';
-			}
-		}
-
-		function bnPfOnTypeChange(selectEl, optWrapId, dateWrapId) {
-			var type     = selectEl.value;
-			var optWrap  = document.getElementById(optWrapId);
-			var dateWrap = dateWrapId ? document.getElementById(dateWrapId) : null;
-			if (optWrap)  { optWrap.style.display  = BN_CHOICE_TYPES.indexOf(type) >= 0 ? 'block' : 'none'; }
-			if (dateWrap) { dateWrap.style.display = BN_DATE_TYPES.indexOf(type) >= 0 ? 'block' : 'none'; }
-		}
-
-		// Delegated handlers for data-bn-pf-toggle and data-bn-pf-toggle-edit attributes.
-		document.addEventListener('click', function(e) {
-			var toggleEl = e.target.closest('[data-bn-pf-toggle]');
-			if (toggleEl) {
-				e.preventDefault();
-				bnPfToggle(toggleEl.dataset.bnPfToggle);
-				return;
-			}
-			var toggleEditEl = e.target.closest('[data-bn-pf-toggle-edit]');
-			if (toggleEditEl) {
-				bnPfToggleEdit(toggleEditEl.dataset.bnPfToggleEdit);
-				return;
-			}
-		});
-
-		// Inline two-step delete confirmation — no browser dialogs.
-		document.addEventListener('click', function(e) {
-			if (e.target.matches('.bn-del-trigger')) {
-				var form = e.target.closest('.bn-del-form');
-				if (!form) return;
-				e.target.style.display = 'none';
-				form.querySelector('.bn-del-confirm').style.display = 'inline-flex';
-				form.querySelector('.bn-del-cancel').style.display  = 'inline-flex';
-			}
-			if (e.target.matches('.bn-del-cancel')) {
-				var form = e.target.closest('.bn-del-form');
-				if (!form) return;
-				form.querySelector('.bn-del-trigger').style.display = 'inline-flex';
-				form.querySelector('.bn-del-confirm').style.display = 'none';
-				form.querySelector('.bn-del-cancel').style.display  = 'none';
-			}
-		});
-		</script>
 		<?php
 	}
 }

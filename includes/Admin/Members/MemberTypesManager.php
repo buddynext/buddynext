@@ -30,6 +30,46 @@ class MemberTypesManager {
 		add_action( 'admin_post_bn_delete_member_type', array( $this, 'handle_delete' ) );
 		add_action( 'admin_post_bn_assign_member_type', array( $this, 'handle_assign' ) );
 		add_action( 'buddynext_after_edit_member_form', array( $this, 'render_member_type_field' ), 10, 1 );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+	}
+
+	/**
+	 * Enqueue the Member Types tab JS on the Members admin page.
+	 *
+	 * Loads only when the active tab is "member-types".
+	 *
+	 * @param string $hook_suffix Hook suffix for the current admin page.
+	 * @return void
+	 */
+	public function enqueue_assets( string $hook_suffix ): void {
+		if ( false === strpos( $hook_suffix, 'buddynext-members' ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$tab = sanitize_key( wp_unslash( $_GET['tab'] ?? '' ) );
+		if ( 'member-types' !== $tab ) {
+			return;
+		}
+
+		wp_enqueue_script(
+			'bn-member-types',
+			BUDDYNEXT_URL . 'assets/js/admin/member-types.js',
+			array(),
+			BUDDYNEXT_VERSION,
+			true
+		);
+
+		wp_localize_script(
+			'bn-member-types',
+			'bnMemberTypesL10n',
+			array(
+				'previewLabel' => __( 'Preview', 'buddynext' ),
+				'confirmTitle' => __( 'Delete member type?', 'buddynext' ),
+				'confirm'      => __( 'Delete', 'buddynext' ),
+				'cancel'       => __( 'Cancel', 'buddynext' ),
+			)
+		);
 	}
 
 	// ── Save handler ──────────────────────────────────────────────────────────
@@ -184,132 +224,57 @@ class MemberTypesManager {
 			</div>
 		<?php endif; ?>
 
-		<style>
-		.bn-type-badge-preview{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;line-height:1.4}
-		.bn-type-badge-preview svg{width:13px;height:13px;flex-shrink:0}
-		.bn-type-form{background:#fff;border:1px solid #e9ecef;border-radius:8px;padding:20px;margin-bottom:16px}
-		.bn-type-form h3{margin:0 0 16px;font-size:14px;font-weight:700;color:#111827}
-		.bn-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-		.bn-type-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-		.bn-type-full{grid-column:1/-1}
-		.bn-color-row{display:flex;align-items:center;gap:8px}
-		.bn-color-row input[type="color"]{width:36px;height:36px;border:1px solid #ddd;border-radius:4px;padding:2px;cursor:pointer;background:none}
-		.bn-icon-preview{margin-top:8px;width:32px;height:32px;color:#0073aa}
-		.bn-icon-preview svg{width:100%;height:100%}
-		.bn-type-actions{display:flex;gap:8px;align-items:center;margin-top:16px}
-		.bn-notice{padding:10px 14px;border-radius:6px;margin-bottom:16px;font-size:13px;font-weight:500}
-		.bn-notice-success{background:#d1fae5;color:#065f46;border:1px solid #a7f3d0}
-		.bn-notice-error{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
-		@media(max-width:782px){.bn-type-grid,.bn-type-grid-3{grid-template-columns:1fr}}
-		</style>
-
-		<script>
-		document.addEventListener('DOMContentLoaded', function() {
-			/* Auto-generate slug from name */
-			var nameInput = document.getElementById('bn-type-name');
-			var slugInput = document.getElementById('bn-type-slug');
-			if (nameInput && slugInput && !slugInput.value) {
-				nameInput.addEventListener('input', function() {
-					slugInput.value = nameInput.value
-						.toLowerCase()
-						.replace(/[^a-z0-9]+/g, '-')
-						.replace(/^-|-$/g, '');
-				});
-			}
-
-			/* Live badge preview */
-			function updatePreview() {
-				var badge = document.getElementById('bn-badge-preview');
-				if (!badge) return;
-				var name = document.getElementById('bn-type-name') ? document.getElementById('bn-type-name').value : '';
-				var bg   = document.getElementById('bn-type-color') ? document.getElementById('bn-type-color').value : '#0073aa';
-				var fg   = document.getElementById('bn-type-text-color') ? document.getElementById('bn-type-text-color').value : '#ffffff';
-				badge.style.background = bg;
-				badge.style.color      = fg;
-				badge.querySelector('.bn-badge-label').textContent = name || '<?php esc_html_e( 'Preview', 'buddynext' ); ?>';
-			}
-			['bn-type-name','bn-type-color','bn-type-text-color'].forEach(function(id) {
-				var el = document.getElementById(id);
-				if (el) el.addEventListener('input', updatePreview);
-			});
-			updatePreview();
-
-			/* More-menu toggles */
-			document.querySelectorAll('.bn-more-btn').forEach(function(btn) {
-				btn.addEventListener('click', function(e) {
-					e.stopPropagation();
-					var menu = btn.closest('.bn-more-menu');
-					document.querySelectorAll('.bn-more-menu.open').forEach(function(m) { if (m !== menu) m.classList.remove('open'); });
-					menu.classList.toggle('open');
-				});
-			});
-			document.addEventListener('click', function() {
-				document.querySelectorAll('.bn-more-menu.open').forEach(function(m) { m.classList.remove('open'); });
-			});
-		});
-
-		// Delegated confirm handler — replaces inline confirm dialogs (F2 compliance).
-		document.addEventListener('click', function (e) {
-			var t = e.target.closest('[data-bn-confirm]');
-			if (!t) return;
-			if (!window.confirm(t.dataset.bnConfirm)) {
-				e.preventDefault();
-				e.stopImmediatePropagation();
-			}
-		}, true);
-		</script>
-
 		<?php /* ── Create / Edit form ── */ ?>
 		<div class="bn-type-form">
 			<h3><?php echo $edit_type ? esc_html__( 'Edit Member Type', 'buddynext' ) : esc_html__( 'Add Member Type', 'buddynext' ); ?></h3>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<?php wp_nonce_field( 'bn_save_member_type' ); ?>
 				<input type="hidden" name="action"  value="bn_save_member_type">
-				<input type="hidden" name="edit_id" value="<?php echo $edit_type ? esc_attr( $edit_type['id'] ) : '0'; ?>">
+				<input type="hidden" name="edit_id" value="<?php echo $edit_type ? esc_attr( (string) $edit_type['id'] ) : '0'; ?>">
 
 				<div class="bn-type-grid">
-					<div class="bn-field">
+					<div class="bn-field bn-field--narrow">
 						<label class="bn-label" for="bn-type-name"><?php esc_html_e( 'Name', 'buddynext' ); ?></label>
 						<input type="text" id="bn-type-name" name="name"
 							value="<?php echo $edit_type ? esc_attr( $edit_type['name'] ) : ''; ?>"
-							class="bn-text-input" style="width:100%;max-width:300px"
+							class="bn-text-input"
 							placeholder="<?php esc_attr_e( 'e.g. Alumni', 'buddynext' ); ?>" required>
 					</div>
-					<div class="bn-field">
+					<div class="bn-field bn-field--narrower">
 						<label class="bn-label" for="bn-type-slug"><?php esc_html_e( 'Slug', 'buddynext' ); ?></label>
 						<input type="text" id="bn-type-slug" name="slug"
 							value="<?php echo $edit_type ? esc_attr( $edit_type['slug'] ) : ''; ?>"
-							class="bn-text-input" style="width:100%;max-width:220px"
+							class="bn-text-input"
 							placeholder="<?php esc_attr_e( 'e.g. alumni', 'buddynext' ); ?>"
 							pattern="[a-z0-9-]+" required>
 						<span class="bn-field-hint"><?php esc_html_e( 'Lowercase letters, numbers and hyphens only.', 'buddynext' ); ?></span>
 					</div>
 				</div>
 
-				<div class="bn-field bn-type-full" style="margin-top:12px">
+				<div class="bn-field bn-type-full bn-field--wide">
 					<label class="bn-label" for="bn-type-desc"><?php esc_html_e( 'Description', 'buddynext' ); ?></label>
 					<textarea id="bn-type-desc" name="description" rows="2"
-						class="bn-text-input" style="width:100%;max-width:580px;resize:vertical"><?php echo $edit_type ? esc_textarea( $edit_type['description'] ) : ''; ?></textarea>
+						class="bn-text-input"><?php echo $edit_type ? esc_textarea( $edit_type['description'] ) : ''; ?></textarea>
 				</div>
 
-				<div class="bn-type-grid-3" style="margin-top:12px">
-					<div class="bn-field">
+				<div class="bn-type-grid-3">
+					<div class="bn-field bn-field--inline">
 						<label class="bn-label" for="bn-type-color"><?php esc_html_e( 'Badge Background', 'buddynext' ); ?></label>
 						<div class="bn-color-row">
 							<input type="color" id="bn-type-color" name="color"
 								value="<?php echo $edit_type ? esc_attr( $edit_type['color'] ) : '#0073aa'; ?>">
-							<span class="bn-field-hint" style="margin:0"><?php esc_html_e( 'Background colour', 'buddynext' ); ?></span>
+							<span class="bn-field-hint"><?php esc_html_e( 'Background colour', 'buddynext' ); ?></span>
 						</div>
 					</div>
-					<div class="bn-field">
+					<div class="bn-field bn-field--inline">
 						<label class="bn-label" for="bn-type-text-color"><?php esc_html_e( 'Badge Text', 'buddynext' ); ?></label>
 						<div class="bn-color-row">
 							<input type="color" id="bn-type-text-color" name="text_color"
 								value="<?php echo $edit_type ? esc_attr( $edit_type['text_color'] ) : '#ffffff'; ?>">
-							<span class="bn-field-hint" style="margin:0"><?php esc_html_e( 'Text colour', 'buddynext' ); ?></span>
+							<span class="bn-field-hint"><?php esc_html_e( 'Text colour', 'buddynext' ); ?></span>
 						</div>
 					</div>
-					<div class="bn-field">
+					<div class="bn-field bn-field--inline">
 						<label class="bn-label"><?php esc_html_e( 'Live Preview', 'buddynext' ); ?></label>
 						<span id="bn-badge-preview" class="bn-type-badge-preview"
 							style="background:<?php echo $edit_type ? esc_attr( $edit_type['color'] ) : '#0073aa'; ?>;color:<?php echo $edit_type ? esc_attr( $edit_type['text_color'] ) : '#ffffff'; ?>">
@@ -318,28 +283,28 @@ class MemberTypesManager {
 					</div>
 				</div>
 
-				<div class="bn-field" style="margin-top:12px">
+				<div class="bn-field bn-field--wide">
 					<label class="bn-label" for="bn-type-icon"><?php esc_html_e( 'Icon SVG', 'buddynext' ); ?></label>
 					<textarea id="bn-type-icon" name="icon_svg" rows="3"
-						class="bn-text-input" style="width:100%;max-width:580px;resize:vertical;font-family:monospace;font-size:12px"
+						class="bn-text-input bn-pf-opts-textarea"
 						placeholder="<?php esc_attr_e( 'Paste an inline SVG here (optional)', 'buddynext' ); ?>"><?php echo $edit_type ? esc_textarea( $edit_type['icon_svg'] ) : ''; ?></textarea>
-					<span class="bn-field-hint"><?php esc_html_e( 'Paste a complete <svg> element. 24×24 viewBox recommended. Uses currentColor for theme compatibility.', 'buddynext' ); ?></span>
+					<span class="bn-field-hint"><?php esc_html_e( 'Paste a complete <svg> element. 24x24 viewBox recommended. Uses currentColor for theme compatibility.', 'buddynext' ); ?></span>
 				</div>
 
-				<div class="bn-type-grid" style="margin-top:12px">
-					<div class="bn-field">
+				<div class="bn-type-grid">
+					<div class="bn-field bn-field--sort">
 						<label class="bn-label" for="bn-type-sort"><?php esc_html_e( 'Sort Order', 'buddynext' ); ?></label>
 						<input type="number" id="bn-type-sort" name="sort_order"
-							value="<?php echo $edit_type ? esc_attr( $edit_type['sort_order'] ) : '0'; ?>"
-							min="0" class="bn-text-input" style="width:80px">
+							value="<?php echo $edit_type ? esc_attr( (string) $edit_type['sort_order'] ) : '0'; ?>"
+							min="0" class="bn-text-input">
 					</div>
-					<div class="bn-field" style="padding-top:22px">
-						<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:500;color:#374151">
+					<div class="bn-field bn-field-checks">
+						<label class="bn-check-row">
 							<input type="checkbox" name="show_in_dir" value="1"
 								<?php checked( $edit_type ? (bool) $edit_type['show_in_dir'] : true ); ?>>
 							<?php esc_html_e( 'Show as directory filter tab', 'buddynext' ); ?>
 						</label>
-						<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:500;color:#374151;margin-top:8px">
+						<label class="bn-check-row">
 							<input type="checkbox" name="self_select" value="1"
 								<?php checked( $edit_type ? (bool) $edit_type['self_select'] : false ); ?>>
 							<?php esc_html_e( 'Allow members to self-assign', 'buddynext' ); ?>
@@ -358,12 +323,12 @@ class MemberTypesManager {
 
 		<?php /* ── Types list ── */ ?>
 		<?php if ( empty( $types ) ) : ?>
-			<p style="color:#6b7280;font-size:13px;padding:12px 0"><?php esc_html_e( 'No member types defined yet. Add your first type above.', 'buddynext' ); ?></p>
+			<p class="bn-type-empty"><?php esc_html_e( 'No member types defined yet. Add your first type above.', 'buddynext' ); ?></p>
 		<?php else : ?>
 			<div class="bn-data-table">
 				<div class="bn-table-header">
-					<strong style="font-size:14px;color:#111827"><?php esc_html_e( 'Defined Types', 'buddynext' ); ?></strong>
-					<span class="bn-badge" style="background:#e8f4fb;color:#0073aa"><?php echo esc_html( (string) count( $types ) ); ?></span>
+					<strong class="bn-type-th-strong"><?php esc_html_e( 'Defined Types', 'buddynext' ); ?></strong>
+					<span class="bn-badge bn-type-list-count"><?php echo esc_html( (string) count( $types ) ); ?></span>
 				</div>
 				<table class="bn-table">
 					<thead>
@@ -383,13 +348,12 @@ class MemberTypesManager {
 								<span class="bn-type-badge-preview"
 									style="background:<?php echo esc_attr( $t['color'] ); ?>;color:<?php echo esc_attr( $t['text_color'] ); ?>">
 									<?php if ( '' !== (string) $t['icon_svg'] ) : ?>
-										<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- sanitized via wp_kses on save ?>
-										<?php echo $t['icon_svg']; ?>
+										<?php echo $t['icon_svg']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- sanitized via wp_kses on save. ?>
 									<?php endif; ?>
 									<span class="bn-badge-label"><?php echo esc_html( $t['name'] ); ?></span>
 								</span>
 							</td>
-							<td><code style="font-size:12px;color:#6b7280"><?php echo esc_html( $t['slug'] ); ?></code></td>
+							<td><code class="bn-type-slug-code"><?php echo esc_html( $t['slug'] ); ?></code></td>
 							<td><strong><?php echo esc_html( number_format_i18n( (int) ( $t['member_count'] ?? 0 ) ) ); ?></strong></td>
 							<td>
 								<?php if ( (bool) $t['show_in_dir'] ) : ?>
@@ -428,13 +392,13 @@ class MemberTypesManager {
 											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 												<?php wp_nonce_field( 'bn_delete_member_type' ); ?>
 												<input type="hidden" name="action"  value="bn_delete_member_type">
-												<input type="hidden" name="type_id" value="<?php echo esc_attr( $t['id'] ); ?>">
+												<input type="hidden" name="type_id" value="<?php echo esc_attr( (string) $t['id'] ); ?>">
 												<?php
 												/* translators: 1: member type name, 2: number of assignments */
-												$confirm_msg = esc_attr( sprintf( __( 'Delete "%1$s"? All %2$d member assignments will be removed.', 'buddynext' ), $t['name'], (int) ( $t['member_count'] ?? 0 ) ) );
+												$confirm_msg = sprintf( __( 'Delete "%1$s"? All %2$d member assignments will be removed.', 'buddynext' ), $t['name'], (int) ( $t['member_count'] ?? 0 ) );
 												?>
 												<button type="submit" class="bn-dropdown-item bn-dropdown-danger"
-													data-bn-confirm="<?php echo $confirm_msg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_attr() applied above ?>">
+													data-bn-confirm="<?php echo esc_attr( $confirm_msg ); ?>">
 													<?php esc_html_e( 'Delete', 'buddynext' ); ?>
 												</button>
 											</form>
@@ -465,17 +429,17 @@ class MemberTypesManager {
 		$current_type = $service->get_user_type( $user_id );
 		$current_slug = $current_type ? (string) $current_type['slug'] : '';
 		?>
-		<div class="bn-field-row" style="margin-bottom:16px">
+		<div class="bn-field-row bn-member-type-field">
 			<div class="bn-label"><label for="bn-member-type-select"><?php esc_html_e( 'Member Type', 'buddynext' ); ?></label></div>
 			<div class="bn-control">
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-					style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+					class="bn-member-type-form">
 					<?php wp_nonce_field( 'bn_assign_member_type' ); ?>
 					<input type="hidden" name="action"  value="bn_assign_member_type">
 					<input type="hidden" name="user_id" value="<?php echo esc_attr( (string) $user_id ); ?>">
 
-					<select id="bn-member-type-select" name="type_slug" class="bn-text-input" style="min-width:200px">
-						<option value="none"><?php esc_html_e( '— No type —', 'buddynext' ); ?></option>
+					<select id="bn-member-type-select" name="type_slug" class="bn-text-input bn-member-type-select">
+						<option value="none"><?php esc_html_e( '- No type -', 'buddynext' ); ?></option>
 						<?php foreach ( $all_types as $t ) : ?>
 							<option value="<?php echo esc_attr( $t['slug'] ); ?>"
 								<?php selected( $current_slug, $t['slug'] ); ?>>

@@ -5,9 +5,9 @@
  * Renders the Avatar & Cover tab inside the Members admin panel and handles
  * form submission for three site-wide avatar/cover settings:
  *
- *   bn_avatar_style       — 'initials' | 'default_image' | 'gravatar'
- *   bn_default_avatar_url — URL of the site-wide fallback avatar image
- *   bn_default_cover_url  — URL of the site-wide default cover photo
+ *   bn_avatar_style       - 'initials' | 'default_image' | 'gravatar'
+ *   bn_default_avatar_url - URL of the site-wide fallback avatar image
+ *   bn_default_cover_url  - URL of the site-wide default cover photo
  *
  * These options are read by AvatarService::filter_avatar_data() so every
  * WordPress surface (theme, admin, REST responses) honours the site owner's
@@ -41,6 +41,50 @@ class AvatarSettings {
 	 */
 	public function register(): void {
 		add_action( 'admin_post_bn_save_avatar_settings', array( $this, 'handle_save' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+	}
+
+	/**
+	 * Enqueue the Avatar Settings tab JS on the Members admin page.
+	 *
+	 * Loads only when the active tab is "avatar-settings". Also forces the
+	 * WordPress media library (wp_enqueue_media) on the same condition.
+	 *
+	 * @param string $hook_suffix Hook suffix for the current admin page.
+	 * @return void
+	 */
+	public function enqueue_assets( string $hook_suffix ): void {
+		if ( false === strpos( $hook_suffix, 'buddynext-members' ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$tab = sanitize_key( wp_unslash( $_GET['tab'] ?? '' ) );
+		if ( 'avatar-settings' !== $tab ) {
+			return;
+		}
+
+		wp_enqueue_media();
+
+		wp_enqueue_script(
+			'bn-avatar-settings',
+			BUDDYNEXT_URL . 'assets/js/admin/avatar-settings.js',
+			array( 'jquery' ),
+			BUDDYNEXT_VERSION,
+			true
+		);
+
+		wp_localize_script(
+			'bn-avatar-settings',
+			'bnAvatarSettingsL10n',
+			array(
+				'pickerTitle'  => __( 'Select Image', 'buddynext' ),
+				'pickerButton' => __( 'Use this image', 'buddynext' ),
+				'confirmTitle' => __( 'Remove image?', 'buddynext' ),
+				'confirm'      => __( 'Remove', 'buddynext' ),
+				'cancel'       => __( 'Cancel', 'buddynext' ),
+			)
+		);
 	}
 
 	// ── Form handler ──────────────────────────────────────────────────────────
@@ -124,46 +168,7 @@ class AvatarSettings {
 		if ( ! empty( $_GET['saved'] ) ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Avatar settings saved.', 'buddynext' ) . '</p></div>';
 		}
-
-		wp_enqueue_media();
 		?>
-		<script>
-		jQuery(function($){
-			function openMediaPicker(inputId, previewId) {
-				var frame = wp.media({
-					title: '<?php echo esc_js( __( 'Select Image', 'buddynext' ) ); ?>',
-					button: { text: '<?php echo esc_js( __( 'Use this image', 'buddynext' ) ); ?>' },
-					multiple: false,
-					library: { type: 'image' }
-				});
-				frame.on('select', function(){
-					var att = frame.state().get('selection').first().toJSON();
-					$('#' + inputId).val(att.url);
-					$('#' + previewId).attr('src', att.url).show();
-				});
-				frame.open();
-			}
-			$('#bn-pick-avatar').on('click', function(e){
-				e.preventDefault();
-				openMediaPicker('bn_default_avatar_url', 'bn-avatar-preview');
-			});
-			$('#bn-pick-cover').on('click', function(e){
-				e.preventDefault();
-				openMediaPicker('bn_default_cover_url', 'bn-cover-preview');
-			});
-		});
-
-		// Delegated confirm handler — replaces inline confirm dialogs (F2 compliance).
-		document.addEventListener('click', function (e) {
-			var t = e.target.closest('[data-bn-confirm]');
-			if (!t) return;
-			if (!window.confirm(t.dataset.bnConfirm)) {
-				e.preventDefault();
-				e.stopImmediatePropagation();
-			}
-		}, true);
-		</script>
-
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 			enctype="multipart/form-data">
 			<input type="hidden" name="action" value="bn_save_avatar_settings">
@@ -177,24 +182,6 @@ class AvatarSettings {
 				<?php submit_button( __( 'Save Avatar Settings', 'buddynext' ), 'primary bn-btn-save', 'submit', false ); ?>
 			</div>
 		</form>
-
-		<style>
-		.bn-av-style-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 4px; }
-		.bn-av-style-card { border: 2px solid #e9ecef; border-radius: 8px; padding: 16px 12px; cursor: pointer; text-align: center; transition: border-color .15s, background .15s; }
-		.bn-av-style-card:has(input:checked) { border-color: #0073aa; background: #f0f7fb; }
-		.bn-av-style-card input { position: absolute; opacity: 0; pointer-events: none; }
-		.bn-av-style-icon { display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
-		.bn-av-style-icon svg { color: #6b7280; }
-		.bn-av-style-card:has(input:checked) .bn-av-style-icon svg { color: #0073aa; }
-		.bn-av-style-label { font-size: 13px; font-weight: 600; color: #374151; }
-		.bn-av-style-desc { font-size: 11px; color: #9ca3af; margin-top: 2px; }
-		.bn-image-picker { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-		.bn-image-picker-preview { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid #e9ecef; background: #f9fafb; flex-shrink: 0; }
-		.bn-image-picker-preview.bn-cover-preview { width: 140px; height: 72px; border-radius: 6px; }
-		.bn-image-picker-controls { display: flex; flex-direction: column; gap: 8px; }
-		.bn-image-picker-controls input[type="text"] { border: 1px solid #ddd; border-radius: 4px; padding: 7px 10px; font-size: 13px; width: 280px; }
-		.bn-image-picker-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-		</style>
 		<?php
 	}
 
@@ -213,7 +200,7 @@ class AvatarSettings {
 				<span class="bn-ss-title"><?php esc_html_e( 'Default Avatar Style', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
-				<p style="font-size:13px;color:#6b7280;margin:0 0 16px;">
+				<p class="bn-av-section-desc">
 					<?php esc_html_e( 'Choose what to show when a member has not uploaded a custom avatar. Applies site-wide via the WordPress avatar system.', 'buddynext' ); ?>
 				</p>
 				<div class="bn-av-style-grid">
@@ -286,8 +273,8 @@ class AvatarSettings {
 				<span class="bn-ss-title"><?php esc_html_e( 'Default Avatar Image', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
-				<p style="font-size:13px;color:#6b7280;margin:0 0 16px;">
-					<?php esc_html_e( 'Used when style is set to "Default Image". Recommended size: at least 200×200 px.', 'buddynext' ); ?>
+				<p class="bn-av-section-desc">
+					<?php esc_html_e( 'Used when style is set to "Default Image". Recommended size: at least 200x200 px.', 'buddynext' ); ?>
 				</p>
 				<div class="bn-image-picker">
 					<img id="bn-avatar-preview"
@@ -303,14 +290,14 @@ class AvatarSettings {
 							<?php if ( '' !== $current_url ) : ?>
 								<button type="submit" name="bn_remove_default_avatar" value="1"
 									class="button bn-btn-danger"
-									data-bn-confirm="<?php echo esc_attr( __( 'Remove the default avatar?', 'buddynext' ) ); ?>">
+									data-bn-confirm="<?php echo esc_attr__( 'Remove the default avatar?', 'buddynext' ); ?>">
 									<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 								</button>
 							<?php endif; ?>
 						</div>
 						<input type="text" id="bn_default_avatar_url" name="bn_default_avatar_url"
 							value="<?php echo esc_attr( $current_url ); ?>"
-							placeholder="<?php esc_attr_e( 'Or paste an image URL…', 'buddynext' ); ?>">
+							placeholder="<?php esc_attr_e( 'Or paste an image URL...', 'buddynext' ); ?>">
 					</div>
 				</div>
 			</div>
@@ -331,8 +318,8 @@ class AvatarSettings {
 				<span class="bn-ss-title"><?php esc_html_e( 'Default Cover Photo', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
-				<p style="font-size:13px;color:#6b7280;margin:0 0 16px;">
-					<?php esc_html_e( 'Shown on profiles that have no cover photo. Recommended: 1200×280 px or wider.', 'buddynext' ); ?>
+				<p class="bn-av-section-desc">
+					<?php esc_html_e( 'Shown on profiles that have no cover photo. Recommended: 1200x280 px or wider.', 'buddynext' ); ?>
 				</p>
 				<div class="bn-image-picker">
 					<?php if ( '' !== $current_url ) : ?>
@@ -342,8 +329,8 @@ class AvatarSettings {
 							class="bn-image-picker-preview bn-cover-preview"
 							width="140" height="72">
 					<?php else : ?>
-						<div style="width:140px;height:72px;border:1px solid #e9ecef;border-radius:6px;background:#f9fafb;display:flex;align-items:center;justify-content:center;">
-							<span style="font-size:11px;color:#9ca3af;"><?php esc_html_e( 'No cover set', 'buddynext' ); ?></span>
+						<div class="bn-image-picker-empty">
+							<span class="bn-image-picker-empty-label"><?php esc_html_e( 'No cover set', 'buddynext' ); ?></span>
 						</div>
 					<?php endif; ?>
 					<div class="bn-image-picker-controls">
@@ -354,14 +341,14 @@ class AvatarSettings {
 							<?php if ( '' !== $current_url ) : ?>
 								<button type="submit" name="bn_remove_default_cover" value="1"
 									class="button bn-btn-danger"
-									data-bn-confirm="<?php echo esc_attr( __( 'Remove the default cover?', 'buddynext' ) ); ?>">
+									data-bn-confirm="<?php echo esc_attr__( 'Remove the default cover?', 'buddynext' ); ?>">
 									<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 								</button>
 							<?php endif; ?>
 						</div>
 						<input type="text" id="bn_default_cover_url" name="bn_default_cover_url"
 							value="<?php echo esc_attr( $current_url ); ?>"
-							placeholder="<?php esc_attr_e( 'Or paste an image URL…', 'buddynext' ); ?>">
+							placeholder="<?php esc_attr_e( 'Or paste an image URL...', 'buddynext' ); ?>">
 					</div>
 				</div>
 			</div>
