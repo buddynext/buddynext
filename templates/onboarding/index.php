@@ -106,20 +106,22 @@ $saved_interests_raw = (string) get_user_meta( $ob_user_id, 'bn_interests', true
 $saved_interests     = array_filter( array_map( 'trim', explode( ',', $saved_interests_raw ) ) );
 
 // Recommended spaces (step 3) — pull from bn_spaces.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-$recommended_spaces = $wpdb->get_results( "SELECT id, name, member_count, description FROM {$wpdb->prefix}bn_spaces ORDER BY member_count DESC LIMIT 6" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+$recommended_spaces = $wpdb->get_results( "SELECT id, name, member_count, description FROM {$wpdb->prefix}bn_spaces ORDER BY member_count DESC LIMIT 6" );
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $joined_space_ids_raw = $wpdb->get_col(
 	$wpdb->prepare(
 		"SELECT space_id FROM {$wpdb->prefix}bn_space_members WHERE user_id = %d AND status = 'active'",
 		$ob_user_id
 	)
 );
-$joined_space_ids     = array_map( 'intval', $joined_space_ids_raw );
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+$joined_space_ids = array_map( 'intval', $joined_space_ids_raw );
 
 // Suggested people to follow (step 4).
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $suggested_users = $wpdb->get_results(
 	$wpdb->prepare(
 		"SELECT u.ID, u.display_name, u.user_login,
@@ -134,14 +136,16 @@ $suggested_users = $wpdb->get_results(
 		$ob_user_id
 	)
 );
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $already_following = $wpdb->get_col(
 	$wpdb->prepare(
 		"SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d",
 		$ob_user_id
 	)
 );
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $already_following = array_map( 'intval', $already_following );
 
 $rest_nonce = wp_create_nonce( 'wp_rest' );
@@ -167,377 +171,6 @@ $steps       = array(
 );
 $total_steps = count( $steps );
 ?>
-<style>
-/* ── Design tokens ─────────────────────────────────────────────────────── */
-:root {
-	--radius-sm: var(--r-sm);
-	--radius:    var(--r-md);
-	--radius-lg: var(--r-lg);
-	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
-}
-
-/* ── Onboarding shell ───────────────────────────────────────────────── */
-.bn-ob-wrap {
-	font-family: var(--font-body);
-	font-size: var(--text-base);
-	color: var(--text-1);
-	background: var(--bg-subtle);
-	-webkit-font-smoothing: antialiased;
-	min-height: 100vh;
-	padding-bottom: var(--s8);
-}
-
-.bn-ob-wizard {
-	max-width: 540px;
-	margin: 0 auto;
-	padding: var(--s6) var(--s5) var(--s8);
-}
-
-/* Progress bar */
-.bn-ob-progress-bar {
-	height: 6px;
-	background: var(--border);
-	border-radius: 4px;
-	margin-bottom: var(--s8);
-	overflow: hidden;
-}
-.bn-ob-progress-fill {
-	height: 100%;
-	border-radius: 4px;
-	background: var(--brand);
-	transition: width 0.4s ease;
-}
-
-/* Step indicator row */
-.bn-ob-steps-row {
-	display: flex;
-	justify-content: center;
-	align-items: flex-start;
-	gap: 0;
-	margin-bottom: var(--s8);
-}
-.bn-ob-step-item {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 4px;
-}
-.bn-ob-step-connector {
-	width: 60px;
-	height: 2px;
-	background: var(--border);
-	margin-top: 15px;
-	flex-shrink: 0;
-	transition: background 0.3s;
-}
-.bn-ob-step-connector.done { background: var(--green); }
-.bn-ob-step-dot {
-	width: 32px;
-	height: 32px;
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: var(--text-xs);
-	font-weight: 700;
-	border: 2px solid var(--border);
-	background: var(--surface);
-	color: var(--text-2);
-	transition: background 0.2s, border-color 0.2s, color 0.2s;
-}
-.bn-ob-step-dot.done    { background: var(--green); border-color: var(--green); color: #fff; }
-.bn-ob-step-dot.active  { background: var(--brand); border-color: var(--brand); color: #fff; }
-.bn-ob-step-label {
-	font-size: 10px;
-	color: var(--text-3);
-	text-align: center;
-	font-weight: 600;
-}
-
-/* Step header */
-.bn-ob-step-header {
-	text-align: center;
-	margin-bottom: var(--s8);
-}
-.bn-ob-step-icon { width: 40px; height: 40px; margin-bottom: var(--s3); color: var(--brand); }
-.bn-ob-step-icon svg { width: 100%; height: 100%; display: block; }
-.bn-ob-step-title {
-	font-family: var(--font-display);
-	font-size: 22px;
-	font-weight: 800;
-	color: var(--text-1);
-	margin-bottom: var(--s2);
-}
-.bn-ob-step-sub { font-size: var(--text-sm); color: var(--text-2); }
-
-/* Step content card */
-.bn-ob-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-lg);
-	padding: var(--s8);
-	box-shadow: 0 4px 16px rgba(0,0,0,0.05);
-}
-
-/* Step panels */
-.bn-ob-step-panel { display: none; }
-.bn-ob-step-panel.active { display: block; }
-
-/* Avatar upload (step 1) */
-.bn-ob-avatar-area { text-align: center; margin-bottom: var(--s6); }
-.bn-ob-avatar-btn {
-	width: 100px;
-	height: 100px;
-	border-radius: 50%;
-	background: var(--brand);
-	color: #fff;
-	font-family: var(--font-display);
-	font-size: 30px;
-	font-weight: 800;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	margin: 0 auto var(--s2);
-	position: relative;
-	cursor: pointer;
-	border: none;
-	overflow: hidden;
-}
-.bn-ob-avatar-btn img { width: 100%; height: 100%; object-fit: cover; }
-.bn-ob-avatar-edit {
-	position: absolute;
-	bottom: 0;
-	right: 0;
-	width: 28px;
-	height: 28px;
-	background: var(--surface);
-	border-radius: 50%;
-	border: 2px solid var(--border);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 12px;
-	color: var(--text-2);
-}
-.bn-ob-avatar-hint { font-size: var(--text-xs); color: var(--text-2); }
-
-/* Form fields (step 1) */
-.bn-ob-field { margin-bottom: var(--s5); }
-.bn-ob-field:last-child { margin-bottom: 0; }
-.bn-ob-label {
-	display: block;
-	font-weight: 600;
-	font-size: var(--text-sm);
-	margin-bottom: 6px;
-	color: var(--text-1);
-}
-.bn-ob-label-hint {
-	font-size: var(--text-xs);
-	color: var(--text-3);
-	font-weight: 400;
-	margin-left: 6px;
-}
-.bn-ob-input {
-	width: 100%;
-	border: 1.5px solid var(--border);
-	border-radius: var(--radius-sm);
-	padding: 10px var(--s3);
-	font-size: var(--text-base);
-	font-family: var(--font-body);
-	color: var(--text-1);
-	background: var(--bg);
-	transition: border-color 0.15s;
-}
-.bn-ob-input:focus {
-	outline: none;
-	border-color: var(--brand);
-}
-.bn-ob-input::placeholder { color: var(--text-3); }
-textarea.bn-ob-input { resize: none; min-height: 80px; }
-.bn-ob-username-hint {
-	font-size: var(--text-xs);
-	margin-top: 4px;
-	font-weight: 600;
-}
-.bn-ob-username-hint.available { color: var(--green); }
-.bn-ob-username-hint.taken { color: var(--red); }
-
-/* Interest chips (step 2) */
-.bn-ob-chips-grid { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.bn-ob-chip {
-	padding: 8px var(--s4);
-	border-radius: 20px;
-	border: 2px solid var(--border);
-	background: var(--surface);
-	font-size: var(--text-sm);
-	font-weight: 500;
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	transition: border-color 0.15s, background 0.15s, color 0.15s;
-	color: var(--text-1);
-	user-select: none;
-}
-.bn-ob-chip:hover { border-color: var(--brand); }
-.bn-ob-chip.selected {
-	background: var(--brand-light);
-	border-color: var(--brand);
-	color: var(--brand);
-	font-weight: 600;
-}
-.bn-ob-chips-count {
-	font-size: var(--text-xs);
-	color: var(--brand);
-	margin-top: var(--s3);
-	font-weight: 600;
-}
-
-/* Spaces grid (step 3) */
-.bn-ob-spaces-grid {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: var(--s2);
-}
-.bn-ob-space-opt {
-	border: 2px solid var(--border);
-	border-radius: var(--radius);
-	padding: var(--s3);
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	transition: border-color 0.15s, background 0.15s;
-	background: var(--surface);
-	color: var(--text-1);
-}
-.bn-ob-space-opt:hover { border-color: var(--brand); }
-.bn-ob-space-opt.joined {
-	border-color: var(--brand);
-	background: var(--brand-light);
-}
-.bn-ob-space-icon {
-	width: 36px;
-	height: 36px;
-	border-radius: var(--radius-sm);
-	background: var(--brand-light);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 18px;
-	flex-shrink: 0;
-}
-.bn-ob-space-name { font-weight: 600; font-size: var(--text-sm); }
-.bn-ob-space-members { font-size: var(--text-xs); color: var(--text-2); }
-
-/* People to follow (step 4) */
-.bn-ob-follow-person {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	padding: var(--s2) 0;
-	border-bottom: 1px solid var(--border-soft);
-}
-.bn-ob-follow-person:last-child { border-bottom: none; }
-.bn-ob-follow-av {
-	width: 38px;
-	height: 38px;
-	border-radius: 50%;
-	background: var(--brand);
-	color: #fff;
-	font-family: var(--font-display);
-	font-size: var(--text-xs);
-	font-weight: 700;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	overflow: hidden;
-}
-.bn-ob-follow-av img { width: 100%; height: 100%; object-fit: cover; }
-.bn-ob-follow-info { flex: 1; min-width: 0; }
-.bn-ob-follow-name {
-	font-weight: 600;
-	font-size: var(--text-sm);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-.bn-ob-follow-meta { font-size: var(--text-xs); color: var(--text-2); }
-.bn-ob-btn-follow {
-	padding: 6px var(--s4);
-	border-radius: 14px;
-	font-size: var(--text-xs);
-	font-weight: 700;
-	cursor: pointer;
-	border: 1.5px solid var(--brand);
-	color: var(--brand);
-	background: var(--surface);
-	font-family: var(--font-body);
-	flex-shrink: 0;
-	transition: background 0.15s, color 0.15s;
-}
-.bn-ob-btn-follow:hover { background: var(--brand-light); }
-.bn-ob-btn-follow.following {
-	background: var(--brand);
-	color: #fff;
-	border-color: var(--brand);
-}
-
-/* Actions row */
-.bn-ob-actions {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-top: var(--s6);
-}
-.bn-ob-btn-next {
-	background: var(--brand);
-	color: #fff;
-	padding: 12px var(--s8);
-	border-radius: 24px;
-	font-size: var(--text-sm);
-	font-weight: 700;
-	cursor: pointer;
-	border: none;
-	font-family: var(--font-body);
-	transition: background 0.15s;
-}
-.bn-ob-btn-next:hover { background: var(--brand-hover); }
-.bn-ob-btn-skip {
-	color: var(--text-3);
-	font-size: var(--text-sm);
-	cursor: pointer;
-	font-weight: 500;
-	background: none;
-	border: none;
-	font-family: var(--font-body);
-	padding: 0;
-}
-.bn-ob-btn-skip:hover { color: var(--text-2); }
-.bn-ob-btn-back {
-	color: var(--text-1);
-	font-size: var(--text-sm);
-	cursor: pointer;
-	font-weight: 500;
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	background: none;
-	border: none;
-	font-family: var(--font-body);
-	padding: 0;
-}
-.bn-ob-btn-back:hover { color: var(--brand); }
-
-/* ── Mobile ── */
-@media (max-width: 640px) {
-	.bn-ob-wizard { padding: var(--s4); }
-	.bn-ob-card { padding: var(--s5); }
-	.bn-ob-spaces-grid { grid-template-columns: 1fr; }
-	.bn-ob-step-connector { width: 32px; }
-}
-</style>
 
 <div class="bn-ob-wrap"
 	data-wp-interactive="buddynext/onboarding"
@@ -560,53 +193,68 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 	?>
 >
 
-	<div class="bn-ob-wizard">
+	<div class="bn-ob-shell">
 
-		<!-- Progress bar -->
-		<div class="bn-ob-progress-bar">
-			<div class="bn-ob-progress-fill"
-				style="width: <?php echo esc_attr( (string) ( ( $saved_step / $total_steps ) * 100 ) ); ?>%;"
-				data-wp-style--width="state.progressPct + '%'"></div>
-		</div>
-
-		<!-- Step indicator dots -->
-		<div class="bn-ob-steps-row" aria-label="<?php esc_attr_e( 'Onboarding progress', 'buddynext' ); ?>">
-			<?php foreach ( $steps as $step_num => $step_info ) : ?>
-				<div class="bn-ob-step-item">
-					<div class="bn-ob-step-dot <?php echo $step_num < $saved_step ? 'done' : ( $step_num === $saved_step ? 'active' : '' ); ?>"
-						aria-label="<?php echo esc_attr( $step_info['label'] ); ?>">
+		<!-- Progress stepper -->
+		<nav class="bn-stepper bn-ob-stepper"
+			aria-label="<?php esc_attr_e( 'Onboarding progress', 'buddynext' ); ?>">
+			<?php
+			$step_keys = array_keys( $steps );
+			foreach ( $step_keys as $idx => $step_num ) :
+				$state = '';
+				if ( $step_num < $saved_step ) {
+					$state = 'done';
+				} elseif ( $step_num === $saved_step ) {
+					$state = 'active';
+				}
+				$step_info = $steps[ $step_num ];
+				?>
+				<div class="bn-stepper__item"
+					<?php
+					if ( $state ) :
+						?>
+						data-state="<?php echo esc_attr( $state ); ?>"<?php endif; ?>
+					<?php
+					if ( 'active' === $state ) :
+						?>
+						aria-current="step"<?php endif; ?>
+				>
+					<span class="bn-stepper__dot" aria-hidden="true">
 						<?php
-						if ( $step_num < $saved_step ) {
+						if ( 'done' === $state ) {
 							buddynext_icon( 'check' );
 						} else {
 							echo esc_html( (string) $step_num );
 						}
 						?>
-					</div>
-					<div class="bn-ob-step-label"><?php echo esc_html( $step_info['label'] ); ?></div>
+					</span>
+					<span class="bn-ob-stepper__label"><?php echo esc_html( $step_info['label'] ); ?></span>
 				</div>
-				<?php if ( $step_num < $total_steps ) : ?>
-					<div class="bn-ob-step-connector <?php echo $step_num < $saved_step ? 'done' : ''; ?>"></div>
+				<?php if ( $idx < count( $step_keys ) - 1 ) : ?>
+					<span class="bn-stepper__bar" aria-hidden="true"></span>
 				<?php endif; ?>
 			<?php endforeach; ?>
-		</div>
+		</nav>
 
 		<!-- ── Step 1: Profile ── -->
-		<div class="bn-ob-step-panel <?php echo 1 === $saved_step ? 'active' : ''; ?>"
+		<section class="bn-ob-step <?php echo 1 === $saved_step ? 'is-active' : ''; ?>"
 			id="bn-ob-step-1"
-			data-step="1">
+			data-step="1"
+			aria-labelledby="bn-ob-step-1-title"
+			<?php echo 1 !== $saved_step ? 'hidden' : ''; ?>
+		>
 
-			<div class="bn-ob-step-header">
-				<div class="bn-ob-step-icon"><?php buddynext_icon( 'user' ); ?></div>
-				<div class="bn-ob-step-title"><?php esc_html_e( 'Set up your profile', 'buddynext' ); ?></div>
-				<div class="bn-ob-step-sub"><?php esc_html_e( 'Help others discover you. You can change this any time.', 'buddynext' ); ?></div>
-			</div>
+			<header class="bn-ob-step__head">
+				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'user' ); ?></span>
+				<h1 id="bn-ob-step-1-title" class="bn-ob-step__title"><?php esc_html_e( 'Set up your profile', 'buddynext' ); ?></h1>
+				<p class="bn-ob-step__sub"><?php esc_html_e( 'Help others discover you. You can change this any time.', 'buddynext' ); ?></p>
+			</header>
 
-			<div class="bn-ob-card">
-				<!-- Avatar upload -->
-				<div class="bn-ob-avatar-area">
-					<button class="bn-ob-avatar-btn"
+			<div class="bn-card bn-ob-card" data-v2="true">
+				<div class="bn-ob-avatar-row">
+					<button class="bn-avatar bn-ob-avatar"
 						type="button"
+						data-size="xl"
 						aria-label="<?php esc_attr_e( 'Upload profile photo', 'buddynext' ); ?>"
 						data-wp-on--click="actions.triggerAvatarUpload">
 						<?php if ( $avatar_url ) : ?>
@@ -615,16 +263,18 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 						<?php else : ?>
 							<?php echo esc_html( $initials ); ?>
 						<?php endif; ?>
-						<span class="bn-ob-avatar-edit" aria-hidden="true"><?php buddynext_icon( 'edit' ); ?></span>
 					</button>
-					<div class="bn-ob-avatar-hint"><?php esc_html_e( 'Tap to upload photo', 'buddynext' ); ?></div>
+					<div class="bn-ob-avatar-row__hint">
+						<strong><?php esc_html_e( 'Add a profile photo', 'buddynext' ); ?></strong>
+						<span><?php esc_html_e( 'JPG or PNG, max 4MB.', 'buddynext' ); ?></span>
+					</div>
 				</div>
 
 				<div class="bn-ob-field">
 					<label class="bn-ob-label" for="bn-ob-displayname">
-						<?php esc_html_e( 'Display Name', 'buddynext' ); ?>
+						<?php esc_html_e( 'Display name', 'buddynext' ); ?>
 					</label>
-					<input class="bn-ob-input"
+					<input class="bn-input"
 						type="text"
 						id="bn-ob-displayname"
 						name="display_name"
@@ -636,26 +286,21 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 					<label class="bn-ob-label" for="bn-ob-username">
 						<?php esc_html_e( 'Username', 'buddynext' ); ?>
 					</label>
-					<input class="bn-ob-input"
+					<input class="bn-input"
 						type="text"
 						id="bn-ob-username"
 						name="user_login"
 						value="<?php echo esc_attr( $current_login ); ?>"
 						placeholder="@username"
 						data-wp-on--input="actions.checkUsername" />
-					<div class="bn-ob-username-hint available"
-						data-wp-text="state.usernameHint"
-						data-wp-bind--hidden="!state.usernameHint">
-						<?php buddynext_icon( 'check' ); ?> <?php echo esc_html( $current_login ); ?> <?php esc_html_e( 'is available', 'buddynext' ); ?>
-					</div>
 				</div>
 
 				<div class="bn-ob-field">
 					<label class="bn-ob-label" for="bn-ob-bio">
 						<?php esc_html_e( 'Bio', 'buddynext' ); ?>
-						<span class="bn-ob-label-hint"><?php esc_html_e( '(optional)', 'buddynext' ); ?></span>
+						<span class="bn-ob-label__hint"><?php esc_html_e( '(optional)', 'buddynext' ); ?></span>
 					</label>
-					<textarea class="bn-ob-input"
+					<textarea class="bn-textarea"
 						id="bn-ob-bio"
 						name="bn_bio"
 						rows="3"
@@ -665,9 +310,9 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 				<div class="bn-ob-field">
 					<label class="bn-ob-label" for="bn-ob-location">
 						<?php esc_html_e( 'Location', 'buddynext' ); ?>
-						<span class="bn-ob-label-hint"><?php esc_html_e( '(optional)', 'buddynext' ); ?></span>
+						<span class="bn-ob-label__hint"><?php esc_html_e( '(optional)', 'buddynext' ); ?></span>
 					</label>
-					<input class="bn-ob-input"
+					<input class="bn-input"
 						type="text"
 						id="bn-ob-location"
 						name="bn_location"
@@ -677,44 +322,55 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 			</div>
 
 			<div class="bn-ob-actions">
-				<button class="bn-ob-btn-skip"
+				<span class="bn-ob-actions__spacer" aria-hidden="true"></span>
+				<button class="bn-btn"
 					type="button"
+					data-variant="ghost"
+					data-size="lg"
 					data-wp-on--click="actions.skipStep">
 					<?php esc_html_e( 'Skip for now', 'buddynext' ); ?>
 				</button>
-				<button class="bn-ob-btn-next"
+				<button class="bn-btn"
 					type="button"
+					data-variant="primary"
+					data-size="lg"
 					data-wp-on--click="actions.nextStep">
-					<?php esc_html_e( 'Continue', 'buddynext' ); ?> &rarr;
+					<?php esc_html_e( 'Continue', 'buddynext' ); ?>
 				</button>
 			</div>
 
-		</div><!-- /step 1 -->
+		</section>
 
 		<!-- ── Step 2: Interests ── -->
-		<div class="bn-ob-step-panel <?php echo 2 === $saved_step ? 'active' : ''; ?>"
+		<section class="bn-ob-step <?php echo 2 === $saved_step ? 'is-active' : ''; ?>"
 			id="bn-ob-step-2"
-			data-step="2">
+			data-step="2"
+			aria-labelledby="bn-ob-step-2-title"
+			<?php echo 2 !== $saved_step ? 'hidden' : ''; ?>
+		>
 
-			<div class="bn-ob-step-header">
-				<div class="bn-ob-step-icon"><?php buddynext_icon( 'target' ); ?></div>
-				<div class="bn-ob-step-title"><?php esc_html_e( 'Pick your interests', 'buddynext' ); ?></div>
-				<div class="bn-ob-step-sub"><?php esc_html_e( "We'll show you relevant posts and spaces based on what you choose.", 'buddynext' ); ?></div>
-			</div>
+			<header class="bn-ob-step__head">
+				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'target' ); ?></span>
+				<h1 id="bn-ob-step-2-title" class="bn-ob-step__title"><?php esc_html_e( 'Pick your interests', 'buddynext' ); ?></h1>
+				<p class="bn-ob-step__sub"><?php esc_html_e( "We'll show you relevant posts and spaces based on what you choose.", 'buddynext' ); ?></p>
+			</header>
 
-			<div class="bn-ob-card">
-				<div class="bn-ob-chips-grid">
+			<div class="bn-card bn-ob-card" data-v2="true">
+				<div class="bn-ob-chips">
 					<?php foreach ( $all_interests as $interest ) : ?>
-						<button class="bn-ob-chip <?php echo in_array( $interest['label'], $saved_interests, true ) ? 'selected' : ''; ?>"
+						<?php $is_selected = in_array( $interest['label'], $saved_interests, true ); ?>
+						<button class="bn-badge bn-ob-chip"
 							type="button"
+							data-tone="<?php echo $is_selected ? 'accent' : 'neutral'; ?>"
 							data-interest="<?php echo esc_attr( $interest['label'] ); ?>"
+							aria-pressed="<?php echo $is_selected ? 'true' : 'false'; ?>"
 							data-wp-on--click="actions.toggleInterest">
-							<?php buddynext_icon( $interest['icon'] ); ?> <?php echo esc_html( $interest['label'] ); ?>
+							<span class="bn-ob-chip__icon" aria-hidden="true"><?php buddynext_icon( $interest['icon'] ); ?></span>
+							<span class="bn-ob-chip__label"><?php echo esc_html( $interest['label'] ); ?></span>
 						</button>
 					<?php endforeach; ?>
 				</div>
-				<div class="bn-ob-chips-count"
-					data-wp-text="state.interestCountLabel">
+				<p class="bn-ob-chips__count" data-wp-text="state.interestCountLabel">
 					<?php
 					$saved_count = count( $saved_interests );
 					echo esc_html(
@@ -722,59 +378,69 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 							/* translators: %d: number of selected interests */
 							_n( '%d selected', '%d selected', $saved_count, 'buddynext' ),
 							$saved_count
-						) . ' &middot; ' . __( 'Pick at least 3', 'buddynext' )
+						) . ' · ' . __( 'Pick at least 3', 'buddynext' )
 					);
 					?>
-				</div>
+				</p>
 			</div>
 
 			<div class="bn-ob-actions">
-				<button class="bn-ob-btn-back"
+				<button class="bn-btn"
 					type="button"
+					data-variant="ghost"
+					data-size="lg"
 					data-wp-on--click="actions.prevStep">
-					&larr; <?php esc_html_e( 'Back', 'buddynext' ); ?>
+					<?php esc_html_e( 'Back', 'buddynext' ); ?>
 				</button>
-				<button class="bn-ob-btn-skip"
+				<button class="bn-btn"
 					type="button"
+					data-variant="ghost"
+					data-size="lg"
 					data-wp-on--click="actions.skipStep">
 					<?php esc_html_e( 'Skip', 'buddynext' ); ?>
 				</button>
-				<button class="bn-ob-btn-next"
+				<button class="bn-btn"
 					type="button"
+					data-variant="primary"
+					data-size="lg"
 					data-wp-on--click="actions.nextStep">
-					<?php esc_html_e( 'Continue', 'buddynext' ); ?> &rarr;
+					<?php esc_html_e( 'Continue', 'buddynext' ); ?>
 				</button>
 			</div>
 
-		</div><!-- /step 2 -->
+		</section>
 
 		<!-- ── Step 3: Spaces ── -->
-		<div class="bn-ob-step-panel <?php echo 3 === $saved_step ? 'active' : ''; ?>"
+		<section class="bn-ob-step <?php echo 3 === $saved_step ? 'is-active' : ''; ?>"
 			id="bn-ob-step-3"
-			data-step="3">
+			data-step="3"
+			aria-labelledby="bn-ob-step-3-title"
+			<?php echo 3 !== $saved_step ? 'hidden' : ''; ?>
+		>
 
-			<div class="bn-ob-step-header">
-				<div class="bn-ob-step-icon"><?php buddynext_icon( 'building' ); ?></div>
-				<div class="bn-ob-step-title"><?php esc_html_e( 'Join some spaces', 'buddynext' ); ?></div>
-				<div class="bn-ob-step-sub"><?php esc_html_e( 'Spaces are topic-focused communities. Join the ones that interest you.', 'buddynext' ); ?></div>
-			</div>
+			<header class="bn-ob-step__head">
+				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'building' ); ?></span>
+				<h1 id="bn-ob-step-3-title" class="bn-ob-step__title"><?php esc_html_e( 'Join some spaces', 'buddynext' ); ?></h1>
+				<p class="bn-ob-step__sub"><?php esc_html_e( 'Spaces are topic-focused communities. Join the ones that interest you.', 'buddynext' ); ?></p>
+			</header>
 
-			<div class="bn-ob-card">
+			<div class="bn-ob-spaces">
 				<?php if ( $recommended_spaces ) : ?>
-					<div class="bn-ob-spaces-grid">
-						<?php foreach ( $recommended_spaces as $space ) : ?>
-							<?php $space_id = (int) $space->id; ?>
-							<button class="bn-ob-space-opt <?php echo in_array( $space_id, $joined_space_ids, true ) ? 'joined' : ''; ?>"
-								type="button"
-								data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
-								data-wp-on--click="actions.toggleSpace"
-								aria-pressed="<?php echo in_array( $space_id, $joined_space_ids, true ) ? 'true' : 'false'; ?>">
-								<div class="bn-ob-space-icon">
+					<?php foreach ( $recommended_spaces as $space ) : ?>
+						<?php
+						$space_id  = (int) $space->id;
+						$is_joined = in_array( $space_id, $joined_space_ids, true );
+						?>
+						<div class="bn-card bn-ob-space-card" data-interactive="true">
+							<div class="bn-ob-space-card__head">
+								<span class="bn-avatar bn-ob-space-avatar"
+									data-size="md"
+									aria-hidden="true">
 									<?php buddynext_icon( 'home' ); ?>
-								</div>
-								<div>
-									<div class="bn-ob-space-name"><?php echo esc_html( $space->name ); ?></div>
-									<div class="bn-ob-space-members">
+								</span>
+								<div class="bn-ob-space-card__meta">
+									<h3 class="bn-ob-space-card__name"><?php echo esc_html( $space->name ); ?></h3>
+									<p class="bn-ob-space-card__members">
 										<?php
 										echo esc_html(
 											sprintf(
@@ -784,124 +450,155 @@ textarea.bn-ob-input { resize: none; min-height: 80px; }
 											)
 										);
 										?>
-									</div>
+									</p>
 								</div>
+							</div>
+							<?php if ( ! empty( $space->description ) ) : ?>
+								<p class="bn-ob-space-card__desc"><?php echo esc_html( wp_trim_words( $space->description, 14 ) ); ?></p>
+							<?php endif; ?>
+							<button class="bn-btn bn-ob-space-card__cta"
+								type="button"
+								data-variant="<?php echo $is_joined ? 'secondary' : 'primary'; ?>"
+								data-size="sm"
+								data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+								aria-pressed="<?php echo $is_joined ? 'true' : 'false'; ?>"
+								data-wp-on--click="actions.toggleSpace">
+								<?php echo $is_joined ? esc_html__( 'Joined', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
 							</button>
-						<?php endforeach; ?>
-					</div>
+						</div>
+					<?php endforeach; ?>
 				<?php else : ?>
-					<p style="color: var(--text-3); font-size: var(--text-sm); text-align: center; padding: var(--s4) 0;">
+					<p class="bn-ob-empty">
 						<?php esc_html_e( 'No spaces available yet. You can explore spaces after setup.', 'buddynext' ); ?>
 					</p>
 				<?php endif; ?>
 			</div>
 
 			<div class="bn-ob-actions">
-				<button class="bn-ob-btn-back"
+				<button class="bn-btn"
 					type="button"
+					data-variant="ghost"
+					data-size="lg"
 					data-wp-on--click="actions.prevStep">
-					&larr; <?php esc_html_e( 'Back', 'buddynext' ); ?>
+					<?php esc_html_e( 'Back', 'buddynext' ); ?>
 				</button>
-				<button class="bn-ob-btn-skip"
+				<button class="bn-btn"
 					type="button"
+					data-variant="ghost"
+					data-size="lg"
 					data-wp-on--click="actions.skipStep">
 					<?php esc_html_e( 'Skip', 'buddynext' ); ?>
 				</button>
-				<button class="bn-ob-btn-next"
+				<button class="bn-btn"
 					type="button"
+					data-variant="primary"
+					data-size="lg"
 					data-wp-on--click="actions.nextStep">
-					<?php esc_html_e( 'Continue', 'buddynext' ); ?> &rarr;
+					<?php esc_html_e( 'Continue', 'buddynext' ); ?>
 				</button>
 			</div>
 
-		</div><!-- /step 3 -->
+		</section>
 
 		<!-- ── Step 4: Follow People ── -->
-		<div class="bn-ob-step-panel <?php echo 4 === $saved_step ? 'active' : ''; ?>"
+		<section class="bn-ob-step <?php echo 4 === $saved_step ? 'is-active' : ''; ?>"
 			id="bn-ob-step-4"
-			data-step="4">
+			data-step="4"
+			aria-labelledby="bn-ob-step-4-title"
+			<?php echo 4 !== $saved_step ? 'hidden' : ''; ?>
+		>
 
-			<div class="bn-ob-step-header">
-				<div class="bn-ob-step-icon"><?php buddynext_icon( 'users' ); ?></div>
-				<div class="bn-ob-step-title"><?php esc_html_e( 'Follow some members', 'buddynext' ); ?></div>
-				<div class="bn-ob-step-sub"><?php esc_html_e( 'Start building your feed by following members in your areas of interest.', 'buddynext' ); ?></div>
-			</div>
+			<header class="bn-ob-step__head">
+				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></span>
+				<h1 id="bn-ob-step-4-title" class="bn-ob-step__title"><?php esc_html_e( 'Follow some members', 'buddynext' ); ?></h1>
+				<p class="bn-ob-step__sub"><?php esc_html_e( 'Start building your feed by following members in your areas of interest.', 'buddynext' ); ?></p>
+			</header>
 
-			<div class="bn-ob-card">
+			<div class="bn-card bn-ob-card" data-v2="true">
 				<?php if ( $suggested_users ) : ?>
-					<?php foreach ( $suggested_users as $sug_user ) : ?>
-						<?php
-						$sug_id         = (int) $sug_user->ID;
-						$sug_name       = $sug_user->display_name;
-						$sug_login      = $sug_user->user_login;
-						$sug_headline   = ! empty( $sug_user->headline ) ? $sug_user->headline : '';
-						$sug_followers  = (int) $sug_user->follower_count;
-						$sug_avatar_url = get_avatar_url( $sug_id, array( 'size' => 38 ) );
-						$sug_initials   = '';
-						foreach ( array_slice( explode( ' ', $sug_name ), 0, 2 ) as $p ) {
-							$sug_initials .= mb_strtoupper( mb_substr( $p, 0, 1 ) );
-						}
-						$is_following_sug = in_array( $sug_id, $already_following, true );
-						?>
-						<div class="bn-ob-follow-person">
-							<div class="bn-ob-follow-av">
-								<?php if ( $sug_avatar_url ) : ?>
-									<img src="<?php echo esc_attr( $sug_avatar_url ); ?>"
-										alt="<?php echo esc_attr( $sug_name ); ?>" />
-								<?php else : ?>
-									<?php echo esc_html( $sug_initials ); ?>
-								<?php endif; ?>
-							</div>
-							<div class="bn-ob-follow-info">
-								<div class="bn-ob-follow-name"><?php echo esc_html( $sug_name ); ?></div>
-								<div class="bn-ob-follow-meta">
-									<?php if ( $sug_headline ) : ?>
-										<?php echo esc_html( $sug_headline ); ?>
+					<ul class="bn-ob-people" role="list">
+						<?php foreach ( $suggested_users as $sug_user ) : ?>
+							<?php
+							$sug_id         = (int) $sug_user->ID;
+							$sug_name       = $sug_user->display_name;
+							$sug_login      = $sug_user->user_login;
+							$sug_headline   = ! empty( $sug_user->headline ) ? $sug_user->headline : '';
+							$sug_followers  = (int) $sug_user->follower_count;
+							$sug_avatar_url = get_avatar_url( $sug_id, array( 'size' => 72 ) );
+							$sug_initials   = '';
+							foreach ( array_slice( explode( ' ', $sug_name ), 0, 2 ) as $p ) {
+								$sug_initials .= mb_strtoupper( mb_substr( $p, 0, 1 ) );
+							}
+							$is_following_sug = in_array( $sug_id, $already_following, true );
+							?>
+							<li class="bn-ob-person">
+								<span class="bn-avatar" data-size="md">
+									<?php if ( $sug_avatar_url ) : ?>
+										<img src="<?php echo esc_attr( $sug_avatar_url ); ?>"
+											alt="<?php echo esc_attr( $sug_name ); ?>" />
 									<?php else : ?>
-										@<?php echo esc_html( $sug_login ); ?>
-										&middot;
-										<?php
-										echo esc_html(
-											sprintf(
-												/* translators: %d: follower count */
-												_n( '%d follower', '%d followers', $sug_followers, 'buddynext' ),
-												$sug_followers
-											)
-										);
-										?>
+										<?php echo esc_html( $sug_initials ); ?>
 									<?php endif; ?>
+								</span>
+								<div class="bn-ob-person__info">
+									<p class="bn-ob-person__name"><?php echo esc_html( $sug_name ); ?></p>
+									<p class="bn-ob-person__meta">
+										<?php if ( $sug_headline ) : ?>
+											<?php echo esc_html( $sug_headline ); ?>
+										<?php else : ?>
+											@<?php echo esc_html( $sug_login ); ?>
+											·
+											<?php
+											echo esc_html(
+												sprintf(
+													/* translators: %d: follower count */
+													_n( '%d follower', '%d followers', $sug_followers, 'buddynext' ),
+													$sug_followers
+												)
+											);
+											?>
+										<?php endif; ?>
+									</p>
 								</div>
-							</div>
-							<button class="bn-ob-btn-follow <?php echo $is_following_sug ? 'following' : ''; ?>"
-								type="button"
-								data-user-id="<?php echo esc_attr( (string) $sug_id ); ?>"
-								data-wp-on--click="actions.toggleFollow">
-								<?php echo $is_following_sug ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
-							</button>
-						</div>
-					<?php endforeach; ?>
+								<button class="bn-btn bn-ob-person__cta <?php echo $is_following_sug ? 'is-following' : ''; ?>"
+									type="button"
+									data-variant="<?php echo $is_following_sug ? 'secondary' : 'primary'; ?>"
+									data-size="sm"
+									data-user-id="<?php echo esc_attr( (string) $sug_id ); ?>"
+									aria-pressed="<?php echo $is_following_sug ? 'true' : 'false'; ?>"
+									data-wp-on--click="actions.toggleFollow">
+									<?php echo $is_following_sug ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
+								</button>
+							</li>
+						<?php endforeach; ?>
+					</ul>
 				<?php else : ?>
-					<p style="color: var(--text-3); font-size: var(--text-sm); text-align: center; padding: var(--s4) 0;">
+					<p class="bn-ob-empty">
 						<?php esc_html_e( 'No suggestions yet. Discover members in the member directory after setup.', 'buddynext' ); ?>
 					</p>
 				<?php endif; ?>
 			</div>
 
 			<div class="bn-ob-actions">
-				<button class="bn-ob-btn-back"
+				<button class="bn-btn"
 					type="button"
+					data-variant="ghost"
+					data-size="lg"
 					data-wp-on--click="actions.prevStep">
-					&larr; <?php esc_html_e( 'Back', 'buddynext' ); ?>
+					<?php esc_html_e( 'Back', 'buddynext' ); ?>
 				</button>
-				<button class="bn-ob-btn-next"
+				<span class="bn-ob-actions__spacer" aria-hidden="true"></span>
+				<button class="bn-btn"
 					type="button"
+					data-variant="primary"
+					data-size="lg"
 					data-wp-on--click="actions.completeOnboarding">
-					<?php esc_html_e( "Let's go!", 'buddynext' ); ?>
+					<?php esc_html_e( "Let's go", 'buddynext' ); ?>
 				</button>
 			</div>
 
-		</div><!-- /step 4 -->
+		</section>
 
-	</div><!-- /wizard -->
+	</div>
 
-</div><!-- /bn-ob-wrap -->
+</div>

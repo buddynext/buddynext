@@ -44,19 +44,6 @@
 	--bn-ob-s12: var(--bn-s12);
 }
 
-/* ── Layout wrapper ──────────────────────────────────────────────────── */
-.bn-onboarding-wrap {
-	font-family: var(--bn-ob-font-body);
-	font-size: var(--text-base);
-	color: var(--bn-ob-text-1);
-	background: var(--bn-ob-bg);
-	min-height: 100vh;
-	display: flex;
-	align-items: flex-start;
-	justify-content: center;
-	padding: var(--bn-ob-s8) var(--bn-ob-s4);
-}
-
 /* ── Setup wizard chrome ─────────────────────────────────────────────── */
 .bn-wizard-wrap {
 	font-family: var(--bn-ob-font-body);
@@ -562,354 +549,300 @@
 	color: var(--bn-ob-text-1);
 }
 
-/* ── Member onboarding flow (new-user, 4 steps) ──────────────────────── */
+/* ── Member onboarding flow (new-user, 4 steps) ──────────────────────────
+ * Composes v2 primitives — .bn-stepper, .bn-card, .bn-btn[data-variant],
+ * .bn-input/.bn-textarea, .bn-badge[data-tone], .bn-avatar[data-size].
+ * Only adds composition rules (layout, grid, spacing) on top.
+ * All values read from --bn-* v2 tokens in bn-base.css.
+ * ────────────────────────────────────────────────────────────────────── */
+
+/* Page shell — full-height canvas, centered single-column card layout. */
+.bn-ob-wrap {
+	min-height: 100vh;
+	background: var(--bn-canvas);
+	color: var(--bn-ink);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-base);
+	display: flex;
+	justify-content: center;
+	padding: var(--bn-s8) var(--bn-s4);
+}
 .bn-ob-shell {
 	width: 100%;
-	max-width: 600px;
-}
-
-/* Welcome screen / step card */
-.bn-ob-card {
-	background: var(--bn-ob-surface);
-	border: 1px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-xl);
-	padding: var(--bn-ob-s8);
-	margin-bottom: var(--bn-ob-s4);
-}
-
-/* Progress bar (horizontal, numbered) */
-.bn-ob-progress {
+	max-width: 640px;
 	display: flex;
-	align-items: center;
-	gap: 0;
-	margin-bottom: var(--bn-ob-s8);
-	counter-reset: ob-step;
+	flex-direction: column;
+	gap: var(--bn-s6);
 }
 
-.bn-ob-progress__step {
-	flex: 1;
+/* Stepper — sits above the active step card. */
+.bn-ob-stepper {
+	margin: 0 0 var(--bn-s2);
+}
+.bn-ob-stepper__label {
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold);
+}
+
+/* Step section — only one rendered visible at a time. */
+.bn-ob-step {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s5);
+}
+.bn-ob-step[hidden] { display: none; }
+
+.bn-ob-step__head {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: var(--bn-ob-s2);
-	position: relative;
-}
-
-.bn-ob-progress__step:not(:last-child)::after {
-	content: '';
-	position: absolute;
-	top: 14px;
-	left: calc(50% + 14px);
-	right: calc(-50% + 14px);
-	height: 2px;
-	background: var(--bn-ob-border);
-}
-
-.bn-ob-progress__step.is-done::after {
-	background: var(--bn-ob-brand);
-}
-
-.bn-ob-progress__dot {
-	width: 28px;
-	height: 28px;
-	border-radius: var(--bn-ob-r-full);
-	border: 2px solid var(--bn-ob-border);
-	background: var(--bn-ob-bg);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: var(--text-xs);
-	font-weight: var(--fw-bold);
-	color: var(--bn-ob-text-3);
-	z-index: 1;
-	position: relative;
-	transition: background 0.2s, border-color 0.2s, color 0.2s;
-}
-
-.bn-ob-progress__step.is-active .bn-ob-progress__dot {
-	background: var(--bn-ob-brand);
-	border-color: var(--bn-ob-brand);
-	color: var(--text-on-brand);
-}
-
-.bn-ob-progress__step.is-done .bn-ob-progress__dot {
-	background: var(--bn-ob-green-bg);
-	border-color: var(--bn-ob-green);
-	color: var(--bn-ob-green);
-}
-
-.bn-ob-progress__label {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-text-2);
 	text-align: center;
+	gap: var(--bn-s2);
 }
-
-.bn-ob-progress__step.is-active .bn-ob-progress__label {
-	color: var(--bn-ob-brand);
-	font-weight: var(--fw-semibold);
-}
-
-/* Step heading */
-.bn-ob-heading {
-	font-family: var(--bn-ob-font-display);
-	font-size: var(--text-2xl);
-	font-weight: var(--fw-bold);
-	color: var(--bn-ob-text-1);
-	margin: 0 0 var(--bn-ob-s2);
-	line-height: var(--leading-tight);
-}
-
-.bn-ob-subheading {
-	font-size: var(--text-md);
-	color: var(--bn-ob-text-2);
-	margin: 0 0 var(--bn-ob-s6);
-	line-height: var(--leading-body);
-}
-
-/* "Complete your profile" CTA card */
-.bn-ob-cta {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--bn-ob-s4);
-	padding: var(--bn-ob-s4) var(--bn-ob-s5);
-	background: var(--bn-ob-brand-light);
-	border: 1px solid var(--bn-ob-brand);
-	border-radius: var(--bn-ob-r-lg);
-	margin-bottom: var(--bn-ob-s6);
-}
-
-.bn-ob-cta__text {
-	font-size: var(--text-md);
-	color: var(--bn-ob-brand);
-	font-weight: var(--fw-semibold);
-}
-
-.bn-ob-cta__btn {
-	display: inline-flex;
-	align-items: center;
-	height: 32px;
-	padding: 0 var(--bn-ob-s4);
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	color: var(--text-on-brand);
-	background: var(--bn-ob-brand);
-	border-radius: var(--bn-ob-r-md);
-	text-decoration: none;
-	transition: background 0.15s;
-	white-space: nowrap;
-}
-
-.bn-ob-cta__btn:hover {
-	background: var(--bn-ob-brand-hover);
-	color: var(--text-on-brand);
-}
-
-/* Interests grid (step 2) */
-.bn-ob-interests {
-	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	gap: var(--bn-ob-s2);
-	margin-bottom: var(--bn-ob-s6);
-}
-
-.bn-ob-interest-pill {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-ob-s2);
-	padding: var(--bn-ob-s2) var(--bn-ob-s3);
-	border: 2px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-full);
-	background: var(--bn-ob-bg);
-	font-size: var(--text-sm);
-	color: var(--bn-ob-text-1);
-	cursor: pointer;
-	transition: border-color 0.15s, background 0.15s;
-	text-align: center;
-	justify-content: center;
-}
-
-.bn-ob-interest-pill:hover {
-	border-color: var(--bn-ob-brand);
-	background: var(--bn-ob-brand-light);
-}
-
-.bn-ob-interest-pill.is-selected {
-	border-color: var(--bn-ob-brand);
-	background: var(--bn-ob-brand-light);
-	color: var(--bn-ob-brand);
-	font-weight: var(--fw-semibold);
-}
-
-/* Space cards (step 3) */
-.bn-ob-spaces {
-	display: grid;
-	grid-template-columns: repeat(2, 1fr);
-	gap: var(--bn-ob-s3);
-	margin-bottom: var(--bn-ob-s6);
-}
-
-.bn-ob-space-card {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-ob-s1);
-	padding: var(--bn-ob-s3) var(--bn-ob-s4);
-	border: 2px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-lg);
-	background: var(--bn-ob-bg);
-	cursor: pointer;
-	transition: border-color 0.15s, background 0.15s;
-}
-
-.bn-ob-space-card:hover {
-	border-color: var(--bn-ob-brand);
-	background: var(--bn-ob-bg-hover);
-}
-
-.bn-ob-space-card.is-joined {
-	border-color: var(--bn-ob-green);
-	background: var(--bn-ob-green-bg);
-}
-
-.bn-ob-space-card__name {
-	font-size: var(--text-md);
-	font-weight: var(--fw-semibold);
-	color: var(--bn-ob-text-1);
-}
-
-.bn-ob-space-card__meta {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-text-2);
-}
-
-/* People to follow (step 4) */
-.bn-ob-people {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-ob-s3);
-	margin-bottom: var(--bn-ob-s6);
-}
-
-.bn-ob-person {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-ob-s3);
-	padding: var(--bn-ob-s3) var(--bn-ob-s4);
-	border: 1px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-lg);
-	background: var(--bn-ob-bg);
-}
-
-.bn-ob-person__avatar {
+.bn-ob-step__icon {
 	width: 40px;
 	height: 40px;
-	border-radius: var(--bn-ob-r-full);
-	background: var(--bn-ob-bg-subtle);
-	flex-shrink: 0;
-	overflow: hidden;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--bn-accent);
+}
+.bn-ob-step__icon svg { width: 100%; height: 100%; }
+.bn-ob-step__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-xl);
+	font-weight: var(--bn-fw-extrabold);
+	color: var(--bn-ink);
+	letter-spacing: var(--bn-ls-tight);
+	line-height: var(--bn-leading-tight);
+	margin: 0;
+}
+.bn-ob-step__sub {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	line-height: var(--bn-leading-normal);
+	margin: 0;
+	max-width: 440px;
 }
 
-.bn-ob-person__avatar img {
+/* Step content card — extends .bn-card with internal padding + stack. */
+.bn-ob-card {
+	padding: var(--bn-s6);
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+/* Avatar upload row (step 1). */
+.bn-ob-avatar-row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s4);
+}
+.bn-ob-avatar {
+	cursor: pointer;
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	font-family: var(--bn-font-display);
+	font-weight: var(--bn-fw-bold);
+	border: none;
+}
+.bn-ob-avatar:focus-visible {
+	outline-color: transparent;
+	box-shadow: var(--bn-ring);
+}
+.bn-ob-avatar img {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
+	border-radius: inherit;
+}
+.bn-ob-avatar-row__hint {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	line-height: var(--bn-leading-normal);
+}
+.bn-ob-avatar-row__hint strong {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-semibold);
 }
 
+/* Form field rows (step 1). */
+.bn-ob-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+.bn-ob-label {
+	display: flex;
+	align-items: baseline;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+.bn-ob-label__hint {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-4);
+	font-weight: var(--bn-fw-normal);
+}
+
+/* Interest chips grid (step 2). */
+.bn-ob-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+}
+.bn-ob-chip {
+	cursor: pointer;
+	padding: var(--bn-s2) var(--bn-s3);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+}
+.bn-ob-chip:hover {
+	border-color: var(--bn-line-strong);
+}
+.bn-ob-chip[aria-pressed="true"] {
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+}
+.bn-ob-chip:focus-visible {
+	outline-color: transparent;
+	box-shadow: var(--bn-ring);
+}
+.bn-ob-chip__icon {
+	display: inline-flex;
+	width: 14px;
+	height: 14px;
+	align-items: center;
+	justify-content: center;
+}
+.bn-ob-chip__icon svg { width: 100%; height: 100%; }
+.bn-ob-chips__count {
+	margin: 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+/* Recommended spaces grid (step 3). */
+.bn-ob-spaces {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: var(--bn-s3);
+}
+.bn-ob-space-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	padding: var(--bn-s4);
+}
+.bn-ob-space-card[aria-pressed="true"],
+.bn-ob-space-card.is-joined {
+	border-color: var(--bn-accent);
+}
+.bn-ob-space-card__head {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+}
+.bn-ob-space-avatar {
+	background: var(--bn-accent-100);
+	color: var(--bn-accent-700);
+}
+.bn-ob-space-avatar svg { width: 60%; height: 60%; }
+.bn-ob-space-card__meta {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+.bn-ob-space-card__name {
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+.bn-ob-space-card__members {
+	margin: 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+.bn-ob-space-card__desc {
+	margin: 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	line-height: var(--bn-leading-normal);
+}
+.bn-ob-space-card__cta {
+	align-self: flex-start;
+	margin-top: auto;
+}
+
+/* People-to-follow list (step 4). */
+.bn-ob-people {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+}
+.bn-ob-person {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) 0;
+	border-bottom: 1px solid var(--bn-line-faint);
+}
+.bn-ob-person:last-child { border-bottom: none; }
 .bn-ob-person__info {
 	flex: 1;
+	min-width: 0;
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
 }
-
 .bn-ob-person__name {
-	font-size: var(--text-md);
-	font-weight: var(--fw-semibold);
-	color: var(--bn-ob-text-1);
+	margin: 0;
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
-
 .bn-ob-person__meta {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-text-2);
+	margin: 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
 }
-
-.bn-ob-person__btn {
+.bn-ob-person__cta {
 	flex-shrink: 0;
-	height: 30px;
-	padding: 0 var(--bn-ob-s3);
-	font-size: var(--text-xs);
-	font-weight: var(--fw-semibold);
-	color: var(--bn-ob-brand);
-	background: var(--bn-ob-brand-light);
-	border: 1px solid var(--bn-ob-brand);
-	border-radius: var(--bn-ob-r-full);
-	cursor: pointer;
-	transition: background 0.15s, color 0.15s;
-	font-family: var(--bn-ob-font-body);
+	min-height: 32px;
 }
 
-.bn-ob-person__btn:hover,
-.bn-ob-person__btn.is-following {
-	background: var(--bn-ob-brand);
-	color: var(--text-on-brand);
-}
-
-/* Navigation buttons */
-.bn-ob-nav {
+/* Action footer — Back / Skip / Continue row. */
+.bn-ob-actions {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: var(--bn-ob-s3);
-	margin-top: var(--bn-ob-s6);
-	padding-top: var(--bn-ob-s5);
-	border-top: 1px solid var(--bn-ob-border-soft);
+	justify-content: flex-end;
+	gap: var(--bn-s2);
+	padding-top: var(--bn-s2);
+}
+.bn-ob-actions__spacer {
+	flex: 1;
 }
 
-.bn-ob-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	height: 38px;
-	padding: 0 var(--bn-ob-s5);
-	font-family: var(--bn-ob-font-body);
-	font-size: var(--text-md);
-	font-weight: var(--fw-semibold);
-	border-radius: var(--bn-ob-r-md);
-	cursor: pointer;
-	transition: background 0.15s, color 0.15s;
-	border: none;
-	text-decoration: none;
-}
-
-.bn-ob-btn--primary {
-	background: var(--bn-ob-brand);
-	color: var(--text-on-brand);
-}
-
-.bn-ob-btn--primary:hover {
-	background: var(--bn-ob-brand-hover);
-	color: var(--text-on-brand);
-}
-
-.bn-ob-btn--ghost {
-	background: transparent;
-	color: var(--bn-ob-text-2);
-	border: 1px solid var(--bn-ob-border);
-}
-
-.bn-ob-btn--ghost:hover {
-	background: var(--bn-ob-bg-hover);
-	color: var(--bn-ob-text-1);
-}
-
-.bn-ob-btn--finish {
-	background: var(--bn-ob-green);
-	color: var(--text-on-brand);
-}
-
-.bn-ob-btn--finish:hover {
-	background: var(--green-dark);
-	color: var(--text-on-brand);
+/* Empty state inside step cards. */
+.bn-ob-empty {
+	margin: 0;
+	text-align: center;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	padding: var(--bn-s5) 0;
 }
 
 /* ── Invite form — email input rows ──────────────────────────────────── */
@@ -1063,8 +996,7 @@
 
 /* ── Mobile ≤640px ───────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-	.bn-wizard-wrap,
-	.bn-onboarding-wrap {
+	.bn-wizard-wrap {
 		padding: var(--bn-ob-s4) var(--bn-ob-s3);
 	}
 
@@ -1110,8 +1042,8 @@
 		justify-content: center;
 	}
 
-	.bn-ob-interests {
-		grid-template-columns: repeat(2, 1fr);
+	.bn-ob-wrap {
+		padding: var(--bn-s5) var(--bn-s3);
 	}
 
 	.bn-ob-spaces {
@@ -1119,21 +1051,24 @@
 	}
 
 	.bn-ob-card {
-		padding: var(--bn-ob-s5) var(--bn-ob-s4);
+		padding: var(--bn-s5);
 	}
 
-	.bn-ob-heading {
-		font-size: var(--text-lg);
+	.bn-ob-step__title {
+		font-size: var(--bn-text-lg);
 	}
 
-	.bn-ob-nav {
-		flex-direction: column-reverse;
-		gap: var(--bn-ob-s2);
+	.bn-ob-actions {
+		flex-wrap: wrap;
 	}
 
-	.bn-ob-btn {
-		width: 100%;
+	.bn-ob-actions .bn-btn {
+		flex: 1 0 auto;
 		justify-content: center;
+	}
+
+	.bn-ob-stepper__label {
+		display: none;
 	}
 
 	.bn-invite-row {
