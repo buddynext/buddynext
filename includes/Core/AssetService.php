@@ -224,6 +224,16 @@ class AssetService {
 	public function register_script_modules(): void {
 		$v = self::VERSION;
 
+		// Shared shell modules — used as dependencies by feature stores.
+		// `@buddynext/shell-dialog` exposes bnConfirm/bnPrompt/bnToast for
+		// stores that need accessible replacements for window.confirm/prompt.
+		wp_register_script_module(
+			'@buddynext/shell-dialog',
+			$this->assets_url . 'js/shell/dialog.js',
+			array(),
+			$v
+		);
+
 		$feature_modules = array(
 			'@buddynext/feed'           => 'feed/store',
 			'@buddynext/profile'        => 'profile/store',
@@ -241,11 +251,25 @@ class AssetService {
 			'@buddynext/space-members'  => 'space-members/store',
 		);
 
+		// Feature stores that import from ../shell/dialog.js need the
+		// shell-dialog module declared as a dependency so WP emits the
+		// correct import-map entry and the browser fetches it as a module.
+		$shell_dialog_consumers = array(
+			'@buddynext/feed',
+			'@buddynext/connections',
+			'@buddynext/moderation',
+			'@buddynext/space-members',
+		);
+
 		foreach ( $feature_modules as $id => $path ) {
+			$deps = array( array( 'id' => '@wordpress/interactivity' ) );
+			if ( in_array( $id, $shell_dialog_consumers, true ) ) {
+				$deps[] = array( 'id' => '@buddynext/shell-dialog' );
+			}
 			wp_register_script_module(
 				$id,
 				$this->assets_url . 'js/' . $path . '.js',
-				array( array( 'id' => '@wordpress/interactivity' ) ),
+				$deps,
 				$v
 			);
 		}

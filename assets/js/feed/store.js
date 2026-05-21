@@ -1,5 +1,6 @@
 /* BuddyNext — Feed Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
+import { bnConfirm, bnPrompt } from '../shell/dialog.js';
 
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
@@ -77,7 +78,13 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, isRep
 		delBtn.className = 'bn-comment__delete-btn';
 		delBtn.textContent = 'Delete';
 		delBtn.addEventListener( 'click', async () => {
-			if ( ! window.confirm( 'Delete this comment?' ) ) {
+			const ok = await bnConfirm( {
+				title: 'Delete this comment?',
+				body: 'This cannot be undone.',
+				confirmLabel: 'Delete',
+				tone: 'danger',
+			} );
+			if ( ! ok ) {
 				return;
 			}
 			const res = await fetch( restUrl + '/comments/' + comment.id, {
@@ -333,7 +340,13 @@ store( 'buddynext/post-card', {
 		},
 		* deletePost() {
 			const ctx = getContext();
-			if ( ! window.confirm( 'Delete this post?' ) ) {
+			const ok = yield bnConfirm( {
+				title: 'Delete this post?',
+				body: 'This cannot be undone.',
+				confirmLabel: 'Delete',
+				tone: 'danger',
+			} );
+			if ( ! ok ) {
 				return;
 			}
 			try {
@@ -361,7 +374,16 @@ store( 'buddynext/post-card', {
 		},
 		* reportPost() {
 			const ctx    = getContext();
-			const reason = window.prompt( 'Reason for report (optional):' ) || '';
+			const reason = yield bnPrompt( {
+				title: 'Report content',
+				body: 'Tell us why this content is being reported. This is optional but helps moderators.',
+				placeholder: 'Why is this content being reported?',
+				confirmLabel: 'Submit report',
+				cancelLabel: 'Cancel',
+			} );
+			if ( reason === null ) {
+				return;
+			}
 			try {
 				yield fetch( ctx.restUrl + '/reports', {
 					method:  'POST',

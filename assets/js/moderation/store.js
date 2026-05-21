@@ -4,6 +4,7 @@
  * space-level moderation panel (spaces/moderation.php).
  */
 import { store, getContext } from '@wordpress/interactivity';
+import { bnConfirm } from '../shell/dialog.js';
 
 store( 'buddynext/moderation', {
 	actions: {
@@ -48,7 +49,13 @@ store( 'buddynext/moderation', {
 		* removeContent() {
 			const ctx = getContext();
 			if ( ! ctx.reportId || ! ctx.restNonce ) { return; }
-			if ( ! window.confirm( 'Remove this content?' ) ) { return; }
+			const ok = yield bnConfirm( {
+				title: 'Remove this content?',
+				body: 'The reported item will be removed from public view.',
+				confirmLabel: 'Remove',
+				tone: 'danger',
+			} );
+			if ( ! ok ) { return; }
 			try {
 				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId, {
 					method: 'PUT',
@@ -89,7 +96,13 @@ store( 'buddynext/moderation', {
 		* suspendUser() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
-			if ( ! window.confirm( 'Suspend this user?' ) ) { return; }
+			const ok = yield bnConfirm( {
+				title: 'Suspend this user?',
+				body: 'They will be unable to post or interact for 7 days.',
+				confirmLabel: 'Suspend',
+				tone: 'danger',
+			} );
+			if ( ! ok ) { return; }
 			try {
 				yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/suspend', {
 					method: 'POST',
@@ -137,7 +150,13 @@ store( 'buddynext/moderation', {
 		* removeFromSpace() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.spaceId || ! ctx.restNonce ) { return; }
-			if ( ! window.confirm( 'Remove this member from the space?' ) ) { return; }
+			const ok = yield bnConfirm( {
+				title: 'Remove this member from the space?',
+				body: 'They will lose access to this space immediately.',
+				confirmLabel: 'Remove',
+				tone: 'danger',
+			} );
+			if ( ! ok ) { return; }
 			try {
 				yield fetch( ctx.restUrl + 'spaces/' + ctx.spaceId + '/members/' + ctx.userId, {
 					method: 'DELETE',

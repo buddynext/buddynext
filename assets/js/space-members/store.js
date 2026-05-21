@@ -1,5 +1,6 @@
 /* BuddyNext — Space Members Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
+import { bnConfirm } from '../shell/dialog.js';
 
 store( 'buddynext/space-members', {
 	actions: {
@@ -7,7 +8,13 @@ store( 'buddynext/space-members', {
 			const ctx = getContext();
 			const btn = event.target.closest( '[data-user-id]' );
 			if ( ! btn || ! ctx.restNonce || ! ctx.spaceId ) { return; }
-			if ( ! window.confirm( 'Remove this member?' ) ) { return; }
+			const ok = yield bnConfirm( {
+				title: 'Remove this member?',
+				body: 'They will lose access to this space immediately.',
+				confirmLabel: 'Remove',
+				tone: 'danger',
+			} );
+			if ( ! ok ) { return; }
 			try {
 				yield fetch( ctx.restUrl + 'spaces/' + ctx.spaceId + '/members/' + btn.dataset.userId, {
 					method: 'DELETE',
