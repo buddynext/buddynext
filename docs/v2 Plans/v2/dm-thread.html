@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="en" data-bn-theme="light" data-bn-density="comfortable">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Messages · Sarah Rodriguez</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../chrome.css?v=3">
+<style>
+/* ─── DM page: full-bleed flush layout (no feed grid) ─── */
+.bn-page[data-layout="dm"] {
+  grid-template-columns: minmax(0, 1fr) !important;
+  max-width: none !important;
+  padding: 0 !important;
+  height: calc(100vh - var(--bn-topbar-h) - var(--bn-topbar-h));
+  min-height: 600px;
+}
+
+/* Three-pane shell that fills the available area */
+.dm-shell {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 300px;
+  height: 100%;
+  background: var(--bn-bg);
+  border-top: 1px solid var(--bn-line);
+}
+@media (max-width: 1280px) {
+  .dm-shell { grid-template-columns: 300px minmax(0, 1fr); }
+  .dm-details { display: none; }
+}
+@media (max-width: 900px) {
+  .dm-shell { grid-template-columns: minmax(0, 1fr); }
+  .dm-conversations { display: none; }
+}
+
+/* ─── Conversations panel ─── */
+.dm-conversations {
+  background: var(--bn-surface);
+  border-right: 1px solid var(--bn-line);
+  display: flex; flex-direction: column;
+  min-height: 0;
+}
+.dm-conv-head {
+  padding: var(--bn-s5) var(--bn-s5) var(--bn-s4);
+  display: flex; flex-direction: column; gap: var(--bn-s3);
+  border-bottom: 1px solid var(--bn-line);
+}
+.dm-conv-title-row {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.dm-conv-title {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--bn-ink);
+}
+.dm-conv-count {
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+  color: var(--bn-ink-3);
+  letter-spacing: 0.04em;
+}
+.dm-conv-search {
+  display: flex; align-items: center; gap: var(--bn-s2);
+  background: var(--bn-sunken);
+  border: 1px solid transparent;
+  border-radius: var(--bn-r-md);
+  padding: 0 var(--bn-s3);
+  height: 34px;
+  transition: all var(--bn-dur) var(--bn-ease);
+}
+.dm-conv-search:focus-within {
+  background: var(--bn-surface);
+  border-color: var(--bn-accent);
+}
+.dm-conv-search svg { width: 14px; height: 14px; stroke: var(--bn-ink-3); }
+.dm-conv-search input {
+  flex: 1; border: none; background: transparent; outline: none;
+  font: inherit; font-size: 13px; color: var(--bn-ink);
+}
+.dm-conv-search input::placeholder { color: var(--bn-ink-4); }
+.dm-conv-search-kbd {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+  background: var(--bn-surface);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--bn-line);
+}
+
+/* Tabs */
+.dm-conv-tabs {
+  display: flex; gap: var(--bn-s1);
+  padding: 0 var(--bn-s5);
+  border-bottom: 1px solid var(--bn-line);
+}
+.dm-conv-tab {
+  padding: var(--bn-s3) var(--bn-s2);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--bn-ink-3);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: flex; align-items: center; gap: var(--bn-s1);
+  transition: color var(--bn-dur) var(--bn-ease);
+}
+.dm-conv-tab:hover { color: var(--bn-ink); }
+.dm-conv-tab.active {
+  color: var(--bn-accent);
+  border-bottom-color: var(--bn-accent);
+  font-weight: 600;
+}
+.dm-conv-tab-pill {
+  background: var(--bn-danger, #dc2626);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-family: var(--bn-font-mono);
+}
+
+/* Conversation list */
+.dm-conv-list {
+  flex: 1; overflow-y: auto;
+  padding: var(--bn-s2) 0;
+}
+.dm-conv-section-label {
+  padding: var(--bn-s3) var(--bn-s5) var(--bn-s2);
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bn-ink-4);
+}
+.dm-conv-item {
+  display: flex; gap: var(--bn-s3);
+  padding: var(--bn-s3) var(--bn-s5);
+  cursor: pointer;
+  position: relative;
+  transition: background var(--bn-dur-fast) var(--bn-ease);
+  border-left: 2px solid transparent;
+}
+.dm-conv-item:hover { background: var(--bn-sunken); }
+.dm-conv-item.active {
+  background: var(--bn-accent-100);
+  border-left-color: var(--bn-accent);
+}
+.dm-conv-item.active .dm-conv-name { color: var(--bn-accent); }
+.dm-conv-item.unread::before {
+  content: '';
+  position: absolute;
+  left: var(--bn-s5); top: 50%;
+  width: 6px; height: 6px;
+  background: var(--bn-accent);
+  border-radius: 50%;
+  margin-left: -10px;
+  margin-top: -3px;
+}
+
+.dm-avatar {
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: white;
+  font-family: var(--bn-font-mono);
+  font-weight: 600;
+  flex-shrink: 0;
+  position: relative;
+}
+.dm-avatar.size-sm { width: 28px; height: 28px; font-size: 10px; }
+.dm-avatar.size-md { width: 40px; height: 40px; font-size: 13px; }
+.dm-avatar.size-lg { width: 52px; height: 52px; font-size: 15px; }
+.dm-avatar.av-blue { background: linear-gradient(135deg, oklch(65% 0.18 240), oklch(55% 0.18 230)); }
+.dm-avatar.av-green { background: linear-gradient(135deg, oklch(65% 0.16 155), oklch(55% 0.16 165)); }
+.dm-avatar.av-purple { background: linear-gradient(135deg, oklch(60% 0.20 290), oklch(50% 0.22 295)); }
+.dm-avatar.av-orange { background: linear-gradient(135deg, oklch(70% 0.16 60), oklch(60% 0.18 50)); }
+.dm-avatar.av-pink { background: linear-gradient(135deg, oklch(68% 0.18 350), oklch(58% 0.20 345)); }
+.dm-avatar.av-teal { background: linear-gradient(135deg, oklch(65% 0.14 195), oklch(55% 0.16 200)); }
+.dm-online {
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 11px; height: 11px;
+  background: oklch(65% 0.18 145);
+  border: 2px solid var(--bn-surface);
+  border-radius: 50%;
+}
+.dm-conv-item.active .dm-online { border-color: var(--bn-accent-100); }
+
+.dm-conv-info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.dm-conv-name-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--bn-s2);
+}
+.dm-conv-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bn-ink);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dm-conv-time {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+.dm-conv-item.unread .dm-conv-time { color: var(--bn-accent); font-weight: 600; }
+.dm-conv-preview-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--bn-s2);
+  margin-top: 2px;
+}
+.dm-conv-preview {
+  font-size: 12px;
+  color: var(--bn-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+.dm-conv-preview.typing { color: var(--bn-accent); font-style: italic; }
+.dm-conv-item.unread .dm-conv-preview { color: var(--bn-ink-2); font-weight: 500; }
+.dm-conv-badge {
+  background: var(--bn-accent);
+  color: white;
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.dm-conv-meta {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--bn-ink-4);
+}
+
+/* Foot — new message */
+.dm-conv-foot {
+  padding: var(--bn-s3) var(--bn-s4);
+  border-top: 1px solid var(--bn-line);
+  background: var(--bn-surface);
+}
+.dm-new-btn {
+  width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: var(--bn-s2);
+  padding: var(--bn-s3);
+  background: var(--bn-ink);
+  color: var(--bn-bg);
+  border: none;
+  border-radius: var(--bn-r-md);
+  font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--bn-dur) var(--bn-ease);
+}
+.dm-new-btn:hover { opacity: 0.9; }
+.dm-new-btn svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.5; fill: none; }
+
+/* ─── Thread panel ─── */
+.dm-thread {
+  display: flex; flex-direction: column;
+  background: var(--bn-bg);
+  min-height: 0;
+}
+.dm-thread-head {
+  height: 64px;
+  padding: 0 var(--bn-s5);
+  border-bottom: 1px solid var(--bn-line);
+  background: var(--bn-surface);
+  display: flex; align-items: center; gap: var(--bn-s3);
+  flex-shrink: 0;
+}
+.dm-thread-head-info {
+  flex: 1; min-width: 0;
+}
+.dm-thread-head-name {
+  display: flex; align-items: center; gap: var(--bn-s2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bn-ink);
+}
+.dm-thread-head-handle {
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+  color: var(--bn-ink-4);
+  font-weight: 400;
+}
+.dm-thread-head-status {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px;
+  color: var(--bn-ink-3);
+  margin-top: 2px;
+}
+.dm-status-dot {
+  width: 7px; height: 7px;
+  background: oklch(65% 0.18 145);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in oklch, oklch(65% 0.18 145) 18%, transparent);
+}
+.dm-thread-actions {
+  display: flex; gap: var(--bn-s1);
+}
+.dm-icon-btn {
+  width: 32px; height: 32px;
+  border-radius: var(--bn-r-md);
+  border: none;
+  background: transparent;
+  color: var(--bn-ink-3);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--bn-dur-fast) var(--bn-ease);
+}
+.dm-icon-btn:hover { background: var(--bn-sunken); color: var(--bn-ink); }
+.dm-icon-btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.75; fill: none; }
+
+/* Messages area */
+.dm-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--bn-s5);
+  display: flex; flex-direction: column;
+  gap: var(--bn-s1);
+  min-height: 0;
+}
+.dm-day-divider {
+  display: flex; align-items: center; gap: var(--bn-s3);
+  margin: var(--bn-s4) 0 var(--bn-s2);
+}
+.dm-day-divider::before, .dm-day-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--bn-line);
+}
+.dm-day-divider span {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bn-ink-4);
+}
+
+/* Date inline pill (for first msg of session, e.g.) */
+
+.dm-msg {
+  display: flex;
+  gap: var(--bn-s3);
+  align-items: flex-end;
+  max-width: 75%;
+  margin-bottom: 2px;
+}
+.dm-msg.mine {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+.dm-msg-avatar-wrap {
+  width: 28px; flex-shrink: 0;
+  display: flex; align-items: flex-end;
+}
+.dm-msg.tail-prev .dm-msg-avatar-wrap { visibility: hidden; }
+.dm-msg-content {
+  display: flex; flex-direction: column;
+  gap: 3px; min-width: 0;
+}
+.dm-msg.mine .dm-msg-content { align-items: flex-end; }
+
+.dm-bubble {
+  padding: 9px 13px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--bn-ink);
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: 16px 16px 16px 4px;
+  word-break: break-word;
+  max-width: 100%;
+  position: relative;
+}
+.dm-msg.mine .dm-bubble {
+  background: var(--bn-accent);
+  color: white;
+  border-color: var(--bn-accent);
+  border-radius: 16px 16px 4px 16px;
+}
+/* When previous message from same sender, square the tail-side */
+.dm-msg.tail-prev:not(.mine) .dm-bubble { border-top-left-radius: 4px; }
+.dm-msg.tail-prev.mine .dm-bubble { border-top-right-radius: 4px; }
+
+/* Quoted reply inside bubble */
+.dm-quoted {
+  background: var(--bn-sunken);
+  border-left: 2px solid var(--bn-accent);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--bn-ink-3);
+}
+.dm-quoted-author {
+  font-weight: 600;
+  color: var(--bn-ink-2);
+  font-size: 11px;
+  margin-bottom: 1px;
+}
+.dm-msg.mine .dm-quoted {
+  background: color-mix(in oklch, white 18%, var(--bn-accent));
+  border-left-color: white;
+  color: rgba(255,255,255,0.85);
+}
+.dm-msg.mine .dm-quoted-author { color: white; }
+
+/* Image bubble */
+.dm-bubble.image {
+  padding: 4px;
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+}
+.dm-bubble-image {
+  width: 280px;
+  height: 180px;
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg,
+      color-mix(in oklch, var(--bn-accent) 30%, transparent),
+      color-mix(in oklch, var(--bn-jetonomy, #5b21b6) 30%, transparent)),
+    var(--bn-sunken);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+  color: white;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+}
+.dm-bubble-image::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(45deg,
+    transparent 0 12px,
+    rgba(255,255,255,0.06) 12px 13px);
+}
+
+/* File bubble */
+.dm-file-bubble {
+  display: flex; align-items: center; gap: var(--bn-s3);
+  padding: 10px 14px 10px 10px;
+  min-width: 240px;
+}
+.dm-file-icon {
+  width: 38px; height: 38px;
+  background: var(--bn-sunken);
+  border-radius: var(--bn-r-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--bn-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--bn-accent);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.dm-msg.mine .dm-file-icon { background: rgba(255,255,255,0.18); color: white; }
+.dm-file-info { flex: 1; min-width: 0; }
+.dm-file-name { font-size: 13px; font-weight: 600; }
+.dm-file-meta {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 1px;
+}
+
+/* Meta row under bubble */
+.dm-msg-meta {
+  display: flex; align-items: center; gap: var(--bn-s2);
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+  letter-spacing: 0.02em;
+  padding: 0 4px;
+}
+.dm-msg.mine .dm-msg-meta { flex-direction: row-reverse; }
+.dm-read {
+  color: var(--bn-accent);
+  font-size: 11px;
+  display: inline-flex; align-items: center;
+  letter-spacing: -2px;
+}
+
+/* Reactions */
+.dm-reactions {
+  display: flex; gap: 3px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.dm-msg.mine .dm-reactions { justify-content: flex-end; }
+.dm-react {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: 12px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--bn-ink-2);
+  cursor: pointer;
+  transition: all var(--bn-dur-fast) var(--bn-ease);
+}
+.dm-react:hover { border-color: var(--bn-accent); color: var(--bn-accent); }
+.dm-react.mine { background: var(--bn-accent-100); border-color: var(--bn-accent); color: var(--bn-accent); }
+.dm-react-count { font-family: var(--bn-font-mono); font-size: 10px; }
+
+/* System message */
+.dm-system {
+  align-self: center;
+  display: flex; align-items: center; gap: var(--bn-s2);
+  background: var(--bn-sunken);
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--bn-ink-3);
+  font-family: var(--bn-font-mono);
+  margin: var(--bn-s2) 0;
+}
+.dm-system svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2; fill: none; }
+
+/* Typing indicator */
+.dm-typing {
+  display: flex; gap: var(--bn-s3); align-items: flex-end;
+  padding: var(--bn-s2) 0;
+}
+.dm-typing-bubble {
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: 16px 16px 16px 4px;
+  padding: 11px 14px;
+}
+.dm-typing-dots { display: flex; gap: 4px; }
+.dm-typing-dot {
+  width: 6px; height: 6px;
+  background: var(--bn-ink-4);
+  border-radius: 50%;
+  animation: dm-bounce 1.3s infinite ease-in-out;
+}
+.dm-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.dm-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dm-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+.dm-typing-label {
+  font-size: 11px;
+  color: var(--bn-ink-4);
+  font-style: italic;
+  align-self: center;
+  margin-left: 4px;
+}
+
+/* Composer */
+.dm-composer {
+  border-top: 1px solid var(--bn-line);
+  background: var(--bn-surface);
+  padding: var(--bn-s3) var(--bn-s5);
+  flex-shrink: 0;
+}
+.dm-composer-context {
+  display: flex; align-items: center; gap: var(--bn-s2);
+  margin-bottom: var(--bn-s2);
+  padding: 6px 10px;
+  background: var(--bn-sunken);
+  border-left: 2px solid var(--bn-accent);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--bn-ink-3);
+}
+.dm-composer-context-label { color: var(--bn-accent); font-weight: 600; }
+.dm-composer-context-close {
+  margin-left: auto;
+  cursor: pointer;
+  color: var(--bn-ink-4);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.dm-composer-row {
+  display: flex; align-items: flex-end;
+  gap: var(--bn-s2);
+  background: var(--bn-bg);
+  border: 1px solid var(--bn-line);
+  border-radius: 22px;
+  padding: 6px 6px 6px 14px;
+  transition: border-color var(--bn-dur) var(--bn-ease);
+}
+.dm-composer-row:focus-within { border-color: var(--bn-accent); }
+.dm-composer-input {
+  flex: 1;
+  border: none; background: transparent; outline: none;
+  resize: none;
+  font: inherit; font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--bn-ink);
+  min-height: 22px;
+  max-height: 120px;
+  padding: 5px 0;
+}
+.dm-composer-input::placeholder { color: var(--bn-ink-4); }
+.dm-composer-tools {
+  display: flex; align-items: center; gap: 2px;
+  padding-bottom: 2px;
+}
+.dm-composer-icon {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: none; background: transparent;
+  color: var(--bn-ink-3);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--bn-dur-fast) var(--bn-ease);
+}
+.dm-composer-icon:hover { background: var(--bn-sunken); color: var(--bn-ink); }
+.dm-composer-icon svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.75; fill: none; }
+.dm-send {
+  width: 32px; height: 32px;
+  background: var(--bn-accent);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--bn-dur-fast) var(--bn-ease);
+}
+.dm-send:hover { background: var(--bn-accent-600); transform: scale(1.05); }
+.dm-send svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.5; fill: none; }
+
+.dm-composer-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: var(--bn-s2);
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+}
+.dm-composer-foot kbd {
+  font-family: var(--bn-font-mono);
+  background: var(--bn-sunken);
+  border: 1px solid var(--bn-line);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--bn-ink-3);
+}
+
+/* ─── Details panel ─── */
+.dm-details {
+  background: var(--bn-surface);
+  border-left: 1px solid var(--bn-line);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+  min-height: 0;
+}
+.dm-details-hero {
+  padding: var(--bn-s6) var(--bn-s5) var(--bn-s4);
+  text-align: center;
+  border-bottom: 1px solid var(--bn-line);
+}
+.dm-details-hero .dm-avatar {
+  width: 72px; height: 72px;
+  font-size: 22px;
+  margin: 0 auto var(--bn-s3);
+}
+.dm-details-name {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-md);
+  font-weight: 700;
+  color: var(--bn-ink);
+  letter-spacing: -0.005em;
+}
+.dm-details-handle {
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+  color: var(--bn-ink-4);
+  margin-top: 2px;
+}
+.dm-details-bio {
+  font-size: 12px;
+  color: var(--bn-ink-3);
+  line-height: 1.55;
+  margin-top: var(--bn-s3);
+  padding: 0 var(--bn-s2);
+}
+.dm-details-quick {
+  display: flex; gap: var(--bn-s2);
+  margin-top: var(--bn-s4);
+  justify-content: center;
+}
+.dm-quick-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--bn-line);
+  background: var(--bn-bg);
+  color: var(--bn-ink-2);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--bn-dur) var(--bn-ease);
+}
+.dm-quick-btn:hover { border-color: var(--bn-accent); color: var(--bn-accent); }
+.dm-quick-btn svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 1.75; fill: none; }
+
+.dm-details-section {
+  padding: var(--bn-s4) var(--bn-s5);
+  border-bottom: 1px solid var(--bn-line);
+}
+.dm-details-section-title {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bn-ink-4);
+  margin-bottom: var(--bn-s3);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.dm-details-section-title a {
+  color: var(--bn-accent);
+  text-decoration: none;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--bn-font-sans);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Shared media grid */
+.dm-shared-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+}
+.dm-shared-tile {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: var(--bn-sunken);
+  position: relative;
+  overflow: hidden;
+}
+.dm-shared-tile.t1 { background: linear-gradient(135deg, oklch(70% 0.18 60), oklch(60% 0.20 50)); }
+.dm-shared-tile.t2 { background: linear-gradient(135deg, oklch(65% 0.18 240), oklch(55% 0.18 230)); }
+.dm-shared-tile.t3 { background: linear-gradient(135deg, oklch(68% 0.16 155), oklch(58% 0.16 165)); }
+.dm-shared-tile.t4 { background: linear-gradient(135deg, oklch(60% 0.20 290), oklch(50% 0.22 295)); }
+.dm-shared-tile.t5 { background: linear-gradient(135deg, oklch(68% 0.18 350), oklch(58% 0.20 345)); }
+.dm-shared-tile.t6 {
+  background: var(--bn-sunken);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+  color: var(--bn-ink-3);
+  font-weight: 600;
+}
+
+/* Shared files list */
+.dm-shared-file {
+  display: flex; align-items: center; gap: var(--bn-s2);
+  padding: var(--bn-s2) 0;
+  font-size: 12px;
+  color: var(--bn-ink-2);
+}
+.dm-shared-file:not(:last-child) { border-bottom: 1px solid var(--bn-line); }
+.dm-shared-file-icon {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  background: var(--bn-sunken);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--bn-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--bn-accent);
+  flex-shrink: 0;
+}
+.dm-shared-file-info { flex: 1; min-width: 0; }
+.dm-shared-file-name {
+  font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dm-shared-file-meta {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+  margin-top: 1px;
+}
+
+/* Shared spaces */
+.dm-shared-space {
+  display: flex; align-items: center; gap: var(--bn-s2);
+  padding: var(--bn-s2) 0;
+}
+.dm-shared-space-emblem {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--bn-accent-100), var(--bn-surface));
+  border: 1px solid var(--bn-line);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--bn-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bn-accent);
+  flex-shrink: 0;
+}
+.dm-shared-space-name { font-size: 12px; font-weight: 500; color: var(--bn-ink-2); }
+.dm-shared-space-meta {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+}
+
+/* Settings rows */
+.dm-setting {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--bn-s2) 0;
+  font-size: 13px;
+  color: var(--bn-ink-2);
+}
+.dm-setting + .dm-setting { border-top: 1px solid var(--bn-line); }
+.dm-setting svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 1.75; fill: none; opacity: 0.6; }
+.dm-setting-toggle {
+  width: 30px; height: 18px;
+  background: var(--bn-line);
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+}
+.dm-setting-toggle::after {
+  content: '';
+  position: absolute; top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  background: white;
+  border-radius: 50%;
+  transition: transform var(--bn-dur) var(--bn-ease);
+}
+.dm-setting-toggle.on { background: var(--bn-accent); }
+.dm-setting-toggle.on::after { transform: translateX(12px); }
+
+.dm-setting-danger {
+  color: var(--bn-danger, #dc2626);
+  font-weight: 500;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+<div class="bn-app" id="app"></div>
+
+<script src="../chrome.js"></script>
+<script>
+const body = `
+<div class="dm-shell">
+
+  <!-- ───────────────── CONVERSATIONS ───────────────── -->
+  <section class="dm-conversations" aria-label="Conversations">
+    <div class="dm-conv-head">
+      <div class="dm-conv-title-row">
+        <h2 class="dm-conv-title">Messages</h2>
+        <span class="dm-conv-count">14 active</span>
+      </div>
+      <label class="dm-conv-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" placeholder="Search messages…">
+        <span class="dm-conv-search-kbd">/</span>
+      </label>
+    </div>
+
+    <div class="dm-conv-tabs" role="tablist">
+      <button class="dm-conv-tab active" role="tab">Inbox</button>
+      <button class="dm-conv-tab" role="tab">Unread <span class="dm-conv-tab-pill">3</span></button>
+      <button class="dm-conv-tab" role="tab">Requests</button>
+      <button class="dm-conv-tab" role="tab">Archive</button>
+    </div>
+
+    <div class="dm-conv-list">
+      <div class="dm-conv-section-label">Pinned</div>
+
+      <div class="dm-conv-item">
+        <div class="dm-avatar size-md av-orange">TN<span class="dm-online"></span></div>
+        <div class="dm-conv-info">
+          <div class="dm-conv-name-row">
+            <span class="dm-conv-name">Tanya Nguyen</span>
+            <span class="dm-conv-time">now</span>
+          </div>
+          <div class="dm-conv-preview-row">
+            <span class="dm-conv-preview typing">typing…</span>
+            <span class="dm-conv-meta">📌</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dm-conv-item">
+        <div class="dm-avatar size-md av-teal">DG</div>
+        <div class="dm-conv-info">
+          <div class="dm-conv-name-row">
+            <span class="dm-conv-name">Design Crew · 8</span>
+            <span class="dm-conv-time">12m</span>
+          </div>
+          <div class="dm-conv-preview-row">
+            <span class="dm-conv-preview"><b>Mira:</b> ok shipping the audit page tomorrow</span>
+            <span class="dm-conv-meta">📌</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dm-conv-section-label">Today</div>
+
+      <div class="dm-conv-item active">
+        <div class="dm-avatar size-md av-green">SR<span class="dm-online"></span></div>
+        <div class="dm-conv-info">
+          <div class="dm-conv-name-row">
+            <span class="dm-conv-name">Sarah Rodriguez</span>
+            <span class="dm-conv-time">2m</span>
+          </div>
+          <div class="dm-conv-preview-row">
+            <span class="dm-conv-preview">Haha yes exactly! The Suspense boundary issue…</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dm-conv-item unread">
+        <div class="dm-avatar size-md av-purple">AJ</div>
+        <div class="dm-conv-info">
+          <div class="dm-conv-name-row">
+            <span class="dm-conv-name">Alex Johnson</span>
+            <span class="dm-conv-time">1h</span>
+          </div>
+          <div class="dm-conv-preview-row">
+            <span class="dm-conv-preview">Did you see the new PR for tokens v3?</span>
+            <span class="dm-conv-badge">2</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dm-conv-item unread">
+        <div class="dm-avatar size-md av-blue">MK</div>
+        <div class="dm-conv-info">
+          <div class="dm-conv-name-row">
+            <span class="dm-conv-name">Marcus Kim</span>
+            <span class="dm-conv-time">3h</span>
+          </div>
+          <div class="dm-conv-preview-row">
+            <span class="dm-conv-preview">Sent you the mockups — let me know what you think</span>
+            <span class="dm-conv-badge">1</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dm-conv-item">
+        <div class="dm-avatar size-md av-pink">LP</div>
+        <div class="dm-conv-info">
+          <div class="dm-conv-name-row">
+            <span class="dm-conv-name">Lena Park</span>
+            <span class="dm-conv-time">5h</span>
+          </div>
+          <div class="dm-conv-preview-row">
+            <span class="dm-conv-preview">Thanks for the feedback yesterday 🙏</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dm-conv-section-label">This week</div>
+
+      <div class="dm-conv-item">
+        <div class="dm-avatar size-md av-purple">JC</div>
+        <div class="dm-conv-info">
+          <div class="dm-conv-name-row">
+            <span class="dm-conv-name">Jamie Chen</span>
+            <span class="dm-conv-time">Yesterday</span>
+          </div>
+          <div class="dm-conv-preview-row">
+            <span class="dm-conv-preview">You: I'll take a look in the morning ✓✓</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dm-conv-item">
+        <div class="dm-avatar size-md av-orange">RW</div>
+        <div class="dm-conv-info">
+          <div class="dm-conv-name-row">
+            <span class="dm-conv-name">Rio Watanabe</span>
+            <span class="dm-conv-time">Wed</span>
+          </div>
+          <div class="dm-conv-preview-row">
+            <span class="dm-conv-preview">welcome to the community! 👋</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dm-conv-item">
+        <div class="dm-avatar size-md av-blue">TM</div>
+        <div class="dm-conv-info">
+          <div class="dm-conv-name-row">
+            <span class="dm-conv-name">Theo Marquez</span>
+            <span class="dm-conv-time">Tue</span>
+          </div>
+          <div class="dm-conv-preview-row">
+            <span class="dm-conv-preview">Audio message · 1:24</span>
+            <span class="dm-conv-meta">🔇</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dm-conv-foot">
+      <button class="dm-new-btn">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        New message
+      </button>
+    </div>
+  </section>
+
+
+  <!-- ───────────────── THREAD ───────────────── -->
+  <section class="dm-thread" aria-label="Thread with Sarah Rodriguez">
+
+    <header class="dm-thread-head">
+      <div class="dm-avatar size-md av-green">SR<span class="dm-online"></span></div>
+      <div class="dm-thread-head-info">
+        <div class="dm-thread-head-name">
+          Sarah Rodriguez
+          <span class="dm-thread-head-handle">@sarah</span>
+        </div>
+        <div class="dm-thread-head-status">
+          <span class="dm-status-dot"></span>
+          <span>Active now · in Design space</span>
+        </div>
+      </div>
+      <div class="dm-thread-actions">
+        <button class="dm-icon-btn" aria-label="Voice call">
+          <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+        </button>
+        <button class="dm-icon-btn" aria-label="Video call">
+          <svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7zM14 5H3a2 2 0 00-2 2v10a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2z"/></svg>
+        </button>
+        <button class="dm-icon-btn" aria-label="Search in conversation">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+        </button>
+        <button class="dm-icon-btn" aria-label="More">
+          <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="dm-messages" id="messages">
+
+      <div class="dm-day-divider"><span>Yesterday · Mar 20</span></div>
+
+      <!-- Sarah's message + reaction -->
+      <div class="dm-msg">
+        <div class="dm-msg-avatar-wrap"><div class="dm-avatar size-sm av-green">SR</div></div>
+        <div class="dm-msg-content">
+          <div class="dm-bubble">Hey! Loved your post about token architecture this morning 🙌</div>
+          <div class="dm-msg-meta">
+            <span>10:32 AM</span>
+          </div>
+          <div class="dm-reactions">
+            <span class="dm-react mine"><span>👍</span><span class="dm-react-count">1</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- My reply -->
+      <div class="dm-msg mine">
+        <div class="dm-msg-avatar-wrap"></div>
+        <div class="dm-msg-content">
+          <div class="dm-bubble">Thanks Sarah! The response has been wild — wasn't expecting it to blow up like that</div>
+          <div class="dm-msg-meta">
+            <span>10:35 AM</span>
+            <span class="dm-read">✓✓</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sarah follow-up -->
+      <div class="dm-msg">
+        <div class="dm-msg-avatar-wrap"><div class="dm-avatar size-sm av-green">SR</div></div>
+        <div class="dm-msg-content">
+          <div class="dm-bubble">You have a really clear way of explaining complex stuff. Have you thought about doing a talk on this at our community meetup?</div>
+          <div class="dm-msg-meta"><span>10:38 AM</span></div>
+        </div>
+      </div>
+
+      <!-- System: pinned -->
+      <div class="dm-system">
+        <svg viewBox="0 0 24 24"><path d="M12 17v5M9 7L7 9l5 5 4-4 5 5-2 2"/><path d="M5 11l7-7 7 7"/></svg>
+        Sarah pinned a message · "March 28 · Community meetup"
+      </div>
+
+      <!-- Day -->
+      <div class="dm-day-divider"><span>Today · Mar 21</span></div>
+
+      <!-- Quoted reply (mine) -->
+      <div class="dm-msg mine">
+        <div class="dm-msg-avatar-wrap"></div>
+        <div class="dm-msg-content">
+          <div class="dm-bubble">
+            <div class="dm-quoted">
+              <div class="dm-quoted-author">Sarah Rodriguez</div>
+              You have a really clear way of explaining complex stuff…
+            </div>
+            That would be amazing! I've been thinking about it. When's the next meetup?
+          </div>
+          <div class="dm-msg-meta">
+            <span>9:14 AM</span>
+            <span class="dm-read">✓✓</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sarah multi-message run (tail-prev for second) -->
+      <div class="dm-msg">
+        <div class="dm-msg-avatar-wrap"><div class="dm-avatar size-sm av-green">SR</div></div>
+        <div class="dm-msg-content">
+          <div class="dm-bubble">March 28! I'll send you the event link 🎉</div>
+          <div class="dm-msg-meta"><span>9:22 AM</span></div>
+        </div>
+      </div>
+
+      <div class="dm-msg tail-prev">
+        <div class="dm-msg-avatar-wrap"></div>
+        <div class="dm-msg-content">
+          <div class="dm-bubble">We usually have 200–300 attendees and it's a very engaged crowd. Most folks come from the Design + Engineering spaces.</div>
+          <div class="dm-msg-meta"><span>9:22 AM</span></div>
+        </div>
+      </div>
+
+      <!-- Sarah file attachment -->
+      <div class="dm-msg tail-prev">
+        <div class="dm-msg-avatar-wrap"></div>
+        <div class="dm-msg-content">
+          <div class="dm-bubble dm-file-bubble">
+            <div class="dm-file-icon">PDF</div>
+            <div class="dm-file-info">
+              <div class="dm-file-name">meetup-brief-mar28.pdf</div>
+              <div class="dm-file-meta">2.4 MB · 3 pages</div>
+            </div>
+            <button class="dm-icon-btn" aria-label="Download">
+              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            </button>
+          </div>
+          <div class="dm-msg-meta"><span>9:23 AM</span></div>
+        </div>
+      </div>
+
+      <!-- Mine reply -->
+      <div class="dm-msg mine">
+        <div class="dm-msg-avatar-wrap"></div>
+        <div class="dm-msg-content">
+          <div class="dm-bubble">Perfect — count me in! I'll put together a 20-min talk on token architecture 🎯</div>
+          <div class="dm-msg-meta">
+            <span>9:45 AM</span>
+            <span class="dm-read">✓✓</span>
+          </div>
+          <div class="dm-reactions">
+            <span class="dm-react"><span>🎉</span><span class="dm-react-count">1</span></span>
+            <span class="dm-react"><span>🔥</span><span class="dm-react-count">2</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Image bubble (mine) -->
+      <div class="dm-msg mine">
+        <div class="dm-msg-avatar-wrap"></div>
+        <div class="dm-msg-content">
+          <div class="dm-bubble image">
+            <div class="dm-bubble-image">
+              <span>preview · talk-outline.png</span>
+            </div>
+          </div>
+          <div class="dm-msg-meta">
+            <span>9:47 AM</span>
+            <span class="dm-read">✓✓</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sarah reaction-rich reply -->
+      <div class="dm-msg">
+        <div class="dm-msg-avatar-wrap"><div class="dm-avatar size-sm av-green">SR</div></div>
+        <div class="dm-msg-content">
+          <div class="dm-bubble">Haha yes exactly! The Suspense boundary issue is a known gotcha — definitely worth covering as a lightning at the end</div>
+          <div class="dm-msg-meta"><span>just now</span></div>
+          <div class="dm-reactions">
+            <span class="dm-react"><span>😂</span><span class="dm-react-count">1</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Typing -->
+      <div class="dm-typing">
+        <div class="dm-avatar size-sm av-green">SR</div>
+        <div class="dm-typing-bubble">
+          <div class="dm-typing-dots">
+            <span class="dm-typing-dot"></span>
+            <span class="dm-typing-dot"></span>
+            <span class="dm-typing-dot"></span>
+          </div>
+        </div>
+        <span class="dm-typing-label">Sarah is typing…</span>
+      </div>
+
+    </div>
+
+    <div class="dm-composer">
+      <div class="dm-composer-context">
+        <span class="dm-composer-context-label">Replying to Sarah</span>
+        <span>Haha yes exactly! The Suspense boundary issue…</span>
+        <span class="dm-composer-context-close">×</span>
+      </div>
+      <div class="dm-composer-row">
+        <textarea class="dm-composer-input" rows="1" placeholder="Message Sarah…"></textarea>
+        <div class="dm-composer-tools">
+          <button class="dm-composer-icon" aria-label="Attach file">
+            <svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <button class="dm-composer-icon" aria-label="Image">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          </button>
+          <button class="dm-composer-icon" aria-label="Emoji">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>
+          </button>
+          <button class="dm-composer-icon" aria-label="Voice note">
+            <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v3M8 22h8"/></svg>
+          </button>
+          <button class="dm-send" aria-label="Send">
+            <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="dm-composer-foot">
+        <span><kbd>↵</kbd> to send · <kbd>⇧</kbd>+<kbd>↵</kbd> for newline</span>
+        <span>Encrypted in transit · auto-deletes after 30d if both opt in</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ───────────────── DETAILS ───────────────── -->
+  <aside class="dm-details" aria-label="Conversation details">
+
+    <div class="dm-details-hero">
+      <div class="dm-avatar size-lg av-green">SR<span class="dm-online"></span></div>
+      <div class="dm-details-name">Sarah Rodriguez</div>
+      <div class="dm-details-handle">@sarah · she/her</div>
+      <p class="dm-details-bio">Design lead at the meetup. Writes about token systems, runs the Design space. Ex-Stripe.</p>
+      <div class="dm-details-quick">
+        <button class="dm-quick-btn" aria-label="Voice"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg></button>
+        <button class="dm-quick-btn" aria-label="Video"><svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7zM14 5H3a2 2 0 00-2 2v10a2 2 0 002 2h11a2 2 0 002-2V7a2 2 0 00-2-2z"/></svg></button>
+        <button class="dm-quick-btn" aria-label="Profile"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
+        <button class="dm-quick-btn" aria-label="Mute"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/></svg></button>
+      </div>
+    </div>
+
+    <div class="dm-details-section">
+      <div class="dm-details-section-title">
+        <span>Shared images</span>
+        <a href="#">12 →</a>
+      </div>
+      <div class="dm-shared-grid">
+        <div class="dm-shared-tile t1"></div>
+        <div class="dm-shared-tile t2"></div>
+        <div class="dm-shared-tile t3"></div>
+        <div class="dm-shared-tile t4"></div>
+        <div class="dm-shared-tile t5"></div>
+        <div class="dm-shared-tile t6">+7</div>
+      </div>
+    </div>
+
+    <div class="dm-details-section">
+      <div class="dm-details-section-title">
+        <span>Files</span>
+        <a href="#">all 4 →</a>
+      </div>
+      <div class="dm-shared-file">
+        <div class="dm-shared-file-icon">PDF</div>
+        <div class="dm-shared-file-info">
+          <div class="dm-shared-file-name">meetup-brief-mar28.pdf</div>
+          <div class="dm-shared-file-meta">2.4 MB · today</div>
+        </div>
+      </div>
+      <div class="dm-shared-file">
+        <div class="dm-shared-file-icon" style="color:oklch(60% 0.18 30);">FIG</div>
+        <div class="dm-shared-file-info">
+          <div class="dm-shared-file-name">design-system-tokens-v3.fig</div>
+          <div class="dm-shared-file-meta">link · yesterday</div>
+        </div>
+      </div>
+      <div class="dm-shared-file">
+        <div class="dm-shared-file-icon" style="color:oklch(60% 0.16 155);">CSV</div>
+        <div class="dm-shared-file-info">
+          <div class="dm-shared-file-name">meetup-attendee-list.csv</div>
+          <div class="dm-shared-file-meta">88 KB · 2d ago</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dm-details-section">
+      <div class="dm-details-section-title">
+        <span>Spaces in common</span>
+      </div>
+      <div class="dm-shared-space">
+        <div class="dm-shared-space-emblem">D</div>
+        <div>
+          <div class="dm-shared-space-name">Design</div>
+          <div class="dm-shared-space-meta">co-mod · 2,418 members</div>
+        </div>
+      </div>
+      <div class="dm-shared-space">
+        <div class="dm-shared-space-emblem">E</div>
+        <div>
+          <div class="dm-shared-space-name">Engineering</div>
+          <div class="dm-shared-space-meta">members · 1,892</div>
+        </div>
+      </div>
+      <div class="dm-shared-space">
+        <div class="dm-shared-space-emblem" style="background:linear-gradient(135deg,color-mix(in oklch,var(--bn-jetonomy,#5b21b6) 20%,transparent),var(--bn-surface));color:var(--bn-jetonomy,#5b21b6);">$</div>
+        <div>
+          <div class="dm-shared-space-name">Paid Tier · Pro</div>
+          <div class="dm-shared-space-meta">jetonomy · $9/mo</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dm-details-section">
+      <div class="dm-details-section-title"><span>Conversation</span></div>
+      <div class="dm-setting">
+        <span>Mute notifications</span>
+        <span class="dm-setting-toggle"></span>
+      </div>
+      <div class="dm-setting">
+        <span>Pin to top</span>
+        <span class="dm-setting-toggle on"></span>
+      </div>
+      <div class="dm-setting">
+        <span>Auto-delete after 30d</span>
+        <span class="dm-setting-toggle"></span>
+      </div>
+      <div class="dm-setting">
+        <span>Show read receipts</span>
+        <span class="dm-setting-toggle on"></span>
+      </div>
+    </div>
+
+    <div class="dm-details-section">
+      <div class="dm-setting dm-setting-danger">Block @sarah</div>
+      <div class="dm-setting dm-setting-danger">Report conversation</div>
+      <div class="dm-setting dm-setting-danger">Delete conversation</div>
+    </div>
+
+  </aside>
+
+</div>
+`;
+
+document.getElementById('app').innerHTML = renderChrome({
+  active: 'messages',
+  title: 'Messages',
+  layout: 'dm',
+  body
+});
+
+// Auto-scroll messages to bottom
+requestAnimationFrame(() => {
+  const m = document.getElementById('messages');
+  if (m) m.scrollTop = m.scrollHeight;
+});
+</script>
+</body>
+</html>

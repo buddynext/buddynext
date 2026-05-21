@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en" data-bn-theme="light" data-bn-density="comfortable">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Mobile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+body {
+  margin: 0;
+  background: var(--bn-canvas);
+  font-family: var(--bn-font-ui);
+  color: var(--bn-ink);
+  padding: 48px 24px 96px;
+}
+.page-head {
+  max-width: 1400px; margin: 0 auto 48px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
+}
+.page-head h1 {
+  font-family: var(--bn-font-display); font-size: var(--bn-text-3xl);
+  font-weight: 700; letter-spacing: -0.025em; margin: 0;
+}
+.page-head p { color: var(--bn-ink-2); font-size: var(--bn-text-sm); margin: 6px 0 0; }
+.page-head .meta { font-family: var(--bn-font-mono); font-size: var(--bn-text-xs); color: var(--bn-ink-3); }
+
+.gallery {
+  max-width: 1400px; margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 48px 32px;
+}
+.scene { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.scene-label {
+  font-family: var(--bn-font-mono); font-size: var(--bn-text-xs);
+  color: var(--bn-ink-3); text-transform: uppercase; letter-spacing: 0.08em;
+}
+.scene-label strong {
+  font-family: var(--bn-font-display); font-size: var(--bn-text-base);
+  font-weight: 700; color: var(--bn-ink); text-transform: none; letter-spacing: -0.01em;
+  display: block; margin-bottom: 2px;
+}
+
+/* iPhone frame */
+.iphone {
+  width: 360px; height: 760px;
+  background: #0a0a0a;
+  border-radius: 44px;
+  padding: 10px;
+  box-shadow:
+    0 0 0 2px #2a2a2a inset,
+    0 30px 60px -20px rgba(0,0,0,0.4),
+    0 12px 30px -12px rgba(0,0,0,0.25);
+  position: relative;
+}
+.iphone-screen {
+  width: 100%; height: 100%;
+  background: var(--bn-canvas);
+  border-radius: 36px;
+  overflow: hidden;
+  position: relative;
+  display: flex; flex-direction: column;
+  font-size: 14px;
+}
+.dynamic-island {
+  position: absolute; top: 18px; left: 50%;
+  transform: translateX(-50%);
+  width: 110px; height: 30px;
+  background: #0a0a0a; border-radius: 18px;
+  z-index: 100;
+}
+
+/* Status bar */
+.m-status {
+  height: 50px; padding: 18px 24px 0;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 14px; font-weight: 600; color: var(--bn-ink);
+  flex-shrink: 0;
+}
+.m-status-icons { display: flex; gap: 5px; align-items: center; }
+.m-status-icons svg { display: block; }
+
+/* Mobile top bar */
+.m-topbar {
+  padding: 12px 16px 10px;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+  flex-shrink: 0;
+}
+.m-topbar .brand {
+  font-family: var(--bn-font-display); font-weight: 800;
+  letter-spacing: -0.025em; font-size: 17px;
+  color: var(--bn-ink);
+}
+.m-topbar .brand span { color: var(--bn-accent); }
+.m-topbar .actions { margin-left: auto; display: flex; gap: 8px; }
+.m-icon-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--bn-sunken);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--bn-ink-2);
+  position: relative;
+}
+.m-icon-btn svg { width: 18px; height: 18px; }
+.m-icon-btn .dot {
+  position: absolute; top: 6px; right: 6px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--bn-danger);
+  border: 2px solid var(--bn-surface);
+}
+
+.m-page-title {
+  padding: 16px 16px 12px;
+  display: flex; align-items: baseline; justify-content: space-between;
+  background: var(--bn-surface);
+  flex-shrink: 0;
+}
+.m-page-title h1 {
+  font-family: var(--bn-font-display); font-size: 22px; font-weight: 700;
+  letter-spacing: -0.025em; margin: 0; color: var(--bn-ink);
+}
+.m-page-title .sub { font-size: 12px; color: var(--bn-ink-3); }
+
+/* Mobile body */
+.m-body { flex: 1; overflow-y: auto; padding-bottom: 80px; }
+.m-section {
+  padding: 12px 16px;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.m-section.canvas { background: var(--bn-canvas); }
+.m-section-title {
+  font-family: var(--bn-font-mono); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--bn-ink-3); padding: 16px 16px 8px;
+  background: var(--bn-canvas);
+}
+
+/* Tab strip */
+.m-tabs {
+  display: flex; gap: 4px;
+  padding: 6px 16px 0;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.m-tabs::-webkit-scrollbar { display: none; }
+.m-tab {
+  padding: 10px 4px;
+  font-size: 13px; font-weight: 500; color: var(--bn-ink-3);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; margin-right: 16px;
+}
+.m-tab[aria-current="true"] {
+  color: var(--bn-ink);
+  border-bottom-color: var(--bn-accent);
+}
+
+/* Composer prompt */
+.m-composer-prompt {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.m-composer-prompt .av {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--bn-accent), var(--bn-accent-700));
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+}
+.m-composer-prompt .field {
+  flex: 1;
+  background: var(--bn-sunken);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px; color: var(--bn-ink-3);
+}
+
+/* Post card mobile */
+.m-post {
+  padding: 14px 16px;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.m-post-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.m-post-head .av {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 13px; font-weight: 700;
+  font-family: var(--bn-font-display);
+}
+.m-post-head .meta { flex: 1; min-width: 0; }
+.m-post-head .name { font-weight: 600; font-size: 14px; color: var(--bn-ink); }
+.m-post-head .sub { font-size: 11px; color: var(--bn-ink-3); font-family: var(--bn-font-mono); }
+.m-post-body {
+  font-size: 14px; line-height: 1.5; color: var(--bn-ink);
+  text-wrap: pretty;
+}
+.m-post-actions {
+  display: flex; gap: 18px; margin-top: 12px;
+  font-size: 12px; color: var(--bn-ink-3);
+}
+.m-post-actions span { display: flex; align-items: center; gap: 5px; }
+
+/* Bottom tab bar */
+.m-bottom {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 72px; padding: 8px 12px 16px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--bn-line-faint);
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  border-radius: 0 0 36px 36px;
+}
+.m-bottom-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; color: var(--bn-ink-3);
+  font-size: 10px; font-weight: 500;
+  font-family: var(--bn-font-mono);
+  position: relative;
+}
+.m-bottom-item svg { width: 22px; height: 22px; }
+.m-bottom-item[aria-current="true"] { color: var(--bn-accent); }
+.m-bottom-item .badge {
+  position: absolute; top: 0; right: 30%;
+  background: var(--bn-danger); color: #fff;
+  font-size: 9px; font-weight: 700;
+  padding: 1px 5px; border-radius: 999px;
+  line-height: 1.4;
+  border: 1.5px solid var(--bn-surface);
+}
+.m-fab {
+  width: 44px; height: 44px;
+  border-radius: 14px;
+  background: var(--bn-ink); color: var(--bn-surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 300;
+  margin: -10px auto 0;
+}
+
+/* Bottom navigation alignment */
+.m-bottom-item .lbl-spacer { height: 12px; }
+
+/* Specific screens */
+.m-explore-search {
+  padding: 12px 16px; background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.m-explore-search .field {
+  background: var(--bn-sunken); border-radius: 12px;
+  padding: 10px 14px; font-size: 14px; color: var(--bn-ink-3);
+  display: flex; align-items: center; gap: 10px;
+}
+.m-explore-chips {
+  display: flex; gap: 6px; padding: 12px 16px;
+  background: var(--bn-surface); overflow-x: auto;
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.m-explore-chips::-webkit-scrollbar { display: none; }
+.m-chip {
+  flex-shrink: 0;
+  padding: 6px 12px; font-size: 12px; font-weight: 500;
+  border-radius: 999px; border: 1px solid var(--bn-line);
+  color: var(--bn-ink-2); background: var(--bn-surface);
+}
+.m-chip[aria-current="true"] {
+  background: var(--bn-ink); color: var(--bn-surface); border-color: var(--bn-ink);
+}
+
+.m-trend {
+  padding: 14px 16px; background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.m-trend .lbl {
+  font-family: var(--bn-font-mono); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--bn-accent); font-weight: 600;
+}
+.m-trend .tag { font-family: var(--bn-font-display); font-size: 16px; font-weight: 700; color: var(--bn-ink); margin: 2px 0; }
+.m-trend .stat { font-size: 12px; color: var(--bn-ink-3); font-family: var(--bn-font-mono); }
+
+/* Notifications screen */
+.m-notif {
+  display: flex; gap: 12px;
+  padding: 14px 16px;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.m-notif.unread { background: color-mix(in srgb, var(--bn-accent) 5%, var(--bn-surface)); }
+.m-notif .av {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--bn-accent-100), var(--bn-accent));
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; flex-shrink: 0;
+}
+.m-notif .body { flex: 1; min-width: 0; }
+.m-notif .body .text { font-size: 13px; line-height: 1.4; color: var(--bn-ink); }
+.m-notif .body .text strong { font-weight: 600; }
+.m-notif .body .ts { font-size: 11px; color: var(--bn-ink-3); font-family: var(--bn-font-mono); margin-top: 2px; }
+.m-notif .dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--bn-accent);
+  flex-shrink: 0; margin-top: 14px;
+}
+
+/* Profile screen */
+.m-profile-cover {
+  height: 110px;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--bn-accent) 18%, transparent), color-mix(in srgb, var(--bn-jetonomy) 22%, transparent)), var(--bn-sunken);
+  position: relative;
+}
+.m-profile-id {
+  padding: 0 16px 16px;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.m-profile-av {
+  width: 76px; height: 76px; border-radius: 50%;
+  background: linear-gradient(135deg, #34d399, #059669);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 700; font-family: var(--bn-font-display);
+  margin-top: -38px; border: 3px solid var(--bn-surface);
+}
+.m-profile-name {
+  font-family: var(--bn-font-display); font-size: 22px; font-weight: 700;
+  letter-spacing: -0.02em; margin: 10px 0 2px;
+  color: var(--bn-ink);
+}
+.m-profile-handle { font-family: var(--bn-font-mono); font-size: 12px; color: var(--bn-ink-3); }
+.m-profile-bio { font-size: 13px; line-height: 1.45; color: var(--bn-ink); margin: 8px 0 12px; text-wrap: pretty; }
+.m-profile-stats { display: flex; gap: 18px; font-size: 12px; color: var(--bn-ink-3); margin-bottom: 12px; }
+.m-profile-stats strong { color: var(--bn-ink); font-weight: 700; }
+.m-profile-actions { display: flex; gap: 8px; }
+.m-btn {
+  padding: 9px 14px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid var(--bn-line); background: var(--bn-surface); color: var(--bn-ink);
+  flex: 1;
+}
+.m-btn[data-variant="primary"] { background: var(--bn-ink); color: var(--bn-surface); border-color: var(--bn-ink); }
+.m-btn[data-variant="ghost"] { flex: 0 0 auto; min-width: 40px; }
+
+/* DM thread screen */
+.m-dm-back {
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+  flex-shrink: 0;
+}
+.m-dm-back .av {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, #f472b6, #db2777);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+}
+.m-dm-back .name { font-weight: 600; font-size: 15px; color: var(--bn-ink); }
+.m-dm-back .sub {
+  font-size: 11px; color: var(--bn-success); font-family: var(--bn-font-mono);
+  display: flex; align-items: center; gap: 4px;
+}
+.m-dm-back .sub::before { content: ''; width: 6px; height: 6px; background: var(--bn-success); border-radius: 50%; }
+.m-dm-back .arrow {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  color: var(--bn-ink-2);
+}
+
+.m-dm-feed { padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; background: var(--bn-canvas); }
+.m-bubble {
+  max-width: 78%; padding: 9px 13px;
+  border-radius: 18px;
+  font-size: 14px; line-height: 1.4;
+}
+.m-bubble[data-side="them"] {
+  background: var(--bn-surface); color: var(--bn-ink);
+  border-bottom-left-radius: 4px;
+  align-self: flex-start;
+  border: 1px solid var(--bn-line-faint);
+}
+.m-bubble[data-side="me"] {
+  background: var(--bn-ink); color: var(--bn-surface);
+  border-bottom-right-radius: 4px;
+  align-self: flex-end;
+}
+.m-dm-day {
+  align-self: center; font-size: 11px; color: var(--bn-ink-3);
+  font-family: var(--bn-font-mono); padding: 2px 0 6px;
+}
+.m-dm-typing {
+  align-self: flex-start; padding: 9px 13px;
+  background: var(--bn-surface); border: 1px solid var(--bn-line-faint);
+  border-radius: 18px; border-bottom-left-radius: 4px;
+  display: flex; gap: 3px;
+}
+.m-dm-typing span {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--bn-ink-3);
+  animation: typing 1.2s infinite;
+}
+.m-dm-typing span:nth-child(2) { animation-delay: 0.15s; }
+.m-dm-typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typing { 0%,60%,100% { opacity: 0.3; } 30% { opacity: 1; } }
+
+.m-dm-input {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: var(--bn-surface); padding: 10px 12px 18px;
+  border-top: 1px solid var(--bn-line-faint);
+  display: flex; gap: 8px; align-items: center;
+  border-radius: 0 0 36px 36px;
+}
+.m-dm-input .field {
+  flex: 1;
+  background: var(--bn-sunken); border-radius: 999px;
+  padding: 9px 14px; font-size: 13px; color: var(--bn-ink-3);
+}
+.m-dm-input .send {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--bn-accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+
+/* Onboarding screen */
+.m-onb {
+  padding: 24px 20px; flex: 1;
+  display: flex; flex-direction: column;
+  background: var(--bn-surface);
+}
+.m-onb .step {
+  font-family: var(--bn-font-mono); font-size: 11px;
+  color: var(--bn-accent); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.m-onb h2 {
+  font-family: var(--bn-font-display); font-size: 26px; font-weight: 700;
+  letter-spacing: -0.025em; margin: 8px 0 6px; color: var(--bn-ink);
+  text-wrap: balance;
+}
+.m-onb .desc { font-size: 14px; color: var(--bn-ink-2); line-height: 1.5; margin-bottom: 24px; }
+.m-onb-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-bottom: 24px;
+}
+.m-onb-tile {
+  padding: 14px; border-radius: 14px; border: 1px solid var(--bn-line);
+  text-align: left; background: var(--bn-surface);
+}
+.m-onb-tile[aria-pressed="true"] {
+  border-color: var(--bn-accent); background: var(--bn-accent-100);
+}
+.m-onb-tile .glyph { font-size: 24px; margin-bottom: 8px; }
+.m-onb-tile .lbl { font-weight: 600; font-size: 14px; color: var(--bn-ink); }
+.m-onb-tile .sub { font-size: 11px; color: var(--bn-ink-3); margin-top: 2px; }
+
+.m-onb-progress {
+  margin-top: auto; padding-top: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.m-onb-bar {
+  height: 4px; background: var(--bn-sunken); border-radius: 2px;
+}
+.m-onb-bar-fill { height: 100%; background: var(--bn-accent); border-radius: 2px; }
+.m-onb-cta { padding: 12px; border-radius: 12px; background: var(--bn-ink); color: var(--bn-surface); font-weight: 600; font-size: 14px; text-align: center; }
+
+/* Login */
+.m-auth {
+  padding: 32px 24px 24px; flex: 1;
+  display: flex; flex-direction: column;
+  background: var(--bn-surface);
+}
+.m-auth .logo {
+  font-family: var(--bn-font-display); font-weight: 800;
+  font-size: 28px; letter-spacing: -0.03em;
+  margin-bottom: 6px;
+}
+.m-auth .logo span { color: var(--bn-accent); }
+.m-auth .tag { font-size: 13px; color: var(--bn-ink-3); margin-bottom: 28px; }
+.m-auth h2 {
+  font-family: var(--bn-font-display); font-size: 22px; font-weight: 700;
+  letter-spacing: -0.02em; margin: 0 0 20px;
+}
+.m-auth .field {
+  padding: 12px 14px; font-size: 14px;
+  border: 1px solid var(--bn-line); border-radius: 10px;
+  margin-bottom: 10px; background: var(--bn-surface);
+  color: var(--bn-ink-3);
+}
+.m-auth .field.filled { color: var(--bn-ink); }
+.m-auth .row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; margin: 6px 0 16px;
+}
+.m-auth .row a { color: var(--bn-accent); }
+.m-auth .row label { display: flex; align-items: center; gap: 6px; color: var(--bn-ink-2); }
+.m-auth .check { width: 14px; height: 14px; border: 1.5px solid var(--bn-line); border-radius: 4px; }
+.m-auth .check.on { background: var(--bn-ink); border-color: var(--bn-ink); }
+.m-auth .cta { padding: 12px; border-radius: 10px; background: var(--bn-ink); color: var(--bn-surface); font-weight: 600; font-size: 14px; text-align: center; }
+.m-auth .or { text-align: center; font-size: 11px; color: var(--bn-ink-3); padding: 18px 0; font-family: var(--bn-font-mono); }
+.m-auth .social {
+  padding: 11px; border-radius: 10px; border: 1px solid var(--bn-line);
+  font-size: 13px; font-weight: 500; text-align: center;
+  margin-bottom: 8px; color: var(--bn-ink);
+}
+.m-auth .foot { margin-top: auto; padding-top: 12px; font-size: 12px; text-align: center; color: var(--bn-ink-3); }
+.m-auth .foot a { color: var(--bn-ink); font-weight: 600; }
+
+/* Forum thread */
+.m-forum-head {
+  padding: 16px;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.m-forum-head .crumb { font-family: var(--bn-font-mono); font-size: 11px; color: var(--bn-ink-3); margin-bottom: 6px; }
+.m-forum-head .title { font-family: var(--bn-font-display); font-size: 18px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; color: var(--bn-ink); text-wrap: balance; }
+.m-forum-head .meta { display: flex; gap: 12px; font-size: 11px; color: var(--bn-ink-3); margin-top: 8px; font-family: var(--bn-font-mono); }
+
+.m-reply {
+  padding: 14px 16px;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.m-reply .head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.m-reply .av {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--bn-accent), var(--bn-accent-700));
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+}
+.m-reply .name { font-weight: 600; font-size: 13px; color: var(--bn-ink); }
+.m-reply .ts { font-size: 11px; color: var(--bn-ink-3); font-family: var(--bn-font-mono); }
+.m-reply.op {
+  background: color-mix(in srgb, var(--bn-accent) 4%, var(--bn-surface));
+}
+.m-reply.op::before {
+  content: 'OP'; font-family: var(--bn-font-mono); font-size: 9px;
+  background: var(--bn-accent); color: #fff;
+  padding: 1px 5px; border-radius: 3px;
+  margin-right: 6px; font-weight: 700;
+}
+.m-reply .body { font-size: 13px; line-height: 1.5; color: var(--bn-ink); padding-left: 40px; }
+.m-reply .actions { display: flex; gap: 14px; padding-left: 40px; margin-top: 8px; font-size: 11px; color: var(--bn-ink-3); }
+
+/* Forum listing */
+.m-forum-row {
+  display: flex; gap: 12px; padding: 14px 16px;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.m-forum-row .ic {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+  background: var(--bn-sunken);
+}
+.m-forum-row .body { flex: 1; min-width: 0; }
+.m-forum-row .t { font-weight: 600; font-size: 14px; color: var(--bn-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-forum-row .meta { font-size: 11px; color: var(--bn-ink-3); font-family: var(--bn-font-mono); margin-top: 2px; }
+.m-forum-row .stat { text-align: right; flex-shrink: 0; }
+.m-forum-row .stat .n { font-family: var(--bn-font-mono); font-weight: 700; color: var(--bn-ink); font-size: 13px; }
+.m-forum-row .stat .l { font-size: 10px; color: var(--bn-ink-3); font-family: var(--bn-font-mono); text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* Space home mobile */
+.m-space-cover {
+  height: 130px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bn-jetonomy) 30%, transparent), color-mix(in srgb, var(--bn-accent) 25%, transparent)), #1a1d29;
+  position: relative;
+  display: flex; align-items: flex-end; padding: 14px;
+  color: #fff;
+}
+.m-space-cover .priv {
+  position: absolute; top: 12px; right: 12px;
+  font-family: var(--bn-font-mono); font-size: 10px;
+  background: rgba(255,255,255,0.15); padding: 3px 8px; border-radius: 4px;
+  backdrop-filter: blur(8px);
+}
+.m-space-cover .crumb { font-family: var(--bn-font-mono); font-size: 10px; opacity: 0.75; }
+.m-space-cover .title { font-family: var(--bn-font-display); font-size: 18px; font-weight: 700; }
+.m-space-id {
+  padding: 14px 16px;
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line-faint);
+  display: flex; gap: 10px; align-items: center;
+}
+.m-space-id .em {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--bn-jetonomy); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 700; font-family: var(--bn-font-display);
+  margin-top: -28px; border: 3px solid var(--bn-surface);
+}
+.m-space-id .info { flex: 1; min-width: 0; }
+.m-space-id .info .stats { font-size: 11px; color: var(--bn-ink-3); font-family: var(--bn-font-mono); }
+
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <div>
+    <h1>Mobile</h1>
+    <p>BuddyNext 2026 · 10 screens · iOS reference</p>
+  </div>
+  <div class="meta">390 × 844 · light theme</div>
+</div>
+
+<div class="gallery">
+
+  <!-- 1. Home Feed -->
+  <div class="scene" data-screen-label="Mobile Home Feed">
+    <div class="iphone">
+      <div class="iphone-screen">
+        <div class="dynamic-island"></div>
+        <div class="m-status">
+          <span>9:41</span>
+          <span class="m-status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><path d="M1 8h2v3H1zM5 5h2v6H5zM9 2h2v9H9zM13 0h2v11h-2z" fill="currentColor"/></svg>
+            <svg width="14" height="10" viewBox="0 0 14 10"><path d="M7 0c2.5 0 4.7 1 6.4 2.5l-1 1.1C11 2.4 9.1 1.6 7 1.6S3 2.4 1.6 3.6l-1-1C2.3 1 4.5 0 7 0zm0 3.4c1.5 0 2.9.6 4 1.5l-1 1.1C9.2 5.3 8.2 4.9 7 4.9s-2.2.4-3 1L3 4.9c1.1-.9 2.5-1.5 4-1.5zm0 3.5c.7 0 1.4.3 1.8.7L7 9.5l-1.8-1.9c.4-.4 1.1-.7 1.8-.7z" fill="currentColor"/></svg>
+            <svg width="22" height="10" viewBox="0 0 22 10"><rect x=".5" y=".5" width="18" height="9" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="15" height="6" rx="1" fill="currentColor"/><rect x="19.5" y="3.5" width="2" height="3" rx="0.5" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="m-topbar">
+          <div class="brand">buddy<span>·</span>next</div>
+          <div class="actions">
+            <div class="m-icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></div>
+            <div class="m-icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M14 17a2 2 0 1 1-4 0"/></svg><span class="dot"></span></div>
+          </div>
+        </div>
+        <div class="m-tabs">
+          <span class="m-tab" aria-current="true">For you</span>
+          <span class="m-tab">Following</span>
+          <span class="m-tab">Spaces</span>
+          <span class="m-tab">Trending</span>
+        </div>
+        <div class="m-body">
+          <div class="m-composer-prompt">
+            <div class="av">M</div>
+            <div class="field">What's on your mind?</div>
+          </div>
+          <div class="m-post">
+            <div class="m-post-head">
+              <div class="av" style="background: linear-gradient(135deg,#34d399,#059669);">SR</div>
+              <div class="meta"><div class="name">Sarah Rodriguez</div><div class="sub">Design · 12m</div></div>
+            </div>
+            <div class="m-post-body">Spent the morning auditing our new component library. Found three duplicate buttons hiding in different files 🙃 Time for a cleanup sprint.</div>
+            <div class="m-post-actions"><span>♥ 24</span><span>💬 8</span><span>↗ 2</span></div>
+          </div>
+          <div class="m-post">
+            <div class="m-post-head">
+              <div class="av" style="background: linear-gradient(135deg,#a78bfa,#7c3aed);">AJ</div>
+              <div class="meta"><div class="name">Alex Johnson</div><div class="sub">Web Dev · 1h</div></div>
+            </div>
+            <div class="m-post-body">PSA: PHP 8.4 dropped silent type juggling for one more case. If your plugin still uses loose comparison anywhere, audit it.</div>
+            <div class="m-post-actions"><span>♥ 142</span><span>💬 34</span><span>↗ 18</span></div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-bottom-item" aria-current="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l9 8h-3v9h-4v-6h-4v6H6v-9H3z"/></svg>
+            Home
+          </div>
+          <div class="m-bottom-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>
+            Spaces
+          </div>
+          <div class="m-fab">＋</div>
+          <div class="m-bottom-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            DMs <span class="badge">3</span>
+          </div>
+          <div class="m-bottom-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+            You
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="scene-label"><strong>Home Feed</strong>For-you, composer, post cards, tab bar</div>
+  </div>
+
+  <!-- 2. Explore Feed -->
+  <div class="scene" data-screen-label="Mobile Explore">
+    <div class="iphone">
+      <div class="iphone-screen">
+        <div class="dynamic-island"></div>
+        <div class="m-status">
+          <span>9:41</span>
+          <span class="m-status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><path d="M1 8h2v3H1zM5 5h2v6H5zM9 2h2v9H9zM13 0h2v11h-2z" fill="currentColor"/></svg>
+            <svg width="14" height="10" viewBox="0 0 14 10"><path d="M7 0c2.5 0 4.7 1 6.4 2.5l-1 1.1C11 2.4 9.1 1.6 7 1.6S3 2.4 1.6 3.6l-1-1C2.3 1 4.5 0 7 0z" fill="currentColor"/></svg>
+            <svg width="22" height="10" viewBox="0 0 22 10"><rect x=".5" y=".5" width="18" height="9" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="15" height="6" rx="1" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="m-page-title">
+          <h1>Explore</h1>
+          <span class="sub">trending now</span>
+        </div>
+        <div class="m-explore-search">
+          <div class="field">🔍 Search people, spaces, posts…</div>
+        </div>
+        <div class="m-explore-chips">
+          <span class="m-chip" aria-current="true">Trending</span>
+          <span class="m-chip">People</span>
+          <span class="m-chip">Spaces</span>
+          <span class="m-chip">Tags</span>
+          <span class="m-chip">Events</span>
+        </div>
+        <div class="m-body">
+          <div class="m-section-title">Trending tags</div>
+          <div class="m-trend">
+            <div class="lbl">↗ Trending</div>
+            <div class="tag">#designsystems</div>
+            <div class="stat">2,341 posts · 187 today</div>
+          </div>
+          <div class="m-trend">
+            <div class="lbl">↗ Trending</div>
+            <div class="tag">#wp-block-editor</div>
+            <div class="stat">1,802 posts · 142 today</div>
+          </div>
+          <div class="m-trend">
+            <div class="lbl">↗ NEW</div>
+            <div class="tag">#ai-moderation</div>
+            <div class="stat">412 posts · 89 today</div>
+          </div>
+          <div class="m-section-title">Suggested spaces</div>
+          <div class="m-forum-row">
+            <div class="ic" style="background: color-mix(in srgb, var(--bn-jetonomy) 15%, transparent);">🎨</div>
+            <div class="body">
+              <div class="t">Design Critique</div>
+              <div class="meta">1.2k members · 8 today</div>
+            </div>
+            <div class="m-btn" data-variant="primary" style="flex:0; padding: 6px 12px; font-size: 12px;">Join</div>
+          </div>
+          <div class="m-forum-row">
+            <div class="ic" style="background: color-mix(in srgb, var(--bn-success) 15%, transparent);">🌱</div>
+            <div class="body">
+              <div class="t">Green Tech</div>
+              <div class="meta">428 members · 3 today</div>
+            </div>
+            <div class="m-btn" data-variant="primary" style="flex:0; padding: 6px 12px; font-size: 12px;">Join</div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-bottom-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 8h-3v9h-4v-6h-4v6H6v-9H3z"/></svg>
+            Home
+          </div>
+          <div class="m-bottom-item" aria-current="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="white" stroke-width="2" fill="none"/></svg>
+            Spaces
+          </div>
+          <div class="m-fab">＋</div>
+          <div class="m-bottom-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            DMs
+          </div>
+          <div class="m-bottom-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+            You
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="scene-label"><strong>Explore</strong>Search, chips, trending tags + spaces</div>
+  </div>
+
+  <!-- 3. Space Home -->
+  <div class="scene" data-screen-label="Mobile Space Home">
+    <div class="iphone">
+      <div class="iphone-screen">
+        <div class="dynamic-island"></div>
+        <div class="m-status">
+          <span>9:41</span>
+          <span class="m-status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><path d="M1 8h2v3H1zM5 5h2v6H5zM9 2h2v9H9zM13 0h2v11h-2z" fill="currentColor"/></svg>
+            <svg width="22" height="10" viewBox="0 0 22 10"><rect x=".5" y=".5" width="18" height="9" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="15" height="6" rx="1" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="m-space-cover">
+          <span class="priv">🔓 Public</span>
+          <div>
+            <div class="crumb">Spaces / Design</div>
+            <div class="title">Design Critique</div>
+          </div>
+        </div>
+        <div class="m-space-id">
+          <div class="em">DC</div>
+          <div class="info">
+            <div class="stats">1,247 members · 34 online · 12 posts today</div>
+          </div>
+          <div class="m-btn" data-variant="primary" style="flex:0; padding:7px 14px; font-size:12px;">✓ Joined</div>
+        </div>
+        <div class="m-tabs">
+          <span class="m-tab" aria-current="true">Posts</span>
+          <span class="m-tab">Discussions</span>
+          <span class="m-tab">Members</span>
+          <span class="m-tab">Files</span>
+          <span class="m-tab">About</span>
+        </div>
+        <div class="m-body">
+          <div class="m-composer-prompt">
+            <div class="av">M</div>
+            <div class="field">Share with Design Critique…</div>
+          </div>
+          <div class="m-post">
+            <div class="m-post-head">
+              <div class="av" style="background: linear-gradient(135deg,#fb923c,#ea580c);">TN</div>
+              <div class="meta"><div class="name">Tanya Nguyen</div><div class="sub">Pinned · 2h</div></div>
+            </div>
+            <div class="m-post-body"><strong>Welcome thread →</strong> Drop your portfolio + what kind of feedback you're hunting. Be specific!</div>
+            <div class="m-post-actions"><span>♥ 89</span><span>💬 47</span></div>
+          </div>
+          <div class="m-post">
+            <div class="m-post-head">
+              <div class="av" style="background: linear-gradient(135deg,#2dd4bf,#0d9488);">MK</div>
+              <div class="meta"><div class="name">Marcus Kim</div><div class="sub">3h</div></div>
+            </div>
+            <div class="m-post-body">Roasting my new dashboard before I ship it Monday. Be brutal — links in thread.</div>
+            <div class="m-post-actions"><span>♥ 18</span><span>💬 12</span></div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 8h-3v9h-4v-6h-4v6H6v-9H3z"/></svg>Home</div>
+          <div class="m-bottom-item" aria-current="true"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>Spaces</div>
+          <div class="m-fab">＋</div>
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>DMs</div>
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>You</div>
+        </div>
+      </div>
+    </div>
+    <div class="scene-label"><strong>Space Home</strong>Hero cover, emblem tuck, tabs, post stream</div>
+  </div>
+
+  <!-- 4. DM Thread -->
+  <div class="scene" data-screen-label="Mobile DM Thread">
+    <div class="iphone">
+      <div class="iphone-screen">
+        <div class="dynamic-island"></div>
+        <div class="m-status">
+          <span>9:41</span>
+          <span class="m-status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><path d="M1 8h2v3H1zM5 5h2v6H5zM9 2h2v9H9zM13 0h2v11h-2z" fill="currentColor"/></svg>
+            <svg width="22" height="10" viewBox="0 0 22 10"><rect x=".5" y=".5" width="18" height="9" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="15" height="6" rx="1" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="m-dm-back">
+          <span class="arrow">←</span>
+          <div class="av">LP</div>
+          <div>
+            <div class="name">Lena Park</div>
+            <div class="sub">active now</div>
+          </div>
+          <div style="margin-left:auto; display:flex; gap:6px;">
+            <div class="m-icon-btn" style="width:32px;height:32px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
+          </div>
+        </div>
+        <div class="m-dm-feed">
+          <div class="m-dm-day">Today · 9:30 AM</div>
+          <div class="m-bubble" data-side="them">Hey! Did you get a chance to look at the moderation flow?</div>
+          <div class="m-bubble" data-side="me">Just opened it — give me 10 min to digest 👀</div>
+          <div class="m-bubble" data-side="them">No rush. The auto-decay rules are what I want your eyes on first.</div>
+          <div class="m-bubble" data-side="me">Got it. Initial reaction: I love that warnings expire by default. Most platforms get this wrong.</div>
+          <div class="m-bubble" data-side="them">Right?? Punitive by default = toxic over time. Also, the appeal flow has a tag-the-jury option I want to A/B.</div>
+          <div class="m-dm-typing"><span></span><span></span><span></span></div>
+        </div>
+        <div class="m-dm-input">
+          <div class="m-icon-btn" style="width:32px; height:32px; background:transparent; color: var(--bn-ink-3);">＋</div>
+          <div class="field">Message…</div>
+          <div class="send">↑</div>
+        </div>
+      </div>
+    </div>
+    <div class="scene-label"><strong>DM Thread</strong>Bubbles, day separator, typing indicator</div>
+  </div>
+
+  <!-- 5. Notifications -->
+  <div class="scene" data-screen-label="Mobile Notifications">
+    <div class="iphone">
+      <div class="iphone-screen">
+        <div class="dynamic-island"></div>
+        <div class="m-status">
+          <span>9:41</span>
+          <span class="m-status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><path d="M1 8h2v3H1zM5 5h2v6H5zM9 2h2v9H9zM13 0h2v11h-2z" fill="currentColor"/></svg>
+            <svg width="22" height="10" viewBox="0 0 22 10"><rect x=".5" y=".5" width="18" height="9" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="15" height="6" rx="1" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="m-page-title">
+          <h1>Activity</h1>
+          <span class="sub">7 new</span>
+        </div>
+        <div class="m-tabs">
+          <span class="m-tab" aria-current="true">All</span>
+          <span class="m-tab">Mentions</span>
+          <span class="m-tab">Replies</span>
+          <span class="m-tab">Follows</span>
+        </div>
+        <div class="m-body">
+          <div class="m-section-title">Today</div>
+          <div class="m-notif unread">
+            <div class="av" style="background: linear-gradient(135deg,#34d399,#059669);">SR</div>
+            <div class="body">
+              <div class="text"><strong>Sarah Rodriguez</strong> mentioned you in <strong>Design Critique</strong>: "...I think Mark's approach to spacing tokens..."</div>
+              <div class="ts">12m ago</div>
+            </div>
+            <span class="dot"></span>
+          </div>
+          <div class="m-notif unread">
+            <div class="av" style="background: linear-gradient(135deg,#a78bfa,#7c3aed);">AJ</div>
+            <div class="body">
+              <div class="text"><strong>Alex Johnson</strong> and <strong>3 others</strong> reacted to your post about REST API caching.</div>
+              <div class="ts">1h ago</div>
+            </div>
+            <span class="dot"></span>
+          </div>
+          <div class="m-notif unread">
+            <div class="av" style="background: linear-gradient(135deg,#f472b6,#db2777);">LP</div>
+            <div class="body">
+              <div class="text"><strong>Lena Park</strong> sent you a message.</div>
+              <div class="ts">2h ago</div>
+            </div>
+            <span class="dot"></span>
+          </div>
+          <div class="m-section-title">Yesterday</div>
+          <div class="m-notif">
+            <div class="av" style="background: linear-gradient(135deg,#fb923c,#ea580c);">TN</div>
+            <div class="body">
+              <div class="text"><strong>Tanya Nguyen</strong> started following you.</div>
+              <div class="ts">22h ago</div>
+            </div>
+          </div>
+          <div class="m-notif">
+            <div class="av" style="background: linear-gradient(135deg,#2dd4bf,#0d9488);">MK</div>
+            <div class="body">
+              <div class="text"><strong>Marcus Kim</strong> invited you to <strong>WP Performance</strong>.</div>
+              <div class="ts">1d ago</div>
+            </div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 8h-3v9h-4v-6h-4v6H6v-9H3z"/></svg>Home</div>
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>Spaces</div>
+          <div class="m-fab">＋</div>
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>DMs</div>
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>You</div>
+        </div>
+      </div>
+    </div>
+    <div class="scene-label"><strong>Notifications</strong>Day-grouped, unread highlight, read dot</div>
+  </div>
+
+  <!-- 6. User Profile -->
+  <div class="scene" data-screen-label="Mobile Profile">
+    <div class="iphone">
+      <div class="iphone-screen">
+        <div class="dynamic-island"></div>
+        <div class="m-status">
+          <span>9:41</span>
+          <span class="m-status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><path d="M1 8h2v3H1zM5 5h2v6H5zM9 2h2v9H9zM13 0h2v11h-2z" fill="currentColor"/></svg>
+            <svg width="22" height="10" viewBox="0 0 22 10"><rect x=".5" y=".5" width="18" height="9" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="15" height="6" rx="1" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="m-profile-cover"></div>
+        <div class="m-profile-id">
+          <div class="m-profile-av">SR</div>
+          <div class="m-profile-name">Sarah Rodriguez</div>
+          <div class="m-profile-handle">@sarah_r · she/her</div>
+          <div class="m-profile-bio">Senior Product Designer at Wbcom. Spending 2026 building the design system you wish you had.</div>
+          <div class="m-profile-stats">
+            <span><strong>1,247</strong> followers</span>
+            <span><strong>312</strong> following</span>
+            <span><strong>34</strong> spaces</span>
+          </div>
+          <div class="m-profile-actions">
+            <div class="m-btn" data-variant="primary">Follow</div>
+            <div class="m-btn">Message</div>
+            <div class="m-btn" data-variant="ghost">⋯</div>
+          </div>
+        </div>
+        <div class="m-tabs">
+          <span class="m-tab" aria-current="true">Posts</span>
+          <span class="m-tab">Replies</span>
+          <span class="m-tab">Spaces</span>
+          <span class="m-tab">Saved</span>
+        </div>
+        <div class="m-body">
+          <div class="m-post">
+            <div class="m-post-head">
+              <div class="av" style="background: linear-gradient(135deg,#34d399,#059669);">SR</div>
+              <div class="meta"><div class="name">Sarah Rodriguez</div><div class="sub">2d</div></div>
+            </div>
+            <div class="m-post-body">Working on token semantics today. The biggest difference between a UI kit and a design system is whether the tokens encode intent.</div>
+            <div class="m-post-actions"><span>♥ 89</span><span>💬 14</span><span>↗ 6</span></div>
+          </div>
+          <div class="m-post">
+            <div class="m-post-head">
+              <div class="av" style="background: linear-gradient(135deg,#34d399,#059669);">SR</div>
+              <div class="meta"><div class="name">Sarah Rodriguez</div><div class="sub">5d</div></div>
+            </div>
+            <div class="m-post-body">Hot take: 90% of "design debt" is actually documentation debt.</div>
+            <div class="m-post-actions"><span>♥ 217</span><span>💬 41</span></div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 8h-3v9h-4v-6h-4v6H6v-9H3z"/></svg>Home</div>
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>Spaces</div>
+          <div class="m-fab">＋</div>
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>DMs</div>
+          <div class="m-bottom-item" aria-current="true"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0" stroke="white" stroke-width="2" fill="none"/></svg>You</div>
+        </div>
+      </div>
+    </div>
+    <div class="scene-label"><strong>Profile</strong>Cover, ID, bio, stats, post tabs</div>
+  </div>
+
+  <!-- 7. Onboarding -->
+  <div class="scene" data-screen-label="Mobile Onboarding">
+    <div class="iphone">
+      <div class="iphone-screen">
+        <div class="dynamic-island"></div>
+        <div class="m-status">
+          <span>9:41</span>
+          <span class="m-status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><path d="M1 8h2v3H1zM5 5h2v6H5zM9 2h2v9H9zM13 0h2v11h-2z" fill="currentColor"/></svg>
+            <svg width="22" height="10" viewBox="0 0 22 10"><rect x=".5" y=".5" width="18" height="9" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="15" height="6" rx="1" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="m-onb">
+          <div class="step">Step 2 of 5</div>
+          <h2>What do you want to talk about?</h2>
+          <p class="desc">Pick 3 or more interests. We'll surface the spaces and people that actually fit.</p>
+          <div class="m-onb-grid">
+            <div class="m-onb-tile" aria-pressed="true">
+              <div class="glyph">🎨</div>
+              <div class="lbl">Design</div>
+              <div class="sub">UX, brand, motion</div>
+            </div>
+            <div class="m-onb-tile" aria-pressed="true">
+              <div class="glyph">⚡</div>
+              <div class="lbl">Web Dev</div>
+              <div class="sub">React, PHP, perf</div>
+            </div>
+            <div class="m-onb-tile">
+              <div class="glyph">📈</div>
+              <div class="lbl">Growth</div>
+              <div class="sub">SEO, content, GTM</div>
+            </div>
+            <div class="m-onb-tile" aria-pressed="true">
+              <div class="glyph">🤖</div>
+              <div class="lbl">AI / ML</div>
+              <div class="sub">LLMs, agents, infra</div>
+            </div>
+            <div class="m-onb-tile">
+              <div class="glyph">🎮</div>
+              <div class="lbl">Gaming</div>
+              <div class="sub">Indie, esports, dev</div>
+            </div>
+            <div class="m-onb-tile">
+              <div class="glyph">🌱</div>
+              <div class="lbl">Sustain.</div>
+              <div class="sub">Climate, energy</div>
+            </div>
+          </div>
+          <div class="m-onb-progress">
+            <div class="m-onb-bar"><div class="m-onb-bar-fill" style="width: 40%;"></div></div>
+            <div class="m-onb-cta">Continue · 3 selected</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="scene-label"><strong>Onboarding</strong>Step 2 — interest tiles, progress, CTA</div>
+  </div>
+
+  <!-- 8. Register / Login -->
+  <div class="scene" data-screen-label="Mobile Auth">
+    <div class="iphone">
+      <div class="iphone-screen">
+        <div class="dynamic-island"></div>
+        <div class="m-status">
+          <span>9:41</span>
+          <span class="m-status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><path d="M1 8h2v3H1zM5 5h2v6H5zM9 2h2v9H9zM13 0h2v11h-2z" fill="currentColor"/></svg>
+            <svg width="22" height="10" viewBox="0 0 22 10"><rect x=".5" y=".5" width="18" height="9" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="15" height="6" rx="1" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="m-auth">
+          <div class="logo">buddy<span>·</span>next</div>
+          <div class="tag">The community layer for WordPress</div>
+          <h2>Welcome back</h2>
+          <div class="field filled">mark@wbcom.designs</div>
+          <div class="field">Password</div>
+          <div class="row">
+            <label><span class="check on">✓</span> Stay signed in</label>
+            <a>Forgot password?</a>
+          </div>
+          <div class="cta">Sign in</div>
+          <div class="or">— or continue with —</div>
+          <div class="social">G  ·  Continue with Google</div>
+          <div class="social">⌘ ·  Continue with Apple</div>
+          <div class="social">𝕏 ·  Continue with WordPress.com</div>
+          <div class="foot">New here? <a>Create account</a></div>
+        </div>
+      </div>
+    </div>
+    <div class="scene-label"><strong>Sign In</strong>Auth, social providers, returning user</div>
+  </div>
+
+  <!-- 9. Forum Listing -->
+  <div class="scene" data-screen-label="Mobile Forum Listing">
+    <div class="iphone">
+      <div class="iphone-screen">
+        <div class="dynamic-island"></div>
+        <div class="m-status">
+          <span>9:41</span>
+          <span class="m-status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><path d="M1 8h2v3H1zM5 5h2v6H5zM9 2h2v9H9zM13 0h2v11h-2z" fill="currentColor"/></svg>
+            <svg width="22" height="10" viewBox="0 0 22 10"><rect x=".5" y=".5" width="18" height="9" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="15" height="6" rx="1" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="m-page-title">
+          <h1>Forum</h1>
+          <span class="sub">218 topics</span>
+        </div>
+        <div class="m-tabs">
+          <span class="m-tab" aria-current="true">Latest</span>
+          <span class="m-tab">Top</span>
+          <span class="m-tab">Unread</span>
+          <span class="m-tab">My posts</span>
+        </div>
+        <div class="m-body">
+          <div class="m-forum-row">
+            <div class="ic" style="background: color-mix(in srgb, var(--bn-accent) 15%, transparent);">📌</div>
+            <div class="body">
+              <div class="t">Plugin compatibility check 8.4</div>
+              <div class="meta">@alex · 2h · Pinned</div>
+            </div>
+            <div class="stat"><div class="n">47</div><div class="l">replies</div></div>
+          </div>
+          <div class="m-forum-row">
+            <div class="ic">💬</div>
+            <div class="body">
+              <div class="t">Anyone else seeing memory leaks in 3.2.1?</div>
+              <div class="meta">@marcus · 4h</div>
+            </div>
+            <div class="stat"><div class="n">23</div><div class="l">replies</div></div>
+          </div>
+          <div class="m-forum-row">
+            <div class="ic">🔥</div>
+            <div class="body">
+              <div class="t">Hot take: REST API is overrated for community plugins</div>
+              <div class="meta">@sarah · 6h · 142 ♥</div>
+            </div>
+            <div class="stat"><div class="n">89</div><div class="l">replies</div></div>
+          </div>
+          <div class="m-forum-row">
+            <div class="ic">🐛</div>
+            <div class="body">
+              <div class="t">Bug: avatar cache busts on every page load</div>
+              <div class="meta">@yuki · 8h · open</div>
+            </div>
+            <div class="stat"><div class="n">12</div><div class="l">replies</div></div>
+          </div>
+          <div class="m-forum-row">
+            <div class="ic">💡</div>
+            <div class="body">
+              <div class="t">Feature request: per-space color tokens</div>
+              <div class="meta">@nora · 1d</div>
+            </div>
+            <div class="stat"><div class="n">31</div><div class="l">replies</div></div>
+          </div>
+          <div class="m-forum-row">
+            <div class="ic">📚</div>
+            <div class="body">
+              <div class="t">Migration guide: BuddyPress → BuddyNext</div>
+              <div class="meta">@admin · 2d · Sticky</div>
+            </div>
+            <div class="stat"><div class="n">156</div><div class="l">replies</div></div>
+          </div>
+        </div>
+        <div class="m-bottom">
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 8h-3v9h-4v-6h-4v6H6v-9H3z"/></svg>Home</div>
+          <div class="m-bottom-item" aria-current="true"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>Spaces</div>
+          <div class="m-fab">＋</div>
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>DMs</div>
+          <div class="m-bottom-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>You</div>
+        </div>
+      </div>
+    </div>
+    <div class="scene-label"><strong>Forum Listing</strong>Topics, glyph icons, reply counts</div>
+  </div>
+
+  <!-- 10. Forum Thread -->
+  <div class="scene" data-screen-label="Mobile Forum Thread">
+    <div class="iphone">
+      <div class="iphone-screen">
+        <div class="dynamic-island"></div>
+        <div class="m-status">
+          <span>9:41</span>
+          <span class="m-status-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><path d="M1 8h2v3H1zM5 5h2v6H5zM9 2h2v9H9zM13 0h2v11h-2z" fill="currentColor"/></svg>
+            <svg width="22" height="10" viewBox="0 0 22 10"><rect x=".5" y=".5" width="18" height="9" rx="2" stroke="currentColor" fill="none"/><rect x="2" y="2" width="15" height="6" rx="1" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="m-forum-head">
+          <div class="crumb">← Forum / Web Dev</div>
+          <div class="title">Hot take: REST API is overrated for community plugins</div>
+          <div class="meta">
+            <span>89 replies</span>
+            <span>142 ♥</span>
+            <span>1.2k views</span>
+          </div>
+        </div>
+        <div class="m-body">
+          <div class="m-reply op">
+            <div class="head">
+              <div class="av">SR</div>
+              <div><div class="name">Sarah Rodriguez</div><div class="ts">6h ago</div></div>
+            </div>
+            <div class="body">For 95% of community plugin needs, GraphQL or even raw PHP endpoints would serve you better. The REST API was designed for CMS, not real-time social. Discuss.</div>
+            <div class="actions"><span>♥ 142</span><span>💬 reply</span></div>
+          </div>
+          <div class="m-reply">
+            <div class="head">
+              <div class="av" style="background: linear-gradient(135deg,#a78bfa,#7c3aed);">AJ</div>
+              <div><div class="name">Alex Johnson</div><div class="ts">5h ago</div></div>
+            </div>
+            <div class="body">Disagree on raw PHP — discoverability suffers. But GraphQL? Yes, please. The over-fetching alone has tanked our LCP scores twice.</div>
+            <div class="actions"><span>♥ 34</span><span>💬 reply</span></div>
+          </div>
+          <div class="m-reply">
+            <div class="head">
+              <div class="av" style="background: linear-gradient(135deg,#2dd4bf,#0d9488);">MK</div>
+              <div><div class="name">Marcus Kim</div><div class="ts">4h ago</div></div>
+            </div>
+            <div class="body">The bigger issue is that REST forces resource-thinking onto event-thinking. Real-time presence, typing indicators, message delivery — none of that is REST-shaped.</div>
+            <div class="actions"><span>♥ 67</span><span>💬 reply</span></div>
+          </div>
+          <div class="m-reply">
+            <div class="head">
+              <div class="av" style="background: linear-gradient(135deg,#fb923c,#ea580c);">TN</div>
+              <div><div class="name">Tanya Nguyen</div><div class="ts">3h ago</div></div>
+            </div>
+            <div class="body">SSE + REST has worked great for us. WebSockets for the truly hot paths only. Don't throw out the toolbox to fight the toolbox.</div>
+            <div class="actions"><span>♥ 28</span><span>💬 reply</span></div>
+          </div>
+        </div>
+        <div class="m-dm-input">
+          <div class="m-icon-btn" style="width:32px; height:32px; background:transparent; color: var(--bn-ink-3);">＋</div>
+          <div class="field">Add a reply…</div>
+          <div class="send">↑</div>
+        </div>
+      </div>
+    </div>
+    <div class="scene-label"><strong>Forum Thread</strong>OP card, threaded replies, inline composer</div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -114,14 +114,21 @@ If you cannot find where something belongs, check the decision guide at the bott
 
 ---
 
-### `docs/superpowers/brainstorm/14544-1773947712/`
+### `docs/v2 Plans/`
 
-**What it is:** HTML wireframes for every screen in the product. The visual reference for all UI work.
+**What it is:** The v2 design system — the only design source for every BN frontend surface. Replaces the prior brainstorm mockups, which have been removed from the repo.
+
+**Layout:**
+- `docs/v2 Plans/tokens.css` — canonical token + primitive vocabulary.
+- `docs/v2 Plans/style-guide.html` — design-system canon.
+- `docs/v2 Plans/v2/*.html` — major-page prototypes (feed, profile, directory, spaces, messages, notifications, search, onboarding, admin chrome, mobile shell, hub index).
+- `docs/v2 Plans/PLAN.md` — surface → prototype map + composition rules + uniformity gates + rollout sequence.
+- `docs/v2 Plans/REVIEW.md` — engineering review (browser support, accessibility, whitelabel correctness).
 
 **Rules:**
-- Read-only. Never modify.
-- Every template built must match its wireframe. See `CLAUDE.md` for the full wireframe → template mapping.
-- Style guide: `style-guide.html` — all CSS tokens, typography, spacing, dark mode
+- Design owner modifies the prototypes; engineering doesn't.
+- Every template renders against its v2 prototype or composes from v2 primitives — never from any other source.
+- Style guide canonical: `docs/v2 Plans/style-guide.html`.
 
 ---
 
@@ -134,7 +141,7 @@ If you cannot find where something belongs, check the decision guide at the bott
 | A new hook or hook rename | `docs/specs/HOOKS.md` |
 | What's left to build | `docs/MASTER_DEVELOPMENT_PLAN.md` — check a box |
 | Step-by-step build instructions for a phase | New `docs/superpowers/plans/YYYY-MM-DD-topic.md` |
-| What a screen looks like | Wireframe in `docs/superpowers/brainstorm/` |
+| What a screen looks like | v2 prototype in `docs/v2 Plans/v2/` (or compose from `docs/v2 Plans/tokens.css` primitives per `docs/v2 Plans/PLAN.md` Part 3) |
 | An architectural decision (file structure, convention) | `docs/specs/features/00-architecture.md` — append with date |
 | A change to an existing spec | Append a dated note to the spec file, update the spec content |
 | Free vs Pro classification | `docs/specs/features/FREE-VS-PRO.md` |

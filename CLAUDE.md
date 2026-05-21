@@ -63,11 +63,12 @@ Never mark a task as complete unless tests pass.
 
 ### 4. Premium UX — Non-Negotiable
 
-Every template must match the HTML mockups in `.superpowers/brainstorm/14544-1773947712/`. Pixel-level fidelity is expected for:
-- Color tokens (use CSS custom properties verbatim from style-guide.html)
-- Typography (Inter 15px body, Plus Jakarta Sans display)
-- Spacing (4px grid: --s1 through --s12)
-- Dark mode (all components must support `[data-theme="dark"]`)
+**v2 is the only design source.** Every template renders against the v2 prototypes in `docs/v2 Plans/v2/` and the canonical tokens + primitives in `docs/v2 Plans/tokens.css`. The previous brainstorm mockups have been deleted from the repo — do not reference them, do not extrapolate from them. See `docs/v2 Plans/PLAN.md` for the surface-to-prototype map + composition rules for surfaces v2 doesn't prototype.
+
+- Color tokens come from `--bn-*` (canonical in `assets/css/bn-base.css`, mirrors `docs/v2 Plans/tokens.css`).
+- Typography uses `--bn-font-ui` / `--bn-font-display` / `--bn-font-mono`.
+- Spacing on the 4px grid via `--bn-s1` through `--bn-s16`.
+- Dark mode supported via `[data-bn-theme="dark"]` (legacy `[data-theme="dark"]` also accepted).
 - Mobile (every layout ≤640px must be tested — full-width, no horizontal scroll)
 - Interactions (hover states, focus rings, loading states — all from mockups)
 
@@ -248,7 +249,7 @@ These tokens are the **single source of truth** — injected by `TokenService` v
 }
 ```
 
-Full component library in: `.superpowers/brainstorm/14544-1773947712/style-guide.html`
+Full component library in: `docs/v2 Plans/style-guide.html` (canonical) + `docs/v2 Plans/tokens.css` (token + primitive source).
 
 ---
 
@@ -340,41 +341,25 @@ Every `assets/css/bn-{feature}.css` file must follow this order:
 
 ## UI Design References
 
-All 44 HTML mockups are in `.superpowers/brainstorm/14544-1773947712/`. Every template built must match its mockup.
+v2 prototypes in `docs/v2 Plans/v2/` are the only design source. Each surface below maps to its prototype; surfaces without a prototype are composed from v2 primitives per the rules in `docs/v2 Plans/PLAN.md` Part 3.
 
-| Mockup | Template |
-|--------|----------|
-| `home-feed.html` | `templates/feed/home.php` |
-| `explore-feed.html` | `templates/feed/explore.php` |
-| `user-profile.html` | `templates/profile/view.php` |
-| `edit-profile.html` | `templates/profile/edit.php` |
-| `member-directory.html` | `templates/directory/members.php` |
-| `spaces-directory.html` | `templates/spaces/directory.php` |
-| `space-home.html` | `templates/spaces/home.php` |
-| `space-settings.html` | `templates/spaces/settings.php` |
-| `space-moderation.html` | `templates/spaces/moderation.php` |
-| `dm-list.html` | `templates/messages/list.php` |
-| `dm-thread.html` | `templates/messages/thread.php` |
-| `message-requests.html` | `templates/messages/requests.php` |
-| `notifications.html` | `templates/notifications/index.php` |
-| `search-results.html` | `templates/search/results.php` |
-| `hashtag-feed.html` | `templates/hashtags/feed.php` |
-| `register-login.html` | `templates/auth/login.php` |
-| `onboarding.html` | `templates/onboarding/index.php` |
-| `leaderboard.html` | `templates/gamification/leaderboard.php` |
-| `widgets-blocks.html` | Gutenberg blocks (Phase 11) |
-| `forum-listing.html` | Jetonomy bridge template |
-| `forum-thread.html` | Jetonomy bridge template |
-| `admin-settings.html` | `includes/Admin/Settings.php` |
-| `admin-members.html` | `includes/Admin/Members.php` |
-| `admin-spaces.html` | `includes/Admin/Spaces.php` |
-| `admin-analytics.html` | `includes/Admin/Analytics.php` (Pro) |
-| `admin-nav-manager.html` | `includes/Admin/NavManager.php` |
-| `admin-integration-hub.html` | `includes/Admin/IntegrationHub.php` |
-| `community-admin.html` | Space frontend admin panel |
-| `moderation-queue.html` | `templates/moderation/queue.php` |
-| `email-editor.html` | `includes/Admin/EmailEditor.php` |
-| Mobile screens (10) | Responsive variants of above |
+| Surface | v2 prototype |
+|---|---|
+| `templates/feed/home.php` | `docs/v2 Plans/v2/home-feed.html` |
+| `templates/feed/explore.php` | `docs/v2 Plans/v2/explore-feed.html` |
+| `templates/profile/view.php` | `docs/v2 Plans/v2/user-profile.html` |
+| `templates/directory/members.php` | `docs/v2 Plans/v2/member-directory.html` |
+| `templates/spaces/directory.php` | `docs/v2 Plans/v2/spaces-directory.html` |
+| `templates/spaces/home.php` | `docs/v2 Plans/v2/space-home.html` |
+| `templates/messages/list.php` | `docs/v2 Plans/v2/dm-list.html` |
+| `templates/messages/thread.php` | `docs/v2 Plans/v2/dm-thread.html` |
+| `templates/notifications/index.php` | `docs/v2 Plans/v2/notifications.html` |
+| `templates/search/results.php` | `docs/v2 Plans/v2/search-results.html` |
+| `templates/onboarding/index.php` | `docs/v2 Plans/v2/onboarding.html` |
+| Admin chrome (every BN admin page) | `docs/v2 Plans/v2/admin.html` |
+| Hub navigation index | `docs/v2 Plans/v2/index.html` |
+| Mobile responsive shell | `docs/v2 Plans/v2/mobile.html` |
+| All other surfaces (profile edit, space settings, hashtag feed, auth, moderation queue, Pro admins, etc.) | Compose from `docs/v2 Plans/tokens.css` primitives — see `docs/v2 Plans/PLAN.md` Part 3 |
 
 ---
 

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en" data-bn-theme="light" data-bn-density="comfortable">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Spaces</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../chrome.css?v=3">
+<style>
+.dir-stack { display: flex; flex-direction: column; gap: var(--bn-s5); }
+
+/* Hero strip */
+.dir-hero {
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-lg);
+  padding: var(--bn-s5) var(--bn-s6);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--bn-s5);
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+.dir-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(40% 80% at 90% 0%, var(--bn-accent-100), transparent 70%),
+    radial-gradient(40% 80% at 0% 100%, var(--bn-accent-100), transparent 70%);
+  opacity: 0.6; pointer-events: none;
+}
+.dir-hero > * { position: relative; }
+.dir-hero h1 {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-2xl); font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--bn-ink); margin: 0;
+}
+.dir-hero p {
+  font-size: var(--bn-text-sm); color: var(--bn-ink-2);
+  margin: 4px 0 0 0;
+}
+
+/* Filter row */
+.filter-row { display: flex; gap: var(--bn-s2); align-items: center; flex-wrap: wrap; }
+.filter-search {
+  flex: 1; min-width: 240px;
+  position: relative;
+}
+.filter-search input {
+  width: 100%; padding: 10px 14px 10px 36px;
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-md);
+  background: var(--bn-surface);
+  font-family: var(--bn-font-ui);
+  font-size: var(--bn-text-sm); color: var(--bn-ink);
+}
+.filter-search input:focus { outline: none; border-color: var(--bn-accent); box-shadow: 0 0 0 3px var(--bn-accent-100); }
+.filter-search svg {
+  position: absolute; left: 12px; top: 50%;
+  transform: translateY(-50%); width: 16px; height: 16px;
+  color: var(--bn-ink-3);
+}
+.filter-select {
+  padding: 9px 14px;
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-md);
+  background: var(--bn-surface);
+  font-family: var(--bn-font-ui);
+  font-size: var(--bn-text-sm); color: var(--bn-ink);
+  cursor: pointer;
+}
+
+/* Category chips */
+.cat-chips { display: flex; gap: var(--bn-s2); flex-wrap: wrap; }
+.cat-chip {
+  padding: 6px 12px; border-radius: var(--bn-r-full);
+  border: 1px solid var(--bn-line);
+  background: var(--bn-surface);
+  font-size: var(--bn-text-sm); font-weight: 500;
+  color: var(--bn-ink-2); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  transition: all var(--bn-dur-fast) var(--bn-ease);
+}
+.cat-chip:hover { color: var(--bn-ink); border-color: var(--bn-ink-3); }
+.cat-chip[aria-current="true"] {
+  background: var(--bn-ink); color: var(--bn-surface);
+  border-color: var(--bn-ink);
+}
+
+/* Section headers */
+.dir-section-head {
+  display: flex; align-items: baseline; gap: var(--bn-s3);
+  margin: var(--bn-s3) 0 var(--bn-s2);
+}
+.dir-section-title {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-xs); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--bn-ink-2);
+}
+.dir-section-count {
+  font-family: var(--bn-font-mono);
+  font-size: var(--bn-text-xs); color: var(--bn-ink-3);
+}
+
+/* Space grid */
+.spaces-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--bn-s4); }
+@media (max-width: 1100px) { .spaces-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px) { .spaces-grid { grid-template-columns: 1fr; } }
+
+.space-card {
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--bn-dur-fast) var(--bn-ease), transform var(--bn-dur-fast) var(--bn-ease);
+  display: flex; flex-direction: column;
+}
+.space-card:hover { border-color: var(--bn-ink-3); transform: translateY(-1px); }
+
+.space-cover {
+  height: 80px; position: relative;
+  overflow: hidden;
+}
+.space-cover[data-tone="violet"] { background: linear-gradient(135deg, #c4b5fd 0%, #8b5cf6 100%); }
+.space-cover[data-tone="emerald"] { background: linear-gradient(135deg, #6ee7b7 0%, #10b981 100%); }
+.space-cover[data-tone="amber"] { background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%); }
+.space-cover[data-tone="rose"] { background: linear-gradient(135deg, #fda4af 0%, #f43f5e 100%); }
+.space-cover[data-tone="sky"] { background: linear-gradient(135deg, #93c5fd 0%, #3b82f6 100%); }
+.space-cover[data-tone="indigo"] { background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 100%); }
+.space-cover::after {
+  content: ''; position: absolute; inset: 0;
+  background-image:
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.1) 0 1px, transparent 1px 20px);
+}
+
+.space-emblem {
+  position: absolute; bottom: -22px; left: var(--bn-s4);
+  width: 56px; height: 56px;
+  border-radius: var(--bn-r-md);
+  background: var(--bn-surface);
+  border: 3px solid var(--bn-surface);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+}
+
+.space-body {
+  padding: 30px var(--bn-s4) var(--bn-s4);
+  flex: 1;
+  display: flex; flex-direction: column;
+  gap: var(--bn-s2);
+}
+.space-name {
+  font-family: var(--bn-font-display);
+  font-weight: 700; font-size: var(--bn-text-base);
+  color: var(--bn-ink);
+  letter-spacing: -0.01em;
+  display: flex; align-items: center; gap: var(--bn-s2);
+}
+.space-priv {
+  font-size: 10px; font-weight: 600;
+  padding: 1px 6px; border-radius: var(--bn-r-full);
+  background: var(--bn-sunken); color: var(--bn-ink-3);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.space-desc {
+  font-size: var(--bn-text-sm); color: var(--bn-ink-2);
+  line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.space-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.space-tag {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  background: var(--bn-sunken); color: var(--bn-ink-3);
+  padding: 2px 7px; border-radius: var(--bn-r-sm);
+}
+.space-stats {
+  font-family: var(--bn-font-mono);
+  font-size: var(--bn-text-xs); color: var(--bn-ink-3);
+  display: flex; gap: var(--bn-s3);
+  margin-top: 2px;
+}
+.space-foot {
+  margin-top: auto; padding-top: var(--bn-s2);
+  border-top: 1px solid var(--bn-line-faint);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.space-presence {
+  font-size: var(--bn-text-xs); color: var(--bn-ink-3);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.space-presence::before {
+  content: ''; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--bn-success, #059669);
+  display: inline-block;
+}
+
+/* Featured row */
+.featured-card {
+  grid-column: span 3;
+  background: linear-gradient(135deg, var(--bn-accent) 0%, var(--bn-accent-700) 100%);
+  color: var(--bn-accent-fg);
+  border-radius: var(--bn-r-lg);
+  padding: var(--bn-s5);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--bn-s5);
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+@media (max-width: 1100px) { .featured-card { grid-column: span 2; } }
+@media (max-width: 700px) { .featured-card { grid-column: span 1; grid-template-columns: 1fr; gap: var(--bn-s3); } }
+
+.featured-card::before {
+  content: ''; position: absolute; inset: 0;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 1px, transparent 1px 40px);
+}
+.featured-card > * { position: relative; }
+.featured-emblem {
+  width: 60px; height: 60px;
+  border-radius: var(--bn-r-md);
+  background: rgba(255,255,255,0.15);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px;
+  backdrop-filter: blur(20px);
+}
+.featured-card h3 {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-xl); font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0 0 4px 0;
+}
+.featured-card p {
+  font-size: var(--bn-text-sm); margin: 0; opacity: 0.9;
+  max-width: 480px;
+}
+.featured-card .bn-btn {
+  background: var(--bn-accent-fg); color: var(--bn-accent-700);
+  font-weight: 600;
+}
+.featured-card .bn-btn:hover { background: var(--bn-accent-fg); transform: translateY(-1px); }
+
+</style>
+</head>
+<body>
+<div class="bn-app" id="app"></div>
+
+<script src="../chrome.js"></script>
+<script>
+const body = `
+  <div class="bn-page-main dir-stack">
+
+    <div class="dir-hero">
+      <div>
+        <h1>Find your community</h1>
+        <p>Browse <strong>146 spaces</strong> across topics, teams, and interests. Public, private, and invite-only.</p>
+      </div>
+      <button class="bn-btn" data-variant="primary">＋ Create a space</button>
+    </div>
+
+    <div class="filter-row">
+      <div class="filter-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input placeholder="Search 146 spaces…" />
+      </div>
+      <select class="filter-select">
+        <option>All categories</option>
+        <option>Technology</option>
+        <option>Design</option>
+        <option>Business</option>
+        <option>Creative</option>
+      </select>
+      <select class="filter-select">
+        <option>All types</option>
+        <option>Public</option>
+        <option>Private</option>
+        <option>Invite-only</option>
+      </select>
+      <select class="filter-select">
+        <option>Sort: Most active</option>
+        <option>Most members</option>
+        <option>Newest</option>
+        <option>A → Z</option>
+      </select>
+    </div>
+
+    <div class="cat-chips">
+      <span class="cat-chip" aria-current="true">All</span>
+      <span class="cat-chip">💻 Technology</span>
+      <span class="cat-chip">🎨 Design</span>
+      <span class="cat-chip">📣 Marketing</span>
+      <span class="cat-chip">🚀 Startups</span>
+      <span class="cat-chip">🤖 AI & ML</span>
+      <span class="cat-chip">📊 Data</span>
+      <span class="cat-chip">🎯 Product</span>
+      <span class="cat-chip">📝 Writing</span>
+      <span class="cat-chip">🌍 Open Source</span>
+    </div>
+
+    <div class="dir-section-head">
+      <span class="dir-section-title">Recommended for you</span>
+      <span class="dir-section-count">based on your activity</span>
+    </div>
+
+    <div class="spaces-grid">
+
+      <article class="featured-card">
+        <div class="featured-emblem">🏘️</div>
+        <div>
+          <h3>You're invited to Founders Lounge</h3>
+          <p>Sarah Rodriguez and 4 others you follow are members. Private space — admin will review your request.</p>
+        </div>
+        <button class="bn-btn">Request access</button>
+      </article>
+
+      <article class="space-card">
+        <div class="space-cover" data-tone="sky"><div class="space-emblem">💻</div></div>
+        <div class="space-body">
+          <div class="space-name">Web Dev <span class="space-priv">Public</span></div>
+          <div class="space-desc">Frontend, backend, everything in between. Code reviews, help threads, project showcases.</div>
+          <div class="space-tags"><span class="space-tag">JavaScript</span><span class="space-tag">React</span><span class="space-tag">PHP</span></div>
+          <div class="space-stats"><span>2,418 members</span><span>84 posts/wk</span></div>
+          <div class="space-foot">
+            <span class="space-presence">34 online</span>
+            <button class="bn-btn" data-variant="secondary" data-size="sm">✓ Joined</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="space-card">
+        <div class="space-cover" data-tone="violet"><div class="space-emblem">🎨</div></div>
+        <div class="space-body">
+          <div class="space-name">Design <span class="space-priv">Public</span></div>
+          <div class="space-desc">UX, UI, branding, and everything visual. Critiques, tools, design inspiration.</div>
+          <div class="space-tags"><span class="space-tag">UX</span><span class="space-tag">Figma</span><span class="space-tag">Branding</span></div>
+          <div class="space-stats"><span>1,832 members</span><span>61 posts/wk</span></div>
+          <div class="space-foot">
+            <span class="space-presence">18 online</span>
+            <button class="bn-btn" data-variant="secondary" data-size="sm">✓ Joined</button>
+          </div>
+        </div>
+      </article>
+
+    </div>
+
+    <div class="dir-section-head">
+      <span class="dir-section-title">Popular this week</span>
+      <span class="dir-section-count">24 of 146</span>
+    </div>
+
+    <div class="spaces-grid">
+
+      <article class="space-card">
+        <div class="space-cover" data-tone="amber"><div class="space-emblem">🚀</div></div>
+        <div class="space-body">
+          <div class="space-name">Startups <span class="space-priv">Public</span></div>
+          <div class="space-desc">Founders, indie hackers, and early-stage builders sharing wins, fails, and lessons.</div>
+          <div class="space-tags"><span class="space-tag">Indie</span><span class="space-tag">SaaS</span><span class="space-tag">Fundraising</span></div>
+          <div class="space-stats"><span>956 members</span><span>38 posts/wk</span></div>
+          <div class="space-foot">
+            <span class="space-presence">12 online</span>
+            <button class="bn-btn" data-variant="primary" data-size="sm">Join</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="space-card">
+        <div class="space-cover" data-tone="emerald"><div class="space-emblem">🤖</div></div>
+        <div class="space-body">
+          <div class="space-name">AI &amp; ML <span class="space-priv">Public</span></div>
+          <div class="space-desc">LLMs, embeddings, fine-tuning, and applied AI. From research to production.</div>
+          <div class="space-tags"><span class="space-tag">LLMs</span><span class="space-tag">PyTorch</span><span class="space-tag">Agents</span></div>
+          <div class="space-stats"><span>744 members</span><span>52 posts/wk</span></div>
+          <div class="space-foot">
+            <span class="space-presence">28 online</span>
+            <button class="bn-btn" data-variant="primary" data-size="sm">Join</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="space-card">
+        <div class="space-cover" data-tone="rose"><div class="space-emblem">📣</div></div>
+        <div class="space-body">
+          <div class="space-name">Marketing Pros <span class="space-priv">Private</span></div>
+          <div class="space-desc">Growth, content, SEO, and acquisition. Real tactics from practitioners.</div>
+          <div class="space-tags"><span class="space-tag">SEO</span><span class="space-tag">Content</span><span class="space-tag">Growth</span></div>
+          <div class="space-stats"><span>621 members</span><span>29 posts/wk</span></div>
+          <div class="space-foot">
+            <span class="space-presence" style="color:var(--bn-amber, #d97706);">Request pending</span>
+            <button class="bn-btn" data-variant="ghost" data-size="sm">Cancel</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="space-card">
+        <div class="space-cover" data-tone="indigo"><div class="space-emblem">🌍</div></div>
+        <div class="space-body">
+          <div class="space-name">Open Source <span class="space-priv">Public</span></div>
+          <div class="space-desc">Contributors, maintainers, and OSS advocates. Projects, docs, community building.</div>
+          <div class="space-tags"><span class="space-tag">GitHub</span><span class="space-tag">Maintainers</span></div>
+          <div class="space-stats"><span>518 members</span><span>21 posts/wk</span></div>
+          <div class="space-foot">
+            <span class="space-presence">9 online</span>
+            <button class="bn-btn" data-variant="primary" data-size="sm">Join</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="space-card">
+        <div class="space-cover" data-tone="violet"><div class="space-emblem">📝</div></div>
+        <div class="space-body">
+          <div class="space-name">Writers' Room <span class="space-priv">Public</span></div>
+          <div class="space-desc">Long-form writers, editors, and craft nerds. Drafts, critiques, and prompts.</div>
+          <div class="space-tags"><span class="space-tag">Essays</span><span class="space-tag">Newsletter</span></div>
+          <div class="space-stats"><span>389 members</span><span>17 posts/wk</span></div>
+          <div class="space-foot">
+            <span class="space-presence">5 online</span>
+            <button class="bn-btn" data-variant="primary" data-size="sm">Join</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="space-card">
+        <div class="space-cover" data-tone="sky"><div class="space-emblem">📊</div></div>
+        <div class="space-body">
+          <div class="space-name">Data Practice <span class="space-priv">Public</span></div>
+          <div class="space-desc">Analytics, BI, ML eng. From SQL nightmares to production pipelines.</div>
+          <div class="space-tags"><span class="space-tag">SQL</span><span class="space-tag">dbt</span><span class="space-tag">Snowflake</span></div>
+          <div class="space-stats"><span>312 members</span><span>14 posts/wk</span></div>
+          <div class="space-foot">
+            <span class="space-presence">3 online</span>
+            <button class="bn-btn" data-variant="primary" data-size="sm">Join</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="space-card">
+        <div class="space-cover" data-tone="amber"><div class="space-emblem">🎯</div></div>
+        <div class="space-body">
+          <div class="space-name">Product Mgmt <span class="space-priv">Private</span></div>
+          <div class="space-desc">PMs sharing roadmaps, frameworks, and the messy middle of shipping software.</div>
+          <div class="space-tags"><span class="space-tag">Strategy</span><span class="space-tag">OKRs</span></div>
+          <div class="space-stats"><span>284 members</span><span>11 posts/wk</span></div>
+          <div class="space-foot">
+            <span class="space-presence">4 online</span>
+            <button class="bn-btn" data-variant="secondary" data-size="sm">Request</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="space-card">
+        <div class="space-cover" data-tone="rose"><div class="space-emblem">🎙️</div></div>
+        <div class="space-body">
+          <div class="space-name">Podcast Crew <span class="space-priv">Public</span></div>
+          <div class="space-desc">Hosts, producers, audio editors. Workflow tips, gear nerdery, monetization.</div>
+          <div class="space-tags"><span class="space-tag">Audio</span><span class="space-tag">Editing</span></div>
+          <div class="space-stats"><span>197 members</span><span>8 posts/wk</span></div>
+          <div class="space-foot">
+            <span class="space-presence">2 online</span>
+            <button class="bn-btn" data-variant="primary" data-size="sm">Join</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="space-card">
+        <div class="space-cover" data-tone="emerald"><div class="space-emblem">🌱</div></div>
+        <div class="space-body">
+          <div class="space-name">Climate Tech <span class="space-priv">Public</span></div>
+          <div class="space-desc">Builders working on energy, materials, and the messy decade ahead.</div>
+          <div class="space-tags"><span class="space-tag">Energy</span><span class="space-tag">Carbon</span></div>
+          <div class="space-stats"><span>164 members</span><span>9 posts/wk</span></div>
+          <div class="space-foot">
+            <span class="space-presence">1 online</span>
+            <button class="bn-btn" data-variant="primary" data-size="sm">Join</button>
+          </div>
+        </div>
+      </article>
+
+    </div>
+
+    <div style="display:flex; justify-content:center; padding: var(--bn-s4) 0;">
+      <button class="bn-btn" data-variant="secondary">Show 24 more</button>
+    </div>
+
+  </div>
+
+  <aside class="bn-page-aside">
+    <div style="background:var(--bn-surface); border:1px solid var(--bn-line); border-radius: var(--bn-r-lg); padding: var(--bn-s4); display: flex; flex-direction: column; gap: var(--bn-s3);">
+      <div style="font-family: var(--bn-font-display); font-size: var(--bn-text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--bn-ink-3);">Your spaces</div>
+      <div style="display:flex; flex-direction: column; gap: var(--bn-s2);">
+        <div style="display:flex; align-items:center; gap:var(--bn-s2); font-size:var(--bn-text-sm); color:var(--bn-ink); padding: 4px 0;">
+          <div style="width:32px; height:32px; border-radius: var(--bn-r-sm); background: linear-gradient(135deg, #93c5fd, #3b82f6); display:flex; align-items:center; justify-content:center; font-size:16px;">💻</div>
+          <span style="flex:1; font-weight:500;">Web Dev</span>
+          <span style="font-family:var(--bn-font-mono); font-size:10px; color:var(--bn-ink-3);">3 new</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:var(--bn-s2); font-size:var(--bn-text-sm); color:var(--bn-ink); padding: 4px 0;">
+          <div style="width:32px; height:32px; border-radius: var(--bn-r-sm); background: linear-gradient(135deg, #c4b5fd, #8b5cf6); display:flex; align-items:center; justify-content:center; font-size:16px;">🎨</div>
+          <span style="flex:1; font-weight:500;">Design</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:var(--bn-s2); font-size:var(--bn-text-sm); color:var(--bn-ink); padding: 4px 0;">
+          <div style="width:32px; height:32px; border-radius: var(--bn-r-sm); background: linear-gradient(135deg, #6ee7b7, #10b981); display:flex; align-items:center; justify-content:center; font-size:16px;">⚙️</div>
+          <span style="flex:1; font-weight:500;">Design Eng</span>
+          <span style="font-family:var(--bn-font-mono); font-size:10px; color:var(--bn-ink-3);">12 new</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--bn-surface); border:1px solid var(--bn-line); border-radius: var(--bn-r-lg); padding: var(--bn-s4);">
+      <div style="font-family: var(--bn-font-display); font-size: var(--bn-text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--bn-ink-3); margin-bottom: var(--bn-s2);">Trending tags</div>
+      <div style="display:flex; flex-wrap:wrap; gap: 6px;">
+        <span style="font-family:var(--bn-font-mono); font-size:11px; padding: 3px 8px; border-radius:var(--bn-r-sm); background: var(--bn-accent-100); color: var(--bn-accent-700); font-weight:600;">#design-systems</span>
+        <span style="font-family:var(--bn-font-mono); font-size:11px; padding: 3px 8px; border-radius:var(--bn-r-sm); background: var(--bn-sunken); color: var(--bn-ink-2);">#react-19</span>
+        <span style="font-family:var(--bn-font-mono); font-size:11px; padding: 3px 8px; border-radius:var(--bn-r-sm); background: var(--bn-sunken); color: var(--bn-ink-2);">#wp-development</span>
+        <span style="font-family:var(--bn-font-mono); font-size:11px; padding: 3px 8px; border-radius:var(--bn-r-sm); background: var(--bn-sunken); color: var(--bn-ink-2);">#agentic-ai</span>
+        <span style="font-family:var(--bn-font-mono); font-size:11px; padding: 3px 8px; border-radius:var(--bn-r-sm); background: var(--bn-sunken); color: var(--bn-ink-2);">#indie</span>
+      </div>
+    </div>
+  </aside>
+`;
+
+document.getElementById('app').innerHTML = renderChrome({
+  active: 'spaces',
+  title: 'Spaces',
+  layout: 'feed',
+  body
+});
+
+document.querySelectorAll('.cat-chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.cat-chip').forEach(s => s.removeAttribute('aria-current'));
+    c.setAttribute('aria-current', 'true');
+  });
+});
+</script>
+</body>
+</html>

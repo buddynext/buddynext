@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en" data-bn-theme="light" data-bn-density="comfortable">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Search</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../chrome.css?v=3">
+<style>
+.search-stack { display: flex; flex-direction: column; gap: var(--bn-s5); }
+
+/* Big search input */
+.search-bar {
+  display: flex; align-items: center; gap: var(--bn-s3);
+  background: var(--bn-surface);
+  border: 1.5px solid var(--bn-line);
+  border-radius: var(--bn-r-lg);
+  padding: 14px var(--bn-s5);
+  font-size: var(--bn-text-lg);
+  transition: border-color var(--bn-dur-fast) var(--bn-ease);
+}
+.search-bar:focus-within { border-color: var(--bn-accent); box-shadow: 0 0 0 4px var(--bn-accent-100); }
+.search-bar svg { width: 22px; height: 22px; color: var(--bn-ink-3); flex-shrink: 0; }
+.search-bar input {
+  flex: 1; border: none; background: transparent;
+  font-family: var(--bn-font-ui);
+  font-size: var(--bn-text-lg); font-weight: 500;
+  color: var(--bn-ink); padding: 0;
+}
+.search-bar input:focus { outline: none; }
+.search-bar .clear {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--bn-sunken); color: var(--bn-ink-2);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 13px; flex-shrink: 0;
+}
+.search-bar .clear:hover { background: var(--bn-line); color: var(--bn-ink); }
+
+/* Result summary */
+.result-summary {
+  font-size: var(--bn-text-sm); color: var(--bn-ink-3);
+  display: flex; align-items: center; gap: var(--bn-s3);
+}
+.result-summary strong { color: var(--bn-ink); font-weight: 600; }
+.result-summary .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--bn-ink-4); display: inline-block; }
+.result-summary kbd {
+  font-family: var(--bn-font-mono);
+  font-size: 11px; padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bn-sunken); color: var(--bn-ink-2);
+  border: 1px solid var(--bn-line-faint);
+}
+
+/* Filter tabs */
+.filter-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--bn-line);
+  margin: 0;
+  align-items: center;
+}
+.ftab {
+  padding: var(--bn-s3) var(--bn-s4);
+  font-size: var(--bn-text-sm); font-weight: 550;
+  color: var(--bn-ink-3); cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: color var(--bn-dur-fast) var(--bn-ease), border-color var(--bn-dur-fast) var(--bn-ease);
+}
+.ftab:hover { color: var(--bn-ink); }
+.ftab[aria-current="true"] { color: var(--bn-ink); border-color: var(--bn-accent); font-weight: 600; }
+.ftab .count {
+  font-size: 10px;
+  background: var(--bn-sunken);
+  color: var(--bn-ink-3);
+  padding: 1px 6px;
+  border-radius: var(--bn-r-full);
+  font-weight: 600;
+  font-family: var(--bn-font-mono);
+}
+.ftab[aria-current="true"] .count { background: var(--bn-accent-100); color: var(--bn-accent-700); }
+.ftab-actions { margin-left: auto; padding-bottom: var(--bn-s2); display: flex; gap: var(--bn-s2); }
+.ftab-action {
+  font-size: var(--bn-text-xs); font-weight: 500;
+  color: var(--bn-ink-2); cursor: pointer;
+  padding: 4px 8px; border-radius: var(--bn-r-sm);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.ftab-action:hover { background: var(--bn-sunken); color: var(--bn-ink); }
+.ftab-action svg { width: 14px; height: 14px; }
+
+/* Section header */
+.section-header {
+  display: flex; align-items: baseline; gap: var(--bn-s2);
+  margin: var(--bn-s4) 0 var(--bn-s3);
+}
+.section-title {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-xs); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--bn-ink-2);
+}
+.section-count {
+  font-family: var(--bn-font-mono);
+  font-size: var(--bn-text-xs);
+  color: var(--bn-ink-3);
+}
+.see-all {
+  margin-left: auto;
+  font-size: var(--bn-text-xs); font-weight: 600;
+  color: var(--bn-accent); cursor: pointer;
+}
+
+/* Result list (unified row pattern) */
+.result-list { display: flex; flex-direction: column; gap: 1px; background: var(--bn-line); border-radius: var(--bn-r-lg); overflow: hidden; border: 1px solid var(--bn-line); }
+.result-row {
+  background: var(--bn-surface);
+  padding: var(--bn-s4);
+  display: flex; gap: var(--bn-s3);
+  align-items: center;
+  cursor: pointer;
+  transition: background var(--bn-dur-fast) var(--bn-ease);
+}
+.result-row:hover { background: var(--bn-sunken); }
+
+/* People row */
+.result-row.is-person .info { flex: 1; min-width: 0; }
+.result-row.is-person .name { font-size: var(--bn-text-base); font-weight: 600; color: var(--bn-ink); }
+.result-row.is-person .name em { font-style: normal; background: var(--bn-warning-bg, #fef9c3); padding: 0 2px; border-radius: 2px; }
+.result-row.is-person .meta { font-size: var(--bn-text-sm); color: var(--bn-ink-3); display: flex; align-items: center; gap: var(--bn-s2); margin-top: 2px; }
+.result-row.is-person .meta strong { color: var(--bn-ink-2); font-weight: 500; }
+
+/* Space row */
+.result-row.is-space .icon {
+  width: 48px; height: 48px;
+  border-radius: var(--bn-r-md);
+  background: var(--bn-accent-100); color: var(--bn-accent-700);
+  font-size: 24px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.result-row.is-space .icon[data-tone="violet"] { background: #ede9fe; color: #6d28d9; }
+.result-row.is-space .icon[data-tone="emerald"] { background: #d1fae5; color: #065f46; }
+.result-row.is-space .icon[data-tone="amber"] { background: #fef3c7; color: #92400e; }
+[data-bn-theme="dark"] .result-row.is-space .icon[data-tone="violet"] { background: rgba(139,92,246,0.2); color: #c4b5fd; }
+[data-bn-theme="dark"] .result-row.is-space .icon[data-tone="emerald"] { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+[data-bn-theme="dark"] .result-row.is-space .icon[data-tone="amber"] { background: rgba(245,158,11,0.2); color: #fcd34d; }
+
+.result-row.is-space .info { flex: 1; min-width: 0; }
+.result-row.is-space .name { font-size: var(--bn-text-base); font-weight: 600; color: var(--bn-ink); }
+.result-row.is-space .name em { font-style: normal; background: var(--bn-warning-bg, #fef9c3); padding: 0 2px; border-radius: 2px; }
+.result-row.is-space .meta { font-size: var(--bn-text-sm); color: var(--bn-ink-3); margin-top: 2px; }
+.result-row.is-space .desc { font-size: var(--bn-text-sm); color: var(--bn-ink-2); margin-top: 4px; line-height: 1.45; }
+
+/* Post row */
+.result-row.is-post {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  align-items: start;
+  gap: var(--bn-s3);
+}
+.result-row.is-post .body { min-width: 0; }
+.result-row.is-post .head {
+  display: flex; align-items: center; gap: var(--bn-s2);
+  font-size: var(--bn-text-xs); color: var(--bn-ink-3);
+  margin-bottom: 4px;
+}
+.result-row.is-post .head .author { color: var(--bn-ink-2); font-weight: 600; }
+.result-row.is-post .text {
+  font-size: var(--bn-text-sm);
+  color: var(--bn-ink-2); line-height: 1.55;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.result-row.is-post .text em { font-style: normal; background: var(--bn-warning-bg, #fef9c3); padding: 0 2px; border-radius: 2px; color: var(--bn-ink); font-weight: 500; }
+.result-row.is-post .foot { font-size: var(--bn-text-xs); color: var(--bn-ink-3); display: flex; gap: var(--bn-s3); margin-top: var(--bn-s2); }
+[data-bn-theme="dark"] .text em, [data-bn-theme="dark"] .name em { background: rgba(245,158,11,0.25); color: var(--bn-ink); }
+
+/* Hashtag row */
+.result-row.is-hashtag .tag {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-lg); font-weight: 700;
+  color: var(--bn-ink); flex: 1;
+}
+.result-row.is-hashtag .stat {
+  font-family: var(--bn-font-mono);
+  font-size: var(--bn-text-xs); color: var(--bn-ink-3);
+}
+.result-row.is-hashtag .spark {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  font-family: var(--bn-font-mono);
+  font-size: var(--bn-text-xs); color: var(--bn-success, #059669);
+}
+
+/* Filter sidebar */
+.aside-card {
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-lg);
+  padding: var(--bn-s4);
+  display: flex; flex-direction: column; gap: var(--bn-s3);
+}
+.aside-title {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-xs); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--bn-ink-3);
+}
+.fopt {
+  display: flex; align-items: center; gap: var(--bn-s2);
+  font-size: var(--bn-text-sm); color: var(--bn-ink-2);
+  cursor: pointer; padding: 3px 0;
+}
+.fopt input { accent-color: var(--bn-accent); width: 15px; height: 15px; cursor: pointer; }
+.fopt .count { margin-left: auto; font-family: var(--bn-font-mono); font-size: 11px; color: var(--bn-ink-3); }
+.fopt:hover { color: var(--bn-ink); }
+
+.recent-row {
+  display: flex; align-items: center; gap: var(--bn-s2);
+  font-size: var(--bn-text-sm); color: var(--bn-ink-2);
+  padding: 5px 0;
+  cursor: pointer;
+}
+.recent-row:hover { color: var(--bn-ink); }
+.recent-row svg { width: 14px; height: 14px; color: var(--bn-ink-4); }
+.recent-row .x { margin-left: auto; color: var(--bn-ink-4); font-size: 16px; line-height: 1; opacity: 0; padding: 0 4px; }
+.recent-row:hover .x { opacity: 1; }
+.recent-row .x:hover { color: var(--bn-ink); }
+
+</style>
+</head>
+<body>
+<div class="bn-app" id="app"></div>
+
+<script src="../chrome.js"></script>
+<script>
+const body = `
+  <div class="bn-page-main search-stack">
+
+    <!-- Search input -->
+    <div class="search-bar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input value="design system" />
+      <span class="clear">×</span>
+    </div>
+
+    <!-- Result summary -->
+    <div class="result-summary">
+      <strong>342</strong> results for <strong>"design system"</strong>
+      <span class="dot"></span>
+      <span>Sorted by relevance</span>
+      <span class="dot"></span>
+      <span>Searched 0.18s</span>
+      <span style="margin-left:auto;"></span>
+      <span>Press <kbd>/</kbd> to focus</span>
+    </div>
+
+    <!-- Type filter tabs -->
+    <div class="filter-tabs">
+      <span class="ftab" aria-current="true">All <span class="count">342</span></span>
+      <span class="ftab">People <span class="count">28</span></span>
+      <span class="ftab">Posts <span class="count">214</span></span>
+      <span class="ftab">Spaces <span class="count">12</span></span>
+      <span class="ftab">Hashtags <span class="count">9</span></span>
+      <span class="ftab">Forums <span class="count">61</span></span>
+      <span class="ftab">Media <span class="count">18</span></span>
+      <div class="ftab-actions">
+        <span class="ftab-action">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M7 12h10M10 18h4"/></svg>
+          Sort: Relevance
+        </span>
+        <span class="ftab-action">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          All time
+        </span>
+      </div>
+    </div>
+
+    <!-- People section -->
+    <div class="section-header">
+      <span class="section-title">People</span>
+      <span class="section-count">3 of 28</span>
+      <span class="see-all">See all →</span>
+    </div>
+    <div class="result-list">
+      <div class="result-row is-person">
+        <div class="bn-avatar" data-size="md" data-presence="online">EL</div>
+        <div class="info">
+          <div class="name">Elena López</div>
+          <div class="meta"><strong>Design researcher</strong> · spaces design-eng, founders · 12 mutual</div>
+        </div>
+        <button class="bn-btn" data-variant="primary" data-size="sm">Follow</button>
+        <button class="bn-btn" data-variant="ghost" data-size="sm">Message</button>
+      </div>
+      <div class="result-row is-person">
+        <div class="bn-avatar" data-size="md">YK</div>
+        <div class="info">
+          <div class="name">Yuki Kobayashi</div>
+          <div class="meta"><strong>Tokyo · Typography</strong> · 87 posts mentioning <em>design</em> + <em>system</em></div>
+        </div>
+        <button class="bn-btn" data-variant="primary" data-size="sm">Follow</button>
+        <button class="bn-btn" data-variant="ghost" data-size="sm">Message</button>
+      </div>
+      <div class="result-row is-person">
+        <div class="bn-avatar" data-size="md" data-presence="away">AJ</div>
+        <div class="info">
+          <div class="name">Alex Johnson</div>
+          <div class="meta"><strong>Mod, Web Dev</strong> · joined Feb 2024 · 4 mutual</div>
+        </div>
+        <button class="bn-btn" data-variant="secondary" data-size="sm">Following</button>
+        <button class="bn-btn" data-variant="ghost" data-size="sm">Message</button>
+      </div>
+    </div>
+
+    <!-- Spaces section -->
+    <div class="section-header">
+      <span class="section-title">Spaces</span>
+      <span class="section-count">2 of 12</span>
+      <span class="see-all">See all →</span>
+    </div>
+    <div class="result-list">
+      <div class="result-row is-space">
+        <div class="icon" data-tone="violet">🎨</div>
+        <div class="info">
+          <div class="name"><em>Design</em> <em>System</em>s WP</div>
+          <div class="meta">Public · 1,284 members · 12 online</div>
+          <div class="desc">For folks building, shipping, and maintaining design systems for WordPress products.</div>
+        </div>
+        <button class="bn-btn" data-variant="primary" data-size="sm">Join</button>
+      </div>
+      <div class="result-row is-space">
+        <div class="icon" data-tone="emerald">⚙️</div>
+        <div class="info">
+          <div class="name">Design Eng</div>
+          <div class="meta">Public · 412 members · 8 online · joined</div>
+          <div class="desc">Where design and engineering meet. Tokens, components, code reviews.</div>
+        </div>
+        <button class="bn-btn" data-variant="secondary" data-size="sm">Open</button>
+      </div>
+    </div>
+
+    <!-- Posts section -->
+    <div class="section-header">
+      <span class="section-title">Posts</span>
+      <span class="section-count">5 of 214</span>
+      <span class="see-all">See all →</span>
+    </div>
+    <div class="result-list">
+      <div class="result-row is-post">
+        <div class="bn-avatar" data-size="sm">MK</div>
+        <div class="body">
+          <div class="head">
+            <span class="author">Marcus Kim</span>
+            <span>·</span>
+            <span>in #design-eng</span>
+            <span>·</span>
+            <span>3d ago</span>
+          </div>
+          <div class="text">After two years of running our internal <em>design system</em>, here are the 5 things I'd do differently. The biggest one: don't ship tokens before you've shipped 3 components using them.</div>
+          <div class="foot"><span>♡ 142</span><span>💬 28 replies</span><span>↺ 31 reposts</span></div>
+        </div>
+      </div>
+      <div class="result-row is-post">
+        <div class="bn-avatar" data-size="sm">EL</div>
+        <div class="body">
+          <div class="head">
+            <span class="author">Elena López</span>
+            <span>·</span>
+            <span>in #typography</span>
+            <span>·</span>
+            <span>1w ago</span>
+          </div>
+          <div class="text">Hot take: a <em>design</em> <em>system</em> without a content style guide is just a sticker sheet. Voice & tone do more for product cohesion than 200 components.</div>
+          <div class="foot"><span>♡ 287</span><span>💬 41 replies</span><span>↺ 62 reposts</span></div>
+        </div>
+      </div>
+      <div class="result-row is-post">
+        <div class="bn-avatar" data-size="sm">YK</div>
+        <div class="body">
+          <div class="head">
+            <span class="author">Yuki Kobayashi</span>
+            <span>·</span>
+            <span>in #design-eng</span>
+            <span>·</span>
+            <span>2w ago</span>
+          </div>
+          <div class="text">When your <em>design system</em> docs site has a 47-step setup, the <em>system</em> has failed. Adoption is the only metric that matters in year one.</div>
+          <div class="foot"><span>♡ 198</span><span>💬 18 replies</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hashtags section -->
+    <div class="section-header">
+      <span class="section-title">Hashtags</span>
+      <span class="section-count">3 of 9</span>
+    </div>
+    <div class="result-list">
+      <div class="result-row is-hashtag">
+        <span class="tag">#design-systems</span>
+        <span class="stat">287 posts · 1.8k views/wk</span>
+        <span class="spark">↑ 14%</span>
+      </div>
+      <div class="result-row is-hashtag">
+        <span class="tag">#design-eng</span>
+        <span class="stat">412 posts · 2.1k views/wk</span>
+        <span class="spark">↑ 28%</span>
+      </div>
+      <div class="result-row is-hashtag">
+        <span class="tag">#designops</span>
+        <span class="stat">98 posts · 612 views/wk</span>
+        <span class="spark" style="color:var(--bn-ink-3);">— flat</span>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:center; padding: var(--bn-s5) 0;">
+      <button class="bn-btn" data-variant="secondary">Show more results</button>
+    </div>
+
+  </div>
+
+  <!-- ─── ASIDE ─── -->
+  <aside class="bn-page-aside">
+
+    <div class="aside-card">
+      <div class="aside-title">Date</div>
+      <label class="fopt"><input type="radio" name="date" checked><span>Any time</span></label>
+      <label class="fopt"><input type="radio" name="date"><span>Past day</span></label>
+      <label class="fopt"><input type="radio" name="date"><span>Past week</span></label>
+      <label class="fopt"><input type="radio" name="date"><span>Past month</span></label>
+      <label class="fopt"><input type="radio" name="date"><span>Past year</span></label>
+      <label class="fopt"><input type="radio" name="date"><span>Custom range…</span></label>
+    </div>
+
+    <div class="aside-card">
+      <div class="aside-title">In space</div>
+      <label class="fopt"><input type="checkbox" checked><span>All spaces</span></label>
+      <label class="fopt"><input type="checkbox"><span>Design Eng</span><span class="count">87</span></label>
+      <label class="fopt"><input type="checkbox"><span>Web Dev</span><span class="count">62</span></label>
+      <label class="fopt"><input type="checkbox"><span>Founders Lounge</span><span class="count">28</span></label>
+      <label class="fopt"><input type="checkbox"><span>Indie Hackers WP</span><span class="count">14</span></label>
+    </div>
+
+    <div class="aside-card">
+      <div class="aside-title">Author type</div>
+      <label class="fopt"><input type="checkbox"><span>Following</span><span class="count">48</span></label>
+      <label class="fopt"><input type="checkbox"><span>Mods + admins</span><span class="count">22</span></label>
+      <label class="fopt"><input type="checkbox"><span>Verified</span><span class="count">9</span></label>
+    </div>
+
+    <div class="aside-card">
+      <div class="aside-title">Recent searches</div>
+      <div class="recent-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <span>react 19 suspense</span>
+        <span class="x">×</span>
+      </div>
+      <div class="recent-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <span>federation activitypub</span>
+        <span class="x">×</span>
+      </div>
+      <div class="recent-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <span>onboarding flow</span>
+        <span class="x">×</span>
+      </div>
+      <div class="recent-row" style="color:var(--bn-accent); font-weight:600; padding-top: var(--bn-s2);">
+        Clear history
+      </div>
+    </div>
+
+  </aside>
+`;
+
+document.getElementById('app').innerHTML = renderChrome({
+  active: 'explore',
+  title: 'Search',
+  layout: 'feed',
+  body
+});
+
+document.querySelectorAll('.ftab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.ftab').forEach(s => s.removeAttribute('aria-current'));
+    t.setAttribute('aria-current', 'true');
+  });
+});
+</script>
+</body>
+</html>

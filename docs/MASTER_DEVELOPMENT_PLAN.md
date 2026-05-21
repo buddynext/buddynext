@@ -15,7 +15,7 @@
 | **Template Audit** | `docs/TEMPLATE_AUDIT_BUGS.md` | Phases A-L execution tracking (all complete) |
 | **Plugin CLAUDE.md** | `CLAUDE.md` | Coding standards, design tokens, file conventions |
 | **Feature Specs** | `docs/specs/features/` | 20 free + 6 Pro locked specs |
-| **HTML Mockups** | `.superpowers/brainstorm/14544-1773947712/` | 48 HTML wireframes — pixel-match targets |
+| **Design System** | `docs/v2 Plans/` | v2 prototypes + `tokens.css` + `PLAN.md` (canonical UI source) |
 
 ---
 
@@ -57,43 +57,33 @@
 | P5 Analytics | `docs/specs/features/P5-analytics.md` |
 | P6 White-label | `docs/specs/features/P6-white-label.md` |
 
-### HTML Wireframes
-`docs/superpowers/brainstorm/14544-1773947712/` — 48 files
+### Design System
 
-| Screen | File | Mobile variant |
-|--------|------|----------------|
-| Home feed | `home-feed.html` | `mobile-home-feed.html` |
-| Explore feed | `explore-feed.html` | `mobile-explore-feed.html` |
-| User profile (view) | `user-profile.html` | `mobile-user-profile.html` |
-| Edit profile | `edit-profile.html` | — |
-| Member directory | `member-directory.html` | — |
-| Spaces directory | `spaces-directory.html` | — |
-| Space home | `space-home.html` | `mobile-space-home.html` |
-| Space settings | `space-settings.html` | — |
-| Space moderation | `space-moderation.html` | — |
-| Community admin | `community-admin.html` | — |
-| DM list | `dm-list.html` | — |
-| DM thread | `dm-thread.html` | `mobile-dm-thread.html` |
-| Message requests | `message-requests.html` | — |
-| Notifications | `notifications.html` | `mobile-notifications.html` |
-| Search results | `search-results.html` | — |
-| Hashtag feed | `hashtag-feed.html` | — |
-| Register / Login | `register-login.html` | `mobile-register-login.html` |
-| Onboarding | `onboarding.html` | `mobile-onboarding.html` |
-| Leaderboard | `leaderboard.html` | — |
-| Widgets + Blocks | `widgets-blocks.html` | — |
-| Forum listing | `forum-listing.html` | `mobile-forum-listing.html` |
-| Forum thread | `forum-thread.html` | `mobile-forum-thread.html` |
-| Moderation queue | `moderation-queue.html` | — |
-| Admin: Settings | `admin-settings.html` | — |
-| Admin: Members | `admin-members.html` | — |
-| Admin: Spaces | `admin-spaces.html` | — |
-| Admin: Nav Manager | `admin-nav-manager.html` | — |
-| Admin: Integration Hub | `admin-integration-hub.html` | — |
-| Admin: Analytics | `admin-analytics.html` | — |
-| Admin: Email Editor | `email-editor.html` | — |
-| Style Guide | `style-guide.html` | — |
-| Views overview | `views-overview.html` | — |
+`docs/v2 Plans/` — canonical v2 design source. The prior brainstorm wireframes have been removed; v2 prototypes are the only UI reference.
+
+| Surface | v2 prototype |
+|---|---|
+| Home feed | `docs/v2 Plans/v2/home-feed.html` |
+| Explore feed | `docs/v2 Plans/v2/explore-feed.html` |
+| Post detail | `docs/v2 Plans/v2/post-detail.html` |
+| User profile (view) | `docs/v2 Plans/v2/user-profile.html` |
+| Member directory | `docs/v2 Plans/v2/member-directory.html` |
+| Spaces directory | `docs/v2 Plans/v2/spaces-directory.html` |
+| Space home | `docs/v2 Plans/v2/space-home.html` |
+| DM list | `docs/v2 Plans/v2/dm-list.html` |
+| DM thread | `docs/v2 Plans/v2/dm-thread.html` |
+| Notifications | `docs/v2 Plans/v2/notifications.html` |
+| Search results | `docs/v2 Plans/v2/search-results.html` |
+| Onboarding | `docs/v2 Plans/v2/onboarding.html` |
+| Admin chrome (all admin pages) | `docs/v2 Plans/v2/admin.html` |
+| Hub navigation index | `docs/v2 Plans/v2/index.html` |
+| Mobile responsive shell | `docs/v2 Plans/v2/mobile.html` |
+| Style guide canon | `docs/v2 Plans/style-guide.html` |
+| Token + primitive source | `docs/v2 Plans/tokens.css` |
+| Surface-to-prototype map + composition rules + uniformity gates | `docs/v2 Plans/PLAN.md` |
+| Engineering review of v2 | `docs/v2 Plans/REVIEW.md` |
+
+Surfaces without a direct prototype (profile edit, space settings/moderation, hashtag feed, auth, moderation queue, Pro admin pages, etc.) compose from v2 primitives per `docs/v2 Plans/PLAN.md` Part 3 — never from any other design source.
 
 ### Implementation Plans
 `docs/superpowers/plans/`
@@ -993,17 +983,19 @@ Works out of the box on every theme — block themes, BuddyX, Reign, and classic
 
 ## Design System Reference
 
-Full token reference in: `.superpowers/brainstorm/14544-1773947712/style-guide.html`
-All 44 screen mockups in: `.superpowers/brainstorm/14544-1773947712/`
+Full token + primitive source: `docs/v2 Plans/tokens.css`
+Style-guide canon: `docs/v2 Plans/style-guide.html`
+v2 prototypes for major pages: `docs/v2 Plans/v2/*.html`
+Plan + composition rules + uniformity gates: `docs/v2 Plans/PLAN.md`
 
 ### Key Rules
-- CSS custom properties only — no inline `color:`, no hardcoded pixel values outside variables
-- Every new component must have a dark mode equivalent in `[data-theme="dark"]`
-- Spacing always uses `--s*` variables
-- Radius always uses `--r-*` variables
-- Typography always uses `--text-*` + `--font-body`/`--font-display`
-- Never use `font-weight: bold` — use numeric weights (500, 600, 700)
-- Focus states: `outline: 2px solid var(--brand); outline-offset: 2px;`
+- CSS custom properties only — no inline `color:`, no hardcoded pixel values outside `:root`.
+- Every component must support `[data-bn-theme="dark"]` (legacy `[data-theme="dark"]` still accepted).
+- Spacing uses `--bn-s1` … `--bn-s16`.
+- Radius uses `--bn-r-sm` / `-md` / `-lg` / `-xl` / `-full`.
+- Typography uses `--bn-font-ui` / `--bn-font-display` / `--bn-font-mono` + `--bn-text-*`.
+- Never `font-weight: bold` — use numeric weights (500, 600, 700, 800).
+- Focus states: `box-shadow: var(--bn-ring); outline: none;` (the ring carries the visible focus indicator).
 
 ---
 

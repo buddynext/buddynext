@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="en" data-bn-theme="light" data-bn-density="comfortable">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Welcome</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* ─── Onboarding shell ─── */
+* { box-sizing: border-box; }
+body {
+  font-family: var(--bn-font-sans);
+  background: var(--bn-canvas);
+  color: var(--bn-ink);
+  margin: 0; padding: 0;
+  min-height: 100vh;
+}
+
+.ob-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 960px) {
+  .ob-shell { grid-template-columns: 1fr; }
+  .ob-canvas { display: none; }
+}
+
+/* ─── Left: form column ─── */
+.ob-form {
+  background: var(--bn-surface);
+  display: flex; flex-direction: column;
+  padding: var(--bn-s5) var(--bn-s7);
+  min-height: 100vh;
+  position: relative;
+}
+@media (max-width: 720px) { .ob-form { padding: var(--bn-s5); } }
+
+.ob-form-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--bn-s8);
+}
+.ob-brand {
+  display: flex; align-items: center; gap: var(--bn-s2);
+  font-family: var(--bn-font-display);
+  font-weight: 700;
+  font-size: var(--bn-text-md);
+  color: var(--bn-ink);
+  letter-spacing: -0.01em;
+}
+.ob-brand-mark {
+  width: 30px; height: 30px;
+  background: var(--bn-accent);
+  border-radius: var(--bn-r-sm);
+  color: var(--bn-accent-fg);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--bn-font-display);
+  font-weight: 800;
+  font-size: 17px;
+}
+.ob-brand b { color: var(--bn-accent); font-weight: 800; padding: 0 1px; }
+
+.ob-skip {
+  font-family: var(--bn-font-mono);
+  font-size: 12px;
+  color: var(--bn-ink-3);
+  text-decoration: none;
+  cursor: pointer;
+}
+.ob-skip:hover { color: var(--bn-accent); }
+
+/* Stepper */
+.ob-stepper {
+  display: flex; align-items: center;
+  gap: var(--bn-s2);
+  margin-bottom: var(--bn-s5);
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+  color: var(--bn-ink-4);
+  letter-spacing: 0.04em;
+}
+.ob-stepper-track {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+}
+.ob-stepper-cell {
+  flex: 1;
+  height: 4px;
+  background: var(--bn-sunken);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+.ob-stepper-cell.done { background: var(--bn-accent); }
+.ob-stepper-cell.current {
+  background: var(--bn-sunken);
+}
+.ob-stepper-cell.current::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--bn-accent);
+  width: var(--progress, 60%);
+  border-radius: 2px;
+}
+.ob-stepper-num {
+  font-weight: 600;
+  color: var(--bn-ink-2);
+  white-space: nowrap;
+}
+.ob-stepper-num b { color: var(--bn-accent); }
+
+/* Form body */
+.ob-form-body {
+  flex: 1;
+  display: flex; flex-direction: column;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+}
+.ob-step-meta {
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bn-accent);
+  margin-bottom: var(--bn-s2);
+}
+.ob-h1 {
+  font-family: var(--bn-font-display);
+  font-size: clamp(28px, 4vw, var(--bn-text-3xl));
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--bn-ink);
+  line-height: 1.1;
+  margin-bottom: var(--bn-s3);
+}
+.ob-lead {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--bn-ink-2);
+  margin-bottom: var(--bn-s6);
+  max-width: 440px;
+}
+.ob-lead a { color: var(--bn-accent); text-decoration: none; }
+
+/* Inputs */
+.ob-field { margin-bottom: var(--bn-s4); }
+.ob-label {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bn-ink-2);
+  margin-bottom: 6px;
+}
+.ob-label-help {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.ob-input {
+  width: 100%;
+  height: 42px;
+  padding: 0 var(--bn-s3);
+  background: var(--bn-canvas);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-md);
+  color: var(--bn-ink);
+  font: inherit; font-size: 14px;
+  outline: none;
+  transition: all var(--bn-dur) var(--bn-ease);
+}
+.ob-input:focus {
+  border-color: var(--bn-accent);
+  box-shadow: 0 0 0 3px var(--bn-accent-100);
+}
+.ob-input::placeholder { color: var(--bn-ink-4); }
+.ob-input-prefix {
+  display: flex; align-items: stretch;
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-md);
+  background: var(--bn-canvas);
+  transition: all var(--bn-dur) var(--bn-ease);
+  height: 42px;
+}
+.ob-input-prefix:focus-within {
+  border-color: var(--bn-accent);
+  box-shadow: 0 0 0 3px var(--bn-accent-100);
+}
+.ob-input-prefix-prefix {
+  background: var(--bn-sunken);
+  border-right: 1px solid var(--bn-line);
+  font-family: var(--bn-font-mono);
+  font-size: 13px;
+  color: var(--bn-ink-3);
+  padding: 0 var(--bn-s3);
+  display: inline-flex; align-items: center;
+  border-radius: var(--bn-r-md) 0 0 var(--bn-r-md);
+}
+.ob-input-prefix .ob-input {
+  border: none; border-radius: 0;
+  height: auto;
+}
+.ob-input-prefix .ob-input:focus { box-shadow: none; }
+.ob-input-prefix-status {
+  display: inline-flex; align-items: center;
+  padding-right: var(--bn-s3);
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+}
+.ob-input-prefix-status.ok { color: oklch(58% 0.16 155); }
+.ob-input-prefix-status.bad { color: oklch(58% 0.20 25); }
+
+textarea.ob-input {
+  height: auto; min-height: 90px;
+  padding: var(--bn-s3);
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.ob-charcount {
+  display: flex; justify-content: flex-end;
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+  margin-top: 4px;
+}
+
+/* OAuth row */
+.ob-oauth {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bn-s2);
+  margin-bottom: var(--bn-s4);
+}
+.ob-oauth-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px;
+  background: var(--bn-canvas);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-md);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bn-ink);
+  cursor: pointer;
+  transition: all var(--bn-dur-fast) var(--bn-ease);
+}
+.ob-oauth-btn:hover { border-color: var(--bn-accent); background: var(--bn-accent-100); }
+.ob-oauth-btn svg { width: 16px; height: 16px; }
+
+.ob-divider {
+  display: flex; align-items: center; gap: var(--bn-s3);
+  margin: var(--bn-s4) 0;
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ob-divider::before, .ob-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--bn-line);
+}
+
+/* Pickable cards (interest selector etc.) */
+.ob-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--bn-s2);
+  margin-bottom: var(--bn-s4);
+}
+.ob-pick {
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-md);
+  padding: var(--bn-s3);
+  background: var(--bn-canvas);
+  cursor: pointer;
+  display: flex; gap: var(--bn-s3); align-items: center;
+  transition: all var(--bn-dur) var(--bn-ease);
+  position: relative;
+  text-align: left;
+  font: inherit;
+}
+.ob-pick:hover {
+  border-color: var(--bn-ink-3);
+  transform: translateY(-1px);
+}
+.ob-pick.selected {
+  border-color: var(--bn-accent);
+  background: var(--bn-accent-100);
+}
+.ob-pick.selected::before {
+  content: '✓';
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 16px; height: 16px;
+  background: var(--bn-accent);
+  color: var(--bn-accent-fg);
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+}
+.ob-pick-emblem {
+  width: 36px; height: 36px;
+  border-radius: var(--bn-r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bn-sunken);
+  font-family: var(--bn-font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--bn-ink-2);
+  flex-shrink: 0;
+}
+.ob-pick.selected .ob-pick-emblem {
+  background: var(--bn-accent);
+  color: var(--bn-accent-fg);
+}
+.ob-pick-info { flex: 1; min-width: 0; }
+.ob-pick-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bn-ink);
+  margin-bottom: 1px;
+}
+.ob-pick-meta {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+}
+
+/* Skill tag picker */
+.ob-tag-picker {
+  display: flex; flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-md);
+  background: var(--bn-canvas);
+  margin-bottom: var(--bn-s4);
+  min-height: 80px;
+}
+.ob-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+  background: var(--bn-sunken);
+  color: var(--bn-ink-2);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--bn-dur-fast) var(--bn-ease);
+}
+.ob-tag:hover { border-color: var(--bn-accent); color: var(--bn-accent); }
+.ob-tag.selected {
+  background: var(--bn-accent);
+  color: var(--bn-accent-fg);
+  border-color: var(--bn-accent);
+}
+.ob-tag.selected::before { content: '✓ '; }
+.ob-tag-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font: inherit;
+  font-size: 13px;
+  flex: 1; min-width: 80px;
+  color: var(--bn-ink);
+}
+
+/* People to follow */
+.ob-people {
+  display: flex; flex-direction: column;
+  gap: var(--bn-s2);
+  margin-bottom: var(--bn-s4);
+}
+.ob-person {
+  display: flex; align-items: center; gap: var(--bn-s3);
+  padding: var(--bn-s3);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-md);
+  background: var(--bn-canvas);
+}
+.ob-person-avatar {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: white;
+  font-family: var(--bn-font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.ob-person-info { flex: 1; min-width: 0; }
+.ob-person-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--bn-ink);
+  display: flex; align-items: center; gap: 6px;
+}
+.ob-person-name .verified {
+  color: var(--bn-accent);
+  font-size: 11px;
+}
+.ob-person-bio {
+  font-size: 12px;
+  color: var(--bn-ink-3);
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ob-person-meta {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+  margin-top: 2px;
+}
+.ob-follow-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--bn-line);
+  background: var(--bn-canvas);
+  border-radius: var(--bn-r-sm);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bn-ink-2);
+  cursor: pointer;
+  transition: all var(--bn-dur-fast) var(--bn-ease);
+}
+.ob-follow-btn:hover { border-color: var(--bn-accent); color: var(--bn-accent); }
+.ob-follow-btn.following {
+  background: var(--bn-accent);
+  color: var(--bn-accent-fg);
+  border-color: var(--bn-accent);
+}
+.ob-follow-btn.following::before { content: '✓ '; }
+
+/* Form footer */
+.ob-form-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: auto;
+  padding-top: var(--bn-s5);
+  gap: var(--bn-s3);
+  border-top: 1px solid var(--bn-line);
+}
+.ob-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px var(--bn-s3);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--bn-ink-3);
+  font: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--bn-r-md);
+}
+.ob-back:hover { color: var(--bn-ink); background: var(--bn-sunken); }
+.ob-back svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; }
+
+.ob-cta {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 11px var(--bn-s5);
+  background: var(--bn-ink);
+  color: var(--bn-canvas);
+  border: 1px solid var(--bn-ink);
+  border-radius: var(--bn-r-md);
+  font: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  transition: all var(--bn-dur-fast) var(--bn-ease);
+}
+.ob-cta:hover { transform: translateY(-1px); box-shadow: 0 4px 16px color-mix(in oklch, var(--bn-ink) 18%, transparent); }
+.ob-cta svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; }
+.ob-cta-secondary {
+  background: var(--bn-canvas);
+  color: var(--bn-ink-3);
+  border-color: var(--bn-line);
+}
+.ob-cta-secondary:hover { color: var(--bn-ink); border-color: var(--bn-ink-3); box-shadow: none; }
+
+.ob-shortcut {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-4);
+}
+.ob-shortcut kbd {
+  font-family: inherit;
+  background: var(--bn-sunken);
+  border: 1px solid var(--bn-line);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+/* ─── Right: canvas (illustration + side info) ─── */
+.ob-canvas {
+  background:
+    radial-gradient(circle at 25% 30%, color-mix(in oklch, var(--bn-accent) 20%, transparent), transparent 55%),
+    radial-gradient(circle at 80% 70%, color-mix(in oklch, oklch(60% 0.20 290) 18%, transparent), transparent 50%),
+    var(--bn-canvas);
+  position: relative;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  padding: var(--bn-s7);
+}
+.ob-canvas::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(-30deg, transparent 0 28px, color-mix(in oklch, var(--bn-ink) 4%, transparent) 28px 29px);
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.ob-canvas-inner {
+  position: relative;
+  z-index: 1;
+  display: flex; flex-direction: column;
+  height: 100%;
+}
+
+.ob-canvas-quote {
+  font-family: var(--bn-font-display);
+  font-size: clamp(20px, 2.5vw, 28px);
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--bn-ink);
+  margin-top: var(--bn-s5);
+  max-width: 460px;
+}
+.ob-canvas-quote::before {
+  content: '"';
+  font-size: 1.4em;
+  font-weight: 700;
+  color: var(--bn-accent);
+  margin-right: 6px;
+  line-height: 0;
+}
+.ob-canvas-cite {
+  display: flex; align-items: center; gap: var(--bn-s3);
+  margin-top: var(--bn-s4);
+}
+.ob-canvas-cite-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, oklch(70% 0.16 60), oklch(60% 0.18 50));
+  color: white;
+  font-family: var(--bn-font-mono);
+  font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13px;
+}
+.ob-canvas-cite-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bn-ink);
+}
+.ob-canvas-cite-role {
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+  color: var(--bn-ink-3);
+}
+
+/* Mock cards floating in canvas */
+.ob-canvas-mock {
+  margin-top: auto;
+  display: flex; flex-direction: column; gap: var(--bn-s2);
+}
+.ob-mock-card {
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-md);
+  padding: var(--bn-s3);
+  box-shadow: var(--bn-shadow-sm);
+  display: flex; gap: var(--bn-s3);
+  align-items: center;
+  font-size: 12px;
+  position: relative;
+}
+.ob-mock-card.tilt-l { transform: rotate(-1.5deg); }
+.ob-mock-card.tilt-r { transform: rotate(1deg); }
+.ob-mock-emblem {
+  width: 36px; height: 36px;
+  border-radius: var(--bn-r-sm);
+  background: linear-gradient(135deg, var(--bn-accent-100), var(--bn-surface));
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--bn-font-display);
+  font-weight: 700;
+  color: var(--bn-accent);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.ob-mock-info { flex: 1; min-width: 0; }
+.ob-mock-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bn-ink);
+}
+.ob-mock-meta {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-ink-3);
+  margin-top: 1px;
+}
+.ob-mock-action {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  color: var(--bn-accent);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Step navigator at top of canvas */
+.ob-canvas-nav {
+  display: flex; flex-direction: column; gap: var(--bn-s1);
+}
+.ob-canvas-nav-item {
+  display: flex; align-items: center; gap: var(--bn-s2);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--bn-ink-3);
+  border-radius: var(--bn-r-sm);
+  position: relative;
+  cursor: pointer;
+}
+.ob-canvas-nav-item:hover { background: color-mix(in oklch, var(--bn-ink) 4%, transparent); }
+.ob-canvas-nav-num {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--bn-sunken);
+  border: 1px solid var(--bn-line);
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--bn-ink-3);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.ob-canvas-nav-item.done { color: var(--bn-ink-2); }
+.ob-canvas-nav-item.done .ob-canvas-nav-num {
+  background: var(--bn-accent);
+  border-color: var(--bn-accent);
+  color: var(--bn-accent-fg);
+}
+.ob-canvas-nav-item.current {
+  color: var(--bn-ink);
+  font-weight: 600;
+}
+.ob-canvas-nav-item.current .ob-canvas-nav-num {
+  background: var(--bn-ink);
+  border-color: var(--bn-ink);
+  color: var(--bn-canvas);
+}
+.ob-canvas-nav-item.current::before {
+  content: '';
+  position: absolute;
+  left: -16px; top: 50%;
+  width: 8px; height: 8px;
+  background: var(--bn-accent);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--bn-accent) 25%, transparent);
+}
+
+/* Step section (only one visible at a time) */
+.ob-step { display: none; }
+.ob-step.active { display: flex; flex-direction: column; flex: 1; }
+
+/* Final celebration step */
+.ob-final {
+  display: none;
+  align-items: center;
+  text-align: center;
+  flex-direction: column;
+  flex: 1;
+  justify-content: center;
+}
+.ob-final.active { display: flex; }
+.ob-final-ring {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  background: var(--bn-accent);
+  color: var(--bn-accent-fg);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 48px;
+  margin-bottom: var(--bn-s4);
+  box-shadow: 0 0 0 8px var(--bn-accent-100), 0 8px 32px color-mix(in oklch, var(--bn-accent) 30%, transparent);
+}
+.ob-final-actions {
+  display: flex; gap: var(--bn-s2);
+  margin-top: var(--bn-s5);
+}
+.ob-final-stats {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: var(--bn-s5);
+  margin-top: var(--bn-s5);
+  padding: var(--bn-s4) var(--bn-s5);
+  background: var(--bn-canvas);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-md);
+}
+.ob-final-stat-num {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-xl);
+  font-weight: 700;
+  color: var(--bn-ink);
+}
+.ob-final-stat-lbl {
+  font-family: var(--bn-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bn-ink-4);
+  margin-top: 2px;
+}
+
+/* Avatar upload */
+.ob-avatar-row {
+  display: flex; align-items: center; gap: var(--bn-s4);
+  margin-bottom: var(--bn-s4);
+}
+.ob-avatar-upload {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--bn-accent-100), var(--bn-sunken));
+  border: 2px dashed var(--bn-line);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  font-family: var(--bn-font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--bn-accent);
+  transition: all var(--bn-dur) var(--bn-ease);
+}
+.ob-avatar-upload:hover { border-style: solid; border-color: var(--bn-accent); }
+.ob-avatar-upload-cam {
+  position: absolute;
+  bottom: -4px; right: -4px;
+  width: 28px; height: 28px;
+  background: var(--bn-ink);
+  color: var(--bn-canvas);
+  border: 3px solid var(--bn-surface);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.ob-avatar-upload-cam svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2; fill: none; }
+.ob-avatar-upload-info {
+  font-size: 12px;
+  color: var(--bn-ink-3);
+  line-height: 1.5;
+}
+.ob-avatar-upload-info b { color: var(--bn-ink); display: block; font-size: 13px; margin-bottom: 2px; }
+
+/* Notification preference toggles */
+.ob-notif-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--bn-s3);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-md);
+  background: var(--bn-canvas);
+  margin-bottom: var(--bn-s2);
+}
+.ob-notif-info { flex: 1; }
+.ob-notif-name { font-size: 13.5px; font-weight: 600; color: var(--bn-ink); margin-bottom: 2px; }
+.ob-notif-desc { font-size: 12px; color: var(--bn-ink-3); }
+
+.ob-toggle {
+  width: 38px; height: 22px;
+  background: var(--bn-sunken);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--bn-dur) var(--bn-ease);
+}
+.ob-toggle::after {
+  content: '';
+  position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform var(--bn-dur) var(--bn-ease);
+}
+.ob-toggle.on { background: var(--bn-accent); }
+.ob-toggle.on::after { transform: translateX(16px); }
+</style>
+</head>
+<body>
+
+<div class="ob-shell">
+
+  <!-- ─── LEFT: form ─── -->
+  <div class="ob-form">
+    <div class="ob-form-head">
+      <a class="ob-brand" href="#">
+        <span class="ob-brand-mark">b</span>
+        <span>buddy<b>·</b>next</span>
+      </a>
+      <a class="ob-skip" href="#">Skip for now</a>
+    </div>
+
+    <!-- Stepper -->
+    <div class="ob-stepper">
+      <span class="ob-stepper-num">step <b id="stepNum">1</b>/5</span>
+      <div class="ob-stepper-track" id="stepperTrack"></div>
+      <span class="ob-stepper-num" id="stepLabel">Welcome</span>
+    </div>
+
+    <!-- Form body -->
+    <div class="ob-form-body">
+
+      <!-- ═══ STEP 1 — Account ═══ -->
+      <section class="ob-step active" data-step="1">
+        <div class="ob-step-meta">— Welcome to BuddyNext</div>
+        <h1 class="ob-h1">Let's get you a handle.</h1>
+        <p class="ob-lead">You're joining <b>Acme Studio</b>. This community runs on BuddyNext — same account works across all spaces, paid tiers, and partner sites. <a href="#">Learn how it works ↗</a></p>
+
+        <div class="ob-oauth">
+          <button type="button" class="ob-oauth-btn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A10.99 10.99 0 0012 23z" fill="#34A853"/><path d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.07H2.18A10.99 10.99 0 001 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A10.99 10.99 0 002.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z" fill="#EA4335"/></svg>
+            Google
+          </button>
+          <button type="button" class="ob-oauth-btn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 00-3.79 23.4c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.41-4.04-1.41-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.31-.54-1.52.12-3.18 0 0 1.01-.32 3.31 1.23a11.5 11.5 0 016.02 0c2.3-1.55 3.31-1.23 3.31-1.23.66 1.66.25 2.87.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.62-5.49 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0012 .3z"/></svg>
+            GitHub
+          </button>
+        </div>
+
+        <div class="ob-divider">or with email</div>
+
+        <div class="ob-field">
+          <label class="ob-label">Email <span class="ob-label-help">we'll never spam</span></label>
+          <input type="email" class="ob-input" placeholder="you@somewhere.com" value="sarah@designs.io">
+        </div>
+
+        <div class="ob-field">
+          <label class="ob-label">Choose a handle <span class="ob-label-help">3–24 chars · a–z, 0–9, _</span></label>
+          <div class="ob-input-prefix">
+            <span class="ob-input-prefix-prefix">@</span>
+            <input type="text" class="ob-input" id="handleInput" placeholder="sarah" value="sarah">
+            <span class="ob-input-prefix-status ok">✓ available</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ STEP 2 — Profile ═══ -->
+      <section class="ob-step" data-step="2">
+        <div class="ob-step-meta">— About you</div>
+        <h1 class="ob-h1">Tell folks who you are.</h1>
+        <p class="ob-lead">A real photo and a one-liner. We rank profiles with these visible higher in search and feeds — fill them later if you'd rather lurk first.</p>
+
+        <div class="ob-avatar-row">
+          <button type="button" class="ob-avatar-upload">
+            SR
+            <span class="ob-avatar-upload-cam">
+              <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </span>
+          </button>
+          <div class="ob-avatar-upload-info">
+            <b>Add a profile photo</b>
+            JPG, PNG · max 4MB · we crop a circle. Or use your initials.
+          </div>
+        </div>
+
+        <div class="ob-field">
+          <label class="ob-label">Display name</label>
+          <input type="text" class="ob-input" value="Sarah Rodriguez">
+        </div>
+
+        <div class="ob-field">
+          <label class="ob-label">Pronouns <span class="ob-label-help">optional · public</span></label>
+          <input type="text" class="ob-input" placeholder="she/her" value="she/her">
+        </div>
+
+        <div class="ob-field">
+          <label class="ob-label">Tagline <span class="ob-label-help">120 chars · shows under your name</span></label>
+          <textarea class="ob-input" placeholder="Designer. Builder. Coffee snob.">Designs community platforms and obsesses over onboarding UX. Building tokens v3 in public.</textarea>
+          <div class="ob-charcount"><span id="charCount">94</span>/120</div>
+        </div>
+      </section>
+
+      <!-- ═══ STEP 3 — Interests / spaces ═══ -->
+      <section class="ob-step" data-step="3">
+        <div class="ob-step-meta">— What brings you here</div>
+        <h1 class="ob-h1">Pick at least 3 spaces.</h1>
+        <p class="ob-lead">We'll seed your feed with posts from these. You can unjoin any time, and you'll discover more as you scroll.</p>
+
+        <div class="ob-pick-grid">
+          <button class="ob-pick selected" type="button">
+            <span class="ob-pick-emblem">D</span>
+            <span class="ob-pick-info">
+              <span class="ob-pick-name">Design</span>
+              <span class="ob-pick-meta">2,418 members · ★ recommended</span>
+            </span>
+          </button>
+          <button class="ob-pick selected" type="button">
+            <span class="ob-pick-emblem">E</span>
+            <span class="ob-pick-info">
+              <span class="ob-pick-name">Engineering</span>
+              <span class="ob-pick-meta">1,892 members</span>
+            </span>
+          </button>
+          <button class="ob-pick selected" type="button">
+            <span class="ob-pick-emblem">P</span>
+            <span class="ob-pick-info">
+              <span class="ob-pick-name">Product</span>
+              <span class="ob-pick-meta">947 members</span>
+            </span>
+          </button>
+          <button class="ob-pick" type="button">
+            <span class="ob-pick-emblem">W</span>
+            <span class="ob-pick-info">
+              <span class="ob-pick-name">Writing</span>
+              <span class="ob-pick-meta">612 members</span>
+            </span>
+          </button>
+          <button class="ob-pick" type="button">
+            <span class="ob-pick-emblem">M</span>
+            <span class="ob-pick-info">
+              <span class="ob-pick-name">Marketing</span>
+              <span class="ob-pick-meta">488 members</span>
+            </span>
+          </button>
+          <button class="ob-pick" type="button">
+            <span class="ob-pick-emblem" style="background:linear-gradient(135deg,color-mix(in oklch,var(--bn-jetonomy,#5b21b6) 20%,transparent),var(--bn-surface));color:var(--bn-jetonomy,#5b21b6);">$</span>
+            <span class="ob-pick-info">
+              <span class="ob-pick-name">Pro tier</span>
+              <span class="ob-pick-meta">$9/mo · jetonomy</span>
+            </span>
+          </button>
+        </div>
+
+        <label class="ob-label" style="margin-bottom:6px;">Skills & interests <span class="ob-label-help">tap to add — type for more</span></label>
+        <div class="ob-tag-picker">
+          <span class="ob-tag selected">design-systems</span>
+          <span class="ob-tag selected">onboarding</span>
+          <span class="ob-tag selected">ux-research</span>
+          <span class="ob-tag">figma</span>
+          <span class="ob-tag">community</span>
+          <span class="ob-tag">writing</span>
+          <span class="ob-tag">product</span>
+          <span class="ob-tag">tokens</span>
+          <span class="ob-tag">ai</span>
+          <span class="ob-tag">paid-spaces</span>
+          <input class="ob-tag-input" placeholder="add your own…">
+        </div>
+      </section>
+
+      <!-- ═══ STEP 4 — People ═══ -->
+      <section class="ob-step" data-step="4">
+        <div class="ob-step-meta">— Find your people</div>
+        <h1 class="ob-h1">Follow a few to start.</h1>
+        <p class="ob-lead">Mods and active members from your spaces. Their posts will land in Home — you can unfollow any time.</p>
+
+        <div class="ob-people">
+          <div class="ob-person">
+            <div class="ob-person-avatar" style="background:linear-gradient(135deg,oklch(70% 0.16 60),oklch(60% 0.18 50));">VD</div>
+            <div class="ob-person-info">
+              <div class="ob-person-name">Varun Dubey <span class="verified">✓</span></div>
+              <div class="ob-person-bio">Founder · Wbcom · ships every Friday</div>
+              <div class="ob-person-meta">@varun · 4.2k followers · in @design @engineering</div>
+            </div>
+            <button class="ob-follow-btn following">Following</button>
+          </div>
+          <div class="ob-person">
+            <div class="ob-person-avatar" style="background:linear-gradient(135deg,oklch(60% 0.20 290),oklch(50% 0.22 295));">DR</div>
+            <div class="ob-person-info">
+              <div class="ob-person-name">David Reyes</div>
+              <div class="ob-person-bio">Building Spaces v3 — federation, paid tiers, all of it</div>
+              <div class="ob-person-meta">@david · 1.8k followers · co-mod @engineering</div>
+            </div>
+            <button class="ob-follow-btn following">Following</button>
+          </div>
+          <div class="ob-person">
+            <div class="ob-person-avatar" style="background:linear-gradient(135deg,oklch(68% 0.18 350),oklch(58% 0.20 345));">LP</div>
+            <div class="ob-person-info">
+              <div class="ob-person-name">Lena Park</div>
+              <div class="ob-person-bio">Designer at Notion. Writes weekly notes on craft.</div>
+              <div class="ob-person-meta">@lena · 3.1k followers · in @design</div>
+            </div>
+            <button class="ob-follow-btn">Follow</button>
+          </div>
+          <div class="ob-person">
+            <div class="ob-person-avatar" style="background:linear-gradient(135deg,oklch(65% 0.16 155),oklch(55% 0.16 165));">MK</div>
+            <div class="ob-person-info">
+              <div class="ob-person-name">Marcus Kim</div>
+              <div class="ob-person-bio">Engineer · token systems · thinks in DAGs</div>
+              <div class="ob-person-meta">@marcus · 2.4k followers · admin @engineering</div>
+            </div>
+            <button class="ob-follow-btn">Follow</button>
+          </div>
+          <div class="ob-person">
+            <div class="ob-person-avatar" style="background:linear-gradient(135deg,oklch(65% 0.14 195),oklch(55% 0.16 200));">TN</div>
+            <div class="ob-person-info">
+              <div class="ob-person-name">Tanya Nguyen <span class="verified">✓</span></div>
+              <div class="ob-person-bio">PM @ Acme. Onboarding, retention, all the boring infra.</div>
+              <div class="ob-person-meta">@tanya · 1.1k followers · in @product</div>
+            </div>
+            <button class="ob-follow-btn">Follow</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ STEP 5 — Notifications ═══ -->
+      <section class="ob-step" data-step="5">
+        <div class="ob-step-meta">— Last thing</div>
+        <h1 class="ob-h1">How should we ping you?</h1>
+        <p class="ob-lead">We're picky about notifications. Here's what we ship by default — change any of it now or later in <a href="#">Settings → Notifications</a>.</p>
+
+        <div class="ob-notif-row">
+          <div class="ob-notif-info">
+            <div class="ob-notif-name">Replies & mentions</div>
+            <div class="ob-notif-desc">When someone @s you or replies to your posts</div>
+          </div>
+          <span class="ob-toggle on" data-toggle></span>
+        </div>
+        <div class="ob-notif-row">
+          <div class="ob-notif-info">
+            <div class="ob-notif-name">Direct messages</div>
+            <div class="ob-notif-desc">DMs and group chats only — never group spaces</div>
+          </div>
+          <span class="ob-toggle on" data-toggle></span>
+        </div>
+        <div class="ob-notif-row">
+          <div class="ob-notif-info">
+            <div class="ob-notif-name">Hot in your spaces</div>
+            <div class="ob-notif-desc">Up to 1 digest a day · only when 5+ people engaged</div>
+          </div>
+          <span class="ob-toggle on" data-toggle></span>
+        </div>
+        <div class="ob-notif-row">
+          <div class="ob-notif-info">
+            <div class="ob-notif-name">Live voice rooms</div>
+            <div class="ob-notif-desc">Push when a mod you follow goes live</div>
+          </div>
+          <span class="ob-toggle" data-toggle></span>
+        </div>
+        <div class="ob-notif-row">
+          <div class="ob-notif-info">
+            <div class="ob-notif-name">Weekly digest email</div>
+            <div class="ob-notif-desc">Sundays · best posts you missed · one-tap unsubscribe</div>
+          </div>
+          <span class="ob-toggle on" data-toggle></span>
+        </div>
+        <div class="ob-notif-row">
+          <div class="ob-notif-info">
+            <div class="ob-notif-name">Acme Studio announcements</div>
+            <div class="ob-notif-desc">From the host community · ~1 / month</div>
+          </div>
+          <span class="ob-toggle" data-toggle></span>
+        </div>
+      </section>
+
+      <!-- ═══ FINAL — Welcome ═══ -->
+      <section class="ob-final" data-step="6">
+        <div class="ob-final-ring">✓</div>
+        <h1 class="ob-h1">You're in, Sarah.</h1>
+        <p class="ob-lead" style="text-align:center;margin:0 auto;">Your feed is ready. We've followed 2 people and joined 3 spaces — your first post is just a tap away.</p>
+
+        <div class="ob-final-stats">
+          <div>
+            <div class="ob-final-stat-num">3</div>
+            <div class="ob-final-stat-lbl">spaces</div>
+          </div>
+          <div>
+            <div class="ob-final-stat-num">2</div>
+            <div class="ob-final-stat-lbl">follows</div>
+          </div>
+          <div>
+            <div class="ob-final-stat-num">82<span style="font-size:14px;color:var(--bn-ink-3);">%</span></div>
+            <div class="ob-final-stat-lbl">profile</div>
+          </div>
+        </div>
+
+        <div class="ob-final-actions">
+          <button class="ob-cta ob-cta-secondary" onclick="window.location.href='user-profile.html'">Tour the platform</button>
+          <button class="ob-cta" onclick="window.location.href='home-feed.html'">
+            Take me home
+            <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Footer / nav -->
+    <div class="ob-form-foot" id="formFoot">
+      <button class="ob-back" id="btnBack" disabled style="opacity:0.4;pointer-events:none;">
+        <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back
+      </button>
+      <span class="ob-shortcut"><kbd>↵</kbd> to continue</span>
+      <button class="ob-cta" id="btnNext">
+        Continue
+        <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+
+
+  <!-- ─── RIGHT: canvas ─── -->
+  <aside class="ob-canvas">
+    <div class="ob-canvas-inner">
+
+      <!-- Step list -->
+      <div class="ob-canvas-nav" id="canvasNav">
+        <div class="ob-canvas-nav-item current" data-jump="1">
+          <span class="ob-canvas-nav-num">1</span> Account
+        </div>
+        <div class="ob-canvas-nav-item" data-jump="2">
+          <span class="ob-canvas-nav-num">2</span> Your profile
+        </div>
+        <div class="ob-canvas-nav-item" data-jump="3">
+          <span class="ob-canvas-nav-num">3</span> Pick spaces
+        </div>
+        <div class="ob-canvas-nav-item" data-jump="4">
+          <span class="ob-canvas-nav-num">4</span> Find your people
+        </div>
+        <div class="ob-canvas-nav-item" data-jump="5">
+          <span class="ob-canvas-nav-num">5</span> Notifications
+        </div>
+      </div>
+
+      <!-- Quote, only on first 3 steps for visual rhythm -->
+      <blockquote class="ob-canvas-quote" id="canvasQuote">
+        I designed and shipped my first community talk in week three. The folks here actually <em>read</em> what you write.
+      </blockquote>
+      <div class="ob-canvas-cite">
+        <div class="ob-canvas-cite-avatar">VD</div>
+        <div>
+          <div class="ob-canvas-cite-name">Varun Dubey</div>
+          <div class="ob-canvas-cite-role">Founder · joined 2024</div>
+        </div>
+      </div>
+
+      <!-- Mocks at bottom -->
+      <div class="ob-canvas-mock">
+        <div class="ob-mock-card tilt-l">
+          <span class="ob-mock-emblem">D</span>
+          <div class="ob-mock-info">
+            <div class="ob-mock-name">Design space</div>
+            <div class="ob-mock-meta">2,418 members · 84 active now</div>
+          </div>
+          <span class="ob-mock-action">join →</span>
+        </div>
+        <div class="ob-mock-card tilt-r" style="margin-left:var(--bn-s5);">
+          <span class="ob-mock-emblem" style="background:linear-gradient(135deg,oklch(65% 0.16 155),oklch(55% 0.16 165));color:white;">SR</span>
+          <div class="ob-mock-info">
+            <div class="ob-mock-name">Sarah just shipped tokens v3</div>
+            <div class="ob-mock-meta">2 min ago · 84 likes · 23 replies</div>
+          </div>
+          <span class="ob-mock-action">read →</span>
+        </div>
+        <div class="ob-mock-card tilt-l">
+          <span class="ob-mock-emblem" style="background:linear-gradient(135deg,oklch(60% 0.20 290),oklch(50% 0.22 295));color:white;">⏵</span>
+          <div class="ob-mock-info">
+            <div class="ob-mock-name">Friday office hours · live</div>
+            <div class="ob-mock-meta">5 talking · 12 listening · join</div>
+          </div>
+          <span class="ob-mock-action">live</span>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+</div>
+
+<script>
+const STEPS = ['Welcome', 'About you', 'Spaces', 'People', 'Notifications', 'Done'];
+const TOTAL_INPUT_STEPS = 5;
+let cur = 1;
+
+const stepperTrack = document.getElementById('stepperTrack');
+const stepNum = document.getElementById('stepNum');
+const stepLabel = document.getElementById('stepLabel');
+const btnBack = document.getElementById('btnBack');
+const btnNext = document.getElementById('btnNext');
+const formFoot = document.getElementById('formFoot');
+const canvasNav = document.getElementById('canvasNav');
+const canvasQuote = document.getElementById('canvasQuote');
+
+function buildStepper() {
+  stepperTrack.innerHTML = '';
+  for (let i = 1; i <= TOTAL_INPUT_STEPS; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'ob-stepper-cell';
+    if (i < cur) cell.classList.add('done');
+    if (i === cur) cell.classList.add('current');
+    if (i === cur) cell.style.setProperty('--progress', '60%');
+    stepperTrack.appendChild(cell);
+  }
+}
+
+function updateUI() {
+  // Show only active step
+  document.querySelectorAll('.ob-step, .ob-final').forEach(s => {
+    s.classList.toggle('active', parseInt(s.dataset.step) === cur);
+  });
+
+  buildStepper();
+  stepNum.textContent = Math.min(cur, TOTAL_INPUT_STEPS);
+  stepLabel.textContent = STEPS[cur - 1];
+
+  // Side nav
+  canvasNav.querySelectorAll('.ob-canvas-nav-item').forEach((el, i) => {
+    el.classList.remove('done', 'current');
+    const step = i + 1;
+    if (step < cur) el.classList.add('done');
+    if (step === cur) el.classList.add('current');
+  });
+
+  // Back button
+  btnBack.disabled = cur === 1;
+  btnBack.style.opacity = cur === 1 ? '0.4' : '1';
+  btnBack.style.pointerEvents = cur === 1 ? 'none' : '';
+
+  // Footer hidden on final
+  formFoot.style.display = cur > TOTAL_INPUT_STEPS ? 'none' : '';
+
+  // CTA label
+  if (cur === TOTAL_INPUT_STEPS) {
+    btnNext.innerHTML = 'Finish setup <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>';
+  } else {
+    btnNext.innerHTML = 'Continue <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+  }
+
+  // Hide quote on later steps for visual rhythm
+  canvasQuote.style.display = cur >= 4 ? 'none' : '';
+}
+
+btnNext.addEventListener('click', () => {
+  if (cur < TOTAL_INPUT_STEPS) { cur++; updateUI(); }
+  else { cur = 6; updateUI(); }
+});
+btnBack.addEventListener('click', () => {
+  if (cur > 1) { cur--; updateUI(); }
+});
+canvasNav.addEventListener('click', (e) => {
+  const item = e.target.closest('[data-jump]');
+  if (!item) return;
+  cur = parseInt(item.dataset.jump);
+  updateUI();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && document.activeElement.tagName !== 'TEXTAREA' && cur <= TOTAL_INPUT_STEPS) {
+    e.preventDefault(); btnNext.click();
+  }
+});
+
+// Toggles
+document.querySelectorAll('[data-toggle]').forEach(t => {
+  t.addEventListener('click', () => t.classList.toggle('on'));
+});
+
+// Tag picker
+document.querySelectorAll('.ob-tag').forEach(t => {
+  t.addEventListener('click', () => t.classList.toggle('selected'));
+});
+
+// Pick cards
+document.querySelectorAll('.ob-pick').forEach(p => {
+  p.addEventListener('click', () => p.classList.toggle('selected'));
+});
+
+// Follow buttons
+document.querySelectorAll('.ob-follow-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    b.classList.toggle('following');
+    b.textContent = b.classList.contains('following') ? 'Following' : 'Follow';
+  });
+});
+
+// Char count
+const taglineInput = document.querySelector('section[data-step="2"] textarea');
+if (taglineInput) {
+  taglineInput.addEventListener('input', () => {
+    document.getElementById('charCount').textContent = taglineInput.value.length;
+  });
+}
+
+updateUI();
+</script>
+
+</body>
+</html>

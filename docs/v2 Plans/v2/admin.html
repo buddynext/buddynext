@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en" data-bn-theme="light" data-bn-density="comfortable">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Admin Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+#admin-root { display: contents; }
+body {
+  font-family: var(--bn-font-ui);
+  background: var(--bn-canvas);
+  color: var(--bn-ink);
+  font-size: var(--bn-text-sm);
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+/* ── WordPress admin sidebar (faux) ── */
+.wp-rail {
+  background: #1d2327;
+  color: #c3c4c7;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  padding: var(--bn-s3) 0;
+  position: sticky; top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.wp-rail-brand {
+  padding: 14px 18px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  border-bottom: 1px solid #2c3338;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+.wp-rail-section { padding: 4px 0; }
+.wp-rail-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 18px;
+  color: #c3c4c7;
+  cursor: pointer;
+  font-size: 13px;
+  border-left: 3px solid transparent;
+}
+.wp-rail-item:hover { color: #00a0d2; }
+.wp-rail-item[aria-current="page"] {
+  background: #0073aa;
+  color: #fff;
+  border-left-color: #00a0d2;
+}
+.wp-rail-item .glyph { font-size: 16px; opacity: 0.85; width: 18px; }
+.wp-rail-item .pill {
+  margin-left: auto;
+  background: #d63638; color: #fff;
+  padding: 1px 7px; border-radius: 10px;
+  font-size: 11px; font-weight: 600;
+}
+.wp-rail-divider {
+  height: 1px; background: #2c3338;
+  margin: 8px 14px;
+}
+.wp-rail-sub { padding-left: 32px; }
+.wp-rail-sub .wp-rail-item { padding: 6px 18px 6px 32px; font-size: 12px; }
+
+/* ── Admin main column ── */
+.adm-main {
+  min-width: 0;
+  padding: 0;
+  display: flex; flex-direction: column;
+}
+
+.adm-topbar {
+  background: var(--bn-surface);
+  border-bottom: 1px solid var(--bn-line);
+  padding: var(--bn-s3) var(--bn-s5);
+  display: flex; align-items: center; gap: var(--bn-s4);
+  position: sticky; top: 0; z-index: 10;
+}
+.adm-crumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--bn-text-sm); color: var(--bn-ink-2);
+}
+.adm-crumb b { color: var(--bn-ink); font-weight: 600; }
+.adm-crumb svg { width: 12px; height: 12px; color: var(--bn-ink-3); }
+.adm-spacer { flex: 1; }
+.adm-meta { font-family: var(--bn-font-mono); font-size: 11px; color: var(--bn-ink-3); }
+
+/* Section tabs */
+.adm-tabs {
+  background: var(--bn-surface);
+  padding: 0 var(--bn-s5);
+  border-bottom: 1px solid var(--bn-line);
+  display: flex; gap: var(--bn-s2);
+  position: sticky; top: 49px; z-index: 9;
+  overflow-x: auto;
+}
+.adm-tab {
+  padding: 12px 14px;
+  font-size: var(--bn-text-sm);
+  font-weight: 500;
+  color: var(--bn-ink-2);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.adm-tab:hover { color: var(--bn-ink); }
+.adm-tab[aria-current="true"] {
+  color: var(--bn-ink);
+  border-bottom-color: var(--bn-ink);
+  font-weight: 600;
+}
+
+/* Body */
+.adm-body {
+  padding: var(--bn-s5);
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex; flex-direction: column;
+  gap: var(--bn-s5);
+}
+
+.adm-page-head {
+  display: flex; align-items: end; justify-content: space-between;
+  gap: var(--bn-s4); flex-wrap: wrap;
+}
+.adm-page-title {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--bn-ink);
+}
+.adm-page-sub {
+  font-size: var(--bn-text-sm);
+  color: var(--bn-ink-2);
+  margin-top: 4px;
+}
+.adm-page-actions {
+  display: flex; gap: var(--bn-s2);
+}
+
+/* Card */
+.adm-card {
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-lg);
+  overflow: hidden;
+}
+.adm-card-head {
+  padding: var(--bn-s4) var(--bn-s4) var(--bn-s2);
+  display: flex; align-items: center; gap: var(--bn-s3);
+}
+.adm-card-title {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-base);
+  font-weight: 600;
+  color: var(--bn-ink);
+}
+.adm-card-sub { font-size: var(--bn-text-xs); color: var(--bn-ink-3); margin-left: auto; font-family: var(--bn-font-mono); }
+.adm-card-body { padding: var(--bn-s4); }
+
+/* KPI row */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--bn-s3); }
+@media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+.kpi {
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-lg);
+  padding: var(--bn-s4);
+}
+.kpi-label {
+  font-size: var(--bn-text-xs);
+  color: var(--bn-ink-3);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.kpi-value {
+  font-family: var(--bn-font-display);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--bn-ink);
+  letter-spacing: -0.02em;
+  margin: 6px 0 4px;
+}
+.kpi-delta {
+  font-family: var(--bn-font-mono);
+  font-size: 12px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.kpi-delta[data-tone="up"] { color: #059669; }
+.kpi-delta[data-tone="down"] { color: #dc2626; }
+.kpi-delta[data-tone="flat"] { color: var(--bn-ink-3); }
+.kpi-spark { margin-top: var(--bn-s2); height: 32px; }
+
+/* Two-col layout for charts */
+.adm-grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: var(--bn-s4); align-items: start; }
+@media (max-width: 1100px) { .adm-grid-2 { grid-template-columns: 1fr; } }
+
+/* Tables */
+.adm-table { width: 100%; border-collapse: collapse; font-size: var(--bn-text-sm); }
+.adm-table th, .adm-table td {
+  text-align: left; padding: 10px var(--bn-s3);
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.adm-table th {
+  font-weight: 600; color: var(--bn-ink-3);
+  font-size: var(--bn-text-xs);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  background: var(--bn-canvas);
+  position: sticky; top: 0;
+}
+.adm-table tbody tr:hover { background: var(--bn-canvas); }
+.adm-table td { color: var(--bn-ink-2); }
+.adm-table .num { font-family: var(--bn-font-mono); color: var(--bn-ink); }
+
+/* Badge */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--bn-r-full);
+  font-size: 11px; font-weight: 600;
+  font-family: var(--bn-font-mono);
+}
+.badge[data-tone="success"] { background: #ecfdf5; color: #065f46; }
+.badge[data-tone="warn"] { background: #fffbeb; color: #92400e; }
+.badge[data-tone="danger"] { background: #fef2f2; color: #991b1b; }
+.badge[data-tone="neutral"] { background: var(--bn-sunken); color: var(--bn-ink-2); }
+.badge[data-tone="brand"] { background: var(--bn-accent-100); color: var(--bn-accent-700); }
+.badge::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; opacity: 0.6;
+}
+
+/* Avatar mini */
+.av {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: 11px;
+  font-family: var(--bn-font-display);
+  background: linear-gradient(135deg, #6366f1, #4338ca);
+}
+.av[data-t="green"] { background: linear-gradient(135deg, #34d399, #059669); }
+.av[data-t="orange"] { background: linear-gradient(135deg, #fb923c, #ea580c); }
+.av[data-t="violet"] { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
+.av[data-t="pink"] { background: linear-gradient(135deg, #f472b6, #db2777); }
+.av[data-t="teal"] { background: linear-gradient(135deg, #2dd4bf, #0d9488); }
+.av[data-t="amber"] { background: linear-gradient(135deg, #fbbf24, #d97706); }
+
+/* Source emblem */
+.src-emblem {
+  width: 24px; height: 24px; border-radius: var(--bn-r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px;
+}
+.src-emblem[data-src="bp"] { background: #dbeafe; color: #1d4ed8; }
+.src-emblem[data-src="bb"] { background: #fef3c7; color: #92400e; }
+.src-emblem[data-src="bn"] { background: var(--bn-accent-100); color: var(--bn-accent-700); }
+.src-emblem[data-src="rcp"] { background: #ede9fe; color: #5b21b6; }
+.src-emblem[data-src="lrn"] { background: #ccfbf1; color: #0f766e; }
+.src-emblem[data-src="wp"] { background: #f3f4f6; color: #1f2937; }
+
+/* Toggle/switch */
+.switch {
+  position: relative;
+  width: 36px; height: 20px;
+  border-radius: 10px;
+  background: var(--bn-line);
+  cursor: pointer;
+  transition: background var(--bn-dur-fast);
+  flex-shrink: 0;
+}
+.switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: transform var(--bn-dur-fast);
+}
+.switch[data-on="true"] { background: var(--bn-accent); }
+.switch[data-on="true"]::after { transform: translateX(16px); }
+
+/* Setting row */
+.setting-row {
+  padding: var(--bn-s4);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--bn-s4);
+  align-items: center;
+  border-bottom: 1px solid var(--bn-line-faint);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-label {
+  font-weight: 500;
+  color: var(--bn-ink);
+  font-size: var(--bn-text-sm);
+}
+.setting-help {
+  font-size: var(--bn-text-xs);
+  color: var(--bn-ink-3);
+  margin-top: 4px;
+  max-width: 580px;
+  line-height: 1.55;
+}
+
+/* Form input */
+.input {
+  padding: 8px 12px;
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-sm);
+  background: var(--bn-surface);
+  font-family: var(--bn-font-ui);
+  font-size: var(--bn-text-sm);
+  color: var(--bn-ink);
+  min-width: 220px;
+}
+.input:focus { outline: none; border-color: var(--bn-accent); box-shadow: 0 0 0 3px var(--bn-accent-100); }
+
+/* Nav-manager drag rows */
+.nav-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto auto auto;
+  gap: var(--bn-s3);
+  align-items: center;
+  padding: 10px var(--bn-s3);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-sm);
+  background: var(--bn-surface);
+  margin-bottom: 6px;
+  cursor: grab;
+}
+.nav-row:hover { border-color: var(--bn-ink-3); }
+.nav-row .grip { color: var(--bn-ink-3); cursor: grab; }
+.nav-row .lab {
+  font-weight: 500; color: var(--bn-ink);
+  display: flex; align-items: center; gap: 8px;
+}
+.nav-row .key {
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+  background: var(--bn-sunken);
+  color: var(--bn-ink-3);
+  padding: 2px 6px; border-radius: var(--bn-r-sm);
+}
+
+/* Sparkline svg helper */
+.spark { width: 100%; height: 32px; }
+
+/* Hide all sections except current */
+.adm-section { display: none; }
+.adm-section[data-active="true"] { display: flex; flex-direction: column; gap: var(--bn-s5); }
+
+/* Health ring */
+.health-ring { width: 160px; height: 160px; }
+
+/* Integration card */
+.intg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--bn-s3); }
+.intg-card {
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-lg);
+  padding: var(--bn-s4);
+  display: flex; flex-direction: column; gap: var(--bn-s2);
+}
+.intg-head {
+  display: flex; align-items: center; gap: var(--bn-s3);
+}
+.intg-logo {
+  width: 40px; height: 40px;
+  border-radius: var(--bn-r-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.intg-name { font-family: var(--bn-font-display); font-size: var(--bn-text-base); font-weight: 600; color: var(--bn-ink); }
+.intg-tag { font-family: var(--bn-font-mono); font-size: 11px; color: var(--bn-ink-3); }
+.intg-desc { font-size: var(--bn-text-sm); color: var(--bn-ink-2); line-height: 1.5; }
+.intg-foot {
+  margin-top: auto; padding-top: var(--bn-s2);
+  border-top: 1px solid var(--bn-line-faint);
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+/* Progress bar */
+.bar {
+  height: 6px; background: var(--bn-sunken);
+  border-radius: 3px; overflow: hidden;
+}
+.bar > span { display: block; height: 100%; background: var(--bn-accent); border-radius: 3px; }
+
+</style>
+</head>
+<body>
+<div id="admin-root"></div>
+<script>
+document.getElementById('admin-root').innerHTML = `
+
+<!-- ── WP Admin sidebar ── -->
+<aside class="wp-rail" data-screen-label="WP-admin sidebar">
+  <div class="wp-rail-brand">B</div>
+  <div class="wp-rail-section">
+    <div class="wp-rail-item"><span class="glyph">📊</span>Dashboard</div>
+    <div class="wp-rail-item"><span class="glyph">📝</span>Posts</div>
+    <div class="wp-rail-item"><span class="glyph">📁</span>Media</div>
+    <div class="wp-rail-item"><span class="glyph">📄</span>Pages</div>
+    <div class="wp-rail-item"><span class="glyph">💬</span>Comments<span class="pill">12</span></div>
+  </div>
+  <div class="wp-rail-divider"></div>
+  <div class="wp-rail-section">
+    <div class="wp-rail-item" aria-current="page"><span class="glyph">🏘️</span>BuddyNext</div>
+    <div class="wp-rail-sub">
+      <div class="wp-rail-item" data-tab-link="overview" aria-current="page">Overview</div>
+      <div class="wp-rail-item" data-tab-link="members">Members</div>
+      <div class="wp-rail-item" data-tab-link="spaces">Spaces</div>
+      <div class="wp-rail-item" data-tab-link="moderation">Moderation</div>
+      <div class="wp-rail-item" data-tab-link="integrations">Integrations</div>
+      <div class="wp-rail-item" data-tab-link="nav">Navigation</div>
+      <div class="wp-rail-item" data-tab-link="settings">Settings</div>
+    </div>
+  </div>
+  <div class="wp-rail-divider"></div>
+  <div class="wp-rail-section">
+    <div class="wp-rail-item"><span class="glyph">🎨</span>Appearance</div>
+    <div class="wp-rail-item"><span class="glyph">🔌</span>Plugins</div>
+    <div class="wp-rail-item"><span class="glyph">👤</span>Users</div>
+    <div class="wp-rail-item"><span class="glyph">🛠️</span>Tools</div>
+    <div class="wp-rail-item"><span class="glyph">⚙️</span>Settings</div>
+  </div>
+</aside>
+
+<main class="adm-main">
+
+  <!-- Topbar -->
+  <div class="adm-topbar">
+    <div class="adm-crumb">
+      <b>BuddyNext</b>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      <span data-crumb-tab>Overview</span>
+    </div>
+    <div class="adm-spacer"></div>
+    <span class="adm-meta">v2.4.1 · WP 6.9 · PHP 8.3</span>
+    <button class="bn-btn" data-variant="ghost" data-size="sm">Documentation</button>
+    <button class="bn-btn" data-variant="secondary" data-size="sm">Visit community →</button>
+  </div>
+
+  <!-- Section tabs -->
+  <div class="adm-tabs">
+    <span class="adm-tab" data-tab="overview" aria-current="true">Overview</span>
+    <span class="adm-tab" data-tab="members">Members</span>
+    <span class="adm-tab" data-tab="spaces">Spaces</span>
+    <span class="adm-tab" data-tab="moderation">Moderation</span>
+    <span class="adm-tab" data-tab="integrations">Integrations</span>
+    <span class="adm-tab" data-tab="nav">Navigation</span>
+    <span class="adm-tab" data-tab="settings">Settings</span>
+  </div>
+
+  <div class="adm-body">
+
+    <!-- ════════ OVERVIEW / ANALYTICS ════════ -->
+    <section class="adm-section" data-section="overview" data-active="true" data-screen-label="Admin · Overview">
+      <div class="adm-page-head">
+        <div>
+          <div class="adm-page-title">Community Overview</div>
+          <div class="adm-page-sub">Last 30 days · compared to previous period</div>
+        </div>
+        <div class="adm-page-actions">
+          <select class="input" style="min-width:auto;">
+            <option>Last 30 days</option>
+            <option>Last 7 days</option>
+            <option>Last 90 days</option>
+            <option>This year</option>
+          </select>
+          <button class="bn-btn" data-variant="ghost" data-size="sm">📥 Export</button>
+          <button class="bn-btn" data-variant="primary" data-size="sm">＋ Add KPI</button>
+        </div>
+      </div>
+
+      <!-- KPI row -->
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Active members</div>
+          <div class="kpi-value">2,847</div>
+          <div class="kpi-delta" data-tone="up">▲ 12.4% · +312</div>
+          <svg class="spark kpi-spark" viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="0,24 8,22 16,18 24,20 32,15 40,16 48,12 56,14 64,9 72,10 80,7 88,8 96,4 100,3" fill="none" stroke="#10b981" stroke-width="1.5"/></svg>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Posts this period</div>
+          <div class="kpi-value">8,419</div>
+          <div class="kpi-delta" data-tone="up">▲ 8.1%</div>
+          <svg class="spark kpi-spark" viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="0,18 10,20 20,16 30,17 40,12 50,14 60,10 70,11 80,8 90,9 100,6" fill="none" stroke="var(--bn-accent)" stroke-width="1.5"/></svg>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Engagement rate</div>
+          <div class="kpi-value">68.2%</div>
+          <div class="kpi-delta" data-tone="up">▲ 4.7pts</div>
+          <svg class="spark kpi-spark" viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="0,20 12,18 24,19 36,15 48,16 60,12 72,13 84,9 96,10 100,8" fill="none" stroke="#7c3aed" stroke-width="1.5"/></svg>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">DM volume</div>
+          <div class="kpi-value">14,203</div>
+          <div class="kpi-delta" data-tone="down">▼ 2.1%</div>
+          <svg class="spark kpi-spark" viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="0,8 10,10 20,7 30,12 40,15 50,11 60,14 70,18 80,16 90,20 100,22" fill="none" stroke="#dc2626" stroke-width="1.5"/></svg>
+        </div>
+      </div>
+
+      <!-- Activity chart + health score -->
+      <div class="adm-grid-2">
+        <div class="adm-card">
+          <div class="adm-card-head">
+            <div class="adm-card-title">Activity timeline</div>
+            <div style="display:flex; gap: 12px; font-size: 11px; color: var(--bn-ink-3);">
+              <span style="display:inline-flex; align-items:center; gap:4px;"><span style="width:8px;height:8px;border-radius:2px;background:var(--bn-accent);"></span>Posts</span>
+              <span style="display:inline-flex; align-items:center; gap:4px;"><span style="width:8px;height:8px;border-radius:2px;background:#7c3aed;"></span>Replies</span>
+              <span style="display:inline-flex; align-items:center; gap:4px;"><span style="width:8px;height:8px;border-radius:2px;background:#10b981;"></span>Reactions</span>
+            </div>
+            <div class="adm-card-sub">Apr 9 — May 8</div>
+          </div>
+          <div class="adm-card-body" style="padding-top:0;">
+            <svg viewBox="0 0 600 220" style="width:100%; height:220px;" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="var(--bn-accent)" stop-opacity="0.18"/>
+                  <stop offset="100%" stop-color="var(--bn-accent)" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <!-- grid -->
+              <line x1="0" y1="40"  x2="600" y2="40"  stroke="var(--bn-line-faint)" stroke-width="1"/>
+              <line x1="0" y1="100" x2="600" y2="100" stroke="var(--bn-line-faint)" stroke-width="1"/>
+              <line x1="0" y1="160" x2="600" y2="160" stroke="var(--bn-line-faint)" stroke-width="1"/>
+              <!-- area -->
+              <path d="M0,160 L20,150 L40,140 L60,135 L80,128 L100,118 L120,120 L140,110 L160,108 L180,98 L200,92 L220,86 L240,82 L260,75 L280,80 L300,72 L320,65 L340,68 L360,55 L380,58 L400,48 L420,52 L440,42 L460,45 L480,38 L500,30 L520,42 L540,28 L560,22 L580,30 L600,18 L600,200 L0,200 Z" fill="url(#g1)"/>
+              <!-- posts -->
+              <polyline points="0,160 20,150 40,140 60,135 80,128 100,118 120,120 140,110 160,108 180,98 200,92 220,86 240,82 260,75 280,80 300,72 320,65 340,68 360,55 380,58 400,48 420,52 440,42 460,45 480,38 500,30 520,42 540,28 560,22 580,30 600,18" fill="none" stroke="var(--bn-accent)" stroke-width="2"/>
+              <!-- replies -->
+              <polyline points="0,180 20,175 40,170 60,162 80,165 100,158 120,150 140,148 160,142 180,135 200,138 220,128 240,130 260,120 280,118 300,112 320,108 340,105 360,98 380,100 400,92 420,88 440,85 460,80 480,82 500,72 520,75 540,68 560,65 580,62 600,55" fill="none" stroke="#7c3aed" stroke-width="2"/>
+              <!-- reactions -->
+              <polyline points="0,140 20,130 40,128 60,118 80,115 100,108 120,104 140,98 160,90 180,86 200,82 220,76 240,72 260,68 280,72 300,62 320,58 340,52 360,55 380,48 400,42 420,45 440,38 460,40 480,35 500,28 520,32 540,25 560,18 580,22 600,12" fill="none" stroke="#10b981" stroke-width="2"/>
+              <!-- x labels -->
+              <g font-family="var(--bn-font-mono)" font-size="10" fill="var(--bn-ink-3)">
+                <text x="0" y="215">Apr 9</text>
+                <text x="150" y="215">Apr 16</text>
+                <text x="300" y="215">Apr 23</text>
+                <text x="450" y="215">Apr 30</text>
+                <text x="565" y="215">May 8</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <div class="adm-card">
+          <div class="adm-card-head">
+            <div class="adm-card-title">Community health</div>
+          </div>
+          <div class="adm-card-body" style="display:flex; flex-direction:column; align-items:center; gap: var(--bn-s3);">
+            <svg class="health-ring" viewBox="0 0 160 160">
+              <circle cx="80" cy="80" r="64" fill="none" stroke="var(--bn-sunken)" stroke-width="14"/>
+              <circle cx="80" cy="80" r="64" fill="none" stroke="var(--bn-accent)" stroke-width="14" stroke-linecap="round" stroke-dasharray="${402 * 0.84} 402" transform="rotate(-90 80 80)"/>
+              <text x="80" y="84" text-anchor="middle" font-family="var(--bn-font-display)" font-size="36" font-weight="700" fill="var(--bn-ink)">84</text>
+              <text x="80" y="106" text-anchor="middle" font-family="var(--bn-font-mono)" font-size="11" fill="var(--bn-ink-3)">/ 100</text>
+            </svg>
+            <div style="text-align:center;">
+              <div style="font-family:var(--bn-font-display); font-weight:600; color: var(--bn-ink);">Healthy</div>
+              <div style="font-size: var(--bn-text-xs); color: var(--bn-ink-3); margin-top: 4px;">DAU/MAU 0.42 · spam &lt; 1%</div>
+            </div>
+            <div style="width:100%; display:flex; flex-direction: column; gap: 6px; padding-top: var(--bn-s2); border-top: 1px solid var(--bn-line-faint);">
+              <div style="display:flex; justify-content:space-between; font-size: 12px;"><span style="color:var(--bn-ink-2);">Engagement</span><span class="num" style="font-family:var(--bn-font-mono); color:#059669;">92</span></div>
+              <div style="display:flex; justify-content:space-between; font-size: 12px;"><span style="color:var(--bn-ink-2);">Retention</span><span class="num" style="font-family:var(--bn-font-mono); color:#059669;">81</span></div>
+              <div style="display:flex; justify-content:space-between; font-size: 12px;"><span style="color:var(--bn-ink-2);">Civility</span><span class="num" style="font-family:var(--bn-font-mono); color:#d97706;">76</span></div>
+              <div style="display:flex; justify-content:space-between; font-size: 12px;"><span style="color:var(--bn-ink-2);">Diversity</span><span class="num" style="font-family:var(--bn-font-mono); color:#059669;">88</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top spaces table -->
+      <div class="adm-card">
+        <div class="adm-card-head">
+          <div class="adm-card-title">Top spaces by activity</div>
+          <div class="adm-card-sub">last 30 days</div>
+        </div>
+        <table class="adm-table">
+          <thead><tr>
+            <th>Space</th><th>Members</th><th>Posts</th><th>DAU</th><th>Engagement</th><th>Status</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:8px;"><span class="src-emblem" data-src="bp">💻</span><strong style="color:var(--bn-ink);">Web Dev</strong></div></td>
+              <td class="num">2,418</td><td class="num">487</td><td class="num">312</td>
+              <td><div class="bar" style="width:140px;"><span style="width:88%;"></span></div></td>
+              <td><span class="badge" data-tone="success">healthy</span></td>
+            </tr>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:8px;"><span class="src-emblem" data-src="bp">🎨</span><strong style="color:var(--bn-ink);">Design</strong></div></td>
+              <td class="num">1,832</td><td class="num">342</td><td class="num">214</td>
+              <td><div class="bar" style="width:140px;"><span style="width:74%;"></span></div></td>
+              <td><span class="badge" data-tone="success">healthy</span></td>
+            </tr>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:8px;"><span class="src-emblem" data-src="bp">🚀</span><strong style="color:var(--bn-ink);">Startups</strong></div></td>
+              <td class="num">956</td><td class="num">218</td><td class="num">142</td>
+              <td><div class="bar" style="width:140px;"><span style="width:62%;"></span></div></td>
+              <td><span class="badge" data-tone="success">healthy</span></td>
+            </tr>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:8px;"><span class="src-emblem" data-src="bp">📣</span><strong style="color:var(--bn-ink);">Marketing Pros</strong></div></td>
+              <td class="num">621</td><td class="num">94</td><td class="num">52</td>
+              <td><div class="bar" style="width:140px;"><span style="width:34%;"></span></div></td>
+              <td><span class="badge" data-tone="warn">slowing</span></td>
+            </tr>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:8px;"><span class="src-emblem" data-src="bp">📊</span><strong style="color:var(--bn-ink);">Data Practice</strong></div></td>
+              <td class="num">312</td><td class="num">28</td><td class="num">14</td>
+              <td><div class="bar" style="width:140px;"><span style="width:18%;"></span></div></td>
+              <td><span class="badge" data-tone="danger">at risk</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Activity feed -->
+      <div class="adm-grid-2">
+        <div class="adm-card">
+          <div class="adm-card-head">
+            <div class="adm-card-title">Recent admin activity</div>
+            <div class="adm-card-sub">live</div>
+          </div>
+          <div class="adm-card-body" style="padding-top:0; display:flex; flex-direction:column;">
+            ${[
+              ['SR','green','Sarah R.','approved 4 join requests in <strong>Founders Lounge</strong>','2 min ago'],
+              ['MK','teal','Marcus K.','flagged a spam post for review · auto-hidden','12 min ago'],
+              ['JP','amber','Julia P.','created new space <strong>Product Mgmt</strong> (private)','1h ago'],
+              ['—','violet','System','auto-banned 3 spam accounts (signature pattern <code>SP-014</code>)','2h ago'],
+              ['LP','pink','Lena P.','added <strong>3 moderators</strong> to <strong>Marketing Pros</strong>','5h ago'],
+            ].map(([i,t,n,a,when]) => `
+              <div style="display:flex; gap: var(--bn-s3); padding: 12px 0; border-top: 1px solid var(--bn-line-faint);">
+                <div class="av" data-t="${t}">${i}</div>
+                <div style="flex:1;">
+                  <div style="font-size: var(--bn-text-sm);"><strong style="color: var(--bn-ink);">${n}</strong> <span style="color: var(--bn-ink-2);">${a}</span></div>
+                  <div style="font-family: var(--bn-font-mono); font-size: 11px; color: var(--bn-ink-3); margin-top: 2px;">${when}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="adm-card">
+          <div class="adm-card-head">
+            <div class="adm-card-title">Quick actions</div>
+          </div>
+          <div class="adm-card-body" style="display: flex; flex-direction: column; gap: 6px;">
+            ${[
+              ['📥','Pending requests','12 awaiting'],
+              ['🚩','Reports queue','3 unreviewed'],
+              ['👋','Welcome new members','28 since yesterday'],
+              ['📰','Broadcast announcement','to 2,847 members'],
+              ['🧹','Run integrity check','last: 6 days ago'],
+            ].map(([icon, label, sub]) => `
+              <div style="display:flex; align-items:center; gap: var(--bn-s3); padding: 10px 12px; border:1px solid var(--bn-line); border-radius: var(--bn-r-sm); cursor: pointer;">
+                <span style="font-size:18px;">${icon}</span>
+                <div style="flex:1;">
+                  <div style="font-weight: 500; color: var(--bn-ink); font-size: var(--bn-text-sm);">${label}</div>
+                  <div style="font-size: 11px; color: var(--bn-ink-3); font-family: var(--bn-font-mono);">${sub}</div>
+                </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--bn-ink-3);"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ MEMBERS ════════ -->
+    <section class="adm-section" data-section="members" data-screen-label="Admin · Members">
+      <div class="adm-page-head">
+        <div>
+          <div class="adm-page-title">Members</div>
+          <div class="adm-page-sub">2,847 members · 12 admins · 98 moderators · 3 awaiting verification</div>
+        </div>
+        <div class="adm-page-actions">
+          <button class="bn-btn" data-variant="ghost" data-size="sm">📥 Export CSV</button>
+          <button class="bn-btn" data-variant="ghost" data-size="sm">🔁 Bulk action</button>
+          <button class="bn-btn" data-variant="primary" data-size="sm">＋ Invite</button>
+        </div>
+      </div>
+
+      <div class="adm-card">
+        <div class="adm-card-head" style="padding: var(--bn-s3) var(--bn-s4); gap: var(--bn-s2);">
+          <input class="input" placeholder="Search name, email, ID, IP…" style="flex:1;"/>
+          <select class="input" style="min-width:auto;"><option>All roles</option><option>Admin</option><option>Moderator</option><option>Member</option><option>Pro</option></select>
+          <select class="input" style="min-width:auto;"><option>All status</option><option>Active</option><option>Pending</option><option>Suspended</option><option>Spam</option></select>
+          <select class="input" style="min-width:auto;"><option>Joined: anytime</option><option>Last 24h</option><option>Last 7d</option><option>Last 30d</option></select>
+        </div>
+        <table class="adm-table">
+          <thead><tr>
+            <th style="width:32px;"><input type="checkbox"/></th>
+            <th>Member</th>
+            <th>Role</th>
+            <th>Spaces</th>
+            <th>Posts</th>
+            <th>Last active</th>
+            <th>Joined</th>
+            <th>Status</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            ${[
+              ['SR','green','Sarah Rodriguez','sarah@wbcom.design','Admin','12','487','2 min ago','Mar 14, 2024','active','success'],
+              ['AJ','violet','Alex Johnson','alex.j@gmail.com','Moderator','8','312','1h ago','Jun 22, 2024','active','success'],
+              ['TN','orange','Tanya Nguyen','tanya@growthlabs.co','Member','6','198','3h ago','Aug 4, 2024','active','success'],
+              ['MK','teal','Marcus Kim','marcus.k@redis.io','Moderator','4','421','5h ago','Feb 8, 2024','active','success'],
+              ['LP','pink','Lena Park','lena@communityworks','Member','9','89','yesterday','Sep 1, 2024','active','success'],
+              ['DR','amber','David Reyes','david.r@datalab.com','Pro','3','124','2 days ago','Oct 12, 2024','pending','warn'],
+              ['??','green','Greg J.','greg.j+test@mail.ru','Member','0','0','never','Today','spam','danger'],
+              ['JP','amber','Julia Park','julia@buildco.io','Member','5','67','online','Jan 4, 2025','active','success'],
+            ].map(([i,t,n,e,r,sp,po,la,jd,st,bd]) => `
+              <tr>
+                <td><input type="checkbox"/></td>
+                <td><div style="display:flex; align-items:center; gap:10px;"><div class="av" data-t="${t}">${i}</div><div><div style="font-weight:500;color:var(--bn-ink);">${n}</div><div style="font-family:var(--bn-font-mono); font-size:11px; color:var(--bn-ink-3);">${e}</div></div></div></td>
+                <td>${r === 'Admin' ? `<span class="badge" data-tone="brand">${r}</span>` : r === 'Moderator' ? `<span class="badge" data-tone="neutral">${r}</span>` : r === 'Pro' ? `<span class="badge" data-tone="warn">${r}</span>` : r}</td>
+                <td class="num">${sp}</td>
+                <td class="num">${po}</td>
+                <td>${la}</td>
+                <td style="font-family:var(--bn-font-mono); font-size:12px; color:var(--bn-ink-3);">${jd}</td>
+                <td><span class="badge" data-tone="${bd}">${st}</span></td>
+                <td><button class="bn-btn" data-variant="ghost" data-size="sm">⋯</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div style="padding: var(--bn-s3) var(--bn-s4); display:flex; justify-content:space-between; align-items:center; border-top: 1px solid var(--bn-line-faint);">
+          <span style="font-family:var(--bn-font-mono); font-size:11px; color:var(--bn-ink-3);">Showing 1–8 of 2,847</span>
+          <div style="display:flex; gap: 4px;">
+            <button class="bn-btn" data-variant="ghost" data-size="sm">←</button>
+            <button class="bn-btn" data-variant="ghost" data-size="sm">→</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ SPACES ════════ -->
+    <section class="adm-section" data-section="spaces" data-screen-label="Admin · Spaces">
+      <div class="adm-page-head">
+        <div>
+          <div class="adm-page-title">Spaces</div>
+          <div class="adm-page-sub">146 spaces · 18 private · 4 invite-only · 2 pending review</div>
+        </div>
+        <div class="adm-page-actions">
+          <button class="bn-btn" data-variant="ghost" data-size="sm">🏷️ Categories</button>
+          <button class="bn-btn" data-variant="ghost" data-size="sm">📜 Templates</button>
+          <button class="bn-btn" data-variant="primary" data-size="sm">＋ New space</button>
+        </div>
+      </div>
+
+      <div class="adm-card">
+        <div class="adm-card-head" style="padding: var(--bn-s3) var(--bn-s4);">
+          <input class="input" placeholder="Search spaces…" style="flex:1;"/>
+          <select class="input" style="min-width:auto;"><option>All categories</option></select>
+          <select class="input" style="min-width:auto;"><option>All privacy</option><option>Public</option><option>Private</option><option>Invite-only</option></select>
+        </div>
+        <table class="adm-table">
+          <thead><tr>
+            <th>Space</th><th>Privacy</th><th>Members</th><th>Posts/wk</th><th>Admin</th><th>Created</th><th>Status</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${[
+              ['💻','sky','Web Dev','Public','2,418','487','Sarah R.','Mar 2024','healthy','success'],
+              ['🎨','violet','Design','Public','1,832','342','Marcus K.','Mar 2024','healthy','success'],
+              ['🚀','amber','Startups','Public','956','218','Tanya N.','Apr 2024','healthy','success'],
+              ['🤖','teal','AI &amp; ML','Public','744','152','Alex J.','Jul 2024','growing','success'],
+              ['📣','pink','Marketing Pros','Private','621','94','Lena P.','May 2024','slowing','warn'],
+              ['🌍','green','Open Source','Public','518','61','Marcus K.','Jun 2024','healthy','success'],
+              ['📝','violet','Writers\' Room','Public','389','17','Rina S.','Jan 2025','quiet','warn'],
+              ['📊','sky','Data Practice','Public','312','28','David R.','Feb 2025','at risk','danger'],
+            ].map(([emoji,t,name,priv,members,posts,admin,dt,status,bd]) => `
+              <tr>
+                <td><div style="display:flex; align-items:center; gap:10px;"><div class="src-emblem" data-src="bp" style="font-size:14px;">${emoji}</div><strong style="color:var(--bn-ink);">${name}</strong></div></td>
+                <td>${priv === 'Private' ? '<span class="badge" data-tone="warn">Private</span>' : '<span class="badge" data-tone="neutral">Public</span>'}</td>
+                <td class="num">${members}</td>
+                <td class="num">${posts}</td>
+                <td>${admin}</td>
+                <td style="font-family:var(--bn-font-mono); font-size:12px; color:var(--bn-ink-3);">${dt}</td>
+                <td><span class="badge" data-tone="${bd}">${status}</span></td>
+                <td><button class="bn-btn" data-variant="ghost" data-size="sm">⋯</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ════════ MODERATION ════════ -->
+    <section class="adm-section" data-section="moderation" data-screen-label="Admin · Moderation">
+      <div class="adm-page-head">
+        <div>
+          <div class="adm-page-title">Moderation Queue</div>
+          <div class="adm-page-sub">3 reports · 12 auto-flagged · 4 pending appeals</div>
+        </div>
+        <div class="adm-page-actions">
+          <button class="bn-btn" data-variant="ghost" data-size="sm">⚙️ Auto-mod rules</button>
+          <button class="bn-btn" data-variant="primary" data-size="sm">📥 Process all safe</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-label">Open reports</div><div class="kpi-value">3</div><div class="kpi-delta" data-tone="down">▼ 40% week</div></div>
+        <div class="kpi"><div class="kpi-label">Auto-flagged</div><div class="kpi-value">12</div><div class="kpi-delta" data-tone="up">▲ 20%</div></div>
+        <div class="kpi"><div class="kpi-label">Avg time-to-resolve</div><div class="kpi-value">42m</div><div class="kpi-delta" data-tone="up">↓ 18m faster</div></div>
+        <div class="kpi"><div class="kpi-label">Mod actions / day</div><div class="kpi-value">28</div><div class="kpi-delta" data-tone="flat">→ stable</div></div>
+      </div>
+
+      <div class="adm-card">
+        <div class="adm-card-head">
+          <div class="adm-card-title">Reports needing review</div>
+          <div class="adm-card-sub">sorted by severity</div>
+        </div>
+        <div class="adm-card-body" style="padding-top:0; display:flex; flex-direction:column;">
+          ${[
+            ['high','Spam / link farm','Greg J.','Web Dev space','3 reports · pattern matched SP-014','5 min ago','danger'],
+            ['med','Harassment','Anonymous','DM thread #4218','user blocked, awaiting review','1h ago','warn'],
+            ['low','Off-topic','Mike T.','Design space','2 reports · automated low-confidence','3h ago','neutral'],
+          ].map(([sev, type, who, where, ctx, when, bd]) => `
+            <div style="padding: 14px var(--bn-s4); border-top: 1px solid var(--bn-line-faint); display: grid; grid-template-columns: auto 1fr auto auto; gap: var(--bn-s3); align-items: center;">
+              <span class="badge" data-tone="${bd}">${sev}</span>
+              <div>
+                <div style="font-weight:500; color: var(--bn-ink);">${type} · <span style="color: var(--bn-ink-2); font-weight: 400;">${who} in ${where}</span></div>
+                <div style="font-family:var(--bn-font-mono); font-size: 11px; color: var(--bn-ink-3); margin-top: 2px;">${ctx} · ${when}</div>
+              </div>
+              <button class="bn-btn" data-variant="ghost" data-size="sm">View</button>
+              <div style="display:flex; gap: 6px;">
+                <button class="bn-btn" data-variant="primary" data-size="sm">Approve</button>
+                <button class="bn-btn" data-variant="secondary" data-size="sm">Remove</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="adm-grid-2">
+        <div class="adm-card">
+          <div class="adm-card-head"><div class="adm-card-title">Auto-mod rules</div></div>
+          <div class="adm-card-body" style="padding-top:0;">
+            ${[
+              ['Profanity filter','Hide posts matching slur list','on'],
+              ['Link-farm detector','Flag accounts with 3+ links in first 5 posts','on'],
+              ['New-account throttle','First 24h: max 5 posts, no DMs to non-followers','on'],
+              ['AI hate-speech model','Auto-hide on confidence > 0.85','on'],
+              ['Image-moderation','Sightengine NSFW + violence','off'],
+            ].map(([n,d,s]) => `
+              <div class="setting-row" style="padding: 12px var(--bn-s4); border-bottom-color: var(--bn-line-faint);">
+                <div>
+                  <div class="setting-label">${n}</div>
+                  <div class="setting-help">${d}</div>
+                </div>
+                <div class="switch" data-on="${s === 'on'}"></div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="adm-card">
+          <div class="adm-card-head"><div class="adm-card-title">Mod team</div></div>
+          <div class="adm-card-body" style="padding-top:0; display:flex; flex-direction:column;">
+            ${[
+              ['SR','green','Sarah Rodriguez','admin','142 actions / 30d'],
+              ['AJ','violet','Alex Johnson','mod','89 actions / 30d'],
+              ['MK','teal','Marcus Kim','mod','64 actions / 30d'],
+              ['LP','pink','Lena Park','mod','38 actions / 30d'],
+            ].map(([i,t,n,r,a]) => `
+              <div style="display:flex; align-items:center; gap: var(--bn-s3); padding: 10px var(--bn-s4); border-top: 1px solid var(--bn-line-faint);">
+                <div class="av" data-t="${t}">${i}</div>
+                <div style="flex:1;">
+                  <div style="font-weight: 500; color: var(--bn-ink); font-size: var(--bn-text-sm);">${n}</div>
+                  <div style="font-family: var(--bn-font-mono); font-size: 11px; color: var(--bn-ink-3);">${a}</div>
+                </div>
+                <span class="badge" data-tone="${r === 'admin' ? 'brand' : 'neutral'}">${r}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ INTEGRATIONS ════════ -->
+    <section class="adm-section" data-section="integrations" data-screen-label="Admin · Integrations">
+      <div class="adm-page-head">
+        <div>
+          <div class="adm-page-title">Integrations</div>
+          <div class="adm-page-sub">Compatible with BuddyPress, BBPress, BuddyBoss, LearnDash, Restrict Content Pro, and more</div>
+        </div>
+        <div class="adm-page-actions">
+          <button class="bn-btn" data-variant="ghost" data-size="sm">📚 Docs</button>
+          <button class="bn-btn" data-variant="primary" data-size="sm">＋ Browse marketplace</button>
+        </div>
+      </div>
+
+      <div class="intg-grid">
+        ${[
+          ['BuddyPress','bp','core social layer','#dbeafe','#1d4ed8','✓ Active','Migrated 2,847 members, 146 groups, 14,203 messages','success'],
+          ['BBPress','bb','forums','#fef3c7','#92400e','✓ Active','12 forums, 3,421 topics linked','success'],
+          ['BuddyBoss','bn','platform','var(--bn-accent-100)','var(--bn-accent-700)','✓ Active','Native — replaces BB pages, custom fields synced','success'],
+          ['LearnDash','lrn','LMS','#ccfbf1','#0f766e','✓ Active','Course completion → posts auto-generated','success'],
+          ['Restrict Content Pro','rcp','memberships','#ede9fe','#5b21b6','✓ Active','3 tiers · auto-tag on subscription','success'],
+          ['Slack','wp','bridge','#f3f4f6','#1f2937','Connect','Mirror posts to channels, bidirectional reactions','neutral'],
+          ['Discord','wp','bridge','#f3f4f6','#1f2937','Connect','OAuth role sync, voice channels','neutral'],
+          ['Zapier','wp','automation','#f3f4f6','#1f2937','Connect','5,000+ app triggers','neutral'],
+          ['Stripe','wp','payments','#f3f4f6','#1f2937','Connect','Tip jars, paid spaces, creator subscriptions','neutral'],
+          ['ActivityPub','wp','federation','#f3f4f6','#1f2937','Beta','Mastodon-compatible inbox','warn'],
+        ].map(([n,src,tag,bg,fg,status,desc,bd]) => `
+          <div class="intg-card">
+            <div class="intg-head">
+              <div class="intg-logo" style="background:${bg}; color:${fg};">${src === 'bp' ? 'bP' : src === 'bb' ? 'bb' : src === 'bn' ? 'bN' : src === 'lrn' ? 'L' : src === 'rcp' ? '⊕' : '◇'}</div>
+              <div>
+                <div class="intg-name">${n}</div>
+                <div class="intg-tag">${tag}</div>
+              </div>
+            </div>
+            <div class="intg-desc">${desc}</div>
+            <div class="intg-foot">
+              <span class="badge" data-tone="${bd}">${status}</span>
+              <button class="bn-btn" data-variant="ghost" data-size="sm">Configure →</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- ════════ NAVIGATION ════════ -->
+    <section class="adm-section" data-section="nav" data-screen-label="Admin · Navigation">
+      <div class="adm-page-head">
+        <div>
+          <div class="adm-page-title">Navigation</div>
+          <div class="adm-page-sub">Drag to reorder · click items to edit · changes apply live to the rail</div>
+        </div>
+        <div class="adm-page-actions">
+          <button class="bn-btn" data-variant="ghost" data-size="sm">↺ Reset to default</button>
+          <button class="bn-btn" data-variant="primary" data-size="sm">💾 Save</button>
+        </div>
+      </div>
+
+      <div class="adm-grid-2">
+        <div class="adm-card">
+          <div class="adm-card-head"><div class="adm-card-title">Rail items</div><div class="adm-card-sub">drag to reorder</div></div>
+          <div class="adm-card-body" style="padding-top:0;">
+            ${[
+              ['🏠','Home','/feed','member','on'],
+              ['🧭','Explore','/explore','member','on'],
+              ['🏘️','Spaces','/spaces','member','on'],
+              ['👥','Members','/members','member','on'],
+              ['💬','Messages','/messages','member','on'],
+              ['🔔','Notifications','/notifications','member','on'],
+              ['📚','Forums','/forums','member','on'],
+              ['🏆','Leaderboard','/leaderboard','member','off'],
+              ['#','Hashtags','/tags','member','off'],
+            ].map(([icon,label,url,vis,on]) => `
+              <div class="nav-row">
+                <span class="grip">⋮⋮</span>
+                <div class="lab"><span style="font-size:16px;">${icon}</span> ${label} <span class="key">${url}</span></div>
+                <select class="input" style="min-width:auto; padding:4px 8px; font-size:11px;">
+                  <option ${vis === 'all' ? 'selected' : ''}>All</option>
+                  <option ${vis === 'member' ? 'selected' : ''}>Logged-in</option>
+                  <option>Pro only</option>
+                  <option>Mods/admins</option>
+                </select>
+                <div class="switch" data-on="${on === 'on'}"></div>
+                <button class="bn-btn" data-variant="ghost" data-size="sm">⋯</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="adm-card">
+          <div class="adm-card-head"><div class="adm-card-title">Live preview</div></div>
+          <div class="adm-card-body" style="background: var(--bn-canvas); padding: var(--bn-s4); border-radius: 0;">
+            <div style="background: var(--bn-surface); border: 1px solid var(--bn-line); border-radius: var(--bn-r-lg); padding: var(--bn-s3); width: 240px;">
+              <div style="font-family: var(--bn-font-display); font-weight: 700; font-size: var(--bn-text-base); padding-bottom: var(--bn-s2); border-bottom: 1px solid var(--bn-line-faint); margin-bottom: var(--bn-s2);">buddy·next</div>
+              ${[
+                ['🏠','Home',true],
+                ['🧭','Explore',false],
+                ['🏘️','Spaces',false],
+                ['👥','Members',false],
+                ['💬','Messages',false],
+                ['🔔','Notifications',false],
+                ['📚','Forums',false],
+              ].map(([i,l,a]) => `
+                <div style="display:flex; align-items:center; gap: 10px; padding: 8px 10px; border-radius: var(--bn-r-sm); ${a ? 'background: var(--bn-accent-100); color: var(--bn-accent-700);' : 'color: var(--bn-ink-2);'} font-size: var(--bn-text-sm);">
+                  <span>${i}</span>${l}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ SETTINGS ════════ -->
+    <section class="adm-section" data-section="settings" data-screen-label="Admin · Settings">
+      <div class="adm-page-head">
+        <div>
+          <div class="adm-page-title">Settings</div>
+          <div class="adm-page-sub">Configure community-wide defaults — overridable per space and per member</div>
+        </div>
+        <div class="adm-page-actions">
+          <button class="bn-btn" data-variant="ghost" data-size="sm">↺ Reset</button>
+          <button class="bn-btn" data-variant="primary" data-size="sm">💾 Save changes</button>
+        </div>
+      </div>
+
+      <div class="adm-card">
+        <div class="adm-card-head"><div class="adm-card-title">Community identity</div></div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Community name</div>
+            <div class="setting-help">Shown in the rail header, browser title, and emails. Theme can override this on the public site.</div>
+          </div>
+          <input class="input" value="Acme Studio Community"/>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Default language</div>
+            <div class="setting-help">Members can override in their profile.</div>
+          </div>
+          <select class="input"><option>English (US)</option><option>English (UK)</option><option>Spanish</option><option>French</option><option>German</option><option>Japanese</option></select>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Theme accent</div>
+            <div class="setting-help">Sets the OKLCH hue used across UI states. White-label friendly.</div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <span style="width:28px;height:28px;border-radius:50%;background:oklch(60% 0.13 250);border: 2px solid var(--bn-ink);"></span>
+            <span style="width:28px;height:28px;border-radius:50%;background:oklch(60% 0.13 30);"></span>
+            <span style="width:28px;height:28px;border-radius:50%;background:oklch(60% 0.13 150);"></span>
+            <span style="width:28px;height:28px;border-radius:50%;background:oklch(60% 0.13 320);"></span>
+            <span style="width:28px;height:28px;border-radius:50%;background:oklch(60% 0.13 60);"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="adm-card">
+        <div class="adm-card-head"><div class="adm-card-title">Membership &amp; access</div></div>
+        ${[
+          ['Allow new sign-ups','Anyone with an email can register. Disable to make this an invite-only community.','on'],
+          ['Email verification required','New members must verify before posting.','on'],
+          ['Approval required for new accounts','Admin reviews before activation. Adds friction; recommended for paid communities.','off'],
+          ['Profile completeness gate','Block posting until profile photo + bio are set.','off'],
+          ['Allow anonymous posting in spaces','Spaces can opt in to per-post anonymity.','on'],
+        ].map(([n,d,s]) => `
+          <div class="setting-row">
+            <div><div class="setting-label">${n}</div><div class="setting-help">${d}</div></div>
+            <div class="switch" data-on="${s === 'on'}"></div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="adm-card">
+        <div class="adm-card-head"><div class="adm-card-title">Privacy &amp; data</div></div>
+        ${[
+          ['GDPR data-export endpoint','REST: <code>/buddynext/v1/export?member_id=…</code>','on'],
+          ['Right-to-erasure','Members can request deletion from settings. Admin gets 7 days to review.','on'],
+          ['Federation (ActivityPub)','Allow Mastodon servers to subscribe to public posts.','off'],
+          ['Search engine indexing','Allow public-space content to be crawled.','on'],
+          ['AI training opt-out','Mark all content as not-for-training in robots.txt.','on'],
+        ].map(([n,d,s]) => `
+          <div class="setting-row">
+            <div><div class="setting-label">${n}</div><div class="setting-help">${d}</div></div>
+            <div class="switch" data-on="${s === 'on'}"></div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+  </div>
+</main>`;
+</script>
+
+
+<script>
+const tabs = document.querySelectorAll('.adm-tab');
+const sections = document.querySelectorAll('.adm-section');
+const railLinks = document.querySelectorAll('[data-tab-link]');
+const crumb = document.querySelector('[data-crumb-tab]');
+
+function showTab(name) {
+  tabs.forEach(t => t.setAttribute('aria-current', t.dataset.tab === name ? 'true' : 'false'));
+  sections.forEach(s => s.dataset.active = String(s.dataset.section === name));
+  railLinks.forEach(l => {
+    if (l.dataset.tabLink === name) l.setAttribute('aria-current', 'page');
+    else l.removeAttribute('aria-current');
+  });
+  if (crumb) {
+    const labels = { overview: 'Overview', members: 'Members', spaces: 'Spaces', moderation: 'Moderation', integrations: 'Integrations', nav: 'Navigation', settings: 'Settings' };
+    crumb.textContent = labels[name] || name;
+  }
+}
+
+tabs.forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+railLinks.forEach(l => l.addEventListener('click', () => showTab(l.dataset.tabLink)));
+
+document.querySelectorAll('.switch').forEach(s => {
+  s.addEventListener('click', () => {
+    s.dataset.on = s.dataset.on === 'true' ? 'false' : 'true';
+  });
+});
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en" data-bn-theme="light" data-bn-density="comfortable">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddyNext — Design Hub v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../tokens.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--bn-font-ui);
+  background: var(--bn-canvas);
+  color: var(--bn-ink);
+  padding: 48px 40px 80px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-size: var(--bn-text-sm);
+}
+.hero {
+  display: grid; grid-template-columns: 1.5fr 1fr; gap: var(--bn-s5);
+  margin-bottom: var(--bn-s8);
+  padding-bottom: var(--bn-s5);
+  border-bottom: 1px solid var(--bn-line);
+}
+.hero h1 {
+  font-family: var(--bn-font-display);
+  font-size: 44px; font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--bn-ink);
+}
+.hero h1 em { font-style: normal; color: var(--bn-accent); }
+.hero p { font-size: var(--bn-text-base); color: var(--bn-ink-2); margin-top: var(--bn-s3); max-width: 56ch; line-height: 1.55; }
+.hero-meta {
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-lg);
+  padding: var(--bn-s4);
+  display: flex; flex-direction: column; gap: var(--bn-s3);
+}
+.hero-meta-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--bn-line-faint); }
+.hero-meta-row:last-child { border-bottom: none; }
+.hero-meta-row span:first-child { color: var(--bn-ink-3); font-size: var(--bn-text-xs); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.hero-meta-row span:last-child { font-family: var(--bn-font-mono); color: var(--bn-ink); }
+
+.section-title {
+  font-family: var(--bn-font-display);
+  font-size: var(--bn-text-xs); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--bn-ink-3);
+  margin: var(--bn-s6) 0 var(--bn-s3);
+  display: flex; align-items: center; gap: var(--bn-s2);
+}
+.section-title .count { font-family: var(--bn-font-mono); color: var(--bn-ink-2); }
+.section-title .line { flex: 1; height: 1px; background: var(--bn-line-faint); }
+
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--bn-s3); }
+
+.card {
+  background: var(--bn-surface);
+  border: 1px solid var(--bn-line);
+  border-radius: var(--bn-r-lg);
+  padding: var(--bn-s4);
+  text-decoration: none;
+  color: inherit;
+  display: flex; flex-direction: column; gap: var(--bn-s3);
+  transition: all var(--bn-dur-fast) var(--bn-ease);
+  position: relative;
+  overflow: hidden;
+}
+.card:hover {
+  border-color: var(--bn-ink-3);
+  transform: translateY(-2px);
+  box-shadow: var(--bn-shadow-md);
+}
+.card::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(135deg, var(--bn-accent-100) 0%, transparent 50%);
+  opacity: 0; transition: opacity var(--bn-dur-fast) var(--bn-ease);
+}
+.card:hover::before { opacity: 0.6; }
+.card > * { position: relative; }
+.card-num {
+  font-family: var(--bn-font-mono);
+  font-size: 11px;
+  color: var(--bn-ink-3);
+  letter-spacing: 0.05em;
+}
+.card-title {
+  font-family: var(--bn-font-display);
+  font-weight: 600;
+  font-size: var(--bn-text-base);
+  color: var(--bn-ink);
+  letter-spacing: -0.01em;
+}
+.card-desc {
+  font-size: var(--bn-text-xs);
+  color: var(--bn-ink-3);
+  line-height: 1.5;
+}
+.card-foot {
+  margin-top: auto;
+  padding-top: var(--bn-s2);
+  border-top: 1px solid var(--bn-line-faint);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-tag {
+  font-family: var(--bn-font-mono); font-size: 10px;
+  color: var(--bn-ink-3);
+}
+.card-arrow { color: var(--bn-ink-3); transition: transform var(--bn-dur-fast) var(--bn-ease); }
+.card:hover .card-arrow { transform: translateX(3px); color: var(--bn-accent); }
+
+.tag {
+  display: inline-flex; padding: 1px 6px;
+  border-radius: var(--bn-r-sm);
+  font-family: var(--bn-font-mono); font-size: 10px;
+  background: var(--bn-sunken); color: var(--bn-ink-2);
+}
+.tag[data-tone="brand"] { background: var(--bn-accent-100); color: var(--bn-accent-700); }
+.tag[data-tone="mobile"] { background: #f0fdfa; color: #0f766e; }
+.tag[data-tone="admin"] { background: #1d2327; color: #fff; }
+
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div>
+    <div style="font-family:var(--bn-font-mono); font-size:11px; color: var(--bn-ink-3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: var(--bn-s2);">BuddyNext · v2.0 · 2026</div>
+    <h1>A modern social fabric for <em>WordPress</em>, redrawn from first principles.</h1>
+    <p>Twenty-eight redesigned screens powered by a single token system: OKLCH-derived color, density that flexes from compact to spacious, and live-tweakable accent + radius. Open any screen and use the <strong>⚙ Tweaks</strong> floating button to retune the system in real time.</p>
+  </div>
+  <div class="hero-meta">
+    <div class="hero-meta-row"><span>Screens</span><span>28</span></div>
+    <div class="hero-meta-row"><span>Tokens</span><span>96</span></div>
+    <div class="hero-meta-row"><span>Components</span><span>34</span></div>
+    <div class="hero-meta-row"><span>Modes</span><span>light · dark</span></div>
+    <div class="hero-meta-row"><span>Density</span><span>3 levels</span></div>
+    <div class="hero-meta-row"><span>Hue range</span><span>360°</span></div>
+  </div>
+</div>
+
+<div class="section-title">
+  <span>Desktop · core flows</span>
+  <span class="count">8</span>
+  <span class="line"></span>
+</div>
+<div class="grid">
+  <a class="card" href="home-feed.html">
+    <div class="card-num">01</div>
+    <div class="card-title">Home Feed</div>
+    <div class="card-desc">Composer, feed tabs, post variants, online sidebar, trending. The shape of the system.</div>
+    <div class="card-foot"><span class="card-tag">/feed</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="explore-feed.html">
+    <div class="card-num">02</div>
+    <div class="card-title">Explore</div>
+    <div class="card-desc">Discovery surface — trending posts, suggested spaces, leaderboard.</div>
+    <div class="card-foot"><span class="card-tag">/explore</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="spaces-directory.html">
+    <div class="card-num">03</div>
+    <div class="card-title">Spaces Directory</div>
+    <div class="card-desc">Browse 146 spaces by category, activity, member count.</div>
+    <div class="card-foot"><span class="card-tag">/spaces</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="space-home.html">
+    <div class="card-num">04</div>
+    <div class="card-title">Space Home</div>
+    <div class="card-desc">Single-space view: header, channels, pinned, member rail.</div>
+    <div class="card-foot"><span class="card-tag">/space/web-dev</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="member-directory.html">
+    <div class="card-num">05</div>
+    <div class="card-title">Member Directory</div>
+    <div class="card-desc">2,847 members · suggested + filters + A–Z + degree badges.</div>
+    <div class="card-foot"><span class="card-tag">/members</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="user-profile.html">
+    <div class="card-num">06</div>
+    <div class="card-title">User Profile</div>
+    <div class="card-desc">Cover, bio, stats, tabs (posts, replies, media, spaces).</div>
+    <div class="card-foot"><span class="card-tag">/u/sarah_r</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="dm-list.html">
+    <div class="card-num">07</div>
+    <div class="card-title">Direct Messages</div>
+    <div class="card-desc">Conversation list with previews, unread badges, online status.</div>
+    <div class="card-foot"><span class="card-tag">/messages</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="dm-thread.html">
+    <div class="card-num">08</div>
+    <div class="card-title">DM Thread</div>
+    <div class="card-desc">Two-pane chat with composer, reactions, file attachments.</div>
+    <div class="card-foot"><span class="card-tag">/messages/4218</span><span class="card-arrow">→</span></div>
+  </a>
+</div>
+
+<div class="section-title">
+  <span>Desktop · supporting</span>
+  <span class="count">3</span>
+  <span class="line"></span>
+</div>
+<div class="grid">
+  <a class="card" href="notifications.html">
+    <div class="card-num">09</div>
+    <div class="card-title">Notifications</div>
+    <div class="card-desc">Grouped by day, type filters, mark-all-read.</div>
+    <div class="card-foot"><span class="card-tag">/notifications</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="search-results.html">
+    <div class="card-num">10</div>
+    <div class="card-title">Search Results</div>
+    <div class="card-desc">Cross-content search across posts, members, spaces, files.</div>
+    <div class="card-foot"><span class="card-tag">/search?q=</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="onboarding.html">
+    <div class="card-num">11</div>
+    <div class="card-title">Onboarding</div>
+    <div class="card-desc">5-step welcome flow: identity → interests → spaces → follow → first post.</div>
+    <div class="card-foot"><span class="card-tag">/welcome</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="post-detail.html">
+    <div class="card-num">12</div>
+    <div class="card-title">Post Detail</div>
+    <div class="card-desc">Single-post permalink: hero post, best-answer card, threaded replies, contributors aside.</div>
+    <div class="card-foot"><span class="card-tag">/p/4218</span><span class="card-arrow">→</span></div>
+  </a>
+</div>
+
+<div class="section-title">
+  <span>Mobile</span>
+  <span class="count">10</span>
+  <span class="line"></span>
+</div>
+<div class="grid">
+  <a class="card" href="mobile.html">
+    <div class="card-num">12</div>
+    <div class="card-title">Mobile showcase <span class="tag" data-tone="mobile">10 screens</span></div>
+    <div class="card-desc">All mobile screens side-by-side in iPhone frames: home, explore, space, DM, notifications, profile, onboarding, sign-in, forum listing, forum thread.</div>
+    <div class="card-foot"><span class="card-tag">side-by-side</span><span class="card-arrow">→</span></div>
+  </a>
+</div>
+
+<div class="section-title">
+  <span>Admin</span>
+  <span class="count">7</span>
+  <span class="line"></span>
+</div>
+<div class="grid">
+  <a class="card" href="admin.html">
+    <div class="card-num">13</div>
+    <div class="card-title">Admin Console <span class="tag" data-tone="admin">wp-admin</span></div>
+    <div class="card-desc">All admin sections under WP-admin chrome: Overview, Members, Spaces, Moderation, Integrations, Navigation, Settings.</div>
+    <div class="card-foot"><span class="card-tag">/wp-admin/admin.php?page=buddynext</span><span class="card-arrow">→</span></div>
+  </a>
+</div>
+
+<div class="section-title">
+  <span>System</span>
+  <span class="line"></span>
+</div>
+<div class="grid">
+  <a class="card" href="../tokens.css" style="background: var(--bn-sunken);">
+    <div class="card-num">∗</div>
+    <div class="card-title">tokens.css</div>
+    <div class="card-desc">Design tokens — color, type, spacing, radius, motion. Single source of truth.</div>
+    <div class="card-foot"><span class="card-tag">96 tokens</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="../chrome.css" style="background: var(--bn-sunken);">
+    <div class="card-num">∗</div>
+    <div class="card-title">chrome.css</div>
+    <div class="card-desc">App chrome: rail, header, layouts, tab bar.</div>
+    <div class="card-foot"><span class="card-tag">shell</span><span class="card-arrow">→</span></div>
+  </a>
+  <a class="card" href="../chrome.js" style="background: var(--bn-sunken);">
+    <div class="card-num">∗</div>
+    <div class="card-title">chrome.js</div>
+    <div class="card-desc">Renders rail + header + tweaks panel. Used by every page.</div>
+    <div class="card-foot"><span class="card-tag">~280 LOC</span><span class="card-arrow">→</span></div>
+  </a>
+</div>
+
+<div style="margin-top: var(--bn-s8); padding-top: var(--bn-s5); border-top: 1px solid var(--bn-line); font-family: var(--bn-font-mono); font-size: 11px; color: var(--bn-ink-3); display: flex; justify-content: space-between;">
+  <span>BuddyNext design system · v2.0</span>
+  <span>tweaks: ⚙ icon, bottom-right of every screen</span>
+</div>
+
+<script src="../chrome.js"></script>
+</body>
+</html>
