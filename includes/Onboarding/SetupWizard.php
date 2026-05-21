@@ -67,13 +67,39 @@ class SetupWizard {
 	 * @return void
 	 */
 	public function add_wizard_page(): void {
-		add_submenu_page(
+		$hook = add_submenu_page(
 			'buddynext',
 			__( 'BuddyNext Setup', 'buddynext' ),
-			'',  // No label — hides from submenu.
+			'',  // No label, hides from submenu.
 			'manage_options',
 			'buddynext-setup',
 			array( $this, 'render_page' )
+		);
+
+		if ( is_string( $hook ) && '' !== $hook ) {
+			add_action( 'admin_print_styles-' . $hook, array( $this, 'enqueue_wizard_assets' ) );
+		}
+	}
+
+	/**
+	 * Enqueue the wizard stylesheet on the setup wizard admin page.
+	 *
+	 * The wizard chrome lives in bn-onboarding.css (setup-wizard section).
+	 * bn-fonts + bn-base are already registered by AssetService on every
+	 * BuddyNext admin page; we just register bn-onboarding here so its
+	 * cascade resolves the same v2 tokens.
+	 *
+	 * @return void
+	 */
+	public function enqueue_wizard_assets(): void {
+		$version    = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '1.0.0';
+		$assets_url = defined( 'BUDDYNEXT_URL' ) ? constant( 'BUDDYNEXT_URL' ) . 'assets/' : plugins_url( 'assets/', __FILE__ );
+
+		wp_enqueue_style(
+			'bn-onboarding',
+			$assets_url . 'css/bn-onboarding.css',
+			array( 'bn-base' ),
+			$version
 		);
 	}
 
@@ -263,42 +289,58 @@ class SetupWizard {
 			7 => __( 'Addons', 'buddynext' ),
 			8 => __( 'Done', 'buddynext' ),
 		);
+		$is_final    = ( self::TOTAL_STEPS === $step );
+		$continue    = $is_final ? __( 'Finish setup', 'buddynext' ) : __( 'Continue', 'buddynext' );
 		?>
 		<div class="bn-wizard-wrap">
-			<?php $this->render_wizard_styles(); ?>
-			<div class="bn-wizard">
+			<div class="bn-wizard bn-card" data-v2>
 				<div class="bn-wizard__header">
 					<div class="bn-wizard__logo">
-						<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-							<circle cx="14" cy="14" r="14" fill="var(--brand, #0073aa)"/>
+						<svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+							<circle cx="14" cy="14" r="14" fill="currentColor"/>
 							<path d="M7 14a7 7 0 1 1 14 0A7 7 0 0 1 7 14Z" fill="#fff" fill-opacity=".2"/>
 							<circle cx="14" cy="14" r="4" fill="#fff"/>
 						</svg>
 						<span><?php esc_html_e( 'BuddyNext Setup', 'buddynext' ); ?></span>
 					</div>
-					<a href="<?php echo esc_url( $skip_url ); ?>" class="bn-wizard__skip">
+					<a href="<?php echo esc_url( $skip_url ); ?>" class="bn-btn" data-variant="ghost" data-size="sm">
 						<?php esc_html_e( 'Skip setup', 'buddynext' ); ?>
 					</a>
 				</div>
 
-				<div class="bn-wizard__steps" role="list" aria-label="<?php esc_attr_e( 'Setup steps', 'buddynext' ); ?>">
-					<?php for ( $i = 1; $i <= self::TOTAL_STEPS; $i++ ) : ?>
-						<div role="listitem" class="bn-wizard__step-dot <?php echo $i === $step ? 'is-active' : ( $i < $step ? 'is-done' : '' ); ?>">
-							<?php if ( $i < $step ) : ?>
-								<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-							<?php else : ?>
-								<?php echo absint( $i ); ?>
+				<ol class="bn-stepper bn-wizard__steps" aria-label="<?php esc_attr_e( 'Setup steps', 'buddynext' ); ?>">
+					<?php
+					for ( $i = 1; $i <= self::TOTAL_STEPS; $i++ ) :
+						$state = ( $i === $step ) ? 'active' : ( ( $i < $step ) ? 'done' : '' );
+						$label = isset( $step_labels[ $i ] ) ? (string) $step_labels[ $i ] : (string) $i;
+						?>
+						<?php
+						$item_attrs  = ' class="bn-stepper__item bn-wizard__step"';
+						$item_attrs .= ( '' !== $state ) ? ' data-state="' . esc_attr( $state ) . '"' : '';
+						$item_attrs .= ( 'active' === $state ) ? ' aria-current="step"' : '';
+						echo '<li' . $item_attrs . '>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- attributes are pre-escaped above.
+						?>
+							<span class="bn-stepper__dot" aria-hidden="true">
+								<?php if ( 'done' === $state ) : ?>
+									<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								<?php else : ?>
+									<?php echo absint( $i ); ?>
+								<?php endif; ?>
+							</span>
+							<span class="bn-stepper__label bn-wizard__step-name"><?php echo esc_html( $label ); ?></span>
+							<?php if ( $i < self::TOTAL_STEPS ) : ?>
+								<span class="bn-stepper__bar" aria-hidden="true"></span>
 							<?php endif; ?>
-						</div>
+						</li>
 					<?php endfor; ?>
-				</div>
+				</ol>
 
 				<div class="bn-wizard__body">
 					<p class="bn-wizard__step-label">
 						<?php
 						printf(
-							/* translators: 1: current step, 2: total steps, 3: step name */
-							esc_html__( 'Step %1$d of %2$d — %3$s', 'buddynext' ),
+							/* translators: 1: current step number, 2: total step count, 3: step name */
+							esc_html__( 'Step %1$d of %2$d, %3$s', 'buddynext' ),
 							absint( $step ),
 							absint( self::TOTAL_STEPS ),
 							esc_html( $step_labels[ $step ] ?? '' )
@@ -339,10 +381,13 @@ class SetupWizard {
 						}
 						?>
 
-						<?php if ( $step < self::TOTAL_STEPS ) : ?>
+						<?php if ( ! $is_final ) : ?>
 							<div class="bn-wizard__footer">
-								<button type="submit" class="bn-wizard-btn">
-									<?php esc_html_e( 'Continue', 'buddynext' ); ?>
+								<a href="<?php echo esc_url( $skip_url ); ?>" class="bn-btn" data-variant="ghost">
+									<?php esc_html_e( 'Skip for now', 'buddynext' ); ?>
+								</a>
+								<button type="submit" class="bn-btn" data-variant="primary" data-size="lg">
+									<?php echo esc_html( $continue ); ?>
 								</button>
 							</div>
 						<?php endif; ?>
@@ -369,7 +414,7 @@ class SetupWizard {
 
 		<div class="bn-wizard__field">
 			<label for="bn-wiz-site-name" class="bn-wizard__label"><?php esc_html_e( 'Community name', 'buddynext' ); ?></label>
-			<input type="text" id="bn-wiz-site-name" name="site_name" class="bn-wizard__input" value="<?php echo esc_attr( $site_name ); ?>" required>
+			<input type="text" id="bn-wiz-site-name" name="site_name" class="bn-input bn-wizard__input" value="<?php echo esc_attr( $site_name ); ?>" required>
 		</div>
 
 		<div class="bn-wizard__field">
@@ -400,15 +445,34 @@ class SetupWizard {
 				<div class="bn-wizard__radio-group">
 					<?php
 					$modes = array(
-						'open'    => __( 'Open — anyone can register', 'buddynext' ),
-						'invite'  => __( 'Invite-only — requires invite link', 'buddynext' ),
-						'approve' => __( 'Admin approval — registrations reviewed manually', 'buddynext' ),
+						'open'    => array(
+							'label' => __( 'Open', 'buddynext' ),
+							'desc'  => __( 'Anyone can register.', 'buddynext' ),
+						),
+						'invite'  => array(
+							'label' => __( 'Invite-only', 'buddynext' ),
+							'desc'  => __( 'Requires an invite link.', 'buddynext' ),
+						),
+						'approve' => array(
+							'label' => __( 'Admin approval', 'buddynext' ),
+							'desc'  => __( 'Registrations are reviewed manually.', 'buddynext' ),
+						),
 					);
-					foreach ( $modes as $value => $label ) :
+					foreach ( $modes as $value => $mode ) :
+						$radio_id = 'bn-wiz-reg-' . sanitize_html_class( $value );
 						?>
-						<label class="bn-wizard__radio-label">
-							<input type="radio" name="reg_mode" value="<?php echo esc_attr( $value ); ?>" <?php checked( $reg_mode, $value ); ?>>
-							<?php echo esc_html( $label ); ?>
+						<label class="bn-wizard__radio-label" for="<?php echo esc_attr( $radio_id ); ?>">
+							<input
+								type="radio"
+								id="<?php echo esc_attr( $radio_id ); ?>"
+								name="reg_mode"
+								value="<?php echo esc_attr( $value ); ?>"
+								<?php checked( $reg_mode, $value ); ?>
+							>
+							<span class="bn-wizard__radio-copy">
+								<strong><?php echo esc_html( $mode['label'] ); ?></strong>
+								<span><?php echo esc_html( $mode['desc'] ); ?></span>
+							</span>
 						</label>
 					<?php endforeach; ?>
 				</div>
@@ -416,8 +480,8 @@ class SetupWizard {
 		</div>
 
 		<div class="bn-wizard__field">
-			<label class="bn-wizard__toggle-label">
-				<input type="checkbox" name="email_verify" <?php checked( $email_verify ); ?>>
+			<label class="bn-wizard__toggle-label" for="bn-wiz-email-verify">
+				<input type="checkbox" id="bn-wiz-email-verify" name="email_verify" <?php checked( $email_verify ); ?>>
 				<?php esc_html_e( 'Require email verification before accessing the community', 'buddynext' ); ?>
 			</label>
 		</div>
@@ -441,10 +505,19 @@ class SetupWizard {
 		</p>
 
 		<div class="bn-wizard__preset-grid">
-			<?php foreach ( $presets as $key => $preset ) : ?>
-				<label class="bn-wizard__preset-card">
-					<input type="checkbox" name="profile_groups[]" value="<?php echo esc_attr( $key ); ?>" checked>
-					<span class="bn-wizard__preset-icon"><?php echo \BuddyNext\Core\IconService::render( $preset['icon'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-sanitized via wp_kses() inside IconService::render(). ?></span>
+			<?php
+			foreach ( $presets as $key => $preset ) :
+				$preset_id = 'bn-wiz-preset-' . sanitize_html_class( $key );
+				?>
+				<label class="bn-wizard__preset-card" for="<?php echo esc_attr( $preset_id ); ?>">
+					<input
+						type="checkbox"
+						id="<?php echo esc_attr( $preset_id ); ?>"
+						name="profile_groups[]"
+						value="<?php echo esc_attr( $key ); ?>"
+						checked
+					>
+					<span class="bn-wizard__preset-icon" aria-hidden="true"><?php echo \BuddyNext\Core\IconService::render( $preset['icon'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-sanitized via wp_kses() inside IconService::render(). ?></span>
 					<span class="bn-wizard__preset-name"><?php echo esc_html( $preset['label'] ); ?></span>
 					<span class="bn-wizard__preset-desc"><?php echo esc_html( $preset['description'] ); ?></span>
 				</label>
@@ -604,10 +677,17 @@ class SetupWizard {
 		<p class="bn-wizard__desc"><?php esc_html_e( 'Choose which notifications are on by default for new members. Members can override these in their own settings.', 'buddynext' ); ?></p>
 
 		<div class="bn-wizard__field">
-			<?php foreach ( $notifs as $key => $label ) : ?>
-				<label class="bn-wizard__toggle-label">
-					<input type="checkbox" name="notif_<?php echo esc_attr( $key ); ?>"
-						<?php checked( $defaults[ $key ] ?? true ); ?>>
+			<?php
+			foreach ( $notifs as $key => $label ) :
+				$notif_id = 'bn-wiz-notif-' . sanitize_html_class( $key );
+				?>
+				<label class="bn-wizard__toggle-label" for="<?php echo esc_attr( $notif_id ); ?>">
+					<input
+						type="checkbox"
+						id="<?php echo esc_attr( $notif_id ); ?>"
+						name="notif_<?php echo esc_attr( $key ); ?>"
+						<?php checked( $defaults[ $key ] ?? true ); ?>
+					>
 					<?php echo esc_html( $label ); ?>
 				</label>
 			<?php endforeach; ?>
@@ -633,9 +713,14 @@ class SetupWizard {
 
 		<div class="bn-wizard__field">
 			<label for="bn-wiz-categories" class="bn-wizard__label"><?php esc_html_e( 'Categories', 'buddynext' ); ?></label>
-			<input type="text" id="bn-wiz-categories" name="categories" class="bn-wizard__input"
+			<input
+				type="text"
+				id="bn-wiz-categories"
+				name="categories"
+				class="bn-input bn-wizard__input"
 				value="<?php echo esc_attr( implode( ', ', $suggestions ) ); ?>"
-				placeholder="<?php esc_attr_e( 'General, Announcements, Help & Support', 'buddynext' ); ?>">
+				placeholder="<?php esc_attr_e( 'General, Announcements, Help & Support', 'buddynext' ); ?>"
+			>
 			<p class="bn-wizard__hint"><?php esc_html_e( 'Separate categories with commas. Leave blank to skip.', 'buddynext' ); ?></p>
 		</div>
 		<?php
@@ -682,20 +767,37 @@ class SetupWizard {
 		<p class="bn-wizard__desc"><?php esc_html_e( 'BuddyNext will create these pages on your site. Each page embeds a community interface via shortcode.', 'buddynext' ); ?></p>
 
 		<div class="bn-wizard__pages-list">
-			<?php foreach ( $page_defs as $key => $def ) : ?>
-				<?php
+			<?php
+			foreach ( $page_defs as $key => $def ) :
 				$option_key  = 'buddynext_page_' . $key;
 				$existing_id = (int) get_option( $option_key, 0 );
 				$exists      = $existing_id > 0 && 'publish' === get_post_status( $existing_id );
 				$slug_value  = $exists ? (string) get_post_field( 'post_name', $existing_id ) : $def['default_slug'];
+				$check_id    = 'bn-wiz-page-' . sanitize_html_class( $key );
+				$slug_id     = 'bn-wiz-page-slug-' . sanitize_html_class( $key );
 				?>
 				<div class="bn-wizard__page-row">
-					<label class="bn-wizard__page-check">
-						<input type="checkbox"
+					<label class="bn-wizard__page-check" for="<?php echo esc_attr( $check_id ); ?>">
+						<input
+							type="checkbox"
+							id="<?php echo esc_attr( $check_id ); ?>"
 							name="page_create_<?php echo esc_attr( $key ); ?>"
 							value="1"
 							<?php checked( true ); ?>
-							<?php if ( $exists ) : // phpcs:ignore Squiz.ControlStructures.ControlSignature.NewlineAfterOpenBrace ?>disabled aria-disabled="true"<?php endif; ?>>
+							<?php
+							if ( $exists ) :
+								?>
+								disabled aria-disabled="true"<?php endif; ?>
+						>
+						<span class="screen-reader-text">
+							<?php
+							printf(
+								/* translators: %s: page title */
+								esc_html__( 'Create the %s page', 'buddynext' ),
+								esc_html( $def['title'] )
+							);
+							?>
+						</span>
 					</label>
 					<div class="bn-wizard__page-info">
 						<strong><?php echo esc_html( $def['title'] ); ?></strong>
@@ -704,23 +806,38 @@ class SetupWizard {
 					</div>
 					<div class="bn-wizard__page-slug">
 						<?php if ( $exists ) : ?>
-							<a href="<?php echo esc_url( (string) get_permalink( $existing_id ) ); ?>"
+							<a
+								href="<?php echo esc_url( (string) get_permalink( $existing_id ) ); ?>"
 								class="bn-wizard__page-link"
 								target="_blank"
-								rel="noopener noreferrer">
+								rel="noopener noreferrer"
+							>
 								/<?php echo esc_html( $slug_value ); ?>/
 							</a>
-							<span class="bn-wizard__page-badge"><?php esc_html_e( 'Created', 'buddynext' ); ?></span>
+							<span class="bn-badge bn-wizard__page-badge" data-tone="success">
+								<?php esc_html_e( 'Created', 'buddynext' ); ?>
+							</span>
 						<?php else : ?>
+							<label class="screen-reader-text" for="<?php echo esc_attr( $slug_id ); ?>">
+								<?php
+								printf(
+									/* translators: %s: page title */
+									esc_html__( 'URL slug for %s', 'buddynext' ),
+									esc_html( $def['title'] )
+								);
+								?>
+							</label>
 							<div class="bn-wizard__slug-row">
-								<span class="bn-wizard__slug-sep">/</span>
-								<input type="text"
+								<span class="bn-wizard__slug-sep" aria-hidden="true">/</span>
+								<input
+									type="text"
+									id="<?php echo esc_attr( $slug_id ); ?>"
 									name="page_slug_<?php echo esc_attr( $key ); ?>"
-									class="bn-wizard__slug-input"
+									class="bn-input bn-wizard__slug-input"
 									value="<?php echo esc_attr( $slug_value ); ?>"
 									placeholder="<?php echo esc_attr( $def['default_slug'] ); ?>"
-									aria-label="<?php echo esc_attr( sprintf( /* translators: %s: page title */ __( 'URL slug for %s', 'buddynext' ), $def['title'] ) ); ?>">
-								<span class="bn-wizard__slug-sep">/</span>
+								>
+								<span class="bn-wizard__slug-sep" aria-hidden="true">/</span>
 							</div>
 						<?php endif; ?>
 					</div>
@@ -765,15 +882,18 @@ class SetupWizard {
 		<p class="bn-wizard__desc"><?php esc_html_e( 'BuddyNext detected the following companion plugins. Active addons are automatically integrated.', 'buddynext' ); ?></p>
 
 		<ul class="bn-wizard__addon-list">
-			<?php foreach ( $addons as $addon ) : ?>
-				<?php $active = is_plugin_active( $addon['slug'] ); ?>
+			<?php
+			foreach ( $addons as $addon ) :
+				$active = is_plugin_active( $addon['slug'] );
+				$tone   = $active ? 'success' : 'default';
+				?>
 				<li class="bn-wizard__addon <?php echo $active ? 'is-active' : 'is-inactive'; ?>">
-					<span class="bn-wizard__addon-dot"></span>
+					<span class="bn-wizard__addon-dot" aria-hidden="true"></span>
 					<div class="bn-wizard__addon-info">
 						<strong><?php echo esc_html( $addon['name'] ); ?></strong>
 						<span><?php echo esc_html( $addon['desc'] ); ?></span>
 					</div>
-					<span class="bn-wizard__addon-status">
+					<span class="bn-badge bn-wizard__addon-status" data-tone="<?php echo esc_attr( $tone ); ?>">
 						<?php echo $active ? esc_html__( 'Active', 'buddynext' ) : esc_html__( 'Inactive', 'buddynext' ); ?>
 					</span>
 				</li>
@@ -788,23 +908,22 @@ class SetupWizard {
 	 * @return void
 	 */
 	private function render_step_done(): void {
-		$dashboard_url = admin_url( 'admin.php?page=buddynext' );
-		$frontend_url  = home_url( '/' );
+		$frontend_url = home_url( '/' );
 		?>
 		<div class="bn-wizard__done">
 			<div class="bn-wizard__done-icon" aria-hidden="true">
-				<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<circle cx="24" cy="24" r="24" fill="var(--green-bg, #ecfdf5)"/>
-					<path d="M14 24l7 7 13-13" stroke="var(--green, #059669)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+				<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
+					<circle cx="24" cy="24" r="24" fill="currentColor"/>
+					<path d="M14 24l7 7 13-13" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 				</svg>
 			</div>
 			<h2 class="bn-wizard__title"><?php esc_html_e( 'You\'re all set!', 'buddynext' ); ?></h2>
 			<p class="bn-wizard__desc"><?php esc_html_e( 'BuddyNext is configured and ready. You can always change any of these settings later.', 'buddynext' ); ?></p>
 			<div class="bn-wizard__done-actions">
-				<button type="submit" class="bn-wizard-btn">
+				<button type="submit" class="bn-btn" data-variant="primary" data-size="lg">
 					<?php esc_html_e( 'Go to dashboard', 'buddynext' ); ?>
 				</button>
-				<a href="<?php echo esc_url( $frontend_url ); ?>" class="bn-wizard-btn bn-wizard-btn--secondary" target="_blank" rel="noopener noreferrer">
+				<a href="<?php echo esc_url( $frontend_url ); ?>" class="bn-btn" data-variant="secondary" data-size="lg" target="_blank" rel="noopener noreferrer">
 					<?php esc_html_e( 'View your community', 'buddynext' ); ?>
 				</a>
 			</div>
@@ -932,85 +1051,5 @@ class SetupWizard {
 
 		// Flush rewrite rules so pretty profile URLs work immediately.
 		flush_rewrite_rules( false );
-	}
-
-	/**
-	 * Inline CSS for the wizard chrome.
-	 *
-	 * Scoped to .bn-wizard-wrap so it cannot leak into the surrounding admin.
-	 * Uses the same design tokens as all BuddyNext templates.
-	 *
-	 * @return void
-	 */
-	private function render_wizard_styles(): void {
-		?>
-		<style>
-		.bn-wizard-wrap{--brand:#0073aa;--brand-hover:#005f8e;--green:#059669;--green-bg:#ecfdf5;--bg:#fff;--bg-subtle:#f8f8f7;--border:#e8e8e5;--text-1:#37352f;--text-2:#787774;--text-3:#aeaca8;--r-md:8px;--r-lg:12px;--s2:8px;--s3:12px;--s4:16px;--s6:24px;--s8:32px;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-size:15px;color:var(--text-1);padding:var(--s8) var(--s4)}
-		.bn-wizard{max-width:560px;margin:0 auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
-		.bn-wizard__header{display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s6);border-bottom:1px solid var(--border)}
-		.bn-wizard__logo{display:flex;align-items:center;gap:var(--s2);font-weight:600;font-size:16px}
-		.bn-wizard__skip{font-size:13px;color:var(--text-2);text-decoration:none}
-		.bn-wizard__skip:hover{color:var(--text-1)}
-		.bn-wizard__steps{display:flex;align-items:center;gap:var(--s2);padding:var(--s4) var(--s6);border-bottom:1px solid var(--border)}
-		.bn-wizard__step-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;background:var(--bg-subtle);color:var(--text-2);border:1.5px solid var(--border);flex-shrink:0;transition:background .15s,color .15s,border-color .15s}
-		.bn-wizard__step-dot.is-active{background:var(--brand);color:#fff;border-color:var(--brand)}
-		.bn-wizard__step-dot.is-done{background:var(--green-bg);color:var(--green);border-color:var(--green)}
-		.bn-wizard__body{padding:var(--s6)}
-		.bn-wizard__step-label{font-size:13px;color:var(--text-2);margin:0 0 var(--s4)}
-		.bn-wizard__title{font-size:20px;font-weight:700;margin:0 0 var(--s2)}
-		.bn-wizard__desc{color:var(--text-2);margin:0 0 var(--s6)}
-		.bn-wizard__field{margin-bottom:var(--s4)}
-		.bn-wizard__label{display:block;font-size:13px;font-weight:600;margin-bottom:var(--s2)}
-		.bn-wizard__input{width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:15px;line-height:1.5;font-family:inherit}
-		.bn-wizard__input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(0,115,170,.15)}
-		.bn-wizard__hint{font-size:12px;color:var(--text-3);margin:var(--s2) 0 0}
-		.bn-wizard__color-row{display:flex;align-items:center;gap:var(--s3)}
-		.bn-wizard__color-picker{width:40px;height:40px;border:1.5px solid var(--border);border-radius:var(--r-md);padding:2px;cursor:pointer}
-		.bn-wizard__color-preview{font-size:13px;color:var(--text-2)}
-		.bn-wizard__radio-group{display:flex;flex-direction:column;gap:var(--s2)}
-		.bn-wizard__radio-label,.bn-wizard__toggle-label{display:flex;align-items:flex-start;gap:var(--s2);cursor:pointer;font-size:14px;margin-bottom:var(--s2)}
-		.bn-wizard__radio-label input,.bn-wizard__toggle-label input{margin-top:3px;flex-shrink:0}
-		.bn-wizard__addon-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s2)}
-		.bn-wizard__addon{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4);border:1.5px solid var(--border);border-radius:var(--r-md)}
-		.bn-wizard__addon-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--text-3)}
-		.bn-wizard__addon.is-active .bn-wizard__addon-dot{background:var(--green)}
-		.bn-wizard__addon-info{flex:1;display:flex;flex-direction:column;gap:2px;font-size:13px}
-		.bn-wizard__addon-info strong{font-size:14px}
-		.bn-wizard__addon-status{font-size:12px;color:var(--text-2)}
-		.bn-wizard__addon.is-active .bn-wizard__addon-status{color:var(--green)}
-		.bn-wizard__footer{margin-top:var(--s6);padding-top:var(--s6);border-top:1px solid var(--border)}
-		.bn-wizard__done{text-align:center;padding:var(--s8) 0}
-		.bn-wizard__done-icon{margin:0 auto var(--s4)}
-		.bn-wizard__done-actions{display:flex;justify-content:center;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s6)}
-		.bn-wizard-btn{display:inline-flex;align-items:center;padding:10px 20px;background:var(--brand);color:#fff;border:none;border-radius:var(--r-md);font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;transition:background .15s}
-		.bn-wizard-btn:hover{background:var(--brand-hover)}
-		.bn-wizard-btn--secondary{background:transparent;color:var(--brand);border:1.5px solid var(--border)}
-		.bn-wizard-btn--secondary:hover{border-color:var(--brand)}
-		.bn-wizard__preset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--s3);margin:var(--s4) 0}
-		.bn-wizard__preset-card{display:flex;flex-direction:column;gap:6px;padding:var(--s4);border:1.5px solid var(--border);border-radius:var(--r-md);cursor:pointer;transition:border-color .15s,background .15s}
-		.bn-wizard__preset-card:hover{border-color:var(--brand);background:var(--bg-subtle)}
-		.bn-wizard__preset-card input[type=checkbox]{position:absolute;opacity:0;pointer-events:none}
-		.bn-wizard__preset-card:has(input:checked){border-color:var(--brand);background:#e8f4fb}
-		.bn-wizard__preset-icon{font-size:24px;line-height:1}
-		.bn-wizard__preset-name{font-weight:600;font-size:14px;color:var(--text-1)}
-		.bn-wizard__preset-desc{font-size:12px;color:var(--text-2);line-height:1.4}
-		.bn-wizard__step-hint{font-size:13px;color:var(--text-3);margin-top:var(--s2)}
-		.bn-wizard__pages-list{display:flex;flex-direction:column;gap:var(--s3)}
-		.bn-wizard__page-row{display:flex;align-items:flex-start;gap:var(--s3);padding:var(--s3) var(--s4);border:1.5px solid var(--border);border-radius:var(--r-md)}
-		.bn-wizard__page-check{flex-shrink:0;padding-top:3px}
-		.bn-wizard__page-info{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
-		.bn-wizard__page-info strong{font-size:14px;font-weight:600}
-		.bn-wizard__shortcode{font-size:12px;font-family:monospace;background:var(--bg-subtle);padding:2px 6px;border-radius:4px;color:var(--brand);border:1px solid var(--border-soft)}
-		.bn-wizard__page-desc{font-size:12px;color:var(--text-2)}
-		.bn-wizard__page-slug{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:140px}
-		.bn-wizard__slug-row{display:flex;align-items:center;gap:2px}
-		.bn-wizard__slug-sep{font-size:13px;color:var(--text-2)}
-		.bn-wizard__slug-input{width:100px;padding:4px 8px;border:1.5px solid var(--border);border-radius:var(--r-md);font-size:13px;font-family:monospace;color:var(--text-1);background:var(--bg)}
-		.bn-wizard__slug-input:focus{outline:none;border-color:var(--brand)}
-		.bn-wizard__page-link{font-size:12px;font-family:monospace;color:var(--brand);text-decoration:none}
-		.bn-wizard__page-link:hover{text-decoration:underline}
-		.bn-wizard__page-badge{font-size:11px;font-weight:600;color:var(--green);background:var(--green-bg);padding:2px 6px;border-radius:var(--r-full)}
-		</style>
-		<?php
 	}
 }

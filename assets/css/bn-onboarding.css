@@ -92,43 +92,27 @@
 	color: var(--bn-ob-text-1);
 }
 
-/* Progress steps bar */
-.bn-wizard__steps {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: var(--bn-ob-s2);
+/* Progress steps bar — composes the v2 .bn-stepper primitive inside the
+ * wizard chrome. The primitive (.bn-stepper / .bn-stepper__item /
+ * .bn-stepper__dot / .bn-stepper__bar) ships its own state visuals from
+ * bn-base.css; this rule only adds the chrome surround (padding, divider,
+ * list reset) and per-item label affordances. */
+.bn-stepper.bn-wizard__steps {
+	margin: 0;
 	padding: var(--bn-ob-s5) var(--bn-ob-s6);
 	border-bottom: 1px solid var(--bn-ob-border-soft);
-	flex-wrap: wrap;
+	list-style: none;
+	flex-wrap: nowrap;
+	overflow-x: auto;
 }
 
-.bn-wizard__step-dot {
-	width: 28px;
-	height: 28px;
-	border-radius: var(--bn-ob-r-full);
-	border: 2px solid var(--bn-ob-border);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: var(--text-xs);
-	font-weight: var(--fw-semibold);
-	color: var(--bn-ob-text-3);
-	background: var(--bn-ob-bg);
-	transition: background 0.2s, border-color 0.2s, color 0.2s;
-	flex-shrink: 0;
+.bn-wizard__step-name {
+	white-space: nowrap;
 }
 
-.bn-wizard__step-dot.is-active {
-	background: var(--bn-ob-brand);
-	border-color: var(--bn-ob-brand);
-	color: var(--text-on-brand);
-}
-
-.bn-wizard__step-dot.is-done {
-	background: var(--bn-ob-green-bg);
-	border-color: var(--bn-ob-green);
-	color: var(--bn-ob-green);
+/* Brand mark in the header inherits accent through currentColor. */
+.bn-wizard__logo svg {
+	color: var(--bn-ob-brand);
 }
 
 /* Body */
@@ -231,12 +215,12 @@
 
 .bn-wizard__radio-label {
 	display: flex;
-	align-items: center;
-	gap: var(--bn-ob-s2);
+	align-items: flex-start;
+	gap: var(--bn-ob-s3);
 	font-size: var(--text-md);
 	color: var(--bn-ob-text-1);
 	cursor: pointer;
-	padding: var(--bn-ob-s2) var(--bn-ob-s3);
+	padding: var(--bn-ob-s3);
 	border: 1px solid var(--bn-ob-border);
 	border-radius: var(--bn-ob-r-md);
 	transition: background 0.15s, border-color 0.15s;
@@ -246,8 +230,33 @@
 	background: var(--bn-ob-bg-hover);
 }
 
+.bn-wizard__radio-label:has(input[type="radio"]:checked) {
+	border-color: var(--bn-ob-brand);
+	background: var(--bn-ob-brand-light);
+}
+
 .bn-wizard__radio-label input[type="radio"] {
 	accent-color: var(--bn-ob-brand);
+	margin-top: 2px;
+	flex-shrink: 0;
+}
+
+.bn-wizard__radio-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.bn-wizard__radio-copy strong {
+	font-size: var(--text-sm);
+	font-weight: var(--fw-semibold);
+	color: var(--bn-ob-text-1);
+}
+
+.bn-wizard__radio-copy span {
+	font-size: var(--text-xs);
+	color: var(--bn-ob-text-2);
 }
 
 /* Toggle checkbox row */
@@ -505,48 +514,26 @@
 	flex-wrap: wrap;
 }
 
-/* Footer / submit buttons */
+/* Footer / submit buttons — composition only; buttons themselves use the
+ * v2 .bn-btn[data-variant] primitive defined in bn-base.css. */
 .bn-wizard__footer {
 	margin-top: var(--bn-ob-s6);
 	padding-top: var(--bn-ob-s5);
 	border-top: 1px solid var(--bn-ob-border-soft);
 	display: flex;
-	justify-content: flex-end;
-}
-
-.bn-wizard-btn {
-	display: inline-flex;
 	align-items: center;
-	justify-content: center;
-	height: 36px;
-	padding: 0 var(--bn-ob-s5);
-	font-family: var(--bn-ob-font-body);
-	font-size: var(--text-md);
-	font-weight: var(--fw-semibold);
-	color: var(--text-on-brand);
-	background: var(--bn-ob-brand);
-	border: none;
-	border-radius: var(--bn-ob-r-md);
-	cursor: pointer;
-	text-decoration: none;
-	transition: background 0.15s;
-	white-space: nowrap;
+	justify-content: space-between;
+	gap: var(--bn-ob-s3);
+	flex-wrap: wrap;
 }
 
-.bn-wizard-btn:hover {
-	background: var(--bn-ob-brand-hover);
-	color: var(--text-on-brand);
+.bn-wizard__footer .bn-btn {
+	flex: 0 0 auto;
 }
 
-.bn-wizard-btn--secondary {
-	background: var(--bn-ob-bg-subtle);
-	color: var(--bn-ob-text-1);
-	border: 1px solid var(--bn-ob-border);
-}
-
-.bn-wizard-btn--secondary:hover {
-	background: var(--bn-ob-bg-hover);
-	color: var(--bn-ob-text-1);
+/* Done step icon inherits success color via currentColor. */
+.bn-wizard__done-icon {
+	color: var(--bn-ob-green);
 }
 
 /* ── Member onboarding flow (new-user, 4 steps) ──────────────────────────
@@ -1008,15 +995,23 @@
 		padding: var(--bn-ob-s4);
 	}
 
-	.bn-wizard__steps {
+	.bn-stepper.bn-wizard__steps {
 		gap: var(--bn-ob-s1);
 		padding: var(--bn-ob-s4);
 	}
 
-	.bn-wizard__step-dot {
-		width: 24px;
-		height: 24px;
-		font-size: var(--text-xs);
+	/* Collapse labels to dots only on narrow viewports (Gate 4). */
+	.bn-wizard__step-name {
+		display: none;
+	}
+
+	.bn-wizard__footer {
+		flex-direction: column-reverse;
+		align-items: stretch;
+	}
+
+	.bn-wizard__footer .bn-btn {
+		width: 100%;
 	}
 
 	.bn-wizard__preset-grid {
@@ -1037,7 +1032,7 @@
 		align-items: stretch;
 	}
 
-	.bn-wizard-btn {
+	.bn-wizard__done-actions .bn-btn {
 		width: 100%;
 		justify-content: center;
 	}
