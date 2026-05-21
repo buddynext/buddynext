@@ -32,6 +32,36 @@ class Spaces extends AdminPageBase {
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'add_submenu' ) );
 		add_action( 'admin_post_bn_delete_space', array( $this, 'handle_delete' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+	}
+
+	/**
+	 * Enqueue the Spaces admin script on this page only.
+	 *
+	 * The matching CSS lives in assets/css/bn-admin.css and is enqueued
+	 * globally for all BuddyNext admin pages by AssetService.
+	 *
+	 * @param string $hook_suffix Current admin page hook suffix.
+	 * @return void
+	 */
+	public function enqueue_assets( string $hook_suffix ): void {
+		if ( 'buddynext_page_buddynext-spaces' !== $hook_suffix ) {
+			return;
+		}
+
+		$plugin_url = defined( 'BUDDYNEXT_FILE' )
+			? plugin_dir_url( (string) constant( 'BUDDYNEXT_FILE' ) )
+			: plugins_url( '/', __DIR__ . '/../../buddynext.php' );
+
+		$version = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '1.0.0';
+
+		wp_enqueue_script(
+			'bn-admin-spaces',
+			$plugin_url . 'assets/js/admin/spaces.js',
+			array(),
+			$version,
+			true
+		);
 	}
 
 	/**
@@ -107,44 +137,50 @@ class Spaces extends AdminPageBase {
 		}
 		?>
 
-		<div class="bn-stats-row">
-			<div class="bn-stat-card">
-				<div class="bn-stat-label"><?php esc_html_e( 'Total Spaces', 'buddynext' ); ?></div>
-				<div class="bn-stat-val"><?php echo esc_html( (string) $counts['total'] ); ?></div>
+		<div class="bn-stat-grid">
+			<div class="bn-stat">
+				<div class="bn-stat__label"><?php esc_html_e( 'Total Spaces', 'buddynext' ); ?></div>
+				<div class="bn-stat__value"><?php echo esc_html( (string) $counts['total'] ); ?></div>
 			</div>
-			<div class="bn-stat-card">
-				<div class="bn-stat-label"><?php esc_html_e( 'Open', 'buddynext' ); ?></div>
-				<div class="bn-stat-val"><?php echo esc_html( (string) $counts['open'] ); ?></div>
+			<div class="bn-stat">
+				<div class="bn-stat__label"><?php esc_html_e( 'Open', 'buddynext' ); ?></div>
+				<div class="bn-stat__value"><?php echo esc_html( (string) $counts['open'] ); ?></div>
 			</div>
-			<div class="bn-stat-card">
-				<div class="bn-stat-label"><?php esc_html_e( 'Private', 'buddynext' ); ?></div>
-				<div class="bn-stat-val"><?php echo esc_html( (string) $counts['private'] ); ?></div>
+			<div class="bn-stat">
+				<div class="bn-stat__label"><?php esc_html_e( 'Private', 'buddynext' ); ?></div>
+				<div class="bn-stat__value"><?php echo esc_html( (string) $counts['private'] ); ?></div>
 			</div>
-			<div class="bn-stat-card">
-				<div class="bn-stat-label"><?php esc_html_e( 'Secret', 'buddynext' ); ?></div>
-				<div class="bn-stat-val"><?php echo esc_html( (string) $counts['secret'] ); ?></div>
+			<div class="bn-stat">
+				<div class="bn-stat__label"><?php esc_html_e( 'Secret', 'buddynext' ); ?></div>
+				<div class="bn-stat__value"><?php echo esc_html( (string) $counts['secret'] ); ?></div>
 			</div>
 		</div>
 
-		<div class="bn-data-table">
+		<div class="bn-table-wrap">
 			<div class="bn-table-header">
-				<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
+				<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" role="search">
 					<input type="hidden" name="page" value="buddynext-spaces">
 					<?php if ( '' !== $type ) : ?>
 						<input type="hidden" name="type" value="<?php echo esc_attr( $type ); ?>">
 					<?php endif; ?>
+					<label class="screen-reader-text" for="bn-spaces-search">
+						<?php esc_html_e( 'Search spaces', 'buddynext' ); ?>
+					</label>
 					<input type="search"
-							class="bn-table-search"
+							id="bn-spaces-search"
+							class="bn-input"
 							name="s"
 							value="<?php echo esc_attr( $search ); ?>"
 							placeholder="<?php esc_attr_e( 'Search spaces…', 'buddynext' ); ?>">
 				</form>
 
-				<div class="bn-table-filter-links">
+				<div class="bn-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Filter spaces by visibility', 'buddynext' ); ?>">
 					<a href="<?php echo esc_url( add_query_arg( 's', $search, $base_url ) ); ?>"
-						class="<?php echo '' === $type ? 'current' : ''; ?>">
+						class="bn-tab"
+						role="tab"
+						aria-selected="<?php echo '' === $type ? 'true' : 'false'; ?>">
 						<?php esc_html_e( 'All', 'buddynext' ); ?>
-						<span class="count">(<?php echo esc_html( (string) $counts['total'] ); ?>)</span>
+						<span class="bn-tab__count">(<?php echo esc_html( (string) $counts['total'] ); ?>)</span>
 					</a>
 					<?php
 					$type_labels = array(
@@ -153,123 +189,182 @@ class Spaces extends AdminPageBase {
 						'secret'  => __( 'Secret', 'buddynext' ),
 					);
 					foreach ( $type_labels as $t_slug => $t_label ) :
-						?>
-						<a href="
-						<?php
-						echo esc_url(
-							add_query_arg(
-								array(
-									'type' => $t_slug,
-									's'    => $search,
-								),
-								$base_url
-							)
+						$tab_url = add_query_arg(
+							array(
+								'type' => $t_slug,
+								's'    => $search,
+							),
+							$base_url
 						);
 						?>
-									"
-							class="<?php echo $type === $t_slug ? 'current' : ''; ?>">
+						<a href="<?php echo esc_url( $tab_url ); ?>"
+							class="bn-tab"
+							role="tab"
+							aria-selected="<?php echo $type === $t_slug ? 'true' : 'false'; ?>">
 							<?php echo esc_html( $t_label ); ?>
-							<span class="count">(<?php echo esc_html( (string) ( $counts[ $t_slug ] ?? 0 ) ); ?>)</span>
+							<span class="bn-tab__count">(<?php echo esc_html( (string) ( $counts[ $t_slug ] ?? 0 ) ); ?>)</span>
 						</a>
 					<?php endforeach; ?>
 				</div>
 			</div>
 
-			<table class="bn-table">
-				<thead>
-					<tr>
-						<th><?php esc_html_e( 'Space', 'buddynext' ); ?></th>
-						<th><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
-						<th><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
-						<th><?php esc_html_e( 'Created', 'buddynext' ); ?></th>
-						<th><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php if ( empty( $spaces ) ) : ?>
+			<div class="bn-table-wrap__scroll">
+				<table class="bn-table">
+					<thead>
 						<tr>
-							<td colspan="5">
-								<p class="description"><?php esc_html_e( 'No spaces found.', 'buddynext' ); ?></p>
-							</td>
+							<th scope="col"><?php esc_html_e( 'Space', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Type', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Created', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
-					<?php else : ?>
-						<?php foreach ( $spaces as $space ) : ?>
-							<?php
-							$owner    = get_userdata( $space['owner_id'] );
-							$created  = mysql2date( (string) get_option( 'date_format' ), (string) $space['created_at'] );
-							$type_key = sanitize_key( (string) $space['type'] );
-
-							$badge_class_map = array(
-								'open'    => 'bn-badge-active',
-								'private' => 'bn-badge-private',
-								'secret'  => 'bn-badge-secret',
-							);
-							$badge_class     = $badge_class_map[ $type_key ] ?? 'bn-badge-secret';
-							?>
+					</thead>
+					<tbody>
+						<?php if ( empty( $spaces ) ) : ?>
 							<tr>
-								<td>
-									<strong><?php echo esc_html( (string) $space['name'] ); ?></strong>
-									<?php if ( $owner ) : ?>
-										<br>
-										<span class="bn-row-info">
-											<?php
-											printf(
-												/* translators: %s: owner username */
-												esc_html__( 'Owner: %s', 'buddynext' ),
-												esc_html( $owner->user_login )
-											);
-											?>
-										</span>
-									<?php endif; ?>
-								</td>
-								<td>
-									<span class="bn-row-badge <?php echo esc_attr( $badge_class ); ?>">
-										<?php echo esc_html( ucfirst( $type_key ) ); ?>
-									</span>
-								</td>
-								<td><?php echo esc_html( (string) $space['member_count'] ); ?></td>
-								<td><?php echo esc_html( (string) $created ); ?></td>
-								<td>
-									<form method="post"
-											action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-											onsubmit="return confirm( '<?php esc_attr_e( 'Delete this space? This cannot be undone.', 'buddynext' ); ?>' );">
-										<?php wp_nonce_field( 'bn_delete_space' ); ?>
-										<input type="hidden" name="action" value="bn_delete_space">
-										<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
-										<button type="submit" class="bn-btn bn-btn-danger">
-											<?php esc_html_e( 'Delete', 'buddynext' ); ?>
-										</button>
-									</form>
+								<td colspan="5">
+									<p class="description"><?php esc_html_e( 'No spaces found.', 'buddynext' ); ?></p>
 								</td>
 							</tr>
-						<?php endforeach; ?>
-					<?php endif; ?>
-				</tbody>
-			</table>
+						<?php else : ?>
+							<?php foreach ( $spaces as $space ) : ?>
+								<?php
+								$owner    = get_userdata( $space['owner_id'] );
+								$created  = mysql2date( (string) get_option( 'date_format' ), (string) $space['created_at'] );
+								$type_key = sanitize_key( (string) $space['type'] );
+
+								$tone_map = array(
+									'open'    => 'success',
+									'private' => 'info',
+									'secret'  => 'warn',
+								);
+								$tone     = $tone_map[ $type_key ] ?? 'info';
+								?>
+								<tr>
+									<td>
+										<div class="bn-space-row-info">
+											<strong><?php echo esc_html( (string) $space['name'] ); ?></strong>
+											<?php if ( $owner ) : ?>
+												<span class="bn-row-meta">
+													<?php
+													printf(
+														/* translators: %s: owner username */
+														esc_html__( 'Owner: %s', 'buddynext' ),
+														esc_html( $owner->user_login )
+													);
+													?>
+												</span>
+											<?php endif; ?>
+										</div>
+									</td>
+									<td>
+										<span class="bn-badge" data-tone="<?php echo esc_attr( $tone ); ?>">
+											<?php echo esc_html( ucfirst( $type_key ) ); ?>
+										</span>
+									</td>
+									<td><?php echo esc_html( (string) $space['member_count'] ); ?></td>
+									<td><?php echo esc_html( (string) $created ); ?></td>
+									<td>
+										<form method="post"
+												action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+												class="bn-delete-space-form">
+											<?php wp_nonce_field( 'bn_delete_space' ); ?>
+											<input type="hidden" name="action" value="bn_delete_space">
+											<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
+											<button type="submit"
+													class="bn-btn"
+													data-variant="danger"
+													data-size="sm"
+													data-bn-delete-space-trigger
+													data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
+												<?php esc_html_e( 'Delete', 'buddynext' ); ?>
+											</button>
+										</form>
+									</td>
+								</tr>
+							<?php endforeach; ?>
+						<?php endif; ?>
+					</tbody>
+				</table>
+			</div>
 
 			<?php if ( $pages > 1 ) : ?>
-				<div class="bn-pagination">
+				<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Spaces pagination', 'buddynext' ); ?>">
 					<?php for ( $i = 1; $i <= $pages; $i++ ) : ?>
-						<a href="
 						<?php
-						echo esc_url(
-							add_query_arg(
-								array(
-									'paged' => $i,
-									's'     => $search,
-									'type'  => $type,
-								),
-								$base_url
-							)
+						$page_url = add_query_arg(
+							array(
+								'paged' => $i,
+								's'     => $search,
+								'type'  => $type,
+							),
+							$base_url
 						);
 						?>
-									"
-							class="bn-page-link<?php echo $i === $page ? ' current' : ''; ?>">
+						<a href="<?php echo esc_url( $page_url ); ?>"
+							class="bn-page-link<?php echo $i === $page ? ' current' : ''; ?>"
+							<?php echo $i === $page ? 'aria-current="page"' : ''; ?>>
 							<?php echo esc_html( (string) $i ); ?>
 						</a>
 					<?php endfor; ?>
-				</div>
+				</nav>
 			<?php endif; ?>
+		</div>
+
+		<?php $this->render_delete_modal(); ?>
+		<?php
+	}
+
+	/**
+	 * Render the v2 delete-space confirm modal.
+	 *
+	 * Hidden by default; opened by JS (assets/js/admin/spaces.js) when a
+	 * row's Delete button is clicked. Confirm posts the underlying form.
+	 *
+	 * @return void
+	 */
+	private function render_delete_modal(): void {
+		?>
+		<div
+			class="bn-modal-backdrop"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="bn-delete-space-title"
+			hidden
+			data-bn-modal="delete-space"
+		>
+			<div class="bn-modal__panel" data-tone="danger" data-size="sm">
+				<header class="bn-modal__head">
+					<h2 class="bn-modal__title" id="bn-delete-space-title">
+						<?php esc_html_e( 'Delete this space?', 'buddynext' ); ?>
+					</h2>
+					<button
+						type="button"
+						class="bn-modal__close"
+						aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
+						data-bn-modal-close
+					>&times;</button>
+				</header>
+				<div class="bn-modal__body">
+					<p><?php esc_html_e( 'This will permanently delete the space and all of its member associations. This cannot be undone.', 'buddynext' ); ?></p>
+				</div>
+				<div class="bn-modal__foot">
+					<button
+						type="button"
+						class="bn-btn"
+						data-variant="ghost"
+						data-size="md"
+						data-bn-modal-close
+					><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+					<button
+						type="button"
+						class="bn-btn"
+						data-variant="danger"
+						data-size="md"
+						data-bn-confirm-delete
+					><?php esc_html_e( 'Delete permanently', 'buddynext' ); ?></button>
+				</div>
+			</div>
 		</div>
 		<?php
 	}

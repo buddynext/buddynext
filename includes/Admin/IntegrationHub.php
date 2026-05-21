@@ -106,7 +106,7 @@ class IntegrationHub extends AdminPageBase {
 			</div>
 			<div class="bn-ih-stats" aria-label="<?php esc_attr_e( 'Integration status summary', 'buddynext' ); ?>">
 				<?php if ( $active_count > 0 ) : ?>
-					<span class="bn-ih-stat-pill bn-ih-stat-pill--active">
+					<span class="bn-badge" data-tone="success">
 						<?php
 						echo esc_html(
 							sprintf(
@@ -119,7 +119,7 @@ class IntegrationHub extends AdminPageBase {
 					</span>
 				<?php endif; ?>
 				<?php if ( $avail_count > 0 ) : ?>
-					<span class="bn-ih-stat-pill bn-ih-stat-pill--available">
+					<span class="bn-badge" data-tone="info">
 						<?php
 						echo esc_html(
 							sprintf(
@@ -213,7 +213,7 @@ class IntegrationHub extends AdminPageBase {
 		$logo_bg  = sanitize_html_class( (string) ( $addon['logo_bg'] ?? 'blue' ) );
 		$enables  = is_array( $addon['enables'] ?? null ) ? $addon['enables'] : array();
 		?>
-		<div class="bn-addon-card bn-addon-card--active bn-addon-card--<?php echo esc_attr( $id ); ?>">
+		<div class="bn-card bn-addon-card bn-addon-card--active bn-addon-card--<?php echo esc_attr( $id ); ?>" data-interactive>
 
 			<div class="bn-addon-card-header">
 				<div class="bn-addon-logo">
@@ -232,7 +232,7 @@ class IntegrationHub extends AdminPageBase {
 						<?php endif; ?>
 					</div>
 				</div>
-				<span class="bn-badge bn-badge-active"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
+				<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 			</div>
 
 			<p class="bn-addon-desc"><?php echo esc_html( $desc ); ?></p>
@@ -257,7 +257,9 @@ class IntegrationHub extends AdminPageBase {
 
 			<div class="bn-addon-footer">
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=buddynext' ) ); ?>"
-					class="bn-btn">
+					class="bn-btn"
+					data-variant="secondary"
+					data-size="md">
 					<?php esc_html_e( 'Configure', 'buddynext' ); ?>
 				</a>
 			</div>
@@ -282,7 +284,7 @@ class IntegrationHub extends AdminPageBase {
 		$url      = (string) ( $addon['url'] ?? '' );
 		$enables  = is_array( $addon['enables'] ?? null ) ? $addon['enables'] : array();
 		?>
-		<div class="bn-addon-card bn-addon-card--available bn-addon-card--<?php echo esc_attr( $id ); ?>">
+		<div class="bn-card bn-addon-card bn-addon-card--available bn-addon-card--<?php echo esc_attr( $id ); ?>" data-interactive>
 
 			<div class="bn-addon-card-header">
 				<div class="bn-addon-logo">
@@ -301,7 +303,7 @@ class IntegrationHub extends AdminPageBase {
 						<?php endif; ?>
 					</div>
 				</div>
-				<span class="bn-badge bn-badge-inactive"><?php esc_html_e( 'Not Installed', 'buddynext' ); ?></span>
+				<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Not Installed', 'buddynext' ); ?></span>
 			</div>
 
 			<p class="bn-addon-desc"><?php echo esc_html( $desc ); ?></p>
@@ -329,7 +331,9 @@ class IntegrationHub extends AdminPageBase {
 					<a href="<?php echo esc_url( $url ); ?>"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="bn-btn bn-btn-primary">
+						class="bn-btn"
+						data-variant="primary"
+						data-size="md">
 						<?php esc_html_e( 'Get Plugin', 'buddynext' ); ?>
 					</a>
 				<?php else : ?>

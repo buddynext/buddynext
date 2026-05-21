@@ -118,6 +118,60 @@ class NavManager extends AdminPageBase {
 		add_action( 'admin_menu', array( $this, 'add_submenu' ) );
 		add_action( 'admin_post_bn_save_nav', array( $this, 'handle_save_nav' ) );
 		add_action( 'wp_ajax_bn_check_slug', array( $this, 'handle_check_slug_ajax' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+	}
+
+	/**
+	 * Enqueue the Nav Manager admin script on this page only.
+	 *
+	 * The matching CSS lives in assets/css/bn-admin.css and is enqueued
+	 * globally for all BuddyNext admin pages by AssetService.
+	 *
+	 * @param string $hook_suffix Current admin page hook suffix.
+	 * @return void
+	 */
+	public function enqueue_assets( string $hook_suffix ): void {
+		if ( 'buddynext_page_buddynext-nav' !== $hook_suffix ) {
+			return;
+		}
+
+		$plugin_url = defined( 'BUDDYNEXT_FILE' )
+			? plugin_dir_url( (string) constant( 'BUDDYNEXT_FILE' ) )
+			: plugins_url( '/', __DIR__ . '/../../buddynext.php' );
+
+		$version = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '1.0.0';
+
+		wp_enqueue_script( 'jquery-ui-sortable' );
+
+		wp_enqueue_script(
+			'bn-nav-manager',
+			$plugin_url . 'assets/js/admin/nav-manager.js',
+			array( 'jquery', 'jquery-ui-sortable' ),
+			$version,
+			true
+		);
+
+		$first_slug = '';
+		$main_tabs  = $this->get_tabs_for_scope( 'main' );
+		if ( ! empty( $main_tabs ) ) {
+			$first_slug = sanitize_key( (string) ( $main_tabs[0]['slug'] ?? '' ) );
+		}
+
+		wp_localize_script(
+			'bn-nav-manager',
+			'bnNavManager',
+			array(
+				'firstSlug' => $first_slug,
+				'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
+				'nonce'     => wp_create_nonce( 'bn_nav_manager' ),
+				'i18n'      => array(
+					'slugHint'  => __( 'URL path for this hub, e.g. "members" → /members/. Saving flushes rewrite rules automatically.', 'buddynext' ),
+					'slugFree'  => __( 'Slug is available', 'buddynext' ),
+					'slugWarn'  => __( 'An existing page uses this slug, it will become unreachable', 'buddynext' ),
+					'slugBlock' => __( 'This slug is reserved or used by another hub', 'buddynext' ),
+				),
+			)
+		);
 	}
 
 	/**
@@ -488,8 +542,6 @@ class NavManager extends AdminPageBase {
 		$mobile_tabs  = $this->get_tabs_for_scope( 'mobile' );
 		$first_slug   = ! empty( $main_tabs ) ? sanitize_key( (string) ( $main_tabs[0]['slug'] ?? '' ) ) : '';
 
-		$this->render_nav_styles();
-
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$notice = sanitize_key( (string) wp_unslash( $_GET['bn_notice'] ?? '' ) );
 
@@ -523,7 +575,7 @@ class NavManager extends AdminPageBase {
 							<h2 class="bn-nav-page-title"><?php esc_html_e( 'Navigation Manager', 'buddynext' ); ?></h2>
 							<p class="bn-nav-page-desc"><?php esc_html_e( 'Drag to reorder. Toggle to show/hide. Click ⚙ to assign a WordPress page and configure visibility.', 'buddynext' ); ?></p>
 						</div>
-						<button type="submit" class="bn-nav-btn-save">
+						<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
 							<?php esc_html_e( 'Save Changes', 'buddynext' ); ?>
 						</button>
 					</div>
@@ -580,9 +632,7 @@ class NavManager extends AdminPageBase {
 			<?php $this->render_hub_page_assignments(); ?>
 
 		</form>
-
 		<?php
-			$this->render_nav_script( $first_slug );
 	}
 
 	// ── Render: scope sidebar ─────────────────────────────────────────────────
@@ -703,38 +753,42 @@ class NavManager extends AdminPageBase {
 		$is_core = empty( $tab['custom'] );
 		$row_id  = 'bn-row-' . $scope . '-' . $slug;
 		?>
-		<li class="bn-nav-row<?php echo $hidden ? ' bn-row-hidden' : ''; ?>"
+		<li class="bn-drag-row"
 			data-slug="<?php echo esc_attr( $slug ); ?>"
 			data-scope="<?php echo esc_attr( $scope ); ?>"
-			id="<?php echo esc_attr( $row_id ); ?>">
+			id="<?php echo esc_attr( $row_id ); ?>"
+			<?php echo $hidden ? 'data-row-hidden' : ''; ?>>
 
 			<input type="hidden"
 					name="bn_nav_slug[<?php echo esc_attr( $scope ); ?>][<?php echo esc_attr( (string) $idx ); ?>]"
 					value="<?php echo esc_attr( $slug ); ?>">
 
-			<div class="bn-drag-handle" title="<?php esc_attr_e( 'Drag to reorder', 'buddynext' ); ?>" aria-hidden="true">
-				<span></span><span></span><span></span>
-			</div>
+			<button type="button"
+					class="bn-drag-row__handle"
+					aria-label="<?php esc_attr_e( 'Drag to reorder', 'buddynext' ); ?>"
+					title="<?php esc_attr_e( 'Drag to reorder', 'buddynext' ); ?>">
+				<span></span>
+			</button>
 
-			<div class="bn-row-icon" aria-hidden="true">
+			<div class="bn-nav-row-icon" aria-hidden="true">
 				<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
 				echo $this->svg( $icon );
 				?>
 			</div>
 
-			<div class="bn-row-info">
-				<div class="bn-row-name">
+			<div class="bn-drag-row__body">
+				<div class="bn-nav-row-name">
 					<?php echo esc_html( $label ); ?>
 					<?php if ( $is_core ) : ?>
-						<span class="bn-badge bn-badge-core"><?php esc_html_e( 'Core', 'buddynext' ); ?></span>
+						<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Core', 'buddynext' ); ?></span>
 					<?php else : ?>
-						<span class="bn-badge bn-badge-custom"><?php esc_html_e( 'Custom', 'buddynext' ); ?></span>
+						<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Custom', 'buddynext' ); ?></span>
 					<?php endif; ?>
 				</div>
-				<div class="bn-row-desc"><?php echo esc_html( (string) ( $tab['description'] ?? '' ) ); ?></div>
+				<div class="bn-nav-row-desc"><?php echo esc_html( (string) ( $tab['description'] ?? '' ) ); ?></div>
 			</div>
 
-			<div class="bn-row-actions">
+			<div class="bn-drag-row__actions">
 				<button type="button"
 						class="bn-config-btn"
 						data-scope="<?php echo esc_attr( $scope ); ?>"
@@ -745,13 +799,16 @@ class NavManager extends AdminPageBase {
 					?>
 				</button>
 				<label class="bn-toggle-wrap"
-						title="<?php echo $hidden ? esc_attr__( 'Hidden — click to show', 'buddynext' ) : esc_attr__( 'Visible — click to hide', 'buddynext' ); ?>">
+						title="<?php echo $hidden ? esc_attr__( 'Hidden, click to show', 'buddynext' ) : esc_attr__( 'Visible, click to hide', 'buddynext' ); ?>">
 					<input type="checkbox"
-							class="bn-toggle-input"
+							class="bn-toggle-input screen-reader-text"
 							name="bn_nav_visible[<?php echo esc_attr( $scope ); ?>][<?php echo esc_attr( $slug ); ?>]"
 							value="1"
 							<?php checked( ! $hidden ); ?>>
-					<span class="bn-toggle<?php echo ! $hidden ? ' bn-toggle-on' : ''; ?>" aria-hidden="true"></span>
+					<span class="bn-toggle<?php echo ! $hidden ? ' bn-toggle-on' : ''; ?>"
+							role="switch"
+							aria-checked="<?php echo $hidden ? 'false' : 'true'; ?>"
+							aria-hidden="true"></span>
 					<span class="screen-reader-text">
 						<?php echo $hidden ? esc_html__( 'Show tab', 'buddynext' ) : esc_html__( 'Hide tab', 'buddynext' ); ?>
 					</span>
@@ -878,7 +935,7 @@ class NavManager extends AdminPageBase {
 		?>
 		<div class="bn-config-header">
 			<div class="bn-config-breadcrumb"><?php echo esc_html( ucwords( str_replace( '-', ' ', $scope ) ) ); ?> &rsaquo;</div>
-			<div class="bn-config-title" style="display:flex;align-items:center;gap:6px;">
+			<div class="bn-config-title">
 			<?php // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG read from plugin file.
 			echo $this->svg( $icon );
 			?>
@@ -909,7 +966,7 @@ class NavManager extends AdminPageBase {
 						value="<?php echo esc_attr( (string) $order ); ?>"
 						min="1"
 						max="999"
-						style="width:80px;">
+						class="bn-cf-position-input">
 			</div>
 
 			<?php if ( '' !== $page_opt ) : ?>
@@ -948,7 +1005,7 @@ class NavManager extends AdminPageBase {
 						maxlength="80"
 						pattern="[a-z0-9\-]+"
 						title="<?php esc_attr_e( 'Lowercase letters, numbers, and hyphens only.', 'buddynext' ); ?>"
-						style="max-width:200px;">
+						class="bn-cf-url-slug-input">
 				<span class="bn-cf-hint">
 					<?php esc_html_e( 'URL path for this hub, e.g. "members" → /members/. Saving flushes rewrite rules automatically.', 'buddynext' ); ?>
 				</span>
@@ -1049,7 +1106,7 @@ class NavManager extends AdminPageBase {
 			<div class="bn-nav-section-header">
 				<div class="bn-nav-section-title"><?php esc_html_e( 'Mobile Nav Note', 'buddynext' ); ?></div>
 			</div>
-			<p style="padding:12px 16px;margin:0;font-size:12px;color:#646970;">
+			<p class="bn-mobile-note">
 				<?php esc_html_e( 'Only the top 5 visible items are displayed in the mobile bottom bar. Drag to reorder; toggle to include or exclude.', 'buddynext' ); ?>
 			</p>
 		</div>
@@ -1103,393 +1160,6 @@ class NavManager extends AdminPageBase {
 		<?php
 	}
 
-	// ── Render: developer info bar ────────────────────────────────────────────
-
-	/**
-	 * Render the developer code reference bar at the bottom of the page.
-	 *
-	 * @return void
-	 */
-
-
-	// ── Render: inline styles ─────────────────────────────────────────────────
-
-	/**
-	 * Output the inline CSS for the three-panel layout.
-	 *
-	 * Scoped to .bn-three-panel and .bn-nav-* to avoid polluting WP admin.
-	 *
-	 * @return void
-	 */
-	private function render_nav_styles(): void {
-		?>
-		<style>
-		/* Layout */
-		.bn-three-panel{display:flex;gap:20px;align-items:flex-start;margin-top:20px}
-
-		/* Scope sidebar */
-		.bn-nav-scope-sidebar{width:220px;flex-shrink:0;background:#fff;border:1px solid #c3c4c7;border-radius:4px;overflow:hidden;position:sticky;top:32px}
-		.bn-scope-header{padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#646970;border-bottom:1px solid #f0f0f1;background:#f9f9f9}
-		.bn-scope-item{display:flex;align-items:center;gap:8px;padding:9px 14px;color:#1d2327;font-size:13px;border-bottom:1px solid #f0f0f1;cursor:pointer;user-select:none}
-		.bn-scope-item:last-of-type{border-bottom:none}
-		.bn-scope-item svg{width:16px;height:16px;flex-shrink:0;opacity:.6}
-		.bn-scope-active{background:#e8f4fb;color:#0073aa;font-weight:600;border-left:3px solid #0073aa;padding-left:11px}
-		.bn-scope-active svg{opacity:1}
-		.bn-scope-tip{padding:12px 14px;font-size:11px;color:#646970;line-height:1.6;border-top:1px solid #f0f0f1;background:#f9f9f9}
-		.bn-scope-tip code{background:#f0f0f1;padding:1px 4px;border-radius:2px;font-size:10px;font-family:monospace}
-		.bn-coming-soon-icon{width:40px;height:40px;margin:0 auto 12px;color:#c3c4c7}
-		.bn-coming-soon-icon svg{width:40px;height:40px}
-
-		/* Main panel */
-		.bn-nav-main-panel{flex:1;min-width:0}
-		.bn-nav-page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:16px}
-		.bn-nav-page-title{font-size:20px;font-weight:700;color:#1d2327;margin:0 0 4px}
-		.bn-nav-page-desc{font-size:13px;color:#646970;margin:0}
-		.bn-nav-btn-save{background:#0073aa;color:#fff;padding:8px 20px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;border:none;white-space:nowrap;flex-shrink:0}
-		.bn-nav-btn-save:hover{background:#005f8c}
-
-		/* Section card */
-		.bn-nav-section{background:#fff;border:1px solid #c3c4c7;border-radius:4px;margin-bottom:16px;overflow:hidden}
-		.bn-nav-section-header{padding:12px 16px;border-bottom:1px solid #f0f0f1;display:flex;align-items:center;justify-content:space-between;gap:12px}
-		.bn-nav-section-collapsed .bn-nav-section-header{border-bottom:none;opacity:.7}
-		.bn-nav-section-title{font-weight:700;font-size:14px;color:#1d2327}
-		.bn-nav-section-sub{font-weight:400;font-size:13px;color:#646970}
-		.bn-nav-section-badge{font-size:11px;color:#646970;background:#f0f0f1;padding:3px 8px;border-radius:10px;white-space:nowrap;flex-shrink:0}
-		.bn-nav-collapsed-summary{font-size:12px;color:#787c82;margin-left:auto;padding-right:8px}
-		.bn-collapse-arrow{display:inline-block;font-size:11px;color:#646970;margin-right:4px;transform:rotate(-90deg)}
-
-		/* Nav row list */
-		.bn-nav-list{list-style:none;margin:0;padding:0}
-		.bn-nav-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #f6f7f7;transition:background .1s;cursor:default}
-		.bn-nav-row:last-child{border-bottom:none}
-		.bn-nav-row:hover{background:#f9fafb}
-		.bn-row-hidden{opacity:.55;background:#fafafa}
-		.bn-drag-handle{display:flex;flex-direction:column;gap:3px;cursor:grab;padding:4px 2px;flex-shrink:0}
-		.bn-drag-handle span{display:block;width:18px;height:2px;background:#c3c4c7;border-radius:1px}
-		.bn-drag-handle:hover span{background:#8c8f94}
-		.bn-row-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center}
-		.bn-row-info{flex:1;min-width:0}
-		.bn-row-name{font-weight:600;font-size:13px;color:#1d2327;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-		.bn-row-desc{font-size:11px;color:#787c82;margin-top:2px}
-		.bn-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;line-height:1.4}
-		.bn-badge-core{background:#0073aa;color:#fff}
-		.bn-badge-custom{background:#6b7280;color:#fff}
-		.bn-row-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
-		.bn-config-btn{background:none;border:1px solid #c3c4c7;border-radius:3px;padding:4px 9px;font-size:13px;cursor:pointer;color:#646970;line-height:1}
-		.bn-config-btn:hover,.bn-config-btn-active{background:#0073aa;border-color:#0073aa;color:#fff}
-
-		/* Toggle switch */
-		.bn-toggle-wrap{display:inline-flex;align-items:center;cursor:pointer}
-		.bn-toggle-input{position:absolute;opacity:0;width:0;height:0}
-		.bn-toggle{width:40px;height:22px;background:#787c82;border-radius:11px;position:relative;transition:background .2s;flex-shrink:0;display:inline-block}
-		.bn-toggle-on{background:#00a32a}
-		.bn-toggle::after{content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
-		.bn-toggle-on::after{left:21px}
-
-		/* Add tab row */
-		.bn-nav-add-row{display:flex;border-top:1px solid #f0f0f1}
-		.bn-add-tab-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 16px;border:none;background:none;font-size:13px;color:#0073aa;cursor:pointer;font-weight:600}
-		.bn-add-tab-btn:hover{background:#f0f7fb}
-		.bn-add-tab-inline{border-top:1px solid #f0f0f1;padding:14px 16px;background:#f9f9f9}
-		.bn-add-tab-inline-inner{display:flex;flex-direction:column;gap:10px}
-		.bn-add-tab-inline-actions{display:flex;gap:8px;align-items:center}
-
-		/* Config panel */
-		.bn-nav-config-panel{width:280px;flex-shrink:0;position:sticky;top:32px}
-		.bn-config-card{background:#fff;border:1px solid #c3c4c7;border-radius:4px;overflow:hidden}
-		.bn-config-header{padding:11px 14px;border-bottom:1px solid #f0f0f1;background:#f9f9f9}
-		.bn-config-breadcrumb{font-size:11px;color:#646970;margin-bottom:2px}
-		.bn-config-title{font-size:13px;font-weight:700;color:#1d2327}
-		.bn-config-body{padding:14px}
-		.bn-cf{margin-bottom:14px}
-		.bn-cf:last-child{margin-bottom:0}
-		.bn-cf>label{display:block;font-weight:600;font-size:11px;color:#50575e;text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px}
-		.bn-cf input[type=text],.bn-cf input[type=number],.bn-cf select{width:100%;border:1px solid #c3c4c7;border-radius:3px;padding:6px 8px;font-size:13px;color:#1d2327;background:#fff;font-family:inherit;box-sizing:border-box}
-		.bn-cf input[type=text]:focus,.bn-cf input[type=number]:focus,.bn-cf select:focus{outline:none;border-color:#0073aa;box-shadow:0 0 0 1px #0073aa}
-		.bn-cf-hint{display:block;font-size:11px;color:#787c82;margin-top:4px}
-		.bn-config-divider{height:1px;background:#f0f0f1;margin:14px 0}
-		.bn-config-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-		.bn-config-toggle-label{font-weight:600;font-size:12px;color:#1d2327}
-		.bn-config-toggle-sub{font-size:11px;color:#787c82;margin-top:1px}
-		.bn-cfg-toggle-chk{width:18px;height:18px;cursor:pointer;flex-shrink:0;accent-color:#0073aa}
-		.bn-config-note{font-size:11px;color:#646970;background:#f6f7f7;border:1px solid #f0f0f1;border-radius:3px;padding:8px 10px;line-height:1.5}
-		.bn-config-note strong{color:#50575e}
-
-		/* Hub page assignments */
-		.bn-nav-section-desc{font-size:12px;color:#787c82;line-height:1.5;margin-left:auto;text-align:right;max-width:420px}
-		.bn-hub-pages-list{padding:0;margin:0}
-		.bn-hub-page-row{display:grid;grid-template-columns:1fr 220px;align-items:center;gap:24px;padding:16px;border-bottom:1px solid #f0f0f1}
-		.bn-hub-page-row:last-child{border-bottom:none}
-		.bn-hub-page-info{display:flex;flex-direction:column;gap:3px;min-width:0}
-		.bn-hub-page-label{font-weight:600;font-size:13px;color:#1d2327;line-height:1.4}
-		.bn-hub-page-desc{font-size:11px;color:#787c82;line-height:1.5}
-		.bn-hub-page-picker{flex-shrink:0}
-		.bn-hub-page-picker select{width:100%;border:1px solid #c3c4c7;border-radius:3px;padding:6px 8px;font-size:13px;color:#1d2327;background:#fff;font-family:inherit;box-sizing:border-box;cursor:pointer;line-height:1.4}
-		.bn-hub-page-picker select:focus{outline:none;border-color:#0073aa;box-shadow:0 0 0 1px #0073aa}
-		@media screen and (max-width:640px){
-			.bn-hub-page-row{grid-template-columns:1fr;gap:10px}
-			.bn-nav-section-desc{margin-left:0;text-align:left;max-width:none}
-		}
-
-		/* Developer bar */
-		.bn-dev-bar{background:#1e1e1e;color:#e5e7eb;padding:20px 32px;font-size:12px;line-height:1.7;margin-top:32px;border-radius:4px}
-		.bn-dev-bar-title{font-weight:700;color:#fff;font-size:13px;margin-bottom:12px}
-		.bn-dev-code{background:#111;color:#e5e7eb;border:1px solid #3a3a3a;border-radius:4px;padding:16px;font-family:'Menlo','Consolas','Courier New',monospace;font-size:12px;line-height:1.65;white-space:pre;overflow-x:auto;margin:8px 0 14px}
-		.bn-dev-bar-note{font-size:11px;color:#9ca3af}
-		.bn-dev-bar-note code{background:#2d2d2d;padding:1px 5px;border-radius:3px;font-family:monospace;color:#e5e7eb}
-
-		/* Responsive */
-		@media screen and (max-width:1100px){
-			.bn-three-panel{flex-wrap:wrap}
-			.bn-nav-scope-sidebar{width:100%;position:static}
-			.bn-nav-config-panel{width:100%;position:static}
-		}
-		@media screen and (max-width:640px){
-			.bn-nav-page-header{flex-direction:column;align-items:stretch}
-			.bn-nav-btn-save{width:100%}
-			.bn-nav-add-row{flex-direction:column}
-			.bn-add-tab-btn{border-right:none;border-bottom:1px solid #f0f0f1}
-		}
-		</style>
-		<?php
-	}
-
-	// ── Render: inline script ─────────────────────────────────────────────────
-
-	/**
-	 * Output the inline JS for config panel switching, toggle sync, and sort.
-	 *
-	 * Uses vanilla JS for panel switching; falls back to jQuery UI Sortable
-	 * (always available in WP admin) for drag-reorder.
-	 *
-	 * @param string $first_slug Slug of the initially active config panel.
-	 * @return void
-	 */
-	private function render_nav_script( string $first_slug ): void {
-		?>
-		<script>
-		(function () {
-			'use strict';
-
-			// ── Scope switching ────────────────────────────────────────────
-			function showScope( scope ) {
-				// Update sidebar active state.
-				document.querySelectorAll( '.bn-scope-item' ).forEach( function ( el ) {
-					el.classList.remove( 'bn-scope-active' );
-				} );
-				var activeItem = document.querySelector( '.bn-scope-item[data-scope="' + scope + '"]' );
-				if ( activeItem ) {
-					activeItem.classList.add( 'bn-scope-active' );
-				}
-
-				// Show/hide center scope panels.
-				document.querySelectorAll( '[data-scope-panel]' ).forEach( function ( panel ) {
-					panel.hidden = ( panel.dataset.scopePanel !== scope );
-				} );
-
-				// Show/hide right config-scope containers.
-				document.querySelectorAll( '[data-config-scope]' ).forEach( function ( ctr ) {
-					ctr.hidden = ( ctr.dataset.configScope !== scope );
-				} );
-
-				// Activate the first config panel of the newly shown scope.
-				var firstBtn = document.querySelector(
-					'[data-scope-panel="' + scope + '"] .bn-config-btn'
-				);
-				if ( firstBtn ) {
-					showPanel( scope, firstBtn.dataset.slug );
-				}
-			}
-
-			document.querySelectorAll( '.bn-scope-item[data-scope]' ).forEach( function ( item ) {
-				item.addEventListener( 'click', function () {
-					showScope( this.dataset.scope );
-				} );
-				item.addEventListener( 'keydown', function ( e ) {
-					if ( 'Enter' === e.key || ' ' === e.key ) {
-						e.preventDefault();
-						showScope( this.dataset.scope );
-					}
-				} );
-			} );
-
-			// ── Config panel switching ─────────────────────────────────────
-			var activeSlug  = <?php echo wp_json_encode( $first_slug ); ?>;
-			var activeScope = 'main';
-
-			function showPanel( scope, slug ) {
-				// Hide all cards in this scope's container.
-				var ctr = document.querySelector( '[data-config-scope="' + scope + '"]' );
-				if ( ctr ) {
-					ctr.querySelectorAll( '.bn-config-card' ).forEach( function ( el ) {
-						el.hidden = true;
-					} );
-				}
-
-				// Clear active state from all config buttons in this scope's panel.
-				var scopePanel = document.querySelector( '[data-scope-panel="' + scope + '"]' );
-				if ( scopePanel ) {
-					scopePanel.querySelectorAll( '.bn-config-btn' ).forEach( function ( b ) {
-						b.classList.remove( 'bn-config-btn-active' );
-					} );
-				}
-
-				var panelId = 'bn-config-' + scope + '-' + slug;
-				var panel   = document.getElementById( panelId );
-				if ( panel ) {
-					panel.hidden = false;
-					activeSlug   = slug;
-					activeScope  = scope;
-				}
-
-				var btn = document.querySelector(
-					'[data-scope-panel="' + scope + '"] .bn-config-btn[data-slug="' + slug + '"]'
-				);
-				if ( btn ) {
-					btn.classList.add( 'bn-config-btn-active' );
-				}
-			}
-
-			// Mark initial active panel (main scope, first slug).
-			if ( activeSlug ) {
-				showPanel( 'main', activeSlug );
-			}
-
-			document.querySelectorAll( '.bn-config-btn' ).forEach( function ( btn ) {
-				btn.addEventListener( 'click', function () {
-					showPanel( this.dataset.scope, this.dataset.slug );
-				} );
-			} );
-
-			// ── Toggle switch visual sync ──────────────────────────────────
-			document.querySelectorAll( '.bn-toggle-input' ).forEach( function ( chk ) {
-				chk.addEventListener( 'change', function () {
-					var toggle = this.nextElementSibling;
-					var row    = this.closest( '.bn-nav-row' );
-					if ( this.checked ) {
-						if ( toggle ) { toggle.classList.add( 'bn-toggle-on' ); }
-						if ( row )    { row.classList.remove( 'bn-row-hidden' ); }
-					} else {
-						if ( toggle ) { toggle.classList.remove( 'bn-toggle-on' ); }
-						if ( row )    { row.classList.add( 'bn-row-hidden' ); }
-					}
-				} );
-			} );
-
-			// ── Add Custom Tab toggle ──────────────────────────────────────
-			document.querySelectorAll( '[data-action="bn-open-add-tab"]' ).forEach( function ( btn ) {
-				btn.addEventListener( 'click', function () {
-					var scope  = this.dataset.scope;
-					var formEl = document.getElementById( 'bn-add-tab-form-' + scope );
-					if ( formEl ) {
-						formEl.hidden = false;
-						var firstInput = formEl.querySelector( 'input[type="text"]' );
-						if ( firstInput ) { firstInput.focus(); }
-					}
-				} );
-			} );
-
-			document.querySelectorAll( '.bn-cancel-add-tab' ).forEach( function ( btn ) {
-				btn.addEventListener( 'click', function () {
-					var scope  = this.dataset.scope;
-					var formEl = document.getElementById( 'bn-add-tab-form-' + scope );
-					if ( formEl ) {
-						formEl.hidden = true;
-						formEl.querySelectorAll( 'input' ).forEach( function ( inp ) {
-							inp.value = '';
-						} );
-					}
-				} );
-			} );
-
-			// ── Drag-reorder via jQuery UI Sortable (per scope) ────────────
-			if ( window.jQuery && jQuery.fn.sortable ) {
-				var scopes = [ 'main', 'profile', 'space', 'mobile' ];
-				scopes.forEach( function ( sc ) {
-					var listId = '#bn-nav-sortable-' + sc;
-					if ( jQuery( listId ).length ) {
-						jQuery( listId ).sortable( {
-							handle      : '.bn-drag-handle',
-							axis        : 'y',
-							containment : 'parent',
-							update      : function () {
-								jQuery( listId + ' .bn-nav-row' ).each( function ( i ) {
-									var slug       = this.dataset.slug;
-									var panelId    = 'bn-config-' + sc + '-' + slug;
-									var orderInput = document.querySelector(
-										'#' + panelId + ' input[type="number"]'
-									);
-									if ( orderInput ) {
-										orderInput.value = ( i + 1 ) * 10;
-									}
-								} );
-							}
-						} ).disableSelection();
-					}
-				} );
-			}
-
-		// ── Slug conflict detection ────────────────────────────────────────────────
-		// The nonce below is generated fresh on each admin page load.
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing
-		var bnSlugNonce = <?php echo wp_json_encode( wp_create_nonce( 'bn_nav_manager' ) ); ?>;
-
-		function bnSetSlugHint( hintEl, status ) {
-			hintEl.className = 'bn-cf-hint bn-cf-hint--' + status;
-			if ( 'free' === status ) {
-				hintEl.textContent = 'Slug is available';
-			} else if ( 'warn' === status ) {
-				hintEl.textContent = 'An existing page uses this slug — it will become unreachable';
-			} else {
-				hintEl.textContent = 'This slug is reserved or used by another hub';
-			}
-		}
-
-		document.querySelectorAll( 'input[name$="[url_slug]"]' ).forEach( function ( input ) {
-			var match = input.name.match( /\[main\]\[([^\]]+)\]\[url_slug\]/ );
-			if ( ! match ) {
-				return;
-			}
-			var hub    = match[1];
-			var hintEl = input.parentNode ? input.parentNode.querySelector( '.bn-cf-hint' ) : null;
-			var timer  = null;
-
-			if ( ! hintEl ) {
-				return;
-			}
-
-			input.addEventListener( 'input', function () {
-				var slugVal = input.value.trim();
-				clearTimeout( timer );
-
-				if ( '' === slugVal ) {
-					hintEl.className   = 'bn-cf-hint';
-					hintEl.textContent = <?php echo wp_json_encode( __( 'URL path for this hub, e.g. "members" → /members/. Saving flushes rewrite rules automatically.', 'buddynext' ) ); ?>;
-					return;
-				}
-
-				timer = setTimeout( function () {
-					var data = new window.FormData();
-					data.append( 'action', 'bn_check_slug' );
-					data.append( 'nonce',  bnSlugNonce );
-					data.append( 'slug',   slugVal );
-					data.append( 'hub',    hub );
-
-					window.fetch( window.ajaxurl, { method: 'POST', body: data } )
-						.then( function ( r ) { return r.json(); } )
-						.then( function ( json ) {
-							if ( json && json.success && json.data && json.data.status ) {
-								bnSetSlugHint( hintEl, json.data.status );
-							}
-						} )
-						.catch( function () {} );
-				}, 300 );
-			} );
-		} );
-		}());
-		</script>
-		<?php
-	}
 	// ── Admin-post handler ─────────────────────────────────────────────────────
 
 	/**
