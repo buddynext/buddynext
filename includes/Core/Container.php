@@ -69,6 +69,20 @@ class Container {
 	}
 
 	/**
+	 * Check whether a service binding exists for the key.
+	 *
+	 * Used by the plug-and-play model: features check has() before resolving
+	 * a sibling feature's service. When a feature is disabled via filter,
+	 * its key is never bound and has() returns false.
+	 *
+	 * @param string $key Service identifier.
+	 * @return bool
+	 */
+	public function has( string $key ): bool {
+		return isset( $this->bindings[ $key ] );
+	}
+
+	/**
 	 * Resolve and return a service (cached after first call).
 	 *
 	 * @param string $key Service identifier.

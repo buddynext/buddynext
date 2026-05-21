@@ -196,6 +196,12 @@ class Plugin {
 		$container->get( 'webhooks' )->init();
 		( new OutboundWebhookListener() )->register();
 
+		// Sidebar feature — Listener registers cache-bust hooks. Conditional
+		// per plug-and-play model: only when the feature is bound.
+		if ( $container->has( 'sidebar_widgets' ) ) {
+			( new \BuddyNext\Sidebar\WidgetListener( $container->get( 'sidebar_cache' ) ) )->register();
+		}
+
 		// Wire email dispatch to the notification created action.
 		( new EmailDispatchListener(
 			$container->get( 'email_sender' ),
@@ -629,6 +635,18 @@ class Plugin {
 		$container->bind( 'widgets', fn() => new WidgetService() );
 		$container->bind( 'pwa', fn() => new PwaService() );
 		$container->bind( 'webhooks', fn() => new OutboundWebhookService() );
+
+		// Sidebar widget feature — Service + Cache pair. Plug-and-play: when
+		// the sidebar feature is disabled via the buddynext_feature_sidebar
+		// filter, neither is bound; templates fall back to direct queries.
+		// See docs/specs/MODULAR-ARCHITECTURE.md for the pattern.
+		if ( apply_filters( 'buddynext_feature_sidebar', true ) ) {
+			$container->bind( 'sidebar_cache', fn() => new \BuddyNext\Sidebar\WidgetCache() );
+			$container->bind(
+				'sidebar_widgets',
+				fn( $c ) => new \BuddyNext\Sidebar\WidgetService( $c->get( 'sidebar_cache' ) )
+			);
+		}
 		$container->bind( 'verification', fn() => new VerificationService() );
 		$container->bind( 'onboarding', fn() => new \BuddyNext\Onboarding\OnboardingService() );
 		$container->bind( 'invite', fn() => new \BuddyNext\Onboarding\InviteService() );
