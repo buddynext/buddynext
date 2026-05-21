@@ -177,15 +177,33 @@ if ( ! function_exists( 'bn_excerpt' ) ) {
 }
 ?>
 <?php
-$bn_nav_active = 'feed';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+// ── Right sidebar widgets ────────────────────────────────────────────────
+// Match home.php pattern. Register the action so the shell auto-renders
+// the right column via has_action() detection.
+add_action(
+	'buddynext_right_sidebar',
+	static function () use ( $current_user_id ) {
+		buddynext_get_template(
+			'partials/sidebar.php',
+			array(
+				'sidebar_user_id' => $current_user_id,
+			)
+		);
+	}
+);
+
+/**
+ * Fires before the explore feed inner content.
+ *
+ * @param int $current_user_id Current user ID.
+ */
+do_action( 'buddynext_feed_explore_before', $current_user_id );
 ?>
 <div
-	class="bn-explore"
+	class="bn-feed-stack bn-explore"
 	data-wp-interactive="buddynext/feed"
 	data-wp-context='{"scope":"explore","sort":"trending","filter":"all","page":1}'
 >
-	<div class="bn-hub-shell">
 	<div class="bn-explore-content">
 
 		<!-- Page header -->
@@ -343,8 +361,14 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 			<?php endif; ?>
 
 	</div><!-- /.bn-explore-content -->
-	<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
-	</div><!-- /.bn-hub-shell -->
+	<?php
+	/**
+	 * Fires after the explore feed inner content.
+	 *
+	 * @param int $current_user_id Current user ID.
+	 */
+	do_action( 'buddynext_feed_explore_after', $current_user_id );
+	?>
 
 	<!-- REST config for Interactivity API store -->
 	<script type="application/json" id="bn-feed-explore-config">
