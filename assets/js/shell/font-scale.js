@@ -1,0 +1,126 @@
+/**
+ * BuddyNext — Shell font-scale + theme bootstrap.
+ *
+ * Reads saved preferences from localStorage and stamps the corresponding
+ * data attributes on <html> before the rail/topbar render, then wires
+ * delegated click handlers for the A / A+ / A++ font-scale buttons and
+ * the light/dark theme toggle.
+ *
+ * Storage keys:
+ *   bn_font_scale  '100' | '110' | '120'
+ *   bn_theme       'light' | 'dark'
+ *
+ * Data attributes consumed by the v2 token system:
+ *   data-bn-font-scale
+ *   data-bn-theme
+ *
+ * @package BuddyNext
+ */
+
+( function () {
+	'use strict';
+
+	var SCALES = [ '100', '110', '120' ];
+
+	function readScale() {
+		try {
+			var s = window.localStorage.getItem( 'bn_font_scale' ) || '100';
+			return SCALES.indexOf( s ) !== -1 ? s : '100';
+		} catch ( e ) {
+			return '100';
+		}
+	}
+
+	function writeScale( s ) {
+		try {
+			window.localStorage.setItem( 'bn_font_scale', s );
+		} catch ( e ) {
+			/* storage unavailable — ignore */
+		}
+	}
+
+	function applyScale( s ) {
+		document.documentElement.setAttribute( 'data-bn-font-scale', s );
+		var btns = document.querySelectorAll( '.bn-app__font-scale-btn' );
+		Array.prototype.forEach.call( btns, function ( b ) {
+			if ( b.dataset.scale === s ) {
+				b.classList.add( 'is-active' );
+				b.setAttribute( 'aria-pressed', 'true' );
+			} else {
+				b.classList.remove( 'is-active' );
+				b.setAttribute( 'aria-pressed', 'false' );
+			}
+		} );
+	}
+
+	function readTheme() {
+		try {
+			return window.localStorage.getItem( 'bn_theme' ) || '';
+		} catch ( e ) {
+			return '';
+		}
+	}
+
+	function writeTheme( t ) {
+		try {
+			window.localStorage.setItem( 'bn_theme', t );
+		} catch ( e ) {
+			/* storage unavailable — ignore */
+		}
+	}
+
+	function applyTheme( t ) {
+		if ( 'dark' === t ) {
+			document.documentElement.setAttribute( 'data-bn-theme', 'dark' );
+			document.documentElement.setAttribute( 'data-theme', 'dark' );
+		} else {
+			document.documentElement.setAttribute( 'data-bn-theme', 'light' );
+			document.documentElement.removeAttribute( 'data-theme' );
+		}
+	}
+
+	// Bootstrap: apply saved scale + theme before paint.
+	var initialScale = readScale();
+	document.documentElement.setAttribute( 'data-bn-font-scale', initialScale );
+
+	var savedTheme = readTheme();
+	var prefersDark = false;
+	try {
+		prefersDark = window.matchMedia( '(prefers-color-scheme: dark)' ).matches;
+	} catch ( e ) {
+		prefersDark = false;
+	}
+	var effectiveTheme = savedTheme || ( prefersDark ? 'dark' : 'light' );
+	applyTheme( effectiveTheme );
+
+	// Sync button states once DOM is ready.
+	function onReady() {
+		applyScale( initialScale );
+	}
+	if ( 'loading' === document.readyState ) {
+		document.addEventListener( 'DOMContentLoaded', onReady );
+	} else {
+		onReady();
+	}
+
+	// Delegated click handler for font-scale + theme toggle.
+	document.addEventListener( 'click', function ( e ) {
+		var scaleBtn = e.target.closest && e.target.closest( '.bn-app__font-scale-btn' );
+		if ( scaleBtn && scaleBtn.dataset.scale ) {
+			var s = scaleBtn.dataset.scale;
+			if ( SCALES.indexOf( s ) !== -1 ) {
+				writeScale( s );
+				applyScale( s );
+			}
+			return;
+		}
+
+		var themeBtn = e.target.closest && e.target.closest( '[data-bn-action="toggle-theme"]' );
+		if ( themeBtn ) {
+			var current = document.documentElement.getAttribute( 'data-bn-theme' ) || 'light';
+			var next = 'dark' === current ? 'light' : 'dark';
+			writeTheme( next );
+			applyTheme( next );
+		}
+	} );
+}() );

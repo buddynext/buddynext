@@ -64,7 +64,6 @@ class PageRouter {
 
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
-
 	}
 
 	// ── Request filter ────────────────────────────────────────────────────────
@@ -216,10 +215,22 @@ class PageRouter {
 		// Delegate the full page frame to the active theme. get_header() fires
 		// wp_head() internally, and get_footer() fires wp_footer() — so the
 		// WordPress Interactivity API runtime and all enqueued scripts load.
+		// Between the two we render the BuddyNext shell, which uses a
+		// burst-out wrapper (100vw + negative margins) to escape any theme
+		// container (.site-main, .container, max-width: 1200px) so the BN
+		// canvas occupies 100% of the viewport width on every host theme.
 		get_header();
-		echo '<div id="bn-main-content">';
-		buddynext_get_template( $template, $context );
-		echo '</div><!-- #bn-main-content -->';
+		buddynext_get_template(
+			'shell/hub-shell.php',
+			array_merge(
+				$context,
+				array(
+					'inner_template' => $template,
+					'hub'            => $hub,
+					'context'        => $context,
+				)
+			)
+		);
 		get_footer();
 
 		exit;
@@ -237,6 +248,33 @@ class PageRouter {
 	 */
 	private function enqueue_hub_assets( string $hub, array $context ): void {
 		$assets = buddynext_service( 'assets' );
+
+		// Shell CSS + font-scale script — required on every BN hub so the
+		// .bn-app wrapper, topbar, and rail render correctly.
+		wp_enqueue_style( 'bn-shell' );
+		wp_enqueue_script( 'bn-shell-font-scale' );
+		wp_enqueue_script( 'bn-shell-extras' );
+
+		// Localize REST endpoints + nav URLs for shell/extras.js.
+		wp_localize_script(
+			'bn-shell-extras',
+			'bnShellData',
+			array(
+				'restNonce'         => wp_create_nonce( 'wp_rest' ),
+				'restSearchUrl'     => esc_url_raw( rest_url( 'buddynext/v1/search' ) ),
+				'restNotifsUrl'     => esc_url_raw( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ),
+				'restNotifsReadUrl' => esc_url_raw( rest_url( 'buddynext/v1/me/notifications/read-all' ) ),
+				'restUserUrl'       => esc_url_raw( rest_url( 'buddynext/v1/users/' ) ),
+				'feedUrl'           => self::activity_url(),
+				'navUrls'           => array(
+					'feed'          => self::activity_url(),
+					'members'       => self::people_url(),
+					'spaces'        => self::spaces_url(),
+					'notifications' => self::notifications_url(),
+					'messages'      => self::messages_url(),
+				),
+			)
+		);
 
 		switch ( $hub ) {
 			case 'feed':

@@ -170,6 +170,41 @@ class AssetService {
 			$v
 		);
 
+		// ── Hub shell styles (full-viewport canvas, topbar, rail) ──────────────
+		// Loaded on every BuddyNext hub by PageRouter::enqueue_hub_assets().
+		// Depends on bn-base for the token system.
+		wp_register_style(
+			'bn-shell',
+			$this->assets_url . 'css/bn-shell.css',
+			array( 'bn-base' ),
+			$v
+		);
+
+		// ── Shell font-scale + theme bootstrap script ──────────────────────────
+		// Classic script (not a module) — must run before the rail/topbar
+		// render so saved preferences are applied without a flash. Loaded
+		// in the head and runs immediately; the DOMContentLoaded sync step
+		// inside the script handles button activation once rendered.
+		wp_register_script(
+			'bn-shell-font-scale',
+			$this->assets_url . 'js/shell/font-scale.js',
+			array(),
+			$v,
+			false
+		);
+
+		// ── Shell extras (search overlay, notif dropdown, hover card, shortcuts) ─
+		// Loaded in the footer so it can hydrate UI that the topbar renders.
+		// Data is localized by PageRouter::enqueue_hub_assets() into
+		// window.bnShellData before this script runs.
+		wp_register_script(
+			'bn-shell-extras',
+			$this->assets_url . 'js/shell/extras.js',
+			array(),
+			$v,
+			true
+		);
+
 		// ── Feature CSS (each depends on the base) ─────────────────────────────
 		$feature_styles = array(
 			'bn-feed',
@@ -235,20 +270,20 @@ class AssetService {
 		);
 
 		$feature_modules = array(
-			'@buddynext/feed'           => 'feed/store',
-			'@buddynext/profile'        => 'profile/store',
-			'@buddynext/spaces'         => 'spaces/store',
-			'@buddynext/members'        => 'members/store',
-			'@buddynext/messages'       => 'messages/store',
-			'@buddynext/notifications'  => 'notifications/store',
-			'@buddynext/search'         => 'search/store',
-			'@buddynext/hashtags'       => 'hashtags/store',
-			'@buddynext/auth'           => 'auth/store',
-			'@buddynext/onboarding'     => 'onboarding/store',
-			'@buddynext/gamification'   => 'gamification/store',
-			'@buddynext/moderation'     => 'moderation/store',
-			'@buddynext/connections'    => 'connections/store',
-			'@buddynext/space-members'  => 'space-members/store',
+			'@buddynext/feed'          => 'feed/store',
+			'@buddynext/profile'       => 'profile/store',
+			'@buddynext/spaces'        => 'spaces/store',
+			'@buddynext/members'       => 'members/store',
+			'@buddynext/messages'      => 'messages/store',
+			'@buddynext/notifications' => 'notifications/store',
+			'@buddynext/search'        => 'search/store',
+			'@buddynext/hashtags'      => 'hashtags/store',
+			'@buddynext/auth'          => 'auth/store',
+			'@buddynext/onboarding'    => 'onboarding/store',
+			'@buddynext/gamification'  => 'gamification/store',
+			'@buddynext/moderation'    => 'moderation/store',
+			'@buddynext/connections'   => 'connections/store',
+			'@buddynext/space-members' => 'space-members/store',
 		);
 
 		// Feature stores that import from ../shell/dialog.js need the
