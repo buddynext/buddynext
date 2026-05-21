@@ -636,11 +636,16 @@ class Plugin {
 		$container->bind( 'pwa', fn() => new PwaService() );
 		$container->bind( 'webhooks', fn() => new OutboundWebhookService() );
 
-		// Sidebar widget feature — Service + Cache pair. Plug-and-play: when
-		// the sidebar feature is disabled via the buddynext_feature_sidebar
-		// filter, neither is bound; templates fall back to direct queries.
-		// See docs/specs/MODULAR-ARCHITECTURE.md for the pattern.
-		if ( apply_filters( 'buddynext_feature_sidebar', true ) ) {
+		// Feature registry — site-owner controls which Layer 2 features are
+		// active. Mandatory tier is always on; default_on can be disabled;
+		// opt_in must be enabled. See docs/specs/MODULAR-ARCHITECTURE.md.
+		$container->bind( 'features', fn() => new FeatureRegistry() );
+		$features = $container->get( 'features' );
+
+		// Sidebar widget feature — Service + Cache pair. Bound only when
+		// the registry says enabled (default_on tier; owner can disable in
+		// Settings → Features).
+		if ( $features->is_enabled( 'sidebar' ) ) {
 			$container->bind( 'sidebar_cache', fn() => new \BuddyNext\Sidebar\WidgetCache() );
 			$container->bind(
 				'sidebar_widgets',
