@@ -107,22 +107,49 @@ The audit flagged raw `margin-left` in `chrome.css:63` and elsewhere. Prototypes
 | Low | #14 Print styles | 1 hour |
 | Low | #15 RTL sweep on prototypes | 1-2 hours |
 
-## What the migration commits today cover
+## What the migration commits cover
 
-Already in place:
+Phase 0 (commits `2e81afb`, `de00823`, `031007e`):
 
 - v2 token vocabulary canonical in `assets/css/bn-base.css`
 - Legacy names re-aliased onto v2 source (16 CSS files render against the new palette without class changes)
 - `TokenService` publishes legacy names via `var(--wp--preset--*, var(--bn-*))` — theme.json presets win, v2 is universal fallback
 - `data-bn-theme="light" data-bn-density="comfortable"` stamped on every BN hub + admin page via `language_attributes` filter
-- Component primitive layer (`.bn-btn[data-variant]`, `.bn-badge[data-tone]`, `.bn-avatar[data-size+data-presence]`, `.bn-input`, `.bn-textarea`, `.bn-select`, `.bn-kbd`, `.bn-hr`, `.bn-ring`)
+- Initial primitives (`.bn-btn[data-variant]`, `.bn-badge[data-tone]`, `.bn-avatar[data-size+data-presence]`, `.bn-input`, `.bn-textarea`, `.bn-select`, `.bn-kbd`, `.bn-hr`, `.bn-ring`)
 - `bn-profile.css` / `bn-onboarding.css` / `bn-admin.css` private namespaces re-aliased onto v2 source
 
-Still queued:
+Phase 1 (this commit):
 
-- Template sweep onto `data-variant` / `data-tone` / `data-size` attribute API
-- Resume the F1 inline-style + F2 inline-script + Rule 14 outline-none sweep using v2 patterns
-- The 15 items above
+- **System polish addresses concerns #1, #2, #4, #6, #7, #8, #9 above**
+  - OKLCH + `color-mix()` `@supports not (color: oklch(0% 0 0))` hex fallback block for the top 20+ tokens (concerns #1, #2)
+  - Compact density radius math now multiplicative via `--bn-radius-scale: 0.8` (concern #4)
+  - Accent ramp extended with `--bn-accent-300` / `--bn-accent-800` / `--bn-accent-900` in both light and dark (concern #6)
+  - `--bn-avatar-presence-border` indirection token; primitives reference it instead of `--bn-surface` directly (concern #7)
+  - `@media (prefers-contrast: more)` line + ink + ring overrides (concern #8)
+  - `@media (forced-colors: active)` block on interactive primitives — uses CSS system colors (Highlight, ButtonText, CanvasText) (concern #9)
+
+- **Engineering-extension primitives** (added to `bn-base.css` but not yet in `tokens.css`; design lead to pick up in the next v2 iteration):
+  - `.bn-toggle` switch (with `[data-size="sm|md|lg"]`, `[aria-checked="true"]`, disabled states + `.bn-toggle-row` label/desc wrapper)
+  - `.bn-modal-backdrop` + `.bn-modal__panel` (with `[data-size="sm|md|lg|xl"]`, `[data-tone="danger"]`, head/body/foot composition + backdrop blur)
+  - `.bn-tabs` + `.bn-tab` (promoted from `home-feed.html .feed-tabs` to a named primitive with `[aria-selected="true"]` + `.bn-tab__count`)
+  - `.bn-tooltip` + `.bn-tooltip-trigger` (with `[data-pos="top|bottom|left|right"]` + `[data-multiline]`)
+  - `.bn-stat` + `.bn-stat-grid` (with `.bn-stat__delta[data-trend="up|down|flat"]`)
+  - `.bn-table` + `.bn-table-wrap` (with `[data-density="compact"]`, `[data-selected]`, sticky head, hover row)
+  - `.bn-drag-row` (with `[data-dragging]` state + handle + actions area)
+  - `.bn-split` editor (rail + pane + rail items with `[aria-current="true"]`)
+  - `.bn-stepper` + `.bn-progress` (linear progress with `[data-tone]` + `[data-indeterminate]`)
+  - `.bn-toast[data-tone="success|warn|danger|info"]` attribute extension on the existing toast container
+
+Still queued from this review:
+
+- #3 Geist self-host — **DECIDED against, staying on Inter**
+- #5 Cover gradient hue derivation — open
+- #10 Standardize on 3 breakpoints — open
+- #11 Reconcile 1200px ↔ 1080px — open
+- #12 `--bn-wp-rail-bg` token — open
+- #13 Theme-toggle widget primitive — open
+- #14 Print styles — open
+- #15 RTL pass on prototypes — open
 
 ## Bottom line
 
