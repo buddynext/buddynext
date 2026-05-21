@@ -2361,3 +2361,34 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-toast[data-tone="warn"]    { background: var(--bn-warn);    color: var(--bn-accent-fg); }
 .bn-toast[data-tone="danger"]  { background: var(--bn-danger);  color: var(--bn-accent-fg); }
 .bn-toast[data-tone="info"]    { background: var(--bn-info);    color: var(--bn-accent-fg); }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Mobile tap-target compliance — Style-guide.html Rule 04
+ *
+ * At touch viewports (≤ 768px) every primitive interactive control grows
+ * to at least 44px hit area. Desktop keeps the v2 36px default so the
+ * density-aware compact layouts still read tight. Compact-density on
+ * mobile still respects the 44px floor — accessibility wins over density.
+ * ════════════════════════════════════════════════════════════════════════ */
+@media (pointer: coarse), (max-width: 768px) {
+	.bn-btn[data-variant] {
+		min-height: 44px;
+		padding-inline: var(--bn-s4);
+	}
+	.bn-btn[data-size="sm"] {
+		min-height: 36px;
+	}
+	.bn-input,
+	.bn-textarea,
+	.bn-select {
+		min-height: 44px;
+	}
+	.bn-tab { min-height: 44px; }
+	.bn-modal__close,
+	.bn-composer__tool,
+	.bn-composer__footer-btn,
+	.bn-post-card__menu {
+		min-width: 44px;
+		min-height: 44px;
+	}
+}
