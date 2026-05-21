@@ -63,59 +63,6 @@ if ( empty( $bn_owner_actions ) ) {
 }
 ?>
 
-<style id="bn-profile-actions-bar-css">
-.bn-profile-actions-bar {
-	background: var(--bg, #fff);
-	border-bottom: 1px solid var(--border, #e8e8e5);
-	padding: 0 var(--s8, 32px);
-}
-.bn-profile-actions-bar-inner {
-	max-width: var(--bn-container, 1100px);
-	margin: 0 auto;
-	display: flex;
-	align-items: center;
-	gap: var(--s2, 8px);
-	height: 48px;
-	overflow-x: auto;
-	scrollbar-width: none;
-	-ms-overflow-style: none;
-}
-.bn-profile-actions-bar-inner::-webkit-scrollbar { display: none; }
-.bn-owner-action {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 6px 14px;
-	border-radius: 6px;
-	font-size: 13px;
-	font-weight: 500;
-	color: var(--text-2, #787774);
-	text-decoration: none;
-	background: var(--bg-subtle, #f8f8f7);
-	border: 1px solid var(--border, #e8e8e5);
-	white-space: nowrap;
-	flex-shrink: 0;
-	transition: background 0.12s, color 0.12s, border-color 0.12s;
-}
-.bn-owner-action:first-child {
-	color: var(--brand, #0073aa);
-	border-color: var(--brand, #0073aa);
-	background: var(--brand-light, #e8f4fb);
-}
-.bn-owner-action:hover {
-	background: var(--bg-hover, #f1f1f0);
-	color: var(--text-1, #37352f);
-	border-color: var(--border, #e8e8e5);
-}
-.bn-owner-action:first-child:hover {
-	background: var(--brand, #0073aa);
-	color: #fff;
-}
-@media (max-width: 640px) {
-	.bn-profile-actions-bar { padding: 0 var(--s2, 8px); }
-}
-</style>
-
 <div class="bn-profile-actions-bar" role="navigation" aria-label="<?php esc_attr_e( 'Profile management', 'buddynext' ); ?>">
 	<div class="bn-profile-actions-bar-inner">
 		<?php foreach ( $bn_owner_actions as $bn_action ) : ?>

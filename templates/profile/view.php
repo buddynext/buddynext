@@ -332,80 +332,177 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 	?>
 >
 
-	<!-- Cover photo -->
-	<div class="bn-cover"
-	<?php
-	if ( '' !== $cover_url ) :
-		?>
-		style="background-image:url('<?php echo esc_url( $cover_url ); ?>');background-size:cover;background-position:center;"<?php endif; ?>>
-		<?php if ( $is_own_profile ) : ?>
-		<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"
-			class="bn-cover-edit" title="<?php esc_attr_e( 'Edit cover photo', 'buddynext' ); ?>">
-			<?php buddynext_icon( 'edit' ); ?> <?php esc_html_e( 'Edit cover', 'buddynext' ); ?>
-		</a>
-		<?php endif; ?>
-	</div>
+	<!-- Hero card: cover + identity + stats -->
+	<section class="bn-pf-hero bn-card">
+		<!-- Cover -->
+		<div class="bn-pf-cover<?php echo '' !== $cover_url ? ' bn-pf-cover--has-image' : ''; ?>"
+			<?php if ( '' !== $cover_url ) : ?>
+			style="background-image:url('<?php echo esc_url( $cover_url ); ?>');"<?php endif; ?>>
+			<?php if ( $is_own_profile ) : ?>
+				<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"
+					class="bn-pf-cover__edit"
+					aria-label="<?php esc_attr_e( 'Edit cover photo', 'buddynext' ); ?>">
+					<?php buddynext_icon( 'edit' ); ?>
+					<span><?php esc_html_e( 'Edit cover', 'buddynext' ); ?></span>
+				</a>
+			<?php endif; ?>
+		</div>
 
-	<!-- Profile header -->
-	<div class="bn-profile-head">
+		<!-- Identity head: avatar + id block + actions -->
+		<div class="bn-pf-head">
 
-		<!-- Action buttons (top-right) — shown for other users only; owners use the action bar above -->
-		<div class="bn-profile-actions">
+			<!-- Avatar -->
+			<div class="bn-pf-avatar-wrap">
+				<span class="bn-avatar"
+					data-size="2xl"
+					<?php echo $is_online ? 'data-presence="online"' : ''; ?>
+				>
+					<img src="<?php echo esc_url( $avatar_url ); ?>"
+						alt="<?php echo esc_attr( $display_name ); ?>"
+						width="96"
+						height="96"
+						loading="eager"
+						decoding="async"
+					/>
+				</span>
+			</div>
+
+			<!-- Identity block -->
+			<div class="bn-pf-id">
+				<div class="bn-pf-name-row">
+					<h1 class="bn-pf-name"><?php echo esc_html( $display_name ); ?></h1>
+					<?php if ( $degree_badge ) : ?>
+						<span class="bn-badge" data-tone="accent"><?php echo esc_html( $degree_badge ); ?></span>
+					<?php endif; ?>
+					<?php if ( $member_type ) : ?>
+						<span
+							class="bn-badge bn-pf-type-badge"
+							data-tone="accent"
+							style="background:<?php echo esc_attr( $member_type['color'] ); ?>;color:<?php echo esc_attr( $member_type['text_color'] ); ?>;"
+						><?php echo esc_html( $member_type['name'] ); ?></span>
+					<?php endif; ?>
+				</div>
+
+				<div class="bn-pf-handle">
+					@<?php echo esc_html( '' !== $profile_slug ? $profile_slug : 'user-' . $user_id ); ?>
+					<?php if ( $pronouns ) : ?>
+						<span class="bn-pf-pronouns">(<?php echo esc_html( $pronouns ); ?>)</span>
+					<?php endif; ?>
+					<?php if ( $headline ) : ?>
+						<span class="bn-pf-headline-sep" aria-hidden="true">&middot;</span>
+						<span class="bn-pf-headline"><?php echo esc_html( $headline ); ?></span>
+					<?php endif; ?>
+				</div>
+
+				<?php if ( $bio ) : ?>
+					<div class="bn-pf-bio"><?php echo wp_kses_post( $bio ); ?></div>
+				<?php endif; ?>
+
+				<div class="bn-pf-meta">
+					<?php if ( $location ) : ?>
+						<span class="bn-pf-meta__item">
+							<?php buddynext_icon( 'map-pin' ); ?>
+							<span><?php echo esc_html( $location ); ?></span>
+						</span>
+					<?php endif; ?>
+					<?php if ( $website ) : ?>
+						<span class="bn-pf-meta__item">
+							<?php buddynext_icon( 'link' ); ?>
+							<a href="<?php echo esc_url( $website ); ?>" target="_blank" rel="noopener noreferrer">
+								<?php
+								$parsed_host = wp_parse_url( $website, PHP_URL_HOST );
+								echo esc_html( $parsed_host ? $parsed_host : $website );
+								?>
+							</a>
+						</span>
+					<?php endif; ?>
+					<span class="bn-pf-meta__item">
+						<?php buddynext_icon( 'calendar' ); ?>
+						<span>
+						<?php
+						/* translators: %s: month and year the member joined */
+						echo esc_html( sprintf( __( 'Joined %s', 'buddynext' ), $joined ) );
+						?>
+						</span>
+					</span>
+					<?php if ( $mutual_count > 0 ) : ?>
+						<span class="bn-pf-meta__item">
+							<?php buddynext_icon( 'users' ); ?>
+							<span>
+							<?php
+							echo esc_html(
+								sprintf(
+									/* translators: %d: number of mutual connections */
+									_n( '%d mutual connection', '%d mutual connections', $mutual_count, 'buddynext' ),
+									$mutual_count
+								)
+							);
+							?>
+							</span>
+						</span>
+					<?php endif; ?>
+				</div>
+			</div>
+
+			<!-- Action buttons — shown for other users only; owners use the action bar above -->
 			<?php if ( ! $is_own_profile && $current_user_id ) : ?>
-				<!-- Follow button: visible when NOT following; hidden reactively by Interactivity API -->
-				<button class="bn-btn-primary"
+			<div class="bn-pf-actions">
+				<button class="bn-btn" data-variant="primary" data-size="sm"
 					data-wp-on--click="actions.follow"
 					data-wp-bind--hidden="context.isFollowing"
 					<?php echo $is_following ? 'hidden' : ''; ?>>
-					+ <?php esc_html_e( 'Follow', 'buddynext' ); ?>
+					<?php esc_html_e( 'Follow', 'buddynext' ); ?>
 				</button>
-				<!-- Unfollow button: visible when following -->
-				<button class="bn-btn-secondary"
+				<button class="bn-btn" data-variant="secondary" data-size="sm"
 					data-wp-on--click="actions.unfollow"
 					data-wp-bind--hidden="!context.isFollowing"
 					<?php echo $is_following ? '' : 'hidden'; ?>>
 					<?php esc_html_e( 'Following', 'buddynext' ); ?>
 				</button>
 
-				<!-- Connect / Pending / Connected / Accept+Decline states -->
-				<button class="bn-btn-secondary"
+				<button class="bn-btn" data-variant="secondary" data-size="sm"
 					data-wp-on--click="actions.connect"
 					data-wp-bind--hidden="!context.showConnect"
 					<?php echo ( $is_connected || $connection_pending || $connection_received ) ? 'hidden' : ''; ?>>
 					<?php esc_html_e( 'Connect', 'buddynext' ); ?>
 				</button>
-				<button class="bn-btn-secondary"
+				<button class="bn-btn" data-variant="secondary" data-size="sm"
 					data-wp-on--click="actions.withdrawRequest"
 					data-wp-bind--hidden="!context.connectionPending"
 					<?php echo $connection_pending ? '' : 'hidden'; ?>>
 					<?php esc_html_e( 'Pending', 'buddynext' ); ?>
 				</button>
-				<span class="bn-connect-received-wrap"
+				<span class="bn-pf-actions__group"
 					data-wp-bind--hidden="!context.connectionReceived"
 					<?php echo $connection_received ? '' : 'hidden'; ?>>
-					<button class="bn-btn-secondary bn-accept"
+					<button class="bn-btn" data-variant="primary" data-size="sm"
 						data-wp-on--click="actions.acceptRequest">
 						<?php esc_html_e( 'Accept', 'buddynext' ); ?>
 					</button>
-					<button class="bn-btn-secondary bn-decline"
+					<button class="bn-btn" data-variant="ghost" data-size="sm"
 						data-wp-on--click="actions.declineRequest">
 						<?php esc_html_e( 'Decline', 'buddynext' ); ?>
 					</button>
 				</span>
-				<button class="bn-btn-secondary"
+				<button class="bn-btn" data-variant="secondary" data-size="sm"
 					data-wp-on--click="actions.disconnectUser"
 					data-wp-bind--hidden="!context.isConnected"
 					<?php echo $is_connected ? '' : 'hidden'; ?>>
-					<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Connected', 'buddynext' ); ?>
+					<?php buddynext_icon( 'check' ); ?>
+					<span><?php esc_html_e( 'Connected', 'buddynext' ); ?></span>
 				</button>
 
 				<a href="<?php echo esc_url( add_query_arg( 'with', $user_id, \BuddyNext\Core\PageRouter::messages_url() ) ); ?>"
-					class="bn-btn-secondary">
-					<?php buddynext_icon( 'message-circle' ); ?> <?php esc_html_e( 'Message', 'buddynext' ); ?>
+					class="bn-btn" data-variant="secondary" data-size="sm">
+					<?php buddynext_icon( 'message-circle' ); ?>
+					<span><?php esc_html_e( 'Message', 'buddynext' ); ?></span>
 				</a>
+
 				<!-- More options dropdown -->
 				<div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen">
-					<button class="bn-btn-icon"
+					<button class="bn-btn bn-pf-more-trigger"
+						data-variant="ghost"
+						data-size="sm"
 						aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>"
 						aria-expanded="false"
 						data-wp-on--click="actions.toggleMoreMenu"
@@ -430,118 +527,28 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 						</button>
 					</div>
 				</div>
-			<?php endif; ?>
-		</div>
-
-		<!-- Avatar -->
-		<div class="bn-avatar-wrap">
-			<div class="bn-avatar-lg">
-				<img src="<?php echo esc_attr( $avatar_url ); ?>"
-					alt="<?php echo esc_attr( $display_name ); ?>"
-					width="96"
-					height="96"
-					loading="eager"
-					decoding="async"
-					style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
-				/>
 			</div>
-			<?php if ( $is_online ) : ?>
-				<div class="bn-avatar-online" title="<?php esc_attr_e( 'Online', 'buddynext' ); ?>"></div>
 			<?php endif; ?>
-		</div>
 
-		<!-- Name -->
-		<div class="bn-profile-name">
-			<?php echo esc_html( $display_name ); ?>
-			<?php if ( $degree_badge ) : ?>
-				<span class="bn-degree-badge"><?php echo esc_html( $degree_badge ); ?></span>
-			<?php endif; ?>
-		</div>
+		</div><!-- /.bn-pf-head -->
 
-		<?php if ( $member_type ) : ?>
-			<div>
-				<span
-					class="bn-profile-type-badge"
-					style="background:<?php echo esc_attr( $member_type['color'] ); ?>;color:<?php echo esc_attr( $member_type['text_color'] ); ?>;"
-				><?php echo esc_html( $member_type['name'] ); ?></span>
+		<!-- Stats strip -->
+		<div class="bn-pf-stats">
+			<div class="bn-pf-stat">
+				<div class="bn-pf-stat__value"><?php echo esc_html( $format_count( $post_count ) ); ?></div>
+				<div class="bn-pf-stat__label"><?php esc_html_e( 'Posts', 'buddynext' ); ?></div>
 			</div>
-		<?php endif; ?>
-
-		<!-- Handle & headline -->
-		<div class="bn-profile-handle">
-			@<?php echo esc_html( '' !== $profile_slug ? $profile_slug : 'user-' . $user_id ); ?>
-			<?php if ( $pronouns ) : ?>
-				&nbsp;(<?php echo esc_html( $pronouns ); ?>)
-			<?php endif; ?>
-			<?php if ( $headline ) : ?>
-				&nbsp;&middot;&nbsp;<?php echo esc_html( $headline ); ?>
-			<?php endif; ?>
-		</div>
-
-		<!-- Bio -->
-		<?php if ( $bio ) : ?>
-			<div class="bn-profile-bio"><?php echo wp_kses_post( $bio ); ?></div>
-		<?php endif; ?>
-
-		<!-- Meta row -->
-		<div class="bn-profile-meta">
-			<?php if ( $location ) : ?>
-				<div class="bn-meta-item">
-					<span><?php buddynext_icon( 'at-sign' ); ?></span>
-					<?php echo esc_html( $location ); ?>
-				</div>
-			<?php endif; ?>
-			<?php if ( $website ) : ?>
-				<div class="bn-meta-item">
-					<span><?php buddynext_icon( 'link' ); ?></span>
-					<a href="<?php echo esc_url( $website ); ?>" target="_blank" rel="noopener noreferrer">
-						<?php
-						$parsed_host = wp_parse_url( $website, PHP_URL_HOST );
-						echo esc_html( $parsed_host ? $parsed_host : $website );
-						?>
-					</a>
-				</div>
-			<?php endif; ?>
-			<div class="bn-meta-item">
-				<span><?php buddynext_icon( 'calendar' ); ?></span>
-				<?php
-				/* translators: %s: month and year the member joined */
-				echo esc_html( sprintf( __( 'Joined %s', 'buddynext' ), $joined ) );
-				?>
+			<div class="bn-pf-stat">
+				<div class="bn-pf-stat__value" data-wp-text="context.followerCount"><?php echo esc_html( $format_count( $follower_count ) ); ?></div>
+				<div class="bn-pf-stat__label"><?php esc_html_e( 'Followers', 'buddynext' ); ?></div>
 			</div>
-			<?php if ( $mutual_count > 0 ) : ?>
-				<div class="bn-meta-item">
-					<span><?php buddynext_icon( 'users' ); ?></span>
-					<?php
-					echo esc_html(
-						sprintf(
-							/* translators: %d: number of mutual connections */
-							_n( '%d mutual connection', '%d mutual connections', $mutual_count, 'buddynext' ),
-							$mutual_count
-						)
-					);
-					?>
-				</div>
-			<?php endif; ?>
-		</div>
-
-		<!-- Stats -->
-		<div class="bn-stats-row">
-			<div class="bn-stat">
-				<div class="bn-stat-num"><?php echo esc_html( $format_count( $post_count ) ); ?></div>
-				<div class="bn-stat-lbl"><?php esc_html_e( 'Posts', 'buddynext' ); ?></div>
+			<div class="bn-pf-stat">
+				<div class="bn-pf-stat__value"><?php echo esc_html( $format_count( $following_count ) ); ?></div>
+				<div class="bn-pf-stat__label"><?php esc_html_e( 'Following', 'buddynext' ); ?></div>
 			</div>
-			<div class="bn-stat">
-				<div class="bn-stat-num" data-wp-text="context.followerCount"><?php echo esc_html( $format_count( $follower_count ) ); ?></div>
-				<div class="bn-stat-lbl"><?php esc_html_e( 'Followers', 'buddynext' ); ?></div>
-			</div>
-			<div class="bn-stat">
-				<div class="bn-stat-num"><?php echo esc_html( $format_count( $following_count ) ); ?></div>
-				<div class="bn-stat-lbl"><?php esc_html_e( 'Following', 'buddynext' ); ?></div>
-			</div>
-			<div class="bn-stat">
-				<div class="bn-stat-num"><?php echo esc_html( $format_count( $connection_count ) ); ?></div>
-				<div class="bn-stat-lbl"><?php esc_html_e( 'Connections', 'buddynext' ); ?></div>
+			<div class="bn-pf-stat">
+				<div class="bn-pf-stat__value"><?php echo esc_html( $format_count( $connection_count ) ); ?></div>
+				<div class="bn-pf-stat__label"><?php esc_html_e( 'Connections', 'buddynext' ); ?></div>
 			</div>
 			<?php
 			/**
@@ -557,58 +564,64 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 					continue;
 				}
 				?>
-				<div class="bn-stat">
-					<div class="bn-stat-num"><?php echo esc_html( (string) $bn_extra_stat['value'] ); ?></div>
-					<div class="bn-stat-lbl"><?php echo esc_html( $bn_extra_stat['label'] ); ?></div>
+				<div class="bn-pf-stat">
+					<div class="bn-pf-stat__value"><?php echo esc_html( (string) $bn_extra_stat['value'] ); ?></div>
+					<div class="bn-pf-stat__label"><?php echo esc_html( $bn_extra_stat['label'] ); ?></div>
 				</div>
 			<?php endforeach; ?>
 		</div>
 
-	</div><!-- /bn-profile-head -->
+	</section><!-- /.bn-pf-hero -->
 
 	<!-- Main two-column layout -->
 	<div class="bn-profile-layout">
 
 		<!-- Left: posts feed -->
 		<div>
-			<!-- Tab bar -->
-			<div class="bn-profile-tabs" role="tablist">
-				<div class="bn-ptab active"
+			<!-- Tab bar (v2 .bn-tabs primitive) -->
+			<div class="bn-tabs bn-pf-tabs" role="tablist">
+				<button class="bn-tab"
 					role="tab"
+					type="button"
 					aria-selected="true"
 					data-wp-on--click="actions.setTab"
 					data-tab="posts">
 					<?php esc_html_e( 'Posts', 'buddynext' ); ?>
-				</div>
-				<div class="bn-ptab"
+					<span class="bn-tab__count"><?php echo esc_html( $format_count( $post_count ) ); ?></span>
+				</button>
+				<button class="bn-tab"
 					role="tab"
+					type="button"
 					aria-selected="false"
 					data-wp-on--click="actions.setTab"
 					data-tab="replies">
 					<?php esc_html_e( 'Replies', 'buddynext' ); ?>
-				</div>
-				<div class="bn-ptab"
+				</button>
+				<button class="bn-tab"
 					role="tab"
+					type="button"
 					aria-selected="false"
 					data-wp-on--click="actions.setTab"
 					data-tab="media">
 					<?php esc_html_e( 'Media', 'buddynext' ); ?>
-				</div>
-				<div class="bn-ptab"
+				</button>
+				<button class="bn-tab"
 					role="tab"
+					type="button"
 					aria-selected="false"
 					data-wp-on--click="actions.setTab"
 					data-tab="likes">
 					<?php esc_html_e( 'Likes', 'buddynext' ); ?>
-				</div>
+				</button>
 				<?php if ( class_exists( 'Jetonomy\Jetonomy' ) ) : ?>
-				<div class="bn-ptab"
+				<button class="bn-tab"
 					role="tab"
+					type="button"
 					aria-selected="false"
 					data-wp-on--click="actions.setTab"
 					data-tab="discussions">
 					<?php esc_html_e( 'Discussions', 'buddynext' ); ?>
-				</div>
+				</button>
 				<?php endif; ?>
 			</div>
 
@@ -789,16 +802,16 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 			<div class="bn-profile-tab-panel" data-tab-panel="discussions" hidden>
 				<?php if ( $jt_discussions ) : ?>
 					<?php foreach ( $jt_discussions as $disc ) : ?>
-					<a href="<?php echo esc_url( home_url( '/community/s/' . ( $disc->space_slug ?: 'general' ) . '/t/' . $disc->slug . '/' ) ); ?>" class="bn-reply-card" style="text-decoration:none;display:block;">
+					<a href="<?php echo esc_url( home_url( '/community/s/' . ( $disc->space_slug ?: 'general' ) . '/t/' . $disc->slug . '/' ) ); ?>" class="bn-reply-card bn-reply-card--link">
 						<div class="bn-reply-card__meta">
 							<?php buddynext_icon( 'message-circle' ); ?>
 							<span><?php echo esc_html( $disc->space_name ?: __( 'General', 'buddynext' ) ); ?></span>
 							<span class="bn-reply-card__time"><?php echo esc_html( human_time_diff( strtotime( $disc->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?></span>
 						</div>
-						<div class="bn-reply-card__content" style="font-weight:600;"><?php echo esc_html( $disc->title ); ?></div>
+						<div class="bn-reply-card__content bn-reply-card__content--strong"><?php echo esc_html( $disc->title ); ?></div>
 						<div class="bn-reply-card__context">
 							<?php echo esc_html( (string) $disc->reply_count ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?>
-							&middot;
+							<span aria-hidden="true">&middot;</span>
 							<?php echo esc_html( (string) $disc->vote_score ); ?> <?php esc_html_e( 'votes', 'buddynext' ); ?>
 						</div>
 					</a>
