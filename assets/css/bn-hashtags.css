@@ -1,51 +1,53 @@
-/* BuddyNext — Hashtags component styles.
- * Covers: hashtag chip, trending list, feed page header, inline #tag links.
- * Dark mode via [data-theme="dark"]. Mobile ≤640px. */
+/* BuddyNext — Hashtag feed surface.
+ *
+ * Composes v2 primitives from bn-base.css:
+ *   .bn-card[data-interactive]   header, sidebar widgets, bridge card, empty
+ *   .bn-btn[data-variant][data-size]   follow / create / empty CTA
+ *   .bn-badge[data-tone="accent|jetonomy"]   related chips, bridge label
+ *   .bn-avatar[data-size]   contributors + bridged author
+ *   .bn-tabs / .bn-tab[aria-selected] / .bn-tab__count   sort tabs
+ *   .bn-stat / .bn-stat-grid   posts + contributors counters
+ *
+ * Surface-local rules below only set the composition (spacing, type for the
+ * hashtag title, layout-internal grids). No raw hex / px / font-family
+ * outside the (small) custom-property block; everything else reads --bn-*.
+ *
+ * Pre-v2 selectors retained: .bn-hashtag-chip + .bn-hashtag-link are still
+ * consumed by the trending-hashtags block and the inline post-body
+ * #hashtag links inside post-card.php. They now read --bn-* directly so
+ * they re-flow with token rotation.
+ */
 
-/* ── Custom properties ──────────────────────────────────────────────────── */
+/* ── Surface-local tokens (chip palette used by block + inline links) ───── */
 :root {
-	--bn-ht-chip-bg:        var(--brand-light, #e8f4fb);
-	--bn-ht-chip-color:     var(--brand,       #0073aa);
-	--bn-ht-chip-radius:    var(--r-full,      9999px);
-	--bn-ht-chip-px:        var(--s2,          8px);
-	--bn-ht-chip-py:        2px;
-	--bn-ht-chip-font:      var(--text-sm,     13px);
-	--bn-ht-rank-color:     var(--text-3,      #aeaca8);
-	--bn-ht-rank-w:         28px;
-	--bn-ht-trend-up:       var(--green,       #059669);
-	--bn-ht-trend-down:     var(--red,         #dc2626);
-	--bn-ht-follow-bg:      var(--brand,       #0073aa);
-	--bn-ht-follow-color:   #fff;
-	--bn-ht-follow-hover:   var(--brand-hover, #005f8e);
-	--bn-ht-following-bg:   var(--bg-hover,    #f1f1f0);
-	--bn-ht-following-color:var(--text-1,      #37352f);
+	--bn-ht-chip-bg:         var(--bn-accent-100);
+	--bn-ht-chip-color:      var(--bn-accent-700);
+	--bn-ht-rank-color:      var(--bn-ink-3);
+	--bn-ht-rank-w:          28px;
+	--bn-ht-trend-up:        var(--bn-success);
+	--bn-ht-trend-down:      var(--bn-danger);
+	--bn-ht-trend-flat:      var(--bn-ink-3);
 }
 
-[data-theme="dark"] {
-	--bn-ht-chip-bg:         var(--brand-light, #1a2e3a);
-	--bn-ht-chip-color:      var(--brand,       #4dabdb);
-	--bn-ht-follow-bg:       var(--brand,       #4dabdb);
-	--bn-ht-follow-color:    #0d1a24;
-	--bn-ht-follow-hover:    var(--brand-hover, #5fbfe8);
-	--bn-ht-following-bg:    var(--bg-hover,    #2a2a2a);
-	--bn-ht-following-color: var(--text-1,      #e8e8e6);
-}
+/* ────────────────────────────────────────────────────────────────────────
+ * 1. Hashtag chip (inline + post body)
+ * ──────────────────────────────────────────────────────────────────────── */
 
-/* ── Hashtag chip (pill in post body or tag list) ───────────────────────── */
+/* .bn-hashtag-chip — retained for trending-block "pills" variant. */
 .bn-hashtag-chip,
 a.bn-hashtag-chip {
 	display: inline-flex;
 	align-items: center;
 	gap: 2px;
-	padding: var(--bn-ht-chip-py) var(--bn-ht-chip-px);
+	padding: 2px var(--bn-s2);
 	background: var(--bn-ht-chip-bg);
 	color: var(--bn-ht-chip-color);
-	border-radius: var(--bn-ht-chip-radius);
-	font-size: var(--bn-ht-chip-font);
-	font-weight: var(--fw-medium);
-	line-height: var(--leading-snug);
+	border-radius: var(--bn-r-full);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	line-height: var(--bn-leading-snug);
 	text-decoration: none;
-	transition: filter 0.15s ease, opacity 0.15s ease;
+	transition: filter var(--bn-dur-fast) var(--bn-ease);
 	white-space: nowrap;
 	cursor: pointer;
 }
@@ -56,22 +58,23 @@ a.bn-hashtag-chip:hover {
 	text-decoration: none;
 }
 
-/* ── Inline #hashtag link (inside post content) ─────────────────────────── */
+/* Inline #hashtag link inside post body (linkified by post-card). */
 a.bn-hashtag {
-	color: var(--brand, var(--auth-grad-from));
+	color: var(--bn-accent);
 	text-decoration: none;
-	font-weight: var(--fw-medium);
+	font-weight: var(--bn-fw-medium);
 }
 
 a.bn-hashtag:hover {
 	text-decoration: underline;
 }
 
-[data-theme="dark"] a.bn-hashtag {
-	color: var(--brand, #4dabdb);
-}
+/* ────────────────────────────────────────────────────────────────────────
+ * 2. Trending hashtags block (sidebar/widgets)
+ *    Uses the v2 .bn-card outer wrap from the consumer template; this
+ *    only styles the internal list rows.
+ * ──────────────────────────────────────────────────────────────────────── */
 
-/* ── Trending hashtags list ─────────────────────────────────────────────── */
 .bn-hashtag-list {
 	list-style: none;
 	margin: 0;
@@ -82,7 +85,7 @@ a.bn-hashtag:hover {
 }
 
 .bn-hashtag-item {
-	border-bottom: 1px solid var(--border-soft, #f1f1ee);
+	border-bottom: 1px solid var(--bn-line-faint);
 }
 
 .bn-hashtag-item:last-child {
@@ -92,61 +95,65 @@ a.bn-hashtag:hover {
 .bn-hashtag-link {
 	display: flex;
 	align-items: center;
-	gap: var(--s2, 8px);
-	padding: var(--s2, 8px) var(--s3, 12px);
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
 	text-decoration: none;
 	color: inherit;
-	transition: background 0.12s ease;
-	border-radius: var(--r-md, 8px);
+	transition: background var(--bn-dur-fast) var(--bn-ease);
+	border-radius: var(--bn-r-md);
 }
 
 .bn-hashtag-link:hover {
-	background: var(--bg-hover, #f1f1f0);
+	background: var(--bn-sunken);
 	text-decoration: none;
+}
+
+.bn-hashtag-link:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
 }
 
 .bn-hashtag-rank {
 	width: var(--bn-ht-rank-w);
 	flex-shrink: 0;
-	font-size: var(--text-xs, 11px);
-	font-weight: var(--fw-bold);
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-bold);
 	color: var(--bn-ht-rank-color);
 	text-align: center;
 }
 
 .bn-hashtag-name {
 	flex: 1;
-	font-size: var(--text-sm, 13px);
-	font-weight: var(--fw-semibold);
-	color: var(--text-1, #37352f);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 .bn-hashtag-count {
-	font-size: var(--text-xs, 11px);
-	color: var(--text-2, #787774);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
 	white-space: nowrap;
 	flex-shrink: 0;
 }
 
-/* Trend indicator arrow */
 .bn-hashtag-trend {
 	flex-shrink: 0;
-	font-size: var(--text-xs);
+	font-size: var(--bn-text-xs);
 	line-height: 1;
 }
 
 .bn-hashtag-trend--up   { color: var(--bn-ht-trend-up); }
 .bn-hashtag-trend--down { color: var(--bn-ht-trend-down); }
-.bn-hashtag-trend--flat { color: var(--text-3, #aeaca8); }
+.bn-hashtag-trend--flat { color: var(--bn-ht-trend-flat); }
 
-/* Pills display variant for block */
+/* "Pills" display variant on the trending-hashtags block. */
 .bn-block-trending-hashtags--pills .bn-hashtag-list {
 	flex-direction: row;
 	flex-wrap: wrap;
-	gap: var(--s1, 4px);
+	gap: var(--bn-s1);
 }
 
 .bn-block-trending-hashtags--pills .bn-hashtag-item {
@@ -154,12 +161,12 @@ a.bn-hashtag:hover {
 }
 
 .bn-block-trending-hashtags--pills .bn-hashtag-link {
-	padding: 3px var(--s2, 8px);
+	padding: 3px var(--bn-s2);
 	background: var(--bn-ht-chip-bg);
 	color: var(--bn-ht-chip-color);
-	border-radius: var(--bn-ht-chip-radius);
-	font-size: var(--bn-ht-chip-font);
-	font-weight: var(--fw-medium);
+	border-radius: var(--bn-r-full);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
 }
 
 .bn-block-trending-hashtags--pills .bn-hashtag-rank,
@@ -168,155 +175,511 @@ a.bn-hashtag:hover {
 	display: none;
 }
 
-/* Block heading */
 .bn-block-trending-hashtags .bn-block-heading {
-	font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
-	font-size: var(--text-sm, 13px);
-	font-weight: var(--fw-bold);
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-bold);
 	text-transform: uppercase;
-	letter-spacing: var(--ls-wider);
-	color: var(--text-2, #787774);
-	margin: 0 0 var(--s2, 8px) var(--s3, 12px);
+	letter-spacing: var(--bn-ls-wider);
+	color: var(--bn-ink-2);
+	margin: 0 0 var(--bn-s2) var(--bn-s3);
 }
 
-/* ── Hashtag feed page header ────────────────────────────────────────────── */
-.bn-hashtag-hero {
-	background: var(--surface, var(--text-on-brand));
-	border: 1px solid var(--border, #e8e8e5);
-	border-radius: var(--r-lg, 12px);
-	padding: var(--s6, 24px);
-	margin-bottom: var(--s4, 16px);
+/* ────────────────────────────────────────────────────────────────────────
+ * 3. Hashtag feed surface — internal grid
+ *    .bn-hub-shell flattens this to 1fr when inside the hub (see bn-base
+ *    line ~1169), so this 2-col rule only applies if the surface is ever
+ *    rendered outside the hub shell.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+.bn-hashtag-shell {
+	display: grid;
+	grid-template-columns: 1fr 300px;
+	gap: var(--bn-s6);
+	align-items: start;
+	min-width: 0;
 }
 
-.bn-hashtag-hero__title {
-	font-family: var(--font-display, 'Plus Jakarta Sans', sans-serif);
-	font-size: var(--text-2xl, 24px);
-	font-weight: var(--fw-bold);
-	color: var(--text-1, #37352f);
-	margin: 0 0 var(--s1, 4px) 0;
-	line-height: var(--leading-tight, 1.25);
-}
-
-.bn-hashtag-hero__meta {
+.bn-hashtag-feed-area {
+	min-width: 0;
 	display: flex;
-	align-items: center;
-	gap: var(--s4, 16px);
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+.bn-hashtag-feed-list {
+	margin-block-start: var(--bn-s2);
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 4. Hashtag header card — composes .bn-card + .bn-stat-grid + .bn-tabs
+ * ──────────────────────────────────────────────────────────────────────── */
+
+.bn-hashtag-header {
+	padding: var(--bn-s6);
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+.bn-hashtag-header__top {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--bn-s4);
 	flex-wrap: wrap;
-	margin-bottom: var(--s4, 16px);
 }
 
-.bn-hashtag-hero__stat {
-	font-size: var(--text-sm, 13px);
-	color: var(--text-2, #787774);
-}
-
-.bn-hashtag-hero__stat strong {
-	color: var(--text-1, #37352f);
-	font-weight: var(--fw-semibold);
-}
-
-.bn-hashtag-hero__actions {
+.bn-hashtag-header__heading {
 	display: flex;
 	align-items: center;
-	gap: var(--s2, 8px);
+	gap: var(--bn-s2);
+	min-width: 0;
 }
 
-/* Follow / Unfollow button */
-.bn-btn-follow-hashtag {
+.bn-hashtag-header__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-3xl);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+	letter-spacing: var(--bn-ls-tight);
+	line-height: var(--bn-leading-tight);
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.bn-hashtag-header__trend {
 	display: inline-flex;
 	align-items: center;
-	gap: var(--s1, 4px);
-	padding: 6px var(--s4, 16px);
-	background: var(--bn-ht-follow-bg);
-	color: var(--bn-ht-follow-color);
-	border: none;
-	border-radius: var(--r-full, 9999px);
-	font-size: var(--text-sm, 13px);
-	font-weight: var(--fw-semibold);
-	cursor: pointer;
-	transition: background 0.15s ease;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-success-bg);
+	color: var(--bn-success);
+}
+
+.bn-hashtag-header__trend svg {
+	width: 16px;
+	height: 16px;
+	stroke-width: 2;
+}
+
+.bn-hashtag-header__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	flex-wrap: wrap;
+}
+
+.bn-hashtag-header__stats {
+	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.bn-hashtag-header__date {
+	font-size: var(--bn-text-lg);
+}
+
+.bn-hashtag-tabs {
+	margin: 0;
+	margin-block-start: var(--bn-s1);
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 5. Bridge card (Jetonomy discussions inside hashtag feed)
+ *    Composes .bn-card[data-interactive] + .bn-badge[data-tone="jetonomy"]
+ *    + .bn-avatar + .bn-btn.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+.bn-card-bridge {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	padding: var(--bn-s4);
+}
+
+.bn-card-bridge--jetonomy {
+	border-inline-start: 3px solid var(--bn-jetonomy);
+}
+
+.bn-card-bridge__source .bn-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+}
+
+.bn-card-bridge__source .bn-badge svg {
+	width: 12px;
+	height: 12px;
+	stroke-width: 2;
+}
+
+.bn-card-bridge__head {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
+.bn-card-bridge__byline {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.bn-card-bridge__author {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	line-height: var(--bn-leading-snug);
+}
+
+.bn-card-bridge__meta {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+.bn-card-bridge__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-md);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	line-height: var(--bn-leading-snug);
 	text-decoration: none;
-	line-height: var(--leading-snug);
 }
 
-.bn-btn-follow-hashtag:hover {
-	background: var(--bn-ht-follow-hover);
-	text-decoration: none;
+.bn-card-bridge__title:hover {
+	color: var(--bn-accent);
 }
 
-.bn-btn-follow-hashtag.is-following {
-	background: var(--bn-ht-following-bg);
-	color: var(--bn-ht-following-color);
-	border: 1px solid var(--border, #e8e8e5);
+.bn-card-bridge__footer {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	flex-wrap: wrap;
 }
 
-.bn-btn-follow-hashtag.is-following:hover {
-	background: var(--bg-hover, #f1f1f0);
-	border-color: var(--border, #e8e8e5);
+.bn-card-bridge__stat {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
 }
 
-/* ── Sidebar widget container ────────────────────────────────────────────── */
+.bn-card-bridge__stat svg {
+	width: 14px;
+	height: 14px;
+}
+
+.bn-card-bridge__open {
+	margin-inline-start: auto;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 6. Empty state — composes .bn-card + icon disc + heading + CTA .bn-btn
+ * ──────────────────────────────────────────────────────────────────────── */
+
+.bn-hashtag-empty {
+	text-align: center;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s10) var(--bn-s6);
+}
+
+.bn-hashtag-empty__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 56px;
+	height: 56px;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-accent-100);
+	color: var(--bn-accent-700);
+}
+
+.bn-hashtag-empty__icon svg {
+	width: 28px;
+	height: 28px;
+	stroke-width: 1.75;
+}
+
+.bn-hashtag-empty__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	margin: 0;
+}
+
+.bn-hashtag-empty__lede {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	line-height: var(--bn-leading-body);
+	margin: 0;
+	max-width: 38ch;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 7. Hashtag not-found state
+ * ──────────────────────────────────────────────────────────────────────── */
+
+.bn-hashtag-notfound {
+	text-align: center;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s12) var(--bn-s6);
+	max-width: 540px;
+	margin-inline: auto;
+}
+
+.bn-hashtag-notfound__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 64px;
+	height: 64px;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-3);
+}
+
+.bn-hashtag-notfound__icon svg {
+	width: 32px;
+	height: 32px;
+	stroke-width: 1.75;
+}
+
+.bn-hashtag-notfound__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-xl);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	margin: 0;
+}
+
+.bn-hashtag-notfound__lede {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	line-height: var(--bn-leading-body);
+	margin: 0;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 8. Sidebar widgets (hashtag-specific column)
+ *    Composes .bn-card + .bn-sidebar-widget__title shared with bn-spaces.
+ * ──────────────────────────────────────────────────────────────────────── */
+
 .bn-hashtag-sidebar {
 	display: flex;
 	flex-direction: column;
-	gap: var(--s4, 16px);
+	gap: var(--bn-s4);
+	min-width: 0;
 }
 
-.bn-hashtag-widget {
-	background: var(--surface, var(--text-on-brand));
-	border: 1px solid var(--border, #e8e8e5);
-	border-radius: var(--r-lg, 12px);
-	padding: var(--s4, 16px);
+/* About list (definition list of meta rows). */
+.bn-hashtag-about {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	margin: 0;
 }
 
-.bn-hashtag-widget__heading {
-	font-size: var(--text-xs, 11px);
-	font-weight: var(--fw-bold);
-	text-transform: uppercase;
-	letter-spacing: var(--ls-wider);
-	color: var(--text-2, #787774);
-	margin: 0 0 var(--s3, 12px) 0;
+.bn-hashtag-about__row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) 0;
+	border-bottom: 1px solid var(--bn-line-faint);
 }
 
-/* ── Empty state ─────────────────────────────────────────────────────────── */
-.bn-empty {
-	font-size: var(--text-sm, 13px);
-	color: var(--text-2, #787774);
+.bn-hashtag-about__row:last-child {
+	border-bottom: none;
+}
+
+.bn-hashtag-about__label {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	margin: 0;
+}
+
+.bn-hashtag-about__value {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-medium);
+	margin: 0;
+	text-align: end;
+}
+
+.bn-hashtag-about__cta {
+	margin-block-start: var(--bn-s3);
+	width: 100%;
+	justify-content: center;
+}
+
+/* Related hashtags (chip + count rows). */
+.bn-hashtag-related {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+
+.bn-hashtag-related__row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+}
+
+.bn-hashtag-related__chip {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-decoration: none;
+}
+
+.bn-hashtag-related__chip:hover {
+	filter: brightness(0.95);
+	text-decoration: none;
+}
+
+.bn-hashtag-related__count {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+/* Top contributors list. */
+.bn-hashtag-contributors {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+
+.bn-hashtag-contributors__link {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2);
+	border-radius: var(--bn-r-md);
+	text-decoration: none;
+	color: inherit;
+	transition: background var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-hashtag-contributors__link:hover {
+	background: var(--bn-sunken);
+	text-decoration: none;
+}
+
+.bn-hashtag-contributors__link:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-hashtag-contributors__info {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.bn-hashtag-contributors__name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	line-height: var(--bn-leading-snug);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bn-hashtag-contributors__sub {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 9. Load-more sentinel — minimal local override
+ * ──────────────────────────────────────────────────────────────────────── */
+
+.bn-hashtag-feed .bn-load-more {
 	text-align: center;
-	padding: var(--s4, 16px);
+	padding: var(--bn-s4);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
 }
 
-/* ── Mobile ≤640px ───────────────────────────────────────────────────────── */
+/* ────────────────────────────────────────────────────────────────────────
+ * 10. Responsive — 1024 / 640 breakpoints
+ *     The hub-shell already collapses the outer 2-col grid; these rules
+ *     handle the surface-internal layouts.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+	.bn-hashtag-shell {
+		grid-template-columns: 1fr 260px;
+		gap: var(--bn-s4);
+	}
+}
+
+@media (max-width: 768px) {
+	.bn-hashtag-header__title {
+		font-size: var(--bn-text-2xl);
+	}
+
+	.bn-hashtag-header__actions .bn-btn span {
+		display: none;
+	}
+
+	.bn-hashtag-header__actions .bn-btn[data-current-state="follow"] span,
+	.bn-hashtag-header__actions .bn-btn[data-current-state="following"] span {
+		display: inline;
+	}
+}
+
 @media (max-width: 640px) {
 	.bn-hashtag-shell {
 		grid-template-columns: 1fr;
-		padding: var(--s3, 12px) var(--s4, 16px);
-		gap: var(--s4, 16px);
 	}
 
 	.bn-hashtag-sidebar {
-		display: none; /* collapsed on mobile — sidebar hidden; content takes full width */
+		display: none;
 	}
 
-	.bn-hashtag-hero {
-		padding: var(--s4, 16px);
-		border-radius: var(--r-md, 8px);
+	.bn-hashtag-header {
+		padding: var(--bn-s4);
 	}
 
-	.bn-hashtag-hero__title {
-		font-size: var(--text-xl, 20px);
+	.bn-hashtag-header__title {
+		font-size: var(--bn-text-xl);
 	}
 
-	.bn-hashtag-hero__meta {
-		gap: var(--s2, 8px);
+	.bn-hashtag-empty {
+		padding: var(--bn-s8) var(--bn-s4);
 	}
 
-	.bn-hashtag-link {
-		padding: var(--s2, 8px) var(--s1, 4px);
+	.bn-hashtag-notfound {
+		padding: var(--bn-s8) var(--bn-s4);
 	}
 
-	.bn-btn-follow-hashtag {
-		padding: 6px var(--s3, 12px);
-		font-size: var(--text-xs, 11px);
+	.bn-hashtag-tabs {
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.bn-hashtag-tabs::-webkit-scrollbar {
+		display: none;
 	}
 }

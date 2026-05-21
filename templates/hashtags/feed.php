@@ -2,15 +2,15 @@
 /**
  * BuddyNext hashtag feed template.
  *
- * Renders a single hashtag's page: a hero header with stats, a follow toggle,
- * sort tabs, and a list of posts tagged with that hashtag — including native
- * BuddyNext posts and bridged Jetonomy forum threads. The sidebar shows
- * hashtag metadata, related tags and top contributors.
+ * Renders a single hashtag's page: hashtag header card with stats, a follow
+ * toggle, sort tabs (Latest / Top / Following), and a list of posts tagged
+ * with that hashtag rendered through partials/post-card.php. The sidebar
+ * shows hashtag metadata, related tags and top contributors.
  *
  * URL pattern : /community/tag/{slug}/
  * Overridable : copy to {theme}/buddynext/hashtags/feed.php
  *
- * REST endpoint: GET buddynext/v1/feed?hashtag={slug}&sort=top|latest&cursor=X
+ * REST endpoint: GET buddynext/v1/feed?hashtag={slug}&sort=latest|top|following
  *
  * @package BuddyNext
  * @since   1.0.0
@@ -22,6 +22,8 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
+use BuddyNext\Core\PageRouter;
+
 global $wpdb;
 
 // ── Resolve hashtag slug ───────────────────────────────────────────────────
@@ -29,7 +31,7 @@ $hashtag_slug = isset( $args['hashtag_slug'] )
 	? sanitize_title( $args['hashtag_slug'] )
 	: sanitize_title( get_query_var( 'bn_hashtag', '' ) );
 
-// Headers are already sent by wp_head() when this template runs — use an
+// Headers are already sent by wp_head() when this template runs; use an
 // inline not-found state rather than wp_safe_redirect().
 $hashtag_not_found = ! $hashtag_slug;
 
@@ -59,49 +61,96 @@ $current_user_id = get_current_user_id();
 $is_logged_in    = ( $current_user_id > 0 );
 $rest_nonce      = wp_create_nonce( 'wp_rest' );
 
-// ── Check if current user follows this hashtag ────────────────────────────
-$follows_hashtag   = false;
-$hashtag_posts     = array();
-$related_tags      = array();
-$top_contributors  = array();
-$posts_table       = $wpdb->prefix . 'bn_posts';
-$post_hashtags_tbl = $wpdb->prefix . 'bn_post_hashtags';
+// ── Sort tab (Latest / Top / Following) ────────────────────────────────────
+// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only URL filter.
+$bn_sort_raw = isset( $_GET['sort'] ) ? sanitize_key( wp_unslash( (string) $_GET['sort'] ) ) : 'latest';
+$bn_sort     = in_array( $bn_sort_raw, array( 'latest', 'top', 'following' ), true ) ? $bn_sort_raw : 'latest';
+
+// ── Hashtag data ───────────────────────────────────────────────────────────
+$follows_hashtag    = false;
+$hashtag_posts      = array();
+$related_tags       = array();
+$top_contributors   = array();
+$contributor_count  = 0;
+$posts_table        = $wpdb->prefix . 'bn_posts';
+$post_hashtags_tbl  = $wpdb->prefix . 'bn_post_hashtags';
+$hashtag_follows_tb = $wpdb->prefix . 'bn_hashtag_follows';
 
 if ( ! $hashtag_not_found ) {
 	if ( $is_logged_in ) {
-		$hashtag_follows_table = $wpdb->prefix . 'bn_hashtag_follows';
-
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$follows_hashtag = (bool) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT 1 FROM {$hashtag_follows_table} WHERE user_id = %d AND hashtag_id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT 1 FROM {$hashtag_follows_tb} WHERE user_id = %d AND hashtag_id = %d LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$current_user_id,
 				(int) $hashtag->id
 			)
 		);
 	}
 
-	// ── Feed posts for this hashtag ─────────────────────────────────────────
+	// ── Feed posts for this hashtag ────────────────────────────────────────
 	$limit = absint( $args['limit'] ?? 10 );
 
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$hashtag_posts = (array) $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT p.id, p.user_id, p.content, p.type, p.created_at,
-			        p.reaction_count, p.comment_count, p.share_count
-			FROM {$posts_table} p
-			INNER JOIN {$post_hashtags_tbl} ph ON ph.post_id = p.id
-			WHERE ph.hashtag_id = %d
-			  AND p.status = 'published'
-			  AND p.privacy = 'public'
-			ORDER BY (p.reaction_count + p.comment_count * 2) DESC, p.created_at DESC
-			LIMIT %d",
-			(int) $hashtag->id,
-			$limit
-		)
-	); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	if ( 'top' === $bn_sort ) {
+		// Top of last 7 days, by engagement.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$hashtag_posts = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.id, p.user_id, p.content, p.type, p.created_at,
+				        p.reaction_count, p.comment_count, p.share_count
+				FROM {$posts_table} p
+				INNER JOIN {$post_hashtags_tbl} ph ON ph.post_id = p.id
+				WHERE ph.hashtag_id = %d
+				  AND p.status = 'published'
+				  AND p.privacy = 'public'
+				  AND p.created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )
+				ORDER BY (p.reaction_count + p.comment_count * 2) DESC, p.created_at DESC
+				LIMIT %d",
+				(int) $hashtag->id,
+				$limit
+			)
+		); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	} elseif ( 'following' === $bn_sort && $is_logged_in ) {
+		// Posts by users the viewer follows.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$hashtag_posts = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.id, p.user_id, p.content, p.type, p.created_at,
+				        p.reaction_count, p.comment_count, p.share_count
+				FROM {$posts_table} p
+				INNER JOIN {$post_hashtags_tbl} ph ON ph.post_id = p.id
+				INNER JOIN {$wpdb->prefix}bn_follows f ON f.followed_id = p.user_id AND f.follower_id = %d
+				WHERE ph.hashtag_id = %d
+				  AND p.status = 'published'
+				  AND p.privacy = 'public'
+				ORDER BY p.created_at DESC
+				LIMIT %d",
+				$current_user_id,
+				(int) $hashtag->id,
+				$limit
+			)
+		); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	} else {
+		// Sort by latest (default branch).
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$hashtag_posts = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.id, p.user_id, p.content, p.type, p.created_at,
+				        p.reaction_count, p.comment_count, p.share_count
+				FROM {$posts_table} p
+				INNER JOIN {$post_hashtags_tbl} ph ON ph.post_id = p.id
+				WHERE ph.hashtag_id = %d
+				  AND p.status = 'published'
+				  AND p.privacy = 'public'
+				ORDER BY p.created_at DESC
+				LIMIT %d",
+				(int) $hashtag->id,
+				$limit
+			)
+		); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
 
-	// ── Related hashtags ─────────────────────────────────────────────────────
+	// ── Related hashtags ───────────────────────────────────────────────────
 	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$related_tags = (array) $wpdb->get_results(
 		$wpdb->prepare(
@@ -118,7 +167,7 @@ if ( ! $hashtag_not_found ) {
 		)
 	); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-	// ── Top contributors ─────────────────────────────────────────────────────
+	// ── Top contributors ───────────────────────────────────────────────────
 	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	$top_contributors = (array) $wpdb->get_results(
 		$wpdb->prepare(
@@ -133,493 +182,40 @@ if ( ! $hashtag_not_found ) {
 			(int) $hashtag->id
 		)
 	); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-}
 
-// ── REST nonce ─────────────────────────────────────────────────────────────
-$rest_nonce = wp_create_nonce( 'wp_rest' );
-
-// ── Formatting helpers ─────────────────────────────────────────────────────
-$avatar_colours = array( 'av-brand', 'av-green', 'av-purple', 'av-orange', 'av-pink', 'av-jt', 'av-mvs' );
-
-/**
- * Format a UTC timestamp as a relative human-readable string.
- *
- * @param string $datetime MySQL datetime.
- * @return string Escaped relative label.
- */
-function bn_tag_relative_time( string $datetime ): string {
-	$diff = time() - (int) strtotime( $datetime );
-	if ( $diff < 60 ) {
-		return esc_html__( 'just now', 'buddynext' );
-	}
-	if ( $diff < 3600 ) {
-		$mins = (int) round( $diff / 60 );
-		/* translators: %d: number of minutes */
-		return esc_html( sprintf( _n( '%dm ago', '%dm ago', $mins, 'buddynext' ), $mins ) );
-	}
-	if ( $diff < 86400 ) {
-		$hours = (int) round( $diff / 3600 );
-		/* translators: %d: number of hours */
-		return esc_html( sprintf( _n( '%dh ago', '%dh ago', $hours, 'buddynext' ), $hours ) );
-	}
-	$days = (int) round( $diff / 86400 );
-	/* translators: %d: number of days */
-	return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
-}
-
-/**
- * Linkify #hashtags in escaped content.
- *
- * @param string $content Escaped content (from wp_kses_post).
- * @return string Content with hashtag anchors.
- */
-function bn_tag_linkify( string $content ): string {
-	return preg_replace_callback(
-		'/#([a-zA-Z0-9_]+)/',
-		static function ( array $m ): string {
-			$slug = sanitize_title( $m[1] );
-			$url  = \BuddyNext\Core\PageRouter::hashtag_feed_url( $slug );
-			return '<a href="' . esc_url( $url ) . '" class="bn-hashtag">#' . esc_html( $m[1] ) . '</a>';
-		},
-		$content
-	) ?? $content;
+	// ── Contributor total (for stat-grid) ──────────────────────────────────
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$contributor_count = (int) $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT COUNT(DISTINCT p.user_id)
+			FROM {$posts_table} p
+			INNER JOIN {$post_hashtags_tbl} ph ON ph.post_id = p.id
+			WHERE ph.hashtag_id = %d
+			  AND p.status = 'published'",
+			(int) $hashtag->id
+		)
+	); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 }
 
 $bn_nav_active = 'feed';
 buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
-<style>
-/* ── BuddyNext design tokens ── */
-:root {
-	--radius-sm: var(--r-sm);
-	--radius:    var(--r-md);
-	--radius-lg: var(--r-lg);
-	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
-}
-
-/* ── Component styles ── */
-.bn-hashtag-feed {
-	font-family: var(--font-body);
-	font-size: var(--text-base);
-	line-height: var(--leading-body);
-	color: var(--text-1);
-	background: var(--bg-subtle);
-	-webkit-font-smoothing: antialiased;
-}
-
-/* Page shell: two-column */
-.bn-hashtag-shell {
-	max-width: 1160px;
-	margin: 0 auto;
-	padding: var(--s6) var(--s8);
-	display: grid;
-	grid-template-columns: 1fr 300px;
-	gap: var(--s6);
-	align-items: start;
-}
-.bn-hashtag-feed-area { min-width: 0; }
-
-/* Avatars */
-.bn-hashtag-feed .avatar {
-	border-radius: 50%;
-	color: #fff;
-	font-weight: 700;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	font-size: var(--text-xs);
-	letter-spacing: 0.02em;
-	overflow: hidden;
-}
-.bn-hashtag-feed .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-.bn-hashtag-feed .avatar.xs  { width: 28px; height: 28px; font-size: 10px; }
-.bn-hashtag-feed .avatar.sm  { width: 34px; height: 34px; }
-.av-brand  { background: var(--brand); }
-.av-green  { background: var(--green); }
-.av-purple { background: #7c3aed; }
-.av-orange { background: #ea580c; }
-.av-pink   { background: #db2777; }
-.av-jt     { background: var(--jetonomy); }
-.av-mvs    { background: var(--mvs); }
-.av-teal   { background: #0d9488; }
-.av-rose   { background: #e11d48; }
-
-/* ── Hashtag hero ── */
-.bn-hashtag-hero {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-lg);
-	padding: var(--s6) var(--s6) var(--s4);
-	margin-bottom: var(--s4);
-}
-.bn-hashtag-title {
-	font-family: var(--font-display);
-	font-size: 38px;
-	font-weight: 800;
-	color: var(--brand);
-	letter-spacing: -1px;
-	line-height: 1.1;
-	margin-bottom: var(--s2);
-}
-.bn-hashtag-stats {
-	font-size: var(--text-base);
-	color: var(--text-2);
-	margin-bottom: var(--s4);
-}
-.bn-hashtag-actions {
-	display: flex;
-	align-items: center;
-	gap: var(--s3);
-	margin-bottom: var(--s4);
-	flex-wrap: wrap;
-}
-.bn-btn-follow-tag {
-	padding: 7px var(--s4);
-	border-radius: 20px;
-	border: 1.5px solid var(--brand);
-	color: var(--brand);
-	font-size: var(--text-sm);
-	font-weight: 600;
-	cursor: pointer;
-	background: transparent;
-	font-family: var(--font-body);
-	display: flex;
-	align-items: center;
-	gap: 5px;
-}
-.bn-btn-follow-tag:hover        { background: var(--brand-light); }
-.bn-btn-follow-tag.following    { background: var(--brand-light); }
-.bn-btn-primary {
-	background: var(--brand);
-	color: #fff;
-	border: none;
-	border-radius: 20px;
-	padding: 7px var(--s4);
-	font-size: var(--text-sm);
-	font-weight: 600;
-	cursor: pointer;
-	font-family: var(--font-body);
-	display: flex;
-	align-items: center;
-	gap: 5px;
-	text-decoration: none;
-}
-.bn-btn-primary:hover { background: var(--brand-hover); }
-
-/* Sort tabs */
-.bn-sort-tabs {
-	display: flex;
-	gap: 2px;
-	border-top: 1px solid var(--border-soft);
-	padding-top: var(--s3);
-	flex-wrap: wrap;
-}
-.bn-sort-tab {
-	padding: var(--s1) var(--s4);
-	border-radius: var(--radius-sm);
-	font-size: var(--text-sm);
-	font-weight: 500;
-	color: var(--text-2);
-	cursor: pointer;
-	background: transparent;
-	border: none;
-	font-family: var(--font-body);
-}
-.bn-sort-tab:hover { background: var(--bg-hover); color: var(--text-1); }
-.bn-sort-tab.active { background: var(--brand-light); color: var(--brand); font-weight: 600; }
-
-/* ── Post card ── */
-.bn-tag-post-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-lg);
-	margin-bottom: var(--s3);
-	overflow: hidden;
-}
-.bn-post-header {
-	display: flex;
-	align-items: flex-start;
-	gap: var(--s3);
-	padding: var(--s4) var(--s4) 0;
-}
-.bn-post-author        { flex: 1; min-width: 0; }
-.bn-post-author-name   { font-size: var(--text-base); font-weight: 600; color: var(--text-1); line-height: 1.3; }
-.bn-post-author-meta   { font-size: var(--text-xs); color: var(--text-3); margin-top: 1px; display: flex; align-items: center; gap: var(--s1); flex-wrap: wrap; }
-.bn-post-more          { color: var(--text-3); font-size: 18px; cursor: pointer; padding: 2px 4px; line-height: 1; background: transparent; border: none; }
-
-.bn-post-body {
-	padding: var(--s3) var(--s4);
-	font-size: var(--text-base);
-	line-height: var(--leading-body);
-	color: var(--text-1);
-}
-.bn-hashtag { color: var(--brand); font-weight: 500; text-decoration: none; }
-.bn-hashtag:hover { text-decoration: underline; }
-
-/* Reactions */
-.bn-post-reactions {
-	display: flex;
-	gap: var(--s1);
-	padding: 0 var(--s4) var(--s2);
-	flex-wrap: wrap;
-}
-.bn-reaction-chip {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	padding: 3px var(--s2);
-	border-radius: 12px;
-	border: 1px solid var(--border);
-	font-size: var(--text-xs);
-	cursor: pointer;
-	background: var(--bg-subtle);
-	color: var(--text-2);
-	font-family: var(--font-body);
-}
-.bn-reaction-chip:hover      { border-color: var(--brand); }
-.bn-reaction-chip.mine       { background: var(--brand-light); border-color: var(--brand); color: var(--brand); font-weight: 600; }
-
-/* Action bar */
-.bn-post-actions {
-	display: flex;
-	border-top: 1px solid var(--border-soft);
-}
-.bn-action-btn {
-	flex: 1;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 6px;
-	padding: var(--s2) var(--s3);
-	font-size: var(--text-sm);
-	font-weight: 500;
-	color: var(--text-2);
-	cursor: pointer;
-	background: transparent;
-	border: none;
-	font-family: var(--font-body);
-}
-.bn-action-btn:hover { background: var(--bg-subtle); color: var(--text-1); }
-.bn-action-btn.liked { color: var(--red); }
-
-/* Jetonomy bridged card */
-.bn-tag-post-card.jt-card { border-left: 3px solid var(--jetonomy); }
-.bn-jt-source-label {
-	display: flex;
-	align-items: center;
-	gap: var(--s1);
-	padding: var(--s2) var(--s4) 0;
-	font-size: var(--text-xs);
-	font-weight: 700;
-	color: var(--jetonomy);
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
-}
-.bn-jt-meta-row {
-	display: flex;
-	align-items: center;
-	gap: var(--s3);
-	padding: var(--s1) var(--s4) var(--s2);
-	font-size: var(--text-xs);
-	color: var(--text-3);
-}
-.bn-jt-stat       { display: flex; align-items: center; gap: 3px; }
-.bn-jt-answered   { color: var(--green); font-weight: 600; }
-.bn-jt-tag {
-	display: inline-block;
-	background: var(--jetonomy-bg);
-	color: var(--jetonomy);
-	font-size: var(--text-xs);
-	font-weight: 600;
-	padding: 2px var(--s2);
-	border-radius: var(--radius-sm);
-	margin-right: var(--s1);
-}
-.bn-jt-vote-bar {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	padding: var(--s2) var(--s4);
-	border-top: 1px solid var(--border-soft);
-}
-.bn-vote-btn {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	padding: var(--s1) var(--s3);
-	border-radius: var(--radius-sm);
-	border: 1px solid var(--border);
-	background: var(--bg-subtle);
-	font-size: var(--text-sm);
-	font-weight: 600;
-	color: var(--text-2);
-	cursor: pointer;
-	font-family: var(--font-body);
-}
-.bn-vote-btn:hover   { border-color: var(--jetonomy); color: var(--jetonomy); }
-.bn-vote-btn.upvoted { background: var(--jetonomy-bg); border-color: var(--jetonomy); color: var(--jetonomy); }
-.bn-jt-open-link {
-	margin-left: auto;
-	font-size: var(--text-sm);
-	font-weight: 600;
-	color: var(--jetonomy);
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	text-decoration: none;
-}
-
-/* ── Sidebar ── */
-.bn-hashtag-sidebar { display: flex; flex-direction: column; gap: var(--s4); }
-.bn-widget {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-lg);
-	padding: var(--s4);
-}
-.bn-widget-title {
-	font-size: var(--text-sm);
-	font-weight: 700;
-	color: var(--text-1);
-	margin-bottom: var(--s3);
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-}
-
-/* About widget */
-.bn-about-row {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: var(--s1) 0;
-	border-bottom: 1px solid var(--border-soft);
-	font-size: var(--text-sm);
-}
-.bn-about-row:last-of-type { border-bottom: none; }
-.bn-about-label { color: var(--text-2); }
-.bn-about-value { color: var(--text-1); font-weight: 500; }
-
-/* Follow toggle */
-.bn-follow-toggle-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	margin-top: var(--s3);
-	padding-top: var(--s3);
-	border-top: 1px solid var(--border-soft);
-}
-.bn-follow-toggle-label { font-size: var(--text-sm); font-weight: 600; color: var(--text-1); }
-.bn-toggle-switch {
-	width: 40px;
-	height: 22px;
-	background: var(--brand);
-	border-radius: 11px;
-	position: relative;
-	cursor: pointer;
-	flex-shrink: 0;
-	border: none;
-}
-.bn-toggle-switch::after {
-	content: '';
-	position: absolute;
-	top: 3px;
-	right: 3px;
-	width: 16px;
-	height: 16px;
-	background: #fff;
-	border-radius: 50%;
-	transition: right 0.15s;
-}
-.bn-toggle-switch[aria-checked="false"] { background: var(--border); }
-.bn-toggle-switch[aria-checked="false"]::after { right: auto; left: 3px; }
-
-/* Related hashtags */
-.bn-related-tag-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: var(--s2) 0;
-	border-bottom: 1px solid var(--border-soft);
-	cursor: pointer;
-}
-.bn-related-tag-row:last-child { border-bottom: none; }
-.bn-related-tag-name  { font-size: var(--text-sm); font-weight: 600; color: var(--brand); text-decoration: none; }
-.bn-related-tag-name:hover { text-decoration: underline; }
-.bn-related-tag-count { font-size: var(--text-xs); color: var(--text-3); }
-
-/* Top contributors */
-.bn-member-row {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	padding: var(--s2) 0;
-	border-bottom: 1px solid var(--border-soft);
-}
-.bn-member-row:last-of-type { border-bottom: none; }
-.bn-member-info { flex: 1; min-width: 0; }
-.bn-member-name { font-size: var(--text-sm); font-weight: 600; color: var(--text-1); line-height: 1.2; }
-.bn-member-sub  { font-size: var(--text-xs); color: var(--text-3); }
-
-.bn-widget-see-all {
-	font-size: var(--text-sm);
-	font-weight: 600;
-	color: var(--brand);
-	cursor: pointer;
-	margin-top: var(--s3);
-	display: block;
-	text-decoration: none;
-}
-.bn-widget-see-all:hover { text-decoration: underline; }
-
-/* Load more */
-.bn-load-more {
-	text-align: center;
-	padding: var(--s4);
-	color: var(--text-3);
-	font-size: var(--text-sm);
-}
-
-/* ── Dark mode ── */
-[data-theme="dark"] .bn-hashtag-hero     { background: var(--surface); border-color: var(--border); }
-[data-theme="dark"] .bn-tag-post-card    { background: var(--surface); border-color: var(--border); }
-[data-theme="dark"] .bn-widget           { background: var(--surface); border-color: var(--border); }
-[data-theme="dark"] .bn-toggle-switch    { background: var(--brand); }
-
-/* ── Mobile responsive ── */
-@media (max-width: 1024px) {
-	.bn-hashtag-shell { padding: var(--s4) var(--s4); grid-template-columns: 1fr 260px; }
-}
-@media (max-width: 640px) {
-	.bn-hashtag-shell          { grid-template-columns: 1fr; padding: var(--s3); gap: var(--s3); }
-	.bn-hashtag-sidebar        { display: none; }
-	.bn-hashtag-title          { font-size: var(--text-2xl); }
-	.bn-hashtag-actions        { gap: var(--s2); }
-	.bn-action-btn             { font-size: var(--text-xs); padding: var(--s1) var(--s2); gap: 3px; }
-	.bn-post-body              { font-size: var(--text-sm); }
-	.bn-sort-tabs              { gap: 2px; }
-	.bn-sort-tab               { font-size: var(--text-xs); padding: var(--s1) var(--s2); }
-}
-</style>
-
 <div class="bn-hub-shell">
 
 <?php
 if ( $hashtag_not_found ) :
 	?>
 	<div class="bn-hashtag-feed">
-		<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:var(--s12) var(--s4);text-align:center;">
-			<span style="font-size:48px;margin-bottom:var(--s4);">#</span>
-			<h1 style="font-size:var(--text-xl);font-weight:600;color:var(--text-1);margin:0 0 var(--s2);">
+		<div class="bn-card bn-hashtag-notfound">
+			<div class="bn-hashtag-notfound__icon" aria-hidden="true"><?php buddynext_icon( 'hash' ); ?></div>
+			<h1 class="bn-hashtag-notfound__title">
 				<?php
 				echo $hashtag_slug
 					? esc_html( sprintf( /* translators: %s: hashtag */ __( '#%s not found', 'buddynext' ), $hashtag_slug ) )
 					: esc_html__( 'Hashtag not found', 'buddynext' );
 				?>
 			</h1>
-			<p style="color:var(--text-2);font-size:var(--text-sm);">
+			<p class="bn-hashtag-notfound__lede">
 				<?php esc_html_e( 'This hashtag does not exist yet. Be the first to use it!', 'buddynext' ); ?>
 			</p>
 		</div>
@@ -627,18 +223,13 @@ if ( $hashtag_not_found ) :
 	<?php
 else :
 
-	// ── Build page title for SEO / accessibility ─────────────────────────────
-	$page_title = sprintf(
-	/* translators: %s: hashtag slug */
-		__( '#%s — BuddyNext', 'buddynext' ),
-		$hashtag_slug
-	);
-
-	// ── First-use date label ──────────────────────────────────────────────────
+	// ── First-use date label ─────────────────────────────────────────────────
 	$first_used_label = '';
 	if ( null !== $hashtag && $hashtag->created_at ) {
 		$first_used_label = date_i18n( get_option( 'date_format' ), (int) strtotime( $hashtag->created_at ) );
 	}
+
+	$post_count_total = absint( $hashtag->post_count );
 	?>
 <div
 	class="bn-hashtag-feed"
@@ -650,7 +241,7 @@ else :
 			array(
 				'scope'     => 'hashtag',
 				'hashtag'   => $hashtag_slug,
-				'sort'      => 'top',
+				'sort'      => $bn_sort,
 				'tab'       => 'posts',
 				'page'      => 1,
 				'following' => $follows_hashtag,
@@ -668,310 +259,339 @@ else :
 		<!-- ── Feed column ── -->
 		<main class="bn-hashtag-feed-area" id="bn-hashtag-feed-main" role="main">
 
-			<!-- Hashtag hero -->
-			<div class="bn-hashtag-hero">
-				<h1 class="bn-hashtag-title">#<?php echo esc_html( $hashtag_slug ); ?></h1>
-				<div class="bn-hashtag-stats">
-					<?php
-					printf(
-						/* translators: %s: post count */
-						esc_html__( '%s posts', 'buddynext' ),
-						esc_html( number_format_i18n( absint( $hashtag->post_count ) ) )
-					);
-					?>
-				</div>
-				<div class="bn-hashtag-actions">
-					<?php if ( $is_logged_in ) : ?>
-						<button
-							class="bn-btn-follow-tag<?php echo $follows_hashtag ? ' following' : ''; ?>"
-							type="button"
-							data-wp-on--click="actions.toggleFollowHashtag"
-							data-hashtag="<?php echo esc_attr( $hashtag_slug ); ?>"
-							aria-pressed="<?php echo $follows_hashtag ? 'true' : 'false'; ?>"
-						>
-							<?php if ( $follows_hashtag ) : ?>
-								<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Following', 'buddynext' ); ?>
-							<?php else : ?>
-								<?php
-								printf(
-									/* translators: %s: hashtag slug */
-									esc_html__( 'Follow #%s', 'buddynext' ),
-									esc_html( $hashtag_slug )
-								);
-								?>
-							<?php endif; ?>
-						</button>
-						<button
-							class="bn-btn-primary"
-							type="button"
-							data-wp-on--click="actions.openComposerWithTag"
-							data-hashtag="<?php echo esc_attr( $hashtag_slug ); ?>"
-						>
-							<?php buddynext_icon( 'edit' ); ?> <?php esc_html_e( 'Create post', 'buddynext' ); ?>
-						</button>
-					<?php else : ?>
-						<a
-							class="bn-btn-follow-tag"
-							href="<?php echo esc_url( wp_registration_url() ); ?>"
-						>
-							<?php
-							printf(
-								/* translators: %s: hashtag slug */
-								esc_html__( 'Follow #%s', 'buddynext' ),
-								esc_html( $hashtag_slug )
-							);
-							?>
-						</a>
+			<!-- Hashtag header card -->
+			<section class="bn-card bn-hashtag-header" aria-labelledby="bn-hashtag-title">
+				<header class="bn-hashtag-header__top">
+					<div class="bn-hashtag-header__heading">
+						<h1 class="bn-hashtag-header__title" id="bn-hashtag-title">
+							<span aria-hidden="true">#</span><?php echo esc_html( $hashtag_slug ); ?>
+						</h1>
+						<?php if ( $post_count_total > 0 ) : ?>
+							<span class="bn-hashtag-header__trend" aria-hidden="true">
+								<?php buddynext_icon( 'trending-up' ); ?>
+							</span>
+						<?php endif; ?>
+					</div>
+
+					<div class="bn-hashtag-header__actions">
+						<?php if ( $is_logged_in ) : ?>
+							<button
+								class="bn-btn"
+								data-variant="<?php echo $follows_hashtag ? 'secondary' : 'primary'; ?>"
+								data-size="md"
+								data-current-state="<?php echo $follows_hashtag ? 'following' : 'follow'; ?>"
+								type="button"
+								data-wp-on--click="actions.toggleFollowHashtag"
+								data-hashtag="<?php echo esc_attr( $hashtag_slug ); ?>"
+								aria-pressed="<?php echo $follows_hashtag ? 'true' : 'false'; ?>"
+							>
+								<?php if ( $follows_hashtag ) : ?>
+									<?php buddynext_icon( 'check' ); ?>
+									<span><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
+								<?php else : ?>
+									<span>
+										<?php
+										printf(
+											/* translators: %s: hashtag slug */
+											esc_html__( 'Follow #%s', 'buddynext' ),
+											esc_html( $hashtag_slug )
+										);
+										?>
+									</span>
+								<?php endif; ?>
+							</button>
+							<button
+								class="bn-btn"
+								data-variant="ghost"
+								data-size="md"
+								type="button"
+								data-wp-on--click="actions.openComposerWithTag"
+								data-hashtag="<?php echo esc_attr( $hashtag_slug ); ?>"
+							>
+								<?php buddynext_icon( 'edit' ); ?>
+								<span><?php esc_html_e( 'Create post', 'buddynext' ); ?></span>
+							</button>
+						<?php else : ?>
+							<a
+								class="bn-btn"
+								data-variant="primary"
+								data-size="md"
+								href="<?php echo esc_url( wp_registration_url() ); ?>"
+							>
+								<span>
+									<?php
+									printf(
+										/* translators: %s: hashtag slug */
+										esc_html__( 'Follow #%s', 'buddynext' ),
+										esc_html( $hashtag_slug )
+									);
+									?>
+								</span>
+							</a>
+						<?php endif; ?>
+					</div>
+				</header>
+
+				<div class="bn-stat-grid bn-hashtag-header__stats">
+					<div class="bn-stat">
+						<div class="bn-stat__label"><?php esc_html_e( 'Posts', 'buddynext' ); ?></div>
+						<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $post_count_total ) ); ?></div>
+					</div>
+					<div class="bn-stat">
+						<div class="bn-stat__label"><?php esc_html_e( 'Contributors', 'buddynext' ); ?></div>
+						<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $contributor_count ) ); ?></div>
+					</div>
+					<?php if ( $first_used_label ) : ?>
+						<div class="bn-stat">
+							<div class="bn-stat__label"><?php esc_html_e( 'First used', 'buddynext' ); ?></div>
+							<div class="bn-stat__value bn-hashtag-header__date"><?php echo esc_html( $first_used_label ); ?></div>
+						</div>
 					<?php endif; ?>
 				</div>
-				<div class="bn-sort-tabs" role="group" aria-label="<?php esc_attr_e( 'Sort posts', 'buddynext' ); ?>">
-					<button
-						class="bn-sort-tab active"
-						type="button"
-						data-sort="top"
-						data-wp-on--click="actions.setSort"
-						aria-pressed="true"
-					><?php esc_html_e( 'Top', 'buddynext' ); ?></button>
-					<button
-						class="bn-sort-tab"
-						type="button"
-						data-sort="latest"
-						data-wp-on--click="actions.setSort"
-						aria-pressed="false"
-					><?php esc_html_e( 'Latest', 'buddynext' ); ?></button>
-					<button
-						class="bn-sort-tab"
-						type="button"
-						data-sort="people"
-						data-wp-on--click="actions.setSort"
-						aria-pressed="false"
-					><?php esc_html_e( 'People', 'buddynext' ); ?></button>
-				</div>
-			</div>
+
+				<nav class="bn-tabs bn-hashtag-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Sort posts', 'buddynext' ); ?>">
+					<?php
+					$bn_ht_tabs = array(
+						'latest'    => array(
+							'label' => __( 'Latest', 'buddynext' ),
+							'count' => $post_count_total,
+						),
+						'top'       => array(
+							'label' => __( 'Top', 'buddynext' ),
+							'count' => null,
+						),
+						'following' => array(
+							'label' => __( 'Following', 'buddynext' ),
+							'count' => null,
+							'guard' => ! $is_logged_in,
+						),
+					);
+					foreach ( $bn_ht_tabs as $tab_key => $tab_info ) :
+						if ( ! empty( $tab_info['guard'] ) ) {
+							continue;
+						}
+						$tab_active = ( $bn_sort === $tab_key );
+						$tab_url    = add_query_arg( 'sort', $tab_key, PageRouter::hashtag_feed_url( $hashtag_slug ) );
+						?>
+						<a
+							class="bn-tab"
+							role="tab"
+							href="<?php echo esc_url( $tab_url ); ?>"
+							data-sort="<?php echo esc_attr( $tab_key ); ?>"
+							data-wp-on--click="actions.setSort"
+							aria-selected="<?php echo $tab_active ? 'true' : 'false'; ?>"
+						>
+							<?php echo esc_html( $tab_info['label'] ); ?>
+							<?php if ( null !== $tab_info['count'] ) : ?>
+								<span class="bn-tab__count"><?php echo esc_html( number_format_i18n( (int) $tab_info['count'] ) ); ?></span>
+							<?php endif; ?>
+						</a>
+					<?php endforeach; ?>
+				</nav>
+			</section>
 
 			<!-- ── Posts ── -->
 			<?php if ( ! empty( $hashtag_posts ) ) : ?>
-				<?php foreach ( $hashtag_posts as $post_row ) : ?>
-					<?php
-					$post_author_id  = (int) $post_row->user_id;
-					$post_author     = get_userdata( $post_author_id );
-					$post_display    = $post_author instanceof WP_User ? $post_author->display_name : __( 'Community Member', 'buddynext' );
-					$colour_class    = $avatar_colours[ $post_author_id % count( $avatar_colours ) ];
-					$post_parts      = explode( ' ', trim( $post_display ) );
-					$post_initials   = strtoupper( substr( $post_parts[0], 0, 1 ) . ( isset( $post_parts[1] ) ? substr( $post_parts[1], 0, 1 ) : '' ) );
-					$post_avatar_url = get_avatar_url( $post_author_id, array( 'size' => 68 ) );
-					$post_time       = bn_tag_relative_time( $post_row->created_at );
-					$post_content    = wp_kses_post( $post_row->content );
-					$post_content    = bn_tag_linkify( $post_content );
-					$reaction_count  = absint( $post_row->reaction_count ?? 0 );
-					$comment_count   = absint( $post_row->comment_count ?? 0 );
-					?>
-					<article class="bn-tag-post-card" data-post-id="<?php echo esc_attr( (string) $post_row->id ); ?>">
-						<div class="bn-post-header">
-							<?php if ( $post_avatar_url ) : ?>
-								<img
-									src="<?php echo esc_url( $post_avatar_url ); ?>"
-									alt="<?php echo esc_attr( $post_display ); ?>"
-									class="avatar sm"
-									loading="lazy"
-									width="34"
-									height="34"
-								>
-							<?php else : ?>
-								<div class="avatar sm <?php echo esc_attr( $colour_class ); ?>" aria-hidden="true">
-									<?php echo esc_html( $post_initials ); ?>
-								</div>
-							<?php endif; ?>
-							<div class="bn-post-author">
-								<div class="bn-post-author-name">
-									<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $post_author_id ) ); ?>">
-										<?php echo esc_html( $post_display ); ?>
-									</a>
-								</div>
-								<div class="bn-post-author-meta">
-									<?php echo esc_html( $post_time ); ?>
-								</div>
-							</div>
-							<button class="bn-post-more" type="button" aria-label="<?php esc_attr_e( 'Post options', 'buddynext' ); ?>"><?php buddynext_icon( 'more-horizontal' ); ?></button>
-						</div>
-
-						<div class="bn-post-body">
-							<?php echo wp_kses_post( $post_content ); ?>
-						</div>
-
-						<div class="bn-post-reactions">
-							<button
-								class="bn-reaction-chip"
-								type="button"
-								data-wp-on--click="actions.react"
-								data-post-id="<?php echo esc_attr( (string) $post_row->id ); ?>"
-								data-reaction="heart"
-								aria-label="<?php esc_attr_e( 'Like', 'buddynext' ); ?>"
-							>
-								<?php buddynext_icon( 'heart' ); ?>
-								<?php if ( $reaction_count > 0 ) : ?>
-									<span><?php echo esc_html( (string) $reaction_count ); ?></span>
-								<?php endif; ?>
-							</button>
-							<button class="bn-reaction-chip" type="button" aria-label="<?php esc_attr_e( 'Add reaction', 'buddynext' ); ?>">+</button>
-						</div>
-
-						<div class="bn-post-actions">
-							<button class="bn-action-btn" type="button" data-wp-on--click="actions.react" data-post-id="<?php echo esc_attr( (string) $post_row->id ); ?>">
-								<?php buddynext_icon( 'heart' ); ?> <?php esc_html_e( 'Like', 'buddynext' ); ?>
-							</button>
-							<button class="bn-action-btn" type="button" data-wp-on--click="actions.openComments" data-post-id="<?php echo esc_attr( (string) $post_row->id ); ?>">
-								<?php buddynext_icon( 'message-circle' ); ?>
-								<?php
-								if ( $comment_count > 0 ) {
-									printf(
-										/* translators: %d: number of comments */
-										esc_html__( 'Comment (%d)', 'buddynext' ),
-										absint( $comment_count )
-									);
-								} else {
-									esc_html_e( 'Comment', 'buddynext' );
-								}
-								?>
-							</button>
-							<button class="bn-action-btn" type="button" data-wp-on--click="actions.share" data-post-id="<?php echo esc_attr( (string) $post_row->id ); ?>">
-								<?php buddynext_icon( 'share' ); ?> <?php esc_html_e( 'Share', 'buddynext' ); ?>
-							</button>
-							<button class="bn-action-btn" type="button" data-wp-on--click="actions.bookmark" data-post-id="<?php echo esc_attr( (string) $post_row->id ); ?>">
-								<?php buddynext_icon( 'bookmark' ); ?> <?php esc_html_e( 'Save', 'buddynext' ); ?>
-							</button>
-						</div>
-					</article>
-				<?php endforeach; ?>
+				<div class="bn-feed-list bn-hashtag-feed-list" role="feed" aria-label="<?php esc_attr_e( 'Hashtag feed', 'buddynext' ); ?>">
+					<?php foreach ( $hashtag_posts as $post_row ) : ?>
+						<?php
+						$ht_post = array(
+							'id'                   => (int) $post_row->id,
+							'user_id'              => (int) $post_row->user_id,
+							'type'                 => $post_row->type ?? 'text',
+							'content'              => $post_row->content ?? '',
+							'privacy'              => 'public',
+							'space_id'             => null,
+							'media_ids'            => null,
+							'link_url'             => null,
+							'link_meta'            => null,
+							'poll_options'         => array(),
+							'is_pinned'            => 0,
+							'is_announcement'      => 0,
+							'content_warning'      => false,
+							'content_warning_type' => null,
+							'reaction_count'       => absint( $post_row->reaction_count ?? 0 ),
+							'comment_count'        => absint( $post_row->comment_count ?? 0 ),
+							'share_count'          => absint( $post_row->share_count ?? 0 ),
+							'edited_at'            => null,
+							'created_at'           => $post_row->created_at ?? '',
+							'updated_at'           => null,
+						);
+						buddynext_get_template(
+							'partials/post-card.php',
+							array(
+								'post'            => $ht_post,
+								'current_user_id' => $current_user_id,
+								'context'         => 'home',
+							)
+						);
+						?>
+					<?php endforeach; ?>
+				</div>
 			<?php else : ?>
-				<!-- Related discussions from bridge plugins (Jetonomy, etc.) -->
 				<?php
 				/**
 				 * Filter: related discussions for this hashtag from bridge plugins.
 				 *
 				 * JetonomyBridge hooks this to query jt_tags for matching tag via
-				 * Jetonomy's own model API. No raw cross-plugin SQL.
+				 * Jetonomy's own model API.
 				 *
-				 * @param array  $discussions Empty array — bridges append results.
+				 * @param array  $discussions  Empty array; bridges append results.
 				 * @param string $hashtag_slug The hashtag being viewed.
-				 * @return array Each item: {id, title, url, reply_count, vote_count, author_name}
+				 * @return array Each item: {id, title, url, reply_count, vote_score, author_name}
 				 */
 				$jt_posts = apply_filters( 'buddynext_hashtag_related_discussions', array(), $hashtag_slug );
 				?>
-					<?php if ( ! empty( $jt_posts ) ) : ?>
+				<?php if ( ! empty( $jt_posts ) ) : ?>
+					<div class="bn-feed-list bn-hashtag-feed-list">
 						<?php foreach ( $jt_posts as $jt_post ) : ?>
 							<?php
-							$jt_post = (object) $jt_post;
-							$jt_display   = $jt_post->author_name ?? __( 'Community Member', 'buddynext' );
-							$jt_author_id = (int) ( $jt_post->author_id ?? 0 );
-							$jt_colour    = '#7c3aed';
-							$jt_parts     = explode( ' ', trim( $jt_display ) );
-							$jt_initials  = strtoupper( substr( $jt_parts[0], 0, 1 ) . ( isset( $jt_parts[1] ) ? substr( $jt_parts[1], 0, 1 ) : '' ) );
-							$jt_avatar    = $jt_author_id ? get_avatar_url( $jt_author_id, array( 'size' => 68 ) ) : '';
+							$jt_post    = (object) $jt_post;
+							$jt_id      = (int) ( $jt_post->id ?? 0 );
+							$jt_title   = (string) ( $jt_post->title ?? '' );
+							$jt_author  = (string) ( $jt_post->author_name ?? __( 'Community Member', 'buddynext' ) );
+							$jt_uid     = (int) ( $jt_post->author_id ?? 0 );
+							$jt_init    = function_exists( 'bn_initials' ) ? bn_initials( $jt_author ) : strtoupper( substr( $jt_author, 0, 2 ) );
+							$jt_avatar  = $jt_uid ? get_avatar_url( $jt_uid, array( 'size' => 72 ) ) : '';
+							$jt_replies = absint( $jt_post->reply_count ?? 0 );
+							$jt_votes   = (int) ( $jt_post->vote_score ?? 0 );
+
+							$jt_space_slug = '';
+							if ( ! empty( $jt_post->space_id ) && function_exists( '\\Jetonomy\\table' ) ) {
+								// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+								$jt_space_slug = (string) $wpdb->get_var(
+									$wpdb->prepare(
+										'SELECT slug FROM ' . \Jetonomy\table( 'spaces' ) . ' WHERE id = %d',
+										(int) $jt_post->space_id
+									)
+								);
+								// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+							}
+							$jt_url = $jt_space_slug
+								? home_url( '/community/s/' . $jt_space_slug . '/t/' . ( $jt_post->slug ?? $jt_id ) . '/' )
+								: home_url( '/community/' );
 							?>
-							<article class="bn-tag-post-card jt-card">
-								<div class="bn-jt-source-label">
-									<?php buddynext_icon( 'message-circle' ); ?> <?php esc_html_e( 'Jetonomy Forums', 'buddynext' ); ?>
-								</div>
-								<div class="bn-post-header">
+							<article class="bn-card bn-card-bridge bn-card-bridge--jetonomy" data-interactive>
+								<header class="bn-card-bridge__source">
+									<span class="bn-badge" data-tone="jetonomy">
+										<?php buddynext_icon( 'message-circle' ); ?>
+										<?php esc_html_e( 'Jetonomy Discussion', 'buddynext' ); ?>
+									</span>
+								</header>
+								<div class="bn-card-bridge__head">
 									<?php if ( $jt_avatar ) : ?>
 										<img
 											src="<?php echo esc_url( $jt_avatar ); ?>"
-											alt="<?php echo esc_attr( $jt_display ); ?>"
-											class="avatar sm"
+											alt=""
+											class="bn-avatar"
+											data-size="md"
 											loading="lazy"
-											width="34"
-											height="34"
+											width="36"
+											height="36"
 										>
 									<?php else : ?>
-										<div class="avatar sm av-jt" aria-hidden="true">
-											<?php echo esc_html( $jt_initials ); ?>
+										<div class="bn-avatar" data-size="md" aria-hidden="true">
+											<?php echo esc_html( $jt_init ); ?>
 										</div>
 									<?php endif; ?>
-									<div class="bn-post-author">
-										<div class="bn-post-author-name"><?php echo esc_html( $jt_display ); ?></div>
-										<div class="bn-post-author-meta"><?php esc_html_e( 'Started a discussion', 'buddynext' ); ?></div>
+									<div class="bn-card-bridge__byline">
+										<div class="bn-card-bridge__author"><?php echo esc_html( $jt_author ); ?></div>
+										<div class="bn-card-bridge__meta"><?php esc_html_e( 'Started a discussion', 'buddynext' ); ?></div>
 									</div>
-									<button class="bn-post-more" type="button" aria-label="<?php esc_attr_e( 'Post options', 'buddynext' ); ?>"><?php buddynext_icon( 'more-horizontal' ); ?></button>
 								</div>
-								<div class="bn-post-body">
-									<span class="bn-jt-tag"><?php esc_html_e( 'Discussion', 'buddynext' ); ?></span>
-									<?php echo esc_html( $jt_post->title ); ?>
-								</div>
-								<div class="bn-jt-meta-row">
-									<span class="bn-jt-stat"><?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) absint( $jt_post->reply_count ?? 0 ) ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?></span>
-									<span class="bn-jt-stat"><?php buddynext_icon( 'trending-up' ); ?> <?php echo esc_html( (string) ( (int) ( $jt_post->vote_score ?? 0 ) ) ); ?> <?php esc_html_e( 'votes', 'buddynext' ); ?></span>
-								</div>
-								<div class="bn-jt-vote-bar">
-									<button class="bn-vote-btn" type="button" data-wp-on--click="actions.voteJt" data-jt-id="<?php echo esc_attr( (string) $jt_post->id ); ?>" data-direction="up">
-										<?php buddynext_icon( 'arrow-up' ); ?> <?php echo esc_html( (string) absint( $jt_post->vote_score ?? 0 ) ); ?>
+								<a class="bn-card-bridge__title" href="<?php echo esc_url( $jt_url ); ?>">
+									<?php echo esc_html( $jt_title ); ?>
+								</a>
+								<footer class="bn-card-bridge__footer">
+									<button class="bn-btn" data-variant="ghost" data-size="sm" type="button" data-wp-on--click="actions.voteJt" data-jt-id="<?php echo esc_attr( (string) $jt_id ); ?>" data-direction="up">
+										<?php buddynext_icon( 'arrow-up' ); ?>
+										<span><?php echo esc_html( (string) max( 0, $jt_votes ) ); ?></span>
 									</button>
-									<button class="bn-vote-btn" type="button" data-wp-on--click="actions.voteJt" data-jt-id="<?php echo esc_attr( (string) $jt_post->id ); ?>" data-direction="down">
-										<?php buddynext_icon( 'arrow-down' ); ?>
-									</button>
-									<?php
-									$jt_space_slug = '';
-									if ( ! empty( $jt_post->space_id ) && function_exists( 'Jetonomy\\table' ) ) {
-										// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-										$jt_space_slug = $GLOBALS['wpdb']->get_var(
-											$GLOBALS['wpdb']->prepare(
-												'SELECT slug FROM ' . \Jetonomy\table( 'spaces' ) . ' WHERE id = %d',
-												(int) $jt_post->space_id
-											)
+									<span class="bn-card-bridge__stat">
+										<?php buddynext_icon( 'message-circle' ); ?>
+										<?php
+										printf(
+											/* translators: %d: reply count */
+											esc_html( _n( '%d reply', '%d replies', $jt_replies, 'buddynext' ) ),
+											(int) $jt_replies
 										);
-										// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-									}
-									$jt_post_url = $jt_space_slug
-										? home_url( '/community/s/' . $jt_space_slug . '/t/' . ( $jt_post->slug ?? $jt_post->id ) . '/' )
-										: home_url( '/community/' );
-									?>
-									<a class="bn-jt-open-link" href="<?php echo esc_url( $jt_post_url ); ?>">
-										<?php esc_html_e( 'Open in forum', 'buddynext' ); ?> &rarr;
+										?>
+									</span>
+									<a class="bn-btn bn-card-bridge__open" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $jt_url ); ?>">
+										<span><?php esc_html_e( 'Open', 'buddynext' ); ?></span>
+										<?php buddynext_icon( 'arrow-right' ); ?>
 									</a>
-								</div>
+								</footer>
 							</article>
 						<?php endforeach; ?>
-					<?php else : ?>
-						<!-- True empty state -->
-						<div class="bn-tag-post-card" style="text-align:center;padding:var(--s8);color:var(--text-3);">
-							<div style="font-size:32px;margin-bottom:var(--s3);">#</div>
-							<div style="font-size:var(--text-base);font-weight:600;color:var(--text-2);">
-								<?php
+					</div>
+				<?php else : ?>
+					<!-- True empty state -->
+					<div class="bn-card bn-hashtag-empty">
+						<div class="bn-hashtag-empty__icon" aria-hidden="true"><?php buddynext_icon( 'hash' ); ?></div>
+						<h2 class="bn-hashtag-empty__title">
+							<?php
+							if ( 'following' === $bn_sort ) {
+								printf(
+									/* translators: %s: hashtag slug */
+									esc_html__( 'No posts from people you follow tagged #%s', 'buddynext' ),
+									esc_html( $hashtag_slug )
+								);
+							} elseif ( 'top' === $bn_sort ) {
+								printf(
+									/* translators: %s: hashtag slug */
+									esc_html__( 'No top posts in the last 7 days for #%s', 'buddynext' ),
+									esc_html( $hashtag_slug )
+								);
+							} else {
 								printf(
 									/* translators: %s: hashtag slug */
 									esc_html__( 'No posts with #%s yet', 'buddynext' ),
 									esc_html( $hashtag_slug )
 								);
-								?>
-							</div>
-							<?php if ( $is_logged_in ) : ?>
-								<div style="margin-top:var(--s4);">
-									<button
-										class="bn-btn-primary"
-										type="button"
-										data-wp-on--click="actions.openComposerWithTag"
-										data-hashtag="<?php echo esc_attr( $hashtag_slug ); ?>"
-										style="display:inline-flex;margin:0 auto;"
-									>
-										<?php buddynext_icon( 'edit' ); ?> <?php esc_html_e( 'Be the first to post', 'buddynext' ); ?>
-									</button>
-								</div>
-							<?php endif; ?>
-						</div>
-					<?php endif; ?>
+							}
+							?>
+						</h2>
+						<p class="bn-hashtag-empty__lede">
+							<?php esc_html_e( 'Be the first to share something on this topic.', 'buddynext' ); ?>
+						</p>
+						<?php if ( $is_logged_in ) : ?>
+							<button
+								class="bn-btn"
+								data-variant="primary"
+								data-size="md"
+								type="button"
+								data-wp-on--click="actions.openComposerWithTag"
+								data-hashtag="<?php echo esc_attr( $hashtag_slug ); ?>"
+							>
+								<?php buddynext_icon( 'edit' ); ?>
+								<span><?php esc_html_e( 'Be the first to post', 'buddynext' ); ?></span>
+							</button>
+						<?php else : ?>
+							<a
+								class="bn-btn"
+								data-variant="primary"
+								data-size="md"
+								href="<?php echo esc_url( wp_registration_url() ); ?>"
+							>
+								<span><?php esc_html_e( 'Join to post', 'buddynext' ); ?></span>
+							</a>
+						<?php endif; ?>
+					</div>
+				<?php endif; ?>
 			<?php endif; ?>
 
 			<div class="bn-load-more" data-wp-bind--hidden="!state.hasMore" aria-live="polite">
-				<?php esc_html_e( 'Loading more posts\u2026', 'buddynext' ); ?>
+				<?php esc_html_e( 'Loading more posts…', 'buddynext' ); ?>
 			</div>
 		</main>
 
-		<!-- ── Sidebar ── -->
+		<!-- ── Sidebar (hashtag-specific) ── -->
 		<aside class="bn-hashtag-sidebar" aria-label="<?php esc_attr_e( 'Hashtag details sidebar', 'buddynext' ); ?>">
 
 			<!-- About this hashtag -->
-			<div class="bn-widget">
-				<div class="bn-widget-title">
+			<div class="bn-card bn-sidebar-widget">
+				<h2 class="bn-sidebar-widget__title">
 					<?php
 					printf(
 						/* translators: %s: hashtag slug */
@@ -979,126 +599,116 @@ else :
 						esc_html( $hashtag_slug )
 					);
 					?>
-				</div>
-				<div class="bn-about-row">
-					<span class="bn-about-label"><?php esc_html_e( 'Created by', 'buddynext' ); ?></span>
-					<span class="bn-about-value"><?php esc_html_e( 'Community', 'buddynext' ); ?></span>
-				</div>
-				<div class="bn-about-row">
-					<span class="bn-about-label"><?php esc_html_e( 'Posts this month', 'buddynext' ); ?></span>
-					<span class="bn-about-value"><?php echo esc_html( number_format_i18n( absint( $hashtag->post_count ) ) ); ?></span>
-				</div>
+				</h2>
+				<dl class="bn-hashtag-about">
+					<div class="bn-hashtag-about__row">
+						<dt class="bn-hashtag-about__label"><?php esc_html_e( 'Created by', 'buddynext' ); ?></dt>
+						<dd class="bn-hashtag-about__value"><?php esc_html_e( 'Community', 'buddynext' ); ?></dd>
+					</div>
+					<div class="bn-hashtag-about__row">
+						<dt class="bn-hashtag-about__label"><?php esc_html_e( 'Total posts', 'buddynext' ); ?></dt>
+						<dd class="bn-hashtag-about__value"><?php echo esc_html( number_format_i18n( $post_count_total ) ); ?></dd>
+					</div>
+					<?php if ( $first_used_label ) : ?>
+						<div class="bn-hashtag-about__row">
+							<dt class="bn-hashtag-about__label"><?php esc_html_e( 'First used', 'buddynext' ); ?></dt>
+							<dd class="bn-hashtag-about__value"><?php echo esc_html( $first_used_label ); ?></dd>
+						</div>
+					<?php endif; ?>
+				</dl>
 
-				<?php if ( $first_used_label ) : ?>
-					<div class="bn-about-row">
-						<span class="bn-about-label"><?php esc_html_e( 'First used', 'buddynext' ); ?></span>
-						<span class="bn-about-value"><?php echo esc_html( $first_used_label ); ?></span>
-					</div>
-				<?php endif; ?>
 				<?php if ( $is_logged_in ) : ?>
-					<div class="bn-follow-toggle-row">
-						<span class="bn-follow-toggle-label">
-							<?php
-							if ( $follows_hashtag ) {
-								esc_html_e( 'You follow this hashtag', 'buddynext' );
-							} else {
-								esc_html_e( 'Follow this hashtag', 'buddynext' );
-							}
-							?>
-						</span>
-						<button
-							class="bn-toggle-switch"
-							type="button"
-							role="switch"
-							aria-checked="<?php echo $follows_hashtag ? 'true' : 'false'; ?>"
-							data-wp-on--click="actions.toggleFollowHashtag"
-							data-hashtag="<?php echo esc_attr( $hashtag_slug ); ?>"
-							aria-label="
-							<?php
-							printf(
-								/* translators: %s: hashtag slug */
-								esc_attr__( 'Follow #%s', 'buddynext' ),
-								esc_attr( $hashtag_slug )
-							);
-							?>
-							"
-						></button>
-					</div>
+					<button
+						class="bn-btn bn-hashtag-about__cta"
+						data-variant="<?php echo $follows_hashtag ? 'secondary' : 'primary'; ?>"
+						data-size="sm"
+						type="button"
+						data-wp-on--click="actions.toggleFollowHashtag"
+						data-hashtag="<?php echo esc_attr( $hashtag_slug ); ?>"
+						aria-pressed="<?php echo $follows_hashtag ? 'true' : 'false'; ?>"
+					>
+						<?php if ( $follows_hashtag ) : ?>
+							<?php buddynext_icon( 'check' ); ?>
+							<span><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
+						<?php else : ?>
+							<span><?php esc_html_e( 'Follow hashtag', 'buddynext' ); ?></span>
+						<?php endif; ?>
+					</button>
 				<?php endif; ?>
 			</div>
 
 			<!-- Related hashtags -->
 			<?php if ( ! empty( $related_tags ) ) : ?>
-				<div class="bn-widget">
-					<div class="bn-widget-title"><?php esc_html_e( 'Related Hashtags', 'buddynext' ); ?></div>
-					<?php foreach ( $related_tags as $rel_tag ) : ?>
-						<div class="bn-related-tag-row">
-							<a
-								class="bn-related-tag-name"
-								href="<?php echo esc_url( \BuddyNext\Core\PageRouter::hashtag_feed_url( $rel_tag->slug ) ); ?>"
-							>#<?php echo esc_html( $rel_tag->slug ); ?></a>
-							<span class="bn-related-tag-count">
-								<?php
-								printf(
-									/* translators: %s: post count */
-									esc_html__( '%s posts', 'buddynext' ),
-									esc_html( number_format_i18n( absint( $rel_tag->post_count ) ) )
-								);
-								?>
-							</span>
-						</div>
-					<?php endforeach; ?>
+				<div class="bn-card bn-sidebar-widget">
+					<h2 class="bn-sidebar-widget__title"><?php esc_html_e( 'Related hashtags', 'buddynext' ); ?></h2>
+					<ul class="bn-hashtag-related">
+						<?php foreach ( $related_tags as $rel_tag ) : ?>
+							<li class="bn-hashtag-related__row">
+								<a class="bn-badge bn-hashtag-related__chip" data-tone="accent"
+									href="<?php echo esc_url( PageRouter::hashtag_feed_url( $rel_tag->slug ) ); ?>"
+								>#<?php echo esc_html( $rel_tag->slug ); ?></a>
+								<span class="bn-hashtag-related__count">
+									<?php
+									printf(
+										/* translators: %s: post count */
+										esc_html__( '%s posts', 'buddynext' ),
+										esc_html( number_format_i18n( absint( $rel_tag->post_count ) ) )
+									);
+									?>
+								</span>
+							</li>
+						<?php endforeach; ?>
+					</ul>
 				</div>
 			<?php endif; ?>
 
 			<!-- Top contributors -->
 			<?php if ( ! empty( $top_contributors ) ) : ?>
-				<div class="bn-widget">
-					<div class="bn-widget-title"><?php esc_html_e( 'Top Contributors', 'buddynext' ); ?></div>
-					<?php foreach ( $top_contributors as $contrib ) : ?>
-						<?php
-						$contrib_id      = (int) $contrib->user_id;
-						$contrib_user    = get_userdata( $contrib_id );
-						$contrib_display = $contrib_user instanceof WP_User ? $contrib_user->display_name : __( 'Community Member', 'buddynext' );
-						$contrib_colour  = $avatar_colours[ $contrib_id % count( $avatar_colours ) ];
-						$contrib_parts   = explode( ' ', trim( $contrib_display ) );
-						$contrib_init    = strtoupper( substr( $contrib_parts[0], 0, 1 ) . ( isset( $contrib_parts[1] ) ? substr( $contrib_parts[1], 0, 1 ) : '' ) );
-						$contrib_avatar  = get_avatar_url( $contrib_id, array( 'size' => 68 ) );
-						?>
-						<div class="bn-member-row">
-							<?php if ( $contrib_avatar ) : ?>
-								<img
-									src="<?php echo esc_url( $contrib_avatar ); ?>"
-									alt="<?php echo esc_attr( $contrib_display ); ?>"
-									class="avatar sm"
-									loading="lazy"
-									width="34"
-									height="34"
-								>
-							<?php else : ?>
-								<div class="avatar sm <?php echo esc_attr( $contrib_colour ); ?>" aria-hidden="true">
-									<?php echo esc_html( $contrib_init ); ?>
-								</div>
-							<?php endif; ?>
-							<div class="bn-member-info">
-								<div class="bn-member-name"><?php echo esc_html( $contrib_display ); ?></div>
-								<div class="bn-member-sub">
-									<?php
-									printf(
-										/* translators: 1: number of posts, 2: hashtag slug */
-										esc_html__( '%1$d posts with #%2$s', 'buddynext' ),
-										absint( $contrib->post_count ),
-										esc_html( $hashtag_slug )
-									);
-									?>
-								</div>
-							</div>
-						</div>
-					<?php endforeach; ?>
-					<a
-						class="bn-widget-see-all"
-						href="<?php echo esc_url( add_query_arg( 'hashtag', rawurlencode( $hashtag_slug ), \BuddyNext\Core\PageRouter::people_url() ) ); ?>"
-					><?php esc_html_e( 'See all contributors', 'buddynext' ); ?> &rarr;</a>
+				<div class="bn-card bn-sidebar-widget">
+					<h2 class="bn-sidebar-widget__title"><?php esc_html_e( 'Top contributors', 'buddynext' ); ?></h2>
+					<ul class="bn-hashtag-contributors">
+						<?php foreach ( $top_contributors as $contrib ) : ?>
+							<?php
+							$contrib_id      = (int) $contrib->user_id;
+							$contrib_user    = get_userdata( $contrib_id );
+							$contrib_display = $contrib_user instanceof WP_User ? $contrib_user->display_name : __( 'Community Member', 'buddynext' );
+							$contrib_init    = function_exists( 'bn_initials' ) ? bn_initials( $contrib_display ) : strtoupper( substr( $contrib_display, 0, 2 ) );
+							$contrib_avatar  = get_avatar_url( $contrib_id, array( 'size' => 72 ) );
+							$contrib_url     = PageRouter::profile_url( $contrib_id );
+							?>
+							<li class="bn-hashtag-contributors__row">
+								<a class="bn-hashtag-contributors__link" href="<?php echo esc_url( $contrib_url ); ?>">
+									<?php if ( $contrib_avatar ) : ?>
+										<img
+											src="<?php echo esc_url( $contrib_avatar ); ?>"
+											alt=""
+											class="bn-avatar"
+											data-size="sm"
+											loading="lazy"
+											width="28"
+											height="28"
+										>
+									<?php else : ?>
+										<span class="bn-avatar" data-size="sm" aria-hidden="true">
+											<?php echo esc_html( $contrib_init ); ?>
+										</span>
+									<?php endif; ?>
+									<span class="bn-hashtag-contributors__info">
+										<span class="bn-hashtag-contributors__name"><?php echo esc_html( $contrib_display ); ?></span>
+										<span class="bn-hashtag-contributors__sub">
+											<?php
+											printf(
+												/* translators: %d: number of posts */
+												esc_html( _n( '%d post', '%d posts', (int) $contrib->post_count, 'buddynext' ) ),
+												(int) $contrib->post_count
+											);
+											?>
+										</span>
+									</span>
+								</a>
+							</li>
+						<?php endforeach; ?>
+					</ul>
 				</div>
 			<?php endif; ?>
 
