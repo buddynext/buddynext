@@ -1,796 +1,527 @@
 /*
- * BuddyNext — Auth stylesheet
+ * BuddyNext — Auth stylesheet (v2 design system)
  *
- * Covers:
- *   - Full-page auth layout (.bn-auth-wrap) — login/register split-panel
- *   - Block login/register forms (.bn-block-login-form, .bn-block-registration-form)
- *   - Email verification card (.bn-auth-verify)
- *   - Shared form components (.bn-form__*)
- *   - Error/success/info alert states
- *   - Dark mode via [data-theme="dark"]
- *   - Mobile ≤640px: full-width card, no horizontal scroll
+ * Composes the global v2 primitives (.bn-btn[data-variant], .bn-input,
+ * .bn-badge[data-tone], .bn-tabs/.bn-tab, .bn-progress[data-indeterminate])
+ * defined in bn-base.css. This file owns only the auth-specific layout
+ * vocabulary:
+ *
+ *   .bn-auth-page         — full-viewport canvas
+ *   .bn-auth-card         — centered card (login + register tabs)
+ *   .bn-auth-hero         — gradient header strip on the card
+ *   .bn-auth-divider      — "or continue with" rule
+ *   .bn-auth-social       — three-up social provider row
+ *   .bn-verify-page       — same canvas, narrower card for verify states
+ *
+ * Token-only. Dark mode flips automatically through --bn-* tokens.
+ * Mobile ≤640px: card becomes edge-to-edge.
  */
 
-/* ── Full-page auth layout ──────────────────────────────────────────────── */
+/* ── Auth canvas (login + register + verify) ────────────────────────── */
 
-.bn-auth-wrap {
-	font-family: var(--font-body);
-	font-size: var(--text-base);
-	color: var(--text-1);
-	background: var(--bg-subtle);
-	-webkit-font-smoothing: antialiased;
+.bn-auth-page {
 	min-height: 100vh;
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-}
-
-/* Brand panel (left) */
-.bn-auth-brand {
-	background: linear-gradient(135deg, var(--auth-grad-from) 0%, var(--auth-grad-via) 60%, var(--auth-grad-to) 100%);
+	background: var(--bn-canvas);
 	display: flex;
-	flex-direction: column;
+	align-items: center;
 	justify-content: center;
-	padding: 60px 48px;
-	color: var(--text-on-brand);
+	padding: var(--bn-s6);
+	font-family: var(--bn-font-ui);
+	color: var(--bn-ink);
 }
 
-.bn-auth-logo {
-	font-family: var(--font-display);
-	font-size: var(--text-3xl);
-	font-weight: var(--fw-black);
-	margin-bottom: 40px;
-	letter-spacing: var(--ls-display);
+.bn-auth-card {
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	width: 100%;
+	max-width: 420px;
+	overflow: hidden;
+	box-shadow: var(--bn-shadow-sm);
 }
 
-.bn-auth-logo span { opacity: 0.7; }
+.bn-auth-card[data-variant="register"] {
+	max-width: 480px;
+}
 
-.bn-auth-headline {
-	font-family: var(--font-display);
-	font-size: var(--text-4xl);
-	font-weight: var(--fw-extrabold);
-	line-height: var(--leading-tight);
-	margin-bottom: var(--s4);
+.bn-auth-card[data-variant="verify"] {
+	max-width: 440px;
+	text-align: center;
+}
+
+/* Gradient hero strip (logo + brand) sits above the card body. */
+.bn-auth-hero {
+	background: linear-gradient(135deg, var(--auth-grad-from) 0%, var(--auth-grad-via) 60%, var(--auth-grad-to) 100%);
+	color: var(--bn-accent-fg);
+	padding: var(--bn-s5) var(--bn-s6);
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+}
+
+.bn-auth-hero__logo {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+}
+
+.bn-auth-hero__logo .bn-icon {
+	width: 28px;
+	height: 28px;
+}
+
+.bn-auth-hero__wordmark {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-lg);
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+
+.bn-auth-hero__wordmark span {
+	opacity: 0.78;
+	font-weight: 600;
+}
+
+.bn-auth-body {
+	padding: var(--bn-s6);
+}
+
+.bn-auth-body[data-align="center"] {
+	text-align: center;
+}
+
+.bn-auth-title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-2xl);
+	font-weight: 700;
+	letter-spacing: -0.015em;
+	color: var(--bn-ink);
+	margin: 0 0 var(--bn-s2);
+	line-height: 1.2;
 }
 
 .bn-auth-sub {
-	font-size: var(--text-base);
-	opacity: 0.85;
-	margin-bottom: 40px;
-	line-height: var(--leading-body);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	margin: 0 0 var(--bn-s5);
+	line-height: 1.5;
 }
 
-.bn-auth-features { display: flex; flex-direction: column; gap: var(--s4); }
-
-.bn-auth-feature { display: flex; align-items: flex-start; gap: var(--s3); }
-
-.bn-auth-feature-icon { font-size: var(--text-xl); margin-top: 2px; flex-shrink: 0; }
-
-.bn-auth-feature-text { font-size: var(--text-sm); opacity: 0.9; line-height: var(--leading-normal); }
-
-.bn-auth-feature-text strong { font-weight: var(--fw-bold); }
-
-.bn-auth-member-count {
-	margin-top: 48px;
-	display: flex;
-	align-items: center;
-	gap: var(--s3);
-}
-
-.bn-auth-mc-avatars { display: flex; }
-
-.bn-auth-mc-av {
-	width: 32px;
-	height: 32px;
-	border-radius: var(--r-full);
-	border: 2px solid rgba(255, 255, 255, 0.8);
-	background: rgba(255, 255, 255, 0.3);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: var(--text-xs);
-	font-weight: var(--fw-bold);
-	color: var(--text-on-brand);
-	margin-left: -8px;
-}
-
-.bn-auth-mc-av:first-child { margin-left: 0; }
-
-.bn-auth-mc-text { font-size: var(--text-sm); opacity: 0.9; }
-
-/* Form panel (right) */
-.bn-auth-form-panel {
-	background: var(--surface);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 40px var(--s8);
-}
-
-.bn-auth-form-inner {
-	width: 100%;
-	max-width: 380px;
-}
-
-/* ── Tab toggle ─────────────────────────────────────────────────────────── */
-
+/* Tabs strip — uses primitive .bn-tabs but compact centered variant. */
 .bn-auth-tabs {
+	margin: 0 0 var(--bn-s5);
+}
+
+/* Form rows */
+.bn-auth-form {
 	display: flex;
-	background: var(--bg-hover);
-	border-radius: var(--r-md);
-	padding: 4px;
-	margin-bottom: 28px;
+	flex-direction: column;
+	gap: var(--bn-s4);
 }
 
-.bn-auth-tab {
-	flex: 1;
-	text-align: center;
-	padding: 9px;
-	border-radius: var(--r-sm);
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	cursor: pointer;
-	color: var(--text-2);
-	text-decoration: none;
-	transition: background 0.15s, color 0.15s;
+.bn-auth-field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
 }
 
-.bn-auth-tab.active,
-.bn-auth-tab[aria-selected="true"] {
-	background: var(--surface);
-	color: var(--brand);
-	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-}
-
-.bn-auth-tab:not(.active):hover { color: var(--text-1); }
-
-/* Tab content */
-.bn-auth-tab-content { display: none; }
-.bn-auth-tab-content.active { display: block; }
-
-/* ── Form headings ──────────────────────────────────────────────────────── */
-
-.bn-auth-form-title {
-	font-family: var(--font-display);
-	font-size: var(--text-2xl);
-	font-weight: var(--fw-extrabold);
-	margin-bottom: 4px;
-	color: var(--text-1);
-}
-
-.bn-auth-form-sub {
-	font-size: var(--text-sm);
-	color: var(--text-2);
-	margin-bottom: var(--s6);
-	line-height: var(--leading-normal);
-}
-
-/* ── Fields ─────────────────────────────────────────────────────────────── */
-
-.bn-auth-field { margin-bottom: var(--s4); }
-
-.bn-auth-label {
-	display: block;
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	margin-bottom: 6px;
-	color: var(--text-1);
-}
-
-.bn-auth-input {
-	width: 100%;
-	border: 1.5px solid var(--border);
-	border-radius: var(--r-sm);
-	padding: 10px var(--s3);
-	font-size: var(--text-base);
-	font-family: var(--font-body);
-	color: var(--text-1);
-	background: var(--bg);
-	box-sizing: border-box;
-	transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.bn-auth-input:focus {
-	outline: none;
-	border-color: var(--brand);
-	box-shadow: 0 0 0 3px rgba(0, 115, 170, 0.12);
-}
-
-.bn-auth-input::placeholder { color: var(--text-3); }
-
-/* Error/success input states */
-.bn-auth-input--error {
-	border-color: var(--red);
-}
-
-.bn-auth-input--error:focus {
-	box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
-}
-
-.bn-auth-input--success {
-	border-color: var(--green);
-}
-
-.bn-auth-input--success:focus {
-	box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
-}
-
-.bn-auth-field-error {
-	font-size: var(--text-xs);
-	color: var(--red);
-	margin-top: 4px;
-}
-
-.bn-auth-field-row {
+.bn-auth-field__row {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	gap: var(--s3);
-	margin-bottom: var(--s4);
+	gap: var(--bn-s3);
 }
 
-.bn-auth-field-row .bn-auth-field { margin-bottom: 0; }
+.bn-auth-label {
+	font-size: var(--bn-text-sm);
+	font-weight: 550;
+	color: var(--bn-ink);
+}
 
-/* Forgot password link */
-.bn-auth-forgot {
-	font-size: var(--text-xs);
-	color: var(--brand);
-	cursor: pointer;
-	float: right;
-	margin-top: 4px;
+.bn-auth-hint {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	line-height: 1.45;
+}
+
+.bn-auth-field__msg {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-danger);
+	min-height: 0;
+}
+
+.bn-auth-field__msg[data-tone="success"] {
+	color: var(--bn-success);
+}
+
+/* Full-width button helper for auth + block forms. */
+.bn-auth-card .bn-btn[data-full],
+.bn-block-login-form .bn-btn[data-full],
+.bn-block-registration-form .bn-btn[data-full],
+.bn-verify-card .bn-btn[data-full] {
+	width: 100%;
+}
+
+/* Footer row for switch + terms */
+.bn-auth-foot {
+	margin-top: var(--bn-s5);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	text-align: center;
+	line-height: 1.5;
+}
+
+.bn-auth-foot a {
+	color: var(--bn-accent);
+	font-weight: 550;
 	text-decoration: none;
 }
 
-.bn-auth-forgot:hover { text-decoration: underline; }
-
-/* ── Password strength indicator ────────────────────────────────────────── */
-
-.bn-auth-strength { margin-top: 6px; }
-
-.bn-auth-strength-bar {
-	height: 4px;
-	background: var(--border);
-	border-radius: 2px;
-	overflow: hidden;
+.bn-auth-foot a:hover {
+	text-decoration: underline;
 }
 
-.bn-auth-strength-fill {
-	height: 100%;
-	border-radius: 2px;
-	background: var(--green);
-	width: 0;
-	transition: width 0.3s, background 0.3s;
+.bn-auth-foot--terms {
+	margin-top: var(--bn-s4);
+	font-size: var(--bn-text-xs);
 }
 
-.bn-auth-strength-label {
-	font-size: var(--text-xs);
-	color: var(--green);
-	margin-top: 3px;
-	font-weight: var(--fw-semibold);
+/* "or continue with" divider */
+.bn-auth-divider {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	margin: var(--bn-s5) 0;
+	color: var(--bn-ink-4);
+	font-size: var(--bn-text-xs);
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
 }
 
-/* ── Submit button ──────────────────────────────────────────────────────── */
+.bn-auth-divider::before,
+.bn-auth-divider::after {
+	content: '';
+	flex: 1;
+	height: 1px;
+	background: var(--bn-line);
+}
 
-.bn-auth-submit {
+/* Social-login row */
+.bn-auth-social {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: var(--bn-s2);
+}
+
+.bn-auth-social .bn-btn[data-variant] {
 	width: 100%;
-	background: var(--brand);
-	color: var(--text-on-brand);
-	padding: 12px;
-	border-radius: var(--r-sm);
-	font-size: var(--text-sm);
-	font-weight: var(--fw-bold);
+	padding: 0 var(--bn-s2);
+}
+
+/* Password-strength meter (composes .bn-progress) */
+.bn-auth-strength {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.bn-auth-strength__label {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	font-weight: 500;
+}
+
+/* Tab-content visibility (login vs register) */
+.bn-auth-panel { display: none; }
+.bn-auth-panel[data-active] { display: block; }
+
+/* ── Verify-page card content ───────────────────────────────────────── */
+
+.bn-verify-page {
+	min-height: 100vh;
+	background: var(--bn-canvas);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--bn-s6);
+	font-family: var(--bn-font-ui);
+	color: var(--bn-ink);
+}
+
+.bn-verify-card {
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	max-width: 440px;
+	width: 100%;
+	overflow: hidden;
+	box-shadow: var(--bn-shadow-sm);
+}
+
+.bn-verify-body {
+	padding: var(--bn-s8) var(--bn-s6) var(--bn-s6);
+	text-align: center;
+}
+
+.bn-verify-icon {
+	width: 56px;
+	height: 56px;
+	border-radius: var(--bn-r-full);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	margin: 0 auto var(--bn-s4);
+}
+
+.bn-verify-icon .bn-icon {
+	width: 28px;
+	height: 28px;
+}
+
+.bn-verify-icon[data-tone="success"] {
+	background: var(--bn-success-bg);
+	color: var(--bn-success);
+}
+
+.bn-verify-icon[data-tone="danger"] {
+	background: var(--bn-danger-bg);
+	color: var(--bn-danger);
+}
+
+.bn-verify-icon[data-tone="info"] {
+	background: var(--bn-accent-100);
+	color: var(--bn-accent-700);
+}
+
+.bn-verify-badge-row {
+	margin: 0 0 var(--bn-s3);
+}
+
+.bn-verify-email-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-full);
+	padding: 4px var(--bn-s3);
+	font-size: var(--bn-text-xs);
+	font-weight: 500;
+	color: var(--bn-ink-2);
+	margin: var(--bn-s2) 0 var(--bn-s5);
+}
+
+.bn-verify-email-chip .bn-icon {
+	width: 14px;
+	height: 14px;
+}
+
+.bn-verify-actions {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+	margin-top: var(--bn-s5);
+}
+
+.bn-verify-actions .bn-btn[data-variant] {
+	width: 100%;
+}
+
+.bn-verify-progress {
+	margin: var(--bn-s4) auto var(--bn-s5);
+	max-width: 220px;
+}
+
+.bn-verify-footer {
+	border-top: 1px solid var(--bn-line-faint);
+	padding: var(--bn-s4) var(--bn-s6);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	text-align: center;
+}
+
+.bn-verify-footer a {
+	color: var(--bn-accent);
+	text-decoration: none;
+}
+
+.bn-verify-footer a:hover {
+	text-decoration: underline;
+}
+
+/* ── Block-form variants (Gutenberg login + registration blocks) ───── */
+
+.bn-block-login-form,
+.bn-block-registration-form {
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s6);
+	max-width: 420px;
+	width: 100%;
+	font-family: var(--bn-font-ui);
+	color: var(--bn-ink);
+}
+
+.bn-block-heading {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-xl);
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	color: var(--bn-ink);
+	margin: 0 0 var(--bn-s5);
+}
+
+.bn-block-form-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-block-form-row label {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
 	cursor: pointer;
-	border: none;
-	font-family: var(--font-body);
-	margin-top: 4px;
-	transition: background 0.15s;
 }
 
-.bn-auth-submit:hover { background: var(--brand-hover); }
-
-.bn-auth-submit:disabled {
-	opacity: 0.55;
-	cursor: not-allowed;
+.bn-block-form-row input[type="checkbox"] {
+	accent-color: var(--bn-accent);
+	width: 16px;
+	height: 16px;
+	cursor: pointer;
 }
 
-/* ── Terms + switch links ───────────────────────────────────────────────── */
-
-.bn-auth-terms {
-	font-size: var(--text-xs);
-	color: var(--text-3);
-	margin-top: var(--s3);
-	text-align: center;
-	line-height: var(--leading-normal);
+.bn-block-form-row a {
+	color: var(--bn-accent);
+	text-decoration: none;
 }
 
-.bn-auth-terms a { color: var(--brand); text-decoration: none; }
-.bn-auth-terms a:hover { text-decoration: underline; }
-
-.bn-auth-switch {
-	text-align: center;
-	margin-top: var(--s5);
-	font-size: var(--text-sm);
-	color: var(--text-2);
+.bn-block-form-row a:hover {
+	text-decoration: underline;
 }
 
-.bn-auth-switch a { color: var(--brand); font-weight: var(--fw-semibold); text-decoration: none; }
-.bn-auth-switch a:hover { text-decoration: underline; }
+/* ── wp_login_form() overrides ─────────────────────────────────────── */
+/*
+ * wp_login_form() injects its own #loginform with hardcoded labels,
+ * inputs and submit. We restyle inputs + submit to match v2 primitives.
+ */
 
-/* ── WP login_form overrides ────────────────────────────────────────────── */
+.bn-auth-wp-login-wrap #loginform p {
+	margin: 0 0 var(--bn-s4);
+}
 
-.bn-auth-wp-login-wrap #loginform label { display: none; }
+.bn-auth-wp-login-wrap #loginform label {
+	display: block;
+	font-size: var(--bn-text-sm);
+	font-weight: 550;
+	color: var(--bn-ink);
+	margin-bottom: 6px;
+}
 
 .bn-auth-wp-login-wrap #loginform input[type="text"],
 .bn-auth-wp-login-wrap #loginform input[type="password"] {
 	width: 100%;
-	border: 1.5px solid var(--border);
-	border-radius: var(--r-sm);
-	padding: 10px var(--s3);
-	font-size: var(--text-base);
-	font-family: var(--font-body);
-	color: var(--text-1);
-	background: var(--bg);
-	margin-bottom: var(--s4);
+	padding: 0 var(--bn-s3);
+	height: 36px;
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	color: var(--bn-ink);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-sm);
 	box-sizing: border-box;
+	transition: border-color var(--bn-dur) var(--bn-ease),
+				box-shadow var(--bn-dur) var(--bn-ease);
 }
 
-.bn-auth-wp-login-wrap #loginform input[type="text"]:focus,
-.bn-auth-wp-login-wrap #loginform input[type="password"]:focus {
-	outline: none;
-	border-color: var(--brand);
-	box-shadow: 0 0 0 3px rgba(0, 115, 170, 0.12);
+.bn-auth-wp-login-wrap #loginform input[type="text"]:focus-visible,
+.bn-auth-wp-login-wrap #loginform input[type="password"]:focus-visible {
+	outline-color: transparent;
+	box-shadow: var(--bn-ring);
+	border-color: var(--bn-accent);
 }
 
 .bn-auth-wp-login-wrap #loginform .forgetmenot {
-	font-size: var(--text-sm);
-	color: var(--text-2);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-auth-wp-login-wrap #loginform .forgetmenot label {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-weight: 500;
+	margin-bottom: 0;
+	cursor: pointer;
 }
 
 .bn-auth-wp-login-wrap #loginform .submit input[type="submit"] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s2);
+	height: 44px;
 	width: 100%;
-	background: var(--brand);
-	color: var(--text-on-brand);
-	padding: 12px;
-	border-radius: var(--r-sm);
-	font-size: var(--text-sm);
-	font-weight: var(--fw-bold);
+	padding: 0 var(--bn-s5);
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	border: 1px solid transparent;
+	border-radius: var(--bn-r-md);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-base);
+	font-weight: 550;
+	letter-spacing: -0.005em;
 	cursor: pointer;
-	border: none;
-	font-family: var(--font-body);
+	transition: background var(--bn-dur) var(--bn-ease);
 }
 
 .bn-auth-wp-login-wrap #loginform .submit input[type="submit"]:hover {
-	background: var(--brand-hover);
+	background: var(--bn-accent-700);
 }
 
-/* ── Alert / notice boxes ───────────────────────────────────────────────── */
-
-.bn-auth-error,
-.bn-auth-notice {
-	border-radius: var(--r-sm);
-	padding: var(--s2) var(--s3);
-	font-size: var(--text-sm);
-	margin-bottom: var(--s4);
-	display: flex;
-	align-items: flex-start;
-	gap: var(--s2);
+.bn-auth-wp-login-wrap #loginform .submit input[type="submit"]:focus-visible {
+	outline-color: transparent;
+	box-shadow: var(--bn-ring);
 }
 
-.bn-auth-error {
-	background: var(--red-bg);
-	color: var(--red);
-	border: 1px solid var(--red);
-}
-
-.bn-auth-notice--success {
-	background: var(--green-bg);
-	color: var(--green);
-	border: 1px solid var(--green);
-}
-
-.bn-auth-notice--info {
-	background: var(--brand-light);
-	color: var(--brand);
-	border: 1px solid var(--brand);
-}
-
-.bn-auth-notice--warning {
-	background: var(--amber-bg);
-	color: var(--amber);
-	border: 1px solid var(--amber);
-}
-
-/* ── Email verification card ────────────────────────────────────────────── */
-
-.bn-auth-verify {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	min-height: 100vh;
-	background: var(--bg-subtle);
-	padding: var(--s6);
-	font-family: var(--font-body);
-}
-
-.bn-auth-verify-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	padding: var(--s10) var(--s8);
-	max-width: 420px;
-	width: 100%;
-	text-align: center;
-}
-
-.bn-auth-verify-icon {
-	font-size: var(--text-5xl);
-	margin-bottom: var(--s4);
-	line-height: 1;
-}
-
-.bn-auth-verify-title {
-	font-family: var(--font-display);
-	font-size: var(--text-2xl);
-	font-weight: var(--fw-extrabold);
-	color: var(--text-1);
-	margin-bottom: var(--s3);
-}
-
-.bn-auth-verify-msg {
-	font-size: var(--text-base);
-	color: var(--text-2);
-	line-height: var(--leading-body);
-	margin-bottom: var(--s8);
-}
-
-.bn-auth-verify-email {
-	font-weight: var(--fw-bold);
-	color: var(--text-1);
-}
-
-.bn-auth-verify-actions {
-	display: flex;
-	flex-direction: column;
-	gap: var(--s3);
-}
-
-.bn-auth-verify-resend {
-	width: 100%;
-	background: var(--brand);
-	color: var(--text-on-brand);
-	padding: 11px var(--s4);
-	border-radius: var(--r-sm);
-	font-size: var(--text-sm);
-	font-weight: var(--fw-bold);
-	cursor: pointer;
-	border: none;
-	font-family: var(--font-body);
-	transition: background 0.15s;
-}
-
-.bn-auth-verify-resend:hover { background: var(--brand-hover); }
-
-.bn-auth-verify-resend:disabled {
-	opacity: 0.55;
-	cursor: not-allowed;
-}
-
-.bn-auth-verify-back {
-	font-size: var(--text-sm);
-	color: var(--text-2);
-	text-decoration: none;
-	padding: var(--s2);
-}
-
-.bn-auth-verify-back:hover { color: var(--text-1); text-decoration: underline; }
-
-.bn-auth-verify-resent {
-	font-size: var(--text-sm);
-	color: var(--green);
-	font-weight: var(--fw-semibold);
-	margin-top: var(--s2);
-}
-
-/* ── Block form components (.bn-form__*) ────────────────────────────────── */
-
-.bn-block-login-form,
-.bn-block-registration-form {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	padding: var(--s8) var(--s6);
-	max-width: 400px;
-	width: 100%;
-	font-family: var(--font-body);
-}
-
-.bn-block-heading {
-	font-family: var(--font-display);
-	font-size: var(--text-xl);
-	font-weight: var(--fw-extrabold);
-	color: var(--text-1);
-	margin: 0 0 var(--s6);
-}
-
-.bn-form__group {
-	margin-bottom: var(--s4);
-}
-
-.bn-form__label {
-	display: block;
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	color: var(--text-1);
-	margin-bottom: 6px;
-}
-
-.bn-form__input {
-	width: 100%;
-	border: 1.5px solid var(--border);
-	border-radius: var(--r-sm);
-	padding: 10px var(--s3);
-	font-size: var(--text-base);
-	font-family: var(--font-body);
-	color: var(--text-1);
-	background: var(--bg);
-	box-sizing: border-box;
-	transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.bn-form__input:focus {
-	outline: none;
-	border-color: var(--brand);
-	box-shadow: 0 0 0 3px rgba(0, 115, 170, 0.12);
-}
-
-.bn-form__input::placeholder { color: var(--text-3); }
-
-.bn-form__input--error { border-color: var(--red); }
-.bn-form__input--success { border-color: var(--green); }
-
-.bn-form__group--inline {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-}
-
-.bn-form__checkbox {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	font-size: var(--text-sm);
-	color: var(--text-2);
-	cursor: pointer;
-}
-
-.bn-form__checkbox input[type="checkbox"] {
-	accent-color: var(--brand);
-	width: 15px;
-	height: 15px;
-	cursor: pointer;
-}
-
-.bn-form__link {
-	font-size: var(--text-xs);
-	color: var(--brand);
-	text-decoration: none;
-}
-
-.bn-form__link:hover { text-decoration: underline; }
-
-.bn-form__actions { margin-top: var(--s5); }
-
-.bn-btn--full { width: 100%; justify-content: center; }
-
-.bn-btn--primary {
-	background: var(--brand);
-	color: var(--text-on-brand);
-	padding: 11px var(--s4);
-	border-radius: var(--r-sm);
-	font-size: var(--text-sm);
-	font-weight: var(--fw-bold);
-	cursor: pointer;
-	border: none;
-	font-family: var(--font-body);
-	display: inline-flex;
-	align-items: center;
-	transition: background 0.15s;
-}
-
-.bn-btn--primary:hover { background: var(--brand-hover); }
-
-.bn-form__footer {
-	text-align: center;
-	font-size: var(--text-sm);
-	color: var(--text-2);
-	margin-top: var(--s4);
-	margin-bottom: 0;
-}
-
-.bn-form__footer a { color: var(--brand); font-weight: var(--fw-semibold); text-decoration: none; }
-.bn-form__footer a:hover { text-decoration: underline; }
-
-/* ── Dark mode ──────────────────────────────────────────────────────────── */
-
-[data-theme="dark"] .bn-auth-input:focus,
-[data-theme="dark"] .bn-auth-wp-login-wrap #loginform input[type="text"]:focus,
-[data-theme="dark"] .bn-auth-wp-login-wrap #loginform input[type="password"]:focus,
-[data-theme="dark"] .bn-form__input:focus {
-	box-shadow: 0 0 0 3px rgba(77, 171, 219, 0.2);
-}
-
-[data-theme="dark"] .bn-auth-tab.active,
-[data-theme="dark"] .bn-auth-tab[aria-selected="true"] {
-	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-}
-
-[data-theme="dark"] .bn-auth-notice--info {
-	background: var(--brand-light);
-	border-color: var(--brand);
-}
-
-/* ── Mobile ≤640px ──────────────────────────────────────────────────────── */
+/* ── Mobile ≤640px ─────────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
-	.bn-auth-wrap {
-		grid-template-columns: 1fr;
-		min-height: auto;
+	.bn-auth-page,
+	.bn-verify-page {
+		padding: 0;
+		align-items: stretch;
 	}
 
-	.bn-auth-brand { display: none; }
-
-	.bn-auth-form-panel {
-		padding: var(--s6) var(--s4);
+	.bn-auth-card,
+	.bn-auth-card[data-variant="register"],
+	.bn-auth-card[data-variant="verify"],
+	.bn-verify-card {
+		max-width: 100%;
+		border-radius: 0;
+		border-left: none;
+		border-right: none;
 		min-height: 100vh;
-		align-items: flex-start;
-		padding-top: 40px;
 	}
 
-	.bn-auth-field-row { grid-template-columns: 1fr; }
+	.bn-auth-field__row {
+		grid-template-columns: 1fr;
+	}
 
-	.bn-auth-verify-card {
-		padding: var(--s8) var(--s4);
-		border: none;
-		border-radius: var(--r-md);
+	.bn-auth-social {
+		grid-template-columns: 1fr;
 	}
 
 	.bn-block-login-form,
 	.bn-block-registration-form {
-		padding: var(--s6) var(--s4);
-		border: none;
 		border-radius: 0;
+		border-left: none;
+		border-right: none;
 		max-width: 100%;
 	}
-}
-
-/* ── Email verification page (.bn-verify-*) ────────────────────────────── */
-
-.bn-verify-page {
-	min-height: 100vh;
-	background: var(--bg-subtle);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: var(--s8);
-	font-family: var(--font-body);
-}
-.bn-verify-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--r-xl);
-	padding: var(--s10) var(--s12);
-	max-width: 440px;
-	width: 100%;
-	text-align: center;
-}
-.bn-verify-icon {
-	width: 64px;
-	height: 64px;
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	margin: 0 auto var(--s6);
-}
-.bn-verify-icon--pending {
-	background: var(--brand-light);
-	color: var(--brand);
-}
-.bn-verify-icon--success {
-	background: var(--green-bg);
-	color: var(--green);
-}
-.bn-verify-icon--error {
-	background: var(--red-bg);
-	color: var(--red);
-}
-.bn-verify-title {
-	font-family: var(--font-display);
-	font-size: 22px;
-	font-weight: 700;
-	color: var(--text-1);
-	margin: 0 0 var(--s3);
-	line-height: 1.25;
-}
-.bn-verify-desc {
-	font-size: var(--text-sm);
-	color: var(--text-2);
-	line-height: 1.6;
-	margin: 0 0 var(--s8);
-}
-.bn-verify-email-chip {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--s1);
-	background: var(--bg-subtle);
-	border: 1px solid var(--border);
-	border-radius: var(--r-md);
-	padding: var(--s1) var(--s3);
-	font-size: var(--text-xs);
-	font-weight: 500;
-	color: var(--text-1);
-	margin-bottom: var(--s8);
-}
-.bn-verify-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: var(--s2);
-	padding: var(--s3) var(--s8);
-	border-radius: var(--r-md);
-	font-size: var(--text-sm);
-	font-weight: 600;
-	cursor: pointer;
-	transition: background 0.12s, opacity 0.12s;
-	text-decoration: none;
-	border: none;
-	width: 100%;
-}
-.bn-verify-btn--primary {
-	background: var(--brand);
-	color: #fff;
-}
-.bn-verify-btn--primary:hover { background: var(--brand-hover); }
-.bn-verify-btn--primary:disabled { opacity: 0.55; cursor: not-allowed; }
-.bn-verify-btn--ghost {
-	background: var(--bg-subtle);
-	color: var(--text-2);
-	border: 1px solid var(--border);
-}
-.bn-verify-btn--ghost:hover { background: var(--bg-hover); color: var(--text-1); }
-.bn-verify-divider {
-	height: 1px;
-	background: var(--border);
-	margin: var(--s6) 0;
-}
-.bn-verify-footer {
-	font-size: var(--text-xs);
-	color: var(--text-3);
-}
-.bn-verify-footer a {
-	color: var(--brand);
-	text-decoration: none;
-}
-.bn-verify-footer a:hover { text-decoration: underline; }
-.bn-verify-feedback {
-	font-size: var(--text-xs);
-	font-weight: 500;
-	padding: var(--s2) var(--s4);
-	border-radius: var(--r-md);
-	margin-bottom: var(--s4);
-	display: none;
-}
-.bn-verify-feedback.is-success {
-	background: var(--green-bg);
-	color: var(--green);
-	display: block;
-}
-.bn-verify-feedback.is-error {
-	background: var(--red-bg);
-	color: var(--red);
-	display: block;
-}
-
-@media (max-width: 640px) {
-	.bn-verify-page { padding: var(--s4); align-items: flex-start; padding-top: var(--s10); }
-	.bn-verify-card { padding: var(--s8) var(--s6); }
-	.bn-verify-title { font-size: var(--text-lg); }
 }

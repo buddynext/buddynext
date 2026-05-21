@@ -183,6 +183,19 @@ class AssetService {
 				$v
 			);
 		}
+
+		// ── Standalone scripts (classic, non-module) ─────────────────────────
+		// bn-auth-verify is a small classic script for the email-verification
+		// page's resend button. The auth Interactivity store is not enqueued
+		// on this page because verify.php runs through get_header() outside
+		// the hub-bundle path.
+		wp_register_script(
+			'bn-auth-verify',
+			$this->assets_url . 'js/auth/verify-store.js',
+			array(),
+			$v,
+			true
+		);
 	}
 
 	/**
