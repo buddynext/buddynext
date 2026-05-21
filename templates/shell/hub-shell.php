@@ -2,19 +2,18 @@
 /**
  * BuddyNext — Full-viewport hub shell.
  *
- * Rendered by PageRouter::dispatch_hub_template() between get_header()
- * and get_footer(). The .bn-app wrapper uses the burst-out technique
- * (100vw + negative margins) so the BuddyNext canvas escapes any host
- * theme container (.site-main, .container, max-width: 1200px) and
- * occupies the full viewport width.
+ * Owns the entire document body on every BuddyNext-mapped slug:
+ * topbar + left rail + main content + optional right sidebar. The
+ * inner hub template renders inside the main column and may
+ * register sidebar content by hooking the buddynext_right_sidebar
+ * action — when anything is hooked, the shell auto-renders the
+ * right column.
  *
- * Layout: top bar + left rail + main content (+ optional right sidebar).
- *
- * Context variables (all required — supplied by PageRouter):
- *   $inner_template       string  Relative path of the hub template, e.g. 'feed/home.php'.
+ * Context variables (supplied by PageRouter):
+ *   $inner_template       string  Relative path of the hub template (e.g. 'feed/home.php').
  *   $hub                  string  Current hub slug.
  *   $context              array   Original context array — re-passed to the inner template.
- *   $show_right_sidebar   bool    Optional — when true, renders the right-sidebar slot.
+ *   $show_right_sidebar   bool    Optional explicit override; otherwise detected from has_action.
  *
  * @package BuddyNext
  */
@@ -30,7 +29,17 @@ if ( ! isset( $hub ) ) {
 if ( ! isset( $context ) || ! is_array( $context ) ) {
 	$context = array();
 }
-$show_right_sidebar = ! empty( $show_right_sidebar ) || ! empty( $context['show_right_sidebar'] );
+
+// Render the inner template into a buffer. The inner template may hook
+// buddynext_right_sidebar to register sidebar content; after this call
+// we know whether the right column is needed.
+ob_start();
+buddynext_get_template( (string) $inner_template, $context );
+$bn_main_html = (string) ob_get_clean();
+
+$show_right_sidebar = ! empty( $show_right_sidebar )
+	|| ! empty( $context['show_right_sidebar'] )
+	|| has_action( 'buddynext_right_sidebar' );
 
 $bn_shell_classes = 'bn-app__shell';
 if ( $show_right_sidebar ) {
@@ -46,7 +55,10 @@ if ( $show_right_sidebar ) {
 		<?php buddynext_get_template( 'shell/rail.php', array( 'hub' => $hub ) ); ?>
 
 		<main class="bn-app__main" id="bn-main-content" tabindex="-1">
-			<?php buddynext_get_template( (string) $inner_template, $context ); ?>
+			<?php
+			// Trusted: buffered output from buddynext_get_template() — already escaped at point of emit.
+			echo $bn_main_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			?>
 		</main>
 
 		<?php if ( $show_right_sidebar ) : ?>
