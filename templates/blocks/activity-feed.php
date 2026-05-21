@@ -51,7 +51,15 @@ $context  = in_array( $scope, array( 'home', 'explore', 'profile' ), true ) ? $s
 		}
 		?>
 		<?php if ( $has_more ) : ?>
-			<button class="bn-load-more" data-scope="<?php echo esc_attr( $scope ); ?>" data-cursor="<?php echo esc_attr( $result['next_cursor'] ?? '' ); ?>" data-per-page="<?php echo absint( $bn_per_page ); ?>">
+			<button
+				type="button"
+				class="bn-btn bn-load-more"
+				data-variant="ghost"
+				data-size="sm"
+				data-scope="<?php echo esc_attr( $scope ); ?>"
+				data-cursor="<?php echo esc_attr( $result['next_cursor'] ?? '' ); ?>"
+				data-per-page="<?php echo absint( $bn_per_page ); ?>"
+			>
 				<?php esc_html_e( 'Load more', 'buddynext' ); ?>
 			</button>
 		<?php endif; ?>

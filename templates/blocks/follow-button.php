@@ -1,9 +1,14 @@
 <?php
 /**
- * Block template: Follow Button
+ * Block template: Follow Button (v2 design system).
+ *
+ * Primary CTA when not following, secondary toggle when following. Hover text
+ * swap ("Following" → "Unfollow") is handled in JS via the Interactivity
+ * `state.label` binding — no inline conditional markup beyond the initial SSR
+ * render.
  *
  * Variables:
- *   int $user_id WordPress user ID to follow/unfollow
+ *   int $user_id WordPress user ID to follow / unfollow.
  *
  * @package BuddyNext
  */
@@ -18,26 +23,35 @@ if ( ! $user_id || ! $viewer_id || $viewer_id === $user_id ) {
 }
 
 $is_following = buddynext_service( 'follows' )->is_following( $viewer_id, $user_id );
+
+$context_json = (string) wp_json_encode(
+	array(
+		'userId'      => $user_id,
+		'isFollowing' => $is_following,
+		'nonce'       => wp_create_nonce( 'wp_rest' ),
+		'restUrl'     => rest_url( 'buddynext/v1' ),
+	)
+);
 ?>
 <div
 	class="bn-block-follow-button"
 	data-wp-interactive="buddynext/follow-button"
 	data-user-id="<?php echo absint( $user_id ); ?>"
-	data-wp-context="<?php echo esc_attr( (string) wp_json_encode( array( 'userId' => $user_id, 'isFollowing' => $is_following, 'nonce' => wp_create_nonce( 'wp_rest' ), 'restUrl' => rest_url( 'buddynext/v1' ) ) ) ); ?>"
+	data-wp-context="<?php echo esc_attr( $context_json ); ?>"
 >
 	<button
-		class="bn-btn bn-btn--sm <?php echo $is_following ? 'bn-btn--secondary bn-following' : 'bn-btn--primary'; ?>"
-		data-wp-on--click="actions.toggleFollow"
-		data-wp-bind--class="state.buttonClass"
+		type="button"
+		class="bn-btn bn-block-follow-button__cta<?php echo $is_following ? ' bn-following' : ''; ?>"
+		data-variant="<?php echo $is_following ? 'secondary' : 'primary'; ?>"
+		data-size="sm"
 		data-action="bn-toggle-follow"
 		data-user-id="<?php echo absint( $user_id ); ?>"
+		data-wp-on--click="actions.toggleFollow"
+		data-wp-bind--class="state.buttonClass"
 		data-wp-text="state.label"
+		aria-pressed="<?php echo $is_following ? 'true' : 'false'; ?>"
 		aria-label="<?php echo $is_following ? esc_attr__( 'Unfollow user', 'buddynext' ) : esc_attr__( 'Follow user', 'buddynext' ); ?>"
 	>
-		<?php if ( $is_following ) : ?>
-			<?php esc_html_e( 'Following', 'buddynext' ); ?>
-		<?php else : ?>
-			<?php esc_html_e( 'Follow', 'buddynext' ); ?>
-		<?php endif; ?>
+		<?php echo $is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
 	</button>
 </div>

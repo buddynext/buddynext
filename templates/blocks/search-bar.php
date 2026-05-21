@@ -1,9 +1,12 @@
 <?php
 /**
- * Block template: Search Bar
+ * Block template: Search Bar (v2 design system).
+ *
+ * Inline search form with leading icon and a v2 .bn-input. Icon comes from
+ * the BuddyNext SVG registry via buddynext_icon().
  *
  * Variables:
- *   string $placeholder Input placeholder text
+ *   string $placeholder Input placeholder text.
  *
  * @package BuddyNext
  */
@@ -16,19 +19,28 @@ if ( '' === $placeholder ) {
 }
 ?>
 <div class="bn-block-search-bar">
-	<form class="bn-search-form" role="search" action="<?php echo esc_url( \BuddyNext\Core\PageRouter::search_url() ); ?>" method="get">
-		<label for="bn-search-input" class="screen-reader-text"><?php esc_html_e( 'Search', 'buddynext' ); ?></label>
+	<form
+		class="bn-search-form"
+		role="search"
+		action="<?php echo esc_url( \BuddyNext\Core\PageRouter::search_url() ); ?>"
+		method="get"
+	>
+		<label for="bn-search-input" class="screen-reader-text">
+			<?php esc_html_e( 'Search', 'buddynext' ); ?>
+		</label>
 		<div class="bn-search-input-wrap">
 			<span class="bn-search-icon" aria-hidden="true">
-				<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.5"/>
-					<path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-				</svg>
+				<?php buddynext_icon( 'search' ); ?>
 			</span>
-			<input type="search" id="bn-search-input" name="bn_q" class="bn-search-input"
+			<input
+				type="search"
+				id="bn-search-input"
+				name="bn_q"
+				class="bn-input bn-search-input"
 				placeholder="<?php echo esc_attr( $placeholder ); ?>"
 				value="<?php echo esc_attr( get_query_var( 'bn_q', '' ) ); ?>"
-				autocomplete="off">
+				autocomplete="off"
+			>
 		</div>
 	</form>
 </div>

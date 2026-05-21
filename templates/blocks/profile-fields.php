@@ -1,10 +1,13 @@
 <?php
 /**
- * Block template: Profile Fields
+ * Block template: Profile Fields (v2 design system).
+ *
+ * Static profile metadata, wrapped in .bn-card so it sits in the profile
+ * sidebar alongside other v2 surfaces.
  *
  * Variables:
- *   int    $user_id WordPress user ID (0 = current user)
- *   string $group   Field group slug to filter by ('' = all groups)
+ *   int    $user_id WordPress user ID (0 = current user).
+ *   string $group   Field group slug to filter by ('' = all groups).
  *
  * @package BuddyNext
  */
@@ -45,9 +48,13 @@ if ( $group ) {
 	);
 }
 ?>
-<div class="bn-block-profile-fields" data-user-id="<?php echo absint( $user_id ); ?>">
+<section class="bn-card bn-block-profile-fields" data-user-id="<?php echo absint( $user_id ); ?>">
 	<?php if ( empty( $fields ) ) : ?>
-		<p class="bn-empty"><?php esc_html_e( 'No profile information available.', 'buddynext' ); ?></p>
+		<div class="bn-empty-state">
+			<?php buddynext_icon( 'user' ); ?>
+			<div class="bn-empty-state__title"><?php esc_html_e( 'No profile info', 'buddynext' ); ?></div>
+			<p><?php esc_html_e( 'There is nothing to display yet.', 'buddynext' ); ?></p>
+		</div>
 	<?php else : ?>
 		<dl class="bn-profile-fields-list">
 			<?php foreach ( $fields as $key => $field ) : ?>
@@ -55,16 +62,25 @@ if ( $group ) {
 					<?php continue; ?>
 				<?php endif; ?>
 				<div class="bn-profile-field">
-					<dt class="bn-profile-field__label"><?php echo esc_html( $field['label'] ?? ucfirst( (string) $key ) ); ?></dt>
+					<dt class="bn-profile-field__label">
+						<?php echo esc_html( $field['label'] ?? ucfirst( (string) $key ) ); ?>
+					</dt>
 					<dd class="bn-profile-field__value">
-					<?php if ( 'url' === ( $field['type'] ?? '' ) && ! empty( $field['value'] ) ) : ?>
-						<a href="<?php echo esc_url( $field['value'] ); ?>" class="bn-field-link" rel="nofollow noopener noreferrer" target="_blank"><?php echo esc_html( $field['value'] ); ?></a>
-					<?php else : ?>
-						<?php echo esc_html( $field['value'] ?? '' ); ?>
-					<?php endif; ?>
-				</dd>
+						<?php if ( 'url' === ( $field['type'] ?? '' ) && ! empty( $field['value'] ) ) : ?>
+							<a
+								href="<?php echo esc_url( $field['value'] ); ?>"
+								class="bn-field-link"
+								rel="nofollow noopener noreferrer"
+								target="_blank"
+							>
+								<?php echo esc_html( $field['value'] ); ?>
+							</a>
+						<?php else : ?>
+							<?php echo esc_html( $field['value'] ?? '' ); ?>
+						<?php endif; ?>
+					</dd>
 				</div>
 			<?php endforeach; ?>
 		</dl>
 	<?php endif; ?>
-</div>
+</section>

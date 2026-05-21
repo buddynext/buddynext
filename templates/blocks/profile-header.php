@@ -1,11 +1,16 @@
 <?php
 /**
- * Block template: Profile Header
+ * Block template: Profile Header (v2 design system).
+ *
+ * Mini hero composition derived from v2/user-profile.html — avatar + identity
+ * + stat grid + primary action. Built on the v2 attribute API:
+ *   .bn-card[data-interactive], .bn-avatar[data-size], .bn-btn[data-variant],
+ *   .bn-stat / .bn-stat-grid.
  *
  * Variables:
- *   int  $user_id      WordPress user ID (0 = viewed profile from URL context, falls back to current user)
- *   bool $show_stats   Whether to render follower/following counts (default true)
- *   bool $show_actions Whether to render follow/edit profile actions (default true)
+ *   int  $user_id      WordPress user ID (0 = viewed profile from URL context, falls back to current user).
+ *   bool $show_stats   Whether to render follower/following counts (default true).
+ *   bool $show_actions Whether to render follow / edit profile actions (default true).
  *
  * @package BuddyNext
  */
@@ -43,49 +48,75 @@ $is_following    = $viewer_id && $viewer_id !== $user_id
 	? $follow_svc->is_following( $viewer_id, $user_id )
 	: false;
 
-$bio_fields = array_filter( $profile['fields'] ?? array(), fn( $f ) => 'bio' === ( $f['field_key'] ?? '' ) );
+$bio_fields = array_filter( $profile['fields'] ?? array(), static fn( $f ) => 'bio' === ( $f['field_key'] ?? '' ) );
 $bio_field  = reset( $bio_fields );
 $bio        = $bio_field ? ( $bio_field['value'] ?? '' ) : get_user_meta( $user_id, 'bn_bio', true );
+$avatar_url = (string) get_avatar_url( $user_id, array( 'size' => 144 ) );
 ?>
-<div class="bn-block-profile-header" data-user-id="<?php echo absint( $user_id ); ?>">
-	<div class="bn-profile-header__cover"></div>
+<section class="bn-card bn-block-profile-header" data-user-id="<?php echo absint( $user_id ); ?>">
+	<div class="bn-profile-header__cover" aria-hidden="true"></div>
 	<div class="bn-profile-header__body">
-		<?php echo get_avatar( $user_id, 80, '', '', array( 'class' => 'bn-avatar bn-avatar--xl bn-profile-header__avatar' ) ); ?>
+		<span class="bn-avatar bn-profile-header__avatar" data-size="2xl">
+			<?php if ( '' !== $avatar_url ) : ?>
+				<img
+					src="<?php echo esc_url( $avatar_url ); ?>"
+					alt=""
+					width="96"
+					height="96"
+					loading="lazy"
+					decoding="async"
+				>
+			<?php endif; ?>
+		</span>
 		<div class="bn-profile-header__info">
 			<h2 class="bn-profile-header__name"><?php echo esc_html( $user->display_name ); ?></h2>
 			<?php if ( ! empty( $bio ) ) : ?>
 				<p class="bn-profile-header__bio"><?php echo esc_html( $bio ); ?></p>
 			<?php endif; ?>
+
 			<?php if ( $show_stats ) : ?>
-			<div class="bn-profile-header__stats">
-				<span class="bn-profile-stat">
-					<strong><?php echo absint( $follower_count ); ?></strong>
-					<?php esc_html_e( 'followers', 'buddynext' ); ?>
-				</span>
-				<span class="bn-profile-stat">
-					<strong><?php echo absint( $following_count ); ?></strong>
-					<?php esc_html_e( 'following', 'buddynext' ); ?>
-				</span>
-			</div>
-		<?php endif; ?>
+				<div class="bn-stat-grid bn-profile-header__stats">
+					<div class="bn-stat">
+						<span class="bn-stat__label"><?php esc_html_e( 'Followers', 'buddynext' ); ?></span>
+						<span class="bn-stat__value"><?php echo esc_html( number_format_i18n( $follower_count ) ); ?></span>
+					</div>
+					<div class="bn-stat">
+						<span class="bn-stat__label"><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
+						<span class="bn-stat__value"><?php echo esc_html( number_format_i18n( $following_count ) ); ?></span>
+					</div>
+				</div>
+			<?php endif; ?>
 		</div>
+
 		<?php if ( $show_actions ) : ?>
 			<?php if ( $viewer_id && $viewer_id !== $user_id ) : ?>
 				<div class="bn-profile-header__actions">
-					<button class="bn-btn bn-btn--sm <?php echo $is_following ? 'bn-btn--secondary bn-following' : 'bn-btn--primary'; ?>"
+					<button
+						type="button"
+						class="bn-btn bn-profile-header__follow<?php echo $is_following ? ' bn-following' : ''; ?>"
+						data-variant="<?php echo $is_following ? 'secondary' : 'primary'; ?>"
+						data-size="sm"
 						data-action="bn-toggle-follow"
 						data-user-id="<?php echo absint( $user_id ); ?>"
-						data-nonce="<?php echo esc_attr( wp_create_nonce( 'buddynext_follow_' . $user_id ) ); ?>">
+						data-nonce="<?php echo esc_attr( wp_create_nonce( 'buddynext_follow_' . $user_id ) ); ?>"
+						aria-pressed="<?php echo $is_following ? 'true' : 'false'; ?>"
+						aria-label="<?php echo $is_following ? esc_attr__( 'Unfollow user', 'buddynext' ) : esc_attr__( 'Follow user', 'buddynext' ); ?>"
+					>
 						<?php echo $is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
 					</button>
 				</div>
 			<?php elseif ( $viewer_id === $user_id ) : ?>
 				<div class="bn-profile-header__actions">
-					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>" class="bn-btn bn-btn--sm bn-btn--secondary">
+					<a
+						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"
+						class="bn-btn bn-profile-header__edit"
+						data-variant="secondary"
+						data-size="sm"
+					>
 						<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
 					</a>
 				</div>
 			<?php endif; ?>
 		<?php endif; ?>
 	</div>
-</div>
+</section>
