@@ -3,9 +3,9 @@
  * Template: Space Settings
  *
  * Renders the settings panel for a single space. Only accessible to
- * space admins/moderators or site admins. Includes General, Privacy,
- * Members, Moderation, Integrations, Notifications sections, and a
- * Danger Zone.
+ * space admins/moderators or site admins. Composes from v2 primitives
+ * (.bn-card, .bn-tabs, .bn-input, .bn-textarea, .bn-select, .bn-toggle,
+ * .bn-btn, .bn-modal-backdrop, .bn-badge) — no bespoke design language.
  *
  * Expected context var (set by template loader):
  *   $space_id (int) — the current space's primary key.
@@ -86,6 +86,11 @@ $categories = $wpdb->get_results(
 
 $settings_tab = isset( $_GET['bn_stab'] ) ? sanitize_key( wp_unslash( $_GET['bn_stab'] ) ) : 'general'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
+$allowed_tabs = array( 'general', 'privacy', 'members', 'moderation', 'integrations', 'notifications', 'danger' );
+if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
+	$settings_tab = 'general';
+}
+
 // ── Handle saved settings (POST) ─────────────────────────────────────────────
 
 $save_notice = '';
@@ -109,26 +114,10 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		if ( isset( $_POST['space_type'] ) && in_array( wp_unslash( $_POST['space_type'] ), array( 'open', 'private', 'secret' ), true ) ) {
 			$update_data['type'] = sanitize_key( wp_unslash( $_POST['space_type'] ) );
 		}
-		if ( isset( $_POST['allow_member_posts'] ) ) {
-			update_option( 'bn_space_' . $space_id . '_allow_member_posts', 1 );
-		} else {
-			update_option( 'bn_space_' . $space_id . '_allow_member_posts', 0 );
-		}
-		if ( isset( $_POST['require_post_approval'] ) ) {
-			update_option( 'bn_space_' . $space_id . '_require_post_approval', 1 );
-		} else {
-			update_option( 'bn_space_' . $space_id . '_require_post_approval', 0 );
-		}
-		if ( isset( $_POST['push_to_feed'] ) ) {
-			update_option( 'bn_space_' . $space_id . '_push_to_feed', 1 );
-		} else {
-			update_option( 'bn_space_' . $space_id . '_push_to_feed', 0 );
-		}
-		if ( isset( $_POST['mvs_media_tab'] ) ) {
-			update_option( 'bn_space_' . $space_id . '_mvs_media_tab', 1 );
-		} else {
-			update_option( 'bn_space_' . $space_id . '_mvs_media_tab', 0 );
-		}
+		update_option( 'bn_space_' . $space_id . '_allow_member_posts', isset( $_POST['allow_member_posts'] ) ? 1 : 0 );
+		update_option( 'bn_space_' . $space_id . '_require_post_approval', isset( $_POST['require_post_approval'] ) ? 1 : 0 );
+		update_option( 'bn_space_' . $space_id . '_push_to_feed', isset( $_POST['push_to_feed'] ) ? 1 : 0 );
+		update_option( 'bn_space_' . $space_id . '_mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? 1 : 0 );
 		if ( isset( $_POST['jetonomy_forum_id'] ) ) {
 			update_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', absint( $_POST['jetonomy_forum_id'] ) );
 		}
@@ -279,547 +268,705 @@ $space_members = $wpdb->get_results(
 $space_url     = buddynext_space_url( $space->slug ?? '' );
 $settings_base = buddynext_space_settings_url( $space->slug ?? '' );
 
+// Privacy badge tone for the hero.
+$privacy_map   = array(
+	'open'    => array(
+		'tone'  => 'success',
+		'label' => __( 'Open', 'buddynext' ),
+	),
+	'private' => array(
+		'tone'  => 'warn',
+		'label' => __( 'Private', 'buddynext' ),
+	),
+	'secret'  => array(
+		'tone'  => 'danger',
+		'label' => __( 'Secret', 'buddynext' ),
+	),
+);
+$privacy       = $privacy_map[ $space->type ?? 'open' ] ?? $privacy_map['open'];
+$privacy_tone  = $privacy['tone'];
+$privacy_label = $privacy['label'];
+
 $bn_nav_active = 'spaces';
 buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+
+// Tabs definition.
+$nav_items = array(
+	'general'       => array(
+		'icon'  => 'info',
+		'label' => __( 'General', 'buddynext' ),
+	),
+	'privacy'       => array(
+		'icon'  => 'lock',
+		'label' => __( 'Privacy', 'buddynext' ),
+	),
+	'members'       => array(
+		'icon'  => 'users',
+		'label' => __( 'Members', 'buddynext' ),
+	),
+	'moderation'    => array(
+		'icon'  => 'shield',
+		'label' => __( 'Moderation', 'buddynext' ),
+	),
+	'integrations'  => array(
+		'icon'  => 'link',
+		'label' => __( 'Integrations', 'buddynext' ),
+	),
+	'notifications' => array(
+		'icon'  => 'mail',
+		'label' => __( 'Notifications', 'buddynext' ),
+	),
+	'danger'        => array(
+		'icon'  => 'alert-triangle',
+		'label' => __( 'Danger zone', 'buddynext' ),
+	),
+);
 ?>
 <div
-	class="bn-settings"
+	class="bn-space-settings"
 	data-wp-interactive="buddynext/spaces"
 	data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 >
-	<div class="bn-settings__max">
 
-		<nav class="bn-settings__breadcrumb" aria-label="<?php esc_attr_e( 'Breadcrumb', 'buddynext' ); ?>">
-			<a href="<?php echo esc_url( $space_url ); ?>"><?php echo esc_html( $space->name ?? '' ); ?></a>
-			&rsaquo; <?php esc_html_e( 'Settings', 'buddynext' ); ?>
+	<!-- Space header (mirrors space-home hero shape) -->
+	<div class="bn-sh-header">
+		<div class="bn-sh-cover">
+			<?php if ( ! empty( $space->cover_image_url ) ) : ?>
+				<img
+					src="<?php echo esc_url( $space->cover_image_url ); ?>"
+					alt="<?php echo esc_attr( $space->name ?? '' ); ?>"
+					loading="lazy"
+				>
+			<?php endif; ?>
+		</div>
+
+		<div class="bn-sh-inner">
+			<div class="bn-sh-avatar" aria-hidden="true">
+				<?php echo wp_kses_data( bn_space_category_icon( $space->category_slug ?? '' ) ); ?>
+			</div>
+
+			<div class="bn-sh-info">
+				<h1 class="bn-sh-name">
+					<?php echo esc_html( $space->name ?? '' ); ?>
+					<span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span>
+				</h1>
+				<div class="bn-sh-meta">
+					<span><?php buddynext_icon( 'settings' ); ?> <?php esc_html_e( 'Space settings', 'buddynext' ); ?></span>
+					<?php if ( ! empty( $space->category_name ) ) : ?>
+						<span><?php buddynext_icon( 'hash' ); ?> <?php echo esc_html( $space->category_name ); ?></span>
+					<?php endif; ?>
+				</div>
+			</div>
+
+			<div class="bn-sh-actions">
+				<a
+					href="<?php echo esc_url( $space_url ); ?>"
+					class="bn-btn"
+					data-variant="secondary"
+					data-size="sm"
+				><?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Back to space', 'buddynext' ); ?></a>
+			</div>
+		</div>
+
+		<nav class="bn-tabs bn-sh-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Settings sections', 'buddynext' ); ?>">
+			<?php foreach ( $nav_items as $tab_key => $nav_item ) : ?>
+				<?php $is_active = ( $settings_tab === $tab_key ); ?>
+				<a
+					href="<?php echo esc_url( add_query_arg( 'bn_stab', $tab_key, $settings_base ) ); ?>"
+					class="bn-tab bn-sh-tab"
+					role="tab"
+					aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
+				>
+					<?php buddynext_icon( $nav_item['icon'] ); ?>
+					<?php echo esc_html( $nav_item['label'] ); ?>
+				</a>
+			<?php endforeach; ?>
 		</nav>
+	</div>
 
-		<h1 class="bn-settings__heading"><?php buddynext_icon( 'settings' ); ?> <?php esc_html_e( 'Space Settings', 'buddynext' ); ?></h1>
+	<!-- Content shell -->
+	<div class="bn-space-settings__shell">
 
 		<?php if ( 'success' === $save_notice ) : ?>
-			<div class="bn-notice bn-notice--success" role="alert">
+			<div class="bn-card bn-space-settings__notice" data-tone="success" role="status">
+				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
 				<?php esc_html_e( 'Changes saved successfully.', 'buddynext' ); ?>
 			</div>
 		<?php elseif ( 'error' === $save_notice ) : ?>
-			<div class="bn-notice bn-notice--error" role="alert">
+			<div class="bn-card bn-space-settings__notice" data-tone="danger" role="alert">
+				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
 				<?php esc_html_e( 'Security check failed. Please try again.', 'buddynext' ); ?>
 			</div>
 		<?php endif; ?>
 
-		<div class="bn-settings__layout">
+		<?php if ( 'members' === $settings_tab ) : ?>
 
-			<!-- Sidebar nav -->
-			<nav class="bn-settings-nav" aria-label="<?php esc_attr_e( 'Settings sections', 'buddynext' ); ?>">
-				<?php
-				$nav_items = array(
-					'general'       => array(
-						'icon'  => 'info',
-						'label' => __( 'General', 'buddynext' ),
-					),
-					'privacy'       => array(
-						'icon'  => 'lock',
-						'label' => __( 'Privacy', 'buddynext' ),
-					),
-					'members'       => array(
-						'icon'  => 'users',
-						'label' => __( 'Members', 'buddynext' ),
-					),
-					'moderation'    => array(
-						'icon'  => 'shield',
-						'label' => __( 'Moderation', 'buddynext' ),
-					),
-					'integrations'  => array(
-						'icon'  => 'link',
-						'label' => __( 'Integrations', 'buddynext' ),
-					),
-					'notifications' => array(
-						'icon'  => 'mail',
-						'label' => __( 'Notifications', 'buddynext' ),
-					),
-				);
-				foreach ( $nav_items as $tab_key => $nav_item ) :
-					$is_active = ( $settings_tab === $tab_key );
-					?>
-					<a
-						href="<?php echo esc_url( add_query_arg( 'bn_stab', $tab_key, $settings_base ) ); ?>"
-						class="bn-settings-nav__item<?php echo $is_active ? ' bn-settings-nav__item--active' : ''; ?>"
-						aria-current="<?php echo $is_active ? 'page' : 'false'; ?>"
-					>
-						<span aria-hidden="true"><?php buddynext_icon( $nav_item['icon'] ); ?></span>
-						<?php echo esc_html( $nav_item['label'] ); ?>
-					</a>
-				<?php endforeach; ?>
+			<div class="bn-card bn-space-settings__panel">
+				<header class="bn-space-settings__panel-head">
+					<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Members', 'buddynext' ); ?></h2>
+					<p class="bn-space-settings__panel-desc">
+						<?php
+						printf(
+							/* translators: %d: number of active members */
+							esc_html__( '%d active members', 'buddynext' ),
+							count( $space_members )
+						);
+						?>
+					</p>
+				</header>
 
-				<div class="bn-settings-nav__divider"></div>
+				<?php if ( empty( $space_members ) ) : ?>
+					<p class="bn-space-settings__empty">
+						<?php esc_html_e( 'No active members yet.', 'buddynext' ); ?>
+					</p>
+				<?php else : ?>
+					<ul class="bn-space-settings__member-list" role="list">
+						<?php foreach ( $space_members as $bn_member ) : ?>
+							<?php
+							$bn_member_avatar_url = get_avatar_url( (int) $bn_member->user_id, array( 'size' => 72 ) );
+							$bn_member_role       = in_array( $bn_member->role, array( 'owner', 'moderator', 'member' ), true )
+								? $bn_member->role
+								: 'member';
+							$bn_is_owner          = ( 'owner' === $bn_member_role );
 
-				<a
-					href="<?php echo esc_url( add_query_arg( 'bn_stab', 'danger', $settings_base ) ); ?>"
-					class="bn-settings-nav__item bn-settings-nav__item--danger"
-				>
-					<span aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
-					<?php esc_html_e( 'Danger Zone', 'buddynext' ); ?>
-				</a>
-			</nav>
+							$role_tone_map  = array(
+								'owner'     => 'accent',
+								'moderator' => 'info',
+								'member'    => 'default',
+							);
+							$role_label_map = array(
+								'owner'     => __( 'Owner', 'buddynext' ),
+								'moderator' => __( 'Moderator', 'buddynext' ),
+								'member'    => __( 'Member', 'buddynext' ),
+							);
+							$role_tone      = $role_tone_map[ $bn_member_role ] ?? 'default';
+							$role_label     = $role_label_map[ $bn_member_role ] ?? ucfirst( $bn_member_role );
+							?>
+							<li class="bn-space-settings__member-row" role="listitem">
+								<span class="bn-avatar" data-size="md" aria-hidden="true">
+									<?php if ( $bn_member_avatar_url ) : ?>
+										<img
+											src="<?php echo esc_url( $bn_member_avatar_url ); ?>"
+											alt=""
+											loading="lazy"
+										>
+									<?php else : ?>
+										<?php echo esc_html( strtoupper( substr( $bn_member->display_name, 0, 1 ) ) ); ?>
+									<?php endif; ?>
+								</span>
 
-			<!-- Settings panel -->
-			<div>
-
-				<?php if ( 'members' === $settings_tab ) : ?>
-
-					<div class="bn-settings-panel">
-						<div class="bn-settings-section">
-							<h2 class="bn-settings-section__title"><?php esc_html_e( 'Members', 'buddynext' ); ?></h2>
-							<p class="bn-settings-section__desc">
-								<?php
-								printf(
-									/* translators: %d: number of active members */
-									esc_html__( '%d active members', 'buddynext' ),
-									count( $space_members )
-								);
-								?>
-							</p>
-
-							<?php if ( empty( $space_members ) ) : ?>
-								<p style="font-size:var(--text-sm);color:var(--text-3);">
-									<?php esc_html_e( 'No active members yet.', 'buddynext' ); ?>
-								</p>
-							<?php else : ?>
-								<ul class="bn-member-list">
-									<?php foreach ( $space_members as $bn_member ) : ?>
-										<?php
-										$bn_member_avatar_url = get_avatar_url( (int) $bn_member->user_id, array( 'size' => 72 ) );
-										$bn_member_initials   = strtoupper( substr( $bn_member->display_name, 0, 1 ) );
-										$bn_member_role       = in_array( $bn_member->role, array( 'owner', 'moderator', 'member' ), true )
-											? $bn_member->role
-											: 'member';
-										$bn_is_owner          = ( 'owner' === $bn_member_role );
-										?>
-										<li class="bn-member-row">
-											<div class="bn-member-avatar">
-												<?php if ( $bn_member_avatar_url ) : ?>
-													<img
-														src="<?php echo esc_url( $bn_member_avatar_url ); ?>"
-														alt="<?php echo esc_attr( $bn_member->display_name ); ?>"
-														width="36"
-														height="36"
-													>
-												<?php else : ?>
-													<?php echo esc_html( $bn_member_initials ); ?>
-												<?php endif; ?>
-											</div>
-
-											<div class="bn-member-info">
-												<p class="bn-member-name"><?php echo esc_html( $bn_member->display_name ); ?></p>
-												<p class="bn-member-meta">@<?php echo esc_html( $bn_member->user_login ); ?></p>
-											</div>
-
-											<span class="bn-role-badge bn-role-badge--<?php echo esc_attr( $bn_member_role ); ?>">
-												<?php echo esc_html( ucfirst( $bn_member_role ) ); ?>
-											</span>
-
-											<?php if ( ! $bn_is_owner ) : ?>
-												<div class="bn-member-actions">
-													<?php if ( 'member' === $bn_member_role ) : ?>
-														<form method="post" action="">
-															<?php wp_nonce_field( 'bn_space_members_' . $space_id, 'bn_space_members_nonce' ); ?>
-															<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
-															<input type="hidden" name="member_action" value="promote">
-															<button type="submit" class="bn-btn-action">
-																<?php esc_html_e( 'Make Mod', 'buddynext' ); ?>
-															</button>
-														</form>
-													<?php elseif ( 'moderator' === $bn_member_role ) : ?>
-														<form method="post" action="">
-															<?php wp_nonce_field( 'bn_space_members_' . $space_id, 'bn_space_members_nonce' ); ?>
-															<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
-															<input type="hidden" name="member_action" value="demote">
-															<button type="submit" class="bn-btn-action">
-																<?php esc_html_e( 'Remove Mod', 'buddynext' ); ?>
-															</button>
-														</form>
-													<?php endif; ?>
-
-													<form method="post" action="">
-														<?php wp_nonce_field( 'bn_space_members_' . $space_id, 'bn_space_members_nonce' ); ?>
-														<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
-														<input type="hidden" name="member_action" value="remove">
-														<button
-															type="submit"
-															class="bn-btn-action bn-btn-action--danger"
-															data-bn-confirm="<?php echo esc_attr( __( 'Remove this member from the space?', 'buddynext' ) ); ?>"
-														>
-															<?php esc_html_e( 'Remove', 'buddynext' ); ?>
-														</button>
-													</form>
-
-													<form method="post" action="">
-														<?php wp_nonce_field( 'bn_space_members_' . $space_id, 'bn_space_members_nonce' ); ?>
-														<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
-														<input type="hidden" name="member_action" value="ban">
-														<button
-															type="submit"
-															class="bn-btn-action bn-btn-action--danger"
-															data-bn-confirm="<?php echo esc_attr( __( 'Ban this member? They will not be able to rejoin.', 'buddynext' ) ); ?>"
-														>
-															<?php esc_html_e( 'Ban', 'buddynext' ); ?>
-														</button>
-													</form>
-												</div>
-											<?php endif; ?>
-										</li>
-									<?php endforeach; ?>
-								</ul>
-							<?php endif; ?>
-						</div>
-
-						<div class="bn-settings-section">
-							<h2 class="bn-settings-section__title"><?php esc_html_e( 'Invite Member', 'buddynext' ); ?></h2>
-							<p class="bn-settings-section__desc">
-								<?php esc_html_e( 'Enter a username or email address to send an invitation.', 'buddynext' ); ?>
-							</p>
-							<form method="post" action="">
-								<?php wp_nonce_field( 'bn_space_members_' . $space_id, 'bn_space_members_nonce' ); ?>
-								<input type="hidden" name="member_action" value="invite">
-								<input type="hidden" name="target_user_id" value="0">
-								<div class="bn-invite-row">
-									<input
-										type="text"
-										name="invite_identifier"
-										class="bn-text-input"
-										placeholder="<?php esc_attr_e( 'Username or email address', 'buddynext' ); ?>"
-										required
-									>
-									<button type="submit" class="bn-btn-save">
-										<?php esc_html_e( 'Send Invite', 'buddynext' ); ?>
-									</button>
+								<div class="bn-space-settings__member-info">
+									<p class="bn-space-settings__member-name"><?php echo esc_html( $bn_member->display_name ); ?></p>
+									<p class="bn-space-settings__member-meta">@<?php echo esc_html( $bn_member->user_login ); ?></p>
 								</div>
-							</form>
+
+								<span class="bn-badge" data-tone="<?php echo esc_attr( $role_tone ); ?>"><?php echo esc_html( $role_label ); ?></span>
+
+								<?php if ( ! $bn_is_owner ) : ?>
+									<div class="bn-space-settings__member-actions">
+										<?php if ( 'member' === $bn_member_role ) : ?>
+											<form method="post" action="">
+												<?php wp_nonce_field( 'bn_space_members_' . $space_id, 'bn_space_members_nonce' ); ?>
+												<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
+												<input type="hidden" name="member_action" value="promote">
+												<button type="submit" class="bn-btn" data-variant="ghost" data-size="sm">
+													<?php esc_html_e( 'Make moderator', 'buddynext' ); ?>
+												</button>
+											</form>
+										<?php elseif ( 'moderator' === $bn_member_role ) : ?>
+											<form method="post" action="">
+												<?php wp_nonce_field( 'bn_space_members_' . $space_id, 'bn_space_members_nonce' ); ?>
+												<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
+												<input type="hidden" name="member_action" value="demote">
+												<button type="submit" class="bn-btn" data-variant="ghost" data-size="sm">
+													<?php esc_html_e( 'Remove moderator', 'buddynext' ); ?>
+												</button>
+											</form>
+										<?php endif; ?>
+
+										<form method="post" action="">
+											<?php wp_nonce_field( 'bn_space_members_' . $space_id, 'bn_space_members_nonce' ); ?>
+											<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
+											<input type="hidden" name="member_action" value="remove">
+											<button
+												type="submit"
+												class="bn-btn"
+												data-variant="ghost"
+												data-size="sm"
+												data-bn-confirm="<?php echo esc_attr( __( 'Remove this member from the space?', 'buddynext' ) ); ?>"
+											>
+												<?php esc_html_e( 'Remove', 'buddynext' ); ?>
+											</button>
+										</form>
+
+										<form method="post" action="">
+											<?php wp_nonce_field( 'bn_space_members_' . $space_id, 'bn_space_members_nonce' ); ?>
+											<input type="hidden" name="target_user_id" value="<?php echo esc_attr( (string) $bn_member->user_id ); ?>">
+											<input type="hidden" name="member_action" value="ban">
+											<button
+												type="submit"
+												class="bn-btn"
+												data-variant="danger"
+												data-size="sm"
+												data-bn-confirm="<?php echo esc_attr( __( 'Ban this member? They will not be able to rejoin.', 'buddynext' ) ); ?>"
+											>
+												<?php esc_html_e( 'Ban', 'buddynext' ); ?>
+											</button>
+										</form>
+									</div>
+								<?php endif; ?>
+							</li>
+						<?php endforeach; ?>
+					</ul>
+				<?php endif; ?>
+			</div>
+
+			<div class="bn-card bn-space-settings__panel">
+				<header class="bn-space-settings__panel-head">
+					<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Invite member', 'buddynext' ); ?></h2>
+					<p class="bn-space-settings__panel-desc">
+						<?php esc_html_e( 'Enter a username or email address to send an invitation.', 'buddynext' ); ?>
+					</p>
+				</header>
+				<form method="post" action="" class="bn-space-settings__invite-row">
+					<?php wp_nonce_field( 'bn_space_members_' . $space_id, 'bn_space_members_nonce' ); ?>
+					<input type="hidden" name="member_action" value="invite">
+					<input type="hidden" name="target_user_id" value="0">
+					<label class="bn-sr-only" for="bn_invite_identifier">
+						<?php esc_html_e( 'Username or email address', 'buddynext' ); ?>
+					</label>
+					<input
+						type="text"
+						id="bn_invite_identifier"
+						name="invite_identifier"
+						class="bn-input"
+						placeholder="<?php esc_attr_e( 'Username or email address', 'buddynext' ); ?>"
+						required
+					>
+					<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
+						<?php esc_html_e( 'Send invite', 'buddynext' ); ?>
+					</button>
+				</form>
+			</div>
+
+		<?php elseif ( 'moderation' === $settings_tab ) : ?>
+
+			<form method="post" action="">
+				<?php wp_nonce_field( 'bn_space_moderation_' . $space_id, 'bn_space_moderation_nonce' ); ?>
+
+				<div class="bn-card bn-space-settings__panel">
+					<header class="bn-space-settings__panel-head">
+						<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Moderation', 'buddynext' ); ?></h2>
+						<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Control what members can post in this space.', 'buddynext' ); ?></p>
+					</header>
+
+					<div class="bn-toggle-row">
+						<div class="bn-toggle-row__copy">
+							<div class="bn-toggle-row__label"><?php esc_html_e( 'Pre-moderate posts', 'buddynext' ); ?></div>
+							<div class="bn-toggle-row__desc"><?php esc_html_e( 'New posts from members go to a moderation queue before appearing publicly.', 'buddynext' ); ?></div>
 						</div>
+						<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Pre-moderate posts', 'buddynext' ); ?>">
+							<input type="checkbox" class="bn-space-settings__toggle-input" name="require_post_approval" value="1" <?php checked( $mod_require_approval ); ?>>
+							<span class="bn-toggle" aria-hidden="true"></span>
+						</label>
 					</div>
 
-				<?php elseif ( 'moderation' === $settings_tab ) : ?>
-
-					<form method="post" action="">
-						<?php wp_nonce_field( 'bn_space_moderation_' . $space_id, 'bn_space_moderation_nonce' ); ?>
-
-						<div class="bn-settings-panel">
-							<div class="bn-settings-section">
-								<h2 class="bn-settings-section__title"><?php esc_html_e( 'Moderation', 'buddynext' ); ?></h2>
-								<p class="bn-settings-section__desc"><?php esc_html_e( 'Control what members can post in this space.', 'buddynext' ); ?></p>
-
-								<div class="bn-toggle-row">
-									<div class="bn-toggle-label">
-										<p class="bn-toggle-label__title"><?php esc_html_e( 'Pre-moderate posts', 'buddynext' ); ?></p>
-										<p class="bn-toggle-label__desc"><?php esc_html_e( 'New posts from members go to a moderation queue before appearing publicly.', 'buddynext' ); ?></p>
-									</div>
-									<label class="bn-toggle" aria-label="<?php esc_attr_e( 'Pre-moderate posts', 'buddynext' ); ?>">
-										<input type="checkbox" name="require_post_approval" value="1" <?php checked( $mod_require_approval ); ?>>
-										<span class="bn-toggle__track"></span>
-										<span class="bn-toggle__thumb"></span>
-									</label>
-								</div>
-
-								<div class="bn-field" style="margin-top:var(--s4);">
-									<label for="bn_banned_words"><?php esc_html_e( 'Banned words', 'buddynext' ); ?></label>
-									<textarea
-										id="bn_banned_words"
-										name="banned_words"
-										class="bn-text-input"
-										rows="6"
-										placeholder="<?php esc_attr_e( 'One word or phrase per line', 'buddynext' ); ?>"
-									><?php echo esc_textarea( $mod_banned_words ); ?></textarea>
-									<p class="bn-field__hint">
-										<?php esc_html_e( 'Posts containing these words will be held for review. One word or phrase per line.', 'buddynext' ); ?>
-									</p>
-								</div>
-							</div>
-
-							<div class="bn-save-row">
-								<a href="<?php echo esc_url( $space_url ); ?>" class="bn-btn-cancel">
-									<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
-								</a>
-								<button type="submit" class="bn-btn-save">
-									<?php esc_html_e( 'Save changes', 'buddynext' ); ?>
-								</button>
-							</div>
-						</div>
-					</form>
-
-				<?php elseif ( 'notifications' === $settings_tab ) : ?>
-
-					<form method="post" action="">
-						<?php wp_nonce_field( 'bn_space_notifications_' . $space_id, 'bn_space_notifications_nonce' ); ?>
-
-						<div class="bn-settings-panel">
-							<div class="bn-settings-section">
-								<h2 class="bn-settings-section__title"><?php esc_html_e( 'Notifications', 'buddynext' ); ?></h2>
-								<p class="bn-settings-section__desc"><?php esc_html_e( 'Default notification setting applied when a new member joins this space.', 'buddynext' ); ?></p>
-
-								<div class="bn-field">
-									<label for="bn_default_notification_pref"><?php esc_html_e( 'Default notification preference for new members', 'buddynext' ); ?></label>
-									<select
-										id="bn_default_notification_pref"
-										name="default_notification_pref"
-										class="bn-select-input"
-									>
-										<option value="all" <?php selected( $default_notification_pref, 'all' ); ?>>
-											<?php esc_html_e( 'All activity', 'buddynext' ); ?>
-										</option>
-										<option value="mentions" <?php selected( $default_notification_pref, 'mentions' ); ?>>
-											<?php esc_html_e( 'Mentions only', 'buddynext' ); ?>
-										</option>
-										<option value="none" <?php selected( $default_notification_pref, 'none' ); ?>>
-											<?php esc_html_e( 'None', 'buddynext' ); ?>
-										</option>
-									</select>
-									<p class="bn-field__hint">
-										<?php esc_html_e( 'Individual members can override this in their own notification settings.', 'buddynext' ); ?>
-									</p>
-								</div>
-							</div>
-
-							<div class="bn-save-row">
-								<a href="<?php echo esc_url( $space_url ); ?>" class="bn-btn-cancel">
-									<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
-								</a>
-								<button type="submit" class="bn-btn-save">
-									<?php esc_html_e( 'Save changes', 'buddynext' ); ?>
-								</button>
-							</div>
-						</div>
-					</form>
-
-				<?php else : ?>
-
-					<form method="post" action="" enctype="multipart/form-data">
-						<?php wp_nonce_field( 'bn_space_settings_' . $space_id, 'bn_space_settings_nonce' ); ?>
-
-						<div class="bn-settings-panel">
-
-							<?php if ( 'general' === $settings_tab ) : ?>
-
-								<div class="bn-settings-section">
-									<h2 class="bn-settings-section__title"><?php esc_html_e( 'General', 'buddynext' ); ?></h2>
-									<p class="bn-settings-section__desc"><?php esc_html_e( 'Basic information about your space', 'buddynext' ); ?></p>
-
-									<div class="bn-field">
-										<label for="bn_space_icon"><?php esc_html_e( 'Space Icon', 'buddynext' ); ?></label>
-										<div class="bn-avatar-upload">
-											<div class="bn-current-avatar" aria-hidden="true">
-												<?php echo wp_kses_data( bn_space_category_icon( $space->category_slug ?? '' ) ); ?>
-											</div>
-											<div>
-												<button type="button" class="bn-upload-btn" id="bn_space_icon">
-													<?php esc_html_e( 'Upload image', 'buddynext' ); ?>
-												</button>
-												<p class="bn-field__hint"><?php esc_html_e( 'Or pick an emoji icon', 'buddynext' ); ?></p>
-											</div>
-										</div>
-									</div>
-
-									<div class="bn-field">
-										<label for="bn_cover_image"><?php esc_html_e( 'Cover Image', 'buddynext' ); ?></label>
-										<div
-											class="bn-cover-upload"
-											role="button"
-											tabindex="0"
-											aria-label="<?php esc_attr_e( 'Upload cover photo', 'buddynext' ); ?>"
-										>+ <?php esc_html_e( 'Upload cover photo', 'buddynext' ); ?></div>
-										<input type="file" name="cover_image" id="bn_cover_image" accept="image/*" style="display:none;">
-									</div>
-
-									<div class="bn-field">
-										<label for="space_name"><?php esc_html_e( 'Space Name', 'buddynext' ); ?> <span aria-hidden="true">*</span></label>
-										<input
-											type="text"
-											id="space_name"
-											name="space_name"
-											class="bn-text-input"
-											value="<?php echo esc_attr( $space->name ?? '' ); ?>"
-											required
-											maxlength="100"
-										>
-									</div>
-
-									<div class="bn-field">
-										<label for="space_description"><?php esc_html_e( 'Description', 'buddynext' ); ?></label>
-										<textarea
-											id="space_description"
-											name="space_description"
-											class="bn-text-input"
-											maxlength="160"
-										><?php echo esc_textarea( $space->description ?? '' ); ?></textarea>
-										<p class="bn-field__hint"><?php esc_html_e( '160 characters max. Shown in the spaces directory.', 'buddynext' ); ?></p>
-									</div>
-
-									<div class="bn-field">
-										<label for="space_category_id"><?php esc_html_e( 'Category', 'buddynext' ); ?></label>
-										<select name="space_category_id" id="space_category_id" class="bn-select-input">
-											<option value=""><?php esc_html_e( '— Select a category —', 'buddynext' ); ?></option>
-											<?php foreach ( $categories as $bn_cat_item ) : ?>
-												<option
-													value="<?php echo esc_attr( (string) $bn_cat_item->id ); ?>"
-													<?php selected( (int) ( $space->category_id ?? 0 ), (int) $bn_cat_item->id ); ?>
-												><?php echo esc_html( $bn_cat_item->name ); ?></option>
-											<?php endforeach; ?>
-										</select>
-									</div>
-								</div>
-
-							<?php elseif ( 'privacy' === $settings_tab ) : ?>
-
-								<div class="bn-settings-section">
-									<h2 class="bn-settings-section__title"><?php esc_html_e( 'Privacy', 'buddynext' ); ?></h2>
-									<p class="bn-settings-section__desc"><?php esc_html_e( 'Who can see and join your space', 'buddynext' ); ?></p>
-
-									<div class="bn-field">
-										<label for="space_type"><?php esc_html_e( 'Space Visibility', 'buddynext' ); ?></label>
-										<select name="space_type" id="space_type" class="bn-select-input">
-											<option value="open" <?php selected( $space->type, 'open' ); ?>>
-												<?php esc_html_e( 'Open — listed in directory, anyone can join', 'buddynext' ); ?>
-											</option>
-											<option value="private" <?php selected( $space->type, 'private' ); ?>>
-												<?php esc_html_e( 'Private — listed but requires approval to join', 'buddynext' ); ?>
-											</option>
-											<option value="secret" <?php selected( $space->type, 'secret' ); ?>>
-												<?php esc_html_e( 'Invite-only — not listed, admin invites only', 'buddynext' ); ?>
-											</option>
-										</select>
-									</div>
-
-									<div class="bn-toggle-row">
-										<div class="bn-toggle-label">
-											<p class="bn-toggle-label__title"><?php esc_html_e( 'Allow member posts', 'buddynext' ); ?></p>
-											<p class="bn-toggle-label__desc"><?php esc_html_e( 'Members can post in the space feed. Disable for announcement-only spaces.', 'buddynext' ); ?></p>
-										</div>
-										<label class="bn-toggle" aria-label="<?php esc_attr_e( 'Allow member posts', 'buddynext' ); ?>">
-											<input type="checkbox" name="allow_member_posts" value="1" <?php checked( $allow_member_posts ); ?>>
-											<span class="bn-toggle__track"></span>
-											<span class="bn-toggle__thumb"></span>
-										</label>
-									</div>
-
-									<div class="bn-toggle-row">
-										<div class="bn-toggle-label">
-											<p class="bn-toggle-label__title"><?php esc_html_e( 'Require post approval', 'buddynext' ); ?></p>
-											<p class="bn-toggle-label__desc"><?php esc_html_e( 'New member posts go to moderation queue before appearing publicly.', 'buddynext' ); ?></p>
-										</div>
-										<label class="bn-toggle" aria-label="<?php esc_attr_e( 'Require post approval', 'buddynext' ); ?>">
-											<input type="checkbox" name="require_post_approval" value="1" <?php checked( $require_post_approval ); ?>>
-											<span class="bn-toggle__track"></span>
-											<span class="bn-toggle__thumb"></span>
-										</label>
-									</div>
-								</div>
-
-							<?php elseif ( 'integrations' === $settings_tab ) : ?>
-
-								<div class="bn-settings-section">
-									<h2 class="bn-settings-section__title"><?php esc_html_e( 'Integrations', 'buddynext' ); ?></h2>
-									<p class="bn-settings-section__desc"><?php esc_html_e( 'Connect third-party features to this space', 'buddynext' ); ?></p>
-
-									<div class="bn-toggle-row">
-										<div class="bn-toggle-label">
-											<p class="bn-toggle-label__title"><?php buddynext_icon( 'message-circle' ); ?> <?php esc_html_e( 'Linked Forum (Jetonomy)', 'buddynext' ); ?></p>
-											<p class="bn-toggle-label__desc"><?php esc_html_e( 'Link a Jetonomy forum to show a Forum tab in this space.', 'buddynext' ); ?></p>
-											<?php if ( class_exists( 'Jetonomy\Core\Plugin' ) ) : ?>
-												<div style="margin-top:var(--s2);">
-													<select name="jetonomy_forum_id" class="bn-select-input" style="width:auto;max-width:300px;font-size:var(--text-xs);padding:6px var(--s2);">
-														<option value="0" <?php selected( $jetonomy_forum_id, 0 ); ?>><?php esc_html_e( 'No forum linked', 'buddynext' ); ?></option>
-													</select>
-												</div>
-											<?php else : ?>
-												<p style="font-size:var(--text-xs);color:var(--text-3);margin-top:var(--s1);">
-													<?php esc_html_e( 'Jetonomy is not active on this site.', 'buddynext' ); ?>
-												</p>
-											<?php endif; ?>
-										</div>
-									</div>
-
-									<div class="bn-toggle-row">
-										<div class="bn-toggle-label">
-											<p class="bn-toggle-label__title"><?php esc_html_e( 'Push space posts to activity feed', 'buddynext' ); ?></p>
-											<p class="bn-toggle-label__desc"><?php esc_html_e( "Space posts appear in members' home feeds. Off = space-only.", 'buddynext' ); ?></p>
-										</div>
-										<label class="bn-toggle" aria-label="<?php esc_attr_e( 'Push space posts to activity feed', 'buddynext' ); ?>">
-											<input type="checkbox" name="push_to_feed" value="1" <?php checked( $push_to_feed ); ?>>
-											<span class="bn-toggle__track"></span>
-											<span class="bn-toggle__thumb"></span>
-										</label>
-									</div>
-
-									<div class="bn-toggle-row">
-										<div class="bn-toggle-label">
-											<p class="bn-toggle-label__title"><?php buddynext_icon( 'image' ); ?> <?php esc_html_e( 'Media tab (WPMediaVerse)', 'buddynext' ); ?></p>
-											<p class="bn-toggle-label__desc"><?php esc_html_e( 'Show a Media tab for uploading and sharing files in this space.', 'buddynext' ); ?></p>
-										</div>
-										<label class="bn-toggle" aria-label="<?php esc_attr_e( 'Enable Media tab', 'buddynext' ); ?>">
-											<input type="checkbox" name="mvs_media_tab" value="1" <?php checked( $mvs_media_tab ); ?>>
-											<span class="bn-toggle__track"></span>
-											<span class="bn-toggle__thumb"></span>
-										</label>
-									</div>
-								</div>
-
-							<?php else : ?>
-
-								<div class="bn-settings-section">
-									<h2 class="bn-settings-section__title">
-										<?php echo esc_html( ucfirst( $settings_tab ) ); ?>
-									</h2>
-									<p class="bn-settings-section__desc">
-										<?php esc_html_e( 'This section is coming soon.', 'buddynext' ); ?>
-									</p>
-								</div>
-
-							<?php endif; ?>
-
-							<div class="bn-save-row">
-								<a
-									href="<?php echo esc_url( $space_url ); ?>"
-									class="bn-btn-cancel"
-								><?php esc_html_e( 'Cancel', 'buddynext' ); ?></a>
-								<button type="submit" class="bn-btn-save">
-									<?php esc_html_e( 'Save changes', 'buddynext' ); ?>
-								</button>
-							</div>
-
-						</div>
-					</form>
-
-				<?php endif; ?>
-
-				<div class="bn-danger-zone">
-					<h2 class="bn-danger-zone__title"><?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Danger Zone', 'buddynext' ); ?></h2>
-					<p class="bn-danger-zone__desc"><?php esc_html_e( 'These actions are permanent and cannot be undone.', 'buddynext' ); ?></p>
-					<div style="display:flex;gap:var(--s2);flex-wrap:wrap;">
-						<button
-							type="button"
-							class="bn-btn-danger"
-							data-wp-on--click="actions.archiveSpace"
-							data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
-						><?php esc_html_e( 'Archive Space', 'buddynext' ); ?></button>
-						<button
-							type="button"
-							class="bn-btn-danger-ghost"
-							data-wp-on--click="actions.deleteSpace"
-							data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
-						><?php esc_html_e( 'Delete Space', 'buddynext' ); ?></button>
+					<div class="bn-space-settings__field">
+						<label for="bn_banned_words"><?php esc_html_e( 'Banned words', 'buddynext' ); ?></label>
+						<textarea
+							id="bn_banned_words"
+							name="banned_words"
+							class="bn-textarea"
+							rows="6"
+							placeholder="<?php esc_attr_e( 'One word or phrase per line', 'buddynext' ); ?>"
+						><?php echo esc_textarea( $mod_banned_words ); ?></textarea>
+						<p class="bn-space-settings__hint">
+							<?php esc_html_e( 'Posts containing these words will be held for review. One word or phrase per line.', 'buddynext' ); ?>
+						</p>
 					</div>
 				</div>
 
+				<div class="bn-space-settings__save-row">
+					<a href="<?php echo esc_url( $space_url ); ?>" class="bn-btn" data-variant="ghost" data-size="md">
+						<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+					</a>
+					<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
+						<?php esc_html_e( 'Save changes', 'buddynext' ); ?>
+					</button>
+				</div>
+			</form>
+
+		<?php elseif ( 'notifications' === $settings_tab ) : ?>
+
+			<form method="post" action="">
+				<?php wp_nonce_field( 'bn_space_notifications_' . $space_id, 'bn_space_notifications_nonce' ); ?>
+
+				<div class="bn-card bn-space-settings__panel">
+					<header class="bn-space-settings__panel-head">
+						<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Notifications', 'buddynext' ); ?></h2>
+						<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Default notification setting applied when a new member joins this space.', 'buddynext' ); ?></p>
+					</header>
+
+					<div class="bn-space-settings__field">
+						<label for="bn_default_notification_pref"><?php esc_html_e( 'Default notification preference for new members', 'buddynext' ); ?></label>
+						<select
+							id="bn_default_notification_pref"
+							name="default_notification_pref"
+							class="bn-select"
+						>
+							<option value="all" <?php selected( $default_notification_pref, 'all' ); ?>>
+								<?php esc_html_e( 'All activity', 'buddynext' ); ?>
+							</option>
+							<option value="mentions" <?php selected( $default_notification_pref, 'mentions' ); ?>>
+								<?php esc_html_e( 'Mentions only', 'buddynext' ); ?>
+							</option>
+							<option value="none" <?php selected( $default_notification_pref, 'none' ); ?>>
+								<?php esc_html_e( 'None', 'buddynext' ); ?>
+							</option>
+						</select>
+						<p class="bn-space-settings__hint">
+							<?php esc_html_e( 'Individual members can override this in their own notification settings.', 'buddynext' ); ?>
+						</p>
+					</div>
+				</div>
+
+				<div class="bn-space-settings__save-row">
+					<a href="<?php echo esc_url( $space_url ); ?>" class="bn-btn" data-variant="ghost" data-size="md">
+						<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+					</a>
+					<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
+						<?php esc_html_e( 'Save changes', 'buddynext' ); ?>
+					</button>
+				</div>
+			</form>
+
+		<?php elseif ( 'danger' === $settings_tab ) : ?>
+
+			<div class="bn-card bn-space-settings__panel">
+				<header class="bn-space-settings__panel-head">
+					<h2 class="bn-space-settings__panel-title bn-space-settings__panel-title--danger">
+						<?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Danger zone', 'buddynext' ); ?>
+					</h2>
+					<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'These actions are permanent and cannot be undone.', 'buddynext' ); ?></p>
+				</header>
+
+				<div class="bn-space-settings__danger-list">
+					<div class="bn-space-settings__danger-row">
+						<div>
+							<div class="bn-space-settings__danger-title"><?php esc_html_e( 'Archive space', 'buddynext' ); ?></div>
+							<div class="bn-space-settings__danger-desc"><?php esc_html_e( 'Make the space read-only. Members can still view posts but new activity is disabled.', 'buddynext' ); ?></div>
+						</div>
+						<button
+							type="button"
+							class="bn-btn"
+							data-variant="secondary"
+							data-size="md"
+							data-wp-on--click="actions.openArchiveSpaceModal"
+							data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+						><?php esc_html_e( 'Archive space', 'buddynext' ); ?></button>
+					</div>
+
+					<div class="bn-space-settings__danger-row">
+						<div>
+							<div class="bn-space-settings__danger-title"><?php esc_html_e( 'Delete space', 'buddynext' ); ?></div>
+							<div class="bn-space-settings__danger-desc"><?php esc_html_e( 'Permanently remove the space, its posts, and its memberships. This action cannot be undone.', 'buddynext' ); ?></div>
+						</div>
+						<button
+							type="button"
+							class="bn-btn"
+							data-variant="danger"
+							data-size="md"
+							data-wp-on--click="actions.openDeleteSpaceModal"
+							data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+						><?php esc_html_e( 'Delete space', 'buddynext' ); ?></button>
+					</div>
+				</div>
 			</div>
-		</div>
+
+			<!-- Delete-space confirm modal -->
+			<div
+				class="bn-modal-backdrop"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="bn-delete-space-title"
+				hidden
+				data-bn-modal="delete-space"
+			>
+				<div class="bn-modal__panel" data-tone="danger" data-size="sm">
+					<header class="bn-modal__head">
+						<h2 class="bn-modal__title" id="bn-delete-space-title"><?php esc_html_e( 'Delete this space?', 'buddynext' ); ?></h2>
+						<button
+							type="button"
+							class="bn-modal__close"
+							aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
+							data-bn-modal-close
+						><?php buddynext_icon( 'x' ); ?></button>
+					</header>
+					<div class="bn-modal__body">
+						<p><?php esc_html_e( 'This will permanently delete the space, all of its posts, and all member relationships. This cannot be undone.', 'buddynext' ); ?></p>
+					</div>
+					<div class="bn-modal__foot">
+						<button
+							type="button"
+							class="bn-btn"
+							data-variant="ghost"
+							data-size="md"
+							data-bn-modal-close
+						><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+						<button
+							type="button"
+							class="bn-btn"
+							data-variant="danger"
+							data-size="md"
+							data-wp-on--click="actions.deleteSpace"
+							data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+						><?php esc_html_e( 'Delete permanently', 'buddynext' ); ?></button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Archive-space confirm modal -->
+			<div
+				class="bn-modal-backdrop"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="bn-archive-space-title"
+				hidden
+				data-bn-modal="archive-space"
+			>
+				<div class="bn-modal__panel" data-size="sm">
+					<header class="bn-modal__head">
+						<h2 class="bn-modal__title" id="bn-archive-space-title"><?php esc_html_e( 'Archive this space?', 'buddynext' ); ?></h2>
+						<button
+							type="button"
+							class="bn-modal__close"
+							aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
+							data-bn-modal-close
+						><?php buddynext_icon( 'x' ); ?></button>
+					</header>
+					<div class="bn-modal__body">
+						<p><?php esc_html_e( 'The space will become read-only. Members can still view past activity, but new posts and joins will be disabled.', 'buddynext' ); ?></p>
+					</div>
+					<div class="bn-modal__foot">
+						<button
+							type="button"
+							class="bn-btn"
+							data-variant="ghost"
+							data-size="md"
+							data-bn-modal-close
+						><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+						<button
+							type="button"
+							class="bn-btn"
+							data-variant="primary"
+							data-size="md"
+							data-wp-on--click="actions.archiveSpace"
+							data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
+						><?php esc_html_e( 'Archive space', 'buddynext' ); ?></button>
+					</div>
+				</div>
+			</div>
+
+		<?php else : ?>
+
+			<form method="post" action="" enctype="multipart/form-data">
+				<?php wp_nonce_field( 'bn_space_settings_' . $space_id, 'bn_space_settings_nonce' ); ?>
+
+				<?php if ( 'general' === $settings_tab ) : ?>
+
+					<div class="bn-card bn-space-settings__panel">
+						<header class="bn-space-settings__panel-head">
+							<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'General', 'buddynext' ); ?></h2>
+							<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Basic information about your space.', 'buddynext' ); ?></p>
+						</header>
+
+						<div class="bn-space-settings__field">
+							<label for="bn_space_icon"><?php esc_html_e( 'Space icon', 'buddynext' ); ?></label>
+							<div class="bn-space-settings__upload">
+								<div class="bn-space-settings__upload-current" aria-hidden="true">
+									<?php echo wp_kses_data( bn_space_category_icon( $space->category_slug ?? '' ) ); ?>
+								</div>
+								<div class="bn-space-settings__upload-actions">
+									<button type="button" class="bn-btn" data-variant="secondary" data-size="md" id="bn_space_icon">
+										<?php esc_html_e( 'Upload image', 'buddynext' ); ?>
+									</button>
+									<p class="bn-space-settings__hint"><?php esc_html_e( 'Or pick an icon based on the category.', 'buddynext' ); ?></p>
+								</div>
+							</div>
+						</div>
+
+						<div class="bn-space-settings__field">
+							<label for="bn_cover_image"><?php esc_html_e( 'Cover image', 'buddynext' ); ?></label>
+							<div
+								class="bn-space-settings__cover"
+								role="button"
+								tabindex="0"
+								aria-label="<?php esc_attr_e( 'Upload cover photo', 'buddynext' ); ?>"
+							>
+								<?php buddynext_icon( 'image' ); ?> <?php esc_html_e( 'Upload cover photo', 'buddynext' ); ?>
+							</div>
+							<input type="file" name="cover_image" id="bn_cover_image" accept="image/*" class="bn-space-settings__cover-input">
+						</div>
+
+						<div class="bn-space-settings__field">
+							<label for="space_name"><?php esc_html_e( 'Space name', 'buddynext' ); ?> <span aria-hidden="true">*</span></label>
+							<input
+								type="text"
+								id="space_name"
+								name="space_name"
+								class="bn-input"
+								value="<?php echo esc_attr( $space->name ?? '' ); ?>"
+								required
+								maxlength="100"
+							>
+						</div>
+
+						<div class="bn-space-settings__field">
+							<label for="space_description"><?php esc_html_e( 'Description', 'buddynext' ); ?></label>
+							<textarea
+								id="space_description"
+								name="space_description"
+								class="bn-textarea"
+								maxlength="160"
+								rows="3"
+							><?php echo esc_textarea( $space->description ?? '' ); ?></textarea>
+							<p class="bn-space-settings__hint"><?php esc_html_e( '160 characters max. Shown in the spaces directory.', 'buddynext' ); ?></p>
+						</div>
+
+						<div class="bn-space-settings__field">
+							<label for="space_category_id"><?php esc_html_e( 'Category', 'buddynext' ); ?></label>
+							<select name="space_category_id" id="space_category_id" class="bn-select">
+								<option value=""><?php esc_html_e( 'Select a category', 'buddynext' ); ?></option>
+								<?php foreach ( $categories as $bn_cat_item ) : ?>
+									<option
+										value="<?php echo esc_attr( (string) $bn_cat_item->id ); ?>"
+										<?php selected( (int) ( $space->category_id ?? 0 ), (int) $bn_cat_item->id ); ?>
+									><?php echo esc_html( $bn_cat_item->name ); ?></option>
+								<?php endforeach; ?>
+							</select>
+						</div>
+					</div>
+
+				<?php elseif ( 'privacy' === $settings_tab ) : ?>
+
+					<div class="bn-card bn-space-settings__panel">
+						<header class="bn-space-settings__panel-head">
+							<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Privacy', 'buddynext' ); ?></h2>
+							<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Who can see and join your space.', 'buddynext' ); ?></p>
+						</header>
+
+						<div class="bn-space-settings__field">
+							<label for="space_type"><?php esc_html_e( 'Space visibility', 'buddynext' ); ?></label>
+							<select name="space_type" id="space_type" class="bn-select">
+								<option value="open" <?php selected( $space->type, 'open' ); ?>>
+									<?php esc_html_e( 'Open: listed in directory, anyone can join', 'buddynext' ); ?>
+								</option>
+								<option value="private" <?php selected( $space->type, 'private' ); ?>>
+									<?php esc_html_e( 'Private: listed but requires approval to join', 'buddynext' ); ?>
+								</option>
+								<option value="secret" <?php selected( $space->type, 'secret' ); ?>>
+									<?php esc_html_e( 'Invite-only: not listed, admin invites only', 'buddynext' ); ?>
+								</option>
+							</select>
+						</div>
+
+						<div class="bn-toggle-row">
+							<div class="bn-toggle-row__copy">
+								<div class="bn-toggle-row__label"><?php esc_html_e( 'Allow member posts', 'buddynext' ); ?></div>
+								<div class="bn-toggle-row__desc"><?php esc_html_e( 'Members can post in the space feed. Disable for announcement-only spaces.', 'buddynext' ); ?></div>
+							</div>
+							<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Allow member posts', 'buddynext' ); ?>">
+								<input type="checkbox" class="bn-space-settings__toggle-input" name="allow_member_posts" value="1" <?php checked( $allow_member_posts ); ?>>
+								<span class="bn-toggle" aria-hidden="true"></span>
+							</label>
+						</div>
+
+						<div class="bn-toggle-row">
+							<div class="bn-toggle-row__copy">
+								<div class="bn-toggle-row__label"><?php esc_html_e( 'Require post approval', 'buddynext' ); ?></div>
+								<div class="bn-toggle-row__desc"><?php esc_html_e( 'New member posts go to the moderation queue before appearing publicly.', 'buddynext' ); ?></div>
+							</div>
+							<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Require post approval', 'buddynext' ); ?>">
+								<input type="checkbox" class="bn-space-settings__toggle-input" name="require_post_approval" value="1" <?php checked( $require_post_approval ); ?>>
+								<span class="bn-toggle" aria-hidden="true"></span>
+							</label>
+						</div>
+					</div>
+
+				<?php elseif ( 'integrations' === $settings_tab ) : ?>
+
+					<div class="bn-card bn-space-settings__panel">
+						<header class="bn-space-settings__panel-head">
+							<h2 class="bn-space-settings__panel-title"><?php esc_html_e( 'Integrations', 'buddynext' ); ?></h2>
+							<p class="bn-space-settings__panel-desc"><?php esc_html_e( 'Connect third-party features to this space.', 'buddynext' ); ?></p>
+						</header>
+
+						<div class="bn-toggle-row">
+							<div class="bn-toggle-row__copy">
+								<div class="bn-toggle-row__label">
+									<span class="bn-badge" data-tone="jetonomy"><?php esc_html_e( 'Jetonomy', 'buddynext' ); ?></span>
+									<?php esc_html_e( 'Linked forum', 'buddynext' ); ?>
+								</div>
+								<div class="bn-toggle-row__desc"><?php esc_html_e( 'Link a Jetonomy forum to show a Forum tab in this space.', 'buddynext' ); ?></div>
+								<?php if ( class_exists( 'Jetonomy\\Core\\Plugin' ) ) : ?>
+									<div class="bn-space-settings__inline-select">
+										<label class="bn-sr-only" for="bn_jetonomy_forum_id">
+											<?php esc_html_e( 'Linked Jetonomy forum', 'buddynext' ); ?>
+										</label>
+										<select id="bn_jetonomy_forum_id" name="jetonomy_forum_id" class="bn-select">
+											<option value="0" <?php selected( $jetonomy_forum_id, 0 ); ?>><?php esc_html_e( 'No forum linked', 'buddynext' ); ?></option>
+										</select>
+									</div>
+								<?php else : ?>
+									<p class="bn-space-settings__hint">
+										<?php esc_html_e( 'Jetonomy is not active on this site.', 'buddynext' ); ?>
+									</p>
+								<?php endif; ?>
+							</div>
+						</div>
+
+						<div class="bn-toggle-row">
+							<div class="bn-toggle-row__copy">
+								<div class="bn-toggle-row__label"><?php esc_html_e( 'Push space posts to activity feed', 'buddynext' ); ?></div>
+								<div class="bn-toggle-row__desc"><?php esc_html_e( "Space posts appear in members' home feeds. Off = space-only.", 'buddynext' ); ?></div>
+							</div>
+							<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Push space posts to activity feed', 'buddynext' ); ?>">
+								<input type="checkbox" class="bn-space-settings__toggle-input" name="push_to_feed" value="1" <?php checked( $push_to_feed ); ?>>
+								<span class="bn-toggle" aria-hidden="true"></span>
+							</label>
+						</div>
+
+						<div class="bn-toggle-row">
+							<div class="bn-toggle-row__copy">
+								<div class="bn-toggle-row__label">
+									<span class="bn-badge" data-tone="media"><?php esc_html_e( 'WPMediaVerse', 'buddynext' ); ?></span>
+									<?php esc_html_e( 'Media tab', 'buddynext' ); ?>
+								</div>
+								<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Media tab for uploading and sharing files in this space.', 'buddynext' ); ?></div>
+							</div>
+							<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Media tab', 'buddynext' ); ?>">
+								<input type="checkbox" class="bn-space-settings__toggle-input" name="mvs_media_tab" value="1" <?php checked( $mvs_media_tab ); ?>>
+								<span class="bn-toggle" aria-hidden="true"></span>
+							</label>
+						</div>
+					</div>
+
+				<?php endif; ?>
+
+				<div class="bn-space-settings__save-row">
+					<a
+						href="<?php echo esc_url( $space_url ); ?>"
+						class="bn-btn"
+						data-variant="ghost"
+						data-size="md"
+					><?php esc_html_e( 'Cancel', 'buddynext' ); ?></a>
+					<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
+						<?php esc_html_e( 'Save changes', 'buddynext' ); ?>
+					</button>
+				</div>
+			</form>
+
+		<?php endif; ?>
+
 	</div>
 </div>
-<script>
-/* Delegated confirm handler for data-bn-confirm buttons in spaces settings. */
-document.addEventListener('click', function (e) {
-	var t = e.target.closest('[data-bn-confirm]');
-	if (!t) return;
-	if (!window.confirm(t.dataset.bnConfirm)) {
-		e.preventDefault();
-		e.stopImmediatePropagation();
-	}
-}, true);
-</script>

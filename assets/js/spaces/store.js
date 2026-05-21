@@ -582,5 +582,222 @@ var storeInstance = store( 'buddynext/spaces', {
 			}
 		},
 
+		/* ── Space-settings modal openers ──────────────────────────────── */
+
+		/**
+		 * Open the delete-space confirm modal.
+		 */
+		openDeleteSpaceModal: function () {
+			openSpaceModal( 'delete-space' );
+		},
+
+		/**
+		 * Open the archive-space confirm modal.
+		 */
+		openArchiveSpaceModal: function () {
+			openSpaceModal( 'archive-space' );
+		},
+
 	},
+} );
+
+/* ── Delegated UI helpers (modal close + native-confirm bridge) ─────────
+ *
+ * Lives outside the Interactivity store so DOM-only buttons (those with
+ * data-bn-modal-close / data-bn-confirm but no data-wp-on--click) still
+ * work without registering one-off actions per surface.
+ * ──────────────────────────────────────────────────────────────────── */
+
+/**
+ * Show a `[data-bn-modal="<name>"]` backdrop and trap initial focus.
+ *
+ * @param {string} name Modal name.
+ */
+function openSpaceModal( name ) {
+	var modal = document.querySelector( '[data-bn-modal="' + name + '"]' );
+	if ( ! modal ) { return; }
+	modal.hidden = false;
+	var focusable = modal.querySelector( 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])' );
+	if ( focusable ) { focusable.focus(); }
+}
+
+/**
+ * Hide every `[data-bn-modal]` backdrop on the page.
+ */
+function closeAllSpaceModals() {
+	var modals = document.querySelectorAll( '[data-bn-modal]' );
+	for ( var i = 0; i < modals.length; i++ ) {
+		modals[ i ].hidden = true;
+	}
+}
+
+/* ── Confirm modal ─────────────────────────────────────────────────────
+ *
+ * `data-bn-confirm="<message>"` on any button opens a v2 modal dialog
+ * with the supplied message. If the user confirms, the original click
+ * is re-dispatched on the same element with an acknowledged flag so
+ * the underlying click pipeline (forms, wp Interactivity actions,
+ * native links) runs unchanged.
+ * ──────────────────────────────────────────────────────────────────── */
+
+var BN_CONFIRM_FLAG = 'data-bn-confirm-acknowledged';
+var bnConfirmBackdrop = null;
+var bnConfirmRefs = null;
+
+function buildConfirmModal() {
+	var backdrop = document.createElement( 'div' );
+	backdrop.className = 'bn-modal-backdrop';
+	backdrop.setAttribute( 'role', 'dialog' );
+	backdrop.setAttribute( 'aria-modal', 'true' );
+	backdrop.setAttribute( 'data-bn-confirm-modal', '' );
+	backdrop.hidden = true;
+
+	var panel = document.createElement( 'div' );
+	panel.className = 'bn-modal__panel';
+	panel.setAttribute( 'data-tone', 'danger' );
+	panel.setAttribute( 'data-size', 'sm' );
+
+	var head = document.createElement( 'header' );
+	head.className = 'bn-modal__head';
+	var title = document.createElement( 'h2' );
+	title.className = 'bn-modal__title';
+	var closeBtn = document.createElement( 'button' );
+	closeBtn.type = 'button';
+	closeBtn.className = 'bn-modal__close';
+	closeBtn.setAttribute( 'data-bn-confirm-cancel', '' );
+	closeBtn.setAttribute( 'aria-label', 'Close' );
+	closeBtn.textContent = '×';
+	head.appendChild( title );
+	head.appendChild( closeBtn );
+
+	var body = document.createElement( 'div' );
+	body.className = 'bn-modal__body';
+	var message = document.createElement( 'p' );
+	body.appendChild( message );
+
+	var foot = document.createElement( 'div' );
+	foot.className = 'bn-modal__foot';
+	var cancelBtn = document.createElement( 'button' );
+	cancelBtn.type = 'button';
+	cancelBtn.className = 'bn-btn';
+	cancelBtn.setAttribute( 'data-variant', 'ghost' );
+	cancelBtn.setAttribute( 'data-size', 'md' );
+	cancelBtn.setAttribute( 'data-bn-confirm-cancel', '' );
+	var okBtn = document.createElement( 'button' );
+	okBtn.type = 'button';
+	okBtn.className = 'bn-btn';
+	okBtn.setAttribute( 'data-variant', 'danger' );
+	okBtn.setAttribute( 'data-size', 'md' );
+	okBtn.setAttribute( 'data-bn-confirm-ok', '' );
+	foot.appendChild( cancelBtn );
+	foot.appendChild( okBtn );
+
+	panel.appendChild( head );
+	panel.appendChild( body );
+	panel.appendChild( foot );
+	backdrop.appendChild( panel );
+	document.body.appendChild( backdrop );
+
+	return {
+		backdrop: backdrop,
+		title:    title,
+		message:  message,
+		ok:       okBtn,
+		cancel:   cancelBtn,
+		close:    closeBtn,
+	};
+}
+
+function ensureConfirmModal() {
+	if ( bnConfirmRefs ) { return bnConfirmRefs; }
+	bnConfirmRefs    = buildConfirmModal();
+	bnConfirmBackdrop = bnConfirmRefs.backdrop;
+	return bnConfirmRefs;
+}
+
+function openConfirmModal( triggerEl ) {
+	var refs = ensureConfirmModal();
+	refs.title.textContent   = triggerEl.dataset.bnConfirmTitle || 'Please confirm';
+	refs.message.textContent = triggerEl.dataset.bnConfirm || '';
+	refs.ok.textContent      = triggerEl.dataset.bnConfirmOk || 'Confirm';
+	refs.cancel.textContent  = triggerEl.dataset.bnConfirmCancel || 'Cancel';
+
+	if ( ! triggerEl.id ) {
+		triggerEl.dataset.bnConfirmAutoId = 'bn-confirm-' + Math.random().toString( 36 ).slice( 2 );
+	}
+	refs.backdrop.dataset.bnConfirmTriggerId = triggerEl.id || triggerEl.dataset.bnConfirmAutoId;
+
+	refs.backdrop.hidden = false;
+	refs.ok.focus();
+}
+
+function closeConfirmModal() {
+	if ( bnConfirmBackdrop ) {
+		bnConfirmBackdrop.hidden = true;
+	}
+}
+
+function resumeConfirmedClick() {
+	if ( ! bnConfirmBackdrop ) { return; }
+	var triggerId = bnConfirmBackdrop.dataset.bnConfirmTriggerId;
+	closeConfirmModal();
+	if ( ! triggerId ) { return; }
+	var trigger = document.getElementById( triggerId ) ||
+		document.querySelector( '[data-bn-confirm-auto-id="' + triggerId + '"]' );
+	if ( ! trigger ) { return; }
+	trigger.setAttribute( BN_CONFIRM_FLAG, '1' );
+	trigger.click();
+	trigger.removeAttribute( BN_CONFIRM_FLAG );
+}
+
+document.addEventListener( 'click', function ( event ) {
+	// Confirm modal interactions take priority.
+	if ( event.target.closest( '[data-bn-confirm-ok]' ) ) {
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		resumeConfirmedClick();
+		return;
+	}
+	if ( event.target.closest( '[data-bn-confirm-cancel]' ) ) {
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		closeConfirmModal();
+		return;
+	}
+
+	// Gate — buttons with data-bn-confirm open a modal instead of running.
+	var confirmEl = event.target.closest( '[data-bn-confirm]' );
+	if ( confirmEl && ! confirmEl.hasAttribute( BN_CONFIRM_FLAG ) ) {
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		openConfirmModal( confirmEl );
+		return;
+	}
+
+	// Space-settings modal close — any element with data-bn-modal-close closes its modal.
+	var closeEl = event.target.closest( '[data-bn-modal-close]' );
+	if ( closeEl ) {
+		event.preventDefault();
+		closeAllSpaceModals();
+		return;
+	}
+
+	// Backdrop click — clicking the backdrop (but not its panel) closes.
+	var backdrop = event.target.closest( '.bn-modal-backdrop[data-bn-modal]' );
+	if ( backdrop && event.target === backdrop ) {
+		closeAllSpaceModals();
+		return;
+	}
+	var confirmBackdrop = event.target.closest( '.bn-modal-backdrop[data-bn-confirm-modal]' );
+	if ( confirmBackdrop && event.target === confirmBackdrop ) {
+		closeConfirmModal();
+	}
+}, true );
+
+document.addEventListener( 'keydown', function ( event ) {
+	if ( 'Escape' === event.key ) {
+		var openBackdrop = document.querySelector( '[data-bn-modal]:not([hidden])' );
+		if ( openBackdrop ) { closeAllSpaceModals(); }
+		if ( bnConfirmBackdrop && ! bnConfirmBackdrop.hidden ) { closeConfirmModal(); }
+	}
 } );
