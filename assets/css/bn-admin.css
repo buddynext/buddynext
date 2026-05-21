@@ -304,12 +304,20 @@
 	margin-bottom: 0;
 }
 
-.bn-field > label {
+.bn-field > label,
+.bn-field > .bn-field-label {
 	display: block;
 	font-weight: var(--bn-a-fw-semibold);
 	font-size: var(--bn-a-text-sm);
 	margin-bottom: var(--bn-a-s1);
 	color: var(--bn-a-text-1);
+}
+
+/* Icon slot inside a bn-btn (used by Settings → Registration → Manage invitations). */
+.bn-btn .bn-btn__icon {
+	width: 14px;
+	height: 14px;
+	margin-left: var(--bn-a-s1);
 }
 
 .bn-field-hint {
@@ -1023,6 +1031,79 @@ table.bn-table tr:hover td {
 	font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
 	font-size: var(--bn-a-text-xs);
 	color: var(--bn-a-text-3);
+}
+
+/* --------------------------------------------------------------------------
+   Settings — Integrations addon list (compact row variant)
+   Used by Settings.php → render_tab_integrations() to render the active /
+   inactive addon roster on the Integrations tab. The richer plugin cards
+   live in IntegrationHub; this list is a denser per-row summary suitable
+   for the Settings tab.
+   -------------------------------------------------------------------------- */
+
+.bn-addon-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s3);
+}
+
+.bn-addon-row {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-a-s3);
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	border-radius: var(--bn-a-r-md);
+	border: 1px solid var(--bn-a-border);
+	background: var(--bn-a-bg-subtle);
+}
+
+.bn-addon-row__status {
+	flex-shrink: 0;
+	margin-top: 2px;
+}
+
+.bn-addon-row__meta {
+	flex: 1;
+	min-width: 0;
+}
+
+.bn-addon-row__label {
+	display: block;
+	font-size: var(--bn-a-text-sm);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-text-1);
+}
+
+.bn-addon-row__desc {
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-2);
+	margin: var(--bn-a-s1) 0 0;
+	line-height: 1.5;
+}
+
+.bn-addon-row__action {
+	flex-shrink: 0;
+	align-self: center;
+	font-size: var(--bn-a-text-xs);
+	font-weight: var(--bn-a-fw-semibold);
+	color: var(--bn-a-brand);
+	text-decoration: none;
+	padding: var(--bn-a-s1) var(--bn-a-s2);
+	border-radius: var(--bn-a-r-sm);
+	min-height: 40px;
+	display: inline-flex;
+	align-items: center;
+}
+
+.bn-addon-row__action:hover,
+.bn-addon-row__action:focus {
+	color: var(--bn-a-brand-hover);
+	background: var(--bn-a-brand-light);
+}
+
+.bn-addon-row__action:focus-visible {
+	outline: 2px solid var(--bn-a-brand);
+	outline-offset: var(--bn-a-outline-offset);
 }
 
 /* --------------------------------------------------------------------------

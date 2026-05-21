@@ -358,11 +358,21 @@ class Settings extends AdminPageBase {
 		$invite_url = admin_url( 'admin.php?page=buddynext-members&tab=invites' );
 		?>
 		<div class="bn-field">
-			<label><?php esc_html_e( 'Invite management', 'buddynext' ); ?></label>
-			<a href="<?php echo esc_url( $invite_url ); ?>" class="button button-secondary">
-				<?php esc_html_e( 'Manage invitations →', 'buddynext' ); ?>
+			<span class="bn-field-label" id="bn-invite-mgmt-label">
+				<?php esc_html_e( 'Invite management', 'buddynext' ); ?>
+			</span>
+			<a href="<?php echo esc_url( $invite_url ); ?>"
+				class="bn-btn"
+				data-variant="secondary"
+				data-size="sm"
+				aria-describedby="bn-invite-mgmt-hint"
+				aria-labelledby="bn-invite-mgmt-label bn-invite-mgmt-action">
+				<span id="bn-invite-mgmt-action">
+					<?php esc_html_e( 'Manage invitations', 'buddynext' ); ?>
+				</span>
+				<?php buddynext_icon( 'external-link', 'bn-btn__icon' ); ?>
 			</a>
-			<span class="bn-field-hint">
+			<span class="bn-field-hint" id="bn-invite-mgmt-hint">
 				<?php esc_html_e( 'Create, resend, and revoke invitations. Active in Invite Only mode.', 'buddynext' ); ?>
 			</span>
 		</div>
@@ -827,22 +837,24 @@ class Settings extends AdminPageBase {
 
 		$this->open_section( __( 'Addon Status', 'buddynext' ) );
 		?>
-		<div style="display:flex;flex-direction:column;gap:12px;">
+		<div class="bn-addon-list">
 			<?php foreach ( $addons as $addon ) : ?>
-			<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:var(--r-md,8px);border:1px solid var(--border,#e8e8e5);background:var(--bg-subtle,#f8f8f7);">
-				<span style="flex-shrink:0;margin-top:2px;">
+			<div class="bn-addon-row" data-status="<?php echo $addon['active'] ? 'active' : 'inactive'; ?>">
+				<span class="bn-addon-row__status">
 					<?php if ( $addon['active'] ) : ?>
-						<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--green,#059669);background:var(--green-bg,#ecfdf5);border:1px solid var(--green,#059669);border-radius:var(--r-full,9999px);padding:2px 8px;"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
+						<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 					<?php else : ?>
-						<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--text-2,#787774);background:var(--bg-hover,#f1f1f0);border:1px solid var(--border,#e8e8e5);border-radius:var(--r-full,9999px);padding:2px 8px;"><?php esc_html_e( 'Inactive', 'buddynext' ); ?></span>
+						<span class="bn-badge"><?php esc_html_e( 'Inactive', 'buddynext' ); ?></span>
 					<?php endif; ?>
 				</span>
-				<div style="flex:1;">
-					<strong style="font-size:13px;color:var(--text-1,#37352f);"><?php echo esc_html( $addon['label'] ); ?></strong>
-					<p style="font-size:12px;color:var(--text-2,#787774);margin:2px 0 0;"><?php echo esc_html( $addon['desc'] ); ?></p>
+				<div class="bn-addon-row__meta">
+					<strong class="bn-addon-row__label"><?php echo esc_html( $addon['label'] ); ?></strong>
+					<p class="bn-addon-row__desc"><?php echo esc_html( $addon['desc'] ); ?></p>
 				</div>
 				<?php if ( ! $addon['active'] ) : ?>
-				<a href="<?php echo esc_url( $addon['url'] ); ?>" style="flex-shrink:0;font-size:12px;color:var(--brand,#0073aa);"><?php esc_html_e( 'Install', 'buddynext' ); ?></a>
+				<a href="<?php echo esc_url( $addon['url'] ); ?>" class="bn-addon-row__action">
+					<?php esc_html_e( 'Install', 'buddynext' ); ?>
+				</a>
 				<?php endif; ?>
 			</div>
 			<?php endforeach; ?>
