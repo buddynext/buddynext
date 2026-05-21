@@ -39,12 +39,44 @@ class Members extends AdminPageBase {
 		add_action( 'admin_post_bn_unsuspend_member', array( $this, 'handle_unsuspend' ) );
 		add_action( 'admin_post_bn_save_member_profile', array( $this, 'handle_save_member_profile' ) );
 		add_action( 'wp_login', array( $this, 'handle_last_login' ), 10, 2 );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
 		( new \BuddyNext\Admin\Members\ProfileFieldsManager() )->register();
 		( new \BuddyNext\Admin\Members\MemberExport() )->register();
 		( new \BuddyNext\Admin\Members\AvatarSettings() )->register();
 		( new \BuddyNext\Admin\Members\MemberTypesManager() )->register();
 		( new \BuddyNext\Admin\Members\InviteManager() )->register();
+	}
+
+	/**
+	 * Enqueue the Members admin JS bundle on the Members page only.
+	 *
+	 * @param string $hook_suffix Current admin page hook suffix.
+	 * @return void
+	 */
+	public function enqueue_assets( string $hook_suffix ): void {
+		if ( false === strpos( $hook_suffix, 'buddynext-members' ) ) {
+			return;
+		}
+
+		$plugin_url = defined( 'BUDDYNEXT_URL' ) ? BUDDYNEXT_URL : plugin_dir_url( dirname( __DIR__, 2 ) . '/buddynext.php' );
+		$version    = defined( 'BUDDYNEXT_VERSION' ) ? BUDDYNEXT_VERSION : '1.0.0';
+
+		wp_enqueue_script(
+			'bn-admin-members',
+			$plugin_url . 'assets/js/admin/members.js',
+			array(),
+			$version,
+			true
+		);
+
+		wp_localize_script(
+			'bn-admin-members',
+			'bnMembersI18n',
+			array(
+				'entry' => __( 'Entry', 'buddynext' ),
+			)
+		);
 	}
 
 	/**
@@ -762,211 +794,289 @@ class Members extends AdminPageBase {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Member unsuspended.', 'buddynext' ) . '</p></div>';
 		}
 
-		// Build filter link URLs.
-		$base         = admin_url( 'admin.php?page=buddynext-members' );
-		$s_all        = '' !== $search ? add_query_arg( 's', rawurlencode( $search ), $base ) : $base;
-		$s_active     = add_query_arg( 'status', 'active', $s_all );
-		$s_susp       = add_query_arg( 'status', 'suspended', $s_all );
-		$filter_links = array(
+		// Build filter link URLs for the v2 .bn-tabs strip.
+		$base    = admin_url( 'admin.php?page=buddynext-members' );
+		$s_all   = '' !== $search ? add_query_arg( 's', rawurlencode( $search ), $base ) : $base;
+		$s_role  = '' !== $role_filter ? add_query_arg( 'role', $role_filter, $s_all ) : $s_all;
+		$tab_links = array(
 			'all'       => array(
-				'url'   => $s_all,
+				'url'   => $s_role,
 				'label' => __( 'All', 'buddynext' ),
+				'count' => $this->get_member_count(),
 			),
 			'active'    => array(
-				'url'   => $s_active,
+				'url'   => add_query_arg( 'status', 'active', $s_role ),
 				'label' => __( 'Active', 'buddynext' ),
+				'count' => $active_count,
 			),
 			'suspended' => array(
-				'url'   => $s_susp,
+				'url'   => add_query_arg( 'status', 'suspended', $s_role ),
 				'label' => __( 'Suspended', 'buddynext' ),
+				'count' => $suspended_count,
 			),
 		);
 		?>
-		<div class="bn-stats-row">
-			<div class="bn-stat-card">
-				<div class="bn-stat-label"><?php esc_html_e( 'Total Members', 'buddynext' ); ?></div>
-				<div class="bn-stat-val"><?php echo esc_html( number_format_i18n( $this->get_member_count() ) ); ?></div>
+		<div class="bn-stat-grid">
+			<div class="bn-stat">
+				<div class="bn-stat__label"><?php esc_html_e( 'Total Members', 'buddynext' ); ?></div>
+				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $this->get_member_count() ) ); ?></div>
 			</div>
-			<div class="bn-stat-card">
-				<div class="bn-stat-label"><?php esc_html_e( 'Active', 'buddynext' ); ?></div>
-				<div class="bn-stat-val"><?php echo esc_html( number_format_i18n( $active_count ) ); ?></div>
+			<div class="bn-stat">
+				<div class="bn-stat__label"><?php esc_html_e( 'Active', 'buddynext' ); ?></div>
+				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $active_count ) ); ?></div>
 			</div>
-			<div class="bn-stat-card">
-				<div class="bn-stat-label"><?php esc_html_e( 'New This Week', 'buddynext' ); ?></div>
-				<div class="bn-stat-val"><?php echo esc_html( number_format_i18n( $this->get_new_this_week_count() ) ); ?></div>
+			<div class="bn-stat">
+				<div class="bn-stat__label"><?php esc_html_e( 'New This Week', 'buddynext' ); ?></div>
+				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $this->get_new_this_week_count() ) ); ?></div>
 			</div>
-			<div class="bn-stat-card">
-				<div class="bn-stat-label"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></div>
-				<div class="bn-stat-val bn-stat-danger"><?php echo esc_html( number_format_i18n( $suspended_count ) ); ?></div>
+			<div class="bn-stat">
+				<div class="bn-stat__label"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></div>
+				<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $suspended_count ) ); ?></div>
 			</div>
 		</div>
 
-		<div class="bn-action-row">
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+		<div class="bn-members-toolbar">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="bn_export_members">
-			<?php wp_nonce_field( 'bn_export_members' ); ?>
-				<button type="submit" class="bn-btn-secondary"><?php esc_html_e( 'Export CSV', 'buddynext' ); ?></button>
+				<?php wp_nonce_field( 'bn_export_members' ); ?>
+				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
+					<?php esc_html_e( 'Export CSV', 'buddynext' ); ?>
+				</button>
 			</form>
-			<div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-			<?php foreach ( $filter_links as $key => $link ) : ?>
-					<a href="<?php echo esc_url( $link['url'] ); ?>"
-						class="bn-filter-tab<?php echo $status === $key ? ' active' : ''; ?>">
-						<?php echo esc_html( $link['label'] ); ?>
-					</a>
-				<?php endforeach; ?>
-			</div>
+			<div class="bn-members-toolbar__spacer" aria-hidden="true"></div>
 		</div>
 
-		<div class="bn-data-table">
-			<div class="bn-filter-bar">
-				<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="bn-filter-form">
-					<input type="hidden" name="page" value="buddynext-members">
-				<?php if ( 'all' !== $status ) : ?>
-						<input type="hidden" name="status" value="<?php echo esc_attr( $status ); ?>">
-					<?php endif; ?>
-					<input type="search"
-							name="s"
-							class="bn-search-input"
-							placeholder="<?php esc_attr_e( 'Search by name, email or username...', 'buddynext' ); ?>"
-							value="<?php echo esc_attr( $search ); ?>">
-					<select name="role" class="bn-filter-select">
-						<option value=""><?php esc_html_e( 'All Roles', 'buddynext' ); ?></option>
-					<?php foreach ( wp_roles()->get_names() as $rk => $rl ) : ?>
-							<option value="<?php echo esc_attr( $rk ); ?>" <?php selected( $role_filter, $rk ); ?>>
-								<?php echo esc_html( translate_user_role( $rl ) ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-				<?php submit_button( __( 'Filter', 'buddynext' ), 'secondary', '', false, array( 'class' => 'bn-btn-secondary' ) ); ?>
-				</form>
-			</div>
+		<div class="bn-tabs bn-members-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Filter members by status', 'buddynext' ); ?>">
+			<?php foreach ( $tab_links as $key => $link ) : ?>
+				<a href="<?php echo esc_url( $link['url'] ); ?>"
+					class="bn-tab"
+					role="tab"
+					aria-selected="<?php echo $status === $key ? 'true' : 'false'; ?>">
+					<?php echo esc_html( $link['label'] ); ?>
+					<span class="bn-tab__count"><?php echo esc_html( number_format_i18n( $link['count'] ) ); ?></span>
+				</a>
+			<?php endforeach; ?>
+		</div>
 
-		<?php if ( empty( $members ) ) : ?>
-				<p style="padding:20px 18px;color:#6b7280;margin:0;"><?php esc_html_e( 'No members found.', 'buddynext' ); ?></p>
-			<?php else : ?>
-			<table class="bn-table">
-				<thead>
-					<tr>
-						<th><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
-						<th><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
-						<th><?php esc_html_e( 'Role', 'buddynext' ); ?></th>
-						<th><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
-						<th><?php esc_html_e( 'Joined', 'buddynext' ); ?></th>
-						<th><?php esc_html_e( 'Last Active', 'buddynext' ); ?></th>
-						<th><?php esc_html_e( 'Last Login', 'buddynext' ); ?></th>
-						<th><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-				<?php foreach ( $members as $member ) : ?>
-					<tr>
-						<td>
-							<div class="bn-member-cell">
-								<div class="bn-avatar-initials <?php echo esc_attr( MemberDisplay::get_avatar_color( $member['id'] ) ); ?>">
-									<?php echo esc_html( MemberDisplay::get_initials( $member['display'] ) ); ?>
-								</div>
-								<div class="bn-member-info">
-									<div class="bn-member-name"><?php echo esc_html( $member['display'] ); ?></div>
-									<div class="bn-member-username">@<?php echo esc_html( $member['login'] ); ?></div>
-								</div>
-							</div>
-						</td>
-						<td class="bn-col-email"><?php echo esc_html( $member['email'] ); ?></td>
-						<td><?php MemberDisplay::render_role_badge( $member['role'] ); ?></td>
-						<td>
-							<?php if ( $member['suspended'] ) : ?>
-								<span class="bn-badge bn-badge-suspended"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></span>
-							<?php else : ?>
-								<span class="bn-badge bn-badge-active"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
-							<?php endif; ?>
-						</td>
-						<td class="bn-col-muted"><?php echo esc_html( gmdate( 'M j, Y', strtotime( $member['registered'] ) ) ); ?></td>
-						<td class="bn-col-muted"><?php echo esc_html( $member['last_active'] > 0 ? MemberDisplay::human_time_diff_short( $member['last_active'] ) : "\xe2\x80\x94" ); ?></td>
-						<td class="bn-col-muted"><?php echo esc_html( $member['last_login'] > 0 ? MemberDisplay::human_time_diff_short( $member['last_login'] ) : __( 'Never', 'buddynext' ) ); ?></td>
-						<td>
-							<div class="bn-row-actions">
-								<?php
-								$edit_url = add_query_arg(
-									array(
-										'page'    => 'buddynext-members',
-										'view'    => 'edit-member',
-										'user_id' => absint( $member['id'] ),
-									),
-									admin_url( 'admin.php' )
-								);
-								?>
-								<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-action-link"><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
-								<div class="bn-more-menu" data-uid="<?php echo absint( $member['id'] ); ?>">
-									<button type="button" class="bn-more-btn" aria-label="<?php esc_attr_e( 'More actions', 'buddynext' ); ?>">&#x22EF;</button>
-									<div class="bn-more-dropdown">
-										<?php if ( $member['suspended'] ) : ?>
-											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-												<input type="hidden" name="action" value="bn_unsuspend_member">
-												<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">
-												<?php wp_nonce_field( 'bn_unsuspend_member' ); ?>
-												<button type="submit" class="bn-dropdown-item"><?php esc_html_e( 'Unsuspend', 'buddynext' ); ?></button>
-											</form>
-										<?php else : ?>
-											<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-												<input type="hidden" name="action" value="bn_suspend_member">
-												<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">
-												<?php wp_nonce_field( 'bn_suspend_member' ); ?>
-												<button type="submit" class="bn-dropdown-item bn-dropdown-danger"><?php esc_html_e( 'Suspend', 'buddynext' ); ?></button>
-											</form>
-										<?php endif; ?>
+		<div class="bn-table-wrap bn-members-table-wrap">
+			<form method="get"
+				action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>"
+				class="bn-members-filter"
+				role="search">
+				<input type="hidden" name="page" value="buddynext-members">
+				<?php if ( 'all' !== $status ) : ?>
+					<input type="hidden" name="status" value="<?php echo esc_attr( $status ); ?>">
+				<?php endif; ?>
+				<label for="bn-members-search" class="screen-reader-text"><?php esc_html_e( 'Search members', 'buddynext' ); ?></label>
+				<input type="search"
+					id="bn-members-search"
+					name="s"
+					class="bn-input"
+					placeholder="<?php esc_attr_e( 'Search by name, email or username...', 'buddynext' ); ?>"
+					value="<?php echo esc_attr( $search ); ?>">
+				<label for="bn-members-role" class="screen-reader-text"><?php esc_html_e( 'Filter by role', 'buddynext' ); ?></label>
+				<select id="bn-members-role" name="role" class="bn-select">
+					<option value=""><?php esc_html_e( 'All Roles', 'buddynext' ); ?></option>
+					<?php foreach ( wp_roles()->get_names() as $rk => $rl ) : ?>
+						<option value="<?php echo esc_attr( $rk ); ?>" <?php selected( $role_filter, $rk ); ?>>
+							<?php echo esc_html( translate_user_role( $rl ) ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
+					<?php esc_html_e( 'Filter', 'buddynext' ); ?>
+				</button>
+			</form>
+
+			<div class="bn-table-wrap__scroll">
+				<?php if ( empty( $members ) ) : ?>
+					<p class="bn-members-empty"><?php esc_html_e( 'No members found.', 'buddynext' ); ?></p>
+				<?php else : ?>
+					<table class="bn-table">
+						<thead>
+							<tr>
+								<th scope="col"><?php esc_html_e( 'Member', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Role', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Joined', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Last Active', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Last Login', 'buddynext' ); ?></th>
+								<th scope="col" data-align="end"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+						<?php foreach ( $members as $member ) : ?>
+							<tr>
+								<td>
+									<div class="bn-member-cell">
+										<div class="bn-avatar bn-avatar-initials <?php echo esc_attr( MemberDisplay::get_avatar_color( $member['id'] ) ); ?>" data-size="md" aria-hidden="true">
+											<?php echo esc_html( MemberDisplay::get_initials( $member['display'] ) ); ?>
+										</div>
+										<div class="bn-member-info">
+											<div class="bn-member-name"><?php echo esc_html( $member['display'] ); ?></div>
+											<div class="bn-member-username">@<?php echo esc_html( $member['login'] ); ?></div>
+										</div>
 									</div>
-								</div>
-							</div>
-						</td>
-					</tr>
-				<?php endforeach; ?>
-				</tbody>
-			</table>
-			<?php endif; ?>
+								</td>
+								<td class="bn-col-email"><?php echo esc_html( $member['email'] ); ?></td>
+								<td><?php MemberDisplay::render_role_badge( $member['role'] ); ?></td>
+								<td>
+									<?php if ( $member['suspended'] ) : ?>
+										<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></span>
+									<?php else : ?>
+										<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
+									<?php endif; ?>
+								</td>
+								<td class="bn-col-muted">
+									<time datetime="<?php echo esc_attr( gmdate( 'c', strtotime( $member['registered'] ) ) ); ?>">
+										<?php echo esc_html( gmdate( 'M j, Y', strtotime( $member['registered'] ) ) ); ?>
+									</time>
+								</td>
+								<td class="bn-col-muted">
+									<?php if ( $member['last_active'] > 0 ) : ?>
+										<time datetime="<?php echo esc_attr( gmdate( 'c', $member['last_active'] ) ); ?>">
+											<?php echo esc_html( MemberDisplay::human_time_diff_short( $member['last_active'] ) ); ?>
+										</time>
+									<?php else : ?>
+										<span aria-hidden="true">&mdash;</span>
+										<span class="screen-reader-text"><?php esc_html_e( 'Never', 'buddynext' ); ?></span>
+									<?php endif; ?>
+								</td>
+								<td class="bn-col-muted">
+									<?php if ( $member['last_login'] > 0 ) : ?>
+										<time datetime="<?php echo esc_attr( gmdate( 'c', $member['last_login'] ) ); ?>">
+											<?php echo esc_html( MemberDisplay::human_time_diff_short( $member['last_login'] ) ); ?>
+										</time>
+									<?php else : ?>
+										<?php esc_html_e( 'Never', 'buddynext' ); ?>
+									<?php endif; ?>
+								</td>
+								<td data-align="end">
+									<div class="bn-row-actions">
+										<?php
+										$edit_url = add_query_arg(
+											array(
+												'page'    => 'buddynext-members',
+												'view'    => 'edit-member',
+												'user_id' => absint( $member['id'] ),
+											),
+											admin_url( 'admin.php' )
+										);
+										?>
+										<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-btn" data-variant="ghost" data-size="sm">
+											<?php esc_html_e( 'Edit', 'buddynext' ); ?>
+										</a>
+										<div class="bn-more-menu" data-uid="<?php echo absint( $member['id'] ); ?>">
+											<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="<?php
+												/* translators: %s: member display name */
+												echo esc_attr( sprintf( __( 'More actions for %s', 'buddynext' ), $member['display'] ) );
+											?>">
+												<?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+											</button>
+											<div class="bn-more-dropdown" role="menu">
+												<?php if ( $member['suspended'] ) : ?>
+													<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+														<input type="hidden" name="action" value="bn_unsuspend_member">
+														<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">
+														<?php wp_nonce_field( 'bn_unsuspend_member' ); ?>
+														<button type="submit" class="bn-dropdown-item" role="menuitem">
+															<?php esc_html_e( 'Unsuspend', 'buddynext' ); ?>
+														</button>
+													</form>
+												<?php else : ?>
+													<form method="post"
+														action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+														data-bn-confirm="1"
+														data-bn-confirm-title="<?php esc_attr_e( 'Suspend this member?', 'buddynext' ); ?>"
+														data-bn-confirm-body="<?php
+															/* translators: %s: member display name */
+															echo esc_attr( sprintf( __( 'Suspend %s? They will lose posting access until the suspension is lifted.', 'buddynext' ), $member['display'] ) );
+														?>"
+														data-bn-confirm-label="<?php esc_attr_e( 'Suspend member', 'buddynext' ); ?>">
+														<input type="hidden" name="action" value="bn_suspend_member">
+														<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">
+														<?php wp_nonce_field( 'bn_suspend_member' ); ?>
+														<button type="submit" class="bn-dropdown-item bn-dropdown-danger" role="menuitem">
+															<?php esc_html_e( 'Suspend', 'buddynext' ); ?>
+														</button>
+													</form>
+												<?php endif; ?>
+											</div>
+										</div>
+									</div>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+						</tbody>
+					</table>
+				<?php endif; ?>
+			</div>
 
 			<?php if ( $pages > 1 ) : ?>
-			<div class="bn-pagination">
-				<?php for ( $i = 1; $i <= $pages; $i++ ) : ?>
-					<?php
-					$paged_url = add_query_arg(
-						array_filter(
-							array(
-								'page'   => 'buddynext-members',
-								'paged'  => $i > 1 ? $i : false,
-								's'      => '' !== $search ? $search : false,
-								'status' => 'all' !== $status ? $status : false,
-								'role'   => '' !== $role_filter ? $role_filter : false,
-							)
-						),
-						admin_url( 'admin.php' )
-					);
-					?>
-					<a href="<?php echo esc_url( $paged_url ); ?>"
-						class="bn-page-link<?php echo $i === $page ? ' current' : ''; ?>">
-						<?php echo esc_html( (string) $i ); ?>
-					</a>
-				<?php endfor; ?>
-			</div>
+				<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Members pagination', 'buddynext' ); ?>">
+					<?php for ( $i = 1; $i <= $pages; $i++ ) : ?>
+						<?php
+						$paged_url = add_query_arg(
+							array_filter(
+								array(
+									'page'   => 'buddynext-members',
+									'paged'  => $i > 1 ? $i : false,
+									's'      => '' !== $search ? $search : false,
+									'status' => 'all' !== $status ? $status : false,
+									'role'   => '' !== $role_filter ? $role_filter : false,
+								)
+							),
+							admin_url( 'admin.php' )
+						);
+						?>
+						<a href="<?php echo esc_url( $paged_url ); ?>"
+							class="bn-page-link<?php echo $i === $page ? ' current' : ''; ?>"
+							<?php echo $i === $page ? 'aria-current="page"' : ''; ?>>
+							<?php echo esc_html( (string) $i ); ?>
+						</a>
+					<?php endfor; ?>
+				</nav>
 			<?php endif; ?>
+		</div>
 
-		</div><!-- .bn-data-table -->
-		<script>
-		(function() {
-			document.querySelectorAll('.bn-more-btn').forEach(function(btn) {
-				btn.addEventListener('click', function(e) {
-					e.stopPropagation();
-					var menu = btn.closest('.bn-more-menu');
-					document.querySelectorAll('.bn-more-menu.open').forEach(function(m) {
-						if (m !== menu) m.classList.remove('open');
-					});
-					menu.classList.toggle('open');
-				});
-			});
-			document.addEventListener('click', function() {
-				document.querySelectorAll('.bn-more-menu.open').forEach(function(m) { m.classList.remove('open'); });
-			});
-		})();
-		</script>
+		<?php $this->render_confirm_modal(); ?>
+		<?php
+	}
+
+	/**
+	 * Render the shared destructive-confirm modal scaffold.
+	 *
+	 * The modal is hidden until activated by a form carrying data-bn-confirm="1".
+	 * JS in assets/js/admin/members.js wires open/close behaviour.
+	 *
+	 * @return void
+	 */
+	private function render_confirm_modal(): void {
+		?>
+		<div id="bn-members-confirm-modal" class="bn-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="bn-members-confirm-title" hidden>
+			<div class="bn-modal__panel" data-tone="danger" data-size="sm">
+				<div class="bn-modal__head">
+					<h2 id="bn-members-confirm-title" class="bn-modal__title" data-bn-confirm-title>
+						<?php esc_html_e( 'Confirm action', 'buddynext' ); ?>
+					</h2>
+					<button type="button" class="bn-modal__close" data-bn-confirm-cancel aria-label="<?php esc_attr_e( 'Close dialog', 'buddynext' ); ?>">
+						<?php echo \BuddyNext\Core\IconService::render( 'x' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</button>
+				</div>
+				<div class="bn-modal__body" data-bn-confirm-body>
+					<?php esc_html_e( 'Are you sure?', 'buddynext' ); ?>
+				</div>
+				<div class="bn-modal__foot">
+					<button type="button" class="bn-btn" data-variant="ghost" data-bn-confirm-cancel>
+						<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+					</button>
+					<button type="button" class="bn-btn" data-variant="danger" data-bn-confirm-accept>
+						<?php esc_html_e( 'Confirm', 'buddynext' ); ?>
+					</button>
+				</div>
+			</div>
+		</div>
 		<?php
 	}
 }

@@ -1866,3 +1866,495 @@ button.bn-btn-danger:hover {
 		min-height: 0;
 	}
 }
+/* ==========================================================================
+   5. MEMBERS ADMIN (Phase 4 — v2 primitive layer)
+   ========================================================================== */
+
+/* List page: action row + filter strip. */
+.bn-members-toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	flex-wrap: wrap;
+	margin-bottom: var(--bn-s4);
+}
+
+.bn-members-toolbar__spacer {
+	flex: 1;
+}
+
+.bn-members-tabs {
+	margin-bottom: var(--bn-s4);
+}
+
+/* Filter form inside the table wrap. */
+.bn-members-filter {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-bottom: 1px solid var(--bn-line-faint);
+	flex-wrap: wrap;
+}
+
+.bn-members-filter .bn-input {
+	flex: 1 1 240px;
+	min-width: 200px;
+}
+
+.bn-members-filter .bn-select {
+	min-width: 160px;
+}
+
+/* Empty-state message inside the table wrap. */
+.bn-members-empty {
+	padding: var(--bn-s5);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+	text-align: center;
+}
+
+/* Member identity cell — avatar + name + handle. */
+.bn-table .bn-member-cell {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+}
+
+.bn-table .bn-member-info {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.bn-table .bn-member-name {
+	font-weight: 600;
+	color: var(--bn-ink);
+	line-height: 1.3;
+}
+
+.bn-table .bn-member-username {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	font-family: var(--bn-font-mono);
+}
+
+/* Row action menu rebuilt around v2 vocabulary. */
+.bn-table .bn-row-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	justify-content: flex-end;
+}
+
+.bn-table .bn-more-menu {
+	position: relative;
+	display: inline-block;
+}
+
+.bn-table .bn-more-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: var(--bn-r-sm);
+	border: 1px solid transparent;
+	background: transparent;
+	color: var(--bn-ink-2);
+	cursor: pointer;
+	transition: background var(--bn-dur-fast) var(--bn-ease),
+				color var(--bn-dur-fast) var(--bn-ease),
+				border-color var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-table .bn-more-btn:hover {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+}
+
+.bn-table .bn-more-btn:focus-visible {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+}
+
+.bn-table .bn-more-dropdown {
+	position: absolute;
+	inset-inline-end: 0;
+	top: calc(100% + 4px);
+	min-width: 160px;
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	box-shadow: var(--bn-shadow-md);
+	padding: var(--bn-s1);
+	z-index: 20;
+	display: none;
+}
+
+.bn-table .bn-more-menu.open .bn-more-dropdown {
+	display: block;
+}
+
+.bn-table .bn-dropdown-item {
+	display: block;
+	width: 100%;
+	padding: var(--bn-s2) var(--bn-s3);
+	background: transparent;
+	border: none;
+	text-align: start;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	border-radius: var(--bn-r-sm);
+	cursor: pointer;
+}
+
+.bn-table .bn-dropdown-item:hover,
+.bn-table .bn-dropdown-item:focus-visible {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+	outline: none;
+}
+
+.bn-table .bn-dropdown-danger {
+	color: var(--bn-danger);
+}
+
+.bn-table .bn-dropdown-danger:hover,
+.bn-table .bn-dropdown-danger:focus-visible {
+	background: var(--bn-danger-bg);
+	color: var(--bn-danger);
+}
+
+/* Pagination — re-skinned around v2 primitives. */
+.bn-pagination {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s1);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-top: 1px solid var(--bn-line-faint);
+}
+
+.bn-pagination .bn-page-link {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 32px;
+	height: 32px;
+	padding: 0 var(--bn-s2);
+	border-radius: var(--bn-r-sm);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	text-decoration: none;
+	border: 1px solid transparent;
+}
+
+.bn-pagination .bn-page-link:hover:not(.current) {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+}
+
+.bn-pagination .bn-page-link.current {
+	background: var(--bn-accent-100);
+	color: var(--bn-accent-700);
+	border-color: var(--bn-accent-200, var(--bn-line));
+}
+
+.bn-pagination .bn-page-link:focus-visible {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+}
+
+/* ── Member edit form (Phase 4) ────────────────────────────────────── */
+
+.bn-edit-member-back {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-accent);
+	text-decoration: none;
+	margin-bottom: var(--bn-s3);
+	font-weight: 500;
+}
+
+.bn-edit-member-back:hover {
+	text-decoration: underline;
+}
+
+.bn-edit-member-back svg {
+	width: 14px;
+	height: 14px;
+}
+
+/* Member hero card. */
+.bn-member-hero {
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s4) var(--bn-s5);
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s4);
+	margin-bottom: var(--bn-s4);
+}
+
+.bn-member-hero .bn-avatar {
+	flex-shrink: 0;
+}
+
+.bn-member-hero-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.bn-hero-name {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-lg);
+	font-weight: 600;
+	color: var(--bn-ink);
+	margin-bottom: 4px;
+}
+
+.bn-hero-meta {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	flex-wrap: wrap;
+	margin-bottom: 4px;
+}
+
+.bn-hero-username {
+	color: var(--bn-ink-3);
+	font-family: var(--bn-font-mono);
+}
+
+.bn-hero-email {
+	color: var(--bn-ink-3);
+}
+
+.bn-hero-sep {
+	color: var(--bn-line-strong);
+}
+
+.bn-hero-stats {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	display: flex;
+	gap: var(--bn-s2);
+	flex-wrap: wrap;
+}
+
+.bn-member-hero-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	flex-shrink: 0;
+}
+
+/* Edit form tabs (uses v2 .bn-tabs / .bn-tab primitive). */
+.bn-members-edit-tabs {
+	margin-bottom: var(--bn-s4);
+}
+
+.bn-tab-panel {
+	display: none;
+}
+
+.bn-tab-panel.is-active {
+	display: block;
+}
+
+/* Avatar / cover preview helpers (extracted from inline styles). */
+.bn-avatar-preview {
+	width: 80px;
+	height: 80px;
+	border-radius: 50%;
+	object-fit: cover;
+	display: block;
+	margin-bottom: var(--bn-s2);
+}
+
+.bn-avatar-placeholder {
+	width: 80px;
+	height: 80px;
+	font-size: 28px;
+	margin-bottom: var(--bn-s2);
+}
+
+.bn-cover-preview {
+	max-height: 80px;
+	max-width: 300px;
+	border-radius: var(--bn-r-md);
+	object-fit: cover;
+	display: block;
+	margin-bottom: var(--bn-s2);
+}
+
+.bn-edit-file-input {
+	font-size: var(--bn-text-sm);
+}
+
+.bn-edit-hint {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin: var(--bn-s1) 0 0;
+}
+
+.bn-edit-remove-toggle {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-danger);
+	margin-bottom: var(--bn-s2);
+}
+
+.bn-edit-empty {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	margin: 0 0 var(--bn-s2);
+}
+
+.bn-radio-group,
+.bn-checkbox-group {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s3);
+}
+
+.bn-radio-group label,
+.bn-checkbox-group label {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+}
+
+.bn-toggle-inline {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+}
+
+/* Repeater entries. */
+.bn-repeater-entry {
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	padding: var(--bn-s3);
+	margin-bottom: var(--bn-s2);
+	background: var(--bn-sunken);
+}
+
+.bn-repeater-entry-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: var(--bn-text-xs);
+	font-weight: 700;
+	color: var(--bn-ink-3);
+	margin-bottom: var(--bn-s2);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.bn-repeater-remove {
+	background: none;
+	border: none;
+	color: var(--bn-ink-3);
+	cursor: pointer;
+	font-size: var(--bn-text-sm);
+	padding: 2px 6px;
+	line-height: 1;
+	border-radius: var(--bn-r-sm);
+	transition: color var(--bn-dur-fast) var(--bn-ease),
+				background var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-repeater-remove svg {
+	width: 14px;
+	height: 14px;
+}
+
+.bn-repeater-remove:hover {
+	color: var(--bn-danger);
+	background: var(--bn-danger-bg);
+}
+
+.bn-repeater-remove:focus-visible {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+}
+
+.bn-repeater-add {
+	margin-top: var(--bn-s1);
+	background: transparent;
+	border: 1px dashed var(--bn-line-strong);
+	border-radius: var(--bn-r-sm);
+	color: var(--bn-accent);
+	cursor: pointer;
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	padding: var(--bn-s2) var(--bn-s3);
+	width: 100%;
+	transition: background var(--bn-dur-fast) var(--bn-ease),
+				border-color var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-repeater-add:hover {
+	background: var(--bn-accent-100);
+	border-color: var(--bn-accent);
+}
+
+.bn-repeater-add:focus-visible {
+	outline: 2px solid var(--bn-ring);
+	outline-offset: 2px;
+}
+
+/* Make .bn-input / .bn-textarea / .bn-select usable inside admin forms. */
+.bn-admin-wrap .bn-input,
+.bn-admin-wrap .bn-textarea,
+.bn-admin-wrap .bn-select {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+	.bn-member-hero {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--bn-s3);
+	}
+
+	.bn-member-hero-actions {
+		width: 100%;
+		flex-wrap: wrap;
+	}
+
+	.bn-members-filter {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.bn-members-filter .bn-input,
+	.bn-members-filter .bn-select {
+		width: 100%;
+	}
+
+	.bn-members-toolbar__spacer {
+		display: none;
+	}
+}
+
+@media (max-width: 782px) {
+	/* Horizontal scroll on the data table to keep all columns reachable. */
+	.bn-members-table-wrap .bn-table-wrap__scroll {
+		overflow-x: auto;
+	}
+}
