@@ -1,184 +1,598 @@
 /*
- * BuddyNext — Gamification CSS
+ * BuddyNext — Gamification CSS (v2)
  *
- * Leaderboard table, badge grid, badge cards (earned/locked),
- * XP/level progress bar, level badge pill.
+ * Leaderboard surface (templates/gamification/leaderboard.php).
+ *
+ * Built on v2 primitives:
+ *   .bn-card[data-interactive]     — leaderboard rows
+ *   .bn-stat / .bn-stat-grid       — hero strip (rank, points, level)
+ *   .bn-progress[data-tone]        — level meter
+ *   .bn-tabs / .bn-tab             — period + category filters
+ *   .bn-badge[data-tone]           — rank pills + integration badge
+ *   .bn-avatar[data-size]          — member avatars
+ *   .bn-btn[data-variant][data-size] — follow CTA
+ *   .bn-tooltip-trigger / .bn-tooltip[data-pos] — badge ribbon hover
+ *
+ * Everything below is layout glue + leaderboard-specific compositions —
+ * no raw hex, no raw px outside the primitive token contract, no
+ * @media duplication of primitive behavior, theme-agnostic.
  */
 
-/* ── Leaderboard ────────────────────────────────────────────────────────── */
+/* ── Shell — sits inside .bn-hub-shell (bn-base.css owns the outer grid) ── */
 
-.bn-leaderboard {
-	max-width: 680px;
-	margin: 0 auto;
+.bn-lb-shell {
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-base);
+	color: var(--bn-ink);
 }
 
-.bn-leaderboard__list {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	overflow: hidden;
-}
+/* ── Notice (WBGamification not active) ─────────────────────────────────── */
 
-.bn-leaderboard-row {
-	display: flex;
-	align-items: center;
-	gap: var(--s3);
-	padding: var(--s3) var(--s4);
-	border-bottom: 1px solid var(--border-soft);
-	transition: background 0.1s;
-}
-
-.bn-leaderboard-row:last-child {
-	border-bottom: none;
-}
-
-.bn-leaderboard-row:hover {
-	background: var(--bg-hover);
-}
-
-.bn-leaderboard__rank {
-	width: 28px;
+.bn-lb-notice {
+	background: var(--bn-warn-bg);
+	border: 1px solid var(--bn-warn);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s6);
 	text-align: center;
-	font-size: var(--text-sm);
-	font-weight: var(--fw-bold);
-	color: var(--text-3);
-	flex-shrink: 0;
+	color: var(--bn-ink);
 }
 
-.bn-leaderboard__rank--1 { color: var(--amber-light); }
-.bn-leaderboard__rank--2 { color: var(--silver); }
-.bn-leaderboard__rank--3 { color: var(--bronze); }
+.bn-lb-notice__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	margin: 0 auto var(--bn-s3);
+	color: var(--bn-warn);
+}
 
-.bn-leaderboard__user {
-	flex: 1;
+.bn-lb-notice__icon svg {
+	width: 32px;
+	height: 32px;
+}
+
+.bn-lb-notice h2 {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-xl);
+	font-weight: var(--bn-fw-bold);
+	margin: 0 0 var(--bn-s2);
+	color: var(--bn-ink);
+}
+
+.bn-lb-notice p {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	line-height: 1.6;
+	margin: 0;
+}
+
+/* ── Page header ────────────────────────────────────────────────────────── */
+
+.bn-lb-header {
+	margin-bottom: var(--bn-s5);
+}
+
+.bn-lb-header__row {
 	display: flex;
 	align-items: center;
-	gap: var(--s3);
-	min-width: 0;
-	text-decoration: none;
+	gap: var(--bn-s3);
+	flex-wrap: wrap;
+	margin-bottom: var(--bn-s1);
 }
 
-.bn-leaderboard__name {
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	color: var(--text-1);
+.bn-lb-title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-2xl);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+	letter-spacing: -0.02em;
+	margin: 0;
+}
+
+.bn-lb-header__meta {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	flex-wrap: wrap;
+	margin-top: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+.bn-lb-header__meta time {
+	color: var(--bn-ink-3);
+}
+
+.bn-lb-subtitle {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	margin: 0;
+}
+
+/* ── Hero strip — your-rank / points / level ───────────────────────────── */
+
+.bn-lb-hero {
+	margin-bottom: var(--bn-s5);
+}
+
+.bn-lb-hero .bn-stat-grid {
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.bn-lb-stat__icon {
+	display: inline-flex;
+	align-items: center;
+	color: var(--bn-ink-3);
+}
+
+.bn-lb-stat__icon svg {
+	width: 16px;
+	height: 16px;
+}
+
+/* ── Level meter card ───────────────────────────────────────────────────── */
+
+.bn-lb-level {
+	margin-top: var(--bn-s4);
+	padding: var(--bn-s4);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+}
+
+.bn-lb-level__head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	margin-bottom: var(--bn-s2);
+}
+
+.bn-lb-level__label {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+
+.bn-lb-level__remaining {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+/* ── Filter strip — tabs + select ───────────────────────────────────────── */
+
+.bn-lb-filters {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: var(--bn-s4);
+	margin-bottom: var(--bn-s4);
+	flex-wrap: wrap;
+}
+
+.bn-lb-filters__tabs {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.bn-lb-filters__select {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex: 0 0 auto;
+}
+
+.bn-lb-filters__select-label {
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--bn-ink-3);
+}
+
+.bn-lb-period {
+	margin-bottom: var(--bn-s3);
+}
+
+/* ── Leaderboard list ───────────────────────────────────────────────────── */
+
+.bn-lb-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+	margin-bottom: var(--bn-s5);
+}
+
+.bn-lb-row {
+	display: grid;
+	grid-template-columns: 56px auto 1fr auto auto;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+}
+
+.bn-lb-row[data-self] {
+	background: var(--bn-accent-100);
+	border-color: var(--bn-accent-300);
+}
+
+.bn-lb-row__rank {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 44px;
+	min-height: 32px;
+	padding: 4px var(--bn-s2);
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-bold);
+	border-radius: var(--bn-r-full);
+}
+
+.bn-lb-row__rank[data-tone="warn"]  { background: var(--bn-warn-bg);  color: var(--bn-warn); }
+.bn-lb-row__rank[data-tone="info"]  { background: var(--bn-info-bg);  color: var(--bn-info); }
+.bn-lb-row__rank[data-tone="paid"]  { background: var(--bn-paid-bg);  color: var(--bn-paid); }
+.bn-lb-row__rank[data-tone="ink"]   { background: var(--bn-sunken);   color: var(--bn-ink-2); }
+
+.bn-lb-row__who {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-width: 0;
+}
+
+.bn-lb-row__id {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.bn-lb-row__name {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	max-width: 220px;
 }
 
-.bn-leaderboard__points {
-	font-size: var(--text-sm);
-	font-weight: var(--fw-bold);
-	color: var(--brand);
-	flex-shrink: 0;
+.bn-lb-row__handle {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 220px;
 }
 
-/* ── Badges grid ────────────────────────────────────────────────────────── */
-
-.bn-badges-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-	gap: var(--s4);
-}
-
-.bn-badge-item {
+.bn-lb-row__points {
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	gap: var(--s2);
-	padding: var(--s4) var(--s3);
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
+	align-items: flex-end;
+	gap: 2px;
+	font-variant-numeric: tabular-nums;
+}
+
+.bn-lb-row__points-val {
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-accent);
+	line-height: 1;
+}
+
+.bn-lb-row__points-unit {
+	font-size: var(--bn-text-2xs);
+	color: var(--bn-ink-3);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.bn-lb-row__delta {
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold);
+	min-width: 44px;
 	text-align: center;
-	transition: box-shadow 0.12s;
 }
 
-.bn-badge-item:hover {
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+.bn-lb-row__delta[data-trend="up"]   { color: var(--bn-success); }
+.bn-lb-row__delta[data-trend="down"] { color: var(--bn-danger); }
+.bn-lb-row__delta[data-trend="flat"] { color: var(--bn-ink-3); }
+
+.bn-lb-row__delta svg {
+	width: 14px;
+	height: 14px;
+	vertical-align: -2px;
 }
 
-.bn-badge-item--locked {
+.bn-lb-row__cta {
+	display: inline-flex;
+	gap: var(--bn-s2);
+}
+
+.bn-lb-row__self-pill {
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-bold);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--bn-accent-700);
+	background: var(--bn-accent-100);
+	padding: 2px var(--bn-s2);
+	border-radius: var(--bn-r-full);
+	border: 1px solid var(--bn-accent-300);
+}
+
+/* ── Badge ribbon — horizontal strip of earned-badge thumbnails ─────────── */
+
+.bn-lb-ribbon {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+	scrollbar-width: thin;
+	padding-bottom: 2px;
+	max-width: 240px;
+}
+
+.bn-lb-ribbon::-webkit-scrollbar {
+	height: 4px;
+}
+
+.bn-lb-ribbon::-webkit-scrollbar-thumb {
+	background: var(--bn-line);
+	border-radius: var(--bn-r-full);
+}
+
+.bn-lb-ribbon__item {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	flex-shrink: 0;
+	color: var(--bn-accent);
+}
+
+.bn-lb-ribbon__item svg,
+.bn-lb-ribbon__item img {
+	width: 14px;
+	height: 14px;
+	object-fit: contain;
+}
+
+.bn-lb-ribbon__more {
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-3);
+	padding: 0 var(--bn-s1);
+}
+
+/* ── Empty state ────────────────────────────────────────────────────────── */
+
+.bn-lb-empty {
+	padding: var(--bn-s8) var(--bn-s4);
+	text-align: center;
+	background: var(--bn-surface);
+	border: 1px dashed var(--bn-line);
+	border-radius: var(--bn-r-lg);
+}
+
+.bn-lb-empty__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	margin: 0 auto var(--bn-s3);
+	color: var(--bn-ink-3);
+}
+
+.bn-lb-empty__icon svg {
+	width: 28px;
+	height: 28px;
+}
+
+.bn-lb-empty__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	margin: 0 0 var(--bn-s2);
+}
+
+.bn-lb-empty__desc {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	margin: 0;
+}
+
+/* ── Sidebar widgets (uses .bn-widget defined in bn-feed.css) ───────────── */
+
+.bn-lb-badges-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: var(--bn-s2);
+	margin-bottom: var(--bn-s2);
+}
+
+.bn-lb-badge-cell {
+	aspect-ratio: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	gap: 2px;
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	padding: var(--bn-s1);
+	color: var(--bn-accent);
+	overflow: hidden;
+	transition: border-color var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-lb-badge-cell:hover {
+	border-color: var(--bn-line-strong);
+}
+
+.bn-lb-badge-cell--locked {
 	opacity: 0.45;
 	filter: grayscale(1);
 }
 
-.bn-badge-item__icon {
-	width: 48px;
-	height: 48px;
+.bn-lb-badge-cell img {
+	width: 28px;
+	height: 28px;
 	object-fit: contain;
 }
 
-.bn-badge-item__name {
-	font-size: var(--text-xs);
-	font-weight: var(--fw-semibold);
-	color: var(--text-1);
-	line-height: var(--leading-tight);
-}
-
-.bn-badge-item__desc {
-	font-size: var(--text-xs);
-	color: var(--text-3);
-	line-height: var(--leading-normal);
-}
-
-/* ── XP / level progress bar ────────────────────────────────────────────── */
-
-.bn-xp-bar {
-	background: var(--border);
-	border-radius: var(--r-full);
-	height: 8px;
+.bn-lb-badge-cell__name {
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+	line-height: 1.1;
+	text-align: center;
 	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
 }
 
-.bn-xp-bar__fill {
-	height: 100%;
-	background: linear-gradient(90deg, var(--brand), var(--brand-hover));
-	border-radius: var(--r-full);
-	transition: width 0.6s ease;
+.bn-lb-badge-hint {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
 }
 
-.bn-level-label {
+/* Points breakdown */
+
+.bn-lb-points-item {
 	display: flex;
-	justify-content: space-between;
-	font-size: var(--text-xs);
-	color: var(--text-3);
-	margin-bottom: var(--s1);
+	flex-direction: column;
+	gap: 4px;
+	margin-bottom: var(--bn-s3);
 }
 
-/* ── Level badge ────────────────────────────────────────────────────────── */
+.bn-lb-points-item:last-child {
+	margin-bottom: 0;
+}
 
-.bn-level-pill {
+.bn-lb-points-item__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+}
+
+.bn-lb-points-item__label {
 	display: inline-flex;
 	align-items: center;
-	gap: var(--s1);
-	padding: 2px var(--s2);
-	border-radius: var(--r-full);
-	background: var(--brand-light);
-	color: var(--brand);
-	font-size: var(--text-xs);
-	font-weight: var(--fw-bold);
+	gap: var(--bn-s1);
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink-2);
 }
 
-/* ── Dark mode ──────────────────────────────────────────────────────────── */
-
-[data-theme="dark"] .bn-badge-item:hover {
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+.bn-lb-points-item__label svg {
+	width: 14px;
+	height: 14px;
 }
 
-/* ── Mobile ─────────────────────────────────────────────────────────────── */
+.bn-lb-points-item__val {
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+	font-variant-numeric: tabular-nums;
+}
 
-@media (max-width: 640px) {
-	.bn-badges-grid {
-		grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+.bn-lb-points-total {
+	margin-top: var(--bn-s3);
+	padding-top: var(--bn-s3);
+	border-top: 1px solid var(--bn-line-faint);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+
+.bn-lb-points-total strong {
+	color: var(--bn-ink);
+}
+
+/* Milestone widget */
+
+.bn-lb-milestone__name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	margin-bottom: var(--bn-s1);
+}
+
+.bn-lb-milestone__desc {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	line-height: 1.5;
+	margin-bottom: var(--bn-s3);
+}
+
+.bn-lb-milestone__row {
+	display: flex;
+	justify-content: space-between;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin-top: var(--bn-s2);
+	font-variant-numeric: tabular-nums;
+}
+
+.bn-lb-milestone__hint {
+	margin-top: var(--bn-s3);
+	padding-top: var(--bn-s3);
+	border-top: 1px solid var(--bn-line-faint);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	line-height: 1.5;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+	.bn-lb-row {
+		grid-template-columns: 44px 1fr auto;
+		gap: var(--bn-s2);
 	}
 
-	.bn-leaderboard-row {
-		padding: var(--s3);
+	.bn-lb-row__who { grid-column: 2; }
+
+	.bn-lb-row__points {
+		grid-column: 3;
+		align-items: flex-end;
 	}
 
-	.bn-badge-item {
-		padding: var(--s3) var(--s2);
+	.bn-lb-row__delta,
+	.bn-lb-row__cta {
+		grid-column: 1 / -1;
+		justify-self: end;
+	}
+
+	.bn-lb-ribbon { max-width: 100%; }
+}
+
+@media (max-width: 480px) {
+	.bn-lb-row__name { max-width: 160px; }
+	.bn-lb-row__handle { max-width: 160px; }
+
+	.bn-lb-row__rank {
+		min-width: 40px;
+		font-size: var(--bn-text-base);
+	}
+
+	.bn-lb-badges-grid {
+		grid-template-columns: repeat(3, 1fr);
 	}
 }
