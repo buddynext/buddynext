@@ -6,7 +6,8 @@
 ┌──────────────────────────────────────────────────────────────────────┐
 │  LAYER 4  Composition (hub templates)                                │
 │   templates/{hub}/index.php  →  composes Layer 3 + Layer 2           │
-│   shell-owned chrome (Layer 0); inner template owns content only.    │
+│   theme owns get_header()/get_footer(); shell owns the .bn-app       │
+│   canvas; inner template owns content only.                          │
 └──────────────────────────────────────────────────────────────────────┘
                               ↑
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -41,6 +42,44 @@
 │   includes/Core/IconService.php  SVG icon rendering                  │
 └──────────────────────────────────────────────────────────────────────┘
 ```
+
+## Shell inside theme chrome
+
+Every BN-mapped slug (every hub: activity, members, spaces, messages, notifications, auth, onboarding, moderation) renders inside the active theme's chrome. There is no opt-out filter and no shell-takeover mode.
+
+The lifecycle of a hub request:
+
+1. `PageRouter::dispatch_hub_template()` runs on `template_redirect`.
+2. It enqueues the hub's assets, sets body classes, applies the `language_attributes` filter for v2 token attributes, and fires `buddynext_before_hub`.
+3. It calls **`get_header()`** — the host theme emits DOCTYPE, `<html>`, `<head>`, `wp_head()`, `<body>`, `wp_body_open()`, and the theme's site header / nav / branding.
+4. It loads `templates/shell/hub-shell.php`, which emits the `.bn-app` canvas (topbar + rail + main + optional right sidebar).
+5. It calls **`get_footer()`** — the host theme emits its site footer, `wp_footer()`, and `</body></html>`.
+6. It calls `exit` so WordPress never renders its own page content.
+
+The theme is mandatory: every plugin, widget, admin-bar item, and theme decoration that the rest of the site shows continues to show on BN hubs.
+
+### Why full-width via burst-out
+
+Most themes wrap content in a centred container with a `max-width` cap (1200px is common). To let `.bn-app` occupy the full viewport regardless, `bn-shell.css` bursts the canvas out using viewport units:
+
+```css
+.bn-app {
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    width: 100vw;
+    max-width: 100vw;
+    box-sizing: border-box;
+}
+```
+
+This works under any host theme because the technique depends only on viewport units, not on the parent's computed width. The topbar + sidebar columns + main column go edge-to-edge; the main column applies `padding-inline: var(--bn-s6)` for comfortable reading width on wide displays.
+
+### Why no opt-out
+
+A previous beta introduced a `buddynext_render_with_theme_chrome` filter so site owners could swap between "shell takes over the document" and "theme wraps the shell". Two render modes mean two shapes of test surface, two failure modes for every theme integration, and a recurring source of regressions ("works for me on takeover mode"). The takeover mode and its filter are removed; theme chrome is the only mode.
 
 ## Layer rules
 
@@ -124,7 +163,7 @@ Rules:
 ### Layer 4 — Composition
 
 Hub templates (`templates/{hub}/index.php` or `templates/{hub}/{view}.php`):
-- Do not render their own chrome. The shell provides topbar + rail + main + auto-detected right sidebar.
+- Do not render their own chrome. The active theme's `get_header()` / `get_footer()` wrap every hub; the shell provides topbar + rail + main + auto-detected right sidebar between them.
 - Compose Layer 3 partials + call Layer 2 services for data.
 - Register sidebar widgets via `add_action('buddynext_right_sidebar', ...)` — the shell auto-renders the column.
 - Fire `do_action('buddynext_{hub}_before|_after')` at top/bottom for extension.

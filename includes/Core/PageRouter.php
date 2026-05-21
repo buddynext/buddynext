@@ -212,37 +212,31 @@ class PageRouter {
 			exit;
 		}
 
-		// BuddyNext hub pages take over the entire document. The theme's
-		// header.php and footer.php are NOT loaded — instead we emit a
-		// complete HTML document ourselves with wp_head() + wp_footer()
-		// still firing (so the Interactivity API runtime, admin bar, every
-		// enqueued script, every plugin hook, all continue to work). This
-		// removes any theme-container constraint (.site-main, .container,
-		// max-width: 1200px) without resorting to burst-out CSS hacks —
-		// the BN canvas sits at body-level and is full-width by default
-		// under any host theme.
-		//
-		// To restore theme header/footer on a specific hub, hook
-		// `buddynext_render_with_theme_chrome` and return true.
-		$use_theme_chrome = (bool) apply_filters( 'buddynext_render_with_theme_chrome', false, $hub, $template );
+		// BuddyNext sits *inside* the active theme's chrome. The theme owns
+		// the document — DOCTYPE / <html> / <head> / wp_head() / <body> /
+		// wp_body_open() / wp_footer() / </html> all come from the theme via
+		// get_header() and get_footer(). BuddyNext only renders the .bn-app
+		// canvas in between. The canvas bursts to 100vw in CSS so it stays
+		// edge-to-edge regardless of whatever container the theme wraps
+		// content in. There is no opt-out filter; the host theme's header +
+		// footer always render on BN-mapped slugs.
+		$this->render_shell_with_theme_chrome( $hub, $template, $context );
+		exit;
+	}
 
-		if ( $use_theme_chrome ) {
-			get_header();
-			buddynext_get_template(
-				'shell/hub-shell.php',
-				array_merge(
-					$context,
-					array(
-						'inner_template' => $template,
-						'hub'            => $hub,
-						'context'        => $context,
-					)
-				)
-			);
-			get_footer();
-			exit;
-		}
-
+	/**
+	 * Render the .bn-app shell wrapped by the active theme's header + footer.
+	 *
+	 * Extracted from dispatch_hub_template() so unit tests can exercise the
+	 * render path without hitting the trailing exit. Production code always
+	 * reaches this through dispatch_hub_template(), which then exits.
+	 *
+	 * @param string               $hub      Active bn_hub query var.
+	 * @param string               $template Relative template path resolved for the hub.
+	 * @param array<string, mixed> $context  Template context built by build_hub_context().
+	 * @return void
+	 */
+	public function render_shell_with_theme_chrome( string $hub, string $template, array $context ): void {
 		$shell_context = array_merge(
 			$context,
 			array(
@@ -252,25 +246,9 @@ class PageRouter {
 			)
 		);
 
-		?><!DOCTYPE html>
-<html <?php language_attributes(); ?>>
-<head>
-<meta charset="<?php bloginfo( 'charset' ); ?>">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-		<?php wp_head(); ?>
-</head>
-<body <?php body_class(); ?>>
-		<?php
-		if ( function_exists( 'wp_body_open' ) ) {
-			wp_body_open();
-		}
+		get_header();
 		buddynext_get_template( 'shell/hub-shell.php', $shell_context );
-		wp_footer();
-		?>
-</body>
-</html>
-		<?php
-		exit;
+		get_footer();
 	}
 
 	/**

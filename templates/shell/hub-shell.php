@@ -1,13 +1,18 @@
 <?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
- * BuddyNext — Full-viewport hub shell.
+ * BuddyNext — Hub shell (inside theme chrome).
  *
- * Owns the entire document body on every BuddyNext-mapped slug:
- * topbar + left rail + main content + optional right sidebar. The
- * inner hub template renders inside the main column and may
- * register sidebar content by hooking the buddynext_right_sidebar
- * action — when anything is hooked, the shell auto-renders the
- * right column.
+ * Rendered between the active theme's get_header() and get_footer(). The
+ * shell emits the .bn-app canvas: topbar + left rail + main content +
+ * optional right sidebar. The inner hub template renders inside the main
+ * column and may register sidebar content by hooking the
+ * buddynext_right_sidebar action — when anything is hooked, the shell
+ * auto-renders the right column.
+ *
+ * No DOCTYPE / <html> / <head> / <body> emission lives here. The host
+ * theme owns the document; this template owns only the .bn-app subtree.
+ * The .bn-app element bursts to 100vw via bn-shell.css so it stays
+ * edge-to-edge regardless of the theme's content container.
  *
  * Context variables (supplied by PageRouter):
  *   $inner_template       string  Relative path of the hub template (e.g. 'feed/home.php').

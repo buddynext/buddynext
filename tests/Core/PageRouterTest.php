@@ -226,4 +226,113 @@ class PageRouterTest extends \WP_UnitTestCase {
 			'template_redirect action must be registered after init()'
 		);
 	}
+
+	// ── Shell rendering (inside theme chrome) ─────────────────────────────────
+
+	/**
+	 * Render method must not emit DOCTYPE / html / head / body — theme owns them.
+	 *
+	 * Stubs get_header() / get_footer() output via sentinel filters and
+	 * asserts the shell renders between them. dispatch_hub_template() wraps
+	 * this same render call with an exit, but exit is untestable in-process;
+	 * render_shell_with_theme_chrome() is the extracted-for-tests entry
+	 * point that exercises identical output.
+	 *
+	 * @return void
+	 */
+	public function test_shell_does_not_emit_doctype_and_wraps_in_theme_chrome(): void {
+		$emit_header = static function (): void {
+			echo '<!--BN_TEST_THEME_HEADER-->';
+		};
+		$emit_footer = static function (): void {
+			echo '<!--BN_TEST_THEME_FOOTER-->';
+		};
+		add_action( 'get_header', $emit_header );
+		add_action( 'get_footer', $emit_footer );
+
+		// Authenticate so the feed template does not redirect to /login.
+		$user_id = self::factory()->user->create();
+		wp_set_current_user( $user_id );
+
+		ob_start();
+		$this->router->render_shell_with_theme_chrome( 'feed', 'feed/home.php', array() );
+		$output = (string) ob_get_clean();
+
+		wp_set_current_user( 0 );
+
+		remove_action( 'get_header', $emit_header );
+		remove_action( 'get_footer', $emit_footer );
+
+		$this->assertStringNotContainsString(
+			'<!DOCTYPE',
+			$output,
+			'PageRouter must not emit its own DOCTYPE; the theme owns the document.'
+		);
+		$this->assertStringNotContainsString(
+			'<html ',
+			$output,
+			'PageRouter must not emit its own <html> tag.'
+		);
+		$this->assertStringNotContainsString(
+			'<head>',
+			$output,
+			'PageRouter must not emit its own <head>.'
+		);
+		$this->assertStringContainsString(
+			'<!--BN_TEST_THEME_HEADER-->',
+			$output,
+			'get_header() must run before the shell.'
+		);
+		$this->assertStringContainsString(
+			'<!--BN_TEST_THEME_FOOTER-->',
+			$output,
+			'get_footer() must run after the shell.'
+		);
+
+		// The shell's .bn-app marker should sit between the two sentinels.
+		$header_pos = strpos( $output, '<!--BN_TEST_THEME_HEADER-->' );
+		$footer_pos = strpos( $output, '<!--BN_TEST_THEME_FOOTER-->' );
+		$shell_pos  = strpos( $output, 'bn-app' );
+
+		$this->assertNotFalse( $header_pos );
+		$this->assertNotFalse( $footer_pos );
+		$this->assertNotFalse( $shell_pos, '.bn-app marker must be present in output.' );
+		$this->assertLessThan( $shell_pos, $header_pos, 'Theme header must precede the shell.' );
+		$this->assertLessThan( $footer_pos, $shell_pos, 'Shell must precede the theme footer.' );
+	}
+
+	/**
+	 * The legacy `buddynext_render_with_theme_chrome` filter has been
+	 * removed. Hooking it has no effect: the theme header/footer still
+	 * render and the shell still emits no DOCTYPE.
+	 *
+	 * @return void
+	 */
+	public function test_legacy_theme_chrome_filter_has_no_effect(): void {
+		add_filter( 'buddynext_render_with_theme_chrome', '__return_false' );
+		$emit_header = static function (): void {
+			echo '<!--BN_TEST_THEME_HEADER-->';
+		};
+		add_action( 'get_header', $emit_header );
+
+		// Authenticate so the feed template does not redirect to /login.
+		$user_id = self::factory()->user->create();
+		wp_set_current_user( $user_id );
+
+		ob_start();
+		$this->router->render_shell_with_theme_chrome( 'feed', 'feed/home.php', array() );
+		$output = (string) ob_get_clean();
+
+		wp_set_current_user( 0 );
+
+		remove_all_filters( 'buddynext_render_with_theme_chrome' );
+		remove_all_actions( 'get_header' );
+
+		$this->assertStringContainsString(
+			'<!--BN_TEST_THEME_HEADER-->',
+			$output,
+			'Theme header must still render — the legacy filter is a no-op.'
+		);
+		$this->assertStringNotContainsString( '<!DOCTYPE', $output );
+	}
 }

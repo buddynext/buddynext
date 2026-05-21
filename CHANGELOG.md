@@ -1,11 +1,17 @@
 # BuddyNext Changelog
 
+## Unreleased
+
+### Shell
+
+- **BREAKING (shell)** — Theme `get_header()` / `get_footer()` now render on every BN-mapped slug. The shell-takeover mode and `buddynext_render_with_theme_chrome` filter introduced in 0.3.0-beta1 are removed. `.bn-app` bursts to 100vw inside the theme so content stays edge-to-edge. The host theme always owns DOCTYPE / `<html>` / `<head>` / `wp_head()` / `<body>` / `wp_body_open()` / `wp_footer()` / `</html>`; BuddyNext only renders the `.bn-app` canvas between them.
+
 ## 0.3.0-beta1 — 2026-05-21
 
 ### Architecture (locked + extension-ready)
 
 - **5-layer modular architecture** documented in `docs/specs/MODULAR-ARCHITECTURE.md`. Core / Bridges / Features / UI / Composition. Every Layer 2 feature is a self-contained folder with the canonical 4-file shape: `Service.php` / `Controller.php` / `Listener.php` / `Cache.php`.
-- **Shell takeover** — PageRouter emits its own `<!DOCTYPE>` document on every BN-mapped slug. Theme `header.php` / `footer.php` not loaded; `wp_head()` + `wp_footer()` still fire so plugins keep working. `.bn-app` sits at body level (no burst-out hacks). Right sidebar auto-detected via `has_action('buddynext_right_sidebar')`. Filter `buddynext_render_with_theme_chrome` restores the legacy flow per hub if needed.
+- **Shell inside theme chrome** — PageRouter wraps every BN-mapped slug with the active theme's `get_header()` / `get_footer()`. The `.bn-app` canvas bursts to 100vw so content stays edge-to-edge regardless of the theme's content container. Right sidebar auto-detected via `has_action('buddynext_right_sidebar')`.
 - **FeatureRegistry + Settings → Features tab** — site owners pick which Layer 2 features are active. Three tiers: mandatory (always on), default-on (toggleable), opt-in (off until enabled). 19 features catalogued. Third-party plugins extend via `apply_filters('buddynext_features', $catalog)`.
 - **Plug-and-play model** — every feature opts in via `apply_filters('buddynext_feature_{slug}', true)`. `Container::has()` lets callers detect sibling features. Templates degrade gracefully when a feature is disabled.
 - **7 extension surfaces** documented: new Feature module / hooks + filters / container rebinding / template parts override / `buddynext_right_sidebar` action / hub `_before` / `_after` hooks / REST namespace separation.

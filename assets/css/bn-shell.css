@@ -2,14 +2,17 @@
  * BuddyNext — Hub Shell Stylesheet
  *
  * The shell renders between the host theme's get_header() / get_footer().
- * Its job is to escape any theme container (.site-main, .container,
- * max-width: 1200px) so the BuddyNext canvas occupies the full viewport
- * width, then re-establish a centred three-column grid for content.
+ * The active theme owns DOCTYPE / <html> / <head> / <body>; BuddyNext only
+ * owns the .bn-app subtree. To stay edge-to-edge regardless of whatever
+ * container the theme wraps content in (.site-main, .container,
+ * max-width: 1200px, etc.), .bn-app bursts out to 100vw using the classic
+ * left/right: 50% + margin: -50vw technique, then re-establishes a
+ * centred three-column grid for content.
  *
  * Layout:
- *   .bn-app                    — full-viewport burst-out wrapper
+ *   .bn-app                    — 100vw burst-out wrapper (escapes theme containers)
  *   .bn-app__topbar            — BN top bar inside the canvas
- *   .bn-app__shell             — centred three-column grid
+ *   .bn-app__shell             — three-column grid (rail / main / optional right)
  *   .bn-app__shell--with-sidebar — adds 320px right column
  *   .bn-app__rail              — left navigation column
  *   .bn-app__main              — primary content column
@@ -21,43 +24,37 @@
  * @package BuddyNext
  */
 
-/* ── Full-document takeover — BN owns the body ────────────────────────────
+/* ── Full-width burst-out — .bn-app escapes the theme container ────────────
  *
- * PageRouter::dispatch_hub_template() emits its own <html><head><body>
- * document on BN hub slugs (no theme header.php / footer.php). The
- * .bn-app wrapper sits at body level, so it is full-width by default —
- * no burst-out tricks, no theme-container fights.
+ * The theme's header + footer always render around BN hubs. Themes typically
+ * wrap content in a centred container (max-width: 1200px is common); the
+ * burst-out below pulls .bn-app out to the full viewport width without
+ * needing to know what wrapper the theme uses. left/right: 50% +
+ * margin-(left|right): -50vw is the well-known technique for this and
+ * works under any host theme because it relies on viewport units, not on
+ * the parent's computed width.
  *
- * Body reset: host themes still load their CSS via wp_head() (Astra,
- * BuddyX, Reign, TT3 etc. all enqueue stylesheets on standard hooks).
- * Their body-level rules (max-width, font-family, background, padding)
- * would otherwise leak in. The body.bn-page selector wins because the
- * class is added via body_class filter — same specificity as the
- * theme's own body.ast-* / body.buddyx-* selectors, but bn-shell.css
- * loads after the theme CSS so cascade wins. !important is used only
- * on the geometry properties (margin/padding/max-width) because some
- * themes use !important themselves.
+ * box-sizing keeps the 100vw width inclusive of borders/padding so themes
+ * with body { overflow: auto } never show a horizontal scrollbar from this
+ * pattern. Geometry is the only thing we touch — no body-level resets, the
+ * theme owns <html> + <body>.
  * ────────────────────────────────────────────────────────────────────── */
-html { margin: 0; padding: 0; }
-
-body.bn-page {
-	margin: 0 !important;
-	padding: 0 !important;
-	max-width: none !important;
-	background: var(--bn-canvas);
-	color: var(--bn-ink, inherit);
-	font-family: var(--bn-font-ui, sans-serif);
-	font-size: var(--bn-text-base, 15px);
-	line-height: 1.55;
-}
 
 .bn-app {
+	position: relative;
+	left: 50%;
+	right: 50%;
+	margin-left: -50vw;
+	margin-right: -50vw;
+	width: 100vw;
+	max-width: 100vw;
 	display: flex;
 	flex-direction: column;
 	min-height: 100vh;
 	min-height: 100dvh;
 	background: var(--bn-canvas);
 	color: var(--bn-ink, inherit);
+	box-sizing: border-box;
 }
 
 .bn-app *,
@@ -265,7 +262,8 @@ body.admin-bar .bn-app {
 
 .bn-app__main {
 	min-width: 0;
-	padding: var(--bn-s5, 20px);
+	padding-block: var(--bn-s5, 20px);
+	padding-inline: var(--bn-s6, 24px);
 }
 
 /* Main column flows at full available width. Hub templates own their
