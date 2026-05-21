@@ -202,6 +202,10 @@ class Plugin {
 			( new \BuddyNext\Sidebar\WidgetListener( $container->get( 'sidebar_cache' ) ) )->register();
 		}
 
+		// Feed cache — always bound (feed is mandatory). Listener busts
+		// the writer's first-page cache on post_created / post_deleted.
+		( new \BuddyNext\Feed\FeedListener( $container->get( 'feed_cache' ) ) )->register();
+
 		// Wire email dispatch to the notification created action.
 		( new EmailDispatchListener(
 			$container->get( 'email_sender' ),
@@ -599,7 +603,8 @@ class Plugin {
 		);
 		$container->bind( 'safeguard', fn() => new SafeguardService() );
 		$container->bind( 'post_service', fn() => new PostService() );
-		$container->bind( 'feed', fn( $c ) => new FeedService( $c->get( 'follows' ), $c->get( 'post_service' ) ) );
+		$container->bind( 'feed_cache', fn() => new \BuddyNext\Feed\FeedCache() );
+		$container->bind( 'feed', fn( $c ) => new FeedService( $c->get( 'follows' ), $c->get( 'post_service' ), $c->get( 'feed_cache' ) ) );
 		$container->bind( 'polls', fn() => new PollService() );
 		$container->bind( 'bookmarks', fn() => new BookmarkService() );
 		$container->bind( 'shares', fn() => new ShareService() );

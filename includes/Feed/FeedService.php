@@ -48,14 +48,28 @@ class FeedService {
 	private PostService $post_service;
 
 	/**
+	 * Optional cache layer for first-page reads.
+	 *
+	 * Per docs/specs/SCALE-CONTRACT.md the home feed page 1 is the
+	 * single highest-traffic query in the plugin. Cache wraps it via
+	 * FeedCache. Null when the feature is disabled — service falls
+	 * through to direct queries.
+	 *
+	 * @var FeedCache|null
+	 */
+	private ?FeedCache $cache;
+
+	/**
 	 * Inject dependencies.
 	 *
-	 * @param FollowService $follows      Follow service instance.
-	 * @param PostService   $post_service Post service instance.
+	 * @param FollowService  $follows      Follow service instance.
+	 * @param PostService    $post_service Post service instance.
+	 * @param FeedCache|null $cache        Optional cache layer.
 	 */
-	public function __construct( FollowService $follows, PostService $post_service ) {
+	public function __construct( FollowService $follows, PostService $post_service, ?FeedCache $cache = null ) {
 		$this->follows      = $follows;
 		$this->post_service = $post_service;
+		$this->cache        = $cache;
 	}
 
 	/**
@@ -89,6 +103,30 @@ class FeedService {
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
 	public function home_feed( int $user_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+		// Page-1 cache wrap. Only first-page reads are cached (cursor is null);
+		// subsequent pages bypass since the cursor encodes a unique position.
+		if ( null !== $this->cache && null === $cursor && $user_id > 0 ) {
+			$key   = $this->cache->home_page_1_key( $user_id, $per_page );
+			$cache = $this->cache;
+			return (array) $cache->get(
+				$key,
+				FeedCache::GROUP_USER,
+				FeedCache::TTL_HOME_PAGE_1,
+				fn() => $this->home_feed_uncached( $user_id, null, $per_page )
+			);
+		}
+		return $this->home_feed_uncached( $user_id, $cursor, $per_page );
+	}
+
+	/**
+	 * Uncached home feed query — internal callee of home_feed().
+	 *
+	 * @param int         $user_id  Viewing user ID.
+	 * @param string|null $cursor   Pagination cursor.
+	 * @param int         $per_page Page size.
+	 * @return array{items: array[], next_cursor: string|null}
+	 */
+	private function home_feed_uncached( int $user_id, ?string $cursor, int $per_page ): array {
 		global $wpdb;
 
 		$per_page       = min( $per_page, 50 );
