@@ -1,18 +1,24 @@
 <?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
- * BuddyNext — Legacy nav partial (backwards-compatibility shim).
+ * BuddyNext — Shared nav partial.
+ *
+ * Rendered by `templates/shell/hub-shell.php` on every BN hub so the
+ * mobile bottom-bar navigation appears uniformly without each hub
+ * template needing to remember to include it.
  *
  * Historically this partial rendered the sticky `.bn-subnav` global
  * navigation, plus inline `<style>` / `<script>` blocks for font-scale,
  * search overlay, hover card, and toast helpers. As of the hub-shell
- * takeover (see templates/shell/hub-shell.php) the rail + topbar live
- * inside `.bn-app` and the inline assets have moved to
- * assets/css/bn-shell.css + assets/js/shell/{font-scale,extras}.js.
+ * takeover (see templates/shell/hub-shell.php) the rail lives inside
+ * `.bn-app`, the inline assets have moved to assets/css/bn-shell.css +
+ * assets/js/shell/{font-scale,extras}.js, and the BN topbar was removed
+ * entirely (the active theme's `get_header()` is the top navigation).
  *
  * What this partial now renders:
  *   1. The Level-2 `.bn-context-nav` filtered bar (when items are present).
- *   2. The mobile bottom-bar `.bn-mobile-nav` (below 768px the rail hides
- *      and this bar takes over).
+ *   2. The mobile bottom-bar `.bn-mobile-nav` (below 640px the rail hides
+ *      and this 5-item Feed / Spaces / + / Alerts / Profile tab bar takes
+ *      over — see docs/v2 Plans/v2/mobile.html).
  *
  * Context variables (all optional — safe defaults apply):
  *   $bn_nav_active  string  Key of the active section: 'feed'|'explore'|

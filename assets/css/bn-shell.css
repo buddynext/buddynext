@@ -2,23 +2,26 @@
  * BuddyNext — Hub Shell Stylesheet
  *
  * The shell renders between the host theme's get_header() / get_footer().
- * The active theme owns DOCTYPE / <html> / <head> / <body>; BuddyNext only
- * owns the .bn-app subtree. To stay edge-to-edge regardless of whatever
- * container the theme wraps content in (.site-main, .container,
- * max-width: 1200px, etc.), .bn-app bursts out to 100vw using the classic
- * left/right: 50% + margin: -50vw technique, then re-establishes a
- * centred three-column grid for content.
+ * The active theme owns DOCTYPE / <html> / <head> / <body> AND the top
+ * navigation (the v2 wireframes always intended this — see chrome.js in
+ * docs/v2 Plans/v2/*.html, which maps to the host theme header in
+ * production). BuddyNext only owns the .bn-app subtree.
+ *
+ * To stay edge-to-edge regardless of whatever container the theme wraps
+ * content in (.site-main, .container, max-width: 1200px, etc.), .bn-app
+ * bursts out to 100vw using the classic left/right: 50% + margin: -50vw
+ * technique, then re-establishes a centred two- or three-column grid for
+ * content.
  *
  * Layout:
- *   .bn-app                    — 100vw burst-out wrapper (escapes theme containers)
- *   .bn-app__topbar            — BN top bar inside the canvas
- *   .bn-app__shell             — three-column grid (rail / main / optional right)
- *   .bn-app__shell--with-sidebar — adds 320px right column
- *   .bn-app__rail              — left navigation column
- *   .bn-app__main              — primary content column
- *   .bn-app__right             — optional right sidebar column
+ *   .bn-app                       — 100vw burst-out wrapper (escapes theme containers)
+ *   .bn-app__shell                — two-column grid (rail / main)
+ *   .bn-app__shell--with-sidebar  — three-column grid (rail / main / 320px right)
+ *   .bn-app__rail                 — left navigation column
+ *   .bn-app__main                 — primary content column
+ *   .bn-app__right                — optional right sidebar column
  *
- * Tokens consumed: --bn-canvas, --bn-surface, --bn-railw, --bn-topbar-h,
+ * Tokens consumed: --bn-canvas, --bn-surface, --bn-railw,
  *   --bn-content-wide, --bn-ink, --bn-ink-2, --bn-line, --bn-accent.
  *
  * @package BuddyNext
@@ -75,175 +78,7 @@ body.admin-bar .bn-app {
 	}
 }
 
-/* ── Top bar ─────────────────────────────────────────────────────────────── */
-.bn-app__topbar {
-	position: sticky;
-	top: 0;
-	z-index: 200;
-	height: var(--bn-topbar-h, 56px);
-	background: var(--bn-surface);
-	border-bottom: 1px solid var(--bn-line, #e8e8e5);
-	backdrop-filter: saturate(180%) blur(8px);
-	-webkit-backdrop-filter: saturate(180%) blur(8px);
-}
-
-.bn-app__topbar-inner {
-	max-width: var(--bn-content-wide, 1080px);
-	height: 100%;
-	margin: 0 auto;
-	padding: 0 var(--s4, 16px);
-	display: flex;
-	align-items: center;
-	gap: var(--s3, 12px);
-}
-
-.bn-app__brand {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--s2, 8px);
-	font-weight: 700;
-	font-size: 15px;
-	color: var(--bn-ink, inherit);
-	text-decoration: none;
-	flex-shrink: 0;
-}
-
-.bn-app__brand:hover {
-	color: var(--bn-accent, var(--brand));
-}
-
-.bn-app__brand-mark {
-	width: 28px;
-	height: 28px;
-	border-radius: 8px;
-	background: var(--bn-accent, var(--brand, #0073aa));
-	color: var(--text-on-brand, #fff);
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	font-weight: 800;
-	font-size: 13px;
-}
-
-.bn-app__search {
-	flex: 1;
-	max-width: 480px;
-	position: relative;
-}
-
-.bn-app__search-input {
-	width: 100%;
-	height: 36px;
-	padding: 0 var(--s3, 12px) 0 36px;
-	background: var(--bn-canvas);
-	border: 1px solid var(--bn-line, #e8e8e5);
-	border-radius: 8px;
-	font-size: 13px;
-	color: var(--bn-ink, inherit);
-	font-family: inherit;
-}
-
-.bn-app__search-input::placeholder {
-	color: var(--bn-ink-3, #999);
-}
-
-.bn-app__search-input:focus {
-	outline: 2px solid var(--bn-accent, var(--brand));
-	outline-offset: 1px;
-	border-color: transparent;
-}
-
-.bn-app__search-icon {
-	position: absolute;
-	top: 50%;
-	left: 12px;
-	transform: translateY(-50%);
-	width: 16px;
-	height: 16px;
-	color: var(--bn-ink-3, #999);
-	pointer-events: none;
-}
-
-.bn-app__topbar-spacer {
-	flex: 1;
-}
-
-.bn-app__topbar-actions {
-	display: flex;
-	align-items: center;
-	gap: var(--s2, 8px);
-	flex-shrink: 0;
-}
-
-.bn-app__icon-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 36px;
-	height: 36px;
-	min-width: 36px;
-	min-height: 36px;
-	border-radius: 8px;
-	border: none;
-	background: transparent;
-	color: var(--bn-ink-2, #555);
-	cursor: pointer;
-	position: relative;
-	font: inherit;
-	text-decoration: none;
-}
-
-.bn-app__icon-btn:hover {
-	background: var(--bn-canvas);
-	color: var(--bn-ink, #222);
-}
-
-.bn-app__icon-btn:focus-visible {
-	outline: 2px solid var(--bn-accent, var(--brand));
-	outline-offset: 1px;
-}
-
-.bn-app__icon-btn svg {
-	width: 18px;
-	height: 18px;
-	stroke: currentColor;
-}
-
-.bn-app__font-scale {
-	display: inline-flex;
-	align-items: center;
-	gap: 2px;
-	background: var(--bn-canvas);
-	border: 1px solid var(--bn-line, #e8e8e5);
-	border-radius: 8px;
-	padding: 2px;
-	height: 36px;
-}
-
-.bn-app__font-scale-btn {
-	border: none;
-	background: transparent;
-	border-radius: 6px;
-	padding: 0 8px;
-	height: 28px;
-	font-size: 11px;
-	font-weight: 600;
-	color: var(--bn-ink-2, #555);
-	cursor: pointer;
-	font-family: inherit;
-	min-width: 28px;
-}
-
-.bn-app__font-scale-btn:hover {
-	color: var(--bn-ink, #222);
-}
-
-.bn-app__font-scale-btn.is-active {
-	background: var(--bn-accent, var(--brand));
-	color: var(--text-on-brand, #fff);
-}
-
-/* ── Three-column shell — full-viewport, rail anchored to viewport edge ── */
+/* ── Two/three-column shell — full-viewport, rail anchored to viewport edge ── */
 .bn-app__shell {
 	display: grid;
 	grid-template-columns: var(--bn-railw, 260px) minmax(0, 1fr);
@@ -290,11 +125,25 @@ body.admin-bar .bn-app {
 	border-right: 1px solid var(--bn-line, #e8e8e5);
 	padding: var(--s5, 20px) var(--s2, 8px);
 	position: sticky;
-	top: var(--bn-topbar-h, 56px);
+	top: 0;
 	align-self: start;
-	height: calc(100vh - var(--bn-topbar-h, 56px));
+	height: 100vh;
+	height: 100dvh;
 	overflow-y: auto;
 	scrollbar-width: thin;
+}
+
+body.admin-bar .bn-app__rail {
+	top: 32px;
+	height: calc(100vh - 32px);
+	height: calc(100dvh - 32px);
+}
+@media screen and (max-width: 782px) {
+	body.admin-bar .bn-app__rail {
+		top: 46px;
+		height: calc(100vh - 46px);
+		height: calc(100dvh - 46px);
+	}
 }
 
 .bn-rail__group {
@@ -394,21 +243,6 @@ body.admin-bar .bn-app {
 	}
 	.bn-app__main {
 		padding-bottom: 88px; /* clear .bn-mobile-nav bottom bar */
-	}
-	.bn-app__search {
-		max-width: none;
-	}
-	.bn-app__font-scale {
-		display: none;
-	}
-}
-
-@media (max-width: 480px) {
-	.bn-app__topbar-inner {
-		padding: 0 var(--s2, 8px);
-	}
-	.bn-app__brand-text {
-		display: none;
 	}
 }
 

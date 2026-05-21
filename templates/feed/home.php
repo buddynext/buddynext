@@ -4,8 +4,8 @@
  *
  * Personalised activity feed for the logged-in user. Renders inside the
  * shell main column (`<main class="bn-app__main">` — see
- * templates/shell/hub-shell.php) — this inner template does NOT own the
- * topbar, the rail, or the 2-column page grid. Sidebar widgets are
+ * templates/shell/hub-shell.php) — this inner template does NOT own
+ * the rail or the 2-column page grid. Sidebar widgets are
  * registered on the `buddynext_right_sidebar` action; the shell auto
  * renders the right column whenever the action has callbacks.
  *

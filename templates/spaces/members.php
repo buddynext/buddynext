@@ -165,9 +165,6 @@ if ( ! function_exists( 'bn_space_role_meta' ) ) {
 	}
 }
 
-$bn_nav_active = 'spaces';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
-
 // Build filter base URL — preserves query args other than role/q/paged.
 $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged' ) );
 

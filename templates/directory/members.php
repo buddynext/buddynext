@@ -4,7 +4,7 @@
  *
  * Renders inside the shell main column (`<main class="bn-app__main">`,
  * see `templates/shell/hub-shell.php`). This inner template does NOT
- * own the topbar, the rail, the page chrome, or the 2-column grid —
+ * own the rail, the page chrome, or the 2-column grid —
  * the shell handles all of that. Sidebar widgets (online-now, role
  * counts) are registered on the `buddynext_right_sidebar` action; the
  * shell auto-renders the right column when callbacks are present.

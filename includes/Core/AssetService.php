@@ -170,7 +170,7 @@ class AssetService {
 			$v
 		);
 
-		// ── Hub shell styles (full-viewport canvas, topbar, rail) ──────────────
+		// ── Hub shell styles (full-viewport canvas, rail, optional right sidebar) ──
 		// Loaded on every BuddyNext hub by PageRouter::enqueue_hub_assets().
 		// Depends on bn-base for the token system.
 		wp_register_style(
@@ -181,10 +181,11 @@ class AssetService {
 		);
 
 		// ── Shell font-scale + theme bootstrap script ──────────────────────────
-		// Classic script (not a module) — must run before the rail/topbar
-		// render so saved preferences are applied without a flash. Loaded
-		// in the head and runs immediately; the DOMContentLoaded sync step
-		// inside the script handles button activation once rendered.
+		// Classic script (not a module) — must run before the rail renders
+		// so saved preferences are applied without a flash. Loaded in the
+		// head and runs immediately. Themes that ship font-scale / theme
+		// controls trigger updates via the data-bn-action attributes
+		// documented in the script header.
 		wp_register_script(
 			'bn-shell-font-scale',
 			$this->assets_url . 'js/shell/font-scale.js',
@@ -194,7 +195,7 @@ class AssetService {
 		);
 
 		// ── Shell extras (search overlay, notif dropdown, hover card, shortcuts) ─
-		// Loaded in the footer so it can hydrate UI that the topbar renders.
+		// Loaded in the footer so it can hydrate any shell-level UI surfaces.
 		// Data is localized by PageRouter::enqueue_hub_assets() into
 		// window.bnShellData before this script runs.
 		wp_register_script(

@@ -299,6 +299,47 @@ class PageRouterTest extends \WP_UnitTestCase {
 		$this->assertNotFalse( $shell_pos, '.bn-app marker must be present in output.' );
 		$this->assertLessThan( $shell_pos, $header_pos, 'Theme header must precede the shell.' );
 		$this->assertLessThan( $footer_pos, $shell_pos, 'Shell must precede the theme footer.' );
+
+		// The BN-owned topbar was removed: the active theme's get_header() is
+		// the only top navigation. The .bn-app subtree must contain no
+		// .bn-app__topbar element.
+		$this->assertStringNotContainsString(
+			'bn-app__topbar',
+			$output,
+			'The BN topbar has been removed; theme get_header() owns top navigation.'
+		);
+
+		// The shell's first structural child must be .bn-app__shell, and the
+		// .bn-app__rail must appear before .bn-app__main inside it.
+		$app_open_pos   = strpos( $output, '<div class="bn-app"' );
+		$shell_open_pos = strpos( $output, 'class="bn-app__shell', $app_open_pos );
+		$rail_open_pos  = strpos( $output, 'class="bn-app__rail', (int) $shell_open_pos );
+		$main_open_pos  = strpos( $output, 'class="bn-app__main', (int) $rail_open_pos );
+
+		$this->assertNotFalse( $app_open_pos, '.bn-app wrapper must be present.' );
+		$this->assertNotFalse( $shell_open_pos, '.bn-app__shell must follow .bn-app.' );
+		$this->assertNotFalse( $rail_open_pos, '.bn-app__rail must appear inside .bn-app__shell.' );
+		$this->assertNotFalse( $main_open_pos, '.bn-app__main must follow .bn-app__rail.' );
+
+		// Nothing other than whitespace and the single opening <div> of
+		// .bn-app__shell should appear between .bn-app's open tag and the
+		// shell's class — the shell is the direct first child of the canvas.
+		$app_open_tag_end      = (int) strpos( $output, '>', (int) $app_open_pos );
+		$between_app_and_shell = substr(
+			$output,
+			$app_open_tag_end + 1,
+			$shell_open_pos - ( $app_open_tag_end + 1 )
+		);
+		$this->assertStringNotContainsString(
+			'<header',
+			$between_app_and_shell,
+			'No <header> (topbar) may sit between .bn-app and .bn-app__shell.'
+		);
+		$this->assertStringNotContainsString(
+			'bn-app__topbar',
+			$between_app_and_shell,
+			'No .bn-app__topbar may sit between .bn-app and .bn-app__shell.'
+		);
 	}
 
 	/**

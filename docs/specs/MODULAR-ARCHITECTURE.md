@@ -47,12 +47,14 @@
 
 Every BN-mapped slug (every hub: activity, members, spaces, messages, notifications, auth, onboarding, moderation) renders inside the active theme's chrome. There is no opt-out filter and no shell-takeover mode.
 
+**The active theme's `get_header()` IS the topbar.** The v2 wireframes (`docs/v2 Plans/v2/home-feed.html`, `space-home.html`, etc.) prototype the top navigation via a `chrome.js` injection that maps directly to the host theme's header in production. BuddyNext does not render its own topbar inside `.bn-app`; the shell renders only rail + main + (optional right sidebar). On mobile (`<= 640px`) the `.bn-mobile-nav` bottom tab bar from `templates/partials/nav.php` becomes the primary navigation and is rendered by `hub-shell.php` on every hub.
+
 The lifecycle of a hub request:
 
 1. `PageRouter::dispatch_hub_template()` runs on `template_redirect`.
 2. It enqueues the hub's assets, sets body classes, applies the `language_attributes` filter for v2 token attributes, and fires `buddynext_before_hub`.
-3. It calls **`get_header()`** — the host theme emits DOCTYPE, `<html>`, `<head>`, `wp_head()`, `<body>`, `wp_body_open()`, and the theme's site header / nav / branding.
-4. It loads `templates/shell/hub-shell.php`, which emits the `.bn-app` canvas (topbar + rail + main + optional right sidebar).
+3. It calls **`get_header()`** — the host theme emits DOCTYPE, `<html>`, `<head>`, `wp_head()`, `<body>`, `wp_body_open()`, and the theme's site header / nav / branding. This header is the top navigation.
+4. It loads `templates/shell/hub-shell.php`, which emits the `.bn-app` canvas (rail + main + optional right sidebar + mobile bottom nav).
 5. It calls **`get_footer()`** — the host theme emits its site footer, `wp_footer()`, and `</body></html>`.
 6. It calls `exit` so WordPress never renders its own page content.
 
@@ -75,7 +77,7 @@ Most themes wrap content in a centred container with a `max-width` cap (1200px i
 }
 ```
 
-This works under any host theme because the technique depends only on viewport units, not on the parent's computed width. The topbar + sidebar columns + main column go edge-to-edge; the main column applies `padding-inline: var(--bn-s6)` for comfortable reading width on wide displays.
+This works under any host theme because the technique depends only on viewport units, not on the parent's computed width. The rail + sidebar columns + main column go edge-to-edge; the main column applies `padding-inline: var(--bn-s6)` for comfortable reading width on wide displays.
 
 ### Why no opt-out
 
@@ -163,7 +165,7 @@ Rules:
 ### Layer 4 — Composition
 
 Hub templates (`templates/{hub}/index.php` or `templates/{hub}/{view}.php`):
-- Do not render their own chrome. The active theme's `get_header()` / `get_footer()` wrap every hub; the shell provides topbar + rail + main + auto-detected right sidebar between them.
+- Do not render their own chrome. The active theme's `get_header()` / `get_footer()` wrap every hub (and `get_header()` IS the top navigation); the shell provides rail + main + auto-detected right sidebar + mobile bottom nav between them.
 - Compose Layer 3 partials + call Layer 2 services for data.
 - Register sidebar widgets via `add_action('buddynext_right_sidebar', ...)` — the shell auto-renders the column.
 - Fire `do_action('buddynext_{hub}_before|_after')` at top/bottom for extension.

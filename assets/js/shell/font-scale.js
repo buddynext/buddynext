@@ -2,9 +2,14 @@
  * BuddyNext — Shell font-scale + theme bootstrap.
  *
  * Reads saved preferences from localStorage and stamps the corresponding
- * data attributes on <html> before the rail/topbar render, then wires
- * delegated click handlers for the A / A+ / A++ font-scale buttons and
- * the light/dark theme toggle.
+ * data attributes on <html> before the rail renders so the v2 token
+ * system has the right scale/theme on first paint. The BN-owned topbar
+ * (which previously rendered the A / A+ / A++ buttons and the theme
+ * toggle) was removed when the active theme's get_header() became the
+ * canonical top navigation. The bootstrap remains because the data
+ * attributes still drive the token system; the UI for changing these
+ * preferences is expected to live in the theme's header / user menu and
+ * can dispatch via the documented data attributes below.
  *
  * Storage keys:
  *   bn_font_scale  '100' | '110' | '120'
@@ -13,6 +18,11 @@
  * Data attributes consumed by the v2 token system:
  *   data-bn-font-scale
  *   data-bn-theme
+ *
+ * Optional theme-provided UI hooks (still wired by the delegated click
+ * handler below — themes can drop these into their own header):
+ *   <button data-bn-action="set-font-scale" data-scale="110">A+</button>
+ *   <button data-bn-action="toggle-theme">…</button>
  *
  * @package BuddyNext
  */
@@ -41,16 +51,6 @@
 
 	function applyScale( s ) {
 		document.documentElement.setAttribute( 'data-bn-font-scale', s );
-		var btns = document.querySelectorAll( '.bn-app__font-scale-btn' );
-		Array.prototype.forEach.call( btns, function ( b ) {
-			if ( b.dataset.scale === s ) {
-				b.classList.add( 'is-active' );
-				b.setAttribute( 'aria-pressed', 'true' );
-			} else {
-				b.classList.remove( 'is-active' );
-				b.setAttribute( 'aria-pressed', 'false' );
-			}
-		} );
 	}
 
 	function readTheme() {
@@ -81,7 +81,7 @@
 
 	// Bootstrap: apply saved scale + theme before paint.
 	var initialScale = readScale();
-	document.documentElement.setAttribute( 'data-bn-font-scale', initialScale );
+	applyScale( initialScale );
 
 	var savedTheme = readTheme();
 	var prefersDark = false;
@@ -93,19 +93,14 @@
 	var effectiveTheme = savedTheme || ( prefersDark ? 'dark' : 'light' );
 	applyTheme( effectiveTheme );
 
-	// Sync button states once DOM is ready.
-	function onReady() {
-		applyScale( initialScale );
-	}
-	if ( 'loading' === document.readyState ) {
-		document.addEventListener( 'DOMContentLoaded', onReady );
-	} else {
-		onReady();
-	}
-
-	// Delegated click handler for font-scale + theme toggle.
+	// Delegated click handler — themes can ship their own font-scale / theme
+	// controls and trigger them via the documented data attributes.
 	document.addEventListener( 'click', function ( e ) {
-		var scaleBtn = e.target.closest && e.target.closest( '.bn-app__font-scale-btn' );
+		if ( ! e.target || ! e.target.closest ) {
+			return;
+		}
+
+		var scaleBtn = e.target.closest( '[data-bn-action="set-font-scale"]' );
 		if ( scaleBtn && scaleBtn.dataset.scale ) {
 			var s = scaleBtn.dataset.scale;
 			if ( SCALES.indexOf( s ) !== -1 ) {
@@ -115,7 +110,7 @@
 			return;
 		}
 
-		var themeBtn = e.target.closest && e.target.closest( '[data-bn-action="toggle-theme"]' );
+		var themeBtn = e.target.closest( '[data-bn-action="toggle-theme"]' );
 		if ( themeBtn ) {
 			var current = document.documentElement.getAttribute( 'data-bn-theme' ) || 'light';
 			var next = 'dark' === current ? 'light' : 'dark';

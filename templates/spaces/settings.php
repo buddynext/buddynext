@@ -287,9 +287,6 @@ $privacy       = $privacy_map[ $space->type ?? 'open' ] ?? $privacy_map['open'];
 $privacy_tone  = $privacy['tone'];
 $privacy_label = $privacy['label'];
 
-$bn_nav_active = 'spaces';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
-
 // Tabs definition.
 $nav_items = array(
 	'general'       => array(

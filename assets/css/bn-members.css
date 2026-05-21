@@ -1,7 +1,8 @@
 /* BuddyNext — Member Directory styles (v2 design system).
  *
- * The shell (templates/shell/hub-shell.php) owns the topbar, rail, main
- * column, and the optional right-sidebar column. The inner member-directory
+ * The shell (templates/shell/hub-shell.php) owns the rail, main column,
+ * and the optional right-sidebar column (the active theme's get_header()
+ * is the top navigation). The inner member-directory
  * template renders the section-head, filter-strip, card grid, and pagination
  * inside the shell main column — there is no page-frame, no 2-column grid,
  * no theme-aware wrapper in this stylesheet.

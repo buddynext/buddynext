@@ -3,9 +3,11 @@
  * BuddyNext — Hub shell left navigation rail.
  *
  * Renders the persistent vertical navigation column inside .bn-app__shell.
- * The mobile bottom-bar nav (.bn-mobile-nav) continues to live in
- * partials/nav.php and is unaffected by this partial — the rail hides
- * below 768px, the mobile nav takes over.
+ * The mobile bottom-bar nav (.bn-mobile-nav) lives in partials/nav.php
+ * and is rendered by hub-shell.php on every BN hub — at <= 768px the
+ * rail hides and the mobile bottom tab bar takes over (matching the
+ * Home / Spaces / + / Alerts / Profile pattern in
+ * docs/v2 Plans/v2/mobile.html).
  *
  * Context variables (all optional):
  *   $hub  string  Current hub slug (feed / people / spaces / messages / …).

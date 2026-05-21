@@ -137,7 +137,10 @@
 	--bn-dur-slow: 400ms;
 
 	/* Layout */
-	--bn-topbar-h:     56px;
+	/* --bn-topbar-h is 0 because the BN-owned topbar was removed; the active
+	 * theme's get_header() is now the only top navigation. The token remains
+	 * so existing calc() expressions in feature stylesheets keep working. */
+	--bn-topbar-h:     0px;
 	--bn-railw:        260px;
 	--bn-content-max:  720px;
 	--bn-content-wide: 1080px;
@@ -662,7 +665,7 @@
 .bn-mobile-nav {
 	display: none; /* Hidden on desktop */
 }
-@media (max-width: 640px) {
+@media (max-width: 768px) {
 	.bn-mobile-nav {
 		display: flex;
 		position: fixed;

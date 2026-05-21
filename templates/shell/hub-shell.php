@@ -3,11 +3,17 @@
  * BuddyNext — Hub shell (inside theme chrome).
  *
  * Rendered between the active theme's get_header() and get_footer(). The
- * shell emits the .bn-app canvas: topbar + left rail + main content +
- * optional right sidebar. The inner hub template renders inside the main
- * column and may register sidebar content by hooking the
+ * shell emits the .bn-app canvas: left rail + main content + optional
+ * right sidebar. The inner hub template renders inside the main column
+ * and may register sidebar content by hooking the
  * buddynext_right_sidebar action — when anything is hooked, the shell
  * auto-renders the right column.
+ *
+ * The active theme's get_header() IS the top navigation; BuddyNext no
+ * longer renders its own topbar inside .bn-app. On mobile (<= 640px) the
+ * .bn-mobile-nav bottom tab bar from templates/partials/nav.php is the
+ * primary navigation surface and is rendered here so it appears on every
+ * BN hub without each hub template needing to remember to include it.
  *
  * No DOCTYPE / <html> / <head> / <body> emission lives here. The host
  * theme owns the document; this template owns only the .bn-app subtree.
@@ -53,8 +59,6 @@ if ( $show_right_sidebar ) {
 ?>
 <div class="bn-app" id="bn-app" data-bn-hub="<?php echo esc_attr( $hub ); ?>">
 
-	<?php buddynext_get_template( 'shell/topbar.php', array( 'hub' => $hub ) ); ?>
-
 	<div class="<?php echo esc_attr( $bn_shell_classes ); ?>">
 
 		<?php buddynext_get_template( 'shell/rail.php', array( 'hub' => $hub ) ); ?>
@@ -71,4 +75,7 @@ if ( $show_right_sidebar ) {
 		<?php endif; ?>
 
 	</div>
+
+	<?php buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => '' ) ); ?>
+
 </div>

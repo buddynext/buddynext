@@ -4,8 +4,7 @@
  * Inner notifications template lives inside the shared hub-shell main column
  * (.bn-app__main); right-sidebar widgets are injected via the
  * buddynext_right_sidebar action. This stylesheet therefore owns ONLY the
- * notification list and sidecard widget chrome - never page-grid, topbar,
- * or rail.
+ * notification list and sidecard widget chrome - never page-grid or rail.
  *
  * Composes from the v2 primitive layer in bn-base.css:
  *   .bn-section-head        page header (title + Mark-all-read)

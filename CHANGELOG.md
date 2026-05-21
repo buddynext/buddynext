@@ -5,6 +5,7 @@
 ### Shell
 
 - **BREAKING (shell)** — Theme `get_header()` / `get_footer()` now render on every BN-mapped slug. The shell-takeover mode and `buddynext_render_with_theme_chrome` filter introduced in 0.3.0-beta1 are removed. `.bn-app` bursts to 100vw inside the theme so content stays edge-to-edge. The host theme always owns DOCTYPE / `<html>` / `<head>` / `wp_head()` / `<body>` / `wp_body_open()` / `wp_footer()` / `</html>`; BuddyNext only renders the `.bn-app` canvas between them.
+- Removed the BN topbar from the hub shell. The active theme's `get_header()` is now the only top navigation; the v2 wireframes always intended this (the `chrome.js` injection in `docs/v2 Plans/v2/*.html` maps to the host theme header in production). `templates/shell/topbar.php` is deleted, and the corresponding `.bn-app__topbar*`, `.bn-app__brand*`, `.bn-app__search*`, `.bn-app__font-scale*`, and `.bn-app__icon-btn` rules are removed from `assets/css/bn-shell.css`. `--bn-topbar-h` is set to `0` so existing `calc()` expressions in feature stylesheets keep working. The shell now renders only rail + main + (optional right sidebar) + mobile bottom nav. The mobile bottom tab bar (`.bn-mobile-nav` from `templates/partials/nav.php`, the 5-item Feed / Spaces / + / Alerts / Profile bar from `docs/v2 Plans/v2/mobile.html`) is rendered by `hub-shell.php` on every BN hub so per-hub templates no longer need to include it.
 
 ## 0.3.0-beta1 — 2026-05-21
 

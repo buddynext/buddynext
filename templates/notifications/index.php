@@ -3,7 +3,7 @@
  * Notifications - inner hub template (v2).
  *
  * Renders inside the shared hub-shell main column. This template does NOT own
- * topbar, rail, or page grid - those are produced by templates/shell/hub-shell.php.
+ * the rail or page grid - those are produced by templates/shell/hub-shell.php.
  * Sidebar widgets (quick filters, type breakdown, recent actors, preferences link)
  * are registered against the `buddynext_right_sidebar` action; the shell detects
  * the hook and auto-renders the right column.

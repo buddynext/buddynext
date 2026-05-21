@@ -677,8 +677,9 @@
 
 /* ── Main stack (replaces the legacy .bn-profile-wrap / .bn-profile-layout)
  *
- * The shell (`templates/shell/hub-shell.php`) owns the document chrome:
- * topbar, rail, main column, and the optional right column. This
+ * The shell (`templates/shell/hub-shell.php`) owns the rail, main column,
+ * and the optional right column (the active theme's get_header() is the
+ * top navigation). This
  * template renders inside `.bn-app__main`; sidebar widgets are hooked
  * into `buddynext_right_sidebar`. The stack just stacks the hero, tab
  * bar, and tab panels vertically with consistent gap.

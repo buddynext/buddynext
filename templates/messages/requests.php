@@ -121,10 +121,6 @@ $bn_relative_time = static function ( $timestamp ): string {
 	);
 };
 ?>
-<?php
-$bn_nav_active = 'messages';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
-?>
 <div
 	class="bn-message-requests"
 	data-wp-interactive="buddynext/messages"

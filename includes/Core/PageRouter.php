@@ -265,7 +265,8 @@ class PageRouter {
 		$assets = buddynext_service( 'assets' );
 
 		// Shell CSS + font-scale script — required on every BN hub so the
-		// .bn-app wrapper, topbar, and rail render correctly.
+		// .bn-app wrapper and rail render correctly. The active theme's
+		// get_header() is the only top navigation; BN no longer owns a topbar.
 		wp_enqueue_style( 'bn-shell' );
 		wp_enqueue_script( 'bn-shell-font-scale' );
 		wp_enqueue_script( 'bn-shell-extras' );

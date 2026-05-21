@@ -5,7 +5,7 @@
  * Renders the space hero (cover + identity + stats + actions) + tab nav
  * (Feed / Members / Media / About) + tab body, inside the shell main
  * column (`<main class="bn-app__main">` — see templates/shell/hub-shell.php).
- * This inner template does NOT own the topbar, the rail, or the
+ * This inner template does NOT own the rail or the
  * 2-column page grid. Sidebar widgets (about, members, top contributors)
  * are registered on the `buddynext_right_sidebar` action; the shell
  * auto-renders the right column when callbacks are present.
