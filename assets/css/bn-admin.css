@@ -4055,3 +4055,102 @@ button.bn-btn-danger:hover {
 		max-width: none;
 	}
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Features tab — Settings → Features
+ * Site-owner control catalogue driven by FeatureRegistry::by_group().
+ * ════════════════════════════════════════════════════════════════════════ */
+.bn-feature-group {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-md);
+	font-weight: 600;
+	color: var(--bn-ink);
+	margin: var(--bn-s5) 0 var(--bn-s3);
+	padding-bottom: var(--bn-s2);
+	border-bottom: 1px solid var(--bn-line-faint);
+}
+.bn-feature-group:first-of-type { margin-top: 0; }
+
+.bn-feature-grid {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+
+.bn-feature-row {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s4);
+	padding: var(--bn-s4);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	transition: border-color var(--bn-dur) var(--bn-ease);
+}
+.bn-feature-row:hover { border-color: var(--bn-line-strong); }
+.bn-feature-row[data-tier="mandatory"] { opacity: 0.85; }
+
+.bn-feature-row__copy { flex: 1; min-width: 0; }
+.bn-feature-row__head { display: flex; align-items: center; gap: var(--bn-s2); flex-wrap: wrap; }
+.bn-feature-row__label { font-weight: 600; color: var(--bn-ink); font-size: var(--bn-text-sm); }
+.bn-feature-row__desc { font-size: var(--bn-text-sm); color: var(--bn-ink-2); margin: 4px 0 0; line-height: 1.5; }
+.bn-feature-row__deps { font-size: var(--bn-text-xs); color: var(--bn-ink-3); font-family: var(--bn-font-mono); margin: 4px 0 0; }
+
+.bn-feature-row__toggle { flex-shrink: 0; padding-top: 2px; }
+.bn-feature-row__locked {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 22px;
+	color: var(--bn-ink-3);
+}
+.bn-feature-row__locked .bn-icon { width: 16px; height: 16px; }
+
+/* Toggle styled as a checkbox + visual track. The standard form post
+ * submits the checkbox state; the .bn-toggle sibling renders the visual. */
+.bn-toggle-label {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	cursor: pointer;
+	user-select: none;
+}
+.bn-toggle-label input[type="checkbox"] {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+	width: 40px;
+	height: 22px;
+}
+.bn-toggle--inline {
+	position: relative;
+	width: 40px;
+	height: 22px;
+	border-radius: 11px;
+	background: var(--bn-line-strong);
+	transition: background var(--bn-dur) var(--bn-ease);
+}
+.bn-toggle--inline::after {
+	content: '';
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--bn-surface);
+	box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+	transition: transform var(--bn-dur) var(--bn-ease);
+}
+.bn-toggle-label input[type="checkbox"]:checked + .bn-toggle--inline { background: var(--bn-accent); }
+.bn-toggle-label input[type="checkbox"]:checked + .bn-toggle--inline::after { transform: translateX(18px); }
+.bn-toggle-label input[type="checkbox"]:focus-visible + .bn-toggle--inline {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+	.bn-feature-row { flex-direction: column; }
+	.bn-feature-row__toggle { align-self: flex-end; }
+}

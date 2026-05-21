@@ -160,6 +160,49 @@ class Settings extends AdminPageBase {
 				)
 			);
 		}
+
+		// FeatureRegistry catalog persisted as a single map of slug=>bool.
+		// Mandatory features are filtered out by the registry; only
+		// default_on + opt_in feature states land in the option.
+		register_setting(
+			'buddynext',
+			'buddynext_features',
+			array(
+				'type'              => 'array',
+				'sanitize_callback' => array( $this, 'sanitize_features_option' ),
+				'default'           => array(),
+			)
+		);
+	}
+
+	/**
+	 * Sanitize callback for the buddynext_features option.
+	 *
+	 * Coerces the submitted POST array into a slug=>bool map and persists
+	 * via FeatureRegistry so the dependency + tier rules are applied.
+	 *
+	 * @param mixed $value Raw input.
+	 * @return array<string,bool>
+	 */
+	public function sanitize_features_option( $value ): array {
+		$cleaned = array();
+		if ( is_array( $value ) ) {
+			foreach ( $value as $slug => $on ) {
+				$slug             = sanitize_key( (string) $slug );
+				$cleaned[ $slug ] = ! empty( $on );
+			}
+		}
+		// Route through FeatureRegistry::persist() so tier rules apply.
+		if ( function_exists( 'buddynext_service' ) ) {
+			$container = \BuddyNext\Core\Container::instance();
+			if ( $container->has( 'features' ) ) {
+				$container->get( 'features' )->persist( $cleaned );
+				// Re-read after persist so the option reflects only
+				// non-mandatory slugs that survived the registry filter.
+				return (array) get_option( 'buddynext_features', array() );
+			}
+		}
+		return $cleaned;
 	}
 
 	// ── Static helper ─────────────────────────────────────────────────────────
@@ -207,6 +250,7 @@ class Settings extends AdminPageBase {
 
 		$tabs = array(
 			'general'       => __( 'General', 'buddynext' ),
+			'features'      => __( 'Features', 'buddynext' ),
 			'registration'  => __( 'Registration', 'buddynext' ),
 			'social'        => __( 'Social', 'buddynext' ),
 			'spaces'        => __( 'Spaces', 'buddynext' ),
@@ -311,6 +355,110 @@ class Settings extends AdminPageBase {
 			__( 'Guides new members through setting up their profile, following people, and joining spaces after first login.', 'buddynext' ),
 			(bool) get_option( 'buddynext_show_onboarding', true )
 		);
+
+		$this->close_section();
+	}
+
+	/**
+	 * Render the Features settings tab.
+	 *
+	 * Site-owner control over which Layer 2 features are active. Catalogue
+	 * comes from FeatureRegistry. Mandatory tier is rendered as disabled
+	 * (always-on, no toggle). Default-on + opt-in tier render as live
+	 * toggles backed by the buddynext_features option.
+	 *
+	 * @return void
+	 */
+	private function render_tab_features(): void {
+		$container = \BuddyNext\Core\Container::instance();
+		if ( ! $container->has( 'features' ) ) {
+			return;
+		}
+		$registry = $container->get( 'features' );
+		$state    = (array) get_option( 'buddynext_features', array() );
+		$groups   = $registry->by_group();
+
+		$group_labels = array(
+			'core'         => __( 'Core (always on)', 'buddynext' ),
+			'community'    => __( 'Community features', 'buddynext' ),
+			'bridges'      => __( 'Integration bridges', 'buddynext' ),
+			'integrations' => __( 'Power-user integrations', 'buddynext' ),
+		);
+
+		$this->open_section( __( 'Features', 'buddynext' ) );
+
+		echo '<p class="bn-field-hint" style="margin-top:0">' .
+			esc_html__( 'Pick which features your community uses. Core features always run. You can enable or disable everything else from this tab — changes apply immediately on save.', 'buddynext' ) .
+			'</p>';
+
+		foreach ( $groups as $group_key => $features ) {
+			$group_label = $group_labels[ $group_key ] ?? ucfirst( (string) $group_key );
+			echo '<h3 class="bn-feature-group">' . esc_html( $group_label ) . '</h3>';
+			echo '<div class="bn-feature-grid">';
+
+			foreach ( $features as $feature ) {
+				$slug        = (string) $feature['slug'];
+				$tier        = (string) $feature['tier'];
+				$is_mandatory = ( \BuddyNext\Core\FeatureRegistry::TIER_MANDATORY === $tier );
+				$current     = $registry->is_enabled( $slug );
+				$is_locked   = $is_mandatory;
+
+				$badge_label = $is_mandatory
+					? __( 'Always on', 'buddynext' )
+					: ( \BuddyNext\Core\FeatureRegistry::TIER_DEFAULT_ON === $tier
+						? __( 'Default on', 'buddynext' )
+						: __( 'Opt-in', 'buddynext' )
+					);
+				$badge_tone = $is_mandatory ? 'accent' : ( \BuddyNext\Core\FeatureRegistry::TIER_DEFAULT_ON === $tier ? 'success' : 'info' );
+
+				?>
+				<div class="bn-feature-row" data-tier="<?php echo esc_attr( $tier ); ?>">
+					<div class="bn-feature-row__copy">
+						<div class="bn-feature-row__head">
+							<span class="bn-feature-row__label"><?php echo esc_html( $feature['label'] ); ?></span>
+							<span class="bn-badge" data-tone="<?php echo esc_attr( $badge_tone ); ?>"><?php echo esc_html( $badge_label ); ?></span>
+						</div>
+						<p class="bn-feature-row__desc"><?php echo esc_html( $feature['description'] ); ?></p>
+						<?php if ( ! empty( $feature['depends_on'] ) ) : ?>
+							<p class="bn-feature-row__deps">
+								<?php
+								printf(
+									/* translators: %s: list of dependency slugs */
+									esc_html__( 'Requires: %s', 'buddynext' ),
+									esc_html( implode( ', ', $feature['depends_on'] ) )
+								);
+								?>
+							</p>
+						<?php endif; ?>
+					</div>
+					<div class="bn-feature-row__toggle">
+						<?php if ( $is_locked ) : ?>
+							<span class="bn-feature-row__locked" aria-label="<?php esc_attr_e( 'This feature is always on and cannot be disabled.', 'buddynext' ); ?>">
+								<?php buddynext_icon( 'lock' ); ?>
+							</span>
+						<?php else : ?>
+							<label class="bn-toggle-label">
+								<input
+									type="hidden"
+									name="buddynext_features[<?php echo esc_attr( $slug ); ?>]"
+									value="0">
+								<input
+									type="checkbox"
+									name="buddynext_features[<?php echo esc_attr( $slug ); ?>]"
+									value="1"
+									<?php checked( $current, true ); ?>
+									role="switch"
+									aria-label="<?php echo esc_attr( $feature['label'] ); ?>">
+								<span class="bn-toggle bn-toggle--inline"></span>
+							</label>
+						<?php endif; ?>
+					</div>
+				</div>
+				<?php
+			}
+
+			echo '</div>';
+		}
 
 		$this->close_section();
 	}
