@@ -102,120 +102,287 @@
 
 .bn-feed-main { min-width: 0; }
 
-/* ── Composer card ──────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════════════════
+ * v2 composer — matches docs/v2 Plans/v2/home-feed.html .composer
+ * Two states: collapsed (avatar + prompt + 3 action chips) and
+ * expanded (full textarea + tools row + footer with Post button).
+ * Responsive: desktop full padding, mobile compact + wrap tools.
+ * ════════════════════════════════════════════════════════════════════════ */
+
 .bn-composer {
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-border);
-	border-radius: var(--bn-r-xl);
-	padding: var(--bn-s4);
-	margin-bottom: var(--bn-s3);
-	box-shadow: var(--bn-shadow-sm);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	padding: var(--bn-s4) var(--bn-s5);
+	box-shadow: var(--bn-shadow-xs);
+	margin-bottom: var(--bn-s4);
 }
 
-.bn-composer-row {
+/* ── Collapsed state ─────────────────────────────────────────────────── */
+.bn-composer__top {
 	display: flex;
+	align-items: center;
 	gap: var(--bn-s3);
+}
+
+.bn-composer__avatar {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	display: inline-flex;
 	align-items: center;
+	justify-content: center;
+	font-weight: 600;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-accent-fg);
+	background: var(--bn-accent);
+	flex-shrink: 0;
+	overflow: hidden;
 }
-
-.bn-composer-input {
-	flex: 1;
-	background: var(--bn-bg-subtle);
-	border: 1.5px solid var(--bn-border);
-	border-radius: var(--bn-r-full);
-	padding: var(--bn-s2) var(--bn-s4);
-	font-size: var(--bn-text-base);
-	color: var(--bn-text-3);
-	cursor: text;
-	font-family: var(--bn-font-body);
-	transition: border-color var(--bn-transition), box-shadow var(--bn-transition);
-	min-height: 40px;
-	display: flex;
-	align-items: center;
-}
-
-.bn-composer-input:focus-within {
-	outline: none;
-	border-color: var(--bn-brand);
-	box-shadow: 0 0 0 3px var(--bn-brand-light);
-}
-
-.bn-composer-textarea {
+.bn-composer__avatar img {
 	width: 100%;
-	border: none;
-	background: transparent;
-	font-size: var(--bn-text-base);
-	color: var(--bn-text-1);
-	font-family: var(--bn-font-body);
-	resize: none;
-	outline: none;
-	min-height: 60px;
-	line-height: var(--leading-body);
+	height: 100%;
+	object-fit: cover;
+	display: block;
 }
 
-.bn-composer-textarea::placeholder { color: var(--bn-text-3); }
-
-.bn-composer-toolbar {
+.bn-composer__input {
+	flex: 1;
+	min-height: 40px;
+	padding: 0 var(--bn-s4);
 	display: flex;
-	gap: var(--bn-s1);
 	align-items: center;
+	background: var(--bn-sunken);
+	border: 1px solid transparent;
+	border-radius: var(--bn-r-full);
+	font-size: var(--bn-text-base);
+	color: var(--bn-ink-3);
+	cursor: text;
+	transition: border-color var(--bn-dur) var(--bn-ease),
+				background var(--bn-dur) var(--bn-ease);
+}
+.bn-composer__input:hover {
+	background: color-mix(in oklch, var(--bn-sunken) 60%, var(--bn-surface));
+	border-color: var(--bn-line-strong);
+}
+.bn-composer__input:focus-visible {
+	outline: none;
+	border-color: var(--bn-accent);
+	box-shadow: var(--bn-ring);
+	color: var(--bn-ink);
+}
+
+.bn-composer__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
 	margin-top: var(--bn-s3);
 	padding-top: var(--bn-s3);
-	border-top: 1px solid var(--bn-border-soft);
-	flex-wrap: wrap;
+	border-top: 1px solid var(--bn-line-faint);
 }
 
-.bn-composer-toolbar-btn {
-	display: flex;
+.bn-composer__action-btn {
+	display: inline-flex;
 	align-items: center;
-	gap: 5px;
-	padding: var(--bn-s1) var(--bn-s2);
-	border-radius: var(--bn-r-sm);
-	font-size: var(--bn-text-sm);
-	color: var(--bn-text-2);
-	cursor: pointer;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
 	background: transparent;
 	border: none;
-	font-family: var(--bn-font-body);
-	transition: background var(--bn-transition), color var(--bn-transition);
-}
-
-.bn-composer-toolbar-btn:hover {
-	background: var(--bn-bg-hover);
-	color: var(--bn-text-1);
-}
-
-.bn-composer-toolbar-btn:focus-visible {
-	outline: 2px solid var(--bn-brand);
-	outline-offset: 2px;
-}
-
-.bn-composer-submit {
-	margin-left: auto;
-	background: var(--bn-brand);
-	color: var(--text-on-brand);
-	border: none;
-	border-radius: var(--bn-r-full);
-	padding: 7px var(--bn-s4);
+	border-radius: var(--bn-r-md);
+	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-sm);
-	font-weight: var(--fw-semibold);
+	font-weight: 550;
+	color: var(--bn-ink-2);
 	cursor: pointer;
-	font-family: var(--bn-font-body);
-	transition: background var(--bn-transition);
+	transition: background var(--bn-dur-fast) var(--bn-ease),
+				color var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-composer__action-btn:hover {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+}
+.bn-composer__action-btn:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
 }
 
-.bn-composer-submit:hover { background: var(--bn-brand-hover); }
-.bn-composer-submit:focus-visible { outline: 2px solid var(--bn-brand); outline-offset: 2px; }
-.bn-composer-submit[disabled] { opacity: 0.5; cursor: not-allowed; }
-
-/* Privacy + post type selectors */
-.bn-composer-meta {
-	display: flex;
-	gap: var(--bn-s2);
+.bn-composer__action-icon {
+	display: inline-flex;
 	align-items: center;
-	flex-wrap: wrap;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	color: var(--bn-ink-3);
+}
+.bn-composer__action-btn:hover .bn-composer__action-icon { color: var(--bn-accent); }
+
+/* ── Expanded state ──────────────────────────────────────────────────── */
+.bn-composer__expanded { display: block; }
+
+.bn-composer__body {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+}
+
+.bn-composer__textarea {
+	width: 100%;
+	min-height: 120px;
+	padding: var(--bn-s2) 0;
+	border: none;
+	background: transparent;
+	resize: vertical;
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-base);
+	line-height: 1.55;
+	color: var(--bn-ink);
+}
+.bn-composer__textarea:focus-visible { outline: none; }
+.bn-composer__textarea::placeholder { color: var(--bn-ink-3); }
+
+.bn-composer__media-preview {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+	gap: var(--bn-s2);
 	margin-top: var(--bn-s2);
 }
+.bn-composer__media-thumb {
+	position: relative;
+	aspect-ratio: 1 / 1;
+	border-radius: var(--bn-r-md);
+	overflow: hidden;
+	background: var(--bn-sunken);
+}
+.bn-composer__media-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bn-composer__media-remove {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	width: 22px;
+	height: 22px;
+	border: none;
+	background: color-mix(in oklch, var(--bn-ink) 80%, transparent);
+	color: var(--bn-surface);
+	border-radius: 50%;
+	cursor: pointer;
+	font-size: 14px;
+	line-height: 1;
+}
+
+.bn-composer__poll-options {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+	margin-top: var(--bn-s2);
+}
+.bn-composer__poll-question {
+	font-size: var(--bn-text-sm);
+	font-weight: 550;
+	color: var(--bn-ink-2);
+	margin: 0;
+}
+.bn-composer__poll-option {
+	width: 100%;
+	height: 36px;
+	padding: 0 var(--bn-s3);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+}
+.bn-composer__poll-option:focus-visible {
+	outline: none;
+	border-color: var(--bn-accent);
+	box-shadow: var(--bn-ring);
+}
+
+.bn-composer__footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	margin-top: var(--bn-s3);
+	padding-top: var(--bn-s3);
+	border-top: 1px solid var(--bn-line-faint);
+}
+.bn-composer__footer-actions { display: flex; gap: var(--bn-s1); }
+
+.bn-composer__footer-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	width: 36px;
+	height: 36px;
+	border: none;
+	background: transparent;
+	border-radius: var(--bn-r-md);
+	color: var(--bn-ink-3);
+	cursor: pointer;
+	transition: background var(--bn-dur-fast) var(--bn-ease),
+				color var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-composer__footer-btn:hover { background: var(--bn-sunken); color: var(--bn-accent); }
+.bn-composer__footer-btn:focus-visible { outline: none; box-shadow: var(--bn-ring); }
+.bn-composer__footer-btn .bn-icon { width: 18px; height: 18px; }
+
+.bn-composer__schedule-label { position: relative; cursor: pointer; }
+
+.bn-composer__footer-right {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
+.bn-composer__privacy-select {
+	height: 36px;
+	padding: 0 var(--bn-s5) 0 var(--bn-s3);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+}
+
+.bn-composer__submit {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 36px;
+	padding: 0 var(--bn-s5);
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	border: none;
+	border-radius: var(--bn-r-md);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-sm);
+	font-weight: 550;
+	cursor: pointer;
+	transition: background var(--bn-dur) var(--bn-ease),
+				transform var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-composer__submit:hover { background: var(--bn-accent-700); }
+.bn-composer__submit:active { transform: scale(0.98); }
+.bn-composer__submit:focus-visible { outline: none; box-shadow: var(--bn-ring); }
+.bn-composer__submit[disabled] { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Mobile (≤ 640px) ────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+	.bn-composer { padding: var(--bn-s3) var(--bn-s4); }
+	.bn-composer__avatar { width: 36px; height: 36px; }
+	.bn-composer__actions { gap: 0; }
+	.bn-composer__action-btn { padding: var(--bn-s2); flex: 1; justify-content: center; }
+	.bn-composer__action-btn span:not(.bn-composer__action-icon) { display: none; }
+	.bn-composer__footer { flex-direction: column; align-items: stretch; gap: var(--bn-s2); }
+	.bn-composer__footer-right { justify-content: space-between; }
+	.bn-composer__submit { width: 100%; }
+}
+
+/* Legacy alias for tests / older callsites (no-op visual). */
+.bn-composer-row { display: contents; }
 
 .bn-composer-select {
 	background: var(--bn-bg-subtle);
