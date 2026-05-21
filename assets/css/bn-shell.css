@@ -21,25 +21,50 @@
  * @package BuddyNext
  */
 
-/* ── Burst-out wrapper — escape any theme container ───────────────────────── */
-.bn-app {
-	width: 100vw;
-	max-width: 100vw;
-	position: relative;
-	left: 50%;
-	right: 50%;
-	margin-left: -50vw;
-	margin-right: -50vw;
+/* ── Full-document takeover — BN owns the body ────────────────────────────
+ *
+ * PageRouter::dispatch_hub_template() emits its own <html><head><body>
+ * document on BN hub slugs (no theme header.php / footer.php). The
+ * .bn-app wrapper sits at body level, so it is full-width by default —
+ * no burst-out tricks, no theme-container fights, no per-theme overrides.
+ *
+ * Body styling: reset margins + neutralise any host-theme global rules
+ * that might leak via wp_head() (theme.json globals, font-size on html,
+ * etc.). Then .bn-app fills the viewport.
+ * ────────────────────────────────────────────────────────────────────── */
+html, body {
+	margin: 0;
+	padding: 0;
 	background: var(--bn-canvas);
 	color: var(--bn-ink, inherit);
-	min-height: calc(100vh - var(--bn-topbar-h, 56px));
-	box-sizing: border-box;
+	font-family: var(--bn-font-ui, sans-serif);
+}
+
+.bn-app {
+	display: flex;
+	flex-direction: column;
+	min-height: 100vh;
+	min-height: 100dvh;
+	background: var(--bn-canvas);
+	color: var(--bn-ink, inherit);
 }
 
 .bn-app *,
 .bn-app *::before,
 .bn-app *::after {
 	box-sizing: border-box;
+}
+
+/* Honour the WP admin bar when present (logged-in user). */
+body.admin-bar .bn-app {
+	min-height: calc(100vh - 32px);
+	min-height: calc(100dvh - 32px);
+}
+@media screen and (max-width: 782px) {
+	body.admin-bar .bn-app {
+		min-height: calc(100vh - 46px);
+		min-height: calc(100dvh - 46px);
+	}
 }
 
 /* ── Top bar ─────────────────────────────────────────────────────────────── */
@@ -210,15 +235,17 @@
 	color: var(--text-on-brand, #fff);
 }
 
-/* ── Three-column shell ──────────────────────────────────────────────────── */
+/* ── Three-column shell — full-viewport, rail anchored to viewport edge ── */
 .bn-app__shell {
 	display: grid;
-	grid-template-columns: var(--bn-railw, 260px) 1fr;
+	grid-template-columns: var(--bn-railw, 260px) minmax(0, 1fr);
 	gap: 0;
-	max-width: var(--bn-content-wide, 1080px);
-	margin: 0 auto;
+	width: 100%;
+	max-width: none;
+	margin: 0;
 	padding: 0;
-	min-height: calc(100vh - var(--bn-topbar-h, 56px));
+	flex: 1 1 auto;
+	min-height: 0;
 }
 
 .bn-app__shell--with-sidebar {
@@ -227,12 +254,31 @@
 
 .bn-app__main {
 	min-width: 0;
-	padding: var(--s5, 20px) var(--s4, 16px);
+	padding: var(--bn-s6, 24px) var(--bn-s5, 20px);
+}
+
+/* Main column gets an inner content max-width for readability. Hub
+ * templates that want to render edge-to-edge can opt out with
+ * data-bn-main-edge="true" on .bn-app__main, set via context. */
+.bn-app__main > * {
+	max-width: var(--bn-content-max, 720px);
+	margin-inline: auto;
+}
+
+.bn-app__main[data-bn-main-edge="true"] > * {
+	max-width: none;
+}
+
+/* When the right sidebar is present, the main column reads wider since
+ * the sidebar takes the wide-content overflow. */
+.bn-app__shell--with-sidebar .bn-app__main > * {
+	max-width: none;
 }
 
 .bn-app__right {
-	padding: var(--s5, 20px) var(--s4, 16px);
-	border-left: 1px solid var(--bn-line, #e8e8e5);
+	padding: var(--bn-s6, 24px) var(--bn-s4, 16px);
+	border-inline-start: 1px solid var(--bn-line, #e8e8e5);
+	background: var(--bn-canvas);
 }
 
 /* ── Left rail ───────────────────────────────────────────────────────────── */

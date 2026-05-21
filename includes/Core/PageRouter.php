@@ -212,27 +212,64 @@ class PageRouter {
 			exit;
 		}
 
-		// Delegate the full page frame to the active theme. get_header() fires
-		// wp_head() internally, and get_footer() fires wp_footer() — so the
-		// WordPress Interactivity API runtime and all enqueued scripts load.
-		// Between the two we render the BuddyNext shell, which uses a
-		// burst-out wrapper (100vw + negative margins) to escape any theme
-		// container (.site-main, .container, max-width: 1200px) so the BN
-		// canvas occupies 100% of the viewport width on every host theme.
-		get_header();
-		buddynext_get_template(
-			'shell/hub-shell.php',
-			array_merge(
-				$context,
-				array(
-					'inner_template' => $template,
-					'hub'            => $hub,
-					'context'        => $context,
+		// BuddyNext hub pages take over the entire document. The theme's
+		// header.php and footer.php are NOT loaded — instead we emit a
+		// complete HTML document ourselves with wp_head() + wp_footer()
+		// still firing (so the Interactivity API runtime, admin bar, every
+		// enqueued script, every plugin hook, all continue to work). This
+		// removes any theme-container constraint (.site-main, .container,
+		// max-width: 1200px) without resorting to burst-out CSS hacks —
+		// the BN canvas sits at body-level and is full-width by default
+		// under any host theme.
+		//
+		// To restore theme header/footer on a specific hub, hook
+		// `buddynext_render_with_theme_chrome` and return true.
+		$use_theme_chrome = (bool) apply_filters( 'buddynext_render_with_theme_chrome', false, $hub, $template );
+
+		if ( $use_theme_chrome ) {
+			get_header();
+			buddynext_get_template(
+				'shell/hub-shell.php',
+				array_merge(
+					$context,
+					array(
+						'inner_template' => $template,
+						'hub'            => $hub,
+						'context'        => $context,
+					)
 				)
+			);
+			get_footer();
+			exit;
+		}
+
+		$shell_context = array_merge(
+			$context,
+			array(
+				'inner_template' => $template,
+				'hub'            => $hub,
+				'context'        => $context,
 			)
 		);
-		get_footer();
 
+		?><!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+<meta charset="<?php bloginfo( 'charset' ); ?>">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+		<?php wp_head(); ?>
+</head>
+<body <?php body_class(); ?>>
+		<?php
+		if ( function_exists( 'wp_body_open' ) ) {
+			wp_body_open();
+		}
+		buddynext_get_template( 'shell/hub-shell.php', $shell_context );
+		wp_footer();
+		?>
+</body>
+</html>
+		<?php
 		exit;
 	}
 
