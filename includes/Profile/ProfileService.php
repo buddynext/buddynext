@@ -356,7 +356,37 @@ class ProfileService {
 						}
 
 						$field_id      = (int) $field_by_key[ $field_key ]['id'];
+						$field_def     = $field_by_key[ $field_key ];
+						$field_type    = isset( $field_def['type'] ) ? (string) $field_def['type'] : 'text';
 						$sanitized_val = sanitize_textarea_field( (string) $field_value );
+
+						/**
+						 * Validate a profile-field value before persistence.
+						 *
+						 * Pro field types (e.g. location, file, number_advanced)
+						 * hook here to enforce per-type rules — Free's default
+						 * pass-through (true) allows the value through unchanged.
+						 *
+						 * @since 1.1.0
+						 *
+						 * @param true|\WP_Error       $result  True (pass) by default.
+						 * @param string               $type    Field type slug.
+						 * @param mixed                $value   Submitted raw value (sanitized).
+						 * @param array<string, mixed> $field   Full field row from bn_profile_fields.
+						 * @param int                  $user_id User being saved.
+						 */
+						$validation = apply_filters(
+							'buddynext_profile_field_validate',
+							true,
+							$field_type,
+							$sanitized_val,
+							$field_def,
+							$user_id
+						);
+
+						if ( is_wp_error( $validation ) ) {
+							continue;
+						}
 
 						$this->upsert_value( $user_id, $field_id, $entry_index, $sanitized_val, $entry_visibility );
 					}
@@ -372,7 +402,22 @@ class ProfileService {
 
 			$field         = $field_by_key[ $key ];
 			$field_id      = (int) $field['id'];
+			$field_type    = isset( $field['type'] ) ? (string) $field['type'] : 'text';
 			$sanitized_val = sanitize_textarea_field( (string) $value );
+
+			/** This filter is documented above in the repeater branch. */
+			$validation = apply_filters(
+				'buddynext_profile_field_validate',
+				true,
+				$field_type,
+				$sanitized_val,
+				$field,
+				$user_id
+			);
+
+			if ( is_wp_error( $validation ) ) {
+				continue;
+			}
 
 			$this->upsert_value( $user_id, $field_id, 0, $sanitized_val, null );
 

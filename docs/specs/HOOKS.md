@@ -245,6 +245,23 @@ apply_filters( 'buddynext_moderation_auto_actions', array $actions, array $repor
 //   ['action' => 'remove',  'reason' => string]
 //   ['action' => 'warn',    'user_id' => int, 'reason' => string]
 //   ['action' => 'suspend', 'user_id' => int, 'reason' => string, 'duration_days' => int]
+
+// Filter the logical columns advertised by the moderation queue UI.
+// Free's v2 card layout does not iterate this list itself; the filter
+// exists so Pro plugins that build parallel tabular admin tables (bulk
+// moderation, exports) stay aligned with the canonical column set.
+apply_filters( 'buddynext_mod_queue_columns', array<string, string> $columns )
+// Default keys: reporter, reported, reason, severity, created, actions
+
+// Fires inside each moderation-queue row's action cluster, before Free's
+// built-in action buttons. Pro hooks here to inject bulk-select
+// checkboxes or extra inline actions.
+//
+// Output is rendered verbatim inside a .bn-report-row__actions container —
+// handlers MUST escape on output.
+do_action( 'buddynext_mod_queue_row_actions', object $report )
+// $report is the raw row from bn_reports (id, object_type, object_id,
+// reason, report_count, strikes_count, created_at, suspended, ...).
 ```
 
 ### Profile
@@ -256,6 +273,45 @@ apply_filters( 'buddynext_profile_field_types', string[] $types )
 // Default: 15 built-in types (text, textarea, email, phone, url, social, number,
 //           date, daterange, select, multiselect, radio, checkbox, toggle, rating)
 // Call via ProfileFieldsManager::field_types() — never reference the const directly.
+
+// Filter the human-readable labels for profile field types in the admin
+// field builder. Pair with buddynext_profile_field_types so registered
+// Pro slugs appear with a friendly name in the type dropdown.
+apply_filters( 'buddynext_profile_field_type_labels', array<string, string> $labels )
+// Default: 16 entries covering all 15 built-in types (Short Text, Long Text, ...).
+
+// Filter the rendered HTML for a single profile-field value (front-end /
+// block view). Free's default HTML is already escaped — handlers must
+// return safe HTML. The block wraps the result in wp_kses_post() before
+// emission, so allowed tags are limited to the WordPress post-content set.
+//
+// Use: Pro AdvancedFieldRenderer overrides the default escaped value with
+// custom markup for date_extended, location, file, multi_select_advanced,
+// number_advanced, and conditional types.
+apply_filters( 'buddynext_profile_field_render', string $html, string $type, array $field, mixed $value, int $user_id )
+// $field keys: id, field_key, label, type, options, is_required, visibility, value, group_name, ...
+
+// Validate a profile-field value before persistence. Default: true (pass).
+// Return a WP_Error to skip persisting that value (other fields in the
+// same save_profile() call are unaffected).
+//
+// Use: Pro AdvancedFieldValidator enforces date format, location JSON
+// shape, file MIME / size, number min/max, conditional trigger contracts.
+apply_filters( 'buddynext_profile_field_validate', true|WP_Error $result, string $type, mixed $value, array $field, int $user_id )
+// Fired in ProfileService::save_profile() for both flat and repeater fields.
+```
+
+```php
+// Fires inside the per-type options block of the admin field-builder form,
+// once for the edit-field panel (with the existing $field row) and once
+// for the add-field panel (with $type='' and $field=[]).
+//
+// Use: Pro AdvancedFieldsAdmin emits <tr> rows for type-specific config —
+// allowed MIME / max size for the `file` type, unit / min / max for
+// `number_advanced`, trigger field / value for `conditional`, etc.
+//
+// Output is rendered verbatim — handlers MUST escape on output.
+do_action( 'buddynext_profile_field_type_options', string $type, array $field )
 ```
 
 ### Search
@@ -264,7 +320,21 @@ apply_filters( 'buddynext_profile_field_types', string[] $types )
 // Filter search query args before SQL is built.
 // Complements buddynext_search_results (results side).
 apply_filters( 'buddynext_search_query_args', array $args, string $query, int $viewer_id )
-// $args keys: per_page, page, type, viewer_id
+// Base $args keys: per_page, page, type, viewer_id
+//
+// Pro AdvancedSearchFilters injects the following optional keys (all consumed
+// by Free's SearchService when present and type === 'user' / 'member'). Free
+// only emits EXISTS subqueries for the keys that are present in the filtered
+// args — Pro's normalization strips empty / invalid values before SearchService
+// builds its SQL:
+//   tier_slug          (string) — active subscription in bn_membership_tiers.slug
+//   space_id           (int)    — active membership in bn_space_members
+//   member_label       (string) — assignment in bn_member_label_assignments
+//   joined_after       (Y-m-d)  — wp_users.user_registered >= %s
+//   active_within_days (int)    — actor_id in bn_analytics_events within the window
+//
+// When Pro is inactive, none of these keys ever populate $args, so Free
+// never references Pro-owned tables.
 ```
 
 ### Outbound

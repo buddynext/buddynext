@@ -472,17 +472,40 @@ class NotificationListener implements ListenerInterface {
 	public function on_post_created_in_space( int $post_id, int $user_id, string $_type ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_type required by hook contract.
 		global $wpdb;
 
-		// Resolve the space this post belongs to.
+		// Resolve the post's space, status, and scheduled time in one read so
+		// scheduled posts (Pro feature) can be skipped until they go live. Pro
+		// re-fires `buddynext_post_created` once it promotes status='scheduled'
+		// to 'published', so the notification fires on the right edge.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$space_id = (int) $wpdb->get_var(
+		$post_row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
+				"SELECT space_id, status, scheduled_at FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
 				$post_id
-			)
+			),
+			ARRAY_A
 		);
+
+		if ( ! is_array( $post_row ) ) {
+			return;
+		}
+
+		$space_id     = (int) ( $post_row['space_id'] ?? 0 );
+		$post_status  = (string) ( $post_row['status'] ?? '' );
+		$scheduled_at = (string) ( $post_row['scheduled_at'] ?? '' );
 
 		if ( 0 === $space_id ) {
 			return;
+		}
+
+		// Suppress space-new-post notifications for scheduled posts that have
+		// not yet been promoted. Pro's ScheduledPostsIntegration re-fires this
+		// hook once the post is published; an immediate notification would
+		// otherwise alert recipients before the post is publicly visible.
+		if ( 'scheduled' === $post_status && '' !== $scheduled_at ) {
+			$scheduled_ts = strtotime( $scheduled_at );
+			if ( false !== $scheduled_ts && $scheduled_ts > time() ) {
+				return;
+			}
 		}
 
 		if ( ! function_exists( 'buddynext_service' ) ) {

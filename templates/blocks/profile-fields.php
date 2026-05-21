@@ -57,27 +57,57 @@ if ( $group ) {
 		</div>
 	<?php else : ?>
 		<dl class="bn-profile-fields-list">
-			<?php foreach ( $fields as $key => $field ) : ?>
-				<?php if ( empty( $field['value'] ) ) : ?>
-					<?php continue; ?>
-				<?php endif; ?>
+			<?php
+			foreach ( $fields as $key => $field ) :
+				if ( empty( $field['value'] ) ) {
+					continue;
+				}
+
+				$field_type  = (string) ( $field['type'] ?? '' );
+				$field_value = $field['value'] ?? '';
+
+				// Build Free's default HTML for the value cell.
+				if ( 'url' === $field_type && ! empty( $field_value ) ) {
+					$default_html = sprintf(
+						'<a href="%1$s" class="bn-field-link" rel="nofollow noopener noreferrer" target="_blank">%2$s</a>',
+						esc_url( (string) $field_value ),
+						esc_html( (string) $field_value )
+					);
+				} else {
+					$default_html = esc_html( (string) $field_value );
+				}
+
+				/**
+				 * Filter the rendered HTML for a single profile-field value.
+				 *
+				 * Pro hooks here to render advanced field types (location maps,
+				 * file links, conditional widgets) without touching Free. The
+				 * default $default_html is already escaped — handlers MUST
+				 * return safe HTML.
+				 *
+				 * @since 1.1.0
+				 *
+				 * @param string               $default_html Default escaped HTML.
+				 * @param string               $type         Field type slug.
+				 * @param array<string, mixed> $field        Full field row.
+				 * @param mixed                $value        Current value.
+				 * @param int                  $user_id      User whose profile is being rendered.
+				 */
+				$rendered_html = apply_filters(
+					'buddynext_profile_field_render',
+					$default_html,
+					$field_type,
+					$field,
+					$field_value,
+					(int) $user_id
+				);
+				?>
 				<div class="bn-profile-field">
 					<dt class="bn-profile-field__label">
 						<?php echo esc_html( $field['label'] ?? ucfirst( (string) $key ) ); ?>
 					</dt>
 					<dd class="bn-profile-field__value">
-						<?php if ( 'url' === ( $field['type'] ?? '' ) && ! empty( $field['value'] ) ) : ?>
-							<a
-								href="<?php echo esc_url( $field['value'] ); ?>"
-								class="bn-field-link"
-								rel="nofollow noopener noreferrer"
-								target="_blank"
-							>
-								<?php echo esc_html( $field['value'] ); ?>
-							</a>
-						<?php else : ?>
-							<?php echo esc_html( $field['value'] ?? '' ); ?>
-						<?php endif; ?>
+						<?php echo wp_kses_post( $rendered_html ); ?>
 					</dd>
 				</div>
 			<?php endforeach; ?>

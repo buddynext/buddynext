@@ -378,6 +378,32 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 		</div>
 	</div>
 
+	<?php
+	/**
+	 * Filter the logical columns advertised by the moderation queue.
+	 *
+	 * Pro plugins read this set to align their parallel admin tables (bulk
+	 * moderation, exports) with the canonical Free queue. The list is
+	 * declarative — the v2 card layout below does not iterate it.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param array<string, string> $columns Map of column slug => label.
+	 */
+	$bn_mod_queue_columns = (array) apply_filters(
+		'buddynext_mod_queue_columns',
+		array(
+			'reporter' => __( 'Reporter', 'buddynext' ),
+			'reported' => __( 'Reported', 'buddynext' ),
+			'reason'   => __( 'Reason', 'buddynext' ),
+			'severity' => __( 'Severity', 'buddynext' ),
+			'created'  => __( 'When', 'buddynext' ),
+			'actions'  => __( 'Actions', 'buddynext' ),
+		)
+	);
+	unset( $bn_mod_queue_columns ); // Reserved for Pro consumption; suppress unused-variable lints in this render scope.
+	?>
+
 	<!-- Report rows -->
 	<?php if ( empty( $reports ) ) : ?>
 		<div class="bn-mod-empty" role="status">
@@ -559,6 +585,29 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 						</div>
 
 						<div class="bn-report-row__actions">
+							<?php
+							/**
+							 * Fires inside each moderation-queue row's action
+							 * cluster, before Free's built-in action buttons.
+							 *
+							 * Pro hooks here to inject bulk-select checkboxes,
+							 * extra inline actions, or status badges. The
+							 * report object is the raw row from bn_reports
+							 * (with the same shape used by the rest of the
+							 * template — id, object_type, object_id, reason,
+							 * report_count, strikes_count, created_at...).
+							 *
+							 * Output is rendered verbatim inside a
+							 * .bn-report-row__actions container — handlers
+							 * must escape on output.
+							 *
+							 * @since 1.1.0
+							 *
+							 * @param object $report Row from bn_reports.
+							 */
+							do_action( 'buddynext_mod_queue_row_actions', $report );
+							?>
+
 							<button type="button"
 								class="bn-btn"
 								data-variant="secondary"

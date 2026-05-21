@@ -770,6 +770,20 @@ class ProfileFieldsManager {
 			'toggle'      => __( 'Toggle (Yes / No)', 'buddynext' ),
 		);
 
+		/**
+		 * Filter the human-readable labels for profile field types shown in
+		 * the admin field builder.
+		 *
+		 * Pro extensions that register new types via
+		 * buddynext_profile_field_types should also append labels here so the
+		 * type dropdown displays them with a friendly name.
+		 *
+		 * @since 1.1.0
+		 *
+		 * @param array<string, string> $field_type_labels Map of slug => label.
+		 */
+		$field_type_labels = (array) apply_filters( 'buddynext_profile_field_type_labels', $field_type_labels );
+
 		$vis_labels = array(
 			'public'    => __( 'Public', 'buddynext' ),
 			'followers' => __( 'Followers only', 'buddynext' ),
@@ -1037,6 +1051,24 @@ class ProfileFieldsManager {
 													placeholder="<?php esc_attr_e( 'Option 1', 'buddynext' ); ?>"><?php echo esc_textarea( $opts_text ); ?></textarea>
 												<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom â each on its own line.', 'buddynext' ); ?></p>
 											</div>
+											<?php
+											/**
+											 * Fires inside the per-field edit panel after the
+											 * core options textarea, before the date-display
+											 * config. Pro plugins emit type-specific option
+											 * inputs here (e.g. file MIME, number unit,
+											 * conditional trigger field).
+											 *
+											 * Output is rendered verbatim inside the edit
+											 * form — handlers must escape on output.
+											 *
+											 * @since 1.1.0
+											 *
+											 * @param string               $type  Field type slug.
+											 * @param array<string, mixed> $field Existing field row.
+											 */
+											do_action( 'buddynext_profile_field_type_options', (string) $field['type'], $field );
+											?>
 											<!-- Date display config (shown for date / daterange types) -->
 											<div id="bn-ef-date-<?php echo absint( $fid ); ?>" class="bn-pf-opts-wrap" style="<?php echo $is_date_type ? '' : 'display:none;'; ?>">
 												<label for="bn-ef-date-d-<?php echo absint( $fid ); ?>">
@@ -1114,6 +1146,21 @@ class ProfileFieldsManager {
 								placeholder="<?php esc_attr_e( 'Option 1', 'buddynext' ); ?>"></textarea>
 							<p class="bn-pf-opts-hint"><?php esc_html_e( 'Each line becomes one selectable option. Example: United States, Canada, United Kingdom — each on its own line.', 'buddynext' ); ?></p>
 						</div>
+						<?php
+						/**
+						 * Fires inside the add-field panel after the core options
+						 * textarea, before the date-display config. Pro plugins
+						 * emit type-specific option inputs here for new fields.
+						 *
+						 * Output is rendered verbatim — handlers must escape on output.
+						 *
+						 * @since 1.1.0
+						 *
+						 * @param string               $type  Field type slug ('' for new fields, no preselected type).
+						 * @param array<string, mixed> $field Empty array for new fields.
+						 */
+						do_action( 'buddynext_profile_field_type_options', '', array() );
+						?>
 						<!-- Date display config -->
 						<div id="bn-af-date-<?php echo absint( $gid ); ?>" class="bn-pf-opts-wrap" style="display:none;">
 							<label for="bn-af-date-d-<?php echo absint( $gid ); ?>">

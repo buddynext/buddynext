@@ -232,6 +232,80 @@ class SearchService {
 		$page     = max( 1, (int) ( $search_args['page'] ?? $page ) );
 		$offset   = ( $page - 1 ) * $per_page;
 
+		// ------------------------------------------------------------------ //
+		// Advanced member-search WHERE clauses contributed by Pro via the
+		// buddynext_search_query_args filter. Each clause is only appended
+		// when the corresponding arg is present, non-empty, and the search
+		// type targets users / members.
+		//
+		// All referenced tables (bn_subscriptions, bn_membership_tiers,
+		// bn_space_members, bn_member_label_assignments, bn_member_labels,
+		// bn_analytics_events) are owned by buddynext-pro. When Pro is
+		// inactive, no caller populates these args so no clause is emitted
+		// and the missing tables are never referenced.
+		// ------------------------------------------------------------------ //
+		$advanced_where  = '';
+		$advanced_params = array();
+		$user_scope      = in_array( $type, array( 'user', 'member' ), true );
+
+		if ( $user_scope ) {
+			if ( isset( $search_args['tier_slug'] ) && '' !== $search_args['tier_slug'] ) {
+				$advanced_where   .= " AND EXISTS (
+					SELECT 1
+					FROM {$wpdb->prefix}bn_subscriptions sub
+					INNER JOIN {$wpdb->prefix}bn_membership_tiers tier
+					        ON sub.tier_id = tier.id
+					WHERE sub.user_id = si.object_id
+					  AND sub.status  = 'active'
+					  AND tier.slug   = %s
+				)";
+				$advanced_params[] = (string) $search_args['tier_slug'];
+			}
+
+			if ( isset( $search_args['space_id'] ) && (int) $search_args['space_id'] > 0 ) {
+				$advanced_where   .= " AND EXISTS (
+					SELECT 1
+					FROM {$wpdb->prefix}bn_space_members sm
+					WHERE sm.user_id  = si.object_id
+					  AND sm.space_id = %d
+					  AND sm.status   = 'active'
+				)";
+				$advanced_params[] = (int) $search_args['space_id'];
+			}
+
+			if ( isset( $search_args['member_label'] ) && '' !== $search_args['member_label'] ) {
+				$advanced_where   .= " AND EXISTS (
+					SELECT 1
+					FROM {$wpdb->prefix}bn_member_label_assignments la
+					INNER JOIN {$wpdb->prefix}bn_member_labels lbl
+					        ON la.label_id = lbl.id
+					WHERE la.user_id = si.object_id
+					  AND lbl.slug   = %s
+				)";
+				$advanced_params[] = (string) $search_args['member_label'];
+			}
+
+			if ( isset( $search_args['joined_after'] ) && '' !== $search_args['joined_after'] ) {
+				$advanced_where   .= " AND EXISTS (
+					SELECT 1
+					FROM {$wpdb->users} wpu
+					WHERE wpu.ID = si.object_id
+					  AND wpu.user_registered >= %s
+				)";
+				$advanced_params[] = (string) $search_args['joined_after'];
+			}
+
+			if ( isset( $search_args['active_within_days'] ) && (int) $search_args['active_within_days'] > 0 ) {
+				$advanced_where   .= " AND EXISTS (
+					SELECT 1
+					FROM {$wpdb->prefix}bn_analytics_events ae
+					WHERE ae.actor_id    = si.object_id
+					  AND ae.created_at >= DATE_SUB(NOW(), INTERVAL %d DAY)
+				)";
+				$advanced_params[] = (int) $search_args['active_within_days'];
+			}
+		}
+
 		/**
 		 * Allow an external search driver (Elasticsearch, Algolia, etc.) to
 		 * short-circuit the built-in SQL search. Return a non-null value from
@@ -272,8 +346,9 @@ class SearchService {
 					   AND {$search_condition}
 					   {$type_where}
 					   {$block_where}
-					   {$excluded_where}",
-					...array_merge( $type_params, $block_params )
+					   {$excluded_where}
+					   {$advanced_where}",
+					...array_merge( $type_params, $block_params, $advanced_params )
 				)
 			);
 
@@ -287,9 +362,10 @@ class SearchService {
 					   {$type_where}
 					   {$block_where}
 					   {$excluded_where}
+					   {$advanced_where}
 					 ORDER BY {$order_clause}
 					 LIMIT %d OFFSET %d",
-					...array_merge( array( $safe_query . '*', $safe_query . '*' ), $type_params, $block_params, array( $per_page, $offset ) )
+					...array_merge( array( $safe_query . '*', $safe_query . '*' ), $type_params, $block_params, $advanced_params, array( $per_page, $offset ) )
 				),
 				ARRAY_A
 			);
@@ -308,8 +384,9 @@ class SearchService {
 					   AND (si.title LIKE %s OR si.content LIKE %s)
 					   {$type_where}
 					   {$block_where}
-					   {$excluded_where}",
-					...array_merge( array( $like, $like ), $type_params, $block_params )
+					   {$excluded_where}
+					   {$advanced_where}",
+					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params )
 				)
 			);
 
@@ -322,9 +399,10 @@ class SearchService {
 					   {$type_where}
 					   {$block_where}
 					   {$excluded_where}
+					   {$advanced_where}
 					 ORDER BY si.updated_at DESC
 					 LIMIT %d OFFSET %d",
-					...array_merge( array( $like, $like ), $type_params, $block_params, array( $per_page, $offset ) )
+					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params, array( $per_page, $offset ) )
 				),
 				ARRAY_A
 			);
