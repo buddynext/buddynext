@@ -1,13 +1,22 @@
 <?php
 /**
- * Notifications — full-page template (v2).
+ * Notifications - inner hub template (v2).
  *
- * Displays grouped, filterable notifications for the current user. Uses the
- * v2 attribute-driven primitive layer: .bn-tabs/.bn-tab[aria-selected] with
- * .bn-tab__count for filter tabs, .bn-avatar[data-size="sm"] for actor
- * avatars, .bn-badge[data-tone] for notification type pills, and
- * .bn-btn[data-variant][data-size] for actions. All styling lives in
- * assets/css/bn-notifications.css.
+ * Renders inside the shared hub-shell main column. This template does NOT own
+ * topbar, rail, or page grid - those are produced by templates/shell/hub-shell.php.
+ * Sidebar widgets (quick filters, type breakdown, recent actors, preferences link)
+ * are registered against the `buddynext_right_sidebar` action; the shell detects
+ * the hook and auto-renders the right column.
+ *
+ * Composes the v2 primitive layer:
+ *   .bn-section-head            page title + Mark-all-read action
+ *   .bn-tabs / .bn-tab          filter strip (All / Unread / Mentions / …)
+ *   .bn-card[data-v2]           group list wrapper
+ *   .bn-notif-row[--unread]     per-notification row
+ *   .bn-badge[data-tone]        type pill
+ *   .bn-btn[data-variant][data-size] inline + header actions
+ *
+ * Overridable: copy to {theme}/buddynext/notifications/index.php.
  *
  * @package BuddyNext
  */
@@ -17,6 +26,8 @@ declare( strict_types=1 );
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+use BuddyNext\Core\PageRouter;
 
 global $wpdb;
 
@@ -61,17 +72,28 @@ if ( ! empty( $filter_types ) ) {
 	$filter_sql = ' AND n.is_read = 0';
 }
 
-// Fetch up to 50 notifications for the current user, ordered newest first.
+// Pagination (simple offset; cap at 25 per page).
+$bn_per_page = 25;
+// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_paged  = isset( $_GET['paged'] ) ? max( 1, (int) sanitize_text_field( wp_unslash( $_GET['paged'] ) ) ) : 1;
+$bn_offset = ( $bn_paged - 1 ) * $bn_per_page;
+
+// Count total rows for pagination (filtered).
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+$count_sql   = "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications AS n WHERE n.recipient_id = %d" . $filter_sql;
+$total_count = (int) $wpdb->get_var( $wpdb->prepare( $count_sql, $current_user_id ) );
+
 $base_sql = "SELECT n.id, n.type, n.sender_id, n.object_id, n.object_type, n.group_key, n.group_count, n.is_read, n.created_at
 	 FROM {$wpdb->prefix}bn_notifications AS n
 	 WHERE n.recipient_id = %d"
 	. $filter_sql .
-	' ORDER BY n.created_at DESC LIMIT 50';
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
-$rows = $wpdb->get_results( $wpdb->prepare( $base_sql, $current_user_id ) );
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
+	' ORDER BY n.created_at DESC LIMIT %d OFFSET %d';
+$rows     = $wpdb->get_results( $wpdb->prepare( $base_sql, $current_user_id, $bn_per_page, $bn_offset ) );
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-// Count unread per type for tab/sidebar badges.
+$total_pages = (int) max( 1, ceil( $total_count / $bn_per_page ) );
+
+// Count unread per type for tab + sidebar badges.
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 $unread_counts = $wpdb->get_results(
 	$wpdb->prepare(
@@ -126,6 +148,44 @@ foreach ( $actor_ids as $actor_id ) {
 	);
 }
 
+// Recent actors - last 6 distinct senders who triggered a notification for this user.
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+$recent_actor_ids = $wpdb->get_col(
+	$wpdb->prepare(
+		"SELECT sender_id
+		 FROM {$wpdb->prefix}bn_notifications
+		 WHERE recipient_id = %d AND sender_id > 0
+		 GROUP BY sender_id
+		 ORDER BY MAX(created_at) DESC
+		 LIMIT %d",
+		$current_user_id,
+		6
+	)
+);
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+
+$recent_actors = array();
+foreach ( $recent_actor_ids ?? array() as $actor_id ) {
+	$actor_id = (int) $actor_id;
+	if ( isset( $actor_data[ $actor_id ] ) ) {
+		$recent_actors[ $actor_id ] = $actor_data[ $actor_id ];
+		continue;
+	}
+	$actor_user = get_userdata( $actor_id );
+	if ( ! $actor_user ) {
+		continue;
+	}
+	$display                    = $actor_user->display_name;
+	$first                      = mb_substr( $display, 0, 1 );
+	$last_word                  = strrchr( $display, ' ' );
+	$second                     = $last_word ? mb_substr( ltrim( $last_word ), 0, 1 ) : '';
+	$recent_actors[ $actor_id ] = array(
+		'display_name' => $display,
+		'initials'     => strtoupper( $first . $second ),
+		'avatar_url'   => get_avatar_url( $actor_id, array( 'size' => 56 ) ),
+	);
+}
+
 // Group rows into Today / Yesterday / Older.
 $today_ts     = strtotime( 'today midnight' );
 $yesterday_ts = strtotime( 'yesterday midnight' );
@@ -148,11 +208,11 @@ foreach ( $rows ?? array() as $row ) {
 // Map notification type → type-pill tone + Lucide icon slug.
 $type_meta = array(
 	'bn.post_reacted'         => array(
-		'tone' => 'accent',
+		'tone' => 'warn',
 		'icon' => 'heart',
 	),
 	'bn.post_commented'       => array(
-		'tone' => 'info',
+		'tone' => 'accent',
 		'icon' => 'message-circle',
 	),
 	'bn.mention'              => array(
@@ -209,7 +269,7 @@ $type_meta = array(
 	),
 );
 
-// Human-readable type label for a11y aria-label on the type pill.
+// Human-readable type label for the type pill and aria-label.
 $type_label = array(
 	'bn.post_reacted'         => __( 'Reaction', 'buddynext' ),
 	'bn.post_commented'       => __( 'Comment', 'buddynext' ),
@@ -232,14 +292,14 @@ $type_label = array(
  * Return the display name for an actor.
  *
  * @param int $actor_id Actor user ID.
- * @return string Display name (unescaped — escape at the call site).
+ * @return string Display name (unescaped - escape at the call site).
  */
 $get_display_name = static function ( int $actor_id ) use ( $actor_data ): string {
 	return $actor_data[ $actor_id ]['display_name'] ?? __( 'Someone', 'buddynext' );
 };
 
 /**
- * Render an actor avatar — image when available, initials fallback.
+ * Render an actor avatar - image when available, initials fallback.
  *
  * @param int $actor_id Actor user ID.
  */
@@ -248,8 +308,11 @@ $render_avatar = static function ( int $actor_id ) use ( $actor_data ): void {
 		'avatar_url' => '',
 		'initials'   => '?',
 	);
-	$avatar_url = $entry['avatar_url'] ?? '';
-	$initials   = $entry['initials'] ?? '?';
+	$avatar_url = (string) ( $entry['avatar_url'] ?? '' );
+	$initials   = (string) $entry['initials'];
+	if ( '' === $initials ) {
+		$initials = '?';
+	}
 	if ( $avatar_url ) {
 		?>
 		<span class="bn-avatar bn-notif-row__avatar" data-size="sm">
@@ -276,16 +339,16 @@ $time_ago = static function ( string $created_at ): string {
 	}
 	if ( $diff < 3600 ) {
 		$m = (int) round( $diff / 60 );
-		// translators: %d is the number of minutes.
+		/* translators: %d is the number of minutes. */
 		return sprintf( _n( '%d min', '%d min', $m, 'buddynext' ), $m );
 	}
 	if ( $diff < 86400 ) {
 		$h = (int) round( $diff / 3600 );
-		// translators: %d is the number of hours.
+		/* translators: %d is the number of hours. */
 		return sprintf( _n( '%dh', '%dh', $h, 'buddynext' ), $h );
 	}
 	$d = (int) round( $diff / 86400 );
-	// translators: %d is the number of days.
+	/* translators: %d is the number of days. */
 	return sprintf( _n( '%dd', '%dd', $d, 'buddynext' ), $d );
 };
 
@@ -318,13 +381,13 @@ $render_row = static function ( object $row, callable $render_avatar, callable $
 	// Derive the navigation URL for this notification type.
 	$link_url = match ( $notif_type ) {
 		'bn.new_follower', 'bn.connection_requested', 'bn.connection_accepted'
-			=> $actor_id ? \BuddyNext\Core\PageRouter::profile_url( $actor_id ) : '',
+			=> $actor_id ? PageRouter::profile_url( $actor_id ) : '',
 		'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post'
-			=> $object_id ? \BuddyNext\Core\PageRouter::space_url( $object_id ) : '',
+			=> $object_id ? PageRouter::space_url( $object_id ) : '',
 		'bn.new_message'
-			=> \BuddyNext\Core\PageRouter::messages_url(),
+			=> PageRouter::messages_url(),
 		'bn.post_reacted', 'bn.post_commented', 'bn.mention'
-			=> $object_id ? add_query_arg( 'post_id', $object_id, \BuddyNext\Core\PageRouter::activity_url() ) : '',
+			=> $object_id ? add_query_arg( 'post_id', $object_id, PageRouter::activity_url() ) : '',
 		default => '',
 	};
 
@@ -381,6 +444,8 @@ $render_row = static function ( object $row, callable $render_avatar, callable $
 	);
 	?>
 	<div class="<?php echo esc_attr( $row_class ); ?>"
+		role="listitem"
+		data-interactive
 		data-wp-on--click="actions.markRead"
 		data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>"
 		<?php if ( $link_url ) : ?>
@@ -446,37 +511,199 @@ $render_row = static function ( object $row, callable $render_avatar, callable $
 	<?php
 };
 
-$bn_nav_active = 'notifications';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+// ── Right sidebar widgets ────────────────────────────────────────────────
+// Register sidebar widget callbacks on the shared hub-shell action. The shell
+// detects via has_action() (after this template's output buffer flushes) and
+// renders the right column automatically.
+$sidebar_data = array(
+	'active_filter'   => $active_filter,
+	'total_unread'    => $total_unread,
+	'reaction_unread' => $reaction_unread,
+	'comment_unread'  => $comment_unread,
+	'mention_unread'  => $mention_unread,
+	'follow_unread'   => $follow_unread,
+	'space_unread'    => $space_unread,
+	'message_unread'  => $message_unread,
+	'recent_actors'   => $recent_actors,
+);
+
+add_action(
+	'buddynext_right_sidebar',
+	static function () use ( $sidebar_data ) {
+		$active_filter   = (string) $sidebar_data['active_filter'];
+		$total_unread    = (int) $sidebar_data['total_unread'];
+		$reaction_unread = (int) $sidebar_data['reaction_unread'];
+		$comment_unread  = (int) $sidebar_data['comment_unread'];
+		$mention_unread  = (int) $sidebar_data['mention_unread'];
+		$follow_unread   = (int) $sidebar_data['follow_unread'];
+		$space_unread    = (int) $sidebar_data['space_unread'];
+		$message_unread  = (int) $sidebar_data['message_unread'];
+		$recent_actors   = (array) $sidebar_data['recent_actors'];
+
+		$quick_filters = array(
+			array(
+				'key'   => 'unread',
+				'label' => __( 'Unread only', 'buddynext' ),
+				'icon'  => 'circle-dot',
+				'count' => $total_unread,
+			),
+			array(
+				'key'   => 'mention',
+				'label' => __( 'Mentions of you', 'buddynext' ),
+				'icon'  => 'at-sign',
+				'count' => $mention_unread,
+			),
+			array(
+				'key'   => 'follow',
+				'label' => __( 'People', 'buddynext' ),
+				'icon'  => 'users',
+				'count' => $follow_unread,
+			),
+			array(
+				'key'   => 'space',
+				'label' => __( 'Spaces', 'buddynext' ),
+				'icon'  => 'home',
+				'count' => $space_unread,
+			),
+		);
+
+		$sidebar_types = array(
+			'mention'  => array(
+				'label' => __( 'Mentions', 'buddynext' ),
+				'icon'  => 'at-sign',
+				'count' => $mention_unread,
+			),
+			'reaction' => array(
+				'label' => __( 'Reactions', 'buddynext' ),
+				'icon'  => 'heart',
+				'count' => $reaction_unread,
+			),
+			'comment'  => array(
+				'label' => __( 'Comments', 'buddynext' ),
+				'icon'  => 'message-circle',
+				'count' => $comment_unread,
+			),
+			'follow'   => array(
+				'label' => __( 'People', 'buddynext' ),
+				'icon'  => 'users',
+				'count' => $follow_unread,
+			),
+			'space'    => array(
+				'label' => __( 'Spaces', 'buddynext' ),
+				'icon'  => 'home',
+				'count' => $space_unread,
+			),
+			'message'  => array(
+				'label' => __( 'Messages', 'buddynext' ),
+				'icon'  => 'mail',
+				'count' => $message_unread,
+			),
+		);
+		?>
+		<section class="bn-card bn-notif-sidecard" data-v2 aria-labelledby="bn-notif-side-filters">
+			<header id="bn-notif-side-filters" class="bn-notif-sidecard__head"><?php esc_html_e( 'Quick filters', 'buddynext' ); ?></header>
+			<?php foreach ( $quick_filters as $qf ) : ?>
+				<?php $is_active = ( $qf['key'] === $active_filter ); ?>
+				<a href="<?php echo esc_url( add_query_arg( 'filter', $qf['key'] ) ); ?>"
+					class="bn-notif-sidecard__row<?php echo $is_active ? ' is-active' : ''; ?>"
+					<?php
+					if ( $is_active ) {
+						echo 'aria-current="page"';}
+					?>
+				>
+					<span class="bn-notif-sidecard__icon" aria-hidden="true"><?php buddynext_icon( $qf['icon'] ); ?></span>
+					<span class="bn-notif-sidecard__label"><?php echo esc_html( $qf['label'] ); ?></span>
+					<?php if ( $qf['count'] > 0 ) : ?>
+						<span class="bn-badge" data-tone="accent"><?php echo esc_html( (string) min( (int) $qf['count'], 99 ) ); ?></span>
+					<?php endif; ?>
+				</a>
+			<?php endforeach; ?>
+		</section>
+
+		<section class="bn-card bn-notif-sidecard" data-v2 aria-labelledby="bn-notif-side-types">
+			<header id="bn-notif-side-types" class="bn-notif-sidecard__head"><?php esc_html_e( 'By type', 'buddynext' ); ?></header>
+			<?php foreach ( $sidebar_types as $type_key => $stype ) : ?>
+				<?php $is_active = ( $type_key === $active_filter ); ?>
+				<a href="<?php echo esc_url( add_query_arg( 'filter', $type_key ) ); ?>"
+					class="bn-notif-sidecard__row<?php echo $is_active ? ' is-active' : ''; ?>"
+					<?php
+					if ( $is_active ) {
+						echo 'aria-current="page"';}
+					?>
+				>
+					<span class="bn-notif-sidecard__icon" aria-hidden="true"><?php buddynext_icon( $stype['icon'] ); ?></span>
+					<span class="bn-notif-sidecard__label"><?php echo esc_html( $stype['label'] ); ?></span>
+					<?php if ( $stype['count'] > 0 ) : ?>
+						<span class="bn-badge" data-tone="info"><?php echo esc_html( (string) min( (int) $stype['count'], 99 ) ); ?></span>
+					<?php endif; ?>
+				</a>
+			<?php endforeach; ?>
+		</section>
+
+		<?php if ( ! empty( $recent_actors ) ) : ?>
+			<section class="bn-card bn-notif-sidecard" data-v2 aria-labelledby="bn-notif-side-recent">
+				<header id="bn-notif-side-recent" class="bn-notif-sidecard__head"><?php esc_html_e( 'Recent actors', 'buddynext' ); ?></header>
+				<div class="bn-notif-sidecard__actors">
+					<?php foreach ( $recent_actors as $actor_id => $actor ) : ?>
+						<a href="<?php echo esc_url( PageRouter::profile_url( (int) $actor_id ) ); ?>"
+							class="bn-notif-sidecard__actor"
+							title="<?php echo esc_attr( $actor['display_name'] ); ?>">
+							<?php if ( ! empty( $actor['avatar_url'] ) ) : ?>
+								<img src="<?php echo esc_url( $actor['avatar_url'] ); ?>" alt="<?php echo esc_attr( $actor['display_name'] ); ?>" width="32" height="32" loading="lazy">
+							<?php else : ?>
+								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $actor['initials'] ); ?></span>
+							<?php endif; ?>
+						</a>
+					<?php endforeach; ?>
+				</div>
+			</section>
+		<?php endif; ?>
+
+		<section class="bn-card bn-notif-sidecard" data-v2 aria-labelledby="bn-notif-side-prefs">
+			<header id="bn-notif-side-prefs" class="bn-notif-sidecard__head"><?php esc_html_e( 'Preferences', 'buddynext' ); ?></header>
+			<a href="<?php echo esc_url( PageRouter::edit_profile_url() ); ?>" class="bn-notif-sidecard__row">
+				<span class="bn-notif-sidecard__icon" aria-hidden="true"><?php buddynext_icon( 'settings' ); ?></span>
+				<span class="bn-notif-sidecard__label"><?php esc_html_e( 'Notification preferences', 'buddynext' ); ?></span>
+			</a>
+		</section>
+		<?php
+	}
+);
+
+/**
+ * Fires before the notifications inner content.
+ *
+ * @param int $current_user_id Current user ID.
+ */
+do_action( 'buddynext_notifications_before', $current_user_id );
 ?>
-
-<div class="bn-hub-shell">
-
-<div class="bn-notifs-shell"
+<div class="bn-notifs-main"
 	data-wp-interactive="buddynext/notifications"
 	data-wp-context='{"markedAll":false,"activeFilter":"<?php echo esc_attr( $active_filter ); ?>","nonce":"<?php echo esc_attr( $mark_all_nonce ); ?>","restUrl":"<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications' ) ); ?>"}'>
 
-<div class="bn-notifs-main">
-
-	<header class="bn-notifs-header">
-		<h1 class="bn-notifs-title">
-			<?php esc_html_e( 'Notifications', 'buddynext' ); ?>
-			<?php if ( $total_unread > 0 ) : ?>
-				<span class="bn-badge" data-tone="accent">
-				<?php
-					echo esc_html(
-						sprintf(
-							/* translators: %d is the number of unread notifications. */
-							_n( '%d new', '%d new', $total_unread, 'buddynext' ),
-							min( $total_unread, 99 )
-						)
-					);
-				?>
-				</span>
-			<?php endif; ?>
-		</h1>
-		<div class="bn-notifs-actions">
-			<?php if ( $total_unread > 0 ) : ?>
+	<header class="bn-section-head">
+		<div class="bn-section-head__lead">
+			<div class="bn-section-head__text">
+				<h1 class="bn-section-head__title">
+					<?php esc_html_e( 'Notifications', 'buddynext' ); ?>
+					<?php if ( $total_unread > 0 ) : ?>
+						<span class="bn-badge" data-tone="accent">
+						<?php
+						echo esc_html(
+							sprintf(
+								/* translators: %d is the number of unread notifications. */
+								_n( '%d new', '%d new', $total_unread, 'buddynext' ),
+								min( $total_unread, 99 )
+							)
+						);
+						?>
+						</span>
+					<?php endif; ?>
+				</h1>
+			</div>
+		</div>
+		<?php if ( $total_unread > 0 ) : ?>
+			<div class="bn-section-head__actions">
 				<button class="bn-btn" data-variant="secondary" data-size="sm"
 					data-wp-on--click="actions.markAllRead"
 					data-nonce="<?php echo esc_attr( $mark_all_nonce ); ?>"
@@ -484,8 +711,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 					<?php buddynext_icon( 'check-circle' ); ?>
 					<?php esc_html_e( 'Mark all read', 'buddynext' ); ?>
 				</button>
-			<?php endif; ?>
-		</div>
+			</div>
+		<?php endif; ?>
 	</header>
 
 	<nav class="bn-tabs bn-notif-tabs" aria-label="<?php esc_attr_e( 'Notification filters', 'buddynext' ); ?>" role="tablist">
@@ -503,30 +730,27 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				'label' => __( 'Mentions', 'buddynext' ),
 				'count' => $mention_unread,
 			),
-			'reaction' => array(
-				'label' => __( 'Reactions', 'buddynext' ),
-				'count' => $reaction_unread,
-			),
 			'comment'  => array(
 				'label' => __( 'Comments', 'buddynext' ),
 				'count' => $comment_unread,
 			),
-			'follow'   => array(
-				'label' => __( 'People', 'buddynext' ),
-				'count' => $follow_unread,
+			'reaction' => array(
+				'label' => __( 'Reactions', 'buddynext' ),
+				'count' => $reaction_unread,
 			),
 			'space'    => array(
 				'label' => __( 'Spaces', 'buddynext' ),
 				'count' => $space_unread,
 			),
-			'message'  => array(
-				'label' => __( 'Messages', 'buddynext' ),
-				'count' => $message_unread,
-			),
 		);
 		foreach ( $notif_tabs as $key => $notif_tab ) :
 			$is_active = ( $key === $active_filter );
-			$tab_url   = add_query_arg( 'filter', $key );
+			$tab_url   = add_query_arg(
+				array(
+					'filter' => $key,
+					'paged'  => false,
+				)
+			);
 			?>
 			<a href="<?php echo esc_url( $tab_url ); ?>"
 				class="bn-tab"
@@ -573,7 +797,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 					</span>
 				<?php endif; ?>
 			</header>
-			<div class="bn-card bn-notif-list" data-v2>
+			<div class="bn-card bn-notif-list" data-v2 role="list">
 				<?php
 				foreach ( $group_rows as $notif_row ) {
 					$render_row( $notif_row, $render_avatar, $get_display_name, $time_ago, $type_meta, $type_label );
@@ -585,73 +809,48 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 	<?php if ( ! $has_any ) : ?>
 		<div class="bn-card bn-notif-empty" data-v2>
-			<span class="bn-notif-empty__emblem" aria-hidden="true"><?php buddynext_icon( 'bell' ); ?></span>
+			<span class="bn-notif-empty__emblem" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
 			<p class="bn-notif-empty__title"><?php esc_html_e( 'All caught up', 'buddynext' ); ?></p>
 			<p class="bn-notif-empty__sub"><?php esc_html_e( 'No notifications match this filter. New activity will show up here.', 'buddynext' ); ?></p>
 		</div>
 	<?php endif; ?>
 
-</div><!-- .bn-notifs-main -->
+	<?php if ( $has_any && $total_pages > 1 ) : ?>
+		<nav class="bn-notif-pagination" aria-label="<?php esc_attr_e( 'Notifications pagination', 'buddynext' ); ?>">
+			<?php if ( $bn_paged > 1 ) : ?>
+				<a class="bn-btn" data-variant="ghost" data-size="sm"
+					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged - 1 ) ); ?>">
+					<?php buddynext_icon( 'chevron-left' ); ?>
+					<?php esc_html_e( 'Previous', 'buddynext' ); ?>
+				</a>
+			<?php endif; ?>
+			<span class="bn-notif-pagination__meta">
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: 1: current page number, 2: total pages */
+						__( 'Page %1$d of %2$d', 'buddynext' ),
+						$bn_paged,
+						$total_pages
+					)
+				);
+				?>
+			</span>
+			<?php if ( $bn_paged < $total_pages ) : ?>
+				<a class="bn-btn" data-variant="ghost" data-size="sm"
+					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged + 1 ) ); ?>">
+					<?php esc_html_e( 'Next', 'buddynext' ); ?>
+					<?php buddynext_icon( 'chevron-right' ); ?>
+				</a>
+			<?php endif; ?>
+		</nav>
+	<?php endif; ?>
 
-<aside class="bn-notifs-sidebar" aria-label="<?php esc_attr_e( 'Notification summary', 'buddynext' ); ?>">
-
-	<section class="bn-card bn-notif-sidecard" data-v2>
-		<header class="bn-notif-sidecard__head"><?php esc_html_e( 'By type', 'buddynext' ); ?></header>
-		<?php
-		$sidebar_types = array(
-			'mention'  => array(
-				'label' => __( 'Mentions', 'buddynext' ),
-				'icon'  => 'at-sign',
-				'count' => $mention_unread,
-				'url'   => add_query_arg( 'filter', 'mention' ),
-			),
-			'reaction' => array(
-				'label' => __( 'Reactions', 'buddynext' ),
-				'icon'  => 'heart',
-				'count' => $reaction_unread,
-				'url'   => add_query_arg( 'filter', 'reaction' ),
-			),
-			'comment'  => array(
-				'label' => __( 'Comments', 'buddynext' ),
-				'icon'  => 'message-circle',
-				'count' => $comment_unread,
-				'url'   => add_query_arg( 'filter', 'comment' ),
-			),
-			'follow'   => array(
-				'label' => __( 'People', 'buddynext' ),
-				'icon'  => 'users',
-				'count' => $follow_unread,
-				'url'   => add_query_arg( 'filter', 'follow' ),
-			),
-			'space'    => array(
-				'label' => __( 'Spaces', 'buddynext' ),
-				'icon'  => 'home',
-				'count' => $space_unread,
-				'url'   => add_query_arg( 'filter', 'space' ),
-			),
-			'message'  => array(
-				'label' => __( 'Messages', 'buddynext' ),
-				'icon'  => 'mail',
-				'count' => $message_unread,
-				'url'   => add_query_arg( 'filter', 'message' ),
-			),
-		);
-		foreach ( $sidebar_types as $stype ) :
-			?>
-			<a href="<?php echo esc_url( $stype['url'] ); ?>" class="bn-notif-sidecard__row">
-				<span class="bn-notif-sidecard__icon" aria-hidden="true"><?php buddynext_icon( $stype['icon'] ); ?></span>
-				<span class="bn-notif-sidecard__label"><?php echo esc_html( $stype['label'] ); ?></span>
-				<?php if ( $stype['count'] > 0 ) : ?>
-					<span class="bn-badge" data-tone="accent"><?php echo esc_html( (string) min( $stype['count'], 99 ) ); ?></span>
-				<?php endif; ?>
-			</a>
-		<?php endforeach; ?>
-	</section>
-
-</aside>
-
-</div><!-- .bn-notifs-shell -->
-
-<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
-
-</div><!-- /.bn-hub-shell -->
+</div>
+<?php
+/**
+ * Fires after the notifications inner content.
+ *
+ * @param int $current_user_id Current user ID.
+ */
+do_action( 'buddynext_notifications_after', $current_user_id );

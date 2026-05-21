@@ -1,8 +1,14 @@
 /*
- * BuddyNext — Notifications (v2)
+ * BuddyNext - Notifications (v2)
  *
- * Full-page notification list, filter tabs, unread state, sidebar summary.
+ * Inner notifications template lives inside the shared hub-shell main column
+ * (.bn-app__main); right-sidebar widgets are injected via the
+ * buddynext_right_sidebar action. This stylesheet therefore owns ONLY the
+ * notification list and sidecard widget chrome - never page-grid, topbar,
+ * or rail.
+ *
  * Composes from the v2 primitive layer in bn-base.css:
+ *   .bn-section-head        page header (title + Mark-all-read)
  *   .bn-card[data-v2]       wrap the list and side-cards
  *   .bn-tabs / .bn-tab      filter strip with .bn-tab__count
  *   .bn-avatar[data-size]   actor avatar (sm)
@@ -12,54 +18,19 @@
  * Bell dropdown rules (used by partials/nav.php) ride on the same vocabulary.
  */
 
-/* ── Shell layout ─────────────────────────────────────────────────────── */
-
-.bn-notifs-shell {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: var(--bn-s6);
-	align-items: start;
-	font-family: var(--bn-font-ui);
-	font-size: var(--bn-text-base);
-	color: var(--bn-ink);
-}
+/* ── Main column flow ─────────────────────────────────────────────────── */
 
 .bn-notifs-main {
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s5);
-}
-
-/* ── Page header ──────────────────────────────────────────────────────── */
-
-.bn-notifs-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--bn-s3);
-	flex-wrap: wrap;
-}
-
-.bn-notifs-title {
-	font-family: var(--bn-font-display);
-	font-size: var(--bn-text-2xl);
-	font-weight: var(--bn-fw-bold);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-base);
 	color: var(--bn-ink);
-	letter-spacing: var(--bn-ls-tight);
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-s2);
-	margin: 0;
 }
 
-.bn-notifs-actions {
-	display: inline-flex;
-	gap: var(--bn-s2);
-	align-items: center;
-}
-
-/* ── Filter tabs — extends .bn-tabs primitive ─────────────────────────── */
+/* ── Filter tabs - extends .bn-tabs primitive ─────────────────────────── */
 
 .bn-notif-tabs {
 	overflow-x: auto;
@@ -113,6 +84,7 @@
 	cursor: pointer;
 	transition: background var(--bn-dur-fast) var(--bn-ease);
 	align-items: flex-start;
+	min-height: 56px;
 }
 
 .bn-notif-row:last-child { border-bottom: none; }
@@ -190,7 +162,7 @@
 
 .bn-notif-row--unread .bn-notif-row__type { border-color: var(--bn-accent-50); }
 
-/* Tone-mapped colour for the type pill — mirrors .bn-badge[data-tone]. */
+/* Tone-mapped colour for the type pill - mirrors .bn-badge[data-tone]. */
 .bn-notif-row__type[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-700); }
 .bn-notif-row__type[data-tone="info"]     { background: var(--bn-info-bg);    color: var(--bn-info); }
 .bn-notif-row__type[data-tone="success"]  { background: var(--bn-success-bg); color: var(--bn-success); }
@@ -237,9 +209,8 @@
 	flex-wrap: wrap;
 }
 
-/* Stop a bubble-up from the row click target when the user fires an inline
-   action — the JS store also guards but the visual treatment matches v2. */
-.bn-notif-row__actions .bn-btn { pointer-events: auto; }
+/* Inline action buttons receive their visuals from .bn-btn - preserve hit area. */
+.bn-notif-row__actions .bn-btn { pointer-events: auto; min-height: 40px; }
 
 /* ── Empty state ──────────────────────────────────────────────────────── */
 
@@ -286,17 +257,33 @@
 	margin: 0;
 }
 
-/* ── Sidebar (right column) ──────────────────────────────────────────── */
+/* ── Pagination ──────────────────────────────────────────────────────── */
 
-.bn-notifs-sidebar {
+.bn-notif-pagination {
 	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s4);
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) 0;
+	flex-wrap: wrap;
 }
+
+.bn-notif-pagination__meta {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-2xs);
+	color: var(--bn-ink-4);
+	letter-spacing: var(--bn-ls-wide);
+}
+
+/* ── Sidebar sidecards (injected into .bn-app__right via action) ─────── */
 
 .bn-notif-sidecard {
 	padding: 0;
 	overflow: hidden;
+}
+
+.bn-notif-sidecard + .bn-notif-sidecard {
+	margin-block-start: var(--bn-s4);
 }
 
 .bn-notif-sidecard__head {
@@ -332,6 +319,13 @@
 	box-shadow: var(--bn-ring);
 }
 
+.bn-notif-sidecard__row.is-active {
+	background: var(--bn-accent-50);
+	color: var(--bn-accent-700);
+}
+
+.bn-notif-sidecard__row.is-active .bn-notif-sidecard__icon { color: var(--bn-accent); }
+
 .bn-notif-sidecard__icon {
 	display: inline-flex;
 	align-items: center;
@@ -350,7 +344,39 @@
 
 .bn-notif-sidecard__label {
 	flex: 1;
-	color: var(--bn-ink);
+	color: inherit;
+}
+
+/* Recent-actors avatar strip */
+.bn-notif-sidecard__actors {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	padding: var(--bn-s3) var(--bn-s4);
+}
+
+.bn-notif-sidecard__actor {
+	display: inline-flex;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	overflow: hidden;
+	background: var(--bn-sunken);
+	flex-shrink: 0;
+	transition: transform var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-notif-sidecard__actor:hover { transform: translateY(-1px); }
+
+.bn-notif-sidecard__actor:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-notif-sidecard__actor img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 /* ── Bell dropdown (nav partial) ─────────────────────────────────────── */
@@ -395,7 +421,7 @@
 	text-align: center;
 }
 
-/* Unread chip used by the bell button — still consumes the badge primitive
+/* Unread chip used by the bell button - still consumes the badge primitive
    colour but with a smaller fixed footprint. */
 .bn-notif-badge {
 	display: inline-flex;
@@ -416,32 +442,39 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.bn-notif-row,
-	.bn-notif-sidecard__row {
+	.bn-notif-sidecard__row,
+	.bn-notif-sidecard__actor {
 		transition: none;
 	}
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────── */
 
+/* iPad / tablet - shell already hides .bn-app__right ≤ 1024px, so we
+   only tune list padding here. */
+@media (max-width: 1024px) {
+	.bn-notif-row { padding: var(--bn-s3) var(--bn-s4); }
+}
+
+/* Mobile - stack tightly; tap targets ≥ 40px enforced via min-height. */
 @media (max-width: 640px) {
-	.bn-notifs-shell {
-		grid-template-columns: 1fr;
-		gap: var(--bn-s4);
-	}
-	.bn-notifs-sidebar { display: none; }
-	.bn-notifs-header {
-		align-items: flex-start;
-		flex-direction: column;
-	}
 	.bn-notif-row {
 		padding: var(--bn-s3);
 		gap: var(--bn-s2);
+	}
+	.bn-notif-row__meta {
+		flex-wrap: wrap;
+		row-gap: var(--bn-s1);
 	}
 	.bn-notif-row__pulse {
 		inset-block-start: var(--bn-s3);
 		inset-inline-end: var(--bn-s3);
 	}
 	.bn-notif-tabs { padding-block-end: 2px; }
+	.bn-notif-pagination {
+		justify-content: space-between;
+		gap: var(--bn-s2);
+	}
 	.bn-bell-dropdown {
 		width: calc(100vw - var(--bn-s8));
 		inset-inline-end: calc(var(--bn-s4) * -1);
