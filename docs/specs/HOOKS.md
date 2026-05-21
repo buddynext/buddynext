@@ -106,6 +106,12 @@ do_action( 'buddynext_reaction_removed', string $object_type, int $object_id, in
 do_action( 'buddynext_comment_created', int $comment_id, string $object_type, int $object_id, int $user_id )
 do_action( 'buddynext_comment_updated', int $comment_id, int $user_id )
 do_action( 'buddynext_comment_deleted', int $comment_id, int $user_id )
+
+// Fires inside the comment form on every post card, after the submit button.
+// Pro and other addons inject extra controls next to the comment textarea
+// (for example, AI smart-reply suggestion chips). Renders only for logged-in
+// viewers — guests never see the comment form, so the hook never fires for them.
+do_action( 'buddynext_post_comment_form_extra', int $post_id )
 ```
 
 ---

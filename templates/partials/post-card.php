@@ -852,6 +852,20 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				<?php buddynext_icon( 'send' ); ?>
 			</button>
 		</div>
+
+			<?php
+			/**
+			 * Fires inside the comment form, after the submit button.
+			 *
+			 * Lets Pro and other addons inject extra controls next to the comment
+			 * textarea (for example, AI smart-reply suggestion chips).
+			 *
+			 * @since 0.3.0
+			 *
+			 * @param int $post_id The post ID the comment form belongs to.
+			 */
+			do_action( 'buddynext_post_comment_form_extra', $bn_post_id );
+			?>
 		<?php endif; ?>
 	</div>
 
