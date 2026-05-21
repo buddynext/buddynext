@@ -225,8 +225,24 @@ $initials = static function ( string $name ): string {
 
 $current_user_id = get_current_user_id();
 
-$bn_nav_active = 'feed';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+add_action(
+	'buddynext_right_sidebar',
+	static function () use ( $current_user_id ) {
+		buddynext_get_template(
+			'partials/sidebar.php',
+			array(
+				'sidebar_user_id' => $current_user_id,
+			)
+		);
+	}
+);
+
+/**
+ * Fires before the search results inner content.
+ *
+ * @param int $current_user_id Current user ID.
+ */
+do_action( 'buddynext_search_before', $current_user_id );
 
 // Pre-compute URLs.
 $type_tabs = array(
@@ -253,9 +269,7 @@ $type_tabs = array(
 );
 ?>
 
-<div class="bn-hub-shell">
-
-<div class="bn-search-shell"
+<div class="bn-feed-stack bn-search-shell"
 	data-wp-interactive="buddynext/search"
 	data-wp-context='{"query":"<?php echo esc_attr( $raw_query ); ?>","activeTab":"<?php echo esc_attr( $active_tab ); ?>"}'>
 
@@ -794,6 +808,11 @@ $type_tabs = array(
 	<?php endif; // End: raw_query check. ?>
 </div><!-- /.bn-search-shell -->
 
-<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
-
-</div><!-- /.bn-hub-shell -->
+<?php
+/**
+ * Fires after the search results inner content.
+ *
+ * @param int $current_user_id Current user ID.
+ */
+do_action( 'buddynext_search_after', $current_user_id );
+?>
