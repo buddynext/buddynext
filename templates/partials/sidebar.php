@@ -25,72 +25,113 @@ global $wpdb;
 
 $sidebar_user_id = isset( $sidebar_user_id ) ? absint( $sidebar_user_id ) : get_current_user_id();
 
-// ── Trending hashtags (top 5 by post count) ──────────────────────────────
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$sbar_trending = $wpdb->get_results(
-	$wpdb->prepare(
-		'SELECT slug, post_count FROM ' . $wpdb->prefix . 'bn_hashtags ORDER BY post_count DESC LIMIT %d',
-		5
-	)
-);
+/*
+ * Scale contract — docs/specs/SCALE-CONTRACT.md.
+ *
+ * The sidebar fires on every BN hub page render. At 100k sites × 100k
+ * members × every page load that's billions of queries per day without
+ * caching. Each of the three widgets goes through wp_cache_get first.
+ *
+ * Cache keys are user-scoped (suggested + spaces depend on user) or
+ * global (trending hashtags). TTLs: 60s for fast-moving aggregates,
+ * 300s for joined-space lists that change less often.
+ *
+ * Cache invalidation hooks (registered in PageRouter::init):
+ *   - buddynext_post_created / _hashtag_indexed → delete trending key
+ *   - buddynext_user_followed / _unfollowed → delete suggested:{user} key
+ *   - buddynext_space_member_joined / _left → delete spaces:{user} key
+ */
 
-// ── Suggested people to follow (up to 3) ─────────────────────────────────
+// ── Trending hashtags (top 5 by post count) — 60s TTL ─────────────────────
+$sbar_trending = wp_cache_get( 'sidebar:trending:v1', 'buddynext_widgets' );
+if ( false === $sbar_trending ) {
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$sbar_trending = $wpdb->get_results(
+		$wpdb->prepare(
+			'SELECT slug, post_count FROM ' . $wpdb->prefix . 'bn_hashtags ORDER BY post_count DESC LIMIT %d',
+			5
+		)
+	);
+	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	wp_cache_set( 'sidebar:trending:v1', $sbar_trending, 'buddynext_widgets', 60 );
+}
+
+// ── Suggested people to follow (up to 3) — 300s TTL ─────────────────────
+// ORDER BY RAND() is expensive on large user tables. At scale, replace
+// with a precomputed candidate pool (P2 AI signals or static
+// "most-followed-not-yet-followed" table). For now the cache absorbs
+// the worst case so the query runs ~1×/300s/user, not per page load.
 $sbar_suggested = array();
 if ( $sidebar_user_id ) {
-	$sbar_suggested = $wpdb->get_results(
-		$wpdb->prepare(
-			'SELECT u.ID, u.display_name, u.user_login
-			 FROM ' . $wpdb->users . ' u
-			 WHERE u.ID != %d
-			   AND NOT EXISTS (
-				   SELECT 1 FROM ' . $wpdb->prefix . 'bn_follows f
-				   WHERE f.follower_id = %d AND f.following_id = u.ID
-			   )
-			   AND NOT EXISTS (
-				   SELECT 1 FROM ' . $wpdb->prefix . 'bn_blocks bl
-				   WHERE ( bl.blocker_id = %d AND bl.blocked_id = u.ID )
-					  OR ( bl.blocker_id = u.ID AND bl.blocked_id = %d )
-			   )
-			 ORDER BY RAND()
-			 LIMIT %d',
-			$sidebar_user_id,
-			$sidebar_user_id,
-			$sidebar_user_id,
-			$sidebar_user_id,
-			3
-		)
-	);
+	$sug_key       = 'sidebar:suggested:v1:' . (int) $sidebar_user_id;
+	$sbar_suggested = wp_cache_get( $sug_key, 'buddynext_user_meta' );
+	if ( false === $sbar_suggested ) {
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$sbar_suggested = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT u.ID, u.display_name, u.user_login
+				 FROM ' . $wpdb->users . ' u
+				 WHERE u.ID != %d
+				   AND NOT EXISTS (
+					   SELECT 1 FROM ' . $wpdb->prefix . 'bn_follows f
+					   WHERE f.follower_id = %d AND f.following_id = u.ID
+				   )
+				   AND NOT EXISTS (
+					   SELECT 1 FROM ' . $wpdb->prefix . 'bn_blocks bl
+					   WHERE ( bl.blocker_id = %d AND bl.blocked_id = u.ID )
+						  OR ( bl.blocker_id = u.ID AND bl.blocked_id = %d )
+				   )
+				 ORDER BY RAND()
+				 LIMIT %d',
+				$sidebar_user_id,
+				$sidebar_user_id,
+				$sidebar_user_id,
+				$sidebar_user_id,
+				3
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		wp_cache_set( $sug_key, $sbar_suggested, 'buddynext_user_meta', 300 );
+	}
 }
 
-// ── Active spaces (joined spaces, or open spaces for guests) ──────────────
-if ( $sidebar_user_id ) {
-	$sbar_spaces = $wpdb->get_results(
-		$wpdb->prepare(
-			'SELECT s.id, s.name, s.slug, s.member_count, s.avatar_url
-			 FROM ' . $wpdb->prefix . 'bn_spaces s
-			 INNER JOIN ' . $wpdb->prefix . 'bn_space_members sm
-			   ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = %s
-			 ORDER BY s.member_count DESC
-			 LIMIT %d',
-			$sidebar_user_id,
-			'active',
-			4
-		)
-	);
-} else {
-	$sbar_spaces = $wpdb->get_results(
-		$wpdb->prepare(
-			'SELECT id, name, slug, member_count, avatar_url
-			 FROM ' . $wpdb->prefix . 'bn_spaces
-			 WHERE type = %s
-			 ORDER BY member_count DESC
-			 LIMIT %d',
-			'open',
-			4
-		)
-	);
+// ── Active spaces (joined for members, open for guests) — 300s TTL ──────
+$spaces_key  = 'sidebar:spaces:v1:' . (int) $sidebar_user_id;
+$sbar_spaces = wp_cache_get( $spaces_key, 'buddynext_user_meta' );
+if ( false === $sbar_spaces ) {
+	if ( $sidebar_user_id ) {
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$sbar_spaces = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT s.id, s.name, s.slug, s.member_count, s.avatar_url
+				 FROM ' . $wpdb->prefix . 'bn_spaces s
+				 INNER JOIN ' . $wpdb->prefix . 'bn_space_members sm
+				   ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = %s
+				 ORDER BY s.member_count DESC
+				 LIMIT %d',
+				$sidebar_user_id,
+				'active',
+				4
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	} else {
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$sbar_spaces = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT id, name, slug, member_count, avatar_url
+				 FROM ' . $wpdb->prefix . 'bn_spaces
+				 WHERE type = %s
+				 ORDER BY member_count DESC
+				 LIMIT %d',
+				'open',
+				4
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+	wp_cache_set( $spaces_key, $sbar_spaces, 'buddynext_user_meta', 300 );
 }
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 $sbar_spaces_url  = home_url( '/spaces/' );
 $sbar_members_url = home_url( '/members/' );
