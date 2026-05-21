@@ -1,11 +1,17 @@
 <?php
 /**
- * BuddyNext — Post card partial.
+ * BuddyNext — Post card partial (v2 pattern).
  *
  * Reusable post card rendered across home, explore, profile, and space feeds.
  * Receives $post (hydrated array from FeedService/PostService),
  * $current_user_id (int, 0 for guests), and $context
  * (string: home|explore|profile|space) — variables extracted by TemplateLoader::render().
+ *
+ * Markup follows the v2 prototype in `docs/v2 Plans/v2/home-feed.html`
+ * (in-feed post variant) and `docs/v2 Plans/v2/post-detail.html` (full post).
+ * Single border, no shadow, body padding `--bn-s5`, head row → body → optional
+ * rich content → optional reaction summary → flat action row → optional
+ * comments expand region.
  *
  * Supported post types: text, photo, file, link, poll, announcement,
  *   activity, media, discussion, job, share.
@@ -15,7 +21,7 @@
  * @package BuddyNext
  * @since   1.0.0
  *
- * @var array    $post            Hydrated post array.
+ * @var array     $post            Hydrated post array.
  * @var int       $current_user_id Viewing user ID.
  * @var string    $context         Feed context (home|explore|profile|space).
  */
@@ -190,12 +196,14 @@ if ( $current_user_id > 0 ) {
 
 // ── Privacy label ──────────────────────────────────────────────────────────────
 $privacy_labels = array(
+	'public'        => __( 'Public', 'buddynext' ),
 	'followers'     => __( 'Followers only', 'buddynext' ),
 	'connections'   => __( 'Connections only', 'buddynext' ),
 	'space_members' => __( 'Space members', 'buddynext' ),
 	'private'       => __( 'Only me', 'buddynext' ),
 );
 $privacy_icons  = array(
+	'public'        => buddynext_get_icon( 'globe' ),
 	'followers'     => buddynext_get_icon( 'user' ),
 	'connections'   => buddynext_get_icon( 'users' ),
 	'space_members' => buddynext_get_icon( 'lock' ),
@@ -268,11 +276,11 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		?>
 	'
 	data-post-id="<?php echo absint( $bn_post_id ); ?>"
+	data-post-type="<?php echo esc_attr( $bn_post_type ); ?>"
 	aria-labelledby="bn-post-author-<?php echo absint( $bn_post_id ); ?>"
 >
 
 	<?php if ( $is_announcement ) : ?>
-		<!-- Announcement banner bar -->
 		<div class="bn-post-card__announcement-bar" role="banner">
 			<span class="bn-post-card__ann-badge">
 				<?php buddynext_icon( 'megaphone' ); ?> <?php esc_html_e( 'Announcement', 'buddynext' ); ?>
@@ -292,9 +300,8 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		</div>
 	<?php endif; ?>
 
-	<!-- Post header: avatar + author + timestamp + actions -->
-	<div class="bn-post-card__header">
-		<!-- Avatar -->
+	<!-- Head row: avatar + author block + meta line + kebab (v2 .post-head) -->
+	<header class="bn-post-card__head">
 		<a href="<?php echo esc_url( $profile_link ); ?>" class="bn-post-card__avatar-link" tabindex="-1" aria-hidden="true">
 			<?php if ( $avatar_url ) : ?>
 				<span class="bn-avatar" data-size="md">
@@ -311,9 +318,8 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			<?php endif; ?>
 		</a>
 
-		<!-- Author info -->
-		<div class="bn-post-card__author-wrap">
-			<div class="bn-post-card__author-line">
+		<div class="bn-post-card__author-block">
+			<div class="bn-post-card__author">
 				<a
 					id="bn-post-author-<?php echo absint( $bn_post_id ); ?>"
 					href="<?php echo esc_url( $profile_link ); ?>"
@@ -323,16 +329,17 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 					data-bn-user-handle="<?php echo esc_attr( $username ); ?>"
 				><?php echo esc_html( $display_name ); ?></a>
 
-				<?php if ( $username ) : ?>
-					<span class="bn-post-card__username">@<?php echo esc_html( $username ); ?></span>
-				<?php endif; ?>
-
 				<?php if ( $member_type_label ) : ?>
 					<span class="bn-badge bn-post-card__member-type" data-tone="accent"><?php echo esc_html( (string) $member_type_label ); ?></span>
 				<?php endif; ?>
 			</div>
 
-			<div class="bn-post-card__meta-line">
+			<div class="bn-post-card__meta">
+				<?php if ( $username ) : ?>
+					<a class="bn-post-card__handle" href="<?php echo esc_url( $profile_link ); ?>">@<?php echo esc_html( $username ); ?></a>
+					<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
+				<?php endif; ?>
+
 				<time
 					class="bn-post-card__time"
 					datetime="<?php echo esc_attr( $created_at ); ?>"
@@ -344,20 +351,20 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				<?php endif; ?>
 
 				<?php if ( $privacy_label ) : ?>
-					<span class="bn-badge bn-post-card__privacy-badge" data-tone="info" aria-label="<?php echo esc_attr( $privacy_label ); ?>">
+					<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
+					<span class="bn-post-card__privacy" aria-label="<?php echo esc_attr( $privacy_label ); ?>">
 						<?php echo $privacy_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService::render wp_kses-sanitized SVG ?>
-						<?php echo esc_html( $privacy_label ); ?>
+						<span><?php echo esc_html( $privacy_label ); ?></span>
 					</span>
 				<?php endif; ?>
 			</div>
-		</div><!-- .bn-post-card__author-wrap -->
+		</div>
 
-		<!-- Post options menu button -->
-		<div class="bn-post-card__options-wrap">
+		<div class="bn-post-card__menu-wrap">
 			<button
 				type="button"
-				class="bn-post-card__options-btn"
-				aria-label="<?php esc_attr_e( 'Post options', 'buddynext' ); ?>"
+				class="bn-post-card__menu"
+				aria-label="<?php esc_attr_e( 'Post actions', 'buddynext' ); ?>"
 				aria-haspopup="true"
 				aria-expanded="false"
 				data-wp-on--click="actions.toggleOptionsMenu"
@@ -405,8 +412,8 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 					><?php buddynext_icon( 'trash' ); ?> <?php esc_html_e( 'Delete', 'buddynext' ); ?></button>
 				<?php endif; ?>
 			</div>
-		</div><!-- .bn-post-card__options-wrap -->
-	</div><!-- .bn-post-card__header -->
+		</div>
+	</header>
 
 	<!-- Content warning overlay -->
 	<?php if ( $has_cw ) : ?>
@@ -414,19 +421,17 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			class="bn-post-card__cw-overlay"
 			data-wp-bind--hidden="state.showContent"
 		>
-			<div class="bn-post-card__cw-inner">
-				<span class="bn-post-card__cw-icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
-				<p class="bn-post-card__cw-label"><?php echo esc_html( $cw_display ); ?></p>
-				<button
-					type="button"
-					class="bn-post-card__cw-reveal"
-					data-wp-on--click="actions.revealContent"
-				><?php esc_html_e( 'Show anyway', 'buddynext' ); ?></button>
-			</div>
+			<span class="bn-post-card__cw-icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
+			<p class="bn-post-card__cw-label"><?php echo esc_html( $cw_display ); ?></p>
+			<button
+				type="button"
+				class="bn-post-card__cw-reveal"
+				data-wp-on--click="actions.revealContent"
+			><?php esc_html_e( 'Show anyway', 'buddynext' ); ?></button>
 		</div>
 	<?php endif; ?>
 
-	<!-- Post body — hidden when content warning is active -->
+	<!-- Body — JS toggles `--blurred` modifier when content warning is active. -->
 	<div
 		class="bn-post-card__body"
 		<?php if ( $has_cw ) : ?>
@@ -435,7 +440,6 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 	>
 
 		<?php if ( 'text' === $bn_post_type || 'activity' === $bn_post_type ) : ?>
-			<!-- Text / activity post content -->
 			<div class="bn-post-card__content">
 				<?php
 				echo wp_kses(
@@ -454,18 +458,16 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			</div>
 
 		<?php elseif ( 'photo' === $bn_post_type ) : ?>
-			<!-- Photo post -->
 			<?php if ( $post_content ) : ?>
 				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 			<?php endif; ?>
 			<?php if ( ! empty( $media_ids ) ) : ?>
-				<div class="bn-post-card__media-grid mvs-activity-media-grid bn-post-card__media-grid--<?php echo count( $media_ids ) >= 4 ? '4' : esc_attr( (string) count( $media_ids ) ); ?>">
+				<div class="bn-post-card__media bn-post-card__media-grid mvs-activity-media-grid bn-post-card__media-grid--<?php echo count( $media_ids ) >= 4 ? '4' : esc_attr( (string) count( $media_ids ) ); ?>">
 					<?php
 					foreach ( array_slice( $media_ids, 0, 4 ) as $media_id ) :
 						$media_id  = absint( $media_id );
 						$media_url = '';
 						$full_url  = '';
-						// Try WPMediaVerse file URL meta first, then WP attachment URL.
 						if ( $media_id > 0 ) {
 							$media_url = (string) get_post_meta( $media_id, '_mvs_file_url', true );
 							if ( '' === $media_url ) {
@@ -483,7 +485,6 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 						}
 						$media_link_href = '' !== $full_url ? $full_url : $media_url;
 						?>
-						<?php // MVS-compatible wrapper: mvs-activity-media + data-mvs-media-id for lightbox detection. ?>
 						<div class="bn-post-card__media-item mvs-activity-media" data-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-src="<?php echo esc_url( $full_url ); ?>">
 							<?php if ( '' !== $media_url ) : ?>
 								<a href="<?php echo esc_url( $media_link_href ); ?>" class="mvs-grid-item-link" data-mvs-permalink="<?php echo esc_url( (string) $media_permalink ); ?>">
@@ -498,7 +499,6 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			<?php endif; ?>
 
 		<?php elseif ( 'file' === $bn_post_type ) : ?>
-			<!-- File post -->
 			<?php if ( $post_content ) : ?>
 				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 			<?php endif; ?>
@@ -514,14 +514,13 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			<?php endif; ?>
 
 		<?php elseif ( 'link' === $bn_post_type ) : ?>
-			<!-- Link post -->
 			<?php if ( $post_content ) : ?>
 				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 			<?php endif; ?>
 			<?php if ( $link_url ) : ?>
 				<a
 					href="<?php echo esc_url( $link_url ); ?>"
-					class="bn-post-card__link-preview"
+					class="bn-post-card__embed bn-post-card__link-preview"
 					target="_blank"
 					rel="noopener noreferrer"
 					aria-label="<?php echo esc_attr( $link_title ? $link_title : $link_domain ); ?>"
@@ -536,21 +535,20 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 						</div>
 					<?php endif; ?>
 					<div class="bn-post-card__link-info">
-						<?php if ( $link_domain ) : ?>
-							<span class="bn-post-card__link-domain"><?php echo esc_html( $link_domain ); ?></span>
-						<?php endif; ?>
 						<?php if ( $link_title ) : ?>
 							<p class="bn-post-card__link-title"><?php echo esc_html( $link_title ); ?></p>
 						<?php endif; ?>
 						<?php if ( $link_desc ) : ?>
 							<p class="bn-post-card__link-desc"><?php echo esc_html( $link_desc ); ?></p>
 						<?php endif; ?>
+						<?php if ( $link_domain ) : ?>
+							<span class="bn-post-card__link-domain"><?php echo esc_html( $link_domain ); ?></span>
+						<?php endif; ?>
 					</div>
 				</a>
 			<?php endif; ?>
 
 		<?php elseif ( 'poll' === $bn_post_type ) : ?>
-			<!-- Poll post -->
 			<?php if ( $post_content ) : ?>
 				<div class="bn-post-card__content bn-post-card__poll-question">
 					<?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?>
@@ -606,13 +604,11 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			<?php endif; ?>
 
 		<?php elseif ( 'announcement' === $bn_post_type ) : ?>
-			<!-- Announcement body -->
 			<div class="bn-post-card__content bn-post-card__content--announcement">
 				<?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?>
 			</div>
 
 		<?php elseif ( 'media' === $bn_post_type ) : ?>
-			<!-- WPMediaVerse bridge: media card -->
 			<?php if ( $post_content ) : ?>
 				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 			<?php endif; ?>
@@ -624,7 +620,6 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			<?php endif; ?>
 
 		<?php elseif ( 'discussion' === $bn_post_type ) : ?>
-			<!-- Jetonomy bridge: discussion card -->
 			<div class="bn-post-card__bridge-card bn-post-card__bridge-card--jetonomy">
 				<span class="bn-post-card__bridge-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
 				<div class="bn-post-card__bridge-content">
@@ -634,7 +629,6 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			</div>
 
 		<?php elseif ( 'job' === $bn_post_type ) : ?>
-			<!-- Career Board bridge: job card -->
 			<div class="bn-post-card__bridge-card bn-post-card__bridge-card--job">
 				<span class="bn-post-card__bridge-icon" aria-hidden="true"><?php buddynext_icon( 'briefcase' ); ?></span>
 				<div class="bn-post-card__bridge-content">
@@ -644,7 +638,6 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			</div>
 
 		<?php elseif ( 'share' === $bn_post_type ) : ?>
-			<!-- Share card: optional note + embedded original post -->
 			<?php if ( ! empty( $post_content ) ) : ?>
 				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 			<?php endif; ?>
@@ -664,23 +657,26 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 					$orig_initials = strtoupper( substr( (string) $orig_name, 0, 2 ) );
 				}
 				?>
-				<div class="bn-post-card__shared-embed" role="article" aria-label="<?php esc_attr_e( 'Shared post', 'buddynext' ); ?>">
+				<blockquote class="bn-post-card__shared bn-post-card__shared-embed" role="article" aria-label="<?php esc_attr_e( 'Shared post', 'buddynext' ); ?>">
 					<div class="bn-post-card__shared-header">
 						<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-avatar-link" aria-hidden="true">
 							<?php if ( $orig_avatar ) : ?>
-								<span class="bn-avatar" data-size="md">
-									<img src="<?php echo esc_url( $orig_avatar ); ?>" alt="<?php echo esc_attr( $orig_name ); ?>" width="40" height="40">
+								<span class="bn-avatar" data-size="sm">
+									<img src="<?php echo esc_url( $orig_avatar ); ?>" alt="<?php echo esc_attr( $orig_name ); ?>" width="32" height="32">
 								</span>
 							<?php else : ?>
-								<span class="bn-avatar" data-size="md"><?php echo esc_html( $orig_initials ); ?></span>
+								<span class="bn-avatar" data-size="sm"><?php echo esc_html( $orig_initials ); ?></span>
 							<?php endif; ?>
 						</a>
 						<div class="bn-post-card__shared-meta">
 							<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-name"><?php echo esc_html( $orig_name ); ?></a>
-							<?php if ( $orig_username ) : ?>
-								<span class="bn-post-card__shared-username">@<?php echo esc_html( $orig_username ); ?></span>
-							<?php endif; ?>
-							<span class="bn-post-card__shared-time"><?php echo esc_html( $orig_time ); ?></span>
+							<span class="bn-post-card__shared-sub">
+								<?php if ( $orig_username ) : ?>
+									<span class="bn-post-card__shared-username">@<?php echo esc_html( $orig_username ); ?></span>
+									<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
+								<?php endif; ?>
+								<span class="bn-post-card__shared-time"><?php echo esc_html( $orig_time ); ?></span>
+							</span>
 						</div>
 					</div>
 					<?php if ( ! empty( $orig_content ) ) : ?>
@@ -688,24 +684,23 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 					<?php else : ?>
 						<p class="bn-post-card__shared-empty"><?php esc_html_e( '[No text content]', 'buddynext' ); ?></p>
 					<?php endif; ?>
-				</div>
+				</blockquote>
 			<?php else : ?>
 				<div class="bn-post-card__shared-missing">
-					<span><?php buddynext_icon( 'share' ); ?></span>
+					<span aria-hidden="true"><?php buddynext_icon( 'share' ); ?></span>
 					<p><?php esc_html_e( 'Original post is no longer available.', 'buddynext' ); ?></p>
 				</div>
 			<?php endif; ?>
 
 		<?php else : ?>
-			<!-- Fallback for unknown/future types -->
 			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
 		<?php endif; ?>
 
 	</div><!-- .bn-post-card__body -->
 
-	<!-- Reaction bar -->
+	<!-- Reaction summary chips — visible when there are reactions/comments/shares -->
 	<?php if ( $reaction_count > 0 || $comment_count > 0 || $share_count > 0 ) : ?>
-		<div class="bn-post-card__reaction-summary" aria-label="<?php esc_attr_e( 'Post summary', 'buddynext' ); ?>">
+		<div class="bn-post-card__reactions bn-post-card__reaction-summary" aria-label="<?php esc_attr_e( 'Post summary', 'buddynext' ); ?>">
 			<?php if ( $reaction_count > 0 ) : ?>
 				<span class="bn-post-card__summary-chip">
 					<?php buddynext_icon( 'heart' ); ?> <?php echo esc_html( (string) $reaction_count ); ?>
@@ -724,10 +719,9 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		</div>
 	<?php endif; ?>
 
-	<!-- Action bar -->
+	<!-- Flat action row (v2 .post-actions) -->
 	<div class="bn-post-card__actions" role="toolbar" aria-label="<?php esc_attr_e( 'Post actions', 'buddynext' ); ?>">
 
-		<!-- Reaction picker trigger -->
 		<div class="bn-post-card__react-wrap">
 			<button
 				type="button"
@@ -737,10 +731,9 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				data-wp-bind--class="state.reactBtnClass"
 			>
 				<span data-wp-bind--class="state.reactionIconClass" aria-hidden="true"><?php buddynext_icon( 'heart' ); ?></span>
-				<?php esc_html_e( 'React', 'buddynext' ); ?>
+				<span class="bn-post-card__action-label"><?php esc_html_e( 'React', 'buddynext' ); ?></span>
 			</button>
 
-			<!-- Reaction emoji picker (hover/click expand) -->
 			<div
 				class="bn-post-card__emoji-picker"
 				role="toolbar"
@@ -767,9 +760,8 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 					><span class="bn-reaction-icon bn-reaction-icon--<?php echo esc_attr( $reaction_key ); ?>" aria-hidden="true"><?php buddynext_icon( $icon_slug ); ?></span></button>
 				<?php endforeach; ?>
 			</div>
-		</div><!-- .bn-post-card__react-wrap -->
+		</div>
 
-		<!-- Comment -->
 		<button
 			type="button"
 			class="bn-post-card__action-btn"
@@ -783,7 +775,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			data-post-id="<?php echo absint( $bn_post_id ); ?>"
 		>
 			<?php buddynext_icon( 'message-circle' ); ?>
-			<?php esc_html_e( 'Comment', 'buddynext' ); ?>
+			<span class="bn-post-card__action-label"><?php esc_html_e( 'Comment', 'buddynext' ); ?></span>
 			<?php if ( $comment_count > 0 ) : ?>
 				<span class="bn-comment-count"><?php echo esc_html( (string) $comment_count ); ?></span>
 			<?php else : ?>
@@ -791,7 +783,6 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			<?php endif; ?>
 		</button>
 
-		<!-- Share -->
 		<?php if ( 'share' !== $bn_post_type ) : ?>
 		<button
 			type="button"
@@ -802,11 +793,10 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			data-post-id="<?php echo absint( $bn_post_id ); ?>"
 		>
 			<?php buddynext_icon( 'share' ); ?>
-			<span data-wp-text="state.shareLabel"></span>
+			<span class="bn-post-card__action-label" data-wp-text="state.shareLabel"></span>
 		</button>
 		<?php endif; ?>
 
-		<!-- Bookmark -->
 		<?php if ( $can_bookmark ) : ?>
 			<button
 				type="button"
@@ -817,13 +807,13 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				data-wp-bind--class="state.bookmarkBtnClass"
 			>
 				<span data-wp-bind--aria-pressed="state.bookmarked"><?php buddynext_icon( 'bookmark' ); ?></span>
-				<?php esc_html_e( 'Save', 'buddynext' ); ?>
+				<span class="bn-post-card__action-label"><?php esc_html_e( 'Save', 'buddynext' ); ?></span>
 			</button>
 		<?php endif; ?>
 
 	</div><!-- .bn-post-card__actions -->
 
-	<!-- ── Comments section ─────────────────────────────────────────────── -->
+	<!-- Comments expand region -->
 	<div
 		class="bn-post-card__comments"
 		hidden
@@ -863,6 +853,6 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			</button>
 		</div>
 		<?php endif; ?>
-	</div><!-- .bn-post-card__comments -->
+	</div>
 
 </article>
