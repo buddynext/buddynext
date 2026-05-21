@@ -321,6 +321,28 @@ $nav_items = array(
 		'label' => __( 'Danger zone', 'buddynext' ),
 	),
 );
+
+/**
+ * Filter the per-space settings tabs.
+ *
+ * Pro modules (notably P6.2 per-space brand override) inject additional tabs
+ * here. Each entry is keyed by tab slug and must provide `icon` (Lucide slug
+ * present in assets/icons/) and `label` (translated string). Pro modules that
+ * register a tab must also render that tab's content via the
+ * `buddynext_space_settings_tab_content` action.
+ *
+ * @since 0.3.0
+ *
+ * @param array<string, array{icon: string, label: string}> $nav_items Tab definitions.
+ * @param int                                               $space_id  Space being configured.
+ */
+$nav_items = apply_filters( 'buddynext_space_settings_tabs', $nav_items, $space_id );
+
+// Re-validate the active tab against the (possibly extended) tab list.
+$allowed_tabs = array_keys( $nav_items );
+if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
+	$settings_tab = 'general';
+}
 ?>
 <div
 	class="bn-space-settings"
@@ -967,6 +989,23 @@ $nav_items = array(
 			</form>
 
 		<?php endif; ?>
+
+		<?php
+		/**
+		 * Render the active settings tab's content.
+		 *
+		 * Fires after Free's built-in tab content. Pro modules that registered
+		 * an extra tab via `buddynext_space_settings_tabs` render their panel
+		 * markup here. Listeners must guard on `$active_tab` to avoid leaking
+		 * content into Free's tabs.
+		 *
+		 * @since 0.3.0
+		 *
+		 * @param string $active_tab The currently selected tab slug.
+		 * @param int    $space_id   Space being configured.
+		 */
+		do_action( 'buddynext_space_settings_tab_content', $settings_tab, $space_id );
+		?>
 
 	</div>
 </div>

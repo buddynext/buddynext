@@ -447,6 +447,21 @@ apply_filters( 'buddynext_nav_items', array $items )
 //       return $items;
 //   } );
 
+// Inject extra tabs into the per-space settings template.
+apply_filters( 'buddynext_space_settings_tabs', array $nav_items, int $space_id )
+// Each entry is keyed by tab slug. Value: [ 'icon' => string (Lucide slug in assets/icons/), 'label' => string ].
+// Pair this filter with the `buddynext_space_settings_tab_content` action to render the tab body.
+//
+// Example — Pro adds a Brand tab:
+//   add_filter( 'buddynext_space_settings_tabs', function( $tabs, $space_id ) {
+//       $tabs['brand'] = [ 'icon' => 'palette', 'label' => 'Brand' ];
+//       return $tabs;
+//   }, 10, 2 );
+
+// Render the body of the active per-space settings tab.
+do_action( 'buddynext_space_settings_tab_content', string $active_tab, int $space_id )
+// Listeners MUST guard on $active_tab to avoid leaking markup into Free's built-in tabs.
+
 // Extend unified search results
 apply_filters( 'buddynext_search_results', array $results, string $query, array $args )
 
