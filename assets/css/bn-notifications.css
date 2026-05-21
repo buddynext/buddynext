@@ -1,117 +1,371 @@
 /*
- * BuddyNext — Notifications CSS
+ * BuddyNext — Notifications (v2)
  *
- * Full-page notification list, unread badge, bell icon dropdown,
- * per-type icon mapping, mark-all-read controls.
+ * Full-page notification list, filter tabs, unread state, sidebar summary.
+ * Composes from the v2 primitive layer in bn-base.css:
+ *   .bn-card[data-v2]       wrap the list and side-cards
+ *   .bn-tabs / .bn-tab      filter strip with .bn-tab__count
+ *   .bn-avatar[data-size]   actor avatar (sm)
+ *   .bn-badge[data-tone]    type pill + per-tab unread chip
+ *   .bn-btn[data-variant]   inline + header actions
+ *
+ * Bell dropdown rules (used by partials/nav.php) ride on the same vocabulary.
  */
 
-/* ── Notification page layout ───────────────────────────────────────────── */
+/* ── Shell layout ─────────────────────────────────────────────────────── */
 
-.bn-notifications {
-	max-width: 680px;
-	margin: 0 auto;
+.bn-notifs-shell {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: var(--bn-s6);
+	align-items: start;
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-base);
+	color: var(--bn-ink);
 }
 
-.bn-notifications__header {
+.bn-notifs-main {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s5);
+}
+
+/* ── Page header ──────────────────────────────────────────────────────── */
+
+.bn-notifs-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-bottom: var(--s4);
+	gap: var(--bn-s3);
+	flex-wrap: wrap;
 }
 
-.bn-notifications__title {
-	font-size: var(--text-2xl);
-	font-weight: var(--fw-bold);
-	font-family: var(--font-display);
-	color: var(--text-1);
+.bn-notifs-title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-2xl);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+	letter-spacing: var(--bn-ls-tight);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
 	margin: 0;
 }
 
-/* ── Notification item ──────────────────────────────────────────────────── */
+.bn-notifs-actions {
+	display: inline-flex;
+	gap: var(--bn-s2);
+	align-items: center;
+}
 
-.bn-notif-item {
+/* ── Filter tabs — extends .bn-tabs primitive ─────────────────────────── */
+
+.bn-notif-tabs {
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.bn-notif-tabs::-webkit-scrollbar { display: none; }
+
+/* ── Group section ────────────────────────────────────────────────────── */
+
+.bn-notif-group {
 	display: flex;
-	gap: var(--s3);
-	padding: var(--s4);
-	border-bottom: 1px solid var(--border-soft);
-	background: var(--surface);
-	transition: background 0.1s;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+
+.bn-notif-group__head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	letter-spacing: var(--bn-ls-wider);
+	text-transform: uppercase;
+	color: var(--bn-ink-4);
+	padding: 0 2px;
+}
+
+.bn-notif-group__title { color: var(--bn-ink-3); }
+
+.bn-notif-group__meta { color: var(--bn-accent); }
+
+/* ── List wrapper ─────────────────────────────────────────────────────── */
+
+.bn-notif-list {
+	padding: 0;
+	overflow: hidden;
+}
+
+/* ── Notification row ─────────────────────────────────────────────────── */
+
+.bn-notif-row {
 	position: relative;
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: var(--bn-s3);
+	padding: var(--bn-s4);
+	border-bottom: 1px solid var(--bn-line-faint);
+	background: transparent;
 	cursor: pointer;
+	transition: background var(--bn-dur-fast) var(--bn-ease);
+	align-items: flex-start;
 }
 
-.bn-notif-item:first-child {
-	border-radius: var(--r-lg) var(--r-lg) 0 0;
+.bn-notif-row:last-child { border-bottom: none; }
+
+.bn-notif-row:hover { background: var(--bn-sunken); }
+
+.bn-notif-row:focus-within {
+	box-shadow: var(--bn-ring);
+	outline: none;
 }
 
-.bn-notif-item:last-child {
-	border-radius: 0 0 var(--r-lg) var(--r-lg);
-	border-bottom: none;
-}
+.bn-notif-row--unread { background: var(--bn-accent-50); }
 
-.bn-notif-item:hover {
-	background: var(--bg-hover);
-}
-
-.bn-notif-item--unread {
-	background: var(--brand-light);
-}
-
-.bn-notif-item--unread::before {
+.bn-notif-row--unread::before {
 	content: '';
 	position: absolute;
-	left: 0;
-	top: 0;
-	bottom: 0;
+	inset-block: 0;
+	inset-inline-start: 0;
 	width: 3px;
-	background: var(--brand);
-	border-radius: 0 var(--r-sm) var(--r-sm) 0;
+	background: var(--bn-accent);
 }
 
-.bn-notif-item__icon {
-	width: 40px;
-	height: 40px;
-	border-radius: var(--r-full);
-	background: var(--bg-subtle);
-	display: flex;
+.bn-notif-row__pulse {
+	position: absolute;
+	inset-block-start: var(--bn-s4);
+	inset-inline-end: var(--bn-s4);
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--bn-accent);
+	box-shadow: 0 0 0 4px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+}
+
+/* ── Avatar + type pill ───────────────────────────────────────────────── */
+
+.bn-notif-row__avatar-wrap {
+	position: relative;
+	flex-shrink: 0;
+	width: 28px;
+	height: 28px;
+}
+
+.bn-notif-row__avatar {
+	width: 28px;
+	height: 28px;
+}
+
+.bn-notif-row__avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: inherit;
+}
+
+.bn-notif-row__type {
+	position: absolute;
+	inset-block-end: -4px;
+	inset-inline-end: -4px;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	flex-shrink: 0;
-	font-size: var(--text-lg);
+	border: 2px solid var(--bn-surface);
+	background: var(--bn-sunken);
+	color: var(--bn-ink-2);
 }
 
-.bn-notif-item__body {
-	flex: 1;
+.bn-notif-row__type svg {
+	width: 9px;
+	height: 9px;
+	stroke-width: 2.2;
+}
+
+.bn-notif-row--unread .bn-notif-row__type { border-color: var(--bn-accent-50); }
+
+/* Tone-mapped colour for the type pill — mirrors .bn-badge[data-tone]. */
+.bn-notif-row__type[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-700); }
+.bn-notif-row__type[data-tone="info"]     { background: var(--bn-info-bg);    color: var(--bn-info); }
+.bn-notif-row__type[data-tone="success"]  { background: var(--bn-success-bg); color: var(--bn-success); }
+.bn-notif-row__type[data-tone="warn"]     { background: var(--bn-warn-bg);    color: var(--bn-warn); }
+.bn-notif-row__type[data-tone="danger"]   { background: var(--bn-danger-bg); color: var(--bn-danger); }
+
+/* ── Row body ─────────────────────────────────────────────────────────── */
+
+.bn-notif-row__body {
 	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
 }
 
-.bn-notif-item__text {
-	font-size: var(--text-sm);
-	color: var(--text-1);
-	margin: 0 0 var(--s1);
-	line-height: var(--leading-normal);
+.bn-notif-row__text {
+	font-size: var(--bn-text-sm);
+	line-height: var(--bn-leading-normal);
+	color: var(--bn-ink-2);
 }
 
-.bn-notif-item__time {
-	font-size: var(--text-xs);
-	color: var(--text-3);
+.bn-notif-row__text strong {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
 }
 
-/* ── Bell dropdown ──────────────────────────────────────────────────────── */
-
-.bn-bell-wrap {
-	position: relative;
+.bn-notif-row__meta {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	flex-wrap: wrap;
 }
+
+.bn-notif-row__time {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-2xs);
+	color: var(--bn-ink-4);
+	letter-spacing: var(--bn-ls-wide);
+}
+
+.bn-notif-row__actions {
+	display: flex;
+	gap: var(--bn-s2);
+	flex-wrap: wrap;
+}
+
+/* Stop a bubble-up from the row click target when the user fires an inline
+   action — the JS store also guards but the visual treatment matches v2. */
+.bn-notif-row__actions .bn-btn { pointer-events: auto; }
+
+/* ── Empty state ──────────────────────────────────────────────────────── */
+
+.bn-notif-empty {
+	padding: var(--bn-s8) var(--bn-s6);
+	text-align: center;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
+.bn-notif-empty__emblem {
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	background: var(--bn-sunken);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--bn-ink-3);
+	margin-block-end: var(--bn-s2);
+}
+
+.bn-notif-empty__emblem svg {
+	width: 22px;
+	height: 22px;
+	stroke-width: 1.5;
+}
+
+.bn-notif-empty__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-md);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	margin: 0;
+}
+
+.bn-notif-empty__sub {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	max-width: 380px;
+	line-height: var(--bn-leading-normal);
+	margin: 0;
+}
+
+/* ── Sidebar (right column) ──────────────────────────────────────────── */
+
+.bn-notifs-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+.bn-notif-sidecard {
+	padding: 0;
+	overflow: hidden;
+}
+
+.bn-notif-sidecard__head {
+	padding: var(--bn-s3) var(--bn-s4);
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	letter-spacing: var(--bn-ls-wider);
+	text-transform: uppercase;
+	color: var(--bn-ink-4);
+	border-bottom: 1px solid var(--bn-line-faint);
+}
+
+.bn-notif-sidecard__row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-bottom: 1px solid var(--bn-line-faint);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	text-decoration: none;
+	transition: background var(--bn-dur-fast) var(--bn-ease);
+	min-height: 40px;
+}
+
+.bn-notif-sidecard__row:last-child { border-bottom: none; }
+
+.bn-notif-sidecard__row:hover { background: var(--bn-sunken); }
+
+.bn-notif-sidecard__row:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-notif-sidecard__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	color: var(--bn-ink-3);
+	flex-shrink: 0;
+}
+
+.bn-notif-sidecard__icon svg {
+	width: 16px;
+	height: 16px;
+	stroke-width: 1.75;
+}
+
+.bn-notif-sidecard__label {
+	flex: 1;
+	color: var(--bn-ink);
+}
+
+/* ── Bell dropdown (nav partial) ─────────────────────────────────────── */
+
+.bn-bell-wrap { position: relative; }
 
 .bn-bell-dropdown {
 	position: absolute;
-	top: calc(100% + var(--s2));
-	right: 0;
+	top: calc(100% + var(--bn-s2));
+	inset-inline-end: 0;
 	width: 360px;
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	box-shadow: var(--bn-shadow-lg);
 	z-index: 999;
 	overflow: hidden;
 }
@@ -120,14 +374,14 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: var(--s3) var(--s4);
-	border-bottom: 1px solid var(--border-soft);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-bottom: 1px solid var(--bn-line-faint);
 }
 
 .bn-bell-dropdown__title {
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	color: var(--text-1);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
 }
 
 .bn-bell-dropdown__list {
@@ -136,63 +390,60 @@
 }
 
 .bn-bell-dropdown__footer {
-	padding: var(--s3) var(--s4);
-	border-top: 1px solid var(--border-soft);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-top: 1px solid var(--bn-line-faint);
 	text-align: center;
 }
 
-/* ── Unread badge ───────────────────────────────────────────────────────── */
-
+/* Unread chip used by the bell button — still consumes the badge primitive
+   colour but with a smaller fixed footprint. */
 .bn-notif-badge {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	min-width: 18px;
 	height: 18px;
-	padding: 0 var(--s1);
-	border-radius: var(--r-full);
-	background: var(--red);
-	color: var(--text-on-brand);
-	font-size: var(--text-xs);
-	font-weight: var(--fw-bold);
+	padding: 0 var(--bn-s1);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-bold);
 	line-height: 1;
 }
 
-/* ── Notification filters ───────────────────────────────────────────────── */
+/* ── Reduced motion ──────────────────────────────────────────────────── */
 
-.bn-notif-filters {
-	display: flex;
-	gap: var(--s2);
-	padding: var(--s3) 0;
-	margin-bottom: var(--s3);
-	border-bottom: 1px solid var(--border-soft);
+@media (prefers-reduced-motion: reduce) {
+	.bn-notif-row,
+	.bn-notif-sidecard__row {
+		transition: none;
+	}
 }
 
-/* ── Dark mode ──────────────────────────────────────────────────────────── */
-
-[data-theme="dark"] .bn-notif-item--unread {
-	background: var(--brand-light);
-}
-
-[data-theme="dark"] .bn-bell-dropdown {
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-}
-
-/* ── Mobile ─────────────────────────────────────────────────────────────── */
+/* ── Responsive ──────────────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
-	.bn-bell-dropdown {
-		width: calc(100vw - var(--s8));
-		right: calc(var(--s4) * -1);
+	.bn-notifs-shell {
+		grid-template-columns: 1fr;
+		gap: var(--bn-s4);
 	}
-
-	.bn-notif-item {
-		padding: var(--s3);
-	}
-
-	.bn-notifications__header {
-		flex-direction: column;
+	.bn-notifs-sidebar { display: none; }
+	.bn-notifs-header {
 		align-items: flex-start;
-		gap: var(--s3);
+		flex-direction: column;
+	}
+	.bn-notif-row {
+		padding: var(--bn-s3);
+		gap: var(--bn-s2);
+	}
+	.bn-notif-row__pulse {
+		inset-block-start: var(--bn-s3);
+		inset-inline-end: var(--bn-s3);
+	}
+	.bn-notif-tabs { padding-block-end: 2px; }
+	.bn-bell-dropdown {
+		width: calc(100vw - var(--bn-s8));
+		inset-inline-end: calc(var(--bn-s4) * -1);
 	}
 }

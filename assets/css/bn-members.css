@@ -1,709 +1,575 @@
-/* BuddyNext — Member Directory styles.
+/* BuddyNext — Member Directory styles (v2 design system).
  *
- * Covers: member card, follow button, connection button, directory grid/list,
- * search bar, filter sidebar, pagination. Mobile ≤640px + dark mode via
- * [data-theme="dark"].
+ * Layout shell, member card composition, filter bar, pagination.
+ * Buttons, inputs, badges, avatars, and the card container come from the
+ * v2 attribute API in bn-base.css (.bn-btn[data-variant], .bn-input,
+ * .bn-badge[data-tone], .bn-avatar[data-size][data-presence],
+ * .bn-card[data-interactive]).
+ *
+ * Tokens: every value reads from --bn-* (canonical) — no raw hex or px in
+ * component rules. Mobile breakpoints use logical properties.
+ *
+ * Legacy class rules (.bn-member-card, .bn-member-name, .bn-member-handle,
+ * .bn-card-actions, .bn-btn-message, .bn-pagination, .bn-page-btn) are
+ * preserved for templates/spaces/members.php and templates/profile/connections.php
+ * which still consume them. Those surfaces will migrate in their own sweeps.
  */
 
-/* ── Reset helpers ─────────────────────────────────────────────────────────── */
-.bn-members *,
-.bn-members *::before,
-.bn-members *::after {
-	box-sizing: border-box;
+/* ── Directory shell ──────────────────────────────────────────────────────── */
+.bn-member-directory {
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-base);
+	color: var(--bn-ink);
+	line-height: var(--bn-leading-body);
+	background: var(--bn-canvas);
+	min-block-size: 100vh;
+	padding-block: var(--bn-s6);
+	padding-inline: var(--bn-s5);
 }
 
-/* ── Layout: directory shell ────────────────────────────────────────────────── */
-.bn-members {
-	display: grid;
-	grid-template-columns: 240px 1fr;
-	grid-template-rows: auto 1fr;
-	gap: var(--s6);
-	font-family: var(--font-body);
-	font-size: var(--text-base);
-	color: var(--text-1);
-	background: var(--bg);
-}
-
-.bn-members__topbar {
-	grid-column: 1 / -1;
+.bn-md-header {
 	display: flex;
-	align-items: center;
-	gap: var(--s3);
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--bn-s4);
+	margin-block-end: var(--bn-s4);
 	flex-wrap: wrap;
 }
 
-.bn-members__sidebar {
-	grid-column: 1;
-	grid-row: 2;
+.bn-md-title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-2xl);
+	font-weight: var(--bn-fw-extrabold);
+	letter-spacing: var(--bn-ls-tight);
+	color: var(--bn-ink);
+	margin: 0 0 var(--bn-s1);
 }
 
-.bn-members__main {
-	grid-column: 2;
-	grid-row: 2;
+.bn-md-sub {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	margin: 0;
 }
 
-/* ── Search bar ─────────────────────────────────────────────────────────────── */
-.bn-members__search {
+/* ── Filter bar ───────────────────────────────────────────────────────────── */
+.bn-md-filters {
+	display: flex;
+	gap: var(--bn-s3);
+	align-items: center;
+	flex-wrap: wrap;
+	padding-block: var(--bn-s3);
+	margin-block-end: var(--bn-s4);
+	border-block-end: 1px solid var(--bn-line);
+}
+
+.bn-md-search {
 	flex: 1 1 240px;
+	min-inline-size: 200px;
 	position: relative;
 }
 
-.bn-members__search-input {
-	width: 100%;
-	height: 38px;
-	padding: 0 var(--s4) 0 38px;
-	border: 1px solid var(--border);
-	border-radius: var(--r-md);
-	background: var(--bg-subtle);
-	color: var(--text-1);
-	font-family: var(--font-body);
-	font-size: var(--text-sm);
-	line-height: 1;
-	transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.bn-members__search-input::placeholder {
-	color: var(--text-3);
-}
-
-.bn-members__search-input:focus {
-	outline: none;
-	border-color: var(--brand);
-	box-shadow: 0 0 0 3px var(--brand-light);
-	background: var(--bg);
-}
-
-.bn-members__search-icon {
+.bn-md-search__icon {
 	position: absolute;
-	left: 10px;
-	top: 50%;
+	inset-inline-start: var(--bn-s3);
+	inset-block-start: 50%;
 	transform: translateY(-50%);
-	width: 16px;
-	height: 16px;
-	color: var(--text-3);
+	inline-size: 16px;
+	block-size: 16px;
+	color: var(--bn-ink-3);
 	pointer-events: none;
-}
-
-/* ── Sort / view-toggle toolbar ─────────────────────────────────────────────── */
-.bn-members__sort {
-	margin-left: auto;
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-}
-
-.bn-members__sort select {
-	height: 38px;
-	padding: 0 var(--s3);
-	border: 1px solid var(--border);
-	border-radius: var(--r-md);
-	background: var(--bg-subtle);
-	color: var(--text-1);
-	font-family: var(--font-body);
-	font-size: var(--text-sm);
-	cursor: pointer;
-}
-
-.bn-members__view-btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 36px;
-	height: 36px;
-	border: 1px solid var(--border);
-	border-radius: var(--r-md);
-	background: var(--bg-subtle);
-	color: var(--text-2);
-	cursor: pointer;
-	transition: border-color 0.15s, color 0.15s;
 }
 
-.bn-members__view-btn:hover,
-.bn-members__view-btn.is-active {
-	border-color: var(--brand);
-	color: var(--brand);
-	background: var(--brand-light);
+.bn-md-search__icon svg {
+	inline-size: 16px;
+	block-size: 16px;
 }
 
-/* ── Member type pill tabs ──────────────────────────────────────────────────── */
-.bn-members__type-tabs {
+.bn-md-search__input {
+	padding-inline-start: calc(var(--bn-s3) + 24px);
+}
+
+.bn-md-filters__view {
+	display: inline-flex;
+	gap: 4px;
+	padding: 2px;
+	background: var(--bn-sunken);
+	border-radius: var(--bn-r-md);
+}
+
+.bn-md-filters__view .bn-btn[aria-pressed="true"] {
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	box-shadow: var(--bn-shadow-xs);
+}
+
+.bn-md-filters__sort {
+	flex: 0 0 auto;
+	inline-size: auto;
+	min-inline-size: 160px;
+}
+
+/* ── Member type pill row ─────────────────────────────────────────────────── */
+.bn-md-types {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--s2);
-	list-style: none;
-	margin: 0;
-	padding: 0;
+	gap: var(--bn-s2);
+	margin-block-end: var(--bn-s4);
 }
 
-.bn-members__type-tab a {
-	display: inline-block;
-	padding: var(--s1) var(--s3);
-	border: 1px solid var(--border);
-	border-radius: var(--r-full);
-	background: var(--bg-subtle);
-	color: var(--text-2);
-	font-size: var(--text-sm);
+/* Pill = .bn-badge with anchor behaviour. Bumped to interactive sizing. */
+.bn-md-type-pill {
+	min-block-size: 28px;
+	padding-inline: var(--bn-s3);
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold);
 	text-decoration: none;
-	transition: background 0.15s, color 0.15s, border-color 0.15s;
-	white-space: nowrap;
-}
-
-.bn-members__type-tab a:hover,
-.bn-members__type-tab.is-active a {
-	background: var(--brand-light);
-	border-color: var(--brand);
-	color: var(--brand);
-}
-
-/* ── Filter sidebar ─────────────────────────────────────────────────────────── */
-.bn-members__filter-group {
-	margin-bottom: var(--s6);
-}
-
-.bn-members__filter-heading {
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	color: var(--text-2);
-	text-transform: uppercase;
-	letter-spacing: var(--ls-wider);
-	margin: 0 0 var(--s2);
-}
-
-.bn-members__filter-option {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	padding: var(--s1) 0;
-	font-size: var(--text-sm);
-	color: var(--text-1);
 	cursor: pointer;
-	user-select: none;
+	transition:
+		background var(--bn-dur) var(--bn-ease),
+		color var(--bn-dur) var(--bn-ease),
+		border-color var(--bn-dur) var(--bn-ease);
 }
 
-.bn-members__filter-option input[type="checkbox"],
-.bn-members__filter-option input[type="radio"] {
-	accent-color: var(--brand);
-	width: 15px;
-	height: 15px;
-	cursor: pointer;
+.bn-md-type-pill:hover,
+.bn-md-type-pill:focus-visible {
+	background: var(--bn-accent-100);
+	color: var(--bn-accent-700);
 }
 
-.bn-members__online-dot {
-	display: inline-block;
-	width: 8px;
-	height: 8px;
-	background: var(--green);
-	border-radius: var(--r-full);
+.bn-md-type-pill:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
 }
 
-/* ── Member grid ────────────────────────────────────────────────────────────── */
-.bn-members__grid {
+/* ── Member grid ──────────────────────────────────────────────────────────── */
+.bn-md-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-	gap: var(--s4);
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: var(--bn-s4);
 	list-style: none;
 	margin: 0;
 	padding: 0;
 }
 
-/* ── Member list view ───────────────────────────────────────────────────────── */
-.bn-members__grid.is-list {
+.bn-md-grid.is-list {
 	grid-template-columns: 1fr;
-	gap: var(--s2);
+	gap: var(--bn-s2);
 }
 
-/* ── Member card ────────────────────────────────────────────────────────────── */
-.bn-member-card {
-	position: relative;
+/* ── Member card composition (uses .bn-card[data-interactive] from base) ─── */
+.bn-md-card {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	gap: 6px;
+	padding: var(--bn-s4);
 	text-align: center;
-	padding: var(--s5) var(--s4) var(--s4);
-	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	background: var(--surface);
-	transition: border-color 0.15s, box-shadow 0.15s;
+	transition: transform var(--bn-dur-fast) var(--bn-ease);
 }
 
-.bn-member-card:hover {
-	border-color: var(--border-soft);
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+.bn-md-card:hover {
+	transform: translateY(-1px);
 }
 
-/* List-view card override */
-.is-list .bn-member-card {
+.bn-md-grid.is-list .bn-md-card {
 	flex-direction: row;
 	align-items: center;
-	text-align: left;
-	padding: var(--s3) var(--s4);
-	gap: var(--s4);
+	text-align: start;
+	gap: var(--bn-s4);
+	padding-block: var(--bn-s3);
+	padding-inline: var(--bn-s4);
 }
 
-.is-list .bn-member-card__actions {
-	margin-top: 0;
-	margin-left: auto;
+.bn-md-card__avatar-link {
+	display: inline-block;
+	margin-block-end: var(--bn-s2);
+	text-decoration: none;
+	color: inherit;
 }
 
-/* ── Avatar ─────────────────────────────────────────────────────────────────── */
-.bn-member-card__avatar {
-	position: relative;
-	width: 64px;
-	height: 64px;
-	border-radius: var(--r-full);
+.bn-md-grid.is-list .bn-md-card__avatar-link {
+	margin-block-end: 0;
 	flex-shrink: 0;
-	margin-bottom: var(--s3);
 }
 
-.is-list .bn-member-card__avatar {
-	margin-bottom: 0;
-	width: 48px;
-	height: 48px;
+.bn-md-card__avatar {
+	overflow: hidden;
 }
 
-.bn-member-card__avatar img {
-	width: 100%;
-	height: 100%;
-	border-radius: var(--r-full);
+.bn-md-card__avatar img {
+	inline-size: 100%;
+	block-size: 100%;
 	object-fit: cover;
+	border-radius: var(--bn-r-full);
 	display: block;
 }
 
-.bn-member-card__online {
-	position: absolute;
-	bottom: 2px;
-	right: 2px;
-	width: 12px;
-	height: 12px;
-	background: var(--green);
-	border: 2px solid var(--surface);
-	border-radius: var(--r-full);
+.bn-md-grid.is-list .bn-md-card__avatar {
+	inline-size: 48px;
+	block-size: 48px;
+	font-size: var(--bn-text-base);
 }
 
-/* ── Card text ──────────────────────────────────────────────────────────────── */
-.bn-member-card__name {
-	font-size: var(--text-base);
-	font-weight: var(--fw-semibold);
-	color: var(--text-1);
-	margin: 0 0 var(--s1);
-	line-height: var(--leading-tight);
+.bn-md-card__name {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-base);
+	font-weight: var(--bn-fw-bold);
+	letter-spacing: var(--bn-ls-tight);
+	color: var(--bn-ink);
+	margin: 0;
+	line-height: var(--bn-leading-tight);
 }
 
-.bn-member-card__name a {
+.bn-md-card__name a {
 	color: inherit;
 	text-decoration: none;
 }
 
-.bn-member-card__name a:hover {
-	color: var(--brand);
+.bn-md-card__name a:hover,
+.bn-md-card__name a:focus-visible {
+	color: var(--bn-accent);
 }
 
-.bn-member-card__type {
-	display: inline-block;
-	font-size: var(--text-xs);
-	font-weight: var(--fw-medium);
-	color: var(--brand);
-	background: var(--brand-light);
-	border-radius: var(--r-full);
-	padding: 2px var(--s2);
-	margin-bottom: var(--s2);
-	line-height: var(--leading-snug);
+.bn-md-card__name a:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+	border-radius: var(--bn-r-sm);
 }
 
-.bn-member-card__bio {
-	font-size: var(--text-sm);
-	color: var(--text-2);
-	line-height: var(--leading-body);
-	margin: 0 0 var(--s3);
+.bn-md-card__handle {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin: 0;
+}
+
+.bn-md-card__bio,
+.bn-md-card__meta {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	margin: 0;
+	line-height: var(--bn-leading-snug);
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 2;
 	overflow: hidden;
 }
 
-.bn-member-card__meta {
-	display: flex;
-	gap: var(--s3);
-	font-size: var(--text-xs);
-	color: var(--text-3);
-	margin-bottom: var(--s3);
+.bn-md-card__mutual {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin: 0;
 }
 
-.bn-member-card__degree {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	font-size: var(--text-xs);
-	color: var(--text-2);
-	background: var(--bg-subtle);
-	border-radius: var(--r-full);
-	padding: 2px var(--s2);
-	margin-bottom: var(--s2);
+.bn-md-card__type {
+	margin-block-start: 2px;
 }
 
-/* ── Card actions (follow + connect buttons) ────────────────────────────────── */
-.bn-member-card__actions {
+.bn-md-card__actions {
 	display: flex;
-	gap: var(--s2);
-	margin-top: auto;
-	width: 100%;
+	gap: var(--bn-s2);
+	inline-size: 100%;
+	margin-block-start: auto;
+	padding-block-start: var(--bn-s3);
 	justify-content: center;
+	flex-wrap: wrap;
 }
 
-.is-list .bn-member-card__actions {
-	width: auto;
+.bn-md-card__actions .bn-btn {
+	flex: 1 1 auto;
+	min-block-size: 40px;
+}
+
+.bn-md-card__actions .bn-btn[data-variant="ghost"] {
+	flex: 0 0 auto;
+	min-inline-size: 40px;
+}
+
+.bn-md-grid.is-list .bn-md-card__actions {
+	inline-size: auto;
+	margin-block-start: 0;
+	margin-inline-start: auto;
+	padding-block-start: 0;
 	justify-content: flex-end;
 }
 
-/* ── Follow button ──────────────────────────────────────────────────────────── */
-.bn-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: var(--s1);
-	font-family: var(--font-body);
-	font-weight: var(--fw-medium);
-	line-height: 1;
-	border: 1px solid transparent;
-	cursor: pointer;
-	white-space: nowrap;
-	transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
-	text-decoration: none;
-}
-
-.bn-btn:disabled,
-.bn-btn.is-loading {
-	opacity: 0.55;
-	cursor: not-allowed;
-	pointer-events: none;
-}
-
-.bn-btn--sm {
-	height: 30px;
-	padding: 0 var(--s3);
-	font-size: var(--text-sm);
-	border-radius: var(--r-sm);
-}
-
-.bn-btn--md {
-	height: 36px;
-	padding: 0 var(--s4);
-	font-size: var(--text-sm);
-	border-radius: var(--r-md);
-}
-
-/* Primary — filled brand */
-.bn-btn--primary {
-	background: var(--brand);
-	border-color: var(--brand);
-	color: var(--white);
-}
-
-.bn-btn--primary:hover:not(:disabled) {
-	background: var(--brand-hover);
-	border-color: var(--brand-hover);
-}
-
-/* Secondary — outlined */
-.bn-btn--secondary {
-	background: transparent;
-	border-color: var(--border);
-	color: var(--text-1);
-}
-
-.bn-btn--secondary:hover:not(:disabled) {
-	border-color: var(--text-2);
-	background: var(--bg-hover);
-}
-
-/* Following state */
-.bn-btn.bn-following {
-	background: var(--bg-subtle);
-	border-color: var(--border);
-	color: var(--text-2);
-}
-
-.bn-btn.bn-following:hover:not(:disabled) {
-	background: var(--red-bg);
-	border-color: var(--red);
-	color: var(--red);
-}
-
-/* Block template wrappers */
-.bn-block-follow-button,
-.bn-block-connection-button {
-	display: inline-flex;
-}
-
-/* ── Connection button states ───────────────────────────────────────────────── */
-
-/* Connect (null state) — inherits .bn-btn--primary */
-
-/* Pending-sent */
-.bn-btn.bn-pending {
-	background: var(--amber-bg);
-	border-color: var(--amber);
-	color: var(--amber);
-}
-
-.bn-btn.bn-pending:hover:not(:disabled) {
-	background: var(--amber);
-	border-color: var(--amber);
-	color: var(--white);
-}
-
-/* Pending-received: accept/decline pair rendered inline */
-.bn-connect-received {
-	display: inline-flex;
-	gap: var(--s2);
-}
-
-.bn-btn.bn-accept {
-	background: var(--green);
-	border-color: var(--green);
-	color: var(--white);
-}
-
-.bn-btn.bn-accept:hover:not(:disabled) {
-	filter: brightness(0.9);
-}
-
-.bn-btn.bn-decline {
-	background: transparent;
-	border-color: var(--border);
-	color: var(--text-2);
-}
-
-.bn-btn.bn-decline:hover:not(:disabled) {
-	border-color: var(--red);
-	color: var(--red);
-	background: var(--red-bg);
-}
-
-/* Connected state */
-.bn-btn.bn-connected {
-	background: var(--bg-subtle);
-	border-color: var(--border);
-	color: var(--text-2);
-}
-
-.bn-btn.bn-connected:hover:not(:disabled) {
-	background: var(--red-bg);
-	border-color: var(--red);
-	color: var(--red);
-}
-
-/* Blocked state — muted, non-interactive feel */
-.bn-btn.bn-blocked {
-	background: var(--bg-subtle);
-	border-color: var(--border);
-	color: var(--text-3);
-	cursor: default;
-	pointer-events: none;
-}
-
-/* Loading spinner via pseudo-element */
-.bn-btn.is-loading::after {
-	content: '';
-	display: inline-block;
-	width: 12px;
-	height: 12px;
-	border: 2px solid currentColor;
-	border-top-color: transparent;
-	border-radius: var(--r-full);
-	animation: bn-spin 0.6s linear infinite;
-	margin-left: var(--s1);
-}
-
-@keyframes bn-spin {
-	to { transform: rotate(360deg); }
-}
-
-/* ── Empty + loading states ─────────────────────────────────────────────────── */
-.bn-members__empty {
+/* ── Empty / no-results ───────────────────────────────────────────────────── */
+.bn-md-empty {
 	grid-column: 1 / -1;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: var(--s3);
-	padding: var(--s12) var(--s4);
-	color: var(--text-3);
-	font-size: var(--text-sm);
+	gap: var(--bn-s3);
+	padding-block: var(--bn-s12);
+	padding-inline: var(--bn-s4);
 	text-align: center;
+	color: var(--bn-ink-2);
 }
 
-.bn-members__skeleton {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-	gap: var(--s4);
+.bn-md-empty__icon {
+	inline-size: 48px;
+	block-size: 48px;
+	color: var(--bn-ink-3);
 }
 
-.bn-skeleton-card {
-	height: 240px;
-	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	background: var(--bg-subtle);
-	overflow: hidden;
-	position: relative;
+.bn-md-empty__icon svg {
+	inline-size: 100%;
+	block-size: 100%;
 }
 
-.bn-skeleton-card::after {
-	content: '';
-	position: absolute;
-	inset: 0;
-	background: linear-gradient(90deg, transparent 0%, var(--bg-hover) 50%, transparent 100%);
-	background-size: 200% 100%;
-	animation: bn-shimmer 1.4s ease infinite;
+.bn-md-empty__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+	margin: 0;
 }
 
-@keyframes bn-shimmer {
-	0%   { background-position: -200% 0; }
-	100% { background-position:  200% 0; }
+.bn-md-empty__hint {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	margin: 0;
 }
 
-/* ── Pagination ─────────────────────────────────────────────────────────────── */
-.bn-members__pagination {
+/* ── Pagination (v2) ──────────────────────────────────────────────────────── */
+.bn-md-pagination {
 	display: flex;
-	align-items: center;
 	justify-content: center;
-	gap: var(--s2);
-	margin-top: var(--s8);
+	align-items: center;
+	gap: var(--bn-s1);
+	margin-block-start: var(--bn-s6);
+	padding-block: var(--bn-s4);
 	flex-wrap: wrap;
 }
 
-.bn-members__pagination a,
-.bn-members__pagination span {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	min-width: 34px;
-	height: 34px;
-	padding: 0 var(--s2);
-	border: 1px solid var(--border);
-	border-radius: var(--r-md);
-	background: var(--bg-subtle);
-	color: var(--text-2);
-	font-size: var(--text-sm);
-	text-decoration: none;
-	transition: border-color 0.15s, color 0.15s, background 0.15s;
+.bn-md-pagination .bn-btn {
+	min-inline-size: 36px;
+	min-block-size: 36px;
 }
 
-.bn-members__pagination a:hover {
-	border-color: var(--brand);
-	color: var(--brand);
-	background: var(--brand-light);
+.bn-md-pagination__gap {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	padding-inline: var(--bn-s2);
+	user-select: none;
 }
 
-.bn-members__pagination .current {
-	background: var(--brand);
-	border-color: var(--brand);
-	color: var(--white);
+/* ── Focus rings (Gate 5) ─────────────────────────────────────────────────── */
+.bn-member-directory .bn-btn:focus-visible,
+.bn-member-directory .bn-input:focus-visible,
+.bn-member-directory .bn-select:focus-visible,
+.bn-member-directory .bn-tab:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
 }
 
-/* ── Dark mode ──────────────────────────────────────────────────────────────── */
-[data-theme="dark"] .bn-member-card {
-	background: var(--surface);
-	border-color: var(--border);
-}
-
-[data-theme="dark"] .bn-member-card:hover {
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
-}
-
-[data-theme="dark"] .bn-btn--primary {
-	background: var(--brand);
-	border-color: var(--brand);
-	color: var(--white);
-}
-
-[data-theme="dark"] .bn-members__search-input {
-	background: var(--bg-subtle);
-	border-color: var(--border);
-	color: var(--text-1);
-}
-
-[data-theme="dark"] .bn-members__search-input:focus {
-	background: var(--surface);
-	border-color: var(--brand);
-	box-shadow: 0 0 0 3px var(--brand-light);
-}
-
-[data-theme="dark"] .bn-skeleton-card {
-	background: var(--bg-subtle);
-}
-
-/* ── Mobile ≤640px ──────────────────────────────────────────────────────────── */
-@media (max-width: 640px) {
-	.bn-members {
-		grid-template-columns: 1fr;
-		gap: var(--s4);
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+	.bn-md-card,
+	.bn-md-card:hover,
+	.bn-md-type-pill {
+		transition: none;
+		transform: none;
 	}
+}
 
-	.bn-members__sidebar {
-		grid-column: 1;
-		grid-row: auto;
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--s3);
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+	.bn-md-grid {
+		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 	}
+}
 
-	.bn-members__filter-group {
-		margin-bottom: 0;
-	}
-
-	.bn-members__main {
-		grid-column: 1;
-		grid-row: auto;
-	}
-
-	.bn-members__topbar {
+@media (max-width: 768px) {
+	.bn-md-filters {
 		flex-direction: column;
 		align-items: stretch;
 	}
 
-	.bn-members__search {
-		flex: 1 1 auto;
+	.bn-md-search {
+		min-inline-size: 0;
 	}
 
-	.bn-members__sort {
-		margin-left: 0;
-		justify-content: space-between;
-		width: 100%;
+	.bn-md-filters__sort {
+		inline-size: 100%;
 	}
 
-	.bn-members__grid {
+	.bn-md-filters__view {
+		align-self: flex-start;
+	}
+}
+
+@media (max-width: 640px) {
+	.bn-member-directory {
+		padding-block: var(--bn-s4);
+		padding-inline: var(--bn-s3);
+	}
+
+	.bn-md-title {
+		font-size: var(--bn-text-xl);
+	}
+
+	.bn-md-grid {
 		grid-template-columns: 1fr 1fr;
-		gap: var(--s3);
+		gap: var(--bn-s3);
 	}
 
-	.bn-member-card {
-		padding: var(--s4) var(--s3) var(--s3);
+	.bn-md-card {
+		padding: var(--bn-s3);
 	}
 
-	.bn-member-card__avatar {
-		width: 52px;
-		height: 52px;
-	}
-
-	.bn-member-card__bio {
+	.bn-md-card__bio {
 		display: none;
 	}
 
-	.bn-members__type-tabs {
+	.bn-md-types {
 		overflow-x: auto;
 		flex-wrap: nowrap;
-		padding-bottom: var(--s1);
+		padding-block-end: var(--bn-s1);
 	}
+}
 
-	.bn-members__pagination {
-		gap: var(--s1);
+@media (max-width: 390px) {
+	.bn-md-grid {
+		grid-template-columns: 1fr;
 	}
+}
 
-	.bn-members__pagination a,
-	.bn-members__pagination span {
-		min-width: 30px;
-		height: 30px;
-		font-size: var(--text-xs);
-	}
+/* ════════════════════════════════════════════════════════════════════════════
+ * Legacy class rules — kept for templates/spaces/members.php and
+ * templates/profile/connections.php which still consume these names.
+ * Tokens-only; will be promoted into v2 attribute API in their own sweeps.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+.bn-member-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	padding-block: var(--bn-s5) var(--bn-s4);
+	padding-inline: var(--bn-s4);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-surface);
+	transition: border-color var(--bn-dur) var(--bn-ease);
+}
+
+.bn-member-card:hover {
+	border-color: var(--bn-line-strong);
+}
+
+.bn-member-name {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-base);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	margin: 0 0 var(--bn-s1);
+	line-height: var(--bn-leading-tight);
+}
+
+.bn-member-name a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.bn-member-name a:hover {
+	color: var(--bn-accent);
+}
+
+.bn-member-handle {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin: 0 0 var(--bn-s2);
+}
+
+.bn-card-actions {
+	display: flex;
+	gap: var(--bn-s2);
+	margin-block-start: auto;
+	inline-size: 100%;
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+.bn-btn-message {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-inline-size: 36px;
+	min-block-size: 36px;
+	padding-inline: var(--bn-s3);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink-2);
+	text-decoration: none;
+	transition: border-color var(--bn-dur) var(--bn-ease), color var(--bn-dur) var(--bn-ease);
+}
+
+.bn-btn-message:hover,
+.bn-btn-message:focus-visible {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+}
+
+.bn-btn-message:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-pagination {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s6);
+	padding-block: var(--bn-s4);
+	flex-wrap: wrap;
+}
+
+.bn-page-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-inline-size: 36px;
+	min-block-size: 36px;
+	padding-inline: var(--bn-s2);
+	border: 1px solid var(--bn-line-strong);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-ink-2);
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-sm);
+	text-decoration: none;
+	transition: border-color var(--bn-dur) var(--bn-ease), color var(--bn-dur) var(--bn-ease);
+}
+
+.bn-page-btn:hover,
+.bn-page-btn:focus-visible {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+}
+
+.bn-page-btn:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-page-btn.current,
+.bn-page-btn[aria-current="page"] {
+	background: var(--bn-accent);
+	border-color: var(--bn-accent);
+	color: var(--bn-accent-fg);
+}
+
+/* Block-template wrappers (.bn-block-member-card composes .bn-md-card) */
+.bn-block-member-card {
+	margin: 0;
 }
