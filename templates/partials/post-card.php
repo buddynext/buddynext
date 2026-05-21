@@ -93,10 +93,6 @@ if ( count( $name_parts ) >= 2 ) {
 	$initials = strtoupper( substr( $display_name, 0, 2 ) );
 }
 
-// Deterministic avatar colour by user ID.
-$av_palette   = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' );
-$avatar_color = $av_palette[ $post_author_id % count( $av_palette ) ];
-
 // Member type badge.
 $member_type_slug  = get_user_meta( $post_author_id, 'bn_member_type', true );
 $member_type_label = $member_type_slug ? get_user_meta( $post_author_id, 'bn_member_type_label', true ) : '';
@@ -299,26 +295,21 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 	<!-- Post header: avatar + author + timestamp + actions -->
 	<div class="bn-post-card__header">
 		<!-- Avatar -->
-		<?php if ( $avatar_url ) : ?>
-			<a href="<?php echo esc_url( $profile_link ); ?>" tabindex="-1" aria-hidden="true">
-				<img
-					src="<?php echo esc_url( $avatar_url ); ?>"
-					alt="<?php echo esc_attr( $display_name ); ?>"
-					class="bn-post-card__avatar"
-					width="40"
-					height="40"
-					loading="lazy"
-				>
-			</a>
-		<?php else : ?>
-			<a href="<?php echo esc_url( $profile_link ); ?>" tabindex="-1" aria-hidden="true">
-				<div
-					class="bn-post-card__avatar bn-post-card__avatar--initials"
-					style="background:<?php echo esc_attr( $avatar_color ); ?>;"
-					aria-hidden="true"
-				><?php echo esc_html( $initials ); ?></div>
-			</a>
-		<?php endif; ?>
+		<a href="<?php echo esc_url( $profile_link ); ?>" class="bn-post-card__avatar-link" tabindex="-1" aria-hidden="true">
+			<?php if ( $avatar_url ) : ?>
+				<span class="bn-avatar" data-size="md">
+					<img
+						src="<?php echo esc_url( $avatar_url ); ?>"
+						alt="<?php echo esc_attr( $display_name ); ?>"
+						width="40"
+						height="40"
+						loading="lazy"
+					>
+				</span>
+			<?php else : ?>
+				<span class="bn-avatar" data-size="md" aria-hidden="true"><?php echo esc_html( $initials ); ?></span>
+			<?php endif; ?>
+		</a>
 
 		<!-- Author info -->
 		<div class="bn-post-card__author-wrap">
@@ -337,7 +328,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				<?php endif; ?>
 
 				<?php if ( $member_type_label ) : ?>
-					<span class="bn-post-card__member-type"><?php echo esc_html( (string) $member_type_label ); ?></span>
+					<span class="bn-badge bn-post-card__member-type" data-tone="accent"><?php echo esc_html( (string) $member_type_label ); ?></span>
 				<?php endif; ?>
 			</div>
 
@@ -353,8 +344,8 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				<?php endif; ?>
 
 				<?php if ( $privacy_label ) : ?>
-					<span class="bn-post-card__privacy-badge" aria-label="<?php echo esc_attr( $privacy_label ); ?>">
-						<?php echo $privacy_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML entities ?>
+					<span class="bn-badge bn-post-card__privacy-badge" data-tone="info" aria-label="<?php echo esc_attr( $privacy_label ); ?>">
+						<?php echo $privacy_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService::render wp_kses-sanitized SVG ?>
 						<?php echo esc_html( $privacy_label ); ?>
 					</span>
 				<?php endif; ?>
@@ -486,15 +477,16 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 							$full_url = (string) wp_get_attachment_url( $media_id );
 						}
 						$media_permalink = get_permalink( $media_id );
-						$media_title    = get_the_title( $media_id );
+						$media_title     = get_the_title( $media_id );
 						if ( ! $media_title ) {
 							$media_title = wp_trim_words( $post_content, 12, '' );
 						}
+						$media_link_href = '' !== $full_url ? $full_url : $media_url;
 						?>
 						<?php // MVS-compatible wrapper: mvs-activity-media + data-mvs-media-id for lightbox detection. ?>
 						<div class="bn-post-card__media-item mvs-activity-media" data-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-src="<?php echo esc_url( $full_url ); ?>">
 							<?php if ( '' !== $media_url ) : ?>
-								<a href="<?php echo esc_url( $full_url ?: $media_url ); ?>" class="mvs-grid-item-link" data-mvs-permalink="<?php echo esc_url( (string) $media_permalink ); ?>">
+								<a href="<?php echo esc_url( $media_link_href ); ?>" class="mvs-grid-item-link" data-mvs-permalink="<?php echo esc_url( (string) $media_permalink ); ?>">
 									<img src="<?php echo esc_url( $media_url ); ?>" alt="<?php echo esc_attr( $media_title ); ?>" loading="lazy">
 								</a>
 							<?php else : ?>
@@ -671,16 +663,16 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				} else {
 					$orig_initials = strtoupper( substr( (string) $orig_name, 0, 2 ) );
 				}
-				$orig_palette = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' );
-				$orig_color   = $orig_palette[ (int) ( $shared_post['user_id'] ?? 0 ) % count( $orig_palette ) ];
 				?>
 				<div class="bn-post-card__shared-embed" role="article" aria-label="<?php esc_attr_e( 'Shared post', 'buddynext' ); ?>">
 					<div class="bn-post-card__shared-header">
-						<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-avatar" aria-hidden="true">
+						<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-avatar-link" aria-hidden="true">
 							<?php if ( $orig_avatar ) : ?>
-								<img src="<?php echo esc_attr( $orig_avatar ); ?>" alt="<?php echo esc_attr( $orig_name ); ?>" width="40" height="40">
+								<span class="bn-avatar" data-size="md">
+									<img src="<?php echo esc_url( $orig_avatar ); ?>" alt="<?php echo esc_attr( $orig_name ); ?>" width="40" height="40">
+								</span>
 							<?php else : ?>
-								<span style="background:<?php echo esc_attr( $orig_color ); ?>;"><?php echo esc_html( $orig_initials ); ?></span>
+								<span class="bn-avatar" data-size="md"><?php echo esc_html( $orig_initials ); ?></span>
 							<?php endif; ?>
 						</a>
 						<div class="bn-post-card__shared-meta">
@@ -795,7 +787,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			<?php if ( $comment_count > 0 ) : ?>
 				<span class="bn-comment-count"><?php echo esc_html( (string) $comment_count ); ?></span>
 			<?php else : ?>
-				<span class="bn-comment-count" style="display:none">0</span>
+				<span class="bn-comment-count" hidden>0</span>
 			<?php endif; ?>
 		</button>
 
@@ -842,16 +834,18 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 
 		<?php if ( $current_user_id > 0 ) : ?>
 		<div class="bn-comment-form">
-			<div class="bn-comment-form__avatar" aria-hidden="true">
-				<?php
-				$current_display_name = (string) get_the_author_meta( 'display_name', $current_user_id );
-				$name_for_initials    = '' !== $current_display_name ? $current_display_name : 'U';
-				$current_initials     = implode( '', array_map( fn( string $w ) => strtoupper( mb_substr( $w, 0, 1 ) ), explode( ' ', $name_for_initials ) ) );
-				echo esc_html( mb_substr( $current_initials, 0, 2 ) );
-				?>
-			</div>
+			<?php
+			$current_display_name = (string) get_the_author_meta( 'display_name', $current_user_id );
+			$name_for_initials    = '' !== $current_display_name ? $current_display_name : 'U';
+			$current_initials     = implode( '', array_map( fn( string $w ) => strtoupper( mb_substr( $w, 0, 1 ) ), explode( ' ', $name_for_initials ) ) );
+			?>
+			<span class="bn-avatar bn-comment-form__avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( mb_substr( $current_initials, 0, 2 ) ); ?></span>
+			<label for="bn-comment-input-<?php echo absint( $bn_post_id ); ?>" class="screen-reader-text">
+				<?php esc_html_e( 'Write a comment', 'buddynext' ); ?>
+			</label>
 			<textarea
-				class="bn-comment-form__input"
+				id="bn-comment-input-<?php echo absint( $bn_post_id ); ?>"
+				class="bn-input bn-textarea bn-comment-form__input"
 				placeholder="<?php esc_attr_e( 'Write a comment...', 'buddynext' ); ?>"
 				aria-label="<?php esc_attr_e( 'Comment text', 'buddynext' ); ?>"
 				data-comment-input="<?php echo absint( $bn_post_id ); ?>"
@@ -859,7 +853,9 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			></textarea>
 			<button
 				type="button"
-				class="bn-comment-form__submit"
+				class="bn-btn bn-comment-form__submit"
+				data-variant="primary"
+				data-size="sm"
 				data-wp-on--click="actions.submitComment"
 				aria-label="<?php esc_attr_e( 'Post comment', 'buddynext' ); ?>"
 			>

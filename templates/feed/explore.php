@@ -212,11 +212,13 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				<div class="bn-banner-btns">
 					<a
 						href="<?php echo esc_url( wp_registration_url() ); ?>"
-						class="bn-btn-white"
+						class="bn-btn"
+						data-variant="primary"
 					><?php esc_html_e( 'Sign up free', 'buddynext' ); ?></a>
 					<a
 						href="<?php echo esc_url( wp_login_url( get_permalink() ) ); ?>"
-						class="bn-btn-outline-white"
+						class="bn-btn"
+						data-variant="ghost"
 					><?php esc_html_e( 'Log in', 'buddynext' ); ?></a>
 				</div>
 			</div>
@@ -230,6 +232,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 			</label>
 			<input
 				id="bn-explore-search-input"
+				class="bn-input bn-explore-search__input"
 				type="search"
 				placeholder="<?php esc_attr_e( 'Search posts, people, spaces, hashtags...', 'buddynext' ); ?>"
 				autocomplete="off"
@@ -315,23 +318,25 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 					<?php endforeach; ?>
 				<?php else : ?>
 					<!-- Empty state — shown when no public posts exist yet -->
-					<div style="grid-column:1/-1;text-align:center;padding:var(--s8);color:var(--text-3);">
-						<div style="font-size:32px;margin-bottom:var(--s3);"><?php buddynext_icon( 'search' ); ?></div>
-						<div style="font-size:var(--text-base);font-weight:600;color:var(--text-2);">
+					<div class="bn-explore-empty" role="status">
+						<div class="bn-explore-empty__icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></div>
+						<div class="bn-explore-empty__title">
 							<?php esc_html_e( 'Nothing to explore yet', 'buddynext' ); ?>
 						</div>
-						<div style="font-size:var(--text-sm);margin-top:var(--s2);">
+						<p class="bn-explore-empty__text">
 							<?php esc_html_e( 'Be the first to post something.', 'buddynext' ); ?>
-						</div>
+						</p>
 					</div>
 				<?php endif; ?>
 			</div>
 
 			<?php if ( $explore_has_more && $explore_next_cursor ) : ?>
-				<div class="bn-load-more" style="text-align:center;padding:var(--s5) 0;">
-					<a href="<?php echo esc_url( add_query_arg( 'cursor', $explore_next_cursor ) ); ?>"
-						class="bn-load-more__btn"
-						style="display:inline-flex;align-items:center;gap:var(--s2);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:var(--s2) var(--s6);font-size:var(--text-sm);font-weight:600;color:var(--text-1);cursor:pointer;text-decoration:none;">
+				<div class="bn-load-more">
+					<a
+						href="<?php echo esc_url( add_query_arg( 'cursor', $explore_next_cursor ) ); ?>"
+						class="bn-btn bn-load-more__btn"
+						data-variant="secondary"
+					>
 						<?php esc_html_e( 'Load more', 'buddynext' ); ?>
 					</a>
 				</div>

@@ -773,3 +773,78 @@ store( 'buddynext/spaces', {
 		},
 	},
 } );
+
+/* ── Infinite-scroll trigger for the home feed ─────────────────────────────
+   Replaces the prior inline <script> block in templates/feed/home.php.
+   Looks for a [data-bn-infinite-feed] element with a next-cursor; when it
+   scrolls into view it fetches the next page and navigates to that cursor.
+   Stays a vanilla DOM hookup — no React, no jQuery. */
+( function () {
+	function init() {
+		var triggers = document.querySelectorAll( '[data-bn-infinite-feed]' );
+		if ( ! triggers.length || ! ( 'IntersectionObserver' in window ) ) {
+			return;
+		}
+
+		triggers.forEach( function ( trigger ) {
+			var loading      = false;
+			var spinner      = trigger.querySelector( '.bn-load-more__spinner' );
+			var fallbackUrl  = trigger.dataset.fallbackUrl || '';
+			var restUrl      = trigger.dataset.restUrl || '';
+			var restNonce    = trigger.dataset.restNonce || '';
+
+			if ( ! restUrl || ! restNonce ) {
+				return;
+			}
+
+			var observer = new IntersectionObserver( function ( entries ) {
+				if ( ! entries[0].isIntersecting || loading ) {
+					return;
+				}
+
+				var cursor = trigger.dataset.nextCursor;
+				if ( ! cursor ) {
+					observer.disconnect();
+					return;
+				}
+
+				loading = true;
+				if ( spinner ) {
+					spinner.hidden = false;
+				}
+
+				fetch( restUrl + '&cursor=' + encodeURIComponent( cursor ), {
+					headers: { 'X-WP-Nonce': restNonce },
+				} )
+					.then( function ( r ) { return r.json(); } )
+					.then( function ( data ) {
+						var items = ( data && data.items ) || [];
+						if ( ! items.length || ! data.next_cursor ) {
+							observer.disconnect();
+							trigger.remove();
+							return;
+						}
+
+						trigger.dataset.nextCursor = data.next_cursor;
+						if ( fallbackUrl ) {
+							window.location = fallbackUrl + '?cursor=' + encodeURIComponent( data.next_cursor );
+						}
+					} )
+					.catch( function () {
+						loading = false;
+						if ( spinner ) {
+							spinner.hidden = true;
+						}
+					} );
+			}, { rootMargin: '200px' } );
+
+			observer.observe( trigger );
+		} );
+	}
+
+	if ( document.readyState === 'loading' ) {
+		document.addEventListener( 'DOMContentLoaded', init );
+	} else {
+		init();
+	}
+} )();
