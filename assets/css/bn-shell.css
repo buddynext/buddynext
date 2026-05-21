@@ -265,7 +265,7 @@ body.admin-bar .bn-app {
 
 .bn-app__main {
 	min-width: 0;
-	padding: var(--bn-s5, 20px) var(--bn-s5, 20px);
+	padding: var(--bn-s5, 20px);
 }
 
 /* Main column flows at full available width. Hub templates own their
@@ -279,9 +279,12 @@ body.admin-bar .bn-app {
 }
 
 .bn-app__right {
-	padding: var(--bn-s6, 24px) var(--bn-s4, 16px);
+	padding: var(--bn-s5, 20px);
 	border-inline-start: 1px solid var(--bn-line, #e8e8e5);
 	background: var(--bn-canvas);
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4, 16px);
 }
 
 /* ── Left rail ───────────────────────────────────────────────────────────── */
