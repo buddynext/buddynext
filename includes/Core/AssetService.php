@@ -111,6 +111,20 @@ class AssetService {
 			self::VERSION
 		);
 
+		// Email Templates editor: enqueue the v2 split-pane editor script
+		// only on its own submenu page. The hook suffix for a custom submenu
+		// under the buddynext top-level slug is "buddynext_page_buddynext-
+		// email-editor".
+		if ( false !== strpos( $hook_suffix, 'buddynext-email-editor' ) ) {
+			wp_enqueue_script(
+				'bn-email-editor',
+				$this->assets_url . 'js/admin/email-editor.js',
+				array(),
+				self::VERSION,
+				true
+			);
+		}
+
 		// Stamp v2 theme + density attributes on the admin <html> so the
 		// [data-bn-*] selectors fire on every BuddyNext admin page.
 		add_filter(

@@ -1620,3 +1620,249 @@ button.bn-btn-danger:hover {
 		width: 100%;
 	}
 }
+
+/* ==========================================================================
+   Email Templates Editor (v2 split-pane)
+   --------------------------------------------------------------------------
+   Renders inside .wrap.bn-email-editor. The chrome and structural primitives
+   come from bn-base.css (.adm-topbar, .bn-split, .bn-tabs, .bn-modal-*,
+   .bn-toggle, .bn-btn, .bn-input, .bn-textarea, .bn-badge, .bn-card). The
+   selectors below are EmailEditor-specific glue: composition shell, category
+   group headings inside the rail, token-picker chip grid, and email-frame
+   preview shell.
+   ========================================================================== */
+
+.bn-email-editor {
+	/* The .wrap inherits WP-admin's default 8px margin; reset to a v2-clean
+	 * canvas so .adm-topbar reaches the viewport edge. */
+	margin: 0;
+	padding: 0;
+	background: var(--bn-canvas);
+}
+
+/* Topbar: title + global actions for the editor surface. */
+.bn-email-editor .adm-topbar {
+	border-bottom: 1px solid var(--bn-line);
+}
+.bn-email-editor__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-lg);
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	color: var(--bn-ink);
+}
+.bn-email-editor__actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-inline-start: auto;
+}
+
+/* Outer split: BN-canon two-pane editor. Override min-height + border so the
+ * editor fills the available admin canvas. */
+.bn-email-editor .bn-split {
+	min-height: calc(100vh - 96px);
+	border-radius: 0;
+	border-inline: none;
+	border-bottom: none;
+}
+
+/* Rail category headings sit between groups of .bn-split__rail-item. */
+.bn-email-editor__rail-group {
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--bn-ink-3);
+	padding: var(--bn-s4) var(--bn-s4) var(--bn-s2);
+}
+.bn-email-editor__rail-item-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+}
+
+/* Pane head: stacked title + meta on the left, actions on the right. */
+.bn-email-editor__pane-head {
+	flex-wrap: wrap;
+	gap: var(--bn-s3);
+}
+.bn-email-editor__pane-title {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	flex: 1;
+}
+.bn-email-editor__pane-name {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-base);
+	font-weight: 600;
+	color: var(--bn-ink);
+}
+.bn-email-editor__pane-trigger {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+.bn-email-editor__pane-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
+/* Tab strip lives inside the pane head row of the editor. */
+.bn-email-editor .bn-tabs {
+	padding: 0 var(--bn-s5);
+	gap: var(--bn-s4);
+	background: var(--bn-surface);
+}
+.bn-email-editor__panel {
+	padding: var(--bn-s5);
+}
+.bn-email-editor__panel[hidden] { display: none; }
+
+/* Form row layout — label above input. */
+.bn-email-editor__field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+	margin-bottom: var(--bn-s4);
+}
+.bn-email-editor__label {
+	font-size: var(--bn-text-sm);
+	font-weight: 550;
+	color: var(--bn-ink);
+}
+.bn-email-editor__hint {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	font-weight: 400;
+	margin-inline-start: var(--bn-s2);
+}
+.bn-email-editor textarea.bn-textarea[data-bn-mono] {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-xs);
+	min-height: 240px;
+}
+
+/* Token picker — chip grid below the body editor. */
+.bn-email-editor__tokens {
+	margin-top: var(--bn-s4);
+}
+.bn-email-editor__tokens-title {
+	font-size: var(--bn-text-sm);
+	font-weight: 550;
+	color: var(--bn-ink);
+	margin-bottom: var(--bn-s2);
+}
+.bn-email-editor__tokens-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: var(--bn-s2);
+}
+.bn-email-editor__token {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line-faint);
+	border-radius: var(--bn-r-sm);
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink);
+	cursor: pointer;
+	text-align: start;
+	transition: border-color var(--bn-dur-fast) var(--bn-ease), background var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-email-editor__token:hover {
+	background: var(--bn-accent-100);
+	border-color: var(--bn-accent);
+	color: var(--bn-accent-700);
+}
+.bn-email-editor__token-desc {
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	text-transform: lowercase;
+}
+
+/* Preview panel — email-frame card. */
+.bn-email-editor__preview-frame {
+	max-width: 640px;
+	margin-inline: auto;
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	overflow: hidden;
+}
+.bn-email-editor__preview-head {
+	padding: var(--bn-s5);
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	text-align: center;
+}
+.bn-email-editor__preview-logo {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-lg);
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+.bn-email-editor__preview-body {
+	padding: var(--bn-s6) var(--bn-s5);
+	font-size: var(--bn-text-sm);
+	line-height: 1.6;
+	color: var(--bn-ink);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+.bn-email-editor__preview-foot {
+	padding: var(--bn-s3) var(--bn-s5);
+	background: var(--bn-sunken);
+	border-top: 1px solid var(--bn-line-faint);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	text-align: center;
+}
+
+/* Save bar at the bottom of the form panel. */
+.bn-email-editor__save-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-top: var(--bn-s4);
+	padding-top: var(--bn-s4);
+	border-top: 1px solid var(--bn-line-faint);
+}
+
+/* Hide the underlying checkbox when paired with a .bn-toggle visual.
+ * The checkbox is still keyboard-focusable for assistive tech. */
+.bn-email-editor__toggle-control {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	cursor: pointer;
+}
+.bn-email-editor__toggle-control input[type="checkbox"] {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
+}
+.bn-email-editor__toggle-control input[type="checkbox"]:focus-visible + .bn-toggle {
+	box-shadow: var(--bn-ring);
+}
+
+@media (max-width: 768px) {
+	.bn-email-editor__tokens-grid {
+		grid-template-columns: 1fr;
+	}
+	.bn-email-editor .bn-split {
+		min-height: 0;
+	}
+}

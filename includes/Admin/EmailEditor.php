@@ -490,7 +490,43 @@ class EmailEditor {
 	// ── Render ────────────────────────────────────────────────────────────────
 
 	/**
+	 * Map a category label to a `.bn-badge[data-tone]` value.
+	 *
+	 * @param string $category Catalogue category key (translated).
+	 * @return string A v2 badge tone token.
+	 */
+	private function category_tone( string $category ): string {
+		$map = array(
+			'Social'       => 'accent',
+			'Spaces'       => 'info',
+			'Moderation'   => 'warn',
+			'Gamification' => 'events',
+			'Jetonomy'     => 'jetonomy',
+			'Auth'         => 'success',
+			'Onboarding'   => 'media',
+		);
+		foreach ( $map as $needle => $tone ) {
+			if ( false !== stripos( $category, $needle ) ) {
+				return $tone;
+			}
+		}
+		return 'accent';
+	}
+
+	/**
 	 * Render the full Email Template Editor admin page.
+	 *
+	 * Composition follows docs/v2 Plans/PLAN.md Part 3 + v2/dm-thread.html:
+	 *   .adm-topbar  → title + global actions (Send test, Save)
+	 *   .bn-split    → two-pane primitive
+	 *     .bn-split__rail      — categorised template list (left)
+	 *     .bn-split__pane      — editor surface (right)
+	 *       .bn-tabs           — HTML / Plain / Preview switcher
+	 *       .bn-modal-backdrop — Send-test + Reset confirms
+	 *
+	 * Inline styles + scripts are NOT emitted; rules live in bn-admin.css
+	 * (EmailEditor section) and assets/js/admin/email-editor.js, both
+	 * enqueued via Core\AssetService::enqueue_admin_assets().
 	 *
 	 * @return void
 	 */
@@ -523,6 +559,15 @@ class EmailEditor {
 		$body_html    = $saved ? $saved->body_html : $active_def['body'];
 		$enabled      = $saved ? (bool) $saved->enabled : true;
 
+		// Resolve the active template's category for the pane head badge.
+		$active_category = '';
+		foreach ( $catalogue as $cat_label => $templates ) {
+			if ( isset( $templates[ $active_slug ] ) ) {
+				$active_category = $cat_label;
+				break;
+			}
+		}
+
 		// Admin notices.
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$updated = absint( $_GET['updated'] ?? - 1 );
@@ -531,8 +576,11 @@ class EmailEditor {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$reset = absint( $_GET['reset'] ?? - 1 );
 
+		$plain_body = trim( wp_strip_all_tags( $body_html ) );
+		$admin_post = admin_url( 'admin-post.php' );
+
 		?>
-		<div class="wrap buddynext-email-editor">
+		<div class="wrap bn-email-editor">
 
 		<?php if ( 1 === $updated ) : ?>
 			<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Template saved.', 'buddynext' ); ?></p></div>
@@ -550,59 +598,40 @@ class EmailEditor {
 			<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Template reset to defaults.', 'buddynext' ); ?></p></div>
 		<?php endif; ?>
 
-		<style>
-		.buddynext-email-editor { padding-top: 0; }
-		.bn-email-shell { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 80px); background: #f0f0f1; gap: 0; }
-		.bn-email-list { background: #fff; border-right: 1px solid #e9ecef; display: flex; flex-direction: column; }
-		.bn-email-list-header { padding: 16px; border-bottom: 1px solid #e9ecef; }
-		.bn-email-list-title { font-weight: 700; font-size: 15px; margin-bottom: 10px; }
-		.bn-email-section { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; padding: 10px 14px 4px; }
-		.bn-email-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f9fafb; text-decoration: none; color: inherit; display: block; }
-		.bn-email-item:hover { background: #f9fafb; }
-		.bn-email-item.active { background: #eff6ff; border-left: 3px solid #0073aa; }
-		.bn-email-item-name { font-weight: 600; font-size: 12.5px; margin-bottom: 2px; }
-		.bn-email-item-trigger { font-size: 11px; color: #9ca3af; }
-		.bn-email-badge { display: inline-block; font-size: 9px; padding: 1px 5px; border-radius: 6px; font-weight: 700; margin-left: 4px; }
-		.bn-badge-on  { background: #d1fae5; color: #065f46; }
-		.bn-badge-off { background: #f3f4f6; color: #9ca3af; }
-		.bn-email-area { display: flex; flex-direction: column; }
-		.bn-email-header { padding: 14px 20px; border-bottom: 1px solid #e9ecef; background: #fff; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-		.bn-email-header-title { font-size: 15px; font-weight: 700; flex: 1; min-width: 100px; }
-		.bn-email-grid { display: grid; grid-template-columns: 1fr 380px; flex: 1; overflow: hidden; }
-		.bn-email-form { padding: 20px; overflow-y: auto; background: #fafafa; }
-		.bn-form-field { margin-bottom: 16px; }
-		.bn-form-field label { display: block; font-weight: 600; font-size: 12px; margin-bottom: 5px; color: #374151; }
-		.bn-form-field .hint { font-size: 10px; color: #9ca3af; margin-top: 3px; }
-		.bn-text-input { border: 1.5px solid #e9ecef; border-radius: 6px; padding: 8px 10px; font-size: 13px; width: 100%; background: #fff; }
-		.bn-text-input:focus { outline: none; border-color: #0073aa; }
-		textarea.bn-text-input { resize: vertical; min-height: 180px; font-family: monospace; font-size: 12px; }
-		.bn-enabled-row { display: flex; align-items: center; justify-content: space-between; background: #fff; border: 1px solid #e9ecef; border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; }
-		.bn-token-picker { background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
-		.bn-token-picker-title { font-weight: 700; font-size: 12px; margin-bottom: 10px; }
-		.bn-tokens-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-		.bn-token { background: #f3f4f6; border-radius: 4px; padding: 5px 8px; font-size: 11px; font-family: monospace; cursor: pointer; display: flex; align-items: center; justify-content: space-between; border: none; width: 100%; text-align: left; }
-		.bn-token:hover { background: #dbeafe; color: #0073aa; }
-		.bn-token-desc { font-size: 9px; color: #9ca3af; font-family: sans-serif; }
-		.bn-preview-side { background: #e5e7eb; padding: 20px; overflow-y: auto; border-left: 1px solid #e9ecef; }
-		.bn-preview-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7280; margin-bottom: 12px; }
-		.bn-email-frame { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
-		.bn-ef-header { background: #0073aa; padding: 24px; text-align: center; color: #fff; }
-		.bn-ef-logo { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
-		.bn-ef-body { padding: 28px 24px; }
-		.bn-ef-footer { background: #f9fafb; padding: 16px 24px; text-align: center; font-size: 11px; color: #9ca3af; border-top: 1px solid #e9ecef; }
-		</style>
+		<header class="adm-topbar">
+			<div class="bn-email-editor__title">
+				<?php esc_html_e( 'Email Templates', 'buddynext' ); ?>
+			</div>
+			<div class="bn-email-editor__actions">
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="sm"
+					data-bn-open-modal="bn-email-modal-test"
+				>
+					<?php esc_html_e( 'Send test email', 'buddynext' ); ?>
+				</button>
+				<button
+					type="submit"
+					form="bn-email-save-form"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="sm"
+				>
+					<?php esc_html_e( 'Save template', 'buddynext' ); ?>
+				</button>
+			</div>
+		</header>
 
-		<div class="bn-email-shell">
+		<div class="bn-split">
 
-			<!-- Template list -->
-			<div class="bn-email-list">
-				<div class="bn-email-list-header">
-					<div class="bn-email-list-title"><?php esc_html_e( 'Email Templates', 'buddynext' ); ?></div>
-				</div>
-				<div style="overflow-y:auto;flex:1;">
+			<!-- Template list rail -->
+			<nav class="bn-split__rail" aria-label="<?php esc_attr_e( 'Email templates', 'buddynext' ); ?>">
 				<?php foreach ( $catalogue as $category => $templates ) : ?>
-					<div class="bn-email-section"><?php echo esc_html( $category ); ?></div>
+					<div class="bn-email-editor__rail-group"><?php echo esc_html( $category ); ?></div>
 					<?php
+					$category_tone = $this->category_tone( (string) $category );
 					foreach ( $templates as $slug => $tpl ) :
 						$row       = $this->get_saved( $slug );
 						$is_on     = $row ? (bool) $row->enabled : true;
@@ -615,139 +644,359 @@ class EmailEditor {
 							admin_url( 'admin.php' )
 						);
 						?>
-					<a href="<?php echo esc_url( $item_url ); ?>" class="bn-email-item<?php echo $is_active ? ' active' : ''; ?>">
-						<div class="bn-email-item-name">
-							<?php echo esc_html( $tpl['name'] ); ?>
-							<span class="bn-email-badge <?php echo $is_on ? 'bn-badge-on' : 'bn-badge-off'; ?>">
-								<?php echo $is_on ? esc_html__( 'On', 'buddynext' ) : esc_html__( 'Off', 'buddynext' ); ?>
-							</span>
-						</div>
-						<div class="bn-email-item-trigger"><?php echo esc_html( $tpl['trigger'] ); ?></div>
-					</a>
+						<a
+							href="<?php echo esc_url( $item_url ); ?>"
+							class="bn-split__rail-item"
+							<?php
+							if ( $is_active ) :
+								?>
+								aria-current="true"<?php endif; ?>
+						>
+							<div class="bn-email-editor__rail-item-row">
+								<span class="bn-split__rail-item-title"><?php echo esc_html( $tpl['name'] ); ?></span>
+								<span
+									class="bn-badge"
+									data-tone="<?php echo esc_attr( $is_on ? 'success' : 'info' ); ?>"
+								>
+									<?php
+									echo $is_on
+										? esc_html__( 'Enabled', 'buddynext' )
+										: esc_html__( 'Disabled', 'buddynext' );
+									?>
+								</span>
+							</div>
+							<span class="bn-split__rail-item-meta"><?php echo esc_html( $tpl['trigger'] ); ?></span>
+						</a>
 					<?php endforeach; ?>
 				<?php endforeach; ?>
-				</div>
-			</div>
+			</nav>
 
-			<!-- Editor area -->
-			<div class="bn-email-area">
-				<div class="bn-email-header">
-					<div class="bn-email-header-title"><?php echo esc_html( $active_def['name'] ); ?></div>
-					<!-- Reset form -->
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-						<input type="hidden" name="action" value="buddynext_email_reset">
-						<input type="hidden" name="template_slug" value="<?php echo esc_attr( $active_slug ); ?>">
-						<?php wp_nonce_field( self::NONCE_ACTION ); ?>
-						<button type="submit" class="button"><?php esc_html_e( '↺ Reset to default', 'buddynext' ); ?></button>
-					</form>
-					<!-- Test email form -->
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-						<input type="hidden" name="action" value="buddynext_email_test">
-						<input type="hidden" name="template_slug" value="<?php echo esc_attr( $active_slug ); ?>">
-						<?php wp_nonce_field( self::NONCE_ACTION ); ?>
-						<button type="submit" class="button"><?php esc_html_e( 'Send test email', 'buddynext' ); ?></button>
-					</form>
+			<!-- Editor pane -->
+			<section class="bn-split__pane" aria-label="<?php esc_attr_e( 'Template editor', 'buddynext' ); ?>">
+
+				<header class="bn-split__pane-head bn-email-editor__pane-head">
+					<div class="bn-email-editor__pane-title">
+						<span class="bn-email-editor__pane-name"><?php echo esc_html( $active_def['name'] ); ?></span>
+						<span class="bn-email-editor__pane-trigger"><?php echo esc_html( $active_def['trigger'] ); ?></span>
+					</div>
+					<?php if ( '' !== $active_category ) : ?>
+						<span class="bn-badge" data-tone="<?php echo esc_attr( $this->category_tone( $active_category ) ); ?>">
+							<?php echo esc_html( $active_category ); ?>
+						</span>
+					<?php endif; ?>
+					<div class="bn-email-editor__pane-actions">
+						<label
+							class="bn-email-editor__toggle-control"
+							data-bn-toggle-wrap
+							aria-label="<?php esc_attr_e( 'Email enabled', 'buddynext' ); ?>"
+							for="bn-email-enabled"
+						>
+							<input
+								id="bn-email-enabled"
+								type="checkbox"
+								name="enabled"
+								value="1"
+								form="bn-email-save-form"
+								<?php checked( $enabled ); ?>
+							>
+							<span class="bn-toggle" role="presentation" aria-hidden="true"></span>
+						</label>
+						<button
+							type="button"
+							class="bn-btn"
+							data-variant="ghost"
+							data-size="sm"
+							data-bn-open-modal="bn-email-modal-reset"
+						>
+							<?php esc_html_e( 'Reset to default', 'buddynext' ); ?>
+						</button>
+					</div>
+				</header>
+
+				<div role="tablist" class="bn-tabs" aria-label="<?php esc_attr_e( 'Editor view', 'buddynext' ); ?>">
+					<button
+						type="button"
+						role="tab"
+						class="bn-tab"
+						id="bn-email-tab-html"
+						aria-selected="true"
+						aria-controls="bn-email-panel-html"
+						data-bn-tab="html"
+					>
+						<?php esc_html_e( 'HTML', 'buddynext' ); ?>
+					</button>
+					<button
+						type="button"
+						role="tab"
+						class="bn-tab"
+						id="bn-email-tab-plain"
+						aria-selected="false"
+						aria-controls="bn-email-panel-plain"
+						tabindex="-1"
+						data-bn-tab="plain"
+					>
+						<?php esc_html_e( 'Plain', 'buddynext' ); ?>
+					</button>
+					<button
+						type="button"
+						role="tab"
+						class="bn-tab"
+						id="bn-email-tab-preview"
+						aria-selected="false"
+						aria-controls="bn-email-panel-preview"
+						tabindex="-1"
+						data-bn-tab="preview"
+					>
+						<?php esc_html_e( 'Preview', 'buddynext' ); ?>
+					</button>
 				</div>
 
-				<div class="bn-email-grid">
-					<!-- Form side -->
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-email-form">
+				<div class="bn-split__pane-body">
+
+					<form
+						id="bn-email-save-form"
+						method="post"
+						action="<?php echo esc_url( $admin_post ); ?>"
+					>
 						<input type="hidden" name="action" value="buddynext_email_save">
 						<input type="hidden" name="template_slug" value="<?php echo esc_attr( $active_slug ); ?>">
 						<?php wp_nonce_field( self::NONCE_ACTION ); ?>
 
-						<div class="bn-enabled-row">
-							<div>
-								<strong><?php esc_html_e( 'Email enabled', 'buddynext' ); ?></strong>
-								<p style="font-size:11px;color:#6b7280;margin-top:2px;">
-									<?php esc_html_e( 'Users can override this in their notification settings.', 'buddynext' ); ?>
-								</p>
+						<!-- HTML panel: subject + preview text + body textarea + tokens -->
+						<div
+							class="bn-email-editor__panel"
+							role="tabpanel"
+							id="bn-email-panel-html"
+							aria-labelledby="bn-email-tab-html"
+							data-bn-panel="html"
+						>
+							<div class="bn-email-editor__field">
+								<label for="bn-subject" class="bn-email-editor__label">
+									<?php esc_html_e( 'Subject line', 'buddynext' ); ?>
+								</label>
+								<input
+									id="bn-subject"
+									class="bn-input"
+									type="text"
+									name="subject"
+									value="<?php echo esc_attr( $subject ); ?>"
+								>
 							</div>
-							<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-								<input type="checkbox" name="enabled" value="1" <?php checked( $enabled ); ?>>
-								<?php esc_html_e( 'Enabled', 'buddynext' ); ?>
-							</label>
-						</div>
 
-						<div class="bn-form-field">
-							<label for="bn-subject"><?php esc_html_e( 'Subject Line', 'buddynext' ); ?></label>
-							<input id="bn-subject" class="bn-text-input" type="text" name="subject" value="<?php echo esc_attr( $subject ); ?>">
-						</div>
+							<div class="bn-email-editor__field">
+								<label for="bn-preview" class="bn-email-editor__label">
+									<?php esc_html_e( 'Preview text', 'buddynext' ); ?>
+									<span class="bn-email-editor__hint">
+										<?php esc_html_e( '(shown in inbox before opening)', 'buddynext' ); ?>
+									</span>
+								</label>
+								<input
+									id="bn-preview"
+									class="bn-input"
+									type="text"
+									name="preview_text"
+									value="<?php echo esc_attr( $preview_text ); ?>"
+								>
+							</div>
 
-						<div class="bn-form-field">
-							<label for="bn-preview">
-								<?php esc_html_e( 'Preview text', 'buddynext' ); ?>
-								<span style="font-weight:400;color:#9ca3af;"><?php esc_html_e( '(shown in inbox before opening)', 'buddynext' ); ?></span>
-							</label>
-							<input id="bn-preview" class="bn-text-input" type="text" name="preview_text" value="<?php echo esc_attr( $preview_text ); ?>">
-						</div>
+							<div class="bn-email-editor__field">
+								<label for="bn-body" class="bn-email-editor__label">
+									<?php esc_html_e( 'Body (HTML)', 'buddynext' ); ?>
+								</label>
+								<textarea
+									id="bn-body"
+									class="bn-textarea"
+									name="body_html"
+									rows="12"
+									data-bn-mono
+								><?php echo esc_textarea( $body_html ); ?></textarea>
+							</div>
 
-						<div class="bn-form-field">
-							<label for="bn-body"><?php esc_html_e( 'Body (HTML)', 'buddynext' ); ?></label>
-							<textarea id="bn-body" class="bn-text-input" name="body_html" rows="12"><?php echo esc_textarea( $body_html ); ?></textarea>
-						</div>
+							<div class="bn-card bn-email-editor__tokens">
+								<div class="bn-email-editor__tokens-title">
+									<?php esc_html_e( 'Available tokens (click to insert at caret)', 'buddynext' ); ?>
+								</div>
+								<div class="bn-email-editor__tokens-grid">
+									<?php
+									$tokens = is_array( $active_def['tokens'] ) ? $active_def['tokens'] : array();
+									foreach ( $tokens as $token ) :
+										$desc = str_replace( array( '{{', '}}', '_' ), array( '', '', ' ' ), $token );
+										?>
+										<button
+											type="button"
+											class="bn-email-editor__token"
+											data-bn-token="<?php echo esc_attr( $token ); ?>"
+										>
+											<span><?php echo esc_html( $token ); ?></span>
+											<span class="bn-email-editor__token-desc"><?php echo esc_html( $desc ); ?></span>
+										</button>
+									<?php endforeach; ?>
+								</div>
+							</div>
 
-						<div class="bn-token-picker">
-							<div class="bn-token-picker-title"><?php esc_html_e( 'Available Tokens (click to insert)', 'buddynext' ); ?></div>
-							<div class="bn-tokens-grid">
-								<?php
-								$tokens = is_array( $active_def['tokens'] ) ? $active_def['tokens'] : array();
-								foreach ( $tokens as $token ) :
-									$desc = str_replace( array( '{{', '}}', '_' ), array( '', '', ' ' ), $token );
-									?>
-								<button type="button" class="bn-token" data-bn-token="<?php echo esc_attr( $token ); ?>">
-									<?php echo esc_html( $token ); ?>
-									<span class="bn-token-desc"><?php echo esc_html( ucfirst( $desc ) ); ?></span>
+							<div class="bn-email-editor__save-bar">
+								<button type="submit" class="bn-btn" data-variant="primary">
+									<?php esc_html_e( 'Save template', 'buddynext' ); ?>
 								</button>
-								<?php endforeach; ?>
+								<span class="bn-email-editor__hint">
+									<?php esc_html_e( 'Changes apply to outgoing email immediately.', 'buddynext' ); ?>
+								</span>
 							</div>
 						</div>
-
-						<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Template', 'buddynext' ); ?></button>
 					</form>
 
-					<!-- Preview side -->
-					<div class="bn-preview-side">
-						<div class="bn-preview-label"><?php esc_html_e( 'Preview', 'buddynext' ); ?></div>
-						<div class="bn-email-frame">
-							<div class="bn-ef-header">
-								<div class="bn-ef-logo"><?php echo esc_html( get_bloginfo( 'name' ) ); ?></div>
-							</div>
-							<div class="bn-ef-body">
-								<div style="font-size:15px;font-weight:700;margin-bottom:12px;">
-									<?php echo esc_html( $active_def['name'] ); ?>
+					<!-- Plain panel: read-only stripped text preview -->
+					<div
+						class="bn-email-editor__panel"
+						role="tabpanel"
+						id="bn-email-panel-plain"
+						aria-labelledby="bn-email-tab-plain"
+						data-bn-panel="plain"
+						hidden
+					>
+						<label for="bn-plain" class="bn-email-editor__label screen-reader-text">
+							<?php esc_html_e( 'Plain-text rendering of the email body.', 'buddynext' ); ?>
+						</label>
+						<textarea
+							id="bn-plain"
+							class="bn-textarea"
+							readonly
+							data-bn-mono
+							rows="16"
+						><?php echo esc_textarea( $plain_body ); ?></textarea>
+					</div>
+
+					<!-- Preview panel: rendered email frame -->
+					<div
+						class="bn-email-editor__panel"
+						role="tabpanel"
+						id="bn-email-panel-preview"
+						aria-labelledby="bn-email-tab-preview"
+						data-bn-panel="preview"
+						hidden
+					>
+						<div class="bn-email-editor__preview-frame">
+							<div class="bn-email-editor__preview-head">
+								<div class="bn-email-editor__preview-logo">
+									<?php echo esc_html( get_bloginfo( 'name' ) ); ?>
 								</div>
-								<div style="font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap;">
-									<?php echo wp_kses_post( $body_html ); ?>
-								</div>
 							</div>
-							<div class="bn-ef-footer">
+							<div class="bn-email-editor__preview-body" data-bn-preview-body>
+								<?php echo wp_kses_post( $body_html ); ?>
+							</div>
+							<div class="bn-email-editor__preview-foot">
 								<?php
 								printf(
 									/* translators: %s: site name */
-									esc_html__( 'Sent by %s · Powered by BuddyNext', 'buddynext' ),
+									esc_html__( 'Sent by %s - Powered by BuddyNext', 'buddynext' ),
 									esc_html( get_bloginfo( 'name' ) )
 								);
 								?>
 							</div>
 						</div>
 					</div>
-				</div>
-			</div><!-- .bn-email-area -->
 
-		</div><!-- .bn-email-shell -->
-		</div><!-- .wrap -->
-		<script>
-		document.addEventListener('click', function (e) {
-			var t = e.target.closest('[data-bn-token]');
-			if (!t) return;
-			var body = document.getElementById('bn-body');
-			if (body) {
-				body.value += t.dataset.bnToken;
-				body.focus();
-			}
-		});
-		</script>
+				</div><!-- .bn-split__pane-body -->
+			</section>
+
+		</div><!-- .bn-split -->
+
+		<!-- Send-test confirm modal -->
+		<div
+			class="bn-modal-backdrop"
+			id="bn-email-modal-test"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="bn-email-modal-test-title"
+			hidden
+		>
+			<form
+				method="post"
+				action="<?php echo esc_url( $admin_post ); ?>"
+				class="bn-modal__panel"
+			>
+				<header class="bn-modal__head">
+					<h2 id="bn-email-modal-test-title" class="bn-modal__title">
+						<?php esc_html_e( 'Send a test email', 'buddynext' ); ?>
+					</h2>
+					<button
+						type="button"
+						class="bn-modal__close"
+						data-bn-close
+						aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
+					>&times;</button>
+				</header>
+				<div class="bn-modal__body">
+					<p>
+						<?php
+						printf(
+							/* translators: %s: admin email address */
+							esc_html__( 'A copy of this template, with sample data, will be sent to %s.', 'buddynext' ),
+							'<strong>' . esc_html( (string) get_option( 'admin_email', '' ) ) . '</strong>'
+						);
+						?>
+					</p>
+					<input type="hidden" name="action" value="buddynext_email_test">
+					<input type="hidden" name="template_slug" value="<?php echo esc_attr( $active_slug ); ?>">
+					<?php wp_nonce_field( self::NONCE_ACTION ); ?>
+				</div>
+				<footer class="bn-modal__foot">
+					<button type="button" class="bn-btn" data-variant="ghost" data-bn-close>
+						<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+					</button>
+					<button type="submit" class="bn-btn" data-variant="primary">
+						<?php esc_html_e( 'Send test', 'buddynext' ); ?>
+					</button>
+				</footer>
+			</form>
+		</div>
+
+		<!-- Reset confirm modal -->
+		<div
+			class="bn-modal-backdrop"
+			id="bn-email-modal-reset"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="bn-email-modal-reset-title"
+			hidden
+		>
+			<form
+				method="post"
+				action="<?php echo esc_url( $admin_post ); ?>"
+				class="bn-modal__panel"
+				data-tone="danger"
+			>
+				<header class="bn-modal__head">
+					<h2 id="bn-email-modal-reset-title" class="bn-modal__title">
+						<?php esc_html_e( 'Reset to default?', 'buddynext' ); ?>
+					</h2>
+					<button
+						type="button"
+						class="bn-modal__close"
+						data-bn-close
+						aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
+					>&times;</button>
+				</header>
+				<div class="bn-modal__body">
+					<p>
+						<?php esc_html_e( 'This will discard your subject, preview, and body changes for this template and restore the factory defaults. This cannot be undone.', 'buddynext' ); ?>
+					</p>
+					<input type="hidden" name="action" value="buddynext_email_reset">
+					<input type="hidden" name="template_slug" value="<?php echo esc_attr( $active_slug ); ?>">
+					<?php wp_nonce_field( self::NONCE_ACTION ); ?>
+				</div>
+				<footer class="bn-modal__foot">
+					<button type="button" class="bn-btn" data-variant="ghost" data-bn-close>
+						<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+					</button>
+					<button type="submit" class="bn-btn" data-variant="danger">
+						<?php esc_html_e( 'Reset template', 'buddynext' ); ?>
+					</button>
+				</footer>
+			</form>
+		</div>
+
+		</div><!-- .wrap.bn-email-editor -->
 		<?php
 	}
 }
