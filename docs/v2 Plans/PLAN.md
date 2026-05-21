@@ -1,5 +1,16 @@
 # BuddyNext v2 — Frontend uniformity plan
 
+## Boundary skills (read first)
+
+This plan is BuddyNext's specialisation on top of two canonical Claude skills. They define the engineering and UX baseline; this document defines how BN applies them.
+
+| Skill | What it owns |
+|---|---|
+| `/wp-plugin-development` | PHP / WordPress conventions: hook ownership, REST patterns, DB schema, security (nonces + caps), escape/sanitize, enqueue patterns, PHPDoc + WPCS sniff config. |
+| `/ux-audit` | Token + primitive compliance, the per-plugin audit script (vendored at `bin/ux-audit.sh`), the cross-plugin naming contract (`.bn-*` prefix + attribute API). |
+
+When a question arises that this plan doesn't answer, defer to the matching skill — not to invention. The 6 uniformity gates in Part 4 below are BN's expression of the `/ux-audit` baseline; they don't replace it.
+
 ## Premise
 
 **v2 is the only design source.** The previous brainstorm mockups have been removed from the repo. No template, no admin page, no Pro screen pulls visual intent from any other source.
@@ -283,10 +294,11 @@ With templates on v2 primitives, the remaining audit violations become idiomatic
 The migration is complete when:
 
 1. Every BN surface passes all 6 gates.
-2. `~/.claude/skills/ux-audit/templates/ux-audit.sh` returns 0 block-severity violations.
-3. The plugin renders identically (modulo intentional hue rotation) under TT3, BuddyX, Reign, Twenty Twenty-Five.
-4. Light / dark + comfortable / compact + light / dark all flip coherently across every surface.
-5. A whitelabel rebrand by flipping `--bn-hue` produces a coherent palette across Free + Pro + every admin page.
+2. `bin/ux-audit.sh` (vendored from `/ux-audit`) returns 0 block-severity violations.
+3. `bin/check.sh` (full CI-parity gate: PHP lint + WPCS + PHPStan + UX audit) exits 0.
+4. The plugin renders identically (modulo intentional hue rotation) under TT3, BuddyX, Reign, Twenty Twenty-Five.
+5. Light / dark + comfortable / compact all flip coherently across every surface.
+6. A whitelabel rebrand by flipping `--bn-hue` produces a coherent palette across Free + Pro + every admin page.
 
 ## Part 7 — How to apply this plan
 

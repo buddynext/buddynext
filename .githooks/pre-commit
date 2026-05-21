@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# BuddyNext pre-commit gate.
+#
+# Runs the fast slice of bin/check.sh against STAGED files only so commits
+# stay snappy. The full check (CI parity) lives in bin/check.sh — run it
+# before pushing.
+#
+# Enable once per clone:
+#   git config core.hooksPath .githooks
+#
+# Skip in emergencies:
+#   git commit --no-verify
+#
+# Anchored to: docs/v2 Plans/PLAN.md Part 4 gates, /wp-plugin-development,
+# /ux-audit skills.
+
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+exec bin/check.sh --staged --skip-audit

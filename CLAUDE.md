@@ -15,6 +15,50 @@ Enterprise-grade social community platform for WordPress (free + pro). Owned by 
 
 ---
 
+## Developer-Friendly from Day 1 — Boundary Skills + Local Tooling
+
+BuddyNext leans on two canonical skills for engineering standards. They are the source of truth — this file mirrors them where useful but never duplicates their rules.
+
+| Skill | What it owns |
+|---|---|
+| `/wp-plugin-development` | Hook ownership, REST patterns, DB schema, security (nonces + caps), admin UI conventions, Lucide icon rule, escape/sanitize rules, enqueue + inline-style patterns, PHPDoc + WPCS sniff config. |
+| `/ux-audit` | Token + primitive compliance, cross-plugin duplication detection, the per-plugin audit script, the naming contract (`.bn-*` prefix + attribute API). |
+
+**Invoke them when relevant.** When writing a REST controller, ask the `/wp-plugin-development` skill what it requires. When adding a new component or CSS token, ask `/ux-audit`. The v2 design source (`docs/v2 Plans/`) is BuddyNext's specialisation on top of the `/ux-audit` foundation.
+
+### Local tooling (vendored in this repo — run from the repo root)
+
+| Command | Purpose |
+|---|---|
+| `bin/check.sh` | Full CI-parity gate: PHP lint, WPCS, PHPStan level 5, UX audit. Run before pushing. |
+| `bin/check.sh --staged` | Same gate scoped to staged files only — fast pre-commit signal. |
+| `bin/check.sh --skip-audit` | Skip the UX audit step (useful when iterating on PHP only). |
+| `bin/ux-audit.sh` | Standalone UX audit (token + primitive compliance, inline-style/script detection). Vendored from `/ux-audit`'s `templates/ux-audit.sh`. |
+
+### Pre-commit hook (one-time setup per clone)
+
+```bash
+git config core.hooksPath .githooks
+```
+
+`.githooks/pre-commit` runs `bin/check.sh --staged --skip-audit`. Use `git commit --no-verify` only in emergencies.
+
+### Quality gates anchored to skills
+
+| Gate | Source skill | How to run |
+|---|---|---|
+| WPCS clean | `/wp-plugin-development` Part 8 | `vendor/bin/phpcs` or `mcp__wpcs__wpcs_check_file` |
+| PHPStan level 5 | `/wp-plugin-development` | `vendor/bin/phpstan analyse` |
+| Token + primitive compliance | `/ux-audit` | `bin/ux-audit.sh` |
+| No raw hex / px / font-family outside `:root` | `/ux-audit` | `bin/ux-audit.sh` F3 rule |
+| No inline `<style>` / `<script>` in PHP | `/ux-audit` | `bin/ux-audit.sh` F1 + F2 rules |
+| No native `alert()` / `confirm()` | `/ux-audit` | `bin/ux-audit.sh` F8 rule |
+| v2 token + primitive vocabulary | This repo + `docs/v2 Plans/` | `bin/ux-audit.sh` + 6 uniformity gates in `docs/v2 Plans/PLAN.md` Part 4 |
+
+If a section below conflicts with one of the boundary skills, the skill wins — file an issue and the matching section here gets corrected.
+
+---
+
 ## Non-Negotiable Standards — Read Before Every Task
 
 ### 1. Enterprise Code Quality — No Shortcuts
