@@ -26,18 +26,29 @@
  * PageRouter::dispatch_hub_template() emits its own <html><head><body>
  * document on BN hub slugs (no theme header.php / footer.php). The
  * .bn-app wrapper sits at body level, so it is full-width by default —
- * no burst-out tricks, no theme-container fights, no per-theme overrides.
+ * no burst-out tricks, no theme-container fights.
  *
- * Body styling: reset margins + neutralise any host-theme global rules
- * that might leak via wp_head() (theme.json globals, font-size on html,
- * etc.). Then .bn-app fills the viewport.
+ * Body reset: host themes still load their CSS via wp_head() (Astra,
+ * BuddyX, Reign, TT3 etc. all enqueue stylesheets on standard hooks).
+ * Their body-level rules (max-width, font-family, background, padding)
+ * would otherwise leak in. The body.bn-page selector wins because the
+ * class is added via body_class filter — same specificity as the
+ * theme's own body.ast-* / body.buddyx-* selectors, but bn-shell.css
+ * loads after the theme CSS so cascade wins. !important is used only
+ * on the geometry properties (margin/padding/max-width) because some
+ * themes use !important themselves.
  * ────────────────────────────────────────────────────────────────────── */
-html, body {
-	margin: 0;
-	padding: 0;
+html { margin: 0; padding: 0; }
+
+body.bn-page {
+	margin: 0 !important;
+	padding: 0 !important;
+	max-width: none !important;
 	background: var(--bn-canvas);
 	color: var(--bn-ink, inherit);
 	font-family: var(--bn-font-ui, sans-serif);
+	font-size: var(--bn-text-base, 15px);
+	line-height: 1.55;
 }
 
 .bn-app {
