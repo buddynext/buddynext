@@ -108,8 +108,13 @@ if ( ! function_exists( 'bn_connections_initials' ) ) {
 	}
 }
 
-$bn_nav_active = '';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+<?php
+/**
+ * Fires before the profile connections inner content.
+ *
+ * @param int $user_id Profile owner.
+ */
+do_action( 'buddynext_profile_connections_before', isset( $user_id ) ? (int) $user_id : 0 );
 ?>
 <div
 	class="bn-connections"

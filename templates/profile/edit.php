@@ -150,8 +150,12 @@ $format_count = static function ( int $n ): string {
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 ?>
 <?php
-$bn_nav_active = '';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+/**
+ * Fires before the profile edit inner content.
+ *
+ * @param int $user_id Profile being edited.
+ */
+do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id : 0 );
 ?>
 <div class="bn-ep-wrap"
 	data-wp-interactive="buddynext/profile"

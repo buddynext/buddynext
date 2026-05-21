@@ -250,8 +250,11 @@ $initials = static function ( string $name ): string {
 
 $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 
-$bn_nav_active = '';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+<?php
+/**
+ * Fires before the moderation queue inner content.
+ */
+do_action( 'buddynext_moderation_queue_before' );
 ?>
 
 <div class="bn-mod-shell"

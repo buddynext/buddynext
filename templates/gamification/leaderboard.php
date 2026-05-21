@@ -31,15 +31,13 @@ global $wpdb;
 // Guard: WBGamification must be active.
 if ( ! class_exists( 'WBGamification\Plugin' ) ) {
 	?>
-	<div class="bn-hub-shell">
-		<div class="bn-lb-shell">
-			<div class="bn-lb-notice" role="status">
-				<span class="bn-lb-notice__icon" aria-hidden="true"><?php buddynext_icon( 'award' ); ?></span>
-				<h2><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h2>
-				<p>
-					<?php esc_html_e( 'The leaderboard requires the WBGamification plugin to be active. Install and activate WBGamification to start earning points and see where you rank in the community.', 'buddynext' ); ?>
-				</p>
-			</div>
+	<div class="bn-lb-shell">
+		<div class="bn-lb-notice" role="status">
+			<span class="bn-lb-notice__icon" aria-hidden="true"><?php buddynext_icon( 'award' ); ?></span>
+			<h2><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h2>
+			<p>
+				<?php esc_html_e( 'The leaderboard requires the WBGamification plugin to be active. Install and activate WBGamification to start earning points and see where you rank in the community.', 'buddynext' ); ?>
+			</p>
 		</div>
 	</div>
 	<?php
@@ -255,8 +253,22 @@ $rank_tone = static function ( int $rank ): string {
 	return 'ink';
 };
 
-$bn_nav_active = 'feed';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+add_action(
+	'buddynext_right_sidebar',
+	static function () {
+		buddynext_get_template(
+			'partials/sidebar.php',
+			array(
+				'sidebar_user_id' => get_current_user_id(),
+			)
+		);
+	}
+);
+
+/**
+ * Fires before the leaderboard inner content.
+ */
+do_action( 'buddynext_leaderboard_before' );
 
 $period_tabs = array(
 	'alltime' => __( 'All time', 'buddynext' ),
@@ -272,8 +284,6 @@ $cat_tabs = array(
 
 $updated_iso = gmdate( 'c' );
 ?>
-
-<div class="bn-hub-shell">
 
 <div class="bn-lb-shell"
 	data-wp-interactive="buddynext/gamification"
@@ -744,6 +754,9 @@ $updated_iso = gmdate( 'c' );
 
 </div><!-- /.bn-lb-shell -->
 
-<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
-
-</div><!-- /.bn-hub-shell -->
+<?php
+/**
+ * Fires after the leaderboard inner content.
+ */
+do_action( 'buddynext_leaderboard_after' );
+?>
