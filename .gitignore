@@ -22,3 +22,6 @@ composer.lock
 # Local config
 .env
 wp-tests-config.php
+
+# Brainstorm scratch (legacy mockups regenerated locally, do not track)
+/.superpowers/
