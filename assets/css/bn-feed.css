@@ -1369,16 +1369,20 @@
 .bn-composer__spacer { flex: 1; }
 
 .bn-composer__privacy {
+	display: inline-flex;
+	width: auto;
+	max-width: 200px;
 	height: 32px;
-	padding: 0 var(--s3);
-	background: var(--bg-subtle);
-	border: 1px solid var(--border);
-	border-radius: var(--r-md);
-	font-family: var(--font-body);
-	font-size: var(--text-xs);
+	padding: 0 var(--bn-s6) 0 var(--bn-s3);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-xs);
 	font-weight: 600;
-	color: var(--text-2);
+	color: var(--bn-ink-2);
 	cursor: pointer;
+	flex-shrink: 0;
 }
 .bn-composer__privacy:focus-visible {
 	outline: none;
