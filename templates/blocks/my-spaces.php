@@ -30,11 +30,16 @@ $spaces  = buddynext_service( 'spaces' )->list_spaces(
 <section class="bn-card bn-block-my-spaces">
 	<h3 class="bn-block-heading"><?php esc_html_e( 'My Spaces', 'buddynext' ); ?></h3>
 	<?php if ( empty( $spaces ) ) : ?>
-		<div class="bn-empty-state">
-			<?php buddynext_icon( 'hash' ); ?>
-			<div class="bn-empty-state__title"><?php esc_html_e( 'No spaces yet', 'buddynext' ); ?></div>
-			<p><?php esc_html_e( "You haven't joined any spaces yet.", 'buddynext' ); ?></p>
-		</div>
+		<?php
+		buddynext_get_template(
+			'parts/empty-state.php',
+			array(
+				'icon'  => 'hash',
+				'title' => __( 'No spaces yet', 'buddynext' ),
+				'body'  => __( "You haven't joined any spaces yet.", 'buddynext' ),
+			)
+		);
+		?>
 	<?php else : ?>
 		<ul class="bn-my-spaces-list">
 			<?php foreach ( $spaces as $space ) : ?>

@@ -33,11 +33,16 @@ $cursor   = $result['next_cursor'] ?? '';
 		<h3 class="bn-block-heading"><?php esc_html_e( 'Members', 'buddynext' ); ?></h3>
 	</div>
 	<?php if ( empty( $members ) ) : ?>
-		<div class="bn-empty-state">
-			<?php buddynext_icon( 'users' ); ?>
-			<div class="bn-empty-state__title"><?php esc_html_e( 'No members yet', 'buddynext' ); ?></div>
-			<p><?php esc_html_e( 'Once people join, they will show up here.', 'buddynext' ); ?></p>
-		</div>
+		<?php
+		buddynext_get_template(
+			'parts/empty-state.php',
+			array(
+				'icon'  => 'users',
+				'title' => __( 'No members yet', 'buddynext' ),
+				'body'  => __( 'Once people join, they will show up here.', 'buddynext' ),
+			)
+		);
+		?>
 	<?php else : ?>
 		<ul class="bn-member-list">
 			<?php foreach ( $members as $member ) : ?>

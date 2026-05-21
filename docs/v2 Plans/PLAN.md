@@ -275,6 +275,25 @@ Same conventions as Phase 4. Customer must not perceive a Free / Pro chrome diff
 
 - Custom reactions, Membership × 3, Broadcast, Drip, Mod rules, Bulk mod, Member labels, Scheduled posts, Analytics
 
+#### Modular template part layer
+
+Phase 5 (and every Pro / bridge consumer) must compose from
+`templates/parts/*.php` instead of forking hub templates. The full
+catalogue + per-part hook contract lives in
+[`docs/specs/TEMPLATE-PARTS.md`](../specs/TEMPLATE-PARTS.md).
+
+Rules:
+
+- Do not duplicate chrome. If a section uses an empty-state /
+  pagination / sidebar card / section head / stat grid / filter strip,
+  consume the part.
+- Extend via `buddynext_part_{name}_args`,
+  `buddynext_part_{name}_classes`, `buddynext_part_{name}_before`,
+  `buddynext_part_{name}_after`.
+- A new chunk that appears in 2+ surfaces becomes a new part —
+  add it under `templates/parts/`, expose the four standard hooks,
+  document it in `docs/specs/TEMPLATE-PARTS.md`.
+
 ### Phase 6 — Email templates
 
 Inline-style refresh of the 16 seeded templates so HTML emails match v2 card visual language.

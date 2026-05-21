@@ -2010,6 +2010,90 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	gap: var(--bn-s3);
 }
 
+/* ── Section head — composable header used by hub + admin templates ── */
+.bn-section-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--bn-s4);
+	padding: var(--bn-s4) 0;
+	margin-bottom: var(--bn-s4);
+	border-block-end: 1px solid var(--bn-line-faint);
+	flex-wrap: wrap;
+}
+.bn-section-head__lead {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s3);
+	min-width: 0;
+	flex: 1 1 auto;
+}
+.bn-section-head__icon {
+	display: inline-flex;
+	width: 32px;
+	height: 32px;
+	align-items: center;
+	justify-content: center;
+	color: var(--bn-accent);
+	flex-shrink: 0;
+}
+.bn-section-head__text {
+	min-width: 0;
+}
+.bn-section-head__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-xl);
+	font-weight: 600;
+	letter-spacing: -0.02em;
+	color: var(--bn-ink);
+	margin: 0;
+	line-height: 1.2;
+}
+.bn-section-head__subtitle {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	margin: 4px 0 0;
+}
+.bn-section-head__meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s3);
+	margin-top: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+}
+.bn-section-head__meta-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+.bn-section-head__actions {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	flex-shrink: 0;
+}
+
+/* ── Filter strip — top-of-list chrome wrapping .bn-tabs + filters ─── */
+.bn-filter-strip {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	margin-bottom: var(--bn-s4);
+}
+.bn-filter-strip__form {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-inline-start: auto;
+}
+.bn-filter-strip__form .bn-input {
+	min-width: 200px;
+}
+
 /* ── Data table ─────────────────────────────────────────────────────── */
 .bn-table {
 	width: 100%;

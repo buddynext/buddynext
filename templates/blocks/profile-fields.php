@@ -50,11 +50,16 @@ if ( $group ) {
 ?>
 <section class="bn-card bn-block-profile-fields" data-user-id="<?php echo absint( $user_id ); ?>">
 	<?php if ( empty( $fields ) ) : ?>
-		<div class="bn-empty-state">
-			<?php buddynext_icon( 'user' ); ?>
-			<div class="bn-empty-state__title"><?php esc_html_e( 'No profile info', 'buddynext' ); ?></div>
-			<p><?php esc_html_e( 'There is nothing to display yet.', 'buddynext' ); ?></p>
-		</div>
+		<?php
+		buddynext_get_template(
+			'parts/empty-state.php',
+			array(
+				'icon'  => 'user',
+				'title' => __( 'No profile info', 'buddynext' ),
+				'body'  => __( 'There is nothing to display yet.', 'buddynext' ),
+			)
+		);
+		?>
 	<?php else : ?>
 		<dl class="bn-profile-fields-list">
 			<?php

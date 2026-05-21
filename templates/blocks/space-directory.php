@@ -32,11 +32,16 @@ $has_more = false;
 >
 	<h3 class="bn-block-heading"><?php esc_html_e( 'Spaces', 'buddynext' ); ?></h3>
 	<?php if ( empty( $spaces ) ) : ?>
-		<div class="bn-empty-state">
-			<?php buddynext_icon( 'hash' ); ?>
-			<div class="bn-empty-state__title"><?php esc_html_e( 'No spaces yet', 'buddynext' ); ?></div>
-			<p><?php esc_html_e( 'Open spaces will appear here once they are created.', 'buddynext' ); ?></p>
-		</div>
+		<?php
+		buddynext_get_template(
+			'parts/empty-state.php',
+			array(
+				'icon'  => 'hash',
+				'title' => __( 'No spaces yet', 'buddynext' ),
+				'body'  => __( 'Open spaces will appear here once they are created.', 'buddynext' ),
+			)
+		);
+		?>
 	<?php else : ?>
 		<ul class="bn-space-list">
 			<?php foreach ( $spaces as $space ) : ?>

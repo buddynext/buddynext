@@ -521,10 +521,16 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 						<?php endforeach; ?>
 					</div>
 				<?php else : ?>
-					<div class="bn-empty-state">
-						<?php buddynext_icon( 'camera' ); ?>
-						<p><?php esc_html_e( 'No media in this space yet. Share a photo to get started!', 'buddynext' ); ?></p>
-					</div>
+					<?php
+					buddynext_get_template(
+						'parts/empty-state.php',
+						array(
+							'icon'  => 'camera',
+							'title' => __( 'No media in this space yet', 'buddynext' ),
+							'body'  => __( 'Share a photo to get started!', 'buddynext' ),
+						)
+					);
+					?>
 				<?php endif; ?>
 
 			<?php else : ?>

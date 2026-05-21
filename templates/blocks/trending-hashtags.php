@@ -26,11 +26,16 @@ $hashtags = buddynext_service( 'hashtags' )->get_trending( $count );
 >
 	<h3 class="bn-block-heading"><?php esc_html_e( 'Trending', 'buddynext' ); ?></h3>
 	<?php if ( empty( $hashtags ) ) : ?>
-		<div class="bn-empty-state">
-			<?php buddynext_icon( 'trending' ); ?>
-			<div class="bn-empty-state__title"><?php esc_html_e( 'Nothing trending yet', 'buddynext' ); ?></div>
-			<p><?php esc_html_e( 'Hashtags from new posts will appear here.', 'buddynext' ); ?></p>
-		</div>
+		<?php
+		buddynext_get_template(
+			'parts/empty-state.php',
+			array(
+				'icon'  => 'trending',
+				'title' => __( 'Nothing trending yet', 'buddynext' ),
+				'body'  => __( 'Hashtags from new posts will appear here.', 'buddynext' ),
+			)
+		);
+		?>
 	<?php else : ?>
 		<ul class="bn-hashtag-list">
 			<?php foreach ( $hashtags as $idx => $bn_tag ) : ?>

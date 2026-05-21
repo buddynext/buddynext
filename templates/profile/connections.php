@@ -240,39 +240,16 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 		<?php endif; ?>
 	</div>
 
-	<?php if ( $total_pages > 1 ) : ?>
-		<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Connections page navigation', 'buddynext' ); ?>">
-			<?php if ( $bn_paged > 1 ) : ?>
-				<a
-					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged - 1 ) ); ?>"
-					class="bn-page-btn"
-					aria-label="<?php esc_attr_e( 'Previous page', 'buddynext' ); ?>"
-				><?php buddynext_icon( 'chevron-left' ); ?></a>
-			<?php endif; ?>
-
-			<?php
-			$bn_page_start = max( 1, $bn_paged - 2 );
-			$bn_page_end   = min( $total_pages, $bn_paged + 2 );
-			for ( $page_num = $bn_page_start; $page_num <= $bn_page_end; $page_num++ ) :
-				?>
-				<?php if ( $page_num === $bn_paged ) : ?>
-					<span class="bn-page-btn current" aria-current="page"><?php echo esc_html( (string) $page_num ); ?></span>
-				<?php else : ?>
-					<a
-						href="<?php echo esc_url( add_query_arg( 'paged', $page_num ) ); ?>"
-						class="bn-page-btn"
-					><?php echo esc_html( (string) $page_num ); ?></a>
-				<?php endif; ?>
-			<?php endfor; ?>
-
-			<?php if ( $bn_paged < $total_pages ) : ?>
-				<a
-					href="<?php echo esc_url( add_query_arg( 'paged', $bn_paged + 1 ) ); ?>"
-					class="bn-page-btn"
-					aria-label="<?php esc_attr_e( 'Next page', 'buddynext' ); ?>"
-				><?php buddynext_icon( 'chevron-right' ); ?></a>
-			<?php endif; ?>
-		</nav>
-	<?php endif; ?>
+	<?php
+	buddynext_get_template(
+		'parts/pagination.php',
+		array(
+			'current'    => (int) $bn_paged,
+			'total'      => (int) $total_pages,
+			'aria_label' => __( 'Connections page navigation', 'buddynext' ),
+			'mid_size'   => 2,
+		)
+	);
+	?>
 
 </div><!-- .bn-connections -->
