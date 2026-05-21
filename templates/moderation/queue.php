@@ -1,6 +1,6 @@
 <?php
 /**
- * Moderation queue template.
+ * Moderation queue template (v2).
  *
  * Restricted to users with the buddynext-moderation/review-queue ability.
  * Lists pending reports from bn_reports with severity classification,
@@ -9,6 +9,18 @@
  *
  * Each action calls buddynext/v1/moderation/{report_id}/{action} via the
  * WP Interactivity API store.
+ *
+ * Composes the v2 primitive vocabulary defined in bn-base.css:
+ *   .bn-card[data-v2]            section wrappers + report rows
+ *   .bn-tabs / .bn-tab            Open / Resolved / Escalated tab strip
+ *   .bn-tab__count                count chip per filter
+ *   .bn-input / .bn-select        search + sort controls
+ *   .bn-badge[data-tone]          severity + reason + status pills
+ *   .bn-avatar[data-size]         offender + reporter avatars
+ *   .bn-btn[data-variant][data-size] action cluster + destructive confirms
+ *   .bn-stat / .bn-stat-grid      queue-depth counters
+ *
+ * All visual rules live in assets/css/bn-moderation.css.
  *
  * @package BuddyNext
  */
@@ -26,31 +38,11 @@ $current_user_id = get_current_user_id();
 // Access gate — must have review-queue ability.
 if ( ! $current_user_id || ! buddynext_can( $current_user_id, 'buddynext-moderation/review-queue' ) ) {
 	?>
-	<style>
-	:root {
-	--radius-sm: var(--r-sm);
-	--radius:    var(--r-md);
-	--radius-lg: var(--r-lg);
-	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
-}.bn-mod-restricted {
-		max-width: 600px; margin: var(--s8) auto; padding: 0 var(--s5);
-		font-family: var(--font-body); text-align: center;
-	}
-	.bn-mod-restricted-box {
-		background: var(--red-bg);
-		border: 1px solid var(--red);
-		border-radius: var(--radius-lg);
-		padding: var(--s8) var(--s6);
-	}
-	.bn-mod-restricted-icon { font-size: 40px; display: block; margin-bottom: var(--s4); }
-	.bn-mod-restricted h2 { font-size: var(--text-2xl); font-weight: 800; color: var(--text-1); margin-bottom: var(--s3); }
-	.bn-mod-restricted p { font-size: var(--text-sm); color: var(--text-2); line-height: 1.6; }
-	</style>
-	<div class="bn-mod-restricted">
-		<div class="bn-mod-restricted-box">
-			<span class="bn-mod-restricted-icon" aria-hidden="true"><?php buddynext_icon( 'ban' ); ?></span>
-			<h2><?php esc_html_e( 'Access Restricted', 'buddynext' ); ?></h2>
-			<p><?php esc_html_e( 'You do not have permission to access the moderation queue. If you believe this is an error, contact a community administrator.', 'buddynext' ); ?></p>
+	<div class="bn-mod-restricted" role="alert">
+		<div class="bn-mod-restricted__panel">
+			<span class="bn-mod-restricted__icon" aria-hidden="true"><?php buddynext_icon( 'ban' ); ?></span>
+			<h2 class="bn-mod-restricted__title"><?php esc_html_e( 'Access Restricted', 'buddynext' ); ?></h2>
+			<p class="bn-mod-restricted__body"><?php esc_html_e( 'You do not have permission to access the moderation queue. If you believe this is an error, contact a community administrator.', 'buddynext' ); ?></p>
 		</div>
 	</div>
 	<?php
@@ -212,40 +204,48 @@ $severity_class = static function ( int $report_count, string $reason ): string 
 };
 
 /**
- * Map a reason string to a badge label and CSS class.
+ * Map a reason string to a v2 badge tone + label.
  *
  * @param string $reason Report reason.
- * @return array{label: string, class: string}
+ * @return array{label: string, tone: string}
  */
 $reason_badge = static function ( string $reason ): array {
 	if ( false !== stripos( $reason, 'hate' ) ) {
 		return array(
 			'label' => __( 'Hate speech', 'buddynext' ),
-			'class' => 'bn-badge--hate',
+			'tone'  => 'danger',
 		);
 	}
 	if ( false !== stripos( $reason, 'harass' ) ) {
 		return array(
 			'label' => __( 'Harassment', 'buddynext' ),
-			'class' => 'bn-badge--harass',
+			'tone'  => 'danger',
 		);
 	}
 	if ( false !== stripos( $reason, 'spam' ) || false !== stripos( $reason, 'promo' ) ) {
 		return array(
 			'label' => __( 'Spam', 'buddynext' ),
-			'class' => 'bn-badge--spam',
+			'tone'  => 'warn',
 		);
 	}
 	return array(
 		'label' => __( 'Off-topic', 'buddynext' ),
-		'class' => 'bn-badge--other',
+		'tone'  => 'info',
 	);
 };
 
-// Avatar palette.
-$avatar_palette = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0f766e', '#d97706', '#dc2626' );
-$avatar_color   = static function ( int $uid ) use ( $avatar_palette ): string {
-	return $avatar_palette[ $uid % count( $avatar_palette ) ];
+/**
+ * Return initials (up to 2 chars) from a display name.
+ *
+ * @param string $name Display name.
+ * @return string Uppercase initials.
+ */
+$initials = static function ( string $name ): string {
+	$parts = array_filter( explode( ' ', trim( $name ) ) );
+	if ( count( $parts ) >= 2 ) {
+		return strtoupper( mb_substr( (string) reset( $parts ), 0, 1 ) . mb_substr( (string) end( $parts ), 0, 1 ) );
+	}
+	return strtoupper( mb_substr( $name, 0, 2 ) );
 };
 
 $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
@@ -253,524 +253,437 @@ $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 $bn_nav_active = '';
 buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
-<style>
-/* ── Design tokens ── */
-:root {
-	--radius-sm: var(--r-sm);
-	--radius:    var(--r-md);
-	--radius-lg: var(--r-lg);
-	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
-}
-
-/* ── Shell ── */
-.bn-mod-shell {
-	max-width: 1060px;
-	margin: 0 auto;
-	padding: var(--s6) var(--s5);
-	font-family: var(--font-body);
-	font-size: var(--text-base);
-	color: var(--text-1);
-}
-
-/* ── Page header ── */
-.bn-mod-page-title {
-	font-family: var(--font-display);
-	font-size: var(--text-2xl);
-	font-weight: 800;
-	color: var(--text-1);
-	margin-bottom: 4px;
-}
-.bn-mod-page-sub {
-	font-size: var(--text-sm);
-	color: var(--text-2);
-	margin-bottom: var(--s5);
-}
-
-/* ── Stats row ── */
-.bn-mod-stats {
-	display: grid;
-	grid-template-columns: repeat(5, 1fr);
-	gap: var(--s3);
-	margin-bottom: var(--s6);
-}
-.bn-stat-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--radius);
-	padding: var(--s4);
-}
-.bn-stat-num {
-	font-family: var(--font-display);
-	font-size: 28px;
-	font-weight: 800;
-	color: var(--text-1);
-	margin-bottom: 4px;
-}
-.bn-stat-label { font-size: var(--text-xs); color: var(--text-2); }
-.bn-stat-card--urgent .bn-stat-num { color: var(--red); }
-.bn-stat-card--pending .bn-stat-num { color: var(--amber); }
-.bn-stat-card--resolved .bn-stat-num { color: var(--green); }
-.bn-stat-card--suspended .bn-stat-num { color: var(--red); }
-
-/* ── Filter bar ── */
-.bn-mod-filter-bar {
-	display: flex;
-	gap: var(--s2);
-	margin-bottom: var(--s5);
-	flex-wrap: wrap;
-	align-items: center;
-}
-.bn-filter-btn {
-	padding: 6px 14px;
-	border-radius: var(--radius);
-	border: 1.5px solid var(--border);
-	background: var(--surface);
-	font-size: var(--text-xs);
-	font-weight: 600;
-	cursor: pointer;
-	color: var(--text-1);
-	text-decoration: none;
-	transition: background 0.1s, border-color 0.1s;
-}
-.bn-filter-btn:hover { background: var(--bg-hover); }
-.bn-filter-btn--active { background: var(--brand); border-color: var(--brand); color: #fff; }
-.bn-filter-btn--active:hover { background: var(--brand-hover); }
-.bn-filter-select {
-	border: 1.5px solid var(--border);
-	border-radius: var(--radius-sm);
-	padding: 7px var(--s2);
-	font-size: var(--text-xs);
-	background: var(--surface);
-	color: var(--text-1);
-	cursor: pointer;
-}
-
-/* ── Report cards ── */
-.bn-report-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--radius);
-	margin-bottom: var(--s3);
-	overflow: hidden;
-}
-.bn-report-card--urgent { border-left: 4px solid var(--red); }
-.bn-report-card--medium { border-left: 4px solid var(--amber); }
-.bn-report-card--low    { border-left: 4px solid var(--text-3); }
-
-/* Card header */
-.bn-rc-header {
-	display: flex;
-	align-items: center;
-	gap: var(--s3);
-	padding: var(--s3) var(--s4);
-	background: var(--bg-subtle);
-	border-bottom: 1px solid var(--border-soft);
-}
-.bn-rc-ava {
-	width: 32px; height: 32px; border-radius: 50%;
-	color: #fff; font-weight: 700; font-size: var(--text-xs);
-	display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.bn-rc-who { flex: 1; min-width: 0; }
-.bn-rc-name { font-weight: 600; font-size: var(--text-sm); color: var(--text-1); }
-.bn-rc-meta { font-size: var(--text-xs); color: var(--text-3); }
-.bn-rc-time { font-size: var(--text-xs); color: var(--text-3); flex-shrink: 0; }
-
-/* Reason badges */
-.bn-badge {
-	font-size: 10px; padding: 2px var(--s2); border-radius: var(--radius);
-	font-weight: 700; flex-shrink: 0; white-space: nowrap;
-}
-.bn-badge--hate    { background: #7f1d1d; color: #fff; }
-.bn-badge--harass  { background: var(--red-bg); color: #991b1b; }
-.bn-badge--spam    { background: var(--amber-bg); color: #92400e; }
-.bn-badge--other   { background: var(--bg-hover); color: var(--text-2); }
-.bn-badge--count   { background: var(--red-bg); color: #991b1b; }
-
-/* Card body */
-.bn-rc-body { padding: 14px var(--s4); }
-.bn-content-preview {
-	background: var(--bg-subtle);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-sm);
-	padding: var(--s2) var(--s3);
-	font-size: var(--text-sm);
-	color: var(--text-2);
-	line-height: 1.5;
-	margin-bottom: var(--s3);
-}
-.bn-content-flagged {
-	background: var(--red-bg);
-	padding: 0 2px;
-	border-radius: 2px;
-	color: var(--red);
-}
-.bn-report-reason {
-	font-size: var(--text-xs);
-	color: var(--text-2);
-	margin-bottom: var(--s3);
-}
-.bn-report-reason strong { color: var(--text-1); }
-.bn-reporters {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	font-size: var(--text-xs);
-	color: var(--text-2);
-	margin-bottom: 14px;
-}
-.bn-reporters-stack { display: flex; }
-.bn-reporter-ava {
-	width: 20px; height: 20px; border-radius: 50%;
-	font-size: 8px; font-weight: 700; color: #fff;
-	display: flex; align-items: center; justify-content: center;
-	margin-left: -4px;
-	border: 2px solid var(--surface);
-}
-.bn-reporter-ava:first-child { margin-left: 0; }
-.bn-context-link { color: var(--brand); cursor: pointer; text-decoration: underline; font-weight: 600; }
-
-/* Actions */
-.bn-rc-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
-.bn-action-btn {
-	padding: 7px 14px;
-	border-radius: var(--radius-sm);
-	font-size: var(--text-xs);
-	font-weight: 600;
-	cursor: pointer;
-	border: 1.5px solid;
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	transition: opacity 0.1s;
-}
-.bn-action-btn:hover { opacity: 0.85; }
-.bn-action-btn--view    { border-color: var(--brand); background: var(--brand-light); color: var(--brand); }
-.bn-action-btn--dismiss { border-color: var(--border); background: var(--surface); color: var(--text-2); }
-.bn-action-btn--remove  { border-color: #fca5a5; background: var(--red-bg); color: var(--red); }
-.bn-action-btn--warn    { border-color: #fde68a; background: var(--amber-bg); color: #92400e; }
-.bn-action-btn--strike  { border-color: var(--orange); background: var(--orange-bg); color: var(--orange); }
-.bn-action-btn--suspend { border-color: var(--red); background: var(--red); color: #fff; }
-
-/* ── Empty state ── */
-.bn-mod-empty {
-	text-align: center;
-	padding: var(--s8);
-	color: var(--text-3);
-	font-size: var(--text-sm);
-}
-.bn-mod-empty-icon { font-size: 40px; display: block; margin-bottom: var(--s3); }
-
-/* ── Responsive ── */
-@media ( max-width: 1024px ) {
-	.bn-mod-stats { grid-template-columns: repeat(3, 1fr); }
-}
-@media ( max-width: 640px ) {
-	.bn-mod-shell { padding: var(--s4) var(--s3); }
-	.bn-mod-stats { grid-template-columns: repeat(2, 1fr); }
-	.bn-mod-filter-bar { gap: var(--s1); }
-	.bn-rc-actions { gap: 6px; }
-	.bn-action-btn { padding: 6px var(--s2); font-size: 11px; }
-	.bn-rc-header { flex-wrap: wrap; gap: var(--s2); }
-}
-</style>
 
 <div class="bn-mod-shell"
 	data-wp-interactive="buddynext/moderation"
 	data-wp-context='{"nonce":"<?php echo esc_attr( $mod_nonce ); ?>","restBase":"<?php echo esc_attr( rest_url( 'buddynext/v1/moderation' ) ); ?>"}'>
 
-	<h1 class="bn-mod-page-title"><?php buddynext_icon( 'shield' ); ?> <?php esc_html_e( 'Moderation Queue', 'buddynext' ); ?></h1>
-	<div class="bn-mod-page-sub"><?php esc_html_e( 'Review and act on reported content', 'buddynext' ); ?></div>
+	<!-- Page header -->
+	<header class="bn-mod-header">
+		<div class="bn-mod-header__copy">
+			<h1 class="bn-mod-title">
+				<?php buddynext_icon( 'shield' ); ?>
+				<?php esc_html_e( 'Moderation Queue', 'buddynext' ); ?>
+			</h1>
+			<p class="bn-mod-sub"><?php esc_html_e( 'Review and act on reported content', 'buddynext' ); ?></p>
+		</div>
+	</header>
 
-	<!-- Stats row -->
-	<div class="bn-mod-stats">
-		<div class="bn-stat-card bn-stat-card--urgent">
-			<div class="bn-stat-num"><?php echo esc_html( (string) $urgent_count ); ?></div>
-			<div class="bn-stat-label"><?php esc_html_e( 'Urgent reports', 'buddynext' ); ?></div>
+	<!-- Stats — composed from .bn-stat / .bn-stat-grid -->
+	<div class="bn-stat-grid bn-mod-stat-grid" role="list">
+		<div class="bn-stat" role="listitem" aria-live="polite">
+			<div class="bn-stat__label"><?php esc_html_e( 'Urgent reports', 'buddynext' ); ?></div>
+			<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $urgent_count ) ); ?></div>
+			<div class="bn-stat__delta" data-trend="<?php echo $urgent_count > 0 ? 'down' : 'flat'; ?>">
+				<?php echo $urgent_count > 0 ? esc_html__( 'Needs attention', 'buddynext' ) : esc_html__( 'All clear', 'buddynext' ); ?>
+			</div>
 		</div>
-		<div class="bn-stat-card bn-stat-card--pending">
-			<div class="bn-stat-num"><?php echo esc_html( (string) $pending_count ); ?></div>
-			<div class="bn-stat-label"><?php esc_html_e( 'Pending review', 'buddynext' ); ?></div>
+		<div class="bn-stat" role="listitem">
+			<div class="bn-stat__label"><?php esc_html_e( 'Pending review', 'buddynext' ); ?></div>
+			<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $pending_count ) ); ?></div>
 		</div>
-		<div class="bn-stat-card bn-stat-card--resolved">
-			<div class="bn-stat-num"><?php echo esc_html( (string) $resolved_today ); ?></div>
-			<div class="bn-stat-label"><?php esc_html_e( 'Resolved today', 'buddynext' ); ?></div>
+		<div class="bn-stat" role="listitem">
+			<div class="bn-stat__label"><?php esc_html_e( 'Resolved today', 'buddynext' ); ?></div>
+			<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $resolved_today ) ); ?></div>
 		</div>
-		<div class="bn-stat-card">
-			<div class="bn-stat-num"><?php echo esc_html( (string) $total_all_time ); ?></div>
-			<div class="bn-stat-label"><?php esc_html_e( 'Total all time', 'buddynext' ); ?></div>
+		<div class="bn-stat" role="listitem">
+			<div class="bn-stat__label"><?php esc_html_e( 'Total all time', 'buddynext' ); ?></div>
+			<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $total_all_time ) ); ?></div>
 		</div>
-		<div class="bn-stat-card bn-stat-card--suspended">
-			<div class="bn-stat-num"><?php echo esc_html( (string) $suspended_count ); ?></div>
-			<div class="bn-stat-label"><?php esc_html_e( 'Suspended users', 'buddynext' ); ?></div>
+		<div class="bn-stat" role="listitem">
+			<div class="bn-stat__label"><?php esc_html_e( 'Suspended users', 'buddynext' ); ?></div>
+			<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $suspended_count ) ); ?></div>
 		</div>
 	</div>
 
-	<!-- Filter bar -->
-	<div class="bn-mod-filter-bar">
-		<?php
-		$type_filters = array(
-			'all'     => sprintf(
-				/* translators: %d is total pending reports. */
-				__( 'All (%d)', 'buddynext' ),
-				$pending_count
-			),
-			'urgent'  => sprintf(
-				/* translators: %d is urgent count. */
-				__( 'Urgent (%d)', 'buddynext' ),
-				$urgent_count
-			),
-			'post'    => __( 'Posts', 'buddynext' ),
-			'comment' => __( 'Comments', 'buddynext' ),
-			'message' => __( 'DMs', 'buddynext' ),
-			'user'    => __( 'Profiles', 'buddynext' ),
-		);
-		foreach ( $type_filters as $fkey => $flabel ) :
-			$is_active = ( 'urgent' === $fkey )
-				? ( 'urgent' === $filter_urgency )
-				: ( $fkey === $filter_type && 'all' !== $filter_urgency && 'urgent' !== $fkey ? false : $fkey === $filter_type );
-			// Correct active detection: filter_type tab or urgency=urgent tab.
-			if ( 'urgent' === $fkey ) {
-				$is_active = ( 'urgent' === $filter_urgency );
-			} else {
-				$is_active = ( $fkey === $filter_type && 'all' === $filter_urgency );
-			}
-			$fhref = ( 'urgent' === $fkey )
-				? esc_url(
-					add_query_arg(
-						array(
-							'type'    => 'all',
-							'urgency' => 'urgent',
-							'sort'    => $sort_by,
-						)
-					)
-				)
-				: esc_url(
-					add_query_arg(
-						array(
-							'type'    => $fkey,
-							'urgency' => 'all',
-							'sort'    => $sort_by,
-						)
-					)
+	<!-- Filter strip — .bn-tabs primitive + .bn-select for sort -->
+	<div class="bn-mod-filterbar">
+		<div class="bn-mod-filterbar__tabs" role="tablist" aria-label="<?php esc_attr_e( 'Filter reports', 'buddynext' ); ?>">
+			<nav class="bn-tabs" aria-label="<?php esc_attr_e( 'Report type', 'buddynext' ); ?>">
+				<?php
+				$type_filters = array(
+					'all'     => array(
+						'label' => __( 'All', 'buddynext' ),
+						'count' => $pending_count,
+					),
+					'urgent'  => array(
+						'label' => __( 'Urgent', 'buddynext' ),
+						'count' => $urgent_count,
+					),
+					'post'    => array(
+						'label' => __( 'Posts', 'buddynext' ),
+						'count' => null,
+					),
+					'comment' => array(
+						'label' => __( 'Comments', 'buddynext' ),
+						'count' => null,
+					),
+					'message' => array(
+						'label' => __( 'DMs', 'buddynext' ),
+						'count' => null,
+					),
+					'user'    => array(
+						'label' => __( 'Profiles', 'buddynext' ),
+						'count' => null,
+					),
 				);
-			?>
-			<a href="<?php echo $fhref; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped. ?>"
-				class="bn-filter-btn<?php echo $is_active ? ' bn-filter-btn--active' : ''; ?>">
-				<?php echo esc_html( $flabel ); ?>
-			</a>
-		<?php endforeach; ?>
+				foreach ( $type_filters as $fkey => $fmeta ) :
+					if ( 'urgent' === $fkey ) {
+						$is_active = ( 'urgent' === $filter_urgency );
+						$fhref     = add_query_arg(
+							array(
+								'type'    => 'all',
+								'urgency' => 'urgent',
+								'sort'    => $sort_by,
+							)
+						);
+					} else {
+						$is_active = ( $fkey === $filter_type && 'all' === $filter_urgency );
+						$fhref     = add_query_arg(
+							array(
+								'type'    => $fkey,
+								'urgency' => 'all',
+								'sort'    => $sort_by,
+							)
+						);
+					}
+					?>
+					<a
+						href="<?php echo esc_url( $fhref ); ?>"
+						class="bn-tab"
+						role="tab"
+						aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
+					>
+						<?php echo esc_html( $fmeta['label'] ); ?>
+						<?php if ( null !== $fmeta['count'] ) : ?>
+							<span class="bn-tab__count"><?php echo esc_html( number_format_i18n( (int) $fmeta['count'] ) ); ?></span>
+						<?php endif; ?>
+					</a>
+				<?php endforeach; ?>
+			</nav>
+		</div>
 
-		<!-- Sort select — submit via JS action -->
-		<select class="bn-filter-select"
-			data-wp-on--change="actions.applySort"
-			aria-label="<?php esc_attr_e( 'Sort reports', 'buddynext' ); ?>">
-			<option value="newest" <?php selected( $sort_by, 'newest' ); ?>><?php esc_html_e( 'Newest first', 'buddynext' ); ?></option>
-			<option value="most_reported" <?php selected( $sort_by, 'most_reported' ); ?>><?php esc_html_e( 'Most reported', 'buddynext' ); ?></option>
-		</select>
+		<div class="bn-mod-filterbar__controls">
+			<label class="screen-reader-text" for="bn-mod-sort">
+				<?php esc_html_e( 'Sort reports', 'buddynext' ); ?>
+			</label>
+			<select
+				id="bn-mod-sort"
+				class="bn-select bn-mod-filterbar__sort"
+				data-wp-on--change="actions.applySort"
+			>
+				<option value="newest" <?php selected( $sort_by, 'newest' ); ?>><?php esc_html_e( 'Newest first', 'buddynext' ); ?></option>
+				<option value="most_reported" <?php selected( $sort_by, 'most_reported' ); ?>><?php esc_html_e( 'Most reported', 'buddynext' ); ?></option>
+			</select>
+		</div>
 	</div>
 
-	<!-- Report cards -->
+	<!-- Report rows -->
 	<?php if ( empty( $reports ) ) : ?>
-		<div class="bn-mod-empty">
-			<span class="bn-mod-empty-icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
-			<?php esc_html_e( 'No pending reports matching the current filter.', 'buddynext' ); ?>
+		<div class="bn-mod-empty" role="status">
+			<span class="bn-mod-empty__icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
+			<h2 class="bn-mod-empty__title"><?php esc_html_e( 'Nothing to review', 'buddynext' ); ?></h2>
+			<p class="bn-mod-empty__body"><?php esc_html_e( 'No pending reports match the current filter. New reports will appear here as members flag content.', 'buddynext' ); ?></p>
 		</div>
 	<?php else : ?>
-		<?php
-		foreach ( $reports as $report ) :
-			$report_id     = (int) $report->id;
-			$obj_id        = (int) $report->object_id;
-			$obj_type      = $report->object_type;
-			$reason        = $report->reason ?? '';
-			$report_count  = (int) ( $report->report_count ?? 1 );
-			$strikes_count = (int) ( $report->strikes_count ?? 0 );
-			$is_suspended  = (bool) ( $report->suspended ?? false );
-			$created_at    = $report->created_at ?? '';
+		<div class="bn-mod-list" role="list">
+			<?php
+			foreach ( $reports as $report ) :
+				$report_id     = (int) $report->id;
+				$obj_id        = (int) $report->object_id;
+				$obj_type      = $report->object_type;
+				$reason        = (string) ( $report->reason ?? '' );
+				$report_count  = (int) ( $report->report_count ?? 1 );
+				$strikes_count = (int) ( $report->strikes_count ?? 0 );
+				$is_suspended  = (bool) ( $report->suspended ?? false );
+				$created_at    = (string) ( $report->created_at ?? '' );
 
-			$severity = $severity_class( $report_count, $reason );
-			$rbadge   = $reason_badge( $reason );
+				$severity = $severity_class( $report_count, $reason );
+				$rbadge   = $reason_badge( $reason );
 
-			// Determine offender identity.
-			if ( 'user' === $obj_type ) {
-				$offender_user = get_userdata( $obj_id );
-				$offender_name = $offender_user ? $offender_user->display_name : __( 'Unknown User', 'buddynext' );
-				$joined_date   = $offender_user ? human_time_diff( (int) strtotime( $offender_user->user_registered ), time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
-			} else {
-				$offender_name = __( 'Reported Content', 'buddynext' );
-				$joined_date   = '';
-			}
-			$offender_last  = strrchr( $offender_name, ' ' );
-		$offender_inits = strtoupper( substr( $offender_name, 0, 1 ) . ( false !== $offender_last ? substr( $offender_last, 1, 1 ) : '' ) );
+				// Determine offender identity.
+				if ( 'user' === $obj_type ) {
+					$offender_user = get_userdata( $obj_id );
+					$offender_name = $offender_user ? $offender_user->display_name : __( 'Unknown user', 'buddynext' );
+					$joined_date   = $offender_user ? human_time_diff( (int) strtotime( $offender_user->user_registered ), time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
+				} else {
+					$offender_name = __( 'Reported content', 'buddynext' );
+					$joined_date   = '';
+				}
+				$offender_inits = $initials( $offender_name );
 
-			// Content preview snippet.
-			$content_excerpt = '';
-			if ( in_array( $obj_type, array( 'post', 'comment' ), true ) && isset( $post_excerpts[ $obj_id ] ) ) {
-				$content_excerpt = substr( $post_excerpts[ $obj_id ]['content'], 0, 200 );
-			} elseif ( 'space' === $obj_type ) {
-				$content_excerpt = $space_names[ $obj_id ] ?? __( 'Space content', 'buddynext' );
-			} elseif ( 'user' === $obj_type ) {
-				$content_excerpt = __( 'User profile reported.', 'buddynext' );
-			} elseif ( 'message' === $obj_type ) {
-				$content_excerpt = __( 'Private message — content not shown to protect privacy.', 'buddynext' );
-			}
+				// Verb describing what was reported.
+				$verb_map = array(
+					'post'    => __( 'posted content', 'buddynext' ),
+					'comment' => __( 'left a comment', 'buddynext' ),
+					'message' => __( 'sent a message', 'buddynext' ),
+					'user'    => __( 'profile flagged', 'buddynext' ),
+					'space'   => __( 'space flagged', 'buddynext' ),
+				);
+				$verb     = $verb_map[ $obj_type ] ?? __( 'flagged', 'buddynext' );
 
-			// Time ago.
-			$time_diff = $created_at ? human_time_diff( (int) strtotime( $created_at ), time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
+				// Content preview snippet.
+				$content_excerpt = '';
+				if ( in_array( $obj_type, array( 'post', 'comment' ), true ) && isset( $post_excerpts[ $obj_id ] ) ) {
+					$content_excerpt = substr( (string) $post_excerpts[ $obj_id ]['content'], 0, 200 );
+				} elseif ( 'space' === $obj_type ) {
+					$content_excerpt = $space_names[ $obj_id ] ?? __( 'Space content', 'buddynext' );
+				} elseif ( 'user' === $obj_type ) {
+					$content_excerpt = __( 'User profile reported.', 'buddynext' );
+				} elseif ( 'message' === $obj_type ) {
+					$content_excerpt = __( 'Private message — content not shown to protect privacy.', 'buddynext' );
+				}
 
-			// Gather reporter user IDs (simplified — the row has reporter_id).
-			$reporter_id    = (int) $report->reporter_id;
-			$reporter_user  = get_userdata( $reporter_id );
-			if ( $reporter_user ) {
-			$rep_last       = strrchr( $reporter_user->display_name, ' ' );
-			$reporter_inits = strtoupper( substr( $reporter_user->display_name, 0, 1 ) . ( false !== $rep_last ? substr( $rep_last, 1, 1 ) : '' ) );
-		} else {
-			$reporter_inits = '?';
-		}
-			?>
-			<div class="bn-report-card bn-report-card--<?php echo esc_attr( $severity ); ?>"
-				data-report-id="<?php echo esc_attr( (string) $report_id ); ?>">
+				// Time ago + ISO datetime.
+				$created_ts   = $created_at ? (int) strtotime( $created_at ) : 0;
+				$time_diff    = $created_ts ? human_time_diff( $created_ts, time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
+				$iso_datetime = $created_ts ? gmdate( DATE_ATOM, $created_ts ) : '';
 
-				<!-- Header -->
-				<div class="bn-rc-header">
-					<div class="bn-rc-ava" style="background:<?php echo esc_attr( $avatar_color( $obj_id ) ); ?>;">
-						<?php echo esc_html( $offender_inits ); ?>
+				// Reporter avatar initials.
+				$reporter_id    = (int) $report->reporter_id;
+				$reporter_user  = get_userdata( $reporter_id );
+				$reporter_inits = $reporter_user ? $initials( $reporter_user->display_name ) : '?';
+				?>
+				<article class="bn-report-row"
+					role="listitem"
+					data-severity="<?php echo esc_attr( $severity ); ?>"
+					data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
+					aria-label="<?php echo esc_attr( sprintf( /* translators: %s: offender name. */ __( 'Report against %s', 'buddynext' ), $offender_name ) ); ?>">
+
+					<div class="bn-report-row__avatar">
+						<span class="bn-avatar" data-size="md" aria-hidden="true"><?php echo esc_html( $offender_inits ); ?></span>
 					</div>
-					<div class="bn-rc-who">
-						<div class="bn-rc-name"><?php echo esc_html( $offender_name ); ?></div>
-						<div class="bn-rc-meta">
-							<?php if ( $joined_date ) : ?>
-								<?php
-								// translators: %s is the time since joining.
-								echo esc_html( sprintf( __( 'Joined %s', 'buddynext' ), $joined_date ) );
-								?>
-								&nbsp;&middot;&nbsp;
+
+					<div class="bn-report-row__body">
+						<div class="bn-report-row__head">
+							<span class="bn-report-row__name"><?php echo esc_html( $offender_name ); ?></span>
+							<span class="bn-report-row__verb"><?php echo esc_html( $verb ); ?></span>
+							<span class="bn-badge" data-tone="<?php echo esc_attr( $rbadge['tone'] ); ?>"><?php echo esc_html( $rbadge['label'] ); ?></span>
+							<?php if ( $report_count > 1 ) : ?>
+								<span class="bn-badge" data-tone="danger">
+									<?php
+									echo esc_html(
+										sprintf(
+											/* translators: %d: number of reports. */
+											_n( '%d report', '%d reports', $report_count, 'buddynext' ),
+											$report_count
+										)
+									);
+									?>
+								</span>
 							<?php endif; ?>
-							<?php if ( $strikes_count > 0 ) : ?>
-								<?php
-								// translators: %d is the number of strikes.
-								echo esc_html( sprintf( _n( '%d strike', '%d strikes', $strikes_count, 'buddynext' ), $strikes_count ) );
-								?>
-							<?php endif; ?>
-							<?php if ( $is_suspended ) : ?>
-								&nbsp;<strong style="color:var(--red);"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></strong>
+							<?php if ( $iso_datetime ) : ?>
+								<time class="bn-report-row__time" datetime="<?php echo esc_attr( $iso_datetime ); ?>"><?php echo esc_html( $time_diff ); ?></time>
 							<?php endif; ?>
 						</div>
-					</div>
 
-					<span class="bn-badge <?php echo esc_attr( $rbadge['class'] ); ?>">
-						<?php echo esc_html( $rbadge['label'] ); ?>
-					</span>
-
-					<span class="bn-rc-time"><?php echo esc_html( $time_diff ); ?></span>
-
-					<?php if ( $report_count > 1 ) : ?>
-						<span class="bn-badge bn-badge--count">
-							<?php
-							// translators: %d is the number of reports.
-							echo esc_html( sprintf( _n( '%d report', '%d reports', $report_count, 'buddynext' ), $report_count ) );
-							?>
-						</span>
-					<?php endif; ?>
-				</div>
-
-				<!-- Body -->
-				<div class="bn-rc-body">
-
-					<!-- Content preview -->
-					<?php if ( $content_excerpt ) : ?>
-						<div class="bn-content-preview">
-							<?php echo wp_kses_post( $content_excerpt ); ?>
-						</div>
-					<?php endif; ?>
-
-					<!-- Reason -->
-					<div class="bn-report-reason">
-						<strong><?php esc_html_e( 'Reported for:', 'buddynext' ); ?></strong>
-						<?php echo esc_html( $reason ); ?>
-					</div>
-
-					<!-- Reporters stack -->
-					<div class="bn-reporters">
-						<div class="bn-reporters-stack">
-							<div class="bn-reporter-ava" style="background:<?php echo esc_attr( $avatar_color( $reporter_id ) ); ?>;">
-								<?php echo esc_html( $reporter_inits ); ?>
+						<?php if ( $joined_date || $strikes_count > 0 || $is_suspended ) : ?>
+							<div class="bn-report-row__meta">
+								<?php if ( $joined_date ) : ?>
+									<span>
+										<?php
+										echo esc_html(
+											sprintf(
+												/* translators: %s: time since joining. */
+												__( 'Joined %s', 'buddynext' ),
+												$joined_date
+											)
+										);
+										?>
+									</span>
+								<?php endif; ?>
+								<?php if ( $strikes_count > 0 ) : ?>
+									<?php if ( $joined_date ) : ?>
+										<span class="bn-report-row__meta-dot" aria-hidden="true"></span>
+									<?php endif; ?>
+									<span class="bn-strike-dots" aria-label="<?php echo esc_attr( sprintf( /* translators: %d: strike count. */ _n( '%d strike', '%d strikes', $strikes_count, 'buddynext' ), $strikes_count ) ); ?>">
+										<?php for ( $i = 1; $i <= 3; $i++ ) : ?>
+											<span class="bn-strike-dots__dot"<?php echo $i <= $strikes_count ? ' data-active' : ''; ?> aria-hidden="true"></span>
+										<?php endfor; ?>
+									</span>
+									<span>
+										<?php
+										echo esc_html(
+											sprintf(
+												/* translators: %d: strike count. */
+												_n( '%d strike', '%d strikes', $strikes_count, 'buddynext' ),
+												$strikes_count
+											)
+										);
+										?>
+									</span>
+								<?php endif; ?>
+								<?php if ( $is_suspended ) : ?>
+									<span class="bn-report-row__meta-dot" aria-hidden="true"></span>
+									<span class="bn-report-row__suspended"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></span>
+								<?php endif; ?>
 							</div>
-						</div>
-						<?php if ( $report_count > 1 ) : ?>
-							<?php
-							// translators: %d is the number of members who reported.
-							echo esc_html( sprintf( _n( '%d member reported this', '%d members reported this', $report_count, 'buddynext' ), $report_count ) );
-							?>
-						<?php else : ?>
-							<?php esc_html_e( '1 member reported this', 'buddynext' ); ?>
 						<?php endif; ?>
-						&nbsp;&middot;&nbsp;
-						<button class="bn-context-link"
-							data-wp-on--click="actions.viewInContext"
-							data-object-type="<?php echo esc_attr( $obj_type ); ?>"
-							data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-							<?php esc_html_e( 'View in context', 'buddynext' ); ?>
-						</button>
-					</div>
 
-					<!-- Action buttons -->
-					<div class="bn-rc-actions">
-						<button class="bn-action-btn bn-action-btn--view"
-							data-wp-on--click="actions.viewObject"
-							data-object-type="<?php echo esc_attr( $obj_type ); ?>"
-							data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-							<?php
-							// translators: %s is the object type (post, comment, user, etc.).
-							echo esc_html( sprintf( __( 'View %s', 'buddynext' ), $obj_type ) );
-							?>
-						</button>
+						<?php if ( $content_excerpt ) : ?>
+							<blockquote class="bn-report-row__excerpt"><?php echo wp_kses_post( $content_excerpt ); ?></blockquote>
+						<?php endif; ?>
 
-						<button class="bn-action-btn bn-action-btn--dismiss"
-							data-wp-on--click="actions.dismiss"
-							data-report-id="<?php echo esc_attr( (string) $report_id ); ?>">
-							<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Dismiss', 'buddynext' ); ?>
-						</button>
+						<div class="bn-report-row__reason">
+							<span class="bn-report-row__reason-label"><?php esc_html_e( 'Reason', 'buddynext' ); ?></span>
+							<span><?php echo esc_html( $reason ); ?></span>
+						</div>
 
-						<?php if ( in_array( $obj_type, array( 'post', 'comment', 'message' ), true ) ) : ?>
-							<button class="bn-action-btn bn-action-btn--remove"
-								data-wp-on--click="actions.removeContent"
-								data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
+						<div class="bn-report-row__reporters">
+							<span class="bn-report-row__reporters-stack" aria-hidden="true">
+								<span class="bn-avatar" data-size="xs"><?php echo esc_html( $reporter_inits ); ?></span>
+							</span>
+							<?php if ( $report_count > 1 ) : ?>
+								<span>
+									<?php
+									echo esc_html(
+										sprintf(
+											/* translators: %d: number of members who reported. */
+											_n( '%d member reported this', '%d members reported this', $report_count, 'buddynext' ),
+											$report_count
+										)
+									);
+									?>
+								</span>
+							<?php else : ?>
+								<span><?php esc_html_e( '1 member reported this', 'buddynext' ); ?></span>
+							<?php endif; ?>
+							<span class="bn-report-row__meta-dot" aria-hidden="true"></span>
+							<button type="button"
+								class="bn-report-row__context-link"
+								data-wp-on--click="actions.viewInContext"
 								data-object-type="<?php echo esc_attr( $obj_type ); ?>"
 								data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-								<?php buddynext_icon( 'trash' ); ?> <?php esc_html_e( 'Remove content', 'buddynext' ); ?>
+								<?php esc_html_e( 'View in context', 'buddynext' ); ?>
 							</button>
-						<?php endif; ?>
+						</div>
 
-						<button class="bn-action-btn bn-action-btn--warn"
-							data-wp-on--click="actions.warnUser"
-							data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
-							data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-							<?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Warn user', 'buddynext' ); ?>
-						</button>
+						<div class="bn-report-row__actions">
+							<button type="button"
+								class="bn-btn"
+								data-variant="secondary"
+								data-size="sm"
+								data-wp-on--click="actions.viewObject"
+								data-object-type="<?php echo esc_attr( $obj_type ); ?>"
+								data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
+								<?php buddynext_icon( 'eye' ); ?>
+								<?php
+								echo esc_html(
+									sprintf(
+										/* translators: %s: object type (post, comment, etc.). */
+										__( 'View %s', 'buddynext' ),
+										$obj_type
+									)
+								);
+								?>
+							</button>
 
-						<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/issue-strike' ) ) : ?>
-							<button class="bn-action-btn bn-action-btn--strike"
-								data-wp-on--click="actions.strikeUser"
+							<button type="button"
+								class="bn-btn"
+								data-variant="ghost"
+								data-size="sm"
+								data-wp-on--click="actions.dismiss"
+								data-report-id="<?php echo esc_attr( (string) $report_id ); ?>">
+								<?php buddynext_icon( 'check' ); ?>
+								<?php esc_html_e( 'Dismiss', 'buddynext' ); ?>
+							</button>
+
+							<?php if ( in_array( $obj_type, array( 'post', 'comment', 'message' ), true ) ) : ?>
+								<button type="button"
+									class="bn-btn"
+									data-variant="danger"
+									data-size="sm"
+									data-wp-on--click="actions.removeContent"
+									data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
+									data-object-type="<?php echo esc_attr( $obj_type ); ?>"
+									data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
+									<?php buddynext_icon( 'trash' ); ?>
+									<?php esc_html_e( 'Remove content', 'buddynext' ); ?>
+								</button>
+							<?php endif; ?>
+
+							<button type="button"
+								class="bn-btn"
+								data-variant="secondary"
+								data-size="sm"
+								data-wp-on--click="actions.warnUser"
 								data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
 								data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-								<?php buddynext_icon( 'zap' ); ?> <?php esc_html_e( 'Strike user', 'buddynext' ); ?>
+								<?php buddynext_icon( 'alert-triangle' ); ?>
+								<?php esc_html_e( 'Warn user', 'buddynext' ); ?>
 							</button>
-						<?php endif; ?>
 
-						<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/suspend-user' ) ) : ?>
-							<button class="bn-action-btn bn-action-btn--suspend"
-								data-wp-on--click="actions.suspendUser"
-								data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
-								data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
-								<?php buddynext_icon( 'ban' ); ?> <?php esc_html_e( 'Suspend account', 'buddynext' ); ?>
-							</button>
-						<?php endif; ?>
+							<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/issue-strike' ) ) : ?>
+								<button type="button"
+									class="bn-btn"
+									data-variant="secondary"
+									data-size="sm"
+									data-wp-on--click="actions.strikeUser"
+									data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
+									data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
+									<?php buddynext_icon( 'zap' ); ?>
+									<?php esc_html_e( 'Strike user', 'buddynext' ); ?>
+								</button>
+							<?php endif; ?>
+
+							<?php if ( buddynext_can( $current_user_id, 'buddynext-moderation/suspend-user' ) ) : ?>
+								<button type="button"
+									class="bn-btn"
+									data-variant="danger"
+									data-size="sm"
+									data-wp-on--click="actions.suspendUser"
+									data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
+									data-object-id="<?php echo esc_attr( (string) $obj_id ); ?>">
+									<?php buddynext_icon( 'ban' ); ?>
+									<?php esc_html_e( 'Suspend account', 'buddynext' ); ?>
+								</button>
+							<?php endif; ?>
+						</div>
 					</div>
+				</article>
+			<?php endforeach; ?>
+		</div>
+	<?php endif; ?>
 
-				</div><!-- /rc-body -->
-			</div><!-- /report-card -->
-		<?php endforeach; ?>
-	<?php endif; // End: empty reports check. ?>
+	<!-- Destructive-action confirm shell — populated by the Interactivity store. -->
+	<div class="bn-modal-backdrop"
+		data-wp-bind--hidden="!state.confirmOpen"
+		hidden
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="bn-mod-confirm-title">
+		<div class="bn-modal__panel" data-tone="danger" data-size="sm">
+			<header class="bn-modal__head">
+				<h2 id="bn-mod-confirm-title" class="bn-modal__title" data-wp-text="state.confirmTitle">
+					<?php esc_html_e( 'Confirm action', 'buddynext' ); ?>
+				</h2>
+				<button type="button"
+					class="bn-modal__close"
+					data-wp-on--click="actions.closeConfirm"
+					aria-label="<?php esc_attr_e( 'Close dialog', 'buddynext' ); ?>">
+					<?php buddynext_icon( 'x' ); ?>
+				</button>
+			</header>
+			<div class="bn-modal__body" data-wp-text="state.confirmBody">
+				<?php esc_html_e( 'This action cannot be undone.', 'buddynext' ); ?>
+			</div>
+			<footer class="bn-modal__foot">
+				<button type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="sm"
+					data-wp-on--click="actions.closeConfirm">
+					<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+				</button>
+				<button type="button"
+					class="bn-btn"
+					data-variant="danger"
+					data-size="sm"
+					data-wp-on--click="actions.confirmAction">
+					<span data-wp-text="state.confirmLabel"><?php esc_html_e( 'Confirm', 'buddynext' ); ?></span>
+				</button>
+			</footer>
+		</div>
+	</div>
 
 </div>

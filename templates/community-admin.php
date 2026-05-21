@@ -247,420 +247,44 @@ $posts_pct = $posts_yesterday > 0
 $bn_nav_active = '';
 buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
 ?>
-<style>
-<?php /* phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- inline CSS token block */ ?>
-:root {
-	/* Local radius aliases → canonical tokens */
-	--radius-sm: var(--r-sm);
-	--radius:    var(--r-md);
-	--radius-lg: var(--r-lg);
-	/* Shadow token */
-	--shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
-	/* Badge white */
-	--color-on-brand: #fff;
+
+<?php
+// Active section tab. Default 'reports' as the most action-oriented stream.
+$allowed_sections = array( 'reports', 'appeals', 'strikes', 'actions' );
+$active_section   = isset( $_GET['bn_section'] ) ? sanitize_key( wp_unslash( $_GET['bn_section'] ) ) : 'reports'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+if ( ! in_array( $active_section, $allowed_sections, true ) ) {
+	$active_section = 'reports';
 }
 
-.bn-ca {
-	font-family: var(--font-body);
-	font-size: var(--text-base);
-	color: var(--text-1);
-	background: var(--bg-subtle);
-}
+$posts_pct_abs = abs( $posts_pct );
+?>
 
-/* ── Admin subheader ── */
-.bn-ca-subheader {
-	background: var(--amber-bg);
-	border-bottom: 2px solid var(--border);
-	padding: 10px var(--s6);
-	display: flex;
-	align-items: center;
-	gap: var(--s4);
-	flex-wrap: wrap;
-}
-.bn-ca-subheader__title {
-	font-size: var(--text-base);
-	font-weight: 700;
-}
-.bn-ca-role-badge {
-	background: var(--amber);
-	color: var(--color-on-brand);
-	font-size: var(--text-xs);
-	font-weight: var(--fw-bold);
-	padding: 2px var(--s2);
-	border-radius: var(--r-full);
-	flex-shrink: 0;
-}
-.bn-ca-site-label {
-	color: var(--amber);
-	font-size: var(--text-xs);
-}
-.bn-ca-subheader__actions {
-	margin-left: auto;
-	display: flex;
-	gap: var(--s2);
-	align-items: center;
-}
-.bn-ca-subheader__actions a {
-	font-size: var(--text-xs);
-	text-decoration: none;
-}
-.bn-ca-link-back    { color: var(--brand); font-weight: 600; }
-.bn-ca-link-wpadmin { color: var(--text-2); }
-
-/* ── Main layout (sits inside .bn-hub-shell grid column) ── */
-.bn-ca-wrap {
-	display: flex;
-	gap: var(--s6);
-	min-width: 0;
-}
-
-/* ── Sidebar ── */
-.bn-ca-sidebar {
-	width: 220px;
-	flex-shrink: 0;
-	align-self: flex-start;
-	position: sticky;
-	top: var(--s6);
-}
-.bn-ca-sidebar-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-sm);
-	overflow: hidden;
-}
-.bn-ca-nav-header {
-	font-size: var(--text-2xs);
-	font-weight: var(--fw-bold);
-	color: var(--text-3);
-	text-transform: uppercase;
-	letter-spacing: var(--ls-wider);
-	padding: var(--s3) var(--s3) var(--s2);
-}
-.bn-ca-nav-item {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	padding: 10px 14px;
-	font-size: var(--text-sm);
-	color: var(--text-1);
-	cursor: pointer;
-	border-left: 3px solid transparent;
-	text-decoration: none;
-	transition: background 0.1s;
-}
-.bn-ca-nav-item:hover { background: var(--bg-subtle); color: var(--text-1); }
-.bn-ca-nav-item--active {
-	border-left-color: var(--brand);
-	background: var(--brand-light);
-	color: var(--brand);
-	font-weight: 600;
-}
-.bn-ca-nav-item--external {
-	color: var(--text-3);
-	font-size: var(--text-xs);
-	border-left-color: transparent;
-}
-.bn-ca-nav-badge {
-	margin-left: auto;
-	background: var(--red);
-	color: var(--color-on-brand);
-	font-size: var(--text-2xs);
-	font-weight: var(--fw-bold);
-	padding: 1px var(--s2);
-	border-radius: var(--r-sm);
-}
-.bn-ca-nav-divider { height: 1px; background: var(--border); margin: 6px 0; }
-.bn-ca-sidebar-note {
-	padding: var(--s2) 14px 14px;
-	font-size: var(--text-xs);
-	color: var(--text-3);
-	line-height: 1.5;
-}
-
-/* ── Main content ── */
-.bn-ca-main { flex: 1; min-width: 0; }
-
-/* ── Stats grid ── */
-.bn-ca-stats {
-	display: grid;
-	grid-template-columns: repeat(5, 1fr);
-	gap: var(--s3);
-	margin-bottom: var(--s5);
-}
-.bn-ca-stat {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-sm);
-	padding: var(--s4);
-	transition: box-shadow 0.15s;
-}
-.bn-ca-stat:hover { box-shadow: var(--shadow-sm); }
-.bn-ca-stat__label {
-	font-size: var(--text-xs);
-	color: var(--text-2);
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	margin-bottom: var(--s1);
-}
-.bn-ca-stat__number {
-	font-size: var(--text-2xl);
-	font-weight: var(--fw-bold);
-	color: var(--text-1);
-	margin-bottom: var(--s1);
-}
-.bn-ca-stat__sub {
-	font-size: var(--text-xs);
-	display: flex;
-	align-items: center;
-	gap: 3px;
-}
-.bn-ca-stat__sub--green  { color: var(--green); }
-.bn-ca-stat__sub--amber  { color: var(--amber); }
-.bn-ca-stat__sub--red    { color: var(--red); }
-.bn-ca-stat__sub--grey   { color: var(--text-3); }
-
-/* ── Two-column row ── */
-.bn-ca-two-col {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: var(--s5);
-	margin-bottom: var(--s5);
-}
-
-/* ── Cards ── */
-.bn-ca-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--radius);
-	overflow: hidden;
-}
-.bn-ca-card__header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 14px var(--s4);
-	border-bottom: 1px solid var(--border-soft);
-}
-.bn-ca-card__title {
-	font-size: var(--text-sm);
-	font-weight: 700;
-}
-.bn-ca-card__link {
-	font-size: var(--text-xs);
-	color: var(--brand);
-	text-decoration: none;
-	font-weight: 600;
-}
-.bn-ca-card__link:hover { text-decoration: underline; }
-.bn-ca-pending-badge {
-	background: var(--bg-subtle);
-	color: var(--text-1);
-	font-size: var(--text-xs);
-	font-weight: 700;
-	padding: 2px 7px;
-	border-radius: var(--radius-sm);
-}
-
-/* ── Avatar ── */
-.bn-ca-avatar {
-	border-radius: 50%;
-	color: #fff;
-	font-weight: 700;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-}
-.bn-ca-avatar--32 { width: 32px; height: 32px; font-size: var(--text-xs); }
-
-/* ── Signup rows ── */
-.bn-ca-signup-row {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	padding: var(--s2) var(--s4);
-	border-bottom: 1px solid var(--border-soft);
-	font-size: var(--text-sm);
-}
-.bn-ca-signup-row:last-child { border-bottom: none; }
-.bn-ca-signup__info { flex: 1; min-width: 0; }
-.bn-ca-signup__name { font-weight: 600; font-size: var(--text-sm); }
-.bn-ca-signup__email {
-	font-size: var(--text-xs);
-	color: var(--text-3);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-.bn-ca-signup__time { font-size: var(--text-xs); color: var(--text-3); white-space: nowrap; }
-.bn-ca-btn-ghost {
-	background: var(--surface);
-	color: var(--text-2);
-	border: 1px solid var(--border);
-	padding: 4px var(--s2);
-	border-radius: var(--radius-sm);
-	font-size: var(--text-xs);
-	font-weight: 600;
-	cursor: pointer;
-	font-family: var(--font-body);
-	white-space: nowrap;
-	text-decoration: none;
-}
-.bn-ca-btn-ghost:hover { border-color: var(--brand); color: var(--brand); }
-
-/* ── Pending section title ── */
-.bn-ca-pending-section-title {
-	font-size: var(--text-xs);
-	font-weight: 700;
-	color: var(--text-3);
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	padding: var(--s2) var(--s4) var(--s1);
-}
-
-/* ── Join request rows ── */
-.bn-ca-join-row {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	padding: var(--s2) var(--s4);
-	font-size: var(--text-xs);
-	border-bottom: 1px solid var(--border-soft);
-}
-.bn-ca-join-row:last-of-type { border-bottom: none; }
-.bn-ca-join__info { flex: 1; }
-.bn-ca-join__space { font-weight: 600; font-size: var(--text-xs); }
-.bn-ca-join__member { color: var(--text-2); font-size: var(--text-xs); }
-.bn-ca-join__actions { display: flex; gap: var(--s1); }
-.bn-ca-btn-approve {
-	background: var(--green);
-	color: #fff;
-	border: none;
-	padding: 4px var(--s2);
-	border-radius: var(--radius-sm);
-	font-size: var(--text-xs);
-	font-weight: 600;
-	cursor: pointer;
-	font-family: var(--font-body);
-}
-.bn-ca-btn-decline {
-	background: var(--surface);
-	color: var(--text-2);
-	border: 1px solid var(--border);
-	padding: 4px var(--s2);
-	border-radius: var(--radius-sm);
-	font-size: var(--text-xs);
-	font-weight: 600;
-	cursor: pointer;
-	font-family: var(--font-body);
-}
-.bn-ca-card-divider { height: 1px; background: var(--border); margin: var(--s1) 0; }
-
-/* ── Report rows ── */
-.bn-ca-report-row {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	padding: var(--s2) var(--s4);
-	font-size: var(--text-xs);
-	border-left: 3px solid transparent;
-}
-.bn-ca-report-row--high   { border-left-color: var(--red); background: #fff8f8; }
-.bn-ca-report-row--medium { border-left-color: #f59e0b; background: #fffdf8; }
-.bn-ca-report-row--low    { border-left-color: var(--border); background: var(--bg-subtle); }
-.bn-ca-report__info { flex: 1; }
-.bn-ca-report__type { font-weight: 600; font-size: var(--text-xs); }
-.bn-ca-report__meta { font-size: var(--text-xs); color: var(--text-3); }
-.bn-ca-btn-review {
-	background: var(--brand-light);
-	color: var(--brand);
-	border: 1px solid #bfdbfe;
-	padding: 4px var(--s2);
-	border-radius: var(--radius-sm);
-	font-size: var(--text-xs);
-	font-weight: 600;
-	cursor: pointer;
-	font-family: var(--font-body);
-	text-decoration: none;
-}
-.bn-ca-more-link {
-	font-size: var(--text-xs);
-	color: var(--brand);
-	font-weight: 600;
-	text-decoration: none;
-	padding: var(--s2) var(--s4);
-	display: block;
-}
-.bn-ca-more-link:hover { text-decoration: underline; }
-
-/* ── Activity card ── */
-.bn-ca-activity-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--radius);
-	overflow: hidden;
-}
-.bn-ca-activity-scroll {
-	max-height: 280px;
-	overflow-y: auto;
-}
-.bn-ca-activity-row {
-	display: flex;
-	align-items: flex-start;
-	gap: var(--s2);
-	padding: var(--s3) var(--s4);
-	border-bottom: 1px solid var(--border-soft);
-	font-size: var(--text-sm);
-}
-.bn-ca-activity-row:nth-child(even) { background: var(--bg-subtle); }
-.bn-ca-activity-row:last-child { border-bottom: none; }
-.bn-ca-activity__icon { font-size: var(--text-base); flex-shrink: 0; margin-top: 1px; }
-.bn-ca-activity__body { flex: 1; }
-.bn-ca-activity__desc { font-size: var(--text-sm); color: var(--text-1); line-height: 1.4; }
-.bn-ca-activity__desc strong { font-weight: 600; }
-.bn-ca-activity__meta { font-size: var(--text-xs); color: var(--text-3); margin-top: 2px; }
-.bn-ca-activity__action { flex-shrink: 0; }
-
-/* ── Responsive ── */
-@media (max-width: 1024px) {
-	.bn-ca-stats { grid-template-columns: repeat(3, 1fr); }
-	.bn-ca-wrap  { flex-direction: column; gap: var(--s3); }
-	.bn-ca-sidebar { width: 100%; position: static; }
-	.bn-ca-sidebar-card { display: flex; flex-wrap: wrap; overflow-x: auto; border-radius: var(--r-sm); }
-	.bn-ca-nav-header  { display: none; }
-	.bn-ca-nav-item    { border-left: none; border-bottom: 2px solid transparent; white-space: nowrap; }
-	.bn-ca-nav-item--active { border-left: none; border-bottom-color: var(--brand); }
-	.bn-ca-nav-divider { display: none; }
-	.bn-ca-sidebar-note { display: none; }
-}
-@media (max-width: 640px) {
-	.bn-ca-stats { grid-template-columns: repeat(2, 1fr); gap: var(--s2); }
-	.bn-ca-two-col { grid-template-columns: 1fr; }
-	.bn-ca-subheader { padding: var(--s2) var(--s3); }
-	.bn-ca-subheader__actions { display: none; }
-}
-<?php /* phpcs:enable */ ?>
-</style>
-
-<div
-	class="bn-ca"
-	data-wp-interactive="buddynext/spaces"
->
+<div class="bn-ca" data-wp-interactive="buddynext/spaces">
 
 	<!-- Admin subheader -->
-	<div class="bn-ca-subheader">
-		<span class="bn-ca-subheader__title"><?php buddynext_icon( 'shield' ); ?> <?php esc_html_e( 'Community Admin Panel', 'buddynext' ); ?></span>
-		<span class="bn-ca-role-badge"><?php esc_html_e( 'Community Manager', 'buddynext' ); ?></span>
-		<span class="bn-ca-site-label">
+	<div class="bn-ca-subheader" role="banner">
+		<span class="bn-ca-subheader__title">
+			<?php buddynext_icon( 'shield' ); ?>
+			<?php esc_html_e( 'Community Admin Panel', 'buddynext' ); ?>
+		</span>
+		<span class="bn-ca-subheader__role"><?php esc_html_e( 'Community Manager', 'buddynext' ); ?></span>
+		<span class="bn-ca-subheader__site">
 			<?php
-			// translators: %s is the site name.
-			printf( esc_html__( 'Managing: %s community', 'buddynext' ), esc_html( get_bloginfo( 'name' ) ) );
+			printf(
+				/* translators: %s: site name. */
+				esc_html__( 'Managing: %s community', 'buddynext' ),
+				esc_html( get_bloginfo( 'name' ) )
+			);
 			?>
 		</span>
 		<div class="bn-ca-subheader__actions">
-			<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="bn-ca-link-back"><?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Back to Community', 'buddynext' ); ?></a>
-			<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-link-wpadmin"><?php esc_html_e( 'WP Admin', 'buddynext' ); ?></a>
+			<a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="bn-ca-subheader__link" data-emphasis="primary">
+				<?php buddynext_icon( 'chevron-left' ); ?>
+				<?php esc_html_e( 'Back to community', 'buddynext' ); ?>
+			</a>
+			<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-subheader__link">
+				<?php esc_html_e( 'WP Admin', 'buddynext' ); ?>
+			</a>
 		</div>
 	</div>
 
@@ -669,38 +293,38 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 		<!-- Sidebar -->
 		<aside class="bn-ca-sidebar" aria-label="<?php esc_attr_e( 'Admin navigation', 'buddynext' ); ?>">
-			<div class="bn-ca-sidebar-card">
-				<div class="bn-ca-nav-header"><?php esc_html_e( 'Admin Navigation', 'buddynext' ); ?></div>
+			<div class="bn-ca-sidebar__card">
+				<div class="bn-ca-sidebar__heading"><?php esc_html_e( 'Admin', 'buddynext' ); ?></div>
 
 				<?php
 				$nav_items = array(
 					'overview'   => array(
-						'icon'  => buddynext_get_icon( 'bar-chart' ),
+						'icon'  => 'bar-chart',
 						'label' => __( 'Overview', 'buddynext' ),
 					),
 					'members'    => array(
-						'icon'  => buddynext_get_icon( 'users' ),
+						'icon'  => 'users',
 						'label' => __( 'Members', 'buddynext' ),
 					),
 					'spaces'     => array(
-						'icon'  => buddynext_get_icon( 'home' ),
+						'icon'  => 'home',
 						'label' => __( 'Spaces', 'buddynext' ),
 					),
 					'moderation' => array(
-						'icon'  => buddynext_get_icon( 'shield' ),
+						'icon'  => 'shield',
 						'label' => __( 'Moderation', 'buddynext' ),
 						'badge' => $open_reports,
 					),
 					'reports'    => array(
-						'icon'  => buddynext_get_icon( 'copy' ),
+						'icon'  => 'copy',
 						'label' => __( 'Reports', 'buddynext' ),
 					),
 					'invites'    => array(
-						'icon'  => buddynext_get_icon( 'mail' ),
-						'label' => __( 'Email Invites', 'buddynext' ),
+						'icon'  => 'mail',
+						'label' => __( 'Email invites', 'buddynext' ),
 					),
 					'settings'   => array(
-						'icon'  => buddynext_get_icon( 'settings' ),
+						'icon'  => 'settings',
 						'label' => __( 'Settings', 'buddynext' ),
 					),
 				);
@@ -709,241 +333,217 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 					?>
 					<a
 						href="<?php echo esc_url( add_query_arg( 'bn_admin', $key, $admin_base ) ); ?>"
-						class="bn-ca-nav-item<?php echo $is_active ? ' bn-ca-nav-item--active' : ''; ?>"
-						aria-current="<?php echo $is_active ? 'page' : 'false'; ?>"
+						class="bn-ca-nav-item"
+						<?php echo $is_active ? 'aria-current="page"' : ''; ?>
 					>
-						<span aria-hidden="true"><?php echo $item['icon']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG via buddynext_get_icon(), already wp_kses() sanitized. ?></span>
+						<span class="bn-ca-nav-item__icon" aria-hidden="true"><?php buddynext_icon( $item['icon'] ); ?></span>
 						<?php echo esc_html( $item['label'] ); ?>
 						<?php if ( ! empty( $item['badge'] ) && (int) $item['badge'] > 0 ) : ?>
-							<span class="bn-ca-nav-badge"><?php echo esc_html( (string) $item['badge'] ); ?></span>
+							<span class="bn-ca-nav-item__badge"><?php echo esc_html( number_format_i18n( (int) $item['badge'] ) ); ?></span>
 						<?php endif; ?>
 					</a>
 				<?php endforeach; ?>
 
-				<div class="bn-ca-nav-divider"></div>
+				<div class="bn-ca-nav-divider" role="presentation"></div>
 
-				<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-nav-item bn-ca-nav-item--external">
-					<?php buddynext_icon( 'link' ); ?> <?php esc_html_e( 'WordPress Admin', 'buddynext' ); ?>
+				<a href="<?php echo esc_url( admin_url() ); ?>" class="bn-ca-nav-item" data-external>
+					<span class="bn-ca-nav-item__icon" aria-hidden="true"><?php buddynext_icon( 'link' ); ?></span>
+					<?php esc_html_e( 'WordPress admin', 'buddynext' ); ?>
 				</a>
 
-				<p class="bn-ca-sidebar-note"><?php esc_html_e( 'Space admins only see their own space in this panel.', 'buddynext' ); ?></p>
+				<p class="bn-ca-sidebar__note">
+					<?php esc_html_e( 'Space admins only see their own space in this panel.', 'buddynext' ); ?>
+				</p>
 			</div>
 		</aside>
 
 		<!-- Main content -->
 		<main class="bn-ca-main">
 
-			<!-- Stats grid -->
-			<div class="bn-ca-stats" role="list">
+			<!-- Stats grid — .bn-stat-grid primitive -->
+			<div class="bn-stat-grid" role="list" aria-label="<?php esc_attr_e( 'Community metrics', 'buddynext' ); ?>">
 
-				<div class="bn-ca-stat" role="listitem">
-					<div class="bn-ca-stat__label"><?php esc_html_e( 'Members', 'buddynext' ); ?></div>
-					<div class="bn-ca-stat__number"><?php echo esc_html( number_format_i18n( $total_members ) ); ?></div>
-					<div class="bn-ca-stat__sub bn-ca-stat__sub--green">
+				<div class="bn-stat" role="listitem">
+					<div class="bn-stat__label"><?php esc_html_e( 'Members', 'buddynext' ); ?></div>
+					<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $total_members ) ); ?></div>
+					<div class="bn-stat__delta" data-trend="up">
 						<?php buddynext_icon( 'arrow-up' ); ?>
-						<?php
-						// translators: %d is the number of new members today.
-						printf( esc_html__( '%d new today', 'buddynext' ), absint( $new_today ) );
-						?>
+						<span>
+							<?php
+							printf(
+								/* translators: %s: number of new members today (already i18n-formatted). */
+								esc_html__( '%s new today', 'buddynext' ),
+								esc_html( number_format_i18n( $new_today ) )
+							);
+							?>
+						</span>
 					</div>
 				</div>
 
-				<div class="bn-ca-stat" role="listitem">
-					<div class="bn-ca-stat__label"><?php esc_html_e( 'Active Spaces', 'buddynext' ); ?></div>
-					<div class="bn-ca-stat__number"><?php echo esc_html( number_format_i18n( $active_spaces ) ); ?></div>
+				<div class="bn-stat" role="listitem">
+					<div class="bn-stat__label"><?php esc_html_e( 'Active spaces', 'buddynext' ); ?></div>
+					<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $active_spaces ) ); ?></div>
 					<?php if ( $pending_spaces > 0 ) : ?>
-						<div class="bn-ca-stat__sub bn-ca-stat__sub--amber">
+						<div class="bn-stat__delta" data-trend="flat">
 							<?php buddynext_icon( 'alert-triangle' ); ?>
-							<?php
-							// translators: %d is number of spaces pending approval.
-							printf( esc_html__( '%d pending approval', 'buddynext' ), absint( $pending_spaces ) );
-							?>
+							<span>
+								<?php
+								printf(
+									/* translators: %s: number of spaces pending approval. */
+									esc_html__( '%s pending approval', 'buddynext' ),
+									esc_html( number_format_i18n( $pending_spaces ) )
+								);
+								?>
+							</span>
 						</div>
 					<?php else : ?>
-						<div class="bn-ca-stat__sub bn-ca-stat__sub--grey"><?php esc_html_e( 'No pending', 'buddynext' ); ?></div>
+						<div class="bn-stat__delta" data-trend="flat"><?php esc_html_e( 'No pending', 'buddynext' ); ?></div>
 					<?php endif; ?>
 				</div>
 
-				<div class="bn-ca-stat" role="listitem">
-					<div class="bn-ca-stat__label"><?php esc_html_e( 'Open Reports', 'buddynext' ); ?></div>
-					<div class="bn-ca-stat__number"><?php echo esc_html( (string) $open_reports ); ?></div>
-					<div class="bn-ca-stat__sub bn-ca-stat__sub--red">
-						<span class="bn-status-dot bn-status-dot--high"></span>
-						<?php
-						// translators: %d is the number of urgent reports.
-						printf( esc_html__( '%d urgent', 'buddynext' ), absint( $urgent_reports ) );
-						?>
+				<div class="bn-stat" role="listitem">
+					<div class="bn-stat__label"><?php esc_html_e( 'Open reports', 'buddynext' ); ?></div>
+					<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $open_reports ) ); ?></div>
+					<div class="bn-stat__delta" data-trend="<?php echo $urgent_reports > 0 ? 'down' : 'flat'; ?>">
+						<span class="bn-ca-status-dot" data-severity="<?php echo $urgent_reports > 0 ? 'high' : 'low'; ?>" aria-hidden="true"></span>
+						<span>
+							<?php
+							printf(
+								/* translators: %s: number of urgent reports. */
+								esc_html__( '%s urgent', 'buddynext' ),
+								esc_html( number_format_i18n( $urgent_reports ) )
+							);
+							?>
+						</span>
 					</div>
 				</div>
 
-				<div class="bn-ca-stat" role="listitem">
-					<div class="bn-ca-stat__label"><?php esc_html_e( 'Posts Today', 'buddynext' ); ?></div>
-					<div class="bn-ca-stat__number"><?php echo esc_html( (string) $posts_today ); ?></div>
-					<div class="bn-ca-stat__sub<?php echo $posts_pct >= 0 ? ' bn-ca-stat__sub--green' : ' bn-ca-stat__sub--red'; ?>">
+				<div class="bn-stat" role="listitem">
+					<div class="bn-stat__label"><?php esc_html_e( 'Posts today', 'buddynext' ); ?></div>
+					<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $posts_today ) ); ?></div>
+					<div class="bn-stat__delta" data-trend="<?php echo $posts_pct >= 0 ? 'up' : 'down'; ?>">
 						<?php
-					if ( $posts_pct >= 0 ) {
-						buddynext_icon( 'arrow-up' );
-					} else {
-						buddynext_icon( 'arrow-down' );
-					}
-					?>
-						<?php
-						// translators: %d is the percentage change vs yesterday.
-						printf( esc_html__( '%d%% vs yesterday', 'buddynext' ), absint( $posts_pct ) );
+						if ( $posts_pct >= 0 ) {
+							buddynext_icon( 'arrow-up' );
+						} else {
+							buddynext_icon( 'arrow-down' );
+						}
 						?>
+						<span>
+							<?php
+							printf(
+								/* translators: %d: percentage change vs yesterday. */
+								esc_html__( '%d%% vs yesterday', 'buddynext' ),
+								absint( $posts_pct_abs )
+							);
+							?>
+						</span>
 					</div>
 				</div>
 
-				<div class="bn-ca-stat" role="listitem">
-					<div class="bn-ca-stat__label"><?php esc_html_e( 'Pending Joins', 'buddynext' ); ?></div>
-					<div class="bn-ca-stat__number"><?php echo esc_html( (string) $total_pending_joins ); ?></div>
-					<div class="bn-ca-stat__sub bn-ca-stat__sub--grey"><?php esc_html_e( 'invite-only spaces', 'buddynext' ); ?></div>
+				<div class="bn-stat" role="listitem">
+					<div class="bn-stat__label"><?php esc_html_e( 'Pending joins', 'buddynext' ); ?></div>
+					<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $total_pending_joins ) ); ?></div>
+					<div class="bn-stat__delta" data-trend="flat">
+						<?php esc_html_e( 'invite-only spaces', 'buddynext' ); ?>
+					</div>
 				</div>
 
 			</div>
 
-			<!-- Two-column row -->
-			<div class="bn-ca-two-col">
+			<!-- Section tabs — Reports / Pending joins / Recent activity -->
+			<nav class="bn-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Admin sections', 'buddynext' ); ?>">
+				<?php
+				$sections = array(
+					'reports' => array(
+						'label' => __( 'Reports', 'buddynext' ),
+						'count' => (int) $open_reports,
+					),
+					'appeals' => array(
+						'label' => __( 'Pending joins', 'buddynext' ),
+						'count' => (int) $total_pending_joins,
+					),
+					'strikes' => array(
+						'label' => __( 'Recent signups', 'buddynext' ),
+						'count' => is_countable( $recent_signups ) ? count( $recent_signups ) : 0,
+					),
+					'actions' => array(
+						'label' => __( 'Recent actions', 'buddynext' ),
+						'count' => is_countable( $activity_rows ) ? count( $activity_rows ) : 0,
+					),
+				);
+				foreach ( $sections as $skey => $sdata ) :
+					$is_active = ( $active_section === $skey );
+					$shref     = add_query_arg( 'bn_section', $skey );
+					?>
+					<a
+						href="<?php echo esc_url( $shref ); ?>"
+						class="bn-tab"
+						role="tab"
+						aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
+					>
+						<?php echo esc_html( $sdata['label'] ); ?>
+						<span class="bn-tab__count"><?php echo esc_html( number_format_i18n( (int) $sdata['count'] ) ); ?></span>
+					</a>
+				<?php endforeach; ?>
+			</nav>
 
-				<!-- Recent Signups -->
-				<div class="bn-ca-card">
-					<div class="bn-ca-card__header">
-						<span class="bn-ca-card__title"><?php buddynext_icon( 'users' ); ?> <?php esc_html_e( 'Recent Signups', 'buddynext' ); ?></span>
-						<a href="<?php echo esc_url( add_query_arg( 'bn_admin', 'members', $admin_base ) ); ?>" class="bn-ca-card__link">
-							<?php esc_html_e( 'View All', 'buddynext' ); ?> &rarr;
+			<?php if ( 'reports' === $active_section ) : ?>
+
+				<!-- Open reports -->
+				<section class="bn-ca-card" aria-labelledby="bn-ca-reports-title">
+					<header class="bn-ca-card__head">
+						<span id="bn-ca-reports-title" class="bn-ca-card__title">
+							<?php buddynext_icon( 'shield' ); ?>
+							<?php esc_html_e( 'Open reports', 'buddynext' ); ?>
+							<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $open_reports ) ); ?></span>
+						</span>
+						<a href="<?php echo esc_url( add_query_arg( 'bn_admin', 'reports', $admin_base ) ); ?>" class="bn-ca-card__link">
+							<?php esc_html_e( 'View all', 'buddynext' ); ?>
 						</a>
-					</div>
+					</header>
 
-					<?php if ( empty( $recent_signups ) ) : ?>
-						<p style="padding:var(--s4);color:var(--text-3);font-size:var(--text-sm);"><?php esc_html_e( 'No signups yet.', 'buddynext' ); ?></p>
+					<?php if ( empty( $report_rows ) ) : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'No open reports.', 'buddynext' ); ?></p>
 					<?php else : ?>
-						<?php foreach ( $recent_signups as $signup ) : ?>
-							<?php
-							$su_uid   = (int) $signup->ID;
-							$su_name  = $signup->display_name ?? __( 'Member', 'buddynext' );
-							$su_color = bn_avatar_color( $su_uid );
-							$su_init  = bn_initials( $su_name );
-							$su_time  = isset( $signup->user_registered ) ? bn_time_diff( $signup->user_registered ) : '';
-							$su_email = $signup->user_email ?? '';
-							?>
-							<div class="bn-ca-signup-row">
-								<div
-									class="bn-ca-avatar bn-ca-avatar--32"
-									style="background:<?php echo esc_attr( $su_color ); ?>;"
-									aria-label="<?php echo esc_attr( $su_name ); ?>"
-								><?php echo esc_html( $su_init ); ?></div>
-								<div class="bn-ca-signup__info">
-									<div class="bn-ca-signup__name"><?php echo esc_html( $su_name ); ?></div>
-									<div class="bn-ca-signup__email"><?php echo esc_html( $su_email ); ?></div>
-								</div>
-								<div class="bn-ca-signup__time"><?php echo esc_html( $su_time ); ?></div>
-								<a
-									href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $su_uid ) ); ?>"
-									class="bn-ca-btn-ghost"
-								><?php esc_html_e( 'View Profile', 'buddynext' ); ?></a>
-							</div>
-						<?php endforeach; ?>
-					<?php endif; ?>
-				</div>
-
-				<!-- Pending Actions -->
-				<div class="bn-ca-card">
-					<div class="bn-ca-card__header">
-						<span class="bn-ca-card__title"><?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Pending Actions', 'buddynext' ); ?></span>
-						<span class="bn-ca-pending-badge"><?php echo esc_html( (string) ( count( $pending_joins ) + count( $report_rows ) ) ); ?></span>
-					</div>
-
-					<!-- Space join requests -->
-					<?php if ( ! empty( $pending_joins ) ) : ?>
-						<div class="bn-ca-pending-section-title">
-							<?php
-							// translators: %d is the count of pending join requests.
-							printf( esc_html__( 'Space Join Requests (%d)', 'buddynext' ), count( $pending_joins ) );
-							?>
-						</div>
-
-						<?php foreach ( $pending_joins as $join ) : ?>
-							<?php
-							$j_uid    = (int) $join->user_id;
-							$j_sid    = (int) $join->space_id;
-							$j_member = $join->member_name ?? __( 'Member', 'buddynext' );
-							$j_space  = $join->space_name ?? __( 'Space', 'buddynext' );
-							?>
-							<div class="bn-ca-join-row">
-								<div class="bn-ca-join__info">
-									<div class="bn-ca-join__space"><?php echo esc_html( $j_space ); ?></div>
-									<div class="bn-ca-join__member">
-										<?php
-										// translators: %s is the member display name.
-										printf( esc_html__( '%s wants to join', 'buddynext' ), esc_html( $j_member ) );
-										?>
-									</div>
-								</div>
-								<div class="bn-ca-join__actions">
-									<button
-										type="button"
-										class="bn-ca-btn-approve"
-										data-wp-on--click="actions.approveJoinRequest"
-										data-user-id="<?php echo esc_attr( (string) $j_uid ); ?>"
-										data-space-id="<?php echo esc_attr( (string) $j_sid ); ?>"
-									><?php esc_html_e( 'Approve', 'buddynext' ); ?></button>
-									<button
-										type="button"
-										class="bn-ca-btn-decline"
-										data-wp-on--click="actions.declineJoinRequest"
-										data-user-id="<?php echo esc_attr( (string) $j_uid ); ?>"
-										data-space-id="<?php echo esc_attr( (string) $j_sid ); ?>"
-									><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
-								</div>
-							</div>
-						<?php endforeach; ?>
-
-						<div class="bn-ca-card-divider"></div>
-					<?php endif; ?>
-
-					<!-- Open reports -->
-					<?php if ( ! empty( $report_rows ) ) : ?>
-						<div class="bn-ca-pending-section-title">
-							<?php
-							// translators: %d is the number of open reports.
-							printf( esc_html__( 'Open Reports (%d)', 'buddynext' ), count( $report_rows ) );
-							?>
-						</div>
-
 						<?php
 						$displayed   = 0;
-						$show_limit  = 3;
+						$show_limit  = 5;
 						$extra_count = max( 0, count( $report_rows ) - $show_limit );
 						?>
-
 						<?php foreach ( $report_rows as $rpt ) : ?>
 							<?php
-							if ( $displayed >= $show_limit ) :
+							if ( $displayed >= $show_limit ) {
 								break;
-endif;
-							?>
-							<?php
+							}
 							$rpt_count    = (int) ( $rpt->reporter_count ?? 1 );
 							$rpt_severity = bn_report_severity( $rpt_count );
-							$rpt_reason   = ucfirst( $rpt->reason ?? __( 'Report', 'buddynext' ) );
-							$rpt_time     = isset( $rpt->created_at ) ? bn_time_diff( $rpt->created_at ) : '';
-							$rpt_icon     = match ( $rpt_severity ) {
-								'high'   => '<span class="bn-status-dot bn-status-dot--high"></span>',
-								'medium' => '<span class="bn-status-dot bn-status-dot--medium"></span>',
-								default  => '<span class="bn-status-dot"></span>',
-							};
+							$rpt_reason   = ucfirst( (string) ( $rpt->reason ?? __( 'Report', 'buddynext' ) ) );
+							$rpt_ts       = isset( $rpt->created_at ) ? (int) strtotime( (string) $rpt->created_at ) : 0;
+							$rpt_iso      = $rpt_ts ? gmdate( DATE_ATOM, $rpt_ts ) : '';
+							$rpt_time     = $rpt_ts ? human_time_diff( $rpt_ts, time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
 							++$displayed;
-	?>
-							<div class="bn-ca-report-row bn-ca-report-row--<?php echo esc_attr( $rpt_severity ); ?>">
-								<div class="bn-ca-report__info">
-									<div class="bn-ca-report__type"><?php echo $rpt_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- static CSS class span, no user data. ?> <?php echo esc_html( $rpt_reason ); ?></div>
-									<div class="bn-ca-report__meta">
+							?>
+							<div class="bn-ca-report-row" data-severity="<?php echo esc_attr( $rpt_severity ); ?>">
+								<div class="bn-ca-report-row__body">
+									<div class="bn-ca-report-row__type">
+										<span class="bn-ca-status-dot" data-severity="<?php echo esc_attr( $rpt_severity ); ?>" aria-hidden="true"></span>
+										<?php echo esc_html( $rpt_reason ); ?>
+									</div>
+									<div class="bn-ca-report-row__meta">
 										<?php
-										// translators: 1: reporter count, 2: time ago.
-										printf( esc_html__( '%1$d reporter(s) &middot; %2$s', 'buddynext' ), absint( $rpt_count ), esc_html( $rpt_time ) );
+										printf(
+											/* translators: 1: number of reporters, 2: time-ago string. */
+											esc_html__( '%1$s reporter(s) - %2$s', 'buddynext' ),
+											esc_html( number_format_i18n( $rpt_count ) ),
+											esc_html( $rpt_time )
+										);
 										?>
 									</div>
 								</div>
+								<?php if ( $rpt_iso ) : ?>
+									<time class="bn-ca-row__time" datetime="<?php echo esc_attr( $rpt_iso ); ?>"><?php echo esc_html( $rpt_time ); ?></time>
+								<?php endif; ?>
 								<a
 									href="
 									<?php
@@ -951,88 +551,202 @@ endif;
 										add_query_arg(
 											array(
 												'bn_admin' => 'reports',
-												'bn_report_id' => $rpt->id,
+												'bn_report_id' => (int) $rpt->id,
 											),
 											$admin_base
 										)
 									);
 									?>
-											"
-									class="bn-ca-btn-review"
+									"
+									class="bn-btn"
+									data-variant="secondary"
+									data-size="sm"
 								><?php esc_html_e( 'Review', 'buddynext' ); ?></a>
 							</div>
 						<?php endforeach; ?>
 
 						<?php if ( $extra_count > 0 ) : ?>
-							<a
-								href="<?php echo esc_url( add_query_arg( 'bn_admin', 'reports', $admin_base ) ); ?>"
-								class="bn-ca-more-link"
-							>
-								+ 
+							<a href="<?php echo esc_url( add_query_arg( 'bn_admin', 'reports', $admin_base ) ); ?>" class="bn-ca-card__more">
 								<?php
-								// translators: %d is the number of additional reports.
-								printf( esc_html__( '%d more', 'buddynext' ), absint( $extra_count ) );
+								printf(
+									/* translators: %s: number of additional reports. */
+									esc_html__( '+ %s more', 'buddynext' ),
+									esc_html( number_format_i18n( $extra_count ) )
+								);
 								?>
 							</a>
 						<?php endif; ?>
-
 					<?php endif; ?>
+				</section>
 
-				</div>
+			<?php elseif ( 'appeals' === $active_section ) : ?>
 
-			</div>
-			<!-- /two-col -->
+				<!-- Pending join requests -->
+				<section class="bn-ca-card" aria-labelledby="bn-ca-joins-title">
+					<header class="bn-ca-card__head">
+						<span id="bn-ca-joins-title" class="bn-ca-card__title">
+							<?php buddynext_icon( 'mail' ); ?>
+							<?php esc_html_e( 'Space join requests', 'buddynext' ); ?>
+							<span class="bn-ca-card__count"><?php echo esc_html( number_format_i18n( (int) $total_pending_joins ) ); ?></span>
+						</span>
+					</header>
 
-			<!-- Recent activity (full width) -->
-			<div class="bn-ca-activity-card">
-				<div class="bn-ca-card__header">
-					<span class="bn-ca-card__title"><?php buddynext_icon( 'copy' ); ?> <?php esc_html_e( 'Recent Activity', 'buddynext' ); ?></span>
-					<a
-						href="<?php echo esc_url( add_query_arg( 'bn_admin', 'log', $admin_base ) ); ?>"
-						class="bn-ca-card__link"
-					><?php esc_html_e( 'View Full Log', 'buddynext' ); ?> &rarr;</a>
-				</div>
-
-				<div class="bn-ca-activity-scroll" role="log" aria-label="<?php esc_attr_e( 'Recent site activity', 'buddynext' ); ?>">
-
-					<?php if ( empty( $activity_rows ) ) : ?>
-						<div style="padding:var(--s6);text-align:center;color:var(--text-3);font-size:var(--text-sm);">
-							<?php esc_html_e( 'No recent activity.', 'buddynext' ); ?>
-						</div>
-
+					<?php if ( empty( $pending_joins ) ) : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'No pending join requests.', 'buddynext' ); ?></p>
 					<?php else : ?>
-
-						<?php foreach ( $activity_rows as $act ) : ?>
+						<?php foreach ( $pending_joins as $join ) : ?>
 							<?php
-							$act_action = $act->action ?? 'note';
-							$act_icon   = bn_activity_icon( $act_action );
-							$act_desc   = isset( $act->action, $act->object_type )
-							? ucfirst( str_replace( '_', ' ', (string) $act->action ) ) . ' (' . (string) $act->object_type . ')'
-							: '';
-							$act_meta   = isset( $act->created_at ) ? bn_time_diff( $act->created_at ) : '';
-							$act_report = ( 'post_flagged' === $act_action );
+							$j_uid    = (int) $join->user_id;
+							$j_sid    = (int) $join->space_id;
+							$j_member = (string) ( $join->member_name ?? __( 'Member', 'buddynext' ) );
+							$j_space  = (string) ( $join->space_name ?? __( 'Space', 'buddynext' ) );
+							$j_inits  = bn_initials( $j_member );
 							?>
-							<div class="bn-ca-activity-row">
-								<div class="bn-ca-activity__icon" aria-hidden="true"><?php echo $act_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG via buddynext_get_icon(), already wp_kses() sanitized. ?></div>
-								<div class="bn-ca-activity__body">
-									<div class="bn-ca-activity__desc"><?php echo esc_html( $act_desc ); ?></div>
-									<div class="bn-ca-activity__meta"><?php echo esc_html( $act_meta ); ?></div>
+							<div class="bn-ca-row">
+								<span class="bn-avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( $j_inits ); ?></span>
+								<div class="bn-ca-row__body">
+									<span class="bn-ca-row__title"><?php echo esc_html( $j_space ); ?></span>
+									<span class="bn-ca-row__sub">
+										<?php
+										printf(
+											/* translators: %s: member display name. */
+											esc_html__( '%s wants to join', 'buddynext' ),
+											esc_html( $j_member )
+										);
+										?>
+									</span>
 								</div>
-								<?php if ( $act_report ) : ?>
-									<div class="bn-ca-activity__action">
-										<a
-											href="<?php echo esc_url( add_query_arg( 'bn_admin', 'reports', $admin_base ) ); ?>"
-											class="bn-ca-btn-review"
-										><?php esc_html_e( 'Review', 'buddynext' ); ?></a>
-									</div>
-								<?php endif; ?>
+								<div class="bn-ca-row__actions">
+									<button
+										type="button"
+										class="bn-btn"
+										data-variant="primary"
+										data-size="sm"
+										data-wp-on--click="actions.approveJoinRequest"
+										data-user-id="<?php echo esc_attr( (string) $j_uid ); ?>"
+										data-space-id="<?php echo esc_attr( (string) $j_sid ); ?>"
+									><?php esc_html_e( 'Approve', 'buddynext' ); ?></button>
+									<button
+										type="button"
+										class="bn-btn"
+										data-variant="ghost"
+										data-size="sm"
+										data-wp-on--click="actions.declineJoinRequest"
+										data-user-id="<?php echo esc_attr( (string) $j_uid ); ?>"
+										data-space-id="<?php echo esc_attr( (string) $j_sid ); ?>"
+									><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
+								</div>
 							</div>
 						<?php endforeach; ?>
-
 					<?php endif; ?>
+				</section>
 
-				</div>
-			</div>
+			<?php elseif ( 'strikes' === $active_section ) : ?>
+
+				<!-- Recent signups -->
+				<section class="bn-ca-card" aria-labelledby="bn-ca-signups-title">
+					<header class="bn-ca-card__head">
+						<span id="bn-ca-signups-title" class="bn-ca-card__title">
+							<?php buddynext_icon( 'users' ); ?>
+							<?php esc_html_e( 'Recent signups', 'buddynext' ); ?>
+						</span>
+						<a href="<?php echo esc_url( add_query_arg( 'bn_admin', 'members', $admin_base ) ); ?>" class="bn-ca-card__link">
+							<?php esc_html_e( 'View all members', 'buddynext' ); ?>
+						</a>
+					</header>
+
+					<?php if ( empty( $recent_signups ) ) : ?>
+						<p class="bn-ca-card__empty"><?php esc_html_e( 'No signups yet.', 'buddynext' ); ?></p>
+					<?php else : ?>
+						<?php foreach ( $recent_signups as $signup ) : ?>
+							<?php
+							$su_uid   = (int) $signup->ID;
+							$su_name  = (string) ( $signup->display_name ?? __( 'Member', 'buddynext' ) );
+							$su_init  = bn_initials( $su_name );
+							$su_email = (string) ( $signup->user_email ?? '' );
+							$su_ts    = isset( $signup->user_registered ) ? (int) strtotime( (string) $signup->user_registered ) : 0;
+							$su_iso   = $su_ts ? gmdate( DATE_ATOM, $su_ts ) : '';
+							$su_time  = $su_ts ? human_time_diff( $su_ts, time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
+							?>
+							<div class="bn-ca-row">
+								<span class="bn-avatar" data-size="sm" aria-label="<?php echo esc_attr( $su_name ); ?>"><?php echo esc_html( $su_init ); ?></span>
+								<div class="bn-ca-row__body">
+									<span class="bn-ca-row__title"><?php echo esc_html( $su_name ); ?></span>
+									<span class="bn-ca-row__sub"><?php echo esc_html( $su_email ); ?></span>
+								</div>
+								<?php if ( $su_iso ) : ?>
+									<time class="bn-ca-row__time" datetime="<?php echo esc_attr( $su_iso ); ?>"><?php echo esc_html( $su_time ); ?></time>
+								<?php endif; ?>
+								<div class="bn-ca-row__actions">
+									<a
+										href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $su_uid ) ); ?>"
+										class="bn-btn"
+										data-variant="ghost"
+										data-size="sm"
+									><?php esc_html_e( 'View profile', 'buddynext' ); ?></a>
+								</div>
+							</div>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</section>
+
+			<?php else : // 'actions' section. ?>
+
+				<!-- Recent activity log -->
+				<section class="bn-ca-card" aria-labelledby="bn-ca-actions-title">
+					<header class="bn-ca-card__head">
+						<span id="bn-ca-actions-title" class="bn-ca-card__title">
+							<?php buddynext_icon( 'copy' ); ?>
+							<?php esc_html_e( 'Recent actions', 'buddynext' ); ?>
+						</span>
+						<a href="<?php echo esc_url( add_query_arg( 'bn_admin', 'log', $admin_base ) ); ?>" class="bn-ca-card__link">
+							<?php esc_html_e( 'View full log', 'buddynext' ); ?>
+						</a>
+					</header>
+
+					<div class="bn-ca-activity-scroll" role="log" aria-label="<?php esc_attr_e( 'Recent site activity', 'buddynext' ); ?>">
+						<?php if ( empty( $activity_rows ) ) : ?>
+							<p class="bn-ca-card__empty"><?php esc_html_e( 'No recent activity.', 'buddynext' ); ?></p>
+						<?php else : ?>
+							<?php foreach ( $activity_rows as $act ) : ?>
+								<?php
+								$act_action = (string) ( $act->action ?? 'note' );
+								$act_icon   = bn_activity_icon( $act_action );
+								$act_desc   = isset( $act->action, $act->object_type )
+									? ucfirst( str_replace( '_', ' ', (string) $act->action ) ) . ' (' . (string) $act->object_type . ')'
+									: '';
+								$act_ts     = isset( $act->created_at ) ? (int) strtotime( (string) $act->created_at ) : 0;
+								$act_iso    = $act_ts ? gmdate( DATE_ATOM, $act_ts ) : '';
+								$act_meta   = $act_ts ? human_time_diff( $act_ts, time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
+								$act_report = ( 'post_flagged' === $act_action );
+								?>
+								<div class="bn-ca-activity-row">
+									<span class="bn-ca-activity-row__icon" aria-hidden="true"><?php echo $act_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG via buddynext_get_icon(), already wp_kses() sanitized. ?></span>
+									<div class="bn-ca-activity-row__body">
+										<div class="bn-ca-activity-row__desc"><?php echo esc_html( $act_desc ); ?></div>
+										<?php if ( $act_iso ) : ?>
+											<time class="bn-ca-activity-row__meta" datetime="<?php echo esc_attr( $act_iso ); ?>"><?php echo esc_html( $act_meta ); ?></time>
+										<?php else : ?>
+											<div class="bn-ca-activity-row__meta"><?php echo esc_html( $act_meta ); ?></div>
+										<?php endif; ?>
+									</div>
+									<?php if ( $act_report ) : ?>
+										<div class="bn-ca-activity-row__action">
+											<a
+												href="<?php echo esc_url( add_query_arg( 'bn_admin', 'reports', $admin_base ) ); ?>"
+												class="bn-btn"
+												data-variant="secondary"
+												data-size="sm"
+											><?php esc_html_e( 'Review', 'buddynext' ); ?></a>
+										</div>
+									<?php endif; ?>
+								</div>
+							<?php endforeach; ?>
+						<?php endif; ?>
+					</div>
+				</section>
+
+			<?php endif; ?>
 
 		</main>
 
