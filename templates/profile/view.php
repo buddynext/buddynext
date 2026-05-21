@@ -792,6 +792,22 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 
 	</section><!-- /.bn-pf-hero -->
 
+	<?php
+	/**
+	 * Fires immediately after the profile hero card and before the tab bar.
+	 *
+	 * Pro modules hook here to inject widgets such as "Who viewed your profile"
+	 * for the profile owner. Other listeners may render notice strips, audience
+	 * summaries, or analytic cards directly under the hero.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param int $user_id         ID of the profile being viewed.
+	 * @param int $current_user_id ID of the current viewer (0 when anonymous).
+	 */
+	do_action( 'buddynext_profile_view_after_hero', (int) $user_id, (int) $current_user_id );
+	?>
+
 	<!-- Tab bar (v2 .bn-tabs primitive) -->
 	<div class="bn-tabs bn-pf-tabs" role="tablist">
 		<button class="bn-tab"
