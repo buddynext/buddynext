@@ -67,19 +67,21 @@ function resolvePostId( el ) {
 
 /**
  * Swap the visual state of a membership button after a successful API
- * call, so the UI reflects the new state without a page reload.
+ * call, so the UI reflects the new state without a page reload. Drives
+ * the v2 attribute API (`.bn-btn[data-variant]`) and falls back to the
+ * legacy class set when the button hasn't been swept yet.
  *
- * @param {Element}  btn       The button that was clicked.
- * @param {string}   newState  One of 'joined' | 'pending' | 'join' | 'request'.
+ * @param {Element} btn      The button that was clicked.
+ * @param {string}  newState One of 'joined' | 'pending' | 'join' | 'request'.
  */
 function swapButtonState( btn, newState ) {
 	if ( ! btn ) { return; }
 
-	var classMap = {
-		joined:  'bn-btn-joined',
-		pending: 'bn-btn-pending',
-		join:    'bn-btn-join',
-		request: 'bn-btn-request',
+	var variantMap = {
+		joined:  'secondary',
+		pending: 'ghost',
+		join:    'primary',
+		request: 'secondary',
 	};
 	var labelMap = {
 		joined:  'Joined',
@@ -93,21 +95,29 @@ function swapButtonState( btn, newState ) {
 		join:    'joinSpace',
 		request: 'requestJoin',
 	};
+	var legacyClassMap = {
+		joined:  'bn-btn-joined',
+		pending: 'bn-btn-pending',
+		join:    'bn-btn-join',
+		request: 'bn-btn-request',
+	};
 
-	// Remove all known state classes.
-	Object.values( classMap ).forEach( function ( cls ) { btn.classList.remove( cls ); } );
-	btn.classList.add( classMap[ newState ] );
+	// v2 path — drive data-variant on .bn-btn.
+	if ( btn.classList.contains( 'bn-btn' ) ) {
+		btn.setAttribute( 'data-variant', variantMap[ newState ] );
+	} else {
+		// Legacy path — swap class set.
+		Object.values( legacyClassMap ).forEach( function ( cls ) { btn.classList.remove( cls ); } );
+		btn.classList.add( legacyClassMap[ newState ] );
+	}
 
-	// Update visible label while preserving any child nodes (e.g. icons).
+	// Update visible label. Wipes any child icon — by design, post-swap
+	// the button shows a clean label (Joined / Requested / Join / Request to join).
 	btn.textContent = labelMap[ newState ];
 
-	// Update the click action via data attribute convention (store reads
-	// data-wp-on--click at render time, so we update aria-label only as
-	// a fallback hint — the store dispatches based on the button's current
-	// class to decide the real action path on the NEXT click).
-	btn.dataset.wpOnClick   = 'actions.' + actionMap[ newState ];
+	btn.dataset.wpOnClick    = 'actions.' + actionMap[ newState ];
 	btn.dataset.currentState = newState;
-	btn.disabled = false;
+	btn.disabled             = false;
 }
 
 /* ── Store ─────────────────────────────────────────────────────────── */
@@ -211,9 +221,19 @@ var storeInstance = store( 'buddynext/spaces', {
 
 				if ( res.ok && data.left ) {
 					// Decide button to show based on card privacy badge.
+					// v2: badge carries data-tone="info" for open / "warn"|"danger" for private/secret.
+					// Legacy: text match on i18n label.
 					var card = btn ? btn.closest( '.bn-space-card__footer' ) || btn.closest( '.bn-space-card' ) : null;
 					var privacyEl = card ? card.querySelector( '.bn-space-card__privacy' ) : null;
-					var isPrivate = privacyEl && privacyEl.textContent.toLowerCase().indexOf( 'public' ) === -1;
+					var tone = privacyEl ? privacyEl.getAttribute( 'data-tone' ) : null;
+					var isPrivate;
+					if ( tone ) {
+						isPrivate = ( tone !== 'info' );
+					} else if ( privacyEl ) {
+						isPrivate = ( privacyEl.textContent.toLowerCase().indexOf( 'public' ) === -1 );
+					} else {
+						isPrivate = false;
+					}
 					swapButtonState( btn, isPrivate ? 'request' : 'join' );
 
 					// Decrement member count.

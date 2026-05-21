@@ -6,7 +6,10 @@
  * and all real-time messaging logic are owned by WPMediaVerse and rendered
  * via the buddynext_render_messages action hooked in WPMediaVerseBridge.
  *
- * If WPMediaVerse is not active the template shows a dependency notice.
+ * If WPMediaVerse is not active the template shows a dependency notice
+ * composed from v2 primitives (.bn-card + .bn-badge[data-tone="warn"]).
+ *
+ * Aligned with docs/v2 Plans/v2/dm-list.html — two-pane layout via .bn-split.
  *
  * @package BuddyNext
  * @since   0.1.0
@@ -32,10 +35,13 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 		<?php if ( ! $mvs_active ) : ?>
 
-			<div class="bn-dependency-notice">
-				<div class="bn-dependency-notice-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></div>
-				<div class="bn-dependency-notice-title"><?php esc_html_e( 'Direct messaging requires WPMediaVerse', 'buddynext' ); ?></div>
-				<p class="bn-dependency-notice-body">
+			<div class="bn-card bn-dm-dep-notice" role="status">
+				<div class="bn-dm-dep-notice__head">
+					<span class="bn-dm-dep-notice__icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
+					<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Dependency required', 'buddynext' ); ?></span>
+				</div>
+				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Direct messaging requires WPMediaVerse', 'buddynext' ); ?></h2>
+				<p class="bn-dm-dep-notice__body">
 					<?php esc_html_e( 'Install and activate the WPMediaVerse plugin to enable direct messaging in BuddyNext.', 'buddynext' ); ?>
 				</p>
 			</div>

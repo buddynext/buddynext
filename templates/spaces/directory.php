@@ -207,19 +207,32 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 <div
 	class="bn-spaces-dir"
 	data-wp-interactive="buddynext/spaces"
-	data-wp-context='<?php echo esc_attr( wp_json_encode( array( 'restNonce' => $rest_nonce, 'restUrl' => rest_url( 'buddynext/v1' ) ) ) ); ?>'
+	data-wp-context='
+	<?php
+	echo esc_attr(
+		wp_json_encode(
+			array(
+				'restNonce' => $rest_nonce,
+				'restUrl'   => rest_url( 'buddynext/v1' ),
+			)
+		)
+	);
+	?>
+	'
 >
 
 	<?php if ( current_user_can( 'read' ) ) : ?>
 	<div class="bn-dir-featured">
-		<div class="bn-dir-featured__icon"><?php buddynext_icon( 'home' ); ?></div>
+		<div class="bn-dir-featured__icon" aria-hidden="true"><?php buddynext_icon( 'home' ); ?></div>
 		<div class="bn-dir-featured__text">
 			<div class="bn-dir-featured__title"><?php esc_html_e( 'Find Your Community', 'buddynext' ); ?></div>
 			<p class="bn-dir-featured__sub"><?php esc_html_e( 'Join spaces around topics you care about. Share ideas, ask questions, collaborate.', 'buddynext' ); ?></p>
 		</div>
 		<a
 			href="<?php echo esc_url( buddynext_create_space_url() ); ?>"
-			class="bn-dir-featured__cta"
+			class="bn-btn bn-dir-featured__cta"
+			data-variant="primary"
+			data-size="md"
 		><?php esc_html_e( 'Create a Space', 'buddynext' ); ?></a>
 	</div>
 	<?php endif; ?>
@@ -232,15 +245,18 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 		action=""
 		class="bn-dir-filters"
 	>
+		<label class="bn-screen-reader" for="bn-dir-search-input"><?php esc_html_e( 'Search spaces', 'buddynext' ); ?></label>
 		<input
 			type="text"
+			id="bn-dir-search-input"
 			name="bn_search"
-			class="bn-dir-search"
+			class="bn-input bn-dir-search"
 			placeholder="<?php esc_attr_e( 'Search spaces&hellip;', 'buddynext' ); ?>"
 			value="<?php echo esc_attr( $bn_search ); ?>"
 		>
 
-		<select name="bn_cat" class="bn-dir-select">
+		<label class="bn-screen-reader" for="bn-dir-cat-select"><?php esc_html_e( 'Filter by category', 'buddynext' ); ?></label>
+		<select name="bn_cat" id="bn-dir-cat-select" class="bn-select bn-dir-select">
 			<option value=""><?php esc_html_e( 'All Categories', 'buddynext' ); ?></option>
 			<?php foreach ( $categories as $bn_cat_item ) : ?>
 				<option
@@ -250,32 +266,38 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 			<?php endforeach; ?>
 		</select>
 
-		<select name="bn_type" class="bn-dir-select">
+		<label class="bn-screen-reader" for="bn-dir-type-select"><?php esc_html_e( 'Filter by type', 'buddynext' ); ?></label>
+		<select name="bn_type" id="bn-dir-type-select" class="bn-select bn-dir-select">
 			<option value=""><?php esc_html_e( 'All Types', 'buddynext' ); ?></option>
 			<option value="open" <?php selected( $bn_visibility, 'open' ); ?>><?php esc_html_e( 'Open', 'buddynext' ); ?></option>
 			<option value="private" <?php selected( $bn_visibility, 'private' ); ?>><?php esc_html_e( 'Private', 'buddynext' ); ?></option>
 		</select>
 
-		<select name="bn_sort" class="bn-dir-select">
+		<label class="bn-screen-reader" for="bn-dir-sort-select"><?php esc_html_e( 'Sort spaces', 'buddynext' ); ?></label>
+		<select name="bn_sort" id="bn-dir-sort-select" class="bn-select bn-dir-select">
 			<option value="popular" <?php selected( $bn_orderby, 'popular' ); ?>><?php esc_html_e( 'Sort: Popular', 'buddynext' ); ?></option>
 			<option value="active" <?php selected( $bn_orderby, 'active' ); ?>><?php esc_html_e( 'Most Active', 'buddynext' ); ?></option>
 			<option value="newest" <?php selected( $bn_orderby, 'newest' ); ?>><?php esc_html_e( 'Newest', 'buddynext' ); ?></option>
 			<option value="alphabetical" <?php selected( $bn_orderby, 'alphabetical' ); ?>><?php esc_html_e( 'Alphabetical', 'buddynext' ); ?></option>
 		</select>
 
-		<noscript><button type="submit"><?php esc_html_e( 'Search', 'buddynext' ); ?></button></noscript>
+		<noscript><button type="submit" class="bn-btn" data-variant="primary" data-size="md"><?php esc_html_e( 'Search', 'buddynext' ); ?></button></noscript>
 	</form>
 
-	<nav class="bn-dir-cats" aria-label="<?php esc_attr_e( 'Filter by category', 'buddynext' ); ?>">
+	<nav class="bn-tabs bn-dir-cats" role="tablist" aria-label="<?php esc_attr_e( 'Filter by category', 'buddynext' ); ?>">
 		<a
 			href="<?php echo esc_url( remove_query_arg( 'bn_cat' ) ); ?>"
-			class="bn-dir-cat<?php echo ( '' === $bn_cat_slug ) ? ' bn-dir-cat--active' : ''; ?>"
+			class="bn-tab bn-dir-cat"
+			role="tab"
+			aria-selected="<?php echo ( '' === $bn_cat_slug ) ? 'true' : 'false'; ?>"
 		><?php esc_html_e( 'All', 'buddynext' ); ?></a>
 
 		<?php foreach ( $categories as $bn_cat_chip ) : ?>
 			<a
 				href="<?php echo esc_url( add_query_arg( 'bn_cat', $bn_cat_chip->slug ) ); ?>"
-				class="bn-dir-cat<?php echo ( $bn_cat_chip->slug === $bn_cat_slug ) ? ' bn-dir-cat--active' : ''; ?>"
+				class="bn-tab bn-dir-cat"
+				role="tab"
+				aria-selected="<?php echo ( $bn_cat_chip->slug === $bn_cat_slug ) ? 'true' : 'false'; ?>"
 			><?php echo wp_kses_data( bn_space_category_icon( $bn_cat_chip->slug ) ); ?> <?php echo esc_html( $bn_cat_chip->name ); ?></a>
 		<?php endforeach; ?>
 	</nav>
@@ -283,8 +305,8 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	<div class="bn-dir-grid" role="list">
 
 		<?php if ( empty( $spaces ) ) : ?>
-			<div class="bn-dir-empty" role="listitem">
-				<div class="bn-dir-empty__icon"><?php buddynext_icon( 'search' ); ?></div>
+			<div class="bn-card bn-dir-empty" role="listitem">
+				<div class="bn-dir-empty__icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></div>
 				<p class="bn-dir-empty__title"><?php esc_html_e( 'No spaces found', 'buddynext' ); ?></p>
 				<p><?php esc_html_e( 'Try adjusting your search or filters.', 'buddynext' ); ?></p>
 			</div>
@@ -304,10 +326,10 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 					'private' => __( 'Private', 'buddynext' ),
 					default   => __( 'Invite-only', 'buddynext' ),
 				};
-				$privacy_icon = match ( $space->type ) {
-					'open'    => buddynext_get_icon( 'globe' ),
-					'private' => buddynext_get_icon( 'lock' ),
-					default   => buddynext_get_icon( 'mail' ),
+				$privacy_tone = match ( $space->type ) {
+					'open'    => 'info',
+					'private' => 'warn',
+					default   => 'danger',
 				};
 
 				$cover_bg  = bn_space_cover_gradient( $space_id );
@@ -318,14 +340,15 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				$member_count = number_format_i18n( (int) $space->member_count );
 	?>
 
-				<article class="bn-space-card" role="listitem" aria-label="<?php echo esc_attr( $space->name ); ?>">
-					<a href="<?php echo esc_url( $space_url ); ?>" tabindex="-1" aria-hidden="true">
+				<article class="bn-card bn-space-card" data-interactive role="listitem" aria-label="<?php echo esc_attr( $space->name ); ?>">
+					<a href="<?php echo esc_url( $space_url ); ?>" tabindex="-1" aria-hidden="true" class="bn-space-card__cover-link">
 						<div
 							class="bn-space-card__cover"
 							style="background:<?php echo esc_attr( $cover_bg ); ?>;"
 						>
 							<div
-								class="bn-space-card__avatar"
+								class="bn-avatar bn-space-card__avatar"
+								data-size="lg"
 								style="background:<?php echo esc_attr( $avatar_bg ); ?>;"
 								aria-hidden="true"
 							><?php echo wp_kses_data( $cat_icon ); ?></div>
@@ -333,7 +356,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 					</a>
 
 					<div class="bn-space-card__body">
-						<a href="<?php echo esc_url( $space_url ); ?>" style="text-decoration:none;">
+						<a href="<?php echo esc_url( $space_url ); ?>" class="bn-space-card__name-link">
 							<h2 class="bn-space-card__name"><?php echo esc_html( $space->name ); ?></h2>
 						</a>
 
@@ -346,19 +369,24 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 						</div>
 
 						<div class="bn-space-card__footer">
-							<span class="bn-space-card__privacy">
-								<?php echo wp_kses_data( $privacy_icon ); ?> <?php echo esc_html( $privacy_label ); ?>
+							<span class="bn-badge bn-space-card__privacy" data-tone="<?php echo esc_attr( $privacy_tone ); ?>">
+								<?php echo esc_html( $privacy_label ); ?>
 							</span>
 
 							<?php if ( $is_admin_mod ) : ?>
 								<a
 									href="<?php echo esc_url( buddynext_space_settings_url( $space->slug ) ); ?>"
-									class="bn-btn-manage"
+									class="bn-btn"
+									data-variant="secondary"
+									data-size="sm"
 								><?php esc_html_e( 'Manage', 'buddynext' ); ?></a>
 
 							<?php elseif ( $is_member ) : ?>
 								<button
-									class="bn-btn-joined"
+									class="bn-btn"
+									data-variant="secondary"
+									data-size="sm"
+									data-current-state="joined"
 									data-wp-on--click="actions.leaveSpace"
 									data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 									aria-label="<?php esc_attr_e( 'Joined — click to leave', 'buddynext' ); ?>"
@@ -366,7 +394,10 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 							<?php elseif ( $is_pending ) : ?>
 								<button
-									class="bn-btn-pending"
+									class="bn-btn"
+									data-variant="ghost"
+									data-size="sm"
+									data-current-state="pending"
 									data-wp-on--click="actions.cancelJoinRequest"
 									data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 									aria-label="<?php esc_attr_e( 'Request pending — click to cancel', 'buddynext' ); ?>"
@@ -374,14 +405,20 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 							<?php elseif ( 'open' === $space->type ) : ?>
 								<button
-									class="bn-btn-join"
+									class="bn-btn"
+									data-variant="primary"
+									data-size="sm"
+									data-current-state="join"
 									data-wp-on--click="actions.joinSpace"
 									data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 								><?php esc_html_e( 'Join', 'buddynext' ); ?></button>
 
 							<?php else : ?>
 								<button
-									class="bn-btn-request"
+									class="bn-btn"
+									data-variant="secondary"
+									data-size="sm"
+									data-current-state="request"
 									data-wp-on--click="actions.requestJoin"
 									data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 								><?php esc_html_e( 'Request to join', 'buddynext' ); ?></button>
