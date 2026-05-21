@@ -242,8 +242,12 @@ if ( $thread_data && $other_user instanceof WP_User ) {
 $messages_page_url = get_permalink( get_page_by_path( 'messages' ) );
 $compose_url       = add_query_arg( array( 'action' => 'compose' ), $messages_page_url );
 
-$bn_nav_active = 'messages';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+/**
+ * Fires before the messages thread inner content.
+ *
+ * @param int $conv_id Conversation ID.
+ */
+do_action( 'buddynext_messages_thread_before', $conv_id );
 
 $messages_input_id = 'bn-dm-input-' . (int) $conv_id;
 ?>

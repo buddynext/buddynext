@@ -26,12 +26,12 @@ if ( ! is_user_logged_in() ) {
 
 $mvs_active = class_exists( 'WPMediaVerse\Core\Plugin' );
 
-$bn_nav_active = 'messages';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+/**
+ * Fires before the messages list inner content.
+ */
+do_action( 'buddynext_messages_list_before' );
 ?>
-<div class="bn-hub-shell">
-
-	<div class="bn-messages-content">
+<div class="bn-messages-content" data-bn-main-edge="true">
 
 		<?php if ( ! $mvs_active ) : ?>
 
@@ -64,6 +64,9 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 
 	</div><!-- /.bn-messages-content -->
 
-	<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
-
-</div><!-- /.bn-hub-shell -->
+<?php
+/**
+ * Fires after the messages list inner content.
+ */
+do_action( 'buddynext_messages_list_after' );
+?>
