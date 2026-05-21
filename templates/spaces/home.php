@@ -1,22 +1,29 @@
 <?php
 /**
- * Template: Space Home
+ * Template: Space Home (v2 inner).
  *
- * Renders the space hero header (cover, avatar, name, tabs) and the
- * two-column feed + sidebar layout for a single space.
+ * Renders the space hero (cover + identity + stats + actions) + tab nav
+ * (Feed / Members / Media / About) + tab body, inside the shell main
+ * column (`<main class="bn-app__main">` — see templates/shell/hub-shell.php).
+ * This inner template does NOT own the topbar, the rail, or the
+ * 2-column page grid. Sidebar widgets (about, members, top contributors)
+ * are registered on the `buddynext_right_sidebar` action; the shell
+ * auto-renders the right column when callbacks are present.
+ *
+ * v2 prototype: docs/v2 Plans/v2/space-home.html.
  *
  * Expected context var (set by template loader):
  *   $space_id (int) — the current space's primary key.
+ *
+ * Overridable: copy to {theme}/buddynext/spaces/home.php.
  *
  * @package BuddyNext
  * @since   1.0.0
  */
 
-declare(strict_types=1);
+declare( strict_types=1 );
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
+defined( 'ABSPATH' ) || exit;
 
 if ( ! function_exists( 'bn_space_category_icon' ) ) {
 	/**
@@ -41,6 +48,47 @@ if ( ! function_exists( 'bn_space_category_icon' ) ) {
 		);
 		$slug = $map[ (string) $cat_slug ] ?? 'home';
 		return buddynext_get_icon( $slug );
+	}
+}
+
+if ( ! function_exists( 'bn_sh_initials' ) ) {
+	/**
+	 * Return initials (up to 2 chars) from a display name.
+	 *
+	 * @param string $name Full display name.
+	 * @return string Uppercase initials.
+	 */
+	function bn_sh_initials( string $name ): string {
+		$parts = array_filter( explode( ' ', trim( $name ) ) );
+		if ( count( $parts ) >= 2 ) {
+			return strtoupper( mb_substr( $parts[0], 0, 1 ) . mb_substr( end( $parts ), 0, 1 ) );
+		}
+		return strtoupper( mb_substr( $name, 0, 2 ) );
+	}
+}
+
+if ( ! function_exists( 'bn_sh_avatar_color' ) ) {
+	/**
+	 * Return a deterministic avatar background colour based on a user id.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @return string CSS hex colour.
+	 */
+	function bn_sh_avatar_color( int $user_id ): string {
+		$colors = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#d97706' );
+		return $colors[ $user_id % count( $colors ) ];
+	}
+}
+
+if ( ! function_exists( 'bn_sh_time_diff' ) ) {
+	/**
+	 * Human-readable time diff label (e.g. "3h ago").
+	 *
+	 * @param string $datetime MySQL datetime string.
+	 * @return string Localized time diff.
+	 */
+	function bn_sh_time_diff( string $datetime ): string {
+		return human_time_diff( strtotime( $datetime ), time() ) . ' ' . __( 'ago', 'buddynext' );
 	}
 }
 
@@ -92,14 +140,8 @@ $is_member    = $membership && 'active' === $membership->status;
 $is_admin_mod = $membership && 'active' === $membership->status && in_array( $membership->role, array( 'owner', 'moderator' ), true );
 $is_pending   = $membership && 'pending' === $membership->status;
 
-// ── Access gate: private spaces ───────────────────────────────────────────────
-
-if ( 'open' !== $space->type && ! $is_member && ! current_user_can( 'manage_options' ) ) {
-	// Show teaser header only, gate the feed.
-	$gate_feed = true;
-} else {
-	$gate_feed = false;
-}
+// Access gate: private spaces.
+$gate_feed = ( 'open' !== $space->type && ! $is_member && ! current_user_can( 'manage_options' ) );
 
 // ── Fetch posts for the feed ──────────────────────────────────────────────────
 
@@ -172,49 +214,29 @@ $top_contributors = $wpdb->get_results(
 	)
 );
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Counts for stat strip + tabs ──────────────────────────────────────────────
 
-/**
- * Return initials (up to 2 chars) from a display name.
- *
- * @param string $name Full display name.
- * @return string Uppercase initials.
- */
-function bn_initials( string $name ): string {
-	$parts = array_filter( explode( ' ', trim( $name ) ) );
-	if ( count( $parts ) >= 2 ) {
-		return strtoupper( mb_substr( $parts[0], 0, 1 ) . mb_substr( end( $parts ), 0, 1 ) );
-	}
-	return strtoupper( mb_substr( $name, 0, 2 ) );
-}
+// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+$bn_post_count = (int) $wpdb->get_var(
+	$wpdb->prepare(
+		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published'",
+		$space_id
+	)
+);
 
-/**
- * Return a deterministic avatar background colour based on a user id.
- *
- * @param int $user_id WordPress user ID.
- * @return string CSS hex colour.
- */
-function bn_avatar_color( int $user_id ): string {
-	$colors = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#d97706' );
-	return $colors[ $user_id % count( $colors ) ];
-}
+// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+$bn_active_count = (int) $wpdb->get_var(
+	$wpdb->prepare(
+		"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
+		$space_id
+	)
+);
 
-/**
- * Human-readable time diff label (e.g. "3h ago").
- *
- * @param string $datetime MySQL datetime string.
- * @return string Localized time diff.
- */
-function bn_time_diff( string $datetime ): string {
-	return human_time_diff( strtotime( $datetime ), time() ) . ' ' . __( 'ago', 'buddynext' );
-}
-
-$active_tab = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : 'feed'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
+$active_tab       = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : 'feed'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $member_count_fmt = number_format_i18n( (int) $space->member_count );
 
 $privacy_label = match ( $space->type ) {
-	'open'    => __( 'Open', 'buddynext' ),
+	'open'    => __( 'Public', 'buddynext' ),
 	'private' => __( 'Private', 'buddynext' ),
 	default   => __( 'Invite-only', 'buddynext' ),
 };
@@ -227,13 +249,188 @@ $privacy_tone = match ( $space->type ) {
 $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 $rest_nonce      = wp_create_nonce( 'wp_rest' );
 
-$bn_nav_active = 'spaces';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
-?>
-<div class="bn-hub-shell">
+// ── Right sidebar widgets ────────────────────────────────────────────────────
+// Registered on the shared hub-shell action. The shell detects via has_action()
+// after the inner buffer flushes and renders the right column.
+$bn_sidebar_args = array(
+	'space'            => $space,
+	'space_id'         => $space_id,
+	'sidebar_members'  => $sidebar_members,
+	'top_contributors' => $top_contributors,
+	'member_count_fmt' => $member_count_fmt,
+	'post_count'       => $bn_post_count,
+	'privacy_label'    => $privacy_label,
+	'privacy_tone'     => $privacy_tone,
+);
 
-<div
-	class="bn-space-home"
+add_action(
+	'buddynext_right_sidebar',
+	static function () use ( $bn_sidebar_args ) {
+		$bn_s = $bn_sidebar_args;
+
+		// Card 1: About.
+		ob_start();
+		if ( ! empty( $bn_s['space']->description ) ) :
+			?>
+			<p class="bn-sh-side-text"><?php echo esc_html( $bn_s['space']->description ); ?></p>
+			<?php
+		endif;
+		?>
+		<div class="bn-sh-side-stats">
+			<div class="bn-sh-side-stat">
+				<span class="bn-sh-side-stat__num"><?php echo esc_html( $bn_s['member_count_fmt'] ); ?></span>
+				<span class="bn-sh-side-stat__label"><?php esc_html_e( 'Members', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-sh-side-stat">
+				<span class="bn-sh-side-stat__num"><?php echo esc_html( number_format_i18n( $bn_s['post_count'] ) ); ?></span>
+				<span class="bn-sh-side-stat__label"><?php esc_html_e( 'Posts', 'buddynext' ); ?></span>
+			</div>
+		</div>
+		<div class="bn-sh-side-meta">
+			<span class="bn-badge" data-tone="<?php echo esc_attr( $bn_s['privacy_tone'] ); ?>"><?php echo esc_html( $bn_s['privacy_label'] ); ?></span>
+			<?php if ( ! empty( $bn_s['space']->created_at ) ) : ?>
+				<span class="bn-sh-side-meta__row">
+					<?php buddynext_icon( 'calendar' ); ?>
+					<?php
+					// translators: %s is the formatted date.
+					printf( esc_html__( 'Created %s', 'buddynext' ), esc_html( date_i18n( get_option( 'date_format' ), strtotime( $bn_s['space']->created_at ) ) ) );
+					?>
+				</span>
+			<?php endif; ?>
+			<?php if ( ! empty( $bn_s['space']->category_name ) ) : ?>
+				<span class="bn-sh-side-meta__row">
+					<?php buddynext_icon( 'hash' ); ?>
+					<?php echo esc_html( $bn_s['space']->category_name ); ?>
+				</span>
+			<?php endif; ?>
+		</div>
+		<?php
+		$bn_about_html = (string) ob_get_clean();
+
+		buddynext_get_template(
+			'parts/sidebar-card.php',
+			array(
+				'id'         => 'space-about',
+				'title'      => __( 'About this space', 'buddynext' ),
+				'title_icon' => 'info',
+				'body_html'  => $bn_about_html,
+			)
+		);
+
+		// Card 2: Members preview.
+		if ( ! empty( $bn_s['sidebar_members'] ) ) {
+			ob_start();
+			?>
+			<ul class="bn-sh-side-members">
+				<?php foreach ( $bn_s['sidebar_members'] as $bn_m ) : ?>
+					<?php
+					$bn_uid   = (int) $bn_m->user_id;
+					$bn_mname = $bn_m->display_name ?? __( 'Member', 'buddynext' );
+					$bn_init  = bn_sh_initials( $bn_mname );
+					?>
+					<li class="bn-sh-side-member">
+						<span class="bn-avatar bn-sh-side-member__avatar"
+							data-size="sm"
+							style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_uid ) ); ?>;color:#fff;"
+							aria-hidden="true"
+						><?php echo esc_html( $bn_init ); ?></span>
+						<span class="bn-sh-side-member__name">
+							<?php echo esc_html( $bn_mname ); ?>
+							<?php if ( 'owner' === $bn_m->role ) : ?>
+								<span class="bn-badge" data-tone="paid"><?php esc_html_e( 'Admin', 'buddynext' ); ?></span>
+							<?php elseif ( 'moderator' === $bn_m->role ) : ?>
+								<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Mod', 'buddynext' ); ?></span>
+							<?php endif; ?>
+						</span>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+			<?php
+			$bn_members_html = (string) ob_get_clean();
+
+			buddynext_get_template(
+				'parts/sidebar-card.php',
+				array(
+					'id'            => 'space-members',
+					'title'         => __( 'Members', 'buddynext' ),
+					'title_icon'    => 'users',
+					'body_html'     => $bn_members_html,
+					'see_all_url'   => add_query_arg( 'bn_tab', 'members' ),
+					'see_all_label' => __( 'See all members', 'buddynext' ),
+				)
+			);
+		}
+
+		// Card 3: Top contributors.
+		if ( ! empty( $bn_s['top_contributors'] ) ) {
+			ob_start();
+			?>
+			<ul class="bn-sh-side-members">
+				<?php foreach ( $bn_s['top_contributors'] as $bn_rank => $bn_c ) : ?>
+					<?php
+					$bn_cuid  = (int) $bn_c->user_id;
+					$bn_cname = $bn_c->display_name ?? __( 'Member', 'buddynext' );
+					$bn_cinit = bn_sh_initials( $bn_cname );
+					?>
+					<li class="bn-sh-side-member">
+						<span class="bn-sh-side-member__rank"><?php echo esc_html( (string) ( $bn_rank + 1 ) ); ?></span>
+						<span class="bn-avatar bn-sh-side-member__avatar"
+							data-size="sm"
+							style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_cuid ) ); ?>;color:#fff;"
+							aria-hidden="true"
+						><?php echo esc_html( $bn_cinit ); ?></span>
+						<span class="bn-sh-side-member__name"><?php echo esc_html( $bn_cname ); ?></span>
+						<span class="bn-sh-side-member__count">
+							<?php
+							// translators: %d: post count.
+							printf( esc_html( _n( '%d post', '%d posts', (int) $bn_c->post_count, 'buddynext' ) ), (int) $bn_c->post_count );
+							?>
+						</span>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+			<?php
+			$bn_contrib_html = (string) ob_get_clean();
+
+			buddynext_get_template(
+				'parts/sidebar-card.php',
+				array(
+					'id'         => 'space-contributors',
+					'title'      => __( 'Top contributors', 'buddynext' ),
+					'title_icon' => 'award',
+					'body_html'  => $bn_contrib_html,
+				)
+			);
+		}
+	}
+);
+
+/**
+ * Fires before the space-home inner content.
+ *
+ * @param int $space_id Current space ID.
+ * @param int $current_user_id Current user ID.
+ */
+do_action( 'buddynext_space_home_before', $space_id, $current_user_id );
+
+// ── Render ───────────────────────────────────────────────────────────────────
+
+$bn_nav_tabs = array(
+	'feed'    => __( 'Feed', 'buddynext' ),
+	'members' => __( 'Members', 'buddynext' ),
+	'media'   => __( 'Media', 'buddynext' ),
+	'about'   => __( 'About', 'buddynext' ),
+);
+
+/**
+ * Filters the tab list shown in the space navigation bar.
+ *
+ * @param array $tabs     Associative array: tab_key => label|config.
+ * @param int   $space_id BuddyNext space ID.
+ */
+$bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id );
+?>
+<div class="bn-sh-stack"
 	data-wp-interactive="buddynext/spaces"
 	data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 	data-wp-context='
@@ -250,37 +447,31 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 	'
 >
 
-	<!-- Space header -->
-	<div class="bn-sh-header">
-		<div class="bn-sh-cover">
-			<?php if ( ! empty( $space->cover_image_url ) ) : ?>
-				<img
-					src="<?php echo esc_url( $space->cover_image_url ); ?>"
-					alt="<?php echo esc_attr( $space->name ); ?>"
-					loading="lazy"
-				>
-			<?php endif; ?>
+	<!-- Hero -->
+	<section class="bn-sh-hero">
+		<div class="bn-sh-hero__cover"<?php echo empty( $space->cover_image_url ) ? '' : ' style="background-image:url(' . esc_url( $space->cover_image_url ) . ');background-size:cover;background-position:center;"'; ?>>
+			<span class="bn-sh-hero__cover-tone" aria-hidden="true"></span>
 		</div>
 
-		<div class="bn-sh-inner">
-			<div class="bn-sh-avatar" aria-hidden="true">
+		<div class="bn-sh-hero__head">
+			<div class="bn-sh-hero__emblem" aria-hidden="true">
 				<?php echo wp_kses_data( bn_space_category_icon( $space->category_slug ?? '' ) ); ?>
 			</div>
 
-			<div class="bn-sh-info">
-				<h1 class="bn-sh-name">
+			<div class="bn-sh-hero__info">
+				<h1 class="bn-sh-hero__name">
 					<?php echo esc_html( $space->name ); ?>
 					<span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span>
 				</h1>
-				<div class="bn-sh-meta">
-					<span><?php buddynext_icon( 'users' ); ?> <?php echo esc_html( $member_count_fmt ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
-					<?php if ( ! empty( $space->category_name ) ) : ?>
-						<span><?php buddynext_icon( 'hash' ); ?> <?php echo esc_html( $space->category_name ); ?></span>
-					<?php endif; ?>
-				</div>
+				<?php if ( ! empty( $space->category_name ) ) : ?>
+					<div class="bn-sh-hero__handle">
+						<?php buddynext_icon( 'hash' ); ?>
+						<?php echo esc_html( $space->category_name ); ?>
+					</div>
+				<?php endif; ?>
 			</div>
 
-			<div class="bn-sh-actions">
+			<div class="bn-sh-hero__actions">
 				<?php if ( $is_admin_mod ) : ?>
 					<a
 						href="<?php echo esc_url( buddynext_space_settings_url( $space->slug ) ); ?>"
@@ -298,18 +489,18 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				<?php elseif ( $is_member ) : ?>
 					<button
 						class="bn-btn"
+						data-variant="ghost"
+						data-size="sm"
+						aria-label="<?php esc_attr_e( 'Notifications', 'buddynext' ); ?>"
+					><?php buddynext_icon( 'bell' ); ?></button>
+					<button
+						class="bn-btn"
 						data-variant="secondary"
 						data-size="sm"
 						data-current-state="joined"
 						data-wp-on--click="actions.leaveSpace"
 						aria-label="<?php esc_attr_e( 'Joined — click to leave', 'buddynext' ); ?>"
 					><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Joined', 'buddynext' ); ?></button>
-					<button
-						class="bn-btn"
-						data-variant="ghost"
-						data-size="sm"
-						aria-label="<?php esc_attr_e( 'Notifications', 'buddynext' ); ?>"
-					><?php buddynext_icon( 'bell' ); ?> <?php esc_html_e( 'Notifications', 'buddynext' ); ?></button>
 
 				<?php elseif ( $is_pending ) : ?>
 					<button
@@ -318,7 +509,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 						data-size="sm"
 						data-current-state="pending"
 						data-wp-on--click="actions.cancelJoinRequest"
-					><?php esc_html_e( 'Request Pending', 'buddynext' ); ?></button>
+					><?php esc_html_e( 'Request pending', 'buddynext' ); ?></button>
 
 				<?php elseif ( 'open' === $space->type ) : ?>
 					<button
@@ -327,7 +518,7 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 						data-size="sm"
 						data-current-state="join"
 						data-wp-on--click="actions.joinSpace"
-					><?php esc_html_e( 'Join Space', 'buddynext' ); ?></button>
+					><?php esc_html_e( 'Join space', 'buddynext' ); ?></button>
 
 				<?php else : ?>
 					<button
@@ -336,32 +527,46 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 						data-size="sm"
 						data-current-state="request"
 						data-wp-on--click="actions.requestJoin"
-					><?php esc_html_e( 'Request to Join', 'buddynext' ); ?></button>
+					><?php esc_html_e( 'Request to join', 'buddynext' ); ?></button>
 				<?php endif; ?>
 			</div>
 		</div>
 
-		<nav class="bn-tabs bn-sh-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Space navigation', 'buddynext' ); ?>">
+		<?php
+		// 4-tile stat strip composed via parts/stat-strip.php (Members / Posts / Active / Created).
+		$bn_stats = array(
+			array(
+				'label' => __( 'Members', 'buddynext' ),
+				'value' => $member_count_fmt,
+				'icon'  => 'users',
+			),
+			array(
+				'label' => __( 'Posts', 'buddynext' ),
+				'value' => number_format_i18n( $bn_post_count ),
+				'icon'  => 'message-circle',
+			),
+			array(
+				'label' => __( 'Active 7d', 'buddynext' ),
+				'value' => number_format_i18n( $bn_active_count ),
+				'icon'  => 'activity',
+			),
+			array(
+				'label' => __( 'Created', 'buddynext' ),
+				'value' => ! empty( $space->created_at ) ? date_i18n( 'M Y', strtotime( $space->created_at ) ) : '—',
+				'icon'  => 'calendar',
+			),
+		);
+		buddynext_get_template(
+			'parts/stat-strip.php',
+			array(
+				'stats'   => $bn_stats,
+				'classes' => array( 'bn-sh-hero__stats' ),
+			)
+		);
+		?>
+
+		<nav class="bn-tabs bn-sh-hero__tabs" role="tablist" aria-label="<?php esc_attr_e( 'Space navigation', 'buddynext' ); ?>">
 			<?php
-			$bn_nav_tabs = array(
-				'feed'    => __( 'Feed', 'buddynext' ),
-				'members' => __( 'Members', 'buddynext' ),
-				'media'   => __( 'Media', 'buddynext' ),
-				'about'   => __( 'About', 'buddynext' ),
-			);
-
-			/**
-			 * Filters the tab list shown in the space navigation bar.
-			 *
-			 * Addons can append additional tabs. Each entry is either:
-			 *   string  — translated label for an internal ?bn_tab={key} link.
-			 *   array   — ['label' => string, 'url' => string] for an external link.
-			 *
-			 * @param array $tabs     Associative array: tab_key => label|config.
-			 * @param int   $space_id BuddyNext space ID.
-			 */
-			$bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id );
-
 			foreach ( $bn_nav_tabs as $tab_key => $tab_data ) :
 				if ( is_array( $tab_data ) ) {
 					// External-link tab injected by an addon.
@@ -378,163 +583,199 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 				?>
 				<a
 					href="<?php echo esc_url( $tab_url ); ?>"
-					class="bn-tab bn-sh-tab"
+					class="bn-tab<?php echo $tab_active ? ' is-active' : ''; ?>"
 					role="tab"
 					aria-selected="<?php echo $tab_active ? 'true' : 'false'; ?>"
 					<?php echo $tab_rel ? 'rel="' . esc_attr( $tab_rel ) . '"' : ''; ?>
-				><?php echo esc_html( $tab_label ); ?></a>
+				><span class="bn-tab__label"><?php echo esc_html( $tab_label ); ?></span></a>
 			<?php endforeach; ?>
 		</nav>
-	</div>
+	</section>
 
-	<!-- Main layout -->
-	<div class="bn-sh-layout">
+	<!-- Tab body -->
+	<div class="bn-sh-body">
+		<?php if ( $gate_feed ) : ?>
 
-		<!-- Feed column -->
-		<main>
+			<div class="bn-card bn-sh-gate">
+				<div class="bn-sh-gate__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>
+				<h2 class="bn-sh-gate__title"><?php esc_html_e( 'This is a private space', 'buddynext' ); ?></h2>
+				<p class="bn-sh-gate__lede">
+					<?php esc_html_e( 'Join to read posts and participate in discussions.', 'buddynext' ); ?>
+				</p>
+				<button
+					class="bn-btn"
+					data-variant="primary"
+					data-size="md"
+					data-current-state="request"
+					data-wp-on--click="actions.requestJoin"
+				>
+					<?php esc_html_e( 'Request to join', 'buddynext' ); ?>
+				</button>
+			</div>
 
-			<?php if ( $gate_feed ) : ?>
+		<?php elseif ( 'media' === $active_tab ) : ?>
 
-				<div class="bn-card bn-space-gate">
-					<div class="bn-space-gate__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>
-					<h2 class="bn-space-gate__title"><?php esc_html_e( 'This is a private space', 'buddynext' ); ?></h2>
-					<p class="bn-space-gate__lede">
-						<?php esc_html_e( 'Join to read posts and participate in discussions.', 'buddynext' ); ?>
-					</p>
-					<button
-						class="bn-btn"
-						data-variant="primary"
-						data-size="md"
-						data-current-state="request"
-						data-wp-on--click="actions.requestJoin"
-					>
-						<?php esc_html_e( 'Request to Join', 'buddynext' ); ?>
-					</button>
-				</div>
-
-			<?php else : ?>
-
-				<?php if ( $is_member && $bn_current_user ) : ?>
-					<?php
-					buddynext_get_template(
-						'partials/composer.php',
-						array(
-							'space_id'        => $space_id,
-							'current_user_id' => $current_user_id,
+			<?php
+			// Media tab — show all MVS media uploaded in this space.
+			$space_media = array();
+			if ( class_exists( 'WPMediaVerse\Core\Plugin' ) && post_type_exists( 'mvs_media' ) ) {
+				$space_media = get_posts(
+					array(
+						'post_type'   => 'mvs_media',
+						'numberposts' => 24,
+						'post_status' => 'publish',
+						'meta_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+							array(
+								'key'   => '_mvs_space_id',
+								'value' => $space_id,
+							),
+						),
+					)
+				);
+				// Fallback: media from photo-type posts in this space.
+				if ( empty( $space_media ) ) {
+					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$photo_ids_raw = $wpdb->get_col(
+						$wpdb->prepare(
+							"SELECT media_ids FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND type = 'photo' AND media_ids IS NOT NULL AND media_ids != '' AND status = 'published' ORDER BY created_at DESC LIMIT 24",
+							$space_id
 						)
 					);
-					?>
-				<?php endif; ?>
-
-				<?php if ( $pinned_post ) : ?>
-					<div class="bn-pinned">
-						<div class="bn-pinned__label"><?php buddynext_icon( 'bookmark' ); ?> <?php esc_html_e( 'Pinned announcement', 'buddynext' ); ?></div>
-						<p class="bn-pinned__title"><?php echo esc_html( wp_trim_words( $pinned_post->content ?? '', 12 ) ); ?></p>
-						<p class="bn-pinned__meta">
-							<?php
-							// translators: %s is the author name, %s is the time.
-							printf(
-								// translators: 1: author display name, 2: time ago label.
-								esc_html__( 'Pinned by %1$s &middot; %2$s', 'buddynext' ),
-								esc_html( $pinned_post->author_name ?? __( 'Admin', 'buddynext' ) ),
-								esc_html( bn_time_diff( $pinned_post->created_at ) )
-							);
-							?>
-						</p>
-					</div>
-				<?php endif; ?>
-
-				<?php if ( empty( $feed_posts ) ) : ?>
-					<div class="bn-card bn-space-empty">
-						<p class="bn-space-empty__title">
-							<?php esc_html_e( 'No posts yet', 'buddynext' ); ?>
-						</p>
-						<p class="bn-space-empty__lede"><?php esc_html_e( 'Be the first to post in this space.', 'buddynext' ); ?></p>
-					</div>
-
-				<?php elseif ( 'media' === $active_tab ) : ?>
-
-					<?php
-					// Media tab — show all MVS media uploaded in this space.
-					$space_media = array();
-					if ( class_exists( 'WPMediaVerse\Core\Plugin' ) && post_type_exists( 'mvs_media' ) ) {
-						$space_media = get_posts(
-							array(
-								'post_type'   => 'mvs_media',
-								'numberposts' => 24,
-								'post_status' => 'publish',
-								'meta_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-									array(
-										'key'   => '_mvs_space_id',
-										'value' => $space_id,
-									),
-								),
-							)
-						);
-						// Fallback: also get media from photo-type posts in this space.
-						if ( empty( $space_media ) ) {
-							// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-							$photo_ids_raw = $wpdb->get_col(
-								$wpdb->prepare(
-									"SELECT media_ids FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND type = 'photo' AND media_ids IS NOT NULL AND media_ids != '' AND status = 'published' ORDER BY created_at DESC LIMIT 24",
-									$space_id
-								)
-							);
-							// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-							$all_ids = array();
-							foreach ( $photo_ids_raw as $json_str ) {
-									$decoded = json_decode( $json_str, true );
-								if ( is_array( $decoded ) ) {
-									$all_ids = array_merge( $all_ids, $decoded );
-								}
-							}
-							if ( $all_ids ) {
-								$space_media = get_posts(
-									array(
-										'post_type'   => 'attachment',
-										'post__in'    => array_slice( array_map( 'absint', $all_ids ), 0, 24 ),
-										'post_status' => 'inherit',
-									)
-								);
-							}
+					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$all_ids = array();
+					foreach ( $photo_ids_raw as $json_str ) {
+						$decoded = json_decode( $json_str, true );
+						if ( is_array( $decoded ) ) {
+							$all_ids = array_merge( $all_ids, $decoded );
 						}
 					}
-					?>
-					<?php if ( $space_media ) : ?>
-					<div class="bn-space-media-grid mvs-activity-media-grid">
-						<?php foreach ( $space_media as $sm ) : ?>
-							<?php
-							$sm_url = get_post_meta( $sm->ID, '_mvs_file_url', true );
-							if ( ! $sm_url ) {
-								$sm_url = wp_get_attachment_image_url( $sm->ID, 'medium' );
-							}
-							if ( ! $sm_url ) {
-								$sm_url = wp_get_attachment_url( $sm->ID );
-							}
-							$sm_full = wp_get_attachment_url( $sm->ID );
-							?>
-							<div class="bn-space-media-item mvs-activity-media" data-mvs-media-id="<?php echo esc_attr( (string) $sm->ID ); ?>" data-mvs-src="<?php echo esc_url( (string) $sm_full ); ?>">
-								<a href="<?php echo esc_url( (string) ( $sm_full ? $sm_full : $sm_url ) ); ?>" class="mvs-grid-item-link">
-									<img src="<?php echo esc_url( (string) $sm_url ); ?>" alt="<?php echo esc_attr( $sm->post_title ); ?>" loading="lazy">
-								</a>
-							</div>
-						<?php endforeach; ?>
-					</div>
+					if ( $all_ids ) {
+						$space_media = get_posts(
+							array(
+								'post_type'   => 'attachment',
+								'post__in'    => array_slice( array_map( 'absint', $all_ids ), 0, 24 ),
+								'post_status' => 'inherit',
+							)
+						);
+					}
+				}
+			}
+			?>
+			<?php if ( $space_media ) : ?>
+				<div class="bn-sh-media-grid mvs-activity-media-grid">
+					<?php foreach ( $space_media as $sm ) : ?>
+						<?php
+						$sm_url = get_post_meta( $sm->ID, '_mvs_file_url', true );
+						if ( ! $sm_url ) {
+							$sm_url = wp_get_attachment_image_url( $sm->ID, 'medium' );
+						}
+						if ( ! $sm_url ) {
+							$sm_url = wp_get_attachment_url( $sm->ID );
+						}
+						$sm_full = wp_get_attachment_url( $sm->ID );
+						?>
+						<div class="bn-sh-media-item mvs-activity-media" data-mvs-media-id="<?php echo esc_attr( (string) $sm->ID ); ?>" data-mvs-src="<?php echo esc_url( (string) $sm_full ); ?>">
+							<a href="<?php echo esc_url( (string) ( $sm_full ? $sm_full : $sm_url ) ); ?>" class="mvs-grid-item-link">
+								<img src="<?php echo esc_url( (string) $sm_url ); ?>" alt="<?php echo esc_attr( $sm->post_title ); ?>" loading="lazy">
+							</a>
+						</div>
+					<?php endforeach; ?>
+				</div>
+			<?php else : ?>
+				<?php
+				buddynext_get_template(
+					'parts/empty-state.php',
+					array(
+						'icon'  => 'camera',
+						'title' => __( 'No media in this space yet', 'buddynext' ),
+						'body'  => __( 'Share a photo to get started.', 'buddynext' ),
+					)
+				);
+				?>
+			<?php endif; ?>
+
+		<?php elseif ( 'about' === $active_tab ) : ?>
+
+			<div class="bn-card bn-sh-about">
+				<h2 class="bn-sh-about__title"><?php esc_html_e( 'About', 'buddynext' ); ?></h2>
+				<?php if ( ! empty( $space->description ) ) : ?>
+					<p class="bn-sh-about__desc"><?php echo esc_html( $space->description ); ?></p>
 				<?php else : ?>
-					<?php
-					buddynext_get_template(
-						'parts/empty-state.php',
-						array(
-							'icon'  => 'camera',
-							'title' => __( 'No media in this space yet', 'buddynext' ),
-							'body'  => __( 'Share a photo to get started!', 'buddynext' ),
-						)
-					);
-					?>
+					<p class="bn-sh-about__desc"><?php esc_html_e( 'No description yet.', 'buddynext' ); ?></p>
 				<?php endif; ?>
 
-			<?php else : ?>
+				<dl class="bn-sh-about__meta">
+					<div>
+						<dt><?php esc_html_e( 'Visibility', 'buddynext' ); ?></dt>
+						<dd><span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span></dd>
+					</div>
+					<?php if ( ! empty( $space->category_name ) ) : ?>
+						<div>
+							<dt><?php esc_html_e( 'Category', 'buddynext' ); ?></dt>
+							<dd><?php echo esc_html( $space->category_name ); ?></dd>
+						</div>
+					<?php endif; ?>
+					<?php if ( ! empty( $space->created_at ) ) : ?>
+						<div>
+							<dt><?php esc_html_e( 'Created', 'buddynext' ); ?></dt>
+							<dd><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $space->created_at ) ) ); ?></dd>
+						</div>
+					<?php endif; ?>
+					<div>
+						<dt><?php esc_html_e( 'Members', 'buddynext' ); ?></dt>
+						<dd><?php echo esc_html( $member_count_fmt ); ?></dd>
+					</div>
+				</dl>
+			</div>
 
+		<?php else : ?>
+
+			<?php if ( $is_member && $bn_current_user ) : ?>
+				<?php
+				buddynext_get_template(
+					'partials/composer.php',
+					array(
+						'space_id'        => $space_id,
+						'current_user_id' => $current_user_id,
+					)
+				);
+				?>
+			<?php endif; ?>
+
+			<?php if ( $pinned_post ) : ?>
+				<div class="bn-card bn-sh-pinned">
+					<div class="bn-sh-pinned__label">
+						<?php buddynext_icon( 'bookmark' ); ?>
+						<?php esc_html_e( 'Pinned announcement', 'buddynext' ); ?>
+					</div>
+					<p class="bn-sh-pinned__title"><?php echo esc_html( wp_trim_words( $pinned_post->content ?? '', 24 ) ); ?></p>
+					<p class="bn-sh-pinned__meta">
+						<?php
+						// translators: 1: author display name, 2: time ago label.
+						printf(
+							/* translators: 1: author display name, 2: time ago label. */
+							esc_html__( 'Pinned by %1$s · %2$s', 'buddynext' ),
+							esc_html( $pinned_post->author_name ?? __( 'Admin', 'buddynext' ) ),
+							esc_html( bn_sh_time_diff( $pinned_post->created_at ) )
+						);
+						?>
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( empty( $feed_posts ) ) : ?>
+				<?php
+				buddynext_get_template(
+					'parts/empty-state.php',
+					array(
+						'icon'  => 'message-circle',
+						'title' => __( 'No posts yet', 'buddynext' ),
+						'body'  => __( 'Be the first to post in this space.', 'buddynext' ),
+					)
+				);
+				?>
+			<?php else : ?>
+				<div class="bn-sh-feed" role="feed" aria-label="<?php esc_attr_e( 'Space feed', 'buddynext' ); ?>">
 					<?php
 					foreach ( $feed_posts as $post_arr ) {
 						if ( isset( $post_arr['media_ids'] ) && is_string( $post_arr['media_ids'] ) ) {
@@ -550,132 +791,18 @@ buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_ac
 						);
 					}
 					?>
-
-				<?php endif; ?>
-
-			<?php endif; ?>
-
-		</main>
-
-		<!-- Sidebar -->
-		<aside aria-label="<?php esc_attr_e( 'Space information', 'buddynext' ); ?>">
-
-			<div class="bn-card bn-sidebar-widget">
-				<h2 class="bn-sidebar-widget__title"><?php esc_html_e( 'About', 'buddynext' ); ?></h2>
-				<?php if ( ! empty( $space->description ) ) : ?>
-					<p class="bn-sidebar-about"><?php echo esc_html( $space->description ); ?></p>
-				<?php endif; ?>
-
-				<div class="bn-stat-grid bn-sidebar-stats">
-					<div class="bn-stat">
-						<div class="bn-stat__label"><?php esc_html_e( 'Members', 'buddynext' ); ?></div>
-						<div class="bn-stat__value"><?php echo esc_html( $member_count_fmt ); ?></div>
-					</div>
-					<?php
-					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$bn_post_count = (int) $wpdb->get_var(
-						$wpdb->prepare(
-							"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published'",
-							$space_id
-						)
-					);
-					?>
-					<div class="bn-stat">
-						<div class="bn-stat__label"><?php esc_html_e( 'Posts', 'buddynext' ); ?></div>
-						<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $bn_post_count ) ); ?></div>
-					</div>
-				</div>
-
-				<div class="bn-sidebar-meta">
-					<?php if ( ! empty( $space->created_at ) ) : ?>
-						<div><?php buddynext_icon( 'calendar' ); ?>
-						<?php
-							// translators: %s is the formatted date.
-							printf( esc_html__( 'Created %s', 'buddynext' ), esc_html( date_i18n( get_option( 'date_format' ), strtotime( $space->created_at ) ) ) );
-						?>
-							</div>
-					<?php endif; ?>
-					<div><span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span></div>
-					<?php if ( ! empty( $space->category_name ) ) : ?>
-						<div><?php buddynext_icon( 'hash' ); ?> <?php echo esc_html( $space->category_name ); ?></div>
-					<?php endif; ?>
-				</div>
-			</div>
-
-			<div class="bn-card bn-sidebar-widget">
-				<h2 class="bn-sidebar-widget__title">
-					<?php esc_html_e( 'Members', 'buddynext' ); ?>
-					<span class="bn-sidebar-widget__count">(<?php echo esc_html( $member_count_fmt ); ?>)</span>
-				</h2>
-
-				<?php foreach ( $sidebar_members as $member ) : ?>
-					<?php
-					$m_uid   = (int) $member->user_id;
-					$m_name  = $member->display_name ?? __( 'Member', 'buddynext' );
-					$m_color = bn_avatar_color( $m_uid );
-					$m_init  = bn_initials( $m_name );
-					?>
-					<div class="bn-member-row">
-						<div
-							class="bn-avatar bn-member-row__avatar"
-							data-size="sm"
-							style="background:<?php echo esc_attr( $m_color ); ?>;"
-							aria-label="<?php echo esc_attr( $m_name ); ?>"
-						><?php echo esc_html( $m_init ); ?></div>
-						<span class="bn-member-row__name">
-							<?php echo esc_html( $m_name ); ?>
-							<?php if ( 'owner' === $member->role ) : ?>
-								<span class="bn-badge" data-tone="paid"><?php esc_html_e( 'Admin', 'buddynext' ); ?></span>
-							<?php elseif ( 'moderator' === $member->role ) : ?>
-								<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Mod', 'buddynext' ); ?></span>
-							<?php endif; ?>
-						</span>
-					</div>
-				<?php endforeach; ?>
-
-				<a
-					href="<?php echo esc_url( add_query_arg( 'bn_tab', 'members' ) ); ?>"
-					class="bn-sidebar-link"
-				><?php esc_html_e( 'See all members', 'buddynext' ); ?> &rarr;</a>
-			</div>
-
-			<?php if ( ! empty( $top_contributors ) ) : ?>
-				<div class="bn-card bn-sidebar-widget">
-					<h2 class="bn-sidebar-widget__title"><?php buddynext_icon( 'award' ); ?> <?php esc_html_e( 'Top Contributors', 'buddynext' ); ?></h2>
-
-					<?php foreach ( $top_contributors as $rank => $contrib ) : ?>
-						<?php
-						$c_uid   = (int) $contrib->user_id;
-						$c_name  = $contrib->display_name ?? __( 'Member', 'buddynext' );
-						$c_color = bn_avatar_color( $c_uid );
-						$c_init  = bn_initials( $c_name );
-						?>
-						<div class="bn-top-contrib-row">
-							<span class="bn-top-contrib-rank"><?php echo esc_html( (string) ( $rank + 1 ) ); ?></span>
-							<div
-								class="bn-avatar bn-top-contrib-avatar"
-								data-size="xs"
-								style="background:<?php echo esc_attr( $c_color ); ?>;"
-								aria-label="<?php echo esc_attr( $c_name ); ?>"
-							><?php echo esc_html( $c_init ); ?></div>
-							<span class="bn-top-contrib-name"><?php echo esc_html( $c_name ); ?></span>
-							<span class="bn-top-contrib-count">
-								<?php
-								// translators: %d is the post count.
-								printf( esc_html__( '%d posts', 'buddynext' ), (int) $contrib->post_count );
-								?>
-							</span>
-						</div>
-					<?php endforeach; ?>
 				</div>
 			<?php endif; ?>
 
-		</aside>
+		<?php endif; ?>
+	</div>
 
-	</div><!-- /.bn-sh-layout -->
-
-</div><!-- /.bn-space-home -->
-
-<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
-
-</div><!-- /.bn-hub-shell -->
+</div>
+<?php
+/**
+ * Fires after the space-home inner content.
+ *
+ * @param int $space_id Current space ID.
+ * @param int $current_user_id Current user ID.
+ */
+do_action( 'buddynext_space_home_after', $space_id, $current_user_id );
