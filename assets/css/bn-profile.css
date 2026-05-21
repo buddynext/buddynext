@@ -675,30 +675,26 @@
  * Prototype: docs/v2 Plans/v2/user-profile.html
  * ───────────────────────────────────────────────────────────────────────── */
 
-.bn-profile-wrap {
+/* ── Main stack (replaces the legacy .bn-profile-wrap / .bn-profile-layout)
+ *
+ * The shell (`templates/shell/hub-shell.php`) owns the document chrome:
+ * topbar, rail, main column, and the optional right column. This
+ * template renders inside `.bn-app__main`; sidebar widgets are hooked
+ * into `buddynext_right_sidebar`. The stack just stacks the hero, tab
+ * bar, and tab panels vertically with consistent gap.
+ * ───────────────────────────────────────────────────────────────────── */
+.bn-pf-stack {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+	color: var(--bn-ink);
 	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-base);
-	color: var(--bn-ink);
-	background: var(--bn-canvas);
 	-webkit-font-smoothing: antialiased;
-}
-
-/* ── Layout shell ─────────────────────────────────────────────────────── */
-.bn-profile-layout {
-	max-width: 1080px;
-	margin-inline: auto;
-	padding: var(--bn-s5) var(--bn-s5);
-	display: grid;
-	grid-template-columns: 1fr 300px;
-	gap: var(--bn-s4);
-	align-items: start;
 }
 
 /* ── Hero card ─────────────────────────────────────────────────────────── */
 .bn-pf-hero {
-	max-width: 1080px;
-	margin-inline: auto;
-	margin-block: var(--bn-s4) var(--bn-s4);
 	overflow: hidden;
 	padding: 0;
 }
@@ -1188,12 +1184,7 @@
 }
 
 @media (max-width: 640px) {
-	.bn-profile-layout {
-		grid-template-columns: 1fr;
-		padding: var(--bn-s4);
-		gap: var(--bn-s4);
-	}
-	.bn-pf-hero { margin-block: var(--bn-s3); }
+	.bn-pf-stack { gap: var(--bn-s3); }
 	.bn-pf-cover { height: 140px; }
 	.bn-pf-avatar-wrap { margin-block-start: calc(var(--bn-s8) * -1); }
 	.bn-pf-avatar-wrap .bn-avatar[data-size="2xl"] {
@@ -1201,6 +1192,8 @@
 		height: 80px;
 	}
 	.bn-pf-name { font-size: var(--bn-text-xl); }
+	.bn-pf-actions { width: 100%; }
+	.bn-pf-actions .bn-btn { flex: 1 1 auto; justify-content: center; }
 	.bn-profile-media-grid { grid-template-columns: repeat(2, 1fr); }
 	.bn-pf-tabs {
 		overflow-x: auto;

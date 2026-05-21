@@ -2,7 +2,13 @@
 /**
  * BuddyNext — User Profile View template.
  *
- * Context variables expected (set by the shortcode/block before include):
+ * Renders the hero card, tab bar, and primary tab panels inside
+ * `.bn-app__main`. Sidebar widgets (profile completion, social links,
+ * work, education, interests, spaces) are hooked into the shell's
+ * `buddynext_right_sidebar` action; when anything is hooked the shell
+ * auto-renders the right column.
+ *
+ * Context variables expected (set by PageRouter before include):
  *   $user_id  int  The ID of the profile being viewed.
  *
  * @package BuddyNext
@@ -10,6 +16,8 @@
  */
 
 declare(strict_types=1);
+
+defined( 'ABSPATH' ) || exit;
 
 // Guard: require a valid user ID.
 if ( empty( $user_id ) || (int) $user_id <= 0 ) {
@@ -245,7 +253,6 @@ if ( '' === $profile_slug ) {
 }
 
 // --- Recent posts (tab: Posts default) ------------------------------------
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $recent_posts = $wpdb->get_results(
 	$wpdb->prepare(
@@ -297,17 +304,229 @@ $format_count = static function ( int $n ): string {
 	}
 	return (string) $n;
 };
-?>
-<?php
-$bn_nav_active = '';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+
+// --- Sidebar widget hook --------------------------------------------------
+// The shell renders `templates/shell/right-sidebar.php` when anything is
+// hooked on `buddynext_right_sidebar`. We register a single closure that
+// emits the profile-specific widgets, captured here via `use ( ... )` so
+// no globals leak.
+$bn_pf_sidebar = static function () use (
+	$is_own_profile,
+	$completion,
+	$social_links,
+	$work_entries,
+	$edu_entries,
+	$interests,
+	$member_spaces,
+	$get_fv,
+	$entry_fv
+): void {
+	// Profile completion (own profile only).
+	if ( $is_own_profile && null !== $completion ) {
+		$c_pct      = (int) $completion['percent'];
+		$c_complete = 100 === $c_pct;
+		$edit_url   = \BuddyNext\Core\PageRouter::edit_profile_url();
+		?>
+		<div class="bn-widget">
+			<div class="bn-widget-title"><?php esc_html_e( 'Profile Strength', 'buddynext' ); ?></div>
+			<div class="bn-completion-bar-wrap">
+				<div class="bn-completion-header">
+					<span class="bn-completion-label">
+						<?php
+						echo $c_complete
+							? esc_html__( 'Complete!', 'buddynext' )
+							: esc_html__( 'Profile completion', 'buddynext' );
+						?>
+					</span>
+					<span class="bn-completion-pct"><?php echo esc_html( $c_pct . '%' ); ?></span>
+				</div>
+				<div class="bn-completion-track">
+					<div class="bn-completion-fill<?php echo $c_complete ? ' bn-complete' : ''; ?>"
+						style="width:<?php echo esc_attr( $c_pct . '%' ); ?>"></div>
+				</div>
+			</div>
+			<?php if ( ! $c_complete ) : ?>
+			<div class="bn-prompt-cards">
+				<?php if ( '' === $get_fv( 'basic_info', 'bio' ) ) : ?>
+				<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-prompt-card">
+					<span class="bn-prompt-card-icon"><?php buddynext_icon( 'edit' ); ?></span>
+					<?php esc_html_e( 'Add a bio', 'buddynext' ); ?>
+				</a>
+				<?php endif; ?>
+				<?php if ( empty( $work_entries ) ) : ?>
+				<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-prompt-card">
+					<span class="bn-prompt-card-icon"><?php buddynext_icon( 'briefcase' ); ?></span>
+					<?php esc_html_e( 'Add your work experience', 'buddynext' ); ?>
+				</a>
+				<?php endif; ?>
+				<?php if ( empty( $interests ) ) : ?>
+				<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-prompt-card">
+					<span class="bn-prompt-card-icon"><?php buddynext_icon( 'layers' ); ?></span>
+					<?php esc_html_e( 'Add your skills', 'buddynext' ); ?>
+				</a>
+				<?php endif; ?>
+			</div>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	if ( $social_links ) :
+		?>
+		<div class="bn-widget">
+			<div class="bn-widget-title"><?php esc_html_e( 'Connect', 'buddynext' ); ?></div>
+			<?php foreach ( $social_links as $field ) : ?>
+				<div class="bn-field-row">
+					<span class="bn-field-label"><?php echo esc_html( $field['label'] ); ?></span>
+					<span class="bn-field-value">
+						<a href="<?php echo esc_url( (string) ( $field['value'] ?? '' ) ); ?>"
+							target="_blank" rel="noopener noreferrer me">
+							<?php
+							$parsed_host = wp_parse_url( (string) ( $field['value'] ?? '' ), PHP_URL_HOST );
+							echo esc_html( $parsed_host ? $parsed_host : (string) ( $field['value'] ?? '' ) );
+							?>
+						</a>
+					</span>
+				</div>
+			<?php endforeach; ?>
+		</div>
+		<?php
+	endif;
+
+	if ( $work_entries ) :
+		?>
+		<div class="bn-widget">
+			<div class="bn-widget-title"><?php esc_html_e( 'Work Experience', 'buddynext' ); ?></div>
+			<?php foreach ( $work_entries as $entry_fields ) : ?>
+				<?php
+				$we_company     = $entry_fv( $entry_fields, 'work_company' );
+				$we_title       = $entry_fv( $entry_fields, 'work_title' );
+				$we_location    = $entry_fv( $entry_fields, 'work_location' );
+				$we_daterange   = $entry_fv( $entry_fields, 'work_daterange' );
+				$we_current     = $entry_fv( $entry_fields, 'work_current' );
+				$we_description = $entry_fv( $entry_fields, 'work_description' );
+				if ( '' === $we_company && '' === $we_title ) {
+					continue;
+				}
+				$we_date_display = '' !== $we_daterange
+					? ( '1' === $we_current
+						? $we_daterange . ' &ndash; ' . esc_html__( 'Present', 'buddynext' )
+						: $we_daterange )
+					: ( '1' === $we_current ? esc_html__( 'Current', 'buddynext' ) : '' );
+				?>
+				<div class="bn-repeater-entry">
+					<?php if ( $we_title ) : ?>
+						<div class="bn-entry-title"><?php echo esc_html( $we_title ); ?></div>
+					<?php endif; ?>
+					<?php if ( $we_company ) : ?>
+						<div class="bn-entry-sub"><?php echo esc_html( $we_company ); ?></div>
+					<?php endif; ?>
+					<?php if ( '' !== $we_location ) : ?>
+						<div class="bn-entry-sub"><?php echo esc_html( $we_location ); ?></div>
+					<?php endif; ?>
+					<?php if ( '' !== $we_date_display ) : ?>
+						<div class="bn-entry-meta"><?php echo wp_kses( $we_date_display, array() ); ?></div>
+					<?php endif; ?>
+					<?php if ( $we_description ) : ?>
+						<div class="bn-entry-desc"><?php echo wp_kses_post( $we_description ); ?></div>
+					<?php endif; ?>
+				</div>
+			<?php endforeach; ?>
+		</div>
+		<?php
+	endif;
+
+	if ( $edu_entries ) :
+		?>
+		<div class="bn-widget">
+			<div class="bn-widget-title"><?php esc_html_e( 'Education', 'buddynext' ); ?></div>
+			<?php foreach ( $edu_entries as $entry_fields ) : ?>
+				<?php
+				$edu_institution = $entry_fv( $entry_fields, 'edu_institution' );
+				$edu_degree      = $entry_fv( $entry_fields, 'edu_degree' );
+				$edu_field_study = $entry_fv( $entry_fields, 'edu_field' );
+				$edu_daterange   = $entry_fv( $entry_fields, 'edu_daterange' );
+				$edu_current     = $entry_fv( $entry_fields, 'edu_current' );
+				if ( '' === $edu_institution ) {
+					continue;
+				}
+				$edu_degree_line  = implode( ', ', array_filter( array( $edu_degree, $edu_field_study ) ) );
+				$edu_date_display = '' !== $edu_daterange
+					? ( '1' === $edu_current
+						? $edu_daterange . ' &ndash; ' . esc_html__( 'Present', 'buddynext' )
+						: $edu_daterange )
+					: ( '1' === $edu_current ? esc_html__( 'Current', 'buddynext' ) : '' );
+				?>
+				<div class="bn-repeater-entry">
+					<div class="bn-entry-title"><?php echo esc_html( $edu_institution ); ?></div>
+					<?php if ( $edu_degree_line ) : ?>
+						<div class="bn-entry-sub"><?php echo esc_html( $edu_degree_line ); ?></div>
+					<?php endif; ?>
+					<?php if ( '' !== $edu_date_display ) : ?>
+						<div class="bn-entry-meta"><?php echo wp_kses( $edu_date_display, array() ); ?></div>
+					<?php endif; ?>
+				</div>
+			<?php endforeach; ?>
+		</div>
+		<?php
+	endif;
+
+	if ( $interests ) :
+		?>
+		<div class="bn-widget">
+			<div class="bn-widget-title"><?php esc_html_e( 'Interests', 'buddynext' ); ?></div>
+			<div class="bn-skill-chips">
+				<?php foreach ( $interests as $interest ) : ?>
+					<span class="bn-skill-chip"><?php echo esc_html( $interest ); ?></span>
+				<?php endforeach; ?>
+			</div>
+		</div>
+		<?php
+	endif;
+
+	if ( $member_spaces ) :
+		?>
+		<div class="bn-widget">
+			<div class="bn-widget-title"><?php esc_html_e( 'Member of', 'buddynext' ); ?></div>
+			<?php foreach ( $member_spaces as $space ) : ?>
+				<div class="bn-space-row">
+					<div class="bn-space-icon">
+						<?php buddynext_icon( 'home' ); ?>
+					</div>
+					<div>
+						<div class="bn-space-name"><?php echo esc_html( $space->name ); ?></div>
+						<div class="bn-space-role"><?php echo esc_html( ucfirst( (string) $space->role ) ); ?></div>
+					</div>
+				</div>
+			<?php endforeach; ?>
+		</div>
+		<?php
+	endif;
+};
+
+add_action( 'buddynext_right_sidebar', $bn_pf_sidebar );
+
+/**
+ * Fires before the profile main content. Allows host plugins to inject
+ * banners or alerts above the hero card.
+ *
+ * @param int $user_id ID of the profile being viewed.
+ */
+do_action( 'buddynext_profile_before', (int) $user_id );
+
+// Owner action bar: rendered above the hero when the viewer can edit.
 if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
-	include __DIR__ . '/../partials/profile-actions.php';
+	buddynext_get_template(
+		'partials/profile-actions.php',
+		array(
+			'user_id'        => (int) $user_id,
+			'is_own_profile' => (bool) $is_own_profile,
+		)
+	);
 }
 ?>
-<div class="bn-profile-container">
 
-<div class="bn-profile-wrap"
+<div class="bn-pf-stack"
 	data-wp-interactive="buddynext/profile"
 	<?php
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -573,435 +792,268 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 
 	</section><!-- /.bn-pf-hero -->
 
-	<!-- Main two-column layout -->
-	<div class="bn-profile-layout">
+	<!-- Tab bar (v2 .bn-tabs primitive) -->
+	<div class="bn-tabs bn-pf-tabs" role="tablist">
+		<button class="bn-tab"
+			role="tab"
+			type="button"
+			aria-selected="true"
+			data-wp-on--click="actions.setTab"
+			data-tab="posts">
+			<?php esc_html_e( 'Posts', 'buddynext' ); ?>
+			<span class="bn-tab__count"><?php echo esc_html( $format_count( $post_count ) ); ?></span>
+		</button>
+		<button class="bn-tab"
+			role="tab"
+			type="button"
+			aria-selected="false"
+			data-wp-on--click="actions.setTab"
+			data-tab="replies">
+			<?php esc_html_e( 'Replies', 'buddynext' ); ?>
+		</button>
+		<button class="bn-tab"
+			role="tab"
+			type="button"
+			aria-selected="false"
+			data-wp-on--click="actions.setTab"
+			data-tab="media">
+			<?php esc_html_e( 'Media', 'buddynext' ); ?>
+		</button>
+		<button class="bn-tab"
+			role="tab"
+			type="button"
+			aria-selected="false"
+			data-wp-on--click="actions.setTab"
+			data-tab="likes">
+			<?php esc_html_e( 'Likes', 'buddynext' ); ?>
+		</button>
+		<?php if ( class_exists( 'Jetonomy\Jetonomy' ) ) : ?>
+		<button class="bn-tab"
+			role="tab"
+			type="button"
+			aria-selected="false"
+			data-wp-on--click="actions.setTab"
+			data-tab="discussions">
+			<?php esc_html_e( 'Discussions', 'buddynext' ); ?>
+		</button>
+		<?php endif; ?>
+	</div>
 
-		<!-- Left: posts feed -->
-		<div>
-			<!-- Tab bar (v2 .bn-tabs primitive) -->
-			<div class="bn-tabs bn-pf-tabs" role="tablist">
-				<button class="bn-tab"
-					role="tab"
-					type="button"
-					aria-selected="true"
-					data-wp-on--click="actions.setTab"
-					data-tab="posts">
-					<?php esc_html_e( 'Posts', 'buddynext' ); ?>
-					<span class="bn-tab__count"><?php echo esc_html( $format_count( $post_count ) ); ?></span>
-				</button>
-				<button class="bn-tab"
-					role="tab"
-					type="button"
-					aria-selected="false"
-					data-wp-on--click="actions.setTab"
-					data-tab="replies">
-					<?php esc_html_e( 'Replies', 'buddynext' ); ?>
-				</button>
-				<button class="bn-tab"
-					role="tab"
-					type="button"
-					aria-selected="false"
-					data-wp-on--click="actions.setTab"
-					data-tab="media">
-					<?php esc_html_e( 'Media', 'buddynext' ); ?>
-				</button>
-				<button class="bn-tab"
-					role="tab"
-					type="button"
-					aria-selected="false"
-					data-wp-on--click="actions.setTab"
-					data-tab="likes">
-					<?php esc_html_e( 'Likes', 'buddynext' ); ?>
-				</button>
-				<?php if ( class_exists( 'Jetonomy\Jetonomy' ) ) : ?>
-				<button class="bn-tab"
-					role="tab"
-					type="button"
-					aria-selected="false"
-					data-wp-on--click="actions.setTab"
-					data-tab="discussions">
-					<?php esc_html_e( 'Discussions', 'buddynext' ); ?>
-				</button>
-				<?php endif; ?>
-			</div>
+	<!-- Tab panels container -->
+	<div class="bn-pf-tab-content">
 
-			<!-- Posts list -->
-			<div class="bn-profile-posts-panel" data-tab-panel="posts">
-			<?php if ( $recent_posts ) : ?>
-				<?php
-				foreach ( $recent_posts as $post_arr ) {
-					// Decode media_ids JSON string for the post-card partial.
-					if ( isset( $post_arr['media_ids'] ) && is_string( $post_arr['media_ids'] ) ) {
-						$post_arr['media_ids'] = json_decode( $post_arr['media_ids'], true );
-					}
-					buddynext_get_template(
-						'partials/post-card.php',
-						array(
-							'post'            => $post_arr,
-							'current_user_id' => $current_user_id,
-							'context'         => 'profile',
-						)
-					);
+		<!-- Posts list (default tab) -->
+		<div class="bn-profile-posts-panel" data-tab-panel="posts">
+		<?php if ( $recent_posts ) : ?>
+			<?php
+			foreach ( $recent_posts as $post_arr ) {
+				// Decode media_ids JSON string for the post-card partial.
+				if ( isset( $post_arr['media_ids'] ) && is_string( $post_arr['media_ids'] ) ) {
+					$post_arr['media_ids'] = json_decode( $post_arr['media_ids'], true );
 				}
-				?>
-			<?php else : ?>
-				<div class="bn-empty-state">
-					<?php
-					echo esc_html(
-						$is_own_profile
-							? __( 'You have not posted anything yet.', 'buddynext' )
-							: sprintf(
-								/* translators: %s: member display name */
-								__( '%s has not posted anything yet.', 'buddynext' ),
-								$display_name
-							)
-					);
-					?>
-				</div>
-			<?php endif; ?>
-			</div><!-- /.bn-profile-posts-panel -->
-
-			<!-- Replies tab content -->
-			<?php
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$user_replies = $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT c.id, c.content, c.created_at, c.object_id,
-					        p.content AS post_content, p.type AS post_type,
-					        u.display_name AS post_author_name
-					 FROM {$wpdb->prefix}bn_comments c
-					 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post'
-					 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
-					 WHERE c.user_id = %d
-					 ORDER BY c.created_at DESC
-					 LIMIT 20",
-					$user_id
-				)
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			?>
-			<div class="bn-profile-tab-panel" data-tab-panel="replies" hidden>
-				<?php if ( $user_replies ) : ?>
-					<?php foreach ( $user_replies as $reply ) : ?>
-					<div class="bn-reply-card">
-						<div class="bn-reply-card__meta">
-							<?php buddynext_icon( 'message-circle' ); ?>
-							<span><?php echo esc_html( sprintf( /* translators: %s: author name */ __( 'Replied to %s', 'buddynext' ), $reply->post_author_name ) ); ?></span>
-							<span class="bn-reply-card__time"><?php echo esc_html( human_time_diff( strtotime( $reply->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?></span>
-						</div>
-						<div class="bn-reply-card__content"><?php echo wp_kses_post( wp_trim_words( $reply->content, 30 ) ); ?></div>
-						<div class="bn-reply-card__context"><?php echo wp_kses_post( wp_trim_words( $reply->post_content, 15 ) ); ?></div>
-					</div>
-					<?php endforeach; ?>
-				<?php else : ?>
-					<div class="bn-empty-state"><?php esc_html_e( 'No replies yet.', 'buddynext' ); ?></div>
-				<?php endif; ?>
-			</div>
-
-			<!-- Media tab content -->
-			<?php
-			$user_media = array();
-			if ( class_exists( 'WPMediaVerse\Core\Plugin' ) && post_type_exists( 'mvs_media' ) ) {
-				$user_media = get_posts(
+				buddynext_get_template(
+					'partials/post-card.php',
 					array(
-						'post_type'   => 'mvs_media',
-						'author'      => $user_id,
-						'numberposts' => 24,
-						'post_status' => 'publish',
+						'post'            => $post_arr,
+						'current_user_id' => $current_user_id,
+						'context'         => 'profile',
 					)
 				);
 			}
 			?>
-			<div class="bn-profile-tab-panel" data-tab-panel="media" hidden>
-				<?php if ( $user_media ) : ?>
-					<div class="bn-profile-media-grid mvs-activity-media-grid">
-						<?php foreach ( $user_media as $media_post ) : ?>
-							<?php
-							$thumb_url = get_post_meta( $media_post->ID, '_mvs_file_url', true );
-							if ( ! $thumb_url ) {
-								$thumb_url = wp_get_attachment_image_url( $media_post->ID, 'medium' );
-							}
-							if ( ! $thumb_url ) {
-								$thumb_url = wp_get_attachment_url( $media_post->ID );
-							}
-							$full_url   = wp_get_attachment_url( $media_post->ID );
-							$media_type = get_post_meta( $media_post->ID, '_mvs_media_type', true ) ?: 'image';
-							?>
-							<div class="bn-profile-media-item mvs-activity-media" data-mvs-media-id="<?php echo esc_attr( (string) $media_post->ID ); ?>" data-mvs-src="<?php echo esc_url( (string) $full_url ); ?>">
-								<?php if ( $thumb_url && 'image' === $media_type ) : ?>
-									<a href="<?php echo esc_url( (string) $full_url ); ?>" class="mvs-grid-item-link">
-										<img src="<?php echo esc_url( $thumb_url ); ?>" alt="<?php echo esc_attr( $media_post->post_title ); ?>" loading="lazy">
-									</a>
-								<?php elseif ( 'video' === $media_type ) : ?>
-									<div class="bn-profile-media-video"><?php buddynext_icon( 'play-circle' ); ?></div>
-								<?php else : ?>
-									<div class="bn-profile-media-placeholder"><?php buddynext_icon( 'camera' ); ?></div>
-								<?php endif; ?>
-							</div>
-						<?php endforeach; ?>
-					</div>
-				<?php else : ?>
-					<div class="bn-empty-state"><?php esc_html_e( 'No media uploaded yet.', 'buddynext' ); ?></div>
-				<?php endif; ?>
+		<?php else : ?>
+			<div class="bn-empty-state">
+				<?php
+				echo esc_html(
+					$is_own_profile
+						? __( 'You have not posted anything yet.', 'buddynext' )
+						: sprintf(
+							/* translators: %s: member display name */
+							__( '%s has not posted anything yet.', 'buddynext' ),
+							$display_name
+						)
+				);
+				?>
 			</div>
+		<?php endif; ?>
+		</div><!-- /.bn-profile-posts-panel -->
 
-			<!-- Likes tab content -->
-			<?php
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$user_likes = $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT r.emoji, r.created_at, r.object_id,
-					        p.content, p.type, p.user_id AS post_author_id,
-					        u.display_name AS post_author_name
-					 FROM {$wpdb->prefix}bn_reactions r
-					 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post'
-					 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
-					 WHERE r.user_id = %d
-					 ORDER BY r.created_at DESC
-					 LIMIT 20",
-					$user_id
+		<!-- Replies tab content -->
+		<?php
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$user_replies = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT c.id, c.content, c.created_at, c.object_id,
+				        p.content AS post_content, p.type AS post_type,
+				        u.display_name AS post_author_name
+				 FROM {$wpdb->prefix}bn_comments c
+				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post'
+				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
+				 WHERE c.user_id = %d
+				 ORDER BY c.created_at DESC
+				 LIMIT 20",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		?>
+		<div class="bn-profile-tab-panel" data-tab-panel="replies" hidden>
+			<?php if ( $user_replies ) : ?>
+				<?php foreach ( $user_replies as $reply ) : ?>
+				<div class="bn-reply-card">
+					<div class="bn-reply-card__meta">
+						<?php buddynext_icon( 'message-circle' ); ?>
+						<span><?php echo esc_html( sprintf( /* translators: %s: author name */ __( 'Replied to %s', 'buddynext' ), $reply->post_author_name ) ); ?></span>
+						<span class="bn-reply-card__time"><?php echo esc_html( human_time_diff( strtotime( $reply->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?></span>
+					</div>
+					<div class="bn-reply-card__content"><?php echo wp_kses_post( wp_trim_words( $reply->content, 30 ) ); ?></div>
+					<div class="bn-reply-card__context"><?php echo wp_kses_post( wp_trim_words( $reply->post_content, 15 ) ); ?></div>
+				</div>
+				<?php endforeach; ?>
+			<?php else : ?>
+				<div class="bn-empty-state"><?php esc_html_e( 'No replies yet.', 'buddynext' ); ?></div>
+			<?php endif; ?>
+		</div>
+
+		<!-- Media tab content -->
+		<?php
+		$user_media = array();
+		if ( class_exists( 'WPMediaVerse\Core\Plugin' ) && post_type_exists( 'mvs_media' ) ) {
+			$user_media = get_posts(
+				array(
+					'post_type'   => 'mvs_media',
+					'author'      => $user_id,
+					'numberposts' => 24,
+					'post_status' => 'publish',
 				)
 			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			?>
-			<div class="bn-profile-tab-panel" data-tab-panel="likes" hidden>
-				<?php if ( $user_likes ) : ?>
-					<?php foreach ( $user_likes as $liked ) : ?>
-					<div class="bn-like-card">
-						<div class="bn-like-card__meta">
-							<?php buddynext_icon( 'heart' ); ?>
-							<span><?php echo esc_html( sprintf( /* translators: %s: author name */ __( 'Liked %s\'s post', 'buddynext' ), $liked->post_author_name ) ); ?></span>
-							<span class="bn-like-card__time"><?php echo esc_html( human_time_diff( strtotime( $liked->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?></span>
+		}
+		?>
+		<div class="bn-profile-tab-panel" data-tab-panel="media" hidden>
+			<?php if ( $user_media ) : ?>
+				<div class="bn-profile-media-grid mvs-activity-media-grid">
+					<?php foreach ( $user_media as $media_post ) : ?>
+						<?php
+						$thumb_url = get_post_meta( $media_post->ID, '_mvs_file_url', true );
+						if ( ! $thumb_url ) {
+							$thumb_url = wp_get_attachment_image_url( $media_post->ID, 'medium' );
+						}
+						if ( ! $thumb_url ) {
+							$thumb_url = wp_get_attachment_url( $media_post->ID );
+						}
+						$full_url   = wp_get_attachment_url( $media_post->ID );
+						$media_type = (string) get_post_meta( $media_post->ID, '_mvs_media_type', true );
+						if ( '' === $media_type ) {
+							$media_type = 'image';
+						}
+						?>
+						<div class="bn-profile-media-item mvs-activity-media" data-mvs-media-id="<?php echo esc_attr( (string) $media_post->ID ); ?>" data-mvs-src="<?php echo esc_url( (string) $full_url ); ?>">
+							<?php if ( $thumb_url && 'image' === $media_type ) : ?>
+								<a href="<?php echo esc_url( (string) $full_url ); ?>" class="mvs-grid-item-link">
+									<img src="<?php echo esc_url( $thumb_url ); ?>" alt="<?php echo esc_attr( $media_post->post_title ); ?>" loading="lazy">
+								</a>
+							<?php elseif ( 'video' === $media_type ) : ?>
+								<div class="bn-profile-media-video"><?php buddynext_icon( 'play-circle' ); ?></div>
+							<?php else : ?>
+								<div class="bn-profile-media-placeholder"><?php buddynext_icon( 'camera' ); ?></div>
+							<?php endif; ?>
 						</div>
-						<div class="bn-like-card__content"><?php echo wp_kses_post( wp_trim_words( $liked->content, 30 ) ); ?></div>
-					</div>
 					<?php endforeach; ?>
-				<?php else : ?>
-					<div class="bn-empty-state"><?php esc_html_e( 'No liked posts yet.', 'buddynext' ); ?></div>
-				<?php endif; ?>
-			</div>
+				</div>
+			<?php else : ?>
+				<div class="bn-empty-state"><?php esc_html_e( 'No media uploaded yet.', 'buddynext' ); ?></div>
+			<?php endif; ?>
+		</div>
 
-			<!-- Discussions tab content (Jetonomy) -->
-			<?php if ( class_exists( 'Jetonomy\Models\Post' ) ) : ?>
+		<!-- Likes tab content -->
+		<?php
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$user_likes = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT r.emoji, r.created_at, r.object_id,
+				        p.content, p.type, p.user_id AS post_author_id,
+				        u.display_name AS post_author_name
+				 FROM {$wpdb->prefix}bn_reactions r
+				 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post'
+				 INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
+				 WHERE r.user_id = %d
+				 ORDER BY r.created_at DESC
+				 LIMIT 20",
+				$user_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		?>
+		<div class="bn-profile-tab-panel" data-tab-panel="likes" hidden>
+			<?php if ( $user_likes ) : ?>
+				<?php foreach ( $user_likes as $liked ) : ?>
+				<div class="bn-like-card">
+					<div class="bn-like-card__meta">
+						<?php buddynext_icon( 'heart' ); ?>
+						<span><?php echo esc_html( sprintf( /* translators: %s: author name */ __( 'Liked %s\'s post', 'buddynext' ), $liked->post_author_name ) ); ?></span>
+						<span class="bn-like-card__time"><?php echo esc_html( human_time_diff( strtotime( $liked->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?></span>
+					</div>
+					<div class="bn-like-card__content"><?php echo wp_kses_post( wp_trim_words( $liked->content, 30 ) ); ?></div>
+				</div>
+				<?php endforeach; ?>
+			<?php else : ?>
+				<div class="bn-empty-state"><?php esc_html_e( 'No liked posts yet.', 'buddynext' ); ?></div>
+			<?php endif; ?>
+		</div>
+
+		<!-- Discussions tab content (Jetonomy) -->
+		<?php if ( class_exists( 'Jetonomy\Models\Post' ) ) : ?>
 			<?php
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$jt_discussions = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
-					        s.title AS space_name, s.slug AS space_slug
-					 FROM {$wpdb->prefix}jt_posts p
-					 LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
-					 WHERE p.author_id = %d AND p.status = 'publish'
-					 ORDER BY p.created_at DESC
-					 LIMIT 20",
+				        s.title AS space_name, s.slug AS space_slug
+				 FROM {$wpdb->prefix}jt_posts p
+				 LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
+				 WHERE p.author_id = %d AND p.status = 'publish'
+				 ORDER BY p.created_at DESC
+				 LIMIT 20",
 					$user_id
 				)
 			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			?>
-			<div class="bn-profile-tab-panel" data-tab-panel="discussions" hidden>
-				<?php if ( $jt_discussions ) : ?>
-					<?php foreach ( $jt_discussions as $disc ) : ?>
-					<a href="<?php echo esc_url( home_url( '/community/s/' . ( $disc->space_slug ?: 'general' ) . '/t/' . $disc->slug . '/' ) ); ?>" class="bn-reply-card bn-reply-card--link">
-						<div class="bn-reply-card__meta">
-							<?php buddynext_icon( 'message-circle' ); ?>
-							<span><?php echo esc_html( $disc->space_name ?: __( 'General', 'buddynext' ) ); ?></span>
-							<span class="bn-reply-card__time"><?php echo esc_html( human_time_diff( strtotime( $disc->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?></span>
-						</div>
-						<div class="bn-reply-card__content bn-reply-card__content--strong"><?php echo esc_html( $disc->title ); ?></div>
-						<div class="bn-reply-card__context">
-							<?php echo esc_html( (string) $disc->reply_count ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?>
-							<span aria-hidden="true">&middot;</span>
-							<?php echo esc_html( (string) $disc->vote_score ); ?> <?php esc_html_e( 'votes', 'buddynext' ); ?>
-						</div>
-					</a>
-					<?php endforeach; ?>
-				<?php else : ?>
-					<div class="bn-empty-state"><?php esc_html_e( 'No discussions yet.', 'buddynext' ); ?></div>
-				<?php endif; ?>
-			</div>
-			<?php endif; ?>
-
-		</div><!-- /left column -->
-
-		<!-- Right: sidebar widgets -->
-		<aside>
-
-			<?php if ( $is_own_profile && null !== $completion ) : ?>
+		<div class="bn-profile-tab-panel" data-tab-panel="discussions" hidden>
+			<?php if ( $jt_discussions ) : ?>
 				<?php
-				$c_pct      = (int) $completion['percent'];
-				$c_complete = 100 === $c_pct;
-				$edit_url   = esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() );
-				?>
-			<div class="bn-widget">
-				<div class="bn-widget-title"><?php esc_html_e( 'Profile Strength', 'buddynext' ); ?></div>
-				<div class="bn-completion-bar-wrap">
-					<div class="bn-completion-header">
-						<span class="bn-completion-label">
-							<?php
-							echo $c_complete
-								? esc_html__( 'Complete!', 'buddynext' )
-								: esc_html__( 'Profile completion', 'buddynext' );
-							?>
-						</span>
-						<span class="bn-completion-pct"><?php echo esc_html( $c_pct . '%' ); ?></span>
-					</div>
-					<div class="bn-completion-track">
-						<div class="bn-completion-fill<?php echo $c_complete ? ' bn-complete' : ''; ?>"
-							style="width:<?php echo esc_attr( $c_pct . '%' ); ?>"></div>
-					</div>
-				</div>
-				<?php if ( ! $c_complete ) : ?>
-				<div class="bn-prompt-cards">
-					<?php if ( '' === $get_fv( 'basic_info', 'bio' ) ) : ?>
-					<a href="<?php echo $edit_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped above ?>" class="bn-prompt-card">
-						<span class="bn-prompt-card-icon"><?php buddynext_icon( 'edit' ); ?></span>
-						<?php esc_html_e( 'Add a bio', 'buddynext' ); ?>
-					</a>
-					<?php endif; ?>
-					<?php if ( empty( $work_entries ) ) : ?>
-					<a href="<?php echo $edit_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>" class="bn-prompt-card">
-						<span class="bn-prompt-card-icon"><?php buddynext_icon( 'briefcase' ); ?></span>
-						<?php esc_html_e( 'Add your work experience', 'buddynext' ); ?>
-					</a>
-					<?php endif; ?>
-					<?php if ( empty( $interests ) ) : ?>
-					<a href="<?php echo $edit_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>" class="bn-prompt-card">
-						<span class="bn-prompt-card-icon"><?php buddynext_icon( 'layers' ); ?></span>
-						<?php esc_html_e( 'Add your skills', 'buddynext' ); ?>
-					</a>
-					<?php endif; ?>
-				</div>
-				<?php endif; ?>
-			</div>
-			<?php endif; ?>
-
-			<?php if ( $social_links ) : ?>
-			<div class="bn-widget">
-				<div class="bn-widget-title"><?php esc_html_e( 'Connect', 'buddynext' ); ?></div>
-				<?php foreach ( $social_links as $field ) : ?>
-					<div class="bn-field-row">
-						<span class="bn-field-label"><?php echo esc_html( $field['label'] ); ?></span>
-						<span class="bn-field-value">
-							<a href="<?php echo esc_url( (string) ( $field['value'] ?? '' ) ); ?>"
-								target="_blank" rel="noopener noreferrer me">
-								<?php
-								$parsed_host = wp_parse_url( (string) ( $field['value'] ?? '' ), PHP_URL_HOST );
-								echo esc_html( $parsed_host ? $parsed_host : (string) ( $field['value'] ?? '' ) );
-								?>
-							</a>
-						</span>
-					</div>
-				<?php endforeach; ?>
-			</div>
-			<?php endif; ?>
-
-			<?php if ( $work_entries ) : ?>
-			<div class="bn-widget">
-				<div class="bn-widget-title"><?php esc_html_e( 'Work Experience', 'buddynext' ); ?></div>
-				<?php foreach ( $work_entries as $entry_fields ) : ?>
-					<?php
-					$we_company     = $entry_fv( $entry_fields, 'work_company' );
-					$we_title       = $entry_fv( $entry_fields, 'work_title' );
-					$we_location    = $entry_fv( $entry_fields, 'work_location' );
-					$we_daterange   = $entry_fv( $entry_fields, 'work_daterange' );
-					$we_current     = $entry_fv( $entry_fields, 'work_current' );
-					$we_description = $entry_fv( $entry_fields, 'work_description' );
-					if ( '' === $we_company && '' === $we_title ) {
-						continue;
-					}
-					$we_date_display = '' !== $we_daterange
-						? ( '1' === $we_current
-							? $we_daterange . ' &ndash; ' . esc_html__( 'Present', 'buddynext' )
-							: $we_daterange )
-						: ( '1' === $we_current ? esc_html__( 'Current', 'buddynext' ) : '' );
+				foreach ( $jt_discussions as $disc ) :
+					$disc_space_slug = '' !== (string) $disc->space_slug ? (string) $disc->space_slug : 'general';
+					$disc_space_name = '' !== (string) $disc->space_name ? (string) $disc->space_name : __( 'General', 'buddynext' );
 					?>
-					<div class="bn-repeater-entry">
-						<?php if ( $we_title ) : ?>
-							<div class="bn-entry-title"><?php echo esc_html( $we_title ); ?></div>
-						<?php endif; ?>
-						<?php if ( $we_company ) : ?>
-							<div class="bn-entry-sub"><?php echo esc_html( $we_company ); ?></div>
-						<?php endif; ?>
-						<?php if ( '' !== $we_location ) : ?>
-							<div class="bn-entry-sub"><?php echo esc_html( $we_location ); ?></div>
-						<?php endif; ?>
-						<?php if ( '' !== $we_date_display ) : ?>
-							<div class="bn-entry-meta"><?php echo wp_kses( $we_date_display, array() ); ?></div>
-						<?php endif; ?>
-						<?php if ( $we_description ) : ?>
-							<div class="bn-entry-desc"><?php echo wp_kses_post( $we_description ); ?></div>
-						<?php endif; ?>
+				<a href="<?php echo esc_url( home_url( '/community/s/' . $disc_space_slug . '/t/' . $disc->slug . '/' ) ); ?>" class="bn-reply-card bn-reply-card--link">
+					<div class="bn-reply-card__meta">
+						<?php buddynext_icon( 'message-circle' ); ?>
+						<span><?php echo esc_html( $disc_space_name ); ?></span>
+						<span class="bn-reply-card__time"><?php echo esc_html( human_time_diff( strtotime( $disc->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?></span>
 					</div>
-				<?php endforeach; ?>
-			</div>
-			<?php endif; ?>
-
-			<?php if ( $edu_entries ) : ?>
-			<div class="bn-widget">
-				<div class="bn-widget-title"><?php esc_html_e( 'Education', 'buddynext' ); ?></div>
-				<?php foreach ( $edu_entries as $entry_fields ) : ?>
-					<?php
-					$edu_institution = $entry_fv( $entry_fields, 'edu_institution' );
-					$edu_degree      = $entry_fv( $entry_fields, 'edu_degree' );
-					$edu_field_study = $entry_fv( $entry_fields, 'edu_field' );
-					$edu_daterange   = $entry_fv( $entry_fields, 'edu_daterange' );
-					$edu_current     = $entry_fv( $entry_fields, 'edu_current' );
-					if ( '' === $edu_institution ) {
-						continue;
-					}
-					$edu_degree_line  = implode( ', ', array_filter( array( $edu_degree, $edu_field_study ) ) );
-					$edu_date_display = '' !== $edu_daterange
-						? ( '1' === $edu_current
-							? $edu_daterange . ' &ndash; ' . esc_html__( 'Present', 'buddynext' )
-							: $edu_daterange )
-						: ( '1' === $edu_current ? esc_html__( 'Current', 'buddynext' ) : '' );
-					?>
-					<div class="bn-repeater-entry">
-						<div class="bn-entry-title"><?php echo esc_html( $edu_institution ); ?></div>
-						<?php if ( $edu_degree_line ) : ?>
-							<div class="bn-entry-sub"><?php echo esc_html( $edu_degree_line ); ?></div>
-						<?php endif; ?>
-						<?php if ( '' !== $edu_date_display ) : ?>
-							<div class="bn-entry-meta"><?php echo wp_kses( $edu_date_display, array() ); ?></div>
-						<?php endif; ?>
+					<div class="bn-reply-card__content bn-reply-card__content--strong"><?php echo esc_html( $disc->title ); ?></div>
+					<div class="bn-reply-card__context">
+						<?php echo esc_html( (string) $disc->reply_count ); ?> <?php esc_html_e( 'replies', 'buddynext' ); ?>
+						<span aria-hidden="true">&middot;</span>
+						<?php echo esc_html( (string) $disc->vote_score ); ?> <?php esc_html_e( 'votes', 'buddynext' ); ?>
 					</div>
+				</a>
 				<?php endforeach; ?>
-			</div>
+			<?php else : ?>
+				<div class="bn-empty-state"><?php esc_html_e( 'No discussions yet.', 'buddynext' ); ?></div>
 			<?php endif; ?>
+		</div>
+		<?php endif; ?>
 
-			<?php if ( $interests ) : ?>
-			<div class="bn-widget">
-				<div class="bn-widget-title"><?php esc_html_e( 'Interests', 'buddynext' ); ?></div>
-				<div class="bn-skill-chips">
-					<?php foreach ( $interests as $interest ) : ?>
-						<span class="bn-skill-chip"><?php echo esc_html( $interest ); ?></span>
-					<?php endforeach; ?>
-				</div>
-			</div>
-			<?php endif; ?>
+	</div><!-- /.bn-pf-tab-content -->
 
-			<?php if ( $member_spaces ) : ?>
-			<div class="bn-widget">
-				<div class="bn-widget-title"><?php esc_html_e( 'Member of', 'buddynext' ); ?></div>
-				<?php foreach ( $member_spaces as $space ) : ?>
-					<div class="bn-space-row">
-						<div class="bn-space-icon">
-							<?php buddynext_icon( 'home' ); ?>
-						</div>
-						<div>
-							<div class="bn-space-name"><?php echo esc_html( $space->name ); ?></div>
-							<div class="bn-space-role"><?php echo esc_html( ucfirst( (string) $space->role ) ); ?></div>
-						</div>
-					</div>
-				<?php endforeach; ?>
-			</div>
-			<?php endif; ?>
+</div><!-- /.bn-pf-stack -->
 
-		</aside>
-
-	</div><!-- /bn-profile-layout -->
-
-</div><!-- /bn-profile-wrap -->
-
-</div><!-- /.bn-profile-container -->
+<?php
+/**
+ * Fires after the profile main content.
+ *
+ * @param int $user_id ID of the profile being viewed.
+ */
+do_action( 'buddynext_profile_after', (int) $user_id );
