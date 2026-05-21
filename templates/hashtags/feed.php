@@ -197,10 +197,26 @@ if ( ! $hashtag_not_found ) {
 	); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 }
 
-$bn_nav_active = 'feed';
-buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => $bn_nav_active ) );
+// Hook the right sidebar widgets onto the shell. has_action() detects
+// this registration and the shell auto-renders the right column.
+add_action(
+	'buddynext_right_sidebar',
+	static function () {
+		buddynext_get_template(
+			'partials/sidebar.php',
+			array(
+				'sidebar_user_id' => get_current_user_id(),
+			)
+		);
+	}
+);
+
+/**
+ * Fires before the hashtag feed inner content.
+ */
+do_action( 'buddynext_hashtag_feed_before' );
 ?>
-<div class="bn-hub-shell">
+<div class="bn-feed-stack bn-hashtag-feed">
 
 <?php
 if ( $hashtag_not_found ) :
@@ -718,6 +734,9 @@ else :
 </div><!-- /.bn-hashtag-feed -->
 <?php endif; ?>
 
-<?php buddynext_get_template( 'partials/sidebar.php' ); ?>
-
-</div><!-- /.bn-hub-shell -->
+<?php
+/**
+ * Fires after the hashtag feed inner content.
+ */
+do_action( 'buddynext_hashtag_feed_after' );
+?>
