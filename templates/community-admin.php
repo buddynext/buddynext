@@ -244,7 +244,6 @@ $posts_pct = $posts_yesterday > 0
 	? (int) round( ( ( $posts_today - $posts_yesterday ) / $posts_yesterday ) * 100 )
 	: 0;
 
-<?php
 /**
  * Fires before the community-admin inner content.
  */

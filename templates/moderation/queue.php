@@ -250,7 +250,6 @@ $initials = static function ( string $name ): string {
 
 $mod_nonce = wp_create_nonce( 'bn_moderation_action' );
 
-<?php
 /**
  * Fires before the moderation queue inner content.
  */

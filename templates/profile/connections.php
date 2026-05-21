@@ -108,7 +108,6 @@ if ( ! function_exists( 'bn_connections_initials' ) ) {
 	}
 }
 
-<?php
 /**
  * Fires before the profile connections inner content.
  *
