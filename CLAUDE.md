@@ -54,6 +54,7 @@ git config core.hooksPath .githooks
 | No inline `<style>` / `<script>` in PHP | `/ux-audit` | `bin/ux-audit.sh` F1 + F2 rules |
 | No native `alert()` / `confirm()` | `/ux-audit` | `bin/ux-audit.sh` F8 rule |
 | v2 token + primitive vocabulary | This repo + `docs/v2 Plans/` | `bin/ux-audit.sh` + 6 uniformity gates in `docs/v2 Plans/PLAN.md` Part 4 |
+| 100% REST frontend (no admin-ajax) | This repo + `/wp-plugin-development` | `bin/check-rest-boundary.sh` — see `docs/specs/REST-FRONTEND-CONTRACT.md` |
 
 If a section below conflicts with one of the boundary skills, the skill wins — file an issue and the matching section here gets corrected.
 

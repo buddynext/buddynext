@@ -117,7 +117,6 @@ class NavManager extends AdminPageBase {
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'add_submenu' ) );
 		add_action( 'admin_post_bn_save_nav', array( $this, 'handle_save_nav' ) );
-		add_action( 'wp_ajax_bn_check_slug', array( $this, 'handle_check_slug_ajax' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 	}
 
@@ -162,8 +161,8 @@ class NavManager extends AdminPageBase {
 			'bnNavManager',
 			array(
 				'firstSlug' => $first_slug,
-				'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
-				'nonce'     => wp_create_nonce( 'bn_nav_manager' ),
+				'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1/' ) ),
+				'restNonce' => wp_create_nonce( 'wp_rest' ),
 				'i18n'      => array(
 					'slugHint'  => __( 'URL path for this hub, e.g. "members" → /members/. Saving flushes rewrite rules automatically.', 'buddynext' ),
 					'slugFree'  => __( 'Slug is available', 'buddynext' ),
@@ -1345,26 +1344,6 @@ class NavManager extends AdminPageBase {
 		}
 
 		return 'free';
-	}
-
-	/**
-	 * Handle wp_ajax_bn_check_slug — return slug conflict status as JSON.
-	 *
-	 * @return void
-	 */
-	public function handle_check_slug_ajax(): void {
-		check_ajax_referer( 'bn_nav_manager', 'nonce' );
-
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( array( 'message' => 'Forbidden' ), 403 );
-		}
-
-		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		$slug = sanitize_title( (string) wp_unslash( $_POST['slug'] ?? '' ) );
-		$hub  = sanitize_key( (string) wp_unslash( $_POST['hub'] ?? '' ) );
-		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-
-		wp_send_json_success( array( 'status' => $this->check_slug_status( $slug, $hub ) ) );
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────

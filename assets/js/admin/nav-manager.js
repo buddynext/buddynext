@@ -7,13 +7,13 @@
  *   - Visibility toggle visual sync.
  *   - Add-custom-tab inline form.
  *   - Drag-reorder via jQuery UI Sortable (always available in WP admin).
- *   - URL-slug conflict probe against wp_ajax_bn_check_slug.
+ *   - URL-slug conflict probe via GET /buddynext/v1/admin/slug-check.
  *
  * Configuration is provided through window.bnNavManager (set by
  * wp_localize_script in NavManager::enqueue_assets()):
  *   firstSlug    — Slug of the initial active main-scope config panel.
- *   ajaxUrl      — window.ajaxurl fallback.
- *   nonce        — Fresh bn_nav_manager nonce.
+ *   restUrl      — REST base URL ending in 'buddynext/v1/'.
+ *   restNonce    — Fresh wp_rest nonce sent via X-WP-Nonce header.
  *   i18n.slugHint — Default URL-slug hint text.
  *   i18n.slugFree — Hint copy when the slug is available.
  *   i18n.slugWarn — Hint copy when an existing page already uses the slug.
@@ -28,8 +28,8 @@
 
 	var cfg = window.bnNavManager || {};
 	var i18n = cfg.i18n || {};
-	var ajaxUrl = cfg.ajaxUrl || ( window.ajaxurl || '' );
-	var nonce = cfg.nonce || '';
+	var restUrl = cfg.restUrl || '';
+	var restNonce = cfg.restNonce || '';
 
 	// ── Scope switching ──────────────────────────────────────────────────────
 
@@ -235,19 +235,28 @@
 			}
 
 			timer = window.setTimeout( function () {
-				var data = new window.FormData();
-				data.append( 'action', 'bn_check_slug' );
-				data.append( 'nonce', nonce );
-				data.append( 'slug', slugVal );
-				data.append( 'hub', hub );
+				if ( ! restUrl ) {
+					return;
+				}
 
-				window.fetch( ajaxUrl, { method: 'POST', body: data } )
+				var url = restUrl + 'admin/slug-check?slug=' +
+					encodeURIComponent( slugVal ) +
+					'&context=' + encodeURIComponent( hub );
+
+				window.fetch( url, {
+					method: 'GET',
+					credentials: 'same-origin',
+					headers: {
+						'X-WP-Nonce': restNonce,
+						Accept: 'application/json'
+					}
+				} )
 					.then( function ( r ) {
 						return r.json();
 					} )
 					.then( function ( json ) {
-						if ( json && json.success && json.data && json.data.status ) {
-							bnSetSlugHint( hintEl, json.data.status );
+						if ( json && json.status ) {
+							bnSetSlugHint( hintEl, json.status );
 						}
 					} )
 					.catch( function () {} );

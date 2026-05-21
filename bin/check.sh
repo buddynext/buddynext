@@ -9,8 +9,9 @@
 # What it runs (in order, fail-fast):
 #   1. PHP -l on every .php file under includes/ + templates/
 #   2. WPCS via composer's phpcs script (configured by phpcs.xml.dist)
-#   3. PHPStan level 5 against includes/
-#   4. bin/ux-audit.sh — block-severity violations fail
+#   3. bin/check-rest-boundary.sh — fails on any admin-ajax surface
+#   4. PHPStan level 5 against includes/
+#   5. bin/ux-audit.sh — block-severity violations fail
 #
 # This script is the single entry point a contributor runs before pushing.
 # CI runs the same script. Anchor docs: docs/v2 Plans/PLAN.md Part 4 gates,
@@ -91,7 +92,19 @@ else
 	note "vendor/bin/phpcs missing — run \`composer install\`"
 fi
 
-# 3. PHPStan
+# 3. REST-frontend boundary (no admin-ajax)
+section "REST-frontend boundary"
+if [ -x bin/check-rest-boundary.sh ]; then
+	if bin/check-rest-boundary.sh; then
+		:
+	else
+		fail "admin-ajax surface detected — frontend must be 100% REST"
+	fi
+else
+	note "bin/check-rest-boundary.sh missing"
+fi
+
+# 4. PHPStan
 section "PHPStan (level 5)"
 if [ -x vendor/bin/phpstan ]; then
 	if vendor/bin/phpstan analyse --no-progress --memory-limit=1G; then
