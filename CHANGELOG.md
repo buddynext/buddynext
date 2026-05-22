@@ -2,6 +2,65 @@
 
 ## Unreleased
 
+### Notifications (true production)
+
+Wave 1 (`fd03259`) shipped the NotificationMessageService + copy map for 30+
+types. Wave 2 (`3cbcfaf`) shipped the prefs UI at `/settings/notifications/`.
+A deep live walk on `buddynext-dev.local` as `varundubey` surfaced a final
+set of presentation-quality gaps. Closed in this branch:
+
+- **A5 — Reactive filter tabs.** All / Unread / Mentions / Comments /
+  Reactions / Spaces no longer trigger a full document navigation. Each
+  `.bn-tab` anchor carries `data-wp-on--click="actions.setFilter"`; the
+  store fetches the same URL with `HX-Request: true` through PageRouter's
+  existing partial-render path, parses the response in an inert document,
+  and adopts the `[data-bn-notif-content]` region's child nodes into the
+  live page. No `innerHTML` — every node is already server-escaped.
+  `history.pushState` keeps the URL in sync; cmd/ctrl-click still opens a
+  new tab; popstate reloads to a fresh server render.
+- **A8 + B1 — Reactive document titles.** PageRouter's
+  `document_title_parts` filter now specialises the notifications hub
+  title: `/notifications/` with unread > 0 reads
+  `Notifications (3) · BuddyNext` (or `(99+)` when capped),
+  `/notifications/` with zero unread reads `Notifications · BuddyNext`,
+  `/settings/notifications/` + `/notifications/preferences/` read
+  `Notification preferences · BuddyNext`. The unread read is a single
+  COUNT against an indexed column and only fires on this hub.
+- **C1 — Background unread-count polling.** Self-bootstrapping poller in
+  `assets/js/notifications/store.js`. Cadence: 30s when idle, 5s for 60s
+  after a user action ("hot" mode), paused while `document.hidden`.
+  Paints the mobile nav badge and any host-theme header pill from a
+  single source of truth. Visibility change re-polls immediately on
+  focus.
+- **D1 — Pro realtime seam.** Dispatch `bn:notification:new` on `window`
+  to kick the poller into hot mode and pull fresh counts immediately.
+  Free has no producer; the event is a no-op until Pro P3.1 (Soketi
+  WebSocket push) is active. Contract documented next to the listener so
+  Pro can wire against it without re-reading the timing constants.
+- **D2 — Sound chime.** New `sound` toggle in the Channels section of
+  `/settings/notifications/`. Persists to `usermeta bn_channel_prefs` via
+  the existing GET/PUT `/me/notification-channels` endpoint. When enabled
+  AND `document.visible` AND `window.bnShellData.notifSoundUrl` is set,
+  plays a soft 0.4-volume chime on each `bn:notification:new` event.
+  Autoplay blocks are swallowed silently; the audio asset itself is
+  optional.
+
+#### REST API
+
+- `GET + PUT /me/notification-channels` now ships the `sound` boolean
+  alongside `in_app`, `email`, `push`. Default is `false`. Pre-existing
+  rows in `usermeta bn_channel_prefs` upgrade lazily — the read merges
+  catalogue defaults so absent keys never panic.
+
+#### Tests
+
+- `NotificationControllerTest`: `test_channels_endpoint_includes_sound_key`,
+  `test_channels_endpoint_persists_sound_toggle`,
+  `test_unread_count_response_shape`, `test_mark_all_read_accepts_put`.
+- `tests/e2e/notifications/reactive-tabs.spec.ts` (new): tab click swaps
+  content without a full reload (window marker survives), document title
+  reflects unread count, prefs page uses dedicated title.
+
 ### Spaces (true production)
 
 Wave 3 shipped directory + space home + settings as `prod`. A deep live-walk

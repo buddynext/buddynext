@@ -147,4 +147,85 @@ class NotificationControllerTest extends \WP_Test_REST_TestCase {
 
 		$this->assertSame( 200, $response->get_status() );
 	}
+
+	/**
+	 * Channels endpoint now ships the sound toggle (notifications completion
+	 * Wave C / D2). Defaults to false; PUT honours the boolean.
+	 */
+	public function test_channels_endpoint_includes_sound_key(): void {
+		wp_set_current_user( $this->user_id );
+
+		$request  = new WP_REST_Request( 'GET', '/buddynext/v1/me/notification-channels' );
+		$response = rest_do_request( $request );
+		$data     = $response->get_data();
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertArrayHasKey( 'channels', $data );
+		$this->assertArrayHasKey( 'sound', $data['channels'] );
+		$this->assertFalse( $data['channels']['sound'] );
+	}
+
+	/**
+	 * PUT /me/notification-channels with sound=true persists across reads.
+	 */
+	public function test_channels_endpoint_persists_sound_toggle(): void {
+		wp_set_current_user( $this->user_id );
+
+		$put = new WP_REST_Request( 'PUT', '/buddynext/v1/me/notification-channels' );
+		$put->set_header( 'Content-Type', 'application/json' );
+		$put->set_body( wp_json_encode( array( 'sound' => true ) ) );
+
+		$response = rest_do_request( $put );
+		$data     = $response->get_data();
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertTrue( $data['channels']['sound'] );
+
+		// Re-fetch and confirm persistence.
+		$get      = new WP_REST_Request( 'GET', '/buddynext/v1/me/notification-channels' );
+		$response = rest_do_request( $get );
+		$data     = $response->get_data();
+		$this->assertTrue( $data['channels']['sound'] );
+	}
+
+	/**
+	 * Unread-count endpoint shape — relied on by the background poller (C1).
+	 */
+	public function test_unread_count_response_shape(): void {
+		wp_set_current_user( $this->user_id );
+
+		$request  = new WP_REST_Request( 'GET', '/buddynext/v1/me/notifications/unread-count' );
+		$response = rest_do_request( $request );
+		$data     = $response->get_data();
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertArrayHasKey( 'count', $data );
+		$this->assertIsInt( $data['count'] );
+	}
+
+	/**
+	 * The mark-all-read route also accepts PUT (REST verbs were both
+	 * registered in Wave 1 so the in-app dropdown could use the canonical verb).
+	 */
+	public function test_mark_all_read_accepts_put(): void {
+		wp_set_current_user( $this->user_id );
+
+		$this->notif_service->create(
+			array(
+				'recipient_id' => $this->user_id,
+				'sender_id'    => $this->sender_id,
+				'type'         => 'bn.new_follower',
+			)
+		);
+
+		$request  = new WP_REST_Request( 'PUT', '/buddynext/v1/me/notifications/read-all' );
+		$response = rest_do_request( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+
+		$count_req  = new WP_REST_Request( 'GET', '/buddynext/v1/me/notifications/unread-count' );
+		$count_res  = rest_do_request( $count_req );
+		$count_data = $count_res->get_data();
+		$this->assertSame( 0, $count_data['count'] );
+	}
 }

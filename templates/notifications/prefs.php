@@ -58,6 +58,7 @@ $channels = array(
 	'in_app' => array_key_exists( 'in_app', $stored_channels ) ? (bool) $stored_channels['in_app'] : true,
 	'email'  => array_key_exists( 'email', $stored_channels ) ? (bool) $stored_channels['email'] : true,
 	'push'   => array_key_exists( 'push', $stored_channels ) ? (bool) $stored_channels['push'] : $push_available,
+	'sound'  => array_key_exists( 'sound', $stored_channels ) ? (bool) $stored_channels['sound'] : false,
 );
 
 // Spaces the user belongs to with their notification_pref.
@@ -217,6 +218,18 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 					</span>
 				</label>
 			<?php endif; ?>
+
+			<label class="bn-prefs-channel">
+				<input type="checkbox"
+					data-channel="sound"
+					<?php checked( ! empty( $channels['sound'] ) ); ?>
+					data-wp-on--change="actions.setChannel">
+				<span class="bn-prefs-channel__icon" aria-hidden="true"><?php buddynext_icon( 'volume-2' ); ?></span>
+				<span class="bn-prefs-channel__body">
+					<span class="bn-prefs-channel__label"><?php esc_html_e( 'Play a sound', 'buddynext' ); ?></span>
+					<span class="bn-prefs-channel__sub"><?php esc_html_e( 'Soft chime when a new notification arrives while this tab is open.', 'buddynext' ); ?></span>
+				</span>
+			</label>
 		</div>
 	</section>
 
