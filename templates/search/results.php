@@ -24,7 +24,7 @@ global $wpdb;
 $raw_query = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( $_GET['q'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 // Allowed tabs.
-$allowed_tabs = array( 'all', 'members', 'posts', 'spaces', 'hashtags' );
+$allowed_tabs = array( 'all', 'members', 'posts', 'spaces', 'hashtags', 'media' );
 $active_tab   = isset( $_GET['type'] ) ? sanitize_key( wp_unslash( $_GET['type'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 // Accept legacy "people" alias from older bookmarks.
 if ( 'people' === $active_tab ) {
@@ -49,15 +49,18 @@ if ( ! in_array( $sort_by, $allowed_sorts, true ) ) {
 }
 
 // Only run queries when there is a search term.
-$results_members = array();
-$results_posts   = array();
-$results_spaces  = array();
-$total_counts    = array(
+$results_members  = array();
+$results_posts    = array();
+$results_spaces   = array();
+$results_hashtags = array();
+$results_media    = array();
+$total_counts     = array(
 	'all'      => 0,
 	'members'  => 0,
 	'posts'    => 0,
 	'spaces'   => 0,
 	'hashtags' => 0,
+	'media'    => 0,
 );
 
 if ( '' !== $raw_query ) {
@@ -166,7 +169,52 @@ if ( '' !== $raw_query ) {
 	}
 	// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
-	$total_counts['all'] = $total_counts['members'] + $total_counts['posts'] + $total_counts['spaces'];
+	// Hashtags: name match via bn_hashtags slug.
+	if ( 'all' === $active_tab || 'hashtags' === $active_tab ) {
+		$tag_q    = ltrim( $raw_query, '#' );
+		$like_tag = '%' . $wpdb->esc_like( $tag_q ) . '%';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$results_hashtags = (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, slug, post_count
+				 FROM {$wpdb->prefix}bn_hashtags
+				 WHERE slug LIKE %s
+				 ORDER BY post_count DESC, slug ASC
+				 LIMIT 10",
+				$like_tag
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$total_counts['hashtags'] = count( $results_hashtags );
+	}
+
+	// Media: posts that have media_ids and match the query.
+	if ( 'all' === $active_tab || 'media' === $active_tab ) {
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$media_sql             = $wpdb->prepare(
+			"SELECT s.object_id, s.content, s.author_id
+			 FROM {$wpdb->prefix}bn_search_index AS s
+			 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = s.object_id
+			 WHERE s.object_type = 'post'
+			   AND s.visibility = 'public'
+			   AND p.media_ids IS NOT NULL
+			   AND p.media_ids != ''
+			   AND MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE )
+			   {$date_sql}{$excluded_sql}
+			 {$order_sql}
+			 LIMIT 12",
+			...$query_args
+		);
+		$results_media         = (array) $wpdb->get_results( $media_sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
+		$total_counts['media'] = count( $results_media );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+	}
+
+	$total_counts['all'] = $total_counts['members']
+		+ $total_counts['posts']
+		+ $total_counts['spaces']
+		+ $total_counts['hashtags']
+		+ $total_counts['media'];
 }
 
 /**
@@ -265,6 +313,10 @@ $type_tabs = array(
 	'hashtags' => array(
 		'label' => __( 'Hashtags', 'buddynext' ),
 		'count' => $total_counts['hashtags'],
+	),
+	'media'    => array(
+		'label' => __( 'Media', 'buddynext' ),
+		'count' => $total_counts['media'],
 	),
 );
 ?>
@@ -667,6 +719,147 @@ $type_tabs = array(
 											<?php echo $is_member ? esc_html__( 'Joined', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
 										</button>
 									<?php endif; ?>
+								</article>
+							<?php endforeach; ?>
+						</div>
+					</section>
+				<?php endif; ?>
+
+				<!-- Hashtags section -->
+				<?php if ( ( 'all' === $active_tab || 'hashtags' === $active_tab ) && ! empty( $results_hashtags ) ) : ?>
+					<section class="bn-search-section" aria-labelledby="bn-search-section-hashtags">
+						<header class="bn-search-section__header">
+							<h2 id="bn-search-section-hashtags" class="bn-search-section__title">
+								<?php esc_html_e( 'Hashtags', 'buddynext' ); ?>
+							</h2>
+							<span class="bn-search-section__count">
+								<?php
+								echo esc_html(
+									sprintf(
+										/* translators: %1$d shown, %2$d total. */
+										__( '%1$d of %2$d', 'buddynext' ),
+										count( $results_hashtags ),
+										$total_counts['hashtags']
+									)
+								);
+								?>
+							</span>
+							<?php if ( 'all' === $active_tab && $total_counts['hashtags'] > 0 ) : ?>
+								<a class="bn-search-section__seeall"
+									href="
+									<?php
+									echo esc_url(
+										add_query_arg(
+											array(
+												'q'    => $raw_query,
+												'type' => 'hashtags',
+											)
+										)
+									);
+									?>
+											">
+									<?php esc_html_e( 'See all', 'buddynext' ); ?>
+									<span aria-hidden="true"><?php buddynext_icon( 'arrow-right' ); ?></span>
+								</a>
+							<?php endif; ?>
+						</header>
+						<div class="bn-search-results__list">
+							<?php foreach ( $results_hashtags as $ht_row ) : ?>
+								<?php
+								$ht_slug = (string) $ht_row->slug;
+								$ht_url  = '';
+								if ( class_exists( '\\BuddyNext\\Core\\PageRouter' ) ) {
+									$ht_url = (string) \BuddyNext\Core\PageRouter::hashtag_feed_url( $ht_slug );
+								}
+								$ht_count = (int) $ht_row->post_count;
+								?>
+								<article class="bn-card bn-search-row bn-search-row--hashtag" data-interactive>
+									<a class="bn-search-row__link" href="<?php echo esc_url( $ht_url ); ?>">
+										<span class="bn-avatar" data-size="md" aria-hidden="true">
+											<?php buddynext_icon( 'hash' ); ?>
+										</span>
+										<span class="bn-search-row__info">
+											<span class="bn-search-row__title">
+												#<?php echo esc_html( $ht_slug ); ?>
+												<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Hashtag', 'buddynext' ); ?></span>
+											</span>
+											<span class="bn-search-row__meta">
+												<?php
+												echo esc_html(
+													sprintf(
+														/* translators: %d = post count for hashtag. */
+														_n( '%d post', '%d posts', $ht_count, 'buddynext' ),
+														$ht_count
+													)
+												);
+												?>
+											</span>
+										</span>
+									</a>
+								</article>
+							<?php endforeach; ?>
+						</div>
+					</section>
+				<?php endif; ?>
+
+				<!-- Media section -->
+				<?php if ( ( 'all' === $active_tab || 'media' === $active_tab ) && ! empty( $results_media ) ) : ?>
+					<section class="bn-search-section" aria-labelledby="bn-search-section-media">
+						<header class="bn-search-section__header">
+							<h2 id="bn-search-section-media" class="bn-search-section__title">
+								<?php esc_html_e( 'Media', 'buddynext' ); ?>
+							</h2>
+							<span class="bn-search-section__count">
+								<?php
+								echo esc_html(
+									sprintf(
+										/* translators: %1$d shown, %2$d total. */
+										__( '%1$d of %2$d', 'buddynext' ),
+										count( $results_media ),
+										$total_counts['media']
+									)
+								);
+								?>
+							</span>
+							<?php if ( 'all' === $active_tab && $total_counts['media'] > 0 ) : ?>
+								<a class="bn-search-section__seeall"
+									href="
+									<?php
+									echo esc_url(
+										add_query_arg(
+											array(
+												'q'    => $raw_query,
+												'type' => 'media',
+											)
+										)
+									);
+									?>
+											">
+									<?php esc_html_e( 'See all', 'buddynext' ); ?>
+									<span aria-hidden="true"><?php buddynext_icon( 'arrow-right' ); ?></span>
+								</a>
+							<?php endif; ?>
+						</header>
+						<div class="bn-search-results__list">
+							<?php foreach ( $results_media as $media_row ) : ?>
+								<?php
+								$media_pid    = (int) $media_row->object_id;
+								$media_author = (int) $media_row->author_id;
+								$media_user   = $media_author ? get_userdata( $media_author ) : null;
+								$media_name   = $media_user ? $media_user->display_name : __( 'Unknown', 'buddynext' );
+								$media_init   = $initials( $media_name );
+								?>
+								<article class="bn-card bn-search-row bn-search-row--media" data-interactive>
+									<header class="bn-search-row__head">
+										<span class="bn-avatar" data-size="sm" aria-hidden="true">
+											<?php echo esc_html( $media_init ); ?>
+										</span>
+										<span class="bn-search-row__author"><?php echo esc_html( $media_name ); ?></span>
+										<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Media', 'buddynext' ); ?></span>
+									</header>
+									<div class="bn-search-row__text">
+										<?php echo $highlight( (string) $media_row->content, $raw_query ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+									</div>
 								</article>
 							<?php endforeach; ?>
 						</div>

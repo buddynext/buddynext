@@ -24,7 +24,16 @@ if ( ! is_user_logged_in() ) {
 	exit;
 }
 
-$mvs_active = class_exists( 'WPMediaVerse\Core\Plugin' );
+// Detect WPMediaVerse via several signals so a single class-rename in the
+// upstream plugin does not break BuddyNext's dependency notice. We accept
+// the dependency as met when ANY of these are true: the canonical Plugin
+// class exists, MVS_VERSION is defined, or the buddynext_render_messages
+// action has any listener registered (the bridge attaches one).
+$mvs_active = (
+	class_exists( 'WPMediaVerse\Core\Plugin' )
+	|| defined( 'MVS_VERSION' )
+	|| has_action( 'buddynext_render_messages' )
+);
 
 /**
  * Fires before the messages list inner content.

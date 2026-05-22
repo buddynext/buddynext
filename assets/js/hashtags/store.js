@@ -10,19 +10,31 @@ import { store, getContext } from '@wordpress/interactivity';
 store( 'buddynext/feed', {
 	actions: {
 		/**
-		 * Follow or unfollow the current hashtag.
+		 * Follow or unfollow a hashtag.
+		 *
+		 * Prefers the clicked button's data-hashtag attribute over the page
+		 * context so the same action can drive multiple chips (header, sidebar
+		 * card, related-tag list) without each needing its own context.
 		 */
-		toggleFollowHashtag: async function () {
+		toggleFollowHashtag: async function ( event ) {
 			var ctx = getContext();
 			if ( ! ctx || ! ctx.restNonce ) { return; }
 
-			var slug      = ctx.hashtag;
-			var following = ctx.following;
+			var clicked   = event && event.target ? event.target.closest( '[data-hashtag]' ) : null;
+			var slug      = clicked ? clicked.getAttribute( 'data-hashtag' ) : ctx.hashtag;
+			if ( ! slug ) { return; }
+
+			var following = clicked
+				? ( clicked.getAttribute( 'aria-pressed' ) === 'true' )
+				: ctx.following;
 			var url       = ctx.restUrl + 'hashtags/' + encodeURIComponent( slug ) + '/follow';
 			var method    = following ? 'DELETE' : 'POST';
 
-			// Optimistic UI update.
-			ctx.following = ! following;
+			// Optimistic UI update. Only mirror to context if this click is
+			// for the page-level hashtag (header button), not a sidebar chip.
+			if ( slug === ctx.hashtag ) {
+				ctx.following = ! following;
+			}
 
 			// Update button/switch state in the DOM (outside reactive context).
 			var buttons = document.querySelectorAll(
@@ -46,7 +58,9 @@ store( 'buddynext/feed', {
 
 				if ( ! res.ok ) {
 					// Roll back on failure.
-					ctx.following = following;
+					if ( slug === ctx.hashtag ) {
+						ctx.following = following;
+					}
 					buttons.forEach( function ( btn ) {
 						var isSwitch = ( btn.getAttribute( 'role' ) === 'switch' );
 						if ( isSwitch ) {
@@ -56,10 +70,25 @@ store( 'buddynext/feed', {
 							btn.setAttribute( 'aria-pressed', following ? 'true' : 'false' );
 						}
 					} );
+					if ( window.bnToast ) {
+						window.bnToast( 'Could not update follow state. Try again.', { type: 'error' } );
+					}
+				} else if ( window.bnToast ) {
+					window.bnToast(
+						following
+							? 'Unfollowed #' + slug
+							: 'Following #' + slug,
+						{ type: 'success' }
+					);
 				}
 			} catch ( _e ) {
 				// Roll back silently on network error.
-				ctx.following = following;
+				if ( slug === ctx.hashtag ) {
+					ctx.following = following;
+				}
+				if ( window.bnToast ) {
+					window.bnToast( 'Network error. Try again.', { type: 'error' } );
+				}
 			}
 		},
 
