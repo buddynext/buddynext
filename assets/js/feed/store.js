@@ -1218,3 +1218,97 @@ store( 'buddynext/feed-tabs', {
 		},
 	},
 } );
+
+/* ── Explore facet chips + search bar (buddynext/feed namespace) ──────────
+ *
+ * The explore template binds chips to actions.setFilter and the search input
+ * to actions.onSearch under the buddynext/feed namespace. These wire facet
+ * clicks to the search results page so chips actually filter, and the search
+ * input routes to /search/?q=… on submit.
+ */
+const BN_SEARCH_PATH = '/search/';
+
+store( 'buddynext/feed', {
+	actions: {
+		setFilter( event ) {
+			if ( event && event.preventDefault ) { event.preventDefault(); }
+			const target = event && event.target ? event.target.closest( '[data-filter]' ) : null;
+			const filter = target ? target.getAttribute( 'data-filter' ) : '';
+			if ( ! filter ) { return; }
+
+			// Hashtag chip — go straight to that hashtag's feed page.
+			if ( filter.indexOf( 'tag:' ) === 0 ) {
+				const slug = filter.slice( 4 );
+				if ( ! slug ) { return; }
+				window.location.href = '/activity/hashtag/' + encodeURIComponent( slug ) + '/';
+				return;
+			}
+
+			// "All" stays on explore with no facet narrowing.
+			if ( 'all' === filter ) {
+				const url = new URL( window.location.href );
+				url.searchParams.delete( 'type' );
+				url.searchParams.delete( 'q' );
+				url.searchParams.delete( 'cursor' );
+				window.location.href = url.toString();
+				return;
+			}
+
+			// Route the rest (people/posts/spaces/media/members/hashtags) to
+			// the unified search results page with the chosen facet.
+			const typeAlias = {
+				people: 'members',
+				posts:  'posts',
+				spaces: 'spaces',
+				media:  'media',
+			};
+			const tab = typeAlias[ filter ] || filter;
+
+			const target_url = new URL( window.location.origin + BN_SEARCH_PATH );
+			target_url.searchParams.set( 'type', tab );
+			window.location.href = target_url.toString();
+		},
+
+		/**
+		 * Submit the explore search input as a unified search query.
+		 *
+		 * Debounced; triggers only on Enter to avoid jumping away on every
+		 * keystroke. Empty queries are ignored.
+		 */
+		onSearch( event ) {
+			// Only act on Enter to keep typing fluid.
+			const ev = event;
+			const isInput = ev && ev.target && ev.target.tagName === 'INPUT';
+			if ( ! isInput ) { return; }
+			if ( ev.type === 'input' || ev.type === 'change' ) {
+				// Stash on context for reactive use; do not navigate yet.
+				try { getContext().query = ev.target.value || ''; } catch ( _e ) {}
+				return;
+			}
+			if ( ev.type === 'keydown' && ev.key !== 'Enter' ) { return; }
+
+			const q = ( ev.target.value || '' ).trim();
+			if ( '' === q ) { return; }
+
+			const target_url = new URL( window.location.origin + BN_SEARCH_PATH );
+			target_url.searchParams.set( 'q', q );
+			window.location.href = target_url.toString();
+		},
+	},
+} );
+
+/* ── Wire Enter-to-search on the explore search input ─────────────────── */
+
+document.addEventListener( 'DOMContentLoaded', () => {
+	const input = document.getElementById( 'bn-explore-search-input' );
+	if ( ! input ) { return; }
+	input.addEventListener( 'keydown', ( e ) => {
+		if ( e.key !== 'Enter' ) { return; }
+		e.preventDefault();
+		const q = ( input.value || '' ).trim();
+		if ( '' === q ) { return; }
+		const target_url = new URL( window.location.origin + BN_SEARCH_PATH );
+		target_url.searchParams.set( 'q', q );
+		window.location.href = target_url.toString();
+	} );
+} );

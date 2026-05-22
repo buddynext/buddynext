@@ -377,7 +377,7 @@ else :
 							'count' => null,
 						),
 						'following' => array(
-							'label' => __( 'Following', 'buddynext' ),
+							'label' => __( 'Following only', 'buddynext' ),
 							'count' => null,
 							'guard' => ! $is_logged_in,
 						),
@@ -659,6 +659,22 @@ else :
 					<h2 class="bn-sidebar-widget__title"><?php esc_html_e( 'Related hashtags', 'buddynext' ); ?></h2>
 					<ul class="bn-hashtag-related">
 						<?php foreach ( $related_tags as $rel_tag ) : ?>
+							<?php
+							$rel_following = false;
+							if ( $is_logged_in ) {
+								// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+								$rel_following = (bool) $wpdb->get_var(
+									$wpdb->prepare(
+										"SELECT 1 FROM {$hashtag_follows_tb} hf
+										 INNER JOIN {$hashtags_table} h ON h.id = hf.hashtag_id
+										 WHERE hf.user_id = %d AND h.slug = %s LIMIT 1",
+										$current_user_id,
+										$rel_tag->slug
+									)
+								);
+								// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+							}
+							?>
 							<li class="bn-hashtag-related__row">
 								<a class="bn-badge bn-hashtag-related__chip" data-tone="accent"
 									href="<?php echo esc_url( PageRouter::hashtag_feed_url( $rel_tag->slug ) ); ?>"
@@ -672,6 +688,19 @@ else :
 									);
 									?>
 								</span>
+								<?php if ( $is_logged_in ) : ?>
+									<button
+										class="bn-btn bn-hashtag-related__follow"
+										data-variant="<?php echo $rel_following ? 'secondary' : 'primary'; ?>"
+										data-size="xs"
+										type="button"
+										data-wp-on--click="actions.toggleFollowHashtag"
+										data-hashtag="<?php echo esc_attr( $rel_tag->slug ); ?>"
+										aria-pressed="<?php echo $rel_following ? 'true' : 'false'; ?>"
+									>
+										<?php echo $rel_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
+									</button>
+								<?php endif; ?>
 							</li>
 						<?php endforeach; ?>
 					</ul>

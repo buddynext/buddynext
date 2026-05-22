@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Hashtags + Search + DM bridge (production)
+
+- **DM bridge detection hardened** (Messages, row 12). `templates/messages/list.php` now detects WPMediaVerse via three independent signals: the canonical `WPMediaVerse\Core\Plugin` class, the `MVS_VERSION` constant, or any listener on the `buddynext_render_messages` action. A single upstream rename or load-order quirk no longer collapses the messages page into the "WPMediaVerse required" empty state. `mu-plugins/buddynext-early-router.php` whitelist now spells out the WPMediaVerse Free / Pro / hyphenated slug variants explicitly so plugin-isolation on BN routes can never strip the DM engine.
+- **Hashtag feed polish** (row 3). Sort tab labelled "Following" renamed to "Following only" to disambiguate from the follow-toggle. Follow / unfollow actions now emit success + error toasts via `window.bnToast`. The Related hashtags sidebar gains a per-row Follow chip wired to the same `actions.toggleFollowHashtag` action; the store now prefers the clicked button's `data-hashtag` attribute over the page context so chips work in any list. Context-state updates are scoped to the page-level hashtag so sidebar toggles do not desync the header.
+- **Explore facet wiring** (row 2). The All / People / Posts / Spaces / Media chips on `/activity/explore/` previously had no handler attached because `setFilter` lived in the `buddynext/feed-tabs` store while the chips bind to `buddynext/feed`. Added `setFilter` + `onSearch` to the `buddynext/feed` namespace so chips route to the unified search results page with the matching facet (`/search/?type=members|posts|spaces|media|hashtags`). Trending-tag chips (`tag:foo`) route to the hashtag feed. The explore search input now fires Enter to navigate to `/search/?q=`.
+- **Search results page** (row 17). Added Hashtags and Media facets to the type tabs + result list. Hashtag facet renders the bn_hashtags slug match list with post counts. Media facet renders posts that have non-empty `media_ids`. Allowed-tab list extended to `media`. Total result count now includes hashtag + media counts.
+- Tests: existing `tests/Bridges/WPMediaVerseBridgeTest`, `tests/Hashtags/HashtagServiceTest`, `tests/Search/SearchControllerTest`, and `tests/Search/SearchServiceTest` continue to pass; bridge test is structural and unaffected by the multi-signal detection; search tests do not assert on the new facets.
+
 ### Feed (production)
 
 - **Feed (production)** — Composer gains Event, Voice, AI tools + chip privacy selector. Home feed gains For you / Following / Spaces / Network filter tabs with per-tab counts + empty states. Post card gains Share action with Repost / Quote / Copy-link modal. Sidebar widgets gain per-row Follow chips + This-week caption + unread-space dots.

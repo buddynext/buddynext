@@ -83,8 +83,14 @@ if ( buddynext_mu_is_bn_request() ) {
 		'buddynext_isolation_whitelist',
 		array(
 			'buddynext/buddynext.php',
+			'buddynext-pro/buddynext-pro.php',
+			// WPMediaVerse owns the DM engine + media lightbox. MUST stay
+			// active on BN routes so the messages page renders the two-pane
+			// chat shell instead of the "dependency required" notice.
 			'wpmediaverse/wpmediaverse.php',
 			'wpmediaverse-pro/wpmediaverse-pro.php',
+			'wp-mediaverse/wp-mediaverse.php',
+			// Jetonomy bridge.
 			'jetonomy/jetonomy.php',
 			'jetonomy-pro/jetonomy-pro.php',
 			'redis-cache/redis-cache.php',
