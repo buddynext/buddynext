@@ -2,6 +2,89 @@
 
 ## Unreleased
 
+### Spaces (true production)
+
+Wave 3 shipped directory + space home + settings as `prod`. A deep live-walk
+on `buddynext-dev.local` as `varundubey` (admin) surfaced ten presentation-
+quality gaps. Closed every one:
+
+- **A — Document titles per surface.** PageRouter's `document_title_parts`
+  filter now resolves the active space via the new
+  `SpaceService::get_by_slug()` helper (cached) and emits the right title
+  for each surface: `/spaces/{slug}/` → "{Space name} · Spaces",
+  `/spaces/{slug}/settings/` → "Settings · {Space name}", same shape for
+  `?bn_tab=members`, `?bn_tab=about`, `/moderation/`, and `/admin/`. Secret
+  spaces stay leak-proof — unresolved slugs fall through to the bare hub
+  title so existence is never confirmed.
+- **B — Canonical Open / Private / Secret vocabulary.** Added
+  `SpaceService::TYPE_OPEN|PRIVATE|SECRET` constants and a static
+  `SpaceService::type_label()` helper that returns the i18n'd human label.
+  Every surface that rendered a type pill — directory chips, type select,
+  card badge, hero badge, settings hero badge, settings dropdown options,
+  space-card block — now reads through the helper. "Public" and
+  "Invite-only" are purged from user-facing copy.
+- **C — Sticky save bar.** Mirror the Profile edit + Notification prefs
+  contract. Bar latches to whichever tab form was touched, swaps between
+  dirty / saving / saved status pills, captures input defaults on init so
+  Cancel rolls back without reload, runs the beforeunload guard while
+  dirty. Wired in `assets/js/spaces/store.js` against all
+  `bn-space-settings__form` forms.
+- **D — About tab: rules + categories.** Add a `rules TEXT` column to
+  `bn_spaces` (with INFORMATION_SCHEMA guard in
+  `Installer::maybe_alter_tables`); surface a House rules textarea in
+  Settings → General (one rule per line); render a numbered list under
+  the description on the About tab when rules are populated. The category
+  is now a chip linking to `/spaces/?bn_cat={slug}`. Empty sections collapse
+  so we never render orphan headings.
+- **E — Page-title reactivity for space home tabs.** Folds into A —
+  document_title_parts reads from `?bn_tab=` directly so tab clicks update
+  the title without a separate code path.
+- **F — Guest experience.** Secret-space URL hit by a logged-out viewer
+  (or any non-member non-admin) now 404s — slug existence stays hidden.
+  Hero action row branches on `is_guest`: shows a "Log in to join" anchor
+  with `?redirect_to` round-trip. Private gate card branches into guest /
+  pending / member-eligible. Feed body now renders a `bn-sh-guest-cta`
+  card in place of the composer for logged-out viewers + non-member
+  open-space viewers (instant Join button via the existing
+  `actions.joinSpace` store action).
+- **G — Cover image upload.** Replace the dead-end file input with a full
+  `wp.media()` picker. `wp_enqueue_media()` is now called from
+  `PageRouter::enqueue_hub_assets` whenever the active spaces sub-action
+  is `settings` or `admin`. Settings → General ships an Upload / Remove
+  affordance, a preview tile that paints the chosen URL as a background
+  image, and a hidden text input that POSTs the resolved URL back. Empty
+  submission clears the cover so the hero falls back to the gradient.
+- **H — Categories management UI.** New "Categories" subtab on the BN
+  admin Spaces page — without this surface the SpaceCategoryController
+  REST endpoints were unreachable for non-CLI admins, leaving the Create
+  Space + Settings category selects permanently empty. The subtab ships
+  a Name / Slug / Spaces (count) / Sort table, an Add-category form, and
+  a delete confirm modal that nulls `category_id` on dependent spaces
+  before delete so we don't FK-orphan.
+- **I — Members tab role filter chips + Connect button.** Members tab
+  gains All / Owners / Moderators / Members filter chips (server-side
+  filter so the cap of 100 stays honest). Per-row actions now render
+  both the canonical Follow and Connect partials (was guarded by two
+  helper-function probes that don't exist in the codebase). Empty-state
+  messaging is now per-filter.
+- **J — Mobile <=480px sweep.** Append a sub-480 `@media` block covering:
+  directory cards 1-up with tightened padding, filter row stacks
+  vertically, hero emblem + stat strip tightens, tab nav (hero + settings
+  sidenav) becomes a horizontally scrollable strip, members grid 1-up
+  with full-width action row, modals span `calc(100vw - 32px)` with a
+  16px gutter.
+- **K — Empty-state sweep.** Directory now distinguishes cold-start
+  (no spaces yet → Create CTA) from filter-no-match (Reset filters CTA).
+  Members empty state is per-filter (no owners / no moderators / etc.).
+  Media tab empty state was already correct. Settings save error has
+  shipped from Wave 3.
+
+Tests added: `tests/Spaces/SpaceServiceTest.php` extended with
+`type_label()` coverage (Open/Private/Secret + bogus + empty + the
+explicit "never returns Public" lock-in), `TYPE_*` constant assertions,
+`get_by_slug()` coverage (found / missing / empty / sanitised /
+post-update / post-delete), and a `rules` column persistence assertion.
+
 ### Feed (true production)
 
 Live-walk findings on `buddynext-dev.local` as `varundubey` exposed three

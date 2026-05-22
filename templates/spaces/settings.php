@@ -108,6 +108,13 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		if ( isset( $_POST['space_description'] ) ) {
 			$update_data['description'] = sanitize_textarea_field( wp_unslash( $_POST['space_description'] ) );
 		}
+		if ( isset( $_POST['space_rules'] ) ) {
+			$update_data['rules'] = sanitize_textarea_field( wp_unslash( $_POST['space_rules'] ) );
+		}
+		if ( isset( $_POST['space_cover_image_url'] ) ) {
+			$raw_cover                      = sanitize_text_field( wp_unslash( $_POST['space_cover_image_url'] ) );
+			$update_data['cover_image_url'] = ( '' === trim( $raw_cover ) ) ? '' : esc_url_raw( $raw_cover );
+		}
 		if ( isset( $_POST['space_category_id'] ) ) {
 			$update_data['category_id'] = absint( $_POST['space_category_id'] );
 		}
@@ -131,6 +138,13 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				null,
 				array( '%d' )
 			);
+
+			// Bust SpaceService caches so subsequent reads (incl. the re-fetch
+			// below and the next page load) reflect the new values.
+			wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
+			if ( isset( $space->slug ) && '' !== (string) $space->slug ) {
+				wp_cache_delete( "space_slug_{$space->slug}", 'buddynext_spaces' );
+			}
 		}
 
 		// Re-fetch fresh space data.
@@ -329,24 +343,15 @@ $space_members = $wpdb->get_results(
 $space_url     = buddynext_space_url( $space->slug ?? '' );
 $settings_base = buddynext_space_settings_url( $space->slug ?? '' );
 
-// Privacy badge tone for the hero.
-$privacy_map   = array(
-	'open'    => array(
-		'tone'  => 'success',
-		'label' => __( 'Open', 'buddynext' ),
-	),
-	'private' => array(
-		'tone'  => 'warn',
-		'label' => __( 'Private', 'buddynext' ),
-	),
-	'secret'  => array(
-		'tone'  => 'danger',
-		'label' => __( 'Secret', 'buddynext' ),
-	),
+// Privacy badge tone for the hero. Labels resolve via SpaceService::type_label()
+// so the wording stays in lockstep with the directory + space home + Pro tabs.
+$privacy_tone_map = array(
+	'open'    => 'success',
+	'private' => 'warn',
+	'secret'  => 'danger',
 );
-$privacy       = $privacy_map[ $space->type ?? 'open' ] ?? $privacy_map['open'];
-$privacy_tone  = $privacy['tone'];
-$privacy_label = $privacy['label'];
+$privacy_tone     = $privacy_tone_map[ $space->type ?? 'open' ] ?? $privacy_tone_map['open'];
+$privacy_label    = \BuddyNext\Spaces\SpaceService::type_label( (string) ( $space->type ?? 'open' ) );
 
 // Tabs definition.
 $nav_items = array(
@@ -773,7 +778,7 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 
 		<?php elseif ( 'moderation' === $settings_tab ) : ?>
 
-			<form method="post" action="">
+			<form method="post" action="" class="bn-space-settings__form">
 				<?php wp_nonce_field( 'bn_space_moderation_' . $space_id, 'bn_space_moderation_nonce' ); ?>
 
 				<div class="bn-card bn-space-settings__panel">
@@ -820,7 +825,7 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 
 		<?php elseif ( 'notifications' === $settings_tab ) : ?>
 
-			<form method="post" action="">
+			<form method="post" action="" class="bn-space-settings__form">
 				<?php wp_nonce_field( 'bn_space_notifications_' . $space_id, 'bn_space_notifications_nonce' ); ?>
 
 				<div class="bn-card bn-space-settings__panel">
@@ -1086,7 +1091,7 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 
 		<?php else : ?>
 
-			<form method="post" action="" enctype="multipart/form-data">
+			<form method="post" action="" enctype="multipart/form-data" class="bn-space-settings__form">
 				<?php wp_nonce_field( 'bn_space_settings_' . $space_id, 'bn_space_settings_nonce' ); ?>
 
 				<?php if ( 'general' === $settings_tab ) : ?>
@@ -1112,17 +1117,50 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 							</div>
 						</div>
 
-						<div class="bn-space-settings__field">
-							<label for="bn_cover_image"><?php esc_html_e( 'Cover image', 'buddynext' ); ?></label>
+						<div class="bn-space-settings__field" data-bn-cover-field>
+							<label><?php esc_html_e( 'Cover image', 'buddynext' ); ?></label>
 							<div
-								class="bn-space-settings__cover"
+								class="bn-space-settings__cover<?php echo ! empty( $space->cover_image_url ) ? ' has-image' : ''; ?>"
+								data-bn-cover-preview
 								role="button"
 								tabindex="0"
 								aria-label="<?php esc_attr_e( 'Upload cover photo', 'buddynext' ); ?>"
+								<?php if ( ! empty( $space->cover_image_url ) ) : ?>
+									style="background-image:url('<?php echo esc_url( $space->cover_image_url ); ?>');background-size:cover;background-position:center;"
+								<?php endif; ?>
 							>
-								<?php buddynext_icon( 'image' ); ?> <?php esc_html_e( 'Upload cover photo', 'buddynext' ); ?>
+								<span class="bn-space-settings__cover-empty"<?php echo ! empty( $space->cover_image_url ) ? ' hidden' : ''; ?>>
+									<?php buddynext_icon( 'image' ); ?> <?php esc_html_e( 'Upload cover photo', 'buddynext' ); ?>
+								</span>
 							</div>
-							<input type="file" name="cover_image" id="bn_cover_image" accept="image/*" class="bn-space-settings__cover-input">
+							<input
+								type="hidden"
+								name="space_cover_image_url"
+								data-bn-cover-input
+								value="<?php echo esc_attr( $space->cover_image_url ?? '' ); ?>"
+							>
+							<div class="bn-space-settings__cover-actions">
+								<button
+									type="button"
+									class="bn-btn"
+									data-variant="secondary"
+									data-size="sm"
+									data-bn-cover-upload
+								>
+									<?php buddynext_icon( 'upload' ); ?> <?php esc_html_e( 'Upload cover photo', 'buddynext' ); ?>
+								</button>
+								<button
+									type="button"
+									class="bn-btn"
+									data-variant="ghost"
+									data-size="sm"
+									data-bn-cover-remove
+									<?php echo empty( $space->cover_image_url ) ? 'hidden' : ''; ?>
+								>
+									<?php esc_html_e( 'Remove', 'buddynext' ); ?>
+								</button>
+							</div>
+							<p class="bn-space-settings__hint"><?php esc_html_e( 'Recommended 1500×500. Falls back to a gradient when empty.', 'buddynext' ); ?></p>
 						</div>
 
 						<div class="bn-space-settings__field">
@@ -1148,6 +1186,18 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 								rows="3"
 							><?php echo esc_textarea( $space->description ?? '' ); ?></textarea>
 							<p class="bn-space-settings__hint"><?php esc_html_e( '160 characters max. Shown in the spaces directory.', 'buddynext' ); ?></p>
+						</div>
+
+						<div class="bn-space-settings__field">
+							<label for="space_rules"><?php esc_html_e( 'House rules', 'buddynext' ); ?></label>
+							<textarea
+								id="space_rules"
+								name="space_rules"
+								class="bn-textarea"
+								rows="6"
+								placeholder="<?php esc_attr_e( "Be kind\nNo spam\nStay on topic", 'buddynext' ); ?>"
+							><?php echo esc_textarea( $space->rules ?? '' ); ?></textarea>
+							<p class="bn-space-settings__hint"><?php esc_html_e( 'One rule per line. Renders as a numbered list on the About tab.', 'buddynext' ); ?></p>
 						</div>
 
 						<div class="bn-space-settings__field">
@@ -1182,7 +1232,7 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 									<?php esc_html_e( 'Private: listed but requires approval to join', 'buddynext' ); ?>
 								</option>
 								<option value="secret" <?php selected( $space->type, 'secret' ); ?>>
-									<?php esc_html_e( 'Invite-only: not listed, admin invites only', 'buddynext' ); ?>
+									<?php esc_html_e( 'Secret: not listed, admin invites only', 'buddynext' ); ?>
 								</option>
 							</select>
 						</div>
@@ -1310,5 +1360,48 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 		do_action( 'buddynext_space_settings_tab_content', $settings_tab, $space_id );
 		?>
 
+	</div>
+
+	<!-- Sticky save bar — matches Profile edit + Notification prefs pattern.
+		Wired by assets/js/spaces/store.js: listens for input/change on every
+		form inside .bn-space-settings, surfaces the bar when dirty, runs the
+		beforeunload guard, and submits the currently-dirty form on click. -->
+	<div
+		class="bn-space-settings__savebar"
+		role="region"
+		aria-label="<?php esc_attr_e( 'Save changes', 'buddynext' ); ?>"
+		data-bn-space-settings-savebar
+		hidden
+	>
+		<div class="bn-space-settings__savebar-inner">
+			<div class="bn-space-settings__savebar-status bn-space-settings__savebar-status--dirty" data-bn-savebar-state="dirty">
+				<span class="bn-space-settings__savebar-dot" aria-hidden="true"></span>
+				<span><?php esc_html_e( 'Unsaved changes', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-space-settings__savebar-status bn-space-settings__savebar-status--saving" data-bn-savebar-state="saving" hidden>
+				<span class="bn-space-settings__savebar-spinner" aria-hidden="true"></span>
+				<span><?php esc_html_e( 'Saving…', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-space-settings__savebar-status bn-space-settings__savebar-status--saved" data-bn-savebar-state="saved" hidden>
+				<?php buddynext_icon( 'check' ); ?>
+				<span><?php esc_html_e( 'All changes saved', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-space-settings__savebar-actions">
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="md"
+					data-bn-savebar-cancel
+				><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="md"
+					data-bn-savebar-submit
+				><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
+			</div>
+		</div>
 	</div>
 </div>

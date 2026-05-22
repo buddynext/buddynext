@@ -40,11 +40,7 @@ $bn_privacy_tone = match ( $bn_type ) {
 	'private' => 'warn',
 	default   => 'danger',
 };
-$bn_privacy_label = match ( $bn_type ) {
-	'open'    => __( 'Public', 'buddynext' ),
-	'private' => __( 'Private', 'buddynext' ),
-	default   => __( 'Invite-only', 'buddynext' ),
-};
+$bn_privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $bn_type );
 
 if ( ! function_exists( 'bn_space_cover_tone' ) ) {
 	/**

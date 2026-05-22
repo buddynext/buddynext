@@ -561,6 +561,53 @@
 	max-width: 420px;
 }
 
+/* Guest CTA — replaces the composer for logged-out viewers + non-member
+   viewers of open spaces. */
+.bn-sh-guest-cta {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s4) var(--bn-s5);
+}
+
+.bn-sh-guest-cta__icon {
+	display: inline-flex;
+	color: var(--bn-ink-3);
+}
+
+.bn-sh-guest-cta__icon svg {
+	width: 28px;
+	height: 28px;
+}
+
+.bn-sh-guest-cta__copy {
+	flex: 1;
+	min-width: 0;
+}
+
+.bn-sh-guest-cta__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-md);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	margin: 0;
+}
+
+.bn-sh-guest-cta__lede {
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	margin: 0;
+}
+
+@media (max-width: 480px) {
+	.bn-sh-guest-cta {
+		flex-direction: column;
+		align-items: stretch;
+		text-align: center;
+	}
+	.bn-sh-guest-cta__icon { align-self: center; }
+}
+
 /* About-tab card */
 .bn-sh-about {
 	padding: var(--bn-s5);
@@ -582,6 +629,32 @@
 	color: var(--bn-ink-2);
 	line-height: var(--bn-leading-body);
 	margin: 0;
+}
+
+.bn-sh-about__section-title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	text-transform: uppercase;
+	letter-spacing: var(--bn-ls-wide);
+	margin: 0 0 var(--bn-s2);
+}
+
+.bn-sh-about__rules-list {
+	margin: 0;
+	padding-inline-start: var(--bn-s5);
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+}
+
+.bn-sh-about__cat-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
 }
 
 .bn-sh-about__meta {
@@ -1270,6 +1343,22 @@
 	border-color: var(--bn-accent);
 	color: var(--bn-accent);
 	outline: none;
+}
+
+.bn-space-settings__cover.has-image {
+	border-style: solid;
+	border-color: var(--bn-line);
+	block-size: 180px;
+}
+
+.bn-space-settings__cover-actions {
+	display: inline-flex;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s2);
+}
+
+.bn-space-settings__cover-empty[hidden] {
+	display: none !important;
 }
 
 .bn-space-settings__cover-input {
@@ -2124,6 +2213,13 @@
 	margin-bottom: var(--bn-s3);
 }
 
+.bn-sh-members__filter-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	margin-block-end: var(--bn-s3);
+}
+
 .bn-sh-members__grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -2205,4 +2301,171 @@
 	margin: var(--bn-s2) 0 0;
 	color: var(--bn-danger, #b91c1c);
 	font-size: 13px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Space settings — sticky save bar.
+ *
+ * Mirrors the Profile edit + Notification prefs save-bar contract: fixed to
+ * the viewport bottom, surfaces only when a form is dirty, swaps between
+ * dirty / saving / saved status pills via [data-bn-savebar-state].
+ * ────────────────────────────────────────────────────────────────────────── */
+
+.bn-space-settings__savebar {
+	position: fixed;
+	inset-block-end: 0;
+	inset-inline: 0;
+	background: var(--bn-surface);
+	border-block-start: 1px solid var(--bn-line);
+	box-shadow: var(--bn-shadow-sm);
+	padding-inline: var(--bn-s5);
+	min-height: 64px;
+	display: flex;
+	align-items: center;
+	z-index: 180;
+}
+
+.bn-space-settings__savebar[hidden] {
+	display: none !important;
+}
+
+.bn-space-settings__savebar-inner {
+	max-width: 1080px;
+	margin-inline: auto;
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+}
+
+.bn-space-settings__savebar-status {
+	font-size: var(--bn-text-sm);
+	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+}
+
+.bn-space-settings__savebar-status[hidden] {
+	display: none !important;
+}
+
+.bn-space-settings__savebar-status svg {
+	width: 14px;
+	height: 14px;
+}
+
+.bn-space-settings__savebar-status--dirty {
+	color: var(--bn-text);
+}
+
+.bn-space-settings__savebar-status--saving {
+	color: var(--bn-text-muted, #6b7280);
+}
+
+.bn-space-settings__savebar-status--saved {
+	color: var(--bn-success, #047857);
+}
+
+.bn-space-settings__savebar-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--bn-warn, #d97706);
+}
+
+.bn-space-settings__savebar-spinner {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	border: 2px solid var(--bn-line);
+	border-block-start-color: var(--bn-text);
+	animation: bn-space-settings-savebar-spin 0.8s linear infinite;
+}
+
+@keyframes bn-space-settings-savebar-spin {
+	to { transform: rotate(360deg); }
+}
+
+.bn-space-settings__savebar-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-inline-start: auto;
+}
+
+@media (max-width: 720px) {
+	.bn-space-settings__savebar { padding-inline: var(--bn-s4); }
+	.bn-space-settings__savebar-status { display: none; }
+	.bn-space-settings__savebar-inner { justify-content: flex-end; }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Sub-480 viewport sweep (covers 390px iPhone Pro / 360px common Android).
+ *
+ * The 768/640 blocks above already handle the tablet → small-tablet glide.
+ * This block targets the actual mobile-portrait surface area gaps observed
+ * during the live walk: hero stats compress to two columns, tab nav scrolls
+ * horizontally, settings rows stack vertically with full-width actions, and
+ * the savebar collapses to icon-only actions so it doesn't overflow.
+ * ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+	/* Directory cards already 1col at 768; tighten card padding + stats. */
+	.bn-sd-card { padding: 0; }
+	.bn-sd-card__body { padding: var(--bn-s3); gap: var(--bn-s2); }
+
+	/* Filter row stacks: chips above, sort below. */
+	.bn-sd-filter-row {
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--bn-s2);
+	}
+	.bn-sd-sort { align-self: stretch; }
+	.bn-sd-sort__trigger { inline-size: 100%; justify-content: space-between; }
+
+	/* Space-home hero — emblem tightens, stats two-up. */
+	.bn-sh-hero__emblem { width: 56px; height: 56px; margin-block-start: calc(-1 * var(--bn-s6)); }
+	.bn-sh-hero__name { font-size: var(--bn-text-lg); }
+	.bn-sh-hero__stats.bn-stat-grid { grid-template-columns: repeat(2, 1fr); }
+
+	/* Hero tab nav scrolls horizontally so all tabs stay reachable. */
+	.bn-tabs.bn-sh-hero__tabs {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+		flex-wrap: nowrap;
+		scrollbar-width: none;
+	}
+	.bn-tabs.bn-sh-hero__tabs::-webkit-scrollbar { display: none; }
+	.bn-tabs.bn-sh-hero__tabs .bn-tab { flex-shrink: 0; }
+
+	/* Settings tab nav scrolls horizontally too. */
+	.bn-space-settings__sidenav,
+	.bn-space-settings__tabs {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+		flex-wrap: nowrap;
+		flex-direction: row;
+		scrollbar-width: none;
+	}
+	.bn-space-settings__sidenav::-webkit-scrollbar,
+	.bn-space-settings__tabs::-webkit-scrollbar { display: none; }
+
+	/* Members tab cards keep avatar + name + role stacked, full-width actions. */
+	.bn-sh-members__grid { grid-template-columns: 1fr; }
+	.bn-sh-members__card { padding: var(--bn-s3); }
+	.bn-sh-members__actions { inline-size: 100%; justify-content: stretch; flex-wrap: wrap; }
+	.bn-sh-members__actions > * { flex: 1 1 auto; min-inline-size: 0; }
+
+	/* Danger zone + Transfer modals — full-width minus 16px gutter. */
+	.bn-space-settings__danger-modal .bn-modal__panel,
+	.bn-space-settings__transfer-modal .bn-modal__panel,
+	.bn-modal-backdrop[data-bn-modal="delete-space"] .bn-modal__panel {
+		max-inline-size: calc(100vw - 32px);
+		inline-size: calc(100vw - 32px);
+		margin-inline: 16px;
+	}
+
+	/* Cover preview height taper. */
+	.bn-space-settings__cover.has-image { block-size: 140px; }
 }

@@ -351,16 +351,16 @@ foreach ( $categories as $bn_cat_opt ) {
 
 $bn_type_options = array(
 	''        => __( 'All types', 'buddynext' ),
-	'open'    => __( 'Public', 'buddynext' ),
-	'private' => __( 'Private', 'buddynext' ),
-	'secret'  => __( 'Secret', 'buddynext' ),
+	'open'    => \BuddyNext\Spaces\SpaceService::type_label( 'open' ),
+	'private' => \BuddyNext\Spaces\SpaceService::type_label( 'private' ),
+	'secret'  => \BuddyNext\Spaces\SpaceService::type_label( 'secret' ),
 );
 
 $bn_type_chips = array(
 	''        => __( 'All', 'buddynext' ),
-	'open'    => __( 'Public', 'buddynext' ),
-	'private' => __( 'Private', 'buddynext' ),
-	'secret'  => __( 'Secret', 'buddynext' ),
+	'open'    => \BuddyNext\Spaces\SpaceService::type_label( 'open' ),
+	'private' => \BuddyNext\Spaces\SpaceService::type_label( 'private' ),
+	'secret'  => \BuddyNext\Spaces\SpaceService::type_label( 'secret' ),
 );
 
 $bn_sort_options = array(
@@ -532,7 +532,38 @@ $bn_subtitle = sprintf(
 
 	<div class="bn-sd-results" data-bn-sd-results>
 
-	<?php if ( empty( $spaces ) ) : ?>
+	<?php
+	// Distinguish "no spaces in the system at all" (cold-start state) from
+	// "filter returned zero". The cold-start state pitches the Create CTA
+	// instead of a Reset-filters CTA that would no-op.
+	$bn_filters_active = ( '' !== $bn_search ) || ( '' !== $bn_cat_slug ) || ( '' !== $bn_visibility ) || ( 'popular' !== $bn_orderby );
+	?>
+	<?php if ( empty( $spaces ) && ! $bn_filters_active ) : ?>
+
+		<div class="bn-sd-empty" data-bn-sd-empty>
+			<?php
+			buddynext_get_template(
+				'parts/empty-state.php',
+				array(
+					'icon'  => 'home',
+					'title' => __( 'No spaces yet', 'buddynext' ),
+					'body'  => __( 'Create the first space to start a discussion.', 'buddynext' ),
+				)
+			);
+			?>
+			<?php if ( current_user_can( 'read' ) ) : ?>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="sm"
+					data-wp-on--click="actions.openCreate"
+					data-bn-create-space-trigger
+				><?php esc_html_e( 'Create a space', 'buddynext' ); ?></button>
+			<?php endif; ?>
+		</div>
+
+	<?php elseif ( empty( $spaces ) ) : ?>
 
 		<div class="bn-sd-empty" data-bn-sd-empty>
 			<?php
@@ -566,12 +597,8 @@ $bn_subtitle = sprintf(
 				$is_member    = $membership && 'active' === $membership->status;
 				$is_pending   = $membership && 'pending' === $membership->status;
 
-				$privacy_label = match ( $space->type ) {
-					'open'    => __( 'Public', 'buddynext' ),
-					'private' => __( 'Private', 'buddynext' ),
-					default   => __( 'Invite-only', 'buddynext' ),
-				};
-				$privacy_tone = match ( $space->type ) {
+				$privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $space->type );
+				$privacy_tone  = match ( $space->type ) {
 					'open'    => 'info',
 					'private' => 'warn',
 					default   => 'danger',

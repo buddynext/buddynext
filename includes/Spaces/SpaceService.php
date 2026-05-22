@@ -34,9 +34,89 @@ class SpaceService {
 	private const CACHE_TTL = 600;
 
 	/**
+	 * Space type — listed in directory; anyone can join.
+	 */
+	public const TYPE_OPEN = 'open';
+
+	/**
+	 * Space type — listed but join requires approval.
+	 */
+	public const TYPE_PRIVATE = 'private';
+
+	/**
+	 * Space type — hidden from non-members; admin-invite only.
+	 */
+	public const TYPE_SECRET = 'secret';
+
+	/**
 	 * Allowed space types.
 	 */
-	private const ALLOWED_TYPES = array( 'open', 'private', 'secret' );
+	private const ALLOWED_TYPES = array( self::TYPE_OPEN, self::TYPE_PRIVATE, self::TYPE_SECRET );
+
+	/**
+	 * Return the i18n'd human-readable label for a space type.
+	 *
+	 * Canonical labels:
+	 *   open    -> "Open"
+	 *   private -> "Private"
+	 *   secret  -> "Secret"
+	 *
+	 * Use everywhere a type is rendered to a user (directory chips, hero badge,
+	 * settings forms) so the surface vocabulary never drifts from the data layer.
+	 *
+	 * @param string $type One of 'open' | 'private' | 'secret'. Unknown values fall back to 'Open'.
+	 * @return string Translated human label.
+	 */
+	public static function type_label( string $type ): string {
+		switch ( $type ) {
+			case self::TYPE_PRIVATE:
+				return __( 'Private', 'buddynext' );
+			case self::TYPE_SECRET:
+				return __( 'Secret', 'buddynext' );
+			case self::TYPE_OPEN:
+			default:
+				return __( 'Open', 'buddynext' );
+		}
+	}
+
+	/**
+	 * Return a single space by URL slug.
+	 *
+	 * @param string $slug Sanitized space slug.
+	 * @return array|null Null when not found.
+	 */
+	public function get_by_slug( string $slug ): ?array {
+		$slug = sanitize_title( $slug );
+		if ( '' === $slug ) {
+			return null;
+		}
+
+		$cache_key = "space_slug_{$slug}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return is_array( $cached ) ? $cached : null;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_spaces WHERE slug = %s LIMIT 1",
+				$slug
+			),
+			ARRAY_A
+		);
+
+		if ( null === $row ) {
+			wp_cache_set( $cache_key, 0, self::CACHE_GROUP, self::CACHE_TTL );
+			return null;
+		}
+
+		$space = $this->hydrate( $row );
+		wp_cache_set( $cache_key, $space, self::CACHE_GROUP, self::CACHE_TTL );
+		return $space;
+	}
 
 	/**
 	 * Create a new space.
@@ -231,6 +311,10 @@ class SpaceService {
 			$fields['cover_image_url'] = esc_url_raw( $data['cover_image_url'] );
 			$format[]                  = '%s';
 		}
+		if ( isset( $data['rules'] ) ) {
+			$fields['rules'] = sanitize_textarea_field( (string) $data['rules'] );
+			$format[]        = '%s';
+		}
 
 		if ( ! empty( $fields ) ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -244,6 +328,9 @@ class SpaceService {
 		}
 
 		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		if ( isset( $space['slug'] ) && '' !== $space['slug'] ) {
+			wp_cache_delete( "space_slug_{$space['slug']}", self::CACHE_GROUP );
+		}
 
 		/**
 		 * Fires after a space is updated.
@@ -296,6 +383,9 @@ class SpaceService {
 		);
 
 		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		if ( isset( $space['slug'] ) && '' !== $space['slug'] ) {
+			wp_cache_delete( "space_slug_{$space['slug']}", self::CACHE_GROUP );
+		}
 
 		/**
 		 * Fires after a space is deleted.
@@ -444,6 +534,7 @@ class SpaceService {
 			'member_count'    => (int) $row['member_count'],
 			'avatar_url'      => $row['avatar_url'] ?? null,
 			'cover_image_url' => $row['cover_image_url'] ?? null,
+			'rules'           => $row['rules'] ?? null,
 			'created_at'      => $row['created_at'],
 		);
 	}
