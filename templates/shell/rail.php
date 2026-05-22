@@ -169,6 +169,18 @@ if ( '' === $bn_rail_active && 'feed' === $hub ) {
 				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'user' ); ?></span>
 				<span class="bn-rail__label"><?php esc_html_e( 'Profile', 'buddynext' ); ?></span>
 			</a>
+			<?php
+			$bn_bookmarks_url    = PageRouter::bookmarks_url();
+			$bn_bookmarks_active = ( 'feed' === $hub && 'bookmarks' === (string) get_query_var( 'bn_feed_section', '' ) );
+			?>
+			<a
+				href="<?php echo esc_url( $bn_bookmarks_url ); ?>"
+				class="bn-rail__item"
+				<?php echo $bn_bookmarks_active ? 'aria-current="page"' : ''; ?>
+			>
+				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'bookmark' ); ?></span>
+				<span class="bn-rail__label"><?php esc_html_e( 'Bookmarks', 'buddynext' ); ?></span>
+			</a>
 			<a href="<?php echo esc_url( PageRouter::edit_profile_url() ); ?>" class="bn-rail__item">
 				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'settings' ); ?></span>
 				<span class="bn-rail__label"><?php esc_html_e( 'Settings', 'buddynext' ); ?></span>

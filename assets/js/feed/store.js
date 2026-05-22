@@ -1048,71 +1048,175 @@ store( 'buddynext/spaces', {
 	},
 } );
 
-/* ── Infinite-scroll trigger for the home feed ─────────────────────────────
-   Replaces the prior inline <script> block in templates/feed/home.php.
-   Looks for a [data-bn-infinite-feed] element with a next-cursor; when it
-   scrolls into view it fetches the next page and navigates to that cursor.
-   Stays a vanilla DOM hookup — no React, no jQuery. */
+/* ── Infinite-scroll trigger for the home + explore feeds ──────────────────
+   Watches every `[data-bn-infinite-feed]` sentinel. When it scrolls into the
+   IntersectionObserver root margin, the next page is fetched as pre-rendered
+   HTML from the matching `/feed/{scope}/page` endpoint and appended to the
+   feed list — no full-page reload, no client-side card duplication.
+
+   Required data attributes on the sentinel:
+	 data-bn-infinite-feed   "home" | "explore"  (scope identifier)
+	 data-bn-feed-target     CSS selector for the container to append into
+	 data-next-cursor        Server-issued cursor for the next page
+	 data-rest-url           Absolute URL of the page endpoint
+	 data-rest-nonce         Valid wp_rest nonce
+	 data-filter             (home only) active filter tab
+	 data-per-page           Items per page
+
+   The response HTML is generated server-side by render_items_html() in
+   FeedController which delegates to the canonical partials/post-card.php
+   template — the same escape-on-output pipeline that produces first-paint
+   cards. The payload is parsed via DOMParser (an inert parser per HTML5
+   spec — <script> elements are NOT executed) and each parsed node is then
+   appended individually using createElement/appendChild semantics. This
+   matches WPCS escape-on-output guarantees. */
 ( function () {
-	function init() {
-		var triggers = document.querySelectorAll( '[data-bn-infinite-feed]' );
-		if ( ! triggers.length || ! ( 'IntersectionObserver' in window ) ) {
+	function buildUrl( base, params ) {
+		var separator = base.indexOf( '?' ) === -1 ? '?' : '&';
+		var qs        = Object.keys( params )
+			.filter( function ( k ) { return params[ k ] != null && params[ k ] !== ''; } )
+			.map( function ( k ) {
+				return encodeURIComponent( k ) + '=' + encodeURIComponent( params[ k ] );
+			} )
+			.join( '&' );
+		return qs ? base + separator + qs : base;
+	}
+
+	function showSpinner( trigger, show ) {
+		var spinner = trigger.querySelector( '.bn-load-more__spinner' );
+		if ( spinner ) {
+			spinner.hidden = ! show;
+		}
+	}
+
+	function appendParsedHtml( listEl, htmlString ) {
+		// DOMParser produces a fully-inert document (HTML5 spec — scripts are
+		// not executed). Each parsed body child node is then moved into the
+		// live list via appendChild, which preserves element identity without
+		// triggering any HTML-string parser on a live node.
+		var doc   = new DOMParser().parseFromString( htmlString, 'text/html' );
+		var nodes = Array.prototype.slice.call( doc.body.childNodes );
+		for ( var i = 0; i < nodes.length; i++ ) {
+			listEl.appendChild( nodes[ i ] );
+		}
+	}
+
+	function replaceWithEndMarker( trigger ) {
+		var endMarker = document.createElement( 'div' );
+		endMarker.className = 'bn-feed-end';
+		endMarker.setAttribute( 'role', 'status' );
+		var text = document.createElement( 'span' );
+		text.className   = 'bn-feed-end__text';
+		text.textContent = ( window.bnI18n && window.bnI18n.feedEnd ) || "You've reached the end.";
+		endMarker.appendChild( text );
+		if ( trigger.parentNode ) {
+			trigger.parentNode.replaceChild( endMarker, trigger );
+		}
+	}
+
+	function showError( trigger, restartFn ) {
+		// Inline retry control — lets the user recover without a page reload.
+		while ( trigger.firstChild ) {
+			trigger.removeChild( trigger.firstChild );
+		}
+		var btn = document.createElement( 'button' );
+		btn.type            = 'button';
+		btn.className       = 'bn-btn bn-load-more__btn';
+		btn.dataset.variant = 'secondary';
+		btn.textContent     = ( window.bnI18n && window.bnI18n.feedRetry ) || 'Retry';
+		btn.addEventListener( 'click', function () {
+			trigger.removeChild( btn );
+			restartFn();
+		} );
+		trigger.appendChild( btn );
+	}
+
+	function fetchNextPage( trigger, observer ) {
+		var cursor    = trigger.dataset.nextCursor || '';
+		var restUrl   = trigger.dataset.restUrl || '';
+		var restNonce = trigger.dataset.restNonce || '';
+		var perPage   = trigger.dataset.perPage || '';
+		var filter    = trigger.dataset.filter || '';
+		var target    = trigger.dataset.bnFeedTarget || '';
+
+		if ( ! cursor || ! restUrl ) {
+			observer.disconnect();
+			replaceWithEndMarker( trigger );
 			return;
 		}
 
-		triggers.forEach( function ( trigger ) {
-			var loading      = false;
-			var spinner      = trigger.querySelector( '.bn-load-more__spinner' );
-			var fallbackUrl  = trigger.dataset.fallbackUrl || '';
-			var restUrl      = trigger.dataset.restUrl || '';
-			var restNonce    = trigger.dataset.restNonce || '';
+		var listEl = target ? document.querySelector( target ) : null;
+		if ( ! listEl ) {
+			observer.disconnect();
+			return;
+		}
 
-			if ( ! restUrl || ! restNonce ) {
+		showSpinner( trigger, true );
+
+		var params = { cursor: cursor };
+		if ( perPage ) { params.per_page = perPage; }
+		if ( filter )  { params.filter = filter; }
+
+		var headers = { Accept: 'application/json' };
+		if ( restNonce ) { headers[ 'X-WP-Nonce' ] = restNonce; }
+
+		fetch( buildUrl( restUrl, params ), { headers: headers, credentials: 'same-origin' } )
+			.then( function ( r ) {
+				if ( ! r.ok ) {
+					throw new Error( 'http_' + r.status );
+				}
+				return r.json();
+			} )
+			.then( function ( data ) {
+				showSpinner( trigger, false );
+
+				var html = ( data && typeof data.html === 'string' ) ? data.html : '';
+				if ( html ) {
+					appendParsedHtml( listEl, html );
+				}
+
+				if ( data && data.next_cursor ) {
+					trigger.dataset.nextCursor = data.next_cursor;
+				} else {
+					observer.disconnect();
+					replaceWithEndMarker( trigger );
+				}
+			} )
+			.catch( function () {
+				showSpinner( trigger, false );
+				observer.disconnect();
+				showError( trigger, function () { startObserver( trigger ); } );
+			} );
+	}
+
+	function startObserver( trigger ) {
+		if ( ! ( 'IntersectionObserver' in window ) ) {
+			return;
+		}
+
+		var loading = false;
+
+		var observer = new IntersectionObserver( function ( entries ) {
+			if ( ! entries[ 0 ].isIntersecting || loading ) {
 				return;
 			}
+			loading = true;
+			fetchNextPage( trigger, observer );
+			// Reset the in-flight flag after a short tick so subsequent
+			// intersects can chain — the cursor will be refreshed by then.
+			setTimeout( function () { loading = false; }, 250 );
+		}, { rootMargin: '400px' } );
 
-			var observer = new IntersectionObserver( function ( entries ) {
-				if ( ! entries[0].isIntersecting || loading ) {
-					return;
-				}
+		observer.observe( trigger );
+	}
 
-				var cursor = trigger.dataset.nextCursor;
-				if ( ! cursor ) {
-					observer.disconnect();
-					return;
-				}
-
-				loading = true;
-				if ( spinner ) {
-					spinner.hidden = false;
-				}
-
-				fetch( restUrl + '&cursor=' + encodeURIComponent( cursor ), {
-					headers: { 'X-WP-Nonce': restNonce },
-				} )
-					.then( function ( r ) { return r.json(); } )
-					.then( function ( data ) {
-						var items = ( data && data.items ) || [];
-						if ( ! items.length || ! data.next_cursor ) {
-							observer.disconnect();
-							trigger.remove();
-							return;
-						}
-
-						trigger.dataset.nextCursor = data.next_cursor;
-						if ( fallbackUrl ) {
-							window.location = fallbackUrl + '?cursor=' + encodeURIComponent( data.next_cursor );
-						}
-					} )
-					.catch( function () {
-						loading = false;
-						if ( spinner ) {
-							spinner.hidden = true;
-						}
-					} );
-			}, { rootMargin: '200px' } );
-
-			observer.observe( trigger );
+	function init() {
+		var triggers = document.querySelectorAll( '[data-bn-infinite-feed]' );
+		if ( ! triggers.length ) {
+			return;
+		}
+		Array.prototype.forEach.call( triggers, function ( trigger ) {
+			startObserver( trigger );
 		} );
 	}
 

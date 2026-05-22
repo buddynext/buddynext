@@ -146,6 +146,76 @@ class PageRouterTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'testuser', $url );
 	}
 
+	/**
+	 * Single-post permalink helper builds /p/{id}/ URLs.
+	 *
+	 * @return void
+	 */
+	public function test_post_url_builds_p_slug_url(): void {
+		$url = PageRouter::post_url( 1234 );
+
+		$this->assertStringContainsString( '/p/1234/', $url );
+	}
+
+	/**
+	 * Single-post permalink helper returns empty string for invalid IDs.
+	 *
+	 * @return void
+	 */
+	public function test_post_url_returns_empty_for_zero_or_negative(): void {
+		$this->assertSame( '', PageRouter::post_url( 0 ) );
+		$this->assertSame( '', PageRouter::post_url( -5 ) );
+	}
+
+	/**
+	 * Bookmarks URL helper resolves to /me/bookmarks/.
+	 *
+	 * @return void
+	 */
+	public function test_bookmarks_url_resolves_to_me_bookmarks(): void {
+		$url = PageRouter::bookmarks_url();
+
+		$this->assertStringContainsString( '/me/bookmarks/', $url );
+	}
+
+	/**
+	 * Single-post rewrite rule resolves /p/{id}/ to bn_hub=post.
+	 *
+	 * @return void
+	 */
+	public function test_post_rewrite_rule_resolves_to_bn_hub_post(): void {
+		global $wp_rewrite;
+		$rules = $wp_rewrite->wp_rewrite_rules();
+		$found = false;
+		foreach ( $rules as $pattern => $target ) {
+			if ( str_contains( $target, 'bn_hub=post' ) && str_contains( $pattern, 'p/' ) ) {
+				$found = true;
+				$this->assertStringContainsString( 'bn_post_id', $target );
+				break;
+			}
+		}
+		$this->assertTrue( $found, 'Expected /p/{id}/ rewrite rule targeting bn_hub=post' );
+	}
+
+	/**
+	 * Bookmarks rewrite rule resolves /me/bookmarks/ to bn_feed_section=bookmarks.
+	 *
+	 * @return void
+	 */
+	public function test_bookmarks_rewrite_rule_resolves_to_bookmarks_section(): void {
+		global $wp_rewrite;
+		$rules = $wp_rewrite->wp_rewrite_rules();
+		$found = false;
+		foreach ( $rules as $pattern => $target ) {
+			if ( str_contains( $target, 'bn_feed_section=bookmarks' ) ) {
+				$found = true;
+				$this->assertStringContainsString( 'bn_hub=feed', $target );
+				break;
+			}
+		}
+		$this->assertTrue( $found, 'Expected /me/bookmarks/ rewrite rule targeting bn_feed_section=bookmarks' );
+	}
+
 	// ── request filter ────────────────────────────────────────────────────────
 
 	/**

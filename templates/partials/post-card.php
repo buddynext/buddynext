@@ -340,11 +340,15 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 					<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
 				<?php endif; ?>
 
-				<time
+				<a
+					class="bn-post-card__time-link"
+					href="<?php echo esc_url( PageRouter::post_url( $bn_post_id ) ); ?>"
+					aria-label="<?php esc_attr_e( 'Open post permalink', 'buddynext' ); ?>"
+				><time
 					class="bn-post-card__time"
 					datetime="<?php echo esc_attr( $created_at ); ?>"
 					title="<?php echo esc_attr( $created_at ); ?>"
-				><?php echo $post_time; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped inside function ?></time>
+				><?php echo $post_time; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped inside function ?></time></a>
 
 				<?php if ( $edited_label ) : ?>
 					<span class="bn-post-card__edited"><?php echo esc_html( $edited_label ); ?></span>
@@ -791,7 +795,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			aria-label="<?php esc_attr_e( 'Share post', 'buddynext' ); ?>"
 			data-wp-on--click="actions.openShare"
 			data-post-id="<?php echo absint( $bn_post_id ); ?>"
-			data-post-permalink="<?php echo esc_url( add_query_arg( 'p', $bn_post_id, PageRouter::activity_url() ) ); ?>"
+			data-post-permalink="<?php echo esc_url( PageRouter::post_url( $bn_post_id ) ); ?>"
 		>
 			<?php buddynext_icon( 'share' ); ?>
 			<span class="bn-post-card__action-label" data-wp-text="state.shareLabel"></span>

@@ -95,6 +95,34 @@ class FeedController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/feed/home/page',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'home_feed_page' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'filter' => array(
+						'type'              => 'string',
+						'default'           => 'for-you',
+						'enum'              => FeedService::HOME_FILTERS,
+						'sanitize_callback' => 'sanitize_key',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/feed/explore/page',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'explore_feed_page' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/feed/announcements/(?P<id>[\d]+)/dismiss',
 			array(
 				'methods'             => 'POST',
@@ -258,6 +286,110 @@ class FeedController {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return new WP_REST_Response( null, 204 );
+	}
+
+	/**
+	 * Return the home feed as pre-rendered HTML for infinite-scroll appending.
+	 *
+	 * Calls home_feed() then renders each item with the canonical
+	 * `partials/post-card.php` partial so the appended cards are byte-identical
+	 * to first-paint cards. The client only needs to inject the returned HTML
+	 * and update the cursor — no card markup is duplicated in JS.
+	 *
+	 * Response shape:
+	 *   { html: string, next_cursor: string|null, count: int }
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function home_feed_page( WP_REST_Request $request ): WP_REST_Response {
+		$user_id  = get_current_user_id();
+		$cursor   = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
+		$per_page = $request->get_param( 'per_page' ) ? (int) $request->get_param( 'per_page' ) : 15;
+		$filter   = (string) ( $request->get_param( 'filter' ) ?? 'for-you' );
+		if ( ! in_array( $filter, FeedService::HOME_FILTERS, true ) ) {
+			$filter = 'for-you';
+		}
+
+		$result = $this->feed_service()->home_feed( $user_id, $cursor, $per_page, $filter );
+		$html   = $this->render_items_html( (array) ( $result['items'] ?? array() ), $user_id, 'home' );
+
+		return new WP_REST_Response(
+			array(
+				'html'        => $html,
+				'next_cursor' => $result['next_cursor'] ?? null,
+				'count'       => count( (array) ( $result['items'] ?? array() ) ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Return the explore feed as pre-rendered HTML for infinite-scroll appending.
+	 *
+	 * Public endpoint — visible to guests. Same response shape as
+	 * {@see self::home_feed_page()}.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function explore_feed_page( WP_REST_Request $request ): WP_REST_Response {
+		$user_id  = get_current_user_id();
+		$cursor   = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
+		$per_page = $request->get_param( 'per_page' ) ? (int) $request->get_param( 'per_page' ) : 12;
+
+		$result = $this->feed_service()->explore_feed( $cursor, $per_page );
+		$html   = $this->render_items_html( (array) ( $result['items'] ?? array() ), $user_id, 'explore' );
+
+		return new WP_REST_Response(
+			array(
+				'html'        => $html,
+				'next_cursor' => $result['next_cursor'] ?? null,
+				'count'       => count( (array) ( $result['items'] ?? array() ) ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Render a list of hydrated post records to a single HTML string.
+	 *
+	 * Loops through items, hydrates poll options for poll posts (the feed query
+	 * doesn't join them), and delegates each card to `partials/post-card.php`
+	 * inside an output buffer.
+	 *
+	 * @param array<int,array<string,mixed>> $items   Post records (hydrated by FeedService).
+	 * @param int                            $viewer  Viewing user ID (0 for guests).
+	 * @param string                         $context Feed context ('home' or 'explore').
+	 * @return string HTML markup ready to inject into the feed list container.
+	 */
+	private function render_items_html( array $items, int $viewer, string $context ): string {
+		if ( empty( $items ) || ! function_exists( 'buddynext_get_template' ) ) {
+			return '';
+		}
+
+		$post_service = new PostService();
+
+		ob_start();
+		foreach ( $items as $item ) {
+			$post = $item;
+			if ( ! isset( $post['poll_options'] ) && 'poll' === ( $post['type'] ?? '' ) ) {
+				$full = $post_service->get( (int) ( $post['id'] ?? 0 ) );
+				if ( null !== $full && ! empty( $full['poll_options'] ) ) {
+					$post['poll_options'] = $full['poll_options'];
+				}
+			}
+
+			buddynext_get_template(
+				'partials/post-card.php',
+				array(
+					'post'            => $post,
+					'current_user_id' => $viewer,
+					'context'         => $context,
+				)
+			);
+		}
+		return (string) ob_get_clean();
 	}
 
 	/**

@@ -2,6 +2,60 @@
 
 ## Unreleased
 
+### Feed (true production)
+
+Live-walk findings on `buddynext-dev.local` as `varundubey` exposed three
+truly missing Feed surfaces — no single-post permalink, no infinite scroll,
+no bookmarks hub. Pinning down each:
+
+- **A1 — Single-post permalink page (`/p/{id}/`).** New
+  `templates/feed/single-post.php` renders a dedicated detail surface
+  (breadcrumb, full post card, expanded comment region). Server-side
+  visibility gates mirror `PostController::get_post()` — blocks, secret-
+  space membership, followers-only, private, and suspended/shadow-banned
+  authors all 404 silently so existence is never leaked. New
+  `includes/Feed/SinglePostMeta.php` emits OG/Twitter/canonical head meta
+  tags + a richer `<title>`; private/restricted posts also get a
+  `noindex,nofollow` robots tag. `PageRouter::post_url()` is the canonical
+  helper — every post-card timestamp now wraps in a permalink anchor, and
+  the share modal's "Copy link" copies the new short URL form.
+- **A2 — Infinite scroll (home + explore).** Replaced the prior
+  `window.location` redirect hack with a proper IntersectionObserver
+  sentinel that calls two new server-rendered HTML endpoints
+  (`/buddynext/v1/feed/home/page`, `/buddynext/v1/feed/explore/page`).
+  `FeedController::render_items_html()` re-uses the canonical
+  `partials/post-card.php` so appended cards are byte-identical to
+  first-paint. The DOMParser-based append path is inert (no script
+  execution per HTML5 spec) and keeps WPCS escape-on-output guarantees.
+  When the API returns `next_cursor: null` the sentinel swaps for a
+  quiet "You've reached the end" marker; fetch errors swap in an inline
+  Retry button.
+- **A3 — Bookmarks hub (`/me/bookmarks/`).** New
+  `templates/feed/bookmarks.php` lists saved posts with full cards and
+  cursor pagination. The same five visibility gates are re-applied at
+  read time so unfollowing an author or losing space membership
+  immediately hides their bookmarked post. The Bookmarks entry now sits
+  in the left-rail "You" group. `GET /buddynext/v1/me/bookmarks` is
+  backward compatible (default still returns `{ids: int[]}`) — pass
+  `?expand=posts` for the new hydrated paginated shape.
+
+Tests added: `tests/Core/PageRouterTest.php` (post + bookmarks helpers
++ rewrite rules), `tests/Feed/SinglePostMetaTest.php`,
+`tests/Feed/InfiniteScrollPageTest.php`,
+`tests/Feed/BookmarkControllerExpandTest.php`.
+
+Defer / fixme (tracked in `docs/qa/PRODUCTION-READINESS.md`):
+
+- **A4 — Comment threading UI (Reply / Like / Edit / Pin / Report).** The
+  CommentService already supports `parent_id`, `is_edited`, soft-delete,
+  and pin; CommentController accepts `parent_id`. What's missing is the
+  per-comment UI scaffold (comment-tree + comment-card partials, store
+  actions). Branch is a contained next step — wire-up is ~1 day of work,
+  no schema changes.
+- **B — Composer drafts.** Local-storage debounced auto-save planned;
+  the composer state object is already JSON-serialisable so the seam is
+  minimal. Server-sync (`POST /me/drafts`) defers to a Pro/Phase 2 branch.
+
 ### Profile (true production)
 
 Findings from the live walk on `buddynext-dev.local` as `varundubey`

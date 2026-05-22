@@ -2043,3 +2043,118 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	.bn-filter-chip     { font-size: var(--text-xs); padding: var(--s1) var(--s3); }
 	.bn-explore-title   { font-size: var(--text-xl); }
 }
+
+/* ── End-of-feed marker ────────────────────────────────────────────────────
+   Rendered in place of the infinite-scroll sentinel once the API returns no
+   next_cursor. Quiet, single line — not a CTA. */
+.bn-feed-end {
+	text-align: center;
+	padding: var(--bn-s5) 0 var(--bn-s7);
+	color: var(--bn-text-muted, var(--text-2));
+	font-size: var(--text-sm);
+}
+.bn-feed-end__text {
+	display: inline-block;
+	padding: var(--bn-s2) var(--bn-s4);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface-2, var(--surface));
+	border: 1px solid var(--bn-border, var(--border));
+}
+.bn-load-more__spinner-text {
+	display: block;
+	margin-top: var(--bn-s2);
+	color: var(--bn-text-muted, var(--text-2));
+	font-size: var(--text-sm);
+}
+
+/* ── Post-card timestamp link ─────────────────────────────────────────────
+   The relative-time becomes a permalink to /p/{id}/. Visual style stays
+   identical to the bare <time> — no underline, inherit color — until hover. */
+.bn-post-card__time-link {
+	color: inherit;
+	text-decoration: none;
+}
+.bn-post-card__time-link:hover .bn-post-card__time,
+.bn-post-card__time-link:focus-visible .bn-post-card__time {
+	color: var(--bn-text-1, var(--text-1));
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+/* ── Single-post permalink page ───────────────────────────────────────────
+   Renders inside the shell main column. Breadcrumb sits flush with the post
+   card; thread heading separates the comment region. */
+.bn-single-post {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+.bn-single-post__breadcrumb {
+	font-size: var(--text-sm);
+	color: var(--bn-text-muted, var(--text-2));
+}
+.bn-single-post__crumbs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	align-items: center;
+}
+.bn-single-post__crumbs a {
+	color: var(--bn-text-muted, var(--text-2));
+	text-decoration: none;
+}
+.bn-single-post__crumbs a:hover,
+.bn-single-post__crumbs a:focus-visible {
+	color: var(--bn-brand, var(--brand));
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+.bn-single-post__crumb-sep {
+	color: var(--bn-border-strong, var(--border));
+}
+.bn-single-post__thread {
+	margin-top: var(--bn-s4);
+}
+.bn-single-post__thread-heading {
+	font-size: var(--text-lg);
+	font-weight: 600;
+	margin: 0 0 var(--bn-s2);
+}
+.bn-single-post__thread-hint {
+	color: var(--bn-text-muted, var(--text-2));
+	font-size: var(--text-sm);
+	margin: 0 0 var(--bn-s4);
+}
+.bn-single-post--missing { padding: var(--bn-s6) 0; }
+
+/* ── Bookmarks hub ─────────────────────────────────────────────────────────
+   Header block introduces the surface and is the only structural difference
+   from the home feed — cards reuse the canonical .bn-feed-list grid. */
+.bn-bookmarks__header {
+	margin-bottom: var(--bn-s4);
+}
+.bn-bookmarks__title {
+	font-size: var(--text-2xl);
+	font-weight: 700;
+	margin: 0 0 var(--bn-s2);
+	color: var(--bn-text-1, var(--text-1));
+}
+.bn-bookmarks__lead {
+	color: var(--bn-text-muted, var(--text-2));
+	margin: 0;
+	font-size: var(--text-sm);
+}
+.bn-bookmarks__list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+/* ── Mobile (≤640px) ── */
+@media (max-width: 640px) {
+	.bn-single-post__crumbs { font-size: var(--text-xs); }
+	.bn-bookmarks__title    { font-size: var(--text-xl); }
+}
