@@ -20,7 +20,7 @@
 | 7 | Spaces directory (`/spaces/`) | gaps | Filter form has Apply button (form-submit, not reactive); type filter has only Public/Private chips (no Secret); sort dropdown not styled to v2; no Create-space modal (links to `?bn_action=create` slug instead) |
 | 8 | Space home (per space) | not-walked-yet | Pending — need to visit `/spaces/open-discussion/` |
 | 9 | Space settings (per space, owner) | not-walked-yet | Pending — `/spaces/open-discussion/settings/` |
-| 10 | Notifications (`/notifications/`) | broken | Most rows render as fallback "memberX sent you a notification." — type-to-message map missing entries for the real notification types being fired. Only "Space join request" renders correctly. The whole notifications surface fails the presentation bar |
+| 10 | Notifications (`/notifications/`) | prod | Every type renders human copy via `NotificationMessageService` (30+ types covered, spec at `docs/specs/NOTIFICATION-MESSAGES.md`). REST list response now ships `message`/`url`/`icon`/`tone`/`label`. Empty + error states per filter. Unread badge reactive with 99+ cap and optimistic mark-as-read |
 | 11 | Notification prefs | not-walked-yet | Pending — usually `/settings/notifications/` |
 | 12 | Messages (`/messages/`) | broken | "Direct messaging requires WPMediaVerse" empty state — but WPMediaVerse IS active per Plugin.php. Bridge detection broken |
 | 13 | Onboarding wizard (`/onboarding/`) | gaps | 4 steps (Profile / Interests / Spaces / People) render with Continue/Skip/Back, BUT no visual progress bar (`progressBar: false` from accessibility query) — numbered step list is the only progress signal; should be an actual `.bn-progress` bar |

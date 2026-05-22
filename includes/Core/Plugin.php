@@ -52,6 +52,7 @@ use BuddyNext\Moderation\ModerationService;
 use BuddyNext\Notifications\EmailDispatchListener;
 use BuddyNext\Notifications\EmailSender;
 use BuddyNext\Notifications\NotificationListener;
+use BuddyNext\Notifications\NotificationMessageService;
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Notifications\NotificationService;
 use BuddyNext\Profile\AvatarService;
@@ -617,6 +618,7 @@ class Plugin {
 		$container->bind( 'space_members', fn() => new SpaceMemberService() );
 		$container->bind( 'notifications', fn() => new NotificationService() );
 		$container->bind( 'notification_prefs', fn() => new NotificationPrefService() );
+		$container->bind( 'notification_message', fn() => new NotificationMessageService() );
 		$container->bind(
 			'email_sender',
 			fn( $c ) => new EmailSender( $c->get( 'notification_prefs' ) )

@@ -57,6 +57,39 @@ class NotificationControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertArrayHasKey( 'next_cursor', $data );
 	}
 
+	public function test_list_notifications_items_include_message(): void {
+		wp_set_current_user( $this->user_id );
+
+		$this->notif_service->create(
+			array(
+				'recipient_id' => $this->user_id,
+				'sender_id'    => $this->sender_id,
+				'type'         => 'bn.new_follower',
+				'object_type'  => 'user',
+				'object_id'    => $this->sender_id,
+			)
+		);
+
+		$request  = new WP_REST_Request( 'GET', '/buddynext/v1/me/notifications' );
+		$response = rest_do_request( $request );
+		$data     = $response->get_data();
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertNotEmpty( $data['items'] );
+
+		$first = $data['items'][0];
+		$this->assertArrayHasKey( 'message', $first );
+		$this->assertArrayHasKey( 'url', $first );
+		$this->assertArrayHasKey( 'icon', $first );
+		$this->assertArrayHasKey( 'tone', $first );
+		$this->assertArrayHasKey( 'label', $first );
+		$this->assertArrayHasKey( 'actor_name', $first );
+
+		$this->assertNotSame( '', $first['message'] );
+		$this->assertStringContainsString( 'started following you', $first['message'] );
+		$this->assertStringNotContainsString( 'sent you a notification', $first['message'] );
+	}
+
 	public function test_unread_count_requires_auth(): void {
 		$request  = new WP_REST_Request( 'GET', '/buddynext/v1/me/notifications/unread-count' );
 		$response = rest_do_request( $request );

@@ -17,6 +17,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Notifications;
 
+use BuddyNext\Notifications\NotificationMessageService;
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Notifications\NotificationService;
 use WP_Error;
@@ -127,7 +128,27 @@ class NotificationController {
 		$cursor   = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
 		$per_page = min( (int) ( $request->get_param( 'per_page' ) ?? 20 ), 50 );
 
-		$result = ( new NotificationService() )->list_for_user( $user_id, $cursor, $per_page );
+		$result   = ( new NotificationService() )->list_for_user( $user_id, $cursor, $per_page );
+		$composer = new NotificationMessageService();
+		$composed = $composer->compose_batch( $result['items'] ?? array() );
+
+		// Enrich each row with the rendered message, link, icon, and label so
+		// REST consumers (in-app dropdown, mobile, email tokens) share the
+		// same presentation as the on-page list.
+		foreach ( $result['items'] as $i => $item ) {
+			$payload               = $composed[ $i ] ?? array();
+			$result['items'][ $i ] = array_merge(
+				$item,
+				array(
+					'message'    => (string) ( $payload['message'] ?? '' ),
+					'url'        => (string) ( $payload['url'] ?? '' ),
+					'icon'       => (string) ( $payload['icon'] ?? 'bell' ),
+					'tone'       => (string) ( $payload['tone'] ?? 'info' ),
+					'label'      => (string) ( $payload['label'] ?? '' ),
+					'actor_name' => (string) ( $payload['actor_name'] ?? '' ),
+				)
+			);
+		}
 
 		return new WP_REST_Response( $result, 200 );
 	}
