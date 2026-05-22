@@ -67,6 +67,18 @@ The CLI also prints the list reporter inline as tests progress.
 - A failure with `wordpress_logged_in_*` mentioned in the assertion message means the auth fixture couldn't sign in  -  check `BN_TEST_USER` / `BN_TEST_PASS`.
 - A failure right after `await page.goto(urls.X)` typically means `buddynext-dev.local` is down or the route slug is misconfigured in PageRouter.
 - `test.fixme()` results show as `expected to fail` in the report  -  they do NOT count as failures.
+- iPad or mobile tests all failing at "1ms" each with no assertion output means the WebKit binary is missing. Run `npm run test:e2e:install` (not `playwright install chromium`). Symptom looks like flaky selectors but it's just a missing browser.
+
+## Last known green baseline
+
+| Project | Result |
+|---|---|
+| desktop | 49 passed / 0 failed / 21 fixme-skipped |
+| ipad | 50 passed / 0 failed / 20 fixme-skipped |
+| mobile | 47 passed / 0 failed / 20 fixme-skipped |
+| **Combined** | **149 passed / 0 failed / 61 fixme-skipped** (2.0 min) |
+
+Captured 2026-05-22 against `http://buddynext-dev.local` logged in as `varundubey`.
 
 ## What's gated behind this suite
 
