@@ -1,95 +1,354 @@
-/* BuddyNext — Onboarding Interactivity API store (4-step wizard). */
+/* BuddyNext — Onboarding Interactivity API store (4-step wizard).
+ *
+ * Provides reactive state for the wizard, action handlers for every
+ * affordance in templates/onboarding/index.php, and REST integration
+ * for joining spaces, following users, saving interests, and completing
+ * the wizard.
+ */
 import { store, getContext } from '@wordpress/interactivity';
+
+function ctx() {
+	try {
+		return getContext();
+	} catch ( _e ) {
+		return {};
+	}
+}
+
+function toast( message, tone ) {
+	if ( typeof window.bnToast === 'function' ) {
+		window.bnToast( message, tone || 'info' );
+		return;
+	}
+	if ( typeof window.buddynext_toast === 'function' ) {
+		window.buddynext_toast( message, tone || 'info' );
+	}
+}
+
+function rest( c, path, opts ) {
+	const url     = ( c.restUrl || '/wp-json/buddynext/v1/' ) + String( path ).replace( /^\//, '' );
+	const headers = Object.assign(
+		{ 'X-WP-Nonce': c.restNonce || '', 'Content-Type': 'application/json' },
+		( opts && opts.headers ) || {}
+	);
+	const init = Object.assign( {}, opts || {}, { headers, credentials: 'same-origin' } );
+	return fetch( url, init );
+}
 
 store( 'buddynext/onboarding', {
 	state: {
 		get currentStep() {
-			try { return getContext().step || 1; } catch ( _e ) { return 1; }
+			return ctx().step || 1;
 		},
-		get isFirstStep() {
-			try { return getContext().step <= 1; } catch ( _e ) { return true; }
+		get progressPercent() {
+			const c = ctx();
+			const total = c.totalSteps || 4;
+			const step  = c.step || 1;
+			return Math.round( ( step / total ) * 100 );
 		},
-		get isLastStep() {
-			try { return getContext().step >= ( getContext().totalSteps || 4 ); } catch ( _e ) { return false; }
+		get progressWidth() {
+			return ( this.progressPercent || 0 ) + '%';
 		},
+		get stepLabel() {
+			const c = ctx();
+			const total = c.totalSteps || 4;
+			const step  = c.step || 1;
+			return 'Step ' + step + ' of ' + total;
+		},
+		get isStep1() { return ( ctx().step || 1 ) === 1; },
+		get isStep2() { return ( ctx().step || 1 ) === 2; },
+		get isStep3() { return ( ctx().step || 1 ) === 3; },
+		get isStep4() { return ( ctx().step || 1 ) === 4; },
+		get isStepActive1() { return ( ctx().step || 1 ) === 1; },
+		get isStepActive2() { return ( ctx().step || 1 ) === 2; },
+		get isStepActive3() { return ( ctx().step || 1 ) === 3; },
+		get isStepActive4() { return ( ctx().step || 1 ) === 4; },
+		get isStepDone1() { return ( ctx().step || 1 ) > 1; },
+		get isStepDone2() { return ( ctx().step || 1 ) > 2; },
+		get isStepDone3() { return ( ctx().step || 1 ) > 3; },
+		get isStepDone4() { return false; },
+		get displayNameError() {
+			const c = ctx();
+			if ( ! c.displayNameDirty ) { return ''; }
+			const dn = String( c.displayName || '' ).trim();
+			return dn.length < 2 ? 'Display name must be at least 2 characters.' : '';
+		},
+		get continueDisabledStep1() {
+			const c = ctx();
+			const dn = String( c.displayName || '' ).trim();
+			return dn.length < 2;
+		},
+		get continueDisabledStep2() {
+			const interests = ctx().interests || [];
+			return interests.length < 1;
+		},
+		get interestCountLabel() {
+			const interests = ctx().interests || [];
+			const n = interests.length;
+			const noun = n === 1 ? 'selected' : 'selected';
+			return n + ' ' + noun + ' · Pick at least 1';
+		},
+		get saving() { return !! ctx().saving; },
+		get error() { return ctx().error || ''; },
 	},
 	actions: {
 		nextStep() {
-			const ctx = getContext();
-			if ( ctx.step < ( ctx.totalSteps || 4 ) ) {
-				ctx.step = ( ctx.step || 1 ) + 1;
+			const c = ctx();
+			const total = c.totalSteps || 4;
+			if ( ( c.step || 1 ) < total ) {
+				c.step = ( c.step || 1 ) + 1;
+				// Persist step server-side (best-effort).
+				rest( c, 'me/onboarding/step', {
+					method: 'POST',
+					body:   JSON.stringify( { step: c.step - 1, data: {
+						display_name: c.displayName || '',
+						description:  c.bio || '',
+					} } ),
+				} ).catch( () => {} );
 			}
 		},
 		prevStep() {
-			const ctx = getContext();
-			if ( ctx.step > 1 ) {
-				ctx.step = ctx.step - 1;
+			const c = ctx();
+			if ( ( c.step || 1 ) > 1 ) {
+				c.step = c.step - 1;
 			}
 		},
 		skipStep() {
-			const ctx = getContext();
-			if ( ctx.step < ( ctx.totalSteps || 4 ) ) {
-				ctx.step = ( ctx.step || 1 ) + 1;
-			} else {
-				// Last step skip = complete.
-				window.location.href = ctx.redirectUrl || '/activity/';
+			const c = ctx();
+			const total = c.totalSteps || 4;
+			if ( ( c.step || 1 ) < total ) {
+				c.step = ( c.step || 1 ) + 1;
+				return;
 			}
+			// Last-step skip — finalize skip.
+			rest( c, 'me/onboarding/skip', { method: 'POST' } )
+				.then( () => {
+					toast( 'You can complete onboarding any time from settings.', 'info' );
+					window.location.href = c.redirectUrl || '/activity/';
+				} )
+				.catch( () => {
+					window.location.href = c.redirectUrl || '/activity/';
+				} );
 		},
-		toggleInterest( event ) {
-			const btn = event.target.closest( '[data-interest]' );
+		setDisplayName( event ) {
+			const c = ctx();
+			c.displayName = event && event.target ? String( event.target.value || '' ) : '';
+			c.displayNameDirty = true;
+		},
+		setBio( event ) {
+			const c = ctx();
+			c.bio = event && event.target ? String( event.target.value || '' ) : '';
+		},
+		checkUsername( event ) {
+			const c = ctx();
+			c.userLogin = event && event.target ? String( event.target.value || '' ) : '';
+			c.usernameChecking = true;
+			// Best-effort slug-check via existing endpoint.
+			rest( c, 'profile-slug/check?slug=' + encodeURIComponent( c.userLogin ), {
+				method: 'GET',
+			} )
+				.then( ( r ) => r.json() )
+				.then( ( data ) => {
+					c.usernameAvailable = !! ( data && data.available );
+					c.usernameChecking = false;
+				} )
+				.catch( () => {
+					c.usernameChecking = false;
+				} );
+		},
+		selectInterest( event ) {
+			const c = ctx();
+			const btn = event && event.target ? event.target.closest( '[data-interest]' ) : null;
 			if ( ! btn ) { return; }
-			btn.classList.toggle( 'selected' );
-			btn.setAttribute( 'aria-pressed', btn.classList.contains( 'selected' ) ? 'true' : 'false' );
+			const label = btn.getAttribute( 'data-interest' );
+			const list = Array.isArray( c.interests ) ? c.interests.slice() : [];
+			const idx  = list.indexOf( label );
+			if ( idx === -1 ) {
+				list.push( label );
+				btn.setAttribute( 'aria-pressed', 'true' );
+				btn.setAttribute( 'data-tone', 'accent' );
+			} else {
+				list.splice( idx, 1 );
+				btn.setAttribute( 'aria-pressed', 'false' );
+				btn.setAttribute( 'data-tone', 'neutral' );
+			}
+			c.interests = list;
+			// Best-effort save.
+			rest( c, 'me/interests', {
+				method: 'POST',
+				body:   JSON.stringify( { interests: list } ),
+			} ).catch( () => {} );
 		},
-		toggleSpace( event ) {
-			const btn = event.target.closest( '[data-space-id]' );
+		joinSuggestedSpace( event ) {
+			const c = ctx();
+			const btn = event && event.target ? event.target.closest( '[data-space-id]' ) : null;
 			if ( ! btn ) { return; }
-			btn.classList.toggle( 'selected' );
-			btn.setAttribute( 'aria-pressed', btn.classList.contains( 'selected' ) ? 'true' : 'false' );
+			const spaceId = parseInt( btn.getAttribute( 'data-space-id' ), 10 );
+			if ( ! spaceId ) { return; }
+			const joined  = Array.isArray( c.joinedSpaces ) ? c.joinedSpaces.slice() : [];
+			const idx     = joined.indexOf( spaceId );
+			const isJoining = idx === -1;
+			// Optimistic UI.
+			if ( isJoining ) {
+				joined.push( spaceId );
+				btn.textContent = 'Joined';
+				btn.setAttribute( 'data-variant', 'secondary' );
+				btn.setAttribute( 'aria-pressed', 'true' );
+			} else {
+				joined.splice( idx, 1 );
+				btn.textContent = 'Join';
+				btn.setAttribute( 'data-variant', 'primary' );
+				btn.setAttribute( 'aria-pressed', 'false' );
+			}
+			c.joinedSpaces = joined;
+			rest( c, 'spaces/' + spaceId + '/members', {
+				method: isJoining ? 'POST' : 'DELETE',
+			} )
+				.then( ( r ) => {
+					if ( ! r.ok ) { throw new Error( 'Failed' ); }
+					toast( isJoining ? 'Joined the space.' : 'Left the space.', 'success' );
+				} )
+				.catch( () => {
+					// Rollback.
+					const rollback = Array.isArray( c.joinedSpaces ) ? c.joinedSpaces.slice() : [];
+					const ridx = rollback.indexOf( spaceId );
+					if ( isJoining && ridx !== -1 ) {
+						rollback.splice( ridx, 1 );
+						btn.textContent = 'Join';
+						btn.setAttribute( 'data-variant', 'primary' );
+						btn.setAttribute( 'aria-pressed', 'false' );
+					} else if ( ! isJoining ) {
+						rollback.push( spaceId );
+						btn.textContent = 'Joined';
+						btn.setAttribute( 'data-variant', 'secondary' );
+						btn.setAttribute( 'aria-pressed', 'true' );
+					}
+					c.joinedSpaces = rollback;
+					toast( 'Could not update space. Please try again.', 'danger' );
+				} );
 		},
-		toggleFollow( event ) {
-			const ctx = getContext();
-			const btn = event.target.closest( '[data-user-id]' );
-			if ( ! btn || ! ctx.restNonce ) { return; }
-			const userId = btn.dataset.userId;
-			const following = btn.classList.contains( 'following' );
-			btn.classList.toggle( 'following' );
-			fetch( ctx.restUrl + 'users/' + userId + '/follow', {
-				method: following ? 'DELETE' : 'POST',
-				headers: { 'X-WP-Nonce': ctx.restNonce },
-			} ).catch( function () { btn.classList.toggle( 'following' ); } );
+		followSuggestedUser( event ) {
+			const c = ctx();
+			const btn = event && event.target ? event.target.closest( '[data-user-id]' ) : null;
+			if ( ! btn ) { return; }
+			const userId = parseInt( btn.getAttribute( 'data-user-id' ), 10 );
+			if ( ! userId ) { return; }
+			const list = Array.isArray( c.followingUsers ) ? c.followingUsers.slice() : [];
+			const idx = list.indexOf( userId );
+			const isFollowing = idx === -1;
+			if ( isFollowing ) {
+				list.push( userId );
+				btn.textContent = 'Following';
+				btn.setAttribute( 'data-variant', 'secondary' );
+				btn.setAttribute( 'aria-pressed', 'true' );
+				btn.classList.add( 'is-following' );
+			} else {
+				list.splice( idx, 1 );
+				btn.textContent = 'Follow';
+				btn.setAttribute( 'data-variant', 'primary' );
+				btn.setAttribute( 'aria-pressed', 'false' );
+				btn.classList.remove( 'is-following' );
+			}
+			c.followingUsers = list;
+			rest( c, 'users/' + userId + '/follow', {
+				method: isFollowing ? 'POST' : 'DELETE',
+			} )
+				.then( ( r ) => {
+					if ( ! r.ok ) { throw new Error( 'Failed' ); }
+					toast( isFollowing ? 'Following.' : 'Unfollowed.', 'success' );
+				} )
+				.catch( () => {
+					const rollback = Array.isArray( c.followingUsers ) ? c.followingUsers.slice() : [];
+					const ridx = rollback.indexOf( userId );
+					if ( isFollowing && ridx !== -1 ) {
+						rollback.splice( ridx, 1 );
+						btn.textContent = 'Follow';
+						btn.setAttribute( 'data-variant', 'primary' );
+						btn.setAttribute( 'aria-pressed', 'false' );
+						btn.classList.remove( 'is-following' );
+					} else if ( ! isFollowing ) {
+						rollback.push( userId );
+						btn.textContent = 'Following';
+						btn.setAttribute( 'data-variant', 'secondary' );
+						btn.setAttribute( 'aria-pressed', 'true' );
+						btn.classList.add( 'is-following' );
+					}
+					c.followingUsers = rollback;
+					toast( 'Could not update follow. Please try again.', 'danger' );
+				} );
 		},
 		triggerAvatarUpload() {
 			const input = document.querySelector( '.bn-ob-avatar-input' );
 			if ( input ) { input.click(); }
 		},
-		checkUsername( event ) {
-			const ctx = getContext();
-			ctx.username = event.target.value;
-		},
-		* completeOnboarding() {
-			const ctx = getContext();
-			if ( ! ctx.restNonce ) { return; }
-			// Gather selected interests.
-			const interests = [];
-			document.querySelectorAll( '[data-interest].selected' ).forEach( function ( el ) {
-				interests.push( el.dataset.interest );
-			} );
-			// Gather selected spaces.
-			const spaces = [];
-			document.querySelectorAll( '[data-space-id].selected' ).forEach( function ( el ) {
-				spaces.push( parseInt( el.dataset.spaceId, 10 ) );
-			} );
-			try {
-				yield fetch( ctx.restUrl + 'onboarding/complete', {
-					method: 'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { interests: interests, spaces: spaces } ),
-				} );
-				window.location.href = ctx.redirectUrl || '/activity/';
-			} catch ( _e ) {
-				window.location.href = ctx.redirectUrl || '/activity/';
+		handleAvatarUpload( event ) {
+			const c = ctx();
+			const file = event && event.target && event.target.files ? event.target.files[ 0 ] : null;
+			if ( ! file ) { return; }
+			if ( file.size > 4 * 1024 * 1024 ) {
+				toast( 'Image too large. Max 4MB.', 'danger' );
+				return;
 			}
+			const form = new FormData();
+			form.append( 'avatar', file );
+			const url = ( c.restUrl || '/wp-json/buddynext/v1/' ) + 'me/avatar';
+			fetch( url, {
+				method:      'POST',
+				body:        form,
+				credentials: 'same-origin',
+				headers:     { 'X-WP-Nonce': c.restNonce || '' },
+			} )
+				.then( ( r ) => {
+					if ( ! r.ok ) { throw new Error( 'Upload failed' ); }
+					return r.json();
+				} )
+				.then( ( data ) => {
+					if ( data && data.avatar_url ) {
+						const img = document.querySelector( '.bn-ob-avatar img' );
+						if ( img ) { img.setAttribute( 'src', data.avatar_url ); }
+					}
+					toast( 'Profile photo updated.', 'success' );
+				} )
+				.catch( () => {
+					toast( 'Could not upload photo. Please try again.', 'danger' );
+				} );
+		},
+		finish() {
+			const c = ctx();
+			if ( c.saving ) { return; }
+			c.saving = true;
+			c.error  = '';
+			// Persist step 1 fields first (display_name + bio) via service.
+			rest( c, 'me/profile', {
+				method: 'PUT',
+				body:   JSON.stringify( {
+					display_name: c.displayName || '',
+					bio:          c.bio || '',
+				} ),
+			} ).catch( () => {} );
+
+			rest( c, 'me/onboarding/complete', {
+				method: 'POST',
+				body:   JSON.stringify( {
+					interests: c.interests || [],
+					spaces:    c.joinedSpaces || [],
+					user_ids:  c.followingUsers || [],
+				} ),
+			} )
+				.then( ( r ) => {
+					if ( ! r.ok ) { throw new Error( 'Failed' ); }
+					return r.json();
+				} )
+				.then( ( data ) => {
+					c.saving = false;
+					toast( 'You are all set. Welcome aboard!', 'success' );
+					window.location.href = ( data && data.redirect_to ) || c.redirectUrl || '/activity/';
+				} )
+				.catch( () => {
+					c.saving = false;
+					c.error  = 'Something went wrong. Please try again.';
+					toast( 'Could not finish onboarding. Please try again.', 'danger' );
+				} );
 		},
 	},
 } );

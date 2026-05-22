@@ -1079,3 +1079,73 @@
 		padding: var(--bn-ob-s6) var(--bn-ob-s4);
 	}
 }
+
+/* ── Visual progress bar (above stepper) ───────────────────────────────── */
+.bn-ob-progress {
+	margin-bottom: var(--bn-s4);
+}
+.bn-ob-progress__label {
+	margin-top: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	font-family: var(--bn-font-mono, inherit);
+	font-weight: 600;
+	letter-spacing: 0.04em;
+}
+
+/* Stepper active/done state hooks for reactive class binding */
+.bn-stepper__item.is-active .bn-stepper__dot {
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+}
+.bn-stepper__item.is-done .bn-stepper__dot {
+	background: var(--bn-success, var(--bn-accent));
+	color: var(--bn-accent-fg);
+}
+
+/* Inline field error message */
+.bn-ob-field__msg {
+	display: block;
+	margin-top: 6px;
+	color: var(--bn-danger);
+	font-size: var(--bn-text-sm);
+}
+.bn-ob-field__hint {
+	display: block;
+	margin-top: 6px;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+/* Error band */
+.bn-ob-error {
+	margin-top: var(--bn-s4);
+	padding: var(--bn-s3);
+	background: var(--bn-danger-100, var(--bn-sunken));
+	color: var(--bn-danger);
+	border-radius: var(--bn-r-md);
+	font-size: var(--bn-text-sm);
+}
+
+/* Mobile shell — progress + step header pinned, content scrolls, footer fixed */
+@media (max-width: 640px) {
+	.bn-ob-shell {
+		display: flex;
+		flex-direction: column;
+		min-height: calc(100vh - 80px);
+	}
+	.bn-ob-progress,
+	.bn-ob-stepper {
+		position: sticky;
+		top: 0;
+		background: var(--bn-canvas);
+		z-index: 1;
+	}
+	.bn-ob-actions {
+		position: sticky;
+		bottom: 0;
+		background: var(--bn-canvas);
+		padding: var(--bn-s3) 0;
+		border-top: 1px solid var(--bn-line);
+	}
+}

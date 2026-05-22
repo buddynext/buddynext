@@ -129,11 +129,15 @@ class PageRouter {
 
 		$context = $this->build_hub_context( $hub );
 
-		// Auth hub: redirect logged-in users before any output is sent so
-		// wp_safe_redirect() can still set Location headers.
+		// Auth hub: redirect logged-in users away from login + signup
+		// surfaces. Verify-email stays accessible because a logged-in but
+		// unverified user must still see the "check your inbox" state.
 		if ( 'auth' === $hub && is_user_logged_in() ) {
-			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
-			exit;
+			$auth_action = (string) get_query_var( 'bn_auth_action', '' );
+			if ( 'verify' !== $auth_action ) {
+				wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
+				exit;
+			}
 		}
 
 		// ── Virtual page setup ────────────────────────────────────────────
@@ -265,8 +269,12 @@ class PageRouter {
 			)
 		);
 
+		// Auth surfaces (login, signup, verify-email) use a slim centered
+		// single-column shell — not the rail + main + sidebar feed shell.
+		$shell_template = ( 'auth' === $hub ) ? 'shell/auth-shell.php' : 'shell/hub-shell.php';
+
 		get_header();
-		buddynext_get_template( 'shell/hub-shell.php', $shell_context );
+		buddynext_get_template( $shell_template, $shell_context );
 		get_footer();
 	}
 
@@ -349,6 +357,19 @@ class PageRouter {
 
 			case 'auth':
 				$assets->enqueue( 'auth' );
+				$auth_action = (string) get_query_var( 'bn_auth_action', '' );
+				switch ( $auth_action ) {
+					case 'signup':
+						wp_enqueue_script_module( '@buddynext/auth-signup' );
+						break;
+					case 'verify':
+						wp_enqueue_script_module( '@buddynext/auth-verify' );
+						break;
+					case 'login':
+					default:
+						wp_enqueue_script_module( '@buddynext/auth-login' );
+						break;
+				}
 				break;
 
 			case 'moderation':
@@ -496,7 +517,16 @@ class PageRouter {
 				return 'notifications/index.php';
 
 			case 'auth':
-				return 'auth/login.php';
+				$auth_action = (string) get_query_var( 'bn_auth_action', '' );
+				switch ( $auth_action ) {
+					case 'signup':
+						return 'auth/signup.php';
+					case 'verify':
+						return 'auth/verify.php';
+					case 'login':
+					default:
+						return 'auth/login.php';
+				}
 
 			case 'moderation':
 				return 'moderation/queue.php';
@@ -531,6 +561,7 @@ class PageRouter {
 		add_rewrite_tag( '%bn_conv_id%', '([0-9]+)' );
 		add_rewrite_tag( '%bn_msg_action%', '([^/]*)' );
 		add_rewrite_tag( '%bn_member_type%', '([a-z0-9-]+)' );
+		add_rewrite_tag( '%bn_auth_action%', '([a-z-]+)' );
 
 		$this->register_activity_rules();
 		$this->register_people_rules();
@@ -731,11 +762,23 @@ class PageRouter {
 	 * @return void
 	 */
 	private function register_auth_rules(): void {
-		$a = self::hub_slug( 'buddynext_slug_auth', 'login' );
+		$a      = self::hub_slug( 'buddynext_slug_auth', 'login' );
+		$signup = (string) get_option( 'buddynext_slug_signup', 'signup' );
+		$verify = (string) get_option( 'buddynext_slug_verify', 'verify-email' );
 
 		add_rewrite_rule(
 			'^' . preg_quote( $a, '/' ) . '/?$',
-			'index.php?bn_hub=auth',
+			'index.php?bn_hub=auth&bn_auth_action=login',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $signup, '/' ) . '/?$',
+			'index.php?bn_hub=auth&bn_auth_action=signup',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $verify, '/' ) . '/?$',
+			'index.php?bn_hub=auth&bn_auth_action=verify',
 			'top'
 		);
 	}
