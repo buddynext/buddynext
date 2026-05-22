@@ -435,3 +435,275 @@
 .bn-block-member-card {
 	margin: 0;
 }
+
+/* ── Production wiring (Social Graph row 4) ───────────────────────────── */
+
+/* Member-type pill row. */
+.bn-md-pill-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	padding-block-end: var(--bn-s3);
+}
+
+.bn-md-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	padding-block: 6px;
+	padding-inline: 12px;
+	border-radius: 999px;
+	border: 1px solid var(--bn-line);
+	background: var(--bn-surface);
+	color: var(--bn-text);
+	font: inherit;
+	font-size: var(--bn-fs-sm);
+	font-weight: 500;
+	line-height: 1;
+	cursor: pointer;
+	transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.bn-md-pill:hover,
+.bn-md-pill:focus-visible {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+}
+
+.bn-md-pill:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-md-pill.is-active {
+	background: var(--bn-accent);
+	border-color: var(--bn-accent);
+	color: var(--bn-accent-fg);
+}
+
+.bn-md-pill__count {
+	min-width: 1.5em;
+	padding-inline: 6px;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.06);
+	font-size: var(--bn-fs-xs);
+	font-weight: 600;
+	text-align: center;
+}
+
+.bn-md-pill.is-active .bn-md-pill__count {
+	background: rgba(255, 255, 255, 0.2);
+}
+
+/* Reactive filter strip — no Apply button. */
+.bn-md-strip {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+}
+
+.bn-md-strip__form {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	align-items: center;
+}
+
+.bn-md-strip__search {
+	flex: 1 1 280px;
+	min-width: 0;
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.bn-md-strip__search-input {
+	flex: 1 1 100%;
+}
+
+.bn-md-strip__searching {
+	position: absolute;
+	inset-inline-end: 10px;
+	font-size: var(--bn-fs-xs);
+	color: var(--bn-text-soft);
+	pointer-events: none;
+}
+
+.bn-md-strip__sort {
+	flex: 0 0 auto;
+}
+
+/* Loading skeleton. */
+.bn-md-skeleton {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: var(--bn-s4);
+}
+
+.bn-md-skeleton__card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s4);
+	border-radius: var(--bn-radius-lg);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line-faint);
+}
+
+.bn-md-skeleton__avatar,
+.bn-md-skeleton__line,
+.bn-md-skeleton__actions {
+	background: linear-gradient(90deg, var(--bn-line-faint) 0%, var(--bn-line) 50%, var(--bn-line-faint) 100%);
+	background-size: 200% 100%;
+	animation: bn-md-shimmer 1.4s linear infinite;
+	border-radius: 6px;
+}
+
+.bn-md-skeleton__avatar {
+	width: 72px;
+	height: 72px;
+	border-radius: 50%;
+}
+
+.bn-md-skeleton__line {
+	width: 70%;
+	height: 10px;
+}
+
+.bn-md-skeleton__line--lg { width: 80%; height: 14px; }
+.bn-md-skeleton__line--sm { width: 40%; height: 8px; }
+
+.bn-md-skeleton__actions {
+	width: 100%;
+	height: 30px;
+	margin-block-start: var(--bn-s2);
+}
+
+@keyframes bn-md-shimmer {
+	from { background-position: 200% 0; }
+	to   { background-position: -200% 0; }
+}
+
+/* Error state. */
+.bn-md-error {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s6) var(--bn-s4);
+	border-radius: var(--bn-radius-lg);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-danger-soft, var(--bn-line));
+	color: var(--bn-text);
+	text-align: center;
+}
+
+.bn-md-error__copy {
+	margin: 0;
+	color: var(--bn-text-soft);
+}
+
+/* Empty-state action row. */
+.bn-md-empty__actions {
+	display: flex;
+	justify-content: center;
+	padding-block-start: var(--bn-s3);
+}
+
+/* Per-card kebab menu. */
+.bn-md-card__menu-wrap {
+	position: relative;
+	display: inline-block;
+	margin-inline-start: var(--bn-s1);
+}
+
+.bn-md-card__menu {
+	width: 32px;
+	height: 32px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: 8px;
+	color: var(--bn-text-soft);
+	cursor: pointer;
+}
+
+.bn-md-card__menu:hover,
+.bn-md-card__menu:focus-visible {
+	background: var(--bn-line-faint);
+	color: var(--bn-text);
+}
+
+.bn-md-card__menu:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-md-card__menu-pop {
+	position: absolute;
+	z-index: 20;
+	inset-block-start: calc(100% + 4px);
+	inset-inline-end: 0;
+	min-width: 180px;
+	display: flex;
+	flex-direction: column;
+	padding: 6px;
+	border-radius: var(--bn-radius);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	box-shadow: var(--bn-shadow-md, 0 8px 24px rgba(0, 0, 0, 0.12));
+}
+
+.bn-md-card__menu-item {
+	display: block;
+	width: 100%;
+	padding-block: 8px;
+	padding-inline: 10px;
+	border: 0;
+	background: transparent;
+	color: var(--bn-text);
+	text-align: start;
+	font: inherit;
+	font-size: var(--bn-fs-sm);
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.bn-md-card__menu-item:hover,
+.bn-md-card__menu-item:focus-visible {
+	background: var(--bn-line-faint);
+}
+
+.bn-md-card__menu-item:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
+
+.bn-md-card__menu-item--danger {
+	color: var(--bn-danger);
+}
+
+.bn-md-card__connect-decide {
+	display: inline-flex;
+	gap: 4px;
+}
+
+/* Follow + Connect state-driven styling via data-state. */
+.bn-md-card__follow[data-state="following"]::before {
+	content: "";
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	margin-inline-end: 6px;
+	background: currentColor;
+	mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3'><polyline points='20 6 9 17 4 12'/></svg>") center / contain no-repeat;
+	-webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3'><polyline points='20 6 9 17 4 12'/></svg>") center / contain no-repeat;
+}
+
+.bn-md-card__follow[data-state="following"]:hover::after {
+	content: " " attr(data-hover-label);
+}
+

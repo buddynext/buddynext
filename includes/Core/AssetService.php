@@ -271,20 +271,21 @@ class AssetService {
 		);
 
 		$feature_modules = array(
-			'@buddynext/feed'          => 'feed/store',
-			'@buddynext/profile'       => 'profile/store',
-			'@buddynext/spaces'        => 'spaces/store',
-			'@buddynext/members'       => 'members/store',
-			'@buddynext/messages'      => 'messages/store',
-			'@buddynext/notifications' => 'notifications/store',
-			'@buddynext/search'        => 'search/store',
-			'@buddynext/hashtags'      => 'hashtags/store',
-			'@buddynext/auth'          => 'auth/store',
-			'@buddynext/onboarding'    => 'onboarding/store',
-			'@buddynext/gamification'  => 'gamification/store',
-			'@buddynext/moderation'    => 'moderation/store',
-			'@buddynext/connections'   => 'connections/store',
-			'@buddynext/space-members' => 'space-members/store',
+			'@buddynext/feed'           => 'feed/store',
+			'@buddynext/profile'        => 'profile/store',
+			'@buddynext/spaces'         => 'spaces/store',
+			'@buddynext/members'        => 'members/store',
+			'@buddynext/messages'       => 'messages/store',
+			'@buddynext/notifications'  => 'notifications/store',
+			'@buddynext/search'         => 'search/store',
+			'@buddynext/hashtags'       => 'hashtags/store',
+			'@buddynext/auth'           => 'auth/store',
+			'@buddynext/onboarding'     => 'onboarding/store',
+			'@buddynext/gamification'   => 'gamification/store',
+			'@buddynext/moderation'     => 'moderation/store',
+			'@buddynext/connections'    => 'connections/store',
+			'@buddynext/space-members'  => 'space-members/store',
+			'@buddynext/social-buttons' => 'social/follow-store',
 		);
 
 		// Feature stores that import from ../shell/dialog.js need the
@@ -296,6 +297,8 @@ class AssetService {
 			'@buddynext/moderation',
 			'@buddynext/space-members',
 			'@buddynext/profile',
+			'@buddynext/members',
+			'@buddynext/social-buttons',
 		);
 
 		foreach ( $feature_modules as $id => $path ) {

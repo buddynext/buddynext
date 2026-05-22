@@ -26,7 +26,7 @@ class MemberDirectoryServiceTest extends \WP_UnitTestCase {
 	public function set_up(): void {
 		parent::set_up();
 		Installer::run();
-		$this->service = new MemberDirectoryService();
+		$this->service    = new MemberDirectoryService();
 		$this->moderation = new ModerationService();
 		$this->viewer_id  = self::factory()->user->create();
 		$this->admin_id   = self::factory()->user->create( array( 'role' => 'administrator' ) );
@@ -115,5 +115,127 @@ class MemberDirectoryServiceTest extends \WP_UnitTestCase {
 
 		$ids = array_column( $result['items'], 'user_id' );
 		$this->assertNotContains( $shadow, $ids );
+	}
+
+	// ── Production wiring: filter + sort + search + member-type ────────────
+
+	/**
+	 * Search filter scopes results to a substring of display_name.
+	 *
+	 * @return void
+	 */
+	public function test_search_filters_results_by_display_name(): void {
+		self::factory()->user->create( array( 'display_name' => 'Alice Wonder' ) );
+		self::factory()->user->create( array( 'display_name' => 'Bob Apparent' ) );
+
+		$result = $this->service->list_members(
+			$this->viewer_id,
+			null,
+			20,
+			array( 'search' => 'Wonder' )
+		);
+
+		$names = array_column( $result['items'], 'display_name' );
+		$this->assertContains( 'Alice Wonder', $names );
+		$this->assertNotContains( 'Bob Apparent', $names );
+	}
+
+	/**
+	 * Alphabetical sort places A names ahead of Z names.
+	 *
+	 * @return void
+	 */
+	public function test_alphabetical_sort_orders_users_by_display_name(): void {
+		self::factory()->user->create( array( 'display_name' => 'Zebra Z' ) );
+		self::factory()->user->create( array( 'display_name' => 'Aardvark A' ) );
+
+		$result = $this->service->list_members(
+			$this->viewer_id,
+			null,
+			20,
+			array( 'sort' => 'alphabetical' )
+		);
+
+		$names = array_column( $result['items'], 'display_name' );
+		$idx_a = array_search( 'Aardvark A', $names, true );
+		$idx_z = array_search( 'Zebra Z', $names, true );
+		$this->assertNotFalse( $idx_a );
+		$this->assertNotFalse( $idx_z );
+		$this->assertLessThan( $idx_z, $idx_a, 'A must precede Z under alphabetical sort' );
+	}
+
+	/**
+	 * Most-active sort surfaces recently-active users ahead of stale ones.
+	 *
+	 * @return void
+	 */
+	public function test_most_active_sort_orders_by_last_active_desc(): void {
+		$now    = time();
+		$recent = self::factory()->user->create();
+		$stale  = self::factory()->user->create();
+		update_user_meta( $recent, 'bn_last_active', (string) ( $now - 60 ) );
+		update_user_meta( $stale, 'bn_last_active', (string) ( $now - 86400 ) );
+
+		$result = $this->service->list_members(
+			$this->viewer_id,
+			null,
+			20,
+			array( 'sort' => 'most_active' )
+		);
+
+		$ids        = array_column( $result['items'], 'user_id' );
+		$idx_recent = array_search( $recent, $ids, true );
+		$idx_stale  = array_search( $stale, $ids, true );
+		$this->assertNotFalse( $idx_recent );
+		$this->assertNotFalse( $idx_stale );
+		$this->assertLessThan( $idx_stale, $idx_recent, 'Recently-active users must rank ahead' );
+	}
+
+	/**
+	 * Member-type meta is round-trippable for the controller filter pass.
+	 *
+	 * The service does not scope by member_type natively; the controller layer
+	 * post-filters items by meta. This test asserts the meta value is readable
+	 * for the production controller's filter pass.
+	 *
+	 * @return void
+	 */
+	public function test_member_type_scope_via_assigned_meta(): void {
+		$type_user  = self::factory()->user->create();
+		$other_user = self::factory()->user->create();
+		update_user_meta( $type_user, 'bn_member_type', 'creator' );
+
+		$result = $this->service->list_members( $this->viewer_id, null, 20 );
+		$ids    = array_column( $result['items'], 'user_id' );
+		$this->assertContains( $type_user, $ids );
+		$this->assertContains( $other_user, $ids );
+		$this->assertSame( 'creator', get_user_meta( $type_user, 'bn_member_type', true ) );
+	}
+
+	/**
+	 * Connections relation scopes the directory to accepted peers only.
+	 *
+	 * @return void
+	 */
+	public function test_connections_relation_scopes_to_accepted_peers_only(): void {
+		$peer    = self::factory()->user->create();
+		$unknown = self::factory()->user->create();
+
+		// Establish an accepted connection between viewer and peer.
+		$conn = new \BuddyNext\SocialGraph\ConnectionService();
+		$conn->send_request( $this->viewer_id, $peer );
+		$conn->accept_request( $peer, $this->viewer_id );
+
+		$result = $this->service->list_members(
+			$this->viewer_id,
+			null,
+			20,
+			array( 'connection_status' => 'connections' )
+		);
+
+		$ids = array_column( $result['items'], 'user_id' );
+		$this->assertContains( $peer, $ids );
+		$this->assertNotContains( $unknown, $ids );
+		$this->assertNotContains( $this->viewer_id, $ids );
 	}
 }
