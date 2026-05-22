@@ -89,7 +89,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-05-22-followers-following';
+	private const ROUTER_VERSION = '2026-05-22-single-post-bookmarks';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -178,6 +178,7 @@ class PageRouter {
 		// Set the document <title> via the standard wp_title parts filter.
 		$hub_titles = array(
 			'feed'          => __( 'Activity Feed', 'buddynext' ),
+			'post'          => __( 'Post', 'buddynext' ),
 			'people'        => __( 'Members', 'buddynext' ),
 			'spaces'        => __( 'Spaces', 'buddynext' ),
 			'messages'      => __( 'Messages', 'buddynext' ),
@@ -185,7 +186,14 @@ class PageRouter {
 			'auth'          => __( 'Login', 'buddynext' ),
 			'onboarding'    => __( 'Get Started', 'buddynext' ),
 		);
-		$hub_title  = $hub_titles[ $hub ] ?? ucfirst( $hub );
+
+		$hub_title = $hub_titles[ $hub ] ?? ucfirst( $hub );
+
+		// Bookmarks hub: override the bare "Activity Feed" title with a
+		// dedicated label so the document <title> reads "Bookmarks · BuddyNext".
+		if ( 'feed' === $hub && 'bookmarks' === (string) get_query_var( 'bn_feed_section', '' ) ) {
+			$hub_title = __( 'Bookmarks', 'buddynext' );
+		}
 
 		// Specialise the title when the template gives us a richer label,
 		// e.g. "Edit Profile : Varun" instead of the bare hub fallback.
@@ -365,6 +373,13 @@ class PageRouter {
 				}
 				break;
 
+			case 'post':
+				// Single-post permalink page reuses the feed bundle — post cards,
+				// composer (for the reply form), and the share modal are all
+				// driven by the feed Interactivity store.
+				$assets->enqueue( 'feed' );
+				break;
+
 			case 'people':
 				// Single-profile view vs. member directory.
 				if ( ! empty( $context['user_id'] ) ) {
@@ -385,10 +400,10 @@ class PageRouter {
 					'bn-shell-extras',
 					'window.bnSpaces = window.bnSpaces || ' . wp_json_encode(
 						array(
-							'spaceUrlBase'  => esc_url_raw( self::spaces_url() . '__slug__/' ),
-							'directoryUrl'  => esc_url_raw( self::spaces_url() ),
-							'restNonce'     => wp_create_nonce( 'wp_rest' ),
-							'restUrl'       => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+							'spaceUrlBase' => esc_url_raw( self::spaces_url() . '__slug__/' ),
+							'directoryUrl' => esc_url_raw( self::spaces_url() ),
+							'restNonce'    => wp_create_nonce( 'wp_rest' ),
+							'restUrl'      => esc_url_raw( rest_url( 'buddynext/v1' ) ),
 						)
 					) . ';',
 					'before'
@@ -483,6 +498,11 @@ class PageRouter {
 			case 'feed':
 				$context['activity_action'] = (string) get_query_var( 'bn_activity_action', '' );
 				$context['hashtag']         = (string) get_query_var( 'bn_hashtag', '' );
+				$context['feed_section']    = (string) get_query_var( 'bn_feed_section', '' );
+				break;
+
+			case 'post':
+				$context['post_id'] = (int) get_query_var( 'bn_post_id', 0 );
 				break;
 		}
 
@@ -502,6 +522,10 @@ class PageRouter {
 	private function resolve_hub_template( string $hub ): ?string {
 		switch ( $hub ) {
 			case 'feed':
+				$section = (string) get_query_var( 'bn_feed_section', '' );
+				if ( 'bookmarks' === $section ) {
+					return 'feed/bookmarks.php';
+				}
 				$action = (string) get_query_var( 'bn_activity_action', '' );
 				switch ( $action ) {
 					case 'explore':
@@ -515,6 +539,9 @@ class PageRouter {
 					default:
 						return 'feed/home.php';
 				}
+
+			case 'post':
+				return 'feed/single-post.php';
 
 			case 'people':
 				$user_slug = (string) get_query_var( 'bn_user_slug', '' );
@@ -623,8 +650,12 @@ class PageRouter {
 		add_rewrite_tag( '%bn_member_type%', '([a-z0-9-]+)' );
 		add_rewrite_tag( '%bn_auth_action%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_notif_section%', '([a-z-]+)' );
+		add_rewrite_tag( '%bn_post_id%', '([0-9]+)' );
+		add_rewrite_tag( '%bn_feed_section%', '([a-z-]+)' );
 
 		$this->register_activity_rules();
+		$this->register_post_rules();
+		$this->register_bookmarks_rules();
 		$this->register_people_rules();
 		$this->register_spaces_rules();
 		$this->register_messages_rules();
@@ -665,6 +696,41 @@ class PageRouter {
 		add_rewrite_rule(
 			'^' . preg_quote( $a, '/' ) . '/?$',
 			'index.php?bn_hub=feed',
+			'top'
+		);
+	}
+
+	/**
+	 * Register single-post permalink rule.
+	 *
+	 * /p/{id}/ resolves to the post hub, which renders a dedicated single-post
+	 * page with breadcrumb, full post card, OG meta tags, and expanded comment
+	 * thread. The short /p/ slug intentionally avoids the activity-hub prefix
+	 * so the URL stays compact for sharing.
+	 *
+	 * @return void
+	 */
+	private function register_post_rules(): void {
+		add_rewrite_rule(
+			'^p/([0-9]+)/?$',
+			'index.php?bn_hub=post&bn_post_id=$matches[1]',
+			'top'
+		);
+	}
+
+	/**
+	 * Register Bookmarks hub rewrite rule.
+	 *
+	 * /me/bookmarks/ resolves to the feed hub with the bookmarks section, which
+	 * renders the authenticated user's saved-post list. Auth is enforced inside
+	 * the bookmarks template (guests redirected to the auth surface).
+	 *
+	 * @return void
+	 */
+	private function register_bookmarks_rules(): void {
+		add_rewrite_rule(
+			'^me/bookmarks/?$',
+			'index.php?bn_hub=feed&bn_feed_section=bookmarks',
 			'top'
 		);
 	}
@@ -1016,6 +1082,36 @@ class PageRouter {
 	 */
 	public static function leaderboard_url(): string {
 		return self::activity_url() . 'leaderboard/';
+	}
+
+	/**
+	 * Return the canonical permalink URL for a single post.
+	 *
+	 * Compact `/p/{id}/` form — chosen over `/activity/post/{id}/` so the
+	 * URL stays share-friendly. Used by post-card timestamps, share modal,
+	 * notifications, email links, and OG og:url meta tags.
+	 *
+	 * @param int $post_id Post primary key.
+	 * @return string Absolute trailing-slashed URL, or empty string when post_id <= 0.
+	 */
+	public static function post_url( int $post_id ): string {
+		if ( $post_id <= 0 ) {
+			return '';
+		}
+
+		return trailingslashit( home_url( '/p/' . $post_id ) );
+	}
+
+	/**
+	 * Return the Bookmarks hub URL for the active user.
+	 *
+	 * Path is /me/bookmarks/ — same for every viewer; the bookmarks template
+	 * reads the current user's saved-post list directly.
+	 *
+	 * @return string Absolute trailing-slashed URL.
+	 */
+	public static function bookmarks_url(): string {
+		return trailingslashit( home_url( '/me/bookmarks' ) );
 	}
 
 	/**

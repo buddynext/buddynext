@@ -503,30 +503,37 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 			<?php endforeach; ?>
 		</div>
 
-		<?php if ( $has_more && '' !== $next_cursor ) : ?>
-			<div
-				class="bn-load-more"
-				id="bn-infinite-trigger"
-				data-bn-infinite-feed
-				data-next-cursor="<?php echo esc_attr( $next_cursor ); ?>"
-				data-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1/feed?scope=home&per_page=' . $bn_per_page ) ); ?>"
-				data-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
-				data-fallback-url="<?php echo esc_url( PageRouter::activity_url() ); ?>"
-			>
-				<div class="bn-load-more__spinner" hidden>
-					<span class="bn-skeleton bn-load-more__spinner-line"></span>
+			<?php if ( $has_more && '' !== $next_cursor ) : ?>
+				<div
+					class="bn-load-more"
+					id="bn-infinite-trigger"
+					data-bn-infinite-feed="home"
+					data-bn-feed-target=".bn-feed-list"
+					data-next-cursor="<?php echo esc_attr( $next_cursor ); ?>"
+					data-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1/feed/home/page' ) ); ?>"
+					data-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
+					data-filter="<?php echo esc_attr( $bn_filter ); ?>"
+					data-per-page="<?php echo esc_attr( (string) $bn_per_page ); ?>"
+				>
+					<div class="bn-load-more__spinner" hidden aria-live="polite">
+						<span class="bn-skeleton bn-load-more__spinner-line"></span>
+						<span class="bn-load-more__spinner-text"><?php esc_html_e( 'Loading more posts…', 'buddynext' ); ?></span>
+					</div>
+					<noscript>
+						<a
+							href="<?php echo esc_url( add_query_arg( 'cursor', rawurlencode( $next_cursor ), PageRouter::activity_url() ) ); ?>"
+							class="bn-btn bn-load-more__btn"
+							data-variant="secondary"
+						>
+							<?php esc_html_e( 'Load more', 'buddynext' ); ?>
+						</a>
+					</noscript>
 				</div>
-				<noscript>
-					<a
-						href="<?php echo esc_url( add_query_arg( 'cursor', rawurlencode( $next_cursor ), PageRouter::activity_url() ) ); ?>"
-						class="bn-btn bn-load-more__btn"
-						data-variant="secondary"
-					>
-						<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-					</a>
-				</noscript>
-			</div>
-		<?php endif; ?>
+			<?php else : ?>
+				<div class="bn-feed-end" role="status">
+					<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
+				</div>
+			<?php endif; ?>
 
 	<?php else : ?>
 		<?php

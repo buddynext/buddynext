@@ -349,14 +349,32 @@ do_action( 'buddynext_feed_explore_before', $current_user_id );
 			</div>
 
 			<?php if ( $explore_has_more && $explore_next_cursor ) : ?>
-				<div class="bn-load-more">
-					<a
-						href="<?php echo esc_url( add_query_arg( 'cursor', $explore_next_cursor ) ); ?>"
-						class="bn-btn bn-load-more__btn"
-						data-variant="secondary"
-					>
-						<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-					</a>
+				<div
+					class="bn-load-more"
+					data-bn-infinite-feed="explore"
+					data-bn-feed-target=".bn-explore-grid"
+					data-next-cursor="<?php echo esc_attr( $explore_next_cursor ); ?>"
+					data-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1/feed/explore/page' ) ); ?>"
+					data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+					data-per-page="<?php echo esc_attr( (string) $bn_explore_per_page ); ?>"
+				>
+					<div class="bn-load-more__spinner" hidden aria-live="polite">
+						<span class="bn-skeleton bn-load-more__spinner-line"></span>
+						<span class="bn-load-more__spinner-text"><?php esc_html_e( 'Loading more posts…', 'buddynext' ); ?></span>
+					</div>
+					<noscript>
+						<a
+							href="<?php echo esc_url( add_query_arg( 'cursor', $explore_next_cursor ) ); ?>"
+							class="bn-btn bn-load-more__btn"
+							data-variant="secondary"
+						>
+							<?php esc_html_e( 'Load more', 'buddynext' ); ?>
+						</a>
+					</noscript>
+				</div>
+			<?php else : ?>
+				<div class="bn-feed-end" role="status">
+					<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
 				</div>
 			<?php endif; ?>
 
