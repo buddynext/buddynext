@@ -25,3 +25,9 @@ wp-tests-config.php
 
 # Brainstorm scratch (legacy mockups regenerated locally, do not track)
 /.superpowers/
+
+# Node / Playwright
+node_modules/
+tests/e2e/_report/
+tests/e2e/_results/
+playwright/.cache/

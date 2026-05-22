@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Testing
+
+- Added Playwright e2e suite under `tests/e2e/` covering every BN user journey across desktop, iPad, and mobile viewports. Run `npm run test:e2e`. See `docs/qa/JOURNEYS.md` for the journey catalogue (67 journeys grouped by role) and `docs/qa/HOW-TO-RUN.md` for the runbook. New devDeps: `@playwright/test`, `typescript`, `@types/node`.
+
 ### Shell
 
 - **BREAKING (shell)** — Theme `get_header()` / `get_footer()` now render on every BN-mapped slug. The shell-takeover mode and `buddynext_render_with_theme_chrome` filter introduced in 0.3.0-beta1 are removed. `.bn-app` bursts to 100vw inside the theme so content stays edge-to-edge. The host theme always owns DOCTYPE / `<html>` / `<head>` / `wp_head()` / `<body>` / `wp_body_open()` / `wp_footer()` / `</html>`; BuddyNext only renders the `.bn-app` canvas between them.
