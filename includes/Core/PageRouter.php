@@ -241,6 +241,31 @@ class PageRouter {
 			}
 		}
 
+		// Specialise the Notifications hub title:
+		//   - Prefs section → "Notification preferences"
+		//   - List with unread > 0 → "Notifications (3)" / "Notifications (99+)"
+		// Mirrors the Profile / Spaces patterns above so the document <title>
+		// reflects the active sub-route and the live unread count. The unread
+		// count read is cheap (single COUNT on an indexed column) and only
+		// fires when the hub matches.
+		if ( 'notifications' === $hub ) {
+			$notif_section_for_title = (string) get_query_var( 'bn_notif_section', '' );
+			if ( 'prefs' === $notif_section_for_title ) {
+				$hub_title = __( 'Notification preferences', 'buddynext' );
+			} elseif ( is_user_logged_in() ) {
+				$notif_user_id    = get_current_user_id();
+				$unread_for_title = ( new \BuddyNext\Notifications\NotificationService() )->unread_count( $notif_user_id );
+				if ( $unread_for_title > 0 ) {
+					$unread_display = $unread_for_title > 99 ? '99+' : (string) $unread_for_title;
+					$hub_title      = sprintf(
+						/* translators: %s: unread notification count (formatted, e.g. "3" or "99+"). */
+						__( 'Notifications (%s)', 'buddynext' ),
+						$unread_display
+					);
+				}
+			}
+		}
+
 		// Specialise the title when the template gives us a richer label,
 		// e.g. "Edit Profile : Varun" instead of the bare hub fallback.
 		if ( 'people' === $hub && ! empty( $context['user_id'] ) ) {
