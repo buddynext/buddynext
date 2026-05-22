@@ -95,27 +95,38 @@ class FeedService {
 	}
 
 	/**
+	 * Allowed home-feed filter slugs.
+	 *
+	 * @var string[]
+	 */
+	public const HOME_FILTERS = array( 'for-you', 'following', 'spaces', 'network' );
+
+	/**
 	 * Return the home feed for the given user.
 	 *
-	 * @param int         $user_id     Viewing user ID.
-	 * @param string|null $cursor      Opaque pagination cursor from a previous response.
-	 * @param int         $per_page    Number of posts to return (max 50).
+	 * @param int         $user_id  Viewing user ID.
+	 * @param string|null $cursor   Opaque pagination cursor from a previous response.
+	 * @param int         $per_page Number of posts to return (max 50).
+	 * @param string      $filter   Filter slug: for-you | following | spaces | network.
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
-	public function home_feed( int $user_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+	public function home_feed( int $user_id, ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $filter = 'for-you' ): array {
+		if ( ! in_array( $filter, self::HOME_FILTERS, true ) ) {
+			$filter = 'for-you';
+		}
 		// Page-1 cache wrap. Only first-page reads are cached (cursor is null);
 		// subsequent pages bypass since the cursor encodes a unique position.
-		if ( null !== $this->cache && null === $cursor && $user_id > 0 ) {
+		if ( null !== $this->cache && null === $cursor && $user_id > 0 && 'for-you' === $filter ) {
 			$key   = $this->cache->home_page_1_key( $user_id, $per_page );
 			$cache = $this->cache;
 			return (array) $cache->get(
 				$key,
 				FeedCache::GROUP_USER,
 				FeedCache::TTL_HOME_PAGE_1,
-				fn() => $this->home_feed_uncached( $user_id, null, $per_page )
+				fn() => $this->home_feed_uncached( $user_id, null, $per_page, 'for-you' )
 			);
 		}
-		return $this->home_feed_uncached( $user_id, $cursor, $per_page );
+		return $this->home_feed_uncached( $user_id, $cursor, $per_page, $filter );
 	}
 
 	/**
@@ -124,10 +135,15 @@ class FeedService {
 	 * @param int         $user_id  Viewing user ID.
 	 * @param string|null $cursor   Pagination cursor.
 	 * @param int         $per_page Page size.
+	 * @param string      $filter   Filter slug: for-you | following | spaces | network.
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
-	private function home_feed_uncached( int $user_id, ?string $cursor, int $per_page ): array {
+	private function home_feed_uncached( int $user_id, ?string $cursor, int $per_page, string $filter = 'for-you' ): array {
 		global $wpdb;
+
+		if ( ! in_array( $filter, self::HOME_FILTERS, true ) ) {
+			$filter = 'for-you';
+		}
 
 		$per_page       = min( $per_page, 50 );
 		$cursor_where   = $this->cursor_where( $cursor );
@@ -178,49 +194,24 @@ class FeedService {
 			$order_by = 'created_at DESC, id DESC';
 		}
 
-		// All three OR branches use subqueries — no PHP-side ID arrays, no interpolation.
-		// Source 1: viewer's own posts (any privacy) + followed users' public/followers posts.
-		// Source 2: posts from spaces the viewer has actively joined.
-		// Source 3: posts that contain a hashtag the viewer follows.
-		// $cursor_where and $excluded_where contain only hardcoded table/column names — safe.
-		// $order_by is filter-supplied; callers are contractually required to return only
-		// hardcoded SQL column references + direction keywords (documented on the filter).
+		// Source-blend WHERE built per filter. All branches use subqueries — no
+		// PHP-side ID arrays, no interpolation. $cursor_where, $excluded_where,
+		// $source_where contain only hardcoded SQL with %d placeholders — safe.
+		// $order_by is filter-supplied; callers are contractually required to
+		// return only hardcoded SQL column references + direction keywords.
+		[ $source_where, $source_params ] = $this->home_source_clause( $filter, $user_id );
+
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE status = 'published'
 			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
-			   AND (
-			         (
-			           user_id IN (
-			             SELECT following_id
-			               FROM {$wpdb->prefix}bn_follows
-			              WHERE follower_id = %d
-			           )
-			           AND privacy IN ('public','followers')
-			         )
-			         OR user_id = %d
-			         OR space_id IN (
-			              SELECT space_id
-			                FROM {$wpdb->prefix}bn_space_members
-			               WHERE user_id = %d AND status = 'active'
-			            )
-			         OR id IN (
-			              SELECT ph.post_id
-			                FROM {$wpdb->prefix}bn_post_hashtags ph
-			               WHERE ph.object_type = 'post'
-			                 AND ph.hashtag_id IN (
-			                       SELECT hf.hashtag_id
-			                         FROM {$wpdb->prefix}bn_hashtag_follows hf
-			                        WHERE hf.user_id = %d
-			                     )
-			            )
-			       )
+			   AND ({$source_where})
 			   {$excluded_where}
 			   {$cursor_where}
 			 ORDER BY {$order_by}
 			 LIMIT %d",
-			...array_merge( array( $user_id, $user_id, $user_id, $user_id ), $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( $source_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -279,10 +270,136 @@ class FeedService {
 				'per_page' => $per_page,
 				'cursor'   => $cursor,
 				'user_id'  => $user_id,
+				'filter'   => $filter,
 			)
 		);
 
 		return $result;
+	}
+
+	/**
+	 * Build the source-blend WHERE clause + bound params for a home-feed filter.
+	 *
+	 * Returns a pair of [SQL fragment with %d placeholders, ordered params].
+	 * SQL fragments only contain hardcoded table/column names — never user data.
+	 *
+	 * @param string $filter  One of for-you | following | spaces | network.
+	 * @param int    $user_id Viewer user ID.
+	 * @return array{0:string,1:array<int>} SQL fragment + ordered params.
+	 */
+	private function home_source_clause( string $filter, int $user_id ): array {
+		global $wpdb;
+
+		switch ( $filter ) {
+			case 'following':
+				$sql    = "user_id IN (
+					SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d
+				) AND privacy IN ('public','followers')";
+				$params = array( $user_id );
+				break;
+
+			case 'spaces':
+				$sql    = "space_id IN (
+					SELECT space_id FROM {$wpdb->prefix}bn_space_members
+					WHERE user_id = %d AND status = 'active'
+				)";
+				$params = array( $user_id );
+				break;
+
+			case 'network':
+				$sql    = "user_id IN (
+					SELECT CASE
+					    WHEN requester_id = %d THEN recipient_id
+					    ELSE requester_id
+					 END
+					 FROM {$wpdb->prefix}bn_connections
+					 WHERE ( requester_id = %d OR recipient_id = %d )
+					   AND status = 'accepted'
+				) AND privacy IN ('public','followers','connections')";
+				$params = array( $user_id, $user_id, $user_id );
+				break;
+
+			case 'for-you':
+			default:
+				$sql    = "(
+					user_id IN (
+						SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d
+					)
+					AND privacy IN ('public','followers')
+				)
+				OR user_id = %d
+				OR space_id IN (
+					SELECT space_id FROM {$wpdb->prefix}bn_space_members
+					WHERE user_id = %d AND status = 'active'
+				)
+				OR id IN (
+					SELECT ph.post_id FROM {$wpdb->prefix}bn_post_hashtags ph
+					WHERE ph.object_type = 'post'
+					  AND ph.hashtag_id IN (
+						SELECT hf.hashtag_id FROM {$wpdb->prefix}bn_hashtag_follows hf
+						WHERE hf.user_id = %d
+					)
+				)";
+				$params = array( $user_id, $user_id, $user_id, $user_id );
+				break;
+		}
+
+		return array( $sql, $params );
+	}
+
+	/**
+	 * Return per-tab post counts for the home-feed filter strip.
+	 *
+	 * Numbers are clamped to a 24-hour window so the badge reflects "new" rather
+	 * than total backlog. Each filter reuses home_source_clause() so totals stay
+	 * consistent with what each tab actually renders.
+	 *
+	 * @param int $user_id Viewer user ID.
+	 * @return array{for_you:int,following:int,spaces:int,network:int}
+	 */
+	public function home_feed_counts( int $user_id ): array {
+		global $wpdb;
+
+		$counts = array(
+			'for_you'   => 0,
+			'following' => 0,
+			'spaces'    => 0,
+			'network'   => 0,
+		);
+
+		if ( $user_id <= 0 ) {
+			return $counts;
+		}
+
+		$excluded_where = $this->excluded_users_where();
+		$map            = array(
+			'for_you'   => 'for-you',
+			'following' => 'following',
+			'spaces'    => 'spaces',
+			'network'   => 'network',
+		);
+
+		foreach ( $map as $key => $filter ) {
+			[ $source_where, $source_params ] = $this->home_source_clause( $filter, $user_id );
+
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+			$count = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+					 WHERE status = 'published'
+					   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+					   AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+					   AND ({$source_where})
+					   {$excluded_where}", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+					...$source_params
+				)
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+
+			$counts[ $key ] = $count;
+		}
+
+		return $counts;
 	}
 
 	/**

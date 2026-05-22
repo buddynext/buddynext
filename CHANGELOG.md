@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Feed (production)
+
+- **Feed (production)** — Composer gains Event, Voice, AI tools + chip privacy selector. Home feed gains For you / Following / Spaces / Network filter tabs with per-tab counts + empty states. Post card gains Share action with Repost / Quote / Copy-link modal. Sidebar widgets gain per-row Follow chips + This-week caption + unread-space dots.
+- `templates/partials/composer.php` — five composer tools (Image, Poll, Event, Voice, AI helper) plus a chip-style privacy popover (Public / Followers / Only me) replace the native `<select>`. Inline error band + retry CTA + disabled textarea while submitting.
+- New partials `composer-event-modal.php`, `composer-voice-modal.php`, `composer-ai-modal.php`, `share-modal.php` rendered in the home feed shell.
+- `FeedService::home_feed( $user_id, $cursor, $per_page, $filter )` accepts `for-you | following | spaces | network`. New `FeedService::home_feed_counts()` powers per-tab badges (24h window). New REST routes `GET /buddynext/v1/feed/home?filter=` (enum-validated) and `GET /buddynext/v1/feed/counts`. New `PostService` types `event` + `voice_room`.
+- `WidgetService::suggested_follows()` returns `follow_status` per row (`unfollowed | requested | following`); cache key bumped to invalidate. Per-row Follow chip wired via the existing `buddynext/follow-button` store. Trending Topics gains a "This week" caption. Your Spaces shows an unread-count dot when `bn_space_members.unread_count` is non-zero (column-detected; no-op gracefully when the column is absent). Each widget renders an empty state ("No trending topics yet" / "We'll suggest people once you've completed onboarding" / "Join your first space").
+- Three new icons: `mic.svg`, `sparkles.svg`, `bar-chart-2.svg`.
+- New CSS for chip privacy popover, composer error band, composer modals, home-feed filter tabs, feed skeleton, share modal, sidebar caption/empty/unread dot.
+- New tests: `tests/Feed/FeedServiceTest` covers each filter (`for-you`, `following`, `spaces`, `network`), unknown-filter fallback, and counts shape. `tests/Feed/FeedControllerTest` covers `?filter=` enum + `/feed/counts` shape + auth.
+
 ### Testing
 
 - Added Playwright e2e suite under `tests/e2e/` covering every BN user journey across desktop, iPad, and mobile viewports. Run `npm run test:e2e`. See `docs/qa/JOURNEYS.md` for the journey catalogue (67 journeys grouped by role) and `docs/qa/HOW-TO-RUN.md` for the runbook. New devDeps: `@playwright/test`, `typescript`, `@types/node`.

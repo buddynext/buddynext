@@ -789,8 +789,9 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			class="bn-post-card__action-btn"
 			data-wp-bind--class="state.shareBtnClass"
 			aria-label="<?php esc_attr_e( 'Share post', 'buddynext' ); ?>"
-			data-wp-on--click="actions.sharePost"
+			data-wp-on--click="actions.openShare"
 			data-post-id="<?php echo absint( $bn_post_id ); ?>"
+			data-post-permalink="<?php echo esc_url( add_query_arg( 'p', $bn_post_id, PageRouter::activity_url() ) ); ?>"
 		>
 			<?php buddynext_icon( 'share' ); ?>
 			<span class="bn-post-card__action-label" data-wp-text="state.shareLabel"></span>

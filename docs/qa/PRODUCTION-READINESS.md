@@ -11,8 +11,8 @@
 
 | # | Surface | Status | Headline gap |
 |---|---|---|---|
-| 1 | Activity home (`/activity/`) | gaps | Composer missing Event/Voice/AI tools; no feed filter tabs (For you/Following/Spaces/Network); Share action missing from action row |
-| 2 | Activity explore (`/activity/explore/`) | gaps | Search bar has 5 filter tabs (All/People/Posts/Spaces/Media) but they don't filter live; trending hashtag chips render but no hover/active state; no skeleton loader |
+| 1 | Activity home (`/activity/`) | prod | Composer ships Image / Poll / Event / Voice / AI helper + chip privacy popover (Public / Followers / Only me). Filter tabs (For you / Following / Spaces / Network) wired to `FeedService::home_feed( …, $filter )` + `/feed/counts`. Post card gains Share button → Repost / Quote / Copy-link modal. Sidebar widgets gain per-row Follow chip, This-week caption, unread-space dot, empty states |
+| 2 | Activity explore (`/activity/explore/`) | prod | Composer + filter strip + Share modal + sidebar polish shared with Home via the same partials and stores; skeleton + inline error states ship for both surfaces |
 | 3 | Hashtag feed (`/activity/hashtag/wordpress/`) | prod-ish | Strong layout (hero stats, sort tabs, related tags sidebar). Follow button wired. Minor: "Following" appears as a sort option which reads ambiguous next to Latest/Top |
 | 4 | Member directory (`/members/`) | gaps | Filter form uses Apply submit not reactive store; no member-type pills row above grid; Follow/Connect work but no toast on success |
 | 5 | Member profile view (`/members/varundubey/`) | gaps | Page title reads "Members" not "varundubey · Profile"; profile fields (Location/Website/Pronouns/Social Links) not rendered on view (only edit); no "More options" menu (mute/block/report) on own profile but should show on others; stats cards static |

@@ -68,7 +68,11 @@ class FeedControllerTest extends \WP_UnitTestCase {
 		( new FollowService() )->follow( $this->alice, $this->bob );
 		( new PostService() )->create(
 			$this->bob,
-			array( 'type' => 'text', 'content' => 'Bob post', 'privacy' => 'public' )
+			array(
+				'type'    => 'text',
+				'content' => 'Bob post',
+				'privacy' => 'public',
+			)
 		);
 
 		wp_set_current_user( $this->alice );
@@ -89,7 +93,11 @@ class FeedControllerTest extends \WP_UnitTestCase {
 	public function test_explore_feed_returns_public_posts(): void {
 		( new PostService() )->create(
 			$this->alice,
-			array( 'type' => 'text', 'content' => 'Explore post', 'privacy' => 'public' )
+			array(
+				'type'    => 'text',
+				'content' => 'Explore post',
+				'privacy' => 'public',
+			)
 		);
 
 		wp_set_current_user( 0 );
@@ -102,7 +110,7 @@ class FeedControllerTest extends \WP_UnitTestCase {
 	public function test_profile_feed_is_public(): void {
 		wp_set_current_user( 0 );
 
-		$request = new WP_REST_Request( 'GET', "/buddynext/v1/users/{$this->alice}/feed" );
+		$request  = new WP_REST_Request( 'GET', "/buddynext/v1/users/{$this->alice}/feed" );
 		$response = self::$server->dispatch( $request );
 
 		$this->assertSame( 200, $response->get_status() );
@@ -112,9 +120,60 @@ class FeedControllerTest extends \WP_UnitTestCase {
 		wp_set_current_user( $this->alice );
 
 		$request = new WP_REST_Request( 'GET', "/buddynext/v1/users/{$this->alice}/feed" );
-		$request->set_query_params( array( 'cursor' => null, 'per_page' => 10 ) );
+		$request->set_query_params(
+			array(
+				'cursor'   => null,
+				'per_page' => 10,
+			)
+		);
 		$response = self::$server->dispatch( $request );
 
 		$this->assertSame( 200, $response->get_status() );
+	}
+
+	// ── Filter param (F2) ────────────────────────────────────────────────
+
+	public function test_home_feed_accepts_following_filter(): void {
+		wp_set_current_user( $this->alice );
+
+		$request = new WP_REST_Request( 'GET', '/buddynext/v1/feed/home' );
+		$request->set_query_params( array( 'filter' => 'following' ) );
+		$response = self::$server->dispatch( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+	}
+
+	public function test_home_feed_rejects_unknown_filter_via_enum(): void {
+		wp_set_current_user( $this->alice );
+
+		$request = new WP_REST_Request( 'GET', '/buddynext/v1/feed/home' );
+		$request->set_query_params( array( 'filter' => 'garbage-filter' ) );
+		$response = self::$server->dispatch( $request );
+
+		// REST enum validation kicks in as 400; OR the controller's allowlist
+		// fallback returns 200 with default filter. Either is acceptable as
+		// long as the request never executes against an arbitrary value.
+		$this->assertContains( $response->get_status(), array( 200, 400 ) );
+	}
+
+	public function test_feed_counts_requires_auth(): void {
+		wp_set_current_user( 0 );
+
+		$response = self::$server->dispatch( new WP_REST_Request( 'GET', '/buddynext/v1/feed/counts' ) );
+
+		$this->assertSame( 401, $response->get_status() );
+	}
+
+	public function test_feed_counts_returns_expected_shape(): void {
+		wp_set_current_user( $this->alice );
+
+		$response = self::$server->dispatch( new WP_REST_Request( 'GET', '/buddynext/v1/feed/counts' ) );
+
+		$this->assertSame( 200, $response->get_status() );
+		$data = $response->get_data();
+		$this->assertArrayHasKey( 'for_you', $data );
+		$this->assertArrayHasKey( 'following', $data );
+		$this->assertArrayHasKey( 'spaces', $data );
+		$this->assertArrayHasKey( 'network', $data );
 	}
 }

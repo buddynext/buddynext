@@ -359,18 +359,42 @@ store( 'buddynext/post-card', {
 				}
 			} catch ( _e ) {}
 		},
-		* sharePost() {
+		openShare( event ) {
+			const ctx       = getContext();
+			const btn       = event && event.target ? event.target.closest( '[data-post-id]' ) : null;
+			const permalink = btn ? ( btn.getAttribute( 'data-post-permalink' ) || '' ) : '';
+
+			// Dispatch into the global share-modal store via a custom event.
+			document.dispatchEvent(
+				new CustomEvent( 'bn:open-share-modal', {
+					detail: {
+						postId:    ctx.postId,
+						permalink,
+						nonce:     ctx.shareNonce,
+						restUrl:   ctx.restUrl,
+					},
+				} )
+			);
+		},
+		* repostFromCard() {
+			// Optimistic-share fallback retained for keyboard / unit-test paths.
 			const ctx = getContext();
+			const prevCount = ctx.shareCount || 0;
+			ctx.shareCount  = prevCount + 1;
+			ctx.shareShared = true;
 			try {
 				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/share', {
 					method:  'POST',
 					headers: { 'X-WP-Nonce': ctx.shareNonce },
 				} );
-				if ( res.ok ) {
-					ctx.shareCount  = ( ctx.shareCount || 0 ) + 1;
-					ctx.shareShared = true;
+				if ( ! res.ok ) {
+					ctx.shareCount  = prevCount;
+					ctx.shareShared = false;
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				ctx.shareCount  = prevCount;
+				ctx.shareShared = false;
+			}
 		},
 		* reportPost() {
 			const ctx    = getContext();
@@ -523,6 +547,13 @@ store( 'buddynext/post-card', {
 // WP Interactivity API getContext() doesn't work in native addEventListener callbacks.
 const _mediaState = { ids: [], previews: [] };
 
+const PRIVACY_LABELS = {
+	public:    'Everyone',
+	followers: 'Followers',
+	private:   'Only me',
+	space_members: 'Space members',
+};
+
 store( 'buddynext/post-composer', {
 	state: {
 		get open() {
@@ -545,6 +576,48 @@ store( 'buddynext/post-composer', {
 		},
 		get mediaUploading() {
 			try { return !! getContext().mediaUploading; } catch ( _e ) { return false; }
+		},
+		get errorMessage() {
+			try { return getContext().errorMessage || ''; } catch ( _e ) { return ''; }
+		},
+		get hasNoError() {
+			try { return ! ( getContext().errorMessage || '' ); } catch ( _e ) { return true; }
+		},
+		get hasNoEventError() {
+			try { return ! ( getContext().eventError || '' ); } catch ( _e ) { return true; }
+		},
+		get hasNoVoiceError() {
+			try { return ! ( getContext().voiceError || '' ); } catch ( _e ) { return true; }
+		},
+		get eventError() {
+			try { return getContext().eventError || ''; } catch ( _e ) { return ''; }
+		},
+		get voiceError() {
+			try { return getContext().voiceError || ''; } catch ( _e ) { return ''; }
+		},
+		get privacyLabel() {
+			try {
+				const ctx = getContext();
+				return PRIVACY_LABELS[ ctx.privacy ] || 'Everyone';
+			} catch ( _e ) { return 'Everyone'; }
+		},
+		get isPrivacyPublic() {
+			try { return getContext().privacy === 'public'; } catch ( _e ) { return false; }
+		},
+		get isPrivacyFollowers() {
+			try { return getContext().privacy === 'followers'; } catch ( _e ) { return false; }
+		},
+		get isPrivacyPrivate() {
+			try { return getContext().privacy === 'private'; } catch ( _e ) { return false; }
+		},
+		get submitLabel() {
+			try { return getContext().submitting ? 'Sharing…' : 'Share'; } catch ( _e ) { return 'Share'; }
+		},
+		get eventSubmitLabel() {
+			try { return getContext().submitting ? 'Scheduling…' : 'Schedule event'; } catch ( _e ) { return 'Schedule event'; }
+		},
+		get voiceSubmitLabel() {
+			try { return getContext().submitting ? 'Scheduling…' : 'Schedule room'; } catch ( _e ) { return 'Schedule room'; }
 		},
 	},
 	actions: {
@@ -684,7 +757,8 @@ store( 'buddynext/post-composer', {
 			if ( ! content || ctx.submitting ) {
 				return;
 			}
-			ctx.submitting = true;
+			ctx.errorMessage = '';
+			ctx.submitting   = true;
 
 			// Collect poll options and media attachments.
 			const body = {
@@ -710,7 +784,8 @@ store( 'buddynext/post-composer', {
 					}
 				} );
 				if ( options.length < 2 ) {
-					ctx.submitting = false;
+					ctx.submitting   = false;
+					ctx.errorMessage = 'Add at least two poll options.';
 					return;
 				}
 				body.options = options.map( ( o ) => o.label );
@@ -725,8 +800,136 @@ store( 'buddynext/post-composer', {
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( 'Post published', 'success' ); }
 					setTimeout( function () { window.location.reload(); }, 500 );
+					return;
 				}
+				let msg = 'Could not publish your post. Try again.';
+				try {
+					const data = yield res.json();
+					if ( data && data.message ) { msg = data.message; }
+				} catch ( _e2 ) {}
+				ctx.errorMessage = msg;
+				ctx.submitting   = false;
 			} catch ( _e ) {
+				ctx.errorMessage = 'Network error. Try again.';
+				ctx.submitting   = false;
+			}
+		},
+		openEvent() {
+			const ctx       = getContext();
+			ctx.eventOpen   = true;
+			ctx.eventError  = '';
+		},
+		closeEvent() {
+			getContext().eventOpen = false;
+		},
+		openVoice() {
+			const ctx       = getContext();
+			ctx.voiceOpen   = true;
+			ctx.voiceError  = '';
+		},
+		closeVoice() {
+			getContext().voiceOpen = false;
+		},
+		openAiHelper() {
+			const ctx  = getContext();
+			ctx.aiOpen = true;
+
+			// When Pro is active, hand off to Pro's AI store so it can populate the body.
+			if ( ctx.hasPro ) {
+				document.dispatchEvent(
+					new CustomEvent( 'bn:open-composer-ai', {
+						detail: { restUrl: ctx.restUrl, nonce: ctx.restNonce },
+					} )
+				);
+			}
+		},
+		closeAiHelper() {
+			getContext().aiOpen = false;
+		},
+		togglePrivacy() {
+			const ctx        = getContext();
+			ctx.privacyOpen  = ! ctx.privacyOpen;
+		},
+		* submitEvent() {
+			const ctx = getContext();
+			if ( ctx.submitting ) { return; }
+			const fields = {};
+			document.querySelectorAll( '[data-bn-event-field]' ).forEach( ( el ) => {
+				fields[ el.dataset.bnEventField ] = el.value.trim();
+			} );
+			if ( ! fields.title || ! fields.date ) {
+				ctx.eventError = 'Title and date are required.';
+				return;
+			}
+			ctx.eventError = '';
+			ctx.submitting = true;
+			const scheduledAt = fields.date + ( fields.time ? ' ' + fields.time + ':00' : ' 00:00:00' );
+			const body = {
+				type:         'event',
+				content:      ( fields.title + ( fields.description ? '\n\n' + fields.description : '' ) ).trim(),
+				privacy:      ctx.privacy || 'public',
+				link_meta:    {
+					title:    fields.title,
+					location: fields.location,
+					event_at: scheduledAt,
+				},
+			};
+			try {
+				const res = yield fetch( ctx.restUrl + '/posts', {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
+					body:    JSON.stringify( body ),
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( 'Event scheduled', 'success' ); }
+					setTimeout( () => window.location.reload(), 500 );
+					return;
+				}
+				ctx.eventError = 'Could not schedule the event. Try again.';
+				ctx.submitting = false;
+			} catch ( _e ) {
+				ctx.eventError = 'Network error. Try again.';
+				ctx.submitting = false;
+			}
+		},
+		* submitVoice() {
+			const ctx = getContext();
+			if ( ctx.submitting ) { return; }
+			const fields = {};
+			document.querySelectorAll( '[data-bn-voice-field]' ).forEach( ( el ) => {
+				fields[ el.dataset.bnVoiceField ] = el.value.trim();
+			} );
+			if ( ! fields.title || ! fields.scheduled_at ) {
+				ctx.voiceError = 'Title and start time are required.';
+				return;
+			}
+			ctx.voiceError = '';
+			ctx.submitting = true;
+			const body = {
+				type:      'voice_room',
+				content:   ( fields.title + ( fields.description ? '\n\n' + fields.description : '' ) ).trim(),
+				privacy:   ctx.privacy || 'public',
+				link_meta: {
+					title:        fields.title,
+					scheduled_at: fields.scheduled_at,
+					duration:     parseInt( fields.duration || '30', 10 ),
+				},
+			};
+			try {
+				const res = yield fetch( ctx.restUrl + '/posts', {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
+					body:    JSON.stringify( body ),
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( 'Voice room scheduled', 'success' ); }
+					setTimeout( () => window.location.reload(), 500 );
+					return;
+				}
+				ctx.voiceError = 'Could not schedule the voice room. Try again.';
+				ctx.submitting = false;
+			} catch ( _e ) {
+				ctx.voiceError = 'Network error. Try again.';
 				ctx.submitting = false;
 			}
 		},
@@ -746,7 +949,13 @@ store( 'buddynext/post-composer', {
 			}
 		},
 		setPrivacy( event ) {
-			getContext().privacy = event.target.value;
+			const ctx    = getContext();
+			const target = event && event.target ? event.target.closest( '[data-privacy]' ) : null;
+			const value  = target ? target.getAttribute( 'data-privacy' ) : ( event && event.target ? event.target.value : '' );
+			if ( value ) {
+				ctx.privacy = value;
+			}
+			ctx.privacyOpen = false;
 		},
 	},
 } );
@@ -870,3 +1079,142 @@ store( 'buddynext/spaces', {
 		init();
 	}
 } )();
+
+/* ── Share modal ─────────────────────────────────────────────────────────── */
+
+store( 'buddynext/share-modal', {
+	state: {
+		get open() {
+			try { return !! getContext().open; } catch ( _e ) { return false; }
+		},
+		get busy() {
+			try { return !! getContext().busy; } catch ( _e ) { return false; }
+		},
+		get error() {
+			try { return getContext().error || ''; } catch ( _e ) { return ''; }
+		},
+		get hasNoError() {
+			try { return ! ( getContext().error || '' ); } catch ( _e ) { return true; }
+		},
+	},
+	actions: {
+		close() {
+			const ctx = getContext();
+			ctx.open  = false;
+			ctx.busy  = false;
+			ctx.error = '';
+		},
+		* repost() {
+			const ctx = getContext();
+			if ( ctx.busy || ! ctx.postId ) { return; }
+			ctx.busy  = true;
+			ctx.error = '';
+			try {
+				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/share', {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.nonce },
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( 'Reposted', 'success' ); }
+					// Bump the source card's share count via DOM lookup.
+					const card = document.querySelector( '[data-post-id="' + ctx.postId + '"]' );
+					if ( card ) {
+						const labelEl = card.querySelector( '[data-wp-text="state.shareLabel"]' );
+						if ( labelEl ) {
+							const match = ( labelEl.textContent || '' ).match( /(\d+)/ );
+							const count = match ? parseInt( match[ 1 ], 10 ) + 1 : 1;
+							labelEl.textContent = 'Shared · ' + count;
+						}
+					}
+					ctx.open  = false;
+					ctx.busy  = false;
+					return;
+				}
+				ctx.error = 'Could not repost. Try again.';
+				ctx.busy  = false;
+			} catch ( _e ) {
+				ctx.error = 'Network error. Try again.';
+				ctx.busy  = false;
+			}
+		},
+		quote() {
+			const ctx = getContext();
+			if ( ! ctx.postId ) { return; }
+			// Pre-fill the composer with a quote of the source post and focus it.
+			const composer = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+			if ( composer ) {
+				const ta = composer.querySelector( '.bn-composer__prompt' );
+				if ( ta ) {
+					ta.value = ( ta.value ? ta.value + '\n\n' : '' ) + ctx.permalink + '\n';
+					ta.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+					ta.focus();
+				}
+				composer.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+			}
+			ctx.open = false;
+		},
+		* copyLink() {
+			const ctx = getContext();
+			if ( ! ctx.permalink ) { return; }
+			ctx.busy = true;
+			try {
+				if ( navigator.clipboard && navigator.clipboard.writeText ) {
+					yield navigator.clipboard.writeText( ctx.permalink );
+				} else {
+					const tmp = document.createElement( 'textarea' );
+					tmp.value = ctx.permalink;
+					document.body.appendChild( tmp );
+					tmp.select();
+					document.execCommand( 'copy' );
+					document.body.removeChild( tmp );
+				}
+				if ( window.bnToast ) { window.bnToast( 'Link copied', 'success' ); }
+				ctx.open  = false;
+				ctx.busy  = false;
+			} catch ( _e ) {
+				ctx.error = 'Could not copy link.';
+				ctx.busy  = false;
+			}
+		},
+	},
+} );
+
+// Bridge: post-card openShare dispatches a CustomEvent; populate share-modal context.
+document.addEventListener( 'bn:open-share-modal', function ( e ) {
+	const detail = e.detail || {};
+	const modal  = document.querySelector( '[data-wp-interactive="buddynext/share-modal"]' );
+	if ( ! modal ) { return; }
+	try {
+		const ctx = JSON.parse( modal.getAttribute( 'data-wp-context' ) || '{}' );
+		ctx.open      = true;
+		ctx.busy      = false;
+		ctx.error     = '';
+		ctx.postId    = detail.postId || 0;
+		ctx.permalink = detail.permalink || '';
+		ctx.nonce     = detail.nonce || ctx.nonce;
+		ctx.restUrl   = detail.restUrl || ctx.restUrl;
+		modal.setAttribute( 'data-wp-context', JSON.stringify( ctx ) );
+		modal.hidden = false;
+	} catch ( _e ) {}
+} );
+
+/* ── Feed filter tabs ────────────────────────────────────────────────────── */
+
+store( 'buddynext/feed-tabs', {
+	actions: {
+		setFilter( event ) {
+			if ( event && event.preventDefault ) { event.preventDefault(); }
+			const ctx    = getContext();
+			const target = event && event.target ? event.target.closest( '[data-filter]' ) : null;
+			const filter = target ? target.getAttribute( 'data-filter' ) : '';
+			if ( ! filter || filter === ctx.filter ) { return; }
+			ctx.filter = filter;
+			// Reactive page transitions reload the surface so server-rendered post
+			// cards stay the single source of truth — see docs/specs/UI-CONTRACT.md.
+			const url = new URL( window.location.href );
+			url.searchParams.set( 'filter', filter );
+			url.searchParams.delete( 'cursor' );
+			window.location.href = url.toString();
+		},
+	},
+} );

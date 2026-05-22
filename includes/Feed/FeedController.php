@@ -42,6 +42,24 @@ class FeedController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'home_feed' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'filter' => array(
+						'type'              => 'string',
+						'default'           => 'for-you',
+						'enum'              => FeedService::HOME_FILTERS,
+						'sanitize_callback' => 'sanitize_key',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/feed/counts',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'feed_counts' ),
+				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
 
@@ -96,10 +114,27 @@ class FeedController {
 		$user_id  = get_current_user_id();
 		$cursor   = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
 		$per_page = $request->get_param( 'per_page' ) ? (int) $request->get_param( 'per_page' ) : 20;
+		$filter   = (string) ( $request->get_param( 'filter' ) ?? 'for-you' );
+		if ( ! in_array( $filter, FeedService::HOME_FILTERS, true ) ) {
+			$filter = 'for-you';
+		}
 
-		$result = $this->feed_service()->home_feed( $user_id, $cursor, $per_page );
+		$result = $this->feed_service()->home_feed( $user_id, $cursor, $per_page, $filter );
 
 		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * Return per-tab counts for the home feed filter strip.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function feed_counts( WP_REST_Request $request ): WP_REST_Response { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found
+		$user_id = get_current_user_id();
+		$counts  = $this->feed_service()->home_feed_counts( $user_id );
+
+		return new WP_REST_Response( $counts, 200 );
 	}
 
 	/**

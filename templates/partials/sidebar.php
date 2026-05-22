@@ -58,10 +58,13 @@ $sbar_spaces_url  = home_url( '/spaces/' );
 $sbar_members_url = home_url( '/members/' );
 ?>
 
-<?php if ( ! empty( $sbar_trending ) ) : ?>
-	<div class="bn-sidebar-card">
-		<div class="bn-sidebar-card__header"><?php esc_html_e( 'Trending Topics', 'buddynext' ); ?></div>
-		<div class="bn-sidebar-card__body">
+<div class="bn-sidebar-card">
+	<div class="bn-sidebar-card__header">
+		<?php esc_html_e( 'Trending Topics', 'buddynext' ); ?>
+		<span class="bn-sidebar-card__caption"><?php esc_html_e( 'This week', 'buddynext' ); ?></span>
+	</div>
+	<div class="bn-sidebar-card__body">
+		<?php if ( ! empty( $sbar_trending ) ) : ?>
 			<?php foreach ( $sbar_trending as $sbar_tag ) : ?>
 				<div class="bn-sbar-row">
 					<a href="<?php echo esc_url( home_url( '/activity/hashtag/' . rawurlencode( $sbar_tag->slug ) . '/' ) ); ?>"
@@ -74,19 +77,26 @@ $sbar_members_url = home_url( '/members/' );
 					</span>
 				</div>
 			<?php endforeach; ?>
-		</div>
+		<?php else : ?>
+			<p class="bn-sidebar-card__empty">
+				<?php esc_html_e( 'No trending topics yet.', 'buddynext' ); ?>
+			</p>
+		<?php endif; ?>
 	</div>
-<?php endif; ?>
+</div>
 
-<?php if ( ! empty( $sbar_suggested ) ) : ?>
-	<div class="bn-sidebar-card">
-		<div class="bn-sidebar-card__header"><?php esc_html_e( 'People to Follow', 'buddynext' ); ?></div>
-		<div class="bn-sidebar-card__body">
+<div class="bn-sidebar-card">
+	<div class="bn-sidebar-card__header">
+		<?php esc_html_e( 'People to Follow', 'buddynext' ); ?>
+	</div>
+	<div class="bn-sidebar-card__body">
+		<?php if ( ! empty( $sbar_suggested ) ) : ?>
 			<?php foreach ( $sbar_suggested as $sbar_sug ) : ?>
 				<?php
-				$sbar_sug_avatar = get_avatar_url( (int) $sbar_sug->ID, array( 'size' => 40 ) );
-				$sbar_sug_colour = function_exists( 'buddynext_avatar_colour' ) ? buddynext_avatar_colour( (int) $sbar_sug->ID ) : '#cccccc';
+				$sbar_sug_id     = (int) ( $sbar_sug->ID ?? 0 );
+				$sbar_sug_avatar = get_avatar_url( $sbar_sug_id, array( 'size' => 40 ) );
 				$sbar_sug_url    = home_url( '/members/' . $sbar_sug->user_login . '/' );
+				$sbar_sug_status = (string) ( $sbar_sug->follow_status ?? 'unfollowed' );
 				?>
 				<div class="bn-sbar-row">
 					<a href="<?php echo esc_url( $sbar_sug_url ); ?>"
@@ -102,32 +112,41 @@ $sbar_members_url = home_url( '/members/' );
 						<a href="<?php echo esc_url( $sbar_sug_url ); ?>" class="bn-sbar-row__name">
 							<?php echo esc_html( $sbar_sug->display_name ); ?>
 						</a>
+						<?php if ( 'requested' === $sbar_sug_status ) : ?>
+							<span class="bn-sbar-row__meta"><?php esc_html_e( 'Request sent', 'buddynext' ); ?></span>
+						<?php endif; ?>
 					</span>
-					<button class="bn-sbar-row__action"
-						type="button"
-						data-user-id="<?php echo esc_attr( (string) $sbar_sug->ID ); ?>"
-						aria-label="<?php /* translators: %s: display name */ printf( esc_attr__( 'Follow %s', 'buddynext' ), esc_attr( $sbar_sug->display_name ) ); ?>">
-						<?php esc_html_e( 'Follow', 'buddynext' ); ?>
-					</button>
+					<?php
+					$follow_user_id = $sbar_sug_id;
+					buddynext_get_template(
+						'partials/follow-button.php',
+						array( 'user_id' => $follow_user_id )
+					);
+					?>
 				</div>
 			<?php endforeach; ?>
 			<a href="<?php echo esc_url( $sbar_members_url ); ?>" class="bn-sidebar-see-all">
 				<?php esc_html_e( 'See all members', 'buddynext' ); ?>
 			</a>
-		</div>
+		<?php else : ?>
+			<p class="bn-sidebar-card__empty">
+				<?php esc_html_e( "We'll suggest people once you've completed onboarding.", 'buddynext' ); ?>
+			</p>
+		<?php endif; ?>
 	</div>
-<?php endif; ?>
+</div>
 
-<?php if ( ! empty( $sbar_spaces ) ) : ?>
-	<div class="bn-sidebar-card">
-		<div class="bn-sidebar-card__header">
-			<?php echo esc_html( $sidebar_user_id ? __( 'Your Spaces', 'buddynext' ) : __( 'Discover Spaces', 'buddynext' ) ); ?>
-		</div>
-		<div class="bn-sidebar-card__body">
+<div class="bn-sidebar-card">
+	<div class="bn-sidebar-card__header">
+		<?php echo esc_html( $sidebar_user_id ? __( 'Your Spaces', 'buddynext' ) : __( 'Discover Spaces', 'buddynext' ) ); ?>
+	</div>
+	<div class="bn-sidebar-card__body">
+		<?php if ( ! empty( $sbar_spaces ) ) : ?>
 			<?php foreach ( $sbar_spaces as $sbar_sp ) : ?>
 				<?php
 				$sbar_sp_url      = home_url( '/spaces/' . $sbar_sp->slug . '/' );
 				$sbar_sp_initials = strtoupper( mb_substr( (string) $sbar_sp->name, 0, 2 ) );
+				$sbar_sp_unread   = isset( $sbar_sp->unread_count ) ? (int) $sbar_sp->unread_count : 0;
 				?>
 				<a href="<?php echo esc_url( $sbar_sp_url ); ?>" class="bn-sbar-row bn-sbar-row--link">
 					<span class="bn-sbar-row__icon" aria-hidden="true">
@@ -144,11 +163,24 @@ $sbar_members_url = home_url( '/members/' );
 							<?php esc_html_e( 'members', 'buddynext' ); ?>
 						</span>
 					</span>
+					<?php if ( $sbar_sp_unread > 0 ) : ?>
+						<span class="bn-sbar-row__unread"
+							aria-label="
+							<?php
+							/* translators: %d: unread space posts count */
+							echo esc_attr( sprintf( _n( '%d unread post', '%d unread posts', $sbar_sp_unread, 'buddynext' ), $sbar_sp_unread ) );
+							?>
+							"></span>
+					<?php endif; ?>
 				</a>
 			<?php endforeach; ?>
 			<a href="<?php echo esc_url( $sbar_spaces_url ); ?>" class="bn-sidebar-see-all">
 				<?php esc_html_e( 'Browse all spaces', 'buddynext' ); ?>
 			</a>
-		</div>
+		<?php else : ?>
+			<p class="bn-sidebar-card__empty">
+				<?php esc_html_e( 'Join your first space.', 'buddynext' ); ?>
+			</p>
+		<?php endif; ?>
 	</div>
-<?php endif; ?>
+</div>

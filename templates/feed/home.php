@@ -46,6 +46,11 @@ $user_meta_table = $wpdb->usermeta;
 
 $bn_per_page = 15;
 
+// Filter tab — for-you (default) | following | spaces | network.
+$allowed_filters = array( 'for-you', 'following', 'spaces', 'network' );
+$raw_filter      = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'for-you'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_filter       = in_array( $raw_filter, $allowed_filters, true ) ? $raw_filter : 'for-you';
+
 // Cursor is base64( "created_at|id" ) — same format as FeedService::encode_cursor().
 // Decode defensively; fall back to no cursor (first page) on any invalid input.
 $raw_cursor     = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -132,10 +137,54 @@ if ( null !== $decoded_cursor ) {
 $hashtag_follows_table = $wpdb->prefix . 'bn_post_hashtags';
 $ht_follows_table      = $wpdb->prefix . 'bn_hashtag_follows';
 
+// Non-default filters route through FeedService so the SQL stays in one place.
+$feed_service_filtered = false;
+$feed_posts            = array();
+$next_cursor           = '';
+$has_more              = false;
+
+if ( 'for-you' !== $bn_filter ) {
+	$feed_service_filtered = true;
+	$service_result        = buddynext_service( 'feed' )->home_feed(
+		$current_user_id,
+		'' !== $raw_cursor ? $raw_cursor : null,
+		$bn_per_page,
+		$bn_filter
+	);
+	$feed_posts            = array();
+	foreach ( (array) ( $service_result['items'] ?? array() ) as $hydrated ) {
+		$feed_posts[] = (object) array(
+			'id'                   => (int) ( $hydrated['id'] ?? 0 ),
+			'user_id'              => (int) ( $hydrated['user_id'] ?? 0 ),
+			'space_id'             => isset( $hydrated['space_id'] ) ? (int) $hydrated['space_id'] : null,
+			'shared_post_id'       => isset( $hydrated['shared_post_id'] ) ? (int) $hydrated['shared_post_id'] : null,
+			'content'              => (string) ( $hydrated['content'] ?? '' ),
+			'type'                 => (string) ( $hydrated['type'] ?? 'text' ),
+			'privacy'              => (string) ( $hydrated['privacy'] ?? 'public' ),
+			'media_ids'            => isset( $hydrated['media_ids'] ) ? wp_json_encode( $hydrated['media_ids'] ) : null,
+			'link_url'             => $hydrated['link_url'] ?? null,
+			'link_meta'            => isset( $hydrated['link_meta'] ) ? wp_json_encode( $hydrated['link_meta'] ) : null,
+			'is_pinned'            => (int) ( $hydrated['is_pinned'] ?? 0 ),
+			'is_announcement'      => (int) ( $hydrated['is_announcement'] ?? 0 ),
+			'content_warning'      => (int) ( $hydrated['content_warning'] ?? 0 ),
+			'content_warning_type' => $hydrated['content_warning_type'] ?? null,
+			'reaction_count'       => (int) ( $hydrated['reaction_count'] ?? 0 ),
+			'comment_count'        => (int) ( $hydrated['comment_count'] ?? 0 ),
+			'share_count'          => (int) ( $hydrated['share_count'] ?? 0 ),
+			'edited_at'            => $hydrated['edited_at'] ?? null,
+			'created_at'           => (string) ( $hydrated['created_at'] ?? '' ),
+			'updated_at'           => $hydrated['updated_at'] ?? null,
+		);
+	}
+	$next_cursor = (string) ( $service_result['next_cursor'] ?? '' );
+	$has_more    = '' !== $next_cursor;
+}
+
+if ( ! $feed_service_filtered ) :
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$feed_posts = $wpdb->get_results(
-	$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		"SELECT p.id, p.user_id, p.space_id, p.shared_post_id, p.content, p.type, p.privacy,
+	$feed_posts = $wpdb->get_results(
+		$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+			"SELECT p.id, p.user_id, p.space_id, p.shared_post_id, p.content, p.type, p.privacy,
 				p.media_ids, p.link_url, p.link_meta,
 				p.is_pinned, p.is_announcement, p.content_warning, p.content_warning_type,
 				p.reaction_count, p.comment_count, p.share_count,
@@ -173,25 +222,39 @@ $feed_posts = $wpdb->get_results(
 			{$cursor_sql}
 		  ORDER BY p.created_at DESC, p.id DESC
 		  LIMIT %d",  // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		...array_merge(
-			array( $current_user_id, $current_user_id, $current_user_id, $current_user_id ),
-			$cursor_params,
-			array( $bn_per_page + 1 )
+			...array_merge(
+				array( $current_user_id, $current_user_id, $current_user_id, $current_user_id ),
+				$cursor_params,
+				array( $bn_per_page + 1 )
+			)
 		)
-	)
-);
+	);
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-$has_more = count( $feed_posts ) > $bn_per_page;
-if ( $has_more ) {
-	array_pop( $feed_posts );
-}
+	$has_more = count( $feed_posts ) > $bn_per_page;
+	if ( $has_more ) {
+		array_pop( $feed_posts );
+	}
 
-// Encode next cursor as base64("created_at|id") matching FeedService::encode_cursor().
-$next_cursor = '';
-if ( $has_more && ! empty( $feed_posts ) ) {
-	$last_post   = end( $feed_posts );
-	$next_cursor = base64_encode( $last_post->created_at . '|' . $last_post->id ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+	// Encode next cursor as base64("created_at|id") matching FeedService::encode_cursor().
+	if ( $has_more && ! empty( $feed_posts ) ) {
+		$last_post   = end( $feed_posts );
+		$next_cursor = base64_encode( $last_post->created_at . '|' . $last_post->id ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+	}
+endif; // ! $feed_service_filtered
+
+// ── Tab counts ──────────────────────────────────────────────────────────────
+$bn_tab_counts = array(
+	'for_you'   => 0,
+	'following' => 0,
+	'spaces'    => 0,
+	'network'   => 0,
+);
+if ( function_exists( 'buddynext_service' ) ) {
+	$bn_feed_service = buddynext_service( 'feed' );
+	if ( $bn_feed_service ) {
+		$bn_tab_counts = $bn_feed_service->home_feed_counts( $current_user_id );
+	}
 }
 
 // ── REST nonce + URLs ───────────────────────────────────────────────────────
@@ -271,7 +334,7 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 	);
 	?>
 
-	<!-- Feed tabs -->
+	<!-- Hub-level tabs (Home / Explore) -->
 	<div class="bn-tabs bn-feed-tabs" role="tablist">
 		<a href="<?php echo esc_url( PageRouter::activity_url() ); ?>"
 			class="bn-tab"
@@ -285,6 +348,96 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 			aria-selected="false">
 			<?php esc_html_e( 'Explore', 'buddynext' ); ?>
 		</a>
+	</div>
+
+	<!-- Home feed filter tabs (For you / Following / Spaces / Network) -->
+	<div class="bn-feed-filter-tabs"
+		role="tablist"
+		aria-label="<?php esc_attr_e( 'Filter home feed', 'buddynext' ); ?>"
+		data-wp-interactive="buddynext/feed-tabs"
+		data-wp-context='
+		<?php
+		echo esc_attr(
+			wp_json_encode(
+				array(
+					'filter'    => $bn_filter,
+					'tabCounts' => array(
+						'for-you'   => (int) $bn_tab_counts['for_you'],
+						'following' => (int) $bn_tab_counts['following'],
+						'spaces'    => (int) $bn_tab_counts['spaces'],
+						'network'   => (int) $bn_tab_counts['network'],
+					),
+					'restUrl'   => rest_url( 'buddynext/v1' ),
+					'nonce'     => $rest_nonce,
+					'busy'      => false,
+				)
+			)
+		);
+		?>
+		'>
+		<?php
+		$filter_tabs = array(
+			'for-you'   => array(
+				'label' => __( 'For you', 'buddynext' ),
+				'count' => (int) $bn_tab_counts['for_you'],
+			),
+			'following' => array(
+				'label' => __( 'Following', 'buddynext' ),
+				'count' => (int) $bn_tab_counts['following'],
+			),
+			'spaces'    => array(
+				'label' => __( 'Spaces', 'buddynext' ),
+				'count' => (int) $bn_tab_counts['spaces'],
+			),
+			'network'   => array(
+				'label' => __( 'Network', 'buddynext' ),
+				'count' => (int) $bn_tab_counts['network'],
+			),
+		);
+		foreach ( $filter_tabs as $tab_slug => $tab_meta ) :
+			$is_active = $tab_slug === $bn_filter;
+			$tab_url   = add_query_arg( 'filter', $tab_slug, PageRouter::activity_url() );
+			?>
+			<a
+				class="bn-feed-filter-tab"
+				role="tab"
+				href="<?php echo esc_url( $tab_url ); ?>"
+				data-filter="<?php echo esc_attr( $tab_slug ); ?>"
+				aria-current="<?php echo $is_active ? 'true' : 'false'; ?>"
+				data-wp-on--click="actions.setFilter"
+			>
+				<span class="bn-feed-filter-tab__label"><?php echo esc_html( $tab_meta['label'] ); ?></span>
+				<?php if ( $tab_meta['count'] > 0 ) : ?>
+					<span class="bn-feed-filter-tab__count"><?php echo esc_html( number_format_i18n( $tab_meta['count'] ) ); ?></span>
+				<?php endif; ?>
+			</a>
+		<?php endforeach; ?>
+	</div>
+
+	<div class="bn-feed-skeleton"
+		hidden
+		aria-hidden="true"
+		data-bn-feed-skeleton>
+		<?php for ( $sk = 0; $sk < 3; $sk++ ) : ?>
+			<div class="bn-skeleton-card">
+				<span class="bn-skeleton bn-skeleton-avatar"></span>
+				<span class="bn-skeleton bn-skeleton-line bn-skeleton-line--title"></span>
+				<span class="bn-skeleton bn-skeleton-line bn-skeleton-line--subtitle"></span>
+				<span class="bn-skeleton bn-skeleton-line bn-skeleton-line--body"></span>
+				<span class="bn-skeleton bn-skeleton-line bn-skeleton-line--body-short"></span>
+			</div>
+		<?php endfor; ?>
+	</div>
+
+	<div class="bn-feed-error"
+		role="alert"
+		hidden
+		data-bn-feed-error>
+		<span class="bn-feed-error__icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
+		<span class="bn-feed-error__text"><?php esc_html_e( 'Could not load this view. Try again.', 'buddynext' ); ?></span>
+		<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-bn-feed-retry>
+			<?php esc_html_e( 'Retry', 'buddynext' ); ?>
+		</button>
 	</div>
 
 	<?php if ( $show_announcement && $announcement ) : ?>
@@ -376,19 +529,60 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 		<?php endif; ?>
 
 	<?php else : ?>
-		<div class="bn-feed-empty" role="status">
-			<div class="bn-feed-empty__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
+		<?php
+		$empty_states = array(
+			'for-you'   => array(
+				'icon'  => 'users',
+				'title' => __( 'Your feed is empty', 'buddynext' ),
+				'text'  => __( 'Follow members or join spaces to start seeing posts here.', 'buddynext' ),
+				'cta'   => __( 'Discover members', 'buddynext' ),
+				'url'   => PageRouter::people_url(),
+			),
+			'following' => array(
+				'icon'  => 'follow',
+				'title' => __( "You aren't following anyone yet", 'buddynext' ),
+				'text'  => __( 'Once you follow people their latest posts will show up here.', 'buddynext' ),
+				'cta'   => __( 'Find people to follow', 'buddynext' ),
+				'url'   => PageRouter::people_url(),
+			),
+			'spaces'    => array(
+				'icon'  => 'grid',
+				'title' => __( 'Join your first space', 'buddynext' ),
+				'text'  => __( 'Posts from spaces you join appear here.', 'buddynext' ),
+				'cta'   => __( 'Browse spaces', 'buddynext' ),
+				'url'   => home_url( '/spaces/' ),
+			),
+			'network'   => array(
+				'icon'  => 'users',
+				'title' => __( 'Build your network', 'buddynext' ),
+				'text'  => __( 'Send a few connection requests to see posts from your network.', 'buddynext' ),
+				'cta'   => __( 'Find people to connect with', 'buddynext' ),
+				'url'   => PageRouter::people_url(),
+			),
+		);
+		$empty        = $empty_states[ $bn_filter ] ?? $empty_states['for-you'];
+		?>
+		<div class="bn-feed-empty" role="status" data-filter="<?php echo esc_attr( $bn_filter ); ?>">
+			<div class="bn-feed-empty__icon" aria-hidden="true"><?php buddynext_icon( $empty['icon'] ); ?></div>
 			<div class="bn-feed-empty__title">
-				<?php esc_html_e( 'Your feed is empty', 'buddynext' ); ?>
+				<?php echo esc_html( $empty['title'] ); ?>
 			</div>
 			<p class="bn-feed-empty__text">
-				<?php esc_html_e( 'Follow members or join spaces to start seeing posts here.', 'buddynext' ); ?>
+				<?php echo esc_html( $empty['text'] ); ?>
 			</p>
-			<a href="<?php echo esc_url( PageRouter::people_url() ); ?>" class="bn-btn bn-feed-empty__cta" data-variant="primary">
-				<?php esc_html_e( 'Discover Members', 'buddynext' ); ?>
+			<a href="<?php echo esc_url( $empty['url'] ); ?>" class="bn-btn bn-feed-empty__cta" data-variant="primary">
+				<?php echo esc_html( $empty['cta'] ); ?>
+				<span aria-hidden="true">&rarr;</span>
 			</a>
 		</div>
 	<?php endif; ?>
+
+	<?php
+	buddynext_get_template(
+		'partials/share-modal.php',
+		array( 'current_user_id' => $current_user_id )
+	);
+	?>
 
 </div>
 <?php

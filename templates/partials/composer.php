@@ -3,11 +3,12 @@
  * BuddyNext — Post composer partial (v2 single-state).
  *
  * Always-visible composer matching the docs/v2 Plans/v2/home-feed.html
- * `.composer` block. Avatar + textarea + tools row (image / poll / link
- * icons + privacy select + Share button) rendered as one block — no
- * collapsed-pill trigger. State (poll mode, media previews, schedule,
- * submission) is driven by the WP Interactivity API store
- * `buddynext/post-composer` (see assets/js/feed/store.js).
+ * `.composer` block. Avatar + textarea + tools row + chip-style privacy
+ * selector + Share button rendered as one block — no collapsed-pill
+ * trigger. Five tool affordances: Image, Poll, Event, Voice, AI helper.
+ * State (composer mode, media previews, privacy, submission, errors) is
+ * driven by the WP Interactivity API store `buddynext/post-composer`
+ * (see assets/js/feed/store.js).
  *
  * Variables:
  *   int|null $space_id        Target space ID (null = general feed).
@@ -58,6 +59,8 @@ $composer_placeholder = $composer_space
 		$composer_display
 	);
 
+$composer_has_pro = defined( 'BUDDYNEXTPRO_VERSION' );
+
 /** Sanitized partial arguments. @var array<string,mixed> $args */
 $args = (array) apply_filters(
 	'buddynext_part_composer_args',
@@ -68,10 +71,13 @@ $args = (array) apply_filters(
 		'display'     => $composer_display,
 		'avatar_url'  => $composer_avatar,
 		'avatar_init' => $composer_initial,
+		'has_pro'     => $composer_has_pro,
 	)
 );
 
 do_action( 'buddynext_part_composer_before', $args );
+
+$default_privacy = $composer_space ? 'space_members' : 'public';
 ?>
 <div class="bn-composer"
 	data-wp-interactive="buddynext/post-composer"
@@ -86,12 +92,18 @@ do_action( 'buddynext_part_composer_before', $args );
 				'spaceId'        => $composer_space,
 				'composerOpen'   => true,
 				'composerType'   => 'text',
-				'privacy'        => $composer_space ? 'space_members' : 'public',
+				'privacy'        => $default_privacy,
+				'privacyOpen'    => false,
 				'content'        => '',
 				'submitting'     => false,
 				'mediaIds'       => array(),
 				'mediaPreviews'  => array(),
 				'mediaUploading' => false,
+				'errorMessage'   => '',
+				'eventOpen'      => false,
+				'voiceOpen'      => false,
+				'aiOpen'         => false,
+				'hasPro'         => $composer_has_pro,
 			)
 		)
 	);
@@ -117,10 +129,21 @@ do_action( 'buddynext_part_composer_before', $args );
 
 	<div class="bn-composer__input">
 
+		<div class="bn-composer__error"
+			role="alert"
+			hidden
+			data-wp-bind--hidden="state.hasNoError">
+			<span class="bn-composer__error-text" data-wp-text="state.errorMessage"></span>
+			<button class="bn-composer__error-retry"
+				type="button"
+				data-wp-on--click="actions.submit"><?php esc_html_e( 'Retry', 'buddynext' ); ?></button>
+		</div>
+
 		<textarea class="bn-composer__prompt"
 			rows="2"
 			placeholder="<?php echo esc_attr( (string) $args['placeholder'] ); ?>"
 			data-wp-on--input="actions.onInput"
+			data-wp-bind--disabled="state.submitting"
 			aria-label="<?php esc_attr_e( 'Post content', 'buddynext' ); ?>"></textarea>
 
 		<input
@@ -170,35 +193,104 @@ do_action( 'buddynext_part_composer_before', $args );
 			<button class="bn-composer__tool"
 				type="button"
 				data-wp-on--click="actions.pickMedia"
-				aria-label="<?php esc_attr_e( 'Image', 'buddynext' ); ?>">
+				aria-label="<?php esc_attr_e( 'Image', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Image', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'image' ); ?>
 			</button>
 
 			<button class="bn-composer__tool"
 				type="button"
 				data-wp-on--click="actions.openPoll"
-				aria-label="<?php esc_attr_e( 'Poll', 'buddynext' ); ?>">
-				<?php buddynext_icon( 'bar-chart' ); ?>
+				aria-label="<?php esc_attr_e( 'Poll', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Poll', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'bar-chart-2' ); ?>
 			</button>
 
 			<button class="bn-composer__tool"
 				type="button"
-				data-wp-on--click="actions.openLink"
-				aria-label="<?php esc_attr_e( 'Link', 'buddynext' ); ?>">
-				<?php buddynext_icon( 'link' ); ?>
+				data-wp-on--click="actions.openEvent"
+				aria-label="<?php esc_attr_e( 'Event', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Event', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'calendar' ); ?>
+			</button>
+
+			<button class="bn-composer__tool"
+				type="button"
+				data-wp-on--click="actions.openVoice"
+				aria-label="<?php esc_attr_e( 'Voice room', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Voice room', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'mic' ); ?>
+			</button>
+
+			<button class="bn-composer__tool"
+				type="button"
+				data-tone="ai"
+				data-wp-on--click="actions.openAiHelper"
+				aria-label="<?php esc_attr_e( 'Ask AI for help', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Ask AI for help', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'sparkles' ); ?>
 			</button>
 
 			<span class="bn-composer__spacer"></span>
 
 			<?php if ( ! $composer_space ) : ?>
-				<select
-					class="bn-composer__privacy"
-					data-wp-on--change="actions.setPrivacy"
-					aria-label="<?php esc_attr_e( 'Post privacy', 'buddynext' ); ?>">
-					<option value="public"><?php esc_html_e( 'Public', 'buddynext' ); ?></option>
-					<option value="followers"><?php esc_html_e( 'Followers', 'buddynext' ); ?></option>
-					<option value="private"><?php esc_html_e( 'Only me', 'buddynext' ); ?></option>
-				</select>
+				<div class="bn-composer__privacy-wrap">
+					<button
+						type="button"
+						class="bn-composer__privacy-chip"
+						aria-haspopup="listbox"
+						aria-expanded="false"
+						data-wp-bind--aria-expanded="state.privacyOpen"
+						data-wp-on--click="actions.togglePrivacy">
+						<?php esc_html_e( 'Posting to', 'buddynext' ); ?>
+						<strong data-wp-text="state.privacyLabel"><?php esc_html_e( 'Everyone', 'buddynext' ); ?></strong>
+						<span class="bn-composer__privacy-caret" aria-hidden="true">
+							<?php buddynext_icon( 'chevron-down' ); ?>
+						</span>
+					</button>
+					<ul
+						class="bn-composer__privacy-pop"
+						role="listbox"
+						hidden
+						data-wp-bind--hidden="!state.privacyOpen">
+						<li role="option" data-wp-bind--aria-selected="state.isPrivacyPublic">
+							<button type="button"
+								class="bn-composer__privacy-opt"
+								data-privacy="public"
+								data-wp-on--click="actions.setPrivacy">
+								<?php buddynext_icon( 'globe' ); ?>
+								<span class="bn-composer__privacy-opt-label">
+									<strong><?php esc_html_e( 'Public', 'buddynext' ); ?></strong>
+									<small><?php esc_html_e( 'Visible to everyone.', 'buddynext' ); ?></small>
+								</span>
+							</button>
+						</li>
+						<li role="option" data-wp-bind--aria-selected="state.isPrivacyFollowers">
+							<button type="button"
+								class="bn-composer__privacy-opt"
+								data-privacy="followers"
+								data-wp-on--click="actions.setPrivacy">
+								<?php buddynext_icon( 'users' ); ?>
+								<span class="bn-composer__privacy-opt-label">
+									<strong><?php esc_html_e( 'Followers', 'buddynext' ); ?></strong>
+									<small><?php esc_html_e( 'Only people who follow you.', 'buddynext' ); ?></small>
+								</span>
+							</button>
+						</li>
+						<li role="option" data-wp-bind--aria-selected="state.isPrivacyPrivate">
+							<button type="button"
+								class="bn-composer__privacy-opt"
+								data-privacy="private"
+								data-wp-on--click="actions.setPrivacy">
+								<?php buddynext_icon( 'lock' ); ?>
+								<span class="bn-composer__privacy-opt-label">
+									<strong><?php esc_html_e( 'Only me', 'buddynext' ); ?></strong>
+									<small><?php esc_html_e( 'Saved for your eyes only.', 'buddynext' ); ?></small>
+								</span>
+							</button>
+						</li>
+					</ul>
+				</div>
 			<?php endif; ?>
 
 			<button
@@ -208,7 +300,8 @@ do_action( 'buddynext_part_composer_before', $args );
 				data-size="sm"
 				data-wp-on--click="actions.submit"
 				data-wp-bind--disabled="state.submitting">
-				<?php esc_html_e( 'Share', 'buddynext' ); ?>
+				<span class="bn-composer__submit-label"
+					data-wp-text="state.submitLabel"><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
 			</button>
 
 		</div>
@@ -216,5 +309,26 @@ do_action( 'buddynext_part_composer_before', $args );
 	</div>
 
 </div>
+
 <?php
+buddynext_get_template(
+	'partials/composer-event-modal.php',
+	array(
+		'composer_user_id' => $composer_user_id,
+	)
+);
+buddynext_get_template(
+	'partials/composer-voice-modal.php',
+	array(
+		'composer_user_id' => $composer_user_id,
+	)
+);
+buddynext_get_template(
+	'partials/composer-ai-modal.php',
+	array(
+		'composer_user_id' => $composer_user_id,
+		'has_pro'          => $composer_has_pro,
+	)
+);
+
 do_action( 'buddynext_part_composer_after', $args );
