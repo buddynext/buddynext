@@ -300,4 +300,135 @@ class SpaceServiceTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'owner', $role );
 	}
+
+	/* ── type_label() ───────────────────────────────────────────────── */
+
+	public function test_type_label_open_returns_open_string(): void {
+		$this->assertSame( 'Open', SpaceService::type_label( 'open' ) );
+	}
+
+	public function test_type_label_private_returns_private_string(): void {
+		$this->assertSame( 'Private', SpaceService::type_label( 'private' ) );
+	}
+
+	public function test_type_label_secret_returns_secret_string(): void {
+		$this->assertSame( 'Secret', SpaceService::type_label( 'secret' ) );
+	}
+
+	public function test_type_label_unknown_falls_back_to_open(): void {
+		$this->assertSame( 'Open', SpaceService::type_label( 'bogus' ) );
+		$this->assertSame( 'Open', SpaceService::type_label( '' ) );
+	}
+
+	public function test_type_label_never_returns_public_legacy_string(): void {
+		// Wave-3 sweep: 'Public' was the legacy label. Ensure no caller can
+		// re-introduce it through type_label().
+		foreach ( array( 'open', 'private', 'secret', 'bogus', '' ) as $type ) {
+			$this->assertNotSame( 'Public', SpaceService::type_label( $type ) );
+		}
+	}
+
+	public function test_type_constants_match_db_enum_values(): void {
+		$this->assertSame( 'open',    SpaceService::TYPE_OPEN );
+		$this->assertSame( 'private', SpaceService::TYPE_PRIVATE );
+		$this->assertSame( 'secret',  SpaceService::TYPE_SECRET );
+	}
+
+	/* ── get_by_slug() ──────────────────────────────────────────────── */
+
+	public function test_get_by_slug_returns_space_when_found(): void {
+		$space_id = $this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Slug Lookup Space',
+				'slug' => 'slug-lookup-space',
+				'type' => 'open',
+			)
+		);
+
+		$result = $this->service->get_by_slug( 'slug-lookup-space' );
+		$this->assertIsArray( $result );
+		$this->assertSame( $space_id, $result['id'] );
+		$this->assertSame( 'Slug Lookup Space', $result['name'] );
+		$this->assertSame( 'open', $result['type'] );
+	}
+
+	public function test_get_by_slug_returns_null_when_missing(): void {
+		$this->assertNull( $this->service->get_by_slug( 'does-not-exist' ) );
+	}
+
+	public function test_get_by_slug_returns_null_for_empty_slug(): void {
+		$this->assertNull( $this->service->get_by_slug( '' ) );
+		$this->assertNull( $this->service->get_by_slug( '   ' ) );
+	}
+
+	public function test_get_by_slug_sanitises_input(): void {
+		$this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Sanitised',
+				'slug' => 'sanitised-space',
+				'type' => 'open',
+			)
+		);
+
+		// "Sanitised Space" → sanitize_title → "sanitised-space".
+		$result = $this->service->get_by_slug( 'Sanitised Space' );
+		$this->assertIsArray( $result );
+		$this->assertSame( 'sanitised-space', $result['slug'] );
+	}
+
+	public function test_get_by_slug_after_update_reflects_new_data(): void {
+		$space_id = $this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Original',
+				'slug' => 'original-name',
+				'type' => 'open',
+			)
+		);
+
+		$this->service->update(
+			$space_id,
+			$this->owner_id,
+			array( 'name' => 'Renamed' )
+		);
+
+		$result = $this->service->get_by_slug( 'original-name' );
+		$this->assertIsArray( $result );
+		$this->assertSame( 'Renamed', $result['name'] );
+	}
+
+	public function test_get_by_slug_returns_null_after_delete(): void {
+		$space_id = $this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Doomed',
+				'slug' => 'doomed-space',
+				'type' => 'open',
+			)
+		);
+
+		$this->service->delete( $space_id, $this->owner_id );
+
+		$this->assertNull( $this->service->get_by_slug( 'doomed-space' ) );
+	}
+
+	public function test_update_persists_rules_column(): void {
+		$space_id = $this->service->create(
+			$this->owner_id,
+			array(
+				'name' => 'Rules Space',
+				'slug' => 'rules-space',
+				'type' => 'open',
+			)
+		);
+
+		$rules = "Be kind\nNo spam\nStay on topic";
+		$this->service->update( $space_id, $this->owner_id, array( 'rules' => $rules ) );
+
+		$result = $this->service->get( $space_id );
+		$this->assertIsArray( $result );
+		$this->assertSame( $rules, $result['rules'] );
+	}
 }
