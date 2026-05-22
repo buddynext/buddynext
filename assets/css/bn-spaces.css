@@ -1345,6 +1345,22 @@
 	outline: none;
 }
 
+.bn-space-settings__cover.has-image {
+	border-style: solid;
+	border-color: var(--bn-line);
+	block-size: 180px;
+}
+
+.bn-space-settings__cover-actions {
+	display: inline-flex;
+	gap: var(--bn-s2);
+	margin-block-start: var(--bn-s2);
+}
+
+.bn-space-settings__cover-empty[hidden] {
+	display: none !important;
+}
+
 .bn-space-settings__cover-input {
 	position: absolute;
 	inline-size: 1px;

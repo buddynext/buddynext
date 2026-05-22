@@ -532,6 +532,11 @@ class PageRouter {
 			case 'spaces':
 				$assets->enqueue( 'spaces' );
 				$assets->enqueue( 'feed' ); // Post cards on space pages use bn-feed.css classes.
+				// Settings + admin sub-routes need wp.media() for the cover-image picker.
+				$space_action_v = (string) get_query_var( 'bn_space_action', '' );
+				if ( in_array( $space_action_v, array( 'settings', 'admin' ), true ) ) {
+					wp_enqueue_media();
+				}
 				// Localize the spaces URL base + i18n so the spaces store can
 				// rebuild URLs without reloading the page (reactive directory,
 				// create-space redirect target).

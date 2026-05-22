@@ -111,6 +111,10 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		if ( isset( $_POST['space_rules'] ) ) {
 			$update_data['rules'] = sanitize_textarea_field( wp_unslash( $_POST['space_rules'] ) );
 		}
+		if ( isset( $_POST['space_cover_image_url'] ) ) {
+			$raw_cover = trim( (string) wp_unslash( $_POST['space_cover_image_url'] ) );
+			$update_data['cover_image_url'] = ( '' === $raw_cover ) ? '' : esc_url_raw( $raw_cover );
+		}
 		if ( isset( $_POST['space_category_id'] ) ) {
 			$update_data['category_id'] = absint( $_POST['space_category_id'] );
 		}
@@ -134,6 +138,13 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 				null,
 				array( '%d' )
 			);
+
+			// Bust SpaceService caches so subsequent reads (incl. the re-fetch
+			// below and the next page load) reflect the new values.
+			wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
+			if ( isset( $space->slug ) && '' !== (string) $space->slug ) {
+				wp_cache_delete( "space_slug_{$space->slug}", 'buddynext_spaces' );
+			}
 		}
 
 		// Re-fetch fresh space data.
@@ -1106,17 +1117,50 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 							</div>
 						</div>
 
-						<div class="bn-space-settings__field">
-							<label for="bn_cover_image"><?php esc_html_e( 'Cover image', 'buddynext' ); ?></label>
+						<div class="bn-space-settings__field" data-bn-cover-field>
+							<label><?php esc_html_e( 'Cover image', 'buddynext' ); ?></label>
 							<div
-								class="bn-space-settings__cover"
+								class="bn-space-settings__cover<?php echo ! empty( $space->cover_image_url ) ? ' has-image' : ''; ?>"
+								data-bn-cover-preview
 								role="button"
 								tabindex="0"
 								aria-label="<?php esc_attr_e( 'Upload cover photo', 'buddynext' ); ?>"
+								<?php if ( ! empty( $space->cover_image_url ) ) : ?>
+									style="background-image:url('<?php echo esc_url( $space->cover_image_url ); ?>');background-size:cover;background-position:center;"
+								<?php endif; ?>
 							>
-								<?php buddynext_icon( 'image' ); ?> <?php esc_html_e( 'Upload cover photo', 'buddynext' ); ?>
+								<span class="bn-space-settings__cover-empty"<?php echo ! empty( $space->cover_image_url ) ? ' hidden' : ''; ?>>
+									<?php buddynext_icon( 'image' ); ?> <?php esc_html_e( 'Upload cover photo', 'buddynext' ); ?>
+								</span>
 							</div>
-							<input type="file" name="cover_image" id="bn_cover_image" accept="image/*" class="bn-space-settings__cover-input">
+							<input
+								type="hidden"
+								name="space_cover_image_url"
+								data-bn-cover-input
+								value="<?php echo esc_attr( $space->cover_image_url ?? '' ); ?>"
+							>
+							<div class="bn-space-settings__cover-actions">
+								<button
+									type="button"
+									class="bn-btn"
+									data-variant="secondary"
+									data-size="sm"
+									data-bn-cover-upload
+								>
+									<?php buddynext_icon( 'upload' ); ?> <?php esc_html_e( 'Upload cover photo', 'buddynext' ); ?>
+								</button>
+								<button
+									type="button"
+									class="bn-btn"
+									data-variant="ghost"
+									data-size="sm"
+									data-bn-cover-remove
+									<?php echo empty( $space->cover_image_url ) ? 'hidden' : ''; ?>
+								>
+									<?php esc_html_e( 'Remove', 'buddynext' ); ?>
+								</button>
+							</div>
+							<p class="bn-space-settings__hint"><?php esc_html_e( 'Recommended 1500×500. Falls back to a gradient when empty.', 'buddynext' ); ?></p>
 						</div>
 
 						<div class="bn-space-settings__field">

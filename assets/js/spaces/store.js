@@ -1911,3 +1911,96 @@ document.addEventListener( 'keydown', function ( event ) {
 		}
 	} );
 })();
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Cover image picker (Space Settings → General).
+ *
+ * Opens the WordPress media library via wp.media(), writes the chosen URL
+ * into the hidden [data-bn-cover-input] field, swaps the preview pane to
+ * background-image, and dispatches an 'input' event on the hidden input so
+ * the sticky save bar wakes up and marks the form dirty. The 'Remove' button
+ * clears the URL, resets the preview, and re-shows the empty-state label.
+ * Falls back to a friendly no-op when wp.media isn't loaded (degrades to the
+ * server-rendered form, which still POSTs a blank cover URL).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+(function () {
+	var field = document.querySelector( '[data-bn-cover-field]' );
+	if ( ! field ) { return; }
+
+	var preview   = field.querySelector( '[data-bn-cover-preview]' );
+	var input     = field.querySelector( '[data-bn-cover-input]' );
+	var trigger   = field.querySelector( '[data-bn-cover-upload]' );
+	var removeBtn = field.querySelector( '[data-bn-cover-remove]' );
+	var empty     = field.querySelector( '.bn-space-settings__cover-empty' );
+
+	if ( ! preview || ! input || ! trigger ) { return; }
+
+	var mediaFrame = null;
+
+	function applyCover( url ) {
+		input.value = url || '';
+		if ( url ) {
+			preview.classList.add( 'has-image' );
+			preview.style.backgroundImage = "url('" + url.replace( /'/g, "\\'" ) + "')";
+			preview.style.backgroundSize  = 'cover';
+			preview.style.backgroundPosition = 'center';
+			if ( empty ) { empty.hidden = true; }
+			if ( removeBtn ) { removeBtn.hidden = false; }
+		} else {
+			preview.classList.remove( 'has-image' );
+			preview.style.backgroundImage = '';
+			if ( empty ) { empty.hidden = false; }
+			if ( removeBtn ) { removeBtn.hidden = true; }
+		}
+		// Surface to the sticky save bar.
+		input.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+		input.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+	}
+
+	function openPicker() {
+		if ( ! window.wp || ! window.wp.media ) {
+			// Friendly degradation — wp.media wasn't loaded by wp_enqueue_media().
+			return;
+		}
+		if ( ! mediaFrame ) {
+			mediaFrame = window.wp.media( {
+				title: 'Select cover image',
+				button: { text: 'Use this image' },
+				library: { type: 'image' },
+				multiple: false,
+			} );
+			mediaFrame.on( 'select', function () {
+				var attachment = mediaFrame.state().get( 'selection' ).first().toJSON();
+				if ( attachment && attachment.url ) {
+					applyCover( attachment.url );
+				}
+			} );
+		}
+		mediaFrame.open();
+	}
+
+	trigger.addEventListener( 'click', function ( e ) {
+		e.preventDefault();
+		openPicker();
+	} );
+
+	preview.addEventListener( 'click', function ( e ) {
+		e.preventDefault();
+		openPicker();
+	} );
+
+	preview.addEventListener( 'keydown', function ( e ) {
+		if ( 'Enter' === e.key || ' ' === e.key ) {
+			e.preventDefault();
+			openPicker();
+		}
+	} );
+
+	if ( removeBtn ) {
+		removeBtn.addEventListener( 'click', function ( e ) {
+			e.preventDefault();
+			applyCover( '' );
+		} );
+	}
+})();
