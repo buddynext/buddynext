@@ -2400,3 +2400,72 @@
 	.bn-space-settings__savebar-status { display: none; }
 	.bn-space-settings__savebar-inner { justify-content: flex-end; }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Sub-480 viewport sweep (covers 390px iPhone Pro / 360px common Android).
+ *
+ * The 768/640 blocks above already handle the tablet → small-tablet glide.
+ * This block targets the actual mobile-portrait surface area gaps observed
+ * during the live walk: hero stats compress to two columns, tab nav scrolls
+ * horizontally, settings rows stack vertically with full-width actions, and
+ * the savebar collapses to icon-only actions so it doesn't overflow.
+ * ────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+	/* Directory cards already 1col at 768; tighten card padding + stats. */
+	.bn-sd-card { padding: 0; }
+	.bn-sd-card__body { padding: var(--bn-s3); gap: var(--bn-s2); }
+
+	/* Filter row stacks: chips above, sort below. */
+	.bn-sd-filter-row {
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--bn-s2);
+	}
+	.bn-sd-sort { align-self: stretch; }
+	.bn-sd-sort__trigger { inline-size: 100%; justify-content: space-between; }
+
+	/* Space-home hero — emblem tightens, stats two-up. */
+	.bn-sh-hero__emblem { width: 56px; height: 56px; margin-block-start: calc(-1 * var(--bn-s6)); }
+	.bn-sh-hero__name { font-size: var(--bn-text-lg); }
+	.bn-sh-hero__stats.bn-stat-grid { grid-template-columns: repeat(2, 1fr); }
+
+	/* Hero tab nav scrolls horizontally so all tabs stay reachable. */
+	.bn-tabs.bn-sh-hero__tabs {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+		flex-wrap: nowrap;
+		scrollbar-width: none;
+	}
+	.bn-tabs.bn-sh-hero__tabs::-webkit-scrollbar { display: none; }
+	.bn-tabs.bn-sh-hero__tabs .bn-tab { flex-shrink: 0; }
+
+	/* Settings tab nav scrolls horizontally too. */
+	.bn-space-settings__sidenav,
+	.bn-space-settings__tabs {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+		flex-wrap: nowrap;
+		flex-direction: row;
+		scrollbar-width: none;
+	}
+	.bn-space-settings__sidenav::-webkit-scrollbar,
+	.bn-space-settings__tabs::-webkit-scrollbar { display: none; }
+
+	/* Members tab cards keep avatar + name + role stacked, full-width actions. */
+	.bn-sh-members__grid { grid-template-columns: 1fr; }
+	.bn-sh-members__card { padding: var(--bn-s3); }
+	.bn-sh-members__actions { inline-size: 100%; justify-content: stretch; flex-wrap: wrap; }
+	.bn-sh-members__actions > * { flex: 1 1 auto; min-inline-size: 0; }
+
+	/* Danger zone + Transfer modals — full-width minus 16px gutter. */
+	.bn-space-settings__danger-modal .bn-modal__panel,
+	.bn-space-settings__transfer-modal .bn-modal__panel,
+	.bn-modal-backdrop[data-bn-modal="delete-space"] .bn-modal__panel {
+		max-inline-size: calc(100vw - 32px);
+		inline-size: calc(100vw - 32px);
+		margin-inline: 16px;
+	}
+
+	/* Cover preview height taper. */
+	.bn-space-settings__cover.has-image { block-size: 140px; }
+}

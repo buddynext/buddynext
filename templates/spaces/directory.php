@@ -532,7 +532,38 @@ $bn_subtitle = sprintf(
 
 	<div class="bn-sd-results" data-bn-sd-results>
 
-	<?php if ( empty( $spaces ) ) : ?>
+	<?php
+	// Distinguish "no spaces in the system at all" (cold-start state) from
+	// "filter returned zero". The cold-start state pitches the Create CTA
+	// instead of a Reset-filters CTA that would no-op.
+	$bn_filters_active = ( '' !== $bn_search ) || ( '' !== $bn_cat_slug ) || ( '' !== $bn_visibility ) || ( 'popular' !== $bn_orderby );
+	?>
+	<?php if ( empty( $spaces ) && ! $bn_filters_active ) : ?>
+
+		<div class="bn-sd-empty" data-bn-sd-empty>
+			<?php
+			buddynext_get_template(
+				'parts/empty-state.php',
+				array(
+					'icon'  => 'home',
+					'title' => __( 'No spaces yet', 'buddynext' ),
+					'body'  => __( 'Create the first space to start a discussion.', 'buddynext' ),
+				)
+			);
+			?>
+			<?php if ( current_user_can( 'read' ) ) : ?>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="sm"
+					data-wp-on--click="actions.openCreate"
+					data-bn-create-space-trigger
+				><?php esc_html_e( 'Create a space', 'buddynext' ); ?></button>
+			<?php endif; ?>
+		</div>
+
+	<?php elseif ( empty( $spaces ) ) : ?>
 
 		<div class="bn-sd-empty" data-bn-sd-empty>
 			<?php
