@@ -825,6 +825,155 @@ const PRIVACY_LABELS = {
 	space_members: 'Space members',
 };
 
+/* ── Composer drafts (localStorage-backed) ───────────────────────────────
+ * Stored as JSON at `bn_composer_draft_{user_id}`. We debounce writes by
+ * 1.5s after the last keystroke to avoid hammering localStorage on every
+ * character. A successful publish clears the draft. The server-sync seam
+ * is intentionally minimal: drafts only round-trip to /me/drafts when
+ * localStorage carries the `bn_composer_cloud_sync = 1` flag — defaulted
+ * off so the local-only path is the fast path.
+ */
+
+const DRAFT_DEBOUNCE_MS = 1500;
+const _draftTimers      = new Map();
+let   _draftStatusTimer = null;
+
+function draftKey( userId ) {
+	return 'bn_composer_draft_' + ( parseInt( userId, 10 ) || 0 );
+}
+
+function readDraft( userId ) {
+	try {
+		const raw = window.localStorage.getItem( draftKey( userId ) );
+		if ( ! raw ) {
+			return null;
+		}
+		return JSON.parse( raw );
+	} catch ( _e ) {
+		return null;
+	}
+}
+
+function writeDraft( userId, payload ) {
+	try {
+		window.localStorage.setItem( draftKey( userId ), JSON.stringify( payload ) );
+		return true;
+	} catch ( _e ) {
+		return false;
+	}
+}
+
+function clearDraft( userId ) {
+	try {
+		window.localStorage.removeItem( draftKey( userId ) );
+	} catch ( _e ) {}
+}
+
+function setDraftStatus( ctx, status, transient ) {
+	if ( ! ctx ) {
+		return;
+	}
+	ctx.draftStatus = status;
+	if ( _draftStatusTimer ) {
+		clearTimeout( _draftStatusTimer );
+		_draftStatusTimer = null;
+	}
+	if ( transient ) {
+		_draftStatusTimer = setTimeout( () => {
+			ctx.draftStatus = '';
+		}, 2000 );
+	}
+}
+
+function scheduleDraftSave( ctx ) {
+	const userId = parseInt( ctx.userId, 10 );
+	if ( userId <= 0 ) {
+		return;
+	}
+	const key = String( userId );
+	if ( _draftTimers.has( key ) ) {
+		clearTimeout( _draftTimers.get( key ) );
+	}
+	setDraftStatus( ctx, 'Saving draft…', false );
+	const t = setTimeout( () => {
+		const payload = {
+			content:      ctx.content || '',
+			composerType: ctx.composerType || 'text',
+			privacy:      ctx.privacy || 'public',
+			spaceId:      ctx.spaceId || 0,
+			savedAt:      Date.now(),
+		};
+		if ( ( payload.content || '' ).trim() === '' ) {
+			// Empty content -> drop any stale draft instead of saving '' forever.
+			clearDraft( userId );
+			ctx.hasDraft = false;
+			setDraftStatus( ctx, '', false );
+		} else {
+			writeDraft( userId, payload );
+			ctx.hasDraft = true;
+			setDraftStatus( ctx, 'Draft saved', true );
+		}
+		_draftTimers.delete( key );
+
+		// Cloud-sync seam (off by default). When the user opts in via
+		// localStorage.bn_composer_cloud_sync = '1', the draft also POSTs
+		// to /me/drafts so it survives across devices. The endpoint
+		// existence and shape are documented in CommentDraftController;
+		// the local path keeps working even if the endpoint isn't shipped.
+		try {
+			if ( window.localStorage.getItem( 'bn_composer_cloud_sync' ) === '1' ) {
+				fetch( ctx.restUrl + '/me/drafts', {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
+					body:    JSON.stringify( { payload } ),
+				} ).catch( () => {} );
+			}
+		} catch ( _e ) {}
+	}, DRAFT_DEBOUNCE_MS );
+	_draftTimers.set( key, t );
+}
+
+// Restore drafts into composers on initial DOM load. Composers stamp the
+// user_id into their data-wp-context so we don't have to query a separate
+// global. Each composer is keyed by the user_id of the current viewer so
+// switching accounts on the same browser keeps drafts isolated.
+function restoreDraftsOnLoad() {
+	const composers = document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"]' );
+	composers.forEach( ( el ) => {
+		let ctxData;
+		try { ctxData = JSON.parse( el.getAttribute( 'data-wp-context' ) || '{}' ); }
+		catch ( _e ) { return; }
+		const userId = parseInt( ctxData.userId, 10 );
+		if ( userId <= 0 ) {
+			return;
+		}
+		const draft = readDraft( userId );
+		if ( ! draft || ! draft.content ) {
+			return;
+		}
+		// Pre-fill the textarea so the user sees their draft immediately,
+		// even before WP Interactivity hydrates the store.
+		const textarea = el.querySelector( '.bn-composer__prompt' );
+		if ( textarea ) {
+			textarea.value = draft.content;
+		}
+		// Patch the data-wp-context JSON so the hydrated state matches.
+		ctxData.content      = draft.content;
+		ctxData.composerType = draft.composerType || ctxData.composerType;
+		ctxData.privacy      = draft.privacy || ctxData.privacy;
+		ctxData.hasDraft     = true;
+		ctxData.draftStatus  = 'Draft restored';
+		try { el.setAttribute( 'data-wp-context', JSON.stringify( ctxData ) ); }
+		catch ( _e ) {}
+	} );
+}
+
+if ( document.readyState === 'loading' ) {
+	document.addEventListener( 'DOMContentLoaded', restoreDraftsOnLoad );
+} else {
+	restoreDraftsOnLoad();
+}
+
 store( 'buddynext/post-composer', {
 	state: {
 		get open() {
@@ -883,6 +1032,12 @@ store( 'buddynext/post-composer', {
 		},
 		get submitLabel() {
 			try { return getContext().submitting ? 'Sharing…' : 'Share'; } catch ( _e ) { return 'Share'; }
+		},
+		get draftStatusHidden() {
+			try { return ! ( getContext().draftStatus || '' ); } catch ( _e ) { return true; }
+		},
+		get draftDiscardHidden() {
+			try { return ! getContext().hasDraft; } catch ( _e ) { return true; }
 		},
 		get eventSubmitLabel() {
 			try { return getContext().submitting ? 'Scheduling…' : 'Schedule event'; } catch ( _e ) { return 'Schedule event'; }
@@ -1020,7 +1175,23 @@ store( 'buddynext/post-composer', {
 			ctx.composerType = 'link';
 		},
 		onInput( event ) {
-			getContext().content = event.target.value;
+			const ctx     = getContext();
+			ctx.content   = event.target.value;
+			scheduleDraftSave( ctx );
+		},
+		discardDraft() {
+			const ctx = getContext();
+			const userId = parseInt( ctx.userId, 10 );
+			if ( userId > 0 ) {
+				clearDraft( userId );
+			}
+			ctx.content     = '';
+			ctx.hasDraft    = false;
+			setDraftStatus( ctx, '', false );
+			const textarea = document.querySelector( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' );
+			if ( textarea ) {
+				textarea.value = '';
+			}
 		},
 		* submit() {
 			const ctx     = getContext();
@@ -1069,6 +1240,12 @@ store( 'buddynext/post-composer', {
 					body:    JSON.stringify( body ),
 				} );
 				if ( res.ok ) {
+					const userId = parseInt( ctx.userId, 10 );
+					if ( userId > 0 ) {
+						clearDraft( userId );
+					}
+					ctx.hasDraft    = false;
+					setDraftStatus( ctx, '', false );
 					if ( window.bnToast ) { window.bnToast( 'Post published', 'success' ); }
 					setTimeout( function () { window.location.reload(); }, 500 );
 					return;

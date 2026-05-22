@@ -1501,6 +1501,36 @@
 	cursor: not-allowed;
 }
 
+/* Composer drafts — tiny status row sitting just before the Share button */
+.bn-composer__draft {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin-inline-end: var(--bn-s2);
+}
+
+.bn-composer__draft[hidden] { display: none; }
+
+.bn-composer__draft-status {
+	font-style: italic;
+}
+
+.bn-composer__draft-discard {
+	background: transparent;
+	border: 0;
+	padding: 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-accent);
+	cursor: pointer;
+	text-decoration: underline;
+	min-height: var(--bn-tap, 40px);
+}
+
+.bn-composer__draft-discard:hover { color: var(--bn-danger); }
+.bn-composer__draft-discard[hidden] { display: none; }
+
 .bn-composer__media-preview {
 	display: flex;
 	flex-wrap: wrap;

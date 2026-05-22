@@ -104,6 +104,9 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				'voiceOpen'      => false,
 				'aiOpen'         => false,
 				'hasPro'         => $composer_has_pro,
+				'userId'         => get_current_user_id(),
+				'draftStatus'    => '',
+				'hasDraft'       => false,
 			)
 		)
 	);
@@ -292,6 +295,22 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 					</ul>
 				</div>
 			<?php endif; ?>
+
+			<div class="bn-composer__draft"
+				data-wp-bind--hidden="state.draftStatusHidden"
+				role="status"
+				aria-live="polite"
+				hidden>
+				<span class="bn-composer__draft-status" data-wp-text="state.draftStatus"></span>
+				<button
+					class="bn-composer__draft-discard"
+					type="button"
+					data-wp-on--click="actions.discardDraft"
+					data-wp-bind--hidden="state.draftDiscardHidden"
+					hidden>
+					<?php esc_html_e( 'Discard draft', 'buddynext' ); ?>
+				</button>
+			</div>
 
 			<button
 				class="bn-btn bn-composer__submit"
