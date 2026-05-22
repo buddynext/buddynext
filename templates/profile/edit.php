@@ -159,6 +159,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 ?>
 <div class="bn-ep-wrap"
 	data-wp-interactive="buddynext/profile"
+	data-wp-init="callbacks.initEditGuard"
 	<?php
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
@@ -167,6 +168,8 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 			'restNonce'     => $rest_nonce,
 			'saved'         => false,
 			'saving'        => false,
+			'isDirty'       => false,
+			'errors'        => (object) array(),
 			'interests'     => array_values( $interests ),
 			'profileSlug'   => $profile_slug,
 			'profileUrl'    => $profile_url,
@@ -184,11 +187,27 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 	?>
 >
 
+	<form class="bn-ep-form-shell"
+		data-wp-on--submit="actions.saveProfile"
+		data-wp-on--input="actions.markDirty"
+		data-wp-on--change="actions.markDirty"
+		novalidate>
+
 	<div class="bn-ep-shell">
 
 		<!-- Page title -->
 		<header class="bn-ep-title-row">
-			<h1 class="bn-ep-title"><?php esc_html_e( 'Edit Profile', 'buddynext' ); ?></h1>
+			<h1 class="bn-ep-title">
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: %s: member display name */
+						__( 'Edit Profile · %s', 'buddynext' ),
+						$display_name
+					)
+				);
+				?>
+			</h1>
 			<p class="bn-ep-subtitle"><?php esc_html_e( 'How others see you across the community.', 'buddynext' ); ?></p>
 		</header>
 
@@ -230,6 +249,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						<div class="bn-ep-hero-field">
 							<label class="bn-ep-hero-label" for="bn-ep-name">
 								<?php esc_html_e( 'Display name', 'buddynext' ); ?>
+								<span class="bn-ep-required" aria-hidden="true">*</span>
 							</label>
 							<input class="bn-input bn-ep-hero-name"
 								type="text"
@@ -237,7 +257,16 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 								name="display_name"
 								value="<?php echo esc_attr( $display_name ); ?>"
 								placeholder="<?php esc_attr_e( 'Your full name', 'buddynext' ); ?>"
-								data-wp-on--blur="actions.autosave" />
+								required
+								aria-required="true"
+								aria-describedby="bn-ep-error-display_name"
+								data-wp-class--bn-input--error="!!context.errors.display_name"
+								data-wp-on--blur="actions.validateField" />
+							<span class="bn-ep-field-error"
+								id="bn-ep-error-display_name"
+								role="alert"
+								data-wp-text="context.errors.display_name"
+								data-wp-bind--hidden="!context.errors.display_name"></span>
 						</div>
 						<div class="bn-ep-hero-field">
 							<label class="bn-ep-hero-label" for="bn-ep-headline">
@@ -309,7 +338,14 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 								name="website"
 								value="<?php echo esc_attr( $website ); ?>"
 								placeholder="https://yoursite.com"
-								data-wp-on--blur="actions.autosave" />
+								aria-describedby="bn-ep-error-website"
+								data-wp-class--bn-input--error="!!context.errors.website"
+								data-wp-on--blur="actions.validateField" />
+							<span class="bn-ep-field-error"
+								id="bn-ep-error-website"
+								role="alert"
+								data-wp-text="context.errors.website"
+								data-wp-bind--hidden="!context.errors.website"></span>
 						</div>
 						<div class="bn-ep-field">
 							<label class="bn-ep-label" for="bn-ep-pronouns">
@@ -362,7 +398,14 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 								name="social_twitter"
 								value="<?php echo esc_attr( $social_twitter ); ?>"
 								placeholder="https://twitter.com/you"
-								data-wp-on--blur="actions.autosave" />
+								aria-describedby="bn-ep-error-social_twitter"
+								data-wp-class--bn-input--error="!!context.errors.social_twitter"
+								data-wp-on--blur="actions.validateField" />
+							<span class="bn-ep-field-error"
+								id="bn-ep-error-social_twitter"
+								role="alert"
+								data-wp-text="context.errors.social_twitter"
+								data-wp-bind--hidden="!context.errors.social_twitter"></span>
 						</div>
 						<div class="bn-ep-field">
 							<label class="bn-ep-label" for="bn-ep-linkedin">
@@ -374,7 +417,14 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 								name="social_linkedin"
 								value="<?php echo esc_attr( $social_linkedin ); ?>"
 								placeholder="https://linkedin.com/in/you"
-								data-wp-on--blur="actions.autosave" />
+								aria-describedby="bn-ep-error-social_linkedin"
+								data-wp-class--bn-input--error="!!context.errors.social_linkedin"
+								data-wp-on--blur="actions.validateField" />
+							<span class="bn-ep-field-error"
+								id="bn-ep-error-social_linkedin"
+								role="alert"
+								data-wp-text="context.errors.social_linkedin"
+								data-wp-bind--hidden="!context.errors.social_linkedin"></span>
 						</div>
 						<div class="bn-ep-field">
 							<label class="bn-ep-label" for="bn-ep-github">
@@ -386,7 +436,14 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 								name="social_github"
 								value="<?php echo esc_attr( $social_github ); ?>"
 								placeholder="https://github.com/you"
-								data-wp-on--blur="actions.autosave" />
+								aria-describedby="bn-ep-error-social_github"
+								data-wp-class--bn-input--error="!!context.errors.social_github"
+								data-wp-on--blur="actions.validateField" />
+							<span class="bn-ep-field-error"
+								id="bn-ep-error-social_github"
+								role="alert"
+								data-wp-text="context.errors.social_github"
+								data-wp-bind--hidden="!context.errors.social_github"></span>
 						</div>
 						<div class="bn-ep-field">
 							<label class="bn-ep-label" for="bn-ep-instagram">
@@ -398,7 +455,14 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 								name="social_instagram"
 								value="<?php echo esc_attr( $social_instagram ); ?>"
 								placeholder="https://instagram.com/you"
-								data-wp-on--blur="actions.autosave" />
+								aria-describedby="bn-ep-error-social_instagram"
+								data-wp-class--bn-input--error="!!context.errors.social_instagram"
+								data-wp-on--blur="actions.validateField" />
+							<span class="bn-ep-field-error"
+								id="bn-ep-error-social_instagram"
+								role="alert"
+								data-wp-text="context.errors.social_instagram"
+								data-wp-bind--hidden="!context.errors.social_instagram"></span>
 						</div>
 						<div class="bn-ep-field">
 							<label class="bn-ep-label" for="bn-ep-youtube">
@@ -410,7 +474,14 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 								name="social_youtube"
 								value="<?php echo esc_attr( $social_youtube ); ?>"
 								placeholder="https://youtube.com/@you"
-								data-wp-on--blur="actions.autosave" />
+								aria-describedby="bn-ep-error-social_youtube"
+								data-wp-class--bn-input--error="!!context.errors.social_youtube"
+								data-wp-on--blur="actions.validateField" />
+							<span class="bn-ep-field-error"
+								id="bn-ep-error-social_youtube"
+								role="alert"
+								data-wp-text="context.errors.social_youtube"
+								data-wp-bind--hidden="!context.errors.social_youtube"></span>
 						</div>
 					</div>
 				</div>
@@ -920,29 +991,42 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 	<!-- Sticky save bar -->
 	<div class="bn-ep-save-bar" role="region" aria-label="<?php esc_attr_e( 'Save changes', 'buddynext' ); ?>">
 		<div class="bn-ep-save-bar-inner">
-			<div class="bn-ep-save-status"
+			<div class="bn-ep-save-status bn-ep-save-status--saved"
 				data-wp-bind--hidden="!context.saved">
 				<?php buddynext_icon( 'check' ); ?>
 				<span><?php esc_html_e( 'All changes saved', 'buddynext' ); ?></span>
 			</div>
+			<div class="bn-ep-save-status bn-ep-save-status--dirty"
+				data-wp-bind--hidden="!(context.isDirty &amp;&amp; !context.saving &amp;&amp; !context.saved)">
+				<span class="bn-ep-dirty-dot" aria-hidden="true"></span>
+				<span><?php esc_html_e( 'Unsaved changes', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ep-save-status bn-ep-save-status--saving"
+				data-wp-bind--hidden="!context.saving">
+				<span class="bn-ep-spinner" aria-hidden="true"></span>
+				<span><?php esc_html_e( 'Saving...', 'buddynext' ); ?></span>
+			</div>
 			<div class="bn-ep-save-actions">
-				<a class="bn-btn"
+				<a class="bn-btn bn-ep-cancel-link"
 					data-variant="ghost"
 					data-size="md"
+					data-wp-on--click="actions.confirmCancel"
 					href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( $user_id ) ); ?>">
 					<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
 				</a>
 				<button class="bn-btn"
-					type="button"
+					type="submit"
 					data-variant="primary"
 					data-size="md"
-					data-wp-on--click="actions.saveProfile"
 					data-wp-bind--disabled="context.saving">
-					<?php esc_html_e( 'Save changes', 'buddynext' ); ?>
+					<span data-wp-bind--hidden="context.saving"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></span>
+					<span data-wp-bind--hidden="!context.saving"><?php esc_html_e( 'Saving...', 'buddynext' ); ?></span>
 				</button>
 			</div>
 		</div>
 	</div>
+
+	</form><!-- /.bn-ep-form-shell -->
 
 	<!-- Delete account modal -->
 	<div class="bn-modal-backdrop bn-ep-delete-backdrop"

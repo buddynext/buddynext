@@ -539,6 +539,19 @@ class ProfileController {
 		$json    = $request->get_json_params();
 		$data    = is_array( $json ) && ! empty( $json ) ? $json : (array) $request->get_body_params();
 
+		// Validate input before any persistence. Field-level errors are
+		// returned as a 422 payload the JS store can map to inline errors.
+		$errors = $this->validate_profile_payload( $data );
+		if ( ! empty( $errors ) ) {
+			return new WP_REST_Response(
+				array(
+					'saved'  => false,
+					'errors' => $errors,
+				),
+				422
+			);
+		}
+
 		// Handle display_name — WP core field, not a profile value row.
 		if ( isset( $data['display_name'] ) ) {
 			$display_name = sanitize_text_field( (string) $data['display_name'] );
@@ -553,6 +566,31 @@ class ProfileController {
 			unset( $data['display_name'] );
 		}
 
+		// Cap long-form fields at sensible lengths before they hit the service.
+		$caps = array(
+			'bio'      => 1000,
+			'headline' => 160,
+			'location' => 120,
+			'pronouns' => 40,
+		);
+		foreach ( $caps as $field_key => $max ) {
+			if ( isset( $data[ $field_key ] ) && is_string( $data[ $field_key ] ) ) {
+				$data[ $field_key ] = mb_substr( $data[ $field_key ], 0, $max );
+			}
+		}
+
+		// Normalise URL fields — accept input without protocol by prefixing https.
+		$url_fields = array( 'website', 'social_twitter', 'social_linkedin', 'social_github', 'social_instagram', 'social_youtube' );
+		foreach ( $url_fields as $url_key ) {
+			if ( isset( $data[ $url_key ] ) && is_string( $data[ $url_key ] ) && '' !== trim( $data[ $url_key ] ) ) {
+				$raw = trim( $data[ $url_key ] );
+				if ( ! preg_match( '#^https?://#i', $raw ) ) {
+					$raw = 'https://' . ltrim( $raw, '/' );
+				}
+				$data[ $url_key ] = esc_url_raw( $raw );
+			}
+		}
+
 		$service->save_profile( $user_id, $data );
 
 		/**
@@ -565,7 +603,56 @@ class ProfileController {
 
 		$profile = $service->get_profile( $user_id, $user_id );
 
-		return new WP_REST_Response( $profile, 200 );
+		return new WP_REST_Response(
+			array(
+				'saved'   => true,
+				'errors'  => array(),
+				'profile' => $profile,
+			),
+			200
+		);
+	}
+
+	/**
+	 * Validate an incoming profile payload.
+	 *
+	 * Returns an associative array of `field => message` for every field that
+	 * fails validation. An empty array means the payload is clean.
+	 *
+	 * Rules:
+	 *   - display_name (when present) must be non-empty after trimming.
+	 *   - URL fields (website + social_*) must pass wp_http_validate_url when
+	 *     non-empty. Empty strings are allowed (they clear the field).
+	 *
+	 * @param array<string, mixed> $data Raw request payload.
+	 * @return array<string, string> Field-keyed error messages (possibly empty).
+	 */
+	private function validate_profile_payload( array $data ): array {
+		$errors = array();
+
+		if ( array_key_exists( 'display_name', $data ) ) {
+			$dn = trim( (string) $data['display_name'] );
+			if ( '' === $dn ) {
+				$errors['display_name'] = __( 'Display name is required.', 'buddynext' );
+			}
+		}
+
+		$url_fields = array( 'website', 'social_twitter', 'social_linkedin', 'social_github', 'social_instagram', 'social_youtube' );
+		foreach ( $url_fields as $url_key ) {
+			if ( ! isset( $data[ $url_key ] ) || ! is_string( $data[ $url_key ] ) ) {
+				continue;
+			}
+			$value = trim( $data[ $url_key ] );
+			if ( '' === $value ) {
+				continue;
+			}
+			$candidate = preg_match( '#^https?://#i', $value ) ? $value : 'https://' . ltrim( $value, '/' );
+			if ( ! wp_http_validate_url( $candidate ) ) {
+				$errors[ $url_key ] = __( 'Enter a valid URL (https://example.com).', 'buddynext' );
+			}
+		}
+
+		return $errors;
 	}
 
 	/**

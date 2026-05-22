@@ -534,6 +534,8 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 		array(
 			'userId'             => $user_id,
 			'profileUserId'      => $user_id,
+			'displayName'        => $display_name,
+			'peopleUrl'          => \BuddyNext\Core\PageRouter::people_url(),
 			'activeTab'          => 'posts',
 			'isFollowing'        => $is_following,
 			'isConnected'        => $is_connected,
@@ -545,6 +547,12 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 			'isBlocked'          => $is_blocked,
 			'isMuted'            => $is_muted,
 			'moreMenuOpen'       => false,
+			'reportOpen'         => false,
+			'reportReason'       => 'spam',
+			'reportNotes'        => '',
+			'reportSubmitting'   => false,
+			'blockConfirmOpen'   => false,
+			'blockSubmitting'    => false,
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -627,7 +635,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 					<?php if ( $website ) : ?>
 						<span class="bn-pf-meta__item">
 							<?php buddynext_icon( 'link' ); ?>
-							<a href="<?php echo esc_url( $website ); ?>" target="_blank" rel="noopener noreferrer">
+							<a href="<?php echo esc_url( $website ); ?>" target="_blank" rel="nofollow noopener noreferrer ugc">
 								<?php
 								$parsed_host = wp_parse_url( $website, PHP_URL_HOST );
 								echo esc_html( $parsed_host ? $parsed_host : $website );
@@ -661,6 +669,38 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 						</span>
 					<?php endif; ?>
 				</div>
+
+				<?php if ( ! empty( $social_links ) ) : ?>
+				<div class="bn-pf-social-chips" aria-label="<?php esc_attr_e( 'Social links', 'buddynext' ); ?>">
+					<?php
+					$social_icon_map = array(
+						'social_twitter'   => 'at-sign',
+						'social_linkedin'  => 'link',
+						'social_github'    => 'code',
+						'social_instagram' => 'camera',
+						'social_youtube'   => 'play-circle',
+					);
+					foreach ( $social_links as $sl_field ) :
+						$sl_key   = (string) ( $sl_field['field_key'] ?? '' );
+						$sl_url   = (string) ( $sl_field['value'] ?? '' );
+						$sl_label = (string) ( $sl_field['label'] ?? $sl_key );
+						$sl_icon  = $social_icon_map[ $sl_key ] ?? 'link';
+						if ( '' === $sl_url ) {
+							continue;
+						}
+						?>
+						<a class="bn-pf-social-chip"
+							data-social="<?php echo esc_attr( $sl_key ); ?>"
+							href="<?php echo esc_url( $sl_url ); ?>"
+							target="_blank"
+							rel="nofollow noopener noreferrer ugc"
+							aria-label="<?php echo esc_attr( $sl_label ); ?>">
+							<?php buddynext_icon( $sl_icon ); ?>
+							<span><?php echo esc_html( $sl_label ); ?></span>
+						</a>
+					<?php endforeach; ?>
+				</div>
+				<?php endif; ?>
 			</div>
 
 			<!-- Action buttons — shown for other users only; owners use the action bar above -->
@@ -741,7 +781,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 						</button>
 						<button class="bn-more-menu-item"
 							role="menuitem"
-							data-wp-on--click="actions.reportUser">
+							data-wp-on--click="actions.openReport">
 							<?php esc_html_e( 'Report', 'buddynext' ); ?>
 						</button>
 					</div>
@@ -807,6 +847,114 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 	 */
 	do_action( 'buddynext_profile_view_after_hero', (int) $user_id, (int) $current_user_id );
 	?>
+
+	<?php if ( ! empty( $work_entries ) ) : ?>
+	<section class="bn-card bn-pf-about-card bn-pf-work-card" aria-labelledby="bn-pf-work-title">
+		<header class="bn-pf-about-card__header">
+			<h2 class="bn-pf-about-card__title" id="bn-pf-work-title">
+				<?php buddynext_icon( 'briefcase' ); ?>
+				<span><?php esc_html_e( 'Work Experience', 'buddynext' ); ?></span>
+			</h2>
+		</header>
+		<ol class="bn-pf-timeline">
+			<?php
+			foreach ( $work_entries as $entry_fields ) :
+				$we_company     = $entry_fv( $entry_fields, 'work_company' );
+				$we_title       = $entry_fv( $entry_fields, 'work_title' );
+				$we_location    = $entry_fv( $entry_fields, 'work_location' );
+				$we_daterange   = $entry_fv( $entry_fields, 'work_daterange' );
+				$we_description = $entry_fv( $entry_fields, 'work_description' );
+				if ( '' === $we_company && '' === $we_title ) {
+					continue;
+				}
+				?>
+			<li class="bn-pf-timeline__item">
+				<span class="bn-pf-timeline__dot" aria-hidden="true"></span>
+				<div class="bn-pf-timeline__body">
+					<?php if ( '' !== $we_title ) : ?>
+						<div class="bn-pf-timeline__title"><?php echo esc_html( $we_title ); ?></div>
+					<?php endif; ?>
+					<?php if ( '' !== $we_company ) : ?>
+						<div class="bn-pf-timeline__sub"><?php echo esc_html( $we_company ); ?></div>
+					<?php endif; ?>
+					<div class="bn-pf-timeline__meta">
+						<?php if ( '' !== $we_location ) : ?>
+							<span><?php echo esc_html( $we_location ); ?></span>
+						<?php endif; ?>
+						<?php if ( '' !== $we_daterange ) : ?>
+							<span><?php echo esc_html( $we_daterange ); ?></span>
+						<?php endif; ?>
+					</div>
+					<?php if ( '' !== $we_description ) : ?>
+						<p class="bn-pf-timeline__desc"><?php echo wp_kses_post( $we_description ); ?></p>
+					<?php endif; ?>
+				</div>
+			</li>
+			<?php endforeach; ?>
+		</ol>
+	</section>
+	<?php endif; ?>
+
+	<?php if ( ! empty( $edu_entries ) ) : ?>
+	<section class="bn-card bn-pf-about-card bn-pf-edu-card" aria-labelledby="bn-pf-edu-title">
+		<header class="bn-pf-about-card__header">
+			<h2 class="bn-pf-about-card__title" id="bn-pf-edu-title">
+				<?php buddynext_icon( 'graduation-cap' ); ?>
+				<span><?php esc_html_e( 'Education', 'buddynext' ); ?></span>
+			</h2>
+		</header>
+		<ol class="bn-pf-timeline">
+			<?php
+			foreach ( $edu_entries as $entry_fields ) :
+				$edu_institution = $entry_fv( $entry_fields, 'edu_institution' );
+				$edu_degree      = $entry_fv( $entry_fields, 'edu_degree' );
+				$edu_field_study = $entry_fv( $entry_fields, 'edu_field' );
+				$edu_daterange   = $entry_fv( $entry_fields, 'edu_daterange' );
+				if ( '' === $edu_institution ) {
+					continue;
+				}
+				$edu_degree_line = implode( ', ', array_filter( array( $edu_degree, $edu_field_study ) ) );
+				?>
+			<li class="bn-pf-timeline__item">
+				<span class="bn-pf-timeline__dot" aria-hidden="true"></span>
+				<div class="bn-pf-timeline__body">
+					<div class="bn-pf-timeline__title"><?php echo esc_html( $edu_institution ); ?></div>
+					<?php if ( '' !== $edu_degree_line ) : ?>
+						<div class="bn-pf-timeline__sub"><?php echo esc_html( $edu_degree_line ); ?></div>
+					<?php endif; ?>
+					<?php if ( '' !== $edu_daterange ) : ?>
+						<div class="bn-pf-timeline__meta">
+							<span><?php echo esc_html( $edu_daterange ); ?></span>
+						</div>
+					<?php endif; ?>
+				</div>
+			</li>
+			<?php endforeach; ?>
+		</ol>
+	</section>
+	<?php endif; ?>
+
+	<?php if ( ! empty( $interests ) ) : ?>
+	<section class="bn-card bn-pf-about-card bn-pf-interests-card" aria-labelledby="bn-pf-interests-title">
+		<header class="bn-pf-about-card__header">
+			<h2 class="bn-pf-about-card__title" id="bn-pf-interests-title">
+				<?php buddynext_icon( 'hash' ); ?>
+				<span><?php esc_html_e( 'Community Interests', 'buddynext' ); ?></span>
+			</h2>
+		</header>
+		<div class="bn-pf-tag-cloud">
+			<?php
+			foreach ( $interests as $interest_tag ) :
+				$tag_slug = sanitize_title( (string) $interest_tag );
+				$tag_url  = home_url( '/activity/hashtag/' . $tag_slug . '/' );
+				?>
+				<a class="bn-pf-tag-chip" href="<?php echo esc_url( $tag_url ); ?>">
+					#<?php echo esc_html( $interest_tag ); ?>
+				</a>
+			<?php endforeach; ?>
+		</div>
+	</section>
+	<?php endif; ?>
 
 	<!-- Tab bar (v2 .bn-tabs primitive) -->
 	<div class="bn-tabs bn-pf-tabs" role="tablist">
@@ -1063,6 +1211,21 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 		<?php endif; ?>
 
 	</div><!-- /.bn-pf-tab-content -->
+
+	<?php
+	// Report + block-confirm modals: only the non-owner viewer needs them,
+	// they share the same Interactivity context so they live inside .bn-pf-stack.
+	if ( ! $is_own_profile && $current_user_id ) :
+		buddynext_get_template(
+			'partials/report-modal.php',
+			array()
+		);
+		buddynext_get_template(
+			'partials/block-confirm-modal.php',
+			array( 'display_name' => $display_name )
+		);
+	endif;
+	?>
 
 </div><!-- /.bn-pf-stack -->
 

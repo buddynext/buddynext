@@ -1,7 +1,8 @@
-/* BuddyNext — Profile Interactivity API store. */
+/* BuddyNext - Profile Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
+import { bnToast } from '../shell/dialog.js';
 
-/* ── Shared helpers ────────────────────────────────────────────────── */
+/* -- Shared helpers ----------------------------------------------------- */
 
 var slugTimer = null;
 var slugAbort = null;
@@ -18,9 +19,10 @@ function nonce() {
 function collectFlatData( wrap ) {
 	var data = {};
 	wrap.querySelectorAll( 'input[name], textarea[name], select[name]' ).forEach( function ( el ) {
-		if ( el.id !== 'bn-ep-slug' ) {
-			data[ el.name ] = el.value;
-		}
+		// Skip the slug input (handled by its own endpoint) and any repeater fields.
+		if ( el.id === 'bn-ep-slug' ) { return; }
+		if ( /\[\d+\]\[/.test( el.name ) ) { return; }
+		data[ el.name ] = el.value;
 	} );
 	return data;
 }
@@ -33,7 +35,6 @@ function collectRepeaterEntries( containerId ) {
 	container.querySelectorAll( '.bn-ep-repeater-entry' ).forEach( function ( row ) {
 		var entry = {};
 		row.querySelectorAll( 'input[name], textarea[name]' ).forEach( function ( el ) {
-			// name="work_experience[0][work_company]" → extract inner key
 			var m = el.name.match( /\[\d+\]\[([^\]]+)\]$/ );
 			if ( m ) { entry[ m[1] ] = el.value; }
 		} );
@@ -52,21 +53,75 @@ function buildPayload( ctx ) {
 	return data;
 }
 
-/* Shared save logic. */
+/* Validate a single URL value client-side (matches PHP wp_http_validate_url). */
+function isValidUrlClient( raw ) {
+	if ( ! raw ) { return true; }
+	var candidate = /^https?:\/\//i.test( raw ) ? raw : 'https://' + raw.replace( /^\/+/, '' );
+	try {
+		var u = new URL( candidate );
+		return u.protocol === 'http:' || u.protocol === 'https:';
+	} catch ( _e ) {
+		return false;
+	}
+}
+
+/* Reset errors object (Interactivity state cannot mutate keys via delete). */
+function clearErrors( ctx ) {
+	ctx.errors = {};
+}
+
+/* Master save flow - submits all fields, handles 200 / 422 / 5xx. */
 async function doSave( ctx ) {
 	if ( ctx.saving ) { return; }
 	ctx.saving = true;
 	ctx.saved  = false;
+	clearErrors( ctx );
+
 	try {
-		await fetch( apiUrl( 'buddynext/v1/me/profile' ), {
+		var res = await fetch( apiUrl( 'buddynext/v1/me/profile' ), {
 			method:  'PUT',
 			headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
 			body:    JSON.stringify( buildPayload( ctx ) ),
 		} );
-		ctx.saved = true;
-		setTimeout( function () { ctx.saved = false; }, 3000 );
+
+		var json = {};
+		try { json = await res.json(); } catch ( _e ) {}
+
+		if ( res.ok ) {
+			ctx.saved   = true;
+			ctx.isDirty = false;
+			bnToast( ( window.bnI18n && window.bnI18n.profileSaved ) || 'Profile saved', { tone: 'success' } );
+			setTimeout( function () { ctx.saved = false; }, 3000 );
+		} else if ( res.status === 422 && json && json.errors ) {
+			ctx.errors = json.errors;
+			bnToast( ( window.bnI18n && window.bnI18n.fieldsNeedAttention ) || 'Some fields need attention', { tone: 'danger' } );
+		} else {
+			bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || 'Could not save. Please try again.', { tone: 'danger' } );
+		}
 	} catch ( _e ) {
-		// Autosave — fail silently.
+		bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || 'Could not save. Please try again.', { tone: 'danger' } );
+	} finally {
+		ctx.saving = false;
+	}
+}
+
+/* Silent autosave - used by per-field blur where defined. Failure stays quiet. */
+async function doAutoSave( ctx ) {
+	if ( ctx.saving ) { return; }
+	ctx.saving = true;
+	try {
+		var res = await fetch( apiUrl( 'buddynext/v1/me/profile' ), {
+			method:  'PUT',
+			headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+			body:    JSON.stringify( buildPayload( ctx ) ),
+		} );
+		if ( res.ok ) {
+			ctx.saved   = true;
+			ctx.isDirty = false;
+			setTimeout( function () { ctx.saved = false; }, 3000 );
+		}
+	} catch ( _e ) {
+		/* silent for autosave */
 	} finally {
 		ctx.saving = false;
 	}
@@ -81,7 +136,6 @@ function renumberEntries( containerId ) {
 		var numEl = row.querySelector( '.bn-ep-repeater-num' );
 		if ( numEl ) { numEl.textContent = String( i + 1 ); }
 		row.dataset.entryIndex = String( i );
-		// Update all input names to reflect new index.
 		row.querySelectorAll( '[name]' ).forEach( function ( el ) {
 			el.name = el.name.replace( /\[\d+\]/, '[' + i + ']' );
 		} );
@@ -100,7 +154,7 @@ function buildEntryNode( group, index ) {
 				{ key: 'work_company',     label: 'Company',     type: 'text',     placeholder: 'Company name' },
 				{ key: 'work_title',       label: 'Job Title',   type: 'text',     placeholder: 'Your role' },
 				{ key: 'work_location',    label: 'Location',    type: 'text',     placeholder: 'City or Remote' },
-				{ key: 'work_daterange',   label: 'Date Range',  type: 'text',     placeholder: 'e.g. Jan 2020 \u2013 Present' },
+				{ key: 'work_daterange',   label: 'Date Range',  type: 'text',     placeholder: 'e.g. Jan 2020 to Present' },
 				{ key: 'work_description', label: 'Description', type: 'textarea', placeholder: 'Brief description of your role', fullWidth: true },
 			],
 		},
@@ -111,7 +165,7 @@ function buildEntryNode( group, index ) {
 				{ key: 'edu_institution', label: 'Institution',    type: 'text', placeholder: 'School or University' },
 				{ key: 'edu_degree',      label: 'Degree',         type: 'text', placeholder: 'e.g. Bachelor of Science' },
 				{ key: 'edu_field',       label: 'Field of Study', type: 'text', placeholder: 'e.g. Computer Science' },
-				{ key: 'edu_daterange',   label: 'Date Range',     type: 'text', placeholder: 'e.g. 2016 \u2013 2020' },
+				{ key: 'edu_daterange',   label: 'Date Range',     type: 'text', placeholder: 'e.g. 2016 to 2020' },
 			],
 		},
 	};
@@ -133,8 +187,7 @@ function buildEntryNode( group, index ) {
 	removeBtn.dataset.group          = group;
 	removeBtn.dataset.entryIndex     = String( index );
 	removeBtn.setAttribute( 'aria-label', cfg.removeLabel );
-	removeBtn.textContent            = '\u00d7';
-	// Wire the click via a simple DOM listener (outside Interactivity API reactive context).
+	removeBtn.textContent            = '×';
 	removeBtn.addEventListener( 'click', function () {
 		entry.remove();
 		renumberEntries( cfg.containerId );
@@ -185,46 +238,157 @@ function buildEntryNode( group, index ) {
 	return entry;
 }
 
-/* ── Store ─────────────────────────────────────────────────────────── */
+/* Track the beforeunload listener so we can attach once and detach on save. */
+var unloadHandlerAttached = false;
+function ensureUnloadGuard() {
+	if ( unloadHandlerAttached ) { return; }
+	window.addEventListener( 'beforeunload', function ( event ) {
+		var wrap = document.querySelector( '[data-wp-interactive="buddynext/profile"] .bn-ep-form-shell' );
+		if ( ! wrap ) { return; }
+		// Read the live context flag from a hidden marker - simplest is a data attribute we update on save/dirty.
+		if ( wrap.dataset.bnDirty === '1' ) {
+			event.preventDefault();
+			event.returnValue = '';
+			return '';
+		}
+	} );
+	unloadHandlerAttached = true;
+}
+
+/* Mirror the reactive isDirty state onto the form element so beforeunload can read it cheaply. */
+function syncDirtyAttr( dirty ) {
+	var wrap = document.querySelector( '.bn-ep-form-shell' );
+	if ( wrap ) { wrap.dataset.bnDirty = dirty ? '1' : '0'; }
+}
+
+/* -- Store ------------------------------------------------------------- */
 
 store( 'buddynext/profile', {
 	state: {
 		get muteLabel()  { return getContext().isMuted   ? 'Unmute'  : 'Mute'; },
 		get blockLabel() { return getContext().isBlocked ? 'Unblock' : 'Block'; },
 	},
+	callbacks: {
+		/* Init for the edit page: register the beforeunload guard once. */
+		initEditGuard() {
+			ensureUnloadGuard();
+		},
+	},
 	actions: {
 
-		/* Profile tab switching — Posts / Replies / Media / Likes */
+		/* Profile tab switching - Posts / Replies / Media / Likes */
 		setTab( event ) {
 			const tab    = event.target.closest( '[data-tab]' );
 			if ( ! tab ) { return; }
 			const tabId  = tab.dataset.tab;
 
-			// Toggle active class on tab buttons.
 			document.querySelectorAll( '.bn-ptab' ).forEach( function ( t ) {
 				const isActive = t.dataset.tab === tabId;
 				t.classList.toggle( 'active', isActive );
 				t.setAttribute( 'aria-selected', isActive ? 'true' : 'false' );
 			} );
 
-			// Show/hide tab panels — posts panel is the default (no data-tab-panel wrapper).
 			document.querySelectorAll( '[data-tab-panel]' ).forEach( function ( p ) {
 				p.hidden = p.dataset.tabPanel !== tabId;
 			} );
 
-			// Posts content is not inside a data-tab-panel wrapper — toggle via class.
 			const postsContent = document.querySelector( '.bn-profile-posts-panel' );
 			if ( postsContent ) {
 				postsContent.hidden = tabId !== 'posts';
 			}
 		},
 
-		/* Main profile save (blur autosave and explicit save button). */
-		autosave:    function () { doSave( getContext() ); },
-		saveProfile: function () { doSave( getContext() ); },
+		/* Mark form as dirty on any user input. */
+		markDirty() {
+			var ctx = getContext();
+			if ( ! ctx.isDirty ) {
+				ctx.isDirty = true;
+				syncDirtyAttr( true );
+			}
+		},
 
-		/* Slug availability check — debounced 400 ms. */
-		checkSlug: function () {
+		/* Inline field validation on blur. */
+		validateField( event ) {
+			var ctx   = getContext();
+			var input = event.target;
+			if ( ! input || ! input.name ) { return; }
+			var name  = input.name;
+			var val   = ( input.value || '' ).trim();
+
+			// Clone errors to avoid mutating a frozen proxy.
+			var errors = Object.assign( {}, ctx.errors || {} );
+
+			if ( name === 'display_name' ) {
+				if ( val === '' ) {
+					errors.display_name = 'Display name is required.';
+				} else {
+					delete errors.display_name;
+				}
+			} else if ( name === 'website' || name.indexOf( 'social_' ) === 0 ) {
+				if ( val !== '' && ! isValidUrlClient( val ) ) {
+					errors[ name ] = 'Enter a valid URL (https://example.com).';
+				} else {
+					delete errors[ name ];
+				}
+			}
+
+			ctx.errors = errors;
+		},
+
+		/* Master save action. Triggered by the form submit / Save button. */
+		saveProfile( event ) {
+			if ( event && typeof event.preventDefault === 'function' ) {
+				event.preventDefault();
+			}
+			var ctx = getContext();
+
+			// Run a client-side pass so we don't bother the server with obviously bad payloads.
+			var errors = {};
+			var nameInput = document.getElementById( 'bn-ep-name' );
+			if ( nameInput && ( nameInput.value || '' ).trim() === '' ) {
+				errors.display_name = 'Display name is required.';
+				nameInput.focus();
+			}
+			[ 'website', 'social_twitter', 'social_linkedin', 'social_github', 'social_instagram', 'social_youtube' ].forEach( function ( fname ) {
+				var el = document.querySelector( '[name="' + fname + '"]' );
+				if ( ! el ) { return; }
+				var v = ( el.value || '' ).trim();
+				if ( v !== '' && ! isValidUrlClient( v ) ) {
+					errors[ fname ] = 'Enter a valid URL (https://example.com).';
+				}
+			} );
+			if ( Object.keys( errors ).length > 0 ) {
+				ctx.errors = errors;
+				bnToast( 'Some fields need attention', { tone: 'danger' } );
+				return;
+			}
+
+			doSave( ctx ).then( function () {
+				syncDirtyAttr( ctx.isDirty );
+				if ( ctx.saved ) {
+					// Smooth redirect after save: profileUrl is in context.
+					setTimeout( function () {
+						if ( ctx.profileUrl ) {
+							window.location.href = ctx.profileUrl;
+						}
+					}, 700 );
+				}
+			} );
+		},
+
+		/* Cancel guard - the beforeunload listener handles the dirty-state prompt
+		 * for any navigation away from the edit page (link clicks, back button,
+		 * tab close). This action is a no-op kept for compatibility with any
+		 * older template that still references it. */
+		confirmCancel() {
+			/* no-op: handled by beforeunload guard */
+		},
+
+		/* Per-field autosave kept for backwards compatibility (used by sliders / toggles). */
+		autosave() { doAutoSave( getContext() ); },
+
+		/* Slug availability check - debounced 400 ms. */
+		checkSlug() {
 			var ctx   = getContext();
 			var input = document.getElementById( 'bn-ep-slug' );
 			if ( ! input ) { return; }
@@ -262,8 +426,7 @@ store( 'buddynext/profile', {
 			}, 400 );
 		},
 
-		/* Save a custom profile slug. */
-		saveSlug: function () {
+		saveSlug() {
 			var ctx   = getContext();
 			var input = document.getElementById( 'bn-ep-slug' );
 			if ( ! input || ! ctx.slugAvailable ) { return; }
@@ -288,8 +451,7 @@ store( 'buddynext/profile', {
 			   .finally( function () { ctx.slugSaving = false; } );
 		},
 
-		/* Add a blank repeater entry. */
-		addEntry: function ( event ) {
+		addEntry( event ) {
 			var btn   = event.target.closest( '[data-group]' );
 			var group = btn ? btn.dataset.group : null;
 			if ( ! group ) { return; }
@@ -307,10 +469,12 @@ store( 'buddynext/profile', {
 			var index = container.querySelectorAll( '.bn-ep-repeater-entry' ).length;
 			var node  = buildEntryNode( group, index );
 			if ( node ) { container.appendChild( node ); }
+			// Adding a row counts as a dirty edit.
+			getContext().isDirty = true;
+			syncDirtyAttr( true );
 		},
 
-		/* Remove a repeater entry (data-group + data-entry-index on the button). */
-		removeEntry: function ( event ) {
+		removeEntry( event ) {
 			var btn = event.target.closest( '[data-group]' );
 			if ( ! btn ) { return; }
 
@@ -324,45 +488,49 @@ store( 'buddynext/profile', {
 			var entryEl = btn.closest( '.bn-ep-repeater-entry' );
 			if ( entryEl ) { entryEl.remove(); }
 			if ( containerId ) { renumberEntries( containerId ); }
+			getContext().isDirty = true;
+			syncDirtyAttr( true );
 		},
 
-		/* Interests / Skills tag input. */
-		addInterestOnEnter: function ( event ) {
+		addInterestOnEnter( event ) {
 			if ( event.key !== 'Enter' ) { return; }
 			event.preventDefault();
 			var ctx = getContext();
 			var val = event.target.value.trim();
 			if ( val && ctx.interests.indexOf( val ) === -1 ) {
 				ctx.interests = ctx.interests.concat( [ val ] );
+				ctx.isDirty   = true;
+				syncDirtyAttr( true );
 			}
 			event.target.value = '';
 		},
 
-		removeInterest: function ( event ) {
+		removeInterest( event ) {
 			var ctx      = getContext();
 			var btn      = event.target.closest( '[data-interest]' );
 			var interest = btn ? btn.dataset.interest : null;
 			if ( interest ) {
 				ctx.interests = ctx.interests.filter( function ( i ) { return i !== interest; } );
+				ctx.isDirty   = true;
+				syncDirtyAttr( true );
 			}
 		},
 
-		focusTagInput: function () {
+		focusTagInput() {
 			var el = document.querySelector( '.bn-ep-tag-input' );
 			if ( el ) { el.focus(); }
 		},
 
-		/* Avatar + cover file triggers. */
-		triggerCoverUpload: function () {
+		triggerCoverUpload() {
 			var el = document.getElementById( 'bn-ep-cover-file' );
 			if ( el ) { el.click(); }
 		},
-		triggerAvatarUpload: function () {
+		triggerAvatarUpload() {
 			var el = document.getElementById( 'bn-ep-avatar-file' );
 			if ( el ) { el.click(); }
 		},
 
-		handleAvatarFileChange: async function ( event ) {
+		async handleAvatarFileChange( event ) {
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
 
@@ -381,6 +549,7 @@ store( 'buddynext/profile', {
 				var data = await res.json();
 				if ( res.ok && data.avatar_url ) {
 					ctx.avatarUrl = data.avatar_url;
+					bnToast( 'Avatar updated', { tone: 'success' } );
 				}
 			} finally {
 				ctx.avatarUploading  = false;
@@ -388,7 +557,7 @@ store( 'buddynext/profile', {
 			}
 		},
 
-		handleCoverFileChange: async function ( event ) {
+		async handleCoverFileChange( event ) {
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
 
@@ -407,6 +576,7 @@ store( 'buddynext/profile', {
 				var data = await res.json();
 				if ( res.ok && data.cover_url ) {
 					ctx.coverUrl = data.cover_url;
+					bnToast( 'Cover updated', { tone: 'success' } );
 				}
 			} finally {
 				ctx.coverUploading = false;
@@ -414,54 +584,67 @@ store( 'buddynext/profile', {
 			}
 		},
 
-		/* ── Social actions (profile view page) ─────────────────────── */
+		/* -- Social actions (profile view page) ------------------------- */
 
-		follow: async function () {
+		async follow() {
 			var ctx = getContext();
 			if ( ctx.isFollowing ) { return; }
+			// Optimistic.
+			ctx.isFollowing   = true;
+			ctx.followerCount = ( ctx.followerCount || 0 ) + 1;
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/follow' ), {
 					method:  'POST',
 					headers: { 'X-WP-Nonce': ctx.restNonce },
 				} );
-				if ( res.ok ) {
-					ctx.isFollowing   = true;
-					ctx.followerCount = ( ctx.followerCount || 0 ) + 1;
-				}
-			} catch ( _e ) {}
+				if ( ! res.ok ) { throw new Error( 'follow_failed' ); }
+				bnToast( 'Followed', { tone: 'success' } );
+			} catch ( _e ) {
+				ctx.isFollowing   = false;
+				ctx.followerCount = Math.max( 0, ( ctx.followerCount || 1 ) - 1 );
+				bnToast( 'Could not follow. Try again.', { tone: 'danger' } );
+			}
 		},
 
-		unfollow: async function () {
+		async unfollow() {
 			var ctx = getContext();
 			if ( ! ctx.isFollowing ) { return; }
+			ctx.isFollowing   = false;
+			ctx.followerCount = Math.max( 0, ( ctx.followerCount || 1 ) - 1 );
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/follow' ), {
 					method:  'DELETE',
 					headers: { 'X-WP-Nonce': ctx.restNonce },
 				} );
-				if ( res.ok ) {
-					ctx.isFollowing   = false;
-					ctx.followerCount = Math.max( 0, ( ctx.followerCount || 1 ) - 1 );
-				}
-			} catch ( _e ) {}
+				if ( ! res.ok ) { throw new Error( 'unfollow_failed' ); }
+				bnToast( 'Unfollowed', { tone: 'info' } );
+			} catch ( _e ) {
+				ctx.isFollowing   = true;
+				ctx.followerCount = ( ctx.followerCount || 0 ) + 1;
+				bnToast( 'Could not unfollow. Try again.', { tone: 'danger' } );
+			}
 		},
 
-		connect: async function () {
+		async connect() {
 			var ctx = getContext();
 			if ( ! ctx.showConnect ) { return; }
+			ctx.connectionPending = true;
+			ctx.showConnect       = false;
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect' ), {
 					method:  'POST',
 					headers: { 'X-WP-Nonce': ctx.restNonce },
 				} );
-				if ( res.ok ) {
-					ctx.connectionPending = true;
-					ctx.showConnect       = false;
-				}
-			} catch ( _e ) {}
+				if ( ! res.ok ) { throw new Error( 'connect_failed' ); }
+				bnToast( 'Connection request sent', { tone: 'success' } );
+			} catch ( _e ) {
+				ctx.connectionPending = false;
+				ctx.showConnect       = true;
+				bnToast( 'Could not send request', { tone: 'danger' } );
+			}
 		},
 
-		withdrawRequest: async function () {
+		async withdrawRequest() {
 			var ctx = getContext();
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect' ), {
@@ -471,11 +654,12 @@ store( 'buddynext/profile', {
 				if ( res.ok ) {
 					ctx.connectionPending = false;
 					ctx.showConnect       = true;
+					bnToast( 'Request withdrawn', { tone: 'info' } );
 				}
 			} catch ( _e ) {}
 		},
 
-		acceptRequest: async function () {
+		async acceptRequest() {
 			var ctx = getContext();
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect/accept' ), {
@@ -486,11 +670,12 @@ store( 'buddynext/profile', {
 					ctx.connectionReceived = false;
 					ctx.isConnected        = true;
 					ctx.showConnect        = false;
+					bnToast( 'Connected', { tone: 'success' } );
 				}
 			} catch ( _e ) {}
 		},
 
-		declineRequest: async function () {
+		async declineRequest() {
 			var ctx = getContext();
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect/decline' ), {
@@ -500,11 +685,12 @@ store( 'buddynext/profile', {
 				if ( res.ok ) {
 					ctx.connectionReceived = false;
 					ctx.showConnect        = true;
+					bnToast( 'Request declined', { tone: 'info' } );
 				}
 			} catch ( _e ) {}
 		},
 
-		disconnectUser: async function () {
+		async disconnectUser() {
 			var ctx = getContext();
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect' ), {
@@ -515,58 +701,143 @@ store( 'buddynext/profile', {
 					ctx.isConnected       = false;
 					ctx.showConnect       = true;
 					ctx.connectionPending = false;
+					bnToast( 'Disconnected', { tone: 'info' } );
 				}
 			} catch ( _e ) {}
 		},
 
 
-		/* ── More-options menu ───────────────────────────────────────── */
+		/* -- More-options menu -------------------------------------- */
 
-		toggleMoreMenu: function () {
+		toggleMoreMenu() {
 			var ctx = getContext();
 			ctx.moreMenuOpen = ! ctx.moreMenuOpen;
 		},
 
-		toggleMute: async function () {
+		async toggleMute() {
 			var ctx    = getContext();
-			var method = ctx.isMuted ? 'DELETE' : 'POST';
+			var wasMuted = !! ctx.isMuted;
+			// Optimistic.
+			ctx.isMuted      = ! wasMuted;
+			ctx.moreMenuOpen = false;
+			var method = wasMuted ? 'DELETE' : 'POST';
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/mute' ), {
 					method:  method,
 					headers: { 'X-WP-Nonce': ctx.restNonce },
 				} );
-				if ( res.ok ) {
-					ctx.isMuted      = ! ctx.isMuted;
-					ctx.moreMenuOpen = false;
-				}
-			} catch ( _e ) {}
+				if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
+				bnToast( wasMuted ? 'Unmuted' : 'Muted', { tone: 'success' } );
+			} catch ( _e ) {
+				ctx.isMuted = wasMuted;
+				bnToast( 'Could not update mute state', { tone: 'danger' } );
+			}
 		},
 
-		toggleBlock: async function () {
-			var ctx    = getContext();
-			var method = ctx.isBlocked ? 'DELETE' : 'POST';
+		/* Block requires an explicit confirmation modal - destructive action. */
+		toggleBlock() {
+			var ctx = getContext();
+			if ( ctx.isBlocked ) {
+				// Unblock is reversible - no confirm needed.
+				doUnblock( ctx );
+				return;
+			}
+			ctx.blockConfirmOpen = true;
+			ctx.moreMenuOpen     = false;
+		},
+
+		closeBlockConfirm() {
+			getContext().blockConfirmOpen = false;
+		},
+
+		async confirmBlock() {
+			var ctx = getContext();
+			if ( ctx.blockSubmitting ) { return; }
+			ctx.blockSubmitting = true;
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/block' ), {
-					method:  method,
+					method:  'POST',
 					headers: { 'X-WP-Nonce': ctx.restNonce },
 				} );
-				if ( res.ok ) {
-					ctx.isBlocked    = ! ctx.isBlocked;
-					ctx.moreMenuOpen = false;
-				}
-			} catch ( _e ) {}
+				if ( ! res.ok ) { throw new Error( 'block_failed' ); }
+				ctx.isBlocked        = true;
+				ctx.blockConfirmOpen = false;
+				bnToast( ( ctx.displayName ? ctx.displayName + ' blocked' : 'Member blocked' ), { tone: 'success' } );
+				// After block we redirect to the members directory since the profile is no longer accessible.
+				setTimeout( function () {
+					window.location.href = ( ctx.peopleUrl || '/members/' );
+				}, 800 );
+			} catch ( _e ) {
+				bnToast( 'Could not block. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.blockSubmitting = false;
+			}
 		},
 
-		reportUser: async function () {
+		/* -- Report modal ----------------------------------------------- */
+
+		openReport() {
 			var ctx = getContext();
+			ctx.reportOpen      = true;
+			ctx.reportReason    = 'spam';
+			ctx.reportNotes     = '';
+			ctx.moreMenuOpen    = false;
+		},
+
+		closeReport() {
+			getContext().reportOpen = false;
+		},
+
+		setReportReason( event ) {
+			getContext().reportReason = event.target.value;
+		},
+
+		setReportNotes( event ) {
+			getContext().reportNotes = event.target.value;
+		},
+
+		async submitReport() {
+			var ctx = getContext();
+			if ( ctx.reportSubmitting ) { return; }
+			ctx.reportSubmitting = true;
 			try {
-				await fetch( apiUrl( 'buddynext/v1/reports' ), {
+				var res = await fetch( apiUrl( 'buddynext/v1/reports' ), {
 					method:  'POST',
 					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
-					body:    JSON.stringify( { object_type: 'user', object_id: ctx.profileUserId } ),
+					body:    JSON.stringify( {
+						object_type: 'user',
+						object_id:   ctx.profileUserId,
+						reason:      ctx.reportReason || 'other',
+						notes:       ctx.reportNotes  || '',
+					} ),
 				} );
-			} catch ( _e ) {}
-			ctx.moreMenuOpen = false;
+				if ( ! res.ok && res.status !== 201 ) { throw new Error( 'report_failed' ); }
+				ctx.reportOpen = false;
+				bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
+			} catch ( _e ) {
+				bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.reportSubmitting = false;
+			}
 		},
 	},
 } );
+
+/* -- Helpers that need access to the store -------------------------- */
+
+async function doUnblock( ctx ) {
+	var wasBlocked = !! ctx.isBlocked;
+	ctx.isBlocked    = false;
+	ctx.moreMenuOpen = false;
+	try {
+		var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/block' ), {
+			method:  'DELETE',
+			headers: { 'X-WP-Nonce': ctx.restNonce },
+		} );
+		if ( ! res.ok ) { throw new Error( 'unblock_failed' ); }
+		bnToast( 'Unblocked', { tone: 'info' } );
+	} catch ( _e ) {
+		ctx.isBlocked = wasBlocked;
+		bnToast( 'Could not unblock', { tone: 'danger' } );
+	}
+}
