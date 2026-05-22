@@ -30,7 +30,6 @@ defined( 'ABSPATH' ) || exit;
 
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Feed\PostService;
-use BuddyNext\Feed\SinglePostMeta;
 use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\FollowService;
 use BuddyNext\Spaces\SpaceMemberService;
@@ -101,10 +100,10 @@ if ( $bn_visible ) {
 	}
 }
 
-// ── Emit head meta tags (OG / Twitter / canonical) on visible posts ─────────
-if ( $bn_visible && class_exists( SinglePostMeta::class ) ) {
-	SinglePostMeta::emit_for_post( $bn_post_record );
-}
+// Head meta tags (OG / Twitter / canonical / document title) are emitted
+// by PageRouter::maybe_register_single_post_meta() at template_redirect,
+// before get_header() fires wp_head. They can't be wired from here because
+// by the time this template runs, wp_head() has already been printed.
 
 if ( ! $bn_visible ) {
 	global $wp_query;

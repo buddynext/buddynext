@@ -264,6 +264,16 @@ class PageRouter {
 			}
 		);
 
+		// Single-post permalink (/p/{id}/): wire OG / Twitter / canonical
+		// head meta tags BEFORE get_header() fires wp_head. Without this hook,
+		// the template can't influence <head> because by the time it runs,
+		// wp_head() has already been emitted. Gates mirror the template so
+		// private / followers-only / secret-space / blocked posts never leak
+		// OG previews to scrapers.
+		if ( 'post' === $hub ) {
+			$this->maybe_register_single_post_meta( (int) ( $context['post_id'] ?? 0 ) );
+		}
+
 		do_action( 'buddynext_before_hub', $hub, $template );
 
 		// htmx partial swap: when request has HX-Request header, return only
@@ -317,6 +327,89 @@ class PageRouter {
 		get_header();
 		buddynext_get_template( $shell_template, $shell_context );
 		get_footer();
+	}
+
+	/**
+	 * Hydrate the single-post record and register head-meta tags when visible.
+	 *
+	 * Called from dispatch_hub_template() at template_redirect (before
+	 * get_header() fires wp_head). Mirrors the visibility gates in
+	 * templates/feed/single-post.php so we never emit OG / Twitter previews
+	 * for private, blocked, followers-only, or secret-space posts.
+	 *
+	 * @param int $post_id Post ID resolved from the /p/{id}/ rewrite.
+	 * @return void
+	 */
+	private function maybe_register_single_post_meta( int $post_id ): void {
+		if ( $post_id <= 0 ) {
+			return;
+		}
+		if ( ! class_exists( \BuddyNext\Feed\SinglePostMeta::class ) ) {
+			return;
+		}
+
+		$post = ( new \BuddyNext\Feed\PostService() )->get( $post_id );
+		if ( null === $post ) {
+			return;
+		}
+
+		$viewer_id = get_current_user_id();
+		$author_id = (int) ( $post['user_id'] ?? 0 );
+
+		// Status gate: only published posts get OG previews (drafts and
+		// archived rows shouldn't deep-link into chat clients).
+		if ( isset( $post['status'] ) && 'published' !== $post['status'] && $viewer_id !== $author_id ) {
+			return;
+		}
+
+		// Block gate (bidirectional).
+		if ( $viewer_id > 0 && $author_id > 0 && $viewer_id !== $author_id ) {
+			$blocks = function_exists( 'buddynext_service' )
+				? buddynext_service( 'blocks' )
+				: new \BuddyNext\SocialGraph\BlockService();
+			if ( $blocks->is_blocking_either( $viewer_id, $author_id ) ) {
+				return;
+			}
+		}
+
+		// Secret-space gate.
+		$space_id = (int) ( $post['space_id'] ?? 0 );
+		if ( $space_id > 0 ) {
+			$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+			if ( null !== $space && 'secret' === ( $space['type'] ?? '' ) ) {
+				$is_member = $viewer_id > 0 && ( new \BuddyNext\Spaces\SpaceMemberService() )->is_member( $space_id, $viewer_id );
+				if ( ! $is_member && ! user_can( $viewer_id, 'manage_options' ) ) {
+					return;
+				}
+			}
+		}
+
+		// Followers-only gate.
+		if ( 'followers' === ( $post['privacy'] ?? '' ) && $author_id !== $viewer_id ) {
+			$follows     = function_exists( 'buddynext_service' )
+				? buddynext_service( 'follows' )
+				: new \BuddyNext\SocialGraph\FollowService();
+			$is_follower = $viewer_id > 0 && $follows->is_following( $viewer_id, $author_id );
+			if ( ! $is_follower ) {
+				return;
+			}
+		}
+
+		// Private gate.
+		if ( 'private' === ( $post['privacy'] ?? '' ) && $author_id !== $viewer_id ) {
+			return;
+		}
+
+		// Author suspension / shadow-ban gate (admins + the author see through).
+		if ( $author_id > 0 && $author_id !== $viewer_id && ! user_can( $viewer_id, 'manage_options' ) ) {
+			$author_suspended = (bool) get_user_meta( $author_id, 'bn_suspended', true );
+			$author_shadow    = (bool) get_user_meta( $author_id, 'bn_shadow_banned', true );
+			if ( $author_suspended || $author_shadow ) {
+				return;
+			}
+		}
+
+		\BuddyNext\Feed\SinglePostMeta::emit_for_post( $post );
 	}
 
 	/**
