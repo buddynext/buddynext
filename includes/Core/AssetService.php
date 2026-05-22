@@ -295,6 +295,7 @@ class AssetService {
 			'@buddynext/connections',
 			'@buddynext/moderation',
 			'@buddynext/space-members',
+			'@buddynext/profile',
 		);
 
 		foreach ( $feature_modules as $id => $path ) {

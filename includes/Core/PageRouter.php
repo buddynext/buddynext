@@ -147,7 +147,7 @@ class PageRouter {
 		status_header( 200 );
 
 		// Set the document <title> via the standard wp_title parts filter.
-		$hub_titles   = array(
+		$hub_titles = array(
 			'feed'          => __( 'Activity Feed', 'buddynext' ),
 			'people'        => __( 'Members', 'buddynext' ),
 			'spaces'        => __( 'Spaces', 'buddynext' ),
@@ -156,7 +156,26 @@ class PageRouter {
 			'auth'          => __( 'Login', 'buddynext' ),
 			'onboarding'    => __( 'Get Started', 'buddynext' ),
 		);
-		$hub_title    = $hub_titles[ $hub ] ?? ucfirst( $hub );
+		$hub_title  = $hub_titles[ $hub ] ?? ucfirst( $hub );
+
+		// Specialise the title when the template gives us a richer label,
+		// e.g. "Edit Profile : Varun" instead of the bare hub fallback.
+		if ( 'people' === $hub && ! empty( $context['user_id'] ) ) {
+			$profile_user_id = (int) $context['user_id'];
+			$profile_userobj = get_userdata( $profile_user_id );
+			$profile_name    = $profile_userobj ? $profile_userobj->display_name : '';
+
+			if ( 'profile/edit.php' === $template ) {
+				$hub_title = '' !== $profile_name
+					? sprintf( /* translators: %s: member display name */ __( 'Edit Profile · %s', 'buddynext' ), $profile_name )
+					: __( 'Edit Profile', 'buddynext' );
+			} elseif ( 'profile/view.php' === $template ) {
+				$hub_title = '' !== $profile_name
+					? sprintf( /* translators: %s: member display name */ __( '%s · Profile', 'buddynext' ), $profile_name )
+					: __( 'Profile', 'buddynext' );
+			}
+		}
+
 		$title_frozen = $hub_title;
 		add_filter(
 			'document_title_parts',
