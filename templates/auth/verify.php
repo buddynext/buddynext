@@ -7,6 +7,10 @@
  *   error   — ?bn_verified=0 (token invalid or expired).
  *   pending — default (logged-in unverified user waiting on inbox click).
  *
+ * Email-change flow piggybacks on the same template:
+ *   ?bn_email_changed=1 — confirmation token swapped the address.
+ *   ?bn_email_changed=0 — confirmation token was stale or already used.
+ *
  * Optional ?email=foo@bar query arg is shown in the pending state to
  * confirm which inbox we sent the link to. Resend + request-new-link
  * actions live in the buddynext/auth-verify Interactivity store.
@@ -24,10 +28,18 @@ $bn_verify_current_user = get_current_user_id();
 // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_verified_param = isset( $_GET['bn_verified'] ) ? sanitize_key( $_GET['bn_verified'] ) : '';
 // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_email_changed_param = isset( $_GET['bn_email_changed'] ) ? sanitize_key( $_GET['bn_email_changed'] ) : '';
+// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_email_hint = isset( $_GET['email'] ) ? sanitize_email( wp_unslash( (string) $_GET['email'] ) ) : '';
 
 // Resolve state.
-if ( '1' === $bn_verified_param ) {
+// Email-change confirmations take precedence — they only fire on click of a
+// token-bearing link, so the bn_email_changed param is always meaningful.
+if ( '1' === $bn_email_changed_param ) {
+	$bn_verify_state = 'email_changed';
+} elseif ( '0' === $bn_email_changed_param ) {
+	$bn_verify_state = 'email_change_failed';
+} elseif ( '1' === $bn_verified_param ) {
 	$bn_verify_state = 'success';
 } elseif ( '0' === $bn_verified_param ) {
 	$bn_verify_state = 'error';
@@ -90,7 +102,54 @@ wp_enqueue_style( 'bn-auth' );
 >
 	<div class="bn-verify-card">
 
-		<?php if ( 'success' === $bn_verify_state ) : ?>
+		<?php if ( 'email_changed' === $bn_verify_state ) : ?>
+
+			<div class="bn-verify-body">
+				<div class="bn-verify-icon" data-tone="success" aria-hidden="true">
+					<?php buddynext_icon( 'check-circle' ); ?>
+				</div>
+				<div class="bn-verify-badge-row">
+					<span class="bn-badge" data-tone="success">
+						<?php esc_html_e( 'Address updated', 'buddynext' ); ?>
+					</span>
+				</div>
+				<h1 class="bn-auth-title"><?php esc_html_e( 'Your new email is active', 'buddynext' ); ?></h1>
+				<p class="bn-auth-sub">
+					<?php esc_html_e( 'Future notifications and sign-in flows will use your updated address.', 'buddynext' ); ?>
+				</p>
+				<div class="bn-verify-actions">
+					<a class="bn-btn" data-variant="primary" data-size="lg"
+						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::activity_url() ); ?>">
+						<?php esc_html_e( 'Back to feed', 'buddynext' ); ?>
+						<?php buddynext_icon( 'arrow-right' ); ?>
+					</a>
+				</div>
+			</div>
+
+		<?php elseif ( 'email_change_failed' === $bn_verify_state ) : ?>
+
+			<div class="bn-verify-body">
+				<div class="bn-verify-icon" data-tone="danger" aria-hidden="true">
+					<?php buddynext_icon( 'alert-triangle' ); ?>
+				</div>
+				<div class="bn-verify-badge-row">
+					<span class="bn-badge" data-tone="danger">
+						<?php esc_html_e( 'Link expired', 'buddynext' ); ?>
+					</span>
+				</div>
+				<h1 class="bn-auth-title"><?php esc_html_e( 'We could not confirm the email change', 'buddynext' ); ?></h1>
+				<p class="bn-auth-sub">
+					<?php esc_html_e( 'Email-change links expire after 24 hours. Request a fresh confirmation from your profile settings.', 'buddynext' ); ?>
+				</p>
+				<div class="bn-verify-actions">
+					<a class="bn-btn" data-variant="primary" data-size="lg"
+						href="<?php echo esc_url( home_url( '/members/' . wp_get_current_user()->user_login . '/edit/' ) ); ?>">
+						<?php esc_html_e( 'Open profile settings', 'buddynext' ); ?>
+					</a>
+				</div>
+			</div>
+
+		<?php elseif ( 'success' === $bn_verify_state ) : ?>
 
 			<div class="bn-verify-body">
 				<div class="bn-verify-icon" data-tone="success" aria-hidden="true">

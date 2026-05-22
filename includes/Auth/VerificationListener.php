@@ -43,7 +43,9 @@ class VerificationListener implements ListenerInterface {
 	public function register(): void {
 		add_action( 'user_register', array( $this, 'on_user_register' ) );
 		add_action( 'init', array( $this, 'handle_verify_request' ) );
+		add_action( 'init', array( $this, 'handle_email_change_verify_request' ) );
 		add_action( 'buddynext_send_verification_email', array( $this, 'send_verification_email' ), 10, 2 );
+		add_action( 'buddynext_email_change_requested', array( $this, 'on_email_change_requested' ), 10, 2 );
 	}
 
 	/**
@@ -187,5 +189,125 @@ class VerificationListener implements ListenerInterface {
 			$subject,
 			$body
 		);
+	}
+
+	/**
+	 * Send a confirmation link to the candidate address when a user requests an
+	 * email change.
+	 *
+	 * Hooked to buddynext_email_change_requested (from AuthController). Uses a
+	 * transient-backed token so the email-change flow stays isolated from the
+	 * existing one-shot registration verification table.
+	 *
+	 * The confirmation link is sent to the CANDIDATE address, not the user's
+	 * current email, so the change cannot complete unless the new mailbox is
+	 * controlled by the requester.
+	 *
+	 * @param int    $user_id   Account requesting the change.
+	 * @param string $candidate Pending email address.
+	 */
+	public function on_email_change_requested( int $user_id, string $candidate ): void {
+		$user = get_userdata( $user_id );
+		if ( false === $user || '' === $candidate ) {
+			return;
+		}
+
+		$token = wp_generate_password( 32, false );
+
+		set_transient(
+			'bn_email_change_' . $token,
+			array(
+				'user_id'   => $user_id,
+				'candidate' => $candidate,
+			),
+			DAY_IN_SECONDS
+		);
+
+		$verify_url = add_query_arg( 'bn_verify_email', $token, home_url( '/' ) );
+
+		$display_name = '' !== $user->display_name ? $user->display_name : $user->user_login;
+		$site_name    = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+
+		$subject = sprintf(
+			/* translators: %s: site name */
+			__( 'Confirm your new email address on %s', 'buddynext' ),
+			$site_name
+		);
+
+		$body = sprintf(
+			/* translators: 1: display name, 2: site name, 3: confirmation URL */
+			__(
+				"Hi %1\$s,\n\nYou asked to change the email address on your %2\$s account to this inbox. Confirm the change by clicking the link below:\n\n%3\$s\n\nThis link expires in 24 hours. If you did not request the change, ignore this email and the address on your account stays the same.",
+				'buddynext'
+			),
+			$display_name,
+			$site_name,
+			esc_url_raw( $verify_url )
+		);
+
+		wp_mail( $candidate, $subject, $body );
+	}
+
+	/**
+	 * Handle ?bn_verify_email=TOKEN GET requests.
+	 *
+	 * Reads the matching transient, swaps user_email to the candidate when
+	 * valid, clears the bn_pending_email meta, then redirects to the
+	 * verify-email page with bn_email_changed=1 on success or bn_email_changed=0
+	 * on a stale / unknown token.
+	 */
+	public function handle_email_change_verify_request(): void {
+		if ( ! isset( $_GET['bn_verify_email'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
+		}
+
+		$token       = sanitize_text_field( wp_unslash( $_GET['bn_verify_email'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$transient   = '' === $token ? false : get_transient( 'bn_email_change_' . $token );
+		$verify_page = home_url( '/' . (string) get_option( 'buddynext_slug_verify', 'verify-email' ) . '/' );
+
+		if ( ! is_array( $transient ) || empty( $transient['user_id'] ) || empty( $transient['candidate'] ) ) {
+			wp_safe_redirect( add_query_arg( 'bn_email_changed', '0', $verify_page ) );
+			exit;
+		}
+
+		$user_id   = (int) $transient['user_id'];
+		$candidate = (string) $transient['candidate'];
+
+		// Last-line defence in case another account grabbed the address while
+		// the token was outstanding.
+		if ( email_exists( $candidate ) && (int) email_exists( $candidate ) !== $user_id ) {
+			delete_transient( 'bn_email_change_' . $token );
+			wp_safe_redirect( add_query_arg( 'bn_email_changed', '0', $verify_page ) );
+			exit;
+		}
+
+		$result = wp_update_user(
+			array(
+				'ID'         => $user_id,
+				'user_email' => $candidate,
+			)
+		);
+
+		delete_transient( 'bn_email_change_' . $token );
+		delete_user_meta( $user_id, 'bn_pending_email' );
+
+		if ( is_wp_error( $result ) ) {
+			wp_safe_redirect( add_query_arg( 'bn_email_changed', '0', $verify_page ) );
+			exit;
+		}
+
+		/**
+		 * Fires after a user's email address is swapped via the change-email
+		 * confirm-then-swap flow.
+		 *
+		 * @since 1.1.0
+		 *
+		 * @param int    $user_id   Account whose address changed.
+		 * @param string $new_email New address now stored on the account.
+		 */
+		do_action( 'buddynext_email_changed', $user_id, $candidate );
+
+		wp_safe_redirect( add_query_arg( 'bn_email_changed', '1', $verify_page ) );
+		exit;
 	}
 }

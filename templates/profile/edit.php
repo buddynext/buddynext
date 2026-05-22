@@ -133,7 +133,10 @@ if ( '' === $privacy_mention ) {
 }
 $privacy_show_in_directory = '0' !== (string) get_user_meta( $user_id, 'bn_privacy_show_in_directory', true );
 $privacy_search_indexable  = '0' !== (string) get_user_meta( $user_id, 'bn_privacy_search_indexable', true );
-$privacy_hide_views        = (bool) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true );
+// `bn_pro_hide_profile_views` is the canonical Pro-shared key (Pro P5.3 reads
+// it to opt the viewer out of the who-viewed-your-profile widget). Free can
+// save it too so the toggle stays consistent across plans.
+$privacy_hide_views = '1' === (string) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true );
 
 // Profile URL slug.
 $profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
@@ -188,23 +191,23 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
 		array(
-			'userId'        => $user_id,
-			'restNonce'     => $rest_nonce,
-			'saved'         => false,
-			'saving'        => false,
-			'isDirty'       => false,
-			'errors'        => (object) array(),
-			'interests'     => array_values( $interests ),
-			'profileSlug'   => $profile_slug,
-			'profileUrl'    => $profile_url,
-			'slugAvailable' => null,
-			'slugChecking'  => false,
-			'slugSaved'     => false,
-			'slugSaving'    => false,
-			'workEntries'   => array_values( $work_entries ),
-			'eduEntries'    => array_values( $edu_entries ),
-			'deleteOpen'    => false,
-			'deleteText'    => '',
+			'userId'                   => $user_id,
+			'restNonce'                => $rest_nonce,
+			'saved'                    => false,
+			'saving'                   => false,
+			'isDirty'                  => false,
+			'errors'                   => (object) array(),
+			'interests'                => array_values( $interests ),
+			'profileSlug'              => $profile_slug,
+			'profileUrl'               => $profile_url,
+			'slugAvailable'            => null,
+			'slugChecking'             => false,
+			'slugSaved'                => false,
+			'slugSaving'               => false,
+			'workEntries'              => array_values( $work_entries ),
+			'eduEntries'               => array_values( $edu_entries ),
+			'deleteOpen'               => false,
+			'deleteText'               => '',
 			'emailChangeOpen'          => false,
 			'emailChangeSubmitting'    => false,
 			'passwordChangeOpen'       => false,
