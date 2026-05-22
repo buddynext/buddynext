@@ -257,7 +257,8 @@ if ( $is_member ) {
 
 // Members and moderation tabs require fetched data when active.
 $bn_full_members = array();
-if ( 'members' === ( $_GET['bn_tab'] ?? 'feed' ) && ! $gate_feed ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_tab_lookup   = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : 'feed'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+if ( 'members' === $bn_tab_lookup && ! $gate_feed ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	$bn_full_members = $wpdb->get_results(
 		$wpdb->prepare(
@@ -792,7 +793,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 							$bn_fm_profile = function_exists( 'buddynext_member_url' )
 								? buddynext_member_url( $bn_fm_uid )
 								: get_author_posts_url( $bn_fm_uid );
-							?>
+	?>
 							<li class="bn-sh-members__card" role="listitem">
 								<a href="<?php echo esc_url( $bn_fm_profile ); ?>" class="bn-sh-members__avatar-link">
 									<span class="bn-avatar" data-size="md" aria-hidden="true">
