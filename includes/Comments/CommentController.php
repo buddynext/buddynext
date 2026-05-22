@@ -7,6 +7,8 @@
  *   GET    /comments                — list comments for an object (public)
  *   PUT    /comments/{id}           — update a comment (owner or admin)
  *   DELETE /comments/{id}           — delete a comment (owner or admin)
+ *   POST   /comments/{id}/pin       — pin a comment (moderator only)
+ *   DELETE /comments/{id}/pin       — unpin a comment (moderator only)
  *
  * @package BuddyNext\Comments
  */
@@ -16,6 +18,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Comments;
 
 use BuddyNext\Comments\CommentService;
+use BuddyNext\Reactions\ReactionService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -125,6 +128,37 @@ class CommentController {
 				),
 			)
 		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/comments/(?P<id>[\d]+)/pin',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( $this, 'pin' ),
+					'permission_callback' => array( $this, 'require_moderator' ),
+					'args'                => array(
+						'id' => array(
+							'required' => true,
+							'type'     => 'integer',
+							'minimum'  => 1,
+						),
+					),
+				),
+				array(
+					'methods'             => WP_REST_Server::DELETABLE,
+					'callback'            => array( $this, 'unpin' ),
+					'permission_callback' => array( $this, 'require_moderator' ),
+					'args'                => array(
+						'id' => array(
+							'required' => true,
+							'type'     => 'integer',
+							'minimum'  => 1,
+						),
+					),
+				),
+			)
+		);
 	}
 
 	/**
@@ -148,7 +182,23 @@ class CommentController {
 			return $result;
 		}
 
-		return new WP_REST_Response( $service->get( $result ), 201 );
+		$created = $service->get( $result );
+		if ( null === $created ) {
+			return new WP_Error( 'create_failed', __( 'Comment could not be retrieved after creation.', 'buddynext' ), array( 'status' => 500 ) );
+		}
+
+		// Match the shape returned by list_comments() so the JS can drop the
+		// new comment node into the tree without a second round-trip.
+		$created['author_name']       = (string) get_the_author_meta( 'display_name', $created['user_id'] );
+		$created['author_avatar_url'] = (string) get_avatar_url( $created['user_id'], array( 'size' => 40 ) );
+		$created['like_count']        = 0;
+		$created['viewer_liked']      = false;
+		$created['can_edit']          = true;
+		$created['can_delete']        = true;
+		$created['can_pin']           = user_can( $user_id, 'manage_options' );
+		$created['replies']           = array();
+
+		return new WP_REST_Response( $created, 201 );
 	}
 
 	/**
@@ -173,10 +223,25 @@ class CommentController {
 			)
 		);
 
-		// Enrich each comment with author display name and avatar URL.
-		$enrich = function ( array $comment ): array {
+		$reactions = new ReactionService();
+		$viewer_id = get_current_user_id();
+
+		// Enrich each comment with author display name, avatar URL, like
+		// metadata, and viewer permissions. Like fields drive the heart
+		// toggle in the threaded UI; can_edit / can_delete / can_pin let
+		// the JS decide which action buttons to render without re-hitting
+		// the server on every paint.
+		$enrich = function ( array $comment ) use ( $reactions, $viewer_id ): array {
 			$comment['author_name']       = (string) get_the_author_meta( 'display_name', $comment['user_id'] );
 			$comment['author_avatar_url'] = (string) get_avatar_url( $comment['user_id'], array( 'size' => 40 ) );
+			$comment['like_count']        = $reactions->count( 'comment', (int) $comment['id'] );
+			$comment['viewer_liked']      = $viewer_id > 0
+				? $reactions->has_reacted( $viewer_id, 'comment', (int) $comment['id'] )
+				: false;
+			$comment['can_edit']          = $viewer_id > 0
+				&& ( (int) $comment['user_id'] === $viewer_id || user_can( $viewer_id, 'manage_options' ) );
+			$comment['can_delete']        = $comment['can_edit'];
+			$comment['can_pin']           = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
 			return $comment;
 		};
 
@@ -210,7 +275,21 @@ class CommentController {
 			return $result;
 		}
 
-		return new WP_REST_Response( $service->get( $comment_id ), 200 );
+		$updated = $service->get( $comment_id );
+		if ( null === $updated ) {
+			return new WP_Error( 'update_failed', __( 'Comment could not be retrieved after update.', 'buddynext' ), array( 'status' => 500 ) );
+		}
+
+		$reactions                    = new ReactionService();
+		$updated['author_name']       = (string) get_the_author_meta( 'display_name', $updated['user_id'] );
+		$updated['author_avatar_url'] = (string) get_avatar_url( $updated['user_id'], array( 'size' => 40 ) );
+		$updated['like_count']        = $reactions->count( 'comment', $comment_id );
+		$updated['viewer_liked']      = $user_id > 0 && $reactions->has_reacted( $user_id, 'comment', $comment_id );
+		$updated['can_edit']          = true;
+		$updated['can_delete']        = true;
+		$updated['can_pin']           = user_can( $user_id, 'manage_options' );
+
+		return new WP_REST_Response( $updated, 200 );
 	}
 
 	/**
@@ -234,6 +313,51 @@ class CommentController {
 	}
 
 	/**
+	 * Pin a comment.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function pin( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$service    = new CommentService();
+		$comment_id = (int) $request->get_param( 'id' );
+		$user_id    = get_current_user_id();
+
+		$result = $service->pin( $comment_id, $user_id );
+
+		if ( ! $result ) {
+			return new WP_Error( 'rest_forbidden', __( 'You cannot pin this comment.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		return new WP_REST_Response( array( 'pinned' => true ), 200 );
+	}
+
+	/**
+	 * Unpin the pinned comment on a comment's parent object.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function unpin( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$service    = new CommentService();
+		$comment_id = (int) $request->get_param( 'id' );
+		$user_id    = get_current_user_id();
+
+		$comment = $service->get( $comment_id );
+		if ( null === $comment ) {
+			return new WP_Error( 'not_found', __( 'Comment not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$result = $service->unpin( (string) $comment['object_type'], (int) $comment['object_id'], $user_id );
+
+		if ( ! $result ) {
+			return new WP_Error( 'rest_forbidden', __( 'You cannot unpin this comment.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		return new WP_REST_Response( array( 'pinned' => false ), 200 );
+	}
+
+	/**
 	 * Require the user to be logged in.
 	 *
 	 * @return bool|WP_Error
@@ -241,6 +365,25 @@ class CommentController {
 	public function require_auth(): bool|WP_Error {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
+		}
+		return true;
+	}
+
+	/**
+	 * Require the user to have moderator (manage_options) capability.
+	 *
+	 * Pinning a comment is a moderator action that surfaces a single comment
+	 * above the chronological list. CommentService::pin() also enforces this,
+	 * but rejecting at the route level prevents leaking 200/400 ambiguity.
+	 *
+	 * @return bool|WP_Error
+	 */
+	public function require_moderator(): bool|WP_Error {
+		if ( ! is_user_logged_in() ) {
+			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return new WP_Error( 'rest_forbidden', __( 'You do not have permission to perform this action.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 		return true;
 	}

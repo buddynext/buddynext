@@ -1217,6 +1217,112 @@
 	.bn-comment--reply { margin-inline-start: var(--bn-s4); }
 }
 
+/* ── Threaded comments (wave 2) ────────────────────────────────────────────
+ * .bn-comment-card is the wave-2 node built by buildCommentNode in
+ * store.js. It supersedes .bn-comment for new code paths but inherits
+ * most styles. Depth is exposed via data-depth so indentation can be
+ * computed without spawning N classes.
+ */
+.bn-comment-card {
+	display: flex;
+	gap: var(--bn-s3);
+}
+
+.bn-comment-card[data-depth="1"] {
+	margin-inline-start: var(--bn-comment-indent, 32px);
+}
+
+.bn-comment-card[data-depth="2"] {
+	margin-inline-start: calc(var(--bn-comment-indent, 32px) * 2);
+}
+
+.bn-comment-card--pinned {
+	background: var(--bn-sunken);
+	border-radius: var(--bn-r-md);
+	padding: var(--bn-s2);
+}
+
+.bn-comment-card--deleted .bn-comment__content {
+	color: var(--bn-ink-3);
+	font-style: italic;
+}
+
+.bn-comment__pinned-badge {
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	color: var(--bn-accent);
+	background: var(--bn-accent-soft, rgba(0, 0, 0, 0.05));
+	padding: 0 var(--bn-s2);
+	border-radius: var(--bn-r-sm);
+}
+
+.bn-comment__edited {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	font-style: italic;
+}
+
+.bn-comment__like-btn,
+.bn-comment__edit-btn,
+.bn-comment__pin-btn,
+.bn-comment__report-btn {
+	background: transparent;
+	border: 0;
+	padding: 0;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+	font-weight: 500;
+	min-height: var(--bn-tap, 40px);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+}
+
+.bn-comment__like-btn:hover { color: var(--bn-danger); }
+.bn-comment__edit-btn:hover { color: var(--bn-accent); }
+.bn-comment__pin-btn:hover { color: var(--bn-accent); }
+.bn-comment__report-btn:hover { color: var(--bn-danger); }
+
+.bn-comment__like-btn[data-liked="1"] {
+	color: var(--bn-danger);
+}
+
+.bn-comment__like-icon {
+	font-size: var(--bn-text-base);
+	line-height: 1;
+}
+
+.bn-comment__edit-form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+	margin-block-end: var(--bn-s2);
+}
+
+.bn-comment__edit-form .bn-comment-form__submit {
+	align-self: flex-start;
+	width: auto;
+	height: auto;
+	min-height: var(--bn-tap, 40px);
+	border-radius: var(--bn-r-md);
+	padding: var(--bn-s1) var(--bn-s3);
+}
+
+/* Threaded comments — mobile collapse */
+@media (max-width: 480px) {
+	.bn-comment-card[data-depth="1"],
+	.bn-comment-card[data-depth="2"] {
+		/* Flatten deeper threads at mobile: only 16px indent at depth 1,
+		   no further indent for depth 2 to avoid horizontal scroll. */
+		margin-inline-start: 16px;
+	}
+	.bn-comment__actions {
+		flex-wrap: wrap;
+		gap: var(--bn-s2);
+	}
+}
+
 /* ── Shared-post embed (v2 .post-card__shared blockquote) ──────────────────── */
 .bn-post-card__shared,
 .bn-post-card__shared-embed {
