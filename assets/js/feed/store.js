@@ -1,6 +1,6 @@
 /* BuddyNext — Feed Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnConfirm, bnPrompt } from '../shell/dialog.js';
+import { bnConfirm, bnPrompt, bnToast } from '../shell/dialog.js';
 
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
@@ -96,6 +96,42 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, isRep
 			}
 		} );
 		actions.appendChild( delBtn );
+	}
+
+	// Report — visible for non-owner comments so members can flag abuse.
+	if ( ! canDelete && parseInt( comment.user_id, 10 ) !== currentUserId ) {
+		const reportBtn = document.createElement( 'button' );
+		reportBtn.type = 'button';
+		reportBtn.className = 'bn-comment__report-btn';
+		reportBtn.setAttribute( 'aria-label', 'Report this comment' );
+		reportBtn.textContent = 'Report';
+		reportBtn.addEventListener( 'click', async () => {
+			const reason = await bnPrompt( {
+				title: 'Report this comment',
+				body: 'Reports are reviewed by moderators. The person you report is not notified.',
+				placeholder: 'Tell us why this comment is being reported (optional)',
+				confirmLabel: 'Submit report',
+				cancelLabel: 'Cancel',
+			} );
+			if ( reason === null ) {
+				return;
+			}
+			try {
+				const res = await fetch( restUrl + '/reports', {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+					body:    JSON.stringify( { object_type: 'comment', object_id: comment.id, reason } ),
+				} );
+				if ( res.ok || res.status === 201 ) {
+					bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
+				} else {
+					bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
+			}
+		} );
+		actions.appendChild( reportBtn );
 	}
 
 	if ( ! isReply ) {
@@ -399,9 +435,9 @@ store( 'buddynext/post-card', {
 		* reportPost() {
 			const ctx    = getContext();
 			const reason = yield bnPrompt( {
-				title: 'Report content',
-				body: 'Tell us why this content is being reported. This is optional but helps moderators.',
-				placeholder: 'Why is this content being reported?',
+				title: 'Report this post',
+				body: 'Reports are reviewed by moderators. The person you report is not notified.',
+				placeholder: 'Tell us why this post is being reported (optional)',
 				confirmLabel: 'Submit report',
 				cancelLabel: 'Cancel',
 			} );
@@ -409,12 +445,19 @@ store( 'buddynext/post-card', {
 				return;
 			}
 			try {
-				yield fetch( ctx.restUrl + '/reports', {
+				const res = yield fetch( ctx.restUrl + '/reports', {
 					method:  'POST',
 					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.reportNonce },
 					body:    JSON.stringify( { object_type: 'post', object_id: ctx.postId, reason } ),
 				} );
-			} catch ( _e ) {}
+				if ( res.ok || res.status === 201 ) {
+					bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
+				} else {
+					bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
+			}
 		},
 		editPost() {
 			const ctx = getContext();

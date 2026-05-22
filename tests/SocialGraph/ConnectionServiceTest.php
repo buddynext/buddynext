@@ -169,6 +169,85 @@ class ConnectionServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( $this->bob, $captured[2] );
 	}
 
+	/**
+	 * Full 5-state transition: none → pending-sent → pending-received → accepted.
+	 *
+	 * @return void
+	 */
+	public function test_five_state_transition_none_to_pending_to_accepted(): void {
+		// none → pending-sent → pending-received (from peer's POV) → accepted.
+		$this->assertNull( $this->service->status( $this->alice, $this->bob ), 'starts in none' );
+
+		$this->assertTrue( $this->service->send_request( $this->alice, $this->bob ) );
+		$this->assertSame( 'pending', $this->service->status( $this->alice, $this->bob ) );
+		$sent = $this->service->pending_sent( $this->alice );
+		$this->assertContains( $this->bob, $sent, 'alice sees bob in pending-sent' );
+		$received = $this->service->pending_received( $this->bob );
+		$this->assertContains( $this->alice, $received, 'bob sees alice in pending-received' );
+
+		$this->assertTrue( $this->service->accept_request( $this->bob, $this->alice ) );
+		$this->assertSame( 'accepted', $this->service->status( $this->alice, $this->bob ) );
+		$this->assertTrue( $this->service->are_connected( $this->alice, $this->bob ) );
+	}
+
+	/**
+	 * Pending-sent withdrawn resets back to the none state cleanly.
+	 *
+	 * @return void
+	 */
+	public function test_five_state_transition_pending_sent_to_withdrawn_resets_to_none(): void {
+		$this->service->send_request( $this->alice, $this->bob );
+		$this->assertSame( 'pending', $this->service->status( $this->alice, $this->bob ) );
+
+		$this->service->withdraw_request( $this->alice, $this->bob );
+
+		// Withdraw cleans the row entirely so the relationship resets to none.
+		$this->assertNull( $this->service->status( $this->alice, $this->bob ) );
+		$this->assertNotContains( $this->bob, $this->service->pending_sent( $this->alice ) );
+	}
+
+	/**
+	 * Pending-received declined transitions to declined state.
+	 *
+	 * @return void
+	 */
+	public function test_five_state_transition_pending_received_to_declined(): void {
+		$this->service->send_request( $this->alice, $this->bob );
+		$this->service->decline_request( $this->bob, $this->alice );
+
+		$this->assertSame( 'declined', $this->service->status( $this->alice, $this->bob ) );
+		$this->assertFalse( $this->service->are_connected( $this->alice, $this->bob ) );
+	}
+
+	/**
+	 * Accepted connection removed via remove_connection() returns to none.
+	 *
+	 * @return void
+	 */
+	public function test_five_state_transition_accepted_to_disconnected(): void {
+		$this->service->send_request( $this->alice, $this->bob );
+		$this->service->accept_request( $this->bob, $this->alice );
+		$this->assertSame( 'accepted', $this->service->status( $this->alice, $this->bob ) );
+
+		$this->service->remove_connection( $this->alice, $this->bob );
+
+		$this->assertNull( $this->service->status( $this->alice, $this->bob ) );
+		$this->assertFalse( $this->service->are_connected( $this->alice, $this->bob ) );
+	}
+
+	/**
+	 * Accept must be invoked by the actual recipient.
+	 *
+	 * @return void
+	 */
+	public function test_cannot_accept_a_request_that_was_not_sent_to_you(): void {
+		$this->service->send_request( $this->alice, $this->bob );
+		// Carol tries to accept a request that wasn't sent to her.
+		$result = $this->service->accept_request( $this->carol, $this->alice );
+
+		$this->assertWPError( $result );
+	}
+
 	public function test_accept_fires_buddynext_connection_accepted_with_connection_id(): void {
 		$captured = null;
 		add_action(

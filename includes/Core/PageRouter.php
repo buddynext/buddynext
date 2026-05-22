@@ -290,6 +290,10 @@ class PageRouter {
 		wp_enqueue_script( 'bn-shell-font-scale' );
 		wp_enqueue_script( 'bn-shell-extras' );
 
+		// Social-buttons store powers the standalone Follow + Connect partials
+		// (sidebar widgets, block-rendered buttons, etc.) on every BN hub.
+		wp_enqueue_script_module( '@buddynext/social-buttons' );
+
 		// Localize REST endpoints + nav URLs for shell/extras.js.
 		wp_localize_script(
 			'bn-shell-extras',

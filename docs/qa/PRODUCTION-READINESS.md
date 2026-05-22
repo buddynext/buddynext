@@ -14,7 +14,7 @@
 | 1 | Activity home (`/activity/`) | prod | Composer ships Image / Poll / Event / Voice / AI helper + chip privacy popover (Public / Followers / Only me). Filter tabs (For you / Following / Spaces / Network) wired to `FeedService::home_feed( …, $filter )` + `/feed/counts`. Post card gains Share button → Repost / Quote / Copy-link modal. Sidebar widgets gain per-row Follow chip, This-week caption, unread-space dot, empty states |
 | 2 | Activity explore (`/activity/explore/`) | prod | Composer + filter strip + Share modal + sidebar polish shared with Home via the same partials and stores; skeleton + inline error states ship for both surfaces |
 | 3 | Hashtag feed (`/activity/hashtag/wordpress/`) | prod-ish | Strong layout (hero stats, sort tabs, related tags sidebar). Follow button wired. Minor: "Following" appears as a sort option which reads ambiguous next to Latest/Top |
-| 4 | Member directory (`/members/`) | gaps | Filter form uses Apply submit not reactive store; no member-type pills row above grid; Follow/Connect work but no toast on success |
+| 4 | Member directory (`/members/`) | prod | Apply button dropped — filter bar is reactive (250 ms debounced search, instant sort + relation tab + member-type pill switches). Member-type pill row above the grid wired to `MemberTypeService::list_public()`. Skeleton / empty / error / retry states all ship. Per-card Follow + Connect run through `assets/js/members/store.js` with optimistic UI, REST `/members/{id}/follow|connect`, rollback + `bnToast` on success/failure. Per-card kebab surfaces Mute / Block / Report wired to the shared modal partials. Page title renders as `Members · {site}` via `document_title_parts`. New REST `GET /buddynext/v1/members` powers reactive re-renders. |
 | 5 | Member profile view (`/members/varundubey/`) | prod | Title now "Display Name · Profile" via PageRouter override; hero renders Headline, Location, Website (rel=nofollow ugc), Pronouns, Bio plus brand-coloured Social Link chips; inline Work Experience + Education timeline cards and Community Interests tag cloud render below the hero when populated; non-owner view ships Follow / Connect / Message + More-options menu wired to Mute / Block / Report with toast feedback. |
 | 6 | Profile edit (`/members/varundubey/edit/`) | prod | All sections wrapped in a single `<form data-wp-on--submit=actions.saveProfile>`; sticky save bar carries master Save with dirty / saving / saved status pills; display_name is required and shows inline error on blur; website + social URLs validated client + server side with field-level 422 errors and toast on save; beforeunload guard fires when dirty; page title now "Edit Profile · Display Name". |
 | 7 | Spaces directory (`/spaces/`) | gaps | Filter form has Apply button (form-submit, not reactive); type filter has only Public/Private chips (no Secret); sort dropdown not styled to v2; no Create-space modal (links to `?bn_action=create` slug instead) |
@@ -145,21 +145,23 @@ Edit profile has 25 fields (Location, Website, Pronouns, Bio, Social Links, Work
 
 **Fix:** `templates/profile/view.php` must render the populated fields below the hero — Location row, Website link, Social Link chips, Work/Education timeline, Community Interests tag cloud.
 
-### F8 Profile actions menu (Social Graph task #33)
+### F8 Profile actions menu (Social Graph task #33) — CLOSED
 
 On a profile that's NOT your own, the wireframe expects: Follow / Message / Connect / More-options menu (Mute / Block / Report).
 
-On my own profile we see "Edit profile" CTA — correct. Need to walk another user's profile (`/members/member1/`) to confirm the actions render for them. Probably broken in the same way the v0.2 audit found.
+Resolved in the 2026-05-21 profile production sweep: profile view ships Follow / Message / Connect + More-options menu wired to Mute / Block / Report with toast feedback and rollback (see PR #35).
 
-**Test journey to add:** anon walks /members/member1/ when logged-in-as varundubey. Affordances: Follow button, Message button, Connect button, More menu with Mute/Block/Report.
+The same kebab affordance now also renders on every member card in the directory (`templates/directory/members.php`), so Mute / Block / Report are reachable from the listing as well as from the profile detail page.
 
-### F9 Member directory member-type pills (Hashtags/Search task #37)
+### F9 Member directory member-type pills (Hashtags/Search task #37) — CLOSED
 
-`memberTypePills: []` — the directory has NO pill row above the grid even though `bn_member_types` table is populated. Member-type filtering via `/members/{type-slug}/` is wired in PageRouter but the pill row that should let users click into it is missing.
+Resolved in this sweep. `templates/directory/members.php` now renders a `.bn-md-pill-row` block above the grid, fed by every public type returned by `buddynext_service( 'member_types' )->get_all()`. Each pill is a reactive button — clicking re-fetches the directory through `GET /buddynext/v1/members?member_type={slug}` and updates the browser URL via `history.replaceState`. The `All members` pill resets the filter. Active pill is reflected in CSS via `.is-active` + `aria-pressed="true"`.
 
-**Files:**
-- `templates/directory/members.php` — render `.bn-pill-row` reading from `MemberTypeService::list_public()`.
-- Each pill links to `PageRouter::member_type_url( $slug )`.
+Files touched:
+- `templates/directory/members.php` — pill row + reactive filter.
+- `assets/js/members/store.js` — `selectMemberType()` action + URL sync.
+- `assets/css/bn-members.css` — `.bn-md-pill-row` + `.bn-md-pill` styles.
+- `includes/Profile/MemberDirectoryController.php` — REST `GET /members?member_type=` filter pass.
 
 ### F10 Spaces directory filter form (Spaces task #34)
 

@@ -23,6 +23,7 @@ use BuddyNext\Feed\FeedController;
 use BuddyNext\SocialGraph\FollowController;
 use BuddyNext\Feed\PollController;
 use BuddyNext\Feed\PostController;
+use BuddyNext\Profile\MemberDirectoryController;
 use BuddyNext\Profile\ProfileController;
 use BuddyNext\Search\SearchController;
 use BuddyNext\Feed\ShareController;
@@ -66,6 +67,7 @@ class Router {
 		( new BookmarkController() )->register_routes();
 		( new ShareController() )->register_routes();
 		( new ProfileController() )->register_routes();
+		( new MemberDirectoryController() )->register_routes();
 		( new SearchController() )->register_routes();
 		( new SpaceCategoryController() )->register_routes();
 		( new SpaceController() )->register_routes();
