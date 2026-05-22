@@ -125,9 +125,9 @@ class BookmarkController {
 	 * @return WP_REST_Response
 	 */
 	public function get_bookmarks( WP_REST_Request $request ): WP_REST_Response {
-		$user_id     = get_current_user_id();
-		$expand      = (string) ( $request->get_param( 'expand' ) ?? '' );
-		$all_ids     = ( new BookmarkService() )->user_bookmarks( $user_id );
+		$user_id = get_current_user_id();
+		$expand  = (string) ( $request->get_param( 'expand' ) ?? '' );
+		$all_ids = ( new BookmarkService() )->user_bookmarks( $user_id );
 
 		if ( 'posts' !== $expand ) {
 			return new WP_REST_Response( array( 'ids' => $all_ids ), 200 );

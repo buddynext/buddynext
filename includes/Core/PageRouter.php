@@ -187,7 +187,7 @@ class PageRouter {
 			'onboarding'    => __( 'Get Started', 'buddynext' ),
 		);
 
-		$hub_title  = $hub_titles[ $hub ] ?? ucfirst( $hub );
+		$hub_title = $hub_titles[ $hub ] ?? ucfirst( $hub );
 
 		// Bookmarks hub: override the bare "Activity Feed" title with a
 		// dedicated label so the document <title> reads "Bookmarks · BuddyNext".
@@ -400,10 +400,10 @@ class PageRouter {
 					'bn-shell-extras',
 					'window.bnSpaces = window.bnSpaces || ' . wp_json_encode(
 						array(
-							'spaceUrlBase'  => esc_url_raw( self::spaces_url() . '__slug__/' ),
-							'directoryUrl'  => esc_url_raw( self::spaces_url() ),
-							'restNonce'     => wp_create_nonce( 'wp_rest' ),
-							'restUrl'       => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+							'spaceUrlBase' => esc_url_raw( self::spaces_url() . '__slug__/' ),
+							'directoryUrl' => esc_url_raw( self::spaces_url() ),
+							'restNonce'    => wp_create_nonce( 'wp_rest' ),
+							'restUrl'      => esc_url_raw( rest_url( 'buddynext/v1' ) ),
 						)
 					) . ';',
 					'before'
