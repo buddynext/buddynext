@@ -6,7 +6,7 @@
 
 Enterprise-grade social community platform for WordPress (free + pro). Owned by Wbcom Designs.
 
-- **Site URL (local):** http://forums.local
+- **Site URL (local):** http://buddynext-dev.local
 - **Plugin path:** `wp-content/plugins/buddynext/`
 - **Namespace:** `BuddyNext\*` (free) / `BuddyNextPro\*` (pro)
 - **REST namespaces:** `buddynext/v1` (free) · `buddynext-pro/v1` (pro)
@@ -654,7 +654,7 @@ A phase is Done when ALL of:
 - [ ] All PHP files pass WPCS (`mcp__wpcs__wpcs_check_directory`)
 - [ ] PHPStan level 5 passes (`mcp__wpcs__wpcs_phpstan_check`)
 - [ ] All unit tests pass (`vendor/bin/phpunit`)
-- [ ] Templates match HTML mockups (verified in browser at `http://forums.local`)
+- [ ] Templates match HTML mockups (verified in browser at `http://buddynext-dev.local`)
 - [ ] Dark mode works on all new templates
 - [ ] Mobile layout works at 390px viewport
 - [ ] `wp rewrite flush` runs clean after activation

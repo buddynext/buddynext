@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- Local by Flywheel running and `forums.local` resolves on this machine.
-- BuddyNext Free (and optionally Pro) plugins active on `forums.local`.
+- Local by Flywheel running and `buddynext-dev.local` resolves on this machine.
+- BuddyNext Free (and optionally Pro) plugins active on `buddynext-dev.local`.
 - Node 20+ on `$PATH`.
 - A test user with login `varundubey` and password `password` (or override via env vars below).
 
@@ -51,7 +51,7 @@ The CLI also prints the list reporter inline as tests progress.
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `BN_BASE_URL` | WP site to test | `http://forums.local` |
+| `BN_BASE_URL` | WP site to test | `http://buddynext-dev.local` |
 | `BN_PRO` | Set to `1` to run Pro-only journeys | unset |
 | `BN_TEST_USER` | WP user login | `varundubey` |
 | `BN_TEST_PASS` | WP user password | `password` |
@@ -65,7 +65,7 @@ The CLI also prints the list reporter inline as tests progress.
 ## Triage tips
 
 - A failure with `wordpress_logged_in_*` mentioned in the assertion message means the auth fixture couldn't sign in  -  check `BN_TEST_USER` / `BN_TEST_PASS`.
-- A failure right after `await page.goto(urls.X)` typically means `forums.local` is down or the route slug is misconfigured in PageRouter.
+- A failure right after `await page.goto(urls.X)` typically means `buddynext-dev.local` is down or the route slug is misconfigured in PageRouter.
 - `test.fixme()` results show as `expected to fail` in the report  -  they do NOT count as failures.
 
 ## What's gated behind this suite

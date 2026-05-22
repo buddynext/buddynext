@@ -6,7 +6,7 @@ import { test as base, expect, type Page } from '@playwright/test';
  * Provides a `Page` that's already logged in as `varundubey`.
  *
  * Login strategy:
- *   1. Try `?autologin=1` (per CLAUDE.md: "http://forums.local?autologin=1
+ *   1. Try `?autologin=1` (per CLAUDE.md: "http://buddynext-dev.local?autologin=1
  *      is the test base URL"). If a `wordpress_logged_in_*` cookie shows up
  *      after that GET, we're done.
  *   2. Otherwise fall back to POST /wp-login.php with credentials from env

@@ -2,10 +2,10 @@
  * DB seeding helpers via WP-CLI.
  *
  * These are placeholder shapes for the seeding API. They will shell out to
- * `wp --path=<wp_root>` once we wire forums.local-aware paths. For now the
+ * `wp --path=<wp_root>` once we wire buddynext-dev.local-aware paths. For now the
  * functions exist so specs can import them and the type system stays happy.
  *
- * The WP root for forums.local is:
+ * The WP root for buddynext-dev.local is:
  *   /Users/varundubey/Local Sites/forums/app/public
  * (per CLAUDE.md). Override with BN_WP_PATH env var.
  *
