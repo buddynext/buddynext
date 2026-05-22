@@ -78,7 +78,7 @@ class PageRouter {
 	 */
 	public function maybe_flush_rewrites(): void {
 		$stored = (string) get_option( 'buddynext_router_version', '' );
-		if ( $stored === self::ROUTER_VERSION ) {
+		if ( self::ROUTER_VERSION === $stored ) {
 			return;
 		}
 		flush_rewrite_rules( false );
