@@ -531,6 +531,7 @@ if ( $is_own_profile ) {
 
 <div class="bn-pf-stack"
 	data-wp-interactive="buddynext/profile"
+	data-wp-init="callbacks.initView"
 	<?php
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
@@ -796,22 +797,29 @@ if ( $is_own_profile ) {
 
 		<!-- Stats strip -->
 		<div class="bn-pf-stats">
-			<div class="bn-pf-stat">
+			<button type="button"
+				class="bn-pf-stat bn-pf-stat--link"
+				data-wp-on--click="actions.setTab"
+				data-tab="posts"
+				aria-label="<?php esc_attr_e( 'Show posts', 'buddynext' ); ?>">
 				<div class="bn-pf-stat__value"><?php echo esc_html( $format_count( $post_count ) ); ?></div>
 				<div class="bn-pf-stat__label"><?php esc_html_e( 'Posts', 'buddynext' ); ?></div>
-			</div>
-			<div class="bn-pf-stat">
+			</button>
+			<a class="bn-pf-stat bn-pf-stat--link"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::followers_url( (int) $user_id ) ); ?>">
 				<div class="bn-pf-stat__value" data-wp-text="context.followerCount"><?php echo esc_html( $format_count( $follower_count ) ); ?></div>
 				<div class="bn-pf-stat__label"><?php esc_html_e( 'Followers', 'buddynext' ); ?></div>
-			</div>
-			<div class="bn-pf-stat">
+			</a>
+			<a class="bn-pf-stat bn-pf-stat--link"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::following_url( (int) $user_id ) ); ?>">
 				<div class="bn-pf-stat__value"><?php echo esc_html( $format_count( $following_count ) ); ?></div>
 				<div class="bn-pf-stat__label"><?php esc_html_e( 'Following', 'buddynext' ); ?></div>
-			</div>
-			<div class="bn-pf-stat">
+			</a>
+			<a class="bn-pf-stat bn-pf-stat--link"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::connections_url( (int) $user_id ) ); ?>">
 				<div class="bn-pf-stat__value"><?php echo esc_html( $format_count( $connection_count ) ); ?></div>
 				<div class="bn-pf-stat__label"><?php esc_html_e( 'Connections', 'buddynext' ); ?></div>
-			</div>
+			</a>
 			<?php
 			/**
 			 * Extra stat blocks injected by bridge plugins (e.g. Jetonomy discussion count,

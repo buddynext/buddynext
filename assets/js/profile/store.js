@@ -261,6 +261,45 @@ function syncDirtyAttr( dirty ) {
 	if ( wrap ) { wrap.dataset.bnDirty = dirty ? '1' : '0'; }
 }
 
+/* -- Tab URL sync ------------------------------------------------------- */
+
+var BN_VALID_TABS = [ 'posts', 'replies', 'media', 'likes', 'discussions' ];
+
+function applyTabId( tabId ) {
+	if ( ! tabId || BN_VALID_TABS.indexOf( tabId ) === -1 ) {
+		tabId = 'posts';
+	}
+	document.querySelectorAll( '.bn-pf-tabs .bn-tab' ).forEach( function ( t ) {
+		var isActive = t.dataset.tab === tabId;
+		t.classList.toggle( 'active', isActive );
+		t.setAttribute( 'aria-selected', isActive ? 'true' : 'false' );
+	} );
+	document.querySelectorAll( '[data-tab-panel]' ).forEach( function ( p ) {
+		p.hidden = p.dataset.tabPanel !== tabId;
+	} );
+	var postsContent = document.querySelector( '.bn-profile-posts-panel' );
+	if ( postsContent ) {
+		postsContent.hidden = tabId !== 'posts';
+	}
+}
+
+function pushTabToUrl( tabId ) {
+	if ( ! window.history || typeof window.history.pushState !== 'function' ) { return; }
+	var url = new URL( window.location.href );
+	if ( tabId && tabId !== 'posts' ) {
+		url.searchParams.set( 'tab', tabId );
+	} else {
+		url.searchParams.delete( 'tab' );
+	}
+	window.history.pushState( { bnTab: tabId }, '', url.toString() );
+}
+
+function applyTabFromUrl() {
+	var params = new URLSearchParams( window.location.search );
+	var tab    = params.get( 'tab' ) || 'posts';
+	applyTabId( tab );
+}
+
 /* -- Store ------------------------------------------------------------- */
 
 store( 'buddynext/profile', {
@@ -273,29 +312,30 @@ store( 'buddynext/profile', {
 		initEditGuard() {
 			ensureUnloadGuard();
 		},
+		/* Init for the view page: read ?tab=... and wire popstate. */
+		initView() {
+			applyTabFromUrl();
+			if ( ! window.__bnProfilePopstateBound ) {
+				window.addEventListener( 'popstate', applyTabFromUrl );
+				window.__bnProfilePopstateBound = true;
+			}
+		},
 	},
 	actions: {
 
-		/* Profile tab switching - Posts / Replies / Media / Likes */
+		/* Profile tab switching - Posts / Replies / Media / Likes
+		 *
+		 * Updates aria/active state on tab buttons, toggles panels, and
+		 * pushes the active tab into the URL (?tab=replies) so reload +
+		 * back-button work. The popstate handler in initView() reverses
+		 * the transition when the user hits Back.
+		 */
 		setTab( event ) {
 			const tab    = event.target.closest( '[data-tab]' );
 			if ( ! tab ) { return; }
 			const tabId  = tab.dataset.tab;
-
-			document.querySelectorAll( '.bn-ptab' ).forEach( function ( t ) {
-				const isActive = t.dataset.tab === tabId;
-				t.classList.toggle( 'active', isActive );
-				t.setAttribute( 'aria-selected', isActive ? 'true' : 'false' );
-			} );
-
-			document.querySelectorAll( '[data-tab-panel]' ).forEach( function ( p ) {
-				p.hidden = p.dataset.tabPanel !== tabId;
-			} );
-
-			const postsContent = document.querySelector( '.bn-profile-posts-panel' );
-			if ( postsContent ) {
-				postsContent.hidden = tabId !== 'posts';
-			}
+			applyTabId( tabId );
+			pushTabToUrl( tabId );
 		},
 
 		/* Mark form as dirty on any user input. */
