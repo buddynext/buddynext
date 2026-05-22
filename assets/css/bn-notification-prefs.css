@@ -1,0 +1,396 @@
+/**
+ * Notification preferences - v2 chrome.
+ *
+ * Loaded only on /settings/notifications/ + /notifications/preferences/.
+ * All tokens come from --bn-* in bn-base.css. No new tokens. The sticky save
+ * bar reuses the .bn-ep-save-bar primitives defined in bn-profile.css so the
+ * pattern stays identical to the Profile edit save bar.
+ */
+
+.bn-notif-prefs {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s5);
+	padding-block-end: var(--bn-s12);
+}
+
+/* ── Card primitive ───────────────────────────────────────────────────── */
+.bn-prefs-card {
+	padding: var(--bn-s5);
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+.bn-prefs-card__head {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+}
+
+.bn-prefs-card__title {
+	margin: 0;
+	font-size: var(--bn-fs-md);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
+.bn-prefs-card__sub {
+	margin: 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-fs-sm);
+	line-height: var(--bn-lh-normal);
+}
+
+.bn-prefs-card--soon { opacity: 0.78; }
+
+/* ── Section 1: Channels ──────────────────────────────────────────────── */
+.bn-prefs-channels {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: var(--bn-s3);
+}
+
+.bn-prefs-channel {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	grid-template-areas:
+		"check  icon  body";
+	grid-template-columns: auto auto 1fr;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-radius-md);
+	background: var(--bn-surface);
+	cursor: pointer;
+	transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.bn-prefs-channel:hover { border-color: var(--bn-accent-200); }
+
+.bn-prefs-channel input[type="checkbox"] {
+	grid-area: check;
+	inline-size: 18px;
+	block-size: 18px;
+	accent-color: var(--bn-accent);
+	cursor: pointer;
+}
+
+.bn-prefs-channel__icon {
+	grid-area: icon;
+	color: var(--bn-ink-3);
+	inline-size: 20px;
+	block-size: 20px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.bn-prefs-channel__icon svg {
+	inline-size: 18px;
+	block-size: 18px;
+}
+
+.bn-prefs-channel__body {
+	grid-area: body;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.bn-prefs-channel__label {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	font-size: var(--bn-fs-sm);
+}
+
+.bn-prefs-channel__sub {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-fs-xs);
+}
+
+/* ── Section 2: Activity types ────────────────────────────────────────── */
+.bn-prefs-groups {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+}
+
+.bn-prefs-group {
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-radius-md);
+	background: var(--bn-surface);
+	overflow: hidden;
+}
+
+.bn-prefs-group__head {
+	padding: var(--bn-s3) var(--bn-s4);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	cursor: pointer;
+	background: var(--bn-sunken);
+	border-block-end: 1px solid var(--bn-line);
+	list-style: none;
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+.bn-prefs-group__head::-webkit-details-marker { display: none; }
+.bn-prefs-group__head::marker { display: none; }
+
+.bn-prefs-group:not([open]) .bn-prefs-group__head {
+	border-block-end: none;
+}
+
+.bn-prefs-group__title {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	font-size: var(--bn-fs-sm);
+}
+
+.bn-prefs-group__count {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-fs-xs);
+}
+
+.bn-prefs-group__body {
+	display: flex;
+	flex-direction: column;
+}
+
+.bn-prefs-row {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: var(--bn-s4);
+	padding: var(--bn-s4);
+	border-block-end: 1px solid var(--bn-line-faint);
+}
+
+.bn-prefs-group__body .bn-prefs-row:last-child {
+	border-block-end: none;
+}
+
+.bn-prefs-row__copy {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-inline-size: 0;
+}
+
+.bn-prefs-row__label {
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	font-size: var(--bn-fs-sm);
+}
+
+.bn-prefs-row__desc {
+	margin: 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-fs-xs);
+	line-height: var(--bn-lh-normal);
+}
+
+.bn-prefs-row__controls {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+.bn-prefs-row__no-email {
+	color: var(--bn-ink-3);
+	font-size: var(--bn-fs-xs);
+}
+
+.bn-prefs-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	cursor: pointer;
+}
+
+.bn-prefs-toggle input[type="checkbox"] {
+	inline-size: 18px;
+	block-size: 18px;
+	accent-color: var(--bn-accent);
+}
+
+.bn-prefs-toggle__label {
+	font-size: var(--bn-fs-xs);
+	color: var(--bn-ink-2);
+}
+
+/* ── Chip groups (email frequency + per-space pref) ───────────────────── */
+.bn-prefs-freq,
+.bn-prefs-space__controls {
+	display: inline-flex;
+	gap: 2px;
+	padding: 2px;
+	border-radius: var(--bn-radius-md);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+}
+
+.bn-prefs-chip {
+	-webkit-appearance: none;
+	appearance: none;
+	background: transparent;
+	border: none;
+	color: var(--bn-ink-2);
+	padding: var(--bn-s1) var(--bn-s3);
+	border-radius: var(--bn-radius-sm);
+	font-size: var(--bn-fs-xs);
+	font-weight: var(--bn-fw-medium);
+	cursor: pointer;
+	transition: background-color 120ms ease, color 120ms ease;
+}
+
+.bn-prefs-chip:hover {
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+}
+
+.bn-prefs-chip:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
+}
+
+.bn-prefs-chip[aria-pressed="true"] {
+	background: var(--bn-accent);
+	color: var(--bn-accent-contrast);
+}
+
+/* ── Section 3: Spaces ────────────────────────────────────────────────── */
+.bn-prefs-spaces {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+
+.bn-prefs-space {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-radius-md);
+	background: var(--bn-surface);
+}
+
+.bn-prefs-space__head {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	color: var(--bn-ink);
+	text-decoration: none;
+	min-inline-size: 0;
+}
+
+.bn-prefs-space__head:hover .bn-prefs-space__name { color: var(--bn-accent); }
+
+.bn-prefs-space__avatar {
+	inline-size: 40px;
+	block-size: 40px;
+	border-radius: var(--bn-radius-md);
+	background: var(--bn-sunken);
+	object-fit: cover;
+}
+
+.bn-prefs-space__avatar--initial {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-fs-sm);
+}
+
+.bn-prefs-space__name {
+	font-weight: var(--bn-fw-semibold);
+	font-size: var(--bn-fs-sm);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ── Section 4: Quiet hours ───────────────────────────────────────────── */
+.bn-prefs-quiet {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: var(--bn-s3);
+}
+
+.bn-prefs-quiet__field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+}
+
+.bn-prefs-quiet__label {
+	font-size: var(--bn-fs-xs);
+	color: var(--bn-ink-3);
+	font-weight: var(--bn-fw-medium);
+}
+
+.bn-prefs-quiet__tz {
+	font-size: var(--bn-fs-sm);
+	color: var(--bn-ink-2);
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────── */
+.bn-prefs-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s6) var(--bn-s4);
+	color: var(--bn-ink-3);
+	text-align: center;
+}
+
+.bn-prefs-empty__emblem {
+	inline-size: 48px;
+	block-size: 48px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background: var(--bn-sunken);
+	color: var(--bn-accent);
+}
+
+.bn-prefs-empty__title {
+	margin: 0;
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+}
+
+/* ── Reset action ─────────────────────────────────────────────────────── */
+.bn-prefs-reset {
+	display: flex;
+	justify-content: flex-end;
+}
+
+/* ── Save bar overrides ───────────────────────────────────────────────── */
+.bn-prefs-save-bar[hidden] { display: none !important; }
+
+/* ── Settings link on /notifications/ ─────────────────────────────────── */
+.bn-notifs-main .bn-section-head__actions .bn-btn--prefs-link svg {
+	inline-size: 16px;
+	block-size: 16px;
+}
+
+@media (max-width: 640px) {
+	.bn-prefs-row { grid-template-columns: 1fr; }
+	.bn-prefs-row__controls { justify-content: flex-start; }
+	.bn-prefs-space { flex-wrap: wrap; }
+	.bn-prefs-space__controls { inline-size: 100%; justify-content: flex-start; }
+}

@@ -619,6 +619,7 @@ class Plugin {
 		$container->bind( 'notifications', fn() => new NotificationService() );
 		$container->bind( 'notification_prefs', fn() => new NotificationPrefService() );
 		$container->bind( 'notification_message', fn() => new NotificationMessageService() );
+		$container->bind( 'notification_pref_catalogue', fn() => new \BuddyNext\Notifications\NotificationPrefCatalogue() );
 		$container->bind(
 			'email_sender',
 			fn( $c ) => new EmailSender( $c->get( 'notification_prefs' ) )

@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Notification preferences UI (production)
+
+- **New route** - `/settings/notifications/` is now a real route handled by `PageRouter`. A second alias `/notifications/preferences/` resolves to the same template. Both use the `notifications` hub with a new `bn_notif_section=prefs` query var; rewrite rules added in `PageRouter::register_notifications_rules()`.
+- **Template** `templates/notifications/prefs.php` - v2 chrome with four sections:
+  - **Channels** master toggles (in-app / email / push). Push row hidden unless `BuddyNextPro\Push\PushDispatcher` is loaded.
+  - **Activity types** accordion grouped by `NotificationPrefCatalogue::grouped()` (Social graph, Feed activity, Spaces, Messages, Moderation, Growth and digests). Each row carries an in-app checkbox + an email-frequency chip-select (Immediate / Daily / Weekly / Off); types with `can_email=false` render an "In-app only" caption.
+  - **Spaces you are in** - chip-select per joined space (`All activity` / `Mentions only` / `None`) saved instantly via `POST /me/space-notification-prefs` with optimistic UI + rollback.
+  - **Quiet hours** - coming-soon placeholder with disabled time inputs and the user's WP timezone.
+  - Reset to defaults confirmation modal stages every type back to catalogue defaults; commit requires Save.
+- **Store** `assets/js/notifications/prefs-store.js` (new) - namespace `buddynext/notification-prefs`. Optimistic `setOnSite`, `setEmailFreq`, `setSpacePref`, `setChannel`, `saveAll` with diff-on-save + rollback to initial snapshot on REST 4xx/5xx. `bnToast` on every success / failure. Sticky save bar (mirrors Profile edit) with dirty / saving / saved labels + beforeunload guard.
+- **REST surface** `includes/Notifications/NotificationController.php`:
+  - `GET /me/notification-prefs` now merges catalogue defaults with stored rows so the response always carries one entry per type.
+  - `PUT /me/notification-prefs` validates each entry's `email_freq` against `{immediate, daily, weekly, off}` and returns 422 with `params` on the first failure.
+  - `GET + PUT /me/notification-channels` reads / writes the `bn_channel_prefs` usermeta map.
+  - `GET /me/space-notification-prefs` lists joined spaces + each space's stored `notification_pref`.
+  - `POST /me/space-notification-prefs` updates one space (logged-in + active-member gate; 422 on invalid pref value).
+- **Catalogue service** `includes/Notifications/NotificationPrefCatalogue.php` (new) - single source of truth for the per-type metadata the prefs UI consumes (`slug`, `label`, `description`, `group`, `default_on_site`, `default_email_freq`, `can_email`). Filter `buddynext_notification_prefs_catalogue` lets Pro / bridge plugins register types. Wired into the container as `notification_pref_catalogue`.
+- **Asset registration** - `bn-notification-prefs` stylesheet and `@buddynext/notification-prefs` script module registered in `AssetService`; `PageRouter::enqueue_hub_assets()` enqueues both when `bn_notif_section=prefs`.
+- **Settings link** added to the `/notifications/` page header (next to "Mark all read") + the sidebar "Notification preferences" link now points at the new URL.
+- **Tests**:
+  - `tests/Notifications/NotificationPrefControllerTest.php` - GET returns one row per catalogue type with defaults, PUT persists partial maps, PUT returns 422 on invalid `email_freq`, GET 401 anonymous, channels GET + PUT happy path.
+  - `tests/Notifications/NotificationPrefCatalogueTest.php` - every `bn.*` type handled by `NotificationMessageService::compose_single()` (excluding the dev-only `bn.test` and the `bn.space_join_approved` alias of `bn.space_request_approved`) has a catalogue row; grouped() returns the six known groups; resolve_for_user() overlays stored values; filter can add a type.
+
 ### Spaces (production)
 
 - **Spaces directory (`/spaces/`)** — Apply submit dropped; filter bar is reactive (250 ms debounced live search + instant category select + type chip switch + sort chip-button popover). New Secret type chip (visible to viewer-owned secret memberships only). Skeleton grid while loading; recoverable error block with retry; empty state copy now reads "No spaces match - try widening" and ships a Reset filters CTA. Create-space CTA opens an inline modal (`templates/partials/create-space-modal.php`) with name + auto-derived slug + type (Open/Private/Secret) + category + description; submits to `POST /buddynext/v1/spaces`, surfaces field-level 422 errors, redirects to the new space on 201. REST list endpoint cleaned up: `?type=open|private|secret`, `?category_id=`, `?orderby=popular|active|newest|alphabetical`, `?q=`/`?search=`, `?per_page=` capped at 50.

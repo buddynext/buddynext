@@ -368,6 +368,10 @@ class PageRouter {
 
 			case 'notifications':
 				$assets->enqueue( 'notifications' );
+				$notif_section = (string) get_query_var( 'bn_notif_section', '' );
+				if ( 'prefs' === $notif_section ) {
+					$assets->enqueue( 'notification-prefs' );
+				}
 				break;
 
 			case 'auth':
@@ -529,6 +533,10 @@ class PageRouter {
 				return 'messages/list.php';
 
 			case 'notifications':
+				$notif_section = (string) get_query_var( 'bn_notif_section', '' );
+				if ( 'prefs' === $notif_section ) {
+					return 'notifications/prefs.php';
+				}
 				return 'notifications/index.php';
 
 			case 'auth':
@@ -577,6 +585,7 @@ class PageRouter {
 		add_rewrite_tag( '%bn_msg_action%', '([^/]*)' );
 		add_rewrite_tag( '%bn_member_type%', '([a-z0-9-]+)' );
 		add_rewrite_tag( '%bn_auth_action%', '([a-z-]+)' );
+		add_rewrite_tag( '%bn_notif_section%', '([a-z-]+)' );
 
 		$this->register_activity_rules();
 		$this->register_people_rules();
@@ -744,6 +753,22 @@ class PageRouter {
 	 */
 	private function register_notifications_rules(): void {
 		$n = self::hub_slug( 'buddynext_slug_notifications', 'notifications' );
+
+		// /notifications/preferences/ — same hub, prefs section.
+		add_rewrite_rule(
+			'^' . preg_quote( $n, '/' ) . '/preferences/?$',
+			'index.php?bn_hub=notifications&bn_notif_section=prefs',
+			'top'
+		);
+
+		// /settings/notifications/ — canonical entry point requested by the
+		// production-readiness checklist. The "settings" prefix is reserved for
+		// per-user preference surfaces; no other hub uses it yet.
+		add_rewrite_rule(
+			'^settings/notifications/?$',
+			'index.php?bn_hub=notifications&bn_notif_section=prefs',
+			'top'
+		);
 
 		add_rewrite_rule(
 			'^' . preg_quote( $n, '/' ) . '/?$',
@@ -1133,6 +1158,19 @@ class PageRouter {
 	 */
 	public static function notifications_url(): string {
 		return self::hub_url( 'buddynext_slug_notifications', 'buddynext_page_notifications' );
+	}
+
+	/**
+	 * Return the Notification preferences URL.
+	 *
+	 * Uses the canonical `/settings/notifications/` entry point, which is
+	 * served by the same template + Interactivity store as
+	 * `/notifications/preferences/`.
+	 *
+	 * @return string
+	 */
+	public static function notification_prefs_url(): string {
+		return trailingslashit( home_url( '/settings/notifications' ) );
 	}
 
 	/**
