@@ -1309,6 +1309,76 @@
 	padding: var(--bn-s1) var(--bn-s3);
 }
 
+/* Comment loading skeleton (three rows while the thread fetches). */
+.bn-comment-skeleton {
+	display: flex;
+	gap: var(--bn-s3);
+	align-items: center;
+	padding: var(--bn-s2) 0;
+}
+
+.bn-comment-skeleton__avatar {
+	width: 32px;
+	height: 32px;
+	border-radius: var(--bn-r-full);
+	flex-shrink: 0;
+}
+
+.bn-comment-skeleton__line {
+	flex: 1;
+	height: 14px;
+	border-radius: var(--bn-r-sm);
+}
+
+/* Comment thread load failure. */
+.bn-comment-error {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	padding: var(--bn-s3);
+	background: var(--bn-sunken);
+	border-radius: var(--bn-r-md);
+	display: flex;
+	gap: var(--bn-s2);
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.bn-comment-error__retry {
+	background: transparent;
+	border: 0;
+	padding: 0;
+	color: var(--bn-accent);
+	cursor: pointer;
+	font-weight: 600;
+	text-decoration: underline;
+	min-height: var(--bn-tap, 40px);
+}
+
+/* Inline comment-submit error rail above the textarea. */
+.bn-comment-submit-error {
+	display: flex;
+	gap: var(--bn-s2);
+	align-items: center;
+	padding: var(--bn-s2) var(--bn-s3);
+	background: var(--bn-danger-soft, rgba(220, 38, 38, 0.08));
+	color: var(--bn-danger);
+	border-radius: var(--bn-r-md);
+	font-size: var(--bn-text-sm);
+	margin-block-end: var(--bn-s2);
+}
+
+.bn-comment-submit-error__retry {
+	background: transparent;
+	border: 0;
+	padding: 0;
+	color: var(--bn-danger);
+	cursor: pointer;
+	font-weight: 600;
+	text-decoration: underline;
+	min-height: var(--bn-tap, 40px);
+	margin-inline-start: auto;
+}
+
 /* Threaded comments — mobile collapse */
 @media (max-width: 480px) {
 	.bn-comment-card[data-depth="1"],

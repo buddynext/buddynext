@@ -723,11 +723,33 @@ store( 'buddynext/post-card', {
 				return;
 			}
 
+			// Skeleton rows while we fetch — three placeholder bars so the
+			// region does not collapse and the user knows the thread is
+			// loading. Replaced on fetch success / replaced with error
+			// alert on fetch failure.
+			while ( listEl.firstChild ) {
+				listEl.removeChild( listEl.firstChild );
+			}
+			for ( let s = 0; s < 3; s++ ) {
+				const sk = document.createElement( 'div' );
+				sk.className = 'bn-comment-skeleton';
+				const skAvatar = document.createElement( 'span' );
+				skAvatar.className = 'bn-skeleton bn-comment-skeleton__avatar';
+				const skLine   = document.createElement( 'span' );
+				skLine.className   = 'bn-skeleton bn-comment-skeleton__line';
+				sk.appendChild( skAvatar );
+				sk.appendChild( skLine );
+				listEl.appendChild( sk );
+			}
+
 			try {
 				const res = yield fetch(
 					ctx.restUrl + '/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20',
 					{ headers: { 'X-WP-Nonce': ctx.reactNonce } }
 				);
+				while ( listEl.firstChild ) {
+					listEl.removeChild( listEl.firstChild );
+				}
 				if ( res.ok ) {
 					const data = yield res.json();
 					listEl.dataset.loaded = '1';
@@ -736,8 +758,33 @@ store( 'buddynext/post-card', {
 							buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 )
 						);
 					} );
+				} else {
+					const err = document.createElement( 'div' );
+					err.className = 'bn-comment-error';
+					err.setAttribute( 'role', 'alert' );
+					err.textContent = 'Could not load comments. ';
+					const retry = document.createElement( 'button' );
+					retry.type = 'button';
+					retry.className = 'bn-comment-error__retry';
+					retry.textContent = 'Retry';
+					retry.addEventListener( 'click', () => {
+						delete listEl.dataset.loaded;
+						ctx.commentsOpen = false;
+						setTimeout( () => { ctx.commentsOpen = true; }, 0 );
+					} );
+					err.appendChild( retry );
+					listEl.appendChild( err );
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				while ( listEl.firstChild ) {
+					listEl.removeChild( listEl.firstChild );
+				}
+				const err = document.createElement( 'div' );
+				err.className = 'bn-comment-error';
+				err.setAttribute( 'role', 'alert' );
+				err.textContent = 'Network error. Comments could not be loaded.';
+				listEl.appendChild( err );
+			}
 		},
 		* submitComment() {
 			const ctx     = getContext();
@@ -747,6 +794,42 @@ store( 'buddynext/post-card', {
 				return;
 			}
 
+			// Helper: render an inline alert above the comment textarea.
+			const showInlineError = ( msg ) => {
+				if ( ! inputEl ) {
+					return;
+				}
+				const formEl  = inputEl.closest( '.bn-comment-form' );
+				const parent  = formEl?.parentElement;
+				if ( ! parent ) {
+					return;
+				}
+				let alertEl = parent.querySelector( '.bn-comment-submit-error' );
+				if ( ! alertEl ) {
+					alertEl = document.createElement( 'div' );
+					alertEl.className = 'bn-comment-submit-error';
+					alertEl.setAttribute( 'role', 'alert' );
+					parent.insertBefore( alertEl, formEl );
+				}
+				while ( alertEl.firstChild ) {
+					alertEl.removeChild( alertEl.firstChild );
+				}
+				const msgSpan = document.createElement( 'span' );
+				msgSpan.textContent = msg;
+				const retry = document.createElement( 'button' );
+				retry.type = 'button';
+				retry.className = 'bn-comment-submit-error__retry';
+				retry.textContent = 'Retry';
+				retry.addEventListener( 'click', () => {
+					alertEl.remove();
+					// Re-fire submitComment by clicking the submit button.
+					const submitBtn = formEl?.querySelector( '[data-wp-on--click="actions.submitComment"]' );
+					submitBtn?.click();
+				} );
+				alertEl.appendChild( msgSpan );
+				alertEl.appendChild( retry );
+			};
+
 			try {
 				const res = yield fetch( ctx.restUrl + '/comments', {
 					method:  'POST',
@@ -754,6 +837,8 @@ store( 'buddynext/post-card', {
 					body:    JSON.stringify( { object_type: 'post', object_id: ctx.postId, content } ),
 				} );
 				if ( res.ok ) {
+					// Clear any stale error alert from a previous failed attempt.
+					inputEl?.closest( '.bn-post-card__comments' )?.querySelector( '.bn-comment-submit-error' )?.remove();
 					const comment       = yield res.json();
 					comment.author_name = comment.author_name || 'You';
 					const listEl        = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
@@ -767,8 +852,12 @@ store( 'buddynext/post-card', {
 					adjustCommentCount( ctx.postId, 1 );
 					ctx.commentCount = ( ctx.commentCount || 0 ) + 1;
 					if ( window.bnToast ) { window.bnToast( 'Comment added' ); }
+				} else {
+					showInlineError( 'Could not post your comment. Try again.' );
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				showInlineError( 'Network error. Try again.' );
+			}
 		},
 		* votePoll( event ) {
 			const ctx      = getContext();
