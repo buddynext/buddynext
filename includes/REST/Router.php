@@ -19,6 +19,7 @@ use BuddyNext\Onboarding\InviteController;
 use BuddyNext\Onboarding\OnboardingController;
 use BuddyNext\SocialGraph\BlockController;
 use BuddyNext\Feed\BookmarkController;
+use BuddyNext\Feed\ComposerDraftController;
 use BuddyNext\SocialGraph\ConnectionController;
 use BuddyNext\Feed\FeedController;
 use BuddyNext\SocialGraph\FollowController;
@@ -67,6 +68,7 @@ class Router {
 		( new FeedController() )->register_routes();
 		( new PollController() )->register_routes();
 		( new BookmarkController() )->register_routes();
+		( new ComposerDraftController() )->register_routes();
 		( new ShareController() )->register_routes();
 		( new ProfileController() )->register_routes();
 		( new MemberDirectoryController() )->register_routes();

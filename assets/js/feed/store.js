@@ -13,20 +13,44 @@ function timeAgo( dateStr ) {
 }
 
 /**
+ * Maximum visual nesting depth. Replies deeper than this are flattened
+ * to depth = MAX_DEPTH with an "@parent" mention prefix injected by the
+ * server so the conversation stays readable on narrow screens.
+ */
+const COMMENT_MAX_DEPTH = 2;
+
+/**
  * Build a comment DOM node using safe DOM methods (no innerHTML for user content).
+ *
+ * The node renders a single comment plus all its nested replies (recursive).
+ * Soft-deleted comments render a "This comment was deleted" placeholder but
+ * preserve the reply tree so the conversation stays coherent.
  *
  * @param {Object}  comment       Comment data from the REST API.
  * @param {number}  currentUserId Current user's WordPress ID.
  * @param {number}  postId        Post ID the comment belongs to.
  * @param {string}  restUrl       buddynext/v1 REST root.
  * @param {string}  nonce         WP REST nonce.
- * @param {boolean} isReply       Whether this node is a threaded reply.
+ * @param {number}  depth         0 = top-level, 1 = reply, 2 = reply-of-reply (capped).
  * @return {HTMLElement}
  */
-function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, isReply ) {
+function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth ) {
+	if ( typeof depth !== 'number' ) {
+		// Back-compat: callers that still pass a boolean isReply.
+		depth = depth ? 1 : 0;
+	}
+	const cappedDepth = Math.min( depth, COMMENT_MAX_DEPTH );
+
 	const wrap = document.createElement( 'div' );
-	wrap.className = isReply ? 'bn-comment bn-comment--reply' : 'bn-comment';
+	wrap.className = 'bn-comment-card';
 	wrap.dataset.commentId = comment.id;
+	wrap.dataset.depth     = String( cappedDepth );
+	if ( comment.pinned ) {
+		wrap.classList.add( 'bn-comment-card--pinned' );
+	}
+	if ( comment.is_deleted ) {
+		wrap.classList.add( 'bn-comment-card--deleted' );
+	}
 
 	// Avatar initials.
 	const avatar = document.createElement( 'div' );
@@ -38,33 +62,107 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, isRep
 	const body = document.createElement( 'div' );
 	body.className = 'bn-comment__body';
 
-	// Header: author name + timestamp.
+	// Header: author name + timestamp + pinned badge + edited marker.
 	const header = document.createElement( 'div' );
 	header.className = 'bn-comment__header';
 	const authorSpan = document.createElement( 'span' );
 	authorSpan.className = 'bn-comment__author';
 	authorSpan.textContent = comment.author_name || 'User';
+	header.appendChild( authorSpan );
+	if ( comment.pinned ) {
+		const pinBadge = document.createElement( 'span' );
+		pinBadge.className = 'bn-comment__pinned-badge';
+		pinBadge.textContent = 'Pinned';
+		header.appendChild( pinBadge );
+	}
 	const timeEl = document.createElement( 'time' );
 	timeEl.className = 'bn-comment__time';
 	timeEl.textContent = timeAgo( comment.created_at );
-	header.appendChild( authorSpan );
 	header.appendChild( timeEl );
+	if ( comment.is_edited && ! comment.is_deleted ) {
+		const editedMark = document.createElement( 'span' );
+		editedMark.className = 'bn-comment__edited';
+		editedMark.textContent = '(edited)';
+		header.appendChild( editedMark );
+	}
 	body.appendChild( header );
 
-	// Content paragraph.
+	// Content paragraph (or placeholder for soft-deleted comments).
 	const para = document.createElement( 'p' );
 	para.className = 'bn-comment__content';
-	para.textContent = comment.content;
+	if ( comment.is_deleted ) {
+		para.textContent  = 'This comment was deleted.';
+		para.dataset.placeholder = '1';
+	} else {
+		para.textContent = comment.content;
+	}
 	body.appendChild( para );
 
-	// Action buttons.
+	// ── Actions row ────────────────────────────────────────────────────────
 	const actions = document.createElement( 'div' );
 	actions.className = 'bn-comment__actions';
 	body.appendChild( actions );
 
-	const canDelete = parseInt( comment.user_id, 10 ) === currentUserId;
+	const isOwn       = parseInt( comment.user_id, 10 ) === currentUserId;
+	const canEdit     = ( comment.can_edit ?? isOwn ) && ! comment.is_deleted;
+	const canDelete   = ( comment.can_delete ?? isOwn ) && ! comment.is_deleted;
+	const canPin      = !! comment.can_pin && ! comment.is_deleted;
+	const canReply    = currentUserId > 0 && ! comment.is_deleted && cappedDepth < COMMENT_MAX_DEPTH;
+	const canReport   = currentUserId > 0 && ! isOwn && ! comment.is_deleted;
 
-	if ( ! isReply ) {
+	// Like button — heart toggles on the comment object via /reactions/like.
+	let likeBtn = null;
+	if ( ! comment.is_deleted ) {
+		likeBtn = document.createElement( 'button' );
+		likeBtn.type = 'button';
+		likeBtn.className = 'bn-comment__like-btn';
+		likeBtn.dataset.liked = comment.viewer_liked ? '1' : '0';
+		likeBtn.setAttribute( 'aria-pressed', comment.viewer_liked ? 'true' : 'false' );
+		const heart = document.createElement( 'span' );
+		heart.className = 'bn-comment__like-icon';
+		heart.textContent = comment.viewer_liked ? '♥' : '♡';
+		const likeCount = document.createElement( 'span' );
+		likeCount.className = 'bn-comment__like-count';
+		likeCount.textContent = String( comment.like_count || 0 );
+		likeBtn.appendChild( heart );
+		likeBtn.appendChild( document.createTextNode( ' ' ) );
+		likeBtn.appendChild( likeCount );
+		likeBtn.addEventListener( 'click', async () => {
+			if ( currentUserId <= 0 ) {
+				bnToast( 'Sign in to like comments.', { tone: 'info' } );
+				return;
+			}
+			const wasLiked = likeBtn.dataset.liked === '1';
+			// Optimistic flip + rollback on error.
+			const nextLiked = ! wasLiked;
+			likeBtn.dataset.liked = nextLiked ? '1' : '0';
+			likeBtn.setAttribute( 'aria-pressed', nextLiked ? 'true' : 'false' );
+			heart.textContent = nextLiked ? '♥' : '♡';
+			const cur = parseInt( likeCount.textContent || '0', 10 );
+			likeCount.textContent = String( Math.max( 0, cur + ( nextLiked ? 1 : -1 ) ) );
+			try {
+				const res = await fetch( restUrl + '/reactions/toggle', {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+					body:    JSON.stringify( { object_type: 'comment', object_id: comment.id, emoji: 'like' } ),
+				} );
+				if ( ! res.ok ) {
+					throw new Error( 'reaction failed' );
+				}
+			} catch ( _e ) {
+				// Rollback.
+				likeBtn.dataset.liked = wasLiked ? '1' : '0';
+				likeBtn.setAttribute( 'aria-pressed', wasLiked ? 'true' : 'false' );
+				heart.textContent = wasLiked ? '♥' : '♡';
+				likeCount.textContent = String( cur );
+				bnToast( 'Could not update your like. Try again.', { tone: 'danger' } );
+			}
+		} );
+		actions.appendChild( likeBtn );
+	}
+
+	// Reply button.
+	if ( canReply ) {
 		const replyBtn = document.createElement( 'button' );
 		replyBtn.type = 'button';
 		replyBtn.className = 'bn-comment__reply-btn';
@@ -72,6 +170,75 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, isRep
 		actions.appendChild( replyBtn );
 	}
 
+	// Edit button — opens inline editor.
+	if ( canEdit ) {
+		const editBtn = document.createElement( 'button' );
+		editBtn.type = 'button';
+		editBtn.className = 'bn-comment__edit-btn';
+		editBtn.textContent = 'Edit';
+		editBtn.addEventListener( 'click', () => {
+			if ( body.querySelector( '.bn-comment__edit-form' ) ) {
+				return;
+			}
+			const editForm = document.createElement( 'div' );
+			editForm.className = 'bn-comment__edit-form';
+			const ta = document.createElement( 'textarea' );
+			ta.className = 'bn-comment-form__input';
+			ta.value = para.textContent || '';
+			ta.rows = 2;
+			const saveBtn = document.createElement( 'button' );
+			saveBtn.type = 'button';
+			saveBtn.className = 'bn-comment-form__submit';
+			saveBtn.textContent = 'Save';
+			const cancelBtn = document.createElement( 'button' );
+			cancelBtn.type = 'button';
+			cancelBtn.className = 'bn-comment__reply-cancel';
+			cancelBtn.textContent = 'Cancel';
+			editForm.appendChild( ta );
+			editForm.appendChild( saveBtn );
+			editForm.appendChild( cancelBtn );
+			para.hidden = true;
+			body.insertBefore( editForm, actions );
+			ta.focus();
+			cancelBtn.addEventListener( 'click', () => {
+				editForm.remove();
+				para.hidden = false;
+			} );
+			saveBtn.addEventListener( 'click', async () => {
+				const next = ta.value.trim();
+				if ( ! next ) {
+					return;
+				}
+				try {
+					const res = await fetch( restUrl + '/comments/' + comment.id, {
+						method:  'PUT',
+						headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+						body:    JSON.stringify( { content: next } ),
+					} );
+					if ( res.ok ) {
+						const updated = await res.json();
+						para.textContent = updated.content;
+						if ( ! body.querySelector( '.bn-comment__edited' ) ) {
+							const editedMark = document.createElement( 'span' );
+							editedMark.className = 'bn-comment__edited';
+							editedMark.textContent = '(edited)';
+							header.appendChild( editedMark );
+						}
+						editForm.remove();
+						para.hidden = false;
+						bnToast( 'Comment updated', { tone: 'success' } );
+					} else {
+						bnToast( 'Could not update comment. Try again.', { tone: 'danger' } );
+					}
+				} catch ( _e ) {
+					bnToast( 'Could not update comment. Try again.', { tone: 'danger' } );
+				}
+			} );
+		} );
+		actions.appendChild( editBtn );
+	}
+
+	// Delete button.
 	if ( canDelete ) {
 		const delBtn = document.createElement( 'button' );
 		delBtn.type = 'button';
@@ -91,15 +258,59 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, isRep
 				method: 'DELETE', headers: { 'X-WP-Nonce': nonce },
 			} );
 			if ( res.ok ) {
-				wrap.remove();
+				// Soft-delete: replace text + grey out, preserve thread.
+				wrap.classList.add( 'bn-comment-card--deleted' );
+				para.textContent = 'This comment was deleted.';
+				para.dataset.placeholder = '1';
+				para.hidden = false;
+				actions.remove();
 				adjustCommentCount( postId, -1 );
+				bnToast( 'Comment deleted', { tone: 'success' } );
+			} else {
+				bnToast( 'Could not delete comment. Try again.', { tone: 'danger' } );
 			}
 		} );
 		actions.appendChild( delBtn );
 	}
 
-	// Report — visible for non-owner comments so members can flag abuse.
-	if ( ! canDelete && parseInt( comment.user_id, 10 ) !== currentUserId ) {
+	// Pin button (moderators only).
+	if ( canPin ) {
+		const pinBtn = document.createElement( 'button' );
+		pinBtn.type = 'button';
+		pinBtn.className = 'bn-comment__pin-btn';
+		pinBtn.textContent = comment.pinned ? 'Unpin' : 'Pin';
+		pinBtn.addEventListener( 'click', async () => {
+			const wasPinned = wrap.classList.contains( 'bn-comment-card--pinned' );
+			try {
+				const res = await fetch( restUrl + '/comments/' + comment.id + '/pin', {
+					method:  wasPinned ? 'DELETE' : 'POST',
+					headers: { 'X-WP-Nonce': nonce },
+				} );
+				if ( res.ok ) {
+					wrap.classList.toggle( 'bn-comment-card--pinned', ! wasPinned );
+					pinBtn.textContent = wasPinned ? 'Pin' : 'Unpin';
+					const existing = header.querySelector( '.bn-comment__pinned-badge' );
+					if ( wasPinned && existing ) {
+						existing.remove();
+					} else if ( ! wasPinned && ! existing ) {
+						const pinBadge = document.createElement( 'span' );
+						pinBadge.className = 'bn-comment__pinned-badge';
+						pinBadge.textContent = 'Pinned';
+						header.insertBefore( pinBadge, timeEl );
+					}
+					bnToast( wasPinned ? 'Comment unpinned' : 'Comment pinned', { tone: 'success' } );
+				} else {
+					bnToast( 'Could not change pin status. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not change pin status. Try again.', { tone: 'danger' } );
+			}
+		} );
+		actions.appendChild( pinBtn );
+	}
+
+	// Report button — visible for non-owner comments.
+	if ( canReport ) {
 		const reportBtn = document.createElement( 'button' );
 		reportBtn.type = 'button';
 		reportBtn.className = 'bn-comment__report-btn';
@@ -134,8 +345,9 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, isRep
 		actions.appendChild( reportBtn );
 	}
 
-	if ( ! isReply ) {
-		// Reply form (hidden by default).
+	// ── Reply form + nested replies ────────────────────────────────────────
+	let repliesEl = null;
+	if ( canReply ) {
 		const replyForm = document.createElement( 'div' );
 		replyForm.className = 'bn-comment__reply-form';
 		replyForm.hidden = true;
@@ -161,9 +373,11 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, isRep
 
 		body.appendChild( replyForm );
 
-		// Wire reply-form toggle.
 		actions.querySelector( '.bn-comment__reply-btn' )?.addEventListener( 'click', () => {
 			replyForm.hidden = ! replyForm.hidden;
+			if ( ! replyForm.hidden ) {
+				replyTextarea.focus();
+			}
 		} );
 		replyCancel.addEventListener( 'click', () => { replyForm.hidden = true; } );
 
@@ -172,25 +386,39 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, isRep
 			if ( ! content ) {
 				return;
 			}
-			const res = await fetch( restUrl + '/comments', {
-				method:  'POST',
-				headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
-				body:    JSON.stringify( { object_type: 'post', object_id: postId, content, parent_id: comment.id } ),
-			} );
-			if ( res.ok ) {
-				const reply       = await res.json();
-				reply.author_name = reply.author_name || 'You';
-				repliesEl.appendChild( buildCommentNode( reply, currentUserId, postId, restUrl, nonce, true ) );
-				replyTextarea.value = '';
-				replyForm.hidden    = true;
+			try {
+				const res = await fetch( restUrl + '/comments', {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+					body:    JSON.stringify( { object_type: 'post', object_id: postId, content, parent_id: comment.id } ),
+				} );
+				if ( res.ok ) {
+					const reply = await res.json();
+					if ( ! repliesEl ) {
+						repliesEl = document.createElement( 'div' );
+						repliesEl.className = 'bn-comment__replies';
+						body.appendChild( repliesEl );
+					}
+					repliesEl.appendChild( buildCommentNode( reply, currentUserId, postId, restUrl, nonce, cappedDepth + 1 ) );
+					replyTextarea.value = '';
+					replyForm.hidden    = true;
+					adjustCommentCount( postId, 1 );
+				} else {
+					bnToast( 'Could not post reply. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not post reply. Try again.', { tone: 'danger' } );
 			}
 		} );
+	}
 
-		// Replies container.
-		const repliesEl = document.createElement( 'div' );
+	// Render nested replies recursively.
+	const replies = comment.replies || [];
+	if ( replies.length > 0 ) {
+		repliesEl = document.createElement( 'div' );
 		repliesEl.className = 'bn-comment__replies';
-		( comment.replies || [] ).forEach( ( r ) => {
-			repliesEl.appendChild( buildCommentNode( r, currentUserId, postId, restUrl, nonce, true ) );
+		replies.forEach( ( r ) => {
+			repliesEl.appendChild( buildCommentNode( r, currentUserId, postId, restUrl, nonce, cappedDepth + 1 ) );
 		} );
 		body.appendChild( repliesEl );
 	}
@@ -495,21 +723,68 @@ store( 'buddynext/post-card', {
 				return;
 			}
 
+			// Skeleton rows while we fetch — three placeholder bars so the
+			// region does not collapse and the user knows the thread is
+			// loading. Replaced on fetch success / replaced with error
+			// alert on fetch failure.
+			while ( listEl.firstChild ) {
+				listEl.removeChild( listEl.firstChild );
+			}
+			for ( let s = 0; s < 3; s++ ) {
+				const sk = document.createElement( 'div' );
+				sk.className = 'bn-comment-skeleton';
+				const skAvatar = document.createElement( 'span' );
+				skAvatar.className = 'bn-skeleton bn-comment-skeleton__avatar';
+				const skLine   = document.createElement( 'span' );
+				skLine.className   = 'bn-skeleton bn-comment-skeleton__line';
+				sk.appendChild( skAvatar );
+				sk.appendChild( skLine );
+				listEl.appendChild( sk );
+			}
+
 			try {
 				const res = yield fetch(
 					ctx.restUrl + '/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20',
 					{ headers: { 'X-WP-Nonce': ctx.reactNonce } }
 				);
+				while ( listEl.firstChild ) {
+					listEl.removeChild( listEl.firstChild );
+				}
 				if ( res.ok ) {
 					const data = yield res.json();
 					listEl.dataset.loaded = '1';
 					( data.items || [] ).forEach( ( comment ) => {
 						listEl.appendChild(
-							buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, false )
+							buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 )
 						);
 					} );
+				} else {
+					const err = document.createElement( 'div' );
+					err.className = 'bn-comment-error';
+					err.setAttribute( 'role', 'alert' );
+					err.textContent = 'Could not load comments. ';
+					const retry = document.createElement( 'button' );
+					retry.type = 'button';
+					retry.className = 'bn-comment-error__retry';
+					retry.textContent = 'Retry';
+					retry.addEventListener( 'click', () => {
+						delete listEl.dataset.loaded;
+						ctx.commentsOpen = false;
+						setTimeout( () => { ctx.commentsOpen = true; }, 0 );
+					} );
+					err.appendChild( retry );
+					listEl.appendChild( err );
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				while ( listEl.firstChild ) {
+					listEl.removeChild( listEl.firstChild );
+				}
+				const err = document.createElement( 'div' );
+				err.className = 'bn-comment-error';
+				err.setAttribute( 'role', 'alert' );
+				err.textContent = 'Network error. Comments could not be loaded.';
+				listEl.appendChild( err );
+			}
 		},
 		* submitComment() {
 			const ctx     = getContext();
@@ -519,6 +794,42 @@ store( 'buddynext/post-card', {
 				return;
 			}
 
+			// Helper: render an inline alert above the comment textarea.
+			const showInlineError = ( msg ) => {
+				if ( ! inputEl ) {
+					return;
+				}
+				const formEl  = inputEl.closest( '.bn-comment-form' );
+				const parent  = formEl?.parentElement;
+				if ( ! parent ) {
+					return;
+				}
+				let alertEl = parent.querySelector( '.bn-comment-submit-error' );
+				if ( ! alertEl ) {
+					alertEl = document.createElement( 'div' );
+					alertEl.className = 'bn-comment-submit-error';
+					alertEl.setAttribute( 'role', 'alert' );
+					parent.insertBefore( alertEl, formEl );
+				}
+				while ( alertEl.firstChild ) {
+					alertEl.removeChild( alertEl.firstChild );
+				}
+				const msgSpan = document.createElement( 'span' );
+				msgSpan.textContent = msg;
+				const retry = document.createElement( 'button' );
+				retry.type = 'button';
+				retry.className = 'bn-comment-submit-error__retry';
+				retry.textContent = 'Retry';
+				retry.addEventListener( 'click', () => {
+					alertEl.remove();
+					// Re-fire submitComment by clicking the submit button.
+					const submitBtn = formEl?.querySelector( '[data-wp-on--click="actions.submitComment"]' );
+					submitBtn?.click();
+				} );
+				alertEl.appendChild( msgSpan );
+				alertEl.appendChild( retry );
+			};
+
 			try {
 				const res = yield fetch( ctx.restUrl + '/comments', {
 					method:  'POST',
@@ -526,12 +837,14 @@ store( 'buddynext/post-card', {
 					body:    JSON.stringify( { object_type: 'post', object_id: ctx.postId, content } ),
 				} );
 				if ( res.ok ) {
+					// Clear any stale error alert from a previous failed attempt.
+					inputEl?.closest( '.bn-post-card__comments' )?.querySelector( '.bn-comment-submit-error' )?.remove();
 					const comment       = yield res.json();
 					comment.author_name = comment.author_name || 'You';
 					const listEl        = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
 					if ( listEl ) {
 						listEl.dataset.loaded = '1';
-						listEl.appendChild( buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, false ) );
+						listEl.appendChild( buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 ) );
 					}
 					if ( inputEl ) {
 						inputEl.value = '';
@@ -539,8 +852,12 @@ store( 'buddynext/post-card', {
 					adjustCommentCount( ctx.postId, 1 );
 					ctx.commentCount = ( ctx.commentCount || 0 ) + 1;
 					if ( window.bnToast ) { window.bnToast( 'Comment added' ); }
+				} else {
+					showInlineError( 'Could not post your comment. Try again.' );
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				showInlineError( 'Network error. Try again.' );
+			}
 		},
 		* votePoll( event ) {
 			const ctx      = getContext();
@@ -596,6 +913,155 @@ const PRIVACY_LABELS = {
 	private:   'Only me',
 	space_members: 'Space members',
 };
+
+/* ── Composer drafts (localStorage-backed) ───────────────────────────────
+ * Stored as JSON at `bn_composer_draft_{user_id}`. We debounce writes by
+ * 1.5s after the last keystroke to avoid hammering localStorage on every
+ * character. A successful publish clears the draft. The server-sync seam
+ * is intentionally minimal: drafts only round-trip to /me/drafts when
+ * localStorage carries the `bn_composer_cloud_sync = 1` flag — defaulted
+ * off so the local-only path is the fast path.
+ */
+
+const DRAFT_DEBOUNCE_MS = 1500;
+const _draftTimers      = new Map();
+let   _draftStatusTimer = null;
+
+function draftKey( userId ) {
+	return 'bn_composer_draft_' + ( parseInt( userId, 10 ) || 0 );
+}
+
+function readDraft( userId ) {
+	try {
+		const raw = window.localStorage.getItem( draftKey( userId ) );
+		if ( ! raw ) {
+			return null;
+		}
+		return JSON.parse( raw );
+	} catch ( _e ) {
+		return null;
+	}
+}
+
+function writeDraft( userId, payload ) {
+	try {
+		window.localStorage.setItem( draftKey( userId ), JSON.stringify( payload ) );
+		return true;
+	} catch ( _e ) {
+		return false;
+	}
+}
+
+function clearDraft( userId ) {
+	try {
+		window.localStorage.removeItem( draftKey( userId ) );
+	} catch ( _e ) {}
+}
+
+function setDraftStatus( ctx, status, transient ) {
+	if ( ! ctx ) {
+		return;
+	}
+	ctx.draftStatus = status;
+	if ( _draftStatusTimer ) {
+		clearTimeout( _draftStatusTimer );
+		_draftStatusTimer = null;
+	}
+	if ( transient ) {
+		_draftStatusTimer = setTimeout( () => {
+			ctx.draftStatus = '';
+		}, 2000 );
+	}
+}
+
+function scheduleDraftSave( ctx ) {
+	const userId = parseInt( ctx.userId, 10 );
+	if ( userId <= 0 ) {
+		return;
+	}
+	const key = String( userId );
+	if ( _draftTimers.has( key ) ) {
+		clearTimeout( _draftTimers.get( key ) );
+	}
+	setDraftStatus( ctx, 'Saving draft…', false );
+	const t = setTimeout( () => {
+		const payload = {
+			content:      ctx.content || '',
+			composerType: ctx.composerType || 'text',
+			privacy:      ctx.privacy || 'public',
+			spaceId:      ctx.spaceId || 0,
+			savedAt:      Date.now(),
+		};
+		if ( ( payload.content || '' ).trim() === '' ) {
+			// Empty content -> drop any stale draft instead of saving '' forever.
+			clearDraft( userId );
+			ctx.hasDraft = false;
+			setDraftStatus( ctx, '', false );
+		} else {
+			writeDraft( userId, payload );
+			ctx.hasDraft = true;
+			setDraftStatus( ctx, 'Draft saved', true );
+		}
+		_draftTimers.delete( key );
+
+		// Cloud-sync seam (off by default). When the user opts in via
+		// localStorage.bn_composer_cloud_sync = '1', the draft also POSTs
+		// to /me/drafts so it survives across devices. The endpoint
+		// existence and shape are documented in CommentDraftController;
+		// the local path keeps working even if the endpoint isn't shipped.
+		try {
+			if ( window.localStorage.getItem( 'bn_composer_cloud_sync' ) === '1' ) {
+				fetch( ctx.restUrl + '/me/drafts', {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
+					body:    JSON.stringify( { payload } ),
+				} ).catch( () => {} );
+			}
+		} catch ( _e ) {}
+	}, DRAFT_DEBOUNCE_MS );
+	_draftTimers.set( key, t );
+}
+
+// Restore drafts into composers on initial DOM load. Composers stamp the
+// user_id into their data-wp-context so we don't have to query a separate
+// global. Each composer is keyed by the user_id of the current viewer so
+// switching accounts on the same browser keeps drafts isolated.
+function restoreDraftsOnLoad() {
+	const composers = document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"]' );
+	composers.forEach( ( el ) => {
+		let ctxData;
+		try { ctxData = JSON.parse( el.getAttribute( 'data-wp-context' ) || '{}' ); }
+		catch ( _e ) { return; }
+		const userId = parseInt( ctxData.userId, 10 );
+		if ( userId <= 0 ) {
+			return;
+		}
+		const draft = readDraft( userId );
+		if ( ! draft || ! draft.content ) {
+			return;
+		}
+		// Pre-fill the textarea so the user sees their draft immediately,
+		// even before WP Interactivity hydrates the store.
+		const textarea = el.querySelector( '.bn-composer__prompt' );
+		if ( textarea ) {
+			textarea.value = draft.content;
+		}
+		// Patch the data-wp-context JSON so the hydrated state matches.
+		ctxData.content      = draft.content;
+		ctxData.composerType = draft.composerType || ctxData.composerType;
+		ctxData.privacy      = draft.privacy || ctxData.privacy;
+		ctxData.hasDraft     = true;
+		ctxData.draftStatus  = 'Draft restored';
+		try { el.setAttribute( 'data-wp-context', JSON.stringify( ctxData ) ); }
+		catch ( _e ) {}
+	} );
+}
+
+if ( document.readyState === 'loading' ) {
+	document.addEventListener( 'DOMContentLoaded', restoreDraftsOnLoad );
+} else {
+	restoreDraftsOnLoad();
+}
 
 store( 'buddynext/post-composer', {
 	state: {
@@ -656,6 +1122,12 @@ store( 'buddynext/post-composer', {
 		get submitLabel() {
 			try { return getContext().submitting ? 'Sharing…' : 'Share'; } catch ( _e ) { return 'Share'; }
 		},
+		get draftStatusHidden() {
+			try { return ! ( getContext().draftStatus || '' ); } catch ( _e ) { return true; }
+		},
+		get draftDiscardHidden() {
+			try { return ! getContext().hasDraft; } catch ( _e ) { return true; }
+		},
 		get eventSubmitLabel() {
 			try { return getContext().submitting ? 'Scheduling…' : 'Schedule event'; } catch ( _e ) { return 'Schedule event'; }
 		},
@@ -700,7 +1172,7 @@ store( 'buddynext/post-composer', {
 				fileInput._bnWired = true;
 				fileInput.addEventListener( 'change', async function () {
 					const files     = fileInput.files;
-					const MAX_MEDIA = 5;
+					const MAX_MEDIA = 4;
 
 					if ( ! files || ! files.length ) {
 						return;
@@ -708,7 +1180,11 @@ store( 'buddynext/post-composer', {
 
 					const remaining = MAX_MEDIA - _mediaState.ids.length;
 					if ( remaining <= 0 ) {
+						bnToast( 'You can attach at most ' + MAX_MEDIA + ' images per post.', { tone: 'info' } );
 						return;
+					}
+					if ( files.length > remaining ) {
+						bnToast( 'Only ' + remaining + ' more image' + ( remaining === 1 ? '' : 's' ) + ' can be added.', { tone: 'info' } );
 					}
 
 					// Show preview area.
@@ -760,7 +1236,7 @@ store( 'buddynext/post-composer', {
 								}
 							}
 						} catch ( _e ) {
-							// Upload failed — skip silently.
+							bnToast( 'Could not upload ' + ( file.name || 'image' ) + '. Try a smaller file.', { tone: 'danger' } );
 						}
 					}
 
@@ -792,7 +1268,23 @@ store( 'buddynext/post-composer', {
 			ctx.composerType = 'link';
 		},
 		onInput( event ) {
-			getContext().content = event.target.value;
+			const ctx     = getContext();
+			ctx.content   = event.target.value;
+			scheduleDraftSave( ctx );
+		},
+		discardDraft() {
+			const ctx = getContext();
+			const userId = parseInt( ctx.userId, 10 );
+			if ( userId > 0 ) {
+				clearDraft( userId );
+			}
+			ctx.content     = '';
+			ctx.hasDraft    = false;
+			setDraftStatus( ctx, '', false );
+			const textarea = document.querySelector( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' );
+			if ( textarea ) {
+				textarea.value = '';
+			}
 		},
 		* submit() {
 			const ctx     = getContext();
@@ -841,6 +1333,12 @@ store( 'buddynext/post-composer', {
 					body:    JSON.stringify( body ),
 				} );
 				if ( res.ok ) {
+					const userId = parseInt( ctx.userId, 10 );
+					if ( userId > 0 ) {
+						clearDraft( userId );
+					}
+					ctx.hasDraft    = false;
+					setDraftStatus( ctx, '', false );
 					if ( window.bnToast ) { window.bnToast( 'Post published', 'success' ); }
 					setTimeout( function () { window.location.reload(); }, 500 );
 					return;

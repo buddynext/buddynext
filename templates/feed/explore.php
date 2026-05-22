@@ -336,14 +336,20 @@ do_action( 'buddynext_feed_explore_before', $current_user_id );
 					<?php endforeach; ?>
 				<?php else : ?>
 					<!-- Empty state — shown when no public posts exist yet -->
-					<div class="bn-explore-empty" role="status">
-						<div class="bn-explore-empty__icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></div>
-						<div class="bn-explore-empty__title">
-							<?php esc_html_e( 'Nothing to explore yet', 'buddynext' ); ?>
+					<div class="bn-feed-empty bn-explore-empty" role="status">
+						<div class="bn-feed-empty__icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></div>
+						<div class="bn-feed-empty__title">
+							<?php esc_html_e( 'Nothing trending right now', 'buddynext' ); ?>
 						</div>
-						<p class="bn-explore-empty__text">
-							<?php esc_html_e( 'Be the first to post something.', 'buddynext' ); ?>
+						<p class="bn-feed-empty__text">
+							<?php esc_html_e( 'Be the first to post and start the conversation.', 'buddynext' ); ?>
 						</p>
+						<a href="<?php echo esc_url( PageRouter::activity_url() ); ?>"
+							class="bn-btn bn-feed-empty__cta"
+							data-variant="primary">
+							<?php esc_html_e( 'Go to your feed', 'buddynext' ); ?>
+							<span aria-hidden="true">&rarr;</span>
+						</a>
 					</div>
 				<?php endif; ?>
 			</div>
