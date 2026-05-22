@@ -561,6 +561,53 @@
 	max-width: 420px;
 }
 
+/* Guest CTA — replaces the composer for logged-out viewers + non-member
+   viewers of open spaces. */
+.bn-sh-guest-cta {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s4) var(--bn-s5);
+}
+
+.bn-sh-guest-cta__icon {
+	display: inline-flex;
+	color: var(--bn-ink-3);
+}
+
+.bn-sh-guest-cta__icon svg {
+	width: 28px;
+	height: 28px;
+}
+
+.bn-sh-guest-cta__copy {
+	flex: 1;
+	min-width: 0;
+}
+
+.bn-sh-guest-cta__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-md);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	margin: 0;
+}
+
+.bn-sh-guest-cta__lede {
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	margin: 0;
+}
+
+@media (max-width: 480px) {
+	.bn-sh-guest-cta {
+		flex-direction: column;
+		align-items: stretch;
+		text-align: center;
+	}
+	.bn-sh-guest-cta__icon { align-self: center; }
+}
+
 /* About-tab card */
 .bn-sh-about {
 	padding: var(--bn-s5);

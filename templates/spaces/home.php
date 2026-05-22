@@ -139,8 +139,23 @@ if ( $current_user_id ) {
 $is_member    = $membership && 'active' === $membership->status;
 $is_admin_mod = $membership && 'active' === $membership->status && in_array( $membership->role, array( 'owner', 'moderator' ), true );
 $is_pending   = $membership && 'pending' === $membership->status;
+$is_guest     = ( 0 === (int) $current_user_id );
 
-// Access gate: private spaces.
+// Secret spaces are leak-proof: a logged-out visitor (or any non-member who
+// isn't a site admin) reaches the canonical 404 surface so we never confirm
+// the slug exists. Mirrors the visibility gate enforced by
+// SpaceService::search() and the directory's `type != 'secret'` filter.
+if ( 'secret' === $space->type && ! $is_member && ! current_user_can( 'manage_options' ) ) {
+	global $wp_query;
+	$wp_query->set_404();
+	status_header( 404 );
+	nocache_headers();
+	include get_404_template();
+	exit;
+}
+
+// Access gate: private + secret feeds. Open spaces never gate the feed, but
+// guests still see a "Join to participate" CTA instead of the composer.
 $gate_feed = ( 'open' !== $space->type && ! $is_member && ! current_user_can( 'manage_options' ) );
 
 // ── Fetch posts for the feed ──────────────────────────────────────────────────
@@ -496,7 +511,14 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 			</div>
 
 			<div class="bn-sh-hero__actions" data-space-id="<?php echo esc_attr( (string) $space_id ); ?>">
-				<?php if ( $is_member ) : ?>
+				<?php if ( $is_guest ) : ?>
+					<a
+						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space->slug ) ) ); ?>"
+						class="bn-btn"
+						data-variant="primary"
+						data-size="sm"
+					><?php esc_html_e( 'Log in to join', 'buddynext' ); ?></a>
+				<?php elseif ( $is_member ) : ?>
 					<div class="bn-sh-notif" data-bn-notif-popover>
 						<button
 							type="button"
@@ -658,15 +680,36 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 				<p class="bn-sh-gate__lede">
 					<?php esc_html_e( 'Join to read posts and participate in discussions.', 'buddynext' ); ?>
 				</p>
-				<button
-					class="bn-btn"
-					data-variant="primary"
-					data-size="md"
-					data-current-state="request"
-					data-wp-on--click="actions.requestJoin"
-				>
-					<?php esc_html_e( 'Request to join', 'buddynext' ); ?>
-				</button>
+				<?php if ( $is_guest ) : ?>
+					<a
+						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space->slug ) ) ); ?>"
+						class="bn-btn"
+						data-variant="primary"
+						data-size="md"
+					>
+						<?php esc_html_e( 'Log in to request access', 'buddynext' ); ?>
+					</a>
+				<?php elseif ( $is_pending ) : ?>
+					<button
+						class="bn-btn"
+						data-variant="ghost"
+						data-size="md"
+						data-current-state="pending"
+						data-wp-on--click="actions.cancelJoinRequest"
+					>
+						<?php esc_html_e( 'Request pending', 'buddynext' ); ?>
+					</button>
+				<?php else : ?>
+					<button
+						class="bn-btn"
+						data-variant="primary"
+						data-size="md"
+						data-current-state="request"
+						data-wp-on--click="actions.requestJoin"
+					>
+						<?php esc_html_e( 'Request to join', 'buddynext' ); ?>
+					</button>
+				<?php endif; ?>
 			</div>
 
 		<?php elseif ( 'media' === $active_tab ) : ?>
@@ -917,6 +960,35 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 					)
 				);
 				?>
+			<?php elseif ( $is_guest ) : ?>
+				<div class="bn-card bn-sh-guest-cta">
+					<div class="bn-sh-guest-cta__icon" aria-hidden="true"><?php buddynext_icon( 'log-in' ); ?></div>
+					<div class="bn-sh-guest-cta__copy">
+						<p class="bn-sh-guest-cta__title"><?php esc_html_e( 'Join to participate', 'buddynext' ); ?></p>
+						<p class="bn-sh-guest-cta__lede"><?php esc_html_e( 'Sign in to post, react, and reply in this space.', 'buddynext' ); ?></p>
+					</div>
+					<a
+						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space->slug ) ) ); ?>"
+						class="bn-btn"
+						data-variant="primary"
+						data-size="md"
+					><?php esc_html_e( 'Log in', 'buddynext' ); ?></a>
+				</div>
+			<?php elseif ( ! $is_member && ! $is_pending && 'open' === $space->type ) : ?>
+				<div class="bn-card bn-sh-guest-cta">
+					<div class="bn-sh-guest-cta__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
+					<div class="bn-sh-guest-cta__copy">
+						<p class="bn-sh-guest-cta__title"><?php esc_html_e( 'Join the conversation', 'buddynext' ); ?></p>
+						<p class="bn-sh-guest-cta__lede"><?php esc_html_e( 'Join the space to post and reply.', 'buddynext' ); ?></p>
+					</div>
+					<button
+						class="bn-btn"
+						data-variant="primary"
+						data-size="md"
+						data-current-state="join"
+						data-wp-on--click="actions.joinSpace"
+					><?php esc_html_e( 'Join space', 'buddynext' ); ?></button>
+				</div>
 			<?php endif; ?>
 
 			<?php if ( $pinned_post ) : ?>
