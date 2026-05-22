@@ -553,7 +553,7 @@ add_action(
 
 		<section class="bn-card bn-notif-sidecard" data-v2 aria-labelledby="bn-notif-side-prefs">
 			<header id="bn-notif-side-prefs" class="bn-notif-sidecard__head"><?php esc_html_e( 'Preferences', 'buddynext' ); ?></header>
-			<a href="<?php echo esc_url( PageRouter::edit_profile_url() ); ?>" class="bn-notif-sidecard__row">
+			<a href="<?php echo esc_url( PageRouter::notification_prefs_url() ); ?>" class="bn-notif-sidecard__row">
 				<span class="bn-notif-sidecard__icon" aria-hidden="true"><?php buddynext_icon( 'settings' ); ?></span>
 				<span class="bn-notif-sidecard__label"><?php esc_html_e( 'Notification preferences', 'buddynext' ); ?></span>
 			</a>
@@ -607,8 +607,8 @@ $initial_context = wp_json_encode(
 				</h1>
 			</div>
 		</div>
-		<?php if ( $total_unread > 0 ) : ?>
-			<div class="bn-section-head__actions">
+		<div class="bn-section-head__actions">
+			<?php if ( $total_unread > 0 ) : ?>
 				<button class="bn-btn" data-variant="secondary" data-size="sm"
 					data-wp-on--click="actions.markAllRead"
 					data-nonce="<?php echo esc_attr( $mark_all_nonce ); ?>"
@@ -616,8 +616,14 @@ $initial_context = wp_json_encode(
 					<?php buddynext_icon( 'check-circle' ); ?>
 					<?php esc_html_e( 'Mark all read', 'buddynext' ); ?>
 				</button>
-			</div>
-		<?php endif; ?>
+			<?php endif; ?>
+			<a class="bn-btn bn-btn--prefs-link" data-variant="ghost" data-size="sm"
+				href="<?php echo esc_url( PageRouter::notification_prefs_url() ); ?>"
+				aria-label="<?php esc_attr_e( 'Notification preferences', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'settings' ); ?>
+				<?php esc_html_e( 'Settings', 'buddynext' ); ?>
+			</a>
+		</div>
 	</header>
 
 	<nav class="bn-tabs bn-notif-tabs" aria-label="<?php esc_attr_e( 'Notification filters', 'buddynext' ); ?>" role="tablist">
