@@ -76,9 +76,29 @@ if ( ! empty( $bn_cat_slug ) ) {
 	$query_args[]  = $bn_cat_slug;
 }
 
-if ( in_array( $bn_visibility, array( 'open', 'private' ), true ) ) {
-	$where_parts[] = 's.type = %s';
-	$query_args[]  = $bn_visibility;
+if ( in_array( $bn_visibility, array( 'open', 'private', 'secret' ), true ) ) {
+	// Secret spaces are only visible to active members or site admins; the
+	// outer SQL filter below (`s.type != 'secret'`) drops them for everyone
+	// else. When 'secret' is explicitly requested we restrict to the viewer's
+	// own secret memberships so the chip remains usable for invitees.
+	if ( 'secret' === $bn_visibility ) {
+		$where_parts   = array( "s.type = 'secret'" );
+		$where_parts[] = 's.id IN ( SELECT space_id FROM ' . $wpdb->prefix . "bn_space_members WHERE user_id = %d AND status = 'active' )";
+		$query_args    = array( $current_user_id );
+		if ( ! empty( $bn_search ) ) {
+			$where_parts[] = '( s.name LIKE %s OR s.description LIKE %s )';
+			$like          = '%' . $wpdb->esc_like( $bn_search ) . '%';
+			$query_args[]  = $like;
+			$query_args[]  = $like;
+		}
+		if ( ! empty( $bn_cat_slug ) ) {
+			$where_parts[] = 'c.slug = %s';
+			$query_args[]  = $bn_cat_slug;
+		}
+	} else {
+		$where_parts[] = 's.type = %s';
+		$query_args[]  = $bn_visibility;
+	}
 }
 
 $where_sql = implode( ' AND ', $where_parts );
@@ -333,6 +353,14 @@ $bn_type_options = array(
 	''        => __( 'All types', 'buddynext' ),
 	'open'    => __( 'Public', 'buddynext' ),
 	'private' => __( 'Private', 'buddynext' ),
+	'secret'  => __( 'Secret', 'buddynext' ),
+);
+
+$bn_type_chips = array(
+	''        => __( 'All', 'buddynext' ),
+	'open'    => __( 'Public', 'buddynext' ),
+	'private' => __( 'Private', 'buddynext' ),
+	'secret'  => __( 'Secret', 'buddynext' ),
 );
 
 $bn_sort_options = array(
@@ -346,8 +374,7 @@ $bn_sort_options = array(
 $bn_actions_html = '';
 if ( current_user_can( 'read' ) ) {
 	$bn_actions_html = sprintf(
-		'<a href="%s" class="bn-btn" data-variant="primary" data-size="md">%s</a>',
-		esc_url( buddynext_create_space_url() ),
+		'<button type="button" class="bn-btn" data-variant="primary" data-size="md" data-wp-on--click="actions.openCreate" data-bn-create-space-trigger>%s</button>',
 		esc_html__( 'Create a space', 'buddynext' )
 	);
 }
@@ -392,13 +419,13 @@ $bn_subtitle = sprintf(
 	buddynext_get_template(
 		'parts/filter-strip.php',
 		array(
-			'search'  => array(
+			'search'   => array(
 				'name'        => 'bn_search',
 				'value'       => $bn_search,
 				'placeholder' => __( 'Search spaces…', 'buddynext' ),
 				'aria_label'  => __( 'Search spaces', 'buddynext' ),
 			),
-			'selects' => array(
+			'selects'  => array(
 				array(
 					'name'       => 'bn_cat',
 					'value'      => $bn_cat_slug,
@@ -411,16 +438,58 @@ $bn_subtitle = sprintf(
 					'options'    => $bn_type_options,
 					'aria_label' => __( 'Filter by type', 'buddynext' ),
 				),
-				array(
-					'name'       => 'bn_sort',
-					'value'      => $bn_orderby,
-					'options'    => $bn_sort_options,
-					'aria_label' => __( 'Sort spaces', 'buddynext' ),
-				),
 			),
+			'reactive' => true,
 		)
 	);
 	?>
+
+	<div class="bn-sd-filter-row">
+		<nav class="bn-tabs bn-sd-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter by type', 'buddynext' ); ?>" data-bn-type-chips>
+			<?php foreach ( $bn_type_chips as $bn_type_val => $bn_type_label ) : ?>
+				<button
+					type="button"
+					class="bn-tab bn-sd-chip"
+					role="tab"
+					aria-selected="<?php echo ( (string) $bn_type_val === $bn_visibility ) ? 'true' : 'false'; ?>"
+					data-bn-type-chip="<?php echo esc_attr( (string) $bn_type_val ); ?>"
+					data-wp-on--click="actions.setType"
+				><?php echo esc_html( $bn_type_label ); ?></button>
+			<?php endforeach; ?>
+		</nav>
+
+		<div class="bn-sd-sort" data-bn-sort-popover>
+			<button
+				type="button"
+				class="bn-btn bn-sd-sort__trigger"
+				data-variant="secondary"
+				data-size="sm"
+				aria-haspopup="listbox"
+				aria-expanded="false"
+				data-bn-sort-trigger
+				data-wp-on--click="actions.toggleSortPopover"
+			>
+				<span data-bn-sort-label>
+					<?php echo esc_html( $bn_sort_options[ $bn_orderby ] ?? $bn_sort_options['popular'] ); ?>
+				</span>
+				<?php buddynext_icon( 'chevron-down' ); ?>
+			</button>
+			<ul class="bn-sd-sort__list" role="listbox" aria-label="<?php esc_attr_e( 'Sort spaces', 'buddynext' ); ?>" hidden data-bn-sort-list>
+				<?php foreach ( $bn_sort_options as $bn_sort_val => $bn_sort_label ) : ?>
+					<li>
+						<button
+							type="button"
+							class="bn-sd-sort__option"
+							role="option"
+							aria-selected="<?php echo ( $bn_orderby === $bn_sort_val ) ? 'true' : 'false'; ?>"
+							data-bn-sort-value="<?php echo esc_attr( (string) $bn_sort_val ); ?>"
+							data-wp-on--click="actions.setSort"
+						><?php echo esc_html( (string) $bn_sort_label ); ?></button>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		</div>
+	</div>
 
 	<nav class="bn-tabs bn-sd-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter by category', 'buddynext' ); ?>">
 		<a
@@ -440,22 +509,54 @@ $bn_subtitle = sprintf(
 		<?php endforeach; ?>
 	</nav>
 
+	<div class="bn-sd-loading" data-bn-loading hidden aria-hidden="true">
+		<?php for ( $bn_skel_i = 0; $bn_skel_i < 6; $bn_skel_i++ ) : ?>
+			<div class="bn-sd-skeleton" aria-hidden="true">
+				<div class="bn-sd-skeleton__cover"></div>
+				<div class="bn-sd-skeleton__line"></div>
+				<div class="bn-sd-skeleton__line bn-sd-skeleton__line--short"></div>
+			</div>
+		<?php endfor; ?>
+	</div>
+
+	<div class="bn-sd-error" data-bn-error hidden role="alert">
+		<p class="bn-sd-error__message"><?php esc_html_e( 'Something went wrong loading spaces.', 'buddynext' ); ?></p>
+		<button
+			type="button"
+			class="bn-btn"
+			data-variant="secondary"
+			data-size="sm"
+			data-wp-on--click="actions.applyFilter"
+		><?php esc_html_e( 'Retry', 'buddynext' ); ?></button>
+	</div>
+
+	<div class="bn-sd-results" data-bn-sd-results>
+
 	<?php if ( empty( $spaces ) ) : ?>
 
-		<?php
-		buddynext_get_template(
-			'parts/empty-state.php',
-			array(
-				'icon'  => 'search',
-				'title' => __( 'No spaces found', 'buddynext' ),
-				'body'  => __( 'Try adjusting your search or filters.', 'buddynext' ),
-			)
-		);
-		?>
+		<div class="bn-sd-empty" data-bn-sd-empty>
+			<?php
+			buddynext_get_template(
+				'parts/empty-state.php',
+				array(
+					'icon'  => 'search',
+					'title' => __( 'No spaces match', 'buddynext' ),
+					'body'  => __( 'Try widening your filters.', 'buddynext' ),
+				)
+			);
+			?>
+			<button
+				type="button"
+				class="bn-btn"
+				data-variant="secondary"
+				data-size="sm"
+				data-wp-on--click="actions.resetFilters"
+			><?php esc_html_e( 'Reset filters', 'buddynext' ); ?></button>
+		</div>
 
 	<?php else : ?>
 
-		<div class="bn-sd-grid" role="list">
+		<div class="bn-sd-grid" role="list" data-bn-sd-grid>
 
 			<?php foreach ( $spaces as $space ) : ?>
 				<?php
@@ -585,6 +686,19 @@ $bn_subtitle = sprintf(
 		);
 		?>
 
+	<?php endif; ?>
+
+	</div><!-- /.bn-sd-results -->
+
+	<?php if ( current_user_can( 'read' ) ) : ?>
+		<?php
+		buddynext_get_template(
+			'partials/create-space-modal.php',
+			array(
+				'categories' => $categories,
+			)
+		);
+		?>
 	<?php endif; ?>
 
 </div>

@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Spaces (production)
+
+- **Spaces directory (`/spaces/`)** — Apply submit dropped; filter bar is reactive (250 ms debounced live search + instant category select + type chip switch + sort chip-button popover). New Secret type chip (visible to viewer-owned secret memberships only). Skeleton grid while loading; recoverable error block with retry; empty state copy now reads "No spaces match - try widening" and ships a Reset filters CTA. Create-space CTA opens an inline modal (`templates/partials/create-space-modal.php`) with name + auto-derived slug + type (Open/Private/Secret) + category + description; submits to `POST /buddynext/v1/spaces`, surfaces field-level 422 errors, redirects to the new space on 201. REST list endpoint cleaned up: `?type=open|private|secret`, `?category_id=`, `?orderby=popular|active|newest|alphabetical`, `?q=`/`?search=`, `?per_page=` capped at 50.
+- **Space home (`/spaces/{slug}/`)** — Hero ships cover (image or gradient fallback), name, type badge, member count, owner+mod avatars in the side widget. Action row now covers every join state plus a Notification-pref chip (bell) opening a popover with All / Mentions only / None (optimistic + rollback on failure), an Invite button for owners/moderators, and a Settings link for owners. Moderation tab visible only to owners/moderators. Members tab renders the full active-member grid with avatar + name + role chip + Follow chip. About tab passes the description through `wp_kses_post( wpautop() )` so admins can use safe markdown-ish formatting. Feed scoped to the space via the existing `FeedService` query.
+- **Space settings (`/spaces/{slug}/settings/`)** — Section tabs rebuilt as General / Permissions / Members / Branding / Moderation / Integrations / Notifications / Danger zone. Permissions tab carries who-can-post (members/mods/owner), who-can-invite, require-join-approval, require-post-approval, and allow-member-posts toggles. Members list ships role chips and per-row Promote / Demote / Remove / Ban with optimistic UI + `bnToast` on success and rollback on failure. Branding tab shows a soft Pro upsell card; Pro P6.2 already renders the real per-space accent hue control via `buddynext_space_branding_settings`. Danger zone now ships Transfer ownership (active-member picker -> `POST /spaces/{id}/transfer`, demotes current owner, promotes target, updates `bn_spaces.owner_id` with cache invalidation) plus Delete space behind a two-step gated modal (`templates/partials/space-delete-confirm-modal.php`) that requires the user to type the exact space name; the DELETE call carries an `X-BN-Confirm-Space-Name` header the controller re-verifies (422 on mismatch).
+- REST surface additions (`includes/Spaces/SpaceController.php`):
+  - `GET /spaces` accepts `?type=`, `?category_id=`, `?orderby=` (popular / active / newest / alphabetical aliases), `?q=`, `?per_page=` capped at 50.
+  - `POST /spaces` validates name (1..100), slug, type enum, description (..160) and returns 422 with `params` on validation failure; slug_taken is surfaced as 422 against the slug field.
+  - `GET` + `POST /spaces/{id}/notification-pref` for per-user preferences.
+  - `PUT /spaces/{id}/permissions` for the new Permissions tab.
+  - `POST /spaces/{id}/transfer` aliases the existing transfer-ownership endpoint.
+  - `DELETE /spaces/{id}` honors the `X-BN-Confirm-Space-Name` header.
+- Service additions (`includes/Spaces/SpaceMemberService.php`):
+  - `set_notification_pref()` + `get_notification_pref()` write/read `bn_space_members.notification_pref` with cache invalidation.
+  - `cancel_request()` removes a pending join row and fires `buddynext_space_join_request_cancelled`.
+- Store additions (`assets/js/spaces/store.js`):
+  - Directory: `applyFilter`, `setType`, `setSort`, `toggleSortPopover`, `resetFilters`, `openCreate`, `closeCreate`, `submitCreate`.
+  - Space home: `setNotificationPref` + `toggleNotifPopover` (optimistic + rollback + outside-click close), `setTab`, `openInviteModal`.
+  - Settings: `setMemberRole`, `kickMember`, `banMember`, `transferOwnership` + `openTransferOwnershipModal`, `openDeleteSpaceConfirm` + `deleteSpaceConfirmed` (name gate), `saveGeneral`, `savePermissions`.
+- New tests:
+  - `tests/Spaces/SpaceControllerTest.php` - 10 additional cases covering 422 on invalid type, 422 on duplicate slug, type enum filter, per_page cap, sort alias, notification-pref happy + invalid, role transition, transfer, delete-with-matching-header, delete-with-mismatched-header, permissions guard.
+  - `tests/Spaces/SpaceMemberServiceTest.php` - 5 additional cases covering notification-pref happy + invalid + non-member + cancel-request cache busting + change-role cache invalidation.
+
 ### Social Graph (production)
 
 - **Social Graph (production)** — Member directory rebuilt as a reactive store with debounced live search, member-type pill row, instant sort + relation tab switching, loading skeleton, recoverable error state, and empty state with a Reset filters CTA. Follow / Connect chips on every card use optimistic UI with rollback + toast on REST 4xx/5xx. Per-card kebab menu surfaces Mute, Block, and Report through the same modal partials the profile view uses. Page title renders as `Members · {site name}` via the `document_title_parts` filter.

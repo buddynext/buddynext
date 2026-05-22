@@ -227,6 +227,129 @@ class SpaceController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		// Spec-conformant alias used by space-home action row.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/transfer',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'transfer_ownership' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		// Per-space notification preference for the current user.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/notification-pref',
+			array(
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'get_notification_pref' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'set_notification_pref' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
+		// PUT alias for permissions (general settings PUT already exists on
+		// /spaces/{id}); this provides an explicit permissions-only endpoint.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/permissions',
+			array(
+				'methods'             => 'PUT',
+				'callback'            => array( $this, 'update_permissions' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+	}
+
+	/**
+	 * Return the current user's per-space notification preference.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_notification_pref( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+		$pref     = ( new SpaceMemberService() )->get_notification_pref( $space_id, $user_id );
+
+		return new WP_REST_Response( array( 'pref' => $pref ), 200 );
+	}
+
+	/**
+	 * Update the current user's per-space notification preference.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function set_notification_pref( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+		$pref     = sanitize_key( (string) ( $request->get_param( 'pref' ) ?? '' ) );
+
+		$result = ( new SpaceMemberService() )->set_notification_pref( $space_id, $user_id, $pref );
+
+		if ( is_wp_error( $result ) ) {
+			$status = ( 'invalid_pref' === $result->get_error_code() ) ? 422 : 403;
+			$result->add_data( array( 'status' => $status ) );
+			return $result;
+		}
+
+		return new WP_REST_Response( array( 'pref' => $pref ), 200 );
+	}
+
+	/**
+	 * Update space permissions (delegates to update_space with whitelisted fields).
+	 *
+	 * Permissions stored as wp_options under bn_space_<id>_<key>:
+	 *   - allow_member_posts
+	 *   - require_post_approval
+	 *   - require_join_approval
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function update_permissions( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+		$space    = ( new SpaceService() )->get( $space_id );
+
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		if ( $space['owner_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+			return new WP_Error( 'forbidden', __( 'Only the space owner can change permissions.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$bools = array(
+			'allow_member_posts'    => 'allow_member_posts',
+			'require_post_approval' => 'require_post_approval',
+			'require_join_approval' => 'require_join_approval',
+		);
+		foreach ( $bools as $key => $opt ) {
+			$param = $request->get_param( $key );
+			if ( null !== $param ) {
+				update_option( 'bn_space_' . $space_id . '_' . $opt, $param ? 1 : 0 );
+			}
+		}
+
+		return new WP_REST_Response(
+			array(
+				'allow_member_posts'    => (int) get_option( 'bn_space_' . $space_id . '_allow_member_posts', 1 ),
+				'require_post_approval' => (int) get_option( 'bn_space_' . $space_id . '_require_post_approval', 0 ),
+				'require_join_approval' => (int) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 ),
+			),
+			200
+		);
 	}
 
 	// ── Space CRUD ──────────────────────────────────────────────────────────
@@ -243,26 +366,63 @@ class SpaceController {
 		$orderby_param  = $request->get_param( 'orderby' );
 		$order_param    = $request->get_param( 'order' );
 
+		// Cap per_page at 50 (story requirement); default 12.
+		$per_page = absint( null !== $per_page_param ? $per_page_param : 12 );
+		if ( 0 === $per_page ) {
+			$per_page = 12;
+		}
+		$per_page = min( 50, $per_page );
+
+		// Map directory-friendly sort aliases (popular/active/newest/alphabetical)
+		// onto the underlying service contract (orderby + order).
+		$orderby = sanitize_key( (string) ( null !== $orderby_param ? $orderby_param : 'member_count' ) );
+		$order   = sanitize_key( (string) ( null !== $order_param ? $order_param : 'DESC' ) );
+
+		$sort_alias_map = array(
+			'popular'      => array( 'member_count', 'DESC' ),
+			'active'       => array( 'member_count', 'DESC' ),
+			'newest'       => array( 'created_at', 'DESC' ),
+			'alphabetical' => array( 'name', 'ASC' ),
+		);
+		if ( isset( $sort_alias_map[ $orderby ] ) ) {
+			list( $orderby, $order ) = $sort_alias_map[ $orderby ];
+		}
+
 		$args = array(
-			'per_page' => absint( null !== $per_page_param ? $per_page_param : 12 ),
+			'per_page' => $per_page,
 			'page'     => absint( null !== $page_param ? $page_param : 1 ),
-			'orderby'  => sanitize_key( (string) ( null !== $orderby_param ? $orderby_param : 'member_count' ) ),
-			'order'    => sanitize_key( (string) ( null !== $order_param ? $order_param : 'DESC' ) ),
+			'orderby'  => $orderby,
+			'order'    => $order,
 		);
 
-		if ( null !== $request->get_param( 'type' ) ) {
-			$args['type'] = sanitize_key( (string) $request->get_param( 'type' ) );
+		$type_param = $request->get_param( 'type' );
+		if ( null !== $type_param && '' !== (string) $type_param ) {
+			$type_value = sanitize_key( (string) $type_param );
+			if ( in_array( $type_value, array( 'open', 'private', 'secret' ), true ) ) {
+				$args['type'] = $type_value;
+				// Restrict secret listing to viewer's own memberships.
+				if ( 'secret' === $type_value ) {
+					$viewer = get_current_user_id();
+					if ( 0 === $viewer ) {
+						return new WP_REST_Response( array(), 200 );
+					}
+					$args['member'] = $viewer;
+				}
+			}
 		}
 
 		if ( null !== $request->get_param( 'category_id' ) ) {
 			$args['category_id'] = absint( $request->get_param( 'category_id' ) );
 		}
 
-		if ( null !== $request->get_param( 'search' ) ) {
-			$spaces = ( new SpaceService() )->search(
-				sanitize_text_field( (string) $request->get_param( 'search' ) ),
-				$args
-			);
+		$search_param = null !== $request->get_param( 'search' )
+			? sanitize_text_field( (string) $request->get_param( 'search' ) )
+			: ( null !== $request->get_param( 'q' )
+				? sanitize_text_field( (string) $request->get_param( 'q' ) )
+				: '' );
+
+		if ( '' !== $search_param ) {
+			$spaces = ( new SpaceService() )->search( $search_param, $args );
 		} else {
 			$spaces = ( new SpaceService() )->list_spaces( $args );
 		}
@@ -278,17 +438,71 @@ class SpaceController {
 	 */
 	public function create_space( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$user_id = get_current_user_id();
-		$data    = array(
-			'name'        => sanitize_text_field( (string) ( $request->get_param( 'name' ) ?? '' ) ),
-			'slug'        => sanitize_title( (string) ( $request->get_param( 'slug' ) ?? '' ) ),
-			'type'        => sanitize_key( (string) ( $request->get_param( 'type' ) ?? 'open' ) ),
-			'description' => sanitize_textarea_field( (string) ( $request->get_param( 'description' ) ?? '' ) ),
+
+		$name        = sanitize_text_field( (string) ( $request->get_param( 'name' ) ?? '' ) );
+		$slug_raw    = (string) ( $request->get_param( 'slug' ) ?? '' );
+		$slug        = sanitize_title( $slug_raw );
+		$type        = sanitize_key( (string) ( $request->get_param( 'type' ) ?? 'open' ) );
+		$description = sanitize_textarea_field( (string) ( $request->get_param( 'description' ) ?? '' ) );
+		$category_id = absint( $request->get_param( 'category_id' ) );
+
+		$validation_errors = array();
+
+		if ( '' === $name ) {
+			$validation_errors['name'] = __( 'A name is required.', 'buddynext' );
+		} elseif ( mb_strlen( $name ) > 100 ) {
+			$validation_errors['name'] = __( 'Name must be 100 characters or fewer.', 'buddynext' );
+		}
+
+		if ( '' === $slug && '' !== $name ) {
+			$slug = sanitize_title( $name );
+		}
+		if ( '' === $slug ) {
+			$validation_errors['slug'] = __( 'A slug is required.', 'buddynext' );
+		}
+
+		if ( ! in_array( $type, array( 'open', 'private', 'secret' ), true ) ) {
+			$validation_errors['type'] = __( 'Invalid space type.', 'buddynext' );
+		}
+
+		if ( mb_strlen( $description ) > 160 ) {
+			$validation_errors['description'] = __( 'Description must be 160 characters or fewer.', 'buddynext' );
+		}
+
+		if ( ! empty( $validation_errors ) ) {
+			return new WP_Error(
+				'rest_invalid_param',
+				__( 'Validation failed.', 'buddynext' ),
+				array(
+					'status' => 422,
+					'params' => $validation_errors,
+				)
+			);
+		}
+
+		$data = array(
+			'name'        => $name,
+			'slug'        => $slug,
+			'type'        => $type,
+			'description' => $description,
 		);
+		if ( $category_id > 0 ) {
+			$data['category_id'] = $category_id;
+		}
 
 		$result = ( new SpaceService() )->create( $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
+			$code   = $result->get_error_code();
+			$status = ( 'slug_taken' === $code ) ? 422 : 400;
+			$result->add_data(
+				array(
+					'status' => $status,
+					'params' => ( 'slug_taken' === $code )
+						? array( 'slug' => __( 'This slug is already in use.', 'buddynext' ) )
+						: array(),
+				)
+			);
 			return $result;
 		}
 
@@ -370,7 +584,29 @@ class SpaceController {
 	public function delete_space( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$space_id = (int) $request->get_param( 'id' );
 		$user_id  = get_current_user_id();
-		$result   = ( new SpaceService() )->delete( $space_id, $user_id );
+
+		// Soft gate: when the client passes the X-BN-Confirm-Space-Name header,
+		// it must exactly match the space's current name. This prevents a
+		// stray DELETE from removing a space that the user didn't intend to
+		// confirm by typed name. When the header is absent we fall back to
+		// the existing permission check, preserving back-compat for CLI / API
+		// consumers that already check identity another way.
+		$header_name = (string) $request->get_header( 'X-BN-Confirm-Space-Name' );
+		if ( '' !== $header_name ) {
+			$space = ( new SpaceService() )->get( $space_id );
+			if ( null === $space ) {
+				return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+			}
+			if ( $header_name !== (string) $space['name'] ) {
+				return new WP_Error(
+					'confirm_mismatch',
+					__( 'Confirmation name does not match.', 'buddynext' ),
+					array( 'status' => 422 )
+				);
+			}
+		}
+
+		$result = ( new SpaceService() )->delete( $space_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 403 ) );
@@ -558,7 +794,13 @@ class SpaceController {
 			return $result;
 		}
 
-		return new WP_REST_Response( array( 'left' => true, 'joined' => false ), 200 );
+		return new WP_REST_Response(
+			array(
+				'left'   => true,
+				'joined' => false,
+			),
+			200
+		);
 	}
 
 	/**

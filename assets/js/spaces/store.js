@@ -591,6 +591,335 @@ var storeInstance = store( 'buddynext/spaces', {
 			openSpaceModal( 'delete-space' );
 		},
 
+		/* ── Settings: members tab inline actions ──────────────────────── */
+
+		/**
+		 * Change a member's role optimistically via PUT /spaces/{id}/members/{user}/role.
+		 *
+		 * @param {Event} event Click on a `[data-bn-member-role]` button.
+		 */
+		setMemberRole: async function ( event ) {
+			var btn = event && event.target && event.target.closest( '[data-bn-member-role]' );
+			if ( ! btn ) { return; }
+			var spaceId = btn.getAttribute( 'data-space-id' );
+			var userId  = btn.getAttribute( 'data-user-id' );
+			var role    = btn.getAttribute( 'data-bn-member-role' );
+			if ( ! spaceId || ! userId || ! role ) { return; }
+
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/members/' + userId + '/role' ), {
+					method:  'PUT',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( { role: role } ),
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Role updated.' ), 'success' ); }
+					// Refresh the row label.
+					var row = btn.closest( '[data-bn-member-row]' );
+					if ( row ) {
+						var badge = row.querySelector( '[data-bn-role-badge]' );
+						if ( badge ) {
+							badge.textContent = ( 'moderator' === role )
+								? __i18n( 'Moderator' )
+								: __i18n( 'Member' );
+							badge.dataset.tone = ( 'moderator' === role ) ? 'info' : 'default';
+						}
+					}
+				} else {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not update role.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+			} finally {
+				btn.disabled = false;
+			}
+		},
+
+		/**
+		 * Kick a member optimistically via DELETE /spaces/{id}/members/{user}.
+		 *
+		 * @param {Event} event Click on a `[data-bn-member-kick]` button.
+		 */
+		kickMember: async function ( event ) {
+			var btn = event && event.target && event.target.closest( '[data-bn-member-kick]' );
+			if ( ! btn ) { return; }
+			var spaceId = btn.getAttribute( 'data-space-id' );
+			var userId  = btn.getAttribute( 'data-user-id' );
+			if ( ! spaceId || ! userId ) { return; }
+			var row = btn.closest( '[data-bn-member-row]' );
+			if ( row ) { row.style.opacity = '0.4'; }
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/members/' + userId ), {
+					method:  'DELETE',
+					headers: { 'X-WP-Nonce': resolveNonce() },
+				} );
+				if ( res.ok ) {
+					if ( row ) { row.parentNode && row.parentNode.removeChild( row ); }
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Member removed.' ), 'success' ); }
+				} else {
+					if ( row ) { row.style.opacity = '1'; }
+					btn.disabled = false;
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not remove member.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				if ( row ) { row.style.opacity = '1'; }
+				btn.disabled = false;
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+			}
+		},
+
+		/**
+		 * Ban a member via POST /spaces/{id}/ban/{user}.
+		 *
+		 * @param {Event} event Click on a `[data-bn-member-ban]` button.
+		 */
+		banMember: async function ( event ) {
+			var btn = event && event.target && event.target.closest( '[data-bn-member-ban]' );
+			if ( ! btn ) { return; }
+			var spaceId = btn.getAttribute( 'data-space-id' );
+			var userId  = btn.getAttribute( 'data-user-id' );
+			if ( ! spaceId || ! userId ) { return; }
+			var row = btn.closest( '[data-bn-member-row]' );
+			if ( row ) { row.style.opacity = '0.4'; }
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/ban/' + userId ), {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': resolveNonce() },
+				} );
+				if ( res.ok ) {
+					if ( row ) { row.parentNode && row.parentNode.removeChild( row ); }
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Member banned.' ), 'success' ); }
+				} else {
+					if ( row ) { row.style.opacity = '1'; }
+					btn.disabled = false;
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not ban member.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				if ( row ) { row.style.opacity = '1'; }
+				btn.disabled = false;
+			}
+		},
+
+		/* ── Settings: transfer ownership ─────────────────────────────── */
+
+		/**
+		 * Open the transfer-ownership confirm modal.
+		 */
+		openTransferOwnershipModal: function () {
+			openSpaceModal( 'transfer-ownership' );
+		},
+
+		/**
+		 * Confirm a transfer-ownership submission. Reads target user id
+		 * from the modal's `[data-bn-transfer-target]` select and POSTs
+		 * to /spaces/{id}/transfer.
+		 *
+		 * @param {Event} event Click on the modal's confirm button.
+		 */
+		transferOwnership: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var modal = document.querySelector( '[data-bn-modal="transfer-ownership"]' );
+			if ( ! modal ) { return; }
+			var spaceId    = modal.getAttribute( 'data-bn-space-id' );
+			var targetSel  = modal.querySelector( '[data-bn-transfer-target]' );
+			var newOwnerId = targetSel ? targetSel.value : '';
+			if ( ! spaceId || ! newOwnerId ) {
+				var err = modal.querySelector( '[data-bn-transfer-error]' );
+				if ( err ) { err.textContent = __i18n( 'Choose a new owner.' ); err.removeAttribute( 'hidden' ); }
+				return;
+			}
+
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/transfer' ), {
+					method:  'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( { new_owner_id: parseInt( newOwnerId, 10 ) } ),
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Ownership transferred.' ), 'success' ); }
+					closeAllSpaceModals();
+					setTimeout( function () { window.location.reload(); }, 600 );
+				} else {
+					var data = await res.json();
+					var errEl = modal.querySelector( '[data-bn-transfer-error]' );
+					if ( errEl ) {
+						errEl.textContent = ( data && data.message ) || __i18n( 'Could not transfer ownership.' );
+						errEl.removeAttribute( 'hidden' );
+					}
+					btn.disabled = false;
+				}
+			} catch ( _e ) {
+				btn.disabled = false;
+			}
+		},
+
+		/* ── Settings: delete with name-confirm gate ───────────────────── */
+
+		/**
+		 * Open the delete-space gated-confirm modal (name-typing gate).
+		 */
+		openDeleteSpaceConfirm: function () {
+			openSpaceModal( 'delete-space-confirm' );
+			var gate = document.querySelector( '[data-bn-delete-gate]' );
+			if ( gate ) {
+				gate.value = '';
+				gate.focus();
+			}
+			var submit = document.querySelector( '[data-bn-delete-submit]' );
+			if ( submit ) { submit.disabled = true; }
+		},
+
+		/**
+		 * Execute the delete request once the gate has been satisfied.
+		 *
+		 * @param {Event} event Click on the modal's delete button.
+		 */
+		deleteSpaceConfirmed: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var modal = document.querySelector( '[data-bn-modal="delete-space-confirm"]' );
+			if ( ! modal ) { return; }
+			var spaceId  = modal.getAttribute( 'data-bn-space-id' );
+			var expected = modal.getAttribute( 'data-bn-space-name' );
+			var gate     = modal.querySelector( '[data-bn-delete-gate]' );
+			var typed    = gate ? gate.value.trim() : '';
+			var errEl    = modal.querySelector( '[data-bn-delete-error]' );
+
+			if ( ! spaceId || typed !== expected ) {
+				if ( errEl ) {
+					errEl.textContent = __i18n( 'The name does not match.' );
+					errEl.removeAttribute( 'hidden' );
+				}
+				return;
+			}
+
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId ), {
+					method:  'DELETE',
+					headers: {
+						'X-WP-Nonce':                resolveNonce(),
+						'X-BN-Confirm-Space-Name':   expected,
+					},
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Space deleted.' ), 'success' ); }
+					var dest = ( window.bnSpaces && window.bnSpaces.directoryUrl )
+						? window.bnSpaces.directoryUrl
+						: '/spaces/';
+					setTimeout( function () { window.location.href = dest; }, 500 );
+				} else {
+					if ( errEl ) {
+						errEl.textContent = __i18n( 'Could not delete the space.' );
+						errEl.removeAttribute( 'hidden' );
+					}
+					btn.disabled = false;
+				}
+			} catch ( _e ) {
+				btn.disabled = false;
+			}
+		},
+
+		/* ── Settings: general / permissions inline save ──────────────── */
+
+		/**
+		 * Save the General tab fields via PUT /spaces/{id} optimistically.
+		 *
+		 * @param {Event} event Click on the Save button.
+		 */
+		saveGeneral: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var form = document.querySelector( '[data-bn-settings-general-form]' );
+			if ( ! form ) { return; }
+			var spaceId = form.getAttribute( 'data-space-id' );
+			if ( ! spaceId ) { return; }
+
+			var payload = {
+				name:        ( form.querySelector( '[name="space_name"]' ) || {} ).value,
+				slug:        ( form.querySelector( '[name="space_slug"]' ) || {} ).value,
+				description: ( form.querySelector( '[name="space_description"]' ) || {} ).value,
+				category_id: parseInt( ( form.querySelector( '[name="space_category_id"]' ) || {} ).value || '0', 10 ),
+				type:        ( form.querySelector( '[name="space_type"]' ) || {} ).value,
+			};
+
+			btn.disabled = true;
+			var origLabel = btn.textContent;
+			btn.textContent = __i18n( 'Saving…' );
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId ), {
+					method:  'PUT',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( payload ),
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Changes saved.' ), 'success' ); }
+				} else {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not save changes.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+			} finally {
+				btn.disabled = false;
+				btn.textContent = origLabel;
+			}
+		},
+
+		/**
+		 * Save the Permissions tab fields via PUT /spaces/{id}/permissions.
+		 *
+		 * @param {Event} event Click on the Save button.
+		 */
+		savePermissions: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var form = document.querySelector( '[data-bn-settings-permissions-form]' );
+			if ( ! form ) { return; }
+			var spaceId = form.getAttribute( 'data-space-id' );
+			if ( ! spaceId ) { return; }
+
+			var payload = {
+				allow_member_posts:    ( form.querySelector( '[name="allow_member_posts"]' ) || {} ).checked ? 1 : 0,
+				require_post_approval: ( form.querySelector( '[name="require_post_approval"]' ) || {} ).checked ? 1 : 0,
+				require_join_approval: ( form.querySelector( '[name="require_join_approval"]' ) || {} ).checked ? 1 : 0,
+			};
+
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/permissions' ), {
+					method:  'PUT',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( payload ),
+				} );
+				if ( res.ok && window.bnToast ) {
+					window.bnToast( __i18n( 'Permissions saved.' ), 'success' );
+				} else if ( ! res.ok && window.bnToast ) {
+					window.bnToast( __i18n( 'Could not save permissions.' ), 'danger' );
+				}
+			} catch ( _e ) {
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+			} finally {
+				btn.disabled = false;
+			}
+		},
+
 		/**
 		 * Open the archive-space confirm modal.
 		 */
@@ -598,7 +927,669 @@ var storeInstance = store( 'buddynext/spaces', {
 			openSpaceModal( 'archive-space' );
 		},
 
+		/* ── Space home: notification pref + tab switch ──────────────────── */
+
+		/**
+		 * Toggle the notification-preference popover open/closed.
+		 *
+		 * @param {Event} event Click on the bell button.
+		 */
+		toggleNotifPopover: function ( event ) {
+			var trigger = event && event.target && event.target.closest( '[data-bn-notif-trigger]' );
+			if ( ! trigger ) { return; }
+			var popover = trigger.closest( '[data-bn-notif-popover]' );
+			if ( ! popover ) { return; }
+			var list = popover.querySelector( '[data-bn-notif-list]' );
+			if ( ! list ) { return; }
+			if ( list.hasAttribute( 'hidden' ) ) {
+				list.removeAttribute( 'hidden' );
+				trigger.setAttribute( 'aria-expanded', 'true' );
+			} else {
+				list.setAttribute( 'hidden', '' );
+				trigger.setAttribute( 'aria-expanded', 'false' );
+			}
+		},
+
+		/**
+		 * Set the per-space notification preference for the current user.
+		 *
+		 * @param {Event} event Click on a `[data-bn-notif-pref]` option.
+		 */
+		setNotificationPref: async function ( event ) {
+			var btn = event && event.target && event.target.closest( '[data-bn-notif-pref]' );
+			if ( ! btn ) { return; }
+			var pref    = btn.getAttribute( 'data-bn-notif-pref' );
+			var spaceId = resolveSpaceId( btn ) ||
+				( document.querySelector( '[data-wp-interactive="buddynext/spaces"][data-space-id]' ) || {} ).dataset?.spaceId;
+			if ( ! pref || ! spaceId ) { return; }
+
+			var options = document.querySelectorAll( '[data-bn-notif-pref]' );
+			var previousSelected = null;
+			for ( var i = 0; i < options.length; i++ ) {
+				if ( options[ i ].getAttribute( 'aria-selected' ) === 'true' ) { previousSelected = options[ i ]; }
+				options[ i ].setAttribute(
+					'aria-selected',
+					options[ i ] === btn ? 'true' : 'false'
+				);
+			}
+
+			// Close popover after selection.
+			var list    = document.querySelector( '[data-bn-notif-list]' );
+			var trigger = document.querySelector( '[data-bn-notif-trigger]' );
+			if ( list ) { list.setAttribute( 'hidden', '' ); }
+			if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
+
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/notification-pref' ), {
+					method:  'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( { pref: pref } ),
+				} );
+				if ( ! res.ok ) {
+					// Rollback.
+					if ( previousSelected ) {
+						for ( var j = 0; j < options.length; j++ ) {
+							options[ j ].setAttribute(
+								'aria-selected',
+								options[ j ] === previousSelected ? 'true' : 'false'
+							);
+						}
+					}
+					if ( window.bnToast ) {
+						window.bnToast( __i18n( 'Could not update notification preference.' ), 'danger' );
+					}
+				} else if ( window.bnToast ) {
+					window.bnToast( __i18n( 'Notification preference saved.' ), 'success' );
+				}
+			} catch ( _e ) {
+				if ( previousSelected ) {
+					for ( var k = 0; k < options.length; k++ ) {
+						options[ k ].setAttribute(
+							'aria-selected',
+							options[ k ] === previousSelected ? 'true' : 'false'
+						);
+					}
+				}
+			}
+		},
+
+		/**
+		 * Switch the active space-home tab. Falls back to a navigation
+		 * when the tab href is set on an anchor; otherwise updates the
+		 * URL query var without a reload (where supported).
+		 *
+		 * @param {Event} event Click on a tab.
+		 */
+		setTab: function ( event ) {
+			var link = event && event.target && event.target.closest( 'a' );
+			if ( ! link || ! link.href ) { return; }
+			// Default behaviour navigates; intentional so the new tab body is server-rendered.
+		},
+
+		/**
+		 * Open the invite modal (owner/mod only).
+		 */
+		openInviteModal: function () {
+			openSpaceModal( 'invite-member' );
+		},
+
+		/* ── Directory: reactive filter / sort / search ────────────────── */
+
+		/**
+		 * Apply the current filter state and re-render the grid.
+		 */
+		applyFilter: function () {
+			applySpacesFilter();
+		},
+
+		/**
+		 * Set the type chip and re-apply the filter.
+		 *
+		 * @param {Event} event Click event from a `[data-bn-type-chip]`.
+		 */
+		setType: function ( event ) {
+			var btn = event && event.target && event.target.closest( '[data-bn-type-chip]' );
+			if ( ! btn ) { return; }
+			var nextType = btn.getAttribute( 'data-bn-type-chip' ) || '';
+			var chips    = document.querySelectorAll( '[data-bn-type-chip]' );
+			for ( var i = 0; i < chips.length; i++ ) {
+				chips[ i ].setAttribute(
+					'aria-selected',
+					chips[ i ] === btn ? 'true' : 'false'
+				);
+			}
+			var typeSelect = document.querySelector( 'select[name="bn_type"]' );
+			if ( typeSelect ) { typeSelect.value = nextType; }
+			applySpacesFilter();
+		},
+
+		/**
+		 * Choose a sort option from the popover.
+		 *
+		 * @param {Event} event Click event from a `[data-bn-sort-value]`.
+		 */
+		setSort: function ( event ) {
+			var btn = event && event.target && event.target.closest( '[data-bn-sort-value]' );
+			if ( ! btn ) { return; }
+			var nextSort = btn.getAttribute( 'data-bn-sort-value' ) || 'popular';
+			var label    = btn.textContent.trim();
+			closeSortPopover();
+			var trigger   = document.querySelector( '[data-bn-sort-trigger]' );
+			var labelHost = document.querySelector( '[data-bn-sort-label]' );
+			if ( trigger ) { trigger.setAttribute( 'data-current-sort', nextSort ); }
+			if ( labelHost ) { labelHost.textContent = label; }
+			var options = document.querySelectorAll( '[data-bn-sort-value]' );
+			for ( var i = 0; i < options.length; i++ ) {
+				options[ i ].setAttribute(
+					'aria-selected',
+					options[ i ] === btn ? 'true' : 'false'
+				);
+			}
+			applySpacesFilter();
+		},
+
+		/**
+		 * Toggle the visible state of the sort popover.
+		 *
+		 * @param {Event} event Click event from the trigger.
+		 */
+		toggleSortPopover: function ( event ) {
+			var trigger = event && event.target && event.target.closest( '[data-bn-sort-trigger]' );
+			if ( ! trigger ) { return; }
+			var popover = trigger.closest( '[data-bn-sort-popover]' );
+			if ( ! popover ) { return; }
+			var list = popover.querySelector( '[data-bn-sort-list]' );
+			if ( ! list ) { return; }
+			var open = list.hasAttribute( 'hidden' );
+			if ( open ) {
+				list.removeAttribute( 'hidden' );
+				trigger.setAttribute( 'aria-expanded', 'true' );
+			} else {
+				list.setAttribute( 'hidden', '' );
+				trigger.setAttribute( 'aria-expanded', 'false' );
+			}
+		},
+
+		/**
+		 * Reset all filter state to defaults and re-apply.
+		 */
+		resetFilters: function () {
+			var searchInput = document.querySelector( 'input[name="bn_search"]' );
+			if ( searchInput ) { searchInput.value = ''; }
+			var catSelect = document.querySelector( 'select[name="bn_cat"]' );
+			if ( catSelect ) { catSelect.value = ''; }
+			var typeSelect = document.querySelector( 'select[name="bn_type"]' );
+			if ( typeSelect ) { typeSelect.value = ''; }
+			var chips = document.querySelectorAll( '[data-bn-type-chip]' );
+			for ( var i = 0; i < chips.length; i++ ) {
+				chips[ i ].setAttribute(
+					'aria-selected',
+					chips[ i ].getAttribute( 'data-bn-type-chip' ) === '' ? 'true' : 'false'
+				);
+			}
+			applySpacesFilter();
+		},
+
+		/* ── Directory: create-space modal ─────────────────────────────── */
+
+		/**
+		 * Open the create-space modal partial.
+		 */
+		openCreate: function () {
+			openSpaceModal( 'create-space' );
+			var name = document.querySelector( '[data-bn-create-space-name]' );
+			if ( name ) { name.focus(); }
+		},
+
+		/**
+		 * Close the create-space modal.
+		 */
+		closeCreate: function () {
+			closeAllSpaceModals();
+		},
+
+		/**
+		 * Submit the create-space modal form to POST /buddynext/v1/spaces.
+		 *
+		 * @param {Event} event Click on the submit button.
+		 */
+		submitCreate: async function ( event ) {
+			var btn  = event && event.target && event.target.closest( 'button' );
+			var form = document.querySelector( '[data-bn-create-space-form]' );
+			if ( ! form ) { return; }
+
+			clearCreateSpaceErrors( form );
+
+			var name        = ( form.querySelector( '[name="name"]' ) || {} ).value || '';
+			var slug        = ( form.querySelector( '[name="slug"]' ) || {} ).value || '';
+			var type        = ( form.querySelector( '[name="type"]' ) || {} ).value || 'open';
+			var description = ( form.querySelector( '[name="description"]' ) || {} ).value || '';
+			var categoryEl  = form.querySelector( '[name="category_id"]' );
+			var categoryId  = categoryEl ? categoryEl.value : '';
+
+			if ( ! name.trim() ) {
+				showCreateSpaceError( form, 'name', __i18n( 'Please enter a name.' ) );
+				return;
+			}
+
+			if ( btn ) { btn.disabled = true; btn.dataset.bnOrigText = btn.textContent; btn.textContent = __i18n( 'Creating…' ); }
+
+			var payload = {
+				name:        name.trim(),
+				slug:        slug.trim(),
+				type:        type,
+				description: description.trim(),
+			};
+			if ( categoryId ) { payload.category_id = parseInt( categoryId, 10 ); }
+
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces' ), {
+					method:  'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( payload ),
+				} );
+				var data = await res.json();
+
+				if ( res.ok && data && data.id ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Space created.' ), 'success' ); }
+					var slugOut = data.slug || slug;
+					if ( slugOut ) {
+						window.location.href = ( window.bnSpaces && window.bnSpaces.spaceUrlBase )
+							? window.bnSpaces.spaceUrlBase.replace( '__slug__', slugOut )
+							: ( window.location.origin + '/spaces/' + slugOut + '/' );
+					} else {
+						window.location.reload();
+					}
+					return;
+				}
+
+				if ( data && data.data && data.data.params ) {
+					Object.keys( data.data.params ).forEach( function ( field ) {
+						showCreateSpaceError( form, field, data.data.params[ field ] );
+					} );
+				} else if ( data && data.message ) {
+					showCreateSpaceError( form, '_global', data.message );
+				} else {
+					showCreateSpaceError( form, '_global', __i18n( 'Could not create the space.' ) );
+				}
+			} catch ( _e ) {
+				showCreateSpaceError( form, '_global', __i18n( 'Network error. Please try again.' ) );
+			} finally {
+				if ( btn ) {
+					btn.disabled    = false;
+					btn.textContent = btn.dataset.bnOrigText || __i18n( 'Create space' );
+				}
+			}
+		},
+
 	},
+} );
+
+/* ── Spaces directory filter helpers ─────────────────────────────── */
+
+var bnSpacesFilterTimer = null;
+var bnSpacesFilterAbort = null;
+
+/**
+ * Derive the current filter state from the live DOM.
+ *
+ * @return {Object} URL-encodable filter values.
+ */
+function readSpacesFilterState() {
+	var search = document.querySelector( 'input[name="bn_search"]' );
+	var cat    = document.querySelector( 'select[name="bn_cat"]' );
+	var type   = document.querySelector( 'select[name="bn_type"]' );
+	var sortEl = document.querySelector( '[data-bn-sort-trigger]' );
+	var sort   = sortEl && sortEl.getAttribute( 'data-current-sort' );
+	if ( ! sort ) {
+		var selected = document.querySelector( '[data-bn-sort-value][aria-selected="true"]' );
+		sort         = selected ? selected.getAttribute( 'data-bn-sort-value' ) : 'popular';
+	}
+	return {
+		q:        search ? search.value : '',
+		category: cat ? cat.value : '',
+		type:     type ? type.value : '',
+		sort:     sort || 'popular',
+	};
+}
+
+/**
+ * Build a single space card in the DOM from a REST row.
+ * Mirrors the SSR markup of templates/spaces/directory.php using
+ * createElement + textContent so injected strings are never interpreted
+ * as HTML.
+ *
+ * @param {Object} row Space row from /buddynext/v1/spaces.
+ * @return {HTMLElement} Article element ready to be appended to the grid.
+ */
+function buildSpaceCard( row ) {
+	var name        = row.name || '';
+	var slug        = row.slug || '';
+	var description = row.description || '';
+	var memberCount = ( row.member_count != null ) ? row.member_count : 0;
+	var type        = row.type || 'open';
+	var spaceId     = row.id;
+
+	var privacyLabel;
+	var privacyTone;
+	if ( 'open' === type ) {
+		privacyLabel = __i18n( 'Public' );
+		privacyTone  = 'info';
+	} else if ( 'private' === type ) {
+		privacyLabel = __i18n( 'Private' );
+		privacyTone  = 'warn';
+	} else {
+		privacyLabel = __i18n( 'Invite-only' );
+		privacyTone  = 'danger';
+	}
+
+	var baseUrl = ( window.bnSpaces && window.bnSpaces.spaceUrlBase )
+		? window.bnSpaces.spaceUrlBase.replace( '__slug__', slug )
+		: ( '/spaces/' + slug + '/' );
+
+	var article = document.createElement( 'article' );
+	article.className = 'bn-card bn-sd-card';
+	article.setAttribute( 'role', 'listitem' );
+	article.dataset.spaceId    = String( spaceId );
+	article.dataset.interactive = '';
+
+	var coverLink = document.createElement( 'a' );
+	coverLink.href = baseUrl;
+	coverLink.setAttribute( 'tabindex', '-1' );
+	coverLink.setAttribute( 'aria-hidden', 'true' );
+	coverLink.className = 'bn-sd-card__cover-link';
+	var cover = document.createElement( 'div' );
+	cover.className = 'bn-sd-card__cover';
+	cover.dataset.tone = 'sky';
+	coverLink.appendChild( cover );
+	article.appendChild( coverLink );
+
+	var body = document.createElement( 'div' );
+	body.className = 'bn-sd-card__body';
+
+	var nameLink = document.createElement( 'a' );
+	nameLink.href = baseUrl;
+	nameLink.className = 'bn-sd-card__name-link';
+	var h2 = document.createElement( 'h2' );
+	h2.className = 'bn-sd-card__name';
+	h2.appendChild( document.createTextNode( name + ' ' ) );
+	var badge = document.createElement( 'span' );
+	badge.className = 'bn-badge';
+	badge.dataset.tone = privacyTone;
+	badge.textContent  = privacyLabel;
+	h2.appendChild( badge );
+	nameLink.appendChild( h2 );
+	body.appendChild( nameLink );
+
+	if ( description ) {
+		var desc = document.createElement( 'p' );
+		desc.className = 'bn-sd-card__desc';
+		desc.textContent = description;
+		body.appendChild( desc );
+	}
+
+	var stats = document.createElement( 'div' );
+	stats.className = 'bn-sd-card__stats';
+	var stat = document.createElement( 'span' );
+	stat.className   = 'bn-sd-card__stat';
+	stat.textContent = memberCount + ' ' + __i18n( 'members' );
+	stats.appendChild( stat );
+	body.appendChild( stats );
+
+	var foot = document.createElement( 'div' );
+	foot.className = 'bn-sd-card__foot';
+	var actionBtn = document.createElement( 'button' );
+	actionBtn.className     = 'bn-btn';
+	actionBtn.dataset.size  = 'sm';
+	actionBtn.dataset.spaceId = String( spaceId );
+	if ( 'open' === type ) {
+		actionBtn.dataset.variant      = 'primary';
+		actionBtn.dataset.currentState = 'join';
+		actionBtn.dataset.wpOnClick    = 'actions.joinSpace';
+		actionBtn.textContent          = __i18n( 'Join' );
+	} else {
+		actionBtn.dataset.variant      = 'secondary';
+		actionBtn.dataset.currentState = 'request';
+		actionBtn.dataset.wpOnClick    = 'actions.requestJoin';
+		actionBtn.textContent          = __i18n( 'Request to join' );
+	}
+	foot.appendChild( actionBtn );
+	body.appendChild( foot );
+
+	article.appendChild( body );
+	return article;
+}
+
+function __i18n( s ) {
+	if ( window.wp && window.wp.i18n && typeof window.wp.i18n.__ === 'function' ) {
+		return window.wp.i18n.__( s, 'buddynext' );
+	}
+	return s;
+}
+
+function setDirectoryUiState( state ) {
+	var loading = document.querySelector( '[data-bn-loading]' );
+	var error   = document.querySelector( '[data-bn-error]' );
+	var grid    = document.querySelector( '[data-bn-sd-grid]' );
+	var empty   = document.querySelector( '[data-bn-sd-empty]' );
+	var status  = document.querySelector( '[data-bn-filter-status]' );
+
+	if ( loading ) {
+		if ( state === 'loading' ) { loading.removeAttribute( 'hidden' ); }
+		else { loading.setAttribute( 'hidden', '' ); }
+	}
+	if ( error ) {
+		if ( state === 'error' ) { error.removeAttribute( 'hidden' ); }
+		else { error.setAttribute( 'hidden', '' ); }
+	}
+	if ( status ) {
+		if ( state === 'loading' ) { status.removeAttribute( 'hidden' ); }
+		else { status.setAttribute( 'hidden', '' ); }
+	}
+
+	if ( state === 'empty' ) {
+		if ( grid ) { grid.style.display = 'none'; }
+		if ( empty ) { empty.style.display = ''; }
+	} else if ( state === 'ready' ) {
+		if ( grid ) { grid.style.display = ''; }
+		if ( empty ) { empty.style.display = 'none'; }
+	}
+}
+
+function applySpacesFilter() {
+	if ( bnSpacesFilterTimer ) { clearTimeout( bnSpacesFilterTimer ); }
+	bnSpacesFilterTimer = setTimeout( function () {
+		executeSpacesFilter();
+	}, 250 );
+}
+
+async function executeSpacesFilter() {
+	if ( bnSpacesFilterAbort ) {
+		try { bnSpacesFilterAbort.abort(); } catch ( _e ) {}
+	}
+	bnSpacesFilterAbort = ( typeof AbortController === 'function' ) ? new AbortController() : null;
+
+	var state = readSpacesFilterState();
+	setDirectoryUiState( 'loading' );
+
+	var params = new URLSearchParams();
+	if ( state.q ) { params.set( 'search', state.q ); }
+	if ( state.type ) { params.set( 'type', state.type ); }
+	if ( state.sort ) { params.set( 'orderby', state.sort ); }
+	params.set( 'per_page', '18' );
+
+	try {
+		var res = await fetch( apiUrl( 'buddynext/v1/spaces?' + params.toString() ), {
+			method:  'GET',
+			headers: { 'X-WP-Nonce': resolveNonce() },
+			signal:  bnSpacesFilterAbort ? bnSpacesFilterAbort.signal : undefined,
+		} );
+
+		if ( ! res.ok ) {
+			setDirectoryUiState( 'error' );
+			return;
+		}
+
+		var rows = await res.json();
+		if ( ! Array.isArray( rows ) ) { rows = ( rows && rows.items ) || []; }
+
+		var grid = document.querySelector( '[data-bn-sd-grid]' );
+		if ( ! grid ) {
+			// Grid not present (page was server-rendered empty). Reload to
+			// pick up the SSR grid scaffold on the next request.
+			window.location.search = params.toString();
+			return;
+		}
+
+		// Clear current grid contents.
+		while ( grid.firstChild ) { grid.removeChild( grid.firstChild ); }
+
+		if ( 0 === rows.length ) {
+			setDirectoryUiState( 'empty' );
+			return;
+		}
+
+		for ( var i = 0; i < rows.length; i++ ) {
+			grid.appendChild( buildSpaceCard( rows[ i ] ) );
+		}
+		setDirectoryUiState( 'ready' );
+
+		// Update URL state without reload for shareable links.
+		try {
+			var url = new URL( window.location.href );
+			if ( state.q ) { url.searchParams.set( 'bn_search', state.q ); }
+			else { url.searchParams.delete( 'bn_search' ); }
+			if ( state.type ) { url.searchParams.set( 'bn_type', state.type ); }
+			else { url.searchParams.delete( 'bn_type' ); }
+			if ( state.sort && 'popular' !== state.sort ) { url.searchParams.set( 'bn_sort', state.sort ); }
+			else { url.searchParams.delete( 'bn_sort' ); }
+			window.history.replaceState( {}, '', url.toString() );
+		} catch ( _e ) {}
+	} catch ( err ) {
+		if ( err && 'AbortError' === err.name ) { return; }
+		setDirectoryUiState( 'error' );
+	}
+}
+
+function clearCreateSpaceErrors( form ) {
+	var nodes = form.querySelectorAll( '[data-bn-error-for]' );
+	for ( var i = 0; i < nodes.length; i++ ) {
+		nodes[ i ].textContent = '';
+		nodes[ i ].setAttribute( 'hidden', '' );
+	}
+}
+
+function showCreateSpaceError( form, field, message ) {
+	var node = form.querySelector( '[data-bn-error-for="' + field + '"]' );
+	if ( ! node ) {
+		node = form.querySelector( '[data-bn-error-for="_global"]' );
+	}
+	if ( ! node ) { return; }
+	node.textContent = String( message );
+	node.removeAttribute( 'hidden' );
+}
+
+function closeSortPopover() {
+	var list    = document.querySelector( '[data-bn-sort-list]' );
+	var trigger = document.querySelector( '[data-bn-sort-trigger]' );
+	if ( list ) { list.setAttribute( 'hidden', '' ); }
+	if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
+}
+
+/* ── Wiring: reactive listeners on the spaces directory ─────────────── */
+
+document.addEventListener( 'DOMContentLoaded', function () {
+	var searchInput = document.querySelector( 'input[name="bn_search"]' );
+	if ( searchInput ) {
+		searchInput.addEventListener( 'input', function () {
+			applySpacesFilter();
+		} );
+	}
+	var catSelect = document.querySelector( 'select[name="bn_cat"]' );
+	if ( catSelect ) {
+		catSelect.addEventListener( 'change', function () {
+			applySpacesFilter();
+		} );
+	}
+	var typeSelect = document.querySelector( 'select[name="bn_type"]' );
+	if ( typeSelect ) {
+		typeSelect.addEventListener( 'change', function () {
+			applySpacesFilter();
+		} );
+	}
+
+	// Suppress the form submit on reactive filter forms so Enter does
+	// not reload the page.
+	var reactiveForm = document.querySelector( '[data-bn-reactive]' );
+	if ( reactiveForm ) {
+		reactiveForm.addEventListener( 'submit', function ( e ) {
+			e.preventDefault();
+			applySpacesFilter();
+		} );
+	}
+
+	// Auto-derive slug from name in the create-space modal.
+	var nameInput = document.querySelector( '[data-bn-create-space-name]' );
+	var slugInput = document.querySelector( '[data-bn-create-space-slug]' );
+	if ( nameInput && slugInput ) {
+		var slugTouched = false;
+		slugInput.addEventListener( 'input', function () {
+			slugTouched = true;
+		} );
+		nameInput.addEventListener( 'input', function () {
+			if ( slugTouched ) { return; }
+			slugInput.value = nameInput.value
+				.toLowerCase()
+				.replace( /[^a-z0-9]+/g, '-' )
+				.replace( /^-+|-+$/g, '' )
+				.slice( 0, 80 );
+		} );
+	}
+
+	// Close sort popover on outside click.
+	document.addEventListener( 'click', function ( e ) {
+		var popover = document.querySelector( '[data-bn-sort-popover]' );
+		if ( ! popover ) { return; }
+		var list = popover.querySelector( '[data-bn-sort-list]' );
+		if ( ! list || list.hasAttribute( 'hidden' ) ) { return; }
+		if ( ! popover.contains( e.target ) ) {
+			closeSortPopover();
+		}
+	} );
+
+	// Close notif popover on outside click.
+	document.addEventListener( 'click', function ( e ) {
+		var popover = document.querySelector( '[data-bn-notif-popover]' );
+		if ( ! popover ) { return; }
+		var list = popover.querySelector( '[data-bn-notif-list]' );
+		if ( ! list || list.hasAttribute( 'hidden' ) ) { return; }
+		if ( ! popover.contains( e.target ) ) {
+			list.setAttribute( 'hidden', '' );
+			var trigger = popover.querySelector( '[data-bn-notif-trigger]' );
+			if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
+		}
+	} );
+
+	// Delete-space gate: enable submit only when typed name matches.
+	var gate = document.querySelector( '[data-bn-delete-gate]' );
+	if ( gate ) {
+		gate.addEventListener( 'input', function () {
+			var modal    = gate.closest( '[data-bn-modal="delete-space-confirm"]' );
+			var submit   = modal ? modal.querySelector( '[data-bn-delete-submit]' ) : null;
+			var expected = modal ? modal.getAttribute( 'data-bn-space-name' ) : '';
+			if ( submit ) {
+				submit.disabled = ( gate.value.trim() !== expected );
+			}
+			var err = modal ? modal.querySelector( '[data-bn-delete-error]' ) : null;
+			if ( err ) { err.setAttribute( 'hidden', '' ); err.textContent = ''; }
+		} );
+	}
 } );
 
 /* ── Delegated UI helpers (modal close + native-confirm bridge) ─────────

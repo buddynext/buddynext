@@ -345,6 +345,21 @@ class PageRouter {
 			case 'spaces':
 				$assets->enqueue( 'spaces' );
 				$assets->enqueue( 'feed' ); // Post cards on space pages use bn-feed.css classes.
+				// Localize the spaces URL base + i18n so the spaces store can
+				// rebuild URLs without reloading the page (reactive directory,
+				// create-space redirect target).
+				wp_add_inline_script(
+					'bn-shell-extras',
+					'window.bnSpaces = window.bnSpaces || ' . wp_json_encode(
+						array(
+							'spaceUrlBase'  => esc_url_raw( self::spaces_url() . '__slug__/' ),
+							'directoryUrl'  => esc_url_raw( self::spaces_url() ),
+							'restNonce'     => wp_create_nonce( 'wp_rest' ),
+							'restUrl'       => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+						)
+					) . ';',
+					'before'
+				);
 				break;
 
 			case 'messages':
