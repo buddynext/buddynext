@@ -114,9 +114,9 @@ class Spaces extends AdminPageBase {
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		// Subtab nav — Spaces list (default) | Categories management.
-		$base_url     = admin_url( 'admin.php?page=buddynext-spaces' );
-		$cats_url     = add_query_arg( 'subtab', 'categories', $base_url );
-		$is_cats      = ( 'categories' === $subtab );
+		$base_url = admin_url( 'admin.php?page=buddynext-spaces' );
+		$cats_url = add_query_arg( 'subtab', 'categories', $base_url );
+		$is_cats  = ( 'categories' === $subtab );
 		?>
 		<nav class="bn-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Spaces admin sections', 'buddynext' ); ?>" style="margin-block-end:var(--bn-s4,16px)">
 			<a href="<?php echo esc_url( $base_url ); ?>" class="bn-tab" role="tab" aria-selected="<?php echo $is_cats ? 'false' : 'true'; ?>">
@@ -406,11 +406,12 @@ class Spaces extends AdminPageBase {
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+		// $table is the bn_space_categories table name, derived from $wpdb->prefix — never untrusted.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$cats = $wpdb->get_results(
 			"SELECT c.id, c.name, c.slug, c.description, c.sort_order,
 				(SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces s WHERE s.category_id = c.id) AS space_count
-			 FROM {$table} c
+			 FROM {$wpdb->prefix}bn_space_categories c
 			 ORDER BY c.sort_order ASC, c.name ASC"
 		);
 		?>
@@ -491,6 +492,14 @@ class Spaces extends AdminPageBase {
 		<?php
 	}
 
+	/**
+	 * Render the v2 delete-space confirm modal.
+	 *
+	 * Hidden by default; opened by JS (assets/js/admin/spaces.js) when a
+	 * row's Delete button is clicked. Confirm posts the underlying form.
+	 *
+	 * @return void
+	 */
 	private function render_delete_modal(): void {
 		?>
 		<div

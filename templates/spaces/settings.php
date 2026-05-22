@@ -112,8 +112,8 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			$update_data['rules'] = sanitize_textarea_field( wp_unslash( $_POST['space_rules'] ) );
 		}
 		if ( isset( $_POST['space_cover_image_url'] ) ) {
-			$raw_cover = trim( (string) wp_unslash( $_POST['space_cover_image_url'] ) );
-			$update_data['cover_image_url'] = ( '' === $raw_cover ) ? '' : esc_url_raw( $raw_cover );
+			$raw_cover                      = sanitize_text_field( wp_unslash( $_POST['space_cover_image_url'] ) );
+			$update_data['cover_image_url'] = ( '' === trim( $raw_cover ) ) ? '' : esc_url_raw( $raw_cover );
 		}
 		if ( isset( $_POST['space_category_id'] ) ) {
 			$update_data['category_id'] = absint( $_POST['space_category_id'] );
@@ -350,8 +350,8 @@ $privacy_tone_map = array(
 	'private' => 'warn',
 	'secret'  => 'danger',
 );
-$privacy_tone  = $privacy_tone_map[ $space->type ?? 'open' ] ?? $privacy_tone_map['open'];
-$privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) ( $space->type ?? 'open' ) );
+$privacy_tone     = $privacy_tone_map[ $space->type ?? 'open' ] ?? $privacy_tone_map['open'];
+$privacy_label    = \BuddyNext\Spaces\SpaceService::type_label( (string) ( $space->type ?? 'open' ) );
 
 // Tabs definition.
 $nav_items = array(
@@ -1363,9 +1363,9 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 	</div>
 
 	<!-- Sticky save bar — matches Profile edit + Notification prefs pattern.
-	     Wired by assets/js/spaces/store.js: listens for input/change on every
-	     form inside .bn-space-settings, surfaces the bar when dirty, runs the
-	     beforeunload guard, and submits the currently-dirty form on click. -->
+		Wired by assets/js/spaces/store.js: listens for input/change on every
+		form inside .bn-space-settings, surfaces the bar when dirty, runs the
+		beforeunload guard, and submits the currently-dirty form on click. -->
 	<div
 		class="bn-space-settings__savebar"
 		role="region"

@@ -598,7 +598,7 @@ $bn_subtitle = sprintf(
 				$is_pending   = $membership && 'pending' === $membership->status;
 
 				$privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $space->type );
-				$privacy_tone = match ( $space->type ) {
+				$privacy_tone  = match ( $space->type ) {
 					'open'    => 'info',
 					'private' => 'warn',
 					default   => 'danger',

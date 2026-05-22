@@ -251,7 +251,7 @@ $active_tab       = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['
 $member_count_fmt = number_format_i18n( (int) $space->member_count );
 
 $privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $space->type );
-$privacy_tone = match ( $space->type ) {
+$privacy_tone  = match ( $space->type ) {
 	'open'    => 'info',
 	'private' => 'warn',
 	default   => 'danger',
@@ -843,7 +843,18 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 				<nav class="bn-tabs bn-sh-members__filter-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter members by role', 'buddynext' ); ?>">
 					<?php foreach ( $bn_member_filters as $bn_role_val => $bn_role_label_chip ) : ?>
 						<a
-							href="<?php echo esc_url( add_query_arg( array( 'bn_tab' => 'members', 'bn_role' => $bn_role_val ) ) ); ?>"
+							href="
+							<?php
+							echo esc_url(
+								add_query_arg(
+									array(
+										'bn_tab'  => 'members',
+										'bn_role' => $bn_role_val,
+									)
+								)
+							);
+							?>
+									"
 							class="bn-tab bn-sd-chip"
 							role="tab"
 							aria-selected="<?php echo ( $bn_member_filter === $bn_role_val ) ? 'true' : 'false'; ?>"
@@ -858,7 +869,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 						<?php foreach ( $bn_filtered_members as $bn_fm ) : ?>
 							<?php
 							$bn_fm_uid    = (int) $bn_fm->user_id;
-							$bn_fm_name   = $bn_fm->display_name ?: $bn_fm->user_login;
+							$bn_fm_name   = ! empty( $bn_fm->display_name ) ? $bn_fm->display_name : $bn_fm->user_login;
 							$bn_fm_avatar = get_avatar_url( $bn_fm_uid, array( 'size' => 80 ) );
 							$bn_fm_role   = in_array( $bn_fm->role, array( 'owner', 'moderator', 'member' ), true ) ? $bn_fm->role : 'member';
 							$bn_role_tone = match ( $bn_fm_role ) {
