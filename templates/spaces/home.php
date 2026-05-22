@@ -795,6 +795,37 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 
 		<?php elseif ( 'members' === $active_tab && ! $gate_feed ) : ?>
 
+			<?php
+			// Members tab — All / Owners / Moderators / Members filter chips.
+			$bn_member_filter = isset( $_GET['bn_role'] ) ? sanitize_key( wp_unslash( $_GET['bn_role'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			if ( ! in_array( $bn_member_filter, array( '', 'owner', 'moderator', 'member' ), true ) ) {
+				$bn_member_filter = '';
+			}
+
+			// Server-side filter — match against the active role. The dataset is
+			// capped at 100 by the parent query, so client-side filter would lie
+			// about hidden rows. Keep it server-side and honest.
+			$bn_filtered_members = array();
+			foreach ( $bn_full_members as $bn_pm ) {
+				if ( '' === $bn_member_filter || $bn_pm->role === $bn_member_filter ) {
+					$bn_filtered_members[] = $bn_pm;
+				}
+			}
+
+			$bn_member_filters = array(
+				''          => __( 'All', 'buddynext' ),
+				'owner'     => __( 'Owners', 'buddynext' ),
+				'moderator' => __( 'Moderators', 'buddynext' ),
+				'member'    => __( 'Members', 'buddynext' ),
+			);
+
+			$bn_filter_empty_messages = array(
+				''          => __( 'No members yet.', 'buddynext' ),
+				'owner'     => __( 'No owners yet.', 'buddynext' ),
+				'moderator' => __( 'No moderators yet.', 'buddynext' ),
+				'member'    => __( 'No members in this role yet.', 'buddynext' ),
+			);
+			?>
 			<div class="bn-card bn-sh-members">
 				<header class="bn-sh-members__head">
 					<h2 class="bn-sh-members__title"><?php esc_html_e( 'Members', 'buddynext' ); ?></h2>
@@ -809,11 +840,22 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 					</p>
 				</header>
 
-				<?php if ( empty( $bn_full_members ) ) : ?>
-					<p class="bn-sh-members__empty"><?php esc_html_e( 'No members yet.', 'buddynext' ); ?></p>
+				<nav class="bn-tabs bn-sh-members__filter-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter members by role', 'buddynext' ); ?>">
+					<?php foreach ( $bn_member_filters as $bn_role_val => $bn_role_label_chip ) : ?>
+						<a
+							href="<?php echo esc_url( add_query_arg( array( 'bn_tab' => 'members', 'bn_role' => $bn_role_val ) ) ); ?>"
+							class="bn-tab bn-sd-chip"
+							role="tab"
+							aria-selected="<?php echo ( $bn_member_filter === $bn_role_val ) ? 'true' : 'false'; ?>"
+						><?php echo esc_html( $bn_role_label_chip ); ?></a>
+					<?php endforeach; ?>
+				</nav>
+
+				<?php if ( empty( $bn_filtered_members ) ) : ?>
+					<p class="bn-sh-members__empty"><?php echo esc_html( $bn_filter_empty_messages[ $bn_member_filter ] ?? $bn_filter_empty_messages[''] ); ?></p>
 				<?php else : ?>
 					<ul class="bn-sh-members__grid" role="list">
-						<?php foreach ( $bn_full_members as $bn_fm ) : ?>
+						<?php foreach ( $bn_filtered_members as $bn_fm ) : ?>
 							<?php
 							$bn_fm_uid    = (int) $bn_fm->user_id;
 							$bn_fm_name   = $bn_fm->display_name ?: $bn_fm->user_login;
@@ -852,9 +894,14 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 								<?php if ( $current_user_id && $current_user_id !== $bn_fm_uid ) : ?>
 									<div class="bn-sh-members__actions">
 										<?php
-										if ( function_exists( 'buddynext_follow_button' ) ) {
-											buddynext_follow_button( $bn_fm_uid );
-										}
+										buddynext_get_template(
+											'partials/follow-button.php',
+											array( 'user_id' => $bn_fm_uid )
+										);
+										buddynext_get_template(
+											'partials/connection-button.php',
+											array( 'user_id' => $bn_fm_uid )
+										);
 										?>
 									</div>
 								<?php endif; ?>

@@ -2213,6 +2213,13 @@
 	margin-bottom: var(--bn-s3);
 }
 
+.bn-sh-members__filter-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	margin-block-end: var(--bn-s3);
+}
+
 .bn-sh-members__grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
