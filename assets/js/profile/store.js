@@ -347,6 +347,45 @@ store( 'buddynext/profile', {
 			}
 		},
 
+		/* Toggle a single whitelisted boolean preference (privacy / notification
+		 * email opt-ins). Updates the aria-checked state optimistically, fires
+		 * a PUT /me/profile with the single key, rolls back + toasts on failure.
+		 */
+		async togglePref( event ) {
+			var btn = event.target.closest( '[data-pref]' );
+			if ( ! btn ) { return; }
+			var prefKey = btn.dataset.pref;
+			if ( ! prefKey ) { return; }
+
+			var prev = btn.getAttribute( 'aria-checked' ) === 'true';
+			var next = ! prev;
+			btn.setAttribute( 'aria-checked', next ? 'true' : 'false' );
+
+			var payload = {};
+			payload[ prefKey ] = next;
+
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/me/profile' ), {
+					method:  'PUT',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+					body:    JSON.stringify( payload ),
+				} );
+				if ( ! res.ok ) {
+					throw new Error( 'http_' + res.status );
+				}
+				bnToast(
+					( window.bnI18n && window.bnI18n.prefSaved ) || 'Preference saved',
+					{ tone: 'success' }
+				);
+			} catch ( _e ) {
+				btn.setAttribute( 'aria-checked', prev ? 'true' : 'false' );
+				bnToast(
+					( window.bnI18n && window.bnI18n.saveFailed ) || 'Could not save. Please try again.',
+					{ tone: 'danger' }
+				);
+			}
+		},
+
 		/* Inline field validation on blur. */
 		validateField( event ) {
 			var ctx   = getContext();
@@ -858,6 +897,149 @@ store( 'buddynext/profile', {
 				bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
 			} finally {
 				ctx.reportSubmitting = false;
+			}
+		},
+
+		/* -- Email change ----------------------------------------------- */
+		openEmailChange() {
+			var ctx = getContext();
+			ctx.emailChangeOpen = true;
+			var errs = Object.assign( {}, ctx.errors || {} );
+			delete errs.email;
+			ctx.errors = errs;
+		},
+		closeEmailChange() {
+			var ctx = getContext();
+			ctx.emailChangeOpen = false;
+		},
+		async requestEmailChange() {
+			var ctx = getContext();
+			if ( ctx.emailChangeSubmitting ) { return; }
+			var input = document.getElementById( 'bn-ep-new-email' );
+			var email = input ? ( input.value || '' ).trim() : '';
+			ctx.emailChangeSubmitting = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/auth/change-email' ), {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+					body:    JSON.stringify( { email: email } ),
+				} );
+				var json = {};
+				try { json = await res.json(); } catch ( _e ) {}
+				if ( res.ok && json && json.saved ) {
+					ctx.emailChangeOpen = false;
+					if ( input ) { input.value = ''; }
+					bnToast( json.message || 'Check your inbox to confirm.', { tone: 'success' } );
+				} else if ( res.status === 422 && json && json.errors ) {
+					ctx.errors = Object.assign( {}, ctx.errors || {}, json.errors );
+				} else {
+					bnToast( 'Could not send verification email. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not send verification email. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.emailChangeSubmitting = false;
+			}
+		},
+
+		/* -- Password change -------------------------------------------- */
+		openPasswordChange() {
+			var ctx = getContext();
+			ctx.passwordChangeOpen = true;
+			var errs = Object.assign( {}, ctx.errors || {} );
+			delete errs.current_password;
+			delete errs.new_password;
+			delete errs.confirm_password;
+			ctx.errors = errs;
+		},
+		closePasswordChange() {
+			var ctx = getContext();
+			ctx.passwordChangeOpen = false;
+			ctx.passwordStrength = 0;
+			ctx.passwordStrengthLabel = '';
+		},
+		measurePasswordStrength( event ) {
+			var ctx = getContext();
+			var val = event && event.target ? ( event.target.value || '' ) : '';
+			var score = 0;
+			if ( val.length >= 8 )  { score += 1; }
+			if ( val.length >= 12 ) { score += 1; }
+			if ( /[A-Z]/.test( val ) && /[a-z]/.test( val ) ) { score += 1; }
+			if ( /\d/.test( val ) )            { score += 1; }
+			if ( /[^A-Za-z0-9]/.test( val ) )  { score += 1; }
+			ctx.passwordStrength = score;
+			ctx.passwordStrengthLabel = [ 'Too short', 'Weak', 'Fair', 'Good', 'Strong', 'Excellent' ][ Math.min( score, 5 ) ] || '';
+		},
+		async changePassword() {
+			var ctx = getContext();
+			if ( ctx.passwordChangeSubmitting ) { return; }
+			var curInput = document.getElementById( 'bn-ep-current-password' );
+			var newInput = document.getElementById( 'bn-ep-new-password' );
+			var conInput = document.getElementById( 'bn-ep-confirm-password' );
+			var curr = curInput ? curInput.value : '';
+			var next = newInput ? newInput.value : '';
+			var conf = conInput ? conInput.value : '';
+
+			var localErrors = {};
+			if ( ! curr ) { localErrors.current_password = 'Enter your current password.'; }
+			if ( ! next ) {
+				localErrors.new_password = 'Enter a new password.';
+			} else if ( next.length < 8 ) {
+				localErrors.new_password = 'Use at least 8 characters.';
+			}
+			if ( next && next !== conf ) {
+				localErrors.confirm_password = 'Passwords do not match.';
+			}
+			if ( Object.keys( localErrors ).length ) {
+				ctx.errors = Object.assign( {}, ctx.errors || {}, localErrors );
+				return;
+			}
+
+			ctx.passwordChangeSubmitting = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/auth/change-password' ), {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+					body:    JSON.stringify( { current_password: curr, new_password: next } ),
+				} );
+				var json = {};
+				try { json = await res.json(); } catch ( _e ) {}
+				if ( res.ok && json && json.saved ) {
+					ctx.passwordChangeOpen = false;
+					if ( curInput ) { curInput.value = ''; }
+					if ( newInput ) { newInput.value = ''; }
+					if ( conInput ) { conInput.value = ''; }
+					ctx.passwordStrength = 0;
+					ctx.passwordStrengthLabel = '';
+					bnToast( 'Password updated.', { tone: 'success' } );
+				} else if ( res.status === 422 && json && json.errors ) {
+					ctx.errors = Object.assign( {}, ctx.errors || {}, json.errors );
+				} else {
+					bnToast( 'Could not change password. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not change password. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.passwordChangeSubmitting = false;
+			}
+		},
+
+		/* -- Sign out everywhere ---------------------------------------- */
+		async signOutEverywhere() {
+			var ctx = getContext();
+			if ( ctx.signOutSubmitting ) { return; }
+			ctx.signOutSubmitting = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/auth/sign-out-everywhere' ), {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+				} );
+				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				bnToast( 'Signed out of every other session.', { tone: 'success' } );
+			} catch ( _e ) {
+				bnToast( 'Could not sign out everywhere. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.signOutSubmitting = false;
 			}
 		},
 	},
