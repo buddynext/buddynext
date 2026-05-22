@@ -584,7 +584,29 @@ class SpaceController {
 	public function delete_space( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$space_id = (int) $request->get_param( 'id' );
 		$user_id  = get_current_user_id();
-		$result   = ( new SpaceService() )->delete( $space_id, $user_id );
+
+		// Soft gate: when the client passes the X-BN-Confirm-Space-Name header,
+		// it must exactly match the space's current name. This prevents a
+		// stray DELETE from removing a space that the user didn't intend to
+		// confirm by typed name. When the header is absent we fall back to
+		// the existing permission check, preserving back-compat for CLI / API
+		// consumers that already check identity another way.
+		$header_name = (string) $request->get_header( 'X-BN-Confirm-Space-Name' );
+		if ( '' !== $header_name ) {
+			$space = ( new SpaceService() )->get( $space_id );
+			if ( null === $space ) {
+				return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+			}
+			if ( $header_name !== (string) $space['name'] ) {
+				return new WP_Error(
+					'confirm_mismatch',
+					__( 'Confirmation name does not match.', 'buddynext' ),
+					array( 'status' => 422 )
+				);
+			}
+		}
+
+		$result = ( new SpaceService() )->delete( $space_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 403 ) );

@@ -2168,3 +2168,41 @@
 .bn-sh-about__desc {
 	line-height: 1.6;
 }
+
+/* ── Settings: branding upsell + transfer modal ──────────────────────── */
+
+.bn-space-settings__upsell {
+	display: flex;
+	gap: var(--bn-s3);
+	align-items: flex-start;
+	padding: var(--bn-s4);
+	border-radius: var(--bn-radius-md, 12px);
+	background: linear-gradient(135deg, rgba(91, 141, 239, 0.06), rgba(167, 139, 250, 0.06));
+	border: 1px solid var(--bn-border, #e5e7eb);
+}
+
+.bn-space-settings__upsell-icon {
+	font-size: 24px;
+	color: var(--bn-accent, #5b8def);
+	flex-shrink: 0;
+}
+
+.bn-space-settings__upsell-title {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin: 0 0 var(--bn-s1);
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.bn-space-settings__upsell-desc {
+	margin: 0 0 var(--bn-s3);
+	color: var(--bn-text-muted, #6b7280);
+}
+
+.bn-modal__error {
+	margin: var(--bn-s2) 0 0;
+	color: var(--bn-danger, #b91c1c);
+	font-size: 13px;
+}

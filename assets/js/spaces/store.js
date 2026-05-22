@@ -591,6 +591,335 @@ var storeInstance = store( 'buddynext/spaces', {
 			openSpaceModal( 'delete-space' );
 		},
 
+		/* ── Settings: members tab inline actions ──────────────────────── */
+
+		/**
+		 * Change a member's role optimistically via PUT /spaces/{id}/members/{user}/role.
+		 *
+		 * @param {Event} event Click on a `[data-bn-member-role]` button.
+		 */
+		setMemberRole: async function ( event ) {
+			var btn = event && event.target && event.target.closest( '[data-bn-member-role]' );
+			if ( ! btn ) { return; }
+			var spaceId = btn.getAttribute( 'data-space-id' );
+			var userId  = btn.getAttribute( 'data-user-id' );
+			var role    = btn.getAttribute( 'data-bn-member-role' );
+			if ( ! spaceId || ! userId || ! role ) { return; }
+
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/members/' + userId + '/role' ), {
+					method:  'PUT',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( { role: role } ),
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Role updated.' ), 'success' ); }
+					// Refresh the row label.
+					var row = btn.closest( '[data-bn-member-row]' );
+					if ( row ) {
+						var badge = row.querySelector( '[data-bn-role-badge]' );
+						if ( badge ) {
+							badge.textContent = ( 'moderator' === role )
+								? __i18n( 'Moderator' )
+								: __i18n( 'Member' );
+							badge.dataset.tone = ( 'moderator' === role ) ? 'info' : 'default';
+						}
+					}
+				} else {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not update role.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+			} finally {
+				btn.disabled = false;
+			}
+		},
+
+		/**
+		 * Kick a member optimistically via DELETE /spaces/{id}/members/{user}.
+		 *
+		 * @param {Event} event Click on a `[data-bn-member-kick]` button.
+		 */
+		kickMember: async function ( event ) {
+			var btn = event && event.target && event.target.closest( '[data-bn-member-kick]' );
+			if ( ! btn ) { return; }
+			var spaceId = btn.getAttribute( 'data-space-id' );
+			var userId  = btn.getAttribute( 'data-user-id' );
+			if ( ! spaceId || ! userId ) { return; }
+			var row = btn.closest( '[data-bn-member-row]' );
+			if ( row ) { row.style.opacity = '0.4'; }
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/members/' + userId ), {
+					method:  'DELETE',
+					headers: { 'X-WP-Nonce': resolveNonce() },
+				} );
+				if ( res.ok ) {
+					if ( row ) { row.parentNode && row.parentNode.removeChild( row ); }
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Member removed.' ), 'success' ); }
+				} else {
+					if ( row ) { row.style.opacity = '1'; }
+					btn.disabled = false;
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not remove member.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				if ( row ) { row.style.opacity = '1'; }
+				btn.disabled = false;
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+			}
+		},
+
+		/**
+		 * Ban a member via POST /spaces/{id}/ban/{user}.
+		 *
+		 * @param {Event} event Click on a `[data-bn-member-ban]` button.
+		 */
+		banMember: async function ( event ) {
+			var btn = event && event.target && event.target.closest( '[data-bn-member-ban]' );
+			if ( ! btn ) { return; }
+			var spaceId = btn.getAttribute( 'data-space-id' );
+			var userId  = btn.getAttribute( 'data-user-id' );
+			if ( ! spaceId || ! userId ) { return; }
+			var row = btn.closest( '[data-bn-member-row]' );
+			if ( row ) { row.style.opacity = '0.4'; }
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/ban/' + userId ), {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': resolveNonce() },
+				} );
+				if ( res.ok ) {
+					if ( row ) { row.parentNode && row.parentNode.removeChild( row ); }
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Member banned.' ), 'success' ); }
+				} else {
+					if ( row ) { row.style.opacity = '1'; }
+					btn.disabled = false;
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not ban member.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				if ( row ) { row.style.opacity = '1'; }
+				btn.disabled = false;
+			}
+		},
+
+		/* ── Settings: transfer ownership ─────────────────────────────── */
+
+		/**
+		 * Open the transfer-ownership confirm modal.
+		 */
+		openTransferOwnershipModal: function () {
+			openSpaceModal( 'transfer-ownership' );
+		},
+
+		/**
+		 * Confirm a transfer-ownership submission. Reads target user id
+		 * from the modal's `[data-bn-transfer-target]` select and POSTs
+		 * to /spaces/{id}/transfer.
+		 *
+		 * @param {Event} event Click on the modal's confirm button.
+		 */
+		transferOwnership: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var modal = document.querySelector( '[data-bn-modal="transfer-ownership"]' );
+			if ( ! modal ) { return; }
+			var spaceId    = modal.getAttribute( 'data-bn-space-id' );
+			var targetSel  = modal.querySelector( '[data-bn-transfer-target]' );
+			var newOwnerId = targetSel ? targetSel.value : '';
+			if ( ! spaceId || ! newOwnerId ) {
+				var err = modal.querySelector( '[data-bn-transfer-error]' );
+				if ( err ) { err.textContent = __i18n( 'Choose a new owner.' ); err.removeAttribute( 'hidden' ); }
+				return;
+			}
+
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/transfer' ), {
+					method:  'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( { new_owner_id: parseInt( newOwnerId, 10 ) } ),
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Ownership transferred.' ), 'success' ); }
+					closeAllSpaceModals();
+					setTimeout( function () { window.location.reload(); }, 600 );
+				} else {
+					var data = await res.json();
+					var errEl = modal.querySelector( '[data-bn-transfer-error]' );
+					if ( errEl ) {
+						errEl.textContent = ( data && data.message ) || __i18n( 'Could not transfer ownership.' );
+						errEl.removeAttribute( 'hidden' );
+					}
+					btn.disabled = false;
+				}
+			} catch ( _e ) {
+				btn.disabled = false;
+			}
+		},
+
+		/* ── Settings: delete with name-confirm gate ───────────────────── */
+
+		/**
+		 * Open the delete-space gated-confirm modal (name-typing gate).
+		 */
+		openDeleteSpaceConfirm: function () {
+			openSpaceModal( 'delete-space-confirm' );
+			var gate = document.querySelector( '[data-bn-delete-gate]' );
+			if ( gate ) {
+				gate.value = '';
+				gate.focus();
+			}
+			var submit = document.querySelector( '[data-bn-delete-submit]' );
+			if ( submit ) { submit.disabled = true; }
+		},
+
+		/**
+		 * Execute the delete request once the gate has been satisfied.
+		 *
+		 * @param {Event} event Click on the modal's delete button.
+		 */
+		deleteSpaceConfirmed: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var modal = document.querySelector( '[data-bn-modal="delete-space-confirm"]' );
+			if ( ! modal ) { return; }
+			var spaceId  = modal.getAttribute( 'data-bn-space-id' );
+			var expected = modal.getAttribute( 'data-bn-space-name' );
+			var gate     = modal.querySelector( '[data-bn-delete-gate]' );
+			var typed    = gate ? gate.value.trim() : '';
+			var errEl    = modal.querySelector( '[data-bn-delete-error]' );
+
+			if ( ! spaceId || typed !== expected ) {
+				if ( errEl ) {
+					errEl.textContent = __i18n( 'The name does not match.' );
+					errEl.removeAttribute( 'hidden' );
+				}
+				return;
+			}
+
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId ), {
+					method:  'DELETE',
+					headers: {
+						'X-WP-Nonce':                resolveNonce(),
+						'X-BN-Confirm-Space-Name':   expected,
+					},
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Space deleted.' ), 'success' ); }
+					var dest = ( window.bnSpaces && window.bnSpaces.directoryUrl )
+						? window.bnSpaces.directoryUrl
+						: '/spaces/';
+					setTimeout( function () { window.location.href = dest; }, 500 );
+				} else {
+					if ( errEl ) {
+						errEl.textContent = __i18n( 'Could not delete the space.' );
+						errEl.removeAttribute( 'hidden' );
+					}
+					btn.disabled = false;
+				}
+			} catch ( _e ) {
+				btn.disabled = false;
+			}
+		},
+
+		/* ── Settings: general / permissions inline save ──────────────── */
+
+		/**
+		 * Save the General tab fields via PUT /spaces/{id} optimistically.
+		 *
+		 * @param {Event} event Click on the Save button.
+		 */
+		saveGeneral: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var form = document.querySelector( '[data-bn-settings-general-form]' );
+			if ( ! form ) { return; }
+			var spaceId = form.getAttribute( 'data-space-id' );
+			if ( ! spaceId ) { return; }
+
+			var payload = {
+				name:        ( form.querySelector( '[name="space_name"]' ) || {} ).value,
+				slug:        ( form.querySelector( '[name="space_slug"]' ) || {} ).value,
+				description: ( form.querySelector( '[name="space_description"]' ) || {} ).value,
+				category_id: parseInt( ( form.querySelector( '[name="space_category_id"]' ) || {} ).value || '0', 10 ),
+				type:        ( form.querySelector( '[name="space_type"]' ) || {} ).value,
+			};
+
+			btn.disabled = true;
+			var origLabel = btn.textContent;
+			btn.textContent = __i18n( 'Saving…' );
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId ), {
+					method:  'PUT',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( payload ),
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Changes saved.' ), 'success' ); }
+				} else {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not save changes.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+			} finally {
+				btn.disabled = false;
+				btn.textContent = origLabel;
+			}
+		},
+
+		/**
+		 * Save the Permissions tab fields via PUT /spaces/{id}/permissions.
+		 *
+		 * @param {Event} event Click on the Save button.
+		 */
+		savePermissions: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var form = document.querySelector( '[data-bn-settings-permissions-form]' );
+			if ( ! form ) { return; }
+			var spaceId = form.getAttribute( 'data-space-id' );
+			if ( ! spaceId ) { return; }
+
+			var payload = {
+				allow_member_posts:    ( form.querySelector( '[name="allow_member_posts"]' ) || {} ).checked ? 1 : 0,
+				require_post_approval: ( form.querySelector( '[name="require_post_approval"]' ) || {} ).checked ? 1 : 0,
+				require_join_approval: ( form.querySelector( '[name="require_join_approval"]' ) || {} ).checked ? 1 : 0,
+			};
+
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/permissions' ), {
+					method:  'PUT',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( payload ),
+				} );
+				if ( res.ok && window.bnToast ) {
+					window.bnToast( __i18n( 'Permissions saved.' ), 'success' );
+				} else if ( ! res.ok && window.bnToast ) {
+					window.bnToast( __i18n( 'Could not save permissions.' ), 'danger' );
+				}
+			} catch ( _e ) {
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+			} finally {
+				btn.disabled = false;
+			}
+		},
+
 		/**
 		 * Open the archive-space confirm modal.
 		 */
@@ -1233,6 +1562,34 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			closeSortPopover();
 		}
 	} );
+
+	// Close notif popover on outside click.
+	document.addEventListener( 'click', function ( e ) {
+		var popover = document.querySelector( '[data-bn-notif-popover]' );
+		if ( ! popover ) { return; }
+		var list = popover.querySelector( '[data-bn-notif-list]' );
+		if ( ! list || list.hasAttribute( 'hidden' ) ) { return; }
+		if ( ! popover.contains( e.target ) ) {
+			list.setAttribute( 'hidden', '' );
+			var trigger = popover.querySelector( '[data-bn-notif-trigger]' );
+			if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
+		}
+	} );
+
+	// Delete-space gate: enable submit only when typed name matches.
+	var gate = document.querySelector( '[data-bn-delete-gate]' );
+	if ( gate ) {
+		gate.addEventListener( 'input', function () {
+			var modal    = gate.closest( '[data-bn-modal="delete-space-confirm"]' );
+			var submit   = modal ? modal.querySelector( '[data-bn-delete-submit]' ) : null;
+			var expected = modal ? modal.getAttribute( 'data-bn-space-name' ) : '';
+			if ( submit ) {
+				submit.disabled = ( gate.value.trim() !== expected );
+			}
+			var err = modal ? modal.querySelector( '[data-bn-delete-error]' ) : null;
+			if ( err ) { err.setAttribute( 'hidden', '' ); err.textContent = ''; }
+		} );
+	}
 } );
 
 /* ── Delegated UI helpers (modal close + native-confirm bridge) ─────────
