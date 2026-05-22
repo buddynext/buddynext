@@ -242,8 +242,8 @@ class PageRouter {
 		}
 
 		// Specialise the Notifications hub title:
-		//   - Prefs section → "Notification preferences"
-		//   - List with unread > 0 → "Notifications (3)" / "Notifications (99+)"
+		// - Prefs section → "Notification preferences".
+		// - List with unread > 0 → "Notifications (3)" / "Notifications (99+)".
 		// Mirrors the Profile / Spaces patterns above so the document <title>
 		// reflects the active sub-route and the live unread count. The unread
 		// count read is cheap (single COUNT on an indexed column) and only

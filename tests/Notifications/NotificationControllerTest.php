@@ -165,6 +165,9 @@ class NotificationControllerTest extends \WP_Test_REST_TestCase {
 		$this->assertFalse( $data['channels']['sound'] );
 	}
 
+	/**
+	 * PUT /me/notification-channels with sound=true persists across reads.
+	 */
 	public function test_channels_endpoint_persists_sound_toggle(): void {
 		wp_set_current_user( $this->user_id );
 
@@ -201,8 +204,8 @@ class NotificationControllerTest extends \WP_Test_REST_TestCase {
 	}
 
 	/**
-	 * mark-all-read also accepts PUT (REST verbs were both registered in
-	 * Wave 1 so the in-app dropdown could use the canonical verb).
+	 * The mark-all-read route also accepts PUT (REST verbs were both
+	 * registered in Wave 1 so the in-app dropdown could use the canonical verb).
 	 */
 	public function test_mark_all_read_accepts_put(): void {
 		wp_set_current_user( $this->user_id );
