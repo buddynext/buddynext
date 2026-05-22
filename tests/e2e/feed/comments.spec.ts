@@ -44,7 +44,15 @@ test.describe('feed / comments', () => {
         const stamp = Date.now().toString().slice(-6);
         const body = `e2e comment ${stamp}`;
         await input.fill(body);
-        await input.press('Enter');
+
+        // No <form> wraps the comment input — there's a dedicated submit
+        // button bound to actions.submitComment.
+        const submitBtn = page.locator('.bn-comment-form__submit, [data-wp-on--click="actions.submitComment"]').first();
+        if (await submitBtn.isVisible().catch(() => false)) {
+            await submitBtn.click();
+        } else {
+            await input.press('Enter');
+        }
 
         const newComment = page.locator(sel.commentList).filter({ hasText: body }).first();
         await expect(newComment).toBeVisible({ timeout: 8_000 });

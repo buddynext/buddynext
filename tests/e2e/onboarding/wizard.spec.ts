@@ -16,19 +16,25 @@ test.describe('onboarding / wizard', () => {
     test('wizard renders 4 steps OR redirects to feed when already onboarded', async ({ authenticatedPage: page }) => {
         await page.goto(urls.onboarding, { waitUntil: 'domcontentloaded' });
 
+        // varundubey is already onboarded, so /onboarding/ either shows
+        // the wizard OR redirects to /activity/. Accept either.
+        await expect(page).toHaveURL(/(onboarding|activity)/);
+
         if (page.url().includes('/activity')) {
-            // User already onboarded  -  that's a valid pass.
+            // Redirected away — valid pass for an onboarded user.
             await expect(page.locator(sel.app)).toBeVisible();
             return;
         }
 
         await expect(page.locator(sel.app)).toBeVisible();
 
-        // The wizard shell  -  accept any of three reasonable selectors.
-        const wizard = page.locator('.bn-onboarding, [data-onboarding], .bn-app__main form').first();
+        // Wizard rendered — confirm the shell + progress bar are visible.
+        // Live markup uses .bn-ob-shell / .bn-ob-wrap and .bn-progress.
+        const wizard = page.locator(sel.onboardingShell).first();
         await expect(wizard).toBeVisible();
+        await expect(page.locator(sel.onboardingProgress).first()).toBeVisible();
 
-        const stepCount = await page.locator('.bn-onboarding__step, [data-onboarding-step]').count();
+        const stepCount = await page.locator(sel.onboardingStep).count();
         expect(stepCount).toBeGreaterThanOrEqual(1);
     });
 
