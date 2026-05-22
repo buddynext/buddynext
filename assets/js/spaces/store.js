@@ -1792,3 +1792,122 @@ document.addEventListener( 'keydown', function ( event ) {
 		if ( bnConfirmBackdrop && ! bnConfirmBackdrop.hidden ) { closeConfirmModal(); }
 	}
 } );
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Sticky save bar (Space Settings — parity with Profile edit + Notif prefs).
+ *
+ * Each settings tab renders its own native <form>. The bar lives at the page
+ * footer; on first input/change inside any settings form it surfaces, latches
+ * to the form that was touched, and adopts the savebar status pills. Submit
+ * forwards to the underlying form (preserving native validation + the wp_nonce
+ * field), then flips to the "saved" status briefly. Cancel re-reads the form
+ * default values from each input's data-bn-default attribute to roll back
+ * unsaved edits without reload. A beforeunload guard prevents accidental loss
+ * of work while the page is dirty.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+(function () {
+	var savebar = document.querySelector( '[data-bn-space-settings-savebar]' );
+	if ( ! savebar ) { return; }
+
+	var root      = document.querySelector( '.bn-space-settings' );
+	if ( ! root ) { return; }
+
+	var forms     = root.querySelectorAll( 'form.bn-space-settings__form' );
+	if ( ! forms.length ) { return; }
+
+	var dirtyForm  = null;
+	var savedTimer = null;
+
+	function captureDefaults( form ) {
+		var inputs = form.querySelectorAll( 'input, textarea, select' );
+		for ( var i = 0; i < inputs.length; i++ ) {
+			var el = inputs[ i ];
+			if ( 'hidden' === el.type ) { continue; }
+			if ( 'checkbox' === el.type || 'radio' === el.type ) {
+				el.dataset.bnDefault = el.checked ? '1' : '0';
+			} else {
+				el.dataset.bnDefault = el.value || '';
+			}
+		}
+	}
+
+	function showState( name ) {
+		var states = savebar.querySelectorAll( '[data-bn-savebar-state]' );
+		for ( var i = 0; i < states.length; i++ ) {
+			states[ i ].hidden = states[ i ].dataset.bnSavebarState !== name;
+		}
+		if ( 'idle' === name ) {
+			savebar.hidden = true;
+		} else {
+			savebar.hidden = false;
+		}
+	}
+
+	function markDirty( form ) {
+		dirtyForm = form;
+		if ( savedTimer ) { clearTimeout( savedTimer ); savedTimer = null; }
+		showState( 'dirty' );
+	}
+
+	function markClean() {
+		dirtyForm = null;
+		showState( 'idle' );
+	}
+
+	function rollback( form ) {
+		var inputs = form.querySelectorAll( 'input, textarea, select' );
+		for ( var i = 0; i < inputs.length; i++ ) {
+			var el = inputs[ i ];
+			if ( 'hidden' === el.type ) { continue; }
+			if ( ! ( 'bnDefault' in el.dataset ) ) { continue; }
+			if ( 'checkbox' === el.type || 'radio' === el.type ) {
+				el.checked = '1' === el.dataset.bnDefault;
+			} else {
+				el.value = el.dataset.bnDefault;
+			}
+		}
+	}
+
+	for ( var i = 0; i < forms.length; i++ ) {
+		(function ( form ) {
+			captureDefaults( form );
+			form.addEventListener( 'input', function () { markDirty( form ); } );
+			form.addEventListener( 'change', function () { markDirty( form ); } );
+		})( forms[ i ] );
+	}
+
+	var submitBtn = savebar.querySelector( '[data-bn-savebar-submit]' );
+	if ( submitBtn ) {
+		submitBtn.addEventListener( 'click', function () {
+			if ( ! dirtyForm ) { return; }
+			if ( ! dirtyForm.reportValidity || dirtyForm.reportValidity() ) {
+				showState( 'saving' );
+				// Stop the beforeunload guard from blocking the form POST.
+				dirtyForm.dataset.bnSubmitting = '1';
+				dirtyForm.submit();
+			}
+		} );
+	}
+
+	var cancelBtn = savebar.querySelector( '[data-bn-savebar-cancel]' );
+	if ( cancelBtn ) {
+		cancelBtn.addEventListener( 'click', function () {
+			if ( dirtyForm ) { rollback( dirtyForm ); }
+			markClean();
+		} );
+	}
+
+	// If the page server-rendered with a success notice, flash "saved" briefly.
+	if ( document.querySelector( '.bn-space-settings__notice[data-tone="success"]' ) ) {
+		showState( 'saved' );
+		savedTimer = setTimeout( function () { showState( 'idle' ); }, 2400 );
+	}
+
+	window.addEventListener( 'beforeunload', function ( event ) {
+		if ( dirtyForm && '1' !== dirtyForm.dataset.bnSubmitting ) {
+			event.preventDefault();
+			event.returnValue = '';
+		}
+	} );
+})();

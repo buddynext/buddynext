@@ -764,7 +764,7 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 
 		<?php elseif ( 'moderation' === $settings_tab ) : ?>
 
-			<form method="post" action="">
+			<form method="post" action="" class="bn-space-settings__form">
 				<?php wp_nonce_field( 'bn_space_moderation_' . $space_id, 'bn_space_moderation_nonce' ); ?>
 
 				<div class="bn-card bn-space-settings__panel">
@@ -811,7 +811,7 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 
 		<?php elseif ( 'notifications' === $settings_tab ) : ?>
 
-			<form method="post" action="">
+			<form method="post" action="" class="bn-space-settings__form">
 				<?php wp_nonce_field( 'bn_space_notifications_' . $space_id, 'bn_space_notifications_nonce' ); ?>
 
 				<div class="bn-card bn-space-settings__panel">
@@ -1077,7 +1077,7 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 
 		<?php else : ?>
 
-			<form method="post" action="" enctype="multipart/form-data">
+			<form method="post" action="" enctype="multipart/form-data" class="bn-space-settings__form">
 				<?php wp_nonce_field( 'bn_space_settings_' . $space_id, 'bn_space_settings_nonce' ); ?>
 
 				<?php if ( 'general' === $settings_tab ) : ?>
@@ -1301,5 +1301,48 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 		do_action( 'buddynext_space_settings_tab_content', $settings_tab, $space_id );
 		?>
 
+	</div>
+
+	<!-- Sticky save bar — matches Profile edit + Notification prefs pattern.
+	     Wired by assets/js/spaces/store.js: listens for input/change on every
+	     form inside .bn-space-settings, surfaces the bar when dirty, runs the
+	     beforeunload guard, and submits the currently-dirty form on click. -->
+	<div
+		class="bn-space-settings__savebar"
+		role="region"
+		aria-label="<?php esc_attr_e( 'Save changes', 'buddynext' ); ?>"
+		data-bn-space-settings-savebar
+		hidden
+	>
+		<div class="bn-space-settings__savebar-inner">
+			<div class="bn-space-settings__savebar-status bn-space-settings__savebar-status--dirty" data-bn-savebar-state="dirty">
+				<span class="bn-space-settings__savebar-dot" aria-hidden="true"></span>
+				<span><?php esc_html_e( 'Unsaved changes', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-space-settings__savebar-status bn-space-settings__savebar-status--saving" data-bn-savebar-state="saving" hidden>
+				<span class="bn-space-settings__savebar-spinner" aria-hidden="true"></span>
+				<span><?php esc_html_e( 'Saving…', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-space-settings__savebar-status bn-space-settings__savebar-status--saved" data-bn-savebar-state="saved" hidden>
+				<?php buddynext_icon( 'check' ); ?>
+				<span><?php esc_html_e( 'All changes saved', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-space-settings__savebar-actions">
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="md"
+					data-bn-savebar-cancel
+				><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="md"
+					data-bn-savebar-submit
+				><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
+			</div>
+		</div>
 	</div>
 </div>

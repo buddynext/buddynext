@@ -2206,3 +2206,101 @@
 	color: var(--bn-danger, #b91c1c);
 	font-size: 13px;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Space settings — sticky save bar.
+ *
+ * Mirrors the Profile edit + Notification prefs save-bar contract: fixed to
+ * the viewport bottom, surfaces only when a form is dirty, swaps between
+ * dirty / saving / saved status pills via [data-bn-savebar-state].
+ * ────────────────────────────────────────────────────────────────────────── */
+
+.bn-space-settings__savebar {
+	position: fixed;
+	inset-block-end: 0;
+	inset-inline: 0;
+	background: var(--bn-surface);
+	border-block-start: 1px solid var(--bn-line);
+	box-shadow: var(--bn-shadow-sm);
+	padding-inline: var(--bn-s5);
+	min-height: 64px;
+	display: flex;
+	align-items: center;
+	z-index: 180;
+}
+
+.bn-space-settings__savebar[hidden] {
+	display: none !important;
+}
+
+.bn-space-settings__savebar-inner {
+	max-width: 1080px;
+	margin-inline: auto;
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+}
+
+.bn-space-settings__savebar-status {
+	font-size: var(--bn-text-sm);
+	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+}
+
+.bn-space-settings__savebar-status[hidden] {
+	display: none !important;
+}
+
+.bn-space-settings__savebar-status svg {
+	width: 14px;
+	height: 14px;
+}
+
+.bn-space-settings__savebar-status--dirty {
+	color: var(--bn-text);
+}
+
+.bn-space-settings__savebar-status--saving {
+	color: var(--bn-text-muted, #6b7280);
+}
+
+.bn-space-settings__savebar-status--saved {
+	color: var(--bn-success, #047857);
+}
+
+.bn-space-settings__savebar-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--bn-warn, #d97706);
+}
+
+.bn-space-settings__savebar-spinner {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	border: 2px solid var(--bn-line);
+	border-block-start-color: var(--bn-text);
+	animation: bn-space-settings-savebar-spin 0.8s linear infinite;
+}
+
+@keyframes bn-space-settings-savebar-spin {
+	to { transform: rotate(360deg); }
+}
+
+.bn-space-settings__savebar-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-inline-start: auto;
+}
+
+@media (max-width: 720px) {
+	.bn-space-settings__savebar { padding-inline: var(--bn-s4); }
+	.bn-space-settings__savebar-status { display: none; }
+	.bn-space-settings__savebar-inner { justify-content: flex-end; }
+}
