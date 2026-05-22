@@ -358,3 +358,194 @@ store( 'buddynext/notifications', {
 		},
 	},
 } );
+
+/**
+ * Background unread-count polling.
+ *
+ * C1 from the notifications completion walk. Keeps the mobile nav badge
+ * (and any future header dropdown) in sync with server state without
+ * relying on the user revisiting the /notifications/ page.
+ *
+ * Cadence:
+ *   - 30s when the tab is idle
+ *   - 5s for the first 60s after a user action ("hot" mode)
+ *   - paused when document.hidden (browser tab in background)
+ *
+ * Pro Realtime (P3.1) dispatches a `bn:notification:new` CustomEvent on
+ * window when Soketi pushes a new event; we kick the count refresh
+ * immediately so Pro can pre-empt the poll. Free relies on the poll alone.
+ */
+( function bootstrapNotifPolling() {
+	if ( typeof window === 'undefined' || typeof document === 'undefined' ) { return; }
+
+	var COLD_INTERVAL = 30000;
+	var HOT_INTERVAL  = 5000;
+	var HOT_DURATION  = 60000;
+
+	var hotUntil = 0;
+	var timerId  = null;
+
+	function findContext() {
+		var wrap = document.querySelector( '[data-wp-interactive="buddynext/notifications"]' );
+		return wrap || null;
+	}
+
+	function readRestData() {
+		var wrap = findContext();
+		if ( ! wrap ) { return null; }
+		var raw = wrap.getAttribute( 'data-wp-context' );
+		if ( ! raw ) { return null; }
+		try {
+			return JSON.parse( raw );
+		} catch ( _e ) {
+			return null;
+		}
+	}
+
+	function paintBadge( count ) {
+		// Mobile nav badge.
+		var badge = document.querySelector( '.bn-mobile-nav__badge' );
+		if ( badge ) {
+			var label = count > 99 ? '99+' : String( count );
+			badge.textContent = label;
+			badge.hidden = ! count || count <= 0;
+		}
+		// Header pill (legacy bn-shell dropdown badge), if rendered by host theme.
+		var pill = document.querySelector( '.bn-nav-notif-wrap .bn-nav-pill' );
+		if ( pill ) {
+			if ( count > 0 ) {
+				pill.textContent = count > 99 ? '99+' : String( count );
+				pill.hidden = false;
+			} else {
+				pill.hidden = true;
+			}
+		}
+		// Any data-wp-text="state.unreadLabel" elements will re-render
+		// when ctx.unreadCount is mutated by the store; this paint pass
+		// covers no-Interactivity DOM (the header pill).
+	}
+
+	async function poll() {
+		if ( document.hidden ) { return; }
+		var ctx = readRestData();
+		if ( ! ctx || ! ctx.restUrl ) { return; }
+
+		try {
+			var res = await fetch( ctx.restUrl + '/unread-count', {
+				method:  'GET',
+				credentials: 'same-origin',
+				headers: { 'X-WP-Nonce': ctx.nonce || '' },
+			} );
+			if ( ! res.ok ) { return; }
+			var json = await res.json();
+			if ( ! json || typeof json.count === 'undefined' ) { return; }
+
+			var fresh = Number( json.count ) || 0;
+			paintBadge( fresh );
+
+			// Sync the Interactivity context (in-place mutation) so
+			// state.unreadLabel and state.badgeHidden re-evaluate.
+			var wrap = findContext();
+			if ( wrap ) {
+				var current = readRestData();
+				if ( current && current.unreadCount !== fresh ) {
+					current.unreadCount = fresh;
+					wrap.setAttribute( 'data-wp-context', JSON.stringify( current ) );
+				}
+			}
+		} catch ( _e ) {
+			// Network failure — try again next tick.
+		}
+	}
+
+	function schedule() {
+		if ( timerId ) { window.clearTimeout( timerId ); }
+		var interval = ( Date.now() < hotUntil ) ? HOT_INTERVAL : COLD_INTERVAL;
+		timerId = window.setTimeout( function () {
+			poll().finally( schedule );
+		}, interval );
+	}
+
+	function kickHot() {
+		hotUntil = Date.now() + HOT_DURATION;
+		// Reset the schedule so the next poll lands on the hot cadence.
+		schedule();
+	}
+
+	// Pro realtime seam — dispatch `bn:notification:new` on window to refresh
+	// immediately. Free has no producer; this is a no-op until Pro is active.
+	//
+	// Sound: when channels.sound === true and document.visible, play a soft
+	// chime. The audio asset is optional — if assets/sounds/notif.mp3 is
+	// missing we silently skip playback. Pro can override this seam by
+	// listening to the same event and rendering its own banner / sound.
+	window.addEventListener( 'bn:notification:new', function () {
+		kickHot();
+		poll();
+		maybePlaySound();
+	} );
+
+	var soundEnabledCache = null;
+	async function getSoundEnabled() {
+		if ( null !== soundEnabledCache ) { return soundEnabledCache; }
+		try {
+			var ctx = readRestData();
+			if ( ! ctx || ! ctx.restUrl ) { return false; }
+			// restUrl points at /me/notifications — derive the channels URL.
+			var base = ctx.restUrl.replace( /\/me\/notifications.*$/, '/me/notification-channels' );
+			var res = await fetch( base, {
+				method:  'GET',
+				credentials: 'same-origin',
+				headers: { 'X-WP-Nonce': ctx.nonce || '' },
+			} );
+			if ( ! res.ok ) { soundEnabledCache = false; return false; }
+			var json = await res.json();
+			soundEnabledCache = !! ( json && json.channels && json.channels.sound );
+			return soundEnabledCache;
+		} catch ( _e ) {
+			soundEnabledCache = false;
+			return false;
+		}
+	}
+
+	function maybePlaySound() {
+		if ( document.hidden ) { return; }
+		getSoundEnabled().then( function ( enabled ) {
+			if ( ! enabled ) { return; }
+			try {
+				// Optional asset — paths under wp-content. If the file is
+				// 404 the browser logs a warning; we swallow the rejection.
+				var url = ( window.bnShellData && window.bnShellData.notifSoundUrl ) || '';
+				if ( ! url ) { return; }
+				var audio = new Audio( url );
+				audio.volume = 0.4;
+				var p = audio.play();
+				if ( p && typeof p.catch === 'function' ) {
+					p.catch( function () { /* autoplay blocked — ignore */ } );
+				}
+			} catch ( _e ) {
+				// no-op
+			}
+		} );
+	}
+
+	// Re-poll on tab focus so the badge is fresh the moment the user
+	// returns to the app.
+	document.addEventListener( 'visibilitychange', function () {
+		if ( ! document.hidden ) {
+			poll();
+			schedule();
+		}
+	} );
+
+	// Mark a user action as a hot trigger (clicks, keypresses) so the
+	// next 60s of polling runs at 5s cadence.
+	document.addEventListener( 'click', kickHot, { passive: true, capture: true } );
+
+	// Bootstrap when DOM is ready.
+	if ( 'complete' === document.readyState || 'interactive' === document.readyState ) {
+		schedule();
+	} else {
+		window.addEventListener( 'DOMContentLoaded', schedule );
+	}
+} )();

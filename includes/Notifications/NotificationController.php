@@ -362,6 +362,7 @@ class NotificationController {
 			'in_app' => array_key_exists( 'in_app', $stored ) ? (bool) $stored['in_app'] : true,
 			'email'  => array_key_exists( 'email', $stored ) ? (bool) $stored['email'] : true,
 			'push'   => array_key_exists( 'push', $stored ) ? (bool) $stored['push'] : $push_available,
+			'sound'  => array_key_exists( 'sound', $stored ) ? (bool) $stored['sound'] : false,
 		);
 
 		return new WP_REST_Response(
@@ -396,7 +397,7 @@ class NotificationController {
 			$current = array();
 		}
 
-		foreach ( array( 'in_app', 'email', 'push' ) as $key ) {
+		foreach ( array( 'in_app', 'email', 'push', 'sound' ) as $key ) {
 			if ( array_key_exists( $key, $body ) ) {
 				$current[ $key ] = (bool) $body[ $key ];
 			}
