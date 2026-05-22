@@ -598,6 +598,115 @@ var storeInstance = store( 'buddynext/spaces', {
 			openSpaceModal( 'archive-space' );
 		},
 
+		/* ── Space home: notification pref + tab switch ──────────────────── */
+
+		/**
+		 * Toggle the notification-preference popover open/closed.
+		 *
+		 * @param {Event} event Click on the bell button.
+		 */
+		toggleNotifPopover: function ( event ) {
+			var trigger = event && event.target && event.target.closest( '[data-bn-notif-trigger]' );
+			if ( ! trigger ) { return; }
+			var popover = trigger.closest( '[data-bn-notif-popover]' );
+			if ( ! popover ) { return; }
+			var list = popover.querySelector( '[data-bn-notif-list]' );
+			if ( ! list ) { return; }
+			if ( list.hasAttribute( 'hidden' ) ) {
+				list.removeAttribute( 'hidden' );
+				trigger.setAttribute( 'aria-expanded', 'true' );
+			} else {
+				list.setAttribute( 'hidden', '' );
+				trigger.setAttribute( 'aria-expanded', 'false' );
+			}
+		},
+
+		/**
+		 * Set the per-space notification preference for the current user.
+		 *
+		 * @param {Event} event Click on a `[data-bn-notif-pref]` option.
+		 */
+		setNotificationPref: async function ( event ) {
+			var btn = event && event.target && event.target.closest( '[data-bn-notif-pref]' );
+			if ( ! btn ) { return; }
+			var pref    = btn.getAttribute( 'data-bn-notif-pref' );
+			var spaceId = resolveSpaceId( btn ) ||
+				( document.querySelector( '[data-wp-interactive="buddynext/spaces"][data-space-id]' ) || {} ).dataset?.spaceId;
+			if ( ! pref || ! spaceId ) { return; }
+
+			var options = document.querySelectorAll( '[data-bn-notif-pref]' );
+			var previousSelected = null;
+			for ( var i = 0; i < options.length; i++ ) {
+				if ( options[ i ].getAttribute( 'aria-selected' ) === 'true' ) { previousSelected = options[ i ]; }
+				options[ i ].setAttribute(
+					'aria-selected',
+					options[ i ] === btn ? 'true' : 'false'
+				);
+			}
+
+			// Close popover after selection.
+			var list    = document.querySelector( '[data-bn-notif-list]' );
+			var trigger = document.querySelector( '[data-bn-notif-trigger]' );
+			if ( list ) { list.setAttribute( 'hidden', '' ); }
+			if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
+
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/notification-pref' ), {
+					method:  'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( { pref: pref } ),
+				} );
+				if ( ! res.ok ) {
+					// Rollback.
+					if ( previousSelected ) {
+						for ( var j = 0; j < options.length; j++ ) {
+							options[ j ].setAttribute(
+								'aria-selected',
+								options[ j ] === previousSelected ? 'true' : 'false'
+							);
+						}
+					}
+					if ( window.bnToast ) {
+						window.bnToast( __i18n( 'Could not update notification preference.' ), 'danger' );
+					}
+				} else if ( window.bnToast ) {
+					window.bnToast( __i18n( 'Notification preference saved.' ), 'success' );
+				}
+			} catch ( _e ) {
+				if ( previousSelected ) {
+					for ( var k = 0; k < options.length; k++ ) {
+						options[ k ].setAttribute(
+							'aria-selected',
+							options[ k ] === previousSelected ? 'true' : 'false'
+						);
+					}
+				}
+			}
+		},
+
+		/**
+		 * Switch the active space-home tab. Falls back to a navigation
+		 * when the tab href is set on an anchor; otherwise updates the
+		 * URL query var without a reload (where supported).
+		 *
+		 * @param {Event} event Click on a tab.
+		 */
+		setTab: function ( event ) {
+			var link = event && event.target && event.target.closest( 'a' );
+			if ( ! link || ! link.href ) { return; }
+			// Default behaviour navigates; intentional so the new tab body is server-rendered.
+		},
+
+		/**
+		 * Open the invite modal (owner/mod only).
+		 */
+		openInviteModal: function () {
+			openSpaceModal( 'invite-member' );
+		},
+
 		/* ── Directory: reactive filter / sort / search ────────────────── */
 
 		/**

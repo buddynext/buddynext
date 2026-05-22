@@ -227,6 +227,129 @@ class SpaceController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		// Spec-conformant alias used by space-home action row.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/transfer',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'transfer_ownership' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		// Per-space notification preference for the current user.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/notification-pref',
+			array(
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( $this, 'get_notification_pref' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'set_notification_pref' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
+		// PUT alias for permissions (general settings PUT already exists on
+		// /spaces/{id}); this provides an explicit permissions-only endpoint.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/permissions',
+			array(
+				'methods'             => 'PUT',
+				'callback'            => array( $this, 'update_permissions' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+	}
+
+	/**
+	 * Return the current user's per-space notification preference.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_notification_pref( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+		$pref     = ( new SpaceMemberService() )->get_notification_pref( $space_id, $user_id );
+
+		return new WP_REST_Response( array( 'pref' => $pref ), 200 );
+	}
+
+	/**
+	 * Update the current user's per-space notification preference.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function set_notification_pref( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+		$pref     = sanitize_key( (string) ( $request->get_param( 'pref' ) ?? '' ) );
+
+		$result = ( new SpaceMemberService() )->set_notification_pref( $space_id, $user_id, $pref );
+
+		if ( is_wp_error( $result ) ) {
+			$status = ( 'invalid_pref' === $result->get_error_code() ) ? 422 : 403;
+			$result->add_data( array( 'status' => $status ) );
+			return $result;
+		}
+
+		return new WP_REST_Response( array( 'pref' => $pref ), 200 );
+	}
+
+	/**
+	 * Update space permissions (delegates to update_space with whitelisted fields).
+	 *
+	 * Permissions stored as wp_options under bn_space_<id>_<key>:
+	 *   - allow_member_posts
+	 *   - require_post_approval
+	 *   - require_join_approval
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function update_permissions( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+		$space    = ( new SpaceService() )->get( $space_id );
+
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		if ( $space['owner_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+			return new WP_Error( 'forbidden', __( 'Only the space owner can change permissions.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
+		$bools = array(
+			'allow_member_posts'    => 'allow_member_posts',
+			'require_post_approval' => 'require_post_approval',
+			'require_join_approval' => 'require_join_approval',
+		);
+		foreach ( $bools as $key => $opt ) {
+			$param = $request->get_param( $key );
+			if ( null !== $param ) {
+				update_option( 'bn_space_' . $space_id . '_' . $opt, $param ? 1 : 0 );
+			}
+		}
+
+		return new WP_REST_Response(
+			array(
+				'allow_member_posts'    => (int) get_option( 'bn_space_' . $space_id . '_allow_member_posts', 1 ),
+				'require_post_approval' => (int) get_option( 'bn_space_' . $space_id . '_require_post_approval', 0 ),
+				'require_join_approval' => (int) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 ),
+			),
+			200
+		);
 	}
 
 	// ── Space CRUD ──────────────────────────────────────────────────────────

@@ -591,6 +591,132 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Allowed notification preferences for a space membership.
+	 */
+	private const NOTIFICATION_PREFS = array( 'all', 'mentions', 'none' );
+
+	/**
+	 * Set the per-space notification preference for an active member.
+	 *
+	 * Writes to bn_space_members.notification_pref. Returns a WP_Error when
+	 * the user is not an active member of the space or the requested pref is
+	 * not in the allow-list.
+	 *
+	 * @param int    $space_id Space ID.
+	 * @param int    $user_id  User changing their own preference.
+	 * @param string $pref     One of 'all', 'mentions', 'none'.
+	 * @return true|WP_Error
+	 */
+	public function set_notification_pref( int $space_id, int $user_id, string $pref ): true|WP_Error {
+		if ( ! in_array( $pref, self::NOTIFICATION_PREFS, true ) ) {
+			return new WP_Error(
+				'invalid_pref',
+				__( 'Invalid notification preference.', 'buddynext' )
+			);
+		}
+
+		if ( ! $this->is_member( $space_id, $user_id ) ) {
+			return new WP_Error(
+				'not_a_member',
+				__( 'You must be a member of the space to change notification preferences.', 'buddynext' )
+			);
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_space_members',
+			array( 'notification_pref' => $pref ),
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $user_id,
+				'status'   => 'active',
+			),
+			array( '%s' ),
+			array( '%d', '%d', '%s' )
+		);
+
+		$this->invalidate_cache( $space_id, $user_id );
+
+		/**
+		 * Fires after a member updates their per-space notification preference.
+		 *
+		 * @param int    $space_id Space ID.
+		 * @param int    $user_id  User who changed the preference.
+		 * @param string $pref     New preference ('all', 'mentions', 'none').
+		 */
+		do_action( 'buddynext_space_notification_pref_updated', $space_id, $user_id, $pref );
+
+		return true;
+	}
+
+	/**
+	 * Get the per-space notification preference for a user.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  User ID.
+	 * @return string Notification preference; defaults to 'all'.
+	 */
+	public function get_notification_pref( int $space_id, int $user_id ): string {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$pref = (string) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT notification_pref FROM {$wpdb->prefix}bn_space_members
+				 WHERE space_id = %d AND user_id = %d AND status = 'active'",
+				$space_id,
+				$user_id
+			)
+		);
+
+		return in_array( $pref, self::NOTIFICATION_PREFS, true ) ? $pref : 'all';
+	}
+
+	/**
+	 * Alias for request_join() to satisfy the documented public method name.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  User requesting access.
+	 * @return true|WP_Error
+	 */
+	public function cancel_request( int $space_id, int $user_id ): true|WP_Error {
+		$status = $this->get_status( $space_id, $user_id );
+		if ( 'pending' !== $status ) {
+			return new WP_Error(
+				'no_pending_request',
+				__( 'There is no pending request to cancel.', 'buddynext' )
+			);
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_space_members',
+			array(
+				'space_id' => $space_id,
+				'user_id'  => $user_id,
+				'status'   => 'pending',
+			),
+			array( '%d', '%d', '%s' )
+		);
+
+		$this->invalidate_cache( $space_id, $user_id );
+
+		/**
+		 * Fires after a member cancels their pending join request.
+		 *
+		 * @param int $space_id Space ID.
+		 * @param int $user_id  User whose request was cancelled.
+		 */
+		do_action( 'buddynext_space_join_request_cancelled', $space_id, $user_id );
+
+		return true;
+	}
+
+	/**
 	 * Return the user's role in a space, or null if not an active member.
 	 *
 	 * @param int $space_id Space ID.
