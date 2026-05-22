@@ -15,7 +15,11 @@
 
 declare( strict_types=1 );
 
-if ( ! $is_own_profile && ! current_user_can( 'edit_users' ) ) {
+// Strict owner gate: the action bar links (Edit Profile / Avatar / Cover)
+// always point at the viewer's own /edit/ page via get_edit_profile_url(),
+// so rendering it on someone else's profile leaks unrelated UI. Admins must
+// use the WP admin toolbar to edit other users.
+if ( ! $is_own_profile ) {
 	return;
 }
 

@@ -102,6 +102,201 @@ class AuthController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/change-password',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'change_password' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'current_password' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+					'new_password'     => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/change-email',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'change_email' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'email' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/sign-out-everywhere',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'sign_out_everywhere' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+	}
+
+	/**
+	 * POST /auth/change-password — set a new password after verifying the current one.
+	 *
+	 * Returns 422 with field-keyed errors on failure (mirrors update_profile).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function change_password( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id   = get_current_user_id();
+		$user      = get_userdata( $user_id );
+		$current   = (string) $request->get_param( 'current_password' );
+		$candidate = (string) $request->get_param( 'new_password' );
+
+		$errors = array();
+
+		if ( ! $user ) {
+			return new WP_Error(
+				'rest_user_invalid',
+				__( 'Account not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		if ( '' === trim( $current ) ) {
+			$errors['current_password'] = __( 'Enter your current password.', 'buddynext' );
+		} elseif ( ! wp_check_password( $current, $user->user_pass, $user_id ) ) {
+			$errors['current_password'] = __( 'Current password does not match.', 'buddynext' );
+		}
+
+		if ( '' === trim( $candidate ) ) {
+			$errors['new_password'] = __( 'Enter a new password.', 'buddynext' );
+		} elseif ( strlen( $candidate ) < 8 ) {
+			$errors['new_password'] = __( 'Use at least 8 characters.', 'buddynext' );
+		} elseif ( $current === $candidate ) {
+			$errors['new_password'] = __( 'New password must be different from current password.', 'buddynext' );
+		}
+
+		if ( ! empty( $errors ) ) {
+			return new WP_REST_Response(
+				array(
+					'saved'  => false,
+					'errors' => $errors,
+				),
+				422
+			);
+		}
+
+		wp_set_password( $candidate, $user_id );
+
+		// wp_set_password() destroys all session tokens — re-authenticate so the
+		// current request's cookie stays valid for the response/redirect chain.
+		wp_set_auth_cookie( $user_id, false, is_ssl() );
+
+		return new WP_REST_Response(
+			array( 'saved' => true ),
+			200
+		);
+	}
+
+	/**
+	 * POST /auth/change-email — request an email change, sending verification.
+	 *
+	 * Stores the candidate in usermeta and triggers a verification token via
+	 * the existing VerificationService. The swap only happens after the user
+	 * clicks the link in the email (confirm-then-swap pattern).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function change_email( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id   = get_current_user_id();
+		$user      = get_userdata( $user_id );
+		$candidate = sanitize_email( (string) $request->get_param( 'email' ) );
+
+		if ( ! $user ) {
+			return new WP_Error(
+				'rest_user_invalid',
+				__( 'Account not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$errors = array();
+
+		if ( '' === $candidate || ! is_email( $candidate ) ) {
+			$errors['email'] = __( 'Enter a valid email address.', 'buddynext' );
+		} elseif ( strtolower( $candidate ) === strtolower( (string) $user->user_email ) ) {
+			$errors['email'] = __( 'That is already your email.', 'buddynext' );
+		} elseif ( email_exists( $candidate ) ) {
+			$errors['email'] = __( 'An account with that email already exists.', 'buddynext' );
+		}
+
+		if ( ! empty( $errors ) ) {
+			return new WP_REST_Response(
+				array(
+					'saved'  => false,
+					'errors' => $errors,
+				),
+				422
+			);
+		}
+
+		update_user_meta( $user_id, 'bn_pending_email', $candidate );
+
+		/**
+		 * Fires after a user has requested an email change. The default
+		 * VerificationListener hooks here to send a confirmation email
+		 * with a token-bearing link. Plugins can override to send via a
+		 * branded template or alternative transport.
+		 *
+		 * @since 1.1.0
+		 *
+		 * @param int    $user_id   Account requesting the change.
+		 * @param string $candidate Pending email address.
+		 */
+		do_action( 'buddynext_email_change_requested', $user_id, $candidate );
+
+		return new WP_REST_Response(
+			array(
+				'saved'    => true,
+				'pending'  => $candidate,
+				'message'  => __( 'Check your inbox to confirm.', 'buddynext' ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * POST /auth/sign-out-everywhere — destroy all session tokens, then re-auth
+	 * the current request so the response stays valid.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function sign_out_everywhere(): WP_REST_Response {
+		$user_id = get_current_user_id();
+
+		\WP_Session_Tokens::get_instance( $user_id )->destroy_all();
+
+		// Re-issue a cookie for the current device so the user can see the
+		// confirmation toast without being booted on the response.
+		wp_set_auth_cookie( $user_id, false, is_ssl() );
+
+		return new WP_REST_Response(
+			array( 'signed_out' => true ),
+			200
+		);
 	}
 
 	/**

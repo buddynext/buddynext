@@ -55,6 +55,7 @@ class PageRouter {
 	 */
 	public function init(): void {
 		add_action( 'init', array( $this, 'register_rewrites' ) );
+		add_action( 'init', array( $this, 'maybe_flush_rewrites' ), 20 );
 		add_action( 'pre_get_posts', array( $this, 'set_hub_vars' ) );
 
 		// Flush rewrites whenever any hub slug changes.
@@ -65,6 +66,30 @@ class PageRouter {
 		add_filter( 'request', array( $this, 'suppress_default_query' ) );
 		add_action( 'template_redirect', array( $this, 'dispatch_hub_template' ) );
 	}
+
+	/**
+	 * Auto-flush rewrite rules when the rule set changes between deploys.
+	 *
+	 * The constant ROUTER_VERSION below is bumped whenever this file's
+	 * rewrite rule registration changes. On a request after deploy the
+	 * stored option mismatches the constant and we flush exactly once.
+	 *
+	 * @return void
+	 */
+	public function maybe_flush_rewrites(): void {
+		$stored = (string) get_option( 'buddynext_router_version', '' );
+		if ( self::ROUTER_VERSION === $stored ) {
+			return;
+		}
+		flush_rewrite_rules( false );
+		update_option( 'buddynext_router_version', self::ROUTER_VERSION, true );
+	}
+
+	/**
+	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
+	 * emits a new rule so deploys auto-flush.
+	 */
+	private const ROUTER_VERSION = '2026-05-22-followers-following';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -177,6 +202,14 @@ class PageRouter {
 				$hub_title = '' !== $profile_name
 					? sprintf( /* translators: %s: member display name */ __( '%s · Profile', 'buddynext' ), $profile_name )
 					: __( 'Profile', 'buddynext' );
+			} elseif ( 'profile/followers.php' === $template ) {
+				$hub_title = '' !== $profile_name
+					? sprintf( /* translators: %s: member display name */ __( 'Followers · %s', 'buddynext' ), $profile_name )
+					: __( 'Followers', 'buddynext' );
+			} elseif ( 'profile/following.php' === $template ) {
+				$hub_title = '' !== $profile_name
+					? sprintf( /* translators: %s: member display name */ __( 'Following · %s', 'buddynext' ), $profile_name )
+					: __( 'Following', 'buddynext' );
 			}
 		}
 
@@ -492,6 +525,10 @@ class PageRouter {
 							return 'profile/edit.php';
 						case 'connections':
 							return 'profile/connections.php';
+						case 'followers':
+							return 'profile/followers.php';
+						case 'following':
+							return 'profile/following.php';
 						case 'media':
 							return 'profile/media.php';
 						case 'badges':
@@ -648,6 +685,16 @@ class PageRouter {
 		add_rewrite_rule(
 			'^' . preg_quote( $p, '/' ) . '/([^/]+)/connections/?$',
 			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=connections',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/followers/?$',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=followers',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/following/?$',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=following',
 			'top'
 		);
 		add_rewrite_rule(
@@ -1051,23 +1098,58 @@ class PageRouter {
 	 * @return string Absolute URL.
 	 */
 	public static function connections_url( int $user_id ): string {
+		return self::profile_subroute_url( $user_id, 'connections' );
+	}
+
+	/**
+	 * Return the canonical URL for a user's followers list.
+	 *
+	 * @param int $user_id User whose followers list is being linked.
+	 * @return string Absolute trailing-slashed URL.
+	 */
+	public static function followers_url( int $user_id ): string {
+		return self::profile_subroute_url( $user_id, 'followers' );
+	}
+
+	/**
+	 * Return the canonical URL for a user's following list.
+	 *
+	 * @param int $user_id User whose following list is being linked.
+	 * @return string Absolute trailing-slashed URL.
+	 */
+	public static function following_url( int $user_id ): string {
+		return self::profile_subroute_url( $user_id, 'following' );
+	}
+
+	/**
+	 * Build a profile sub-route URL (e.g. /members/{slug}/{section}/) for any user.
+	 *
+	 * Falls back through bn_profile_slug → user_nicename → user-{ID} so the URL
+	 * always resolves, even when a member has no friendly nicename.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $section Sub-route segment (e.g. 'connections', 'followers').
+	 * @return string Absolute trailing-slashed URL.
+	 */
+	private static function profile_subroute_url( int $user_id, string $section ): string {
 		if ( $user_id <= 0 ) {
 			return self::people_url();
 		}
 
-		$base = self::people_url();
+		$base    = self::people_url();
+		$section = trim( $section, '/' );
 
 		$custom_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
 		if ( '' !== $custom_slug ) {
-			return $base . rawurlencode( $custom_slug ) . '/connections/';
+			return $base . rawurlencode( $custom_slug ) . '/' . $section . '/';
 		}
 
 		$user = get_userdata( $user_id );
 		if ( $user instanceof WP_User && '' !== $user->user_nicename ) {
-			return $base . rawurlencode( $user->user_nicename ) . '/connections/';
+			return $base . rawurlencode( $user->user_nicename ) . '/' . $section . '/';
 		}
 
-		return $base . 'user-' . $user_id . '/connections/';
+		return $base . 'user-' . $user_id . '/' . $section . '/';
 	}
 
 	/**

@@ -566,6 +566,32 @@ class ProfileController {
 			unset( $data['display_name'] );
 		}
 
+		// Handle privacy + notification preference keys — stored as usermeta,
+		// not profile-field rows. Audience enums are constrained to the
+		// canonical four values; boolean toggles are coerced.
+		$audience_keys = array( 'bn_privacy_see_email', 'bn_privacy_dm', 'bn_privacy_mention' );
+		$bool_keys     = array(
+			'bn_privacy_show_in_directory',
+			'bn_privacy_search_indexable',
+			'bn_pro_hide_profile_views',
+			'bn_pref_email_replies',
+			'bn_pref_email_mentions',
+			'bn_pref_email_follows',
+			'bn_pref_email_digest',
+		);
+		foreach ( $audience_keys as $aud_key ) {
+			if ( array_key_exists( $aud_key, $data ) ) {
+				update_user_meta( $user_id, $aud_key, sanitize_key( (string) $data[ $aud_key ] ) );
+				unset( $data[ $aud_key ] );
+			}
+		}
+		foreach ( $bool_keys as $bk ) {
+			if ( array_key_exists( $bk, $data ) ) {
+				update_user_meta( $user_id, $bk, ! empty( $data[ $bk ] ) ? '1' : '0' );
+				unset( $data[ $bk ] );
+			}
+		}
+
 		// Cap long-form fields at sensible lengths before they hit the service.
 		$caps = array(
 			'bio'      => 1000,
@@ -649,6 +675,19 @@ class ProfileController {
 			$candidate = preg_match( '#^https?://#i', $value ) ? $value : 'https://' . ltrim( $value, '/' );
 			if ( ! wp_http_validate_url( $candidate ) ) {
 				$errors[ $url_key ] = __( 'Enter a valid URL (https://example.com).', 'buddynext' );
+			}
+		}
+
+		// Audience enums: must match the canonical four-value vocabulary.
+		$audiences     = array( 'everyone', 'members', 'connections', 'nobody' );
+		$audience_keys = array( 'bn_privacy_see_email', 'bn_privacy_dm', 'bn_privacy_mention' );
+		foreach ( $audience_keys as $aud_key ) {
+			if ( ! array_key_exists( $aud_key, $data ) ) {
+				continue;
+			}
+			$val = sanitize_key( (string) $data[ $aud_key ] );
+			if ( ! in_array( $val, $audiences, true ) ) {
+				$errors[ $aud_key ] = __( 'Choose a valid audience.', 'buddynext' );
 			}
 		}
 

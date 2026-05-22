@@ -261,6 +261,45 @@ function syncDirtyAttr( dirty ) {
 	if ( wrap ) { wrap.dataset.bnDirty = dirty ? '1' : '0'; }
 }
 
+/* -- Tab URL sync ------------------------------------------------------- */
+
+var BN_VALID_TABS = [ 'posts', 'replies', 'media', 'likes', 'discussions' ];
+
+function applyTabId( tabId ) {
+	if ( ! tabId || BN_VALID_TABS.indexOf( tabId ) === -1 ) {
+		tabId = 'posts';
+	}
+	document.querySelectorAll( '.bn-pf-tabs .bn-tab' ).forEach( function ( t ) {
+		var isActive = t.dataset.tab === tabId;
+		t.classList.toggle( 'active', isActive );
+		t.setAttribute( 'aria-selected', isActive ? 'true' : 'false' );
+	} );
+	document.querySelectorAll( '[data-tab-panel]' ).forEach( function ( p ) {
+		p.hidden = p.dataset.tabPanel !== tabId;
+	} );
+	var postsContent = document.querySelector( '.bn-profile-posts-panel' );
+	if ( postsContent ) {
+		postsContent.hidden = tabId !== 'posts';
+	}
+}
+
+function pushTabToUrl( tabId ) {
+	if ( ! window.history || typeof window.history.pushState !== 'function' ) { return; }
+	var url = new URL( window.location.href );
+	if ( tabId && tabId !== 'posts' ) {
+		url.searchParams.set( 'tab', tabId );
+	} else {
+		url.searchParams.delete( 'tab' );
+	}
+	window.history.pushState( { bnTab: tabId }, '', url.toString() );
+}
+
+function applyTabFromUrl() {
+	var params = new URLSearchParams( window.location.search );
+	var tab    = params.get( 'tab' ) || 'posts';
+	applyTabId( tab );
+}
+
 /* -- Store ------------------------------------------------------------- */
 
 store( 'buddynext/profile', {
@@ -273,29 +312,30 @@ store( 'buddynext/profile', {
 		initEditGuard() {
 			ensureUnloadGuard();
 		},
+		/* Init for the view page: read ?tab=... and wire popstate. */
+		initView() {
+			applyTabFromUrl();
+			if ( ! window.__bnProfilePopstateBound ) {
+				window.addEventListener( 'popstate', applyTabFromUrl );
+				window.__bnProfilePopstateBound = true;
+			}
+		},
 	},
 	actions: {
 
-		/* Profile tab switching - Posts / Replies / Media / Likes */
+		/* Profile tab switching - Posts / Replies / Media / Likes
+		 *
+		 * Updates aria/active state on tab buttons, toggles panels, and
+		 * pushes the active tab into the URL (?tab=replies) so reload +
+		 * back-button work. The popstate handler in initView() reverses
+		 * the transition when the user hits Back.
+		 */
 		setTab( event ) {
 			const tab    = event.target.closest( '[data-tab]' );
 			if ( ! tab ) { return; }
 			const tabId  = tab.dataset.tab;
-
-			document.querySelectorAll( '.bn-ptab' ).forEach( function ( t ) {
-				const isActive = t.dataset.tab === tabId;
-				t.classList.toggle( 'active', isActive );
-				t.setAttribute( 'aria-selected', isActive ? 'true' : 'false' );
-			} );
-
-			document.querySelectorAll( '[data-tab-panel]' ).forEach( function ( p ) {
-				p.hidden = p.dataset.tabPanel !== tabId;
-			} );
-
-			const postsContent = document.querySelector( '.bn-profile-posts-panel' );
-			if ( postsContent ) {
-				postsContent.hidden = tabId !== 'posts';
-			}
+			applyTabId( tabId );
+			pushTabToUrl( tabId );
 		},
 
 		/* Mark form as dirty on any user input. */
@@ -304,6 +344,45 @@ store( 'buddynext/profile', {
 			if ( ! ctx.isDirty ) {
 				ctx.isDirty = true;
 				syncDirtyAttr( true );
+			}
+		},
+
+		/* Toggle a single whitelisted boolean preference (privacy / notification
+		 * email opt-ins). Updates the aria-checked state optimistically, fires
+		 * a PUT /me/profile with the single key, rolls back + toasts on failure.
+		 */
+		async togglePref( event ) {
+			var btn = event.target.closest( '[data-pref]' );
+			if ( ! btn ) { return; }
+			var prefKey = btn.dataset.pref;
+			if ( ! prefKey ) { return; }
+
+			var prev = btn.getAttribute( 'aria-checked' ) === 'true';
+			var next = ! prev;
+			btn.setAttribute( 'aria-checked', next ? 'true' : 'false' );
+
+			var payload = {};
+			payload[ prefKey ] = next;
+
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/me/profile' ), {
+					method:  'PUT',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+					body:    JSON.stringify( payload ),
+				} );
+				if ( ! res.ok ) {
+					throw new Error( 'http_' + res.status );
+				}
+				bnToast(
+					( window.bnI18n && window.bnI18n.prefSaved ) || 'Preference saved',
+					{ tone: 'success' }
+				);
+			} catch ( _e ) {
+				btn.setAttribute( 'aria-checked', prev ? 'true' : 'false' );
+				bnToast(
+					( window.bnI18n && window.bnI18n.saveFailed ) || 'Could not save. Please try again.',
+					{ tone: 'danger' }
+				);
 			}
 		},
 
@@ -712,6 +791,41 @@ store( 'buddynext/profile', {
 		toggleMoreMenu() {
 			var ctx = getContext();
 			ctx.moreMenuOpen = ! ctx.moreMenuOpen;
+			if ( ctx.moreMenuOpen ) {
+				ctx.shareMenuOpen = false;
+			}
+		},
+
+		/* -- Share-profile popover ---------------------------------- */
+
+		toggleShareMenu() {
+			var ctx = getContext();
+			ctx.shareMenuOpen = ! ctx.shareMenuOpen;
+			if ( ctx.shareMenuOpen ) {
+				ctx.moreMenuOpen = false;
+			}
+		},
+
+		async copyProfileLink( event ) {
+			var ctx = getContext();
+			var btn = event.target.closest( '[data-share-url]' );
+			var url = btn ? btn.dataset.shareUrl : window.location.href;
+			try {
+				if ( navigator.clipboard && navigator.clipboard.writeText ) {
+					await navigator.clipboard.writeText( url );
+				} else {
+					var ta = document.createElement( 'textarea' );
+					ta.value = url;
+					document.body.appendChild( ta );
+					ta.select();
+					document.execCommand( 'copy' );
+					document.body.removeChild( ta );
+				}
+				bnToast( ( window.bnI18n && window.bnI18n.linkCopied ) || 'Profile link copied', { tone: 'success' } );
+			} catch ( _e ) {
+				bnToast( ( window.bnI18n && window.bnI18n.copyFailed ) || 'Could not copy link.', { tone: 'danger' } );
+			}
+			ctx.shareMenuOpen = false;
 		},
 
 		async toggleMute() {
@@ -818,6 +932,149 @@ store( 'buddynext/profile', {
 				bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
 			} finally {
 				ctx.reportSubmitting = false;
+			}
+		},
+
+		/* -- Email change ----------------------------------------------- */
+		openEmailChange() {
+			var ctx = getContext();
+			ctx.emailChangeOpen = true;
+			var errs = Object.assign( {}, ctx.errors || {} );
+			delete errs.email;
+			ctx.errors = errs;
+		},
+		closeEmailChange() {
+			var ctx = getContext();
+			ctx.emailChangeOpen = false;
+		},
+		async requestEmailChange() {
+			var ctx = getContext();
+			if ( ctx.emailChangeSubmitting ) { return; }
+			var input = document.getElementById( 'bn-ep-new-email' );
+			var email = input ? ( input.value || '' ).trim() : '';
+			ctx.emailChangeSubmitting = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/auth/change-email' ), {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+					body:    JSON.stringify( { email: email } ),
+				} );
+				var json = {};
+				try { json = await res.json(); } catch ( _e ) {}
+				if ( res.ok && json && json.saved ) {
+					ctx.emailChangeOpen = false;
+					if ( input ) { input.value = ''; }
+					bnToast( json.message || 'Check your inbox to confirm.', { tone: 'success' } );
+				} else if ( res.status === 422 && json && json.errors ) {
+					ctx.errors = Object.assign( {}, ctx.errors || {}, json.errors );
+				} else {
+					bnToast( 'Could not send verification email. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not send verification email. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.emailChangeSubmitting = false;
+			}
+		},
+
+		/* -- Password change -------------------------------------------- */
+		openPasswordChange() {
+			var ctx = getContext();
+			ctx.passwordChangeOpen = true;
+			var errs = Object.assign( {}, ctx.errors || {} );
+			delete errs.current_password;
+			delete errs.new_password;
+			delete errs.confirm_password;
+			ctx.errors = errs;
+		},
+		closePasswordChange() {
+			var ctx = getContext();
+			ctx.passwordChangeOpen = false;
+			ctx.passwordStrength = 0;
+			ctx.passwordStrengthLabel = '';
+		},
+		measurePasswordStrength( event ) {
+			var ctx = getContext();
+			var val = event && event.target ? ( event.target.value || '' ) : '';
+			var score = 0;
+			if ( val.length >= 8 )  { score += 1; }
+			if ( val.length >= 12 ) { score += 1; }
+			if ( /[A-Z]/.test( val ) && /[a-z]/.test( val ) ) { score += 1; }
+			if ( /\d/.test( val ) )            { score += 1; }
+			if ( /[^A-Za-z0-9]/.test( val ) )  { score += 1; }
+			ctx.passwordStrength = score;
+			ctx.passwordStrengthLabel = [ 'Too short', 'Weak', 'Fair', 'Good', 'Strong', 'Excellent' ][ Math.min( score, 5 ) ] || '';
+		},
+		async changePassword() {
+			var ctx = getContext();
+			if ( ctx.passwordChangeSubmitting ) { return; }
+			var curInput = document.getElementById( 'bn-ep-current-password' );
+			var newInput = document.getElementById( 'bn-ep-new-password' );
+			var conInput = document.getElementById( 'bn-ep-confirm-password' );
+			var curr = curInput ? curInput.value : '';
+			var next = newInput ? newInput.value : '';
+			var conf = conInput ? conInput.value : '';
+
+			var localErrors = {};
+			if ( ! curr ) { localErrors.current_password = 'Enter your current password.'; }
+			if ( ! next ) {
+				localErrors.new_password = 'Enter a new password.';
+			} else if ( next.length < 8 ) {
+				localErrors.new_password = 'Use at least 8 characters.';
+			}
+			if ( next && next !== conf ) {
+				localErrors.confirm_password = 'Passwords do not match.';
+			}
+			if ( Object.keys( localErrors ).length ) {
+				ctx.errors = Object.assign( {}, ctx.errors || {}, localErrors );
+				return;
+			}
+
+			ctx.passwordChangeSubmitting = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/auth/change-password' ), {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+					body:    JSON.stringify( { current_password: curr, new_password: next } ),
+				} );
+				var json = {};
+				try { json = await res.json(); } catch ( _e ) {}
+				if ( res.ok && json && json.saved ) {
+					ctx.passwordChangeOpen = false;
+					if ( curInput ) { curInput.value = ''; }
+					if ( newInput ) { newInput.value = ''; }
+					if ( conInput ) { conInput.value = ''; }
+					ctx.passwordStrength = 0;
+					ctx.passwordStrengthLabel = '';
+					bnToast( 'Password updated.', { tone: 'success' } );
+				} else if ( res.status === 422 && json && json.errors ) {
+					ctx.errors = Object.assign( {}, ctx.errors || {}, json.errors );
+				} else {
+					bnToast( 'Could not change password. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not change password. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.passwordChangeSubmitting = false;
+			}
+		},
+
+		/* -- Sign out everywhere ---------------------------------------- */
+		async signOutEverywhere() {
+			var ctx = getContext();
+			if ( ctx.signOutSubmitting ) { return; }
+			ctx.signOutSubmitting = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/auth/sign-out-everywhere' ), {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+				} );
+				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				bnToast( 'Signed out of every other session.', { tone: 'success' } );
+			} catch ( _e ) {
+				bnToast( 'Could not sign out everywhere. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.signOutSubmitting = false;
 			}
 		},
 	},

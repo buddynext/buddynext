@@ -514,8 +514,11 @@ add_action( 'buddynext_right_sidebar', $bn_pf_sidebar );
  */
 do_action( 'buddynext_profile_before', (int) $user_id );
 
-// Owner action bar: rendered above the hero when the viewer can edit.
-if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
+// Owner action bar: rendered ONLY when the viewer is the profile owner.
+// Admins viewing other users' profiles see Edit links in the WP admin
+// toolbar; the owner action bar is strictly the profile owner's surface
+// since the buttons all link to the viewer's own /edit/ page.
+if ( $is_own_profile ) {
 	buddynext_get_template(
 		'partials/profile-actions.php',
 		array(
@@ -528,6 +531,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 
 <div class="bn-pf-stack"
 	data-wp-interactive="buddynext/profile"
+	data-wp-init="callbacks.initView"
 	<?php
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
 	echo wp_interactivity_data_wp_context(
@@ -547,6 +551,7 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 			'isBlocked'          => $is_blocked,
 			'isMuted'            => $is_muted,
 			'moreMenuOpen'       => false,
+			'shareMenuOpen'      => false,
 			'reportOpen'         => false,
 			'reportReason'       => 'spam',
 			'reportNotes'        => '',
@@ -757,6 +762,35 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 					<span><?php esc_html_e( 'Message', 'buddynext' ); ?></span>
 				</a>
 
+				<!-- Share profile popover -->
+				<div class="bn-share-menu-wrap" data-wp-class--is-open="context.shareMenuOpen">
+					<button class="bn-btn" data-variant="secondary" data-size="sm"
+						aria-haspopup="menu"
+						aria-expanded="false"
+						aria-label="<?php esc_attr_e( 'Share profile', 'buddynext' ); ?>"
+						data-wp-on--click="actions.toggleShareMenu"
+						data-wp-bind--aria-expanded="context.shareMenuOpen">
+						<?php buddynext_icon( 'share-2' ); ?>
+						<span><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
+					</button>
+					<div class="bn-share-menu bn-more-menu" role="menu">
+						<button class="bn-more-menu-item"
+							type="button"
+							role="menuitem"
+							data-share-url="<?php echo esc_attr( \BuddyNext\Core\PageRouter::profile_url( (int) $user_id ) ); ?>"
+							data-wp-on--click="actions.copyProfileLink">
+							<?php buddynext_icon( 'link' ); ?>
+							<span><?php esc_html_e( 'Copy link', 'buddynext' ); ?></span>
+						</button>
+						<a class="bn-more-menu-item"
+							role="menuitem"
+							href="<?php echo esc_url( add_query_arg( 'mention', $user_id, \BuddyNext\Core\PageRouter::activity_url() ) ); ?>">
+							<?php buddynext_icon( 'message-circle' ); ?>
+							<span><?php esc_html_e( 'Share to feed', 'buddynext' ); ?></span>
+						</a>
+					</div>
+				</div>
+
 				<!-- More options dropdown -->
 				<div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen">
 					<button class="bn-btn bn-pf-more-trigger"
@@ -793,22 +827,29 @@ if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
 
 		<!-- Stats strip -->
 		<div class="bn-pf-stats">
-			<div class="bn-pf-stat">
+			<button type="button"
+				class="bn-pf-stat bn-pf-stat--link"
+				data-wp-on--click="actions.setTab"
+				data-tab="posts"
+				aria-label="<?php esc_attr_e( 'Show posts', 'buddynext' ); ?>">
 				<div class="bn-pf-stat__value"><?php echo esc_html( $format_count( $post_count ) ); ?></div>
 				<div class="bn-pf-stat__label"><?php esc_html_e( 'Posts', 'buddynext' ); ?></div>
-			</div>
-			<div class="bn-pf-stat">
+			</button>
+			<a class="bn-pf-stat bn-pf-stat--link"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::followers_url( (int) $user_id ) ); ?>">
 				<div class="bn-pf-stat__value" data-wp-text="context.followerCount"><?php echo esc_html( $format_count( $follower_count ) ); ?></div>
 				<div class="bn-pf-stat__label"><?php esc_html_e( 'Followers', 'buddynext' ); ?></div>
-			</div>
-			<div class="bn-pf-stat">
+			</a>
+			<a class="bn-pf-stat bn-pf-stat--link"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::following_url( (int) $user_id ) ); ?>">
 				<div class="bn-pf-stat__value"><?php echo esc_html( $format_count( $following_count ) ); ?></div>
 				<div class="bn-pf-stat__label"><?php esc_html_e( 'Following', 'buddynext' ); ?></div>
-			</div>
-			<div class="bn-pf-stat">
+			</a>
+			<a class="bn-pf-stat bn-pf-stat--link"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::connections_url( (int) $user_id ) ); ?>">
 				<div class="bn-pf-stat__value"><?php echo esc_html( $format_count( $connection_count ) ); ?></div>
 				<div class="bn-pf-stat__label"><?php esc_html_e( 'Connections', 'buddynext' ); ?></div>
-			</div>
+			</a>
 			<?php
 			/**
 			 * Extra stat blocks injected by bridge plugins (e.g. Jetonomy discussion count,

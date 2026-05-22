@@ -111,6 +111,30 @@ $pref_email_mentions = (bool) get_user_meta( $user_id, 'bn_pref_email_mentions',
 $pref_email_follows  = (bool) get_user_meta( $user_id, 'bn_pref_email_follows', true );
 $pref_email_digest   = (bool) get_user_meta( $user_id, 'bn_pref_email_digest', true );
 
+// Privacy prefs (audience selects + booleans stored in user meta).
+$privacy_audiences = array(
+	'everyone'    => __( 'Everyone', 'buddynext' ),
+	'members'     => __( 'Members only', 'buddynext' ),
+	'connections' => __( 'My connections', 'buddynext' ),
+	'nobody'      => __( 'Nobody', 'buddynext' ),
+);
+
+$privacy_see_email = (string) get_user_meta( $user_id, 'bn_privacy_see_email', true );
+if ( '' === $privacy_see_email ) {
+	$privacy_see_email = 'connections';
+}
+$privacy_dm = (string) get_user_meta( $user_id, 'bn_privacy_dm', true );
+if ( '' === $privacy_dm ) {
+	$privacy_dm = 'members';
+}
+$privacy_mention = (string) get_user_meta( $user_id, 'bn_privacy_mention', true );
+if ( '' === $privacy_mention ) {
+	$privacy_mention = 'everyone';
+}
+$privacy_show_in_directory = '0' !== (string) get_user_meta( $user_id, 'bn_privacy_show_in_directory', true );
+$privacy_search_indexable  = '0' !== (string) get_user_meta( $user_id, 'bn_privacy_search_indexable', true );
+$privacy_hide_views        = (bool) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true );
+
 // Profile URL slug.
 $profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
 $profile_url  = \BuddyNext\Core\PageRouter::profile_url( $user_id );
@@ -181,6 +205,13 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 			'eduEntries'    => array_values( $edu_entries ),
 			'deleteOpen'    => false,
 			'deleteText'    => '',
+			'emailChangeOpen'          => false,
+			'emailChangeSubmitting'    => false,
+			'passwordChangeOpen'       => false,
+			'passwordChangeSubmitting' => false,
+			'passwordStrength'         => 0,
+			'passwordStrengthLabel'    => '',
+			'signOutSubmitting'        => false,
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -714,6 +745,122 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				</div>
 			</section><!-- /Interests -->
 
+			<!-- Section: Privacy -->
+			<section class="bn-card bn-ep-card" aria-labelledby="bn-ep-privacy-title">
+				<header class="bn-ep-card-header">
+					<h2 class="bn-ep-card-title" id="bn-ep-privacy-title"><?php esc_html_e( 'Privacy', 'buddynext' ); ?></h2>
+					<p class="bn-ep-card-subtitle">
+						<?php esc_html_e( 'Control who sees what across the community.', 'buddynext' ); ?>
+					</p>
+				</header>
+				<div class="bn-ep-card-body bn-ep-privacy-body">
+					<div class="bn-ep-field bn-ep-field--full">
+						<label class="bn-ep-label" for="bn-ep-privacy-email">
+							<?php esc_html_e( 'Who can see my email', 'buddynext' ); ?>
+						</label>
+						<select class="bn-input"
+							id="bn-ep-privacy-email"
+							name="bn_privacy_see_email"
+							data-wp-on--change="actions.markDirty">
+							<?php foreach ( $privacy_audiences as $aud_key => $aud_label ) : ?>
+								<option value="<?php echo esc_attr( $aud_key ); ?>" <?php selected( $privacy_see_email, $aud_key ); ?>>
+									<?php echo esc_html( $aud_label ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+
+					<div class="bn-ep-field bn-ep-field--full">
+						<label class="bn-ep-label" for="bn-ep-privacy-dm">
+							<?php esc_html_e( 'Who can direct-message me', 'buddynext' ); ?>
+						</label>
+						<select class="bn-input"
+							id="bn-ep-privacy-dm"
+							name="bn_privacy_dm"
+							data-wp-on--change="actions.markDirty">
+							<?php foreach ( $privacy_audiences as $aud_key => $aud_label ) : ?>
+								<option value="<?php echo esc_attr( $aud_key ); ?>" <?php selected( $privacy_dm, $aud_key ); ?>>
+									<?php echo esc_html( $aud_label ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+
+					<div class="bn-ep-field bn-ep-field--full">
+						<label class="bn-ep-label" for="bn-ep-privacy-mention">
+							<?php esc_html_e( 'Who can @mention me in posts', 'buddynext' ); ?>
+						</label>
+						<select class="bn-input"
+							id="bn-ep-privacy-mention"
+							name="bn_privacy_mention"
+							data-wp-on--change="actions.markDirty">
+							<?php foreach ( $privacy_audiences as $aud_key => $aud_label ) : ?>
+								<option value="<?php echo esc_attr( $aud_key ); ?>" <?php selected( $privacy_mention, $aud_key ); ?>>
+									<?php echo esc_html( $aud_label ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+
+					<div class="bn-toggle-row">
+						<div class="bn-toggle-row__copy">
+							<div class="bn-toggle-row__label" id="bn-ep-privacy-dir-lbl">
+								<?php esc_html_e( 'Show me in the member directory', 'buddynext' ); ?>
+							</div>
+							<div class="bn-toggle-row__desc">
+								<?php esc_html_e( 'Turn off to hide from /members/.', 'buddynext' ); ?>
+							</div>
+						</div>
+						<button class="bn-toggle"
+							type="button"
+							role="switch"
+							aria-labelledby="bn-ep-privacy-dir-lbl"
+							aria-checked="<?php echo $privacy_show_in_directory ? 'true' : 'false'; ?>"
+							data-pref="bn_privacy_show_in_directory"
+							data-wp-on--click="actions.togglePref">
+						</button>
+					</div>
+
+					<div class="bn-toggle-row">
+						<div class="bn-toggle-row__copy">
+							<div class="bn-toggle-row__label" id="bn-ep-privacy-search-lbl">
+								<?php esc_html_e( 'Show my profile to search engines', 'buddynext' ); ?>
+							</div>
+							<div class="bn-toggle-row__desc">
+								<?php esc_html_e( 'When off, your profile carries noindex.', 'buddynext' ); ?>
+							</div>
+						</div>
+						<button class="bn-toggle"
+							type="button"
+							role="switch"
+							aria-labelledby="bn-ep-privacy-search-lbl"
+							aria-checked="<?php echo $privacy_search_indexable ? 'true' : 'false'; ?>"
+							data-pref="bn_privacy_search_indexable"
+							data-wp-on--click="actions.togglePref">
+						</button>
+					</div>
+
+					<div class="bn-toggle-row">
+						<div class="bn-toggle-row__copy">
+							<div class="bn-toggle-row__label" id="bn-ep-privacy-views-lbl">
+								<?php esc_html_e( 'Hide my profile views', 'buddynext' ); ?>
+							</div>
+							<div class="bn-toggle-row__desc">
+								<?php esc_html_e( 'When on, your visits to other profiles are not recorded.', 'buddynext' ); ?>
+							</div>
+						</div>
+						<button class="bn-toggle"
+							type="button"
+							role="switch"
+							aria-labelledby="bn-ep-privacy-views-lbl"
+							aria-checked="<?php echo $privacy_hide_views ? 'true' : 'false'; ?>"
+							data-pref="bn_pro_hide_profile_views"
+							data-wp-on--click="actions.togglePref">
+						</button>
+					</div>
+				</div>
+			</section><!-- /Privacy -->
+
 			<!-- Section: Notification preferences (toggles) -->
 			<section class="bn-card bn-ep-card">
 				<header class="bn-ep-card-header">
@@ -796,6 +943,17 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						</button>
 					</div>
 				</div>
+				<footer class="bn-ep-card-footer">
+					<p class="bn-ep-card-footer__desc">
+						<?php esc_html_e( 'Need finer control? Open the full notification settings page for per-space and per-event preferences.', 'buddynext' ); ?>
+					</p>
+					<a class="bn-btn"
+						data-variant="primary"
+						data-size="sm"
+						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::notification_prefs_url() ); ?>">
+						<?php esc_html_e( 'Open notification preferences', 'buddynext' ); ?>
+					</a>
+				</footer>
 			</section><!-- /Notifications -->
 
 			<!-- Section: Account -->
@@ -844,47 +1002,195 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						</div>
 					</div>
 
+					<!-- Email address row (with inline change-email form) -->
 					<div class="bn-ep-account-row">
 						<div class="bn-ep-account-copy">
 							<div class="bn-ep-account-label"><?php esc_html_e( 'Email address', 'buddynext' ); ?></div>
 							<div class="bn-ep-account-value"><?php echo esc_html( $profile_email_raw ); ?></div>
+							<?php
+							$pending_email = (string) get_user_meta( $user_id, 'bn_pending_email', true );
+							if ( '' !== $pending_email ) :
+								?>
+								<div class="bn-ep-account-pending">
+									<?php
+									printf(
+										/* translators: %s: pending email address */
+										esc_html__( 'Pending verification: %s', 'buddynext' ),
+										'<strong>' . esc_html( $pending_email ) . '</strong>'
+									);
+									?>
+								</div>
+							<?php endif; ?>
 						</div>
-						<a class="bn-btn"
+						<button type="button"
+							class="bn-btn"
 							data-variant="ghost"
 							data-size="sm"
-							href="<?php echo esc_url( admin_url( 'profile.php' ) ); ?>">
+							data-wp-on--click="actions.openEmailChange">
 							<?php esc_html_e( 'Change', 'buddynext' ); ?>
-						</a>
+						</button>
 					</div>
 
+					<div class="bn-ep-account-form"
+						data-wp-bind--hidden="!context.emailChangeOpen"
+						hidden>
+						<div class="bn-ep-field bn-ep-field--full">
+							<label class="bn-ep-label" for="bn-ep-new-email">
+								<?php esc_html_e( 'New email address', 'buddynext' ); ?>
+							</label>
+							<input class="bn-input"
+								type="email"
+								id="bn-ep-new-email"
+								autocomplete="email"
+								data-wp-bind--aria-invalid="!!context.errors.email"
+								data-wp-class--bn-input--error="!!context.errors.email" />
+							<span class="bn-ep-field-error"
+								role="alert"
+								data-wp-text="context.errors.email"
+								data-wp-bind--hidden="!context.errors.email"></span>
+						</div>
+						<div class="bn-ep-account-form-actions">
+							<button type="button"
+								class="bn-btn"
+								data-variant="primary"
+								data-size="sm"
+								data-wp-on--click="actions.requestEmailChange"
+								data-wp-bind--disabled="context.emailChangeSubmitting">
+								<?php esc_html_e( 'Send verification email', 'buddynext' ); ?>
+							</button>
+							<button type="button"
+								class="bn-btn"
+								data-variant="ghost"
+								data-size="sm"
+								data-wp-on--click="actions.closeEmailChange">
+								<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+							</button>
+						</div>
+					</div>
+
+					<!-- Password row (with inline change-password form) -->
 					<div class="bn-ep-account-row">
 						<div class="bn-ep-account-copy">
 							<div class="bn-ep-account-label"><?php esc_html_e( 'Password', 'buddynext' ); ?></div>
 							<div class="bn-ep-account-value">
-								<?php esc_html_e( 'Reset your account password.', 'buddynext' ); ?>
+								<?php esc_html_e( 'Change your account password.', 'buddynext' ); ?>
+							</div>
+						</div>
+						<button type="button"
+							class="bn-btn"
+							data-variant="ghost"
+							data-size="sm"
+							data-wp-on--click="actions.openPasswordChange">
+							<?php esc_html_e( 'Change', 'buddynext' ); ?>
+						</button>
+					</div>
+
+					<div class="bn-ep-account-form"
+						data-wp-bind--hidden="!context.passwordChangeOpen"
+						hidden>
+						<div class="bn-ep-field bn-ep-field--full">
+							<label class="bn-ep-label" for="bn-ep-current-password">
+								<?php esc_html_e( 'Current password', 'buddynext' ); ?>
+							</label>
+							<input class="bn-input"
+								type="password"
+								id="bn-ep-current-password"
+								autocomplete="current-password"
+								data-wp-bind--aria-invalid="!!context.errors.current_password"
+								data-wp-class--bn-input--error="!!context.errors.current_password" />
+							<span class="bn-ep-field-error"
+								role="alert"
+								data-wp-text="context.errors.current_password"
+								data-wp-bind--hidden="!context.errors.current_password"></span>
+						</div>
+						<div class="bn-ep-field bn-ep-field--full">
+							<label class="bn-ep-label" for="bn-ep-new-password">
+								<?php esc_html_e( 'New password', 'buddynext' ); ?>
+							</label>
+							<input class="bn-input"
+								type="password"
+								id="bn-ep-new-password"
+								autocomplete="new-password"
+								data-wp-on--input="actions.measurePasswordStrength"
+								data-wp-bind--aria-invalid="!!context.errors.new_password"
+								data-wp-class--bn-input--error="!!context.errors.new_password" />
+							<span class="bn-ep-field-error"
+								role="alert"
+								data-wp-text="context.errors.new_password"
+								data-wp-bind--hidden="!context.errors.new_password"></span>
+							<div class="bn-ep-strength"
+								aria-live="polite"
+								data-wp-bind--data-strength="context.passwordStrength">
+								<span class="bn-ep-strength-bar"></span>
+								<span class="bn-ep-strength-label" data-wp-text="context.passwordStrengthLabel"></span>
+							</div>
+						</div>
+						<div class="bn-ep-field bn-ep-field--full">
+							<label class="bn-ep-label" for="bn-ep-confirm-password">
+								<?php esc_html_e( 'Confirm new password', 'buddynext' ); ?>
+							</label>
+							<input class="bn-input"
+								type="password"
+								id="bn-ep-confirm-password"
+								autocomplete="new-password"
+								data-wp-bind--aria-invalid="!!context.errors.confirm_password"
+								data-wp-class--bn-input--error="!!context.errors.confirm_password" />
+							<span class="bn-ep-field-error"
+								role="alert"
+								data-wp-text="context.errors.confirm_password"
+								data-wp-bind--hidden="!context.errors.confirm_password"></span>
+						</div>
+						<div class="bn-ep-account-form-actions">
+							<button type="button"
+								class="bn-btn"
+								data-variant="primary"
+								data-size="sm"
+								data-wp-on--click="actions.changePassword"
+								data-wp-bind--disabled="context.passwordChangeSubmitting">
+								<?php esc_html_e( 'Update password', 'buddynext' ); ?>
+							</button>
+							<button type="button"
+								class="bn-btn"
+								data-variant="ghost"
+								data-size="sm"
+								data-wp-on--click="actions.closePasswordChange">
+								<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+							</button>
+						</div>
+					</div>
+
+					<!-- Notification digest cross-link -->
+					<div class="bn-ep-account-row">
+						<div class="bn-ep-account-copy">
+							<div class="bn-ep-account-label"><?php esc_html_e( 'Notification email schedule', 'buddynext' ); ?></div>
+							<div class="bn-ep-account-value">
+								<?php esc_html_e( 'Configure how often we email you.', 'buddynext' ); ?>
 							</div>
 						</div>
 						<a class="bn-btn"
 							data-variant="ghost"
 							data-size="sm"
-							href="<?php echo esc_url( wp_lostpassword_url() ); ?>">
-							<?php esc_html_e( 'Reset', 'buddynext' ); ?>
+							href="<?php echo esc_url( \BuddyNext\Core\PageRouter::notification_prefs_url() ); ?>">
+							<?php esc_html_e( 'Open notification preferences', 'buddynext' ); ?>
 						</a>
 					</div>
 
+					<!-- Sign out everywhere -->
 					<div class="bn-ep-account-row">
 						<div class="bn-ep-account-copy">
-							<div class="bn-ep-account-label"><?php esc_html_e( 'All notifications', 'buddynext' ); ?></div>
+							<div class="bn-ep-account-label"><?php esc_html_e( 'Active sessions', 'buddynext' ); ?></div>
 							<div class="bn-ep-account-value">
-								<?php esc_html_e( 'Full notification settings page.', 'buddynext' ); ?>
+								<?php esc_html_e( 'Sign out of every browser and device this account is signed in on.', 'buddynext' ); ?>
 							</div>
 						</div>
-						<a class="bn-btn"
+						<button type="button"
+							class="bn-btn"
 							data-variant="ghost"
 							data-size="sm"
-							href="<?php echo esc_url( \BuddyNext\Core\PageRouter::notifications_url() ); ?>">
-							<?php esc_html_e( 'Manage', 'buddynext' ); ?>
-						</a>
+							data-wp-on--click="actions.signOutEverywhere"
+							data-wp-bind--disabled="context.signOutSubmitting">
+							<?php esc_html_e( 'Sign out everywhere', 'buddynext' ); ?>
+						</button>
 					</div>
 				</div>
 			</section><!-- /Account -->
