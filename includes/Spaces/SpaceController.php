@@ -243,26 +243,63 @@ class SpaceController {
 		$orderby_param  = $request->get_param( 'orderby' );
 		$order_param    = $request->get_param( 'order' );
 
+		// Cap per_page at 50 (story requirement); default 12.
+		$per_page = absint( null !== $per_page_param ? $per_page_param : 12 );
+		if ( 0 === $per_page ) {
+			$per_page = 12;
+		}
+		$per_page = min( 50, $per_page );
+
+		// Map directory-friendly sort aliases (popular/active/newest/alphabetical)
+		// onto the underlying service contract (orderby + order).
+		$orderby = sanitize_key( (string) ( null !== $orderby_param ? $orderby_param : 'member_count' ) );
+		$order   = sanitize_key( (string) ( null !== $order_param ? $order_param : 'DESC' ) );
+
+		$sort_alias_map = array(
+			'popular'      => array( 'member_count', 'DESC' ),
+			'active'       => array( 'member_count', 'DESC' ),
+			'newest'       => array( 'created_at', 'DESC' ),
+			'alphabetical' => array( 'name', 'ASC' ),
+		);
+		if ( isset( $sort_alias_map[ $orderby ] ) ) {
+			list( $orderby, $order ) = $sort_alias_map[ $orderby ];
+		}
+
 		$args = array(
-			'per_page' => absint( null !== $per_page_param ? $per_page_param : 12 ),
+			'per_page' => $per_page,
 			'page'     => absint( null !== $page_param ? $page_param : 1 ),
-			'orderby'  => sanitize_key( (string) ( null !== $orderby_param ? $orderby_param : 'member_count' ) ),
-			'order'    => sanitize_key( (string) ( null !== $order_param ? $order_param : 'DESC' ) ),
+			'orderby'  => $orderby,
+			'order'    => $order,
 		);
 
-		if ( null !== $request->get_param( 'type' ) ) {
-			$args['type'] = sanitize_key( (string) $request->get_param( 'type' ) );
+		$type_param = $request->get_param( 'type' );
+		if ( null !== $type_param && '' !== (string) $type_param ) {
+			$type_value = sanitize_key( (string) $type_param );
+			if ( in_array( $type_value, array( 'open', 'private', 'secret' ), true ) ) {
+				$args['type'] = $type_value;
+				// Restrict secret listing to viewer's own memberships.
+				if ( 'secret' === $type_value ) {
+					$viewer = get_current_user_id();
+					if ( 0 === $viewer ) {
+						return new WP_REST_Response( array(), 200 );
+					}
+					$args['member'] = $viewer;
+				}
+			}
 		}
 
 		if ( null !== $request->get_param( 'category_id' ) ) {
 			$args['category_id'] = absint( $request->get_param( 'category_id' ) );
 		}
 
-		if ( null !== $request->get_param( 'search' ) ) {
-			$spaces = ( new SpaceService() )->search(
-				sanitize_text_field( (string) $request->get_param( 'search' ) ),
-				$args
-			);
+		$search_param = null !== $request->get_param( 'search' )
+			? sanitize_text_field( (string) $request->get_param( 'search' ) )
+			: ( null !== $request->get_param( 'q' )
+				? sanitize_text_field( (string) $request->get_param( 'q' ) )
+				: '' );
+
+		if ( '' !== $search_param ) {
+			$spaces = ( new SpaceService() )->search( $search_param, $args );
 		} else {
 			$spaces = ( new SpaceService() )->list_spaces( $args );
 		}
@@ -278,17 +315,71 @@ class SpaceController {
 	 */
 	public function create_space( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$user_id = get_current_user_id();
-		$data    = array(
-			'name'        => sanitize_text_field( (string) ( $request->get_param( 'name' ) ?? '' ) ),
-			'slug'        => sanitize_title( (string) ( $request->get_param( 'slug' ) ?? '' ) ),
-			'type'        => sanitize_key( (string) ( $request->get_param( 'type' ) ?? 'open' ) ),
-			'description' => sanitize_textarea_field( (string) ( $request->get_param( 'description' ) ?? '' ) ),
+
+		$name        = sanitize_text_field( (string) ( $request->get_param( 'name' ) ?? '' ) );
+		$slug_raw    = (string) ( $request->get_param( 'slug' ) ?? '' );
+		$slug        = sanitize_title( $slug_raw );
+		$type        = sanitize_key( (string) ( $request->get_param( 'type' ) ?? 'open' ) );
+		$description = sanitize_textarea_field( (string) ( $request->get_param( 'description' ) ?? '' ) );
+		$category_id = absint( $request->get_param( 'category_id' ) );
+
+		$validation_errors = array();
+
+		if ( '' === $name ) {
+			$validation_errors['name'] = __( 'A name is required.', 'buddynext' );
+		} elseif ( mb_strlen( $name ) > 100 ) {
+			$validation_errors['name'] = __( 'Name must be 100 characters or fewer.', 'buddynext' );
+		}
+
+		if ( '' === $slug && '' !== $name ) {
+			$slug = sanitize_title( $name );
+		}
+		if ( '' === $slug ) {
+			$validation_errors['slug'] = __( 'A slug is required.', 'buddynext' );
+		}
+
+		if ( ! in_array( $type, array( 'open', 'private', 'secret' ), true ) ) {
+			$validation_errors['type'] = __( 'Invalid space type.', 'buddynext' );
+		}
+
+		if ( mb_strlen( $description ) > 160 ) {
+			$validation_errors['description'] = __( 'Description must be 160 characters or fewer.', 'buddynext' );
+		}
+
+		if ( ! empty( $validation_errors ) ) {
+			return new WP_Error(
+				'rest_invalid_param',
+				__( 'Validation failed.', 'buddynext' ),
+				array(
+					'status' => 422,
+					'params' => $validation_errors,
+				)
+			);
+		}
+
+		$data = array(
+			'name'        => $name,
+			'slug'        => $slug,
+			'type'        => $type,
+			'description' => $description,
 		);
+		if ( $category_id > 0 ) {
+			$data['category_id'] = $category_id;
+		}
 
 		$result = ( new SpaceService() )->create( $user_id, $data );
 
 		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 400 ) );
+			$code   = $result->get_error_code();
+			$status = ( 'slug_taken' === $code ) ? 422 : 400;
+			$result->add_data(
+				array(
+					'status' => $status,
+					'params' => ( 'slug_taken' === $code )
+						? array( 'slug' => __( 'This slug is already in use.', 'buddynext' ) )
+						: array(),
+				)
+			);
 			return $result;
 		}
 

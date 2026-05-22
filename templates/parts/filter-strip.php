@@ -66,6 +66,7 @@ $args = array(
 		: 'get',
 	'hidden'      => isset( $hidden ) && is_array( $hidden ) ? $hidden : array(),
 	'classes'     => isset( $classes ) ? (array) $classes : array(),
+	'reactive'    => isset( $reactive ) ? (bool) $reactive : false,
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -139,10 +140,11 @@ do_action( 'buddynext_part_filter_strip_before', $args );
 
 	<?php if ( $bn_has_form ) : ?>
 		<form
-			class="bn-filter-strip__form"
+			class="bn-filter-strip__form<?php echo $args['reactive'] ? ' bn-filter-strip__form--reactive' : ''; ?>"
 			<?php echo '' !== (string) $args['form_action'] ? 'action="' . esc_url( (string) $args['form_action'] ) . '"' : ''; ?>
 			method="<?php echo esc_attr( (string) $args['form_method'] ); ?>"
 			role="search"
+			<?php echo $args['reactive'] ? 'data-bn-reactive' : ''; ?>
 		>
 			<?php foreach ( (array) $args['hidden'] as $bn_h_name => $bn_h_val ) : ?>
 				<input type="hidden" name="<?php echo esc_attr( (string) $bn_h_name ); ?>" value="<?php echo esc_attr( (string) $bn_h_val ); ?>">
@@ -194,9 +196,21 @@ do_action( 'buddynext_part_filter_strip_before', $args );
 
 			<?php do_action( 'buddynext_part_filter_strip_extras', $args ); ?>
 
-			<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
-				<?php esc_html_e( 'Apply', 'buddynext' ); ?>
-			</button>
+			<?php if ( ! $args['reactive'] ) : ?>
+				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
+					<?php esc_html_e( 'Apply', 'buddynext' ); ?>
+				</button>
+			<?php else : ?>
+				<noscript>
+					<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
+						<?php esc_html_e( 'Apply', 'buddynext' ); ?>
+					</button>
+				</noscript>
+				<span class="bn-filter-strip__status" data-bn-filter-status hidden aria-live="polite">
+					<span class="bn-filter-strip__dot" aria-hidden="true"></span>
+					<span class="bn-sr-only"><?php esc_html_e( 'Updating list', 'buddynext' ); ?></span>
+				</span>
+			<?php endif; ?>
 		</form>
 	<?php endif; ?>
 
