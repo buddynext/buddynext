@@ -547,6 +547,63 @@ store( 'buddynext/post-card', {
 			}
 		},
 	},
+	callbacks: {
+		/**
+		 * Fires on every post-card mount. Auto-loads the comment thread when
+		 * the server seeded `commentsOpen` true (e.g. on the single-post page
+		 * `/p/{id}/` where the thread should be expanded by default). On the
+		 * home feed the seeded value is false so this becomes a no-op until
+		 * the user clicks Comment.
+		 */
+		* initPostCard() {
+			const ctx = getContext();
+			if ( ! ctx || ! ctx.commentsOpen ) {
+				return;
+			}
+			// Defer one tick so the list element is mounted before fetch runs.
+			yield new Promise( ( r ) => setTimeout( r, 0 ) );
+			const listEl = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
+			if ( ! listEl || listEl.dataset.loaded ) {
+				return;
+			}
+			// Mirror loadComments inline — calling cross-action generators from
+			// callbacks is unstable in the Interactivity API runtime.
+			while ( listEl.firstChild ) {
+				listEl.removeChild( listEl.firstChild );
+			}
+			for ( let s = 0; s < 3; s++ ) {
+				const sk       = document.createElement( 'div' );
+				sk.className   = 'bn-comment-skeleton';
+				const skAvatar = document.createElement( 'span' );
+				skAvatar.className = 'bn-skeleton bn-comment-skeleton__avatar';
+				const skLine   = document.createElement( 'span' );
+				skLine.className   = 'bn-skeleton bn-comment-skeleton__line';
+				sk.appendChild( skAvatar );
+				sk.appendChild( skLine );
+				listEl.appendChild( sk );
+			}
+			try {
+				const res = yield fetch(
+					ctx.restUrl + '/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20',
+					{ headers: { 'X-WP-Nonce': ctx.reactNonce } }
+				);
+				while ( listEl.firstChild ) {
+					listEl.removeChild( listEl.firstChild );
+				}
+				if ( res.ok ) {
+					const data           = yield res.json();
+					listEl.dataset.loaded = '1';
+					( data.items || [] ).forEach( ( comment ) => {
+						listEl.appendChild(
+							buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 )
+						);
+					} );
+				}
+			} catch ( _e ) {
+				// Silent — user can click Comment to retry.
+			}
+		},
+	},
 	actions: {
 		toggleReactionPicker() {
 			const ctx              = getContext();
@@ -710,14 +767,8 @@ store( 'buddynext/post-card', {
 				ctx.isPinned = prev;
 			}
 		},
-		* openComments() {
-			const ctx = getContext();
-			ctx.commentsOpen = ! ctx.commentsOpen;
-
-			if ( ! ctx.commentsOpen ) {
-				return;
-			}
-
+		* loadComments() {
+			const ctx    = getContext();
 			const listEl = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
 			if ( ! listEl || listEl.dataset.loaded ) {
 				return;
@@ -785,6 +836,14 @@ store( 'buddynext/post-card', {
 				err.textContent = 'Network error. Comments could not be loaded.';
 				listEl.appendChild( err );
 			}
+		},
+		* openComments() {
+			const ctx        = getContext();
+			ctx.commentsOpen = ! ctx.commentsOpen;
+			if ( ! ctx.commentsOpen ) {
+				return;
+			}
+			yield* this.loadComments();
 		},
 		* submitComment() {
 			const ctx     = getContext();

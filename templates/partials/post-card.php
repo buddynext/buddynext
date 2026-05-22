@@ -34,7 +34,7 @@ use BuddyNext\Core\PageRouter;
 
 $bn_post         = $post ?? array();
 $current_user_id = absint( $current_user_id ?? 0 );
-$context         = in_array( $context ?? '', array( 'home', 'explore', 'profile', 'space' ), true )
+$context         = in_array( $context ?? '', array( 'home', 'explore', 'profile', 'space', 'single', 'bookmarks' ), true )
 	? ( $context )
 	: 'home';
 
@@ -245,6 +245,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 <article
 	class="<?php echo esc_attr( $card_class_attr ); ?>"
 	data-wp-interactive="buddynext/post-card"
+	data-wp-init="callbacks.initPostCard"
 	data-wp-context='
 	<?php
 		echo wp_json_encode(
@@ -265,7 +266,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				'pollOptions'       => $poll_options_ctx,
 				'pollVotedOptionId' => $my_voted_option_id,
 				'pollTotalVotes'    => $poll_total_votes,
-				'commentsOpen'      => false,
+				'commentsOpen'      => 'single' === $context,
 				'commentCount'      => $comment_count,
 				'shareCount'        => $share_count,
 				'shareShared'       => false,

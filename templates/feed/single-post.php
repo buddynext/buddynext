@@ -174,36 +174,18 @@ $bn_rest_nonce = wp_create_nonce( 'wp_rest' );
 	);
 	?>
 
-	<section class="bn-single-post__thread" aria-label="<?php esc_attr_e( 'Comments', 'buddynext' ); ?>">
-		<h2 class="bn-single-post__thread-heading">
-			<?php
-			$bn_comment_count = (int) ( $bn_post_record['comment_count'] ?? 0 );
-			echo esc_html(
-				sprintf(
-					/* translators: %s: formatted comment count */
-					_n( '%s comment', '%s comments', max( 1, $bn_comment_count ), 'buddynext' ),
-					number_format_i18n( $bn_comment_count )
-				)
-			);
-			?>
-		</h2>
-		<p class="bn-single-post__thread-hint">
-			<?php esc_html_e( 'The full thread for this post is open below. Replies appear in chronological order.', 'buddynext' ); ?>
-		</p>
-		<?php
-		/**
-		 * Fires inside the single-post thread region.
-		 *
-		 * Bridge plugins (e.g. WPMediaverse, Jetonomy) can render their own
-		 * comment-list UI here. The default post-card partial already wires
-		 * its own inline thread; the single-post page just opens it.
-		 *
-		 * @param int   $post_id Post ID.
-		 * @param array $post    Hydrated post record.
-		 */
-		do_action( 'buddynext_single_post_thread', (int) $bn_post_record['id'], $bn_post_record );
-		?>
-	</section>
+	<?php
+	/**
+	 * Fires after the single-post card. Bridge plugins (e.g. WPMediaverse,
+	 * Jetonomy) can render an alternative thread UI here. The default
+	 * post-card partial auto-expands its inline comment thread when the
+	 * context is 'single', so most callers will not need to hook this.
+	 *
+	 * @param int   $post_id Post ID.
+	 * @param array $post    Hydrated post record.
+	 */
+	do_action( 'buddynext_single_post_thread', (int) $bn_post_record['id'], $bn_post_record );
+	?>
 
 	<?php
 	if ( $bn_viewer_id > 0 ) {
