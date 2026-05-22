@@ -351,16 +351,16 @@ foreach ( $categories as $bn_cat_opt ) {
 
 $bn_type_options = array(
 	''        => __( 'All types', 'buddynext' ),
-	'open'    => __( 'Public', 'buddynext' ),
-	'private' => __( 'Private', 'buddynext' ),
-	'secret'  => __( 'Secret', 'buddynext' ),
+	'open'    => \BuddyNext\Spaces\SpaceService::type_label( 'open' ),
+	'private' => \BuddyNext\Spaces\SpaceService::type_label( 'private' ),
+	'secret'  => \BuddyNext\Spaces\SpaceService::type_label( 'secret' ),
 );
 
 $bn_type_chips = array(
 	''        => __( 'All', 'buddynext' ),
-	'open'    => __( 'Public', 'buddynext' ),
-	'private' => __( 'Private', 'buddynext' ),
-	'secret'  => __( 'Secret', 'buddynext' ),
+	'open'    => \BuddyNext\Spaces\SpaceService::type_label( 'open' ),
+	'private' => \BuddyNext\Spaces\SpaceService::type_label( 'private' ),
+	'secret'  => \BuddyNext\Spaces\SpaceService::type_label( 'secret' ),
 );
 
 $bn_sort_options = array(
@@ -566,11 +566,7 @@ $bn_subtitle = sprintf(
 				$is_member    = $membership && 'active' === $membership->status;
 				$is_pending   = $membership && 'pending' === $membership->status;
 
-				$privacy_label = match ( $space->type ) {
-					'open'    => __( 'Public', 'buddynext' ),
-					'private' => __( 'Private', 'buddynext' ),
-					default   => __( 'Invite-only', 'buddynext' ),
-				};
+				$privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $space->type );
 				$privacy_tone = match ( $space->type ) {
 					'open'    => 'info',
 					'private' => 'warn',

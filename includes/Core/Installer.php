@@ -478,6 +478,7 @@ class Installer {
 				member_count       INT UNSIGNED NOT NULL DEFAULT 0,
 				cover_image_url    VARCHAR(500) DEFAULT NULL,
 				avatar_url         VARCHAR(500) DEFAULT NULL,
+				rules              TEXT NULL DEFAULT NULL,
 				required_ability   VARCHAR(64) NULL DEFAULT NULL,
 				accent_color       VARCHAR(16) NULL DEFAULT NULL,
 				description_layout VARCHAR(32) NULL DEFAULT 'standard',
@@ -986,6 +987,10 @@ class Installer {
 
 		if ( is_array( $spaces_cols ) && ! in_array( 'description_layout', $spaces_cols, true ) ) {
 			$wpdb->query( "ALTER TABLE `{$p}bn_spaces` ADD COLUMN `description_layout` VARCHAR(32) NULL DEFAULT 'standard'" );
+		}
+
+		if ( is_array( $spaces_cols ) && ! in_array( 'rules', $spaces_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_spaces` ADD COLUMN `rules` TEXT NULL DEFAULT NULL" );
 		}
 
 		$wpdb->suppress_errors( false );

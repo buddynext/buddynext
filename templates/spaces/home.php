@@ -235,11 +235,7 @@ $bn_active_count = (int) $wpdb->get_var(
 $active_tab       = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : 'feed'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $member_count_fmt = number_format_i18n( (int) $space->member_count );
 
-$privacy_label = match ( $space->type ) {
-	'open'    => __( 'Public', 'buddynext' ),
-	'private' => __( 'Private', 'buddynext' ),
-	default   => __( 'Invite-only', 'buddynext' ),
-};
+$privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $space->type );
 $privacy_tone = match ( $space->type ) {
 	'open'    => 'info',
 	'private' => 'warn',

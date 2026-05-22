@@ -195,6 +195,52 @@ class PageRouter {
 			$hub_title = __( 'Bookmarks', 'buddynext' );
 		}
 
+		// Specialise the title for per-space surfaces. Mirrors the
+		// document_title_parts pattern used for Profile titles below so a
+		// space URL renders "{Space} · Spaces" / "Settings · {Space}" /
+		// "Members · {Space}" / "About · {Space}" instead of the bare
+		// "Spaces" hub fallback. Secret spaces stay leak-proof: the slug
+		// resolver only finds rows in bn_spaces, so unresolved slugs fall
+		// back to the bare hub title.
+		if ( 'spaces' === $hub && ! empty( $context['space_slug'] ) ) {
+			$space_record = ( new \BuddyNext\Spaces\SpaceService() )->get_by_slug( (string) $context['space_slug'] );
+			if ( null !== $space_record ) {
+				$space_name   = (string) ( $space_record['name'] ?? '' );
+				$space_action = (string) ( $context['space_action'] ?? '' );
+				$bn_tab       = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+				$section_label = '';
+				if ( 'settings' === $space_action ) {
+					$section_label = __( 'Settings', 'buddynext' );
+				} elseif ( 'moderation' === $space_action ) {
+					$section_label = __( 'Moderation', 'buddynext' );
+				} elseif ( 'admin' === $space_action ) {
+					$section_label = __( 'Admin', 'buddynext' );
+				} elseif ( 'members' === $space_action || 'members' === $bn_tab ) {
+					$section_label = __( 'Members', 'buddynext' );
+				} elseif ( 'about' === $bn_tab ) {
+					$section_label = __( 'About', 'buddynext' );
+				} elseif ( 'media' === $bn_tab ) {
+					$section_label = __( 'Media', 'buddynext' );
+				}
+
+				if ( '' !== $section_label && '' !== $space_name ) {
+					$hub_title = sprintf(
+						/* translators: 1: section name (Settings/Members/About/Moderation), 2: space name. */
+						__( '%1$s · %2$s', 'buddynext' ),
+						$section_label,
+						$space_name
+					);
+				} elseif ( '' !== $space_name ) {
+					$hub_title = sprintf(
+						/* translators: %s: space name. */
+						__( '%s · Spaces', 'buddynext' ),
+						$space_name
+					);
+				}
+			}
+		}
+
 		// Specialise the title when the template gives us a richer label,
 		// e.g. "Edit Profile : Varun" instead of the bare hub fallback.
 		if ( 'people' === $hub && ! empty( $context['user_id'] ) ) {

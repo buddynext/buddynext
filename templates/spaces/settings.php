@@ -329,24 +329,15 @@ $space_members = $wpdb->get_results(
 $space_url     = buddynext_space_url( $space->slug ?? '' );
 $settings_base = buddynext_space_settings_url( $space->slug ?? '' );
 
-// Privacy badge tone for the hero.
-$privacy_map   = array(
-	'open'    => array(
-		'tone'  => 'success',
-		'label' => __( 'Open', 'buddynext' ),
-	),
-	'private' => array(
-		'tone'  => 'warn',
-		'label' => __( 'Private', 'buddynext' ),
-	),
-	'secret'  => array(
-		'tone'  => 'danger',
-		'label' => __( 'Secret', 'buddynext' ),
-	),
+// Privacy badge tone for the hero. Labels resolve via SpaceService::type_label()
+// so the wording stays in lockstep with the directory + space home + Pro tabs.
+$privacy_tone_map = array(
+	'open'    => 'success',
+	'private' => 'warn',
+	'secret'  => 'danger',
 );
-$privacy       = $privacy_map[ $space->type ?? 'open' ] ?? $privacy_map['open'];
-$privacy_tone  = $privacy['tone'];
-$privacy_label = $privacy['label'];
+$privacy_tone  = $privacy_tone_map[ $space->type ?? 'open' ] ?? $privacy_tone_map['open'];
+$privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) ( $space->type ?? 'open' ) );
 
 // Tabs definition.
 $nav_items = array(
@@ -1182,7 +1173,7 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 									<?php esc_html_e( 'Private: listed but requires approval to join', 'buddynext' ); ?>
 								</option>
 								<option value="secret" <?php selected( $space->type, 'secret' ); ?>>
-									<?php esc_html_e( 'Invite-only: not listed, admin invites only', 'buddynext' ); ?>
+									<?php esc_html_e( 'Secret: not listed, admin invites only', 'buddynext' ); ?>
 								</option>
 							</select>
 						</div>
