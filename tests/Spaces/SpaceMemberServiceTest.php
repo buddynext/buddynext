@@ -425,4 +425,76 @@ class SpaceMemberServiceTest extends \WP_UnitTestCase {
 
 		$this->assertSame( array( $private_id, $user_id, $this->owner_id ), $captured );
 	}
+
+	/* ── Surface 2 + 3: notification pref + cache invalidation ────── */
+
+	public function test_set_notification_pref_writes_and_invalidates_cache(): void {
+		$user_id = self::factory()->user->create();
+		$this->service->join( $this->space_id, $user_id );
+
+		// Warm the role cache.
+		$this->service->get_role( $this->space_id, $user_id );
+
+		$result = $this->service->set_notification_pref( $this->space_id, $user_id, 'mentions' );
+		$this->assertTrue( $result );
+
+		$this->assertSame( 'mentions', $this->service->get_notification_pref( $this->space_id, $user_id ) );
+
+		$cache_key = "role_{$this->space_id}_{$user_id}";
+		$this->assertFalse( wp_cache_get( $cache_key, 'buddynext_space_members' ) );
+	}
+
+	public function test_set_notification_pref_rejects_invalid_value(): void {
+		$user_id = self::factory()->user->create();
+		$this->service->join( $this->space_id, $user_id );
+
+		$result = $this->service->set_notification_pref( $this->space_id, $user_id, 'turbo' );
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'invalid_pref', $result->get_error_code() );
+	}
+
+	public function test_set_notification_pref_rejects_non_member(): void {
+		$user_id = self::factory()->user->create();
+		$result  = $this->service->set_notification_pref( $this->space_id, $user_id, 'all' );
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'not_a_member', $result->get_error_code() );
+	}
+
+	public function test_cancel_request_removes_pending_row_and_invalidates_cache(): void {
+		$user_id    = self::factory()->user->create();
+		$private_id = $this->spaces->create(
+			$this->owner_id,
+			array(
+				'name' => 'Cancel Space',
+				'slug' => 'cancel-request-space',
+				'type' => 'private',
+			)
+		);
+
+		$this->service->request_join( $private_id, $user_id );
+		$this->assertSame( 'pending', $this->service->get_status( $private_id, $user_id ) );
+
+		$this->service->get_status( $private_id, $user_id );
+
+		$result = $this->service->cancel_request( $private_id, $user_id );
+		$this->assertTrue( $result );
+
+		$status_key = "status_{$private_id}_{$user_id}";
+		$this->assertFalse( wp_cache_get( $status_key, 'buddynext_space_members' ) );
+
+		$this->assertNull( $this->service->get_status( $private_id, $user_id ) );
+	}
+
+	public function test_change_role_invalidates_member_caches(): void {
+		$user_id = self::factory()->user->create();
+		$this->service->join( $this->space_id, $user_id );
+
+		$this->service->get_role( $this->space_id, $user_id );
+
+		$this->service->change_role( $this->space_id, $user_id, 'moderator', $this->owner_id );
+
+		$role_key = "role_{$this->space_id}_{$user_id}";
+		$this->assertFalse( wp_cache_get( $role_key, 'buddynext_space_members' ) );
+		$this->assertSame( 'moderator', $this->service->get_role( $this->space_id, $user_id ) );
+	}
 }
