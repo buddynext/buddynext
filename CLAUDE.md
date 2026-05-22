@@ -1,5 +1,7 @@
 # CLAUDE.md — BuddyNext
 
+> **RESUMING WORK?** Start with [`docs/qa/RESUME.md`](docs/qa/RESUME.md) — open tasks, environment quirks, resumption recipe. Last session summary: [`docs/qa/SESSION-2026-05-22.md`](docs/qa/SESSION-2026-05-22.md).
+>
 > **READ FIRST:** [`audit/manifest.json`](audit/manifest.json) is the canonical inventory — 115 REST endpoints, 41 tables, 21 capabilities, 48 services. Use this before grepping. See also [`audit/FEATURE_AUDIT.md`](audit/FEATURE_AUDIT.md), [`audit/CODE_FLOWS.md`](audit/CODE_FLOWS.md), [`audit/ROLE_MATRIX.md`](audit/ROLE_MATRIX.md). Refresh after non-trivial changes.
 
 ## What Is BuddyNext
