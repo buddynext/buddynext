@@ -1,80 +1,73 @@
-/* BuddyNext — Email-verification resend handler.
+/* BuddyNext — Email-verification Interactivity API store.
  *
- * Plain (non-module) classic script attached to the resend button on
- * templates/auth/verify.php. Posts to /wp-json/buddynext/v1/auth/verify/resend
- * and updates the inline toast under the button.
+ * Powers templates/auth/verify.php. Provides two actions:
+ *   resendEmail     — POST /buddynext/v1/auth/verify/resend on the pending state.
+ *   requestNewLink  — same endpoint, exposed as a primary CTA on the error state.
+ *
+ * Both update reactive state for the inline feedback chip + button label.
  */
-( function () {
-	'use strict';
+import { store, getContext } from '@wordpress/interactivity';
 
-	function init() {
-		var btn = document.getElementById( 'bn-resend-btn' );
-		if ( ! btn ) {
-			return;
+function ctx() {
+	try {
+		return getContext();
+	} catch ( _e ) {
+		return {};
+	}
+}
+
+function rest( c, path, opts ) {
+	const url     = ( c.restUrl || '/wp-json/buddynext/v1/' ) + String( path ).replace( /^\//, '' );
+	const headers = Object.assign(
+		{ 'X-WP-Nonce': c.restNonce || '', 'Content-Type': 'application/json' },
+		( opts && opts.headers ) || {}
+	);
+	return fetch( url, Object.assign( {}, opts || {}, { headers, credentials: 'same-origin' } ) );
+}
+
+function toast( message, tone ) {
+	if ( typeof window.bnToast === 'function' ) {
+		window.bnToast( message, tone || 'info' );
+	}
+}
+
+function* sendResend( c ) {
+	if ( c.sending ) { return; }
+	c.sending = true;
+	c.feedback = '';
+	c.tone = '';
+	try {
+		const r = yield rest( c, 'auth/verify/resend', { method: 'POST' } );
+		const data = yield r.json();
+		if ( r.ok ) {
+			c.feedback = ( data && data.message ) || 'Verification email sent. Check your inbox.';
+			c.tone = 'success';
+			toast( c.feedback, 'success' );
+		} else {
+			c.feedback = ( data && data.message ) || 'Something went wrong. Please try again.';
+			c.tone = 'danger';
+			toast( c.feedback, 'danger' );
 		}
-
-		var labelSending = btn.getAttribute( 'data-label-sending' ) || 'Sending…';
-		var labelReady   = btn.getAttribute( 'data-label-ready' ) || btn.textContent.trim();
-		var msgSent      = btn.getAttribute( 'data-msg-sent' ) || 'Verification email sent.';
-		var msgError     = btn.getAttribute( 'data-msg-error' ) || 'Something went wrong. Please try again.';
-
-		btn.addEventListener( 'click', function () {
-			var feedback = document.getElementById( 'bn-verify-feedback' );
-
-			function showFeedback( text, tone ) {
-				if ( ! feedback ) {
-					return;
-				}
-				feedback.textContent = text;
-				feedback.setAttribute( 'data-tone', tone );
-				feedback.removeAttribute( 'hidden' );
-			}
-
-			function resetButton() {
-				btn.disabled = false;
-				// Preserve any leading <svg> icon by replacing only the trailing
-				// label text node. Easier: rewrite the button's last text node.
-				var labelNode = btn.querySelector( '.bn-resend-label' );
-				if ( labelNode ) {
-					labelNode.textContent = labelReady;
-				} else {
-					btn.textContent = labelReady;
-				}
-			}
-
-			btn.disabled = true;
-			var labelNode = btn.querySelector( '.bn-resend-label' );
-			if ( labelNode ) {
-				labelNode.textContent = labelSending;
-			} else {
-				btn.textContent = labelSending;
-			}
-
-			fetch( btn.dataset.url, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-WP-Nonce':   btn.dataset.nonce,
-				},
-			} )
-				.then( function ( r ) { return r.json(); } )
-				.then( function ( data ) {
-					showFeedback(
-						( data && data.message ) || msgSent,
-						data && data.success ? 'success' : 'danger'
-					);
-					resetButton();
-				} )
-				.catch( function () {
-					showFeedback( msgError, 'danger' );
-					resetButton();
-				} );
-		} );
+	} catch ( _e ) {
+		c.feedback = 'Something went wrong. Please try again.';
+		c.tone = 'danger';
+		toast( c.feedback, 'danger' );
 	}
+	c.sending = false;
+}
 
-	if ( document.readyState === 'loading' ) {
-		document.addEventListener( 'DOMContentLoaded', init );
-	} else {
-		init();
-	}
-} )();
+store( 'buddynext/auth-verify', {
+	state: {
+		get sending() { return !! ctx().sending; },
+		get feedback() { return ctx().feedback || ''; },
+		get tone() { return ctx().tone || ''; },
+	},
+	actions: {
+		* resendEmail() {
+			yield* sendResend( ctx() );
+		},
+		* requestNewLink() {
+			yield* sendResend( ctx() );
+		},
+	},
+} );

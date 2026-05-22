@@ -525,3 +525,52 @@
 		max-width: 100%;
 	}
 }
+
+/* ── Auth shell: slim centered column ──────────────────────────────────── */
+.bn-app--auth {
+	min-height: 100vh;
+	background: var(--bn-canvas);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--bn-s6) var(--bn-s4);
+}
+.bn-app--auth .bn-auth {
+	width: 100%;
+	max-width: 480px;
+}
+
+/* Inline field error message + check row */
+.bn-auth-field--check {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: var(--bn-s3);
+	flex-wrap: wrap;
+}
+.bn-auth-check {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+	cursor: pointer;
+}
+.bn-auth-link {
+	color: var(--bn-accent);
+	text-decoration: none;
+	font-size: var(--bn-text-sm);
+}
+.bn-auth-link:hover { text-decoration: underline; }
+
+/* Field invalid outline */
+.bn-input[aria-invalid="true"] {
+	border-color: var(--bn-danger);
+	box-shadow: 0 0 0 3px var(--bn-danger-100, rgba(220, 38, 38, 0.12));
+}
+
+/* Verify feedback chip — visible only when state.feedback set */
+.bn-verify-feedback {
+	margin: var(--bn-s3) auto;
+	display: inline-flex;
+}

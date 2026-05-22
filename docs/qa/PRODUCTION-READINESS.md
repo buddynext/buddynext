@@ -23,10 +23,10 @@
 | 10 | Notifications (`/notifications/`) | prod | Every type renders human copy via `NotificationMessageService` (30+ types covered, spec at `docs/specs/NOTIFICATION-MESSAGES.md`). REST list response now ships `message`/`url`/`icon`/`tone`/`label`. Empty + error states per filter. Unread badge reactive with 99+ cap and optimistic mark-as-read |
 | 11 | Notification prefs | not-walked-yet | Pending — usually `/settings/notifications/` |
 | 12 | Messages (`/messages/`) | broken | "Direct messaging requires WPMediaVerse" empty state — but WPMediaVerse IS active per Plugin.php. Bridge detection broken |
-| 13 | Onboarding wizard (`/onboarding/`) | gaps | 4 steps (Profile / Interests / Spaces / People) render with Continue/Skip/Back, BUT no visual progress bar (`progressBar: false` from accessibility query) — numbered step list is the only progress signal; should be an actual `.bn-progress` bar |
-| 14 | Auth login | not-walked-yet | Need logged-out walk |
-| 15 | Auth signup | not-walked-yet | Need logged-out walk |
-| 16 | Auth verify-email | not-walked-yet | Need logged-out walk |
+| 13 | Onboarding wizard (`/onboarding/`) | prod | Visual `.bn-progress` bar fills step-to-step; 4 steps (Profile / Interests / Spaces / People) ship fully reactive Interactivity store with optimistic UI on join + follow, derived `continueDisabled` gates on display-name 2-char + 1+ interests, `finish` POSTs `/me/onboarding/complete` and redirects to `/activity/` with toast + rollback on 4xx/5xx |
+| 14 | Auth login | prod | REST-driven (`POST /auth/login`) with inline error band + loading state + disabled inputs in flight; Welcome-back hero, email/username + password + Remember-me + Forgot-password + Sign-in primary; optional social SSO row; "New here?" link to `/signup/`; logged-in users bounce to feed |
+| 15 | Auth signup | prod | Dedicated `/signup/` template + store; email + username (slug-check) + password with strength meter + Terms checkbox; inline validation per field with `aria-invalid` red outline; server-side 422 with `{ fields: {…} }`; success → verify-email when verification enabled, else `/onboarding/` |
+| 16 | Auth verify-email | prod | Three states driven by `?bn_verified=0\|1` + `?email=` hint: pending (inbox icon + indeterminate progress + Resend), success (Continue → onboarding), error (Request-new-link). Interactivity store ships `resendEmail` + `requestNewLink` actions with feedback chip + toast |
 | 17 | Search results | not-walked-yet | Pending |
 | 18 | Mobile shell (`<768px`) | prod | Bottom-tab nav renders (Feed/Spaces/+/Alerts/Profile), rail hides, sidebar hides, composer adapts. Clean. |
 | 19 | Theme chrome | prod | Astra header + footer wrap `.bn-app`, no second BN topbar. Edge-to-edge `.bn-app` via 100vw burst-out works |
@@ -180,13 +180,9 @@ Need to inspect `mu-plugins/buddynext-early-router.php` isolation — the early 
 
 **Fix:** add WPMediaVerse + Jetonomy to the `buddynext_isolation_whitelist` default in the mu-plugin (or in the WP options for this site).
 
-### F12 Onboarding progress bar (Onboarding task #38)
+### F12 Onboarding progress bar (Onboarding task #38) — RESOLVED
 
-Numbered step list shows but no visual `.bn-progress` bar. Wireframe has a filled progress track that grows step-to-step.
-
-**Files:**
-- `templates/onboarding/index.php` — add `.bn-progress` element above the step content with `aria-valuenow` reactive to current step.
-- `assets/css/bn-onboarding.css` — confirm the `.bn-progress` rule exists and matches v2 tokens.
+Closed in the `onboarding-auth-production` wave. The `.bn-progress` bar now renders above the step header, fills step-to-step driven by `state.progressPercent` + `state.progressWidth` in the Interactivity store, and ships matching mobile-shell layout (sticky progress + footer, scrollable content) in `assets/css/bn-onboarding.css`.
 
 ### F13 Search filter tabs on Explore (Hashtags/Search task #37)
 

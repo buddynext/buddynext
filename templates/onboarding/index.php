@@ -2,11 +2,16 @@
 /**
  * BuddyNext — Onboarding Wizard template.
  *
- * Multi-step wizard shown to new users after registration (once).
- * Steps: 1 Profile → 2 Interests → 3 Spaces → 4 People to Follow
+ * Four-step wizard shown to new users after registration. Steps:
+ *   1. Profile     — display name, username, bio.
+ *   2. Interests   — multi-select tag grid (at least 1 required).
+ *   3. Spaces      — suggested-spaces card list (join inline).
+ *   4. People      — suggested-follows grid (follow inline).
  *
- * Each step auto-saves via REST POST buddynext/v1/onboarding/step.
- * Step tracking uses the WP Interactivity API store (no page reload).
+ * Each step is fully reactive via the Interactivity API store
+ * (`@buddynext/onboarding`). Continue / Back / Skip / Finish actions
+ * walk the wizard without page reloads. A visual `.bn-progress` bar
+ * grows step-to-step.
  *
  * @package BuddyNext
  * @since   1.0.0
@@ -47,58 +52,57 @@ $initials = ! empty( $initials ) ? $initials : mb_strtoupper( mb_substr( $curren
 
 $avatar_url = get_avatar_url( $ob_user_id, array( 'size' => 100 ) );
 $bio        = (string) get_user_meta( $ob_user_id, 'bn_bio', true );
-$location   = (string) get_user_meta( $ob_user_id, 'bn_location', true );
 $saved_step = max( 1, (int) get_user_meta( $ob_user_id, 'bn_onboarding_step', true ) );
 
-// Interests available for selection (step 2).
+// Twelve interest tags (locked to the wave-spec catalogue).
 $all_interests = array(
 	array(
 		'icon'  => 'code',
-		'label' => 'Web Dev',
+		'label' => __( 'Web Dev', 'buddynext' ),
 	),
 	array(
 		'icon'  => 'palette',
-		'label' => 'Design',
+		'label' => __( 'Design', 'buddynext' ),
 	),
 	array(
 		'icon'  => 'cpu',
-		'label' => 'AI & ML',
+		'label' => __( 'AI & ML', 'buddynext' ),
 	),
 	array(
 		'icon'  => 'rocket',
-		'label' => 'Startups',
+		'label' => __( 'Startups', 'buddynext' ),
 	),
 	array(
 		'icon'  => 'megaphone',
-		'label' => 'Marketing',
+		'label' => __( 'Marketing', 'buddynext' ),
 	),
 	array(
 		'icon'  => 'bar-chart',
-		'label' => 'Data',
+		'label' => __( 'Data', 'buddynext' ),
 	),
 	array(
 		'icon'  => 'target',
-		'label' => 'Product',
+		'label' => __( 'Product', 'buddynext' ),
 	),
 	array(
 		'icon'  => 'edit',
-		'label' => 'Writing',
+		'label' => __( 'Writing', 'buddynext' ),
 	),
 	array(
 		'icon'  => 'globe',
-		'label' => 'Open Source',
+		'label' => __( 'Open Source', 'buddynext' ),
 	),
 	array(
 		'icon'  => 'gamepad',
-		'label' => 'Gaming',
+		'label' => __( 'Gaming', 'buddynext' ),
 	),
 	array(
 		'icon'  => 'music',
-		'label' => 'Music',
+		'label' => __( 'Music', 'buddynext' ),
 	),
 	array(
 		'icon'  => 'camera',
-		'label' => 'Photography',
+		'label' => __( 'Photography', 'buddynext' ),
 	),
 );
 
@@ -149,9 +153,10 @@ $already_following = $wpdb->get_col(
 $already_following = array_map( 'intval', $already_following );
 
 $rest_nonce = wp_create_nonce( 'wp_rest' );
+$rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 
 // Step config (label, icon).
-$steps       = array(
+$steps        = array(
 	1 => array(
 		'label' => __( 'Profile', 'buddynext' ),
 		'icon'  => 'user',
@@ -169,7 +174,8 @@ $steps       = array(
 		'icon'  => 'users',
 	),
 );
-$total_steps = count( $steps );
+$total_steps  = count( $steps );
+$activity_url = \BuddyNext\Core\PageRouter::activity_url();
 ?>
 
 <div class="bn-ob-wrap"
@@ -183,10 +189,17 @@ $total_steps = count( $steps );
 			'interests'         => array_values( $saved_interests ),
 			'joinedSpaces'      => $joined_space_ids,
 			'followingUsers'    => $already_following,
-			'restNonce'         => $rest_nonce,
 			'displayName'       => $display_name,
+			'displayNameDirty'  => false,
 			'userLogin'         => $current_login,
+			'bio'               => $bio,
 			'usernameAvailable' => true,
+			'usernameChecking'  => false,
+			'saving'            => false,
+			'error'             => '',
+			'restNonce'         => $rest_nonce,
+			'restUrl'           => $rest_root,
+			'redirectUrl'       => esc_url_raw( $activity_url ),
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -195,38 +208,36 @@ $total_steps = count( $steps );
 
 	<div class="bn-ob-shell">
 
-		<!-- Progress stepper -->
+		<!-- Visual progress bar -->
+		<div class="bn-ob-progress" aria-label="<?php esc_attr_e( 'Onboarding progress', 'buddynext' ); ?>">
+			<div class="bn-progress"
+				role="progressbar"
+				aria-valuemin="0"
+				aria-valuemax="100"
+				data-wp-bind--aria-valuenow="state.progressPercent">
+				<div class="bn-progress__fill"
+					data-wp-style--width="state.progressWidth"></div>
+			</div>
+			<p class="bn-ob-progress__label">
+				<span data-wp-text="state.stepLabel"><?php echo esc_html( sprintf( /* translators: 1: current step, 2: total steps */ __( 'Step %1$d of %2$d', 'buddynext' ), $saved_step, $total_steps ) ); ?></span>
+			</p>
+		</div>
+
+		<!-- Numbered step header -->
 		<nav class="bn-stepper bn-ob-stepper"
-			aria-label="<?php esc_attr_e( 'Onboarding progress', 'buddynext' ); ?>">
+			aria-label="<?php esc_attr_e( 'Onboarding steps', 'buddynext' ); ?>">
 			<?php
 			$step_keys = array_keys( $steps );
 			foreach ( $step_keys as $idx => $step_num ) :
-				$state = '';
-				if ( $step_num < $saved_step ) {
-					$state = 'done';
-				} elseif ( $step_num === $saved_step ) {
-					$state = 'active';
-				}
 				$step_info = $steps[ $step_num ];
 				?>
 				<div class="bn-stepper__item"
-					<?php
-					if ( $state ) :
-						?>
-						data-state="<?php echo esc_attr( $state ); ?>"<?php endif; ?>
-					<?php
-					if ( 'active' === $state ) :
-						?>
-						aria-current="step"<?php endif; ?>
+					data-step="<?php echo esc_attr( (string) $step_num ); ?>"
+					data-wp-class--is-done="<?php echo esc_attr( 'state.isStepDone' . $step_num ); ?>"
+					data-wp-class--is-active="<?php echo esc_attr( 'state.isStepActive' . $step_num ); ?>"
 				>
 					<span class="bn-stepper__dot" aria-hidden="true">
-						<?php
-						if ( 'done' === $state ) {
-							buddynext_icon( 'check' );
-						} else {
-							echo esc_html( (string) $step_num );
-						}
-						?>
+						<?php echo esc_html( (string) $step_num ); ?>
 					</span>
 					<span class="bn-ob-stepper__label"><?php echo esc_html( $step_info['label'] ); ?></span>
 				</div>
@@ -237,11 +248,11 @@ $total_steps = count( $steps );
 		</nav>
 
 		<!-- ── Step 1: Profile ── -->
-		<section class="bn-ob-step <?php echo 1 === $saved_step ? 'is-active' : ''; ?>"
+		<section class="bn-ob-step"
 			id="bn-ob-step-1"
 			data-step="1"
 			aria-labelledby="bn-ob-step-1-title"
-			<?php echo 1 !== $saved_step ? 'hidden' : ''; ?>
+			data-wp-bind--hidden="!state.isStep1"
 		>
 
 			<header class="bn-ob-step__head">
@@ -264,6 +275,11 @@ $total_steps = count( $steps );
 							<?php echo esc_html( $initials ); ?>
 						<?php endif; ?>
 					</button>
+					<input type="file"
+						class="bn-ob-avatar-input"
+						accept="image/jpeg,image/png"
+						hidden
+						data-wp-on--change="actions.handleAvatarUpload" />
 					<div class="bn-ob-avatar-row__hint">
 						<strong><?php esc_html_e( 'Add a profile photo', 'buddynext' ); ?></strong>
 						<span><?php esc_html_e( 'JPG or PNG, max 4MB.', 'buddynext' ); ?></span>
@@ -279,7 +295,11 @@ $total_steps = count( $steps );
 						id="bn-ob-displayname"
 						name="display_name"
 						value="<?php echo esc_attr( $display_name ); ?>"
-						placeholder="<?php esc_attr_e( 'Your full name', 'buddynext' ); ?>" />
+						placeholder="<?php esc_attr_e( 'Your full name', 'buddynext' ); ?>"
+						data-wp-on--input="actions.setDisplayName" />
+					<span class="bn-ob-field__msg"
+						data-wp-bind--hidden="!state.displayNameError"
+						data-wp-text="state.displayNameError"></span>
 				</div>
 
 				<div class="bn-ob-field">
@@ -293,6 +313,10 @@ $total_steps = count( $steps );
 						value="<?php echo esc_attr( $current_login ); ?>"
 						placeholder="@username"
 						data-wp-on--input="actions.checkUsername" />
+					<span class="bn-ob-field__hint"
+						data-wp-bind--hidden="!state.usernameChecking">
+						<?php esc_html_e( 'Checking availability...', 'buddynext' ); ?>
+					</span>
 				</div>
 
 				<div class="bn-ob-field">
@@ -304,20 +328,8 @@ $total_steps = count( $steps );
 						id="bn-ob-bio"
 						name="bn_bio"
 						rows="3"
-						placeholder="<?php esc_attr_e( 'Tell the community a bit about yourself...', 'buddynext' ); ?>"><?php echo esc_textarea( $bio ); ?></textarea>
-				</div>
-
-				<div class="bn-ob-field">
-					<label class="bn-ob-label" for="bn-ob-location">
-						<?php esc_html_e( 'Location', 'buddynext' ); ?>
-						<span class="bn-ob-label__hint"><?php esc_html_e( '(optional)', 'buddynext' ); ?></span>
-					</label>
-					<input class="bn-input"
-						type="text"
-						id="bn-ob-location"
-						name="bn_location"
-						value="<?php echo esc_attr( $location ); ?>"
-						placeholder="<?php esc_attr_e( 'City, Country', 'buddynext' ); ?>" />
+						placeholder="<?php esc_attr_e( 'Tell the community a bit about yourself...', 'buddynext' ); ?>"
+						data-wp-on--input="actions.setBio"><?php echo esc_textarea( $bio ); ?></textarea>
 				</div>
 			</div>
 
@@ -334,6 +346,7 @@ $total_steps = count( $steps );
 					type="button"
 					data-variant="primary"
 					data-size="lg"
+					data-wp-bind--disabled="state.continueDisabledStep1"
 					data-wp-on--click="actions.nextStep">
 					<?php esc_html_e( 'Continue', 'buddynext' ); ?>
 				</button>
@@ -342,21 +355,21 @@ $total_steps = count( $steps );
 		</section>
 
 		<!-- ── Step 2: Interests ── -->
-		<section class="bn-ob-step <?php echo 2 === $saved_step ? 'is-active' : ''; ?>"
+		<section class="bn-ob-step"
 			id="bn-ob-step-2"
 			data-step="2"
 			aria-labelledby="bn-ob-step-2-title"
-			<?php echo 2 !== $saved_step ? 'hidden' : ''; ?>
+			data-wp-bind--hidden="!state.isStep2"
 		>
 
 			<header class="bn-ob-step__head">
 				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'target' ); ?></span>
 				<h1 id="bn-ob-step-2-title" class="bn-ob-step__title"><?php esc_html_e( 'Pick your interests', 'buddynext' ); ?></h1>
-				<p class="bn-ob-step__sub"><?php esc_html_e( "We'll show you relevant posts and spaces based on what you choose.", 'buddynext' ); ?></p>
+				<p class="bn-ob-step__sub"><?php esc_html_e( "We'll show you relevant posts and spaces based on what you choose. Pick at least one.", 'buddynext' ); ?></p>
 			</header>
 
 			<div class="bn-card bn-ob-card" data-v2="true">
-				<div class="bn-ob-chips">
+				<div class="bn-ob-chips" role="group" aria-label="<?php esc_attr_e( 'Interest tags', 'buddynext' ); ?>">
 					<?php foreach ( $all_interests as $interest ) : ?>
 						<?php $is_selected = in_array( $interest['label'], $saved_interests, true ); ?>
 						<button class="bn-badge bn-ob-chip"
@@ -364,7 +377,7 @@ $total_steps = count( $steps );
 							data-tone="<?php echo $is_selected ? 'accent' : 'neutral'; ?>"
 							data-interest="<?php echo esc_attr( $interest['label'] ); ?>"
 							aria-pressed="<?php echo $is_selected ? 'true' : 'false'; ?>"
-							data-wp-on--click="actions.toggleInterest">
+							data-wp-on--click="actions.selectInterest">
 							<span class="bn-ob-chip__icon" aria-hidden="true"><?php buddynext_icon( $interest['icon'] ); ?></span>
 							<span class="bn-ob-chip__label"><?php echo esc_html( $interest['label'] ); ?></span>
 						</button>
@@ -378,7 +391,7 @@ $total_steps = count( $steps );
 							/* translators: %d: number of selected interests */
 							_n( '%d selected', '%d selected', $saved_count, 'buddynext' ),
 							$saved_count
-						) . ' · ' . __( 'Pick at least 3', 'buddynext' )
+						) . ' · ' . __( 'Pick at least 1', 'buddynext' )
 					);
 					?>
 				</p>
@@ -397,12 +410,13 @@ $total_steps = count( $steps );
 					data-variant="ghost"
 					data-size="lg"
 					data-wp-on--click="actions.skipStep">
-					<?php esc_html_e( 'Skip', 'buddynext' ); ?>
+					<?php esc_html_e( 'Skip for now', 'buddynext' ); ?>
 				</button>
 				<button class="bn-btn"
 					type="button"
 					data-variant="primary"
 					data-size="lg"
+					data-wp-bind--disabled="state.continueDisabledStep2"
 					data-wp-on--click="actions.nextStep">
 					<?php esc_html_e( 'Continue', 'buddynext' ); ?>
 				</button>
@@ -411,11 +425,11 @@ $total_steps = count( $steps );
 		</section>
 
 		<!-- ── Step 3: Spaces ── -->
-		<section class="bn-ob-step <?php echo 3 === $saved_step ? 'is-active' : ''; ?>"
+		<section class="bn-ob-step"
 			id="bn-ob-step-3"
 			data-step="3"
 			aria-labelledby="bn-ob-step-3-title"
-			<?php echo 3 !== $saved_step ? 'hidden' : ''; ?>
+			data-wp-bind--hidden="!state.isStep3"
 		>
 
 			<header class="bn-ob-step__head">
@@ -462,7 +476,7 @@ $total_steps = count( $steps );
 								data-size="sm"
 								data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
 								aria-pressed="<?php echo $is_joined ? 'true' : 'false'; ?>"
-								data-wp-on--click="actions.toggleSpace">
+								data-wp-on--click="actions.joinSuggestedSpace">
 								<?php echo $is_joined ? esc_html__( 'Joined', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
 							</button>
 						</div>
@@ -487,7 +501,7 @@ $total_steps = count( $steps );
 					data-variant="ghost"
 					data-size="lg"
 					data-wp-on--click="actions.skipStep">
-					<?php esc_html_e( 'Skip', 'buddynext' ); ?>
+					<?php esc_html_e( 'Skip for now', 'buddynext' ); ?>
 				</button>
 				<button class="bn-btn"
 					type="button"
@@ -501,11 +515,11 @@ $total_steps = count( $steps );
 		</section>
 
 		<!-- ── Step 4: Follow People ── -->
-		<section class="bn-ob-step <?php echo 4 === $saved_step ? 'is-active' : ''; ?>"
+		<section class="bn-ob-step"
 			id="bn-ob-step-4"
 			data-step="4"
 			aria-labelledby="bn-ob-step-4-title"
-			<?php echo 4 !== $saved_step ? 'hidden' : ''; ?>
+			data-wp-bind--hidden="!state.isStep4"
 		>
 
 			<header class="bn-ob-step__head">
@@ -566,7 +580,7 @@ $total_steps = count( $steps );
 									data-size="sm"
 									data-user-id="<?php echo esc_attr( (string) $sug_id ); ?>"
 									aria-pressed="<?php echo $is_following_sug ? 'true' : 'false'; ?>"
-									data-wp-on--click="actions.toggleFollow">
+									data-wp-on--click="actions.followSuggestedUser">
 									<?php echo $is_following_sug ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
 								</button>
 							</li>
@@ -590,14 +604,27 @@ $total_steps = count( $steps );
 				<span class="bn-ob-actions__spacer" aria-hidden="true"></span>
 				<button class="bn-btn"
 					type="button"
+					data-variant="ghost"
+					data-size="lg"
+					data-wp-on--click="actions.skipStep">
+					<?php esc_html_e( 'Skip for now', 'buddynext' ); ?>
+				</button>
+				<button class="bn-btn"
+					type="button"
 					data-variant="primary"
 					data-size="lg"
-					data-wp-on--click="actions.completeOnboarding">
-					<?php esc_html_e( "Let's go", 'buddynext' ); ?>
+					data-wp-bind--disabled="state.saving"
+					data-wp-on--click="actions.finish">
+					<span data-wp-bind--hidden="state.saving"><?php esc_html_e( 'Finish', 'buddynext' ); ?></span>
+					<span data-wp-bind--hidden="!state.saving"><?php esc_html_e( 'Saving...', 'buddynext' ); ?></span>
 				</button>
 			</div>
 
 		</section>
+
+		<div class="bn-ob-error" role="alert" aria-live="polite"
+			data-wp-bind--hidden="!state.error"
+			data-wp-text="state.error"></div>
 
 	</div>
 
