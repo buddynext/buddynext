@@ -1083,7 +1083,7 @@ store( 'buddynext/post-composer', {
 				fileInput._bnWired = true;
 				fileInput.addEventListener( 'change', async function () {
 					const files     = fileInput.files;
-					const MAX_MEDIA = 5;
+					const MAX_MEDIA = 4;
 
 					if ( ! files || ! files.length ) {
 						return;
@@ -1091,7 +1091,11 @@ store( 'buddynext/post-composer', {
 
 					const remaining = MAX_MEDIA - _mediaState.ids.length;
 					if ( remaining <= 0 ) {
+						bnToast( 'You can attach at most ' + MAX_MEDIA + ' images per post.', { tone: 'info' } );
 						return;
+					}
+					if ( files.length > remaining ) {
+						bnToast( 'Only ' + remaining + ' more image' + ( remaining === 1 ? '' : 's' ) + ' can be added.', { tone: 'info' } );
 					}
 
 					// Show preview area.
@@ -1143,7 +1147,7 @@ store( 'buddynext/post-composer', {
 								}
 							}
 						} catch ( _e ) {
-							// Upload failed — skip silently.
+							bnToast( 'Could not upload ' + ( file.name || 'image' ) + '. Try a smaller file.', { tone: 'danger' } );
 						}
 					}
 
