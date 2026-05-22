@@ -98,8 +98,10 @@ $context_attr = esc_attr(
 			type="button"
 			class="bn-btn bn-btn--sm bn-accept"
 			data-wp-on--click="actions.acceptRequest"
+			data-wp-bind--hidden="!state.showAcceptDecline"
 			data-action="bn-accept-connect"
 			data-user-id="<?php echo absint( $user_id ); ?>"
+			<?php echo $pending_recv ? '' : 'hidden'; ?>
 		>
 			<?php esc_html_e( 'Accept', 'buddynext' ); ?>
 		</button>
@@ -107,8 +109,10 @@ $context_attr = esc_attr(
 			type="button"
 			class="bn-btn bn-btn--sm bn-decline"
 			data-wp-on--click="actions.declineRequest"
+			data-wp-bind--hidden="!state.showAcceptDecline"
 			data-action="bn-decline-connect"
 			data-user-id="<?php echo absint( $user_id ); ?>"
+			<?php echo $pending_recv ? '' : 'hidden'; ?>
 		>
 			<?php esc_html_e( 'Decline', 'buddynext' ); ?>
 		</button>

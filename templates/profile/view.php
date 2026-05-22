@@ -514,8 +514,11 @@ add_action( 'buddynext_right_sidebar', $bn_pf_sidebar );
  */
 do_action( 'buddynext_profile_before', (int) $user_id );
 
-// Owner action bar: rendered above the hero when the viewer can edit.
-if ( $is_own_profile || current_user_can( 'edit_users' ) ) {
+// Owner action bar: rendered ONLY when the viewer is the profile owner.
+// Admins viewing other users' profiles see Edit links in the WP admin
+// toolbar; the owner action bar is strictly the profile owner's surface
+// since the buttons all link to the viewer's own /edit/ page.
+if ( $is_own_profile ) {
 	buddynext_get_template(
 		'partials/profile-actions.php',
 		array(
