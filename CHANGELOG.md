@@ -2,6 +2,120 @@
 
 ## Unreleased
 
+### Profile (true production)
+
+Findings from the live walk on `buddynext-dev.local` as `varundubey`
+closed the gaps that kept the Profile surfaces from clearing the bar
+their production-readiness row claimed.
+
+- **A1 — Owner-gate leak closed.** `templates/profile/view.php` and
+  `templates/partials/profile-actions.php` now strictly gate the owner
+  action bar (Edit Profile / Edit Avatar / Edit Cover) behind
+  `$is_own_profile`. Previously `current_user_can('edit_users')` also
+  unlocked the bar, but the buttons all point at the viewer's own
+  `/edit/` page via `get_edit_profile_url()`, so an admin viewing
+  another member saw stale UI linking back to their own edit page.
+  Admins continue to edit other users via the WP admin toolbar.
+
+- **A2 — Connection Accept/Decline reactive hide.** Each button in
+  `templates/partials/connection-button.php` now carries its own
+  `data-wp-bind--hidden="!state.showAcceptDecline"` plus the initial
+  hidden attribute seeded from `$pending_recv`, so the buttons hide
+  consistently on initial render and on state flips.
+
+- **B1 + B2 — `/members/{slug}/followers/` and `/following/`.** New
+  templates `templates/profile/followers.php` and
+  `templates/profile/following.php` render paginated member cards
+  (24/page) driven by `FollowService::followers()` /
+  `FollowService::following()` with bidirectional block filtering.
+  PageRouter:
+  - new rewrite rules for both segments,
+  - new template-dispatch cases under `case 'people'`,
+  - new URL builders `followers_url()` and `following_url()`,
+  - shared `profile_subroute_url()` helper consolidating the
+    `bn_profile_slug → user_nicename → user-{ID}` fallback chain,
+  - new `ROUTER_VERSION` sentinel + `maybe_flush_rewrites()` hook
+    auto-flushes rules on deploys that change the rule set,
+  - document titles "Followers · {name}" and "Following · {name}".
+
+- **B3 — Stat cards link to their list pages.** The four hero stat
+  cells (Posts / Followers / Following / Connections) are now real
+  navigation. Posts is a button that fires `actions.setTab('posts')`;
+  Followers / Following / Connections are anchors to their list URLs.
+  CSS adds `.bn-pf-stat--link` with v2-token hover + focus-visible.
+
+- **B4 — Tab URL sync.** `setTab` now pushes `?tab={slug}` into the
+  URL via `history.pushState`. New `callbacks.initView` reads `?tab=`
+  on load and registers a single popstate listener so the browser
+  Back button reverses tab changes. The pre-existing broken
+  `.bn-ptab` selector was replaced with the real `.bn-tab` class so
+  `aria-selected` and `.active` actually toggle.
+
+- **B5 — Privacy section.** New "Privacy" card between Community
+  Interests and Notification preferences with three audience selects
+  (`bn_privacy_see_email`, `bn_privacy_dm`, `bn_privacy_mention` —
+  enum `everyone | members | connections | nobody`) plus three
+  toggles (`bn_privacy_show_in_directory`,
+  `bn_privacy_search_indexable`, and the Pro-mirrored
+  `bn_pro_hide_profile_views`). `ProfileController::update_profile()`
+  was extended to accept and persist these keys; the audience enums
+  return a 422 with field-keyed errors on invalid values.
+
+- **B5 — `actions.togglePref` shipped.** Previously every toggle in
+  the edit page referenced an unimplemented action — silent noop.
+  The profile store now implements an optimistic toggle that PUTs the
+  single key to `/me/profile`, rolls back `aria-checked` on failure,
+  and toasts the result.
+
+- **B6 — Account section beef-up.**
+  - Inline **change-email** flow → new `POST /auth/change-email`
+    sanitizes + validates the address, stores it in `bn_pending_email`
+    usermeta, and fires `buddynext_email_change_requested` so the
+    VerificationListener can send the confirm-then-swap email.
+  - Inline **change-password** flow with a 5-step strength meter →
+    new `POST /auth/change-password` validates via
+    `wp_check_password()`, blocks same-password-as-current, enforces
+    an 8-character minimum, calls `wp_set_password()`, then
+    `wp_set_auth_cookie()` so the current session survives.
+  - **Sign out everywhere** → new `POST /auth/sign-out-everywhere`
+    calls `WP_Session_Tokens::get_instance($user_id)->destroy_all()`
+    and re-issues a cookie for the current device.
+  - Notification email schedule cross-link → `notification_prefs_url`.
+
+- **C1 — Notification preferences card footer.** The Notification
+  preferences card now carries a footer with a brief description and
+  a primary CTA "Open notification preferences" pointing at
+  `notification_prefs_url`.
+
+- **C2 — Share profile popover.** New Share button next to
+  Follow / Connect / Message opens a popover with two actions: Copy
+  link (uses `navigator.clipboard` with a textarea fallback for older
+  browsers) and Share to feed (anchor that prefills the composer with
+  a mention). Share + More menus are mutually exclusive.
+
+- **C3 — Mobile responsive at 390px.** New `@media (max-width: 400px)`
+  rule stacks the action row vertically, locks buttons to 100% width,
+  pins the stats grid to 2x2, and tightens the timeline gap.
+
+- **Tests (D).**
+  - `tests/Profile/FollowersControllerTest.php` (new) — 200, shape,
+    block filtering, anonymous viewer.
+  - `tests/Profile/FollowingControllerTest.php` (new) — 200, shape,
+    block filtering, empty list.
+  - `tests/Profile/ProfileControllerPrivacyTest.php` (new) — happy
+    path persistence, 422 on invalid audience enum, boolean toggles
+    persist as `'1'` / `'0'`, notification pref keys persist.
+  - `tests/Auth/AuthControllerPasswordTest.php` (new) — happy path,
+    wrong current password 422, same-password 422, short password
+    422, 401 anonymous.
+  - `tests/e2e/profile/followers-following.spec.ts` (new) — desktop
+    + mobile renders + 404 regression guard + stat card links.
+  - `tests/e2e/profile/owner-gate.spec.ts` (new) — asserts no
+    Edit Profile / Avatar / Cover bar on non-owner profiles, and
+    confirms the bar still renders on own profile.
+  - `tests/e2e/profile/edit.spec.ts` extended with three checks for
+    the Privacy section, Account section, and the prefs CTA footer.
+
 ### Notification preferences UI (production)
 
 - **New route** - `/settings/notifications/` is now a real route handled by `PageRouter`. A second alias `/notifications/preferences/` resolves to the same template. Both use the `notifications` hub with a new `bn_notif_section=prefs` query var; rewrite rules added in `PageRouter::register_notifications_rules()`.

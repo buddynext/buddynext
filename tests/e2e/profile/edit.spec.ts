@@ -66,4 +66,32 @@ test.describe('profile / edit', () => {
         const picker = page.locator('[data-field="brand-hue"], [name="bn_brand_hue"]').first();
         await expect(picker).toBeVisible();
     });
+
+    /* B5 — Privacy section: audience selects + toggles render. */
+    test('Privacy section renders audience selects + toggles', async ({ authenticatedPage: page }) => {
+        await page.goto(urls.memberEdit(user));
+        await expect(page.locator('#bn-ep-privacy-title')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('#bn-ep-privacy-email')).toBeVisible();
+        await expect(page.locator('#bn-ep-privacy-dm')).toBeVisible();
+        await expect(page.locator('#bn-ep-privacy-mention')).toBeVisible();
+        await expect(page.locator('[data-pref="bn_privacy_show_in_directory"]')).toBeVisible();
+        await expect(page.locator('[data-pref="bn_privacy_search_indexable"]')).toBeVisible();
+        await expect(page.locator('[data-pref="bn_pro_hide_profile_views"]')).toBeVisible();
+    });
+
+    /* B6 — Account section: change-password / change-email / sign-out-everywhere CTAs. */
+    test('Account section renders password / email / sign-out-everywhere CTAs', async ({ authenticatedPage: page }) => {
+        await page.goto(urls.memberEdit(user));
+        await expect(page.locator('.bn-ep-card-title:has-text("Account")')).toBeVisible({ timeout: 5_000 });
+        await expect(page.locator('[data-wp-on--click="actions.openEmailChange"]')).toBeVisible();
+        await expect(page.locator('[data-wp-on--click="actions.openPasswordChange"]')).toBeVisible();
+        await expect(page.locator('[data-wp-on--click="actions.signOutEverywhere"]')).toBeVisible();
+    });
+
+    /* C1 — Notification preferences footer carries the prefs page CTA. */
+    test('Notification preferences card footer links to full prefs page', async ({ authenticatedPage: page }) => {
+        await page.goto(urls.memberEdit(user));
+        const cta = page.locator('a:has-text("Open notification preferences")').first();
+        await expect(cta).toBeVisible({ timeout: 5_000 });
+    });
 });
