@@ -943,6 +943,17 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						</button>
 					</div>
 				</div>
+				<footer class="bn-ep-card-footer">
+					<p class="bn-ep-card-footer__desc">
+						<?php esc_html_e( 'Need finer control? Open the full notification settings page for per-space and per-event preferences.', 'buddynext' ); ?>
+					</p>
+					<a class="bn-btn"
+						data-variant="primary"
+						data-size="sm"
+						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::notification_prefs_url() ); ?>">
+						<?php esc_html_e( 'Open notification preferences', 'buddynext' ); ?>
+					</a>
+				</footer>
 			</section><!-- /Notifications -->
 
 			<!-- Section: Account -->

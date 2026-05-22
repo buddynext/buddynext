@@ -551,6 +551,7 @@ if ( $is_own_profile ) {
 			'isBlocked'          => $is_blocked,
 			'isMuted'            => $is_muted,
 			'moreMenuOpen'       => false,
+			'shareMenuOpen'      => false,
 			'reportOpen'         => false,
 			'reportReason'       => 'spam',
 			'reportNotes'        => '',
@@ -760,6 +761,35 @@ if ( $is_own_profile ) {
 					<?php buddynext_icon( 'message-circle' ); ?>
 					<span><?php esc_html_e( 'Message', 'buddynext' ); ?></span>
 				</a>
+
+				<!-- Share profile popover -->
+				<div class="bn-share-menu-wrap" data-wp-class--is-open="context.shareMenuOpen">
+					<button class="bn-btn" data-variant="secondary" data-size="sm"
+						aria-haspopup="menu"
+						aria-expanded="false"
+						aria-label="<?php esc_attr_e( 'Share profile', 'buddynext' ); ?>"
+						data-wp-on--click="actions.toggleShareMenu"
+						data-wp-bind--aria-expanded="context.shareMenuOpen">
+						<?php buddynext_icon( 'share-2' ); ?>
+						<span><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
+					</button>
+					<div class="bn-share-menu bn-more-menu" role="menu">
+						<button class="bn-more-menu-item"
+							type="button"
+							role="menuitem"
+							data-share-url="<?php echo esc_attr( \BuddyNext\Core\PageRouter::profile_url( (int) $user_id ) ); ?>"
+							data-wp-on--click="actions.copyProfileLink">
+							<?php buddynext_icon( 'link' ); ?>
+							<span><?php esc_html_e( 'Copy link', 'buddynext' ); ?></span>
+						</button>
+						<a class="bn-more-menu-item"
+							role="menuitem"
+							href="<?php echo esc_url( add_query_arg( 'mention', $user_id, \BuddyNext\Core\PageRouter::activity_url() ) ); ?>">
+							<?php buddynext_icon( 'message-circle' ); ?>
+							<span><?php esc_html_e( 'Share to feed', 'buddynext' ); ?></span>
+						</a>
+					</div>
+				</div>
 
 				<!-- More options dropdown -->
 				<div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen">

@@ -791,6 +791,41 @@ store( 'buddynext/profile', {
 		toggleMoreMenu() {
 			var ctx = getContext();
 			ctx.moreMenuOpen = ! ctx.moreMenuOpen;
+			if ( ctx.moreMenuOpen ) {
+				ctx.shareMenuOpen = false;
+			}
+		},
+
+		/* -- Share-profile popover ---------------------------------- */
+
+		toggleShareMenu() {
+			var ctx = getContext();
+			ctx.shareMenuOpen = ! ctx.shareMenuOpen;
+			if ( ctx.shareMenuOpen ) {
+				ctx.moreMenuOpen = false;
+			}
+		},
+
+		async copyProfileLink( event ) {
+			var ctx = getContext();
+			var btn = event.target.closest( '[data-share-url]' );
+			var url = btn ? btn.dataset.shareUrl : window.location.href;
+			try {
+				if ( navigator.clipboard && navigator.clipboard.writeText ) {
+					await navigator.clipboard.writeText( url );
+				} else {
+					var ta = document.createElement( 'textarea' );
+					ta.value = url;
+					document.body.appendChild( ta );
+					ta.select();
+					document.execCommand( 'copy' );
+					document.body.removeChild( ta );
+				}
+				bnToast( ( window.bnI18n && window.bnI18n.linkCopied ) || 'Profile link copied', { tone: 'success' } );
+			} catch ( _e ) {
+				bnToast( ( window.bnI18n && window.bnI18n.copyFailed ) || 'Could not copy link.', { tone: 'danger' } );
+			}
+			ctx.shareMenuOpen = false;
 		},
 
 		async toggleMute() {

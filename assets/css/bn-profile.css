@@ -550,9 +550,26 @@
 
 /* ── More-Options dropdown (profile view) ─────────────────────────────────── */
 
-.bn-more-menu-wrap {
+.bn-more-menu-wrap,
+.bn-share-menu-wrap {
 	position: relative;
 	display: inline-block;
+}
+.bn-share-menu-wrap .bn-share-menu {
+	display: none;
+	position: absolute;
+	right: 0;
+	top: calc(100% + var(--bn-p-s1));
+	background: var(--bn-p-surface);
+	border: 1px solid var(--bn-p-border);
+	border-radius: var(--bn-p-r-lg);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
+	min-width: 180px;
+	z-index: 200;
+	overflow: hidden;
+}
+.bn-share-menu-wrap.is-open .bn-share-menu {
+	display: block;
 }
 
 .bn-more-menu {
@@ -1218,7 +1235,10 @@
 		height: 80px;
 	}
 	.bn-pf-name { font-size: var(--bn-text-xl); }
-	.bn-pf-actions { width: 100%; }
+	.bn-pf-actions {
+		width: 100%;
+		flex-wrap: wrap;
+	}
 	.bn-pf-actions .bn-btn { flex: 1 1 auto; justify-content: center; }
 	.bn-profile-media-grid { grid-template-columns: repeat(2, 1fr); }
 	.bn-pf-tabs {
@@ -1226,6 +1246,17 @@
 		scrollbar-width: none;
 	}
 	.bn-pf-tabs::-webkit-scrollbar { display: none; }
+}
+
+/* iPhone 14 / Pixel widths and below: stack action row, single-column timeline. */
+@media (max-width: 400px) {
+	.bn-pf-actions {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	.bn-pf-actions .bn-btn { width: 100%; }
+	.bn-pf-stats { grid-template-columns: repeat(2, 1fr); }
+	.bn-pf-timeline { gap: var(--bn-s3); }
 }
 
 /* ── Profile connections page ──────────────────────────────────────────────── */
