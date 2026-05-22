@@ -44,6 +44,30 @@ function toast( message, tone ) {
 	}
 }
 
+/* popstate guard so browser back / forward navigates between filter tabs
+ * without a full reload. The simplest correct behaviour is a full reload
+ * here — partial-swap reflects the URL change on forward navigation, but
+ * the simplest contract is that popstate restores the prior page state
+ * from scratch. Attached once per page load. */
+var popstateBound = false;
+function bindPopState() {
+	if ( popstateBound || typeof window === 'undefined' ) { return; }
+	popstateBound = true;
+	window.addEventListener( 'popstate', function () {
+		// Only respond when our entry pushed the state — other pages on
+		// this site own their own popstate semantics.
+		if ( window.history.state && window.history.state.bnFilter ) {
+			window.location.reload();
+		}
+	} );
+}
+
+if ( typeof window !== 'undefined' && 'complete' === document.readyState ) {
+	bindPopState();
+} else if ( typeof window !== 'undefined' ) {
+	window.addEventListener( 'DOMContentLoaded', bindPopState );
+}
+
 store( 'buddynext/notifications', {
 	state: {
 		get unreadLabel() {
@@ -215,6 +239,105 @@ store( 'buddynext/notifications', {
 			}
 			window.location.reload();
 		},
+
+		/**
+		 * Reactive filter-tab switch — no full page reload.
+		 *
+		 * Click handler on each .bn-tab anchor. Suppresses native navigation,
+		 * fetches the same URL with HX-Request: true so PageRouter returns the
+		 * raw template content (no theme chrome), parses the response, and
+		 * adopts the child nodes of the `[data-bn-notif-content]` region into
+		 * the current document. Updates the URL via history.pushState so
+		 * back/forward works, and keeps the Interactivity store's activeFilter
+		 * in sync.
+		 *
+		 * Same-origin only — the response comes from our own PageRouter, which
+		 * has already run every esc_* / esc_url / esc_html on the template.
+		 * We never inject foreign HTML.
+		 */
+		setFilter: async function ( event ) {
+			var ctx = getContext();
+			var tab = event && event.target ? event.target.closest( '[data-filter]' ) : null;
+			if ( ! tab || ! ctx ) { return; }
+
+			// Let cmd/ctrl + click open in a new tab as a regular anchor.
+			if ( event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ) { return; }
+			event.preventDefault();
+
+			var filter = tab.dataset.filter || 'all';
+			if ( ctx.activeFilter === filter ) { return; }
+
+			var href = tab.getAttribute( 'href' ) || '';
+			if ( ! href ) { return; }
+
+			// Mark the active tab immediately for visual feedback.
+			var allTabs = document.querySelectorAll( '.bn-notif-tabs .bn-tab' );
+			allTabs.forEach( function ( t ) {
+				var isActive = ( t.dataset.filter === filter );
+				t.classList.toggle( 'is-active', isActive );
+				t.setAttribute( 'aria-selected', isActive ? 'true' : 'false' );
+				t.setAttribute( 'aria-current', isActive ? 'page' : 'false' );
+			} );
+
+			ctx.activeFilter = filter;
+
+			var contentEl = document.querySelector( '[data-bn-notif-content]' );
+			if ( contentEl ) {
+				contentEl.setAttribute( 'aria-busy', 'true' );
+			}
+
+			try {
+				var res = await fetch( href, {
+					method:  'GET',
+					credentials: 'same-origin',
+					headers: { 'HX-Request': 'true', 'X-Requested-With': 'XMLHttpRequest' },
+				} );
+				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				var html = await res.text();
+
+				// Parse the same-origin partial in an inert document so no
+				// script runs and resources do not pre-fetch. Adopt the
+				// children of the fresh content region into the current page.
+				var doc = ( new DOMParser() ).parseFromString( html, 'text/html' );
+				var fresh = doc.querySelector( '[data-bn-notif-content]' );
+				if ( fresh && contentEl ) {
+					// Drain old children, then adopt new ones. Avoids
+					// innerHTML so we never re-parse already-server-safe HTML
+					// through the live document.
+					while ( contentEl.firstChild ) {
+						contentEl.removeChild( contentEl.firstChild );
+					}
+					var node = fresh.firstChild;
+					while ( node ) {
+						var next = node.nextSibling;
+						contentEl.appendChild( document.adoptNode( node ) );
+						node = next;
+					}
+				}
+
+				// Replace URL without scroll jump.
+				if ( window.history && window.history.pushState ) {
+					window.history.pushState( { bnFilter: filter }, '', href );
+				}
+
+				// Pull the updated unread count from the new content's data
+				// attribute (set below in the template) so the badge stays
+				// in sync.
+				var freshCount = contentEl ? contentEl.getAttribute( 'data-unread-count' ) : null;
+				if ( freshCount !== null && ctx ) {
+					ctx.unreadCount = Number( freshCount ) || 0;
+				}
+			} catch ( _e ) {
+				// Fallback: full navigation.
+				window.location.href = href;
+				return;
+			} finally {
+				if ( contentEl ) {
+					contentEl.removeAttribute( 'aria-busy' );
+				}
+			}
+		},
+
 
 		refreshUnreadCount: async function () {
 			var ctx = getContext();

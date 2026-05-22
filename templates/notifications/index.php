@@ -664,8 +664,10 @@ $initial_context = wp_json_encode(
 			);
 			?>
 			<a href="<?php echo esc_url( $tab_url ); ?>"
-				class="bn-tab"
+				class="bn-tab<?php echo $is_active ? ' is-active' : ''; ?>"
 				role="tab"
+				data-filter="<?php echo esc_attr( $key ); ?>"
+				data-wp-on--click="actions.setFilter"
 				aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
 				aria-current="<?php echo $is_active ? 'page' : 'false'; ?>">
 				<?php echo esc_html( $notif_tab['label'] ); ?>
@@ -675,6 +677,11 @@ $initial_context = wp_json_encode(
 			</a>
 		<?php endforeach; ?>
 	</nav>
+
+	<div class="bn-notifs-main__content"
+		data-bn-notif-content
+		data-unread-count="<?php echo esc_attr( (string) $total_unread ); ?>"
+		data-active-filter="<?php echo esc_attr( $active_filter ); ?>">
 
 	<?php
 	$group_labels = array(
@@ -815,6 +822,8 @@ $initial_context = wp_json_encode(
 			<?php endif; ?>
 		</nav>
 	<?php endif; ?>
+
+	</div><!-- /.bn-notifs-main__content -->
 
 </div>
 <?php
