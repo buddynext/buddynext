@@ -837,6 +837,22 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 
 		<?php elseif ( 'about' === $active_tab ) : ?>
 
+			<?php
+			// About tab — description, rules, categories, metadata. Rules are
+			// rendered from the bn_spaces.rules column (one per line). Empty
+			// sections (no rules, no category) collapse so we don't render
+			// orphan headings.
+			$bn_about_rules_raw = isset( $space->rules ) ? (string) $space->rules : '';
+			$bn_about_rules     = array();
+			if ( '' !== trim( $bn_about_rules_raw ) ) {
+				foreach ( preg_split( "/\r\n|\n|\r/", $bn_about_rules_raw ) as $bn_rule_line ) {
+					$bn_rule_line = trim( $bn_rule_line );
+					if ( '' !== $bn_rule_line ) {
+						$bn_about_rules[] = $bn_rule_line;
+					}
+				}
+			}
+			?>
 			<div class="bn-card bn-sh-about">
 				<h2 class="bn-sh-about__title"><?php esc_html_e( 'About', 'buddynext' ); ?></h2>
 				<?php if ( ! empty( $space->description ) ) : ?>
@@ -845,17 +861,37 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 					<p class="bn-sh-about__desc"><?php esc_html_e( 'No description yet.', 'buddynext' ); ?></p>
 				<?php endif; ?>
 
+				<?php if ( ! empty( $bn_about_rules ) ) : ?>
+					<section class="bn-sh-about__rules">
+						<h3 class="bn-sh-about__section-title"><?php esc_html_e( 'House rules', 'buddynext' ); ?></h3>
+						<ol class="bn-sh-about__rules-list">
+							<?php foreach ( $bn_about_rules as $bn_rule ) : ?>
+								<li><?php echo esc_html( $bn_rule ); ?></li>
+							<?php endforeach; ?>
+						</ol>
+					</section>
+				<?php endif; ?>
+
+				<?php if ( ! empty( $space->category_name ) && ! empty( $space->category_slug ) ) : ?>
+					<section class="bn-sh-about__categories">
+						<h3 class="bn-sh-about__section-title"><?php esc_html_e( 'Category', 'buddynext' ); ?></h3>
+						<div class="bn-sh-about__cat-chips">
+							<a
+								href="<?php echo esc_url( add_query_arg( 'bn_cat', $space->category_slug, \BuddyNext\Core\PageRouter::spaces_url() ) ); ?>"
+								class="bn-tab bn-sd-chip"
+							>
+								<span class="bn-sd-chip__icon" aria-hidden="true"><?php echo wp_kses_data( bn_space_category_icon( $space->category_slug ) ); ?></span>
+								<?php echo esc_html( $space->category_name ); ?>
+							</a>
+						</div>
+					</section>
+				<?php endif; ?>
+
 				<dl class="bn-sh-about__meta">
 					<div>
 						<dt><?php esc_html_e( 'Visibility', 'buddynext' ); ?></dt>
 						<dd><span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span></dd>
 					</div>
-					<?php if ( ! empty( $space->category_name ) ) : ?>
-						<div>
-							<dt><?php esc_html_e( 'Category', 'buddynext' ); ?></dt>
-							<dd><?php echo esc_html( $space->category_name ); ?></dd>
-						</div>
-					<?php endif; ?>
 					<?php if ( ! empty( $space->created_at ) ) : ?>
 						<div>
 							<dt><?php esc_html_e( 'Created', 'buddynext' ); ?></dt>

@@ -584,6 +584,32 @@
 	margin: 0;
 }
 
+.bn-sh-about__section-title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	text-transform: uppercase;
+	letter-spacing: var(--bn-ls-wide);
+	margin: 0 0 var(--bn-s2);
+}
+
+.bn-sh-about__rules-list {
+	margin: 0;
+	padding-inline-start: var(--bn-s5);
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+}
+
+.bn-sh-about__cat-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+}
+
 .bn-sh-about__meta {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));

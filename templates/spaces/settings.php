@@ -108,6 +108,9 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		if ( isset( $_POST['space_description'] ) ) {
 			$update_data['description'] = sanitize_textarea_field( wp_unslash( $_POST['space_description'] ) );
 		}
+		if ( isset( $_POST['space_rules'] ) ) {
+			$update_data['rules'] = sanitize_textarea_field( wp_unslash( $_POST['space_rules'] ) );
+		}
 		if ( isset( $_POST['space_category_id'] ) ) {
 			$update_data['category_id'] = absint( $_POST['space_category_id'] );
 		}
@@ -1139,6 +1142,18 @@ if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
 								rows="3"
 							><?php echo esc_textarea( $space->description ?? '' ); ?></textarea>
 							<p class="bn-space-settings__hint"><?php esc_html_e( '160 characters max. Shown in the spaces directory.', 'buddynext' ); ?></p>
+						</div>
+
+						<div class="bn-space-settings__field">
+							<label for="space_rules"><?php esc_html_e( 'House rules', 'buddynext' ); ?></label>
+							<textarea
+								id="space_rules"
+								name="space_rules"
+								class="bn-textarea"
+								rows="6"
+								placeholder="<?php esc_attr_e( "Be kind\nNo spam\nStay on topic", 'buddynext' ); ?>"
+							><?php echo esc_textarea( $space->rules ?? '' ); ?></textarea>
+							<p class="bn-space-settings__hint"><?php esc_html_e( 'One rule per line. Renders as a numbered list on the About tab.', 'buddynext' ); ?></p>
 						</div>
 
 						<div class="bn-space-settings__field">
