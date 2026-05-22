@@ -103,8 +103,21 @@ if ( ! empty( $bn_context_items ) ) :
 </nav>
 <?php endif; ?>
 
-<?php if ( $bn_nav_current_user ) : ?>
-<nav class="bn-mobile-nav" aria-label="<?php esc_attr_e( 'Mobile navigation', 'buddynext' ); ?>">
+<?php
+if ( $bn_nav_current_user ) :
+	$bn_badge_label = $bn_unread_notifs > 99 ? '99+' : (string) $bn_unread_notifs;
+	$bn_nav_context = wp_json_encode(
+		array(
+			'unreadCount' => (int) $bn_unread_notifs,
+			'unreadLabel' => $bn_badge_label,
+			'restUrl'     => rest_url( 'buddynext/v1/me/notifications' ),
+		)
+	);
+	?>
+<nav class="bn-mobile-nav"
+	aria-label="<?php esc_attr_e( 'Mobile navigation', 'buddynext' ); ?>"
+	data-wp-interactive="buddynext/notifications"
+	data-wp-context='<?php echo esc_attr( (string) $bn_nav_context ); ?>'>
 	<a href="<?php echo esc_url( $bn_nav_urls['feed'] ); ?>" class="bn-mobile-nav__item<?php echo 'feed' === $bn_nav_active ? ' bn-mobile-nav__item--active' : ''; ?>">
 		<?php buddynext_icon( 'home' ); ?>
 		<span><?php esc_html_e( 'Feed', 'buddynext' ); ?></span>
@@ -118,9 +131,12 @@ if ( ! empty( $bn_context_items ) ) :
 	</a>
 	<a href="<?php echo esc_url( $bn_nav_urls['notifications'] ); ?>" class="bn-mobile-nav__item<?php echo 'notifications' === $bn_nav_active ? ' bn-mobile-nav__item--active' : ''; ?>">
 		<?php buddynext_icon( 'bell' ); ?>
-		<?php if ( $bn_unread_notifs > 0 ) : ?>
-			<span class="bn-mobile-nav__badge"><?php echo esc_html( $bn_unread_notifs > 9 ? '9+' : (string) $bn_unread_notifs ); ?></span>
-		<?php endif; ?>
+		<span class="bn-mobile-nav__badge"
+			data-wp-bind--hidden="state.badgeHidden"
+			data-wp-text="state.unreadLabel"
+			<?php echo 0 === $bn_unread_notifs ? 'hidden' : ''; ?>>
+			<?php echo esc_html( $bn_badge_label ); ?>
+		</span>
 		<span><?php esc_html_e( 'Alerts', 'buddynext' ); ?></span>
 	</a>
 	<a href="<?php echo esc_url( PageRouter::profile_url( $bn_nav_current_user ) ); ?>" class="bn-mobile-nav__item">

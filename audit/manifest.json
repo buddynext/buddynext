@@ -220,6 +220,7 @@
     {"key": "space_members", "class": "BuddyNext\\Spaces\\SpaceMemberService", "purpose": "Space membership join/leave/invite/ban"},
     {"key": "notifications", "class": "BuddyNext\\Notifications\\NotificationService", "purpose": "In-app notification create/read/mark-read"},
     {"key": "notification_prefs", "class": "BuddyNext\\Notifications\\NotificationPrefService", "purpose": "Per-user notification preference management"},
+    {"key": "notification_message", "class": "BuddyNext\\Notifications\\NotificationMessageService", "purpose": "Compose human-readable notification copy + deep-link URL + icon for every type"},
     {"key": "email_sender", "class": "BuddyNext\\Notifications\\EmailSender", "purpose": "Transactional email dispatch using bn_email_templates"},
     {"key": "reactions", "class": "BuddyNext\\Reactions\\ReactionService", "purpose": "Reaction toggle and type listing"},
     {"key": "comments", "class": "BuddyNext\\Comments\\CommentService", "purpose": "Comment creation and deletion"},

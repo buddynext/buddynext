@@ -28,6 +28,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use BuddyNext\Core\PageRouter;
+use BuddyNext\Notifications\NotificationMessageService;
 
 global $wpdb;
 
@@ -205,98 +206,28 @@ foreach ( $rows ?? array() as $row ) {
 	}
 }
 
-// Map notification type → type-pill tone + Lucide icon slug.
-$type_meta = array(
-	'bn.post_reacted'         => array(
-		'tone' => 'warn',
-		'icon' => 'heart',
-	),
-	'bn.post_commented'       => array(
-		'tone' => 'accent',
-		'icon' => 'message-circle',
-	),
-	'bn.mention'              => array(
-		'tone' => 'accent',
-		'icon' => 'at-sign',
-	),
-	'bn.new_follower'         => array(
-		'tone' => 'info',
-		'icon' => 'user',
-	),
-	'bn.connection_requested' => array(
-		'tone' => 'info',
-		'icon' => 'users',
-	),
-	'bn.connection_accepted'  => array(
-		'tone' => 'success',
-		'icon' => 'users',
-	),
-	'bn.space_invite'         => array(
-		'tone' => 'accent',
-		'icon' => 'home',
-	),
-	'bn.space_join_requested' => array(
-		'tone' => 'accent',
-		'icon' => 'home',
-	),
-	'bn.space_new_post'       => array(
-		'tone' => 'accent',
-		'icon' => 'home',
-	),
-	'bn.new_message'          => array(
-		'tone' => 'info',
-		'icon' => 'mail',
-	),
-	'bn.badge_awarded'        => array(
-		'tone' => 'warn',
-		'icon' => 'award',
-	),
-	'bn.strike_issued'        => array(
-		'tone' => 'danger',
-		'icon' => 'alert-triangle',
-	),
-	'bn.strike_warning'       => array(
-		'tone' => 'warn',
-		'icon' => 'alert-triangle',
-	),
-	'bn.member_suspended'     => array(
-		'tone' => 'danger',
-		'icon' => 'lock',
-	),
-	'bn.appeal_resolved'      => array(
-		'tone' => 'success',
-		'icon' => 'check-circle',
-	),
-);
-
-// Human-readable type label for the type pill and aria-label.
-$type_label = array(
-	'bn.post_reacted'         => __( 'Reaction', 'buddynext' ),
-	'bn.post_commented'       => __( 'Comment', 'buddynext' ),
-	'bn.mention'              => __( 'Mention', 'buddynext' ),
-	'bn.new_follower'         => __( 'New follower', 'buddynext' ),
-	'bn.connection_requested' => __( 'Connection request', 'buddynext' ),
-	'bn.connection_accepted'  => __( 'Connection accepted', 'buddynext' ),
-	'bn.space_invite'         => __( 'Space invite', 'buddynext' ),
-	'bn.space_join_requested' => __( 'Space join request', 'buddynext' ),
-	'bn.space_new_post'       => __( 'New post in space', 'buddynext' ),
-	'bn.new_message'          => __( 'Message', 'buddynext' ),
-	'bn.badge_awarded'        => __( 'Badge', 'buddynext' ),
-	'bn.strike_issued'        => __( 'Strike', 'buddynext' ),
-	'bn.strike_warning'       => __( 'Strike warning', 'buddynext' ),
-	'bn.member_suspended'     => __( 'Suspension', 'buddynext' ),
-	'bn.appeal_resolved'      => __( 'Appeal resolved', 'buddynext' ),
-);
+// Resolve the message-composer service from the container if available, with
+// a direct instantiation fallback for partial bootstraps.
+$message_service = null;
+if ( function_exists( 'buddynext_service' ) ) {
+	$message_service = buddynext_service( 'notification_message' );
+}
+if ( ! $message_service instanceof NotificationMessageService ) {
+	$message_service = new NotificationMessageService();
+}
 
 /**
- * Return the display name for an actor.
+ * Compose every visible row up-front so render_row() is a pure presenter.
  *
- * @param int $actor_id Actor user ID.
- * @return string Display name (unescaped - escape at the call site).
+ * Returns a map keyed by row id with the message + url + icon + tone + label.
+ *
+ * @var array<int,array<string,mixed>> $composed_rows
  */
-$get_display_name = static function ( int $actor_id ) use ( $actor_data ): string {
-	return $actor_data[ $actor_id ]['display_name'] ?? __( 'Someone', 'buddynext' );
-};
+$composed_rows = array();
+foreach ( $rows ?? array() as $row_obj ) {
+	$row_array                               = (array) $row_obj;
+	$composed_rows[ (int) $row_array['id'] ] = $message_service->compose( $row_array );
+}
 
 /**
  * Render an actor avatar - image when available, initials fallback.
@@ -358,97 +289,50 @@ $rest_url       = esc_url( rest_url( 'buddynext/v1/me/notifications/read-all' ) 
 /**
  * Render a single notification row.
  *
- * @param object   $row              Notification DB row.
- * @param callable $render_avatar    Avatar render closure.
- * @param callable $get_display_name Display name closure.
- * @param callable $time_ago         Time-ago closure.
- * @param array    $type_meta        Type → tone/icon map.
- * @param array    $type_label       Type → human-readable label.
+ * The message, link, icon, tone, and label are pre-composed by
+ * NotificationMessageService::compose() so this closure only handles the
+ * presentation. Adding a new notification type means adding a case to the
+ * service — no template changes required.
+ *
+ * @param object   $row           Notification DB row.
+ * @param array    $payload       Pre-composed presentation payload.
+ * @param callable $render_avatar Avatar render closure.
+ * @param callable $time_ago      Time-ago closure.
  */
-$render_row = static function ( object $row, callable $render_avatar, callable $get_display_name, callable $time_ago, array $type_meta, array $type_label ): void {
+$render_row = static function ( object $row, array $payload, callable $render_avatar, callable $time_ago ): void {
 	$is_unread   = ! (bool) $row->is_read;
 	$actor_id    = (int) $row->sender_id;
-	$notif_type  = $row->type ?? '';
-	$meta        = $type_meta[ $notif_type ] ?? array(
-		'tone' => 'info',
-		'icon' => 'bell',
-	);
-	$pill_label  = $type_label[ $notif_type ] ?? __( 'Notification', 'buddynext' );
-	$group_count = isset( $row->group_count ) ? (int) $row->group_count : 1;
+	$notif_type  = (string) ( $row->type ?? '' );
 	$row_class   = 'bn-notif-row' . ( $is_unread ? ' bn-notif-row--unread' : '' );
-	$object_id   = isset( $row->object_id ) ? (int) $row->object_id : 0;
+	$message     = (string) ( $payload['message'] ?? '' );
+	$actor_name  = (string) ( $payload['actor_name'] ?? '' );
+	$link_url    = (string) ( $payload['url'] ?? '' );
+	$icon        = (string) ( $payload['icon'] ?? 'bell' );
+	$tone        = (string) ( $payload['tone'] ?? 'info' );
+	$pill_label  = (string) ( $payload['label'] ?? __( 'Notification', 'buddynext' ) );
+	$group_count = (int) ( $payload['group_count'] ?? 1 );
 
-	// Derive the navigation URL for this notification type.
-	$link_url = match ( $notif_type ) {
-		'bn.new_follower', 'bn.connection_requested', 'bn.connection_accepted'
-			=> $actor_id ? PageRouter::profile_url( $actor_id ) : '',
-		'bn.space_invite', 'bn.space_join_requested', 'bn.space_new_post'
-			=> $object_id ? PageRouter::space_url( $object_id ) : '',
-		'bn.new_message'
-			=> PageRouter::messages_url(),
-		'bn.post_reacted', 'bn.post_commented', 'bn.mention'
-			=> $object_id ? add_query_arg( 'post_id', $object_id, PageRouter::activity_url() ) : '',
-		default => '',
-	};
-
-	// Compose the notification message.
-	if ( $group_count > 1 ) {
-		$others           = $group_count - 1;
-		$grouped_messages = array(
-			'bn.new_follower'   => sprintf(
-				/* translators: 1: actor display name, 2: number of other users */
-				_n( '%1$s and %2$d other started following you.', '%1$s and %2$d others started following you.', $others, 'buddynext' ),
-				$get_display_name( $actor_id ),
-				$others
-			),
-			'bn.post_reacted'   => sprintf(
-				/* translators: 1: actor display name, 2: number of other users */
-				_n( '%1$s and %2$d other reacted to your post.', '%1$s and %2$d others reacted to your post.', $others, 'buddynext' ),
-				$get_display_name( $actor_id ),
-				$others
-			),
-			'bn.post_commented' => sprintf(
-				/* translators: 1: actor display name, 2: number of other users */
-				_n( '%1$s and %2$d other commented on your post.', '%1$s and %2$d others commented on your post.', $others, 'buddynext' ),
-				$get_display_name( $actor_id ),
-				$others
-			),
-			'bn.space_new_post' => sprintf(
-				/* translators: 1: actor display name, 2: number of other users */
-				_n( '%1$s and %2$d other posted in a space you follow.', '%1$s and %2$d others posted in a space you follow.', $others, 'buddynext' ),
-				$get_display_name( $actor_id ),
-				$others
-			),
+	// Wrap the actor name in <strong> for visual emphasis without breaking
+	// translator placeholder ordering. We do this by escaping the message
+	// (which includes the actor name) and then substituting the escaped
+	// actor name token for the bolded variant. This keeps every string
+	// passing through esc_html and matches the v2 wireframe.
+	$rendered = esc_html( $message );
+	if ( '' !== $actor_name && false !== strpos( $message, $actor_name ) ) {
+		$rendered = str_replace(
+			esc_html( $actor_name ),
+			'<strong>' . esc_html( $actor_name ) . '</strong>',
+			$rendered
 		);
-		$message_text     = $grouped_messages[ $notif_type ] ?? '';
-	} else {
-		$message_text = '';
 	}
-
-	$type_messages = array(
-		'bn.post_reacted'         => __( 'reacted to your post.', 'buddynext' ),
-		'bn.post_commented'       => __( 'commented on your post.', 'buddynext' ),
-		'bn.mention'              => __( 'mentioned you in a post.', 'buddynext' ),
-		'bn.new_follower'         => __( 'started following you.', 'buddynext' ),
-		'bn.connection_requested' => __( 'sent you a connection request.', 'buddynext' ),
-		'bn.connection_accepted'  => __( 'accepted your connection request.', 'buddynext' ),
-		'bn.space_invite'         => __( 'invited you to a space.', 'buddynext' ),
-		'bn.space_join_requested' => __( 'requested to join your space.', 'buddynext' ),
-		'bn.space_new_post'       => __( 'posted in a space you follow.', 'buddynext' ),
-		'bn.new_message'          => __( 'sent you a message.', 'buddynext' ),
-		'bn.badge_awarded'        => __( 'You earned a new badge.', 'buddynext' ),
-		'bn.strike_issued'        => __( 'You received a strike.', 'buddynext' ),
-		'bn.strike_warning'       => __( 'Strike warning issued.', 'buddynext' ),
-		'bn.member_suspended'     => __( 'Your account has been suspended.', 'buddynext' ),
-		'bn.appeal_resolved'      => __( 'Your appeal has been reviewed.', 'buddynext' ),
-	);
 	?>
 	<div class="<?php echo esc_attr( $row_class ); ?>"
 		role="listitem"
 		data-interactive
 		data-wp-on--click="actions.markRead"
 		data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>"
-		<?php if ( $link_url ) : ?>
+		data-notif-type="<?php echo esc_attr( $notif_type ); ?>"
+		<?php if ( '' !== $link_url ) : ?>
 			data-notif-link="<?php echo esc_url( $link_url ); ?>"
 		<?php endif; ?>>
 
@@ -458,26 +342,26 @@ $render_row = static function ( object $row, callable $render_avatar, callable $
 
 		<div class="bn-notif-row__avatar-wrap">
 			<?php $render_avatar( $actor_id ); ?>
-			<span class="bn-notif-row__type" data-tone="<?php echo esc_attr( $meta['tone'] ); ?>" aria-label="<?php echo esc_attr( $pill_label ); ?>">
-				<?php buddynext_icon( $meta['icon'] ); ?>
+			<span class="bn-notif-row__type" data-tone="<?php echo esc_attr( $tone ); ?>" aria-label="<?php echo esc_attr( $pill_label ); ?>">
+				<?php buddynext_icon( $icon ); ?>
 			</span>
 		</div>
 
 		<div class="bn-notif-row__body">
 			<div class="bn-notif-row__text">
-				<?php if ( '' !== $message_text ) : ?>
-					<?php echo esc_html( $message_text ); ?>
-				<?php else : ?>
-					<strong><?php echo esc_html( $get_display_name( $actor_id ) ); ?></strong>
-					<?php
-					$default_msg = $type_messages[ $notif_type ] ?? __( 'sent you a notification.', 'buddynext' );
-					echo ' ' . esc_html( $default_msg );
-					?>
+				<?php
+				// $rendered is built from esc_html()'d output with a single
+				// <strong> wrap around the (already-escaped) actor name, so
+				// the resulting HTML is safe to emit.
+				echo $rendered; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above.
+				?>
+				<?php if ( $group_count > 1 ) : ?>
+					<span class="bn-notif-row__group" aria-hidden="true"><?php echo esc_html( '×' . (string) $group_count ); ?></span>
 				<?php endif; ?>
 			</div>
 
 			<div class="bn-notif-row__meta">
-				<span class="bn-badge" data-tone="<?php echo esc_attr( $meta['tone'] ); ?>"><?php echo esc_html( $pill_label ); ?></span>
+				<span class="bn-badge" data-tone="<?php echo esc_attr( $tone ); ?>"><?php echo esc_html( $pill_label ); ?></span>
 				<time class="bn-notif-row__time" datetime="<?php echo esc_attr( mysql2date( DATE_W3C, $row->created_at, false ) ); ?>"><?php echo esc_html( $time_ago( $row->created_at ) ); ?></time>
 			</div>
 
@@ -498,6 +382,14 @@ $render_row = static function ( object $row, callable $render_avatar, callable $
 				</div>
 			<?php elseif ( $is_unread ) : ?>
 				<div class="bn-notif-row__actions">
+					<?php if ( '' !== $link_url ) : ?>
+						<a class="bn-btn" data-variant="ghost" data-size="sm"
+							href="<?php echo esc_url( $link_url ); ?>"
+							data-wp-on--click="actions.openAndMark"
+							data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>">
+							<?php esc_html_e( 'Open', 'buddynext' ); ?>
+						</a>
+					<?php endif; ?>
 					<button class="bn-btn" data-variant="ghost" data-size="sm"
 						data-wp-on--click="actions.markReadOnly"
 						data-notif-id="<?php echo esc_attr( (string) $row->id ); ?>"
@@ -677,9 +569,21 @@ add_action(
  */
 do_action( 'buddynext_notifications_before', $current_user_id );
 ?>
+<?php
+$initial_context = wp_json_encode(
+	array(
+		'markedAll'    => false,
+		'activeFilter' => $active_filter,
+		'nonce'        => $mark_all_nonce,
+		'restUrl'      => rest_url( 'buddynext/v1/me/notifications' ),
+		'unreadCount'  => $total_unread,
+		'hasError'     => false,
+	)
+);
+?>
 <div class="bn-notifs-main"
 	data-wp-interactive="buddynext/notifications"
-	data-wp-context='{"markedAll":false,"activeFilter":"<?php echo esc_attr( $active_filter ); ?>","nonce":"<?php echo esc_attr( $mark_all_nonce ); ?>","restUrl":"<?php echo esc_url( rest_url( 'buddynext/v1/me/notifications' ) ); ?>"}'>
+	data-wp-context='<?php echo esc_attr( (string) $initial_context ); ?>'>
 
 	<header class="bn-section-head">
 		<div class="bn-section-head__lead">
@@ -687,13 +591,14 @@ do_action( 'buddynext_notifications_before', $current_user_id );
 				<h1 class="bn-section-head__title">
 					<?php esc_html_e( 'Notifications', 'buddynext' ); ?>
 					<?php if ( $total_unread > 0 ) : ?>
-						<span class="bn-badge" data-tone="accent">
+						<span class="bn-badge" data-tone="accent" data-wp-text="state.unreadLabel">
 						<?php
+						$display = $total_unread > 99 ? '99+' : (string) $total_unread;
 						echo esc_html(
 							sprintf(
-								/* translators: %d is the number of unread notifications. */
-								_n( '%d new', '%d new', $total_unread, 'buddynext' ),
-								min( $total_unread, 99 )
+								/* translators: %s is the formatted number of unread notifications (e.g. "12" or "99+"). */
+								__( '%s new', 'buddynext' ),
+								$display
 							)
 						);
 						?>
@@ -800,20 +705,79 @@ do_action( 'buddynext_notifications_before', $current_user_id );
 			<div class="bn-card bn-notif-list" data-v2 role="list">
 				<?php
 				foreach ( $group_rows as $notif_row ) {
-					$render_row( $notif_row, $render_avatar, $get_display_name, $time_ago, $type_meta, $type_label );
+					$payload = $composed_rows[ (int) $notif_row->id ] ?? array();
+					$render_row( $notif_row, $payload, $render_avatar, $time_ago );
 				}
 				?>
 			</div>
 		</section>
 	<?php endforeach; ?>
 
-	<?php if ( ! $has_any ) : ?>
-		<div class="bn-card bn-notif-empty" data-v2>
-			<span class="bn-notif-empty__emblem" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
-			<p class="bn-notif-empty__title"><?php esc_html_e( 'All caught up', 'buddynext' ); ?></p>
-			<p class="bn-notif-empty__sub"><?php esc_html_e( 'No notifications match this filter. New activity will show up here.', 'buddynext' ); ?></p>
+	<?php
+	if ( ! $has_any ) :
+		// Filter-specific empty-state copy so each tab tells the user what
+		// they should see when activity exists for that category.
+		$empty_copy  = array(
+			'all'      => array(
+				'title' => __( "You're all caught up", 'buddynext' ),
+				'sub'   => __( 'New activity will show here. Try posting something or following a few members to get started.', 'buddynext' ),
+				'icon'  => 'check-circle',
+			),
+			'unread'   => array(
+				'title' => __( 'No unread notifications', 'buddynext' ),
+				'sub'   => __( 'Everything has been read. Use the filters on the left to revisit older activity.', 'buddynext' ),
+				'icon'  => 'check-circle',
+			),
+			'mention'  => array(
+				'title' => __( 'No mentions yet', 'buddynext' ),
+				'sub'   => __( 'When someone mentions you in a post or a comment, it will appear here.', 'buddynext' ),
+				'icon'  => 'at-sign',
+			),
+			'comment'  => array(
+				'title' => __( 'No comments yet', 'buddynext' ),
+				'sub'   => __( 'Comments on your posts will appear here.', 'buddynext' ),
+				'icon'  => 'message-circle',
+			),
+			'reaction' => array(
+				'title' => __( 'No reactions yet', 'buddynext' ),
+				'sub'   => __( 'Reactions to your posts will appear here.', 'buddynext' ),
+				'icon'  => 'heart',
+			),
+			'follow'   => array(
+				'title' => __( 'No follow activity', 'buddynext' ),
+				'sub'   => __( 'New followers, connection requests, and accepted connections will appear here.', 'buddynext' ),
+				'icon'  => 'users',
+			),
+			'space'    => array(
+				'title' => __( 'No space activity', 'buddynext' ),
+				'sub'   => __( 'Invites, join requests, and new posts in your spaces will appear here.', 'buddynext' ),
+				'icon'  => 'home',
+			),
+			'message'  => array(
+				'title' => __( 'No new messages', 'buddynext' ),
+				'sub'   => __( 'Direct messages will appear here when someone reaches out.', 'buddynext' ),
+				'icon'  => 'mail',
+			),
+		);
+		$empty_state = $empty_copy[ $active_filter ] ?? $empty_copy['all'];
+		?>
+		<div class="bn-card bn-notif-empty" data-v2 role="status">
+			<span class="bn-notif-empty__emblem" aria-hidden="true"><?php buddynext_icon( $empty_state['icon'] ); ?></span>
+			<p class="bn-notif-empty__title"><?php echo esc_html( $empty_state['title'] ); ?></p>
+			<p class="bn-notif-empty__sub"><?php echo esc_html( $empty_state['sub'] ); ?></p>
+			<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( PageRouter::activity_url() ); ?>">
+				<?php esc_html_e( 'Go to activity', 'buddynext' ); ?>
+			</a>
 		</div>
 	<?php endif; ?>
+
+	<div class="bn-notif-error" hidden role="alert" data-wp-bind--hidden="!state.hasError">
+		<span class="bn-notif-error__emblem" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
+		<p class="bn-notif-error__title"><?php esc_html_e( 'Could not load notifications.', 'buddynext' ); ?></p>
+		<button class="bn-btn" data-variant="secondary" data-size="sm" data-wp-on--click="actions.retry">
+			<?php esc_html_e( 'Try again', 'buddynext' ); ?>
+		</button>
+	</div>
 
 	<?php if ( $has_any && $total_pages > 1 ) : ?>
 		<nav class="bn-notif-pagination" aria-label="<?php esc_attr_e( 'Notifications pagination', 'buddynext' ); ?>">

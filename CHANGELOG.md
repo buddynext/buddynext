@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Notifications (production)
+
+- Every notification type now renders human-readable copy via the new `NotificationMessageService`. The fallback "memberX sent you a notification" string is gone. Exhaustive message map is documented in `docs/specs/NOTIFICATION-MESSAGES.md` covering 30+ types across social graph, feed activity, spaces, messages, moderation, growth, and bridges. Adding a new type now requires adding a switch case + spec row + test — no template changes.
+- `NotificationMessageService::compose()` is the single source of truth used by `templates/notifications/index.php`, `GET /me/notifications` (response now includes `message`, `url`, `icon`, `tone`, `label`, `actor_name`), the nav-dropdown partial, and the email-token resolver.
+- Group-collapse copy uses `_n()` so "X and N others" renders correctly in every plural form.
+- Empty / error states — each filter tab (All / Unread / Mentions / Comments / Reactions / People / Spaces / Messages) renders its own empty copy + emblem + CTA. A REST-failure error block surfaces a retry button.
+- Unread badge reactive — Interactivity store exposes `state.unreadCount`, `state.unreadLabel`, `state.badgeHidden` with 99+ cap. Mark-as-read / mark-all-read use optimistic UI with rollback toast on 4xx. Mobile nav badge now uses the same store.
+- `docs/qa/PRODUCTION-READINESS.md` row 10 flipped from `broken` to `prod`.
+
 ### Testing
 
 - Added Playwright e2e suite under `tests/e2e/` covering every BN user journey across desktop, iPad, and mobile viewports. Run `npm run test:e2e`. See `docs/qa/JOURNEYS.md` for the journey catalogue (67 journeys grouped by role) and `docs/qa/HOW-TO-RUN.md` for the runbook. New devDeps: `@playwright/test`, `typescript`, `@types/node`.
