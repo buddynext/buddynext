@@ -70,6 +70,17 @@ if ( $sidebar_user_id > 0 ) {
 		)
 	);
 }
+
+// "This week" upcoming events. Renders for guests too — events are
+// public and discovery-friendly. Bails silently with an empty-state
+// row when no events are scheduled in the next 7 days.
+buddynext_get_template(
+	'parts/sidebar-upcoming-events.php',
+	array(
+		'user_id' => $sidebar_user_id,
+		'limit'   => 5,
+	)
+);
 ?>
 
 <div class="bn-sidebar-card">
