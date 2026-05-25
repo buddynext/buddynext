@@ -81,6 +81,17 @@ buddynext_get_template(
 		'limit'   => 5,
 	)
 );
+
+// "By role" member-summary card — surfaces total members + per-role
+// counts. Scoped to the member-directory hub (matches the v2 prototype
+// placement) so feed / messages / notifications keep their leaner
+// sidebars. Filterable so site owners can broaden the scope.
+// The member-directory composer wires its own sidebar (online-now +
+// member-types) and consequently doesn't include this partial. The BY
+// ROLE card lives next to those member-directory-specific cards, so it
+// registers directly from templates/directory/members.php rather than
+// here. This partial intentionally does NOT add it — that would
+// double-render on any future surface that ever opts both paths in.
 ?>
 
 <div class="bn-sidebar-card">

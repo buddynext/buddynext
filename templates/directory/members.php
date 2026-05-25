@@ -303,6 +303,17 @@ $bn_online_rows = $wpdb->get_results(
 );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
+// "By role" member-summary card — total + admin + moderator + top
+// member-types. Pattern D-4 from the v2 prototype member-directory
+// sidebar. Renders independently of the online-now / member-type-rows
+// callbacks below.
+add_action(
+	'buddynext_right_sidebar',
+	static function (): void {
+		buddynext_get_template( 'parts/sidebar-by-role.php' );
+	}
+);
+
 if ( ! empty( $bn_online_rows ) ) {
 	$bn_online_count = (int) count( $bn_online_rows );
 	add_action(

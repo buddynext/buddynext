@@ -424,6 +424,20 @@ add_action(
 			'parts/notifications-sidecard-prefs.php',
 			array()
 		);
+
+		// "This week" engagement stats card (Pattern D-6). Surfaces a 2×2
+		// stat grid: notifications received with WoW delta, read rate,
+		// new followers, total reactions + comments received. Personal so
+		// it only renders for logged-in viewers.
+		$bn_stats_uid = (int) get_current_user_id();
+		if ( $bn_stats_uid > 0 ) {
+			buddynext_get_template(
+				'parts/sidebar-this-week-stats.php',
+				array(
+					'user_id' => $bn_stats_uid,
+				)
+			);
+		}
 	}
 );
 
