@@ -487,188 +487,48 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 >
 
 	<!-- Hero -->
-	<section class="bn-sh-hero">
-		<div class="bn-sh-hero__cover"<?php echo empty( $space->cover_image_url ) ? '' : ' style="background-image:url(' . esc_url( $space->cover_image_url ) . ');background-size:cover;background-position:center;"'; ?>>
-			<span class="bn-sh-hero__cover-tone" aria-hidden="true"></span>
-		</div>
-
-		<div class="bn-sh-hero__head">
-			<div class="bn-sh-hero__emblem" aria-hidden="true">
-				<?php echo wp_kses_data( bn_space_category_icon( $space->category_slug ?? '' ) ); ?>
-			</div>
-
-			<div class="bn-sh-hero__info">
-				<h1 class="bn-sh-hero__name">
-					<?php echo esc_html( $space->name ); ?>
-					<span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span>
-				</h1>
-				<?php if ( ! empty( $space->category_name ) ) : ?>
-					<div class="bn-sh-hero__handle">
-						<?php buddynext_icon( 'hash' ); ?>
-						<?php echo esc_html( $space->category_name ); ?>
-					</div>
-				<?php endif; ?>
-			</div>
-
-			<div class="bn-sh-hero__actions" data-space-id="<?php echo esc_attr( (string) $space_id ); ?>">
-				<?php if ( $is_guest ) : ?>
-					<a
-						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space->slug ) ) ); ?>"
-						class="bn-btn"
-						data-variant="primary"
-						data-size="sm"
-					><?php esc_html_e( 'Log in to join', 'buddynext' ); ?></a>
-				<?php elseif ( $is_member ) : ?>
-					<div class="bn-sh-notif" data-bn-notif-popover>
-						<button
-							type="button"
-							class="bn-btn"
-							data-variant="ghost"
-							data-size="sm"
-							aria-haspopup="listbox"
-							aria-expanded="false"
-							aria-label="<?php esc_attr_e( 'Notification preferences', 'buddynext' ); ?>"
-							data-bn-notif-trigger
-							data-wp-on--click="actions.toggleNotifPopover"
-						><?php buddynext_icon( 'bell' ); ?></button>
-						<ul class="bn-sh-notif__list" role="listbox" hidden data-bn-notif-list>
-							<?php
-							$bn_notif_options = array(
-								'all'      => __( 'All activity', 'buddynext' ),
-								'mentions' => __( 'Mentions only', 'buddynext' ),
-								'none'     => __( 'None', 'buddynext' ),
-							);
-							foreach ( $bn_notif_options as $bn_pref_val => $bn_pref_label ) :
-								?>
-								<li>
-									<button
-										type="button"
-										class="bn-sh-notif__option"
-										role="option"
-										aria-selected="<?php echo ( $bn_notif_pref === $bn_pref_val ) ? 'true' : 'false'; ?>"
-										data-bn-notif-pref="<?php echo esc_attr( $bn_pref_val ); ?>"
-										data-wp-on--click="actions.setNotificationPref"
-									><?php echo esc_html( $bn_pref_label ); ?></button>
-								</li>
-							<?php endforeach; ?>
-						</ul>
-					</div>
-				<?php endif; ?>
-
-				<?php if ( $is_admin_mod ) : ?>
-					<button
-						type="button"
-						class="bn-btn"
-						data-variant="secondary"
-						data-size="sm"
-						data-wp-on--click="actions.openInviteModal"
-					><?php buddynext_icon( 'user-plus' ); ?> <?php esc_html_e( 'Invite', 'buddynext' ); ?></button>
-					<a
-						href="<?php echo esc_url( buddynext_space_settings_url( $space->slug ) ); ?>"
-						class="bn-btn"
-						data-variant="secondary"
-						data-size="sm"
-					><?php buddynext_icon( 'settings' ); ?> <?php esc_html_e( 'Settings', 'buddynext' ); ?></a>
-
-				<?php elseif ( $is_member ) : ?>
-					<button
-						class="bn-btn"
-						data-variant="secondary"
-						data-size="sm"
-						data-current-state="joined"
-						data-wp-on--click="actions.leaveSpace"
-						aria-label="<?php esc_attr_e( 'Joined - click to leave', 'buddynext' ); ?>"
-					><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Joined', 'buddynext' ); ?></button>
-
-				<?php elseif ( $is_pending ) : ?>
-					<button
-						class="bn-btn"
-						data-variant="ghost"
-						data-size="sm"
-						data-current-state="pending"
-						data-wp-on--click="actions.cancelJoinRequest"
-					><?php esc_html_e( 'Request pending', 'buddynext' ); ?></button>
-
-				<?php elseif ( 'open' === $space->type ) : ?>
-					<button
-						class="bn-btn"
-						data-variant="primary"
-						data-size="sm"
-						data-current-state="join"
-						data-wp-on--click="actions.joinSpace"
-					><?php esc_html_e( 'Join space', 'buddynext' ); ?></button>
-
-				<?php else : ?>
-					<button
-						class="bn-btn"
-						data-variant="primary"
-						data-size="sm"
-						data-current-state="request"
-						data-wp-on--click="actions.requestJoin"
-					><?php esc_html_e( 'Request to join', 'buddynext' ); ?></button>
-				<?php endif; ?>
-			</div>
-		</div>
-
-		<?php
-		// 4-tile stat strip composed via parts/stat-strip.php (Members / Posts / Active / Created).
-		$bn_stats = array(
-			array(
-				'label' => __( 'Members', 'buddynext' ),
-				'value' => $member_count_fmt,
-				'icon'  => 'users',
-			),
-			array(
-				'label' => __( 'Posts', 'buddynext' ),
-				'value' => number_format_i18n( $bn_post_count ),
-				'icon'  => 'message-circle',
-			),
-			array(
-				'label' => __( 'Active 7d', 'buddynext' ),
-				'value' => number_format_i18n( $bn_active_count ),
-				'icon'  => 'activity',
-			),
-			array(
-				'label' => __( 'Created', 'buddynext' ),
-				'value' => ! empty( $space->created_at ) ? date_i18n( 'M Y', strtotime( $space->created_at ) ) : '—',
-				'icon'  => 'calendar',
-			),
-		);
-		buddynext_get_template(
-			'parts/stat-strip.php',
-			array(
-				'stats'   => $bn_stats,
-				'classes' => array( 'bn-sh-hero__stats' ),
-			)
-		);
-		?>
-
-		<nav class="bn-tabs bn-sh-hero__tabs" role="tablist" aria-label="<?php esc_attr_e( 'Space navigation', 'buddynext' ); ?>">
-			<?php
-			foreach ( $bn_nav_tabs as $tab_key => $tab_data ) :
-				if ( is_array( $tab_data ) ) {
-					// External-link tab injected by an addon.
-					$tab_label  = $tab_data['label'] ?? $tab_key;
-					$tab_url    = $tab_data['url'] ?? '#';
-					$tab_active = false;
-					$tab_rel    = 'noopener';
-				} else {
-					$tab_label  = $tab_data;
-					$tab_url    = add_query_arg( 'bn_tab', $tab_key );
-					$tab_active = ( $active_tab === $tab_key );
-					$tab_rel    = '';
-				}
-				?>
-				<a
-					href="<?php echo esc_url( $tab_url ); ?>"
-					class="bn-tab<?php echo $tab_active ? ' is-active' : ''; ?>"
-					role="tab"
-					aria-selected="<?php echo $tab_active ? 'true' : 'false'; ?>"
-					<?php echo $tab_rel ? 'rel="' . esc_attr( $tab_rel ) . '"' : ''; ?>
-				><span class="bn-tab__label"><?php echo esc_html( $tab_label ); ?></span></a>
-			<?php endforeach; ?>
-		</nav>
-	</section>
+	<?php
+	$bn_hero_stats = array(
+		array(
+			'label' => __( 'Members', 'buddynext' ),
+			'value' => $member_count_fmt,
+			'icon'  => 'users',
+		),
+		array(
+			'label' => __( 'Posts', 'buddynext' ),
+			'value' => number_format_i18n( $bn_post_count ),
+			'icon'  => 'message-circle',
+		),
+		array(
+			'label' => __( 'Active 7d', 'buddynext' ),
+			'value' => number_format_i18n( $bn_active_count ),
+			'icon'  => 'activity',
+		),
+		array(
+			'label' => __( 'Created', 'buddynext' ),
+			'value' => ! empty( $space->created_at ) ? date_i18n( 'M Y', strtotime( $space->created_at ) ) : '—',
+			'icon'  => 'calendar',
+		),
+	);
+	buddynext_get_template(
+		'parts/space-hero.php',
+		array(
+			'space'           => $space,
+			'space_id'        => $space_id,
+			'current_user_id' => $current_user_id,
+			'is_member'       => $is_member,
+			'is_owner'        => $is_admin_mod,
+			'is_pending'      => $is_pending,
+			'is_guest'        => $is_guest,
+			'privacy_label'   => $privacy_label,
+			'privacy_tone'    => $privacy_tone,
+			'notif_pref'      => $bn_notif_pref,
+			'stats'           => $bn_hero_stats,
+			'active_tab'      => $active_tab,
+			'tabs'            => $bn_nav_tabs,
+		)
+	);
+	?>
 
 	<!-- Tab body -->
 	<div class="bn-sh-body">
@@ -796,131 +656,19 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 		<?php elseif ( 'members' === $active_tab && ! $gate_feed ) : ?>
 
 			<?php
-			// Members tab — All / Owners / Moderators / Members filter chips.
 			$bn_member_filter = isset( $_GET['bn_role'] ) ? sanitize_key( wp_unslash( $_GET['bn_role'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			if ( ! in_array( $bn_member_filter, array( '', 'owner', 'moderator', 'member' ), true ) ) {
-				$bn_member_filter = '';
-			}
-
-			// Server-side filter — match against the active role. The dataset is
-			// capped at 100 by the parent query, so client-side filter would lie
-			// about hidden rows. Keep it server-side and honest.
-			$bn_filtered_members = array();
-			foreach ( $bn_full_members as $bn_pm ) {
-				if ( '' === $bn_member_filter || $bn_pm->role === $bn_member_filter ) {
-					$bn_filtered_members[] = $bn_pm;
-				}
-			}
-
-			$bn_member_filters = array(
-				''          => __( 'All', 'buddynext' ),
-				'owner'     => __( 'Owners', 'buddynext' ),
-				'moderator' => __( 'Moderators', 'buddynext' ),
-				'member'    => __( 'Members', 'buddynext' ),
-			);
-
-			$bn_filter_empty_messages = array(
-				''          => __( 'No members yet.', 'buddynext' ),
-				'owner'     => __( 'No owners yet.', 'buddynext' ),
-				'moderator' => __( 'No moderators yet.', 'buddynext' ),
-				'member'    => __( 'No members in this role yet.', 'buddynext' ),
+			buddynext_get_template(
+				'parts/space-members-panel.php',
+				array(
+					'space'            => $space,
+					'members'          => $bn_full_members,
+					'top_contributors' => $top_contributors,
+					'viewer_id'        => $current_user_id,
+					'member_count_fmt' => $member_count_fmt,
+					'active_role'      => $bn_member_filter,
+				)
 			);
 			?>
-			<div class="bn-card bn-sh-members">
-				<header class="bn-sh-members__head">
-					<h2 class="bn-sh-members__title"><?php esc_html_e( 'Members', 'buddynext' ); ?></h2>
-					<p class="bn-sh-members__count">
-						<?php
-						printf(
-							/* translators: %s: formatted member count. */
-							esc_html( _n( '%s member', '%s members', (int) $space->member_count, 'buddynext' ) ),
-							esc_html( $member_count_fmt )
-						);
-						?>
-					</p>
-				</header>
-
-				<nav class="bn-tabs bn-sh-members__filter-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter members by role', 'buddynext' ); ?>">
-					<?php foreach ( $bn_member_filters as $bn_role_val => $bn_role_label_chip ) : ?>
-						<a
-							href="
-							<?php
-							echo esc_url(
-								add_query_arg(
-									array(
-										'bn_tab'  => 'members',
-										'bn_role' => $bn_role_val,
-									)
-								)
-							);
-							?>
-									"
-							class="bn-tab bn-sd-chip"
-							role="tab"
-							aria-selected="<?php echo ( $bn_member_filter === $bn_role_val ) ? 'true' : 'false'; ?>"
-						><?php echo esc_html( $bn_role_label_chip ); ?></a>
-					<?php endforeach; ?>
-				</nav>
-
-				<?php if ( empty( $bn_filtered_members ) ) : ?>
-					<p class="bn-sh-members__empty"><?php echo esc_html( $bn_filter_empty_messages[ $bn_member_filter ] ?? $bn_filter_empty_messages[''] ); ?></p>
-				<?php else : ?>
-					<ul class="bn-sh-members__grid" role="list">
-						<?php foreach ( $bn_filtered_members as $bn_fm ) : ?>
-							<?php
-							$bn_fm_uid    = (int) $bn_fm->user_id;
-							$bn_fm_name   = ! empty( $bn_fm->display_name ) ? $bn_fm->display_name : $bn_fm->user_login;
-							$bn_fm_avatar = get_avatar_url( $bn_fm_uid, array( 'size' => 80 ) );
-							$bn_fm_role   = in_array( $bn_fm->role, array( 'owner', 'moderator', 'member' ), true ) ? $bn_fm->role : 'member';
-							$bn_role_tone = match ( $bn_fm_role ) {
-								'owner'     => 'accent',
-								'moderator' => 'info',
-								default     => 'default',
-							};
-							$bn_role_label = match ( $bn_fm_role ) {
-								'owner'     => __( 'Owner', 'buddynext' ),
-								'moderator' => __( 'Moderator', 'buddynext' ),
-								default     => __( 'Member', 'buddynext' ),
-							};
-							$bn_fm_profile = function_exists( 'buddynext_member_url' )
-								? buddynext_member_url( $bn_fm_uid )
-								: get_author_posts_url( $bn_fm_uid );
-	?>
-							<li class="bn-sh-members__card" role="listitem">
-								<a href="<?php echo esc_url( $bn_fm_profile ); ?>" class="bn-sh-members__avatar-link">
-									<span class="bn-avatar" data-size="md" aria-hidden="true">
-										<?php if ( $bn_fm_avatar ) : ?>
-											<img src="<?php echo esc_url( $bn_fm_avatar ); ?>" alt="" loading="lazy">
-										<?php else : ?>
-											<?php echo esc_html( strtoupper( mb_substr( $bn_fm_name, 0, 1 ) ) ); ?>
-										<?php endif; ?>
-									</span>
-								</a>
-								<div class="bn-sh-members__info">
-									<a href="<?php echo esc_url( $bn_fm_profile ); ?>" class="bn-sh-members__name">
-										<?php echo esc_html( $bn_fm_name ); ?>
-									</a>
-									<span class="bn-badge" data-tone="<?php echo esc_attr( $bn_role_tone ); ?>"><?php echo esc_html( $bn_role_label ); ?></span>
-								</div>
-								<?php if ( $current_user_id && $current_user_id !== $bn_fm_uid ) : ?>
-									<div class="bn-sh-members__actions">
-										<?php
-										buddynext_get_template(
-											'partials/follow-button.php',
-											array( 'user_id' => $bn_fm_uid )
-										);
-										buddynext_get_template(
-											'partials/connection-button.php',
-											array( 'user_id' => $bn_fm_uid )
-										);
-										?>
-									</div>
-								<?php endif; ?>
-							</li>
-						<?php endforeach; ?>
-					</ul>
-				<?php endif; ?>
-			</div>
 
 		<?php elseif ( 'moderation' === $active_tab && $is_admin_mod ) : ?>
 
@@ -939,167 +687,37 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 		<?php elseif ( 'about' === $active_tab ) : ?>
 
 			<?php
-			// About tab — description, rules, categories, metadata. Rules are
-			// rendered from the bn_spaces.rules column (one per line). Empty
-			// sections (no rules, no category) collapse so we don't render
-			// orphan headings.
-			$bn_about_rules_raw = isset( $space->rules ) ? (string) $space->rules : '';
-			$bn_about_rules     = array();
-			if ( '' !== trim( $bn_about_rules_raw ) ) {
-				foreach ( preg_split( "/\r\n|\n|\r/", $bn_about_rules_raw ) as $bn_rule_line ) {
-					$bn_rule_line = trim( $bn_rule_line );
-					if ( '' !== $bn_rule_line ) {
-						$bn_about_rules[] = $bn_rule_line;
-					}
-				}
-			}
+			buddynext_get_template(
+				'parts/space-about-panel.php',
+				array(
+					'space' => $space,
+					'meta'  => array(
+						'privacy_label'    => $privacy_label,
+						'privacy_tone'     => $privacy_tone,
+						'member_count_fmt' => $member_count_fmt,
+					),
+				)
+			);
 			?>
-			<div class="bn-card bn-sh-about">
-				<h2 class="bn-sh-about__title"><?php esc_html_e( 'About', 'buddynext' ); ?></h2>
-				<?php if ( ! empty( $space->description ) ) : ?>
-					<div class="bn-sh-about__desc"><?php echo wp_kses_post( wpautop( $space->description ) ); ?></div>
-				<?php else : ?>
-					<p class="bn-sh-about__desc"><?php esc_html_e( 'No description yet.', 'buddynext' ); ?></p>
-				<?php endif; ?>
-
-				<?php if ( ! empty( $bn_about_rules ) ) : ?>
-					<section class="bn-sh-about__rules">
-						<h3 class="bn-sh-about__section-title"><?php esc_html_e( 'House rules', 'buddynext' ); ?></h3>
-						<ol class="bn-sh-about__rules-list">
-							<?php foreach ( $bn_about_rules as $bn_rule ) : ?>
-								<li><?php echo esc_html( $bn_rule ); ?></li>
-							<?php endforeach; ?>
-						</ol>
-					</section>
-				<?php endif; ?>
-
-				<?php if ( ! empty( $space->category_name ) && ! empty( $space->category_slug ) ) : ?>
-					<section class="bn-sh-about__categories">
-						<h3 class="bn-sh-about__section-title"><?php esc_html_e( 'Category', 'buddynext' ); ?></h3>
-						<div class="bn-sh-about__cat-chips">
-							<a
-								href="<?php echo esc_url( add_query_arg( 'bn_cat', $space->category_slug, \BuddyNext\Core\PageRouter::spaces_url() ) ); ?>"
-								class="bn-tab bn-sd-chip"
-							>
-								<span class="bn-sd-chip__icon" aria-hidden="true"><?php echo wp_kses_data( bn_space_category_icon( $space->category_slug ) ); ?></span>
-								<?php echo esc_html( $space->category_name ); ?>
-							</a>
-						</div>
-					</section>
-				<?php endif; ?>
-
-				<dl class="bn-sh-about__meta">
-					<div>
-						<dt><?php esc_html_e( 'Visibility', 'buddynext' ); ?></dt>
-						<dd><span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span></dd>
-					</div>
-					<?php if ( ! empty( $space->created_at ) ) : ?>
-						<div>
-							<dt><?php esc_html_e( 'Created', 'buddynext' ); ?></dt>
-							<dd><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $space->created_at ) ) ); ?></dd>
-						</div>
-					<?php endif; ?>
-					<div>
-						<dt><?php esc_html_e( 'Members', 'buddynext' ); ?></dt>
-						<dd><?php echo esc_html( $member_count_fmt ); ?></dd>
-					</div>
-				</dl>
-			</div>
 
 		<?php else : ?>
 
-			<?php if ( $is_member && $bn_current_user ) : ?>
-				<?php
-				buddynext_get_template(
-					'partials/composer.php',
-					array(
-						'space_id'        => $space_id,
-						'current_user_id' => $current_user_id,
-					)
-				);
-				?>
-			<?php elseif ( $is_guest ) : ?>
-				<div class="bn-card bn-sh-guest-cta">
-					<div class="bn-sh-guest-cta__icon" aria-hidden="true"><?php buddynext_icon( 'log-in' ); ?></div>
-					<div class="bn-sh-guest-cta__copy">
-						<p class="bn-sh-guest-cta__title"><?php esc_html_e( 'Join to participate', 'buddynext' ); ?></p>
-						<p class="bn-sh-guest-cta__lede"><?php esc_html_e( 'Sign in to post, react, and reply in this space.', 'buddynext' ); ?></p>
-					</div>
-					<a
-						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space->slug ) ) ); ?>"
-						class="bn-btn"
-						data-variant="primary"
-						data-size="md"
-					><?php esc_html_e( 'Log in', 'buddynext' ); ?></a>
-				</div>
-			<?php elseif ( ! $is_member && ! $is_pending && 'open' === $space->type ) : ?>
-				<div class="bn-card bn-sh-guest-cta">
-					<div class="bn-sh-guest-cta__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
-					<div class="bn-sh-guest-cta__copy">
-						<p class="bn-sh-guest-cta__title"><?php esc_html_e( 'Join the conversation', 'buddynext' ); ?></p>
-						<p class="bn-sh-guest-cta__lede"><?php esc_html_e( 'Join the space to post and reply.', 'buddynext' ); ?></p>
-					</div>
-					<button
-						class="bn-btn"
-						data-variant="primary"
-						data-size="md"
-						data-current-state="join"
-						data-wp-on--click="actions.joinSpace"
-					><?php esc_html_e( 'Join space', 'buddynext' ); ?></button>
-				</div>
-			<?php endif; ?>
-
-			<?php if ( $pinned_post ) : ?>
-				<div class="bn-card bn-sh-pinned">
-					<div class="bn-sh-pinned__label">
-						<?php buddynext_icon( 'bookmark' ); ?>
-						<?php esc_html_e( 'Pinned announcement', 'buddynext' ); ?>
-					</div>
-					<p class="bn-sh-pinned__title"><?php echo esc_html( wp_trim_words( $pinned_post->content ?? '', 24 ) ); ?></p>
-					<p class="bn-sh-pinned__meta">
-						<?php
-						// translators: 1: author display name, 2: time ago label.
-						printf(
-							/* translators: 1: author display name, 2: time ago label. */
-							esc_html__( 'Pinned by %1$s · %2$s', 'buddynext' ),
-							esc_html( $pinned_post->author_name ?? __( 'Admin', 'buddynext' ) ),
-							esc_html( bn_sh_time_diff( $pinned_post->created_at ) )
-						);
-						?>
-					</p>
-				</div>
-			<?php endif; ?>
-
-			<?php if ( empty( $feed_posts ) ) : ?>
-				<?php
-				buddynext_get_template(
-					'parts/empty-state.php',
-					array(
-						'icon'  => 'message-circle',
-						'title' => __( 'No posts yet', 'buddynext' ),
-						'body'  => __( 'Be the first to post in this space.', 'buddynext' ),
-					)
-				);
-				?>
-			<?php else : ?>
-				<div class="bn-sh-feed" role="feed" aria-label="<?php esc_attr_e( 'Space feed', 'buddynext' ); ?>">
-					<?php
-					foreach ( $feed_posts as $post_arr ) {
-						if ( isset( $post_arr['media_ids'] ) && is_string( $post_arr['media_ids'] ) ) {
-							$post_arr['media_ids'] = json_decode( $post_arr['media_ids'], true );
-						}
-						buddynext_get_template(
-							'partials/post-card.php',
-							array(
-								'post'            => $post_arr,
-								'current_user_id' => $current_user_id,
-								'context'         => 'space',
-							)
-						);
-					}
-					?>
-				</div>
-			<?php endif; ?>
+			<?php
+			buddynext_get_template(
+				'parts/space-feed-panel.php',
+				array(
+					'space'        => $space,
+					'space_id'     => $space_id,
+					'viewer_id'    => $current_user_id,
+					'is_member'    => $is_member,
+					'is_guest'     => $is_guest,
+					'is_pending'   => $is_pending,
+					'posts'        => $feed_posts,
+					'pinned_post'  => $pinned_post,
+					'current_user' => $bn_current_user,
+				)
+			);
+			?>
 
 		<?php endif; ?>
 	</div>
