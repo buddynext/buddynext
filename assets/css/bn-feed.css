@@ -2098,10 +2098,12 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 .bn-filter-chip.active { background: var(--brand); border-color: var(--brand); color: #fff; }
 .bn-filter-chip:hover:not(.active) { border-color: var(--brand); color: var(--brand); }
 
-/* Masonry grid */
+/* Masonry grid — column count follows container width, not viewport,
+   so the 3-up layout doesn't squeeze cards into 214px when the right
+   sidebar is present (main column ~620px at 1200px viewport). */
 .bn-explore-grid {
 	display: grid;
-	grid-template-columns: repeat(3, 1fr);
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 	gap: 14px;
 }
 
@@ -2239,12 +2241,11 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 [data-theme="dark"] .bn-filter-chip   { background: var(--surface); color: var(--text-1); border-color: var(--border); }
 [data-theme="dark"] .bn-btn-join      { background: var(--surface); }
 
-/* ── Explore mobile responsive ── */
-@media (max-width: 1024px) {
-	.bn-explore-grid { grid-template-columns: 1fr 1fr; }
-}
+/* ── Explore mobile responsive ──
+   Grid sizing is container-driven (auto-fill minmax above), so column
+   count adjusts automatically. Only the typography + filter chip
+   density need explicit mobile tightening. */
 @media (max-width: 640px) {
-	.bn-explore-grid    { grid-template-columns: 1fr; }
 	.bn-filter-row      { gap: var(--s1); }
 	.bn-filter-chip     { font-size: var(--text-xs); padding: var(--s1) var(--s3); }
 	.bn-explore-title   { font-size: var(--text-xl); }
