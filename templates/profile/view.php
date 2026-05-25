@@ -305,17 +305,6 @@ $bn_pf_ctx = array(
 		)
 	);
 
-	/**
-	 * Fires after the hero card and before the tab bar. Pro plugins hook
-	 * here to inject widgets (e.g. "Who viewed your profile"). Retained for
-	 * backwards-compat; new listeners should use `buddynext_part_profile_hero_after`.
-	 *
-	 * @since 1.1.0
-	 * @param int $user_id         Profile being viewed.
-	 * @param int $current_user_id Current viewer (0 when anonymous).
-	 */
-	do_action( 'buddynext_profile_view_after_hero', (int) $user_id, (int) $current_user_id );
-
 	buddynext_get_template(
 		'partials/profile-about-cards.php',
 		array(

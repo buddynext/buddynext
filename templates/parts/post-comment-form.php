@@ -22,7 +22,6 @@
  * Fires:
  *   - do_action( 'buddynext_part_post_comment_form_before', $args )
  *   - do_action( 'buddynext_part_post_comment_form_after',  $args )
- *   - do_action( 'buddynext_post_comment_form_extra', $bn_post_id ) — legacy bridge.
  *
  * Filters:
  *   - apply_filters( 'buddynext_part_post_comment_form_args',    array $args )
@@ -101,16 +100,4 @@ do_action( 'buddynext_part_post_comment_form_before', $args );
 </div>
 
 <?php
-/**
- * Fires inside the comment form, after the submit button.
- *
- * Legacy bridge. New code should hook `buddynext_part_post_comment_form_after`
- * instead.
- *
- * @since 0.3.0
- *
- * @param int $post_id The post ID the comment form belongs to.
- */
-do_action( 'buddynext_post_comment_form_extra', $bn_cf_post_id );
-
 do_action( 'buddynext_part_post_comment_form_after', $args );

@@ -454,19 +454,32 @@ apply_filters( 'buddynext_nav_items', array $items )
 //   } );
 
 // Inject extra tabs into the per-space settings template.
-apply_filters( 'buddynext_space_settings_tabs', array $nav_items, int $space_id )
-// Each entry is keyed by tab slug. Value: [ 'icon' => string (Lucide slug in assets/icons/), 'label' => string ].
-// Pair this filter with the `buddynext_space_settings_tab_content` action to render the tab body.
+// Canonical tab-registry filter fired by templates/parts/space-settings-tabs.php.
+apply_filters( 'buddynext_part_space_settings_tabs_args', array $args )
+// $args['tabs'] is a list. Each row: [
+//   'slug'  => string,           // required, query-var value
+//   'label' => string,           // required, translated
+//   'icon'  => string,           // Lucide slug, optional
+//   'cap'   => string,           // optional WP capability gate
+//   'panel' => string|callable,  // optional: template path OR callable($slug, $args)
+// ]
 //
 // Example — Pro adds a Brand tab:
-//   add_filter( 'buddynext_space_settings_tabs', function( $tabs, $space_id ) {
-//       $tabs['brand'] = [ 'icon' => 'palette', 'label' => 'Brand' ];
-//       return $tabs;
-//   }, 10, 2 );
-
-// Render the body of the active per-space settings tab.
-do_action( 'buddynext_space_settings_tab_content', string $active_tab, int $space_id )
-// Listeners MUST guard on $active_tab to avoid leaking markup into Free's built-in tabs.
+//   add_filter( 'buddynext_part_space_settings_tabs_args', function( $args ) {
+//       $args['tabs'][] = [
+//           'slug'  => 'brand',
+//           'label' => __( 'Brand', 'buddynext-pro' ),
+//           'icon'  => 'palette',
+//           'cap'   => 'manage_options',
+//           'panel' => [ __CLASS__, 'render_brand_panel' ],
+//       ];
+//       return $args;
+//   } );
+//
+// The legacy `buddynext_space_settings_tabs` filter and
+// `buddynext_space_settings_tab_content` action were retired alongside the
+// Layer-3 templates sweep — listeners should hook the part-hook registry
+// above and supply a `panel` callable instead.
 
 // Extend unified search results
 apply_filters( 'buddynext_search_results', array $results, string $query, array $args )

@@ -86,13 +86,10 @@ $categories = $wpdb->get_results(
 );
 
 // ── Active settings tab ───────────────────────────────────────────────────────
+// Read the raw value from the URL — validation against the (possibly
+// Pro-extended) tab registry happens after `$builtin_tabs` is filtered, below.
 
 $settings_tab = isset( $_GET['bn_stab'] ) ? sanitize_key( wp_unslash( $_GET['bn_stab'] ) ) : 'general'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
-$allowed_tabs = array( 'general', 'privacy', 'permissions', 'members', 'moderation', 'branding', 'integrations', 'notifications', 'danger' );
-if ( ! in_array( $settings_tab, $allowed_tabs, true ) ) {
-	$settings_tab = 'general';
-}
 
 // ── Handle saved settings (POST) ─────────────────────────────────────────────
 
@@ -402,31 +399,21 @@ $builtin_tabs = array(
 	),
 );
 
-// Back-compat: bridge the legacy keyed filter into the new row shape so
-// existing Pro listeners keep working until they migrate to the part hook.
-$legacy_nav_items = array();
-foreach ( $builtin_tabs as $bn_t ) {
-	$legacy_nav_items[ $bn_t['slug'] ] = array(
-		'icon'  => $bn_t['icon'],
-		'label' => $bn_t['label'],
-	);
-}
-/**
- * Legacy keyed tab definitions retained for back-compat.
- *
- * @var array<string, array{icon: string, label: string}> $legacy_nav_items
- */
-$legacy_nav_items = (array) apply_filters( 'buddynext_space_settings_tabs', $legacy_nav_items, $space_id );
-$known_slugs      = array_column( $builtin_tabs, 'slug' );
-foreach ( $legacy_nav_items as $bn_slug => $bn_row ) {
-	if ( in_array( (string) $bn_slug, $known_slugs, true ) ) {
-		continue;
-	}
-	$builtin_tabs[] = array(
-		'slug'  => (string) $bn_slug,
-		'label' => isset( $bn_row['label'] ) ? (string) $bn_row['label'] : (string) $bn_slug,
-		'icon'  => isset( $bn_row['icon'] ) ? (string) $bn_row['icon'] : 'circle',
-	);
+// Apply the canonical tab-registry filter once at composer level so Pro and
+// bridge-registered tabs (e.g. P6.2 Brand tab) are recognized as valid
+// `bn_stab` values before the active-tab validator runs. The part fires the
+// same filter again on render — registrants must be idempotent (guard on
+// "slug already present" before appending).
+$bn_registry = (array) apply_filters(
+	'buddynext_part_space_settings_tabs_args',
+	array(
+		'space_id'   => $space_id,
+		'active_tab' => $settings_tab,
+		'tabs'       => $builtin_tabs,
+	)
+);
+if ( isset( $bn_registry['tabs'] ) && is_array( $bn_registry['tabs'] ) ) {
+	$builtin_tabs = $bn_registry['tabs'];
 }
 
 // Re-validate the active tab against the (possibly extended) tab list.
@@ -670,23 +657,6 @@ foreach ( $builtin_tabs as $bn_t ) {
 			</form>
 			<?php
 		endif;
-		?>
-
-		<?php
-		/**
-		 * Render the active settings tab's content.
-		 *
-		 * Fires after Free's built-in tab content. Pro modules that registered
-		 * an extra tab via `buddynext_space_settings_tabs` render their panel
-		 * markup here. Listeners must guard on `$active_tab` to avoid leaking
-		 * content into Free's tabs.
-		 *
-		 * @since 0.3.0
-		 *
-		 * @param string $active_tab The currently selected tab slug.
-		 * @param int    $space_id   Space being configured.
-		 */
-		do_action( 'buddynext_space_settings_tab_content', $settings_tab, $space_id );
 		?>
 
 	</div>
