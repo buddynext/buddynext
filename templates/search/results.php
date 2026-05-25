@@ -3,11 +3,21 @@
  * Search results template - v2 design system.
  *
  * Performs a MySQL FULLTEXT search across the bn_search_index table for the
- * given query, then renders grouped results (Members / Posts / Spaces) using
- * v2 primitives (.bn-input, .bn-tabs, .bn-tab, .bn-card, .bn-badge,
- * .bn-avatar, .bn-kbd) and tokens.
+ * given query, then renders grouped results (Members / Posts / Spaces /
+ * Hashtags / Media) using v2 primitives (.bn-input, .bn-tabs, .bn-tab,
+ * .bn-card, .bn-badge, .bn-avatar, .bn-kbd) and tokens.
  *
  * Mirrors `docs/v2 Plans/v2/search-results.html`.
+ *
+ * Composer responsibilities:
+ *   - Sanitize query / tab / date / sort input.
+ *   - Run the MySQL FULLTEXT queries against bn_search_index (members /
+ *     posts / spaces / hashtags / media), respecting viewer blocks +
+ *     suspended / shadow-banned exclusions.
+ *   - Compute per-tab counts.
+ *   - Build the highlight + initials helpers.
+ *   - Wire the right-sidebar hook.
+ *   - Delegate every visual block to a part under templates/parts/.
  *
  * @package BuddyNext
  */
@@ -251,26 +261,6 @@ $highlight = static function ( string $text, string $query ): string {
 	return $escaped;
 };
 
-/**
- * Build initials from a display name.
- *
- * @param string $name Display name.
- * @return string Up to two-letter initials, uppercased.
- */
-$initials = static function ( string $name ): string {
-	$name = trim( $name );
-	if ( '' === $name ) {
-		return '?';
-	}
-	$first = mb_substr( $name, 0, 1 );
-	$last  = '';
-	$space = strrpos( $name, ' ' );
-	if ( false !== $space ) {
-		$last = mb_substr( $name, $space + 1, 1 );
-	}
-	return strtoupper( $first . $last );
-};
-
 $current_user_id = get_current_user_id();
 
 add_action(
@@ -292,7 +282,7 @@ add_action(
  */
 do_action( 'buddynext_search_before', $current_user_id );
 
-// Pre-compute URLs.
+// Pre-compute type tab definitions for the type-tabs part.
 $type_tabs = array(
 	'all'      => array(
 		'label' => __( 'All', 'buddynext' ),
@@ -326,96 +316,42 @@ $type_tabs = array(
 	data-wp-context='{"query":"<?php echo esc_attr( $raw_query ); ?>","activeTab":"<?php echo esc_attr( $active_tab ); ?>"}'>
 
 	<!-- Search hero -->
-	<form action="" method="get" class="bn-search-hero" role="search" aria-label="<?php esc_attr_e( 'Search community', 'buddynext' ); ?>">
-		<label for="bn-search-q" class="bn-visually-hidden">
-			<?php esc_html_e( 'Search', 'buddynext' ); ?>
-		</label>
-		<div class="bn-search-hero__field">
-			<span class="bn-search-hero__icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></span>
-			<input
-				id="bn-search-q"
-				class="bn-input bn-search-hero__input"
-				type="search"
-				name="q"
-				value="<?php echo esc_attr( $raw_query ); ?>"
-				placeholder="<?php esc_attr_e( 'Search members, posts, spaces, hashtags', 'buddynext' ); ?>"
-				autocomplete="off"
-			>
-			<?php if ( 'all' !== $active_tab ) : ?>
-				<input type="hidden" name="type" value="<?php echo esc_attr( $active_tab ); ?>">
-			<?php endif; ?>
-			<button type="submit" class="bn-btn bn-search-hero__submit" data-variant="primary" data-size="md">
-				<?php esc_html_e( 'Search', 'buddynext' ); ?>
-			</button>
-		</div>
-		<div class="bn-search-hero__hint">
-			<?php
-			if ( '' !== $raw_query && $total_counts['all'] > 0 ) {
-				printf(
-					/* translators: %1$s = count, %2$s = search query (escaped). */
-					esc_html__( '%1$s results for %2$s', 'buddynext' ),
-					'<strong>' . esc_html( (string) $total_counts['all'] ) . '</strong>',
-					'<strong>"' . esc_html( $raw_query ) . '"</strong>'
-				); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped.
-			} elseif ( '' !== $raw_query ) {
-				printf(
-					/* translators: %s = search query (escaped). */
-					esc_html__( 'No results for %s', 'buddynext' ),
-					'<strong>"' . esc_html( $raw_query ) . '"</strong>'
-				); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped.
-			} else {
-				esc_html_e( 'Tip: press', 'buddynext' );
-				echo ' <kbd class="bn-kbd">/</kbd> ';
-				esc_html_e( 'anywhere to focus search.', 'buddynext' );
-			}
-			?>
-		</div>
-	</form>
+	<?php
+	buddynext_get_template(
+		'parts/search-hero.php',
+		array(
+			'query'         => $raw_query,
+			'total_results' => (int) $total_counts['all'],
+			'active_type'   => $active_tab,
+		)
+	);
+	?>
 
 	<!-- Type filter tabs -->
-	<nav class="bn-tabs bn-search-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Filter results by type', 'buddynext' ); ?>">
-		<?php
-		foreach ( $type_tabs as $tab_key => $search_tab ) :
-			$is_active = ( $tab_key === $active_tab );
-			$tab_href  = esc_url(
-				add_query_arg(
-					array(
-						'q'    => $raw_query,
-						'type' => $tab_key,
-					)
-				)
-			);
-			?>
-			<a href="<?php echo esc_url( $tab_href ); ?>"
-				class="bn-tab"
-				role="tab"
-				aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>">
-				<?php echo esc_html( $search_tab['label'] ); ?>
-				<?php if ( '' !== $raw_query ) : ?>
-					<span class="bn-tab__count"><?php echo esc_html( (string) $search_tab['count'] ); ?></span>
-				<?php endif; ?>
-			</a>
-		<?php endforeach; ?>
-	</nav>
+	<?php
+	buddynext_get_template(
+		'parts/search-type-tabs.php',
+		array(
+			'active_type'    => $active_tab,
+			'tabs'           => $type_tabs,
+			'counts_by_type' => $total_counts,
+			'query'          => $raw_query,
+		)
+	);
+	?>
 
 	<?php if ( '' === $raw_query ) : ?>
 
 		<!-- Empty state: no query -->
-		<div class="bn-search-empty">
-			<span class="bn-search-empty__icon" aria-hidden="true">
-				<?php buddynext_icon( 'search' ); ?>
-			</span>
-			<h2 class="bn-search-empty__title">
-				<?php esc_html_e( 'Search the community', 'buddynext' ); ?>
-			</h2>
-			<p class="bn-search-empty__body">
-				<?php esc_html_e( 'Find members, posts, spaces and hashtags. Press', 'buddynext' ); ?>
-				<kbd class="bn-kbd">/</kbd>
-				<?php esc_html_e( 'anywhere to focus, or', 'buddynext' ); ?>
-				<kbd class="bn-kbd">Esc</kbd>
-				<?php esc_html_e( 'to clear.', 'buddynext' ); ?>
-			</p>
-		</div>
+		<?php
+		buddynext_get_template(
+			'parts/search-empty-state.php',
+			array(
+				'state' => 'no_query',
+				'query' => $raw_query,
+			)
+		);
+		?>
 
 	<?php else : ?>
 
@@ -423,473 +359,98 @@ $type_tabs = array(
 			<div class="bn-search-results">
 
 				<!-- Members section -->
-				<?php if ( ( 'all' === $active_tab || 'members' === $active_tab ) && ! empty( $results_members ) ) : ?>
-					<section class="bn-search-section" aria-labelledby="bn-search-section-members">
-						<header class="bn-search-section__header">
-							<h2 id="bn-search-section-members" class="bn-search-section__title">
-								<?php esc_html_e( 'Members', 'buddynext' ); ?>
-							</h2>
-							<span class="bn-search-section__count">
-								<?php
-								echo esc_html(
-									sprintf(
-										/* translators: %1$d shown, %2$d total. */
-										__( '%1$d of %2$d', 'buddynext' ),
-										count( $results_members ),
-										$total_counts['members']
-									)
-								);
-								?>
-							</span>
-							<?php if ( 'all' === $active_tab && $total_counts['members'] > 0 ) : ?>
-								<a class="bn-search-section__seeall"
-									href="
-									<?php
-									echo esc_url(
-										add_query_arg(
-											array(
-												'q'    => $raw_query,
-												'type' => 'members',
-											)
-										)
-									);
-									?>
-											">
-									<?php esc_html_e( 'See all', 'buddynext' ); ?>
-									<span aria-hidden="true"><?php buddynext_icon( 'arrow-right' ); ?></span>
-								</a>
-							<?php endif; ?>
-						</header>
-
-						<div class="bn-search-results__list">
-							<?php foreach ( $results_members as $person ) : ?>
-								<?php
-								$pid          = (int) $person->object_id;
-								$puser        = get_userdata( $pid );
-								$pname        = $puser ? $puser->display_name : __( 'Unknown', 'buddynext' );
-								$pinits       = $initials( $pname );
-								$bio_raw      = (string) get_user_meta( $pid, 'bn_field_bio', true );
-								$is_following = false;
-								if ( $current_user_id && $current_user_id !== $pid ) {
-									$is_following = (bool) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-										$wpdb->prepare(
-											"SELECT 1 FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND following_id = %d",
-											$current_user_id,
-											$pid
-										)
-									);
-								}
-								$profile_url = '';
-								if ( function_exists( 'bp_core_get_user_domain' ) ) {
-									$profile_url = (string) bp_core_get_user_domain( $pid );
-								}
-								if ( '' === $profile_url ) {
-									$profile_url = (string) get_author_posts_url( $pid );
-								}
-								?>
-								<article class="bn-card bn-search-row bn-search-row--member" data-interactive>
-									<a class="bn-search-row__link" href="<?php echo esc_url( $profile_url ); ?>">
-										<span class="bn-avatar" data-size="md" aria-hidden="true">
-											<?php echo esc_html( $pinits ); ?>
-										</span>
-										<span class="bn-search-row__info">
-											<span class="bn-search-row__title">
-												<?php echo esc_html( $pname ); ?>
-												<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Member', 'buddynext' ); ?></span>
-											</span>
-											<?php if ( '' !== $bio_raw ) : ?>
-												<span class="bn-search-row__meta">
-													<?php echo esc_html( $bio_raw ); ?>
-												</span>
-											<?php endif; ?>
-										</span>
-									</a>
-									<?php if ( $current_user_id && $current_user_id !== $pid ) : ?>
-										<button type="button"
-											class="bn-btn"
-											data-variant="<?php echo $is_following ? 'secondary' : 'primary'; ?>"
-											data-size="sm"
-											data-wp-on--click="actions.toggleFollow"
-											data-user-id="<?php echo esc_attr( (string) $pid ); ?>"
-											aria-pressed="<?php echo $is_following ? 'true' : 'false'; ?>">
-											<?php echo $is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
-										</button>
-									<?php endif; ?>
-								</article>
-							<?php endforeach; ?>
-						</div>
-					</section>
-				<?php endif; ?>
+				<?php
+				if ( 'all' === $active_tab || 'members' === $active_tab ) {
+					buddynext_get_template(
+						'parts/search-result-section-members.php',
+						array(
+							'members'     => $results_members,
+							'viewer_id'   => $current_user_id,
+							'query'       => $raw_query,
+							'active_type' => $active_tab,
+							'total_count' => (int) $total_counts['members'],
+						)
+					);
+				}
+				?>
 
 				<!-- Posts section -->
-				<?php if ( ( 'all' === $active_tab || 'posts' === $active_tab ) && ! empty( $results_posts ) ) : ?>
-					<section class="bn-search-section" aria-labelledby="bn-search-section-posts">
-						<header class="bn-search-section__header">
-							<h2 id="bn-search-section-posts" class="bn-search-section__title">
-								<?php esc_html_e( 'Posts', 'buddynext' ); ?>
-							</h2>
-							<span class="bn-search-section__count">
-								<?php
-								echo esc_html(
-									sprintf(
-										/* translators: %1$d shown, %2$d total. */
-										__( '%1$d of %2$d', 'buddynext' ),
-										count( $results_posts ),
-										$total_counts['posts']
-									)
-								);
-								?>
-							</span>
-							<?php if ( 'all' === $active_tab && $total_counts['posts'] > 0 ) : ?>
-								<a class="bn-search-section__seeall"
-									href="
-									<?php
-									echo esc_url(
-										add_query_arg(
-											array(
-												'q'    => $raw_query,
-												'type' => 'posts',
-											)
-										)
-									);
-									?>
-											">
-									<?php esc_html_e( 'See all', 'buddynext' ); ?>
-									<span aria-hidden="true"><?php buddynext_icon( 'arrow-right' ); ?></span>
-								</a>
-							<?php endif; ?>
-						</header>
-
-						<div class="bn-search-results__list">
-							<?php foreach ( $results_posts as $post_item ) : ?>
-								<?php
-								$post_id_int = (int) $post_item->object_id;
-								// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-								$bn_post_row  = $wpdb->get_row( $wpdb->prepare( "SELECT user_id, created_at, reaction_count, comment_count, share_count FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id_int ) );
-								$author_id    = $bn_post_row ? (int) $bn_post_row->user_id : (int) $post_item->author_id;
-								$author_user  = $author_id ? get_userdata( $author_id ) : null;
-								$author_name  = $author_user ? $author_user->display_name : __( 'Unknown', 'buddynext' );
-								$author_inits = $initials( $author_name );
-								$post_age     = $bn_post_row ? human_time_diff( (int) strtotime( (string) $bn_post_row->created_at ), time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
-								$reactions    = $bn_post_row ? (int) $bn_post_row->reaction_count : 0;
-								$comments_c   = $bn_post_row ? (int) $bn_post_row->comment_count : 0;
-								$shares_c     = $bn_post_row ? (int) $bn_post_row->share_count : 0;
-								?>
-								<article class="bn-card bn-search-row bn-search-row--post" data-interactive>
-									<header class="bn-search-row__head">
-										<span class="bn-avatar" data-size="sm" aria-hidden="true">
-											<?php echo esc_html( $author_inits ); ?>
-										</span>
-										<span class="bn-search-row__author"><?php echo esc_html( $author_name ); ?></span>
-										<?php if ( '' !== $post_age ) : ?>
-											<span class="bn-search-row__time">&middot; <?php echo esc_html( $post_age ); ?></span>
-										<?php endif; ?>
-										<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Post', 'buddynext' ); ?></span>
-									</header>
-									<div class="bn-search-row__text">
-										<?php echo $highlight( (string) $post_item->content, $raw_query ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- highlight() returns safe HTML. ?>
-									</div>
-									<?php if ( $reactions || $comments_c || $shares_c ) : ?>
-										<footer class="bn-search-row__stats">
-											<span class="bn-search-row__stat">
-												<span aria-hidden="true"><?php buddynext_icon( 'heart' ); ?></span>
-												<?php echo esc_html( (string) $reactions ); ?>
-											</span>
-											<span class="bn-search-row__stat">
-												<span aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
-												<?php echo esc_html( (string) $comments_c ); ?>
-											</span>
-											<span class="bn-search-row__stat">
-												<span aria-hidden="true"><?php buddynext_icon( 'share' ); ?></span>
-												<?php echo esc_html( (string) $shares_c ); ?>
-											</span>
-										</footer>
-									<?php endif; ?>
-								</article>
-							<?php endforeach; ?>
-						</div>
-					</section>
-				<?php endif; ?>
+				<?php
+				if ( 'all' === $active_tab || 'posts' === $active_tab ) {
+					buddynext_get_template(
+						'parts/search-result-section-posts.php',
+						array(
+							'posts'        => $results_posts,
+							'viewer_id'    => $current_user_id,
+							'query'        => $raw_query,
+							'active_type'  => $active_tab,
+							'total_count'  => (int) $total_counts['posts'],
+							'highlight_fn' => $highlight,
+						)
+					);
+				}
+				?>
 
 				<!-- Spaces section -->
-				<?php if ( ( 'all' === $active_tab || 'spaces' === $active_tab ) && ! empty( $results_spaces ) ) : ?>
-					<section class="bn-search-section" aria-labelledby="bn-search-section-spaces">
-						<header class="bn-search-section__header">
-							<h2 id="bn-search-section-spaces" class="bn-search-section__title">
-								<?php esc_html_e( 'Spaces', 'buddynext' ); ?>
-							</h2>
-							<span class="bn-search-section__count">
-								<?php
-								echo esc_html(
-									sprintf(
-										/* translators: %1$d shown, %2$d total. */
-										__( '%1$d of %2$d', 'buddynext' ),
-										count( $results_spaces ),
-										$total_counts['spaces']
-									)
-								);
-								?>
-							</span>
-							<?php if ( 'all' === $active_tab && $total_counts['spaces'] > 0 ) : ?>
-								<a class="bn-search-section__seeall"
-									href="
-									<?php
-									echo esc_url(
-										add_query_arg(
-											array(
-												'q'    => $raw_query,
-												'type' => 'spaces',
-											)
-										)
-									);
-									?>
-											">
-									<?php esc_html_e( 'See all', 'buddynext' ); ?>
-									<span aria-hidden="true"><?php buddynext_icon( 'arrow-right' ); ?></span>
-								</a>
-							<?php endif; ?>
-						</header>
-
-						<div class="bn-search-results__list">
-							<?php foreach ( $results_spaces as $space ) : ?>
-								<?php
-								$space_id_int = (int) $space->object_id;
-								// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-								$bn_space_row = $wpdb->get_row( $wpdb->prepare( "SELECT name, description, member_count FROM {$wpdb->prefix}bn_spaces WHERE id = %d", $space_id_int ) );
-								$space_name   = $bn_space_row ? (string) $bn_space_row->name : (string) $space->content;
-								$space_desc   = $bn_space_row ? (string) $bn_space_row->description : '';
-								$member_count = $bn_space_row ? (int) $bn_space_row->member_count : 0;
-								$space_inits  = $initials( $space_name );
-								$is_member    = false;
-								if ( $current_user_id ) {
-									$is_member = (bool) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-										$wpdb->prepare(
-											"SELECT 1 FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND user_id = %d",
-											$space_id_int,
-											$current_user_id
-										)
-									);
-								}
-								$space_url = '';
-								if ( class_exists( '\\BuddyNext\\Core\\PageRouter' ) ) {
-									$space_url = (string) \BuddyNext\Core\PageRouter::space_url( $space_id_int );
-								}
-								?>
-								<article class="bn-card bn-search-row bn-search-row--space" data-interactive>
-									<a class="bn-search-row__link" href="<?php echo esc_url( $space_url ); ?>">
-										<span class="bn-avatar" data-size="md" aria-hidden="true">
-											<?php echo esc_html( $space_inits ); ?>
-										</span>
-										<span class="bn-search-row__info">
-											<span class="bn-search-row__title">
-												<?php echo esc_html( $space_name ); ?>
-												<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Space', 'buddynext' ); ?></span>
-											</span>
-											<?php if ( $member_count > 0 || '' !== $space_desc ) : ?>
-												<span class="bn-search-row__meta">
-													<?php if ( $member_count > 0 ) : ?>
-														<?php
-														echo esc_html(
-															sprintf(
-																/* translators: %d = member count. */
-																_n( '%d member', '%d members', $member_count, 'buddynext' ),
-																$member_count
-															)
-														);
-														?>
-														<?php if ( '' !== $space_desc ) : ?>
-															<span aria-hidden="true"> &middot; </span>
-														<?php endif; ?>
-													<?php endif; ?>
-													<?php if ( '' !== $space_desc ) : ?>
-														<?php echo esc_html( $space_desc ); ?>
-													<?php endif; ?>
-												</span>
-											<?php endif; ?>
-										</span>
-									</a>
-									<?php if ( $current_user_id ) : ?>
-										<button type="button"
-											class="bn-btn"
-											data-variant="<?php echo $is_member ? 'secondary' : 'primary'; ?>"
-											data-size="sm"
-											data-wp-on--click="actions.toggleSpaceMembership"
-											data-space-id="<?php echo esc_attr( (string) $space_id_int ); ?>"
-											aria-pressed="<?php echo $is_member ? 'true' : 'false'; ?>">
-											<?php echo $is_member ? esc_html__( 'Joined', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
-										</button>
-									<?php endif; ?>
-								</article>
-							<?php endforeach; ?>
-						</div>
-					</section>
-				<?php endif; ?>
+				<?php
+				if ( 'all' === $active_tab || 'spaces' === $active_tab ) {
+					buddynext_get_template(
+						'parts/search-result-section-spaces.php',
+						array(
+							'spaces'      => $results_spaces,
+							'viewer_id'   => $current_user_id,
+							'query'       => $raw_query,
+							'active_type' => $active_tab,
+							'total_count' => (int) $total_counts['spaces'],
+						)
+					);
+				}
+				?>
 
 				<!-- Hashtags section -->
-				<?php if ( ( 'all' === $active_tab || 'hashtags' === $active_tab ) && ! empty( $results_hashtags ) ) : ?>
-					<section class="bn-search-section" aria-labelledby="bn-search-section-hashtags">
-						<header class="bn-search-section__header">
-							<h2 id="bn-search-section-hashtags" class="bn-search-section__title">
-								<?php esc_html_e( 'Hashtags', 'buddynext' ); ?>
-							</h2>
-							<span class="bn-search-section__count">
-								<?php
-								echo esc_html(
-									sprintf(
-										/* translators: %1$d shown, %2$d total. */
-										__( '%1$d of %2$d', 'buddynext' ),
-										count( $results_hashtags ),
-										$total_counts['hashtags']
-									)
-								);
-								?>
-							</span>
-							<?php if ( 'all' === $active_tab && $total_counts['hashtags'] > 0 ) : ?>
-								<a class="bn-search-section__seeall"
-									href="
-									<?php
-									echo esc_url(
-										add_query_arg(
-											array(
-												'q'    => $raw_query,
-												'type' => 'hashtags',
-											)
-										)
-									);
-									?>
-											">
-									<?php esc_html_e( 'See all', 'buddynext' ); ?>
-									<span aria-hidden="true"><?php buddynext_icon( 'arrow-right' ); ?></span>
-								</a>
-							<?php endif; ?>
-						</header>
-						<div class="bn-search-results__list">
-							<?php foreach ( $results_hashtags as $ht_row ) : ?>
-								<?php
-								$ht_slug = (string) $ht_row->slug;
-								$ht_url  = '';
-								if ( class_exists( '\\BuddyNext\\Core\\PageRouter' ) ) {
-									$ht_url = (string) \BuddyNext\Core\PageRouter::hashtag_feed_url( $ht_slug );
-								}
-								$ht_count = (int) $ht_row->post_count;
-								?>
-								<article class="bn-card bn-search-row bn-search-row--hashtag" data-interactive>
-									<a class="bn-search-row__link" href="<?php echo esc_url( $ht_url ); ?>">
-										<span class="bn-avatar" data-size="md" aria-hidden="true">
-											<?php buddynext_icon( 'hash' ); ?>
-										</span>
-										<span class="bn-search-row__info">
-											<span class="bn-search-row__title">
-												#<?php echo esc_html( $ht_slug ); ?>
-												<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Hashtag', 'buddynext' ); ?></span>
-											</span>
-											<span class="bn-search-row__meta">
-												<?php
-												echo esc_html(
-													sprintf(
-														/* translators: %d = post count for hashtag. */
-														_n( '%d post', '%d posts', $ht_count, 'buddynext' ),
-														$ht_count
-													)
-												);
-												?>
-											</span>
-										</span>
-									</a>
-								</article>
-							<?php endforeach; ?>
-						</div>
-					</section>
-				<?php endif; ?>
+				<?php
+				if ( 'all' === $active_tab || 'hashtags' === $active_tab ) {
+					buddynext_get_template(
+						'parts/search-result-section-hashtags.php',
+						array(
+							'hashtags'    => $results_hashtags,
+							'query'       => $raw_query,
+							'active_type' => $active_tab,
+							'total_count' => (int) $total_counts['hashtags'],
+						)
+					);
+				}
+				?>
 
 				<!-- Media section -->
-				<?php if ( ( 'all' === $active_tab || 'media' === $active_tab ) && ! empty( $results_media ) ) : ?>
-					<section class="bn-search-section" aria-labelledby="bn-search-section-media">
-						<header class="bn-search-section__header">
-							<h2 id="bn-search-section-media" class="bn-search-section__title">
-								<?php esc_html_e( 'Media', 'buddynext' ); ?>
-							</h2>
-							<span class="bn-search-section__count">
-								<?php
-								echo esc_html(
-									sprintf(
-										/* translators: %1$d shown, %2$d total. */
-										__( '%1$d of %2$d', 'buddynext' ),
-										count( $results_media ),
-										$total_counts['media']
-									)
-								);
-								?>
-							</span>
-							<?php if ( 'all' === $active_tab && $total_counts['media'] > 0 ) : ?>
-								<a class="bn-search-section__seeall"
-									href="
-									<?php
-									echo esc_url(
-										add_query_arg(
-											array(
-												'q'    => $raw_query,
-												'type' => 'media',
-											)
-										)
-									);
-									?>
-											">
-									<?php esc_html_e( 'See all', 'buddynext' ); ?>
-									<span aria-hidden="true"><?php buddynext_icon( 'arrow-right' ); ?></span>
-								</a>
-							<?php endif; ?>
-						</header>
-						<div class="bn-search-results__list">
-							<?php foreach ( $results_media as $media_row ) : ?>
-								<?php
-								$media_pid    = (int) $media_row->object_id;
-								$media_author = (int) $media_row->author_id;
-								$media_user   = $media_author ? get_userdata( $media_author ) : null;
-								$media_name   = $media_user ? $media_user->display_name : __( 'Unknown', 'buddynext' );
-								$media_init   = $initials( $media_name );
-								?>
-								<article class="bn-card bn-search-row bn-search-row--media" data-interactive>
-									<header class="bn-search-row__head">
-										<span class="bn-avatar" data-size="sm" aria-hidden="true">
-											<?php echo esc_html( $media_init ); ?>
-										</span>
-										<span class="bn-search-row__author"><?php echo esc_html( $media_name ); ?></span>
-										<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Media', 'buddynext' ); ?></span>
-									</header>
-									<div class="bn-search-row__text">
-										<?php echo $highlight( (string) $media_row->content, $raw_query ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-									</div>
-								</article>
-							<?php endforeach; ?>
-						</div>
-					</section>
-				<?php endif; ?>
+				<?php
+				if ( 'all' === $active_tab || 'media' === $active_tab ) {
+					buddynext_get_template(
+						'parts/search-result-section-media.php',
+						array(
+							'media'        => $results_media,
+							'viewer_id'    => $current_user_id,
+							'query'        => $raw_query,
+							'active_type'  => $active_tab,
+							'total_count'  => (int) $total_counts['media'],
+							'highlight_fn' => $highlight,
+						)
+					);
+				}
+				?>
 
 				<!-- No results state -->
-				<?php if ( 0 === $total_counts['all'] ) : ?>
-					<div class="bn-search-empty">
-						<span class="bn-search-empty__icon" aria-hidden="true">
-							<?php buddynext_icon( 'search' ); ?>
-						</span>
-						<h2 class="bn-search-empty__title">
-							<?php
-							printf(
-								/* translators: %s = search query (escaped). */
-								esc_html__( 'Nothing found for %s', 'buddynext' ),
-								'<strong>"' . esc_html( $raw_query ) . '"</strong>'
-							); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped.
-							?>
-						</h2>
-						<p class="bn-search-empty__body">
-							<?php esc_html_e( 'Try different keywords, or remove a filter from the sidebar.', 'buddynext' ); ?>
-						</p>
-						<a class="bn-btn" data-variant="primary" data-size="md"
-							href="<?php echo esc_url( remove_query_arg( array( 'q', 'type', 'date', 'sort' ) ) ); ?>">
-							<?php esc_html_e( 'Search the entire community', 'buddynext' ); ?>
-						</a>
-					</div>
-				<?php endif; ?>
+				<?php
+				if ( 0 === $total_counts['all'] ) {
+					buddynext_get_template(
+						'parts/search-empty-state.php',
+						array(
+							'state' => 'no_results',
+							'query' => $raw_query,
+						)
+					);
+				}
+				?>
 
 			</div><!-- /.bn-search-results -->
 
