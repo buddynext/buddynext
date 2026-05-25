@@ -58,6 +58,20 @@ $sbar_spaces_url  = home_url( '/spaces/' );
 $sbar_members_url = home_url( '/members/' );
 ?>
 
+<?php
+// Personalized greeting + activity-streak card (v2 prototype right-sidebar
+// opener). The part returns silently for anonymous viewers, so the
+// existing three discovery cards still lead for guests.
+if ( $sidebar_user_id > 0 ) {
+	buddynext_get_template(
+		'parts/sidebar-greeting-streak.php',
+		array(
+			'user_id' => $sidebar_user_id,
+		)
+	);
+}
+?>
+
 <div class="bn-sidebar-card">
 	<div class="bn-sidebar-card__header">
 		<?php esc_html_e( 'Trending Topics', 'buddynext' ); ?>
