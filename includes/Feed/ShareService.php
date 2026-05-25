@@ -96,6 +96,23 @@ class ShareService {
 			do_action( 'buddynext_post_created', $feed_post_id, $user_id, 'share' );
 		}
 
+		/**
+		 * Fires after a post is shared.
+		 *
+		 * Distinct from `buddynext_post_created` (which fires for every new
+		 * post regardless of type): this event is specific to the share
+		 * action and carries the original post ID so listeners do not have
+		 * to re-query for the shared_post_id.
+		 *
+		 * Argument order matches the consumer convention (`$share_id` →
+		 * `$original_post_id` → `$user_id`).
+		 *
+		 * @param int $share_id         Row ID in bn_shares.
+		 * @param int $original_post_id Original post that was shared.
+		 * @param int $user_id          User who shared the post.
+		 */
+		do_action( 'buddynext_post_shared', $share_id, $post_id, $user_id );
+
 		return $share_id;
 	}
 

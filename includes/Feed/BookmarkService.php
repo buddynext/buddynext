@@ -48,9 +48,23 @@ class BookmarkService {
 				$post_id
 			)
 		);
+		$inserted = $wpdb->rows_affected > 0;
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "bookmarks_{$user_id}", self::CACHE_GROUP );
+
+		if ( $inserted ) {
+			/**
+			 * Fires after a post is bookmarked.
+			 *
+			 * Only fires on first-time bookmark. Duplicate bookmark calls
+			 * (INSERT IGNORE no-ops) do not re-fire the event.
+			 *
+			 * @param int $post_id Post that was bookmarked.
+			 * @param int $user_id User who bookmarked the post.
+			 */
+			do_action( 'buddynext_post_bookmarked', $post_id, $user_id );
+		}
 	}
 
 	/**
@@ -71,9 +85,23 @@ class BookmarkService {
 			),
 			array( '%d', '%d' )
 		);
+		$deleted = $wpdb->rows_affected > 0;
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "bookmarks_{$user_id}", self::CACHE_GROUP );
+
+		if ( $deleted ) {
+			/**
+			 * Fires after a bookmark is removed.
+			 *
+			 * Only fires when a row was actually deleted. Calling unbookmark
+			 * on a post that was not bookmarked is a silent no-op.
+			 *
+			 * @param int $post_id Post that was unbookmarked.
+			 * @param int $user_id User who removed the bookmark.
+			 */
+			do_action( 'buddynext_post_unbookmarked', $post_id, $user_id );
+		}
 	}
 
 	/**

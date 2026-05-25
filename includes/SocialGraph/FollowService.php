@@ -84,10 +84,11 @@ class FollowService {
 				$following_id
 			)
 		);
+		$inserted = $wpdb->rows_affected > 0;
 
 		$this->invalidate_follow_cache( $follower_id, $following_id );
 
-		if ( $wpdb->rows_affected > 0 ) {
+		if ( $inserted ) {
 			/**
 			 * Fires after a new follow relationship is created.
 			 *
@@ -95,6 +96,29 @@ class FollowService {
 			 * @param int $following_id ID of the user being followed.
 			 */
 			do_action( 'buddynext_user_followed', $follower_id, $following_id );
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$follow_count = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d",
+					$follower_id
+				)
+			);
+
+			if ( 1 === $follow_count ) {
+				/**
+				 * Fires the first time a user follows anyone.
+				 *
+				 * Distinct lifecycle event used by onboarding flows (welcome
+				 * drips, "you've started exploring" milestones). Fires
+				 * exactly once per user — on the row that brings their
+				 * follow count to 1.
+				 *
+				 * @param int $follower_id  The user whose first follow this is.
+				 * @param int $following_id The user being followed.
+				 */
+				do_action( 'buddynext_user_followed_first_time', $follower_id, $following_id );
+			}
 		}
 
 		return true;

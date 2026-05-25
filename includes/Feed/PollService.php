@@ -113,6 +113,19 @@ class PollService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		/**
+		 * Fires after a poll vote is cast or switched.
+		 *
+		 * Does NOT fire on toggle-off (clicking the same option to remove a
+		 * vote) — that path returns early above. Vote switches (different
+		 * option than previous) fire once, after the new vote is inserted.
+		 *
+		 * @param int $post_id   Poll post ID.
+		 * @param int $option_id Option the user voted for.
+		 * @param int $user_id   Voting user.
+		 */
+		do_action( 'buddynext_poll_voted', $post_id, $option_id, $user_id );
+
 		return true;
 	}
 

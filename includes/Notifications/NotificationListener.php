@@ -38,7 +38,7 @@ class NotificationListener implements ListenerInterface {
 		// Activity Feed.
 		add_action( 'buddynext_reaction_added', array( $this, 'on_reaction_added' ), 10, 4 );
 		add_action( 'buddynext_comment_created', array( $this, 'on_comment_created' ), 10, 4 );
-		add_action( 'buddynext_post_shared', array( $this, 'on_post_shared' ), 10, 2 );
+		add_action( 'buddynext_post_shared', array( $this, 'on_post_shared' ), 10, 3 );
 		add_action( 'buddynext_user_mentioned', array( $this, 'on_user_mentioned' ), 10, 3 );
 
 		// Spaces.
@@ -291,10 +291,17 @@ class NotificationListener implements ListenerInterface {
 	/**
 	 * Notify the post owner when someone shares their post.
 	 *
-	 * @param int $post_id Post that was shared.
-	 * @param int $user_id User who shared the post.
+	 * Hook signature matches the canonical
+	 * `buddynext_post_shared($share_id, $original_post_id, $user_id)` contract
+	 * documented in `docs/specs/HOOKS.md` and fired by Feed\ShareService.
+	 *
+	 * @param int $share_id         Row ID in bn_shares (unused — kept to honour the contract).
+	 * @param int $original_post_id Post that was shared.
+	 * @param int $user_id          User who shared the post.
 	 */
-	public function on_post_shared( int $post_id, int $user_id ): void {
+	public function on_post_shared( int $share_id, int $original_post_id, int $user_id ): void {
+		unset( $share_id ); // Reserved for future use; the notification only needs post_id + user_id.
+		$post_id = $original_post_id;
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
