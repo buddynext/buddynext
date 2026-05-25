@@ -28,6 +28,21 @@
  * Filters:
  *   - apply_filters( 'buddynext_part_sidebar_this_week_stats_args',    array $args )
  *   - apply_filters( 'buddynext_part_sidebar_this_week_stats_classes', array $classes, array $args )
+ *
+ * Gamification-bridge seams (wb-gamification or any equivalent plugin
+ * can supply canonical metrics instead of BN's inline COUNT queries):
+ *   - apply_filters( 'buddynext_user_weekly_notifications_count',
+ *                    int $count, int $user_id ) — received this week.
+ *   - apply_filters( 'buddynext_user_weekly_notifications_prev_count',
+ *                    int $count, int $user_id ) — received the prior week
+ *                    (used to compute the WoW % delta).
+ *   - apply_filters( 'buddynext_user_weekly_notifications_read_count',
+ *                    int $count, int $user_id ) — count marked-read this week.
+ *   - apply_filters( 'buddynext_user_weekly_followers_gained',
+ *                    int $count, int $user_id ) — new followers this week.
+ *   - apply_filters( 'buddynext_user_weekly_engagement_received',
+ *                    int $count, int $user_id ) — reactions + comments
+ *                    received on the viewer's posts this week.
  */
 
 declare( strict_types=1 );
@@ -51,16 +66,43 @@ global $wpdb;
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 // Notifications received this week + the prior week (for the WoW delta).
-$bn_notifs_7d        = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
-$bn_notifs_prev_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 14 DAY ) AND created_at <  DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
-$bn_notifs_read_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND is_read = 1 AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
-$bn_new_followers_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
-$bn_reactions_in_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id WHERE r.object_type = 'post' AND p.user_id = %d AND r.user_id != %d AND r.created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid, $bn_uid ) );
-$bn_comments_in_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments c INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id WHERE c.object_type = 'post' AND p.user_id = %d AND c.user_id != %d AND c.created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid, $bn_uid ) );
+// Each metric goes through a buddynext_user_weekly_* filter so a
+// gamification plugin (wb-gamification) can replace BN's inline COUNT
+// with its canonical value. The default branch runs only when the
+// filter returns null (meaning: nobody overrode it).
+$bn_notifs_7d = apply_filters( 'buddynext_user_weekly_notifications_count', null, $bn_uid );
+if ( null === $bn_notifs_7d ) {
+	$bn_notifs_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
+}
+$bn_notifs_7d = (int) $bn_notifs_7d;
+
+$bn_notifs_prev_7d = apply_filters( 'buddynext_user_weekly_notifications_prev_count', null, $bn_uid );
+if ( null === $bn_notifs_prev_7d ) {
+	$bn_notifs_prev_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 14 DAY ) AND created_at <  DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
+}
+$bn_notifs_prev_7d = (int) $bn_notifs_prev_7d;
+
+$bn_notifs_read_7d = apply_filters( 'buddynext_user_weekly_notifications_read_count', null, $bn_uid );
+if ( null === $bn_notifs_read_7d ) {
+	$bn_notifs_read_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND is_read = 1 AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
+}
+$bn_notifs_read_7d = (int) $bn_notifs_read_7d;
+
+$bn_new_followers_7d = apply_filters( 'buddynext_user_weekly_followers_gained', null, $bn_uid );
+if ( null === $bn_new_followers_7d ) {
+	$bn_new_followers_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
+}
+$bn_new_followers_7d = (int) $bn_new_followers_7d;
+
+$bn_engagement_in_7d = apply_filters( 'buddynext_user_weekly_engagement_received', null, $bn_uid );
+if ( null === $bn_engagement_in_7d ) {
+	$bn_reactions_in_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id WHERE r.object_type = 'post' AND p.user_id = %d AND r.user_id != %d AND r.created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid, $bn_uid ) );
+	$bn_comments_in_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments c INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id WHERE c.object_type = 'post' AND p.user_id = %d AND c.user_id != %d AND c.created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid, $bn_uid ) );
+	$bn_engagement_in_7d = $bn_reactions_in_7d + $bn_comments_in_7d;
+}
+$bn_engagement_in_7d = (int) $bn_engagement_in_7d;
 
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-$bn_engagement_in_7d = $bn_reactions_in_7d + $bn_comments_in_7d;
 
 // Week-over-week delta percent. Suppressed when prior-week is 0 (we
 // can't divide by zero, and "first week" deltas are misleading).

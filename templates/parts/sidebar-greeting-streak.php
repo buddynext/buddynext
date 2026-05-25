@@ -32,6 +32,21 @@
  *   - apply_filters( 'buddynext_part_sidebar_greeting_streak_args',    array $args )
  *   - apply_filters( 'buddynext_part_sidebar_greeting_streak_classes', array $classes, array $args )
  *   - apply_filters( 'buddynext_greeting_string', string $greeting, int $hour, WP_User $user )
+ *
+ * Gamification-bridge seams (wb-gamification or any equivalent plugin
+ * can hook these to provide canonical streak / activity data instead of
+ * BN's inline-computed fallback):
+ *   - apply_filters( 'buddynext_user_active_dates',
+ *                    array|null $dates, int $user_id, int $window_days )
+ *     Return a list of `YYYY-MM-DD` date strings the user counted as
+ *     "active" within the trailing window. Return `null` (default) to
+ *     let BN's UNION query take over.
+ *   - apply_filters( 'buddynext_user_activity_streak',
+ *                    int $streak, int $user_id )
+ *     Override the computed consecutive-trailing-days count.
+ *   - apply_filters( 'buddynext_user_activity_best_month_streak',
+ *                    int $best, int $user_id )
+ *     Override the longest-run-in-current-month value.
  */
 
 declare( strict_types=1 );
@@ -98,32 +113,42 @@ $bn_greeting = sprintf( $bn_greeting_tpl, $bn_first_name );
  */
 $bn_greeting = (string) apply_filters( 'buddynext_greeting_string', $bn_greeting, $bn_hour, $bn_user );
 
-// Collect distinct active dates in the last 30 days (UNION across the
-// three activity tables). Cheap on indexed (user_id, created_at).
-global $wpdb;
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$bn_active_dates = (array) $wpdb->get_col(
-	$wpdb->prepare(
-		"SELECT activity_date FROM (
-		   SELECT DATE(created_at) AS activity_date
-		     FROM {$wpdb->prefix}bn_posts
-		    WHERE user_id = %d AND status = 'published' AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
-		   UNION
-		   SELECT DATE(created_at) AS activity_date
-		     FROM {$wpdb->prefix}bn_comments
-		    WHERE user_id = %d AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
-		   UNION
-		   SELECT DATE(created_at) AS activity_date
-		     FROM {$wpdb->prefix}bn_reactions
-		    WHERE user_id = %d AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
-		 ) AS d
-		 ORDER BY activity_date DESC",
-		$bn_uid,
-		$bn_uid,
-		$bn_uid
-	)
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+// Source the user's active-date set. The default is an inline UNION over
+// bn_posts/bn_comments/bn_reactions — the simplest "did anything social"
+// definition. wb-gamification (or any plugin) can replace it with its
+// own activity definition (post + login + check-in + badge-earn + …)
+// by hooking `buddynext_user_active_dates` and returning the list.
+$bn_active_dates_filter = apply_filters( 'buddynext_user_active_dates', null, $bn_uid, 30 );
+
+if ( is_array( $bn_active_dates_filter ) ) {
+	// Filter took over — trust the returned date list.
+	$bn_active_dates = $bn_active_dates_filter;
+} else {
+	global $wpdb;
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$bn_active_dates = (array) $wpdb->get_col(
+		$wpdb->prepare(
+			"SELECT activity_date FROM (
+			   SELECT DATE(created_at) AS activity_date
+			     FROM {$wpdb->prefix}bn_posts
+			    WHERE user_id = %d AND status = 'published' AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
+			   UNION
+			   SELECT DATE(created_at) AS activity_date
+			     FROM {$wpdb->prefix}bn_comments
+			    WHERE user_id = %d AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
+			   UNION
+			   SELECT DATE(created_at) AS activity_date
+			     FROM {$wpdb->prefix}bn_reactions
+			    WHERE user_id = %d AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
+			 ) AS d
+			 ORDER BY activity_date DESC",
+			$bn_uid,
+			$bn_uid,
+			$bn_uid
+		)
+	);
+	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+}
 
 // Normalize to a lookup map (`'2026-05-25' => true`).
 $bn_active_map = array();
@@ -149,6 +174,18 @@ if ( '' !== $bn_streak_start ) {
 	}
 }
 
+/**
+ * Filter the current streak (consecutive trailing active days) for a
+ * user. Default = inline-computed from the date map above. Plugins like
+ * wb-gamification that maintain their own canonical streak counter
+ * should hook this and return their value so BN's widget stays in sync
+ * with the source of truth.
+ *
+ * @param int $streak  Default-computed streak (0+ days).
+ * @param int $user_id User whose streak to compute.
+ */
+$bn_streak = (int) apply_filters( 'buddynext_user_activity_streak', $bn_streak, $bn_uid );
+
 // Best streak this month = longest consecutive-day run in the active set
 // restricted to the current calendar month.
 $bn_month_prefix = current_time( 'Y-m' );
@@ -168,6 +205,14 @@ foreach ( $bn_month_days as $bn_d ) {
 	$bn_best          = max( $bn_best, $bn_running );
 	$bn_prev_d        = $bn_d;
 }
+
+/**
+ * Filter the best streak achieved this calendar month.
+ *
+ * @param int $best    Default-computed best (0+ days).
+ * @param int $user_id User whose best-streak to compute.
+ */
+$bn_best = (int) apply_filters( 'buddynext_user_activity_best_month_streak', $bn_best, $bn_uid );
 
 // 7-day strip cells, oldest→newest left→right.
 $bn_strip = array();

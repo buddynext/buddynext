@@ -522,6 +522,50 @@ do_action( 'mvs_mentions_created', array $mentioned_user_ids, string $context_ty
 
 ---
 
+## Sidebar widget data — gamification-bridge seams
+
+Right-sidebar widgets fall back to inline COUNT queries from `bn_*` tables
+when no plugin owns the data. wb-gamification — or any equivalent
+plugin — overrides those values by returning a non-null integer from
+the corresponding filter. Hook with `add_filter('hook', 'fn', 10, 2)`
+to receive `(int|null $default, int $user_id)`.
+
+```php
+// Greeting + streak widget (parts/sidebar-greeting-streak.php).
+apply_filters( 'buddynext_user_active_dates',
+    array|null $dates, int $user_id, int $window_days = 30 )
+// Return YYYY-MM-DD strings or null to fall through to BN's inline query.
+
+apply_filters( 'buddynext_user_activity_streak',
+    int $streak, int $user_id )
+// Override the consecutive-trailing-days count.
+
+apply_filters( 'buddynext_user_activity_best_month_streak',
+    int $best,   int $user_id )
+// Override the longest-run-this-month value.
+
+// "This week" stats widget (parts/sidebar-this-week-stats.php).
+apply_filters( 'buddynext_user_weekly_notifications_count',
+    int|null $count, int $user_id )
+apply_filters( 'buddynext_user_weekly_notifications_prev_count',
+    int|null $count, int $user_id )
+apply_filters( 'buddynext_user_weekly_notifications_read_count',
+    int|null $count, int $user_id )
+apply_filters( 'buddynext_user_weekly_followers_gained',
+    int|null $count, int $user_id )
+apply_filters( 'buddynext_user_weekly_engagement_received',
+    int|null $count, int $user_id )
+```
+
+Pro tile injection on the profile stat strip uses the existing
+`buddynext_part_profile_stats_strip_args` filter — append a row
+`{ slug: 'streak', label: __('Streak','buddynext'), value: '14d',
+delta: '+3', trend: 'up' }` to `$args['stats']` to surface gamification
+data alongside the canonical Posts / Followers / Following / Connections
+tiles.
+
+---
+
 ## Notes for Addon Developers
 
 - **WBGamification** — hook `buddynext_post_created`, `buddynext_user_followed`, `buddynext_reaction_added`, `buddynext_space_member_joined` to award points.
