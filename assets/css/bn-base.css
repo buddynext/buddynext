@@ -945,6 +945,18 @@
 	transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
+/* Follow button — label cycles "Follow" (~50px) → "Following" (~80px),
+   and both the partial (partials/follow-button.php) and the block
+   (templates/blocks/follow-button.php) render this class. Pinning the
+   worst-case width here keeps the surrounding inline context (sidebar
+   widgets, profile-hero, post bylines, suggestions row) stable across
+   state toggles regardless of which CSS bundle a page loads. */
+.bn-follow-btn,
+.bn-block-follow-button__cta {
+	min-inline-size: 100px;
+	justify-content: center;
+}
+
 .bn-btn-primary {
 	background: var(--brand);
 	color: var(--white);

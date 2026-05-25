@@ -734,6 +734,15 @@
 	color: inherit;
 }
 
+/* Share label cycles between "Share" / "Share · N" / "Shared" / "Shared · N"
+   (~38px → 75px range). Reserve the worst-case width so clicking Share
+   doesn't reflow the entire action row. */
+.bn-post-card__action-label[data-wp-text="state.shareLabel"] {
+	display: inline-block;
+	min-inline-size: 70px;
+	text-align: start;
+}
+
 /* Reaction picker wrapper + dropdown panel. */
 .bn-post-card__react-wrap { position: relative; }
 
