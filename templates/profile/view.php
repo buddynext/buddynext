@@ -207,34 +207,68 @@ if ( $is_own_profile ) {
 	);
 }
 
+// --- 7-day deltas for the stat-tile delta chips (v2 prototype pattern) ----
+// Each delta is a count of new rows in the trailing 7 days. Rendered as
+// `+N` next to the stat value when > 0. All four COUNT queries are
+// index-only scans on (user_id, created_at) and run once per profile view.
+// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+$post_delta_7d       = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
+$follower_delta_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
+$following_delta_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
+$connection_delta_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_connections WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id, $user_id ) );
+// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+// Format a 7-day delta as `+N` chip text. Negative deltas would arrive
+// from un-follows / connection removals — currently those don't carry a
+// `created_at` semantic so we render only positive deltas, and only when
+// non-zero.
+$bn_delta_chip = static fn( int $n ): array => $n > 0
+	? array(
+		'delta' => '+' . $n,
+		'trend' => 'up',
+	)
+	: array();
+
 // --- Stat-strip descriptors (passed through hero → stats-strip part) ------
 $bn_pf_stats = array(
-	array(
-		'slug'        => 'posts',
-		'label'       => __( 'Posts', 'buddynext' ),
-		'value'       => $format_count( $post_count ),
-		'wp_on_click' => 'actions.setTab',
-		'data_tab'    => 'posts',
-		'aria_label'  => __( 'Show posts', 'buddynext' ),
+	array_merge(
+		array(
+			'slug'        => 'posts',
+			'label'       => __( 'Posts', 'buddynext' ),
+			'value'       => $format_count( $post_count ),
+			'wp_on_click' => 'actions.setTab',
+			'data_tab'    => 'posts',
+			'aria_label'  => __( 'Show posts', 'buddynext' ),
+		),
+		$bn_delta_chip( $post_delta_7d )
 	),
-	array(
-		'slug'    => 'followers',
-		'label'   => __( 'Followers', 'buddynext' ),
-		'value'   => $format_count( $follower_count ),
-		'href'    => \BuddyNext\Core\PageRouter::followers_url( (int) $user_id ),
-		'wp_text' => 'context.followerCount',
+	array_merge(
+		array(
+			'slug'    => 'followers',
+			'label'   => __( 'Followers', 'buddynext' ),
+			'value'   => $format_count( $follower_count ),
+			'href'    => \BuddyNext\Core\PageRouter::followers_url( (int) $user_id ),
+			'wp_text' => 'context.followerCount',
+		),
+		$bn_delta_chip( $follower_delta_7d )
 	),
-	array(
-		'slug'  => 'following',
-		'label' => __( 'Following', 'buddynext' ),
-		'value' => $format_count( $following_count ),
-		'href'  => \BuddyNext\Core\PageRouter::following_url( (int) $user_id ),
+	array_merge(
+		array(
+			'slug'  => 'following',
+			'label' => __( 'Following', 'buddynext' ),
+			'value' => $format_count( $following_count ),
+			'href'  => \BuddyNext\Core\PageRouter::following_url( (int) $user_id ),
+		),
+		$bn_delta_chip( $following_delta_7d )
 	),
-	array(
-		'slug'  => 'connections',
-		'label' => __( 'Connections', 'buddynext' ),
-		'value' => $format_count( $connection_count ),
-		'href'  => \BuddyNext\Core\PageRouter::connections_url( (int) $user_id ),
+	array_merge(
+		array(
+			'slug'  => 'connections',
+			'label' => __( 'Connections', 'buddynext' ),
+			'value' => $format_count( $connection_count ),
+			'href'  => \BuddyNext\Core\PageRouter::connections_url( (int) $user_id ),
+		),
+		$bn_delta_chip( $connection_delta_7d )
 	),
 );
 

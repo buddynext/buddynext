@@ -13,12 +13,17 @@
  * @var bool  $is_owner         Optional. Whether viewer owns this profile.
  * @var array $stats            Required. Stat descriptors. Each entry is
  *                              `[ 'slug', 'label', 'value' (int|string),
- *                                 'href' (string), 'icon' (string), 'tone' ]`.
+ *                                 'href' (string), 'icon' (string), 'tone',
+ *                                 'delta' (string?, e.g. '+12'),
+ *                                 'trend' (string? 'up'|'down'|'flat') ]`.
  *                              The composer supplies the 4 canonical rows
  *                              (`posts`, `followers`, `following`,
  *                              `connections`); bridge plugins can append
  *                              additional descriptors via
  *                              `buddynext_part_profile_stats_strip_args`.
+ *                              The optional `delta` renders inside a
+ *                              `<span class="bn-pf-stat__delta" data-trend>`
+ *                              chip — v2 prototype week-over-week pattern.
  * @var array $classes          Optional. Extra CSS classes appended to `.bn-pf-stats`.
  *
  * Fires:
@@ -84,9 +89,24 @@ do_action( 'buddynext_part_profile_stats_strip_before', $args );
 				$bn_wp_text  = isset( $bn_stat['wp_text'] ) ? (string) $bn_stat['wp_text'] : '';
 				$bn_wp_on    = isset( $bn_stat['wp_on_click'] ) ? (string) $bn_stat['wp_on_click'] : '';
 				$bn_data_tab = isset( $bn_stat['data_tab'] ) ? (string) $bn_stat['data_tab'] : '';
+				$bn_delta    = isset( $bn_stat['delta'] ) ? trim( (string) $bn_stat['delta'] ) : '';
+				$bn_trend    = isset( $bn_stat['trend'] ) && in_array( (string) $bn_stat['trend'], array( 'up', 'down', 'flat' ), true )
+					? (string) $bn_stat['trend']
+					: 'flat';
 
 				if ( '' === $bn_label ) {
 					continue;
+				}
+
+				// Build the optional delta chip once so each tile-shape branch
+				// below stays focused on its anchor/button/div structure.
+				$bn_delta_html = '';
+				if ( '' !== $bn_delta ) {
+					$bn_delta_html = sprintf(
+						'<span class="bn-pf-stat__delta" data-trend="%1$s">%2$s</span>',
+						esc_attr( $bn_trend ),
+						esc_html( $bn_delta )
+					);
 				}
 
 				if ( '' !== $bn_wp_on ) :
@@ -105,17 +125,20 @@ do_action( 'buddynext_part_profile_stats_strip_before', $args );
 							aria-label="<?php echo esc_attr( $bn_aria ); ?>"<?php endif; ?>>
 						<div class="bn-pf-stat__value"><?php echo esc_html( $bn_value ); ?></div>
 						<div class="bn-pf-stat__label"><?php echo esc_html( $bn_label ); ?></div>
+						<?php echo $bn_delta_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped via sprintf above. ?>
 					</button>
 				<?php elseif ( '' !== $bn_href ) : ?>
 					<a class="bn-pf-stat bn-pf-stat--link"
 						href="<?php echo esc_url( $bn_href ); ?>">
 						<div class="bn-pf-stat__value"<?php echo '' !== $bn_wp_text ? ' data-wp-text="' . esc_attr( $bn_wp_text ) . '"' : ''; ?>><?php echo esc_html( $bn_value ); ?></div>
 						<div class="bn-pf-stat__label"><?php echo esc_html( $bn_label ); ?></div>
+						<?php echo $bn_delta_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped via sprintf above. ?>
 					</a>
 				<?php else : ?>
 					<div class="bn-pf-stat">
 						<div class="bn-pf-stat__value"><?php echo esc_html( $bn_value ); ?></div>
 						<div class="bn-pf-stat__label"><?php echo esc_html( $bn_label ); ?></div>
+						<?php echo $bn_delta_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped via sprintf above. ?>
 					</div>
 					<?php
 				endif;
