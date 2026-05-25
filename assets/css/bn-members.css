@@ -162,6 +162,20 @@
 	min-inline-size: 40px;
 }
 
+/* Reserve width for the widest label across all states so the button
+   doesn't grow on click (Follow → Following adds 74px of text + icon,
+   Connect → Requested/Connected adds a few characters). Without this
+   min-inline-size the card layout shifts on every state change.
+   Selectors are scoped under .bn-md-card__actions to outrank the
+   generic `.bn-md-card__actions .bn-btn` flex rule on specificity. */
+.bn-md-card__actions .bn-md-card__follow {
+	min-inline-size: 120px;
+}
+
+.bn-md-card__actions .bn-md-card__connect-primary {
+	min-inline-size: 100px;
+}
+
 /* ── Sidebar widgets (rendered via parts/sidebar-card.php) ────────────────
  * Two cards: online-now list (avatars + names) and by-type counts. */
 .bn-md-sidebar-list {
