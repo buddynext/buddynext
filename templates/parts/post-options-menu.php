@@ -84,6 +84,7 @@ do_action( 'buddynext_part_post_options_menu_before', $args );
 		class="bn-post-card__options-menu"
 		role="menu"
 		data-wp-bind--hidden="!state.optionsOpen"
+		hidden
 	>
 		<?php if ( ! empty( $args['can_edit'] ) ) : ?>
 			<button

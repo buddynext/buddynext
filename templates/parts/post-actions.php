@@ -100,6 +100,7 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			role="toolbar"
 			aria-label="<?php esc_attr_e( 'Choose reaction', 'buddynext' ); ?>"
 			data-wp-bind--hidden="!state.showReactionPicker"
+			hidden
 		>
 			<?php
 			$reaction_icons = array(
