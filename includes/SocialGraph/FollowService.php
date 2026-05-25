@@ -97,6 +97,18 @@ class FollowService {
 			 */
 			do_action( 'buddynext_user_followed', $follower_id, $following_id );
 
+			/**
+			 * Fires from the followee's perspective when they gain a follower.
+			 *
+			 * Mirror of `buddynext_user_followed` with the argument order
+			 * flipped so gamification plugins can award the recipient
+			 * (followee) without swapping parameters.
+			 *
+			 * @param int $followee_id ID of the user being followed (recipient).
+			 * @param int $follower_id ID of the new follower (actor).
+			 */
+			do_action( 'buddynext_follower_gained', $following_id, $follower_id );
+
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$follow_count = (int) $wpdb->get_var(
 				$wpdb->prepare(

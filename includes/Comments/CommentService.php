@@ -91,6 +91,31 @@ class CommentService {
 		 */
 		do_action( 'buddynext_comment_created', $comment_id, $object_type, $object_id, $user_id );
 
+		if ( 'post' === $object_type ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$author_id = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+					$object_id
+				)
+			);
+
+			if ( $author_id > 0 && $author_id !== $user_id ) {
+				/**
+				 * Fires from the post author's perspective when their post
+				 * receives a comment from someone else. Recipient-side
+				 * mirror of `buddynext_comment_created` so gamification
+				 * plugins can award the post author for engagement received.
+				 *
+				 * @param int $comment_id    New comment ID.
+				 * @param int $post_id       Post that received the comment.
+				 * @param int $author_id     Post author (recipient).
+				 * @param int $commenter_id  User who commented (actor).
+				 */
+				do_action( 'buddynext_post_comment_received', $comment_id, $object_id, $author_id, $user_id );
+			}
+		}
+
 		return $comment_id;
 	}
 

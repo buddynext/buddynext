@@ -79,6 +79,32 @@ class ReactionService {
 			 * @param string $emoji       Emoji identifier.
 			 */
 			do_action( 'buddynext_reaction_added', $object_type, $object_id, $user_id, $emoji );
+
+			if ( 'post' === $object_type ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$author_id = (int) $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+						$object_id
+					)
+				);
+
+				if ( $author_id > 0 && $author_id !== $user_id ) {
+					/**
+					 * Fires from the post author's perspective when their post
+					 * receives a reaction from someone else. Recipient-side
+					 * mirror of `buddynext_reaction_added` so gamification
+					 * plugins can award the post author (the user whose work
+					 * is being engaged with) instead of the reactor.
+					 *
+					 * @param int    $post_id    Post that received the reaction.
+					 * @param int    $author_id  Post author (recipient).
+					 * @param int    $reactor_id User who reacted (actor).
+					 * @param string $emoji      Emoji identifier.
+					 */
+					do_action( 'buddynext_post_reaction_received', $object_id, $author_id, $user_id, $emoji );
+				}
+			}
 		}
 
 		return true;

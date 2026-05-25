@@ -123,6 +123,36 @@ class HashtagListener implements ListenerInterface {
 
 		$slugs = $this->service->extract( $content );
 		$this->service->sync( $object_type, $object_id, $slugs );
+
+		// Engagement signal — fire one buddynext_hashtag_used per tag for
+		// gamification plugins (badges for tag use, discoverability awards,
+		// etc.). Only native posts carry an author lookup here; bridge
+		// content types (mvs_media, jt_discussion, job) fire their own
+		// equivalent from the originating bridge if they want this signal.
+		if ( 'post' === $object_type && ! empty( $slugs ) ) {
+			global $wpdb;
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$user_id = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+					$object_id
+				)
+			);
+
+			if ( $user_id > 0 ) {
+				foreach ( $slugs as $tag ) {
+					/**
+					 * Fires once per hashtag used in a native post.
+					 *
+					 * @param string $tag     Lowercase tag slug (no leading #).
+					 * @param int    $post_id Post containing the tag.
+					 * @param int    $user_id Author of the post.
+					 */
+					do_action( 'buddynext_hashtag_used', $tag, $object_id, $user_id );
+				}
+			}
+		}
 	}
 
 	/**

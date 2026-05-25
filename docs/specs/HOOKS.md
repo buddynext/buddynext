@@ -522,6 +522,34 @@ do_action( 'mvs_mentions_created', array $mentioned_user_ids, string $context_ty
 
 ---
 
+## Engagement events — recipient-perspective signals
+
+Gamification plugins typically award **recipients** of engagement (the
+user whose work is being liked / commented-on / followed), not the actor.
+BN's actor-perspective events (`buddynext_user_followed`,
+`buddynext_reaction_added`, `buddynext_comment_created`) are always
+fired; recipient-mirrored events fire alongside them when the recipient
+differs from the actor.
+
+```php
+// Followee gained a follower (mirror of buddynext_user_followed).
+do_action( 'buddynext_follower_gained', int $followee_id, int $follower_id )
+
+// Post received a reaction (only when reactor != author).
+do_action( 'buddynext_post_reaction_received',
+    int $post_id, int $author_id, int $reactor_id, string $emoji )
+
+// Post received a comment (only when commenter != author).
+do_action( 'buddynext_post_comment_received',
+    int $comment_id, int $post_id, int $author_id, int $commenter_id )
+
+// Native post used a hashtag (fires once per tag, object_type='post' only).
+do_action( 'buddynext_hashtag_used',
+    string $tag, int $post_id, int $user_id )
+```
+
+---
+
 ## Sidebar widget data — gamification-bridge seams
 
 Right-sidebar widgets fall back to inline COUNT queries from `bn_*` tables
