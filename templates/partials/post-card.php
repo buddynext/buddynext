@@ -7,11 +7,14 @@
  * $current_user_id (int, 0 for guests), and $context
  * (string: home|explore|profile|space) — variables extracted by TemplateLoader::render().
  *
+ * This file is now a thin composer: it resolves shared state once and
+ * delegates each UI region to a `templates/parts/post-*.php` template part.
+ * The 8 region parts each expose the standard 4-hook contract
+ * (`buddynext_part_post_{name}_{args|classes|before|after}`) — see
+ * `docs/specs/TEMPLATE-PARTS.md`.
+ *
  * Markup follows the v2 prototype in `docs/v2 Plans/v2/home-feed.html`
  * (in-feed post variant) and `docs/v2 Plans/v2/post-detail.html` (full post).
- * Single border, no shadow, body padding `--bn-s5`, head row → body → optional
- * rich content → optional reaction summary → flat action row → optional
- * comments expand region.
  *
  * Supported post types: text, photo, file, link, poll, announcement,
  *   activity, media, discussion, job, share.
@@ -104,12 +107,6 @@ $member_type_slug  = get_user_meta( $post_author_id, 'bn_member_type', true );
 $member_type_label = $member_type_slug ? get_user_meta( $post_author_id, 'bn_member_type_label', true ) : '';
 
 // ── Timestamps ─────────────────────────────────────────────────────────────────
-/**
- * Format a MySQL datetime as a relative time string.
- *
- * @param string $datetime UTC MySQL datetime.
- * @return string Escaped relative label.
- */
 if ( ! function_exists( 'bn_post_card_relative_time' ) ) :
 	/**
 	 * Return a human-readable relative time string for a datetime.
@@ -149,6 +146,9 @@ $can_delete   = $is_own_post || $is_admin;
 $can_pin      = $is_own_post || $is_admin;
 $can_report   = ( $current_user_id > 0 && ! $is_own_post );
 $can_bookmark = ( $current_user_id > 0 );
+$can_react    = ( $current_user_id > 0 );
+$can_comment  = ( $current_user_id > 0 );
+$can_share    = ( $current_user_id > 0 );
 
 // ── Nonces — all REST calls use the wp_rest nonce ──────────────────────────────
 $rest_nonce     = $current_user_id > 0 ? wp_create_nonce( 'wp_rest' ) : '';
@@ -301,523 +301,101 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		</div>
 	<?php endif; ?>
 
-	<!-- Head row: avatar + author block + meta line + kebab (v2 .post-head) -->
-	<header class="bn-post-card__head">
-		<a href="<?php echo esc_url( $profile_link ); ?>" class="bn-post-card__avatar-link" tabindex="-1" aria-hidden="true">
-			<?php if ( $avatar_url ) : ?>
-				<span class="bn-avatar" data-size="md">
-					<img
-						src="<?php echo esc_url( $avatar_url ); ?>"
-						alt="<?php echo esc_attr( $display_name ); ?>"
-						width="40"
-						height="40"
-						loading="lazy"
-					>
-				</span>
-			<?php else : ?>
-				<span class="bn-avatar" data-size="md" aria-hidden="true"><?php echo esc_html( $initials ); ?></span>
-			<?php endif; ?>
-		</a>
+	<?php
+	// Head row — byline part renders the options-menu inline so the flex
+	// container preserves byte-identical sibling ordering.
+	buddynext_get_template(
+		'parts/post-byline.php',
+		array(
+			'bn_post'           => $bn_post,
+			'bn_post_id'        => $bn_post_id,
+			'author_id'         => $post_author_id,
+			'display_name'      => $display_name,
+			'username'          => $username,
+			'avatar_url'        => $avatar_url,
+			'initials'          => $initials,
+			'member_type_label' => $member_type_label,
+			'created_at'        => $created_at,
+			'post_time'         => $post_time,
+			'edited_label'      => $edited_label,
+			'privacy_label'     => $privacy_label,
+			'privacy_icon'      => $privacy_icon,
+			'profile_link'      => $profile_link,
+			'options_menu_args' => array(
+				'bn_post'    => $bn_post,
+				'bn_post_id' => $bn_post_id,
+				'can_edit'   => $can_edit,
+				'can_pin'    => $can_pin,
+				'can_report' => $can_report,
+				'can_delete' => $can_delete,
+				'is_pinned'  => $is_pinned,
+			),
+		)
+	);
 
-		<div class="bn-post-card__author-block">
-			<div class="bn-post-card__author">
-				<a
-					id="bn-post-author-<?php echo absint( $bn_post_id ); ?>"
-					href="<?php echo esc_url( $profile_link ); ?>"
-					class="bn-post-card__author-name bn-hover-user"
-					data-bn-user-id="<?php echo absint( $post_author_id ); ?>"
-					data-bn-user-name="<?php echo esc_attr( $display_name ); ?>"
-					data-bn-user-handle="<?php echo esc_attr( $username ); ?>"
-				><?php echo esc_html( $display_name ); ?></a>
+	buddynext_get_template(
+		'parts/post-cw-overlay.php',
+		array(
+			'has_cw'     => $has_cw,
+			'cw_type'    => $cw_type,
+			'cw_label'   => $cw_display,
+			'bn_post_id' => $bn_post_id,
+		)
+	);
 
-				<?php if ( $member_type_label ) : ?>
-					<span class="bn-badge bn-post-card__member-type" data-tone="accent"><?php echo esc_html( (string) $member_type_label ); ?></span>
-				<?php endif; ?>
-			</div>
+	buddynext_get_template(
+		'parts/post-body.php',
+		array(
+			'bn_post'           => $bn_post,
+			'bn_post_id'        => $bn_post_id,
+			'bn_post_type'      => $bn_post_type,
+			'post_content'      => $post_content,
+			'link_preview'      => array(
+				'url'    => $link_url,
+				'title'  => $link_title,
+				'desc'   => $link_desc,
+				'thumb'  => $link_thumb,
+				'domain' => $link_domain,
+			),
+			'poll_data'         => array(
+				'options'            => $poll_options,
+				'total_votes'        => $poll_total_votes,
+				'my_voted_option_id' => $my_voted_option_id,
+			),
+			'media_attachments' => $media_ids,
+			'is_pinned'         => $is_pinned,
+			'has_cw'            => $has_cw,
+			'shared_post'       => $shared_post,
+		)
+	);
 
-			<div class="bn-post-card__meta">
-				<?php if ( $username ) : ?>
-					<a class="bn-post-card__handle" href="<?php echo esc_url( $profile_link ); ?>">@<?php echo esc_html( $username ); ?></a>
-					<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
-				<?php endif; ?>
+	buddynext_get_template(
+		'parts/post-reaction-summary.php',
+		array(
+			'reaction_count' => $reaction_count,
+			'comment_count'  => $comment_count,
+			'share_count'    => $share_count,
+			'top_reactions'  => array(),
+			'bn_post_id'     => $bn_post_id,
+		)
+	);
 
-				<a
-					class="bn-post-card__time-link"
-					href="<?php echo esc_url( PageRouter::post_url( $bn_post_id ) ); ?>"
-					aria-label="<?php esc_attr_e( 'Open post permalink', 'buddynext' ); ?>"
-				><time
-					class="bn-post-card__time"
-					datetime="<?php echo esc_attr( $created_at ); ?>"
-					title="<?php echo esc_attr( $created_at ); ?>"
-				><?php echo $post_time; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped inside function ?></time></a>
-
-				<?php if ( $edited_label ) : ?>
-					<span class="bn-post-card__edited"><?php echo esc_html( $edited_label ); ?></span>
-				<?php endif; ?>
-
-				<?php if ( $privacy_label ) : ?>
-					<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
-					<span class="bn-post-card__privacy" aria-label="<?php echo esc_attr( $privacy_label ); ?>">
-						<?php echo $privacy_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService::render wp_kses-sanitized SVG ?>
-						<span><?php echo esc_html( $privacy_label ); ?></span>
-					</span>
-				<?php endif; ?>
-			</div>
-		</div>
-
-		<div class="bn-post-card__menu-wrap">
-			<button
-				type="button"
-				class="bn-post-card__menu"
-				aria-label="<?php esc_attr_e( 'Post actions', 'buddynext' ); ?>"
-				aria-haspopup="true"
-				aria-expanded="false"
-				data-wp-on--click="actions.toggleOptionsMenu"
-				data-wp-bind--aria-expanded="state.optionsOpen"
-			><?php buddynext_icon( 'more-horizontal' ); ?></button>
-
-			<div
-				class="bn-post-card__options-menu"
-				role="menu"
-				data-wp-bind--hidden="!state.optionsOpen"
-			>
-				<?php if ( $can_edit ) : ?>
-					<button
-						type="button"
-						class="bn-post-card__menu-item"
-						role="menuitem"
-						data-wp-on--click="actions.editPost"
-					><?php buddynext_icon( 'edit' ); ?> <?php esc_html_e( 'Edit', 'buddynext' ); ?></button>
-				<?php endif; ?>
-
-				<?php if ( $can_pin ) : ?>
-					<button
-						type="button"
-						class="bn-post-card__menu-item"
-						role="menuitem"
-						data-wp-on--click="actions.pinPost"
-					><?php buddynext_icon( 'bookmark' ); ?> <?php echo $is_pinned ? esc_html__( 'Unpin', 'buddynext' ) : esc_html__( 'Pin to profile', 'buddynext' ); ?></button>
-				<?php endif; ?>
-
-				<?php if ( $can_report ) : ?>
-					<button
-						type="button"
-						class="bn-post-card__menu-item bn-post-card__menu-item--danger"
-						role="menuitem"
-						data-wp-on--click="actions.reportPost"
-					><?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Report', 'buddynext' ); ?></button>
-				<?php endif; ?>
-
-				<?php if ( $can_delete ) : ?>
-					<button
-						type="button"
-						class="bn-post-card__menu-item bn-post-card__menu-item--danger"
-						role="menuitem"
-						data-wp-on--click="actions.deletePost"
-					><?php buddynext_icon( 'trash' ); ?> <?php esc_html_e( 'Delete', 'buddynext' ); ?></button>
-				<?php endif; ?>
-			</div>
-		</div>
-	</header>
-
-	<!-- Content warning overlay -->
-	<?php if ( $has_cw ) : ?>
-		<div
-			class="bn-post-card__cw-overlay"
-			data-wp-bind--hidden="state.showContent"
-		>
-			<span class="bn-post-card__cw-icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
-			<p class="bn-post-card__cw-label"><?php echo esc_html( $cw_display ); ?></p>
-			<button
-				type="button"
-				class="bn-post-card__cw-reveal"
-				data-wp-on--click="actions.revealContent"
-			><?php esc_html_e( 'Show anyway', 'buddynext' ); ?></button>
-		</div>
-	<?php endif; ?>
-
-	<!-- Body — JS toggles `--blurred` modifier when content warning is active. -->
-	<div
-		class="bn-post-card__body"
-		<?php if ( $has_cw ) : ?>
-			data-wp-bind--class="state.bodyClass"
-		<?php endif; ?>
-	>
-
-		<?php if ( 'text' === $bn_post_type || 'activity' === $bn_post_type ) : ?>
-			<div class="bn-post-card__content">
-				<?php
-				echo wp_kses(
-					nl2br( buddynext_format_content( $post_content ) ),
-					array(
-						'br'     => array(),
-						'a'      => array(
-							'href'  => array(),
-							'class' => array(),
-						),
-						'strong' => array(),
-						'em'     => array(),
-					)
-				);
-				?>
-			</div>
-
-		<?php elseif ( 'photo' === $bn_post_type ) : ?>
-			<?php if ( $post_content ) : ?>
-				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
-			<?php endif; ?>
-			<?php if ( ! empty( $media_ids ) ) : ?>
-				<div class="bn-post-card__media bn-post-card__media-grid mvs-activity-media-grid bn-post-card__media-grid--<?php echo count( $media_ids ) >= 4 ? '4' : esc_attr( (string) count( $media_ids ) ); ?>">
-					<?php
-					foreach ( array_slice( $media_ids, 0, 4 ) as $media_id ) :
-						$media_id  = absint( $media_id );
-						$media_url = '';
-						$full_url  = '';
-						if ( $media_id > 0 ) {
-							$media_url = (string) get_post_meta( $media_id, '_mvs_file_url', true );
-							if ( '' === $media_url ) {
-								$media_url = (string) wp_get_attachment_image_url( $media_id, 'medium' );
-							}
-							if ( ! $media_url ) {
-								$media_url = (string) wp_get_attachment_url( $media_id );
-							}
-							$full_url = (string) wp_get_attachment_url( $media_id );
-						}
-						$media_permalink = get_permalink( $media_id );
-						$media_title     = get_the_title( $media_id );
-						if ( ! $media_title ) {
-							$media_title = wp_trim_words( $post_content, 12, '' );
-						}
-						$media_link_href = '' !== $full_url ? $full_url : $media_url;
-						?>
-						<div class="bn-post-card__media-item mvs-activity-media" data-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-src="<?php echo esc_url( $full_url ); ?>">
-							<?php if ( '' !== $media_url ) : ?>
-								<a href="<?php echo esc_url( $media_link_href ); ?>" class="mvs-grid-item-link" data-mvs-permalink="<?php echo esc_url( (string) $media_permalink ); ?>">
-									<img src="<?php echo esc_url( $media_url ); ?>" alt="<?php echo esc_attr( $media_title ); ?>" loading="lazy">
-								</a>
-							<?php else : ?>
-								<span class="bn-post-card__media-placeholder" aria-hidden="true"><?php buddynext_icon( 'camera' ); ?></span>
-							<?php endif; ?>
-						</div>
-					<?php endforeach; ?>
-				</div>
-			<?php endif; ?>
-
-		<?php elseif ( 'file' === $bn_post_type ) : ?>
-			<?php if ( $post_content ) : ?>
-				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
-			<?php endif; ?>
-			<?php if ( ! empty( $media_ids ) ) : ?>
-				<div class="bn-post-card__file-list">
-					<?php foreach ( $media_ids as $file_media_id ) : ?>
-						<div class="bn-post-card__file-item" data-media-id="<?php echo absint( $file_media_id ); ?>">
-							<span class="bn-post-card__file-icon" aria-hidden="true"><?php buddynext_icon( 'copy' ); ?></span>
-							<span class="bn-post-card__file-label"><?php esc_html_e( 'Attached file', 'buddynext' ); ?></span>
-						</div>
-					<?php endforeach; ?>
-				</div>
-			<?php endif; ?>
-
-		<?php elseif ( 'link' === $bn_post_type ) : ?>
-			<?php if ( $post_content ) : ?>
-				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
-			<?php endif; ?>
-			<?php if ( $link_url ) : ?>
-				<a
-					href="<?php echo esc_url( $link_url ); ?>"
-					class="bn-post-card__embed bn-post-card__link-preview"
-					target="_blank"
-					rel="noopener noreferrer"
-					aria-label="<?php echo esc_attr( $link_title ? $link_title : $link_domain ); ?>"
-				>
-					<?php if ( $link_thumb ) : ?>
-						<div class="bn-post-card__link-thumb">
-							<img
-								src="<?php echo esc_url( $link_thumb ); ?>"
-								alt=""
-								loading="lazy"
-							>
-						</div>
-					<?php endif; ?>
-					<div class="bn-post-card__link-info">
-						<?php if ( $link_title ) : ?>
-							<p class="bn-post-card__link-title"><?php echo esc_html( $link_title ); ?></p>
-						<?php endif; ?>
-						<?php if ( $link_desc ) : ?>
-							<p class="bn-post-card__link-desc"><?php echo esc_html( $link_desc ); ?></p>
-						<?php endif; ?>
-						<?php if ( $link_domain ) : ?>
-							<span class="bn-post-card__link-domain"><?php echo esc_html( $link_domain ); ?></span>
-						<?php endif; ?>
-					</div>
-				</a>
-			<?php endif; ?>
-
-		<?php elseif ( 'poll' === $bn_post_type ) : ?>
-			<?php if ( $post_content ) : ?>
-				<div class="bn-post-card__content bn-post-card__poll-question">
-					<?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?>
-				</div>
-			<?php endif; ?>
-			<?php if ( ! empty( $poll_options ) ) : ?>
-				<div
-					class="bn-post-card__poll"
-					role="group"
-					aria-label="<?php esc_attr_e( 'Poll options', 'buddynext' ); ?>"
-				>
-					<?php foreach ( $poll_options as $option ) : ?>
-						<?php
-						$opt_id    = absint( $option['id'] );
-						$opt_text  = $option['option_text'] ?? '';
-						$opt_votes = absint( $option['vote_count'] );
-						$opt_pct   = $poll_total_votes > 0 ? (int) round( ( $opt_votes / $poll_total_votes ) * 100 ) : 0;
-						$opt_voted = ( $my_voted_option_id === $opt_id && $opt_id > 0 );
-						?>
-						<button
-							type="button"
-							class="bn-post-card__poll-option<?php echo $opt_voted ? ' is-voted' : ''; ?>"
-							data-wp-context='<?php echo wp_json_encode( array( 'optionId' => $opt_id ) ); ?>'
-							data-wp-bind--class="state.pollOptionBtnClass"
-							data-wp-on--click="actions.votePoll"
-							data-option-id="<?php echo absint( $opt_id ); ?>"
-							aria-label="<?php echo esc_attr( sprintf( '%s — %d%%', $opt_text, $opt_pct ) ); ?>"
-						>
-							<div
-								class="bn-post-card__poll-fill"
-								style="width:<?php echo absint( $opt_pct ); ?>%"
-								data-wp-bind--style="state.pollFillStyle"
-								aria-hidden="true"
-							></div>
-							<span class="bn-post-card__poll-option-text"><?php echo esc_html( $opt_text ); ?></span>
-							<span
-								class="bn-post-card__poll-pct"
-								data-wp-text="state.pollOptionPctText"
-								aria-hidden="true"
-							><?php echo absint( $opt_pct ); ?>%</span>
-						</button>
-					<?php endforeach; ?>
-					<p
-						class="bn-post-card__poll-total"
-						data-wp-text="state.pollTotalVotesText"
-					>
-						<?php
-						/* translators: %d: total vote count */
-						echo esc_html( sprintf( _n( '%d vote', '%d votes', $poll_total_votes, 'buddynext' ), $poll_total_votes ) );
-						?>
-					</p>
-				</div>
-			<?php endif; ?>
-
-		<?php elseif ( 'announcement' === $bn_post_type ) : ?>
-			<div class="bn-post-card__content bn-post-card__content--announcement">
-				<?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?>
-			</div>
-
-		<?php elseif ( 'media' === $bn_post_type ) : ?>
-			<?php if ( $post_content ) : ?>
-				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
-			<?php endif; ?>
-			<?php if ( ! empty( $media_ids ) ) : ?>
-				<div class="bn-post-card__media-bridge" data-mvs-ids="<?php echo esc_attr( implode( ',', array_map( 'absint', $media_ids ) ) ); ?>">
-					<span class="bn-post-card__media-placeholder" aria-hidden="true"><?php buddynext_icon( 'camera' ); ?></span>
-					<span class="bn-post-card__bridge-label"><?php esc_html_e( 'Media', 'buddynext' ); ?></span>
-				</div>
-			<?php endif; ?>
-
-		<?php elseif ( 'discussion' === $bn_post_type ) : ?>
-			<div class="bn-post-card__bridge-card bn-post-card__bridge-card--jetonomy">
-				<span class="bn-post-card__bridge-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
-				<div class="bn-post-card__bridge-content">
-					<span class="bn-post-card__bridge-source">Jetonomy</span>
-					<p class="bn-post-card__bridge-text"><?php echo wp_kses_post( wp_trim_words( $post_content, 20 ) ); ?></p>
-				</div>
-			</div>
-
-		<?php elseif ( 'job' === $bn_post_type ) : ?>
-			<div class="bn-post-card__bridge-card bn-post-card__bridge-card--job">
-				<span class="bn-post-card__bridge-icon" aria-hidden="true"><?php buddynext_icon( 'briefcase' ); ?></span>
-				<div class="bn-post-card__bridge-content">
-					<span class="bn-post-card__bridge-source"><?php esc_html_e( 'Job Listing', 'buddynext' ); ?></span>
-					<p class="bn-post-card__bridge-text"><?php echo wp_kses_post( wp_trim_words( $post_content, 20 ) ); ?></p>
-				</div>
-			</div>
-
-		<?php elseif ( 'share' === $bn_post_type ) : ?>
-			<?php if ( ! empty( $post_content ) ) : ?>
-				<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
-			<?php endif; ?>
-			<?php if ( null !== $shared_post ) : ?>
-				<?php
-				$orig_author   = get_userdata( (int) ( $shared_post['user_id'] ?? 0 ) );
-				$orig_name     = $orig_author ? esc_html( $orig_author->display_name ) : esc_html__( 'Community Member', 'buddynext' );
-				$orig_username = $orig_author ? esc_html( $orig_author->user_nicename ) : '';
-				$orig_avatar   = get_avatar_url( (int) ( $shared_post['user_id'] ?? 0 ), array( 'size' => 40 ) );
-				$orig_time     = bn_post_card_relative_time( $shared_post['created_at'] ?? '' );
-				$orig_content  = $shared_post['content'] ?? '';
-				$orig_post_url = PageRouter::profile_url( (int) ( $shared_post['user_id'] ?? 0 ) );
-				$orig_parts    = array_filter( explode( ' ', trim( (string) $orig_name ) ) );
-				if ( count( $orig_parts ) >= 2 ) {
-					$orig_initials = strtoupper( substr( (string) reset( $orig_parts ), 0, 1 ) . substr( (string) end( $orig_parts ), 0, 1 ) );
-				} else {
-					$orig_initials = strtoupper( substr( (string) $orig_name, 0, 2 ) );
-				}
-				?>
-				<blockquote class="bn-post-card__shared bn-post-card__shared-embed" role="article" aria-label="<?php esc_attr_e( 'Shared post', 'buddynext' ); ?>">
-					<div class="bn-post-card__shared-header">
-						<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-avatar-link" aria-hidden="true">
-							<?php if ( $orig_avatar ) : ?>
-								<span class="bn-avatar" data-size="sm">
-									<img src="<?php echo esc_url( $orig_avatar ); ?>" alt="<?php echo esc_attr( $orig_name ); ?>" width="32" height="32">
-								</span>
-							<?php else : ?>
-								<span class="bn-avatar" data-size="sm"><?php echo esc_html( $orig_initials ); ?></span>
-							<?php endif; ?>
-						</a>
-						<div class="bn-post-card__shared-meta">
-							<a href="<?php echo esc_url( $orig_post_url ); ?>" class="bn-post-card__shared-name"><?php echo esc_html( $orig_name ); ?></a>
-							<span class="bn-post-card__shared-sub">
-								<?php if ( $orig_username ) : ?>
-									<span class="bn-post-card__shared-username">@<?php echo esc_html( $orig_username ); ?></span>
-									<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
-								<?php endif; ?>
-								<span class="bn-post-card__shared-time"><?php echo esc_html( $orig_time ); ?></span>
-							</span>
-						</div>
-					</div>
-					<?php if ( ! empty( $orig_content ) ) : ?>
-						<div class="bn-post-card__shared-content"><?php echo wp_kses_post( nl2br( wp_trim_words( $orig_content, 60 ) ) ); ?></div>
-					<?php else : ?>
-						<p class="bn-post-card__shared-empty"><?php esc_html_e( '[No text content]', 'buddynext' ); ?></p>
-					<?php endif; ?>
-				</blockquote>
-			<?php else : ?>
-				<div class="bn-post-card__shared-missing">
-					<span aria-hidden="true"><?php buddynext_icon( 'share' ); ?></span>
-					<p><?php esc_html_e( 'Original post is no longer available.', 'buddynext' ); ?></p>
-				</div>
-			<?php endif; ?>
-
-		<?php else : ?>
-			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $post_content ) ) ); ?></div>
-		<?php endif; ?>
-
-	</div><!-- .bn-post-card__body -->
-
-	<!-- Reaction summary chips — visible when there are reactions/comments/shares -->
-	<?php if ( $reaction_count > 0 || $comment_count > 0 || $share_count > 0 ) : ?>
-		<div class="bn-post-card__reactions bn-post-card__reaction-summary" aria-label="<?php esc_attr_e( 'Post summary', 'buddynext' ); ?>">
-			<?php if ( $reaction_count > 0 ) : ?>
-				<span class="bn-post-card__summary-chip">
-					<?php buddynext_icon( 'heart' ); ?> <?php echo esc_html( (string) $reaction_count ); ?>
-				</span>
-			<?php endif; ?>
-			<?php if ( $comment_count > 0 ) : ?>
-				<span class="bn-post-card__summary-chip">
-					<?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) $comment_count ); ?>
-				</span>
-			<?php endif; ?>
-			<?php if ( $share_count > 0 ) : ?>
-				<span class="bn-post-card__summary-chip">
-					<?php buddynext_icon( 'share' ); ?> <?php echo esc_html( (string) $share_count ); ?>
-				</span>
-			<?php endif; ?>
-		</div>
-	<?php endif; ?>
-
-	<!-- Flat action row (v2 .post-actions) -->
-	<div class="bn-post-card__actions" role="toolbar" aria-label="<?php esc_attr_e( 'Post actions', 'buddynext' ); ?>">
-
-		<div class="bn-post-card__react-wrap">
-			<button
-				type="button"
-				class="bn-post-card__action-btn bn-post-card__action-btn--react"
-				aria-label="<?php esc_attr_e( 'React to post', 'buddynext' ); ?>"
-				data-wp-on--click="actions.toggleReactionPicker"
-				data-wp-bind--class="state.reactBtnClass"
-			>
-				<span data-wp-bind--class="state.reactionIconClass" aria-hidden="true"><?php buddynext_icon( 'heart' ); ?></span>
-				<span class="bn-post-card__action-label"><?php esc_html_e( 'React', 'buddynext' ); ?></span>
-			</button>
-
-			<div
-				class="bn-post-card__emoji-picker"
-				role="toolbar"
-				aria-label="<?php esc_attr_e( 'Choose reaction', 'buddynext' ); ?>"
-				data-wp-bind--hidden="!state.showReactionPicker"
-			>
-				<?php
-				$reaction_icons = array(
-					'like'  => 'thumbs-up',
-					'love'  => 'heart',
-					'haha'  => 'reaction-haha',
-					'wow'   => 'reaction-wow',
-					'sad'   => 'reaction-sad',
-					'angry' => 'reaction-angry',
-				);
-				foreach ( $reaction_icons as $reaction_key => $icon_slug ) :
-					?>
-					<button
-						type="button"
-						class="bn-post-card__emoji-btn"
-						aria-label="<?php echo esc_attr( $reaction_key ); ?>"
-						data-wp-on--click="actions.setReaction"
-						data-reaction-type="<?php echo esc_attr( $reaction_key ); ?>"
-					><span class="bn-reaction-icon bn-reaction-icon--<?php echo esc_attr( $reaction_key ); ?>" aria-hidden="true"><?php buddynext_icon( $icon_slug ); ?></span></button>
-				<?php endforeach; ?>
-			</div>
-		</div>
-
-		<button
-			type="button"
-			class="bn-post-card__action-btn"
-			aria-label="
-			<?php
-				/* translators: %d: comment count */
-				echo esc_attr( sprintf( _n( '%d comment', '%d comments', $comment_count, 'buddynext' ), $comment_count ) );
-			?>
-			"
-			data-wp-on--click="actions.openComments"
-			data-post-id="<?php echo absint( $bn_post_id ); ?>"
-		>
-			<?php buddynext_icon( 'message-circle' ); ?>
-			<span class="bn-post-card__action-label"><?php esc_html_e( 'Comment', 'buddynext' ); ?></span>
-			<?php if ( $comment_count > 0 ) : ?>
-				<span class="bn-comment-count"><?php echo esc_html( (string) $comment_count ); ?></span>
-			<?php else : ?>
-				<span class="bn-comment-count" hidden>0</span>
-			<?php endif; ?>
-		</button>
-
-		<?php if ( 'share' !== $bn_post_type ) : ?>
-		<button
-			type="button"
-			class="bn-post-card__action-btn"
-			data-wp-bind--class="state.shareBtnClass"
-			aria-label="<?php esc_attr_e( 'Share post', 'buddynext' ); ?>"
-			data-wp-on--click="actions.openShare"
-			data-post-id="<?php echo absint( $bn_post_id ); ?>"
-			data-post-permalink="<?php echo esc_url( PageRouter::post_url( $bn_post_id ) ); ?>"
-		>
-			<?php buddynext_icon( 'share' ); ?>
-			<span class="bn-post-card__action-label" data-wp-text="state.shareLabel"></span>
-		</button>
-		<?php endif; ?>
-
-		<?php if ( $can_bookmark ) : ?>
-			<button
-				type="button"
-				class="bn-post-card__action-btn"
-				aria-label="<?php esc_attr_e( 'Bookmark post', 'buddynext' ); ?>"
-				data-wp-on--click="actions.toggleBookmark"
-				data-post-id="<?php echo absint( $bn_post_id ); ?>"
-				data-wp-bind--class="state.bookmarkBtnClass"
-			>
-				<span data-wp-bind--aria-pressed="state.bookmarked"><?php buddynext_icon( 'bookmark' ); ?></span>
-				<span class="bn-post-card__action-label"><?php esc_html_e( 'Save', 'buddynext' ); ?></span>
-			</button>
-		<?php endif; ?>
-
-	</div><!-- .bn-post-card__actions -->
+	buddynext_get_template(
+		'parts/post-actions.php',
+		array(
+			'bn_post'       => $bn_post,
+			'bn_post_id'    => $bn_post_id,
+			'bn_post_type'  => $bn_post_type,
+			'user_reaction' => $my_reaction_type,
+			'is_bookmarked' => $is_bookmarked,
+			'can_react'     => $can_react,
+			'can_comment'   => $can_comment,
+			'can_share'     => $can_share,
+			'can_bookmark'  => $can_bookmark,
+			'comment_count' => $comment_count,
+		)
+	);
+	?>
 
 	<!-- Comments expand region -->
 	<div
@@ -826,53 +404,29 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		data-wp-bind--hidden="state.commentsHidden"
 		data-post-id="<?php echo absint( $bn_post_id ); ?>"
 	>
-		<div class="bn-comment-list" data-comment-list="<?php echo absint( $bn_post_id ); ?>"></div>
+		<?php
+		buddynext_get_template(
+			'parts/post-comments-list.php',
+			array(
+				'bn_post'    => $bn_post,
+				'bn_post_id' => $bn_post_id,
+				'comments'   => array(),
+				'viewer_id'  => $current_user_id,
+			)
+		);
 
-		<?php if ( $current_user_id > 0 ) : ?>
-		<div class="bn-comment-form">
-			<?php
-			$current_display_name = (string) get_the_author_meta( 'display_name', $current_user_id );
-			$name_for_initials    = '' !== $current_display_name ? $current_display_name : 'U';
-			$current_initials     = implode( '', array_map( fn( string $w ) => strtoupper( mb_substr( $w, 0, 1 ) ), explode( ' ', $name_for_initials ) ) );
-			?>
-			<span class="bn-avatar bn-comment-form__avatar" data-size="sm" aria-hidden="true"><?php echo esc_html( mb_substr( $current_initials, 0, 2 ) ); ?></span>
-			<label for="bn-comment-input-<?php echo absint( $bn_post_id ); ?>" class="screen-reader-text">
-				<?php esc_html_e( 'Write a comment', 'buddynext' ); ?>
-			</label>
-			<textarea
-				id="bn-comment-input-<?php echo absint( $bn_post_id ); ?>"
-				class="bn-input bn-textarea bn-comment-form__input"
-				placeholder="<?php esc_attr_e( 'Write a comment...', 'buddynext' ); ?>"
-				aria-label="<?php esc_attr_e( 'Comment text', 'buddynext' ); ?>"
-				data-comment-input="<?php echo absint( $bn_post_id ); ?>"
-				rows="1"
-			></textarea>
-			<button
-				type="button"
-				class="bn-btn bn-comment-form__submit"
-				data-variant="primary"
-				data-size="sm"
-				data-wp-on--click="actions.submitComment"
-				aria-label="<?php esc_attr_e( 'Post comment', 'buddynext' ); ?>"
-			>
-				<?php buddynext_icon( 'send' ); ?>
-			</button>
-		</div>
-
-			<?php
-			/**
-			 * Fires inside the comment form, after the submit button.
-			 *
-			 * Lets Pro and other addons inject extra controls next to the comment
-			 * textarea (for example, AI smart-reply suggestion chips).
-			 *
-			 * @since 0.3.0
-			 *
-			 * @param int $post_id The post ID the comment form belongs to.
-			 */
-			do_action( 'buddynext_post_comment_form_extra', $bn_post_id );
-			?>
-		<?php endif; ?>
+		if ( $current_user_id > 0 ) {
+			buddynext_get_template(
+				'parts/post-comment-form.php',
+				array(
+					'bn_post'     => $bn_post,
+					'bn_post_id'  => $bn_post_id,
+					'user_id'     => $current_user_id,
+					'placeholder' => __( 'Write a comment...', 'buddynext' ),
+				)
+			);
+		}
+		?>
 	</div>
 
 </article>

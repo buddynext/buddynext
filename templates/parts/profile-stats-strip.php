@@ -1,0 +1,144 @@
+<?php
+/**
+ * BuddyNext template part: profile-stats-strip.
+ *
+ * Renders the 4-cell stat band that sits at the bottom of the profile
+ * hero card (posts / followers / following / connections) plus any extra
+ * tiles injected by bridge plugins through `buddynext_profile_extra_data`.
+ *
+ * @package BuddyNext
+ * @since   1.1.0
+ *
+ * @var int   $profile_user_id  Required. ID of the profile being viewed.
+ * @var bool  $is_owner         Optional. Whether viewer owns this profile.
+ * @var array $stats            Required. Stat descriptors. Each entry is
+ *                              `[ 'slug', 'label', 'value' (int|string),
+ *                                 'href' (string), 'icon' (string), 'tone' ]`.
+ *                              The composer supplies the 4 canonical rows
+ *                              (`posts`, `followers`, `following`,
+ *                              `connections`); bridge plugins can append
+ *                              additional descriptors via
+ *                              `buddynext_part_profile_stats_strip_args`.
+ * @var array $classes          Optional. Extra CSS classes appended to `.bn-pf-stats`.
+ *
+ * Fires:
+ *   - do_action( 'buddynext_part_profile_stats_strip_before', $args )
+ *   - do_action( 'buddynext_part_profile_stats_strip_after',  $args )
+ *
+ * Filters:
+ *   - apply_filters( 'buddynext_part_profile_stats_strip_args',    array $args )
+ *   - apply_filters( 'buddynext_part_profile_stats_strip_classes', array $classes, array $args )
+ */
+
+declare( strict_types=1 );
+
+defined( 'ABSPATH' ) || exit;
+
+$args = array(
+	'profile_user_id' => isset( $profile_user_id ) ? (int) $profile_user_id : 0,
+	'is_owner'        => isset( $is_owner ) ? (bool) $is_owner : false,
+	'stats'           => isset( $stats ) && is_array( $stats ) ? $stats : array(),
+	'classes'         => isset( $classes ) ? (array) $classes : array(),
+);
+
+/** Sanitized partial arguments. @var array<string,mixed> $args */
+$args = (array) apply_filters( 'buddynext_part_profile_stats_strip_args', $args );
+
+if ( empty( $args['stats'] ) ) {
+	return;
+}
+
+$bn_classes = array_merge( array( 'bn-pf-stats' ), array_filter( (array) $args['classes'], 'is_string' ) );
+/** Computed root-class list. @var array<int,string> $bn_classes */
+$bn_classes = (array) apply_filters( 'buddynext_part_profile_stats_strip_classes', $bn_classes, $args );
+$bn_class   = trim(
+	implode(
+		' ',
+		array_unique(
+			array_filter(
+				$bn_classes,
+				static function ( $c ) {
+					return is_string( $c ) && '' !== $c;
+				}
+			)
+		)
+	)
+);
+
+$bn_pf_uid = (int) $args['profile_user_id'];
+
+do_action( 'buddynext_part_profile_stats_strip_before', $args );
+?>
+		<!-- Stats strip -->
+		<div class="<?php echo esc_attr( $bn_class ); ?>">
+			<?php
+			foreach ( (array) $args['stats'] as $bn_stat ) :
+				if ( ! is_array( $bn_stat ) ) {
+					continue;
+				}
+				$bn_slug     = isset( $bn_stat['slug'] ) ? (string) $bn_stat['slug'] : '';
+				$bn_label    = isset( $bn_stat['label'] ) ? (string) $bn_stat['label'] : '';
+				$bn_value    = isset( $bn_stat['value'] ) ? (string) $bn_stat['value'] : '';
+				$bn_href     = isset( $bn_stat['href'] ) ? (string) $bn_stat['href'] : '';
+				$bn_aria     = isset( $bn_stat['aria_label'] ) ? (string) $bn_stat['aria_label'] : '';
+				$bn_wp_text  = isset( $bn_stat['wp_text'] ) ? (string) $bn_stat['wp_text'] : '';
+				$bn_wp_on    = isset( $bn_stat['wp_on_click'] ) ? (string) $bn_stat['wp_on_click'] : '';
+				$bn_data_tab = isset( $bn_stat['data_tab'] ) ? (string) $bn_stat['data_tab'] : '';
+
+				if ( '' === $bn_label ) {
+					continue;
+				}
+
+				if ( '' !== $bn_wp_on ) :
+					// Button tile (sets a Tab via interactivity).
+					?>
+					<button type="button"
+						class="bn-pf-stat bn-pf-stat--link"
+						data-wp-on--click="<?php echo esc_attr( $bn_wp_on ); ?>"
+						<?php
+						if ( '' !== $bn_data_tab ) :
+							?>
+							data-tab="<?php echo esc_attr( $bn_data_tab ); ?>"<?php endif; ?>
+						<?php
+						if ( '' !== $bn_aria ) :
+							?>
+							aria-label="<?php echo esc_attr( $bn_aria ); ?>"<?php endif; ?>>
+						<div class="bn-pf-stat__value"><?php echo esc_html( $bn_value ); ?></div>
+						<div class="bn-pf-stat__label"><?php echo esc_html( $bn_label ); ?></div>
+					</button>
+				<?php elseif ( '' !== $bn_href ) : ?>
+					<a class="bn-pf-stat bn-pf-stat--link"
+						href="<?php echo esc_url( $bn_href ); ?>">
+						<div class="bn-pf-stat__value"<?php echo '' !== $bn_wp_text ? ' data-wp-text="' . esc_attr( $bn_wp_text ) . '"' : ''; ?>><?php echo esc_html( $bn_value ); ?></div>
+						<div class="bn-pf-stat__label"><?php echo esc_html( $bn_label ); ?></div>
+					</a>
+				<?php else : ?>
+					<div class="bn-pf-stat">
+						<div class="bn-pf-stat__value"><?php echo esc_html( $bn_value ); ?></div>
+						<div class="bn-pf-stat__label"><?php echo esc_html( $bn_label ); ?></div>
+					</div>
+					<?php
+				endif;
+			endforeach;
+
+			/**
+			 * Extra stat blocks injected by bridge plugins (e.g. Jetonomy discussion count,
+			 * WBGamification points). Each entry must be an array with 'label' and 'value' keys.
+			 *
+			 * @param array[] $extra   Array of ['label' => string, 'value' => string|int].
+			 * @param int     $user_id ID of the profile being viewed.
+			 */
+			$bn_extra_stats = apply_filters( 'buddynext_profile_extra_data', array(), $bn_pf_uid );
+			foreach ( $bn_extra_stats as $bn_extra_stat ) :
+				if ( empty( $bn_extra_stat['label'] ) || ! isset( $bn_extra_stat['value'] ) ) {
+					continue;
+				}
+				?>
+				<div class="bn-pf-stat">
+					<div class="bn-pf-stat__value"><?php echo esc_html( (string) $bn_extra_stat['value'] ); ?></div>
+					<div class="bn-pf-stat__label"><?php echo esc_html( $bn_extra_stat['label'] ); ?></div>
+				</div>
+			<?php endforeach; ?>
+		</div>
+<?php
+do_action( 'buddynext_part_profile_stats_strip_after', $args );

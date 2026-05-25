@@ -1,0 +1,418 @@
+<?php
+/**
+ * BuddyNext template part: profile-hero.
+ *
+ * Renders the profile hero card: cover image + identity head (avatar,
+ * name, badges, handle, headline, bio, meta row, social chips) and the
+ * viewer action cluster (follow/connect/message + share + more-options
+ * popovers). Used by `templates/profile/view.php`.
+ *
+ * Layout (logical properties only):
+ *   ┌──────────────────────────────────────────────────────────────────┐
+ *   │  <cover>                                                         │
+ *   │  ┌─────────┐                                                     │
+ *   │  │ avatar  │  <name + badges>            <action buttons>        │
+ *   │  └─────────┘  <handle · pronouns · headline>                     │
+ *   │               <bio>                                              │
+ *   │               <meta row>                                         │
+ *   │               <social chips>                                     │
+ *   └──────────────────────────────────────────────────────────────────┘
+ *
+ * @package BuddyNext
+ * @since   1.1.0
+ *
+ * @var int    $profile_user_id     Required. ID of the profile being viewed.
+ * @var int    $viewer_id           Required. ID of the current viewer (0 when anonymous).
+ * @var string $display_name        Required. Profile display name.
+ * @var string $username            Optional. URL-safe profile slug used after `@`.
+ * @var string $avatar_url          Required. Avatar URL (already resolved).
+ * @var string $cover_url           Optional. Cover image URL.
+ * @var string $bio                 Optional. Bio HTML (rendered via wp_kses_post).
+ * @var string $headline            Optional. Tagline shown next to the handle.
+ * @var string $pronouns            Optional. Pronouns shown in parens after the handle.
+ * @var string $location            Optional. Location string for the meta row.
+ * @var string $website             Optional. Website URL for the meta row.
+ * @var string $joined              Optional. Pre-formatted "joined" date.
+ * @var int    $mutual_count        Optional. Mutual connection count.
+ * @var string $degree_badge        Optional. Degree badge text (e.g. "1st").
+ * @var array  $member_type         Optional. ['name','color','text_color'].
+ * @var array  $social_links        Optional. Filtered social-link fields.
+ * @var bool   $is_owner            Required. Whether viewer owns this profile.
+ * @var bool   $is_online           Optional. Online presence flag.
+ * @var bool   $is_following        Optional. Viewer follows this profile.
+ * @var bool   $is_connected        Optional. Viewer is connected to this profile.
+ * @var bool   $connection_pending  Optional. Viewer has a pending outbound request.
+ * @var bool   $connection_received Optional. Viewer has a pending inbound request.
+ * @var array  $stats               Optional. Stat-tile descriptors passed through to
+ *                                  the profile-stats-strip part rendered inside the
+ *                                  hero `<section>` (preserves the original hero
+ *                                  layout where stats are the bottom band of the card).
+ * @var array  $classes             Optional. Extra CSS classes appended to `.bn-pf-hero`.
+ *
+ * Fires:
+ *   - do_action( 'buddynext_part_profile_hero_before', $args )
+ *   - do_action( 'buddynext_part_profile_hero_after',  $args )
+ *
+ * Filters:
+ *   - apply_filters( 'buddynext_part_profile_hero_args',    array $args )
+ *   - apply_filters( 'buddynext_part_profile_hero_classes', array $classes, array $args )
+ */
+
+declare( strict_types=1 );
+
+defined( 'ABSPATH' ) || exit;
+
+$args = array(
+	'profile_user_id'     => isset( $profile_user_id ) ? (int) $profile_user_id : 0,
+	'viewer_id'           => isset( $viewer_id ) ? (int) $viewer_id : 0,
+	'display_name'        => isset( $display_name ) ? (string) $display_name : '',
+	'username'            => isset( $username ) ? (string) $username : '',
+	'avatar_url'          => isset( $avatar_url ) ? (string) $avatar_url : '',
+	'cover_url'           => isset( $cover_url ) ? (string) $cover_url : '',
+	'bio'                 => isset( $bio ) ? (string) $bio : '',
+	'headline'            => isset( $headline ) ? (string) $headline : '',
+	'pronouns'            => isset( $pronouns ) ? (string) $pronouns : '',
+	'location'            => isset( $location ) ? (string) $location : '',
+	'website'             => isset( $website ) ? (string) $website : '',
+	'joined'              => isset( $joined ) ? (string) $joined : '',
+	'mutual_count'        => isset( $mutual_count ) ? (int) $mutual_count : 0,
+	'degree_badge'        => isset( $degree_badge ) ? (string) $degree_badge : '',
+	'member_type'         => isset( $member_type ) && is_array( $member_type ) ? $member_type : array(),
+	'social_links'        => isset( $social_links ) && is_array( $social_links ) ? $social_links : array(),
+	'is_owner'            => isset( $is_owner ) ? (bool) $is_owner : false,
+	'is_online'           => isset( $is_online ) ? (bool) $is_online : false,
+	'is_following'        => isset( $is_following ) ? (bool) $is_following : false,
+	'is_connected'        => isset( $is_connected ) ? (bool) $is_connected : false,
+	'connection_pending'  => isset( $connection_pending ) ? (bool) $connection_pending : false,
+	'connection_received' => isset( $connection_received ) ? (bool) $connection_received : false,
+	'stats'               => isset( $stats ) && is_array( $stats ) ? $stats : array(),
+	'classes'             => isset( $classes ) ? (array) $classes : array(),
+);
+
+/** Sanitized partial arguments. @var array<string,mixed> $args */
+$args = (array) apply_filters( 'buddynext_part_profile_hero_args', $args );
+
+if ( $args['profile_user_id'] <= 0 || '' === (string) $args['display_name'] ) {
+	return;
+}
+
+$bn_classes = array_merge( array( 'bn-pf-hero', 'bn-card' ), array_filter( (array) $args['classes'], 'is_string' ) );
+/** Computed root-class list. @var array<int,string> $bn_classes */
+$bn_classes = (array) apply_filters( 'buddynext_part_profile_hero_classes', $bn_classes, $args );
+$bn_class   = trim(
+	implode(
+		' ',
+		array_unique(
+			array_filter(
+				$bn_classes,
+				static function ( $c ) {
+					return is_string( $c ) && '' !== $c;
+				}
+			)
+		)
+	)
+);
+
+$bn_pf_uid           = (int) $args['profile_user_id'];
+$bn_pf_viewer        = (int) $args['viewer_id'];
+$bn_pf_cover         = (string) $args['cover_url'];
+$bn_pf_avatar        = (string) $args['avatar_url'];
+$bn_pf_name          = (string) $args['display_name'];
+$bn_pf_slug          = (string) $args['username'];
+$bn_pf_pronouns      = (string) $args['pronouns'];
+$bn_pf_headline      = (string) $args['headline'];
+$bn_pf_bio           = (string) $args['bio'];
+$bn_pf_location      = (string) $args['location'];
+$bn_pf_website       = (string) $args['website'];
+$bn_pf_joined        = (string) $args['joined'];
+$bn_pf_mutual        = (int) $args['mutual_count'];
+$bn_pf_degree        = (string) $args['degree_badge'];
+$bn_pf_member_type   = (array) $args['member_type'];
+$bn_pf_social        = (array) $args['social_links'];
+$bn_pf_is_owner      = (bool) $args['is_owner'];
+$bn_pf_is_online     = (bool) $args['is_online'];
+$bn_pf_is_following  = (bool) $args['is_following'];
+$bn_pf_is_connected  = (bool) $args['is_connected'];
+$bn_pf_conn_pending  = (bool) $args['connection_pending'];
+$bn_pf_conn_received = (bool) $args['connection_received'];
+
+do_action( 'buddynext_part_profile_hero_before', $args );
+?>
+	<!-- Hero card: cover + identity + stats -->
+	<section class="<?php echo esc_attr( $bn_class ); ?>">
+		<!-- Cover -->
+		<div class="bn-pf-cover<?php echo '' !== $bn_pf_cover ? ' bn-pf-cover--has-image' : ''; ?>"
+			<?php if ( '' !== $bn_pf_cover ) : ?>
+			style="background-image:url('<?php echo esc_url( $bn_pf_cover ); ?>');"<?php endif; ?>>
+			<?php if ( $bn_pf_is_owner ) : ?>
+				<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"
+					class="bn-pf-cover__edit"
+					aria-label="<?php esc_attr_e( 'Edit cover photo', 'buddynext' ); ?>">
+					<?php buddynext_icon( 'edit' ); ?>
+					<span><?php esc_html_e( 'Edit cover', 'buddynext' ); ?></span>
+				</a>
+			<?php endif; ?>
+		</div>
+
+		<!-- Identity head: avatar + id block + actions -->
+		<div class="bn-pf-head">
+
+			<!-- Avatar -->
+			<div class="bn-pf-avatar-wrap">
+				<span class="bn-avatar"
+					data-size="2xl"
+					<?php echo $bn_pf_is_online ? 'data-presence="online"' : ''; ?>
+				>
+					<img src="<?php echo esc_url( $bn_pf_avatar ); ?>"
+						alt="<?php echo esc_attr( $bn_pf_name ); ?>"
+						width="96"
+						height="96"
+						loading="eager"
+						decoding="async"
+					/>
+				</span>
+			</div>
+
+			<!-- Identity block -->
+			<div class="bn-pf-id">
+				<div class="bn-pf-name-row">
+					<h1 class="bn-pf-name"><?php echo esc_html( $bn_pf_name ); ?></h1>
+					<?php if ( $bn_pf_degree ) : ?>
+						<span class="bn-badge" data-tone="accent"><?php echo esc_html( $bn_pf_degree ); ?></span>
+					<?php endif; ?>
+					<?php if ( $bn_pf_member_type ) : ?>
+						<span
+							class="bn-badge bn-pf-type-badge"
+							data-tone="accent"
+							style="background:<?php echo esc_attr( $bn_pf_member_type['color'] ); ?>;color:<?php echo esc_attr( $bn_pf_member_type['text_color'] ); ?>;"
+						><?php echo esc_html( $bn_pf_member_type['name'] ); ?></span>
+					<?php endif; ?>
+				</div>
+
+				<div class="bn-pf-handle">
+					@<?php echo esc_html( '' !== $bn_pf_slug ? $bn_pf_slug : 'user-' . $bn_pf_uid ); ?>
+					<?php if ( $bn_pf_pronouns ) : ?>
+						<span class="bn-pf-pronouns">(<?php echo esc_html( $bn_pf_pronouns ); ?>)</span>
+					<?php endif; ?>
+					<?php if ( $bn_pf_headline ) : ?>
+						<span class="bn-pf-headline-sep" aria-hidden="true">&middot;</span>
+						<span class="bn-pf-headline"><?php echo esc_html( $bn_pf_headline ); ?></span>
+					<?php endif; ?>
+				</div>
+
+				<?php if ( $bn_pf_bio ) : ?>
+					<div class="bn-pf-bio"><?php echo wp_kses_post( $bn_pf_bio ); ?></div>
+				<?php endif; ?>
+
+				<div class="bn-pf-meta">
+					<?php if ( $bn_pf_location ) : ?>
+						<span class="bn-pf-meta__item">
+							<?php buddynext_icon( 'map-pin' ); ?>
+							<span><?php echo esc_html( $bn_pf_location ); ?></span>
+						</span>
+					<?php endif; ?>
+					<?php if ( $bn_pf_website ) : ?>
+						<span class="bn-pf-meta__item">
+							<?php buddynext_icon( 'link' ); ?>
+							<a href="<?php echo esc_url( $bn_pf_website ); ?>" target="_blank" rel="nofollow noopener noreferrer ugc">
+								<?php
+								$parsed_host = wp_parse_url( $bn_pf_website, PHP_URL_HOST );
+								echo esc_html( $parsed_host ? $parsed_host : $bn_pf_website );
+								?>
+							</a>
+						</span>
+					<?php endif; ?>
+					<span class="bn-pf-meta__item">
+						<?php buddynext_icon( 'calendar' ); ?>
+						<span>
+						<?php
+						/* translators: %s: month and year the member joined */
+						echo esc_html( sprintf( __( 'Joined %s', 'buddynext' ), $bn_pf_joined ) );
+						?>
+						</span>
+					</span>
+					<?php if ( $bn_pf_mutual > 0 ) : ?>
+						<span class="bn-pf-meta__item">
+							<?php buddynext_icon( 'users' ); ?>
+							<span>
+							<?php
+							echo esc_html(
+								sprintf(
+									/* translators: %d: number of mutual connections */
+									_n( '%d mutual connection', '%d mutual connections', $bn_pf_mutual, 'buddynext' ),
+									$bn_pf_mutual
+								)
+							);
+							?>
+							</span>
+						</span>
+					<?php endif; ?>
+				</div>
+
+				<?php if ( ! empty( $bn_pf_social ) ) : ?>
+				<div class="bn-pf-social-chips" aria-label="<?php esc_attr_e( 'Social links', 'buddynext' ); ?>">
+					<?php
+					$social_icon_map = array(
+						'social_twitter'   => 'at-sign',
+						'social_linkedin'  => 'link',
+						'social_github'    => 'code',
+						'social_instagram' => 'camera',
+						'social_youtube'   => 'play-circle',
+					);
+					foreach ( $bn_pf_social as $sl_field ) :
+						$sl_key   = (string) ( $sl_field['field_key'] ?? '' );
+						$sl_url   = (string) ( $sl_field['value'] ?? '' );
+						$sl_label = (string) ( $sl_field['label'] ?? $sl_key );
+						$sl_icon  = $social_icon_map[ $sl_key ] ?? 'link';
+						if ( '' === $sl_url ) {
+							continue;
+						}
+						?>
+						<a class="bn-pf-social-chip"
+							data-social="<?php echo esc_attr( $sl_key ); ?>"
+							href="<?php echo esc_url( $sl_url ); ?>"
+							target="_blank"
+							rel="nofollow noopener noreferrer ugc"
+							aria-label="<?php echo esc_attr( $sl_label ); ?>">
+							<?php buddynext_icon( $sl_icon ); ?>
+							<span><?php echo esc_html( $sl_label ); ?></span>
+						</a>
+					<?php endforeach; ?>
+				</div>
+				<?php endif; ?>
+			</div>
+
+			<!-- Action buttons — shown for other users only; owners use the action bar above -->
+			<?php if ( ! $bn_pf_is_owner && $bn_pf_viewer ) : ?>
+			<div class="bn-pf-actions">
+				<button class="bn-btn" data-variant="primary" data-size="sm"
+					data-wp-on--click="actions.follow"
+					data-wp-bind--hidden="context.isFollowing"
+					<?php echo $bn_pf_is_following ? 'hidden' : ''; ?>>
+					<?php esc_html_e( 'Follow', 'buddynext' ); ?>
+				</button>
+				<button class="bn-btn" data-variant="secondary" data-size="sm"
+					data-wp-on--click="actions.unfollow"
+					data-wp-bind--hidden="!context.isFollowing"
+					<?php echo $bn_pf_is_following ? '' : 'hidden'; ?>>
+					<?php esc_html_e( 'Following', 'buddynext' ); ?>
+				</button>
+
+				<button class="bn-btn" data-variant="secondary" data-size="sm"
+					data-wp-on--click="actions.connect"
+					data-wp-bind--hidden="!context.showConnect"
+					<?php echo ( $bn_pf_is_connected || $bn_pf_conn_pending || $bn_pf_conn_received ) ? 'hidden' : ''; ?>>
+					<?php esc_html_e( 'Connect', 'buddynext' ); ?>
+				</button>
+				<button class="bn-btn" data-variant="secondary" data-size="sm"
+					data-wp-on--click="actions.withdrawRequest"
+					data-wp-bind--hidden="!context.connectionPending"
+					<?php echo $bn_pf_conn_pending ? '' : 'hidden'; ?>>
+					<?php esc_html_e( 'Pending', 'buddynext' ); ?>
+				</button>
+				<span class="bn-pf-actions__group"
+					data-wp-bind--hidden="!context.connectionReceived"
+					<?php echo $bn_pf_conn_received ? '' : 'hidden'; ?>>
+					<button class="bn-btn" data-variant="primary" data-size="sm"
+						data-wp-on--click="actions.acceptRequest">
+						<?php esc_html_e( 'Accept', 'buddynext' ); ?>
+					</button>
+					<button class="bn-btn" data-variant="ghost" data-size="sm"
+						data-wp-on--click="actions.declineRequest">
+						<?php esc_html_e( 'Decline', 'buddynext' ); ?>
+					</button>
+				</span>
+				<button class="bn-btn" data-variant="secondary" data-size="sm"
+					data-wp-on--click="actions.disconnectUser"
+					data-wp-bind--hidden="!context.isConnected"
+					<?php echo $bn_pf_is_connected ? '' : 'hidden'; ?>>
+					<?php buddynext_icon( 'check' ); ?>
+					<span><?php esc_html_e( 'Connected', 'buddynext' ); ?></span>
+				</button>
+
+				<a href="<?php echo esc_url( add_query_arg( 'with', $bn_pf_uid, \BuddyNext\Core\PageRouter::messages_url() ) ); ?>"
+					class="bn-btn" data-variant="secondary" data-size="sm">
+					<?php buddynext_icon( 'message-circle' ); ?>
+					<span><?php esc_html_e( 'Message', 'buddynext' ); ?></span>
+				</a>
+
+				<!-- Share profile popover -->
+				<div class="bn-share-menu-wrap" data-wp-class--is-open="context.shareMenuOpen">
+					<button class="bn-btn" data-variant="secondary" data-size="sm"
+						aria-haspopup="menu"
+						aria-expanded="false"
+						aria-label="<?php esc_attr_e( 'Share profile', 'buddynext' ); ?>"
+						data-wp-on--click="actions.toggleShareMenu"
+						data-wp-bind--aria-expanded="context.shareMenuOpen">
+						<?php buddynext_icon( 'share-2' ); ?>
+						<span><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
+					</button>
+					<div class="bn-share-menu bn-more-menu" role="menu">
+						<button class="bn-more-menu-item"
+							type="button"
+							role="menuitem"
+							data-share-url="<?php echo esc_attr( \BuddyNext\Core\PageRouter::profile_url( $bn_pf_uid ) ); ?>"
+							data-wp-on--click="actions.copyProfileLink">
+							<?php buddynext_icon( 'link' ); ?>
+							<span><?php esc_html_e( 'Copy link', 'buddynext' ); ?></span>
+						</button>
+						<a class="bn-more-menu-item"
+							role="menuitem"
+							href="<?php echo esc_url( add_query_arg( 'mention', $bn_pf_uid, \BuddyNext\Core\PageRouter::activity_url() ) ); ?>">
+							<?php buddynext_icon( 'message-circle' ); ?>
+							<span><?php esc_html_e( 'Share to feed', 'buddynext' ); ?></span>
+						</a>
+					</div>
+				</div>
+
+				<!-- More options dropdown -->
+				<div class="bn-more-menu-wrap" data-wp-class--is-open="context.moreMenuOpen">
+					<button class="bn-btn bn-pf-more-trigger"
+						data-variant="ghost"
+						data-size="sm"
+						aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>"
+						aria-expanded="false"
+						data-wp-on--click="actions.toggleMoreMenu"
+						data-wp-bind--aria-expanded="context.moreMenuOpen"><?php buddynext_icon( 'more-horizontal' ); ?></button>
+					<div class="bn-more-menu" role="menu">
+						<button class="bn-more-menu-item"
+							role="menuitem"
+							data-wp-on--click="actions.toggleMute"
+							data-wp-text="state.muteLabel">
+							<?php esc_html_e( 'Mute', 'buddynext' ); ?>
+						</button>
+						<button class="bn-more-menu-item bn-more-menu-item--danger"
+							role="menuitem"
+							data-wp-on--click="actions.toggleBlock"
+							data-wp-text="state.blockLabel">
+							<?php esc_html_e( 'Block', 'buddynext' ); ?>
+						</button>
+						<button class="bn-more-menu-item"
+							role="menuitem"
+							data-wp-on--click="actions.openReport">
+							<?php esc_html_e( 'Report', 'buddynext' ); ?>
+						</button>
+					</div>
+				</div>
+			</div>
+			<?php endif; ?>
+
+		</div><!-- /.bn-pf-head -->
+
+		<?php
+		// Stats strip lives inside the hero `<section>` to preserve the
+		// original card-with-bottom-band layout. The strip is its own
+		// reusable part with its own 4-hook contract.
+		buddynext_get_template(
+			'parts/profile-stats-strip.php',
+			array(
+				'stats'           => (array) $args['stats'],
+				'is_owner'        => (bool) $args['is_owner'],
+				'profile_user_id' => (int) $args['profile_user_id'],
+			)
+		);
+		?>
+
+	</section><!-- /.bn-pf-hero -->
+<?php
+do_action( 'buddynext_part_profile_hero_after', $args );
