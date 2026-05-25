@@ -130,11 +130,18 @@ if ( '' === $profile_slug ) {
 $recent_posts = $wpdb->get_results( $wpdb->prepare( "SELECT id, type, user_id, content, privacy, media_ids, reaction_count, comment_count, share_count, is_pinned, is_announcement, content_warning, content_warning_type, shared_post_id, link_meta, created_at FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published' ORDER BY created_at DESC LIMIT 10", $user_id ), ARRAY_A );
 $user_replies = $wpdb->get_results( $wpdb->prepare( "SELECT c.id, c.content, c.created_at, c.object_id, p.content AS post_content, p.type AS post_type, u.display_name AS post_author_name FROM {$wpdb->prefix}bn_comments c INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post' INNER JOIN {$wpdb->users} u ON u.ID = p.user_id WHERE c.user_id = %d ORDER BY c.created_at DESC LIMIT 20", $user_id ) );
 $user_likes   = $wpdb->get_results( $wpdb->prepare( "SELECT r.emoji, r.created_at, r.object_id, p.content, p.type, p.user_id AS post_author_id, u.display_name AS post_author_name FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post' INNER JOIN {$wpdb->users} u ON u.ID = p.user_id WHERE r.user_id = %d ORDER BY r.created_at DESC LIMIT 20", $user_id ) );
+
+// True totals for the tab-bar count chips (limited result sets above only
+// surface the most-recent N rows for rendering — we want the full counts
+// for the badges so the UI matches what a deep-scroll would reveal).
+$reply_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE user_id = %d AND object_type = 'post'", $user_id ) );
+$like_count  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions WHERE user_id = %d AND object_type = 'post'", $user_id ) );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-$user_media = array();
+$user_media  = array();
+$media_count = 0;
 if ( class_exists( 'WPMediaVerse\Core\Plugin' ) && post_type_exists( 'mvs_media' ) ) {
-	$user_media = get_posts(
+	$user_media        = get_posts(
 		array(
 			'post_type'   => 'mvs_media',
 			'author'      => $user_id,
@@ -142,6 +149,17 @@ if ( class_exists( 'WPMediaVerse\Core\Plugin' ) && post_type_exists( 'mvs_media'
 			'post_status' => 'publish',
 		)
 	);
+	$media_count_query = new WP_Query(
+		array(
+			'post_type'      => 'mvs_media',
+			'author'         => $user_id,
+			'posts_per_page' => 1,
+			'post_status'    => 'publish',
+			'fields'         => 'ids',
+			'no_found_rows'  => false,
+		)
+	);
+	$media_count       = (int) $media_count_query->found_posts;
 }
 
 $jt_discussions   = array();
@@ -221,23 +239,29 @@ $bn_pf_stats = array(
 );
 
 // --- Tab descriptors (filterable via buddynext_part_profile_tab_bar_args) -
-$bn_pf_tabs = array(
+// Build tab descriptors. Count chips only render when > 0 — empty tabs
+// don't surface a `0` badge (matches the v2 prototype tab-counter pattern).
+$bn_tab_count_for = static fn( int $n ): string => $n > 0 ? $format_count( $n ) : '';
+$bn_pf_tabs       = array(
 	array(
 		'slug'  => 'posts',
 		'label' => __( 'Posts', 'buddynext' ),
-		'count' => $format_count( $post_count ),
+		'count' => $bn_tab_count_for( $post_count ),
 	),
 	array(
 		'slug'  => 'replies',
 		'label' => __( 'Replies', 'buddynext' ),
+		'count' => $bn_tab_count_for( $reply_count ),
 	),
 	array(
 		'slug'  => 'media',
 		'label' => __( 'Media', 'buddynext' ),
+		'count' => $bn_tab_count_for( $media_count ),
 	),
 	array(
 		'slug'  => 'likes',
 		'label' => __( 'Likes', 'buddynext' ),
+		'count' => $bn_tab_count_for( $like_count ),
 	),
 );
 if ( $has_jt_tab ) {

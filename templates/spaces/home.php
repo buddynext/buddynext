@@ -450,15 +450,30 @@ do_action( 'buddynext_space_home_before', $space_id, $current_user_id );
 
 // ── Render ───────────────────────────────────────────────────────────────────
 
+// Tab entries use the array shape so the count chip (v2 prototype pattern)
+// surfaces under each label. `count` is the integer rendered inside
+// `<span class="bn-tab__count">` by `parts/space-tab-bar.php`.
 $bn_nav_tabs = array(
-	'feed'    => __( 'Feed', 'buddynext' ),
-	'members' => __( 'Members', 'buddynext' ),
-	'media'   => __( 'Media', 'buddynext' ),
-	'about'   => __( 'About', 'buddynext' ),
+	'feed'    => array(
+		'label' => __( 'Feed', 'buddynext' ),
+		'count' => (int) $bn_post_count,
+	),
+	'members' => array(
+		'label' => __( 'Members', 'buddynext' ),
+		'count' => (int) $space->member_count,
+	),
+	'media'   => array(
+		'label' => __( 'Media', 'buddynext' ),
+	),
+	'about'   => array(
+		'label' => __( 'About', 'buddynext' ),
+	),
 );
 
 if ( $is_admin_mod ) {
-	$bn_nav_tabs['moderation'] = __( 'Moderation', 'buddynext' );
+	$bn_nav_tabs['moderation'] = array(
+		'label' => __( 'Moderation', 'buddynext' ),
+	);
 }
 
 /**

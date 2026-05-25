@@ -85,7 +85,10 @@ add_filter(
 $current_user_id = get_current_user_id();
 
 // ── Member types for directory pill tabs and card badges ──────────────────
-$all_types_raw = buddynext_service( 'member_types' )->get_all();
+// Use get_all_with_counts() so the pill chips can render per-type member
+// counts (v2 prototype pattern). The returned rows include all columns
+// from get_all() plus a `member_count` aggregate.
+$all_types_raw = buddynext_service( 'member_types' )->get_all_with_counts();
 $dir_types     = array_values( array_filter( $all_types_raw, static fn( $t ) => ! empty( $t['show_in_dir'] ) ) );
 // Flat slug → type data map for O(1) card badge lookup inside the member loop.
 $type_map = array();
@@ -100,7 +103,9 @@ foreach ( $dir_types as $bn_dir_type ) {
 	$bn_pill_types[] = array(
 		'slug'  => (string) $bn_dir_type['slug'],
 		'label' => (string) $bn_dir_type['name'],
-		'count' => isset( $bn_dir_type['count'] ) ? (int) $bn_dir_type['count'] : 0,
+		'count' => isset( $bn_dir_type['member_count'] )
+			? (int) $bn_dir_type['member_count']
+			: ( isset( $bn_dir_type['count'] ) ? (int) $bn_dir_type['count'] : 0 ),
 	);
 }
 unset( $bn_dir_type );
