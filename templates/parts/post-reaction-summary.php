@@ -13,7 +13,13 @@
  * @var int   $reaction_count  Total reactions on the post.
  * @var int   $comment_count   Total comments on the post.
  * @var int   $share_count     Total shares of the post.
- * @var array $top_reactions   Pre-resolved top-reaction descriptors (reserved).
+ * @var array $top_reactions   List of `{ slug, count }` rows — the top-N
+ *                             reaction types on this post in DESC order.
+ *                             When supplied, the chip strip renders
+ *                             per-type emoji + count chips using
+ *                             Microsoft Fluent SVGs via `buddynext_emoji()`.
+ *                             When empty, the strip falls back to the
+ *                             single aggregate `<heart icon> N` summary.
  * @var int   $bn_post_id      Post ID (for hook context).
  * @var array $classes         Optional extra CSS classes.
  *
@@ -63,22 +69,50 @@ $bn_class   = trim(
 	)
 );
 
+$bn_top_reactions = (array) $args['top_reactions'];
+$bn_reaction_n    = (int) $args['reaction_count'];
+$bn_comment_n     = (int) $args['comment_count'];
+$bn_share_n       = (int) $args['share_count'];
+
 do_action( 'buddynext_part_post_reaction_summary_before', $args );
 ?>
 <div class="<?php echo esc_attr( $bn_class ); ?>" aria-label="<?php esc_attr_e( 'Post summary', 'buddynext' ); ?>">
-	<?php if ( (int) $args['reaction_count'] > 0 ) : ?>
+	<?php if ( $bn_reaction_n > 0 && ! empty( $bn_top_reactions ) ) : ?>
+		<?php
+		// Per-type chips (v2 prototype pattern). Each chip renders a
+		// Microsoft Fluent emoji + count. If an exotic slug has no
+		// vendored asset, `buddynext_get_emoji()` returns ''; fall back
+		// to the slug as a small text token so the count still shows.
+		foreach ( $bn_top_reactions as $bn_top ) :
+			$bn_slug  = isset( $bn_top['slug'] ) ? (string) $bn_top['slug'] : '';
+			$bn_count = isset( $bn_top['count'] ) ? (int) $bn_top['count'] : 0;
+			if ( '' === $bn_slug || $bn_count < 1 ) {
+				continue;
+			}
+			$bn_emoji_img = buddynext_get_emoji( $bn_slug, 'bn-post-card__reaction-emoji', '' );
+			?>
+			<span class="bn-post-card__summary-chip bn-post-card__summary-chip--reaction">
+				<?php if ( '' !== $bn_emoji_img ) : ?>
+					<?php echo $bn_emoji_img; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside IconService::render_emoji(). ?>
+				<?php else : ?>
+					<span class="bn-post-card__reaction-fallback"><?php echo esc_html( $bn_slug ); ?></span>
+				<?php endif; ?>
+				<?php echo esc_html( (string) $bn_count ); ?>
+			</span>
+		<?php endforeach; ?>
+	<?php elseif ( $bn_reaction_n > 0 ) : ?>
 		<span class="bn-post-card__summary-chip">
-			<?php buddynext_icon( 'heart' ); ?> <?php echo esc_html( (string) (int) $args['reaction_count'] ); ?>
+			<?php buddynext_icon( 'heart' ); ?> <?php echo esc_html( (string) $bn_reaction_n ); ?>
 		</span>
 	<?php endif; ?>
-	<?php if ( (int) $args['comment_count'] > 0 ) : ?>
+	<?php if ( $bn_comment_n > 0 ) : ?>
 		<span class="bn-post-card__summary-chip">
-			<?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) (int) $args['comment_count'] ); ?>
+			<?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) $bn_comment_n ); ?>
 		</span>
 	<?php endif; ?>
-	<?php if ( (int) $args['share_count'] > 0 ) : ?>
+	<?php if ( $bn_share_n > 0 ) : ?>
 		<span class="bn-post-card__summary-chip">
-			<?php buddynext_icon( 'share' ); ?> <?php echo esc_html( (string) (int) $args['share_count'] ); ?>
+			<?php buddynext_icon( 'share' ); ?> <?php echo esc_html( (string) $bn_share_n ); ?>
 		</span>
 	<?php endif; ?>
 </div>

@@ -61,10 +61,38 @@ $created_at      = $bn_post['created_at'] ?? '';
 $reaction_count  = absint( $bn_post['reaction_count'] ?? 0 );
 $comment_count   = absint( $bn_post['comment_count'] ?? 0 );
 $share_count     = absint( $bn_post['share_count'] ?? 0 );
-$media_ids       = is_array( $bn_post['media_ids'] ?? null ) ? $bn_post['media_ids'] : array();
-$link_url        = $bn_post['link_url'] ?? '';
-$link_meta       = is_array( $bn_post['link_meta'] ?? null ) ? $bn_post['link_meta'] : array();
-$poll_options    = is_array( $bn_post['poll_options'] ?? null ) ? $bn_post['poll_options'] : array();
+
+// Top-3 reaction types for the engagement-summary chip strip (v2 prototype
+// pattern: `<emoji> 24 · <emoji> 12 · <emoji> 8`). Skipped entirely when
+// the post has no reactions — no query overhead on engagement-less posts.
+$top_reactions = array();
+if ( $reaction_count > 0 && $bn_post_id > 0 ) {
+	global $wpdb;
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$rows = $wpdb->get_results(
+		$wpdb->prepare(
+			"SELECT emoji, COUNT(*) AS n
+			   FROM {$wpdb->prefix}bn_reactions
+			  WHERE object_type = 'post' AND object_id = %d
+			  GROUP BY emoji
+			  ORDER BY n DESC, emoji ASC
+			  LIMIT 3",
+			$bn_post_id
+		),
+		ARRAY_A
+	);
+	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	foreach ( (array) $rows as $row ) {
+		$top_reactions[] = array(
+			'slug'  => sanitize_key( (string) $row['emoji'] ),
+			'count' => (int) $row['n'],
+		);
+	}
+}
+$media_ids    = is_array( $bn_post['media_ids'] ?? null ) ? $bn_post['media_ids'] : array();
+$link_url     = $bn_post['link_url'] ?? '';
+$link_meta    = is_array( $bn_post['link_meta'] ?? null ) ? $bn_post['link_meta'] : array();
+$poll_options = is_array( $bn_post['poll_options'] ?? null ) ? $bn_post['poll_options'] : array();
 
 // Content warning.
 $has_cw      = ! empty( $bn_post['content_warning'] );
@@ -375,7 +403,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			'reaction_count' => $reaction_count,
 			'comment_count'  => $comment_count,
 			'share_count'    => $share_count,
-			'top_reactions'  => array(),
+			'top_reactions'  => $top_reactions,
 			'bn_post_id'     => $bn_post_id,
 		)
 	);

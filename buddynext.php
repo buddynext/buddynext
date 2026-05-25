@@ -180,8 +180,14 @@ function buddynext_create_space_url(): string {
  */
 function buddynext_avatar_colour( int $user_id ): string {
 	static $palette = array(
-		'#0073aa', '#059669', '#7c3aed', '#d97706',
-		'#dc2626', '#0891b2', '#c2410c', '#4f46e5',
+		'#0073aa',
+		'#059669',
+		'#7c3aed',
+		'#d97706',
+		'#dc2626',
+		'#0891b2',
+		'#c2410c',
+		'#4f46e5',
 	);
 	return $palette[ abs( $user_id ) % count( $palette ) ];
 }
@@ -213,6 +219,41 @@ function buddynext_icon( string $name, string $css_class = '' ): void {
  */
 function buddynext_get_icon( string $name, string $css_class = '' ): string {
 	return \BuddyNext\Core\IconService::render( $name, $css_class );
+}
+
+/**
+ * Echo a Microsoft Fluent reaction emoji inline.
+ *
+ * Reads the SVG from `assets/emoji/<slug>.svg` and emits an `<img>` tag
+ * so the same emoji renders identically across every host platform
+ * (vs native Unicode emoji which look different per OS). Use for
+ * reaction chips and any "emoji-style" decorative imagery the v2
+ * prototypes call for.
+ *
+ * @param string      $slug      Reaction slug — see `assets/emoji/README.md`.
+ * @param string      $css_class Optional CSS class(es) appended to `bn-emoji`.
+ * @param string|null $alt       Alt text. Default null → auto-derived
+ *                               (`like` → `Like reaction`). Pass `''` for
+ *                               a decorative image.
+ * @return void
+ */
+function buddynext_emoji( string $slug, string $css_class = '', ?string $alt = null ): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- output is escaped inside IconService::render_emoji().
+	echo \BuddyNext\Core\IconService::render_emoji( $slug, $css_class, $alt );
+}
+
+/**
+ * Return a Microsoft Fluent reaction emoji `<img>` tag as a string.
+ *
+ * Same as buddynext_emoji() but returns the markup instead of echoing it.
+ *
+ * @param string      $slug      Reaction slug.
+ * @param string      $css_class Optional CSS class(es).
+ * @param string|null $alt       Alt text. Default null → auto-derived.
+ * @return string `<img>` markup, safe to echo. Empty string when asset is missing.
+ */
+function buddynext_get_emoji( string $slug, string $css_class = '', ?string $alt = null ): string {
+	return \BuddyNext\Core\IconService::render_emoji( $slug, $css_class, $alt );
 }
 
 /**

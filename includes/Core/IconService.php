@@ -40,6 +40,13 @@ class IconService {
 	private static string $icons_dir = '';
 
 	/**
+	 * Base directory for emoji SVG files (Microsoft Fluent vendor set).
+	 *
+	 * @var string
+	 */
+	private static string $emoji_dir = '';
+
+	/**
 	 * Return the absolute path to the icons directory.
 	 *
 	 * @return string Path with trailing slash.
@@ -50,6 +57,88 @@ class IconService {
 		}
 
 		return self::$icons_dir;
+	}
+
+	/**
+	 * Return the absolute path to the emoji directory.
+	 *
+	 * @return string Path with trailing slash.
+	 */
+	private static function emoji_dir(): string {
+		if ( '' === self::$emoji_dir ) {
+			self::$emoji_dir = BUDDYNEXT_DIR . 'assets/emoji/';
+		}
+
+		return self::$emoji_dir;
+	}
+
+	/**
+	 * Resolve a reaction-emoji slug to its public asset URL.
+	 *
+	 * Reads the Microsoft Fluent Emoji SVG vendored in `assets/emoji/`
+	 * matching the canonical BuddyNext reaction slug (e.g. `like`, `love`,
+	 * `haha`, `wow`, `sad`, `angry`). Returns an empty string when the
+	 * slug has no vendored asset so callers can omit the chip rather than
+	 * emit a broken image.
+	 *
+	 * @param string $slug Reaction emoji slug.
+	 * @return string Asset URL, or empty string when missing.
+	 */
+	public static function emoji_url( string $slug ): string {
+		$slug = sanitize_file_name( $slug );
+		if ( '' === $slug ) {
+			return '';
+		}
+		if ( ! file_exists( self::emoji_dir() . $slug . '.svg' ) ) {
+			return '';
+		}
+		return plugins_url( 'assets/emoji/' . $slug . '.svg', BUDDYNEXT_DIR . 'buddynext.php' );
+	}
+
+	/**
+	 * Render an `<img>` tag for a reaction emoji.
+	 *
+	 * The image is loaded from `assets/emoji/<slug>.svg` — sourced from
+	 * Microsoft Fluent Emoji (Flat). Renders as a real `<img>` element so
+	 * the same emoji appears identically across every host platform
+	 * (escaping the inconsistency native Unicode emoji have between
+	 * macOS / Windows / Android / Linux). Returns an empty string when
+	 * the slug has no vendored asset.
+	 *
+	 * @param string $slug      Reaction slug. See `assets/emoji/README.md`.
+	 * @param string $css_class Optional CSS class appended to `bn-emoji`.
+	 * @param string $alt       Optional alt text. Default is the slug as
+	 *                          a human label (e.g. `like` → `Like reaction`).
+	 *                          Pass `''` explicitly for a decorative image
+	 *                          (an `aria-hidden="true"` empty-alt is emitted).
+	 * @return string Sanitized `<img>` markup, safe to echo.
+	 */
+	public static function render_emoji( string $slug, string $css_class = '', ?string $alt = null ): string {
+		$url = self::emoji_url( $slug );
+		if ( '' === $url ) {
+			return '';
+		}
+
+		$classes = 'bn-emoji' . ( '' !== $css_class ? ' ' . $css_class : '' );
+
+		if ( null === $alt ) {
+			$alt = ucfirst( str_replace( array( '-', '_' ), ' ', $slug ) ) . ' reaction';
+		}
+
+		if ( '' === $alt ) {
+			return sprintf(
+				'<img src="%s" class="%s" alt="" aria-hidden="true" width="20" height="20" loading="lazy" decoding="async" />',
+				esc_url( $url ),
+				esc_attr( $classes )
+			);
+		}
+
+		return sprintf(
+			'<img src="%s" class="%s" alt="%s" width="20" height="20" loading="lazy" decoding="async" />',
+			esc_url( $url ),
+			esc_attr( $classes ),
+			esc_attr( $alt )
+		);
 	}
 
 	/**
