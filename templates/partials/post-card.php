@@ -330,6 +330,44 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 	<?php endif; ?>
 
 	<?php
+	// Explore cover — surface a media thumbnail or link-OG image at the
+	// top of the card on the /activity/explore/ grid so the visual
+	// surface actually looks visual. Falls back silently when the post
+	// has neither (text-only posts keep their text-first layout).
+	if ( 'explore' === $context ) :
+		$bn_cover_url = '';
+		$bn_cover_alt = '';
+		$bn_first_mid = isset( $media_ids[0] ) ? absint( $media_ids[0] ) : 0;
+		if ( $bn_first_mid > 0 ) {
+			$bn_cover_url = (string) get_post_meta( $bn_first_mid, '_mvs_file_url', true );
+			if ( '' === $bn_cover_url ) {
+				$bn_cover_url = (string) wp_get_attachment_image_url( $bn_first_mid, 'medium' );
+			}
+			if ( '' === $bn_cover_url ) {
+				$bn_cover_url = (string) wp_get_attachment_url( $bn_first_mid );
+			}
+			$bn_cover_alt = (string) get_the_title( $bn_first_mid );
+		}
+		if ( '' === $bn_cover_url && ! empty( $link_meta['thumbnail'] ) ) {
+			$bn_cover_url = (string) $link_meta['thumbnail'];
+			$bn_cover_alt = (string) ( $link_meta['title'] ?? '' );
+		}
+		if ( '' !== $bn_cover_url ) :
+			?>
+			<a class="bn-post-card__cover" href="<?php echo esc_url( PageRouter::post_url( $bn_post_id ) ); ?>" aria-hidden="true" tabindex="-1">
+				<img
+					src="<?php echo esc_url( $bn_cover_url ); ?>"
+					alt="<?php echo esc_attr( $bn_cover_alt ); ?>"
+					loading="lazy"
+					decoding="async"
+				>
+			</a>
+			<?php
+		endif;
+	endif;
+	?>
+
+	<?php
 	// Head row — byline part renders the options-menu inline so the flex
 	// container preserves byte-identical sibling ordering.
 	buddynext_get_template(

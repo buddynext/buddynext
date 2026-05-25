@@ -2171,6 +2171,28 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	gap: 14px;
 }
 
+/* Explore cover thumbnail — full-width image at the top of an explore
+   card when the post has media or a link-OG thumbnail. Rendered as a
+   negative-margin block so it bleeds to the card edges and feels like
+   the visual hero rather than padded content. */
+.bn-explore-grid .bn-post-card__cover {
+	display: block;
+	margin: calc(var(--bn-s4) * -1) calc(var(--bn-s4) * -1) var(--bn-s3);
+	overflow: hidden;
+	border-radius: var(--bn-r-lg) var(--bn-r-lg) 0 0;
+	background: linear-gradient(135deg, var(--bn-accent-bg, rgba(0,0,0,0.04)), var(--bn-sunken, rgba(0,0,0,0.02)));
+}
+.bn-explore-grid .bn-post-card__cover img {
+	display: block;
+	inline-size: 100%;
+	block-size: 180px;
+	object-fit: cover;
+	transition: transform var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
+}
+.bn-explore-grid .bn-post-card__cover:hover img {
+	transform: scale(1.03);
+}
+
 /* Explore post card */
 .bn-explore-card {
 	background: var(--surface);
