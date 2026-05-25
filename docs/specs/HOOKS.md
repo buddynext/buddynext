@@ -522,37 +522,45 @@ do_action( 'mvs_mentions_created', array $mentioned_user_ids, string $context_ty
 
 ---
 
-## Per-surface user-overlay filter (`buddynext_user_meta_html_{surface}`)
+## User-overlay filters — six read surfaces
 
-A single helper renders gamification overlays in six surfaces. Each
-surface applies its own filter; the default value is an empty string,
-so BN renders nothing when no plugin hooks. The hooked plugin is
-expected to return **escaped** HTML — BN echoes it raw.
+Each surface applies its own native filter; the default value is an
+empty string, so BN renders nothing when no plugin hooks. The hooked
+plugin is expected to return **escaped** HTML — BN echoes it raw at
+the call site.
 
 ```php
-// Helper signature (defined in buddynext.php):
-buddynext_user_meta_html( string $surface, int $user_id, array $context = [] ): string
+// .bn-md-card (member directory + search-members) — meta chip below handle.
+apply_filters( 'buddynext_member_card_meta_html',
+    string $html, int $user_id, array $args ): string
 
-// Filter signature:
-apply_filters( "buddynext_user_meta_html_{$surface}",
-    string $html, int $user_id, array $context ): string
+// Feed card byline — inline chip alongside post author name.
+apply_filters( 'buddynext_post_byline_meta_html',
+    string $html, int $author_id, int $post_id ): string
+
+// Profile hero — badges row under display name on /members/{slug}/.
+apply_filters( 'buddynext_profile_hero_badges_html',
+    string $html, int $user_id ): string
+
+// Inside <span class="bn-avatar"> — level frame / corner badge.
+// Fires from profile-hero (size '2xl') and member-card (size 'xl').
+apply_filters( 'buddynext_avatar_overlay_html',
+    string $html, int $user_id, string $size ): string
+
+// Search-result member row — chip beside member name.
+apply_filters( 'buddynext_search_member_meta_html',
+    string $html, int $user_id ): string
+
+// REST-rendered `author_meta_html` on comment rows (list / create / update).
+// JS template echoes the value raw beside the commenter's name.
+apply_filters( 'buddynext_comment_author_meta_html',
+    string $html, int $user_id, int $comment_id ): string
 ```
-
-Surfaces wired:
-
-| Surface slug         | Where it renders                                        | Context keys     |
-|----------------------|---------------------------------------------------------|------------------|
-| `member_card`        | Inside `.bn-md-card` below handle (directory + search)  | full `$args`     |
-| `post_byline`        | Beside post author name on every feed card              | `post_id`        |
-| `profile_hero_badges`| Under display name on `/members/{slug}/` profile        | —                |
-| `avatar_overlay`     | Inside `<span class="bn-avatar">` (frames/corner badges) | `size`           |
-| `search_member`      | Beside member name in `/search/?type=members`           | —                |
-| `comment_author`     | REST-enriched `author_meta_html` field on comment rows  | `comment_id`     |
 
 Example hookup from a gamification plugin:
 
 ```php
-add_filter( 'buddynext_user_meta_html_profile_hero_badges',
+add_filter( 'buddynext_profile_hero_badges_html',
     function ( string $html, int $user_id ): string {
         $badges = wb_gamification_get_user_badges( $user_id );
         return $html . wb_gamification_render_badge_row( $badges );

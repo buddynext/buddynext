@@ -149,11 +149,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 				<?php echo esc_html( $bn_initials_text ); ?>
 			<?php endif; ?>
 			<?php
-			$bn_md_avatar_overlay = buddynext_user_meta_html(
-				'avatar_overlay',
-				$bn_member_id,
-				array( 'size' => 'xl' )
-			);
+			$bn_md_avatar_overlay = (string) apply_filters( 'buddynext_avatar_overlay_html', '', $bn_member_id, 'xl' );
 			if ( '' !== $bn_md_avatar_overlay ) {
 				echo $bn_md_avatar_overlay; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped by hooked plugin per filter contract
 			}
@@ -170,10 +166,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 	<p class="bn-md-card__handle">@<?php echo esc_html( $bn_member_login ); ?></p>
 
 	<?php
-	// Gamification overlay seam — wb-gamification (or any equivalent) can
-	// return escaped HTML for the `member_card` surface to render a badge
-	// row / level chip / streak flame here. Empty string when nothing hooks.
-	$bn_md_meta = buddynext_user_meta_html( 'member_card', $bn_member_id, $args );
+	$bn_md_meta = (string) apply_filters( 'buddynext_member_card_meta_html', '', $bn_member_id, $args );
 	if ( '' !== $bn_md_meta ) :
 		?>
 		<div class="bn-md-card__meta-overlay"><?php echo $bn_md_meta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped by hooked plugin per filter contract ?></div>

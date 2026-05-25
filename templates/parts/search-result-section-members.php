@@ -167,7 +167,7 @@ do_action( 'buddynext_part_search_result_section_members_before', $args );
 							<?php echo esc_html( $pname ); ?>
 							<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Member', 'buddynext' ); ?></span>
 							<?php
-							$bn_sr_meta = buddynext_user_meta_html( 'search_member', $pid );
+							$bn_sr_meta = (string) apply_filters( 'buddynext_search_member_meta_html', '', $pid );
 							if ( '' !== $bn_sr_meta ) {
 								echo $bn_sr_meta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped by hooked plugin per filter contract
 							}
