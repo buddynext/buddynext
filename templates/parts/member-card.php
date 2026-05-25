@@ -1,0 +1,315 @@
+<?php
+/**
+ * BuddyNext template part: member-card.
+ *
+ * Renders a single member card row (avatar, name, handle, type badge, bio,
+ * mutual-connection count, and the per-card action cluster — Follow,
+ * 5-state Connect, Message, kebab menu with Mute / Block / Report). The
+ * card is the high-value reusable unit shared by the member directory,
+ * search results, and space-members panels.
+ *
+ * Used by: templates/directory/members.php (directory grid),
+ *          future search-results-members + space-members panels.
+ *
+ * @package BuddyNext
+ *
+ * @var WP_User|object $member             Required. User object (must expose ID, display_name, user_login).
+ * @var int            $viewer_id          Optional. Currently-viewing user ID. Default 0.
+ * @var bool           $is_following       Optional. Whether viewer follows the member. Default false.
+ * @var string         $connection_state   Optional. One of none|pending-sent|pending-received|accepted. Default 'none'.
+ * @var string         $connection_status  Optional. Raw status (none|pending|accepted) used for Message link. Default 'none'.
+ * @var bool           $is_muted           Optional. Whether viewer mutes the member. Default false.
+ * @var int            $mutual_count       Optional. Mutual-connection count. Default 0.
+ * @var string         $presence           Optional. 'online' or 'offline'. Default 'offline'.
+ * @var string         $member_type_label  Optional. Member-type display name. Default ''.
+ * @var string         $avatar_tone        Optional. Avatar tone slot. Default 'accent'.
+ * @var string         $bio                Optional. Pre-resolved bio string. Default ''.
+ * @var string         $profile_url        Optional. Profile permalink. Default ''.
+ * @var string         $avatar_url         Optional. Avatar URL. Default ''.
+ * @var string         $initials           Optional. Initials fallback. Default ''.
+ * @var string         $messages_url       Optional. Pre-built per-member messages URL. Default ''.
+ * @var array          $classes            Optional. Extra CSS classes appended to `.bn-md-card`.
+ *
+ * Fires:
+ *   - do_action( 'buddynext_part_member_card_before', $args )
+ *   - do_action( 'buddynext_part_member_card_after',  $args )
+ *
+ * Filters:
+ *   - apply_filters( 'buddynext_part_member_card_args',    array $args )
+ *   - apply_filters( 'buddynext_part_member_card_classes', array $classes, array $args )
+ */
+
+declare( strict_types=1 );
+
+defined( 'ABSPATH' ) || exit;
+
+$args = array(
+	'member'            => isset( $member ) ? $member : null,
+	'viewer_id'         => isset( $viewer_id ) ? (int) $viewer_id : 0,
+	'is_following'      => isset( $is_following ) ? (bool) $is_following : false,
+	'connection_state'  => isset( $connection_state ) ? (string) $connection_state : 'none',
+	'connection_status' => isset( $connection_status ) ? (string) $connection_status : 'none',
+	'is_muted'          => isset( $is_muted ) ? (bool) $is_muted : false,
+	'mutual_count'      => isset( $mutual_count ) ? (int) $mutual_count : 0,
+	'presence'          => isset( $presence ) ? (string) $presence : 'offline',
+	'member_type_label' => isset( $member_type_label ) ? (string) $member_type_label : '',
+	'avatar_tone'       => isset( $avatar_tone ) ? (string) $avatar_tone : 'accent',
+	'bio'               => isset( $bio ) ? (string) $bio : '',
+	'profile_url'       => isset( $profile_url ) ? (string) $profile_url : '',
+	'avatar_url'        => isset( $avatar_url ) ? (string) $avatar_url : '',
+	'initials'          => isset( $initials ) ? (string) $initials : '',
+	'messages_url'      => isset( $messages_url ) ? (string) $messages_url : '',
+	'classes'           => isset( $classes ) ? (array) $classes : array(),
+);
+
+/** Sanitized partial arguments. @var array<string,mixed> $args */
+$args = (array) apply_filters( 'buddynext_part_member_card_args', $args );
+
+if ( null === $args['member'] || ! isset( $args['member']->ID ) ) {
+	return;
+}
+
+$bn_classes = array_merge( array( 'bn-card', 'bn-md-card' ), array_filter( (array) $args['classes'], 'is_string' ) );
+/** Computed root-class list. @var array<int,string> $bn_classes */
+$bn_classes = (array) apply_filters( 'buddynext_part_member_card_classes', $bn_classes, $args );
+$bn_class   = trim(
+	implode(
+		' ',
+		array_unique(
+			array_filter(
+				$bn_classes,
+				static function ( $c ) {
+					return is_string( $c ) && '' !== $c;
+				}
+			)
+		)
+	)
+);
+
+$bn_member        = $args['member'];
+$bn_member_id     = (int) $bn_member->ID;
+$bn_display_name  = (string) $bn_member->display_name;
+$bn_member_login  = (string) $bn_member->user_login;
+$bn_viewer_id     = (int) $args['viewer_id'];
+$bn_is_following  = (bool) $args['is_following'];
+$bn_conn_state    = (string) $args['connection_state'];
+$bn_conn_status   = (string) $args['connection_status'];
+$bn_is_muted      = (bool) $args['is_muted'];
+$bn_mutual        = (int) $args['mutual_count'];
+$bn_presence_attr = (string) $args['presence'];
+$bn_type_label    = (string) $args['member_type_label'];
+$bn_avatar_tone   = (string) $args['avatar_tone'];
+$bn_bio           = (string) $args['bio'];
+$bn_profile_url   = (string) $args['profile_url'];
+$bn_avatar_url    = (string) $args['avatar_url'];
+$bn_initials_text = (string) $args['initials'];
+$bn_messages_url  = (string) $args['messages_url'];
+
+$bn_card_ctx = wp_json_encode(
+	array(
+		'userId'      => $bn_member_id,
+		'displayName' => $bn_display_name,
+		'isFollowing' => $bn_is_following,
+		'connection'  => $bn_conn_state,
+		'menuOpen'    => false,
+		'isMuted'     => $bn_is_muted,
+	)
+);
+if ( false === $bn_card_ctx ) {
+	$bn_card_ctx = '{}';
+}
+
+do_action( 'buddynext_part_member_card_before', $args );
+?>
+<article
+	class="<?php echo esc_attr( $bn_class ); ?>"
+	data-interactive
+	role="listitem"
+	data-user-id="<?php echo esc_attr( (string) $bn_member_id ); ?>"
+	data-wp-context="<?php echo esc_attr( (string) $bn_card_ctx ); ?>"
+>
+
+	<a href="<?php echo esc_url( $bn_profile_url ); ?>" class="bn-md-card__avatar-link" tabindex="-1" aria-hidden="true">
+		<span
+			class="bn-avatar bn-md-card__avatar"
+			data-size="xl"
+			data-presence="<?php echo esc_attr( $bn_presence_attr ); ?>"
+			data-tone="<?php echo esc_attr( $bn_avatar_tone ); ?>"
+		>
+			<?php if ( '' !== $bn_avatar_url ) : ?>
+				<img
+					src="<?php echo esc_url( $bn_avatar_url ); ?>"
+					alt=""
+					width="72"
+					height="72"
+					loading="lazy"
+					decoding="async"
+				>
+			<?php else : ?>
+				<?php echo esc_html( $bn_initials_text ); ?>
+			<?php endif; ?>
+		</span>
+	</a>
+
+	<h3 class="bn-md-card__name">
+		<a href="<?php echo esc_url( $bn_profile_url ); ?>">
+			<?php echo esc_html( $bn_display_name ); ?>
+		</a>
+	</h3>
+
+	<p class="bn-md-card__handle">@<?php echo esc_html( $bn_member_login ); ?></p>
+
+	<?php if ( '' !== $bn_type_label ) : ?>
+		<span class="bn-badge bn-md-card__type" data-tone="accent">
+			<?php echo esc_html( $bn_type_label ); ?>
+		</span>
+	<?php endif; ?>
+
+	<?php if ( '' !== $bn_bio ) : ?>
+		<p class="bn-md-card__bio"><?php echo esc_html( wp_trim_words( $bn_bio, 18 ) ); ?></p>
+	<?php endif; ?>
+
+	<?php if ( $bn_mutual > 0 ) : ?>
+		<p class="bn-md-card__mutual">
+			<?php
+			echo esc_html(
+				sprintf(
+					/* translators: %d: number of mutual connections */
+					_n( '%d mutual connection', '%d mutual connections', $bn_mutual, 'buddynext' ),
+					$bn_mutual
+				)
+			);
+			?>
+		</p>
+	<?php endif; ?>
+
+	<div class="bn-md-card__actions">
+		<?php if ( 0 === $bn_viewer_id ) : ?>
+			<a
+				class="bn-btn"
+				data-variant="primary"
+				data-size="sm"
+				href="<?php echo esc_url( wp_login_url( $bn_profile_url ) ); ?>"
+			>
+				<?php esc_html_e( 'View profile', 'buddynext' ); ?>
+			</a>
+		<?php elseif ( $bn_viewer_id === $bn_member_id ) : ?>
+			<a
+				class="bn-btn"
+				data-variant="secondary"
+				data-size="sm"
+				href="<?php echo esc_url( admin_url( 'profile.php' ) ); ?>"
+			>
+				<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
+			</a>
+		<?php else : ?>
+			<button
+				type="button"
+				class="bn-btn bn-md-card__follow"
+				data-size="sm"
+				data-wp-bind--data-variant="state.cardFollowVariant"
+				data-wp-bind--data-state="state.cardFollowState"
+				data-wp-text="state.cardFollowLabel"
+				data-wp-on--click="actions.toggleFollow"
+			><?php echo $bn_is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?></button>
+
+			<?php // Connection control — 5-state, reactive. ?>
+			<button
+				type="button"
+				class="bn-btn bn-md-card__connect-primary"
+				data-size="sm"
+				data-wp-bind--hidden="!state.cardShowConnect"
+				data-wp-bind--data-variant="state.cardConnectVariant"
+				data-wp-bind--data-state="state.cardConnectState"
+				data-wp-text="state.cardConnectLabel"
+				data-wp-on--click="actions.toggleConnection"
+				<?php echo in_array( $bn_conn_state, array( 'none', 'pending-sent', 'accepted' ), true ) ? '' : 'hidden'; ?>
+			>
+			<?php
+			if ( 'accepted' === $bn_conn_state ) {
+				esc_html_e( 'Connected', 'buddynext' );
+			} elseif ( 'pending-sent' === $bn_conn_state ) {
+				esc_html_e( 'Requested', 'buddynext' );
+			} else {
+				esc_html_e( 'Connect', 'buddynext' );
+			}
+			?>
+			</button>
+
+			<span
+				class="bn-md-card__connect-decide"
+				data-wp-bind--hidden="!state.cardShowReceived"
+				<?php echo 'pending-received' === $bn_conn_state ? '' : 'hidden'; ?>
+			>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="sm"
+					data-wp-on--click="actions.acceptConnection"
+				><?php esc_html_e( 'Accept', 'buddynext' ); ?></button>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="sm"
+					data-wp-on--click="actions.declineConnection"
+				><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
+			</span>
+
+			<?php if ( 'accepted' === $bn_conn_status ) : ?>
+				<a
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="sm"
+					href="<?php echo esc_url( $bn_messages_url ); ?>"
+					aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member display name */ __( 'Message %s', 'buddynext' ), $bn_display_name ) ); ?>"
+				>
+					<?php buddynext_icon( 'message-circle' ); ?>
+				</a>
+			<?php endif; ?>
+
+			<?php // Kebab menu — Mute / Block / Report. ?>
+			<div class="bn-md-card__menu-wrap">
+				<button
+					type="button"
+					class="bn-md-card__menu"
+					aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member display name */ __( 'More actions for %s', 'buddynext' ), $bn_display_name ) ); ?>"
+					aria-haspopup="true"
+					aria-expanded="false"
+					data-wp-on--click="actions.toggleCardMenu"
+					data-wp-bind--aria-expanded="state.cardMenuExpanded"
+				><?php buddynext_icon( 'more-horizontal' ); ?></button>
+				<div
+					class="bn-md-card__menu-pop"
+					role="menu"
+					data-wp-bind--hidden="!state.cardMenuOpen"
+					hidden
+				>
+					<button
+						type="button"
+						class="bn-md-card__menu-item"
+						role="menuitem"
+						data-wp-on--click="actions.toggleMute"
+						data-wp-text="state.cardMuteLabel"
+					><?php echo esc_html( $bn_is_muted ? __( 'Unmute', 'buddynext' ) : __( 'Mute', 'buddynext' ) ); ?></button>
+					<button
+						type="button"
+						class="bn-md-card__menu-item bn-md-card__menu-item--danger"
+						role="menuitem"
+						data-wp-on--click="actions.openBlock"
+					><?php esc_html_e( 'Block', 'buddynext' ); ?></button>
+					<button
+						type="button"
+						class="bn-md-card__menu-item bn-md-card__menu-item--danger"
+						role="menuitem"
+						data-wp-on--click="actions.openReport"
+					><?php esc_html_e( 'Report', 'buddynext' ); ?></button>
+				</div>
+			</div>
+		<?php endif; ?>
+	</div>
+
+</article>
+<?php
+do_action( 'buddynext_part_member_card_after', $args );

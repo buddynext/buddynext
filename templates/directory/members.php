@@ -24,6 +24,15 @@
  *     same buddynext/members store; Block + Report reuse the existing
  *     modal partials so the experience matches profile/view.
  *
+ * Structural composition (Layer 3 parts):
+ *   - parts/member-directory-hero.php       — title + subtitle + actions
+ *   - parts/member-directory-tabs.php       — member-type pill row
+ *   - parts/member-directory-filter-bar.php — relation tabs + search + sort
+ *   - parts/member-directory-grid.php       — grid wrapper + member-card loop
+ *   - parts/member-card.php                 — single member row (reusable)
+ *   - parts/member-block-modal.php          — block confirmation
+ *   - parts/member-report-modal.php         — report profile
+ *
  * Overridable: copy to `{theme}/buddynext/directory/members.php`.
  *
  * REST endpoint: GET buddynext/v1/members.
@@ -84,6 +93,17 @@ foreach ( $all_types_raw as $t ) {
 	$type_map[ (string) $t['slug'] ] = $t;
 }
 unset( $all_types_raw, $t );
+
+// Build the filter-able pill list expected by parts/member-directory-tabs.php.
+$bn_pill_types = array();
+foreach ( $dir_types as $bn_dir_type ) {
+	$bn_pill_types[] = array(
+		'slug'  => (string) $bn_dir_type['slug'],
+		'label' => (string) $bn_dir_type['name'],
+		'count' => isset( $bn_dir_type['count'] ) ? (int) $bn_dir_type['count'] : 0,
+	);
+}
+unset( $bn_dir_type );
 
 // ── Fetch users ───────────────────────────────────────────────────────────
 // Resolve user IDs to exclude: active suspensions + shadow-banned users.
@@ -209,6 +229,7 @@ $bn_is_following = static function ( int $target_user_id ) use ( $current_user_i
 
 // ── Page URLs ─────────────────────────────────────────────────────────────
 $bn_messages_base = PageRouter::messages_url();
+$bn_directory_url = PageRouter::people_url();
 
 // ── Avatar tone palette — cycles deterministically by user ID ─────────────
 $bn_avatar_tones = array( 'accent', 'success', 'jetonomy', 'media', 'events', 'warn', 'danger', 'info' );
@@ -238,7 +259,7 @@ $bn_directory_context = wp_json_encode(
 		'hasError'         => false,
 		'isEmpty'          => empty( $members ),
 		'totalLabel'       => '',
-		'peopleUrl'        => PageRouter::people_url(),
+		'peopleUrl'        => $bn_directory_url,
 		// Cross-surface modal state (block / report).
 		'blockTargetId'    => 0,
 		'blockTargetName'  => '',
@@ -408,22 +429,6 @@ if ( ! empty( $dir_types ) ) {
  */
 do_action( 'buddynext_members_before', $current_user_id );
 
-// Section-head meta + actions slot HTML.
-$bn_head_subtitle = sprintf(
-	/* translators: %s: formatted member count */
-	__( '%s members in the community', 'buddynext' ),
-	number_format_i18n( $total_users )
-);
-
-$bn_head_actions = '';
-if ( $current_user_id > 0 ) {
-	$bn_head_actions = sprintf(
-		'<a class="bn-btn" data-variant="secondary" data-size="md" href="%1$s"><span>%2$s</span></a>',
-		esc_url( admin_url( 'profile.php' ) ),
-		esc_html__( 'Edit profile', 'buddynext' )
-	);
-}
-
 // Relation tabs — reactive, no full-page reload.
 $bn_relation_tabs = array();
 if ( $current_user_id > 0 ) {
@@ -452,110 +457,36 @@ if ( $current_user_id > 0 ) {
 
 	<?php
 	buddynext_get_template(
-		'parts/section-head.php',
+		'parts/member-directory-hero.php',
 		array(
-			'title'         => __( 'Members', 'buddynext' ),
-			'subtitle'      => $bn_head_subtitle,
-			'heading_level' => 'h1',
-			'actions_html'  => $bn_head_actions,
+			'total_members' => $total_users,
+			'current_type'  => $type_slug_filter,
+			'view_mode'     => 'grid',
+			'viewer_id'     => $current_user_id,
+		)
+	);
+
+	buddynext_get_template(
+		'parts/member-directory-tabs.php',
+		array(
+			'member_types' => $bn_pill_types,
+			'active_type'  => $type_slug_filter,
+			'current_url'  => $bn_directory_url,
+		)
+	);
+
+	buddynext_get_template(
+		'parts/member-directory-filter-bar.php',
+		array(
+			'current_search'  => $search_term,
+			'current_sort'    => $bn_initial_sort,
+			'current_type'    => $type_slug_filter,
+			'current_url'     => $bn_directory_url,
+			'relation_tabs'   => $bn_relation_tabs,
+			'active_relation' => $bn_relation,
 		)
 	);
 	?>
-
-	<?php if ( ! empty( $dir_types ) ) : ?>
-		<nav class="bn-md-pill-row" aria-label="<?php esc_attr_e( 'Filter by member type', 'buddynext' ); ?>">
-			<?php
-			$bn_all_active = ( '' === $type_slug_filter );
-			?>
-			<button
-				type="button"
-				class="bn-md-pill<?php echo $bn_all_active ? ' is-active' : ''; ?>"
-				data-type-slug=""
-				aria-pressed="<?php echo $bn_all_active ? 'true' : 'false'; ?>"
-				data-wp-on--click="actions.selectMemberType"
-				data-wp-bind--aria-pressed="state.allPillPressed"
-				data-wp-bind--class="state.allPillClass"
-			>
-				<span class="bn-md-pill__label"><?php esc_html_e( 'All members', 'buddynext' ); ?></span>
-			</button>
-			<?php
-			foreach ( $dir_types as $bn_type ) :
-				$bn_pill_slug   = (string) $bn_type['slug'];
-				$bn_pill_name   = (string) $bn_type['name'];
-				$bn_pill_count  = isset( $bn_type['count'] ) ? (int) $bn_type['count'] : 0;
-				$bn_pill_active = ( $bn_pill_slug === $type_slug_filter );
-				?>
-				<button
-					type="button"
-					class="bn-md-pill<?php echo $bn_pill_active ? ' is-active' : ''; ?>"
-					data-type-slug="<?php echo esc_attr( $bn_pill_slug ); ?>"
-					aria-pressed="<?php echo $bn_pill_active ? 'true' : 'false'; ?>"
-					data-wp-on--click="actions.selectMemberType"
-				>
-					<span class="bn-md-pill__label"><?php echo esc_html( $bn_pill_name ); ?></span>
-					<?php if ( $bn_pill_count > 0 ) : ?>
-						<span class="bn-md-pill__count"><?php echo esc_html( number_format_i18n( $bn_pill_count ) ); ?></span>
-					<?php endif; ?>
-				</button>
-			<?php endforeach; ?>
-		</nav>
-	<?php endif; ?>
-
-	<div class="bn-md-strip bn-filter-strip">
-		<?php if ( ! empty( $bn_relation_tabs ) ) : ?>
-			<div class="bn-tabs" role="tablist">
-				<?php
-				foreach ( $bn_relation_tabs as $bn_rt ) :
-					$bn_rt_key    = (string) $bn_rt['key'];
-					$bn_rt_label  = (string) $bn_rt['label'];
-					$bn_rt_active = ( $bn_rt_key === $bn_relation );
-					?>
-					<button
-						type="button"
-						class="bn-tab<?php echo $bn_rt_active ? ' is-active' : ''; ?>"
-						role="tab"
-						aria-selected="<?php echo $bn_rt_active ? 'true' : 'false'; ?>"
-						data-relation="<?php echo esc_attr( $bn_rt_key ); ?>"
-						data-wp-on--click="actions.selectRelation"
-					>
-						<span class="bn-tab__label"><?php echo esc_html( $bn_rt_label ); ?></span>
-					</button>
-				<?php endforeach; ?>
-			</div>
-		<?php endif; ?>
-
-		<div class="bn-md-strip__form" role="search">
-			<label class="bn-md-strip__search">
-				<span class="screen-reader-text"><?php esc_html_e( 'Search members', 'buddynext' ); ?></span>
-				<input
-					type="search"
-					class="bn-input bn-md-strip__search-input"
-					name="s"
-					value="<?php echo esc_attr( $search_term ); ?>"
-					placeholder="<?php esc_attr_e( 'Search by name, skills, location…', 'buddynext' ); ?>"
-					aria-label="<?php esc_attr_e( 'Search members', 'buddynext' ); ?>"
-					data-wp-on--input="actions.handleSearchInput"
-				>
-				<span
-					class="bn-md-strip__searching"
-					aria-hidden="true"
-					data-wp-bind--hidden="!state.searching"
-					hidden
-				><?php esc_html_e( 'Searching…', 'buddynext' ); ?></span>
-			</label>
-
-			<select
-				class="bn-select bn-md-strip__sort"
-				aria-label="<?php esc_attr_e( 'Sort members', 'buddynext' ); ?>"
-				data-wp-on--change="actions.selectSort"
-			>
-				<option value="newest" <?php selected( $bn_initial_sort, 'newest' ); ?>><?php esc_html_e( 'Newest first', 'buddynext' ); ?></option>
-				<option value="alphabetical" <?php selected( $bn_initial_sort, 'alphabetical' ); ?>><?php esc_html_e( 'Alphabetical', 'buddynext' ); ?></option>
-				<option value="most_active" <?php selected( $bn_initial_sort, 'most_active' ); ?>><?php esc_html_e( 'Most active', 'buddynext' ); ?></option>
-				<option value="online" <?php selected( $bn_initial_sort, 'online' ); ?>><?php esc_html_e( 'Online now', 'buddynext' ); ?></option>
-			</select>
-		</div>
-	</div>
 
 	<div
 		class="bn-md-skeleton"
@@ -620,255 +551,23 @@ if ( $current_user_id > 0 ) {
 		</div>
 	</div>
 
-	<div
-		class="bn-md-grid"
-		role="list"
-		data-wp-bind--hidden="state.gridHidden"
-		<?php echo empty( $members ) ? 'hidden' : ''; ?>
-	>
-		<?php foreach ( $members as $member ) : ?>
-			<?php
-			$member_id    = (int) $member->ID;
-			$display_name = (string) $member->display_name;
-			$member_login = (string) $member->user_login;
-			$bio          = (string) get_user_meta( $member_id, 'bn_field_bio', true );
-			if ( '' === $bio ) {
-				$bio = (string) get_user_meta( $member_id, 'description', true );
-			}
-			$profile_url      = PageRouter::profile_url( $member_id );
-			$avatar_url       = (string) get_avatar_url( $member_id, array( 'size' => 96 ) );
-			$is_online        = $bn_is_online( $member_id );
-			$is_following     = $bn_is_following( $member_id );
-			$mutual           = $bn_mutual_count( $current_user_id, $member_id );
-			$member_type_slug = (string) get_user_meta( $member_id, 'bn_member_type', true );
-			$member_type_data = '' !== $member_type_slug ? ( $type_map[ $member_type_slug ] ?? null ) : null;
-			$messages_url     = add_query_arg( array( 'recipient' => $member_id ), $bn_messages_base );
-			$bn_conn_status   = $current_user_id > 0
-				? buddynext_service( 'connections' )->status( $current_user_id, $member_id )
-				: null;
-			$bn_avatar_tone   = $bn_avatar_tones[ $member_id % count( $bn_avatar_tones ) ];
-			$bn_presence_attr = $is_online ? 'online' : 'offline';
-			$bn_initials_text = $bn_initials( $display_name );
-
-			// Resolve direction-aware connection state for the 5-state Connect button.
-			$bn_conn_state = 'none';
-			if ( 'accepted' === $bn_conn_status ) {
-				$bn_conn_state = 'accepted';
-			} elseif ( 'pending' === $bn_conn_status && $current_user_id > 0 ) {
-				$sent_ids      = buddynext_service( 'connections' )->pending_sent( $current_user_id );
-				$bn_conn_state = in_array( $member_id, $sent_ids, true ) ? 'pending-sent' : 'pending-received';
-			}
-
-			$bn_card_ctx = wp_json_encode(
-				array(
-					'userId'      => $member_id,
-					'displayName' => $display_name,
-					'isFollowing' => $is_following,
-					'connection'  => $bn_conn_state,
-					'menuOpen'    => false,
-					'isMuted'     => $current_user_id > 0
-						? buddynext_service( 'blocks' )->is_muted( $current_user_id, $member_id )
-						: false,
-				)
-			);
-			if ( false === $bn_card_ctx ) {
-				$bn_card_ctx = '{}';
-			}
-			?>
-			<article
-				class="bn-card bn-md-card"
-				data-interactive
-				role="listitem"
-				data-user-id="<?php echo esc_attr( (string) $member_id ); ?>"
-				data-wp-context="<?php echo esc_attr( (string) $bn_card_ctx ); ?>"
-			>
-
-				<a href="<?php echo esc_url( $profile_url ); ?>" class="bn-md-card__avatar-link" tabindex="-1" aria-hidden="true">
-					<span
-						class="bn-avatar bn-md-card__avatar"
-						data-size="xl"
-						data-presence="<?php echo esc_attr( $bn_presence_attr ); ?>"
-						data-tone="<?php echo esc_attr( $bn_avatar_tone ); ?>"
-					>
-						<?php if ( '' !== $avatar_url ) : ?>
-							<img
-								src="<?php echo esc_url( $avatar_url ); ?>"
-								alt=""
-								width="72"
-								height="72"
-								loading="lazy"
-								decoding="async"
-							>
-						<?php else : ?>
-							<?php echo esc_html( $bn_initials_text ); ?>
-						<?php endif; ?>
-					</span>
-				</a>
-
-				<h3 class="bn-md-card__name">
-					<a href="<?php echo esc_url( $profile_url ); ?>">
-						<?php echo esc_html( $display_name ); ?>
-					</a>
-				</h3>
-
-				<p class="bn-md-card__handle">@<?php echo esc_html( $member_login ); ?></p>
-
-				<?php if ( null !== $member_type_data ) : ?>
-					<span class="bn-badge bn-md-card__type" data-tone="accent">
-						<?php echo esc_html( (string) $member_type_data['name'] ); ?>
-					</span>
-				<?php endif; ?>
-
-				<?php if ( '' !== $bio ) : ?>
-					<p class="bn-md-card__bio"><?php echo esc_html( wp_trim_words( $bio, 18 ) ); ?></p>
-				<?php endif; ?>
-
-				<?php if ( $mutual > 0 ) : ?>
-					<p class="bn-md-card__mutual">
-						<?php
-						echo esc_html(
-							sprintf(
-								/* translators: %d: number of mutual connections */
-								_n( '%d mutual connection', '%d mutual connections', $mutual, 'buddynext' ),
-								$mutual
-							)
-						);
-						?>
-					</p>
-				<?php endif; ?>
-
-				<div class="bn-md-card__actions">
-					<?php if ( 0 === $current_user_id ) : ?>
-						<a
-							class="bn-btn"
-							data-variant="primary"
-							data-size="sm"
-							href="<?php echo esc_url( wp_login_url( $profile_url ) ); ?>"
-						>
-							<?php esc_html_e( 'View profile', 'buddynext' ); ?>
-						</a>
-					<?php elseif ( $current_user_id === $member_id ) : ?>
-						<a
-							class="bn-btn"
-							data-variant="secondary"
-							data-size="sm"
-							href="<?php echo esc_url( admin_url( 'profile.php' ) ); ?>"
-						>
-							<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
-						</a>
-					<?php else : ?>
-						<button
-							type="button"
-							class="bn-btn bn-md-card__follow"
-							data-size="sm"
-							data-wp-bind--data-variant="state.cardFollowVariant"
-							data-wp-bind--data-state="state.cardFollowState"
-							data-wp-text="state.cardFollowLabel"
-							data-wp-on--click="actions.toggleFollow"
-						><?php echo $is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?></button>
-
-						<?php // Connection control — 5-state, reactive. ?>
-						<button
-							type="button"
-							class="bn-btn bn-md-card__connect-primary"
-							data-size="sm"
-							data-wp-bind--hidden="!state.cardShowConnect"
-							data-wp-bind--data-variant="state.cardConnectVariant"
-							data-wp-bind--data-state="state.cardConnectState"
-							data-wp-text="state.cardConnectLabel"
-							data-wp-on--click="actions.toggleConnection"
-							<?php echo in_array( $bn_conn_state, array( 'none', 'pending-sent', 'accepted' ), true ) ? '' : 'hidden'; ?>
-						>
-						<?php
-						if ( 'accepted' === $bn_conn_state ) {
-							esc_html_e( 'Connected', 'buddynext' );
-						} elseif ( 'pending-sent' === $bn_conn_state ) {
-							esc_html_e( 'Requested', 'buddynext' );
-						} else {
-							esc_html_e( 'Connect', 'buddynext' );
-						}
-						?>
-						</button>
-
-						<span
-							class="bn-md-card__connect-decide"
-							data-wp-bind--hidden="!state.cardShowReceived"
-							<?php echo 'pending-received' === $bn_conn_state ? '' : 'hidden'; ?>
-						>
-							<button
-								type="button"
-								class="bn-btn"
-								data-variant="primary"
-								data-size="sm"
-								data-wp-on--click="actions.acceptConnection"
-							><?php esc_html_e( 'Accept', 'buddynext' ); ?></button>
-							<button
-								type="button"
-								class="bn-btn"
-								data-variant="ghost"
-								data-size="sm"
-								data-wp-on--click="actions.declineConnection"
-							><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
-						</span>
-
-						<?php if ( 'accepted' === $bn_conn_status ) : ?>
-							<a
-								class="bn-btn"
-								data-variant="ghost"
-								data-size="sm"
-								href="<?php echo esc_url( $messages_url ); ?>"
-								aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member display name */ __( 'Message %s', 'buddynext' ), $display_name ) ); ?>"
-							>
-								<?php buddynext_icon( 'message-circle' ); ?>
-							</a>
-						<?php endif; ?>
-
-						<?php // Kebab menu — Mute / Block / Report. ?>
-						<div class="bn-md-card__menu-wrap">
-							<button
-								type="button"
-								class="bn-md-card__menu"
-								aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member display name */ __( 'More actions for %s', 'buddynext' ), $display_name ) ); ?>"
-								aria-haspopup="true"
-								aria-expanded="false"
-								data-wp-on--click="actions.toggleCardMenu"
-								data-wp-bind--aria-expanded="state.cardMenuExpanded"
-							><?php buddynext_icon( 'more-horizontal' ); ?></button>
-							<div
-								class="bn-md-card__menu-pop"
-								role="menu"
-								data-wp-bind--hidden="!state.cardMenuOpen"
-								hidden
-							>
-								<button
-									type="button"
-									class="bn-md-card__menu-item"
-									role="menuitem"
-									data-wp-on--click="actions.toggleMute"
-									data-wp-text="state.cardMuteLabel"
-								><?php echo esc_html( $current_user_id > 0 && buddynext_service( 'blocks' )->is_muted( $current_user_id, $member_id ) ? __( 'Unmute', 'buddynext' ) : __( 'Mute', 'buddynext' ) ); ?></button>
-								<button
-									type="button"
-									class="bn-md-card__menu-item bn-md-card__menu-item--danger"
-									role="menuitem"
-									data-wp-on--click="actions.openBlock"
-								><?php esc_html_e( 'Block', 'buddynext' ); ?></button>
-								<button
-									type="button"
-									class="bn-md-card__menu-item bn-md-card__menu-item--danger"
-									role="menuitem"
-									data-wp-on--click="actions.openReport"
-								><?php esc_html_e( 'Report', 'buddynext' ); ?></button>
-							</div>
-						</div>
-					<?php endif; ?>
-				</div>
-
-			</article>
-		<?php endforeach; ?>
-	</div>
-
 	<?php
+	buddynext_get_template(
+		'parts/member-directory-grid.php',
+		array(
+			'members'         => $members,
+			'viewer_id'       => $current_user_id,
+			'view_mode'       => 'grid',
+			'avatar_tones'    => $bn_avatar_tones,
+			'type_map'        => $type_map,
+			'messages_base'   => $bn_messages_base,
+			'initials_fn'     => $bn_initials,
+			'is_online_fn'    => $bn_is_online,
+			'is_following_fn' => $bn_is_following,
+			'mutual_count_fn' => $bn_mutual_count,
+		)
+	);
+
 	buddynext_get_template(
 		'parts/pagination.php',
 		array(
@@ -885,113 +584,20 @@ if ( $current_user_id > 0 ) {
 // Rendered OUTSIDE the `data-wp-interactive="buddynext/members"` element so
 // stray `data-wp-bind` directives from the partials are inert. The
 // directory store opens / closes them by toggling the [hidden] attribute.
-$bn_report_reasons = array(
-	'spam'           => __( 'Spam', 'buddynext' ),
-	'harassment'     => __( 'Harassment or hate speech', 'buddynext' ),
-	'misinformation' => __( 'Misinformation', 'buddynext' ),
-	'inappropriate'  => __( 'Inappropriate content', 'buddynext' ),
-	'fake'           => __( 'Fake account', 'buddynext' ),
-	'impersonation'  => __( 'Impersonation', 'buddynext' ),
-	'other'          => __( 'Something else', 'buddynext' ),
+buddynext_get_template(
+	'parts/member-block-modal.php',
+	array(
+		'nonce' => $bn_rest_nonce,
+	)
 );
-?>
-<div
-	class="bn-modal-backdrop bn-pf-block-backdrop"
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="bn-md-block-title"
-	hidden
->
-	<div class="bn-modal__panel" data-tone="danger" data-size="sm">
-		<header class="bn-modal__head">
-			<h2 class="bn-modal__title" id="bn-md-block-title"><?php esc_html_e( 'Block this member?', 'buddynext' ); ?></h2>
-			<button
-				class="bn-modal__close"
-				type="button"
-				aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
-				data-wp-on--click="actions.closeBlockConfirm"
-			><?php buddynext_icon( 'x' ); ?></button>
-		</header>
-		<div class="bn-modal__body">
-			<p><?php esc_html_e( 'Blocking this person will:', 'buddynext' ); ?></p>
-			<ul class="bn-modal__list">
-				<li><?php esc_html_e( 'Hide their posts and replies from your feed.', 'buddynext' ); ?></li>
-				<li><?php esc_html_e( 'Stop them from following you or sending you messages.', 'buddynext' ); ?></li>
-				<li><?php esc_html_e( 'Remove any existing connection or follow between you.', 'buddynext' ); ?></li>
-			</ul>
-			<p class="bn-modal__help"><?php esc_html_e( 'You can unblock from your settings at any time.', 'buddynext' ); ?></p>
-		</div>
-		<footer class="bn-modal__foot">
-			<button
-				class="bn-btn"
-				type="button"
-				data-variant="ghost"
-				data-size="md"
-				data-wp-on--click="actions.closeBlockConfirm"
-			><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
-			<button
-				class="bn-btn"
-				type="button"
-				data-variant="danger"
-				data-size="md"
-				data-wp-on--click="actions.confirmBlock"
-			><?php esc_html_e( 'Block', 'buddynext' ); ?></button>
-		</footer>
-	</div>
-</div>
 
-<div
-	class="bn-modal-backdrop bn-pf-report-backdrop"
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="bn-md-report-title"
-	data-target-type="user"
-	hidden
->
-	<div class="bn-modal__panel" data-size="sm">
-		<header class="bn-modal__head">
-			<h2 class="bn-modal__title" id="bn-md-report-title"><?php esc_html_e( 'Report this profile', 'buddynext' ); ?></h2>
-			<button
-				class="bn-modal__close"
-				type="button"
-				aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
-				data-wp-on--click="actions.closeReport"
-			><?php buddynext_icon( 'x' ); ?></button>
-		</header>
-		<div class="bn-modal__body">
-			<p class="bn-modal__help"><?php esc_html_e( 'Reports are reviewed by moderators. The person you report is not notified.', 'buddynext' ); ?></p>
-			<div class="bn-ep-field bn-ep-field--full">
-				<label class="bn-ep-label" for="bn-pf-report-reason"><?php esc_html_e( 'Reason', 'buddynext' ); ?></label>
-				<select class="bn-input" id="bn-pf-report-reason">
-					<?php foreach ( $bn_report_reasons as $bn_rk => $bn_rl ) : ?>
-						<option value="<?php echo esc_attr( $bn_rk ); ?>"><?php echo esc_html( $bn_rl ); ?></option>
-					<?php endforeach; ?>
-				</select>
-			</div>
-			<div class="bn-ep-field bn-ep-field--full">
-				<label class="bn-ep-label" for="bn-pf-report-notes"><?php esc_html_e( 'Additional details (optional)', 'buddynext' ); ?></label>
-				<textarea class="bn-textarea" id="bn-pf-report-notes" rows="3" maxlength="500" placeholder="<?php esc_attr_e( 'Tell us more about what you saw...', 'buddynext' ); ?>"></textarea>
-			</div>
-		</div>
-		<footer class="bn-modal__foot">
-			<button
-				class="bn-btn"
-				type="button"
-				data-variant="ghost"
-				data-size="md"
-				data-wp-on--click="actions.closeReport"
-			><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
-			<button
-				class="bn-btn"
-				type="button"
-				data-variant="primary"
-				data-size="md"
-				data-wp-on--click="actions.submitReport"
-			><?php esc_html_e( 'Submit report', 'buddynext' ); ?></button>
-		</footer>
-	</div>
-</div>
-<?php
+buddynext_get_template(
+	'parts/member-report-modal.php',
+	array(
+		'nonce' => $bn_rest_nonce,
+	)
+);
+
 /**
  * Fires after the members directory inner content.
  *
