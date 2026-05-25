@@ -1216,9 +1216,22 @@
 }
 
 .bn-comment-count {
+	display: inline-block;
+	min-inline-size: 22px;
 	font-size: var(--bn-text-xs);
 	font-weight: 600;
 	color: inherit;
+	text-align: end;
+}
+
+/* Reserve space when the count is 0 so the badge appearing on first
+   comment doesn't grow the button (~14-22px CLS otherwise). The
+   literal `hidden` attribute is enforced by a global
+   `[hidden] { display: none !important; }` reset, so the override
+   here must also be !important to keep the badge in flow. */
+.bn-comment-count[hidden] {
+	display: inline-block !important;
+	visibility: hidden;
 }
 
 /* Comments mobile */
@@ -1690,7 +1703,16 @@
 	transition: background var(--bn-dur-fast) var(--bn-ease), color var(--bn-dur-fast) var(--bn-ease);
 }
 .bn-composer__privacy-chip:hover { background: var(--bg-hover); color: var(--bn-ink); }
-.bn-composer__privacy-chip strong { color: var(--bn-ink-2); font-weight: 600; }
+/* Reserve worst-case width for the variable label ("Everyone" /
+   "Followers" / "Just me" / "Space members") so selecting a different
+   audience doesn't reflow the composer footer (~48px shift otherwise). */
+.bn-composer__privacy-chip strong {
+	display: inline-block;
+	min-inline-size: 100px;
+	color: var(--bn-ink-2);
+	font-weight: 600;
+	text-align: start;
+}
 .bn-composer__privacy-caret { display: inline-flex; }
 .bn-composer__privacy-caret .bn-icon { width: 12px; height: 12px; }
 .bn-composer__privacy-pop {
