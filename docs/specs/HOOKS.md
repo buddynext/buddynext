@@ -571,6 +571,26 @@ add_filter( 'buddynext_profile_hero_badges_html',
 
 ---
 
+## Session + daily-login pulses — streak driver
+
+`BuddyNext\Engagement\SessionTracker` (registered on `wp_loaded:5`)
+fires two idempotent engagement events. Both bail for guests, AJAX,
+REST, cron, and WP-CLI contexts.
+
+```php
+// Sliding 30-min window. Re-fires after 30 min of inactivity.
+do_action( 'buddynext_user_session_started', int $user_id )
+
+// Once per UTC calendar day. THE canonical streak driver — gamification
+// plugins should increment streak counters here, not from activity.
+do_action( 'buddynext_user_daily_login', int $user_id, string $date_ymd )
+```
+
+Guard transients: `bn_session_{user_id}` (30 min TTL) and
+`bn_daily_login_{user_id}_{Y-m-d}` (25 h TTL).
+
+---
+
 ## Engagement events — recipient-perspective signals
 
 Gamification plugins typically award **recipients** of engagement (the

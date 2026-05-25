@@ -193,6 +193,11 @@ class Plugin {
 		// Wire onboarding nudge scheduling and cron handlers.
 		( new OnboardingListener() )->register();
 
+		// Wire per-session + per-day engagement pulses (streak driver
+		// for gamification plugins). Idempotent within a session window
+		// and within a UTC calendar day via transient guards.
+		( new \BuddyNext\Engagement\SessionTracker() )->register();
+
 		// Wire outbound webhook service (cron retry) and domain event listener.
 		$container->get( 'webhooks' )->init();
 		( new OutboundWebhookListener() )->register();
