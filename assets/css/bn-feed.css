@@ -183,6 +183,20 @@
 
 .bn-post-card__handle:hover { color: var(--bn-accent); }
 
+.bn-post-card__space-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	color: var(--bn-ink-2);
+	font-weight: 500;
+	text-decoration: none;
+}
+.bn-post-card__space-link:hover { color: var(--bn-accent); }
+.bn-post-card__space-link .bn-icon {
+	width: 12px;
+	height: 12px;
+}
+
 .bn-post-card__sep {
 	color: var(--bn-ink-4);
 }
@@ -358,14 +372,33 @@
 
 .bn-post-card__content a:hover { text-decoration: underline; }
 
-/* Hashtag + mention spans inherit accent treatment. */
-.bn-hashtag,
+/* Hashtag chips — inline accent-tinted pills inside post content. The
+   chip background separates tags visually from surrounding text, makes
+   them scannable on dense explore cards, and gives the hover a discrete
+   target. Mentions stay accent-coloured but un-chipped so the @-prefix
+   does the visual lifting. */
+.bn-hashtag {
+	display: inline-block;
+	padding: 0 8px;
+	border-radius: var(--bn-r-full, 999px);
+	background: var(--bn-accent-bg, color-mix(in oklab, var(--bn-accent) 12%, transparent));
+	color: var(--bn-accent);
+	font-weight: 500;
+	font-size: inherit;
+	line-height: 1.5;
+	text-decoration: none;
+	transition: background var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
+}
+.bn-hashtag:hover {
+	background: var(--bn-accent-bg-strong, color-mix(in oklab, var(--bn-accent) 20%, transparent));
+	text-decoration: none;
+}
+
 .bn-mention {
 	color: var(--bn-accent);
 	font-weight: 500;
 	text-decoration: none;
 }
-.bn-hashtag:hover,
 .bn-mention:hover { text-decoration: underline; }
 
 .bn-post-card__content--announcement {

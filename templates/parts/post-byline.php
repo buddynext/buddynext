@@ -144,6 +144,26 @@ do_action( 'buddynext_part_post_byline_before', $args );
 				<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
 			<?php endif; ?>
 
+			<?php
+			// Space attribution — show which space a post came from. Cached
+			// per-space via SpaceService::get(), so a feed of N posts hits
+			// the DB at most once per unique space.
+			$bn_space_id = isset( $args['bn_post']['space_id'] ) ? (int) $args['bn_post']['space_id'] : 0;
+			if ( $bn_space_id > 0 ) {
+				$bn_space = buddynext_service( 'spaces' )->get( $bn_space_id );
+				if ( $bn_space && ! empty( $bn_space['name'] ) && ! empty( $bn_space['slug'] ) ) {
+					$bn_space_url = home_url( '/spaces/' . $bn_space['slug'] . '/' );
+					?>
+					<a class="bn-post-card__space-link" href="<?php echo esc_url( $bn_space_url ); ?>">
+						<?php buddynext_icon( 'users' ); ?>
+						<?php echo esc_html( (string) $bn_space['name'] ); ?>
+					</a>
+					<span class="bn-post-card__sep" aria-hidden="true">&middot;</span>
+					<?php
+				}
+			}
+			?>
+
 			<a
 				class="bn-post-card__time-link"
 				href="<?php echo esc_url( PageRouter::post_url( (int) $args['bn_post_id'] ) ); ?>"
