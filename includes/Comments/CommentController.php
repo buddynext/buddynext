@@ -197,6 +197,9 @@ class CommentController {
 		$created['can_delete']        = true;
 		$created['can_pin']           = user_can( $user_id, 'manage_options' );
 		$created['replies']           = array();
+		$created['author_meta_html']  = function_exists( 'buddynext_user_meta_html' )
+			? buddynext_user_meta_html( 'comment_author', (int) $created['user_id'], array( 'comment_id' => (int) $created['id'] ) )
+			: '';
 
 		return new WP_REST_Response( $created, 201 );
 	}
@@ -242,6 +245,18 @@ class CommentController {
 				&& ( (int) $comment['user_id'] === $viewer_id || user_can( $viewer_id, 'manage_options' ) );
 			$comment['can_delete']        = $comment['can_edit'];
 			$comment['can_pin']           = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
+
+			// Gamification overlay — pre-rendered HTML chip beside commenter
+			// name. JS renders this raw next to author_name. Empty when no
+			// gamification plugin hooks the filter.
+			$comment['author_meta_html'] = function_exists( 'buddynext_user_meta_html' )
+				? buddynext_user_meta_html(
+					'comment_author',
+					(int) $comment['user_id'],
+					array( 'comment_id' => (int) $comment['id'] )
+				)
+				: '';
+
 			return $comment;
 		};
 
@@ -288,6 +303,9 @@ class CommentController {
 		$updated['can_edit']          = true;
 		$updated['can_delete']        = true;
 		$updated['can_pin']           = user_can( $user_id, 'manage_options' );
+		$updated['author_meta_html']  = function_exists( 'buddynext_user_meta_html' )
+			? buddynext_user_meta_html( 'comment_author', (int) $updated['user_id'], array( 'comment_id' => $comment_id ) )
+			: '';
 
 		return new WP_REST_Response( $updated, 200 );
 	}

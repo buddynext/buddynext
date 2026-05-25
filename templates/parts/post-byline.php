@@ -124,6 +124,20 @@ do_action( 'buddynext_part_post_byline_before', $args );
 			<?php if ( '' !== (string) $args['member_type_label'] ) : ?>
 				<span class="bn-badge bn-post-card__member-type" data-tone="accent"><?php echo esc_html( (string) $args['member_type_label'] ); ?></span>
 			<?php endif; ?>
+
+			<?php
+			// Gamification overlay seam — `post_byline` surface. wb-gamification
+			// (or any equivalent) returns escaped HTML for an inline chip
+			// alongside the post author's name (level / first-badge / etc.).
+			$bn_byline_meta = buddynext_user_meta_html(
+				'post_byline',
+				(int) $args['author_id'],
+				array( 'post_id' => (int) $args['bn_post_id'] )
+			);
+			if ( '' !== $bn_byline_meta ) {
+				echo $bn_byline_meta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped by hooked plugin per filter contract
+			}
+			?>
 		</div>
 
 		<div class="bn-post-card__meta">

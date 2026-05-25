@@ -148,6 +148,16 @@ do_action( 'buddynext_part_member_card_before', $args );
 			<?php else : ?>
 				<?php echo esc_html( $bn_initials_text ); ?>
 			<?php endif; ?>
+			<?php
+			$bn_md_avatar_overlay = buddynext_user_meta_html(
+				'avatar_overlay',
+				$bn_member_id,
+				array( 'size' => 'xl' )
+			);
+			if ( '' !== $bn_md_avatar_overlay ) {
+				echo $bn_md_avatar_overlay; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped by hooked plugin per filter contract
+			}
+			?>
 		</span>
 	</a>
 
@@ -158,6 +168,18 @@ do_action( 'buddynext_part_member_card_before', $args );
 	</h3>
 
 	<p class="bn-md-card__handle">@<?php echo esc_html( $bn_member_login ); ?></p>
+
+	<?php
+	// Gamification overlay seam — wb-gamification (or any equivalent) can
+	// return escaped HTML for the `member_card` surface to render a badge
+	// row / level chip / streak flame here. Empty string when nothing hooks.
+	$bn_md_meta = buddynext_user_meta_html( 'member_card', $bn_member_id, $args );
+	if ( '' !== $bn_md_meta ) :
+		?>
+		<div class="bn-md-card__meta-overlay"><?php echo $bn_md_meta; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped by hooked plugin per filter contract ?></div>
+		<?php
+	endif;
+	?>
 
 	<?php if ( '' !== $bn_type_label ) : ?>
 		<span class="bn-badge bn-md-card__type" data-tone="accent">

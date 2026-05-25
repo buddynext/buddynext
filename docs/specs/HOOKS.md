@@ -522,6 +522,47 @@ do_action( 'mvs_mentions_created', array $mentioned_user_ids, string $context_ty
 
 ---
 
+## Per-surface user-overlay filter (`buddynext_user_meta_html_{surface}`)
+
+A single helper renders gamification overlays in six surfaces. Each
+surface applies its own filter; the default value is an empty string,
+so BN renders nothing when no plugin hooks. The hooked plugin is
+expected to return **escaped** HTML — BN echoes it raw.
+
+```php
+// Helper signature (defined in buddynext.php):
+buddynext_user_meta_html( string $surface, int $user_id, array $context = [] ): string
+
+// Filter signature:
+apply_filters( "buddynext_user_meta_html_{$surface}",
+    string $html, int $user_id, array $context ): string
+```
+
+Surfaces wired:
+
+| Surface slug         | Where it renders                                        | Context keys     |
+|----------------------|---------------------------------------------------------|------------------|
+| `member_card`        | Inside `.bn-md-card` below handle (directory + search)  | full `$args`     |
+| `post_byline`        | Beside post author name on every feed card              | `post_id`        |
+| `profile_hero_badges`| Under display name on `/members/{slug}/` profile        | —                |
+| `avatar_overlay`     | Inside `<span class="bn-avatar">` (frames/corner badges) | `size`           |
+| `search_member`      | Beside member name in `/search/?type=members`           | —                |
+| `comment_author`     | REST-enriched `author_meta_html` field on comment rows  | `comment_id`     |
+
+Example hookup from a gamification plugin:
+
+```php
+add_filter( 'buddynext_user_meta_html_profile_hero_badges',
+    function ( string $html, int $user_id ): string {
+        $badges = wb_gamification_get_user_badges( $user_id );
+        return $html . wb_gamification_render_badge_row( $badges );
+    },
+    10, 2
+);
+```
+
+---
+
 ## Engagement events — recipient-perspective signals
 
 Gamification plugins typically award **recipients** of engagement (the

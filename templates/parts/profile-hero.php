@@ -170,6 +170,17 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						loading="eager"
 						decoding="async"
 					/>
+					<?php
+					// Gamification avatar overlay — level frame / corner badge.
+					$bn_pf_avatar_overlay = buddynext_user_meta_html(
+						'avatar_overlay',
+						$bn_pf_uid,
+						array( 'size' => '2xl' )
+					);
+					if ( '' !== $bn_pf_avatar_overlay ) {
+						echo $bn_pf_avatar_overlay; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped by hooked plugin per filter contract
+					}
+					?>
 				</span>
 			</div>
 
@@ -187,6 +198,15 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 							style="background:<?php echo esc_attr( $bn_pf_member_type['color'] ); ?>;color:<?php echo esc_attr( $bn_pf_member_type['text_color'] ); ?>;"
 						><?php echo esc_html( $bn_pf_member_type['name'] ); ?></span>
 					<?php endif; ?>
+					<?php
+					// Gamification badges row — wb-gamification returns escaped
+					// HTML for the `profile_hero_badges` surface (badge chips,
+					// level pip, streak flame). Empty string when nothing hooks.
+					$bn_pf_badges = buddynext_user_meta_html( 'profile_hero_badges', $bn_pf_uid );
+					if ( '' !== $bn_pf_badges ) {
+						echo $bn_pf_badges; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped by hooked plugin per filter contract
+					}
+					?>
 				</div>
 
 				<div class="bn-pf-handle">

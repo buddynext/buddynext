@@ -257,6 +257,50 @@ function buddynext_get_emoji( string $slug, string $css_class = '', ?string $alt
 }
 
 /**
+ * Render a per-surface gamification overlay for a user.
+ *
+ * Returns whatever a gamification plugin (wb-gamification or any
+ * equivalent) chooses to inject for the named surface. BN ships
+ * nothing here — the default is an empty string and templates render
+ * nothing when no plugin is hooked.
+ *
+ * The plugin is expected to return *escaped* HTML; BN echoes the
+ * result raw at the call site.
+ *
+ * Surfaces wired today:
+ *   - member_card         — meta chip inside .bn-md-card (below handle)
+ *   - post_byline         — meta chip beside author name on feed cards
+ *   - profile_hero_badges — badges row under name on /members/{slug}/
+ *   - avatar_overlay      — corner badge / level frame inside .bn-avatar
+ *   - search_member       — meta beside member name in /search/?type=members
+ *   - comment_author      — meta beside commenter name (REST-enriched)
+ *
+ * @param string              $surface Surface slug (see list above).
+ * @param int                 $user_id User whose overlay to fetch.
+ * @param array<string,mixed> $context Optional context (post_id, args, etc.).
+ * @return string HTML — safe to echo raw at the call site.
+ */
+function buddynext_user_meta_html( string $surface, int $user_id, array $context = array() ): string {
+	if ( $user_id <= 0 ) {
+		return '';
+	}
+	$surface = sanitize_key( $surface );
+	if ( '' === $surface ) {
+		return '';
+	}
+	/**
+	 * Filters the gamification overlay HTML for a given surface.
+	 *
+	 * Hooks: `buddynext_user_meta_html_{surface}`.
+	 *
+	 * @param string              $html    Default empty string.
+	 * @param int                 $user_id Target user.
+	 * @param array<string,mixed> $context Surface-specific context.
+	 */
+	return (string) apply_filters( 'buddynext_user_meta_html_' . $surface, '', $user_id, $context );
+}
+
+/**
  * Format post content: convert #hashtag and @mention patterns to clickable links.
  *
  * Hashtags link to the BuddyNext hashtag feed (/activity/hashtag/{slug}/).
