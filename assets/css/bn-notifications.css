@@ -479,3 +479,77 @@
 		inset-inline-end: calc(var(--bn-s4) * -1);
 	}
 }
+
+/* ── Muted-list sidebar widget (Pattern D-15) ──────────────────────────────
+   Rendered by parts/notifications-sidecard-muted.php. Shows up to 5 muted
+   users with avatar + name + handle + per-row Unmute, plus a "Manage muted"
+   footer link to the full Privacy list on /profile/edit/. */
+
+.bn-notif-sidecard--muted .bn-notif-sidecard__muted-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.bn-notif-sidecard__muted-row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-top: 1px solid var(--bn-line);
+}
+.bn-notif-sidecard__muted-row:first-child {
+	border-top: 0;
+}
+.bn-notif-sidecard__muted-avatar {
+	flex-shrink: 0;
+	display: inline-flex;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	overflow: hidden;
+}
+.bn-notif-sidecard__muted-avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.bn-notif-sidecard__muted-id {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+.bn-notif-sidecard__muted-name {
+	color: var(--bn-ink);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	text-decoration: none;
+	line-height: 1.2;
+}
+.bn-notif-sidecard__muted-name:hover {
+	color: var(--bn-accent);
+}
+.bn-notif-sidecard__muted-handle {
+	color: var(--bn-ink-3);
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 11px;
+}
+.bn-notif-sidecard__muted-cta {
+	flex-shrink: 0;
+}
+.bn-notif-sidecard__foot {
+	padding: var(--bn-s2) var(--bn-s4) var(--bn-s3);
+	border-top: 1px solid var(--bn-line);
+	display: flex;
+	justify-content: flex-end;
+}
+.bn-notif-sidecard__manage {
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+	text-decoration: none;
+}
+.bn-notif-sidecard__manage:hover {
+	color: var(--bn-accent);
+}

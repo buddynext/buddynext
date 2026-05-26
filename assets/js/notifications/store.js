@@ -10,6 +10,11 @@
  */
 import { store, getContext } from '@wordpress/interactivity';
 
+// Relation-removal handler for the Muted-list sidecard's Unmute button
+// (Pattern D-15). Side-effect import — installs a single document-level
+// click listener that any data-bn-relation-remove button can use.
+import '../social/relation-remove.js';
+
 /**
  * Format an unread count for display: empty when zero, "99+" when over 99.
  *

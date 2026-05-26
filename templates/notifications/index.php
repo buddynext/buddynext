@@ -434,6 +434,16 @@ add_action(
 					'user_id' => $bn_stats_uid,
 				)
 			);
+
+			// Muted-list management widget. The part returns early when
+			// the viewer has muted nobody, so this call is free in the
+			// common case.
+			buddynext_get_template(
+				'parts/notifications-sidecard-muted.php',
+				array(
+					'user_id' => $bn_stats_uid,
+				)
+			);
 		}
 	}
 );
