@@ -188,8 +188,12 @@ class SearchService {
 				    SELECT blocked_id FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d
 				    UNION
 				    SELECT blocker_id FROM {$wpdb->prefix}bn_blocks WHERE blocked_id = %d
+				  )
+				  AND si.author_id NOT IN (
+				    SELECT blocked_id FROM {$wpdb->prefix}bn_blocks
+				    WHERE blocker_id = %d AND type = 'restrict'
 				  )";
-			$block_params = array( $viewer_id, $viewer_id );
+			$block_params = array( $viewer_id, $viewer_id, $viewer_id );
 		}
 
 		// Exclude suspended and shadow-banned users' content from all search results.
