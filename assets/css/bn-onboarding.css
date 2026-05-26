@@ -1,557 +1,33 @@
-/* BuddyNext — Onboarding stylesheet.
- * Covers: admin setup wizard (8 steps), member onboarding flow (4 steps),
- * invite form (email rows + CSV drop zone), dark mode, mobile ≤640px.
- * Enqueued via BuddyNext\Templates\OnboardingLoader. */
+/* ───────────────────────────────────────────────────────────────────────
+ * BuddyNext — Onboarding wizard
+ *
+ * Implementation of the V2 onboarding prototype
+ * (docs/v2 Plans/v2/onboarding.html), namespaced with the `bn-ob-*` class
+ * names the template + Interactivity store reference. Reads design
+ * tokens (--bn-* spacing, color, type) from bn-base.css.
+ *
+ * Structure:
+ *   .bn-ob-wrap     — outer interactive context (no chrome of its own)
+ *     .bn-ob-shell  — full-height 2-column grid (form left, canvas right)
+ *       .bn-ob-form     — left column: head, stepper, body, actions
+ *         .bn-ob-form-head       — step counter eyebrow
+ *         .bn-ob-stepper         — numbered step nav
+ *         .bn-ob-form-body       — centered max-width content area
+ *           .bn-ob-step …        — only one visible at a time
+ *           .bn-ob-actions       — pinned-bottom action row
+ *       .bn-ob-canvas    — right column: live preview card + caption
+ *   Mobile: shell collapses to 1 column, canvas hides
+ * ─────────────────────────────────────────────────────────────────────── */
+
+/* ── Shell ────────────────────────────────────────────────────────────── */
 
-/* ── CSS custom properties ───────────────────────────────────────────── */
-/* All --bn-ob-* tokens alias the v2 --bn-* source in bn-base.css. They
- * exist only to preserve the existing class-name surface; new code should
- * reference --bn-* directly. Dark mode flips through the v2 source. */
-:root {
-	--bn-ob-font-body:    var(--bn-font-ui);
-	--bn-ob-font-display: var(--bn-font-display);
-	--bn-ob-bg:           var(--bn-canvas);
-	--bn-ob-bg-subtle:    var(--bn-sunken);
-	--bn-ob-bg-hover:     var(--bn-sunken);
-	--bn-ob-surface:      var(--bn-surface);
-	--bn-ob-border:       var(--bn-line);
-	--bn-ob-border-soft:  var(--bn-line-faint);
-	--bn-ob-text-1:       var(--bn-ink);
-	--bn-ob-text-2:       var(--bn-ink-2);
-	--bn-ob-text-3:       var(--bn-ink-3);
-	--bn-ob-brand:        var(--bn-accent);
-	--bn-ob-brand-light:  var(--bn-accent-100);
-	--bn-ob-brand-hover:  var(--bn-accent-700);
-	--bn-ob-green:        var(--bn-success);
-	--bn-ob-green-bg:     var(--bn-success-bg);
-	--bn-ob-red:          var(--bn-danger);
-	--bn-ob-red-bg:       var(--bn-danger-bg);
-	--bn-ob-amber:        var(--bn-warn);
-	--bn-ob-amber-bg:     var(--bn-warn-bg);
-	--bn-ob-r-sm:  var(--bn-r-sm);
-	--bn-ob-r-md:  var(--bn-r-md);
-	--bn-ob-r-lg:  var(--bn-r-lg);
-	--bn-ob-r-xl:  var(--bn-r-xl);
-	--bn-ob-r-full: var(--bn-r-full);
-	--bn-ob-s1:  var(--bn-s1);
-	--bn-ob-s2:  var(--bn-s2);
-	--bn-ob-s3:  var(--bn-s3);
-	--bn-ob-s4:  var(--bn-s4);
-	--bn-ob-s5:  var(--bn-s5);
-	--bn-ob-s6:  var(--bn-s6);
-	--bn-ob-s8:  var(--bn-s8);
-	--bn-ob-s10: var(--bn-s10);
-	--bn-ob-s12: var(--bn-s12);
-}
-
-/* ── Setup wizard chrome ─────────────────────────────────────────────── */
-.bn-wizard-wrap {
-	font-family: var(--bn-ob-font-body);
-	font-size: var(--text-base);
-	color: var(--bn-ob-text-1);
-	padding: var(--bn-ob-s8) var(--bn-ob-s4);
-}
-
-.bn-wizard {
-	max-width: 560px;
-	margin: 0 auto;
-	background: var(--bn-ob-surface);
-	border: 1px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-lg);
-	overflow: hidden;
-}
-
-/* Header */
-.bn-wizard__header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: var(--bn-ob-s4) var(--bn-ob-s6);
-	border-bottom: 1px solid var(--bn-ob-border);
-	background: var(--bn-ob-bg-subtle);
-}
-
-.bn-wizard__logo {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-ob-s2);
-	font-family: var(--bn-ob-font-display);
-	font-size: var(--text-base);
-	font-weight: var(--fw-semibold);
-	color: var(--bn-ob-text-1);
-}
-
-.bn-wizard__skip {
-	font-size: var(--text-sm);
-	color: var(--bn-ob-text-2);
-	text-decoration: none;
-	transition: color 0.15s;
-}
-
-.bn-wizard__skip:hover {
-	color: var(--bn-ob-text-1);
-}
-
-/* Progress steps bar — composes the v2 .bn-stepper primitive inside the
- * wizard chrome. The primitive (.bn-stepper / .bn-stepper__item /
- * .bn-stepper__dot / .bn-stepper__bar) ships its own state visuals from
- * bn-base.css; this rule only adds the chrome surround (padding, divider,
- * list reset) and per-item label affordances. */
-.bn-stepper.bn-wizard__steps {
-	margin: 0;
-	padding: var(--bn-ob-s5) var(--bn-ob-s6);
-	border-bottom: 1px solid var(--bn-ob-border-soft);
-	list-style: none;
-	flex-wrap: nowrap;
-	overflow-x: auto;
-}
-
-.bn-wizard__step-name {
-	white-space: nowrap;
-}
-
-/* Brand mark in the header inherits accent through currentColor. */
-.bn-wizard__logo svg {
-	color: var(--bn-ob-brand);
-}
-
-/* Body */
-.bn-wizard__body {
-	padding: var(--bn-ob-s6);
-}
-
-.bn-wizard__step-label {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-text-2);
-	text-transform: uppercase;
-	letter-spacing: var(--ls-wider);
-	margin: 0 0 var(--bn-ob-s4);
-}
-
-/* Headings inside wizard */
-.bn-wizard__title,
-.bn-wizard__step-title {
-	font-family: var(--bn-ob-font-display);
-	font-size: var(--text-xl);
-	font-weight: var(--fw-bold);
-	color: var(--bn-ob-text-1);
-	margin: 0 0 var(--bn-ob-s2);
-	line-height: var(--leading-tight);
-}
-
-.bn-wizard__desc,
-.bn-wizard__step-desc {
-	font-size: var(--text-md);
-	color: var(--bn-ob-text-2);
-	margin: 0 0 var(--bn-ob-s6);
-	line-height: var(--leading-body);
-}
-
-/* Form fields */
-.bn-wizard__field {
-	margin-bottom: var(--bn-ob-s5);
-}
-
-.bn-wizard__label {
-	display: block;
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	color: var(--bn-ob-text-1);
-	margin-bottom: var(--bn-ob-s2);
-}
-
-.bn-wizard__input,
-.bn-wizard__slug-input {
-	width: 100%;
-	padding: var(--bn-ob-s2) var(--bn-ob-s3);
-	font-family: var(--bn-ob-font-body);
-	font-size: var(--text-md);
-	color: var(--bn-ob-text-1);
-	background: var(--bn-ob-bg);
-	border: 1px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-md);
-	box-sizing: border-box;
-	transition: border-color 0.15s, box-shadow 0.15s;
-	appearance: none;
-}
-
-.bn-wizard__input:focus,
-.bn-wizard__slug-input:focus {
-	outline: none;
-	border-color: var(--bn-ob-brand);
-	box-shadow: 0 0 0 3px var(--bn-ob-brand-light);
-}
-
-/* Color picker row */
-.bn-wizard__color-row {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-ob-s3);
-}
-
-.bn-wizard__color-picker {
-	width: 40px;
-	height: 40px;
-	border: 1px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-sm);
-	padding: 2px;
-	cursor: pointer;
-	background: var(--bn-ob-bg);
-}
-
-.bn-wizard__color-preview {
-	font-size: var(--text-sm);
-	color: var(--bn-ob-text-2);
-	font-family: monospace;
-}
-
-/* Radio group */
-.bn-wizard__radio-group {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-ob-s2);
-	margin-top: var(--bn-ob-s2);
-}
-
-.bn-wizard__radio-label {
-	display: flex;
-	align-items: flex-start;
-	gap: var(--bn-ob-s3);
-	font-size: var(--text-md);
-	color: var(--bn-ob-text-1);
-	cursor: pointer;
-	padding: var(--bn-ob-s3);
-	border: 1px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-md);
-	transition: background 0.15s, border-color 0.15s;
-}
-
-.bn-wizard__radio-label:hover {
-	background: var(--bn-ob-bg-hover);
-}
-
-.bn-wizard__radio-label:has(input[type="radio"]:checked) {
-	border-color: var(--bn-ob-brand);
-	background: var(--bn-ob-brand-light);
-}
-
-.bn-wizard__radio-label input[type="radio"] {
-	accent-color: var(--bn-ob-brand);
-	margin-top: 2px;
-	flex-shrink: 0;
-}
-
-.bn-wizard__radio-copy {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-}
-
-.bn-wizard__radio-copy strong {
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	color: var(--bn-ob-text-1);
-}
-
-.bn-wizard__radio-copy span {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-text-2);
-}
-
-/* Toggle checkbox row */
-.bn-wizard__toggle-label {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-ob-s2);
-	font-size: var(--text-md);
-	color: var(--bn-ob-text-1);
-	cursor: pointer;
-	margin-bottom: var(--bn-ob-s2);
-}
-
-.bn-wizard__toggle-label input[type="checkbox"] {
-	accent-color: var(--bn-ob-brand);
-	width: 16px;
-	height: 16px;
-	flex-shrink: 0;
-}
-
-/* Hint text */
-.bn-wizard__hint {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-text-3);
-	margin: var(--bn-ob-s2) 0 0;
-}
-
-/* Profile group preset grid (step 3) */
-.bn-wizard__preset-grid {
-	display: grid;
-	grid-template-columns: repeat(2, 1fr);
-	gap: var(--bn-ob-s3);
-	margin-bottom: var(--bn-ob-s4);
-}
-
-.bn-wizard__preset-card {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-ob-s1);
-	padding: var(--bn-ob-s3) var(--bn-ob-s3);
-	border: 1px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-md);
-	background: var(--bn-ob-bg);
-	cursor: pointer;
-	transition: background 0.15s, border-color 0.15s;
-	position: relative;
-}
-
-.bn-wizard__preset-card:hover {
-	background: var(--bn-ob-bg-hover);
-}
-
-.bn-wizard__preset-card input[type="checkbox"] {
-	position: absolute;
-	top: var(--bn-ob-s2);
-	right: var(--bn-ob-s2);
-	accent-color: var(--bn-ob-brand);
-}
-
-.bn-wizard__preset-icon {
-	font-size: var(--text-xl);
-	line-height: 1;
-}
-
-.bn-wizard__preset-name {
-	font-size: var(--text-sm);
-	font-weight: var(--fw-semibold);
-	color: var(--bn-ob-text-1);
-}
-
-.bn-wizard__preset-desc {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-text-2);
-	line-height: var(--leading-snug);
-}
-
-/* Space categories step */
-.bn-wizard__step-hint {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-text-3);
-	margin-top: var(--bn-ob-s2);
-}
-
-/* Pages list (step 6) */
-.bn-wizard__pages-list {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-ob-s3);
-	margin-bottom: var(--bn-ob-s4);
-}
-
-.bn-wizard__page-row {
-	display: grid;
-	grid-template-columns: auto 1fr auto;
-	align-items: center;
-	gap: var(--bn-ob-s3);
-	padding: var(--bn-ob-s3) var(--bn-ob-s4);
-	border: 1px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-md);
-	background: var(--bn-ob-bg);
-}
-
-.bn-wizard__page-check input[type="checkbox"] {
-	accent-color: var(--bn-ob-brand);
-	width: 16px;
-	height: 16px;
-}
-
-.bn-wizard__page-info {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.bn-wizard__page-info strong {
-	font-size: var(--text-sm);
-	color: var(--bn-ob-text-1);
-}
-
-.bn-wizard__shortcode {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-brand);
-	background: var(--bn-ob-brand-light);
-	padding: 1px var(--bn-ob-s1);
-	border-radius: var(--bn-ob-r-sm);
-	font-family: monospace;
-}
-
-.bn-wizard__page-desc {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-text-3);
-}
-
-.bn-wizard__page-slug {
-	display: flex;
-	align-items: center;
-	gap: 2px;
-}
-
-.bn-wizard__slug-row {
-	display: flex;
-	align-items: center;
-	gap: 2px;
-}
-
-.bn-wizard__slug-sep {
-	font-size: var(--text-sm);
-	color: var(--bn-ob-text-3);
-}
-
-.bn-wizard__slug-input {
-	width: 120px;
-}
-
-.bn-wizard__page-link {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-brand);
-	text-decoration: none;
-}
-
-.bn-wizard__page-link:hover {
-	text-decoration: underline;
-}
-
-.bn-wizard__page-badge {
-	font-size: var(--text-xs);
-	font-weight: var(--fw-semibold);
-	color: var(--bn-ob-green);
-	background: var(--bn-ob-green-bg);
-	padding: 2px var(--bn-ob-s2);
-	border-radius: var(--bn-ob-r-full);
-}
-
-/* Addon list (step 7) */
-.bn-wizard__addon-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-ob-s2);
-}
-
-.bn-wizard__addon {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-ob-s3);
-	padding: var(--bn-ob-s3) var(--bn-ob-s4);
-	border: 1px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-md);
-	background: var(--bn-ob-bg);
-}
-
-.bn-wizard__addon-dot {
-	width: 8px;
-	height: 8px;
-	border-radius: var(--bn-ob-r-full);
-	flex-shrink: 0;
-}
-
-.bn-wizard__addon.is-active .bn-wizard__addon-dot {
-	background: var(--bn-ob-green);
-}
-
-.bn-wizard__addon.is-inactive .bn-wizard__addon-dot {
-	background: var(--bn-ob-text-3);
-}
-
-.bn-wizard__addon-info {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.bn-wizard__addon-info strong {
-	font-size: var(--text-sm);
-	color: var(--bn-ob-text-1);
-}
-
-.bn-wizard__addon-info span {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-text-2);
-}
-
-.bn-wizard__addon-status {
-	font-size: var(--text-xs);
-	font-weight: var(--fw-semibold);
-}
-
-.bn-wizard__addon.is-active .bn-wizard__addon-status {
-	color: var(--bn-ob-green);
-}
-
-.bn-wizard__addon.is-inactive .bn-wizard__addon-status {
-	color: var(--bn-ob-text-3);
-}
-
-/* Done step */
-.bn-wizard__done {
-	text-align: center;
-	padding: var(--bn-ob-s8) var(--bn-ob-s4);
-}
-
-.bn-wizard__done-icon {
-	margin-bottom: var(--bn-ob-s6);
-}
-
-.bn-wizard__done-actions {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: var(--bn-ob-s3);
-	margin-top: var(--bn-ob-s6);
-	flex-wrap: wrap;
-}
-
-/* Footer / submit buttons — composition only; buttons themselves use the
- * v2 .bn-btn[data-variant] primitive defined in bn-base.css. */
-.bn-wizard__footer {
-	margin-top: var(--bn-ob-s6);
-	padding-top: var(--bn-ob-s5);
-	border-top: 1px solid var(--bn-ob-border-soft);
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--bn-ob-s3);
-	flex-wrap: wrap;
-}
-
-.bn-wizard__footer .bn-btn {
-	flex: 0 0 auto;
-}
-
-/* Done step icon inherits success color via currentColor. */
-.bn-wizard__done-icon {
-	color: var(--bn-ob-green);
-}
-
-/* ── Member onboarding flow (new-user, 4 steps) ──────────────────────────
- * Composes v2 primitives — .bn-stepper, .bn-card, .bn-btn[data-variant],
- * .bn-input/.bn-textarea, .bn-badge[data-tone], .bn-avatar[data-size].
- * Only adds composition rules (layout, grid, spacing) on top.
- * All values read from --bn-* v2 tokens in bn-base.css.
- * ────────────────────────────────────────────────────────────────────── */
-
-/* Page shell — full-bleed two-column grid per V2 onboarding mockup.
-   Form left, decorative canvas right. Mobile collapses to single column
-   and hides the canvas (the form is the only essential surface). */
 .bn-ob-wrap {
 	min-height: 100vh;
 	background: var(--bn-canvas);
 	color: var(--bn-ink);
 	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-base);
+	line-height: 1.55;
 }
 .bn-ob-shell {
 	min-height: 100vh;
@@ -560,25 +36,18 @@
 }
 .bn-ob-form {
 	background: var(--bn-surface);
+	min-height: 100vh;
+	padding: var(--bn-s6) var(--bn-s7);
 	display: flex;
 	flex-direction: column;
-	gap: var(--bn-s6);
-	padding: var(--bn-s5) var(--bn-s7);
-	min-height: 100vh;
 }
-
-/* Decorative right column — radial wash + diagonal stripe overlay, with
-   a quote, a cite block, and a couple of tilted "mock space" cards at
-   the bottom. Mirrors V2's .ob-canvas to set tone, not for interaction. */
 .bn-ob-canvas {
 	position: relative;
 	overflow: hidden;
-	display: flex;
-	flex-direction: column;
 	padding: var(--bn-s7);
 	background:
 		radial-gradient(circle at 25% 30%, color-mix(in oklch, var(--bn-accent) 20%, transparent), transparent 55%),
-		radial-gradient(circle at 80% 70%, color-mix(in oklch, oklch(60% 0.20 290) 18%, transparent), transparent 50%),
+		radial-gradient(circle at 80% 70%, color-mix(in oklch, oklch(60% 0.20 290) 14%, transparent), transparent 50%),
 		var(--bn-canvas);
 }
 .bn-ob-canvas::after {
@@ -595,11 +64,390 @@
 	z-index: 1;
 	display: flex;
 	flex-direction: column;
+	justify-content: center;
 	height: 100%;
+	max-width: 460px;
+	margin: 0 auto;
 }
-/* Live profile preview — reflects whatever the user has typed on the
-   left. No placeholder copy; every value is bound to the same
-   Interactivity context the form uses, so it animates as they type. */
+
+@media (max-width: 960px) {
+	.bn-ob-shell { grid-template-columns: 1fr; }
+	.bn-ob-canvas { display: none; }
+}
+@media (max-width: 720px) {
+	.bn-ob-form { padding: var(--bn-s5) var(--bn-s4); }
+}
+
+/* ── Form column inner sections ───────────────────────────────────────── */
+
+.bn-ob-form-head {
+	max-width: 520px;
+	width: 100%;
+	margin: 0 auto var(--bn-s4);
+}
+.bn-ob-form-head__step {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 11px;
+	font-weight: var(--bn-fw-semibold);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--bn-ink-3);
+}
+
+.bn-ob-stepper {
+	max-width: 520px;
+	width: 100%;
+	margin: 0 auto var(--bn-s4);
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+.bn-ob-stepper__label {
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold);
+}
+
+.bn-ob-form-body {
+	flex: 1;
+	max-width: 520px;
+	width: 100%;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s5);
+	padding-top: var(--bn-s4);
+}
+
+/* ── Step section ─────────────────────────────────────────────────────── */
+
+.bn-ob-step {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+.bn-ob-step[hidden] { display: none; }
+.bn-ob-step__head {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--bn-s2);
+}
+.bn-ob-step__icon {
+	color: var(--bn-accent);
+	display: inline-flex;
+}
+.bn-ob-step__icon svg { width: 28px; height: 28px; }
+.bn-ob-step__title {
+	font-family: var(--bn-font-display, var(--bn-font-ui));
+	font-size: clamp(24px, 3.2vw, 32px);
+	font-weight: 800;
+	letter-spacing: -0.025em;
+	line-height: 1.15;
+	color: var(--bn-ink);
+	margin: 0;
+}
+.bn-ob-step__sub {
+	font-size: var(--bn-text-base);
+	color: var(--bn-ink-2);
+	margin: 0;
+}
+
+/* ── Step "card" — neutralised. The form column is itself the surface;
+   step content flows inline without an inner border or shadow. ──────── */
+.bn-ob-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
+/* ── Avatar row ───────────────────────────────────────────────────────── */
+
+.bn-ob-avatar-row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s4);
+}
+.bn-ob-avatar {
+	width: 72px;
+	height: 72px;
+	border-radius: 50%;
+	background: var(--bn-sunken);
+	border: 1px dashed var(--bn-line);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--bn-ink-3);
+	cursor: pointer;
+	overflow: hidden;
+	padding: 0;
+	flex-shrink: 0;
+	transition: border-color var(--bn-dur) var(--bn-ease);
+}
+.bn-ob-avatar:hover { border-color: var(--bn-accent); }
+.bn-ob-avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: 50%;
+}
+.bn-ob-avatar-input { display: none; }
+.bn-ob-avatar-row__hint {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	line-height: 1.5;
+}
+
+/* ── Form fields ──────────────────────────────────────────────────────── */
+
+.bn-ob-field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.bn-ob-label {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	font-size: 13px;
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+}
+.bn-ob-label__hint {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 10px;
+	font-weight: 500;
+	letter-spacing: 0.02em;
+	color: var(--bn-ink-4);
+}
+.bn-ob-field__hint {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+.bn-ob-field__msg {
+	font-size: var(--bn-text-xs);
+	color: oklch(58% 0.20 25); /* danger */
+}
+.bn-ob-field input[type="text"],
+.bn-ob-field input[type="email"],
+.bn-ob-field textarea,
+.bn-ob-displayname,
+.bn-ob-username,
+.bn-ob-bio {
+	width: 100%;
+	padding: 10px var(--bn-s3);
+	background: var(--bn-canvas);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	color: var(--bn-ink);
+	font: inherit;
+	font-size: 14px;
+	outline: none;
+	transition: border-color var(--bn-dur) var(--bn-ease), box-shadow var(--bn-dur) var(--bn-ease);
+}
+.bn-ob-field input[type="text"]:focus,
+.bn-ob-field input[type="email"]:focus,
+.bn-ob-field textarea:focus,
+.bn-ob-displayname:focus,
+.bn-ob-username:focus,
+.bn-ob-bio:focus {
+	border-color: var(--bn-accent);
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+}
+.bn-ob-bio {
+	min-height: 84px;
+	resize: vertical;
+	line-height: 1.5;
+}
+
+/* ── Chips (interests step) ───────────────────────────────────────────── */
+
+.bn-ob-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+.bn-ob-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 6px 12px;
+	background: var(--bn-sunken);
+	border: 1px solid transparent;
+	border-radius: 999px;
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	font-weight: 500;
+	cursor: pointer;
+	transition: all var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-ob-chip:hover {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+}
+.bn-ob-chip[aria-pressed="true"],
+.bn-ob-chip.is-selected {
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	border-color: var(--bn-accent);
+}
+.bn-ob-chip__icon { display: inline-flex; }
+.bn-ob-chip__icon svg { width: 14px; height: 14px; }
+.bn-ob-chip__label { line-height: 1; }
+.bn-ob-chips__count {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin: 0;
+}
+
+/* ── Spaces grid (spaces step) ────────────────────────────────────────── */
+
+.bn-ob-spaces {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--bn-s3);
+}
+.bn-ob-space-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+	padding: var(--bn-s3);
+	background: var(--bn-canvas);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	transition: border-color var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-ob-space-card:hover { border-color: var(--bn-accent); }
+.bn-ob-space-card__head {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+.bn-ob-space-avatar {
+	width: 36px;
+	height: 36px;
+	border-radius: var(--bn-r-sm);
+	background: linear-gradient(135deg,
+		color-mix(in oklch, var(--bn-accent) 25%, var(--bn-surface)),
+		var(--bn-surface)
+	);
+	color: var(--bn-accent);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 700;
+	font-size: 16px;
+	flex-shrink: 0;
+}
+.bn-ob-space-card__name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	line-height: 1.2;
+}
+.bn-ob-space-card__meta {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 10px;
+	color: var(--bn-ink-4);
+	margin-top: 2px;
+}
+.bn-ob-space-card__members {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+.bn-ob-space-card__desc {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-2);
+	line-height: 1.45;
+	margin: 0;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+.bn-ob-space-card__cta {
+	margin-top: auto;
+	align-self: flex-start;
+}
+
+@media (max-width: 720px) {
+	.bn-ob-spaces { grid-template-columns: 1fr; }
+}
+
+/* ── People list (people step) ────────────────────────────────────────── */
+
+.bn-ob-people {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+.bn-ob-person {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3);
+	background: var(--bn-canvas);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+}
+.bn-ob-person__info { flex: 1; min-width: 0; }
+.bn-ob-person__name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	line-height: 1.2;
+}
+.bn-ob-person__meta {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 10px;
+	color: var(--bn-ink-4);
+	margin-top: 2px;
+}
+.bn-ob-person__cta {
+	flex-shrink: 0;
+}
+
+/* ── Action row ───────────────────────────────────────────────────────── */
+
+.bn-ob-actions {
+	margin-top: auto;
+	padding-top: var(--bn-s5);
+	border-top: 1px solid var(--bn-line);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+}
+.bn-ob-actions__spacer { display: none; }
+
+/* ── Error banner ─────────────────────────────────────────────────────── */
+
+.bn-ob-error {
+	max-width: 520px;
+	width: 100%;
+	margin: var(--bn-s3) auto 0;
+	padding: var(--bn-s3) var(--bn-s4);
+	background: color-mix(in oklch, oklch(58% 0.20 25) 12%, var(--bn-surface));
+	color: oklch(40% 0.20 25);
+	border: 1px solid color-mix(in oklch, oklch(58% 0.20 25) 30%, transparent);
+	border-radius: var(--bn-r-md);
+	font-size: var(--bn-text-sm);
+}
+.bn-ob-error[hidden] { display: none; }
+
+/* ── Empty state (fallback when a step has no data) ──────────────────── */
+
+.bn-ob-empty {
+	padding: var(--bn-s5);
+	text-align: center;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+	border: 1px dashed var(--bn-line);
+	border-radius: var(--bn-r-md);
+}
+
+/* ── Right canvas content (live profile preview) ─────────────────────── */
+
 .bn-ob-canvas__eyebrow {
 	font-family: var(--bn-font-mono, var(--bn-font-ui));
 	font-size: 11px;
@@ -609,6 +457,13 @@
 	color: var(--bn-ink-3);
 	margin-bottom: var(--bn-s3);
 }
+.bn-ob-canvas__caption {
+	margin-top: var(--bn-s4);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	line-height: 1.5;
+}
+
 .bn-ob-preview-card {
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
@@ -618,7 +473,6 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s4);
-	max-width: 460px;
 }
 .bn-ob-preview-card__head {
 	display: flex;
@@ -643,10 +497,7 @@
 	flex-shrink: 0;
 	letter-spacing: -0.01em;
 }
-.bn-ob-preview-card__id {
-	min-width: 0;
-	flex: 1;
-}
+.bn-ob-preview-card__id { min-width: 0; flex: 1; }
 .bn-ob-preview-card__name {
 	font-size: var(--bn-text-md);
 	font-weight: var(--bn-fw-semibold);
@@ -664,603 +515,4 @@
 	color: var(--bn-ink-2);
 	line-height: 1.5;
 	margin: 0;
-}
-.bn-ob-canvas__caption {
-	margin-top: var(--bn-s4);
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-	max-width: 460px;
-	line-height: 1.5;
-}
-
-@media (max-width: 960px) {
-	.bn-ob-shell { grid-template-columns: 1fr; }
-	.bn-ob-canvas { display: none; }
-}
-@media (max-width: 720px) {
-	.bn-ob-form { padding: var(--bn-s5) var(--bn-s4); }
-}
-
-/* Stepper — sits above the active step card. */
-.bn-ob-stepper {
-	margin: 0 0 var(--bn-s2);
-}
-.bn-ob-stepper__label {
-	font-size: var(--bn-text-xs);
-	font-weight: var(--bn-fw-semibold);
-}
-
-/* Step section — only one rendered visible at a time. */
-.bn-ob-step {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s5);
-}
-.bn-ob-step[hidden] { display: none; }
-
-.bn-ob-step__head {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	text-align: center;
-	gap: var(--bn-s2);
-}
-.bn-ob-step__icon {
-	width: 40px;
-	height: 40px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	color: var(--bn-accent);
-}
-.bn-ob-step__icon svg { width: 100%; height: 100%; }
-.bn-ob-step__title {
-	font-family: var(--bn-font-display);
-	font-size: var(--bn-text-xl);
-	font-weight: var(--bn-fw-extrabold);
-	color: var(--bn-ink);
-	letter-spacing: var(--bn-ls-tight);
-	line-height: var(--bn-leading-tight);
-	margin: 0;
-}
-.bn-ob-step__sub {
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-3);
-	line-height: var(--bn-leading-normal);
-	margin: 0;
-	max-width: 440px;
-}
-
-/* Step content card — extends .bn-card with internal padding + stack. */
-.bn-ob-card {
-	padding: var(--bn-s6);
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s4);
-}
-
-/* Avatar upload row (step 1). */
-.bn-ob-avatar-row {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s4);
-}
-.bn-ob-avatar {
-	cursor: pointer;
-	background: var(--bn-accent);
-	color: var(--bn-accent-fg);
-	font-family: var(--bn-font-display);
-	font-weight: var(--bn-fw-bold);
-	border: none;
-}
-.bn-ob-avatar:focus-visible {
-	outline-color: transparent;
-	box-shadow: var(--bn-ring);
-}
-.bn-ob-avatar img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	border-radius: inherit;
-}
-.bn-ob-avatar-row__hint {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-	line-height: var(--bn-leading-normal);
-}
-.bn-ob-avatar-row__hint strong {
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink);
-	font-weight: var(--bn-fw-semibold);
-}
-
-/* Form field rows (step 1). */
-.bn-ob-field {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s2);
-}
-.bn-ob-label {
-	display: flex;
-	align-items: baseline;
-	gap: var(--bn-s2);
-	font-size: var(--bn-text-sm);
-	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-ink);
-}
-.bn-ob-label__hint {
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-4);
-	font-weight: var(--bn-fw-normal);
-}
-
-/* Interest chips grid (step 2). */
-.bn-ob-chips {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--bn-s2);
-}
-.bn-ob-chip {
-	cursor: pointer;
-	padding: var(--bn-s2) var(--bn-s3);
-	font-size: var(--bn-text-sm);
-	font-weight: var(--bn-fw-medium);
-}
-.bn-ob-chip:hover {
-	border-color: var(--bn-line-strong);
-}
-.bn-ob-chip[aria-pressed="true"] {
-	background: var(--bn-accent);
-	color: var(--bn-accent-fg);
-}
-.bn-ob-chip:focus-visible {
-	outline-color: transparent;
-	box-shadow: var(--bn-ring);
-}
-.bn-ob-chip__icon {
-	display: inline-flex;
-	width: 14px;
-	height: 14px;
-	align-items: center;
-	justify-content: center;
-}
-.bn-ob-chip__icon svg { width: 100%; height: 100%; }
-.bn-ob-chips__count {
-	margin: 0;
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-}
-
-/* Recommended spaces grid (step 3). */
-.bn-ob-spaces {
-	display: grid;
-	grid-template-columns: repeat(2, 1fr);
-	gap: var(--bn-s3);
-}
-.bn-ob-space-card {
-	display: flex;
-	flex-direction: column;
-	gap: var(--bn-s3);
-	padding: var(--bn-s4);
-}
-.bn-ob-space-card[aria-pressed="true"],
-.bn-ob-space-card.is-joined {
-	border-color: var(--bn-accent);
-}
-.bn-ob-space-card__head {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s3);
-}
-.bn-ob-space-avatar {
-	background: var(--bn-accent-100);
-	color: var(--bn-accent-700);
-}
-.bn-ob-space-avatar svg { width: 60%; height: 60%; }
-.bn-ob-space-card__meta {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	min-width: 0;
-}
-.bn-ob-space-card__name {
-	margin: 0;
-	font-size: var(--bn-text-sm);
-	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-ink);
-}
-.bn-ob-space-card__members {
-	margin: 0;
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-}
-.bn-ob-space-card__desc {
-	margin: 0;
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-2);
-	line-height: var(--bn-leading-normal);
-}
-.bn-ob-space-card__cta {
-	align-self: flex-start;
-	margin-top: auto;
-}
-
-/* People-to-follow list (step 4). */
-.bn-ob-people {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: flex;
-	flex-direction: column;
-}
-.bn-ob-person {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s3);
-	padding: var(--bn-s3) 0;
-	border-bottom: 1px solid var(--bn-line-faint);
-}
-.bn-ob-person:last-child { border-bottom: none; }
-.bn-ob-person__info {
-	flex: 1;
-	min-width: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-.bn-ob-person__name {
-	margin: 0;
-	font-size: var(--bn-text-sm);
-	font-weight: var(--bn-fw-semibold);
-	color: var(--bn-ink);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-.bn-ob-person__meta {
-	margin: 0;
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-}
-.bn-ob-person__cta {
-	flex-shrink: 0;
-	min-height: 32px;
-}
-
-/* Action footer — Back / Skip / Continue row. */
-.bn-ob-actions {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	gap: var(--bn-s2);
-	padding-top: var(--bn-s2);
-}
-.bn-ob-actions__spacer {
-	flex: 1;
-}
-
-/* Empty state inside step cards. */
-.bn-ob-empty {
-	margin: 0;
-	text-align: center;
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-3);
-	padding: var(--bn-s5) 0;
-}
-
-/* ── Invite form — email input rows ──────────────────────────────────── */
-.bn-invite-form {
-	max-width: 540px;
-}
-
-.bn-invite-row {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-ob-s2);
-	margin-bottom: var(--bn-ob-s2);
-}
-
-.bn-invite-row__email {
-	flex: 2;
-}
-
-.bn-invite-row__name {
-	flex: 1;
-}
-
-.bn-invite-row input[type="email"],
-.bn-invite-row input[type="text"] {
-	width: 100%;
-	padding: var(--bn-ob-s2) var(--bn-ob-s3);
-	font-family: var(--bn-ob-font-body);
-	font-size: var(--text-md);
-	color: var(--bn-ob-text-1);
-	background: var(--bn-ob-bg);
-	border: 1px solid var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-md);
-	box-sizing: border-box;
-	transition: border-color 0.15s;
-}
-
-.bn-invite-row input:focus {
-	outline: none;
-	border-color: var(--bn-ob-brand);
-	box-shadow: 0 0 0 3px var(--bn-ob-brand-light);
-}
-
-.bn-invite-row__remove {
-	flex-shrink: 0;
-	width: 28px;
-	height: 28px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: none;
-	border: none;
-	color: var(--bn-ob-text-3);
-	cursor: pointer;
-	border-radius: var(--bn-ob-r-sm);
-	font-size: var(--text-base);
-	transition: color 0.15s, background 0.15s;
-}
-
-.bn-invite-row__remove:hover {
-	color: var(--bn-ob-red);
-	background: var(--bn-ob-red-bg);
-}
-
-.bn-invite-add-row {
-	margin-top: var(--bn-ob-s2);
-}
-
-.bn-invite-add-link {
-	font-size: var(--text-sm);
-	color: var(--bn-ob-brand);
-	text-decoration: none;
-	cursor: pointer;
-	background: none;
-	border: none;
-	padding: 0;
-	font-family: var(--bn-ob-font-body);
-}
-
-.bn-invite-add-link:hover {
-	text-decoration: underline;
-}
-
-.bn-invite-send-btn {
-	margin-top: var(--bn-ob-s5);
-	height: 38px;
-	padding: 0 var(--bn-ob-s6);
-	font-family: var(--bn-ob-font-body);
-	font-size: var(--text-md);
-	font-weight: var(--fw-semibold);
-	color: var(--text-on-brand);
-	background: var(--bn-ob-brand);
-	border: none;
-	border-radius: var(--bn-ob-r-md);
-	cursor: pointer;
-	transition: background 0.15s;
-}
-
-.bn-invite-send-btn:hover {
-	background: var(--bn-ob-brand-hover);
-}
-
-/* ── CSV upload drop zone ─────────────────────────────────────────────── */
-.bn-csv-dropzone {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: var(--bn-ob-s3);
-	padding: var(--bn-ob-s8) var(--bn-ob-s6);
-	border: 2px dashed var(--bn-ob-border);
-	border-radius: var(--bn-ob-r-lg);
-	background: var(--bn-ob-bg-subtle);
-	text-align: center;
-	cursor: pointer;
-	transition: border-color 0.2s, background 0.2s;
-}
-
-.bn-csv-dropzone:hover,
-.bn-csv-dropzone.is-over {
-	border-color: var(--bn-ob-brand);
-	background: var(--bn-ob-brand-light);
-}
-
-.bn-csv-dropzone__icon {
-	font-size: var(--text-3xl);
-	line-height: 1;
-	color: var(--bn-ob-text-3);
-}
-
-.bn-csv-dropzone__title {
-	font-size: var(--text-base);
-	font-weight: var(--fw-semibold);
-	color: var(--bn-ob-text-1);
-}
-
-.bn-csv-dropzone__hint {
-	font-size: var(--text-xs);
-	color: var(--bn-ob-text-2);
-}
-
-.bn-csv-dropzone input[type="file"] {
-	display: none;
-}
-
-.bn-csv-dropzone__browse {
-	font-size: var(--text-sm);
-	color: var(--bn-ob-brand);
-	text-decoration: underline;
-	cursor: pointer;
-}
-
-/* ── Mobile ≤640px ───────────────────────────────────────────────────── */
-@media (max-width: 640px) {
-	.bn-wizard-wrap {
-		padding: var(--bn-ob-s4) var(--bn-ob-s3);
-	}
-
-	.bn-wizard {
-		border-radius: var(--bn-ob-r-md);
-	}
-
-	.bn-wizard__body {
-		padding: var(--bn-ob-s4);
-	}
-
-	.bn-stepper.bn-wizard__steps {
-		gap: var(--bn-ob-s1);
-		padding: var(--bn-ob-s4);
-	}
-
-	/* Collapse labels to dots only on narrow viewports (Gate 4). */
-	.bn-wizard__step-name {
-		display: none;
-	}
-
-	.bn-wizard__footer {
-		flex-direction: column-reverse;
-		align-items: stretch;
-	}
-
-	.bn-wizard__footer .bn-btn {
-		width: 100%;
-	}
-
-	.bn-wizard__preset-grid {
-		grid-template-columns: 1fr;
-	}
-
-	.bn-wizard__pages-list .bn-wizard__page-row {
-		grid-template-columns: auto 1fr;
-		grid-template-rows: auto auto;
-	}
-
-	.bn-wizard__page-slug {
-		grid-column: 2;
-	}
-
-	.bn-wizard__done-actions {
-		flex-direction: column;
-		align-items: stretch;
-	}
-
-	.bn-wizard__done-actions .bn-btn {
-		width: 100%;
-		justify-content: center;
-	}
-
-	.bn-ob-spaces {
-		grid-template-columns: 1fr;
-	}
-
-	.bn-ob-card {
-		padding: var(--bn-s5);
-	}
-
-	.bn-ob-step__title {
-		font-size: var(--bn-text-lg);
-	}
-
-	.bn-ob-actions {
-		flex-wrap: wrap;
-	}
-
-	.bn-ob-actions .bn-btn {
-		flex: 1 0 auto;
-		justify-content: center;
-	}
-
-	.bn-ob-stepper__label {
-		display: none;
-	}
-
-	.bn-invite-row {
-		flex-wrap: wrap;
-	}
-
-	.bn-invite-row__email,
-	.bn-invite-row__name {
-		flex: 1 1 100%;
-	}
-
-	.bn-csv-dropzone {
-		padding: var(--bn-ob-s6) var(--bn-ob-s4);
-	}
-}
-
-/* ── Visual progress bar (above stepper) ───────────────────────────────── */
-.bn-ob-progress {
-	margin-bottom: var(--bn-s4);
-}
-.bn-ob-progress__label {
-	margin-top: var(--bn-s2);
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-2);
-	font-family: var(--bn-font-mono, inherit);
-	font-weight: 600;
-	letter-spacing: 0.04em;
-}
-
-/* Stepper active/done state hooks for reactive class binding */
-.bn-stepper__item.is-active .bn-stepper__dot {
-	background: var(--bn-accent);
-	color: var(--bn-accent-fg);
-}
-.bn-stepper__item.is-done .bn-stepper__dot {
-	background: var(--bn-success, var(--bn-accent));
-	color: var(--bn-accent-fg);
-}
-
-/* Inline field error message */
-.bn-ob-field__msg {
-	display: block;
-	margin-top: 6px;
-	color: var(--bn-danger);
-	font-size: var(--bn-text-sm);
-}
-.bn-ob-field__hint {
-	display: block;
-	margin-top: 6px;
-	color: var(--bn-ink-3);
-	font-size: var(--bn-text-sm);
-}
-
-/* Error band */
-.bn-ob-error {
-	margin-top: var(--bn-s4);
-	padding: var(--bn-s3);
-	background: var(--bn-danger-100, var(--bn-sunken));
-	color: var(--bn-danger);
-	border-radius: var(--bn-r-md);
-	font-size: var(--bn-text-sm);
-}
-
-/* Mobile shell — progress + step header pinned, content scrolls, footer fixed */
-@media (max-width: 640px) {
-	.bn-ob-shell {
-		display: flex;
-		flex-direction: column;
-		min-height: calc(100vh - 80px);
-	}
-	.bn-ob-progress,
-	.bn-ob-stepper {
-		position: sticky;
-		top: 0;
-		background: var(--bn-canvas);
-		z-index: 1;
-	}
-	.bn-ob-actions {
-		position: sticky;
-		bottom: 0;
-		background: var(--bn-canvas);
-		padding: var(--bn-s3) 0;
-		border-top: 1px solid var(--bn-line);
-	}
 }

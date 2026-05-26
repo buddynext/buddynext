@@ -200,19 +200,10 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 
 		<div class="bn-ob-form">
 
-		<!-- Visual progress bar -->
-		<div class="bn-ob-progress" aria-label="<?php esc_attr_e( 'Onboarding progress', 'buddynext' ); ?>">
-			<div class="bn-progress"
-				role="progressbar"
-				aria-valuemin="0"
-				aria-valuemax="100"
-				data-wp-bind--aria-valuenow="state.progressPercent">
-				<div class="bn-progress__fill"
-					data-wp-style--width="state.progressWidth"></div>
-			</div>
-			<p class="bn-ob-progress__label">
-				<span data-wp-text="state.stepLabel"><?php echo esc_html( sprintf( /* translators: 1: current step, 2: total steps */ __( 'Step %1$d of %2$d', 'buddynext' ), $saved_step, $total_steps ) ); ?></span>
-			</p>
+		<!-- Form header: brand + step counter (no separate progress bar — the
+		     stepper below is itself the progress indicator). -->
+		<div class="bn-ob-form-head">
+			<span class="bn-ob-form-head__step" data-wp-text="state.stepLabel"><?php echo esc_html( sprintf( /* translators: 1: current step, 2: total steps */ __( 'Step %1$d of %2$d', 'buddynext' ), $saved_step, $total_steps ) ); ?></span>
 		</div>
 
 		<!-- Numbered step header -->
@@ -238,6 +229,8 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 				<?php endif; ?>
 			<?php endforeach; ?>
 		</nav>
+
+		<div class="bn-ob-form-body">
 
 		<!-- ── Step 1: Profile ── -->
 		<section class="bn-ob-step"
@@ -617,6 +610,8 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		<div class="bn-ob-error" role="alert" aria-live="polite"
 			data-wp-bind--hidden="!state.error"
 			data-wp-text="state.error"></div>
+
+		</div><!-- /.bn-ob-form-body -->
 
 		</div><!-- /.bn-ob-form -->
 
