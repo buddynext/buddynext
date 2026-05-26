@@ -219,14 +219,6 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 
 			<button class="bn-composer__tool"
 				type="button"
-				data-wp-on--click="actions.openVoice"
-				aria-label="<?php esc_attr_e( 'Voice room', 'buddynext' ); ?>"
-				title="<?php esc_attr_e( 'Voice room', 'buddynext' ); ?>">
-				<?php buddynext_icon( 'mic' ); ?>
-			</button>
-
-			<button class="bn-composer__tool"
-				type="button"
 				data-tone="ai"
 				data-wp-on--click="actions.openAiHelper"
 				aria-label="<?php esc_attr_e( 'Ask AI for help', 'buddynext' ); ?>"

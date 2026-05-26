@@ -1522,6 +1522,7 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .bn-composer {
+	position: relative;
 	background: var(--bn-surface);
 	border: 1px solid var(--border);
 	border-radius: var(--bn-r-lg);
@@ -1569,6 +1570,75 @@
 }
 .bn-composer__prompt::placeholder { color: var(--text-3); }
 .bn-composer__prompt:focus-visible { outline: none; }
+
+/* Char counter — small label injected by JS after the textarea. */
+.bn-composer__char-counter {
+	display: block;
+	margin-block-start: 4px;
+	font-size: var(--text-2xs, 11px);
+	color: var(--text-3);
+	font-variant-numeric: tabular-nums;
+}
+.bn-composer__char-counter[data-state="near"] { color: var(--bn-warn, #b45309); }
+.bn-composer__char-counter[data-state="over"] { color: var(--bn-danger, #dc2626); font-weight: 600; }
+
+/* Drag-drop overlay state — outline + faint accent wash when the user
+   is dragging files over the composer. */
+.bn-composer--dragover {
+	outline: 2px dashed var(--bn-accent);
+	outline-offset: -2px;
+	background: color-mix(in oklab, var(--bn-accent) 6%, transparent);
+}
+
+/* @ / # typeahead dropdown — appears under the textarea, scoped to the
+   composer wrap so it doesn't bleed into other modules. */
+.bn-composer__typeahead {
+	position: absolute;
+	z-index: 50;
+	margin-top: 4px;
+	min-width: 220px;
+	max-width: 320px;
+	background: var(--surface, #fff);
+	border: 1px solid var(--border, #e5e7eb);
+	border-radius: var(--r-md, 8px);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+	overflow: hidden;
+}
+.bn-composer__typeahead-item {
+	display: block;
+	width: 100%;
+	padding: 8px 12px;
+	background: transparent;
+	border: 0;
+	text-align: start;
+	font-size: var(--text-sm);
+	color: var(--text-1);
+	cursor: pointer;
+}
+.bn-composer__typeahead-item:hover,
+.bn-composer__typeahead-item[aria-selected="true"] {
+	background: var(--bn-sunken, #f3f4f6);
+	color: var(--bn-accent);
+}
+.bn-composer__typeahead-prefix {
+	color: var(--bn-accent);
+	font-weight: 600;
+	margin-inline-end: 2px;
+}
+
+/* Markdown inline code rendered by buddynext_format_content. */
+.bn-code {
+	font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+	font-size: 0.92em;
+	padding: 1px 6px;
+	background: var(--bn-sunken, color-mix(in oklab, var(--bn-accent) 6%, transparent));
+	border-radius: var(--r-sm, 4px);
+}
+.bn-md-link {
+	color: var(--bn-accent);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
 
 .bn-composer__tools {
 	display: flex;

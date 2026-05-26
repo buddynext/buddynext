@@ -272,6 +272,39 @@ function buddynext_format_content( string $content ): string {
 	// browser. Single quotes are perfectly safe in HTML text nodes.
 	$escaped = htmlspecialchars( $content, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8' );
 
+	// Inline code first — anything inside backticks is treated literally and
+	// is not subject to other markdown / mention / hashtag parsing below.
+	// Use a placeholder pass to extract code runs, then restore them at the
+	// end so subsequent regexes don't touch their contents.
+	$code_segments = array();
+	$escaped       = preg_replace_callback(
+		'/`([^`\n]+)`/u',
+		static function ( array $m ) use ( &$code_segments ): string {
+			$idx                   = count( $code_segments );
+			$code_segments[ $idx ] = '<code class="bn-code">' . $m[1] . '</code>';
+			return "\x01CODE{$idx}\x01";
+		},
+		$escaped
+	);
+
+	// Markdown link: [label](https://url) — only matches valid http(s) URLs
+	// to prevent javascript: vectors. The label allows arbitrary printable
+	// characters except `]`.
+	$escaped = preg_replace_callback(
+		'/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/u',
+		static function ( array $m ): string {
+			return '<a href="' . esc_url( $m[2] ) . '" class="bn-md-link" rel="noopener nofollow ugc">' . $m[1] . '</a>';
+		},
+		$escaped
+	);
+
+	// Bold: **text** — runs of 1+ non-asterisk chars between double asterisks.
+	$escaped = preg_replace( '/\*\*([^*\n]+)\*\*/u', '<strong>$1</strong>', $escaped );
+
+	// Italic: _text_ — underscores chosen over single asterisks so multiplier
+	// math like 2*3*4 in chat doesn't accidentally render as italic.
+	$escaped = preg_replace( '/(?<![\w])_([^_\n]+)_(?![\w])/u', '<em>$1</em>', $escaped );
+
 	// Replace #hashtag with a link (word boundary; allow hyphens and underscores).
 	$escaped = preg_replace_callback(
 		'/#([a-zA-Z0-9_-]+)/u',
@@ -292,6 +325,19 @@ function buddynext_format_content( string $content ): string {
 		},
 		$escaped
 	);
+
+	// Restore code placeholders. Done last so the <code> markup is opaque to
+	// all other regexes above.
+	if ( ! empty( $code_segments ) ) {
+		$escaped = preg_replace_callback(
+			'/\x01CODE(\d+)\x01/',
+			static function ( array $m ) use ( $code_segments ): string {
+				$idx = (int) $m[1];
+				return $code_segments[ $idx ] ?? '';
+			},
+			$escaped
+		);
+	}
 
 	return $escaped;
 }

@@ -2016,3 +2016,235 @@ document.addEventListener( 'DOMContentLoaded', () => {
 		window.location.href = target_url.toString();
 	} );
 } );
+
+/*
+   Composer enhancements — char counter, image drag-drop, and @ / # typeahead.
+   Hooked on DOMContentLoaded so every page that ships the post-composer
+   partial gets these features without per-page wiring.
+   ---------------------------------------------------------------- */
+const COMPOSER_CHAR_MAX = 5000;
+
+function initComposerEnhancements() {
+	const composers = document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"]' );
+	composers.forEach( ( el ) => {
+		const textarea = el.querySelector( '.bn-composer__prompt' );
+		if ( ! textarea || textarea.dataset.bnEnhanced ) {
+			return;
+		}
+		textarea.dataset.bnEnhanced = '1';
+
+		attachCharCounter( textarea );
+		attachImageDragDrop( textarea, el );
+		attachMentionHashtagTypeahead( textarea );
+	} );
+}
+
+function attachCharCounter( textarea ) {
+	const counter = document.createElement( 'span' );
+	counter.className = 'bn-composer__char-counter';
+	counter.setAttribute( 'aria-live', 'polite' );
+	textarea.insertAdjacentElement( 'afterend', counter );
+
+	const update = () => {
+		const len = ( textarea.value || '' ).length;
+		counter.textContent = `${ len } / ${ COMPOSER_CHAR_MAX }`;
+		counter.dataset.state = len > COMPOSER_CHAR_MAX
+			? 'over'
+			: ( len > COMPOSER_CHAR_MAX * 0.9 ? 'near' : 'ok' );
+	};
+	textarea.addEventListener( 'input', update );
+	update();
+}
+
+function attachImageDragDrop( textarea, composerEl ) {
+	let depth = 0;
+	const dropZone = textarea.closest( '.bn-composer, .bn-composer__inner' ) || textarea;
+	const setActive = ( on ) => dropZone.classList.toggle( 'bn-composer--dragover', on );
+
+	dropZone.addEventListener( 'dragenter', ( e ) => {
+		if ( ! e.dataTransfer || ! Array.from( e.dataTransfer.items || [] ).some( i => i.kind === 'file' ) ) {
+			return;
+		}
+		depth++;
+		setActive( true );
+	} );
+	dropZone.addEventListener( 'dragleave', () => {
+		depth = Math.max( 0, depth - 1 );
+		if ( depth === 0 ) { setActive( false ); }
+	} );
+	dropZone.addEventListener( 'dragover', ( e ) => {
+		if ( e.dataTransfer && Array.from( e.dataTransfer.items || [] ).some( i => i.kind === 'file' ) ) {
+			e.preventDefault();
+		}
+	} );
+	dropZone.addEventListener( 'drop', ( e ) => {
+		depth = 0;
+		setActive( false );
+		if ( ! e.dataTransfer ) { return; }
+		const files = Array.from( e.dataTransfer.files || [] ).filter( f => f.type.startsWith( 'image/' ) );
+		if ( files.length === 0 ) { return; }
+		e.preventDefault();
+		// Find the existing file input the composer uses for the Image button
+		// and inject the dropped files so the existing upload pipeline picks
+		// them up. Composer JS listens to the input's change event.
+		const fileInput = composerEl.querySelector( 'input[type="file"]' );
+		if ( ! fileInput ) { return; }
+		const dt = new DataTransfer();
+		files.forEach( f => dt.items.add( f ) );
+		fileInput.files = dt.files;
+		fileInput.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+	} );
+
+	// Image paste — same target, paste from clipboard.
+	textarea.addEventListener( 'paste', ( e ) => {
+		const items = e.clipboardData?.items;
+		if ( ! items ) { return; }
+		const imageItems = Array.from( items ).filter( i => i.kind === 'file' && i.type.startsWith( 'image/' ) );
+		if ( imageItems.length === 0 ) { return; }
+		const fileInput = composerEl.querySelector( 'input[type="file"]' );
+		if ( ! fileInput ) { return; }
+		const dt = new DataTransfer();
+		imageItems.forEach( i => {
+			const f = i.getAsFile();
+			if ( f ) { dt.items.add( f ); }
+		} );
+		if ( dt.files.length === 0 ) { return; }
+		e.preventDefault();
+		fileInput.files = dt.files;
+		fileInput.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+	} );
+}
+
+/* @ + # typeahead — minimal autocomplete dropdown. Fires when the cursor
+   sits inside an unterminated @foo or #bar token at least 2 chars long.
+   Uses the existing /search?type=members and /hashtags/autocomplete REST
+   endpoints, both already permission_callback=__return_true. */
+function attachMentionHashtagTypeahead( textarea ) {
+	let dropdown = null;
+	let activeIndex = 0;
+	let suggestions = [];
+	let activeKind = null; // '@' or '#'
+	let activeStart = -1;
+	let fetchAbort = null;
+	const REST_BASE = ( window.wpApiSettings?.root || '/wp-json/' ) + 'buddynext/v1';
+
+	const closeDropdown = () => {
+		if ( dropdown ) {
+			dropdown.remove();
+			dropdown = null;
+		}
+		suggestions = [];
+		activeKind = null;
+		activeStart = -1;
+	};
+
+	const renderDropdown = () => {
+		if ( ! dropdown ) {
+			dropdown = document.createElement( 'div' );
+			dropdown.className = 'bn-composer__typeahead';
+			dropdown.setAttribute( 'role', 'listbox' );
+			textarea.parentElement.appendChild( dropdown );
+		}
+		dropdown.innerHTML = suggestions.map( ( s, i ) => `
+			<button type="button" role="option" class="bn-composer__typeahead-item" data-i="${ i }"
+					aria-selected="${ i === activeIndex ? 'true' : 'false' }">
+				<span class="bn-composer__typeahead-prefix">${ activeKind }</span>${ s.label }
+			</button>
+		` ).join( '' );
+		dropdown.querySelectorAll( '.bn-composer__typeahead-item' ).forEach( ( btn ) => {
+			btn.addEventListener( 'mousedown', ( e ) => {
+				e.preventDefault();
+				selectSuggestion( parseInt( btn.dataset.i, 10 ) );
+			} );
+		} );
+	};
+
+	const selectSuggestion = ( idx ) => {
+		const s = suggestions[ idx ];
+		if ( ! s ) { return; }
+		const value = textarea.value;
+		const cursorPos = textarea.selectionStart;
+		const before = value.slice( 0, activeStart );
+		const after = value.slice( cursorPos );
+		const insertion = activeKind + s.token + ' ';
+		textarea.value = before + insertion + after;
+		const newPos = ( before + insertion ).length;
+		textarea.setSelectionRange( newPos, newPos );
+		textarea.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+		closeDropdown();
+	};
+
+	const fetchSuggestions = async ( kind, query ) => {
+		if ( fetchAbort ) { fetchAbort.abort(); }
+		fetchAbort = new AbortController();
+		const url = kind === '@'
+			? `${ REST_BASE }/members?search=${ encodeURIComponent( query ) }&per_page=5`
+			: `${ REST_BASE }/hashtags/autocomplete?q=${ encodeURIComponent( query ) }&limit=5`;
+		try {
+			const r = await fetch( url, { signal: fetchAbort.signal, credentials: 'include' } );
+			const data = await r.json();
+			if ( kind === '@' ) {
+				const items = Array.isArray( data.items ) ? data.items : [];
+				return items.slice( 0, 5 ).map( ( m ) => ( {
+					token: m.handle || m.user_login || m.username || '',
+					label: m.display_name || m.handle || '',
+				} ) ).filter( s => s.token );
+			}
+			const items = Array.isArray( data ) ? data : ( data.items || [] );
+			return items.slice( 0, 5 ).map( ( h ) => ( {
+				token: h.slug || h.name || '',
+				label: h.slug || h.name || '',
+			} ) ).filter( s => s.token );
+		} catch ( _e ) {
+			return [];
+		}
+	};
+
+	textarea.addEventListener( 'input', async () => {
+		const value = textarea.value;
+		const cursorPos = textarea.selectionStart;
+		// Walk back from the cursor to find an unterminated @ or # token.
+		let i = cursorPos - 1;
+		while ( i >= 0 && /[a-zA-Z0-9_-]/.test( value[ i ] ) ) { i--; }
+		if ( i < 0 ) { closeDropdown(); return; }
+		const trigger = value[ i ];
+		if ( trigger !== '@' && trigger !== '#' ) { closeDropdown(); return; }
+		// Boundary: the char before the trigger must not be word-like.
+		if ( i > 0 && /[a-zA-Z0-9_]/.test( value[ i - 1 ] ) ) { closeDropdown(); return; }
+		const token = value.slice( i + 1, cursorPos );
+		if ( token.length < 2 ) { closeDropdown(); return; }
+		activeKind = trigger;
+		activeStart = i;
+		const results = await fetchSuggestions( trigger, token );
+		if ( results.length === 0 ) { closeDropdown(); return; }
+		suggestions = results;
+		activeIndex = 0;
+		renderDropdown();
+	} );
+
+	textarea.addEventListener( 'keydown', ( e ) => {
+		if ( ! dropdown || suggestions.length === 0 ) { return; }
+		if ( e.key === 'ArrowDown' ) {
+			e.preventDefault();
+			activeIndex = ( activeIndex + 1 ) % suggestions.length;
+			renderDropdown();
+		} else if ( e.key === 'ArrowUp' ) {
+			e.preventDefault();
+			activeIndex = ( activeIndex - 1 + suggestions.length ) % suggestions.length;
+			renderDropdown();
+		} else if ( e.key === 'Enter' || e.key === 'Tab' ) {
+			e.preventDefault();
+			selectSuggestion( activeIndex );
+		} else if ( e.key === 'Escape' ) {
+			closeDropdown();
+		}
+	} );
+
+	textarea.addEventListener( 'blur', () => setTimeout( closeDropdown, 150 ) );
+}
+
+if ( document.readyState === 'loading' ) {
+	document.addEventListener( 'DOMContentLoaded', initComposerEnhancements );
+} else {
+	initComposerEnhancements();
+}
