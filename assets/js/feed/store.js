@@ -17,7 +17,11 @@ function timeAgo( dateStr ) {
  * to depth = MAX_DEPTH with an "@parent" mention prefix injected by the
  * server so the conversation stays readable on narrow screens.
  */
-const COMMENT_MAX_DEPTH = 2;
+// Maximum reply depth shown in the threaded view. Beyond this, the
+// `Reply` button reuses the deepest ancestor's parent_id so the new
+// reply appears at the cap level (Discord-style fold-back rather than
+// infinite nesting). Server enforces the same cap during list().
+const COMMENT_MAX_DEPTH = 5;
 
 /**
  * Build a comment DOM node using safe DOM methods (no innerHTML for user content).
@@ -107,7 +111,10 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	const canEdit     = ( comment.can_edit ?? isOwn ) && ! comment.is_deleted;
 	const canDelete   = ( comment.can_delete ?? isOwn ) && ! comment.is_deleted;
 	const canPin      = !! comment.can_pin && ! comment.is_deleted;
-	const canReply    = currentUserId > 0 && ! comment.is_deleted && cappedDepth < COMMENT_MAX_DEPTH;
+	// Reply is allowed at every depth — beyond MAX_DEPTH the new reply
+	// attaches to the deepest visible ancestor (fold-back) so the indent
+	// doesn't keep growing. The server flattens consistently when listing.
+	const canReply    = currentUserId > 0 && ! comment.is_deleted;
 	const canReport   = currentUserId > 0 && ! isOwn && ! comment.is_deleted;
 
 	// React button — opens a 6-emoji picker on hover or click. Matches the

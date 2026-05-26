@@ -288,14 +288,17 @@ class CommentController {
 			return $comment;
 		};
 
-		$result['items'] = array_map(
-			function ( array $comment ) use ( $enrich ): array {
-				$comment            = $enrich( $comment );
-				$comment['replies'] = array_map( $enrich, $comment['replies'] ?? array() );
-				return $comment;
-			},
-			$result['items']
-		);
+		// Recurse through the full reply tree (N-deep up to the
+		// CommentService::MAX_REPLY_DEPTH cap) so every node — including
+		// the cap-level flattened leaves — gets the same enrichment.
+		$walk            = function ( array $comment ) use ( $enrich, &$walk ): array {
+			$comment = $enrich( $comment );
+			if ( ! empty( $comment['replies'] ) ) {
+				$comment['replies'] = array_map( $walk, $comment['replies'] );
+			}
+			return $comment;
+		};
+		$result['items'] = array_map( $walk, $result['items'] );
 
 		return new WP_REST_Response( $result, 200 );
 	}

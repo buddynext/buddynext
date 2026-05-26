@@ -312,17 +312,27 @@ class CommentService {
 	}
 
 	/**
-	 * Return a two-level tree of comments for an object.
+	 * Maximum reply depth in the threaded view. Replies deeper than this
+	 * are still stored in the DB at their natural parent_id but are
+	 * rendered at the cap level (Discord-style fold-back) so the indent
+	 * never gets unreadably narrow. Mirrors COMMENT_MAX_DEPTH in
+	 * assets/js/feed/store.js.
+	 */
+	public const MAX_REPLY_DEPTH = 5;
+
+	/**
+	 * Return an N-deep tree of comments for an object.
 	 *
-	 * Top-level comments are fetched first, then all replies in one query and
-	 * attached to their parents. The spec caps nesting at two levels — replies
-	 * to replies are flattened up to the level-2 parent. The pinned comment
-	 * (if any) is prepended to the top-level list.
+	 * Top-level comments are paginated as before. All non-deleted
+	 * descendants for the object are fetched in a single query and
+	 * attached recursively up to MAX_REPLY_DEPTH. Replies beyond the
+	 * cap are flattened back onto their deepest visible ancestor.
+	 * The pinned comment (if any) is prepended to the top-level list.
 	 *
 	 * @param string $object_type Object type.
 	 * @param int    $object_id   Object ID.
 	 * @param array  $args        Optional: per_page (int), page (int).
-	 * @return array{items: array[], total: int} Items have a 'replies' key (array of level-2 comments).
+	 * @return array{items: array[], total: int} Items have a `replies` key (array of nested children).
 	 */
 	public function list( string $object_type, int $object_id, array $args = array() ): array {
 		$per_page = min( (int) ( $args['per_page'] ?? self::DEFAULT_LIMIT ), 50 );
@@ -334,32 +344,75 @@ class CommentService {
 			return $result;
 		}
 
-		// Collect top-level IDs and then fetch all replies in one query.
-		$parent_ids = array_column( $result['items'], 'id' );
-
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-		$placeholders = implode( ',', array_fill( 0, count( $parent_ids ), '%d' ) );
-		$replies      = (array) $wpdb->get_results(
+		// One query for the full descendant set of this object. Memory
+		// cost is O(thread length); for normal community sizes this is
+		// negligible. Viral threads (>1000 comments) would need
+		// per-branch pagination instead — that's a separate sprint.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$descendants = (array) $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_comments WHERE parent_id IN ({$placeholders}) AND is_deleted = 0 ORDER BY created_at ASC",
-				...$parent_ids
+				"SELECT * FROM {$wpdb->prefix}bn_comments
+				 WHERE object_type = %s AND object_id = %d
+				   AND parent_id IS NOT NULL
+				 ORDER BY created_at ASC",
+				sanitize_key( $object_type ),
+				$object_id
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 
-		$reply_map = array();
-		array_walk(
-			$replies,
-			function ( array $reply_row ) use ( &$reply_map ): void {
-				$reply_map[ (int) $reply_row['parent_id'] ][] = $this->hydrate( $reply_row );
+		// Build a children-by-parent map once, then walk top-level items
+		// and attach their subtrees recursively up to the depth cap.
+		$children_by_parent = array();
+		foreach ( $descendants as $row ) {
+			$children_by_parent[ (int) $row['parent_id'] ][] = $this->hydrate( $row );
+		}
+
+		$attach = function ( array &$item, int $depth ) use ( &$attach, &$children_by_parent ): void {
+			$kids = $children_by_parent[ (int) $item['id'] ] ?? array();
+			if ( empty( $kids ) ) {
+				$item['replies'] = array();
+				return;
 			}
-		);
+			if ( $depth >= self::MAX_REPLY_DEPTH ) {
+				// At the cap — flatten this subtree's full descendant set
+				// onto this node, so the user still sees every reply but
+				// the indent doesn't get any deeper. Use a worklist to
+				// collect transitively.
+				$flat  = array();
+				$queue = $kids;
+				while ( ! empty( $queue ) ) {
+					$next   = array_shift( $queue );
+					$flat[] = $next;
+					$grand  = $children_by_parent[ (int) $next['id'] ] ?? array();
+					foreach ( $grand as $g ) {
+						$queue[] = $g;
+					}
+				}
+				// Sort flattened siblings chronologically so the reply
+				// chain reads top-to-bottom.
+				usort(
+					$flat,
+					static fn( array $a, array $b ): int => strcmp( (string) $a['created_at'], (string) $b['created_at'] )
+				);
+				foreach ( $flat as &$f ) {
+					$f['replies'] = array();
+				}
+				unset( $f );
+				$item['replies'] = $flat;
+				return;
+			}
+			foreach ( $kids as &$k ) {
+				$attach( $k, $depth + 1 );
+			}
+			unset( $k );
+			$item['replies'] = $kids;
+		};
 
 		foreach ( $result['items'] as &$item ) {
-			$item['replies'] = $reply_map[ $item['id'] ] ?? array();
+			$attach( $item, 1 );
 		}
 		unset( $item );
 
@@ -379,8 +432,8 @@ class CommentService {
 			if ( ! $in_list ) {
 				$pinned = $this->get( $pinned_id );
 				if ( null !== $pinned ) {
-					$pinned['replies'] = $reply_map[ $pinned_id ] ?? array();
-					$pinned['pinned']  = true;
+					$attach( $pinned, 1 );
+					$pinned['pinned'] = true;
 					array_unshift( $result['items'], $pinned );
 				}
 			} else {
