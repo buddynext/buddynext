@@ -105,15 +105,37 @@ do_action( 'buddynext_part_space_hero_before', $args );
 	</div>
 
 	<div class="bn-sh-hero__head">
+		<?php
+		// Resolve emblem content. If the space has an avatar_url, render
+		// the image. Otherwise prefer the category icon. If neither is
+		// available, fall back to the first letter of the space name so
+		// the emblem slot is never visually empty.
+		$bn_sh_emblem = '';
+		if ( ! empty( $bn_space->avatar_url ) ) {
+			$bn_sh_emblem = sprintf(
+				'<img src="%s" alt="" loading="lazy">',
+				esc_url( $bn_space->avatar_url )
+			);
+		} elseif ( ! empty( $bn_space->category_slug ) ) {
+			$bn_sh_emblem = wp_kses(
+				bn_space_category_icon( $bn_space->category_slug ?? '' ),
+				\BuddyNext\Core\IconService::allowed_tags()
+			);
+		} else {
+			$bn_sh_emblem = sprintf(
+				'<span class="bn-sh-hero__emblem-letter">%s</span>',
+				esc_html( mb_strtoupper( mb_substr( (string) $bn_space->name, 0, 1 ) ) )
+			);
+		}
+		?>
 		<div class="bn-sh-hero__emblem" aria-hidden="true">
-			<?php echo wp_kses_data( bn_space_category_icon( $bn_space->category_slug ?? '' ) ); ?>
+			<?php echo $bn_sh_emblem; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- branches above each escape their content. ?>
 		</div>
 
 		<div class="bn-sh-hero__info">
-			<h1 class="bn-sh-hero__name">
-				<?php echo esc_html( $bn_space->name ); ?>
-				<span class="bn-badge" data-tone="<?php echo esc_attr( $bn_privacy_tone ); ?>"><?php echo esc_html( $bn_privacy_label ); ?></span>
-			</h1>
+			<h1 class="bn-sh-hero__name"
+				aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $bn_space->name, $bn_privacy_label ) ); ?>"
+			><?php echo esc_html( $bn_space->name ); ?><span class="bn-badge" data-tone="<?php echo esc_attr( $bn_privacy_tone ); ?>"><?php echo esc_html( $bn_privacy_label ); ?></span></h1>
 			<?php if ( ! empty( $bn_space->category_name ) ) : ?>
 				<div class="bn-sh-hero__handle">
 					<?php buddynext_icon( 'hash' ); ?>

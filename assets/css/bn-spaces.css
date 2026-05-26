@@ -213,6 +213,30 @@
 	border-radius: inherit;
 }
 
+/* First-letter fallback glyph — when a space has neither an avatar
+   nor a category icon. Matches the .bn-avatar fallback style so the
+   directory and the user profile share an aesthetic for "no image". */
+.bn-sd-card__emblem-letter,
+.bn-sh-hero__emblem-letter {
+	font-family: var(--bn-font-ui, ui-sans-serif, system-ui, sans-serif);
+	font-weight: 700;
+	color: var(--bn-accent);
+}
+.bn-sd-card__emblem-letter { font-size: 24px; line-height: 1; }
+.bn-sh-hero__emblem-letter { font-size: 32px; line-height: 1; }
+
+/* Category chip — small "# {category-name}" row under the directory
+   card title. Matches the space-hero handle row visually. */
+.bn-sd-card__category {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin-block-start: 4px;
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+.bn-sd-card__category svg { width: 12px; height: 12px; }
+
 .bn-sd-card__body {
 	padding-block: var(--bn-s8) var(--bn-s4);
 	padding-inline: var(--bn-s4);

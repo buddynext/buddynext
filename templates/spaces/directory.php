@@ -611,23 +611,51 @@ $bn_subtitle = sprintf(
 				$member_count = number_format_i18n( (int) $space->member_count );
 	?>
 
-				<article class="bn-card bn-sd-card" data-interactive role="listitem" aria-label="<?php echo esc_attr( $space->name ); ?>">
+				<?php
+				// Resolve directory-card emblem with the same fallback chain
+				// used by templates/parts/space-hero.php: avatar → category
+				// icon → first-letter glyph. Never leave the emblem empty.
+				$bn_card_emblem = '';
+				if ( ! empty( $space->avatar_url ) ) {
+					$bn_card_emblem = sprintf(
+						'<img src="%s" alt="" loading="lazy">',
+						esc_url( $space->avatar_url )
+					);
+				} elseif ( ! empty( $space->category_slug ) ) {
+					// Real category — render its icon. Pre-sanitised by
+					// IconService::render(), pass through wp_kses with
+					// the same allowlist used elsewhere.
+					$bn_card_emblem = wp_kses( $cat_icon, \BuddyNext\Core\IconService::allowed_tags() );
+				} else {
+					$bn_card_emblem = sprintf(
+						'<span class="bn-sd-card__emblem-letter">%s</span>',
+						esc_html( mb_strtoupper( mb_substr( (string) $space->name, 0, 1 ) ) )
+					);
+				}
+				?>
+				<article class="bn-card bn-sd-card" data-interactive role="listitem" aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $space->name, $privacy_label ) ); ?>">
 					<a href="<?php echo esc_url( $space_url ); ?>" tabindex="-1" aria-hidden="true" class="bn-sd-card__cover-link">
 						<div class="bn-sd-card__cover" data-tone="<?php echo esc_attr( $cover_tone ); ?>">
 							<?php if ( ! empty( $space->cover_image_url ) ) : ?>
 								<img src="<?php echo esc_url( $space->cover_image_url ); ?>" alt="" loading="lazy">
 							<?php endif; ?>
-							<div class="bn-sd-card__emblem" aria-hidden="true"><?php echo wp_kses_data( $cat_icon ); ?></div>
+							<div class="bn-sd-card__emblem" aria-hidden="true"><?php echo $bn_card_emblem; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- branches above each escape their content. ?></div>
 						</div>
 					</a>
 
 					<div class="bn-sd-card__body">
 						<a href="<?php echo esc_url( $space_url ); ?>" class="bn-sd-card__name-link">
-							<h2 class="bn-sd-card__name">
-								<?php echo esc_html( $space->name ); ?>
-								<span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span>
-							</h2>
+							<h2 class="bn-sd-card__name"
+								aria-label="<?php echo esc_attr( sprintf( '%s (%s)', $space->name, $privacy_label ) ); ?>"
+							><?php echo esc_html( $space->name ); ?><span class="bn-badge" data-tone="<?php echo esc_attr( $privacy_tone ); ?>"><?php echo esc_html( $privacy_label ); ?></span></h2>
 						</a>
+
+						<?php if ( ! empty( $space->category_name ) ) : ?>
+							<div class="bn-sd-card__category">
+								<?php buddynext_icon( 'hash' ); ?>
+								<?php echo esc_html( $space->category_name ); ?>
+							</div>
+						<?php endif; ?>
 
 						<?php if ( ! empty( $space->description ) ) : ?>
 							<p class="bn-sd-card__desc"><?php echo esc_html( wp_trim_words( $space->description, 18 ) ); ?></p>
