@@ -625,8 +625,9 @@ function applyTabFromUrl() {
 
 store( 'buddynext/profile', {
 	state: {
-		get muteLabel()  { return getContext().isMuted   ? 'Unmute'  : 'Mute'; },
-		get blockLabel() { return getContext().isBlocked ? 'Unblock' : 'Block'; },
+		get muteLabel()     { return getContext().isMuted      ? 'Unmute'     : 'Mute'; },
+		get restrictLabel() { return getContext().isRestricted ? 'Unrestrict' : 'Restrict'; },
+		get blockLabel()    { return getContext().isBlocked    ? 'Unblock'    : 'Block'; },
 	},
 	callbacks: {
 		/* Init for the edit page: register the beforeunload guard once. */
@@ -1229,6 +1230,30 @@ store( 'buddynext/profile', {
 			} catch ( _e ) {
 				ctx.isMuted = wasMuted;
 				bnToast( 'Could not update mute state', { tone: 'danger' } );
+			}
+		},
+
+		async toggleRestrict() {
+			var ctx           = getContext();
+			var wasRestricted = !! ctx.isRestricted;
+			ctx.isRestricted = ! wasRestricted;
+			ctx.moreMenuOpen = false;
+			var method = wasRestricted ? 'DELETE' : 'POST';
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/restrict' ), {
+					method:  method,
+					headers: { 'X-WP-Nonce': ctx.restNonce },
+				} );
+				if ( ! res.ok ) { throw new Error( 'restrict_failed' ); }
+				bnToast(
+					wasRestricted
+						? 'No longer restricted'
+						: 'Restricted. They can still see your profile, but their comments are hidden from others.',
+					{ tone: wasRestricted ? 'info' : 'success' }
+				);
+			} catch ( _e ) {
+				ctx.isRestricted = wasRestricted;
+				bnToast( 'Could not update restrict state', { tone: 'danger' } );
 			}
 		},
 

@@ -648,21 +648,41 @@ class NotificationListener implements ListenerInterface {
 	private function is_blocked( int $recipient_id, int $sender_id ): bool {
 		global $wpdb;
 
+		// Type-aware suppression so notifications are filtered the way each
+		// relationship semantically intends:
+		//
+		//   - block:    bidirectional. Suppress in either direction so the
+		//               two users never see each other's events.
+		//   - mute:     unidirectional. The muter (= recipient) silenced
+		//               the muted user. The muted user's notifications
+		//               from the muter still fire — mute is one-way.
+		//   - restrict: unidirectional. Same rule as mute, with the added
+		//               point that the restricted user MUST keep getting
+		//               notifs from the restrictor, otherwise they'd
+		//               detect they've been restricted.
+		//
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$blocked = $wpdb->get_var(
+		$row = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT blocker_id FROM {$wpdb->prefix}bn_blocks
-				 WHERE ( blocker_id = %d AND blocked_id = %d )
-				    OR ( blocker_id = %d AND blocked_id = %d )
+				"SELECT 1 FROM {$wpdb->prefix}bn_blocks
+				 WHERE (
+					    ( type = 'block' AND (
+					        ( blocker_id = %d AND blocked_id = %d )
+					     OR ( blocker_id = %d AND blocked_id = %d )
+					    ) )
+					 OR ( type IN ( 'mute', 'restrict' ) AND blocker_id = %d AND blocked_id = %d )
+				 )
 				 LIMIT 1",
 				$recipient_id,
 				$sender_id,
 				$sender_id,
-				$recipient_id
+				$recipient_id,
+				$recipient_id,
+				$sender_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		return null !== $blocked;
+		return null !== $row;
 	}
 }

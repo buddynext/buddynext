@@ -502,6 +502,12 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 							data-wp-text="state.muteLabel">
 							<?php esc_html_e( 'Mute', 'buddynext' ); ?>
 						</button>
+						<button class="bn-more-menu-item"
+							role="menuitem"
+							data-wp-on--click="actions.toggleRestrict"
+							data-wp-text="state.restrictLabel">
+							<?php esc_html_e( 'Restrict', 'buddynext' ); ?>
+						</button>
 						<button class="bn-more-menu-item bn-more-menu-item--danger"
 							role="menuitem"
 							data-wp-on--click="actions.toggleBlock"

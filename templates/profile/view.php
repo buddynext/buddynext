@@ -59,6 +59,7 @@ $connection_pending  = false;
 $connection_received = false;
 $is_blocked          = false;
 $is_muted            = false;
+$is_restricted       = false;
 $degree_badge        = '';
 
 if ( ! $is_own_profile && $current_user_id ) {
@@ -69,6 +70,7 @@ if ( ! $is_own_profile && $current_user_id ) {
 	$connection_received = ! $is_connected && ! $connection_pending && (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_connections WHERE requester_id = %d AND recipient_id = %d AND status = 'pending'", $user_id, $current_user_id ) );
 	$is_blocked          = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d AND blocked_id = %d AND type = 'block' LIMIT 1", $current_user_id, $user_id ) );
 	$is_muted            = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d AND blocked_id = %d AND type = 'mute' LIMIT 1", $current_user_id, $user_id ) );
+	$is_restricted       = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d AND blocked_id = %d AND type = 'restrict' LIMIT 1", $current_user_id, $user_id ) );
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 	// LinkedIn-style degree badge — uses the connections service so the
@@ -325,6 +327,7 @@ $bn_pf_ctx = array(
 	'restNonce'          => wp_create_nonce( 'wp_rest' ),
 	'isBlocked'          => $is_blocked,
 	'isMuted'            => $is_muted,
+	'isRestricted'       => $is_restricted,
 	'moreMenuOpen'       => false,
 	'shareMenuOpen'      => false,
 	'reportOpen'         => false,
