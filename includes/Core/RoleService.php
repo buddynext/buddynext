@@ -3,14 +3,14 @@
  * Community role and credit service.
  *
  * Provides a clean API for reading and writing a user's BuddyNext community
- * role (stored in wp_usermeta as bn_community_role) and credit balance
- * (stored in bn_user_credits).
+ * role and credit balance — both stored in wp_usermeta. Roles use the
+ * bn_community_role key; credit balances use the bn_credits key (integer).
  *
  * Role hierarchy (lowest → highest): member → moderator → admin
  *
- * Credits are optional. A zero balance is represented by the absence of a row
- * in bn_user_credits — no row is created unless credits are added.  Spending
- * credits returns false and makes no DB write when the balance is insufficient.
+ * Credits are optional. A zero balance is represented by the absence of the
+ * meta entry — no row is created unless credits are added. Spending credits
+ * returns false and makes no DB write when the balance is insufficient.
  *
  * @package BuddyNext\Core
  */
@@ -34,6 +34,11 @@ class RoleService {
 		'moderator' => 2,
 		'member'    => 1,
 	);
+
+	/**
+	 * user_meta key for the credit balance.
+	 */
+	public const CREDITS_META = 'bn_credits';
 
 	// ── Role helpers ──────────────────────────────────────────────────────────
 
@@ -100,48 +105,39 @@ class RoleService {
 	/**
 	 * Return the current credit balance for a user.
 	 *
-	 * Returns 0 when no row exists (no credits have ever been added).
+	 * Returns 0 when no meta exists (no credits have ever been added).
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @return int Non-negative balance.
 	 */
 	public function get_credits( int $user_id ): int {
-		global $wpdb;
-
-		$balance = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prepare(
-				"SELECT balance FROM {$wpdb->prefix}bn_user_credits WHERE user_id = %d",
-				$user_id
-			)
-		);
-
-		return (int) ( $balance ?? 0 );
+		return (int) get_user_meta( $user_id, self::CREDITS_META, true );
 	}
 
 	/**
 	 * Add credits to a user's balance.
-	 *
-	 * Creates the row if it does not exist yet.
 	 *
 	 * @param int $user_id WordPress user ID.
 	 * @param int $amount  Positive integer to add.
 	 * @return void
 	 */
 	public function add_credits( int $user_id, int $amount ): void {
-		global $wpdb;
-
 		$amount = max( 0, $amount );
+		if ( 0 === $amount ) {
+			return;
+		}
+		update_user_meta( $user_id, self::CREDITS_META, $this->get_credits( $user_id ) + $amount );
+	}
 
-		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prepare(
-				"INSERT INTO {$wpdb->prefix}bn_user_credits (user_id, balance)
-				 VALUES (%d, %d)
-				 ON DUPLICATE KEY UPDATE balance = balance + %d",
-				$user_id,
-				$amount,
-				$amount
-			)
-		);
+	/**
+	 * Replace the user's credit balance outright.
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @param int $amount  Non-negative balance to set.
+	 * @return void
+	 */
+	public function set_credits( int $user_id, int $amount ): void {
+		update_user_meta( $user_id, self::CREDITS_META, max( 0, $amount ) );
 	}
 
 	/**
@@ -156,23 +152,14 @@ class RoleService {
 	 * @return bool True on success, false when balance is too low.
 	 */
 	public function spend_credits( int $user_id, int $amount, string $reason ): bool {
-		$amount = max( 0, $amount );
+		$amount  = max( 0, $amount );
+		$balance = $this->get_credits( $user_id );
 
-		if ( $this->get_credits( $user_id ) < $amount ) {
+		if ( $balance < $amount ) {
 			return false;
 		}
 
-		global $wpdb;
-
-		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_user_credits
-				 SET balance = GREATEST(0, balance - %d)
-				 WHERE user_id = %d",
-				$amount,
-				$user_id
-			)
-		);
+		update_user_meta( $user_id, self::CREDITS_META, max( 0, $balance - $amount ) );
 
 		/**
 		 * Fires when credits are successfully spent.
@@ -184,5 +171,18 @@ class RoleService {
 		do_action( 'buddynext_credits_spent', $user_id, $amount, $reason );
 
 		return true;
+	}
+
+	/**
+	 * Deduct credits flooring at zero (used by webhook deductions where the
+	 * caller does not require sufficiency).
+	 *
+	 * @param int $user_id WordPress user ID.
+	 * @param int $amount  Positive integer to subtract.
+	 * @return void
+	 */
+	public function deduct_credits( int $user_id, int $amount ): void {
+		$amount = max( 0, $amount );
+		update_user_meta( $user_id, self::CREDITS_META, max( 0, $this->get_credits( $user_id ) - $amount ) );
 	}
 }

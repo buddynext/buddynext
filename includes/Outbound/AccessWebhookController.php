@@ -25,6 +25,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Outbound;
 
+use BuddyNext\Core\RoleService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -256,22 +257,7 @@ class AccessWebhookController {
 	 * @return true
 	 */
 	private function action_add_credits( int $user_id, array $body ): true {
-		global $wpdb;
-
-		$amount = abs( (int) ( $body['amount'] ?? 0 ) );
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT INTO {$wpdb->prefix}bn_user_credits (user_id, balance)
-				 VALUES (%d, %d)
-				 ON DUPLICATE KEY UPDATE balance = balance + %d",
-				$user_id,
-				$amount,
-				$amount
-			)
-		);
-
+		( new RoleService() )->add_credits( $user_id, abs( (int) ( $body['amount'] ?? 0 ) ) );
 		return true;
 	}
 
@@ -283,19 +269,7 @@ class AccessWebhookController {
 	 * @return true
 	 */
 	private function action_set_credits( int $user_id, array $body ): true {
-		global $wpdb;
-
-		$amount = max( 0, (int) ( $body['amount'] ?? 0 ) );
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->replace(
-			$wpdb->prefix . 'bn_user_credits',
-			array(
-				'user_id' => $user_id,
-				'balance' => $amount,
-			)
-		);
-
+		( new RoleService() )->set_credits( $user_id, max( 0, (int) ( $body['amount'] ?? 0 ) ) );
 		return true;
 	}
 
@@ -307,21 +281,7 @@ class AccessWebhookController {
 	 * @return true
 	 */
 	private function action_deduct_credits( int $user_id, array $body ): true {
-		global $wpdb;
-
-		$amount = abs( (int) ( $body['amount'] ?? 0 ) );
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT INTO {$wpdb->prefix}bn_user_credits (user_id, balance)
-				 VALUES (%d, 0)
-				 ON DUPLICATE KEY UPDATE balance = GREATEST(0, balance - %d)",
-				$user_id,
-				$amount
-			)
-		);
-
+		( new RoleService() )->deduct_credits( $user_id, abs( (int) ( $body['amount'] ?? 0 ) ) );
 		return true;
 	}
 

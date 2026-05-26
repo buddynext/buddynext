@@ -712,13 +712,6 @@ class Installer {
 				KEY         user_ability (user_id, ability, expires_at)
 			) {$cs};",
 
-			"CREATE TABLE {$p}bn_user_credits (
-				user_id    BIGINT(20) UNSIGNED NOT NULL,
-				balance    INT UNSIGNED NOT NULL DEFAULT 0,
-				updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-				PRIMARY KEY (user_id)
-			) {$cs};",
-
 			"CREATE TABLE {$p}bn_webhook_log (
 				id         BIGINT(20) NOT NULL AUTO_INCREMENT,
 				source     VARCHAR(100) NOT NULL DEFAULT '',
@@ -1001,6 +994,28 @@ class Installer {
 		);
 		if ( is_array( $connections_cols ) && ! in_array( 'note', $connections_cols, true ) ) {
 			$wpdb->query( "ALTER TABLE `{$p}bn_connections` ADD COLUMN `note` VARCHAR(280) NOT NULL DEFAULT '' AFTER `status`" );
+		}
+
+		// bn_user_credits — retired; balance lives in user_meta as 'bn_credits'.
+		// One-shot migration: copy balances then drop the table.
+		$credits_table  = $p . 'bn_user_credits';
+		$credits_exists = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+				WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+				$credits_table
+			)
+		);
+		if ( $credits_exists ) {
+			$rows = $wpdb->get_results( "SELECT user_id, balance FROM `{$credits_table}`" );
+			if ( is_array( $rows ) ) {
+				foreach ( $rows as $r ) {
+					if ( (int) $r->balance > 0 ) {
+						update_user_meta( (int) $r->user_id, 'bn_credits', (int) $r->balance );
+					}
+				}
+			}
+			$wpdb->query( "DROP TABLE IF EXISTS `{$credits_table}`" );
 		}
 
 		// bn_announcement_dismissals — retired; data lives in user_meta

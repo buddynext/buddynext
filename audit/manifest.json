@@ -153,7 +153,6 @@
   ],
   "tables": [
     {"name": "bn_activity_log", "purpose": "Audit log of all community activity events"},
-    {"name": "bn_announcement_dismissals", "purpose": "Tracks which users have dismissed which announcements"},
     {"name": "bn_appeals", "purpose": "Moderation appeals submitted by users against strikes/suspensions"},
     {"name": "bn_blocks", "purpose": "User-level block and mute relationships"},
     {"name": "bn_bookmarks", "purpose": "User-post bookmark associations"},
@@ -189,7 +188,6 @@
     {"name": "bn_space_members", "purpose": "Space membership rows with role and status"},
     {"name": "bn_spaces", "purpose": "Community space definitions (name, privacy, settings)"},
     {"name": "bn_user_abilities", "purpose": "Explicit ability grants per user with optional expiry"},
-    {"name": "bn_user_credits", "purpose": "Gamification credit balance per user"},
     {"name": "bn_user_strikes", "purpose": "Moderation strike records per user"},
     {"name": "bn_user_suspensions", "purpose": "Active and historical user suspensions"},
     {"name": "bn_verify_tokens", "purpose": "Email verification token store"},

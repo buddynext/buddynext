@@ -82,7 +82,6 @@
 | `bn_poll_votes` | Activity Feed |
 | `bn_bookmarks` | Activity Feed |
 | `bn_shares` | Activity Feed |
-| `bn_announcement_dismissals` | Activity Feed |
 | `bn_spaces` | Spaces |
 | `bn_space_members` | Spaces |
 | `bn_space_categories` | Spaces |
@@ -110,7 +109,6 @@
 | `bn_user_abilities` | Roles / Permissions |
 | `bn_activity_log` | Platform |
 | `bn_feed_items` | Platform (feed cache, >1M members) |
-| `bn_user_credits` | Platform |
 | `bn_webhook_log` | Webhooks (inbound) |
 | `bn_outbound_webhooks` | Webhooks (outbound) |
 | `bn_outbound_webhook_log` | Webhooks (outbound) |

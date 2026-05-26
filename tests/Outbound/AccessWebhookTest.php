@@ -107,8 +107,6 @@ class AccessWebhookTest extends \WP_Test_REST_TestCase {
 	}
 
 	public function test_add_credits(): void {
-		global $wpdb;
-
 		$this->call(
 			array(
 				'user_id' => $this->user_id,
@@ -118,28 +116,16 @@ class AccessWebhookTest extends \WP_Test_REST_TestCase {
 			)
 		);
 
-		$balance = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT balance FROM {$wpdb->prefix}bn_user_credits WHERE user_id = %d",
-				$this->user_id
-			)
-		);
+		$balance = (int) get_user_meta( $this->user_id, 'bn_credits', true );
 
 		$this->assertSame( 50, $balance );
 	}
 
 	public function test_set_credits(): void {
-		global $wpdb;
-
 		$this->call( array( 'user_id' => $this->user_id, 'action' => 'add_credits', 'amount' => 100, 'source' => 'phpunit' ) );
 		$this->call( array( 'user_id' => $this->user_id, 'action' => 'set_credits', 'amount' => 25,  'source' => 'phpunit' ) );
 
-		$balance = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT balance FROM {$wpdb->prefix}bn_user_credits WHERE user_id = %d",
-				$this->user_id
-			)
-		);
+		$balance = (int) get_user_meta( $this->user_id, 'bn_credits', true );
 
 		$this->assertSame( 25, $balance );
 	}
