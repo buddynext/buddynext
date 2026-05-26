@@ -138,7 +138,8 @@ $privacy_search_indexable  = '0' !== (string) get_user_meta( $user_id, 'bn_priva
 // `bn_pro_hide_profile_views` is the canonical Pro-shared key (Pro P5.3 reads
 // it to opt the viewer out of the who-viewed-your-profile widget). Free can
 // save it too so the toggle stays consistent across plans.
-$privacy_hide_views = '1' === (string) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true );
+$privacy_hide_views     = '1' === (string) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true );
+$privacy_account_private = (bool) get_user_meta( $user_id, 'bn_account_private', true );
 
 // Profile URL slug.
 $profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
@@ -500,6 +501,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				array( 'select', 'bn_privacy_see_email', __( 'Who can see my email', 'buddynext' ), $privacy_see_email, 'bn-ep-privacy-email', '' ),
 				array( 'select', 'bn_privacy_dm', __( 'Who can direct-message me', 'buddynext' ), $privacy_dm, 'bn-ep-privacy-dm', '' ),
 				array( 'select', 'bn_privacy_mention', __( 'Who can @mention me in posts', 'buddynext' ), $privacy_mention, 'bn-ep-privacy-mention', '' ),
+				array( 'toggle', 'bn_account_private', __( 'Private account', 'buddynext' ), $privacy_account_private, 'bn-ep-privacy-private-lbl', __( "Only approved followers see your posts. New follows arrive as requests you can accept or decline.", 'buddynext' ) ),
 				array( 'toggle', 'bn_privacy_show_in_directory', __( 'Show me in the member directory', 'buddynext' ), $privacy_show_in_directory, 'bn-ep-privacy-dir-lbl', __( 'Turn off to hide from /members/.', 'buddynext' ) ),
 				array( 'toggle', 'bn_privacy_search_indexable', __( 'Show my profile to search engines', 'buddynext' ), $privacy_search_indexable, 'bn-ep-privacy-search-lbl', __( 'When off, your profile carries noindex.', 'buddynext' ) ),
 				array( 'toggle', 'bn_pro_hide_profile_views', __( 'Hide my profile views', 'buddynext' ), $privacy_hide_views, 'bn-ep-privacy-views-lbl', __( 'When on, your visits to other profiles are not recorded.', 'buddynext' ) ),

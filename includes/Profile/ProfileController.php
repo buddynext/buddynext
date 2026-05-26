@@ -571,6 +571,7 @@ class ProfileController {
 		// canonical four values; boolean toggles are coerced.
 		$audience_keys = array( 'bn_privacy_see_email', 'bn_privacy_dm', 'bn_privacy_mention' );
 		$bool_keys     = array(
+			'bn_account_private',
 			'bn_privacy_show_in_directory',
 			'bn_privacy_search_indexable',
 			'bn_pro_hide_profile_views',

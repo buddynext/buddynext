@@ -1005,6 +1005,96 @@
 	width: 100%;
 }
 
+/* Pending follow-request inbox — only the owner sees this. One row per
+   requester, with Decline / Approve buttons that hide the row on success
+   via the buddynext/follow-requests Interactivity store. */
+.bn-follow-requests {
+	margin: 0 0 var(--s5);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-canvas);
+	overflow: hidden;
+}
+.bn-follow-requests__head {
+	padding: var(--s4) var(--s4) var(--s3);
+	border-bottom: 1px solid var(--bn-line);
+}
+.bn-follow-requests__title {
+	font-size: var(--bn-text-md);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	margin: 0;
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+.bn-follow-requests__count {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 11px;
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-accent);
+	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
+	border-radius: 999px;
+	padding: 1px 8px;
+}
+.bn-follow-requests__sub {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	margin: 4px 0 0;
+}
+.bn-follow-requests__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.bn-follow-requests__row {
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+	padding: var(--s3) var(--s4);
+	border-bottom: 1px solid var(--bn-line);
+}
+.bn-follow-requests__row:last-child { border-bottom: 0; }
+.bn-follow-requests__row[hidden] { display: none; }
+.bn-follow-requests__avatar {
+	flex-shrink: 0;
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	overflow: hidden;
+	display: inline-flex;
+}
+.bn-follow-requests__avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.bn-follow-requests__id {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+.bn-follow-requests__name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	text-decoration: none;
+	line-height: 1.2;
+}
+.bn-follow-requests__name:hover { color: var(--bn-accent); }
+.bn-follow-requests__handle {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin-top: 2px;
+}
+.bn-follow-requests__actions {
+	display: inline-flex;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
 /* Blocked & muted lists in the profile-edit Privacy → Relations card.
    Each row is avatar + name + handle + ghost "Unblock"/"Unmute" button. */
 .bn-ep-relations { display: flex; flex-direction: column; gap: 16px; }

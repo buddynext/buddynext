@@ -46,6 +46,9 @@ $blocks_svc = buddynext_service( 'blocks' );
 $all_ids = $follow_svc->followers( $user_id );
 $total   = count( $all_ids );
 
+// Pending follow requests — only the owner sees them.
+$pending_ids = $is_own_profile ? $follow_svc->pending_followers( $user_id ) : array();
+
 // Filter out blocked relationships for the viewer (defensive — same rule as REST).
 if ( $current_user_id > 0 ) {
 	$all_ids = array_values(
@@ -98,6 +101,71 @@ do_action( 'buddynext_profile_followers_before', (int) $user_id );
 			<?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Back to profile', 'buddynext' ); ?>
 		</a>
 	</div>
+
+	<?php if ( ! empty( $pending_ids ) ) : ?>
+		<section class="bn-follow-requests" aria-labelledby="bn-follow-requests-title">
+			<header class="bn-follow-requests__head">
+				<h2 id="bn-follow-requests-title" class="bn-follow-requests__title">
+					<?php
+					printf(
+						/* translators: %d: number of pending follow requests */
+						esc_html( _n( 'Pending request', 'Pending requests', count( $pending_ids ), 'buddynext' ) ) . ' <span class="bn-follow-requests__count">%d</span>',
+						(int) count( $pending_ids )
+					);
+					?>
+				</h2>
+				<p class="bn-follow-requests__sub">
+					<?php esc_html_e( 'Your account is private. Approve who can see your posts.', 'buddynext' ); ?>
+				</p>
+			</header>
+
+			<ul class="bn-follow-requests__list" role="list">
+				<?php foreach ( $pending_ids as $req_id ) :
+					$req_id   = (int) $req_id;
+					$req_user = get_userdata( $req_id );
+					if ( ! $req_user ) { continue; }
+					$req_name   = $req_user->display_name;
+					$req_handle = '@' . $req_user->user_nicename;
+					$req_avatar = get_avatar_url( $req_id, array( 'size' => 96 ) );
+					$req_url    = PageRouter::profile_url( $req_id );
+					$req_ctx    = wp_json_encode( array(
+						'followerId' => $req_id,
+						'targetName' => $req_user->user_nicename,
+						'hidden'     => false,
+						'busy'       => false,
+						'restUrl'    => rest_url( 'buddynext/v1' ),
+						'nonce'      => wp_create_nonce( 'wp_rest' ),
+					) );
+					?>
+					<li class="bn-follow-requests__row"
+						data-wp-interactive="buddynext/follow-requests"
+						data-wp-context='<?php echo esc_attr( (string) $req_ctx ); ?>'
+						data-wp-bind--hidden="state.rowHidden"
+					>
+						<a href="<?php echo esc_url( $req_url ); ?>" class="bn-follow-requests__avatar" aria-hidden="true" tabindex="-1">
+							<img src="<?php echo esc_attr( $req_avatar ); ?>" alt="" loading="lazy" />
+						</a>
+						<div class="bn-follow-requests__id">
+							<a href="<?php echo esc_url( $req_url ); ?>" class="bn-follow-requests__name"><?php echo esc_html( $req_name ); ?></a>
+							<span class="bn-follow-requests__handle"><?php echo esc_html( $req_handle ); ?></span>
+						</div>
+						<div class="bn-follow-requests__actions">
+							<button type="button"
+								class="bn-btn bn-btn--sm"
+								data-variant="ghost"
+								data-wp-on--click="actions.reject"
+							><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
+							<button type="button"
+								class="bn-btn bn-btn--sm bn-btn--primary"
+								data-variant="primary"
+								data-wp-on--click="actions.approve"
+							><?php esc_html_e( 'Approve', 'buddynext' ); ?></button>
+						</div>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		</section>
+	<?php endif; ?>
 
 	<?php if ( $total > 5 ) : ?>
 		<label class="bn-connections-search">

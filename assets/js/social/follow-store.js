@@ -127,6 +127,56 @@ store( 'buddynext/follow-button', {
 	},
 } );
 
+/* -- Follow-request inbox store ---------------------------------------- */
+/* Drives the per-row Approve / Reject buttons on the followers page
+ * pending-requests section (templates/profile/followers.php). Each row
+ * is its own Interactivity context with a followerId — the store hides
+ * the row after a successful action and emits a toast either way. */
+
+store( 'buddynext/follow-requests', {
+	state: {
+		get rowHidden() { return !! getContext().hidden; },
+	},
+	actions: {
+		async approve( event ) {
+			const ctx = getContext();
+			if ( ctx.busy || ctx.hidden ) { return; }
+			ctx.busy = true;
+			try {
+				const res = await fetch( apiUrl( ctx, '/me/follow-requests/' + ctx.followerId + '/approve' ), {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				} );
+				if ( ! res.ok ) { throw new Error( 'approve_failed_' + res.status ); }
+				ctx.hidden = true;
+				bnToast( '@' + ( ctx.targetName || ctx.followerId ) + ' can now follow you', { tone: 'success' } );
+			} catch ( _e ) {
+				bnToast( 'Could not approve request. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.busy = false;
+			}
+		},
+		async reject( event ) {
+			const ctx = getContext();
+			if ( ctx.busy || ctx.hidden ) { return; }
+			ctx.busy = true;
+			try {
+				const res = await fetch( apiUrl( ctx, '/me/follow-requests/' + ctx.followerId + '/reject' ), {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				} );
+				if ( ! res.ok ) { throw new Error( 'reject_failed_' + res.status ); }
+				ctx.hidden = true;
+				bnToast( 'Request from @' + ( ctx.targetName || ctx.followerId ) + ' declined', { tone: 'info' } );
+			} catch ( _e ) {
+				bnToast( 'Could not decline request. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.busy = false;
+			}
+		},
+	},
+} );
+
 /* -- Connection button store ------------------------------------------ */
 
 function connectionLabel( ctx ) {

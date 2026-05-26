@@ -42,8 +42,10 @@ if ( buddynext_service( 'blocks' )->is_blocking_either( $viewer_id, $user_id ) )
 	return;
 }
 
-$private_follow = ! empty( $private_follow );
-$is_following   = buddynext_service( 'follows' )->is_following( $viewer_id, $user_id );
+$follows        = buddynext_service( 'follows' );
+$private_follow = isset( $private_follow ) ? (bool) $private_follow : $follows->is_private_account( $user_id );
+$is_following   = $follows->is_following( $viewer_id, $user_id );
+$is_pending     = ! $is_following && $follows->has_pending_request( $viewer_id, $user_id );
 
 // Build the WP Interactivity API context object (esc_attr-escaped JSON string).
 $context_attr = esc_attr(
@@ -51,7 +53,7 @@ $context_attr = esc_attr(
 		array(
 			'userId'        => $user_id,
 			'isFollowing'   => $is_following,
-			'isPending'     => false,
+			'isPending'     => $is_pending,
 			'privateFollow' => $private_follow,
 			'nonce'         => wp_create_nonce( 'wp_rest' ),
 			'restUrl'       => rest_url( 'buddynext/v1' ),

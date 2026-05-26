@@ -512,6 +512,21 @@ class FeedService {
 
 		$per_page = min( $per_page, 50 );
 
+		// Private-account gate. The owner sees themselves; admins see
+		// everything; otherwise only approved followers see posts. Returns
+		// an empty payload so the profile activity tab shows its existing
+		// empty-state copy without leaking that the account has any posts.
+		if ( $viewer_id !== $profile_user_id
+			&& ! user_can( $viewer_id, 'manage_options' )
+			&& ! buddynext_service( 'privacy' )->can_view_activity( $viewer_id, $profile_user_id )
+		) {
+			return array(
+				'items'       => array(),
+				'next_cursor' => null,
+				'private'     => true,
+			);
+		}
+
 		/**
 		 * Filter the query args before SQL is built for the profile feed.
 		 *
