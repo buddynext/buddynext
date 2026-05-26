@@ -27,11 +27,8 @@ use BuddyNext\Notifications\NotificationPrefService;
 
 global $wpdb;
 
+// Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
-if ( ! $current_user_id ) {
-	wp_safe_redirect( wp_login_url( PageRouter::notification_prefs_url() ) );
-	exit;
-}
 
 // Resolve catalogue + stored prefs server-side so the initial render is fully
 // hydrated and a no-JS visit still shows every row with the correct state.

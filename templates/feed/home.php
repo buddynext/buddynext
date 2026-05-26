@@ -28,13 +28,8 @@ defined( 'ABSPATH' ) || exit;
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Feed\FeedService;
 
-// ── Guest gate ─────────────────────────────────────────────────────────────
+// Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
-if ( 0 === $current_user_id ) {
-	$auth_url = PageRouter::auth_url();
-	wp_safe_redirect( $auth_url );
-	exit;
-}
 
 global $wpdb;
 

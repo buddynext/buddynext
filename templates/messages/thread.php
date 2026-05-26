@@ -25,10 +25,7 @@ declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
-if ( ! is_user_logged_in() ) {
-	wp_safe_redirect( wp_login_url( get_permalink() ) );
-	exit;
-}
+// Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 
 // ── WPMediaVerse dependency check ─────────────────────────────────────────────
 $mvs_active = class_exists( 'WPMediaVerse\Core\Plugin' );

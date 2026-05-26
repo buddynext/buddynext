@@ -19,10 +19,7 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-if ( ! is_user_logged_in() ) {
-	wp_safe_redirect( wp_login_url( \BuddyNext\Core\PageRouter::messages_url() ) );
-	exit;
-}
+// Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 
 // Detect WPMediaVerse via several signals so a single class-rename in the
 // upstream plugin does not break BuddyNext's dependency notice. We accept

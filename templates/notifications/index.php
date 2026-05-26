@@ -31,11 +31,8 @@ use BuddyNext\Notifications\NotificationMessageService;
 
 global $wpdb;
 
+// Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
-if ( ! $current_user_id ) {
-	wp_safe_redirect( wp_login_url( get_permalink() ) );
-	exit;
-}
 
 // Resolve active filter tab (sanitized).
 $allowed_filters = array( 'all', 'unread', 'mention', 'reaction', 'comment', 'follow', 'space', 'message' );

@@ -28,12 +28,8 @@ use BuddyNext\SocialGraph\FollowService;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
 
-// ── Guest gate ─────────────────────────────────────────────────────────────
+// Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
-if ( 0 === $current_user_id ) {
-	wp_safe_redirect( PageRouter::auth_url() );
-	exit;
-}
 
 global $wpdb;
 

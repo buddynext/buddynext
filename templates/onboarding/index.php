@@ -19,23 +19,13 @@
 
 declare(strict_types=1);
 
-// Must be logged in.
+// Guest gate and "already completed" redirect are enforced upstream in
+// PageRouter::dispatch_hub_template() so they fire before wp_head().
 $ob_user_id = get_current_user_id();
-if ( ! $ob_user_id ) {
-	wp_safe_redirect( wp_login_url( get_permalink() ) );
-	exit;
-}
 
 $ob_user = get_userdata( $ob_user_id );
 if ( ! $ob_user ) {
 	wp_die( esc_html__( 'User not found.', 'buddynext' ) );
-}
-
-// Already completed onboarding?
-$onboarding_done = (bool) get_user_meta( $ob_user_id, 'bn_onboarding_complete', true );
-if ( $onboarding_done && ! isset( $_GET['redo'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-	wp_safe_redirect( \BuddyNext\Core\PageRouter::activity_url() );
-	exit;
 }
 
 global $wpdb;

@@ -165,6 +165,37 @@ class PageRouter {
 			}
 		}
 
+		// Login-required hubs: redirect logged-out visitors to /auth/login/
+		// BEFORE any output starts. Previously each template handled this
+		// itself, but a template runs after wp_head() has emitted CSS, so
+		// the late wp_safe_redirect() produced "headers already sent"
+		// warnings. Doing it here keeps the redirect clean and routes every
+		// gated surface to BN's auth page (not WP's wp-login.php).
+		if ( ! is_user_logged_in() ) {
+			$feed_section          = (string) get_query_var( 'bn_feed_section', '' );
+			$guarded_feed_sections = array( '', 'home', 'bookmarks', 'saved' );
+			$needs_login           =
+				in_array( $hub, array( 'messages', 'notifications', 'onboarding' ), true )
+				|| ( 'feed' === $hub && in_array( $feed_section, $guarded_feed_sections, true ) );
+
+			if ( $needs_login ) {
+				wp_safe_redirect( self::auth_url() );
+				exit;
+			}
+		}
+
+		// Onboarding hub: skip the wizard when the user has already finished
+		// it. The `?redo=1` query keeps the back-door so admins can re-run
+		// the wizard on their own account. Mirrors the gate above so the
+		// redirect runs before any template output.
+		if ( 'onboarding' === $hub && is_user_logged_in() ) {
+			$redo = isset( $_GET['redo'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			if ( ! $redo && (bool) get_user_meta( get_current_user_id(), 'bn_onboarding_complete', true ) ) {
+				wp_safe_redirect( self::activity_url() );
+				exit;
+			}
+		}
+
 		// ── Virtual page setup ────────────────────────────────────────────
 		// No backing WordPress pages exist. Tell WP this is a real page so
 		// it sends 200, generates correct <title>, and themes render their

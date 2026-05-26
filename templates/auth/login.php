@@ -175,14 +175,12 @@ $signup_url = home_url( '/' . (string) get_option( 'buddynext_slug_signup', 'sig
 					</div>
 				<?php endif; ?>
 
-				<?php if ( $registration_open ) : ?>
-					<div class="bn-auth-foot">
-						<?php esc_html_e( 'New here?', 'buddynext' ); ?>
-						<a href="<?php echo esc_url( $signup_url ); ?>">
-							<?php esc_html_e( 'Create an account', 'buddynext' ); ?>
-						</a>
-					</div>
-				<?php endif; ?>
+				<div class="bn-auth-foot">
+					<?php esc_html_e( 'New here?', 'buddynext' ); ?>
+					<a href="<?php echo esc_url( $signup_url ); ?>">
+						<?php esc_html_e( 'Create an account', 'buddynext' ); ?>
+					</a>
+				</div>
 			</section>
 		</div>
 	</div>
