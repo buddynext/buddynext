@@ -401,7 +401,19 @@ class WPMediaVerseBridge {
 		 */
 		do_action( 'buddynext_dm_sent', $sender_id, $message_id, $conversation_id, $clean_recipients );
 
+		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
+
 		foreach ( $clean_recipients as $recipient_id ) {
+			// Restrict gate. WPMV writes the message either way — sender
+			// doesn't know they're restricted — but BN won't badge the
+			// recipient's bell, fire the recipient-side adapter event, or
+			// push to their notification feed. The message still sits in
+			// the WPMV inbox; the recipient can find it manually if they
+			// look, but no signal interrupts them.
+			if ( $blocks && $blocks->is_restricted( $recipient_id, $sender_id ) ) {
+				continue;
+			}
+
 			$service->create(
 				array(
 					'recipient_id' => $recipient_id,
