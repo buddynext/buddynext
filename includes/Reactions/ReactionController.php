@@ -77,6 +77,35 @@ class ReactionController {
 				),
 			)
 		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/reactions/list',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'list_reactors' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'object_type' => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'object_id'   => array(
+						'required' => true,
+						'type'     => 'integer',
+						'minimum'  => 1,
+					),
+					'limit'       => array(
+						'required' => false,
+						'type'     => 'integer',
+						'default'  => 100,
+						'minimum'  => 1,
+						'maximum'  => 100,
+					),
+				),
+			)
+		);
 	}
 
 	/**
@@ -126,6 +155,41 @@ class ReactionController {
 		}
 
 		return new WP_REST_Response( $data, 200 );
+	}
+
+	/**
+	 * Return the list of users who reacted to an object, with their emoji
+	 * and a hydrated display name + avatar URL for direct UI consumption.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function list_reactors( WP_REST_Request $request ): WP_REST_Response {
+		$service     = new ReactionService();
+		$object_type = (string) $request->get_param( 'object_type' );
+		$object_id   = (int) $request->get_param( 'object_id' );
+		$limit       = (int) $request->get_param( 'limit' );
+
+		$raw = $service->get_reactors( $object_type, $object_id, $limit );
+
+		$items = array();
+		foreach ( $raw as $row ) {
+			$items[] = array(
+				'user_id'      => $row['user_id'],
+				'display_name' => (string) get_the_author_meta( 'display_name', $row['user_id'] ),
+				'avatar_url'   => (string) get_avatar_url( $row['user_id'], array( 'size' => 32 ) ),
+				'emoji'        => $row['emoji'],
+				'created_at'   => $row['created_at'],
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'items' => $items,
+				'total' => $service->count( $object_type, $object_id ),
+			),
+			200
+		);
 	}
 
 	/**

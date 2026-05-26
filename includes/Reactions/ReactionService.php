@@ -337,6 +337,50 @@ class ReactionService {
 	}
 
 	/**
+	 * Return the list of users who reacted to an object, with their emoji.
+	 *
+	 * Powers the FB-style "who reacted" popover. Ordered newest-first
+	 * so the most recent reactor is at the top, capped at 100 rows to
+	 * keep the payload reasonable on viral posts (admins can extend via
+	 * the `buddynext_reactors_limit` filter if needed).
+	 *
+	 * @param string $object_type Object type ('post' or 'comment').
+	 * @param int    $object_id   Object ID.
+	 * @param int    $limit       Optional. Max rows. Default 100.
+	 * @return array<int,array{user_id:int,emoji:string,created_at:string}>
+	 */
+	public function get_reactors( string $object_type, int $object_id, int $limit = 100 ): array {
+		$limit = max( 1, min( 100, $limit ) );
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT user_id, emoji, created_at FROM {$wpdb->prefix}bn_reactions
+				 WHERE object_type = %s AND object_id = %d
+				 ORDER BY created_at DESC, id DESC
+				 LIMIT %d",
+				sanitize_key( $object_type ),
+				$object_id,
+				$limit
+			),
+			ARRAY_A
+		);
+
+		$out = array();
+		foreach ( (array) $rows as $row ) {
+			$out[] = array(
+				'user_id'    => (int) $row['user_id'],
+				'emoji'      => (string) $row['emoji'],
+				'created_at' => (string) $row['created_at'],
+			);
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Return the emoji a user reacted with, or null if they have not reacted.
 	 *
 	 * @param int    $user_id     User to check.

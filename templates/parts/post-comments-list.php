@@ -63,6 +63,16 @@ $bn_class   = trim(
 
 do_action( 'buddynext_part_post_comments_list_before', $args );
 ?>
-<div class="<?php echo esc_attr( $bn_class ); ?>" data-comment-list="<?php echo absint( $args['bn_post_id'] ); ?>"></div>
+<?php
+// Resolve the colored Fluent Emoji vendor base once per post. The
+// comment-builder JS reads this attribute to render reaction
+// pickers without round-tripping to PHP per node.
+$bn_emoji_base = plugins_url( 'assets/emoji/', dirname( __DIR__, 1 ) );
+?>
+<div
+	class="<?php echo esc_attr( $bn_class ); ?>"
+	data-comment-list="<?php echo absint( $args['bn_post_id'] ); ?>"
+	data-emoji-base="<?php echo esc_attr( trailingslashit( $bn_emoji_base ) ); ?>"
+></div>
 <?php
 do_action( 'buddynext_part_post_comments_list_after', $args );

@@ -110,55 +110,153 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	const canReply    = currentUserId > 0 && ! comment.is_deleted && cappedDepth < COMMENT_MAX_DEPTH;
 	const canReport   = currentUserId > 0 && ! isOwn && ! comment.is_deleted;
 
-	// Like button — heart toggles on the comment object via /reactions/like.
-	let likeBtn = null;
+	// React button — opens a 6-emoji picker on hover or click. Matches the
+	// post-card reaction picker (templates/parts/post-actions.php). Emoji
+	// SVGs are served from the vendor base URL exposed on the
+	// .bn-comment-list[data-emoji-base] attribute (set by
+	// templates/parts/post-comments-list.php).
+	let reactBtn = null;
 	if ( ! comment.is_deleted ) {
-		likeBtn = document.createElement( 'button' );
-		likeBtn.type = 'button';
-		likeBtn.className = 'bn-comment__like-btn';
-		likeBtn.dataset.liked = comment.viewer_liked ? '1' : '0';
-		likeBtn.setAttribute( 'aria-pressed', comment.viewer_liked ? 'true' : 'false' );
-		const heart = document.createElement( 'span' );
-		heart.className = 'bn-comment__like-icon';
-		heart.textContent = comment.viewer_liked ? '♥' : '♡';
-		const likeCount = document.createElement( 'span' );
-		likeCount.className = 'bn-comment__like-count';
-		likeCount.textContent = String( comment.like_count || 0 );
-		likeBtn.appendChild( heart );
-		likeBtn.appendChild( document.createTextNode( ' ' ) );
-		likeBtn.appendChild( likeCount );
-		likeBtn.addEventListener( 'click', async () => {
+		// Resolve the colored Fluent Emoji vendor base via the comment-list
+		// container keyed by postId. wrap.closest() can't be used here
+		// because the wrap is not yet attached to the DOM at this point.
+		const list      = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
+		const emojiBase = list ? list.dataset.emojiBase : '';
+		const REACTIONS = [ 'like', 'love', 'haha', 'wow', 'sad', 'angry' ];
+		const REACTION_LABELS = {
+			like: 'Like', love: 'Love', haha: 'Haha', wow: 'Wow', sad: 'Sad', angry: 'Angry',
+		};
+
+		const setReactionIcon = ( parent, type ) => {
+			parent.replaceChildren();
+			if ( type && emojiBase ) {
+				const img = document.createElement( 'img' );
+				img.src = emojiBase + type + '.svg';
+				img.alt = REACTION_LABELS[ type ] || '';
+				img.width = 16;
+				img.height = 16;
+				parent.appendChild( img );
+			} else {
+				parent.textContent = '♡';
+			}
+		};
+
+		const wrapBtn = document.createElement( 'span' );
+		wrapBtn.className = 'bn-comment__react-wrap';
+
+		reactBtn = document.createElement( 'button' );
+		reactBtn.type = 'button';
+		reactBtn.className = 'bn-comment__like-btn';
+		reactBtn.dataset.reaction = comment.viewer_liked ? ( comment.viewer_reaction || 'like' ) : '';
+		reactBtn.setAttribute( 'aria-pressed', comment.viewer_liked ? 'true' : 'false' );
+
+		const reactIcon = document.createElement( 'span' );
+		reactIcon.className = 'bn-comment__like-icon';
+		setReactionIcon( reactIcon, reactBtn.dataset.reaction );
+
+		const reactLabel = document.createElement( 'span' );
+		reactLabel.className = 'bn-comment__like-label';
+		reactLabel.textContent = reactBtn.dataset.reaction
+			? ( REACTION_LABELS[ reactBtn.dataset.reaction ] || 'React' )
+			: 'React';
+
+		const reactCount = document.createElement( 'span' );
+		reactCount.className = 'bn-comment__like-count';
+		reactCount.textContent = String( comment.like_count || 0 );
+
+		reactBtn.appendChild( reactIcon );
+		reactBtn.appendChild( document.createTextNode( ' ' ) );
+		reactBtn.appendChild( reactLabel );
+		reactBtn.appendChild( document.createTextNode( ' ' ) );
+		reactBtn.appendChild( reactCount );
+
+		// 6-emoji picker dropdown.
+		const picker = document.createElement( 'div' );
+		picker.className = 'bn-comment__react-picker';
+		picker.hidden = true;
+		picker.setAttribute( 'role', 'toolbar' );
+		picker.setAttribute( 'aria-label', 'Choose reaction' );
+		REACTIONS.forEach( ( type ) => {
+			const opt = document.createElement( 'button' );
+			opt.type = 'button';
+			opt.className = 'bn-comment__react-option';
+			opt.setAttribute( 'aria-label', REACTION_LABELS[ type ] );
+			opt.title = REACTION_LABELS[ type ];
+			opt.dataset.reaction = type;
+			if ( emojiBase ) {
+				const img = document.createElement( 'img' );
+				img.src = emojiBase + type + '.svg';
+				img.alt = REACTION_LABELS[ type ];
+				img.width = 28;
+				img.height = 28;
+				opt.appendChild( img );
+			} else {
+				opt.textContent = REACTION_LABELS[ type ];
+			}
+			opt.addEventListener( 'click', () => sendReaction( type ) );
+			picker.appendChild( opt );
+		} );
+
+		wrapBtn.appendChild( reactBtn );
+		wrapBtn.appendChild( picker );
+
+		let hoverTimer = null;
+		const openPicker  = () => { clearTimeout( hoverTimer ); picker.hidden = false; };
+		const closePicker = () => { hoverTimer = setTimeout( () => { picker.hidden = true; }, 200 ); };
+		wrapBtn.addEventListener( 'mouseenter', openPicker );
+		wrapBtn.addEventListener( 'mouseleave', closePicker );
+		wrapBtn.addEventListener( 'focusin', openPicker );
+		wrapBtn.addEventListener( 'focusout', closePicker );
+
+		// Bare click on the react button = toggle like (no picker open).
+		reactBtn.addEventListener( 'click', ( e ) => {
+			if ( ! picker.hidden ) { return; }
+			e.preventDefault();
+			sendReaction( reactBtn.dataset.reaction ? null : 'like' );
+		} );
+
+		async function sendReaction( type ) {
 			if ( currentUserId <= 0 ) {
-				bnToast( 'Sign in to like comments.', { tone: 'info' } );
+				bnToast( 'Sign in to react to comments.', { tone: 'info' } );
 				return;
 			}
-			const wasLiked = likeBtn.dataset.liked === '1';
-			// Optimistic flip + rollback on error.
-			const nextLiked = ! wasLiked;
-			likeBtn.dataset.liked = nextLiked ? '1' : '0';
-			likeBtn.setAttribute( 'aria-pressed', nextLiked ? 'true' : 'false' );
-			heart.textContent = nextLiked ? '♥' : '♡';
-			const cur = parseInt( likeCount.textContent || '0', 10 );
-			likeCount.textContent = String( Math.max( 0, cur + ( nextLiked ? 1 : -1 ) ) );
+			picker.hidden = true;
+			const prev = reactBtn.dataset.reaction;
+			const next = ( null === type || prev === type ) ? '' : type;
+			// Optimistic UI.
+			reactBtn.dataset.reaction = next;
+			reactBtn.setAttribute( 'aria-pressed', next ? 'true' : 'false' );
+			setReactionIcon( reactIcon, next );
+			reactLabel.textContent = next ? ( REACTION_LABELS[ next ] || 'React' ) : 'React';
+			const cur = parseInt( reactCount.textContent || '0', 10 );
+			let delta = 0;
+			if ( ! prev && next ) { delta = 1; }
+			else if ( prev && ! next ) { delta = -1; }
+			reactCount.textContent = String( Math.max( 0, cur + delta ) );
+
 			try {
 				const res = await fetch( restUrl + '/reactions/toggle', {
 					method:  'POST',
 					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
-					body:    JSON.stringify( { object_type: 'comment', object_id: comment.id, emoji: 'like' } ),
+					body:    JSON.stringify( {
+						object_type: 'comment',
+						object_id:   comment.id,
+						emoji:       next || prev || 'like',
+					} ),
 				} );
-				if ( ! res.ok ) {
-					throw new Error( 'reaction failed' );
-				}
+				if ( ! res.ok ) { throw new Error( 'reaction failed' ); }
 			} catch ( _e ) {
-				// Rollback.
-				likeBtn.dataset.liked = wasLiked ? '1' : '0';
-				likeBtn.setAttribute( 'aria-pressed', wasLiked ? 'true' : 'false' );
-				heart.textContent = wasLiked ? '♥' : '♡';
-				likeCount.textContent = String( cur );
-				bnToast( 'Could not update your like. Try again.', { tone: 'danger' } );
+				// Rollback to prev.
+				reactBtn.dataset.reaction = prev;
+				reactBtn.setAttribute( 'aria-pressed', prev ? 'true' : 'false' );
+				setReactionIcon( reactIcon, prev );
+				reactLabel.textContent = prev ? ( REACTION_LABELS[ prev ] || 'React' ) : 'React';
+				reactCount.textContent = String( cur );
+				bnToast( 'Could not update your reaction. Try again.', { tone: 'danger' } );
 			}
-		} );
-		actions.appendChild( likeBtn );
+		}
+
+		actions.appendChild( wrapBtn );
 	}
 
 	// Reply button.
@@ -2360,4 +2458,205 @@ if ( document.readyState === 'loading' ) {
 	document.addEventListener( 'DOMContentLoaded', initRealtimeNewPostsPill );
 } else {
 	initRealtimeNewPostsPill();
+}
+
+/*
+   Realtime comment indicator — listens for `bn:realtime:comment-added`
+   events dispatched by Pro's RealtimeDispatcher when Soketi delivers
+   a `comment.added` message. If the affected post's comment thread
+   is currently open in this tab, increments a discreet "N new" badge
+   above the comment list; click fetches and prepends.
+
+   No-op when no realtime layer is active or the thread isn't open.
+   ---------------------------------------------------------------- */
+function initRealtimeCommentIndicator() {
+	document.addEventListener( 'bn:realtime:comment-added', ( e ) => {
+		const postId      = parseInt( e.detail?.post_id, 10 );
+		const commenterId = parseInt( e.detail?.user_id, 10 );
+		if ( ! postId ) { return; }
+		const list = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
+		if ( ! list || list.children.length === 0 ) {
+			// Thread not open yet — when the user opens it, the freshest
+			// list will be fetched from REST and the new comment will be
+			// included naturally. No need to do anything here.
+			return;
+		}
+		// Skip the viewer's own comment (already inserted optimistically
+		// by submitComment). Resolve current user via the closest
+		// post-card context.
+		const card = list.closest( '[data-wp-interactive="buddynext/post-card"]' );
+		if ( card ) {
+			try {
+				const ctx = JSON.parse( card.dataset.wpContext || '{}' );
+				if ( parseInt( ctx.currentUserId, 10 ) === commenterId ) { return; }
+			} catch ( _e ) {}
+		}
+
+		let pill = list.previousElementSibling;
+		if ( ! pill || ! pill.classList.contains( 'bn-comment-new-pill' ) ) {
+			pill = document.createElement( 'button' );
+			pill.type = 'button';
+			pill.className = 'bn-comment-new-pill';
+			pill.setAttribute( 'role', 'status' );
+			pill.setAttribute( 'aria-live', 'polite' );
+			pill.dataset.count = '0';
+			pill.addEventListener( 'click', () => {
+				// Trigger a refetch of the thread by clicking the comment
+				// toggle twice (close + reopen). Cheap and reliable.
+				const cardEl    = list.closest( '[data-wp-interactive="buddynext/post-card"]' );
+				const commentTriggers = cardEl?.querySelectorAll( '[aria-label*="comment" i]' );
+				if ( commentTriggers && commentTriggers.length > 0 ) {
+					commentTriggers[ 0 ].click();
+					setTimeout( () => commentTriggers[ 0 ].click(), 50 );
+				} else {
+					window.location.reload();
+				}
+				pill.remove();
+			} );
+			list.parentElement.insertBefore( pill, list );
+		}
+		const n = parseInt( pill.dataset.count, 10 ) + 1;
+		pill.dataset.count = String( n );
+		pill.textContent = n === 1 ? '1 new comment — show' : `${ n } new comments — show`;
+	} );
+}
+
+if ( document.readyState === 'loading' ) {
+	document.addEventListener( 'DOMContentLoaded', initRealtimeCommentIndicator );
+} else {
+	initRealtimeCommentIndicator();
+}
+
+/*
+   Reactors popover — opens an FB-style "people who reacted" panel
+   when the user clicks the per-emoji summary chip on a post card.
+   Fetches /reactions/list with limit=100. Lazy-builds the popover
+   once and re-uses the same DOM node, repositioning it for each
+   trigger. Click-outside or Escape closes.
+   ---------------------------------------------------------------- */
+function initReactorsPopover() {
+	const REST_BASE = ( window.wpApiSettings?.root || '/wp-json/' ) + 'buddynext/v1';
+	let panel = null;
+	let activeTrigger = null;
+
+	const ensurePanel = () => {
+		if ( panel ) { return panel; }
+		panel = document.createElement( 'div' );
+		panel.className = 'bn-reactors-popover';
+		panel.setAttribute( 'role', 'dialog' );
+		panel.setAttribute( 'aria-label', 'People who reacted' );
+		panel.hidden = true;
+		document.body.appendChild( panel );
+		return panel;
+	};
+
+	const closePanel = () => {
+		if ( panel ) { panel.hidden = true; }
+		activeTrigger = null;
+	};
+
+	const positionPanel = ( trigger ) => {
+		const r = trigger.getBoundingClientRect();
+		panel.style.position = 'absolute';
+		panel.style.top      = ( window.scrollY + r.bottom + 6 ) + 'px';
+		panel.style.left     = ( window.scrollX + r.left ) + 'px';
+	};
+
+	const renderList = ( items, total ) => {
+		const header = document.createElement( 'div' );
+		header.className = 'bn-reactors-popover__head';
+		header.textContent = total === 1 ? '1 reaction' : `${ total } reactions`;
+
+		const list = document.createElement( 'ul' );
+		list.className = 'bn-reactors-popover__list';
+		items.forEach( ( r ) => {
+			const li = document.createElement( 'li' );
+			li.className = 'bn-reactors-popover__item';
+			if ( r.avatar_url ) {
+				const img = document.createElement( 'img' );
+				img.src = r.avatar_url;
+				img.alt = '';
+				img.width = 32;
+				img.height = 32;
+				img.className = 'bn-reactors-popover__avatar';
+				li.appendChild( img );
+			}
+			const name = document.createElement( 'span' );
+			name.className = 'bn-reactors-popover__name';
+			name.textContent = r.display_name || `User #${ r.user_id }`;
+			li.appendChild( name );
+
+			// Emoji badge — pull from the same vendor base as the comment
+			// builder. We look up the closest comment-list ancestor of any
+			// open thread; if none, the emoji is omitted (graceful fallback).
+			const emojiBase = document.querySelector( '[data-emoji-base]' )?.dataset.emojiBase;
+			if ( r.emoji && emojiBase ) {
+				const img = document.createElement( 'img' );
+				img.src = emojiBase + r.emoji + '.svg';
+				img.alt = r.emoji;
+				img.width = 18;
+				img.height = 18;
+				img.className = 'bn-reactors-popover__emoji';
+				li.appendChild( img );
+			}
+
+			list.appendChild( li );
+		} );
+
+		panel.replaceChildren();
+		panel.appendChild( header );
+		panel.appendChild( list );
+	};
+
+	document.addEventListener( 'click', async ( e ) => {
+		const trigger = e.target.closest( '[data-bn-reactors]' );
+		if ( ! trigger ) {
+			// Outside-click on an open panel closes it.
+			if ( panel && ! panel.hidden && ! e.target.closest( '.bn-reactors-popover' ) ) {
+				closePanel();
+			}
+			return;
+		}
+		e.preventDefault();
+		if ( activeTrigger === trigger && panel && ! panel.hidden ) {
+			closePanel();
+			return;
+		}
+		activeTrigger = trigger;
+		ensurePanel();
+		const objectType = trigger.dataset.bnObjectType || 'post';
+		const objectId   = trigger.dataset.bnObjectId   || '0';
+		panel.replaceChildren();
+		const loading = document.createElement( 'div' );
+		loading.className = 'bn-reactors-popover__loading';
+		loading.textContent = 'Loading…';
+		panel.appendChild( loading );
+		panel.hidden = false;
+		positionPanel( trigger );
+		try {
+			const url = `${ REST_BASE }/reactions/list?object_type=${ encodeURIComponent( objectType ) }&object_id=${ encodeURIComponent( objectId ) }&limit=100`;
+			const r = await fetch( url, { credentials: 'include' } );
+			const data = await r.json();
+			renderList( data.items || [], data.total || ( data.items || [] ).length );
+			positionPanel( trigger );
+		} catch ( _e ) {
+			panel.replaceChildren();
+			const err = document.createElement( 'div' );
+			err.className = 'bn-reactors-popover__error';
+			err.textContent = 'Could not load reactions. Try again.';
+			panel.appendChild( err );
+		}
+	} );
+
+	document.addEventListener( 'keydown', ( e ) => {
+		if ( e.key === 'Escape' ) { closePanel(); }
+	} );
+
+	window.addEventListener( 'resize', closePanel );
+}
+
+if ( document.readyState === 'loading' ) {
+	document.addEventListener( 'DOMContentLoaded', initReactorsPopover );
+} else {
+	initReactorsPopover();
 }

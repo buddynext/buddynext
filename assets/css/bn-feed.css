@@ -1396,13 +1396,71 @@
 .bn-comment__pin-btn:hover { color: var(--bn-accent); }
 .bn-comment__report-btn:hover { color: var(--bn-danger); }
 
-.bn-comment__like-btn[data-liked="1"] {
-	color: var(--bn-danger);
+.bn-comment__like-btn[data-reaction] {
+	color: var(--bn-accent);
+	font-weight: 600;
 }
+.bn-comment__like-btn[data-reaction="love"]  { color: var(--bn-danger); }
+.bn-comment__like-btn[data-reaction="angry"] { color: var(--bn-danger); }
+.bn-comment__like-btn[data-reaction="haha"]  { color: var(--bn-warn); }
+.bn-comment__like-btn[data-reaction="wow"]   { color: var(--bn-warn); }
+.bn-comment__like-btn[data-reaction="sad"]   { color: var(--bn-accent); }
 
 .bn-comment__like-icon {
 	font-size: var(--bn-text-base);
 	line-height: 1;
+	display: inline-flex;
+	align-items: center;
+}
+.bn-comment__like-icon img {
+	width: 16px;
+	height: 16px;
+	display: block;
+}
+
+/* Comment reaction picker — mirrors the post-card picker but smaller
+   (24px emoji vs 28px). Hover-reveals on the .bn-comment__react-wrap
+   container with the same FB-style bounce on each emoji button. */
+.bn-comment__react-wrap {
+	position: relative;
+	display: inline-flex;
+}
+.bn-comment__react-picker {
+	position: absolute;
+	inset-block-end: calc(100% + 6px);
+	inset-inline-start: 0;
+	display: flex;
+	gap: 2px;
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-full);
+	padding: 4px 8px;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+	z-index: 1000;
+	white-space: nowrap;
+}
+.bn-comment__react-picker[hidden] { display: none; }
+.bn-comment__react-option {
+	background: transparent;
+	border: 0;
+	cursor: pointer;
+	line-height: 0;
+	padding: 3px;
+	border-radius: 50%;
+	transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+	transform-origin: center bottom;
+}
+.bn-comment__react-option:hover {
+	transform: scale(1.4) translateY(-3px);
+}
+.bn-comment__react-option:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
+}
+.bn-comment__react-option img {
+	width: 24px;
+	height: 24px;
+	display: block;
 }
 
 .bn-comment__edit-form {
@@ -1695,6 +1753,111 @@
 	color: var(--bn-accent);
 	text-decoration: underline;
 	text-underline-offset: 2px;
+}
+
+/* Reactor list popover — opens when a user clicks the per-emoji
+   summary chip on a post card. FB-style stacked list of avatars +
+   names + emoji badges. Single instance is reused across triggers
+   (the JS lazily creates it and re-positions per click). */
+.bn-reactors-popover {
+	position: absolute;
+	z-index: 1000;
+	min-inline-size: 260px;
+	max-inline-size: 340px;
+	max-block-size: 380px;
+	overflow: auto;
+	background: var(--bn-surface, #fff);
+	border: 1px solid var(--bn-line, #e5e7eb);
+	border-radius: var(--bn-r-md, 8px);
+	box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+.bn-reactors-popover[hidden] { display: none; }
+.bn-reactors-popover__head {
+	padding: 10px 12px;
+	border-block-end: 1px solid var(--bn-line);
+	font-size: var(--bn-text-sm);
+	font-weight: 600;
+	color: var(--bn-ink-2);
+}
+.bn-reactors-popover__list {
+	list-style: none;
+	margin: 0;
+	padding: 4px 0;
+}
+.bn-reactors-popover__item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+}
+.bn-reactors-popover__avatar {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+.bn-reactors-popover__name {
+	flex: 1;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+}
+.bn-reactors-popover__emoji {
+	width: 18px;
+	height: 18px;
+	flex-shrink: 0;
+}
+.bn-reactors-popover__loading,
+.bn-reactors-popover__error {
+	padding: 16px;
+	text-align: center;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+/* Summary trigger button — looks just like the existing chips group
+   but adds cursor:pointer + hover wash so it feels clickable. */
+.bn-post-card__reactors-trigger {
+	background: transparent;
+	border: 0;
+	padding: 0;
+	display: inline-flex;
+	gap: var(--bn-s2, 6px);
+	align-items: center;
+	cursor: pointer;
+	border-radius: var(--bn-r-md, 8px);
+	transition: background var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
+}
+.bn-post-card__reactors-trigger:hover {
+	background: var(--bn-sunken, color-mix(in oklab, var(--bn-accent) 6%, transparent));
+}
+.bn-post-card__reactors-trigger:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
+}
+
+/* Realtime "new comment" pill — appears above an open comment thread
+   when Pro Soketi delivers comment.added events from other users.
+   Smaller and inline (not sticky) since it lives inside a card. */
+.bn-comment-new-pill {
+	display: block;
+	margin: 0 0 8px;
+	padding: 6px 12px;
+	background: color-mix(in oklab, var(--bn-accent) 12%, transparent);
+	color: var(--bn-accent);
+	border: 0;
+	border-radius: var(--bn-r-md, 8px);
+	font-size: var(--text-sm);
+	font-weight: 500;
+	cursor: pointer;
+	text-align: start;
+	width: 100%;
+}
+.bn-comment-new-pill:hover {
+	background: color-mix(in oklab, var(--bn-accent) 20%, transparent);
+}
+.bn-comment-new-pill:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
 }
 
 /* Realtime "new posts" pill — appears above the feed when Pro Soketi
