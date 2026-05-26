@@ -344,22 +344,35 @@ class ReactionService {
 	 * keep the payload reasonable on viral posts (admins can extend via
 	 * the `buddynext_reactors_limit` filter if needed).
 	 *
+	 * Restrict gate: same rule as the comment list. On a post, any
+	 * reactor the post owner has restricted is dropped from the result
+	 * for every viewer except themselves (no signal), the owner (still
+	 * moderates), and admins. The raw count from get_counts() is not
+	 * adjusted — the badge stays factual.
+	 *
 	 * @param string $object_type Object type ('post' or 'comment').
 	 * @param int    $object_id   Object ID.
 	 * @param int    $limit       Optional. Max rows. Default 100.
+	 * @param int    $viewer_id   Optional. Current viewer. Default get_current_user_id().
 	 * @return array<int,array{user_id:int,emoji:string,created_at:string}>
 	 */
-	public function get_reactors( string $object_type, int $object_id, int $limit = 100 ): array {
+	public function get_reactors( string $object_type, int $object_id, int $limit = 100, int $viewer_id = 0 ): array {
 		$limit = max( 1, min( 100, $limit ) );
+		if ( 0 === $viewer_id ) {
+			$viewer_id = get_current_user_id();
+		}
 
 		global $wpdb;
 
+		// bn_reactions has a composite PRIMARY KEY (user_id, object_type, object_id)
+		// and no `id` column, so order by created_at only — the old query
+		// referenced a non-existent `id` and was silently erroring out.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT user_id, emoji, created_at FROM {$wpdb->prefix}bn_reactions
 				 WHERE object_type = %s AND object_id = %d
-				 ORDER BY created_at DESC, id DESC
+				 ORDER BY created_at DESC
 				 LIMIT %d",
 				sanitize_key( $object_type ),
 				$object_id,
@@ -368,10 +381,37 @@ class ReactionService {
 			ARRAY_A
 		);
 
+		$restricted_ids = array();
+		$post_owner_id  = 0;
+		if ( 'post' === $object_type && function_exists( 'buddynext_service' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$post_owner_id = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+					$object_id
+				)
+			);
+			if ( $post_owner_id > 0 ) {
+				$restricted_ids = buddynext_service( 'blocks' )->restricted_users( $post_owner_id );
+			}
+		}
+		$is_owner = $viewer_id > 0 && $viewer_id === $post_owner_id;
+		$is_admin = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
+
 		$out = array();
 		foreach ( (array) $rows as $row ) {
+			$author_id = (int) $row['user_id'];
+			if (
+				! empty( $restricted_ids )
+				&& in_array( $author_id, $restricted_ids, true )
+				&& $author_id !== $viewer_id
+				&& ! $is_owner
+				&& ! $is_admin
+			) {
+				continue;
+			}
 			$out[] = array(
-				'user_id'    => (int) $row['user_id'],
+				'user_id'    => $author_id,
 				'emoji'      => (string) $row['emoji'],
 				'created_at' => (string) $row['created_at'],
 			);
