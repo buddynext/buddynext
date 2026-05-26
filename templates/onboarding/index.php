@@ -198,6 +198,8 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 
 	<div class="bn-ob-shell">
 
+		<div class="bn-ob-form">
+
 		<!-- Visual progress bar -->
 		<div class="bn-ob-progress" aria-label="<?php esc_attr_e( 'Onboarding progress', 'buddynext' ); ?>">
 			<div class="bn-progress"
@@ -615,6 +617,39 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		<div class="bn-ob-error" role="alert" aria-live="polite"
 			data-wp-bind--hidden="!state.error"
 			data-wp-text="state.error"></div>
+
+		</div><!-- /.bn-ob-form -->
+
+		<aside class="bn-ob-canvas" aria-hidden="true">
+			<div class="bn-ob-canvas__inner">
+				<blockquote class="bn-ob-canvas__quote">
+					<?php esc_html_e( 'Join people who actually want to talk about the things you care about.', 'buddynext' ); ?>
+				</blockquote>
+				<div class="bn-ob-canvas__cite">
+					<div class="bn-ob-canvas__cite-name"><?php esc_html_e( 'BuddyNext', 'buddynext' ); ?></div>
+					<div class="bn-ob-canvas__cite-role"><?php esc_html_e( 'Welcome to the community', 'buddynext' ); ?></div>
+				</div>
+
+				<div class="bn-ob-canvas__mock">
+					<div class="bn-ob-mock-card bn-ob-mock-card--tilt-l">
+						<div class="bn-ob-mock-emblem">D</div>
+						<div class="bn-ob-mock-info">
+							<div class="bn-ob-mock-name"><?php esc_html_e( 'Design', 'buddynext' ); ?></div>
+							<div class="bn-ob-mock-meta"><?php esc_html_e( '2,134 members', 'buddynext' ); ?></div>
+						</div>
+						<div class="bn-ob-mock-action"><?php esc_html_e( 'Join', 'buddynext' ); ?></div>
+					</div>
+					<div class="bn-ob-mock-card bn-ob-mock-card--tilt-r">
+						<div class="bn-ob-mock-emblem">W</div>
+						<div class="bn-ob-mock-info">
+							<div class="bn-ob-mock-name"><?php esc_html_e( 'Web Dev', 'buddynext' ); ?></div>
+							<div class="bn-ob-mock-meta"><?php esc_html_e( '8,902 members', 'buddynext' ); ?></div>
+						</div>
+						<div class="bn-ob-mock-action"><?php esc_html_e( 'Join', 'buddynext' ); ?></div>
+					</div>
+				</div>
+			</div>
+		</aside>
 
 	</div>
 

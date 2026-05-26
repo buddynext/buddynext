@@ -543,23 +543,150 @@
  * All values read from --bn-* v2 tokens in bn-base.css.
  * ────────────────────────────────────────────────────────────────────── */
 
-/* Page shell — full-height canvas, centered single-column card layout. */
+/* Page shell — full-bleed two-column grid per V2 onboarding mockup.
+   Form left, decorative canvas right. Mobile collapses to single column
+   and hides the canvas (the form is the only essential surface). */
 .bn-ob-wrap {
 	min-height: 100vh;
 	background: var(--bn-canvas);
 	color: var(--bn-ink);
 	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-base);
-	display: flex;
-	justify-content: center;
-	padding: var(--bn-s8) var(--bn-s4);
 }
 .bn-ob-shell {
-	width: 100%;
-	max-width: 640px;
+	min-height: 100vh;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+}
+.bn-ob-form {
+	background: var(--bn-surface);
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s6);
+	padding: var(--bn-s5) var(--bn-s7);
+	min-height: 100vh;
+}
+
+/* Decorative right column — radial wash + diagonal stripe overlay, with
+   a quote, a cite block, and a couple of tilted "mock space" cards at
+   the bottom. Mirrors V2's .ob-canvas to set tone, not for interaction. */
+.bn-ob-canvas {
+	position: relative;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	padding: var(--bn-s7);
+	background:
+		radial-gradient(circle at 25% 30%, color-mix(in oklch, var(--bn-accent) 20%, transparent), transparent 55%),
+		radial-gradient(circle at 80% 70%, color-mix(in oklch, oklch(60% 0.20 290) 18%, transparent), transparent 50%),
+		var(--bn-canvas);
+}
+.bn-ob-canvas::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: repeating-linear-gradient(-30deg, transparent 0 28px, color-mix(in oklch, var(--bn-ink) 4%, transparent) 28px 29px);
+	mix-blend-mode: multiply;
+	opacity: 0.55;
+	pointer-events: none;
+}
+.bn-ob-canvas__inner {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+.bn-ob-canvas__quote {
+	font-family: var(--bn-font-display, var(--bn-font-ui));
+	font-size: clamp(20px, 2.5vw, 28px);
+	line-height: 1.3;
+	font-weight: 600;
+	letter-spacing: -0.015em;
+	color: var(--bn-ink);
+	margin: var(--bn-s5) 0 0;
+	max-width: 460px;
+}
+.bn-ob-canvas__quote::before {
+	content: '"';
+	font-size: 1.4em;
+	font-weight: 700;
+	color: var(--bn-accent);
+	margin-right: 6px;
+	line-height: 0;
+}
+.bn-ob-canvas__cite {
+	margin-top: var(--bn-s4);
+}
+.bn-ob-canvas__cite-name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+.bn-ob-canvas__cite-role {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+}
+.bn-ob-canvas__mock {
+	margin-top: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+.bn-ob-mock-card {
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	padding: var(--bn-s3);
+	box-shadow: var(--bn-shadow-sm);
+	display: flex;
+	gap: var(--bn-s3);
+	align-items: center;
+	font-size: var(--bn-text-xs);
+}
+.bn-ob-mock-card--tilt-l { transform: rotate(-1.5deg); }
+.bn-ob-mock-card--tilt-r { transform: rotate(1deg); }
+.bn-ob-mock-emblem {
+	width: 36px;
+	height: 36px;
+	border-radius: var(--bn-r-sm);
+	background: linear-gradient(135deg, var(--bn-accent-100, color-mix(in oklch, var(--bn-accent) 20%, var(--bn-surface))), var(--bn-surface));
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 700;
+	color: var(--bn-accent);
+	font-size: 16px;
+	flex-shrink: 0;
+}
+.bn-ob-mock-info { flex: 1; min-width: 0; }
+.bn-ob-mock-name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+.bn-ob-mock-meta {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 10px;
+	color: var(--bn-ink-3);
+	margin-top: 1px;
+}
+.bn-ob-mock-action {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 10px;
+	color: var(--bn-accent);
+	font-weight: var(--bn-fw-semibold);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+@media (max-width: 960px) {
+	.bn-ob-shell { grid-template-columns: 1fr; }
+	.bn-ob-canvas { display: none; }
+}
+@media (max-width: 720px) {
+	.bn-ob-form { padding: var(--bn-s5) var(--bn-s4); }
 }
 
 /* Stepper — sits above the active step card. */
@@ -1035,10 +1162,6 @@
 	.bn-wizard__done-actions .bn-btn {
 		width: 100%;
 		justify-content: center;
-	}
-
-	.bn-ob-wrap {
-		padding: var(--bn-s5) var(--bn-s3);
 	}
 
 	.bn-ob-spaces {

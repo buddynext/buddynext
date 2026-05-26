@@ -465,7 +465,13 @@ class PageRouter {
 
 		// Auth surfaces (login, signup, verify-email) use a slim centered
 		// single-column shell — not the rail + main + sidebar feed shell.
-		$shell_template = ( 'auth' === $hub ) ? 'shell/auth-shell.php' : 'shell/hub-shell.php';
+		// Auth + onboarding share the slim, full-viewport shell — both are
+		// focused wizards the user must complete linearly and should not
+		// see the BN navigation rail while doing so. Every other hub uses
+		// the standard two-column hub shell with the navigation visible.
+		$shell_template = in_array( $hub, array( 'auth', 'onboarding' ), true )
+			? 'shell/auth-shell.php'
+			: 'shell/hub-shell.php';
 
 		get_header();
 		buddynext_get_template( $shell_template, $shell_context );
