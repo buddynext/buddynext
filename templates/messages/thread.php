@@ -153,10 +153,8 @@ $bn_avatar_tone = static function ( int $user_id ): int {
 	return ( $user_id % 8 ) + 1;
 };
 
-$online_threshold = time() - 300;
-$bn_is_online     = static function ( int $user_id ) use ( $online_threshold ): bool {
-	$last_active = (int) get_user_meta( $user_id, 'bn_last_active', true );
-	return $last_active >= $online_threshold;
+$bn_is_online = static function ( int $user_id ): bool {
+	return buddynext_service( 'blocks' )->is_user_online( get_current_user_id(), $user_id );
 };
 
 /**

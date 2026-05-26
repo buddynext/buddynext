@@ -192,11 +192,8 @@ $total_users = (int) $user_query->get_total();
 $total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-$online_threshold = time() - 300;
-
-$bn_is_online = static function ( int $user_id ) use ( $online_threshold ): bool {
-	$last_active = (int) get_user_meta( $user_id, 'bn_last_active', true );
-	return $last_active >= $online_threshold;
+$bn_is_online = static function ( int $user_id ) use ( $current_user_id ): bool {
+	return buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
 };
 
 $bn_initials = static function ( string $name ): string {

@@ -315,6 +315,40 @@ class BlockService {
 	}
 
 	/**
+	 * Return true when the target user appears online to the given viewer.
+	 *
+	 * Single seam for the four surfaces that decide whether to render a
+	 * green presence dot (member directory, profile hero, DM list rail,
+	 * DM thread header). Centralises the bn_last_active threshold so it
+	 * lives in one place, and applies the restrict gate: a user the
+	 * viewer has restricted always reads as offline so the viewer never
+	 * sees activity signals from them.
+	 *
+	 * The check is one-way. The restricted user themselves sees normal
+	 * presence dots — restrict is silent.
+	 *
+	 * @param int $viewer_id    Viewer (0 = anonymous, no restrict gate applied).
+	 * @param int $target_id    User whose presence is being checked.
+	 * @param int $threshold_s  Optional. Window in seconds. Default 300 (5 minutes).
+	 * @return bool
+	 */
+	public function is_user_online( int $viewer_id, int $target_id, int $threshold_s = 300 ): bool {
+		if ( $target_id <= 0 ) {
+			return false;
+		}
+
+		if ( $viewer_id > 0 && $viewer_id !== $target_id && $this->is_restricted( $viewer_id, $target_id ) ) {
+			return false;
+		}
+
+		$last_active = (int) get_user_meta( $target_id, 'bn_last_active', true );
+		if ( $last_active <= 0 ) {
+			return false;
+		}
+		return $last_active >= ( time() - $threshold_s );
+	}
+
+	/**
 	 * Check whether a block exists between two users (bidirectional).
 	 *
 	 * Returns true when user_a has blocked user_b OR user_b has blocked

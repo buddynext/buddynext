@@ -184,8 +184,7 @@ $member_spaces = $wpdb->get_results( $wpdb->prepare( "SELECT s.id, s.name, sm.ro
 
 $interests    = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'interests' ) ) ) );
 $completion   = $is_own_profile ? $profile_svc->get_completion_score( $user_id ) : null;
-$last_active  = (int) get_user_meta( $user_id, 'bn_last_active', true );
-$is_online    = $last_active && ( time() - $last_active ) < 300;
+$is_online    = buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
 $format_count = static fn( int $n ): string => $n >= 1000 ? round( $n / 1000, 1 ) . 'k' : (string) $n;
 
 // --- Sidebar widget hook (partial holds the markup) -----------------------

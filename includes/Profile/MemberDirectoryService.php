@@ -353,19 +353,18 @@ class MemberDirectoryService {
 			}
 		}
 
-		$items = array_map(
-			static function ( $r ) use ( $mutual_counts ) {
-				$uid         = (int) $r['ID'];
-				$bio         = get_user_meta( $uid, 'bn_field_bio', true );
-				$last_active = (int) get_user_meta( $uid, 'bn_last_active', true );
-				$is_online   = $last_active > ( time() - 300 );
+		$blocks = buddynext_service( 'blocks' );
+		$items  = array_map(
+			static function ( $r ) use ( $mutual_counts, $viewer_id, $blocks ) {
+				$uid = (int) $r['ID'];
+				$bio = get_user_meta( $uid, 'bn_field_bio', true );
 				return array(
 					'user_id'                 => $uid,
 					'display_name'            => $r['display_name'],
 					'avatar_url'              => get_avatar_url( $uid, array( 'size' => 96 ) ),
 					'registered_at'           => $r['user_registered'],
 					'bio'                     => $bio ? $bio : '',
-					'is_online'               => $is_online,
+					'is_online'               => $blocks->is_user_online( $viewer_id, $uid ),
 					'follower_count'          => (int) $r['follower_count'],
 					'mutual_connection_count' => $mutual_counts[ $uid ] ?? 0,
 				);
