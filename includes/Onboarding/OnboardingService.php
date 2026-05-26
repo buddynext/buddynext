@@ -8,10 +8,10 @@
  * WBGam points) do not fire twice.
  *
  * Steps:
- *   1. Display name + avatar + bio
- *   2. Pick interests (space category IDs)
- *   3. Join suggested spaces (handled by caller)
- *   4. Follow suggested people (handled by caller)
+ *   1. Profile — display name, handle, avatar, bio
+ *   2. Spaces — join recommended spaces (handled by caller)
+ *   3. People — follow suggested members (handled by caller)
+ *   4. Notifications — pick delivery channels (handled by caller)
  *
  * @package BuddyNext\Onboarding
  */
@@ -39,11 +39,6 @@ class OnboardingService {
 	 * User meta key for completion flag.
 	 */
 	private const META_COMPLETE = 'bn_onboarding_complete';
-
-	/**
-	 * User meta key for stored interest category IDs.
-	 */
-	private const META_INTERESTS = 'bn_onboarding_interests';
 
 	/**
 	 * Whether the user has completed onboarding.
@@ -76,21 +71,13 @@ class OnboardingService {
 	 * @return void
 	 */
 	public function save_step( int $user_id, int $step, array $data ): void {
-		switch ( $step ) {
-			case 1:
-				$this->save_step1( $user_id, $data );
-				break;
-			case 2:
-				$this->save_step2( $user_id, $data );
-				break;
-			case 3:
-				$this->save_step3( $user_id, $data );
-				break;
-			case 4:
-				$this->save_step4( $user_id, $data );
-				break;
-			default:
-				break;
+		// Step 1 is the only step whose data lands here (display name +
+		// bio). Step 2 (Spaces), Step 3 (People), and Step 4 (channels)
+		// each go through their own dedicated REST endpoints when the
+		// affordance is used, so this dispatcher only persists profile
+		// data and advances the saved-step pointer.
+		if ( 1 === $step ) {
+			$this->save_step1( $user_id, $data );
 		}
 		$next = min( self::TOTAL_STEPS, $step + 1 );
 		update_user_meta( $user_id, self::META_STEP, $next );
@@ -152,57 +139,11 @@ class OnboardingService {
 		}
 	}
 
-	/**
-	 * Save step 2 data (interest category IDs).
-	 *
-	 * @param int                  $user_id WordPress user ID.
-	 * @param array<string, mixed> $data    Step data — expects 'interest_ids' as int[].
-	 * @return void
-	 */
-	private function save_step2( int $user_id, array $data ): void {
-		$ids = array_map( 'absint', (array) ( $data['interest_ids'] ?? array() ) );
-		update_user_meta( $user_id, self::META_INTERESTS, $ids );
-	}
-
-	/**
-	 * Save step 3 data — join suggested spaces.
-	 *
-	 * @param int                  $user_id WordPress user ID.
-	 * @param array<string, mixed> $data    Step data — expects 'space_ids' as int[].
-	 * @return void
-	 */
-	private function save_step3( int $user_id, array $data ): void {
-		if ( ! function_exists( 'buddynext_service' ) ) {
-			return;
-		}
-		$space_members = buddynext_service( 'space_members' );
-		$space_ids     = array_map( 'absint', (array) ( $data['space_ids'] ?? array() ) );
-		foreach ( $space_ids as $space_id ) {
-			if ( $space_id > 0 ) {
-				$space_members->join( $space_id, $user_id );
-			}
-		}
-	}
-
-	/**
-	 * Save step 4 data — follow suggested members.
-	 *
-	 * @param int                  $user_id WordPress user ID.
-	 * @param array<string, mixed> $data    Step data — expects 'user_ids' as int[].
-	 * @return void
-	 */
-	private function save_step4( int $user_id, array $data ): void {
-		if ( ! function_exists( 'buddynext_service' ) ) {
-			return;
-		}
-		$follows  = buddynext_service( 'follows' );
-		$user_ids = array_map( 'absint', (array) ( $data['user_ids'] ?? array() ) );
-		foreach ( $user_ids as $follow_id ) {
-			if ( $follow_id > 0 && $follow_id !== $user_id ) {
-				$follows->follow( $user_id, $follow_id );
-			}
-		}
-	}
+	// Step 2 (Spaces) → joinSuggestedSpace REST call from JS.
+	// Step 3 (People) → followSuggestedUser REST call from JS.
+	// Step 4 (Notifications) → toggleChannel updates context; finish()
+	// PUTs /me/notification-channels. All three persist through their
+	// own endpoints, so save_step1 above is the only step handler.
 
 	// -------------------------------------------------------------------------
 	// Private helpers

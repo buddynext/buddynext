@@ -6,7 +6,6 @@
  *   POST /me/onboarding/step      — save data for the current step + advance.
  *   POST /me/onboarding/skip      — skip the wizard, mark complete.
  *   POST /me/onboarding/complete  — finalize the wizard with all step payloads.
- *   POST /me/interests            — save the interest tag list.
  *
  * @package BuddyNext\Onboarding
  */
@@ -80,21 +79,6 @@ class OnboardingController {
 			)
 		);
 
-		register_rest_route(
-			'buddynext/v1',
-			'/me/interests',
-			array(
-				'methods'             => 'POST',
-				'callback'            => array( $this, 'save_interests' ),
-				'permission_callback' => array( $this, 'require_auth' ),
-				'args'                => array(
-					'interests' => array(
-						'required' => false,
-						'type'     => 'array',
-					),
-				),
-			)
-		);
 	}
 
 	/**
@@ -136,7 +120,6 @@ class OnboardingController {
 	 * POST /me/onboarding/complete — finish the wizard.
 	 *
 	 * Body params:
-	 *   interests   — string[] of interest labels.
 	 *   spaces      — int[] of space IDs to join.
 	 *   user_ids    — int[] of users to follow.
 	 *
@@ -146,21 +129,8 @@ class OnboardingController {
 	public function complete( WP_REST_Request $request ): WP_REST_Response {
 		$user_id = get_current_user_id();
 
-		$interests = (array) $request->get_param( 'interests' );
-		$spaces    = (array) $request->get_param( 'spaces' );
-		$user_ids  = (array) $request->get_param( 'user_ids' );
-
-		if ( ! empty( $interests ) ) {
-			$labels = array_filter(
-				array_map(
-					static function ( $i ): string {
-						return sanitize_text_field( (string) $i );
-					},
-					$interests
-				)
-			);
-			update_user_meta( $user_id, 'bn_interests', implode( ',', $labels ) );
-		}
+		$spaces   = (array) $request->get_param( 'spaces' );
+		$user_ids = (array) $request->get_param( 'user_ids' );
 
 		if ( ! empty( $spaces ) && function_exists( 'buddynext_service' ) ) {
 			$space_members = buddynext_service( 'space_members' );
@@ -186,36 +156,6 @@ class OnboardingController {
 			array(
 				'completed'   => true,
 				'redirect_to' => \BuddyNext\Core\PageRouter::activity_url(),
-			),
-			200
-		);
-	}
-
-	/**
-	 * POST /me/interests — save selected interests.
-	 *
-	 * @param WP_REST_Request $request Request.
-	 * @return WP_REST_Response
-	 */
-	public function save_interests( WP_REST_Request $request ): WP_REST_Response {
-		$user_id   = get_current_user_id();
-		$interests = (array) $request->get_param( 'interests' );
-
-		$labels = array_filter(
-			array_map(
-				static function ( $i ): string {
-					return sanitize_text_field( (string) $i );
-				},
-				$interests
-			)
-		);
-
-		update_user_meta( $user_id, 'bn_interests', implode( ',', $labels ) );
-
-		return new WP_REST_Response(
-			array(
-				'saved'     => true,
-				'interests' => array_values( $labels ),
 			),
 			200
 		);

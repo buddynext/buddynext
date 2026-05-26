@@ -434,6 +434,92 @@
 	.bn-ob-spaces { grid-template-columns: 1fr; }
 }
 
+/* ── Channels (notifications step) ────────────────────────────────────── */
+
+.bn-ob-channels {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+.bn-ob-channel {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s3) var(--bn-s4);
+	background: var(--bn-canvas);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	cursor: pointer;
+	transition: border-color var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-ob-channel:hover { border-color: var(--bn-accent); }
+.bn-ob-channel[hidden] { display: none; }
+.bn-ob-channel__icon {
+	width: 36px;
+	height: 36px;
+	border-radius: var(--bn-r-sm);
+	background: color-mix(in oklch, var(--bn-accent) 12%, var(--bn-surface));
+	color: var(--bn-accent);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+.bn-ob-channel__icon svg { width: 18px; height: 18px; }
+.bn-ob-channel__body {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+.bn-ob-channel__name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+.bn-ob-channel__hint {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	line-height: 1.45;
+}
+/* Native checkbox styled as a toggle pill. The label wraps the input
+   so the entire row is clickable; the input itself is on the right. */
+.bn-ob-channel__toggle {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 38px;
+	height: 22px;
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	border-radius: 999px;
+	position: relative;
+	cursor: pointer;
+	flex-shrink: 0;
+	transition: background var(--bn-dur) var(--bn-ease), border-color var(--bn-dur) var(--bn-ease);
+}
+.bn-ob-channel__toggle::before {
+	content: '';
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 16px;
+	height: 16px;
+	background: var(--bn-surface);
+	border-radius: 50%;
+	box-shadow: 0 1px 2px color-mix(in oklch, var(--bn-ink) 18%, transparent);
+	transition: transform var(--bn-dur) var(--bn-ease);
+}
+.bn-ob-channel__toggle:checked {
+	background: var(--bn-accent);
+	border-color: var(--bn-accent);
+}
+.bn-ob-channel__toggle:checked::before { transform: translateX(16px); }
+.bn-ob-channel__toggle:focus-visible {
+	outline: 2px solid color-mix(in oklch, var(--bn-accent) 50%, transparent);
+	outline-offset: 2px;
+}
+
 /* ── People list (people step) ────────────────────────────────────────── */
 
 .bn-ob-people {

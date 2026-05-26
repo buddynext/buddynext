@@ -82,16 +82,6 @@ store( 'buddynext/onboarding', {
 			const dn = String( c.displayName || '' ).trim();
 			return dn.length < 2;
 		},
-		get continueDisabledStep2() {
-			const interests = ctx().interests || [];
-			return interests.length < 1;
-		},
-		get interestCountLabel() {
-			const interests = ctx().interests || [];
-			const n = interests.length;
-			const noun = n === 1 ? 'selected' : 'selected';
-			return n + ' ' + noun + ' · Pick at least 1';
-		},
 		get saving() { return !! ctx().saving; },
 		get error() { return ctx().error || ''; },
 		// Live profile-preview helpers consumed by the onboarding canvas
@@ -197,28 +187,15 @@ store( 'buddynext/onboarding', {
 					} );
 			}, 350 );
 		},
-		selectInterest( event ) {
+		toggleChannel( event ) {
 			const c = ctx();
-			const btn = event && event.target ? event.target.closest( '[data-interest]' ) : null;
-			if ( ! btn ) { return; }
-			const label = btn.getAttribute( 'data-interest' );
-			const list = Array.isArray( c.interests ) ? c.interests.slice() : [];
-			const idx  = list.indexOf( label );
-			if ( idx === -1 ) {
-				list.push( label );
-				btn.setAttribute( 'aria-pressed', 'true' );
-				btn.setAttribute( 'data-tone', 'accent' );
-			} else {
-				list.splice( idx, 1 );
-				btn.setAttribute( 'aria-pressed', 'false' );
-				btn.setAttribute( 'data-tone', 'neutral' );
-			}
-			c.interests = list;
-			// Best-effort save.
-			rest( c, 'me/interests', {
-				method: 'POST',
-				body:   JSON.stringify( { interests: list } ),
-			} ).catch( () => {} );
+			const input = event && event.target ? event.target : null;
+			if ( ! input ) { return; }
+			const channel = input.getAttribute( 'data-channel' );
+			const value   = !! input.checked;
+			if ( 'email'  === channel ) { c.channelEmail = value; }
+			if ( 'in_app' === channel ) { c.channelInApp = value; }
+			if ( 'push'   === channel ) { c.channelPush  = value; }
 		},
 		joinSuggestedSpace( event ) {
 			const c = ctx();
@@ -380,12 +357,24 @@ store( 'buddynext/onboarding', {
 				} ).catch( () => {} );
 			}
 
+			// Persist channel preferences (email / in-app / push). The
+			// per-event toggles inside each channel stay at their server
+			// defaults — the user can refine those from /notifications/
+			// preferences/.
+			rest( c, 'me/notification-channels', {
+				method: 'PUT',
+				body:   JSON.stringify( {
+					email:  !! c.channelEmail,
+					in_app: !! c.channelInApp,
+					push:   !! c.channelPush,
+				} ),
+			} ).catch( () => {} );
+
 			rest( c, 'me/onboarding/complete', {
 				method: 'POST',
 				body:   JSON.stringify( {
-					interests: c.interests || [],
-					spaces:    c.joinedSpaces || [],
-					user_ids:  c.followingUsers || [],
+					spaces:   c.joinedSpaces || [],
+					user_ids: c.followingUsers || [],
 				} ),
 			} )
 				.then( ( r ) => {

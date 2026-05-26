@@ -52,62 +52,7 @@ $avatar_url = get_avatar_url( $ob_user_id, array( 'size' => 100 ) );
 $bio        = (string) get_user_meta( $ob_user_id, 'bn_bio', true );
 $saved_step = max( 1, (int) get_user_meta( $ob_user_id, 'bn_onboarding_step', true ) );
 
-// Twelve interest tags (locked to the wave-spec catalogue).
-$all_interests = array(
-	array(
-		'icon'  => 'code',
-		'label' => __( 'Web Dev', 'buddynext' ),
-	),
-	array(
-		'icon'  => 'palette',
-		'label' => __( 'Design', 'buddynext' ),
-	),
-	array(
-		'icon'  => 'cpu',
-		'label' => __( 'AI & ML', 'buddynext' ),
-	),
-	array(
-		'icon'  => 'rocket',
-		'label' => __( 'Startups', 'buddynext' ),
-	),
-	array(
-		'icon'  => 'megaphone',
-		'label' => __( 'Marketing', 'buddynext' ),
-	),
-	array(
-		'icon'  => 'bar-chart',
-		'label' => __( 'Data', 'buddynext' ),
-	),
-	array(
-		'icon'  => 'target',
-		'label' => __( 'Product', 'buddynext' ),
-	),
-	array(
-		'icon'  => 'edit',
-		'label' => __( 'Writing', 'buddynext' ),
-	),
-	array(
-		'icon'  => 'globe',
-		'label' => __( 'Open Source', 'buddynext' ),
-	),
-	array(
-		'icon'  => 'gamepad',
-		'label' => __( 'Gaming', 'buddynext' ),
-	),
-	array(
-		'icon'  => 'music',
-		'label' => __( 'Music', 'buddynext' ),
-	),
-	array(
-		'icon'  => 'camera',
-		'label' => __( 'Photography', 'buddynext' ),
-	),
-);
-
-$saved_interests_raw = (string) get_user_meta( $ob_user_id, 'bn_interests', true );
-$saved_interests     = array_filter( array_map( 'trim', explode( ',', $saved_interests_raw ) ) );
-
-// Recommended spaces (step 3) — pull from bn_spaces.
+// Recommended spaces (step 2) — pull from bn_spaces.
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 $recommended_spaces = $wpdb->get_results( "SELECT id, name, member_count, description FROM {$wpdb->prefix}bn_spaces ORDER BY member_count DESC LIMIT 6" );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
@@ -122,7 +67,7 @@ $joined_space_ids_raw = $wpdb->get_col(
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $joined_space_ids = array_map( 'intval', $joined_space_ids_raw );
 
-// Suggested people to follow (step 4).
+// Suggested people to follow (step 3).
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $suggested_users = $wpdb->get_results(
 	$wpdb->prepare(
@@ -153,23 +98,37 @@ $already_following = array_map( 'intval', $already_following );
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 $rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 
-// Step config (label, icon).
+// Read the user's master channel prefs so the toggles render with the
+// right initial state. Defaults mirror NotificationController::get_notification_channels:
+// in-app + email default on; push defaults to whether Pro Push is installed.
+$channel_prefs   = get_user_meta( $ob_user_id, 'bn_channel_prefs', true );
+$channel_prefs   = is_array( $channel_prefs ) ? $channel_prefs : array();
+$push_available  = class_exists( '\\BuddyNextPro\\Push\\PushDispatcher' );
+$initial_email   = array_key_exists( 'email', $channel_prefs )  ? (bool) $channel_prefs['email']  : true;
+$initial_in_app  = array_key_exists( 'in_app', $channel_prefs ) ? (bool) $channel_prefs['in_app'] : true;
+$initial_push    = array_key_exists( 'push', $channel_prefs )   ? (bool) $channel_prefs['push']   : $push_available;
+
+// Step config (label, icon) — V2-aligned set:
+// 1 Profile · 2 Spaces · 3 People · 4 Notifications.
+// "Interests" used to live here but nothing downstream read the saved
+// bn_interests meta, so the step was removed; "Notifications" replaces
+// it so the user gets a deliberate choice about how BN will ping them.
 $steps        = array(
 	1 => array(
 		'label' => __( 'Profile', 'buddynext' ),
 		'icon'  => 'user',
 	),
 	2 => array(
-		'label' => __( 'Interests', 'buddynext' ),
-		'icon'  => 'target',
-	),
-	3 => array(
 		'label' => __( 'Spaces', 'buddynext' ),
 		'icon'  => 'building',
 	),
-	4 => array(
+	3 => array(
 		'label' => __( 'People', 'buddynext' ),
 		'icon'  => 'users',
+	),
+	4 => array(
+		'label' => __( 'Notifications', 'buddynext' ),
+		'icon'  => 'bell',
 	),
 );
 $total_steps  = count( $steps );
@@ -184,7 +143,6 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		array(
 			'step'              => $saved_step,
 			'totalSteps'        => $total_steps,
-			'interests'         => array_values( $saved_interests ),
 			'joinedSpaces'      => $joined_space_ids,
 			'followingUsers'    => $already_following,
 			'displayName'       => $display_name,
@@ -194,6 +152,10 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			'usernameAvailable'   => true,
 			'usernameChecking'    => false,
 			'usernameStatusLabel' => '',
+			'channelEmail'        => $initial_email,
+			'channelInApp'        => $initial_in_app,
+			'channelPush'         => $initial_push,
+			'pushAvailable'       => $push_available,
 			'saving'            => false,
 			'error'             => '',
 			'restNonce'         => $rest_nonce,
@@ -359,7 +321,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 
 		</section>
 
-		<!-- ── Step 2: Interests ── -->
+		<!-- ── Step 2: Spaces ── -->
 		<section class="bn-ob-step"
 			id="bn-ob-step-2"
 			data-step="2"
@@ -368,78 +330,8 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 		>
 
 			<header class="bn-ob-step__head">
-				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'target' ); ?></span>
-				<h1 id="bn-ob-step-2-title" class="bn-ob-step__title"><?php esc_html_e( 'Pick your interests', 'buddynext' ); ?></h1>
-				<p class="bn-ob-step__sub"><?php esc_html_e( "We'll show you relevant posts and spaces based on what you choose. Pick at least one.", 'buddynext' ); ?></p>
-			</header>
-
-			<div class="bn-card bn-ob-card" data-v2="true">
-				<div class="bn-ob-chips" role="group" aria-label="<?php esc_attr_e( 'Interest tags', 'buddynext' ); ?>">
-					<?php foreach ( $all_interests as $interest ) : ?>
-						<?php $is_selected = in_array( $interest['label'], $saved_interests, true ); ?>
-						<button class="bn-badge bn-ob-chip"
-							type="button"
-							data-tone="<?php echo $is_selected ? 'accent' : 'neutral'; ?>"
-							data-interest="<?php echo esc_attr( $interest['label'] ); ?>"
-							aria-pressed="<?php echo $is_selected ? 'true' : 'false'; ?>"
-							data-wp-on--click="actions.selectInterest">
-							<span class="bn-ob-chip__icon" aria-hidden="true"><?php buddynext_icon( $interest['icon'] ); ?></span>
-							<span class="bn-ob-chip__label"><?php echo esc_html( $interest['label'] ); ?></span>
-						</button>
-					<?php endforeach; ?>
-				</div>
-				<p class="bn-ob-chips__count" data-wp-text="state.interestCountLabel">
-					<?php
-					$saved_count = count( $saved_interests );
-					echo esc_html(
-						sprintf(
-							/* translators: %d: number of selected interests */
-							_n( '%d selected', '%d selected', $saved_count, 'buddynext' ),
-							$saved_count
-						) . ' · ' . __( 'Pick at least 1', 'buddynext' )
-					);
-					?>
-				</p>
-			</div>
-
-			<div class="bn-ob-actions">
-				<button class="bn-btn"
-					type="button"
-					data-variant="ghost"
-					data-size="lg"
-					data-wp-on--click="actions.prevStep">
-					<?php esc_html_e( 'Back', 'buddynext' ); ?>
-				</button>
-				<button class="bn-btn"
-					type="button"
-					data-variant="ghost"
-					data-size="lg"
-					data-wp-on--click="actions.skipStep">
-					<?php esc_html_e( 'Skip for now', 'buddynext' ); ?>
-				</button>
-				<button class="bn-btn"
-					type="button"
-					data-variant="primary"
-					data-size="lg"
-					data-wp-bind--disabled="state.continueDisabledStep2"
-					data-wp-on--click="actions.nextStep">
-					<?php esc_html_e( 'Continue', 'buddynext' ); ?>
-				</button>
-			</div>
-
-		</section>
-
-		<!-- ── Step 3: Spaces ── -->
-		<section class="bn-ob-step"
-			id="bn-ob-step-3"
-			data-step="3"
-			aria-labelledby="bn-ob-step-3-title"
-			data-wp-bind--hidden="!state.isStep3"
-		>
-
-			<header class="bn-ob-step__head">
 				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'building' ); ?></span>
-				<h1 id="bn-ob-step-3-title" class="bn-ob-step__title"><?php esc_html_e( 'Join some spaces', 'buddynext' ); ?></h1>
+				<h1 id="bn-ob-step-2-title" class="bn-ob-step__title"><?php esc_html_e( 'Join some spaces', 'buddynext' ); ?></h1>
 				<p class="bn-ob-step__sub"><?php esc_html_e( 'Spaces are topic-focused communities. Join the ones that interest you.', 'buddynext' ); ?></p>
 			</header>
 
@@ -519,17 +411,17 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 
 		</section>
 
-		<!-- ── Step 4: Follow People ── -->
+		<!-- ── Step 3: Follow People ── -->
 		<section class="bn-ob-step"
-			id="bn-ob-step-4"
-			data-step="4"
-			aria-labelledby="bn-ob-step-4-title"
-			data-wp-bind--hidden="!state.isStep4"
+			id="bn-ob-step-3"
+			data-step="3"
+			aria-labelledby="bn-ob-step-3-title"
+			data-wp-bind--hidden="!state.isStep3"
 		>
 
 			<header class="bn-ob-step__head">
 				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></span>
-				<h1 id="bn-ob-step-4-title" class="bn-ob-step__title"><?php esc_html_e( 'Follow some members', 'buddynext' ); ?></h1>
+				<h1 id="bn-ob-step-3-title" class="bn-ob-step__title"><?php esc_html_e( 'Follow some members', 'buddynext' ); ?></h1>
 				<p class="bn-ob-step__sub"><?php esc_html_e( 'Start building your feed by following members in your areas of interest.', 'buddynext' ); ?></p>
 			</header>
 
@@ -606,7 +498,6 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 					data-wp-on--click="actions.prevStep">
 					<?php esc_html_e( 'Back', 'buddynext' ); ?>
 				</button>
-				<span class="bn-ob-actions__spacer" aria-hidden="true"></span>
 				<button class="bn-btn"
 					type="button"
 					data-variant="ghost"
@@ -618,10 +509,85 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 					type="button"
 					data-variant="primary"
 					data-size="lg"
+					data-wp-on--click="actions.nextStep">
+					<?php esc_html_e( 'Continue', 'buddynext' ); ?>
+				</button>
+			</div>
+
+		</section>
+
+		<!-- ── Step 4: Notifications ── -->
+		<section class="bn-ob-step"
+			id="bn-ob-step-4"
+			data-step="4"
+			aria-labelledby="bn-ob-step-4-title"
+			data-wp-bind--hidden="!state.isStep4"
+		>
+
+			<header class="bn-ob-step__head">
+				<span class="bn-ob-step__icon" aria-hidden="true"><?php buddynext_icon( 'bell' ); ?></span>
+				<h1 id="bn-ob-step-4-title" class="bn-ob-step__title"><?php esc_html_e( 'How should we ping you?', 'buddynext' ); ?></h1>
+				<p class="bn-ob-step__sub"><?php esc_html_e( "Pick the channels you want to hear from. You can fine-tune which events on each channel from your settings.", 'buddynext' ); ?></p>
+			</header>
+
+			<div class="bn-ob-channels" role="group" aria-label="<?php esc_attr_e( 'Notification channels', 'buddynext' ); ?>">
+				<label class="bn-ob-channel">
+					<span class="bn-ob-channel__icon" aria-hidden="true"><?php buddynext_icon( 'mail' ); ?></span>
+					<span class="bn-ob-channel__body">
+						<span class="bn-ob-channel__name"><?php esc_html_e( 'Email', 'buddynext' ); ?></span>
+						<span class="bn-ob-channel__hint"><?php esc_html_e( 'Daily summary of mentions, comments, and important activity.', 'buddynext' ); ?></span>
+					</span>
+					<input type="checkbox"
+						class="bn-ob-channel__toggle"
+						data-channel="email"
+						data-wp-bind--checked="context.channelEmail"
+						data-wp-on--change="actions.toggleChannel" />
+				</label>
+
+				<label class="bn-ob-channel">
+					<span class="bn-ob-channel__icon" aria-hidden="true"><?php buddynext_icon( 'bell' ); ?></span>
+					<span class="bn-ob-channel__body">
+						<span class="bn-ob-channel__name"><?php esc_html_e( 'In-app', 'buddynext' ); ?></span>
+						<span class="bn-ob-channel__hint"><?php esc_html_e( 'Bell badge and notification panel inside BuddyNext.', 'buddynext' ); ?></span>
+					</span>
+					<input type="checkbox"
+						class="bn-ob-channel__toggle"
+						data-channel="in_app"
+						data-wp-bind--checked="context.channelInApp"
+						data-wp-on--change="actions.toggleChannel" />
+				</label>
+
+				<label class="bn-ob-channel"
+					data-wp-bind--hidden="!context.pushAvailable">
+					<span class="bn-ob-channel__icon" aria-hidden="true"><?php buddynext_icon( 'smartphone' ); ?></span>
+					<span class="bn-ob-channel__body">
+						<span class="bn-ob-channel__name"><?php esc_html_e( 'Push', 'buddynext' ); ?></span>
+						<span class="bn-ob-channel__hint"><?php esc_html_e( 'Real-time alerts on your browser or device.', 'buddynext' ); ?></span>
+					</span>
+					<input type="checkbox"
+						class="bn-ob-channel__toggle"
+						data-channel="push"
+						data-wp-bind--checked="context.channelPush"
+						data-wp-on--change="actions.toggleChannel" />
+				</label>
+			</div>
+
+			<div class="bn-ob-actions">
+				<button class="bn-btn"
+					type="button"
+					data-variant="ghost"
+					data-size="lg"
+					data-wp-on--click="actions.prevStep">
+					<?php esc_html_e( 'Back', 'buddynext' ); ?>
+				</button>
+				<button class="bn-btn"
+					type="button"
+					data-variant="primary"
+					data-size="lg"
 					data-wp-bind--disabled="state.saving"
 					data-wp-on--click="actions.finish">
 					<span data-wp-bind--hidden="state.saving"><?php esc_html_e( 'Finish', 'buddynext' ); ?></span>
-					<span data-wp-bind--hidden="!state.saving"><?php esc_html_e( 'Saving...', 'buddynext' ); ?></span>
+					<span data-wp-bind--hidden="!state.saving"><?php esc_html_e( 'Saving…', 'buddynext' ); ?></span>
 				</button>
 			</div>
 
