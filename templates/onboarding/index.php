@@ -51,6 +51,12 @@ $initials = ! empty( $initials ) ? $initials : mb_strtoupper( mb_substr( $curren
 $avatar_url = get_avatar_url( $ob_user_id, array( 'size' => 100 ) );
 $bio        = (string) get_user_meta( $ob_user_id, 'bn_bio', true );
 $saved_step = max( 1, (int) get_user_meta( $ob_user_id, 'bn_onboarding_step', true ) );
+// Dev-only: ?_step=N (with redo) lets the user jump to a specific step
+// for testing. Requires ?redo=1 to opt in so a stray bookmarked link
+// can't be used to skip past a step.
+if ( isset( $_GET['redo'] ) && isset( $_GET['_step'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$saved_step = max( 1, min( 4, (int) $_GET['_step'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+}
 
 // Recommended spaces (step 2) — pull from bn_spaces.
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
@@ -217,7 +223,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 				<p class="bn-ob-step__sub"><?php esc_html_e( 'Help others discover you. You can change this any time.', 'buddynext' ); ?></p>
 			</header>
 
-			<div class="bn-card bn-ob-card" data-v2="true">
+			<div class="bn-ob-card">
 				<div class="bn-ob-avatar-row">
 					<button class="bn-avatar bn-ob-avatar"
 						type="button"
@@ -425,7 +431,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 				<p class="bn-ob-step__sub"><?php esc_html_e( 'Start building your feed by following members in your areas of interest.', 'buddynext' ); ?></p>
 			</header>
 
-			<div class="bn-card bn-ob-card" data-v2="true">
+			<div class="bn-ob-card">
 				<?php if ( $suggested_users ) : ?>
 					<ul class="bn-ob-people" role="list">
 						<?php foreach ( $suggested_users as $sug_user ) : ?>
@@ -559,7 +565,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 
 				<label class="bn-ob-channel"
 					data-wp-bind--hidden="!context.pushAvailable">
-					<span class="bn-ob-channel__icon" aria-hidden="true"><?php buddynext_icon( 'smartphone' ); ?></span>
+					<span class="bn-ob-channel__icon" aria-hidden="true"><?php buddynext_icon( 'zap' ); ?></span>
 					<span class="bn-ob-channel__body">
 						<span class="bn-ob-channel__name"><?php esc_html_e( 'Push', 'buddynext' ); ?></span>
 						<span class="bn-ob-channel__hint"><?php esc_html_e( 'Real-time alerts on your browser or device.', 'buddynext' ); ?></span>
