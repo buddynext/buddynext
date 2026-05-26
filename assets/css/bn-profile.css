@@ -993,6 +993,57 @@
 	text-align: center;
 }
 
+/* Followers/Following filter input — appears above the card grid
+   when the list has > 5 entries (gated server-side). Plain search
+   styling matching the other .bn-input controls. */
+.bn-connections-search {
+	display: block;
+	margin: 0 0 16px;
+	max-width: 420px;
+}
+.bn-connections-search__input {
+	width: 100%;
+}
+
+/* Blocked & muted lists in the profile-edit Privacy → Relations card.
+   Each row is avatar + name + handle + ghost "Unblock"/"Unmute" button. */
+.bn-ep-relations { display: flex; flex-direction: column; gap: 16px; }
+.bn-ep-relations__group { display: flex; flex-direction: column; gap: 8px; }
+.bn-ep-relations__title {
+	font-size: var(--bn-text-sm);
+	font-weight: 600;
+	color: var(--bn-ink-2);
+	margin: 0;
+}
+.bn-ep-relations__empty {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+	margin: 0;
+}
+.bn-ep-relations__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.bn-ep-relation {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 8px;
+	border-radius: var(--bn-r-md, 8px);
+	background: var(--bn-sunken, #f3f4f6);
+}
+.bn-ep-relation > .bn-avatar {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+}
+.bn-ep-relation__name { font-weight: 500; color: var(--bn-ink-1); }
+.bn-ep-relation__handle { color: var(--bn-ink-3); font-size: var(--bn-text-xs); flex: 1; }
+
 /* Profile completeness chip — circular ring with % label. Clicking
    the chip takes the owner to /edit. Owner-only; hidden when pct
    reaches 100 (rendered conditionally in the template). */

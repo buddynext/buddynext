@@ -1482,3 +1482,44 @@ async function doUnblock( ctx ) {
 		bnToast( 'Could not unblock', { tone: 'danger' } );
 	}
 }
+
+/*
+   Relation removal (unblock / unmute) on the profile-edit page.
+   Each list row has data-user-id + data-relation="block"|"mute" + a
+   button with data-bn-relation-remove. Click → DELETE the
+   corresponding REST endpoint; on success, hide the row.
+   ---------------------------------------------------------------- */
+function initBnRelationRemoval() {
+	document.addEventListener( 'click', async ( e ) => {
+		const btn = e.target.closest( '[data-bn-relation-remove]' );
+		if ( ! btn ) { return; }
+		const row = btn.closest( '[data-relation][data-user-id]' );
+		if ( ! row ) { return; }
+		const userId  = parseInt( row.dataset.userId, 10 );
+		const action  = row.dataset.relation; // "block" or "mute"
+		if ( ! userId || ! action ) { return; }
+		btn.disabled = true;
+		try {
+			const url = ( window.wpApiSettings?.root || '/wp-json/' ) + `buddynext/v1/users/${ userId }/${ action }`;
+			const wpNonce = window.wpApiSettings?.nonce || '';
+			const res = await fetch( url, {
+				method:  'DELETE',
+				headers: { 'X-WP-Nonce': wpNonce },
+				credentials: 'include',
+			} );
+			if ( ! res.ok ) { throw new Error( 'remove failed' ); }
+			row.remove();
+		} catch ( _e ) {
+			btn.disabled = false;
+			if ( typeof window.bnToast === 'function' ) {
+				window.bnToast( 'Could not update. Try again.', { tone: 'danger' } );
+			}
+		}
+	} );
+}
+
+if ( document.readyState === 'loading' ) {
+	document.addEventListener( 'DOMContentLoaded', initBnRelationRemoval );
+} else {
+	initBnRelationRemoval();
+}

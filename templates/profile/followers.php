@@ -43,8 +43,8 @@ $bn_paged    = max( 1, absint( get_query_var( 'paged', 1 ) ) );
 $follow_svc = buddynext_service( 'follows' );
 $blocks_svc = buddynext_service( 'blocks' );
 
-$all_ids   = $follow_svc->followers( $user_id );
-$total     = count( $all_ids );
+$all_ids = $follow_svc->followers( $user_id );
+$total   = count( $all_ids );
 
 // Filter out blocked relationships for the viewer (defensive — same rule as REST).
 if ( $current_user_id > 0 ) {
@@ -56,7 +56,7 @@ if ( $current_user_id > 0 ) {
 			}
 		)
 	);
-	$total = count( $all_ids );
+	$total   = count( $all_ids );
 }
 
 $total_pages = $total > 0 ? (int) ceil( $total / $bn_per_page ) : 0;
@@ -99,21 +99,34 @@ do_action( 'buddynext_profile_followers_before', (int) $user_id );
 		</a>
 	</div>
 
+	<?php if ( $total > 5 ) : ?>
+		<label class="bn-connections-search">
+			<span class="screen-reader-text"><?php esc_html_e( 'Filter followers', 'buddynext' ); ?></span>
+			<input
+				type="search"
+				class="bn-input bn-connections-search__input"
+				data-bn-filter-cards=".bn-follower-card"
+				placeholder="<?php esc_attr_e( 'Filter by name or handle…', 'buddynext' ); ?>"
+				aria-label="<?php esc_attr_e( 'Filter followers', 'buddynext' ); ?>"
+			>
+		</label>
+	<?php endif; ?>
+
 	<!-- Grid -->
 	<div class="bn-connections-grid bn-followers-grid" role="list" aria-label="<?php esc_attr_e( 'Followers', 'buddynext' ); ?>">
 		<?php if ( ! empty( $page_ids ) ) : ?>
 			<?php
 			foreach ( $page_ids as $fid ) :
-				$fid       = (int) $fid;
-				$f_user    = get_userdata( $fid );
+				$fid    = (int) $fid;
+				$f_user = get_userdata( $fid );
 				if ( ! $f_user ) {
 					continue;
 				}
-				$f_name    = $f_user->display_name;
-				$f_handle  = '@' . $f_user->user_nicename;
-				$f_avatar  = get_avatar_url( $fid, array( 'size' => 128 ) );
-				$f_url     = PageRouter::profile_url( $fid );
-				$is_fb     = $current_user_id > 0 ? $follow_svc->is_following( $current_user_id, $fid ) : false;
+				$f_name   = $f_user->display_name;
+				$f_handle = '@' . $f_user->user_nicename;
+				$f_avatar = get_avatar_url( $fid, array( 'size' => 128 ) );
+				$f_url    = PageRouter::profile_url( $fid );
+				$is_fb    = $current_user_id > 0 ? $follow_svc->is_following( $current_user_id, $fid ) : false;
 				?>
 				<article class="bn-member-card bn-follower-card" role="listitem">
 					<a href="<?php echo esc_url( $f_url ); ?>" aria-label="<?php echo esc_attr( $f_name ); ?>">

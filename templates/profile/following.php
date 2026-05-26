@@ -95,6 +95,19 @@ do_action( 'buddynext_profile_following_before', (int) $user_id );
 		</a>
 	</div>
 
+	<?php if ( $total > 5 ) : ?>
+		<label class="bn-connections-search">
+			<span class="screen-reader-text"><?php esc_html_e( 'Filter following list', 'buddynext' ); ?></span>
+			<input
+				type="search"
+				class="bn-input bn-connections-search__input"
+				data-bn-filter-cards=".bn-following-card"
+				placeholder="<?php esc_attr_e( 'Filter by name or handle…', 'buddynext' ); ?>"
+				aria-label="<?php esc_attr_e( 'Filter following list', 'buddynext' ); ?>"
+			>
+		</label>
+	<?php endif; ?>
+
 	<div class="bn-connections-grid bn-following-grid" role="list" aria-label="<?php esc_attr_e( 'Following', 'buddynext' ); ?>">
 		<?php if ( ! empty( $page_ids ) ) : ?>
 			<?php
