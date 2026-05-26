@@ -263,6 +263,112 @@ export function bnPrompt( opts ) {
 }
 
 /**
+ * Categorized report dialog — promise-based, mirrors bnPrompt() but
+ * adds a reason `<select>` above the optional notes textarea. The
+ * dropdown matches the canonical reason list used by the profile +
+ * member-card report modals so triage stays consistent across
+ * surfaces.
+ *
+ * Resolves to `{ reason: 'spam'|'harassment'|..., notes: string }`
+ * on submit, `null` on cancel/Escape/backdrop click.
+ *
+ * @param {Object} [opts]
+ * @param {string} [opts.title] Dialog title.
+ * @param {string} [opts.body]  Helper paragraph below the title.
+ * @param {string} [opts.confirmLabel] Submit-button label.
+ * @return {Promise<{reason:string, notes:string}|null>}
+ */
+export function bnReportDialog( opts ) {
+	const cfg = Object.assign( {
+		title:        'Report',
+		body:         'Reports are reviewed by moderators. The person you report is not notified.',
+		confirmLabel: 'Submit report',
+		cancelLabel:  'Cancel',
+		tone:         'default',
+	}, opts || {} );
+
+	const REASONS = [
+		[ 'spam',           'Spam' ],
+		[ 'harassment',     'Harassment or hate speech' ],
+		[ 'misinformation', 'Misinformation' ],
+		[ 'inappropriate',  'Inappropriate content' ],
+		[ 'impersonation',  'Impersonation' ],
+		[ 'other',          'Something else' ],
+	];
+
+	const wrap = document.createElement( 'div' );
+	wrap.style.display = 'flex';
+	wrap.style.flexDirection = 'column';
+	wrap.style.gap = '12px';
+	wrap.style.marginTop = '12px';
+
+	const reasonLabel = document.createElement( 'label' );
+	reasonLabel.textContent = 'Reason';
+	reasonLabel.style.fontWeight = '600';
+	reasonLabel.style.fontSize = '13px';
+	const select = document.createElement( 'select' );
+	select.className = 'bn-input';
+	REASONS.forEach( function ( pair ) {
+		const opt = document.createElement( 'option' );
+		opt.value = pair[ 0 ];
+		opt.textContent = pair[ 1 ];
+		select.appendChild( opt );
+	} );
+
+	const notesLabel = document.createElement( 'label' );
+	notesLabel.textContent = 'Additional details (optional)';
+	notesLabel.style.fontWeight = '600';
+	notesLabel.style.fontSize = '13px';
+	const notes = document.createElement( 'textarea' );
+	notes.className = 'bn-input';
+	notes.rows = 3;
+	notes.maxLength = 500;
+	notes.placeholder = 'Tell us more about what you saw…';
+	notes.style.width = '100%';
+	notes.style.resize = 'vertical';
+
+	wrap.appendChild( reasonLabel );
+	wrap.appendChild( select );
+	wrap.appendChild( notesLabel );
+	wrap.appendChild( notes );
+
+	cfg.extraNode = wrap;
+
+	return new Promise( function ( resolve ) {
+		const trigger = document.activeElement;
+		const frame   = buildModalFrame( cfg );
+		const releaseTrap = trapFocus( frame.panel );
+
+		function close( result ) {
+			document.removeEventListener( 'keydown', onEscape );
+			releaseTrap();
+			frame.backdrop.remove();
+			if ( trigger && typeof trigger.focus === 'function' ) {
+				trigger.focus();
+			}
+			resolve( result );
+		}
+		function onEscape( ev ) {
+			if ( ev.key === 'Escape' ) { ev.preventDefault(); close( null ); }
+		}
+
+		frame.confirmBtn.addEventListener( 'click', function () {
+			close( { reason: select.value || 'other', notes: notes.value || '' } );
+		} );
+		frame.cancelBtn.addEventListener( 'click', function () { close( null ); } );
+		frame.closeBtn.addEventListener( 'click', function () { close( null ); } );
+		frame.backdrop.addEventListener( 'click', function ( ev ) {
+			if ( ev.target === frame.backdrop ) { close( null ); }
+		} );
+		document.addEventListener( 'keydown', onEscape );
+
+		document.body.appendChild( frame.backdrop );
+
+		window.requestAnimationFrame( function () { select.focus(); } );
+	} );
+}
+
+/**
  * Show a transient toast. Auto-dismisses after `timeout` ms (default 3000).
  * Multiple toasts stack inside a single .bn-toast-container.
  *

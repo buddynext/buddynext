@@ -1,6 +1,6 @@
 /* BuddyNext — Feed Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnConfirm, bnPrompt, bnToast } from '../shell/dialog.js';
+import { bnConfirm, bnPrompt, bnReportDialog, bnToast } from '../shell/dialog.js';
 
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
 
@@ -422,21 +422,22 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		reportBtn.setAttribute( 'aria-label', 'Report this comment' );
 		reportBtn.textContent = 'Report';
 		reportBtn.addEventListener( 'click', async () => {
-			const reason = await bnPrompt( {
+			const result = await bnReportDialog( {
 				title: 'Report this comment',
-				body: 'Reports are reviewed by moderators. The person you report is not notified.',
-				placeholder: 'Tell us why this comment is being reported (optional)',
-				confirmLabel: 'Submit report',
-				cancelLabel: 'Cancel',
 			} );
-			if ( reason === null ) {
+			if ( result === null ) {
 				return;
 			}
 			try {
 				const res = await fetch( restUrl + '/reports', {
 					method:  'POST',
 					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
-					body:    JSON.stringify( { object_type: 'comment', object_id: comment.id, reason } ),
+					body:    JSON.stringify( {
+						object_type: 'comment',
+						object_id:   comment.id,
+						reason:      result.reason,
+						notes:       result.notes,
+					} ),
 				} );
 				if ( res.ok || res.status === 201 ) {
 					bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
@@ -824,21 +825,22 @@ store( 'buddynext/post-card', {
 		},
 		* reportPost() {
 			const ctx    = getContext();
-			const reason = yield bnPrompt( {
+			const result = yield bnReportDialog( {
 				title: 'Report this post',
-				body: 'Reports are reviewed by moderators. The person you report is not notified.',
-				placeholder: 'Tell us why this post is being reported (optional)',
-				confirmLabel: 'Submit report',
-				cancelLabel: 'Cancel',
 			} );
-			if ( reason === null ) {
+			if ( result === null ) {
 				return;
 			}
 			try {
 				const res = yield fetch( ctx.restUrl + '/reports', {
 					method:  'POST',
 					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.reportNonce },
-					body:    JSON.stringify( { object_type: 'post', object_id: ctx.postId, reason } ),
+					body:    JSON.stringify( {
+						object_type: 'post',
+						object_id:   ctx.postId,
+						reason:      result.reason,
+						notes:       result.notes,
+					} ),
 				} );
 				if ( res.ok || res.status === 201 ) {
 					bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
