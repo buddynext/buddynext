@@ -141,9 +141,25 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 	<!-- Hero card: cover + identity + stats -->
 	<section class="<?php echo esc_attr( $bn_class ); ?>">
 		<!-- Cover -->
+		<?php
+		// Apply the stored focal point (set by the cover-upload focal
+		// modal) as `background-position` so the user's chosen point of
+		// interest stays visible at any cover aspect ratio.
+		$bn_pf_focal       = (array) get_user_meta( $bn_pf_uid, 'buddynext_cover_focal', true );
+		$bn_pf_fx          = isset( $bn_pf_focal['x'] ) ? max( 0.0, min( 100.0, (float) $bn_pf_focal['x'] ) ) : 50.0;
+		$bn_pf_fy          = isset( $bn_pf_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_pf_focal['y'] ) ) : 50.0;
+		$bn_pf_cover_style = '' !== $bn_pf_cover
+			? sprintf(
+				'background-image:url(%s);background-position:%s%% %s%%;',
+				esc_url( $bn_pf_cover ),
+				esc_attr( (string) $bn_pf_fx ),
+				esc_attr( (string) $bn_pf_fy )
+			)
+			: '';
+		?>
 		<div class="bn-pf-cover<?php echo '' !== $bn_pf_cover ? ' bn-pf-cover--has-image' : ''; ?>"
-			<?php if ( '' !== $bn_pf_cover ) : ?>
-			style="background-image:url('<?php echo esc_url( $bn_pf_cover ); ?>');"<?php endif; ?>>
+			<?php if ( '' !== $bn_pf_cover_style ) : ?>
+			style="<?php echo esc_attr( $bn_pf_cover_style ); ?>"<?php endif; ?>>
 			<?php if ( $bn_pf_is_owner ) : ?>
 				<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"
 					class="bn-pf-cover__edit"

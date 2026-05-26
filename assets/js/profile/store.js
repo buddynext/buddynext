@@ -216,6 +216,126 @@ function renderCropModal( img, resolve ) {
 	draw();
 }
 
+/*
+   Cover focal-point modal — shows the picked cover photo at a 16:9
+   preview ratio and lets the user drag a crosshair to mark the
+   focal point (the centre of attention). Result is {x, y} in
+   percent, sent alongside the upload so profile-hero.php can apply
+   it as background-position.
+   ---------------------------------------------------------------- */
+async function openCoverFocalModal( file ) {
+	return new Promise( ( resolve ) => {
+		const url = URL.createObjectURL( file );
+		const img = new Image();
+		img.onload = () => {
+			URL.revokeObjectURL( url );
+			renderCoverFocalModal( img, resolve );
+		};
+		img.onerror = () => {
+			URL.revokeObjectURL( url );
+			resolve( null );
+		};
+		img.src = url;
+	} );
+}
+
+function renderCoverFocalModal( img, resolve ) {
+	const W = 480;
+	const H = Math.round( W * 9 / 16 );
+
+	const overlay = document.createElement( 'div' );
+	overlay.className = 'bn-avatar-crop-overlay';
+	overlay.setAttribute( 'role', 'dialog' );
+	overlay.setAttribute( 'aria-modal', 'true' );
+	overlay.setAttribute( 'aria-label', 'Set cover focal point' );
+
+	const panel = document.createElement( 'div' );
+	panel.className = 'bn-avatar-crop-panel';
+
+	const title = document.createElement( 'h2' );
+	title.className = 'bn-avatar-crop-title';
+	title.textContent = 'Click to set the focal point';
+	panel.appendChild( title );
+
+	const stage = document.createElement( 'div' );
+	stage.className = 'bn-cover-focal-stage';
+	stage.style.width  = W + 'px';
+	stage.style.height = H + 'px';
+	stage.style.backgroundImage = `url("${ img.src }")`;
+	stage.style.backgroundSize  = 'cover';
+	stage.style.backgroundPosition = '50% 50%';
+
+	const crosshair = document.createElement( 'span' );
+	crosshair.className = 'bn-cover-focal-crosshair';
+	crosshair.style.insetInlineStart = '50%';
+	crosshair.style.insetBlockStart  = '50%';
+	stage.appendChild( crosshair );
+	panel.appendChild( stage );
+
+	const focal = { x: 50, y: 50 };
+	const setFocal = ( clientX, clientY ) => {
+		const r = stage.getBoundingClientRect();
+		focal.x = Math.max( 0, Math.min( 100, ( ( clientX - r.left ) / r.width  ) * 100 ) );
+		focal.y = Math.max( 0, Math.min( 100, ( ( clientY - r.top  ) / r.height ) * 100 ) );
+		stage.style.backgroundPosition = `${ focal.x }% ${ focal.y }%`;
+		crosshair.style.insetInlineStart = focal.x + '%';
+		crosshair.style.insetBlockStart  = focal.y + '%';
+	};
+	let dragging = false;
+	stage.addEventListener( 'pointerdown', ( e ) => {
+		dragging = true;
+		stage.setPointerCapture( e.pointerId );
+		setFocal( e.clientX, e.clientY );
+	} );
+	stage.addEventListener( 'pointermove', ( e ) => {
+		if ( dragging ) { setFocal( e.clientX, e.clientY ); }
+	} );
+	stage.addEventListener( 'pointerup',     () => { dragging = false; } );
+	stage.addEventListener( 'pointercancel', () => { dragging = false; } );
+
+	const hint = document.createElement( 'p' );
+	hint.className = 'bn-cover-focal-hint';
+	hint.textContent = 'On narrow screens we crop around this point so the part you care about stays visible.';
+	panel.appendChild( hint );
+
+	const actions = document.createElement( 'div' );
+	actions.className = 'bn-avatar-crop-actions';
+	const cancel = document.createElement( 'button' );
+	cancel.type = 'button';
+	cancel.className = 'bn-btn';
+	cancel.dataset.variant = 'ghost';
+	cancel.textContent = 'Cancel';
+	const apply = document.createElement( 'button' );
+	apply.type = 'button';
+	apply.className = 'bn-btn';
+	apply.dataset.variant = 'primary';
+	apply.textContent = 'Apply';
+	actions.appendChild( cancel );
+	actions.appendChild( apply );
+	panel.appendChild( actions );
+
+	const cleanup = ( value ) => {
+		overlay.remove();
+		document.removeEventListener( 'keydown', onKey );
+		resolve( value );
+	};
+
+	cancel.addEventListener( 'click', () => cleanup( null ) );
+	apply.addEventListener( 'click', () => cleanup( { x: focal.x, y: focal.y } ) );
+	overlay.addEventListener( 'click', ( e ) => {
+		if ( e.target === overlay ) { cleanup( null ); }
+	} );
+
+	const onKey = ( e ) => {
+		if ( e.key === 'Escape' ) { cleanup( null ); }
+		if ( e.key === 'Enter'  ) { apply.click(); }
+	};
+	document.addEventListener( 'keydown', onKey );
+
+	overlay.appendChild( panel );
+	document.body.appendChild( overlay );
+}
+
 /* Collect all named flat inputs/textareas (excluding the slug input). */
 function collectFlatData( wrap ) {
 	var data = {};
@@ -882,13 +1002,26 @@ store( 'buddynext/profile', {
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
 
-			var formData = new FormData();
-			formData.append( 'avatar', file );
-
-			var ctx = getContext();
-			ctx.coverUploading = true;
-
+			// Open the focal-point modal: same pattern as avatar crop
+			// but the output is a {x, y} focal point in percent, not a
+			// cropped blob. The raw file uploads as-is; the focal point
+			// is sent as a separate POST and applied to the cover render
+			// via `background-position`.
 			try {
+				var focal = await openCoverFocalModal( file );
+				if ( ! focal ) {
+					event.target.value = '';
+					return;
+				}
+
+				var formData = new FormData();
+				formData.append( 'avatar', file );
+				formData.append( 'focal_x', String( focal.x ) );
+				formData.append( 'focal_y', String( focal.y ) );
+
+				var ctx = getContext();
+				ctx.coverUploading = true;
+
 				var res  = await fetch( apiUrl( 'buddynext/v1/me/cover' ), {
 					method:  'POST',
 					headers: { 'X-WP-Nonce': nonce() },
@@ -897,11 +1030,20 @@ store( 'buddynext/profile', {
 				var data = await res.json();
 				if ( res.ok && data.cover_url ) {
 					ctx.coverUrl = data.cover_url;
+					if ( focal ) {
+						ctx.coverFocalX = focal.x;
+						ctx.coverFocalY = focal.y;
+					}
 					bnToast( 'Cover updated', { tone: 'success' } );
+				} else {
+					bnToast( ( data && data.message ) || 'Upload failed', { tone: 'danger' } );
 				}
+			} catch ( err ) {
+				bnToast( 'Upload failed', { tone: 'danger' } );
 			} finally {
-				ctx.coverUploading = false;
-				event.target.value = '';
+				var ctx2 = getContext();
+				ctx2.coverUploading = false;
+				event.target.value  = '';
 			}
 		},
 

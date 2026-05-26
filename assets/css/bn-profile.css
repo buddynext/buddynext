@@ -964,6 +964,35 @@
 	width: 100%;
 }
 
+/* Cover focal-point stage — 16:9 preview with a draggable crosshair
+   that the user places on the part of the photo they want kept
+   visible at narrow viewports. */
+.bn-cover-focal-stage {
+	position: relative;
+	cursor: crosshair;
+	border-radius: 8px;
+	touch-action: none;
+	background-color: var(--bn-sunken, #f3f4f6);
+}
+.bn-cover-focal-crosshair {
+	position: absolute;
+	width: 24px;
+	height: 24px;
+	margin-inline-start: -12px;
+	margin-block-start: -12px;
+	border-radius: 50%;
+	border: 2px solid #fff;
+	box-shadow: 0 0 0 2px var(--bn-accent, #2563eb), 0 0 12px rgba(0, 0, 0, 0.4);
+	pointer-events: none;
+}
+.bn-cover-focal-hint {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3, #6b7280);
+	max-width: 480px;
+	margin: 0;
+	text-align: center;
+}
+
 /* Profile completeness chip — circular ring with % label. Clicking
    the chip takes the owner to /edit. Owner-only; hidden when pct
    reaches 100 (rendered conditionally in the template). */

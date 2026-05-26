@@ -1179,7 +1179,34 @@ class ProfileController {
 
 		update_user_meta( $user_id, 'buddynext_cover_url', esc_url_raw( $result['url'] ) );
 
-		return new WP_REST_Response( array( 'cover_url' => $result['url'] ), 200 );
+		// Optional focal point — sent as `focal_x` / `focal_y` form fields
+		// (percent 0–100). Stored as `buddynext_cover_focal` user meta and
+		// applied as `background-position` by templates/parts/profile-hero.php.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$focal_x_raw = isset( $_POST['focal_x'] ) ? (float) wp_unslash( (string) $_POST['focal_x'] ) : -1;
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$focal_y_raw = isset( $_POST['focal_y'] ) ? (float) wp_unslash( (string) $_POST['focal_y'] ) : -1;
+		if ( $focal_x_raw >= 0 && $focal_x_raw <= 100 && $focal_y_raw >= 0 && $focal_y_raw <= 100 ) {
+			update_user_meta(
+				$user_id,
+				'buddynext_cover_focal',
+				array(
+					'x' => round( $focal_x_raw, 2 ),
+					'y' => round( $focal_y_raw, 2 ),
+				)
+			);
+		}
+
+		$focal = (array) get_user_meta( $user_id, 'buddynext_cover_focal', true );
+
+		return new WP_REST_Response(
+			array(
+				'cover_url' => $result['url'],
+				'focal_x'   => isset( $focal['x'] ) ? (float) $focal['x'] : 50.0,
+				'focal_y'   => isset( $focal['y'] ) ? (float) $focal['y'] : 50.0,
+			),
+			200
+		);
 	}
 
 	/**
