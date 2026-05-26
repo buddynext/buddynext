@@ -2248,3 +2248,72 @@ if ( document.readyState === 'loading' ) {
 } else {
 	initComposerEnhancements();
 }
+
+/*
+   Realtime "new posts" pill — listens for Pro's bn:realtime:post-new
+   custom events (fired by buddynext-pro/assets/js/realtime/store.js
+   when Soketi delivers a post.new message on the subscribed feed
+   channel). Accumulates the count, shows a sticky pill at the top
+   of the feed list, and reloads the feed when clicked.
+
+   No-op when no realtime layer is active (the event never fires).
+   ---------------------------------------------------------------- */
+function initRealtimeNewPostsPill() {
+	const feed = document.querySelector( '.bn-feed-list, .bn-explore-grid' );
+	if ( ! feed ) {
+		return;
+	}
+	// Skip explore — it ranks by engagement, not chrono; a "new post"
+	// at the top makes no sense there.
+	const grid = feed.classList.contains( 'bn-explore-grid' );
+	if ( grid ) {
+		return;
+	}
+
+	let pendingIds = new Set();
+	let pill = null;
+
+	const renderPill = () => {
+		if ( pendingIds.size === 0 ) {
+			if ( pill ) { pill.remove(); pill = null; }
+			return;
+		}
+		if ( ! pill ) {
+			pill = document.createElement( 'button' );
+			pill.type = 'button';
+			pill.className = 'bn-feed-new-pill';
+			pill.setAttribute( 'role', 'status' );
+			pill.setAttribute( 'aria-live', 'polite' );
+			pill.addEventListener( 'click', () => {
+				window.location.reload();
+			} );
+			feed.parentElement.insertBefore( pill, feed );
+		}
+		const n = pendingIds.size;
+		pill.textContent = n === 1
+			? '1 new post — refresh to view'
+			: `${ n } new posts — refresh to view`;
+	};
+
+	document.addEventListener( 'bn:realtime:post-new', ( e ) => {
+		const id = parseInt( e.detail?.post_id, 10 );
+		const author = parseInt( e.detail?.user_id, 10 );
+		if ( ! id ) { return; }
+		// Skip the viewer's own posts — they're shown immediately
+		// by the composer's local insertion logic.
+		const composer = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+		let viewerId = 0;
+		if ( composer ) {
+			try { viewerId = parseInt( JSON.parse( composer.dataset.wpContext || '{}' ).userId, 10 ); } catch ( _e ) {}
+		}
+		if ( author === viewerId ) { return; }
+		pendingIds.add( id );
+		renderPill();
+	} );
+}
+
+if ( document.readyState === 'loading' ) {
+	document.addEventListener( 'DOMContentLoaded', initRealtimeNewPostsPill );
+} else {
+	initRealtimeNewPostsPill();
+}

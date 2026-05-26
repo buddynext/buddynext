@@ -1640,6 +1640,36 @@
 	text-underline-offset: 2px;
 }
 
+/* Realtime "new posts" pill — appears above the feed when Pro Soketi
+   delivers post.new events from other users. Click reloads the feed.
+   Position: sticky so it stays visible as the user scrolls within the
+   list. */
+.bn-feed-new-pill {
+	position: sticky;
+	top: 8px;
+	z-index: 10;
+	display: block;
+	margin: 0 auto 12px;
+	padding: 8px 16px;
+	background: var(--bn-accent, #3b82f6);
+	color: #fff;
+	border: 0;
+	border-radius: var(--bn-r-full, 999px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+	font-size: var(--text-sm);
+	font-weight: 500;
+	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.bn-feed-new-pill:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
+}
+.bn-feed-new-pill:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
+}
+
 .bn-composer__tools {
 	display: flex;
 	align-items: center;
