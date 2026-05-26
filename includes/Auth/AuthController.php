@@ -415,13 +415,22 @@ class AuthController {
 			);
 		}
 
+		// Always issue a verification token so the new user receives a
+		// confirmation email. When buddynext_email_verify is OFF the link
+		// is informational (the account is already usable); when ON the
+		// user must click it before BN treats them as verified.
+		( new VerificationService() )->create_token( (int) $user_id );
+
 		// Sign the user in immediately.
 		wp_set_current_user( (int) $user_id );
 		wp_set_auth_cookie( (int) $user_id, false, is_ssl() );
 
 		$redirect_to = \BuddyNext\Core\PageRouter::onboarding_url();
 		if ( get_option( 'buddynext_email_verify' ) ) {
-			$redirect_to = add_query_arg( 'email', rawurlencode( $email ), home_url( '/verify-email/' ) );
+			$redirect_to = \BuddyNext\Core\PageRouter::hub_url(
+				'buddynext_slug_auth',
+				'buddynext_page_auth'
+			) . 'verify/';
 		}
 
 		return new WP_REST_Response(
