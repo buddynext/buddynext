@@ -266,6 +266,23 @@ class PageRouter {
 			}
 		}
 
+		// Search results — specialise the title to "Search: {query}" so
+		// browser history, bookmarks, and tab strips show what the user
+		// looked for instead of the generic "Activity Feed" hub fallback.
+		// Read `q` from the request directly since search lives under the
+		// activity hub.
+		if ( 'feed' === $hub && 'search' === (string) get_query_var( 'bn_activity_action', '' ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display
+			$bn_search_q = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['q'] ) ) : '';
+			$hub_title   = '' !== $bn_search_q
+				? sprintf(
+					/* translators: %s: search query string. */
+					__( 'Search: %s', 'buddynext' ),
+					$bn_search_q
+				)
+				: __( 'Search', 'buddynext' );
+		}
+
 		// Specialise the title when the template gives us a richer label,
 		// e.g. "Edit Profile : Varun" instead of the bare hub fallback.
 		if ( 'people' === $hub && ! empty( $context['user_id'] ) ) {
@@ -534,6 +551,13 @@ class PageRouter {
 				// Hashtag feed additionally needs the hashtag store module.
 				if ( 'hashtag' === (string) get_query_var( 'bn_activity_action', '' ) ) {
 					$assets->enqueue( 'hashtags' );
+				}
+				// Search results live under the activity hub
+				// (/activity/search/) — pull in the search store so
+				// the date/sort filters, `/` keyboard shortcut, and
+				// recent-searches panel hydrate.
+				if ( 'search' === (string) get_query_var( 'bn_activity_action', '' ) ) {
+					$assets->enqueue( 'search' );
 				}
 				break;
 

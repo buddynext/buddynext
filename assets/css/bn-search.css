@@ -93,6 +93,49 @@
 	font-weight: var(--bn-fw-semibold);
 }
 
+/* Recent-searches chip strip — appears below the search hero when
+   the localStorage list has entries. Each chip is an anchor that
+   re-runs the prior query. "Clear" wipes the list. */
+.bn-search-recent {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	margin-block-start: 8px;
+	font-size: var(--bn-text-xs);
+}
+.bn-search-recent__title {
+	color: var(--bn-ink-3);
+	margin-inline-end: 2px;
+}
+.bn-search-recent__chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 3px 10px;
+	background: var(--bn-sunken, color-mix(in oklab, var(--bn-accent) 6%, transparent));
+	color: var(--bn-accent);
+	border-radius: var(--bn-r-full, 999px);
+	text-decoration: none;
+	transition: background var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
+}
+.bn-search-recent__chip:hover {
+	background: color-mix(in oklab, var(--bn-accent) 14%, transparent);
+}
+.bn-search-recent__clear {
+	background: transparent;
+	border: 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-xs);
+	cursor: pointer;
+	margin-inline-start: auto;
+	padding: 3px 6px;
+	border-radius: var(--bn-r-sm, 4px);
+}
+.bn-search-recent__clear:hover {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+}
+
 /* ── Tab strip - uses .bn-tabs primitive, adds surface-specific scroll ──── */
 
 .bn-search-tabs {

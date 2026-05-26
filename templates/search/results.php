@@ -315,6 +315,20 @@ $type_tabs = array(
 	data-wp-interactive="buddynext/search"
 	data-wp-context='{"query":"<?php echo esc_attr( $raw_query ); ?>","activeTab":"<?php echo esc_attr( $active_tab ); ?>"}'>
 
+	<h1 class="bn-search-shell__h1 screen-reader-text">
+		<?php
+		if ( '' !== $raw_query ) {
+			printf(
+				/* translators: %s: search query. */
+				esc_html__( 'Search results for %s', 'buddynext' ),
+				esc_html( $raw_query )
+			);
+		} else {
+			esc_html_e( 'Search', 'buddynext' );
+		}
+		?>
+	</h1>
+
 	<!-- Search hero -->
 	<?php
 	buddynext_get_template(
