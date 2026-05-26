@@ -12,7 +12,7 @@ BuddyNext never processes payments. It stores access state (role, credits, grant
 ```
 External system (payment / automation / admin)
     → POST buddynext/v1/webhook/access
-        → updates bn_user_abilities / bn_user_credits / community role
+        → updates ability / credit / community-role user_meta
             → buddynext_can() checks stored state
 ```
 
@@ -74,7 +74,9 @@ Abilities are additive on top of the base role. Revoking an ability removes the 
 
 ## Credits
 
-Numeric balance per user stored in `bn_user_credits`. Optional.
+Numeric balance per user stored in `wp_usermeta` under the `bn_credits` key
+(see `RoleService::CREDITS_META`). Optional — absence of the meta entry
+means zero balance.
 
 Use cases:
 - Post in a premium space costs N credits
@@ -228,8 +230,8 @@ add_filter( 'buddynext_user_can', function( $can, $user_id, $cap, $context ) {
 ## Data Stored
 
 `wp_usermeta` key `bn_community_role` — site-wide community role
-`bn_user_abilities` — granted abilities per user (ability, expires_at, source)
-`bn_user_credits` — credit balance per user (balance, updated_at)
+`wp_usermeta` key `bn_ability_{ability_slug}` — granted abilities per user (value = expiry unix timestamp, `0` = never)
+`wp_usermeta` key `bn_credits` — credit balance per user (integer)
 `bn_webhook_log` — webhook call log (source, action, user_id, payload, status, created_at)
 
 ---
@@ -241,7 +243,7 @@ add_filter( 'buddynext_user_can', function( $can, $user_id, $cap, $context ) {
 | Spaces | `buddynext-spaces/join-gated` checked on join; credits spent on create (if configured) |
 | Activity Feed | `buddynext-feed/create-post` checked before post |
 | Moderation | `buddynext-moderation/*` capabilities gate queue access |
-| WBGamification | Points can optionally top up `bn_user_credits` via bridge hook |
+| WBGamification | Points can optionally top up the `bn_credits` user_meta balance via bridge hook |
 | Admin Settings | Webhook secret key management, webhook log viewer |
 | Zapier / Make | Webhook endpoint works as standard HTTP POST action |
 | Any payment plugin | Grant access via webhook — zero BuddyNext code changes needed |

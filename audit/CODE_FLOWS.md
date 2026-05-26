@@ -18,7 +18,7 @@ REST request
       → PermissionService::can($user_id, 'buddynext-feed/create-post')
           → checks WP manage_options (layer 1)
           → checks community role >= 'member' (layer 2)
-          → checks bn_user_abilities for explicit grant (layer 3)
+          → checks bn_ability_{slug} user_meta for explicit grant (layer 3)
           → apply_filters('buddynext_user_can', result, user_id, capability) (layer 4)
       → PostService::create($data)
           → INSERT into bn_posts
@@ -108,7 +108,7 @@ ControllerBase::require_auth(WP_REST_Request $request)
               → PermissionService::can(get_current_user_id(), $capability, $context)
                   → Layer 1: current_user_can('manage_options') → return true
                   → Layer 2: ROLE_MAP[$capability] → check community role from bn_space_members / wp_usermeta
-                  → Layer 3: SELECT bn_user_abilities WHERE user_id=? AND ability=? AND (expires_at IS NULL OR expires_at > NOW())
+                  → Layer 3: get_user_meta(user_id, bn_ability_{slug}) → check expires_ts (0 = never, else compare against time())
                   → Layer 4: apply_filters('buddynext_user_can', $result, $user_id, $capability)
               → false: return WP_Error(403, 'rest_forbidden')
           → return true

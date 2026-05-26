@@ -18,7 +18,7 @@ Access gating is handled entirely through the Roles + Permissions system (`17-ro
 Spaces and content have an optional `required_ability` field. When a user tries to join or access:
 
 1. `buddynext_can( $user_id, 'buddynext-spaces/join-gated', ['space_id' => $id] )` is called
-2. Checks `bn_user_abilities` for a valid non-expired grant
+2. Checks the `bn_ability_{slug}` user_meta entry for a valid non-expired grant
 3. If no grant → shows paywall UI with a configurable CTA (admin sets the CTA URL)
 
 The CTA URL points to wherever the site handles payment: WooCommerce checkout, MemberPress, Lemon Squeezy, Stripe payment link, anything.
@@ -83,7 +83,7 @@ Each bridge is a thin adapter (~30 lines) that maps platform events to BuddyNext
 
 | Feature | Connection |
 |---------|-----------|
-| Roles + Permissions | `bn_user_abilities` + `buddynext_user_can` filter |
+| Roles + Permissions | `bn_ability_{slug}` user_meta + `buddynext_user_can` filter |
 | Spaces | `required_ability` field on `bn_spaces` |
 | Webhook API | `buddynext/v1/webhook/access` — full spec in `17-roles-permissions.md` |
 | Admin Settings | Paywall CTA config, webhook secret key |

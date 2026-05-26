@@ -485,7 +485,6 @@ wp_register_ability( 'buddynext-post-in-feed', [ 'label' => 'Post in Feed' ] );
 | `bn_reports` | 8 — Moderation |
 | `bn_mod_log` | 8 — Moderation |
 | `bn_user_strikes` | 8 — Moderation |
-| `bn_user_abilities` | 1 — Core |
 | `bn_activity_log` | 1 — Core |
 | `bn_feed_items` | 3 — Feed cache (>1M members) |
 

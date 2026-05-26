@@ -27,7 +27,7 @@ All BuddyNext permission checks flow through `PermissionService::can($user_id, $
 
 1. **WP site admin** - `current_user_can('manage_options')` → always granted
 2. **Community role** - check `ROLE_MAP[$capability]` minimum role against user's community role
-3. **Explicit ability grant** - row in `bn_user_abilities` with optional expiry
+3. **Explicit ability grant** - `bn_ability_{slug}` user_meta entry with optional expiry (`0` = never)
 4. **Developer filter** - `buddynext_user_can` filter can override in either direction
 
 Space-scoped capabilities (`buddynext-moderate-space`, `buddynext-manage-space`) bypass the generic role-map and query `bn_space_members` directly.
@@ -37,7 +37,7 @@ Space-scoped capabilities (`buddynext-moderate-space`, `buddynext-manage-space`)
 ## Capability × Role Matrix
 
 `min_role` = minimum community role required by default (from `ROLE_MAP`).
-`null` = no role-based default; must be explicitly granted via `bn_user_abilities` or the filter.
+`null` = no role-based default; must be explicitly granted via the `bn_ability_{slug}` user_meta entry or the filter.
 
 | Capability | Min Role | Owner | Admin | Moderator | Member | Notes |
 |------------|----------|:-----:|:-----:|:---------:|:------:|-------|
@@ -93,13 +93,20 @@ Spaces have their own role within `bn_space_members.role`. These are checked sep
 
 ---
 
-## `bn_user_abilities` Explicit Grants
+## Explicit Grants — `bn_ability_{slug}` user_meta
 
-The `bn_user_abilities` table allows per-user explicit grants for any capability, optionally with an expiry:
+Each ability grant is a single `wp_usermeta` row. The `meta_key` is
+`bn_ability_` + the sanitised ability slug (e.g. `bn_ability_buddynext_spaces_join_gated`).
+The `meta_value` is an integer unix timestamp — `0` means "never expires",
+otherwise the timestamp at which the grant lapses. Use
+`PermissionService::ability_meta_key( $slug )` to build the key.
 
-```sql
-SELECT * FROM bn_user_abilities
-WHERE user_id = ? AND ability = ? AND (expires_at IS NULL OR expires_at > NOW());
+```php
+update_user_meta(
+    $user_id,
+    PermissionService::ability_meta_key( 'buddynext-spaces/join-gated' ),
+    0 // never expires
+);
 ```
 
 Use cases:

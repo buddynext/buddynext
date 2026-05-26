@@ -105,11 +105,10 @@ INDEX (visibility, object_type)           -- privacy-filtered searches
 INDEX (author_id)                         -- "all content by user" query
 ```
 
-### bn_user_abilities
-```
-PRIMARY KEY (id)
-INDEX (user_id, ability, expires_at)      -- fast ability check
-```
+### Ability grants (wp_usermeta)
+Ability grants are stored as `bn_ability_{slug}` user_meta entries. The
+`(user_id, meta_key)` index on `wp_usermeta` already gives O(log n)
+lookups; no schema work needed.
 
 ---
 

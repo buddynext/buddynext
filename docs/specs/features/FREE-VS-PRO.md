@@ -173,7 +173,7 @@ BuddyNext Pro is bundled with BuddyX / BuddyX Pro / Reign themes + all addons (J
 - Paywall UI — blurred preview + configurable CTA button per space
 - Member tiers — define tiers (Free Member, Premium, VIP), assign per-tier space access
 - Per-space custom branding (cover image, accent colour, custom description layout)
-- DB: uses `bn_user_abilities` + `bn_membership_tiers`; post approval uses `bn_posts.status = 'pending'`
+- DB: uses `bn_ability_{slug}` user_meta + `bn_membership_tiers`; post approval uses `bn_posts.status = 'pending'`
 
 ### Member Management *(Business)*
 - Advanced profile field types: date, location (map picker), file upload, multi-select, number, conditional (show field if other field = value)

@@ -534,9 +534,9 @@ All bridges use `class_exists()` guards at hook time and are no-ops when the com
 
 **Services:** `CounterService` (credits)
 
-**Key Tables:** `bn_user_credits`
+**Key Storage:** `bn_credits` user_meta (integer balance per user)
 
-Credit balance tracked via `bn_user_credits`. Fires `buddynext_credits_spent` on debit. Bridges `wb_gamification_event` for badge/level actions.
+Credit balance tracked via `wp_usermeta` under the `bn_credits` key (see `RoleService::CREDITS_META`). Fires `buddynext_credits_spent` on debit. Bridges `wb_gamification_event` for badge/level actions.
 
 ---
 
@@ -554,7 +554,7 @@ Transport abstraction: polling fallback or WebSocket when configured. Extensible
 
 1. WP `manage_options` - site admin bypass
 2. Community role hierarchy (`owner > admin > moderator > member`)
-3. Explicit grant rows in `bn_user_abilities` (with optional expiry)
+3. Explicit grants as `bn_ability_{slug}` user_meta entries (with optional expiry)
 4. Developer filter `buddynext_user_can` - can override in either direction
 
 ### Container (DI)
