@@ -13,11 +13,8 @@
 
 declare( strict_types=1 );
 
-if ( ! (bool) get_option( 'users_can_register' ) ) {
-	// Registration closed — bounce to login with a notice.
-	wp_safe_redirect( add_query_arg( 'registration', 'disabled', \BuddyNext\Core\PageRouter::auth_url() ) );
-	exit;
-}
+// Closed-registration redirect is enforced upstream in
+// PageRouter::dispatch_hub_template() so it fires before wp_head().
 
 $rest_root   = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 $rest_nonce  = wp_create_nonce( 'wp_rest' );

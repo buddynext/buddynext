@@ -165,6 +165,18 @@ class PageRouter {
 			}
 		}
 
+		// Auth hub /signup/: bounce to /login/?registration=disabled when WP
+		// registration is closed. The login template already handles the
+		// query param with a friendly notice. Doing this here keeps the
+		// redirect before wp_head so no PHP warnings surface.
+		if ( 'auth' === $hub
+			&& 'signup' === (string) get_query_var( 'bn_auth_action', '' )
+			&& ! (bool) get_option( 'users_can_register' )
+		) {
+			wp_safe_redirect( add_query_arg( 'registration', 'disabled', self::auth_url() ) );
+			exit;
+		}
+
 		// Login-required hubs: redirect logged-out visitors to /auth/login/
 		// BEFORE any output starts. Previously each template handled this
 		// itself, but a template runs after wp_head() has emitted CSS, so
@@ -219,6 +231,18 @@ class PageRouter {
 		);
 
 		$hub_title = $hub_titles[ $hub ] ?? ucfirst( $hub );
+
+		// Auth hub has three actions (login / signup / verify) — give each
+		// its own document title so the browser tab and SEO bot see the
+		// right surface name.
+		if ( 'auth' === $hub ) {
+			$auth_action = (string) get_query_var( 'bn_auth_action', '' );
+			if ( 'signup' === $auth_action ) {
+				$hub_title = __( 'Create an account', 'buddynext' );
+			} elseif ( 'verify' === $auth_action ) {
+				$hub_title = __( 'Verify your email', 'buddynext' );
+			}
+		}
 
 		// Bookmarks hub: override the bare "Activity Feed" title with a
 		// dedicated label so the document <title> reads "Bookmarks · BuddyNext".
