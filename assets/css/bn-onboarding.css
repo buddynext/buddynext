@@ -259,6 +259,66 @@
 	line-height: 1.5;
 }
 
+/* Username compound input: "@" prefix slot + inline availability badge.
+   The container owns the border so the prefix + input + status pill
+   read as a single control. Matches V2 .ob-input-prefix. */
+.bn-ob-input-prefix {
+	display: flex;
+	align-items: stretch;
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-canvas);
+	transition: border-color var(--bn-dur) var(--bn-ease), box-shadow var(--bn-dur) var(--bn-ease);
+	overflow: hidden;
+}
+.bn-ob-input-prefix:focus-within {
+	border-color: var(--bn-accent);
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 18%, transparent);
+}
+.bn-ob-input-prefix__prefix {
+	background: var(--bn-sunken);
+	border-right: 1px solid var(--bn-line);
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 13px;
+	color: var(--bn-ink-3);
+	padding: 0 var(--bn-s3);
+	display: inline-flex;
+	align-items: center;
+}
+.bn-ob-input-prefix .bn-ob-username {
+	flex: 1;
+	min-width: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	padding: 10px var(--bn-s3);
+}
+.bn-ob-input-prefix .bn-ob-username:focus {
+	box-shadow: none;
+}
+.bn-ob-input-prefix__status {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 var(--bn-s3);
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 11px;
+	font-weight: var(--bn-fw-semibold);
+	letter-spacing: 0.02em;
+	color: var(--bn-ink-3);
+	white-space: nowrap;
+}
+.bn-ob-input-prefix__status[hidden] { display: none; }
+.bn-ob-input-prefix.is-checking .bn-ob-input-prefix__status,
+.bn-ob-input-prefix__status:not(.tone-ok):not(.tone-bad) {
+	color: var(--bn-ink-3);
+}
+.bn-ob-input-prefix__status.tone-ok {
+	color: oklch(58% 0.16 155); /* success */
+}
+.bn-ob-input-prefix__status.tone-bad {
+	color: oklch(58% 0.20 25); /* danger */
+}
+
 /* ── Chips (interests step) ───────────────────────────────────────────── */
 
 .bn-ob-chips {

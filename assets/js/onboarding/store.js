@@ -7,6 +7,10 @@
  */
 import { store, getContext } from '@wordpress/interactivity';
 
+// Holds the pending username-availability check timer so a fresh
+// keystroke can cancel the in-flight check before it fires.
+let usernameCheckTimer = null;
+
 function ctx() {
 	try {
 		return getContext();
@@ -159,19 +163,39 @@ store( 'buddynext/onboarding', {
 		checkUsername( event ) {
 			const c = ctx();
 			c.userLogin = event && event.target ? String( event.target.value || '' ) : '';
+			const captured = c.userLogin;
+
+			// Too short — clear feedback, no network call.
+			if ( captured.length < 3 ) {
+				c.usernameChecking = false;
+				c.usernameStatusLabel = '';
+				return;
+			}
+
+			// Show "Checking…" immediately while we wait for the debounce
+			// window to close and the REST call to return.
 			c.usernameChecking = true;
-			// Best-effort slug-check via existing endpoint.
-			rest( c, 'profile-slug/check?slug=' + encodeURIComponent( c.userLogin ), {
-				method: 'GET',
-			} )
-				.then( ( r ) => r.json() )
-				.then( ( data ) => {
-					c.usernameAvailable = !! ( data && data.available );
-					c.usernameChecking = false;
+			c.usernameStatusLabel = 'Checking…';
+
+			if ( usernameCheckTimer ) { clearTimeout( usernameCheckTimer ); }
+			usernameCheckTimer = setTimeout( () => {
+				rest( c, 'profile-slug/check?slug=' + encodeURIComponent( captured ), {
+					method: 'GET',
 				} )
-				.catch( () => {
-					c.usernameChecking = false;
-				} );
+					.then( ( r ) => r.json() )
+					.then( ( data ) => {
+						// Discard stale responses if the user kept typing.
+						if ( c.userLogin !== captured ) { return; }
+						const ok = !! ( data && data.available );
+						c.usernameAvailable  = ok;
+						c.usernameChecking   = false;
+						c.usernameStatusLabel = ok ? 'Available' : 'Taken';
+					} )
+					.catch( () => {
+						c.usernameChecking    = false;
+						c.usernameStatusLabel = '';
+					} );
+			}, 350 );
 		},
 		selectInterest( event ) {
 			const c = ctx();
@@ -343,6 +367,18 @@ store( 'buddynext/onboarding', {
 					bio:          c.bio || '',
 				} ),
 			} ).catch( () => {} );
+
+			// Persist the chosen handle if the user changed it. Server-
+			// side check_slug_availability rejects collisions; we fire and
+			// forget — the live badge already showed any conflict before
+			// the user could reach the Continue button.
+			const slug = String( c.userLogin || '' ).trim();
+			if ( slug.length >= 3 ) {
+				rest( c, 'profile-slug', {
+					method: 'PUT',
+					body:   JSON.stringify( { slug } ),
+				} ).catch( () => {} );
+			}
 
 			rest( c, 'me/onboarding/complete', {
 				method: 'POST',

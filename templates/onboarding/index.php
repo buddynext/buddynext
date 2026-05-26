@@ -32,6 +32,14 @@ global $wpdb;
 
 $display_name  = $ob_user->display_name;
 $current_login = $ob_user->user_login;
+// Surface the user's BN profile slug ("handle") if they've set one,
+// otherwise fall back to the WP login as a reasonable starting point.
+// The onboarding submit saves whatever the user finalises into the
+// bn_profile_slug user_meta via PUT /profile-slug.
+$current_slug = (string) get_user_meta( $ob_user_id, 'bn_profile_slug', true );
+if ( '' === $current_slug ) {
+	$current_slug = $current_login;
+}
 
 $name_parts = explode( ' ', $display_name );
 $initials   = '';
@@ -181,10 +189,11 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			'followingUsers'    => $already_following,
 			'displayName'       => $display_name,
 			'displayNameDirty'  => false,
-			'userLogin'         => $current_login,
+			'userLogin'           => $current_slug,
 			'bio'               => $bio,
-			'usernameAvailable' => true,
-			'usernameChecking'  => false,
+			'usernameAvailable'   => true,
+			'usernameChecking'    => false,
+			'usernameStatusLabel' => '',
 			'saving'            => false,
 			'error'             => '',
 			'restNonce'         => $rest_nonce,
@@ -290,18 +299,29 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 				<div class="bn-ob-field">
 					<label class="bn-ob-label" for="bn-ob-username">
 						<?php esc_html_e( 'Username', 'buddynext' ); ?>
+						<span class="bn-ob-label__hint"><?php esc_html_e( '3+ characters, letters & numbers', 'buddynext' ); ?></span>
 					</label>
-					<input class="bn-input"
-						type="text"
-						id="bn-ob-username"
-						name="user_login"
-						value="<?php echo esc_attr( $current_login ); ?>"
-						placeholder="@username"
-						data-wp-on--input="actions.checkUsername" />
-					<span class="bn-ob-field__hint"
-						data-wp-bind--hidden="!state.usernameChecking">
-						<?php esc_html_e( 'Checking availability...', 'buddynext' ); ?>
-					</span>
+					<div class="bn-ob-input-prefix"
+						data-wp-class--is-checking="context.usernameChecking"
+						data-wp-class--is-ok="context.usernameAvailable"
+					>
+						<span class="bn-ob-input-prefix__prefix" aria-hidden="true">@</span>
+						<input class="bn-ob-username"
+							type="text"
+							id="bn-ob-username"
+							name="user_login"
+							value="<?php echo esc_attr( $current_slug ); ?>"
+							placeholder="<?php esc_attr_e( 'username', 'buddynext' ); ?>"
+							autocomplete="username"
+							autocapitalize="off"
+							spellcheck="false"
+							data-wp-on--input="actions.checkUsername" />
+						<span class="bn-ob-input-prefix__status"
+							data-wp-class--tone-ok="context.usernameAvailable"
+							data-wp-class--tone-bad="!context.usernameAvailable"
+							data-wp-bind--hidden="!context.usernameStatusLabel"
+							data-wp-text="context.usernameStatusLabel"></span>
+					</div>
 				</div>
 
 				<div class="bn-ob-field">
@@ -631,7 +651,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 								<?php echo esc_html( $display_name ?: __( 'Your name', 'buddynext' ) ); ?>
 							</div>
 							<div class="bn-ob-preview-card__handle" data-wp-text="state.previewHandle">
-								<?php echo esc_html( '@' . $current_login ); ?>
+								<?php echo esc_html( '@' . $current_slug ); ?>
 							</div>
 						</div>
 					</div>
