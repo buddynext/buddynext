@@ -15,6 +15,207 @@ function nonce() {
 	return getContext().restNonce || '';
 }
 
+/*
+   Avatar crop modal — opens a centred dialog with the selected image
+   on a canvas. User drags the image to position it under a circular
+   mask, scrolls/pinches to zoom. The output is a 512×512 JPEG blob
+   suitable for the existing /me/avatar endpoint. Returns null when
+   the user cancels.
+
+   No external library: pure Canvas API + pointer events.
+   ---------------------------------------------------------------- */
+async function openAvatarCropModal( file ) {
+	return new Promise( ( resolve ) => {
+		const url = URL.createObjectURL( file );
+		const img = new Image();
+		img.onload = () => {
+			URL.revokeObjectURL( url );
+			renderCropModal( img, resolve );
+		};
+		img.onerror = () => {
+			URL.revokeObjectURL( url );
+			resolve( null );
+		};
+		img.src = url;
+	} );
+}
+
+function renderCropModal( img, resolve ) {
+	const SIZE   = 360; // canvas square side
+	const OUTPUT = 512; // exported JPEG side
+
+	const overlay = document.createElement( 'div' );
+	overlay.className = 'bn-avatar-crop-overlay';
+	overlay.setAttribute( 'role', 'dialog' );
+	overlay.setAttribute( 'aria-modal', 'true' );
+	overlay.setAttribute( 'aria-label', 'Crop avatar' );
+
+	const panel = document.createElement( 'div' );
+	panel.className = 'bn-avatar-crop-panel';
+
+	const title = document.createElement( 'h2' );
+	title.className = 'bn-avatar-crop-title';
+	title.textContent = 'Position your avatar';
+	panel.appendChild( title );
+
+	const stage = document.createElement( 'div' );
+	stage.className = 'bn-avatar-crop-stage';
+	stage.style.width  = SIZE + 'px';
+	stage.style.height = SIZE + 'px';
+	const canvas = document.createElement( 'canvas' );
+	canvas.width  = SIZE;
+	canvas.height = SIZE;
+	canvas.className = 'bn-avatar-crop-canvas';
+	stage.appendChild( canvas );
+	panel.appendChild( stage );
+
+	const ctx = canvas.getContext( '2d' );
+
+	// Fit the image inside the canvas with cover semantics.
+	const minScale = Math.max( SIZE / img.width, SIZE / img.height );
+	let scale = minScale;
+	let tx = ( SIZE - img.width * scale ) / 2;
+	let ty = ( SIZE - img.height * scale ) / 2;
+
+	const clampOffsets = () => {
+		const w = img.width * scale;
+		const h = img.height * scale;
+		// Constrain so the image always covers the canvas.
+		tx = Math.min( 0, Math.max( SIZE - w, tx ) );
+		ty = Math.min( 0, Math.max( SIZE - h, ty ) );
+	};
+
+	const draw = () => {
+		clampOffsets();
+		ctx.clearRect( 0, 0, SIZE, SIZE );
+		ctx.drawImage( img, tx, ty, img.width * scale, img.height * scale );
+		// Circular mask overlay — dim the corners.
+		ctx.save();
+		ctx.fillStyle = 'rgba(0,0,0,0.4)';
+		ctx.fillRect( 0, 0, SIZE, SIZE );
+		ctx.globalCompositeOperation = 'destination-out';
+		ctx.beginPath();
+		ctx.arc( SIZE / 2, SIZE / 2, SIZE / 2 - 8, 0, Math.PI * 2 );
+		ctx.fill();
+		ctx.restore();
+		// Stroke the crop circle for definition.
+		ctx.strokeStyle = '#fff';
+		ctx.lineWidth = 2;
+		ctx.beginPath();
+		ctx.arc( SIZE / 2, SIZE / 2, SIZE / 2 - 8, 0, Math.PI * 2 );
+		ctx.stroke();
+	};
+
+	// Pointer drag.
+	let dragging = false;
+	let lastX = 0;
+	let lastY = 0;
+	canvas.addEventListener( 'pointerdown', ( e ) => {
+		dragging = true;
+		lastX = e.clientX;
+		lastY = e.clientY;
+		canvas.setPointerCapture( e.pointerId );
+	} );
+	canvas.addEventListener( 'pointermove', ( e ) => {
+		if ( ! dragging ) { return; }
+		tx += e.clientX - lastX;
+		ty += e.clientY - lastY;
+		lastX = e.clientX;
+		lastY = e.clientY;
+		draw();
+	} );
+	canvas.addEventListener( 'pointerup', () => { dragging = false; } );
+	canvas.addEventListener( 'pointercancel', () => { dragging = false; } );
+
+	// Wheel zoom — zoom around the centre.
+	canvas.addEventListener( 'wheel', ( e ) => {
+		e.preventDefault();
+		const factor = e.deltaY < 0 ? 1.05 : 0.95;
+		const newScale = Math.max( minScale, Math.min( 5, scale * factor ) );
+		// Keep canvas centre point under the cursor.
+		const cx = SIZE / 2;
+		const cy = SIZE / 2;
+		tx = cx - ( ( cx - tx ) / scale ) * newScale;
+		ty = cy - ( ( cy - ty ) / scale ) * newScale;
+		scale = newScale;
+		draw();
+	}, { passive: false } );
+
+	// Slider zoom for accessibility / non-wheel devices.
+	const slider = document.createElement( 'input' );
+	slider.type = 'range';
+	slider.min  = '1';
+	slider.max  = '300';
+	slider.value = '100';
+	slider.className = 'bn-avatar-crop-zoom';
+	slider.setAttribute( 'aria-label', 'Zoom' );
+	slider.addEventListener( 'input', () => {
+		const newScale = minScale * ( parseInt( slider.value, 10 ) / 100 );
+		const cx = SIZE / 2;
+		const cy = SIZE / 2;
+		tx = cx - ( ( cx - tx ) / scale ) * newScale;
+		ty = cy - ( ( cy - ty ) / scale ) * newScale;
+		scale = newScale;
+		draw();
+	} );
+	panel.appendChild( slider );
+
+	// Action row.
+	const actions = document.createElement( 'div' );
+	actions.className = 'bn-avatar-crop-actions';
+	const cancel = document.createElement( 'button' );
+	cancel.type = 'button';
+	cancel.className = 'bn-btn';
+	cancel.dataset.variant = 'ghost';
+	cancel.textContent = 'Cancel';
+	const apply = document.createElement( 'button' );
+	apply.type = 'button';
+	apply.className = 'bn-btn';
+	apply.dataset.variant = 'primary';
+	apply.textContent = 'Apply';
+	actions.appendChild( cancel );
+	actions.appendChild( apply );
+	panel.appendChild( actions );
+
+	const cleanup = ( value ) => {
+		overlay.remove();
+		document.removeEventListener( 'keydown', onKey );
+		resolve( value );
+	};
+
+	cancel.addEventListener( 'click', () => cleanup( null ) );
+	overlay.addEventListener( 'click', ( e ) => {
+		if ( e.target === overlay ) { cleanup( null ); }
+	} );
+
+	apply.addEventListener( 'click', () => {
+		// Render at OUTPUT × OUTPUT (no mask overlay) for upload.
+		const out = document.createElement( 'canvas' );
+		out.width  = OUTPUT;
+		out.height = OUTPUT;
+		const outCtx = out.getContext( '2d' );
+		const ratio = OUTPUT / SIZE;
+		outCtx.drawImage(
+			img,
+			tx * ratio,
+			ty * ratio,
+			img.width * scale * ratio,
+			img.height * scale * ratio
+		);
+		out.toBlob( ( blob ) => cleanup( blob ), 'image/jpeg', 0.9 );
+	} );
+
+	const onKey = ( e ) => {
+		if ( e.key === 'Escape' ) { cleanup( null ); }
+		if ( e.key === 'Enter'  ) { apply.click(); }
+	};
+	document.addEventListener( 'keydown', onKey );
+
+	overlay.appendChild( panel );
+	document.body.appendChild( overlay );
+	draw();
+}
+
 /* Collect all named flat inputs/textareas (excluding the slug input). */
 function collectFlatData( wrap ) {
 	var data = {};
@@ -639,13 +840,23 @@ store( 'buddynext/profile', {
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
 
-			var formData = new FormData();
-			formData.append( 'avatar', file );
-
-			var ctx = getContext();
-			ctx.avatarUploading = true;
-
+			// Open the in-browser crop modal. User picks the square they
+			// want; we ship the cropped blob to the existing endpoint so
+			// no server-side cropping is needed. Cancel restores the
+			// file input value to empty.
 			try {
+				var cropped = await openAvatarCropModal( file );
+				if ( ! cropped ) {
+					event.target.value = '';
+					return;
+				}
+
+				var formData = new FormData();
+				formData.append( 'avatar', cropped, 'avatar.jpg' );
+
+				var ctx = getContext();
+				ctx.avatarUploading = true;
+
 				var res  = await fetch( apiUrl( 'buddynext/v1/me/avatar' ), {
 					method:  'POST',
 					headers: { 'X-WP-Nonce': nonce() },
@@ -655,9 +866,14 @@ store( 'buddynext/profile', {
 				if ( res.ok && data.avatar_url ) {
 					ctx.avatarUrl = data.avatar_url;
 					bnToast( 'Avatar updated', { tone: 'success' } );
+				} else {
+					bnToast( ( data && data.message ) || 'Upload failed', { tone: 'danger' } );
 				}
+			} catch ( err ) {
+				bnToast( 'Upload failed', { tone: 'danger' } );
 			} finally {
-				ctx.avatarUploading  = false;
+				var ctx2 = getContext();
+				ctx2.avatarUploading = false;
 				event.target.value   = '';
 			}
 		},

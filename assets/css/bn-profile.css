@@ -910,6 +910,60 @@
 	stroke-width: 3;
 }
 
+/* Avatar crop modal — opened by handleAvatarFileChange before the
+   upload fires. The user drags + zooms; the cropped 512×512 JPEG
+   is posted to /me/avatar instead of the raw file. */
+.bn-avatar-crop-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10000;
+	padding: 16px;
+}
+.bn-avatar-crop-panel {
+	background: var(--bn-surface, #fff);
+	border-radius: var(--bn-r-lg, 12px);
+	padding: 20px;
+	max-width: 100%;
+	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+}
+.bn-avatar-crop-title {
+	margin: 0;
+	font-size: var(--bn-text-lg, 18px);
+	font-weight: 600;
+	color: var(--bn-ink, #111);
+}
+.bn-avatar-crop-stage {
+	position: relative;
+	border-radius: 50%;
+	overflow: visible;
+	cursor: grab;
+	touch-action: none;
+}
+.bn-avatar-crop-stage:active { cursor: grabbing; }
+.bn-avatar-crop-canvas {
+	display: block;
+	border-radius: 8px;
+}
+.bn-avatar-crop-zoom {
+	width: 100%;
+	max-width: 320px;
+	accent-color: var(--bn-accent, #2563eb);
+}
+.bn-avatar-crop-actions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	width: 100%;
+}
+
 /* Profile completeness chip — circular ring with % label. Clicking
    the chip takes the owner to /edit. Owner-only; hidden when pct
    reaches 100 (rendered conditionally in the template). */
