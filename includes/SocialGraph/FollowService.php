@@ -32,11 +32,30 @@ class FollowService {
 	private const CACHE_TTL = 600;
 
 	/**
+	 * user_meta key holding the per-user "private account" toggle. When set
+	 * to a truthy value, follow attempts land as `pending` and must be
+	 * approved by the owner before the follower sees protected content.
+	 */
+	public const PRIVATE_META = 'bn_account_private';
+
+	/**
+	 * Return true when the target user has marked their account private.
+	 *
+	 * @param int $user_id Target user.
+	 * @return bool
+	 */
+	public function is_private_account( int $user_id ): bool {
+		return (bool) get_user_meta( $user_id, self::PRIVATE_META, true );
+	}
+
+	/**
 	 * Follow a user.
 	 *
-	 * A duplicate follow is silently ignored (INSERT IGNORE). The
-	 * buddynext_user_followed action fires only when a new relationship is
-	 * created, preventing duplicate notifications on retry.
+	 * A duplicate follow is silently ignored (INSERT IGNORE). When the
+	 * target account is private the row is stored with status='pending'
+	 * and the buddynext_follow_requested action fires instead of
+	 * buddynext_user_followed — the relationship doesn't count as
+	 * "following" until the owner approves it.
 	 *
 	 * @param int $follower_id  ID of the user doing the following.
 	 * @param int $following_id ID of the user being followed.
@@ -75,18 +94,33 @@ class FollowService {
 			);
 		}
 
+		$status = $this->is_private_account( $following_id ) ? 'pending' : 'approved';
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_follows (follower_id, following_id)
-				 VALUES (%d, %d)",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_follows (follower_id, following_id, status)
+				 VALUES (%d, %d, %s)",
 				$follower_id,
-				$following_id
+				$following_id,
+				$status
 			)
 		);
 		$inserted = $wpdb->rows_affected > 0;
 
 		$this->invalidate_follow_cache( $follower_id, $following_id );
+
+		if ( $inserted && 'pending' === $status ) {
+			/**
+			 * Fires when a follow request lands on a private account.
+			 *
+			 * @param int $follower_id  Requester.
+			 * @param int $following_id Owner whose approval is required.
+			 */
+			do_action( 'buddynext_follow_requested', $follower_id, $following_id );
+
+			return true;
+		}
 
 		if ( $inserted ) {
 			/**
@@ -112,7 +146,8 @@ class FollowService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$follow_count = (int) $wpdb->get_var(
 				$wpdb->prepare(
-					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d",
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows
+					 WHERE follower_id = %d AND status = 'approved'",
 					$follower_id
 				)
 			);
@@ -193,7 +228,7 @@ class FollowService {
 			$wpdb->prepare(
 				"SELECT COUNT(*)
 				 FROM {$wpdb->prefix}bn_follows
-				 WHERE follower_id = %d AND following_id = %d",
+				 WHERE follower_id = %d AND following_id = %d AND status = 'approved'",
 				$follower_id,
 				$following_id
 			)
@@ -205,7 +240,34 @@ class FollowService {
 	}
 
 	/**
+	 * Return true when the follower has a pending request to the target.
+	 *
+	 * @param int $follower_id Requester.
+	 * @param int $following_id Target.
+	 * @return bool
+	 */
+	public function has_pending_request( int $follower_id, int $following_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT 1
+				 FROM {$wpdb->prefix}bn_follows
+				 WHERE follower_id = %d AND following_id = %d AND status = 'pending'
+				 LIMIT 1",
+				$follower_id,
+				$following_id
+			)
+		);
+	}
+
+	/**
 	 * Return the list of user IDs who follow the given user.
+	 *
+	 * Only includes approved relationships — pending follow requests are
+	 * excluded so callers (feed audience, follower counts, etc.) never
+	 * see an unapproved follower as a follower.
 	 *
 	 * @param int $user_id User being followed.
 	 * @return int[]
@@ -225,7 +287,7 @@ class FollowService {
 			$wpdb->prepare(
 				"SELECT follower_id
 				 FROM {$wpdb->prefix}bn_follows
-				 WHERE following_id = %d
+				 WHERE following_id = %d AND status = 'approved'
 				 ORDER BY created_at DESC",
 				$user_id
 			)
@@ -259,7 +321,7 @@ class FollowService {
 			$wpdb->prepare(
 				"SELECT following_id
 				 FROM {$wpdb->prefix}bn_follows
-				 WHERE follower_id = %d
+				 WHERE follower_id = %d AND status = 'approved'
 				 ORDER BY created_at DESC",
 				$user_id
 			)
@@ -293,7 +355,7 @@ class FollowService {
 			$wpdb->prepare(
 				"SELECT COUNT(*)
 				 FROM {$wpdb->prefix}bn_follows
-				 WHERE following_id = %d",
+				 WHERE following_id = %d AND status = 'approved'",
 				$user_id
 			)
 		);
@@ -324,7 +386,7 @@ class FollowService {
 			$wpdb->prepare(
 				"SELECT COUNT(*)
 				 FROM {$wpdb->prefix}bn_follows
-				 WHERE follower_id = %d",
+				 WHERE follower_id = %d AND status = 'approved'",
 				$user_id
 			)
 		);
@@ -402,6 +464,142 @@ class FollowService {
 		}
 
 		return array_values( array_diff( array_unique( $candidates ), $following, array( $user_id ) ) );
+	}
+
+	/**
+	 * Return the IDs of users with pending follow requests TO this user.
+	 *
+	 * Used by the followers-page request inbox so the owner can see who
+	 * is waiting on approval.
+	 *
+	 * @param int $owner_id Owner of the private account.
+	 * @return int[] Follower user IDs ordered oldest-first.
+	 */
+	public function pending_followers( int $owner_id ): array {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT follower_id
+				 FROM {$wpdb->prefix}bn_follows
+				 WHERE following_id = %d AND status = 'pending'
+				 ORDER BY created_at ASC",
+				$owner_id
+			)
+		);
+
+		return array_map( 'intval', (array) $rows );
+	}
+
+	/**
+	 * Number of pending follow requests for the user.
+	 *
+	 * Cheap dedicated count used by the request-inbox badge.
+	 *
+	 * @param int $owner_id Owner of the private account.
+	 * @return int
+	 */
+	public function pending_followers_count( int $owner_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*)
+				 FROM {$wpdb->prefix}bn_follows
+				 WHERE following_id = %d AND status = 'pending'",
+				$owner_id
+			)
+		);
+	}
+
+	/**
+	 * Approve a pending follow request.
+	 *
+	 * Flips the row from `pending` to `approved` and fires
+	 * buddynext_user_followed / buddynext_follower_gained at that point —
+	 * downstream listeners (gamification, notifications) should treat
+	 * approval as the moment the follow "happened" because that's when
+	 * the relationship becomes visible.
+	 *
+	 * @param int $owner_id    Owner of the private account (must be acting user).
+	 * @param int $follower_id Requester being approved.
+	 * @return bool True when a pending row was promoted; false otherwise.
+	 */
+	public function approve_follow_request( int $owner_id, int $follower_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$affected = (int) $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_follows
+				 SET status = 'approved'
+				 WHERE follower_id = %d AND following_id = %d AND status = 'pending'",
+				$follower_id,
+				$owner_id
+			)
+		);
+
+		if ( $affected <= 0 ) {
+			return false;
+		}
+
+		$this->invalidate_follow_cache( $follower_id, $owner_id );
+
+		/** Mirrors the same hooks the public follow() path fires. */
+		do_action( 'buddynext_user_followed', $follower_id, $owner_id );
+		do_action( 'buddynext_follower_gained', $owner_id, $follower_id );
+
+		/**
+		 * Fires when an owner approves a pending follow request.
+		 *
+		 * @param int $owner_id    Approver.
+		 * @param int $follower_id Approved requester.
+		 */
+		do_action( 'buddynext_follow_request_approved', $owner_id, $follower_id );
+
+		return true;
+	}
+
+	/**
+	 * Reject a pending follow request.
+	 *
+	 * Deletes the pending row outright (no rejected-history kept for
+	 * privacy — the requester just sees the request go away).
+	 *
+	 * @param int $owner_id    Owner of the private account.
+	 * @param int $follower_id Requester being rejected.
+	 * @return bool True when a pending row was removed; false otherwise.
+	 */
+	public function reject_follow_request( int $owner_id, int $follower_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$affected = (int) $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->prefix}bn_follows
+				 WHERE follower_id = %d AND following_id = %d AND status = 'pending'",
+				$follower_id,
+				$owner_id
+			)
+		);
+
+		if ( $affected <= 0 ) {
+			return false;
+		}
+
+		$this->invalidate_follow_cache( $follower_id, $owner_id );
+
+		/**
+		 * Fires when an owner rejects a pending follow request.
+		 *
+		 * @param int $owner_id    Rejecter.
+		 * @param int $follower_id Rejected requester.
+		 */
+		do_action( 'buddynext_follow_request_rejected', $owner_id, $follower_id );
+
+		return true;
 	}
 
 	/**

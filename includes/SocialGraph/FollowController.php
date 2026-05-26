@@ -75,6 +75,36 @@ class FollowController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/follow-requests',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'list_follow_requests' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/follow-requests/(?P<follower_id>[\d]+)/approve',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'approve_follow_request' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/follow-requests/(?P<follower_id>[\d]+)/reject',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'reject_follow_request' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
 	}
 
 	/**
@@ -95,14 +125,25 @@ class FollowController {
 			);
 		}
 
-		$result = buddynext_service( 'follows' )->follow( $current_id, $target_id );
+		$follows = buddynext_service( 'follows' );
+		$result  = $follows->follow( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );
 			return $result;
 		}
 
-		return new WP_REST_Response( array( 'following' => true ), 200 );
+		// Surface the resolved state so the UI can distinguish a normal
+		// follow from a follow-request that's waiting on approval.
+		$is_pending = $follows->has_pending_request( $current_id, $target_id );
+
+		return new WP_REST_Response(
+			array(
+				'following' => ! $is_pending,
+				'pending'   => $is_pending,
+			),
+			200
+		);
 	}
 
 	/**
@@ -184,6 +225,71 @@ class FollowController {
 				}
 			)
 		);
+	}
+
+	/**
+	 * GET /me/follow-requests — list pending follow requests for the
+	 * current (private-account) user.
+	 *
+	 * Response shape: { ids: int[] }
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function list_follow_requests(): WP_REST_Response {
+		$owner_id = get_current_user_id();
+		$ids      = buddynext_service( 'follows' )->pending_followers( $owner_id );
+
+		return new WP_REST_Response( array( 'ids' => $ids ), 200 );
+	}
+
+	/**
+	 * POST /me/follow-requests/{follower_id}/approve — approve a pending
+	 * follow request that landed on the current user's private account.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function approve_follow_request( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$owner_id    = get_current_user_id();
+		$follower_id = (int) $request->get_param( 'follower_id' );
+
+		$ok = buddynext_service( 'follows' )->approve_follow_request( $owner_id, $follower_id );
+
+		if ( ! $ok ) {
+			return new WP_Error(
+				'no_pending_request',
+				__( 'No pending follow request from that user.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		return new WP_REST_Response( array( 'approved' => true ), 200 );
+	}
+
+	/**
+	 * POST /me/follow-requests/{follower_id}/reject — reject a pending
+	 * follow request. The pending row is deleted outright so the
+	 * requester just sees the request disappear; no rejected-history
+	 * is kept.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function reject_follow_request( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$owner_id    = get_current_user_id();
+		$follower_id = (int) $request->get_param( 'follower_id' );
+
+		$ok = buddynext_service( 'follows' )->reject_follow_request( $owner_id, $follower_id );
+
+		if ( ! $ok ) {
+			return new WP_Error(
+				'no_pending_request',
+				__( 'No pending follow request from that user.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		return new WP_REST_Response( array( 'rejected' => true ), 200 );
 	}
 
 	/**

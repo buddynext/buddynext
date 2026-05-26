@@ -29,6 +29,7 @@ class NotificationListener implements ListenerInterface {
 	 */
 	public function register(): void {
 		add_action( 'buddynext_user_followed', array( $this, 'on_user_followed' ), 10, 2 );
+		add_action( 'buddynext_follow_requested', array( $this, 'on_follow_requested' ), 10, 2 );
 		add_action( 'buddynext_space_member_joined', array( $this, 'on_space_member_joined' ), 10, 3 );
 
 		// Social Graph.
@@ -74,6 +75,29 @@ class NotificationListener implements ListenerInterface {
 				'object_type'  => 'user',
 				'object_id'    => $follower_id,
 				'group_key'    => 'follower_' . $following_id,
+			)
+		);
+	}
+
+	/**
+	 * Notify the owner of a private account when a follow request lands.
+	 *
+	 * @param int $follower_id  Requester.
+	 * @param int $following_id Private-account owner (recipient).
+	 */
+	public function on_follow_requested( int $follower_id, int $following_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $following_id,
+				'sender_id'    => $follower_id,
+				'type'         => 'bn.follow_requested',
+				'object_type'  => 'user',
+				'object_id'    => $follower_id,
+				'group_key'    => 'follow_request_' . $following_id,
 			)
 		);
 	}

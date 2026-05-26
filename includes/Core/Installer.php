@@ -351,9 +351,11 @@ class Installer {
 			"CREATE TABLE {$p}bn_follows (
 				follower_id  BIGINT(20) UNSIGNED NOT NULL,
 				following_id BIGINT(20) UNSIGNED NOT NULL,
+				status       ENUM('approved','pending') NOT NULL DEFAULT 'approved',
 				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (follower_id, following_id),
-				KEY          following (following_id)
+				KEY          following (following_id, status),
+				KEY          pending_inbox (following_id, status, created_at)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_connections (

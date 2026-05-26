@@ -198,4 +198,39 @@ class PrivacyService {
 				return false;
 		}
 	}
+
+	/**
+	 * Whether a viewer can see the OWNER's posts / activity.
+	 *
+	 * Layers, evaluated in order:
+	 *   - Owner viewing their own content → always yes.
+	 *   - Owner has blocked viewer → no.
+	 *   - Owner has a private account → yes only if viewer is an
+	 *     approved follower. Pending requests don't grant access.
+	 *   - Otherwise → yes (per-post privacy still applies at the
+	 *     PostService layer).
+	 *
+	 * Callers (FeedService audience build, profile activity tab, search
+	 * index visibility) should consult this method instead of duplicating
+	 * the rules.
+	 *
+	 * @param int $viewer_id Viewer.
+	 * @param int $owner_id  Profile owner.
+	 * @return bool
+	 */
+	public function can_view_activity( int $viewer_id, int $owner_id ): bool {
+		if ( $viewer_id === $owner_id ) {
+			return true;
+		}
+
+		if ( $this->blocks->is_blocked( $owner_id, $viewer_id ) ) {
+			return false;
+		}
+
+		if ( $this->follows->is_private_account( $owner_id ) ) {
+			return $this->follows->is_following( $viewer_id, $owner_id );
+		}
+
+		return true;
+	}
 }
