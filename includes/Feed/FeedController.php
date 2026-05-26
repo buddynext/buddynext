@@ -242,7 +242,7 @@ class FeedController {
 	/**
 	 * Dismiss a site-wide announcement for the current user.
 	 *
-	 * Stores a row in bn_announcement_dismissals so the announcement no longer
+	 * Persists the dismissal as a user_meta entry so the announcement no longer
 	 * appears in the user's home feed. Idempotent — safe to call multiple times.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -254,7 +254,6 @@ class FeedController {
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 
-		// Verify this is an active announcement before recording the dismissal.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$exists = $wpdb->get_var(
 			$wpdb->prepare(
@@ -274,16 +273,7 @@ class FeedController {
 			);
 		}
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_announcement_dismissals (user_id, post_id)
-				 VALUES (%d, %d)",
-				$user_id,
-				$post_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		FeedService::dismiss_announcement( $user_id, $post_id );
 
 		return new WP_REST_Response( null, 204 );
 	}

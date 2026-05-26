@@ -26,6 +26,7 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 use BuddyNext\Core\PageRouter;
+use BuddyNext\Feed\FeedService;
 
 // ── Guest gate ─────────────────────────────────────────────────────────────
 $current_user_id = get_current_user_id();
@@ -92,28 +93,30 @@ if ( ! empty( $excluded_ids ) ) {
 }
 
 // ── Pinned announcement ─────────────────────────────────────────────────────
-// Matches FeedService::active_announcement() — uses bn_announcement_dismissals,
-// not usermeta, so REST dismiss endpoint and PHP render are consistent.
-$dismissals_table = $wpdb->prefix . 'bn_announcement_dismissals';
+// Dismissals live in user_meta (FeedService::DISMISSED_ANNOUNCEMENTS_META) so
+// the REST dismiss endpoint and PHP render share one source of truth.
+$dismissed_ids = FeedService::dismissed_announcement_ids( $current_user_id );
+$exclude_sql   = '';
+$exclude_args  = array();
+if ( ! empty( $dismissed_ids ) ) {
+	$placeholders = implode( ',', array_fill( 0, count( $dismissed_ids ), '%d' ) );
+	$exclude_sql  = " AND p.id NOT IN ({$placeholders})";
+	$exclude_args = $dismissed_ids;
+}
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$announcement = $wpdb->get_row(
-	$wpdb->prepare(
-		"SELECT p.id, p.user_id, p.content, p.created_at
+$announcement_sql = "SELECT p.id, p.user_id, p.content, p.created_at
 		   FROM {$posts_table} p
 		  WHERE p.type = 'announcement'
 			AND p.is_announcement = 1
 			AND p.status = 'published'
-			AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > NOW())
-			AND NOT EXISTS (
-				  SELECT 1 FROM {$dismissals_table} d
-				   WHERE d.post_id = p.id AND d.user_id = %d
-				)
+			AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > NOW()){$exclude_sql}
 		  ORDER BY p.created_at DESC
-		  LIMIT %d",
-		$current_user_id,
-		1
-	)
+		  LIMIT %d";
+$announcement     = $wpdb->get_row(
+	empty( $exclude_args )
+		? $wpdb->prepare( $announcement_sql, 1 )
+		: $wpdb->prepare( $announcement_sql, array_merge( $exclude_args, array( 1 ) ) )
 );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 

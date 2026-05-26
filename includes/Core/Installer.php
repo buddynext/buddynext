@@ -785,13 +785,6 @@ class Installer {
 				KEY            space (space_id)
 			) {$cs};",
 
-			"CREATE TABLE {$p}bn_announcement_dismissals (
-				user_id    BIGINT(20) UNSIGNED NOT NULL,
-				post_id    BIGINT(20) UNSIGNED NOT NULL,
-				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY (user_id, post_id)
-			) {$cs};",
-
 			"CREATE TABLE {$p}bn_user_strikes (
 				id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				user_id     BIGINT(20) UNSIGNED NOT NULL,
@@ -1008,6 +1001,33 @@ class Installer {
 		);
 		if ( is_array( $connections_cols ) && ! in_array( 'note', $connections_cols, true ) ) {
 			$wpdb->query( "ALTER TABLE `{$p}bn_connections` ADD COLUMN `note` VARCHAR(280) NOT NULL DEFAULT '' AFTER `status`" );
+		}
+
+		// bn_announcement_dismissals — retired; data lives in user_meta
+		// (FeedService::DISMISSED_ANNOUNCEMENTS_META). One-shot migration:
+		// copy any existing rows into user_meta, then drop the table.
+		$dismissals_table = $p . 'bn_announcement_dismissals';
+		$dismissals_exists = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+				WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+				$dismissals_table
+			)
+		);
+		if ( $dismissals_exists ) {
+			$rows = $wpdb->get_results( "SELECT user_id, post_id FROM `{$dismissals_table}`" );
+			if ( is_array( $rows ) ) {
+				$by_user = array();
+				foreach ( $rows as $r ) {
+					$by_user[ (int) $r->user_id ][] = (int) $r->post_id;
+				}
+				foreach ( $by_user as $uid => $ids ) {
+					$existing = get_user_meta( $uid, 'bn_dismissed_announcements', true );
+					$merged   = array_values( array_unique( array_map( 'intval', array_merge( is_array( $existing ) ? $existing : array(), $ids ) ) ) );
+					update_user_meta( $uid, 'bn_dismissed_announcements', $merged );
+				}
+			}
+			$wpdb->query( "DROP TABLE IF EXISTS `{$dismissals_table}`" );
 		}
 
 		$wpdb->suppress_errors( false );

@@ -34,6 +34,12 @@ class FeedService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * user_meta key storing the list of announcement post IDs the user has
+	 * dismissed. Value is a flat array of integer post IDs.
+	 */
+	public const DISMISSED_ANNOUNCEMENTS_META = 'bn_dismissed_announcements';
+
+	/**
 	 * Follow graph service — used to resolve the home-feed author list.
 	 *
 	 * @var FollowService
@@ -405,10 +411,8 @@ class FeedService {
 	/**
 	 * Return the active site-wide announcement for a user, or null.
 	 *
-	 * Returns null when:
-	 *  - No published announcement exists.
-	 *  - The announcement has expired (site_pin_expires_at < NOW()).
-	 *  - The user has already dismissed it (row in bn_announcement_dismissals).
+	 * Returns null when no published, unexpired announcement remains after
+	 * filtering out the user's dismissals (stored in user_meta).
 	 *
 	 * @param int $user_id Viewing user ID.
 	 * @return array|null Hydrated post array or null.
@@ -416,31 +420,78 @@ class FeedService {
 	public function active_announcement( int $user_id ): ?array {
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$dismissed = self::dismissed_announcement_ids( $user_id );
+
+		$exclude_sql = '';
+		$params      = array();
+		if ( ! empty( $dismissed ) ) {
+			$placeholders = implode( ',', array_fill( 0, count( $dismissed ), '%d' ) );
+			$exclude_sql  = " AND p.id NOT IN ({$placeholders})";
+			$params       = $dismissed;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT p.* FROM {$wpdb->prefix}bn_posts p
+			empty( $params )
+				? "SELECT p.* FROM {$wpdb->prefix}bn_posts p
 				 WHERE p.is_announcement = 1
 				   AND p.type = 'announcement'
 				   AND p.status = 'published'
 				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > NOW())
-				   AND NOT EXISTS (
-				         SELECT 1 FROM {$wpdb->prefix}bn_announcement_dismissals d
-				         WHERE d.post_id = p.id AND d.user_id = %d
-				       )
+				 ORDER BY p.created_at DESC
+				 LIMIT 1"
+				: $wpdb->prepare(
+					"SELECT p.* FROM {$wpdb->prefix}bn_posts p
+				 WHERE p.is_announcement = 1
+				   AND p.type = 'announcement'
+				   AND p.status = 'published'
+				   AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > NOW()){$exclude_sql}
 				 ORDER BY p.created_at DESC
 				 LIMIT 1",
-				$user_id
-			),
+					$params
+				),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		if ( null === $row ) {
 			return null;
 		}
 
 		return $this->post_service->hydrate( $row );
+	}
+
+	/**
+	 * Return the array of announcement post IDs this user has dismissed.
+	 *
+	 * @param int $user_id Viewing user ID.
+	 * @return int[]
+	 */
+	public static function dismissed_announcement_ids( int $user_id ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+		$raw = get_user_meta( $user_id, self::DISMISSED_ANNOUNCEMENTS_META, true );
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+		return array_values( array_unique( array_map( 'intval', $raw ) ) );
+	}
+
+	/**
+	 * Mark an announcement as dismissed for a user (idempotent).
+	 *
+	 * @param int $user_id Viewing user ID.
+	 * @param int $post_id Announcement post ID.
+	 * @return void
+	 */
+	public static function dismiss_announcement( int $user_id, int $post_id ): void {
+		if ( $user_id <= 0 || $post_id <= 0 ) {
+			return;
+		}
+		$dismissed   = self::dismissed_announcement_ids( $user_id );
+		$dismissed[] = $post_id;
+		update_user_meta( $user_id, self::DISMISSED_ANNOUNCEMENTS_META, array_values( array_unique( $dismissed ) ) );
 	}
 
 	/**
