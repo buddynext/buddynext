@@ -329,16 +329,64 @@ class CommentService {
 	 * cap are flattened back onto their deepest visible ancestor.
 	 * The pinned comment (if any) is prepended to the top-level list.
 	 *
+	 * Restrict gate: when the object_type is 'post', any commenter the
+	 * post-owner has restricted is hidden from every viewer except
+	 * themselves (so they don't realise they're restricted) and the
+	 * owner (who can still moderate).
+	 *
 	 * @param string $object_type Object type.
 	 * @param int    $object_id   Object ID.
-	 * @param array  $args        Optional: per_page (int), page (int).
+	 * @param array  $args        Optional: per_page (int), page (int), viewer_id (int).
 	 * @return array{items: array[], total: int} Items have a `replies` key (array of nested children).
 	 */
 	public function list( string $object_type, int $object_id, array $args = array() ): array {
-		$per_page = min( (int) ( $args['per_page'] ?? self::DEFAULT_LIMIT ), 50 );
-		$page     = max( 1, (int) ( $args['page'] ?? 1 ) );
+		$per_page  = min( (int) ( $args['per_page'] ?? self::DEFAULT_LIMIT ), 50 );
+		$page      = max( 1, (int) ( $args['page'] ?? 1 ) );
+		$viewer_id = (int) ( $args['viewer_id'] ?? get_current_user_id() );
 
 		$result = $this->list_for_object( $object_type, $object_id, $per_page, $page );
+
+		if ( empty( $result['items'] ) ) {
+			return $result;
+		}
+
+		// Resolve restrict gate inputs once. For 'post' threads the post
+		// author is the gating user; for other object types this is a
+		// no-op (restrict is a per-owner setting).
+		$restricted_ids = array();
+		$post_owner_id  = 0;
+		if ( 'post' === $object_type && function_exists( 'buddynext_service' ) ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$post_owner_id = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d",
+					$object_id
+				)
+			);
+			if ( $post_owner_id > 0 ) {
+				$restricted_ids = buddynext_service( 'blocks' )->restricted_users( $post_owner_id );
+			}
+		}
+		$is_owner = $viewer_id > 0 && $viewer_id === $post_owner_id;
+		$is_admin = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
+
+		$should_hide = static function ( int $author_id ) use ( $restricted_ids, $viewer_id, $is_owner, $is_admin ): bool {
+			if ( empty( $restricted_ids ) ) { return false; }
+			if ( $author_id === $viewer_id ) { return false; }     // never hide a comment from its own author
+			if ( $is_owner || $is_admin )    { return false; }     // owner + admins moderate
+			return in_array( $author_id, $restricted_ids, true );
+		};
+
+		// Drop restricted authors from the top-level page. Replies are
+		// filtered inside the $attach closure below so deep threads stay
+		// consistent with the page.
+		$result['items'] = array_values(
+			array_filter(
+				$result['items'],
+				static fn( array $c ): bool => ! $should_hide( (int) $c['user_id'] )
+			)
+		);
 
 		if ( empty( $result['items'] ) ) {
 			return $result;
@@ -365,8 +413,11 @@ class CommentService {
 
 		// Build a children-by-parent map once, then walk top-level items
 		// and attach their subtrees recursively up to the depth cap.
+		// Restricted commenters are dropped here so they never appear
+		// at any nesting depth either.
 		$children_by_parent = array();
 		foreach ( $descendants as $row ) {
+			if ( $should_hide( (int) $row['user_id'] ) ) { continue; }
 			$children_by_parent[ (int) $row['parent_id'] ][] = $this->hydrate( $row );
 		}
 

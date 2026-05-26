@@ -66,6 +66,23 @@ class BlockController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/restrict',
+			array(
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'restrict' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'DELETE',
+					'callback'            => array( $this, 'unrestrict' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/me/blocked',
 			array(
 				'methods'             => 'GET',
@@ -80,6 +97,16 @@ class BlockController {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_muted' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/restricted',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_restricted' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
@@ -173,6 +200,51 @@ class BlockController {
 		$muted      = buddynext_service( 'blocks' )->muted_users( $current_id );
 
 		return new WP_REST_Response( array( 'ids' => $muted ), 200 );
+	}
+
+	/**
+	 * Restrict a user (Instagram-style soft block).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function restrict( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$target_id  = (int) $request->get_param( 'id' );
+		$current_id = get_current_user_id();
+		$result     = buddynext_service( 'blocks' )->restrict( $current_id, $target_id );
+
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( array( 'status' => 400 ) );
+			return $result;
+		}
+
+		return new WP_REST_Response( array( 'restricted' => true ), 200 );
+	}
+
+	/**
+	 * Unrestrict a user.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function unrestrict( WP_REST_Request $request ): WP_REST_Response {
+		$target_id  = (int) $request->get_param( 'id' );
+		$current_id = get_current_user_id();
+		buddynext_service( 'blocks' )->unrestrict( $current_id, $target_id );
+
+		return new WP_REST_Response( array( 'restricted' => false ), 200 );
+	}
+
+	/**
+	 * Return the list of users restricted by the current user.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_restricted(): WP_REST_Response {
+		$current_id = get_current_user_id();
+		$restricted = buddynext_service( 'blocks' )->restricted_users( $current_id );
+
+		return new WP_REST_Response( array( 'ids' => $restricted ), 200 );
 	}
 
 	/**

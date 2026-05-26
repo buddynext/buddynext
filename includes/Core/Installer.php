@@ -375,10 +375,11 @@ class Installer {
 			"CREATE TABLE {$p}bn_blocks (
 				blocker_id BIGINT(20) UNSIGNED NOT NULL,
 				blocked_id BIGINT(20) UNSIGNED NOT NULL,
-				type       ENUM('block','mute') NOT NULL DEFAULT 'block',
+				type       ENUM('block','mute','restrict') NOT NULL DEFAULT 'block',
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (blocker_id, blocked_id),
-				KEY         blocked (blocked_id)
+				KEY         blocked (blocked_id),
+				KEY         blocker_type (blocker_id, type)
 			) {$cs};",
 
 			// ── Activity Feed ──────────────────────────────────────────────────

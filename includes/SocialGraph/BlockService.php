@@ -171,6 +171,150 @@ class BlockService {
 	}
 
 	/**
+	 * Restrict another user — Instagram-style soft block.
+	 *
+	 * The restricted user can still see your profile and posts. The
+	 * effect is one-way and silent: the restrictor doesn't see their
+	 * comments / DMs / notifications in normal places, but the
+	 * restricted user gets no signal.
+	 *
+	 * @param int $actor_id  ID of the user doing the restricting.
+	 * @param int $target_id ID of the user being restricted.
+	 * @return true|WP_Error True on success; WP_Error on self-restrict.
+	 */
+	public function restrict( int $actor_id, int $target_id ): true|WP_Error {
+		if ( $actor_id === $target_id ) {
+			return new WP_Error(
+				'cannot_restrict_self',
+				__( 'A user cannot restrict themselves.', 'buddynext' )
+			);
+		}
+
+		global $wpdb;
+
+		// INSERT IGNORE preserves an existing block — restrict never downgrades.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type)
+				 VALUES (%d, %d, 'restrict')",
+				$actor_id,
+				$target_id
+			)
+		);
+
+		$this->invalidate_block_cache( $actor_id, $target_id );
+
+		/**
+		 * Fires after a user restricts another.
+		 *
+		 * @param int $actor_id  Actor doing the restricting.
+		 * @param int $target_id User being restricted.
+		 */
+		do_action( 'buddynext_user_restricted', $actor_id, $target_id );
+
+		return true;
+	}
+
+	/**
+	 * Remove a restrict relationship.
+	 *
+	 * @param int $actor_id  ID of the user removing the restrict.
+	 * @param int $target_id ID of the previously restricted user.
+	 */
+	public function unrestrict( int $actor_id, int $target_id ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_blocks',
+			array(
+				'blocker_id' => $actor_id,
+				'blocked_id' => $target_id,
+				'type'       => 'restrict',
+			),
+			array( '%d', '%d', '%s' )
+		);
+
+		$this->invalidate_block_cache( $actor_id, $target_id );
+
+		/**
+		 * Fires after a restrict relationship is removed.
+		 *
+		 * @param int $actor_id  Actor.
+		 * @param int $target_id Target.
+		 */
+		do_action( 'buddynext_user_unrestricted', $actor_id, $target_id );
+	}
+
+	/**
+	 * Check whether one user has restricted another (one direction).
+	 *
+	 * @param int $actor_id  Potential restrictor.
+	 * @param int $target_id Potentially restricted user.
+	 * @return bool
+	 */
+	public function is_restricted( int $actor_id, int $target_id ): bool {
+		global $wpdb;
+
+		$cache_key = "is_restricted_{$actor_id}_{$target_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (bool) $cached;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$exists = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*)
+				 FROM {$wpdb->prefix}bn_blocks
+				 WHERE blocker_id = %d AND blocked_id = %d AND type = 'restrict'",
+				$actor_id,
+				$target_id
+			)
+		);
+
+		wp_cache_set( $cache_key, $exists, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $exists > 0;
+	}
+
+	/**
+	 * Return the list of user IDs the given user has restricted.
+	 *
+	 * @param int $user_id The restricting user.
+	 * @return int[]
+	 */
+	public function restricted_users( int $user_id ): array {
+		global $wpdb;
+
+		$cache_key = "restricted_users_{$user_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+
+		if ( false !== $cached ) {
+			return (array) $cached;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT blocked_id
+				 FROM {$wpdb->prefix}bn_blocks
+				 WHERE blocker_id = %d AND type = 'restrict'
+				 ORDER BY created_at DESC",
+				$user_id
+			)
+		);
+
+		$result = array_map( 'intval', (array) $rows );
+
+		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $result;
+	}
+
+	/**
 	 * Check whether a block exists between two users (bidirectional).
 	 *
 	 * Returns true when user_a has blocked user_b OR user_b has blocked
@@ -360,13 +504,17 @@ class BlockService {
 		// Forward direction: user_a acted on user_b.
 		wp_cache_delete( "is_blocked_{$user_a}_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "is_muted_{$user_a}_{$user_b}", self::CACHE_GROUP );
+		wp_cache_delete( "is_restricted_{$user_a}_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "blocked_users_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "muted_users_{$user_a}", self::CACHE_GROUP );
+		wp_cache_delete( "restricted_users_{$user_a}", self::CACHE_GROUP );
 
 		// Reverse direction: user_b's perspective of the relationship.
 		wp_cache_delete( "is_blocked_{$user_b}_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "is_muted_{$user_b}_{$user_a}", self::CACHE_GROUP );
+		wp_cache_delete( "is_restricted_{$user_b}_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "blocked_users_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "muted_users_{$user_b}", self::CACHE_GROUP );
+		wp_cache_delete( "restricted_users_{$user_b}", self::CACHE_GROUP );
 	}
 }
