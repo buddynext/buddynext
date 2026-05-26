@@ -699,18 +699,7 @@ class Installer {
 				KEY         updated_order (updated_at)
 			) {$cs};",
 
-			// ── Roles + Permissions ────────────────────────────────────────────
-
-			"CREATE TABLE {$p}bn_user_abilities (
-				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				user_id    BIGINT(20) UNSIGNED NOT NULL,
-				ability    VARCHAR(128) NOT NULL,
-				source     VARCHAR(64) DEFAULT NULL,
-				expires_at DATETIME DEFAULT NULL,
-				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY (id),
-				KEY         user_ability (user_id, ability, expires_at)
-			) {$cs};",
+			// ── Webhooks ────────────────────────────────────────────────────────
 
 			"CREATE TABLE {$p}bn_webhook_log (
 				id         BIGINT(20) NOT NULL AUTO_INCREMENT,
@@ -994,6 +983,29 @@ class Installer {
 		);
 		if ( is_array( $connections_cols ) && ! in_array( 'note', $connections_cols, true ) ) {
 			$wpdb->query( "ALTER TABLE `{$p}bn_connections` ADD COLUMN `note` VARCHAR(280) NOT NULL DEFAULT '' AFTER `status`" );
+		}
+
+		// bn_user_abilities — retired; each grant is now a user_meta row keyed
+		// bn_ability_{ability_slug_sanitised} with the expiry as an int unix
+		// timestamp (0 = no expiry). Migrate then drop.
+		$abilities_table  = $p . 'bn_user_abilities';
+		$abilities_exists = (bool) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+				WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+				$abilities_table
+			)
+		);
+		if ( $abilities_exists ) {
+			$rows = $wpdb->get_results( "SELECT user_id, ability, expires_at FROM `{$abilities_table}`" );
+			if ( is_array( $rows ) ) {
+				foreach ( $rows as $r ) {
+					$key        = 'bn_ability_' . preg_replace( '/[^a-z0-9_]+/i', '_', (string) $r->ability );
+					$expires_ts = ( null === $r->expires_at || '' === $r->expires_at ) ? 0 : (int) strtotime( (string) $r->expires_at );
+					update_user_meta( (int) $r->user_id, $key, $expires_ts );
+				}
+			}
+			$wpdb->query( "DROP TABLE IF EXISTS `{$abilities_table}`" );
 		}
 
 		// bn_user_credits — retired; balance lives in user_meta as 'bn_credits'.

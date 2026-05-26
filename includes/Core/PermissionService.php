@@ -4,7 +4,8 @@
  *
  * Layer 1 — WP site admin: manage_options holders pass every check.
  * Layer 2 — Community role: role hierarchy checked against ROLE_MAP defaults.
- * Layer 3 — Explicit ability grant: rows in bn_user_abilities with optional expiry.
+ * Layer 3 — Explicit ability grant: user_meta key bn_ability_{slug} with the
+ *           expiry encoded as an int unix timestamp (0 = never expires).
  * Layer 4 — Developer filter: buddynext_user_can can override in either direction.
  *
  * All permission checks in BuddyNext flow through buddynext_can(), which calls
@@ -26,7 +27,7 @@ class PermissionService {
 	 * Minimum community role required per capability.
 	 *
 	 * Null = no role-based default; the capability must be explicitly granted
-	 * via a row in bn_user_abilities (or via the developer filter).
+	 * via a bn_ability_{slug} user_meta entry (or via the developer filter).
 	 *
 	 * Space-scoped capabilities (buddynext-moderate-space, buddynext-manage-space)
 	 * bypass the generic role-map path and are resolved by dedicated methods that
@@ -318,21 +319,29 @@ class PermissionService {
 	 * @return bool
 	 */
 	private function has_active_grant( int $user_id, string $ability ): bool {
-		global $wpdb;
+		$value = get_user_meta( $user_id, self::ability_meta_key( $ability ), true );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*)
-				 FROM {$wpdb->prefix}bn_user_abilities
-				 WHERE user_id = %d
-				   AND ability = %s
-				   AND ( expires_at IS NULL OR expires_at > NOW() )",
-				$user_id,
-				$ability
-			)
-		);
+		if ( '' === $value || null === $value ) {
+			return false;
+		}
 
-		return $count > 0;
+		// '0' = no expiry; otherwise unix timestamp (string from user_meta).
+		$expires_at = (int) $value;
+
+		return 0 === $expires_at || $expires_at > time();
+	}
+
+	/**
+	 * Build the user_meta key for an ability grant.
+	 *
+	 * Ability slugs may contain '/' and '-' (e.g. "buddynext-feed/pin-post"); we
+	 * translate those into '_' so the resulting meta_key is readable and stable
+	 * when inspecting wp_usermeta in phpMyAdmin: `bn_ability_buddynext_feed_pin_post`.
+	 *
+	 * @param string $ability Ability slug.
+	 * @return string user_meta key.
+	 */
+	public static function ability_meta_key( string $ability ): string {
+		return 'bn_ability_' . preg_replace( '/[^a-z0-9_]+/i', '_', $ability );
 	}
 }

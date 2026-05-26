@@ -65,30 +65,20 @@ class PermissionServiceTest extends \WP_UnitTestCase {
 	// Layer 3 — Explicit ability grant.
 
 	public function test_granted_ability_unlocks_gated_space_join(): void {
-		global $wpdb;
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_user_abilities',
-			array(
-				'user_id'    => $this->member_id,
-				'ability'    => 'buddynext-spaces/join-gated',
-				'source'     => 'phpunit',
-				'expires_at' => null,
-			)
+		update_user_meta(
+			$this->member_id,
+			\BuddyNext\Core\PermissionService::ability_meta_key( 'buddynext-spaces/join-gated' ),
+			0 // 0 = never expires
 		);
 
 		$this->assertTrue( $this->service->can( $this->member_id, 'buddynext-spaces/join-gated' ) );
 	}
 
 	public function test_expired_ability_is_denied(): void {
-		global $wpdb;
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_user_abilities',
-			array(
-				'user_id'    => $this->member_id,
-				'ability'    => 'buddynext-spaces/join-gated',
-				'source'     => 'phpunit',
-				'expires_at' => '2020-01-01 00:00:00',
-			)
+		update_user_meta(
+			$this->member_id,
+			\BuddyNext\Core\PermissionService::ability_meta_key( 'buddynext-spaces/join-gated' ),
+			(int) strtotime( '2020-01-01 00:00:00' )
 		);
 
 		$this->assertFalse( $this->service->can( $this->member_id, 'buddynext-spaces/join-gated' ) );

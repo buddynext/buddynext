@@ -25,6 +25,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Outbound;
 
+use BuddyNext\Core\PermissionService;
 use BuddyNext\Core\RoleService;
 use WP_Error;
 use WP_REST_Request;
@@ -169,8 +170,6 @@ class AccessWebhookController {
 	 * @return true|WP_Error
 	 */
 	private function action_grant_ability( int $user_id, array $body ): true|WP_Error {
-		global $wpdb;
-
 		$ability    = sanitize_text_field( $body['ability'] ?? '' );
 		$expires_at = ! empty( $body['expires_at'] ) ? sanitize_text_field( $body['expires_at'] ) : null;
 		$source     = sanitize_key( $body['source'] ?? '' );
@@ -183,26 +182,19 @@ class AccessWebhookController {
 			);
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->insert(
-			$wpdb->prefix . 'bn_user_abilities',
-			array(
-				'user_id'    => $user_id,
-				'ability'    => $ability,
-				'source'     => $source,
-				'expires_at' => $expires_at,
-			)
-		);
+		// 0 = no expiry; otherwise unix timestamp.
+		$expires_ts = ( null === $expires_at || '' === $expires_at ) ? 0 : (int) strtotime( $expires_at );
 
-		wp_cache_delete( "bn_abilities_{$user_id}" );
+		update_user_meta( $user_id, PermissionService::ability_meta_key( $ability ), $expires_ts );
 
 		/**
 		 * Fires when an ability is granted to a user.
 		 *
 		 * @param int    $user_id User ID.
 		 * @param string $ability Ability slug.
+		 * @param string $source  Source tag (e.g. 'stripe', 'manual'); empty when not supplied.
 		 */
-		do_action( 'buddynext_ability_granted', $user_id, $ability );
+		do_action( 'buddynext_ability_granted', $user_id, $ability, $source );
 
 		return true;
 	}
@@ -215,8 +207,6 @@ class AccessWebhookController {
 	 * @return true|WP_Error
 	 */
 	private function action_revoke_ability( int $user_id, array $body ): true|WP_Error {
-		global $wpdb;
-
 		$ability = sanitize_text_field( $body['ability'] ?? '' );
 
 		if ( ! $ability ) {
@@ -227,16 +217,7 @@ class AccessWebhookController {
 			);
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_user_abilities',
-			array(
-				'user_id' => $user_id,
-				'ability' => $ability,
-			)
-		);
-
-		wp_cache_delete( "bn_abilities_{$user_id}" );
+		delete_user_meta( $user_id, PermissionService::ability_meta_key( $ability ) );
 
 		/**
 		 * Fires when an ability is revoked from a user.

@@ -106,7 +106,6 @@
 | `bn_user_strikes` | Moderation |
 | `bn_user_suspensions` | Moderation |
 | `bn_appeals` | Moderation |
-| `bn_user_abilities` | Roles / Permissions |
 | `bn_activity_log` | Platform |
 | `bn_feed_items` | Platform (feed cache, >1M members) |
 | `bn_webhook_log` | Webhooks (inbound) |

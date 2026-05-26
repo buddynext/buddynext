@@ -153,33 +153,6 @@ class CacheServiceTest extends \WP_UnitTestCase {
 		$this->assertNull( $this->cache->get_follow_counts( 3 ) );
 	}
 
-	// ── User abilities ────────────────────────────────────────────────────────
-
-	/**
-	 * User abilities return null when not cached.
-	 */
-	public function test_get_user_abilities_returns_null_when_missing(): void {
-		$this->assertNull( $this->cache->get_user_abilities( 2 ) );
-	}
-
-	/**
-	 * User abilities can be stored and retrieved.
-	 */
-	public function test_set_and_get_user_abilities(): void {
-		$abilities = array( 'buddynext-spaces/join-gated' );
-		$this->cache->set_user_abilities( 2, $abilities );
-		$this->assertSame( $abilities, $this->cache->get_user_abilities( 2 ) );
-	}
-
-	/**
-	 * Invalidating user abilities removes the cached value.
-	 */
-	public function test_invalidate_user_abilities(): void {
-		$this->cache->set_user_abilities( 2, array( 'x' ) );
-		$this->cache->invalidate_user_abilities( 2 );
-		$this->assertNull( $this->cache->get_user_abilities( 2 ) );
-	}
-
 	// ── Hashtag autocomplete ──────────────────────────────────────────────────
 
 	/**

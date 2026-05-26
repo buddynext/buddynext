@@ -187,7 +187,6 @@
     {"name": "bn_space_categories", "purpose": "Taxonomy categories for spaces"},
     {"name": "bn_space_members", "purpose": "Space membership rows with role and status"},
     {"name": "bn_spaces", "purpose": "Community space definitions (name, privacy, settings)"},
-    {"name": "bn_user_abilities", "purpose": "Explicit ability grants per user with optional expiry"},
     {"name": "bn_user_strikes", "purpose": "Moderation strike records per user"},
     {"name": "bn_user_suspensions", "purpose": "Active and historical user suspensions"},
     {"name": "bn_verify_tokens", "purpose": "Email verification token store"},

@@ -144,7 +144,6 @@ class InstallerTest extends \WP_UnitTestCase {
 				'bn_post_hashtags',
 				'bn_hashtag_follows',
 				'bn_search_index',
-				'bn_user_abilities',
 				'bn_webhook_log',
 				// DM tables (bn_conversations, bn_conversation_participants,
 				// bn_messages, bn_message_reactions) deliberately removed —

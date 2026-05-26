@@ -57,7 +57,11 @@ Role can be set via webhook, admin panel, or developer code.
 
 ## Granted Abilities
 
-Per-user, per-ability grants stored in `bn_user_abilities`. Optional expiry date.
+Per-user, per-ability grants stored in `wp_usermeta` under the key
+`bn_ability_{ability_slug_sanitised}`. The meta value is an integer unix
+timestamp — `0` means "never expires", otherwise the timestamp at which the
+grant lapses. Use `PermissionService::ability_meta_key( $slug )` to derive
+the canonical key from an ability slug.
 
 Examples:
 - User paid for Pro → grant `buddynext-spaces/join-gated` until subscription end date

@@ -70,7 +70,6 @@ Admin autologin shortcut: append `?autologin=1` to any admin URL. The mu-plugin 
 | `wp_bn_appeals` | Moderation — moderation appeals |
 | `wp_bn_mod_log` | Moderation — immutable audit log |
 | `wp_bn_verify_tokens` | Auth — email verification tokens |
-| `wp_bn_user_abilities` | Permissions — explicit ability grants |
 | `wp_bn_outbound_webhooks` | Outbound — registered webhook endpoints |
 | `wp_bn_outbound_webhook_log` | Outbound — webhook delivery log |
 | `wp_bn_invites` | Onboarding — community invite tokens |

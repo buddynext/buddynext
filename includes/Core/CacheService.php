@@ -15,7 +15,6 @@
  *   bn_trending_hashtags       — trending hashtag list        TTL 30min
  *   bn_space_members_{space}   — space member count           TTL 5min
  *   bn_follow_counts_{user_id} — follower + following counts  TTL 5min
- *   bn_abilities_{user_id}     — granted ability list         TTL 60s
  *   bn_hashtag_ac_{query}      — hashtag autocomplete         TTL 10min
  *
  * @package BuddyNext\Core
@@ -168,40 +167,6 @@ class CacheService {
 	 */
 	public function invalidate_follow_counts( int $user_id ): void {
 		wp_cache_delete( "bn_follow_counts_{$user_id}", self::GROUP );
-	}
-
-	// ── User abilities ────────────────────────────────────────────────────────
-
-	/**
-	 * Return the cached granted ability list for a user, or null.
-	 *
-	 * @param int $user_id WordPress user ID.
-	 * @return array<int, string>|null Cached ability slugs, or null on miss.
-	 */
-	public function get_user_abilities( int $user_id ): ?array {
-		$value = wp_cache_get( "bn_abilities_{$user_id}", self::GROUP );
-		return false === $value ? null : (array) $value;
-	}
-
-	/**
-	 * Store the granted ability list for a user (TTL 60 s).
-	 *
-	 * @param int                $user_id   WordPress user ID.
-	 * @param array<int, string> $abilities Array of ability slugs.
-	 * @return void
-	 */
-	public function set_user_abilities( int $user_id, array $abilities ): void {
-		wp_cache_set( "bn_abilities_{$user_id}", $abilities, self::GROUP, 60 );
-	}
-
-	/**
-	 * Evict the ability list for a user from the cache.
-	 *
-	 * @param int $user_id WordPress user ID.
-	 * @return void
-	 */
-	public function invalidate_user_abilities( int $user_id ): void {
-		wp_cache_delete( "bn_abilities_{$user_id}", self::GROUP );
 	}
 
 	// ── Hashtag autocomplete ──────────────────────────────────────────────────
