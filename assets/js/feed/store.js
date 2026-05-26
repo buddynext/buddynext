@@ -2037,9 +2037,53 @@ function initComposerEnhancements() {
 		attachImageDragDrop( textarea, el );
 		attachMentionHashtagTypeahead( textarea );
 	} );
+
+	// Comment forms — pick up the @ / # typeahead and char counter
+	// (cap at 1000 chars for replies; matches Twitter/LinkedIn norms).
+	// New comment forms are appended by the JS itself when a thread
+	// opens, so this runs at init *and* via a mutation observer.
+	enhanceCommentForms();
+}
+
+function enhanceCommentForms( root ) {
+	const scope = root || document;
+	const inputs = scope.querySelectorAll( '.bn-comment-form__input' );
+	inputs.forEach( ( textarea ) => {
+		if ( textarea.dataset.bnEnhanced ) { return; }
+		textarea.dataset.bnEnhanced = '1';
+		// 1000-char cap is a separate constant from the post composer's 5000;
+		// override the global by passing the desired max via a data attr.
+		textarea.dataset.bnCharMax = '1000';
+		attachCharCounter( textarea );
+		attachMentionHashtagTypeahead( textarea );
+	} );
+}
+
+// Comment forms appear after the initial DOM (thread opens, reply
+// composer injected). Watch the body and enhance any new
+// .bn-comment-form__input that lands.
+if ( typeof MutationObserver !== 'undefined' && typeof document !== 'undefined' ) {
+	const cmtObserver = new MutationObserver( ( mutations ) => {
+		mutations.forEach( ( m ) => {
+			m.addedNodes.forEach( ( n ) => {
+				if ( n.nodeType !== 1 ) { return; }
+				if ( n.classList && n.classList.contains( 'bn-comment-form__input' ) ) {
+					enhanceCommentForms( n.parentElement );
+				} else if ( n.querySelector ) {
+					enhanceCommentForms( n );
+				}
+			} );
+		} );
+	} );
+	if ( document.body ) {
+		cmtObserver.observe( document.body, { childList: true, subtree: true } );
+	} else {
+		document.addEventListener( 'DOMContentLoaded', () => cmtObserver.observe( document.body, { childList: true, subtree: true } ) );
+	}
 }
 
 function attachCharCounter( textarea ) {
+	const max = parseInt( textarea.dataset.bnCharMax, 10 ) || COMPOSER_CHAR_MAX;
 	const counter = document.createElement( 'span' );
 	counter.className = 'bn-composer__char-counter';
 	counter.setAttribute( 'aria-live', 'polite' );
@@ -2047,10 +2091,10 @@ function attachCharCounter( textarea ) {
 
 	const update = () => {
 		const len = ( textarea.value || '' ).length;
-		counter.textContent = `${ len } / ${ COMPOSER_CHAR_MAX }`;
-		counter.dataset.state = len > COMPOSER_CHAR_MAX
+		counter.textContent = `${ len } / ${ max }`;
+		counter.dataset.state = len > max
 			? 'over'
-			: ( len > COMPOSER_CHAR_MAX * 0.9 ? 'near' : 'ok' );
+			: ( len > max * 0.9 ? 'near' : 'ok' );
 	};
 	textarea.addEventListener( 'input', update );
 	update();

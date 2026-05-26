@@ -197,6 +197,7 @@ class CommentController {
 		$created['can_delete']        = true;
 		$created['can_pin']           = user_can( $user_id, 'manage_options' );
 		$created['replies']           = array();
+		$created['is_pinned']         = false;
 		$created['author_meta_html']  = (string) apply_filters(
 			'buddynext_comment_author_meta_html',
 			'',
@@ -232,12 +233,29 @@ class CommentController {
 		$reactions = new ReactionService();
 		$viewer_id = get_current_user_id();
 
+		// Single option lookup for the pinned comment id of this object.
+		// Resolved once, not per-comment.
+		$pinned_id = (int) get_option(
+			'bn_pinned_comment_' . sanitize_key( $object_type ) . '_' . $object_id,
+			0
+		);
+
+		// Soft-deleted comments — anonymize author + avatar so the thread
+		// keeps its shape (nested replies stay attached) without leaking
+		// the original author's identity.
+		$anonymize = static function ( array &$c ): void {
+			$c['author_name']       = __( 'Deleted user', 'buddynext' );
+			$c['author_avatar_url'] = '';
+			$c['content']           = __( '[deleted]', 'buddynext' );
+		};
+
 		// Enrich each comment with author display name, avatar URL, like
-		// metadata, and viewer permissions. Like fields drive the heart
-		// toggle in the threaded UI; can_edit / can_delete / can_pin let
-		// the JS decide which action buttons to render without re-hitting
-		// the server on every paint.
-		$enrich = function ( array $comment ) use ( $reactions, $viewer_id ): array {
+		// metadata, viewer permissions, and pinned state. Like fields drive
+		// the heart toggle in the threaded UI; can_edit / can_delete /
+		// can_pin let the JS decide which action buttons to render without
+		// re-hitting the server on every paint. is_pinned drives the
+		// "Pinned" badge in the thread head.
+		$enrich = function ( array $comment ) use ( $reactions, $viewer_id, $pinned_id, $anonymize ): array {
 			$comment['author_name']       = (string) get_the_author_meta( 'display_name', $comment['user_id'] );
 			$comment['author_avatar_url'] = (string) get_avatar_url( $comment['user_id'], array( 'size' => 40 ) );
 			$comment['like_count']        = $reactions->count( 'comment', (int) $comment['id'] );
@@ -248,6 +266,7 @@ class CommentController {
 				&& ( (int) $comment['user_id'] === $viewer_id || user_can( $viewer_id, 'manage_options' ) );
 			$comment['can_delete']        = $comment['can_edit'];
 			$comment['can_pin']           = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
+			$comment['is_pinned']         = ( $pinned_id > 0 && (int) $comment['id'] === $pinned_id );
 
 			$comment['author_meta_html'] = (string) apply_filters(
 				'buddynext_comment_author_meta_html',
@@ -255,6 +274,16 @@ class CommentController {
 				(int) $comment['user_id'],
 				(int) $comment['id']
 			);
+
+			if ( ! empty( $comment['is_deleted'] ) ) {
+				$anonymize( $comment );
+				// A deleted comment can never be edited, pinned, or react'd to.
+				$comment['can_edit']     = false;
+				$comment['can_delete']   = false;
+				$comment['can_pin']      = false;
+				$comment['like_count']   = 0;
+				$comment['viewer_liked'] = false;
+			}
 
 			return $comment;
 		};
@@ -302,6 +331,10 @@ class CommentController {
 		$updated['can_edit']          = true;
 		$updated['can_delete']        = true;
 		$updated['can_pin']           = user_can( $user_id, 'manage_options' );
+		$updated['is_pinned']         = ( (int) get_option(
+			'bn_pinned_comment_' . sanitize_key( (string) $updated['object_type'] ) . '_' . (int) $updated['object_id'],
+			0
+		) === $comment_id );
 		$updated['author_meta_html']  = (string) apply_filters(
 			'buddynext_comment_author_meta_html',
 			'',
