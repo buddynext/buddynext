@@ -90,6 +90,23 @@ store( 'buddynext/onboarding', {
 		},
 		get saving() { return !! ctx().saving; },
 		get error() { return ctx().error || ''; },
+		// Live profile-preview helpers consumed by the onboarding canvas
+		// (right column). They reflect whatever the user has typed on the
+		// left so the preview card updates as they fill the form.
+		get previewName() {
+			return String( ctx().displayName || '' ).trim() || 'Your name';
+		},
+		get previewHandle() {
+			const u = String( ctx().userLogin || '' ).trim();
+			return u ? '@' + u : '@username';
+		},
+		get previewBio() {
+			return String( ctx().bio || '' ).trim() || "Add a short bio so people know what you're into.";
+		},
+		get previewInitial() {
+			const dn = String( ctx().displayName || '' ).trim();
+			return dn ? dn.charAt( 0 ).toUpperCase() : '?';
+		},
 	},
 	actions: {
 		nextStep() {

@@ -620,34 +620,34 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 
 		</div><!-- /.bn-ob-form -->
 
-		<aside class="bn-ob-canvas" aria-hidden="true">
+		<aside class="bn-ob-canvas" aria-label="<?php esc_attr_e( 'Live profile preview', 'buddynext' ); ?>">
 			<div class="bn-ob-canvas__inner">
-				<blockquote class="bn-ob-canvas__quote">
-					<?php esc_html_e( 'Join people who actually want to talk about the things you care about.', 'buddynext' ); ?>
-				</blockquote>
-				<div class="bn-ob-canvas__cite">
-					<div class="bn-ob-canvas__cite-name"><?php esc_html_e( 'BuddyNext', 'buddynext' ); ?></div>
-					<div class="bn-ob-canvas__cite-role"><?php esc_html_e( 'Welcome to the community', 'buddynext' ); ?></div>
+				<div class="bn-ob-canvas__eyebrow">
+					<?php esc_html_e( 'Preview', 'buddynext' ); ?>
 				</div>
 
-				<div class="bn-ob-canvas__mock">
-					<div class="bn-ob-mock-card bn-ob-mock-card--tilt-l">
-						<div class="bn-ob-mock-emblem">D</div>
-						<div class="bn-ob-mock-info">
-							<div class="bn-ob-mock-name"><?php esc_html_e( 'Design', 'buddynext' ); ?></div>
-							<div class="bn-ob-mock-meta"><?php esc_html_e( '2,134 members', 'buddynext' ); ?></div>
+				<div class="bn-ob-preview-card">
+					<div class="bn-ob-preview-card__head">
+						<div class="bn-ob-preview-card__avatar" aria-hidden="true">
+							<span data-wp-text="state.previewInitial"><?php echo esc_html( strtoupper( substr( (string) $display_name, 0, 1 ) ) ?: '?' ); ?></span>
 						</div>
-						<div class="bn-ob-mock-action"><?php esc_html_e( 'Join', 'buddynext' ); ?></div>
-					</div>
-					<div class="bn-ob-mock-card bn-ob-mock-card--tilt-r">
-						<div class="bn-ob-mock-emblem">W</div>
-						<div class="bn-ob-mock-info">
-							<div class="bn-ob-mock-name"><?php esc_html_e( 'Web Dev', 'buddynext' ); ?></div>
-							<div class="bn-ob-mock-meta"><?php esc_html_e( '8,902 members', 'buddynext' ); ?></div>
+						<div class="bn-ob-preview-card__id">
+							<div class="bn-ob-preview-card__name" data-wp-text="state.previewName">
+								<?php echo esc_html( $display_name ?: __( 'Your name', 'buddynext' ) ); ?>
+							</div>
+							<div class="bn-ob-preview-card__handle" data-wp-text="state.previewHandle">
+								<?php echo esc_html( '@' . $current_login ); ?>
+							</div>
 						</div>
-						<div class="bn-ob-mock-action"><?php esc_html_e( 'Join', 'buddynext' ); ?></div>
 					</div>
+					<p class="bn-ob-preview-card__bio" data-wp-text="state.previewBio">
+						<?php echo esc_html( $bio ?: __( "Add a short bio so people know what you're into.", 'buddynext' ) ); ?>
+					</p>
 				</div>
+
+				<p class="bn-ob-canvas__caption">
+					<?php esc_html_e( "This is how other members will see you. Update anything from your profile later.", 'buddynext' ); ?>
+				</p>
 			</div>
 		</aside>
 
