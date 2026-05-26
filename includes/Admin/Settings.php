@@ -111,6 +111,37 @@ class Settings extends AdminPageBase {
 	public function register(): void {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+	}
+
+	/**
+	 * Enqueue the Settings page JS — admin search + webhook table CRUD.
+	 *
+	 * Both scripts are wp-only (no module imports) so they run on the
+	 * vanilla admin shell. Gated to the BuddyNext Settings hook suffix so
+	 * we don't ship JS to unrelated admin screens.
+	 *
+	 * @param string $hook_suffix Current admin page hook suffix.
+	 * @return void
+	 */
+	public function enqueue_assets( string $hook_suffix ): void {
+		if ( 'toplevel_page_buddynext' !== $hook_suffix ) {
+			return;
+		}
+		$plugin_root = dirname( __DIR__, 2 );
+		$rel         = '/assets/js/admin/settings.js';
+		$abs         = $plugin_root . $rel;
+		if ( ! file_exists( $abs ) ) {
+			return;
+		}
+		$plugin_url = plugins_url( '', $plugin_root . '/buddynext.php' );
+		wp_enqueue_script(
+			'buddynext-admin-settings',
+			$plugin_url . $rel,
+			array(),
+			(string) filemtime( $abs ),
+			true
+		);
 	}
 
 	/**
@@ -266,6 +297,22 @@ class Settings extends AdminPageBase {
 			$active_tab = 'general';
 		}
 
+		?>
+		<div class="bn-admin-search" role="search">
+			<label class="screen-reader-text" for="bn-admin-search-input">
+				<?php esc_html_e( 'Search BuddyNext settings', 'buddynext' ); ?>
+			</label>
+			<input
+				type="search"
+				id="bn-admin-search-input"
+				class="bn-input regular-text"
+				placeholder="<?php esc_attr_e( 'Search settings (Cmd/Ctrl + K)…', 'buddynext' ); ?>"
+				data-bn-admin-search
+				autocomplete="off"
+			>
+			<span class="bn-admin-search__hint" data-bn-admin-search-status></span>
+		</div>
+		<?php
 		$this->render_tab_bar( $tabs, $active_tab, $base_url );
 		?>
 		<form method="post" action="options.php">
@@ -397,11 +444,11 @@ class Settings extends AdminPageBase {
 			echo '<div class="bn-feature-grid">';
 
 			foreach ( $features as $feature ) {
-				$slug        = (string) $feature['slug'];
-				$tier        = (string) $feature['tier'];
+				$slug         = (string) $feature['slug'];
+				$tier         = (string) $feature['tier'];
 				$is_mandatory = ( \BuddyNext\Core\FeatureRegistry::TIER_MANDATORY === $tier );
-				$current     = $registry->is_enabled( $slug );
-				$is_locked   = $is_mandatory;
+				$current      = $registry->is_enabled( $slug );
+				$is_locked    = $is_mandatory;
 
 				$badge_label = $is_mandatory
 					? __( 'Always on', 'buddynext' )
@@ -409,7 +456,7 @@ class Settings extends AdminPageBase {
 						? __( 'Default on', 'buddynext' )
 						: __( 'Opt-in', 'buddynext' )
 					);
-				$badge_tone = $is_mandatory ? 'accent' : ( \BuddyNext\Core\FeatureRegistry::TIER_DEFAULT_ON === $tier ? 'success' : 'info' );
+				$badge_tone  = $is_mandatory ? 'accent' : ( \BuddyNext\Core\FeatureRegistry::TIER_DEFAULT_ON === $tier ? 'success' : 'info' );
 
 				?>
 				<div class="bn-feature-row" data-tier="<?php echo esc_attr( $tier ); ?>">
@@ -1025,6 +1072,10 @@ class Settings extends AdminPageBase {
 	/**
 	 * Render the Webhooks settings tab.
 	 *
+	 * Two sections: the shared HMAC secret used for outbound signing +
+	 * inbound verification, and the endpoint manager (list / add / test
+	 * / delete) wired to the OutboundWebhookService REST API.
+	 *
 	 * @return void
 	 */
 	private function render_tab_webhooks(): void {
@@ -1041,6 +1092,156 @@ class Settings extends AdminPageBase {
 			<span class="bn-field-hint">
 				<?php esc_html_e( 'Used to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Leave blank to disable signature verification.', 'buddynext' ); ?>
 			</span>
+		</div>
+		<?php
+		$this->close_section();
+
+		$this->render_webhook_endpoints();
+	}
+
+	/**
+	 * Render the registered-endpoints manager card. Pulls live state via
+	 * the OutboundWebhookService and exposes a small Add/Delete/Test UI
+	 * wired to the existing /webhooks REST routes.
+	 *
+	 * @return void
+	 */
+	private function render_webhook_endpoints(): void {
+		$webhooks = function_exists( 'buddynext_service' )
+			? (array) buddynext_service( 'webhooks' )->list_all()
+			: array();
+
+		$webhook_limit = (int) apply_filters( 'buddynext_outbound_webhook_limit', 1 );
+		$at_limit      = $webhook_limit > 0 && count( $webhooks ) >= $webhook_limit;
+		$rest_url      = rest_url( 'buddynext/v1/webhooks' );
+		$rest_nonce    = wp_create_nonce( 'wp_rest' );
+
+		$this->open_section( __( 'Registered endpoints', 'buddynext' ) );
+		?>
+		<div class="bn-card"
+			data-bn-webhooks
+			data-bn-rest-url="<?php echo esc_attr( $rest_url ); ?>"
+			data-bn-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>">
+
+			<p class="bn-field-hint">
+				<?php
+				if ( $at_limit ) {
+					printf(
+						/* translators: %d: limit count. */
+						esc_html__( 'You have %d endpoint registered (Free limit). Pro lifts this cap via the buddynext_outbound_webhook_limit filter.', 'buddynext' ),
+						(int) $webhook_limit
+					);
+				} else {
+					esc_html_e( 'Each request is signed with the shared secret above. The host receives a JSON payload with `event`, `payload`, `timestamp`, and a verifying `X-BuddyNext-Signature` header.', 'buddynext' );
+				}
+				?>
+			</p>
+
+			<table class="bn-table widefat striped" data-bn-webhook-table>
+				<thead>
+					<tr>
+						<th scope="col"><?php esc_html_e( 'Endpoint', 'buddynext' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'Events', 'buddynext' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'Created', 'buddynext' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
+					</tr>
+				</thead>
+				<tbody data-bn-webhook-tbody>
+				<?php if ( empty( $webhooks ) ) : ?>
+					<tr data-bn-webhook-empty>
+						<td colspan="5"><?php esc_html_e( 'No webhooks registered yet.', 'buddynext' ); ?></td>
+					</tr>
+				<?php else : ?>
+					<?php
+					foreach ( $webhooks as $hook ) :
+						$hook_events = is_array( $hook['events'] ?? null )
+							? $hook['events']
+							: (array) json_decode( (string) ( $hook['events'] ?? '[]' ), true );
+						?>
+						<tr data-bn-webhook-row="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>">
+							<td>
+								<strong><?php echo esc_html( (string) ( $hook['label'] ?? '' ) ); ?></strong><br>
+								<code class="bn-ep-code"><?php echo esc_html( (string) ( $hook['url'] ?? '' ) ); ?></code>
+							</td>
+							<td>
+								<?php echo esc_html( implode( ', ', array_map( 'sanitize_key', $hook_events ) ) ); ?>
+							</td>
+							<td>
+								<?php
+								if ( ! empty( $hook['is_active'] ) ) {
+									echo '<span class="bn-badge" data-tone="success">' . esc_html__( 'Active', 'buddynext' ) . '</span>';
+								} else {
+									echo '<span class="bn-badge" data-tone="warn">' . esc_html__( 'Disabled', 'buddynext' ) . '</span>';
+								}
+								?>
+							</td>
+							<td><?php echo esc_html( (string) ( $hook['created_at'] ?? '' ) ); ?></td>
+							<td>
+								<button type="button"
+									class="bn-btn"
+									data-variant="ghost"
+									data-size="sm"
+									data-bn-webhook-test="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
+								><?php esc_html_e( 'Send test', 'buddynext' ); ?></button>
+								<button type="button"
+									class="bn-btn"
+									data-variant="ghost"
+									data-size="sm"
+									data-bn-webhook-remove="<?php echo esc_attr( (string) (int) $hook['id'] ); ?>"
+								><?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+				<?php endif; ?>
+				</tbody>
+			</table>
+
+			<?php
+			$catalogue = array(
+				'post.created'      => __( 'New posts', 'buddynext' ),
+				'comment.created'   => __( 'New comments', 'buddynext' ),
+				'user.followed'     => __( 'New follows', 'buddynext' ),
+				'space.joined'      => __( 'Space joins', 'buddynext' ),
+				'notification.sent' => __( 'Notifications', 'buddynext' ),
+			);
+			?>
+
+			<div class="bn-field" style="margin-top:16px;">
+				<label for="bn-webhook-add-url"><?php esc_html_e( 'New endpoint URL', 'buddynext' ); ?></label>
+				<input type="url"
+					id="bn-webhook-add-url"
+					class="bn-input bn-text-input regular-text"
+					placeholder="https://example.com/webhook"
+					data-bn-webhook-url
+					<?php echo $at_limit ? 'disabled' : ''; ?>>
+				<span class="bn-field-hint"><?php esc_html_e( 'HTTPS endpoint that receives the JSON payload.', 'buddynext' ); ?></span>
+			</div>
+
+			<fieldset class="bn-field" <?php echo $at_limit ? 'disabled' : ''; ?>>
+				<legend><?php esc_html_e( 'Events to forward', 'buddynext' ); ?></legend>
+				<?php foreach ( $catalogue as $slug => $label ) : ?>
+					<label style="display:block;margin-bottom:4px;">
+						<input type="checkbox"
+							value="<?php echo esc_attr( $slug ); ?>"
+							data-bn-webhook-event
+							<?php echo $at_limit ? 'disabled' : ''; ?>>
+						<?php echo esc_html( $label ); ?>
+						<code><?php echo esc_html( $slug ); ?></code>
+					</label>
+				<?php endforeach; ?>
+			</fieldset>
+
+			<div class="bn-field">
+				<button type="button"
+					class="bn-btn"
+					data-variant="primary"
+					data-bn-webhook-add
+					<?php echo $at_limit ? 'disabled' : ''; ?>>
+					<?php esc_html_e( 'Register endpoint', 'buddynext' ); ?>
+				</button>
+				<span class="bn-field-hint" role="status" data-bn-webhook-status aria-live="polite"></span>
+			</div>
 		</div>
 		<?php
 		$this->close_section();

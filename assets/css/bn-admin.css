@@ -4154,3 +4154,33 @@ button.bn-btn-danger:hover {
 	.bn-feature-row { flex-direction: column; }
 	.bn-feature-row__toggle { align-self: flex-end; }
 }
+
+/* ── BuddyNext Settings: admin search bar ────────────────────────────────
+   Sits above the tab bar on the BuddyNext Settings page. Cmd/Ctrl+K
+   focuses the input from anywhere. The JS hides non-matching
+   .bn-field / .bn-section blocks on the active tab and reports the
+   match count below. */
+.bn-admin-search {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 12px 0 16px;
+	max-width: 720px;
+}
+.bn-admin-search input[type="search"] {
+	flex: 1 1 auto;
+}
+.bn-admin-search__hint {
+	font-size: 12px;
+	color: var(--bn-ink-3, #6b7280);
+}
+
+/* Endpoint row code element — the URL inside the webhook table. */
+.bn-ep-code {
+	font-family: var(--bn-font-mono, ui-monospace, SFMono-Regular, monospace);
+	font-size: 12px;
+	background: var(--bn-sunken, #f3f4f6);
+	padding: 1px 6px;
+	border-radius: 4px;
+	word-break: break-all;
+}

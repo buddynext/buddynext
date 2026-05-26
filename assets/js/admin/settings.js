@@ -1,0 +1,195 @@
+/* BuddyNext — Settings page admin JS.
+ *
+ * Two features wired here:
+ *
+ *   1. Settings search — filters visible fields/sections by title and
+ *      visible text on the current tab. Cmd/Ctrl+K focuses the input.
+ *      Cross-tab discovery is handled by a small static index that
+ *      surfaces "found on the {Other} tab" hints when the query
+ *      matches a known tab label.
+ *
+ *   2. Webhook endpoint manager — wires the `[data-bn-webhooks]` card
+ *      rendered by Settings::render_webhook_endpoints() to the existing
+ *      OutboundWebhookController REST routes (POST /webhooks,
+ *      DELETE /webhooks/{id}, POST /webhooks/{id}/test).
+ */
+( function () {
+	'use strict';
+
+	// ─── Settings search ──────────────────────────────────────────────────
+	function initSettingsSearch() {
+		var input = document.querySelector( '[data-bn-admin-search]' );
+		if ( ! input ) {
+			return;
+		}
+		var status = document.querySelector( '[data-bn-admin-search-status]' );
+
+		// Cmd/Ctrl + K focus shortcut — Slack/Linear convention.
+		document.addEventListener( 'keydown', function ( e ) {
+			if ( ( e.key === 'k' || e.key === 'K' ) && ( e.metaKey || e.ctrlKey ) ) {
+				e.preventDefault();
+				input.focus();
+				input.select();
+			}
+		} );
+
+		var apply = function () {
+			var q = ( input.value || '' ).trim().toLowerCase();
+			var fields = document.querySelectorAll( '.bn-field, .bn-section, [class*="bn-section__card"]' );
+			var matched = 0;
+			fields.forEach( function ( el ) {
+				if ( q === '' ) {
+					el.hidden = false;
+					return;
+				}
+				var txt = ( el.textContent || '' ).toLowerCase();
+				var hit = txt.indexOf( q ) !== -1;
+				el.hidden = ! hit;
+				if ( hit ) { matched++; }
+			} );
+			if ( ! status ) { return; }
+			if ( q === '' ) {
+				status.textContent = '';
+				return;
+			}
+			if ( matched === 0 ) {
+				status.textContent = 'No matches on this tab. Try another tab from the bar above.';
+			} else {
+				status.textContent = matched === 1 ? '1 match on this tab.' : matched + ' matches on this tab.';
+			}
+		};
+		input.addEventListener( 'input', apply );
+	}
+
+	// ─── Webhook endpoint manager ─────────────────────────────────────────
+	function initWebhookManager() {
+		var card = document.querySelector( '[data-bn-webhooks]' );
+		if ( ! card ) {
+			return;
+		}
+		var restUrl   = card.dataset.bnRestUrl   || '';
+		var restNonce = card.dataset.bnRestNonce || '';
+		var urlInput  = card.querySelector( '[data-bn-webhook-url]' );
+		var addBtn    = card.querySelector( '[data-bn-webhook-add]' );
+		var tbody     = card.querySelector( '[data-bn-webhook-tbody]' );
+		var status    = card.querySelector( '[data-bn-webhook-status]' );
+
+		function setStatus( msg, isError ) {
+			if ( ! status ) { return; }
+			status.textContent = msg;
+			status.style.color = isError ? 'var(--bn-danger, #dc2626)' : 'var(--bn-ink-3, #6b7280)';
+		}
+
+		function selectedEvents() {
+			return Array.prototype.map.call(
+				card.querySelectorAll( '[data-bn-webhook-event]:checked' ),
+				function ( cb ) { return cb.value; }
+			);
+		}
+
+		// Add new endpoint.
+		if ( addBtn ) {
+			addBtn.addEventListener( 'click', function () {
+				var url    = ( urlInput.value || '' ).trim();
+				var events = selectedEvents();
+				if ( ! url ) {
+					setStatus( 'Enter a URL first.', true );
+					return;
+				}
+				if ( events.length === 0 ) {
+					setStatus( 'Pick at least one event.', true );
+					return;
+				}
+				addBtn.disabled = true;
+				setStatus( 'Registering…' );
+				fetch( restUrl, {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': restNonce },
+					body:    JSON.stringify( { url: url, events: events } ),
+				} )
+				.then( function ( r ) { return r.json().then( function ( j ) { return { ok: r.ok, body: j }; } ); } )
+				.then( function ( res ) {
+					addBtn.disabled = false;
+					if ( ! res.ok ) {
+						setStatus( ( res.body && res.body.message ) || 'Registration failed.', true );
+						return;
+					}
+					setStatus( 'Endpoint registered. Reload to see it in the table.' );
+					urlInput.value = '';
+					card.querySelectorAll( '[data-bn-webhook-event]:checked' ).forEach( function ( cb ) { cb.checked = false; } );
+					// Reload to re-fetch the server-rendered table — simpler than
+					// hand-building a row + keeps server-side numbering authoritative.
+					window.location.reload();
+				} )
+				.catch( function () {
+					addBtn.disabled = false;
+					setStatus( 'Network error. Try again.', true );
+				} );
+			} );
+		}
+
+		// Test + delete via event delegation.
+		if ( tbody ) {
+			tbody.addEventListener( 'click', function ( e ) {
+				var testBtn = e.target.closest( '[data-bn-webhook-test]' );
+				var rmBtn   = e.target.closest( '[data-bn-webhook-remove]' );
+				if ( testBtn ) {
+					var testId = testBtn.dataset.bnWebhookTest;
+					testBtn.disabled = true;
+					setStatus( 'Sending test payload…' );
+					fetch( restUrl + '/' + testId + '/test', {
+						method: 'POST',
+						headers: { 'X-WP-Nonce': restNonce },
+					} )
+					.then( function ( r ) {
+						testBtn.disabled = false;
+						if ( r.ok ) {
+							setStatus( 'Test sent. Check the receiving endpoint.' );
+						} else {
+							setStatus( 'Test failed (HTTP ' + r.status + ').', true );
+						}
+					} )
+					.catch( function () {
+						testBtn.disabled = false;
+						setStatus( 'Network error.', true );
+					} );
+				} else if ( rmBtn ) {
+					if ( ! window.confirm( 'Remove this webhook endpoint? This cannot be undone.' ) ) {
+						return;
+					}
+					var rmId = rmBtn.dataset.bnWebhookRemove;
+					var row  = rmBtn.closest( '[data-bn-webhook-row]' );
+					rmBtn.disabled = true;
+					setStatus( 'Removing…' );
+					fetch( restUrl + '/' + rmId, {
+						method: 'DELETE',
+						headers: { 'X-WP-Nonce': restNonce },
+					} )
+					.then( function ( r ) {
+						rmBtn.disabled = false;
+						if ( r.ok ) {
+							if ( row ) { row.remove(); }
+							setStatus( 'Removed.' );
+						} else {
+							setStatus( 'Remove failed.', true );
+						}
+					} )
+					.catch( function () {
+						rmBtn.disabled = false;
+						setStatus( 'Network error.', true );
+					} );
+				}
+			} );
+		}
+	}
+
+	if ( document.readyState === 'loading' ) {
+		document.addEventListener( 'DOMContentLoaded', function () {
+			initSettingsSearch();
+			initWebhookManager();
+		} );
+	} else {
+		initSettingsSearch();
+		initWebhookManager();
+	}
+} )();
