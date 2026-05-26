@@ -220,8 +220,11 @@ if ( $is_own_profile ) {
 // index-only scans on (user_id, created_at) and run once per profile view.
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $post_delta_7d       = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
-$follower_delta_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
-$following_delta_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
+// status='approved' so pending follow-requests (S2 private-account
+// gate) don't bump the absolute count, keeping this delta consistent
+// with FollowService::follower_count / following_count.
+$follower_delta_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND status = 'approved' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
+$following_delta_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND status = 'approved' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
 $connection_delta_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_connections WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id, $user_id ) );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 

@@ -99,8 +99,13 @@ Filter / nav tabs in protos consistently surface a per-tab count (`For you 24`, 
 
 **Status (2026-05-26):** Done. Home feed (`bn-feed-filter-tabs`) and notifications (`parts/notifications-filter-bar`) already shipped with chips. Space tabs finalised in commit `3b2611a` — adds Media (posts with media) and Moderation (open reports, admin-gated) counts to `templates/spaces/home.php`.
 
-### B. Stat-delta indicators
+### B. Stat-delta indicators ✅ SHIPPED
 Stat tiles in protos carry deltas (`Posts 284 +12`, `Followers 1,228 +18`, `Notifications 187 +18%`). Live stat tiles show absolute value only. **Affects:** user profile, notifications, future analytics widgets. **Effort:** ~1 day — add `delta_value` + `delta_tone` args to `parts/profile-stats-strip`, render the `<span class="bn-stat__delta">` when set.
+
+**Status (2026-05-26):** Done across both surfaces.
+  - **Profile stat strip:** `parts/profile-stats-strip.php` accepts `delta` + `trend` per tile and renders `<span class="bn-pf-stat__delta" data-trend>`. `templates/profile/view.php` computes 7-day deltas for posts, followers, following, connections from `bn_posts.created_at` + `bn_follows.created_at` + `bn_connections.created_at`. Verified live on `/members/varundubey/` — "34 Posts · +34" and "1 Following · +1" chips visible.
+  - **Notifications sidebar:** `parts/sidebar-this-week-stats.php` renders a four-tile week-over-week card. The "read" tile carries a `data-trend` WoW % delta computed from prior-week reference. Verified live on `/notifications/`.
+  - Fix in commit (incoming): `follower_delta_7d` + `following_delta_7d` SQL now filters `status='approved'` to match `FollowService::follower_count()` after the S2 private-follow gate landed — otherwise pending follow requests would inflate the delta beyond the absolute count.
 
 ### C. Engagement-summary chips under posts ✅ SHIPPED
 v2 post cards show `❤️24 🎉12 🚀8 +` chips above the action row — this is the **reaction summary primitive**. Live post cards only render the action buttons (React / Comment / Share / Save) and a count under the post for total reactions. **Effort:** ~1-2 days — wire `parts/post-reaction-summary` to render top-3 emoji + counts; data already exists in `bn_reactions`.
