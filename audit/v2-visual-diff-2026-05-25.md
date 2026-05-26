@@ -94,14 +94,18 @@ The refactor did **not** introduce drift — it preserved current state byte-ide
 
 These are themes that recur, not isolated finds — each pattern represents a primitive or system that exists in v2 but has not been built into the BN templates yet.
 
-### A. Count badges on tabs (Gate-2 follow-up)
+### A. Count badges on tabs (Gate-2 follow-up) ✅ SHIPPED
 Filter / nav tabs in protos consistently surface a per-tab count (`For you 24`, `Mentions 1`, `Forum 12`, `Library 38`, `AI digests 2`). Live tabs render the label only. **Affects:** home feed, notifications, space home. **Effort:** ~1 day — extend `parts/space-tab-bar`, `parts/notifications-filter-bar`, etc. to accept `count` per row, render `<span class="bn-tab__count">` when set; populate via existing service queries.
+
+**Status (2026-05-26):** Done. Home feed (`bn-feed-filter-tabs`) and notifications (`parts/notifications-filter-bar`) already shipped with chips. Space tabs finalised in commit `3b2611a` — adds Media (posts with media) and Moderation (open reports, admin-gated) counts to `templates/spaces/home.php`.
 
 ### B. Stat-delta indicators
 Stat tiles in protos carry deltas (`Posts 284 +12`, `Followers 1,228 +18`, `Notifications 187 +18%`). Live stat tiles show absolute value only. **Affects:** user profile, notifications, future analytics widgets. **Effort:** ~1 day — add `delta_value` + `delta_tone` args to `parts/profile-stats-strip`, render the `<span class="bn-stat__delta">` when set.
 
-### C. Engagement-summary chips under posts
+### C. Engagement-summary chips under posts ✅ SHIPPED
 v2 post cards show `❤️24 🎉12 🚀8 +` chips above the action row — this is the **reaction summary primitive**. Live post cards only render the action buttons (React / Comment / Share / Save) and a count under the post for total reactions. **Effort:** ~1-2 days — wire `parts/post-reaction-summary` to render top-3 emoji + counts; data already exists in `bn_reactions`.
+
+**Status (2026-05-26):** Done. `templates/parts/post-reaction-summary.php` renders per-emoji chips using `buddynext_get_emoji()` (Microsoft Fluent SVGs) keyed by the top-3 emoji types on each post; `templates/partials/post-card.php` computes the top-3 from `bn_reactions` (skips the query when `reaction_count = 0`) and passes the list in. Comment + share chips render alongside in the same strip when their counts are non-zero. Verified live at `/activity/explore/` — 17 chips across 8 cards, mix of `--reaction` emoji variants and comment/share variants.
 
 ### D. Right-sidebar widget catalogue
 Protos consistently use the right sidebar for **dense, personalized, time-relevant info cards** (greeting + streak, this-week calendar, live voice room, online-now actor list, by-role summary, this-week stats, muted list, status update). Live sidebars use it for **navigational cards** (Trending Topics, People to Follow, Your Spaces, About this space, Members). **Effort:** ~2-4 weeks — each widget is a separate ~2-3 day build with its own data source and Layer-3 part. List of widgets to build catalogued in the per-surface tables above.
