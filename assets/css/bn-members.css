@@ -95,6 +95,31 @@
 	color: var(--bn-ink);
 	margin: 0;
 	line-height: var(--bn-leading-tight);
+	display: inline-flex;
+	align-items: baseline;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+/* Connection degree badge — appears next to the member name on the
+   directory card. 1st = direct connection, 2nd = mutual connection. */
+.bn-md-card__degree {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 10px;
+	font-weight: var(--bn-fw-semibold);
+	letter-spacing: 0.04em;
+	padding: 2px 6px;
+	border-radius: 999px;
+	color: var(--bn-accent);
+	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
+	border: 1px solid color-mix(in oklch, var(--bn-accent) 28%, transparent);
+	line-height: 1.2;
+	white-space: nowrap;
+}
+.bn-md-card__degree[data-degree="2"] {
+	color: var(--bn-ink-2);
+	background: var(--bn-sunken);
+	border-color: var(--bn-line);
 }
 
 .bn-md-card__name a {

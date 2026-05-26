@@ -67,10 +67,16 @@ if ( ! $is_own_profile && $current_user_id ) {
 	$is_connected        = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_connections WHERE ( ( requester_id = %d AND recipient_id = %d ) OR ( requester_id = %d AND recipient_id = %d ) ) AND status = 'accepted'", $current_user_id, $user_id, $user_id, $current_user_id ) );
 	$connection_pending  = ! $is_connected && (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_connections WHERE requester_id = %d AND recipient_id = %d AND status = 'pending'", $current_user_id, $user_id ) );
 	$connection_received = ! $is_connected && ! $connection_pending && (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_connections WHERE requester_id = %d AND recipient_id = %d AND status = 'pending'", $user_id, $current_user_id ) );
-	$degree_badge        = $is_connected ? '1st' : ( $is_following ? '2nd' : '3rd+' );
 	$is_blocked          = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d AND blocked_id = %d AND type = 'block' LIMIT 1", $current_user_id, $user_id ) );
 	$is_muted            = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d AND blocked_id = %d AND type = 'mute' LIMIT 1", $current_user_id, $user_id ) );
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+	// LinkedIn-style degree badge — uses the connections service so the
+	// "2nd-degree" label only fires when there's an actual mutual
+	// connection, not just a follow. ConnectionService::connection_degree
+	// returns 1 (direct), 2 (shared mutual), or 3 (no shared mutual).
+	$degree              = buddynext_service( 'connections' )->connection_degree( $current_user_id, $user_id );
+	$degree_badge        = 1 === $degree ? '1st' : ( 2 === $degree ? '2nd' : '3rd+' );
 }
 
 $mutual_count = ( ! $is_own_profile && $current_user_id ) ? count( buddynext_service( 'connections' )->mutual_connections( $current_user_id, $user_id ) ) : 0;

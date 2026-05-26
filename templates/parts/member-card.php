@@ -51,6 +51,7 @@ $args = array(
 	'connection_status' => isset( $connection_status ) ? (string) $connection_status : 'none',
 	'is_muted'          => isset( $is_muted ) ? (bool) $is_muted : false,
 	'mutual_count'      => isset( $mutual_count ) ? (int) $mutual_count : 0,
+	'degree'            => isset( $degree ) ? (int) $degree : 0,
 	'presence'          => isset( $presence ) ? (string) $presence : 'offline',
 	'member_type_label' => isset( $member_type_label ) ? (string) $member_type_label : '',
 	'avatar_tone'       => isset( $avatar_tone ) ? (string) $avatar_tone : 'accent',
@@ -161,6 +162,13 @@ do_action( 'buddynext_part_member_card_before', $args );
 		<a href="<?php echo esc_url( $bn_profile_url ); ?>">
 			<?php echo esc_html( $bn_display_name ); ?>
 		</a>
+		<?php
+		$bn_md_degree = (int) $args['degree'];
+		if ( $bn_md_degree > 0 && $bn_md_degree <= 2 ) :
+			$bn_md_degree_label = 1 === $bn_md_degree ? __( '1st', 'buddynext' ) : __( '2nd', 'buddynext' );
+			?>
+			<span class="bn-md-card__degree" data-degree="<?php echo esc_attr( (string) $bn_md_degree ); ?>"><?php echo esc_html( $bn_md_degree_label ); ?></span>
+		<?php endif; ?>
 	</h3>
 
 	<p class="bn-md-card__handle">@<?php echo esc_html( $bn_member_login ); ?></p>

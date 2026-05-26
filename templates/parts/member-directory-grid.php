@@ -106,6 +106,9 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 		$bn_is_online     = (bool) $bn_is_online_fn( $bn_member_id );
 		$bn_is_following  = (bool) $bn_is_following_fn( $bn_member_id );
 		$bn_mutual        = (int) $bn_mutual_fn( $bn_viewer_id, $bn_member_id );
+		$bn_degree        = $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id
+			? (int) buddynext_service( 'connections' )->connection_degree( $bn_viewer_id, $bn_member_id )
+			: 0;
 		$bn_type_slug     = (string) get_user_meta( $bn_member_id, 'bn_member_type', true );
 		$bn_type_data     = '' !== $bn_type_slug ? ( $bn_type_map[ $bn_type_slug ] ?? null ) : null;
 		$bn_type_label    = ( is_array( $bn_type_data ) && isset( $bn_type_data['name'] ) ) ? (string) $bn_type_data['name'] : '';
@@ -141,6 +144,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'connection_status' => null === $bn_conn_status ? 'none' : (string) $bn_conn_status,
 				'is_muted'          => $bn_is_muted,
 				'mutual_count'      => $bn_mutual,
+				'degree'            => $bn_degree,
 				'presence'          => $bn_presence_attr,
 				'member_type_label' => $bn_type_label,
 				'avatar_tone'       => $bn_avatar_tone,

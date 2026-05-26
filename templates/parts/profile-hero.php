@@ -199,8 +199,25 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 			<div class="bn-pf-id">
 				<div class="bn-pf-name-row">
 					<h1 class="bn-pf-name"><?php echo esc_html( $bn_pf_name ); ?></h1>
-					<?php if ( $bn_pf_degree ) : ?>
-						<span class="bn-badge" data-tone="accent"><?php echo esc_html( $bn_pf_degree ); ?></span>
+					<?php if ( $bn_pf_degree ) :
+						$bn_pf_degree_title = '';
+						if ( '1st' === $bn_pf_degree ) {
+							$bn_pf_degree_title = __( 'Directly connected to you.', 'buddynext' );
+						} elseif ( '2nd' === $bn_pf_degree && $bn_pf_mutual > 0 ) {
+							$bn_pf_degree_title = sprintf(
+								/* translators: %d: mutual connection count */
+								_n( '%d mutual connection.', '%d mutual connections.', $bn_pf_mutual, 'buddynext' ),
+								$bn_pf_mutual
+							);
+						} elseif ( '2nd' === $bn_pf_degree ) {
+							$bn_pf_degree_title = __( 'Connected through a mutual contact.', 'buddynext' );
+						} else {
+							$bn_pf_degree_title = __( 'No direct or mutual connection yet.', 'buddynext' );
+						}
+						?>
+						<span class="bn-badge bn-pf-degree" data-tone="accent" title="<?php echo esc_attr( $bn_pf_degree_title ); ?>">
+							<?php echo esc_html( $bn_pf_degree ); ?>
+						</span>
 					<?php endif; ?>
 					<?php if ( $bn_pf_member_type ) : ?>
 						<span
