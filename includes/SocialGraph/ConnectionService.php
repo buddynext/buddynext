@@ -39,16 +39,27 @@ class ConnectionService {
 	 * Returns WP_Error if the requester tries to connect with themselves or
 	 * if any connection row (in any status) already exists for this pair.
 	 *
-	 * @param int $requester_id ID of the user sending the request.
-	 * @param int $recipient_id ID of the user receiving the request.
+	 * @param int    $requester_id ID of the user sending the request.
+	 * @param int    $recipient_id ID of the user receiving the request.
+	 * @param string $note         Optional note to attach to the request (max 280 chars).
 	 * @return true|WP_Error
 	 */
-	public function send_request( int $requester_id, int $recipient_id ): true|WP_Error {
+	public function send_request( int $requester_id, int $recipient_id, string $note = '' ): true|WP_Error {
 		if ( $requester_id === $recipient_id ) {
 			return new WP_Error(
 				'cannot_connect_self',
 				__( 'A user cannot connect with themselves.', 'buddynext' )
 			);
+		}
+
+		// Hard-cap the note so a stray client can't overflow the 280-char
+		// column. Strip tags + sanitize to plain text — the note renders
+		// inside notification text and the connection details panel.
+		$note = wp_strip_all_tags( $note );
+		if ( strlen( $note ) > 280 ) {
+			$note = function_exists( 'mb_substr' )
+				? mb_substr( $note, 0, 280 )
+				: substr( $note, 0, 280 );
 		}
 
 		global $wpdb;
@@ -82,8 +93,9 @@ class ConnectionService {
 				'requester_id' => $requester_id,
 				'recipient_id' => $recipient_id,
 				'status'       => 'pending',
+				'note'         => $note,
 			),
-			array( '%d', '%d', '%s' )
+			array( '%d', '%d', '%s', '%s' )
 		);
 
 		$connection_id = (int) $wpdb->insert_id;
@@ -92,11 +104,12 @@ class ConnectionService {
 		/**
 		 * Fires after a connection request is sent.
 		 *
-		 * @param int $connection_id Connection row ID.
-		 * @param int $requester_id  ID of the requesting user.
-		 * @param int $recipient_id  ID of the recipient.
+		 * @param int    $connection_id Connection row ID.
+		 * @param int    $requester_id  ID of the requesting user.
+		 * @param int    $recipient_id  ID of the recipient.
+		 * @param string $note          Optional note attached to the request.
 		 */
-		do_action( 'buddynext_connection_requested', $connection_id, $requester_id, $recipient_id );
+		do_action( 'buddynext_connection_requested', $connection_id, $requester_id, $recipient_id, $note );
 
 		return true;
 	}

@@ -106,7 +106,11 @@ class ConnectionController {
 			);
 		}
 
-		$result = buddynext_service( 'connections' )->send_request( $current_id, $target_id );
+		// Optional note (LinkedIn-style "I'd like to connect because…").
+		// Service layer hard-caps the length + strips tags.
+		$note = (string) $request->get_param( 'note' );
+
+		$result = buddynext_service( 'connections' )->send_request( $current_id, $target_id, $note );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );

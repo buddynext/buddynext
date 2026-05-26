@@ -361,6 +361,7 @@ class Installer {
 				requester_id BIGINT(20) UNSIGNED NOT NULL,
 				recipient_id BIGINT(20) UNSIGNED NOT NULL,
 				status       ENUM('pending','accepted','declined','withdrawn') NOT NULL DEFAULT 'pending',
+				note         VARCHAR(280) NOT NULL DEFAULT '',
 				created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				UNIQUE KEY   pair (requester_id, recipient_id),
@@ -991,6 +992,22 @@ class Installer {
 
 		if ( is_array( $spaces_cols ) && ! in_array( 'rules', $spaces_cols, true ) ) {
 			$wpdb->query( "ALTER TABLE `{$p}bn_spaces` ADD COLUMN `rules` TEXT NULL DEFAULT NULL" );
+		}
+
+		// bn_connections — `note` column added for the connection-request
+		// note feature (LinkedIn-style "I'd like to connect because…").
+		// Existing installs upgraded without re-running CREATE TABLE need
+		// the column manually appended.
+		$connections_cols = $wpdb->get_col(
+			$wpdb->prepare(
+				'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+				WHERE TABLE_SCHEMA = DATABASE()
+				AND TABLE_NAME = %s',
+				$p . 'bn_connections'
+			)
+		);
+		if ( is_array( $connections_cols ) && ! in_array( 'note', $connections_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_connections` ADD COLUMN `note` VARCHAR(280) NOT NULL DEFAULT '' AFTER `status`" );
 		}
 
 		$wpdb->suppress_errors( false );
