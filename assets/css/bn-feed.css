@@ -781,55 +781,112 @@
 
 .bn-post-card__emoji-picker {
 	position: absolute;
-	inset-block-end: calc(100% + 6px);
+	inset-block-end: calc(100% + 8px);
 	inset-inline-start: 50%;
 	transform: translateX(-50%);
 	display: flex;
-	gap: var(--bn-s1);
+	gap: 4px;
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-full);
-	padding: var(--bn-s1) var(--bn-s2);
-	box-shadow: var(--bn-shadow-md);
+	padding: 6px 10px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
 	z-index: 1000;
 	white-space: nowrap;
 }
 
 .bn-post-card__emoji-picker[hidden] { display: none; }
 
+/* Each picker button — Facebook-style: hover lifts and scales the
+   emoji 1.4× with a 200ms cubic-bezier bounce; the neighbours subtly
+   compress. Click triggers a quick pop animation before the picker
+   closes. */
 .bn-post-card__emoji-btn {
 	background: transparent;
 	border: 0;
 	cursor: pointer;
 	line-height: 1;
-	padding: 3px;
-	border-radius: var(--bn-r-sm);
-	transition: transform var(--bn-dur-fast, 120ms) var(--bn-ease, ease), background var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
+	padding: 4px;
+	border-radius: 50%;
+	transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+	transform-origin: center bottom;
 }
-
 .bn-post-card__emoji-btn:hover {
-	transform: scale(1.3);
-	background: var(--bn-sunken);
+	transform: scale(1.4) translateY(-4px);
+}
+.bn-post-card__emoji-btn:active {
+	animation: bn-react-pop 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.bn-post-card__emoji-btn:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 2px;
+}
+@keyframes bn-react-pop {
+	0%   { transform: scale(1); }
+	50%  { transform: scale(1.6) translateY(-6px); }
+	100% { transform: scale(1.4) translateY(-4px); }
 }
 
+/* Emoji image inside picker buttons. */
 .bn-reaction-icon {
 	display: inline-flex;
-	width: 20px;
-	height: 20px;
-	color: var(--bn-ink-2);
+	width: 28px;
+	height: 28px;
+}
+.bn-reaction-icon img,
+.bn-reaction-icon svg {
+	width: 28px;
+	height: 28px;
+	display: block;
 }
 
-.bn-reaction-icon svg { width: 20px; height: 20px; }
+/* React trigger button — shows a Lucide heart outline when idle. Once
+   the user has reacted, CSS replaces the icon with the colored Fluent
+   Emoji matching their reaction via background-image + masking the
+   underlying SVG. The colored emoji and the trigger label give the
+   Facebook-style "you reacted with X" affordance. */
+.bn-post-card__react-icon {
+	display: inline-flex;
+	width: 18px;
+	height: 18px;
+	align-items: center;
+	justify-content: center;
+	transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.bn-post-card__react-icon svg { width: 18px; height: 18px; }
 
-/* Current-reaction colour accents on the React trigger icon. */
-.bn-post-card__react-icon { display: inline-flex; width: 16px; height: 16px; }
-.bn-post-card__react-icon svg { width: 16px; height: 16px; }
-.bn-post-card__react-icon--like  { color: var(--bn-accent); }
-.bn-post-card__react-icon--love  { color: var(--bn-danger); }
-.bn-post-card__react-icon--haha  { color: var(--bn-warn); }
-.bn-post-card__react-icon--wow   { color: var(--bn-warn); }
-.bn-post-card__react-icon--sad   { color: var(--bn-accent); }
-.bn-post-card__react-icon--angry { color: var(--bn-danger); }
+/* Reacted states — hide the Lucide SVG and paint the colored emoji as
+   a background image. The Fluent Emoji vendor lives at
+   /assets/emoji/{slug}.svg (registered via IconService::emoji_url). */
+.bn-post-card__react-icon--like,
+.bn-post-card__react-icon--love,
+.bn-post-card__react-icon--haha,
+.bn-post-card__react-icon--wow,
+.bn-post-card__react-icon--sad,
+.bn-post-card__react-icon--angry {
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: contain;
+	transform: scale(1.05);
+}
+.bn-post-card__react-icon--like  svg,
+.bn-post-card__react-icon--love  svg,
+.bn-post-card__react-icon--haha  svg,
+.bn-post-card__react-icon--wow   svg,
+.bn-post-card__react-icon--sad   svg,
+.bn-post-card__react-icon--angry svg {
+	display: none;
+}
+.bn-post-card__react-icon--like  { background-image: url("../emoji/like.svg"); }
+.bn-post-card__react-icon--love  { background-image: url("../emoji/love.svg"); }
+.bn-post-card__react-icon--haha  { background-image: url("../emoji/haha.svg"); }
+.bn-post-card__react-icon--wow   { background-image: url("../emoji/wow.svg"); }
+.bn-post-card__react-icon--sad   { background-image: url("../emoji/sad.svg"); }
+.bn-post-card__react-icon--angry { background-image: url("../emoji/angry.svg"); }
+
+/* React button label colour-matches the reacted state for an extra
+   FB-style affordance ("Like" turns blue when you've liked, etc.). */
+.bn-post-card__action-btn--react.is-reacted .bn-post-card__action-label { color: var(--bn-accent); font-weight: 600; }
 
 /* ── Feed tabs ──────────────────────────────────────────────────────────────
    Feed tabs use the .bn-tabs + .bn-tab primitives from bn-base.css. The

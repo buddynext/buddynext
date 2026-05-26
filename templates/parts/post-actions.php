@@ -91,7 +91,16 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			data-wp-on--click="actions.toggleReactionPicker"
 			data-wp-bind--class="state.reactBtnClass"
 		>
-			<span data-wp-bind--class="state.reactionIconClass" aria-hidden="true"><?php buddynext_icon( 'heart' ); ?></span>
+			<span data-wp-bind--class="state.reactionIconClass" aria-hidden="true">
+				<?php
+				// Idle state shows the Lucide heart outline (matches the rest
+				// of the chrome); once the user has reacted, CSS swaps in the
+				// corresponding colored Fluent Emoji via the
+				// .bn-post-card__react-icon--{type} modifier class — see
+				// `.bn-post-card__react-icon--*` in bn-feed.css.
+				buddynext_icon( 'heart' );
+				?>
+			</span>
 			<span class="bn-post-card__action-label"><?php esc_html_e( 'React', 'buddynext' ); ?></span>
 		</button>
 
@@ -103,23 +112,24 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			hidden
 		>
 			<?php
-			$reaction_icons = array(
-				'like'  => 'thumbs-up',
-				'love'  => 'heart',
-				'haha'  => 'reaction-haha',
-				'wow'   => 'reaction-wow',
-				'sad'   => 'reaction-sad',
-				'angry' => 'reaction-angry',
+			$reaction_labels = array(
+				'like'  => __( 'Like', 'buddynext' ),
+				'love'  => __( 'Love', 'buddynext' ),
+				'haha'  => __( 'Haha', 'buddynext' ),
+				'wow'   => __( 'Wow', 'buddynext' ),
+				'sad'   => __( 'Sad', 'buddynext' ),
+				'angry' => __( 'Angry', 'buddynext' ),
 			);
-			foreach ( $reaction_icons as $reaction_key => $icon_slug ) :
+			foreach ( $reaction_labels as $reaction_key => $reaction_label ) :
 				?>
 				<button
 					type="button"
 					class="bn-post-card__emoji-btn"
-					aria-label="<?php echo esc_attr( $reaction_key ); ?>"
+					aria-label="<?php echo esc_attr( $reaction_label ); ?>"
+					title="<?php echo esc_attr( $reaction_label ); ?>"
 					data-wp-on--click="actions.setReaction"
 					data-reaction-type="<?php echo esc_attr( $reaction_key ); ?>"
-				><span class="bn-reaction-icon bn-reaction-icon--<?php echo esc_attr( $reaction_key ); ?>" aria-hidden="true"><?php buddynext_icon( $icon_slug ); ?></span></button>
+				><span class="bn-reaction-icon bn-reaction-icon--<?php echo esc_attr( $reaction_key ); ?>" aria-hidden="true"><?php buddynext_emoji( $reaction_key, '', $reaction_label ); ?></span></button>
 			<?php endforeach; ?>
 		</div>
 	</div>
