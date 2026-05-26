@@ -210,6 +210,45 @@ store( 'buddynext/notifications', {
 			}
 		},
 
+		dismiss: async function ( event ) {
+			// Per-row delete — DELETE /me/notifications/{id}. Optimistically
+			// removes the row from the DOM and decrements the badge if the
+			// row was unread. Restores on error.
+			var ctx     = getContext();
+			var btn     = event.target.closest( '[data-notif-id]' );
+			var row     = event.target.closest( '.bn-notif-row' );
+			var notifId = btn ? btn.dataset.notifId : null;
+			if ( ! notifId || ! row || ! ctx ) { return; }
+			event.stopPropagation();
+
+			var wasUnread = row.classList.contains( 'bn-notif-row--unread' );
+			var previousUnread = ctx.unreadCount || 0;
+			var parent = row.parentNode;
+			var nextSibling = row.nextSibling;
+
+			row.remove();
+			if ( wasUnread && ctx.unreadCount > 0 ) {
+				ctx.unreadCount = ctx.unreadCount - 1;
+			}
+
+			try {
+				var res = await fetch( ctx.restUrl + '/' + notifId, {
+					method:  'DELETE',
+					headers: { 'X-WP-Nonce': ctx.nonce },
+				} );
+				if ( ! res.ok ) {
+					throw new Error( 'http_' + res.status );
+				}
+			} catch ( _e ) {
+				if ( parent ) {
+					parent.insertBefore( row, nextSibling );
+				}
+				ctx.unreadCount = previousUnread;
+				toast( 'Could not dismiss. Try again.', 'error' );
+				return;
+			}
+		},
+
 		openAndMark: async function ( event ) {
 			// Anchor's native navigation handles the URL; we only need to
 			// fire the mark-as-read request so the badge updates before

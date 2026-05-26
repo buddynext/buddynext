@@ -174,6 +174,23 @@ do_action( 'buddynext_part_notification_row_before', $args );
 					aria-label="<?php esc_attr_e( 'Mark this notification as read', 'buddynext' ); ?>">
 					<?php esc_html_e( 'Mark as read', 'buddynext' ); ?>
 				</button>
+				<button class="bn-btn bn-notif-row__dismiss" data-variant="ghost" data-size="sm"
+					data-wp-on--click="actions.dismiss"
+					data-notif-id="<?php echo esc_attr( (string) $bn_row->id ); ?>"
+					aria-label="<?php esc_attr_e( 'Dismiss notification', 'buddynext' ); ?>"
+					title="<?php esc_attr_e( 'Dismiss', 'buddynext' ); ?>">
+					<?php buddynext_icon( 'x' ); ?>
+				</button>
+			</div>
+		<?php else : ?>
+			<div class="bn-notif-row__actions">
+				<button class="bn-btn bn-notif-row__dismiss" data-variant="ghost" data-size="sm"
+					data-wp-on--click="actions.dismiss"
+					data-notif-id="<?php echo esc_attr( (string) $bn_row->id ); ?>"
+					aria-label="<?php esc_attr_e( 'Dismiss notification', 'buddynext' ); ?>"
+					title="<?php esc_attr_e( 'Dismiss', 'buddynext' ); ?>">
+					<?php buddynext_icon( 'x' ); ?>
+				</button>
 			</div>
 		<?php endif; ?>
 	</div>
