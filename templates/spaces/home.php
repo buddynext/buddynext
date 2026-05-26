@@ -239,6 +239,34 @@ $bn_post_count = (int) $wpdb->get_var(
 	)
 );
 
+// Media tab count — posts in this space carrying at least one media attachment.
+// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+$bn_media_count = (int) $wpdb->get_var(
+	$wpdb->prepare(
+		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+		 WHERE space_id = %d AND status = 'published'
+		   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''",
+		$space_id
+	)
+);
+
+// Moderation tab count — reports against content in this space that
+// still need a decision. `pending` is the queued state; `escalated` is
+// also still actionable (admin review). Resolved only when the viewer
+// is admin/mod; everyone else gets 0 so the count chip never leaks
+// the queue size to non-moderators.
+$bn_mod_count = 0;
+if ( ! empty( $is_admin_mod ) ) {
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$bn_mod_count = (int) $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports
+			 WHERE space_id = %d AND status IN ( 'pending', 'escalated' )",
+			$space_id
+		)
+	);
+}
+
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $bn_active_count = (int) $wpdb->get_var(
 	$wpdb->prepare(
@@ -464,6 +492,7 @@ $bn_nav_tabs = array(
 	),
 	'media'   => array(
 		'label' => __( 'Media', 'buddynext' ),
+		'count' => (int) $bn_media_count,
 	),
 	'about'   => array(
 		'label' => __( 'About', 'buddynext' ),
@@ -473,6 +502,7 @@ $bn_nav_tabs = array(
 if ( $is_admin_mod ) {
 	$bn_nav_tabs['moderation'] = array(
 		'label' => __( 'Moderation', 'buddynext' ),
+		'count' => (int) $bn_mod_count,
 	);
 }
 
