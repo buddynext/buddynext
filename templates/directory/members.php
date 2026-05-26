@@ -192,7 +192,12 @@ $total_users = (int) $user_query->get_total();
 $total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-$bn_is_online = static function ( int $user_id ) use ( $current_user_id ): bool {
+// $online_threshold is the unix timestamp boundary used by the
+// raw-SQL "Online now" widget query lower in this file. The
+// per-card $bn_is_online check goes through BlockService so the
+// restrict gate applies; that helper owns the same window internally.
+$online_threshold = time() - 300;
+$bn_is_online     = static function ( int $user_id ) use ( $current_user_id ): bool {
 	return buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
 };
 
