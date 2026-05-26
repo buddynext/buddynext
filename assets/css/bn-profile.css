@@ -888,6 +888,60 @@
 	padding-block-start: var(--bn-s4);
 	flex-wrap: wrap;
 	justify-content: flex-end;
+	align-items: center;
+}
+
+/* Verified badge — small filled accent circle next to the name. */
+.bn-pf-verified {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	background: var(--bn-accent, #2563eb);
+	color: #fff;
+	border-radius: 50%;
+	margin-inline-start: 6px;
+	flex-shrink: 0;
+}
+.bn-pf-verified svg {
+	width: 12px;
+	height: 12px;
+	stroke-width: 3;
+}
+
+/* Profile completeness chip — circular ring with % label. Clicking
+   the chip takes the owner to /edit. Owner-only; hidden when pct
+   reaches 100 (rendered conditionally in the template). */
+.bn-pf-completeness {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 10px 6px 6px;
+	background: color-mix(in oklab, var(--bn-accent) 8%, transparent);
+	border-radius: var(--bn-r-full, 999px);
+	color: var(--bn-accent);
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	text-decoration: none;
+	transition: background var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
+}
+.bn-pf-completeness:hover {
+	background: color-mix(in oklab, var(--bn-accent) 16%, transparent);
+}
+.bn-pf-completeness__ring {
+	position: relative;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: conic-gradient(var(--bn-accent) var(--bn-pf-pct, 0%), color-mix(in oklab, var(--bn-accent) 18%, transparent) var(--bn-pf-pct, 0%));
+	display: inline-block;
+}
+.bn-pf-completeness__ring-fill {
+	position: absolute;
+	inset: 3px;
+	background: var(--bn-surface, #fff);
+	border-radius: 50%;
 }
 .bn-pf-actions__group {
 	display: inline-flex;

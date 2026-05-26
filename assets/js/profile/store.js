@@ -338,6 +338,32 @@ store( 'buddynext/profile', {
 			pushTabToUrl( tabId );
 		},
 
+		/* Share profile — prefers the native Web Share API (iOS, Android,
+		 * macOS Safari, Edge) and falls back to copying the URL to the
+		 * clipboard with a toast confirmation. Fully accessible: triggers
+		 * from a real <button> so keyboard activation works without extra
+		 * handlers.
+		 */
+		shareProfile( event ) {
+			const trigger = event.target.closest( '[data-share-url]' );
+			if ( ! trigger ) { return; }
+			const url   = trigger.dataset.shareUrl || window.location.href;
+			const title = document.querySelector( '.bn-pf-name' )?.textContent?.trim() || 'Profile';
+			const toast = ( typeof window !== 'undefined' && typeof window.bnToast === 'function' ) ? window.bnToast : null;
+			if ( navigator.share ) {
+				navigator.share( { title, url } ).catch( () => {} );
+				return;
+			}
+			if ( navigator.clipboard ) {
+				navigator.clipboard.writeText( url ).then(
+					() => { if ( toast ) { toast( 'Profile link copied', { tone: 'info' } ); } },
+					() => { if ( toast ) { toast( 'Could not copy. Long-press the URL.', { tone: 'danger' } ); } }
+				);
+				return;
+			}
+			window.prompt( 'Copy this URL:', url );
+		},
+
 		/* Mark form as dirty on any user input. */
 		markDirty() {
 			var ctx = getContext();

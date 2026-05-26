@@ -194,6 +194,15 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						><?php echo esc_html( $bn_pf_member_type['name'] ); ?></span>
 					<?php endif; ?>
 					<?php
+					$bn_pf_is_verified = (bool) get_user_meta( $bn_pf_uid, 'buddynext_email_verified', true );
+					if ( $bn_pf_is_verified ) :
+						?>
+						<span class="bn-pf-verified" title="<?php esc_attr_e( 'Verified account', 'buddynext' ); ?>" aria-label="<?php esc_attr_e( 'Verified account', 'buddynext' ); ?>">
+							<?php buddynext_icon( 'check' ); ?>
+						</span>
+						<?php
+					endif;
+
 					$bn_pf_badges = (string) apply_filters( 'buddynext_profile_hero_badges_html', '', $bn_pf_uid );
 					if ( '' !== $bn_pf_badges ) {
 						echo $bn_pf_badges; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped by hooked plugin per filter contract
@@ -294,7 +303,74 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				<?php endif; ?>
 			</div>
 
-			<!-- Action buttons — shown for other users only; owners use the action bar above -->
+			<!-- Owner action buttons — Edit profile + Share profile +
+				completeness chip. The chip is shown only to the owner
+				until completion reaches 100 % so others don't see a
+				scoring meter on a profile they're visiting. -->
+			<?php if ( $bn_pf_is_owner ) : ?>
+				<?php
+				$bn_pf_completion_pct = 0;
+				if ( function_exists( 'buddynext_service' ) ) {
+					$bn_pf_completion     = (array) buddynext_service( 'profiles' )->get_completion_score( $bn_pf_uid );
+					$bn_pf_completion_pct = (int) ( $bn_pf_completion['percent'] ?? 0 );
+				}
+				?>
+				<div class="bn-pf-actions">
+					<a class="bn-btn" data-variant="primary" data-size="sm"
+						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>">
+						<?php buddynext_icon( 'edit' ); ?>
+						<span><?php esc_html_e( 'Edit profile', 'buddynext' ); ?></span>
+					</a>
+					<?php
+					$bn_pf_share_url = home_url( '/members/' . rawurlencode( $bn_pf_slug ) . '/' );
+					?>
+					<button type="button"
+						class="bn-btn"
+						data-variant="secondary"
+						data-size="sm"
+						data-wp-on--click="actions.shareProfile"
+						data-share-url="<?php echo esc_attr( $bn_pf_share_url ); ?>"
+						aria-label="<?php esc_attr_e( 'Share profile link', 'buddynext' ); ?>">
+						<?php buddynext_icon( 'share' ); ?>
+						<span><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
+					</button>
+
+					<?php if ( $bn_pf_completion_pct < 100 ) : ?>
+						<a class="bn-pf-completeness"
+							href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() ); ?>"
+							style="--bn-pf-pct: <?php echo esc_attr( (string) $bn_pf_completion_pct ); ?>%"
+							aria-label="
+							<?php
+							echo esc_attr(
+								sprintf(
+								/* translators: %d: profile completion percentage. */
+									__( 'Profile %d%% complete — finish to make it discoverable', 'buddynext' ),
+									$bn_pf_completion_pct
+								)
+							);
+							?>
+							"
+						>
+							<span class="bn-pf-completeness__ring" aria-hidden="true">
+								<span class="bn-pf-completeness__ring-fill"></span>
+							</span>
+							<span class="bn-pf-completeness__label">
+								<?php
+								echo esc_html(
+									sprintf(
+									/* translators: %d: profile completion percentage. */
+										__( '%d%% complete', 'buddynext' ),
+										$bn_pf_completion_pct
+									)
+								);
+								?>
+							</span>
+						</a>
+					<?php endif; ?>
+				</div>
+			<?php endif; ?>
+
+			<!-- Action buttons — shown for other users only; owners see the bar above -->
 			<?php if ( ! $bn_pf_is_owner && $bn_pf_viewer ) : ?>
 			<div class="bn-pf-actions">
 				<button class="bn-btn" data-variant="primary" data-size="sm"

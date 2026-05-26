@@ -86,34 +86,57 @@ do_action( 'buddynext_part_profile_tab_bar_before', $args );
 				}
 				$bn_is_active = ( $bn_active === $bn_tab_slug );
 
+				// Pre-compute the screen-reader-friendly accessible name so
+				// the PHP whitespace between <a>...{label}...{count}</a>
+				// doesn't leak into the tab's a11y tree as tabs/newlines.
+				$bn_tab_aria = '' !== $bn_tab_count
+					? sprintf( '%s (%s)', $bn_tab_label, $bn_tab_count )
+					: $bn_tab_label;
+
 				if ( '' !== $bn_tab_href ) :
 					?>
 					<a class="bn-tab"
 						role="tab"
 						aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
-						href="<?php echo esc_url( $bn_tab_href ); ?>">
-						<?php if ( '' !== $bn_tab_icon && function_exists( 'buddynext_icon' ) ) : ?>
-							<?php buddynext_icon( $bn_tab_icon ); ?>
-						<?php endif; ?>
-						<?php echo esc_html( $bn_tab_label ); ?>
-						<?php if ( '' !== $bn_tab_count ) : ?>
+						aria-label="<?php echo esc_attr( $bn_tab_aria ); ?>"
+						href="<?php echo esc_url( $bn_tab_href ); ?>"
+					>
+					<?php
+					if ( '' !== $bn_tab_icon && function_exists( 'buddynext_icon' ) ) {
+						buddynext_icon( $bn_tab_icon );
+					}
+					?>
+					<span class="bn-tab__label"><?php echo esc_html( $bn_tab_label ); ?></span>
+					<?php
+					if ( '' !== $bn_tab_count ) :
+						?>
 							<span class="bn-tab__count"><?php echo esc_html( $bn_tab_count ); ?></span>
-						<?php endif; ?>
+							<?php
+						endif;
+					?>
 					</a>
 				<?php else : ?>
 					<button class="bn-tab"
 						role="tab"
 						type="button"
 						aria-selected="<?php echo $bn_is_active ? 'true' : 'false'; ?>"
+						aria-label="<?php echo esc_attr( $bn_tab_aria ); ?>"
 						data-wp-on--click="actions.setTab"
-						data-tab="<?php echo esc_attr( $bn_tab_slug ); ?>">
-						<?php if ( '' !== $bn_tab_icon && function_exists( 'buddynext_icon' ) ) : ?>
-							<?php buddynext_icon( $bn_tab_icon ); ?>
-						<?php endif; ?>
-						<?php echo esc_html( $bn_tab_label ); ?>
-						<?php if ( '' !== $bn_tab_count ) : ?>
+						data-tab="<?php echo esc_attr( $bn_tab_slug ); ?>"
+					>
+					<?php
+					if ( '' !== $bn_tab_icon && function_exists( 'buddynext_icon' ) ) {
+						buddynext_icon( $bn_tab_icon );
+					}
+					?>
+					<span class="bn-tab__label"><?php echo esc_html( $bn_tab_label ); ?></span>
+					<?php
+					if ( '' !== $bn_tab_count ) :
+						?>
 							<span class="bn-tab__count"><?php echo esc_html( $bn_tab_count ); ?></span>
-						<?php endif; ?>
+							<?php
+						endif;
+					?>
 					</button>
 					<?php
 				endif;
