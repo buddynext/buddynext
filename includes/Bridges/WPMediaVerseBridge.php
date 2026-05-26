@@ -378,14 +378,33 @@ class WPMediaVerseBridge {
 	public function on_message_sent( int $message_id, int $conversation_id, int $sender_id, array $recipient_ids ): void {
 		$service = new NotificationService();
 
-		foreach ( $recipient_ids as $recipient_id ) {
-			if ( (int) $recipient_id === $sender_id ) {
-				continue;
-			}
+		// Normalise recipient ids — strip sender, ints only.
+		$clean_recipients = array_values(
+			array_filter(
+				array_map( 'intval', $recipient_ids ),
+				static fn( int $rid ): bool => $rid > 0 && $rid !== $sender_id
+			)
+		);
 
+		/**
+		 * Fires from the sender's perspective when a DM goes out.
+		 *
+		 * BN-domain adapter on top of `mvs_message_sent` so gamification
+		 * plugins, analytics collectors, and webhook bridges can hook
+		 * the BN namespace without depending on the WPMediaVerse hook
+		 * being present.
+		 *
+		 * @param int   $sender_id       Sender (actor).
+		 * @param int   $message_id      Message that was sent.
+		 * @param int   $conversation_id Conversation the message belongs to.
+		 * @param int[] $recipient_ids   Recipients of the message (sender stripped).
+		 */
+		do_action( 'buddynext_dm_sent', $sender_id, $message_id, $conversation_id, $clean_recipients );
+
+		foreach ( $clean_recipients as $recipient_id ) {
 			$service->create(
 				array(
-					'recipient_id' => (int) $recipient_id,
+					'recipient_id' => $recipient_id,
 					'sender_id'    => $sender_id,
 					'type'         => 'bn.new_message',
 					'object_type'  => 'conversation',
@@ -394,6 +413,21 @@ class WPMediaVerseBridge {
 					'data'         => array( 'message_id' => $message_id ),
 				)
 			);
+
+			/**
+			 * Fires from each recipient's perspective when a DM arrives.
+			 *
+			 * Per-recipient mirror of `buddynext_dm_sent`. Useful for
+			 * gamification rules that award the recipient (e.g. "first
+			 * conversation started") or for unread-count counters that
+			 * key off the recipient id.
+			 *
+			 * @param int $recipient_id    Recipient (per-iteration).
+			 * @param int $sender_id       Sender (actor).
+			 * @param int $message_id      Message id.
+			 * @param int $conversation_id Conversation id.
+			 */
+			do_action( 'buddynext_dm_received', $recipient_id, $sender_id, $message_id, $conversation_id );
 		}
 	}
 

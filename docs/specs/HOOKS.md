@@ -615,6 +615,16 @@ do_action( 'buddynext_post_comment_received',
 // Native post used a hashtag (fires once per tag, object_type='post' only).
 do_action( 'buddynext_hashtag_used',
     string $tag, int $post_id, int $user_id )
+
+// DM sent — BN-domain adapter on top of WPMediaVerse `mvs_message_sent`.
+// Fires once per send with the full clean recipient list.
+do_action( 'buddynext_dm_sent',
+    int $sender_id, int $message_id, int $conversation_id, int[] $recipient_ids )
+
+// DM received — per-recipient mirror of buddynext_dm_sent.
+// Fires once per recipient (sender stripped before iteration).
+do_action( 'buddynext_dm_received',
+    int $recipient_id, int $sender_id, int $message_id, int $conversation_id )
 ```
 
 ---
