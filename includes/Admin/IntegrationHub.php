@@ -50,7 +50,15 @@ class IntegrationHub extends AdminPageBase {
 	 * @return void
 	 */
 	public function register(): void {
-		add_action( 'admin_menu', array( $this, 'add_submenu' ) );
+		// Slug 'addons' avoids collision with Settings → Integrations tab.
+		// "Addons" reads better for the companion-plugin detection page.
+		AdminHub::register_tab(
+			'settings',
+			'addons',
+			__( 'Addons', 'buddynext' ),
+			array( $this, 'render_page' ),
+			array( 'group' => __( 'Advanced', 'buddynext' ) )
+		);
 	}
 
 	/**
@@ -95,15 +103,14 @@ class IntegrationHub extends AdminPageBase {
 	 * @return void
 	 */
 	protected function render_page_header(): void {
+		// AdminHub owns the section H1. Render the subtitle + the addon stat
+		// pills as a strip directly below it.
 		$addons       = $this->get_addons();
 		$active_count = count( array_filter( $addons, fn( array $a ) => $a['active'] ) );
 		$avail_count  = count( array_filter( $addons, fn( array $a ) => ! $a['active'] ) );
 		?>
-		<div class="bn-admin-header bn-ih-header">
-			<div class="bn-ih-header-left">
-				<h1 class="bn-admin-title"><?php echo esc_html( $this->get_title() ); ?></h1>
-				<p class="bn-admin-sub"><?php echo esc_html( $this->get_subtitle() ); ?></p>
-			</div>
+		<div class="bn-admin-hub__sub-row">
+			<p class="bn-admin-hub__subtitle"><?php echo esc_html( $this->get_subtitle() ); ?></p>
 			<div class="bn-ih-stats" aria-label="<?php esc_attr_e( 'Integration status summary', 'buddynext' ); ?>">
 				<?php if ( $active_count > 0 ) : ?>
 					<span class="bn-badge" data-tone="success">

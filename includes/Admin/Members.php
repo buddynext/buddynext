@@ -34,12 +34,18 @@ class Members extends AdminPageBase {
 	 * @return void
 	 */
 	public function register(): void {
-		add_action( 'admin_menu', array( $this, 'add_submenu' ) );
 		add_action( 'admin_post_bn_suspend_member', array( $this, 'handle_suspend' ) );
 		add_action( 'admin_post_bn_unsuspend_member', array( $this, 'handle_unsuspend' ) );
 		add_action( 'admin_post_bn_save_member_profile', array( $this, 'handle_save_member_profile' ) );
 		add_action( 'wp_login', array( $this, 'handle_last_login' ), 10, 2 );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+
+		AdminHub::register_tab(
+			'members',
+			'directory',
+			__( 'Directory', 'buddynext' ),
+			array( $this, 'render_page' )
+		);
 
 		( new \BuddyNext\Admin\Members\ProfileFieldsManager() )->register();
 		( new \BuddyNext\Admin\Members\MemberExport() )->register();

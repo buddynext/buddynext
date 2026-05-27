@@ -104,6 +104,11 @@ class AssetService {
 			self::VERSION
 		);
 
+		// bn-admin.css holds tokens, shared components, and shared primitives.
+		// Page-specific blocks (members, email editor, nav manager) used to
+		// live in this file and have been split out below. Each is enqueued
+		// only on the page it serves so we don't ship 1.5k lines of Members
+		// CSS to the Email editor and vice versa.
 		wp_enqueue_style(
 			'bn-admin',
 			$this->assets_url . 'css/bn-admin.css',
@@ -111,17 +116,65 @@ class AssetService {
 			self::VERSION
 		);
 
-		// Email Templates editor: enqueue the v2 split-pane editor script
-		// only on its own submenu page. The hook suffix for a custom submenu
-		// under the buddynext top-level slug is "buddynext_page_buddynext-
-		// email-editor".
-		if ( false !== strpos( $hook_suffix, 'buddynext-email-editor' ) ) {
+		// Shared confirm-modal + toast helper — replaces browser
+		// confirm()/alert() across every BN admin surface. Loaded site-wide
+		// on BN admin so `data-bn-confirm` works regardless of which tab
+		// rendered the link/button/form.
+		wp_enqueue_style(
+			'bn-admin-dialogs',
+			$this->assets_url . 'css/bn-admin-dialogs.css',
+			array( 'bn-admin' ),
+			self::VERSION
+		);
+		wp_enqueue_script(
+			'bn-admin-dialogs',
+			$this->assets_url . 'js/admin/bn-admin-dialogs.js',
+			array(),
+			self::VERSION,
+			true
+		);
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only screen detection.
+		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		// Members admin (Members + Member Types + Profile Fields + Avatar
+		// Settings + Member Type Field). Lives at ?page=buddynext-members.
+		if ( false !== strpos( $hook_suffix, 'buddynext-members' ) ) {
+			wp_enqueue_style(
+				'bn-admin-members',
+				$this->assets_url . 'css/bn-admin-members.css',
+				array( 'bn-admin' ),
+				self::VERSION
+			);
+		}
+
+		// Email Templates editor: only on Settings → Email Templates tab
+		// (Hub slug 'templates'). The hook suffix for the top-level BuddyNext
+		// page is "toplevel_page_buddynext".
+		if ( 'toplevel_page_buddynext' === $hook_suffix && 'templates' === $active_tab ) {
+			wp_enqueue_style(
+				'bn-admin-email',
+				$this->assets_url . 'css/bn-admin-email.css',
+				array( 'bn-admin' ),
+				self::VERSION
+			);
 			wp_enqueue_script(
 				'bn-email-editor',
 				$this->assets_url . 'js/admin/email-editor.js',
 				array(),
 				self::VERSION,
 				true
+			);
+		}
+
+		// Navigation Manager: only on Settings → Navigation tab.
+		if ( 'toplevel_page_buddynext' === $hook_suffix && 'navigation' === $active_tab ) {
+			wp_enqueue_style(
+				'bn-admin-nav',
+				$this->assets_url . 'css/bn-admin-nav.css',
+				array( 'bn-admin' ),
+				self::VERSION
 			);
 		}
 

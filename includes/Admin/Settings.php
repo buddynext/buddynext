@@ -109,9 +109,101 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	public function register(): void {
-		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+
+		// Each former internal tab of this page becomes its own Hub tab so
+		// the user sees a single, flat tab strip instead of two nested ones.
+		// Order matters — array_key_first() is used as the default tab.
+		// Tabs in display order. `group` clusters Advanced items below a
+		// divider in the sidebar nav so the long list scans cleanly.
+		$tabs = array(
+			'general'       => array( 'label' => __( 'General',        'buddynext' ) ),
+			'features'      => array( 'label' => __( 'Features',       'buddynext' ) ),
+			'registration'  => array( 'label' => __( 'Registration',   'buddynext' ) ),
+			'social'        => array( 'label' => __( 'Social',         'buddynext' ) ),
+			'spaces'        => array( 'label' => __( 'Spaces',         'buddynext' ) ),
+			'notifications' => array( 'label' => __( 'Notifications',  'buddynext' ) ),
+			'email'         => array( 'label' => __( 'Email',          'buddynext' ) ),
+			'moderation'    => array( 'label' => __( 'Moderation',     'buddynext' ) ),
+			'integrations'  => array( 'label' => __( 'Integrations',   'buddynext' ) ),
+			'privacy'       => array( 'label' => __( 'Privacy & Data', 'buddynext' ) ),
+			'webhooks'      => array( 'label' => __( 'Webhooks',       'buddynext' ), 'group' => __( 'Advanced', 'buddynext' ) ),
+		);
+		foreach ( $tabs as $slug => $tab ) {
+			$args = array();
+			if ( isset( $tab['group'] ) ) {
+				$args['group'] = (string) $tab['group'];
+			}
+			AdminHub::register_tab(
+				'settings',
+				$slug,
+				$tab['label'],
+				function () use ( $slug ): void {
+					$this->render_settings_tab( $slug );
+				},
+				$args
+			);
+		}
+	}
+
+	/**
+	 * Render one Settings tab inside its options.php form wrapper.
+	 *
+	 * Hub paints the section H1 + tab strip. This method paints the
+	 * subtitle, the search input, the form (using the Settings API), the
+	 * active tab's body, and the save bar.
+	 *
+	 * @param string $slug Tab slug.
+	 * @return void
+	 */
+	private function render_settings_tab( string $slug ): void {
+		$method = 'render_tab_' . $slug;
+		if ( ! method_exists( $this, $method ) ) {
+			echo '<p>' . esc_html__( 'Unknown settings tab.', 'buddynext' ) . '</p>';
+			return;
+		}
+		?>
+		<p class="bn-admin-hub__subtitle"><?php echo esc_html( $this->get_tab_subtitle( $slug ) ); ?></p>
+
+		<form method="post" action="options.php" class="bn-settings-form">
+			<?php settings_fields( 'buddynext' ); ?>
+			<?php $this->$method(); ?>
+			<?php $this->render_save_bar(); ?>
+		</form>
+		<?php
+	}
+
+	/**
+	 * Return a per-tab subtitle so admins see what *this* tab does, not the
+	 * generic "Configure your community platform" repeated everywhere.
+	 *
+	 * Filterable so extensions can change wording without editing core.
+	 *
+	 * @param string $slug Tab slug.
+	 * @return string
+	 */
+	private function get_tab_subtitle( string $slug ): string {
+		$map = array(
+			'general'       => __( 'Brand identity, discovery defaults, and direct messaging baseline.', 'buddynext' ),
+			'features'      => __( 'Pick which features your community uses. Core features always run.', 'buddynext' ),
+			'registration'  => __( 'Control who can sign up and how new accounts are verified.', 'buddynext' ),
+			'social'        => __( 'Follow, connect, and block — the relationships that drive the feed.', 'buddynext' ),
+			'spaces'        => __( 'Defaults for the Spaces module: who can create, how deep they nest.', 'buddynext' ),
+			'notifications' => __( 'In-app + email notification rules and the events that trigger them.', 'buddynext' ),
+			'email'         => __( 'Sender identity and delivery configuration for outgoing community email.', 'buddynext' ),
+			'moderation'    => __( 'Site-wide moderation toggles: reporting, auto-hide thresholds, mod roles.', 'buddynext' ),
+			'integrations'  => __( 'Outbound integrations — Slack, Discord, webhooks, third-party identity.', 'buddynext' ),
+			'privacy'       => __( 'Data retention, export, and member privacy controls.', 'buddynext' ),
+			'webhooks'      => __( 'Push community events to external services in real time.', 'buddynext' ),
+		);
+		/**
+		 * Filter the Settings → tab subtitle copy.
+		 *
+		 * @param array<string,string> $map  Slug → subtitle map.
+		 */
+		$map = apply_filters( 'buddynext_settings_tab_subtitles', $map );
+		return isset( $map[ $slug ] ) ? (string) $map[ $slug ] : $this->get_subtitle();
 	}
 
 	/**

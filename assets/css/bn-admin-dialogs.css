@@ -1,0 +1,185 @@
+/* ────────────────────────────────────────────────────────────────────────
+ * BuddyNext admin — confirm modal + toast notice
+ *
+ * Replaces native browser dialogs. Loaded on every BuddyNext admin page
+ * via AssetService alongside bn-admin-dialogs.js so feature classes can
+ * trigger bnConfirm() / bnToast() OR rely on data-bn-confirm attributes
+ * without enqueueing anything themselves.
+ *
+ * Chrome stays neutral; accent only on primary action.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/* ── Modal ──────────────────────────────────────────────────────────────── */
+
+.bn-dialog-backdrop {
+	position: fixed;
+	inset: 0;
+	background: color-mix(in oklch, var(--bn-ink, #000) 50%, transparent);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--bn-s4, 16px);
+	z-index: 100000;
+	animation: bn-dialog-fade-in 120ms ease-out;
+}
+
+@keyframes bn-dialog-fade-in {
+	from { opacity: 0; }
+	to   { opacity: 1; }
+}
+
+.bn-dialog {
+	background: var(--bn-surface, #fff);
+	border: 1px solid var(--bn-line, #e5e7eb);
+	border-radius: var(--bn-r-lg, 10px);
+	box-shadow: var(--bn-shadow-lg, 0 10px 30px rgba(0,0,0,0.18));
+	max-width: 440px;
+	width: 100%;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	animation: bn-dialog-slide-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes bn-dialog-slide-in {
+	from { transform: translateY(8px); opacity: 0; }
+	to   { transform: translateY(0);   opacity: 1; }
+}
+
+.bn-dialog__head {
+	padding: var(--bn-s4, 16px) var(--bn-s5, 20px) var(--bn-s2, 8px);
+}
+.bn-dialog__title {
+	margin: 0;
+	font-size: 17px;
+	font-weight: var(--bn-fw-semibold, 600);
+	color: var(--bn-ink, #1f2937);
+	line-height: 1.3;
+}
+
+.bn-dialog__body {
+	padding: 0 var(--bn-s5, 20px) var(--bn-s4, 16px);
+	font-size: var(--bn-text-sm, 14px);
+	color: var(--bn-ink-2, #4b5563);
+	line-height: 1.5;
+	max-height: 50vh;
+	overflow-y: auto;
+}
+
+.bn-dialog__foot {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	padding: var(--bn-s3, 12px) var(--bn-s5, 20px);
+	background: var(--bn-sunken, #f9fafb);
+	border-top: 1px solid var(--bn-line, #e5e7eb);
+}
+
+.bn-dialog__cancel,
+.bn-dialog__ok {
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 36px;
+	padding: 0 14px;
+	font: inherit;
+	font-size: var(--bn-text-sm, 13px);
+	font-weight: var(--bn-fw-semibold, 600);
+	border-radius: var(--bn-r-md, 6px);
+	border: 1px solid transparent;
+	cursor: pointer;
+	background: transparent;
+	color: var(--bn-ink-2, #4b5563);
+	transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.bn-dialog__cancel {
+	background: var(--bn-surface, #fff);
+	border-color: var(--bn-line, #d1d5db);
+	color: var(--bn-ink, #1f2937);
+}
+.bn-dialog__cancel:hover {
+	background: var(--bn-sunken, #f3f4f6);
+}
+
+.bn-dialog__ok {
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg, #fff);
+	border-color: var(--bn-accent);
+}
+.bn-dialog__ok:hover {
+	filter: brightness(0.95);
+}
+
+.bn-dialog__ok[data-tone="danger"] {
+	background: var(--bn-danger, oklch(58% 0.20 25));
+	border-color: var(--bn-danger, oklch(58% 0.20 25));
+	color: #fff;
+}
+
+.bn-dialog__ok[data-tone="warning"] {
+	background: var(--bn-warn, oklch(70% 0.18 75));
+	border-color: var(--bn-warn, oklch(70% 0.18 75));
+	color: #1a1a1a;
+}
+
+.bn-dialog__cancel:focus-visible,
+.bn-dialog__ok:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
+}
+
+/* ── Toast ──────────────────────────────────────────────────────────────── */
+
+.bn-toast-root {
+	position: fixed;
+	bottom: 24px;
+	right: 24px;
+	display: flex;
+	flex-direction: column-reverse;
+	gap: 8px;
+	z-index: 100001;
+	pointer-events: none;
+	max-width: calc(100vw - 48px);
+}
+
+.bn-toast {
+	pointer-events: auto;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 220px;
+	max-width: 360px;
+	padding: 10px 14px;
+	background: var(--bn-surface, #fff);
+	color: var(--bn-ink, #1f2937);
+	border: 1px solid var(--bn-line, #e5e7eb);
+	border-left: 4px solid var(--bn-ink-3, #6b7280);
+	border-radius: var(--bn-r-md, 6px);
+	box-shadow: var(--bn-shadow-md, 0 4px 12px rgba(0,0,0,0.1));
+	font-size: var(--bn-text-sm, 13px);
+	line-height: 1.4;
+	transform: translateY(8px);
+	opacity: 0;
+	transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease;
+}
+.bn-toast.is-visible {
+	transform: translateY(0);
+	opacity: 1;
+}
+
+.bn-toast--success { border-left-color: var(--bn-success, oklch(55% 0.15 145)); }
+.bn-toast--error   { border-left-color: var(--bn-danger,  oklch(58% 0.20 25)); }
+.bn-toast--warning { border-left-color: var(--bn-warn,    oklch(70% 0.18 75)); }
+.bn-toast--info    { border-left-color: var(--bn-accent); }
+
+@media (prefers-reduced-motion: reduce) {
+	.bn-dialog-backdrop,
+	.bn-dialog,
+	.bn-toast {
+		animation: none !important;
+		transition: none !important;
+	}
+}

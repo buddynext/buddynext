@@ -115,9 +115,19 @@ class NavManager extends AdminPageBase {
 	 * @return void
 	 */
 	public function register(): void {
-		add_action( 'admin_menu', array( $this, 'add_submenu' ) );
 		add_action( 'admin_post_bn_save_nav', array( $this, 'handle_save_nav' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+
+		AdminHub::register_tab(
+			'settings',
+			'navigation',
+			__( 'Navigation', 'buddynext' ),
+			array( $this, 'render_page' ),
+			array(
+				'group'  => __( 'Advanced', 'buddynext' ),
+				'layout' => 'wide', // list-detail editor needs edge-to-edge room
+			)
+		);
 	}
 
 	/**

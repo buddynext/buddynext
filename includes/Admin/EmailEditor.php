@@ -44,10 +44,23 @@ class EmailEditor {
 	 * @return void
 	 */
 	public function register(): void {
-		add_action( 'admin_menu', array( $this, 'add_submenu' ) );
 		add_action( 'admin_post_buddynext_email_save', array( $this, 'handle_save' ) );
 		add_action( 'admin_post_buddynext_email_test', array( $this, 'handle_test' ) );
 		add_action( 'admin_post_buddynext_email_reset', array( $this, 'handle_reset' ) );
+
+		// Slug 'templates' avoids collision with Settings → Email tab.
+		// Label "Email Templates" disambiguates from the email-sender
+		// configuration over in Settings → Email.
+		AdminHub::register_tab(
+			'settings',
+			'templates',
+			__( 'Email Templates', 'buddynext' ),
+			array( $this, 'render_page' ),
+			array(
+				'group'  => __( 'Advanced', 'buddynext' ),
+				'layout' => 'wide', // split-pane editor needs edge-to-edge room
+			)
+		);
 	}
 
 	/**
@@ -568,66 +581,71 @@ class EmailEditor {
 			}
 		}
 
-		// Admin notices.
+		// Admin notices — null when the query param is absent (no notice
+		// renders), 0 on failure, 1 on success. The previous code used
+		// `absint( $_GET['x'] ?? -1 )` which returned 1 for missing params
+		// (absint of -1 = 1), so every page render flashed all 3 success
+		// banners. The notice-clear JS hid the symptom; this fixes the cause.
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$updated = absint( $_GET['updated'] ?? - 1 );
+		$updated = isset( $_GET['updated'] ) ? absint( $_GET['updated'] ) : null;
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$tested = absint( $_GET['tested'] ?? - 1 );
+		$tested  = isset( $_GET['tested'] )  ? absint( $_GET['tested'] )  : null;
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$reset = absint( $_GET['reset'] ?? - 1 );
+		$reset   = isset( $_GET['reset'] )   ? absint( $_GET['reset'] )   : null;
 
 		$plain_body = trim( wp_strip_all_tags( $body_html ) );
 		$admin_post = admin_url( 'admin-post.php' );
 
 		?>
-		<div class="wrap bn-email-editor">
+		<div class="bn-email-editor">
 
+		<?php
+		/*
+		 * Notices opt in to auto-clear (strip the matching query-string param
+		 * via history.replaceState on load) and auto-fade after 5s. Handled
+		 * by bn-admin-dialogs.js — no inline JS per skill gate F2.
+		 */
+		?>
 		<?php if ( 1 === $updated ) : ?>
-			<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Template saved.', 'buddynext' ); ?></p></div>
+			<div class="notice notice-success is-dismissible" data-bn-clear-param="updated" data-bn-auto-dismiss="5000"><p><?php esc_html_e( 'Template saved.', 'buddynext' ); ?></p></div>
 		<?php elseif ( 0 === $updated ) : ?>
-			<div class="notice notice-error is-dismissible"><p><?php esc_html_e( 'Save failed. Please try again.', 'buddynext' ); ?></p></div>
+			<div class="notice notice-error is-dismissible" data-bn-clear-param="updated"><p><?php esc_html_e( 'Save failed. Please try again.', 'buddynext' ); ?></p></div>
 		<?php endif; ?>
 
 		<?php if ( 1 === $tested ) : ?>
-			<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Test email sent.', 'buddynext' ); ?></p></div>
+			<div class="notice notice-success is-dismissible" data-bn-clear-param="tested" data-bn-auto-dismiss="5000"><p><?php esc_html_e( 'Test email sent.', 'buddynext' ); ?></p></div>
 		<?php elseif ( 0 === $tested ) : ?>
-			<div class="notice notice-error is-dismissible"><p><?php esc_html_e( 'Test email failed. Check wp_mail() configuration.', 'buddynext' ); ?></p></div>
+			<div class="notice notice-error is-dismissible" data-bn-clear-param="tested"><p><?php esc_html_e( 'Test email failed. Check wp_mail() configuration.', 'buddynext' ); ?></p></div>
 		<?php endif; ?>
 
 		<?php if ( 1 === $reset ) : ?>
-			<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Template reset to defaults.', 'buddynext' ); ?></p></div>
+			<div class="notice notice-success is-dismissible" data-bn-clear-param="reset" data-bn-auto-dismiss="5000"><p><?php esc_html_e( 'Template reset to defaults.', 'buddynext' ); ?></p></div>
 		<?php endif; ?>
 
-		<header class="adm-topbar">
-			<div class="bn-email-editor__title">
-				<?php esc_html_e( 'Email Templates', 'buddynext' ); ?>
-			</div>
-			<div class="bn-email-editor__actions">
-				<button
-					type="button"
-					class="bn-btn"
-					data-variant="ghost"
-					data-size="sm"
-					data-bn-open-modal="bn-email-modal-test"
-				>
-					<?php esc_html_e( 'Send test email', 'buddynext' ); ?>
-				</button>
-				<button
-					type="submit"
-					form="bn-email-save-form"
-					class="bn-btn"
-					data-variant="primary"
-					data-size="sm"
-				>
-					<?php esc_html_e( 'Save template', 'buddynext' ); ?>
-				</button>
-			</div>
-		</header>
-
+		<?php
+		// Save / Send-test buttons moved into the pane head so they sit next
+		// to the template title + status toggle (Layer 3 polish). The empty
+		// .adm-topbar that used to host them is gone — its only job was to
+		// surface those actions, and they're better placed in context.
+		?>
 		<div class="bn-split">
 
 			<!-- Template list rail -->
 			<nav class="bn-split__rail" aria-label="<?php esc_attr_e( 'Email templates', 'buddynext' ); ?>">
+				<div class="bn-email-editor__rail-search">
+					<label class="screen-reader-text" for="bn-email-rail-search">
+						<?php esc_html_e( 'Search templates', 'buddynext' ); ?>
+					</label>
+					<input
+						type="search"
+						id="bn-email-rail-search"
+						class="bn-input"
+						placeholder="<?php esc_attr_e( 'Filter templates…', 'buddynext' ); ?>"
+						data-bn-rail-filter
+						aria-controls="bn-email-rail-list"
+					>
+				</div>
+				<div id="bn-email-rail-list" class="bn-email-editor__rail-list">
 				<?php foreach ( $catalogue as $category => $templates ) : ?>
 					<div class="bn-email-editor__rail-group"><?php echo esc_html( $category ); ?></div>
 					<?php
@@ -669,6 +687,7 @@ class EmailEditor {
 						</a>
 					<?php endforeach; ?>
 				<?php endforeach; ?>
+				</div><!-- /#bn-email-rail-list -->
 			</nav>
 
 			<!-- Editor pane -->
@@ -709,6 +728,24 @@ class EmailEditor {
 							data-bn-open-modal="bn-email-modal-reset"
 						>
 							<?php esc_html_e( 'Reset to default', 'buddynext' ); ?>
+						</button>
+						<button
+							type="button"
+							class="bn-btn"
+							data-variant="ghost"
+							data-size="sm"
+							data-bn-open-modal="bn-email-modal-test"
+						>
+							<?php esc_html_e( 'Send test', 'buddynext' ); ?>
+						</button>
+						<button
+							type="submit"
+							form="bn-email-save-form"
+							class="bn-btn"
+							data-variant="primary"
+							data-size="sm"
+						>
+							<?php esc_html_e( 'Save template', 'buddynext' ); ?>
 						</button>
 					</div>
 				</header>

@@ -1,0 +1,441 @@
+/* ────────────────────────────────────────────────────────────────────────
+ * BuddyNext — Admin Hub chrome (vertical sidebar layout)
+ *
+ * Painted by includes/Admin/AdminHub.php which owns every BuddyNext
+ * section page (?page=buddynext, ?page=buddynext-members, etc.).
+ *
+ * Two-column layout per skill rule F5 (jetonomy pattern):
+ *   .bn-admin-hub
+ *     .bn-admin-hub__header         (page H1)
+ *     .bn-admin-hub__layout         (flex container)
+ *       .bn-admin-hub__sidebar      (sticky 220px nav rail)
+ *       .bn-admin-hub__main         (tab body)
+ *
+ * Single-tab sections skip the layout/sidebar entirely and render the
+ * body inside .bn-admin-hub__body.
+ *
+ * Chrome stays neutral: accent only on the active sidebar item + badge.
+ * No `color-mix` against accent for decorative panels — token-driven.
+ *
+ * Loaded only on Hub-owned pages by AdminHub::enqueue_assets().
+ * ──────────────────────────────────────────────────────────────────────── */
+
+.bn-admin-hub {
+	max-width: none;
+}
+
+.bn-admin-hub__header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--bn-s4);
+	margin: 0 0 var(--bn-s4);
+	padding: var(--bn-s4) 0 0;
+}
+.bn-admin-hub__title {
+	margin: 0;
+	font-family: var(--bn-font-display, var(--bn-font-ui, inherit));
+	font-size: clamp(20px, 2vw, 26px);
+	font-weight: 700;
+	letter-spacing: -0.015em;
+	line-height: 1.2;
+	color: var(--bn-ink, #1f2937);
+	padding: 0;
+}
+
+/* ── Layout (flex: sidebar + main) ──────────────────────────────────── */
+
+.bn-admin-hub__layout {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--bn-s4, 16px);
+	margin-top: 0;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+
+.bn-admin-hub__sidebar {
+	width: 220px;
+	flex-shrink: 0;
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md, 8px);
+	box-shadow: var(--bn-shadow-sm);
+	position: sticky;
+	top: var(--bn-s5, 24px);
+	overflow: hidden;
+	max-height: calc(100vh - 64px);
+	overflow-y: auto;
+}
+
+.bn-admin-hub__sidebar-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: var(--bn-s3, 12px) var(--bn-s4, 16px);
+	border-bottom: 1px solid var(--bn-line);
+}
+.bn-admin-hub__sidebar-brand-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	color: var(--bn-accent);
+}
+.bn-admin-hub__sidebar-brand-icon .bn-icon {
+	width: 22px;
+	height: 22px;
+}
+.bn-admin-hub__sidebar-brand-text {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+.bn-admin-hub__sidebar-brand-name {
+	font-size: 13px;
+	font-weight: var(--bn-fw-bold, 700);
+	color: var(--bn-ink);
+	line-height: 1.2;
+}
+.bn-admin-hub__sidebar-section {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 11px;
+	font-weight: var(--bn-fw-semibold, 600);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--bn-ink-3);
+}
+
+.bn-admin-hub__sidebar-nav {
+	padding: 6px;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+
+.bn-admin-hub__sidebar-link {
+	/* WP admin's default `box-sizing: content-box` makes padding accumulate
+	   on top of min-height, inflating each row to ~52px. Force border-box
+	   so min-height is the actual rendered height — 34px is tight enough
+	   that 14+ items fit on screen without scroll, still tap-friendly. */
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 10px;
+	min-height: 32px;
+	border-radius: 6px;
+	font-size: var(--bn-text-sm, 13px);
+	font-weight: 500;
+	line-height: 1.35;
+	color: var(--bn-ink-2);
+	text-decoration: none;
+	transition: background var(--bn-dur-fast, 120ms) var(--bn-ease, ease),
+		color var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
+}
+.bn-admin-hub__sidebar-link:hover {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+}
+.bn-admin-hub__sidebar-link:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px color-mix(in oklch, var(--bn-accent) 45%, transparent);
+	color: var(--bn-ink);
+}
+.bn-admin-hub__sidebar-link.is-active {
+	background: var(--bn-accent-50, var(--bn-sunken));
+	color: var(--bn-accent);
+	font-weight: var(--bn-fw-semibold, 600);
+}
+.bn-admin-hub__sidebar-link.is-active:hover {
+	background: var(--bn-accent-50, var(--bn-sunken));
+}
+
+.bn-admin-hub__sidebar-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	flex-shrink: 0;
+	color: var(--bn-ink-3);
+	transition: color var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
+}
+.bn-admin-hub__sidebar-icon .bn-icon {
+	width: 16px;
+	height: 16px;
+}
+.bn-admin-hub__sidebar-link:hover .bn-admin-hub__sidebar-icon { color: var(--bn-ink-2); }
+.bn-admin-hub__sidebar-link.is-active .bn-admin-hub__sidebar-icon { color: var(--bn-accent); }
+
+.bn-admin-hub__sidebar-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Group eyebrow — separates clusters within a section's nav. */
+.bn-admin-hub__sidebar-group {
+	padding: 14px 10px 4px;
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 10px;
+	font-weight: var(--bn-fw-semibold, 600);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--bn-ink-4, var(--bn-ink-3));
+}
+.bn-admin-hub__sidebar-group:first-child { padding-top: 6px; }
+.bn-admin-hub__sidebar-divider {
+	height: 1px;
+	background: var(--bn-line);
+	margin: 8px 4px;
+}
+
+.bn-admin-hub__sidebar-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 6px;
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg, #fff);
+	border-radius: 999px;
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 11px;
+	font-weight: var(--bn-fw-semibold, 600);
+	line-height: 1;
+	flex-shrink: 0;
+}
+.bn-admin-hub__sidebar-link.is-active .bn-admin-hub__sidebar-badge {
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg, #fff);
+}
+
+/* ── Main content area ───────────────────────────────────────────────── */
+
+.bn-admin-hub__main {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Subtitle paragraph emitted by render methods */
+.bn-admin-hub__subtitle {
+	margin: 0 0 var(--bn-s4, 16px);
+	font-size: var(--bn-text-sm, 14px);
+	color: var(--bn-ink-2, #4b5563);
+	line-height: 1.5;
+}
+
+.bn-admin-hub__sub-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3, 12px);
+	flex-wrap: wrap;
+	margin: 0 0 var(--bn-s4, 16px);
+}
+.bn-admin-hub__sub-row .bn-admin-hub__subtitle { margin: 0; }
+
+/* Single-tab section fallback (no sidebar) */
+.bn-admin-hub__body { margin-top: 0; }
+
+/* ── Auto-card pattern ────────────────────────────────────────────────
+ *
+ * Pro admin pages haven't been migrated to the .bn-settings-card vocabulary
+ * Free Settings uses. Rather than rewriting every render_content() (16
+ * classes, 50+ LOC each), these rules style their bare <h2> + <form> +
+ * .form-table markup to look card-wrapped automatically.
+ *
+ * Scoped tight to .bn-admin-hub__main so non-Hub admin pages aren't
+ * affected. Skill gate F6 — "Auto-card wrapping" — calls for exactly
+ * this pattern.
+ * ───────────────────────────────────────────────────────────────────── */
+
+/* H2 as a section-eyebrow above the card below it. Visually groups with
+   the next form/table without trying to fragile `h2 + form` adjacency
+   tricks (Pro pages mix H2 → form, H2 → p → form, H2 → table). */
+.bn-admin-hub__main h2,
+.bn-admin-hub__main--wide h2 {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin: var(--bn-s4, 16px) 0 var(--bn-s2, 8px);
+	padding: 6px 10px;
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-sm, 4px);
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 11px;
+	font-weight: var(--bn-fw-semibold, 600);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--bn-ink-2);
+	line-height: 1.2;
+}
+.bn-admin-hub__main h2:first-child,
+.bn-admin-hub__main--wide h2:first-child { margin-top: 0; }
+/* H3 below remains a "subsection title inside the card". */
+.bn-admin-hub__main h3,
+.bn-admin-hub__main--wide h3 {
+	font-size: 14px;
+	font-weight: var(--bn-fw-semibold, 600);
+	color: var(--bn-ink);
+	margin: var(--bn-s4, 16px) 0 var(--bn-s2, 8px);
+}
+
+/* Wrap every <form> + standalone <table.wp-list-table> in a card chrome.
+   Excludes the .bn-admin-hub__picker (the wide-layout select) and the
+   .bn-admin-search stub (handled separately). */
+.bn-admin-hub__main form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker),
+.bn-admin-hub__main--wide form:not(.bn-admin-hub__form-bare):not(.bn-admin-hub__picker),
+.bn-admin-hub__main > table.wp-list-table,
+.bn-admin-hub__main--wide > table.wp-list-table {
+	background: var(--bn-surface, #fff);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md, 8px);
+	padding: var(--bn-s4, 16px) var(--bn-s5, 20px);
+	margin: 0 0 var(--bn-s4, 16px);
+	box-shadow: var(--bn-shadow-sm);
+}
+
+/* Tables already inside our card don't get double chrome. */
+.bn-admin-hub__main form .form-table,
+.bn-admin-hub__main form .wp-list-table,
+.bn-admin-hub__main--wide form .form-table,
+.bn-admin-hub__main--wide form .wp-list-table {
+	background: transparent;
+	border: 0;
+	box-shadow: none;
+	padding: 0;
+	margin: 0;
+}
+
+/* WP default form-table cell padding is tight — bump for readability. */
+.bn-admin-hub__main .form-table th,
+.bn-admin-hub__main .form-table td,
+.bn-admin-hub__main--wide .form-table th,
+.bn-admin-hub__main--wide .form-table td {
+	padding: var(--bn-s3, 12px) var(--bn-s3, 12px) var(--bn-s3, 12px) 0;
+}
+
+/* Submit row visually separates from the form body. */
+.bn-admin-hub__main p.submit,
+.bn-admin-hub__main--wide p.submit {
+	margin: var(--bn-s4, 16px) 0 0;
+	padding-top: var(--bn-s3, 12px);
+	border-top: 1px solid var(--bn-line);
+}
+
+/* WP default blue primary button → BN accent. Same density / radius as the
+   bn-btn primary so admins don't see two different "Save" buttons depending
+   on which Pro page they're on. */
+.bn-admin-hub__main .button-primary,
+.bn-admin-hub__main--wide .button-primary,
+.bn-admin-hub__main input[type="submit"].button-primary,
+.bn-admin-hub__main--wide input[type="submit"].button-primary {
+	background: var(--bn-accent);
+	border-color: var(--bn-accent);
+	color: var(--bn-accent-fg, #fff);
+	box-shadow: none;
+	text-shadow: none;
+	min-height: 36px;
+	padding: 0 14px;
+	border-radius: var(--bn-r-md, 6px);
+	font-weight: var(--bn-fw-semibold, 600);
+}
+.bn-admin-hub__main .button-primary:hover,
+.bn-admin-hub__main--wide .button-primary:hover,
+.bn-admin-hub__main .button-primary:focus,
+.bn-admin-hub__main--wide .button-primary:focus {
+	background: color-mix(in oklch, var(--bn-accent) 88%, black);
+	border-color: color-mix(in oklch, var(--bn-accent) 88%, black);
+	color: var(--bn-accent-fg, #fff);
+	box-shadow: none;
+}
+.bn-admin-hub__main .button-primary:focus-visible,
+.bn-admin-hub__main--wide .button-primary:focus-visible {
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-accent) 35%, transparent);
+}
+
+/* Danger / link-delete variant stays red so destruction reads. */
+.bn-admin-hub__main .button-link-delete,
+.bn-admin-hub__main--wide .button-link-delete {
+	color: var(--bn-danger, oklch(58% 0.20 25));
+}
+
+/* ── Wide layout (list-detail editors: Navigation, Email Templates) ─── */
+
+.bn-admin-hub.is-wide {
+	max-width: none;
+}
+
+.bn-admin-hub__picker {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 var(--bn-s4, 16px);
+	padding: 8px 12px;
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md, 6px);
+	box-shadow: var(--bn-shadow-sm);
+}
+.bn-admin-hub__picker-label {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 11px;
+	font-weight: var(--bn-fw-semibold, 600);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--bn-ink-3);
+}
+.bn-admin-hub__picker-select {
+	border: 0;
+	background: transparent;
+	font: inherit;
+	font-size: var(--bn-text-sm, 13px);
+	font-weight: var(--bn-fw-semibold, 600);
+	color: var(--bn-ink);
+	padding: 4px 22px 4px 6px;
+	cursor: pointer;
+	min-width: 160px;
+}
+.bn-admin-hub__picker-select:focus-visible {
+	outline: 2px solid color-mix(in oklch, var(--bn-accent) 45%, transparent);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+.bn-admin-hub__main--wide {
+	display: block;
+	width: 100%;
+	min-width: 0;
+}
+
+/* ── Mobile — sidebar collapses to top horizontal scroller ───────────── */
+
+@media (max-width: 782px) {
+	.bn-admin-hub__layout {
+		flex-direction: column;
+		gap: var(--bn-s3, 12px);
+	}
+	.bn-admin-hub__sidebar {
+		width: 100%;
+		position: static;
+		max-height: none;
+		overflow-x: auto;
+		overflow-y: hidden;
+	}
+	.bn-admin-hub__sidebar-nav {
+		flex-direction: row;
+		flex-wrap: nowrap;
+		padding: 8px;
+	}
+	.bn-admin-hub__sidebar-link {
+		flex-shrink: 0;
+		padding: 8px 12px;
+	}
+}

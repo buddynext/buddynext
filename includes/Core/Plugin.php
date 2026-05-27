@@ -12,6 +12,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Core;
 
+use BuddyNext\Admin\AdminHub;
 use BuddyNext\Admin\EmailEditor;
 use BuddyNext\Admin\IntegrationHub;
 use BuddyNext\Admin\Members;
@@ -113,6 +114,12 @@ class Plugin {
 		self::register_services( $container );
 
 		if ( is_admin() ) {
+			// AdminHub owns the BuddyNext top-level menu and dispatches every
+			// section page to its registered tabs. Boot first so feature
+			// classes that call AdminHub::register_tab() in their register()
+			// methods find the hub already initialised.
+			AdminHub::instance()->init();
+
 			$container->get( 'admin_settings' )->register();
 			$container->get( 'admin_members' )->register();
 			$container->get( 'admin_spaces' )->register();

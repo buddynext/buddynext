@@ -60,13 +60,11 @@ abstract class AdminPageBase {
 			wp_die( esc_html__( 'You do not have permission to view this page.', 'buddynext' ) );
 		}
 
-		$this->output_shared_styles();
-		?>
-		<div class="wrap bn-admin-wrap">
-			<?php $this->render_page_header(); ?>
-			<?php $this->render_content(); ?>
-		</div>
-		<?php
+		// AdminHub already opens a `.wrap.bn-admin-hub` and renders the
+		// section H1 + tab strip before calling this method. We only emit
+		// the body content; the subtitle hangs under the Hub's H1.
+		$this->render_page_header();
+		$this->render_content();
 	}
 
 	// ── Chrome helpers ─────────────────────────────────────────────────────────
@@ -77,11 +75,14 @@ abstract class AdminPageBase {
 	 * @return void
 	 */
 	protected function render_page_header(): void {
+		// Hub paints the section H1. We only emit the subtitle so the page
+		// still gets its one-line context. Empty subtitle = nothing rendered.
+		$sub = $this->get_subtitle();
+		if ( '' === $sub ) {
+			return;
+		}
 		?>
-		<div class="bn-admin-header">
-			<h1 class="bn-admin-title"><?php echo esc_html( $this->get_title() ); ?></h1>
-			<p class="bn-admin-sub"><?php echo esc_html( $this->get_subtitle() ); ?></p>
-		</div>
+		<p class="bn-admin-hub__subtitle"><?php echo esc_html( $sub ); ?></p>
 		<?php
 	}
 

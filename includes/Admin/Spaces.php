@@ -30,9 +30,15 @@ class Spaces extends AdminPageBase {
 	 * @return void
 	 */
 	public function register(): void {
-		add_action( 'admin_menu', array( $this, 'add_submenu' ) );
 		add_action( 'admin_post_bn_delete_space', array( $this, 'handle_delete' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+
+		AdminHub::register_tab(
+			'spaces',
+			'directory',
+			__( 'Directory', 'buddynext' ),
+			array( $this, 'render_page' )
+		);
 	}
 
 	/**
