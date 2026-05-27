@@ -44,7 +44,6 @@ class PostService {
 		'discussion',
 		'job',
 		'event',
-		'voice_room',
 	);
 
 	/**

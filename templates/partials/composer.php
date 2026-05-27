@@ -101,8 +101,6 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				'mediaUploading' => false,
 				'errorMessage'   => '',
 				'eventOpen'      => false,
-				'voiceOpen'      => false,
-				'aiOpen'         => false,
 				'hasPro'         => $composer_has_pro,
 				'userId'         => get_current_user_id(),
 				'draftStatus'    => '',
@@ -176,7 +174,16 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 		<div class="bn-composer__poll-options"
 			hidden
 			data-wp-bind--hidden="state.isNotPoll">
-			<p class="bn-composer__poll-question"><?php esc_html_e( 'Poll options (min 2)', 'buddynext' ); ?></p>
+			<div class="bn-composer__poll-head">
+				<p class="bn-composer__poll-question"><?php esc_html_e( 'Poll options (min 2)', 'buddynext' ); ?></p>
+				<button type="button"
+					class="bn-composer__poll-close"
+					data-wp-on--click="actions.togglePoll"
+					aria-label="<?php esc_attr_e( 'Cancel poll', 'buddynext' ); ?>"
+					title="<?php esc_attr_e( 'Cancel poll', 'buddynext' ); ?>">
+					<?php buddynext_icon( 'x' ); ?>
+				</button>
+			</div>
 			<input type="text" class="bn-composer__poll-option"
 				placeholder="<?php esc_attr_e( 'Option 1', 'buddynext' ); ?>"
 				aria-label="<?php esc_attr_e( 'Poll option 1', 'buddynext' ); ?>">
@@ -203,7 +210,8 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 
 			<button class="bn-composer__tool"
 				type="button"
-				data-wp-on--click="actions.openPoll"
+				data-wp-bind--aria-pressed="state.isPoll"
+				data-wp-on--click="actions.togglePoll"
 				aria-label="<?php esc_attr_e( 'Poll', 'buddynext' ); ?>"
 				title="<?php esc_attr_e( 'Poll', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'bar-chart-2' ); ?>
@@ -212,19 +220,32 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 			<button class="bn-composer__tool"
 				type="button"
 				data-wp-on--click="actions.openEvent"
-				aria-label="<?php esc_attr_e( 'Event', 'buddynext' ); ?>"
-				title="<?php esc_attr_e( 'Event', 'buddynext' ); ?>">
+				aria-label="<?php esc_attr_e( 'Pin a date and location', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Pin a date and location', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'calendar' ); ?>
 			</button>
 
-			<button class="bn-composer__tool"
-				type="button"
-				data-tone="ai"
-				data-wp-on--click="actions.openAiHelper"
-				aria-label="<?php esc_attr_e( 'Ask AI for help', 'buddynext' ); ?>"
-				title="<?php esc_attr_e( 'Ask AI for help', 'buddynext' ); ?>">
-				<?php buddynext_icon( 'sparkles' ); ?>
-			</button>
+			<?php
+			/**
+			 * Composer tool injection point. Pro / 3rd-party plugins register
+			 * extra composer tools (AI helper, voice room, file picker, etc.)
+			 * by returning rendered button HTML.
+			 *
+			 * @param string $html    Concatenated tool-button HTML (empty by default).
+			 * @param array  $context array{ user_id:int, space_id:?int, has_pro:bool }.
+			 */
+			echo (string) apply_filters(
+				'buddynext_composer_tools',
+				'',
+				array(
+					'user_id'  => $args['user_id'],
+					'space_id' => $args['space_id'],
+					'has_pro'  => $args['has_pro'],
+				)
+			);
+			?>
+
+			<span class="bn-composer__char-counter-slot" aria-live="polite"></span>
 
 			<span class="bn-composer__spacer"></span>
 
@@ -328,18 +349,13 @@ buddynext_get_template(
 		'composer_user_id' => $composer_user_id,
 	)
 );
-buddynext_get_template(
-	'partials/composer-voice-modal.php',
-	array(
-		'composer_user_id' => $composer_user_id,
-	)
-);
-buddynext_get_template(
-	'partials/composer-ai-modal.php',
-	array(
-		'composer_user_id' => $composer_user_id,
-		'has_pro'          => $composer_has_pro,
-	)
-);
+
+/**
+ * Composer-after sub-template injection point. Pro / 3rd-party plugins
+ * render their own composer modals (AI helper, voice room, etc.) here.
+ *
+ * @param array $args Sanitized composer args.
+ */
+do_action( 'buddynext_composer_modals', $args );
 
 do_action( 'buddynext_part_composer_after', $args );

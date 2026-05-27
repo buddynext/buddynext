@@ -1686,16 +1686,33 @@
 .bn-composer__prompt::placeholder { color: var(--text-3); }
 .bn-composer__prompt:focus-visible { outline: none; }
 
-/* Char counter — small label injected by JS after the textarea. */
-.bn-composer__char-counter {
-	display: block;
-	margin-block-start: 4px;
+/*
+ * Char counter — populated by JS into the toolbar slot
+ * (.bn-composer__char-counter-slot) when present; falls back to a
+ * block element after the textarea on comment forms.
+ */
+.bn-composer__char-counter,
+.bn-composer__char-counter-slot {
 	font-size: var(--text-2xs, 11px);
 	color: var(--text-3);
 	font-variant-numeric: tabular-nums;
 }
-.bn-composer__char-counter[data-state="near"] { color: var(--bn-warn, #b45309); }
-.bn-composer__char-counter[data-state="over"] { color: var(--bn-danger, #dc2626); font-weight: 600; }
+.bn-composer__char-counter {
+	display: block;
+	margin-block-start: 4px;
+}
+.bn-composer__char-counter-slot { display: inline-flex; align-items: center; }
+.bn-composer__char-counter-slot:empty { display: none; }
+.bn-composer__char-counter[data-state="near"],
+.bn-composer__char-counter-slot[data-state="near"] { color: var(--bn-warn, #b45309); }
+.bn-composer__char-counter[data-state="over"],
+.bn-composer__char-counter-slot[data-state="over"] { color: var(--bn-danger, #dc2626); font-weight: 600; }
+
+/* Active tool (e.g. Poll button when poll panel is open). */
+.bn-composer__tool[aria-pressed="true"] {
+	background: var(--bn-accent-100);
+	color: var(--bn-accent);
+}
 
 /* Drag-drop overlay state — outline + faint accent wash when the user
    is dragging files over the composer. */
@@ -2014,12 +2031,31 @@
 	flex-direction: column;
 	gap: var(--s2);
 }
+.bn-composer__poll-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--s2);
+}
 .bn-composer__poll-question {
 	font-size: var(--text-sm);
 	font-weight: 600;
 	color: var(--text-2);
 	margin: 0;
 }
+.bn-composer__poll-close {
+	background: transparent;
+	border: 0;
+	padding: 2px;
+	border-radius: var(--r-sm);
+	color: var(--text-3);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+.bn-composer__poll-close:hover { color: var(--text-1); background: var(--bg-subtle); }
+.bn-composer__poll-close svg { width: 16px; height: 16px; }
 .bn-composer__poll-option {
 	width: 100%;
 	background: var(--bg-subtle);

@@ -1423,10 +1423,10 @@ store( 'buddynext/post-composer', {
 			ctx.mediaIds     = ( ctx.mediaIds || [] ).filter( ( id ) => id !== mediaId );
 			ctx.mediaPreviews = ( ctx.mediaPreviews || [] ).filter( ( p ) => p.id !== mediaId );
 		},
-		openPoll() {
+		togglePoll() {
 			const ctx        = getContext();
 			ctx.composerOpen = true;
-			ctx.composerType = 'poll';
+			ctx.composerType = ctx.composerType === 'poll' ? 'text' : 'poll';
 		},
 		openLink() {
 			const ctx        = getContext();
@@ -1528,30 +1528,6 @@ store( 'buddynext/post-composer', {
 		},
 		closeEvent() {
 			getContext().eventOpen = false;
-		},
-		openVoice() {
-			const ctx       = getContext();
-			ctx.voiceOpen   = true;
-			ctx.voiceError  = '';
-		},
-		closeVoice() {
-			getContext().voiceOpen = false;
-		},
-		openAiHelper() {
-			const ctx  = getContext();
-			ctx.aiOpen = true;
-
-			// When Pro is active, hand off to Pro's AI store so it can populate the body.
-			if ( ctx.hasPro ) {
-				document.dispatchEvent(
-					new CustomEvent( 'bn:open-composer-ai', {
-						detail: { restUrl: ctx.restUrl, nonce: ctx.restNonce },
-					} )
-				);
-			}
-		},
-		closeAiHelper() {
-			getContext().aiOpen = false;
 		},
 		togglePrivacy() {
 			const ctx        = getContext();
@@ -2191,10 +2167,16 @@ if ( typeof MutationObserver !== 'undefined' && typeof document !== 'undefined' 
 
 function attachCharCounter( textarea ) {
 	const max = parseInt( textarea.dataset.bnCharMax, 10 ) || COMPOSER_CHAR_MAX;
-	const counter = document.createElement( 'span' );
-	counter.className = 'bn-composer__char-counter';
-	counter.setAttribute( 'aria-live', 'polite' );
-	textarea.insertAdjacentElement( 'afterend', counter );
+	// Prefer a slot the template owns (composer toolbar) so the counter
+	// renders inline next to Share instead of stealing its own row.
+	const root = textarea.closest( '.bn-composer, .bn-comment-form' ) || textarea.parentElement;
+	let counter = root ? root.querySelector( '.bn-composer__char-counter-slot, .bn-comment-form__char-counter-slot' ) : null;
+	if ( ! counter ) {
+		counter = document.createElement( 'span' );
+		counter.className = 'bn-composer__char-counter';
+		counter.setAttribute( 'aria-live', 'polite' );
+		textarea.insertAdjacentElement( 'afterend', counter );
+	}
 
 	const update = () => {
 		const len = ( textarea.value || '' ).length;
