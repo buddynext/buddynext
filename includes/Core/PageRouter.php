@@ -393,17 +393,19 @@ class PageRouter {
 		);
 
 		// v2 token system reads density/theme/text-scale modes off <html>
-		// via [data-bn-*] selectors. Stamp them through language_attributes
-		// so the v2 attribute API is live before the theme's own
-		// data-theme toggle (if any) fires. Theme-agnostic: the namespaced
-		// data-bn-* attributes never collide with host-theme data-theme.
+		// via [data-bn-*] selectors. Density is stamped server-side because
+		// it's not user-configurable yet. Theme is owned by
+		// assets/js/shell/font-scale.js (head-blocking script) which reads
+		// localStorage `bn_theme` and `prefers-color-scheme`; the :root rule
+		// in bn-base.css already aliases to light tokens, so the brief
+		// pre-script moment paints with the correct light defaults.
 		add_filter(
 			'language_attributes',
 			static function ( string $output ): string {
-				if ( false !== strpos( $output, 'data-bn-theme=' ) ) {
+				if ( false !== strpos( $output, 'data-bn-density=' ) ) {
 					return $output;
 				}
-				return $output . ' data-bn-theme="light" data-bn-density="comfortable"';
+				return $output . ' data-bn-density="comfortable"';
 			}
 		);
 

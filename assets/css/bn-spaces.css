@@ -32,46 +32,7 @@
  * sidebar-card all come from base.
  * ──────────────────────────────────────────────────────────────────── */
 
-/* Token guard — bn-feed.css :root re-aliases --bn-* tokens to legacy
- * --s* / --surface / --border / --text-* names, and the inline
- * bn-base-inline-css :root block aliases those legacy names back to
- * --bn-*. Because both blocks target :root and bn-feed.css loads later,
- * its declarations win, producing a circular reference (--bn-s4 =
- * var(--s4) = var(--bn-s4)) that collapses every alias to its CSS
- * invalid-value fallback (0px for lengths, transparent for colors).
- * This hub enqueues bn-feed.css to share post-card styles with space
- * home, so the spaces directory inherits the breakage. Re-anchor the
- * v2 design tokens at .bn-sd-stack scope using literals + direct
- * derivations from --bn-hue (which itself stays clean because no
- * legacy alias exists for it). Every descendant of the directory then
- * resolves padding/gap/color against intact values regardless of how
- * the root-level alias ordering shifts. */
 .bn-sd-stack {
-	/* Spacing — 4px grid, no --bn-density dependency. */
-	--bn-s1:  4px;
-	--bn-s2:  8px;
-	--bn-s3:  12px;
-	--bn-s4:  16px;
-	--bn-s5:  20px;
-	--bn-s6:  24px;
-	--bn-s8:  32px;
-	--bn-s10: 40px;
-	--bn-s12: 48px;
-	--bn-s16: 64px;
-
-	/* Surfaces / borders / ink — re-derived from --bn-hue. */
-	--bn-canvas:      oklch(99% 0.002 var(--bn-hue));
-	--bn-surface:     oklch(100% 0 0);
-	--bn-raised:      oklch(99% 0.003 var(--bn-hue));
-	--bn-sunken:      oklch(97% 0.004 var(--bn-hue));
-	--bn-line:        oklch(92% 0.005 var(--bn-hue));
-	--bn-line-strong: oklch(86% 0.008 var(--bn-hue));
-	--bn-line-faint:  oklch(95% 0.003 var(--bn-hue));
-	--bn-ink:         oklch(20% 0.01 var(--bn-hue));
-	--bn-ink-2:       oklch(40% 0.01 var(--bn-hue));
-	--bn-ink-3:       oklch(58% 0.008 var(--bn-hue));
-	--bn-ink-4:       oklch(72% 0.005 var(--bn-hue));
-
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s5);
@@ -171,12 +132,27 @@
 	background: var(--bn-accent-100);
 }
 
-.bn-sd-card__cover[data-tone="sky"]     { background: linear-gradient(135deg, #93c5fd 0%, #3b82f6 100%); }
-.bn-sd-card__cover[data-tone="violet"]  { background: linear-gradient(135deg, #c4b5fd 0%, #8b5cf6 100%); }
-.bn-sd-card__cover[data-tone="emerald"] { background: linear-gradient(135deg, #6ee7b7 0%, #10b981 100%); }
-.bn-sd-card__cover[data-tone="amber"]   { background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%); }
-.bn-sd-card__cover[data-tone="rose"]    { background: linear-gradient(135deg, #fda4af 0%, #f43f5e 100%); }
-.bn-sd-card__cover[data-tone="indigo"]  { background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 100%); }
+/*
+ * Tone gradient covers. Lightness pair (LStart/LEnd) is themed:
+ *   light mode: 80% → 55% (bright, decorative).
+ *   dark mode:  45% → 30% (recede so cards don't blast).
+ * Chroma/hue per tone stays constant so each tone reads as the same
+ * "color family" across themes.
+ */
+.bn-sd-card__cover {
+	--bn-tone-l-start: 80%;
+	--bn-tone-l-end:   55%;
+}
+[data-bn-theme="dark"] .bn-sd-card__cover {
+	--bn-tone-l-start: 45%;
+	--bn-tone-l-end:   30%;
+}
+.bn-sd-card__cover[data-tone="sky"]     { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 240) 0%, oklch(var(--bn-tone-l-end) 0.18 240) 100%); }
+.bn-sd-card__cover[data-tone="violet"]  { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 295) 0%, oklch(var(--bn-tone-l-end) 0.20 295) 100%); }
+.bn-sd-card__cover[data-tone="emerald"] { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 160) 0%, oklch(var(--bn-tone-l-end) 0.18 160) 100%); }
+.bn-sd-card__cover[data-tone="amber"]   { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 70)  0%, oklch(var(--bn-tone-l-end) 0.18 70)  100%); }
+.bn-sd-card__cover[data-tone="rose"]    { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 15)  0%, oklch(var(--bn-tone-l-end) 0.20 15)  100%); }
+.bn-sd-card__cover[data-tone="indigo"]  { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 265) 0%, oklch(var(--bn-tone-l-end) 0.20 265) 100%); }
 
 .bn-sd-card__cover img {
 	width: 100%;

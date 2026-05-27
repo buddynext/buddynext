@@ -1810,6 +1810,32 @@
 	color: var(--bn-ink-3);
 	line-height: var(--bn-leading-snug);
 }
+.bn-ep-field-help {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	line-height: var(--bn-leading-snug);
+	margin: 0;
+}
+
+/* ── Appearance (theme + text-scale) ─────────────────────────────────── */
+.bn-ep-appearance {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+.bn-ep-segmented {
+	display: inline-flex;
+	gap: 2px;
+	padding: 2px;
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+}
+.bn-ep-segmented__btn[aria-pressed="true"] {
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	box-shadow: var(--bn-shadow-sm);
+}
 
 /* ── Repeater rows ────────────────────────────────────────────────────── */
 .bn-ep-repeater-entry {

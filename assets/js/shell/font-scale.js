@@ -53,15 +53,18 @@
 		document.documentElement.setAttribute( 'data-bn-font-scale', s );
 	}
 
-	function readTheme() {
+	var THEMES = [ 'light', 'dark', 'auto' ];
+
+	function readThemePref() {
 		try {
-			return window.localStorage.getItem( 'bn_theme' ) || '';
+			var t = window.localStorage.getItem( 'bn_theme' ) || 'auto';
+			return THEMES.indexOf( t ) !== -1 ? t : 'auto';
 		} catch ( e ) {
-			return '';
+			return 'auto';
 		}
 	}
 
-	function writeTheme( t ) {
+	function writeThemePref( t ) {
 		try {
 			window.localStorage.setItem( 'bn_theme', t );
 		} catch ( e ) {
@@ -69,8 +72,19 @@
 		}
 	}
 
-	function applyTheme( t ) {
-		if ( 'dark' === t ) {
+	function effectiveFromPref( pref ) {
+		if ( 'light' === pref || 'dark' === pref ) {
+			return pref;
+		}
+		try {
+			return window.matchMedia( '(prefers-color-scheme: dark)' ).matches ? 'dark' : 'light';
+		} catch ( e ) {
+			return 'light';
+		}
+	}
+
+	function applyTheme( effective ) {
+		if ( 'dark' === effective ) {
 			document.documentElement.setAttribute( 'data-bn-theme', 'dark' );
 			document.documentElement.setAttribute( 'data-theme', 'dark' );
 		} else {
@@ -83,18 +97,52 @@
 	var initialScale = readScale();
 	applyScale( initialScale );
 
-	var savedTheme = readTheme();
-	var prefersDark = false;
-	try {
-		prefersDark = window.matchMedia( '(prefers-color-scheme: dark)' ).matches;
-	} catch ( e ) {
-		prefersDark = false;
-	}
-	var effectiveTheme = savedTheme || ( prefersDark ? 'dark' : 'light' );
-	applyTheme( effectiveTheme );
+	var themePref = readThemePref();
+	applyTheme( effectiveFromPref( themePref ) );
 
-	// Delegated click handler — themes can ship their own font-scale / theme
-	// controls and trigger them via the documented data attributes.
+	// Mark the active segmented-control button. Re-runs on every change so
+	// the Appearance card mirrors current state without explicit binding.
+	function syncPressed() {
+		var scale = document.documentElement.getAttribute( 'data-bn-font-scale' ) || '100';
+		var pref  = readThemePref();
+		var nodes = document.querySelectorAll(
+			'[data-bn-action="set-font-scale"],[data-bn-action="set-theme"]'
+		);
+		for ( var i = 0; i < nodes.length; i++ ) {
+			var n      = nodes[ i ];
+			var match  = ( n.dataset.scale && n.dataset.scale === scale )
+				|| ( n.dataset.theme && n.dataset.theme === pref );
+			n.setAttribute( 'aria-pressed', match ? 'true' : 'false' );
+		}
+	}
+	if ( document.readyState === 'loading' ) {
+		document.addEventListener( 'DOMContentLoaded', syncPressed );
+	} else {
+		syncPressed();
+	}
+
+	// Auto pref tracks the OS — re-apply when system flips dark/light.
+	try {
+		var mql = window.matchMedia( '(prefers-color-scheme: dark)' );
+		var onSystemChange = function () {
+			if ( 'auto' === readThemePref() ) {
+				applyTheme( effectiveFromPref( 'auto' ) );
+			}
+		};
+		if ( mql.addEventListener ) {
+			mql.addEventListener( 'change', onSystemChange );
+		} else if ( mql.addListener ) {
+			mql.addListener( onSystemChange );
+		}
+	} catch ( e ) {
+		/* matchMedia unavailable — ignore */
+	}
+
+	// Delegated click handler — themes / settings UI ship controls and
+	// trigger updates via the documented data attributes.
+	//   [data-bn-action="set-font-scale"][data-scale="100|110|120"]
+	//   [data-bn-action="set-theme"][data-theme="light|dark|auto"]
+	//   [data-bn-action="toggle-theme"]   ← binary flip (light ↔ dark)
 	document.addEventListener( 'click', function ( e ) {
 		if ( ! e.target || ! e.target.closest ) {
 			return;
@@ -106,6 +154,18 @@
 			if ( SCALES.indexOf( s ) !== -1 ) {
 				writeScale( s );
 				applyScale( s );
+				syncPressed();
+			}
+			return;
+		}
+
+		var setThemeBtn = e.target.closest( '[data-bn-action="set-theme"]' );
+		if ( setThemeBtn && setThemeBtn.dataset.theme ) {
+			var t = setThemeBtn.dataset.theme;
+			if ( THEMES.indexOf( t ) !== -1 ) {
+				writeThemePref( t );
+				applyTheme( effectiveFromPref( t ) );
+				syncPressed();
 			}
 			return;
 		}
@@ -114,8 +174,9 @@
 		if ( themeBtn ) {
 			var current = document.documentElement.getAttribute( 'data-bn-theme' ) || 'light';
 			var next = 'dark' === current ? 'light' : 'dark';
-			writeTheme( next );
+			writeThemePref( next );
 			applyTheme( next );
+			syncPressed();
 		}
 	} );
 }() );
