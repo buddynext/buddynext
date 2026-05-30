@@ -160,6 +160,16 @@ class MemberDirectoryService {
 			      AND um_ban.meta_key = 'bn_shadow_banned'
 			      AND um_ban.meta_value = '1'
 			  )",
+			// Honor the "Show me in the member directory" privacy toggle
+			// (usermeta bn_privacy_show_in_directory). Default-visible: only
+			// members who EXPLICITLY set the meta to '0' are excluded; an
+			// absent meta (every existing member) leaves them listed.
+			"NOT EXISTS (
+			    SELECT 1 FROM {$wpdb->usermeta} um_dir
+			    WHERE um_dir.user_id = u.ID
+			      AND um_dir.meta_key = 'bn_privacy_show_in_directory'
+			      AND um_dir.meta_value = '0'
+			  )",
 		);
 
 		// Bidirectional block exclusion — viewer should not see users they have
@@ -443,10 +453,16 @@ class MemberDirectoryService {
 			$params[] = $like;
 		}
 
+		// Honor the directory opt-out here too so the server-rendered directory
+		// search (WP_User_Query built from these IDs) never surfaces a member
+		// who turned off "Show me in the member directory". Default-visible:
+		// only an explicit '0' excludes; an absent meta leaves the member found.
+		$dir_optout = "NOT EXISTS ( SELECT 1 FROM {$wpdb->usermeta} um_dir WHERE um_dir.user_id = u.ID AND um_dir.meta_key = 'bn_privacy_show_in_directory' AND um_dir.meta_value = '0' )";
+
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$ids = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT u.ID FROM {$wpdb->users} u WHERE ( " . implode( ' OR ', $ors ) . ' )', // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT u.ID FROM {$wpdb->users} u WHERE ( " . implode( ' OR ', $ors ) . " ) AND {$dir_optout}", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				...$params
 			)
 		);

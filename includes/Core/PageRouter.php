@@ -364,6 +364,23 @@ class PageRouter {
 			}
 		}
 
+		// Per-profile search-engine opt-out. Members are indexable by default;
+		// only an explicit '0' on bn_privacy_search_indexable opts out. Runs
+		// here (before get_header()/wp_head) so the wp_robots filter applies.
+		if ( 'people' === $hub && 'profile/view.php' === $template && ! empty( $context['user_id'] ) ) {
+			if ( '0' === (string) get_user_meta( (int) $context['user_id'], 'bn_privacy_search_indexable', true ) ) {
+				add_filter(
+					'wp_robots',
+					static function ( array $robots ): array {
+						$robots['noindex']  = true;
+						$robots['nofollow'] = true;
+						unset( $robots['index'], $robots['follow'] );
+						return $robots;
+					}
+				);
+			}
+		}
+
 		$title_frozen = $hub_title;
 		add_filter(
 			'document_title_parts',
