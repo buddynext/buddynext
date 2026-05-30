@@ -1,0 +1,128 @@
+# Member fields, directory search & field-level privacy — build spec
+#
+# FRAMING: this is a GENERIC community-platform capability, NOT site-specific.
+# A niche-community owner (chess club, dev guild, book club, fitness group, …)
+# models their members with custom fields of ANY type, controls who can see each
+# field, and members find each other through a directory that searches those
+# fields. Build the complete field-type skeleton ONCE so we never revisit per type.
+#
+# DECISIONS (locked):
+#   privacy_model: admin sets each field's DEFAULT visibility; a member may only
+#                  TIGHTEN it (more private), never loosen it.
+#   search:        directory honours per-field is_searchable AND is privacy-aware —
+#                  a value is only matchable when its EFFECTIVE visibility for the
+#                  target user resolves to `public`.
+#   completeness:  EVERY field type is wired end-to-end (input→validate→store→
+#                  display→search→privacy) through ONE engine; adding a niche
+#                  field is pure data (admin UI), never code.
+
+meta:
+  repo: buddynext
+  site: http://buddynext-dev.local   # LocalWP, autologin ?autologin=1 (first admin)
+  rules: [no-version-bumps, no-emoji-in-markup, lucide-via-buddynext_icon, theme-tokens-only, escape-all-output]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CONTRACTS — every workstream codes to these exact interfaces.
+# ─────────────────────────────────────────────────────────────────────────────
+contracts:
+
+  # The linchpin: a single field-type engine all consumers delegate to.
+  field_type_engine:
+    new_file: includes/Profile/FieldType.php
+    class: BuddyNext\Profile\FieldType
+    api:
+      - "public static function types(): array  // slug => [label, value_kind(scalar|multi|bool), is_choice, is_searchable_capable]"
+      - "public static function render_input(array $field, $value, string $name): string  // edit-form control by type; escaped"
+      - "public static function render_display(array $field, $value): string  // profile-view output by type; escaped (chips for multi, <a> for url/email/tel, formatted date, etc.)"
+      - "public static function sanitize(array $field, $raw)  // validate+sanitize by type; returns storable scalar (multi → comma-joined slugs), or WP_Error"
+      - "public static function is_text_searchable(string $type): bool  // text/textarea/url/email/tel/select/multiselect/radio searchable; number/date/bool/color/file not free-text"
+    extensibility: "respect existing do_action('buddynext_profile_field_type_options', type, field); add filter buddynext_field_types so add-ons register new types without core edits"
+
+  field_types:   # the complete skeleton — each must work in all 6 layers
+    text:        { input: text,            display: text,           searchable: true,  value: scalar }
+    textarea:    { input: textarea,        display: paragraphs,     searchable: true,  value: scalar }
+    url:         { input: url,             display: link,           searchable: true,  value: scalar }
+    email:       { input: email,           display: mailto,         searchable: true,  value: scalar }
+    phone:       { input: tel,             display: tel-link,       searchable: true,  value: scalar }
+    number:      { input: number,          display: number,         searchable: false, value: scalar }
+    date:        { input: date,            display: localized-date, searchable: false, value: scalar }
+    boolean:     { input: checkbox,        display: yes-no/hidden,  searchable: false, value: bool }
+    select:      { input: select,          display: option-label,   searchable: true,  value: scalar, options: true }
+    radio:       { input: radio-group,     display: option-label,   searchable: true,  value: scalar, options: true }
+    multiselect: { input: checkbox-group,  display: chips,          searchable: true,  value: multi,  options: true }
+    color:       { input: color,           display: swatch,         searchable: false, value: scalar }
+    file:        { input: file/url,        display: link/thumb,     searchable: false, value: scalar }
+    note: "options-bearing types (select/radio/multiselect) read choices from bn_profile_fields.options (JSON). multi stores comma-joined option slugs."
+
+  visibility_enum: [public, followers, connections, private]
+  visibility_resolution: >
+    Effective = MOST RESTRICTIVE of (group, field, value.entry_visibility);
+    order private > connections > followers > public. A member's per-field choice
+    (entry_visibility) may only be EQUAL OR MORE restrictive than the admin default — clamp on save.
+
+  searchable_mirror:
+    key_format: "bn_field_{field_key}"  (usermeta)
+    rule: >
+      Write the mirror ONLY when is_searchable=1 AND FieldType::is_text_searchable(type)
+      AND effective visibility === public; else DELETE it. Makes directory search
+      inherently privacy-safe (no per-row checks at query time). multi types mirror
+      the comma-joined option LABELS for human-readable matching.
+
+  directory_rest:
+    route: GET /buddynext/v1/members
+    params: { search: "LIKE display_name+user_login+ALL searchable mirrors", member_type: slug, location: LIKE, online: bool, relation: "everyone|following|connections", sort: "newest|alphabetical|most_active|online", cursor, per_page }
+
+  member_field_privacy_input: >
+    Save accepts per-field visibility: flat → {field_key}__visibility, repeater →
+    group_key[n][_visibility]. Server clamps each to >= admin default restrictiveness.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WORKSTREAMS — DISJOINT files → run in parallel; integrate via the contracts.
+# ─────────────────────────────────────────────────────────────────────────────
+workstreams:
+
+  F_field_engine:
+    owns: [includes/Profile/FieldType.php]   # NEW
+    task: "Implement contracts.field_type_engine for every contracts.field_types entry. Pure, dependency-free, fully escaped. This is the single source of truth for type behaviour."
+    acceptance: ["every type renders an input + a display + sanitizes; multi round-trips; unknown type degrades to text; node/php lint clean"]
+
+  A_profile_service:
+    owns: [includes/Profile/ProfileService.php]
+    tasks:
+      - "A1 cache-key privacy fix: compute $viewer_is_connection (ConnectionService::are_connected) before cache lookup; key from owner + follower + connection; reuse flag in the visibility loop (drop per-row SQL)."
+      - "A2 privacy-safe mirror: in save_profile, write/delete bn_field_{key} per contracts.searchable_mirror, using FieldType::is_text_searchable + effective visibility."
+      - "A3 sanitize via FieldType::sanitize; A4 member-tighten clamp on entry_visibility per contracts.member_field_privacy_input."
+    acceptance: ["stranger vs connection get different cached results, no leak", "private field has no mirror row", "looser-than-default visibility is clamped"]
+
+  B_directory_search:
+    owns: [includes/Profile/MemberDirectoryService.php, includes/Profile/MemberDirectoryController.php]
+    tasks:
+      - "B1 dynamic privacy-aware search across EVERY searchable field's mirror (fetch list from ProfileService::get_all_fields filtered is_searchable & FieldType::is_text_searchable); search OR-matches name+login+mirrors."
+      - "B2 expose location + online params in the controller."
+    acceptance: ["public skill/location value is findable", "private value returns nothing", "location=/online= work via REST"]
+
+  C_directory_ux:
+    owns: [templates/parts/member-directory-filter-bar.php, assets/js/members/store.js, assets/css/bn-members.css]
+    task: "Honest search box wired to unified `search`; add member-type <select> + Online-only toggle; live re-query via REST (B2). Theme tokens, 40px targets."
+    acceptance: ["typing a skill returns matches", "type dropdown + online toggle filter live"]
+
+  D_member_field_ux:
+    owns: [templates/profile/edit.php, templates/profile/view.php, templates/parts/profile-edit-sidebar.php]
+    task: "Edit form renders every field via FieldType::render_input + a per-field privacy selector (options never looser than admin default; submit {field_key}__visibility). Profile view renders every field via FieldType::render_display. Repeater entries get the same privacy control."
+    acceptance: ["all field types render correct input + display", "privacy control present, clamped; saved choice hides field from disallowed viewers"]
+
+  E_admin_field_config:
+    owns: [includes/Admin/Members/ProfileFieldsManager.php, assets/js/admin/members.js]
+    task: "Field editor offers the FULL FieldType::types() list, options editor for choice types, is_searchable checkbox, and default visibility select (contracts.visibility_enum). Persist to bn_profile_fields."
+    acceptance: ["admin can create a field of any type with options/searchable/default-visibility; persists"]
+
+verification:
+  by: main-agent-after-integration
+  method: >
+    Live walk (Playwright + mysql MCP) as admin then member: create one field of
+    several types (text, select, multiselect, date, url) with mixed default
+    visibilities + searchable; member fills + tightens privacy on some; confirm
+    profile view renders each type and hides tightened fields from a stranger;
+    confirm directory search finds public searchable values and never private
+    ones; confirm cache leak gone (stranger vs connection). Lint all PHP (php -l)
+    + JS (node --check). Light + dark.

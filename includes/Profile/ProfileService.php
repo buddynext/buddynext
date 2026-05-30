@@ -336,10 +336,7 @@ class ProfileService {
 						continue;
 					}
 
-					$entry_index      = (int) $entry_index;
-					$entry_visibility = isset( $entry_data['_visibility'] )
-						? sanitize_key( $entry_data['_visibility'] )
-						: null;
+					$entry_index = (int) $entry_index;
 
 					foreach ( $entry_data as $field_key => $field_value ) {
 						if ( '_visibility' === $field_key ) {
@@ -355,10 +352,18 @@ class ProfileService {
 							continue;
 						}
 
-						$field_id      = (int) $field_by_key[ $field_key ]['id'];
-						$field_def     = $field_by_key[ $field_key ];
-						$field_type    = isset( $field_def['type'] ) ? (string) $field_def['type'] : 'text';
-						$sanitized_val = sanitize_textarea_field( (string) $field_value );
+						$field_id   = (int) $field_by_key[ $field_key ]['id'];
+						$field_def  = $field_by_key[ $field_key ];
+						$field_type = isset( $field_def['type'] ) ? (string) $field_def['type'] : 'text';
+
+						// A3: route sanitisation through the field-type engine.
+						$sanitized_val = \BuddyNext\Profile\FieldType::sanitize( $field_def, $field_value );
+
+						if ( is_wp_error( $sanitized_val ) ) {
+							continue;
+						}
+
+						$sanitized_val = (string) $sanitized_val;
 
 						/**
 						 * Validate a profile-field value before persistence.
@@ -388,10 +393,25 @@ class ProfileService {
 							continue;
 						}
 
+						// A4: clamp the per-entry _visibility override to be
+						// equal-or-more restrictive than the field admin default.
+						$chosen_visibility = isset( $entry_data['_visibility'] )
+							? sanitize_key( (string) $entry_data['_visibility'] )
+							: null;
+						$entry_visibility  = $this->clamp_visibility(
+							$chosen_visibility,
+							(string) ( $field_def['visibility'] ?? 'public' )
+						);
+
 						$this->upsert_value( $user_id, $field_id, $entry_index, $sanitized_val, $entry_visibility );
 					}
 				}
 
+				continue;
+			}
+
+			// Skip the per-field visibility companion keys — handled with their field.
+			if ( is_string( $key ) && str_ends_with( $key, '__visibility' ) ) {
 				continue;
 			}
 
@@ -400,10 +420,19 @@ class ProfileService {
 				continue;
 			}
 
-			$field         = $field_by_key[ $key ];
-			$field_id      = (int) $field['id'];
-			$field_type    = isset( $field['type'] ) ? (string) $field['type'] : 'text';
-			$sanitized_val = sanitize_textarea_field( (string) $value );
+			$field      = $field_by_key[ $key ];
+			$field_id   = (int) $field['id'];
+			$field_type = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+
+			// A3: route sanitisation through the field-type engine. Returns a
+			// storable scalar (multi → comma-joined slugs) or a WP_Error.
+			$sanitized_val = \BuddyNext\Profile\FieldType::sanitize( $field, $value );
+
+			if ( is_wp_error( $sanitized_val ) ) {
+				continue;
+			}
+
+			$sanitized_val = (string) $sanitized_val;
 
 			/** This filter is documented above in the repeater branch. */
 			$validation = apply_filters(
@@ -419,13 +448,20 @@ class ProfileService {
 				continue;
 			}
 
-			$this->upsert_value( $user_id, $field_id, 0, $sanitized_val, null );
+			// A4: accept {field_key}__visibility and clamp to be equal-or-more
+			// restrictive than the field admin default before storing.
+			$chosen_visibility = isset( $data[ $key . '__visibility' ] )
+				? sanitize_key( (string) $data[ $key . '__visibility' ] )
+				: null;
+			$entry_visibility  = $this->clamp_visibility(
+				$chosen_visibility,
+				(string) ( $field['visibility'] ?? 'public' )
+			);
 
-			// Denormalize flat+searchable fields to usermeta for fast directory filtering.
-			if ( $field['is_searchable'] ) {
-				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-				update_user_meta( $user_id, 'bn_field_' . $key, $sanitized_val );
-			}
+			$this->upsert_value( $user_id, $field_id, 0, $sanitized_val, $entry_visibility );
+
+			// A2: write/delete the privacy-safe search mirror.
+			$this->sync_search_mirror( $user_id, $field, $sanitized_val, $entry_visibility );
 		}
 
 		// Handle profile URL slug separately — stored in usermeta, not bn_profile_values.
@@ -436,12 +472,32 @@ class ProfileService {
 			}
 		}
 
-		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
-		wp_cache_delete( "profile_{$user_id}_viewer_follower", self::CACHE_GROUP );
-		wp_cache_delete( "profile_{$user_id}_viewer_public", self::CACHE_GROUP );
+		$this->bust_profile_cache( $user_id );
 		wp_cache_delete( "completion_{$user_id}", self::CACHE_GROUP );
 
 		return true;
+	}
+
+	/**
+	 * Bust every viewer-relationship cache bucket for a user's profile.
+	 *
+	 * Clears the owner bucket plus all follower/connection combinations keyed by
+	 * get_profile(). Centralised so the key shape lives in one place.
+	 *
+	 * @param int $user_id Profile owner whose cached views to invalidate.
+	 * @return void
+	 */
+	private function bust_profile_cache( int $user_id ): void {
+		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
+
+		foreach ( array( 0, 1 ) as $follower ) {
+			foreach ( array( 0, 1 ) as $connection ) {
+				wp_cache_delete(
+					sprintf( 'profile_%d_viewer_f%d_c%d', $user_id, $follower, $connection ),
+					self::CACHE_GROUP
+				);
+			}
+		}
 	}
 
 	/**
@@ -482,17 +538,29 @@ class ProfileService {
 
 		$is_owner = ( $viewer_id === $profile_user_id );
 
-		// Resolve follower status before cache lookup so the cache key captures it.
+		// Resolve follower AND connection status before the cache lookup so the
+		// cache key fully captures the viewer's relationship to the owner. Without
+		// the connection state in the key, a connection's privileged result could
+		// leak to a stranger sharing the same "follower"/"public" cache bucket.
 		$viewer_is_follower = $viewer_id && ! $is_owner
 			? buddynext_service( 'follows' )->is_following( $viewer_id, $profile_user_id )
 			: false;
 
+		$viewer_is_connection = $viewer_id && ! $is_owner
+			? buddynext_service( 'connections' )->are_connected( $viewer_id, $profile_user_id )
+			: false;
+
+		// Key on owner + follower + connection state so each distinct viewer
+		// relationship gets its own cache bucket (no cross-relationship leak).
 		if ( $is_owner ) {
 			$cache_key = "profile_{$profile_user_id}_viewer_owner";
-		} elseif ( $viewer_is_follower ) {
-			$cache_key = "profile_{$profile_user_id}_viewer_follower";
 		} else {
-			$cache_key = "profile_{$profile_user_id}_viewer_public";
+			$cache_key = sprintf(
+				'profile_%d_viewer_f%d_c%d',
+				$profile_user_id,
+				$viewer_is_follower ? 1 : 0,
+				$viewer_is_connection ? 1 : 0
+			);
 		}
 
 		$cached = wp_cache_get( $cache_key, self::CACHE_GROUP );
@@ -565,24 +633,10 @@ class ProfileService {
 				if ( 'private' === $effective_vis ) {
 					continue;
 				}
-				if ( 'connections' === $effective_vis ) {
-					// Check mutual connection.
-					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$is_connected = (bool) $wpdb->get_var(
-						$wpdb->prepare(
-							"SELECT 1 FROM {$wpdb->prefix}bn_connections
-							 WHERE status = 'accepted'
-							   AND ( (requester_id = %d AND recipient_id = %d) OR (requester_id = %d AND recipient_id = %d) )",
-							$viewer_id,
-							$profile_user_id,
-							$profile_user_id,
-							$viewer_id
-						)
-					);
-					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					if ( ! $is_connected ) {
-						continue;
-					}
+				// Reuse the connection flag resolved once before the cache lookup —
+				// no per-row SQL. The cache key already captures this relationship.
+				if ( 'connections' === $effective_vis && ! $viewer_is_connection ) {
+					continue;
 				}
 				if ( 'followers' === $effective_vis && ! $viewer_is_follower ) {
 					continue;
@@ -606,13 +660,19 @@ class ProfileService {
 			}
 
 			$raw_groups[ $gid ]['_entries'][ $eidx ][ $fid ] = array(
-				'field_id'   => $fid,
-				'field_key'  => $row['field_key'],
-				'label'      => $row['field_label'],
-				'type'       => $row['field_type'],
-				'options'    => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
-				'sort_order' => (int) $row['field_sort_order'],
-				'value'      => $row['value'],
+				'field_id'         => $fid,
+				'field_key'        => $row['field_key'],
+				'label'            => $row['field_label'],
+				'type'             => $row['field_type'],
+				'options'          => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+				'sort_order'       => (int) $row['field_sort_order'],
+				'value'            => $row['value'],
+				// Visibility surfaced so the edit-form privacy selector can show
+				// the admin default (field_visibility, falling back to the group)
+				// and the member's saved choice (entry_visibility). See workstream D.
+				'field_visibility' => $row['field_visibility'] ?? 'public',
+				'group_visibility' => $gvis,
+				'entry_visibility' => $row['entry_visibility'] ?? null,
 			);
 		}
 
@@ -1174,7 +1234,8 @@ class ProfileService {
 	 * Used internally by save_profile() and get_completion_score() to build
 	 * field lookup maps without the group nesting.
 	 *
-	 * @return array[] Each element: id, group_id, group_type, field_key, type, is_required, is_searchable.
+	 * @return array[] Each element: id, group_id, group_type, field_key, type,
+	 *                 options, is_required, is_searchable, visibility, group_visibility.
 	 */
 	private function get_flat_fields(): array {
 		global $wpdb;
@@ -1184,11 +1245,14 @@ class ProfileService {
 			"SELECT
 				f.id,
 				f.group_id,
-				g.type AS group_type,
+				g.type       AS group_type,
+				g.visibility AS group_visibility,
 				f.field_key,
 				f.type,
+				f.options,
 				f.is_required,
 				f.is_searchable,
+				f.visibility,
 				f.sort_order
 			 FROM {$wpdb->prefix}bn_profile_fields f
 			 INNER JOIN {$wpdb->prefix}bn_profile_groups g ON g.id = f.group_id
@@ -1200,18 +1264,170 @@ class ProfileService {
 		return array_map(
 			static function ( array $row ): array {
 				return array(
-					'id'            => (int) $row['id'],
-					'group_id'      => (int) $row['group_id'],
-					'group_type'    => $row['group_type'],
-					'field_key'     => $row['field_key'],
-					'type'          => $row['type'],
-					'is_required'   => (bool) $row['is_required'],
-					'is_searchable' => (bool) $row['is_searchable'],
-					'sort_order'    => (int) $row['sort_order'],
+					'id'               => (int) $row['id'],
+					'group_id'         => (int) $row['group_id'],
+					'group_type'       => $row['group_type'],
+					'group_visibility' => $row['group_visibility'] ?? 'public',
+					'field_key'        => $row['field_key'],
+					'type'             => $row['type'],
+					'options'          => isset( $row['options'] ) ? json_decode( (string) $row['options'], true ) : null,
+					'is_required'      => (bool) $row['is_required'],
+					'is_searchable'    => (bool) $row['is_searchable'],
+					'visibility'       => $row['visibility'] ?? 'public',
+					'sort_order'       => (int) $row['sort_order'],
 				);
 			},
 			(array) $rows
 		);
+	}
+
+	/**
+	 * Visibility restrictiveness rank (higher = more restrictive).
+	 *
+	 * Order per spec: private > connections > followers > public.
+	 *
+	 * @param string $visibility One of the visibility_enum values.
+	 * @return int Rank; unknown values fall back to the most permissive (public).
+	 */
+	private static function visibility_rank( string $visibility ): int {
+		$ranks = array(
+			'public'      => 0,
+			'followers'   => 1,
+			'connections' => 2,
+			'private'     => 3,
+		);
+
+		return $ranks[ $visibility ] ?? 0;
+	}
+
+	/**
+	 * Clamp a member-chosen visibility to be equal-or-more restrictive than the
+	 * field admin default. A member may only TIGHTEN, never loosen.
+	 *
+	 * @param string|null $chosen  Member-submitted visibility, or null (no choice).
+	 * @param string      $default Field admin-default visibility.
+	 * @return string|null Clamped visibility, or null when no member choice was made.
+	 */
+	private function clamp_visibility( ?string $chosen, string $default ): ?string {
+		if ( null === $chosen || '' === $chosen ) {
+			return null;
+		}
+
+		$allowed = array( 'public', 'followers', 'connections', 'private' );
+		if ( ! in_array( $chosen, $allowed, true ) ) {
+			return null;
+		}
+
+		// A looser-than-default choice is clamped up to the admin default.
+		if ( self::visibility_rank( $chosen ) < self::visibility_rank( $default ) ) {
+			return $default;
+		}
+
+		return $chosen;
+	}
+
+	/**
+	 * Compute the effective visibility for a stored flat value: the MOST
+	 * restrictive of (group default, field default, entry override).
+	 *
+	 * @param array       $field            Flat field definition (group_visibility + visibility).
+	 * @param string|null $entry_visibility Clamped per-entry override, or null.
+	 * @return string Effective visibility (visibility_enum value).
+	 */
+	private function effective_visibility( array $field, ?string $entry_visibility ): string {
+		$candidates = array(
+			(string) ( $field['group_visibility'] ?? 'public' ),
+			(string) ( $field['visibility'] ?? 'public' ),
+		);
+
+		if ( null !== $entry_visibility ) {
+			$candidates[] = $entry_visibility;
+		}
+
+		$effective = 'public';
+		foreach ( $candidates as $candidate ) {
+			if ( self::visibility_rank( $candidate ) > self::visibility_rank( $effective ) ) {
+				$effective = $candidate;
+			}
+		}
+
+		return $effective;
+	}
+
+	/**
+	 * Write or delete the bn_field_{key} usermeta search mirror per the
+	 * searchable_mirror contract.
+	 *
+	 * The mirror exists ONLY when the field is searchable, its type is free-text
+	 * searchable, AND the value's effective visibility resolves to `public` — so
+	 * directory search is inherently privacy-safe without per-row checks. Multi
+	 * types mirror the comma-joined option LABELS for human-readable matching.
+	 * Any other case deletes the mirror.
+	 *
+	 * @param int         $user_id          User the value belongs to.
+	 * @param array       $field            Flat field definition.
+	 * @param string      $stored_value     Sanitised value as stored (multi → comma-joined slugs).
+	 * @param string|null $entry_visibility Clamped per-entry override, or null.
+	 * @return void
+	 */
+	private function sync_search_mirror( int $user_id, array $field, string $stored_value, ?string $entry_visibility ): void {
+		$meta_key   = 'bn_field_' . $field['field_key'];
+		$type       = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+		$searchable = ! empty( $field['is_searchable'] )
+			&& \BuddyNext\Profile\FieldType::is_text_searchable( $type )
+			&& 'public' === $this->effective_visibility( $field, $entry_visibility )
+			&& '' !== $stored_value;
+
+		if ( ! $searchable ) {
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+			delete_user_meta( $user_id, $meta_key );
+			return;
+		}
+
+		$mirror_value = $this->mirror_value( $field, $stored_value );
+
+		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key, WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		update_user_meta( $user_id, $meta_key, $mirror_value );
+	}
+
+	/**
+	 * Map a stored value to its human-readable mirror representation.
+	 *
+	 * Multi types store comma-joined option slugs; the mirror records the
+	 * comma-joined option LABELS so directory search matches what users see.
+	 *
+	 * @param array  $field        Flat field definition (with decoded options).
+	 * @param string $stored_value Stored value.
+	 * @return string Mirror value.
+	 */
+	private function mirror_value( array $field, string $stored_value ): string {
+		$type = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+
+		if ( 'multiselect' !== $type ) {
+			return $stored_value;
+		}
+
+		$options = is_array( $field['options'] ?? null ) ? $field['options'] : array();
+
+		// Build slug => label map; options may be [ slug => label ] or a list of
+		// [ 'value' => slug, 'label' => label ] pairs.
+		$labels = array();
+		foreach ( $options as $opt_key => $opt_val ) {
+			if ( is_array( $opt_val ) ) {
+				$slug             = (string) ( $opt_val['value'] ?? $opt_val['slug'] ?? $opt_key );
+				$labels[ $slug ]  = (string) ( $opt_val['label'] ?? $opt_val['value'] ?? $slug );
+			} else {
+				$labels[ (string) $opt_key ] = (string) $opt_val;
+			}
+		}
+
+		$slugs  = array_filter( array_map( 'trim', explode( ',', $stored_value ) ) );
+		$mapped = array();
+		foreach ( $slugs as $slug ) {
+			$mapped[] = $labels[ $slug ] ?? $slug;
+		}
+
+		return implode( ', ', $mapped );
 	}
 
 	/**
@@ -1227,9 +1443,7 @@ class ProfileService {
 	public function update_avatar( int $user_id, string $url ): void {
 		update_user_meta( $user_id, 'bn_avatar', $url );
 		// Bust profile cache — avatar URL is embedded in cached profile payload.
-		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
-		wp_cache_delete( "profile_{$user_id}_viewer_follower", self::CACHE_GROUP );
-		wp_cache_delete( "profile_{$user_id}_viewer_public", self::CACHE_GROUP );
+		$this->bust_profile_cache( $user_id );
 		\BuddyNext\Core\Plugin::bust_avatar_cache( $user_id );
 	}
 
@@ -1241,9 +1455,7 @@ class ProfileService {
 	 */
 	public function delete_avatar( int $user_id ): void {
 		delete_user_meta( $user_id, 'bn_avatar' );
-		wp_cache_delete( "profile_{$user_id}_viewer_owner", self::CACHE_GROUP );
-		wp_cache_delete( "profile_{$user_id}_viewer_follower", self::CACHE_GROUP );
-		wp_cache_delete( "profile_{$user_id}_viewer_public", self::CACHE_GROUP );
+		$this->bust_profile_cache( $user_id );
 		\BuddyNext\Core\Plugin::bust_avatar_cache( $user_id );
 	}
 

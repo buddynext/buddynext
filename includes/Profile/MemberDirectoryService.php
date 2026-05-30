@@ -29,9 +29,15 @@ class MemberDirectoryService {
 	 * Return a cursor-paginated list of members.
 	 *
 	 * Supported $filters keys:
-	 *   'search'            (string)  — LIKE match against display_name and user_login.
+	 *   'search'            (string)  — OR LIKE match against display_name, user_login,
+	 *                                   and every searchable field's privacy-safe
+	 *                                   `bn_field_{key}` usermeta mirror. Because the
+	 *                                   mirror only holds values whose effective
+	 *                                   visibility resolves to public (written by
+	 *                                   ProfileService per the searchable_mirror
+	 *                                   contract), matching the mirror needs no
+	 *                                   per-row visibility check.
 	 *   'location'          (string)  — LIKE match against bn_field_location usermeta.
-	 *   'skills'            (string)  — LIKE match against bn_field_skills usermeta.
 	 *   'space_id'          (int)     — restrict to active members of this space.
 	 *   'connection_status' (string)  — 'connections' restricts to accepted connections
 	 *                                   of the viewer. 'everyone' (default) applies no filter.
@@ -54,7 +60,6 @@ class MemberDirectoryService {
 		// Normalise filter values.
 		$search            = isset( $filters['search'] ) ? trim( (string) $filters['search'] ) : '';
 		$location          = isset( $filters['location'] ) ? trim( (string) $filters['location'] ) : '';
-		$skills            = isset( $filters['skills'] ) ? trim( (string) $filters['skills'] ) : '';
 		$space_id          = isset( $filters['space_id'] ) ? (int) $filters['space_id'] : 0;
 		$connection_status = isset( $filters['connection_status'] ) ? (string) $filters['connection_status'] : 'everyone';
 		$online_only       = ! empty( $filters['online_only'] );
@@ -99,13 +104,6 @@ class MemberDirectoryService {
 			$joins[] = "INNER JOIN {$wpdb->usermeta} AS um_loc
 			            ON um_loc.user_id = u.ID
 			            AND um_loc.meta_key = 'bn_field_location'";
-		}
-
-		// Skills JOIN — usermeta row for bn_field_skills.
-		if ( '' !== $skills ) {
-			$joins[] = "INNER JOIN {$wpdb->usermeta} um_skills
-			            ON um_skills.user_id = u.ID
-			            AND um_skills.meta_key = 'bn_field_skills'";
 		}
 
 		// Space membership JOIN — restrict to active members of a specific space.
@@ -182,20 +180,37 @@ class MemberDirectoryService {
 		}
 
 		if ( '' !== $search ) {
-			$where_clauses[] = '(u.display_name LIKE %s OR u.user_login LIKE %s)';
-			$like_search     = '%' . $wpdb->esc_like( $search ) . '%';
-			$params[]        = $like_search;
-			$params[]        = $like_search;
+			$like_search = '%' . $wpdb->esc_like( $search ) . '%';
+
+			// Always match core identity columns.
+			$search_or = array(
+				'u.display_name LIKE %s',
+				'u.user_login LIKE %s',
+			);
+			$params[] = $like_search;
+			$params[] = $like_search;
+
+			// Dynamically OR-match every searchable field's privacy-safe mirror.
+			// One correlated EXISTS per mirror key; the mirror only contains
+			// public-visibility values, so this stays privacy-safe with no
+			// per-row checks. Each EXISTS is its own bn_field_{key} usermeta row.
+			foreach ( $this->searchable_mirror_keys() as $meta_key ) {
+				$search_or[] = "EXISTS (
+				    SELECT 1 FROM {$wpdb->usermeta} um_search
+				    WHERE um_search.user_id = u.ID
+				      AND um_search.meta_key = %s
+				      AND um_search.meta_value LIKE %s
+				  )";
+				$params[] = $meta_key;
+				$params[] = $like_search;
+			}
+
+			$where_clauses[] = '(' . implode( ' OR ', $search_or ) . ')';
 		}
 
 		if ( '' !== $location ) {
 			$where_clauses[] = 'um_loc.meta_value LIKE %s';
 			$params[]        = '%' . $wpdb->esc_like( $location ) . '%';
-		}
-
-		if ( '' !== $skills ) {
-			$where_clauses[] = 'um_skills.meta_value LIKE %s';
-			$params[]        = '%' . $wpdb->esc_like( $skills ) . '%';
 		}
 
 		if ( $online_only ) {
@@ -387,6 +402,124 @@ class MemberDirectoryService {
 		wp_cache_set( $cache_key, $result, 'buddynext', 60 ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return $result;
+	}
+
+	/**
+	 * Return user IDs whose name, login, email, or any privacy-safe searchable
+	 * field mirror matches a free-text term.
+	 *
+	 * Shares the exact match surface used by list_members() so the
+	 * server-rendered directory page (templates/directory/members.php, which
+	 * builds a WP_User_Query) gets the same dynamic, privacy-aware search as the
+	 * REST/live path — no duplicate matching logic, no mirror search for
+	 * private/tightened values (their mirrors are absent by contract).
+	 *
+	 * @param string $term Search term.
+	 * @return int[] Matching user IDs (empty array when the term is blank or matches nothing).
+	 */
+	public function matching_user_ids( string $term ): array {
+		$term = trim( $term );
+		if ( '' === $term ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$like   = '%' . $wpdb->esc_like( $term ) . '%';
+		$ors    = array( 'u.display_name LIKE %s', 'u.user_login LIKE %s', 'u.user_email LIKE %s' );
+		$params = array( $like, $like, $like );
+
+		foreach ( $this->searchable_mirror_keys() as $meta_key ) {
+			$ors[]    = "EXISTS ( SELECT 1 FROM {$wpdb->usermeta} ums WHERE ums.user_id = u.ID AND ums.meta_key = %s AND ums.meta_value LIKE %s )";
+			$params[] = $meta_key;
+			$params[] = $like;
+		}
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT u.ID FROM {$wpdb->users} u WHERE ( " . implode( ' OR ', $ors ) . ' )', // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				...$params
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * Build the list of `bn_field_{key}` usermeta keys whose mirrors are
+	 * eligible for free-text directory search.
+	 *
+	 * A field qualifies only when it is flagged searchable by the admin AND its
+	 * type is free-text searchable per FieldType::is_text_searchable(). The
+	 * resulting mirror rows are written by ProfileService exclusively for values
+	 * whose effective visibility resolves to public (searchable_mirror contract),
+	 * so matching them carries no privacy risk and needs no per-row checks.
+	 *
+	 * The list is memoised per request and cached for 5 minutes to avoid a field
+	 * definition lookup on every directory query.
+	 *
+	 * @return string[] Usermeta keys, e.g. array( 'bn_field_skills', 'bn_field_role' ).
+	 */
+	private function searchable_mirror_keys(): array {
+		static $keys = null;
+
+		if ( null !== $keys ) {
+			return $keys;
+		}
+
+		$cached = wp_cache_get( 'bn_dir_searchable_mirrors', 'buddynext' );
+		if ( is_array( $cached ) ) {
+			$keys = $cached;
+			return $keys;
+		}
+
+		$keys     = array();
+		$profiles = buddynext_service( 'profiles' );
+
+		if ( is_object( $profiles ) && method_exists( $profiles, 'get_fields' ) ) {
+			// get_fields() returns GROUPS, each with a nested 'fields' array —
+			// flatten to the field rows (which carry field_key + is_searchable).
+			$fields = array();
+			foreach ( (array) $profiles->get_fields() as $grp ) {
+				if ( is_array( $grp ) && isset( $grp['fields'] ) && is_array( $grp['fields'] ) ) {
+					foreach ( $grp['fields'] as $gf ) {
+						$fields[] = $gf;
+					}
+				} elseif ( is_array( $grp ) && isset( $grp['field_key'] ) ) {
+					$fields[] = $grp; // Defensive: already a flat field row.
+				}
+			}
+
+			foreach ( $fields as $field ) {
+				if ( ! is_array( $field ) ) {
+					continue;
+				}
+
+				if ( empty( $field['is_searchable'] ) ) {
+					continue;
+				}
+
+				$type = isset( $field['type'] ) ? (string) $field['type'] : 'text';
+				if ( ! FieldType::is_text_searchable( $type ) ) {
+					continue;
+				}
+
+				$field_key = isset( $field['field_key'] ) ? sanitize_key( (string) $field['field_key'] ) : '';
+				if ( '' === $field_key ) {
+					continue;
+				}
+
+				$keys[] = 'bn_field_' . $field_key;
+			}
+
+			$keys = array_values( array_unique( $keys ) );
+		}
+
+		wp_cache_set( 'bn_dir_searchable_mirrors', $keys, 'buddynext', 300 );
+
+		return $keys;
 	}
 
 	/**

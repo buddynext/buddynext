@@ -251,6 +251,76 @@
 		} );
 	}
 
+	// ── Profile Fields builder: type-driven options + searchable controls ─
+	//
+	// The type <select> carries data-bn-pf-opts-wrap / data-bn-pf-search-wrap
+	// (and each <option> carries data-is-choice / data-is-searchable-capable).
+	// We show the options editor for choice types and the "Searchable in the
+	// member directory" control only for searchable-capable types — and clear
+	// the checkbox when it is hidden so a non-searchable type can never persist
+	// is_searchable=1. The type matrix is also exposed as window.bnProfileFieldTypes
+	// (slug => {isChoice, isSearchableCapable, valueKind}) as a fallback source.
+	function pfTypeMeta( selectEl ) {
+		var opt = selectEl.options[ selectEl.selectedIndex ];
+		var meta = { isChoice: false, isSearchableCapable: false };
+
+		if ( opt ) {
+			if ( opt.hasAttribute( 'data-is-choice' ) ) {
+				meta.isChoice = '1' === opt.getAttribute( 'data-is-choice' );
+			}
+			if ( opt.hasAttribute( 'data-is-searchable-capable' ) ) {
+				meta.isSearchableCapable = '1' === opt.getAttribute( 'data-is-searchable-capable' );
+			}
+		}
+
+		// Fall back to the localized matrix when option attributes are absent.
+		var matrix = window.bnProfileFieldTypes;
+		if ( opt && matrix && matrix[ opt.value ] ) {
+			if ( ! ( opt && opt.hasAttribute( 'data-is-choice' ) ) ) {
+				meta.isChoice = ! ! matrix[ opt.value ].isChoice;
+			}
+			if ( ! ( opt && opt.hasAttribute( 'data-is-searchable-capable' ) ) ) {
+				meta.isSearchableCapable = ! ! matrix[ opt.value ].isSearchableCapable;
+			}
+		}
+
+		return meta;
+	}
+
+	function pfSyncSearchControl( selectEl ) {
+		var wrapId = selectEl.getAttribute( 'data-bn-pf-search-wrap' );
+		if ( ! wrapId ) {
+			return;
+		}
+		var wrap = document.getElementById( wrapId );
+		if ( ! wrap ) {
+			return;
+		}
+		var capable = pfTypeMeta( selectEl ).isSearchableCapable;
+		wrap.style.display = capable ? '' : 'none';
+		if ( ! capable ) {
+			var box = wrap.querySelector( 'input[type="checkbox"][name="is_searchable"]' );
+			if ( box ) {
+				box.checked = false;
+			}
+		}
+	}
+
+	function initProfileFieldBuilder() {
+		var selects = document.querySelectorAll( 'select[data-bn-pf-search-wrap]' );
+		if ( ! selects.length ) {
+			return;
+		}
+
+		selects.forEach( function ( sel ) {
+			// Reflect the initial state on load.
+			pfSyncSearchControl( sel );
+			sel.addEventListener( 'change', function () {
+				pfSyncSearchControl( sel );
+			} );
+		} );
+	}
+
 	function ready( fn ) {
 		if ( 'loading' === document.readyState ) {
 			document.addEventListener( 'DOMContentLoaded', fn );
@@ -264,5 +334,6 @@
 		initConfirmModal();
 		initEditTabs();
 		initRepeaters();
+		initProfileFieldBuilder();
 	} );
 }() );

@@ -593,6 +593,76 @@
 	flex: 0 0 auto;
 }
 
+/* Member-type filter <select> — sits between search and the online toggle. */
+.bn-md-strip__type {
+	flex: 0 1 auto;
+	min-block-size: 40px;
+}
+
+/* "Online only" toggle — a checkbox styled as a pill-height control so the
+   whole label is a 40px tap target. Tokens only; presence dot reuses the
+   directory success token. */
+.bn-md-strip__online {
+	flex: 0 0 auto;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	min-block-size: 40px;
+	padding-inline: var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-full, 999px);
+	background: var(--bn-surface);
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	line-height: var(--bn-leading-snug);
+	cursor: pointer;
+	transition:
+		background var(--bn-dur-fast) var(--bn-ease),
+		border-color var(--bn-dur-fast) var(--bn-ease),
+		color var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-md-strip__online:hover {
+	border-color: var(--bn-line-strong, var(--bn-line));
+	color: var(--bn-ink);
+}
+
+.bn-md-strip__online-input {
+	inline-size: 16px;
+	block-size: 16px;
+	margin: 0;
+	accent-color: var(--bn-success);
+	cursor: pointer;
+}
+
+.bn-md-strip__online-input:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+	border-radius: var(--bn-r-sm);
+}
+
+.bn-md-strip__online-label {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
+.bn-md-strip__online-dot {
+	inline-size: 8px;
+	block-size: 8px;
+	border-radius: var(--bn-r-full, 999px);
+	background: var(--bn-success);
+	flex: 0 0 auto;
+}
+
+/* Active (checked) state — light success wash so it reads as engaged. */
+.bn-md-strip__online:has(.bn-md-strip__online-input:checked) {
+	color: var(--bn-success);
+	border-color: color-mix(in oklch, var(--bn-success) 36%, transparent);
+	background: color-mix(in oklch, var(--bn-success) 12%, var(--bn-surface));
+}
+
 /* Loading skeleton. */
 .bn-md-skeleton {
 	display: grid;

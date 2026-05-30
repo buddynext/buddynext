@@ -74,6 +74,7 @@ function buildQuery( ctx ) {
 	if ( ctx.sort )       { qp.set( 'sort',        ctx.sort ); }
 	if ( ctx.relation )   { qp.set( 'relation',    ctx.relation ); }
 	if ( ctx.memberType ) { qp.set( 'member_type', ctx.memberType ); }
+	if ( ctx.onlineOnly ) { qp.set( 'online',      '1' ); }
 	qp.set( 'per_page', '20' );
 	return qp.toString();
 }
@@ -98,6 +99,11 @@ function syncUrl( ctx ) {
 			url.searchParams.set( 'type', ctx.memberType );
 		} else {
 			url.searchParams.delete( 'type' );
+		}
+		if ( ctx.onlineOnly ) {
+			url.searchParams.set( 'online', '1' );
+		} else {
+			url.searchParams.delete( 'online' );
 		}
 		url.searchParams.delete( 'paged' );
 		window.history.replaceState( {}, '', url.toString() );
@@ -465,14 +471,40 @@ const memberStore = store( 'buddynext/members', {
 		},
 
 		selectMemberType( event ) {
-			const ctx = getContext();
-			const btn = event && event.target ? event.target.closest( '[data-type-slug]' ) : null;
-			if ( ! btn ) { return; }
-			ctx.memberType = btn.dataset.typeSlug || '';
+			const ctx    = getContext();
+			const target = event && event.target ? event.target : null;
+			if ( ! target ) { return; }
+			// Two sources share this action: the filter-bar <select> (read its
+			// value directly) and the legacy pill row (read data-type-slug off
+			// the clicked pill). Detect which one fired.
+			const pill = typeof target.closest === 'function' ? target.closest( '[data-type-slug]' ) : null;
+			if ( pill ) {
+				ctx.memberType = pill.dataset.typeSlug || '';
+			} else if ( 'value' in target ) {
+				ctx.memberType = target.value || '';
+			} else {
+				return;
+			}
+			// Keep both controls visually in sync with the active type.
 			document.querySelectorAll( '.bn-md-pill-row .bn-md-pill' ).forEach( ( p ) => {
 				const active = ( p.dataset.typeSlug || '' ) === ctx.memberType;
 				p.classList.toggle( 'is-active', active );
 				p.setAttribute( 'aria-pressed', active ? 'true' : 'false' );
+			} );
+			document.querySelectorAll( '.bn-md-strip__type' ).forEach( ( sel ) => {
+				if ( sel.value !== ctx.memberType ) { sel.value = ctx.memberType; }
+			} );
+			syncUrl( ctx );
+			refresh( ctx );
+		},
+
+		toggleOnlineOnly( event ) {
+			const ctx    = getContext();
+			const target = event && event.target ? event.target : null;
+			ctx.onlineOnly = target ? !! target.checked : ! ctx.onlineOnly;
+			// Mirror the state onto any other online toggles on the page.
+			document.querySelectorAll( '.bn-md-strip__online-input' ).forEach( ( box ) => {
+				if ( box.checked !== ctx.onlineOnly ) { box.checked = ctx.onlineOnly; }
 			} );
 			syncUrl( ctx );
 			refresh( ctx );
@@ -484,8 +516,11 @@ const memberStore = store( 'buddynext/members', {
 			ctx.sort       = 'newest';
 			ctx.relation   = 'all';
 			ctx.memberType = '';
+			ctx.onlineOnly = false;
 			document.querySelectorAll( '.bn-md-strip__search-input' ).forEach( ( inp ) => { inp.value = ''; } );
 			document.querySelectorAll( '.bn-md-strip__sort' ).forEach( ( sel ) => { sel.value = 'newest'; } );
+			document.querySelectorAll( '.bn-md-strip__type' ).forEach( ( sel ) => { sel.value = ''; } );
+			document.querySelectorAll( '.bn-md-strip__online-input' ).forEach( ( box ) => { box.checked = false; } );
 			document.querySelectorAll( '.bn-md-strip .bn-tab[data-relation]' ).forEach( ( t ) => {
 				const active = t.dataset.relation === 'all';
 				t.classList.toggle( 'is-active', active );

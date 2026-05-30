@@ -125,6 +125,7 @@ do_action( 'buddynext_part_profile_edit_sidebar_before', $args );
 
 	<section class="bn-card bn-ep-visibility-card">
 		<header class="bn-ep-vis-title">
+			<?php buddynext_icon( 'lock' ); ?>
 			<?php esc_html_e( 'Field Visibility', 'buddynext' ); ?>
 		</header>
 		<div class="bn-ep-vis-row">
@@ -142,14 +143,21 @@ do_action( 'buddynext_part_profile_edit_sidebar_before', $args );
 			</div>
 		</div>
 		<div class="bn-ep-vis-row">
+			<span class="bn-ep-vis-dot bn-ep-vis-dot--connections" aria-hidden="true"></span>
+			<div class="bn-ep-vis-label">
+				<strong><?php esc_html_e( 'Connections', 'buddynext' ); ?></strong>
+				<span><?php esc_html_e( 'your accepted connections only', 'buddynext' ); ?></span>
+			</div>
+		</div>
+		<div class="bn-ep-vis-row">
 			<span class="bn-ep-vis-dot bn-ep-vis-dot--private" aria-hidden="true"></span>
 			<div class="bn-ep-vis-label">
-				<strong><?php esc_html_e( 'Private', 'buddynext' ); ?></strong>
+				<strong><?php esc_html_e( 'Only me', 'buddynext' ); ?></strong>
 				<span><?php esc_html_e( 'only you can see', 'buddynext' ); ?></span>
 			</div>
 		</div>
 		<footer class="bn-ep-vis-note">
-			<?php esc_html_e( 'Each field has its own visibility control in the full field editor.', 'buddynext' ); ?>
+			<?php esc_html_e( 'Use the lock on each field to choose who sees it. You can make a field more private than the site default, but not less.', 'buddynext' ); ?>
 		</footer>
 	</section>
 

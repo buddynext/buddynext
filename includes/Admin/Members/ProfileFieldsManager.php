@@ -45,33 +45,194 @@ class ProfileFieldsManager {
 	);
 
 	/**
+	 * Return the full field-type matrix the admin editor offers.
+	 *
+	 * The single source of truth is BuddyNext\Profile\FieldType::types()
+	 * (workstream F). Each entry is keyed by slug and carries:
+	 *   - label                 (string) Human-readable name.
+	 *   - is_choice             (bool)   Needs an options editor (select/radio/multiselect).
+	 *   - is_searchable_capable (bool)   May be flagged is_searchable in the directory.
+	 *   - value_kind            (string) scalar|multi|bool.
+	 *
+	 * Falls back to a built-in matrix that mirrors the
+	 * member-fields-search-privacy.yaml contract when the engine class is not
+	 * yet loaded, so the editor keeps working during parallel development.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array<string, array{label:string,is_choice:bool,is_searchable_capable:bool,value_kind:string}>
+	 */
+	public static function field_type_matrix(): array {
+		if ( class_exists( '\\BuddyNext\\Profile\\FieldType' ) ) {
+			$matrix = array();
+			foreach ( (array) \BuddyNext\Profile\FieldType::types() as $slug => $meta ) {
+				$slug = sanitize_key( (string) $slug );
+				if ( '' === $slug ) {
+					continue;
+				}
+				$matrix[ $slug ] = array(
+					'label'                 => (string) ( $meta['label'] ?? ucfirst( $slug ) ),
+					'is_choice'             => ! empty( $meta['is_choice'] ),
+					'is_searchable_capable' => ! empty( $meta['is_searchable_capable'] ),
+					'value_kind'            => (string) ( $meta['value_kind'] ?? 'scalar' ),
+				);
+			}
+
+			if ( ! empty( $matrix ) ) {
+				return $matrix;
+			}
+		}
+
+		// Fallback mirrors contracts.field_types from the build spec.
+		return array(
+			'text'        => array(
+				'label'                 => __( 'Short Text', 'buddynext' ),
+				'is_choice'             => false,
+				'is_searchable_capable' => true,
+				'value_kind'            => 'scalar',
+			),
+			'textarea'    => array(
+				'label'                 => __( 'Long Text', 'buddynext' ),
+				'is_choice'             => false,
+				'is_searchable_capable' => true,
+				'value_kind'            => 'scalar',
+			),
+			'url'         => array(
+				'label'                 => __( 'URL', 'buddynext' ),
+				'is_choice'             => false,
+				'is_searchable_capable' => true,
+				'value_kind'            => 'scalar',
+			),
+			'email'       => array(
+				'label'                 => __( 'Email', 'buddynext' ),
+				'is_choice'             => false,
+				'is_searchable_capable' => true,
+				'value_kind'            => 'scalar',
+			),
+			'phone'       => array(
+				'label'                 => __( 'Phone', 'buddynext' ),
+				'is_choice'             => false,
+				'is_searchable_capable' => true,
+				'value_kind'            => 'scalar',
+			),
+			'number'      => array(
+				'label'                 => __( 'Number', 'buddynext' ),
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+				'value_kind'            => 'scalar',
+			),
+			'date'        => array(
+				'label'                 => __( 'Date', 'buddynext' ),
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+				'value_kind'            => 'scalar',
+			),
+			'boolean'     => array(
+				'label'                 => __( 'Yes / No', 'buddynext' ),
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+				'value_kind'            => 'bool',
+			),
+			'select'      => array(
+				'label'                 => __( 'Dropdown', 'buddynext' ),
+				'is_choice'             => true,
+				'is_searchable_capable' => true,
+				'value_kind'            => 'scalar',
+			),
+			'radio'       => array(
+				'label'                 => __( 'Radio Buttons', 'buddynext' ),
+				'is_choice'             => true,
+				'is_searchable_capable' => true,
+				'value_kind'            => 'scalar',
+			),
+			'multiselect' => array(
+				'label'                 => __( 'Multi-select', 'buddynext' ),
+				'is_choice'             => true,
+				'is_searchable_capable' => true,
+				'value_kind'            => 'multi',
+			),
+			'color'       => array(
+				'label'                 => __( 'Color', 'buddynext' ),
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+				'value_kind'            => 'scalar',
+			),
+			'file'        => array(
+				'label'                 => __( 'File', 'buddynext' ),
+				'is_choice'             => false,
+				'is_searchable_capable' => false,
+				'value_kind'            => 'scalar',
+			),
+		);
+	}
+
+	/**
 	 * Return the filterable list of allowed profile field type slugs.
 	 *
 	 * Pro plugins add custom field types (e.g. 'file', 'video', 'map') by
-	 * hooking buddynext_profile_field_types. The whitelist enforcement in
-	 * handle_create_field() and handle_update_field() calls this method so
-	 * Pro-registered types are automatically accepted.
+	 * hooking buddynext_field_types (in FieldType) or buddynext_profile_field_types.
+	 * The whitelist enforcement in handle_create_field() and handle_edit_field()
+	 * calls this method so registered types are automatically accepted.
 	 *
 	 * @since 1.0.0
 	 *
 	 * @return string[] Ordered list of field type slugs.
 	 */
 	public static function field_types(): array {
+		$types = array_keys( self::field_type_matrix() );
+
 		/**
 		 * Filter the allowed profile field type slugs.
 		 *
-		 * Return an array of lowercase, hyphen/underscore-safe slugs. Each Pro
-		 * type must be handled in the render layer and in ProfileService::get_field_value().
+		 * Return an array of lowercase, hyphen/underscore-safe slugs. Each
+		 * type must be handled by BuddyNext\Profile\FieldType.
 		 *
 		 * @since 1.0.0
 		 *
 		 * @param string[] $types The current list of field type slugs.
 		 */
-		return (array) apply_filters( 'buddynext_profile_field_types', self::FIELD_TYPES );
+		return (array) apply_filters( 'buddynext_profile_field_types', $types );
+	}
+
+	/**
+	 * Slugs of field types that need an options editor (select/radio/multiselect).
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string[]
+	 */
+	private static function choice_types(): array {
+		$slugs = array();
+		foreach ( self::field_type_matrix() as $slug => $meta ) {
+			if ( ! empty( $meta['is_choice'] ) ) {
+				$slugs[] = $slug;
+			}
+		}
+		return $slugs;
+	}
+
+	/**
+	 * Slugs of field types that may be flagged as searchable in the directory.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return string[]
+	 */
+	private static function searchable_capable_types(): array {
+		$slugs = array();
+		foreach ( self::field_type_matrix() as $slug => $meta ) {
+			if ( ! empty( $meta['is_searchable_capable'] ) ) {
+				$slugs[] = $slug;
+			}
+		}
+		return $slugs;
 	}
 
 	/**
 	 * Field types that require an options list (stored as JSON array).
+	 *
+	 * Kept for backward compatibility; choice_types() derives the live list
+	 * from the FieldType matrix.
 	 *
 	 * @var string[]
 	 */
@@ -101,9 +262,11 @@ class ProfileFieldsManager {
 	/**
 	 * Allowed visibility values.
 	 *
+	 * Matches contracts.visibility_enum in the build spec.
+	 *
 	 * @var string[]
 	 */
-	private const VISIBILITY_VALUES = array( 'public', 'followers', 'private' );
+	private const VISIBILITY_VALUES = array( 'public', 'followers', 'connections', 'private' );
 
 	/**
 	 * Register admin hooks.
@@ -148,6 +311,30 @@ class ProfileFieldsManager {
 			array(),
 			BUDDYNEXT_VERSION,
 			true
+		);
+
+		// Expose the field-type matrix to the editor JS so the options editor
+		// and the is_searchable control react to the selected type. The
+		// bn-admin-members handle (members.js) is registered on this page by
+		// BuddyNext\Admin\Members and carries the type-driven behaviour.
+		$matrix    = self::field_type_matrix();
+		$js_matrix = array();
+		foreach ( $matrix as $slug => $meta ) {
+			$js_matrix[ $slug ] = array(
+				'isChoice'            => (bool) $meta['is_choice'],
+				'isSearchableCapable' => (bool) $meta['is_searchable_capable'],
+				'valueKind'           => (string) $meta['value_kind'],
+			);
+		}
+
+		$handle = wp_script_is( 'bn-admin-members', 'enqueued' ) || wp_script_is( 'bn-admin-members', 'registered' )
+			? 'bn-admin-members'
+			: 'bn-profile-fields';
+
+		wp_localize_script(
+			$handle,
+			'bnProfileFieldTypes',
+			$js_matrix
 		);
 	}
 
@@ -219,8 +406,20 @@ class ProfileFieldsManager {
 		$type        = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
 		$is_required = absint( wp_unslash( $_POST['is_required'] ?? 0 ) );
 		$visibility  = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+
+		if ( ! in_array( $type, self::field_types(), true ) ) {
+			$type = 'text';
+		}
+
+		if ( ! in_array( $visibility, self::VISIBILITY_VALUES, true ) ) {
+			$visibility = 'public';
+		}
+
+		// is_searchable only applies to types that support free-text search.
+		$is_searchable = ( isset( $_POST['is_searchable'] ) && in_array( $type, self::searchable_capable_types(), true ) ) ? 1 : 0;
+
 		// Route options by field type.
-		if ( in_array( $type, self::CHOICE_TYPES, true ) ) {
+		if ( in_array( $type, self::choice_types(), true ) ) {
 			$options_raw = sanitize_textarea_field( wp_unslash( $_POST['options'] ?? '' ) );
 			$parsed_opts = $this->parse_options_textarea( $options_raw );
 		} elseif ( in_array( $type, self::DATE_TYPES, true ) ) {
@@ -232,14 +431,6 @@ class ProfileFieldsManager {
 
 		// Auto-generate field_key from label — no technical input required from admins.
 		$field_key = sanitize_key( str_replace( '-', '_', sanitize_title( $label ) ) );
-
-		if ( ! in_array( $type, self::field_types(), true ) ) {
-			$type = 'text';
-		}
-
-		if ( ! in_array( $visibility, self::VISIBILITY_VALUES, true ) ) {
-			$visibility = 'public';
-		}
 
 		if ( $group_id > 0 && '' !== $field_key && '' !== $label ) {
 			global $wpdb;
@@ -254,14 +445,15 @@ class ProfileFieldsManager {
 
 			buddynext_service( 'profiles' )->create_field(
 				array(
-					'group_id'    => $group_id,
-					'field_key'   => $field_key,
-					'label'       => $label,
-					'type'        => $type,
-					'options'     => $parsed_opts,
-					'is_required' => $is_required > 0 ? 1 : 0,
-					'visibility'  => $visibility,
-					'sort_order'  => $sort_order,
+					'group_id'      => $group_id,
+					'field_key'     => $field_key,
+					'label'         => $label,
+					'type'          => $type,
+					'options'       => $parsed_opts,
+					'is_required'   => $is_required > 0 ? 1 : 0,
+					'is_searchable' => $is_searchable,
+					'visibility'    => $visibility,
+					'sort_order'    => $sort_order,
 				)
 			);
 		}
@@ -509,8 +701,17 @@ class ProfileFieldsManager {
 		$label      = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
 		$type       = sanitize_key( wp_unslash( $_POST['type'] ?? 'text' ) );
 		$visibility = sanitize_key( wp_unslash( $_POST['visibility'] ?? 'public' ) );
+
+		if ( ! in_array( $type, self::field_types(), true ) ) {
+			$type = 'text';
+		}
+
+		if ( ! in_array( $visibility, self::VISIBILITY_VALUES, true ) ) {
+			$visibility = 'public';
+		}
+
 		// Route options by field type.
-		if ( in_array( $type, self::CHOICE_TYPES, true ) ) {
+		if ( in_array( $type, self::choice_types(), true ) ) {
 			$options_raw = sanitize_textarea_field( wp_unslash( $_POST['options'] ?? '' ) );
 			$parsed_opts = $this->parse_options_textarea( $options_raw );
 		} elseif ( in_array( $type, self::DATE_TYPES, true ) ) {
@@ -519,7 +720,8 @@ class ProfileFieldsManager {
 		} else {
 			$parsed_opts = null;
 		}
-		$is_required = isset( $_POST['is_required'] ) ? 1 : 0;
+		$is_required   = isset( $_POST['is_required'] ) ? 1 : 0;
+		$is_searchable = ( isset( $_POST['is_searchable'] ) && in_array( $type, self::searchable_capable_types(), true ) ) ? 1 : 0;
 
 		if ( '' === $label ) {
 			wp_safe_redirect(
@@ -534,29 +736,26 @@ class ProfileFieldsManager {
 			exit;
 		}
 
-		if ( ! in_array( $type, self::field_types(), true ) ) {
-			$type = 'text';
-		}
-
-		if ( ! in_array( $visibility, self::VISIBILITY_VALUES, true ) ) {
-			$visibility = 'public';
-		}
-
 		global $wpdb;
 
 		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->prefix . 'bn_profile_fields',
 			array(
-				'label'       => $label,
-				'type'        => $type,
-				'options'     => null !== $parsed_opts ? wp_json_encode( $parsed_opts ) : null,
-				'is_required' => $is_required,
-				'visibility'  => $visibility,
+				'label'         => $label,
+				'type'          => $type,
+				'options'       => null !== $parsed_opts ? wp_json_encode( $parsed_opts ) : null,
+				'is_required'   => $is_required,
+				'is_searchable' => $is_searchable,
+				'visibility'    => $visibility,
 			),
 			array( 'id' => $field_id ),
-			array( '%s', '%s', '%s', '%d', '%s' ),
+			array( '%s', '%s', '%s', '%d', '%d', '%s' ),
 			array( '%d' )
 		);
+
+		// is_searchable changed → ProfileService rebuilds the searchable mirror
+		// for affected users via the searchable_mirror contract.
+		do_action( 'buddynext_profile_field_updated', $field_id );
 
 		wp_cache_delete( 'all_fields', 'buddynext_profiles' );
 
@@ -747,36 +946,17 @@ class ProfileFieldsManager {
 		$show_add_group = absint( wp_unslash( $_GET['add_group'] ?? 0 ) );
 		$add_group_url  = add_query_arg( 'add_group', '1', $base_url );
 
-		$field_type_labels = array(
-			// Text types.
-			'text'        => __( 'Short Text', 'buddynext' ),
-			'textarea'    => __( 'Long Text', 'buddynext' ),
-			'email'       => __( 'Email', 'buddynext' ),
-			'phone'       => __( 'Phone', 'buddynext' ),
-			'url'         => __( 'URL', 'buddynext' ),
-			'social'      => __( 'Social Profile', 'buddynext' ),
-			// Numeric types.
-			'number'      => __( 'Number', 'buddynext' ),
-			'rating'      => __( 'Star Rating', 'buddynext' ),
-			// Date types.
-			'date'        => __( 'Date', 'buddynext' ),
-			'daterange'   => __( 'Date Range', 'buddynext' ),
-			// Choice types — need an options list.
-			'select'      => __( 'Dropdown', 'buddynext' ),
-			'multiselect' => __( 'Multi-select', 'buddynext' ),
-			'radio'       => __( 'Radio Buttons', 'buddynext' ),
-			'checkbox'    => __( 'Checkboxes', 'buddynext' ),
-			// Binary type.
-			'toggle'      => __( 'Toggle (Yes / No)', 'buddynext' ),
-		);
+		// Single source of truth for type behaviour — drives the dropdown,
+		// the options editor, and the searchable control.
+		$type_matrix       = self::field_type_matrix();
+		$field_type_labels = array();
+		foreach ( $type_matrix as $slug => $meta ) {
+			$field_type_labels[ $slug ] = (string) $meta['label'];
+		}
 
 		/**
 		 * Filter the human-readable labels for profile field types shown in
 		 * the admin field builder.
-		 *
-		 * Pro extensions that register new types via
-		 * buddynext_profile_field_types should also append labels here so the
-		 * type dropdown displays them with a friendly name.
 		 *
 		 * @since 1.1.0
 		 *
@@ -784,10 +964,15 @@ class ProfileFieldsManager {
 		 */
 		$field_type_labels = (array) apply_filters( 'buddynext_profile_field_type_labels', $field_type_labels );
 
+		// Choice + searchable-capable type slugs, for per-option data attributes.
+		$choice_type_slugs     = self::choice_types();
+		$searchable_type_slugs = self::searchable_capable_types();
+
 		$vis_labels = array(
-			'public'    => __( 'Public', 'buddynext' ),
-			'followers' => __( 'Followers only', 'buddynext' ),
-			'private'   => __( 'Only me', 'buddynext' ),
+			'public'      => __( 'Public', 'buddynext' ),
+			'followers'   => __( 'Followers only', 'buddynext' ),
+			'connections' => __( 'Connections only', 'buddynext' ),
+			'private'     => __( 'Only me', 'buddynext' ),
 		);
 		?>
 
@@ -995,11 +1180,13 @@ class ProfileFieldsManager {
 							</tr>
 							<!-- Edit panel row -->
 							<?php
-							$edit_panel_id    = 'bn-ef-row-' . $fid;
-							$is_choice_type   = in_array( $field['type'], self::CHOICE_TYPES, true );
-							$is_date_type     = in_array( $field['type'], self::DATE_TYPES, true );
-							$opts_text        = $is_choice_type && ! empty( $field['options'] ) ? implode( "\n", (array) $field['options'] ) : '';
-							$date_display_val = ( $is_date_type && is_array( $field['options'] ) ) ? ( $field['options']['display'] ?? 'date' ) : 'date';
+							$edit_panel_id     = 'bn-ef-row-' . $fid;
+							$is_choice_type    = in_array( $field['type'], $choice_type_slugs, true );
+							$is_date_type      = in_array( $field['type'], self::DATE_TYPES, true );
+							$is_search_capable = in_array( $field['type'], $searchable_type_slugs, true );
+							$field_searchable  = ! empty( $field['is_searchable'] );
+							$opts_text         = $is_choice_type && ! empty( $field['options'] ) ? implode( "\n", (array) $field['options'] ) : '';
+							$date_display_val  = ( $is_date_type && is_array( $field['options'] ) ) ? ( $field['options']['display'] ?? 'date' ) : 'date';
 							?>
 							<tr id="<?php echo esc_attr( $edit_panel_id ); ?>" style="display:none;">
 								<td colspan="6" style="padding:0;">
@@ -1021,9 +1208,14 @@ class ProfileFieldsManager {
 												<div class="bn-pf-af-field" style="flex:0 0 180px;">
 													<label for="bn-ef-type-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Field Type', 'buddynext' ); ?></label>
 													<select id="bn-ef-type-<?php echo absint( $fid ); ?>" name="type"
-														data-bn-pf-opts-wrap="bn-ef-opts-<?php echo absint( $fid ); ?>" data-bn-pf-date-wrap="bn-ef-date-<?php echo absint( $fid ); ?>">
+														data-bn-pf-opts-wrap="bn-ef-opts-<?php echo absint( $fid ); ?>"
+														data-bn-pf-date-wrap="bn-ef-date-<?php echo absint( $fid ); ?>"
+														data-bn-pf-search-wrap="bn-ef-search-<?php echo absint( $fid ); ?>">
 														<?php foreach ( $field_type_labels as $ft_val => $ft_lbl ) : ?>
-														<option value="<?php echo esc_attr( $ft_val ); ?>" <?php selected( $field['type'], $ft_val ); ?>>
+														<option value="<?php echo esc_attr( $ft_val ); ?>"
+															data-is-choice="<?php echo in_array( (string) $ft_val, $choice_type_slugs, true ) ? '1' : '0'; ?>"
+															data-is-searchable-capable="<?php echo in_array( (string) $ft_val, $searchable_type_slugs, true ) ? '1' : '0'; ?>"
+															<?php selected( $field['type'], $ft_val ); ?>>
 															<?php echo esc_html( $ft_lbl ); ?>
 														</option>
 														<?php endforeach; ?>
@@ -1086,6 +1278,10 @@ class ProfileFieldsManager {
 												<input type="checkbox" id="bn-ef-req-<?php echo absint( $fid ); ?>" name="is_required" value="1" <?php checked( $field['is_required'] ); ?>>
 												<label for="bn-ef-req-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Make this field required', 'buddynext' ); ?></label>
 											</div>
+											<div id="bn-ef-search-<?php echo absint( $fid ); ?>" class="bn-pf-af-req-row" style="<?php echo $is_search_capable ? '' : 'display:none;'; ?>">
+												<input type="checkbox" id="bn-ef-search-c-<?php echo absint( $fid ); ?>" name="is_searchable" value="1" <?php checked( $field_searchable ); ?>>
+												<label for="bn-ef-search-c-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Searchable in the member directory', 'buddynext' ); ?></label>
+											</div>
 											<div class="bn-pf-af-actions">
 												<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Changes', 'buddynext' ); ?></button>
 												<button type="button" class="button" data-bn-pf-toggle-edit="<?php echo esc_attr( $edit_panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
@@ -1120,9 +1316,13 @@ class ProfileFieldsManager {
 							<div class="bn-pf-af-field" style="flex:0 0 180px;">
 								<label for="bn-af-type-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Field Type', 'buddynext' ); ?></label>
 								<select id="bn-af-type-<?php echo absint( $gid ); ?>" name="type"
-									data-bn-pf-opts-wrap="bn-af-opts-<?php echo absint( $gid ); ?>" data-bn-pf-date-wrap="bn-af-date-<?php echo absint( $gid ); ?>">
+									data-bn-pf-opts-wrap="bn-af-opts-<?php echo absint( $gid ); ?>"
+									data-bn-pf-date-wrap="bn-af-date-<?php echo absint( $gid ); ?>"
+									data-bn-pf-search-wrap="bn-af-search-<?php echo absint( $gid ); ?>">
 									<?php foreach ( $field_type_labels as $ft_val => $ft_lbl ) : ?>
-										<option value="<?php echo esc_attr( $ft_val ); ?>"><?php echo esc_html( $ft_lbl ); ?></option>
+										<option value="<?php echo esc_attr( $ft_val ); ?>"
+											data-is-choice="<?php echo in_array( (string) $ft_val, $choice_type_slugs, true ) ? '1' : '0'; ?>"
+											data-is-searchable-capable="<?php echo in_array( (string) $ft_val, $searchable_type_slugs, true ) ? '1' : '0'; ?>"><?php echo esc_html( $ft_lbl ); ?></option>
 									<?php endforeach; ?>
 								</select>
 							</div>
@@ -1177,6 +1377,15 @@ class ProfileFieldsManager {
 						<div class="bn-pf-af-req-row">
 							<input type="checkbox" id="bn-af-req-<?php echo absint( $gid ); ?>" name="is_required" value="1">
 							<label for="bn-af-req-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Make this field required', 'buddynext' ); ?></label>
+						</div>
+						<?php
+						// The first option in the type dropdown is searchable-capable, so the
+						// control starts visible; members.js hides it for non-capable types.
+						$first_type_searchable = ! empty( $field_type_labels ) && in_array( (string) array_key_first( $field_type_labels ), $searchable_type_slugs, true );
+						?>
+						<div id="bn-af-search-<?php echo absint( $gid ); ?>" class="bn-pf-af-req-row" style="<?php echo $first_type_searchable ? '' : 'display:none;'; ?>">
+							<input type="checkbox" id="bn-af-search-c-<?php echo absint( $gid ); ?>" name="is_searchable" value="1">
+							<label for="bn-af-search-c-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Searchable in the member directory', 'buddynext' ); ?></label>
 						</div>
 						<div class="bn-pf-af-actions">
 							<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Field', 'buddynext' ); ?></button>

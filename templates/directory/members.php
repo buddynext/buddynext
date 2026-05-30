@@ -146,9 +146,17 @@ if ( ! empty( $bn_dir_excluded_ids ) ) {
 	$user_query_args['exclude'] = $bn_dir_excluded_ids;
 }
 
+// Dynamic, privacy-aware search resolved to user IDs so the server render
+// matches the REST/live path exactly (name/login/email + every searchable
+// field mirror; private/tightened values have no mirror so never match).
+// Applied to `include` below (intersected with any relation constraint).
 if ( '' !== $search_term ) {
-	$user_query_args['search']         = '*' . $search_term . '*';
-	$user_query_args['search_columns'] = array( 'user_login', 'user_nicename', 'display_name', 'user_email' );
+	$bn_search_ids = buddynext_service( 'member_directory' )->matching_user_ids( $search_term );
+	if ( empty( $bn_search_ids ) ) {
+		$bn_search_ids = array( 0 ); // Term set but nothing matched → force zero results.
+	}
+} else {
+	$bn_search_ids = null;
 }
 
 // Relation filter (Following / Connections) — only relevant when logged in.
@@ -184,6 +192,17 @@ if ( '' !== $type_slug_filter ) {
 			'compare' => '=',
 		),
 	);
+}
+
+// Apply the resolved search IDs to `include`, intersecting with any relation
+// constraint already set above (most-restrictive wins).
+if ( null !== $bn_search_ids ) {
+	if ( isset( $user_query_args['include'] ) && is_array( $user_query_args['include'] ) ) {
+		$bn_intersect               = array_values( array_intersect( $user_query_args['include'], $bn_search_ids ) );
+		$user_query_args['include'] = empty( $bn_intersect ) ? array( 0 ) : $bn_intersect;
+	} else {
+		$user_query_args['include'] = $bn_search_ids;
+	}
 }
 
 $user_query  = new WP_User_Query( $user_query_args );

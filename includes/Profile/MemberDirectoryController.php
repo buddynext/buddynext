@@ -12,6 +12,8 @@
  *     - sort          string  newest | alphabetical | most_active | online
  *     - relation      string  all | following | connections
  *     - member_type   string  Type slug
+ *     - location      string  LIKE match against the location field mirror
+ *     - online        bool    Restrict to users active in the last 5 minutes
  *     - cursor        string  Opaque pagination cursor
  *     - per_page      int     1-50 (default 20)
  *
@@ -72,6 +74,15 @@ class MemberDirectoryController {
 						'sanitize_callback' => 'sanitize_key',
 						'default'           => '',
 					),
+					'location'    => array(
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+						'default'           => '',
+					),
+					'online'      => array(
+						'type'              => 'boolean',
+						'default'           => false,
+					),
 					'cursor'      => array(
 						'type'    => 'string',
 						'default' => '',
@@ -98,6 +109,8 @@ class MemberDirectoryController {
 		$sort_raw  = (string) $request->get_param( 'sort' );
 		$relation  = (string) $request->get_param( 'relation' );
 		$type_slug = (string) $request->get_param( 'member_type' );
+		$location  = (string) $request->get_param( 'location' );
+		$online    = (bool) $request->get_param( 'online' );
 		$cursor    = (string) $request->get_param( 'cursor' );
 		$per_page  = max( 1, min( 50, (int) $request->get_param( 'per_page' ) ) );
 
@@ -111,6 +124,14 @@ class MemberDirectoryController {
 			'search' => $search,
 			'sort'   => $sort,
 		);
+
+		if ( '' !== $location ) {
+			$filters['location'] = $location;
+		}
+
+		if ( $online ) {
+			$filters['online_only'] = true;
+		}
 
 		if ( 'connections' === $relation ) {
 			$filters['connection_status'] = 'connections';

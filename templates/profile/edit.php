@@ -62,50 +62,131 @@ $avatar_url = get_avatar_url( $user_id, array( 'size' => 192 ) );
 $cover_url  = (string) get_user_meta( $user_id, 'buddynext_cover_url', true );
 
 // Load profile through service — reads from bn_profile_values.
+// As owner ($user_id === $user_id) ProfileService returns EVERY group/field
+// (no visibility gating) so the edit form can render the full field set.
 $service = buddynext_service( 'profiles' );
 $profile = $service->get_profile( $user_id, $user_id );
+$bn_groups = isset( $profile['groups'] ) && is_array( $profile['groups'] ) ? $profile['groups'] : array();
 
-// Build flat key=>value map for basic/social fields.
+// Build flat key=>value map for the lightweight sidebar/preview vars only.
 $fv = array();
-if ( isset( $profile['groups'] ) ) {
-	foreach ( $profile['groups'] as $grp ) {
-		if ( 'flat' === $grp['type'] ) {
-			foreach ( $grp['fields'] as $f ) {
-				$fv[ $f['field_key'] ] = $f['value'] ?? '';
-			}
+foreach ( $bn_groups as $grp ) {
+	if ( 'flat' === ( $grp['type'] ?? '' ) && ! empty( $grp['fields'] ) ) {
+		foreach ( $grp['fields'] as $f ) {
+			$fv[ $f['field_key'] ] = $f['value'] ?? '';
 		}
 	}
 }
 
-// Repeater entries keyed by group_key.
+// Repeater entries kept in the Interactivity context so the existing JS
+// store (assets/js/profile/*) can add/remove rows client-side. We seed the
+// canonical work_experience/education keys it expects.
 $work_entries = array();
 $edu_entries  = array();
-if ( isset( $profile['groups'] ) ) {
-	foreach ( $profile['groups'] as $grp ) {
-		if ( 'repeater' === $grp['type'] ) {
-			if ( 'work_experience' === $grp['group_key'] ) {
-				$work_entries = $grp['entries'] ?? array();
-			} elseif ( 'education' === $grp['group_key'] ) {
-				$edu_entries = $grp['entries'] ?? array();
-			}
+foreach ( $bn_groups as $grp ) {
+	if ( 'repeater' === ( $grp['type'] ?? '' ) ) {
+		if ( 'work_experience' === $grp['group_key'] ) {
+			$work_entries = $grp['entries'] ?? array();
+		} elseif ( 'education' === $grp['group_key'] ) {
+			$edu_entries = $grp['entries'] ?? array();
 		}
 	}
 }
 
-// Convenience vars used in template.
+// Convenience vars used by the hero + sidebar preview.
 $headline      = $fv['headline'] ?? '';
 $bio           = $fv['bio'] ?? '';
 $location      = $fv['location'] ?? '';
-$website       = $fv['website'] ?? '';
-$pronouns      = $fv['pronouns'] ?? '';
 $interests_str = $fv['interests'] ?? '';
 $interests     = array_filter( array_map( 'trim', explode( ',', $interests_str ) ) );
 
-$social_twitter   = $fv['social_twitter'] ?? '';
-$social_linkedin  = $fv['social_linkedin'] ?? '';
-$social_github    = $fv['social_github'] ?? '';
-$social_instagram = $fv['social_instagram'] ?? '';
-$social_youtube   = $fv['social_youtube'] ?? '';
+/*
+ * ── Field-level privacy helpers ────────────────────────────────────────────
+ *
+ * Restrictiveness ladder (contracts.visibility_resolution):
+ *   public(0) < followers(1) < connections(2) < private(3)
+ *
+ * The admin sets each field's DEFAULT visibility; a member may only TIGHTEN
+ * it. So the per-field lock selector offers ONLY options whose rank is
+ * >= the admin default rank, and pre-selects the member's current effective
+ * choice (clamped into range). The server re-clamps on save.
+ */
+$bn_vis_labels = array(
+	'public'      => __( 'Public', 'buddynext' ),
+	'followers'   => __( 'Followers', 'buddynext' ),
+	'connections' => __( 'Connections', 'buddynext' ),
+	'private'     => __( 'Only me', 'buddynext' ),
+);
+$bn_vis_rank = array(
+	'public'      => 0,
+	'followers'   => 1,
+	'connections' => 2,
+	'private'     => 3,
+);
+
+/**
+ * Normalise an arbitrary value to a known visibility slug.
+ *
+ * @param mixed  $value    Candidate slug.
+ * @param string $fallback Slug returned when $value is unknown.
+ * @return string One of public|followers|connections|private.
+ */
+$bn_vis_norm = static function ( $value, string $fallback = 'public' ) use ( $bn_vis_rank ): string {
+	$value = is_string( $value ) ? $value : '';
+	return isset( $bn_vis_rank[ $value ] ) ? $value : $fallback;
+};
+
+/**
+ * Build the compact per-field privacy <select> (the "lock" dropdown).
+ *
+ * Only options EQUAL-OR-MORE restrictive than the admin default are offered
+ * (members can tighten, never loosen). Pre-selects the current effective
+ * choice. The control is escaped and emitted as a string.
+ *
+ * @param string $name           Input name attribute (e.g. headline__visibility).
+ * @param string $admin_default  Admin-set default visibility for the field.
+ * @param string $current        Member's current effective visibility.
+ * @param string $select_id      DOM id for the <select>.
+ * @return string Rendered HTML.
+ */
+$bn_privacy_select = static function ( string $name, string $admin_default, string $current, string $select_id ) use ( $bn_vis_labels, $bn_vis_rank, $bn_vis_norm ): string {
+	$admin_default = $bn_vis_norm( $admin_default, 'public' );
+	$current       = $bn_vis_norm( $current, $admin_default );
+	$min_rank      = $bn_vis_rank[ $admin_default ];
+
+	// Member choice can never be looser than the admin default — clamp the
+	// pre-selected value up to the default if a stale looser value slipped in.
+	if ( $bn_vis_rank[ $current ] < $min_rank ) {
+		$current = $admin_default;
+	}
+
+	$options_html = '';
+	foreach ( $bn_vis_labels as $slug => $label ) {
+		if ( $bn_vis_rank[ $slug ] < $min_rank ) {
+			continue;
+		}
+		$options_html .= sprintf(
+			'<option value="%1$s"%2$s>%3$s</option>',
+			esc_attr( $slug ),
+			selected( $current, $slug, false ),
+			esc_html( $label )
+		);
+	}
+
+	$lock_icon = \BuddyNext\Core\IconService::render( 'lock', 'bn-ep-vis-lock' );
+
+	return sprintf(
+		'<span class="bn-ep-field-vis" data-bn-vis>' .
+			'<label class="bn-ep-field-vis__label" for="%1$s">%2$s<span class="screen-reader-text">%3$s</span></label>' .
+			'<select class="bn-input bn-ep-field-vis__select" id="%1$s" name="%4$s" data-wp-on--change="actions.markDirty">%5$s</select>' .
+		'</span>',
+		esc_attr( $select_id ),
+		$lock_icon, // Already escaped by IconService (wp_kses'd).
+		esc_html__( 'Who can see this field', 'buddynext' ),
+		esc_attr( $name ),
+		$options_html // Built from escaped pieces above.
+	);
+};
 
 // Notification prefs (booleans stored in user meta).
 $pref_email_replies  = (bool) get_user_meta( $user_id, 'bn_pref_email_replies', true );
@@ -181,21 +262,6 @@ $rest_nonce      = wp_create_nonce( 'wp_rest' );
 $pending_email   = (string) get_user_meta( $user_id, 'bn_pending_email', true );
 $people_url_base = rtrim( \BuddyNext\Core\PageRouter::people_url(), '/' );
 $prefs_url       = \BuddyNext\Core\PageRouter::notification_prefs_url();
-
-/**
- * Render a single non-validated text/url/email/select input using the
- * `parts/profile-field.php` part. Returns the rendered HTML so the
- * composer can hand it to `parts/profile-edit-section.php` via
- * `body_html`.
- *
- * @param array $field Field descriptor (see profile-field.php).
- * @return string Rendered HTML.
- */
-$bn_render_field = static function ( array $field ): string {
-	ob_start();
-	buddynext_get_template( 'parts/profile-field.php', array( 'field' => $field ) );
-	return (string) ob_get_clean();
-};
 
 /**
  * Render a notif/privacy toggle or audience-select row, returning HTML.
@@ -296,205 +362,146 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				)
 			);
 
-			// About section — three grid fields + a full-width Bio textarea.
-			$about_grid = array(
-				array( 'text', 'location', __( 'Location', 'buddynext' ), $location, __( 'City, Country', 'buddynext' ), false ),
-				array( 'url', 'website', __( 'Website', 'buddynext' ), $website, 'https://yoursite.com', true ),
-				array( 'text', 'pronouns', __( 'Pronouns', 'buddynext' ), $pronouns, __( 'e.g. they/them', 'buddynext' ), false ),
-			);
-			$about_html = '<div class="bn-ep-grid">';
-			foreach ( $about_grid as $f ) {
-				$about_html .= $bn_render_field(
-					array(
-						'type'             => $f[0],
-						'key'              => $f[1],
-						'label'            => $f[2],
-						'value'            => $f[3],
-						'placeholder'      => $f[4],
-						'validate_on_blur' => $f[5],
-						'autosave_on_blur' => ! $f[5],
-					)
-				);
-			}
-			$about_html .= '</div>';
-			$about_html .= $bn_render_field(
-				array(
-					'type'             => 'textarea',
-					'key'              => 'bio',
-					'label'            => __( 'Bio', 'buddynext' ),
-					'value'            => $bio,
-					'placeholder'      => __( 'Tell the community a bit about yourself…', 'buddynext' ),
-					'hint'             => __( 'A few words about yourself, your work, and what you post about.', 'buddynext' ),
-					'full_width'       => true,
-					'rows'             => 4,
-					'field_id'         => 'bn-ep-bio',
-					'autosave_on_blur' => true,
-				)
-			);
-			buddynext_get_template(
-				'parts/profile-edit-section.php',
-				array(
-					'title'     => __( 'About', 'buddynext' ),
-					'subtitle'  => __( 'Help people discover what you care about.', 'buddynext' ),
-					'body_html' => $about_html,
-				)
-			);
+			// ── Dynamic profile fields ──────────────────────────────────
+			// Every admin-defined group/field is rendered here through the
+			// single field-type engine (contracts.field_type_engine), so any
+			// field type works edit→display→search without per-type template
+			// code. Each field carries a compact lock privacy selector; the
+			// member can only TIGHTEN a field below its admin default.
+			foreach ( $bn_groups as $bn_group ) {
+				$bn_gkey   = isset( $bn_group['group_key'] ) ? (string) $bn_group['group_key'] : '';
+				$bn_gtype  = isset( $bn_group['type'] ) ? (string) $bn_group['type'] : 'flat';
+				$bn_glabel = isset( $bn_group['label'] ) && '' !== (string) $bn_group['label']
+					? (string) $bn_group['label']
+					: ucwords( str_replace( '_', ' ', $bn_gkey ) );
 
-			// Social Links section — five URL fields with validate-on-blur wiring.
-			$socials     = array(
-				array( 'social_twitter', __( 'Twitter / X', 'buddynext' ), 'https://twitter.com/you', $social_twitter ),
-				array( 'social_linkedin', __( 'LinkedIn', 'buddynext' ), 'https://linkedin.com/in/you', $social_linkedin ),
-				array( 'social_github', __( 'GitHub', 'buddynext' ), 'https://github.com/you', $social_github ),
-				array( 'social_instagram', __( 'Instagram', 'buddynext' ), 'https://instagram.com/you', $social_instagram ),
-				array( 'social_youtube', __( 'YouTube', 'buddynext' ), 'https://youtube.com/@you', $social_youtube ),
-			);
-			$social_html = '<div class="bn-ep-grid">';
-			foreach ( $socials as $bn_social ) {
-				$social_html .= $bn_render_field(
-					array(
-						'type'             => 'url',
-						'key'              => $bn_social[0],
-						'label'            => $bn_social[1],
-						'value'            => $bn_social[3],
-						'placeholder'      => $bn_social[2],
-						'validate_on_blur' => true,
-					)
-				);
-			}
-			$social_html .= '</div>';
-			buddynext_get_template(
-				'parts/profile-edit-section.php',
-				array(
-					'title'     => __( 'Social Links', 'buddynext' ),
-					'subtitle'  => __( 'Linked accounts appear on your profile header.', 'buddynext' ),
-					'body_html' => $social_html,
-				)
-			);
+				if ( '' === $bn_gkey ) {
+					continue;
+				}
 
-			// Work Experience + Education — both use the field-group part,
-			// wrapped inline because field-group emits body + footer (not a
-			// `<section>` shell) by design.
-			$repeater_groups = array(
-				array(
-					'title'    => __( 'Work Experience', 'buddynext' ),
-					'field'    => array(
-						'group_key'         => 'work_experience',
-						'id_prefix'         => 'bn-ep-work-',
-						'add_label'         => __( 'Add position', 'buddynext' ),
-						'remove_aria_label' => __( 'Remove this position', 'buddynext' ),
-						'fields'            => array(
-							array(
-								'key'         => 'work_company',
-								'label'       => __( 'Company', 'buddynext' ),
-								'placeholder' => __( 'Company name', 'buddynext' ),
-							),
-							array(
-								'key'         => 'work_title',
-								'label'       => __( 'Job title', 'buddynext' ),
-								'placeholder' => __( 'Your role', 'buddynext' ),
-							),
-							array(
-								'key'         => 'work_location',
-								'label'       => __( 'Location', 'buddynext' ),
-								'placeholder' => __( 'City or Remote', 'buddynext' ),
-							),
-							array(
-								'key'         => 'work_daterange',
-								'label'       => __( 'Date range', 'buddynext' ),
-								'placeholder' => __( 'e.g. Jan 2020 to Present', 'buddynext' ),
-							),
-						),
-						'description_field' => array(
-							'key'         => 'work_description',
-							'label'       => __( 'Description', 'buddynext' ),
-							'placeholder' => __( 'Brief description of your role', 'buddynext' ),
-							'rows'        => 3,
-						),
-					),
-					'entries'  => $work_entries,
-					'group_id' => 'bn-ep-work-entries',
-				),
-				array(
-					'title'    => __( 'Education', 'buddynext' ),
-					'field'    => array(
-						'group_key'         => 'education',
-						'id_prefix'         => 'bn-ep-edu-',
-						'add_label'         => __( 'Add education', 'buddynext' ),
-						'remove_aria_label' => __( 'Remove this entry', 'buddynext' ),
-						'fields'            => array(
-							array(
-								'key'         => 'edu_institution',
-								'label'       => __( 'Institution', 'buddynext' ),
-								'placeholder' => __( 'School or University', 'buddynext' ),
-							),
-							array(
-								'key'         => 'edu_degree',
-								'label'       => __( 'Degree', 'buddynext' ),
-								'placeholder' => __( 'e.g. Bachelor of Science', 'buddynext' ),
-							),
-							array(
-								'key'         => 'edu_field',
-								'label'       => __( 'Field of study', 'buddynext' ),
-								'placeholder' => __( 'e.g. Computer Science', 'buddynext' ),
-							),
-							array(
-								'key'         => 'edu_daterange',
-								'label'       => __( 'Date range', 'buddynext' ),
-								'placeholder' => __( 'e.g. 2016 to 2020', 'buddynext' ),
-							),
-						),
-					),
-					'entries'  => $edu_entries,
-					'group_id' => 'bn-ep-edu-entries',
-				),
-			);
-			foreach ( $repeater_groups as $g ) {
-				echo '<section class="bn-card bn-ep-card"><header class="bn-ep-card-header"><h2 class="bn-ep-card-title">' . esc_html( $g['title'] ) . '</h2></header>';
+				if ( 'repeater' === $bn_gtype ) {
+					// Repeater group: render each saved entry's sub-fields via
+					// the engine, plus ONE per-entry privacy lock that reuses
+					// the existing `group_key[n][_visibility]` save contract.
+					$bn_entries = isset( $bn_group['entries'] ) && is_array( $bn_group['entries'] ) ? $bn_group['entries'] : array();
+					$bn_gdefault = $bn_vis_norm( $bn_group['visibility'] ?? 'public', 'public' );
+
+					$bn_rep_html = '<div class="bn-ep-card-body" id="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_gkey ) . '-entries' ) . '">';
+
+					foreach ( $bn_entries as $bn_idx => $bn_entry ) {
+						$bn_idx_int = (int) $bn_idx;
+						$bn_fields  = is_array( $bn_entry ) ? $bn_entry : array();
+
+						$bn_rep_html .= '<div class="bn-ep-repeater-entry" data-entry-index="' . esc_attr( (string) $bn_idx_int ) . '">';
+						$bn_rep_html .= '<header class="bn-ep-repeater-header"><span class="bn-ep-repeater-num">' . absint( $bn_idx_int + 1 ) . '</span>';
+						$bn_rep_html .= '<button class="bn-btn bn-ep-repeater-remove" type="button" data-variant="ghost" data-size="sm" data-group="' . esc_attr( $bn_gkey ) . '" data-entry-index="' . esc_attr( (string) $bn_idx_int ) . '" data-wp-on--click="actions.removeEntry" aria-label="' . esc_attr__( 'Remove this entry', 'buddynext' ) . '">' . \BuddyNext\Core\IconService::render( 'x' ) . '</button>';
+						$bn_rep_html .= '</header>';
+
+						$bn_rep_html .= '<div class="bn-ep-grid">';
+						foreach ( $bn_fields as $bn_field ) {
+							if ( ! is_array( $bn_field ) || empty( $bn_field['field_key'] ) ) {
+								continue;
+							}
+							$bn_fkey  = (string) $bn_field['field_key'];
+							$bn_name  = $bn_gkey . '[' . $bn_idx_int . '][' . $bn_fkey . ']';
+							$bn_label = isset( $bn_field['label'] ) ? (string) $bn_field['label'] : ucwords( str_replace( '_', ' ', $bn_fkey ) );
+							$bn_ctrl  = \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value'] ?? '', $bn_name );
+
+							$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label" for="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_fkey ) . '-' . $bn_idx_int ) . '">' . esc_html( $bn_label ) . '</label>' . $bn_ctrl . '</div>';
+						}
+						$bn_rep_html .= '</div>';
+
+						// Per-entry privacy lock (reuses the _visibility control).
+						$bn_entry_vis = $bn_vis_norm(
+							$bn_entry['_visibility'] ?? ( $bn_group['entry_visibility'] ?? $bn_gdefault ),
+							$bn_gdefault
+						);
+						$bn_rep_html .= '<div class="bn-ep-field bn-ep-field--full bn-ep-repeater-vis">';
+						$bn_rep_html .= $bn_privacy_select(
+							$bn_gkey . '[' . $bn_idx_int . '][_visibility]',
+							$bn_gdefault,
+							$bn_entry_vis,
+							'bn-ep-' . str_replace( '_', '-', $bn_gkey ) . '-vis-' . $bn_idx_int
+						);
+						$bn_rep_html .= '</div>';
+
+						$bn_rep_html .= '</div>';
+					}
+
+					$bn_rep_html .= '</div>';
+					$bn_rep_html .= '<footer class="bn-ep-card-footer"><button class="bn-btn bn-ep-add-entry" type="button" data-variant="ghost" data-size="sm" data-group="' . esc_attr( $bn_gkey ) . '" data-wp-on--click="actions.addEntry">' . \BuddyNext\Core\IconService::render( 'plus' ) . '<span>' . esc_html__( 'Add entry', 'buddynext' ) . '</span></button></footer>';
+
+					echo '<section class="bn-card bn-ep-card"><header class="bn-ep-card-header"><h2 class="bn-ep-card-title">' . esc_html( $bn_glabel ) . '</h2></header>';
+					// Repeater body markup is assembled from individually escaped
+					// pieces above (FieldType output is escaped per its contract).
+					echo $bn_rep_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					echo '</section>';
+					continue;
+				}
+
+				// Flat group: render each field's input via the engine + lock.
+				$bn_fields = isset( $bn_group['fields'] ) && is_array( $bn_group['fields'] ) ? $bn_group['fields'] : array();
+				if ( empty( $bn_fields ) ) {
+					continue;
+				}
+
+				$bn_gvis_default = $bn_vis_norm( $bn_group['visibility'] ?? 'public', 'public' );
+				$bn_body_html    = '<div class="bn-ep-grid">';
+
+				foreach ( $bn_fields as $bn_field ) {
+					if ( ! is_array( $bn_field ) || empty( $bn_field['field_key'] ) ) {
+						continue;
+					}
+					$bn_fkey   = (string) $bn_field['field_key'];
+					$bn_ftype  = isset( $bn_field['type'] ) ? (string) $bn_field['type'] : 'text';
+					$bn_label  = isset( $bn_field['label'] ) ? (string) $bn_field['label'] : ucwords( str_replace( '_', ' ', $bn_fkey ) );
+					$bn_inp_id = 'bn-ep-' . str_replace( '_', '-', $bn_fkey );
+
+					// Wide controls (textarea) take the full row.
+					$bn_field_cls = 'bn-ep-field';
+					if ( in_array( $bn_ftype, array( 'textarea', 'multiselect', 'radio' ), true ) ) {
+						$bn_field_cls .= ' bn-ep-field--full';
+					}
+
+					// Field value control via the engine.
+					$bn_control = \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value'] ?? '', $bn_fkey );
+
+					// Admin default = field's own visibility (falls back to the
+					// group default, then public). Current = member's effective
+					// choice; ProfileService surfaces it on the field row when
+					// present (entry_visibility / visibility), else the default.
+					$bn_admin_default = $bn_vis_norm(
+						$bn_field['field_visibility'] ?? ( $bn_field['visibility'] ?? $bn_gvis_default ),
+						$bn_gvis_default
+					);
+					$bn_current = $bn_vis_norm(
+						$bn_field['entry_visibility'] ?? ( $bn_field['effective_visibility'] ?? $bn_admin_default ),
+						$bn_admin_default
+					);
+
+					$bn_privacy_html = $bn_privacy_select(
+						$bn_fkey . '__visibility',
+						$bn_admin_default,
+						$bn_current,
+						$bn_inp_id . '-vis'
+					);
+
+					$bn_body_html .= '<div class="' . esc_attr( $bn_field_cls ) . '">';
+					$bn_body_html .= '<div class="bn-ep-field-head"><label class="bn-ep-label" for="' . esc_attr( $bn_inp_id ) . '">' . esc_html( $bn_label ) . '</label>' . $bn_privacy_html . '</div>';
+					$bn_body_html .= $bn_control;
+					$bn_body_html .= '</div>';
+				}
+
+				$bn_body_html .= '</div>';
+
 				buddynext_get_template(
-					'parts/profile-field-group.php',
+					'parts/profile-edit-section.php',
 					array(
-						'field'    => $g['field'],
-						'entries'  => $g['entries'],
-						'group_id' => $g['group_id'],
+						'title'     => $bn_glabel,
+						'body_html' => $bn_body_html,
 					)
 				);
-				echo '</section>';
 			}
-
-			// Community Interests — interactive tag editor, kept inline because
-			// the tag-list is driven by the Interactivity context and isn't a
-			// generic field shape worth abstracting at this time.
-			ob_start();
-			?>
-			<div class="bn-ep-field bn-ep-field--full">
-				<label class="bn-ep-label" for="bn-ep-tag-input"><?php esc_html_e( 'Interests', 'buddynext' ); ?></label>
-				<div class="bn-ep-tags-area" data-wp-on--click="actions.focusTagInput">
-					<?php foreach ( $interests as $interest ) : ?>
-						<span class="bn-badge bn-ep-tag" data-tone="accent">
-							#<?php echo esc_html( $interest ); ?>
-							<button class="bn-ep-tag-remove"
-								type="button"
-								<?php /* translators: %s: interest tag name */ $remove_label = sprintf( __( 'Remove interest: %s', 'buddynext' ), $interest ); ?>
-								aria-label="<?php echo esc_attr( $remove_label ); ?>"
-								data-interest="<?php echo esc_attr( $interest ); ?>"
-								data-wp-on--click="actions.removeInterest"><?php buddynext_icon( 'x' ); ?></button>
-						</span>
-					<?php endforeach; ?>
-					<input class="bn-ep-tag-input" type="text" id="bn-ep-tag-input" autocomplete="off"
-						placeholder="<?php esc_attr_e( '+ Add interest', 'buddynext' ); ?>"
-						data-wp-on--keydown="actions.addInterestOnEnter" />
-				</div>
-			</div>
-			<?php
-			$interests_html = (string) ob_get_clean();
-			buddynext_get_template(
-				'parts/profile-edit-section.php',
-				array(
-					'title'     => __( 'Community Interests', 'buddynext' ),
-					'subtitle'  => __( 'Used to personalise your feed and discovery.', 'buddynext' ),
-					'body_html' => $interests_html,
-				)
-			);
 
 			// Privacy section — three audience selects + three toggles.
 			$privacy_rows = array(
