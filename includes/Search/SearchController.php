@@ -3,8 +3,12 @@
  * REST controller for unified search and member directory.
  *
  * Routes (all under buddynext/v1):
- *   GET /search   — full-text search across posts, users, spaces (public)
- *   GET /members  — paginated member directory (public)
+ *   GET /search          — full-text search across posts, users, spaces (public)
+ *   GET /search/members  — cursor-paginated member directory search (public)
+ *
+ * The canonical member directory lives at GET /members, owned by
+ * Profile\MemberDirectoryController. This controller's listing is exposed at a
+ * distinct path (/search/members) so one path = one schema = one handler.
  *
  * @package BuddyNext\Search
  */
@@ -65,7 +69,7 @@ class SearchController {
 
 		register_rest_route(
 			'buddynext/v1',
-			'/members',
+			'/search/members',
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'list_members' ),

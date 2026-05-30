@@ -1,22 +1,33 @@
 # BuddyNext REST Surface Inventory
 
-Auto-generated from `grep register_rest_route` on 2026-05-21.
+Auto-generated from `grep register_rest_route` on 2026-05-31.
 
-All routes registered under the `buddynext/v1` namespace.
+This file is the source of truth for the BuddyNext REST surface across **both**
+repos. Pair with [REST-FRONTEND-CONTRACT.md](REST-FRONTEND-CONTRACT.md) — the
+contract that says the BuddyNext frontend is 100% REST and admin-ajax is
+forbidden.
 
-This file is the source of truth for the BuddyNext REST surface. Pair with
-[REST-FRONTEND-CONTRACT.md](REST-FRONTEND-CONTRACT.md) — the contract that says
-the BuddyNext frontend is 100% REST and admin-ajax is forbidden.
+Two parallel versioned namespaces ship:
+
+- `buddynext/v1` — the Free plugin (`buddynext/includes/`).
+- `buddynext-pro/v1` — the Pro add-on (`buddynext-pro/includes/`). Additive and
+  separable; Pro never registers into the Free namespace.
 
 Regenerate after adding a new endpoint:
 
 ```bash
-grep -rn register_rest_route includes/ --include="*.php"
+grep -rn register_rest_route ../../includes/ --include="*.php"
+grep -rn register_rest_route ../../../buddynext-pro/includes/ --include="*.php"
 ```
 
-Note: 113 rows are listed below; the raw grep reports 116 occurrences. The
-delta is the moderation controller emitting multiple paths through a shared
-loop in a single statement — those are surfaced via the controller link.
+## `buddynext/v1` (Free)
+
+All routes below are registered under the `buddynext/v1` namespace.
+
+The canonical member directory is `GET /members`, owned by
+`Profile/MemberDirectoryController`. `Search/SearchController` exposes its
+cursor-paginated member listing at the distinct path `GET /search/members` so
+one path = one schema = one documented handler.
 
 | Route | Methods | Permission | Source |
 |---|---|---|---|
@@ -46,6 +57,7 @@ loop in a single statement — those are surfaced via the controller link.
 | `/me/connection-requests` | GET |  | [SocialGraph/ConnectionController.php:80](../../includes/SocialGraph/ConnectionController.php#L80) |
 | `/me/connections` | GET |  | [SocialGraph/ConnectionController.php:70](../../includes/SocialGraph/ConnectionController.php#L70) |
 | `/me/cover` | POST | $this->require_auth() | [Profile/ProfileController.php:141](../../includes/Profile/ProfileController.php#L141) |
+| `/me/drafts` | POST/GET/DELETE | $this->require_auth() | [Feed/ComposerDraftController.php:49](../../includes/Feed/ComposerDraftController.php#L49) |
 | `/me/muted` | GET |  | [SocialGraph/BlockController.php:77](../../includes/SocialGraph/BlockController.php#L77) |
 | `/me/notification-prefs` | GET | $this->require_auth() | [Notifications/NotificationController.php:101](../../includes/Notifications/NotificationController.php#L101) |
 | `/me/notifications` | GET |  | [Notifications/NotificationController.php:35](../../includes/Notifications/NotificationController.php#L35) |
@@ -53,6 +65,9 @@ loop in a single statement — those are surfaced via the controller link.
 | `/me/notifications/(?P<id>[\d]+)/read` | PUT | $this->require_auth() | [Notifications/NotificationController.php:73](../../includes/Notifications/NotificationController.php#L73) |
 | `/me/notifications/read-all` | PUT | $this->require_auth() | [Notifications/NotificationController.php:55](../../includes/Notifications/NotificationController.php#L55) |
 | `/me/notifications/unread-count` | GET |  | [Notifications/NotificationController.php:45](../../includes/Notifications/NotificationController.php#L45) |
+| `/me/onboarding/step` | POST | $this->require_auth() | [Onboarding/OnboardingController.php:46](../../includes/Onboarding/OnboardingController.php#L46) |
+| `/me/onboarding/skip` | POST | $this->require_auth() | [Onboarding/OnboardingController.php:62](../../includes/Onboarding/OnboardingController.php#L62) |
+| `/me/onboarding/complete` | POST | $this->require_auth() | [Onboarding/OnboardingController.php:72](../../includes/Onboarding/OnboardingController.php#L72) |
 | `/me/profile` | GET | $this->require_auth() | [Profile/ProfileController.php:158](../../includes/Profile/ProfileController.php#L158) |
 | `/me/profile-slug` | GET | $this->require_auth() | [Profile/ProfileController.php:175](../../includes/Profile/ProfileController.php#L175) |
 | `/me/shares` | GET | $this->require_auth() | [Feed/ShareController.php:48](../../includes/Feed/ShareController.php#L48) |
@@ -60,7 +75,7 @@ loop in a single statement — those are surfaced via the controller link.
 | `/member-types` | POST |  | [MemberTypes/MemberTypeController.php:57](../../includes/MemberTypes/MemberTypeController.php#L57) |
 | `/member-types/(?P<slug>[a-z0-9-]+)` | PUT | $this->require_admin() | [MemberTypes/MemberTypeController.php:67](../../includes/MemberTypes/MemberTypeController.php#L67) |
 | `/member-types/(?P<slug>[a-z0-9-]+)` | DELETE | $this->require_admin() | [MemberTypes/MemberTypeController.php:84](../../includes/MemberTypes/MemberTypeController.php#L84) |
-| `/members` | GET | public | [Search/SearchController.php:66](../../includes/Search/SearchController.php#L66) |
+| `/members` | GET | public | [Profile/MemberDirectoryController.php:49](../../includes/Profile/MemberDirectoryController.php#L49) |
 | `/posts` | POST |  | [Feed/PostController.php:38](../../includes/Feed/PostController.php#L38) |
 | `/posts/(?P<id>[\d]+)` | GET | public | [Feed/PostController.php:48](../../includes/Feed/PostController.php#L48) |
 | `/posts/(?P<id>[\d]+)/bookmark` | POST | $this->require_auth() | [Feed/BookmarkController.php:31](../../includes/Feed/BookmarkController.php#L31) |
@@ -85,6 +100,7 @@ loop in a single statement — those are surfaced via the controller link.
 | `/reports/(?P<id>[\d]+)/resolve` | POST/PUT/PATCH |  | [Moderation/ModerationController.php:165](../../includes/Moderation/ModerationController.php#L165) |
 | `/reports/queue` | GET | $this->require_queue_access() | [Moderation/ModerationController.php:109](../../includes/Moderation/ModerationController.php#L109) |
 | `/search` | GET | public | [Search/SearchController.php:31](../../includes/Search/SearchController.php#L31) |
+| `/search/members` | GET | public | [Search/SearchController.php:66](../../includes/Search/SearchController.php#L66) |
 | `/space-categories` | GET | public | [Spaces/SpaceCategoryController.php:31](../../includes/Spaces/SpaceCategoryController.php#L31) |
 | `/space-categories/(?P<id>[\d]+)` | DELETE | $this->require_manage_options() | [Spaces/SpaceCategoryController.php:67](../../includes/Spaces/SpaceCategoryController.php#L67) |
 | `/spaces` | GET | public | [Spaces/SpaceController.php:46](../../includes/Spaces/SpaceController.php#L46) |
@@ -134,4 +150,60 @@ loop in a single statement — those are surfaced via the controller link.
 | `/webhooks/(?P<id>[\d]+)/log` | GET | $this->require_admin() | [Outbound/OutboundWebhookController.php:108](../../includes/Outbound/OutboundWebhookController.php#L108) |
 | `/webhooks/(?P<id>[\d]+)/test` | POST | $this->require_admin() | [Outbound/OutboundWebhookController.php:140](../../includes/Outbound/OutboundWebhookController.php#L140) |
 
-Total routes captured: 113.
+## `buddynext-pro/v1` (Pro)
+
+All routes below are registered under the `buddynext-pro/v1` namespace by
+controllers in `buddynext-pro/includes/`. Paths are shown fully resolved
+(`$this->rest_base` / `self::BASE` constants expanded). 46 `register_rest_route`
+calls; method groups split onto one row each, mirroring the Free table above.
+
+| Route | Methods | Permission | Source |
+|---|---|---|---|
+| `/admin/tiers/(?P<slug>[a-z0-9-]+)/test-checkout` | POST | $this->require_admin() | [Membership/Controllers/AdminTierTestCheckoutController.php:61](../../../buddynext-pro/includes/Membership/Controllers/AdminTierTestCheckoutController.php#L61) |
+| `/admin/whitelabel/preview` | POST | $this->require_admin() | [WhiteLabel/Controllers/PreviewController.php:45](../../../buddynext-pro/includes/WhiteLabel/Controllers/PreviewController.php#L45) |
+| `/ai/classify` | POST | $this->require_admin() | [AI/Controllers/AiModerationController.php:65](../../../buddynext-pro/includes/AI/Controllers/AiModerationController.php#L65) |
+| `/ai/reply-suggestions` | POST | $this->require_commenter() | [AI/Controllers/ReplyController.php:70](../../../buddynext-pro/includes/AI/Controllers/ReplyController.php#L70) |
+| `/analytics/content/top` | GET | $this->require_admin() | [Analytics/Controllers/AnalyticsController.php:90](../../../buddynext-pro/includes/Analytics/Controllers/AnalyticsController.php#L90) |
+| `/analytics/me/profile-views` | GET | $this->require_logged_in() | [Analytics/Controllers/AnalyticsController.php:162](../../../buddynext-pro/includes/Analytics/Controllers/AnalyticsController.php#L162) |
+| `/analytics/members/top` | GET | $this->require_admin() | [Analytics/Controllers/AnalyticsController.php:117](../../../buddynext-pro/includes/Analytics/Controllers/AnalyticsController.php#L117) |
+| `/analytics/overview` | GET | $this->require_admin() | [Analytics/Controllers/AnalyticsController.php:80](../../../buddynext-pro/includes/Analytics/Controllers/AnalyticsController.php#L80) |
+| `/analytics/spaces/(?P<space_id>\d+)/health` | GET | $this->require_admin() | [Analytics/Controllers/AnalyticsController.php:139](../../../buddynext-pro/includes/Analytics/Controllers/AnalyticsController.php#L139) |
+| `/analytics/users/(?P<user_id>\d+)/profile-views` | GET | $this->require_admin() | [Analytics/Controllers/AnalyticsController.php:173](../../../buddynext-pro/includes/Analytics/Controllers/AnalyticsController.php#L173) |
+| `/broadcasts` | GET/POST | $this->admin_permission() | [Email/Controllers/BroadcastController.php:74](../../../buddynext-pro/includes/Email/Controllers/BroadcastController.php#L74) |
+| `/broadcasts/(?P<id>[\d]+)` | GET/PUT/PATCH/DELETE | $this->admin_permission() | [Email/Controllers/BroadcastController.php:110](../../../buddynext-pro/includes/Email/Controllers/BroadcastController.php#L110) |
+| `/broadcasts/(?P<id>[\d]+)/dispatch` | POST | $this->admin_permission() | [Email/Controllers/BroadcastController.php:156](../../../buddynext-pro/includes/Email/Controllers/BroadcastController.php#L156) |
+| `/drip-sequences` | GET/POST | $this->admin_permission() | [Email/Controllers/DripController.php:71](../../../buddynext-pro/includes/Email/Controllers/DripController.php#L71) |
+| `/drip-sequences/(?P<id>[\d]+)` | GET/PUT/PATCH | $this->admin_permission() | [Email/Controllers/DripController.php:106](../../../buddynext-pro/includes/Email/Controllers/DripController.php#L106) |
+| `/drip-sequences/(?P<id>[\d]+)/steps` | POST | $this->admin_permission() | [Email/Controllers/DripController.php:136](../../../buddynext-pro/includes/Email/Controllers/DripController.php#L136) |
+| `/drip-sequences/(?P<id>[\d]+)/enroll` | POST | $this->admin_permission() | [Email/Controllers/DripController.php:170](../../../buddynext-pro/includes/Email/Controllers/DripController.php#L170) |
+| `/labels` | GET/POST | public read / $this->require_manage_options() write | [Members/Controllers/LabelsController.php:89](../../../buddynext-pro/includes/Members/Controllers/LabelsController.php#L89) |
+| `/labels/(?P<id>[\d]+)` | GET/PUT/PATCH/DELETE | public read / $this->require_manage_options() write | [Members/Controllers/LabelsController.php:107](../../../buddynext-pro/includes/Members/Controllers/LabelsController.php#L107) |
+| `/me/checkout` | POST | $this->require_logged_in() | [Membership/Controllers/CheckoutController.php:71](../../../buddynext-pro/includes/Membership/Controllers/CheckoutController.php#L71) |
+| `/me/email-preferences` | GET/POST | $this->logged_in_permission() | [Email/Controllers/EmailUnsubscribeController.php:68](../../../buddynext-pro/includes/Email/Controllers/EmailUnsubscribeController.php#L68) |
+| `/me/portal` | POST | $this->require_logged_in_with_customer() | [Membership/Controllers/CheckoutController.php:98](../../../buddynext-pro/includes/Membership/Controllers/CheckoutController.php#L98) |
+| `/me/push-prefs` | GET/PUT/PATCH | $this->require_logged_in() | [Push/Controllers/PushPrefsController.php:73](../../../buddynext-pro/includes/Push/Controllers/PushPrefsController.php#L73) |
+| `/me/push-tokens` | GET/POST | $this->require_logged_in() | [Push/PushController.php:78](../../../buddynext-pro/includes/Push/PushController.php#L78) |
+| `/me/push-tokens/(?P<id>[\d]+)` | DELETE | $this->require_logged_in() | [Push/PushController.php:96](../../../buddynext-pro/includes/Push/PushController.php#L96) |
+| `/me/push-tokens/test` | POST | $this->require_manage_options() | [Push/PushController.php:115](../../../buddynext-pro/includes/Push/PushController.php#L115) |
+| `/me/saved-searches` | GET/POST | $this->require_logged_in() | [Search/Controllers/SavedSearchController.php:74](../../../buddynext-pro/includes/Search/Controllers/SavedSearchController.php#L74) |
+| `/me/saved-searches/(?P<id>\d+)` | GET/PUT/PATCH/DELETE | $this->require_logged_in() | [Search/Controllers/SavedSearchController.php:106](../../../buddynext-pro/includes/Search/Controllers/SavedSearchController.php#L106) |
+| `/me/saved-searches/(?P<id>\d+)/run` | POST | $this->require_logged_in() | [Search/Controllers/SavedSearchController.php:157](../../../buddynext-pro/includes/Search/Controllers/SavedSearchController.php#L157) |
+| `/me/scheduled-posts` | GET | $this->logged_in_permission() | [Feed/Controllers/ScheduledPostsController.php:105](../../../buddynext-pro/includes/Feed/Controllers/ScheduledPostsController.php#L105) |
+| `/me/subscriptions` | GET | $this->require_logged_in() | [Membership/Controllers/SubscriptionsController.php:54](../../../buddynext-pro/includes/Membership/Controllers/SubscriptionsController.php#L54) |
+| `/mod-rules` | GET/POST | $this->require_admin() | [Moderation/Controllers/ModRulesController.php:58](../../../buddynext-pro/includes/Moderation/Controllers/ModRulesController.php#L58) |
+| `/mod-rules/(?P<id>[\d]+)` | GET/PUT/PATCH/DELETE | $this->require_admin() | [Moderation/Controllers/ModRulesController.php:82](../../../buddynext-pro/includes/Moderation/Controllers/ModRulesController.php#L82) |
+| `/mod-rules/(?P<id>[\d]+)/toggle` | POST | $this->require_admin() | [Moderation/Controllers/ModRulesController.php:105](../../../buddynext-pro/includes/Moderation/Controllers/ModRulesController.php#L105) |
+| `/moderation/bulk` | POST | $this->require_admin() | [Moderation/Controllers/BulkModerationController.php:66](../../../buddynext-pro/includes/Moderation/Controllers/BulkModerationController.php#L66) |
+| `/posts/(?P<id>[\d]+)/schedule` | POST/DELETE | $this->post_owner_permission() | [Feed/Controllers/ScheduledPostsController.php:64](../../../buddynext-pro/includes/Feed/Controllers/ScheduledPostsController.php#L64) |
+| `/posts/scheduled` | GET | $this->admin_permission() | [Feed/Controllers/ScheduledPostsController.php:116](../../../buddynext-pro/includes/Feed/Controllers/ScheduledPostsController.php#L116) |
+| `/realtime/auth` | POST | $this->require_logged_in() | [Realtime/AuthController.php:63](../../../buddynext-pro/includes/Realtime/AuthController.php#L63) |
+| `/realtime/test-connection` | POST | $this->require_admin() | [Realtime/AuthController.php:87](../../../buddynext-pro/includes/Realtime/AuthController.php#L87) |
+| `/spaces/(?P<id>\d+)/brand` | GET/POST | $this->require_space_brand_manager() | [WhiteLabel/Controllers/SpaceBrandController.php:58](../../../buddynext-pro/includes/WhiteLabel/Controllers/SpaceBrandController.php#L58) |
+| `/stripe/webhook` | POST | public (in-callback signature auth) | [Stripe/WebhookController.php:103](../../../buddynext-pro/includes/Stripe/WebhookController.php#L103) |
+| `/tiers` | GET/POST | public read / $this->require_admin() write | [Membership/Controllers/TiersController.php:56](../../../buddynext-pro/includes/Membership/Controllers/TiersController.php#L56) |
+| `/tiers/(?P<id>\d+)` | GET/DELETE | public read / $this->require_admin() write | [Membership/Controllers/TiersController.php:97](../../../buddynext-pro/includes/Membership/Controllers/TiersController.php#L97) |
+| `/users/(?P<user_id>[\d]+)/labels` | GET | public | [Members/Controllers/LabelsController.php:138](../../../buddynext-pro/includes/Members/Controllers/LabelsController.php#L138) |
+| `/users/(?P<user_id>[\d]+)/labels/(?P<slug>[a-z0-9-]+)` | POST/DELETE | $this->require_manage_options() | [Members/Controllers/LabelsController.php:155](../../../buddynext-pro/includes/Members/Controllers/LabelsController.php#L155) |
+| `/users/(?P<id>\d+)/subscriptions` | GET | $this->require_admin() | [Membership/Controllers/SubscriptionsController.php:64](../../../buddynext-pro/includes/Membership/Controllers/SubscriptionsController.php#L64) |
+</content>
+</invoke>
