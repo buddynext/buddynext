@@ -829,6 +829,8 @@ class Installer {
 				reviewed_by   BIGINT(20) UNSIGNED DEFAULT NULL,
 				reviewer_note TEXT DEFAULT NULL,
 				reviewed_at   DATETIME DEFAULT NULL,
+				admin_note    TEXT DEFAULT NULL,
+				resolved_by   BIGINT(20) UNSIGNED DEFAULT NULL,
 				resolved_at   DATETIME DEFAULT NULL,
 				created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY   (id),
@@ -1007,6 +1009,24 @@ class Installer {
 		);
 		if ( is_array( $connections_cols ) && ! in_array( 'note', $connections_cols, true ) ) {
 			$wpdb->query( "ALTER TABLE `{$p}bn_connections` ADD COLUMN `note` VARCHAR(280) NOT NULL DEFAULT '' AFTER `status`" );
+		}
+
+		// bn_appeals — `admin_note` / `resolved_by` columns added for the appeal
+		// approval/denial flow (decide_appeal writes these). Existing installs
+		// created before these columns existed need them appended manually.
+		$appeals_cols = $wpdb->get_col(
+			$wpdb->prepare(
+				'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+				WHERE TABLE_SCHEMA = DATABASE()
+				AND TABLE_NAME = %s',
+				$p . 'bn_appeals'
+			)
+		);
+		if ( is_array( $appeals_cols ) && ! in_array( 'admin_note', $appeals_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_appeals` ADD COLUMN `admin_note` TEXT NULL DEFAULT NULL AFTER `reviewed_at`" );
+		}
+		if ( is_array( $appeals_cols ) && ! in_array( 'resolved_by', $appeals_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_appeals` ADD COLUMN `resolved_by` BIGINT(20) UNSIGNED NULL DEFAULT NULL AFTER `admin_note`" );
 		}
 
 		$wpdb->suppress_errors( false );

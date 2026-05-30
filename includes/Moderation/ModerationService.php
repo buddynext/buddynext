@@ -1286,17 +1286,31 @@ class ModerationService {
 			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ) );
 		}
 
+		// bn_appeals.suspension_id is NOT NULL — an appeal must reference the
+		// user's active suspension. Resolve it before inserting so the write
+		// does not fail with a constraint error.
+		$suspension = $this->get_active_suspension( $user_id );
+		if ( null === $suspension ) {
+			return new WP_Error(
+				'not_suspended',
+				__( 'You do not have an active suspension to appeal.', 'buddynext' )
+			);
+		}
+
+		$suspension_id = (int) $suspension['id'];
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'bn_appeals',
 			array(
-				'user_id' => $user_id,
-				'message' => sanitize_textarea_field( $message ),
-				'status'  => 'pending',
+				'suspension_id' => $suspension_id,
+				'user_id'       => $user_id,
+				'message'       => sanitize_textarea_field( $message ),
+				'status'        => 'pending',
 			),
-			array( '%d', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -1341,13 +1355,19 @@ class ModerationService {
 
 		global $wpdb;
 
+		// Load the appeal's owner and the suspension it targets so an approval
+		// can actually lift the suspension (set lifted_at), not just flip status.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$user_id = (int) $wpdb->get_var(
+		$appeal = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT user_id FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
+				"SELECT user_id, suspension_id FROM {$wpdb->prefix}bn_appeals WHERE id = %d",
 				$appeal_id
-			)
+			),
+			ARRAY_A
 		);
+
+		$user_id       = isset( $appeal['user_id'] ) ? (int) $appeal['user_id'] : 0;
+		$suspension_id = isset( $appeal['suspension_id'] ) ? (int) $appeal['suspension_id'] : 0;
 
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_appeals',
@@ -1367,6 +1387,14 @@ class ModerationService {
 			return new WP_Error( 'db_error', $wpdb->last_error );
 		}
 
+		// An approved appeal must lift the suspension that was appealed. Set
+		// lifted_at directly on the appealed suspension row (not just "most
+		// recent active") so the correct record is cleared even when several
+		// historical suspensions exist.
+		if ( 'approved' === $decision && $suspension_id > 0 ) {
+			$this->lift_suspension_by_id( $suspension_id, $resolved_by, $user_id );
+		}
+
 		/**
 		 * Fires after an appeal is resolved.
 		 *
@@ -1377,6 +1405,51 @@ class ModerationService {
 		do_action( 'buddynext_appeal_resolved', $appeal_id, $user_id, $decision );
 
 		return true;
+	}
+
+	/**
+	 * Lift a specific suspension row by its ID.
+	 *
+	 * Sets lifted_at/lifted_by on the suspension with the given ID when it is
+	 * still active (lifted_at IS NULL) and fires the unsuspend hooks so search,
+	 * gamification, and directory surfaces resync. Used by appeal approval to
+	 * lift the exact suspension that was appealed.
+	 *
+	 * @param int $suspension_id Suspension row ID to lift.
+	 * @param int $actor_id      Admin who lifted it (0 = system).
+	 * @param int $user_id       Suspended user (for the unsuspend hooks).
+	 * @return void
+	 */
+	private function lift_suspension_by_id( int $suspension_id, int $actor_id, int $user_id ): void {
+		if ( $suspension_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$lifted = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_user_suspensions
+				 SET lifted_at = %s, lifted_by = %d
+				 WHERE id = %d AND lifted_at IS NULL",
+				current_time( 'mysql' ),
+				$actor_id > 0 ? $actor_id : 0,
+				$suspension_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( $lifted && $user_id > 0 ) {
+			/**
+			 * Fires after a user suspension is lifted.
+			 *
+			 * @param int $user_id  Unsuspended user.
+			 * @param int $actor_id Admin who lifted the suspension.
+			 */
+			do_action( 'buddynext_member_unsuspended', $user_id, $actor_id );
+			do_action( 'buddynext_user_unsuspended', $user_id );
+		}
 	}
 
 	// ── Spec-named aliases ────────────────────────────────────────────────────

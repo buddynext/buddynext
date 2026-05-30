@@ -14,6 +14,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Comments;
 
 use WP_Error;
+use BuddyNext\Moderation\ModerationService;
 
 /**
  * Handles comment CRUD and listing.
@@ -50,6 +51,16 @@ class CommentService {
 
 		if ( '' === $content ) {
 			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ) );
+		}
+
+		// Suspended users are locked out of all content creation (spec 09-moderation:
+		// "Suspend — locked out… cannot post/comment/react"). Gate before any DB write.
+		if ( $this->is_author_suspended( $user_id ) ) {
+			return new WP_Error(
+				'forbidden',
+				__( 'Your account is suspended and cannot post comments.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
 		}
 
 		global $wpdb;
@@ -117,6 +128,33 @@ class CommentService {
 		}
 
 		return $comment_id;
+	}
+
+	/**
+	 * Whether the comment author currently has an active suspension.
+	 *
+	 * Resolves the moderation service from the container when available and
+	 * falls back to a fresh instance otherwise (e.g. unit-test contexts). Any
+	 * failure to resolve the service degrades to "not suspended" so the comment
+	 * path never fatals when moderation is unavailable.
+	 *
+	 * @param int $user_id Commenting user ID.
+	 * @return bool True when the user has an active, unexpired suspension.
+	 */
+	private function is_author_suspended( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		$moderation = function_exists( 'buddynext_service' )
+			? buddynext_service( 'moderation' )
+			: new ModerationService();
+
+		if ( ! $moderation instanceof ModerationService ) {
+			return false;
+		}
+
+		return $moderation->is_suspended( $user_id );
 	}
 
 	/**
