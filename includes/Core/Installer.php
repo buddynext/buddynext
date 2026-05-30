@@ -657,7 +657,7 @@ class Installer {
 				group_id      BIGINT(20) UNSIGNED NOT NULL,
 				field_key     VARCHAR(100) NOT NULL,
 				label         VARCHAR(255) NOT NULL,
-				type          ENUM('text','textarea','url','social','select','multiselect','date','daterange','number','checkbox') NOT NULL DEFAULT 'text',
+				type          VARCHAR(32) NOT NULL DEFAULT 'text',
 				options       JSON DEFAULT NULL,
 				is_required   TINYINT(1) NOT NULL DEFAULT 0,
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
@@ -937,6 +937,27 @@ class Installer {
 
 		if ( is_string( $post_status_enum ) && false === strpos( $post_status_enum, "'scheduled'" ) ) {
 			$wpdb->query( "ALTER TABLE `{$p}bn_posts` MODIFY COLUMN `status` ENUM('published','draft','pending','scheduled','deleted') NOT NULL DEFAULT 'published'" );
+		}
+
+		// ── bn_profile_fields — widen `type` from a restrictive ENUM to VARCHAR ──
+		// The original ENUM only listed a subset of types, so any field of a
+		// type outside it (most core types + every Pro/add-on type registered
+		// via the FieldType engine) was silently coerced to '' by MySQL and
+		// degraded to a plain text input everywhere. A VARCHAR lets the app
+		// layer (FieldType::types()) own the allowed set.
+		$field_type_col = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COLUMN_TYPE
+				   FROM INFORMATION_SCHEMA.COLUMNS
+				  WHERE TABLE_SCHEMA = DATABASE()
+				    AND TABLE_NAME   = %s
+				    AND COLUMN_NAME  = 'type'",
+				"{$p}bn_profile_fields"
+			)
+		);
+
+		if ( is_string( $field_type_col ) && 0 === stripos( $field_type_col, 'enum' ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_profile_fields` MODIFY COLUMN `type` VARCHAR(32) NOT NULL DEFAULT 'text'" );
 		}
 
 		// ── bn_spaces — add Pro-extension columns if missing ─────────────────
