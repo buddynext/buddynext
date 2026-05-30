@@ -165,6 +165,26 @@
 	letter-spacing: 0.06em;
 }
 
+/* Connection-degree pill (1st / 2nd) — matches parts/member-card's
+   .bn-md-card__degree so the byline and directory read consistently. */
+.bn-post-card__degree {
+	font-family: var(--bn-font-mono, var(--bn-font-ui));
+	font-size: 10px;
+	font-weight: var(--bn-fw-semibold, 600);
+	letter-spacing: 0.04em;
+	line-height: 1.2;
+	padding: 2px 6px;
+	border-radius: 999px;
+	color: var(--bn-accent);
+	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
+	border: 1px solid color-mix(in oklch, var(--bn-accent) 28%, transparent);
+}
+.bn-post-card__degree[data-degree="2"] {
+	color: var(--bn-ink-2);
+	background: var(--bn-sunken);
+	border-color: var(--bn-line);
+}
+
 .bn-post-card__meta {
 	display: flex;
 	align-items: center;

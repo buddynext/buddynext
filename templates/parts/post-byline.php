@@ -24,6 +24,7 @@
  * @var string   $avatar_url         Avatar URL.
  * @var string   $initials           Two-letter fallback initials.
  * @var string   $member_type_label  Member-type badge label.
+ * @var int      $degree             Viewer→author connection degree (1=1st, 2=2nd; 0/3+ hidden).
  * @var string   $created_at         UTC MySQL datetime.
  * @var string   $post_time          Already-escaped relative time HTML.
  * @var string   $edited_label       Already-escaped "(edited)" label.
@@ -57,6 +58,7 @@ $args = array(
 	'avatar_url'        => isset( $avatar_url ) ? (string) $avatar_url : '',
 	'initials'          => isset( $initials ) ? (string) $initials : '',
 	'member_type_label' => isset( $member_type_label ) ? (string) $member_type_label : '',
+	'degree'            => isset( $degree ) ? (int) $degree : 0,
 	'created_at'        => isset( $created_at ) ? (string) $created_at : '',
 	'post_time'         => isset( $post_time ) ? (string) $post_time : '',
 	'edited_label'      => isset( $edited_label ) ? (string) $edited_label : '',
@@ -123,6 +125,23 @@ do_action( 'buddynext_part_post_byline_before', $args );
 
 			<?php if ( '' !== (string) $args['member_type_label'] ) : ?>
 				<span class="bn-badge bn-post-card__member-type" data-tone="accent"><?php echo esc_html( (string) $args['member_type_label'] ); ?></span>
+			<?php endif; ?>
+
+			<?php
+			// Connection-degree pill (1st / 2nd) — mirrors parts/member-card +
+			// parts/profile-hero. Only 1st/2nd are surfaced; 3rd+ and "self"
+			// (degree 0) stay quiet so the byline doesn't get noisy.
+			$bn_byline_degree = (int) $args['degree'];
+			if ( 1 === $bn_byline_degree || 2 === $bn_byline_degree ) :
+				$bn_byline_degree_label = 1 === $bn_byline_degree
+					? __( '1st', 'buddynext' )
+					: __( '2nd', 'buddynext' );
+				?>
+				<span
+					class="bn-post-card__degree"
+					data-degree="<?php echo esc_attr( (string) $bn_byline_degree ); ?>"
+					title="<?php echo esc_attr( 1 === $bn_byline_degree ? __( '1st-degree connection', 'buddynext' ) : __( '2nd-degree connection', 'buddynext' ) ); ?>"
+				><?php echo esc_html( $bn_byline_degree_label ); ?></span>
 			<?php endif; ?>
 
 			<?php

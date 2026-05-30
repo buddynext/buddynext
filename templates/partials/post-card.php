@@ -168,6 +168,25 @@ $edited_label = $edited_at ? esc_html__( '(edited)', 'buddynext' ) : '';
 
 // ── Permissions ────────────────────────────────────────────────────────────────
 $is_own_post  = ( $current_user_id > 0 && $current_user_id === $post_author_id );
+
+// ── Connection degree (1st / 2nd) for the byline badge ──────────────────────────
+// Mirrors the degree pill already shipped on parts/profile-hero + parts/member-card.
+// Only computed for other people's posts when the viewer is signed in. Memoized per
+// (viewer:author) for the request so a feed of N cards costs at most one degree
+// lookup per UNIQUE author, not N — the viewer's own connection set is fetched once
+// inside ConnectionService and reused. Same request-cache approach the space
+// attribution below already relies on via SpaceService::get().
+$byline_degree = 0;
+if ( $current_user_id > 0 && ! $is_own_post && $post_author_id > 0 ) {
+	if ( ! isset( $GLOBALS['bn_byline_degree_memo'] ) ) {
+		$GLOBALS['bn_byline_degree_memo'] = array();
+	}
+	$bn_degree_key = $current_user_id . ':' . $post_author_id;
+	if ( ! array_key_exists( $bn_degree_key, $GLOBALS['bn_byline_degree_memo'] ) ) {
+		$GLOBALS['bn_byline_degree_memo'][ $bn_degree_key ] = (int) buddynext_service( 'connections' )->connection_degree( $current_user_id, $post_author_id );
+	}
+	$byline_degree = (int) $GLOBALS['bn_byline_degree_memo'][ $bn_degree_key ];
+}
 $is_admin     = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_options' ) );
 $can_edit     = $is_own_post || $is_admin;
 $can_delete   = $is_own_post || $is_admin;
@@ -381,6 +400,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			'avatar_url'        => $avatar_url,
 			'initials'          => $initials,
 			'member_type_label' => $member_type_label,
+			'degree'            => $byline_degree,
 			'created_at'        => $created_at,
 			'post_time'         => $post_time,
 			'edited_label'      => $edited_label,
