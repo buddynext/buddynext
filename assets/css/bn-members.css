@@ -158,9 +158,30 @@
 }
 
 .bn-md-card__mutual {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 	margin: 0;
+}
+
+/* Overlapping mutual-connection avatar pile (shown before the count). */
+.bn-md-card__mutual-pile {
+	display: inline-flex;
+	flex-shrink: 0;
+	align-items: center;
+}
+.bn-md-card__mutual-pile-avatar {
+	width: 20px;
+	height: 20px;
+	border-radius: var(--bn-r-full, 999px);
+	object-fit: cover;
+	border: 2px solid var(--bn-surface);
+	background: var(--bn-sunken);
+}
+.bn-md-card__mutual-pile-avatar + .bn-md-card__mutual-pile-avatar {
+	margin-inline-start: -8px;
 }
 
 .bn-md-card__type {

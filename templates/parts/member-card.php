@@ -20,6 +20,7 @@
  * @var string         $connection_status  Optional. Raw status (none|pending|accepted) used for Message link. Default 'none'.
  * @var bool           $is_muted           Optional. Whether viewer mutes the member. Default false.
  * @var int            $mutual_count       Optional. Mutual-connection count. Default 0.
+ * @var array          $mutual_avatars     Optional. Up to ~3 mutual descriptors [ 'name', 'avatar_url' ] for the pile. Default [].
  * @var string         $presence           Optional. 'online' or 'offline'. Default 'offline'.
  * @var string         $member_type_label  Optional. Member-type display name. Default ''.
  * @var string         $avatar_tone        Optional. Avatar tone slot. Default 'accent'.
@@ -51,6 +52,7 @@ $args = array(
 	'connection_status' => isset( $connection_status ) ? (string) $connection_status : 'none',
 	'is_muted'          => isset( $is_muted ) ? (bool) $is_muted : false,
 	'mutual_count'      => isset( $mutual_count ) ? (int) $mutual_count : 0,
+	'mutual_avatars'    => isset( $mutual_avatars ) && is_array( $mutual_avatars ) ? $mutual_avatars : array(),
 	'degree'            => isset( $degree ) ? (int) $degree : 0,
 	'presence'          => isset( $presence ) ? (string) $presence : 'offline',
 	'member_type_label' => isset( $member_type_label ) ? (string) $member_type_label : '',
@@ -192,17 +194,48 @@ do_action( 'buddynext_part_member_card_before', $args );
 		<p class="bn-md-card__bio"><?php echo esc_html( wp_trim_words( $bn_bio, 18 ) ); ?></p>
 	<?php endif; ?>
 
-	<?php if ( $bn_mutual > 0 ) : ?>
+	<?php
+	if ( $bn_mutual > 0 ) :
+		$bn_mutual_avatars = array_slice(
+			array_filter( (array) $args['mutual_avatars'], 'is_array' ),
+			0,
+			3
+		);
+		?>
 		<p class="bn-md-card__mutual">
-			<?php
-			echo esc_html(
-				sprintf(
-					/* translators: %d: number of mutual connections */
-					_n( '%d mutual connection', '%d mutual connections', $bn_mutual, 'buddynext' ),
-					$bn_mutual
-				)
-			);
-			?>
+			<?php if ( ! empty( $bn_mutual_avatars ) ) : ?>
+				<span class="bn-md-card__mutual-pile" aria-hidden="true">
+					<?php foreach ( $bn_mutual_avatars as $bn_mu ) : ?>
+						<?php
+						$bn_mu_avatar = isset( $bn_mu['avatar_url'] ) ? (string) $bn_mu['avatar_url'] : '';
+						$bn_mu_name   = isset( $bn_mu['name'] ) ? (string) $bn_mu['name'] : '';
+						if ( '' === $bn_mu_avatar ) {
+							continue;
+						}
+						?>
+						<img
+							class="bn-md-card__mutual-pile-avatar"
+							src="<?php echo esc_url( $bn_mu_avatar ); ?>"
+							alt=""
+							title="<?php echo esc_attr( $bn_mu_name ); ?>"
+							width="20"
+							height="20"
+							loading="lazy"
+						>
+					<?php endforeach; ?>
+				</span>
+			<?php endif; ?>
+			<span class="bn-md-card__mutual-text">
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: %d: number of mutual connections */
+						_n( '%d mutual connection', '%d mutual connections', $bn_mutual, 'buddynext' ),
+						$bn_mutual
+					)
+				);
+				?>
+			</span>
 		</p>
 	<?php endif; ?>
 

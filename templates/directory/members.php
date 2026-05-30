@@ -209,11 +209,11 @@ $bn_initials = static function ( string $name ): string {
 	return mb_strtoupper( mb_substr( $name, 0, 2 ) );
 };
 
-$bn_mutual_count = static function ( int $user_a, int $user_b ): int {
+$bn_mutual_ids = static function ( int $user_a, int $user_b ): array {
 	if ( 0 === $user_a || 0 === $user_b || $user_a === $user_b ) {
-		return 0;
+		return array();
 	}
-	return count( buddynext_service( 'connections' )->mutual_connections( $user_a, $user_b ) );
+	return buddynext_service( 'connections' )->mutual_connections( $user_a, $user_b );
 };
 
 $bn_is_following = static function ( int $target_user_id ) use ( $current_user_id ): bool {
@@ -582,7 +582,7 @@ if ( $current_user_id > 0 ) {
 			'initials_fn'     => $bn_initials,
 			'is_online_fn'    => $bn_is_online,
 			'is_following_fn' => $bn_is_following,
-			'mutual_count_fn' => $bn_mutual_count,
+			'mutual_ids_fn'   => $bn_mutual_ids,
 		)
 	);
 

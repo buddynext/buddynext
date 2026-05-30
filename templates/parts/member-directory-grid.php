@@ -21,7 +21,7 @@
  * @var callable $initials_fn    Required. Helper that returns initials for a display name.
  * @var callable $is_online_fn   Required. Helper that returns bool for a user ID.
  * @var callable $is_following_fn Required. Helper that returns bool for a target user ID.
- * @var callable $mutual_count_fn Required. Helper that returns int mutual count for (viewer, target).
+ * @var callable $mutual_ids_fn  Required. Helper that returns int[] mutual-connection IDs for (viewer, target). Count + avatar pile are both derived from this single call.
  * @var array    $classes        Optional. Extra CSS classes appended to `.bn-md-grid`.
  *
  * Fires:
@@ -47,7 +47,7 @@ $args = array(
 	'initials_fn'     => isset( $initials_fn ) && is_callable( $initials_fn ) ? $initials_fn : null,
 	'is_online_fn'    => isset( $is_online_fn ) && is_callable( $is_online_fn ) ? $is_online_fn : null,
 	'is_following_fn' => isset( $is_following_fn ) && is_callable( $is_following_fn ) ? $is_following_fn : null,
-	'mutual_count_fn' => isset( $mutual_count_fn ) && is_callable( $mutual_count_fn ) ? $mutual_count_fn : null,
+	'mutual_ids_fn'   => isset( $mutual_ids_fn ) && is_callable( $mutual_ids_fn ) ? $mutual_ids_fn : null,
 	'classes'         => isset( $classes ) ? (array) $classes : array(),
 );
 
@@ -79,7 +79,7 @@ $bn_messages_base   = (string) $args['messages_base'];
 $bn_initials_fn     = $args['initials_fn'];
 $bn_is_online_fn    = $args['is_online_fn'];
 $bn_is_following_fn = $args['is_following_fn'];
-$bn_mutual_fn       = $args['mutual_count_fn'];
+$bn_mutual_fn       = $args['mutual_ids_fn'];
 
 if ( null === $bn_initials_fn || null === $bn_is_online_fn || null === $bn_is_following_fn || null === $bn_mutual_fn ) {
 	return;
@@ -105,7 +105,21 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 		$bn_avatar_url    = (string) get_avatar_url( $bn_member_id, array( 'size' => 96 ) );
 		$bn_is_online     = (bool) $bn_is_online_fn( $bn_member_id );
 		$bn_is_following  = (bool) $bn_is_following_fn( $bn_member_id );
-		$bn_mutual        = (int) $bn_mutual_fn( $bn_viewer_id, $bn_member_id );
+		// Single mutual-connections lookup feeds both the count and the
+		// avatar pile — no double query per card.
+		$bn_mutual_ids    = array_values( array_filter( array_map( 'intval', (array) $bn_mutual_fn( $bn_viewer_id, $bn_member_id ) ) ) );
+		$bn_mutual        = count( $bn_mutual_ids );
+		$bn_mutual_avatars = array();
+		foreach ( array_slice( $bn_mutual_ids, 0, 3 ) as $bn_mu_id ) {
+			$bn_mu_user = get_userdata( $bn_mu_id );
+			if ( ! $bn_mu_user ) {
+				continue;
+			}
+			$bn_mutual_avatars[] = array(
+				'name'       => (string) $bn_mu_user->display_name,
+				'avatar_url' => (string) get_avatar_url( $bn_mu_id, array( 'size' => 40 ) ),
+			);
+		}
 		$bn_degree        = $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id
 			? (int) buddynext_service( 'connections' )->connection_degree( $bn_viewer_id, $bn_member_id )
 			: 0;
@@ -144,6 +158,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'connection_status' => null === $bn_conn_status ? 'none' : (string) $bn_conn_status,
 				'is_muted'          => $bn_is_muted,
 				'mutual_count'      => $bn_mutual,
+				'mutual_avatars'    => $bn_mutual_avatars,
 				'degree'            => $bn_degree,
 				'presence'          => $bn_presence_attr,
 				'member_type_label' => $bn_type_label,
