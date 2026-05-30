@@ -429,6 +429,18 @@ class ProfileFieldsManager {
 			$parsed_opts = null;
 		}
 
+		// Merge per-type option config (file MIME, number min/max/unit,
+		// conditional trigger, advanced choices) submitted by Pro field types
+		// under bn_field_options[*]. Merged — not overwritten — so a choice
+		// type's core `options` list and Pro's extra keys coexist.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified via check_admin_referer() above.
+		$pro_opts = $this->sanitize_field_options( isset( $_POST['bn_field_options'] ) ? wp_unslash( $_POST['bn_field_options'] ) : null );
+		if ( null !== $pro_opts ) {
+			$parsed_opts = is_array( $parsed_opts )
+				? array_merge( $parsed_opts, $pro_opts )
+				: $pro_opts;
+		}
+
 		// Auto-generate field_key from label — no technical input required from admins.
 		$field_key = sanitize_key( str_replace( '-', '_', sanitize_title( $label ) ) );
 
@@ -468,6 +480,134 @@ class ProfileFieldsManager {
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * Sanitize the per-type option matrix submitted under bn_field_options[*].
+	 *
+	 * Pro field types (file, number_advanced, conditional, multi_select_advanced,
+	 * etc.) render their config inputs into Free's field-builder form under the
+	 * shared `bn_field_options` array. Each key is sanitized to the kind the
+	 * downstream renderer/validator expects:
+	 *
+	 *   - allowed_mime ............ comma-separated MIME list (text)
+	 *   - max_size_mb ............. positive integer
+	 *   - unit .................... text label
+	 *   - min / max / step ........ numeric (decimals preserved; the inputs use
+	 *                               step="any" and the renderer casts to float)
+	 *   - trigger_field_id ........ positive integer (field row id)
+	 *   - trigger_value ........... text
+	 *   - choices_raw ............. one "value|label" per line → choices array
+	 *
+	 * Unknown keys pass through sanitize_text_field so future Pro types degrade
+	 * gracefully without a Free code change. Returns null when nothing usable was
+	 * submitted so callers can leave the options column untouched.
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param mixed $raw Raw $_POST['bn_field_options'] value (already unslashed).
+	 * @return array<string,mixed>|null Sanitized option map, or null when empty.
+	 */
+	private function sanitize_field_options( $raw ): ?array {
+		if ( ! is_array( $raw ) ) {
+			return null;
+		}
+
+		$out = array();
+
+		foreach ( $raw as $key => $value ) {
+			$key = sanitize_key( (string) $key );
+			if ( '' === $key ) {
+				continue;
+			}
+
+			switch ( $key ) {
+				case 'max_size_mb':
+				case 'trigger_field_id':
+					$int = absint( $value );
+					if ( $int > 0 ) {
+						$out[ $key ] = $int;
+					}
+					break;
+
+				case 'min':
+				case 'max':
+				case 'step':
+					// Numeric; preserve decimals (inputs use step="any"). Blank
+					// means "no constraint" so skip rather than store 0.
+					$num = is_scalar( $value ) ? trim( (string) $value ) : '';
+					if ( '' !== $num && is_numeric( $num ) ) {
+						$out[ $key ] = ( false === strpos( $num, '.' ) )
+							? (int) $num
+							: (float) $num;
+					}
+					break;
+
+				case 'choices_raw':
+					$choices = $this->parse_choice_pairs( is_scalar( $value ) ? (string) $value : '' );
+					if ( null !== $choices ) {
+						$out['choices'] = $choices;
+					}
+					break;
+
+				case 'allowed_mime':
+				case 'unit':
+				case 'trigger_value':
+				default:
+					$clean = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : '';
+					if ( '' !== $clean ) {
+						$out[ $key ] = $clean;
+					}
+					break;
+			}
+		}
+
+		return ! empty( $out ) ? $out : null;
+	}
+
+	/**
+	 * Parse a "value|Label" textarea (one pair per line) into a choices array.
+	 *
+	 * The pipe separator is optional: a bare line uses its value as both the
+	 * stored value and the display label. Matches the shape the multi-select
+	 * renderer and the Pro options editor read back (`options['choices']`).
+	 *
+	 * @since 1.1.0
+	 *
+	 * @param string $raw Raw textarea content.
+	 * @return array<int,array{value:string,label:string}>|null Choices, or null when blank.
+	 */
+	private function parse_choice_pairs( string $raw ): ?array {
+		if ( '' === trim( $raw ) ) {
+			return null;
+		}
+
+		$choices = array();
+		foreach ( explode( "\n", $raw ) as $line ) {
+			$line = trim( $line );
+			if ( '' === $line ) {
+				continue;
+			}
+
+			if ( false !== strpos( $line, '|' ) ) {
+				list( $value, $label ) = array_pad( explode( '|', $line, 2 ), 2, '' );
+			} else {
+				$value = $line;
+				$label = $line;
+			}
+
+			$value = sanitize_text_field( $value );
+			$label = sanitize_text_field( '' !== trim( (string) $label ) ? $label : $value );
+
+			if ( '' !== $value ) {
+				$choices[] = array(
+					'value' => $value,
+					'label' => $label,
+				);
+			}
+		}
+
+		return ! empty( $choices ) ? $choices : null;
 	}
 
 	/**
@@ -720,6 +860,19 @@ class ProfileFieldsManager {
 		} else {
 			$parsed_opts = null;
 		}
+
+		// Merge per-type option config (file MIME, number min/max/unit,
+		// conditional trigger, advanced choices) submitted by Pro field types
+		// under bn_field_options[*]. Merged — not overwritten — so a choice
+		// type's core `options` list and Pro's extra keys coexist.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified via check_admin_referer() above.
+		$pro_opts = $this->sanitize_field_options( isset( $_POST['bn_field_options'] ) ? wp_unslash( $_POST['bn_field_options'] ) : null );
+		if ( null !== $pro_opts ) {
+			$parsed_opts = is_array( $parsed_opts )
+				? array_merge( $parsed_opts, $pro_opts )
+				: $pro_opts;
+		}
+
 		$is_required   = isset( $_POST['is_required'] ) ? 1 : 0;
 		$is_searchable = ( isset( $_POST['is_searchable'] ) && in_array( $type, self::searchable_capable_types(), true ) ) ? 1 : 0;
 
