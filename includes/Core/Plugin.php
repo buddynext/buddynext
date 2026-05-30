@@ -197,6 +197,18 @@ class Plugin {
 		// Wire moderation notification/email handlers and daily cron alert.
 		( new ModerationListener() )->register();
 
+		// Backfill the directory search mirror for all members when an admin
+		// edits a profile field's searchable flag or default visibility, so the
+		// change applies to existing members without waiting for each to re-save.
+		add_action(
+			'buddynext_profile_field_updated',
+			static function ( $field_id ) use ( $container ) {
+				$container->get( 'profiles' )->rebuild_field_mirror( (int) $field_id );
+			},
+			10,
+			1
+		);
+
 		// Wire onboarding nudge scheduling and cron handlers.
 		( new OnboardingListener() )->register();
 

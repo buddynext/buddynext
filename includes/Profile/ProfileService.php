@@ -1391,6 +1391,76 @@ class ProfileService {
 	}
 
 	/**
+	 * Recompute the search mirror for every member who has a value for a field
+	 * after its definition changes (is_searchable toggled, default visibility
+	 * changed). Hooked to buddynext_profile_field_updated so an admin edit
+	 * backfills existing members' mirrors instead of waiting for each to re-save.
+	 *
+	 * Flat fields only — the bn_field_{key} mirror is single-valued per user.
+	 *
+	 * @param int $field_id Edited field ID.
+	 * @return void
+	 */
+	public function rebuild_field_mirror( int $field_id ): void {
+		if ( $field_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$def = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT f.field_key, f.type, f.is_searchable, f.options,
+				        f.visibility AS visibility, g.visibility AS group_visibility, g.type AS group_type
+				 FROM {$wpdb->prefix}bn_profile_fields f
+				 INNER JOIN {$wpdb->prefix}bn_profile_groups g ON g.id = f.group_id
+				 WHERE f.id = %d",
+				$field_id
+			),
+			ARRAY_A
+		);
+
+		if ( ! $def || 'flat' !== $def['group_type'] ) {
+			// Repeater fields have no single-valued mirror; nothing to backfill.
+			wp_cache_delete( 'bn_dir_searchable_mirrors', 'buddynext' );
+			return;
+		}
+
+		$field = array(
+			'field_key'        => (string) $def['field_key'],
+			'type'             => (string) $def['type'],
+			'is_searchable'    => (int) $def['is_searchable'],
+			'options'          => isset( $def['options'] ) ? json_decode( (string) $def['options'], true ) : null,
+			'visibility'       => (string) $def['visibility'],
+			'group_visibility' => (string) $def['group_visibility'],
+		);
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT user_id, value, entry_visibility
+				 FROM {$wpdb->prefix}bn_profile_values
+				 WHERE field_id = %d AND entry_index = 0",
+				$field_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( (array) $rows as $row ) {
+			$this->sync_search_mirror(
+				(int) $row['user_id'],
+				$field,
+				(string) $row['value'],
+				isset( $row['entry_visibility'] ) ? $row['entry_visibility'] : null
+			);
+		}
+
+		// The directory's searchable-mirror key list may have changed.
+		wp_cache_delete( 'bn_dir_searchable_mirrors', 'buddynext' );
+	}
+
+	/**
 	 * Map a stored value to its human-readable mirror representation.
 	 *
 	 * Multi types store comma-joined option slugs; the mirror records the

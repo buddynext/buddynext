@@ -271,6 +271,15 @@ class FieldType {
 	 * @return string Escaped HTML control.
 	 */
 	public static function render_input( array $field, $value, string $name ): string {
+		// Add-on hook: lets Pro / extensions render their own field types (e.g.
+		// location, conditional) registered via buddynext_field_types. Return an
+		// escaped HTML string to take over; null falls through to the core types
+		// (and unknown-without-handler degrades to a text input below).
+		$custom = apply_filters( 'buddynext_field_render_input', null, $field, $value, $name );
+		if ( is_string( $custom ) ) {
+			return $custom;
+		}
+
 		$type     = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
 		$id       = 'bn-field-' . sanitize_html_class( $name );
 		$required = ! empty( $field['is_required'] ) ? ' required' : '';
@@ -489,6 +498,13 @@ class FieldType {
 	 * @return string Escaped HTML (empty string when there is nothing to show).
 	 */
 	public static function render_display( array $field, $value ): string {
+		// Add-on hook: extensions render their own types' display output. Return
+		// an escaped string to take over; null falls through to core types.
+		$custom = apply_filters( 'buddynext_field_render_display', null, $field, $value );
+		if ( is_string( $custom ) ) {
+			return $custom;
+		}
+
 		$type = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
 
 		// Boolean is special: false/empty hides the row entirely.
@@ -633,6 +649,13 @@ class FieldType {
 	 * @return string|WP_Error Storable scalar, or WP_Error on validation failure.
 	 */
 	public static function sanitize( array $field, $raw ) {
+		// Add-on hook: extensions validate/sanitize their own types. Return a
+		// scalar string (or WP_Error) to take over; null falls through to core.
+		$custom = apply_filters( 'buddynext_field_sanitize', null, $field, $raw );
+		if ( null !== $custom ) {
+			return $custom;
+		}
+
 		$type  = self::resolve_type( isset( $field['type'] ) ? (string) $field['type'] : 'text' );
 		$label = isset( $field['label'] ) ? (string) $field['label'] : ( isset( $field['field_key'] ) ? (string) $field['field_key'] : '' );
 

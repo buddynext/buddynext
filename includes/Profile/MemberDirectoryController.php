@@ -137,6 +137,10 @@ class MemberDirectoryController {
 			$filters['connection_status'] = 'connections';
 		}
 
+		if ( '' !== $type_slug ) {
+			$filters['member_type'] = $type_slug;
+		}
+
 		$directory = buddynext_service( 'member_directory' );
 
 		$page = $directory->list_members( $viewer_id, '' === $cursor ? null : $cursor, $per_page, $filters );
@@ -155,17 +159,8 @@ class MemberDirectoryController {
 			);
 		}
 
-		// Member-type post-filter (denormalised meta).
-		if ( '' !== $type_slug ) {
-			$page['items'] = array_values(
-				array_filter(
-					(array) $page['items'],
-					static function ( $row ) use ( $type_slug ) {
-						return (string) get_user_meta( (int) $row['user_id'], 'bn_member_type', true ) === $type_slug;
-					}
-				)
-			);
-		}
+		// Member-type filtering is applied inside list_members() (via the
+		// bn_member_type usermeta) so pagination and totals stay correct.
 
 		$items = array_map(
 			fn( $row ) => $this->shape_item( $row, $viewer_id ),

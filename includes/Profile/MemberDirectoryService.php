@@ -60,6 +60,7 @@ class MemberDirectoryService {
 		// Normalise filter values.
 		$search            = isset( $filters['search'] ) ? trim( (string) $filters['search'] ) : '';
 		$location          = isset( $filters['location'] ) ? trim( (string) $filters['location'] ) : '';
+		$member_type       = isset( $filters['member_type'] ) ? sanitize_key( (string) $filters['member_type'] ) : '';
 		$space_id          = isset( $filters['space_id'] ) ? (int) $filters['space_id'] : 0;
 		$connection_status = isset( $filters['connection_status'] ) ? (string) $filters['connection_status'] : 'everyone';
 		$online_only       = ! empty( $filters['online_only'] );
@@ -211,6 +212,13 @@ class MemberDirectoryService {
 		if ( '' !== $location ) {
 			$where_clauses[] = 'um_loc.meta_value LIKE %s';
 			$params[]        = '%' . $wpdb->esc_like( $location ) . '%';
+		}
+
+		if ( '' !== $member_type ) {
+			// Filter by the bn_member_type write-through usermeta (the fast-read
+			// cache MemberTypeService maintains on every assign).
+			$where_clauses[] = "EXISTS ( SELECT 1 FROM {$wpdb->usermeta} um_mtype WHERE um_mtype.user_id = u.ID AND um_mtype.meta_key = 'bn_member_type' AND um_mtype.meta_value = %s )";
+			$params[]        = $member_type;
 		}
 
 		if ( $online_only ) {
