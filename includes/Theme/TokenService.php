@@ -174,12 +174,46 @@ class TokenService {
 	 * @return array<string, string>
 	 */
 	public function get_dark_overrides(): array {
-		// Dark-mode token shifts live in assets/css/bn-base.css under the
-		// shared [data-bn-theme="dark"], [data-theme="dark"] selector. Every
-		// legacy alias (--bg, --text-1, --brand, ...) re-resolves through
-		// the v2 --bn-* sources, so no per-token dark override is needed
-		// here. Filter via buddynext_css_vars_dark to add bespoke shifts.
-		return array();
+		// The v2 --bn-* sources flip to dark in assets/css/bn-base.css under
+		// [data-theme="dark"]. The legacy aliases, however, bridge through
+		// `var(--wp--preset--color--*, var(--bn-*))` so that a host block
+		// theme's palette wins in light mode. That bridge is the problem in
+		// dark mode: when the host theme DOES define a preset (Astra and most
+		// block themes define --wp--preset--color--base etc.), the preset —
+		// a static LIGHT colour — resolves first and the dark --bn-* fallback
+		// is never reached. The result is white cards with near-white text.
+		//
+		// Under dark mode BuddyNext owns the palette (consistent with the
+		// "BuddyNext is the boss" takeover below), so re-pin every
+		// preset-bridged alias straight at its already-dark --bn-* source,
+		// dropping the light preset out of the chain. Aliases that don't
+		// bridge to a preset (--border-soft, spacing, radius, type) already
+		// re-resolve correctly and are intentionally omitted.
+		return array(
+			// Backgrounds + surfaces.
+			'--bg'          => 'var(--bn-canvas)',
+			'--bg-subtle'   => 'var(--bn-sunken)',
+			'--bg-hover'    => 'var(--bn-sunken)',
+			'--surface'     => 'var(--bn-surface)',
+
+			// Borders.
+			'--border'      => 'var(--bn-line)',
+
+			// Text.
+			'--text-1'      => 'var(--bn-ink)',
+			'--text-2'      => 'var(--bn-ink-2)',
+			'--text-3'      => 'var(--bn-ink-3)',
+
+			// Brand.
+			'--brand'       => 'var(--bn-accent)',
+			'--brand-hover' => 'var(--bn-accent-700)',
+			'--brand-light' => 'var(--bn-accent-100)',
+
+			// Semantic.
+			'--green'       => 'var(--bn-success)',
+			'--amber'       => 'var(--bn-warn)',
+			'--red'         => 'var(--bn-danger)',
+		);
 	}
 
 	/**
@@ -319,8 +353,13 @@ class TokenService {
 		$takeover .= "\t.jt-app *, body.mvs-page * { animation: none !important; }\n";
 		$takeover .= "}\n";
 
+		// Dark overrides apply under BOTH the v2-canonical [data-bn-theme="dark"]
+		// and the legacy [data-theme="dark"] selectors — the same pair the
+		// --bn-* dark shifts use in assets/css/bn-base.css. Keeping the
+		// selectors in lock-step is what guarantees the legacy aliases re-pin
+		// to dark whenever the --bn-* sources do.
 		return sprintf(
-			":root {\n%s}\n\n[data-theme=\"dark\"] {\n%s}\n\n/* BuddyNext style-guide takeover */\n%s",
+			":root {\n%s}\n\n[data-bn-theme=\"dark\"],\n[data-theme=\"dark\"] {\n%s}\n\n/* BuddyNext style-guide takeover */\n%s",
 			$root_declarations,
 			$dark_declarations,
 			$takeover
