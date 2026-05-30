@@ -72,7 +72,7 @@ The refactor did **not** introduce drift — it preserved current state byte-ide
 | Pinned post inside Feed tab: `READ FIRST · WELCOME THREAD` pill + title + body + meta | Composer at top instead — no pinned post in screenshot scope | Pinned-post slot rendering present in code, just no pinned content here |
 | Right sidebar — `🔴 LIVE · VOICE ROOM` widget: `Friday office hours · 5 talking · 12 listening · Sarah is hosting` + Join button + avatar pile | (none) | Live voice-room widget not built |
 | Right sidebar — `About this space` description card with stats: `2,418 members · 84 posts/wk · 3 mods` | `ABOUT THIS SPACE` card with `3 MEMBERS · 0 POSTS` + creation date | Lighter version of same widget |
-| Right sidebar — `Moderators` with profile + role + Message button per row | `MEMBERS` widget with Admin badge per row | Moderators widget specifically is missing — the live widget shows all members |
+| Right sidebar — `Moderators` with profile + role + Message button per row | Dedicated `Moderators` card (owner/mod, role badge, profile link, Message when DMs available) + a separate `Members` card for regulars | ✅ SHIPPED 2026-05-30 — `templates/spaces/home.php` splits the role-ordered sidebar preview into a Moderators card and a regulars-only Members card (no extra query). Message action is gated on the WPMediaVerse signal. Verified light + dark. |
 | Right sidebar — `Library All 38` link | (none) | Library widget not built |
 
 ### 5. Notifications (`/notifications/`)

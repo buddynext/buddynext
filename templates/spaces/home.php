@@ -380,12 +380,97 @@ add_action(
 			)
 		);
 
-		// Card 2: Members preview.
-		if ( ! empty( $bn_s['sidebar_members'] ) ) {
+		// Split the role-ordered preview into moderators (owner + moderator)
+			// and regular members so the two cards complement each other
+			// instead of repeating mods. owner/moderator always lead the
+			// LIMIT-10 set, so this needs no extra query.
+			$bn_side_all = (array) $bn_s['sidebar_members'];
+			$bn_mods     = array_values(
+				array_filter(
+					$bn_side_all,
+					static function ( $m ) {
+						return in_array( $m->role ?? '', array( 'owner', 'moderator' ), true );
+					}
+				)
+			);
+			$bn_regulars = array_values(
+				array_filter(
+					$bn_side_all,
+					static function ( $m ) {
+						return 'member' === ( $m->role ?? '' );
+					}
+				)
+			);
+
+			// Card 2: Moderators. DMs are owned by WPMediaVerse, so only offer
+			// the Message action when that dependency is present (same signal
+			// the messages hub uses); otherwise the row links to the profile.
+			if ( ! empty( $bn_mods ) ) {
+				$bn_msgs_on = (
+					class_exists( 'WPMediaVerse\\Core\\Plugin' )
+					|| defined( 'MVS_VERSION' )
+					|| has_action( 'buddynext_render_messages' )
+				);
+				ob_start();
+				?>
+				<ul class="bn-sh-side-members">
+					<?php foreach ( $bn_mods as $bn_mod ) : ?>
+						<?php
+						$bn_mod_uid   = (int) $bn_mod->user_id;
+						$bn_mod_name  = $bn_mod->display_name ?? __( 'Member', 'buddynext' );
+						$bn_mod_init  = bn_sh_initials( $bn_mod_name );
+						$bn_mod_url   = \BuddyNext\Core\PageRouter::profile_url( $bn_mod_uid );
+						$bn_mod_owner = 'owner' === $bn_mod->role;
+						?>
+						<li class="bn-sh-side-member bn-sh-side-mod">
+							<a class="bn-sh-side-mod__id" href="<?php echo esc_url( $bn_mod_url ); ?>">
+								<span class="bn-avatar bn-sh-side-member__avatar"
+									data-size="sm"
+									style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_mod_uid ) ); ?>;color:#fff;"
+									aria-hidden="true"
+								><?php echo esc_html( $bn_mod_init ); ?></span>
+								<span class="bn-sh-side-member__name">
+									<?php echo esc_html( $bn_mod_name ); ?>
+									<span class="bn-badge" data-tone="<?php echo $bn_mod_owner ? 'paid' : 'accent'; ?>">
+										<?php echo $bn_mod_owner ? esc_html__( 'Admin', 'buddynext' ) : esc_html__( 'Mod', 'buddynext' ); ?>
+									</span>
+								</span>
+							</a>
+							<?php if ( $bn_msgs_on ) : ?>
+								<a
+									class="bn-btn bn-btn--sm bn-btn--ghost bn-sh-side-mod__msg"
+									href="<?php echo esc_url( add_query_arg( 'recipient', $bn_mod_uid, home_url( '/messages/' ) ) ); ?>"
+									aria-label="
+									<?php
+									/* translators: %s: moderator display name */
+									echo esc_attr( sprintf( __( 'Message %s', 'buddynext' ), $bn_mod_name ) );
+									?>
+									"
+								><?php buddynext_icon( 'mail' ); ?></a>
+							<?php endif; ?>
+						</li>
+					<?php endforeach; ?>
+				</ul>
+				<?php
+				$bn_mods_html = (string) ob_get_clean();
+
+				buddynext_get_template(
+					'parts/sidebar-card.php',
+					array(
+						'id'         => 'space-moderators',
+						'title'      => _n( 'Moderator', 'Moderators', count( $bn_mods ), 'buddynext' ),
+						'title_icon' => 'shield',
+						'body_html'  => $bn_mods_html,
+					)
+				);
+			}
+
+			// Card 3: Members preview (regular members only — mods sit in the card above).
+		if ( ! empty( $bn_regulars ) ) {
 			ob_start();
 			?>
 			<ul class="bn-sh-side-members">
-				<?php foreach ( $bn_s['sidebar_members'] as $bn_m ) : ?>
+				<?php foreach ( $bn_regulars as $bn_m ) : ?>
 					<?php
 					$bn_uid   = (int) $bn_m->user_id;
 					$bn_mname = $bn_m->display_name ?? __( 'Member', 'buddynext' );
@@ -399,11 +484,6 @@ add_action(
 						><?php echo esc_html( $bn_init ); ?></span>
 						<span class="bn-sh-side-member__name">
 							<?php echo esc_html( $bn_mname ); ?>
-							<?php if ( 'owner' === $bn_m->role ) : ?>
-								<span class="bn-badge" data-tone="paid"><?php esc_html_e( 'Admin', 'buddynext' ); ?></span>
-							<?php elseif ( 'moderator' === $bn_m->role ) : ?>
-								<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Mod', 'buddynext' ); ?></span>
-							<?php endif; ?>
 						</span>
 					</li>
 				<?php endforeach; ?>

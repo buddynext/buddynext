@@ -770,6 +770,32 @@
 	font-size: var(--bn-text-sm);
 }
 
+/* Moderator row — clickable identity that fills the row, with an optional
+   trailing Message action pushed to the end. */
+.bn-sh-side-mod {
+	gap: var(--bn-s2);
+}
+.bn-sh-side-mod__id {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	flex: 1;
+	min-width: 0;
+	text-decoration: none;
+	color: inherit;
+}
+.bn-sh-side-mod__id:hover .bn-sh-side-member__name { color: var(--bn-accent); }
+.bn-sh-side-mod__msg {
+	flex-shrink: 0;
+	padding: 4px;
+	width: 28px;
+	height: 28px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+.bn-sh-side-mod__msg svg { width: 15px; height: 15px; }
+
 .bn-sh-side-member__avatar {
 	flex-shrink: 0;
 	color: #fff;
