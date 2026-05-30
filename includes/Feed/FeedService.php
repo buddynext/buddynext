@@ -101,6 +101,55 @@ class FeedService {
 	}
 
 	/**
+	 * Build a viewer-scoped SQL fragment excluding blocked + muted authors.
+	 *
+	 * Per docs/specs/features/01-social-graph.md the home and explore feeds must
+	 * suppress posts from authors the viewer has a block or mute relationship with:
+	 *  - Block: bidirectional hard stop — exclude authors the viewer blocked AND
+	 *    authors who blocked the viewer (mirrors MemberDirectoryService bidirectional
+	 *    block exclusion).
+	 *  - Mute:  one-directional soft hide — exclude only authors the viewer muted;
+	 *    the muted user is unaffected and never told.
+	 *
+	 * Returns a [SQL, params] pair. The fragment is prefixed with AND so it can be
+	 * appended directly to an existing WHERE clause, and uses a single NOT IN
+	 * subquery against bn_blocks (no PHP-side ID array, no N+1). Returns an empty
+	 * fragment for logged-out viewers (no relationship to resolve) and when the
+	 * bn_blocks table is absent, so the feed degrades gracefully.
+	 *
+	 * @param int $viewer_id Viewing user ID (0 = anonymous).
+	 * @return array{0:string,1:array<int>} SQL fragment + ordered params.
+	 */
+	private function viewer_block_mute_where( int $viewer_id ): array {
+		global $wpdb;
+
+		if ( $viewer_id <= 0 ) {
+			return array( '', array() );
+		}
+
+		// Guard: degrade gracefully if the block table has not been installed yet
+		// (fresh install / isolation harness) rather than emitting a SQL error.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		$table_exists = $wpdb->get_var(
+			$wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->prefix . 'bn_blocks' )
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		if ( null === $table_exists ) {
+			return array( '', array() );
+		}
+
+		$sql = "AND user_id NOT IN (
+				    SELECT blocked_id FROM {$wpdb->prefix}bn_blocks
+				    WHERE blocker_id = %d AND type IN ('block','mute')
+				    UNION
+				    SELECT blocker_id FROM {$wpdb->prefix}bn_blocks
+				    WHERE blocked_id = %d AND type = 'block'
+				  )";
+
+		return array( $sql, array( $viewer_id, $viewer_id ) );
+	}
+
+	/**
 	 * Allowed home-feed filter slugs.
 	 *
 	 * @var string[]
@@ -154,6 +203,8 @@ class FeedService {
 		$per_page       = min( $per_page, 50 );
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
+
+		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
 
 		/**
 		 * Filter the query args before SQL is built for the home feed.
@@ -214,10 +265,11 @@ class FeedService {
 			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
 			   AND ({$source_where})
 			   {$excluded_where}
+			   {$block_mute_where}
 			   {$cursor_where}
 			 ORDER BY {$order_by}
 			 LIMIT %d",
-			...array_merge( $source_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( $source_params, $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -378,7 +430,10 @@ class FeedService {
 		}
 
 		$excluded_where = $this->excluded_users_where();
-		$map            = array(
+
+		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
+
+		$map = array(
 			'for_you'   => 'for-you',
 			'following' => 'following',
 			'spaces'    => 'spaces',
@@ -396,8 +451,9 @@ class FeedService {
 					   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
 					   AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
 					   AND ({$source_where})
-					   {$excluded_where}", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-					...$source_params
+					   {$excluded_where}
+					   {$block_mute_where}", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+					...array_merge( $source_params, $block_mute_params )
 				)
 			);
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
@@ -765,6 +821,9 @@ class FeedService {
 		$per_page       = min( $per_page, 50 );
 		$cursor_where   = $this->cursor_where( $cursor );
 		$excluded_where = $this->excluded_users_where();
+		$viewer_id      = get_current_user_id();
+
+		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
 
 		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
@@ -773,10 +832,11 @@ class FeedService {
 			 WHERE privacy = 'public'
 			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
 			   {$excluded_where}
+			   {$block_mute_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",
-			...array_merge( $this->cursor_params( $cursor ), array( $per_page + 1 ) )
+			...array_merge( $block_mute_params, $this->cursor_params( $cursor ), array( $per_page + 1 ) )
 		);
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
@@ -785,8 +845,7 @@ class FeedService {
 		$rows = $wpdb->get_results( $sql, ARRAY_A );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
-		$result    = $this->paginate( (array) $rows, $per_page );
-		$viewer_id = get_current_user_id();
+		$result = $this->paginate( (array) $rows, $per_page );
 
 		/**
 		 * Fire an impression event for each post shown in the explore feed.
