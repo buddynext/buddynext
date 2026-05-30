@@ -18,6 +18,8 @@
  *   int  $user_id        ID of the user to follow / unfollow.
  *   bool $private_follow Optional. When true, the click action transitions to
  *                       `pending` instead of `following`. Defaults to false.
+ *   bool $known_following Optional. Precomputed follow state from the caller;
+ *                       set it to skip the per-render is_following() query.
  *
  * @package BuddyNext
  * @since   1.0.0
@@ -44,7 +46,9 @@ if ( buddynext_service( 'blocks' )->is_blocking_either( $viewer_id, $user_id ) )
 
 $follows        = buddynext_service( 'follows' );
 $private_follow = isset( $private_follow ) ? (bool) $private_follow : $follows->is_private_account( $user_id );
-$is_following   = $follows->is_following( $viewer_id, $user_id );
+// Callers that already know the follow state (e.g. a feed loop that resolved
+// it per-author) can pass $known_following to skip the per-render query.
+$is_following   = isset( $known_following ) ? (bool) $known_following : $follows->is_following( $viewer_id, $user_id );
 $is_pending     = ! $is_following && $follows->has_pending_request( $viewer_id, $user_id );
 
 // Build the WP Interactivity API context object (esc_attr-escaped JSON string).

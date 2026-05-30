@@ -25,6 +25,7 @@
  * @var string   $initials           Two-letter fallback initials.
  * @var string   $member_type_label  Member-type badge label.
  * @var int      $degree             Viewer→author connection degree (1=1st, 2=2nd; 0/3+ hidden).
+ * @var bool     $show_follow        When true, render an inline Follow button (caller gates on not-already-following).
  * @var string   $created_at         UTC MySQL datetime.
  * @var string   $post_time          Already-escaped relative time HTML.
  * @var string   $edited_label       Already-escaped "(edited)" label.
@@ -59,6 +60,7 @@ $args = array(
 	'initials'          => isset( $initials ) ? (string) $initials : '',
 	'member_type_label' => isset( $member_type_label ) ? (string) $member_type_label : '',
 	'degree'            => isset( $degree ) ? (int) $degree : 0,
+	'show_follow'       => isset( $show_follow ) ? (bool) $show_follow : false,
 	'created_at'        => isset( $created_at ) ? (string) $created_at : '',
 	'post_time'         => isset( $post_time ) ? (string) $post_time : '',
 	'edited_label'      => isset( $edited_label ) ? (string) $edited_label : '',
@@ -206,6 +208,27 @@ do_action( 'buddynext_part_post_byline_before', $args );
 			<?php endif; ?>
 		</div>
 	</div>
+
+	<?php
+	// Inline Follow — caller passes show_follow=true only for authors the
+	// viewer does not already follow. The partial self-guards self / guest /
+	// blocked and receives the known state to avoid a re-query.
+	if ( ! empty( $args['show_follow'] ) && (int) $args['author_id'] > 0 ) :
+		?>
+		<div class="bn-post-card__follow">
+			<?php
+			buddynext_get_template(
+				'partials/follow-button.php',
+				array(
+					'user_id'         => (int) $args['author_id'],
+					'known_following' => false,
+				)
+			);
+			?>
+		</div>
+		<?php
+	endif;
+	?>
 
 	<?php buddynext_get_template( 'parts/post-options-menu.php', (array) $args['options_menu_args'] ); ?>
 </header>

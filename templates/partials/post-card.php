@@ -187,6 +187,32 @@ if ( $current_user_id > 0 && ! $is_own_post && $post_author_id > 0 ) {
 	}
 	$byline_degree = (int) $GLOBALS['bn_byline_degree_memo'][ $bn_degree_key ];
 }
+
+// ── Inline byline Follow ────────────────────────────────────────────────────
+// Surface a Follow button on the byline ONLY for authors the viewer does not
+// already follow — so a follow-based home feed isn't cluttered with
+// "Following" buttons, while explore / discovery surfaces stay actionable
+// (matches the v2 prototype, which shows Follow only on unfollowed authors).
+// is_following is memoized per author for the request; the resolved state is
+// handed to the follow-button partial via known_following so it never
+// re-queries. Filterable so a site can suppress byline follow entirely.
+$byline_show_follow = false;
+if (
+	$current_user_id > 0
+	&& ! $is_own_post
+	&& $post_author_id > 0
+	&& (bool) apply_filters( 'buddynext_byline_show_follow', true, $post_author_id, $bn_post_id )
+) {
+	if ( ! isset( $GLOBALS['bn_byline_follow_memo'] ) ) {
+		$GLOBALS['bn_byline_follow_memo'] = array();
+	}
+	$bn_follow_key = $current_user_id . ':' . $post_author_id;
+	if ( ! array_key_exists( $bn_follow_key, $GLOBALS['bn_byline_follow_memo'] ) ) {
+		$GLOBALS['bn_byline_follow_memo'][ $bn_follow_key ] = (bool) buddynext_service( 'follows' )->is_following( $current_user_id, $post_author_id );
+	}
+	// Show the button only when NOT already following.
+	$byline_show_follow = ! $GLOBALS['bn_byline_follow_memo'][ $bn_follow_key ];
+}
 $is_admin     = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_options' ) );
 $can_edit     = $is_own_post || $is_admin;
 $can_delete   = $is_own_post || $is_admin;
@@ -401,6 +427,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			'initials'          => $initials,
 			'member_type_label' => $member_type_label,
 			'degree'            => $byline_degree,
+			'show_follow'       => $byline_show_follow,
 			'created_at'        => $created_at,
 			'post_time'         => $post_time,
 			'edited_label'      => $edited_label,

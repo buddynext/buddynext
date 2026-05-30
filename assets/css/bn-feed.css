@@ -141,6 +141,15 @@
 	min-width: 0;
 }
 
+/* Inline byline Follow — sits between the author block and the kebab; the
+   author block's flex:1 pushes it to the right edge. Fixed-shrink so it
+   never collapses the byline. */
+.bn-post-card__follow {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+}
+
 .bn-post-card__author {
 	display: flex;
 	align-items: center;
