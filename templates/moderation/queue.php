@@ -248,8 +248,6 @@ $initials = static function ( string $name ): string {
 	return strtoupper( mb_substr( $name, 0, 2 ) );
 };
 
-$mod_nonce = wp_create_nonce( 'bn_moderation_action' );
-
 /**
  * Fires before the moderation queue inner content.
  */
@@ -258,7 +256,7 @@ do_action( 'buddynext_moderation_queue_before' );
 
 <div class="bn-mod-shell"
 	data-wp-interactive="buddynext/moderation"
-	data-wp-context='{"nonce":"<?php echo esc_attr( $mod_nonce ); ?>","restBase":"<?php echo esc_attr( rest_url( 'buddynext/v1/moderation' ) ); ?>"}'>
+	data-wp-context='{"restNonce":"<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>","restUrl":"<?php echo esc_attr( rest_url( 'buddynext/v1/' ) ); ?>"}'>
 
 	<!-- Page header -->
 	<header class="bn-mod-header">
@@ -440,6 +438,16 @@ do_action( 'buddynext_moderation_queue_before' );
 				}
 				$offender_inits = $initials( $offender_name );
 
+				// Offender user ID for user-level actions (warn / strike / suspend).
+				// user reports → the reported user; post/comment → content author.
+				if ( 'user' === $obj_type ) {
+					$offender_id = $obj_id;
+				} elseif ( isset( $post_excerpts[ $obj_id ]['author_id'] ) ) {
+					$offender_id = (int) $post_excerpts[ $obj_id ]['author_id'];
+				} else {
+					$offender_id = 0;
+				}
+
 				// Verb describing what was reported.
 				$verb_map = array(
 					'post'    => __( 'posted content', 'buddynext' ),
@@ -476,6 +484,7 @@ do_action( 'buddynext_moderation_queue_before' );
 					role="listitem"
 					data-severity="<?php echo esc_attr( $severity ); ?>"
 					data-report-id="<?php echo esc_attr( (string) $report_id ); ?>"
+					data-wp-context='{"reportId":<?php echo (int) $report_id; ?>,"userId":<?php echo (int) $offender_id; ?>}'
 					aria-label="<?php echo esc_attr( sprintf( /* translators: %s: offender name. */ __( 'Report against %s', 'buddynext' ), $offender_name ) ); ?>">
 
 					<div class="bn-report-row__avatar">
@@ -696,45 +705,13 @@ do_action( 'buddynext_moderation_queue_before' );
 		</div>
 	<?php endif; ?>
 
-	<!-- Destructive-action confirm shell — populated by the Interactivity store. -->
-	<div class="bn-modal-backdrop"
-		data-wp-bind--hidden="!state.confirmOpen"
-		hidden
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="bn-mod-confirm-title">
-		<div class="bn-modal__panel" data-tone="danger" data-size="sm">
-			<header class="bn-modal__head">
-				<h2 id="bn-mod-confirm-title" class="bn-modal__title" data-wp-text="state.confirmTitle">
-					<?php esc_html_e( 'Confirm action', 'buddynext' ); ?>
-				</h2>
-				<button type="button"
-					class="bn-modal__close"
-					data-wp-on--click="actions.closeConfirm"
-					aria-label="<?php esc_attr_e( 'Close dialog', 'buddynext' ); ?>">
-					<?php buddynext_icon( 'x' ); ?>
-				</button>
-			</header>
-			<div class="bn-modal__body" data-wp-text="state.confirmBody">
-				<?php esc_html_e( 'This action cannot be undone.', 'buddynext' ); ?>
-			</div>
-			<footer class="bn-modal__foot">
-				<button type="button"
-					class="bn-btn"
-					data-variant="ghost"
-					data-size="sm"
-					data-wp-on--click="actions.closeConfirm">
-					<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
-				</button>
-				<button type="button"
-					class="bn-btn"
-					data-variant="danger"
-					data-size="sm"
-					data-wp-on--click="actions.confirmAction">
-					<span data-wp-text="state.confirmLabel"><?php esc_html_e( 'Confirm', 'buddynext' ); ?></span>
-				</button>
-			</footer>
-		</div>
-	</div>
+	<?php
+	// Destructive-action confirmation is handled by the shared shell helper
+	// bnConfirm() (assets/js/shell/dialog.js), invoked from the moderation
+	// store's removeContent / suspendUser actions. No state-bound confirm
+	// modal is rendered here — a stale one used to live in this slot bound to
+	// state.confirmTitle / actions.confirmAction that the store never
+	// implemented, which produced an empty, unusable dialog.
+	?>
 
 </div>

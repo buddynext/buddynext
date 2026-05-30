@@ -4,7 +4,7 @@
  * space-level moderation panel (spaces/moderation.php).
  */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnConfirm } from '../shell/dialog.js';
+import { bnConfirm, bnToast } from '../shell/dialog.js';
 
 store( 'buddynext/moderation', {
 	actions: {
@@ -34,63 +34,80 @@ store( 'buddynext/moderation', {
 			const ctx = getContext();
 			if ( ! ctx.reportId || ! ctx.restNonce ) { return; }
 			try {
-				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId, {
-					method: 'PUT',
+				// Real route: POST /reports/{id}/dismiss (no body).
+				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId + '/dismiss', {
+					method: 'POST',
 					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { action: 'dismiss' } ),
 				} );
 				if ( res.ok ) {
 					const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
 					if ( row ) { row.remove(); }
+				} else {
+					bnToast( 'Could not dismiss the report. Try again.', { tone: 'danger' } );
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				bnToast( 'Could not dismiss the report. Try again.', { tone: 'danger' } );
+			}
 		},
 
 		* removeContent() {
 			const ctx = getContext();
 			if ( ! ctx.reportId || ! ctx.restNonce ) { return; }
 			const ok = yield bnConfirm( {
-				title: 'Remove this content?',
-				body: 'The reported item will be removed from public view.',
-				confirmLabel: 'Remove',
+				title: 'Resolve and action this report?',
+				body: 'The report will be marked resolved. Use Suspend (with content hidden) for a full takedown.',
+				confirmLabel: 'Resolve',
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
 			try {
-				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId, {
+				// Real route: PUT /reports/{id}/resolve (no body).
+				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId + '/resolve', {
 					method: 'PUT',
 					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { action: 'remove' } ),
 				} );
 				if ( res.ok ) {
 					const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
 					if ( row ) { row.remove(); }
+				} else {
+					bnToast( 'Could not resolve the report. Try again.', { tone: 'danger' } );
 				}
-			} catch ( _e ) {}
+			} catch ( _e ) {
+				bnToast( 'Could not resolve the report. Try again.', { tone: 'danger' } );
+			}
 		},
 
 		* warnUser() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
 			try {
-				yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/warn', {
+				// No dedicated /warn endpoint yet — record the warning through the
+				// strikes log with a "warning" reason so it is at least auditable.
+				const res = yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/strikes', {
 					method: 'POST',
 					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { message: 'Content policy violation' } ),
+					body: JSON.stringify( { reason: 'Warning: content policy reminder' } ),
 				} );
-			} catch ( _e ) {}
+				bnToast( res.ok ? 'Warning recorded.' : 'Could not warn the user.', { tone: res.ok ? 'success' : 'danger' } );
+			} catch ( _e ) {
+				bnToast( 'Could not warn the user.', { tone: 'danger' } );
+			}
 		},
 
 		* strikeUser() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
 			try {
-				yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/warn', {
+				// Real route: POST /users/{id}/strikes { reason }.
+				const res = yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/strikes', {
 					method: 'POST',
 					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { message: 'Strike issued', strike: true } ),
+					body: JSON.stringify( { reason: 'Strike issued for reported content' } ),
 				} );
-			} catch ( _e ) {}
+				bnToast( res.ok ? 'Strike issued.' : 'Could not issue a strike.', { tone: res.ok ? 'success' : 'danger' } );
+			} catch ( _e ) {
+				bnToast( 'Could not issue a strike.', { tone: 'danger' } );
+			}
 		},
 
 		* suspendUser() {
@@ -98,18 +115,22 @@ store( 'buddynext/moderation', {
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
 			const ok = yield bnConfirm( {
 				title: 'Suspend this user?',
-				body: 'They will be unable to post or interact for 7 days.',
+				body: 'They will be unable to post or interact for 7 days, and their posts will be hidden.',
 				confirmLabel: 'Suspend',
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
 			try {
-				yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/suspend', {
+				// Real route: POST /users/{id}/suspend { reason, duration_days, hide_posts }.
+				const res = yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/suspend', {
 					method: 'POST',
 					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { reason: 'Moderation action', duration_days: 7 } ),
+					body: JSON.stringify( { reason: 'Moderation action', duration_days: 7, hide_posts: true } ),
 				} );
-			} catch ( _e ) {}
+				bnToast( res.ok ? 'User suspended for 7 days.' : 'Could not suspend the user.', { tone: res.ok ? 'success' : 'danger' } );
+			} catch ( _e ) {
+				bnToast( 'Could not suspend the user.', { tone: 'danger' } );
+			}
 		},
 
 		/* ── Space moderation actions ──────────────────────────────── */
