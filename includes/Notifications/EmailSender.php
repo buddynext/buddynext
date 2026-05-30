@@ -103,11 +103,23 @@ class EmailSender {
 	 */
 	public function send_now( int $user_id, string $notification_type, array $data ): void {
 		$template = $this->get_template( $notification_type );
-		if ( null === $template ) {
+
+		// Composed-email path: campaign and drip-step senders author the subject
+		// and body per message and pass them in $data. These are first-class
+		// emails — the authored content IS the email — so they do not require a
+		// seeded bn_email_templates row. Event emails (e.g. bn.new_follower)
+		// continue to render from their template row as before.
+		$inline_subject = isset( $data['subject'] ) ? (string) $data['subject'] : '';
+		$inline_body    = isset( $data['body_html'] ) ? (string) $data['body_html'] : '';
+		$has_inline     = '' !== $inline_subject && '' !== $inline_body;
+
+		if ( null === $template && ! $has_inline ) {
 			return;
 		}
 
-		if ( ! (bool) $template->enabled ) {
+		// A disabled template row suppresses its own event emails, but never a
+		// composed campaign/drip email that carries its own authored content.
+		if ( null !== $template && ! $has_inline && ! (bool) $template->enabled ) {
 			return;
 		}
 
@@ -116,8 +128,11 @@ class EmailSender {
 			return;
 		}
 
-		$subject = $this->render( (string) $template->subject, $user_id, $data );
-		$body    = $this->render( (string) $template->body_html, $user_id, $data );
+		$subject_src = $has_inline ? $inline_subject : (string) $template->subject;
+		$body_src    = $has_inline ? $inline_body : (string) $template->body_html;
+
+		$subject = $this->render( $subject_src, $user_id, $data );
+		$body    = $this->render( $body_src, $user_id, $data );
 
 		$payload = array(
 			'to'      => $user->user_email,
