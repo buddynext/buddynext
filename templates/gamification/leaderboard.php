@@ -2,17 +2,24 @@
 /**
  * Gamification leaderboard template (v2 design system).
  *
- * Requires WBGamification to be active. If the plugin is absent, renders a
+ * Requires wb-gamification to be active. If the plugin is absent, renders a
  * friendly notice instead of an empty page.
+ *
+ * Data source: wb-gamification PUBLIC read API only — no BuddyNext-side SQL.
+ *  - wb_gam_get_leaderboard( $period, $limit )  → ranked rows
+ *  - wb_gam_get_user_points( $user_id )         → points balance
+ *  - wb_gam_get_user_badges( $user_id )         → earned badges
+ *  - wb_gam_get_user_streak( $user_id )         → streak data
+ * BuddyNext ships zero gamification logic; it only renders these reads.
  *
  * Layout:
  *  - Hero strip: .bn-stat-grid with your-rank / points / level tiles.
  *  - Level meter: .bn-progress[data-tone="accent"] toward next milestone.
- *  - Filter strip: .bn-tabs (period + category) + .bn-select (rank-window).
+ *  - Filter strip: .bn-tabs (period) + .bn-select (rank-window).
  *  - Leaderboard list: .bn-card[data-interactive] rows with rank pill,
  *    avatar, name/handle, points, badge ribbon, follow CTA. The current
  *    user's row carries [data-self] + "You" pill.
- *  - Sidebar widgets: Your Badges, Points Breakdown, Next Milestone.
+ *  - Sidebar widgets: Your Badges, Your Streak, Next Milestone.
  *
  * All visual styling lives in assets/css/bn-gamification.css —
  * no inline <style>, no inline <script>.
@@ -26,17 +33,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-global $wpdb;
-
-// Guard: WBGamification must be active.
-if ( ! class_exists( 'WBGamification\Plugin' ) ) {
+// Guard: wb-gamification must be active (public API present).
+if ( ! function_exists( 'wb_gam_get_leaderboard' ) ) {
 	?>
 	<div class="bn-lb-shell">
 		<div class="bn-lb-notice" role="status">
 			<span class="bn-lb-notice__icon" aria-hidden="true"><?php buddynext_icon( 'award' ); ?></span>
 			<h2><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h2>
 			<p>
-				<?php esc_html_e( 'The leaderboard requires the WBGamification plugin to be active. Install and activate WBGamification to start earning points and see where you rank in the community.', 'buddynext' ); ?>
+				<?php esc_html_e( 'The leaderboard requires the gamification plugin to be active. Install and activate it to start earning points and see where you rank in the community.', 'buddynext' ); ?>
 			</p>
 		</div>
 	</div>
@@ -46,189 +51,71 @@ if ( ! class_exists( 'WBGamification\Plugin' ) ) {
 
 $current_user_id = get_current_user_id();
 
-// Period tab — week | month | alltime.
+// Period tab — week | month | alltime (UI) mapped to wb-gamification periods.
 $allowed_periods = array( 'week', 'month', 'alltime' );
 $period          = isset( $_GET['period'] ) ? sanitize_key( wp_unslash( $_GET['period'] ) ) : 'month'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 if ( ! in_array( $period, $allowed_periods, true ) ) {
 	$period = 'month';
 }
 
-// Category tab — contributors | connectors | rising.
-$allowed_cats = array( 'contributors', 'connectors', 'rising' );
-$category     = isset( $_GET['category'] ) ? sanitize_key( wp_unslash( $_GET['category'] ) ) : 'contributors'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-if ( ! in_array( $category, $allowed_cats, true ) ) {
-	$category = 'contributors';
+// wb_gam_get_leaderboard() accepts 'all'|'week'|'month'|'day'.
+$api_period = ( 'alltime' === $period ) ? 'all' : $period;
+
+// Fetch top 10 ranked users via the plugin read API.
+// Each entry: ['rank'=>int,'user_id'=>int,'display_name'=>string,'avatar_url'=>string,'points'=>int].
+$leaderboard = wb_gam_get_leaderboard( $api_period, 10 );
+if ( ! is_array( $leaderboard ) ) {
+	$leaderboard = array();
 }
 
-// Resolve WBGamification table names.
-$wbg_points_table = $wpdb->prefix . 'wbg_user_points';
-$wbg_badges_table = $wpdb->prefix . 'wbg_user_badges';
-$wbg_badge_defs   = $wpdb->prefix . 'wbg_badges';
-
-// Build date boundary for the selected period.
-$period_sql = '';
-switch ( $period ) {
-	case 'week':
-		$period_sql = ' AND p.awarded_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
-		break;
-	case 'month':
-		$period_sql = ' AND p.awarded_at >= DATE_SUB( NOW(), INTERVAL 1 MONTH )';
-		break;
-	// alltime: no boundary.
-}
-
-// Category-based event_type filter for points.
-$cat_sql = '';
-if ( 'connectors' === $category ) {
-	$cat_sql = " AND p.event_type IN ( 'bn_followed', 'bn_connected' )";
-} elseif ( 'rising' === $category ) {
-	// Rising stars: only count points earned in the past 7 days regardless of period.
-	$cat_sql    = ' AND p.awarded_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
-	$period_sql = '';
-}
-
-// All queries below interpolate WBGamification table names (trusted, plugin-controlled)
-// and literal SQL clauses ($period_sql, $cat_sql — no user data).
-// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching
-
-// Fetch top 10 ranked users from WBGamification points table.
-$leaderboard = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-	"SELECT p.user_id, SUM( p.points ) AS total_points
-	 FROM {$wbg_points_table} AS p
-	 WHERE 1=1
-	 {$period_sql}
-	 {$cat_sql}
-	 GROUP BY p.user_id
-	 ORDER BY total_points DESC
-	 LIMIT 10"
-) ?? array();
-
-// Fetch current user's rank.
+// Current user stats from the read API.
+$current_user_pts  = $current_user_id ? (int) wb_gam_get_user_points( $current_user_id ) : 0;
 $current_user_rank = 0;
-$current_user_pts  = 0;
+
+// Resolve the current user's rank from the returned leaderboard rows.
+// If the user is outside the top 10, rank stays 0 (rendered as "Unranked").
 if ( $current_user_id ) {
-	$user_pts_row     = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->prepare(
-			"SELECT SUM( points ) AS total FROM {$wbg_points_table} WHERE user_id = %d {$period_sql} {$cat_sql}",
-			$current_user_id
-		)
-	);
-	$current_user_pts = (int) ( $user_pts_row->total ?? 0 );
-
-	$rank_result       = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->prepare(
-			"SELECT COUNT(*) + 1
-			 FROM (
-				SELECT user_id, SUM( points ) AS pts
-				FROM {$wbg_points_table}
-				WHERE 1=1 {$period_sql} {$cat_sql}
-				GROUP BY user_id
-			 ) AS ranked
-			 WHERE ranked.pts > %d",
-			$current_user_pts
-		)
-	);
-	$current_user_rank = (int) $rank_result;
-}
-
-// Fetch current user's badges.
-$user_badges = array();
-if ( $current_user_id ) {
-	$user_badges = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->prepare(
-			"SELECT b.name, b.image_url, b.id AS badge_id
-			 FROM {$wbg_badges_table} AS ub
-			 INNER JOIN {$wbg_badge_defs} AS b ON b.id = ub.badge_id
-			 WHERE ub.user_id = %d
-			 LIMIT 8",
-			$current_user_id
-		)
-	) ?? array();
-}
-
-// Fetch current user's points breakdown by event_type.
-$points_breakdown = array();
-if ( $current_user_id ) {
-	$points_breakdown = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->prepare(
-			"SELECT event_type, SUM( points ) AS pts
-			 FROM {$wbg_points_table}
-			 WHERE user_id = %d {$period_sql}
-			 GROUP BY event_type
-			 ORDER BY pts DESC
-			 LIMIT 8",
-			$current_user_id
-		)
-	) ?? array();
-}
-
-// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching
-
-// Build a map of user_id => badge ribbon ( top 3 earned badges, with name + image ).
-$ribbon_by_user = array();
-if ( ! empty( $leaderboard ) ) {
-	$leaderboard_ids = array_map( static fn ( $row ): int => (int) $row->user_id, $leaderboard );
-	if ( ! empty( $leaderboard_ids ) ) {
-		$placeholders = implode( ',', array_fill( 0, count( $leaderboard_ids ), '%d' ) );
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQLPlaceholders
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT ub.user_id, b.name, b.image_url
-				 FROM {$wbg_badges_table} AS ub
-				 INNER JOIN {$wbg_badge_defs} AS b ON b.id = ub.badge_id
-				 WHERE ub.user_id IN ( {$placeholders} )
-				 ORDER BY ub.user_id ASC, ub.id DESC",
-				...$leaderboard_ids
-			)
-		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.PreparedSQLPlaceholders
-		if ( ! empty( $rows ) ) {
-			foreach ( $rows as $r ) {
-				$uid = (int) $r->user_id;
-				if ( ! isset( $ribbon_by_user[ $uid ] ) ) {
-					$ribbon_by_user[ $uid ] = array();
-				}
-				if ( count( $ribbon_by_user[ $uid ] ) < 4 ) {
-					$ribbon_by_user[ $uid ][] = $r;
-				}
-			}
+	foreach ( $leaderboard as $row ) {
+		if ( (int) ( $row['user_id'] ?? 0 ) === $current_user_id ) {
+			$current_user_rank = (int) ( $row['rank'] ?? 0 );
+			break;
 		}
 	}
 }
 
-// Map event_type to human-readable labels + icon slug + bar tone class.
-$event_labels = array(
-	'bn_post_created' => array(
-		'label' => __( 'Posts', 'buddynext' ),
-		'icon'  => 'edit',
-	),
-	'bn_comment'      => array(
-		'label' => __( 'Comments', 'buddynext' ),
-		'icon'  => 'message-circle',
-	),
-	'bn_reaction'     => array(
-		'label' => __( 'Reactions Given', 'buddynext' ),
-		'icon'  => 'heart',
-	),
-	'bn_space_joined' => array(
-		'label' => __( 'Space Contributions', 'buddynext' ),
-		'icon'  => 'home',
-	),
-	'bn_connected'    => array(
-		'label' => __( 'New Connections', 'buddynext' ),
-		'icon'  => 'users',
-	),
-	'bn_followed'     => array(
-		'label' => __( 'Follows', 'buddynext' ),
-		'icon'  => 'user',
-	),
-);
+// Current user's badges via the read API.
+// Each badge: ['id','name','description','image_url','category','earned_at',...].
+$user_badges = $current_user_id ? wb_gam_get_user_badges( $current_user_id ) : array();
+if ( ! is_array( $user_badges ) ) {
+	$user_badges = array();
+}
+$user_badges = array_slice( $user_badges, 0, 8 );
 
-// Determine rank change — WBGamification does not currently expose a rank_snapshot API.
-// Default to 0 (no change) until the bridge data source is available.
+// Current user's streak via the read API.
+// Shape: ['current_streak'=>int,'longest_streak'=>int,'last_active'=>string].
+$user_streak    = $current_user_id ? wb_gam_get_user_streak( $current_user_id ) : array();
+$current_streak = is_array( $user_streak ) ? (int) ( $user_streak['current_streak'] ?? 0 ) : 0;
+$longest_streak = is_array( $user_streak ) ? (int) ( $user_streak['longest_streak'] ?? 0 ) : 0;
+
+// Build a per-user badge ribbon for the leaderboard rows (top earned badges).
+// Sourced exclusively from the read API — no direct table access.
+$ribbon_by_user = array();
+foreach ( $leaderboard as $row ) {
+	$uid = (int) ( $row['user_id'] ?? 0 );
+	if ( $uid <= 0 ) {
+		continue;
+	}
+	$badges = wb_gam_get_user_badges( $uid );
+	if ( is_array( $badges ) && ! empty( $badges ) ) {
+		$ribbon_by_user[ $uid ] = array_slice( $badges, 0, 4 );
+	}
+}
+
+// Rank change — wb-gamification does not expose a rank-snapshot read API,
+// so deltas default to 0 (no change) until that data source lands.
 $rank_changes = array();
-foreach ( $leaderboard as $entry ) {
-	$rank_changes[ (int) $entry->user_id ] = 0;
+foreach ( $leaderboard as $row ) {
+	$rank_changes[ (int) ( $row['user_id'] ?? 0 ) ] = 0;
 }
 
 // Compute next milestone for current user (next 100-pt boundary).
@@ -276,12 +163,6 @@ $period_tabs = array(
 	'week'    => __( 'This week', 'buddynext' ),
 );
 
-$cat_tabs = array(
-	'contributors' => __( 'Top contributors', 'buddynext' ),
-	'connectors'   => __( 'Top connectors', 'buddynext' ),
-	'rising'       => __( 'Rising stars', 'buddynext' ),
-);
-
 $updated_iso = gmdate( 'c' );
 ?>
 
@@ -292,8 +173,7 @@ $updated_iso = gmdate( 'c' );
 	echo esc_attr(
 		wp_json_encode(
 			array(
-				'period'   => $period,
-				'category' => $category,
+				'period' => $period,
 			)
 		)
 	);
@@ -306,7 +186,7 @@ $updated_iso = gmdate( 'c' );
 			<h1 class="bn-lb-title"><?php esc_html_e( 'Leaderboard', 'buddynext' ); ?></h1>
 			<span class="bn-badge" data-tone="success">
 				<?php buddynext_icon( 'award' ); ?>
-				<?php esc_html_e( 'via WBGamification', 'buddynext' ); ?>
+				<?php esc_html_e( 'Gamification', 'buddynext' ); ?>
 			</span>
 		</div>
 		<p class="bn-lb-subtitle"><?php esc_html_e( 'Top contributors across this community.', 'buddynext' ); ?></p>
@@ -399,7 +279,7 @@ $updated_iso = gmdate( 'c' );
 		</section>
 	<?php endif; ?>
 
-	<!-- Filter strip — period tabs + category select -->
+	<!-- Filter strip — period tabs + rank window select -->
 	<div class="bn-lb-filters">
 		<nav class="bn-lb-filters__tabs" aria-label="<?php esc_attr_e( 'Leaderboard period', 'buddynext' ); ?>">
 			<div class="bn-tabs bn-lb-period" role="tablist">
@@ -408,8 +288,7 @@ $updated_iso = gmdate( 'c' );
 					$phref     = esc_url(
 						add_query_arg(
 							array(
-								'period'   => $pkey,
-								'category' => $category,
+								'period' => $pkey,
 							)
 						)
 					);
@@ -420,27 +299,6 @@ $updated_iso = gmdate( 'c' );
 						role="tab"
 						aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>">
 						<?php echo esc_html( $plabel ); ?>
-					</a>
-				<?php endforeach; ?>
-			</div>
-			<div class="bn-tabs" role="tablist">
-				<?php
-				foreach ( $cat_tabs as $ckey => $clabel ) :
-					$chref     = esc_url(
-						add_query_arg(
-							array(
-								'period'   => $period,
-								'category' => $ckey,
-							)
-						)
-					);
-					$is_active = ( $ckey === $category );
-					?>
-					<a href="<?php echo $chref; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped via esc_url(). ?>"
-						class="bn-tab"
-						role="tab"
-						aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>">
-						<?php echo esc_html( $clabel ); ?>
 					</a>
 				<?php endforeach; ?>
 			</div>
@@ -470,13 +328,16 @@ $updated_iso = gmdate( 'c' );
 		<ol class="bn-lb-list" aria-label="<?php esc_attr_e( 'Ranked members', 'buddynext' ); ?>">
 			<?php
 			foreach ( $leaderboard as $idx => $row ) :
-				$rank          = $idx + 1;
-				$uid           = (int) $row->user_id;
+				$uid           = (int) ( $row['user_id'] ?? 0 );
+				$rank          = (int) ( $row['rank'] ?? ( $idx + 1 ) );
 				$is_self       = ( $current_user_id && $uid === $current_user_id );
-				$user_data     = get_userdata( $uid );
-				$display       = $user_data ? $user_data->display_name : __( 'Unknown member', 'buddynext' );
+				$user_data     = $uid ? get_userdata( $uid ) : false;
+				$display       = '' !== (string) ( $row['display_name'] ?? '' )
+					? (string) $row['display_name']
+					: ( $user_data ? $user_data->display_name : __( 'Unknown member', 'buddynext' ) );
 				$handle        = $user_data && ! empty( $user_data->user_login ) ? '@' . $user_data->user_login : '';
-				$pts_formatted = number_format_i18n( (int) $row->total_points );
+				$avatar_url    = (string) ( $row['avatar_url'] ?? '' );
+				$pts_formatted = number_format_i18n( (int) ( $row['points'] ?? 0 ) );
 				$profile_url   = $user_data ? get_author_posts_url( $uid ) : '#';
 				$tone          = $rank_tone( $rank );
 				$delta         = (int) ( $rank_changes[ $uid ] ?? 0 );
@@ -502,16 +363,27 @@ $updated_iso = gmdate( 'c' );
 
 						<div class="bn-lb-row__who">
 							<?php
-							$avatar_html = $user_data ? get_avatar(
-								$uid,
-								72,
-								'',
-								$display,
-								array(
-									'class'      => 'bn-avatar',
-									'extra_attr' => 'data-size="md"',
-								)
-							) : '';
+							// Prefer the avatar URL supplied by the gamification API;
+							// fall back to WordPress get_avatar() for the user.
+							$avatar_html = '';
+							if ( '' !== $avatar_url ) {
+								$avatar_html = sprintf(
+									'<img src="%1$s" alt="%2$s" class="bn-avatar" width="72" height="72" loading="lazy" decoding="async" data-size="md" />',
+									esc_url( $avatar_url ),
+									esc_attr( $display )
+								);
+							} elseif ( $user_data ) {
+								$avatar_html = get_avatar(
+									$uid,
+									72,
+									'',
+									$display,
+									array(
+										'class'      => 'bn-avatar',
+										'extra_attr' => 'data-size="md"',
+									)
+								);
+							}
 							if ( '' !== $avatar_html ) {
 								echo wp_kses(
 									$avatar_html,
@@ -555,12 +427,12 @@ $updated_iso = gmdate( 'c' );
 								$ribbon_shown = array_slice( $ribbon, 0, 3 );
 								$ribbon_extra = max( 0, count( $ribbon ) - count( $ribbon_shown ) );
 								foreach ( $ribbon_shown as $b ) :
-									$bname = isset( $b->name ) ? (string) $b->name : '';
+									$bname = isset( $b['name'] ) ? (string) $b['name'] : '';
 									?>
 									<span class="bn-tooltip-trigger" tabindex="0">
 										<span class="bn-lb-ribbon__item" aria-hidden="true">
-											<?php if ( ! empty( $b->image_url ) ) : ?>
-												<img src="<?php echo esc_url( $b->image_url ); ?>" alt="" />
+											<?php if ( ! empty( $b['image_url'] ) ) : ?>
+												<img src="<?php echo esc_url( (string) $b['image_url'] ); ?>" alt="" />
 											<?php else : ?>
 												<?php buddynext_icon( 'award' ); ?>
 											<?php endif; ?>
@@ -633,14 +505,18 @@ $updated_iso = gmdate( 'c' );
 			</div>
 			<?php if ( ! empty( $user_badges ) ) : ?>
 				<div class="bn-lb-badges-grid">
-					<?php foreach ( $user_badges as $badge ) : ?>
-						<div class="bn-lb-badge-cell" title="<?php echo esc_attr( $badge->name ); ?>">
-							<?php if ( ! empty( $badge->image_url ) ) : ?>
-								<img src="<?php echo esc_url( $badge->image_url ); ?>" alt="<?php echo esc_attr( $badge->name ); ?>" />
+					<?php
+					foreach ( $user_badges as $badge ) :
+						$badge_name = isset( $badge['name'] ) ? (string) $badge['name'] : '';
+						$badge_img  = isset( $badge['image_url'] ) ? (string) $badge['image_url'] : '';
+						?>
+						<div class="bn-lb-badge-cell" title="<?php echo esc_attr( $badge_name ); ?>">
+							<?php if ( '' !== $badge_img ) : ?>
+								<img src="<?php echo esc_url( $badge_img ); ?>" alt="<?php echo esc_attr( $badge_name ); ?>" />
 							<?php else : ?>
 								<?php buddynext_icon( 'award' ); ?>
 							<?php endif; ?>
-							<span class="bn-lb-badge-cell__name"><?php echo esc_html( $badge->name ); ?></span>
+							<span class="bn-lb-badge-cell__name"><?php echo esc_html( $badge_name ); ?></span>
 						</div>
 					<?php endforeach; ?>
 				</div>
@@ -657,58 +533,39 @@ $updated_iso = gmdate( 'c' );
 			<?php endif; ?>
 		</div>
 
-		<!-- Points Breakdown -->
-		<?php
-		if ( ! empty( $points_breakdown ) ) :
-			$pts_values    = array_column( array_map( 'get_object_vars', $points_breakdown ), 'pts' );
-			$max_pts       = max( 1, (int) ( $pts_values ? max( $pts_values ) : 1 ) );
-			$total_pts_sum = (int) array_sum( $pts_values );
-			?>
+		<!-- Your Streak -->
+		<?php if ( $current_user_id ) : ?>
 			<div class="bn-widget">
 				<div class="bn-widget-title">
-					<?php buddynext_icon( 'bar-chart' ); ?>
-					<?php esc_html_e( 'Points Breakdown', 'buddynext' ); ?>
+					<?php buddynext_icon( 'zap' ); ?>
+					<?php esc_html_e( 'Your Streak', 'buddynext' ); ?>
 				</div>
-				<?php
-				foreach ( $points_breakdown as $bp ) :
-					$event  = (string) $bp->event_type;
-					$pts_v  = (int) $bp->pts;
-					$evinfo = $event_labels[ $event ] ?? array(
-						'label' => ucwords( str_replace( array( 'bn_', '_' ), array( '', ' ' ), $event ) ),
-						'icon'  => 'star',
-					);
-					$bar_w  = (int) round( $pts_v / $max_pts * 100 );
-					?>
-					<div class="bn-lb-points-item">
-						<div class="bn-lb-points-item__head">
-							<span class="bn-lb-points-item__label">
-								<?php buddynext_icon( $evinfo['icon'] ); ?>
-								<?php echo esc_html( $evinfo['label'] ); ?>
-							</span>
-							<span class="bn-lb-points-item__val">
+				<?php if ( $current_streak > 0 || $longest_streak > 0 ) : ?>
+					<div class="bn-stat-grid">
+						<div class="bn-stat">
+							<span class="bn-stat__label"><?php esc_html_e( 'Current', 'buddynext' ); ?></span>
+							<span class="bn-stat__value">
 								<?php
-								// translators: %d: number of points.
-								echo esc_html( sprintf( _n( '%d pt', '%d pts', $pts_v, 'buddynext' ), $pts_v ) );
+								// translators: %s: number of consecutive active days.
+								echo esc_html( sprintf( _n( '%s day', '%s days', $current_streak, 'buddynext' ), number_format_i18n( $current_streak ) ) );
 								?>
 							</span>
 						</div>
-						<div class="bn-progress" data-tone="accent" role="progressbar"
-							aria-valuemin="0"
-							aria-valuemax="100"
-							aria-valuenow="<?php echo esc_attr( (string) $bar_w ); ?>">
-							<div class="bn-progress__fill" style="width:<?php echo esc_attr( (string) $bar_w ); ?>%;"></div>
+						<div class="bn-stat">
+							<span class="bn-stat__label"><?php esc_html_e( 'Longest', 'buddynext' ); ?></span>
+							<span class="bn-stat__value">
+								<?php
+								// translators: %s: longest streak in days.
+								echo esc_html( sprintf( _n( '%s day', '%s days', $longest_streak, 'buddynext' ), number_format_i18n( $longest_streak ) ) );
+								?>
+							</span>
 						</div>
 					</div>
-				<?php endforeach; ?>
-				<div class="bn-lb-points-total">
-					<?php esc_html_e( 'Total:', 'buddynext' ); ?>
-					<strong>
-						<?php
-						// translators: %s: formatted total points.
-						echo esc_html( sprintf( __( '%s pts', 'buddynext' ), number_format_i18n( $total_pts_sum ) ) );
-						?>
-					</strong>
-				</div>
+				<?php else : ?>
+					<p class="bn-lb-badge-hint">
+						<?php esc_html_e( 'Stay active each day to build your streak.', 'buddynext' ); ?>
+					</p>
+				<?php endif; ?>
 			</div>
 		<?php endif; ?>
 

@@ -2,12 +2,13 @@
 /**
  * WBGamification bridge.
  *
- * Translates BuddyNext social actions into WBGamification events so the
- * WBGam rules engine can award points, badges, and levels.
+ * Translates BuddyNext social actions into wb-gamification events so the
+ * gamification rules engine can award points, badges, and levels.
  *
- * BuddyNext fires buddynext_* actions → bridge fires wb_gamification_event
- * with a typed event slug. WBGam admin configures rules per event type.
- * Nothing is hard-coded — all points/badge logic lives in WBGam.
+ * BuddyNext fires buddynext_* actions → bridge calls wb_gam_submit_event()
+ * with a registered bn_* action slug. wb-gamification admin configures the
+ * point value per action. Nothing is hard-coded — BuddyNext ships zero
+ * gamification logic, it only registers the action catalogue and emits events.
  *
  * @package BuddyNext\Bridges
  */
@@ -17,14 +18,75 @@ declare( strict_types=1 );
 namespace BuddyNext\Bridges;
 
 /**
- * WBGamification ↔ BuddyNext event bridge.
+ * wb-gamification ↔ BuddyNext event bridge.
  */
 class GamificationBridge {
 
 	/**
-	 * Supported BuddyNext action → WBGam event type mappings.
-	 * Each handler below translates one BuddyNext action into a wb_gamification_event call.
+	 * BuddyNext action catalogue.
+	 *
+	 * Each entry is a bn_* action that BuddyNext submits manually via
+	 * wb_gam_submit_event(). They are registered with wb-gamification so the
+	 * engine recognises the slug and admins can configure points per action.
+	 *
+	 * wb_gam_register_action() requires a 'hook' + callable 'user_callback'
+	 * (it auto-hooks the named source action). BuddyNext does NOT want the
+	 * engine to auto-award on a WordPress hook — the per-action handlers below
+	 * resolve the correct recipient(s) (the followed user, BOTH connected
+	 * users, etc.) and submit manually. We therefore register against an inert
+	 * BuddyNext-only hook that is never fired, so the engine never auto-awards
+	 * and each event fires exactly once (from fire()).
+	 *
+	 * @var array<int, array<string, mixed>>
 	 */
+	private const ACTION_CATALOGUE = array(
+		array(
+			'id'             => 'bn_followed',
+			'label'          => 'Followed by a member',
+			'default_points' => 5,
+		),
+		array(
+			'id'             => 'bn_connected',
+			'label'          => 'Connection accepted',
+			'default_points' => 10,
+		),
+		array(
+			'id'             => 'bn_post_created',
+			'label'          => 'Post created',
+			'default_points' => 5,
+		),
+		array(
+			'id'             => 'bn_space_joined',
+			'label'          => 'Joined a space',
+			'default_points' => 5,
+		),
+		array(
+			'id'             => 'bn_strike_issued',
+			'label'          => 'Moderation strike issued',
+			'default_points' => 0,
+		),
+		array(
+			'id'             => 'bn_profile_updated',
+			'label'          => 'Profile updated',
+			'default_points' => 2,
+		),
+		array(
+			'id'             => 'bn_profile_completed',
+			'label'          => 'Profile completed',
+			'default_points' => 25,
+		),
+	);
+
+	/**
+	 * Inert hook the catalogue actions auto-bind to.
+	 *
+	 * wb-gamification's Registry::register_action() mandates a real hook +
+	 * user_callback and auto-hooks it. BuddyNext submits manually instead, so
+	 * the actions bind to this hook which BuddyNext never fires. This keeps
+	 * registration valid (admins get configurable point rows) while ensuring
+	 * the engine never double-awards from an auto-hook.
+	 */
+	private const NOOP_HOOK = 'buddynext_gamification_noop';
 
 	/**
 	 * Attach hooks.
@@ -32,9 +94,11 @@ class GamificationBridge {
 	 * Called from Plugin::init() via buddynext_load_bridges action.
 	 */
 	public function init(): void {
-		if ( ! class_exists( 'WBGamification\Plugin' ) ) {
+		if ( ! function_exists( 'wb_gam_submit_event' ) ) {
 			return;
 		}
+
+		$this->register_actions();
 
 		add_action( 'buddynext_user_followed', array( $this, 'on_user_followed' ), 10, 2 );
 		add_action( 'buddynext_connection_accepted', array( $this, 'on_connection_accepted' ), 10, 3 );
@@ -42,6 +106,43 @@ class GamificationBridge {
 		add_action( 'buddynext_space_member_joined', array( $this, 'on_space_joined' ), 10, 3 );
 		add_action( 'buddynext_strike_issued', array( $this, 'on_strike_issued' ), 10, 3 );
 		add_action( 'buddynext_profile_completion_changed', array( $this, 'on_profile_completion_changed' ), 10, 2 );
+	}
+
+	/**
+	 * Register the BuddyNext action catalogue with wb-gamification.
+	 *
+	 * Guards each registration so re-running (e.g. a second bridge load) never
+	 * trips the engine's "already registered" notice. Registers against the
+	 * inert NOOP_HOOK so the engine recognises the slug — exposing it to admins
+	 * for point configuration — without auto-awarding; BuddyNext emits each
+	 * event manually via fire() so awards happen exactly once.
+	 */
+	private function register_actions(): void {
+		if ( ! function_exists( 'wb_gam_register_action' ) || ! function_exists( 'wb_gam_get_actions' ) ) {
+			return;
+		}
+
+		$registered = wb_gam_get_actions();
+
+		foreach ( self::ACTION_CATALOGUE as $action ) {
+			if ( isset( $registered[ $action['id'] ] ) ) {
+				continue;
+			}
+
+			wb_gam_register_action(
+				array(
+					'id'             => $action['id'],
+					'label'          => $action['label'],
+					'description'    => '',
+					'category'       => 'buddynext',
+					'default_points' => $action['default_points'],
+					'repeatable'     => true,
+					// Inert binding — BuddyNext submits manually (see NOOP_HOOK).
+					'hook'           => self::NOOP_HOOK,
+					'user_callback'  => '__return_zero',
+				)
+			);
+		}
 	}
 
 	/**
@@ -132,20 +233,21 @@ class GamificationBridge {
 	}
 
 	/**
-	 * Fire the WBGam event action.
+	 * Submit a BuddyNext gamification event into wb-gamification.
 	 *
-	 * @param string $event_type WBGam event slug.
-	 * @param int    $user_id    User receiving the event.
-	 * @param array  $context    Additional event context.
+	 * Routes through the plugin's public submit API so the full pipeline runs
+	 * (points, badges, streaks, webhooks). The action slug must be one of the
+	 * registered catalogue entries; unknown slugs are ignored by the engine.
+	 *
+	 * @param string $action_id Registered bn_* action slug (e.g. 'bn_followed').
+	 * @param int    $user_id   User the event applies to (receives the award).
+	 * @param array  $context   Event metadata (source IDs, type, etc.).
 	 */
-	private function fire( string $event_type, int $user_id, array $context = array() ): void {
-		/**
-		 * WBGamification event — rules engine entry point.
-		 *
-		 * @param string $event_type Event slug (e.g. 'bn_followed').
-		 * @param int    $user_id    User the event applies to.
-		 * @param array  $context    Event context (source IDs, type, etc.).
-		 */
-		do_action( 'wb_gamification_event', $event_type, $user_id, $context );
+	private function fire( string $action_id, int $user_id, array $context = array() ): void {
+		if ( $user_id <= 0 || ! function_exists( 'wb_gam_submit_event' ) ) {
+			return;
+		}
+
+		wb_gam_submit_event( $user_id, $action_id, $context );
 	}
 }
