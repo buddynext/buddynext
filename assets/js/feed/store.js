@@ -545,6 +545,86 @@ function adjustCommentCount( postId, delta ) {
 
 /* ── Post card ───────────────────────────────────────────────────────────── */
 
+/**
+ * Fetch + render a post's comment thread into its [data-comment-list] region.
+ *
+ * Extracted to a module-level generator so both the `loadComments` and
+ * `openComments` actions can `yield*` it. Cross-action generator calls
+ * (`this.loadComments()` / `actions.loadComments()`) are unreliable in the
+ * Interactivity API runtime — `this` is undefined inside an action generator
+ * and the store-wrapped action is not `yield*`-iterable — so the shared logic
+ * lives here and takes the already-resolved element context as a parameter.
+ *
+ * @param {Object} ctx Element context from getContext() (postId, restUrl, …).
+ */
+function* bnLoadComments( ctx ) {
+	const listEl = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
+	if ( ! listEl || listEl.dataset.loaded ) {
+		return;
+	}
+
+	// Skeleton rows while we fetch — three placeholder bars so the region
+	// does not collapse and the user knows the thread is loading.
+	while ( listEl.firstChild ) {
+		listEl.removeChild( listEl.firstChild );
+	}
+	for ( let s = 0; s < 3; s++ ) {
+		const sk = document.createElement( 'div' );
+		sk.className = 'bn-comment-skeleton';
+		const skAvatar = document.createElement( 'span' );
+		skAvatar.className = 'bn-skeleton bn-comment-skeleton__avatar';
+		const skLine   = document.createElement( 'span' );
+		skLine.className   = 'bn-skeleton bn-comment-skeleton__line';
+		sk.appendChild( skAvatar );
+		sk.appendChild( skLine );
+		listEl.appendChild( sk );
+	}
+
+	try {
+		const res = yield fetch(
+			ctx.restUrl + '/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20',
+			{ headers: { 'X-WP-Nonce': ctx.reactNonce } }
+		);
+		while ( listEl.firstChild ) {
+			listEl.removeChild( listEl.firstChild );
+		}
+		if ( res.ok ) {
+			const data = yield res.json();
+			listEl.dataset.loaded = '1';
+			( data.items || [] ).forEach( ( comment ) => {
+				listEl.appendChild(
+					buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 )
+				);
+			} );
+		} else {
+			const err = document.createElement( 'div' );
+			err.className = 'bn-comment-error';
+			err.setAttribute( 'role', 'alert' );
+			err.textContent = 'Could not load comments. ';
+			const retry = document.createElement( 'button' );
+			retry.type = 'button';
+			retry.className = 'bn-comment-error__retry';
+			retry.textContent = 'Retry';
+			retry.addEventListener( 'click', () => {
+				delete listEl.dataset.loaded;
+				ctx.commentsOpen = false;
+				setTimeout( () => { ctx.commentsOpen = true; }, 0 );
+			} );
+			err.appendChild( retry );
+			listEl.appendChild( err );
+		}
+	} catch ( _e ) {
+		while ( listEl.firstChild ) {
+			listEl.removeChild( listEl.firstChild );
+		}
+		const err = document.createElement( 'div' );
+		err.className = 'bn-comment-error';
+		err.setAttribute( 'role', 'alert' );
+		err.textContent = 'Network error. Comments could not be loaded.';
+		listEl.appendChild( err );
+	}
+}
+
 store( 'buddynext/post-card', {
 	state: {
 		// Reaction icon class — applied to the reaction button inner span to indicate current reaction type.
@@ -666,48 +746,11 @@ store( 'buddynext/post-card', {
 			if ( ! ctx || ! ctx.commentsOpen ) {
 				return;
 			}
-			// Defer one tick so the list element is mounted before fetch runs.
+			// Defer one tick so the list element is mounted before fetch runs,
+			// then delegate to the shared loader (same logic the click path
+			// uses) instead of mirroring it inline.
 			yield new Promise( ( r ) => setTimeout( r, 0 ) );
-			const listEl = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
-			if ( ! listEl || listEl.dataset.loaded ) {
-				return;
-			}
-			// Mirror loadComments inline — calling cross-action generators from
-			// callbacks is unstable in the Interactivity API runtime.
-			while ( listEl.firstChild ) {
-				listEl.removeChild( listEl.firstChild );
-			}
-			for ( let s = 0; s < 3; s++ ) {
-				const sk       = document.createElement( 'div' );
-				sk.className   = 'bn-comment-skeleton';
-				const skAvatar = document.createElement( 'span' );
-				skAvatar.className = 'bn-skeleton bn-comment-skeleton__avatar';
-				const skLine   = document.createElement( 'span' );
-				skLine.className   = 'bn-skeleton bn-comment-skeleton__line';
-				sk.appendChild( skAvatar );
-				sk.appendChild( skLine );
-				listEl.appendChild( sk );
-			}
-			try {
-				const res = yield fetch(
-					ctx.restUrl + '/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20',
-					{ headers: { 'X-WP-Nonce': ctx.reactNonce } }
-				);
-				while ( listEl.firstChild ) {
-					listEl.removeChild( listEl.firstChild );
-				}
-				if ( res.ok ) {
-					const data           = yield res.json();
-					listEl.dataset.loaded = '1';
-					( data.items || [] ).forEach( ( comment ) => {
-						listEl.appendChild(
-							buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 )
-						);
-					} );
-				}
-			} catch ( _e ) {
-				// Silent — user can click Comment to retry.
-			}
+			yield* bnLoadComments( ctx );
 		},
 	},
 	actions: {
@@ -875,74 +918,7 @@ store( 'buddynext/post-card', {
 			}
 		},
 		* loadComments() {
-			const ctx    = getContext();
-			const listEl = document.querySelector( '[data-comment-list="' + ctx.postId + '"]' );
-			if ( ! listEl || listEl.dataset.loaded ) {
-				return;
-			}
-
-			// Skeleton rows while we fetch — three placeholder bars so the
-			// region does not collapse and the user knows the thread is
-			// loading. Replaced on fetch success / replaced with error
-			// alert on fetch failure.
-			while ( listEl.firstChild ) {
-				listEl.removeChild( listEl.firstChild );
-			}
-			for ( let s = 0; s < 3; s++ ) {
-				const sk = document.createElement( 'div' );
-				sk.className = 'bn-comment-skeleton';
-				const skAvatar = document.createElement( 'span' );
-				skAvatar.className = 'bn-skeleton bn-comment-skeleton__avatar';
-				const skLine   = document.createElement( 'span' );
-				skLine.className   = 'bn-skeleton bn-comment-skeleton__line';
-				sk.appendChild( skAvatar );
-				sk.appendChild( skLine );
-				listEl.appendChild( sk );
-			}
-
-			try {
-				const res = yield fetch(
-					ctx.restUrl + '/comments?object_type=post&object_id=' + ctx.postId + '&per_page=20',
-					{ headers: { 'X-WP-Nonce': ctx.reactNonce } }
-				);
-				while ( listEl.firstChild ) {
-					listEl.removeChild( listEl.firstChild );
-				}
-				if ( res.ok ) {
-					const data = yield res.json();
-					listEl.dataset.loaded = '1';
-					( data.items || [] ).forEach( ( comment ) => {
-						listEl.appendChild(
-							buildCommentNode( comment, ctx.currentUserId, ctx.postId, ctx.restUrl, ctx.reactNonce, 0 )
-						);
-					} );
-				} else {
-					const err = document.createElement( 'div' );
-					err.className = 'bn-comment-error';
-					err.setAttribute( 'role', 'alert' );
-					err.textContent = 'Could not load comments. ';
-					const retry = document.createElement( 'button' );
-					retry.type = 'button';
-					retry.className = 'bn-comment-error__retry';
-					retry.textContent = 'Retry';
-					retry.addEventListener( 'click', () => {
-						delete listEl.dataset.loaded;
-						ctx.commentsOpen = false;
-						setTimeout( () => { ctx.commentsOpen = true; }, 0 );
-					} );
-					err.appendChild( retry );
-					listEl.appendChild( err );
-				}
-			} catch ( _e ) {
-				while ( listEl.firstChild ) {
-					listEl.removeChild( listEl.firstChild );
-				}
-				const err = document.createElement( 'div' );
-				err.className = 'bn-comment-error';
-				err.setAttribute( 'role', 'alert' );
-				err.textContent = 'Network error. Comments could not be loaded.';
-				listEl.appendChild( err );
-			}
+			yield* bnLoadComments( getContext() );
 		},
 		* openComments() {
 			const ctx        = getContext();
@@ -950,7 +926,11 @@ store( 'buddynext/post-card', {
 			if ( ! ctx.commentsOpen ) {
 				return;
 			}
-			yield* this.loadComments();
+			// Delegate to the shared module-level generator (see bnLoadComments)
+			// — `this.loadComments()` / `actions.loadComments()` both fail in
+			// the Interactivity API runtime (undefined `this`; wrapped action
+			// not yield*-iterable), which left the thread stuck on skeletons.
+			yield* bnLoadComments( ctx );
 		},
 		* submitComment() {
 			const ctx     = getContext();
