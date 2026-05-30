@@ -99,20 +99,19 @@ do_action( 'buddynext_part_hashtag_sidebar_about_before', $args );
 
 	<?php if ( $bn_logged_in ) : ?>
 		<button
-			class="bn-btn bn-hashtag-about__cta"
+			class="bn-btn bn-hashtag-about__cta bn-htf<?php echo $bn_follows ? ' following' : ''; ?>"
 			data-variant="<?php echo $bn_follows ? 'secondary' : 'primary'; ?>"
 			data-size="sm"
+			data-current-state="<?php echo $bn_follows ? 'following' : 'follow'; ?>"
 			type="button"
 			data-wp-on--click="actions.toggleFollowHashtag"
 			data-hashtag="<?php echo esc_attr( $bn_slug ); ?>"
 			aria-pressed="<?php echo $bn_follows ? 'true' : 'false'; ?>"
 		>
-			<?php if ( $bn_follows ) : ?>
-				<?php buddynext_icon( 'check' ); ?>
-				<span><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
-			<?php else : ?>
-				<span><?php esc_html_e( 'Follow hashtag', 'buddynext' ); ?></span>
-			<?php endif; ?>
+			<?php // Both labels render; the .following class (toggled in JS) swaps which shows. ?>
+			<span class="bn-htf__icon" aria-hidden="true"><?php buddynext_icon( 'check' ); ?></span>
+			<span class="bn-htf__on"><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
+			<span class="bn-htf__off"><?php esc_html_e( 'Follow hashtag', 'buddynext' ); ?></span>
 		</button>
 	<?php endif; ?>
 </div>

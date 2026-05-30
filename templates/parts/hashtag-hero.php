@@ -98,7 +98,7 @@ do_action( 'buddynext_part_hashtag_hero_before', $args );
 		<div class="bn-hashtag-header__actions">
 			<?php if ( $bn_logged_in ) : ?>
 				<button
-					class="bn-btn"
+					class="bn-btn bn-htf<?php echo $bn_follows ? ' following' : ''; ?>"
 					data-variant="<?php echo $bn_follows ? 'secondary' : 'primary'; ?>"
 					data-size="md"
 					data-current-state="<?php echo $bn_follows ? 'following' : 'follow'; ?>"
@@ -107,20 +107,18 @@ do_action( 'buddynext_part_hashtag_hero_before', $args );
 					data-hashtag="<?php echo esc_attr( $bn_slug ); ?>"
 					aria-pressed="<?php echo $bn_follows ? 'true' : 'false'; ?>"
 				>
-					<?php if ( $bn_follows ) : ?>
-						<?php buddynext_icon( 'check' ); ?>
-						<span><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
-					<?php else : ?>
-						<span>
-							<?php
-							printf(
-								/* translators: %s: hashtag slug */
-								esc_html__( 'Follow #%s', 'buddynext' ),
-								esc_html( $bn_slug )
-							);
-							?>
-						</span>
-					<?php endif; ?>
+					<?php // Both labels render; the .following class on the button (toggled by toggleFollowHashtag) swaps which is visible, so the button stays in sync after a click. ?>
+					<span class="bn-htf__icon" aria-hidden="true"><?php buddynext_icon( 'check' ); ?></span>
+					<span class="bn-htf__on"><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
+					<span class="bn-htf__off">
+						<?php
+						printf(
+							/* translators: %s: hashtag slug */
+							esc_html__( 'Follow #%s', 'buddynext' ),
+							esc_html( $bn_slug )
+						);
+						?>
+					</span>
 				</button>
 				<button
 					class="bn-btn"

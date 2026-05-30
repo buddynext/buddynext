@@ -47,6 +47,8 @@ store( 'buddynext/feed', {
 				} else {
 					btn.classList.toggle( 'following', ! following );
 					btn.setAttribute( 'aria-pressed', ! following ? 'true' : 'false' );
+					// Drives the visible label (Follow vs Following) + icon via CSS.
+					btn.setAttribute( 'data-current-state', ! following ? 'following' : 'follow' );
 				}
 			} );
 
@@ -68,6 +70,7 @@ store( 'buddynext/feed', {
 						} else {
 							btn.classList.toggle( 'following', following );
 							btn.setAttribute( 'aria-pressed', following ? 'true' : 'false' );
+							btn.setAttribute( 'data-current-state', following ? 'following' : 'follow' );
 						}
 					} );
 					if ( window.bnToast ) {

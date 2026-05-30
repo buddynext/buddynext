@@ -521,6 +521,31 @@ a.bn-hashtag:hover {
 	justify-content: center;
 }
 
+/* Hashtag follow toggle — both labels + the check icon are always in the DOM;
+   which is visible is driven by data-current-state, which toggleFollowHashtag
+   updates on click so the button reflects the new state without a reload. */
+.bn-htf__on,
+.bn-htf__icon {
+	display: none;
+}
+.bn-htf__off {
+	display: inline;
+}
+.bn-htf[data-current-state="following"] .bn-htf__off {
+	display: none;
+}
+.bn-htf[data-current-state="following"] .bn-htf__on {
+	display: inline;
+}
+.bn-htf[data-current-state="following"] .bn-htf__icon {
+	display: inline-flex;
+	align-items: center;
+}
+.bn-htf__icon svg {
+	width: 15px;
+	height: 15px;
+}
+
 /* Related hashtags (chip + count rows). */
 .bn-hashtag-related {
 	list-style: none;
@@ -643,9 +668,14 @@ a.bn-hashtag:hover {
 		display: none;
 	}
 
-	.bn-hashtag-header__actions .bn-btn[data-current-state="follow"] span,
-	.bn-hashtag-header__actions .bn-btn[data-current-state="following"] span {
+	/* Keep the follow button labelled on mobile, but only its ACTIVE label
+	   (data-current-state governs which) — not both. */
+	.bn-hashtag-header__actions .bn-htf[data-current-state="follow"] .bn-htf__off,
+	.bn-hashtag-header__actions .bn-htf[data-current-state="following"] .bn-htf__on {
 		display: inline;
+	}
+	.bn-hashtag-header__actions .bn-htf[data-current-state="following"] .bn-htf__icon {
+		display: inline-flex;
 	}
 }
 
