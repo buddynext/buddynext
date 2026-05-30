@@ -172,6 +172,16 @@ class ModerationController {
 			)
 		);
 
+		register_rest_route(
+			'buddynext/v1',
+			'/reports/(?P<id>[\d]+)/remove',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'remove_report_content' ),
+				'permission_callback' => array( $this, 'require_admin' ),
+			)
+		);
+
 		// Strike management.
 		register_rest_route(
 			'buddynext/v1',
@@ -729,6 +739,35 @@ class ModerationController {
 		);
 
 		return new WP_REST_Response( array( 'resolved' => true ), 200 );
+	}
+
+	/**
+	 * Remove the content a report targets and resolve the report.
+	 *
+	 * @param WP_REST_Request $request Request with the report `id`.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function remove_report_content( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$service   = new ModerationService();
+		$report_id = (int) $request->get_param( 'id' );
+		$actor_id  = get_current_user_id();
+
+		$result = $service->remove_content( $report_id, $actor_id );
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		( new ModerationLogService() )->log(
+			$actor_id,
+			'remove_content',
+			array(
+				'object_id'   => $report_id,
+				'object_type' => 'report',
+			)
+		);
+
+		return new WP_REST_Response( array( 'removed' => true ), 200 );
 	}
 
 	/**

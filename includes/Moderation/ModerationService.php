@@ -87,8 +87,14 @@ class ModerationService {
 				'reason'      => $reason,
 				'space_id'    => $space_id > 0 ? $space_id : null,
 				'notes'       => sanitize_textarea_field( $notes ),
+				// Store UTC explicitly. The column default is MySQL
+				// CURRENT_TIMESTAMP, which records the DB server's local time —
+				// on a non-UTC server that mismatches resolved_at (written by
+				// PHP in UTC) and makes the queue's relative time skew by the
+				// GMT offset. Keep all report timestamps in UTC.
+				'created_at'  => current_time( 'mysql', true ),
 			),
-			array( '%d', '%s', '%d', '%s', '%d', '%s' )
+			array( '%d', '%s', '%d', '%s', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -154,12 +160,13 @@ class ModerationService {
 					if ( ! empty( $auto_action['user_id'] ) ) {
 						/**
 						 * Fires when an automated moderation action warns a user.
+						 * Canonical signature ( user_id, by_user_id, reason ).
 						 *
-						 * @param int    $user_id  User being warned.
-						 * @param string $message  Warning message/reason.
-						 * @param int    $actor_id System actor (0 = automated).
+						 * @param int    $user_id    User being warned.
+						 * @param int    $by_user_id System actor (0 = automated).
+						 * @param string $reason     Warning message/reason.
 						 */
-						do_action( 'buddynext_user_warned', (int) $auto_action['user_id'], (string) ( $auto_action['reason'] ?? '' ), 0 );
+						do_action( 'buddynext_user_warned', (int) $auto_action['user_id'], 0, (string) ( $auto_action['reason'] ?? '' ) );
 					}
 					break;
 			}
@@ -198,6 +205,57 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function resolve( int $report_id, int $actor_id ): true|WP_Error {
+		return $this->set_status( $report_id, $actor_id, 'resolved' );
+	}
+
+	/**
+	 * Resolve a report AND take the reported content down.
+	 *
+	 * Looks up the report's target, fires buddynext_content_removed (the
+	 * ModerationListener handler soft-removes posts/comments from public view),
+	 * then marks the report resolved. Unlike PostService::delete this does not
+	 * require content ownership and does not hard-delete — the row is retained
+	 * so the action is auditable and reversible.
+	 *
+	 * @param int $report_id Report whose content to remove.
+	 * @param int $actor_id  Admin acting on the report.
+	 * @return true|WP_Error
+	 */
+	public function remove_content( int $report_id, int $actor_id ): true|WP_Error {
+		if ( ! user_can( $actor_id, 'manage_options' ) ) {
+			return new WP_Error( 'forbidden', __( 'You do not have permission to remove content.', 'buddynext' ) );
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$report = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT object_type, object_id FROM {$wpdb->prefix}bn_reports WHERE id = %d",
+				$report_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( ! $report ) {
+			return new WP_Error( 'not_found', __( 'Report not found.', 'buddynext' ) );
+		}
+
+		$object_type = sanitize_key( (string) ( $report['object_type'] ?? '' ) );
+		$object_id   = (int) ( $report['object_id'] ?? 0 );
+
+		if ( '' !== $object_type && $object_id > 0 ) {
+			/**
+			 * Fires when a moderator removes reported content from public view.
+			 *
+			 * @param string $object_type Content type ('post', 'comment', …).
+			 * @param int    $object_id   Content ID.
+			 * @param int    $actor_id    Moderator who removed it.
+			 */
+			do_action( 'buddynext_content_removed', $object_type, $object_id, $actor_id );
+		}
+
 		return $this->set_status( $report_id, $actor_id, 'resolved' );
 	}
 
@@ -302,17 +360,17 @@ class ModerationService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		$warning_count = $this->get_active_strike_count( $user_id );
-
 		/**
 		 * Fires after a formal warning is issued to a user.
 		 *
-		 * @param int    $user_id       Warned user.
-		 * @param int    $actor_id      Admin or moderator who issued the warning.
-		 * @param string $reason        Warning reason.
-		 * @param int    $warning_count Total active strike count after this warning.
+		 * Canonical signature ( user_id, by_user_id, reason ) — matches
+		 * buddynext_user_suspended and the Pro analytics listener.
+		 *
+		 * @param int    $user_id  Warned user.
+		 * @param int    $actor_id Admin or moderator who issued the warning.
+		 * @param string $reason   Warning reason shown to the user.
 		 */
-		do_action( 'buddynext_user_warned', $user_id, $actor_id, $reason, $warning_count );
+		do_action( 'buddynext_user_warned', $user_id, $actor_id, $reason );
 
 		return true;
 	}
@@ -1200,11 +1258,14 @@ class ModerationService {
 		/**
 		 * Fires after a warning is issued to a user.
 		 *
-		 * @param int    $user_id   Warned user.
-		 * @param string $message   Warning message.
-		 * @param int    $warned_by Actor user ID (0 = system).
+		 * Canonical signature ( user_id, by_user_id, reason ) — matches the
+		 * buddynext_user_suspended convention and the Pro analytics listener.
+		 *
+		 * @param int    $user_id    Warned user.
+		 * @param int    $warned_by  Actor user ID (0 = system).
+		 * @param string $message    Warning message / reason.
 		 */
-		do_action( 'buddynext_user_warned', $user_id, $message, $warned_by );
+		do_action( 'buddynext_user_warned', $user_id, $warned_by, $message );
 
 		return true;
 	}

@@ -29,6 +29,7 @@ class ModerationListener implements ListenerInterface {
 		add_action( 'buddynext_user_suspended', array( $this, 'on_user_suspended' ), 10, 4 );
 		add_action( 'buddynext_appeal_resolved', array( $this, 'on_appeal_resolved' ), 10, 3 );
 		add_action( 'buddynext_user_warned', array( $this, 'on_user_warned' ), 10, 3 );
+		add_action( 'buddynext_content_removed', array( $this, 'on_content_removed' ), 10, 3 );
 		add_action( 'buddynext_user_unsuspended', array( $this, 'on_user_unsuspended' ), 10, 1 );
 		add_action( 'buddynext_appeal_submitted', array( $this, 'on_appeal_submitted' ), 10, 2 );
 		add_action( 'buddynext_user_shadow_banned', array( $this, 'on_user_shadow_banned' ), 10, 1 );
@@ -195,11 +196,11 @@ class ModerationListener implements ListenerInterface {
 	 * Creates a bn.user_warned in-app notification and dispatches the
 	 * bn.strike_warning transactional email to the warned user's address.
 	 *
-	 * @param int    $user_id   User receiving the warning.
-	 * @param string $message   Warning message from the moderator.
-	 * @param int    $warned_by Moderator user ID who issued the warning.
+	 * @param int    $user_id    User receiving the warning.
+	 * @param int    $by_user_id Moderator user ID who issued the warning.
+	 * @param string $message    Warning message / reason from the moderator.
 	 */
-	public function on_user_warned( int $user_id, string $message, int $warned_by ): void {
+	public function on_user_warned( int $user_id, int $by_user_id, string $message ): void {
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}
@@ -207,7 +208,7 @@ class ModerationListener implements ListenerInterface {
 		buddynext_service( 'notifications' )->create(
 			array(
 				'recipient_id' => $user_id,
-				'sender_id'    => $warned_by,
+				'sender_id'    => $by_user_id,
 				'type'         => 'bn.user_warned',
 				'object_type'  => 'user',
 				'object_id'    => $user_id,
@@ -221,6 +222,50 @@ class ModerationListener implements ListenerInterface {
 			'bn.strike_warning',
 			array( 'message' => $message )
 		);
+	}
+
+	/**
+	 * Take reported content down when a moderator removes it.
+	 *
+	 * Soft-removes the target by flipping its status away from 'published'
+	 * (all feed/profile/space read queries filter status = 'published', so the
+	 * row vanishes from public view while staying in the table for audit and
+	 * potential restore). Posts → status 'deleted' (the bn_posts status enum's
+	 * soft-removed value); comments → is_deleted flag so threads keep shape.
+	 *
+	 * @param string $object_type Content type being removed.
+	 * @param int    $object_id   Content ID.
+	 * @param int    $actor_id    Moderator who removed it (0 = automated).
+	 */
+	public function on_content_removed( string $object_type, int $object_id, int $actor_id ): void {
+		if ( $object_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		if ( 'post' === $object_type ) {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_posts',
+				array( 'status' => 'deleted' ),
+				array( 'id' => $object_id ),
+				array( '%s' ),
+				array( '%d' )
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			wp_cache_delete( "post_{$object_id}", 'buddynext_posts' );
+		} elseif ( 'comment' === $object_type ) {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_comments',
+				array( 'is_deleted' => 1 ),
+				array( 'id' => $object_id ),
+				array( '%d' ),
+				array( '%d' )
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		}
 	}
 
 	/**

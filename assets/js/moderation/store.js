@@ -54,26 +54,28 @@ store( 'buddynext/moderation', {
 			const ctx = getContext();
 			if ( ! ctx.reportId || ! ctx.restNonce ) { return; }
 			const ok = yield bnConfirm( {
-				title: 'Resolve and action this report?',
-				body: 'The report will be marked resolved. Use Suspend (with content hidden) for a full takedown.',
-				confirmLabel: 'Resolve',
+				title: 'Remove this content?',
+				body: 'The reported item will be taken down from public view and the report marked resolved.',
+				confirmLabel: 'Remove',
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
 			try {
-				// Real route: PUT /reports/{id}/resolve (no body).
-				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId + '/resolve', {
-					method: 'PUT',
+				// Real route: POST /reports/{id}/remove — soft-removes the
+				// content (status → removed) and resolves the report.
+				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId + '/remove', {
+					method: 'POST',
 					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
 				} );
 				if ( res.ok ) {
 					const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
 					if ( row ) { row.remove(); }
+					bnToast( 'Content removed.', { tone: 'success' } );
 				} else {
-					bnToast( 'Could not resolve the report. Try again.', { tone: 'danger' } );
+					bnToast( 'Could not remove the content. Try again.', { tone: 'danger' } );
 				}
 			} catch ( _e ) {
-				bnToast( 'Could not resolve the report. Try again.', { tone: 'danger' } );
+				bnToast( 'Could not remove the content. Try again.', { tone: 'danger' } );
 			}
 		},
 
@@ -81,14 +83,14 @@ store( 'buddynext/moderation', {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
 			try {
-				// No dedicated /warn endpoint yet — record the warning through the
-				// strikes log with a "warning" reason so it is at least auditable.
-				const res = yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/strikes', {
+				// Real route: POST /users/{id}/warn { message } — logs the warning
+				// and notifies the user (no strike penalty).
+				const res = yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/warn', {
 					method: 'POST',
 					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { reason: 'Warning: content policy reminder' } ),
+					body: JSON.stringify( { message: 'Content policy reminder' } ),
 				} );
-				bnToast( res.ok ? 'Warning recorded.' : 'Could not warn the user.', { tone: res.ok ? 'success' : 'danger' } );
+				bnToast( res.ok ? 'Warning sent.' : 'Could not warn the user.', { tone: res.ok ? 'success' : 'danger' } );
 			} catch ( _e ) {
 				bnToast( 'Could not warn the user.', { tone: 'danger' } );
 			}
