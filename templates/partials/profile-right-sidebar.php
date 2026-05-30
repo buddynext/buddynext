@@ -43,45 +43,112 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 	$c_complete = 100 === $c_pct;
 	$edit_url   = \BuddyNext\Core\PageRouter::edit_profile_url();
 	?>
+	<?php
+	// Circular completion gauge (v2 prototype). The percentage is the overall
+	// flat-field score from ProfileService::get_completion_score(); the
+	// checklist below is a curated high-value subset (same pattern as the v2
+	// mock, which shows 6 tasks against an 82% ring). "N to go" counts the
+	// unchecked curated tasks, not the full field set.
+	$bn_ring_circ   = 150.80; // 2·π·r, r = 24 (matches the SVG below)
+	$bn_ring_pct    = max( 0, min( 100, $c_pct ) );
+	$bn_ring_offset = $bn_ring_circ * ( 1 - ( $bn_ring_pct / 100 ) );
+
+	$bn_pf_tasks = array(
+		array(
+			'label' => __( 'Add a bio', 'buddynext' ),
+			'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'bio' ),
+		),
+		array(
+			'label' => __( 'Add a tagline', 'buddynext' ),
+			'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'headline' ),
+		),
+		array(
+			'label' => __( 'Set your location', 'buddynext' ),
+			'done'  => '' !== $bn_pf_get_fv( 'basic_info', 'location' ),
+		),
+		array(
+			'label' => __( 'Add your skills', 'buddynext' ),
+			'done'  => ! empty( $bn_pf_int ),
+		),
+		array(
+			'label' => __( 'Add work experience', 'buddynext' ),
+			'done'  => ! empty( $bn_pf_work ),
+		),
+		array(
+			'label' => __( 'Link an account', 'buddynext' ),
+			'done'  => ! empty( $bn_pf_social ),
+		),
+	);
+	$bn_pf_togo = count(
+		array_filter(
+			$bn_pf_tasks,
+			static function ( $t ) {
+				return empty( $t['done'] );
+			}
+		)
+	);
+	?>
 	<div class="bn-widget">
 		<div class="bn-widget-title"><?php esc_html_e( 'Profile Strength', 'buddynext' ); ?></div>
-		<div class="bn-completion-bar-wrap">
-			<div class="bn-completion-header">
-				<span class="bn-completion-label">
-					<?php
-					echo $c_complete
-						? esc_html__( 'Complete!', 'buddynext' )
-						: esc_html__( 'Profile completion', 'buddynext' );
-					?>
-				</span>
-				<span class="bn-completion-pct"><?php echo esc_html( $c_pct . '%' ); ?></span>
+
+		<div class="bn-pf-ring-row">
+			<div
+				class="bn-pf-ring"
+				role="img"
+				aria-label="
+				<?php
+				/* translators: %d: profile completion percentage */
+				echo esc_attr( sprintf( __( 'Profile %d%% complete', 'buddynext' ), $bn_ring_pct ) );
+				?>
+				"
+			>
+				<svg viewBox="0 0 56 56" aria-hidden="true" focusable="false">
+					<circle class="bn-pf-ring__bg" cx="28" cy="28" r="24"></circle>
+					<circle
+						class="bn-pf-ring__fg"
+						cx="28"
+						cy="28"
+						r="24"
+						stroke-dasharray="<?php echo esc_attr( sprintf( '%.2f', $bn_ring_circ ) ); ?>"
+						stroke-dashoffset="<?php echo esc_attr( sprintf( '%.2f', $bn_ring_offset ) ); ?>"
+					></circle>
+				</svg>
+				<span class="bn-pf-ring__pct"><?php echo esc_html( (string) $bn_ring_pct ); ?></span>
 			</div>
-			<div class="bn-completion-track">
-				<div class="bn-completion-fill<?php echo $c_complete ? ' bn-complete' : ''; ?>"
-					style="width:<?php echo esc_attr( $c_pct . '%' ); ?>"></div>
+			<div class="bn-pf-ring__info">
+				<?php if ( $c_complete ) : ?>
+					<b><?php esc_html_e( 'All set', 'buddynext' ); ?></b>
+					<span><?php esc_html_e( 'Your profile is complete.', 'buddynext' ); ?></span>
+				<?php else : ?>
+					<b>
+						<?php
+						/* translators: %d: number of remaining checklist items */
+						echo esc_html( sprintf( _n( '%d to go', '%d to go', $bn_pf_togo, 'buddynext' ), $bn_pf_togo ) );
+						?>
+					</b>
+					<span><?php esc_html_e( 'Finish these to complete your profile.', 'buddynext' ); ?></span>
+				<?php endif; ?>
 			</div>
 		</div>
+
 		<?php if ( ! $c_complete ) : ?>
-		<div class="bn-prompt-cards">
-			<?php if ( '' === $bn_pf_get_fv( 'basic_info', 'bio' ) ) : ?>
-			<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-prompt-card">
-				<span class="bn-prompt-card-icon"><?php buddynext_icon( 'edit' ); ?></span>
-				<?php esc_html_e( 'Add a bio', 'buddynext' ); ?>
-			</a>
-			<?php endif; ?>
-			<?php if ( empty( $bn_pf_work ) ) : ?>
-			<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-prompt-card">
-				<span class="bn-prompt-card-icon"><?php buddynext_icon( 'briefcase' ); ?></span>
-				<?php esc_html_e( 'Add your work experience', 'buddynext' ); ?>
-			</a>
-			<?php endif; ?>
-			<?php if ( empty( $bn_pf_int ) ) : ?>
-			<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-prompt-card">
-				<span class="bn-prompt-card-icon"><?php buddynext_icon( 'layers' ); ?></span>
-				<?php esc_html_e( 'Add your skills', 'buddynext' ); ?>
-			</a>
-			<?php endif; ?>
-		</div>
+		<ul class="bn-pf-tasks">
+			<?php foreach ( $bn_pf_tasks as $bn_pf_task ) : ?>
+				<li class="bn-pf-task<?php echo ! empty( $bn_pf_task['done'] ) ? ' is-done' : ''; ?>">
+					<span class="bn-pf-task__mark" aria-hidden="true">
+						<?php
+						if ( ! empty( $bn_pf_task['done'] ) ) {
+							buddynext_icon( 'check' );
+						}
+						?>
+					</span>
+					<span class="bn-pf-task__label"><?php echo esc_html( (string) $bn_pf_task['label'] ); ?></span>
+					<?php if ( empty( $bn_pf_task['done'] ) ) : ?>
+						<a class="bn-pf-task__cta" href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Add', 'buddynext' ); ?></a>
+					<?php endif; ?>
+				</li>
+			<?php endforeach; ?>
+		</ul>
 		<?php endif; ?>
 	</div>
 <?php endif; ?>
