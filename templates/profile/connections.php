@@ -165,7 +165,7 @@ do_action( 'buddynext_profile_connections_before', isset( $user_id ) ? (int) $us
 				$conn_colour = $bn_conn_colours[ $conn_id % count( $bn_conn_colours ) ];
 				$conn_inits  = bn_connections_initials( $conn_name );
 				$conn_url    = PageRouter::profile_url( $conn_id );
-				$msg_url     = PageRouter::messages_url();
+				$msg_url     = add_query_arg( array( 'recipient' => $conn_id ), PageRouter::messages_url() );
 				?>
 				<article class="bn-member-card" role="listitem">
 					<a href="<?php echo esc_url( $conn_url ); ?>" aria-label="<?php echo esc_attr( $conn_name ); ?>">
