@@ -1,50 +1,69 @@
-# Conformance: Notifications (Free)
+# Conformance: Notifications + Email
 
-**Feature:** Notifications
-**Repo:** free
-**Spec ref:** `docs/specs/features/06-notifications-email.md` (Locked) + `docs/journeys/notifications-email.md`
+**Feature:** Notifications (Free)
+**Spec ref:** `docs/specs/features/06-notifications-email.md` (Locked)
+**Journey ref:** `docs/journeys/notifications-email.md`, `docs/v2 Plans/v2/notifications.html`
+**Verdict:** usable-leave-as-is
 **Live-walk URL:** http://buddynext-dev.local/notifications
-**Verdict:** usable-minor-polish
+
+---
 
 ## Summary
 
-The core notification journey — trigger (follow) → row inserted → bell badge → list page → mark read / mark all read / dismiss → preferences → email dispatch — is fully wired end-to-end across UI, store, REST, service, and DB. The on-page list uses the WordPress Interactivity API store (`buddynext/notifications`) bound to the real REST routes; the bell renders a live count and links to the page; background polling keeps the badge fresh. The locked spec's happy path is achievable by a real web user and a REST/app client.
+The core notification journey — trigger (follow) → row created → on-site bell/list →
+mark read / mark all read / dismiss → preferences (on-site + email freq + per-space) →
+immediate-email dispatch → unsubscribe — is fully wired across all five layers
+(ui → store → rest → service → db). Both the web journey (templates + Interactivity
+stores) and the app/REST journey (controller routes) are intact. No usability break found.
 
-One contained defect: the **space-invite inline Accept/Decline buttons** in `parts/notification-row.php` call store actions (`actions.acceptSpaceInvite` / `actions.declineSpaceInvite`) that are not defined in any JS store in the repo. Those two buttons are dead. This does not block the core follow journey, and the space-invite row still navigates on row click (markRead), so a user can still reach the invite — they just can't act on it from the bell row.
+One non-blocking note: the journey doc's curl examples use stale REST paths
+(`/notifications`, `/notifications/mark-read`, `/notification-prefs`). The implemented
+routes live under `/me/` (`/me/notifications`, `/me/notifications/read-all`,
+`/me/notifications/{id}/read`, `/me/notification-prefs`). The UI stores call the correct
+`/me/` paths, so the journey works; only the documentation is out of date.
+
+---
 
 ## Journey chain
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Follow fires trigger → notification created | service | wired | `includes/Notifications/NotificationListener.php:31,70` (`on_user_followed` → `create('bn.new_follower')`) |
-| `create()` inserts row, dedups by group_key, fires `buddynext_notification_created`, evaluates `buddynext_notification_should_send` | service/db | wired | `includes/Notifications/NotificationService.php:54,107,168` |
-| Email dispatched on immediate pref | service | wired | `includes/Notifications/EmailDispatchListener.php:53-79`; digest queue `:109` |
-| Bell shows unread count + links to page | ui | wired | `templates/blocks/notification-bell.php:20,29,36` |
-| Page route `/notifications` renders hub template + enqueues store | ui | wired | `includes/Core/PageRouter.php:62,673-674`; `templates/notifications/index.php:470` |
-| List notifications (REST) | rest | wired | `includes/Notifications/NotificationController.php:42-46,162` (`GET /me/notifications`) |
-| Unread count (REST) | rest | wired | `NotificationController.php:51-55,198` |
-| Mark one / mark all read (REST) | rest | wired | `NotificationController.php:58-92,211,229` (PUT+POST) |
-| Delete notification (REST) | rest | wired | `NotificationController.php:94-102,242` (DELETE `/{id}`) |
-| Row click → markRead; mark-all → markAllRead; dismiss → DELETE; tabs → setFilter; Open → openAndMark | store/ui | wired | `assets/js/notifications/store.js:93,126,218,302,257`; bindings in `templates/parts/notification-row.php:110,148-194` and `index.php:283,464` |
-| Badge live refresh (30s poll, 5s hot, pause on hidden) | store | wired | `assets/js/notifications/store.js:422-595` |
-| Get/update notification preferences (REST) | rest | wired | `NotificationController.php:104-119,264,293`; prefs UI `templates/notifications/prefs.php` |
-| Per-space notification pref (REST) | rest | wired | `NotificationController.php:138-153,420,462` |
-| Space-invite inline Accept/Decline buttons | store | broken | `templates/parts/notification-row.php:148-159` call `actions.acceptSpaceInvite` / `actions.declineSpaceInvite`; repo-wide grep finds no definition in any store |
+| Follow fires `buddynext_user_followed` → notification row created | service | wired | `includes/Notifications/NotificationListener.php:31,70` → `NotificationService::create()` `includes/Notifications/NotificationService.php:54` |
+| `buddynext_notification_should_send` filter gates insert; grouping within 24h | service | wired | `includes/Notifications/NotificationService.php:61-110` |
+| Notification row persisted; `buddynext_notification_created` fired | db | wired | `includes/Notifications/NotificationService.php:138-168` |
+| Immediate email dispatched (freq=immediate) → `bn_email_log` | service | wired | `EmailDispatchListener.php:54,68-80` → `EmailSender::send()` `EmailSender.php:50-94`; log write `EmailSender.php:286` |
+| Daily/weekly → `buddynext_queue_email_digest`; off → suppressed | service | wired | `EmailSender.php:55-70` |
+| `/notifications` page renders list (server-side, grouped Today/Yesterday/Older) | ui | wired | `templates/notifications/index.php:83-203`; route enqueue `includes/Core/PageRouter.php:690-696` |
+| List rows + filter tabs + sidebar + pagination | ui | wired | `templates/parts/notification-row.php`, `notifications-filter-bar.php`, `notifications-group.php` |
+| Mark-all-read control → store → `PUT/POST /me/notifications/read-all` | ui→store→rest | wired | `templates/parts/notifications-hero.php`; `assets/js/notifications/store.js:93-124`; controller `NotificationController.php:58-74,229` |
+| Per-row mark read / open+mark → `POST /me/notifications/{id}/read` | ui→store→rest | wired | `store.js:126-216,257-277`; controller `NotificationController.php:76-92,211` |
+| Dismiss (delete) → `DELETE /me/notifications/{id}` | ui→store→rest | wired | `notification-row.php:177-193`; `store.js:218-255`; controller `NotificationController.php:94-102,242` |
+| Unread badge + 30s/5s polling → `GET /me/notifications/unread-count` | ui→store→rest | wired | `store.js:386-595`; controller `NotificationController.php:48-56,198` |
+| Preferences page (on-site, email freq, per-space) | ui→store→rest | wired | `templates/notifications/prefs.php:97-452`; `assets/js/notifications/prefs-store.js:105`; controller GET/PUT `NotificationController.php:104-119,264,293`; space prefs `:138-153,420,462` |
+| Notification bell block | ui | wired | `templates/blocks/notification-bell.php` |
+| Unsubscribe (HMAC, no login) | service | wired | `EmailDispatchListener.php:57,132-168` |
+
+---
 
 ## First break
 
-For the core happy path (follow notification): **none — journey complete.**
+none — journey complete
 
-The earliest broken link in the broader feature is the space-invite inline Accept/Decline buttons (`templates/parts/notification-row.php:148-159`) — store actions referenced but never defined. This is off the core follow journey.
+---
 
 ## UX gaps
 
-1. **Space-invite Accept/Decline buttons are inert** — severity: high — confidence: confirmed-in-code. `parts/notification-row.php:149,155` bind `actions.acceptSpaceInvite` / `actions.declineSpaceInvite`; neither exists in `assets/js/notifications/store.js` or anywhere else in the repo. Interactivity API silently no-ops undefined actions, so the buttons appear clickable but do nothing. Row click still navigates the user to the invite via `markRead`, so the action is reachable elsewhere — but the prominent primary "Accept" CTA in the bell row is dead.
+| Gap | Severity | Confidence | Evidence |
+|-----|----------|------------|----------|
+| Journey doc curl examples reference stale REST paths (`/notifications`, `/notifications/mark-read`, `/notification-prefs`) vs implemented `/me/*` routes. Doc-only drift; UI uses correct paths. | low | confirmed-in-code | doc `docs/journeys/notifications-email.md:61,81,113` vs routes `includes/Notifications/NotificationController.php:38-119` |
+| Email delivery / digest cron tick (Action Scheduler) and live bell badge update could not be confirmed statically; needs a live walk with Mailpit + cron run. | low | needs-live-verification | `EmailSender.php:76` (`as_enqueue_async_action`); journey notes `:281` |
 
-2. **Journey doc REST paths drift from implemented routes** — severity: low — confidence: confirmed-in-code. `docs/journeys/notifications-email.md` lists `/notifications`, `/notifications/mark-read`, `/notification-prefs`; the controller registers them under `/me/...` (`NotificationController.php:42,58,104`). Curl-based verification in the journey doc will 404 as written. Implementation is correct; the doc is stale. Not a user-facing break.
+---
 
 ## Minimal refactor plan
 
-1. Add `acceptSpaceInvite` and `declineSpaceInvite` actions to the `buddynext/notifications` store in `assets/js/notifications/store.js`, reusing the existing optimistic-update + rollback pattern already used by `dismiss`/`markReadOnly`. Point them at the existing Spaces membership REST endpoints (accept/decline invite) — do not invent new endpoints; verify the Spaces controller route names first and bind to them. On success, remove the row and decrement the badge as `dismiss` does.
+(empty — usable-leave-as-is)
 
-(Item 2 above is a doc-only fix and is intentionally excluded from the code refactor plan — the implementation is correct.)
+Optional documentation cleanup (not a code change): update the curl paths in
+`docs/journeys/notifications-email.md` to the `/me/*` namespace to match the
+shipped controller. No code edit required.

@@ -1,70 +1,62 @@
 # Conformance — Private Messaging (WPMediaVerse-bridged)
 
+**Feature:** Private Messaging / Direct Messaging
 **Repo:** buddynext (free)
-**Feature:** Direct Messaging — BuddyNext is the UI layer over the WPMediaVerse DM engine.
-**Spec refs:**
-- `docs/specs/features/07-direct-messaging.md` (Locked)
-- `docs/specs/WPMediaVerse-DM-Integration-Requirements.md` (Locked)
-**UX intent:** `docs/v2 Plans/v2/dm-list.html`, `docs/v2 Plans/v2/dm-thread.html`
-**Cross-cutting:** `docs/specs/REST-FRONTEND-CONTRACT.md`, `docs/specs/SCALE-CONTRACT.md`, `docs/specs/features/17-roles-permissions.md`
+**Checked:** 2026-05-31
 **Live-walk URL:** http://buddynext-dev.local/messages
 
----
+## Spec ref
 
-## Verdict: partial-needs-wiring
+- `docs/specs/features/07-direct-messaging.md` (DM engine owned by WPMediaVerse; BuddyNext is UI layer only)
+- `docs/specs/WPMediaVerse-DM-Integration-Requirements.md`
+- UX intent: `docs/v2 Plans/v2/dm-list.html`, `docs/v2 Plans/v2/dm-thread.html`
 
-The DM journey is **not completable today on the live site**, for two independent reasons:
+## Verdict
 
-1. **Environment / install gap (the dominant, current blocker).** The required soft-dependency plugin **WPMediaVerse is not installed or active** on the live site. Live `wp option get active_plugins` = `buddynext-pro, buddynext, jetonomy-pro, jetonomy`. WPMediaVerse exists only at `/Users/vapvarun/dev/repos/wpmediaverse` and is **not symlinked** into `wp-content/plugins/` (only `buddynext` and `buddynext-pro` are symlinked there; `jetonomy*` are real dirs). The isolation mu-plugin whitelist (`wp-content/mu-plugins/buddynext-isolation.php`) lists `wpmediaverse/wpmediaverse.php`, confirming it is *expected* to be present — but it isn't. With WPMediaVerse absent, `/messages` renders the spec-sanctioned "Direct messaging requires WPMediaVerse" dependency notice (`templates/messages/list.php:42-53`). Graceful, but the journey cannot start.
+**partial-needs-wiring** — the engine, REST surface, bridge, and templates are all built and correctly connected, but the conversation list does not auto-load on the `/messages` landing because the store's init guard keys off a CSS class (`.mvs-messages-page`) that the BuddyNext bridge shell (`.bn-msg-shell`) does not carry. Result: a member visiting `/messages` sees an empty conversation rail (and polling never starts) even when they have conversations.
 
-2. **Code break, latent until WPMediaVerse is installed (confirmed in code).** BuddyNext ships **two parallel DM front-ends**. The list pane works through the bridge; the **thread + requests templates are inert**. They bind Interactivity directives to `data-wp-interactive="buddynext/messages"`, but that store (`assets/js/messages/store.js`) is **intentionally empty** — it registers no `state` and no `actions`. So the composer Send button, emoji/attach buttons, and the request Accept/Decline/Block buttons are wired to actions that do not exist. No JS file anywhere registers a `buddynext/messages` store with those actions (grep across `assets/` returns only the empty stub).
+## Architecture (as built — matches spec)
 
-The working DM UI is the *other* path: `/messages/` (`bn_conv_id == 0`) → `messages/list.php` → `do_action('buddynext_render_messages')` → `WPMediaVerseBridge::render_messages()` → MVS chat partials driven by WPMediaVerse's own `mvs/messaging` store (which DOES define `sendMessage`, `acceptRequest`, etc. — `wpmediaverse/assets/js/messaging.js:107,433,559`). That path is spec-correct. The native `thread.php` / `requests.php` / `dm-*` parts are a contradictory second implementation that the spec does not call for ("BuddyNext has no own DM tables… pure UI" — `07-direct-messaging.md:20-23`).
-
----
+- BuddyNext is UI shell only; WPMediaVerse owns tables, REST (`mvs/v1`), transport.
+- WPMediaVerse is whitelisted in the isolation mu-plugin, so it is NOT stripped on the front-end — `wp-content/mu-plugins/buddynext-isolation.php:117-118`.
+- `/messages` routing resolves to BuddyNext's own templates — `includes/Core/PageRouter.php:861-870` (`messages/list.php`, `messages/thread.php`, `messages/requests.php`).
+- Those templates fire `do_action('buddynext_render_messages')` — `templates/messages/list.php:66`, `templates/messages/thread.php:108`.
+- The bridge handles that action and prints the two-pane `mvs/messaging` Interactivity UI + `mvs/v1` config — `includes/Bridges/WPMediaVerseBridge.php:61,147-176`.
 
 ## Journey chain
 
-Entry: member opens `/messages`, sees inbox, opens a thread, sends a message; unknown-sender requests can be accepted.
-
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Route `/messages/` → list template | rest/service | wired | `includes/Core/PageRouter.php:844-853` (dispatch), `:1098-1116` (rewrite) |
-| Auth gate (guests → login) | service | wired | `includes/Core/PageRouter.php:186-197` |
-| List template renders inbox via bridge | ui | wired (code) / unknown (live) | `templates/messages/list.php:29-67` — delegates to `buddynext_render_messages` |
-| Bridge renders MVS chat UI (list + thread + composer) | service | wired (code) | `includes/Bridges/WPMediaVerseBridge.php:61,147-176` |
-| MVS engine: REST `mvs/v1/me/conversations`, store actions | rest/db | wired-in-WPMediaVerse | `wpmediaverse/includes/Messaging/MessagingController.php`, `assets/js/messaging.js:107,559` |
-| **WPMediaVerse present at runtime** | db/service | **missing (live)** | live `active_plugins` lacks `wpmediaverse`; not symlinked in `wp-content/plugins/` |
-| Open thread `/messages/{id}/` (or `?conversation=`) → `thread.php` | ui | broken | `PageRouter.php:847-848`; `templates/messages/thread.php:225-227` binds `buddynext/messages` |
-| Composer Send / emoji / attach | store | broken | `templates/parts/dm-composer.php:81,87,94,116` → `actions.sendMessage` etc.; store empty `assets/js/messages/store.js` (no actions) |
-| Requests inbox: Accept / Decline / Block | store | broken | `templates/messages/requests.php:126,298,308,319` → `actions.acceptRequest` etc.; store empty |
-| New-message notification fan-out | service | wired | `WPMediaVerseBridge.php:378-444` (`mvs_message_sent` → `bn_notifications`) |
-| Block gate on send | service | wired | `WPMediaVerseBridge.php:309-329` (`mvs_can_send_message` → `bn_blocks`) |
-
----
+| Open `/messages`, route to messages hub | rest | wired | `includes/Core/PageRouter.php:861-870` |
+| `list.php` checks dependency + fires render hook | ui | wired | `templates/messages/list.php:29-66` |
+| Bridge prints two-pane shell + REST/nonce config | ui | wired | `includes/Bridges/WPMediaVerseBridge.php:112-176` |
+| `mvs/v1` REST controller registered on `rest_api_init` | rest | wired | `wpmediaverse/includes/Core/Plugin.php:1210-1212`; `wpmediaverse/includes/Messaging/MessagingController.php:50` |
+| Conversation list renders (`data-wp-each state.conversations`) | ui | wired | `wpmediaverse/templates/partials/chat-list.php:68-87` |
+| Conversation list AUTO-LOADS on landing | store | broken | `wpmediaverse/assets/js/messaging.js` onInit loads list only when `.mvs-messages-page` is present; bridge shell is `.bn-msg-shell` — `includes/Bridges/WPMediaVerseBridge.php:154` |
+| Open a thread via deep-link `/messages/{id}` | store | wired | `templates/messages/thread.php:82-98` dispatches `mvs-open-conversation`; store onInit listener + `#mvs-chat/{id}` hash handler in `messaging.js` |
+| Composer send → `POST /conversations/{id}/messages` | store | wired | `messaging.js` sendMessage; button `data-wp-on--click="actions.sendMessage"` — `wpmediaverse/templates/partials/chat-composer.php:54` |
+| New-message → `bn.new_message` notification | service | wired | `includes/Bridges/WPMediaVerseBridge.php:378-444` |
+| `bn_blocks` gate on send | service | wired | `includes/Bridges/WPMediaVerseBridge.php:309-329` |
+| Requests/accept/decline, mute/pin/archive, reactions, unsend, typing, unread | rest+store | wired | `wpmediaverse/includes/Messaging/MessagingController.php:55-308` + store actions in `messaging.js` |
 
 ## First break
 
-**WPMediaVerse is not installed/active at the live site** — `/messages` shows the dependency notice; the journey cannot start (`templates/messages/list.php:42-53`; live `active_plugins`). Behind that, even once WPMediaVerse is installed, the **second break** surfaces immediately on opening a thread: `templates/messages/thread.php` + `parts/dm-composer.php` bind to the empty `buddynext/messages` store (`assets/js/messages/store.js`), so sending a message does nothing.
-
----
+Conversation-list auto-load on the `/messages` landing. The store's `onInit` (`wpmediaverse/assets/js/messaging.js`) calls `loadConversations()` + `startPolling()` only when `.mvs-messages-page` is found in the DOM. WPMediaVerse's standalone page template carries that class (`wpmediaverse/templates/messages.php:17`), but the BuddyNext bridge shell uses `.bn-msg-shell` (`includes/Bridges/WPMediaVerseBridge.php:154`) and BuddyNext never adds `.mvs-messages-page` anywhere. Introduced by commit `c417271` ("Messages: reconcile DM UI onto the WPMediaVerse bridge path", 2026-05-31), which moved `/messages` onto the bridge shell without aligning the store's init selector.
 
 ## UX gaps
 
-| Gap | Severity | Confidence | Evidence |
-|-----|----------|------------|----------|
-| WPMediaVerse (soft dependency) not installed/active on the live site → entire DM surface is the dependency-notice fallback | critical | needs-live-verification | live `active_plugins`=`buddynext-pro,buddynext,jetonomy-pro,jetonomy`; `wp-content/plugins/` has no `wpmediaverse` symlink; whitelist expects it (`mu-plugins/buddynext-isolation.php`) |
-| Native DM thread template's composer (Send/emoji/attach) bound to an empty Interactivity store → no message can be sent via this template even with WPMediaVerse active | critical | confirmed-in-code | `templates/parts/dm-composer.php:81,87,94,116`; `templates/messages/thread.php:227`; `assets/js/messages/store.js` (empty) |
-| Requests inbox Accept/Decline/Block bound to the same empty store → request triage non-functional via this template | high | confirmed-in-code | `templates/messages/requests.php:298,308,319`; `assets/js/messages/store.js` |
-| Two contradictory DM front-ends ship in free: bridge path (`list.php`→MVS partials, works) vs native path (`thread.php`/`requests.php`/`dm-*`, inert). Spec mandates UI-only-over-bridge | high | confirmed-in-code | spec `07-direct-messaging.md:20-23`; `WPMediaVerseBridge.php:147-176` vs `templates/messages/thread.php`, `templates/parts/dm-*.php` |
+1. **`/messages` landing shows empty conversation rail; no polling starts** — severity: high; confidence: confirmed-in-code. The list panel renders but stays empty on first load (no hash) because `loadConversations()` is gated on `.mvs-messages-page`, absent from the bridge shell. Evidence: `messaging.js` onInit guard vs `includes/Bridges/WPMediaVerseBridge.php:154`. App/REST clients are unaffected — `GET mvs/v1/me/conversations` works directly.
 
----
+2. **Deep-linked thread (`/messages/{id}`) opens the thread but leaves the left rail empty** — severity: medium; confidence: confirmed-in-code. The `mvs-open-conversation` / `#mvs-chat/{id}` paths in onInit load that conversation's messages but never call `loadConversations()`, so the sidebar list is blank while a thread is open. Evidence: hash/event branches in `messaging.js` onInit do not invoke `loadConversations`.
+
+3. **Profile / directory "Message" entry point** — severity: low; confidence: needs-live-verification. Spec says the bridge injects a DM link on member profiles and directory cards (`07-direct-messaging.md:76`). The BuddyNext bridge injects only a "Media" nav item (`WPMediaVerseBridge.php:190-207`); the actual Message button lives in WPMediaVerse's `templates/partials/profile-actions.php` and dispatches `mvs-open-conversation`. Whether it surfaces inside BuddyNext member profile templates (vs only WPMediaVerse profile pages) needs a live walk.
 
 ## Minimal refactor plan
 
-1. **Install/activate WPMediaVerse free** on the live site (symlink `/Users/vapvarun/dev/repos/wpmediaverse` into `wp-content/plugins/wpmediaverse` and activate), matching the isolation whitelist. Re-walk `/messages` to confirm the bridge path renders the MVS inbox instead of the dependency notice.
-2. **Resolve the duplicate front-end.** Make `/messages/{id}/` and `/messages/requests/` route through the same bridge UI that `/messages/` uses, OR finish the native store. Prefer routing through the bridge (the spec's "UI-only over WPMediaVerse" model):
-   - In `PageRouter::resolve_hub_template()` (`:844-853`) point the thread + requests sub-routes at `messages/list.php` (the bridge wrapper) so the MVS two-pane UI handles thread + requests itself, and retire the inert `thread.php` / `requests.php` / `parts/dm-*.php` + the empty `assets/js/messages/store.js`.
-   - If the native templates must stay for SSR/SEO, implement the `buddynext/messages` Interactivity store (`sendMessage`, `acceptRequest`, `deleteRequest`, `blockSender`, `openEmojiPicker`, `openAttachment`, `onPanelSearchInput`, `switchPanelTab`, `onInputKeydown`, `onMessageInput`, `clearReply`) calling the same `mvs/v1` endpoints, and register it in `AssetService` (`:319`).
+1. Make the store's list-load fire for the BuddyNext bridge shell. Cheapest, code-reusing fix: add the `mvs-messages-page` class to the bridge shell wrapper alongside `bn-msg-shell` in `includes/Bridges/WPMediaVerseBridge.php:153-157`. The store's existing onInit then auto-loads conversations and starts polling with no JS change. (Alternative, if the WPMediaVerse repo is in scope: broaden the onInit selector to also match `.bn-msg-shell`.)
+2. Ensure the rail populates when landing directly on a thread: in the bridge-shell case, also call `loadConversations()` on the `#mvs-chat/{id}` and `mvs-open-conversation` branches — covered automatically by fix #1 if the `mvs-messages-page` class is always present on the shell regardless of deep-link.
+3. Live-verify the profile/directory "Message" button renders on BuddyNext member profiles; if it only appears on WPMediaVerse-owned profile pages, surface it on the BuddyNext profile template (gap #3).
 
-(Note: the bridge wiring itself — block gate, notification fan-out, render hook — is correct and should NOT be touched.)
+## Notes
+
+- Send, accept/decline requests, mute/pin/archive, reactions, unsend, typing, attachments, voice messages, and unread-count are all wired template→store→`mvs/v1`. The break is specifically the initial population of the conversation list in the BuddyNext shell, not the messaging actions themselves.

@@ -1,72 +1,61 @@
 # Conformance: REST / App Contract
 
-**Contract:** REST/App contract — the `buddynext/v1` surface an app drives every member journey through.
-**Locked spec:** `docs/specs/REST-FRONTEND-CONTRACT.md`, `docs/specs/REST-INVENTORY.md`
-**Date walked:** 2026-05-31
-**Verdict:** usable-minor-polish
+**Contract:** REST-Frontend Contract (BuddyNext is 100% REST under versioned namespaces)
+**Spec:** `docs/specs/REST-FRONTEND-CONTRACT.md` + `docs/specs/REST-INVENTORY.md`
+**Date:** 2026-05-31
+**Verdict:** usable-leave-as-is (minor polish opportunities, no contract break)
 
-## Scope walked
+## What the locked spec actually mandates
 
-- `includes/REST/Router.php` (boot order)
-- All 27 `*Controller.php` under `buddynext/includes/`
-- All 21 route-registering controllers under `buddynext-pro/includes/`
-- JS callers under `buddynext/assets/js/`
+The contract doc itself promises four hard guarantees:
 
-## The contract's guarantees — status
+1. **Versioned namespace** — everything under `buddynext/v1` (Free) / `buddynext-pro/v1` (Pro), separable.
+2. **Uniform permission + nonce** — every route declares `permission_callback`; clients send `X-WP-Nonce` (`wp_create_nonce('wp_rest')`) as a header, never in the query string, never a custom nonce name.
+3. **Consistent error envelope** — JSON with `code`, `message`, `data.status`.
+4. **Single audit surface** — `bin/check-rest-boundary.sh` proves admin-ajax is dead.
 
-| Guarantee | Status | Evidence |
-|---|---|---|
-| Versioned namespace (`buddynext/v1`) | wired | Router.php:59-86; all Free routes register under `'buddynext/v1'`. Pro ships its own versioned namespace `buddynext-pro/v1` (48 occurrences, zero leakage into the Free namespace). Two parallel versioned surfaces, both consistent internally. |
-| Uniform permission callback on every route | wired | Free 140 `register_rest_route` calls, 0 with null/empty `permission_callback`; Pro 46 calls, 0 missing. Public reads use `'__return_true'`; webhooks use `'__return_true'` + in-callback signature auth (Stripe `stripe_signature` constructEvent; Free AccessWebhook HMAC-SHA256 `X-BuddyNext-Signature`). |
-| `X-WP-Nonce` header is the auth contract (no query-string nonce, no custom nonce name) | wired | 21 JS files send `X-WP-Nonce`; zero `?_wpnonce=` query-string hits; the single non-`wp_rest` `wp_create_nonce` is an admin server-rendered delete link (ProfileFieldsManager.php:1060), outside REST scope. |
-| Consistent error envelope `code` / `message` / `data.status` | wired | All 145 `new WP_Error(...)` constructs across Free controllers carry an `array( 'status' => NNN )` third arg (verified by balanced-paren scan — 0 misses). Returns are `WP_REST_Response` / `WP_Error`, never `wp_send_json_*`. |
-| admin-ajax forbidden | wired | 0 `wp_ajax_` / `check_ajax_referer` / `wp_send_json` / `admin-ajax` in Free or Pro `includes/` (only doc-comment references). Last surface migrated 2026-05-21 to `GET /admin/slug-check`. |
-| Inventory is the source of truth for the surface | broken | `REST-INVENTORY.md` lists 113 Free routes and claims to be "the source of truth for the BuddyNext REST surface." It omits 5+ live Free routes and the entire ~46-route `buddynext-pro/v1` surface. |
-| `/members` resolves to one documented handler | broken | Two controllers register `GET buddynext/v1/members` with different arg schemas. |
+The spec does **not** mandate cursor pagination on every list. Cursor pagination is a directive-level expectation, not a locked-spec clause.
 
-## Confirmed contract violations
+## Guarantee-by-guarantee verification
 
-### 1. `GET /members` route collision (high)
-`Search/SearchController.php:66` and `Profile/MemberDirectoryController.php:49` both register
-`GET buddynext/v1/members`, same method, different callbacks (`list_members` in each) and
-**different arg schemas** — SearchController expects `cursor`/`per_page` (cursor pagination),
-MemberDirectoryController expects `search`/`sort` (offset/page). `register_rest_route` defaults
-to `override=false`, so both endpoints are merged onto the route; Router boots MemberDirectory
-(line 74) before Search (line 75), so a GET dispatches to MemberDirectory and Search's `/members`
-is shadowed. The inventory documents `/members` as SearchController:66 — which is **not** the
-handler that serves. An app reading the inventory and sending `?cursor=` gets the wrong schema.
+### G1 — admin-ajax forbidden / 100% REST — WIRED
+- `bin/check-rest-boundary.sh` exits 0: "REST-boundary clean — no admin-ajax surface."
+- Only `admin-ajax` mention in Free `includes/` is a comment in `Admin/SlugCheckController.php:5` documenting the migration of the last surface.
+- Pro `includes/` has zero `wp_ajax_` / `wp_send_json` / `check_ajax_referer` hits.
+- (Note: `Admin/Members/ProfileFieldsManager.php:1213` uses a custom `_wpnonce` — but that is a classic server-rendered `admin-post` delete form, not a REST/JS data interaction, so it is outside the contract's scope.)
 
-### 2. Inventory drift (medium)
-`REST-INVENTORY.md` (dated 2026-05-21, "source of truth") is stale:
-- Missing Free routes: `/me/onboarding/step`, `/me/onboarding/skip`, `/me/onboarding/complete`
-  (OnboardingController), `/me/drafts` (ComposerDraftController), and MemberDirectoryController's
-  `/members`.
-- Missing the entire Pro surface: ~46 routes under `buddynext-pro/v1`
-  (Push, Realtime, Membership/Tiers/Subscriptions/Checkout, Email/Broadcast/Drip/Unsubscribe,
-  AI moderation/reply, Analytics, Saved search, White-label, Scheduled posts, Bulk moderation,
-  Stripe webhook, etc.).
-An app integrator cannot drive the full member journey from the documented inventory because the
-documented inventory is a subset of the live surface.
+### G2 — versioned, isolated namespaces — WIRED
+- Free: all 26 controllers register under `buddynext/v1` via `includes/REST/Router.php`.
+- Pro: all controllers carry `'buddynext-pro/v1'` (const NAMESPACE / NS / $namespace).
+- No cross-contamination: grep for `buddynext-pro/v1` in Free = 0; grep for `'buddynext/v1'` in Pro = 0. Pro is purely additive.
 
-## Not a violation (design choices the spec permits)
+### G3 — uniform auth — WIRED
+- `X-WP-Nonce` header used in 21 JS files; zero nonce-in-query-string hits.
+- Zero custom `wp_create_nonce` for REST (the one non-`wp_rest` nonce is the admin-post form above).
+- Every inventoried route has a `permission_callback` (the inventory column is fully populated).
 
-- **Mixed pagination.** Feeds + notifications + directory search use cursor (`{items,
-  next_cursor, has_more}`); comments/spaces/bookmarks/shares/moderation lists use `page`/`per_page`.
-  The locked `REST-FRONTEND-CONTRACT.md` does **not** mandate a single pagination style, so this is
-  a deliberate split (infinite-scroll feeds vs. paged admin tables), not a spec break. Worth noting
-  for an SDK author but does not violate the locked contract.
-- **`buddynext-pro/v1` as a second namespace.** The contract's stated rationale for versioning is
-  forward-compatibility; a sibling Pro namespace is consistent with that intent and keeps Pro
-  additively separable. Internally consistent (envelope, permission, nonce all match Free).
+### G4 — consistent error envelope — WIRED
+- Free `require_auth`/`require_admin` return `WP_Error( <code>, <message>, array('status'=>401|403) )` — correct `code`/`message`/`data.status` shape across all 18 controllers that define them.
+- Pro typed errors carry the same shape with `bnpro_`/`buddynextpro_` prefixes.
+- 13 Pro permission callbacks return a **bare bool** (`require_logged_in(): bool`, `require_admin(): bool` in Realtime, Push, SavedSearch, Analytics). On denial these return `false`, which WP core wraps in its standard `rest_forbidden` envelope — so `data.status` is still present. Envelope holds; only the error `code` slug is WP-generic rather than plugin-typed.
 
-## Refactor plan (minimal)
+## Inconsistencies (polish, not breaks)
 
-1. Resolve the `GET /members` collision: pick one owner. MemberDirectoryController is the directory
-   surface; fold SearchController's member listing into it (or give Search a distinct path such as
-   `/search/members`) so one path = one schema = one documented handler.
-2. Regenerate `REST-INVENTORY.md` from `grep -rn register_rest_route includes/` across **both**
-   repos, and either (a) add a `buddynext-pro/v1` section or (b) state explicitly that the file
-   covers only the Free namespace and link a Pro inventory.
+1. **Error `code` slug drift (low).** Free uses both `rest_not_logged_in` (Profile, Follow, Post, Connection, Block, Share, Poll, Feed, Notification, Onboarding, Spaces, Realtime) and `rest_forbidden` (Comments, Moderation) for the identical "not logged in / 401" case. Same envelope shape, different `code`. An app switching on `code` sees two slugs for one condition.
 
-The error-envelope / auth / permission-callback / no-admin-ajax core is solid across both repos and
-must not be touched.
+2. **Bare-bool Pro perms (low).** The 13 bare-bool callbacks lose the plugin-typed `code` on denial (fall back to core `rest_forbidden`). Cosmetic for an app; functionally the envelope and status are intact.
+
+3. **Pagination is mixed (medium, but spec-compliant).** Cursor pagination (`cursor` param + `next_cursor` in body) is used on the high-volume journey lists: `/members`, `/search`, `/search/members`, `/feed/*`, `/users/{id}/feed`, `/spaces/{id}/feed`, `/me/notifications`. Offset/page (`page`+`per_page`) is used on `/spaces`, `/me/bookmarks`, `/me/shares`, moderation queues/appeals. Relationship lists `/me/connections`, `/me/connection-requests`, `/users/{id}/followers`, `/users/{id}/following` return **unbounded `{ids:[...]}` arrays with no pagination at all**. An app can still drive every journey, but a member with tens of thousands of followers gets an unbounded payload on those four endpoints. This is the only finding with real-world bite; it is not a locked-spec violation.
+
+## No hand-rolled base / shared trait
+
+Each controller hand-rolls its own `require_auth`/`require_admin` (18 copies in Free). There is no shared base controller or trait. This is duplication, not a break — the implementations are byte-identical where they share a name (verified Profile/Follow/Post). Consolidating to a trait would cut the slug drift in G3-1 but is not required by the spec.
+
+## Refactor plan (optional polish, not required to ship)
+
+None required for contract conformance. If reducing app-facing friction is desired later:
+- Standardise the "not logged in" `WP_Error` code to a single slug (suggest `rest_not_logged_in`) across Free controllers.
+- Convert the 13 bare-bool Pro perms to typed `WP_Error` returns for richer client error handling.
+- Add cursor (or page/per_page) pagination to `/me/connections`, `/me/connection-requests`, `/users/{id}/followers`, `/users/{id}/following` to bound payloads.
+
+All three are low-risk, additive, and independent.

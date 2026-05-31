@@ -1,64 +1,44 @@
-# Conformance — Reactions
+# Conformance — Reactions (free)
 
-**Feature:** Reactions (repo: free)
-**Spec ref:** docs/specs/features/08-reactions-comments.md (Locked, 2026-03-19)
-**Live-walk URL:** http://buddynext-dev.local/activity
+**Spec ref:** `docs/specs/features/08-reactions-comments.md` (Reactions section; Locked, 2026-03-19)
 **Verdict:** usable-leave-as-is
+**Live-walk URL:** http://buddynext-dev.local/activity
+
+This dossier covers the **Reactions** half of the combined Reactions + Comments spec. Comments are out of scope for this trace.
 
 ---
 
-## What was verified
-
-The post-reaction happy path — a logged-in member opens the activity feed, opens
-the reaction picker on a post, picks an emoji, the reaction persists and the
-count + "who reacted" popover reflect it. The chain is fully wired UI → store →
-REST → service → DB, plus comment-level reactions and the notification/webhook
-integration hooks called for in the spec.
-
-## Journey chain
+## Journey chain (member reacts to a feed post, then views who reacted)
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Feed renders post card with React button + emoji picker | ui | wired | templates/parts/post-actions.php:87-134 |
-| Card seeds wp-context (postId, reactionType, reactNonce, restUrl) | ui | wired | templates/partials/post-card.php:322-346 |
-| Server pre-fills viewer's current reaction | service | wired | templates/partials/post-card.php:259-261 (get_user_reaction) |
-| Click React toggles picker; pick emoji fires store action | store | wired | assets/js/feed/store.js:757-784 (toggleReactionPicker, setReaction) |
-| setReaction POSTs to /reactions/toggle with nonce, optimistic + revert | store→rest | wired | assets/js/feed/store.js:773-783 |
-| Route registered under buddynext/v1 | rest | wired | includes/REST/Router.php:79; includes/Reactions/ReactionController.php:30-57 |
-| Toggle replaces/removes/adds (one-per-user), updates cached count | service | wired | includes/Reactions/ReactionService.php:250-286, 43-111 |
-| Persisted to bn_reactions (PK user_id+object_type+object_id = one-per-object) | db | wired | includes/Core/Installer.php:582-590 |
-| reaction_count cached on bn_posts row | db | wired | includes/Reactions/ReactionService.php:63-71, 146-153 |
-| "Who reacted" chip rendered with data-bn-reactors trigger | ui | wired | templates/parts/post-reaction-summary.php:91-99 |
-| Popover fetches /reactions/list, hydrates name+avatar+emoji | store→rest | wired | assets/js/feed/store.js:2508-2611; ReactionController.php:167-193 |
-| Comment-level reactions (object_type='comment') | ui→store→rest | wired | assets/js/feed/store.js:152-189, 245-259 |
-| Reaction → notify post owner | service→listener | wired | ReactionService.php:81; includes/Notifications/NotificationListener.php:40 |
-| Pro reaction-type extension point | service | wired | ReactionService.php:188-202 (buddynext_reaction_types filter) |
-| Restricted-user gate on reactors list | service | wired | ReactionService.php:384-418 |
+| Member sees React button + emoji picker on each post card | ui | wired | `templates/parts/post-actions.php:84-196` (React button `data-wp-on--click="actions.toggleReactionPicker"`; picker buttons `data-wp-on--click="actions.setReaction"` with `data-reaction-type`) |
+| Picker populated from filterable reaction set (six defaults + Pro custom) | ui | wired | `templates/parts/post-actions.php:131-159` consumes `ReactionService::reaction_types()` / `buddynext_reaction_meta` |
+| Card seeds Interactivity context (postId, current reaction, REST nonce, restUrl) | ui | wired | `templates/partials/post-card.php:333-348` seeds `reactionType`, `reactNonce` (= `$rest_nonce`, l.228), `restUrl=rest_url('buddynext/v1')`; `$my_reaction_type` from `buddynext_service('reactions')->get_user_reaction()` l.259-261 |
+| Picker click → store action → optimistic UI + POST toggle | store | wired | `assets/js/feed/store.js:761-783` `setReaction` posts `{object_type:'post', object_id, emoji}` to `restUrl + '/reactions/toggle'` with `X-WP-Nonce`, reverts on failure |
+| REST route exists and authenticates | rest | wired | `includes/Reactions/ReactionController.php:30-57` registers `POST buddynext/v1/reactions/toggle` with `require_auth`; mounted at `includes/REST/Router.php:80` |
+| Service applies add / replace / remove + cache invalidation | service | wired | `includes/Reactions/ReactionService.php:250-286` (`toggle()`: null→react, same→unreact, different→update); one-per-user enforced by UNIQUE key + `INSERT IGNORE` l.43-56 |
+| Counts cached on parent post row; notifications + gamification fired | service/db | wired | `ReactionService.php:63-71` increments `bn_posts.reaction_count`; `do_action('buddynext_reaction_added')` l.81 and `buddynext_post_reaction_received` l.105 (recipient-side hook for notifications + WBGamification) |
+| Member opens "who reacted" popover from summary chip | ui→store→rest | wired | `templates/parts/post-reaction-summary.php:91-128` renders `button[data-bn-reactors]` (count > 0); `store.js:95-125` click handler fetches `/reactions/list`; endpoint at `ReactionController.php:81-108` + hydration `:167-193` |
+| Reactor list respects block/restrict visibility | service | wired | `ReactionService.php:359-421` drops restricted reactors for non-owner/non-admin viewers (honors 17-roles-permissions visibility) |
+
+---
 
 ## First break
 
-none — journey complete.
+none — journey complete. Every UI control is bound to an Interactivity API store action that reaches a registered, authenticated REST route backed by a working service and DB layer. Both the web journey and the REST/app journey are served (the controller is the single source for both).
+
+---
 
 ## UX gaps
 
-None that stop the journey. Minor observations (not blockers):
+None that stop the journey. Two non-blocking observations:
 
-- The reactors-popover emoji badge is omitted when no open comment thread exposes
-  `[data-emoji-base]` on the page (store.js:2563-2564). The name + avatar list
-  still renders; only the per-row emoji icon may be missing on a feed with no
-  expanded thread. Graceful fallback, not a break. Confidence: needs-live-verification.
+- **Toggle-off payload sends `emoji: null` rather than empty string** — `store.js:776` sends `emoji: newType` where `newType` is `null` when removing. Controller arg `emoji` has `default => 'like'` + `sanitize_key` (`ReactionController.php:49-54`); a JSON `null` value coerces via `sanitize_key(null)` → `''`, which the service treats as "remove" (`ReactionService.php:251-255`). Behavior is correct but relies on null→'' coercion rather than the service's explicit empty-string contract. Severity low; confirmed correct in code.
+- **`reaction_count` denormalized on `bn_posts` only for `object_type='post'`** — comments/messages/media reactions get no cached parent counter (`ReactionService.php:63-71, 146-153`). This matches the spec ("Counts cached on bn_posts row") and SCALE-CONTRACT intent; not a gap for the post journey.
+
+---
 
 ## Minimal refactor plan
 
-Empty — feature is usable as-is. Do not rewrite.
-
-## App / REST-client note
-
-The REST surface (toggle, count, list) is permission-gated correctly (auth
-required on toggle, public reads) and object-type agnostic, so in-app/REST
-clients get the same capability as the web journey. Per-emoji counts are exposed
-via the service `get_counts()`; the toggle endpoint returns total `count` only,
-which is sufficient for the current web UI but a REST client wanting the grouped
-breakdown would call a count endpoint that returns the per-emoji map — present in
-the service (get_counts) but the controller's GET /reactions returns total only.
-Not a web-journey break.
+Empty — feature is usable as built. No rewrites proposed.

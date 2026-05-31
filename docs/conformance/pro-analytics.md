@@ -1,112 +1,71 @@
 # Conformance: BuddyNext Pro — Analytics
 
 **Feature:** Analytics (repo: buddynext-pro)
-**Spec ref:** `/Users/vapvarun/dev/repos/buddynext/docs/specs/features/P5-analytics.md`
+**Spec ref:** `/Users/vapvarun/dev/repos/buddynext/docs/specs/features/P5-analytics.md` (Locked, 2026-03-19)
 **Journey doc:** `/Users/vapvarun/dev/repos/buddynext-pro/docs/journeys/analytics-dashboard.md`
-**Live-walk URL:** http://buddynext-dev.local/wp-admin/ (Analytics under the BuddyNext "Growth" hub; legacy URL `admin.php?page=buddynextpro-analytics`)
+**Live-walk URL:** http://buddynext-dev.local/wp-admin/
 **Verdict:** usable-leave-as-is
 
 ---
 
-## Summary
+## Core happy-path
 
-The core happy path — an admin opens the Analytics dashboard and sees community-health
-metrics (DAU/WAU/MAU, daily activity, top content, top members), switches time windows,
-explores Cohorts / Funnel / Profile-Views, and exports CSV — is **fully wired end to end**:
-collector → `bn_analytics_events` (indexed) → `AnalyticsService` aggregates → admin UI (rendered
-server-side via Free template parts and SVG chart helpers) and a parallel REST surface.
+Site owner expects an admin to open the Analytics dashboard and see community-health
+metrics (DAU/WAU/MAU, member growth, top content, top members), backed by an event
+stream that Pro collects from Free actions, with a CSV export and matching REST surface.
 
-The journey doc is **stale relative to the code** (it describes tabs Overview/Content/Members/Spaces
-with `?tab=`; the shipped admin uses views Overview/Cohorts/Funnel/Profile-Views with `?view=`).
-The shipped UI is a superset of the spec intent, not a regression. This is a doc-drift item, not a
-journey break.
-
-One real but contained data-correctness gap exists on the REST-only `spaces/{id}/health` endpoint
-(`posts` always returns 0). It has no admin UI binding and does not affect the admin journey.
-
----
-
-## Journey chain (admin happy path)
+## Journey chain
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Free fires 25+ activity actions; collector records events | service | wired | `includes/Analytics/AnalyticsCollector.php:33-78` (hooks), `:470-501` (`record()` insert) |
-| Events persisted to `bn_analytics_events` (indexed) | db | wired | `includes/Core/Installer.php:357-371`; activation hook `buddynext-pro.php:28` |
-| Collector registered at boot | store | wired | `includes/Core/Plugin.php:200` |
-| Admin page registered (Growth hub + legacy submenu) | ui | wired | `includes/Admin/AnalyticsAdmin.php:125-159`; hub section `buddynext/includes/Admin/AdminHub.php:49,217` |
-| Dashboard renders: section head, window filter, stat grid, 3 charts | ui | wired | `AnalyticsAdmin.php:187-240` (`render_content`/`render_overview_view`) |
-| DAU/WAU/MAU + posts/engagement/signups tiles | service→ui | wired | `AnalyticsAdmin.php:651-699`; queries `AnalyticsService.php:81-155`, `count_events` `:31-73` |
-| Daily activity (LineChart), top content, top members cards | service→ui | wired | `AnalyticsAdmin.php:707-770`; `AnalyticsService::top_content` `:167-216`, `top_members` `:225-269` |
-| Time-window switch (7/30/90/365) | ui | wired | `AnalyticsAdmin.php:580-643` (`resolve_window`/`render_window_filter`) |
-| Cohorts / Funnel / Profile-Views views | service→ui | wired | `AnalyticsAdmin.php:197-211,247-466` |
-| Export CSV (overview/content/members) | ui→service | wired | `AnalyticsAdmin.php:597-611` (nonce form), `:896-942` (`handle_csv_export` admin-post) |
-| REST overview / content / members / me-profile-views | rest | wired | `Controllers/AnalyticsController.php:79-192`; registered `Plugin.php:301-304` on `rest_api_init` |
-| REST permission gating (`manage_options` / logged-in) | rest | wired | `AnalyticsController.php:346-357` |
-| REST `spaces/{id}/health` `posts` metric | rest | broken | see First break — collector never writes `post.created` with `target_type='space'` |
-
----
+| Free fires activity actions (`buddynext_post_created`, `buddynext_reaction_added`, `buddynext_space_member_joined`, `user_register`, etc.) | service | wired | `buddynext/includes/Feed/PostService.php:178`, `buddynext/includes/Reactions/ReactionService.php:81`, `buddynext/includes/Spaces/SpaceMemberService.php:145` |
+| Collector hooks 25+ Free actions and writes rows | service | wired | `buddynext-pro/includes/Analytics/AnalyticsCollector.php:33-78`, write at `:470-501` |
+| Collector registered at boot | store | wired | `buddynext-pro/includes/Core/Plugin.php:201` |
+| `bn_analytics_events` table created on activation | db | wired | `buddynext-pro/includes/Core/Installer.php:357` (dbDelta at `:48`) |
+| Service aggregates (dau/wau/mau, member_growth, top_content, top_members, space_health) | service | wired | `buddynext-pro/includes/Analytics/AnalyticsService.php:81,107,135,167,225,278,337` — event-type strings match Collector output (`user.registered`, `post.created`, `reaction.added`, `space.member_joined`) |
+| Admin submenu + AdminHub "Growth → Analytics" tab | ui | wired | `buddynext-pro/includes/Admin/AnalyticsAdmin.php:125-159`; registered at `Plugin.php:204`; AdminHub `growth` section at `buddynext/includes/Admin/AdminHub.php:49` |
+| Overview view: stat grid (DAU/WAU/MAU/posts/engagement/signups) + 3 cards | ui | wired | `AnalyticsAdmin.php:223-240`, `render_stat_grid` `:651-699` |
+| Window filter (7/30/90/365) | ui | wired | `AnalyticsAdmin.php:619-643`, `resolve_window` `:584-590` |
+| Extra views: Cohorts, Funnel, Profile Views | ui | wired | `AnalyticsAdmin.php:197-211`, `:247,299,370` |
+| CSV export (admin-post, nonce-checked, content/members/overview cases) | ui+service | wired | form `AnalyticsAdmin.php:602-607`; handler `handle_csv_export` `:896-942` (nonce `:902`) |
+| REST: overview / content/top / members/top / spaces/{id}/health / me\|users profile-views | rest | wired | `buddynext-pro/includes/Analytics/Controllers/AnalyticsController.php:79-192`; registered `Plugin.php:305-308` |
+| REST auth: `require_admin` (manage_options) + `require_logged_in` | rest | wired | `AnalyticsController.php:346-357` |
+| Member self-only profile views (privacy opt-out honoured, admin override) | rest+service | wired | `AnalyticsController.php:286-337`; `buddynext-pro/includes/Analytics/ProfileViewService.php` |
 
 ## First break
 
-**`spaces/{space_id}/health` REST endpoint returns `posts: 0` permanently.**
+none — journey complete. The core admin analytics happy-path (entry via AdminHub
+"Growth → Analytics" or legacy `admin.php?page=buddynextpro-analytics`, through to
+rendered metrics, CSV export, and the REST surface) is wired at every layer. Event
+collection genuinely fires because the Free `do_action` calls exist (verified) and
+the Collector hooks them at boot.
 
-`AnalyticsService::space_health()` counts `event_type='post.created' AND target_type='space'`
-(`AnalyticsService.php:310-320`), but `AnalyticsCollector::on_post_created()` always records
-`post.created` with `target_type='post'` and `target_id=$post_id` — the space ID is never the
-target (`AnalyticsCollector.php:149-163`). So the `posts` field (and `engagement_rate()`, which
-also keys on `target_type='space'` for reactions/comments at `AnalyticsService.php:386-408`) will
-always be 0.
+## UX gaps (non-blocking)
 
-This is **not** an admin-journey break: there is no Spaces view or space-health UI control in the
-shipped `AnalyticsAdmin` (only Overview/Cohorts/Funnel/Profile-Views). The break is confined to a
-REST-only surface and the app/REST client journey for per-space post volume. `joins`, `leaves`, and
-`net_members` on the same endpoint are correct (collector records `space.member_joined` /
-`space.member_left` with `target_type='space'`, `AnalyticsCollector.php:324-343`).
+1. **Stale journey doc vs. shipped UI** (low, confirmed-in-code).
+   The journey doc describes four tabs `Overview / Content / Members / Spaces` via
+   `&tab=`, and verification SQL using `user_registered` / `space_joined` event names.
+   The shipped UI uses `&view=` with `Overview / Cohorts / Funnel / Profile Views`
+   (`AnalyticsAdmin.php:511-547`); Content and Members are cards inside the Overview
+   view (`:727,752`), and there is no standalone Spaces tab. Event-type strings are
+   dotted (`user.registered`, `space.member_joined`) in BOTH Collector and Service, so
+   the feature is internally consistent — only the doc is out of date. A human
+   following the doc's URLs/SQL verbatim will be confused, not blocked. Doc fix only.
 
-For the admin web journey the spec describes: **none — journey complete.**
-
----
-
-## UX gaps
-
-1. **Space-health `posts`/`engagement_rate` always 0** — severity: medium — confidence: confirmed-in-code.
-   Evidence: `AnalyticsService.php:310-320,386-408` query `target_type='space'` for post/reaction/comment
-   events, but `AnalyticsCollector.php:156-163,232-259` record those with `target_type='post'`/`'comment'`,
-   never `'space'`. Affects REST `spaces/{id}/health` and `engagement_rate()` only; no admin UI consumes it.
-
-2. **Journey doc drift** — severity: low — confidence: confirmed-in-code.
-   Doc (`analytics-dashboard.md:42-104`) walks tabs Overview/Content/Members/**Spaces** via `?tab=`;
-   shipped UI (`AnalyticsAdmin.php:511-548`) is Overview/Cohorts/Funnel/Profile-Views via `?view=`.
-   The shipped UI delivers spec intent; the doc and its REST examples should be refreshed. No code change required.
-
-3. **`notification.created` actor is null + interim 3-arg signature** — severity: low — confidence: confirmed-in-code.
-   Evidence: `AnalyticsCollector.php:67-73,421-433`. Documented Free-seam, does not affect the admin journey
-   (notifications are not surfaced in the dashboard). Listed for completeness.
-
----
+2. **Spec's "space moderators get a space-scoped analytics tab" has no front-end UI**
+   (medium, confirmed-in-code). `AnalyticsService::space_health()` and
+   `engagement_rate()` exist (`AnalyticsService.php:278,375`) and per-space health is
+   reachable via `GET /analytics/spaces/{id}/health`, but that endpoint is gated by
+   `require_admin` (`AnalyticsController.php:145`) and no space-moderator-facing
+   analytics tab calls `space_health` anywhere outside Service/Controller. So per-space
+   health is **api-only for admins** and **missing as a moderator UX surface**. This is
+   a secondary surface in the spec, not part of the core admin happy-path.
 
 ## Minimal refactor plan
 
-The admin happy-path journey is complete and usable; no rewrite is warranted. The one real
-correctness fix is small and isolated:
-
-1. Make per-space post/reaction/comment volume measurable. Either (a) record a space dimension in
-   `post.created`/`reaction.added`/`comment.created` event `properties` (e.g. `space_id`) inside
-   `AnalyticsCollector` and have `AnalyticsService::space_health()`/`engagement_rate()` filter on
-   that property, or (b) if the Free hooks do not expose the space context, document
-   `posts`/`engagement_rate` as join-flow-only and remove them from the `space_health()` response
-   shape so the endpoint does not advertise a metric it cannot compute. Pick (a) only if the Free
-   `buddynext_post_created` payload already carries the space; otherwise (b).
-2. (Docs, no code) Update `analytics-dashboard.md` to match the shipped `?view=` UI and REST surface.
-
----
-
-## Notes for the live walk
-
-- Seed activity first (empty `bn_analytics_events` shows all zeros, which is correct, not a bug):
-  fire `buddynext_post_created`, `user_register`, `buddynext_space_member_joined`, `buddynext_reaction_added`.
-- Verify the Analytics entry appears under the **Growth** section of the BuddyNext admin hub, and the
-  legacy `admin.php?page=buddynextpro-analytics` still resolves.
-- Confirm `?view=cohorts`, `?view=funnel`, `?view=profile-views`, and `?window=7|30|90|365` all render.
-- Confirm Export CSV downloads `buddynext-analytics-overview-<date>.csv` (and `-content-`, `-members-`).
-- REST 403 for non-admin on `/analytics/overview` (gating at `AnalyticsController.php:346-348`).
+EMPTY. The core journey is usable end-to-end and the code is internally consistent;
+no rewrite is warranted. The two items above are (1) a documentation refresh and
+(2) a deferred secondary spec surface (moderator space-scoped tab) — neither blocks
+the admin happy-path. Recommend a live-walk on a seeded site to confirm rendered
+values, since collected metrics are runtime/seed-dependent and will read as zeros on
+an empty test account.

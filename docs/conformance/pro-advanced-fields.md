@@ -1,43 +1,116 @@
 # Conformance: Advanced Profile Field Types (Pro)
 
-**Repo:** buddynext-pro (depends on buddynext Free FieldType engine)
-**Spec ref:** `docs/specs/features/member-fields-search-privacy.yaml` (workstreams F/E + contracts.field_type_engine, member_field_privacy_input); `docs/specs/features/05-user-profiles.md`; journey `docs/journeys/profile-fields.md`.
+**Feature:** Advanced Profile Field Types (repo: buddynext-pro)
+**Spec ref:** `docs/specs/features/member-fields-search-privacy.yaml` (contracts.field_type_engine, contracts.field_types), `docs/specs/features/05-user-profiles.md`, journey `docs/journeys/profile-fields.md`
 **Live-walk URL:** http://buddynext-dev.local/members/varundubey/edit/
+**Verdict:** usable-minor-polish
 
-## Verdict: partial-needs-wiring
+---
 
-The member-facing half of the journey (render advanced control → validate → store → display) is fully wired through the Free FieldType engine. The **admin field-type configuration save** is broken: Pro's per-type option inputs (`bn_field_options[*]`) are emitted into Free's field-builder form but no save handler on either side reads them, so type config (min/max/unit, allowed MIME, conditional trigger) is silently discarded on save.
+## What was checked
 
-This is NOT the "no-op until Free ships a seam" state described in the stale class docblocks. Free already ships every needed seam; the only true break is a `$_POST` key-name mismatch in the admin save path.
+The Pro layer adds six field-type slugs on top of Free's built-in engine:
+`date_extended`, `location`, `file`, `multi_select_advanced`, `number_advanced`, `conditional`.
+The locked contract is that EVERY type is wired end-to-end through ONE engine
+(`BuddyNext\Profile\FieldType`) across all six layers: admin-config → input →
+validate/sanitize → store → display → search. Pro must reach this engine purely
+through filters/actions (native APIs, no Free edits).
+
+The doc-block comments inside the three Pro Profile files (AdvancedFieldTypes,
+AdvancedFieldRenderer, AdvancedFieldValidator) and AdvancedFieldsAdmin are STALE —
+they claim the feature is "blocked on a missing Free seam" and renders as a plain
+`<input type=text>`. Reading the actual code disproves this: Free now fires every
+seam those files need, and Pro hooks all of them. The TODO prose is obsolete; the
+wiring is live.
+
+---
 
 ## Journey chain
 
-| # | Step | Layer | Status | Evidence |
-|---|------|-------|--------|----------|
-| 1 | Pro registers advanced types into engine + allowed list | service | wired | `buddynext-pro/includes/Profile/AdvancedFieldTypes.php:70-110`; consumed at `buddynext/includes/Profile/FieldType.php:156` |
-| 2 | Pro register() calls fire at bootstrap | service | wired | `buddynext-pro/includes/Core/Plugin.php:184-187` |
-| 3 | Admin type dropdown shows Pro labels | ui | wired | filter `buddynext_profile_field_type_labels` fired `buddynext/includes/Admin/Members/ProfileFieldsManager.php:965`; Pro adds labels `AdvancedFieldsAdmin.php:82-94` |
-| 4 | Admin sees Pro per-type option inputs | ui | wired | action `buddynext_profile_field_type_options` fired add/edit panels `ProfileFieldsManager.php:1262,1362`; Pro renders `AdvancedFieldsAdmin.php:108-254` |
-| 5 | Admin SAVE persists Pro option config | service/db | **broken** | save reads only `$_POST['options']` (choice) / `date_display`, else `$parsed_opts=null` — `ProfileFieldsManager.php:421-430` (add), `713-722` (edit). `bn_field_options` is read nowhere in Free (grep: zero hits in `includes/`) |
-| 6 | Admin creates Pro-type field (type slug) | db | wired | type validated against `field_types()` incl. Pro `ProfileFieldsManager.php:410,705`; row created `446-458` |
-| 7 | Member edit form renders advanced control | ui→service | wired | `templates/profile/edit.php:408,467` → `FieldType::render_input` → filter `buddynext_field_render_input` `FieldType.php:278` → Pro `AdvancedFieldRenderer.php:99-113` |
-| 8 | Member save validates + sanitizes value | service | wired | `ProfileService.php:360,429` → `FieldType::sanitize` → filter `buddynext_field_sanitize` `FieldType.php:654` → Pro `AdvancedFieldValidator.php:83-95` |
-| 9 | Profile view renders advanced display | ui→service | wired | `templates/profile/view.php:431,463` → `FieldType::render_display` → filter `buddynext_field_render_display` `FieldType.php:503` → Pro `AdvancedFieldRenderer.php:125-159` |
+| Step | Layer | Status | Evidence |
+|------|-------|--------|----------|
+| Admin sees Pro types in the field-type dropdown | ui | wired | `ProfileFieldsManager.php:1118` applies `buddynext_profile_field_type_labels`; Pro adds labels in `AdvancedFieldsAdmin.php:82-94` |
+| Admin sees per-type option inputs (MIME, min/max/unit, trigger, choices) | ui | wired | Free fires `do_action('buddynext_profile_field_type_options', ...)` at `ProfileFieldsManager.php:1415` (edit) and `:1515` (add); Pro renders at `AdvancedFieldsAdmin.php:108-129` |
+| Pro type slug accepted + persisted with options/searchable/visibility | service | wired | type list via `FieldType::types()` includes Pro types `AdvancedFieldTypes.php:93`; save validates `in_array($type, self::field_types())` `ProfileFieldsManager.php:410,845`; `bn_field_options` merged into stored JSON `:437,464`; `is_searchable` `:419` |
+| Member edit form renders the correct Pro input control | ui | wired | `edit.php:408,467` call `FieldType::render_input` → fires `buddynext_field_render_input` `FieldType.php:278` → Pro `AdvancedFieldRenderer::render_input_filter` `AdvancedFieldRenderer.php:99-113` |
+| Member saves; value validated + sanitized by type | service | broken (1/6) | `ProfileService.php:429` `FieldType::sanitize` → fires `buddynext_field_sanitize` `FieldType.php:654` → Pro `AdvancedFieldValidator::sanitize_filter` `AdvancedFieldValidator.php:83-95`. Works for 5 types; multi_select_advanced web array rejected (gap 1) |
+| Per-field privacy selector present + clamped to admin default | ui | wired | selector in `edit.php:474-483` (flat) and `:414-421` (repeater); server clamp `ProfileService.php:401` |
+| Profile view renders the Pro type's display output | ui | wired | `view.php:431,463` `FieldType::render_display` → fires `buddynext_field_render_display` `FieldType.php:503` → Pro `AdvancedFieldRenderer::render_display_filter` `AdvancedFieldRenderer.php:125-159` |
+| Directory search honours searchable Pro types | service | wired | engine metadata `is_searchable_capable` set per type `AdvancedFieldTypes.php:96,98,100`; Free mirror/search keys off `is_searchable` + engine capability |
+
+---
 
 ## First break
 
-Step 5 — admin field-config save. Free's `add_profile_field` / `edit_profile_field` route options through three branches (`choice_types` → `$_POST['options']`, `DATE_TYPES` → `date_display`, else `null`). Pro's non-choice types (`file`, `number_advanced`, `conditional`, `date_extended`, `location`) fall into the `else null` branch, so every `bn_field_options[...]` input Pro renders is dropped. `multi_select_advanced` (is_choice=true) is partially saved via Free's core `options` textarea but renders a confusing duplicate Pro `choices_raw` textarea that is also dropped.
+`multi_select_advanced` value round-trip on the WEB edit form. The journey
+completes for the other five Pro types and for REST/app clients; only the
+`multi_select_advanced` type, driven from its own rendered web input, fails to
+save and fails to re-populate.
+
+---
 
 ## UX gaps
 
-1. **Admin cannot configure Pro field-type options (config silently lost on save).** severity: high. confidence: confirmed-in-code. evidence: inputs `buddynext-pro/includes/Admin/AdvancedFieldsAdmin.php:148-217` use `name="bn_field_options[...]"`; save handlers `buddynext/includes/Admin/Members/ProfileFieldsManager.php:421-430,713-722` never read that key (`$parsed_opts=null` for these types). Downstream renderer/validator read `$field['options'][...]` (`AdvancedFieldRenderer.php:318-323`, `AdvancedFieldValidator.php:344-346`), so min/max enforcement, unit display, MIME filter, and conditional trigger never take effect.
-2. **`multi_select_advanced` shows two competing option editors.** severity: medium. confidence: confirmed-in-code. evidence: Free core `options` textarea (`ProfileFieldsManager.php:1240,1343`) renders for any `choice_types()` member, and Pro also renders `bn_field_options[choices_raw]` (`AdvancedFieldsAdmin.php:248`). Only the core one saves; the Pro one is dead.
-3. **Stale "blocked / namespace anchor" docblocks contradict working code.** severity: low. confidence: confirmed-in-code. evidence: `AdvancedFieldsAdmin.php:5-32`, `AdvancedFieldRenderer.php:5-39`, `AdvancedFieldValidator.php:5-28` claim the Free seams are missing, but the seams exist and the register() methods wire real hooks. Misleading for maintainers; not a runtime break.
+1. **`multi_select_advanced` web save silently drops the value (high, confirmed-in-code).**
+   `render_multi_select_advanced` emits `<select name="bn_field_X[]" multiple>`
+   (`AdvancedFieldRenderer.php:294`), so a browser POST sends an ARRAY.
+   `sanitize_filter` runs `validate(true, $type, $raw, ...)` on that raw array
+   FIRST (`AdvancedFieldValidator.php:89`), and `validate_multi_select_advanced`
+   rejects any non-string with "Multi-select value must be a JSON string"
+   (`AdvancedFieldValidator.php:284-289`). The resulting `WP_Error` makes
+   `ProfileService.php:431-433` silently `continue` — the value is discarded with
+   no error shown to the member. REST clients that send a JSON string are
+   unaffected, so this is a web-journey-only break.
 
-Member/REST journey usability: the app/REST and member web paths for filling, validating, storing, and displaying advanced field values are fully functional once a field exists — the gap is admin-only and config-only.
+2. **`multi_select_advanced` saved value never re-populates on re-edit (high, confirmed-in-code).**
+   Storage is comma-joined (`AdvancedFieldValidator.php:119`) and display
+   re-explodes by comma (`AdvancedFieldRenderer.php:144`), but `render_input`
+   reads the stored value with `json_decode` (`AdvancedFieldRenderer.php:290`).
+   A comma-joined string decodes to `null`, so no option shows as `selected`
+   when the member reopens the form. The three representations (input array,
+   stored comma-string, input-read JSON) are mutually inconsistent for this one
+   type. The other five Pro types use scalar strings consistently and round-trip
+   cleanly.
+
+3. **Stale "blocked on missing Free seam" doc-blocks (low, confirmed-in-code).**
+   AdvancedFieldTypes.php:19-31, AdvancedFieldRenderer.php:6-39,
+   AdvancedFieldValidator.php:5-27, AdvancedFieldsAdmin.php:5-31 all describe the
+   feature as non-functional pending Free filters that Free now ships
+   (`buddynext_field_render_input/display`, `buddynext_field_sanitize`,
+   `buddynext_profile_field_type_options`, `buddynext_profile_field_type_labels`).
+   No runtime impact; misleads the next maintainer into thinking the feature is dead.
+
+---
 
 ## Minimal refactor plan
 
-1. In `buddynext/includes/Admin/Members/ProfileFieldsManager.php`, in both `add_profile_field` (after line 430) and `edit_profile_field` (after line 722): when `$_POST['bn_field_options']` is present, sanitize it (per-key) and merge into `$parsed_opts` (array merge, not overwrite, so choice `options` + Pro keys coexist). Keep the existing `choice_types`/`DATE_TYPES` branches. This is the single change that unblocks the journey — reuses the existing `options` JSON column and Pro's existing render/validate code.
-2. In `buddynext-pro/includes/Admin/AdvancedFieldsAdmin.php::render_multi_select_options`, drop the duplicate `choices_raw` textarea (gap 2) — let `multi_select_advanced` use Free's core `options` textarea, OR remove `is_choice=true` from its engine meta in `AdvancedFieldTypes.php:98` so only the Pro editor shows. Pick one source of truth.
-3. Refresh the stale "blocked/missing seam" docblocks in the three Pro files to describe the now-wired filter hooks (gap 3, doc-only).
+1. In `AdvancedFieldValidator::sanitize_filter` (`AdvancedFieldValidator.php:83-95`),
+   normalise an array `$raw` to its storable scalar BEFORE calling `validate()`,
+   or make `validate_multi_select_advanced` accept an array (the same shape the
+   rendered `[]` select submits). Keep one canonical stored shape — comma-joined
+   slugs, matching the display path.
+2. In `AdvancedFieldRenderer::render_multi_select_advanced`
+   (`AdvancedFieldRenderer.php:289-305`), read the saved value the same way it is
+   stored: explode the comma-joined string instead of `json_decode`, so saved
+   selections re-appear as `selected` on re-edit. Align the three representations
+   on the comma-joined form already used by Free's native `multiselect`.
+3. Update the stale doc-blocks in the four Pro files to reflect that the Free
+   seams now exist and the types are live (documentation only).
+
+These are surgical fixes to one type's value handling plus a comment refresh — not
+a rewrite. Five of six Pro types and the entire admin/privacy/display/search chain
+are working and must be left as-is.
+
+---
+
+## Notes for the live walk
+
+- Seed at least one field of each Pro type before walking; empty accounts hide
+  the rendered controls.
+- The `multi_select_advanced` gap is the one to reproduce: create that field with
+  a couple of choices, select two in the member edit form, save, and confirm
+  (a) the value persists in `bn_profile_values` and (b) reopening the edit form
+  shows them selected. Both are expected to fail until the refactor lands.
+- Confirm the other five types (date_extended, location, file, number_advanced,
+  conditional) render their dedicated control, save, and display correctly in
+  both light and dark.

@@ -1,75 +1,61 @@
 # Conformance: Member Types
 
-**Feature:** Member Types (free)
-**Spec ref:** `docs/specs/features/05-user-profiles.md` (assigned spec; Member Types has no dedicated locked spec — intent cross-referenced from `docs/specs/features/04-member-directory-search.md` and in-code docblocks)
+**Feature:** Member Types (repo: free)
+**Spec ref:** `docs/specs/features/05-user-profiles.md` (Member Types is the type-definition + assignment + directory-filter sub-feature; cross-checked against `REST-FRONTEND-CONTRACT.md`, `SCALE-CONTRACT.md`, `17-roles-permissions.md`).
 **Live-walk URL:** http://buddynext-dev.local/members
 **Verdict:** usable-leave-as-is
 
 ---
 
-## Summary
+## Journey
 
-Member Types is built and wired end-to-end for the core web journey: a site owner
-defines types in the admin, assigns them to members, members carry a type badge on
-profiles and directory cards, and visitors filter the member directory by type via
-both reactive pills and crawlable `/members/{slug}/` URLs. The REST surface is
-complete and registered. No journey-stopping break was found.
+Two real journeys: (A) site visitor/member browses the directory and filters by member type; (B) admin defines types and assigns them. Both are wired end to end.
 
-The single capability without a confirmed front-end control is **member self-select**
-(`self_select` column + REST `PUT /users/{id}/member-type` self path). No spec mandates
-a member-facing self-select UI, and the core journey (admin assigns → directory filters)
-is fully usable without it, so this is recorded as a low-severity gap, not a break.
-
----
-
-## Journey chain
+### A. Directory browse + filter by type (web)
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Admin creates / edits / deletes a member type | service | wired | `includes/MemberTypes/MemberTypeService.php:158` (create), `:212` (update), `:279` (delete) |
-| Admin types CRUD + assign UI (admin_post handlers) | ui | wired | `includes/Admin/Members/MemberTypesManager.php:29-33` (handle_save / handle_delete / handle_assign / edit-member field) |
-| Admin assigns a type to a user | service | wired | `MemberTypeService.php:401` `assign_type()`, write-through usermeta `:439` |
-| REST type CRUD + user assignment routes registered | rest | wired | `includes/REST/Router.php:83`; routes in `includes/MemberTypes/MemberTypeController.php:43-158` |
-| Directory loads types + per-type counts | service | wired | `templates/directory/members.php:91` `get_all_with_counts()`; `MemberTypeService.php:82` |
-| Directory renders member-type pill row | ui | wired | `templates/parts/member-directory-tabs.php:97-108` (pills, `data-wp-on--click="actions.selectMemberType"`) |
-| Pill click updates filter state + fetches | store | wired | `assets/js/members/store.js:473` `selectMemberType`, `:76` `buildQuery` sets `member_type` |
-| Crawlable per-type URL `/members/{slug}/` | rest/router | wired | `includes/Core/PageRouter.php:906` rewrite tag, `:1041` rewrite rule, `:1243` query var; `:1517` `member_type_url()`; sidebar links `members.php:430` |
-| REST directory filters by type | service | wired | `includes/Profile/MemberDirectoryController.php:111-141`; `includes/Profile/MemberDirectoryService.php:217-221` (usermeta EXISTS filter) |
-| Server-render directory filter by type | service | wired | `templates/directory/members.php:187-195` (`meta_query` on `bn_member_type`) |
-| Type badge on member cards + profile | ui | wired | `templates/parts/member-card.php:103`; `templates/profile/view.php:85,365`; card badge `assets/js/members/store.js:206-210` |
-| Tables installed | db | wired | `includes/Core/Installer.php:853` `bn_member_types`, `:870` `bn_member_type_assignments` |
-| Member self-selects own type via front-end UI | ui | missing | No control in `templates/profile/edit.php` (grep: none) or any front-end template; REST self path exists at `MemberTypeController.php:357` `can_set_user_type` but nothing calls it from JS |
+| Visit `/members` (or `/members/{slug}/`) | ui | wired | `templates/directory/members.php:50-61` reads `bn_member_type` query var + `?type=` fallback |
+| Pretty URL `/members/{slug}/` → type filter | rest/db | wired | `includes/Core/PageRouter.php:923,1060,1258-1262` rewrite tag + rule + query mapping |
+| Type pill row rendered | ui | wired | `templates/parts/member-directory-tabs.php` (pills with `data-wp-on--click="actions.selectMemberType"`); fed by `members.php:91-110` `get_all_with_counts()` |
+| Click pill → store action | store | wired | `assets/js/members/store.js:473-499` `selectMemberType` sets `ctx.memberType`, syncs URL, calls `refresh` |
+| Store fetch with `member_type` | rest | wired | `store.js:76` `qp.set('member_type', ctx.memberType)`, fetched at `store.js:344` `GET /members?...` |
+| REST honors `member_type` | rest/service/db | wired | `includes/Profile/MemberDirectoryController.php:72,111,141` param; `MemberDirectoryService.php:63,227-231` EXISTS filter on `bn_member_type` usermeta |
+| SSR first-paint filter | service/db | wired | `members.php:186-195` `meta_query` on `bn_member_type` usermeta |
+| Type badge on member card | ui | wired | `templates/parts/member-card.php:187-191` renders `bn-md-card__type` badge; JS path `store.js:206-210` |
+| Sidebar "By type" counts | ui | wired | `members.php:404-460` per-type rows w/ `PageRouter::member_type_url()` (`PageRouter.php:1534`) |
+
+### B. Admin define + assign types
+
+| Step | Layer | Status | Evidence |
+|------|-------|--------|----------|
+| Member Types admin tab loads | ui | wired | `includes/Admin/Members.php:746` `render_member_types_tab()`; manager registered `Members.php:53` |
+| Create/edit/delete type (CRUD form) | ui/service/db | wired | `includes/Admin/Members/MemberTypesManager.php:28-30` `admin_post_bn_save_member_type` / `bn_delete_member_type` → `MemberTypeService::create/update/delete` (`MemberTypeService.php:158,212,279`) |
+| Assign type to a member | ui/service/db | wired | `MemberTypesManager.php:30-31` `admin_post_bn_assign_member_type` + `render_member_type_field` on `buddynext_after_edit_member_form` → `MemberTypeService::assign_type` (`MemberTypeService.php:401`) |
+| Write-through to usermeta + cache | service/db | wired | `MemberTypeService.php:439-446` `update_user_meta('bn_member_type')` + cache busts |
+| Tables exist | db | wired | `includes/Core/Installer.php:855,872` `bn_member_types`, `bn_member_type_assignments` |
+| REST routes registered | rest | wired | `includes/REST/Router.php:84` registers `MemberTypeController`; service bound `Core/Plugin.php:660` |
 
 ---
 
 ## First break
 
-none — journey complete. The core happy path (admin defines + assigns a type →
-member shows the badge → visitor filters the directory by type) is fully wired across
-ui / store / rest / service / db. The only missing link (member self-select UI) is
-outside the core journey and unmandated by the assigned spec.
+none — journey complete. Both the directory web journey and the admin define/assign journey are fully wired UI → store/handler → service → DB.
 
 ---
 
 ## UX gaps
 
-1. **No front-end member self-select control** — `self_select` (DB column,
-   REST `PUT /users/{id}/member-type` self path, admin checkbox) has no UI for a member
-   to pick their own type. A site owner who enables self_select on a type gets no
-   member-facing control; only admins can assign.
-   Severity: low. Confidence: confirmed-in-code
-   (`includes/MemberTypes/MemberTypeController.php:301-308`, `can_set_user_type` at `:357`;
-   no caller in `assets/js/`, no field in `templates/profile/edit.php`).
-   Note: fully usable today for app/REST clients, which can call the self path directly;
-   gap is web-journey only.
+One non-blocking nuance, not on the core happy path:
+
+- **Member self-assignment of a `self_select` type has no front-end UI** — severity: low — confidence: confirmed-in-code. The REST `PUT /users/{id}/member-type` endpoint explicitly supports a member self-assigning a type flagged `self_select` (`includes/MemberTypes/MemberTypeController.php:282-318`, `can_set_user_type` at `:357`). No front-end control invokes it: searching `templates/` and `assets/js/` for `set_user_type` / a `/member-type` PUT / `self_select` returns no member-facing surface. So `self_select` is **api-only** for the web journey. This is complete for an app/REST client, and assignment is always possible via wp-admin (journey B). The spec mentions the `self_select` flag but defines no front-end self-assign journey, so this is not a proven break of the locked happy path.
+
+No other gaps. Scale path matches `SCALE-CONTRACT` (usermeta write-through read cache + object cache, no hot-path JOIN — see `MemberTypeService.php:6-17,341-388`). Visibility/permissions match `17-roles-permissions` (admin gate on all type writes; self-assign guarded by per-type `self_select` flag).
 
 ---
 
 ## Minimal refactor plan
 
-None for the core journey — usable-leave-as-is.
+(empty — usable-leave-as-is)
 
-(Optional, only if a member-facing self-select journey becomes a locked requirement:
-add a type selector to `templates/profile/edit.php` that lists types where
-`self_select=1` and posts to the existing `PUT /users/{id}/member-type` route via the
-existing `buddynext/members` store. Reuses existing REST + service; no new backend.)
+No code changes recommended. If the product later decides members should self-select a type from the front end, the only addition needed is a UI control (e.g. a select in profile settings) bound to a store action that PUTs `/users/{id}/member-type`; the entire backend path already exists and works.

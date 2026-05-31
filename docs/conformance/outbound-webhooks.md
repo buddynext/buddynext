@@ -2,52 +2,70 @@
 
 **Feature:** Outbound Webhooks (Event Push)
 **Repo:** free
-**Spec ref:** `docs/specs/features/16-admin-settings.md` (Webhooks → Outbound section, lines 83–109) + `docs/specs/HOOKS.md` (Outbound filter, lines 353–360)
-**Live-walk URL:** http://buddynext-dev.local/wp-admin/ → BuddyNext → Settings → Webhooks tab
+**Spec refs:** `docs/specs/HOOKS.md` (§"Outbound" filter, lines 353–360), `docs/specs/features/16-admin-settings.md` §"Webhooks → Outbound (Event Push)" (lines 83–109)
+**Live-walk URL:** http://buddynext-dev.local/wp-admin/ → BuddyNext → Settings → Webhooks tab (`?page=buddynext&tab=webhooks`)
 **Verdict:** usable-minor-polish
+
+> Re-verified 2026-05-31. Earlier revision of this dossier flagged a "5-of-13 event subset" and a phantom `notification.sent` checkbox — both are now stale. The current `includes/Admin/Settings.php:1293-1308` catalogue exposes all 14 dispatched events and contains no `notification.sent`. Those gaps are resolved in code.
 
 ---
 
 ## What the journey is
 
-A site owner opens **BuddyNext → Settings → Webhooks**, sets a shared secret, registers an HTTPS endpoint, picks which events to forward, clicks Register, then Send-test, and later Remove. BuddyNext then signs and POSTs JSON envelopes to that endpoint whenever the subscribed domain events fire, retries failures, and auto-disables an endpoint after 3 consecutive failures.
+A site owner opens BuddyNext → Settings → Webhooks, optionally sets a shared secret, registers an HTTPS endpoint, ticks which events to forward, clicks Register, optionally Send-test, and later Remove. BuddyNext then HMAC-signs and POSTs JSON envelopes to that endpoint whenever subscribed domain events fire, retries failures via cron, and auto-disables an endpoint after 3 consecutive failures.
+
+---
 
 ## Journey chain
 
 | Step | Layer | Status | Evidence |
-|------|-------|--------|----------|
-| Webhooks settings tab renders (secret field + endpoint manager) | ui | wired | `includes/Admin/Settings.php:1173` `render_tab_webhooks()`; `:1201` `render_webhook_endpoints()` |
-| Settings JS enqueued on the BuddyNext settings screen | ui | wired | `includes/Admin/Settings.php:219` gated to `toplevel_page_buddynext`, enqueues `assets/js/admin/settings.js` |
-| Add-endpoint button → POST /webhooks with url+events, X-WP-Nonce | store | wired | `assets/js/admin/settings.js:105-122`; nonce/rest-url emitted at `includes/Admin/Settings.php:1208-1216` |
-| Send-test button → POST /webhooks/{id}/test | store | wired | `assets/js/admin/settings.js:140-155` |
-| Remove button → DELETE /webhooks/{id} (with confirm) | store | wired | `assets/js/admin/settings.js:157-181` |
-| REST routes registered, manage_options gated | rest | wired | `includes/Outbound/OutboundWebhookController.php:49-158`; permission `:262`; route registered in `includes/REST/Router.php:84` |
-| Register / list / delete / test / log service methods | service | wired | `includes/Outbound/OutboundWebhookService.php:77,164,197,313` + `get_log():225` |
-| HMAC-SHA256 signed POST + X-BuddyNext-Event header + log row | service | wired | `OutboundWebhookService::deliver()` `:404-474` (`X-BuddyNext-Signature` `:418,428`) |
-| Free 1-endpoint cap via filter | service | wired | `OutboundWebhookService.php:105-119`; filter doc `HOOKS.md:353-360` |
-| Domain-event listener fans events into dispatch() | service | wired | `includes/Outbound/OutboundWebhookListener.php:30-45` (14 handlers); registered `includes/Core/Plugin.php:222` |
-| Source events actually fire | service | wired | e.g. `includes/Auth/VerificationService.php:126` (`buddynext_user_verified`), `includes/Outbound/AccessWebhookController.php:197,228` (ability granted/revoked), ReactionService/PostService/ConnectionService |
-| Retry cron + auto-deactivate on 3 failures | service | wired | `OutboundWebhookService.php:44-61` (schedule), `:348-385` (retry_failed), `:481-511` (maybe_deactivate_on_failure) |
-| Persisted endpoints + delivery log | db | wired | `bn_outbound_webhooks`, `bn_outbound_webhook_log` (inserts at `:133`, `:448`) |
-| Subscribe to the full spec event set via UI checkboxes | ui | broken | catalogue at `includes/Admin/Settings.php:1293-1299` exposes only 5 slugs; spec lists 13 (`16-admin-settings.md:88-102`) |
-| Per-endpoint delivery-log viewer | ui | missing | REST `GET /webhooks/{id}/log` exists (`OutboundWebhookController.php:108-138`) but no UI calls it — no `/log` reference in `assets/js/admin/settings.js` |
+|---|---|---|---|
+| Webhooks tab renders (secret field + endpoint manager) | ui | wired | `includes/Admin/Settings.php:412`, `:1173` `render_tab_webhooks()`, `:1201` `render_webhook_endpoints()` |
+| 14-event subscription checklist + add form | ui | wired | `includes/Admin/Settings.php:1293-1334` |
+| Settings JS enqueued on the page, binds the card | store | wired | `includes/Admin/Settings.php:219-237` (gated `toplevel_page_buddynext`); `assets/js/admin/settings.js:66-74` |
+| Register → POST `buddynext/v1/webhooks` (url+events, X-WP-Nonce) | rest | wired | `assets/js/admin/settings.js:105-122`; route `includes/Outbound/OutboundWebhookController.php:50-87`; registered `includes/REST/Router.php:85` |
+| Service validates https, enforces Free limit (1), inserts | service | wired | `includes/Outbound/OutboundWebhookService.php:77-155`; filter doc `HOOKS.md:353-360` |
+| Listener fans 14 domain events into dispatch() | service | wired | `includes/Outbound/OutboundWebhookListener.php:30-45`; registered `includes/Core/Plugin.php:224-226` |
+| HMAC-SHA256 signed POST + `X-BuddyNext-Event` header | service | wired | `OutboundWebhookService::dispatch()` `:269-303`, `deliver()` `:404-474` (`X-BuddyNext-Signature` `:418,428`) |
+| Send test → POST `/webhooks/{id}/test` | rest | wired | `assets/js/admin/settings.js:140-155`; controller `:242-255`; `send_test_ping()` `:313-339` |
+| Delivery log written per attempt | db | wired | `OutboundWebhookService.php:447-467`; table `includes/Core/Installer.php:896-907` |
+| Auto-disable after 3 consecutive failures | service | wired | `OutboundWebhookService.php:469-511` |
+| Retry failed deliveries (cron) | service | wired | `OutboundWebhookService.php:44-61` (`buddynext_5min`), `retry_failed()` `:348-385` |
+| Remove → DELETE `/webhooks/{id}` (with confirm) | rest | wired | `assets/js/admin/settings.js:157-181`; controller `:208-220`; `delete()` `:197-215` |
+| Per-endpoint delivery-log viewer | ui | missing | REST `GET /webhooks/{id}/log` exists (`OutboundWebhookController.php:108-138`, `get_log()` `:225`) but no UI calls it — no `/log` reference in `assets/js/admin/settings.js` |
+
+---
 
 ## First break
 
-First break: the **event-subscription checkbox catalogue** (`includes/Admin/Settings.php:1293-1299`). It only lets a web user subscribe to 5 events and includes one phantom event that never dispatches. The core happy-path (register HTTPS endpoint for a common event, sign-and-deliver, test, remove) still completes, so the journey is usable — but a site owner cannot, from the UI, subscribe to most of the spec's contracted events.
+None — the core happy path is complete. An admin can register an HTTPS endpoint for any of the 14 contracted events, send a test, see active/disabled status, and remove it; events fan out to live endpoints with signed payloads, and failures retry + auto-disable. Usable for both the web admin and REST clients. Remaining items below are polish, not blockers.
 
-## UX gaps
+---
 
-1. **Phantom `notification.sent` checkbox** — severity medium, confirmed-in-code. The UI offers `notification.sent` as a subscribable event (`Settings.php:1298`), but no listener dispatches it (`OutboundWebhookListener.php` has no such handler; grep finds no `notification.sent` dispatch). A subscriber to that event silently receives nothing. It is also not in the locked spec event list.
+## UX gaps (real, non-blocking)
 
-2. **UI event catalogue is a 5-of-13 subset of the spec** — severity high, confirmed-in-code. Spec contracts 13 events (`16-admin-settings.md:88-102`); the UI checkbox list (`Settings.php:1293-1299`) offers only `post.created`, `comment.created`, `user.followed`, `space.joined`, plus the phantom `notification.sent`. The listener actually dispatches the missing ones (`member.registered`, `member.verified`, `member.suspended`, `post.deleted`, `space.left`, `connection.accepted`, `reaction.added`, `member.ability_granted`, `member.ability_revoked`), so the back end is ready — they are simply unreachable from the web UI. The JS also requires at least one checkbox (`settings.js:99-101`), so a UI user cannot register an empty=all-events endpoint as a workaround. Note: an app/REST client can still POST any `events[]` array directly, so this is a **web-journey** gap, not an app-journey gap.
+1. **Per-endpoint signing secret is never surfaced to the admin (medium, confirmed-in-code).**
+   `register()` auto-generates a 40-char secret and the create response returns it (`OutboundWebhookController.php:184,196`), but the JS discards the response body and reloads (`assets/js/admin/settings.js:117-122`); the rendered table never prints the `secret` column. `deliver()` signs each payload with the *per-endpoint row secret* (`OutboundWebhookService.php:418`), so a receiver that wants to verify `X-BuddyNext-Signature` has no way to learn the secret it was signed with.
 
-   Slug mismatch to watch when fixing: the listener dispatches abilities as `member.ability_granted` / `member.ability_revoked` (`OutboundWebhookListener.php:261,277`), whereas the spec table names them `ability.granted` / `ability.revoked` (`16-admin-settings.md:100-101`). Whichever slug the new checkboxes use must match the listener's dispatch slug or the subscription will silently never fire.
+2. **"Shared Secret" field over-claims — it does not sign outbound deliveries (medium, confirmed-in-code).**
+   The tab's top field stores `buddynext_webhook_secret` with the hint "Used to sign outgoing webhooks (HMAC-SHA256)" (`includes/Admin/Settings.php:1177-1186`, `:1227`). Outbound `deliver()` ignores that option and uses the per-endpoint secret column; the shared option is only consumed by the inbound access webhook. The label misleads and compounds gap #1.
 
-3. **No per-endpoint delivery-log viewer in the UI** — severity medium, confirmed-in-code. Spec requires "per-endpoint delivery log (last 50 calls, response code, latency)" (`16-admin-settings.md:106`). The REST route `GET /webhooks/{id}/log` is built (`OutboundWebhookController.php:108-138`, service `get_log()` at `:225`) but nothing in `assets/js/admin/settings.js` calls it and no template renders it. Latency is also not captured in `bn_outbound_webhook_log` (no duration column written in `deliver()` `:448-466`).
+3. **No per-endpoint delivery-log viewer in the UI (medium, confirmed-in-code).**
+   Spec requires "per-endpoint delivery log (last 50 calls, response code, latency)" (`16-admin-settings.md:106`). The REST route + service `get_log()` are built (`OutboundWebhookController.php:108-138`, `OutboundWebhookService.php:225`) but nothing in `assets/js/admin/settings.js` calls it and no template renders it. Latency is also not captured — `deliver()` writes no duration column (`:448-467`).
+
+4. **Retry diverges from the spec contract (low, confirmed-in-code).**
+   Spec §16 says "3 attempts with exponential backoff via Action Scheduler"; implementation is a flat `buddynext_5min` WP-Cron sweep re-delivering all `error` rows from the last 24h (`OutboundWebhookService.php:44-61,348-385`) — no per-attempt cap, no backoff, not Action Scheduler. Deliveries still retry; spec-text vs implementation mismatch, not a break.
+
+5. **`ability.*` slug naming differs from spec (low, confirmed-in-code).**
+   Spec §16 lists `ability.granted` / `ability.revoked`; listener + UI use `member.ability_granted` / `member.ability_revoked` (`OutboundWebhookListener.php:259-283`, `Settings.php:1298-1299`). UI and dispatch are internally consistent, so subscribing works — only the spec doc's slug differs.
+
+---
 
 ## Minimal refactor plan
 
-1. In `includes/Admin/Settings.php` `render_webhook_endpoints()`, replace the 5-entry `$catalogue` (lines 1293-1299) with the full spec event set, using the exact slugs the listener dispatches (`member.registered`, `member.verified`, `member.suspended`, `post.created`, `post.deleted`, `space.joined`, `space.left`, `connection.accepted`, `user.followed`, `reaction.added`, `comment.created`, plus the two ability slugs). Remove `notification.sent`.
-2. Reconcile the ability slug naming between `OutboundWebhookListener.php:261,277` and the spec (`ability.granted` / `ability.revoked`); use one canonical pair in both the listener dispatch and the new checkbox values so subscriptions actually match.
-3. Add a per-endpoint log view: a "View log" action in each row (`Settings.php:1272-1285`) plus a JS handler in `assets/js/admin/settings.js` that GETs `/webhooks/{id}/log` and renders the existing response (event, response_code, status, created_at). Optionally add a latency column to `deliver()`'s log insert if the spec's latency display is required.
+1. After a successful register, surface the returned `secret` once (write `res.body.secret` into the status line / a copy-once field before reload) — the value is already in `res.body` at `assets/js/admin/settings.js:111-122`.
+2. Fix the "Shared Secret" hint at `includes/Admin/Settings.php:1184-1186` and `:1227` so it no longer claims to sign outbound deliveries; scope it to inbound access verification.
+3. Add a per-endpoint log view: a "View log" action in each row (`Settings.php:1272-1285`) plus a JS handler that GETs `/webhooks/{id}/log` and renders the existing response (event, response_code, status, created_at). Add a latency column to `deliver()`'s log insert only if the spec's latency display is required.
+4. (Doc-only, optional) Reconcile spec §16 retry wording and the `ability.*` slug with the shipped WP-Cron retry and `member.ability_*` slugs — pick one source of truth.
+
+> No structural rewrite. The path UI → JS → REST → service → DB → cron retry is intact and working. The live walk only needs to confirm the JS enqueues and the tab renders on the running site.

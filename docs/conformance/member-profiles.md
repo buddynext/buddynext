@@ -1,46 +1,104 @@
-# Conformance — Member Profiles (Free)
+# Conformance: Member Profiles
 
-**Spec ref:** `docs/specs/features/05-user-profiles.md` (Locked, 2026-03-19)
-**Journey ref:** `docs/journeys/profile-fields.md`, `docs/v2 Plans/v2/user-profile.html`
-**Cross-cutting:** `docs/specs/REST-FRONTEND-CONTRACT.md`, `docs/specs/SCALE-CONTRACT.md`, `docs/specs/features/17-roles-permissions.md`
+**Feature:** Member Profiles (Free)
+**Spec ref:** `docs/specs/features/05-user-profiles.md` (Locked, 2026-03-19); journey `docs/journeys/profile-fields.md`; cross-cutting `docs/specs/REST-FRONTEND-CONTRACT.md`, `docs/specs/features/17-roles-permissions.md` (visibility)
+**Verdict:** usable-leave-as-is
 **Live-walk URL:** http://buddynext-dev.local/members/varundubey/
 
-## Verdict: usable-leave-as-is
+---
 
-The core happy path — admin defines field groups/fields → member edits and fills fields through a real UI → values persist → profile renders with visibility enforced for the viewer — is fully wired across ui / store / rest / service / db. No journey-stopping break exists in the code. The refactor plan is empty.
+## Journey traced (entry → outcome)
 
-## Journey chain
+The happy path a site owner expects: admin seeds field groups at activation → a
+member opens Edit Profile, fills built-in + custom fields (including a repeater
+entry), tightens a field's privacy, saves → the values persist → the profile
+view renders the saved fields with per-viewer visibility enforced → another
+member sees only what their relationship (anon / follower / connection) allows.
 
-| # | Step | Layer | Status | Evidence |
-|---|------|-------|--------|----------|
-| 1 | Built-in groups/fields seeded; admin lists them | service/db | wired | `ProfileService::get_fields()` / `get_groups()` read `bn_profile_groups`+`bn_profile_fields` — `includes/Profile/ProfileService.php:64`, `:147` |
-| 2 | Admin creates a custom group | rest→service | wired | `POST /profile-groups` → `ProfileController::create_group()` → `ProfileService::create_group()` — `includes/Profile/ProfileController.php:277`, `:862`; `ProfileService.php:191` |
-| 3 | Admin creates a custom field | rest→service | wired | `POST /profile-fields` → `create_field()` → `ProfileService::create_field()` — `ProfileController.php:226`, `:839`; `ProfileService.php:226` |
-| 4 | Member opens Edit Profile; every admin-defined group/field renders an input via the field-type engine | ui | wired | `templates/profile/edit.php:371` (group loop), `:467` `FieldType::render_input()`; per-field privacy lock `:152`, `:482` |
-| 5 | Member submits the form | store | wired | `data-wp-on--submit="actions.saveProfile"` `edit.php:324`; `actions.saveProfile`→`doSave`→`PUT buddynext/v1/me/profile` `assets/js/profile/store.js:766`, `:402` |
-| 6 | Server saves flat + repeater values, denormalises searchable flats to usermeta | rest→service→db | wired | `ProfileController::update_profile()` `ProfileController.php:536`; `ProfileService::save_profile()`→`upsert_value()` `ProfileService.php:317`, `:1541`; search mirror `:1373` |
-| 7 | Profile view renders all groups via the engine; hero/about-cards for known keys, generic detail cards for the rest | ui→service | wired | `templates/profile/view.php:89` `get_profile()`, generic renderer `:405`, `FieldType::render_display()` `:431`,`:463` |
-| 8 | Visibility gate (public/followers/connections/private) applied per viewer relationship | service | wired | `ProfileService::get_profile()` effective-visibility resolution `ProfileService.php:617-644`; follower/connection state resolved into cache key `:545-564` |
-| 9 | Profile completion score (own profile) | service→ui | wired | `get_completion_score()` `ProfileService.php:755`; rendered for owner `view.php:186` |
+Every link in this chain is wired across all five layers. The member edit form
+is built server-side via the single `FieldType` engine, bound to the
+Interactivity API store `buddynext/profile`, which `PUT`s `buddynext/v1/me/profile`,
+which routes through `ProfileService::save_profile` → `bn_profile_values`. Read
+back goes `get_profile` → visibility filter → `view.php` generic field renderer.
+
+| Step | Layer | Status | Evidence |
+|------|-------|--------|----------|
+| Admin field groups/fields seeded + managed | service/db | wired | `includes/Profile/ProfileService.php:191` (`create_group`), `:226` (`create_field`), `:983` (`update_field`) |
+| Edit form renders every group/field via the type engine | ui | wired | `templates/profile/edit.php:371` (group loop), `:408`/`:467` (`FieldType::render_input`) |
+| Per-field privacy "lock" selector (member may only tighten) | ui | wired | `templates/profile/edit.php:152` (`bn_privacy_select`), `:482` |
+| Form submit bound to store action | store | wired | `templates/profile/edit.php:324` (`data-wp-on--submit="actions.saveProfile"`); `assets/js/profile/store.js:766` |
+| Store collects flat + repeater + `__visibility` and PUTs | store→rest | wired | `assets/js/profile/store.js:340` (`collectFlatData`), `:352` (repeater), `:402` (`PUT buddynext/v1/me/profile`) |
+| REST endpoint validates + persists | rest | wired | `includes/Profile/ProfileController.php:158` (route), `:536` (`update_profile`), `:544` (422 on validation fail) |
+| Service upserts values + clamps visibility + search mirror | service→db | wired | `ProfileService.php:317` (`save_profile`), `:406`/`:461` (`upsert_value`), `:1311` (`clamp_visibility`), `:1373` (`sync_search_mirror`) |
+| Profile view read-back with visibility gating | service | wired | `ProfileService.php:520` (`get_profile`), `:617-643` (group/field/entry visibility, most-restrictive-wins, relationship-keyed cache) |
+| View template renders all fields incl. custom types | ui | wired | `templates/profile/view.php:34` (`can_view_profile` gate), `:405-488` (generic group/field renderer via `FieldType::render_display`) |
+| REST profile fetch (app/REST clients) | rest | wired | `ProfileController.php:464` (`get_profile`), `:507` (`get_own_profile`) |
+| Avatar / cover upload + slug | store→rest | wired | `store.js:866` (slug), `:981` (avatar), `:1026` (cover); `ProfileController.php:124`/`141`/`175` |
+
+---
 
 ## First break
 
-none — journey complete. The happy path (define field → edit via UI → save via REST → render with visibility) has a real UI control bound to a store action bound to a live REST route at every step.
+none — journey complete. The core member-profile happy path is wired end-to-end
+for both the web journey (template + Interactivity store) and the app/REST
+journey (REST endpoints sharing the same service layer).
 
-## UX gaps
+---
 
-| Gap | Severity | Confidence | Evidence |
-|-----|----------|------------|----------|
-| Server does not surface a 422 for invalid custom-field values (e.g. non-numeric into a `number` field) or for missing `is_required` custom fields. `FieldType::sanitize()` correctly returns `WP_Error`, but `save_profile()` swallows it with `continue` — the bad value is dropped silently and the save reports success. Journey edge cases "non-numeric → 422" and "required field missing → 422" are therefore not met for custom fields. Built-in display_name + URL fields ARE validated to 422. Data integrity is preserved (no bad value stored); only the inline-error feedback is missing. | low | confirmed-in-code | `ProfileService.php:362`,`:431` (`continue` on WP_Error); `FieldType.php:703` (number WP_Error); `ProfileController.php:657` `validate_profile_payload()` only covers display_name + URL + audience enums |
-| Journey doc's "known limitation" (no `POST /profile-groups` / `POST /profile-fields`) is stale — both routes now exist and are admin-gated. Doc, not code, is out of date. | low | confirmed-in-code | `ProfileController.php:226`, `:277` |
-| Repeater client-side add (`buildEntryNode` in store.js) hardcodes the field sets for `work_experience`/`education` only. A custom repeater group renders its existing entries server-side and saves them, but "Add entry" produces no new row for custom repeaters (the `containerMap`/`groupConfig` maps omit them). Existing-entry edit + save works; only client-side row-adding for non-built-in repeaters is unsupported. Needs live confirmation that an admin actually creates custom repeater groups in practice. | low | needs-live-verification | `assets/js/profile/store.js:469-492` (`groupConfig` only work/edu), `:886` (`containerMap` only work/edu) |
+## UX gaps (real, minimal)
+
+The journey is complete. The items below are spec **edge cases** the journey doc
+itself lists under "Edge cases to also verify" — they do not block the happy
+path, and one is a documented intentional limitation. None warrant a rewrite.
+
+1. **Required-field rejection is not enforced server-side.** The spec/journey
+   edge case expects `PUT /me/profile` to return 422 when an `is_required`
+   profile field is submitted empty. `validate_profile_payload`
+   (`ProfileController.php:657`) only validates `display_name`, URL fields, and
+   audience enums — it does not consult `is_required` on `bn_profile_fields`. An
+   empty value for a required custom field is silently skipped by
+   `FieldType::sanitize` (returns `''`) rather than rejected. Severity: low —
+   completion scoring still reflects the unfilled required field
+   (`ProfileService.php:755`), so the member is nudged; the data model is not
+   corrupted. Confidence: confirmed-in-code.
+
+2. **Field-type value enforcement returns 200, not 422, on a bad value.** The
+   edge case "save a non-numeric value for a `number` field → 422" is not met:
+   when `FieldType::sanitize` returns a `WP_Error` (`FieldType.php:705`),
+   `save_profile` (`ProfileService.php:362`/`431`) silently `continue`s and skips
+   that one field; the request still succeeds 200. The bad value is correctly
+   NOT stored, so there is no data-integrity break — but the member gets no
+   inline error for that field. Severity: low. Confidence: confirmed-in-code.
+
+3. **Group/field CREATE has no browser admin UI; REST POST exists but the walked
+   journey relies on WP-CLI.** Per the journey "Known limitations", new
+   group/field creation in the walked flow is done via direct DB insert.
+   `ProfileController.php:226` (`create_field` route) does exist, so app/REST
+   admin tooling is covered; this is a documented intentional gap for the
+   browser admin, not a member-journey break. Severity: low. Confidence:
+   confirmed-in-code.
+
+---
 
 ## Minimal refactor plan
 
-(empty — usable-leave-as-is)
+EMPTY. The feature is usable end-to-end. The gaps above are low-severity spec
+edge cases (the journey doc flags them as such, and #3 as a known limitation);
+none stop a real user from completing the profile journey. Do not rewrite
+working code.
 
-## Notes for the live walk
+---
 
-- Seed `varundubey` with bio, location, website, a skill or two, and at least one work/education entry before walking — an empty account hides the about-cards and detail sections and can read as "missing".
-- Walk both light and dark; verify the per-field privacy "lock" selector on each field and that a `followers`-scoped field disappears for an anonymous/stranger viewer and reappears once a follow relationship exists (journey steps 11–14).
-- App/REST journey is fully served independently of the web UI (`GET/PUT /me/profile`, `GET /users/{id}/profile`, group/field CRUD) — REST-FRONTEND-CONTRACT satisfied.
+## Notes for the human browser walk
+
+- Walk as the profile owner (varundubey) at the live URL: confirm hero, about
+  cards, and any custom-group detail cards render filled values; open Edit
+  Profile, change a field + tighten its privacy lock, Save, confirm the toast
+  and redirect, then reload the view.
+- Walk as a second member (member2) and as logged-out to confirm `followers` /
+  `connections` / `private` fields drop out exactly per `get_profile`'s
+  most-restrictive-wins gate. Seed a value first — empty accounts hide the
+  whole feature.
+- To verify edge-case #1/#2 above, mark a custom field `is_required`/`number`
+  and submit an empty/non-numeric value; observe a 200 with the field simply
+  unsaved (no inline error). That is the current behaviour, not a regression.

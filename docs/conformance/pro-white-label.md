@@ -1,51 +1,67 @@
-# Conformance: White Label (Pro)
+# Conformance — BuddyNext Pro: White Label (P6)
 
-**Feature:** White Label
-**Repo:** buddynext-pro
 **Spec ref:** `/Users/vapvarun/dev/repos/buddynext/docs/specs/features/P6-white-label.md`
-**Code traced:** `/Users/vapvarun/dev/repos/buddynext-pro/includes/WhiteLabel/` + `includes/Admin/WhiteLabelAdmin.php`, `includes/Admin/SpaceBrandAdmin.php`, `assets/admin/whitelabel.js`
+**Code traced:** `/Users/vapvarun/dev/repos/buddynext-pro/includes/WhiteLabel/` + `includes/Admin/WhiteLabelAdmin.php`
 **Live-walk URL:** http://buddynext-dev.local/wp-admin/
+**Verdict:** usable-minor-polish
 
-## Verdict
+---
 
-**usable-minor-polish** — The core admin journey (configure brand name + logo + hue + font + custom CSS, save, see it applied to admin chrome and the front-end OKLCH cascade) is fully wired end-to-end. Secondary spec scope rows (Gutenberg block rename, optional REST namespace alias) are not implemented; one narrow gap exists in the gettext rewriter being admin-gated. None of these stop the primary journey.
+## Summary
 
-## Journey chain (site-owner white-label, P6.1)
+The core white-label journey a site owner expects — set a custom brand name + brand hue + UI font + custom CSS in a Pro admin tab, save, and have BuddyNext branding/colors swapped across wp-admin chrome and the front-end UI — is **fully wired end to end**. UI form → `admin-post.php` save → `BrandService` → options → `AdminLabelRewriter` (admin chrome string swap) + `HueOverride` (front-end `:root` OKLCH override). A per-space variant (`SpaceBrandController`) and live-preview endpoint (`PreviewController`) are also wired, with matching admin JS.
+
+Two spec scope items are present in the admin UI/storage but have **no runtime consumer**, and one is admin-context-only:
+
+- **Logo URL** is stored, validated, and previewed in the admin form, but no code path renders it on any front-end or admin chrome surface.
+- **Email footer** "Powered by BuddyNext" (`EmailEditor.php:928`) is only rewritten by the admin-only `gettext` filter; email send in cron/front-end context does not pass through it.
+- **REST namespace alias** and **Gutenberg block label rename** (spec scope) are not implemented (spec marks namespace alias "optional").
+
+None of these break the core hue/brand-name journey. The logo field is the sharpest gap: a first-class config control that does nothing.
+
+---
+
+## Journey chain
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Settings tab "White-label" appears under Advanced | ui | wired | `includes/Admin/WhiteLabelAdmin.php:74-82` (AdminHub::register_tab) + legacy submenu `:90-100`; `buddynext/includes/Admin/AdminHub.php:217` |
-| Form renders brand name / logo / hue swatches / font / custom CSS | ui | wired | `includes/Admin/WhiteLabelAdmin.php:205-340`; helpers in `buddynext/includes/Admin/AdminPageBase.php:198,233,344` |
-| Live preview (hue/font/CSS) before save | store | wired | `assets/admin/whitelabel.js:45-108` (applies `--bn-hue`, `--bn-font-ui`, injects preview `<style>`) |
-| Save posts to admin-post.php | rest | wired | form action `:229-231`; handler hook `:71`, `handle_save()` `:107-142` |
-| Persist + validate brand fields | service | wired | `includes/WhiteLabel/BrandService.php:107-165` (save_brand, per-field WP_Error) |
-| Store in WP options | db | wired | `BrandService.php:119,130,135,150,161` (update_option) |
-| Admin chrome shows brand name (menu, plugin row, title, BN strings) | service | wired | `includes/WhiteLabel/AdminLabelRewriter.php:55-166` |
-| Front-end UI rotates to brand hue/font/CSS | service | wired | `includes/WhiteLabel/HueOverride.php:47-129` (wp_head priority 1, OKLCH `:root` block) |
-| Per-space brand override (P6.2) | rest/service | wired | tab `includes/Admin/SpaceBrandAdmin.php`; REST `includes/WhiteLabel/Controllers/SpaceBrandController.php:57-193`; JS save `assets/admin/whitelabel.js:111-197`; storage `BrandService.php:246-515` (`bn_space_meta`, created in `includes/Core/Installer.php:178-195`) |
-| Wiring on boot | service | wired | `includes/Core/Plugin.php:252-257` (HueOverride/AdminLabelRewriter/WhiteLabelAdmin/SpaceBrandAdmin registered); REST `:334,337` |
+| Admin opens White-label tab (Settings → Advanced) | ui | wired | `includes/Admin/WhiteLabelAdmin.php:74-82` (AdminHub tab) + `:90-100` (submenu) |
+| Form renders brand name / hue swatches / font / custom CSS | ui | wired | `includes/Admin/WhiteLabelAdmin.php:205-339` |
+| Live preview updates hue/font/css before save | store | wired | `assets/admin/whitelabel.js:32-108` |
+| Submit posts to admin-post.php with nonce | ui→rest | wired | `WhiteLabelAdmin.php:229-231`, handler `:107-142` |
+| Persist + validate brand fields | service/db | wired | `WhiteLabel/BrandService.php:107-165` (save_brand → wp options) |
+| Admin chrome shows custom name (menu/plugin row/title/strings) | service | wired | `WhiteLabel/AdminLabelRewriter.php:55-166` |
+| Front-end UI rotates to brand hue/font + custom CSS | service | wired | `WhiteLabel/HueOverride.php:47-129` (wp_head priority 1) |
+| Per-space brand override (read/write) | rest | wired | `WhiteLabel/Controllers/SpaceBrandController.php:57-194` + JS `whitelabel.js:111-197` |
+| Custom logo appears on a user-facing surface | service | broken | stored `BrandService.php:31,76`; **no consumer** — `HueOverride::render` emits only hue/font/css (`HueOverride.php:109-129`); only render is admin form thumbnail (`WhiteLabelAdmin.php:255-260`) |
+| Email footer drops "Powered by BuddyNext" | service | broken | string `EmailEditor.php:928`; gettext rewriter admin-only (`AdminLabelRewriter.php:56-58,69`), email send runs non-admin/cron |
+| REST namespace remap to custom alias | rest | missing | spec §"REST API namespace"; no impl in `WhiteLabel/`. Spec marks "optional" |
+| Gutenberg block labels renamed in editor | ui | missing | spec "Gutenberg blocks label"; no block-rename code in `WhiteLabel/` |
+
+---
 
 ## First break
 
-none — journey complete (the primary configure→save→apply journey has no broken link).
+**Custom logo never renders.** An admin sets a Logo URL (a first-class spec config field with full admin control + thumbnail), saves successfully, but no front-end or admin chrome surface ever outputs it. `HueOverride::render()` emits only `--bn-hue`, `--bn-font-ui`, and custom CSS — never the logo. The brand-name + hue + font + CSS journey itself completes fully; this is a dead control within an otherwise working feature.
+
+---
 
 ## UX gaps
 
-1. **Email footer rewrite is admin-context-only** (severity: low, confidence: confirmed-in-code). `AdminLabelRewriter::register()` returns early when `! is_admin()` (`includes/WhiteLabel/AdminLabelRewriter.php:56-58`), so the `gettext` filter that swaps "BuddyNext" → brand name (`:69`, `:158-166`) does not run during email send (cron / front-end context). The admin email-editor *preview* footer string `buddynext/includes/Admin/EmailEditor.php:928` IS rewritten because it renders in admin, but a sent email rendered outside admin would retain "BuddyNext" in any BN-domain string. Spec lists "Email template footers — Custom branding, no BuddyNext mention" as in-scope. Needs live verification of the actual send template path.
+1. **Logo URL is a dead control** — high — confirmed-in-code. Admin can set/validate/preview a logo (`WhiteLabelAdmin.php:246-260`, `BrandService.php:31,76`) but it is never rendered anywhere user-facing; no consumer of `logo_url` beyond the admin form's own preview thumbnail. Spec lists "Custom logo" as a primary configuration field and "Admin panel branding: Custom logo + name".
 
-2. **Gutenberg blocks not renamed** (severity: low, confidence: confirmed-in-code). Spec scope row "Gutenberg blocks label — Blocks renamed in editor" has no implementation; no block-registration filter found in `includes/WhiteLabel/`. Editor block labels still read "BuddyNext".
+2. **Email footer keeps "Powered by BuddyNext"** — medium — confirmed-in-code. `EmailEditor.php:928` emits "Sent by %s - Powered by BuddyNext"; the only rewriter (`AdminLabelRewriter::rewrite_translatable_strings`) registers behind `is_admin()` (`AdminLabelRewriter.php:56-58`), so transactional email sent via cron/front-end keeps the BuddyNext mention. Spec scope: "Email template footers: Custom branding, no BuddyNext mention".
 
-3. **Optional REST namespace alias not implemented** (severity: low, confidence: confirmed-in-code). Spec marks this "Optionally remapped" — controllers hardcode `buddynext-pro/v1` (`Controllers/PreviewController.php:37`, `Controllers/SpaceBrandController.php:34`). Being optional, this does not block the journey.
+3. **Gutenberg block labels not renamed** — low — confirmed-in-code. No block-title rewrite in `WhiteLabel/`. Spec scope: "Gutenberg blocks label: Blocks renamed in editor".
+
+4. **REST namespace alias not implemented** — low — confirmed-in-code. No namespace remap. Spec marks this "optional", so not a journey break.
+
+---
 
 ## Minimal refactor plan
 
-These are optional polish items for full spec-scope coverage; the primary journey is usable as-is. If pursued:
+1. Render the configured logo. Add a consumer for `BrandService::get_brand()['logo_url']`: emit it in the front-end header template (where the site logo renders) and in admin chrome so the stored value is used. Reuse the existing getter; no new storage.
+2. Make the email footer respect the brand name. Cleanest native fix: have `EmailEditor.php:928` call `BrandService::get_brand_name()` directly instead of hardcoding "BuddyNext" (or drop the `is_admin()` guard so the gettext rewrite also runs at send time).
+3. (Optional, low priority) Rename Gutenberg blocks via a `block_type_metadata` title filter keyed off `BrandService::get_brand_name()`.
 
-1. Register the `gettext` rewrite filter unconditionally (move it out of the `is_admin()` guard in `AdminLabelRewriter::register()`), keeping the other three filters admin-only, so email/cron-rendered BN-domain strings also get the brand swap.
-2. Add a `register_block_type` label/title filter in the WhiteLabel module to rename BN blocks in the editor when a brand name is set.
-
-(REST namespace alias intentionally omitted — spec marks it optional and it is not part of the happy path.)
-
-## Live-walk URL
-
-http://buddynext-dev.local/wp-admin/ → BuddyNext → Settings → Advanced → White-label. Set a brand name + pick a hue, Save, then confirm the admin menu label changes and the front end rotates.
+REST namespace alias is spec-optional — leave as-is unless prioritized.

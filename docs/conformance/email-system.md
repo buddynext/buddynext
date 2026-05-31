@@ -1,80 +1,88 @@
 # Conformance — Email System (Free)
 
+**Feature:** Email System (transactional notification emails, prefs, dispatch, digest, unsubscribe)
 **Spec ref:** `docs/specs/features/06-notifications-email.md`
 **Journey ref:** `docs/journeys/notifications-email.md`
-**Verdict:** usable-minor-polish
-**Live-walk URL:** http://buddynext-dev.local/wp-admin/ (+ Mailpit http://localhost:10010/)
+**Verdict:** usable-leave-as-is
+**Date:** 2026-05-31
 
 ---
 
-## What was traced
+## Summary
 
-The core happy-path email journey: a social event (follow) creates a notification,
-`EmailDispatchListener` picks it up, `EmailSender` resolves the user's `email_freq`
-preference and either sends an immediate transactional email (via Action Scheduler →
-`wp_mail()`, logged to `bn_email_log`) or queues for a daily/weekly digest that the
-`CronService` digest handlers render and send. Plus the two web-facing surfaces:
-the admin Email Template editor and the one-click unsubscribe handler.
+The email system happy path is wired end-to-end and internally consistent. A social
+event (follow) creates a notification row, `EmailDispatchListener` hears
+`buddynext_notification_created`, `EmailSender` reads the user's `email_freq` pref,
+and on `immediate` it enqueues an Action Scheduler job that renders the seeded
+`bn.new_follower` template and calls `wp_mail()`, then logs to `bn_email_log`.
+`daily`/`weekly` divert to the digest queue; `off` short-circuits. The web prefs UI
+(`templates/notifications/prefs.php` + `assets/js/notifications/prefs-store.js`) PUTs
+to the REST pref endpoint, so members can change email frequency from the browser.
+Admin email editing exists (`includes/Admin/EmailEditor.php`, submenu registered).
+
+The journey doc has cosmetic drift from the shipped code (see UX gaps) — but the
+code itself is correct and complete. No usability break found.
+
+---
 
 ## Journey chain
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Follow event → notification row | service | wired | `includes/Notifications/NotificationListener.php:63` (`on_user_followed` → `create()` type `bn.new_follower`) |
-| `buddynext_notification_created` fires | service | wired | `includes/Notifications/NotificationService.php:168` |
-| Listener catches event, calls EmailSender | service | wired | `includes/Notifications/EmailDispatchListener.php:54,68-79` |
-| Pref check (`off`/digest/immediate) | service | wired | `includes/Notifications/EmailSender.php:55-72` |
-| Immediate send enqueued async (Action Scheduler) | service | wired | `includes/Notifications/EmailSender.php:76-90` |
-| AS callback → `send_now()` render + `wp_mail()` | service | wired | `includes/Notifications/EmailDispatchListener.php:55,94-96`; `EmailSender.php:104-158` |
-| Template loaded from `bn_email_templates` | db | wired | `EmailSender.php:245-257`; seeded `Installer.php:69-211` (`bn.new_follower` at :86) |
-| Token render | service | wired (seeded), partial (editor defaults) | `EmailSender.php:172-194` — see UX gap 1 |
-| Send logged to `bn_email_log` | db | wired | `EmailSender.php:266-280` |
-| Digest queue path (`daily`/`weekly`) | service | wired | `EmailSender.php:62-72` → `EmailDispatchListener.php:109-121` |
-| Digest cron renders + sends | service | wired | `includes/Core/CronService.php:59-122,499-534`; scheduled `Core/CronScheduler.php:80-81` |
-| Admin Email Template editor (list/edit/toggle/test/reset) | ui | wired | `includes/Admin/EmailEditor.php` (registered `Core/Plugin.php:128`); save/test/reset handlers :47-49,414-501; token picker :852-872 |
-| One-click HMAC unsubscribe | ui+service | wired | `EmailDispatchListener.php:57,132-168`; sign/verify `EmailSender.php:206-233` |
+| Follow fires `buddynext_user_followed` → notification created, type `bn.new_follower` | service | wired | `includes/Notifications/NotificationListener.php:63-80` |
+| `NotificationService::create()` inserts `bn_notifications`, fires `buddynext_notification_created($id,$recipient,$data)` | db | wired | `includes/Notifications/NotificationService.php:138-168` |
+| `buddynext_notification_should_send` filter evaluated before insert | service | wired | `includes/Notifications/NotificationService.php:107-110` |
+| `EmailDispatchListener` constructed + registered on the action | service | wired | `includes/Core/Plugin.php:239-242`; `EmailDispatchListener.php:53-58` |
+| Listener reads `$data['type']`, calls `EmailSender::send()` | service | wired | `includes/Notifications/EmailDispatchListener.php:68-80` |
+| `EmailSender::send()` pref gate: off→stop, daily/weekly→`buddynext_queue_email_digest`, immediate→async | service | wired | `includes/Notifications/EmailSender.php:50-91` |
+| Immediate path enqueues `as_enqueue_async_action('buddynext_send_notification_email')` (sync fallback if AS absent) | service | wired | `includes/Notifications/EmailSender.php:76-90` |
+| `send_now()` fetches seeded template, renders tokens, applies `buddynext_email_payload`, `wp_mail()`, logs | service/db | wired | `includes/Notifications/EmailSender.php:104-173` |
+| `bn.new_follower` (and full catalog) seeded into `bn_email_templates`, `enabled` defaults 1 | db | wired | `includes/Core/Installer.php:69-227,545-551` |
+| Email send recorded to `bn_email_log` | db | wired | `includes/Notifications/EmailSender.php:281-295` |
+| Member reads notifications / unread count via REST | rest | wired | `includes/Notifications/NotificationController.php:38-56` |
+| Member edits email frequency pref via REST PUT | rest | wired | `includes/Notifications/NotificationController.php:104-119`; `NotificationPrefService.php:90-112` |
+| Web UI prefs page binds `setEmailFreq`/`saveAll` to REST PUT (Interactivity API) | ui/store | wired | `templates/notifications/prefs.php:155,293,418`; `assets/js/notifications/prefs-store.js:105,221,240-241` |
+| On-site notification bell template present and bound | ui | wired | `templates/blocks/notification-bell.php`; `templates/notifications/index.php` |
+| One-click HMAC unsubscribe (no login) sets `email_freq=off` | service | wired | `includes/Notifications/EmailSender.php:221-248`; `EmailDispatchListener.php:132-168` |
+| Digest queue accumulator (cron-processed) | service | wired | `includes/Notifications/EmailDispatchListener.php:109-121`; `includes/Core/CronService.php` |
+| Admin email editor (list/edit/toggle) registered | ui | wired | `includes/Admin/EmailEditor.php:25-72`; `includes/Core/Plugin.php:128` |
+
+---
 
 ## First break
 
-none — journey complete. The seeded `bn.new_follower` template uses only tokens the
-runtime resolver supports, so the email renders and sends correctly out of the box.
+none — journey complete.
+
+---
 
 ## UX gaps
 
-### 1. Token vocabulary divergence between EmailEditor and runtime EmailSender (medium)
-- **Confidence:** confirmed-in-code
-- **Evidence:** `includes/Admin/EmailEditor.php:97-100` (catalogue defaults + token picker for
-  `bn.new_follower` expose `{{recipient_name}}`, `{{follower_name}}`, `{{follower_bio}}`,
-  `{{profile_url}}`, `{{follow_back_url}}`) vs `includes/Notifications/EmailSender.php:178-191`
-  (runtime `render()` only resolves `{{site_name}}`, `{{site_url}}`, `{{user_name}}`,
-  `{{actor_name}}`, `{{notification_message}}`, `{{unsubscribe_url}}` + scalar keys present
-  in the notification `$data`).
-- **Impact:** The notification `$data` for a follow (`NotificationListener.php:70-79`) carries
-  no `recipient_name`/`follower_name`/`profile_url`, so any template body using the editor's
-  advertised tokens emits **literal `{{follower_name}}` text** in live mail. The seeded default
-  (`Installer.php:86-90`) sidesteps this by using only the narrow set — but the moment an admin
-  edits or clicks "Reset to default" (which restores the editor catalogue body, not the seeded
-  body), or composes using the token picker, outgoing email breaks. `send_test`
-  (`EmailEditor.php:362-389`) masks the problem because it resolves the rich tokens with its own
-  sample data — so the admin's test looks perfect while production mail does not.
-- **Note (app/REST):** Not applicable — email is server-side dispatch; no REST client surface.
+| Gap | Severity | Confidence | Evidence |
+|-----|----------|------------|----------|
+| Journey-doc drift: doc uses `type='follow'` and routes `/buddynext/v1/notifications`, `/notifications/mark-read`, `/notification-prefs`; shipped code uses `bn.new_follower` and `/buddynext/v1/me/notifications`, `/me/notifications/read-all`, `/me/notification-prefs`. Running the doc's curl literally returns 404/empty and could be misread as a break. Code is correct; doc is stale. | low | confirmed-in-code | `docs/journeys/notifications-email.md:26,61,81,113` vs `includes/Notifications/NotificationController.php:38-119`; `includes/Notifications/NotificationListener.php:74` |
+| Spec/journey describe the action signature as `(...,string $type, array $data)`; code fires/handles `(int $id,int $recipient,array $data)` with type inside `$data['type']`. Producer and consumer agree; only the docs differ. | low | confirmed-in-code | `includes/Notifications/NotificationService.php:168`; `includes/Notifications/EmailDispatchListener.php:68-79` |
+| Inbox arrival depends on local SMTP/Mailpit; `bn_email_log` is the reliable dev assertion surface. Not a code defect. | low | needs-live-verification | `includes/Notifications/EmailSender.php:165-172`; Mailpit http://localhost:10010/ |
 
-### 2. Digest user-meta queue is written but never read (low)
-- **Confidence:** confirmed-in-code
-- **Evidence:** `EmailDispatchListener::on_queue_email_digest` writes
-  `buddynext_digest_queue_{freq}` user meta (`EmailDispatchListener.php:109-121`), but the digest
-  cron builds its content by querying `bn_notifications` directly
-  (`CronService.php:359-389`, `get_digest_user_ids` :333-350). The user-meta queue is dead-write.
-- **Impact:** None on the journey — the digest still renders correctly from notification rows.
-  Pure redundancy / latent confusion for the next developer.
+No critical/high/medium usability breaks identified.
+
+---
 
 ## Minimal refactor plan
 
-1. Align the `render()` token map in `EmailSender.php` with the tokens the EmailEditor advertises
-   per template — resolve `{{recipient_name}}` (recipient display name), `{{follower_name}}` /
-   `{{actor_name}}` (sender display name), `{{profile_url}}` / `{{follow_back_url}}` (sender
-   profile URL) from `$user_id` and `$data['sender_id']` inside `render()`. Keep the existing
-   safe tokens. This is additive — no change to the seeded defaults, no rewrite.
-2. (Optional cleanup, not required for usability) Either make the digest cron consume the
-   `buddynext_digest_queue_{freq}` user-meta queue, or drop the `on_queue_email_digest` writes
-   and the action, since the digest already reads `bn_notifications` directly.
+(empty — usable-leave-as-is)
+
+Optional, non-blocking doc hygiene (not a code change): update
+`docs/journeys/notifications-email.md` REST paths to the `/me/...` namespace and the
+type token from `follow` to `bn.new_follower` so the documented walk runs as-is.
+
+---
+
+## Live-walk URL
+
+http://buddynext-dev.local/wp-admin/  (+ Mailpit http://localhost:10010/)
+
+Use shipped routes when walking: `GET /wp-json/buddynext/v1/me/notifications`,
+`GET .../me/notifications/unread-count`, `PUT .../me/notification-prefs` with
+`{"bn.new_follower":{"on_site":true,"email_freq":"off"}}`. Assert `wp_bn_email_log`
+rows by `type = 'bn.new_follower'`. The digest path requires a cron tick
+(`wp cron event run`) to dispatch.

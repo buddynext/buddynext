@@ -1,75 +1,61 @@
 # Contract Conformance — Design System & Dark Mode
 
-**Contract:** Design system & dark mode
-**Spec:** `docs/specs/features/20-theme-integration.md` (Locked, 2026-03-20)
+**Contract:** Design system & dark mode (OKLCH `--bn-*` tokens, Lucide via `buddynext_icon()`, working dark mode, no raw hex, no emoji in markup)
+**Locked spec:** `docs/specs/features/20-theme-integration.md`
 **Checked:** 2026-05-31
-**Verdict:** usable-leave-as-is (minor polish optional)
+**Verdict:** usable-leave-as-is (documentation drift + minor polish noted)
 
 ---
 
 ## Summary
 
-The design-system spine is built, wired, and theme-agnostic. OKLCH `--bn-*`
-tokens are the single canonical source (`assets/css/bn-base.css`), legacy
-aliases bridge through `var(--wp--preset--*, var(--bn-*))` so a host block
-theme's palette wins in light mode (`TokenService::get_defaults()`), and dark
-mode is a complete, runtime-togglable surface. Lucide icons route through
-`buddynext_icon()` / `IconService` (103 template call sites, 79 vendored SVGs).
-No contract-breaking violations found. Two cosmetic nits noted below.
+The contract spine is **fully built and wired**. Every guarantee the spec exists to deliver — a theme-adopting token layer, a plugin `theme.json` fallback, a `buddynext_css_vars` filter for Customizer bridging, a working dark mode, and a safe SVG icon service — is present in code and bootstrapped at runtime. The implementation has in fact **evolved past the locked doc**: it ships a richer v2 OKLCH vocabulary (`--bn-accent`, `--bn-ink`, `--bn-canvas`) plus dyslexia and reduced-motion support the spec never mentions.
+
+The only findings are (a) the locked spec's literal token *names* are stale and (b) a small set of cosmetic raw-hex / one admin emoji. None break the journey.
 
 ---
 
-## Guarantee chain
+## Journey — contract guarantees
 
 | Guarantee | Layer | Status | Evidence |
 |---|---|---|---|
-| OKLCH `--bn-*` tokens are the canonical source | service | wired | `assets/css/bn-base.css:20-122` (`:root` / `[data-bn-theme="light"]`, oklch-derived from one rotatable `--bn-hue`) |
-| Plugin `theme.json` ships neutral preset fallbacks | db | wired | `theme.json:1-80` (primary/base/foreground/border/success/error palette, font + spacing presets) |
-| `--bn-*` tokens output at wp_head via inline style | service | wired | `TokenService::attach_tokens()` → `wp_add_inline_style('bn-base', …)`; `Plugin.php:256` calls `(new TokenService())->init()` |
-| `buddynext_css_vars` filter lets themes override | service | wired | `TokenService::build_css():233` applies filter; dark twin `buddynext_css_vars_dark:245` |
-| Theme preset wins in light, BuddyNext owns dark | service | wired | defaults bridge `var(--wp--preset--*, var(--bn-*))`; `get_dark_overrides()` re-pins straight to dark `--bn-*` (documented preset-chain fix, `TokenService.php:176-217`) |
-| Dark mode is real and togglable | ui | wired | `bn-base.css:320-363` dark OKLCH overrides + `366` `prefers-color-scheme` auto; toggle UI `templates/profile/edit.php:650-654`; applied/persisted `assets/js/shell/font-scale.js:88-92`; default attr `AssetService.php:186-189` |
-| Lucide icons via `buddynext_icon()` | ui | wired | `IconService::render()` wp_kses-sanitized SVG, injects `.bn-icon`; 103 call sites across templates, 79 SVGs in `assets/icons/` |
-| No raw hex for design values | ui | api-only | bare hex limited to `color:#fff` on accent buttons + brand-literal social chips; bulk hex is `@supports not(oklch)` fallback + `var(--token,#fallback)` defenses |
-| No emoji in markup | ui | broken | one `⚙` in `includes/Admin/NavManager.php:585` echoed help string |
+| Plugin-level `theme.json` ships as fallback palette/type/spacing | db | wired | `theme.json` (root), version 3, palette+fontSizes+spacing present |
+| `--bn-*` tokens output at wp_head, presets bridged via `var(--wp--preset--*, fallback)` | service | wired | `includes/Theme/TokenService.php:69-169` (`get_defaults`), attached `:378-380` |
+| TokenService bootstrapped at runtime | service | wired | `includes/Core/Plugin.php:260` `( new TokenService() )->init()` |
+| `buddynext_css_vars` filter for Customizer/theme override | service | wired | `TokenService.php:233`, dark variant `:245` |
+| OKLCH is the canonical color source | ui | wired | `assets/css/bn-base.css` — 115 `oklch()` declarations |
+| Working dark mode (dual selector + system auto + legacy-alias re-pin) | ui | wired | `bn-base.css:320-384`; alias re-pin `TokenService.php:176-217` |
+| OKLCH `@supports` hex fallback for old browsers | ui | wired | `bn-base.css:402-469` (intentional, documented) |
+| Icons via `buddynext_icon()` / IconService, wp_kses-sanitized SVG | ui | wired | `includes/Core/IconService.php`; 79 SVGs in `assets/icons/`; 106 call sites |
+| No raw hex in front-end component CSS | ui | broken (minor) | bare `#fff` at `bn-spaces.css:801`, `bn-profile.css:902/984/1667/1675/1676/1685`, `bn-feed.css:1921/2494/2612`, `bn-shell.css:213`; brand-chip hex `bn-profile.css:2465-2469` |
+| No emoji in markup | ui | broken (minor) | `⚙` in admin help string `includes/Admin/NavManager.php:585` |
 
 ---
 
-## Findings (non-blocking)
+## Spec / code drift (documentation, not a break)
 
-1. **`⚙` emoji in admin markup** — `includes/Admin/NavManager.php:585`, inside an
-   `esc_html_e()` help string. Violates the no-emoji-in-markup rule. Replace with
-   `buddynext_icon('settings')` or the word "gear". Severity: low (admin-only,
-   one string).
+The locked spec (lines 107-138) names the PHP-rendered token set as
+`--bn-color-primary`, `--bn-color-surface`, `--bn-font-size-md`, `--bn-space-md`, `--bn-color-text`, etc.
+**These exact names appear ZERO times in the codebase.** The shipped vocabulary is:
 
-2. **Bare `color:#fff` on brand buttons** (`bn-feed.css:1921,2494,2547,2612,2706`;
-   `bn-profile.css:902,1667,1675-1685`; `bn-spaces.css:801`; `bn-shell.css:213`).
-   The canonical token `--bn-accent-fg` already exists for exactly this. White on
-   the mid-tone accent reads correctly in both light and dark, so this is a
-   consistency nit, not a broken surface. Severity: low.
+- v2 OKLCH sources: `--bn-accent*`, `--bn-ink*`, `--bn-canvas`, `--bn-surface`, `--bn-line`, `--bn-success/warn/danger/info` (declared in `bn-base.css`)
+- Legacy aliases mapped in `TokenService::get_defaults()`: `--brand`, `--bg`, `--surface`, `--border`, `--text-1..3`, `--green/amber/red`, `--font-body`, `--text-*`, `--s1..s16`, `--r-*`
 
-3. **Brand-literal social-chip colors** (`bn-profile.css:2465-2469`: Twitter
-   `#1da1f2`, LinkedIn `#0a66c2`, Instagram `#e1306c`, YouTube `#ff0000`). These
-   are third-party brand identities, not theme colors — intentionally outside the
-   token system. Not a violation.
-
-4. **`!important` usages** — almost all `[hidden]{display:none!important}` and
-   admin layout resets (`#wpcontent`, `#wpfooter`). These are
-   WordPress-conventional visibility/utility resets, not design-value overrides.
-   One borderline `width:35%!important` at `bn-base.css:2572`. Spec's "no
-   !important" targets design values; not a contract break.
-
-### Not violations (verified legitimate)
-- `@supports not (color: oklch(…))` hex republish block (`bn-base.css:402-490`) —
-  documented progressive-enhancement fallback for browsers without OKLCH.
-- `var(--token, #hexfallback)` patterns — hex is a CSS-var fallback; value still
-  resolves through the token first.
+The spec's palette slug list (`contrast`, `subtle`, `surface`) is likewise stale: `theme.json` ships `foreground`, `base`, `base-subtle`, `primary-hover` instead, and TokenService reads those matching slugs. The bridge is **internally consistent** (theme.json slugs match `var(--wp--preset--color--<slug>)` references), so theme adoption works — the doc just no longer describes the real token names. Spec is marked "fully locked"; it needs a refresh to match the v2 OKLCH system.
 
 ---
 
-## Refactor plan
+## Findings (contract violations)
 
-None required for usability. Optional polish (one wave, no rewrites):
-1. Swap `⚙` in `NavManager.php:585` for `buddynext_icon('settings')`.
-2. Replace bare `color:#fff` on `.bn-btn-*` / accent surfaces with
-   `var(--bn-accent-fg)`.
+1. **Spec token names stale** — medium. Locked doc names tokens that do not exist; v2 OKLCH names shipped instead. Doc-only; bridge works. (`docs/specs/features/20-theme-integration.md:107-138` vs `TokenService.php` / `bn-base.css`)
+2. **Bare `#fff` in component CSS** — low. ~7 `color: #fff` (button/avatar foreground) should be `var(--bn-accent-fg)` so dark/whitelabel rebrand cannot strand white text.
+3. **Social-chip brand hex** — low / by-design. `bn-profile.css:2465-2469` hardcode platform brand hues (Twitter/LinkedIn/Instagram/YouTube). Brand-mandated, not theme tokens; acceptable with a documented exception.
+4. **Admin emoji** — low. `⚙` in a translatable admin help string (`NavManager.php:585`); per the no-emoji rule should be a Lucide `buddynext_icon()`. Admin-only.
+
+Note: `var(--bn-token, #hex)` fallbacks inside `var()` calls (the bulk of the 179 hex hits) and the entire `@supports not (oklch)` block are **intentional defensive fallbacks, not violations** — the token always resolves first.
+
+---
+
+## Why not "broken"
+
+Absence != broken, and "exists vs used" was checked. The token layer, theme.json, filter, dark mode and icon service all exist AND are wired (Plugin.php bootstrap, 106 icon call sites, 115 OKLCH decls, dual dark selectors). The drift lives in the *spec document*; the hex/emoji are cosmetic. Nothing breaks the rendered experience. Default verdict stands.

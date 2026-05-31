@@ -1,57 +1,63 @@
 # Conformance: Multi-pin Posts (Pro)
 
-**Feature:** Multiple pinned posts (raise pin cap from 1 → 10 per scope)
-**Repo:** buddynext-pro
-**Spec ref:** `buddynext/docs/specs/features/02-activity-feed.md` — "Pro: Multiple pinned posts (up to 10 per space or profile)"
-**Journey doc:** `buddynext-pro/docs/journeys/multi-pin-posts.md`
+**Feature:** Multiple pinned posts (up to 10 per space or profile) — Pro tier.
+**Repo:** buddynext-pro (filter-only extension of Free's pin path).
+**Spec ref:** `buddynext/docs/specs/features/02-activity-feed.md` (Post Features → Pro: "Multiple pinned posts (up to 10 per space or profile)").
+**Contract ref:** `buddynext/docs/specs/features/FREE-PRO-CONTRACT.md` §4 filter #3 (`buddynext_post_pin_limit`).
+**Journey doc:** `buddynext-pro/docs/journeys/multi-pin-posts.md`.
 **Live-walk URL:** http://buddynext-dev.local/activity
 
 ---
 
-## Verdict: partial-needs-wiring
+## Verdict
 
-The Pro backend extension is correctly built and wired. The Free pin REST endpoint and service correctly consume the filter. The pin UI control exists and is bound to a store action. **But the per-post Interactivity context omits `isPinned`, so the kebab "Unpin" control can never send a DELETE — it always POSTs.** A web user cannot unpin a post from the UI, which breaks the "unpin to free a slot" leg of the journey (Part 4). The feature is fully usable for REST/app clients (which call DELETE directly).
+**usable-leave-as-is.**
+
+The Pro feature is a single filter callback that raises Free's per-scope pin cap from 1 to 10. The entire enforcement and UX path lives in Free and is wired end-to-end: a real Pin/Unpin control in the post options menu binds to an Interactivity store action that calls the Free REST pin/unpin routes, which call `PostService::pin()`, which reads the `buddynext_post_pin_limit` filter that Pro raises. The `pin_limit_reached` error is surfaced to the user as a toast. No new Pro UI, REST routes, or DB columns are required by spec, and none are missing.
 
 ---
 
 ## Journey chain
 
-| # | Step | Layer | Status | Evidence |
-|---|------|-------|--------|----------|
-| 1 | Pro registers pin-limit filter at boot | service | wired | `buddynext-pro/includes/Core/Plugin.php:190` (`ProPinService::register()` in `wire_extensions()`) |
-| 2 | Filter raises cap 1 → 10, never lowers | service | wired | `buddynext-pro/includes/Feed/ProPinService.php:44,67` (`add_filter('buddynext_post_pin_limit',…,10,3)`; `max($limit,10)`) |
-| 3 | Free `PostService::pin()` reads the filter & enforces cap | service | wired | `buddynext/includes/Feed/PostService.php:366` (apply_filters), `:382` (count ≥ limit → WP_Error `pin_limit_reached`) |
-| 4 | Pin state persisted on `bn_posts.is_pinned` | db | wired | `buddynext/includes/Core/Installer.php:402` (`is_pinned TINYINT(1)`); `PostService.php:393` update |
-| 5 | REST `POST/DELETE /posts/{id}/pin` exists, auth-gated | rest | wired | `buddynext/includes/Feed/PostController.php:72-84`; handlers `:279,:298` |
-| 6 | Post card emits per-post Interactivity context | ui | broken | `buddynext/templates/partials/post-card.php:322-348` — context has `postId`, `reactNonce`, `restUrl` but **no `isPinned`** |
-| 7 | Kebab "Pin/Unpin" control bound to store action | ui | wired | `buddynext/templates/parts/post-options-menu.php:103` (`data-wp-on--click="actions.pinPost"`); `can_pin` set `post-card.php:219` |
-| 8 | `pinPost` action toggles + calls REST | store | broken | `buddynext/assets/js/feed/store.js:902-918` — reads `ctx.isPinned` (undefined) → `method: prev ? 'DELETE':'POST'` is **always POST**; unpin impossible from UI |
-| 9 | Limit-reached feedback to user | store | broken | `store.js:913-915` — on non-ok response, silently rolls back `isPinned`, **no toast/error** shown |
+| Step | Layer | Status | Evidence |
+|------|-------|--------|----------|
+| Pro registers pin-limit filter at boot | service | wired | `buddynext-pro/includes/Core/Plugin.php:191` → `ProPinService::register()` |
+| Filter callback raises cap to 10 (`max($limit,10)`, never lowers) | service | wired | `buddynext-pro/includes/Feed/ProPinService.php:43-68` |
+| Free reads the filter inside pin() | service | wired | `buddynext/includes/Feed/PostService.php:377` |
+| Free enforces cap per scope (space_id null = profile) and returns `pin_limit_reached` WP_Error at cap | service+db | wired | `buddynext/includes/Feed/PostService.php:381-399` |
+| Pin write / unpin write to `bn_posts.is_pinned` | db | wired | `buddynext/includes/Feed/PostService.php:402-413` (pin), `:432-443` (unpin) |
+| REST POST/DELETE `/posts/{id}/pin` (owner-only) | rest | wired | `buddynext/includes/Feed/PostController.php:72-84, 279-309` |
+| Pin/Unpin button in post options menu, bound to store | ui | wired | `buddynext/templates/parts/post-options-menu.php:98-104` (`data-wp-on--click="actions.pinPost"`) |
+| Store action calls REST, optimistic flip, surfaces server error message | store | wired | `buddynext/assets/js/feed/store.js:902-931` |
+| Post-card seeds Interactivity context (`can_pin`, `is_pinned`, `restUrl`, `reactNonce`) and renders menu | ui | wired | `buddynext/templates/partials/post-card.php:331-347, 442-445` |
 
 ---
 
 ## First break
 
-**Step 6 / Step 8** — `buddynext/templates/partials/post-card.php:322-348` omits `isPinned` from `data-wp-context`. The earliest broken link: the store action at `assets/js/feed/store.js:904` reads `ctx.isPinned` as `undefined`, so the DELETE branch is unreachable and web users cannot unpin.
+none — journey complete. The web journey and the REST/app journey both reach `PostService::pin()` with the Pro-raised cap in effect.
 
 ---
 
 ## UX gaps
 
 | Gap | Severity | Confidence | Evidence |
-|-----|----------|-----------|----------|
-| Web user cannot unpin a post from the kebab menu — action always POSTs because `ctx.isPinned` is undefined; button shows "Unpin" but re-pins | high | confirmed-in-code | `store.js:904-908` vs `post-card.php:322-348` (no `isPinned` key) |
-| Hitting the 10-pin cap gives no feedback — action silently reverts the optimistic toggle with no toast/error, so the user sees the post quietly un-pin itself | medium | confirmed-in-code | `store.js:913-915` |
-| Pins are always profile-scope: REST `pin_post` calls `pin($post_id,$user_id)` without `$space_id`, so the per-space cap path in `PostService::pin()` is never reached from the web/REST surface (spec promises "per space or profile") | medium | confirmed-in-code | `PostController.php:282` (no 3rd arg) vs `PostService.php:348,371` |
+|-----|----------|------------|----------|
+| `pin_limit_reached` error text is generic ("You have reached the maximum number of pinned posts.") — it does not state the actual cap (10), so a Pro user who hits the wall gets no hint about their slot count. Copy nitpick only; does not stop the journey. | low | confirmed-in-code | `buddynext/includes/Feed/PostService.php:394-397`; surfaced via `buddynext/assets/js/feed/store.js:918-920` |
+| Journey doc preconditions carried TODOs (column vs table, exact REST path) — both resolved against Free: storage is `bn_posts.is_pinned` (column, no separate table) and route is `POST/DELETE /buddynext/v1/posts/{id}/pin`. No product gap; doc TODOs are now answered. | low | confirmed-in-code | `buddynext/includes/Feed/PostService.php:402-408`; `buddynext/includes/Feed/PostController.php:72-84` |
 
-App/REST clients are unaffected by the first two gaps — they call DELETE directly and read the structured WP_Error. The scope gap (#3) affects all clients equally.
+No critical/high gaps. There is intentionally no Pro-specific UI: Free's single Pin control serves both tiers; Pro only changes the cap value via the filter, exactly as the contract specifies.
 
 ---
 
 ## Minimal refactor plan
 
-1. `buddynext/templates/partials/post-card.php` — add `'isPinned' => $is_pinned,` to the `data-wp-context` array (~line 347), reusing the existing `$is_pinned` computed at line 57. This alone fixes the unpin journey.
-2. `buddynext/assets/js/feed/store.js` `pinPost()` (~line 913) — on `!res.ok`, surface the server message via `bnToast(... , {tone:'danger'})` (mirror the pattern already used by the comment-pin handler at `store.js:408`) so the 10-cap rejection is visible.
-3. (Optional, spec-alignment) `buddynext/includes/Feed/PostController.php:282` — thread a `space_id` request param into `->pin($post_id, $user_id, $space_id)` so space-scope pins enforce a per-space cap as the spec describes. Lower priority; does not block the core "up to 10" journey.
+EMPTY — usable as-is. Do not add Pro UI or Pro REST routes; the filter-only design is per spec and fully wired through Free.
 
-Steps 1–2 are the minimum to make the web journey 100% usable and reuse existing working code (the service, REST, filter, and toast helper all already work).
+---
+
+## Notes for the live walk
+
+- Walk at http://buddynext-dev.local/activity as a Pro-licensed user: pin posts in one scope and confirm pinning continues past 1 up to 10. Pinning an 11th in the same scope should toast the `pin_limit_reached` message and leave `is_pinned = 0` for the 11th.
+- Verify both scopes: a profile-scope pin (`space_id = null`) and a space-scope pin each independently allow up to 10 (the count query is scoped by `space_id` at `PostService.php:382`).
+- Sanity check: deactivating Pro should drop the cap back to 1 (filter no longer hooked) — confirms the extension is not persistent.
