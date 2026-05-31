@@ -240,6 +240,139 @@ function surfacePaywall( btn, spaceId, data ) {
 	wrap.scrollIntoView( { behavior: 'smooth', block: 'center' } );
 }
 
+/**
+ * Approve or decline a pending join request from the space moderation queue.
+ *
+ * Shared body for the `approveJoinRequest` / `declineJoinRequest` store actions.
+ * Reads `data-user-id` and `data-space-id` off the clicked button (the moderation
+ * template puts both on each Approve/Decline button), POSTs to the spec-conformant
+ * member route, and on success removes the request row and decrements the two
+ * pending counters (the tab badge `.bn-tab__count` and the summary stat
+ * `.bn-stat__value`). Degrades gracefully: any missing element is simply skipped,
+ * and a network/permission failure re-enables the row's buttons and surfaces a
+ * toast when one is available — never a silent dead end, never a fatal.
+ *
+ * @param {Event}  event  Click event from the Approve/Decline button.
+ * @param {string} action Either 'approve' or 'decline'.
+ * @return {Promise<void>} Resolves once the request settles.
+ */
+async function moderateJoinRequest( event, action ) {
+	var btn = event && event.target && event.target.closest( 'button' );
+	if ( ! btn ) { return; }
+
+	var spaceId = btn.getAttribute( 'data-space-id' );
+	var userId  = btn.getAttribute( 'data-user-id' );
+	if ( ! spaceId || ! userId ) { return; }
+
+	var row     = btn.closest( '.bn-space-mod__pending-row' );
+	var rowBtns = row ? row.querySelectorAll( 'button' ) : [ btn ];
+
+	// Lock the whole row while the request is in flight.
+	for ( var i = 0; i < rowBtns.length; i++ ) { rowBtns[ i ].disabled = true; }
+	if ( row ) { row.style.opacity = '0.5'; }
+
+	try {
+		var res = await fetch(
+			apiUrl( 'buddynext/v1/spaces/' + spaceId + '/members/' + userId + '/' + action ),
+			{
+				method:  'POST',
+				headers: { 'X-WP-Nonce': resolveNonce() },
+			}
+		);
+		var data = {};
+		try { data = await res.json(); } catch ( _parse ) {}
+
+		var ok = res.ok && ( ( 'approve' === action ) ? data.approved : data.declined );
+
+		if ( ok ) {
+			// Remove the request row, then sync the counters to the live count.
+			if ( row && row.parentNode ) { row.parentNode.removeChild( row ); }
+
+			syncPendingCounters();
+
+			if ( window.bnToast ) {
+				window.bnToast(
+					( 'approve' === action )
+						? __i18n( 'Request approved.' )
+						: __i18n( 'Request declined.' ),
+					'success'
+				);
+			}
+			return;
+		}
+
+		// Failure: unlock the row and surface a reason.
+		if ( row ) { row.style.opacity = '1'; }
+		for ( var j = 0; j < rowBtns.length; j++ ) { rowBtns[ j ].disabled = false; }
+		if ( window.bnToast ) {
+			var msg = ( data && data.message )
+				? data.message
+				: ( ( 'approve' === action )
+					? __i18n( 'Could not approve the request.' )
+					: __i18n( 'Could not decline the request.' ) );
+			window.bnToast( msg, 'danger' );
+		}
+	} catch ( _e ) {
+		if ( row ) { row.style.opacity = '1'; }
+		for ( var k = 0; k < rowBtns.length; k++ ) { rowBtns[ k ].disabled = false; }
+		if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
+	}
+}
+
+/**
+ * Re-sync the two "pending requests" counters on the moderation hub to the live
+ * number of request rows still in the list, after one has been removed: the
+ * Pending tab badge and the "Pending member requests" summary stat.
+ *
+ * The hub renders a `.bn-tab__count` on multiple tabs (Reports, Pending) and four
+ * `.bn-stat__value` tiles, so neither can be selected blindly. The Pending tab is
+ * located by the `bn_mtab=pending` href; the pending stat is the only tile whose
+ * label contains the word "pending" (the localized "Pending member requests"
+ * label). The remaining count is read from the live `.bn-space-mod__pending-row`
+ * elements so the display is self-correcting. A zeroed tab badge is removed to
+ * mirror the server-rendered empty state. If the markup ever changes such that a
+ * pending element is not found, the counter update is simply skipped — the row is
+ * still removed, so the moderator's action is never lost.
+ *
+ * @return {void}
+ */
+function syncPendingCounters() {
+	var remaining = document.querySelectorAll( '.bn-space-mod__pending-row' ).length;
+
+	// Pending tab: the moderation-filter tab linking to bn_mtab=pending.
+	var pendingTab = null;
+	var tabs = document.querySelectorAll( '.bn-tab' );
+	for ( var i = 0; i < tabs.length; i++ ) {
+		var href = tabs[ i ].getAttribute( 'href' ) || '';
+		if ( href.indexOf( 'bn_mtab=pending' ) !== -1 ) { pendingTab = tabs[ i ]; break; }
+	}
+
+	if ( pendingTab ) {
+		var badge = pendingTab.querySelector( '.bn-tab__count' );
+		if ( remaining > 0 ) {
+			if ( badge ) {
+				badge.textContent = String( remaining );
+			}
+		} else if ( badge && badge.parentNode ) {
+			badge.parentNode.removeChild( badge );
+		}
+
+	}
+
+	// Pending stat tile: the only summary tile whose label mentions "pending"
+	// ("Pending member requests"). Falls back silently if the label is absent.
+	var stats = document.querySelectorAll( '.bn-stat' );
+	for ( var j = 0; j < stats.length; j++ ) {
+		var labelEl = stats[ j ].querySelector( '.bn-stat__label' );
+		var valueEl = stats[ j ].querySelector( '.bn-stat__value' );
+		if ( ! labelEl || ! valueEl ) { continue; }
+		if ( ( labelEl.textContent || '' ).toLowerCase().indexOf( 'pending' ) !== -1 ) {
+			valueEl.textContent = String( remaining );
+			break;
+		}
+	}
+}
+
 /* ── Store ─────────────────────────────────────────────────────────── */
 
 var storeInstance = store( 'buddynext/spaces', {
@@ -310,7 +443,7 @@ var storeInstance = store( 'buddynext/spaces', {
 				} );
 				var data = await res.json();
 
-				if ( res.ok && data.pending ) {
+				if ( res.ok && ( data.pending || data.requested ) ) {
 					swapButtonState( btn, 'pending' );
 				} else if ( isGatedDenial( data ) ) {
 					surfacePaywall( btn, spaceId, data );
@@ -468,6 +601,34 @@ var storeInstance = store( 'buddynext/spaces', {
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
 			}
+		},
+
+		/**
+		 * Approve a pending join request from the space moderation queue.
+		 *
+		 * Bound on the moderation template's "Approve" button
+		 * (`templates/spaces/moderation.php`), which carries `data-user-id`
+		 * and `data-space-id`. POSTs to the spec route
+		 * `POST /spaces/{id}/members/{user}/approve` (returns `{approved:true}`),
+		 * then removes the row and decrements the pending counters so the queue
+		 * reflects the new state without a reload.
+		 *
+		 * @param {Event} event Click on a `data-wp-on--click="actions.approveJoinRequest"` button.
+		 */
+		approveJoinRequest: async function ( event ) {
+			await moderateJoinRequest( event, 'approve' );
+		},
+
+		/**
+		 * Decline a pending join request from the space moderation queue.
+		 *
+		 * Mirror of {@link approveJoinRequest} for the "Decline" button. POSTs to
+		 * `POST /spaces/{id}/members/{user}/decline` (returns `{declined:true}`).
+		 *
+		 * @param {Event} event Click on a `data-wp-on--click="actions.declineJoinRequest"` button.
+		 */
+		declineJoinRequest: async function ( event ) {
+			await moderateJoinRequest( event, 'decline' );
 		},
 
 		/**
