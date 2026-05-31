@@ -1110,7 +1110,7 @@ class Settings extends AdminPageBase {
 				'slug'   => 'wb-gamification',
 				'label'  => 'WBGamification',
 				'desc'   => __( 'Points, badges, and leaderboards synced with BuddyNext activity events.', 'buddynext' ),
-				'active' => class_exists( 'WBGamification\\Plugin' ),
+				'active' => function_exists( 'wb_gam_submit_event' ),
 				'url'    => admin_url( 'plugins.php?s=wb-gamification' ),
 			),
 			array(
@@ -1291,11 +1291,20 @@ class Settings extends AdminPageBase {
 
 			<?php
 			$catalogue = array(
-				'post.created'      => __( 'New posts', 'buddynext' ),
-				'comment.created'   => __( 'New comments', 'buddynext' ),
-				'user.followed'     => __( 'New follows', 'buddynext' ),
-				'space.joined'      => __( 'Space joins', 'buddynext' ),
-				'notification.sent' => __( 'Notifications', 'buddynext' ),
+				'member.registered'      => __( 'New member registered', 'buddynext' ),
+				'member.verified'        => __( 'Member email verified', 'buddynext' ),
+				'user.suspended'         => __( 'Member suspended', 'buddynext' ),
+				'user.unsuspended'       => __( 'Member unsuspended', 'buddynext' ),
+				'member.ability_granted' => __( 'Member ability granted', 'buddynext' ),
+				'member.ability_revoked' => __( 'Member ability revoked', 'buddynext' ),
+				'post.created'           => __( 'New post created', 'buddynext' ),
+				'post.deleted'           => __( 'Post deleted', 'buddynext' ),
+				'comment.created'        => __( 'New comment created', 'buddynext' ),
+				'reaction.added'         => __( 'Reaction added', 'buddynext' ),
+				'user.followed'          => __( 'New follow', 'buddynext' ),
+				'connection.accepted'    => __( 'Connection accepted', 'buddynext' ),
+				'space.joined'           => __( 'Space joined', 'buddynext' ),
+				'space.left'             => __( 'Space left', 'buddynext' ),
 			);
 			?>
 
