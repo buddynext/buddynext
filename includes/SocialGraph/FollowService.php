@@ -69,6 +69,17 @@ class FollowService {
 			);
 		}
 
+		// Honour the target's who_can_follow preference (and block) via the
+		// canonical privacy gate — previously this preference was never consulted.
+		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+		if ( $privacy && method_exists( $privacy, 'can_follow' ) && ! $privacy->can_follow( $follower_id, $following_id ) ) {
+			return new WP_Error(
+				'follow_not_allowed',
+				__( 'This member does not allow follows from you.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		global $wpdb;
 
 		// Enforce block guard: refuse the follow if either party has blocked the other.

@@ -52,6 +52,17 @@ class ConnectionService {
 			);
 		}
 
+		// Honour the recipient's who_can_connect preference (and block) via the
+		// canonical privacy gate — previously this preference was never consulted.
+		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+		if ( $privacy && method_exists( $privacy, 'can_connect' ) && ! $privacy->can_connect( $requester_id, $recipient_id ) ) {
+			return new WP_Error(
+				'connect_not_allowed',
+				__( 'This member does not accept connection requests from you.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// Hard-cap the note so a stray client can't overflow the 280-char
 		// column. Strip tags + sanitize to plain text — the note renders
 		// inside notification text and the connection details panel.
