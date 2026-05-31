@@ -35,10 +35,10 @@ if ( '' === $placeholder ) {
 			<input
 				type="search"
 				id="bn-search-input"
-				name="bn_q"
+				name="q"
 				class="bn-input bn-search-input"
 				placeholder="<?php echo esc_attr( $placeholder ); ?>"
-				value="<?php echo esc_attr( get_query_var( 'bn_q', '' ) ); ?>"
+				value="<?php echo isset( $_GET['q'] ) ? esc_attr( sanitize_text_field( wp_unslash( $_GET['q'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>"
 				autocomplete="off"
 			>
 		</div>
