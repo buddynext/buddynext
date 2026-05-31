@@ -118,11 +118,19 @@ class PostService {
 			(string) ( $data['content'] ?? '' ),
 			(string) ( $data['link_url'] ?? '' )
 		);
+		$flag_reason = '';
 		if ( is_wp_error( $safeguard_result ) ) {
 			if ( 'pending_review' === $safeguard_result->get_error_code() ) {
 				// New-member gate: save the post but hold it for moderation review.
 				$data['status'] = 'pending';
+			} elseif ( $this->is_flag_error( $safeguard_result ) ) {
+				// severity=flag rule (e.g. bnpro_keyword_flagged / bnpro_link_flagged,
+				// HTTP 202): the post is allowed through and published, but a system
+				// report is filed below so reviewers can act on it. Distinct from a
+				// hard block (422), which still rejects via the else branch.
+				$flag_reason = (string) $safeguard_result->get_error_message();
 			} else {
+				// Hard block (422), suspension, rate limit, etc. — reject outright.
 				return $safeguard_result;
 			}
 		}
@@ -176,6 +184,15 @@ class PostService {
 		 * @param string $type    Post type.
 		 */
 		do_action( 'buddynext_post_created', $post_id, $user_id, $type );
+
+		// An auto-moderation flag (severity=flag) lets the post publish but files a
+		// system report so the content surfaces in the moderation queue. reporter_id
+		// 0 marks it as system-generated; the flag message is preserved as notes.
+		// ModerationService::report() also fans out buddynext_moderation_auto_actions,
+		// so threshold-based auto-actions can still fire on the auto-flag.
+		if ( '' !== $flag_reason && $post_id > 0 ) {
+			$this->report_flagged_post( $post_id, $flag_reason, (int) ( $data['space_id'] ?? 0 ) );
+		}
 
 		// Parse @username mentions and fire buddynext_user_mentioned for each.
 		$content = (string) ( $data['content'] ?? '' );
@@ -491,6 +508,56 @@ class PostService {
 		}
 
 		return new SafeguardService();
+	}
+
+	/**
+	 * Whether a safeguard WP_Error represents a non-blocking "flag" outcome.
+	 *
+	 * A flag means the post is allowed through but must be reported for review.
+	 * Recognised by either the conventional error code suffix `_flagged`
+	 * (e.g. bnpro_keyword_flagged, bnpro_link_flagged) or an HTTP 202 status in
+	 * the error data — the same "accepted, held for review" semantics the
+	 * new-member gate uses. Hard blocks (status 422) are deliberately excluded.
+	 *
+	 * @param WP_Error $error Safeguard result.
+	 * @return bool
+	 */
+	private function is_flag_error( WP_Error $error ): bool {
+		$code = (string) $error->get_error_code();
+		if ( '' !== $code && str_ends_with( $code, '_flagged' ) ) {
+			return true;
+		}
+
+		$data = $error->get_error_data();
+		return is_array( $data ) && isset( $data['status'] ) && 202 === (int) $data['status'];
+	}
+
+	/**
+	 * File a system-generated report against an auto-flagged post.
+	 *
+	 * Resolves the moderation service from the container when available and
+	 * falls back to a fresh instance otherwise (e.g. unit-test contexts). Any
+	 * failure to resolve degrades silently so the post path never fatals when
+	 * moderation is unavailable.
+	 *
+	 * @param int    $post_id  The post that was flagged.
+	 * @param int    $space_id Space context (0 = none).
+	 * @param string $reason   Human-readable flag message (stored as report notes).
+	 * @return void
+	 */
+	private function report_flagged_post( int $post_id, string $reason, int $space_id = 0 ): void {
+		$moderation = function_exists( 'buddynext_service' )
+			? buddynext_service( 'moderation' )
+			: new ModerationService();
+
+		if ( ! $moderation instanceof ModerationService ) {
+			return;
+		}
+
+		// reporter_id 0 = system; 'inappropriate' is the closest valid report
+		// reason for an automated content flag, with the rule's message kept as
+		// free-text notes so reviewers see why it was flagged.
+		$moderation->report( 0, 'post', $post_id, 'inappropriate', $space_id, $reason );
 	}
 
 	/**
