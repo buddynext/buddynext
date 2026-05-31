@@ -2,21 +2,29 @@
 /**
  * Search results template - v2 design system.
  *
- * Performs a MySQL FULLTEXT search across the bn_search_index table for the
- * given query, then renders grouped results (Members / Posts / Spaces /
- * Hashtags / Media) using v2 primitives (.bn-input, .bn-tabs, .bn-tab,
- * .bn-card, .bn-badge, .bn-avatar, .bn-kbd) and tokens.
+ * Members / Posts / Spaces are resolved through the canonical
+ * SearchService::search() so the buddynext_search_query_args seam fires on the
+ * rendered page — this is what lets buddynext-pro's advanced member filters
+ * (tier / space / label / joined-after / active-within) and the pluggable
+ * search driver apply on the web /search surface. Hashtags and Media keep
+ * dedicated queries (not modelled by the unified index). Results render with
+ * v2 primitives (.bn-input, .bn-tabs, .bn-tab, .bn-card, .bn-badge, .bn-avatar,
+ * .bn-kbd) and tokens.
  *
  * Mirrors `docs/v2 Plans/v2/search-results.html`.
  *
  * Composer responsibilities:
- *   - Sanitize query / tab / date / sort input.
- *   - Run the MySQL FULLTEXT queries against bn_search_index (members /
- *     posts / spaces / hashtags / media), respecting viewer blocks +
- *     suspended / shadow-banned exclusions.
+ *   - Sanitize query / tab / date / sort + advanced filter input.
+ *   - Resolve members / posts / spaces via SearchService::search() and keep
+ *     hashtags / media on dedicated queries, respecting viewer blocks +
+ *     suspended / shadow-banned exclusions (enforced inside SearchService).
  *   - Compute per-tab counts.
  *   - Build the highlight + initials helpers.
  *   - Wire the right-sidebar hook.
+ *   - Render the advanced-filter + saved-search aside (Pro option lists are
+ *     sourced via the buddynext_search_filter_options filter; when no provider
+ *     populates it the advanced card hides itself — Pro-inactive degrades
+ *     gracefully, never fatal).
  *   - Delegate every visual block to a part under templates/parts/.
  *
  * @package BuddyNext
@@ -58,6 +66,63 @@ if ( ! in_array( $sort_by, $allowed_sorts, true ) ) {
 	$sort_by = 'relevant';
 }
 
+// Advanced member filters (Pro). Captured here only to (a) reflect the active
+// state back into the controls and (b) build "save current search" payloads.
+// The filtering itself happens inside SearchService::search() — Pro's
+// AdvancedSearchFilters reads these same keys from $_GET on the seam, so this
+// template never references any Pro table directly. All values are optional;
+// final validation is Pro's responsibility.
+// phpcs:disable WordPress.Security.NonceVerification.Recommended
+$adv_tier_slug    = isset( $_GET['tier_slug'] ) ? sanitize_key( wp_unslash( (string) $_GET['tier_slug'] ) ) : '';
+$adv_space_id     = isset( $_GET['space_id'] ) ? absint( wp_unslash( (string) $_GET['space_id'] ) ) : 0;
+$adv_member_label = isset( $_GET['member_label'] ) ? sanitize_key( wp_unslash( (string) $_GET['member_label'] ) ) : '';
+$adv_joined_after = '';
+if ( isset( $_GET['joined_after'] ) ) {
+	$jr = sanitize_text_field( wp_unslash( (string) $_GET['joined_after'] ) );
+	if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $jr ) ) {
+		$adv_joined_after = $jr;
+	}
+}
+$adv_active_days = isset( $_GET['active_within_days'] ) ? min( 365, absint( wp_unslash( (string) $_GET['active_within_days'] ) ) ) : 0;
+// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+/**
+ * Filter the option lists that populate the advanced member-search controls.
+ *
+ * buddynext-pro hooks this to supply its tier / space / member-label option
+ * lists (sourced from its own services). When no provider populates a group,
+ * that control is hidden — the page degrades cleanly with Pro inactive.
+ *
+ * Expected shape:
+ *   array(
+ *     'tiers'  => array( array( 'slug' => 'gold', 'label' => 'Gold' ), … ),
+ *     'spaces' => array( array( 'id' => 12, 'label' => 'Design Team' ), … ),
+ *     'labels' => array( array( 'slug' => 'expert', 'label' => 'Expert' ), … ),
+ *   )
+ *
+ * @since 1.0.0
+ *
+ * @param array<string, array<int, array<string, mixed>>> $options  Option lists, empty by default.
+ * @param int                                             $viewer_id Current viewer ID.
+ */
+$adv_options = (array) apply_filters(
+	'buddynext_search_filter_options',
+	array(
+		'tiers'  => array(),
+		'spaces' => array(),
+		'labels' => array(),
+	),
+	get_current_user_id()
+);
+$adv_tiers   = isset( $adv_options['tiers'] ) ? (array) $adv_options['tiers'] : array();
+$adv_spaces  = isset( $adv_options['spaces'] ) ? (array) $adv_options['spaces'] : array();
+$adv_labels  = isset( $adv_options['labels'] ) ? (array) $adv_options['labels'] : array();
+// The advanced filter card renders whenever a provider offers any option group
+// OR the active-within / joined-after generic controls are wanted. Those two
+// are query-only (no Pro table) so they always show; tier/space/label show
+// only when populated.
+$adv_has_provider = ! empty( $adv_tiers ) || ! empty( $adv_spaces ) || ! empty( $adv_labels );
+
 // Only run queries when there is a search term.
 $results_members  = array();
 $results_posts    = array();
@@ -74,110 +139,63 @@ $total_counts     = array(
 );
 
 if ( '' !== $raw_query ) {
-	// Date boundary SQL fragment - literal SQL, no user data.
-	$date_sql = '';
-	switch ( $date_filter ) {
-		case 'week':
-			$date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
-			break;
-		case 'month':
-			$date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 MONTH )';
-			break;
-		case 'year':
-			$date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 YEAR )';
-			break;
-	}
-
-	// Excluded user IDs (suspended + shadow-banned + blocked by viewer) - literal ints, safe to interpolate.
 	$viewer_id = get_current_user_id();
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-	$excluded_raw = (array) $wpdb->get_col(
-		"SELECT DISTINCT user_id FROM {$wpdb->prefix}usermeta
-		 WHERE meta_key IN ('bn_suspended','bn_shadow_banned') AND meta_value = '1'"
-	);
-	// Add users blocked by (or who blocked) the current viewer.
-	if ( $viewer_id > 0 ) {
-		$blocked_raw  = (array) $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT DISTINCT IF( blocker_id = %d, blocked_id, blocker_id )
-				 FROM {$wpdb->prefix}bn_blocks
-				 WHERE blocker_id = %d OR blocked_id = %d",
-				$viewer_id,
-				$viewer_id,
-				$viewer_id
-			)
-		);
-		$excluded_raw = array_unique( array_merge( $excluded_raw, $blocked_raw ) );
-	}
-	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-	$excluded_sql = ! empty( $excluded_raw )
-		? ' AND s.author_id NOT IN (' . implode( ',', array_map( 'absint', $excluded_raw ) ) . ')'
-		: '';
 
-	$boolean_query = '+' . implode( ' +', array_map( 'trim', explode( ' ', $raw_query ) ) );
+	// ------------------------------------------------------------------ //
+	// Route members / posts / spaces through the canonical SearchService so
+	// the buddynext_search_query_args seam fires on the rendered page. This
+	// is what lets Pro's advanced member filters (tier / space / label /
+	// joined-after / active-within) and the pluggable search driver apply on
+	// the web /search surface — they only run through SearchService::search().
+	//
+	// The five advanced keys + the date / sort selections travel to the seam
+	// via $_GET: Pro's AdvancedSearchFilters reads them from the request and
+	// SearchService reads `date` / `sort` from the same seam args. No params
+	// are passed here beyond the type so there is a single source of truth.
+	//
+	// Hashtags are not held in bn_search_index (they live in bn_hashtags) and
+	// media needs the bn_posts.media_ids join the index does not model, so
+	// those two groups keep their dedicated queries below. The advanced member
+	// filters only target the `user` type, so this split loses nothing.
+	// ------------------------------------------------------------------ //
+	$bn_search_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'search' ) : new \BuddyNext\Search\SearchService();
 
-	// Build the ORDER BY clause. When sorting by relevance, pass the query as a second %s.
-	// $date_sql, $excluded_sql, and $order_sql contain only literal SQL - no user input.
-	if ( 'recent' === $sort_by ) {
-		$order_sql  = 'ORDER BY s.updated_at DESC';
-		$query_args = array( $boolean_query );
-	} else {
-		$order_sql  = 'ORDER BY MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE ) DESC';
-		$query_args = array( $boolean_query, $boolean_query );
-	}
+	/**
+	 * Adapt a SearchService item array into the stdClass shape the
+	 * search-result-section parts consume (object_id / content / author_id).
+	 *
+	 * @param array<string, mixed> $item One item from SearchService::search().
+	 * @return \stdClass
+	 */
+	$bn_to_row = static function ( array $item ): \stdClass {
+		$row             = new \stdClass();
+		$row->object_id  = (int) ( $item['object_id'] ?? 0 );
+		$row->author_id  = (int) ( $item['author_id'] ?? 0 );
+		// Members index their searchable text in `content`; fall back to the
+		// title so the snippet is never empty.
+		$content         = (string) ( $item['content'] ?? '' );
+		$row->content    = '' !== $content ? $content : (string) ( $item['title'] ?? '' );
+		$row->title      = (string) ( $item['title'] ?? '' );
+		return $row;
+	};
 
-	// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-	// Fetch members.
 	if ( 'all' === $active_tab || 'members' === $active_tab ) {
-		$members_sql             = $wpdb->prepare(
-			"SELECT s.object_id, s.content, s.author_id
-			 FROM {$wpdb->prefix}bn_search_index AS s
-			 WHERE s.object_type = 'user'
-			   AND s.visibility = 'public'
-			   AND MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE )
-			   {$date_sql}{$excluded_sql}
-			 {$order_sql}
-			 LIMIT 5",
-			...$query_args
-		);
-		$results_members         = $wpdb->get_results( $members_sql ) ?? array(); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
-		$total_counts['members'] = count( $results_members );
+		$bn_res                  = $bn_search_service->search( $raw_query, 'user', 5, 1, $viewer_id );
+		$results_members         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
+		$total_counts['members'] = (int) ( $bn_res['total'] ?? count( $results_members ) );
 	}
 
-	// Fetch posts.
 	if ( 'all' === $active_tab || 'posts' === $active_tab ) {
-		$posts_sql             = $wpdb->prepare(
-			"SELECT s.object_id, s.content, s.author_id
-			 FROM {$wpdb->prefix}bn_search_index AS s
-			 WHERE s.object_type = 'post'
-			   AND s.visibility = 'public'
-			   AND MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE )
-			   {$date_sql}{$excluded_sql}
-			 {$order_sql}
-			 LIMIT 5",
-			...$query_args
-		);
-		$results_posts         = $wpdb->get_results( $posts_sql ) ?? array(); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
-		$total_counts['posts'] = count( $results_posts );
+		$bn_res                = $bn_search_service->search( $raw_query, 'post', 5, 1, $viewer_id );
+		$results_posts         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
+		$total_counts['posts'] = (int) ( $bn_res['total'] ?? count( $results_posts ) );
 	}
 
-	// Fetch spaces.
 	if ( 'all' === $active_tab || 'spaces' === $active_tab ) {
-		$spaces_sql             = $wpdb->prepare(
-			"SELECT s.object_id, s.content, s.author_id
-			 FROM {$wpdb->prefix}bn_search_index AS s
-			 WHERE s.object_type = 'space'
-			   AND s.visibility = 'public'
-			   AND MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE )
-			   {$date_sql}{$excluded_sql}
-			 {$order_sql}
-			 LIMIT 5",
-			...$query_args
-		);
-		$results_spaces         = $wpdb->get_results( $spaces_sql ) ?? array(); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
-		$total_counts['spaces'] = count( $results_spaces );
+		$bn_res                 = $bn_search_service->search( $raw_query, 'space', 5, 1, $viewer_id );
+		$results_spaces         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
+		$total_counts['spaces'] = (int) ( $bn_res['total'] ?? count( $results_spaces ) );
 	}
-	// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 
 	// Hashtags: name match via bn_hashtags slug.
 	if ( 'all' === $active_tab || 'hashtags' === $active_tab ) {
@@ -198,8 +216,28 @@ if ( '' !== $raw_query ) {
 		$total_counts['hashtags'] = count( $results_hashtags );
 	}
 
-	// Media: posts that have media_ids and match the query.
+	// Media: posts that have media_ids and match the query. Kept as a dedicated
+	// query because the unified index does not model the bn_posts.media_ids
+	// join. Self-contained: builds its own date window + boolean query.
 	if ( 'all' === $active_tab || 'media' === $active_tab ) {
+		$media_date_sql = '';
+		switch ( $date_filter ) {
+			case 'week':
+				$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
+				break;
+			case 'month':
+				$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 MONTH )';
+				break;
+			case 'year':
+				$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 YEAR )';
+				break;
+		}
+		$media_order_sql = 'recent' === $sort_by
+			? 'ORDER BY s.updated_at DESC'
+			: 'ORDER BY MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE ) DESC';
+		$media_boolean   = '+' . implode( ' +', array_map( 'trim', explode( ' ', $raw_query ) ) );
+		$media_args      = 'recent' === $sort_by ? array( $media_boolean ) : array( $media_boolean, $media_boolean );
+
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$media_sql             = $wpdb->prepare(
 			"SELECT s.object_id, s.content, s.author_id
@@ -210,10 +248,10 @@ if ( '' !== $raw_query ) {
 			   AND p.media_ids IS NOT NULL
 			   AND p.media_ids != ''
 			   AND MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE )
-			   {$date_sql}{$excluded_sql}
-			 {$order_sql}
+			   {$media_date_sql}
+			 {$media_order_sql}
 			 LIMIT 12",
-			...$query_args
+			...$media_args
 		);
 		$results_media         = (array) $wpdb->get_results( $media_sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
 		$total_counts['media'] = count( $results_media );
@@ -311,9 +349,37 @@ $type_tabs = array(
 );
 ?>
 
+<?php
+// Interactivity context. restNonce / restUrl let the saved-search controls talk
+// to the Pro REST collection without a page reload. savedSearchUrl points at the
+// Pro namespace; the store degrades to a clear notice if Pro is inactive (404).
+// currentArgs is the exact query_args payload "Save current search" POSTs.
+$bn_search_ctx = array(
+	'query'          => $raw_query,
+	'activeTab'      => $active_tab,
+	'restUrl'        => esc_url_raw( rest_url( 'buddynext/v1/' ) ),
+	'restNonce'      => wp_create_nonce( 'wp_rest' ),
+	'savedSearchUrl' => esc_url_raw( rest_url( 'buddynext-pro/v1/me/saved-searches' ) ),
+	'isLoggedIn'     => is_user_logged_in(),
+	'currentArgs'    => array_filter(
+		array(
+			'query'              => $raw_query,
+			'type'               => 'members' === $active_tab ? 'user' : $active_tab,
+			'date'               => 'any' !== $date_filter ? $date_filter : '',
+			'sort'               => 'relevant' !== $sort_by ? $sort_by : '',
+			'tier_slug'          => $adv_tier_slug,
+			'space_id'           => $adv_space_id > 0 ? $adv_space_id : '',
+			'member_label'       => $adv_member_label,
+			'joined_after'       => $adv_joined_after,
+			'active_within_days' => $adv_active_days > 0 ? $adv_active_days : '',
+		),
+		static fn( $v ): bool => '' !== $v && 0 !== $v
+	),
+);
+?>
 <div class="bn-feed-stack bn-search-shell"
 	data-wp-interactive="buddynext/search"
-	data-wp-context='{"query":"<?php echo esc_attr( $raw_query ); ?>","activeTab":"<?php echo esc_attr( $active_tab ); ?>"}'>
+	data-wp-context='<?php echo esc_attr( (string) wp_json_encode( $bn_search_ctx ) ); ?>'>
 
 	<h1 class="bn-search-shell__h1 screen-reader-text">
 		<?php
@@ -544,6 +610,188 @@ $type_tabs = array(
 						</label>
 					<?php endforeach; ?>
 				</div>
+
+				<?php
+				// ── Advanced member filters (Pro) ─────────────────────────
+				// Plain GET form: submitting reloads /search with the chosen
+				// keys in the query string. SearchService reads them off the
+				// seam (Pro's AdvancedSearchFilters sources them from $_GET),
+				// so this needs no JS to work. The whole card hides when no
+				// provider populates option lists AND the generic date-based
+				// member controls are the only thing left — but joined_after /
+				// active_within_days are query-only and useful even without
+				// Pro tables, so the card shows whenever the members tab is in
+				// scope.
+				$adv_in_scope = in_array( $active_tab, array( 'all', 'members' ), true );
+				if ( $adv_in_scope ) :
+					?>
+					<form class="bn-card bn-search-aside__card bn-search-aside__adv"
+						method="get"
+						action="<?php echo esc_url( remove_query_arg( array( 'tier_slug', 'space_id', 'member_label', 'joined_after', 'active_within_days', 'page' ) ) ); ?>">
+						<h3 class="bn-search-aside__title">
+							<span aria-hidden="true"><?php buddynext_icon( 'filter' ); ?></span>
+							<?php esc_html_e( 'Advanced member filters', 'buddynext' ); ?>
+						</h3>
+
+						<input type="hidden" name="q" value="<?php echo esc_attr( $raw_query ); ?>">
+						<input type="hidden" name="type" value="members">
+						<input type="hidden" name="date" value="<?php echo esc_attr( $date_filter ); ?>">
+						<input type="hidden" name="sort" value="<?php echo esc_attr( $sort_by ); ?>">
+
+						<?php if ( ! empty( $adv_tiers ) ) : ?>
+							<label class="bn-search-aside__field" for="bn-adv-tier">
+								<span class="bn-search-aside__label"><?php esc_html_e( 'Membership tier', 'buddynext' ); ?></span>
+								<select class="bn-input" id="bn-adv-tier" name="tier_slug">
+									<option value=""><?php esc_html_e( 'Any tier', 'buddynext' ); ?></option>
+									<?php foreach ( $adv_tiers as $bn_tier ) :
+										$tslug  = isset( $bn_tier['slug'] ) ? (string) $bn_tier['slug'] : '';
+										$tlabel = isset( $bn_tier['label'] ) ? (string) $bn_tier['label'] : $tslug;
+										if ( '' === $tslug ) {
+											continue;
+										}
+										?>
+										<option value="<?php echo esc_attr( $tslug ); ?>" <?php selected( $adv_tier_slug, $tslug ); ?>>
+											<?php echo esc_html( $tlabel ); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</label>
+						<?php endif; ?>
+
+						<?php if ( ! empty( $adv_spaces ) ) : ?>
+							<label class="bn-search-aside__field" for="bn-adv-space">
+								<span class="bn-search-aside__label"><?php esc_html_e( 'Member of space', 'buddynext' ); ?></span>
+								<select class="bn-input" id="bn-adv-space" name="space_id">
+									<option value="0"><?php esc_html_e( 'Any space', 'buddynext' ); ?></option>
+									<?php foreach ( $adv_spaces as $bn_space ) :
+										$sid    = isset( $bn_space['id'] ) ? (int) $bn_space['id'] : 0;
+										$slabel = isset( $bn_space['label'] ) ? (string) $bn_space['label'] : (string) $sid;
+										if ( $sid <= 0 ) {
+											continue;
+										}
+										?>
+										<option value="<?php echo esc_attr( (string) $sid ); ?>" <?php selected( $adv_space_id, $sid ); ?>>
+											<?php echo esc_html( $slabel ); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</label>
+						<?php endif; ?>
+
+						<?php if ( ! empty( $adv_labels ) ) : ?>
+							<label class="bn-search-aside__field" for="bn-adv-label">
+								<span class="bn-search-aside__label"><?php esc_html_e( 'Member label', 'buddynext' ); ?></span>
+								<select class="bn-input" id="bn-adv-label" name="member_label">
+									<option value=""><?php esc_html_e( 'Any label', 'buddynext' ); ?></option>
+									<?php foreach ( $adv_labels as $bn_label ) :
+										$lslug  = isset( $bn_label['slug'] ) ? (string) $bn_label['slug'] : '';
+										$llabel = isset( $bn_label['label'] ) ? (string) $bn_label['label'] : $lslug;
+										if ( '' === $lslug ) {
+											continue;
+										}
+										?>
+										<option value="<?php echo esc_attr( $lslug ); ?>" <?php selected( $adv_member_label, $lslug ); ?>>
+											<?php echo esc_html( $llabel ); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</label>
+						<?php endif; ?>
+
+						<label class="bn-search-aside__field" for="bn-adv-joined">
+							<span class="bn-search-aside__label"><?php esc_html_e( 'Joined on or after', 'buddynext' ); ?></span>
+							<input class="bn-input" type="date" id="bn-adv-joined" name="joined_after"
+								value="<?php echo esc_attr( $adv_joined_after ); ?>">
+						</label>
+
+						<label class="bn-search-aside__field" for="bn-adv-active">
+							<span class="bn-search-aside__label"><?php esc_html_e( 'Active within (days)', 'buddynext' ); ?></span>
+							<input class="bn-input" type="number" id="bn-adv-active" name="active_within_days"
+								min="1" max="365" inputmode="numeric"
+								placeholder="<?php esc_attr_e( 'Any time', 'buddynext' ); ?>"
+								value="<?php echo $adv_active_days > 0 ? esc_attr( (string) $adv_active_days ) : ''; ?>">
+						</label>
+
+						<?php if ( ! $adv_has_provider ) : ?>
+							<p class="bn-search-aside__hint">
+								<?php esc_html_e( 'Tier, space and label filters appear when BuddyNext Pro is active.', 'buddynext' ); ?>
+							</p>
+						<?php endif; ?>
+
+						<div class="bn-search-aside__actions">
+							<button type="submit" class="bn-btn" data-variant="primary">
+								<span aria-hidden="true"><?php buddynext_icon( 'filter' ); ?></span>
+								<?php esc_html_e( 'Apply filters', 'buddynext' ); ?>
+							</button>
+							<a class="bn-btn" data-variant="ghost"
+								href="<?php echo esc_url( remove_query_arg( array( 'tier_slug', 'space_id', 'member_label', 'joined_after', 'active_within_days', 'page' ) ) ); ?>">
+								<?php esc_html_e( 'Reset', 'buddynext' ); ?>
+							</a>
+						</div>
+					</form>
+
+					<?php
+					// ── Saved searches (Pro) ──────────────────────────────
+					// Bound to the existing buddynext-pro/v1/me/saved-searches
+					// REST routes via the search Interactivity store. The list
+					// is fetched on hydrate; save / run / delete are live. When
+					// Pro is inactive the collection 404s and the store renders
+					// a single "requires BuddyNext Pro" line — never fatal.
+					if ( $bn_search_ctx['isLoggedIn'] ) :
+						?>
+						<div class="bn-card bn-search-aside__card bn-search-saved"
+							data-interactive
+							data-wp-init="callbacks.loadSaved">
+							<h3 class="bn-search-aside__title">
+								<span aria-hidden="true"><?php buddynext_icon( 'bookmark' ); ?></span>
+								<?php esc_html_e( 'Saved searches', 'buddynext' ); ?>
+							</h3>
+
+							<div class="bn-search-saved__save">
+								<label class="screen-reader-text" for="bn-saved-name">
+									<?php esc_html_e( 'Name this search', 'buddynext' ); ?>
+								</label>
+								<input class="bn-input" type="text" id="bn-saved-name" maxlength="120"
+									placeholder="<?php esc_attr_e( 'Name this search…', 'buddynext' ); ?>"
+									data-wp-bind--value="context.savedName"
+									data-wp-on--input="actions.setSavedName">
+								<button type="button" class="bn-btn" data-variant="primary"
+									data-wp-on--click="actions.saveCurrent"
+									<?php echo '' === $raw_query ? 'disabled' : ''; ?>>
+									<span aria-hidden="true"><?php buddynext_icon( 'plus' ); ?></span>
+									<?php esc_html_e( 'Save current', 'buddynext' ); ?>
+								</button>
+							</div>
+
+							<p class="bn-search-saved__msg" role="status" aria-live="polite"
+								data-wp-text="context.savedMsg"
+								data-wp-bind--hidden="!context.savedMsg"></p>
+
+							<ul class="bn-search-saved__list" data-wp-bind--hidden="!state.hasSaved">
+								<template data-wp-each="state.savedSearches">
+									<li class="bn-search-saved__item">
+										<a class="bn-search-saved__run"
+											data-wp-bind--href="context.item.url"
+											data-wp-text="context.item.name"></a>
+										<button type="button" class="bn-btn-icon" data-variant="ghost"
+											data-wp-on--click="actions.deleteSaved"
+											data-wp-bind--data-saved-id="context.item.id"
+											aria-label="<?php esc_attr_e( 'Delete saved search', 'buddynext' ); ?>">
+											<span aria-hidden="true"><?php buddynext_icon( 'trash' ); ?></span>
+										</button>
+									</li>
+								</template>
+							</ul>
+
+							<p class="bn-search-saved__empty"
+								data-wp-bind--hidden="state.hasSaved">
+								<?php esc_html_e( 'No saved searches yet.', 'buddynext' ); ?>
+							</p>
+						</div>
+						<?php
+					endif;
+				endif;
+				?>
 
 				<?php
 				// Related searches: derive from query tokens.

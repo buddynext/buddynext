@@ -1,7 +1,14 @@
 /* BuddyNext — Search Results Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
 
-store( 'buddynext/search', {
+const { state, actions } = store( 'buddynext/search', {
+	state: {
+		/* Saved searches fetched from the Pro REST collection. */
+		savedSearches: [],
+		get hasSaved() {
+			return Array.isArray( state.savedSearches ) && state.savedSearches.length > 0;
+		},
+	},
 	actions: {
 		* toggleFollow( event ) {
 			const ctx = getContext();
@@ -58,8 +65,138 @@ store( 'buddynext/search', {
 				window.location.href = url.toString();
 			}
 		},
+
+		/* ── Saved searches (Pro) ──────────────────────────────────────
+		   All four talk to buddynext-pro/v1/me/saved-searches. When Pro is
+		   inactive the collection 404s; we surface a single notice instead
+		   of failing. */
+
+		setSavedName( event ) {
+			const ctx = getContext();
+			ctx.savedName = event.target.value;
+		},
+
+		*saveCurrent() {
+			const ctx = getContext();
+			if ( ! ctx.savedSearchUrl || ! ctx.restNonce ) {
+				return;
+			}
+			const name = ( ctx.savedName || '' ).trim();
+			if ( ! name ) {
+				ctx.savedMsg = ( window.wp && window.wp.i18n )
+					? window.wp.i18n.__( 'Please name this search first.', 'buddynext' )
+					: 'Please name this search first.';
+				return;
+			}
+			try {
+				const res = yield fetch( ctx.savedSearchUrl, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce': ctx.restNonce,
+					},
+					body: JSON.stringify( {
+						name,
+						query_args: ctx.currentArgs || {},
+					} ),
+				} );
+				if ( ! res.ok ) {
+					throw new Error( 'save_failed' );
+				}
+				ctx.savedName = '';
+				ctx.savedMsg  = ( window.wp && window.wp.i18n )
+					? window.wp.i18n.__( 'Search saved.', 'buddynext' )
+					: 'Search saved.';
+				yield actions.loadSavedList();
+			} catch ( _e ) {
+				ctx.savedMsg = ( window.wp && window.wp.i18n )
+					? window.wp.i18n.__( 'Could not save. Saved searches require BuddyNext Pro.', 'buddynext' )
+					: 'Could not save. Saved searches require BuddyNext Pro.';
+			}
+		},
+
+		*deleteSaved( event ) {
+			const ctx = getContext();
+			const btn = event.target.closest( '[data-saved-id]' );
+			const id  = btn ? parseInt( btn.dataset.savedId, 10 ) : 0;
+			if ( ! id || ! ctx.savedSearchUrl || ! ctx.restNonce ) {
+				return;
+			}
+			try {
+				yield fetch( ctx.savedSearchUrl + '/' + id, {
+					method: 'DELETE',
+					headers: { 'X-WP-Nonce': ctx.restNonce },
+				} );
+				state.savedSearches = state.savedSearches.filter( function ( s ) {
+					return s.id !== id;
+				} );
+			} catch ( _e ) {
+				/* leave list intact on failure */
+			}
+		},
+
+		/* Internal: (re)fetch the list. Used by the init callback + after save. */
+		*loadSavedList() {
+			const ctx = getContext();
+			if ( ! ctx.savedSearchUrl || ! ctx.restNonce || ! ctx.isLoggedIn ) {
+				return;
+			}
+			try {
+				const res = yield fetch( ctx.savedSearchUrl, {
+					headers: { 'X-WP-Nonce': ctx.restNonce },
+				} );
+				if ( ! res.ok ) {
+					return;
+				}
+				const rows = yield res.json();
+				if ( ! Array.isArray( rows ) ) {
+					return;
+				}
+				state.savedSearches = rows.map( function ( row ) {
+					return {
+						id: row.id,
+						name: row.name,
+						url: buildRunUrl( ctx, row.query_args || {} ),
+					};
+				} );
+			} catch ( _e ) {
+				/* silent — Pro may be inactive */
+			}
+		},
+	},
+
+	callbacks: {
+		*loadSaved() {
+			yield actions.loadSavedList();
+		},
 	},
 } );
+
+/*
+   Build a /search URL that reproduces a saved search's query_args. Running a
+   saved search this way re-applies the advanced filters through the same web
+   seam used everywhere else (no separate code path), and mirrors what the Pro
+   REST .../run endpoint does server-side for app clients.
+   ---------------------------------------------------------------- */
+function buildRunUrl( ctx, args ) {
+	const url = new URL( window.location.origin + window.location.pathname );
+	const set = function ( key, val ) {
+		if ( val !== undefined && val !== null && val !== '' ) {
+			url.searchParams.set( key, String( val ) );
+		}
+	};
+	set( 'q', args.query );
+	// Stored type 'user' maps back to the 'members' tab on the web surface.
+	set( 'type', args.type === 'user' ? 'members' : args.type );
+	set( 'date', args.date );
+	set( 'sort', args.sort );
+	set( 'tier_slug', args.tier_slug );
+	set( 'space_id', args.space_id );
+	set( 'member_label', args.member_label );
+	set( 'joined_after', args.joined_after );
+	set( 'active_within_days', args.active_within_days );
+	return url.toString();
+}
 
 /*
    `/` keyboard shortcut — focus the search input from anywhere on

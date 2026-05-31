@@ -237,6 +237,29 @@ class SearchService {
 		$offset   = ( $page - 1 ) * $per_page;
 
 		// ------------------------------------------------------------------ //
+		// Optional date window + sort order. Sourced from the seam args so the
+		// web /search page (and any caller) can pass `date` / `sort` without a
+		// signature change. `date` accepts week|month|year (anything else = no
+		// window). `sort` accepts recent (updated_at DESC) — relevance is the
+		// default when the FULLTEXT path is active. All values map to literal
+		// SQL fragments; no user data is interpolated.
+		// ------------------------------------------------------------------ //
+		$date_where = '';
+		$date_key   = isset( $search_args['date'] ) ? sanitize_key( (string) $search_args['date'] ) : '';
+		switch ( $date_key ) {
+			case 'week':
+				$date_where = ' AND si.updated_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
+				break;
+			case 'month':
+				$date_where = ' AND si.updated_at >= DATE_SUB( NOW(), INTERVAL 1 MONTH )';
+				break;
+			case 'year':
+				$date_where = ' AND si.updated_at >= DATE_SUB( NOW(), INTERVAL 1 YEAR )';
+				break;
+		}
+		$sort_recent = isset( $search_args['sort'] ) && 'recent' === sanitize_key( (string) $search_args['sort'] );
+
+		// ------------------------------------------------------------------ //
 		// Advanced member-search WHERE clauses contributed by Pro via the
 		// buddynext_search_query_args filter. Each clause is only appended
 		// when the corresponding arg is present, non-empty, and the search
@@ -340,7 +363,9 @@ class SearchService {
 				'MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)',
 				$safe_query . '*'
 			);
-			$order_clause     = 'relevance DESC, si.updated_at DESC';
+			$order_clause     = $sort_recent
+				? 'si.updated_at DESC'
+				: 'relevance DESC, si.updated_at DESC';
 
 			$total = (int) $wpdb->get_var(
 				$wpdb->prepare(
@@ -351,14 +376,15 @@ class SearchService {
 					   {$type_where}
 					   {$block_where}
 					   {$excluded_where}
-					   {$advanced_where}",
+					   {$advanced_where}
+					   {$date_where}",
 					...array_merge( $type_params, $block_params, $advanced_params )
 				)
 			);
 
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT si.object_type, si.object_id, si.title, si.author_id, si.visibility, si.created_at,
+					"SELECT si.object_type, si.object_id, si.title, si.content, si.author_id, si.visibility, si.created_at,
 					        MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE) AS relevance
 					 FROM {$wpdb->prefix}bn_search_index si
 					 WHERE si.visibility = 'public'
@@ -367,6 +393,7 @@ class SearchService {
 					   {$block_where}
 					   {$excluded_where}
 					   {$advanced_where}
+					   {$date_where}
 					 ORDER BY {$order_clause}
 					 LIMIT %d OFFSET %d",
 					...array_merge( array( $safe_query . '*', $safe_query . '*' ), $type_params, $block_params, $advanced_params, array( $per_page, $offset ) )
@@ -389,14 +416,15 @@ class SearchService {
 					   {$type_where}
 					   {$block_where}
 					   {$excluded_where}
-					   {$advanced_where}",
+					   {$advanced_where}
+					   {$date_where}",
 					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params )
 				)
 			);
 
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT si.object_type, si.object_id, si.title, si.author_id, si.visibility, si.created_at
+					"SELECT si.object_type, si.object_id, si.title, si.content, si.author_id, si.visibility, si.created_at
 					 FROM {$wpdb->prefix}bn_search_index si
 					 WHERE si.visibility = 'public'
 					   AND (si.title LIKE %s OR si.content LIKE %s)
@@ -404,6 +432,7 @@ class SearchService {
 					   {$block_where}
 					   {$excluded_where}
 					   {$advanced_where}
+					   {$date_where}
 					 ORDER BY si.updated_at DESC
 					 LIMIT %d OFFSET %d",
 					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params, array( $per_page, $offset ) )
@@ -418,6 +447,7 @@ class SearchService {
 				'object_type' => $r['object_type'],
 				'object_id'   => (int) $r['object_id'],
 				'title'       => $r['title'],
+				'content'     => $r['content'] ?? '',
 				'author_id'   => (int) $r['author_id'],
 				'created_at'  => $r['created_at'],
 			),

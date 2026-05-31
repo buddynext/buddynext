@@ -63,6 +63,41 @@ class SearchController {
 						'sanitize_callback' => 'absint',
 						'default'           => 1,
 					),
+					// ── Advanced member filters (consumed by buddynext-pro via the
+					// buddynext_search_query_args seam). Registered here so app/REST
+					// clients can pass them and so the schema documents them; Free
+					// forwards them into the filter args below. When Pro is inactive
+					// they are simply ignored (no Pro arg-merge, no WHERE clause). ─
+					'tier_slug'          => array(
+						'description'       => __( 'Pro: filter members to an active subscription tier slug.', 'buddynext' ),
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'space_id'           => array(
+						'description'       => __( 'Pro: filter members to active members of this space ID.', 'buddynext' ),
+						'required'          => false,
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
+					'member_label'       => array(
+						'description'       => __( 'Pro: filter members assigned this label slug.', 'buddynext' ),
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'joined_after'       => array(
+						'description'       => __( 'Pro: filter members whose registration date is on or after this ISO date (Y-m-d).', 'buddynext' ),
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'active_within_days' => array(
+						'description'       => __( 'Pro: filter members active within the last N days (1-365).', 'buddynext' ),
+						'required'          => false,
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
 				),
 			)
 		);
@@ -165,8 +200,26 @@ class SearchController {
 		$viewer_id = get_current_user_id();
 		$service   = new SearchService();
 
+		// Collect any advanced member-filter params passed by the client and
+		// inject them into the buddynext_search_query_args seam for the duration
+		// of this request. buddynext-pro reads these keys and emits the matching
+		// WHERE clauses; when Pro is inactive nothing consumes them. Registering
+		// a request-scoped closure (rather than relying on $_GET) keeps a single,
+		// deterministic source of truth for both grouped and typed searches.
+		$advanced = self::collect_advanced_args( $request );
+		$injector = null;
+		if ( ! empty( $advanced ) ) {
+			$injector = static function ( array $args ) use ( $advanced ): array {
+				return array_merge( $args, $advanced );
+			};
+			add_filter( 'buddynext_search_query_args', $injector, 5 );
+		}
+
 		if ( '' === $type ) {
 			$grouped = $service->grouped_search( $query, $viewer_id );
+			if ( null !== $injector ) {
+				remove_filter( 'buddynext_search_query_args', $injector, 5 );
+			}
 			return new WP_REST_Response(
 				array(
 					'grouped' => true,
@@ -180,7 +233,53 @@ class SearchController {
 		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
 		$results  = $service->search( $query, $type, $per_page, $page, $viewer_id );
 
+		if ( null !== $injector ) {
+			remove_filter( 'buddynext_search_query_args', $injector, 5 );
+		}
+
 		return new WP_REST_Response( $results, 200 );
+	}
+
+	/**
+	 * Extract the advanced member-filter args from a search request.
+	 *
+	 * Only keys that are present and non-empty are returned. Final validation
+	 * (slug format, date format, day clamping) is performed by buddynext-pro's
+	 * AdvancedSearchFilters::apply_pro_args() on the seam, so Free does no
+	 * Pro-specific business validation here — it only forwards typed values.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return array<string, mixed> Advanced args (possibly empty).
+	 */
+	private static function collect_advanced_args( WP_REST_Request $request ): array {
+		$advanced = array();
+
+		$tier_slug = (string) ( $request->get_param( 'tier_slug' ) ?? '' );
+		if ( '' !== $tier_slug ) {
+			$advanced['tier_slug'] = $tier_slug;
+		}
+
+		$space_id = absint( $request->get_param( 'space_id' ) ?? 0 );
+		if ( $space_id > 0 ) {
+			$advanced['space_id'] = $space_id;
+		}
+
+		$member_label = (string) ( $request->get_param( 'member_label' ) ?? '' );
+		if ( '' !== $member_label ) {
+			$advanced['member_label'] = $member_label;
+		}
+
+		$joined_after = (string) ( $request->get_param( 'joined_after' ) ?? '' );
+		if ( '' !== $joined_after ) {
+			$advanced['joined_after'] = $joined_after;
+		}
+
+		$active_within_days = absint( $request->get_param( 'active_within_days' ) ?? 0 );
+		if ( $active_within_days > 0 ) {
+			$advanced['active_within_days'] = $active_within_days;
+		}
+
+		return $advanced;
 	}
 
 	/**
