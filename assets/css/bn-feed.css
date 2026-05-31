@@ -2098,6 +2098,47 @@
 .bn-composer__poll-option:focus { outline: none; border-color: var(--brand); }
 .bn-composer__poll-option::placeholder { color: var(--text-3); }
 
+.bn-composer__schedule {
+	display: flex;
+	align-items: center;
+	gap: var(--s2);
+	flex-wrap: wrap;
+}
+.bn-composer__schedule-label {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--s1);
+	font-size: var(--text-sm);
+	font-weight: 600;
+	color: var(--text-2);
+}
+.bn-composer__schedule-label svg { width: 16px; height: 16px; }
+.bn-composer__schedule-input {
+	flex: 1 1 auto;
+	min-width: 0;
+	background: var(--bg-subtle);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	padding: var(--s2) var(--s3);
+	font-family: var(--font-body);
+	font-size: var(--text-sm);
+	color: var(--text-1);
+}
+.bn-composer__schedule-input:focus { outline: none; border-color: var(--brand); }
+.bn-composer__schedule-clear {
+	background: transparent;
+	border: 0;
+	padding: 2px;
+	border-radius: var(--r-sm);
+	color: var(--text-3);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+.bn-composer__schedule-clear:hover { color: var(--text-1); background: var(--bg-subtle); }
+.bn-composer__schedule-clear svg { width: 16px; height: 16px; }
+
 [data-theme="dark"] .bn-composer__prompt { color: var(--text-1); }
 [data-theme="dark"] .bn-composer__privacy { background: var(--bg-subtle); border-color: var(--border); color: var(--text-2); }
 [data-theme="dark"] .bn-composer__poll-option { background: var(--bg-subtle); border-color: var(--border); color: var(--text-1); }

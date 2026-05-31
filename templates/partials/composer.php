@@ -101,6 +101,8 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				'mediaUploading' => false,
 				'errorMessage'   => '',
 				'eventOpen'      => false,
+				'scheduleOpen'   => false,
+				'scheduledAt'    => '',
 				'hasPro'         => $composer_has_pro,
 				'userId'         => get_current_user_id(),
 				'draftStatus'    => '',
@@ -198,6 +200,29 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				aria-label="<?php esc_attr_e( 'Poll option 4', 'buddynext' ); ?>">
 		</div>
 
+		<div class="bn-composer__schedule"
+			hidden
+			data-wp-bind--hidden="state.isNotScheduled">
+			<label class="bn-composer__schedule-label" for="bn-composer-schedule-at">
+				<?php buddynext_icon( 'clock' ); ?>
+				<span><?php esc_html_e( 'Publish at', 'buddynext' ); ?></span>
+			</label>
+			<input
+				type="datetime-local"
+				id="bn-composer-schedule-at"
+				class="bn-composer__schedule-input"
+				data-wp-on--input="actions.setScheduledAt"
+				aria-label="<?php esc_attr_e( 'Publish date and time', 'buddynext' ); ?>">
+			<button
+				type="button"
+				class="bn-composer__schedule-clear"
+				data-wp-on--click="actions.toggleSchedule"
+				aria-label="<?php esc_attr_e( 'Cancel scheduling', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Cancel scheduling', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'x' ); ?>
+			</button>
+		</div>
+
 		<div class="bn-composer__tools">
 
 			<button class="bn-composer__tool"
@@ -223,6 +248,15 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				aria-label="<?php esc_attr_e( 'Pin a date and location', 'buddynext' ); ?>"
 				title="<?php esc_attr_e( 'Pin a date and location', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'calendar' ); ?>
+			</button>
+
+			<button class="bn-composer__tool"
+				type="button"
+				data-wp-bind--aria-pressed="state.isScheduled"
+				data-wp-on--click="actions.toggleSchedule"
+				aria-label="<?php esc_attr_e( 'Schedule for later', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Schedule for later', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'clock' ); ?>
 			</button>
 
 			<?php

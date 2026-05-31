@@ -1072,6 +1072,24 @@ const PRIVACY_LABELS = {
 	space_members: 'Space members',
 };
 
+/**
+ * Convert a <input type="datetime-local"> value (local wall-clock, no zone —
+ * e.g. "2026-06-01T14:30") to a UTC "Y-m-d H:i:s" string for the post-create
+ * payload. Returns '' for an empty/unparseable value so callers can skip the
+ * scheduled_at field entirely.
+ *
+ * @param {string} localValue Raw datetime-local input value.
+ * @return {string} UTC datetime ("Y-m-d H:i:s") or ''.
+ */
+function toUtcSqlDatetime( localValue ) {
+	if ( ! localValue ) { return ''; }
+	const d = new Date( localValue );
+	if ( isNaN( d.getTime() ) ) { return ''; }
+	const pad = ( n ) => String( n ).padStart( 2, '0' );
+	return d.getUTCFullYear() + '-' + pad( d.getUTCMonth() + 1 ) + '-' + pad( d.getUTCDate() ) +
+		' ' + pad( d.getUTCHours() ) + ':' + pad( d.getUTCMinutes() ) + ':' + pad( d.getUTCSeconds() );
+}
+
 /* ── Composer drafts (localStorage-backed) ───────────────────────────────
  * Stored as JSON at `bn_composer_draft_{user_id}`. We debounce writes by
  * 1.5s after the last keystroke to avoid hammering localStorage on every
@@ -1234,6 +1252,12 @@ store( 'buddynext/post-composer', {
 		},
 		get isNotPoll() {
 			try { return getContext().composerType !== 'poll'; } catch ( _e ) { return true; }
+		},
+		get isScheduled() {
+			try { return !! getContext().scheduleOpen; } catch ( _e ) { return false; }
+		},
+		get isNotScheduled() {
+			try { return ! getContext().scheduleOpen; } catch ( _e ) { return true; }
 		},
 		get hasMedia() {
 			try { return ( getContext().mediaIds || [] ).length > 0; } catch ( _e ) { return false; }
@@ -1420,6 +1444,26 @@ store( 'buddynext/post-composer', {
 			ctx.composerOpen = true;
 			ctx.composerType = ctx.composerType === 'poll' ? 'text' : 'poll';
 		},
+		toggleSchedule() {
+			const ctx          = getContext();
+			ctx.composerOpen   = true;
+			ctx.scheduleOpen   = ! ctx.scheduleOpen;
+			// Clear any chosen datetime when the affordance is closed so a
+			// re-opened-then-cancelled composer never silently schedules.
+			if ( ! ctx.scheduleOpen ) {
+				ctx.scheduledAt = '';
+				const input = document.querySelector( '.bn-composer__schedule-input' );
+				if ( input ) { input.value = ''; }
+			}
+		},
+		setScheduledAt( event ) {
+			// <input type="datetime-local"> yields local wall-clock time with no
+			// zone (e.g. "2026-06-01T14:30"). Convert to a UTC "Y-m-d H:i:s"
+			// string — the format the Free PostService / Pro integration expect.
+			const ctx = getContext();
+			const raw = ( event && event.target && event.target.value ) || '';
+			ctx.scheduledAt = raw ? toUtcSqlDatetime( raw ) : '';
+		},
 		openLink() {
 			const ctx        = getContext();
 			ctx.composerOpen = true;
@@ -1484,6 +1528,14 @@ store( 'buddynext/post-composer', {
 				body.options = options.map( ( o ) => o.label );
 			}
 
+			// Scheduled posts: when a future publish datetime is set, send it as a
+			// UTC "Y-m-d H:i:s" string. The Free PostService stores it (status flips
+			// to "scheduled"); Pro's ScheduledPostsIntegration intercepts the row.
+			const scheduledAt = ( ctx.scheduledAt || '' ).trim();
+			if ( ctx.scheduleOpen && scheduledAt ) {
+				body.scheduled_at = scheduledAt;
+			}
+
 			try {
 				const res = yield fetch( ctx.restUrl + '/posts', {
 					method:  'POST',
@@ -1497,7 +1549,9 @@ store( 'buddynext/post-composer', {
 					}
 					ctx.hasDraft    = false;
 					setDraftStatus( ctx, '', false );
-					if ( window.bnToast ) { window.bnToast( 'Post published', 'success' ); }
+					if ( window.bnToast ) {
+						window.bnToast( body.scheduled_at ? 'Post scheduled' : 'Post published', 'success' );
+					}
 					setTimeout( function () { window.location.reload(); }, 500 );
 					return;
 				}
@@ -2435,6 +2489,88 @@ function initRealtimeNewPostsPill() {
 		pendingIds.add( id );
 		renderPill();
 	} );
+
+	// ---- Free producer: visibility-aware 60s poll of /feed/new-count ----
+	// Mirrors the notifications-store poll (assets/js/notifications/store.js):
+	// a document.hidden guard, a re-poll on tab focus, and the wp_rest nonce.
+	// When the server reports posts newer than our watermark, we dispatch
+	// `bn:realtime:post-new` for the delta so the existing pill renderer above
+	// fires unchanged. Pro's Soketi path pre-empts this — both feed the same
+	// listener, so the pill behaves identically with or without Pro.
+	const POLL_INTERVAL = 60000;
+
+	// REST root + nonce come from the always-present composer context; the feed
+	// page on /activity renders the composer for every logged-in member.
+	const composerEl = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
+	if ( ! composerEl ) { return; }
+	let restUrl = '';
+	let restNonce = '';
+	try {
+		const cfg = JSON.parse( composerEl.dataset.wpContext || '{}' );
+		restUrl   = cfg.restUrl || '';
+		restNonce = cfg.restNonce || '';
+	} catch ( _e ) {}
+	if ( ! restUrl ) { return; }
+
+	// Active home-feed filter (defaults to for-you). The new-count query must
+	// scope to the same source blend the user is actually viewing.
+	const activeTab = document.querySelector( '.bn-feed-filter-tab[aria-current="true"]' );
+	const filter = ( activeTab && activeTab.dataset.filter ) || 'for-you';
+
+	// Seed the watermark from the newest post-card already rendered. The pill
+	// only ever cares about posts above this id.
+	let watermark = 0;
+	feed.querySelectorAll( '[data-post-id]' ).forEach( ( card ) => {
+		const cardId = parseInt( card.dataset.postId, 10 );
+		if ( cardId > watermark ) { watermark = cardId; }
+	} );
+
+	let pollTimer = null;
+
+	async function pollNewCount() {
+		if ( document.hidden ) { return; }
+		try {
+			const url = restUrl + '/feed/new-count?after_id=' + encodeURIComponent( watermark ) +
+				'&filter=' + encodeURIComponent( filter );
+			const res = await fetch( url, {
+				method:      'GET',
+				credentials: 'same-origin',
+				headers:     { 'X-WP-Nonce': restNonce || '' },
+			} );
+			if ( ! res.ok ) { return; }
+			const json = await res.json();
+			if ( ! json || typeof json.count === 'undefined' ) { return; }
+			const fresh = Number( json.count ) || 0;
+			const newestId = Number( json.newest_id ) || watermark;
+			if ( fresh > 0 && newestId > watermark ) {
+				// Synthesize ids above the watermark so the pill counts the delta
+				// without needing the individual ids. The renderer keys off a Set,
+				// so distinct synthetic ids are sufficient for an accurate count.
+				for ( let i = 1; i <= fresh; i++ ) {
+					document.dispatchEvent( new CustomEvent( 'bn:realtime:post-new', {
+						detail: { post_id: watermark + i, user_id: 0 },
+					} ) );
+				}
+				watermark = newestId;
+			}
+		} catch ( _e ) {
+			// Network failure — retry next tick.
+		}
+	}
+
+	function scheduleNewCount() {
+		if ( pollTimer ) { window.clearTimeout( pollTimer ); }
+		pollTimer = window.setTimeout( function () {
+			pollNewCount().finally( scheduleNewCount );
+		}, POLL_INTERVAL );
+	}
+
+	// Re-poll immediately when the tab regains focus after being hidden.
+	document.addEventListener( 'visibilitychange', function () {
+		if ( ! document.hidden ) { pollNewCount(); }
+	} );
+
+	scheduleNewCount();
 }
 
 if ( document.readyState === 'loading' ) {

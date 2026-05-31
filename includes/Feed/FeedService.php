@@ -465,6 +465,67 @@ class FeedService {
 	}
 
 	/**
+	 * Count home-feed posts newer than a client-known id (Free new-posts pill).
+	 *
+	 * Powers the 60s poll behind the `/activity` "N new posts" pill. Counts only
+	 * published, non-scheduled posts in the viewer's source blend (reusing
+	 * {@see self::home_source_clause()}) whose id is greater than $after_id, and
+	 * always excludes the viewer's own posts so the pill never fires on the
+	 * member's own submission (the composer already inserts those locally). The
+	 * count is clamped so the pill copy stays meaningful. Also returns the newest
+	 * visible id so the poll can advance its watermark without a second query.
+	 *
+	 * Degrades to a zero count for logged-out callers (no source blend).
+	 *
+	 * @param int    $user_id  Viewing user ID.
+	 * @param int    $after_id Highest post id the client has already rendered.
+	 * @param string $filter   Filter slug: for-you | following | spaces | network.
+	 * @return array{count:int,newest_id:int}
+	 */
+	public function home_feed_new_count( int $user_id, int $after_id, string $filter = 'for-you' ): array {
+		global $wpdb;
+
+		if ( $user_id <= 0 ) {
+			return array(
+				'count'     => 0,
+				'newest_id' => $after_id,
+			);
+		}
+
+		if ( ! in_array( $filter, self::HOME_FILTERS, true ) ) {
+			$filter = 'for-you';
+		}
+
+		$excluded_where = $this->excluded_users_where();
+
+		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $user_id );
+		[ $source_where, $source_params ]         = $this->home_source_clause( $filter, $user_id );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT COUNT(*) AS new_count, COALESCE(MAX(id), %d) AS newest_id
+				 FROM {$wpdb->prefix}bn_posts
+				 WHERE status = 'published'
+				   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+				   AND id > %d
+				   AND user_id <> %d
+				   AND ({$source_where})
+				   {$excluded_where}
+				   {$block_mute_where}", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+				...array_merge( array( $after_id, $after_id, $user_id ), $source_params, $block_mute_params )
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
+
+		return array(
+			'count'     => isset( $row['new_count'] ) ? (int) $row['new_count'] : 0,
+			'newest_id' => isset( $row['newest_id'] ) ? (int) $row['newest_id'] : $after_id,
+		);
+	}
+
+	/**
 	 * Return the active site-wide announcement for a user, or null.
 	 *
 	 * Returns null when no published, unexpired announcement remains after

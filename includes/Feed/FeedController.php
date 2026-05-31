@@ -65,6 +65,29 @@ class FeedController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/feed/new-count',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'feed_new_count' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'after_id' => array(
+						'type'              => 'integer',
+						'default'           => 0,
+						'sanitize_callback' => 'absint',
+					),
+					'filter'   => array(
+						'type'              => 'string',
+						'default'           => 'for-you',
+						'enum'              => FeedService::HOME_FILTERS,
+						'sanitize_callback' => 'sanitize_key',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/feed/explore',
 			array(
 				'methods'             => 'GET',
@@ -163,6 +186,33 @@ class FeedController {
 		$counts  = $this->feed_service()->home_feed_counts( $user_id );
 
 		return new WP_REST_Response( $counts, 200 );
+	}
+
+	/**
+	 * Return the number of home-feed posts newer than the client's top-of-feed id.
+	 *
+	 * Drives the Free "N new posts" pill on /activity: the client passes the id
+	 * of the post currently at the top of its rendered feed (`after_id`) plus the
+	 * active filter, and receives a lightweight count + the newest visible id so
+	 * the poll can advance its watermark. Authors' own posts are excluded so a
+	 * member's own composer submission never inflates the pill.
+	 *
+	 * Response shape: { count: int, newest_id: int }
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function feed_new_count( WP_REST_Request $request ): WP_REST_Response {
+		$user_id  = get_current_user_id();
+		$after_id = (int) $request->get_param( 'after_id' );
+		$filter   = (string) ( $request->get_param( 'filter' ) ?? 'for-you' );
+		if ( ! in_array( $filter, FeedService::HOME_FILTERS, true ) ) {
+			$filter = 'for-you';
+		}
+
+		$result = $this->feed_service()->home_feed_new_count( $user_id, $after_id, $filter );
+
+		return new WP_REST_Response( $result, 200 );
 	}
 
 	/**
