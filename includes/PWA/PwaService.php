@@ -44,6 +44,40 @@ class PwaService {
 	}
 
 	/**
+	 * Resolve the manifest theme colour used for the generated app icon.
+	 *
+	 * Reads the colour from the (filtered) manifest so the icon stays in
+	 * sync with whatever a site sets via `buddynext_pwa_manifest`. Falls
+	 * back to the default brand blue and rejects anything that is not a
+	 * 3/6-digit hex so the generated SVG can never be malformed.
+	 *
+	 * @param array<string, mixed> $manifest Manifest data.
+	 * @return string A safe `#rrggbb`/`#rgb` hex colour.
+	 */
+	private function icon_color( array $manifest ): string {
+		$color = isset( $manifest['theme_color'] ) ? (string) $manifest['theme_color'] : '#0073aa';
+		if ( ! preg_match( '/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $color ) ) {
+			$color = '#0073aa';
+		}
+		return $color;
+	}
+
+	/**
+	 * Derive the single-letter brand glyph for the generated app icon.
+	 *
+	 * Uses the first character of the site name (uppercased) so the
+	 * home-screen icon reads as the community's own mark. Defaults to
+	 * `B` (BuddyNext) when the site name is empty.
+	 *
+	 * @return string A single, escaped uppercase character.
+	 */
+	private function icon_glyph(): string {
+		$name  = trim( (string) get_bloginfo( 'name' ) );
+		$glyph = '' !== $name ? mb_strtoupper( mb_substr( $name, 0, 1 ) ) : 'B';
+		return $glyph;
+	}
+
+	/**
 	 * Emit the small client bootstrap that registers the service worker.
 	 *
 	 * Runs in wp_footer so the script lands after the page body. The SW
@@ -117,19 +151,29 @@ class PwaService {
 			'theme_color'      => '#0073aa',
 			'orientation'      => 'portrait-primary',
 			'scope'            => home_url( '/' ),
-			'icons'            => array(
-				array(
-					'src'   => plugins_url( 'assets/images/icon-192.png', BUDDYNEXT_FILE ),
-					'sizes' => '192x192',
-					'type'  => 'image/png',
-				),
-				array(
-					'src'   => plugins_url( 'assets/images/icon-512.png', BUDDYNEXT_FILE ),
-					'sizes' => '512x512',
-					'type'  => 'image/png',
-				),
-			),
 			'categories'       => array( 'social', 'community' ),
+		);
+
+		// Build the icon list from a self-contained SVG served over REST. A
+		// single scalable, opaque SVG marked `any maskable` satisfies the
+		// Chromium installability bar (it accepts SVG icons), so no binary
+		// PNG asset needs to ship with the plugin. The `sizes` list advertises
+		// the 192 and 512 break points the install criteria look for.
+		$icon_url = rest_url( self::REST_NAMESPACE . '/pwa/icon' );
+
+		$manifest['icons'] = array(
+			array(
+				'src'     => $icon_url,
+				'sizes'   => 'any',
+				'type'    => 'image/svg+xml',
+				'purpose' => 'any maskable',
+			),
+			array(
+				'src'     => $icon_url,
+				'sizes'   => '192x192 512x512',
+				'type'    => 'image/svg+xml',
+				'purpose' => 'any maskable',
+			),
 		);
 
 		/**
@@ -151,6 +195,39 @@ class PwaService {
 			'<link rel="manifest" href="%s">' . "\n",
 			esc_url( $url )
 		);
+	}
+
+	/**
+	 * Return the generated app-icon SVG markup.
+	 *
+	 * Produces an opaque, square, maskable icon: a solid brand-coloured
+	 * rounded tile carrying the site's initial. Built entirely from the
+	 * manifest values (theme colour + site name) so it tracks any site
+	 * customisation made through `buddynext_pwa_manifest`. Self-contained
+	 * with literal colours — CSS `--bn-*` tokens are intentionally NOT used
+	 * here because the icon is fetched standalone by the browser, outside
+	 * any stylesheet context, where custom properties do not resolve.
+	 *
+	 * Drawn on a 512×512 canvas with the glyph kept inside the central
+	 * ~80% "safe zone" so the maskable purpose survives aggressive
+	 * platform cropping.
+	 *
+	 * @return string SVG source.
+	 */
+	public function get_app_icon_svg(): string {
+		$manifest = $this->get_manifest();
+		$color    = $this->icon_color( $manifest );
+		$glyph    = $this->icon_glyph();
+
+		$safe_glyph = htmlspecialchars( $glyph, ENT_QUOTES | ENT_XML1, 'UTF-8' );
+		$safe_color = htmlspecialchars( $color, ENT_QUOTES | ENT_XML1, 'UTF-8' );
+
+		return <<<SVG
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="App icon">
+  <rect width="512" height="512" rx="96" ry="96" fill="{$safe_color}"/>
+  <text x="256" y="256" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="288" font-weight="700">{$safe_glyph}</text>
+</svg>
+SVG;
 	}
 
 	// ── Service worker ────────────────────────────────────────────────────────
@@ -244,6 +321,16 @@ JS;
 				'permission_callback' => '__return_true',
 			)
 		);
+
+		register_rest_route(
+			self::REST_NAMESPACE,
+			'/pwa/icon',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'rest_app_icon' ),
+				'permission_callback' => '__return_true',
+			)
+		);
 	}
 
 	/**
@@ -268,6 +355,21 @@ JS;
 		$response->header( 'Content-Type', 'application/javascript' );
 		$response->header( 'Service-Worker-Allowed', '/' );
 		$response->header( 'Cache-Control', 'no-cache' );
+		return $response;
+	}
+
+	/**
+	 * REST callback — serve the generated app-icon SVG.
+	 *
+	 * Referenced by the manifest `icons` entries. Served as image/svg+xml
+	 * so Chromium treats it as a valid installable icon.
+	 *
+	 * @return \WP_HTTP_Response
+	 */
+	public function rest_app_icon(): \WP_HTTP_Response {
+		$response = new \WP_HTTP_Response( $this->get_app_icon_svg(), 200 );
+		$response->header( 'Content-Type', 'image/svg+xml' );
+		$response->header( 'Cache-Control', 'public, max-age=86400' );
 		return $response;
 	}
 }
