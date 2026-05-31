@@ -219,7 +219,10 @@ store( 'buddynext/onboarding', {
 				btn.setAttribute( 'aria-pressed', 'false' );
 			}
 			c.joinedSpaces = joined;
-			rest( c, 'spaces/' + spaceId + '/members', {
+			// Membership lives on /spaces/{id}/join: POST joins, DELETE leaves
+			// (both wired on that route in SpaceController). The /members route
+			// is GET-only and cannot accept the join/leave write.
+			rest( c, 'spaces/' + spaceId + '/join', {
 				method: isJoining ? 'POST' : 'DELETE',
 			} )
 				.then( ( r ) => {
