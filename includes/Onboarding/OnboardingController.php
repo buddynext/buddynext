@@ -76,6 +76,32 @@ class OnboardingController {
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'complete' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'display_name' => array(
+						'required' => false,
+						'type'     => 'string',
+					),
+					'bio'          => array(
+						'required' => false,
+						'type'     => 'string',
+					),
+					'slug'         => array(
+						'required' => false,
+						'type'     => 'string',
+					),
+					'channels'     => array(
+						'required' => false,
+						'type'     => 'object',
+					),
+					'spaces'       => array(
+						'required' => false,
+						'type'     => 'array',
+					),
+					'user_ids'     => array(
+						'required' => false,
+						'type'     => 'array',
+					),
+				),
 			)
 		);
 
@@ -119,9 +145,19 @@ class OnboardingController {
 	/**
 	 * POST /me/onboarding/complete — finish the wizard.
 	 *
-	 * Body params:
-	 *   spaces      — int[] of space IDs to join.
-	 *   user_ids    — int[] of users to follow.
+	 * This is the authoritative completion transaction: it persists every
+	 * piece of wizard state server-side (so the journey is durable even if
+	 * the client's optimistic per-step REST calls failed, were aborted by
+	 * the redirect, or never fired on a slow connection), then marks the
+	 * wizard complete and returns the redirect target.
+	 *
+	 * Body params (all optional):
+	 *   display_name — string profile display name.
+	 *   bio          — string profile bio.
+	 *   slug         — string desired profile slug / handle.
+	 *   channels     — object { email, in_app, push } notification toggles.
+	 *   spaces       — int[] of space IDs to join.
+	 *   user_ids     — int[] of users to follow.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response
@@ -129,27 +165,69 @@ class OnboardingController {
 	public function complete( WP_REST_Request $request ): WP_REST_Response {
 		$user_id = get_current_user_id();
 
-		$spaces   = (array) $request->get_param( 'spaces' );
-		$user_ids = (array) $request->get_param( 'user_ids' );
+		// Already complete — idempotent: just return the redirect target so a
+		// double-submit or stale tab cannot re-fire downstream hooks.
+		if ( $this->service->is_complete( $user_id ) ) {
+			return new WP_REST_Response(
+				array(
+					'completed'   => true,
+					'redirect_to' => \BuddyNext\Core\PageRouter::activity_url(),
+				),
+				200
+			);
+		}
 
+		// Step 1 — profile (display name + bio).
+		$profile = array();
+		if ( null !== $request->get_param( 'display_name' ) ) {
+			$profile['display_name'] = (string) $request->get_param( 'display_name' );
+		}
+		if ( null !== $request->get_param( 'bio' ) ) {
+			$profile['bio'] = (string) $request->get_param( 'bio' );
+		}
+		if ( ! empty( $profile ) ) {
+			$this->service->save_profile( $user_id, $profile );
+		}
+
+		// Step 1 — chosen handle / slug (non-fatal on collision).
+		$slug = $request->get_param( 'slug' );
+		if ( is_string( $slug ) && '' !== trim( $slug ) ) {
+			$this->service->save_slug( $user_id, $slug );
+		}
+
+		// Step 4 — notification channel preferences.
+		$channels = $request->get_param( 'channels' );
+		if ( is_array( $channels ) ) {
+			$this->service->save_channels( $user_id, $channels );
+		}
+
+		// Step 2 — join selected spaces.
+		$spaces = (array) $request->get_param( 'spaces' );
 		if ( ! empty( $spaces ) && function_exists( 'buddynext_service' ) ) {
 			$space_members = buddynext_service( 'space_members' );
-			foreach ( array_map( 'absint', $spaces ) as $space_id ) {
-				if ( $space_id > 0 ) {
-					$space_members->join( $space_id, $user_id );
+			if ( $space_members && method_exists( $space_members, 'join' ) ) {
+				foreach ( array_map( 'absint', $spaces ) as $space_id ) {
+					if ( $space_id > 0 ) {
+						$space_members->join( $space_id, $user_id );
+					}
 				}
 			}
 		}
 
+		// Step 3 — follow selected members.
+		$user_ids = (array) $request->get_param( 'user_ids' );
 		if ( ! empty( $user_ids ) && function_exists( 'buddynext_service' ) ) {
 			$follows = buddynext_service( 'follows' );
-			foreach ( array_map( 'absint', $user_ids ) as $follow_id ) {
-				if ( $follow_id > 0 && $follow_id !== $user_id ) {
-					$follows->follow( $user_id, $follow_id );
+			if ( $follows && method_exists( $follows, 'follow' ) ) {
+				foreach ( array_map( 'absint', $user_ids ) as $follow_id ) {
+					if ( $follow_id > 0 && $follow_id !== $user_id ) {
+						$follows->follow( $user_id, $follow_id );
+					}
 				}
 			}
 		}
 
+		// Mark complete + fire buddynext_onboarding_completed (first call only).
 		$this->service->finish( $user_id );
 
 		return new WP_REST_Response(

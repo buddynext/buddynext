@@ -351,7 +351,7 @@ store( 'buddynext/onboarding', {
 			// the user could reach the Continue button.
 			const slug = String( c.userLogin || '' ).trim();
 			if ( slug.length >= 3 ) {
-				rest( c, 'profile-slug', {
+				rest( c, 'me/profile-slug', {
 					method: 'PUT',
 					body:   JSON.stringify( { slug } ),
 				} ).catch( () => {} );
