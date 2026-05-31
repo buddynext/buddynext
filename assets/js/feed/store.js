@@ -901,20 +901,32 @@ store( 'buddynext/post-card', {
 		},
 		* pinPost() {
 			const ctx  = getContext();
-			const prev = ctx.isPinned;
+			const prev = ! ! ctx.isPinned;
+			// Optimistically flip; `prev` decides the verb (pin -> POST, unpin -> DELETE).
 			ctx.isPinned = ! prev;
 			try {
 				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/pin', {
-					method: prev ? 'DELETE' : 'POST',
+					method:  prev ? 'DELETE' : 'POST',
 					headers: { 'X-WP-Nonce': ctx.reactNonce },
 				} );
 				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( ctx.isPinned ? 'Post pinned' : 'Post unpinned' ); }
+					bnToast( ctx.isPinned ? 'Post pinned' : 'Post unpinned', { tone: 'success' } );
 				} else {
 					ctx.isPinned = prev;
+					let message = prev ? 'Could not unpin this post. Try again.' : 'Could not pin this post. Try again.';
+					try {
+						const data = yield res.json();
+						if ( data && data.message ) {
+							message = data.message;
+						}
+					} catch ( _err ) {
+						// Non-JSON body - keep the generic fallback message.
+					}
+					bnToast( message, { tone: 'danger' } );
 				}
 			} catch ( _e ) {
 				ctx.isPinned = prev;
+				bnToast( 'Could not change pin status. Try again.', { tone: 'danger' } );
 			}
 		},
 		* loadComments() {

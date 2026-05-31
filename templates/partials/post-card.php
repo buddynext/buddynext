@@ -328,6 +328,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				'currentUserId'     => $current_user_id,
 				'postType'          => $bn_post_type,
 				'showContent'       => ! $has_cw,
+				'isPinned'          => $is_pinned,
 				'bookmarked'        => $is_bookmarked,
 				'reactionType'      => $my_reaction_type,
 				'reactNonce'        => $react_nonce,
