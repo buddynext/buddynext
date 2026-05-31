@@ -33,15 +33,22 @@ class GamificationBridgeListener implements ListenerInterface {
 		// site). The listener routes them into BuddyNext notifications and does
 		// NOT submit any award event, so it can never double-award alongside
 		// GamificationBridge (which owns all emit/submit responsibility).
-		add_action( 'wb_gamification_badge_awarded', array( $this, 'on_badge_awarded' ), 10, 3 );
-		add_action( 'wb_gamification_level_changed', array( $this, 'on_level_changed' ), 10, 3 );
+		//
+		// Hook names use the plugin's short 'wb_gam_' prefix — verified against
+		// the installed plugin: BadgeEngine.php:296 fires
+		// do_action( 'wb_gam_badge_awarded', int $user_id, array $def, string $badge_id );
+		// LevelEngine.php:146 fires
+		// do_action( 'wb_gam_level_changed', int $user_id, array $new_level, array|null $old_level ).
+		add_action( 'wb_gam_badge_awarded', array( $this, 'on_badge_awarded' ), 10, 3 );
+		add_action( 'wb_gam_level_changed', array( $this, 'on_level_changed' ), 10, 3 );
 	}
 
 	/**
 	 * Notify the user when a gamification badge is awarded to them.
 	 *
-	 * Matches the wb-gamification BadgeEngine fire signature:
-	 * do_action( 'wb_gamification_badge_awarded', int $user_id, array $def, string $badge_id ).
+	 * Matches the wb-gamification BadgeEngine fire signature (verified against
+	 * the installed plugin, BadgeEngine.php:296):
+	 * do_action( 'wb_gam_badge_awarded', int $user_id, array $def, string $badge_id ).
 	 *
 	 * @param int    $user_id  User who earned the badge.
 	 * @param array  $def      Badge definition (id, name, image_url, ...).
@@ -52,6 +59,8 @@ class GamificationBridgeListener implements ListenerInterface {
 			return;
 		}
 
+		$badge_name = isset( $def['name'] ) ? (string) $def['name'] : '';
+
 		buddynext_service( 'notifications' )->create(
 			array(
 				'recipient_id' => $user_id,
@@ -60,9 +69,13 @@ class GamificationBridgeListener implements ListenerInterface {
 				'object_type'  => 'badge',
 				'object_id'    => 0,
 				'group_key'    => null,
+				// 'badge' is the key NotificationMessageService::resolve_message()
+				// reads to render "You earned a new badge: <name>." Keep
+				// badge_id/badge_name alongside for app/REST consumers.
 				'data'         => array(
+					'badge'      => $badge_name,
 					'badge_id'   => $badge_id,
-					'badge_name' => isset( $def['name'] ) ? (string) $def['name'] : '',
+					'badge_name' => $badge_name,
 				),
 			)
 		);
@@ -71,16 +84,28 @@ class GamificationBridgeListener implements ListenerInterface {
 	/**
 	 * Notify the user when their gamification level changes.
 	 *
-	 * Only fires when WBGamification plugin is active and changes user level.
+	 * Matches the wb-gamification LevelEngine fire signature (verified against
+	 * the installed plugin, LevelEngine.php:146):
+	 * do_action( 'wb_gam_level_changed', int $user_id, array $new_level, array|null $old_level ).
 	 *
-	 * @param int $user_id   User whose level changed.
-	 * @param int $old_level Level before the change.
-	 * @param int $new_level Level after the change.
+	 * Both level arguments are level-definition rows shaped
+	 * { id:int, name:string, min_points:int, icon_url:string|null }. $old_level
+	 * is null only on a first-ever assignment, which the plugin routes through a
+	 * separate hook — but the listener still guards for null so a future change
+	 * can never fatal here.
+	 *
+	 * @param int        $user_id   User whose level changed.
+	 * @param array      $new_level New level data (id, name, min_points).
+	 * @param array|null $old_level Previous level data, or null when none.
 	 */
-	public function on_level_changed( int $user_id, int $old_level, int $new_level ): void {
+	public function on_level_changed( int $user_id, array $new_level, ?array $old_level = null ): void {
 		if ( ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}
+
+		$new_level_id   = isset( $new_level['id'] ) ? (int) $new_level['id'] : 0;
+		$new_level_name = isset( $new_level['name'] ) ? (string) $new_level['name'] : '';
+		$new_min_points = isset( $new_level['min_points'] ) ? (int) $new_level['min_points'] : 0;
 
 		buddynext_service( 'notifications' )->create(
 			array(
@@ -88,11 +113,18 @@ class GamificationBridgeListener implements ListenerInterface {
 				'sender_id'    => null,
 				'type'         => 'bn.level_up',
 				'object_type'  => 'level',
-				'object_id'    => $new_level,
+				'object_id'    => $new_level_id,
 				'group_key'    => null,
+				// 'level' is the key NotificationMessageService::resolve_message()
+				// reads to render "You reached level <n>." Keep the named/threshold
+				// fields alongside for app/REST consumers and email rendering.
 				'data'         => array(
-					'old_level' => $old_level,
-					'new_level' => $new_level,
+					'level'          => $new_level_id,
+					'level_id'       => $new_level_id,
+					'level_name'     => $new_level_name,
+					'min_points'     => $new_min_points,
+					'old_level_id'   => isset( $old_level['id'] ) ? (int) $old_level['id'] : 0,
+					'old_level_name' => isset( $old_level['name'] ) ? (string) $old_level['name'] : '',
 				),
 			)
 		);

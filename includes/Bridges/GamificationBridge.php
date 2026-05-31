@@ -75,6 +75,16 @@ class GamificationBridge {
 			'label'          => 'Profile completed',
 			'default_points' => 25,
 		),
+		array(
+			'id'             => 'bn_reaction_received',
+			'label'          => 'Reaction received on your content',
+			'default_points' => 2,
+		),
+		array(
+			'id'             => 'bn_comment_created',
+			'label'          => 'Comment created',
+			'default_points' => 3,
+		),
 	);
 
 	/**
@@ -106,6 +116,16 @@ class GamificationBridge {
 		add_action( 'buddynext_space_member_joined', array( $this, 'on_space_joined' ), 10, 3 );
 		add_action( 'buddynext_strike_issued', array( $this, 'on_strike_issued' ), 10, 3 );
 		add_action( 'buddynext_profile_completion_changed', array( $this, 'on_profile_completion_changed' ), 10, 2 );
+
+		// Recipient-side reaction signal: BN already resolves the content owner
+		// and excludes self-reactions before firing this (ReactionService.php:105).
+		// We award the owner — NOT the reactor — matching the bn_reaction_received
+		// "reaction received on your content" semantics.
+		add_action( 'buddynext_post_reaction_received', array( $this, 'on_reaction_received' ), 10, 4 );
+
+		// Commenter-side signal: awards the author of the comment for
+		// participating, mirroring bn_post_created. Fired by CommentService.php:103.
+		add_action( 'buddynext_comment_created', array( $this, 'on_comment_created' ), 10, 4 );
 	}
 
 	/**
@@ -230,6 +250,70 @@ class GamificationBridge {
 		if ( 100 === $percent ) {
 			$this->fire( 'bn_profile_completed', $user_id, array( 'percent' => 100 ) );
 		}
+	}
+
+	/**
+	 * Translate buddynext_post_reaction_received → bn_reaction_received.
+	 *
+	 * Awards the content OWNER (the author whose post was reacted to), not the
+	 * reactor. BN fires this recipient-side mirror only when the reactor differs
+	 * from the author (ReactionService.php:92,105), so no self-award guard is
+	 * needed here.
+	 *
+	 * @param int    $post_id    Post that received the reaction.
+	 * @param int    $author_id  Post author (recipient of the points).
+	 * @param int    $reactor_id User who reacted (actor).
+	 * @param string $emoji      Emoji identifier.
+	 */
+	public function on_reaction_received( int $post_id, int $author_id, int $reactor_id, string $emoji ): void {
+		$this->fire(
+			'bn_reaction_received',
+			$author_id,
+			array(
+				'post_id'    => $post_id,
+				'reactor_id' => $reactor_id,
+				'emoji'      => $emoji,
+			)
+		);
+	}
+
+	/**
+	 * Translate buddynext_comment_created → bn_comment_created.
+	 *
+	 * Awards the comment AUTHOR for participating, mirroring bn_post_created.
+	 *
+	 * Two producers fire this action with DIFFERENT shapes, so the handler reads
+	 * positionally and tolerates both rather than type-pinning a single shape
+	 * (a 4-required-param signature would ArgumentCountError-fatal on the 3-arg
+	 * producer under PHP 8):
+	 *   - CommentService.php:103   ( int $comment_id, string $object_type,
+	 *                                int $object_id, int $user_id )  — canonical.
+	 *   - WPMediaVerseBridge.php:513 ( int $comment_id, int $post_id,
+	 *                                int $user_id )                  — legacy 3-arg.
+	 * The commenting user is the LAST argument supplied in both shapes, so we
+	 * resolve it from func_get_args() and never trust a fixed slot.
+	 *
+	 * @param int   $comment_id New comment ID.
+	 * @param mixed ...$args    Remaining producer-specific args; the commenting
+	 *                          user id is always the final argument.
+	 */
+	public function on_comment_created( int $comment_id, ...$args ): void {
+		if ( empty( $args ) ) {
+			return;
+		}
+
+		// Commenting user is the last argument under both producer signatures.
+		$user_id = (int) end( $args );
+
+		$context = array( 'comment_id' => $comment_id );
+
+		// Preserve object_type/object_id only for the canonical 3-extra-arg shape.
+		if ( 3 === count( $args ) ) {
+			$context['object_type'] = (string) $args[0];
+			$context['object_id']   = (int) $args[1];
+		}
+
+		$this->fire( 'bn_comment_created', $user_id, $context );
 	}
 
 	/**
