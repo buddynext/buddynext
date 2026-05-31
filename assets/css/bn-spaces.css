@@ -2421,7 +2421,87 @@
 	margin-inline-start: auto;
 }
 
+/* ── Gated-space paywall (Pro membership gate) ───────────────────────── */
+.bn-paywall {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	gap: var(--bn-s4);
+	margin-block-start: var(--bn-s4);
+	padding: var(--bn-s8) var(--bn-s5);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	background: var(--bn-surface-soft, var(--bn-surface));
+}
+
+/* Blurred/locked preview band — the spec's "blurred space preview". */
+.bn-paywall__preview {
+	position: relative;
+	inline-size: 100%;
+	block-size: 96px;
+	border-radius: var(--bn-r-md);
+	overflow: hidden;
+	background:
+		linear-gradient(
+			120deg,
+			color-mix(in oklch, var(--bn-accent) 18%, transparent),
+			color-mix(in oklch, var(--bn-ink) 10%, transparent)
+		);
+	filter: blur(2px);
+}
+
+.bn-paywall__lock {
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-start: 50%;
+	transform: translate(-50%, -50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: var(--bn-s10, 40px);
+	block-size: var(--bn-s10, 40px);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	color: var(--bn-ink-2);
+	filter: none;
+}
+
+.bn-paywall__body {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--bn-s3);
+	max-inline-size: 42ch;
+}
+
+.bn-paywall__heading {
+	margin: 0;
+	font-size: 1.125rem;
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+
+.bn-paywall__tier,
+.bn-paywall__description {
+	margin: 0;
+	color: var(--bn-ink-2);
+	line-height: var(--bn-leading-body);
+}
+
+.bn-paywall__cta {
+	margin-block-start: var(--bn-s2);
+}
+
+.bn-paywall__unconfigured {
+	margin: 0;
+	color: var(--bn-ink-3);
+	font-size: 0.875rem;
+}
+
 @media (max-width: 720px) {
+	.bn-paywall { padding: var(--bn-s6) var(--bn-s4); }
+
 	.bn-space-settings__savebar { padding-inline: var(--bn-s4); }
 	.bn-space-settings__savebar-status { display: none; }
 	.bn-space-settings__savebar-inner { justify-content: flex-end; }

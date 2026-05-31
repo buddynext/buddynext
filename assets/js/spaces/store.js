@@ -120,6 +120,126 @@ function swapButtonState( btn, newState ) {
 	btn.disabled             = false;
 }
 
+/**
+ * Detect a gated-space join denial in a REST error body.
+ *
+ * Free returns `code: 'cannot_join_space'` for gate denials. Pro enriches the
+ * error data with a `paywall` object carrying CTA + tier metadata + rendered
+ * HTML. Either signal is sufficient to treat the response as a paywall denial.
+ *
+ * @param {Object} data Parsed JSON error body.
+ * @return {boolean} True when this is a gated-space denial.
+ */
+function isGatedDenial( data ) {
+	if ( ! data || typeof data !== 'object' ) { return false; }
+	if ( data.code === 'cannot_join_space' ) { return true; }
+	if ( data.data && data.data.paywall ) { return true; }
+	return false;
+}
+
+/**
+ * Surface the paywall for a gated-space denial.
+ *
+ * Prefers the server-rendered HTML in `data.data.paywall.html` (single source
+ * of truth with the SSR template). Injects it into the space hero, replacing
+ * the join action cluster, and wires the checkout button if present. Falls back
+ * to a minimal CTA built from the paywall metadata when no HTML was returned
+ * (e.g. an older Pro build). When there is no paywall payload at all, surfaces a
+ * neutral members-only notice so the click is never a silent dead end.
+ *
+ * @param {Element|null} btn     The join/request button that was clicked.
+ * @param {string}       spaceId The space ID.
+ * @param {Object}       data    Parsed JSON error body.
+ */
+function surfacePaywall( btn, spaceId, data ) {
+	var paywall = ( data && data.data && data.data.paywall ) ? data.data.paywall : null;
+
+	// Mount point: the hero action cluster the button lives in, else the hero.
+	var mount = null;
+	if ( btn ) {
+		mount = btn.closest( '.bn-sh-hero__actions' ) || btn.closest( '.bn-sh-hero' ) || btn.parentElement;
+	}
+	if ( ! mount ) {
+		mount = document.querySelector( '.bn-sh-hero' ) || document.body;
+	}
+
+	// If a paywall is already on the page (SSR), just reveal/scroll to it.
+	var existing = document.querySelector( '.bn-paywall' );
+	if ( existing ) {
+		if ( btn ) { btn.disabled = true; btn.setAttribute( 'hidden', '' ); }
+		existing.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+		return;
+	}
+
+	if ( paywall && typeof paywall.html === 'string' && paywall.html.trim() ) {
+		// Trusted, server-rendered HTML: built entirely in the Free
+		// spaces/paywall.php template with esc_html/esc_url/esc_attr and
+		// returned by our own REST endpoint — not user-controlled input. Parse
+		// via <template> and append.
+		var tpl = document.createElement( 'template' );
+		tpl.innerHTML = paywall.html.trim();
+		var node = tpl.content.firstElementChild;
+		if ( node ) {
+			if ( btn ) { btn.setAttribute( 'hidden', '' ); }
+			mount.appendChild( node );
+			node.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+			return;
+		}
+	}
+
+	// Fallback: build a minimal paywall from metadata using safe DOM APIs.
+	var wrap = document.createElement( 'div' );
+	wrap.className = 'bn-paywall';
+	wrap.dataset.spaceId = String( spaceId );
+
+	var body = document.createElement( 'div' );
+	body.className = 'bn-paywall__body';
+
+	var h = document.createElement( 'h2' );
+	h.className = 'bn-paywall__heading';
+	h.textContent = ( paywall && paywall.heading ) ? paywall.heading : __i18n( 'This space is available to members only.' );
+	body.appendChild( h );
+
+	if ( paywall && paywall.description ) {
+		var p = document.createElement( 'p' );
+		p.className = 'bn-paywall__description';
+		p.textContent = paywall.description;
+		body.appendChild( p );
+	}
+
+	var label = ( paywall && paywall.cta_label ) ? paywall.cta_label : __i18n( 'Become a Member' );
+
+	if ( paywall && paywall.checkout && paywall.tier_slug ) {
+		var cBtn = document.createElement( 'button' );
+		cBtn.type = 'button';
+		cBtn.className = 'bn-btn bn-paywall__cta';
+		cBtn.setAttribute( 'data-variant', 'primary' );
+		cBtn.setAttribute( 'data-tier-slug', paywall.tier_slug );
+		cBtn.textContent = label;
+		cBtn.addEventListener( 'click', function ( ev ) {
+			storeInstance.actions.startCheckout( ev );
+		} );
+		body.appendChild( cBtn );
+	} else if ( paywall && paywall.cta_url ) {
+		var a = document.createElement( 'a' );
+		a.className = 'bn-btn bn-paywall__cta';
+		a.setAttribute( 'data-variant', 'primary' );
+		a.href = paywall.cta_url;
+		a.textContent = label;
+		body.appendChild( a );
+	} else {
+		var note = document.createElement( 'p' );
+		note.className = 'bn-paywall__unconfigured';
+		note.textContent = __i18n( 'Membership purchase is not configured yet. Please check back soon.' );
+		body.appendChild( note );
+	}
+
+	wrap.appendChild( body );
+	if ( btn ) { btn.setAttribute( 'hidden', '' ); }
+	mount.appendChild( wrap );
+	wrap.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+}
+
 /* ── Store ─────────────────────────────────────────────────────────── */
 
 var storeInstance = store( 'buddynext/spaces', {
@@ -160,6 +280,8 @@ var storeInstance = store( 'buddynext/spaces', {
 							}
 						}
 					}
+				} else if ( isGatedDenial( data ) ) {
+					surfacePaywall( btn, spaceId, data );
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
@@ -190,12 +312,73 @@ var storeInstance = store( 'buddynext/spaces', {
 
 				if ( res.ok && data.pending ) {
 					swapButtonState( btn, 'pending' );
+				} else if ( isGatedDenial( data ) ) {
+					surfacePaywall( btn, spaceId, data );
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+			}
+		},
+
+		/**
+		 * Start first-party Stripe checkout for a gated space's required tier.
+		 *
+		 * Bound to the paywall CTA button (`data-wp-on--click="actions.startCheckout"`)
+		 * when the site has linked a Stripe price to the tier. POSTs to the Pro
+		 * checkout endpoint and redirects the browser to the returned Stripe
+		 * Checkout Session URL. On any failure (Stripe not configured, network)
+		 * the button is re-enabled and a toast surfaces the reason — never a
+		 * silent dead end.
+		 */
+		startCheckout: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+
+			var cfg      = ( typeof window !== 'undefined' && window.bnProCheckout ) ? window.bnProCheckout : null;
+			var tierSlug = btn.getAttribute( 'data-tier-slug' ) || ( cfg && cfg.tierSlug ) || '';
+			var endpoint = ( cfg && cfg.endpoint ) || 'buddynext-pro/v1/me/checkout';
+
+			if ( ! tierSlug ) {
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Membership purchase is not configured yet.' ), 'warn' ); }
+				return;
+			}
+
+			var origText = btn.textContent;
+			btn.disabled = true;
+			btn.textContent = __i18n( 'Redirecting…' );
+
+			var body = { tier_slug: tierSlug };
+			if ( cfg && cfg.successUrl ) { body.success_url = cfg.successUrl; }
+			if ( cfg && cfg.cancelUrl ) { body.cancel_url = cfg.cancelUrl; }
+
+			try {
+				var res  = await fetch( apiUrl( endpoint ), {
+					method:  'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( body ),
+				} );
+				var data = await res.json();
+
+				if ( res.ok && data && data.url ) {
+					window.location.href = data.url;
+					return;
+				}
+
+				// Surface a clear reason (e.g. Stripe not configured / no price linked).
+				var msg = ( data && data.message ) ? data.message : __i18n( 'Could not start checkout. Please try again later.' );
+				if ( window.bnToast ) { window.bnToast( msg, 'danger' ); }
+				btn.textContent = origText;
+				btn.disabled    = false;
+			} catch ( _e ) {
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error. Please try again.' ), 'danger' ); }
+				btn.textContent = origText;
+				btn.disabled    = false;
 			}
 		},
 

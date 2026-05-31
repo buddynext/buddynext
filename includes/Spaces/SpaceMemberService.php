@@ -76,10 +76,7 @@ class SpaceMemberService {
 		 */
 		$can = (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'join' );
 		if ( ! $can ) {
-			return new WP_Error(
-				'cannot_join_space',
-				__( 'You cannot join this space.', 'buddynext' )
-			);
+			return $this->denied_join_error( $space_id, $user_id, $space, 'join' );
 		}
 
 		// Check hard ban (bn_space_bans) as well as soft ban (member status).
@@ -180,10 +177,7 @@ class SpaceMemberService {
 		 */
 		$can = (bool) apply_filters( 'buddynext_can_join_space', true, $space, $user_id, 'request' );
 		if ( ! $can ) {
-			return new WP_Error(
-				'cannot_join_space',
-				__( 'You cannot join this space.', 'buddynext' )
-			);
+			return $this->denied_join_error( $space_id, $user_id, $space, 'request' );
 		}
 
 		if ( $this->is_hard_banned( $space_id, $user_id ) ) {
@@ -1253,6 +1247,63 @@ class SpaceMemberService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 		return $count > 0;
+	}
+
+	/**
+	 * Build the WP_Error returned when a join/request is denied by the
+	 * buddynext_can_join_space gate.
+	 *
+	 * The error data carries a `status` (403, since this is an authorization
+	 * denial rather than a malformed request) plus any `paywall` metadata that a
+	 * listener attaches via the buddynext_space_join_denied_data filter. Pro's
+	 * gated-spaces integration hooks that filter to inject the paywall HTML, CTA
+	 * url/label, required tier slug/name, and the space id — so both the REST
+	 * response body and the Interactivity store can render an upgrade path
+	 * instead of a bare "you cannot join" message. WP_REST_Server serialises the
+	 * error data into the JSON response under `data`, making the payload
+	 * available to every client (web + app).
+	 *
+	 * When no listener attaches anything the error degrades to the original
+	 * generic message with no paywall keys — no fatal, no behaviour change for
+	 * sites without Pro.
+	 *
+	 * @param int                  $space_id Space the user was denied.
+	 * @param int                  $user_id  User attempting to join.
+	 * @param array<string, mixed> $space    Space row (may be empty on miss).
+	 * @param string               $action   'join' or 'request'.
+	 * @return WP_Error
+	 */
+	private function denied_join_error( int $space_id, int $user_id, array $space, string $action ): WP_Error {
+		$data = array( 'status' => 403 );
+
+		/**
+		 * Filter the data payload attached to a gated join/request denial.
+		 *
+		 * Listeners (notably Pro's gated-spaces paywall) may add a `paywall`
+		 * sub-array carrying rendered HTML and CTA metadata. The returned array
+		 * is set verbatim as the WP_Error data, so it surfaces in the REST
+		 * response body under `data` for both web and app clients.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param array<string, mixed> $data     Error data. Always includes `status`.
+		 * @param int                  $space_id Space the user was denied.
+		 * @param int                  $user_id  User attempting to join.
+		 * @param array<string, mixed> $space    Space row (may be empty on miss).
+		 * @param string               $action   'join' or 'request'.
+		 */
+		$data = (array) apply_filters( 'buddynext_space_join_denied_data', $data, $space_id, $user_id, $space, $action );
+
+		if ( ! isset( $data['status'] ) ) {
+			$data['status'] = 403;
+		}
+
+		$message = isset( $data['message'] ) && is_string( $data['message'] ) && '' !== $data['message']
+			? $data['message']
+			: __( 'You cannot join this space.', 'buddynext' );
+		unset( $data['message'] );
+
+		return new WP_Error( 'cannot_join_space', $message, $data );
 	}
 
 	/**
