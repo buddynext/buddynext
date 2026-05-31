@@ -217,6 +217,10 @@ class Plugin {
 		// and within a UTC calendar day via transient guards.
 		( new \BuddyNext\Engagement\SessionTracker() )->register();
 
+		// Online-presence heartbeat — stamps bn_last_active for the logged-in
+		// user (zero-JS via template_redirect, topped up by the REST heartbeat).
+		( new \BuddyNext\Realtime\PresenceService() )->register();
+
 		// Wire outbound webhook service (cron retry) and domain event listener.
 		$container->get( 'webhooks' )->init();
 		( new OutboundWebhookListener() )->register();

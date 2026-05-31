@@ -111,6 +111,7 @@ if ( $bn_nav_current_user ) :
 			'unreadCount' => (int) $bn_unread_notifs,
 			'unreadLabel' => $bn_badge_label,
 			'restUrl'     => rest_url( 'buddynext/v1/me/notifications' ),
+			'nonce'       => wp_create_nonce( 'wp_rest' ),
 		)
 	);
 	?>

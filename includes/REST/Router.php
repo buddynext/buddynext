@@ -13,6 +13,7 @@ declare( strict_types=1 );
 namespace BuddyNext\REST;
 
 use BuddyNext\Admin\SlugCheckController;
+use BuddyNext\Realtime\RealtimeController;
 use BuddyNext\Outbound\AccessWebhookController;
 use BuddyNext\Auth\AuthController;
 use BuddyNext\Onboarding\InviteController;
@@ -83,5 +84,6 @@ class Router {
 		( new MemberTypeController( buddynext_service( 'member_types' ) ) )->register_routes();
 		( new OutboundWebhookController( buddynext_service( 'webhooks' ) ) )->register_routes();
 		( new SlugCheckController() )->register_routes();
+		( new RealtimeController() )->register_routes();
 	}
 }
