@@ -400,11 +400,28 @@ class FeedController {
 	}
 
 	/**
-	 * Build the FeedService instance with its dependencies.
+	 * Resolve the active feed service.
+	 *
+	 * Prefers the container-bound `feed` service so that any rebind — notably
+	 * the Pro `AiRankedFeedService`, which fires the `buddynext_feed_query_args`
+	 * / `buddynext_feed_order_by` ranking hooks — is honoured on every REST
+	 * pagination and filter-switch request. Without this, infinite scroll would
+	 * revert to chronological order even when the first SSR paint was AI-ranked.
+	 *
+	 * Falls back to a directly-constructed FeedService when the container is
+	 * unavailable (e.g. the front-end isolation harness strips the bootstrap),
+	 * so the endpoints never fatal — they simply serve the chronological feed.
 	 *
 	 * @return FeedService
 	 */
 	private function feed_service(): FeedService {
+		if ( function_exists( 'buddynext_service' ) ) {
+			$service = buddynext_service( 'feed' );
+			if ( $service instanceof FeedService ) {
+				return $service;
+			}
+		}
+
 		return new FeedService( new FollowService(), new PostService() );
 	}
 }

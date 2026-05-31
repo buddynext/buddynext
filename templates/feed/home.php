@@ -135,15 +135,26 @@ if ( null !== $decoded_cursor ) {
 $hashtag_follows_table = $wpdb->prefix . 'bn_post_hashtags';
 $ht_follows_table      = $wpdb->prefix . 'bn_hashtag_follows';
 
-// Non-default filters route through FeedService so the SQL stays in one place.
+// All filters — including the default `for-you` view — route through the
+// container-bound feed service so the SQL stays in one place AND any rebind
+// (notably the Pro AiRankedFeedService, which fires buddynext_feed_query_args /
+// buddynext_feed_order_by) re-ranks the first SSR paint. Previously the
+// `for-you` default ran inline chronological SQL here and bypassed the Pro
+// override entirely, so the AI toggle had no effect on the page a member opens.
+//
+// $feed_service is resolved defensively: if the container is unavailable (e.g.
+// the front-end isolation harness strips the bootstrap), the inline fallback
+// query below serves the chronological feed rather than fataling.
 $feed_service_filtered = false;
 $feed_posts            = array();
 $next_cursor           = '';
 $has_more              = false;
 
-if ( 'for-you' !== $bn_filter ) {
+$bn_feed_service_obj = function_exists( 'buddynext_service' ) ? buddynext_service( 'feed' ) : null;
+
+if ( $bn_feed_service_obj instanceof FeedService ) {
 	$feed_service_filtered = true;
-	$service_result        = buddynext_service( 'feed' )->home_feed(
+	$service_result        = $bn_feed_service_obj->home_feed(
 		$current_user_id,
 		'' !== $raw_cursor ? $raw_cursor : null,
 		$bn_per_page,
