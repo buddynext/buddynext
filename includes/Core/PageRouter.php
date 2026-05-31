@@ -639,6 +639,12 @@ class PageRouter {
 				if ( 'search' === (string) get_query_var( 'bn_activity_action', '' ) ) {
 					$assets->enqueue( 'search' );
 				}
+				// Leaderboard lives under the activity hub (/activity/leaderboard/)
+				// — load the gamification bundle so the board styles + period
+				// tabs hydrate.
+				if ( 'leaderboard' === (string) get_query_var( 'bn_activity_action', '' ) ) {
+					$assets->enqueue( 'gamification' );
+				}
 				break;
 
 			case 'post':
