@@ -151,7 +151,7 @@ class WPMediaVerseBridge {
 		$partials = MVS_PLUGIN_DIR . 'templates/partials/';
 		?>
 		<div
-			class="bn-msg-shell"
+			class="bn-msg-shell mvs-messages-page"
 			data-wp-interactive="mvs/messaging"
 			data-wp-init="callbacks.onInit"
 			data-wp-bind--data-active-conv="state.activeConversationId"
@@ -507,10 +507,13 @@ class WPMediaVerseBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// Fire BuddyNext hook so notifications/webhooks pick it up.
+		// Fire BuddyNext hook so notifications/webhooks pick it up. Use the
+		// canonical 4-arg signature (comment_id, object_type, object_id, user_id)
+		// that CommentService fires and every listener expects — a short 3-arg
+		// form would ArgumentCountError-fatal the 4-arg listeners.
 		$new_comment_id = (int) $wpdb->insert_id;
 		if ( $new_comment_id > 0 ) {
-			do_action( 'buddynext_comment_created', $new_comment_id, $bn_post_id, $user_id );
+			do_action( 'buddynext_comment_created', $new_comment_id, 'post', $bn_post_id, $user_id );
 		}
 	}
 }
