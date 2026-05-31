@@ -726,6 +726,21 @@ class ProfileService {
 			'registered_at' => $wp_user->user_registered,
 			'groups'        => $output_groups,
 			'fields'        => $flat_fields,
+			/**
+			 * Editorial member labels (Verified / Expert / Staff) for this user.
+			 *
+			 * Free ships no label store, so the default is an empty array and the
+			 * key is always present for app/REST clients. Pro answers this filter
+			 * (ProfileLabelInjector) with an ordered list of label objects keyed
+			 * slug/name/color/icon. Absent Pro, the payload degrades to `[]` — no
+			 * fatal, no missing key.
+			 *
+			 * @since 1.1.0
+			 *
+			 * @param array<int, array<string, mixed>> $labels          Label objects (default empty).
+			 * @param int                              $profile_user_id User whose labels to return.
+			 */
+			'labels'        => (array) apply_filters( 'buddynext_profile_labels', array(), $profile_user_id ),
 		);
 
 		wp_cache_set( $cache_key, $profile, self::CACHE_GROUP, self::CACHE_TTL );
