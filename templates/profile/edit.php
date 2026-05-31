@@ -202,6 +202,25 @@ $privacy_audiences = array(
 	'nobody'      => __( 'Nobody', 'buddynext' ),
 );
 
+// Profile-view / follow / connect gates use their own vocabularies (enforced
+// by PrivacyService::can_view_profile / can_follow / can_connect). Kept as
+// distinct option sets so each select offers only the values its gate honours.
+$privacy_visibility_options = array(
+	'public'      => __( 'Everyone', 'buddynext' ),
+	'followers'   => __( 'My followers', 'buddynext' ),
+	'connections' => __( 'My connections', 'buddynext' ),
+	'private'     => __( 'Only me', 'buddynext' ),
+);
+$privacy_follow_options = array(
+	'everyone' => __( 'Everyone', 'buddynext' ),
+	'nobody'   => __( 'Nobody', 'buddynext' ),
+);
+$privacy_connect_options = array(
+	'everyone'  => __( 'Everyone', 'buddynext' ),
+	'followers' => __( 'My followers', 'buddynext' ),
+	'nobody'    => __( 'Nobody', 'buddynext' ),
+);
+
 $privacy_see_email = (string) get_user_meta( $user_id, 'bn_privacy_see_email', true );
 if ( '' === $privacy_see_email ) {
 	$privacy_see_email = 'connections';
@@ -221,6 +240,20 @@ $privacy_search_indexable  = '0' !== (string) get_user_meta( $user_id, 'bn_priva
 // save it too so the toggle stays consistent across plans.
 $privacy_hide_views     = '1' === (string) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true );
 $privacy_account_private = (bool) get_user_meta( $user_id, 'bn_account_private', true );
+
+// Profile-view / follow / connect gates. Read through PrivacyService so the
+// stored value (and its default fallback) match exactly what the enforcement
+// reads back. Degrade to the documented defaults if the service is absent.
+$privacy_service           = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+$privacy_profile_visibility = ( $privacy_service && method_exists( $privacy_service, 'get_preference' ) )
+	? (string) $privacy_service->get_preference( $user_id, 'profile_visibility' )
+	: 'public';
+$privacy_who_can_follow = ( $privacy_service && method_exists( $privacy_service, 'get_preference' ) )
+	? (string) $privacy_service->get_preference( $user_id, 'who_can_follow' )
+	: 'everyone';
+$privacy_who_can_connect = ( $privacy_service && method_exists( $privacy_service, 'get_preference' ) )
+	? (string) $privacy_service->get_preference( $user_id, 'who_can_connect' )
+	: 'everyone';
 
 // Profile URL slug.
 $profile_slug = (string) get_user_meta( $user_id, 'bn_profile_slug', true );
@@ -503,15 +536,20 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				);
 			}
 
-			// Privacy section — three audience selects + three toggles.
+			// Privacy section — audience + gate selects, then toggles. Each
+			// select row carries its own option set (index 6); toggle rows
+			// pass an empty set, which the partial reads as the toggle variant.
 			$privacy_rows = array(
-				array( 'select', 'bn_privacy_see_email', __( 'Who can see my email', 'buddynext' ), $privacy_see_email, 'bn-ep-privacy-email', '' ),
-				array( 'select', 'bn_privacy_dm', __( 'Who can direct-message me', 'buddynext' ), $privacy_dm, 'bn-ep-privacy-dm', '' ),
-				array( 'select', 'bn_privacy_mention', __( 'Who can @mention me in posts', 'buddynext' ), $privacy_mention, 'bn-ep-privacy-mention', '' ),
-				array( 'toggle', 'bn_account_private', __( 'Private account', 'buddynext' ), $privacy_account_private, 'bn-ep-privacy-private-lbl', __( "Only approved followers see your posts. New follows arrive as requests you can accept or decline.", 'buddynext' ) ),
-				array( 'toggle', 'bn_privacy_show_in_directory', __( 'Show me in the member directory', 'buddynext' ), $privacy_show_in_directory, 'bn-ep-privacy-dir-lbl', __( 'Turn off to hide from /members/.', 'buddynext' ) ),
-				array( 'toggle', 'bn_privacy_search_indexable', __( 'Show my profile to search engines', 'buddynext' ), $privacy_search_indexable, 'bn-ep-privacy-search-lbl', __( 'When off, your profile carries noindex.', 'buddynext' ) ),
-				array( 'toggle', 'bn_pro_hide_profile_views', __( 'Hide my profile views', 'buddynext' ), $privacy_hide_views, 'bn-ep-privacy-views-lbl', __( 'When on, your visits to other profiles are not recorded.', 'buddynext' ) ),
+				array( 'select', 'bn_privacy_profile_visibility', __( 'Who can see my profile', 'buddynext' ), $privacy_profile_visibility, 'bn-ep-privacy-visibility', '', $privacy_visibility_options ),
+				array( 'select', 'bn_privacy_who_can_follow', __( 'Who can follow me', 'buddynext' ), $privacy_who_can_follow, 'bn-ep-privacy-follow', '', $privacy_follow_options ),
+				array( 'select', 'bn_privacy_who_can_connect', __( 'Who can send me connection requests', 'buddynext' ), $privacy_who_can_connect, 'bn-ep-privacy-connect', '', $privacy_connect_options ),
+				array( 'select', 'bn_privacy_see_email', __( 'Who can see my email', 'buddynext' ), $privacy_see_email, 'bn-ep-privacy-email', '', $privacy_audiences ),
+				array( 'select', 'bn_privacy_dm', __( 'Who can direct-message me', 'buddynext' ), $privacy_dm, 'bn-ep-privacy-dm', '', $privacy_audiences ),
+				array( 'select', 'bn_privacy_mention', __( 'Who can @mention me in posts', 'buddynext' ), $privacy_mention, 'bn-ep-privacy-mention', '', $privacy_audiences ),
+				array( 'toggle', 'bn_account_private', __( 'Private account', 'buddynext' ), $privacy_account_private, 'bn-ep-privacy-private-lbl', __( "Only approved followers see your posts. New follows arrive as requests you can accept or decline.", 'buddynext' ), array() ),
+				array( 'toggle', 'bn_privacy_show_in_directory', __( 'Show me in the member directory', 'buddynext' ), $privacy_show_in_directory, 'bn-ep-privacy-dir-lbl', __( 'Turn off to hide from /members/.', 'buddynext' ), array() ),
+				array( 'toggle', 'bn_privacy_search_indexable', __( 'Show my profile to search engines', 'buddynext' ), $privacy_search_indexable, 'bn-ep-privacy-search-lbl', __( 'When off, your profile carries noindex.', 'buddynext' ), array() ),
+				array( 'toggle', 'bn_pro_hide_profile_views', __( 'Hide my profile views', 'buddynext' ), $privacy_hide_views, 'bn-ep-privacy-views-lbl', __( 'When on, your visits to other profiles are not recorded.', 'buddynext' ), array() ),
 			);
 			$privacy_html = '';
 			foreach ( $privacy_rows as $r ) {
@@ -522,7 +560,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						'key'         => $r[1],
 						'label'       => $r[2],
 						'value'       => $r[3],
-						'options'     => $is_select ? $privacy_audiences : array(),
+						'options'     => $is_select ? (array) $r[6] : array(),
 						'input_id'    => $is_select ? $r[4] : '',
 						'label_id'    => $is_select ? '' : $r[4],
 						'description' => $r[5],

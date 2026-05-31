@@ -570,6 +570,14 @@ class ProfileController {
 		// not profile-field rows. Audience enums are constrained to the
 		// canonical four values; boolean toggles are coerced.
 		$audience_keys = array( 'bn_privacy_see_email', 'bn_privacy_dm', 'bn_privacy_mention' );
+		// Profile-view / follow / connect gates. Each meta key accepts only the
+		// vocabulary its PrivacyService gate honours (can_view_profile /
+		// can_follow / can_connect); the validator above rejects anything else.
+		$gate_keys     = array(
+			'bn_privacy_profile_visibility' => array( 'public', 'followers', 'connections', 'private' ),
+			'bn_privacy_who_can_follow'     => array( 'everyone', 'nobody' ),
+			'bn_privacy_who_can_connect'    => array( 'everyone', 'followers', 'nobody' ),
+		);
 		$bool_keys     = array(
 			'bn_account_private',
 			'bn_privacy_show_in_directory',
@@ -584,6 +592,15 @@ class ProfileController {
 			if ( array_key_exists( $aud_key, $data ) ) {
 				update_user_meta( $user_id, $aud_key, sanitize_key( (string) $data[ $aud_key ] ) );
 				unset( $data[ $aud_key ] );
+			}
+		}
+		foreach ( $gate_keys as $gate_key => $allowed ) {
+			if ( array_key_exists( $gate_key, $data ) ) {
+				$gate_val = sanitize_key( (string) $data[ $gate_key ] );
+				if ( in_array( $gate_val, $allowed, true ) ) {
+					update_user_meta( $user_id, $gate_key, $gate_val );
+				}
+				unset( $data[ $gate_key ] );
 			}
 		}
 		foreach ( $bool_keys as $bk ) {
@@ -689,6 +706,23 @@ class ProfileController {
 			$val = sanitize_key( (string) $data[ $aud_key ] );
 			if ( ! in_array( $val, $audiences, true ) ) {
 				$errors[ $aud_key ] = __( 'Choose a valid audience.', 'buddynext' );
+			}
+		}
+
+		// Profile-view / follow / connect gates: each key has its own enum,
+		// mirroring the PrivacyService gate that reads it back.
+		$gate_enums = array(
+			'bn_privacy_profile_visibility' => array( 'public', 'followers', 'connections', 'private' ),
+			'bn_privacy_who_can_follow'     => array( 'everyone', 'nobody' ),
+			'bn_privacy_who_can_connect'    => array( 'everyone', 'followers', 'nobody' ),
+		);
+		foreach ( $gate_enums as $gate_key => $allowed ) {
+			if ( ! array_key_exists( $gate_key, $data ) ) {
+				continue;
+			}
+			$gval = sanitize_key( (string) $data[ $gate_key ] );
+			if ( ! in_array( $gval, $allowed, true ) ) {
+				$errors[ $gate_key ] = __( 'Choose a valid privacy option.', 'buddynext' );
 			}
 		}
 
