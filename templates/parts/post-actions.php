@@ -112,7 +112,10 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			hidden
 		>
 			<?php
-			$reaction_labels = array(
+			// Human labels for the six built-in reactions. Pro custom slugs
+			// resolve their label/glyph/colour through the
+			// `buddynext_reaction_meta` filter below.
+			$bn_builtin_labels = array(
 				'like'  => __( 'Like', 'buddynext' ),
 				'love'  => __( 'Love', 'buddynext' ),
 				'haha'  => __( 'Haha', 'buddynext' ),
@@ -120,7 +123,59 @@ do_action( 'buddynext_part_post_actions_before', $args );
 				'sad'   => __( 'Sad', 'buddynext' ),
 				'angry' => __( 'Angry', 'buddynext' ),
 			);
-			foreach ( $reaction_labels as $reaction_key => $reaction_label ) :
+
+			// Consume the registered reaction-type set so admin-defined custom
+			// reactions (Pro) appear alongside the six defaults. Degrade to the
+			// built-in slugs if the service is unavailable (e.g. front-end
+			// isolation strips a dependency) so the picker never fatals.
+			if ( class_exists( '\BuddyNext\Reactions\ReactionService' ) ) {
+				$bn_reaction_types = (array) \BuddyNext\Reactions\ReactionService::reaction_types();
+			} else {
+				$bn_reaction_types = array_keys( $bn_builtin_labels );
+			}
+
+			foreach ( $bn_reaction_types as $reaction_key ) :
+				$reaction_key = (string) $reaction_key;
+				if ( '' === $reaction_key ) {
+					continue;
+				}
+
+				// Base meta: built-in label when known, bundled SVG glyph, no
+				// custom colour. Pro fills label/char/color for custom slugs.
+				$bn_meta = array(
+					'label' => isset( $bn_builtin_labels[ $reaction_key ] )
+						? $bn_builtin_labels[ $reaction_key ]
+						: ucfirst( str_replace( array( '-', '_' ), ' ', $reaction_key ) ),
+					'char'  => '',
+					'color' => '',
+				);
+
+				/**
+				 * Filter the display meta for a single reaction type.
+				 *
+				 * @param array<string,string> $bn_meta      Keys: label, char, color.
+				 * @param string                $reaction_key Reaction type slug.
+				 */
+				$bn_meta = (array) apply_filters( 'buddynext_reaction_meta', $bn_meta, $reaction_key );
+
+				$reaction_label = isset( $bn_meta['label'] ) && '' !== (string) $bn_meta['label']
+					? (string) $bn_meta['label']
+					: $reaction_key;
+				$reaction_char  = isset( $bn_meta['char'] ) ? (string) $bn_meta['char'] : '';
+				$reaction_color = isset( $bn_meta['color'] ) ? (string) $bn_meta['color'] : '';
+
+				// Prefer the bundled Fluent SVG; custom slugs have none, so fall
+				// back to a colour-tinted text glyph so the button is visible.
+				$bn_glyph = \BuddyNext\Core\IconService::render_emoji( $reaction_key, '', $reaction_label );
+				$bn_chip_style = '';
+				if ( '' === $bn_glyph ) {
+					if ( '' === $reaction_char ) {
+						$reaction_char = mb_strtoupper( mb_substr( $reaction_label, 0, 1 ) );
+					}
+					if ( '' !== $reaction_color && preg_match( '/^#[0-9a-fA-F]{6}$/', $reaction_color ) ) {
+						$bn_chip_style = 'color:' . $reaction_color . ';';
+					}
+				}
 				?>
 				<button
 					type="button"
@@ -129,7 +184,14 @@ do_action( 'buddynext_part_post_actions_before', $args );
 					title="<?php echo esc_attr( $reaction_label ); ?>"
 					data-wp-on--click="actions.setReaction"
 					data-reaction-type="<?php echo esc_attr( $reaction_key ); ?>"
-				><span class="bn-reaction-icon bn-reaction-icon--<?php echo esc_attr( $reaction_key ); ?>" aria-hidden="true"><?php buddynext_emoji( $reaction_key, '', $reaction_label ); ?></span></button>
+				><span class="bn-reaction-icon bn-reaction-icon--<?php echo esc_attr( $reaction_key ); ?>" aria-hidden="true"<?php echo '' !== $bn_chip_style ? ' style="' . esc_attr( $bn_chip_style ) . '"' : ''; ?>><?php
+					if ( '' !== $bn_glyph ) {
+						// IconService::render_emoji() returns sanitized markup.
+						echo $bn_glyph; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					} else {
+						echo '<span class="bn-reaction-glyph">' . esc_html( $reaction_char ) . '</span>';
+					}
+				?></span></button>
 			<?php endforeach; ?>
 		</div>
 	</div>
