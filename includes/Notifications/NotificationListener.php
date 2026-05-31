@@ -22,6 +22,13 @@ use BuddyNext\Contracts\ListenerInterface;
 class NotificationListener implements ListenerInterface {
 
 	/**
+	 * Members processed per background fan-out batch for a new space post.
+	 * Bounds each scheduled action so a space with tens of thousands of
+	 * members never loads/loops the whole roster in one request.
+	 */
+	private const SPACE_FANOUT_BATCH = 200;
+
+	/**
 	 * Register all notification event hook listeners.
 	 *
 	 * Called once during Plugin::register_listeners() at plugins_loaded:15,
@@ -52,6 +59,7 @@ class NotificationListener implements ListenerInterface {
 
 		// Async worker — runs inline when Action Scheduler is absent.
 		add_action( 'buddynext_async_space_new_post_notification', array( $this, 'async_space_new_post_notification' ), 10, 1 );
+		add_action( 'buddynext_async_space_post_fanout', array( $this, 'async_space_post_fanout' ), 10, 1 );
 	}
 
 	/**
@@ -543,62 +551,126 @@ class NotificationListener implements ListenerInterface {
 			return;
 		}
 
-		// Fetch all active space member IDs except the author.
+		// Fan-out can span tens of thousands of members; never load + loop the
+		// whole roster inside the posting request. Hand the entire fan-out to a
+		// single background action that pages through members in bounded batches
+		// (each batch re-enqueues the next). Fall back to one bounded inline
+		// batch only when Action Scheduler is unavailable.
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action(
+				'buddynext_async_space_post_fanout',
+				array(
+					'post_id'   => $post_id,
+					'space_id'  => $space_id,
+					'author_id' => $user_id,
+					'offset'    => 0,
+				),
+				'buddynext'
+			);
+			return;
+		}
+
+		$this->fan_out_space_post_batch( $post_id, $space_id, $user_id, 0, self::SPACE_FANOUT_BATCH );
+	}
+
+	/**
+	 * Background fan-out for a new space post, processed in bounded batches.
+	 *
+	 * Pages through active members SPACE_FANOUT_BATCH at a time and re-enqueues
+	 * itself for the next page, so neither the posting request nor any single
+	 * scheduled action ever loads or loops the whole space roster.
+	 *
+	 * @param array<string, mixed> $args post_id, space_id, author_id, offset.
+	 * @return void
+	 */
+	public function async_space_post_fanout( array $args ): void {
+		$post_id   = (int) ( $args['post_id'] ?? 0 );
+		$space_id  = (int) ( $args['space_id'] ?? 0 );
+		$author_id = (int) ( $args['author_id'] ?? 0 );
+		$offset    = max( 0, (int) ( $args['offset'] ?? 0 ) );
+
+		if ( 0 === $post_id || 0 === $space_id ) {
+			return;
+		}
+
+		$processed = $this->fan_out_space_post_batch( $post_id, $space_id, $author_id, $offset, self::SPACE_FANOUT_BATCH );
+
+		// A full batch means more members may remain — schedule the next page.
+		if ( self::SPACE_FANOUT_BATCH === $processed && function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action(
+				'buddynext_async_space_post_fanout',
+				array(
+					'post_id'   => $post_id,
+					'space_id'  => $space_id,
+					'author_id' => $author_id,
+					'offset'    => $offset + self::SPACE_FANOUT_BATCH,
+				),
+				'buddynext'
+			);
+		}
+	}
+
+	/**
+	 * Process one bounded batch of space members for a new-post notification.
+	 *
+	 * @param int $post_id   Post that was created.
+	 * @param int $space_id  Space the post belongs to.
+	 * @param int $author_id Post author (excluded from recipients).
+	 * @param int $offset    Keyset offset into the active-member list.
+	 * @param int $limit     Maximum members to process this batch.
+	 * @return int Number of member rows fetched (to decide whether to page on).
+	 */
+	private function fan_out_space_post_batch( int $post_id, int $space_id, int $author_id, int $offset, int $limit ): int {
+		global $wpdb;
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$member_ids = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT user_id FROM {$wpdb->prefix}bn_space_members
-				 WHERE space_id = %d AND status = 'active' AND user_id != %d",
+				 WHERE space_id = %d AND status = 'active' AND user_id != %d
+				 ORDER BY user_id ASC
+				 LIMIT %d OFFSET %d",
 				$space_id,
-				$user_id
+				$author_id,
+				$limit,
+				$offset
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( empty( $member_ids ) ) {
-			return;
+			return 0;
 		}
 
-		$pref_service = buddynext_service( 'notification_prefs' );
+		$pref_service  = buddynext_service( 'notification_prefs' );
+		$notifications = buddynext_service( 'notifications' );
 
 		foreach ( $member_ids as $member_id ) {
 			$member_id = (int) $member_id;
 
 			// Respect per-space notification preference.
-			$space_pref = $pref_service->get_space_pref( $member_id, $space_id );
-			if ( 'none' === $space_pref ) {
+			if ( 'none' === $pref_service->get_space_pref( $member_id, $space_id ) ) {
 				continue;
 			}
 
 			// Skip users in a block relationship with the author.
-			if ( $this->is_blocked( $member_id, $user_id ) ) {
+			if ( $this->is_blocked( $member_id, $author_id ) ) {
 				continue;
 			}
 
-			if ( function_exists( 'as_enqueue_async_action' ) ) {
-				as_enqueue_async_action(
-					'buddynext_async_space_new_post_notification',
-					array(
-						'post_id'      => $post_id,
-						'space_id'     => $space_id,
-						'author_id'    => $user_id,
-						'recipient_id' => $member_id,
-					),
-					'buddynext'
-				);
-			} else {
-				buddynext_service( 'notifications' )->create(
-					array(
-						'recipient_id' => $member_id,
-						'sender_id'    => $user_id,
-						'type'         => 'bn.space_new_post',
-						'object_type'  => 'post',
-						'object_id'    => $post_id,
-						'group_key'    => 'space_new_post_' . $space_id . '_' . $member_id,
-					)
-				);
-			}
+			$notifications->create(
+				array(
+					'recipient_id' => $member_id,
+					'sender_id'    => $author_id,
+					'type'         => 'bn.space_new_post',
+					'object_type'  => 'post',
+					'object_id'    => $post_id,
+					'group_key'    => 'space_new_post_' . $space_id . '_' . $member_id,
+				)
+			);
 		}
+
+		return count( $member_ids );
 	}
 
 	/**
