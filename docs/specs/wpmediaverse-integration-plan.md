@@ -170,3 +170,34 @@ activity→post and group→space id maps it already produces and runs these rem
 through the engine's (requested) public link seams — it must **not** rewrite
 `mvs_*` tables directly. Until the discriminators land, the migrator can still remap
 on the bare id columns under the one-provider assumption.
+
+## 8. MediaVerse engine readiness — what's there vs what to improve
+
+_Verdict: ~85% of the skeleton exists. Member DM, member media, video/audio, upload
+and storage are **ready to build UX on now**. Activity-media, space-media and all
+group/space-channel messaging **need engine work first** (E1, E3); migration needs E2._
+
+### Ready now (no engine change — BN builds UX only)
+- Media model + REST (`mvs_media_index`; `POST/GET /media`, `?author=`, `/me/media`, albums, collections).
+- Upload pipeline (`UploadService`, `/media`, `/messages/upload`) + Pro storage drivers + Pro transcode/HLS/captions.
+- Full **1:1 DM engine** (conversations/messages/participants/reactions; replies, typing, read, unsend, mute/pin/archive, requests, rate limits, poll, unread).
+- Extension hooks (`mvs_buddynext_active`, `mvs_can_send_message`, `mvs_dm_access_level`, `mvs_message_sent`, `mvs_activity_media_ids`, `mvs_privacy_can_view`, `mvs_storage_driver`, …).
+- Group/space **schema** (`mvs_conversations.type`, `group_id` scoping; generic-int `mvs_bp_activity_media` link table).
+
+### Engine asks (required MediaVerse improvements — confirmed in code)
+| # | Gap | Evidence | Blocks | Severity |
+|---|---|---|---|---|
+| **E1** | No **public, provider-neutral link API**. `insert_link`/`get_links`/`delete_links` are `private`; only `render()`/`has_links()` are public and the only write triggers are BP hooks. A non-BP consumer (BN) can't populate media↔object links. **Ask:** public `set_object_media(int $object_id, int[] $media_ids)` + `get_object_media(int $object_id): int[]` (or a `do_action` BN fires on `bn_post` save). | `ActivityMediaLinkage.php:235/254/270` (private), `:127/166` (public) | activity-media, space-media | **HIGH (blocking)** |
+| **E2** | No **`object_type` / `container_type`** discriminator (bare `activity_id` / `group_id` columns). **Ask:** add them so namespaces are explicit and BP→BN conversion is a targeted remap. | linkage table + albums `group_id` | clean migration | MEDIUM |
+| **E3** | **Group-DM management layer absent.** Free has 1:1 `find_or_create_conversation(user_a,user_b)` + a multi-participant create; **no group lifecycle** (create/add-remove/admin-role/rename/avatar/2–49 cap). Pro ships only `messaging.css` + a chat template — no messaging service module. **Ask:** build/confirm group management in Pro. | `Messaging/MessagingService.php:216`; no `wpmediaverse-pro/includes/Messaging/` | personal groups, space channels | **HIGH (blocking)** |
+
+### BN-side only (no MediaVerse work)
+- DM moderation (report message → `bn_reports` admin queue, privacy-gated).
+- Access gating: BN hooks `mvs_can_send_message` (blocks) + `mvs_dm_access_level` (space co-membership + follow/connect).
+- All UX (inbox/thread/group/channel views, galleries, composer), `--bn-*` tokens, dark mode.
+
+### Build sequencing implied
+1. **Ready immediately:** member DM (Phase 1), member media, video/audio upload, storage.
+2. **After E1:** activity-media, space-media.
+3. **After E3:** personal groups, space channels.
+4. **After E2:** robust BP→BN migration.
