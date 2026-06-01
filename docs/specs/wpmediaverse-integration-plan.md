@@ -83,10 +83,41 @@ WPMediaVerse already anticipates BuddyNext. Two switches make it the headless en
 - **BN UX:** a BN-styled "Media" tab on the space view listing media scoped to that space (drives the engine list filtered by the space's group id).
 - **Where:** Free Spaces templates + `Bridges/MediaVerseBridge`. **Engine seam (G2):** add a `container_type` discriminator so the scope is explicit and migration-clean; short-term reuse `group_id = bn_space_id`.
 
-### E. DM (1:1 + group)
-- **Engine:** full free DM REST (`/conversations`, `/messages`, `/messages/upload`, `/messages/poll`); group-capable; reactions, typing, read receipts, requests.
-- **BN UX:** set `mvs_buddynext_active=true`, then build BN's inbox + thread (`templates/messages/*`, already partly present) driving `mvs/v1` — replacing the inert native store. Gate sends via `mvs_can_send_message` using BN blocks. Deep-link from the `?recipient=` param (already wired on profile/connections buttons).
-- **Where:** Free `templates/messages/` + `assets/js/messages/store.js` + `Bridges/WPMediaVerseBridge` (already hooks `mvs_message_sent`/`mvs_can_send_message`). This **closes the DM journey** the conformance pass flagged.
+### E. Messaging — member DM · space · group (one model, two axes)
+Every conversation = **`type` (direct | group) × `container` (personal | space)**. One REST/UI
+path, one engine row (`mvs_conversations.type` + a container scope). The container reuses
+the media-linkage insight: **WPMediaVerse is the shared engine for BP Groups AND BN Spaces
+and scopes both by a plain `group_id`** — BP-Group and BN-Space are never both the active
+container provider, so `group_id` is one namespace (BN feeds `bn_space_id`); the
+`container_type` discriminator (G2) only disambiguates for the BP→BN migration.
+
+|  | personal | space (`container_type=bn_space`, `group_id=bn_space_id`) |
+|---|---|---|
+| **direct (1:1)** | **Member DM** | — (covered by space DM-unlock) |
+| **group** | **Personal group** (2–49, Pro) | **Space channel** (capped) |
+
+1. **Member DM (`direct × personal`) — free.** Anyone→anyone, gated by: *to whom* = access
+   (everyone/followers/mutual/nobody) + `bn_blocks` hard-block + request inbox
+   (`mvs_can_send_message`); *how much* = 30 msg/min, 10 convos/hr.
+2. **Space messaging — DM-unlock + optional capped channel** _(chosen)_:
+   - **Co-membership DM unlock (always on, no new UI):** same-space members may 1:1 DM each
+     other regardless of their global gate — feed space co-membership into `mvs_dm_access_level`.
+   - **Optional space channel (`group × space`):** admin-enabled per space, ONE group
+     conversation, members = space members, **capped (~≤100)**; auto-disabled above the cap
+     (the space feed is the at-scale discussion channel).
+3. **Group — unified personal + space** _(chosen)_: one group-conversation concept;
+   `container` = `personal` (ad-hoc, creator-admin, 2–49 — Pro) or `bn_space` (space channel).
+   Same plumbing, same UI pattern, discriminator decides scope.
+
+- **BN UX / where:** `mvs_buddynext_active=true` (engine UI stands down); BN builds inbox +
+  thread + group/channel views over `mvs/v1`; gate sends via `mvs_can_send_message` (blocks) +
+  `mvs_dm_access_level` (access, incl. space co-membership); deep-link via `?recipient=`
+  (already wired). Free `templates/messages/` + `assets/js/messages/store.js` +
+  `Bridges/WPMediaVerseBridge`. This **closes the DM journey** the conformance pass flagged.
+- **DM moderation (BN-side build):** report a message → `bn_reports` admin-only queue
+  (privacy-gated) → warn/strike/suspend. No engine seam needed beyond reading the message ref.
+- **Confirm with WPMediaVerse:** group **management** (create/add-remove/admin-role/2–49) —
+  schema is group-ready in free, but the Pro management layer wasn't evident in the audit.
 
 ## 3. Free vs Pro
 - **Free covers all 5 touchpoints** end-to-end (media types, galleries, albums, 1:1+group DM).
