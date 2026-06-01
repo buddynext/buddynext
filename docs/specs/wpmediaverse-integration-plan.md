@@ -61,9 +61,11 @@ WPMediaVerse already anticipates BuddyNext. Two switches make it the headless en
 ## 2. Per-touchpoint plan (engine → BN UX → where it lives)
 
 ### A. Activity media (images/video/audio in the feed composer)
-- **Engine:** `POST /media` (or `UploadService::handle`) to store the upload in `mvs_media_index`; link to the BN post via a BN-owned link (the `mvs_activity_media_ids` filter is BP-activity-specific — see Gap G1).
-- **BN UX to build:** attach control in `templates/partials/composer.php` (reuse `mvs/shared-ui` upload modal *or* a BN-styled dropzone) → store returned `media_id`s on the `bn_post` → render a BN media grid + lightbox in `post-card.php`.
-- **Where:** Free `Feed/PostService` (persist media ids), `templates/partials/composer.php` + `post-card.php`, a thin `Bridges/MediaVerseBridge`.
+- **Engine:** `POST /media` (or `UploadService::handle`) stores the upload in `mvs_media_index`. For the post↔media link, **reuse the engine's existing `mvs_bp_activity_media` table** — it is already a provider-agnostic `(activity_id, media_id, position, variant)` store (the column is a bare `bigint`, no FK to BP; only the *trigger* `bp_activity_after_save` and the meta source are BP-specific). BN feeds `bn_post_id` as the `activity_id`.
+- **Why this is safe (the key insight):** an id is an id. BuddyPress and BuddyNext are **never both the activity provider at once** (a site activates one), so the `activity_id` namespace is unambiguous — no collision, no dual-write, no parallel BN link table to maintain. Whichever plugin is active owns the id space; the engine stores + serves the media the same way for both.
+- **BN UX to build:** attach control in `templates/partials/composer.php` (reuse `mvs/shared-ui` upload modal *or* a BN dropzone) → on post save, write the links keyed by `bn_post_id`; render a **BN-styled** grid + lightbox in `post-card.php` by reading the media ids back (BN owns markup — do not use the engine's `render()` which emits engine HTML).
+- **Engine seam needed (small, G1):** the read/write are internal (`insert_link`/`get_links`). Ask WPMediaVerse to expose two provider-neutral methods — `set_object_media(int $object_id, int[] $media_ids)` and `get_object_media(int $object_id): int[]` (thin public wrappers over the existing private ones). Until then BN can write via the existing `mvs_activity_media_ids` filter path by stamping its own meta + firing the engine's save path.
+- **Where:** Free `Feed/PostService` (call the link seam on save), `templates/partials/composer.php` + `post-card.php`, a thin `Bridges/MediaVerseBridge`.
 
 ### B. Video & audio upload
 - **Engine:** same `POST /media` (MIME allowlist already includes `video/mp4|webm`, `audio/mpeg|ogg`; auto poster/waveform). **Pro** adds transcode/HLS/captions via `mvs-pro/v1` + `mvs_pro_transcode_complete`.
@@ -76,9 +78,10 @@ WPMediaVerse already anticipates BuddyNext. Two switches make it the headless en
 - **Where:** Free `templates/profile/` + a profile media part; no BP dependency (author scoping is a column).
 
 ### D. Space-specific media
-- **Engine:** albums carry a `group_id` meta; `mvs_media_index` has no native BN-space column.
-- **BN UX:** a "Media" tab on the space (`templates/` space views) listing media scoped to the space.
-- **Where:** Free Spaces templates + bridge. **Mapping needed (Gap G2):** BN `bn_spaces.id` must map to the engine's group scope — either pass BN space id as the album `group_id`, or add a BN-space meta filter via `mvs_feed_media_ids`.
+- **Engine:** albums + activity linkage scope by a BP `group_id` (a plain int, like `activity_id`).
+- **The same insight as activity media:** a container id is a container id. BP Groups and BN Spaces are never both active as the container system, so BN feeds `bn_space_id` as the `group_id` — one namespace, no collision, no parallel space-media table.
+- **BN UX:** a BN-styled "Media" tab on the space view listing media scoped to that space (drives the engine list filtered by the space's group id).
+- **Where:** Free Spaces templates + `Bridges/MediaVerseBridge`. **Engine seam (G2):** add a `container_type` discriminator so the scope is explicit and migration-clean; short-term reuse `group_id = bn_space_id`.
 
 ### E. DM (1:1 + group)
 - **Engine:** full free DM REST (`/conversations`, `/messages`, `/messages/upload`, `/messages/poll`); group-capable; reactions, typing, read receipts, requests.
@@ -97,8 +100,8 @@ WPMediaVerse already anticipates BuddyNext. Two switches make it the headless en
 5. **Video/audio polish** — transcode status, Pro storage offload (config only).
 
 ## 5. Gaps / WPMediaVerse feature requests
-- **G1 — BN activity linkage:** `mvs_activity_media_ids` keys off a BP `activity_id`; BN's `bn_posts` aren't BP activities. Need either a BN-owned media-link table/meta + render via `media_repository`, or a WPMediaVerse filter to register a non-BP object type. (Lean: BN-owned link; engine still owns the media record.)
-- **G2 — Space scope:** no native `space_id` on media/albums; use album `group_id` as the BN space id, or request a generic `object_type/object_id` scope on `mvs_media_index`.
+- **G1 — Activity↔media linkage (generalize for migration):** the link store is already provider-agnostic, but its column is *named* `activity_id` and its trigger is BP. **Request:** WPMediaVerse generalize it to `(object_type, object_id, media_id, position, variant)` — `object_type ∈ {bp_activity, bn_post, …}` — plus public `set_object_media(type,id,ids[])` / `get_object_media(type,id)` seams. This serves both the "one id namespace, one active provider" reality **and** the migration path below. Short-term BN can reuse the existing table with `bn_post_id` as `activity_id`; the `object_type` column is what makes the eventual BP→BN conversion a clean, targeted remap rather than a guess.
+- **G2 — Space/group scope (same shape as G1):** the engine scopes space media via a BP `group_id` (on albums + activity linkage). BN Spaces are likewise just container IDs, and **BP Groups and BN Spaces are never both the container provider at once** — so BN feeds `bn_space_id` as the `group_id` with no collision. **Request:** add a `container_type` discriminator (`bp_group | bn_space`) alongside `group_id` (mirroring G1's `object_type`), so the namespace is explicit and the eventual BP-Group → BN-Space conversion is a targeted remap. Short-term BN reuses `group_id = bn_space_id`.
 - **G3 — BP assumption:** the turnkey surfaces (ActivityFormIntegration, Profile/Group tabs) guard on `function_exists('buddypress')`; BN is not BuddyPress, so BN drives the engine via REST/services/hooks directly (which is the intended headless path — `mvs_buddynext_active` confirms WPMediaVerse expects this).
 
 ## 6. Doctrine for the build
@@ -106,3 +109,33 @@ WPMediaVerse already anticipates BuddyNext. Two switches make it the headless en
 - All UX is BN: OKLCH `--bn-*` tokens, Lucide via `buddynext_icon()`, BN Interactivity stores, no emoji, dark mode.
 - One thin `Bridges/MediaVerseBridge` (+ existing `WPMediaVerseBridge`) owns every engine call; features compose through it.
 - Verify each touchpoint live (seed media, walk light+dark, web + REST) before commit.
+
+## 7. Migration readiness (BuddyPress → BuddyNext)
+
+Eventually all BP sites convert to BuddyNext, so the media layer is designed so a
+**BP→BN migration is a targeted id-remap, never a media re-import.** Two facts make
+this cheap:
+
+- **Media records are already provider-neutral.** `mvs_media_index` keys on
+  `post_author` + `privacy` + `media_type` — nothing BP-specific. Migration touches
+  **zero** media rows; the files and records stay exactly as they are.
+- **Only the *links* carry a provider id**, and BP/BN are never both the provider at
+  once. So migration = rewrite the link references from the old id space to the new:
+
+| Link | BP value | After migration | Remap |
+|---|---|---|---|
+| activity ↔ media | `object_id = bp_activity_id` | `object_id = bn_post_id` | `UPDATE … SET object_id = map[old]` keyed by the activity→post id map |
+| space ↔ media (albums) | `group_id = bp_group_id` | `group_id = bn_space_id` | same, keyed by the group→space id map |
+| activity media-ids meta | `bp_activity_meta '_mvs_media_ids'` | `bn_post` meta | copy via the same map |
+
+**Why the `object_type` / `container_type` discriminators (G1/G2) matter here:** with an
+explicit type column the migration is an unambiguous, idempotent `UPDATE … WHERE
+object_type='bp_activity'` → `'bn_post'` + id remap, and a half-migrated site is never
+ambiguous about which id space a row belongs to. Without it the remap relies on the
+"one provider active" assumption holding perfectly throughout the cutover.
+
+**Action:** when BN builds its BP→BN migrator (separate effort), it consumes the
+activity→post and group→space id maps it already produces and runs these remaps
+through the engine's (requested) public link seams — it must **not** rewrite
+`mvs_*` tables directly. Until the discriminators land, the migrator can still remap
+on the bare id columns under the one-provider assumption.
