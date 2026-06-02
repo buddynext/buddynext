@@ -172,6 +172,18 @@ class PostService {
 
 		$post_id = (int) $wpdb->insert_id;
 
+		// Mirror attached media into the engine's provider-neutral link store
+		// (object_type='bn_post') so the link is migration-safe and the engine
+		// can resolve a post's media. The bn_posts.media_ids JSON stays the
+		// canonical read for now; this is an additive, best-effort mirror.
+		if ( $post_id > 0 && ! empty( $data['media_ids'] ) && is_array( $data['media_ids'] ) ) {
+			\BuddyNext\Media\ObjectMediaLink::set(
+				\BuddyNext\Media\ObjectMediaLink::POST,
+				$post_id,
+				array_map( 'absint', $data['media_ids'] )
+			);
+		}
+
 		if ( 'poll' === $type ) {
 			$this->insert_poll_options( $post_id, $data['options'] );
 		}
