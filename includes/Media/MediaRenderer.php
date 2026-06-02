@@ -52,17 +52,25 @@ class MediaRenderer {
 	 * @return string
 	 */
 	private static function tile( array $d ): string {
-		$id    = (int) $d['id'];
-		$type  = (string) $d['type'];
-		$thumb = esc_url( '' !== (string) $d['thumb'] ? (string) $d['thumb'] : (string) $d['url'] );
-		$full  = esc_url( (string) $d['url'] );
-		$alt   = esc_attr( (string) $d['title'] );
+		$id        = (int) $d['id'];
+		$type      = (string) $d['type'];
+		$raw_thumb = (string) $d['thumb'];
+		$full      = esc_url( (string) $d['url'] );
+		$alt       = esc_attr( (string) $d['title'] );
 
 		if ( 'video' === $type ) {
-			return '<button type="button" class="bn-media-tile bn-media-tile--video" '
+			// Only paint a poster <img> when the engine produced a real
+			// thumbnail. With no poster (e.g. no server-side frame extraction)
+			// fall back to a poster-less tile — the CSS dark surface + play
+			// overlay read correctly without a broken image.
+			$poster = '' !== $raw_thumb
+				? '<img class="bn-media-tile__img" src="' . esc_url( $raw_thumb ) . '" alt="' . $alt . '" loading="lazy" decoding="async">'
+				: '';
+
+			return '<button type="button" class="bn-media-tile bn-media-tile--video' . ( '' === $poster ? ' bn-media-tile--no-poster' : '' ) . '" '
 				. 'data-bn-media-id="' . $id . '" data-media-type="video" data-media-src="' . $full . '" '
 				. 'aria-label="' . esc_attr__( 'Play video', 'buddynext' ) . '">'
-				. '<img class="bn-media-tile__img" src="' . $thumb . '" alt="' . $alt . '" loading="lazy" decoding="async">'
+				. $poster
 				. '<span class="bn-media-tile__play" aria-hidden="true">' . IconService::render( 'play', 'bn-media-tile__play-icon' ) . '</span>'
 				. '</button>';
 		}
@@ -74,11 +82,14 @@ class MediaRenderer {
 				. '</div>';
 		}
 
-		// Image (default) — button so the BN lightbox can bind.
+		// Image (default) — button so the BN lightbox can bind. Use the poster
+		// thumbnail when present, otherwise the full file (still a valid image).
+		$img_src = esc_url( '' !== $raw_thumb ? $raw_thumb : (string) $d['url'] );
+
 		return '<button type="button" class="bn-media-tile bn-media-tile--image" '
 			. 'data-bn-media-id="' . $id . '" data-media-type="image" data-media-src="' . $full . '" '
 			. 'aria-label="' . ( '' !== $alt ? $alt : esc_attr__( 'View image', 'buddynext' ) ) . '">'
-			. '<img class="bn-media-tile__img" src="' . $thumb . '" alt="' . $alt . '" loading="lazy" decoding="async">'
+			. '<img class="bn-media-tile__img" src="' . $img_src . '" alt="' . $alt . '" loading="lazy" decoding="async">'
 			. '</button>';
 	}
 }

@@ -120,13 +120,16 @@ do_action( 'buddynext_part_post_body_before', $args );
 			?>
 		</div>
 
-	<?php elseif ( 'photo' === $bn_body_post_type ) : ?>
+	<?php elseif ( 'photo' === $bn_body_post_type || 'media' === $bn_body_post_type ) : ?>
 		<?php if ( '' !== $bn_body_content ) : ?>
 			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>
 		<?php endif; ?>
 			<?php
 			// Media grid — BN-native markup with engine-resolved signed URLs
-			// (broadcast TTL). MediaRenderer escapes all URLs/attributes.
+			// (broadcast TTL). Handles photo, video, and audio tiles by media
+			// type; MediaRenderer escapes all URLs/attributes. The 'media' type
+			// shares this path (mixed photo/video/audio) — BuddyNext owns the
+			// UX, so there is no MediaVerse-side hydration.
 			if ( ! empty( $bn_body_media_ids ) ) {
 				echo \BuddyNext\Media\MediaRenderer::grid( array_map( 'absint', (array) $bn_body_media_ids ) ); // phpcs:ignore WordPress.Security.EscapingOutput.OutputNotEscaped
 			}
@@ -241,17 +244,6 @@ do_action( 'buddynext_part_post_body_before', $args );
 		<div class="bn-post-card__content bn-post-card__content--announcement">
 			<?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?>
 		</div>
-
-	<?php elseif ( 'media' === $bn_body_post_type ) : ?>
-		<?php if ( '' !== $bn_body_content ) : ?>
-			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>
-		<?php endif; ?>
-		<?php if ( ! empty( $bn_body_media_ids ) ) : ?>
-			<div class="bn-post-card__media-bridge" data-mvs-ids="<?php echo esc_attr( implode( ',', array_map( 'absint', $bn_body_media_ids ) ) ); ?>">
-				<span class="bn-post-card__media-placeholder" aria-hidden="true"><?php buddynext_icon( 'camera' ); ?></span>
-				<span class="bn-post-card__bridge-label"><?php esc_html_e( 'Media', 'buddynext' ); ?></span>
-			</div>
-		<?php endif; ?>
 
 	<?php elseif ( 'discussion' === $bn_body_post_type ) : ?>
 		<div class="bn-post-card__bridge-card bn-post-card__bridge-card--jetonomy">

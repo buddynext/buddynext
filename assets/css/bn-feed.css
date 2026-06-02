@@ -434,53 +434,10 @@
 	font-weight: 500;
 }
 
-/* Photo media grid — Instagram-style 1/2/3/4 layouts, single radius on the wrapper. */
-.bn-post-card__media,
-.bn-post-card__media-grid {
-	display: grid;
-	gap: 3px;
-	border-radius: var(--bn-r-md);
-	overflow: hidden;
-}
-
-.bn-post-card__media-grid--1 { grid-template-columns: 1fr; }
-.bn-post-card__media-grid--1 .bn-post-card__media-item { aspect-ratio: 4 / 3; max-height: 480px; }
-.bn-post-card__media-grid--2 { grid-template-columns: 1fr 1fr; }
-.bn-post-card__media-grid--2 .bn-post-card__media-item { aspect-ratio: 1; }
-.bn-post-card__media-grid--3 { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; }
-.bn-post-card__media-grid--3 .bn-post-card__media-item:first-child { grid-column: 1 / -1; aspect-ratio: 16 / 9; }
-.bn-post-card__media-grid--3 .bn-post-card__media-item:not(:first-child) { aspect-ratio: 1; }
-.bn-post-card__media-grid--4 { grid-template-columns: 1fr 1fr; }
-.bn-post-card__media-grid--4 .bn-post-card__media-item { aspect-ratio: 1; }
-
-.bn-post-card__media-item {
-	background: var(--bn-sunken);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: var(--bn-ink-3);
-	cursor: pointer;
-	overflow: hidden;
-}
-
-.bn-post-card__media-item img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	transition: transform var(--bn-dur, 200ms) var(--bn-ease, ease);
-}
-
-.bn-post-card__media-item:hover img { transform: scale(1.03); }
-
-.bn-post-card__media-placeholder {
-	display: inline-flex;
-	color: var(--bn-ink-3);
-}
-
-.bn-post-card__media-placeholder svg {
-	width: 20px;
-	height: 20px;
-}
+/* Photo / video / audio media grid + tiles + lightbox live in bn-media.css
+ * (BuddyNext\Media\MediaRenderer markup). The legacy media-item grid that
+ * used to live here was superseded by the bn-media-tile system and removed
+ * to avoid two conflicting .bn-post-card__media-grid definitions. */
 
 /* File attachments. */
 .bn-post-card__file-list {
@@ -698,18 +655,6 @@
 	color: var(--bn-ink-2);
 	margin: 0;
 	line-height: 1.5;
-}
-
-.bn-post-card__media-bridge {
-	display: flex;
-	gap: var(--bn-s2);
-	align-items: center;
-	border-radius: var(--bn-r-md);
-	border: 1px solid var(--bn-line);
-	padding: var(--bn-s2) var(--bn-s3);
-	background: var(--bn-sunken);
-	font-size: var(--bn-text-sm);
-	color: var(--bn-ink-2);
 }
 
 /* Reaction summary chips — sits above the action row. */

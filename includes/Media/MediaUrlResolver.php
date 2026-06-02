@@ -63,7 +63,11 @@ class MediaUrlResolver {
 			'id'        => $media_id,
 			'type'      => $type,
 			'url'       => $url,
-			'thumb'     => '' !== $thumb ? $thumb : $url,
+			// Raw poster URL — empty when the engine has no generated thumbnail
+			// (e.g. a video with no extracted poster frame). The renderer decides
+			// per type whether to fall back to the full file (images) or to a
+			// poster-less tile (video). Never force a non-image file into an <img>.
+			'thumb'     => $thumb,
 			'title'     => (string) $repo->get( $media_id, 'title' ),
 			'width'     => (int) $repo->get( $media_id, 'width' ),
 			'height'    => (int) $repo->get( $media_id, 'height' ),

@@ -221,6 +221,10 @@ class Plugin {
 		// user (zero-JS via template_redirect, topped up by the REST heartbeat).
 		( new \BuddyNext\Realtime\PresenceService() )->register();
 
+		// BN-native media assets (grid/tile styles + lightbox). API-level
+		// consumption of WPMediaVerse only — BN owns the media UX entirely.
+		( new \BuddyNext\Media\MediaAssets() )->register();
+
 		// Wire outbound webhook service (cron retry) and domain event listener.
 		$container->get( 'webhooks' )->init();
 		( new OutboundWebhookListener() )->register();
