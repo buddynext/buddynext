@@ -60,9 +60,10 @@ class WPMediaVerseBridge {
 		// Render MVS chat components inside BuddyNext's messages hub shell.
 		add_action( 'buddynext_render_messages', array( $this, 'render_messages' ) );
 
-		// Enqueue MVS lightbox on all BuddyNext front-end pages so photo posts
-		// open in the full Instagram-style lightbox with reactions, comments, favorites.
-		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_lightbox' ) );
+		// NOTE: BuddyNext consumes WPMediaVerse at the REST/API level ONLY and
+		// owns 100% of its own UX — WPMediaVerse JS/CSS is never enqueued on
+		// BuddyNext pages. (The former enqueue_lightbox() loaded a now-removed
+		// mvs asset and 404'd; BN renders its own media + lightbox.)
 
 		// Sync MVS lightbox comments → BuddyNext activity comments.
 		// When a user comments on a photo via the lightbox, create a matching
