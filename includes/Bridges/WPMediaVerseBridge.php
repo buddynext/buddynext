@@ -189,7 +189,11 @@ class WPMediaVerseBridge {
 	 * @return array<int, array{label: string, url: string, icon?: string, active?: bool}>
 	 */
 	public function inject_media_nav_item( array $items ): array {
-		$media_url  = get_post_type_archive_link( 'mvs_media' );
+		// Resolve the engine's media landing page (its mapped Explore page) —
+		// the mvs_media CPT/archive was dropped, so never depend on it. Falls
+		// back to /media/ when no Explore page is mapped.
+		$explore_id = (int) get_option( 'mvs_page_explore', 0 );
+		$media_url  = $explore_id > 0 ? get_permalink( $explore_id ) : home_url( '/media/' );
 		$media_path = (string) ( wp_parse_url( (string) $media_url, PHP_URL_PATH ) ?? '/media/' );
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash

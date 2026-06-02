@@ -1394,7 +1394,8 @@ store( 'buddynext/post-composer', {
 								const jsonStart = text.indexOf( '{' );
 								const data      = jsonStart >= 0 ? JSON.parse( text.substring( jsonStart ) ) : {};
 								const mediaId   = data.id || data.media_id;
-								const thumbUrl  = data.thumbnail_url || data.source_url || data._mvs_file_url || '';
+								// Engine-signed URLs only — never a WP-attachment source_url.
+								const thumbUrl  = data.thumbnail_url || data.file_url || '';
 
 								_mediaState.ids.push( mediaId );
 								_mediaState.previews.push( { id: mediaId, url: thumbUrl, name: file.name } );

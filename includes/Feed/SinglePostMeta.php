@@ -214,9 +214,17 @@ class SinglePostMeta {
 		if ( is_array( $media_ids ) && ! empty( $media_ids ) ) {
 			$first = (int) $media_ids[0];
 			if ( $first > 0 ) {
-				$url = wp_get_attachment_image_url( $first, 'large' );
-				if ( false !== $url ) {
-					return (string) $url;
+				// Engine-resolved signed URL — media lives in mvs_media_index,
+				// never as a WP attachment. Full image for photos, poster
+				// thumbnail for video; skip audio (no meaningful OG image).
+				$desc = \BuddyNext\Media\MediaUrlResolver::descriptor( $first );
+				if ( $desc ) {
+					if ( 'image' === $desc['type'] && '' !== $desc['url'] ) {
+						return (string) $desc['url'];
+					}
+					if ( '' !== $desc['thumb'] ) {
+						return (string) $desc['thumb'];
+					}
 				}
 			}
 		}

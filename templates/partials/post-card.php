@@ -385,14 +385,13 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		$bn_cover_alt = '';
 		$bn_first_mid = isset( $media_ids[0] ) ? absint( $media_ids[0] ) : 0;
 		if ( $bn_first_mid > 0 ) {
-			$bn_cover_url = (string) get_post_meta( $bn_first_mid, '_mvs_file_url', true );
-			if ( '' === $bn_cover_url ) {
-				$bn_cover_url = (string) wp_get_attachment_image_url( $bn_first_mid, 'medium' );
+			// Resolve via the engine (signed URL); BuddyNext never reads WP
+			// attachments for media — all media lives in mvs_media_index.
+			$bn_cover_desc = \BuddyNext\Media\MediaUrlResolver::descriptor( $bn_first_mid );
+			if ( $bn_cover_desc ) {
+				$bn_cover_url = (string) ( '' !== $bn_cover_desc['thumb'] ? $bn_cover_desc['thumb'] : $bn_cover_desc['url'] );
+				$bn_cover_alt = (string) $bn_cover_desc['title'];
 			}
-			if ( '' === $bn_cover_url ) {
-				$bn_cover_url = (string) wp_get_attachment_url( $bn_first_mid );
-			}
-			$bn_cover_alt = (string) get_the_title( $bn_first_mid );
 		}
 		if ( '' === $bn_cover_url && ! empty( $link_meta['thumbnail'] ) ) {
 			$bn_cover_url = (string) $link_meta['thumbnail'];
