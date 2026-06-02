@@ -127,3 +127,63 @@ Legend: ✅ done · 🔧 partial/broken · ⬜ to build · 🧪 needs live test.
   access wiring + DM UI + the checklist above.
 - **WPMediaVerse team:** engine API correctness, missing assets, upload-pipeline
   bugs; review/merge the `1.6.0` engine asks (E1/E2/E3) I delivered.
+
+---
+
+# 6. Functional spec — learned from the BuddyPress integration
+
+_The WPMediaVerse BuddyPress integration is the proven reference. These are the
+functional expectations BN must match (BN-native UX, API-level). Extracted from
+`includes/Integrations/BuddyPress/*` + `assets/js/bp-activity-media.js`,
+`bp-tab-upload.js`, `album-*.js`._
+
+## 6.1 THE canonical media-id → URL resolution (fixes BN's blank render)
+Media files live under `uploads/wpmediaverse/` which is **`.htaccess` deny-all** —
+every displayable URL is an **HMAC-signed `/serve` URL minted from the media id at
+render time**. BN's stale `_mvs_file_url`/`wp_get_attachment_url()` path is wrong on
+both counts (wrong key + raw path 403s). BN MUST resolve via the engine API:
+
+| Need | Engine API (server-side, API-level) |
+|---|---|
+| Feed / long-lived markup (file) | `MediaRepository::get_broadcast_url($id)` (YEAR TTL, uid 0, privacy-checked) |
+| Feed thumbnail / video poster | `MediaRepository::get_broadcast_thumbnail_url($id,'large')` |
+| In-tab grid thumb (current viewer) | `TemplateHelpers::get_thumb_url($id,$size)` → signed thumb |
+| Full file / `<video>`/`<audio>` src / lightbox | `MediaUrl::file($id)` / `MediaRepository::get($id,'file_url')` |
+| Client-side card/lightbox | `GET mvs/v1/media/{id}` → signed `thumbnail_url`,`file_url`,`lightbox_url/webp/avif`,`link` |
+
+Rule: **never persist or reuse an upload-time signed URL** (1h TTL → 403 later); re-mint
+from the id each render. This is exactly the missing piece behind "no media in activity".
+
+## 6.2 Activity media — functional cases
+- Attach image/video/audio in the composer; **multiple** files, sequential upload, cap **6** (`mvs_activity_max_media`), button disables at cap.
+- Live preview grid before posting; per-item remove (×); video shows captured first-frame thumb; audio shows a music-note glyph.
+- Per-post privacy dropdown (Public/Members/Friends*/Private), only when admin enables `mvs_allow_user_privacy`; *Friends only if BP friends active.
+- One post bundles N media → **count-based grid** (`grid-{1..6}`), NOT N separate posts.
+- Upload endpoint: `POST mvs/v1/media?context=activity` (multipart `file`, `status=draft`, optional `privacy`, optional `thumbnail` blob for video posters), `X-WP-Nonce: wp_rest`.
+- Media ids carried in a hidden CSV field (`mvs_activity_media_ids`); linked to the post on save (BN uses the 1.6.0 `object_media` seam, `object_type='bn_post'`).
+- Render: inline **video player** (`<video poster preload>`), audio card, image grid — all URLs via broadcast signed API (re-minted each render).
+- **Lightbox**: click a tile → BN-native lightbox with gallery prev/next across that post's media, reactions, favorite, comments, share, view tracking.
+- Edge cases to honor: mixed types in one post; **failed upload** → toast + re-enable; **validation failure keeps attached media** (don't clear); **orphan cleanup** — DELETE draft media on abandon (beforeunload), skip during submit; **private** → no public footprint; **most-restrictive privacy wins** across media + their albums.
+
+## 6.3 Profile & space "Media" tab — functional cases
+- 3-column grid, newest first, **Load More** (omit button when single page); **Albums** sub-tab with cover cards + item counts.
+- Upload: reveal dropzone → drag/drop or pick multiple → sequential `POST /media` (group context adds `group_id`); ≥2-file album batches add `?album_upload=1` (one gallery activity instead of N).
+- Albums: create (`POST /albums`, group sends `group_id`), open album → ordered items grid + back link + header; **Add Media** into album (`POST /media` then `POST /albums/{id}/items`); hover card → Edit/Delete; **Set as cover** (`PUT /albums/{id}/cover`); a pinned cover that leaves the album auto-drops to first image.
+- **Audio album = playlist** (auto-advance on `ended`, first track preloaded).
+- Scoping: profile grid = `?author={user_id}`; space grid = `group_id` (BN: `bn_space` container). Profile excludes `privacy='private'` unless viewer is author; space grid shows all `status=publish` tagged to the space (membership gated at the tab/upload layer, not the read query).
+- Role-gated controls: profile = owner only; space = members (upload/create) / owner-admin (moderate/delete); visitors get read-only. Distinct empty-state copy per role.
+- Profile "Media" nav shows a **count badge** when >0.
+
+## 6.4 Access, notifications, display — cross-cutting
+- Privacy enum (rtMedia-parity numeric): public 0, members 20, friends 40, group 60, private 80, custom 90. Stored per activity as `_mvs_activity_privacy(_level)` meta.
+- **Stream privacy auto-applies** via the engine's activity-query SQL filter — BN queries normally; rows are already gated. For single-item checks use `PrivacyService::can_view($media_id,$viewer)` and inject BN block/mute via the `mvs_privacy_can_view` filter.
+- `private` sets `hide_sitewide`; others rely on the viewer-side WHERE. Admin (`manage_options`) sees all. Friends-gate degrades to private if BP friends inactive.
+- Notifications: media **reaction / comment / mention** fire BP-style notifications (never self); BN routes these through `bn_notifications` (the `mvs_message_sent`-style hooks). Click → media permalink.
+- Display helper resolves the inline thumbnail (image `<picture>`/`<img>`, video `<video poster>`, audio waveform card) — BN mirrors this markup BN-native, URLs via §6.1.
+
+## 6.5 BN build implications (refines the phases)
+- **Phase 0 must implement §6.1 resolution** in `MediaUrlResolver` (broadcast signed URLs for feed) — that alone makes attached media render.
+- BN composer/uploader mirrors §6.2 upload + cap + orphan-cleanup + privacy-dropdown behavior, BN-native.
+- BN lightbox (BN-native JS) replaces the mvs lightbox, mirroring §6.2 gallery/reactions/comments via REST.
+- BN profile/space tabs mirror §6.3 (grid+LoadMore, albums, playlist) over the REST routes.
+- Privacy: rely on the engine's stream filter; add BN block/mute via `mvs_privacy_can_view` (don't re-implement).
