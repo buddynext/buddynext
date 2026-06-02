@@ -1937,11 +1937,17 @@
 	cursor: not-allowed;
 }
 
-/* Composer drafts — tiny status row sitting just before the Share button */
+/* Composer drafts — tiny status sitting just before the Share button, inside
+ * the .bn-composer__tools flex row (align-items: center). The draft cluster
+ * MUST match the toolbar control height (32px). If it is taller, the centered
+ * row grows when the draft appears/disappears and the whole composer + feed
+ * below it jumps 8px on every draft save/clear — reads as "shaking" while
+ * typing in bursts. Keep this height locked to the toolbar baseline. */
 .bn-composer__draft {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-s2);
+	min-height: 32px;
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 	margin-inline-end: var(--bn-s2);
@@ -1961,7 +1967,11 @@
 	color: var(--bn-accent);
 	cursor: pointer;
 	text-decoration: underline;
-	min-height: var(--bn-tap, 40px);
+	/* Match the toolbar control height (32px), NOT the 40px tap target — a
+	 * taller control grows the centered tools row and makes the composer jump
+	 * when the draft toggles. The adjacent tool buttons are 32px too, so this
+	 * keeps the row baseline consistent and layout-stable. */
+	min-height: 32px;
 }
 
 .bn-composer__draft-discard:hover { color: var(--bn-danger); }
