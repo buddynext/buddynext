@@ -102,8 +102,10 @@ class MediaRenderer {
 		}
 
 		if ( 'audio' === $type ) {
+			$audio_title = '' !== $alt ? '<span class="bn-media-tile__audio-title">' . $alt . '</span>' : '';
 			return '<div class="bn-media-tile bn-media-tile--audio" data-bn-media-id="' . $id . '" data-media-type="audio">'
 				. '<span class="bn-media-tile__audio-icon" aria-hidden="true">' . IconService::render( 'music', '' ) . '</span>'
+				. $audio_title
 				. '<audio class="bn-media-tile__audio-player" controls preload="none" src="' . $full . '"></audio>'
 				. '</div>';
 		}
