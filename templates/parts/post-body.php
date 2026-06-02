@@ -124,42 +124,13 @@ do_action( 'buddynext_part_post_body_before', $args );
 		<?php if ( '' !== $bn_body_content ) : ?>
 			<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>
 		<?php endif; ?>
-		<?php if ( ! empty( $bn_body_media_ids ) ) : ?>
-			<div class="bn-post-card__media bn-post-card__media-grid mvs-activity-media-grid bn-post-card__media-grid--<?php echo count( $bn_body_media_ids ) >= 4 ? '4' : esc_attr( (string) count( $bn_body_media_ids ) ); ?>">
-				<?php
-				foreach ( array_slice( $bn_body_media_ids, 0, 4 ) as $media_id ) :
-					$media_id  = absint( $media_id );
-					$media_url = '';
-					$full_url  = '';
-					if ( $media_id > 0 ) {
-						$media_url = (string) get_post_meta( $media_id, '_mvs_file_url', true );
-						if ( '' === $media_url ) {
-							$media_url = (string) wp_get_attachment_image_url( $media_id, 'medium' );
-						}
-						if ( ! $media_url ) {
-							$media_url = (string) wp_get_attachment_url( $media_id );
-						}
-						$full_url = (string) wp_get_attachment_url( $media_id );
-					}
-					$media_permalink = get_permalink( $media_id );
-					$media_title     = get_the_title( $media_id );
-					if ( ! $media_title ) {
-						$media_title = wp_trim_words( $bn_body_content, 12, '' );
-					}
-					$media_link_href = '' !== $full_url ? $full_url : $media_url;
-					?>
-					<div class="bn-post-card__media-item mvs-activity-media" data-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-media-id="<?php echo esc_attr( (string) $media_id ); ?>" data-mvs-src="<?php echo esc_url( $full_url ); ?>">
-						<?php if ( '' !== $media_url ) : ?>
-							<a href="<?php echo esc_url( $media_link_href ); ?>" class="mvs-grid-item-link" data-mvs-permalink="<?php echo esc_url( (string) $media_permalink ); ?>">
-								<img src="<?php echo esc_url( $media_url ); ?>" alt="<?php echo esc_attr( $media_title ); ?>" loading="lazy">
-							</a>
-						<?php else : ?>
-							<span class="bn-post-card__media-placeholder" aria-hidden="true"><?php buddynext_icon( 'camera' ); ?></span>
-						<?php endif; ?>
-					</div>
-				<?php endforeach; ?>
-			</div>
-		<?php endif; ?>
+			<?php
+			// Media grid — BN-native markup with engine-resolved signed URLs
+			// (broadcast TTL). MediaRenderer escapes all URLs/attributes.
+			if ( ! empty( $bn_body_media_ids ) ) {
+				echo \BuddyNext\Media\MediaRenderer::grid( array_map( 'absint', (array) $bn_body_media_ids ) ); // phpcs:ignore WordPress.Security.EscapingOutput.OutputNotEscaped
+			}
+			?>
 
 	<?php elseif ( 'file' === $bn_body_post_type ) : ?>
 		<?php if ( '' !== $bn_body_content ) : ?>
