@@ -46,6 +46,32 @@ class MediaRenderer {
 	}
 
 	/**
+	 * Render a uniform gallery grid for a profile / space "Media" surface.
+	 *
+	 * Unlike grid() (the 1–4 Instagram-style post layout), this is an even
+	 * 3-column gallery for an arbitrary number of items. It reuses the same
+	 * lightbox-bound tiles, so clicking opens the BN lightbox with gallery
+	 * prev/next across the whole grid.
+	 *
+	 * @param int[] $media_ids Ordered media ids.
+	 * @return string HTML (empty string if nothing resolvable).
+	 */
+	public static function gallery( array $media_ids ): string {
+		$items = MediaUrlResolver::descriptors( $media_ids );
+		if ( empty( $items ) ) {
+			return '';
+		}
+
+		$html = '<div class="bn-media-gallery" data-bn-media-grid>';
+		foreach ( $items as $item ) {
+			$html .= self::tile( $item );
+		}
+		$html .= '</div>';
+
+		return $html;
+	}
+
+	/**
 	 * Render one media tile by type.
 	 *
 	 * @param array<string,mixed> $d Descriptor from MediaUrlResolver.

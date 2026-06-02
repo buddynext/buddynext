@@ -13,6 +13,18 @@
 .bn-post-card__media-grid--3 { grid-template-columns: 1fr 1fr 1fr; }
 .bn-post-card__media-grid--4 { grid-template-columns: 1fr 1fr; }
 
+/* ── Profile / space gallery — uniform 3-up grid of lightbox tiles ──────── */
+.bn-media-gallery {
+	display: grid;
+	grid-template-columns: repeat( 3, 1fr );
+	gap: var( --bn-space-2xs, 0.375rem );
+}
+@media ( max-width: 640px ) {
+	.bn-media-gallery { grid-template-columns: repeat( 2, 1fr ); }
+}
+/* Gallery tiles are always square, regardless of count (grid() varies by N). */
+.bn-media-gallery .bn-media-tile { aspect-ratio: 1 / 1; }
+
 /* ── Tiles ──────────────────────────────────────────────────────────────── */
 .bn-media-tile {
 	position: relative;

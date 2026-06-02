@@ -146,28 +146,16 @@ $reply_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpd
 $like_count  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions WHERE user_id = %d AND object_type = 'post'", $user_id ) );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+// Profile media gallery — resolved from WPMediaVerse at the API level (its
+// media live in mvs_media_index, not wp_posts). $user_media holds ordered
+// media ids; the panel renders them BN-native via MediaRenderer::gallery().
+// Privacy (hide private from non-owners) is enforced inside the engine query.
 $user_media  = array();
 $media_count = 0;
-if ( class_exists( 'WPMediaVerse\Core\Plugin' ) && post_type_exists( 'mvs_media' ) ) {
-	$user_media        = get_posts(
-		array(
-			'post_type'   => 'mvs_media',
-			'author'      => $user_id,
-			'numberposts' => 24,
-			'post_status' => 'publish',
-		)
-	);
-	$media_count_query = new WP_Query(
-		array(
-			'post_type'      => 'mvs_media',
-			'author'         => $user_id,
-			'posts_per_page' => 1,
-			'post_status'    => 'publish',
-			'fields'         => 'ids',
-			'no_found_rows'  => false,
-		)
-	);
-	$media_count       = (int) $media_count_query->found_posts;
+if ( \BuddyNext\Media\MediaClient::available() ) {
+	$bn_media_viewer = get_current_user_id();
+	$user_media      = \BuddyNext\Media\Galleries::user_media_ids( $user_id, $bn_media_viewer, 24, 0 );
+	$media_count     = \BuddyNext\Media\Galleries::user_media_count( $user_id, $bn_media_viewer );
 }
 
 $jt_discussions   = array();

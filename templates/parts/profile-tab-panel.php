@@ -144,39 +144,19 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 
 			<!-- Media tab content -->
 			<div class="bn-profile-tab-panel" data-tab-panel="media" hidden>
-				<?php if ( $bn_user_media ) : ?>
-					<div class="bn-profile-media-grid mvs-activity-media-grid">
-						<?php foreach ( $bn_user_media as $media_post ) : ?>
-							<?php
-							$thumb_url = get_post_meta( $media_post->ID, '_mvs_file_url', true );
-							if ( ! $thumb_url ) {
-								$thumb_url = wp_get_attachment_image_url( $media_post->ID, 'medium' );
-							}
-							if ( ! $thumb_url ) {
-								$thumb_url = wp_get_attachment_url( $media_post->ID );
-							}
-							$full_url   = wp_get_attachment_url( $media_post->ID );
-							$media_type = (string) get_post_meta( $media_post->ID, '_mvs_media_type', true );
-							if ( '' === $media_type ) {
-								$media_type = 'image';
-							}
-							?>
-							<div class="bn-profile-media-item mvs-activity-media" data-mvs-media-id="<?php echo esc_attr( (string) $media_post->ID ); ?>" data-mvs-src="<?php echo esc_url( (string) $full_url ); ?>">
-								<?php if ( $thumb_url && 'image' === $media_type ) : ?>
-									<a href="<?php echo esc_url( (string) $full_url ); ?>" class="mvs-grid-item-link">
-										<img src="<?php echo esc_url( $thumb_url ); ?>" alt="<?php echo esc_attr( $media_post->post_title ); ?>" loading="lazy">
-									</a>
-								<?php elseif ( 'video' === $media_type ) : ?>
-									<div class="bn-profile-media-video"><?php buddynext_icon( 'play-circle' ); ?></div>
-								<?php else : ?>
-									<div class="bn-profile-media-placeholder"><?php buddynext_icon( 'camera' ); ?></div>
-								<?php endif; ?>
-							</div>
-						<?php endforeach; ?>
-					</div>
-				<?php else : ?>
+				<?php
+				// BN-native gallery. $bn_user_media is an ordered list of
+				// WPMediaVerse media ids (privacy already applied upstream);
+				// MediaRenderer::gallery() emits lightbox-bound tiles, video,
+				// and audio. No WPMediaVerse markup/JS — BuddyNext owns the UX.
+				if ( ! empty( $bn_user_media ) ) {
+					echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', (array) $bn_user_media ) ); // phpcs:ignore WordPress.Security.EscapingOutput.OutputNotEscaped
+				} else {
+					?>
 					<div class="bn-empty-state"><?php esc_html_e( 'No media uploaded yet.', 'buddynext' ); ?></div>
-				<?php endif; ?>
+					<?php
+				}
+				?>
 			</div>
 
 			<!-- Likes tab content -->
