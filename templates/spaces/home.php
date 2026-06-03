@@ -331,7 +331,10 @@ add_action(
 	static function () use ( $bn_sidebar_args ) {
 		$bn_s = $bn_sidebar_args;
 
-		// Card 1: About.
+		// Card 1: About. Qualitative context only (description + type +
+		// created + category). The Members / Posts counts live in the hero
+		// stat strip — repeating the numbers here is duplication, so this
+		// card carries what the strip does not.
 		ob_start();
 		if ( ! empty( $bn_s['space']->description ) ) :
 			?>
@@ -339,16 +342,6 @@ add_action(
 			<?php
 		endif;
 		?>
-		<div class="bn-sh-side-stats">
-			<div class="bn-sh-side-stat">
-				<span class="bn-sh-side-stat__num"><?php echo esc_html( $bn_s['member_count_fmt'] ); ?></span>
-				<span class="bn-sh-side-stat__label"><?php esc_html_e( 'Members', 'buddynext' ); ?></span>
-			</div>
-			<div class="bn-sh-side-stat">
-				<span class="bn-sh-side-stat__num"><?php echo esc_html( number_format_i18n( $bn_s['post_count'] ) ); ?></span>
-				<span class="bn-sh-side-stat__label"><?php esc_html_e( 'Posts', 'buddynext' ); ?></span>
-			</div>
-		</div>
 		<div class="bn-sh-side-meta">
 			<span class="bn-badge" data-tone="<?php echo esc_attr( $bn_s['privacy_tone'] ); ?>"><?php echo esc_html( $bn_s['privacy_label'] ); ?></span>
 			<?php if ( ! empty( $bn_s['space']->created_at ) ) : ?>

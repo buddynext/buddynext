@@ -171,7 +171,7 @@ if ( ! function_exists( 'bn_space_cover_tone' ) ) {
 	 * @return string Tone slug consumed by `.bn-sd-card__cover[data-tone]`.
 	 */
 	function bn_space_cover_tone( int $space_id ): string {
-		$tones = array( 'sky', 'violet', 'emerald', 'amber', 'rose', 'indigo' );
+		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
 		return $tones[ $space_id % count( $tones ) ];
 	}
 }
@@ -208,38 +208,41 @@ if ( ! function_exists( 'bn_space_category_icon' ) ) {
 add_action(
 	'buddynext_right_sidebar',
 	static function () use ( $categories, $bn_cat_slug, $current_user_id, $wpdb ) {
-		// Card 1: Categories.
-		ob_start();
-		?>
-		<ul class="bn-sd-side-list">
-			<li>
-				<a href="<?php echo esc_url( remove_query_arg( 'bn_cat' ) ); ?>"
-					class="bn-sd-side-row<?php echo ( '' === $bn_cat_slug ) ? ' is-active' : ''; ?>">
-					<span><?php esc_html_e( 'All categories', 'buddynext' ); ?></span>
-				</a>
-			</li>
-			<?php foreach ( $categories as $bn_cat_item ) : ?>
+		// Card 1: Categories — only when the site actually has categories.
+		// A lone "All categories" row is noise on a category-less install.
+		if ( ! empty( $categories ) ) {
+			ob_start();
+			?>
+			<ul class="bn-sd-side-list">
 				<li>
-					<a href="<?php echo esc_url( add_query_arg( 'bn_cat', $bn_cat_item->slug ) ); ?>"
-						class="bn-sd-side-row<?php echo ( $bn_cat_item->slug === $bn_cat_slug ) ? ' is-active' : ''; ?>">
-						<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo wp_kses_data( bn_space_category_icon( $bn_cat_item->slug ) ); ?></span>
-						<span><?php echo esc_html( $bn_cat_item->name ); ?></span>
+					<a href="<?php echo esc_url( remove_query_arg( 'bn_cat' ) ); ?>"
+						class="bn-sd-side-row<?php echo ( '' === $bn_cat_slug ) ? ' is-active' : ''; ?>">
+						<span><?php esc_html_e( 'All categories', 'buddynext' ); ?></span>
 					</a>
 				</li>
-			<?php endforeach; ?>
-		</ul>
-		<?php
-		$bn_cats_html = (string) ob_get_clean();
+				<?php foreach ( $categories as $bn_cat_item ) : ?>
+					<li>
+						<a href="<?php echo esc_url( add_query_arg( 'bn_cat', $bn_cat_item->slug ) ); ?>"
+							class="bn-sd-side-row<?php echo ( $bn_cat_item->slug === $bn_cat_slug ) ? ' is-active' : ''; ?>">
+							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo wp_kses_data( bn_space_category_icon( $bn_cat_item->slug ) ); ?></span>
+							<span><?php echo esc_html( $bn_cat_item->name ); ?></span>
+						</a>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+			<?php
+			$bn_cats_html = (string) ob_get_clean();
 
-		buddynext_get_template(
-			'parts/sidebar-card.php',
-			array(
-				'id'         => 'spaces-categories',
-				'title'      => __( 'Categories', 'buddynext' ),
-				'title_icon' => 'hash',
-				'body_html'  => $bn_cats_html,
-			)
-		);
+			buddynext_get_template(
+				'parts/sidebar-card.php',
+				array(
+					'id'         => 'spaces-categories',
+					'title'      => __( 'Categories', 'buddynext' ),
+					'title_icon' => 'hash',
+					'body_html'  => $bn_cats_html,
+				)
+			);
+		}
 
 		// Card 2: Your spaces (members only).
 		if ( $current_user_id ) {
@@ -343,19 +346,8 @@ do_action( 'buddynext_spaces_directory_before', $current_user_id );
 
 // ── Render ───────────────────────────────────────────────────────────────────
 
-// Build filter-strip args.
-$bn_cat_options = array( '' => __( 'All categories', 'buddynext' ) );
-foreach ( $categories as $bn_cat_opt ) {
-	$bn_cat_options[ $bn_cat_opt->slug ] = $bn_cat_opt->name;
-}
-
-$bn_type_options = array(
-	''        => __( 'All types', 'buddynext' ),
-	'open'    => \BuddyNext\Spaces\SpaceService::type_label( 'open' ),
-	'private' => \BuddyNext\Spaces\SpaceService::type_label( 'private' ),
-	'secret'  => \BuddyNext\Spaces\SpaceService::type_label( 'secret' ),
-);
-
+// Type-filter pills (the single type-filter home; the duplicate dropdown
+// and the orphan category chip-row were removed in the directory refactor).
 $bn_type_chips = array(
 	''        => __( 'All', 'buddynext' ),
 	'open'    => \BuddyNext\Spaces\SpaceService::type_label( 'open' ),
@@ -425,20 +417,9 @@ $bn_subtitle = sprintf(
 				'placeholder' => __( 'Search spaces…', 'buddynext' ),
 				'aria_label'  => __( 'Search spaces', 'buddynext' ),
 			),
-			'selects'  => array(
-				array(
-					'name'       => 'bn_cat',
-					'value'      => $bn_cat_slug,
-					'options'    => $bn_cat_options,
-					'aria_label' => __( 'Filter by category', 'buddynext' ),
-				),
-				array(
-					'name'       => 'bn_type',
-					'value'      => $bn_visibility,
-					'options'    => $bn_type_options,
-					'aria_label' => __( 'Filter by type', 'buddynext' ),
-				),
-			),
+			// Type lives in the pill row below; category lives in the sidebar
+			// card. No duplicate select dropdowns here — one home per filter.
+			'selects'  => array(),
 			'reactive' => true,
 		)
 	);
@@ -490,24 +471,6 @@ $bn_subtitle = sprintf(
 			</ul>
 		</div>
 	</div>
-
-	<nav class="bn-tabs bn-sd-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter by category', 'buddynext' ); ?>">
-		<a
-			href="<?php echo esc_url( remove_query_arg( 'bn_cat' ) ); ?>"
-			class="bn-tab bn-sd-chip"
-			role="tab"
-			aria-selected="<?php echo ( '' === $bn_cat_slug ) ? 'true' : 'false'; ?>"
-		><?php esc_html_e( 'All', 'buddynext' ); ?></a>
-
-		<?php foreach ( $categories as $bn_cat_chip ) : ?>
-			<a
-				href="<?php echo esc_url( add_query_arg( 'bn_cat', $bn_cat_chip->slug ) ); ?>"
-				class="bn-tab bn-sd-chip"
-				role="tab"
-				aria-selected="<?php echo ( $bn_cat_chip->slug === $bn_cat_slug ) ? 'true' : 'false'; ?>"
-			><span class="bn-sd-chip__icon" aria-hidden="true"><?php echo wp_kses_data( bn_space_category_icon( $bn_cat_chip->slug ) ); ?></span> <?php echo esc_html( $bn_cat_chip->name ); ?></a>
-		<?php endforeach; ?>
-	</nav>
 
 	<div class="bn-sd-loading" data-bn-loading hidden aria-hidden="true">
 		<?php for ( $bn_skel_i = 0; $bn_skel_i < 6; $bn_skel_i++ ) : ?>

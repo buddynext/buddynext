@@ -1397,16 +1397,13 @@ var storeInstance = store( 'buddynext/spaces', {
 		setType: function ( event ) {
 			var btn = event && event.target && event.target.closest( '[data-bn-type-chip]' );
 			if ( ! btn ) { return; }
-			var nextType = btn.getAttribute( 'data-bn-type-chip' ) || '';
-			var chips    = document.querySelectorAll( '[data-bn-type-chip]' );
+			var chips = document.querySelectorAll( '[data-bn-type-chip]' );
 			for ( var i = 0; i < chips.length; i++ ) {
 				chips[ i ].setAttribute(
 					'aria-selected',
 					chips[ i ] === btn ? 'true' : 'false'
 				);
 			}
-			var typeSelect = document.querySelector( 'select[name="bn_type"]' );
-			if ( typeSelect ) { typeSelect.value = nextType; }
 			applySpacesFilter();
 		},
 
@@ -1463,16 +1460,23 @@ var storeInstance = store( 'buddynext/spaces', {
 		resetFilters: function () {
 			var searchInput = document.querySelector( 'input[name="bn_search"]' );
 			if ( searchInput ) { searchInput.value = ''; }
-			var catSelect = document.querySelector( 'select[name="bn_cat"]' );
-			if ( catSelect ) { catSelect.value = ''; }
-			var typeSelect = document.querySelector( 'select[name="bn_type"]' );
-			if ( typeSelect ) { typeSelect.value = ''; }
 			var chips = document.querySelectorAll( '[data-bn-type-chip]' );
 			for ( var i = 0; i < chips.length; i++ ) {
 				chips[ i ].setAttribute(
 					'aria-selected',
 					chips[ i ].getAttribute( 'data-bn-type-chip' ) === '' ? 'true' : 'false'
 				);
+			}
+			// Category is URL-driven; drop it so "Reset" truly clears everything.
+			var hadCat = false;
+			try {
+				hadCat = new URLSearchParams( window.location.search ).has( 'bn_cat' );
+			} catch ( e ) {
+				hadCat = false;
+			}
+			if ( hadCat ) {
+				window.location.href = window.location.pathname;
+				return;
 			}
 			applySpacesFilter();
 		},
@@ -1587,18 +1591,27 @@ var bnSpacesFilterAbort = null;
  */
 function readSpacesFilterState() {
 	var search = document.querySelector( 'input[name="bn_search"]' );
-	var cat    = document.querySelector( 'select[name="bn_cat"]' );
-	var type   = document.querySelector( 'select[name="bn_type"]' );
-	var sortEl = document.querySelector( '[data-bn-sort-trigger]' );
-	var sort   = sortEl && sortEl.getAttribute( 'data-current-sort' );
+	// Type lives on the active pill (the dropdown was removed in the
+	// directory refactor — one filter home per dimension).
+	var typeChip = document.querySelector( '[data-bn-type-chip][aria-selected="true"]' );
+	var sortEl   = document.querySelector( '[data-bn-sort-trigger]' );
+	var sort     = sortEl && sortEl.getAttribute( 'data-current-sort' );
 	if ( ! sort ) {
 		var selected = document.querySelector( '[data-bn-sort-value][aria-selected="true"]' );
 		sort         = selected ? selected.getAttribute( 'data-bn-sort-value' ) : 'popular';
 	}
+	// Category is sidebar/URL-driven (full navigation), preserved here so
+	// reactive type/search/sort changes keep any active category.
+	var category = '';
+	try {
+		category = new URLSearchParams( window.location.search ).get( 'bn_cat' ) || '';
+	} catch ( e ) {
+		category = '';
+	}
 	return {
 		q:        search ? search.value : '',
-		category: cat ? cat.value : '',
-		type:     type ? type.value : '',
+		category: category,
+		type:     typeChip ? ( typeChip.getAttribute( 'data-bn-type-chip' ) || '' ) : '',
 		sort:     sort || 'popular',
 	};
 }
@@ -1855,18 +1868,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			applySpacesFilter();
 		} );
 	}
-	var catSelect = document.querySelector( 'select[name="bn_cat"]' );
-	if ( catSelect ) {
-		catSelect.addEventListener( 'change', function () {
-			applySpacesFilter();
-		} );
-	}
-	var typeSelect = document.querySelector( 'select[name="bn_type"]' );
-	if ( typeSelect ) {
-		typeSelect.addEventListener( 'change', function () {
-			applySpacesFilter();
-		} );
-	}
+	// Type/category dropdowns were removed (type → pills, category →
+	// sidebar). Type pills drive applySpacesFilter via actions.setType.
 
 	// Suppress the form submit on reactive filter forms so Enter does
 	// not reload the page.

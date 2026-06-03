@@ -50,7 +50,7 @@ if ( ! function_exists( 'bn_space_cover_tone' ) ) {
 	 * @return string Tone slug consumed by `.bn-sd-card__cover[data-tone]`.
 	 */
 	function bn_space_cover_tone( int $space_id ): string {
-		$tones = array( 'sky', 'violet', 'emerald', 'amber', 'rose', 'indigo' );
+		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
 		return $tones[ $space_id % count( $tones ) ];
 	}
 }

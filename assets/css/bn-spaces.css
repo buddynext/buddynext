@@ -147,12 +147,18 @@
 	--bn-tone-l-start: 45%;
 	--bn-tone-l-end:   30%;
 }
+/*
+ * Brand-safe community palette: a blue → green → warm sweep. Purple,
+ * violet, indigo and pink/rose hues are deliberately excluded — they read
+ * as the synthetic "AI" palette BN never uses. All single-hue (no rainbow
+ * gradient), so a cover identifies a space without looking generated.
+ */
 .bn-sd-card__cover[data-tone="sky"]     { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 240) 0%, oklch(var(--bn-tone-l-end) 0.18 240) 100%); }
-.bn-sd-card__cover[data-tone="violet"]  { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 295) 0%, oklch(var(--bn-tone-l-end) 0.20 295) 100%); }
+.bn-sd-card__cover[data-tone="cyan"]    { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.12 200) 0%, oklch(var(--bn-tone-l-end) 0.16 200) 100%); }
 .bn-sd-card__cover[data-tone="emerald"] { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 160) 0%, oklch(var(--bn-tone-l-end) 0.18 160) 100%); }
+.bn-sd-card__cover[data-tone="lime"]    { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 130) 0%, oklch(var(--bn-tone-l-end) 0.17 130) 100%); }
 .bn-sd-card__cover[data-tone="amber"]   { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 70)  0%, oklch(var(--bn-tone-l-end) 0.18 70)  100%); }
-.bn-sd-card__cover[data-tone="rose"]    { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 15)  0%, oklch(var(--bn-tone-l-end) 0.20 15)  100%); }
-.bn-sd-card__cover[data-tone="indigo"]  { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 265) 0%, oklch(var(--bn-tone-l-end) 0.20 265) 100%); }
+.bn-sd-card__cover[data-tone="coral"]   { background: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 35)  0%, oklch(var(--bn-tone-l-end) 0.18 35)  100%); }
 
 .bn-sd-card__cover img {
 	width: 100%;
@@ -355,7 +361,7 @@
 	height: 180px;
 	background:
 		radial-gradient(circle at 18% 30%, color-mix(in oklch, var(--bn-accent) 30%, transparent), transparent 55%),
-		radial-gradient(circle at 78% 75%, color-mix(in oklch, var(--bn-jetonomy, var(--bn-accent)) 28%, transparent), transparent 50%),
+		radial-gradient(circle at 78% 75%, color-mix(in oklch, var(--bn-accent-600, var(--bn-accent)) 20%, transparent), transparent 50%),
 		linear-gradient(135deg, var(--bn-accent-100), var(--bn-sunken));
 	position: relative;
 	overflow: hidden;
