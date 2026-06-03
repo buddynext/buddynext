@@ -267,8 +267,13 @@ body.bn-lightbox-open { overflow: hidden; }
 	cursor: pointer;
 	transition: border-color 0.12s ease, transform 0.12s ease;
 }
-.bn-lightbox__reaction:hover { transform: translateY( -1px ); }
-.bn-lightbox__reaction.is-active { border-color: var( --bn-accent, oklch( 58% 0.13 264 ) ); background: var( --bn-accent-100, oklch( 94% 0.04 264 ) ); }
+.bn-lightbox__reaction:hover { transform: translateY( -1px ); background: var( --bn-line-faint, oklch( 95% 0.003 0 ) ); }
+/* Active pill: a translucent accent tint that reads correctly in light AND
+   dark (a fixed light --bn-accent-100 became a bright blob on the dark panel). */
+.bn-lightbox__reaction.is-active {
+	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
+	background: color-mix( in oklch, var( --bn-accent, oklch( 58% 0.13 264 ) ) 16%, transparent );
+}
 .bn-lightbox__reaction-emoji { width: 20px; height: 20px; display: block; }
 .bn-lightbox__reaction-count { font-size: var( --bn-text-xs, 0.75rem ); font-weight: 600; color: var( --bn-ink-2, oklch( 40% 0.01 0 ) ); }
 
