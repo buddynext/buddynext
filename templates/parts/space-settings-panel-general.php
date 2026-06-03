@@ -106,15 +106,7 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 			value="<?php echo esc_attr( $bn_space->cover_image_url ?? '' ); ?>"
 		>
 		<div class="bn-space-settings__cover-actions">
-			<button
-				type="button"
-				class="bn-btn"
-				data-variant="secondary"
-				data-size="sm"
-				data-bn-cover-upload
-			>
-				<?php buddynext_icon( 'upload' ); ?> <?php esc_html_e( 'Upload cover photo', 'buddynext' ); ?>
-			</button>
+			<?php // The drop-zone above is the upload/replace target; the action row only carries Remove. ?>
 			<button
 				type="button"
 				class="bn-btn"

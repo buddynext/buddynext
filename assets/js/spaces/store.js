@@ -2277,11 +2277,13 @@ document.addEventListener( 'keydown', function ( event ) {
 
 	var preview   = field.querySelector( '[data-bn-cover-preview]' );
 	var input     = field.querySelector( '[data-bn-cover-input]' );
+	// Optional: the drop-zone preview is the primary upload affordance, so a
+	// standalone upload button is not required.
 	var trigger   = field.querySelector( '[data-bn-cover-upload]' );
 	var removeBtn = field.querySelector( '[data-bn-cover-remove]' );
 	var empty     = field.querySelector( '.bn-space-settings__cover-empty' );
 
-	if ( ! preview || ! input || ! trigger ) { return; }
+	if ( ! preview || ! input ) { return; }
 
 	var mediaFrame = null;
 
@@ -2327,10 +2329,12 @@ document.addEventListener( 'keydown', function ( event ) {
 		mediaFrame.open();
 	}
 
-	trigger.addEventListener( 'click', function ( e ) {
-		e.preventDefault();
-		openPicker();
-	} );
+	if ( trigger ) {
+		trigger.addEventListener( 'click', function ( e ) {
+			e.preventDefault();
+			openPicker();
+		} );
+	}
 
 	preview.addEventListener( 'click', function ( e ) {
 		e.preventDefault();
