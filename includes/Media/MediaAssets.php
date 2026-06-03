@@ -48,21 +48,29 @@ class MediaAssets {
 			return;
 		}
 
-		$ver = defined( 'BUDDYNEXT_VERSION' ) ? BUDDYNEXT_VERSION : null;
-		$url = defined( 'BUDDYNEXT_URL' ) ? BUDDYNEXT_URL : plugins_url( '/', dirname( __DIR__ ) );
+		$base_ver = defined( 'BUDDYNEXT_VERSION' ) ? (string) BUDDYNEXT_VERSION : '';
+		$url      = defined( 'BUDDYNEXT_URL' ) ? BUDDYNEXT_URL : plugins_url( '/', dirname( __DIR__ ) );
+		$dir      = defined( 'BUDDYNEXT_DIR' ) ? BUDDYNEXT_DIR : plugin_dir_path( dirname( __DIR__ ) );
+
+		// Cache-bust on file mtime so CSS/JS edits reach the browser without a
+		// plugin version bump (the version string stays fixed pre-release).
+		$css_path = $dir . 'assets/css/bn-media.css';
+		$js_path  = $dir . 'assets/js/media/lightbox.js';
+		$css_ver  = file_exists( $css_path ) ? $base_ver . '.' . (string) filemtime( $css_path ) : $base_ver;
+		$js_ver   = file_exists( $js_path ) ? $base_ver . '.' . (string) filemtime( $js_path ) : $base_ver;
 
 		wp_enqueue_style(
 			'bn-media',
 			$url . 'assets/css/bn-media.css',
 			array(),
-			$ver
+			$css_ver
 		);
 
 		wp_enqueue_script(
 			'bn-media-lightbox',
 			$url . 'assets/js/media/lightbox.js',
 			array(),
-			$ver,
+			$js_ver,
 			true
 		);
 

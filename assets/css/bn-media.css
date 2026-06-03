@@ -1,20 +1,46 @@
-/* BuddyNext — media grid, tiles, and lightbox (BN-native; no WPMediaVerse CSS).
- * Uses BuddyNext's real design tokens (--bn-surface/--bn-sunken/--bn-ink-*/
- * --bn-r-*/--bn-s*/--bn-accent) so every surface is dark-mode aware via the
- * [data-theme="dark"] token overrides in bn-base.css. */
+/* BuddyNext media grid, tiles, and lightbox (BN-native; no WPMediaVerse CSS).
+   Uses BuddyNext's real design tokens (bn-surface, bn-sunken, bn-ink, bn-r,
+   bn-s, bn-accent) so every surface is dark-mode aware via the
+   [data-theme="dark"] token overrides in bn-base.css. */
 
-/* ── Media grid (feed post — 1/2/3/4 layouts) ───────────────────────────── */
+/* Media grid (feed post) - Instagram/Facebook collage.
+   Multi-image posts render as a fixed-aspect collage (never a tall vertical
+   stack), and the block is height-capped so one activity cannot take over the
+   page. Tiles fill their grid cells; images cover. The fourth tile shows a
+   "+N" overlay when there are more; extras stay in the DOM (hidden) so the
+   lightbox still pages through every item. */
 .bn-post-card__media-grid {
 	display: grid;
-	gap: var( --bn-s1, 4px );
+	gap: 2px;
 	margin: var( --bn-s3, 12px ) 0 0;
 	border-radius: var( --bn-r-md, 10px );
 	overflow: hidden;
+	max-height: 70vh;
 }
-.bn-post-card__media-grid--1 { grid-template-columns: 1fr; }
-.bn-post-card__media-grid--2 { grid-template-columns: 1fr 1fr; }
-.bn-post-card__media-grid--3 { grid-template-columns: 1fr 1fr 1fr; }
-.bn-post-card__media-grid--4 { grid-template-columns: 1fr 1fr; }
+/* In a collage, tiles fill their cell (the grid defines the shape), not 1:1. */
+.bn-post-card__media-grid .bn-media-tile { aspect-ratio: auto; height: 100%; width: 100%; min-height: 0; border-radius: 0; }
+
+.bn-post-card__media-grid--1 { aspect-ratio: 16 / 10; }
+.bn-post-card__media-grid--2 { grid-template-columns: 1fr 1fr; aspect-ratio: 2 / 1; }
+.bn-post-card__media-grid--3 { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; aspect-ratio: 3 / 2; }
+.bn-post-card__media-grid--3 .bn-media-tile:first-child { grid-row: 1 / span 2; }
+.bn-post-card__media-grid--4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; aspect-ratio: 1 / 1; }
+/* Beyond four, keep extras in the DOM for lightbox paging but hide them. */
+.bn-post-card__media-grid--4 .bn-media-tile:nth-child( n + 5 ) { display: none; }
+
+/* "+N more" overlay on the last visible collage tile. */
+.bn-media-tile[data-bn-media-more]::after {
+	content: "+" attr( data-bn-media-more );
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: oklch( 0% 0 0 / 0.55 );
+	color: oklch( 100% 0 0 );
+	font-size: clamp( 1.25rem, 4vw, 2rem );
+	font-weight: 700;
+}
 
 /* ── Profile / space gallery — uniform 3-up grid of lightbox tiles ──────── */
 .bn-media-gallery {
@@ -42,7 +68,6 @@
 	aspect-ratio: 1 / 1;
 	border-radius: var( --bn-r-sm, 5px );
 }
-.bn-post-card__media-grid--1 .bn-media-tile { aspect-ratio: 16 / 10; }
 .bn-media-tile__img {
 	width: 100%;
 	height: 100%;
