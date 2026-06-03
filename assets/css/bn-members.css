@@ -214,13 +214,23 @@
    min-inline-size the card layout shifts on every state change.
    Selectors are scoped under .bn-md-card__actions to outrank the
    generic `.bn-md-card__actions .bn-btn` flex rule on specificity. */
+/* Primary action (Follow/Following) always fills the first row; the secondary
+   (Connect/Connected) + kebab share the second row. A fixed 2-row structure
+   means every card's actions line up regardless of relationship state. */
 .bn-md-card__actions .bn-md-card__follow {
-	min-inline-size: 120px;
+	flex: 1 1 100%;
+	min-inline-size: 0;
 }
 
 .bn-md-card__actions .bn-md-card__connect-primary {
-	min-inline-size: 100px;
+	flex: 1 1 0;
+	min-inline-size: 0;
 }
+/* Keep the secondary row (Connect/Connected + message + kebab) on ONE line so
+   every card has the same 2-row action block (primary row + secondary row) and
+   the buttons line up across the grid. Icons stay compact, the button shrinks. */
+.bn-md-card__actions .bn-md-card__msg,
+.bn-md-card__actions .bn-md-card__menu-wrap { flex: 0 0 auto; }
 
 /* ── Sidebar widgets (rendered via parts/sidebar-card.php) ────────────────
  * Two cards: online-now list (avatars + names) and by-type counts. */
@@ -567,10 +577,18 @@
 	flex-wrap: wrap;
 	gap: var(--bn-s2);
 	align-items: center;
+	/* Full-width, left-aligned toolbar — was rendering as a narrow centred
+	   column with each control stacked on its own row. */
+	inline-size: 100%;
+	max-inline-size: none;
+	margin-inline: 0;
 }
+/* Controls size by flex, not the 100%-wide .bn-input/.bn-select default, so
+   they sit inline instead of each taking a full row. */
+.bn-md-strip__form .bn-select { inline-size: auto; }
 
 .bn-md-strip__search {
-	flex: 1 1 280px;
+	flex: 1 1 260px;
 	min-width: 0;
 	position: relative;
 	display: flex;
