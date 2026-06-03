@@ -15,7 +15,7 @@
 	margin: var( --bn-s3, 12px ) 0 0;
 	border-radius: var( --bn-r-md, 10px );
 	overflow: hidden;
-	max-height: 70vh;
+	max-height: 60vh;
 }
 /* In a collage, tiles fill their cell (the grid defines the shape), not 1:1. */
 .bn-post-card__media-grid .bn-media-tile { aspect-ratio: auto; height: 100%; width: 100%; min-height: 0; border-radius: 0; }
