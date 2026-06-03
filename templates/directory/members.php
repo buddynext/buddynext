@@ -503,14 +503,10 @@ if ( $current_user_id > 0 ) {
 		)
 	);
 
-	buddynext_get_template(
-		'parts/member-directory-tabs.php',
-		array(
-			'member_types' => $bn_pill_types,
-			'active_type'  => $type_slug_filter,
-			'current_url'  => $bn_directory_url,
-		)
-	);
+	// Member-type filtering lives in the toolbar's "All member types" select
+	// (works on mobile too) and the sidebar's BY TYPE quick-links. The separate
+	// top pill row duplicated that control three-deep, so it has been removed
+	// for a single, unambiguous filter home.
 
 	buddynext_get_template(
 		'parts/member-directory-filter-bar.php',
