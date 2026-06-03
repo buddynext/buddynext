@@ -749,6 +749,11 @@
 .bn-post-card__action-btn.is-bookmarked { color: var(--bn-warn); }
 .bn-post-card__action-btn.is-shared { color: var(--bn-accent); }
 
+/* Count beside the Comment / Share icon. Distinct from __action-label, so it
+   stays visible in the icon-only narrow layout (explore grid / mobile). */
+.bn-post-card__action-count { font-size: var(--bn-text-sm); font-weight: 600; color: var(--bn-ink-2); }
+.bn-post-card__action-count[hidden] { display: none; }
+
 .bn-post-card__action-label {
 	font-size: var(--bn-text-sm);
 	font-weight: 500;
@@ -2560,10 +2565,20 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 /* Masonry grid — column count follows container width, not viewport,
    so the 3-up layout doesn't squeeze cards into 214px when the right
    sidebar is present (main column ~620px at 1200px viewport). */
+/* Pinterest-style masonry. CSS Grid stretches cards to equal row heights
+   (leaving trailing whitespace under short posts), so the explore grid uses
+   CSS multi-column instead: each card keeps its natural height and packs into
+   as many ~260px columns as fit. break-inside keeps a card whole; the bottom
+   margin is the vertical gutter (column-gap only spaces columns). */
 .bn-explore-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-	gap: 14px;
+	column-width: 260px;
+	column-gap: 14px;
+}
+.bn-explore-grid > .bn-post-card {
+	width: 100%;
+	margin: 0 0 14px;
+	break-inside: avoid;
+	-webkit-column-break-inside: avoid;
 }
 
 /* Explore cover thumbnail — full-width image at the top of an explore

@@ -48,7 +48,9 @@ $args = array(
 /** Sanitized partial arguments. @var array<string,mixed> $args */
 $args = (array) apply_filters( 'buddynext_part_post_reaction_summary_args', $args );
 
-if ( 0 === (int) $args['reaction_count'] && 0 === (int) $args['comment_count'] && 0 === (int) $args['share_count'] ) {
+// The summary strip now shows reactions only — comment and share counts live
+// directly on their action buttons. Render only when there are reactions.
+if ( 0 === (int) $args['reaction_count'] ) {
 	return;
 }
 
@@ -126,16 +128,6 @@ do_action( 'buddynext_part_post_reaction_summary_before', $args );
 			</span>
 		<?php endif; ?>
 		</button>
-	<?php endif; ?>
-	<?php if ( $bn_comment_n > 0 ) : ?>
-		<span class="bn-post-card__summary-chip">
-			<?php buddynext_icon( 'message-circle' ); ?> <?php echo esc_html( (string) $bn_comment_n ); ?>
-		</span>
-	<?php endif; ?>
-	<?php if ( $bn_share_n > 0 ) : ?>
-		<span class="bn-post-card__summary-chip">
-			<?php buddynext_icon( 'share' ); ?> <?php echo esc_html( (string) $bn_share_n ); ?>
-		</span>
 	<?php endif; ?>
 </div>
 <?php

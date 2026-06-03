@@ -506,6 +506,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			'can_share'     => $can_share,
 			'can_bookmark'  => $can_bookmark,
 			'comment_count' => $comment_count,
+			'share_count'   => $share_count,
 		)
 	);
 	?>

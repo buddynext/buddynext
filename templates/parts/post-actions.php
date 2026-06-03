@@ -48,6 +48,7 @@ $args = array(
 	'can_share'     => ! empty( $can_share ),
 	'can_bookmark'  => ! empty( $can_bookmark ),
 	'comment_count' => isset( $comment_count ) ? absint( $comment_count ) : 0,
+	'share_count'   => isset( $share_count ) ? absint( $share_count ) : 0,
 	'classes'       => isset( $classes ) ? (array) $classes : array(),
 );
 
@@ -78,6 +79,7 @@ $bn_class   = trim(
 $bn_actions_post_type   = (string) $args['bn_post_type'];
 $bn_actions_post_id     = (int) $args['bn_post_id'];
 $bn_actions_comment_cnt = (int) $args['comment_count'];
+$bn_actions_share_cnt   = (int) $args['share_count'];
 
 do_action( 'buddynext_part_post_actions_before', $args );
 ?>
@@ -210,6 +212,7 @@ do_action( 'buddynext_part_post_actions_before', $args );
 	>
 		<?php buddynext_icon( 'message-circle' ); ?>
 		<span class="bn-post-card__action-label"><?php esc_html_e( 'Comment', 'buddynext' ); ?></span>
+		<span class="bn-post-card__action-count" data-wp-text="context.commentCount" data-wp-bind--hidden="!context.commentCount"<?php echo $bn_actions_comment_cnt > 0 ? '' : ' hidden'; ?>><?php echo esc_html( (string) $bn_actions_comment_cnt ); ?></span>
 	</button>
 
 	<?php if ( 'share' !== $bn_actions_post_type ) : ?>
@@ -224,6 +227,7 @@ do_action( 'buddynext_part_post_actions_before', $args );
 	>
 		<?php buddynext_icon( 'share' ); ?>
 		<span class="bn-post-card__action-label"><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
+		<span class="bn-post-card__action-count" data-wp-text="context.shareCount" data-wp-bind--hidden="!context.shareCount"<?php echo $bn_actions_share_cnt > 0 ? '' : ' hidden'; ?>><?php echo esc_html( (string) $bn_actions_share_cnt ); ?></span>
 	</button>
 	<?php endif; ?>
 
