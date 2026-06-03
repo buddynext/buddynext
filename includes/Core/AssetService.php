@@ -59,6 +59,37 @@ class AssetService {
 		// system via their var() token chains regardless of which plugin's page
 		// the visitor is on.
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_global_tokens' ), 15 );
+
+		// Cache-bust every BuddyNext asset by its file mtime so CSS/JS edits
+		// always reach the browser (the plugin version string stays fixed
+		// pre-release). One filter covers all BN handles — front-end + admin.
+		add_filter( 'style_loader_src', array( $this, 'version_by_mtime' ), 20 );
+		add_filter( 'script_loader_src', array( $this, 'version_by_mtime' ), 20 );
+	}
+
+	/**
+	 * Stamp BuddyNext asset URLs with their file mtime as the `ver` query arg.
+	 *
+	 * Only rewrites URLs under the BuddyNext plugin directory; everything else
+	 * passes through untouched.
+	 *
+	 * @param string $src Asset source URL.
+	 * @return string
+	 */
+	public function version_by_mtime( string $src ): string {
+		if ( ! defined( 'BUDDYNEXT_URL' ) || ! defined( 'BUDDYNEXT_DIR' ) ) {
+			return $src;
+		}
+		$base = (string) constant( 'BUDDYNEXT_URL' );
+		if ( 0 !== strpos( $src, $base ) ) {
+			return $src;
+		}
+		$path = constant( 'BUDDYNEXT_DIR' ) . substr( strtok( $src, '?' ), strlen( $base ) );
+		if ( is_file( $path ) ) {
+			$base_ver = defined( 'BUDDYNEXT_VERSION' ) ? (string) BUDDYNEXT_VERSION : '';
+			$src      = add_query_arg( 'ver', $base_ver . '.' . (string) filemtime( $path ), $src );
+		}
+		return $src;
 	}
 
 	/**

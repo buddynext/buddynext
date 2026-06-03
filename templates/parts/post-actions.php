@@ -210,11 +210,6 @@ do_action( 'buddynext_part_post_actions_before', $args );
 	>
 		<?php buddynext_icon( 'message-circle' ); ?>
 		<span class="bn-post-card__action-label"><?php esc_html_e( 'Comment', 'buddynext' ); ?></span>
-		<?php if ( $bn_actions_comment_cnt > 0 ) : ?>
-			<span class="bn-comment-count"><?php echo esc_html( (string) $bn_actions_comment_cnt ); ?></span>
-		<?php else : ?>
-			<span class="bn-comment-count" hidden>0</span>
-		<?php endif; ?>
 	</button>
 
 	<?php if ( 'share' !== $bn_actions_post_type ) : ?>
@@ -228,7 +223,7 @@ do_action( 'buddynext_part_post_actions_before', $args );
 		data-post-permalink="<?php echo esc_url( PageRouter::post_url( $bn_actions_post_id ) ); ?>"
 	>
 		<?php buddynext_icon( 'share' ); ?>
-		<span class="bn-post-card__action-label" data-wp-text="state.shareLabel"></span>
+		<span class="bn-post-card__action-label"><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
 	</button>
 	<?php endif; ?>
 

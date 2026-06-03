@@ -692,18 +692,23 @@
 /* Action row (v2 .post-actions): flat, gap, hover bg. */
 .bn-post-card__actions {
 	display: flex;
-	gap: var(--bn-s5);
+	gap: var(--bn-s1);
 	padding-block-start: var(--bn-s3);
 	border-block-start: 1px solid var(--bn-line-faint);
 	align-items: center;
-	flex-wrap: wrap;
+	flex-wrap: nowrap; /* one row always — never break actions onto two rows. */
 }
 
 .bn-post-card__action-btn {
+	/* Equal-width, centred actions (Facebook pattern): they fill the row and
+	   shrink to fit, so the bar never wraps regardless of card width. */
+	flex: 1 1 0;
+	min-width: 0;
 	display: inline-flex;
 	align-items: center;
+	justify-content: center;
 	gap: 6px;
-	padding: 6px 8px;
+	padding: 8px 6px;
 	font-size: var(--bn-text-sm);
 	font-family: var(--bn-font-ui);
 	color: var(--bn-ink-3);
@@ -711,7 +716,16 @@
 	background: transparent;
 	border: 0;
 	border-radius: var(--bn-r-sm);
+	white-space: nowrap;
 	transition: color var(--bn-dur-fast, 120ms) var(--bn-ease, ease), background var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
+}
+
+/* Narrow cards (explore grid, mobile) — drop the text label to icon + count so
+   all actions stay on one row. The comment count is its own span, so it
+   survives; reaction/share counts live in the summary row above. */
+.bn-explore .bn-post-card__action-label { display: none; }
+@media ( max-width: 480px ) {
+	.bn-post-card__action-label { display: none; }
 }
 
 .bn-post-card__action-btn svg,
