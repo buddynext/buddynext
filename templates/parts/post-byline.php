@@ -207,28 +207,29 @@ do_action( 'buddynext_part_post_byline_before', $args );
 				</span>
 			<?php endif; ?>
 		</div>
-	</div>
 
-	<?php
-	// Inline Follow — caller passes show_follow=true only for authors the
-	// viewer does not already follow. The partial self-guards self / guest /
-	// blocked and receives the known state to avoid a re-query.
-	if ( ! empty( $args['show_follow'] ) && (int) $args['author_id'] > 0 ) :
-		?>
-		<div class="bn-post-card__follow">
-			<?php
-			buddynext_get_template(
-				'partials/follow-button.php',
-				array(
-					'user_id'         => (int) $args['author_id'],
-					'known_following' => false,
-				)
-			);
-			?>
-		</div>
 		<?php
-	endif;
-	?>
+		// Inline Follow — rendered below the byline meta (inside the author
+		// block) so it never competes for the head row's width and squeeze the
+		// author info into a vertical stack on narrow cards (explore grid).
+		// Self-guards self / guest / blocked; known state avoids a re-query.
+		if ( ! empty( $args['show_follow'] ) && (int) $args['author_id'] > 0 ) :
+			?>
+			<div class="bn-post-card__follow">
+				<?php
+				buddynext_get_template(
+					'partials/follow-button.php',
+					array(
+						'user_id'         => (int) $args['author_id'],
+						'known_following' => false,
+					)
+				);
+				?>
+			</div>
+			<?php
+		endif;
+		?>
+	</div>
 
 	<?php buddynext_get_template( 'parts/post-options-menu.php', (array) $args['options_menu_args'] ); ?>
 </header>

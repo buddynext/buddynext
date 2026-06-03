@@ -95,16 +95,10 @@
 	outline: none;
 }
 
+/* Unread state is conveyed by the subtle background tint + the pulse dot in the
+   corner. The previous left accent stripe was a redundant third marker that
+   read as a decorative accent bar, so it has been removed. */
 .bn-notif-row--unread { background: var(--bn-accent-50); }
-
-.bn-notif-row--unread::before {
-	content: '';
-	position: absolute;
-	inset-block: 0;
-	inset-inline-start: 0;
-	width: 3px;
-	background: var(--bn-accent);
-}
 
 .bn-notif-row__pulse {
 	position: absolute;
