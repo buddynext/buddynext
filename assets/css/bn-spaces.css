@@ -1025,12 +1025,17 @@
 
 .bn-space-members__filter-search {
 	flex: 1 1 220px;
+	/* Override the .bn-input width:100% base so the flex-basis wins and the
+	   field shares the row instead of forcing each control onto its own line. */
+	inline-size: auto;
 	min-inline-size: 0;
 }
 
 .bn-space-members__filter-role {
 	flex: 0 0 auto;
-	min-inline-size: 140px;
+	/* Same: override the .bn-select width:100% base. */
+	inline-size: auto;
+	min-inline-size: 160px;
 }
 
 .bn-space-members__grid {
