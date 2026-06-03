@@ -149,6 +149,18 @@
 	display: inline-flex;
 	align-items: center;
 }
+/* Compact, pill Follow in the byline — a full-size solid button is too heavy
+   next to the small avatar/name. */
+.bn-post-card__follow .bn-follow-btn,
+.bn-post-card__follow .bn-btn {
+	min-height: 0;
+	height: auto;
+	padding: 4px 12px;
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	border-radius: var(--bn-r-full, 999px);
+	line-height: 1.4;
+}
 
 .bn-post-card__author {
 	display: flex;
