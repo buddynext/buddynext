@@ -65,6 +65,30 @@ class MediaAssets {
 			$ver,
 			true
 		);
+
+		// Config for the interactive lightbox. It consumes WPMediaVerse at the
+		// API level only — reactions / comments / favorite / view all hit the
+		// engine REST routes (mvs/v1/media/{id}/...). The reaction set mirrors
+		// BuddyNext's own feed reactions so the UX is consistent.
+		wp_localize_script(
+			'bn-media-lightbox',
+			'bnMedia',
+			array(
+				'mvsRest'      => esc_url_raw( rest_url( 'mvs/v1' ) ),
+				'nonce'        => wp_create_nonce( 'wp_rest' ),
+				'userId'       => get_current_user_id(),
+				'reactionTypes' => array( 'like', 'love', 'haha', 'wow', 'sad', 'angry' ),
+				'i18n'         => array(
+					'view'      => __( 'view', 'buddynext' ),
+					'views'     => __( 'views', 'buddynext' ),
+					'favorite'  => __( 'Favorite', 'buddynext' ),
+					'favorited' => __( 'Favorited', 'buddynext' ),
+					'noComments' => __( 'No comments yet. Be the first to say something!', 'buddynext' ),
+					'loginPrompt' => __( 'Log in to react and comment.', 'buddynext' ),
+					'posting'   => __( 'Posting…', 'buddynext' ),
+				),
+			)
+		);
 	}
 
 	/**
