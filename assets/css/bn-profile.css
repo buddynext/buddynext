@@ -722,9 +722,12 @@
 	height: 200px;
 	position: relative;
 	overflow: hidden;
+	/* Default cover — a tonal wash of BuddyNext's own accent. Was mixing the
+	   Jetonomy (purple) + MediaVerse (teal) brand accents, which read as a
+	   generic purple/teal "AI" gradient rather than on-brand BuddyNext. */
 	background:
-		radial-gradient(circle at 20% 30%, color-mix(in oklch, var(--bn-jetonomy) 40%, transparent), transparent 55%),
-		radial-gradient(circle at 78% 70%, color-mix(in oklch, var(--bn-media) 38%, transparent), transparent 50%),
+		radial-gradient(circle at 20% 30%, color-mix(in oklch, var(--bn-accent) 30%, transparent), transparent 55%),
+		radial-gradient(circle at 78% 70%, color-mix(in oklch, var(--bn-accent-600, var(--bn-accent)) 20%, transparent), transparent 50%),
 		linear-gradient(135deg, var(--bn-accent-100), color-mix(in oklch, var(--bn-accent) 12%, var(--bn-sunken)));
 	background-size: cover;
 	background-position: center;
@@ -1242,6 +1245,50 @@
 	text-transform: uppercase;
 	color: var(--bn-ink-4);
 	margin-block-start: 2px;
+}
+
+/* 7-day trend chip — sits on the value's baseline ("8  +1"), with the
+   label spanning the row beneath, so the delta never dangles unstyled
+   below the label. Tile bodies are laid out as a 2-col grid for this. */
+.bn-pf-stat,
+.bn-pf-stat--link {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	grid-template-areas:
+		"value delta"
+		"label label";
+	align-items: baseline;
+	column-gap: var(--bn-s2);
+}
+.bn-pf-stat__value {
+	grid-area: value;
+}
+.bn-pf-stat__label {
+	grid-area: label;
+}
+.bn-pf-stat__delta {
+	grid-area: delta;
+	justify-self: start;
+	align-self: center;
+	font-family: var(--bn-font-mono);
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1;
+	padding: 2px 6px;
+	border-radius: var(--bn-r-sm);
+	white-space: nowrap;
+}
+.bn-pf-stat__delta[data-trend="up"] {
+	color: var(--bn-success);
+	background: var(--bn-success-bg);
+}
+.bn-pf-stat__delta[data-trend="down"] {
+	color: var(--bn-danger);
+	background: var(--bn-danger-bg);
+}
+.bn-pf-stat__delta[data-trend="flat"] {
+	color: var(--bn-ink-4);
+	background: var(--bn-sunken);
 }
 
 /* ── Tabs (v2 .bn-tabs primitive override for profile spacing) ───────── */
