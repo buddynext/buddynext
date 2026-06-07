@@ -2,6 +2,8 @@
 
 _Generated 2026-05-30 · 44 features · one agent each · desk review (docs + code)._
 
+> **Superseded for current status (2026-06-07):** this is a pre-Wave-3 snapshot. For up-to-date per-feature verdicts see [`conformance/SCOREBOARD.md`](conformance/SCOREBOARD.md) — Wave 3 closed all 10 then-open partials; current state is 37 usable-leave-as-is / 10 minor-polish / 3 partial (Scale contract, Visibility resolver, Private Messaging). The gap list below is still useful for granular plan-vs-reality detail, but trust the SCOREBOARD for shipped/partial verdicts.
+
 **Status legend:** 🟢 shipped (plan met) · 🟡 partial (core there, gaps) · 🟠 stub (scaffolded only) · 🔴 missing.  
 **Confidence:** `confirmed-in-code` = read & proven · `needs-live-verification` = looks absent but may be runtime-wired (don't trust without a walk).
 

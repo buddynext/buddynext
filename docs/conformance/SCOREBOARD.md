@@ -1,20 +1,19 @@
-# BuddyNext — Journey Usability Scoreboard (re-verification snapshot)
+# BuddyNext — Journey Usability Scoreboard
 
-_Re-verified 2026-05-31 · 50 units · after Wave 1–2 fixes._
+_Regenerated 2026-06-07 from per-feature conformance verdicts · 50 units._
 
-**Baseline → re-verify:** 3 broken + 15 partial + 32 usable → 0 broken + 10 partial + 40 usable.
-**Wave 3 since closed all 10 partials** (each verified live + committed).
+**Snapshot:** ✅ usable-leave-as-is **37** · 🟢 usable-minor-polish **10** · 🟡 partial-needs-wiring **3**
 
-Snapshot verdicts: ✅ usable-leave-as-is 32 · 🟢 usable-minor-polish 8 · 🟡 partial-needs-wiring 10
+**Still needing wiring:** Scale contract, Visibility & privacy resolver, Private Messaging.
 
 | Feature | Repo | Verdict |
 |---|---|---|
 | Design system & dark mode | contract | ✅ usable-leave-as-is |
-| Gamification seam | contract | 🟡 partial-needs-wiring |
+| Gamification seam | contract | 🟢 usable-minor-polish |
 | Notification / email / push template model | contract | 🟢 usable-minor-polish |
 | REST/App contract | contract | ✅ usable-leave-as-is |
-| Scale contract | contract | 🟢 usable-minor-polish |
-| Visibility & privacy resolver | contract | ✅ usable-leave-as-is |
+| Scale contract | contract | 🟡 partial-needs-wiring |
+| Visibility & privacy resolver | contract | 🟡 partial-needs-wiring |
 | Activity Feed | free | ✅ usable-leave-as-is |
 | Authentication & Verification | free | ✅ usable-leave-as-is |
 | Blocking & Muting | free | ✅ usable-leave-as-is |
@@ -24,38 +23,38 @@ Snapshot verdicts: ✅ usable-leave-as-is 32 · 🟢 usable-minor-polish 8 · �
 | Email System | free | ✅ usable-leave-as-is |
 | Engagement / Leaderboard | free | 🟢 usable-minor-polish |
 | Follows | free | ✅ usable-leave-as-is |
-| Hashtags | free | 🟢 usable-minor-polish |
-| Member Directory | free | ✅ usable-leave-as-is |
+| Hashtags | free | ✅ usable-leave-as-is |
+| Member Directory | free | 🟢 usable-minor-polish |
 | Member Profiles | free | ✅ usable-leave-as-is |
-| Member Types | free | ✅ usable-leave-as-is |
+| Member Types | free | 🟢 usable-minor-polish |
 | Moderation | free | ✅ usable-leave-as-is |
 | Notifications + Email | free | ✅ usable-leave-as-is |
-| Onboarding | free | 🟡 partial-needs-wiring |
+| Onboarding | free | ✅ usable-leave-as-is |
 | Outbound Webhooks | free | 🟢 usable-minor-polish |
-| PWA | free | ✅ usable-leave-as-is |
 | Polls | free | ✅ usable-leave-as-is |
 | Post Composer & Posts | free | ✅ usable-leave-as-is |
-| Privacy Framework | free | 🟡 partial-needs-wiring |
+| Privacy Framework | free | ✅ usable-leave-as-is |
 | Private Messaging | free | 🟡 partial-needs-wiring |
+| PWA | free | ✅ usable-leave-as-is |
 | Reactions | free | ✅ usable-leave-as-is |
-| Realtime Updates | free | 🟡 partial-needs-wiring |
+| Realtime Updates | free | ✅ usable-leave-as-is |
 | Search | free | ✅ usable-leave-as-is |
 | Shares / Reposts | free | ✅ usable-leave-as-is |
-| Spaces | free | 🟡 partial-needs-wiring |
-| AI Engine | pro | ✅ usable-leave-as-is |
+| Spaces | free | 🟢 usable-minor-polish |
 | Advanced Profile Field Types | pro | 🟢 usable-minor-polish |
 | Advanced Search Filters | pro | ✅ usable-leave-as-is |
+| AI Engine | pro | ✅ usable-leave-as-is |
 | Analytics | pro | ✅ usable-leave-as-is |
-| Auto / Rule-based Moderation | pro | 🟡 partial-needs-wiring |
+| Auto / Rule-based Moderation | pro | 🟢 usable-minor-polish |
 | Bulk Moderation | pro | ✅ usable-leave-as-is |
 | Custom Reactions | pro | ✅ usable-leave-as-is |
-| Drip / Welcome Sequences | pro | 🟢 usable-minor-polish |
-| Email Broadcasts | pro | ✅ usable-leave-as-is |
-| Member Labels | pro | 🟡 partial-needs-wiring |
+| Drip / Welcome Sequences | pro | ✅ usable-leave-as-is |
+| Email Broadcasts | pro | 🟢 usable-minor-polish |
+| Member Labels | pro | ✅ usable-leave-as-is |
 | Membership Tiers & Gated Spaces | pro | ✅ usable-leave-as-is |
 | Multi-pin Posts | pro | ✅ usable-leave-as-is |
 | Push Notifications | pro | ✅ usable-leave-as-is |
-| Scheduled Posts | pro | 🟡 partial-needs-wiring |
-| Stripe Payments | pro | 🟡 partial-needs-wiring |
+| Scheduled Posts | pro | ✅ usable-leave-as-is |
+| Stripe Payments | pro | ✅ usable-leave-as-is |
 | Unlimited Webhooks | pro | ✅ usable-leave-as-is |
-| White Label | pro | 🟢 usable-minor-polish |
+| White Label | pro | ✅ usable-leave-as-is |
