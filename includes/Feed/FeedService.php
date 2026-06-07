@@ -121,32 +121,18 @@ class FeedService {
 	 * @return array{0:string,1:array<int>} SQL fragment + ordered params.
 	 */
 	private function viewer_block_mute_where( int $viewer_id ): array {
-		global $wpdb;
-
-		if ( $viewer_id <= 0 ) {
-			return array( '', array() );
-		}
-
-		// Guard: degrade gracefully if the block table has not been installed yet
-		// (fresh install / isolation harness) rather than emitting a SQL error.
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-		$table_exists = $wpdb->get_var(
-			$wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->prefix . 'bn_blocks' )
+		// Delegate to the one canonical block-exclusion builder. Feed semantics:
+		// exclude authors the viewer block|muted (forward) and authors who
+		// blocked the viewer (reverse). Mute is a feed-only soft hide, so it
+		// appears forward here but on no other surface.
+		[ $predicate, $params ] = buddynext_service( 'privacy' )->block_exclude_sql(
+			$viewer_id,
+			'user_id',
+			array( 'block', 'mute' ),
+			array( 'block' )
 		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
-		if ( null === $table_exists ) {
-			return array( '', array() );
-		}
 
-		$sql = "AND user_id NOT IN (
-				    SELECT blocked_id FROM {$wpdb->prefix}bn_blocks
-				    WHERE blocker_id = %d AND type IN ('block','mute')
-				    UNION
-				    SELECT blocker_id FROM {$wpdb->prefix}bn_blocks
-				    WHERE blocked_id = %d AND type = 'block'
-				  )";
-
-		return array( $sql, array( $viewer_id, $viewer_id ) );
+		return array( '' === $predicate ? '' : 'AND ' . $predicate, $params );
 	}
 
 	/**

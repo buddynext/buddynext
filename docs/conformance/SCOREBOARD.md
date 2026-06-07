@@ -2,9 +2,7 @@
 
 _Regenerated 2026-06-07 from per-feature conformance verdicts · 50 units._
 
-**Snapshot:** ✅ usable-leave-as-is **39** · 🟢 usable-minor-polish **10** · 🟡 partial-needs-wiring **1**
-
-**Still needing wiring:** Visibility & privacy resolver.
+**Snapshot:** ✅ usable-leave-as-is **40** · 🟢 usable-minor-polish **10** · 🟡 partial-needs-wiring **0**
 
 | Feature | Repo | Verdict |
 |---|---|---|
@@ -13,7 +11,7 @@ _Regenerated 2026-06-07 from per-feature conformance verdicts · 50 units._
 | Notification / email / push template model | contract | 🟢 usable-minor-polish |
 | REST/App contract | contract | ✅ usable-leave-as-is |
 | Scale contract | contract | ✅ usable-leave-as-is |
-| Visibility & privacy resolver | contract | 🟡 partial-needs-wiring |
+| Visibility & privacy resolver | contract | ✅ usable-leave-as-is |
 | Activity Feed | free | ✅ usable-leave-as-is |
 | Authentication & Verification | free | ✅ usable-leave-as-is |
 | Blocking & Muting | free | ✅ usable-leave-as-is |

@@ -233,4 +233,84 @@ class PrivacyService {
 
 		return true;
 	}
+
+	/**
+	 * Build a single bn_blocks exclusion SQL fragment for a query surface.
+	 *
+	 * ONE source of truth for the relationship-exclusion rules that feed, search
+	 * and directory each previously hand-wrote in divergent SQL. The per-surface
+	 * type semantics stay explicit at the call site through $forward_types /
+	 * $reverse_types, so the intentional differences remain visible instead of
+	 * being silently re-derived three times:
+	 *
+	 *   - feed      : forward block|mute, reverse block (mute is a feed-only soft hide)
+	 *   - directory : forward block,      reverse block (bidirectional hard stop only)
+	 *   - search    : two calls — all types both directions on the item subject,
+	 *                 plus forward `restrict` on the author column (search-surface limit)
+	 *
+	 * Direction argument semantics:
+	 *   - `null` → include this direction with NO type filter (all relationship types)
+	 *   - `[]`   → omit this direction entirely
+	 *   - `[..]` → include this direction filtered to `type IN (...)`
+	 *
+	 * Returns a bare predicate (no leading `AND`) plus its ordered $wpdb->prepare
+	 * params, so directory can drop it into a WHERE-clause list while feed/search
+	 * prefix `AND ` themselves. Empty for logged-out viewers and when bn_blocks
+	 * is absent, so every surface degrades gracefully on a fresh install or the
+	 * isolation harness.
+	 *
+	 * @param int                $viewer_id     Viewing user (0 = anonymous → empty fragment).
+	 * @param string             $column        Column to gate (e.g. 'user_id', 'u.ID', 'si.object_id').
+	 * @param array<string>|null $forward_types Types where the viewer is the blocker.
+	 * @param array<string>|null $reverse_types Types where the viewer is the blocked.
+	 * @return array{0:string,1:array<int|string>} [predicate, ordered params].
+	 */
+	public function block_exclude_sql( int $viewer_id, string $column, ?array $forward_types, ?array $reverse_types ): array {
+		global $wpdb;
+
+		if ( $viewer_id <= 0 ) {
+			return array( '', array() );
+		}
+
+		$table = $wpdb->prefix . 'bn_blocks';
+
+		// Degrade gracefully if the block table is not installed yet (fresh
+		// install / isolation harness) rather than emitting a SQL error.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+		if ( null === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) ) {
+			return array( '', array() );
+		}
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange
+
+		$selects = array();
+		$params  = array();
+
+		// Forward: rows where the viewer is the blocker → exclude blocked_id.
+		if ( null === $forward_types || array() !== $forward_types ) {
+			$cond     = 'blocker_id = %d';
+			$params[] = $viewer_id;
+			if ( null !== $forward_types ) {
+				$cond  .= ' AND type IN (' . implode( ', ', array_fill( 0, count( $forward_types ), '%s' ) ) . ')';
+				$params = array_merge( $params, $forward_types );
+			}
+			$selects[] = "SELECT blocked_id FROM {$table} WHERE {$cond}";
+		}
+
+		// Reverse: rows where the viewer is the blocked → exclude blocker_id.
+		if ( null === $reverse_types || array() !== $reverse_types ) {
+			$cond     = 'blocked_id = %d';
+			$params[] = $viewer_id;
+			if ( null !== $reverse_types ) {
+				$cond  .= ' AND type IN (' . implode( ', ', array_fill( 0, count( $reverse_types ), '%s' ) ) . ')';
+				$params = array_merge( $params, $reverse_types );
+			}
+			$selects[] = "SELECT blocker_id FROM {$table} WHERE {$cond}";
+		}
+
+		if ( array() === $selects ) {
+			return array( '', array() );
+		}
+
+		return array( $column . ' NOT IN ( ' . implode( ' UNION ', $selects ) . ' )', $params );
+	}
 }

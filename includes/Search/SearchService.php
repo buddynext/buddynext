@@ -198,17 +198,23 @@ class SearchService {
 		$block_params = array();
 
 		if ( $viewer_id > 0 ) {
-			$block_where  =
-				" AND si.object_id NOT IN (
-				    SELECT blocked_id FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d
-				    UNION
-				    SELECT blocker_id FROM {$wpdb->prefix}bn_blocks WHERE blocked_id = %d
-				  )
-				  AND si.author_id NOT IN (
-				    SELECT blocked_id FROM {$wpdb->prefix}bn_blocks
-				    WHERE blocker_id = %d AND type = 'restrict'
-				  )";
-			$block_params = array( $viewer_id, $viewer_id, $viewer_id );
+			$privacy = buddynext_service( 'privacy' );
+
+			// Search semantics: exclude any block relationship (all types, both
+			// directions) on the item subject, plus authors the viewer has
+			// `restrict`ed (a search-surface limit, forward only). Both routed
+			// through the one canonical builder so the rules can't drift.
+			[ $subject_sql, $subject_params ]   = $privacy->block_exclude_sql( $viewer_id, 'si.object_id', null, null );
+			[ $restrict_sql, $restrict_params ] = $privacy->block_exclude_sql( $viewer_id, 'si.author_id', array( 'restrict' ), array() );
+
+			if ( '' !== $subject_sql ) {
+				$block_where .= ' AND ' . $subject_sql;
+				$block_params = array_merge( $block_params, $subject_params );
+			}
+			if ( '' !== $restrict_sql ) {
+				$block_where .= ' AND ' . $restrict_sql;
+				$block_params = array_merge( $block_params, $restrict_params );
+			}
 		}
 
 		// Exclude suspended and shadow-banned users' content from all search results.

@@ -174,20 +174,18 @@ class MemberDirectoryService {
 
 		// Bidirectional block exclusion — viewer should not see users they have
 		// blocked, AND users who have blocked the viewer should not appear either.
-		// Skip for logged-out viewers (viewer_id=0) since there's no relationship.
-		if ( $viewer_id > 0 ) {
-			$where_clauses[] = $wpdb->prepare(
-				"NOT EXISTS (
-				    SELECT 1 FROM {$wpdb->prefix}bn_blocks b
-				    WHERE b.type = 'block'
-				      AND (
-				          (b.blocker_id = %d AND b.blocked_id = u.ID)
-				          OR (b.blocker_id = u.ID AND b.blocked_id = %d)
-				      )
-				  )",
-				$viewer_id,
-				$viewer_id
-			);
+		// Routed through the one canonical builder (forward + reverse `block`
+		// only — the directory has no mute/restrict semantics). The fragment
+		// carries %d/%s placeholders, so prepare it before adding to the
+		// already-final $where_clauses list. Empty for logged-out viewers.
+		[ $block_sql, $block_prepare_params ] = buddynext_service( 'privacy' )->block_exclude_sql(
+			$viewer_id,
+			'u.ID',
+			array( 'block' ),
+			array( 'block' )
+		);
+		if ( '' !== $block_sql ) {
+			$where_clauses[] = $wpdb->prepare( $block_sql, ...$block_prepare_params ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		}
 
 		if ( '' !== $search ) {

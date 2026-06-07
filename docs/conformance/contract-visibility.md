@@ -2,7 +2,14 @@
 
 **Contract:** ONE visibility resolver (most-restrictive-wins) used uniformly by feed, profile, directory, search.
 **Spec checked against:** docs/specs/features/17-roles-permissions.md. The spec locks buddynext_can() as the single capability gate and a per-field visibility model (buddynext-profile/view is "public, privacy model applies"); it does not define a single named content-visibility resolver function, so "ONE resolver used uniformly" is read against the de-facto authority SocialGraph\PrivacyService.
-**Verdict:** partial-needs-wiring (not broken — every path is privacy-correct; the gap is duplication, not a leak).
+**Verdict:** usable-leave-as-is (resolved 2026-06-07 — the duplicated block-SQL is now collapsed to one builder; account gates and profile-field rank logic were already solid).
+
+> **Resolution (2026-06-07).** Added `PrivacyService::block_exclude_sql( $viewer_id, $column, $forward_types, $reverse_types )` as the single source of truth for the `bn_blocks` exclusion fragment, returning `[predicate, params]`. The three hand-written copies now call it, with their intentional per-surface type sets passed explicitly so the differences stay visible and cannot silently drift:
+> - `FeedService::viewer_block_mute_where()` → `block_exclude_sql($v, 'user_id', ['block','mute'], ['block'])`
+> - `MemberDirectoryService` → `block_exclude_sql($v, 'u.ID', ['block'], ['block'])`
+> - `SearchService::search()` → `block_exclude_sql($v, 'si.object_id', null, null)` (all types, both directions) + `block_exclude_sql($v, 'si.author_id', ['restrict'], [])`
+>
+> Generated SQL verified equivalent to the originals (search byte-identical; feed/directory result-equivalent). The builder also adds the feed's `bn_blocks`-absent graceful-degrade guard to search and directory. No per-row resolver introduced — the SQL-set approach (required by the SCALE contract) is preserved. The "where the contract diverges" section below is now historical.
 
 ---
 
