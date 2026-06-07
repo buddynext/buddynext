@@ -1,259 +1,259 @@
 # BuddyNext Free - Code Flows
 
-**Generated:** 2026-05-20 | **Version:** 0.2.0
+**Generated:** 2026-06-07 | **Version:** 0.2.0
 
-Major request flows traced from HTTP entry point through services to storage.
-
----
-
-## Flow 1: Post Creation
-
-**Trigger:** `POST /buddynext/v1/posts` with `{content, type, space_id?}`
-
-```
-REST request
-  → PostController::create_post()
-      → SafeguardService::check($content)          # keyword filter, rate limit
-          → apply_filters('buddynext_safeguard_check', result, context)
-      → PermissionService::can($user_id, 'buddynext-feed/create-post')
-          → checks WP manage_options (layer 1)
-          → checks community role >= 'member' (layer 2)
-          → checks bn_ability_{slug} user_meta for explicit grant (layer 3)
-          → apply_filters('buddynext_user_can', result, user_id, capability) (layer 4)
-      → PostService::create($data)
-          → INSERT into bn_posts
-          → HashtagListener::on_post_created()
-              → HashtagService::extract_and_index($post_id, $content)
-                  → INSERT/UPDATE bn_hashtags
-                  → INSERT bn_post_hashtags
-          → do_action('buddynext_post_created', $post_id, $user_id)
-              → NotificationListener::on_post_created()
-                  → NotificationService::create(type='bn.mention') for @mentions
-                  → do_action('buddynext_notification_created', $notification_id, $data)
-                      → EmailDispatchListener::on_notification_created()
-                          → NotificationPrefService::should_send($user_id, 'bn.mention')
-                          → EmailSender::send($user_id, 'bn.mention', $payload)
-              → SearchIndexListener::on_post_created()
-                  → dispatch async to Action Scheduler (or inline if AS absent)
-                  → SearchService::index_post($post_id)
-                      → INSERT/UPDATE bn_search_index
-      → WP_REST_Response(201, post_data)
-```
+Major request flows traced from HTTP entry point through controllers and services to storage. Class::method names and hook sites are taken from `audit/manifest.json` (rest.endpoints, services, hooks_fired) and verified against `includes/**`.
 
 ---
 
-## Flow 2: Follow a User
+## Flow 1: Feed Compose (Create Post)
 
-**Trigger:** `POST /buddynext/v1/users/{id}/follow`
+**Trigger:** `POST /buddynext/v1/posts` with `{type, content, privacy, space_id?, media_ids?, options?, scheduled_at?}`
 
 ```
-REST request
-  → FollowController::toggle_follow($user_id, $target_id)
-      → PermissionService::can($user_id, 'buddynext-connections/follow')
-      → FollowService::toggle($user_id, $target_id)
-          → SELECT bn_follows WHERE follower_id=? AND followee_id=?
-          → if exists: DELETE row (unfollow)
-              → CounterService::decrement('followers', $target_id)
-              → do_action('buddynext_user_unfollowed', $user_id, $target_id)
-          → if absent: INSERT row (follow)
-              → CounterService::increment('followers', $target_id)
-              → do_action('buddynext_user_followed', $user_id, $target_id)
-                  → NotificationListener::on_user_followed()
-                      → NotificationService::create(type='bn.new_follower', $target_id)
-                      → EmailDispatchListener dispatches email if prefs allow
-      → WP_REST_Response(200, {following: bool, followers_count: int})
+REST request (permission_callback: require_auth)
+  -> Feed\PostController::create_post(WP_REST_Request)
+      -> sanitises type/content (wp_kses_post)/privacy/space_id/media/options/scheduled_at
+      -> buddynext_service('post_service') -> Feed\PostService::create($user_id, $data)
+          -> SafeguardService::check($content, ...)                # includes/Feed/PostService.php:116
+              -> apply_filters('buddynext_safeguard_check', $result, ...)   # SafeguardService.php:75
+              -> on 'pending_review' / flag -> returns WP_Error (no DB write)
+          -> INSERT into bn_posts
+          -> do_action('buddynext_post_created', $post_id, $user_id, $type)  # PostService.php:198
+              -> Hashtags\HashtagListener (on post_created)
+                  -> HashtagService::extract + index
+                      -> INSERT/UPDATE bn_hashtags ; INSERT bn_post_hashtags
+                      -> do_action('buddynext_hashtag_used', ...)            # HashtagListener.php:152
+              -> Search\SearchIndexListener (on post_created)
+                  -> Action Scheduler async (or inline) -> SearchService::index_post
+                      -> INSERT/UPDATE bn_search_index
+              -> Notifications listener -> mentions parsed (@user)
+                  -> NotificationService::create(type='bn.mention', ...)     # see Flow 5
+          -> for each @mention: do_action('buddynext_user_mentioned', ...)   # PostService.php:224
+      -> PostService::get($post_id)
+      -> WP_REST_Response(201, post_data)
 ```
+
+Scheduled posts (`scheduled_at` set, cap `buddynext-feed/schedule-post`) are published later by cron `buddynext_publish_scheduled` (buddynext_1min), which also fires `buddynext_post_created` from includes/Core/CronService.php:316.
 
 ---
 
-## Flow 3: Space Join
+## Flow 2: Spaces (Join)
 
 **Trigger:** `POST /buddynext/v1/spaces/{id}/join`
 
 ```
-REST request
-  → SpaceController::join($space_id, $user_id)
-      → SpaceService::get($space_id)     # ensure space exists
-      → PermissionService::can($user_id, 'buddynext-spaces/join')
-      → apply_filters('buddynext_can_join_space', true, context)   # gated-space hook
-      → SpaceService::get_privacy($space_id)
-      → if privacy = 'public':
-          → SpaceMemberService::add_member($space_id, $user_id, 'member')
-              → INSERT bn_space_members
-              → do_action('buddynext_space_member_joined', $space_id, $user_id)
-                  → NotificationListener notifies space admins
-      → if privacy = 'private':
-          → SpaceMemberService::create_join_request($space_id, $user_id)
-              → INSERT bn_space_members (status='pending')
-              → do_action('buddynext_space_join_requested', $space_id, $user_id)
-                  → NotificationListener notifies space admins of new request
-      → WP_REST_Response(200|201, membership_data)
+REST request (require_auth)
+  -> Spaces\SpaceController::join_space($space_id)
+      -> resolves space row; PermissionService::can($uid, 'buddynext-spaces/join', ['space_id'=>$id])
+          -> Layer 1 hard-deny if is_space_banned()                # PermissionService.php:89
+      -> Spaces\SpaceMemberService::join($space_id, $user_id)      # SpaceMemberService.php:58
+          -> apply_filters('buddynext_can_join_space', true, $space, $uid, 'join')  # :77
+          -> public space:
+              -> INSERT IGNORE bn_space_members (role='member', status='active')      # :123
+              -> do_action('buddynext_space_member_joined', $space_id, $uid, 'member') # :145
+                  -> Notifications listener notifies space owner/mods
+          -> private space: SpaceMemberService::request_join()
+              -> apply_filters('buddynext_can_join_space', true, $space, $uid, 'request') # :178
+              -> INSERT IGNORE bn_space_members (status='pending')   # :208
+              -> do_action('buddynext_space_join_requested', $space_id, $uid)  # :223
+                  -> Notifications listener notifies space owner/mods of request
+      -> WP_REST_Response(membership_data)
 ```
+
+Approval path: `POST /spaces/{id}/members/{user_id}/approve` -> `SpaceController::approve_request` -> `SpaceMemberService` fires `buddynext_space_join_approved` (:354) then `buddynext_space_member_joined` (:363).
 
 ---
 
-## Flow 4: REST Permission Gate
+## Flow 3: Profile (Update Own Profile)
 
-**How every authenticated REST endpoint resolves permission:**
+**Trigger:** `PUT /buddynext/v1/me/profile`
 
 ```
-register_rest_route(..., 'permission_callback' => [$this, 'require_auth'])
-
-ControllerBase::require_auth(WP_REST_Request $request)
-  → is_user_logged_in()
-      → false: return WP_Error(401, 'rest_forbidden')
-      → true:
-          → $capability = $this->get_required_capability()    # e.g. 'buddynext-feed/create-post'
-          → if $capability:
-              → PermissionService::can(get_current_user_id(), $capability, $context)
-                  → Layer 1: current_user_can('manage_options') → return true
-                  → Layer 2: ROLE_MAP[$capability] → check community role from bn_space_members / wp_usermeta
-                  → Layer 3: get_user_meta(user_id, bn_ability_{slug}) → check expires_ts (0 = never, else compare against time())
-                  → Layer 4: apply_filters('buddynext_user_can', $result, $user_id, $capability)
-              → false: return WP_Error(403, 'rest_forbidden')
-          → return true
+REST request (require_auth)
+  -> Profile\ProfileController::update_profile(WP_REST_Request)
+      -> PermissionService::can($uid, 'buddynext-profile/edit-own')   # Abilities.php:25 / PermissionService.php:39
+      -> Profile\ProfileService::save(...)
+          -> per field: apply_filters('buddynext_field_sanitize', ...)   # FieldType.php:654
+          -> UPSERT bn_profile_values (against bn_profile_fields / bn_profile_groups)
+          -> recompute completion
+              -> do_action('buddynext_profile_completion_changed', $uid, $pct)  # ProfileService.php:805
+      -> ProfileController fires buddynext_index_user for search        # ProfileController.php:646
+      -> WP_REST_Response(profile)
 ```
+
+Admin edits a different user via `PUT /users/{id}/profile` -> `ProfileController::admin_update_profile` gated by `require_admin` (cap `buddynext-profile/edit-any`, Abilities.php:26). Avatar reads flow through `apply_filters('buddynext_avatar_url', ...)` (AvatarService.php:99). Profile views fire `buddynext_profile_viewed` (ProfileController.php:492).
+
+---
+
+## Flow 4: Social Graph (Follow a User)
+
+**Trigger:** `POST /buddynext/v1/users/{id}/follow`
+
+```
+REST request (require_auth)
+  -> SocialGraph\FollowController::toggle_follow($target_id)
+      -> PermissionService::can($uid, 'buddynext-connections/follow')   # Abilities.php:40
+      -> SocialGraph\FollowService::toggle($uid, $target_id)
+          -> already following -> DELETE bn_follows row
+              -> CounterService decrement followers
+              -> do_action('buddynext_user_unfollowed', $uid, $target_id)   # FollowService.php:215
+          -> not following, public target -> INSERT bn_follows
+              -> do_action('buddynext_user_followed', $uid, $target_id)     # :143
+              -> do_action('buddynext_follower_gained', $target_id, $uid)   # :155
+              -> first ever follow -> do_action('buddynext_user_followed_first_time', ...) # :178
+                  -> Notifications listener -> NotificationService::create(type='bn.new_follower')
+          -> private target -> INSERT pending follow request
+              -> do_action('buddynext_follow_requested', $uid, $target_id)  # :131
+      -> WP_REST_Response({following, followers_count})
+```
+
+Connection (mutual) flow: `POST /users/{id}/connect` -> `ConnectionController::request_connection` -> `ConnectionService` INSERT bn_connections (pending) + `buddynext_connection_requested` (ConnectionService.php:123); acceptance via `/connect/accept` fires `buddynext_connection_accepted` (:178).
 
 ---
 
 ## Flow 5: Notification Dispatch
 
-**Trigger:** `do_action('buddynext_post_created', $post_id, $user_id)`
+**Trigger:** any domain `do_action('buddynext_..._created/...')` whose listener calls `NotificationService::create()`.
 
 ```
-NotificationListener::on_post_created($post_id, $user_id)
-  → PostService::get_mentions($post_id)       # parse @username from content
-  → foreach $mentioned_user:
-      → NotificationService::create([
-            'type'        => 'bn.mention',
-            'user_id'     => $mentioned_user_id,
-            'actor_id'    => $user_id,
-            'object_id'   => $post_id,
-            'object_type' => 'post',
-        ])
-          → apply_filters('buddynext_notification_should_send', true, $data)
-          → if should_send:
-              → $send_at = apply_filters('buddynext_notification_send_at', now(), $data)
-              → INSERT bn_notifications
-              → do_action('buddynext_notification_created', $id, $data)
-
-do_action('buddynext_notification_created', $id, $data)
-  → EmailDispatchListener::on_notification_created($id, $data)
-      → NotificationPrefService::get_pref($user_id, 'bn.mention')
-          → SELECT bn_notification_prefs WHERE user_id=? AND event_type=?
-      → if pref allows immediate email:
-          → EmailSender::send($user_id, $data['type'], $payload)
-              → apply_filters('buddynext_email_payload', $payload, $type)
-              → SELECT bn_email_templates WHERE type=?
-              → render template with Mustache-style {{vars}}
-              → wp_mail($to, $subject, $body)
-              → INSERT bn_email_log
-      → if pref is 'digest':
-          → do_action('buddynext_queue_email_digest', $user_id)
+Notifications\NotificationService::create($data)              # NotificationService.php:54
+  -> dedupe check: if an equivalent unread notification exists
+       -> do_action('buddynext_notification_created', $existing_id, $recipient_id, $data)  # :89
+       -> return
+  -> $should_send = apply_filters('buddynext_notification_should_send', true, $data)  # :107
+       -> false -> abort (no row)
+  -> $send_at = apply_filters('buddynext_notification_send_at', null, $data)          # :129
+       -> non-null -> store deferred send_at on the row
+  -> INSERT bn_notifications
+  -> do_action('buddynext_notification_created', $notif_id, $recipient_id, $data)     # :168
+       -> Notifications\EmailSender / EmailDispatchListener:
+            -> NotificationPrefService::get_pref (SELECT bn_notification_prefs)
+                 -> apply_filters('buddynext_notification_prefs', ...)   # NotificationPrefService.php:167
+            -> immediate email:
+                 -> apply_filters('buddynext_notification_message', ...)  # NotificationMessageService.php:366
+                 -> apply_filters('buddynext_email_payload', ...)         # EmailSender.php:158
+                 -> SELECT bn_email_templates ; wp_mail() ; INSERT bn_email_log
+            -> digest pref:
+                 -> do_action('buddynext_queue_email_digest', ...)        # EmailSender.php:70
 ```
+
+Digests are flushed by cron `buddynext_daily_digest` (daily) and `buddynext_weekly_digest` (weekly).
 
 ---
 
-## Flow 6: Search
-
-**Trigger:** `GET /buddynext/v1/search?q=foo&type=posts,users`
-
-```
-SearchController::search(WP_REST_Request $request)
-  → $query = sanitize_text_field($request->get_param('q'))
-  → $types = $request->get_param('type') ?? ['posts','users','spaces','hashtags']
-  → SearchService::search($query, $types, $page, $per_page)
-      → foreach $type in $types:
-          → run FULLTEXT MATCH($query) AGAINST on bn_search_index WHERE content_type=?
-          → OR fallback to LIKE search on title if FULLTEXT unavailable
-      → $results = merge and rank by relevance score
-      → apply_filters('buddynext_search_results', $results, $query)
-  → WP_REST_Response(200, {results: [...], total: int, pages: int})
-
-Search Index Update (triggered by post creation):
-  → SearchIndexListener::on_post_created($post_id)
-      → if Action Scheduler available:
-          → as_schedule_single_action(time(), 'bn_async_index_post', [$post_id])
-      → else:
-          → SearchService::index_post($post_id) synchronously
-              → INSERT INTO bn_search_index
-                  (content_type='post', object_id=$post_id, title=..., content=..., meta=JSON)
-                  ON DUPLICATE KEY UPDATE ...
-```
-
----
-
-## Flow 7: Hashtag Indexing
-
-**Trigger:** `do_action('buddynext_post_created', $post_id, $user_id)`
-
-```
-HashtagListener::on_post_created($post_id, $user_id)
-  → PostService::get_content($post_id)
-  → HashtagService::extract_and_index($post_id, $content)
-      → preg_match_all('/#([a-zA-Z0-9_\x{0080}-\x{FFFF}]+)/u', $content, $matches)
-      → foreach $tag_slug:
-          → SELECT bn_hashtags WHERE slug=?
-          → if not exists: INSERT bn_hashtags (slug, post_count=1)
-          → if exists: UPDATE bn_hashtags SET post_count = post_count + 1
-          → INSERT IGNORE bn_post_hashtags (post_id, hashtag_id)
-      → do_action('buddynext_jetonomy_post_indexed', $post_id)   # notify Jetonomy bridge
-```
-
----
-
-## Flow 8: Moderation Report
+## Flow 6: Moderation (Report Content)
 
 **Trigger:** `POST /buddynext/v1/reports` with `{content_type, content_id, reason}`
 
 ```
-ModerationController::create_report($request)
-  → PermissionService::can($user_id, 'buddynext-moderation/report')
-  → ModerationService::create_report($data)
-      → SafeguardService::check_report_rate($user_id)   # rate-limit check
-      → INSERT bn_reports
-      → do_action('buddynext_report_created', $report_id, $data)
-          → ModerationListener::on_report_created()
-              → apply_filters('buddynext_moderation_auto_actions', [], $report_data)
-              → if auto_actions include 'hide_content':
-                  → PostService::mark_pending_review($content_id)
-                  → do_action('buddynext_content_removed', $content_id, 'pending_review')
-              → SELECT COUNT(*) FROM bn_reports WHERE content_id=? and status='open'
-              → if count > threshold:
-                  → auto-escalate (update bn_reports SET status='escalated')
-              → NotificationService::notify_moderators($report_id)
-  → WP_REST_Response(201, {report_id: int})
+REST request (require_auth)
+  -> Moderation\ModerationController::create_report(WP_REST_Request)
+      -> PermissionService::can($uid, 'buddynext-moderation/report')   # Abilities.php:42
+      -> Moderation\ModerationService::create_report($data)
+          -> INSERT bn_reports
+          -> do_action('buddynext_report_created', $report_id, ...)          # ModerationService.php:121
+              -> ModerationListener:
+                  -> apply_filters('buddynext_moderation_auto_actions', [], ...)  # :138
+                  -> auto 'hide_content':
+                      -> do_action('buddynext_content_removed', $content_id, ...)  # :156
+                  -> threshold reached -> escalate (UPDATE bn_reports status)
+                  -> NotificationService::create for moderators (see Flow 5)
+      -> WP_REST_Response(201, {report_id})
+```
+
+Downstream moderator actions reuse ModerationService: strike (`/users/{id}/warn`, `/strikes/...` -> `buddynext_strike_issued` :324), shadow-ban (`buddynext_user_shadow_banned` :715), appeals (`buddynext_appeal_submitted` :880 / `buddynext_appeal_resolved` :937). Suspensions are issued from admin Members (`buddynext_user_suspended`, includes/Admin/Members.php:303). Queue health is monitored by cron `buddynext_daily_queue_check`.
+
+---
+
+## Flow 7: Auth (Register + Verify)
+
+**Trigger:** `POST /buddynext/v1/auth/register` (permission `__return_true`)
+
+```
+REST request (public)
+  -> Auth\AuthController::register(WP_REST_Request)              # AuthController.php:358
+      -> guard get_option('users_can_register')
+      -> validate email / user_login / password / terms_agreed (422 on field errors)
+      -> wp_create_user($login, $password, $email)
+      -> Auth\VerificationService::create_token($user_id)        # AuthController.php:422
+          -> INSERT bn_verify_tokens
+          -> do_action('buddynext_send_verification_email', ...) # VerificationService.php:59
+      -> wp_set_current_user($user_id)   # auto sign-in
+      -> WP_REST_Response(user payload)
+
+Verification click (token consumed):
+  -> VerificationService verifies token
+      -> do_action('buddynext_user_verified', $user_id)          # VerificationService.php:126
+      -> Auth\VerificationListener: do_action('buddynext_email_verified', $user_id)  # VerificationListener.php:92
+```
+
+Login uses `AuthController::login` -> `wp_signon($creds, is_ssl())` (AuthController.php:327). Expired tokens are purged by cron `buddynext_cleanup_tokens` (daily).
+
+---
+
+## Flow 8: REST Permission Gate (every authenticated endpoint)
+
+```
+register_rest_route(..., 'permission_callback' => 'require_auth' | 'require_admin' | 'require_moderator' | 'require_manage_options')
+
+ControllerBase::require_auth(WP_REST_Request)
+  -> is_user_logged_in()
+       -> false -> WP_Error(401)
+  -> if a capability is mapped for the route:
+       -> PermissionService::can(get_current_user_id(), $capability, $context)   # PermissionService.php:85
+            -> Layer 1: $user->has_cap('manage_options') -> true                 # :95
+            -> space-scoped: can_moderate_space() / can_manage_space()           # :97-102, :169
+            -> Layer 2: passes_role_check() vs ROLE_MAP / ROLE_HIERARCHY         # :132
+                 -> space context -> role from bn_space_members ; else bn_community_role usermeta
+            -> Layer 3: has_active_grant() reads bn_ability_{slug} usermeta       # :321 (0 = never expires)
+            -> Layer 4: apply_filters('buddynext_user_can', $result, $uid, $cap, $ctx)  # :121
+       -> false -> WP_Error(403)
+  -> return true
 ```
 
 ---
 
 ## Flow 9: Bridge Load
 
-**Trigger:** `plugins_loaded:25` via `buddynext_load_bridges` action
+**Trigger:** `plugins_loaded:25` via `do_action('buddynext_load_bridges')` (fired from includes/Core/Plugin.php:286).
 
 ```
-Plugin::init() registers:
-  add_action('plugins_loaded', fn() => do_action('buddynext_load_bridges'), 25)
+Plugin::init() schedules do_action('buddynext_load_bridges') at plugins_loaded:25
+  -> Bridges\BuddyXBridge        (class_exists guard) -> avatar/nav/template overrides
+  -> Bridges\WPMediaVerseBridge  (class_exists guard) -> media + DM
+        -> on DM: do_action('buddynext_dm_sent'/'buddynext_dm_received', ...)   # WPMediaVerseBridge.php:407/447
+  -> Bridges\GamificationBridge + GamificationBridgeListener
+        -> community actions -> wb_gamification_event
+        -> badge/level-up events -> NotificationService::create (BN notification)
+  -> Bridges\JetonomyBridge      (class_exists guard) -> Discussions tab
+        -> indexes Jetonomy posts -> do_action('buddynext_jetonomy_post_indexed', ...)  # JetonomyBridge.php:165
+        -> mentions -> do_action('buddynext_user_mentioned', ...)               # :127
+  -> Bridges\CareerBoardBridge   (class_exists guard) -> Career Board nav item
+```
 
-do_action('buddynext_load_bridges')
-  → BuddyXBridge::init()
-      → class_exists('BuddyX\...') check
-      → if active: register BuddyX-specific avatar filters, template hooks
-  → WPMediaVerseBridge::init()
-      → class_exists('WPMediaVerse\Core\Plugin') check
-      → if active: add Media page to BuddyNext nav
-  → GamificationBridge::init()
-      → class_exists check for gamification plugin
-      → if active: wire community actions to wb_gamification_event
-  → GamificationBridgeListener::register()
-      → add_action('wb_gamification_badge_awarded', ...) → create BuddyNext notification
-      → add_action('wb_gamification_level_up', ...) → create BuddyNext notification
-  → JetonomyBridge::init()
-      → class_exists('Jetonomy\Jetonomy') check
-      → if active: add Discussions tab to BuddyNext nav
-  → JetonomyBridgeListener::register()
-      → add_action('jetonomy_post_created', ...) → index in BuddyNext search
-  → CareerBoardBridge::init()
-      → class_exists check
-      → if active: add Career Board to nav
+All bridges no-op when the companion plugin is inactive.
+
+---
+
+## Flow 10: Search Query + Index
+
+**Trigger:** `GET /buddynext/v1/search?q=...&type=posts,users,spaces,hashtags`
+
+```
+REST request (public)
+  -> Search\SearchController::search(WP_REST_Request)
+      -> sanitises q ; resolves $types
+      -> Search\SearchService::search($q, $types, $page, $per_page)
+          -> per type: FULLTEXT MATCH(...) AGAINST on bn_search_index (LIKE fallback)
+          -> merge + rank
+          -> apply_filters('buddynext_search_results', $results, ...)   # SearchService.php:350
+      -> WP_REST_Response({results, total, pages})
+
+Index maintenance:
+  -> Search\SearchIndexListener on buddynext_post_created / buddynext_index_user
+      -> Action Scheduler async (or inline) -> SearchService::index_post / index_user
+          -> UPSERT bn_search_index
+  -> full rebuild: cron buddynext_reindex_all_cron -> SearchService::reindex_all_cron
+      -> on completion: do_action('buddynext_reindex_complete')   # SearchIndexListener.php:341
 ```
