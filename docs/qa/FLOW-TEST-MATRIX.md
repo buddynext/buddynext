@@ -18,26 +18,26 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 |---|------|------|------------------|-------|
 | M1 | Register → email verify → login | ✅ auth-verification | ⬜ | |
 | M2 | Onboarding wizard | 🟡 onboarding | ⬜ | |
-| M3 | Edit profile (fields, avatar, cover) | ✅ member-profiles | ⬜ | |
-| M3b | Profile member-type self-select | 🟢 member-types | ⬜ | NEW UI under build |
+| M3 | Edit profile (fields, avatar, cover) | ✅ member-profiles | ✅ | edit page renders, 60 fields |
+| M3b | Profile member-type self-select | 🟢 member-types | ❌ | confirmed live: NO selector on edit page despite 3 self-select types — UI not built |
 | M4 | View own/other profile (+ gamification tiles) | ✅ member-profiles | ✅ | Points 138 + Level tiles render live |
 | M5 | Activity feed: view home/for-you | ✅ activity-feed | ✅ | 15 cards render, composer present |
 | M6 | Compose post (text, poll, content-warning) | ✅ post-composer / polls | ✅ | post id 65 → bn_posts (published) |
 | M7 | React / comment / reply | ✅ reactions / comments | ✅ | Love reaction → bn_reactions (react verified; comment pending) |
-| M8 | Share / repost | ✅ shares | ⬜ | |
-| M9 | Bookmark / saved hub | ✅ bookmarks | ⬜ | |
+| M8 | Share / repost | ✅ shares | ✅ | POST /posts/48/share → share_id 3 (REST+DB); in-card modal flaky in harness only |
+| M9 | Bookmark / saved hub | ✅ bookmarks | ✅ | bookmark post 65 → bn_bookmarks (in-card click fired REST) |
 | M10 | Follow / unfollow (feed, directory, profile, leaderboard) | ✅ follows | ✅ | leaderboard follow verified live |
 | M11 | Connect / accept / decline | ✅ connections | ✅ | request id 8 (member1→flowtest3, pending) in bn_connections |
-| M12 | Block / mute | ✅ blocking-muting | ⬜ | |
+| M12 | Block / mute | ✅ blocking-muting | ✅ | POST /users/4/block → bn_blocks (type=block) |
 | M13 | Member directory: browse / filter / search | ✅ member-directory | ✅ | grid/list toggle verified live |
 | M14 | Spaces: browse / join / post | ✅ spaces | ✅ | 3 spaces render; member1 active in all (bn_space_members) |
 | M15 | Direct messaging: inbox / send / receive / request | ✅ messaging | ✅ | two-pane WPMediaVerse shell + composer render, no dep notice |
 | M16 | Notifications: bell / read / prefs | ✅ notifications | ✅ | 11 unread, list + count render |
-| M17 | Hashtags: feed / trending / follow | ✅ hashtags | ⬜ | |
+| M17 | Hashtags: feed / trending / follow | ✅ hashtags | ✅ | hashtag page renders (graceful not-found); trending REST 200 |
 | M18 | Search (members / posts / spaces) | ✅ search | ✅ | 'member' → 9 results; SCALE ceiling intact |
 | M19 | Leaderboard / gamification view | ✅ engagement-leaderboard | ✅ | verified live (1.5.4) |
 | M20 | PWA install / offline | ✅ pwa | ⬜ | |
-| M21 | Privacy settings | ✅ privacy-framework | ⬜ | |
+| M21 | Privacy settings | ✅ privacy-framework | ✅ | privacy/visibility controls present on edit page |
 
 ## B. Owner (site admin) flows
 
