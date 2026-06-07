@@ -160,20 +160,23 @@ do_action( 'buddynext_part_member_card_before', $args );
 		</span>
 	</a>
 
-	<h3 class="bn-md-card__name">
-		<a href="<?php echo esc_url( $bn_profile_url ); ?>">
-			<?php echo esc_html( $bn_display_name ); ?>
-		</a>
-		<?php
-		$bn_md_degree = (int) $args['degree'];
-		if ( $bn_md_degree > 0 && $bn_md_degree <= 2 ) :
-			$bn_md_degree_label = 1 === $bn_md_degree ? __( '1st', 'buddynext' ) : __( '2nd', 'buddynext' );
-			?>
-			<span class="bn-md-card__degree" data-degree="<?php echo esc_attr( (string) $bn_md_degree ); ?>"><?php echo esc_html( $bn_md_degree_label ); ?></span>
-		<?php endif; ?>
-	</h3>
+	<?php // Identity group: `display:contents` in grid (no layout effect), a flex column in list view. ?>
+	<div class="bn-md-card__identity">
+		<h3 class="bn-md-card__name">
+			<a href="<?php echo esc_url( $bn_profile_url ); ?>">
+				<?php echo esc_html( $bn_display_name ); ?>
+			</a>
+			<?php
+			$bn_md_degree = (int) $args['degree'];
+			if ( $bn_md_degree > 0 && $bn_md_degree <= 2 ) :
+				$bn_md_degree_label = 1 === $bn_md_degree ? __( '1st', 'buddynext' ) : __( '2nd', 'buddynext' );
+				?>
+				<span class="bn-md-card__degree" data-degree="<?php echo esc_attr( (string) $bn_md_degree ); ?>"><?php echo esc_html( $bn_md_degree_label ); ?></span>
+			<?php endif; ?>
+		</h3>
 
-	<p class="bn-md-card__handle">@<?php echo esc_html( $bn_member_login ); ?></p>
+		<p class="bn-md-card__handle">@<?php echo esc_html( $bn_member_login ); ?></p>
+	</div>
 
 	<?php
 	$bn_md_meta = (string) apply_filters( 'buddynext_member_card_meta_html', '', $bn_member_id, $args );

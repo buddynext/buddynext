@@ -53,6 +53,74 @@
 	padding: 0;
 }
 
+/* ── View toggle (grid / list) ──────────────────────────────────────────────
+ * Buttons live in the filter strip; the directory store (assets/js/members/
+ * store.js) toggles aria-pressed + adds .is-list to .bn-md-grid. */
+.bn-md-filters__view {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.bn-md-filters__view-btn[aria-pressed="true"] {
+	background: color-mix(in oklch, var(--bn-accent) 14%, var(--bn-surface));
+	border-color: color-mix(in oklch, var(--bn-accent) 40%, var(--bn-surface));
+	color: var(--bn-accent);
+}
+
+/* Identity group (name + handle) is transparent to layout in grid view via
+ * display:contents, so grid rendering is unchanged. It becomes the growing
+ * middle column only in list view. */
+.bn-md-card__identity {
+	display: contents;
+}
+
+/* ── List view ──────────────────────────────────────────────────────────────
+ * Single-column rows: avatar left, identity middle (grows), actions right.
+ * Activated when the store adds .is-list to .bn-md-grid. */
+.bn-md-grid.is-list {
+	grid-template-columns: 1fr;
+	gap: var(--bn-s2);
+}
+
+.bn-md-grid.is-list .bn-md-card {
+	flex-direction: row;
+	align-items: center;
+	column-gap: var(--bn-s3);
+	row-gap: var(--bn-s1);
+	flex-wrap: wrap;
+	text-align: start;
+}
+
+.bn-md-grid.is-list .bn-md-card__avatar-link {
+	flex: 0 0 auto;
+	margin-block-end: 0;
+}
+
+.bn-md-grid.is-list .bn-md-card__avatar {
+	inline-size: 52px;
+	block-size: 52px;
+}
+
+.bn-md-grid.is-list .bn-md-card__identity {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	gap: 2px;
+	min-inline-size: 0;
+}
+
+.bn-md-grid.is-list .bn-md-card__actions {
+	flex: 0 0 auto;
+	margin-inline-start: auto;
+}
+
+/* Compact rows drop the bulkier card extras. */
+.bn-md-grid.is-list .bn-md-card__bio,
+.bn-md-grid.is-list .bn-md-card__mutual {
+	display: none;
+}
+
 /* ── Member card composition (uses .bn-card[data-interactive] from base) ── */
 .bn-md-card {
 	display: flex;

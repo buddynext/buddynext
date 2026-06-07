@@ -205,6 +205,29 @@ do_action( 'buddynext_part_member_directory_filter_bar_before', $args );
 			<option value="most_active" <?php selected( $bn_sort, 'most_active' ); ?>><?php esc_html_e( 'Most active', 'buddynext' ); ?></option>
 			<option value="online" <?php selected( $bn_sort, 'online' ); ?>><?php esc_html_e( 'Online now', 'buddynext' ); ?></option>
 		</select>
+
+		<div class="bn-md-filters__view" role="group" aria-label="<?php esc_attr_e( 'View mode', 'buddynext' ); ?>">
+			<button
+				type="button"
+				class="bn-btn bn-md-filters__view-btn"
+				data-variant="ghost"
+				data-size="sm"
+				data-view="grid"
+				data-wp-on--click="actions.setGridView"
+				data-wp-bind--aria-pressed="state.isGridPressed"
+				aria-label="<?php esc_attr_e( 'Grid view', 'buddynext' ); ?>"
+			><?php buddynext_icon( 'grid' ); ?></button>
+			<button
+				type="button"
+				class="bn-btn bn-md-filters__view-btn"
+				data-variant="ghost"
+				data-size="sm"
+				data-view="list"
+				data-wp-on--click="actions.setListView"
+				data-wp-bind--aria-pressed="state.isListPressed"
+				aria-label="<?php esc_attr_e( 'List view', 'buddynext' ); ?>"
+			><?php buddynext_icon( 'list' ); ?></button>
+		</div>
 	</div>
 </div>
 <?php

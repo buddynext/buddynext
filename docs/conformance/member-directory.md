@@ -8,7 +8,9 @@
 
 ---
 
-## Verdict: usable — minor polish
+## Verdict: usable-leave-as-is
+
+> **Resolution (2026-06-07).** The grid/list view toggle is now wired and the list view is built + browser-verified. Added the `.bn-md-filters__view` toggle buttons (bound to the already-wired `setGridView`/`setListView` store actions), a `.bn-md-card__identity` wrapper that is `display:contents` in grid (grid layout unchanged) and a flex column in list, and the `.bn-md-grid.is-list` row layout CSS. Verified in-browser: grid → 5-col unchanged, list → single-column rows, aria-pressed + localStorage persistence both correct. `templates/parts/member-directory-filter-bar.php`, `templates/parts/member-card.php`, `assets/css/bn-members.css`.
 
 The core happy-path journey (land on `/members` → browse cards → search/filter/sort →
 follow/connect/accept-decline → moderate via kebab) is **wired end-to-end** across
