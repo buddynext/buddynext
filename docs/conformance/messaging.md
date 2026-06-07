@@ -13,9 +13,15 @@
 
 ## Verdict
 
-**partial-needs-wiring** — The DM inbox, thread, composer, send, receive, request inbox, reactions, block-gate, and `bn_notifications` routing are all wired end-to-end (UI → `mvs/messaging` Interactivity store → `mvs/v1` REST → service → `mvs_*` tables) and function for any conversation reached from the inbox or via `/messages/{id}`. WPMediaVerse free is active, the messaging module ships in the free build, and the engine is whitelisted in the isolation mu-plugin so it is not front-end-stripped.
+**usable-leave-as-is** (resolved 2026-06-07; was partial-needs-wiring). The DM core is owned by WPMediaVerse — BuddyNext is the UI/application layer consuming it over the `mvs/v1` REST API and the `mvs/messaging` Interactivity store. The inbox, thread, composer, send, receive, request inbox, reactions, block-gate, and `bn_notifications` routing are all wired end-to-end and function for any conversation. WPMediaVerse free is active, the messaging module ships in the free build, and the engine is whitelisted in the isolation mu-plugin so it is not front-end-stripped.
 
-One real break remains: the two **member-facing entry points** — the "Message" button on profile connections and on member-directory cards — do not deep-link to the recipient in a form the store reads. Both land the user at the inbox root with no conversation opened or created, defeating the spec's "inject DM link on member profiles and directory cards" intent. The fix is 1-2 lines per entry point reusing a deep-link pattern BuddyNext already emits in `thread.php`.
+The only outstanding break — the two **member-facing entry points** ("Message" on profile connections and on member-directory cards) emitting a recipient form the store never read — is now fixed: both deep-link via `#mvs-chat/user/{id}`, which the WPMediaVerse store's `onInit` reads and routes to `openWithRecipient()`. Verified against the pulled WPMediaVerse 1.6.0 store (`assets/js/messaging.js:1325-1331, 329`).
+
+### Resolution log (2026-06-07)
+
+- **Profile-connections "Message" button** — `templates/profile/connections.php:171` now builds `PageRouter::messages_url() . '#mvs-chat/user/' . $conn_id` instead of a bare `/messages/`.
+- **Directory member-card "Message" button** — `templates/parts/member-directory-grid.php:132` now builds `$messages_base . '#mvs-chat/user/' . $member_id` instead of a dropped `?recipient={id}` query string.
+- No WPMediaVerse / REST / store changes — BN-side hrefs only, reusing the deep-link contract the core already exposes.
 
 ## Why this supersedes the prior pass
 
@@ -50,7 +56,7 @@ The earlier dossier marked this same entry-point item as gap #2 with `low` sever
 | New message → `bn.new_message` notification + bell badge | service/db | wired | `WPMediaVerseBridge.php:378-444` |
 | Deep-link thread `/messages/{id}` opens that conversation | store | wired | `templates/messages/thread.php:87-108` sets `#mvs-chat/{id}` + dispatches `mvs-open-conversation`; `messaging.js:1231,1243` |
 | Request inbox accept/decline, mute/pin/archive, reactions, delete/unsend, typing | rest+store | wired | `messaging.js:438,452,630,644`; `MessagingController.php:182-308` |
-| **Click "Message" on a member → open/create DM with them** | ui | **broken** | `templates/profile/connections.php:205` (bare `/messages/`); `templates/parts/member-directory-grid.php:129` builds `/messages/?recipient={id}` but store `onInit` reads only `location.hash` + `mvs-open-conversation` event, never `?recipient=` (`wpmediaverse/assets/js/messaging.js:1223-1260`) |
+| **Click "Message" on a member → open/create DM with them** | ui | wired (2026-06-07) | `templates/profile/connections.php:171` + `templates/parts/member-directory-grid.php:132` now emit `#mvs-chat/user/{id}`, read by store `onInit` → `openWithRecipient` (`wpmediaverse/assets/js/messaging.js:1325-1331,329`) |
 | Dependency fallback when MVS inactive | ui | wired | `templates/messages/list.php:42-53` |
 
 ## First break
@@ -64,8 +70,8 @@ Everything downstream — inbox render, send, receive, requests, reactions, noti
 
 | # | Gap | Severity | Confidence | Evidence |
 |---|-----|----------|-----------|----------|
-| 1 | Profile-connections "Message" button targets bare `/messages/` — opens empty inbox, not a DM with that person | high | confirmed-in-code | `templates/profile/connections.php:205` |
-| 2 | Directory member-card "Message" button passes `?recipient={id}` but the store reads only `location.hash`/event, so the recipient is dropped | high | confirmed-in-code | `templates/parts/member-directory-grid.php:129`; `wpmediaverse/assets/js/messaging.js:1223-1260` |
+| 1 | ~~Profile-connections "Message" button targets bare `/messages/`~~ — FIXED 2026-06-07: deep-links `#mvs-chat/user/{id}` | resolved | confirmed-in-code | `templates/profile/connections.php:171` |
+| 2 | ~~Directory member-card "Message" button passes `?recipient={id}` the store drops~~ — FIXED 2026-06-07: deep-links `#mvs-chat/user/{id}` | resolved | confirmed-in-code | `templates/parts/member-directory-grid.php:132`; `wpmediaverse/assets/js/messaging.js:1325-1331` |
 | 3 | Group DM, read receipts, WebSocket transport | low | confirmed-in-code | Spec'd as WPMediaVerse Pro and marked Pending (`WPMediaVerse-DM-Integration-Requirements.md:235-240`); out of free-journey scope, not a break |
 
 ## Minimal refactor plan

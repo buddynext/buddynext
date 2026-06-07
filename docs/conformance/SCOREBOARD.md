@@ -2,9 +2,9 @@
 
 _Regenerated 2026-06-07 from per-feature conformance verdicts · 50 units._
 
-**Snapshot:** ✅ usable-leave-as-is **38** · 🟢 usable-minor-polish **10** · 🟡 partial-needs-wiring **2**
+**Snapshot:** ✅ usable-leave-as-is **39** · 🟢 usable-minor-polish **10** · 🟡 partial-needs-wiring **1**
 
-**Still needing wiring:** Visibility & privacy resolver, Private Messaging.
+**Still needing wiring:** Visibility & privacy resolver.
 
 | Feature | Repo | Verdict |
 |---|---|---|
@@ -34,7 +34,7 @@ _Regenerated 2026-06-07 from per-feature conformance verdicts · 50 units._
 | Polls | free | ✅ usable-leave-as-is |
 | Post Composer & Posts | free | ✅ usable-leave-as-is |
 | Privacy Framework | free | ✅ usable-leave-as-is |
-| Private Messaging | free | 🟡 partial-needs-wiring |
+| Private Messaging | free | ✅ usable-leave-as-is |
 | PWA | free | ✅ usable-leave-as-is |
 | Reactions | free | ✅ usable-leave-as-is |
 | Realtime Updates | free | ✅ usable-leave-as-is |
