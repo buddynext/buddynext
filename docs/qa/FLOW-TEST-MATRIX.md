@@ -59,7 +59,7 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 |---|------|------|------------------|-------|
 | P1 | Membership tiers + gated spaces | ✅ pro-membership | ⬜ | |
 | P2 | Stripe checkout / webhook → ability grant | ✅ pro-stripe | ⬜ | |
-| P3 | Email broadcasts (incl. scheduled) | ✅ pro-broadcasts | ⬜ | scheduled-dispatch fix code-verified |
+| P3 | Email broadcasts (incl. scheduled) | ✅ pro-broadcasts | ✅ | LIVE: due scheduled campaign → cron tick → status scheduled→sent, 6 recipients, unsub injected (fix verified) |
 | P4 | Drip / welcome sequences | ✅ pro-drip | ⬜ | |
 | P5 | AI feed ranking | ✅ pro-ai | ⬜ | |
 | P6 | Analytics | ✅ pro-analytics | ⬜ | |
