@@ -19,7 +19,7 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 | M1 | Register → email verify → login | ✅ auth-verification | ⬜ | |
 | M2 | Onboarding wizard | 🟡 onboarding | ⬜ | |
 | M3 | Edit profile (fields, avatar, cover) | ✅ member-profiles | ✅ | edit page renders, 60 fields |
-| M3b | Profile member-type self-select | 🟢 member-types | ❌ | confirmed live: NO selector on edit page despite 3 self-select types — UI not built |
+| M3b | Profile member-type self-select | ✅ member-types | ✅ | BUILT 2026-06-07: selector on edit page → setMemberType → usermeta bn_member_type=designer (live) |
 | M4 | View own/other profile (+ gamification tiles) | ✅ member-profiles | ✅ | Points 138 + Level tiles render live |
 | M5 | Activity feed: view home/for-you | ✅ activity-feed | ✅ | 15 cards render, composer present |
 | M6 | Compose post (text, poll, content-warning) | ✅ post-composer / polls | ✅ | post id 65 → bn_posts (published) |

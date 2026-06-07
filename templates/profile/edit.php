@@ -578,6 +578,50 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				)
 			);
 
+			// Member-type self-select — only when self-select types exist (own
+			// profile only; this template renders for the owner). Wired to the
+			// buddynext/profile store's setMemberType action, which PUTs to
+			// /users/{id}/member-type; the endpoint enforces the self_select gate.
+			$bn_mt_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'member_types' ) : null;
+			if ( $bn_mt_service && method_exists( $bn_mt_service, 'get_all' ) ) {
+				$bn_self_types = array_values(
+					array_filter(
+						(array) $bn_mt_service->get_all(),
+						static function ( $t ) {
+							return ! empty( $t['self_select'] );
+						}
+					)
+				);
+
+				if ( ! empty( $bn_self_types ) ) {
+					$bn_current_type = method_exists( $bn_mt_service, 'get_user_type' ) ? $bn_mt_service->get_user_type( $user_id ) : null;
+					$bn_current_slug = ( is_array( $bn_current_type ) && isset( $bn_current_type['slug'] ) ) ? (string) $bn_current_type['slug'] : '';
+
+					$bn_mt_html  = '<label class="bn-ep-label" for="bn-ep-member-type">' . esc_html__( 'Your member type', 'buddynext' ) . '</label>';
+					$bn_mt_html .= '<select class="bn-input" id="bn-ep-member-type" data-user-id="' . esc_attr( (string) $user_id ) . '" data-wp-on--change="actions.setMemberType">';
+					$bn_mt_html .= '<option value="">' . esc_html__( '— None —', 'buddynext' ) . '</option>';
+					foreach ( $bn_self_types as $bn_t ) {
+						$bn_mt_html .= sprintf(
+							'<option value="%s"%s>%s</option>',
+							esc_attr( (string) ( $bn_t['slug'] ?? '' ) ),
+							selected( $bn_current_slug, (string) ( $bn_t['slug'] ?? '' ), false ),
+							esc_html( (string) ( $bn_t['name'] ?? $bn_t['slug'] ?? '' ) )
+						);
+					}
+					$bn_mt_html .= '</select>';
+
+					buddynext_get_template(
+						'parts/profile-edit-section.php',
+						array(
+							'title'     => __( 'Member type', 'buddynext' ),
+							'subtitle'  => __( 'Pick the type that best describes you. Saved instantly.', 'buddynext' ),
+							'title_id'  => 'bn-ep-member-type-title',
+							'body_html' => $bn_mt_html,
+						)
+					);
+				}
+			}
+
 			// Blocked & muted section — server-rendered lists with REST-
 			// driven unblock/unmute buttons. Pulls the live state from
 			// BlockService so the user can manage their relationships in

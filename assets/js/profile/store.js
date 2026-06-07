@@ -695,6 +695,26 @@ store( 'buddynext/profile', {
 			}
 		},
 
+		/* Self-assign a member type (own profile, self-select types only). PUTs
+		 * the chosen slug to /users/{id}/member-type; the endpoint enforces the
+		 * self_select gate server-side. Saves immediately on change. */
+		async setMemberType( event ) {
+			var sel    = event.target;
+			var userId = sel.getAttribute( 'data-user-id' );
+			if ( ! userId ) { return; }
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/users/' + userId + '/member-type' ), {
+					method:  'PUT',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+					body:    JSON.stringify( { type_slug: sel.value } ),
+				} );
+				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				bnToast( ( window.bnI18n && window.bnI18n.memberTypeSaved ) || 'Member type updated', { tone: 'success' } );
+			} catch ( _e ) {
+				bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || 'Could not update member type', { tone: 'danger' } );
+			}
+		},
+
 		/* Toggle a single whitelisted boolean preference (privacy / notification
 		 * email opt-ins). Updates the aria-checked state optimistically, fires
 		 * a PUT /me/profile with the single key, rolls back + toasts on failure.

@@ -2,7 +2,9 @@
 
 **Feature:** Member Types (repo: free)
 **Spec ref:** `docs/specs/features/05-user-profiles.md` (no dedicated Member Types spec; the profiles spec governs profiles and references member-type integration). Cross-checked against `REST-FRONTEND-CONTRACT.md`, `SCALE-CONTRACT.md`, `17-roles-permissions.md`.
-**Verdict:** usable-minor-polish
+**Verdict:** usable-leave-as-is
+
+> **Resolution (2026-06-07).** The `self_select` web UI now exists. `templates/profile/edit.php` renders a "Member type" selector on the owner's edit page (only when self-select types exist), wired to the `buddynext/profile` store's `setMemberType` action which PUTs to `/users/{id}/member-type` (the endpoint enforces the self_select gate server-side). Verified live: selecting "Designer" wrote `usermeta bn_member_type=designer`. `templates/profile/edit.php`, `assets/js/profile/store.js`.
 **Live-walk URL:** http://buddynext-dev.local/members
 
 ---
