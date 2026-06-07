@@ -2,7 +2,9 @@
 
 **Spec:** `docs/specs/features/12-wbgamification-bridge.md` (Locked, 2026-03-19)
 **Checked:** 2026-05-31
-**Verdict:** usable-minor-polish — core seam contract holds; some spec-listed UI surfaces unwired
+**Verdict:** usable-leave-as-is (resolved 2026-06-07) — core seam contract holds AND the profile-card surface is now wired.
+
+> **Resolution (2026-06-07).** `GamificationBridge::inject_profile_gamification()` hooks `buddynext_profile_extra_data` (the same read-only seam JetonomyBridge uses) to surface Points / Level / Badge-count as profile stat tiles via `wb_gam_get_user_points/level/badges()`. Read-only and `function_exists`-guarded — wb-gamification still owns all values; BuddyNext only exposes them. The earlier "missing profile-card link" is closed. `includes/Bridges/GamificationBridge.php`.
 **Repo:** buddynext (contract)
 
 ---

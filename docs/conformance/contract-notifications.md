@@ -2,7 +2,9 @@
 
 **Contract:** Templates carry their own subject/body; every event emits through one channel + preference model.
 **Spec refs:** `docs/specs/NOTIFICATION-MESSAGES.md`, `docs/specs/features/06-notifications-email.md`
-**Verdict:** usable-minor-polish
+**Verdict:** usable-leave-as-is (resolved 2026-06-07)
+
+> **Resolution (2026-06-07).** Pro's `PushDispatcher::build_snippet()` no longer keeps a private copy of notification copy whose slugs had drifted from the emitted types (every push banner was falling through to the generic line). It now routes through the canonical `notification_message` service so push copy matches in-app + email. `buddynext-pro/includes/Push/PushDispatcher.php`.
 **Date:** 2026-05-31
 
 ---

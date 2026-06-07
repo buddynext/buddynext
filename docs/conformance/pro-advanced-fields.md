@@ -4,7 +4,9 @@
 **Repo:** buddynext-pro (depends on buddynext Free FieldType engine)
 **Spec ref:** `docs/specs/features/member-fields-search-privacy.yaml` (contracts.field_type_engine + buddynext_field_types extensibility) and `docs/specs/features/05-user-profiles.md`. Journey: `docs/journeys/profile-fields.md`.
 **Date:** 2026-05-31
-**Verdict:** usable-minor-polish
+**Verdict:** usable-minor-polish (gap #1 resolved 2026-06-07; gap #2 remains, needs-live-verification)
+
+> **Partial resolution (2026-06-07).** Gap #1 closed: `multi_select_advanced` validator now mirrors the renderer (accepts the array form-post / JSON / comma-joined, reads `options['choices']`), so the field saves and round-trips. Gap #2 (JS hydration for the location-map picker / file upload / conditional show-hide) is still open and needs a live browser check of the Pro asset enqueue — left as minor-polish. `buddynext-pro/includes/Profile/AdvancedFieldValidator.php`.
 
 ---
 

@@ -2,7 +2,9 @@
 
 **Feature:** Auto / Rule-based Moderation (repo: buddynext-pro)
 **Spec ref:** `/Users/vapvarun/dev/repos/buddynext/docs/specs/features/09-moderation.md` (§ Automated Safeguards) + journey `/Users/vapvarun/dev/repos/buddynext-pro/docs/journeys/auto-moderation.md`
-**Verdict:** usable-minor-polish
+**Verdict:** usable-leave-as-is (resolved 2026-06-07)
+
+> **Resolution (2026-06-07).** Both gaps closed in buddynext-pro: `bn_mod_rules.rule_type` ENUM widened to all four shipped types (`keyword_block,link_block,rate_limit,threshold_remove`; dropped unused `spam_score`) with an idempotent ALTER in `maybe_alter_tables` for existing installs; and the `suspend` action now targets the offending author (resolved from `bn_posts`/`bn_comments` by object_type) instead of the reported object_id. `includes/Core/Installer.php`, `includes/Moderation/RulesService.php`.
 **Live-walk URL:** http://buddynext-dev.local/wp-admin/ (→ `admin.php?page=buddynextpro-mod-rules`)
 
 ---

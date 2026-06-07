@@ -4,7 +4,9 @@
 **Repo:** buddynext-pro
 **Spec ref:** `buddynext/docs/specs/features/06-notifications-email.md` (§ Pro/Broadcast, § Unsubscribe, § Email Infrastructure)
 **Journey ref:** `buddynext-pro/docs/journeys/broadcast-email.md`
-**Verdict:** usable-minor-polish
+**Verdict:** usable-leave-as-is (resolved 2026-06-07)
+
+> **Resolution (2026-06-07).** Scheduled campaigns now dispatch: `schedule_campaign()` starts the recurring sender tick, and `send_pending()` promotes due `status=scheduled` campaigns via `dispatch_campaign()` (queues recipients + flips to sending). The per-recipient unsubscribe URL is now injected (`{{unsubscribe_url}}` token substitution, or an appended compliance footer since Free's sender adds none). `buddynext-pro/includes/Email/BroadcastService.php`.
 **Live-walk URL:** http://buddynext-dev.local/wp-admin/ (+ Mailpit at http://localhost:10010/)
 
 ---

@@ -2,13 +2,13 @@
 
 _Regenerated 2026-06-07 from per-feature conformance verdicts · 50 units._
 
-**Snapshot:** ✅ usable-leave-as-is **40** · 🟢 usable-minor-polish **10** · 🟡 partial-needs-wiring **0**
+**Snapshot:** ✅ usable-leave-as-is **44** · 🟢 usable-minor-polish **6** · 🟡 partial-needs-wiring **0**
 
 | Feature | Repo | Verdict |
 |---|---|---|
 | Design system & dark mode | contract | ✅ usable-leave-as-is |
-| Gamification seam | contract | 🟢 usable-minor-polish |
-| Notification / email / push template model | contract | 🟢 usable-minor-polish |
+| Gamification seam | contract | ✅ usable-leave-as-is |
+| Notification / email / push template model | contract | ✅ usable-leave-as-is |
 | REST/App contract | contract | ✅ usable-leave-as-is |
 | Scale contract | contract | ✅ usable-leave-as-is |
 | Visibility & privacy resolver | contract | ✅ usable-leave-as-is |
@@ -43,11 +43,11 @@ _Regenerated 2026-06-07 from per-feature conformance verdicts · 50 units._
 | Advanced Search Filters | pro | ✅ usable-leave-as-is |
 | AI Engine | pro | ✅ usable-leave-as-is |
 | Analytics | pro | ✅ usable-leave-as-is |
-| Auto / Rule-based Moderation | pro | 🟢 usable-minor-polish |
+| Auto / Rule-based Moderation | pro | ✅ usable-leave-as-is |
 | Bulk Moderation | pro | ✅ usable-leave-as-is |
 | Custom Reactions | pro | ✅ usable-leave-as-is |
 | Drip / Welcome Sequences | pro | ✅ usable-leave-as-is |
-| Email Broadcasts | pro | 🟢 usable-minor-polish |
+| Email Broadcasts | pro | ✅ usable-leave-as-is |
 | Member Labels | pro | ✅ usable-leave-as-is |
 | Membership Tiers & Gated Spaces | pro | ✅ usable-leave-as-is |
 | Multi-pin Posts | pro | ✅ usable-leave-as-is |
