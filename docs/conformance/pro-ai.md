@@ -1,4 +1,4 @@
-# Conformance — Pro AI Engine (Feed Ranking journey)
+# Conformance: AI Engine (Pro) — AI-Ranked Feed journey
 
 **Feature:** AI Engine (repo: buddynext-pro)
 **Spec ref:** `/Users/vapvarun/dev/repos/buddynext/docs/specs/features/P2-ai-engine.md`
@@ -8,56 +8,84 @@
 
 ---
 
-## Scope of this audit
+## Scope
 
-The spec lists five integration surfaces (Feed Ranking, Moderation, Smart
-Notifications, Discovery, Search). The locked entry URL is `/activity`, so the
-core happy-path verified here is **AI feed ranking** — the spec's first and
-primary integration point ("AI ranking replaces chronological"). Moderation,
-smart replies, and semantic search have services + controllers + admin toggles
-present (see notes) but are not the `/activity` journey and were not traced
-end-to-end here.
+The spec lists several AI surfaces (feed ranking, moderation, smart notifications,
+discovery, semantic search, smart replies). The locked spec's first/primary
+integration point and the supplied LIVE ENTRY URL (`/activity`) both point at the
+**core happy-path journey: AI-ranked home feed replacing chronological**. That is
+the journey verified here, end-to-end. Other AI surfaces (moderation, replies,
+semantic search) are present in the directory and wired through the same container
+(`includes/Core/Plugin.php` binds `pro_ai_reply`, semantic search, moderation
+controller) but are out of scope for this feed-journey walk.
 
-## Happy-path journey (site owner enables AI ranking → member sees ranked feed)
+The feed-ranking journey is deliberately **server-side transparent**: the spec says
+"AI ranking replaces chronological" on the existing Activity Feed. There is no new
+member-facing UI — the same `/activity` feed UI and the same `GET /feed` REST
+endpoint are reused; Pro only reorders the result set. So the only net-new UI is the
+**admin enable toggle**, which exists.
+
+---
+
+## Journey chain
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Admin toggles "Enable AI feed ranking" + decay window | ui | wired | `includes/Admin/AIAdmin.php:249` (toggle row), `:262` (decay number row); registered `includes/Core/Plugin.php:211` |
-| Toggle persisted as option | store | wired | `includes/Admin/AIAdmin.php:113` register_setting → `buddynextpro_ai_feed_enabled` |
-| Engagement events written to `bn_ai_signals` (warm dataset) | service | wired | `includes/AI/SignalsCollector.php:57` hooks react/comment/follow/bookmark; always-on `includes/Core/Plugin.php:97` |
-| Signals table exists / ENUM widened | db | wired | `includes/Core/Installer.php:340` CREATE TABLE bn_ai_signals; `:148` ALTER ENUM |
-| Container rebinds `feed` to AI service when enabled | service | wired | `includes/Core/Plugin.php:463-471` rebind to `AiRankedFeedService` |
-| REST feed endpoint resolves via container | rest | wired | `includes/Feed/FeedController.php:417-425` feed_service() → `buddynext_service('feed')`; called at `:150`, `:304` |
-| SSR initial paint resolves via container | ui | wired | `templates/feed/home.php:153` `buddynext_service('feed')` → `home_feed()` at `:157` |
-| Re-rank by affinity (engagement + decayed signals) | service | wired | `includes/AI/AiRankedFeedService.php:58` home_feed override; `:112` compute_scores; `:199` fetch_signals query |
-| Disabled / anon / cold fallback to chronological | service | wired | `AiRankedFeedService.php:63` short-circuit; `FeedController.php:425` direct FeedService fallback |
-| `/activity` route → home feed template | ui | wired | `includes/Core/PageRouter.php:7`, `:813` returns `feed/home.php` |
+| Admin enables "AI feed ranking" + decay window | ui | wired | `buddynext-pro/includes/Admin/AIAdmin.php:46-53,74-103,250-265` (Settings-API page, AdminHub tab "growth/ai-feed", `manage_options`) |
+| Admin page registered at boot | service | wired | `buddynext-pro/includes/Core/Plugin.php:211` (`( new AIAdmin() )->register()`) |
+| Toggle persists as option | db | wired | option `buddynextpro_ai_feed_enabled` via `register_settings()` `AIAdmin.php:110+`; read in `AiRankedFeedService::is_enabled()` `AI/AiRankedFeedService.php:235-237` |
+| `bn_ai_signals` table created | db | wired | `buddynext-pro/includes/Core/Installer.php:340` (`CREATE TABLE {$p}bn_ai_signals ...`) |
+| Engagement events captured into signals | service/db | wired | `AI/SignalsCollector.php:57-62` hooks Free actions (`buddynext_reaction_added`, `buddynext_comment_created`, `buddynext_user_followed`, `buddynext_post_bookmarked`); inserts rows `SignalsCollector.php:137-165`; registered unconditionally `Plugin.php:97` |
+| Container rebinds `feed` → AI service when enabled | service | wired | `Plugin.php:463-471` rebinds `'feed'` to `AiRankedFeedService(follows, post_service)` only if `is_enabled()` |
+| AI service re-ranks parent feed by affinity | service | wired | `AI/AiRankedFeedService.php:58-100` (`home_feed()` calls `parent::home_feed()`, computes affinity from signals, re-sorts), `compute_scores()` 112-159, `fetch_signals()` 173-228 |
+| REST `GET /feed` resolves rebound service per request | rest | wired | `buddynext/includes/Feed/FeedController.php:164-173,467-476` (`feed_service()` resolves `buddynext_service('feed')` every request; SSR + infinite scroll both honour the rebind) |
+| `/activity` web UI renders the (now AI-ordered) feed | ui | wired | Same Free Activity feed UI + `FeedController::home_feed()` / `home_feed_page()` `FeedController.php:43,124,345`; payload shape unchanged, items merely reordered |
+
+---
 
 ## First break
 
-none — journey complete. Admin control, signal collection, schema, container
-rebind, REST path, and SSR path all resolve through the same `feed` container
-key, so AI ranking reaches both the initial paint and infinite-scroll
-pagination consistently. Off-state and cold-table paths fall back to
-chronological without fatal.
+**none — journey complete.** Every link in the AI-ranked-feed chain is wired in
+code: admin toggle → option → container rebind → REST resolution → re-rank →
+existing UI. No member-facing UI change is required because the ranking is a
+server-side reorder of the existing feed contract.
+
+### Constructor-arity check (cleared, not a break)
+Free binds `'feed'` with three args (`follows`, `post_service`, `feed_cache`) at
+`buddynext/includes/Core/Plugin.php:636`; Pro rebinds with two
+(`Plugin.php:466-469`). This is safe: `FeedService::__construct()` declares
+`?FeedCache $cache = null` (`buddynext/includes/Feed/FeedService.php:75`), and
+`AiRankedFeedService` inherits that constructor. Dropping the cache is intentional —
+AI ranking must run per-request rather than serve a cached chronological page-1.
+
+---
 
 ## UX gaps
 
-None that stop the journey. The ranking is intentionally invisible (re-ordered
-chronological cards, same markup) — there is no per-member "why am I seeing
-this" affordance, but the spec does not require one. The feature is admin-gated
-and off by default, matching the spec.
+| Gap | Severity | Confidence | Evidence |
+|-----|----------|------------|----------|
+| Feature ships **off by default** (`buddynextpro_ai_feed_enabled` default `false`). On a fresh site, or before an admin flips the toggle, `/activity` is plain chronological — correct/expected, but a reviewer walking `/activity` cold sees no AI behaviour. | low | confirmed-in-code | `AI/AiRankedFeedService.php:236`, `AIAdmin.php:47` |
+| Re-ranking is a no-op until `bn_ai_signals` has rows for the viewer; on a seeded-but-low-engagement test account the reorder is invisible. Affinity also short-circuits with fewer than 2 feed items. | low | needs-live-verification | `AI/AiRankedFeedService.php:63-69`; live signal-row count not verifiable this session (Local DB connection was down) |
 
-## Notes on other spec surfaces (not the /activity journey)
+Neither gap stops the journey; both are expected behaviour of a signal-driven,
+admin-gated ranking layer.
 
-- Moderation: `includes/AI/ModerationAi.php`, `Controllers/AiModerationController.php`, `ContentClassifier.php` present.
-- Smart replies: `ReplyGenerator.php`, `ReplyButtonRenderer.php`, `AiReplyAssets.php`, `Controllers/ReplyController.php` + admin toggles `AIAdmin.php:335-378`.
-- Semantic search: `SemanticSearchService.php`, `EmbeddingIndexer.php`, `EmbeddingProvider.php` + container rebind `Plugin.php:486-493`.
-- Smart Notifications (fatigue / optimal send time) and Discovery (spaces-you-
-  might-like, extended PYMK, interest-cluster trending) were not located as
-  dedicated AI services in this trace — flagged for a separate per-surface
-  audit, not as a break of the `/activity` journey.
+---
 
 ## Minimal refactor plan
 
-Empty — usable, leave as is. Do not rewrite working ranking code.
+_(empty — usable-leave-as-is)_
+
+---
+
+## Live-walk notes (for the human)
+
+1. Admin → BuddyNext → Growth → **AI Feed**: confirm the toggle + decay-days field
+   render and save (`AIAdmin.php`).
+2. Flip **Enable AI feed ranking** on.
+3. As a member with engagement history (reactions/comments/follows/bookmarks against
+   specific authors), load http://buddynext-dev.local/activity and confirm posts from
+   high-affinity authors float up vs a chronological control account.
+4. If order looks unchanged: check `wp_bn_ai_signals` has rows for that viewer and
+   that `buddynextpro_ai_feed_enabled = 1` — both runtime/config state, not code gaps.
+   (DB could not be queried this session; verify live.)

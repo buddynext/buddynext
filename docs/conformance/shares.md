@@ -3,45 +3,65 @@
 **Feature:** Shares / Reposts (Free)
 **Spec ref:** `docs/specs/features/02-activity-feed.md` (Post Features → "share"; Data Stored → `bn_shares`)
 **Cross-cutting:** `docs/specs/REST-FRONTEND-CONTRACT.md`, `docs/specs/SCALE-CONTRACT.md`, `docs/specs/features/17-roles-permissions.md`
-**Verdict:** usable-leave-as-is
 **Live-walk URL:** http://buddynext-dev.local/activity
+**Verdict:** usable-leave-as-is
 
 ---
 
-## Journey chain
+## What the spec asks for
 
-A logged-in member opens the feed, clicks Share on a post, picks Repost, and the repost appears in the feed with the original embedded; the source post's share count bumps.
+Free members can **share (repost)** a post, optionally with a note ("quote"). `bn_shares` stores
+`id, user_id, post_id, note, created_at`. The denormalised `bn_posts.share_count` reflects the total.
+A repost surfaces back into the feed as a `share`-type post. Share is a login-required action.
+
+---
+
+## Journey chain (logged-in member — primary actor)
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Share button on each post card (suppressed on share cards) | ui | wired | `templates/parts/post-actions.php:158-171` (`data-wp-on--click="actions.openShare"`, `state.shareLabel`) |
-| `openShare` dispatches `bn:open-share-modal` CustomEvent | store | wired | `assets/js/feed/store.js:832-848` |
-| Share modal rendered once per surface (home/bookmarks/single) | ui | wired | `templates/feed/home.php:587`; `templates/partials/share-modal.php:27-111` |
-| Bridge listener populates modal context + opens it | store | wired | `assets/js/feed/store.js:1950-1966` |
-| Repost CTA → `actions.repost` → POST `/posts/{id}/share` | store | wired | `templates/partials/share-modal.php:67-78`; `assets/js/feed/store.js:1874-1906` |
-| REST route `POST /posts/{id}/share` (auth-gated) | rest | wired | `includes/Feed/ShareController.php:31-46,80-99,137-147` |
-| ShareService writes `bn_shares`, dedupes, creates `type='share'` feed post, bumps count, fires hooks | service | wired | `includes/Feed/ShareService.php:31-117` |
-| `bn_shares` + `bn_posts(type='share', shared_post_id)` persisted | db | wired | `includes/Feed/ShareService.php:53-90` |
-| Home feed query selects all types incl. `share` (no type exclusion) | service | wired | `templates/feed/home.php:183-222` (selects `shared_post_id`, `type`; no `type<>'share'` filter) |
-| Share card renders embedded original (+ graceful fallback) | ui | wired | `templates/partials/post-card.php:102-111,481`; `templates/parts/post-body.php:303-356` |
-| Unshare `DELETE /posts/{id}/share` + count decrement | rest/service | wired | `ShareController.php:40-44,107-114`; `ShareService.php:128-145` |
-| Share history `GET /me/shares` (app/REST client) | rest/service | wired | `ShareController.php:48-71,122-130`; `ShareService.php:181-227` |
+| Share button rendered on each post card | ui | wired | `templates/parts/post-actions.php:220-233` (suppressed on `share`-type cards); bound to `state.shareLabel` / `state.shareBtnClass` |
+| Click → `openShare` dispatches `bn:open-share-modal` w/ postId, permalink, nonce, restUrl | store | wired | `assets/js/feed/store.js:832-848` |
+| Share-modal partial rendered on feed (logged-in only) | ui | wired | `templates/feed/home.php:598`; guest early-return at `templates/partials/share-modal.php:20-23` |
+| Bridge listener populates modal context + opens it | store | wired | `assets/js/feed/store.js:2016-2032` |
+| Modal CTAs: Repost / Quote / Copy link | ui | wired | `templates/partials/share-modal.php:68-99` → `actions.repost`/`quote`/`copyLink` |
+| `repost` → `POST buddynext/v1/posts/{id}/share`, bumps source card count | store | wired | `assets/js/feed/store.js:1940-1972` |
+| `quote` → prefills composer with permalink, focuses it | store | wired | `assets/js/feed/store.js:1973-1988` |
+| REST route registered + auth-gated | rest | wired | `includes/Feed/ShareController.php:30-72`; registered `includes/REST/Router.php:73` |
+| Service: insert `bn_shares`, dedupe, create `share`-type `bn_posts` row, bump `share_count` | service | wired | `includes/Feed/ShareService.php:31-118` (dedupe L35-52; feed row L77-90; count L93) |
+| Unshare decrements count | service | wired | `includes/Feed/ShareService.php:128-145` |
+| Repost surfaces in feed as a `share` card | db/ui | wired | `ShareService.php:77-90`; shared block at `templates/partials/post-card.php:102-105` |
 
 ## First break
 
-none — journey complete.
+none — journey complete (for the logged-in member, the spec's intended actor).
+
+---
 
 ## UX gaps
 
-None that stop the journey. Observations (non-blocking):
+1. **Guest sees a non-functional Share button** — low severity. The button at
+   `templates/parts/post-actions.php:220` is gated only by post type, not by `$can_share`
+   (`post-card.php:224` computes `$can_share = current_user_id > 0` but never applies it to the
+   Share button). For a logged-out viewer the share-modal partial returns early
+   (`share-modal.php:20-23`), so clicking Share does nothing and offers no sign-in prompt. Reaction/
+   comment/bookmark do not exhibit this. Cosmetic, not a journey break. Confidence: confirmed-in-code.
 
-- The optional repost note (`bn_shares.content`) is accepted by the API (`ShareController.php:83`, `ShareService.php:31`) but the web modal's Repost CTA sends no note (`store.js:1880-1883`). This is intentional: "Quote" pre-fills the composer for a commented repost (`store.js:1907-1922`). The note column is reachable only by REST clients, not the web Repost button. Matches spec ("reposts with optional note") via the API; the web UX routes commentary through Quote. confidence: confirmed-in-code.
-- Privacy inheritance on the share feed-post is sound: it copies the original's privacy and the home query enforces `public/followers` for followed authors (`ShareService.php:67-75`, `home.php:201`), respecting `17-roles-permissions.md` visibility.
+2. **Direct repost does not persist a note to `bn_shares.note`** — low severity / observation.
+   "Quote" prefills the composer and publishes a normal post (`store.js:1973-1988`); the bare
+   `repost` posts to `/posts/{id}/share` with no `content`, leaving `note` empty. The REST layer
+   accepts and sanitizes `content` → `note` (`ShareController.php:83-85`), so the column is wired and
+   reachable by REST/app clients — the web UI simply chooses quote = new post, repost = bare reshare.
+   Consistent and usable. Confidence: confirmed-in-code.
+
+Neither gap stops the core repost journey.
+
+---
 
 ## Minimal refactor plan
 
-None. Feature is wired end-to-end across ui/store/rest/service/db for the web journey and additionally exposes a clean REST surface (`/posts/{id}/share`, `/me/shares`) for the app client.
+(empty — usable-leave-as-is)
 
-## Note on verification
-
-All statuses above are confirmed by reading code. A live walk at the entry URL with seeded follow/post data is the final confirmation but no break was provable statically.
+Optional, non-blocking: bind the Share button render to `$can_share` and have `openShare` toast a
+sign-in prompt when no modal is present, so guests get a nudge instead of a dead button. Not required
+for conformance.

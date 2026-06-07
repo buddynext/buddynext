@@ -1,60 +1,99 @@
 # Conformance — Engagement / Leaderboard
 
-**Feature:** Engagement / Leaderboard (gamification surface)
-**Repo:** buddynext (free)
-**Spec ref:** docs/specs/features/12-wbgamification-bridge.md (locked, 2026-03-19)
-**Cross-cutting:** REST-FRONTEND-CONTRACT.md, SCALE-CONTRACT.md, 17-roles-permissions.md
-**Live-walk URL:** http://buddynext-dev.local/leaderboard (canonical route: `{activity_base}/leaderboard/`, default `/activity/leaderboard/`)
+**Feature:** Engagement / Leaderboard (gamification seam)
+**Repo:** free (buddynext)
+**Spec ref:** `docs/specs/features/12-wbgamification-bridge.md` (Locked, 2026-03-19)
+**Cross-cutting:** `docs/specs/REST-FRONTEND-CONTRACT.md`, `docs/specs/SCALE-CONTRACT.md`, `docs/specs/features/17-roles-permissions.md`
+**Live-walk URL (canonical):** `http://buddynext-dev.local/activity/leaderboard/`
+**Verdict:** usable-minor-polish
 
-## Verdict
+---
 
-**usable-minor-polish**
+## What the spec asks for
 
-The leaderboard page renders end-to-end against the wb-gamification public read API. Every core data tile (rank, points, level, level meter, badges grid, streak, next-milestone) is wired to a real read function that exists in wb-gamification and whose return shape matches what the template consumes. The single non-working element is the per-row "Follow" CTA, which is a decorative button with no handler — a secondary affordance, not the core journey.
+Spec 12 is an **integration seam**, not a standalone feature. BuddyNext ships zero gamification
+logic. It (a) registers a `bn_*` action catalogue with wb-gamification and emits events when social
+actions occur, (b) routes wb-gamification badge/level signals into the BN notification bell, and
+(c) renders wb-gamification's **public read API** on BN surfaces — the leaderboard page being the
+primary one. wb-gamification is installed and active in this environment
+(`wp-content/plugins/wb-gamification`).
+
+The core member happy path: open the leaderboard → see top-10 ranked members with points and
+badges → see my own rank / points / level / streak / next milestone.
+
+---
 
 ## Journey chain
 
-Core happy-path: a member opens the leaderboard, sees community ranks + their own standing, badges, streak, and next milestone.
+| # | Step | Layer | Status | Evidence |
+|---|------|-------|--------|----------|
+| 1 | `/activity/leaderboard/` rewrite → `bn_hub=feed&bn_activity_action=leaderboard` | rest (routing) | wired | `includes/Core/PageRouter.php:970-974` |
+| 2 | Router maps action to template `gamification/leaderboard.php` | service | wired | `includes/Core/PageRouter.php:816-817` |
+| 3 | Gamification CSS + Interactivity store bundle enqueued on the route | ui | wired | `includes/Core/PageRouter.php:645-646`; `includes/Core/AssetService.php:275,329` |
+| 4 | Template guards on `wb_gam_get_leaderboard` (graceful notice if plugin absent) | ui | wired | `templates/gamification/leaderboard.php:37-50` |
+| 5 | Ranked rows from public read API `wb_gam_get_leaderboard($period,10)` | service | wired | `templates/gamification/leaderboard.php:66-69` |
+| 6 | Current-user points / rank / badges / streak from read API | service | wired | `templates/gamification/leaderboard.php:72-98` |
+| 7 | Render hero stats, level meter, ranked list, badges/streak/milestone widgets | ui | wired | `templates/gamification/leaderboard.php:201-608` |
+| 8 | Period filter (week/month/alltime) via plain `<a>?period=` links, re-read server-side | ui | wired | `templates/gamification/leaderboard.php:56-62,287-303` |
+| 9 | Event emission: social actions → `wb_gam_submit_event()` | service | wired | `includes/Bridges/GamificationBridge.php:113-128,330-336` |
+| 10 | Badge/level signals → BN notification bell | service | wired | `includes/Bridges/GamificationBridgeListener.php:42-43,57-131` |
+| 11 | Leaderboard offered as an addable nav-menu item (Appearance → Menus) | ui | wired | `includes/Core/Plugin.php:543-546` |
 
-| Step | Layer | Status | Evidence |
-|------|-------|--------|----------|
-| Route `/activity/leaderboard/` → `bn_hub=feed&bn_activity_action=leaderboard` | rest (routing) | wired | includes/Core/PageRouter.php:964-968 |
-| Resolve to template `gamification/leaderboard.php` | service | wired | includes/Core/PageRouter.php:810-811 |
-| Guard: wb-gamification active, else friendly notice | ui | wired | templates/gamification/leaderboard.php:37-50 |
-| Fetch ranked rows `wb_gam_get_leaderboard($period,10)` | service | wired | templates/gamification/leaderboard.php:66 → wb-gamification/src/Extensions/functions.php:226-228 |
-| Leaderboard row shape (rank/user_id/display_name/avatar_url/points) matches consumer | db | wired | wb-gamification/src/Engine/LeaderboardEngine.php:578-582 vs template:331-340 |
-| Current-user points / rank tile | ui | wired | templates/gamification/leaderboard.php:72-84, 201-254 |
-| Badges grid `wb_gam_get_user_badges` | service+ui | wired | functions.php:201; template:88-92, 506-533 |
-| Streak widget `wb_gam_get_user_streak` | service+ui | wired | functions.php:213; template:96-98, 537-570 |
-| Next-milestone meter (computed from points) | ui | wired | template:121-127, 572-608 |
-| Period filter (All time / Month / Week) via `<a href>` reload | ui | wired | template:283-305 (full-page nav with `add_query_arg`) |
-| Points awarded from social actions (bridge) | service | wired | includes/Bridges/GamificationBridge.php:96-252 → `wb_gam_submit_event` |
-| Per-row "Follow" CTA | ui | broken | template:475-487 — bare `<button>`, no `data-wp-on--click`/store binding; `$is_following = false` hard-coded at :470 |
+No BN-side SQL; reads go through wb-gamification's public functions only, honoring the
+"route through the bridge / don't reimplement" rule.
+
+---
 
 ## First break
 
-None on the core journey — the leaderboard reads, ranks, and member self-stats all render. First (and only) broken link is the secondary per-row Follow button (template:470-487): no Interactivity binding and a hard-coded `false` follow state, so it is inert. The journey "view the leaderboard and your standing" completes fully without it.
+**none — journey complete.** A member who reaches `/activity/leaderboard/` sees the ranked board,
+their own rank/points/level, badges, streak and next milestone, all populated from the live
+wb-gamification read API. Period switching works via server-rendered links. Points are emitted on
+the full set of social actions in the spec's mapping table, and badge/level events surface in the bell.
 
-## UX gaps
+---
 
-1. **Follow CTA in leaderboard rows is inert** — severity: medium, confidence: confirmed-in-code. `templates/gamification/leaderboard.php:475-487` renders a `bn-btn` Follow button with no `data-wp-on--click`, no follow context, and `aria-pressed` from a hard-coded `$is_following = false` (:470). A working follow store already exists (`buddynext/follow-button` block, `assets/js/blocks.js:199-222`, REST-backed `toggleFollow`) but the leaderboard does not wire to it. Clicking does nothing.
+## UX gaps (real, non-blocking)
 
-2. **"Show: Top 10" select is disabled** — severity: low, confidence: confirmed-in-code. `templates/gamification/leaderboard.php:311-313` is a disabled `<select>` with one option; the limit is hard-coded to 10 at :66. Cosmetic affordance promising configurability that does not exist. Not a journey break.
+1. **Per-row "Follow" button is a dead control** — severity: medium — confidence: confirmed-in-code.
+   The button at `templates/gamification/leaderboard.php:475-487` has no `data-wp-on--click`, no
+   bound store action, and `$is_following` is hardcoded `false` (line 470). The gamification store
+   (`assets/js/gamification/store.js`) only exposes `setFilter`. A `@buddynext/social-buttons`
+   follow store exists (`AssetService.php:333`) but is not enqueued here and the button is not wired
+   to it. Clicking does nothing. This is a secondary CTA, not the leaderboard view journey, so it
+   does not break the happy path — but it is a visibly inert control.
 
-3. **Rank-change deltas always show "No change"** — severity: low, confidence: confirmed-in-code. `templates/gamification/leaderboard.php:115-119` sets all deltas to 0 because wb-gamification exposes no rank-snapshot read API yet. The trending indicators are inert by design until that data source lands. Documented in-code; not a break.
+2. **Live-walk URL given to the human is non-canonical** — severity: low — confidence: confirmed-in-code.
+   The task's entry URL `http://buddynext-dev.local/leaderboard` has no matching rewrite. The only
+   leaderboard rewrite is `^activity/leaderboard/?$` (`PageRouter.php:970-974`, slug base
+   `buddynext_slug_activity` default `activity`, line 952). Walk `/activity/leaderboard/` instead,
+   unless the activity slug was customized to `leaderboard`.
 
-4. **Dead store action `setFilter`** — severity: low, confidence: confirmed-in-code. `assets/js/gamification/store.js:11-18` targets `[data-filter]` elements, but the template never emits `data-filter` (it uses plain `<a href>` links). The store loads but its only action is unreachable. Harmless dead code; period switching works via full-page navigation.
+3. **Period tabs do not use the Interactivity store; store `setFilter` is orphaned** — severity: low —
+   confidence: confirmed-in-code. Tabs are plain anchors (`leaderboard.php:297-303`) that reload with
+   `?period=`. `store.js:setFilter` reads `data-filter` / context key `filter`, but the template emits
+   neither (context key is `period`, lines 171-180). The journey still works (server-side links); the
+   JS path is simply unused. Not a break.
+
+4. **Rank deltas and "Show Top N" are static** — severity: low — confidence: confirmed-in-code.
+   Rank-change trend is hardcoded to 0 (`leaderboard.php:115-119`) because wb-gamification exposes no
+   rank-snapshot read API, and the window `<select>` is `disabled` with a single "Top 10" option
+   (lines 311-313). Both are intentional placeholders, documented in-template; neither blocks viewing.
+
+No SCALE-contract violation: the per-row badge fetch loop (`leaderboard.php:103-112`) is bounded to
+the 10 returned rows.
+
+---
 
 ## Minimal refactor plan
 
-1. Wire the leaderboard row Follow button to the existing follow store: wrap each non-self row CTA in the `buddynext/follow-button` Interactivity context (reuse `assets/js/blocks.js:199-222` `toggleFollow`) and seed real `isFollowing` per `user_id`. Reuse the existing REST follow action — do not add a new endpoint. (Addresses gap 1.)
-2. Either remove the disabled "Top 10" `<select>` (template:307-314) or bind it to the `wb_gam_get_leaderboard` `$limit` arg via a query param like the period tabs. Removal is lower risk. (Addresses gap 2.)
-3. Optional cleanup: drop the unreachable `setFilter` action in `assets/js/gamification/store.js` (or convert the period `<a>` links to use it). Cosmetic. (Addresses gap 4.)
+The core leaderboard view journey is complete and usable; do not rewrite it. Optional polish only:
 
-Gap 3 (rank deltas) is blocked on a wb-gamification snapshot API and is correctly stubbed; leave as-is.
+1. Wire the per-row Follow button to the existing `@buddynext/social-buttons` follow store: enqueue
+   that module on the leaderboard route and bind the button with `data-wp-on--click` + the member id,
+   hydrating `aria-pressed`/label from follow state — reusing existing code, no new store. (Addresses
+   gap 1.) If a quicker path is preferred, drop the button until follow-state hydration is available.
+2. Confirm the human walks `/activity/leaderboard/` (or document the custom activity slug). (Gap 2 —
+   doc only, no code.)
 
-## Notes for the live walk
-
-- Seed gamification data first (points events via social actions, or `wb_gam_submit_event`); on an empty install the page correctly renders the "No leaderboard data yet" empty state (template:317-324), which can read as "broken" but is built-and-correct.
-- Confirm the `/leaderboard` top-level URL resolves — code registers `{activity_base}/leaderboard/` (default `/activity/leaderboard/`). If the site uses a root-level slug or redirect, that is deployment config, not a code gap.
-- Walk light + dark mode; all styling is in `assets/css/bn-gamification.css`.
+Gaps 3 and 4 are intentional and need no action.

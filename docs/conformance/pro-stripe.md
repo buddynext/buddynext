@@ -1,65 +1,74 @@
-# Conformance: Stripe Payments (BuddyNext Pro)
+# Conformance — Stripe Payments (Pro)
 
 **Feature:** Stripe Payments / first-party membership checkout
 **Repo:** buddynext-pro
-**Spec ref:** `/Users/vapvarun/dev/repos/buddynext/docs/specs/features/P1-stripe-membership.md`
-**Cross-cutting:** `REST-FRONTEND-CONTRACT.md`, `17-roles-permissions.md` (gating via `bn_ability_{slug}` user_meta + `buddynext_can`)
-**Live-walk URL:** http://buddynext-dev.local/spaces (gated join → checkout)
-**Verdict:** partial-needs-wiring
+**Spec ref:** docs/specs/features/P1-stripe-membership.md (+ 17-roles-permissions.md webhook contract)
+**Verdict:** usable-leave-as-is
+**Date:** 2026-05-31
 
 ---
 
-## Spec vs. code note
+## Spec note (important)
 
-The locked spec (`P1-stripe-membership.md`) states "No Payment Processing … No Stripe SDK". The Pro code ships a **full first-party Stripe checkout** (`includes/Stripe/CheckoutService.php`, `WebhookController.php`, `PortalService.php`, `StripeClient.php`) layered on top of the spec's webhook/ability model. The spec is the looser contract; Pro is a superset. This audit verifies the *built* first-party journey, since that is the journey the live entry URL exercises. The spec's external-CTA path is also present and correct.
+The locked spec (`P1-stripe-membership.md`) describes the *minimum* model: BuddyNext Free does
+no payment processing; gating is `required_ability` + a paywall CTA pointing OUT, and any external
+system (incl. Stripe) grants access by calling the `buddynext/v1/webhook/access` endpoint.
+
+BuddyNext **Pro** ships a *first-party* Stripe checkout that goes beyond the Free spec: a
+hosted-checkout button on the paywall, a Pro Stripe webhook, and tier→price linkage. This is
+additive and degrades to the spec's external-CTA default when Stripe/price is not configured
+(PaywallRenderer::checkout_available → false → external CTA or "not configured" notice). The Pro
+flow is checked here; it does not violate the Free spec — it sits on top of the same
+`bn_ability_{slug}` grant model (17-roles-permissions.md).
 
 ---
 
 ## Journey chain
 
-Member views a gated space → clicks "Become a Member" → first-party Stripe checkout → pays → returns → space unlocks.
+Site owner gates a space on `tier:premium`; a logged-in non-member hits the paywall, buys via
+Stripe Checkout, the webhook grants the ability, and access opens.
 
 | # | Step | Layer | Status | Evidence |
 |---|------|-------|--------|----------|
-| 1 | Gated space denies non-member; SSR paywall renders with checkout CTA | ui | wired | `buddynext-pro/includes/Membership/PaywallIntegration.php:163` (`render_space_paywall` on `buddynext_part_space_hero_after`) + `buddynext/templates/spaces/paywall.php:71` |
-| 2 | REST join denial carries `data.paywall` for app/headless clients | service | wired | `PaywallIntegration.php:89` + `:113` (`restore_join_paywall_data` on `rest_request_after_callbacks`) |
-| 3 | Paywall CTA bound to store action | ui | wired | `buddynext/templates/spaces/paywall.php:78` (`data-wp-on--click="actions.startCheckout"`); dynamic build `buddynext/assets/js/spaces/store.js:219` |
-| 4 | `startCheckout` POSTs tier_slug, redirects to returned URL | store | wired | `buddynext/assets/js/spaces/store.js:336-383` (POST `me/checkout`, `window.location.href = data.url`) |
-| 5 | `POST buddynext-pro/v1/me/checkout` mints session | rest | wired | `buddynext-pro/includes/Membership/Controllers/CheckoutController.php:71` + `:124` |
-| 6 | CheckoutService builds Stripe subscription session | service | wired | `buddynext-pro/includes/Stripe/CheckoutService.php:83` (price from `buddynextpro_tier_stripe_price_id_{slug}`, customer mapping) |
-| 7 | Admin links Stripe price ID to tier | ui | wired | `buddynext-pro/includes/Stripe/StripeAdmin.php:106` (`register_settings`); price option key `CheckoutService.php:69` |
-| 8 | Stripe webhook receives `customer.subscription.created` | rest | wired | `buddynext-pro/includes/Stripe/WebhookController.php:103` (route), `:147` (event dispatch) |
-| 9 | Webhook persists subscription row + tier slug meta | db | wired | `buddynext-pro/includes/Stripe/WebhookController.php:280-291` (`bn_subscriptions` row + `USERMETA_TIER_SLUG`) |
-| 10 | **Webhook grants the ability the gate reads (`bn_ability_tier_{slug}`)** | service | **broken** | `buddynext-pro/includes/Stripe/WebhookController.php:305` fires `do_action('buddynext_ability_granted', …)` but never writes `bn_ability_` meta; only listener `WebhookSubscriptionSync.php:62-95` writes a `bn_subscriptions` row, not the ability meta |
-| 11 | Space unlocks; `buddynext_can(user,'tier:slug')` passes | service | broken | `buddynext/includes/Core/PermissionService.php:107` reads `has_active_grant` (`:321` → `bn_ability_` meta), and `:121` `buddynext_user_can` filter has **no Pro listener** that honors `bn_subscriptions`. Meta absent → gate still denies. |
-
----
+| 1 | Admin links tier→Stripe price | service/db | wired | includes/Admin/MembershipAdmin.php:275-278 (handle_save_tier_stripe writes `buddynextpro_tier_stripe_price_id_{slug}`), form field :847 |
+| 2 | Admin sets Stripe keys + webhook secret | ui | wired | includes/Stripe/StripeAdmin.php:43-47, 106-119, 149 (webhook URL) |
+| 3 | Non-member denied join → paywall context attached to REST denial | service | wired | includes/Membership/PaywallIntegration.php:69-98; Free fires filter at includes/Spaces/SpaceMemberService.php:1295 |
+| 3b| Paywall payload re-attached after SpaceController overwrites error data | rest | wired | includes/Membership/PaywallIntegration.php:113-147 (rest_request_after_callbacks) |
+| 4 | Paywall rendered into single-space web view | ui | wired | PaywallIntegration.php:163-216 on `buddynext_part_space_hero_after` (fired templates/parts/space-hero.php:267) |
+| 5 | Paywall CTA button bound to store action | ui | wired | templates/spaces/paywall.php:71-79 (`data-wp-on--click="actions.startCheckout"`, checkout mode only when price linked) |
+| 6 | startCheckout posts to checkout endpoint, redirects to Stripe | store | wired | assets/js/spaces/store.js:469-516 (reads window.bnProCheckout printed at PaywallIntegration.php:197-208) |
+| 7 | POST /me/checkout mints Stripe Checkout session | rest | wired | includes/Membership/Controllers/CheckoutController.php:70-114, 124-163; registered Core/Plugin.php:285 |
+| 8 | CheckoutService builds session via Stripe SDK | service | wired | includes/Stripe/CheckoutService.php:83-243; SDK bundled at vendor/stripe/stripe-php |
+| 9 | Stripe webhook → grant ability + sub row | rest/service/db | wired | includes/Stripe/WebhookController.php:147-321 (writes `bn_ability_tier_{slug}`, fires `buddynext_ability_granted`); registered Core/Plugin.php:327-331 |
+| 10| Granted ability opens the gate | service/db | wired | Pro writes the exact key Free reads: WebhookController.php:633-638 → \BuddyNext\Core\PermissionService::ability_meta_key (buddynext/includes/Core/PermissionService.php:344-345, read at :322) |
+| 11| Sub row synced from external/manual grants too | service | wired | includes/Membership/WebhookSubscriptionSync.php:42-92 on `buddynext_ability_granted` |
+| 12| Returning subscriber → billing portal | rest/service | wired | CheckoutController.php:98-114,171-188 + includes/Stripe/PortalService.php |
 
 ## First break
 
-**Step 10 — `WebhookController::on_subscription_upsert` (`buddynext-pro/includes/Stripe/WebhookController.php:305`).**
-
-The first-party Stripe webhook fires the *notification* action `buddynext_ability_granted` but never **persists** the grant the gate actually checks. The canonical external path does both, in order: `AccessWebhookController::action_grant_ability` writes `update_user_meta( ability_meta_key($ability), $expires )` (`buddynext/includes/Outbound/AccessWebhookController.php:188`) **then** fires the action (`:197`). The Stripe path skips the `update_user_meta` write.
-
-Net effect: a member completes payment, is redirected to `/me/?subscribed=1`, a `bn_subscriptions` row is created — but `buddynext_can($user,'tier:premium')` still returns false because `bn_ability_tier_premium` was never written and no `buddynext_user_can` filter consults `bn_subscriptions`. The gated space stays locked after a successful purchase.
-
-This break affects BOTH the web journey and the app/REST journey, because both terminate in the same gate (`PermissionService::check`).
-
----
+none — journey complete. Both the web journey (paywall button → store → REST → Stripe → webhook →
+grant → gate opens) and the headless/app journey (denial payload carries `data.paywall` with
+context + rendered HTML, plus the `/me/checkout` endpoint) are wired.
 
 ## UX gaps
 
-| Gap | Severity | Confidence | Evidence |
-|-----|----------|------------|----------|
-| Successful Stripe payment does not unlock the gated space — ability grant never persisted by the Stripe webhook | critical | confirmed-in-code | `WebhookController.php:305` (action only) vs. canonical `AccessWebhookController.php:188` (meta write) vs. gate read `PermissionService.php:321`; sole listener `WebhookSubscriptionSync.php:88` writes subscription row only |
-| Webhook signature verification / live event handling on the Stripe webhook route not exercised here; live Stripe round-trip not walked | medium | needs-live-verification | route exists `WebhookController.php:103`; behavior under a real Stripe event needs the human browser+CLI walk |
-
-Steps 1–9 are correctly wired (UI control → store action → REST → service → Stripe session → admin price link → webhook persistence of subscription). The single load-bearing defect is the missing ability-meta write at step 10.
-
----
+- **Stale docblock**, severity low, confirmed-in-code: CheckoutService.php:14-15 says "P1.3
+  introduces the admin UI that writes this [price] option; until then it can be seeded by hand."
+  That admin UI already exists in MembershipAdmin.php:275-278. Comment only — no behavioral impact.
+- **First-party checkout depends on three admin preconditions** (Stripe keys set, webhook secret +
+  Stripe-dashboard webhook subscription added, tier→price linked), severity low,
+  needs-live-verification: if any is missing the paywall correctly degrades to the external CTA or a
+  "not configured yet" notice (paywall.php:80-88, PaywallRenderer.php:226-243) — not a break, but the
+  happy path is only "live" after admin setup. Confirm on the live site that keys/price are seeded
+  before walking checkout.
 
 ## Minimal refactor plan
 
-1. In `buddynext-pro/includes/Stripe/WebhookController.php::on_subscription_upsert` (around line 305), before firing `do_action('buddynext_ability_granted', …)`, persist the grant the gate reads: `update_user_meta( $user_id, \BuddyNext\Core\PermissionService::ability_meta_key('tier:'.$tier_slug), $expires_ts )` — where `$expires_ts` is `0` for no-expiry or the unix timestamp from `extract_period_end` (`WebhookController.php:278`). This mirrors `AccessWebhookController::action_grant_ability` (`:186-197`) so both grant paths leave identical state. Reuse the existing `ability_meta_key` helper; do not invent a new key format.
-2. In `on_subscription_deleted` / `revoke_user_tier` (`WebhookController.php:340` / `:595`), symmetrically `delete_user_meta` for the same `bn_ability_tier_{slug}` key so cancellation re-locks the space, alongside the already-firing `buddynext_ability_revoked` action (`:595`). Match `AccessWebhookController`'s revoke path.
-3. Verify by live walk: link a Stripe test price to a tier, gate a space on `tier:<slug>`, complete test-mode checkout, confirm the space unlocks, then cancel in the Stripe portal and confirm re-lock.
+(empty — usable-leave-as-is)
+
+## Live-walk URL
+
+http://buddynext-dev.local/spaces (gated join → checkout). Seed first: a tier (e.g. `premium`)
+with a linked Stripe test price, Stripe test keys + webhook secret in BuddyNext → Stripe, a space
+gated on `tier:premium`, and a logged-in non-member account. Watch Mailpit (http://localhost:10010/)
+and the bn_subscriptions table after the test purchase.

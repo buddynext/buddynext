@@ -1,18 +1,17 @@
 # Conformance: Auto / Rule-based Moderation (Pro)
 
-**Feature:** Auto / Rule-based Moderation
-**Repo:** buddynext-pro
-**Spec ref:** `buddynext/docs/specs/features/09-moderation.md` (§ Automated Safeguards) + journey `buddynext-pro/docs/journeys/auto-moderation.md`
-**Verdict:** partial-needs-wiring
-**Date:** 2026-05-31
+**Feature:** Auto / Rule-based Moderation (repo: buddynext-pro)
+**Spec ref:** `/Users/vapvarun/dev/repos/buddynext/docs/specs/features/09-moderation.md` (§ Automated Safeguards) + journey `/Users/vapvarun/dev/repos/buddynext-pro/docs/journeys/auto-moderation.md`
+**Verdict:** usable-minor-polish
+**Live-walk URL:** http://buddynext-dev.local/wp-admin/ (→ `admin.php?page=buddynextpro-mod-rules`)
 
 ---
 
 ## Summary
 
-Rule CRUD (admin UI + REST), `keyword_block`/`link_block`/`rate_limit` **block** enforcement, and the `threshold_remove` auto-action path are all wired end-to-end and work. The journey's **Part 3 (severity = `flag` → post is created + an auto-report is generated)** is **not implemented**: a `flag`-severity keyword match returns a blocking `WP_Error` that `PostService::create()` rejects, so the post is *not* created and *no* report is written. This is the earliest break in the documented journey.
+The core happy path (create a `keyword_block` rule in admin → enforce it on REST post submission → `block` rejects, `flag` publishes + files a report → disable rule → posting succeeds) is wired end-to-end across ui → service → rest → free-hook → db. This is the journey's Parts 1–4 and all of them use `rule_type = keyword_block`, which is valid.
 
-The `block`, CRUD, toggle, and delete paths are sound — do not touch them.
+One real defect exists at the DB layer: the production `bn_mod_rules` table is created with `rule_type ENUM('keyword_block','threshold_remove','spam_score')`, but the service / controller / admin UI offer four types — `keyword_block`, `link_block`, `rate_limit`, `threshold_remove`. `link_block` and `rate_limit` are NOT valid ENUM members; `spam_score` (in the ENUM) is never used by code. This breaks two rule types the UI lets an admin create, including the journey's documented "Rate limit rule" edge case.
 
 ---
 
@@ -20,53 +19,49 @@ The `block`, CRUD, toggle, and delete paths are sound — do not touch them.
 
 | # | Step | Layer | Status | Evidence |
 |---|------|-------|--------|----------|
-| 1 | Admin opens "Moderation Rules" page (`page=buddynextpro-mod-rules`) | ui | wired | `buddynext-pro/includes/Admin/ModRulesAdmin.php:107` (add_submenu), `:236` (render_content) |
-| 2 | Admin submits "Add New Rule" form (keyword_block, severity=block) | ui→store | wired | `ModRulesAdmin.php:372` (form posts to admin-post.php), `:124` handle_create, nonce `:129` |
-| 3 | Create persists to `bn_mod_rules` with JSON config | service→db | wired | `ModRulesAdmin.php:138` → `RulesService.php:64` create_rule → `:87` `$wpdb->insert` |
-| 4 | Rule appears in list, Enabled | service→ui | wired | `RulesService.php:209` list_rules → `ModRulesAdmin.php:290` render_rule_table |
-| 5 | member1 POSTs banned content; Free safeguard fires Pro filter | rest→service | wired | `buddynext/includes/Feed/PostService.php:116` check() → `buddynext/includes/Moderation/SafeguardService.php:75` `apply_filters('buddynext_safeguard_check')` |
-| 6 | Pro evaluates keyword rule, severity=block → WP_Error 422 | service | wired | `buddynext-pro/includes/Moderation/SafeguardIntegration.php:57` apply_pro_rules → `RulesService.php:276` evaluate_safeguard → `:427` block branch (422) |
-| 7 | PostService aborts; no row in `bn_posts` | service→db | wired | `PostService.php:121-127` returns WP_Error before `$wpdb->insert` at `:144` |
-| 8 | (Part 3) Switch severity to `flag`, re-POST → expect **201 + post saved + report row** | service→db | **broken** | `RulesService.php:441-445` flag returns `WP_Error('bnpro_keyword_flagged', status 202)`; `PostService.php:126` rejects any non-`pending_review` error → post NOT saved, no `ModerationService::report()` call exists for flagged content (grep of `includes/Moderation/`) |
-| 9 | (Part 4) Disable rule → post succeeds | service→db | wired | `ModRulesAdmin.php:209` handle_toggle → `RulesService.php:197` disable → enabled=0; safeguard query filters `enabled=1` (`RulesService.php:360`) |
-| – | threshold_remove auto-action on real report | service | wired (separate path) | `buddynext/includes/Moderation/ModerationService.php:138` `apply_filters('buddynext_moderation_auto_actions')` → `AutoActionsIntegration.php:54` → `RulesService.php:298` evaluate_post_report |
-| – | REST surface `buddynext-pro/v1/mod-rules` (admin-only) | rest | wired | `Controllers/ModRulesController.php:31` NS, `:57` routes, `:244` require_admin (manage_options → 403) |
+| 1 | Admin opens Moderation Rules page | ui | wired | `buddynext-pro/includes/Admin/ModRulesAdmin.php:107` (slug `buddynextpro-mod-rules`); registered `buddynext-pro/includes/Core/Plugin.php:175` |
+| 2 | "Add New Rule" form (keyword_block, severity, priority) | ui | wired | `ModRulesAdmin.php:369` create form; `:413` shared fields; `:564` `extract_config_from_post` builds `{keywords,severity}` |
+| 3 | Submit → admin-post handler → create | store | wired | `ModRulesAdmin.php:87` hooks `admin_post_bnpro_create_mod_rule`; `:124` `handle_create` (nonce + `manage_options`) |
+| 4 | Insert rule into `bn_mod_rules` | db | wired | `buddynext-pro/includes/Moderation/RulesService.php:64` `create_rule` → `:87` `$wpdb->insert` |
+| 5 | Member POSTs content w/ banned word via REST | rest | wired | `buddynext/includes/Feed/PostController.php:115` `create_post` → `PostService::create` |
+| 6 | PostService runs safeguard check | service | wired | `buddynext/includes/Feed/PostService.php:116` `get_safeguard()->check(...)` |
+| 7 | Free fires `buddynext_safeguard_check` filter | service | wired | `buddynext/includes/Moderation/SafeguardService.php:75` |
+| 8 | Pro evaluates keyword rule, returns WP_Error | service | wired | `buddynext-pro/includes/Moderation/SafeguardIntegration.php:57` → `RulesService.php:409` `evaluate_keyword_block` (block→422, flag→202) |
+| 9 | severity=block → post rejected (422) | rest | wired | `PostService.php:132` hard-block returns error; `PostController.php:118` preserves status |
+| 10 | severity=flag → post publishes + system report filed | db | wired | `PostService.php:126` `is_flag_error`; `:193`+`:560` `report_flagged_post`→`ModerationService::report(0,'post',...)` into `bn_reports`; matcher `:525` |
+| 11 | threshold_remove auto-action on report | service | wired | Free fires `buddynext_moderation_auto_actions` at `buddynext/includes/Moderation/ModerationService.php:138`; Pro appends `buddynext-pro/includes/Moderation/AutoActionsIntegration.php:54` → `RulesService.php:298` |
+| 12 | Disable / Enable / Edit / Delete rule | store | wired | `ModRulesAdmin.php:209` `handle_toggle`→`RulesService.php:578`; delete `:183`/`:163` |
+| 13 | REST CRUD for rules (admin / app client) | rest | wired | `buddynext-pro/includes/Moderation/Controllers/ModRulesController.php:57` routes; `require_admin` `:244` (`manage_options`); registered `Plugin.php:293` |
+| 14 | Persist `link_block` / `rate_limit` rule | db | broken | `buddynext-pro/includes/Core/Installer.php:445` ENUM omits both; UI/REST offer them (`ModRulesController.php:267`, `RulesService.php:31`) |
 
 ---
 
 ## First break
 
-**Step 8 — severity = `flag` keyword rule.** `RulesService::evaluate_keyword_block()` (`buddynext-pro/includes/Moderation/RulesService.php:441-445`) returns a blocking `WP_Error('bnpro_keyword_flagged')` for `flag` severity. `PostService::create()` (`buddynext/includes/Feed/PostService.php:121-127`) only treats the `pending_review` error code as non-fatal (saves as `status=pending`); every other `WP_Error` causes an early `return`, so the post is rejected. There is no code path that turns a flagged keyword into a saved post plus a `bn_reports` row. The journey expects 200/201 + an auto-generated report; the code blocks the post and writes nothing.
-
-The `block` and `warn` severities behave correctly (`block` → 422 reject at `:427`; `warn` → returns true at `:435-438`, post allowed). Only `flag` diverges from the locked journey.
+None on the core happy path (Parts 1–4 keyword_block flow is complete). The earliest broken link off the happy path is step 14: persisting a `link_block` or `rate_limit` rule. The production schema `ENUM('keyword_block','threshold_remove','spam_score')` (`Installer.php:445`) rejects/truncates these two rule types the UI and REST schema actively offer. The journey's "Rate limit rule" edge case (`auto-moderation.md:116`) cannot complete on a strict-mode MySQL install.
 
 ---
 
 ## UX gaps
 
-| Gap | Severity | Confidence | Evidence |
-|-----|----------|------------|----------|
-| severity=`flag` keyword rule rejects the post instead of allowing it through and auto-creating a pending report | high | confirmed-in-code | `RulesService.php:441-445` returns blocking WP_Error; `PostService.php:126` rejects it; no `ModerationService::report()` invocation exists for flagged content |
-| The `buddynext_safeguard_check` filter contract cannot express "allow + flag" — it returns only `true` (allow) or `WP_Error` (block), so flag-with-report is structurally impossible through this single filter without a Free-side seam | medium | confirmed-in-code | `SafeguardService.php:75` returns the raw filter result; `PostService.php:121` short-circuits on any WP_Error; no side-channel for "save then report" |
+- **high / confirmed-in-code** — `bn_mod_rules.rule_type` ENUM omits `link_block` and `rate_limit` (and contains unused `spam_score`). Strict-mode MySQL: creating those types from the admin form or REST returns "Failed to create moderation rule." Non-strict MySQL: value truncates to `''`, rule saves but never matches at evaluation (silent dead rule). Evidence: `buddynext-pro/includes/Core/Installer.php:445` vs `RulesService.php:31` + `Controllers/ModRulesController.php:267` + `Admin/ModRulesAdmin.php:432-433`. Tests mask it via `VARCHAR(64)` (`tests/Moderation/RulesServiceTest.php:594`).
 
-The web admin journey for rule management (create/edit/toggle/delete) is fully usable with real nonce-protected UI controls bound to admin-post handlers — no api-only gap there. The REST surface additionally serves app/REST clients and is admin-gated correctly (403 for non-admins).
+- **medium / confirmed-in-code** — `evaluate_post_report` sets the `suspend` action's `user_id` from `$report['object_id']` (the reported object id), not the offending author. For `object_type='post'` this suspends the wrong entity. Off the core path; only reachable with a `threshold_remove` + `action=suspend` rule. Evidence: `buddynext-pro/includes/Moderation/RulesService.php:335-337`.
+
+- **low / confirmed-in-code** — keyword `severity=warn` returns true with no log/report, though the UI describes warn as "allow but log." No log sink is called, so warn is indistinguishable from no rule. Evidence: `RulesService.php:435-438` vs `ModRulesAdmin.php:477`.
 
 ---
 
 ## Minimal refactor plan
 
-The fix lives mostly in Free (the filter contract is too narrow to express "allow + flag"). Keep all existing block/CRUD code.
+1. Widen `rule_type` in `buddynext-pro/includes/Core/Installer.php:445` to cover all four shipped types — `ENUM('keyword_block','link_block','rate_limit','threshold_remove')` or `VARCHAR(64)` (matching `tests/Moderation/RulesServiceTest.php:594`). VARCHAR is lower-friction and already how tests validate. Add the migration/ALTER so existing installs pick up the column change.
+2. Fix the suspend target in `RulesService.php:335-337` — resolve the offending author (post's `user_id`) before populating the `suspend` action descriptor instead of using `object_id` as `user_id`.
 
-1. Extend the Free safeguard seam to carry a non-blocking "flag" signal. In `buddynext/includes/Feed/PostService.php:121-128`, branch on a flag error (code ending `_flagged` or data `status === 202`) the same family as `pending_review`: save the post, then file a report — rather than returning the error.
-2. On the flag branch, call the existing `ModerationService::report()` insert (`buddynext/includes/Moderation/ModerationService.php:54`) with reporter_id = 0 (system) and reason "Automated moderation flag", landing a `bn_reports` row with `status=pending` (satisfies journey step 9). Pro already returns the recognizable `bnpro_keyword_flagged` / `bnpro_link_flagged` codes (status 202) at `RulesService.php:441-445` / `:494-498` — no Pro change needed beyond confirming that convention.
-3. Re-walk journey Parts 2–4: confirm block still rejects, flag now saves+reports, disable restores posting. This also lets the existing `threshold_remove` / `buddynext_moderation_auto_actions` path fire on auto-flags.
-
-Scope is small and reuses existing inserts/handlers; no rewrite of the rules engine or admin UI.
+(The "warn" logging gap is spec-fidelity polish, not a journey break — leave unless product wants the audit trail.)
 
 ---
 
-## Live-walk URL
+## Notes for the human's live walk
 
-http://buddynext-dev.local/wp-admin/ → BuddyNext → Moderation → Rules (`admin.php?page=buddynextpro-mod-rules`)
-
-Walk: create a `keyword_block` rule severity=block, POST a banned word via `/wp-json/buddynext/v1/posts` (expect 422, no post). Then edit severity to `flag` and re-POST — current build rejects the post (the break); after the refactor it should 201 + create a pending `bn_reports` row. Then Disable and confirm the post succeeds.
+- Walk the core path first (keyword_block block → flag → disable) on a seeded account, not an empty one.
+- To reproduce the high-severity gap: create a `rate_limit` rule via the admin form and observe whether it errors on save (strict MySQL) or saves with empty `rule_type` and never fires (non-strict). Confirm the local DB `sql_mode` before concluding which symptom applies.

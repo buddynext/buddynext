@@ -2,10 +2,23 @@
 
 **Feature:** Drip / Welcome Sequences
 **Repo:** buddynext-pro
-**Spec ref:** `buddynext/docs/specs/features/06-notifications-email.md` (Pro Email Automation → Drip Welcome Sequences, lines 159–175) + journey `buddynext-pro/docs/journeys/drip-welcome.md`
-**Verdict:** usable-minor-polish
+**Spec ref:** docs/specs/features/06-notifications-email.md (§ "Pro Email Automation → Drip Welcome Sequences", lines 158–175)
+**Journey doc:** buddynext-pro/docs/journeys/drip-welcome.md
+**Verdict:** usable-leave-as-is
+**Live-walk URL:** http://buddynext-dev.local/wp-admin/ (+ Mailpit at http://localhost:10010/)
 
-The feature is built and fully wired end-to-end. A site owner can create a sequence, add ordered steps, enable it, auto-enroll registrants, and have the cron tick send step emails and complete the enrollment. The single defect is a **journey-doc vs code mismatch in the delay-simulation mechanism** (Parts 3–5), not a code break. The code works on its own internally-consistent model and its unit tests pass; the human-walk instructions are written against a different (non-existent) gating field.
+---
+
+## Summary
+
+The full admin → enroll → cron → email journey is wired end to end. A site owner can build a
+multi-step sequence in a real admin UI, enable it, and newly registered users are auto-enrolled and
+emailed step-by-step by an hourly cron. UI, service, REST, cron, and DB layers all exist and connect.
+
+The one mismatch found is in the **journey doc itself**, not the code: the doc's delay-simulation SQL
+edits `last_step_at`, but the cron's due-check is computed from `enrolled_at + delay_days`. The feature
+works correctly; the doc's manual-test recipe for fast-forwarding delays is inaccurate. This does not
+stop a real user's journey (real elapsed days, or backdating `enrolled_at`, produce correct sends).
 
 ---
 
@@ -13,39 +26,68 @@ The feature is built and fully wired end-to-end. A site owner can create a seque
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Admin page reachable (`admin.php?page=buddynextpro-drip-sequences` + Growth tab) | ui | wired | `includes/Admin/DripAdmin.php:94-104` (submenu), `:79-86` (AdminHub Growth tab); base render `buddynext/includes/Admin/AdminPageBase.php:58-67` |
-| Create sequence form (name + trigger) | ui→service | wired | form `DripAdmin.php:413-437`; handler `:111-145`; `DripService::create_sequence` `includes/Email/DripService.php:42-80` |
-| Add ordered steps (delay/subject/body/slug) | ui→service→db | wired | form `DripAdmin.php:517-544`; handler `:186-225`; `DripService::add_step`/`save_steps` `DripService.php:92-107, 361-375` (JSON `steps` column) |
-| Steps persisted as JSON | db | wired | `steps LONGTEXT` `buddynext-pro/includes/Core/Installer.php:409-419` + idempotent alter `:98-113` |
-| Enable/disable toggle | ui→service→db | wired | toggle form `DripAdmin.php:381-389`; handler `:152-179`; `set_enabled` `DripService.php:384-403` |
-| Step reorder (up/down) + delete | ui→db | wired | `DripAdmin.php:232-322` (direct `wpdb->update` of `steps` JSON) |
-| Auto-enroll on `user_register` | service | wired | `DripEnrollmentService::register/on_user_register/enroll_by_trigger` `includes/Email/DripEnrollmentService.php:56-69, 176-194`; bootstrapped `includes/Core/Plugin.php:163-167` |
-| Disabled sequence skipped at enroll | service | wired | `enroll_by_trigger` filters `enabled = 1` `DripEnrollmentService.php:182-185`; covered by `tests/Email/DripServiceTest.php:317-341` |
-| Duplicate-enroll resets clock (UNIQUE `sequence_user`) | service→db | wired | `enroll_user` re-enroll branch `DripService.php:156-176`; `UNIQUE KEY sequence_user` `Installer.php:431` |
-| Cron tick sends step email + advances `current_step` | service | wired | cron hook `DripEnrollmentService.php:59`, activation `buddynext-pro.php:30`; `process_due_enrollments` `DripService.php:271-350`; `EmailSender::send_now` inline-content path `buddynext/includes/Notifications/EmailSender.php:104-163` |
-| Enrollment reaches `completed` after last step | service→db | wired | `complete_enrollment` `DripService.php:411-426`; test `DripServiceTest.php:419-468` |
-| Manual enroll + full admin REST surface | rest | wired (admin-only) | `includes/Email/Controllers/DripController.php:70-190`; `manage_options` gate `:326-332`; registered `Plugin.php:289` |
-| **Delay simulation per journey doc (move `last_step_at` back)** | broken | broken | journey `drip-welcome.md:110-116, 128-134` edits `last_step_at`; gating uses `enrolled_at + delay_days*DAY` and ignores `last_step_at` `DripService.php:308-309` |
+| Admin opens "Drip Sequences" page (submenu + AdminHub tab) | ui | wired | includes/Admin/DripAdmin.php:94-104, :79-86 |
+| Create sequence form (name + trigger) → admin-post handler | ui→service | wired | includes/Admin/DripAdmin.php:111-145; DripService.php:42-80 |
+| Add step form (delay/subject/body/slug) → appended to steps JSON | ui→service→db | wired | includes/Admin/DripAdmin.php:186-225; DripService.php:92-107, save_steps :361-375 |
+| Steps stored as JSON on bn_drip_sequences.steps | db | wired | includes/Core/Installer.php:409-419, :112 (steps col); DripSequence::from_row :96-108 |
+| Reorder (Up/Down) + delete step | ui→db | wired | includes/Admin/DripAdmin.php:232-322 |
+| Enable/disable toggle | ui→service→db | wired | includes/Admin/DripAdmin.php:152-179; DripService::set_enabled :384-403 |
+| New user registers → on_user_register auto-enrolls | service→db | wired | DripEnrollmentService.php:57, on_user_register :68-70, enroll_by_trigger :176-194 |
+| Enrollment row inserted (current_step=0, status=active) | service→db | wired | DripService::enroll_user :139-197; Installer.php:421-434 |
+| Hourly cron tick (buddynextpro_drip_tick) | rest | wired | DripEnrollmentService.php:59, :90-92; activate_cron :149-153; buddynext-pro.php:30 |
+| Cron computes due step, sends email, advances/completes | service | wired | DripService::process_due_enrollments :271-350 |
+| Step email delivered via Free EmailSender (inline subject/body) | service | wired | DripService.php:317-328 → buddynext EmailSender::send_now :104-173 (inline path :107-114, :131-135) |
+| Enrollment reaches status=completed after last step | db | wired | DripService::complete_enrollment :411-426 |
+| REST surface (list/create/get/update/steps/enroll) for app/REST clients | rest | wired | includes/Email/Controllers/DripController.php:70-190; registered Plugin.php:289 |
+| Unsubscribe from sequence (status=unsubscribed, row preserved) | service | wired | DripEnrollmentService::unsubscribe :124-140 |
+
+---
 
 ## First break
 
-`buddynext-pro/docs/journeys/drip-welcome.md:110-116` — the Part 4/5 delay-simulation step instructs the walker to move `last_step_at` backward, but `DripService::process_due_enrollments()` computes due-time from `enrolled_at + delay_days * DAY_IN_SECONDS` (`DripService.php:308-309`) and never reads `last_step_at` for gating. Following the doc verbatim, Steps 2 and 3 never fire (their `due_at` stays in the future relative to the freshly-set `enrolled_at`), so a human walker wrongly concludes the cron is dead.
+none — journey complete. Every link from the admin UI through cron delivery to completion is present
+and connected; the REST surface for app/REST clients is registered with manage_options gating.
 
-The feature itself is NOT broken. Its model is "each step's `delay_days` is an absolute offset from `enrolled_at`", which is internally consistent and verified by `tests/Email/DripServiceTest.php:348-414` (the tests simulate by moving **`enrolled_at`**, not `last_step_at`). The `last_step_at` column is written on advance (`DripService.php:341`) but is currently informational only.
+---
 
 ## UX gaps
 
-- **Journey doc Parts 3–5 unwalkable as written** — severity: medium — confidence: confirmed-in-code — `drip-welcome.md:110-134` simulates delays via `last_step_at`; gating reads `enrolled_at` (`DripService.php:308-309`). The documented manual walk produces "no email sent" at Step 2 and the walker mis-files a false break. Fix the doc (move `enrolled_at`) or change the service to gate on `last_step_at`.
-- **Cron model diverges from spec ("Action Scheduler job enqueued at enroll time")** — severity: low — confidence: confirmed-in-code — spec `06-notifications-email.md:170-174` describes per-step Action Scheduler jobs; implementation uses one hourly WP-cron poller (`DripEnrollmentService.php:33, 90-92`). Functionally equivalent for the journey outcome. Not a usability break.
-- **`cancel_condition` steps from spec not implemented** — severity: low — confidence: confirmed-in-code — spec `:171, 225` and the default sequence (`:166-167`, day-14 "cancel if posted", day-30 milestone) describe condition-cancelled steps; the step shape is `{delay_days, template_slug, subject, body_html}` only (`DripService.php:12, 434-445`). Manual sequences still complete fully; conditional auto-cancel is absent. Does not block the locked journey happy-path.
-- **Tick is not transactional** — severity: low — confidence: confirmed-in-code — already self-documented in `drip-welcome.md:212`; a mid-send crash can resend a step. Out of scope for this verdict.
+1. **Journey-doc delay simulation is inaccurate (doc bug, not code bug).**
+   Severity: low. Confidence: confirmed-in-code.
+   Evidence: drip-welcome.md:110-116 instruct moving `last_step_at` back to simulate a delay, but
+   DripService::process_due_enrollments computes `due_at = strtotime(enrolled_at) + delay_days*DAY`
+   (DripService.php:308-309) and never reads `last_step_at` for the due check. Editing `last_step_at`
+   has no effect; the working fast-forward is to backdate `enrolled_at`. The feature behaves correctly
+   under real elapsed time — only the manual-test recipe in the doc misleads. Fix the doc, not the code.
+
+2. **Catch-up after cron downtime advances one step per tick.**
+   Severity: low. Confidence: confirmed-in-code.
+   Evidence: process_due_enrollments (DripService.php:291-349) advances at most one step per enrollment
+   per invocation. After a long cron outage where several steps are simultaneously past due, steps
+   resume one-per-hourly-tick rather than all firing at once. Not a journey break; acceptable for a
+   welcome-drip cadence and arguably desirable (avoids burst sending). No action required.
+
+No critical/high gaps. The "known limitations" in drip-welcome.md:209-212 (scheduled-post re-fire,
+non-transactional tick) are pre-existing documented seams, not journey breaks for this flow.
+
+---
 
 ## Minimal refactor plan
 
-1. Reconcile the journey doc with the implemented gating model (`buddynext-pro/docs/journeys/drip-welcome.md:108-142`): change the delay-simulation SQL from updating `last_step_at` to updating `enrolled_at` (e.g. `SET enrolled_at = DATE_SUB(NOW(), INTERVAL 8 DAY)`), and update the Step 12/14/17 expected-state notes to match the `enrolled_at`-anchored absolute-offset semantics already covered by `tests/Email/DripServiceTest.php:379-389`. This is the only change needed to make the human walk pass — doc-only, no code change.
+None — usable-leave-as-is. (Optional, out of scope for code: correct the delay-simulation SQL in
+buddynext-pro/docs/journeys/drip-welcome.md to backdate `enrolled_at` instead of `last_step_at`, and
+reconcile the DripService docblock at line 265 which implies a `last_step_at`-based due check that the
+code does not perform. Both are documentation accuracy items, not feature work.)
 
-(Optional, out of scope for usability — do NOT bundle: if the team later wants per-step relative delays, switch the due calc in `DripService.php:308-309` to anchor on `COALESCE(last_step_at, enrolled_at)`. Not required for the journey to be usable today.)
+---
 
-## Live-walk URL
+## Notes for the live browser walk
 
-http://buddynext-dev.local/wp-admin/ — Drip Sequences under the BuddyNext Growth tab / `admin.php?page=buddynextpro-drip-sequences`; confirm step emails in Mailpit at http://localhost:10010/.
+- Entry: wp-admin → BuddyNext menu → Drip Sequences (slug `buddynextpro-drip-sequences`).
+- Build a 3-step sequence (delay 0/3/7), enable it, register a test user, then trigger
+  `do_action('buddynextpro_drip_tick')` via WP-CLI. Step 1 (delay 0) sends immediately — confirm in
+  Mailpit (http://localhost:10010/).
+- To fast-forward steps 2/3 without waiting real days, backdate `enrolled_at` (NOT `last_step_at`):
+  `UPDATE wp_bn_drip_enrollments SET enrolled_at = DATE_SUB(NOW(), INTERVAL 4 DAY) WHERE ...` then tick.
+- App/REST clients: the same operations are available under `buddynext-pro/v1/drip-sequences`
+  (manage_options required), so the journey is served for both web admin and REST clients.

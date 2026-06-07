@@ -1,8 +1,9 @@
-# Conformance — Activity Feed (Free)
+# Conformance: Activity Feed
 
-**Feature:** Activity Feed (Free)
+**Feature:** Activity Feed (repo: free)
 **Spec ref:** `docs/specs/features/02-activity-feed.md` (Locked, 2026-03-19)
 **Journey ref:** `docs/journeys/activity-feed.md`, `docs/v2 Plans/v2/home-feed.html`, `docs/v2 Plans/v2/explore-feed.html`
+**Cross-cutting:** `REST-FRONTEND-CONTRACT.md`, `SCALE-CONTRACT.md`, `17-roles-permissions.md`
 **Live-walk URL:** http://buddynext-dev.local/activity
 **Verdict:** usable-leave-as-is
 
@@ -10,14 +11,7 @@
 
 ## Summary
 
-The Activity Feed is fully wired for both the web journey and the REST/app journey.
-Every happy-path step in the journey doc and every core post type in the locked spec
-has a real UI control bound to an Interactivity API store action that calls a
-registered REST endpoint, which delegates to a service that writes the spec'd tables.
-
-The journey doc is written as a REST walk, but the prime-directive question — "is
-there a UI control reaching each endpoint?" — resolves YES for all of them. No
-api-only gaps were found.
+The Activity Feed core happy-path is wired end to end for both the web journey (SSR templates + Interactivity API stores → REST → services → DB) and the app/REST journey (the same controllers). Every interactive control in the templates is bound to a store action that calls a real, registered REST endpoint backed by a service and the spec's DB tables. No usability break was found.
 
 ---
 
@@ -25,22 +19,23 @@ api-only gaps were found.
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Open `/activity` → home feed renders SSR | ui | wired | `includes/Core/PageRouter.php:805-813` resolves hub→`feed/home.php`; `templates/feed/home.php:469-513` renders cards |
-| Feed bundle (store + CSS) loads on hub | store | wired | `PageRouter.php:628-630` (`case 'feed': $assets->enqueue('feed')`); `AssetService.php:373-377` enqueues `@buddynext/feed` module |
-| Home feed query (own + followed + spaces + hashtags) | service | wired | `home.php:155-190` calls `FeedService::home_feed()`; inline keyset fallback `home.php:194-253` |
-| Compose text post → Share | ui→store→rest | wired | `partials/composer.php:328-337` `actions.submit`; `store.js:1488/1553/1594` `POST /posts`; `PostController.php:38` route; `PostService::create():71` → `bn_posts` |
-| Compose poll post | ui→service | wired | composer poll inputs `composer.php:174-199`; `PostService.php:82,167-168` `insert_poll_options()` → `bn_poll_options` |
-| Compose link post (auto OG) | service | wired | `PostService.php:119,134-136` stores `link_url` + async `link_meta` |
-| Vote on poll | ui→store→rest | wired | `store.js:1020-1027` `actions.votePoll` → `POST /posts/{id}/vote`; `PollController.php:33`; UNIQUE on `bn_poll_votes` |
-| React (emoji picker) | ui→store→rest | wired | `parts/post-actions.php:185` `actions.setReaction`; `store.js:773` `POST /reactions/toggle` → `bn_reactions` |
-| Comment | ui→store→rest | wired | `post-actions.php:208` `actions.openComments`; `store.js:947-992` `actions.submitComment` → `POST /comments` → `bn_comments` |
-| Share | ui→store→rest | wired | `post-actions.php:226` `actions.openShare`; `store.js:856`/`1892` `POST /posts/{id}/share` → `bn_shares` |
-| Bookmark (toggle POST/DELETE) | ui→store→rest | wired | `post-actions.php:240` `actions.toggleBookmark`; `store.js:785-794` method switch on state; `BookmarkController.php:41,46` → `bn_bookmarks` |
-| Announcement banner + dismiss | ui→store→rest | wired | `home.php:452-467` `actions.dismiss`; `store.js:1052`/`1649` `POST /feed/announcements/{id}/dismiss`; `FeedController.php:251` |
-| Filter tabs (For you/Following/Spaces/Network) | ui→store→rest | wired | `home.php:362-424` `actions.setFilter`; `store.js:1982` (`buddynext/feed-tabs`); `FeedController.php:46-52` enum-validated |
-| Infinite scroll (cursor) | ui→store→rest | wired | `home.php:515-540` `data-bn-infinite-feed`; `store.js:1768-1795` → `/feed/home/page`; `FeedController.php:96-112,295-315` renders identical cards |
-| Explore feed (public, guest-safe) | ui→service | wired | `PageRouter.php:805` → `feed/explore.php`; `explore.php:204,360-363` infinite scroll → `/feed/explore/page` (public, `FeedController.php:69-74,326`) |
-| Empty home feed → curated empty state, not 404 | ui | wired | `home.php:547-593` per-filter empty states with CTA |
+| Open /activity → SSR home feed renders | ui | wired | `templates/feed/home.php:331-513` (composer, filter tabs, feed list, post-card loop) |
+| Home feed query (own + followed + spaces + followed hashtags), cursor paginated | service/db | wired | `home.php:153-190` uses `buddynext_service('feed')->home_feed()`; inline fallback `home.php:194-252`; `includes/Feed/FeedController.php:164-176` |
+| Compose + publish a post | ui→store→rest | wired | composer `partials/composer.php`; `assets/js/feed/store.js:1491-1569` POST `/posts`; `includes/Feed/PostController.php:94-129` → `PostService::create` |
+| Poll post create | store→rest→service | wired | store `submit()` sends `options[]` (`store.js:1514-1528`); `PostController.php:105` maps `options`; `PostService.php:83-176` inserts `bn_poll_options` |
+| Poll vote | ui→store→rest→db | wired | `store.js:1020-1048` POST `/posts/{id}/vote`; `includes/Feed/PollController.php:31-39`; UNIQUE vote constraint per spec |
+| Link post | store→rest | wired | composer type=link; `PostController.php:103,336-339` parses `link_url` |
+| React (emoji toggle) | ui→store→rest→db | wired | button `parts/post-actions.php:87-194`; `store.js:761-784` POST `/reactions/toggle` |
+| Comment | ui→store→rest→db | wired | `parts/post-actions.php:199-218`; `store.js:947-1019` POST `/comments` |
+| Share | ui→store→rest→db | wired | `parts/post-actions.php:220-233`; `store.js:832-868` + share-modal `store.js:1918` POST `/posts/{id}/share` |
+| Bookmark | ui→store→rest→db | wired | `parts/post-actions.php:235-247`; `store.js:785-803` POST/DELETE `/posts/{id}/bookmark` |
+| Announcement banner + dismiss | ui→store→rest | wired | `home.php:452-467` + card bar `post-card.php:358-370`; `store.js:1049-1058` POST `/feed/announcements/{id}/dismiss`; `FeedController.php:301-329` |
+| Infinite scroll (append next page) | ui→store→rest | wired | trigger `home.php:515-540` (`data-rest-url=/feed/home/page`); `store.js:1820-1907` IntersectionObserver → `FeedController::home_feed_page` SSR cards `FeedController.php:345-433` |
+| "N new posts" pill | store→rest | wired | `store.js:2493-2574` 60s visibility-aware poll of `/feed/new-count`; `FeedController.php:205-216` |
+| Filter tabs (For you/Following/Spaces/Network) | ui→store→rest | wired | `home.php:362-424` `buddynext/feed-tabs`; `store.js:2036`; counts `FeedService::home_feed_counts` |
+| Explore feed (public, guest banner, infinite scroll) | ui→service | wired | `templates/feed/explore.php:220-360`; `FeedController.php:224-231,376-392` public callback |
+| Privacy / visibility gates on single post | rest/service | wired | `PostController.php:131-217` (block list, secret-space, followers-only, private) |
+| Space-feed secret-space gating | rest | wired | `FeedController.php:261-290` |
 
 ---
 
@@ -52,27 +47,20 @@ none — journey complete.
 
 ## UX gaps
 
-None confirmed in code that break the journey.
+None proven from code. Two non-blocking notes (both consistent with spec "Known limitations"):
 
-Notes (not journey breaks):
-- `link_meta` (OG preview) is populated asynchronously; a freshly posted link card may
-  render without thumbnail/title at first paint. Documented as intended in the journey
-  doc "Known limitations"; the card degrades gracefully (`post-card.php:298-302`).
-- Bridge post types (`media`, `discussion`, `job`) only render when the respective
-  plugin is active (spec line 41) — not verifiable in the Free repo alone and not part
-  of the Free happy path.
+- `link_meta` (Open Graph) is populated asynchronously, so a freshly created link post may render without a preview thumbnail momentarily — explicitly accepted in `docs/journeys/activity-feed.md` "Known limitations".
+- The home-feed source blend and announcement/empty states depend on seeded data; on an empty test account the feed correctly shows per-filter empty states (`home.php:547-594`), not a break.
 
 ---
 
 ## Minimal refactor plan
 
-Empty. The feature is usable end-to-end; no rewiring required.
+Empty — feature is usable as-is. Do not rewrite working code.
 
 ---
 
-## Verification confidence
+## Notes for the live walk
 
-All statuses are `confirmed-in-code`: UI control → store action → REST route → service
-→ table was read for each step. The only items left to a live walk are the async
-OG-preview timing and bridge post types (require Pro / addon plugins active), neither
-of which is on the Free web journey.
+- Journey curl examples use `poll_options` for poll creation; the shipped REST handler and UI both use the `options` key (`PostController.php:105`, `store.js:1528`). UI ↔ REST agree — no code change needed; the journey doc example is illustrative.
+- Verify on a seeded account (member1/member2 + one open space) per journey preconditions; an empty account hides built behavior behind empty states.

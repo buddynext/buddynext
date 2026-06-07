@@ -1,75 +1,67 @@
-# Conformance — Follows (Social Graph)
+# Conformance: Follows
 
-**Feature:** Follows (free)
-**Spec ref:** `docs/specs/features/01-social-graph.md` (Locked, 2026-03-19) — "Follow (asymmetric)"
-**Journey ref:** `docs/journeys/social-graph.md` — Part 1: Follow / Unfollow
-**Cross-cutting:** `docs/specs/REST-FRONTEND-CONTRACT.md`, `docs/specs/SCALE-CONTRACT.md`, `docs/specs/features/17-roles-permissions.md`
+**Feature:** Follows (Social Graph — follow / unfollow)
+**Repo:** free
+**Spec ref:** `docs/specs/features/01-social-graph.md` (Locked, 2026-03-19, "Follow (asymmetric)") + journey `docs/journeys/social-graph.md` Part 1
+**Cross-cutting checked:** `docs/specs/REST-FRONTEND-CONTRACT.md`
 **Verdict:** usable-leave-as-is
 **Live-walk URL:** http://buddynext-dev.local/members/varundubey/
 
 ---
 
-## Verdict rationale
-
-A logged-in member can land on another member's profile, click Follow, and the
-follow row is created in `bn_follows`; the button flips to Following and a
-second click (DELETE) unfollows. Every layer of the happy path is wired and
-proven by reading code — UI control, Interactivity store action, REST route,
-service, and DB write. No usability break found.
-
-The journey doc is framed as a curl/REST automation walk; the *web* journey it
-implies (profile → Follow button → toggle) is fully wired through the
-`buddynext/profile` Interactivity store, not the `buddynext/follow-button`
-store. Both stores exist and both reach the same REST endpoint.
-
----
-
 ## Journey chain
+
+Core happy path: a logged-in member visits another member's profile, clicks Follow, the
+relationship persists and the follower count updates; clicking again unfollows. Plus the
+public follower/following lists and the follow-request inbox for private accounts.
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Member profile renders Follow button (non-owner, logged-in) | ui | wired | `templates/parts/profile-hero.php:407-420` (Follow/Following, `data-wp-on--click="actions.follow"` / `actions.unfollow`, gated `! $bn_pf_is_owner && $bn_pf_viewer`) |
-| Profile view boots `buddynext/profile` store + context | ui | wired | `templates/profile/view.php:343-344` (`data-wp-interactive="buddynext/profile"`, context carries `profileUserId`, `isFollowing`, `restNonce`) |
-| Profile bundle enqueued on `/members/{slug}/` | ui | wired | `includes/Core/PageRouter.php:651-655` (people hub + `user_id` → `enqueue('profile')`); module registered `includes/Core/AssetService.php:316` |
-| Store action calls REST with nonce + optimistic rollback | store | wired | `assets/js/profile/store.js:1053-1090` (POST/DELETE `buddynext/v1/users/{id}/follow`, `X-WP-Nonce`) |
-| REST route registered, auth-gated | rest | wired | `includes/SocialGraph/FollowController.php:32-47`; booted `includes/REST/Router.php:65` |
-| Controller blocks self/blocked, calls service | rest | wired | `includes/SocialGraph/FollowController.php:116-161` |
-| Service writes row, fires hooks, busts cache | service | wired | `includes/SocialGraph/FollowService.php:64-207` (`buddynext_user_followed` / `buddynext_user_unfollowed`) |
-| Row persisted in `bn_follows` | db | wired | `includes/SocialGraph/FollowService.php:100-108` (INSERT), `185-192` (delete) |
-| Followers list reads graph back | ui+service | wired | `templates/profile/followers.php:43-60` (`FollowService::followers()`, paginated, block-filtered) |
-
----
+| Profile page renders Follow / Following buttons for a non-owner viewer | ui | wired | `templates/parts/profile-hero.php:407-420` (`data-wp-on--click="actions.follow"` / `actions.unfollow`, SSR `hidden` driven by `$bn_pf_is_following`) |
+| Buttons sit inside the profile Interactivity root with full context | store | wired | `templates/profile/view.php:343-345` (`data-wp-interactive="buddynext/profile"`); context `profileUserId`/`isFollowing`/`restNonce`/`followerCount` at `view.php:317-329` |
+| `actions.follow` / `actions.unfollow` POST/DELETE the follow endpoint with nonce + optimistic rollback | store | wired | `assets/js/profile/store.js:1053-1090` (fetch `buddynext/v1/users/{id}/follow`, `X-WP-Nonce: ctx.restNonce`) |
+| Profile store module enqueued on the members route | store | wired | `includes/Core/PageRouter.php:660` `$assets->enqueue('profile')`; module map `includes/Core/AssetService.php:316`; enqueue `AssetService.php:373-377` |
+| `POST/DELETE /buddynext/v1/users/{id}/follow` registered, auth-gated | rest | wired | `includes/SocialGraph/FollowController.php:32-47` (routes), `:312-322` (`require_auth`); router `includes/REST/Router.php:65` |
+| Controller blocks self/blocked, returns `{following,pending}` | rest | wired | `FollowController.php:116-161` (block guard `:120`, follow `:128-129`, response `:140-146`) |
+| `FollowService::follow/unfollow` writes `bn_follows`, fires actions, busts cache | service | wired | `includes/SocialGraph/FollowService.php:64-183` (INSERT IGNORE, `buddynext_user_followed` `:143`, first-follow `:178`); unfollow `:192-218` |
+| Row persisted in `bn_follows` (status approved/pending) | db | wired | `FollowService.php:108-119` INSERT; `:196-203` DELETE |
+| Public followers / following lists, block-filtered | rest | wired | `FollowController.php:173-201` + `filter_blocked` `:213-228`; service `followers()`/`following()` `FollowService.php:286-346` |
+| Private-account follow-request inbox (list / approve / reject) | rest+store | wired | routes `FollowController.php:79-107`; store `assets/js/social/follow-store.js:136-178`; service `FollowService.php:489-614` |
+| `is_following` seeded into the profile render | service | wired | `includes/Profile/ProfileService.php:546` (`->is_following($viewer_id,$profile_user_id)`) |
 
 ## First break
 
-none — journey complete.
-
----
+none — journey complete. Every link from the profile Follow button down to the
+`bn_follows` write is present, registered, and enqueued on the live members route. The
+service binding (`includes/Core/Plugin.php:622` `$container->bind('follows', ...)`) and
+REST registration (`includes/REST/Router.php:65`) are both confirmed.
 
 ## UX gaps
 
-| Gap | Severity | Confidence | Evidence |
-|-----|----------|------------|----------|
-| Alternate v2 hero block `templates/blocks/profile-header.php` renders a Follow button with `data-action="bn-toggle-follow"` + a custom `buddynext_follow_{id}` nonce but NO `data-wp-interactive` / `data-wp-on--click` / `data-wp-context` wiring — inert if that block is the surface in use. The live profile route uses `parts/profile-hero.php` (wired), so the canonical journey is unaffected; risk only if a site composes the page from this block. | low | confirmed-in-code | `templates/blocks/profile-header.php:94-106` vs `templates/parts/profile-hero.php:407-420` |
-| Journey-doc/contract drift: `docs/journeys/social-graph.md:19-57` describes a single POST that *toggles* follow and shows unfollow as a second POST. The controller splits POST=follow / DELETE=unfollow; a 2nd POST hits `INSERT IGNORE` and does not unfollow. The web UI correctly issues DELETE, so this is doc drift, not a runtime break. | low | confirmed-in-code | `docs/journeys/social-graph.md:50-57` vs `includes/SocialGraph/FollowController.php:41-45,155-161` |
+No code-confirmed gap stops the journey. Non-blocking observations:
 
----
-
-## Notes (not gaps)
-
-- Private-account follow → `pending` flow is implemented end-to-end
-  (`FollowService.php:97-123`; approve/reject routes `FollowController.php:89-107`).
-  The hero button does not surface a distinct pending label, but for public
-  accounts (the spec's core happy path) this is irrelevant.
-- Block guard holds at controller (`FollowController.php:120-126`), service
-  (`FollowService.php:74-95`), and template levels. Roles/visibility respected.
-- Reads cache-backed (group `buddynext_follows`, 10-min TTL) with explicit
-  invalidation on write (`FollowService.php:611-617`) — satisfies SCALE-CONTRACT.
-
----
+- **Two follow-button surfaces coexist (intentional).** The profile-hero uses the
+  `buddynext/profile` store (`profile-hero.php:407-420`); standalone member cards / sidebar
+  use the separate `buddynext/follow-button` store (`templates/partials/follow-button.php`,
+  `assets/js/social/follow-store.js:76-128`). Both reach the same REST endpoint and both are
+  correctly wired — different DOM contexts, not a break. Severity low, confidence
+  confirmed-in-code.
+- **Profile-hero has no explicit "Requested" (pending) state.** The hero buttons only
+  toggle Follow/Following (`profile-hero.php:407-420`), whereas the standalone partial
+  surfaces a pending state (`follow-store.js:42-72`). For the locked spec's *asymmetric
+  public follow* this is correct; private-account behaviour on the hero would need a live
+  walk on a private test account to confirm the UX. Severity low, confidence
+  needs-live-verification.
 
 ## Minimal refactor plan
 
-None — usable, leave as-is. The two low-severity items are doc drift and an
-unused alternate block surface; neither stops the canonical journey. Per the
-prime directive, working code is not rewritten.
+Empty — feature is usable as-is. No code changes required to complete the journey.
+
+## Notes for the human browser walk
+
+Walk http://buddynext-dev.local/members/varundubey/ logged in as a *different* member.
+Confirm: Follow button shows, click flips to Following + toast + follower count +1,
+reload persists, click again unfollows. Network tab should show
+`POST` / `DELETE /wp-json/buddynext/v1/users/{id}/follow` returning 200 with a
+`{"following":...}` body. Seed at least one follow relationship first — an empty test
+account hides the followers/following lists; that is not a bug.

@@ -3,80 +3,88 @@
 **Feature:** Advanced Search Filters (repo: buddynext-pro)
 **Spec ref:** `docs/specs/features/04-member-directory-search.md` (Member Directory → Filters; Search Architecture seam)
 **Cross-cutting:** `REST-FRONTEND-CONTRACT.md`, `SCALE-CONTRACT.md`, `features/17-roles-permissions.md` (visibility), `FREE-PRO-CONTRACT.md` seam #12
-**Verdict:** usable-leave-as-is
 **Live-walk URL:** http://buddynext-dev.local/search
+**Verdict:** usable-leave-as-is
 
 ---
 
-## What the feature is
+## What was traced
 
-Pro extends Free's unified `/search` member results with five extra member filters injected
-through the `buddynext_search_query_args` seam:
+Pro extends Free's unified search with five optional member filters —
+`tier_slug`, `space_id`, `member_label`, `joined_after`, `active_within_days` —
+via the `buddynext_search_query_args` filter seam (FREE-PRO-CONTRACT seam #12),
+and supplies the tier/space/label dropdown option lists via
+`buddynext_search_filter_options`.
 
-- `tier_slug` — active subscription to a membership tier
-- `space_id` — active member of a space
-- `member_label` — assigned a Pro member label
-- `joined_after` — registration date window (query-only, no Pro table)
-- `active_within_days` — recent analytics activity
-
-Pro also supplies the tier / space / label option lists for the web filter UI via
-`buddynext_search_filter_options`, and saved searches via its own REST collection.
+Happy path verified: a member on `/search` opens the "Advanced member filters"
+card, selects a tier / space / label and/or sets joined-after / active-within,
+clicks **Apply filters** (plain GET reload, no JS required), and results narrow
+by those filters. App/REST clients pass the same five params to
+`GET /buddynext/v1/search`.
 
 ---
 
-## Journey chain (web + REST)
+## Journey chain
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| `/search` page routes to results template | (router) | wired | `buddynext/includes/Core/PageRouter.php:808-809` returns `search/results.php` |
-| Advanced-filter form rendered in aside (tier/space/label/joined/active) | ui | wired | `buddynext/templates/search/results.php:626-731` (plain GET form, no JS dependency) |
-| Tier/space/label option lists populate the dropdowns | ui→service | wired | template applies `buddynext_search_filter_options` `results.php:108-119`; Pro provides it `AdvancedSearchFilters.php:83-150` |
-| Pro registers both seams at boot (unconditional) | service | wired | `buddynext-pro/includes/Core/Plugin.php:203` → `AdvancedSearchFilters::register()` (`AdvancedSearchFilters.php:61-64`) |
-| Member results routed through canonical SearchService so seam fires on web page | service | wired | `results.php:161-186` calls `buddynext_service('search')->search($q,'user',…)` |
-| Pro merges + validates the five args on the seam | service | wired | `AdvancedSearchFilters::apply_pro_args()` `AdvancedSearchFilters.php:184-244` (sources from `$_GET` for the GET page, clamps/validates each) |
-| SearchService emits EXISTS sub-queries for each arg (user scope only) | service→db | wired | `buddynext/includes/Search/SearchService.php:274-334` |
-| Privacy/visibility enforced (public-only, blocks, suspended/shadow-ban) | db | wired | `SearchService.php:185-208`, `:374`, `:390` visibility='public' |
-| REST `GET /search` forwards the five params into the seam (app/REST client) | rest | wired | `buddynext/includes/Search/SearchController.php:66-100` schema + `:203-238` request-scoped closure injector |
-| Pro tables referenced by the sub-queries exist | db | wired | Pro `Installer.php` creates all five (`bn_subscriptions`, `bn_membership_tiers`, `bn_member_labels`, `bn_member_label_assignments`, `bn_analytics_events`) |
-| Saved searches (save/run/delete) | ui→rest | wired | aside `results.php:740-790` bound to Interactivity store → `buddynext-pro/v1/me/saved-searches` (`SavedSearchController.php`) |
+| `/search` route renders results template | ui | wired | `buddynext/includes/Core/PageRouter.php:808-809` |
+| Advanced-filter `<form method=get>` with tier/space/label/joined/active controls | ui | wired | `buddynext/templates/search/results.php:628-731` |
+| Option lists populate dropdowns via `buddynext_search_filter_options` | store | wired | `buddynext/templates/search/results.php:108-124`; provider `buddynext-pro/includes/Search/AdvancedSearchFilters.php:83-150` |
+| Submit → `$_GET` keys read & validated into seam args | service | wired | `buddynext-pro/includes/Search/AdvancedSearchFilters.php:192-244` |
+| Pro filter registered on every (non-admin-gated) boot | service | wired | `buddynext-pro/includes/Core/Plugin.php:203` via `wire_extensions()` at `:93` |
+| SearchService emits EXISTS WHERE clauses per arg (user scope) | service | wired | `buddynext/includes/Search/SearchService.php:274-334` |
+| Filtered query runs (FULLTEXT or LIKE fallback) on `bn_search_index` | db | wired | `buddynext/includes/Search/SearchService.php:355-443` |
+| REST `GET /search` forwards same five params via request-scoped closure | rest | wired | `buddynext/includes/Search/SearchController.php:71-101,209-216,254-283` |
+| Saved-search card (save/run/delete) | ui+store | wired | template `:740-790` bound to `assets/js/search/store.js:79,118,139,169`; Pro `buddynext-pro/includes/Search/Controllers/SavedSearchController.php` |
 
 ---
 
 ## First break
 
-none — journey complete.
-
-Both surfaces are wired: the web `/search` page renders a no-JS GET form whose keys are read
-off the seam by Pro, and the REST `GET /search` endpoint documents and forwards the same five
-params via a request-scoped closure. SearchService consumes every arg, scoped to `user`/`member`
-type only, and only emits Pro-table sub-queries when an arg is present (so Free-only installs
-never touch the missing tables). Pro registration is unconditional in `wire_extensions()`, and
-Pro's installer creates every referenced table.
+None — journey complete. The web filter form, the Pro seam registration, the
+$_GET → seam path, the SearchService WHERE emission, and the REST forwarding are
+all wired and mutually consistent. The core web filter apply needs no JS.
 
 ---
 
-## UX gaps
+## UX gaps (none stop the journey)
 
-None that break the journey. One observation, not a break:
+- **Tier / space / label dropdowns render only when Pro populates the option
+  lists** (`results.php:641,661,681`). Intentional graceful degradation: Pro
+  inactive shows a hint (`:715-718`) and the generic joined/active controls still
+  work. Severity low; confirmed-in-code. Evidence:
+  `buddynext/templates/search/results.php:124,641,661,681,715-718`.
+- **`active_within_days` / `joined_after` fire EXISTS subqueries against
+  `bn_analytics_events` / `wp_users` per search.** Scoped to `user` type and gated
+  behind the FULLTEXT primary match; within SCALE-CONTRACT for typical directories
+  but worth a live check on very large member tables. Severity low;
+  needs-live-verification. Evidence:
+  `buddynext/includes/Search/SearchService.php:315-333`.
+- **Advanced filters require a non-empty query and apply on `/search` only, not
+  the empty-query member-directory browse.** The spec frames tier/space/label/etc.
+  as *Member Directory* filters, but the canonical directory list
+  (`SearchController::list_members` → `MemberDirectoryService::list_members`,
+  `buddynext/includes/Search/SearchController.php:294-317`) does not invoke the
+  `buddynext_search_query_args` seam. The Pro filters run only through
+  `SearchService::search()`, which the web page reaches only when `q` is non-empty
+  (`buddynext/templates/search/results.php:141,182-186`). Same on REST: honoured on
+  `GET /search`, not on `GET /search/members`. Does not break the traced `/search`
+  journey; it is a spec-vs-product scoping question. Severity medium;
+  confirmed-in-code. Evidence: `buddynext/includes/Search/SearchController.php:294-317`.
 
-- The advanced-filter card is scoped to the members/`all` tab (`results.php:625-626`), which
-  matches spec intent (these are member filters). `joined_after` / `active_within_days` render
-  even with Pro inactive (query-only), with an inline hint that tier/space/label require Pro
-  (`results.php:715-719`). This is graceful degradation, not a gap.
+## Visibility / privacy
+
+Results are constrained to `visibility = 'public'`, exclude blocked users
+(`SearchService.php:185-197`) and suspended / shadow-banned authors (`:199-208`).
+The space filter only offers spaces the viewer already belongs to
+(`AdvancedSearchFilters.php:122-147`). Satisfies the privacy-aware requirement and
+roles-permissions visibility contract.
 
 ---
 
 ## Minimal refactor plan
 
-Empty — usable, leave as is.
-
----
-
-## Live-walk note (for the human)
-
-On `http://buddynext-dev.local/search?q=<term>&type=members`, confirm the "Advanced member
-filters" card shows tier/space/label dropdowns (needs Pro active + seeded tiers/labels and a
-viewer who belongs to ≥1 space — empty test accounts will show only joined/active controls).
-Apply a filter, confirm the result set narrows and chosen values reflect back into the controls.
-Memory note applies: seed subscription/label/space-membership data before judging the dropdowns
-"empty".
+None — usable end-to-end on both web and REST surfaces. Do not rewrite. Optional
+(not required for usability): live walk on a large seeded member table to confirm
+the `active_within_days` / `joined_after` subqueries stay within SCALE-CONTRACT.

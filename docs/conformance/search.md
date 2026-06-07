@@ -1,61 +1,53 @@
-# Conformance Dossier — Search (Free)
+# Conformance: Search (Free)
 
-**Feature:** Search (Member Directory + Unified Search)
-**Spec ref:** `docs/specs/features/04-member-directory-search.md` (Locked, 2026-03-19); cross-checked against `docs/journeys/search.md` and `docs/v2 Plans/v2/search-results.html`
-**Verdict:** usable-leave-as-is
-**Live-walk URL:** http://buddynext-dev.local/search (note: actual route is `/activity/search/` — see UX gaps)
+**Spec ref:** `docs/specs/features/04-member-directory-search.md` (Locked, 2026-03-19)
+**Journey ref:** `docs/journeys/search.md`
+**Mockup:** `docs/v2 Plans/v2/search-results.html`
+**Live-walk URL:** http://buddynext-dev.local/search  *(see UX gap #2 — canonical route is `{activity-base}/search/`)*
 
----
+## Verdict
 
-## Summary
+**usable-leave-as-is** — both the web journey (server-rendered search page) and the app/REST journey (`GET /buddynext/v1/search`) are complete and viewer-aware. No journey-breaking defect was proven in code. Two items need live verification (URL slug, reindex REST route absence) and are flagged below; neither blocks the happy path.
 
-The unified search happy-path is fully wired end-to-end for BOTH the web journey and the REST/app journey. A member lands on the search page, types a term in a plain GET form, submits, and gets grouped results (Members / Posts / Spaces / Hashtags / Media) rendered server-side — no JS required. Results flow through the canonical `SearchService::search()`, which enforces public-visibility, block, suspension, and shadow-ban exclusions in SQL, fires the `buddynext_search_query_args` and `buddynext_search_results` seams, and falls back from FULLTEXT to LIKE in test environments. The index is maintained asynchronously by `SearchIndexListener` (registered in `Plugin.php`).
+## Core happy-path journey
 
-Two journey-doc / spec drifts exist (a documented REST reindex endpoint that is not implemented, and a stated entry URL that does not match the real route), but neither stops the core search journey.
-
----
-
-## Journey chain (web happy-path: land → query → submit → grouped results)
+A member/visitor enters a query, lands on the search page, sees grouped results (members, posts, spaces, hashtags, media), and results respect blocks + shadow-bans.
 
 | Step | Layer | Status | Evidence |
 |------|-------|--------|----------|
-| Route `/activity/search/` → render `search/results.php` | rest (rewrite) | wired | `includes/Core/PageRouter.php:960` (rewrite), `:808-809` (template map) |
-| Search hero: GET form with `name="q"`, submit button, `type` hidden field | ui | wired | `templates/parts/search-hero.php:66-87` |
-| Type tabs (All/Members/Posts/Spaces/Hashtags/Media) as `?type=` links | ui | wired | `templates/parts/search-type-tabs.php:73-104`; tabs built `templates/search/results.php:324-349` |
-| Members/Posts/Spaces resolved via `SearchService::search($q,$type,5,1,$viewer)` | service | wired | `templates/search/results.php:182-198` |
-| FULLTEXT MATCH…AGAINST (LIKE fallback) over `bn_search_index`, public-only | db | wired | `includes/Search/SearchService.php:355-443` |
-| Viewer-aware exclusions: blocks, suspensions, shadow-ban | service | wired | `includes/Search/SearchService.php:185-208` |
-| Result sections render rows (member cards w/ Follow/Message, post/space/hashtag) | ui | wired | `templates/parts/search-result-section-members.php:54+`; sections invoked `templates/search/results.php:444-525` |
-| Index populated on content create/update/delete (async) | service | wired | `includes/Search/SearchIndexListener.php:32-50`; registered `includes/Core/Plugin.php:192` |
-| REST `GET /buddynext/v1/search` (grouped + typed, 400 on empty `q`) | rest | wired | `includes/Search/SearchController.php:34-241`; registered `includes/REST/Router.php:76` |
-| REST `GET /buddynext/v1/search/members` (cursor directory) | rest | wired | `includes/Search/SearchController.php:105-176`, `294-317` |
-
----
+| 1. Member types query in on-page search box (GET form, `name=q`, submits to self) | ui | wired | `templates/parts/search-hero.php:66-87` |
+| 2. `/{activity}/search/` route resolves to the search template | rest | wired | `includes/Core/PageRouter.php:965-969` (rewrite) → `:814-815` (`search/results.php`) |
+| 3. Template runs query, tabs `all/members/posts/spaces/hashtags/media` | ui | wired | `templates/search/results.php:44-53,141-266` |
+| 4. Members/posts/spaces resolved via canonical `SearchService::search()` (seam fires) | service | wired | `templates/search/results.php:161-198` → `includes/Search/SearchService.php:166-234` |
+| 5. FULLTEXT `MATCH … AGAINST` (LIKE fallback for temp tables) | db | wired | `includes/Search/SearchService.php:355-443,504-516` |
+| 6. Viewer-aware exclusions: blocks (`bn_blocks`) + suspensions + shadow-ban (`bn_user_suspensions`, usermeta `bn_shadow_banned`) | service/db | wired | `includes/Search/SearchService.php:185-208` |
+| 7. Date / sort filters (radio controls; GET hrefs + IAPI store) | ui+store | wired | `templates/search/results.php:544-612`; `assets/js/search/store.js:51-69` |
+| 8. `/` keyboard shortcut focuses search from any page; store enqueued on search page | store | wired | `assets/js/search/store.js:202-218`; `includes/Core/PageRouter.php:639-640` |
+| 9. Indexing: post/user/space create/update/delete hooked, async via Action Scheduler | service | wired | `includes/Search/SearchIndexListener.php:34-49` |
+| 10. App/REST query `GET /buddynext/v1/search?q=` (grouped default; typed when `type` set) | rest | wired | `includes/Search/SearchController.php:34-103,188-241`; registered `includes/REST/Router.php:76` |
+| 11. Member directory `GET /buddynext/v1/search/members` (filters, cursor pagination) | rest | wired | `includes/Search/SearchController.php:105-176,294-317` |
+| 12. Empty query → 400 (not 500) | rest | wired | `includes/Search/SearchController.php:191-197` |
 
 ## First break
 
-none — journey complete. The core search happy-path (enter query → submit → privacy-aware grouped results) works at every layer for both web and REST clients.
+**none — journey complete.** Both the web page and the REST surface complete end-to-end. The two flagged items below are verification/spec-coverage notes, not breaks in the core happy path.
 
----
+## UX gaps
 
-## UX gaps (real, not nitpicks)
+1. **Reindex REST route `POST /search/index/{type}` (journey Part 5) does not exist.** The controller registers only `GET /search` and `GET /search/members`; there is no `register_rest_route` for a reindex trigger anywhere in `includes/` (`SearchController.php:34-176`; confirmed no `search/index` match repo-wide). Reindex is instead driven by hooks/Action Scheduler (`SearchIndexListener::handle_reindex_all`, `SearchService::schedule_reindex_all`, the `buddynext_reindex_all` action) — so reindexing works operationally, but the admin REST endpoint the journey doc walks is absent. *Severity: low (admin-only convenience; reindex still functions via activation + the async action). Confidence: confirmed-in-code.*
 
-1. **Stated entry URL `/search` does not match the real route `/activity/search/`** — severity: low, confidence: confirmed-in-code. `PageRouter::search_url()` returns `activity_url() . 'search/'` (`includes/Core/PageRouter.php:1343-1344`) and the only registered rewrite is `^activity/search/?$` (`:960`). There is no `/search` rewrite. In-app nav links use `search_url()` so they are correct, but the bare `/search` URL the task/journey cites will not resolve unless a WP page or redirect exists at that slug. Needs live verification of whether a redirect/page covers the short URL.
+2. **Live-walk URL `/search` vs canonical `/{activity-base}/search/`.** `PageRouter::search_url()` builds the URL under the activity hub slug (`PageRouter.php:1349-1355`, `activity_url():1320-1321`) and the only rewrite rule is `^{activity}/search/?$` (`:965-969`). A bare `/search` only resolves if the activity base is configured to root. *Severity: low. Confidence: needs-live-verification (depends on `buddynext_slug_activity` option on this site).*
 
-2. **Journey doc Steps 12-13 reference a reindex REST endpoint that is not implemented** — severity: low, confidence: confirmed-in-code. The journey (`docs/journeys/search.md:129-146`, `:162`, REST surface `:195`) describes `POST /buddynext/v1/search/index/{type}` and `SearchController::reindex()` requiring `manage_options`. No such route or method exists in `SearchController` (`includes/Search/SearchController.php:34-176` registers only `/search` and `/search/members`). Reindexing is real but happens via activation (`includes/Core/Installer.php:60` → `schedule_reindex_all()`) and the `buddynext_reindex_all` action handler (`includes/Search/SearchIndexListener.php:251-342`), not via REST. Doc-vs-code drift, not a user-facing web break — the index self-maintains via lifecycle hooks. Confirm with product whether on-demand admin reindex over REST is required.
-
----
+3. **No Search item in the left rail / primary nav.** `templates/shell/rail.php:70-114` lists Activity/Explore/Members/Spaces/Notifications/Messages — no Search entry. Discoverability relies on the on-page search box, the `/` keyboard shortcut, and any theme/topbar link. The v2 mockup (`search-results.html`) is page-centric and does not depict a global topbar search, so this matches the mockup. *Severity: low. Confidence: confirmed-in-code (rail has no search link); whether a topbar/theme provides one is needs-live-verification.*
 
 ## Minimal refactor plan
 
-EMPTY — verdict is usable-leave-as-is. The two gaps above are documentation/contract drifts and a URL-aliasing question, not breaks in the search journey. Recommended (non-blocking) follow-ups for the doc owner, NOT code rewrites:
-- Reconcile `docs/journeys/search.md` Steps 12-13 + REST surface with reality (either drop the unimplemented `POST /search/index/{type}` from the journey, or open a separate request to add it).
-- Confirm whether `/search` should redirect to `/activity/search/`; if intended, add the alias — but verify live first (a page or redirect may already exist outside the rewrite rules).
+None required for usability. Optional, only for journey-doc/spec parity (not a usability fix — do not rewrite working code):
 
----
+1. If the journey doc's reindex REST endpoint is intended to ship, add a thin `POST /buddynext/v1/search/index/{type}` route to `SearchController` (cap: `manage_options`) that calls the existing `buddynext_reindex_all` action / `SearchIndexListener::handle_reindex_all` — reuse, do not reimplement. Otherwise, correct the journey doc to describe the hook/Action-Scheduler reindex path.
+2. Reconcile the journey/live-walk URL with `PageRouter::search_url()` (use `/{activity}/search/` in the doc, or confirm the site's activity base).
 
-## Notes for the live walk
+## Notes
 
-- Walk `/activity/search/?q=<term>` (canonical) AND the bare `/search` to confirm/deny gap #1.
-- Seed content first: empty test accounts will show "No results" even though the journey is wired. Create a post via `POST /buddynext/v1/posts`, then confirm a row in `wp_bn_search_index` before asserting search returns it.
-- Confirm `bn_search_index` has the `ft_search` FULLTEXT index on production MySQL (drives the FULLTEXT path vs LIKE fallback: `SearchService::has_fulltext_index()`).
+- App/REST clients get the full search journey independent of the web page; the `q` param is required and validated server-side.
+- Pro advanced member filters and saved searches degrade gracefully when Pro is inactive (`SearchService.php:262-334`; `templates/search/results.php:108-124,715-792`) — no fatal, no Pro-table reference.

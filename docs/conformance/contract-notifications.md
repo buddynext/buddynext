@@ -1,106 +1,81 @@
-# Contract conformance — Notification / email / push template model
+# Contract Conformance — Notification / Email / Push Template Model
 
+**Contract:** Templates carry their own subject/body; every event emits through one channel + preference model.
+**Spec refs:** `docs/specs/NOTIFICATION-MESSAGES.md`, `docs/specs/features/06-notifications-email.md`
 **Verdict:** usable-minor-polish
-**Checked:** 2026-05-31
-**Spec:** `docs/specs/NOTIFICATION-MESSAGES.md` + `docs/specs/features/06-notifications-email.md`
-**Code:** `buddynext/includes/Notifications/`, `buddynext-pro/includes/Email/`, `buddynext-pro/includes/Push/`
+**Date:** 2026-05-31
 
-## Question asked
+---
 
-Do templates carry their own subject/body, and does every event emit through one
-channel + preference model? Specifically — are there senders that ignore
-per-message subject/body (the broadcast / drip bug class)?
+## What was checked
 
-## Answer
+The flagged bug class is the broadcast/drip "sender ignores per-message subject/body"
+failure — where a campaign or drip step authored unique copy but the sender rendered
+a shared template-row instead. Verified end-to-end across Free email, Pro broadcast,
+Pro drip, and Pro push.
 
-The core contract holds. The historic broadcast/drip bug class is **fixed**.
+## Result — the email bug class is CLEAN
 
-### Guarantee 1 — one creation event, fanned to channels (WIRED)
+`EmailSender::send_now()` (Free) implements an explicit **composed-email path**:
 
-`NotificationService::create()` is the single insert point and fires
-`do_action('buddynext_notification_created', $notif_id, $recipient_id, $data)`
-exactly once per row (also on group-merge).
-- Free `EmailDispatchListener::register()` hooks it at prio 10 → email.
-- Pro `PushDispatcher::register()` hooks it at prio 20 → FCM push.
-Evidence: `NotificationService.php:168`, `EmailDispatchListener.php:54`,
-`PushDispatcher.php:56`.
+- `includes/Notifications/EmailSender.php:104-135` — when `$data['subject']` and
+  `$data['body_html']` are both present, those win and no `bn_email_templates` row
+  is required. Event emails (e.g. `bn.new_follower`) still render from their template
+  row. A disabled template row suppresses its own event email but never a composed
+  campaign/drip email (`:122`).
+- `BroadcastService::send_pending()` — `buddynext-pro/includes/Email/BroadcastService.php:451-460`
+  passes the campaign's own `subject` + `body_html` per recipient via that path.
+- `DripService::process_due_enrollments()` — `buddynext-pro/includes/Email/DripService.php:317-328`
+  passes each step's own `subject` + `body_html` per enrollee.
+- No rogue `wp_mail()` anywhere in Pro Email/Push — both senders delegate to Free's
+  `send_now()`. Space-digest reuses the same BroadcastService path (type=space_digest).
 
-### Guarantee 2 — templates carry their own subject/body (WIRED)
+So per-message subject/body is honored everywhere it should be. The bug class the task
+hunts for does not exist in the current code.
 
-`EmailSender::send_now()` resolves subject/body from the `bn_email_templates`
-row for event emails, OR from an **inline composed-email path** when the caller
-passes `data['subject']` + `data['body_html']`. Disabled template rows suppress
-their own event emails but never a composed campaign/drip email.
-Evidence: `EmailSender.php:104-173` (`$has_inline` branch at 112-132).
+## One channel + preference model
 
-### Guarantee 3 — broadcast/drip carry per-message authored subject/body (WIRED — the bug-class fix)
+- All events fan in through `NotificationService::create()` →
+  `do_action('buddynext_notification_created', ...)`
+  (`includes/Notifications/NotificationService.php:168`).
+- Email subscribes via `EmailDispatchListener` → pref-gated `EmailSender::send()`
+  (`email_freq`: off / daily / weekly / immediate — `EmailSender.php:50-91`).
+- Push subscribes via `PushDispatcher` at priority 20, pref-gated by
+  `PushPrefService::is_push_enabled()` (`Push/PushDispatcher.php:56,87`).
+- In-app copy is the single source of truth in `NotificationMessageService::compose()`
+  (public, `NotificationMessageService.php:44`).
 
-Both Pro senders delegate to Free's `EmailSender::send_now()` via the composed
-path, passing the campaign/step's authored `subject` + `body_html`. They no
-longer depend on a per-type `bn_email_templates` row, so they cannot silently
-fall back to event-template copy or to a "sent you a notification" string.
-- Broadcast: `BroadcastService::send_pending()` selects `c.subject, c.body_html`
-  and passes them inline — `BroadcastService.php:405-460`.
-- Drip: `DripService::process_due_enrollments()` passes
-  `step['subject']` / `step['body_html']` inline — `DripService.php:317-328`.
-This is the class the directive flagged; it is closed.
+The channel + preference spine is intact.
 
-### Guarantee 4 — per-type, per-channel preference model (WIRED)
+## Divergence found — Push copy does NOT route through the canonical message service
 
-- Email channel: `NotificationPrefService::get_pref()` →
-  `{on_site, email_freq}`; `EmailSender::send()` honours off/daily/weekly/
-  immediate. `NotificationPrefService.php:45-79`, `EmailSender.php:55-91`.
-- Push channel: its own `PushPrefService::is_push_enabled()` gate before
-  fan-out. `PushDispatcher.php:87`.
-- Cross-channel pref surfacing via `buddynext_notification_prefs` filter so Pro
-  appends push rows without forking Free. `NotificationPrefService.php:167`.
+`PushDispatcher::build_snippet()` (`buddynext-pro/includes/Push/PushDispatcher.php:124-205`)
+maintains its **own** `switch` on type instead of calling
+`NotificationMessageService::compose()`. Its cases use stale slugs:
 
-### Guarantee 5 — exhaustive in-app composition, no fallback string (WIRED)
+| Push switch case | Spec / actually-emitted slug | Match? |
+|---|---|---|
+| `bn.follower`  | `bn.new_follower`  (Listener:74)  | NO |
+| `bn.reaction`  | `bn.post_reacted`  (Listener:253) | NO |
+| `bn.comment`   | `bn.post_commented`(Listener:306) | NO |
+| `bn.mention`   | `bn.mention`       (Listener:387) | yes |
 
-`NotificationMessageService::compose_single()` / `compose_grouped()` carry a
-case for every catalogue slug (`bn.*`), matching the locked table 1:1.
-Evidence: switch at `NotificationMessageService.php:110-360` (all slugs present).
+The default branch falls back to `$data['message']`, but `NotificationListener` does
+not pass a `message` key for these events (confirmed at Listener:70-79). Net effect:
+push banners for new-follower / reaction / comment render the generic
+`"You have a new notification."` instead of the spec copy. Only `bn.mention` shows
+correct text.
 
-## Contract observations (minor — not breaks)
+**Severity: medium.** Push is a Pro addon and the notification still fires + deep-links
+correctly; only the banner preview text is generic. It is a copy-quality drift, not a
+broken journey, and it duplicates copy logic the spec declares single-source. Needs a
+live push to confirm runtime banner text, but the slug mismatch is provable in code.
 
-1. **Push copy reimplements composition instead of reusing the canonical
-   source, and matches legacy slugs.** `PushDispatcher::build_snippet()`
-   switches on `follower/reaction/comment/mention` + `bn.follower/bn.reaction/
-   bn.comment/bn.mention`, but the canonical catalogue slugs are
-   `bn.new_follower`, `bn.post_reacted`, `bn.post_commented`. Only `bn.mention`
-   matches. Every other type falls to the generic
-   "You have a new notification." default (or `data['message']` when the
-   emitter happens to pass one). Push still sends — no break — but the rich
-   per-type copy guaranteed for the bell does not reach the push banner, and
-   push duplicates copy logic that lives in `NotificationMessageService`.
-   Evidence: `PushDispatcher.php:159-199` vs catalogue slugs in
-   `NOTIFICATION-MESSAGES.md` and `NotificationMessageService.php:112-347`.
-   Severity: medium. Confidence: confirmed-in-code.
+## Recommendation
 
-2. **Catalogue lists email slugs for several types that have no seeded
-   template.** The locked catalogue marks an `email` slug for
-   `bn.connection_declined`, `bn.comment_reply`, `bn.space_join`,
-   `bn.space_new_post`, `bn.space_role_changed`, `bn.new_message`,
-   `bn.user_unsuspended`, `bn.media_favorited`, `bn.space_join_declined`. The
-   Installer seed (`Installer.php:86-206`) and the EmailEditor defaults
-   (`EmailEditor.php:94-242`) only cover ~21 types and omit these. With no row
-   and no inline content, `EmailSender::send_now()` returns at line 116 → silent
-   no-email for those events. May be intentional (in-app-only at runtime, or
-   bridge-seeded for media/message), so flagged as needs-live-verification
-   rather than a proven break. Severity: low-medium.
-   Confidence: confirmed-in-code (seed list) / needs-live-verification (intent).
-
-## Refactor plan (minimal, polish only)
-
-1. Map `PushDispatcher::build_snippet()` onto the canonical catalogue slugs
-   (`bn.new_follower`, `bn.post_reacted`, `bn.post_commented`, ...) — ideally by
-   calling `NotificationMessageService::compose()` on the row instead of a
-   private switch, so push copy stays in lockstep with the bell automatically.
-2. Reconcile the catalogue `email` column with the seed list: either seed the
-   missing template rows or change those rows' `email` column to `—` in the
-   spec to reflect in-app-only intent. Verify on a live install which path is
-   correct before editing.
-
-Both are polish on a working spine. The senders, the per-message subject/body
-contract, the single creation event, and the per-channel preference model are
-all intact. No rewrite warranted.
+Route push copy through the canonical service rather than a private switch:
+replace the `build_snippet()` switch with a call to
+`NotificationMessageService::compose()` (or `compose_single`) keyed on the row's real
+type, so push inherits the same copy as bell + email and new types never need a second
+edit. This is the "native APIs / single source of truth" pattern, not a rewrite of
+working infrastructure.
