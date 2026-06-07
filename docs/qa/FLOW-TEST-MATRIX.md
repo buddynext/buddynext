@@ -46,7 +46,7 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 | O1 | BN settings (general / features / slugs) | ✅ admin-settings | ✅ | renders, 12 fields, no errors |
 | O2 | Members admin: list / search | ✅ member-directory | ✅ | 6 members, tabs render |
 | O3 | Member types: create / edit / assign / self-select toggle | ✅ member-types | ✅ | Developer/Designer/Writer + self-select shown |
-| O4 | Spaces admin: create / settings / branding | 🟡 spaces | ⬜ | |
+| O4 | Spaces admin: create / settings / branding | 🟡 spaces | 🟡 | admin page renders (no fatal); deep create/branding pending |
 | O5 | Navigation admin | ✅ admin-settings | ⬜ | |
 | O6 | Email templates | ✅ email-system | ⬜ | |
 | O7 | Moderation: review queue / reports / strikes / suspend | ✅ moderation | ✅ | page renders, no errors |
@@ -57,19 +57,19 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 
 | # | Flow | Code | Browser (admin) | Notes |
 |---|------|------|------------------|-------|
-| P1 | Membership tiers + gated spaces | ✅ pro-membership | ⬜ | |
-| P2 | Stripe checkout / webhook → ability grant | ✅ pro-stripe | ⬜ | |
+| P1 | Membership tiers + gated spaces | ✅ pro-membership | 🟡 | monetization admin renders (no fatal); deep flow pending |
+| P2 | Stripe checkout / webhook → ability grant | ✅ pro-stripe | 🟡 | admin renders (no fatal); live checkout needs Stripe keys |
 | P3 | Email broadcasts (incl. scheduled) | ✅ pro-broadcasts | ✅ | LIVE: due scheduled campaign → cron tick → status scheduled→sent, 6 recipients, unsub injected (fix verified) |
-| P4 | Drip / welcome sequences | ✅ pro-drip | ⬜ | |
-| P5 | AI feed ranking | ✅ pro-ai | ⬜ | |
-| P6 | Analytics | ✅ pro-analytics | ⬜ | |
-| P7 | White-label | 🟢 pro-white-label | ⬜ | |
-| P8 | Push notifications | ✅ pro-push | ⬜ | copy fix code-verified |
+| P4 | Drip / welcome sequences | ✅ pro-drip | 🟡 | admin renders (no fatal); deep flow pending |
+| P5 | AI feed ranking | ✅ pro-ai | 🟡 | ai-feed admin renders (no fatal) |
+| P6 | Analytics | ✅ pro-analytics | 🟡 | admin renders (no fatal) |
+| P7 | White-label | 🟢 pro-white-label | 🟡 | admin renders (no fatal) |
+| P8 | Push notifications | ✅ pro-push | 🟡 | admin renders (no fatal); copy fix code-verified |
 | P9 | Auto / rule moderation | ✅ pro-auto-mod | ✅ | ENUM migration applied live; rate_limit rule persists (fix verified) |
 | P10 | Advanced profile field types | 🟢 pro-advanced-fields | ⬜ | multi-select fix code-verified; JS hydration pending |
-| P11 | Bulk moderation | ✅ pro-bulk-mod | ⬜ | |
-| P12 | Custom reactions | ✅ pro-custom-reactions | ⬜ | |
-| P13 | Member labels | ✅ pro-member-labels | ⬜ | |
+| P11 | Bulk moderation | ✅ pro-bulk-mod | 🟡 | admin renders (no fatal) |
+| P12 | Custom reactions | ✅ pro-custom-reactions | 🟡 | admin renders (no fatal) |
+| P13 | Member labels | ✅ pro-member-labels | 🟡 | admin renders (no fatal) |
 | P14 | Multi-pin posts | ✅ pro-multi-pin | ⬜ | |
 | P15 | Unlimited webhooks | ✅ pro-unlimited-webhooks | ⬜ | |
 | P16 | Advanced search filters | ✅ pro-advanced-search | ⬜ | |
