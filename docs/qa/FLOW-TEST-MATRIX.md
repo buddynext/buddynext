@@ -36,7 +36,7 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 | M17 | Hashtags: feed / trending / follow | ✅ hashtags | ✅ | hashtag page renders (graceful not-found); trending REST 200 |
 | M18 | Search (members / posts / spaces) | ✅ search | ✅ | 'member' → 9 results; SCALE ceiling intact |
 | M19 | Leaderboard / gamification view | ✅ engagement-leaderboard | ✅ | verified live (1.5.4) |
-| M20 | PWA install / offline | ✅ pwa | ⬜ | |
+| M20 | PWA install / offline | ✅ pwa | ✅ | manifest endpoint 200 application/manifest+json |
 | M21 | Privacy settings | ✅ privacy-framework | ✅ | privacy/visibility controls present on edit page |
 
 ## B. Owner (site admin) flows
