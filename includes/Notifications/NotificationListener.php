@@ -553,24 +553,30 @@ class NotificationListener implements ListenerInterface {
 
 		// Fan-out can span tens of thousands of members; never load + loop the
 		// whole roster inside the posting request. Hand the entire fan-out to a
-		// single background action that pages through members in bounded batches
-		// (each batch re-enqueues the next). Fall back to one bounded inline
-		// batch only when Action Scheduler is unavailable.
+		// single background action that pages through members in bounded,
+		// keyset batches (each batch re-enqueues the next from the last user_id).
+		// Fall back to an inline keyset loop only when Action Scheduler is absent.
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action(
 				'buddynext_async_space_post_fanout',
 				array(
-					'post_id'   => $post_id,
-					'space_id'  => $space_id,
-					'author_id' => $user_id,
-					'offset'    => 0,
+					'post_id'       => $post_id,
+					'space_id'      => $space_id,
+					'author_id'     => $user_id,
+					'after_user_id' => 0,
 				),
 				'buddynext'
 			);
 			return;
 		}
 
-		$this->fan_out_space_post_batch( $post_id, $space_id, $user_id, 0, self::SPACE_FANOUT_BATCH );
+		// AS-absent (local/test): drain every batch inline so all members are
+		// notified, still bounded to SPACE_FANOUT_BATCH rows per query.
+		$after_user_id = 0;
+		do {
+			$batch         = $this->fan_out_space_post_batch( $post_id, $space_id, $user_id, $after_user_id, self::SPACE_FANOUT_BATCH );
+			$after_user_id = $batch['last_user_id'];
+		} while ( self::SPACE_FANOUT_BATCH === $batch['count'] && $after_user_id > 0 );
 	}
 
 	/**
@@ -580,30 +586,31 @@ class NotificationListener implements ListenerInterface {
 	 * itself for the next page, so neither the posting request nor any single
 	 * scheduled action ever loads or loops the whole space roster.
 	 *
-	 * @param array<string, mixed> $args post_id, space_id, author_id, offset.
+	 * @param array<string, mixed> $args post_id, space_id, author_id, after_user_id.
 	 * @return void
 	 */
 	public function async_space_post_fanout( array $args ): void {
-		$post_id   = (int) ( $args['post_id'] ?? 0 );
-		$space_id  = (int) ( $args['space_id'] ?? 0 );
-		$author_id = (int) ( $args['author_id'] ?? 0 );
-		$offset    = max( 0, (int) ( $args['offset'] ?? 0 ) );
+		$post_id       = (int) ( $args['post_id'] ?? 0 );
+		$space_id      = (int) ( $args['space_id'] ?? 0 );
+		$author_id     = (int) ( $args['author_id'] ?? 0 );
+		$after_user_id = max( 0, (int) ( $args['after_user_id'] ?? 0 ) );
 
 		if ( 0 === $post_id || 0 === $space_id ) {
 			return;
 		}
 
-		$processed = $this->fan_out_space_post_batch( $post_id, $space_id, $author_id, $offset, self::SPACE_FANOUT_BATCH );
+		$batch = $this->fan_out_space_post_batch( $post_id, $space_id, $author_id, $after_user_id, self::SPACE_FANOUT_BATCH );
 
-		// A full batch means more members may remain — schedule the next page.
-		if ( self::SPACE_FANOUT_BATCH === $processed && function_exists( 'as_enqueue_async_action' ) ) {
+		// A full batch means more members may remain — schedule the next page,
+		// resuming from the last user_id (keyset, never OFFSET).
+		if ( self::SPACE_FANOUT_BATCH === $batch['count'] && $batch['last_user_id'] > 0 && function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action(
 				'buddynext_async_space_post_fanout',
 				array(
-					'post_id'   => $post_id,
-					'space_id'  => $space_id,
-					'author_id' => $author_id,
-					'offset'    => $offset + self::SPACE_FANOUT_BATCH,
+					'post_id'       => $post_id,
+					'space_id'      => $space_id,
+					'author_id'     => $author_id,
+					'after_user_id' => $batch['last_user_id'],
 				),
 				'buddynext'
 			);
@@ -613,33 +620,40 @@ class NotificationListener implements ListenerInterface {
 	/**
 	 * Process one bounded batch of space members for a new-post notification.
 	 *
-	 * @param int $post_id   Post that was created.
-	 * @param int $space_id  Space the post belongs to.
-	 * @param int $author_id Post author (excluded from recipients).
-	 * @param int $offset    Keyset offset into the active-member list.
-	 * @param int $limit     Maximum members to process this batch.
-	 * @return int Number of member rows fetched (to decide whether to page on).
+	 * @param int $post_id       Post that was created.
+	 * @param int $space_id      Space the post belongs to.
+	 * @param int $author_id     Post author (excluded from recipients).
+	 * @param int $after_user_id Keyset anchor — only members with a greater
+	 *                           user_id are fetched. Backed by the
+	 *                           bn_space_members PRIMARY KEY (space_id, user_id),
+	 *                           so each batch is O(limit) regardless of depth.
+	 * @param int $limit         Maximum members to process this batch.
+	 * @return array{count: int, last_user_id: int} Rows fetched and the last
+	 *               user_id seen (the next batch's anchor).
 	 */
-	private function fan_out_space_post_batch( int $post_id, int $space_id, int $author_id, int $offset, int $limit ): int {
+	private function fan_out_space_post_batch( int $post_id, int $space_id, int $author_id, int $after_user_id, int $limit ): array {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$member_ids = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT user_id FROM {$wpdb->prefix}bn_space_members
-				 WHERE space_id = %d AND status = 'active' AND user_id != %d
+				 WHERE space_id = %d AND status = 'active' AND user_id != %d AND user_id > %d
 				 ORDER BY user_id ASC
-				 LIMIT %d OFFSET %d",
+				 LIMIT %d",
 				$space_id,
 				$author_id,
-				$limit,
-				$offset
+				$after_user_id,
+				$limit
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( empty( $member_ids ) ) {
-			return 0;
+			return array(
+				'count'        => 0,
+				'last_user_id' => $after_user_id,
+			);
 		}
 
 		$pref_service  = buddynext_service( 'notification_prefs' );
@@ -670,7 +684,10 @@ class NotificationListener implements ListenerInterface {
 			);
 		}
 
-		return count( $member_ids );
+		return array(
+			'count'        => count( $member_ids ),
+			'last_user_id' => (int) end( $member_ids ),
+		);
 	}
 
 	/**

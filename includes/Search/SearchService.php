@@ -26,6 +26,15 @@ class SearchService {
 	private const DEFAULT_LIMIT = 20;
 
 	/**
+	 * Hard ceiling on rows reachable across search pagination.
+	 *
+	 * SCALE-CONTRACT §1: "Search results cap at 100/page with hard ceiling at
+	 * 1000 across pagination." Bounds the OFFSET scan so deep pages can never
+	 * walk the full ~6M-row search index, and bounds the result COUNT.
+	 */
+	private const MAX_RESULTS = 1000;
+
+	/**
 	 * Upsert an object into the search index.
 	 *
 	 * @param string $object_type Type identifier (e.g. 'post', 'user', 'space').
@@ -170,6 +179,12 @@ class SearchService {
 		$page       = max( 1, $page );
 		$offset     = ( $page - 1 ) * $per_page;
 		$safe_query = sanitize_text_field( $query );
+
+		// SCALE-CONTRACT §1: hard 1000-row ceiling across pagination. Bound the
+		// scanned window so a deep `page` cannot OFFSET past the ceiling. Past
+		// it, $row_limit is 0 (LIMIT 0 → no rows) — there is nothing reachable.
+		$offset    = min( $offset, self::MAX_RESULTS );
+		$row_limit = max( 0, min( $per_page, self::MAX_RESULTS - $offset ) );
 
 		$type_where  = '';
 		$type_params = array();
@@ -367,18 +382,23 @@ class SearchService {
 				? 'si.updated_at DESC'
 				: 'relevance DESC, si.updated_at DESC';
 
+			// SCALE-CONTRACT §3: bound the COUNT so it never scans past the
+			// 1000-row ceiling. Totals beyond it render as "1000+" in the UI.
 			$total = (int) $wpdb->get_var(
 				$wpdb->prepare(
-					"SELECT COUNT(*)
-					 FROM {$wpdb->prefix}bn_search_index si
-					 WHERE si.visibility = 'public'
-					   AND {$search_condition}
-					   {$type_where}
-					   {$block_where}
-					   {$excluded_where}
-					   {$advanced_where}
-					   {$date_where}",
-					...array_merge( $type_params, $block_params, $advanced_params )
+					"SELECT COUNT(*) FROM (
+						SELECT 1
+						 FROM {$wpdb->prefix}bn_search_index si
+						 WHERE si.visibility = 'public'
+						   AND {$search_condition}
+						   {$type_where}
+						   {$block_where}
+						   {$excluded_where}
+						   {$advanced_where}
+						   {$date_where}
+						 LIMIT %d
+					) bn_bounded",
+					...array_merge( $type_params, $block_params, $advanced_params, array( self::MAX_RESULTS + 1 ) )
 				)
 			);
 
@@ -396,7 +416,7 @@ class SearchService {
 					   {$date_where}
 					 ORDER BY {$order_clause}
 					 LIMIT %d OFFSET %d",
-					...array_merge( array( $safe_query . '*', $safe_query . '*' ), $type_params, $block_params, $advanced_params, array( $per_page, $offset ) )
+					...array_merge( array( $safe_query . '*', $safe_query . '*' ), $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
 				),
 				ARRAY_A
 			);
@@ -407,18 +427,22 @@ class SearchService {
 			$like = '%' . $wpdb->esc_like( $safe_query ) . '%';
 
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// SCALE-CONTRACT §3: bound the COUNT to the 1000-row ceiling.
 			$total = (int) $wpdb->get_var(
 				$wpdb->prepare(
-					"SELECT COUNT(*)
-					 FROM {$wpdb->prefix}bn_search_index si
-					 WHERE si.visibility = 'public'
-					   AND (si.title LIKE %s OR si.content LIKE %s)
-					   {$type_where}
-					   {$block_where}
-					   {$excluded_where}
-					   {$advanced_where}
-					   {$date_where}",
-					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params )
+					"SELECT COUNT(*) FROM (
+						SELECT 1
+						 FROM {$wpdb->prefix}bn_search_index si
+						 WHERE si.visibility = 'public'
+						   AND (si.title LIKE %s OR si.content LIKE %s)
+						   {$type_where}
+						   {$block_where}
+						   {$excluded_where}
+						   {$advanced_where}
+						   {$date_where}
+						 LIMIT %d
+					) bn_bounded",
+					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params, array( self::MAX_RESULTS + 1 ) )
 				)
 			);
 
@@ -435,7 +459,7 @@ class SearchService {
 					   {$date_where}
 					 ORDER BY si.updated_at DESC
 					 LIMIT %d OFFSET %d",
-					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params, array( $per_page, $offset ) )
+					...array_merge( array( $like, $like ), $type_params, $block_params, $advanced_params, array( $row_limit, $offset ) )
 				),
 				ARRAY_A
 			);

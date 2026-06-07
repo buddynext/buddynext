@@ -231,6 +231,9 @@ class SearchController {
 
 		$per_page = min( (int) ( $request->get_param( 'per_page' ) ?? 20 ), 50 );
 		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?? 1 ) );
+		// SCALE-CONTRACT §1: hard 1000-row ceiling across pagination. Reject
+		// deep pages at the edge so the OFFSET scan is bounded server-side.
+		$page     = min( $page, (int) ceil( 1000 / max( 1, $per_page ) ) );
 		$results  = $service->search( $query, $type, $per_page, $page, $viewer_id );
 
 		if ( null !== $injector ) {

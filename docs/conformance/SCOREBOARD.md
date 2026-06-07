@@ -2,9 +2,9 @@
 
 _Regenerated 2026-06-07 from per-feature conformance verdicts · 50 units._
 
-**Snapshot:** ✅ usable-leave-as-is **37** · 🟢 usable-minor-polish **10** · 🟡 partial-needs-wiring **3**
+**Snapshot:** ✅ usable-leave-as-is **38** · 🟢 usable-minor-polish **10** · 🟡 partial-needs-wiring **2**
 
-**Still needing wiring:** Scale contract, Visibility & privacy resolver, Private Messaging.
+**Still needing wiring:** Visibility & privacy resolver, Private Messaging.
 
 | Feature | Repo | Verdict |
 |---|---|---|
@@ -12,7 +12,7 @@ _Regenerated 2026-06-07 from per-feature conformance verdicts · 50 units._
 | Gamification seam | contract | 🟢 usable-minor-polish |
 | Notification / email / push template model | contract | 🟢 usable-minor-polish |
 | REST/App contract | contract | ✅ usable-leave-as-is |
-| Scale contract | contract | 🟡 partial-needs-wiring |
+| Scale contract | contract | ✅ usable-leave-as-is |
 | Visibility & privacy resolver | contract | 🟡 partial-needs-wiring |
 | Activity Feed | free | ✅ usable-leave-as-is |
 | Authentication & Verification | free | ✅ usable-leave-as-is |

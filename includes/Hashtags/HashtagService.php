@@ -109,8 +109,8 @@ class HashtagService {
 	 * states that followers-only/private posts must not appear in hashtag feeds.
 	 *
 	 * @param string $tag  Hashtag slug (without #).
-	 * @param array  $args Optional args: per_page (int, max 50), page (int).
-	 * @return array{items: array[], total: int, hashtag: array|null}
+	 * @param array  $args Optional args: per_page (int, max 50), cursor (string).
+	 * @return array{items: array[], next_cursor: string|null, hashtag: array|null}
 	 */
 	public function get_feed( string $tag, array $args = array() ): array {
 		$slug    = sanitize_key( ltrim( $tag, '#' ) );
@@ -118,15 +118,26 @@ class HashtagService {
 
 		if ( null === $hashtag ) {
 			return array(
-				'items'   => array(),
-				'total'   => 0,
-				'hashtag' => null,
+				'items'       => array(),
+				'next_cursor' => null,
+				'hashtag'     => null,
 			);
 		}
 
 		$per_page = min( (int) ( $args['per_page'] ?? 20 ), 50 );
-		$page     = max( 1, (int) ( $args['page'] ?? 1 ) );
-		$offset   = ( $page - 1 ) * $per_page;
+		$cursor   = ( isset( $args['cursor'] ) && is_string( $args['cursor'] ) ) ? $args['cursor'] : null;
+
+		// SCALE-CONTRACT §2: keyset cursor, never OFFSET. Key on the pivot's
+		// (hashtag_id, created_at) index so every page is O(per_page) regardless
+		// of depth. has_more is derived from a per_page+1 fetch, so no COUNT(*)
+		// runs on the read path (SCALE-CONTRACT §3).
+		$cursor_where  = '';
+		$cursor_params = array();
+		$decoded       = ( null !== $cursor ) ? $this->decode_feed_cursor( $cursor ) : null;
+		if ( null !== $decoded ) {
+			$cursor_where  = ' AND ( ph.created_at < %s OR ( ph.created_at = %s AND ph.post_id < %d ) )';
+			$cursor_params = array( $decoded['created_at'], $decoded['created_at'], $decoded['id'] );
+		}
 
 		global $wpdb;
 
@@ -137,40 +148,75 @@ class HashtagService {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.id, p.user_id, p.content, p.type, p.privacy,
-				        p.reaction_count, p.comment_count, p.share_count, p.created_at
-				 FROM {$posts_tbl} p
-				 INNER JOIN {$pivot_tbl} ph ON ph.post_id = p.id AND ph.object_type = 'post'
-				 WHERE ph.hashtag_id = %d
-				   AND p.status     = 'published'
-				   AND p.privacy    = 'public'
-				 ORDER BY p.created_at DESC
-				 LIMIT %d OFFSET %d",
-				$hashtag['id'],
-				$per_page,
-				$offset
+				        p.reaction_count, p.comment_count, p.share_count, p.created_at,
+				        ph.created_at AS bn_cursor_ts
+				 FROM {$pivot_tbl} ph
+				 INNER JOIN {$posts_tbl} p ON p.id = ph.post_id
+				 WHERE ph.hashtag_id  = %d
+				   AND ph.object_type = 'post'
+				   AND p.status       = 'published'
+				   AND p.privacy      = 'public'
+				   {$cursor_where}
+				 ORDER BY ph.created_at DESC, ph.post_id DESC
+				 LIMIT %d",
+				...array_merge( array( $hashtag['id'] ), $cursor_params, array( $per_page + 1 ) )
 			),
 			ARRAY_A
 		);
-
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$total = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$posts_tbl} p
-				 INNER JOIN {$pivot_tbl} ph ON ph.post_id = p.id AND ph.object_type = 'post'
-				 WHERE ph.hashtag_id = %d
-				   AND p.status     = 'published'
-				   AND p.privacy    = 'public'",
-				$hashtag['id']
-			)
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
+		$rows        = (array) $rows;
+		$next_cursor = null;
+		if ( count( $rows ) > $per_page ) {
+			$rows = array_slice( $rows, 0, $per_page );
+			$last = $rows[ count( $rows ) - 1 ];
+			$next_cursor = $this->encode_feed_cursor( (string) $last['bn_cursor_ts'], (int) $last['id'] );
+		}
+
+		// Strip the internal cursor column from the returned items.
+		foreach ( $rows as &$bn_row ) {
+			unset( $bn_row['bn_cursor_ts'] );
+		}
+		unset( $bn_row );
+
 		return array(
-			'items'   => (array) $rows,
-			'total'   => $total,
-			'hashtag' => $hashtag,
+			'items'       => $rows,
+			'next_cursor' => $next_cursor,
+			'hashtag'     => $hashtag,
+		);
+	}
+
+	/**
+	 * Encode a keyset cursor for the hashtag feed.
+	 *
+	 * @param string $created_at Pivot row timestamp of the last returned post.
+	 * @param int    $post_id    Post ID of the last returned post.
+	 * @return string Opaque base64 cursor.
+	 */
+	private function encode_feed_cursor( string $created_at, int $post_id ): string {
+		return base64_encode( $created_at . '|' . $post_id ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+	}
+
+	/**
+	 * Decode a hashtag-feed keyset cursor.
+	 *
+	 * @param string $cursor Opaque cursor produced by encode_feed_cursor().
+	 * @return array{created_at: string, id: int}|null Null when malformed.
+	 */
+	private function decode_feed_cursor( string $cursor ): ?array {
+		$raw = base64_decode( $cursor, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+		if ( false === $raw ) {
+			return null;
+		}
+
+		$parts = explode( '|', $raw, 2 );
+		if ( 2 !== count( $parts ) ) {
+			return null;
+		}
+
+		return array(
+			'created_at' => $parts[0],
+			'id'         => (int) $parts[1],
 		);
 	}
 

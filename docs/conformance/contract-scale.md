@@ -4,8 +4,9 @@
 **Specs:** `docs/specs/SCALE-CONTRACT.md`, `docs/specs/features/19-database-scale.md`, `docs/specs/features/21-performance-routing.md`
 **Scope inspected:** `includes/Feed/`, `includes/Search/`, `includes/Hashtags/`, `includes/Core/Installer.php`, plus the space-post notification fan-out in `includes/Notifications/NotificationListener.php` (the contract's headline scale case).
 **Reviewed:** 2026-05-31 — static code read only, no live walk.
+**Re-reviewed:** 2026-06-07 — all confirmed breaks fixed (see Resolution log).
 
-**Verdict: partial-needs-wiring.** The spine is overwhelmingly correct — cursor pagination, denormalised counters, comprehensive indexes, async hashtag/search indexing, cached hot reads, REST caps. But two provable breaks against the locked non-negotiables remain: a synchronous + unbounded fan-out enumeration on space posts, and OFFSET pagination on two large tables.
+**Verdict: usable-leave-as-is.** The spine was already overwhelmingly correct — cursor pagination, denormalised counters, comprehensive indexes, async hashtag/search indexing, cached hot reads, REST caps. The three flagged breaks are now closed: the space-post fan-out runs off-request in keyset batches, search pagination enforces the 1000-row ceiling, the hashtag feed uses keyset cursor, and both search totals are bounded.
 
 ---
 
@@ -21,7 +22,15 @@
 
 ---
 
-## Confirmed contract breaks
+## Resolution log (2026-06-07)
+
+- **B1 — RESOLVED.** `on_post_created_in_space()` no longer enumerates in-request. It enqueues `buddynext_async_space_post_fanout` (Action Scheduler), which pages `bn_space_members` in **keyset** batches of `SPACE_FANOUT_BATCH` (200) via the PK `(space_id, user_id)` — `WHERE user_id > %d ... LIMIT %d`, no OFFSET — and re-enqueues from the last `user_id`. The per-member `get_space_pref`/`is_blocked` checks run in the worker. The AS-absent fallback drains every batch inline (previously it processed only the first batch). `NotificationListener.php:559-579, 592-685`.
+- **B2 — RESOLVED.** `SearchService::search()` enforces the SCALE-CONTRACT §1 1000-row ceiling (window bounded to `MAX_RESULTS`; `SearchController` clamps `page` to `ceil(1000/per_page)`). `HashtagService::get_feed()` converted to keyset cursor on the pivot's `(hashtag_id, created_at)` index — `per_page+1` fetch, opaque cursor, no OFFSET. `SearchService.php:30-39, 363-371, 411/498`; `SearchController.php:234-236`; `HashtagService.php:115-186`.
+- **B3 — RESOLVED.** Search `COUNT(*)` wrapped in a `LIMIT 1001` subquery (bounded scan; totals over the ceiling render "1000+"). Hashtag feed dropped the live `COUNT(*)` entirely in favour of cursor `has_more`. `SearchService.php:374-392, 433-451`.
+
+---
+
+## Confirmed contract breaks (historical — all resolved above)
 
 ### B1 — Space-post notification fan-out is synchronous and unbounded (CRITICAL)
 
