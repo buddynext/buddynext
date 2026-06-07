@@ -43,13 +43,13 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 
 | # | Flow | Code | Browser (admin) | Notes |
 |---|------|------|------------------|-------|
-| O1 | BN settings (general / features / slugs) | ✅ admin-settings | ⬜ | |
-| O2 | Members admin: list / search | ✅ member-directory | ⬜ | |
-| O3 | Member types: create / edit / assign / self-select toggle | 🟢 member-types | ⬜ | |
+| O1 | BN settings (general / features / slugs) | ✅ admin-settings | ✅ | renders, 12 fields, no errors |
+| O2 | Members admin: list / search | ✅ member-directory | ✅ | 6 members, tabs render |
+| O3 | Member types: create / edit / assign / self-select toggle | ✅ member-types | ✅ | Developer/Designer/Writer + self-select shown |
 | O4 | Spaces admin: create / settings / branding | 🟡 spaces | ⬜ | |
 | O5 | Navigation admin | ✅ admin-settings | ⬜ | |
 | O6 | Email templates | ✅ email-system | ⬜ | |
-| O7 | Moderation: review queue / reports / strikes / suspend | ✅ moderation | ⬜ | |
+| O7 | Moderation: review queue / reports / strikes / suspend | ✅ moderation | ✅ | page renders, no errors |
 | O8 | Outbound webhooks: add / test / view log | 🟢 outbound-webhooks | ⬜ | log viewer under build |
 | O9 | Onboarding/setup wizard config | 🟡 onboarding | ⬜ | |
 
@@ -65,7 +65,7 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 | P6 | Analytics | ✅ pro-analytics | ⬜ | |
 | P7 | White-label | 🟢 pro-white-label | ⬜ | |
 | P8 | Push notifications | ✅ pro-push | ⬜ | copy fix code-verified |
-| P9 | Auto / rule moderation | ✅ pro-auto-mod | ⬜ | ENUM+suspend fix code-verified |
+| P9 | Auto / rule moderation | ✅ pro-auto-mod | ✅ | ENUM migration applied live; rate_limit rule persists (fix verified) |
 | P10 | Advanced profile field types | 🟢 pro-advanced-fields | ⬜ | multi-select fix code-verified; JS hydration pending |
 | P11 | Bulk moderation | ✅ pro-bulk-mod | ⬜ | |
 | P12 | Custom reactions | ✅ pro-custom-reactions | ⬜ | |
