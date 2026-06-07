@@ -467,24 +467,16 @@ $updated_iso = gmdate( 'c' );
 							</span>
 							<?php
 						else :
-							$is_following = false; // Follow state — bridge to BuddyPress follow API can hydrate later.
-							$btn_variant  = $is_following ? 'secondary' : 'primary';
-							$btn_label    = $is_following ? __( 'Following', 'buddynext' ) : __( 'Follow', 'buddynext' );
 							?>
 							<span class="bn-lb-row__cta">
-								<button type="button"
-									class="bn-btn"
-									data-variant="<?php echo esc_attr( $btn_variant ); ?>"
-									data-size="sm"
-									aria-pressed="<?php echo $is_following ? 'true' : 'false'; ?>"
-									aria-label="
-									<?php
-										// translators: %s: member display name.
-										echo esc_attr( sprintf( __( 'Follow %s', 'buddynext' ), $display ) );
-									?>
-									">
-									<?php echo esc_html( $btn_label ); ?>
-								</button>
+								<?php
+								// Standalone follow button: self-hydrates follow state and
+								// wires to the buddynext/follow-button store (the
+								// @buddynext/social-buttons module is enqueued on every BN
+								// hub). Renders nothing for self / blocked rows, so the
+								// dead hand-rolled button is no longer needed.
+								buddynext_get_template( 'partials/follow-button.php', array( 'user_id' => $uid ) );
+								?>
 							</span>
 						<?php endif; ?>
 					</article>

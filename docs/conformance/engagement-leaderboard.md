@@ -5,7 +5,9 @@
 **Spec ref:** `docs/specs/features/12-wbgamification-bridge.md` (Locked, 2026-03-19)
 **Cross-cutting:** `docs/specs/REST-FRONTEND-CONTRACT.md`, `docs/specs/SCALE-CONTRACT.md`, `docs/specs/features/17-roles-permissions.md`
 **Live-walk URL (canonical):** `http://buddynext-dev.local/activity/leaderboard/`
-**Verdict:** usable-minor-polish
+**Verdict:** usable-leave-as-is
+
+> **Resolution (2026-06-07).** The per-row Follow button is no longer a dead control. The leaderboard now renders the shared `partials/follow-button.php` (wired to the `buddynext/follow-button` store; the `@buddynext/social-buttons` module is enqueued on every BN hub), which self-hydrates follow state and short-circuits for self/blocked rows. Verified end-to-end on the local site against wb-gamification 1.5.4: clicking Follow flips the button to "Following" and writes the `wp_bn_follows` row. `templates/gamification/leaderboard.php`.
 
 ---
 
