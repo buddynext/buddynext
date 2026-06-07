@@ -27,14 +27,14 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 | M8 | Share / repost | ✅ shares | ⬜ | |
 | M9 | Bookmark / saved hub | ✅ bookmarks | ⬜ | |
 | M10 | Follow / unfollow (feed, directory, profile, leaderboard) | ✅ follows | ✅ | leaderboard follow verified live |
-| M11 | Connect / accept / decline | ✅ connections | ⬜ | |
+| M11 | Connect / accept / decline | ✅ connections | ✅ | request id 8 (member1→flowtest3, pending) in bn_connections |
 | M12 | Block / mute | ✅ blocking-muting | ⬜ | |
 | M13 | Member directory: browse / filter / search | ✅ member-directory | ✅ | grid/list toggle verified live |
-| M14 | Spaces: browse / join / post | 🟡 spaces | ⬜ | |
-| M15 | Direct messaging: inbox / send / receive / request | ✅ messaging | ⬜ | deep-link fix verified code-side |
-| M16 | Notifications: bell / read / prefs | ✅ notifications | ⬜ | |
+| M14 | Spaces: browse / join / post | ✅ spaces | ✅ | 3 spaces render; member1 active in all (bn_space_members) |
+| M15 | Direct messaging: inbox / send / receive / request | ✅ messaging | ✅ | two-pane WPMediaVerse shell + composer render, no dep notice |
+| M16 | Notifications: bell / read / prefs | ✅ notifications | ✅ | 11 unread, list + count render |
 | M17 | Hashtags: feed / trending / follow | ✅ hashtags | ⬜ | |
-| M18 | Search (members / posts / spaces) | ✅ search | ⬜ | |
+| M18 | Search (members / posts / spaces) | ✅ search | ✅ | 'member' → 9 results; SCALE ceiling intact |
 | M19 | Leaderboard / gamification view | ✅ engagement-leaderboard | ✅ | verified live (1.5.4) |
 | M20 | PWA install / offline | ✅ pwa | ⬜ | |
 | M21 | Privacy settings | ✅ privacy-framework | ⬜ | |
