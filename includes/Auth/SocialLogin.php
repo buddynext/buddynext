@@ -87,7 +87,26 @@ class SocialLogin {
 	 */
 	public function register(): void {
 		add_filter( 'buddynext_auth_social_providers', array( $this, 'expose_providers' ) );
-		add_action( 'init', array( $this, 'maybe_handle' ) );
+		add_action( 'init', array( $this, 'register_routes' ) );
+		add_action( 'template_redirect', array( $this, 'maybe_handle' ) );
+	}
+
+	/**
+	 * Register the clean OAuth rewrite routes.
+	 *
+	 *   /oauth/{provider}/           → start the flow
+	 *   /oauth/{provider}/callback/  → provider redirect target
+	 *
+	 * Flushed via PageRouter's shared ROUTER_VERSION sentinel (bumped when this
+	 * route set changes), so no per-request rule sniffing on every init.
+	 *
+	 * @return void
+	 */
+	public function register_routes(): void {
+		add_rewrite_tag( '%bn_oauth_provider%', '([a-z0-9_-]+)' );
+		add_rewrite_tag( '%bn_oauth_action%', '(start|callback)' );
+		add_rewrite_rule( '^oauth/([a-z0-9_-]+)/callback/?$', 'index.php?bn_oauth_action=callback&bn_oauth_provider=$matches[1]', 'top' );
+		add_rewrite_rule( '^oauth/([a-z0-9_-]+)/?$', 'index.php?bn_oauth_action=start&bn_oauth_provider=$matches[1]', 'top' );
 	}
 
 	/**
@@ -119,7 +138,7 @@ class SocialLogin {
 	 * @return string
 	 */
 	public static function callback_url( string $id ): string {
-		return add_query_arg( 'bn_social_cb', rawurlencode( $id ), home_url( '/' ) );
+		return home_url( '/oauth/' . rawurlencode( $id ) . '/callback/' );
 	}
 
 	/**
@@ -138,7 +157,7 @@ class SocialLogin {
 				'id'    => $id,
 				'label' => (string) $def['label'],
 				'icon'  => (string) apply_filters( 'buddynext_social_icon', (string) $def['icon'], $id ),
-				'url'   => add_query_arg( 'bn_social', rawurlencode( $id ), home_url( '/' ) ),
+				'url'   => home_url( '/oauth/' . rawurlencode( $id ) . '/' ),
 			);
 		}
 		return $providers;
@@ -150,15 +169,16 @@ class SocialLogin {
 	 * @return void
 	 */
 	public function maybe_handle(): void {
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- OAuth uses the `state` param for CSRF, not a WP nonce.
-		if ( isset( $_GET['bn_social'] ) ) {
-			$this->start( sanitize_key( wp_unslash( (string) $_GET['bn_social'] ) ) );
+		$action   = (string) get_query_var( 'bn_oauth_action' );
+		$provider = sanitize_key( (string) get_query_var( 'bn_oauth_provider' ) );
+		if ( '' === $action || '' === $provider ) {
 			return;
 		}
-		if ( isset( $_GET['bn_social_cb'] ) ) {
-			$this->callback( sanitize_key( wp_unslash( (string) $_GET['bn_social_cb'] ) ) );
+		if ( 'start' === $action ) {
+			$this->start( $provider );
+		} elseif ( 'callback' === $action ) {
+			$this->callback( $provider );
 		}
-		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 	}
 
 	/**

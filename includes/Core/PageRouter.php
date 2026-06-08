@@ -89,7 +89,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-05-22-single-post-bookmarks';
+	private const ROUTER_VERSION = '2026-06-09-oauth-social-routes';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
