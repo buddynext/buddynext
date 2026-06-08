@@ -3,11 +3,15 @@
  * Social login (OAuth2) for BuddyNext.
  *
  * Registers providers into the `buddynext_auth_social_providers` seam that the
- * login/signup templates already render, and handles the OAuth round-trip on
- * `init` (browser redirects, not REST/JSON):
+ * login/signup templates already render, and handles the OAuth round-trip via
+ * clean rewrite routes on `template_redirect` (browser redirects, not JSON):
  *
- *   start    home_url('/?bn_social={provider}')        → redirect to provider authorize
- *   callback home_url('/?bn_social_cb={provider}&code) → exchange code, match/create, log in
+ *   /oauth/{provider}/           → redirect to the provider's authorize endpoint
+ *   /oauth/{provider}/callback/  → exchange code, match/create/link, log in
+ *
+ * Hardening: one-time CSRF `state` transient bound to an httpOnly browser cookie,
+ * per-IP callback rate limit, provider-verified email required. A logged-in user
+ * hitting the flow links the provider to their account (manage in profile edit).
  *
  * Account policy: a verified social email that matches an existing user logs
  * that user in (and links the social id); a new email creates an account only
@@ -41,6 +45,16 @@ class SocialLogin {
 	 * Transient prefix for one-time CSRF state tokens.
 	 */
 	private const STATE_PREFIX = 'bn_social_state_';
+
+	/**
+	 * Browser-binding cookie (httpOnly) for an in-flight OAuth flow.
+	 */
+	private const STATE_COOKIE = 'bn_oauth_state';
+
+	/**
+	 * Max callback attempts per IP per minute (abuse guard).
+	 */
+	private const RATE_MAX = 12;
 
 	/**
 	 * Static provider definitions (endpoints + claim mapping).
@@ -89,6 +103,63 @@ class SocialLogin {
 		add_filter( 'buddynext_auth_social_providers', array( $this, 'expose_providers' ) );
 		add_action( 'init', array( $this, 'register_routes' ) );
 		add_action( 'template_redirect', array( $this, 'maybe_handle' ) );
+		add_action( 'rest_api_init', array( $this, 'register_rest' ) );
+	}
+
+	/**
+	 * Register the unlink REST route.
+	 *
+	 * @return void
+	 */
+	public function register_rest(): void {
+		register_rest_route(
+			'buddynext/v1',
+			'/me/social/(?P<provider>[a-z0-9_-]+)',
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( $this, 'rest_unlink' ),
+				'permission_callback' => 'is_user_logged_in',
+			)
+		);
+	}
+
+	/**
+	 * REST: unlink a social provider from the current user.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response
+	 */
+	public function rest_unlink( \WP_REST_Request $request ): \WP_REST_Response {
+		$provider = sanitize_key( (string) $request['provider'] );
+		delete_user_meta( get_current_user_id(), 'bn_social_' . $provider . '_id' );
+		return new \WP_REST_Response( array( 'unlinked' => true ), 200 );
+	}
+
+	/**
+	 * Providers the current user has linked.
+	 *
+	 * @param int $user_id User id.
+	 * @return array<string, bool> [ provider_id => linked ].
+	 */
+	public static function linked_for( int $user_id ): array {
+		$out = array();
+		foreach ( array_keys( self::providers() ) as $id ) {
+			$out[ $id ] = '' !== (string) get_user_meta( $user_id, 'bn_social_' . $id . '_id', true );
+		}
+		return $out;
+	}
+
+	/**
+	 * Provider labels for UI.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function labels(): array {
+		$out = array();
+		foreach ( self::providers() as $id => $def ) {
+			$out[ $id ] = (string) $def['label'];
+		}
+		return $out;
 	}
 
 	/**
@@ -207,6 +278,21 @@ class SocialLogin {
 			10 * MINUTE_IN_SECONDS
 		);
 
+		// Bind the flow to this browser: the callback must present the same state
+		// in an httpOnly cookie, so a stolen/forged state alone cannot complete it.
+		setcookie(
+			self::STATE_COOKIE,
+			$state,
+			array(
+				'expires'  => time() + 10 * MINUTE_IN_SECONDS,
+				'path'     => defined( 'COOKIEPATH' ) && COOKIEPATH ? COOKIEPATH : '/',
+				'domain'   => defined( 'COOKIE_DOMAIN' ) ? (string) COOKIE_DOMAIN : '',
+				'secure'   => is_ssl(),
+				'httponly' => true,
+				'samesite' => 'Lax',
+			)
+		);
+
 		$url = add_query_arg(
 			array(
 				'client_id'     => rawurlencode( (string) $s['client_id'] ),
@@ -229,6 +315,8 @@ class SocialLogin {
 	 * @return void
 	 */
 	private function callback( string $id ): void {
+		$this->rate_limit();
+
 		$defs = self::providers();
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended
 		$code  = isset( $_GET['code'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['code'] ) ) : '';
@@ -237,6 +325,13 @@ class SocialLogin {
 
 		if ( ! isset( $defs[ $id ] ) || ! self::is_ready( $id ) || '' === $code || '' === $state ) {
 			$this->bail( __( 'Sign-in was cancelled or failed.', 'buddynext' ) );
+		}
+
+		// Same-browser check: the state cookie set at start must match.
+		$cookie_state = isset( $_COOKIE[ self::STATE_COOKIE ] ) ? sanitize_text_field( wp_unslash( (string) $_COOKIE[ self::STATE_COOKIE ] ) ) : '';
+		$this->clear_state_cookie();
+		if ( ! hash_equals( $cookie_state, $state ) ) {
+			$this->bail( __( 'Sign-in could not be verified for this browser. Please try again.', 'buddynext' ) );
 		}
 
 		$stored = get_transient( self::STATE_PREFIX . $state );
@@ -360,7 +455,8 @@ class SocialLogin {
 	private function resolve_user( string $id, array $profile ) {
 		$meta_key = 'bn_social_' . $id . '_id';
 
-		// 1) Already linked to this provider identity.
+		// Who, if anyone, already owns this provider identity?
+		$owner = 0;
 		if ( '' !== $profile['id'] ) {
 			$linked = get_users(
 				array(
@@ -370,9 +466,24 @@ class SocialLogin {
 					'fields'     => 'ID',
 				)
 			);
-			if ( ! empty( $linked ) ) {
-				return (int) $linked[0];
+			$owner  = ! empty( $linked ) ? (int) $linked[0] : 0;
+		}
+
+		// Connect flow — a logged-in member is linking this provider to their
+		// own account from profile settings. Refuse if it already belongs to
+		// someone else; otherwise link and return.
+		if ( is_user_logged_in() ) {
+			$current = get_current_user_id();
+			if ( $owner && $owner !== $current ) {
+				return new \WP_Error( 'bn_social_taken', __( 'That account is already linked to another member.', 'buddynext' ) );
 			}
+			update_user_meta( $current, $meta_key, $profile['id'] );
+			return $current;
+		}
+
+		// 1) Login flow — already linked to this provider identity.
+		if ( $owner ) {
+			return $owner;
 		}
 
 		// 2) Existing account with the same verified email — link + log in.
@@ -445,5 +556,40 @@ class SocialLogin {
 		$login = home_url( '/' . (string) get_option( 'buddynext_slug_login', 'login' ) . '/' );
 		wp_safe_redirect( add_query_arg( 'bn_social_error', rawurlencode( $message ), $login ) );
 		exit;
+	}
+
+	/**
+	 * Abuse guard: cap callback hits per IP per minute.
+	 *
+	 * @return void
+	 */
+	private function rate_limit(): void {
+		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
+		$key = 'bn_oauth_rl_' . md5( $ip );
+		$n   = (int) get_transient( $key );
+		if ( $n >= self::RATE_MAX ) {
+			$this->bail( __( 'Too many sign-in attempts. Please wait a minute and try again.', 'buddynext' ) );
+		}
+		set_transient( $key, $n + 1, MINUTE_IN_SECONDS );
+	}
+
+	/**
+	 * Expire the browser-binding state cookie.
+	 *
+	 * @return void
+	 */
+	private function clear_state_cookie(): void {
+		setcookie(
+			self::STATE_COOKIE,
+			'',
+			array(
+				'expires'  => time() - 3600,
+				'path'     => defined( 'COOKIEPATH' ) && COOKIEPATH ? COOKIEPATH : '/',
+				'domain'   => defined( 'COOKIE_DOMAIN' ) ? (string) COOKIE_DOMAIN : '',
+				'secure'   => is_ssl(),
+				'httponly' => true,
+				'samesite' => 'Lax',
+			)
+		);
 	}
 }

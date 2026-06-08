@@ -695,6 +695,34 @@ store( 'buddynext/profile', {
 			}
 		},
 
+		/* Unlink a connected social provider from the current account.
+		 * DELETEs /me/social/{provider} and swaps the row's button back to Connect. */
+		async unlinkSocial( event ) {
+			var btn      = event.target.closest( '[data-provider]' );
+			if ( ! btn ) { return; }
+			var provider = btn.getAttribute( 'data-provider' );
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/me/social/' + provider ), {
+					method:  'DELETE',
+					headers: { 'X-WP-Nonce': nonce() },
+				} );
+				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				bnToast( ( window.bnI18n && window.bnI18n.socialUnlinked ) || 'Account unlinked', { tone: 'success' } );
+				var row = btn.closest( '.bn-social-link' );
+				if ( row ) {
+					var a = document.createElement( 'a' );
+					a.className = 'bn-btn';
+					a.setAttribute( 'data-variant', 'ghost' );
+					a.setAttribute( 'data-size', 'sm' );
+					a.href = '/oauth/' + provider + '/';
+					a.textContent = 'Connect';
+					btn.replaceWith( a );
+				}
+			} catch ( _e ) {
+				bnToast( ( window.bnI18n && window.bnI18n.saveFailed ) || 'Could not unlink. Try again.', { tone: 'danger' } );
+			}
+		},
+
 		/* Self-assign a member type (own profile, self-select types only). PUTs
 		 * the chosen slug to /users/{id}/member-type; the endpoint enforces the
 		 * self_select gate server-side. Saves immediately on change. */
