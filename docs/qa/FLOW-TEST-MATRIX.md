@@ -66,7 +66,7 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 | P7 | White-label | 🟢 pro-white-label | 🟡 | admin renders (no fatal) |
 | P8 | Push notifications | ✅ pro-push | 🟡 | admin renders (no fatal); copy fix code-verified |
 | P9 | Auto / rule moderation | ✅ pro-auto-mod | ✅ | ENUM migration applied live; rate_limit rule persists (fix verified) |
-| P10 | Advanced profile field types | 🟢 pro-advanced-fields | ⬜ | multi-select fix code-verified; JS hydration pending |
+| P10 | Advanced profile field types | ✅ pro-advanced-fields | ✅ | LIVE: Leaflet map geocodes Paris→{lat,lng}; conditional toggles on trigger; multi-select fix |
 | P11 | Bulk moderation | ✅ pro-bulk-mod | 🟡 | admin renders (no fatal) |
 | P12 | Custom reactions | ✅ pro-custom-reactions | 🟡 | admin renders (no fatal) |
 | P13 | Member labels | ✅ pro-member-labels | 🟡 | admin renders (no fatal) |
