@@ -187,6 +187,10 @@ class Plugin {
 		// Wire email verification hooks.
 		( new VerificationListener( $container->get( 'verification' ) ) )->register();
 
+		// Social login (OAuth2) — registers configured providers into the
+		// buddynext_auth_social_providers seam + handles the OAuth round-trip.
+		( new \BuddyNext\Auth\SocialLogin() )->register();
+
 		// Wire search index lifecycle hooks — handles async dispatch via Action
 		// Scheduler when available, or falls back to synchronous inline indexing.
 		$container->get( 'search_index_listener' )->register();

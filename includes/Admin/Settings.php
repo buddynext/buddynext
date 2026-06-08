@@ -118,17 +118,20 @@ class Settings extends AdminPageBase {
 		// Tabs in display order. `group` clusters Advanced items below a
 		// divider in the sidebar nav so the long list scans cleanly.
 		$tabs = array(
-			'general'       => array( 'label' => __( 'General',        'buddynext' ) ),
-			'features'      => array( 'label' => __( 'Features',       'buddynext' ) ),
-			'registration'  => array( 'label' => __( 'Registration',   'buddynext' ) ),
-			'social'        => array( 'label' => __( 'Social',         'buddynext' ) ),
-			'spaces'        => array( 'label' => __( 'Spaces',         'buddynext' ) ),
-			'notifications' => array( 'label' => __( 'Notifications',  'buddynext' ) ),
-			'email'         => array( 'label' => __( 'Email',          'buddynext' ) ),
-			'moderation'    => array( 'label' => __( 'Moderation',     'buddynext' ) ),
-			'integrations'  => array( 'label' => __( 'Integrations',   'buddynext' ) ),
+			'general'       => array( 'label' => __( 'General', 'buddynext' ) ),
+			'features'      => array( 'label' => __( 'Features', 'buddynext' ) ),
+			'registration'  => array( 'label' => __( 'Registration', 'buddynext' ) ),
+			'social'        => array( 'label' => __( 'Social', 'buddynext' ) ),
+			'spaces'        => array( 'label' => __( 'Spaces', 'buddynext' ) ),
+			'notifications' => array( 'label' => __( 'Notifications', 'buddynext' ) ),
+			'email'         => array( 'label' => __( 'Email', 'buddynext' ) ),
+			'moderation'    => array( 'label' => __( 'Moderation', 'buddynext' ) ),
+			'integrations'  => array( 'label' => __( 'Integrations', 'buddynext' ) ),
 			'privacy'       => array( 'label' => __( 'Privacy & Data', 'buddynext' ) ),
-			'webhooks'      => array( 'label' => __( 'Webhooks',       'buddynext' ), 'group' => __( 'Advanced', 'buddynext' ) ),
+			'webhooks'      => array(
+				'label' => __( 'Webhooks', 'buddynext' ),
+				'group' => __( 'Advanced', 'buddynext' ),
+			),
 		);
 		foreach ( $tabs as $slug => $tab ) {
 			$args = array();
@@ -296,6 +299,39 @@ class Settings extends AdminPageBase {
 				'default'           => array(),
 			)
 		);
+
+		// Social login (OAuth2) per-provider credentials.
+		register_setting(
+			'buddynext',
+			'buddynext_social_login',
+			array(
+				'type'              => 'array',
+				'sanitize_callback' => array( $this, 'sanitize_social_login_option' ),
+				'default'           => array(),
+			)
+		);
+	}
+
+	/**
+	 * Sanitize the social-login option ([provider => {enabled,client_id,client_secret}]).
+	 *
+	 * @param mixed $raw Submitted value.
+	 * @return array<string, array<string, mixed>>
+	 */
+	public function sanitize_social_login_option( $raw ): array {
+		$out = array();
+		if ( ! is_array( $raw ) ) {
+			return $out;
+		}
+		foreach ( array( 'google', 'facebook' ) as $id ) {
+			$p          = isset( $raw[ $id ] ) && is_array( $raw[ $id ] ) ? $raw[ $id ] : array();
+			$out[ $id ] = array(
+				'enabled'       => ! empty( $p['enabled'] ),
+				'client_id'     => isset( $p['client_id'] ) ? sanitize_text_field( (string) $p['client_id'] ) : '',
+				'client_secret' => isset( $p['client_secret'] ) ? sanitize_text_field( (string) $p['client_secret'] ) : '',
+			);
+		}
+		return $out;
 	}
 
 	/**
@@ -665,6 +701,52 @@ class Settings extends AdminPageBase {
 		</div>
 		<?php
 
+		$this->close_section();
+
+		// ── Social login (OAuth2) ──────────────────────────────────────────
+		$this->open_section( __( 'Social Login', 'buddynext' ) );
+		$social    = (array) get_option( 'buddynext_social_login', array() );
+		$providers = array(
+			'google'   => __( 'Google', 'buddynext' ),
+			'facebook' => __( 'Facebook', 'buddynext' ),
+		);
+		foreach ( $providers as $pid => $plabel ) {
+			$cfg     = isset( $social[ $pid ] ) && is_array( $social[ $pid ] ) ? $social[ $pid ] : array();
+			$enabled = ! empty( $cfg['enabled'] );
+			$cid     = isset( $cfg['client_id'] ) ? (string) $cfg['client_id'] : '';
+			$secret  = isset( $cfg['client_secret'] ) ? (string) $cfg['client_secret'] : '';
+			$cb      = \BuddyNext\Auth\SocialLogin::callback_url( $pid );
+			?>
+			<fieldset class="bn-field bn-social-provider">
+				<legend class="bn-field-label"><?php echo esc_html( $plabel ); ?></legend>
+				<label class="bn-toggle-inline">
+					<input type="checkbox"
+						name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][enabled]' ); ?>"
+						value="1" <?php checked( $enabled ); ?> />
+					<?php esc_html_e( 'Enable', 'buddynext' ); ?>
+				</label>
+				<input type="text" class="bn-input"
+					name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][client_id]' ); ?>"
+					value="<?php echo esc_attr( $cid ); ?>"
+					placeholder="<?php esc_attr_e( 'Client ID', 'buddynext' ); ?>"
+					autocomplete="off" />
+				<input type="password" class="bn-input"
+					name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][client_secret]' ); ?>"
+					value="<?php echo esc_attr( $secret ); ?>"
+					placeholder="<?php esc_attr_e( 'Client Secret', 'buddynext' ); ?>"
+					autocomplete="off" />
+				<span class="bn-field-hint">
+					<?php esc_html_e( 'Authorized redirect URI:', 'buddynext' ); ?>
+					<code class="bn-ep-code"><?php echo esc_html( $cb ); ?></code>
+				</span>
+			</fieldset>
+			<?php
+		}
+		?>
+		<p class="bn-field-hint">
+			<?php esc_html_e( 'Create an OAuth app in each provider\'s developer console, paste its Client ID + Secret, and register the redirect URI shown. Buttons appear on the login + signup screens once enabled.', 'buddynext' ); ?>
+		</p>
+		<?php
 		$this->close_section();
 	}
 
