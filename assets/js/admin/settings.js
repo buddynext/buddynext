@@ -128,11 +128,46 @@
 			} );
 		}
 
-		// Test + delete via event delegation.
+		function escHtml( s ) {
+			var d = document.createElement( 'div' );
+			d.textContent = ( s === null || s === undefined ) ? '' : String( s );
+			return d.innerHTML;
+		}
+
+		// Test + delete + view-log via event delegation.
 		if ( tbody ) {
 			tbody.addEventListener( 'click', function ( e ) {
 				var testBtn = e.target.closest( '[data-bn-webhook-test]' );
 				var rmBtn   = e.target.closest( '[data-bn-webhook-remove]' );
+				var logBtn  = e.target.closest( '[data-bn-webhook-log]' );
+				if ( logBtn ) {
+					var logId  = logBtn.dataset.bnWebhookLog;
+					var logRow = tbody.querySelector( '[data-bn-webhook-log-row="' + logId + '"]' );
+					if ( ! logRow ) { return; }
+					var cell = logRow.querySelector( '.bn-webhook-log-cell' );
+					if ( logBtn.getAttribute( 'aria-expanded' ) === 'true' ) {
+						logRow.hidden = true;
+						logBtn.setAttribute( 'aria-expanded', 'false' );
+						return;
+					}
+					logBtn.setAttribute( 'aria-expanded', 'true' );
+					logRow.hidden = false;
+					cell.textContent = 'Loading…';
+					fetch( restUrl + '/' + logId + '/log', { headers: { 'X-WP-Nonce': restNonce } } )
+					.then( function ( r ) { return r.json(); } )
+					.then( function ( data ) {
+						var items = ( data && data.items ) || [];
+						if ( ! items.length ) { cell.textContent = 'No deliveries logged yet.'; return; }
+						var rows = items.map( function ( it ) {
+							return '<tr><td>' + escHtml( it.event ) + '</td><td>' + escHtml( it.status ) +
+								'</td><td>' + escHtml( it.response_code ) + '</td><td>' + escHtml( it.created_at ) + '</td></tr>';
+						} ).join( '' );
+						cell.innerHTML = '<table class="bn-webhook-log-table"><thead><tr><th>Event</th>' +
+							'<th>Status</th><th>Code</th><th>Time</th></tr></thead><tbody>' + rows + '</tbody></table>';
+					} )
+					.catch( function () { cell.textContent = 'Could not load delivery log.'; } );
+					return;
+				}
 				if ( testBtn ) {
 					var testId = testBtn.dataset.bnWebhookTest;
 					testBtn.disabled = true;

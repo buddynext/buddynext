@@ -50,7 +50,7 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 | O5 | Navigation admin | ✅ admin-settings | ⬜ | |
 | O6 | Email templates | ✅ email-system | ⬜ | |
 | O7 | Moderation: review queue / reports / strikes / suspend | ✅ moderation | ✅ | page renders, no errors |
-| O8 | Outbound webhooks: add / test / view log | 🟢 outbound-webhooks | ⬜ | log viewer under build |
+| O8 | Outbound webhooks: add / test / view log | ✅ outbound-webhooks | ✅ | View-log panel renders seeded deliveries live (built) |
 | O9 | Onboarding/setup wizard config | 🟡 onboarding | ⬜ | |
 
 ## C. Pro (owner) flows

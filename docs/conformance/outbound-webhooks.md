@@ -1,6 +1,8 @@
 # Conformance — Outbound Webhooks (free)
 
-**Verdict:** usable-minor-polish
+**Verdict:** usable-leave-as-is
+
+> **Resolution (2026-06-08).** The delivery-log viewer UI now exists. Added a "View log" action per webhook row in `render_webhook_endpoints()` (`includes/Admin/Settings.php`) that expands an inline panel; `assets/js/admin/settings.js` fetches `GET /webhooks/{id}/log` and renders Event/Status/Code/Time rows (XSS-safe via textContent escaping). Verified live: seeded deliveries render in the expandable panel. No backend change — the endpoint already existed.
 **Spec ref:** `docs/specs/HOOKS.md` (Outbound filter, lines 353-358) + `docs/specs/features/16-admin-settings.md` (Webhooks tab, lines 76-109)
 **Live-walk URL:** http://buddynext-dev.local/wp-admin/ → BuddyNext → Settings → Webhooks tab
 **Date:** 2026-05-31 (re-verified, all line refs read)
