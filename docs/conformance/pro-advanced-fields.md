@@ -4,9 +4,9 @@
 **Repo:** buddynext-pro (depends on buddynext Free FieldType engine)
 **Spec ref:** `docs/specs/features/member-fields-search-privacy.yaml` (contracts.field_type_engine + buddynext_field_types extensibility) and `docs/specs/features/05-user-profiles.md`. Journey: `docs/journeys/profile-fields.md`.
 **Date:** 2026-05-31
-**Verdict:** usable-minor-polish (gap #1 resolved 2026-06-07; gap #2 remains, needs-live-verification)
+**Verdict:** usable-leave-as-is (both gaps resolved)
 
-> **Partial resolution (2026-06-07).** Gap #1 closed: `multi_select_advanced` validator now mirrors the renderer (accepts the array form-post / JSON / comma-joined, reads `options['choices']`), so the field saves and round-trips. Gap #2 (JS hydration for the location-map picker / file upload / conditional show-hide) is still open and needs a live browser check of the Pro asset enqueue — left as minor-polish. `buddynext-pro/includes/Profile/AdvancedFieldValidator.php`.
+> **Resolution.** Gap #1 (2026-06-07): `multi_select_advanced` validator now mirrors the renderer (array/JSON/comma-joined, reads `options['choices']`), so the field saves and round-trips. Gap #2 (2026-06-09): the JS hydration now exists — `AdvancedFieldRenderer::enqueue_assets()` loads a Pro bundle on profile pages that wires the **location map** (Leaflet + OpenStreetMap Nominatim geocoding → `{address,lat,lng}` to the hidden input; Leaflet via a filterable CDN so sites can self-host), **conditional show/hide** (`render_conditional` now resolves the trigger field's key + reads `options[]`), and **file** filename preview. Verified live: map geocoded "Eiffel Tower, Paris" and wrote coordinates; conditional toggled on its trigger value. `buddynext-pro/includes/Profile/AdvancedFieldRenderer.php`, `assets/js/profile-fields.js`.
 
 ---
 
