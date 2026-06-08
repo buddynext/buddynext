@@ -146,13 +146,13 @@ store( 'buddynext/moderation', {
 			const ctx = getContext();
 			if ( ! ctx.reportId || ! ctx.restNonce ) { return; }
 			try {
-				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId, {
-					method: 'PUT',
+				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId + '/dismiss', {
+					method: 'POST',
 					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { action: 'dismiss' } ),
 				} );
 				if ( res.ok ) {
-					const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
+					const card = document.querySelector( '.bn-space-mod__report [data-report-id="' + ctx.reportId + '"]' );
+					const row  = ( card && card.closest( '.bn-space-mod__report' ) ) || document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
 					if ( row ) { row.remove(); }
 				}
 			} catch ( _e ) {}

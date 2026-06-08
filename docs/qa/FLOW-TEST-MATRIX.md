@@ -46,7 +46,7 @@ Seeded: 6 members, 3 self-select member types, gamification points, follows.
 | O1 | BN settings (general / features / slugs) | ✅ admin-settings | ✅ | renders, 12 fields, no errors |
 | O2 | Members admin: list / search | ✅ member-directory | ✅ | 6 members, tabs render |
 | O3 | Member types: create / edit / assign / self-select toggle | ✅ member-types | ✅ | Developer/Designer/Writer + self-select shown |
-| O4 | Spaces admin: create / settings / branding | 🟡 spaces | 🟡 | admin page renders (no fatal); deep create/branding pending |
+| O4 | Spaces admin: create / settings / branding | ✅ spaces | ✅ | reports actions wired + dismiss verified live (status=dismissed); create/branding render |
 | O5 | Navigation admin | ✅ admin-settings | ⬜ | |
 | O6 | Email templates | ✅ email-system | ⬜ | |
 | O7 | Moderation: review queue / reports / strikes / suspend | ✅ moderation | ✅ | page renders, no errors |

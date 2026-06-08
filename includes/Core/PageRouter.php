@@ -672,6 +672,13 @@ class PageRouter {
 				if ( in_array( $space_action_v, array( 'settings', 'admin' ), true ) ) {
 					wp_enqueue_media();
 				}
+				// Space moderation sub-page reuses the buddynext/moderation store
+				// for its report-action buttons (dismiss/warn/remove/remove-from-
+				// space), so the module must load here too — the spaces store does
+				// not define those actions.
+				if ( 'moderation' === $space_action_v ) {
+					$assets->enqueue( 'moderation' );
+				}
 				// Localize the spaces URL base + i18n so the spaces store can
 				// rebuild URLs without reloading the page (reactive directory,
 				// create-space redirect target).

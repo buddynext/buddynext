@@ -2,7 +2,7 @@
 
 _Regenerated 2026-06-07 from per-feature conformance verdicts · 50 units._
 
-**Snapshot:** ✅ usable-leave-as-is **48** · 🟢 usable-minor-polish **2** · 🟡 partial-needs-wiring **0**
+**Snapshot:** ✅ usable-leave-as-is **49** · 🟢 usable-minor-polish **1** · 🟡 partial-needs-wiring **0**
 
 | Feature | Repo | Verdict |
 |---|---|---|
@@ -38,7 +38,7 @@ _Regenerated 2026-06-07 from per-feature conformance verdicts · 50 units._
 | Realtime Updates | free | ✅ usable-leave-as-is |
 | Search | free | ✅ usable-leave-as-is |
 | Shares / Reposts | free | ✅ usable-leave-as-is |
-| Spaces | free | 🟢 usable-minor-polish |
+| Spaces | free | ✅ usable-leave-as-is |
 | Advanced Profile Field Types | pro | 🟢 usable-minor-polish |
 | Advanced Search Filters | pro | ✅ usable-leave-as-is |
 | AI Engine | pro | ✅ usable-leave-as-is |

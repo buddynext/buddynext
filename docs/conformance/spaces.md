@@ -8,7 +8,9 @@
 
 ---
 
-## Verdict: usable-minor-polish
+## Verdict: usable-leave-as-is
+
+> **Resolution (2026-06-08).** The space Reports tab actions are now wired. The report list is wrapped in a nested `data-wp-interactive="buddynext/moderation"` root (restNonce/restUrl context) with per-card `data-wp-context` (reportId/userId/spaceId), and the `moderation` module is now enqueued on the space-moderation sub-route (`PageRouter`). Also fixed a pre-existing bug in the moderation store: `dismissReport` called `PUT /reports/{id}` (404) instead of `POST /reports/{id}/dismiss` — this affected the top-level queue too. Verified live: Dismiss on a space report set `bn_reports.status=dismissed, resolved_by=1`. `templates/spaces/moderation.php`, `includes/Core/PageRouter.php`, `assets/js/moderation/store.js`.
 
 The core happy-path — discover a space → join / request → land on space home → post to the
 space feed → manage members → approve/decline join requests — is **fully wired end to end**

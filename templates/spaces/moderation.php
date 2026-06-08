@@ -370,6 +370,11 @@ $mod_privacy     = $mod_privacy_map[ $space->type ?? 'open' ] ?? $mod_privacy_ma
 
 					<?php else : ?>
 
+						<?php // Nested Interactivity root: the report-action buttons below bind to the buddynext/moderation store (enqueued for this sub-route), not the page's buddynext/spaces store. restNonce/restUrl here merge into each report card's context. ?>
+						<div
+							data-wp-interactive="buddynext/moderation"
+							data-wp-context='{"restNonce":"<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>","restUrl":"<?php echo esc_attr( rest_url( 'buddynext/v1/' ) ); ?>"}'
+						>
 						<?php foreach ( $open_reports as $report ) : ?>
 							<?php
 							$reported_uid = (int) $report->object_id;
@@ -382,7 +387,11 @@ $mod_privacy     = $mod_privacy_map[ $space->type ?? 'open' ] ?? $mod_privacy_ma
 							$r_time       = isset( $report->created_at ) ? bn_time_diff( $report->created_at ) : '';
 							$r_tone       = bn_report_priority( $r_count );
 							?>
-							<article class="bn-card bn-space-mod__report" data-tone="<?php echo esc_attr( $r_tone ); ?>">
+							<article
+								class="bn-card bn-space-mod__report"
+								data-tone="<?php echo esc_attr( $r_tone ); ?>"
+								data-wp-context='{"reportId":<?php echo (int) $report->id; ?>,"userId":<?php echo (int) $reported_uid; ?>,"spaceId":<?php echo (int) $space_id; ?>}'
+							>
 								<div class="bn-space-mod__report-head">
 									<span class="bn-avatar" data-size="md" aria-hidden="true">
 										<?php if ( $r_avatar_url ) : ?>
@@ -507,6 +516,7 @@ $mod_privacy     = $mod_privacy_map[ $space->type ?? 'open' ] ?? $mod_privacy_ma
 								</div>
 							</article>
 						<?php endforeach; ?>
+						</div>
 
 					<?php endif; ?>
 
