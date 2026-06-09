@@ -73,7 +73,7 @@ $aria_label    = (string) $args['aria_label'];
 
 do_action( 'buddynext_part_dm_thread_messages_before', $args );
 ?>
-<div class="<?php echo esc_attr( $bn_class ); ?>" role="log" aria-live="polite" aria-label="<?php echo esc_attr( $aria_label ); ?>">
+<div class="<?php echo esc_attr( $bn_class ); ?>" role="log" aria-live="polite" aria-label="<?php echo esc_attr( $aria_label ); ?>" data-wp-on--click="actions.onThreadClick">
 
 	<?php
 	$prev_date = '';

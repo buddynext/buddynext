@@ -82,6 +82,14 @@ function buildMessageNode( msg, viewer ) {
 	appendText( bubble, body );
 	content.appendChild( bubble );
 
+	// Hover action bar — cloned from the server-rendered <template> so the icon,
+	// label, and markup have a single source of truth and reply works on
+	// client-built (sent/polled) messages. Clicks go through onThreadClick.
+	const tpl = document.getElementById( 'bn-dm-msg-actions-tpl' );
+	if ( tpl && 'content' in tpl ) {
+		content.appendChild( tpl.content.cloneNode( true ) );
+	}
+
 	const meta = document.createElement( 'div' );
 	meta.className = 'bn-dm-msg__meta';
 	const time = document.createElement( 'time' );
@@ -167,7 +175,36 @@ const { actions } = store( 'buddynext/messages', {
 			} catch ( _e ) {}
 		},
 
+		// ── Message action bar (delegated) ──────────────────────────────────────
+		// One click handler on the server-rendered log covers both server- and
+		// client-rendered messages, since the Interactivity API does not hydrate
+		// nodes appended at runtime. Buttons carry a data-bn-action verb.
+		onThreadClick( event ) {
+			const trigger = event.target.closest( '[data-bn-action]' );
+			if ( ! trigger ) {
+				return;
+			}
+			const action = trigger.dataset.bnAction;
+			if ( 'reply' === action ) {
+				actions.setReply( trigger );
+			}
+		},
+
 		// ── Reply ─────────────────────────────────────────────────────────────
+		setReply( trigger ) {
+			const ctx = getContext();
+			const msg = trigger.closest( '.bn-dm-msg' );
+			if ( ! msg ) {
+				return;
+			}
+			ctx.replyToId   = parseInt( msg.dataset.msgId, 10 ) || 0;
+			const bubble    = msg.querySelector( '.bn-dm-bubble' );
+			ctx.replyToText = bubble ? bubble.textContent.trim().replace( /\s+/g, ' ' ).slice( 0, 120 ) : '';
+			const input = document.getElementById( 'bn-dm-input' );
+			if ( input ) {
+				input.focus();
+			}
+		},
 		clearReply() {
 			const ctx = getContext();
 			ctx.replyToId = 0;

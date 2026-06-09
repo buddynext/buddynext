@@ -108,6 +108,8 @@ do_action( 'buddynext_part_dm_message_before', $args );
 			<?php echo $msg_body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already filtered via wp_kses above. ?>
 		</div>
 
+		<?php buddynext_get_template( 'parts/dm-msg-actions.php' ); ?>
+
 		<div class="bn-dm-msg__meta">
 			<time class="bn-dm-msg__time" datetime="<?php echo esc_attr( $iso ); ?>"><?php echo esc_html( $clock ); ?></time>
 			<?php if ( $is_mine && $read_by_all ) : ?>

@@ -151,4 +151,7 @@ $bn_ctx = wp_json_encode(
 	</section>
 
 	<?php buddynext_get_template( 'parts/dm-delete-modal.php' ); ?>
+
+	<?php // Cloned by the store onto client-rendered (sent/polled) message bubbles. ?>
+	<template id="bn-dm-msg-actions-tpl"><?php buddynext_get_template( 'parts/dm-msg-actions.php' ); ?></template>
 </div>
