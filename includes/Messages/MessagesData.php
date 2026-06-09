@@ -182,10 +182,16 @@ class MessagesData {
 		foreach ( $rows as $m ) {
 			$reactions = array();
 			foreach ( (array) self::val( $m, 'reactions', array() ) as $r ) {
-				$emoji = (string) self::val( $r, 'emoji', '' );
-				if ( '' !== $emoji ) {
-					$reactions[ $emoji ] = (int) self::val( $r, 'count', 0 );
+				$slug = (string) self::val( $r, 'emoji', '' );
+				if ( '' === $slug ) {
+					continue;
 				}
+				$user_ids    = array_map( 'intval', (array) self::val( $r, 'user_ids', array() ) );
+				$reactions[] = array(
+					'slug'  => $slug,
+					'count' => (int) self::val( $r, 'count', 0 ),
+					'mine'  => in_array( $viewer, $user_ids, true ),
+				);
 			}
 
 			$created    = strtotime( (string) self::val( $m, 'created_at', '' ) );

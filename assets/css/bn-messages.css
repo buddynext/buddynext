@@ -499,6 +499,113 @@
 	border-color: var(--bn-accent);
 }
 
+.bn-dm-msg__reaction.is-mine {
+	border-color: var(--bn-accent);
+	background: var(--bn-accent-50, var(--bn-sunken));
+	color: var(--bn-accent);
+}
+
+.bn-dm-msg__reaction .bn-emoji {
+	width: 14px;
+	height: 14px;
+	vertical-align: -2px;
+}
+
+.bn-dm-msg__reaction-count {
+	margin-inline-start: 3px;
+	font-family: var(--bn-font-mono, monospace);
+}
+
+/* ── Per-message hover action bar (reply + react) ────────────────────────── */
+.bn-dm-msg__actions {
+	display: inline-flex;
+	gap: var(--bn-s1);
+	margin-top: 2px;
+	opacity: 0;
+	transition: opacity var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-dm-msg.is-mine .bn-dm-msg__actions {
+	justify-content: flex-end;
+}
+
+.bn-dm-msg:hover .bn-dm-msg__actions,
+.bn-dm-msg:focus-within .bn-dm-msg__actions,
+.bn-dm-msg__react-wrap.is-open .bn-dm-msg__actions {
+	opacity: 1;
+}
+
+.bn-dm-msg__action {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	color: var(--bn-ink-3);
+	cursor: pointer;
+	transition: color var(--bn-dur-fast) var(--bn-ease), border-color var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-dm-msg__action:hover {
+	color: var(--bn-accent);
+	border-color: var(--bn-accent);
+}
+
+.bn-dm-msg__action svg {
+	width: 15px;
+	height: 15px;
+}
+
+.bn-dm-msg__react-wrap {
+	position: relative;
+}
+
+.bn-dm-msg__react-pop {
+	position: absolute;
+	bottom: calc(100% + 4px);
+	inset-inline-start: 0;
+	display: none;
+	gap: 2px;
+	padding: var(--bn-s1);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-full);
+	box-shadow: var(--bn-shadow-md, 0 4px 16px rgba(0, 0, 0, 0.12));
+	z-index: 5;
+}
+
+.bn-dm-msg__react-wrap.is-open .bn-dm-msg__react-pop {
+	display: flex;
+}
+
+.bn-dm-msg__react-opt {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--bn-r-full);
+	background: transparent;
+	cursor: pointer;
+	transition: transform var(--bn-dur-fast) var(--bn-ease), background var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-dm-msg__react-opt:hover {
+	background: var(--bn-sunken);
+	transform: scale(1.15);
+}
+
+.bn-dm-msg__react-opt .bn-emoji {
+	width: 20px;
+	height: 20px;
+}
+
 /* ── Typing indicator ────────────────────────────────────────────────────── */
 .bn-dm-typing {
 	display: flex;

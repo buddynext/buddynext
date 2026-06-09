@@ -148,6 +148,13 @@ function buildMessageNode( msg, viewer ) {
 		content.appendChild( tpl.content.cloneNode( true ) );
 	}
 
+	// Empty reactions container (hidden until the viewer reacts), matching the
+	// server markup so applyReaction can append chips on a just-sent bubble.
+	const reactions = document.createElement( 'div' );
+	reactions.className = 'bn-dm-msg__reactions';
+	reactions.hidden = true;
+	content.appendChild( reactions );
+
 	const meta = document.createElement( 'div' );
 	meta.className = 'bn-dm-msg__meta';
 	const time = document.createElement( 'time' );
@@ -180,6 +187,121 @@ function appendMessage( msg, viewer ) {
 	}
 	log.appendChild( buildMessageNode( msg, viewer ) );
 	log.scrollTop = log.scrollHeight;
+}
+
+/**
+ * Close every open reaction picker in the thread.
+ *
+ * @return {void}
+ */
+function closeReactPops() {
+	document.querySelectorAll( '.bn-dm-msg__react-wrap.is-open' ).forEach( ( w ) => w.classList.remove( 'is-open' ) );
+}
+
+/**
+ * Read/round a reaction chip's count.
+ *
+ * @param {HTMLElement} chip Chip element.
+ * @return {number} Count.
+ */
+function chipCount( chip ) {
+	const el = chip.querySelector( '.bn-dm-msg__reaction-count' );
+	return el ? parseInt( el.textContent, 10 ) || 0 : 0;
+}
+
+/**
+ * Apply a reaction to a message: optimistic chip update + mvs/v1 call.
+ *
+ * MVS stores one reaction per user, so picking a new slug replaces the old one
+ * in a single POST; picking the same slug again removes it (DELETE).
+ *
+ * @param {Object}      ctx   Interactivity context.
+ * @param {HTMLElement} msgEl The .bn-dm-msg element.
+ * @param {string}      slug  Reaction slug.
+ * @return {void}
+ */
+function applyReaction( ctx, msgEl, slug ) {
+	if ( ! msgEl || ! slug ) {
+		return;
+	}
+	const msgId = parseInt( msgEl.dataset.msgId, 10 ) || 0;
+	const box   = msgEl.querySelector( '.bn-dm-msg__reactions' );
+	if ( ! msgId || ! box ) {
+		return;
+	}
+
+	const chipOf  = ( s ) => box.querySelector( '.bn-dm-msg__reaction[data-slug="' + s + '"]' );
+	const mineNow = box.querySelector( '.bn-dm-msg__reaction.is-mine' );
+	const mySlug  = mineNow ? mineNow.dataset.slug : null;
+
+	const removeChip = ( chip ) => {
+		const n = chipCount( chip ) - 1;
+		if ( n <= 0 ) {
+			chip.remove();
+		} else {
+			chip.querySelector( '.bn-dm-msg__reaction-count' ).textContent = String( n );
+			chip.classList.remove( 'is-mine' );
+			chip.setAttribute( 'aria-pressed', 'false' );
+		}
+	};
+
+	if ( mySlug === slug ) {
+		// Toggle my reaction off.
+		removeChip( mineNow );
+		fetch( ctx.mvsRest + '/messages/' + msgId + '/reactions?emoji=' + encodeURIComponent( slug ), {
+			method: 'DELETE',
+			headers: headers( ctx ),
+		} ).catch( () => {} );
+	} else {
+		// Drop my previous reaction (if any), then add/boost the new one.
+		if ( mineNow ) {
+			removeChip( mineNow );
+		}
+		let chip = chipOf( slug );
+		if ( chip ) {
+			chip.querySelector( '.bn-dm-msg__reaction-count' ).textContent = String( chipCount( chip ) + 1 );
+			chip.classList.add( 'is-mine' );
+			chip.setAttribute( 'aria-pressed', 'true' );
+		} else {
+			chip = buildReactionChip( msgEl, slug );
+			if ( chip ) {
+				box.appendChild( chip );
+			}
+		}
+		fetch( ctx.mvsRest + '/messages/' + msgId + '/reactions', {
+			method: 'POST',
+			headers: headers( ctx ),
+			body: JSON.stringify( { emoji: slug } ),
+		} ).catch( () => {} );
+	}
+
+	box.hidden = ! box.querySelector( '.bn-dm-msg__reaction' );
+}
+
+/**
+ * Build a "mine" reaction chip, cloning the glyph from this message's picker.
+ *
+ * @param {HTMLElement} msgEl The .bn-dm-msg element.
+ * @param {string}      slug  Reaction slug.
+ * @return {HTMLElement|null} The chip, or null if the glyph is unavailable.
+ */
+function buildReactionChip( msgEl, slug ) {
+	const opt = msgEl.querySelector( '.bn-dm-msg__react-opt[data-slug="' + slug + '"]' );
+	const btn = document.createElement( 'button' );
+	btn.type = 'button';
+	btn.className = 'bn-dm-msg__reaction is-mine';
+	btn.dataset.bnAction = 'react-toggle';
+	btn.dataset.slug = slug;
+	btn.setAttribute( 'aria-pressed', 'true' );
+	btn.setAttribute( 'aria-label', slug.charAt( 0 ).toUpperCase() + slug.slice( 1 ) + ' (1)' );
+	if ( opt && opt.firstElementChild ) {
+		btn.appendChild( opt.firstElementChild.cloneNode( true ) );
+	}
+	const count = document.createElement( 'span' );
+	count.className = 'bn-dm-msg__reaction-count';
+	count.textContent = '1';
+	btn.appendChild( count );
+	return btn;
 }
 
 const { actions } = store( 'buddynext/messages', {
@@ -240,11 +362,26 @@ const { actions } = store( 'buddynext/messages', {
 		onThreadClick( event ) {
 			const trigger = event.target.closest( '[data-bn-action]' );
 			if ( ! trigger ) {
+				closeReactPops(); // Click elsewhere in the log dismisses any open picker.
 				return;
 			}
 			const action = trigger.dataset.bnAction;
+			const msgEl  = trigger.closest( '.bn-dm-msg' );
+
 			if ( 'reply' === action ) {
 				actions.setReply( trigger );
+			} else if ( 'react' === action ) {
+				const wrap = trigger.closest( '.bn-dm-msg__react-wrap' );
+				const open = wrap && wrap.classList.contains( 'is-open' );
+				closeReactPops();
+				if ( wrap && ! open ) {
+					wrap.classList.add( 'is-open' );
+				}
+			} else if ( 'react-pick' === action ) {
+				applyReaction( getContext(), msgEl, trigger.dataset.slug || '' );
+				closeReactPops();
+			} else if ( 'react-toggle' === action ) {
+				applyReaction( getContext(), msgEl, trigger.dataset.slug || '' );
 			}
 		},
 
@@ -269,31 +406,8 @@ const { actions } = store( 'buddynext/messages', {
 			ctx.replyToText = '';
 		},
 
-		// ── Reactions ───────────────────────────────────────────────────────────
-		*toggleReaction( event ) {
-			const ctx = getContext();
-			const btn = event.target.closest( '[data-msg-id]' );
-			if ( ! btn ) {
-				return;
-			}
-			const msgId = parseInt( btn.dataset.msgId, 10 ) || 0;
-			const emoji = btn.dataset.emoji || '';
-			if ( ! msgId || '' === emoji ) {
-				return;
-			}
-			const pressed = btn.getAttribute( 'aria-pressed' ) === 'true';
-			try {
-				yield fetch(
-					ctx.mvsRest + '/messages/' + msgId + '/reactions' + ( pressed ? '?emoji=' + encodeURIComponent( emoji ) : '' ),
-					{
-						method: pressed ? 'DELETE' : 'POST',
-						headers: headers( ctx ),
-						body: pressed ? null : JSON.stringify( { emoji } ),
-					}
-				);
-				btn.setAttribute( 'aria-pressed', pressed ? 'false' : 'true' );
-			} catch ( _e ) {}
-		},
+		// Reactions are handled by applyReaction() via the delegated onThreadClick
+		// (data-bn-action react / react-pick / react-toggle).
 
 		// ── Delete conversation ──────────────────────────────────────────────────
 		openDeleteConfirm() {

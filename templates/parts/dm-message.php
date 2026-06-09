@@ -120,22 +120,30 @@ do_action( 'buddynext_part_dm_message_before', $args );
 			<?php endif; ?>
 		</div>
 
-		<?php if ( ! empty( $reactions ) ) : ?>
-			<div class="bn-dm-msg__reactions">
-				<?php foreach ( $reactions as $emoji => $count ) : ?>
-					<button
-						type="button"
-						class="bn-dm-msg__reaction"
-						data-msg-id="<?php echo esc_attr( (string) $msg_id ); ?>"
-						data-emoji="<?php echo esc_attr( sanitize_text_field( (string) $emoji ) ); ?>"
-						data-wp-on--click="actions.toggleReaction"
-						aria-label="<?php echo esc_attr( sanitize_text_field( (string) $emoji ) . ' ' . absint( $count ) ); ?>"
-					>
-						<?php echo esc_html( sanitize_text_field( (string) $emoji ) . ' ' . absint( $count ) ); ?>
-					</button>
-				<?php endforeach; ?>
-			</div>
-		<?php endif; ?>
+		<?php // Reaction chips. Container always present so the store can append the first chip client-side. ?>
+		<div class="bn-dm-msg__reactions"<?php echo empty( $reactions ) ? ' hidden' : ''; ?>>
+			<?php foreach ( $reactions as $bn_re ) : ?>
+				<?php
+				$bn_re_slug  = (string) ( $bn_re['slug'] ?? '' );
+				$bn_re_count = (int) ( $bn_re['count'] ?? 0 );
+				$bn_re_mine  = ! empty( $bn_re['mine'] );
+				if ( '' === $bn_re_slug ) {
+					continue;
+				}
+				?>
+				<button
+					type="button"
+					class="bn-dm-msg__reaction<?php echo $bn_re_mine ? ' is-mine' : ''; ?>"
+					data-bn-action="react-toggle"
+					data-slug="<?php echo esc_attr( $bn_re_slug ); ?>"
+					aria-pressed="<?php echo $bn_re_mine ? 'true' : 'false'; ?>"
+					aria-label="<?php echo esc_attr( ucfirst( $bn_re_slug ) . ' (' . $bn_re_count . ')' ); ?>"
+				>
+					<?php echo \BuddyNext\Core\IconService::render_emoji( $bn_re_slug ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-sanitized SVG. ?>
+					<span class="bn-dm-msg__reaction-count"><?php echo (int) $bn_re_count; ?></span>
+				</button>
+			<?php endforeach; ?>
+		</div>
 	</div>
 </div>
 <?php
