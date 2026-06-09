@@ -79,6 +79,36 @@ thread-messages,message,composer,delete-modal}.php` and a **16-line stub**
 5. Partner APIs are WBcom-owned + extensible — add any missing `mvs/v1` endpoint
    to WPMediaVerse if the native UI needs it.
 
+#### Phase 3 — grounded build spec (source-verified 2026-06-09)
+
+**mvs/v1 messaging REST (auth: cookie + `X-WP-Nonce` header):**
+- `GET /me/conversations?tab=all|unread|requests&per_page&page` → conversation[]
+- `POST /conversations {recipient_id}` → `{conversation, created}`
+- `GET|PATCH|DELETE /conversations/{id}`
+- `GET /conversations/{id}/messages?before&per_page` → message[]
+- `POST /conversations/{id}/messages {content, message_type, attachment_id, media_id, parent_id, metadata}` → message
+- `POST /conversations/{id}/read` · `/typing` · `/accept` · `/decline`
+- `DELETE /messages/{id}` · `DELETE /messages/{id}/unsend`
+- `POST|DELETE /messages/{id}/reactions {emoji}`
+- `GET /messages/poll?since&conversation_id` → `{messages, typing[], online_users{}, server_time}`
+- `GET /me/messages/unread-count` → `{unread}`
+- `POST /messages/upload` (multipart) → `{id, source_url, thumbnail, type}`
+
+**Server-render (PHP, in-process via `MediaClient::messaging()`):**
+`get_conversations($uid,$tab,$per_page,$page)` → rows w/ `id,type,title,last_message_preview,last_activity_at,last_read_at,is_pinned,participant_status,participants[],unread_count`; participant: `id,role,display_name,avatar_url,status,is_online`. `get_messages($cid,$uid,$before,$per_page)` → `id,sender_id,content,message_type,parent_id,created_at,sender_name,sender_avatar,reactions[],parent_preview,attachment,media_share`.
+
+**Native partials' required store contract (`buddynext/messages`):**
+- state: `replyToId`, `replyToText`, `confirmOpen`
+- actions: `onPanelSearchInput`, `switchPanelTab`, `openDeleteConfirm`, `openThreadOptions`, `toggleReaction`(data-msg-id,data-emoji), `clearReply`, `openEmojiPicker`, `openAttachment`, `onInputKeydown`, `onMessageInput`, `sendMessage`, `closeDeleteConfirm`, `stopPropagation`, `confirmDeleteConversation`
+- dm-rail expects: pinned/recent conversation rows + helper callbacks `initials_fn/tone_fn/relative_fn/online_fn`; dm-rail-item conversation keys: `id, other_user_id, other_user_name, last_message_preview, last_message_at, unread_count, other_user_typing, is_pinned`.
+
+**Embed to remove (the dead code, per owner's no-2nd-party-screens rule):**
+`do_action('buddynext_render_messages')` in templates/messages/{list,thread,requests}.php (+ their MVS-driving inline scripts); WPMediaVerseBridge `render_messages()`, `open/close_hub_shell` (`mvs_before/after_content`), `mvs_buddynext_active`→true; the 16-line stub `assets/js/messages/store.js`.
+
+**Config enqueuer:** new `includes/Messages/MessagesAssets.php` mirroring `Media/MediaAssets.php` — `is_bn_front()` gate, enqueue `assets/js/messages/store.js` (dep wp-interactivity), inject `{mvsRest: rest_url('mvs/v1'), nonce: wp_create_nonce('wp_rest'), userId}`.
+
+**Build order (each verified before next):** (1) MessagesAssets + register in Plugin boot → (2) messages/store.js full store → (3) wire dm-* partials in the 3 templates via MediaClient::messaging() server-render → (4) strip embed + dead stub → (5) two-user send/receive/requests browser verify.
+
 ### Phase 4 — Discussions → native (from Jetonomy) · 🔴 large
 - **Remove** the shell-wrap (`jetonomy_before/after_content`) +
   `jetonomy_show_community_nav`→false.

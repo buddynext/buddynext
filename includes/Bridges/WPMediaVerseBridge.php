@@ -57,8 +57,11 @@ class WPMediaVerseBridge {
 		add_action( 'mvs_before_content', array( $this, 'open_hub_shell' ) );
 		add_action( 'mvs_after_content', array( $this, 'close_hub_shell' ) );
 
-		// Render MVS chat components inside BuddyNext's messages hub shell.
-		add_action( 'buddynext_render_messages', array( $this, 'render_messages' ) );
+		// NOTE: /messages/ is now a fully NATIVE BuddyNext surface (templates/
+		// messages/native.php + the buddynext/messages store) consuming the engine
+		// via mvs/v1 — no MVS chat screen is embedded. The former
+		// buddynext_render_messages embed + its render_messages()/
+		// enqueue_messaging_assets()/print_messaging_config() helpers were removed.
 
 		// NOTE: BuddyNext consumes WPMediaVerse at the REST/API level ONLY and
 		// owns 100% of its own UX — WPMediaVerse JS/CSS is never enqueued on
@@ -69,111 +72,6 @@ class WPMediaVerseBridge {
 		// When a user comments on a photo via the lightbox, create a matching
 		// bn_comments entry threaded under the BuddyNext post that holds the media.
 		add_action( 'mvs_comment_created', array( $this, 'sync_lightbox_comment' ), 10, 3 );
-	}
-
-	/**
-	 * Enqueue WPMediaVerse messaging assets on BuddyNext's messages page.
-	 *
-	 * Called early from render_messages() so CSS/JS are available when
-	 * wp_head() fires inside get_header(). Must bypass the mvs_buddynext_active
-	 * guard that normally suppresses MVS asset loading.
-	 *
-	 * @return void
-	 */
-	public function enqueue_messaging_assets(): void {
-		wp_enqueue_style(
-			'mvs-messaging',
-			MVS_PLUGIN_URL . 'assets/css/messaging.css',
-			array(),
-			MVS_VERSION
-		);
-
-		wp_register_script_module(
-			'mvs-messaging',
-			MVS_PLUGIN_URL . 'assets/js/messaging.js',
-			array(
-				array(
-					'id'     => '@wordpress/interactivity',
-					'import' => 'static',
-				),
-			),
-			MVS_VERSION
-		);
-		wp_enqueue_script_module( 'mvs-messaging' );
-	}
-
-	/**
-	 * Print the MVS messaging runtime config (REST base, nonce, current user).
-	 *
-	 * Rendered inline before the chat templates so the Interactivity API store
-	 * can read it on init.
-	 *
-	 * @return void
-	 */
-	private function print_messaging_config(): void {
-		$user   = wp_get_current_user();
-		$config = array(
-			'restBase'    => esc_url_raw( rest_url( 'mvs/v1' ) ),
-			'nonce'       => wp_create_nonce( 'wp_rest' ),
-			'currentUser' => array(
-				'id'           => $user->ID,
-				'display_name' => $user->display_name,
-				'avatar_url'   => get_avatar_url( $user->ID, array( 'size' => 64 ) ),
-			),
-		);
-
-		if ( class_exists( 'WPMediaVerse\Messaging\RestPollingTransport' ) ) {
-			$transport           = apply_filters(
-				'mvs_messaging_transport',
-				new \WPMediaVerse\Messaging\RestPollingTransport()
-			);
-			$config['transport'] = $transport->get_client_config();
-		}
-
-		wp_print_inline_script_tag(
-			'window.mvsMessagingConfig = ' . wp_json_encode( $config ) . ';',
-			array( 'id' => 'mvs-messaging-config' )
-		);
-	}
-
-	/**
-	 * Render the WPMediaVerse two-pane chat UI inside BuddyNext's hub shell.
-	 *
-	 * Outputs the conversation list panel (280px) and the thread panel (1fr)
-	 * wrapped in a flex container that becomes a single grid child inside
-	 * .bn-hub-shell's 1fr column.
-	 *
-	 * @return void
-	 */
-	public function render_messages(): void {
-		$this->enqueue_messaging_assets();
-		$this->print_messaging_config();
-
-		$partials = MVS_PLUGIN_DIR . 'templates/partials/';
-		?>
-		<div
-			class="bn-msg-shell mvs-messages-page"
-			data-wp-interactive="mvs/messaging"
-			data-wp-init="callbacks.onInit"
-			data-wp-bind--data-active-conv="state.activeConversationId"
-		>
-			<div class="bn-msg-sidebar">
-				<?php require $partials . 'chat-list.php'; ?>
-			</div>
-
-			<div class="bn-msg-thread" data-wp-bind--hidden="!state.activeConversationId">
-				<?php require $partials . 'chat-conversation.php'; ?>
-			</div>
-
-			<div class="bn-msg-empty" data-wp-bind--hidden="state.activeConversationId">
-				<div class="bn-msg-empty-icon" aria-hidden="true">
-					<?php echo \BuddyNext\Core\IconService::render( 'message-circle' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-				</div>
-				<p class="bn-msg-empty-title"><?php esc_html_e( 'Your messages', 'buddynext' ); ?></p>
-				<p class="bn-msg-empty-sub"><?php esc_html_e( 'Select a conversation or start a new one.', 'buddynext' ); ?></p>
-			</div>
-		</div>
-		<?php
 	}
 
 	/**

@@ -1,0 +1,146 @@
+<?php
+/**
+ * Native messaging two-pane (BuddyNext-owned, consumes WPMediaVerse via mvs/v1).
+ *
+ * Renders the conversation rail + the active thread (or empty state) using the
+ * dm-* partials and BuddyNext's own `buddynext/messages` Interactivity store.
+ * No WPMediaVerse screens are embedded — data only.
+ *
+ * @package BuddyNext
+ *
+ * @var int    $active_conv_id Optional. Conversation to open. Default 0.
+ * @var string $active_tab     Optional. Rail tab (all|unread|requests). Default 'all'.
+ */
+
+declare( strict_types=1 );
+
+defined( 'ABSPATH' ) || exit;
+
+use BuddyNext\Messages\MessagesData;
+use BuddyNext\Core\PageRouter;
+
+$active_conv_id = isset( $active_conv_id ) ? (int) $active_conv_id : 0;
+$active_tab     = isset( $active_tab ) ? (string) $active_tab : 'all';
+
+if ( ! MessagesData::available() ) :
+	?>
+	<div class="bn-messages-content" data-bn-main-edge="true">
+		<div class="bn-card bn-dm-dep-notice" role="status">
+			<div class="bn-dm-dep-notice__head">
+				<span class="bn-dm-dep-notice__icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
+				<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Dependency required', 'buddynext' ); ?></span>
+			</div>
+			<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Direct messaging requires WPMediaVerse', 'buddynext' ); ?></h2>
+			<p class="bn-dm-dep-notice__body">
+				<?php esc_html_e( 'Install and activate the WPMediaVerse plugin to enable direct messaging in BuddyNext.', 'buddynext' ); ?>
+			</p>
+		</div>
+	</div>
+	<?php
+	return;
+endif;
+
+$viewer = get_current_user_id();
+
+// /messages/?to={user_id} — open (or start) a direct conversation with a member
+// (the member-directory + profile-connections "Message" buttons link here).
+if ( $active_conv_id <= 0 ) {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_to = absint( $_GET['to'] ?? 0 );
+	if ( $bn_to > 0 ) {
+		$active_conv_id = MessagesData::open_with( $viewer, $bn_to );
+	}
+}
+
+$helpers      = MessagesData::helpers();
+$convs        = MessagesData::conversations( $viewer, $active_tab );
+$thread       = $active_conv_id > 0 ? MessagesData::thread( $active_conv_id, $viewer ) : null;
+$messages_url = PageRouter::messages_url();
+
+$bn_ctx = wp_json_encode(
+	array(
+		'mvsRest'      => esc_url_raw( rest_url( 'mvs/v1' ) ),
+		'nonce'        => wp_create_nonce( 'wp_rest' ),
+		'userId'       => $viewer,
+		'activeConvId' => $thread ? (int) $thread['conversation_id'] : 0,
+		'replyToId'    => 0,
+		'replyToText'  => '',
+		'confirmOpen'  => false,
+		'messagesUrl'  => $messages_url,
+	)
+);
+?>
+<div
+	class="bn-messages-content bn-split bn-dm"
+	data-bn-main-edge="true"
+	data-wp-interactive="buddynext/messages"
+	data-wp-context='<?php echo esc_attr( (string) $bn_ctx ); ?>'
+>
+	<?php
+	buddynext_get_template(
+		'parts/dm-rail.php',
+		array_merge(
+			$helpers,
+			array(
+				'pinned_conversations' => $convs['pinned'],
+				'recent_conversations' => $convs['recent'],
+				'active_conv_id'       => $active_conv_id,
+				'active_tab'           => $active_tab,
+				'unread_count'         => $convs['unread'],
+				'request_count'        => $convs['requests'],
+				'current_user_id'      => $viewer,
+				'compose_url'          => $messages_url,
+			)
+		)
+	);
+	?>
+
+	<section class="bn-split__main bn-dm-thread">
+		<?php if ( $thread ) : ?>
+			<div class="bn-dm-thread__inner" data-wp-init="callbacks.initThread">
+				<?php
+				$bn_initials = $helpers['initials_fn']( $thread['display_name'] );
+				$bn_tone     = $helpers['tone_fn']( $thread['other_user_id'] );
+
+				buddynext_get_template(
+					'parts/dm-thread-header.php',
+					array(
+						'display_name'  => $thread['display_name'],
+						'other_user_id' => $thread['other_user_id'],
+						'is_online'     => $thread['is_online'],
+						'tone'          => $bn_tone,
+						'initials'      => $bn_initials,
+						'avatar_html'   => $thread['avatar_html'],
+						'profile_url'   => $thread['other_user_id'] ? PageRouter::profile_url( $thread['other_user_id'] ) : '',
+						'back_url'      => $messages_url,
+					)
+				);
+
+				buddynext_get_template(
+					'parts/dm-thread-messages.php',
+					array(
+						'messages'        => $thread['messages'],
+						'current_user_id' => $viewer,
+						'thread_tone'     => $bn_tone,
+						'thread_initials' => $bn_initials,
+						'aria_label'      => __( 'Conversation messages', 'buddynext' ),
+					)
+				);
+
+				buddynext_get_template(
+					'parts/dm-composer.php',
+					array( 'conversation_id' => (int) $thread['conversation_id'] )
+				);
+				?>
+			</div>
+		<?php else : ?>
+			<div class="bn-dm-empty">
+				<span class="bn-dm-empty__icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
+				<h2 class="bn-dm-empty__title"><?php esc_html_e( 'Your messages', 'buddynext' ); ?></h2>
+				<p class="bn-dm-empty__body"><?php esc_html_e( 'Select a conversation or start a new one.', 'buddynext' ); ?></p>
+			</div>
+		<?php endif; ?>
+	</section>
+
+	<?php buddynext_get_template( 'parts/dm-delete-modal.php' ); ?>
+</div>

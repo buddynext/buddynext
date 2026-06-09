@@ -165,10 +165,9 @@ do_action( 'buddynext_profile_connections_before', isset( $user_id ) ? (int) $us
 				$conn_colour = $bn_conn_colours[ $conn_id % count( $bn_conn_colours ) ];
 				$conn_inits  = bn_connections_initials( $conn_name );
 				$conn_url    = PageRouter::profile_url( $conn_id );
-				// Deep-link straight into a DM with this connection. The WPMediaVerse
-				// store reads `#mvs-chat/user/{id}` in onInit and calls
-				// openWithRecipient(); a bare /messages/ would open an empty inbox.
-				$msg_url     = PageRouter::messages_url() . '#mvs-chat/user/' . $conn_id;
+				// Open (or start) a native DM with this connection — /messages/?to={id}
+				// find-or-creates the conversation and opens it.
+				$msg_url     = add_query_arg( 'to', $conn_id, PageRouter::messages_url() );
 				?>
 				<article class="bn-member-card" role="listitem">
 					<a href="<?php echo esc_url( $conn_url ); ?>" aria-label="<?php echo esc_attr( $conn_name ); ?>">

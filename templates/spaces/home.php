@@ -395,11 +395,7 @@ add_action(
 			// the Message action when that dependency is present (same signal
 			// the messages hub uses); otherwise the row links to the profile.
 			if ( ! empty( $bn_mods ) ) {
-				$bn_msgs_on = (
-					class_exists( 'WPMediaVerse\\Core\\Plugin' )
-					|| defined( 'MVS_VERSION' )
-					|| has_action( 'buddynext_render_messages' )
-				);
+				$bn_msgs_on = \BuddyNext\Messages\MessagesData::available();
 				ob_start();
 				?>
 				<ul class="bn-sh-side-members">

@@ -126,10 +126,9 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 		$bn_type_slug     = (string) get_user_meta( $bn_member_id, 'bn_member_type', true );
 		$bn_type_data     = '' !== $bn_type_slug ? ( $bn_type_map[ $bn_type_slug ] ?? null ) : null;
 		$bn_type_label    = ( is_array( $bn_type_data ) && isset( $bn_type_data['name'] ) ) ? (string) $bn_type_data['name'] : '';
-		// Deep-link straight into a DM with this member. The WPMediaVerse store
-		// reads `#mvs-chat/user/{id}` in onInit and calls openWithRecipient(); a
-		// `?recipient=` query string is never read, so it would open an empty inbox.
-		$bn_messages_url  = $bn_messages_base . '#mvs-chat/user/' . $bn_member_id;
+		// Open (or start) a native DM with this member — /messages/?to={id}
+		// find-or-creates the conversation and opens it.
+		$bn_messages_url  = add_query_arg( 'to', $bn_member_id, $bn_messages_base );
 		$bn_conn_status   = $bn_viewer_id > 0
 			? buddynext_service( 'connections' )->status( $bn_viewer_id, $bn_member_id )
 			: null;
