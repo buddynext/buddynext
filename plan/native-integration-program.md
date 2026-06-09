@@ -36,11 +36,17 @@ Every new integration = a `includes/<Domain>/` package shaped like this.
 
 ## 3. Phases (foundation → bounded → large native builds)
 
-### Phase 0 — Asset isolation (foundation) · bounded
-Core pass beside `AssetService`: on BN hub routes, at a late `wp_enqueue_scripts`
-priority, dequeue every style/script/script-module whose `src` isn't allowlisted
-(WP core, active theme, BuddyNext/Pro). Filter `buddynext_allowed_assets`. On by
-default. Delivers the uniform-UX guarantee the rest relies on.
+### Phase 0 — Asset isolation (foundation) · bounded · ✅ DONE
+`includes/Core/AssetIsolation.php` (bound `asset_isolation`, init beside
+`AssetService`). On BN routes (`PageRouter::is_bn_route()`), at `wp_enqueue_scripts`
+priority 9999, dequeues every style/script/script-module whose `src` isn't
+allowlisted (WP core, active theme, BuddyNext, BuddyNext Pro). Script modules
+handled via reflective read of `WP_Script_Modules::$queue`/`$registered` (no
+public enumeration API), bailing gracefully if internals move. Seams:
+`buddynext_asset_isolation_enabled` (master, default true) + `buddynext_allowed_assets`
+(URL-prefix allowlist). Verified: foreign style+script+module stripped on BN
+routes, all survive on non-BN pages, BN/theme/core assets untouched, zero console
+errors on /messages/ + /activity/. Delivers the uniform-UX guarantee the rest relies on.
 
 ### Phase 1 — BN-native gap UIs · bounded (already pattern-mapped)
 Reactions palette setting · invites single+revoke · approval-queue Members tab ·

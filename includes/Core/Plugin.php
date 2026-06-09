@@ -176,6 +176,9 @@ class Plugin {
 		// Register and enqueue frontend assets.
 		$container->get( 'assets' )->init();
 
+		// Strip foreign CSS/JS from BN routes for a uniform, conflict-free UX.
+		$container->get( 'asset_isolation' )->init();
+
 		$container->get( 'rest_router' )->register();
 
 		// Wire avatar filter — replaces Gravatar site-wide with BuddyNext initials SVG.
@@ -700,6 +703,7 @@ class Plugin {
 		$container->bind( 'rest_router', fn() => new Router() );
 		$container->bind( 'template_loader', fn() => new TemplateLoader() );
 		$container->bind( 'assets', fn() => new AssetService() );
+		$container->bind( 'asset_isolation', fn() => new AssetIsolation() );
 		$container->bind( 'admin_settings', fn() => new Settings() );
 		$container->bind( 'admin_members', fn() => new Members() );
 		$container->bind( 'admin_spaces', fn() => new Spaces() );
