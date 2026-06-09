@@ -1,0 +1,142 @@
+{
+  "generated": "2026-06-09",
+  "description": "Feature -> journey runbook inventory. Every FeatureRegistry feature has a docs/journeys/*.md runbook opening with a Site-owner expectation block. 'gaps' are expectation-vs-reality deltas found while authoring (documented under each runbook's Known limitations).",
+  "feature_count": 20,
+  "coverage": "100%",
+  "features": [
+    {
+      "slug": "feed", "label": "Activity feed", "tier": "mandatory", "group": "core",
+      "journey": "docs/journeys/activity-feed.md",
+      "owner_expectation": "Members post text/link/poll updates, share, and bookmark; a single home stream shows it all.",
+      "status": "implemented", "gaps": []
+    },
+    {
+      "slug": "reactions", "label": "Reactions", "tier": "default_on", "group": "community",
+      "journey": "docs/journeys/reactions.md",
+      "owner_expectation": "Members react to posts/comments with emoji; counts and reactor lists update instantly.",
+      "status": "implemented",
+      "gaps": ["buddynext_reactors_limit filter is documented but not applied (reactor list hardcoded to 100)", "emoji not allow-list-enforced server-side", "reaction_count counter drift risk for non-post object types"]
+    },
+    {
+      "slug": "comments", "label": "Comments", "tier": "default_on", "group": "community",
+      "journey": "docs/journeys/comments.md",
+      "owner_expectation": "Members comment and reply (threaded) on posts; authors/admins can edit, delete, pin; empty/abusive content is rejected.",
+      "status": "implemented",
+      "gaps": ["create route flattens all service errors to HTTP 400 (suspension 403 becomes 400 on create)", "no GET /comments/{id} single route", "single pin per object", "no per-branch pagination for very large threads"]
+    },
+    {
+      "slug": "profile", "label": "Profiles & fields", "tier": "mandatory", "group": "core",
+      "journey": "docs/journeys/profile-fields.md",
+      "owner_expectation": "Admin defines profile fields/groups; members fill them; visibility rules are honoured.",
+      "status": "implemented", "gaps": []
+    },
+    {
+      "slug": "spaces", "label": "Spaces", "tier": "mandatory", "group": "core",
+      "journey": "docs/journeys/spaces.md",
+      "owner_expectation": "Members create open/private/secret spaces with the right visibility/join behaviour; custom types are now registrable.",
+      "status": "implemented", "gaps": []
+    },
+    {
+      "slug": "social_graph", "label": "Social graph", "tier": "mandatory", "group": "core",
+      "journey": "docs/journeys/social-graph.md",
+      "owner_expectation": "Members follow, connect, block, and mute; these relationships gate visibility everywhere.",
+      "status": "implemented", "gaps": []
+    },
+    {
+      "slug": "notifications", "label": "Notifications", "tier": "mandatory", "group": "core",
+      "journey": "docs/journeys/notifications-email.md",
+      "owner_expectation": "Community actions create in-app + email notifications members can manage and mark read.",
+      "status": "implemented", "gaps": []
+    },
+    {
+      "slug": "auth", "label": "Auth", "tier": "mandatory", "group": "core",
+      "journey": "docs/journeys/auth-verification.md",
+      "owner_expectation": "Members register, verify email, log in; social login and spam protection are available.",
+      "status": "implemented", "gaps": []
+    },
+    {
+      "slug": "search", "label": "Search", "tier": "mandatory", "group": "core",
+      "journey": "docs/journeys/search.md",
+      "owner_expectation": "Members search people/spaces/posts; results respect blocks and shadow-bans.",
+      "status": "implemented", "gaps": []
+    },
+    {
+      "slug": "moderation", "label": "Moderation", "tier": "mandatory", "group": "core",
+      "journey": "docs/journeys/moderation-report.md",
+      "owner_expectation": "Members report content; admins review a queue, strike, suspend; users can appeal.",
+      "status": "implemented", "gaps": []
+    },
+    {
+      "slug": "hashtags", "label": "Hashtags", "tier": "default_on", "group": "community",
+      "journey": "docs/journeys/hashtags.md",
+      "owner_expectation": "#tags auto-index from posts; members follow tags; a trending list surfaces.",
+      "status": "implemented", "gaps": []
+    },
+    {
+      "slug": "onboarding", "label": "Onboarding", "tier": "default_on", "group": "community",
+      "journey": "docs/journeys/onboarding.md",
+      "owner_expectation": "Owner picks a registration mode and invites people; new members get a guided onboarding wizard.",
+      "status": "partial",
+      "gaps": ["buddynext_reg_mode is stored but NOT enforced on REST signup (invite-only does not block open signup; only SocialLogin honours it)", "invite tokens are generated/emailed but never redeemed (no registration-path caller consumes bn_invite)", "no single-invite UI/REST route (bulk CSV only), no revoke endpoint", "skip() does not cancel the nudge cron"]
+    },
+    {
+      "slug": "verification", "label": "Email verification", "tier": "default_on", "group": "community",
+      "journey": "docs/journeys/auth-verification.md",
+      "owner_expectation": "New members confirm their email before full access; tokens are resendable and idempotent.",
+      "status": "implemented", "gaps": []
+    },
+    {
+      "slug": "announcements", "label": "Announcements", "tier": "default_on", "group": "community",
+      "journey": "docs/journeys/announcements.md",
+      "owner_expectation": "Admin pins an announcement to the top of every member's feed; members can dismiss it.",
+      "status": "partial",
+      "gaps": ["site_pin_expires_at is read/honoured but never written (no create or REST path sets expiry; pinned forever until dismissed)", "no admin UI, no list/edit/un-pin endpoint", "only the single newest announcement is site-pinned", "creation hardcoded to manage_options (no space-moderator path, no delegation filter)"]
+    },
+    {
+      "slug": "sidebar", "label": "Sidebar widgets", "tier": "default_on", "group": "community",
+      "journey": "docs/journeys/sidebar.md",
+      "owner_expectation": "A community sidebar shows trending tags, suggested follows, and joined spaces; owner can toggle it in Settings -> Features.",
+      "status": "partial",
+      "gaps": ["cache-bust key mismatch: suggested_follows() writes key 'suggested-v2:{u}:{limit}' but invalidate_user() deletes 'suggested:{u}:3', so follow/unfollow/block never clear the suggested-follows cache (self-heals only on 300s TTL)"]
+    },
+    {
+      "slug": "gamification", "label": "Gamification (bridge)", "tier": "opt_in", "group": "bridges",
+      "partner": "wb-gamification",
+      "journey": "docs/journeys/gamification.md",
+      "owner_expectation": "Activate wb-gamification and members earn points/badges/levels for community activity with no wiring; tiles appear on profiles; badge/level-up events flow into notifications.",
+      "status": "implemented",
+      "gaps": ["profile Points/Level/Badges tiles are injected via buddynext_profile_extra_data in templates only, NOT in REST"]
+    },
+    {
+      "slug": "jetonomy", "label": "Jetonomy forums (bridge)", "tier": "opt_in", "group": "bridges",
+      "partner": "jetonomy",
+      "journey": "docs/journeys/jetonomy.md",
+      "owner_expectation": "Activate Jetonomy and forums appear inside the community with unified nav (Discussions rail link, space Forum tab) and discussions included in search.",
+      "status": "implemented",
+      "gaps": ["feed-sync of discussions into bn_posts is behind opt-in filter buddynext_jetonomy_feed_sync (default off)"]
+    },
+    {
+      "slug": "wpmediaverse", "label": "WPMediaVerse DM + media (bridge)", "tier": "opt_in", "group": "bridges",
+      "partner": "wpmediaverse",
+      "journey": "docs/journeys/wpmediaverse.md",
+      "owner_expectation": "Activate WPMediaVerse and members can DM + share media inside the community; BN blocks/mutes are respected; messages create BN notifications.",
+      "status": "implemented",
+      "gaps": ["mvs_comment_created handler arg-order mismatch: bridge expects ($comment_id,$media_id) but partner fires ($media_id,$user_id,$comment_id,$content,$source) -> lightbox->activity comment sync gets wrong IDs (bridge fix needed)"]
+    },
+    {
+      "slug": "career_board", "label": "Career Board jobs (bridge)", "tier": "opt_in", "group": "bridges",
+      "partner": "career-board",
+      "journey": "docs/journeys/career-board.md",
+      "owner_expectation": "Activate the Career Board and job posts surface in community search; applications create notifications.",
+      "status": "implemented",
+      "gaps": ["thinnest of the four bridges: jobs indexed into bn_search_index only (NO hashtag indexing, despite a HOOKS.md note implying otherwise)", "job expiry de-feeds bn_posts but does not de-index search"]
+    },
+    {
+      "slug": "webhooks", "label": "Outbound webhooks", "tier": "opt_in", "group": "integrations",
+      "journey": "docs/journeys/webhooks.md",
+      "owner_expectation": "Owner registers webhook endpoints and external systems get signed POSTs on 14 community events (member/post/space/connection/reaction/comment/moderation).",
+      "status": "partial",
+      "gaps": ["the 'webhooks' opt-in toggle is NOT enforced at runtime (service/listener/routes wired unconditionally, no is_enabled('webhooks') guard) -> deliveries fire even with the toggle off", "attempt column never incremented on retry", "silent auto-deactivate after 3 failures with no re-activate route", "Free cap of 1 endpoint"]
+    }
+  ]
+}

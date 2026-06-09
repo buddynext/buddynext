@@ -682,7 +682,7 @@ tiles.
 
 - **WBGamification** — hook `buddynext_post_created`, `buddynext_user_followed`, `buddynext_reaction_added`, `buddynext_space_member_joined` to award points.
 - **Jetonomy** — hook `buddynext_space_created` to optionally auto-create a linked forum. Bridge fires `buddynext_index_hashtags` on `jetonomy_discussion_created`.
-- **Career Board** — bridge fires `buddynext_index_hashtags` on `wp_cb_job_published`.
+- **Career Board** — bridge listens to `wcb_job_created` / `wcb_job_expired` / `wcb_application_*` and indexes jobs into `bn_search_index` (`object_type='job'`) via `SearchService::index()`; application events create `bn_notifications`. It does **not** index hashtags. (Pure inbound listener — fires no `buddynext_*` hooks of its own.)
 - **Custom addons** — do NOT hook `buddynext_index_hashtags` to fire it; that hook is fired BY bridges, not received by external code. To make your content's hashtags work, open a bridge PR to add your content type to `includes/Bridges/`.
 
 ---

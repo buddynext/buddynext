@@ -75,24 +75,46 @@ Admin autologin shortcut: append `?autologin=1` to any admin URL. The mu-plugin 
 | `wp_bn_invites` | Onboarding — community invite tokens |
 | `wp_bn_activity_log` | Audit — community activity event log |
 
-## Running all journeys for a dogfooding session
+## Feature coverage — 100%
 
-Run these journeys in the recommended order. Each journey includes cleanup SQL to leave the environment in a known-good state for the next one.
+Every feature in the `FeatureRegistry` catalogue (20 features across core / community / bridges / integrations) has a dedicated journey runbook. Each runbook opens with a **Site-owner expectation** block — what a community owner expects the feature to do out-of-the-box and what they configure — so the journey can be audited as "does the feature meet the owner's expectation?" Bridge journeys require their partner plugin active and degrade to no-ops (no fatals) when it is not.
 
-| Order | File | Feature | Estimated time |
-|-------|------|---------|---------------|
-| 1 | [social-graph.md](social-graph.md) | Follow / unfollow / connect / block | 10 min |
-| 2 | [activity-feed.md](activity-feed.md) | Create posts, poll, reactions, comments, shares, bookmarks | 12 min |
-| 3 | [spaces.md](spaces.md) | Create open / private / secret space; join; ban; leave | 12 min |
-| 4 | [profile-fields.md](profile-fields.md) | Admin creates fields; member fills profile; visibility filter | 10 min |
-| 5 | [member-directory.md](member-directory.md) | Directory listing; member type filter; search; block exclusions | 8 min |
-| 6 | [notifications-email.md](notifications-email.md) | Follow action triggers notification row + email; mark read | 10 min |
-| 7 | [hashtags.md](hashtags.md) | Post with #tag; auto-index; follow hashtag; trending list | 8 min |
-| 8 | [search.md](search.md) | Full-text search; reindex; viewer-aware block + shadow-ban exclusion | 10 min |
-| 9 | [moderation-report.md](moderation-report.md) | Report post; admin reviews queue; strike; suspend; appeal | 12 min |
-| 10 | [auth-verification.md](auth-verification.md) | Register user; create token; verify; resend; idempotency | 8 min |
+### Core (mandatory)
 
-Estimate: 100 minutes total for all 10 journeys including cleanup.
+| File | Feature | Est. time |
+|------|---------|-----------|
+| [social-graph.md](social-graph.md) | Follow / unfollow / connect / block | 10 min |
+| [activity-feed.md](activity-feed.md) | Posts, poll, shares, bookmarks (reactions + comments have their own runbooks) | 12 min |
+| [reactions.md](reactions.md) | Emoji reactions: toggle, counts, reactor list | 6 min |
+| [comments.md](comments.md) | Threaded comments: create, edit, delete, pin, before-save gate | 8 min |
+| [spaces.md](spaces.md) | Open / private / secret space; join; ban; leave; custom types | 12 min |
+| [profile-fields.md](profile-fields.md) | Admin creates fields; member fills profile; visibility filter | 10 min |
+| [member-directory.md](member-directory.md) | Directory listing; member-type filter; search; block exclusions | 8 min |
+| [notifications-email.md](notifications-email.md) | Action triggers notification row + email; mark read | 10 min |
+| [search.md](search.md) | Full-text search; reindex; viewer-aware block + shadow-ban exclusion | 10 min |
+| [moderation-report.md](moderation-report.md) | Report post; review queue; strike; suspend; appeal | 12 min |
+| [auth-verification.md](auth-verification.md) | Register user; create token; verify; resend; idempotency | 8 min |
+
+### Community (default-on)
+
+| File | Feature | Est. time |
+|------|---------|-----------|
+| [hashtags.md](hashtags.md) | Post with #tag; auto-index; follow hashtag; trending list | 8 min |
+| [onboarding.md](onboarding.md) | Reg mode; signup onboarding wizard; community invites; setup wizard | 10 min |
+| [announcements.md](announcements.md) | Admin pins a site-wide announcement; per-user dismiss | 6 min |
+| [sidebar.md](sidebar.md) | Trending / suggested-follows / joined-spaces widgets; feature toggle | 6 min |
+
+### Bridges & integrations (opt-in — require partner plugin)
+
+| File | Feature | Partner | Est. time |
+|------|---------|---------|-----------|
+| [gamification.md](gamification.md) | Points / badges / levels for community activity | wb-gamification | 14 min |
+| [jetonomy.md](jetonomy.md) | Forums / discussions unified into the community | jetonomy | 12 min |
+| [wpmediaverse.md](wpmediaverse.md) | Direct messages + media (BN blocks enforced) | wpmediaverse | 12 min |
+| [career-board.md](career-board.md) | Job posts surface in community search | career board | 8 min |
+| [webhooks.md](webhooks.md) | Outbound webhooks fire on community events | (none) | 8 min |
+
+Estimate: ~200 minutes for the full suite including cleanup. Run core first, then community, then bridges (each runbook includes cleanup SQL to leave a known-good state).
 
 ## Runbook contract
 
