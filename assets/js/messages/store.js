@@ -468,11 +468,21 @@ const { actions } = store( 'buddynext/messages', {
 				payload.media_id = mediaId;
 			}
 
-			// Snapshot the attachment for the optimistic bubble, then reset the
-			// composer (input, reply, attachment) before the network round-trip.
+			// Snapshot everything so a failed send can be fully restored — never
+			// silently eat a member's text or attachment on a flaky connection.
+			const snapshot = {
+				text: text,
+				replyToId: ctx.replyToId,
+				replyToText: ctx.replyToText,
+				attachmentId: ctx.attachmentId,
+				attachmentName: ctx.attachmentName,
+				attachmentPreview: ctx.attachmentPreview,
+			};
 			const pendingMedia = mediaId
 				? { type: 'image', thumbnail: ctx.attachmentPreview || '', url: '', title: ctx.attachmentName || '' }
 				: null;
+
+			// Optimistically clear the composer for a snappy feel.
 			if ( input ) {
 				input.value = '';
 				input.style.height = 'auto';
@@ -480,6 +490,7 @@ const { actions } = store( 'buddynext/messages', {
 			actions.clearReply();
 			actions.clearAttachment();
 
+			let ok = false;
 			try {
 				const res = yield fetch( ctx.mvsRest + '/conversations/' + convId + '/messages', {
 					method: 'POST',
@@ -487,6 +498,7 @@ const { actions } = store( 'buddynext/messages', {
 					body: JSON.stringify( payload ),
 				} );
 				if ( res.ok ) {
+					ok = true;
 					const msg = yield res.json();
 					if ( pendingMedia && ! msg.media && ! msg.media_share ) {
 						msg.media = pendingMedia;
@@ -494,6 +506,22 @@ const { actions } = store( 'buddynext/messages', {
 					appendMessage( msg, ctx.userId );
 				}
 			} catch ( _e ) {}
+
+			if ( ! ok ) {
+				// Restore the composer so the member can retry — no data loss.
+				if ( input ) {
+					input.value = snapshot.text;
+					input.style.height = 'auto';
+					input.style.height = Math.min( input.scrollHeight, 160 ) + 'px';
+					input.focus();
+				}
+				ctx.replyToId         = snapshot.replyToId;
+				ctx.replyToText       = snapshot.replyToText;
+				ctx.attachmentId      = snapshot.attachmentId;
+				ctx.attachmentName    = snapshot.attachmentName;
+				ctx.attachmentPreview = snapshot.attachmentPreview;
+				ctx.attachmentVisible = !! ( parseInt( snapshot.attachmentId, 10 ) || 0 );
+			}
 		},
 
 		// ── Message action bar (delegated) ──────────────────────────────────────
