@@ -63,6 +63,7 @@ $msg_uid     = absint( $msg['sender_id'] ?? 0 );
 $is_mine     = $msg_uid === $viewer;
 $reactions   = (array) ( $msg['reactions'] ?? array() );
 $reply_to    = $msg['reply_to'] ?? null;
+$media       = is_array( $msg['media'] ?? null ) ? $msg['media'] : null;
 $read_by_all = ! empty( $msg['read_by_recipient'] );
 
 $msg_ts = is_numeric( $msg_at ) ? (int) $msg_at : strtotime( (string) $msg_at );
@@ -103,6 +104,26 @@ do_action( 'buddynext_part_dm_message_before', $args );
 			<?php if ( is_array( $reply_to ) && ! empty( $reply_to['body'] ) ) : ?>
 				<div class="bn-dm-bubble__quoted">
 					<?php echo esc_html( wp_trim_words( sanitize_text_field( $reply_to['body'] ), 15 ) ); ?>
+				</div>
+			<?php endif; ?>
+			<?php if ( $media ) : ?>
+				<?php
+				$bn_m_type  = (string) ( $media['type'] ?? 'file' );
+				$bn_m_thumb = (string) ( $media['thumbnail'] ?? '' );
+				$bn_m_url   = (string) ( $media['url'] ?? '' );
+				$bn_m_title = (string) ( $media['title'] ?? '' );
+				?>
+				<div class="bn-dm-bubble__media" data-type="<?php echo esc_attr( $bn_m_type ); ?>">
+					<?php if ( 'image' === $bn_m_type && '' !== $bn_m_thumb ) : ?>
+						<a href="<?php echo esc_url( '' !== $bn_m_url ? $bn_m_url : $bn_m_thumb ); ?>"<?php echo '' !== $bn_m_url ? ' target="_blank" rel="noopener"' : ''; ?>>
+							<img src="<?php echo esc_url( $bn_m_thumb ); ?>" alt="<?php echo esc_attr( $bn_m_title ); ?>" loading="lazy">
+						</a>
+					<?php else : ?>
+						<a class="bn-dm-bubble__file" href="<?php echo esc_url( $bn_m_url ); ?>" target="_blank" rel="noopener">
+							<?php buddynext_icon( 'paperclip' ); ?>
+							<span><?php echo esc_html( '' !== $bn_m_title ? $bn_m_title : __( 'Attachment', 'buddynext' ) ); ?></span>
+						</a>
+					<?php endif; ?>
 				</div>
 			<?php endif; ?>
 			<?php echo $msg_body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already filtered via wp_kses above. ?>

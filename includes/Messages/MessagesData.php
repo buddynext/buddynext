@@ -197,6 +197,29 @@ class MessagesData {
 			$created    = strtotime( (string) self::val( $m, 'created_at', '' ) );
 			$parent     = self::val( $m, 'parent_preview', null );
 			$sender_id  = (int) self::val( $m, 'sender_id', 0 );
+
+			// Private media shared into the DM (mvs media_share), mapped to a
+			// compact shape the bubble renders. WP-attachment fallback kept for
+			// any legacy messages that used attachment_id.
+			$share  = self::val( $m, 'media_share', null );
+			$attach = self::val( $m, 'attachment', null );
+			$media  = null;
+			if ( $share ) {
+				$media = array(
+					'type'      => (string) self::val( $share, 'type', 'image' ),
+					'thumbnail' => (string) self::val( $share, 'thumbnail', '' ),
+					'url'       => (string) self::val( $share, 'permalink', '' ),
+					'title'     => (string) self::val( $share, 'title', '' ),
+				);
+			} elseif ( $attach ) {
+				$media = array(
+					'type'      => 0 === strpos( (string) self::val( $attach, 'mime', '' ), 'image/' ) ? 'image' : 'file',
+					'thumbnail' => (string) self::val( $attach, 'thumbnail', self::val( $attach, 'url', '' ) ),
+					'url'       => (string) self::val( $attach, 'url', '' ),
+					'title'     => (string) self::val( $attach, 'name', '' ),
+				);
+			}
+
 			$messages[] = array(
 				'id'                => (int) self::val( $m, 'id', 0 ),
 				'body'              => (string) self::val( $m, 'content', '' ),
@@ -204,6 +227,7 @@ class MessagesData {
 				'sender_id'         => $sender_id,
 				'reactions'         => $reactions,
 				'reply_to'          => $parent ? array( 'body' => (string) self::val( $parent, 'content', '' ) ) : null,
+				'media'             => $media,
 				'read_by_recipient' => ( $sender_id === $viewer && $other_read && $created && $other_read >= $created ),
 			);
 		}

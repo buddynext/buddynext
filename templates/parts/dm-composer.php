@@ -78,6 +78,29 @@ do_action( 'buddynext_part_dm_composer_before', $args );
 		</button>
 	</div>
 
+	<div class="bn-card bn-dm-composer__attachment" data-wp-class--is-hidden="!context.attachmentVisible">
+		<img class="bn-dm-composer__attachment-thumb" data-wp-bind--src="context.attachmentPreview" alt="">
+		<span class="bn-dm-composer__attachment-name" data-wp-text="context.attachmentName"></span>
+		<button
+			type="button"
+			class="bn-btn"
+			data-variant="ghost"
+			data-size="sm"
+			aria-label="<?php esc_attr_e( 'Remove attachment', 'buddynext' ); ?>"
+			data-wp-on--click="actions.clearAttachment"
+		>
+			<?php buddynext_icon( 'x' ); ?>
+		</button>
+	</div>
+
+	<input
+		type="file"
+		id="bn-dm-file"
+		class="bn-visually-hidden"
+		accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm"
+		data-wp-on--change="actions.onFileSelected"
+	>
+
 	<form class="bn-dm-composer__row" data-wp-on--submit="actions.sendMessage">
 		<label for="<?php echo esc_attr( $input_id ); ?>" class="bn-visually-hidden">
 			<?php esc_html_e( 'Message', 'buddynext' ); ?>

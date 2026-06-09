@@ -796,6 +796,71 @@
 	color: var(--bn-ink-3);
 }
 
+/* ── Composer pending-attachment chip ────────────────────────────────────── */
+.bn-dm-composer__attachment {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	margin-bottom: var(--bn-s2);
+}
+
+.bn-dm-composer__attachment.is-hidden {
+	display: none;
+}
+
+.bn-dm-composer__attachment-thumb {
+	width: 40px;
+	height: 40px;
+	border-radius: var(--bn-radius, 8px);
+	object-fit: cover;
+	background: var(--bn-sunken);
+}
+
+.bn-dm-composer__attachment-thumb:not([src]),
+.bn-dm-composer__attachment-thumb[src=""] {
+	display: none;
+}
+
+.bn-dm-composer__attachment-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: var(--bn-fs-sm);
+	color: var(--bn-ink-2);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ── Bubble media attachment ─────────────────────────────────────────────── */
+.bn-dm-bubble__media {
+	margin-bottom: var(--bn-s1);
+}
+
+.bn-dm-bubble__media img {
+	display: block;
+	max-width: 240px;
+	max-height: 240px;
+	width: auto;
+	height: auto;
+	border-radius: var(--bn-radius, 8px);
+}
+
+.bn-dm-bubble__file {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-radius, 8px);
+	color: inherit;
+	text-decoration: none;
+}
+
+.bn-dm-bubble__file:hover {
+	border-color: var(--bn-accent);
+}
+
 /* ── Composer emoji picker ───────────────────────────────────────────────── */
 .bn-dm-emoji-wrap {
 	position: relative;

@@ -146,6 +146,30 @@ function buildComposeResult( member ) {
 }
 
 /**
+ * Normalise a message's media into { type, thumbnail, url, title }, or null.
+ * Handles the local optimistic shape (msg.media), mvs media_share, and the
+ * legacy WP attachment shape.
+ *
+ * @param {Object} msg Message row.
+ * @return {Object|null} Normalised media.
+ */
+function normalizeMedia( msg ) {
+	if ( msg.media && typeof msg.media === 'object' ) {
+		return msg.media;
+	}
+	if ( msg.media_share && typeof msg.media_share === 'object' ) {
+		const s = msg.media_share;
+		return { type: s.type || 'image', thumbnail: s.thumbnail || '', url: s.permalink || '', title: s.title || '' };
+	}
+	if ( msg.attachment && typeof msg.attachment === 'object' ) {
+		const a = msg.attachment;
+		const isImg = ( a.mime || '' ).indexOf( 'image/' ) === 0;
+		return { type: isImg ? 'image' : 'file', thumbnail: a.thumbnail || a.url || '', url: a.url || '', title: a.name || '' };
+	}
+	return null;
+}
+
+/**
  * Render a message bubble matching templates/parts/dm-message.php.
  *
  * @param {Object} msg    Message row { id, sender_id, content|body, created_at }.
@@ -165,6 +189,43 @@ function buildMessageNode( msg, viewer ) {
 
 	const bubble = document.createElement( 'div' );
 	bubble.className = 'bn-dm-bubble' + ( isMine ? ' is-mine' : '' );
+
+	// Private media attachment (mvs media_share), rendered above the text to
+	// match templates/parts/dm-message.php.
+	const media = normalizeMedia( msg );
+	if ( media ) {
+		const wrapM = document.createElement( 'div' );
+		wrapM.className = 'bn-dm-bubble__media';
+		wrapM.dataset.type = media.type;
+		if ( 'image' === media.type && media.thumbnail ) {
+			const a = document.createElement( 'a' );
+			a.href = media.url || media.thumbnail;
+			if ( media.url ) {
+				a.target = '_blank';
+				a.rel = 'noopener';
+			}
+			const img = document.createElement( 'img' );
+			img.src = media.thumbnail;
+			img.alt = media.title || '';
+			img.loading = 'lazy';
+			a.appendChild( img );
+			wrapM.appendChild( a );
+		} else if ( media.url ) {
+			const a = document.createElement( 'a' );
+			a.className = 'bn-dm-bubble__file';
+			a.href = media.url;
+			a.target = '_blank';
+			a.rel = 'noopener';
+			const span = document.createElement( 'span' );
+			span.textContent = media.title || 'Attachment';
+			a.appendChild( span );
+			wrapM.appendChild( a );
+		}
+		if ( wrapM.firstChild ) {
+			bubble.appendChild( wrapM );
+		}
+	}
+
 	// Plain text + <br> via DOM nodes (no innerHTML) — a sent bubble can never
 	// inject markup. The server bubble allows br/em/strong via wp_kses.
 	appendText( bubble, body );
@@ -353,11 +414,13 @@ const { actions } = store( 'buddynext/messages', {
 			if ( event && event.preventDefault ) {
 				event.preventDefault();
 			}
-			const ctx    = getContext();
-			const convId = parseInt( ctx.activeConvId, 10 ) || 0;
-			const input  = document.getElementById( 'bn-dm-input' );
-			const text   = input ? input.value.trim() : '';
-			if ( ! convId || '' === text ) {
+			const ctx     = getContext();
+			const convId  = parseInt( ctx.activeConvId, 10 ) || 0;
+			const input   = document.getElementById( 'bn-dm-input' );
+			const text    = input ? input.value.trim() : '';
+			const mediaId = parseInt( ctx.attachmentId, 10 ) || 0;
+			// A message needs either text or an attachment.
+			if ( ! convId || ( '' === text && ! mediaId ) ) {
 				return;
 			}
 
@@ -365,12 +428,21 @@ const { actions } = store( 'buddynext/messages', {
 			if ( ctx.replyToId ) {
 				payload.parent_id = parseInt( ctx.replyToId, 10 );
 			}
+			if ( mediaId ) {
+				payload.media_id = mediaId;
+			}
 
+			// Snapshot the attachment for the optimistic bubble, then reset the
+			// composer (input, reply, attachment) before the network round-trip.
+			const pendingMedia = mediaId
+				? { type: 'image', thumbnail: ctx.attachmentPreview || '', url: '', title: ctx.attachmentName || '' }
+				: null;
 			if ( input ) {
 				input.value = '';
 				input.style.height = 'auto';
 			}
 			actions.clearReply();
+			actions.clearAttachment();
 
 			try {
 				const res = yield fetch( ctx.mvsRest + '/conversations/' + convId + '/messages', {
@@ -380,6 +452,9 @@ const { actions } = store( 'buddynext/messages', {
 				} );
 				if ( res.ok ) {
 					const msg = yield res.json();
+					if ( pendingMedia && ! msg.media && ! msg.media_share ) {
+						msg.media = pendingMedia;
+					}
 					appendMessage( msg, ctx.userId );
 				}
 			} catch ( _e ) {}
@@ -508,9 +583,62 @@ const { actions } = store( 'buddynext/messages', {
 			pop.hidden = ! pop.hidden;
 		},
 		openAttachment() {
-			const input = document.getElementById( 'bn-dm-input' );
-			if ( input ) {
-				input.focus();
+			const f = document.getElementById( 'bn-dm-file' );
+			if ( f ) {
+				f.click();
+			}
+		},
+		async onFileSelected( event ) {
+			const ctx  = getContext();
+			const file = event.target.files && event.target.files[ 0 ];
+			if ( ! file ) {
+				return;
+			}
+			ctx.attachmentName    = file.name;
+			ctx.attachmentVisible = true;
+			ctx.attachmentId      = 0;
+			ctx.attachmentPreview = ( file.type.indexOf( 'image/' ) === 0 && window.URL )
+				? URL.createObjectURL( file )
+				: '';
+
+			const fd = new FormData();
+			fd.append( 'file', file );
+			fd.append( 'privacy', 'private' ); // DM attachments are private MediaVerse media.
+
+			try {
+				// FormData sets its own multipart Content-Type boundary — send only the nonce.
+				const res = await fetch( ctx.mvsRest + '/media', {
+					method: 'POST',
+					headers: { 'X-WP-Nonce': ctx.nonce || '' },
+					body: fd,
+				} );
+				if ( ! res.ok ) {
+					actions.clearAttachment();
+					return;
+				}
+				const media = await res.json();
+				ctx.attachmentId = parseInt( media.id || media.media_id || 0, 10 ) || 0;
+				const thumb = media.thumbnail || media.thumb_large || media.source_url || media.url || '';
+				if ( thumb ) {
+					ctx.attachmentPreview = thumb;
+				}
+				if ( ! ctx.attachmentId ) {
+					actions.clearAttachment();
+				}
+			} catch ( _e ) {
+				actions.clearAttachment();
+			}
+			event.target.value = '';
+		},
+		clearAttachment() {
+			const ctx = getContext();
+			ctx.attachmentId      = 0;
+			ctx.attachmentName    = '';
+			ctx.attachmentPreview = '';
+			ctx.attachmentVisible = false;
+			const f = document.getElementById( 'bn-dm-file' );
+			if ( f ) {
+				f.value = '';
 			}
 		},
 
