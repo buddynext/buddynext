@@ -34,6 +34,34 @@ class ModerationService {
 	);
 
 	/**
+	 * Memoised, filtered report-reason list (per request).
+	 *
+	 * @var string[]|null
+	 */
+	private static ?array $reasons_cache = null;
+
+	/**
+	 * Allowed report reasons, filterable via buddynext_report_reasons.
+	 *
+	 * Filters should return a SUPERSET of the core reasons — the UI offers a
+	 * fixed vocabulary and the DB column is VARCHAR(32); add custom reasons but
+	 * do not remove core ones. Memoised so both validation sites see one list.
+	 *
+	 * @return string[]
+	 */
+	public static function reasons(): array {
+		if ( null === self::$reasons_cache ) {
+			self::$reasons_cache = array_values(
+				array_unique(
+					array_map( 'strval', (array) apply_filters( 'buddynext_report_reasons', self::REASONS ) )
+				)
+			);
+		}
+
+		return self::$reasons_cache;
+	}
+
+	/**
 	 * Valid appeal decision values.
 	 */
 	private const APPEAL_DECISIONS = array( 'approved', 'denied' );
@@ -54,7 +82,7 @@ class ModerationService {
 	public function report( int $reporter_id, string $object_type, int $object_id, string $reason, int $space_id = 0, string $notes = '' ): int|WP_Error {
 		$reason = sanitize_key( $reason );
 
-		if ( ! in_array( $reason, self::REASONS, true ) ) {
+		if ( ! in_array( $reason, self::reasons(), true ) ) {
 			$reason = 'other';
 		}
 
@@ -485,7 +513,7 @@ class ModerationService {
 		$page        = max( 1, absint( $args['page'] ?? 1 ) );
 		$offset      = ( $page - 1 ) * $per_page;
 		$object_type = isset( $args['object_type'] ) ? sanitize_key( (string) $args['object_type'] ) : '';
-		$reason      = ( isset( $args['reason'] ) && in_array( $args['reason'], self::REASONS, true ) )
+		$reason      = ( isset( $args['reason'] ) && in_array( $args['reason'], self::reasons(), true ) )
 			? sanitize_key( (string) $args['reason'] )
 			: '';
 

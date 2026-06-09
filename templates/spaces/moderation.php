@@ -224,22 +224,12 @@ $mod_base_url = buddynext_space_moderation_url( $space->slug ?? '' );
 $member_fmt   = number_format_i18n( (int) $space->member_count );
 $current_uid  = get_current_user_id();
 
-// Privacy badge tone for the hero.
-$mod_privacy_map = array(
-	'open'    => array(
-		'tone'  => 'success',
-		'label' => __( 'Open', 'buddynext' ),
-	),
-	'private' => array(
-		'tone'  => 'warn',
-		'label' => __( 'Private', 'buddynext' ),
-	),
-	'secret'  => array(
-		'tone'  => 'danger',
-		'label' => __( 'Secret', 'buddynext' ),
-	),
+// Privacy badge tone + label — single source via the space-type registry.
+$mod_type    = (string) ( $space->type ?? 'open' );
+$mod_privacy = array(
+	'tone'  => \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( $mod_type ),
+	'label' => \BuddyNext\Spaces\SpaceTypeRegistry::instance()->label( $mod_type ),
 );
-$mod_privacy     = $mod_privacy_map[ $space->type ?? 'open' ] ?? $mod_privacy_map['open'];
 ?>
 <div
 	class="bn-space-mod"

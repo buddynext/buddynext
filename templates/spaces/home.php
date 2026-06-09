@@ -145,7 +145,7 @@ $is_guest     = ( 0 === (int) $current_user_id );
 // isn't a site admin) reaches the canonical 404 surface so we never confirm
 // the slug exists. Mirrors the visibility gate enforced by
 // SpaceService::search() and the directory's `type != 'secret'` filter.
-if ( 'secret' === $space->type && ! $is_member && ! current_user_can( 'manage_options' ) ) {
+if ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space->type ) && ! $is_member && ! current_user_can( 'manage_options' ) ) {
 	global $wp_query;
 	$wp_query->set_404();
 	status_header( 404 );
@@ -156,7 +156,7 @@ if ( 'secret' === $space->type && ! $is_member && ! current_user_can( 'manage_op
 
 // Access gate: private + secret feeds. Open spaces never gate the feed, but
 // guests still see a "Join to participate" CTA instead of the composer.
-$gate_feed = ( 'open' !== $space->type && ! $is_member && ! current_user_can( 'manage_options' ) );
+$gate_feed = ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->content_requires_membership( (string) $space->type ) && ! $is_member && ! current_user_can( 'manage_options' ) );
 
 // ── Fetch posts for the feed ──────────────────────────────────────────────────
 
@@ -279,11 +279,7 @@ $active_tab       = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['
 $member_count_fmt = number_format_i18n( (int) $space->member_count );
 
 $privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $space->type );
-$privacy_tone  = match ( $space->type ) {
-	'open'    => 'info',
-	'private' => 'warn',
-	default   => 'danger',
-};
+$privacy_tone  = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( (string) $space->type );
 
 $bn_current_user = $current_user_id ? get_userdata( $current_user_id ) : null;
 $rest_nonce      = wp_create_nonce( 'wp_rest' );

@@ -65,8 +65,21 @@ class Abilities {
 	 * Called on the wp_abilities_api_init action.
 	 */
 	public function do_register(): void {
-		foreach ( self::CATALOG as $ability ) {
+		foreach ( $this->get_catalog() as $ability ) {
 			wp_register_ability( $ability, array( 'plugin' => 'buddynext' ) );
 		}
+	}
+
+	/**
+	 * The ability catalog, filterable via buddynext_abilities.
+	 *
+	 * Register a custom ability slug here and it is registered with the
+	 * Abilities API alongside the built-ins. Pair with buddynext_role_map
+	 * (PermissionService) to gate the new ability behind a community role.
+	 *
+	 * @return string[]
+	 */
+	public function get_catalog(): array {
+		return array_values( array_unique( array_map( 'strval', (array) apply_filters( 'buddynext_abilities', self::CATALOG ) ) ) );
 	}
 }

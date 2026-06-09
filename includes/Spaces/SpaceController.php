@@ -398,10 +398,10 @@ class SpaceController {
 		$type_param = $request->get_param( 'type' );
 		if ( null !== $type_param && '' !== (string) $type_param ) {
 			$type_value = sanitize_key( (string) $type_param );
-			if ( in_array( $type_value, array( 'open', 'private', 'secret' ), true ) ) {
+			if ( SpaceTypeRegistry::instance()->is_valid( $type_value ) ) {
 				$args['type'] = $type_value;
-				// Restrict secret listing to viewer's own memberships.
-				if ( 'secret' === $type_value ) {
+				// Restrict unlisted (secret-equivalent) listing to the viewer's own memberships.
+				if ( ! SpaceTypeRegistry::instance()->is_listed( $type_value ) ) {
 					$viewer = get_current_user_id();
 					if ( 0 === $viewer ) {
 						return new WP_REST_Response( array(), 200 );
@@ -461,7 +461,7 @@ class SpaceController {
 			$validation_errors['slug'] = __( 'A slug is required.', 'buddynext' );
 		}
 
-		if ( ! in_array( $type, array( 'open', 'private', 'secret' ), true ) ) {
+		if ( ! SpaceTypeRegistry::instance()->is_valid( $type ) ) {
 			$validation_errors['type'] = __( 'Invalid space type.', 'buddynext' );
 		}
 
@@ -529,7 +529,7 @@ class SpaceController {
 			);
 		}
 
-		if ( 'secret' === $space['type'] ) {
+		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space['type'] ) ) {
 			$viewer_id = get_current_user_id();
 			if ( 0 === $viewer_id || ! ( new SpaceMemberService() )->is_member( $space['id'], $viewer_id ) ) {
 				return new WP_Error(
@@ -637,8 +637,8 @@ class SpaceController {
 			);
 		}
 
-		// Secret spaces: only active members and site admins may see the roster.
-		if ( 'secret' === $space['type'] && ! user_can( $viewer_id, 'manage_options' ) ) {
+		// Hidden (secret-equivalent) spaces: only active members and site admins may see the roster.
+		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space['type'] ) && ! user_can( $viewer_id, 'manage_options' ) ) {
 			$member_service = new SpaceMemberService();
 			if ( 'active' !== $member_service->get_status( $space_id, $viewer_id ) ) {
 				return new WP_Error(
@@ -737,8 +737,8 @@ class SpaceController {
 			);
 		}
 
-		// Secret spaces are invite-only.
-		if ( 'secret' === $space['type'] ) {
+		// Invite-only types: require a standing invitation.
+		if ( 'invite' === SpaceTypeRegistry::instance()->join_method( (string) $space['type'] ) ) {
 			if ( 'invited' !== $members->get_status( $space_id, $user_id ) ) {
 				return new WP_Error(
 					'invite_only',
@@ -748,8 +748,8 @@ class SpaceController {
 			}
 		}
 
-		// Private spaces: submit a join request.
-		if ( 'private' === $space['type'] ) {
+		// Request-to-join types: submit a join request.
+		if ( 'request' === SpaceTypeRegistry::instance()->join_method( (string) $space['type'] ) ) {
 			$current_status = $members->get_status( $space_id, $user_id );
 
 			// If already an active member or has a pending request, treat as success.

@@ -198,11 +198,13 @@ class CommentController {
 		$created['can_pin']           = user_can( $user_id, 'manage_options' );
 		$created['replies']           = array();
 		$created['is_pinned']         = false;
-		$created['author_meta_html']  = (string) apply_filters(
-			'buddynext_comment_author_meta_html',
-			'',
-			(int) $created['user_id'],
-			(int) $created['id']
+		$created['author_meta_html']  = wp_kses_post(
+			(string) apply_filters(
+				'buddynext_comment_author_meta_html',
+				'',
+				(int) $created['user_id'],
+				(int) $created['id']
+			)
 		);
 
 		return new WP_REST_Response( $created, 201 );
@@ -268,11 +270,13 @@ class CommentController {
 			$comment['can_pin']           = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
 			$comment['is_pinned']         = ( $pinned_id > 0 && (int) $comment['id'] === $pinned_id );
 
-			$comment['author_meta_html'] = (string) apply_filters(
-				'buddynext_comment_author_meta_html',
-				'',
-				(int) $comment['user_id'],
-				(int) $comment['id']
+			$comment['author_meta_html'] = wp_kses_post(
+				(string) apply_filters(
+					'buddynext_comment_author_meta_html',
+					'',
+					(int) $comment['user_id'],
+					(int) $comment['id']
+				)
 			);
 
 			if ( ! empty( $comment['is_deleted'] ) ) {
@@ -338,11 +342,13 @@ class CommentController {
 			'bn_pinned_comment_' . sanitize_key( (string) $updated['object_type'] ) . '_' . (int) $updated['object_id'],
 			0
 		) === $comment_id );
-		$updated['author_meta_html']  = (string) apply_filters(
-			'buddynext_comment_author_meta_html',
-			'',
-			(int) $updated['user_id'],
-			$comment_id
+		$updated['author_meta_html']  = wp_kses_post(
+			(string) apply_filters(
+				'buddynext_comment_author_meta_html',
+				'',
+				(int) $updated['user_id'],
+				$comment_id
+			)
 		);
 
 		return new WP_REST_Response( $updated, 200 );

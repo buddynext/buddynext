@@ -682,7 +682,7 @@ class NavManager extends AdminPageBase {
 			<div class="bn-scope-tip">
 				<?php
 				echo wp_kses(
-					__( 'Any plugin can inject tabs into any scope using filters — <code>buddynext_main_nav_items</code>, <code>buddynext_profile_tabs</code>, <code>buddynext_space_tabs</code>.', 'buddynext' ),
+					__( 'Any plugin can inject links into any scope using filters — <code>buddynext_rail_items</code> (left rail), <code>buddynext_part_profile_tab_bar_args</code> (profile tabs), <code>buddynext_space_tabs</code> (space tabs), <code>buddynext_context_nav</code> (sub-nav).', 'buddynext' ),
 					array( 'code' => array() )
 				);
 				?>

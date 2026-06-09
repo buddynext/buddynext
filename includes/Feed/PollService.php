@@ -54,6 +54,28 @@ class PollService {
 			);
 		}
 
+		/**
+		 * Filter poll-vote data before it is written.
+		 *
+		 * Return modified data to alter the choice, or a WP_Error to reject the vote.
+		 *
+		 * @param array $data    Vote data (user_id, post_id, option_id).
+		 * @param int   $user_id Voting user ID.
+		 */
+		$filtered = apply_filters(
+			'buddynext_poll_vote_before_save',
+			array(
+				'user_id'   => $user_id,
+				'post_id'   => $post_id,
+				'option_id' => $option_id,
+			),
+			$user_id
+		);
+		if ( is_wp_error( $filtered ) ) {
+			return $filtered;
+		}
+		$option_id = (int) ( $filtered['option_id'] ?? $option_id );
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		// Fetch existing vote (returns option_id or null).
 		$existing_option_id = $wpdb->get_var(

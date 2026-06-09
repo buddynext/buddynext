@@ -38,12 +38,34 @@ const COMMENT_MAX_DEPTH = 5;
  * @param {number}  depth         0 = top-level, 1 = reply, 2 = reply-of-reply (capped).
  * @return {HTMLElement}
  */
+/**
+ * Apply a wp.hooks JS filter when available, otherwise return the value
+ * unchanged. Lets extensions decorate comment rendering without forking this
+ * module; degrades silently when @wordpress/hooks is not present.
+ *
+ * @param {string} hook  Filter name.
+ * @param {*}      value Value to filter.
+ * @param {...*}   args  Extra context arguments.
+ * @return {*} Filtered value (or the original when hooks are unavailable).
+ */
+function bnApplyFilters( hook, value, ...args ) {
+	if ( window.wp && window.wp.hooks && typeof window.wp.hooks.applyFilters === 'function' ) {
+		return window.wp.hooks.applyFilters( hook, value, ...args );
+	}
+	return value;
+}
+
 function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth ) {
 	if ( typeof depth !== 'number' ) {
 		// Back-compat: callers that still pass a boolean isReply.
 		depth = depth ? 1 : 0;
 	}
 	const cappedDepth = Math.min( depth, COMMENT_MAX_DEPTH );
+
+	// Let extensions transform the comment data before it renders. Reassigned so
+	// every downstream read uses the filtered object; runs on nested replies too
+	// (buildCommentNode recurses below).
+	comment = bnApplyFilters( 'buddynext.comment', comment, { currentUserId, postId, depth: cappedDepth } );
 
 	const wrap = document.createElement( 'div' );
 	wrap.className = 'bn-comment-card';
@@ -73,6 +95,16 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	authorSpan.className = 'bn-comment__author';
 	authorSpan.textContent = comment.author_name || 'User';
 	header.appendChild( authorSpan );
+
+	// Server-provided author badges/roles (built via the buddynext_comment_author_meta_html
+	// filter on the REST side, where it is kses_post-escaped). Rendered here so extensions
+	// that add author chips actually appear — previously this field reached the client unused.
+	if ( comment.author_meta_html ) {
+		const authorMeta = document.createElement( 'span' );
+		authorMeta.className = 'bn-comment__author-meta';
+		authorMeta.innerHTML = comment.author_meta_html;
+		header.appendChild( authorMeta );
+	}
 	if ( comment.pinned ) {
 		const pinBadge = document.createElement( 'span' );
 		pinBadge.className = 'bn-comment__pinned-badge';
@@ -530,7 +562,9 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	}
 
 	wrap.appendChild( body );
-	return wrap;
+
+	// Final hook: extensions can decorate (or replace) the rendered comment node.
+	return bnApplyFilters( 'buddynext.commentNode', wrap, comment, { currentUserId, postId, depth: cappedDepth } );
 }
 
 function adjustCommentCount( postId, delta ) {

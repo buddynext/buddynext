@@ -168,22 +168,12 @@ if ( ! function_exists( 'bn_space_role_meta' ) ) {
 // Build filter base URL — preserves query args other than role/q/paged.
 $bn_filter_base = remove_query_arg( array( 'bn_sm_role', 'bn_sm_q', 'paged' ) );
 
-// Privacy badge tone.
-$mem_privacy_map = array(
-	'open'    => array(
-		'tone'  => 'success',
-		'label' => __( 'Open', 'buddynext' ),
-	),
-	'private' => array(
-		'tone'  => 'warn',
-		'label' => __( 'Private', 'buddynext' ),
-	),
-	'secret'  => array(
-		'tone'  => 'danger',
-		'label' => __( 'Secret', 'buddynext' ),
-	),
+// Privacy badge tone + label — single source via the space-type registry.
+$mem_type    = (string) ( $space->type ?? 'open' );
+$mem_privacy = array(
+	'tone'  => \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( $mem_type ),
+	'label' => \BuddyNext\Spaces\SpaceTypeRegistry::instance()->label( $mem_type ),
 );
-$mem_privacy     = $mem_privacy_map[ $space->type ?? 'open' ] ?? $mem_privacy_map['open'];
 ?>
 <div
 	class="bn-space-members"

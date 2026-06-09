@@ -98,18 +98,18 @@ $bn_count      = absint( $space['member_count'] ?? 0 );
 		</div>
 
 		<?php if ( $viewer_id && ! $is_member ) : ?>
-			<?php $bn_is_private = 'private' === $bn_type; ?>
+			<?php $bn_is_request = 'request' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $bn_type ); ?>
 			<div class="bn-sd-card__foot">
 				<button
 					class="bn-btn"
 					data-variant="primary"
 					data-size="sm"
-					data-current-state="<?php echo $bn_is_private ? 'request' : 'join'; ?>"
+					data-current-state="<?php echo $bn_is_request ? 'request' : 'join'; ?>"
 					data-action="bn-join-space"
 					data-space-id="<?php echo absint( $space_id ); ?>"
 					data-nonce="<?php echo esc_attr( wp_create_nonce( 'buddynext_join_space_' . $space_id ) ); ?>"
 				>
-					<?php echo $bn_is_private ? esc_html__( 'Request to join', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
+					<?php echo $bn_is_request ? esc_html__( 'Request to join', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
 				</button>
 			</div>
 		<?php endif; ?>

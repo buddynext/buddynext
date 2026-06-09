@@ -18,7 +18,7 @@
  * when registration is open (`buddynext_reg_mode`), otherwise it is rejected.
  *
  * Provider config is a flat map so Google + Facebook share one OAuth2 flow;
- * add Apple/others by extending self::providers() (and its client-secret JWT).
+ * add Apple/others by extending self::get_providers() (and its client-secret JWT).
  *
  * @package BuddyNext
  */
@@ -57,11 +57,33 @@ class SocialLogin {
 	private const RATE_MAX = 12;
 
 	/**
-	 * Static provider definitions (endpoints + claim mapping).
+	 * Provider definitions (endpoints + claim mapping), filterable.
+	 *
+	 * This is the single source of truth for every OAuth flow — the login UI,
+	 * the /oauth/{id}/ start + callback routes, the token exchange, and the
+	 * profile-claim mapping all read from here. Register a third-party provider
+	 * via the buddynext_oauth_providers filter and it works end-to-end; the
+	 * definition must keep the full shape: each entry needs label, icon (a
+	 * BuddyNext icon slug), authorize, token, userinfo, scope, and a map with
+	 * id/email/verified/name claim keys.
 	 *
 	 * @return array<string, array<string, mixed>>
 	 */
-	private static function providers(): array {
+	public static function get_providers(): array {
+		/**
+		 * Filter the OAuth provider definitions.
+		 *
+		 * @param array<string, array<string, mixed>> $providers Provider map keyed by id.
+		 */
+		return (array) apply_filters( 'buddynext_oauth_providers', self::provider_defaults() );
+	}
+
+	/**
+	 * Built-in provider definitions (endpoints + claim mapping).
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function provider_defaults(): array {
 		return array(
 			'google'   => array(
 				'label'     => 'Google',
@@ -143,7 +165,7 @@ class SocialLogin {
 	 */
 	public static function linked_for( int $user_id ): array {
 		$out = array();
-		foreach ( array_keys( self::providers() ) as $id ) {
+		foreach ( array_keys( self::get_providers() ) as $id ) {
 			$out[ $id ] = '' !== (string) get_user_meta( $user_id, 'bn_social_' . $id . '_id', true );
 		}
 		return $out;
@@ -156,7 +178,7 @@ class SocialLogin {
 	 */
 	public static function labels(): array {
 		$out = array();
-		foreach ( self::providers() as $id => $def ) {
+		foreach ( self::get_providers() as $id => $def ) {
 			$out[ $id ] = (string) $def['label'];
 		}
 		return $out;
@@ -220,7 +242,7 @@ class SocialLogin {
 	 */
 	public function expose_providers( $providers ) {
 		$providers = is_array( $providers ) ? $providers : array();
-		foreach ( self::providers() as $id => $def ) {
+		foreach ( self::get_providers() as $id => $def ) {
 			if ( ! self::is_ready( $id ) ) {
 				continue;
 			}
@@ -259,7 +281,7 @@ class SocialLogin {
 	 * @return void
 	 */
 	private function start( string $id ): void {
-		$defs = self::providers();
+		$defs = self::get_providers();
 		if ( ! isset( $defs[ $id ] ) || ! self::is_ready( $id ) ) {
 			$this->bail( __( 'That sign-in method is not available.', 'buddynext' ) );
 		}
@@ -317,7 +339,7 @@ class SocialLogin {
 	private function callback( string $id ): void {
 		$this->rate_limit();
 
-		$defs = self::providers();
+		$defs = self::get_providers();
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended
 		$code  = isset( $_GET['code'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['code'] ) ) : '';
 		$state = isset( $_GET['state'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['state'] ) ) : '';
@@ -371,7 +393,7 @@ class SocialLogin {
 	 * @return string Access token, or '' on failure.
 	 */
 	private function exchange_code( string $id, string $code ): string {
-		$defs = self::providers();
+		$defs = self::get_providers();
 		$s    = self::settings()[ $id ];
 
 		$res = wp_remote_post(
@@ -404,7 +426,7 @@ class SocialLogin {
 	 * @return array{id:string,email:string,name:string}
 	 */
 	private function fetch_profile( string $id, string $token ): array {
-		$defs = self::providers();
+		$defs = self::get_providers();
 		$map  = (array) $defs[ $id ]['map'];
 
 		$res = wp_remote_get(

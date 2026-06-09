@@ -177,7 +177,7 @@ class PostController {
 		$space_id = (int) ( $post['space_id'] ?? 0 );
 		if ( $space_id > 0 ) {
 			$space = ( new SpaceService() )->get( $space_id );
-			if ( null !== $space && 'secret' === ( $space['type'] ?? '' ) ) {
+			if ( null !== $space && \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) ( $space['type'] ?? '' ) ) ) {
 				$is_member = $viewer_id > 0 && ( new SpaceMemberService() )->is_member( $space_id, $viewer_id );
 				if ( ! $is_member && ! user_can( $viewer_id, 'manage_options' ) ) {
 					return new WP_Error(

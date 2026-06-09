@@ -61,7 +61,10 @@ $categories = $wpdb->get_results(
 
 // ── Build main spaces query ────────────────────────────────────────────────────
 
-$where_parts = array( "s.type != 'secret'" );
+$bn_unlisted = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->unlisted_keys();
+$where_parts = $bn_unlisted
+	? array( 's.type NOT IN ( ' . implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $bn_unlisted ) ) . ' )' )
+	: array( '1=1' );
 $query_args  = array();
 
 if ( ! empty( $bn_search ) ) {
@@ -76,15 +79,15 @@ if ( ! empty( $bn_cat_slug ) ) {
 	$query_args[]  = $bn_cat_slug;
 }
 
-if ( in_array( $bn_visibility, array( 'open', 'private', 'secret' ), true ) ) {
-	// Secret spaces are only visible to active members or site admins; the
-	// outer SQL filter below (`s.type != 'secret'`) drops them for everyone
-	// else. When 'secret' is explicitly requested we restrict to the viewer's
-	// own secret memberships so the chip remains usable for invitees.
-	if ( 'secret' === $bn_visibility ) {
-		$where_parts   = array( "s.type = 'secret'" );
+if ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_valid( $bn_visibility ) ) {
+	// Unlisted (secret-equivalent) types are dropped for everyone by the default
+	// exclusion above. When one is explicitly requested via the chip, restrict to
+	// the viewer's own active memberships so it stays usable for invitees.
+	if ( ! \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_listed( $bn_visibility ) ) {
+		$where_parts   = array( 's.type = %s' );
+		$query_args    = array( $bn_visibility );
 		$where_parts[] = 's.id IN ( SELECT space_id FROM ' . $wpdb->prefix . "bn_space_members WHERE user_id = %d AND status = 'active' )";
-		$query_args    = array( $current_user_id );
+		$query_args[]  = $current_user_id;
 		if ( ! empty( $bn_search ) ) {
 			$where_parts[] = '( s.name LIKE %s OR s.description LIKE %s )';
 			$like          = '%' . $wpdb->esc_like( $bn_search ) . '%';
@@ -561,11 +564,7 @@ $bn_subtitle = sprintf(
 				$is_pending   = $membership && 'pending' === $membership->status;
 
 				$privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) $space->type );
-				$privacy_tone  = match ( $space->type ) {
-					'open'    => 'info',
-					'private' => 'warn',
-					default   => 'danger',
-				};
+				$privacy_tone  = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( (string) $space->type );
 
 				$cover_tone = bn_space_cover_tone( $space_id );
 				$cat_icon   = bn_space_category_icon( $space->category_slug ?? '' );
@@ -664,7 +663,7 @@ $bn_subtitle = sprintf(
 									aria-label="<?php esc_attr_e( 'Request pending — click to cancel', 'buddynext' ); ?>"
 								><?php esc_html_e( 'Requested', 'buddynext' ); ?></button>
 
-							<?php elseif ( 'open' === $space->type ) : ?>
+							<?php elseif ( 'direct' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $space->type ) ) : ?>
 								<button
 									class="bn-btn"
 									data-variant="primary"

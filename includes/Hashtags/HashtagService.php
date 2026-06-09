@@ -227,7 +227,18 @@ class HashtagService {
 	 * @return string[] Lowercased, deduplicated array of tag slugs (no leading #).
 	 */
 	public function extract( string $content ): array {
-		preg_match_all( '/#([a-zA-Z][a-zA-Z0-9_]{0,49})/u', $content, $matches );
+		/**
+		 * Filter the regex used to extract hashtags from content.
+		 *
+		 * Must return a valid PCRE pattern with a single capture group (group 1)
+		 * yielding the hashtag slug without the leading '#'. Default supports a
+		 * letter-first, alphanumeric/underscore slug up to 50 chars. Applies to
+		 * every extraction surface (posts, bridged forum/media/job content).
+		 *
+		 * @param string $pattern Default extraction regex.
+		 */
+		$pattern = (string) apply_filters( 'buddynext_hashtag_pattern', '/#([a-zA-Z][a-zA-Z0-9_]{0,49})/u' );
+		preg_match_all( $pattern, $content, $matches );
 
 		if ( empty( $matches[1] ) ) {
 			return array();

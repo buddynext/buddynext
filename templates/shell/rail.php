@@ -118,7 +118,9 @@ $bn_rail_items = array(
  *
  * Bridge plugins use this to inject extra surface links. Each item is an
  * array with keys: key (string id), label (string), url (string), icon
- * (BuddyNext icon slug), show (bool), badge (int optional).
+ * (BuddyNext icon slug), show (bool), badge (int optional), active (bool
+ * optional — set true to force the highlighted state when the link points
+ * at a surface outside BuddyNext's own hubs, e.g. a bridged forum).
  *
  * @param array<int,array<string,mixed>> $items Rail item definitions.
  * @param string                         $hub   Current hub slug.
@@ -144,7 +146,7 @@ if ( '' === $bn_rail_active && 'feed' === $hub ) {
 			if ( empty( $bn_item['show'] ) ) {
 				continue;
 			}
-			$bn_is_active = ! empty( $bn_item['key'] ) && $bn_item['key'] === $bn_rail_active;
+			$bn_is_active = ! empty( $bn_item['active'] ) || ( ! empty( $bn_item['key'] ) && $bn_item['key'] === $bn_rail_active );
 			$bn_icon_slug = ! empty( $bn_item['icon'] ) ? (string) $bn_item['icon'] : 'home';
 			$bn_badge     = isset( $bn_item['badge'] ) ? (int) $bn_item['badge'] : 0;
 			?>

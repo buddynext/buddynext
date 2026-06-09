@@ -47,8 +47,8 @@ class JetonomyBridge {
 		// jetonomy_post_deleted fires ($post_id, $space_id, $user_id) — 3 args.
 		add_action( 'jetonomy_post_deleted', array( $this, 'on_post_deleted' ), 10, 3 );
 
-		// Inject a Discussions link into the BuddyNext top nav bar.
-		add_filter( 'buddynext_nav_items', array( $this, 'inject_discussions_nav_item' ) );
+		// Inject a Discussions link into the BuddyNext left navigation rail.
+		add_filter( 'buddynext_rail_items', array( $this, 'inject_discussions_nav_item' ) );
 
 		// Bridge: hashtag ↔ tag — when BuddyNext renders a hashtag feed, pull
 		// related Jetonomy discussions that share the same tag slug.
@@ -209,16 +209,17 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Inject a Discussions link into the BuddyNext top navigation bar.
+	 * Inject a Discussions link into the BuddyNext left navigation rail.
 	 *
-	 * Appends a public "Discussions" nav item pointing to the Jetonomy community home.
-	 * Active state is detected by comparing the current REQUEST_URI against the
-	 * Jetonomy base path so the item highlights on every forum page.
+	 * Appends a public "Discussions" rail item pointing to the Jetonomy community
+	 * home. The `active` flag is computed from the current REQUEST_URI and honoured
+	 * wherever the rail renders (BuddyNext's own hubs); on the forum's own pages the
+	 * rail is replaced by the Level-2 context sub-nav, so the flag is set defensively.
 	 *
-	 * Hooked on: buddynext_nav_items( array $items )
+	 * Hooked on: buddynext_rail_items( array $items, string $hub )
 	 *
-	 * @param array<int, array{label: string, url: string, icon?: string, active?: bool}> $items Existing nav items.
-	 * @return array<int, array{label: string, url: string, icon?: string, active?: bool}>
+	 * @param array<int, array{key: string, label: string, url: string, icon: string, show: bool, active?: bool}> $items Existing rail items.
+	 * @return array<int, array{key: string, label: string, url: string, icon: string, show: bool, active?: bool}>
 	 */
 	public function inject_discussions_nav_item( array $items ): array {
 		$settings  = get_option( 'jetonomy_settings', array() );
@@ -236,7 +237,8 @@ class JetonomyBridge {
 			'key'    => 'discussions',
 			'label'  => __( 'Discussions', 'buddynext' ),
 			'url'    => $forum_url,
-			'icon'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+			'icon'   => 'list',
+			'show'   => true,
 			'active' => $is_active,
 		);
 

@@ -50,8 +50,8 @@ class WPMediaVerseBridge {
 		// Notify media owner when someone favourites their content.
 		add_action( 'mvs_favorite_toggled', array( $this, 'on_favorite_toggled' ), 10, 3 );
 
-		// Unified nav: inject "Media" link into BuddyNext top nav.
-		add_filter( 'buddynext_nav_items', array( $this, 'inject_media_nav_item' ) );
+		// Unified nav: inject "Media" link into the BuddyNext left rail.
+		add_filter( 'buddynext_rail_items', array( $this, 'inject_media_nav_item' ) );
 
 		// Shell wrapping: BuddyNext hub shell + sidebar on all WPMediaVerse pages.
 		add_action( 'mvs_before_content', array( $this, 'open_hub_shell' ) );
@@ -177,16 +177,16 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Inject a "Media" link into the BuddyNext top navigation bar.
+	 * Inject a "Media" link into the BuddyNext left navigation rail.
 	 *
-	 * Uses the mvs_media post type archive URL. Active state is detected by
-	 * checking whether the current page has the mvs-page body class (set by
-	 * WPMediaVerse's TemplateLoader::maybe_add_mvs_body_class).
+	 * Uses the engine's mapped Explore page URL. The `active` flag is computed from
+	 * the current REQUEST_URI and honoured wherever the rail renders (BuddyNext's own
+	 * hubs); the media pages wrap their own shell, so the flag is set defensively.
 	 *
-	 * Hooked on: buddynext_nav_items( array $items )
+	 * Hooked on: buddynext_rail_items( array $items, string $hub )
 	 *
-	 * @param array<int, array{label: string, url: string, icon?: string, active?: bool}> $items Existing nav items.
-	 * @return array<int, array{label: string, url: string, icon?: string, active?: bool}>
+	 * @param array<int, array{key: string, label: string, url: string, icon: string, show: bool, active?: bool}> $items Existing rail items.
+	 * @return array<int, array{key: string, label: string, url: string, icon: string, show: bool, active?: bool}>
 	 */
 	public function inject_media_nav_item( array $items ): array {
 		// Resolve the engine's media landing page (its mapped Explore page) —
@@ -204,7 +204,8 @@ class WPMediaVerseBridge {
 			'key'    => 'media',
 			'label'  => __( 'Media', 'buddynext' ),
 			'url'    => (string) $media_url,
-			'icon'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+			'icon'   => 'image',
+			'show'   => true,
 			'active' => $is_active,
 		);
 

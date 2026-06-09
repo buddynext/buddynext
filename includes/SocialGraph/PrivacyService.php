@@ -105,6 +105,15 @@ class PrivacyService {
 	 */
 	public function set_preference( int $user_id, string $key, string $value ): void {
 		update_user_meta( $user_id, self::META_PREFIX . $key, $value );
+
+		/**
+		 * Fires after a user's privacy preference is changed.
+		 *
+		 * @param int    $user_id User whose preference changed.
+		 * @param string $key     Preference key (e.g. 'who_can_follow', 'who_can_connect', 'profile_visibility').
+		 * @param string $value   New preference value.
+		 */
+		do_action( 'buddynext_privacy_preference_changed', $user_id, $key, $value );
 	}
 
 	/**

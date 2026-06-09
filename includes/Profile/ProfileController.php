@@ -594,11 +594,14 @@ class ProfileController {
 				unset( $data[ $aud_key ] );
 			}
 		}
+		$privacy = buddynext_service( 'privacy' );
 		foreach ( $gate_keys as $gate_key => $allowed ) {
 			if ( array_key_exists( $gate_key, $data ) ) {
 				$gate_val = sanitize_key( (string) $data[ $gate_key ] );
 				if ( in_array( $gate_val, $allowed, true ) ) {
-					update_user_meta( $user_id, $gate_key, $gate_val );
+					// Route through PrivacyService (single source of truth) so the
+					// buddynext_privacy_preference_changed action fires on the live edit flow.
+					$privacy->set_preference( $user_id, substr( $gate_key, strlen( 'bn_privacy_' ) ), $gate_val );
 				}
 				unset( $data[ $gate_key ] );
 			}

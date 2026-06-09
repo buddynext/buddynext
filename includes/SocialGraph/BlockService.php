@@ -144,6 +144,14 @@ class BlockService {
 
 		$this->invalidate_block_cache( $muter_id, $muted_id );
 
+		/**
+		 * Fires after a user mutes another.
+		 *
+		 * @param int $muter_id User doing the muting.
+		 * @param int $muted_id User being muted.
+		 */
+		do_action( 'buddynext_mute', $muter_id, $muted_id );
+
 		return true;
 	}
 
@@ -168,6 +176,14 @@ class BlockService {
 		);
 
 		$this->invalidate_block_cache( $muter_id, $muted_id );
+
+		/**
+		 * Fires after a mute relationship is removed.
+		 *
+		 * @param int $muter_id User removing the mute.
+		 * @param int $muted_id Previously muted user.
+		 */
+		do_action( 'buddynext_unmute', $muter_id, $muted_id );
 	}
 
 	/**

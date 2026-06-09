@@ -104,9 +104,18 @@ $bn_csm_categories = isset( $categories ) && is_array( $categories ) ? $categori
 					class="bn-select"
 					required
 				>
-					<option value="open"><?php esc_html_e( 'Open — anyone can join', 'buddynext' ); ?></option>
-					<option value="private"><?php esc_html_e( 'Private — request to join', 'buddynext' ); ?></option>
-					<option value="secret"><?php esc_html_e( 'Secret — invite only, hidden', 'buddynext' ); ?></option>
+					<?php
+					$bn_join_hints = array(
+						'direct'  => __( 'anyone can join', 'buddynext' ),
+						'request' => __( 'request to join', 'buddynext' ),
+						'invite'  => __( 'invite only, hidden', 'buddynext' ),
+					);
+					foreach ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() as $bn_type_key => $bn_type_cfg ) :
+						$bn_hint  = $bn_join_hints[ $bn_type_cfg['join'] ] ?? '';
+						$bn_label = $bn_type_cfg['label'] . ( '' !== $bn_hint ? ' — ' . $bn_hint : '' );
+						?>
+						<option value="<?php echo esc_attr( (string) $bn_type_key ); ?>"><?php echo esc_html( $bn_label ); ?></option>
+					<?php endforeach; ?>
 				</select>
 				<p class="bn-create-space-form__error" data-bn-error-for="type" hidden></p>
 			</div>

@@ -484,6 +484,40 @@ class SearchService {
 			(array) $rows
 		);
 
+		/**
+		 * Filter each search result item before the set is returned.
+		 *
+		 * Fires once per item on the built-in SQL path (it does NOT run when an
+		 * external driver short-circuits buddynext_search_results). Use it to
+		 * enrich or annotate rows. To remove results, exclude them at the query
+		 * level via buddynext_search_query_args — dropping items here would
+		 * desync the `total` count and cursor, so this filter only mutates.
+		 *
+		 * @param array  $item      Result row (object_type, object_id, title, content, author_id, created_at).
+		 * @param string $query     Sanitised search query.
+		 * @param string $type      Object-type filter ('' for all).
+		 * @param int    $viewer_id Viewing user ID (0 = anonymous).
+		 * @param array  $args      Query args (per_page, page, type, viewer_id).
+		 */
+		$items = array_map(
+			function ( $item ) use ( $safe_query, $type, $viewer_id, $per_page, $page ) {
+				return (array) apply_filters(
+					'buddynext_search_item',
+					$item,
+					$safe_query,
+					$type,
+					$viewer_id,
+					array(
+						'per_page'  => $per_page,
+						'page'      => $page,
+						'type'      => $type,
+						'viewer_id' => $viewer_id,
+					)
+				);
+			},
+			$items
+		);
+
 		$results = array(
 			'items' => $items,
 			'total' => $total,

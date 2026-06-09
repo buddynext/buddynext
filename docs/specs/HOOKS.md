@@ -441,15 +441,20 @@ apply_filters( 'buddynext_profile_extra_data', array $extra, int $user_id )
 //       return $extra;
 //   }, 10, 2 );
 
-// Inject items into the main community nav bar (after Feed / Members / Spaces).
-apply_filters( 'buddynext_nav_items', array $items )
-// Each item: [ 'label' => string, 'url' => string, 'icon' => string (raw SVG), 'active' => bool ]
-// 'label' and 'url' are required. Items missing either are silently skipped.
-// 'active' sets aria-current="page" and the bn-nav-active CSS class.
+// Inject items into the left navigation rail (after Activity / Members / Spaces).
+// Fired by templates/shell/rail.php — the live primary-nav surface.
+apply_filters( 'buddynext_rail_items', array $items, string $hub )
+// Each item: [ 'key' => string, 'label' => string, 'url' => string,
+//             'icon' => string (BuddyNext icon slug — see assets/icons/),
+//             'show' => bool, 'badge' => int (optional), 'active' => bool (optional) ]
+// 'show' must be truthy or the item is skipped. 'icon' is a slug rendered via
+// buddynext_icon(); a raw SVG will NOT render. 'active' forces the highlighted
+// state for links that point outside BuddyNext's own hubs (e.g. a bridged forum).
 //
 // Example — Jetonomy Forum link (auto-active on any /community/* URL):
-//   add_filter( 'buddynext_nav_items', function( $items ) {
-//       $items[] = [ 'label' => 'Forum', 'url' => home_url( '/community/' ), 'active' => false ];
+//   add_filter( 'buddynext_rail_items', function( $items ) {
+//       $items[] = [ 'key' => 'forum', 'label' => 'Forum', 'url' => home_url( '/community/' ),
+//                    'icon' => 'list', 'show' => true, 'active' => false ];
 //       return $items;
 //   } );
 
@@ -679,3 +684,69 @@ tiles.
 - **Jetonomy** — hook `buddynext_space_created` to optionally auto-create a linked forum. Bridge fires `buddynext_index_hashtags` on `jetonomy_discussion_created`.
 - **Career Board** — bridge fires `buddynext_index_hashtags` on `wp_cb_job_published`.
 - **Custom addons** — do NOT hook `buddynext_index_hashtags` to fire it; that hook is fired BY bridges, not received by external code. To make your content's hashtags work, open a bridge PR to add your content type to `includes/Bridges/`.
+
+---
+
+## Extensibility seams added 2026-06-09 (developer-eye audit)
+
+**Write-path validation** — return the data array to transform, or a `WP_Error` to reject:
+```php
+apply_filters( 'buddynext_post_before_save',       array $data, int $user_id, ?int $post_id )
+apply_filters( 'buddynext_comment_before_save',    array $data, int $user_id, ?int $comment_id )
+apply_filters( 'buddynext_share_before_save',      array $data, int $user_id )
+apply_filters( 'buddynext_poll_vote_before_save',  array $data, int $user_id )
+```
+
+**Lifecycle actions** (previously silent):
+```php
+do_action( 'buddynext_mute',                        int $muter_id, int $muted_id )
+do_action( 'buddynext_unmute',                      int $muter_id, int $muted_id )
+do_action( 'buddynext_privacy_preference_changed',  int $user_id, string $key, string $value )
+do_action( 'buddynext_post_updated',                int $post_id, int $user_id, array $fields )
+```
+
+**Member directory** (`MemberDirectoryService::list_members`):
+```php
+apply_filters( 'buddynext_member_directory_query_args', array $args, 'member_directory', int $viewer_id )
+apply_filters( 'buddynext_member_directory_order_by',   string $clause, int $viewer_id, array $args ) // MUST end with u.ID tie-breaker
+apply_filters( 'buddynext_member_directory_items',      array $items, 'member_directory', int $viewer_id, array $args ) // rerank/enrich only
+```
+
+**Search / hashtags / moderation:**
+```php
+apply_filters( 'buddynext_search_item',     array $item, string $query, string $type, int $viewer_id, array $args ) // SQL path only; enrich-only
+apply_filters( 'buddynext_hashtag_pattern', string $regex ) // single capture group = slug
+apply_filters( 'buddynext_report_reasons',  string[] $reasons ) // return a SUPERSET of core reasons
+```
+
+**Auth — register a working OAuth provider** (flows through start/callback/token/profile):
+```php
+apply_filters( 'buddynext_oauth_providers', array $providers ) // each: label, icon(slug), authorize, token, userinfo, scope, map{id,email,verified,name}
+```
+
+**Spaces — register a custom space type** (semantics derive from `visibility`):
+```php
+apply_filters( 'buddynext_space_types', array $types )
+// each: [ 'label' => string, 'tone' => string,
+//         'visibility' => 'public'|'private'|'secret',  // listed? hidden? content-gated? all derived
+//         'join'       => 'direct'|'request'|'invite' ]
+// The core open/private/secret types cannot be removed. Resolve via
+// \BuddyNext\Spaces\SpaceTypeRegistry::instance().
+```
+
+**Platform seams:**
+```php
+apply_filters( 'buddynext_role_map',  array $map )        // capability => role; composes with buddynext_user_can
+apply_filters( 'buddynext_abilities', string[] $catalog ) // register custom abilities
+do_action( 'buddynext_rest_init' )                         // register routes under buddynext/v1
+do_action( 'buddynext_rest_routes_registered' )            // after core routes
+do_action( 'buddynext_register_services', Container $c )   // add services before core
+do_action( 'buddynext_services_registered', Container $c ) // rebind a core service (resolves lazily)
+```
+
+**Comment rendering (JS, `wp.hooks`)** — extensions decorate comments without forking `feed/store.js`:
+```js
+wp.hooks.addFilter( 'buddynext.comment',     'me', ( comment, ctx ) => comment ) // transform data
+wp.hooks.addFilter( 'buddynext.commentNode', 'me', ( node, comment, ctx ) => node ) // decorate/replace the rendered node
+// Server-side per-comment badges: buddynext_comment_author_meta_html (kses_post-escaped, rendered into .bn-comment__author-meta)
+```

@@ -135,6 +135,23 @@ class PostService {
 			}
 		}
 
+		/**
+		 * Filter post data before it is written on create.
+		 *
+		 * Return a modified $data array to transform the post, or a WP_Error to
+		 * reject it. Runs after the built-in safeguard checks. Only the known
+		 * post columns are persisted; extra keys are ignored.
+		 *
+		 * @param array $data    Post data (content, privacy, media_ids, link_url, etc.).
+		 * @param int   $user_id Author user ID.
+		 * @param int|null $post_id Null on create.
+		 */
+		$filtered = apply_filters( 'buddynext_post_before_save', $data, $user_id, null );
+		if ( is_wp_error( $filtered ) ) {
+			return $filtered;
+		}
+		$data = (array) $filtered;
+
 		global $wpdb;
 
 		$media_ids = isset( $data['media_ids'] ) ? wp_json_encode( $data['media_ids'] ) : null;
@@ -285,6 +302,22 @@ class PostService {
 			return $ownership;
 		}
 
+		/**
+		 * Filter post data before it is written on update.
+		 *
+		 * Return a modified $data array to transform the edit, or a WP_Error to
+		 * reject it. Only the known editable columns are persisted.
+		 *
+		 * @param array    $data    Edit data (content, privacy, content_warning, etc.).
+		 * @param int      $user_id User performing the update.
+		 * @param int|null $post_id Post being updated.
+		 */
+		$filtered = apply_filters( 'buddynext_post_before_save', $data, $user_id, $post_id );
+		if ( is_wp_error( $filtered ) ) {
+			return $filtered;
+		}
+		$data = (array) $filtered;
+
 		global $wpdb;
 
 		$fields  = array( 'edited_at' => current_time( 'mysql', true ) );
@@ -318,6 +351,15 @@ class PostService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		/**
+		 * Fires after a post is updated.
+		 *
+		 * @param int   $post_id Post ID.
+		 * @param int   $user_id User who updated the post.
+		 * @param array $fields  Columns written this update (edited_at plus any of content, privacy, content_warning, content_warning_type).
+		 */
+		do_action( 'buddynext_post_updated', $post_id, $user_id, $fields );
 
 		return true;
 	}

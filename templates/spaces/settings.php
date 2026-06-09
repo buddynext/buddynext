@@ -118,7 +118,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		if ( isset( $_POST['space_category_id'] ) ) {
 			$update_data['category_id'] = absint( $_POST['space_category_id'] );
 		}
-		if ( isset( $_POST['space_type'] ) && in_array( wp_unslash( $_POST['space_type'] ), array( 'open', 'private', 'secret' ), true ) ) {
+		if ( isset( $_POST['space_type'] ) && \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_valid( sanitize_key( (string) wp_unslash( $_POST['space_type'] ) ) ) ) {
 			$update_data['type'] = sanitize_key( wp_unslash( $_POST['space_type'] ) );
 		}
 		update_option( 'bn_space_' . $space_id . '_allow_member_posts', isset( $_POST['allow_member_posts'] ) ? 1 : 0 );
@@ -345,12 +345,7 @@ $settings_base = buddynext_space_settings_url( $space->slug ?? '' );
 
 // Privacy badge tone for the hero. Labels resolve via SpaceService::type_label()
 // so the wording stays in lockstep with the directory + space home + Pro tabs.
-$privacy_tone_map = array(
-	'open'    => 'success',
-	'private' => 'warn',
-	'secret'  => 'danger',
-);
-$privacy_tone     = $privacy_tone_map[ $space->type ?? 'open' ] ?? $privacy_tone_map['open'];
+$privacy_tone     = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( (string) ( $space->type ?? 'open' ) );
 $privacy_label    = \BuddyNext\Spaces\SpaceService::type_label( (string) ( $space->type ?? 'open' ) );
 
 // ── Tab registry ─────────────────────────────────────────────────────────────

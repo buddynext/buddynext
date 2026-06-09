@@ -260,12 +260,7 @@ class Spaces extends AdminPageBase {
 								$created  = mysql2date( (string) get_option( 'date_format' ), (string) $space['created_at'] );
 								$type_key = sanitize_key( (string) $space['type'] );
 
-								$tone_map = array(
-									'open'    => 'success',
-									'private' => 'info',
-									'secret'  => 'warn',
-								);
-								$tone     = $tone_map[ $type_key ] ?? 'info';
+								$tone     = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( $type_key );
 								?>
 								<tr>
 									<td>

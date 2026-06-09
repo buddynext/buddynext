@@ -1091,9 +1091,9 @@ User profile at `/members/{slug}/` should have tabs for all content types:
 | Connections | BuddyNext `bn_connections` | ✅ Exists |
 | Badges | WBGamification via bridge | Exists (bridge done) |
 
-- [ ] **Profile media tab** — WPMediaVerseBridge renders media grid on profile view via `buddynext_profile_tabs` filter
-- [ ] **Profile discussions tab** — JetonomyBridge renders user's forum topics on profile view via `buddynext_profile_tabs` filter
-- [ ] **Profile tab filter** — add `buddynext_profile_tabs` filter in `templates/profile/view.php` for extensible tab system
+- [ ] **Profile media tab** — WPMediaVerseBridge renders media grid on profile view (extend the existing `buddynext_part_profile_tab_bar_args` filter + add a panel-content seam)
+- [ ] **Profile discussions tab** — JetonomyBridge renders user's forum topics on profile view (same seam as above)
+- [ ] **Profile tab panel seam** — `buddynext_part_profile_tab_bar_args` already registers tabs in `templates/parts/profile-tab-bar.php`; add a matching panel-render hook so bridges can supply tab *content*, not a new tab-registry filter
 
 **Layer 3 — Feed Unification (all activity in one stream)**
 
@@ -1555,8 +1555,8 @@ Each plugin must work independently without BuddyNext:
 **Goal:** One navigation bar across all three plugins. BuddyNext renders the subnav, bridges inject plugin-specific items, each plugin works standalone without fatal errors.
 
 **Architecture:**
-- BuddyNext `partials/nav.php` is the sole nav bar — renders Feed, Members, Spaces, [bridge items], Notifications, Messages
-- `buddynext_nav_items` filter allows bridges to inject items (Discussions, Media)
+- BuddyNext `shell/rail.php` is the primary nav surface — renders Activity, Explore, Members, Spaces, [bridge items], Notifications, Messages
+- `buddynext_rail_items` filter allows bridges to inject items (Discussions, Media)
 - Each bridge renders BuddyNext nav on its plugin's pages via `{plugin}_before_content` hook
 - Each bridge suppresses the plugin's own nav when BuddyNext is active
 - When BuddyNext is absent, each plugin renders its own standalone nav (or none)

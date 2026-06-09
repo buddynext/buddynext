@@ -622,6 +622,17 @@ class Plugin {
 	 * @param Container $container DI container.
 	 */
 	private static function register_services( Container $container ): void {
+		/**
+		 * Fires before BuddyNext registers its core services.
+		 *
+		 * Bindings registered here are overridden by the core bindings below, so
+		 * use this for new services. To REPLACE a core service, rebind it on
+		 * buddynext_services_registered instead (fires after the core bindings).
+		 *
+		 * @param Container $container The service container.
+		 */
+		do_action( 'buddynext_register_services', $container );
+
 		$container->bind( 'permissions', fn() => new PermissionService() );
 		$container->bind( 'roles', fn() => new RoleService() );
 		$container->bind( 'cache', fn() => new CacheService() );
@@ -701,6 +712,16 @@ class Plugin {
 		$container->bind( 'invite', fn() => new \BuddyNext\Onboarding\InviteService() );
 		$container->bind( 'setup_wizard', fn() => new \BuddyNext\Onboarding\SetupWizard() );
 		$container->bind( 'realtime', fn() => TransportFactory::current() );
+
+		/**
+		 * Fires after all BuddyNext core services are bound, before any are
+		 * resolved. Rebind a key here to REPLACE a core service with your own
+		 * implementation (the container resolves lazily, so a rebind at this
+		 * point wins). Hook early (low priority) to win over later listeners.
+		 *
+		 * @param Container $container The service container.
+		 */
+		do_action( 'buddynext_services_registered', $container );
 
 		// Abilities must be registered at plugins_loaded:15 so they are
 		// available before rest_api_init and admin_menu fire.

@@ -49,6 +49,28 @@ class ShareService {
 			);
 		}
 
+		/**
+		 * Filter share data before it is written.
+		 *
+		 * Return modified data to transform the share caption, or a WP_Error to reject it.
+		 *
+		 * @param array $data    Share data (user_id, post_id, content).
+		 * @param int   $user_id Sharing user ID.
+		 */
+		$filtered = apply_filters(
+			'buddynext_share_before_save',
+			array(
+				'user_id' => $user_id,
+				'post_id' => $post_id,
+				'content' => $content,
+			),
+			$user_id
+		);
+		if ( is_wp_error( $filtered ) ) {
+			return $filtered;
+		}
+		$content = (string) ( $filtered['content'] ?? $content );
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_shares',

@@ -63,6 +63,37 @@ class CommentService {
 			);
 		}
 
+		/**
+		 * Filter comment data before it is written on create.
+		 *
+		 * Return modified data to transform the comment, or a WP_Error to reject it.
+		 *
+		 * @param array    $data       Comment data (content, object_type, object_id, parent_id).
+		 * @param int      $user_id    Author user ID.
+		 * @param int|null $comment_id Null on create.
+		 */
+		$filtered = apply_filters(
+			'buddynext_comment_before_save',
+			array(
+				'content'     => $content,
+				'object_type' => $object_type,
+				'object_id'   => $object_id,
+				'parent_id'   => $parent_id,
+			),
+			$user_id,
+			null
+		);
+		if ( is_wp_error( $filtered ) ) {
+			return $filtered;
+		}
+		$content     = wp_kses_post( (string) ( $filtered['content'] ?? $content ) );
+		$object_type = (string) ( $filtered['object_type'] ?? $object_type );
+		$object_id   = (int) ( $filtered['object_id'] ?? $object_id );
+		$parent_id   = isset( $filtered['parent_id'] ) ? (int) $filtered['parent_id'] : null;
+		if ( '' === $content ) {
+			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ) );
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -199,6 +230,24 @@ class CommentService {
 
 		$content = wp_kses_post( trim( $content ) );
 
+		if ( '' === $content ) {
+			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ) );
+		}
+
+		/**
+		 * Filter comment data before it is written on update.
+		 *
+		 * Return modified data to transform the edit, or a WP_Error to reject it.
+		 *
+		 * @param array    $data       Comment data (content).
+		 * @param int      $user_id    User performing the update.
+		 * @param int|null $comment_id Comment being updated.
+		 */
+		$filtered = apply_filters( 'buddynext_comment_before_save', array( 'content' => $content ), $user_id, $comment_id );
+		if ( is_wp_error( $filtered ) ) {
+			return $filtered;
+		}
+		$content = wp_kses_post( (string) ( $filtered['content'] ?? $content ) );
 		if ( '' === $content ) {
 			return new WP_Error( 'empty_content', __( 'Comment content cannot be empty.', 'buddynext' ) );
 		}

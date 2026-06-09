@@ -45,13 +45,12 @@ class SpaceService {
 
 	/**
 	 * Space type — hidden from non-members; admin-invite only.
+	 *
+	 * These three constants document the canonical core slugs. Validation and
+	 * semantics now live in {@see SpaceTypeRegistry}, which also lets third
+	 * parties register custom types via the `buddynext_space_types` filter.
 	 */
 	public const TYPE_SECRET = 'secret';
-
-	/**
-	 * Allowed space types.
-	 */
-	private const ALLOWED_TYPES = array( self::TYPE_OPEN, self::TYPE_PRIVATE, self::TYPE_SECRET );
 
 	/**
 	 * Return the i18n'd human-readable label for a space type.
@@ -68,15 +67,7 @@ class SpaceService {
 	 * @return string Translated human label.
 	 */
 	public static function type_label( string $type ): string {
-		switch ( $type ) {
-			case self::TYPE_PRIVATE:
-				return __( 'Private', 'buddynext' );
-			case self::TYPE_SECRET:
-				return __( 'Secret', 'buddynext' );
-			case self::TYPE_OPEN:
-			default:
-				return __( 'Open', 'buddynext' );
-		}
+		return SpaceTypeRegistry::instance()->label( $type );
 	}
 
 	/**
@@ -146,7 +137,8 @@ class SpaceService {
 			return new WP_Error( 'slug_taken', __( 'This slug is already taken.', 'buddynext' ) );
 		}
 
-		$type = in_array( $data['type'] ?? 'open', self::ALLOWED_TYPES, true ) ? $data['type'] : 'open';
+		$req_type = (string) ( $data['type'] ?? 'open' );
+		$type     = SpaceTypeRegistry::instance()->is_valid( $req_type ) ? $req_type : 'open';
 
 		// Enforce two-level sub-space depth limit.
 		$parent_id = isset( $data['parent_id'] ) ? (int) $data['parent_id'] : null;
@@ -277,7 +269,7 @@ class SpaceService {
 			$fields['description'] = sanitize_textarea_field( $data['description'] );
 			$format[]              = '%s';
 		}
-		if ( isset( $data['type'] ) && in_array( $data['type'], self::ALLOWED_TYPES, true ) ) {
+		if ( isset( $data['type'] ) && SpaceTypeRegistry::instance()->is_valid( (string) $data['type'] ) ) {
 			$fields['type'] = $data['type'];
 			$format[]       = '%s';
 		}
@@ -437,9 +429,14 @@ class SpaceService {
 			$where[]  = 'type = %s';
 			$params[] = $type;
 		} elseif ( 0 === $member_id ) {
-			// Exclude secret spaces from the public directory by default.
-			// When a member filter is set the user can see their own secret spaces.
-			$where[] = "type != 'secret'";
+			// Exclude unlisted (secret-equivalent) types from the public directory.
+			// When a member filter is set the user can see their own such spaces.
+			$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
+			if ( $unlisted ) {
+				// Slugs are sanitize_key()'d in the registry, so safe to interpolate.
+				$placeholders = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
+				$where[]      = "type NOT IN ( {$placeholders} )";
+			}
 		}
 
 		if ( $category_id > 0 ) {
@@ -496,11 +493,18 @@ class SpaceService {
 		$page     = max( 1, absint( $args['page'] ?? 1 ) );
 		$offset   = ( $page - 1 ) * $per_page;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Exclude unlisted (secret-equivalent) types from search. Slugs are
+		// sanitize_key()'d in the registry, so the IN list is safe to interpolate.
+		$unlisted    = SpaceTypeRegistry::instance()->unlisted_keys();
+		$exclude_sql = $unlisted
+			? 'type NOT IN ( ' . implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) ) . ' )'
+			: '1=1';
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_spaces
-				 WHERE type != 'secret' AND (name LIKE %s OR description LIKE %s)
+				 WHERE {$exclude_sql} AND (name LIKE %s OR description LIKE %s)
 				 ORDER BY member_count DESC
 				 LIMIT %d OFFSET %d",
 				$like,

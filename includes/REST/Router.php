@@ -58,6 +58,14 @@ class Router {
 	 * Called by rest_api_init.
 	 */
 	public function register_routes(): void {
+		/**
+		 * Fires before BuddyNext registers its REST routes.
+		 *
+		 * Lets extensions register their own routes under the buddynext/v1
+		 * namespace, or wrap core controllers, in the same rest_api_init pass.
+		 */
+		do_action( 'buddynext_rest_init' );
+
 		( new AccessWebhookController() )->register_routes();
 		( new AuthController() )->register_routes();
 		( new InviteController() )->register_routes();
@@ -85,5 +93,13 @@ class Router {
 		( new OutboundWebhookController( buddynext_service( 'webhooks' ) ) )->register_routes();
 		( new SlugCheckController() )->register_routes();
 		( new RealtimeController() )->register_routes();
+
+		/**
+		 * Fires after all BuddyNext core REST routes are registered.
+		 *
+		 * Use for routes that must register after core (e.g. to override or
+		 * decorate a core endpoint).
+		 */
+		do_action( 'buddynext_rest_routes_registered' );
 	}
 }

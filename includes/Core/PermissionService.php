@@ -63,6 +63,32 @@ class PermissionService {
 	);
 
 	/**
+	 * Memoised, filtered capability → required-role map (per request).
+	 *
+	 * @var array<string, string|null>|null
+	 */
+	private static ?array $role_map_cache = null;
+
+	/**
+	 * The capability → required-role map, filterable via buddynext_role_map.
+	 *
+	 * Composes with the layer-4 buddynext_user_can filter: this map sets the
+	 * baseline role each capability needs (fires once, memoised), while
+	 * buddynext_user_can runs on every check for fine-grained overrides. Add a
+	 * capability by returning it here mapped to a role slug ('member'..'owner'),
+	 * or null for "no role gate".
+	 *
+	 * @return array<string, string|null>
+	 */
+	public static function get_role_map(): array {
+		if ( null === self::$role_map_cache ) {
+			self::$role_map_cache = (array) apply_filters( 'buddynext_role_map', self::ROLE_MAP );
+		}
+
+		return self::$role_map_cache;
+	}
+
+	/**
 	 * Numeric weight for each community role.
 	 *
 	 * @var array<string, int>
@@ -130,7 +156,7 @@ class PermissionService {
 	 * @return bool
 	 */
 	private function passes_role_check( int $user_id, string $capability, array $context = array() ): bool {
-		$required = self::ROLE_MAP[ $capability ] ?? null;
+		$required = self::get_role_map()[ $capability ] ?? null;
 
 		if ( null === $required ) {
 			return false;

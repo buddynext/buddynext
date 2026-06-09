@@ -66,6 +66,30 @@ class MemberDirectoryService {
 		$online_only       = ! empty( $filters['online_only'] );
 		$sort              = isset( $filters['sort'] ) ? (string) $filters['sort'] : 'newest';
 
+		/**
+		 * Filter the member-directory query args before the SQL is built.
+		 *
+		 * Adjust pagination or the sort mode (Pro can add tier/role filtering).
+		 * To register an entirely new ordering, combine the returned 'sort' with
+		 * the buddynext_member_directory_order_by filter below.
+		 *
+		 * @param array  $query_args { per_page:int, sort:string, filters:array }.
+		 * @param string $scope      Always 'member_directory'.
+		 * @param int    $viewer_id  Viewing user ID.
+		 */
+		$query_args = (array) apply_filters(
+			'buddynext_member_directory_query_args',
+			array(
+				'per_page' => $per_page,
+				'sort'     => $sort,
+				'filters'  => $filters,
+			),
+			'member_directory',
+			$viewer_id
+		);
+		$per_page = min( (int) ( $query_args['per_page'] ?? $per_page ), 50 );
+		$sort     = (string) ( $query_args['sort'] ?? $sort );
+
 		// 'online' sort implies online_only filtering as well.
 		if ( 'online' === $sort ) {
 			$online_only = true;
@@ -292,6 +316,26 @@ class MemberDirectoryService {
 				break;
 		}
 
+		/**
+		 * Filter the member-directory ORDER BY clause (keyword stripped).
+		 *
+		 * The returned fragment is interpolated directly into the SQL, so it MUST
+		 * contain only safe column references and ASC/DESC keywords — never user
+		 * input. It MUST end with `u.ID ASC|DESC` as a tie-breaker, or keyset
+		 * cursor pagination will silently skip/duplicate rows past page 1.
+		 *
+		 * @param string $order_by   Default clause without the leading 'ORDER BY'.
+		 * @param int    $viewer_id  Viewing user ID.
+		 * @param array  $query_args Resolved query args from buddynext_member_directory_query_args.
+		 */
+		$order_by = (string) apply_filters(
+			'buddynext_member_directory_order_by',
+			(string) preg_replace( '/^ORDER BY /', '', $order_sql ),
+			$viewer_id,
+			$query_args
+		);
+		$order_sql = '' !== trim( $order_by ) ? 'ORDER BY ' . $order_by : $order_sql;
+
 		$params[] = $per_page + 1;
 
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -401,6 +445,27 @@ class MemberDirectoryService {
 				);
 			},
 			$rows
+		);
+
+		/**
+		 * Filter the member-directory items before they are returned.
+		 *
+		 * Rerank or enrich the hydrated member rows. Removing items here does NOT
+		 * adjust `total` or the cursor (both come from the unfiltered query), so
+		 * use buddynext_member_directory_query_args for server-side exclusion and
+		 * reserve this filter for reordering/enrichment.
+		 *
+		 * @param array  $items     Hydrated member rows for this page.
+		 * @param string $scope     Always 'member_directory'.
+		 * @param int    $viewer_id Viewing user ID.
+		 * @param array  $query_args Resolved query args.
+		 */
+		$items = (array) apply_filters(
+			'buddynext_member_directory_items',
+			$items,
+			'member_directory',
+			$viewer_id,
+			$query_args
 		);
 
 		$next_cursor = null;
