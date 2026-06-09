@@ -104,6 +104,42 @@ function composeMessage( text ) {
 }
 
 /**
+ * Build one tile in the "your photos" media grid (DOM only).
+ *
+ * @param {Object} media Media item { id, thumbnail_url|file_url, title }.
+ * @return {HTMLElement} The <li> tile.
+ */
+function buildMediaTile( media ) {
+	const thumb = media.thumbnail_url || media.file_url || '';
+	const li = document.createElement( 'li' );
+	li.className = 'bn-dm-media__tile';
+	li.setAttribute( 'role', 'option' );
+	li.tabIndex = 0;
+	li.dataset.mediaId = String( media.id || 0 );
+	li.dataset.thumb   = thumb;
+	li.dataset.title   = media.title || '';
+	const img = document.createElement( 'img' );
+	img.src = thumb;
+	img.alt = media.title || '';
+	img.loading = 'lazy';
+	li.appendChild( img );
+	return li;
+}
+
+/**
+ * Build a hint/empty line for the media grid.
+ *
+ * @param {string} text Message.
+ * @return {HTMLElement} The <li> node.
+ */
+function mediaHint( text ) {
+	const li = document.createElement( 'li' );
+	li.className = 'bn-dm-media__hint';
+	li.textContent = text || '';
+	return li;
+}
+
+/**
  * Build one recipient-picker result row (DOM nodes only — no innerHTML).
  *
  * @param {Object} member Member row { user_id, display_name, handle, avatar_url }.
@@ -582,6 +618,46 @@ const { actions } = store( 'buddynext/messages', {
 			}
 			pop.hidden = ! pop.hidden;
 		},
+		// Open the "share a photo" picker (your media + upload new).
+		async openMediaPicker() {
+			const ctx = getContext();
+			ctx.mediaPickerOpen = true;
+			const grid = document.querySelector( '.bn-dm-media__grid' );
+			if ( ! grid || grid.dataset.loaded ) {
+				return;
+			}
+			try {
+				const res = await fetch(
+					ctx.mvsRest + '/media?per_page=24&author=' + ( parseInt( ctx.userId, 10 ) || 0 ),
+					{ headers: headers( ctx ) }
+				);
+				if ( ! res.ok ) {
+					return;
+				}
+				const data  = await res.json();
+				const list  = Array.isArray( data ) ? data : ( data.items || [] );
+				const items = list.filter( ( m ) => ( m.media_type || 'image' ) === 'image' && ( m.thumbnail_url || m.file_url ) );
+				grid.dataset.loaded = '1';
+				grid.replaceChildren(
+					...( items.length ? items.map( buildMediaTile ) : [ mediaHint( ( ctx.i18n && ctx.i18n.mediaEmpty ) || '' ) ] )
+				);
+			} catch ( _e ) {}
+		},
+		closeMediaPicker() {
+			getContext().mediaPickerOpen = false;
+		},
+		onMediaPick( event ) {
+			const tile = event.target.closest( '[data-media-id]' );
+			if ( ! tile ) {
+				return;
+			}
+			const ctx = getContext();
+			ctx.attachmentId      = parseInt( tile.dataset.mediaId, 10 ) || 0;
+			ctx.attachmentPreview = tile.dataset.thumb || '';
+			ctx.attachmentName    = tile.dataset.title || '';
+			ctx.attachmentVisible = !! ctx.attachmentId;
+			ctx.mediaPickerOpen   = false; // Reuse existing media — no duplicate upload.
+		},
 		openAttachment() {
 			const f = document.getElementById( 'bn-dm-file' );
 			if ( f ) {
@@ -618,11 +694,13 @@ const { actions } = store( 'buddynext/messages', {
 				}
 				const media = await res.json();
 				ctx.attachmentId = parseInt( media.id || media.media_id || 0, 10 ) || 0;
-				const thumb = media.thumbnail || media.thumb_large || media.source_url || media.url || '';
+				const thumb = media.thumbnail || media.thumbnail_url || media.thumb_large || media.source_url || media.file_url || media.url || '';
 				if ( thumb ) {
 					ctx.attachmentPreview = thumb;
 				}
-				if ( ! ctx.attachmentId ) {
+				if ( ctx.attachmentId ) {
+					ctx.mediaPickerOpen = false; // Uploaded — close the picker, show the composer chip.
+				} else {
 					actions.clearAttachment();
 				}
 			} catch ( _e ) {

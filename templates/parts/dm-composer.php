@@ -116,7 +116,7 @@ do_action( 'buddynext_part_dm_composer_before', $args );
 		</span>
 
 		<span class="bn-tooltip-trigger">
-			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Attach file', 'buddynext' ); ?>" data-wp-on--click="actions.openAttachment">
+			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Attach photo', 'buddynext' ); ?>" aria-haspopup="dialog" data-wp-on--click="actions.openMediaPicker">
 				<?php buddynext_icon( 'paperclip' ); ?>
 			</button>
 			<span class="bn-tooltip" data-pos="top"><?php esc_html_e( 'Attach', 'buddynext' ); ?></span>

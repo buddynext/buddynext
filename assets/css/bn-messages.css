@@ -796,6 +796,66 @@
 	color: var(--bn-ink-3);
 }
 
+/* ── Share-a-photo media picker ──────────────────────────────────────────── */
+.bn-dm-media.is-hidden {
+	display: none;
+}
+
+.bn-dm-media__upload {
+	width: 100%;
+	justify-content: center;
+	margin-bottom: var(--bn-s3);
+}
+
+.bn-dm-media__label {
+	margin: 0 0 var(--bn-s2);
+	font-size: var(--bn-fs-sm);
+	font-weight: 600;
+	color: var(--bn-ink-2);
+}
+
+.bn-dm-media__grid {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: var(--bn-s2);
+	max-height: 340px;
+	overflow-y: auto;
+}
+
+.bn-dm-media__hint {
+	grid-column: 1 / -1;
+	padding: var(--bn-s4);
+	text-align: center;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-fs-sm);
+}
+
+.bn-dm-media__tile {
+	position: relative;
+	aspect-ratio: 1 / 1;
+	border-radius: var(--bn-radius, 8px);
+	overflow: hidden;
+	cursor: pointer;
+	border: 2px solid transparent;
+	transition: border-color var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-dm-media__tile:hover,
+.bn-dm-media__tile:focus-visible {
+	border-color: var(--bn-accent);
+	outline: none;
+}
+
+.bn-dm-media__tile img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
 /* ── Composer pending-attachment chip ────────────────────────────────────── */
 .bn-dm-composer__attachment {
 	display: flex;

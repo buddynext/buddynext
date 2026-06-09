@@ -84,6 +84,7 @@ $bn_ctx = wp_json_encode(
 		'replyToText'  => '',
 		'confirmOpen'      => false,
 		'attachmentVisible' => false,
+		'mediaPickerOpen'  => false,
 		'attachmentId'     => 0,
 		'attachmentName'   => '',
 		'attachmentPreview' => '',
@@ -91,6 +92,7 @@ $bn_ctx = wp_json_encode(
 		'i18n'         => array(
 			'composeHint' => __( 'Type a name to find someone to message.', 'buddynext' ),
 			'composeNone' => __( 'No members found.', 'buddynext' ),
+			'mediaEmpty'  => __( 'No photos yet — upload one to share.', 'buddynext' ),
 		),
 	)
 );
@@ -200,6 +202,8 @@ $bn_ctx = wp_json_encode(
 	<?php buddynext_get_template( 'parts/dm-delete-modal.php' ); ?>
 
 	<?php buddynext_get_template( 'parts/dm-compose-modal.php' ); ?>
+
+	<?php buddynext_get_template( 'parts/dm-media-modal.php' ); ?>
 
 	<?php // Cloned by the store onto client-rendered (sent/polled) message bubbles. ?>
 	<template id="bn-dm-msg-actions-tpl"><?php buddynext_get_template( 'parts/dm-msg-actions.php' ); ?></template>
