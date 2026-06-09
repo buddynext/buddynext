@@ -709,7 +709,9 @@ class NotificationMessageService {
 				return PageRouter::spaces_url();
 
 			case 'bn.new_message':
-				$conv_id = isset( $data['conversation_id'] ) ? (int) $data['conversation_id'] : 0;
+				// The bridge stores the conversation id as the notification's
+				// object_id; older rows may carry it in data instead.
+				$conv_id = $object_id > 0 ? $object_id : (int) ( $data['conversation_id'] ?? 0 );
 				return $conv_id > 0
 					? PageRouter::conversation_url( $conv_id )
 					: PageRouter::messages_url();
