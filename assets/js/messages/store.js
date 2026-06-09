@@ -60,6 +60,36 @@ function logEl() {
 // Debounce timer for the New-message recipient search.
 let composeSearchTimer = 0;
 
+// Curated common emoji for the composer picker. Emoji are message content, so
+// the set lives here in JS rather than in PHP chrome.
+const EMOJI_SET = [
+	'😀', '😁', '😂', '🤣', '😊', '😍', '😘', '😎', '🤩', '🤗',
+	'🤔', '😐', '😴', '😢', '😭', '😡', '👍', '👎', '👏', '🙌',
+	'🙏', '💪', '🔥', '✨', '🎉', '❤️', '💔', '💯', '👀', '🚀',
+	'☕', '🍕', '🎂', '🌟', '✅', '❌', '⚡', '💬', '👋', '🤝',
+];
+
+/**
+ * Insert text at the cursor in a textarea, keep focus, and refresh autosize.
+ *
+ * @param {HTMLTextAreaElement|null} el   Target textarea.
+ * @param {string}                   text Text to insert.
+ * @return {void}
+ */
+function insertAtCursor( el, text ) {
+	if ( ! el ) {
+		return;
+	}
+	const start = el.selectionStart != null ? el.selectionStart : el.value.length;
+	const end   = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+	el.value    = el.value.slice( 0, start ) + text + el.value.slice( end );
+	const pos   = start + text.length;
+	el.focus();
+	el.setSelectionRange( pos, pos );
+	el.style.height = 'auto';
+	el.style.height = Math.min( el.scrollHeight, 160 ) + 'px';
+}
+
 /**
  * Build a non-result status line for the recipient picker (hint / empty).
  *
@@ -451,11 +481,31 @@ const { actions } = store( 'buddynext/messages', {
 		},
 
 		// ── Composer extras (graceful: focus the input; rich picker/upload is Pro) ─
-		openEmojiPicker() {
-			const input = document.getElementById( 'bn-dm-input' );
-			if ( input ) {
-				input.focus();
+		openEmojiPicker( event ) {
+			const wrap = event.target.closest( '.bn-dm-emoji-wrap' );
+			const pop  = wrap ? wrap.querySelector( '.bn-dm-emoji-pop' ) : null;
+			if ( ! pop ) {
+				return;
 			}
+			if ( ! pop.dataset.built ) {
+				EMOJI_SET.forEach( ( ch ) => {
+					const b = document.createElement( 'button' );
+					b.type = 'button';
+					b.className = 'bn-dm-emoji-pop__item';
+					b.dataset.emojiChar = ch;
+					b.textContent = ch;
+					pop.appendChild( b );
+				} );
+				pop.dataset.built = '1';
+				pop.addEventListener( 'click', ( e ) => {
+					const opt = e.target.closest( '[data-emoji-char]' );
+					if ( opt ) {
+						insertAtCursor( document.getElementById( 'bn-dm-input' ), opt.dataset.emojiChar );
+						pop.hidden = true;
+					}
+				} );
+			}
+			pop.hidden = ! pop.hidden;
 		},
 		openAttachment() {
 			const input = document.getElementById( 'bn-dm-input' );

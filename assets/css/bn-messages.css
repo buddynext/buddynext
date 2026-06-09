@@ -796,6 +796,48 @@
 	color: var(--bn-ink-3);
 }
 
+/* ── Composer emoji picker ───────────────────────────────────────────────── */
+.bn-dm-emoji-wrap {
+	position: relative;
+}
+
+.bn-dm-emoji-pop {
+	position: absolute;
+	bottom: calc(100% + 6px);
+	inset-inline-start: 0;
+	display: grid;
+	grid-template-columns: repeat(10, 1fr);
+	gap: 2px;
+	width: 320px;
+	max-width: 80vw;
+	padding: var(--bn-s2);
+	background: var(--bn-surface);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md, 10px);
+	box-shadow: var(--bn-shadow-md, 0 4px 16px rgba(0, 0, 0, 0.12));
+	z-index: 10;
+}
+
+.bn-dm-emoji-pop[hidden] {
+	display: none;
+}
+
+.bn-dm-emoji-pop__item {
+	border: 0;
+	background: transparent;
+	border-radius: var(--bn-radius, 8px);
+	padding: 4px;
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+	transition: background var(--bn-dur-fast) var(--bn-ease), transform var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-dm-emoji-pop__item:hover {
+	background: var(--bn-sunken);
+	transform: scale(1.2);
+}
+
 /* ── Message-request banner (accept before replying) ─────────────────────── */
 .bn-dm-request {
 	display: flex;

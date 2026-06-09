@@ -83,11 +83,13 @@ do_action( 'buddynext_part_dm_composer_before', $args );
 			<?php esc_html_e( 'Message', 'buddynext' ); ?>
 		</label>
 
-		<span class="bn-tooltip-trigger">
-			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>" data-wp-on--click="actions.openEmojiPicker">
+		<span class="bn-tooltip-trigger bn-dm-emoji-wrap">
+			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>" aria-haspopup="true" data-wp-on--click="actions.openEmojiPicker">
 				<?php buddynext_icon( 'smile' ); ?>
 			</button>
 			<span class="bn-tooltip" data-pos="top"><?php esc_html_e( 'Emoji', 'buddynext' ); ?></span>
+			<?php // Grid populated lazily by the store on first open; emoji are content, sourced in JS (not PHP chrome). ?>
+			<div class="bn-dm-emoji-pop" role="menu" aria-label="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>" hidden></div>
 		</span>
 
 		<span class="bn-tooltip-trigger">
