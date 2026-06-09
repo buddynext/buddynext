@@ -360,6 +360,15 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			<span class="bn-post-card__ann-badge">
 				<?php buddynext_icon( 'megaphone' ); ?> <?php esc_html_e( 'Announcement', 'buddynext' ); ?>
 			</span>
+			<?php if ( $is_admin ) : ?>
+			<button
+				type="button"
+				class="bn-post-card__ann-end bn-btn"
+				data-size="sm"
+				data-variant="ghost"
+				data-wp-on--click="actions.endAnnouncement"
+			><?php esc_html_e( 'End', 'buddynext' ); ?></button>
+			<?php endif; ?>
 			<button
 				type="button"
 				class="bn-post-card__ann-dismiss"

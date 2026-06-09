@@ -115,6 +115,21 @@ class InviteService {
 	}
 
 	/**
+	 * Revoke (delete) an invite so its token can no longer be redeemed.
+	 *
+	 * @param int $invite_id Invite record ID.
+	 * @return bool True when a row was removed.
+	 */
+	public function revoke( int $invite_id ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$deleted = $wpdb->delete( $wpdb->prefix . 'bn_invites', array( 'id' => (int) $invite_id ), array( '%d' ) );
+
+		return (bool) $deleted;
+	}
+
+	/**
 	 * Retrieve all pending invites.
 	 *
 	 * @return array<int, array<string, mixed>>

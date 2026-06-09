@@ -52,6 +52,7 @@ class Members extends AdminPageBase {
 		( new \BuddyNext\Admin\Members\AvatarSettings() )->register();
 		( new \BuddyNext\Admin\Members\MemberTypesManager() )->register();
 		( new \BuddyNext\Admin\Members\InviteManager() )->register();
+		( new \BuddyNext\Admin\Members\ApprovalManager() )->register();
 	}
 
 	/**
@@ -714,7 +715,7 @@ class Members extends AdminPageBase {
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$active_tab = sanitize_key( wp_unslash( $_GET['tab'] ?? 'members' ) );
-		if ( ! in_array( $active_tab, array( 'members', 'profile-fields', 'avatar-settings', 'member-types', 'invites' ), true ) ) {
+		if ( ! in_array( $active_tab, array( 'members', 'profile-fields', 'avatar-settings', 'member-types', 'invites', 'pending' ), true ) ) {
 			$active_tab = 'members';
 		}
 
@@ -726,17 +727,19 @@ class Members extends AdminPageBase {
 			return;
 		}
 
-		$this->render_tab_bar(
-			array(
-				'members'         => __( 'Members', 'buddynext' ),
-				'profile-fields'  => __( 'Profile Fields', 'buddynext' ),
-				'avatar-settings' => __( 'Avatar & Cover', 'buddynext' ),
-				'member-types'    => __( 'Member Types', 'buddynext' ),
-				'invites'         => __( 'Invites', 'buddynext' ),
-			),
-			$active_tab,
-			$base_url
+		$bn_tabs = array(
+			'members'         => __( 'Members', 'buddynext' ),
+			'profile-fields'  => __( 'Profile Fields', 'buddynext' ),
+			'avatar-settings' => __( 'Avatar & Cover', 'buddynext' ),
+			'member-types'    => __( 'Member Types', 'buddynext' ),
+			'invites'         => __( 'Invites', 'buddynext' ),
 		);
+		// Pending-approval queue is only relevant while registration is gated by approval.
+		if ( 'approval' === get_option( 'buddynext_reg_mode', 'open' ) ) {
+			$bn_tabs['pending'] = __( 'Pending', 'buddynext' );
+		}
+
+		$this->render_tab_bar( $bn_tabs, $active_tab, $base_url );
 
 		if ( 'profile-fields' === $active_tab ) {
 			( new \BuddyNext\Admin\Members\ProfileFieldsManager() )->render_profile_fields_tab();
@@ -746,6 +749,8 @@ class Members extends AdminPageBase {
 			( new \BuddyNext\Admin\Members\MemberTypesManager() )->render_member_types_tab();
 		} elseif ( 'invites' === $active_tab ) {
 			( new \BuddyNext\Admin\Members\InviteManager() )->render_invites_tab();
+		} elseif ( 'pending' === $active_tab ) {
+			( new \BuddyNext\Admin\Members\ApprovalManager() )->render_pending_tab();
 		} else {
 			$this->render_members_tab();
 		}

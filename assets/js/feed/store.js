@@ -1090,6 +1090,17 @@ store( 'buddynext/post-card', {
 			} catch ( _e ) {}
 			document.querySelector( '.bn-post-card--announcement' )?.remove();
 		},
+		// Admin-only: end the announcement for everyone (expire its pin now).
+		* endAnnouncement() {
+			const ctx = getContext();
+			try {
+				yield fetch( ctx.restUrl + '/feed/announcements/' + ctx.postId + '/end', {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.dismissNonce },
+				} );
+			} catch ( _e ) {}
+			document.querySelector( '.bn-post-card--announcement' )?.remove();
+		},
 	},
 } );
 
@@ -1292,6 +1303,12 @@ store( 'buddynext/post-composer', {
 		},
 		get isNotScheduled() {
 			try { return ! getContext().scheduleOpen; } catch ( _e ) { return true; }
+		},
+		get isAnnouncement() {
+			try { return getContext().composerType === 'announcement'; } catch ( _e ) { return false; }
+		},
+		get isNotAnnouncement() {
+			try { return getContext().composerType !== 'announcement'; } catch ( _e ) { return true; }
 		},
 		get hasMedia() {
 			try { return ( getContext().mediaIds || [] ).length > 0; } catch ( _e ) { return false; }
@@ -1504,6 +1521,22 @@ store( 'buddynext/post-composer', {
 			ctx.composerOpen = true;
 			ctx.composerType = 'link';
 		},
+		toggleAnnouncement() {
+			const ctx        = getContext();
+			ctx.composerOpen = true;
+			ctx.composerType = ctx.composerType === 'announcement' ? 'text' : 'announcement';
+			if ( ctx.composerType !== 'announcement' ) {
+				ctx.announcementExpiresAt = '';
+				const input = document.querySelector( '#bn-composer-announce-expiry' );
+				if ( input ) { input.value = ''; }
+			}
+		},
+		setAnnouncementExpiry( event ) {
+			// <input type="datetime-local"> → UTC "Y-m-d H:i:s" (what PostService expects).
+			const ctx = getContext();
+			const raw = ( event && event.target && event.target.value ) || '';
+			ctx.announcementExpiresAt = raw ? toUtcSqlDatetime( raw ) : '';
+		},
 		onInput( event ) {
 			const ctx     = getContext();
 			ctx.content   = event.target.value;
@@ -1538,6 +1571,11 @@ store( 'buddynext/post-composer', {
 				privacy: ctx.privacy || 'public',
 				type:    ctx.composerType || 'text',
 			};
+
+			// Admin announcement: carry the optional auto-expire datetime.
+			if ( ctx.composerType === 'announcement' && ctx.announcementExpiresAt ) {
+				body.announcement_expires_at = ctx.announcementExpiresAt;
+			}
 
 			// Attach media IDs from WPMediaVerse uploads (stored in module-level state).
 			if ( _mediaState.ids.length ) {

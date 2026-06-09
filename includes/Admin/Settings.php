@@ -310,6 +310,32 @@ class Settings extends AdminPageBase {
 				'default'           => array(),
 			)
 		);
+
+		// Reaction palette — owner-chosen subset of the canonical six reactions.
+		register_setting(
+			'buddynext',
+			'buddynext_enabled_reactions',
+			array(
+				'type'              => 'array',
+				'sanitize_callback' => array( $this, 'sanitize_enabled_reactions' ),
+				'default'           => \BuddyNext\Reactions\ReactionService::REACTION_TYPES,
+			)
+		);
+	}
+
+	/**
+	 * Sanitize the enabled-reactions option: keep only canonical reaction slugs,
+	 * in canonical order. Never allow an empty set (that would disable all
+	 * reactions), so an empty submission falls back to the full set.
+	 *
+	 * @param mixed $value Raw submitted value.
+	 * @return string[]
+	 */
+	public function sanitize_enabled_reactions( $value ): array {
+		$all    = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
+		$chosen = array_values( array_intersect( $all, array_map( 'sanitize_key', (array) $value ) ) );
+
+		return empty( $chosen ) ? $all : $chosen;
 	}
 
 	/**
@@ -813,6 +839,35 @@ class Settings extends AdminPageBase {
 			__( 'How many minutes after posting a member can edit their post. Set to 0 for no limit.', 'buddynext' ),
 			0
 		);
+
+		// Reaction palette — which of the canonical reactions members may use.
+		$bn_all_reactions     = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
+		$bn_enabled_reactions = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
+		?>
+		<div class="bn-toggle-row">
+			<div class="bn-tl-label">
+				<span class="bn-tl-title"><?php esc_html_e( 'Reactions', 'buddynext' ); ?></span>
+				<span class="bn-tl-desc"><?php esc_html_e( 'Choose which reactions members can use on posts and comments. At least one is always kept.', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-reaction-palette">
+				<?php foreach ( $bn_all_reactions as $bn_reaction ) : ?>
+					<label class="bn-reaction-palette__item">
+						<input
+							type="checkbox"
+							name="buddynext_enabled_reactions[]"
+							value="<?php echo esc_attr( $bn_reaction ); ?>"
+							<?php checked( in_array( $bn_reaction, $bn_enabled_reactions, true ) ); ?>
+						>
+						<?php
+						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService emoji markup is wp_kses'd.
+						echo \BuddyNext\Core\IconService::render_emoji( $bn_reaction, 'bn-reaction-palette__emoji' );
+						?>
+						<span><?php echo esc_html( ucfirst( $bn_reaction ) ); ?></span>
+					</label>
+				<?php endforeach; ?>
+			</div>
+		</div>
+		<?php
 
 		$this->close_section();
 	}

@@ -132,9 +132,9 @@
       "slug": "career_board", "label": "Career Board jobs (bridge)", "tier": "opt_in", "group": "bridges",
       "partner": "career-board",
       "journey": "docs/journeys/career-board.md",
-      "owner_expectation": "Activate the Career Board and job posts surface in community search; applications create notifications.",
-      "status": "implemented",
-      "gaps": ["thinnest of the four bridges: jobs indexed into bn_search_index only (NO hashtag indexing, despite a HOOKS.md note implying otherwise)", "job expiry de-feeds bn_posts but does not de-index search"]
+      "owner_expectation": "Jobs live natively inside the community (planned native jobs surface, like media-in-activity), not just search; applications create notifications.",
+      "status": "broken",
+      "gaps": ["BRIDGE CURRENTLY INACTIVE: CareerBoardBridge guards on wcb_get_job()/WCB_Career_Board which do NOT exist in the real plugin (confirmed at runtime with the plugin active) -> the bridge never loads", "hook signatures also drifted (plugin fires wcb_job_created($job_id,$request) 2-arg; wcb_application_status_changed arg order inconsistent within the plugin)", "scope reversed to native-for-everything: Phase 2 of plan/native-integration-program.md builds a native jobs surface (includes/Jobs/) consuming the Career Board API; re-align the bridge guard/hooks, or file a Basecamp card if the plugin lacks a clean public job-fetch API"]
     },
     {
       "slug": "webhooks", "label": "Outbound webhooks", "tier": "opt_in", "group": "integrations",

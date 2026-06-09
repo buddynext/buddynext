@@ -186,6 +186,14 @@ class ReactionService {
 	 * @return string[] Ordered list of reaction type slugs.
 	 */
 	public static function reaction_types(): array {
+		// Site-owner control: buddynext_enabled_reactions (Settings → Activity Feed)
+		// is the owner-chosen subset of the canonical six, in canonical order.
+		// Empty/unset falls back to all six so reactions are never fully disabled.
+		$enabled = array_values( array_intersect( self::REACTION_TYPES, (array) get_option( 'buddynext_enabled_reactions', self::REACTION_TYPES ) ) );
+		if ( empty( $enabled ) ) {
+			$enabled = self::REACTION_TYPES;
+		}
+
 		/**
 		 * Filter the allowed reaction type slugs.
 		 *
@@ -196,9 +204,9 @@ class ReactionService {
 		 *
 		 * @since 1.0.0
 		 *
-		 * @param string[] $types The current list of reaction type slugs.
+		 * @param string[] $types The owner-enabled list of reaction type slugs.
 		 */
-		return (array) apply_filters( 'buddynext_reaction_types', self::REACTION_TYPES );
+		return (array) apply_filters( 'buddynext_reaction_types', $enabled );
 	}
 
 	/**

@@ -153,6 +153,16 @@ class FeedController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/feed/announcements/(?P<id>[\d]+)/end',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'end_announcement' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
 	}
 
 	/**
@@ -326,6 +336,49 @@ class FeedController {
 		FeedService::dismiss_announcement( $user_id, $post_id );
 
 		return new WP_REST_Response( null, 204 );
+	}
+
+	/**
+	 * End a site-wide announcement (admin only) by expiring its pin now, so
+	 * active_announcement() stops surfacing it for everyone.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function end_announcement( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'You do not have permission to do this.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		global $wpdb;
+		$post_id = (int) $request->get_param( 'id' );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ) ),
+			array(
+				'id'              => $post_id,
+				'is_announcement' => 1,
+			),
+			array( '%s' ),
+			array( '%d', '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( ! $updated ) {
+			return new WP_Error(
+				'not_found',
+				__( 'Announcement not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		return new WP_REST_Response( array( 'ended' => true ), 200 );
 	}
 
 	/**

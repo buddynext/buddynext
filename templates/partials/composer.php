@@ -105,6 +105,8 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				'scheduledAt'    => '',
 				'hasPro'         => $composer_has_pro,
 				'userId'         => get_current_user_id(),
+				'isAdmin'        => current_user_can( 'manage_options' ),
+				'announcementExpiresAt' => '',
 				'draftStatus'    => '',
 				'hasDraft'       => false,
 			)
@@ -223,6 +225,31 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 			</button>
 		</div>
 
+		<?php if ( current_user_can( 'manage_options' ) ) : ?>
+		<div class="bn-composer__schedule"
+			hidden
+			data-wp-bind--hidden="state.isNotAnnouncement">
+			<label class="bn-composer__schedule-label" for="bn-composer-announce-expiry">
+				<?php buddynext_icon( 'megaphone' ); ?>
+				<span><?php esc_html_e( 'Announcement — auto-expire at (optional)', 'buddynext' ); ?></span>
+			</label>
+			<input
+				type="datetime-local"
+				id="bn-composer-announce-expiry"
+				class="bn-composer__schedule-input"
+				data-wp-on--input="actions.setAnnouncementExpiry"
+				aria-label="<?php esc_attr_e( 'Announcement expiry date and time', 'buddynext' ); ?>">
+			<button
+				type="button"
+				class="bn-composer__schedule-clear"
+				data-wp-on--click="actions.toggleAnnouncement"
+				aria-label="<?php esc_attr_e( 'Cancel announcement', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Cancel announcement', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'x' ); ?>
+			</button>
+		</div>
+		<?php endif; ?>
+
 		<div class="bn-composer__tools">
 
 			<button class="bn-composer__tool"
@@ -258,6 +285,17 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				title="<?php esc_attr_e( 'Schedule for later', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'clock' ); ?>
 			</button>
+
+			<?php if ( current_user_can( 'manage_options' ) ) : ?>
+				<button class="bn-composer__tool"
+					type="button"
+					data-wp-bind--aria-pressed="state.isAnnouncement"
+					data-wp-on--click="actions.toggleAnnouncement"
+					aria-label="<?php esc_attr_e( 'Post as announcement', 'buddynext' ); ?>"
+					title="<?php esc_attr_e( 'Post as announcement (pinned to everyone\'s feed)', 'buddynext' ); ?>">
+					<?php buddynext_icon( 'megaphone' ); ?>
+				</button>
+			<?php endif; ?>
 
 			<?php
 			/**

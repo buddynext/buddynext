@@ -31,6 +31,8 @@ class InviteManager {
 	public function register(): void {
 		add_action( 'admin_post_bn_bulk_invite', array( $this, 'handle_bulk_invite' ) );
 		add_action( 'admin_post_bn_resend_invite', array( $this, 'handle_resend_invite' ) );
+		add_action( 'admin_post_bn_single_invite', array( $this, 'handle_single_invite' ) );
+		add_action( 'admin_post_bn_revoke_invite', array( $this, 'handle_revoke_invite' ) );
 	}
 
 	// ── Form handlers ─────────────────────────────────────────────────────────
@@ -126,6 +128,59 @@ class InviteManager {
 		exit;
 	}
 
+	/**
+	 * Handle a single-email invite form submission.
+	 *
+	 * @return void
+	 */
+	public function handle_single_invite(): void {
+		check_admin_referer( 'bn_single_invite' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to send invites.', 'buddynext' ) );
+		}
+
+		$redirect = admin_url( 'admin.php?page=buddynext-members&tab=invites' );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized below.
+		$email = sanitize_email( wp_unslash( $_POST['bn_invite_email'] ?? '' ) );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized below.
+		$first = sanitize_text_field( wp_unslash( $_POST['bn_invite_first_name'] ?? '' ) );
+
+		if ( '' === $email || ! is_email( $email ) ) {
+			wp_safe_redirect( add_query_arg( 'bn_notice', 'bad_email', $redirect ) );
+			exit;
+		}
+
+		$ok = ( new InviteService() )->create( $email, $first ) > 0;
+		wp_safe_redirect( add_query_arg( 'bn_notice', $ok ? 'invited_one' : 'invite_dupe', $redirect ) );
+		exit;
+	}
+
+	/**
+	 * Handle a revoke-invite request (deletes a pending invite).
+	 *
+	 * @return void
+	 */
+	public function handle_revoke_invite(): void {
+		$invite_id = absint( $_REQUEST['invite_id'] ?? 0 );
+		check_admin_referer( 'bn_revoke_invite_' . $invite_id );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to revoke invites.', 'buddynext' ) );
+		}
+
+		$redirect = admin_url( 'admin.php?page=buddynext-members&tab=invites' );
+
+		if ( 0 === $invite_id ) {
+			wp_safe_redirect( add_query_arg( 'bn_notice', 'bad_invite', $redirect ) );
+			exit;
+		}
+
+		$ok = ( new InviteService() )->revoke( $invite_id );
+		wp_safe_redirect( add_query_arg( 'bn_notice', $ok ? 'revoked' : 'revoke_failed', $redirect ) );
+		exit;
+	}
+
 	// ── Tab renderer ──────────────────────────────────────────────────────────
 
 	/**
@@ -147,7 +202,7 @@ class InviteManager {
 		<div class="bn-admin-section">
 
 		<?php if ( '' !== $notice ) : ?>
-			<div class="notice <?php echo 'invited' === $notice || 'resent' === $notice ? 'notice-success' : 'notice-error'; ?> is-dismissible">
+			<div class="notice <?php echo in_array( $notice, array( 'invited', 'resent', 'invited_one', 'revoked' ), true ) ? 'notice-success' : 'notice-error'; ?> is-dismissible">
 				<p>
 				<?php
 				switch ( $notice ) {
@@ -173,11 +228,56 @@ class InviteManager {
 					case 'resend_failed':
 						esc_html_e( 'Could not resend the invite — it may no longer exist.', 'buddynext' );
 						break;
+					case 'invited_one':
+						esc_html_e( 'Invitation sent.', 'buddynext' );
+						break;
+					case 'invite_dupe':
+						esc_html_e( 'That email already has a pending invite or an account.', 'buddynext' );
+						break;
+					case 'bad_email':
+						esc_html_e( 'Please enter a valid email address.', 'buddynext' );
+						break;
+					case 'revoked':
+						esc_html_e( 'Invitation revoked.', 'buddynext' );
+						break;
+					case 'revoke_failed':
+						esc_html_e( 'Could not revoke the invite — it may no longer exist.', 'buddynext' );
+						break;
 				}
 				?>
 				</p>
 			</div>
 		<?php endif; ?>
+
+			<div class="bn-card" style="max-width:540px;margin-bottom:var(--s6);">
+				<h3><?php esc_html_e( 'Invite a Member', 'buddynext' ); ?></h3>
+				<p class="description">
+					<?php esc_html_e( 'Send a single invitation by email.', 'buddynext' ); ?>
+				</p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<?php wp_nonce_field( 'bn_single_invite' ); ?>
+					<input type="hidden" name="action" value="bn_single_invite">
+					<table class="form-table" role="presentation">
+						<tr>
+							<th scope="row">
+								<label for="bn_invite_email"><?php esc_html_e( 'Email', 'buddynext' ); ?></label>
+							</th>
+							<td>
+								<input type="email" id="bn_invite_email" name="bn_invite_email" class="regular-text" required>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">
+								<label for="bn_invite_first_name"><?php esc_html_e( 'First name', 'buddynext' ); ?></label>
+							</th>
+							<td>
+								<input type="text" id="bn_invite_first_name" name="bn_invite_first_name" class="regular-text">
+							</td>
+						</tr>
+					</table>
+					<?php submit_button( __( 'Send Invitation', 'buddynext' ), 'primary', 'submit', false ); ?>
+				</form>
+			</div>
 
 			<div class="bn-card" style="max-width:540px;margin-bottom:var(--s6);">
 				<h3><?php esc_html_e( 'Send Bulk Invitations', 'buddynext' ); ?></h3>
@@ -236,8 +336,20 @@ class InviteManager {
 									),
 									'bn_resend_invite_' . $invite_id
 								);
+								$revoke_url = wp_nonce_url(
+									add_query_arg(
+										array(
+											'action'    => 'bn_revoke_invite',
+											'invite_id' => $invite_id,
+										),
+										admin_url( 'admin-post.php' )
+									),
+									'bn_revoke_invite_' . $invite_id
+								);
 								?>
 								<a href="<?php echo esc_url( $resend_url ); ?>"><?php esc_html_e( 'Resend', 'buddynext' ); ?></a>
+								&nbsp;|&nbsp;
+								<a href="<?php echo esc_url( $revoke_url ); ?>" class="bn-text-danger" onclick="return confirm('<?php echo esc_js( __( 'Revoke this invitation? The link will stop working.', 'buddynext' ) ); ?>');"><?php esc_html_e( 'Revoke', 'buddynext' ); ?></a>
 							</td>
 						</tr>
 					<?php endforeach; ?>
