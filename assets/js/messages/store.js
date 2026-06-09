@@ -117,11 +117,6 @@ function appendMessage( msg, viewer ) {
 }
 
 const { actions } = store( 'buddynext/messages', {
-	state: {
-		get hasReply() {
-			return !! getContext().replyToId;
-		},
-	},
 	actions: {
 		// ── Composer ──────────────────────────────────────────────────────────
 		onMessageInput( event ) {

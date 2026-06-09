@@ -42,6 +42,14 @@ endif;
 
 $viewer = get_current_user_id();
 
+// /messages/?conversation={id} — open an existing conversation. The rail items
+// and tab links carry the open conversation as query state on the two-pane page
+// (the canonical /messages/{id}/ path route passes it as $active_conv_id instead).
+if ( $active_conv_id <= 0 ) {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$active_conv_id = absint( $_GET['conversation'] ?? 0 );
+}
+
 // /messages/?to={user_id} — open (or start) a direct conversation with a member
 // (the member-directory + profile-connections "Message" buttons link here).
 if ( $active_conv_id <= 0 ) {

@@ -3,7 +3,7 @@
  * BuddyNext template part: dm-composer.
  *
  * Renders the message-composer at the bottom of the thread pane: the
- * "replying to" hint row (visible when state.replyToId is set), the
+ * "replying to" hint row (visible when context.replyToId is set), the
  * emoji + attach buttons, the autosizing textarea, and the send button.
  *
  * Used by: templates/messages/thread.php.
@@ -63,9 +63,9 @@ do_action( 'buddynext_part_dm_composer_before', $args );
 ?>
 <div class="<?php echo esc_attr( $bn_class ); ?>">
 
-	<div class="bn-card bn-dm-composer__reply" data-wp-class--is-hidden="!state.replyToId">
+	<div class="bn-card bn-dm-composer__reply" data-wp-class--is-hidden="!context.replyToId">
 		<span class="bn-dm-composer__reply-label"><?php esc_html_e( 'Replying to', 'buddynext' ); ?></span>
-		<span class="bn-dm-composer__reply-text" data-wp-text="state.replyToText"></span>
+		<span class="bn-dm-composer__reply-text" data-wp-text="context.replyToText"></span>
 		<button
 			type="button"
 			class="bn-btn"

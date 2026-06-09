@@ -3,7 +3,7 @@
  * BuddyNext template part: dm-delete-modal.
  *
  * Confirmation modal for deleting a conversation. Visibility is bound
- * to `state.confirmOpen` in the messages Interactivity store.
+ * to `context.confirmOpen` in the messages Interactivity store.
  *
  * Used by: templates/messages/thread.php.
  *
@@ -55,7 +55,7 @@ do_action( 'buddynext_part_dm_delete_modal_before', $args );
 	role="dialog"
 	aria-modal="true"
 	aria-labelledby="bn-dm-confirm-title"
-	data-wp-class--is-hidden="!state.confirmOpen"
+	data-wp-class--is-hidden="!context.confirmOpen"
 	data-wp-on--click="actions.closeDeleteConfirm"
 >
 	<div class="bn-modal__panel" data-tone="danger" data-size="sm" data-wp-on--click="actions.stopPropagation">
