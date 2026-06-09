@@ -689,6 +689,31 @@
 	color: var(--bn-ink-3);
 }
 
+/* ── Message-request banner (accept before replying) ─────────────────────── */
+.bn-dm-request {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	padding: var(--bn-s4);
+	border-top: 1px solid var(--bn-line);
+	background: var(--bn-sunken);
+}
+
+.bn-dm-request__text {
+	margin: 0;
+	flex: 1 1 220px;
+	font-size: var(--bn-fs-sm);
+	color: var(--bn-ink-2);
+}
+
+.bn-dm-request__actions {
+	display: flex;
+	gap: var(--bn-s2);
+	flex-shrink: 0;
+}
+
 /* ── Dependency notice (WPMediaVerse not installed) ──────────────────────── */
 .bn-dm-dep-notice {
 	max-width: 540px;

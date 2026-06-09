@@ -350,6 +350,39 @@ const { actions } = store( 'buddynext/messages', {
 			}
 		},
 
+		// ── Message requests ────────────────────────────────────────────────────
+		*acceptRequest() {
+			const ctx    = getContext();
+			const convId = parseInt( ctx.activeConvId, 10 ) || 0;
+			if ( ! convId ) {
+				return;
+			}
+			try {
+				const res = yield fetch( ctx.mvsRest + '/conversations/' + convId + '/accept', {
+					method: 'POST',
+					headers: headers( ctx ),
+				} );
+				if ( res.ok ) {
+					// Reload so the composer replaces the request banner.
+					window.location.href = ctx.messagesUrl + convId + '/';
+				}
+			} catch ( _e ) {}
+		},
+		*declineRequest() {
+			const ctx    = getContext();
+			const convId = parseInt( ctx.activeConvId, 10 ) || 0;
+			if ( ! convId ) {
+				return;
+			}
+			try {
+				yield fetch( ctx.mvsRest + '/conversations/' + convId + '/decline', {
+					method: 'POST',
+					headers: headers( ctx ),
+				} );
+			} catch ( _e ) {}
+			window.location.href = ctx.messagesUrl || '?';
+		},
+
 		// ── New message (recipient picker) ──────────────────────────────────────
 		openCompose() {
 			getContext().composeOpen = true;

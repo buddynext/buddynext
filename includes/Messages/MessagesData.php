@@ -168,6 +168,17 @@ class MessagesData {
 		$rows         = (array) $svc->get_messages( $conv_id, $viewer, 0, 50 );
 		$messages     = array();
 
+		// A conversation is a "message request" for the viewer when their own
+		// participant status is still pending acceptance.
+		$viewer_status = 'active';
+		foreach ( (array) self::val( $conv, 'participants', array() ) as $p ) {
+			if ( (int) self::val( $p, 'id', 0 ) === $viewer ) {
+				$viewer_status = (string) self::val( $p, 'status', 'active' );
+				break;
+			}
+		}
+		$is_request = ( 'request_pending' === $viewer_status );
+
 		foreach ( $rows as $m ) {
 			$reactions = array();
 			foreach ( (array) self::val( $m, 'reactions', array() ) as $r ) {
@@ -197,6 +208,7 @@ class MessagesData {
 			'display_name'    => $other ? (string) self::val( $other, 'display_name', '' ) : __( 'Conversation', 'buddynext' ),
 			'is_online'       => $other ? ! empty( self::val( $other, 'is_online', false ) ) : false,
 			'avatar_html'     => '',
+			'is_request'      => $is_request,
 			'messages'        => $messages,
 		);
 	}

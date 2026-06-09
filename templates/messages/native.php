@@ -148,10 +148,18 @@ $bn_ctx = wp_json_encode(
 					)
 				);
 
-				buddynext_get_template(
-					'parts/dm-composer.php',
-					array( 'conversation_id' => (int) $thread['conversation_id'] )
-				);
+				if ( ! empty( $thread['is_request'] ) ) {
+					// Pending request: accept before replying.
+					buddynext_get_template(
+						'parts/dm-request-banner.php',
+						array( 'display_name' => $thread['display_name'] )
+					);
+				} else {
+					buddynext_get_template(
+						'parts/dm-composer.php',
+						array( 'conversation_id' => (int) $thread['conversation_id'] )
+					);
+				}
 				?>
 			</div>
 		<?php elseif ( $bn_blocked_recipient > 0 ) : ?>
