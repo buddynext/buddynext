@@ -50,13 +50,20 @@ if ( $active_conv_id <= 0 ) {
 	$active_conv_id = absint( $_GET['conversation'] ?? 0 );
 }
 
-// /messages/?to={user_id} — open (or start) a direct conversation with a member
-// (the member-directory + profile-connections "Message" buttons link here).
+// /messages/?to={user_id} — open (or start) a direct conversation with a member.
+// `to`, `recipient`, and the New-message picker all funnel through here; accept
+// every alias so every "Message" entry point across the site lands correctly.
+$bn_blocked_recipient = 0;
 if ( $active_conv_id <= 0 ) {
 	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-	$bn_to = absint( $_GET['to'] ?? 0 );
+	$bn_to = absint( $_GET['to'] ?? ( $_GET['recipient'] ?? 0 ) );
 	if ( $bn_to > 0 ) {
 		$active_conv_id = MessagesData::open_with( $viewer, $bn_to );
+		if ( $active_conv_id <= 0 ) {
+			// Messaging this member is not allowed (DM access level, block, or
+			// self) — surface a clear reason instead of a blank thread pane.
+			$bn_blocked_recipient = $bn_to;
+		}
 	}
 }
 
@@ -140,6 +147,28 @@ $bn_ctx = wp_json_encode(
 					array( 'conversation_id' => (int) $thread['conversation_id'] )
 				);
 				?>
+			</div>
+		<?php elseif ( $bn_blocked_recipient > 0 ) : ?>
+			<?php $bn_blocked_user = get_userdata( $bn_blocked_recipient ); ?>
+			<div class="bn-dm-empty" role="status">
+				<span class="bn-dm-empty__icon" aria-hidden="true"><?php buddynext_icon( 'ban' ); ?></span>
+				<h2 class="bn-dm-empty__title"><?php esc_html_e( 'You can’t message this member', 'buddynext' ); ?></h2>
+				<p class="bn-dm-empty__body">
+					<?php
+					echo esc_html(
+						$bn_blocked_user
+							? sprintf(
+								/* translators: %s: member display name. */
+								__( '%s isn’t accepting messages from you right now.', 'buddynext' ),
+								$bn_blocked_user->display_name
+							)
+							: __( 'This member isn’t accepting messages from you right now.', 'buddynext' )
+					);
+					?>
+				</p>
+				<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $messages_url ); ?>">
+					<?php esc_html_e( 'Back to messages', 'buddynext' ); ?>
+				</a>
 			</div>
 		<?php else : ?>
 			<div class="bn-dm-empty">
