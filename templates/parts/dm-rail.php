@@ -220,10 +220,10 @@ do_action( 'buddynext_part_dm_rail_before', $args );
 	</div>
 
 	<div class="bn-dm-rail__foot">
-		<a class="bn-btn" data-variant="primary" data-size="md" href="<?php echo esc_url( $compose ); ?>">
+		<button type="button" class="bn-btn" data-variant="primary" data-size="md" data-wp-on--click="actions.openCompose" aria-haspopup="dialog">
 			<span class="bn-btn__icon" aria-hidden="true"><?php buddynext_icon( 'plus' ); ?></span>
 			<?php esc_html_e( 'New message', 'buddynext' ); ?>
-		</a>
+		</button>
 	</div>
 
 </aside>

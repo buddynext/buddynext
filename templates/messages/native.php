@@ -75,13 +75,19 @@ $messages_url = PageRouter::messages_url();
 $bn_ctx = wp_json_encode(
 	array(
 		'mvsRest'      => esc_url_raw( rest_url( 'mvs/v1' ) ),
+		'bnRest'       => esc_url_raw( rest_url( 'buddynext/v1' ) ),
 		'nonce'        => wp_create_nonce( 'wp_rest' ),
 		'userId'       => $viewer,
+		'composeOpen'  => false,
 		'activeConvId' => $thread ? (int) $thread['conversation_id'] : 0,
 		'replyToId'    => 0,
 		'replyToText'  => '',
 		'confirmOpen'  => false,
 		'messagesUrl'  => $messages_url,
+		'i18n'         => array(
+			'composeHint' => __( 'Type a name to find someone to message.', 'buddynext' ),
+			'composeNone' => __( 'No members found.', 'buddynext' ),
+		),
 	)
 );
 ?>
@@ -180,6 +186,8 @@ $bn_ctx = wp_json_encode(
 	</section>
 
 	<?php buddynext_get_template( 'parts/dm-delete-modal.php' ); ?>
+
+	<?php buddynext_get_template( 'parts/dm-compose-modal.php' ); ?>
 
 	<?php // Cloned by the store onto client-rendered (sent/polled) message bubbles. ?>
 	<template id="bn-dm-msg-actions-tpl"><?php buddynext_get_template( 'parts/dm-msg-actions.php' ); ?></template>

@@ -630,9 +630,63 @@
 	white-space: nowrap;
 }
 
-/* ── Delete-confirm modal ────────────────────────────────────────────────── */
-.bn-dm-confirm.is-hidden {
+/* ── Delete-confirm + compose modals ─────────────────────────────────────── */
+.bn-dm-confirm.is-hidden,
+.bn-dm-compose.is-hidden {
 	display: none;
+}
+
+/* ── New-message recipient picker ────────────────────────────────────────── */
+.bn-dm-compose__results {
+	list-style: none;
+	margin: var(--bn-s3) 0 0;
+	padding: 0;
+	max-height: 320px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.bn-dm-compose__hint {
+	padding: var(--bn-s3);
+	color: var(--bn-ink-3);
+	font-size: var(--bn-fs-sm);
+	text-align: center;
+}
+
+.bn-dm-compose__result {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	padding: var(--bn-s2) var(--bn-s3);
+	border-radius: var(--bn-radius);
+	cursor: pointer;
+}
+
+.bn-dm-compose__result:hover,
+.bn-dm-compose__result:focus-visible {
+	background: var(--bn-sunken);
+	outline: none;
+}
+
+.bn-dm-compose__result-meta {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.bn-dm-compose__result-name {
+	font-weight: 600;
+	color: var(--bn-ink);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bn-dm-compose__result-handle {
+	font-size: var(--bn-fs-xs);
+	color: var(--bn-ink-3);
 }
 
 /* ── Dependency notice (WPMediaVerse not installed) ──────────────────────── */

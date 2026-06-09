@@ -57,6 +57,64 @@ function logEl() {
 	return document.querySelector( '[data-wp-interactive="buddynext/messages"] [role="log"]' );
 }
 
+// Debounce timer for the New-message recipient search.
+let composeSearchTimer = 0;
+
+/**
+ * Build a non-result status line for the recipient picker (hint / empty).
+ *
+ * @param {string} text Message text.
+ * @return {HTMLElement} The <li> node.
+ */
+function composeMessage( text ) {
+	const li = document.createElement( 'li' );
+	li.className = 'bn-dm-compose__hint';
+	li.textContent = text || '';
+	return li;
+}
+
+/**
+ * Build one recipient-picker result row (DOM nodes only — no innerHTML).
+ *
+ * @param {Object} member Member row { user_id, display_name, handle, avatar_url }.
+ * @return {HTMLElement} The <li> option node.
+ */
+function buildComposeResult( member ) {
+	const li = document.createElement( 'li' );
+	li.className = 'bn-dm-compose__result';
+	li.setAttribute( 'role', 'option' );
+	li.tabIndex = 0;
+	li.dataset.userId = String( member.user_id || 0 );
+
+	const avatar = document.createElement( 'span' );
+	avatar.className = 'bn-avatar';
+	avatar.dataset.size = 'sm';
+	if ( member.avatar_url ) {
+		const img = document.createElement( 'img' );
+		img.src = member.avatar_url;
+		img.alt = '';
+		img.width = 28;
+		img.height = 28;
+		img.loading = 'lazy';
+		avatar.appendChild( img );
+	}
+
+	const meta = document.createElement( 'span' );
+	meta.className = 'bn-dm-compose__result-meta';
+	const name = document.createElement( 'span' );
+	name.className = 'bn-dm-compose__result-name';
+	name.textContent = member.display_name || '';
+	const handle = document.createElement( 'span' );
+	handle.className = 'bn-dm-compose__result-handle';
+	handle.textContent = member.handle ? '@' + member.handle : '';
+	meta.appendChild( name );
+	meta.appendChild( handle );
+
+	li.appendChild( avatar );
+	li.appendChild( meta );
+	return li;
+}
+
 /**
  * Render a message bubble matching templates/parts/dm-message.php.
  *
@@ -290,6 +348,69 @@ const { actions } = store( 'buddynext/messages', {
 			if ( input ) {
 				input.focus();
 			}
+		},
+
+		// ── New message (recipient picker) ──────────────────────────────────────
+		openCompose() {
+			getContext().composeOpen = true;
+			// Focus the search field once the modal is shown.
+			setTimeout( () => {
+				const input = document.getElementById( 'bn-dm-compose-search' );
+				if ( input ) {
+					input.focus();
+				}
+			}, 0 );
+		},
+		closeCompose() {
+			getContext().composeOpen = false;
+		},
+		onComposeSearch( event ) {
+			const ctx  = getContext();
+			const term = ( event.target.value || '' ).trim();
+			const list = document.querySelector( '.bn-dm-compose__results' );
+			if ( ! list ) {
+				return;
+			}
+
+			clearTimeout( composeSearchTimer );
+
+			const i18n = ctx.i18n || {};
+			if ( '' === term ) {
+				list.replaceChildren( composeMessage( i18n.composeHint || '' ) );
+				return;
+			}
+
+			composeSearchTimer = setTimeout( async () => {
+				try {
+					const url = ctx.bnRest + '/members?per_page=8&search=' + encodeURIComponent( term );
+					const res = await fetch( url, { headers: headers( ctx ) } );
+					if ( ! res.ok ) {
+						return;
+					}
+					const data    = await res.json();
+					const members = ( data && data.items ? data.items : [] ).filter(
+						( m ) => parseInt( m.user_id, 10 ) !== parseInt( ctx.userId, 10 )
+					);
+					if ( ! members.length ) {
+						list.replaceChildren( composeMessage( i18n.composeNone || '' ) );
+						return;
+					}
+					list.replaceChildren( ...members.map( buildComposeResult ) );
+				} catch ( _e ) {}
+			}, 250 );
+		},
+		onComposeResultClick( event ) {
+			const row = event.target.closest( '[data-user-id]' );
+			if ( ! row ) {
+				return;
+			}
+			const uid = parseInt( row.dataset.userId, 10 ) || 0;
+			if ( ! uid ) {
+				return;
+			}
+			const ctx  = getContext();
+			const base = ctx.messagesUrl || '?';
+			window.location.href = base + ( base.indexOf( '?' ) === -1 ? '?' : '&' ) + 'to=' + uid;
 		},
 
 		// ── Read receipts ─────────────────────────────────────────────────────────
