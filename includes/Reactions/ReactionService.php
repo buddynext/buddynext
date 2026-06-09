@@ -357,7 +357,15 @@ class ReactionService {
 	 * @return array<int,array{user_id:int,emoji:string,created_at:string}>
 	 */
 	public function get_reactors( string $object_type, int $object_id, int $limit = 100, int $viewer_id = 0 ): array {
-		$limit = max( 1, min( 100, $limit ) );
+		/**
+		 * Filter the maximum number of reactors returned for an object.
+		 *
+		 * @param int    $max         Default ceiling (100).
+		 * @param string $object_type Object type.
+		 * @param int    $object_id   Object ID.
+		 */
+		$max   = (int) apply_filters( 'buddynext_reactors_limit', 100, $object_type, $object_id );
+		$limit = max( 1, min( max( 1, $max ), $limit ) );
 		if ( 0 === $viewer_id ) {
 			$viewer_id = get_current_user_id();
 		}

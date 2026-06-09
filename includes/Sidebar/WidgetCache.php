@@ -87,7 +87,7 @@ class WidgetCache {
 		}
 		// Default-limit keys are the only ones rendered by partials/sidebar.php.
 		// Larger-limit keys are admin-only and tolerate one stale read until TTL.
-		wp_cache_delete( 'suggested:' . $user_id . ':3', self::GROUP_USER );
+		wp_cache_delete( 'suggested-v2:' . $user_id . ':3', self::GROUP_USER );
 		wp_cache_delete( 'spaces:' . $user_id . ':4', self::GROUP_USER );
 	}
 }

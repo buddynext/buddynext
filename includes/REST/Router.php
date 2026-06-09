@@ -90,7 +90,9 @@ class Router {
 		( new HashtagController() )->register_routes();
 		( new ModerationController() )->register_routes();
 		( new MemberTypeController( buddynext_service( 'member_types' ) ) )->register_routes();
-		( new OutboundWebhookController( buddynext_service( 'webhooks' ) ) )->register_routes();
+		if ( buddynext_service( 'features' )->is_enabled( 'webhooks' ) ) {
+			( new OutboundWebhookController( buddynext_service( 'webhooks' ) ) )->register_routes();
+		}
 		( new SlugCheckController() )->register_routes();
 		( new RealtimeController() )->register_routes();
 

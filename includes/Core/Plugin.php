@@ -191,6 +191,23 @@ class Plugin {
 		// buddynext_auth_social_providers seam + handles the OAuth round-trip.
 		( new \BuddyNext\Auth\SocialLogin() )->register();
 
+		// Approval-mode gate: block sign-in for accounts awaiting administrator
+		// approval (set during registration when buddynext_reg_mode = 'approval').
+		add_filter(
+			'wp_authenticate_user',
+			static function ( $user ) {
+				if ( $user instanceof \WP_User && get_user_meta( $user->ID, 'bn_pending_approval', true ) ) {
+					return new \WP_Error(
+						'bn_pending_approval',
+						__( 'Your account is awaiting administrator approval.', 'buddynext' )
+					);
+				}
+				return $user;
+			},
+			10,
+			1
+		);
+
 		// Wire search index lifecycle hooks — handles async dispatch via Action
 		// Scheduler when available, or falls back to synchronous inline indexing.
 		$container->get( 'search_index_listener' )->register();
@@ -229,9 +246,12 @@ class Plugin {
 		// consumption of WPMediaVerse only — BN owns the media UX entirely.
 		( new \BuddyNext\Media\MediaAssets() )->register();
 
-		// Wire outbound webhook service (cron retry) and domain event listener.
-		$container->get( 'webhooks' )->init();
-		( new OutboundWebhookListener() )->register();
+		// Wire outbound webhooks (cron retry + domain event listener) only when
+		// the opt-in feature is enabled — otherwise no deliveries fire.
+		if ( $container->get( 'features' )->is_enabled( 'webhooks' ) ) {
+			$container->get( 'webhooks' )->init();
+			( new OutboundWebhookListener() )->register();
+		}
 
 		// Sidebar feature — Listener registers cache-bust hooks. Conditional
 		// per plug-and-play model: only when the feature is bound.

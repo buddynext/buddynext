@@ -15,7 +15,8 @@
       "journey": "docs/journeys/reactions.md",
       "owner_expectation": "Members react to posts/comments with emoji; counts and reactor lists update instantly.",
       "status": "implemented",
-      "gaps": ["buddynext_reactors_limit filter is documented but not applied (reactor list hardcoded to 100)", "emoji not allow-list-enforced server-side", "reaction_count counter drift risk for non-post object types"]
+      "fixed_2026_06_09": ["buddynext_reactors_limit filter is now applied in get_reactors() (the 100 ceiling is filterable)"],
+      "gaps": ["emoji not allow-list-enforced server-side", "reaction_count counter drift risk for non-post object types"]
     },
     {
       "slug": "comments", "label": "Comments", "tier": "default_on", "group": "community",
@@ -76,8 +77,9 @@
       "slug": "onboarding", "label": "Onboarding", "tier": "default_on", "group": "community",
       "journey": "docs/journeys/onboarding.md",
       "owner_expectation": "Owner picks a registration mode and invites people; new members get a guided onboarding wizard.",
-      "status": "partial",
-      "gaps": ["buddynext_reg_mode is stored but NOT enforced on REST signup (invite-only does not block open signup; only SocialLogin honours it)", "invite tokens are generated/emailed but never redeemed (no registration-path caller consumes bn_invite)", "no single-invite UI/REST route (bulk CSV only), no revoke endpoint", "skip() does not cancel the nudge cron"]
+      "status": "implemented",
+      "fixed_2026_06_09": ["reg_mode now enforced on REST signup: invite mode requires + redeems a valid invite token; approval mode creates a pending account, blocks login (wp_authenticate_user gate), and exposes POST /auth/approve/{id}"],
+      "gaps": ["no single-invite UI/REST route (bulk CSV only), no revoke endpoint", "approval-mode admin UI is thin (approve via REST/wp-cli; no dedicated screen yet)", "skip() does not cancel the nudge cron"]
     },
     {
       "slug": "verification", "label": "Email verification", "tier": "default_on", "group": "community",
@@ -89,15 +91,17 @@
       "slug": "announcements", "label": "Announcements", "tier": "default_on", "group": "community",
       "journey": "docs/journeys/announcements.md",
       "owner_expectation": "Admin pins an announcement to the top of every member's feed; members can dismiss it.",
-      "status": "partial",
-      "gaps": ["site_pin_expires_at is read/honoured but never written (no create or REST path sets expiry; pinned forever until dismissed)", "no admin UI, no list/edit/un-pin endpoint", "only the single newest announcement is site-pinned", "creation hardcoded to manage_options (no space-moderator path, no delegation filter)"]
+      "status": "implemented",
+      "fixed_2026_06_09": ["create path now writes site_pin_expires_at from an optional announcement_expires_at param (UTC); future expiry stays pinned, past expiry is excluded by active_announcement()"],
+      "gaps": ["no admin UI, no list/edit/un-pin endpoint", "only the single newest announcement is site-pinned", "creation hardcoded to manage_options (no space-moderator path, no delegation filter)"]
     },
     {
       "slug": "sidebar", "label": "Sidebar widgets", "tier": "default_on", "group": "community",
       "journey": "docs/journeys/sidebar.md",
       "owner_expectation": "A community sidebar shows trending tags, suggested follows, and joined spaces; owner can toggle it in Settings -> Features.",
-      "status": "partial",
-      "gaps": ["cache-bust key mismatch: suggested_follows() writes key 'suggested-v2:{u}:{limit}' but invalidate_user() deletes 'suggested:{u}:3', so follow/unfollow/block never clear the suggested-follows cache (self-heals only on 300s TTL)"]
+      "status": "implemented",
+      "fixed_2026_06_09": ["cache-bust key mismatch fixed: invalidate_user() now deletes 'suggested-v2:{u}:3' so follow/unfollow/block clear the suggested-follows cache immediately"],
+      "gaps": []
     },
     {
       "slug": "gamification", "label": "Gamification (bridge)", "tier": "opt_in", "group": "bridges",
@@ -121,7 +125,8 @@
       "journey": "docs/journeys/wpmediaverse.md",
       "owner_expectation": "Activate WPMediaVerse and members can DM + share media inside the community; BN blocks/mutes are respected; messages create BN notifications.",
       "status": "implemented",
-      "gaps": ["mvs_comment_created handler arg-order mismatch: bridge expects ($comment_id,$media_id) but partner fires ($media_id,$user_id,$comment_id,$content,$source) -> lightbox->activity comment sync gets wrong IDs (bridge fix needed)"]
+      "fixed_2026_06_09": ["mvs_comment_created handler signature corrected to match the engine's fire ($media_id,$user_id,$comment_id) so lightbox->activity comment sync uses the right IDs"],
+      "gaps": []
     },
     {
       "slug": "career_board", "label": "Career Board jobs (bridge)", "tier": "opt_in", "group": "bridges",
@@ -135,8 +140,9 @@
       "slug": "webhooks", "label": "Outbound webhooks", "tier": "opt_in", "group": "integrations",
       "journey": "docs/journeys/webhooks.md",
       "owner_expectation": "Owner registers webhook endpoints and external systems get signed POSTs on 14 community events (member/post/space/connection/reaction/comment/moderation).",
-      "status": "partial",
-      "gaps": ["the 'webhooks' opt-in toggle is NOT enforced at runtime (service/listener/routes wired unconditionally, no is_enabled('webhooks') guard) -> deliveries fire even with the toggle off", "attempt column never incremented on retry", "silent auto-deactivate after 3 failures with no re-activate route", "Free cap of 1 endpoint"]
+      "status": "implemented",
+      "fixed_2026_06_09": ["opt-in toggle now enforced at runtime: the listener/cron and REST routes are gated on is_enabled('webhooks'), so nothing fires or is manageable when the feature is off"],
+      "gaps": ["attempt column never incremented on retry", "silent auto-deactivate after 3 failures with no re-activate route", "Free cap of 1 endpoint"]
     }
   ]
 }

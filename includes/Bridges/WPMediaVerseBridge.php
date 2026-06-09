@@ -68,7 +68,7 @@ class WPMediaVerseBridge {
 		// Sync MVS lightbox comments → BuddyNext activity comments.
 		// When a user comments on a photo via the lightbox, create a matching
 		// bn_comments entry threaded under the BuddyNext post that holds the media.
-		add_action( 'mvs_comment_created', array( $this, 'sync_lightbox_comment' ), 10, 2 );
+		add_action( 'mvs_comment_created', array( $this, 'sync_lightbox_comment' ), 10, 3 );
 	}
 
 	/**
@@ -457,10 +457,14 @@ class WPMediaVerseBridge {
 	 * under it — so the comment appears in the BuddyNext feed as a regular
 	 * post comment.
 	 *
-	 * @param int $comment_id WP comment ID created by MVS.
+	 * Signature matches the engine: mvs_comment_created fires
+	 * ( $media_id, $user_id, $comment_id, $content, $source ).
+	 *
 	 * @param int $media_id   MVS media post ID.
+	 * @param int $user_id    Commenting user ID (unused; resolved from the comment).
+	 * @param int $comment_id WP comment ID created by MVS.
 	 */
-	public function sync_lightbox_comment( int $comment_id, int $media_id ): void {
+	public function sync_lightbox_comment( int $media_id, int $user_id, int $comment_id ): void {
 		$comment = get_comment( $comment_id );
 		if ( ! $comment ) {
 			return;

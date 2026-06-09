@@ -165,6 +165,14 @@ class PostService {
 
 		$status = $data['status'] ?? 'published';
 
+		// Announcements may carry an optional expiry (UTC). active_announcement()
+		// honours it: NULL = pinned until dismissed, a past time = no longer pinned.
+		$pin_expires = null;
+		if ( 'announcement' === $type && ! empty( $data['announcement_expires_at'] ) ) {
+			$ts          = strtotime( (string) $data['announcement_expires_at'] );
+			$pin_expires = $ts ? gmdate( 'Y-m-d H:i:s', $ts ) : null;
+		}
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_posts',
@@ -182,8 +190,9 @@ class PostService {
 				'content_warning_type' => $data['content_warning_type'] ?? null,
 				'scheduled_at'         => $data['scheduled_at'] ?? null,
 				'is_announcement'      => 'announcement' === $type ? 1 : 0,
+				'site_pin_expires_at'  => $pin_expires,
 			),
-			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d' )
+			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 

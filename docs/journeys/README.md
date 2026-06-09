@@ -79,6 +79,8 @@ Admin autologin shortcut: append `?autologin=1` to any admin URL. The mu-plugin 
 
 Every feature in the `FeatureRegistry` catalogue (20 features across core / community / bridges / integrations) has a dedicated journey runbook. Each runbook opens with a **Site-owner expectation** block — what a community owner expects the feature to do out-of-the-box and what they configure — so the journey can be audited as "does the feature meet the owner's expectation?" Bridge journeys require their partner plugin active and degrade to no-ops (no fatals) when it is not.
 
+**Current status is in [`../../audit/journeys.json`](../../audit/journeys.json)** (machine-readable: feature → expectation → status → gaps). Authoring these runbooks surfaced six expectation-vs-reality gaps, all **fixed on 2026-06-09** (see each feature's `fixed_2026_06_09` note in journeys.json): sidebar suggested-follows cache-bust, `buddynext_reactors_limit` filter, WPMediaVerse comment-sync arg order, webhooks opt-in runtime enforcement, announcement expiry, and registration-mode enforcement (invite redemption + approval login gate). Where a runbook's *Known limitations* still lists one of these, journeys.json is the source of truth.
+
 ### Core (mandatory)
 
 | File | Feature | Est. time |

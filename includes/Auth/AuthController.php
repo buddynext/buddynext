@@ -79,7 +79,21 @@ class AuthController {
 						'type'     => 'boolean',
 						'default'  => false,
 					),
+					'invite'       => array(
+						'required' => false,
+						'type'     => 'string',
+					),
 				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/approve/(?P<id>[\d]+)',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'approve_member' ),
+				'permission_callback' => array( $this, 'require_admin' ),
 			)
 		);
 
@@ -364,6 +378,23 @@ class AuthController {
 			);
 		}
 
+		// Registration policy: open | invite | approval (Settings → Registration).
+		$reg_mode = (string) get_option( 'buddynext_reg_mode', 'open' );
+
+		// Invite-only: a valid, unexpired, unredeemed invitation token is required.
+		$invite = null;
+		if ( 'invite' === $reg_mode ) {
+			$token  = sanitize_text_field( (string) $request->get_param( 'invite' ) );
+			$invite = '' !== $token ? ( new \BuddyNext\Onboarding\InviteService() )->get_by_token( $token ) : null;
+			if ( null === $invite ) {
+				return new WP_Error(
+					'rest_invite_required',
+					__( 'This community is invite-only — a valid invitation is required to register.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+		}
+
 		$email        = sanitize_email( (string) $request->get_param( 'email' ) );
 		$user_login   = sanitize_user( (string) $request->get_param( 'user_login' ), true );
 		$password     = (string) $request->get_param( 'password' );
@@ -415,11 +446,41 @@ class AuthController {
 			);
 		}
 
+		// Redeem the invitation now that the account exists.
+		if ( null !== $invite ) {
+			( new \BuddyNext\Onboarding\InviteService() )->mark_registered( (int) $invite['id'] );
+		}
+
 		// Always issue a verification token so the new user receives a
 		// confirmation email. When buddynext_email_verify is OFF the link
 		// is informational (the account is already usable); when ON the
 		// user must click it before BN treats them as verified.
 		( new VerificationService() )->create_token( (int) $user_id );
+
+		// Approval mode: hold the account for an administrator. The login gate
+		// (wp_authenticate_user) blocks sign-in until the flag is cleared, so we
+		// do NOT auto-authenticate here.
+		if ( 'approval' === $reg_mode ) {
+			update_user_meta( (int) $user_id, 'bn_pending_approval', '1' );
+
+			/**
+			 * Fires when a new registration is created but needs admin approval.
+			 *
+			 * @param int    $user_id New (pending) user ID.
+			 * @param string $email   Registered email.
+			 */
+			do_action( 'buddynext_registration_pending', (int) $user_id, $email );
+
+			return new WP_REST_Response(
+				array(
+					'success' => true,
+					'pending' => true,
+					'user_id' => (int) $user_id,
+					'message' => __( 'Your account was created and is awaiting administrator approval.', 'buddynext' ),
+				),
+				200
+			);
+		}
 
 		// Sign the user in immediately.
 		wp_set_current_user( (int) $user_id );
@@ -503,5 +564,53 @@ class AuthController {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Permission callback: require a site administrator.
+	 *
+	 * @return true|WP_Error
+	 */
+	public function require_admin(): true|WP_Error {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'You do not have permission to do this.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * POST /auth/approve/{id} — approve a pending (approval-mode) registration.
+	 *
+	 * Clears the bn_pending_approval flag so the account can sign in.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function approve_member( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id = (int) $request['id'];
+
+		if ( ! get_userdata( $user_id ) ) {
+			return new WP_Error( 'rest_user_not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		if ( ! get_user_meta( $user_id, 'bn_pending_approval', true ) ) {
+			return new WP_REST_Response( array( 'approved' => true, 'already' => true ), 200 );
+		}
+
+		delete_user_meta( $user_id, 'bn_pending_approval' );
+
+		/**
+		 * Fires when an administrator approves a pending registration.
+		 *
+		 * @param int $user_id Approved user ID.
+		 */
+		do_action( 'buddynext_member_approved', $user_id );
+
+		return new WP_REST_Response( array( 'approved' => true ), 200 );
 	}
 }

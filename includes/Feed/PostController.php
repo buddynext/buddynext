@@ -106,6 +106,8 @@ class PostController {
 			'content_warning'      => (bool) $request->get_param( 'content_warning' ),
 			'content_warning_type' => $this->sanitize_warning_type( $request->get_param( 'content_warning_type' ) ),
 			'scheduled_at'         => $request->get_param( 'scheduled_at' ),
+			// Optional announcement expiry (UTC datetime); only honoured for type=announcement.
+			'announcement_expires_at' => $request->get_param( 'announcement_expires_at' ),
 		);
 
 		$service = function_exists( 'buddynext_service' )
