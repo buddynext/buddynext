@@ -2518,7 +2518,9 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	font-size: var(--text-base);
 	line-height: var(--leading-body);
 	color: var(--text-1);
-	background: var(--bg-subtle);
+	/* No own background — sit on the page canvas like every other hub
+	   (Members, Spaces). A --bg-subtle fill here read as an "extra" grey
+	   band that broke the page-to-page rhythm. */
 	-webkit-font-smoothing: antialiased;
 }
 .bn-explore-content { min-width: 0; }
