@@ -2260,98 +2260,151 @@ document.addEventListener( 'keydown', function ( event ) {
 })();
 
 /* ──────────────────────────────────────────────────────────────────────────
- * Cover image picker (Space Settings → General).
+ * Space image uploaders (Space Settings → General): cover + icon (avatar).
  *
- * Opens the WordPress media library via wp.media(), writes the chosen URL
- * into the hidden [data-bn-cover-input] field, swaps the preview pane to
- * background-image, and dispatches an 'input' event on the hidden input so
- * the sticky save bar wakes up and marks the form dirty. The 'Remove' button
- * clears the URL, resets the preview, and re-shows the empty-state label.
- * Falls back to a friendly no-op when wp.media isn't loaded (degrades to the
- * server-rendered form, which still POSTs a blank cover URL).
+ * Front-end is 100% REST — no wp.media, no attachments. Picking a file POSTs
+ * it directly (multipart) to:
+ *   POST   /buddynext/v1/spaces/{id}/cover   (field `image`)
+ *   POST   /buddynext/v1/spaces/{id}/avatar  (field `image`)
+ * which store organized per-owner WebP variations via ImageStorageService and
+ * persist the URL to bn_spaces. The endpoint saves immediately, so there is no
+ * dependence on the General form's Save button (the cover URL was never part
+ * of that PUT payload). DELETE on the same routes clears the image.
  * ────────────────────────────────────────────────────────────────────────── */
 
 (function () {
-	var field = document.querySelector( '[data-bn-cover-field]' );
-	if ( ! field ) { return; }
+	var generalForm = document.querySelector( '[data-bn-settings-general-form]' );
+	var spaceId     = generalForm ? generalForm.getAttribute( 'data-space-id' ) : null;
+	if ( ! spaceId ) { return; }
 
-	var preview   = field.querySelector( '[data-bn-cover-preview]' );
-	var input     = field.querySelector( '[data-bn-cover-input]' );
-	// Optional: the drop-zone preview is the primary upload affordance, so a
-	// standalone upload button is not required.
-	var trigger   = field.querySelector( '[data-bn-cover-upload]' );
-	var removeBtn = field.querySelector( '[data-bn-cover-remove]' );
-	var empty     = field.querySelector( '.bn-space-settings__cover-empty' );
-
-	if ( ! preview || ! input ) { return; }
-
-	var mediaFrame = null;
-
-	function applyCover( url ) {
-		input.value = url || '';
-		if ( url ) {
-			preview.classList.add( 'has-image' );
-			preview.style.backgroundImage = "url('" + url.replace( /'/g, "\\'" ) + "')";
-			preview.style.backgroundSize  = 'cover';
-			preview.style.backgroundPosition = 'center';
-			if ( empty ) { empty.hidden = true; }
-			if ( removeBtn ) { removeBtn.hidden = false; }
-		} else {
-			preview.classList.remove( 'has-image' );
-			preview.style.backgroundImage = '';
-			if ( empty ) { empty.hidden = false; }
-			if ( removeBtn ) { removeBtn.hidden = true; }
-		}
-		// Surface to the sticky save bar.
-		input.dispatchEvent( new Event( 'input', { bubbles: true } ) );
-		input.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+	// A throwaway file input drives the OS picker; we never keep a value in it.
+	function pickFile( onChosen ) {
+		var picker = document.createElement( 'input' );
+		picker.type   = 'file';
+		picker.accept = 'image/jpeg,image/png,image/webp,image/gif';
+		picker.style.display = 'none';
+		picker.addEventListener( 'change', function () {
+			var file = picker.files && picker.files[0];
+			if ( file ) { onChosen( file ); }
+			picker.remove();
+		} );
+		document.body.appendChild( picker );
+		picker.click();
 	}
 
-	function openPicker() {
-		if ( ! window.wp || ! window.wp.media ) {
-			// Friendly degradation — wp.media wasn't loaded by wp_enqueue_media().
-			return;
-		}
-		if ( ! mediaFrame ) {
-			mediaFrame = window.wp.media( {
-				title: 'Select cover image',
-				button: { text: 'Use this image' },
-				library: { type: 'image' },
-				multiple: false,
-			} );
-			mediaFrame.on( 'select', function () {
-				var attachment = mediaFrame.state().get( 'selection' ).first().toJSON();
-				if ( attachment && attachment.url ) {
-					applyCover( attachment.url );
-				}
-			} );
-		}
-		mediaFrame.open();
-	}
-
-	if ( trigger ) {
-		trigger.addEventListener( 'click', function ( e ) {
-			e.preventDefault();
-			openPicker();
+	function uploadImage( kind, file ) {
+		var body = new FormData();
+		body.append( 'image', file );
+		return fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/' + kind ), {
+			method:  'POST',
+			headers: { 'X-WP-Nonce': resolveNonce() },
+			body:    body,
 		} );
 	}
 
-	preview.addEventListener( 'click', function ( e ) {
-		e.preventDefault();
-		openPicker();
-	} );
-
-	preview.addEventListener( 'keydown', function ( e ) {
-		if ( 'Enter' === e.key || ' ' === e.key ) {
-			e.preventDefault();
-			openPicker();
-		}
-	} );
-
-	if ( removeBtn ) {
-		removeBtn.addEventListener( 'click', function ( e ) {
-			e.preventDefault();
-			applyCover( '' );
+	function deleteImage( kind ) {
+		return fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/' + kind ), {
+			method:  'DELETE',
+			headers: { 'X-WP-Nonce': resolveNonce() },
 		} );
 	}
+
+	/* ── Cover ──────────────────────────────────────────────────────────── */
+	(function () {
+		var field = document.querySelector( '[data-bn-cover-field]' );
+		if ( ! field ) { return; }
+
+		var preview   = field.querySelector( '[data-bn-cover-preview]' );
+		var input     = field.querySelector( '[data-bn-cover-input]' );
+		var removeBtn = field.querySelector( '[data-bn-cover-remove]' );
+		var empty     = field.querySelector( '.bn-space-settings__cover-empty' );
+		if ( ! preview ) { return; }
+
+		function paint( url ) {
+			if ( input ) { input.value = url || ''; }
+			if ( url ) {
+				preview.classList.add( 'has-image' );
+				preview.style.backgroundImage    = "url('" + url.replace( /'/g, "\\'" ) + "')";
+				preview.style.backgroundSize     = 'cover';
+				preview.style.backgroundPosition = 'center';
+				if ( empty ) { empty.hidden = true; }
+				if ( removeBtn ) { removeBtn.hidden = false; }
+			} else {
+				preview.classList.remove( 'has-image' );
+				preview.style.backgroundImage = '';
+				if ( empty ) { empty.hidden = false; }
+				if ( removeBtn ) { removeBtn.hidden = true; }
+			}
+		}
+
+		function choose() {
+			pickFile( function ( file ) {
+				preview.setAttribute( 'aria-busy', 'true' );
+				uploadImage( 'cover', file ).then( function ( res ) {
+					return res.ok ? res.json() : Promise.reject( res );
+				} ).then( function ( data ) {
+					paint( data.cover_image_url || '' );
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Cover updated.' ), 'success' ); }
+				} ).catch( function () {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not upload cover.' ), 'danger' ); }
+				} ).finally( function () {
+					preview.removeAttribute( 'aria-busy' );
+				} );
+			} );
+		}
+
+		preview.addEventListener( 'click', function ( e ) { e.preventDefault(); choose(); } );
+		preview.addEventListener( 'keydown', function ( e ) {
+			if ( 'Enter' === e.key || ' ' === e.key ) { e.preventDefault(); choose(); }
+		} );
+
+		if ( removeBtn ) {
+			removeBtn.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				removeBtn.disabled = true;
+				deleteImage( 'cover' ).then( function ( res ) {
+					if ( ! res.ok ) { return Promise.reject( res ); }
+					paint( '' );
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Cover removed.' ), 'success' ); }
+				} ).catch( function () {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not remove cover.' ), 'danger' ); }
+				} ).finally( function () {
+					removeBtn.disabled = false;
+				} );
+			} );
+		}
+	})();
+
+	/* ── Icon (avatar) ──────────────────────────────────────────────────── */
+	(function () {
+		var btn = document.getElementById( 'bn_space_icon' );
+		if ( ! btn ) { return; }
+		var current = document.querySelector( '.bn-space-settings__upload-current' );
+
+		btn.addEventListener( 'click', function ( e ) {
+			e.preventDefault();
+			pickFile( function ( file ) {
+				btn.disabled = true;
+				var orig = btn.textContent;
+				btn.textContent = __i18n( 'Uploading…' );
+				uploadImage( 'avatar', file ).then( function ( res ) {
+					return res.ok ? res.json() : Promise.reject( res );
+				} ).then( function ( data ) {
+					if ( current && data.avatar_url ) {
+						current.innerHTML = '';
+						var img = document.createElement( 'img' );
+						img.src = data.avatar_url;
+						img.alt = '';
+						current.appendChild( img );
+					}
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Icon updated.' ), 'success' ); }
+				} ).catch( function () {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not upload icon.' ), 'danger' ); }
+				} ).finally( function () {
+					btn.disabled = false;
+					btn.textContent = orig;
+				} );
+			} );
+		} );
+	})();
 })();

@@ -268,6 +268,45 @@ class SpaceController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		// Space avatar (icon). Multipart upload routed through ImageStorageService
+		// — per-owner WebP variations in uploads/bn-space-avatars/{id}/, never a
+		// WP attachment. DELETE removes the folder and clears the column.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/avatar',
+			array(
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'upload_space_avatar' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'DELETE',
+					'callback'            => array( $this, 'delete_space_avatar' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
+		// Space cover. Multipart upload routed through ImageStorageService —
+		// per-owner WebP variations in uploads/bn-space-covers/{id}/.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/cover',
+			array(
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'upload_space_cover' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'DELETE',
+					'callback'            => array( $this, 'delete_space_cover' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
 	}
 
 	/**
@@ -1282,6 +1321,170 @@ class SpaceController {
 			),
 			200
 		);
+	}
+
+	// ── Images ──────────────────────────────────────────────────────────────
+
+	/**
+	 * Upload a space avatar (icon).
+	 *
+	 * Stored as organized, per-owner WebP variations in
+	 * uploads/bn-space-avatars/{id}/ via ImageStorageService — no WP attachment,
+	 * no orphans on replace. The resulting URL is persisted to the
+	 * `bn_spaces.avatar_url` column. Only the space owner (or a site admin) may
+	 * change the image.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function upload_space_avatar( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		return $this->handle_space_image_upload( $request, 'avatar' );
+	}
+
+	/**
+	 * Upload a space cover image.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function upload_space_cover( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		return $this->handle_space_image_upload( $request, 'cover' );
+	}
+
+	/**
+	 * Remove a space avatar (icon) — wipes the folder and clears the column.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function delete_space_avatar( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		return $this->handle_space_image_delete( $request, 'avatar' );
+	}
+
+	/**
+	 * Remove a space cover image.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function delete_space_cover( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		return $this->handle_space_image_delete( $request, 'cover' );
+	}
+
+	/**
+	 * Shared space avatar/cover upload logic.
+	 *
+	 * @param WP_REST_Request $request Incoming request (multipart, file field `image`).
+	 * @param string          $kind    'avatar' | 'cover'.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private function handle_space_image_upload( WP_REST_Request $request, string $kind ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+
+		$gate = $this->require_space_manager( $space_id, $user_id );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
+		/*
+		 * The WP REST API verifies the X-WP-Nonce header before this callback
+		 * fires; WPCS cannot see that layer, so suppress its nonce/index checks
+		 * for the $_FILES read below.
+		 *
+		 * phpcs:disable WordPress.Security.NonceVerification.Missing
+		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		 */
+		$file = isset( $_FILES['image'] ) && is_array( $_FILES['image'] ) ? $_FILES['image'] : array();
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+
+		if ( empty( $file ) || UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) ) {
+			return new WP_Error( 'image_missing', __( 'No file uploaded or upload error.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		$max = ( 'cover' === $kind ) ? 5 * 1024 * 1024 : 2 * 1024 * 1024;
+		if ( (int) ( $file['size'] ?? 0 ) > $max ) {
+			return new WP_Error(
+				'image_too_large',
+				( 'cover' === $kind ) ? __( 'File must be under 5MB.', 'buddynext' ) : __( 'File must be under 2MB.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		$name     = sanitize_file_name( (string) ( $file['name'] ?? '' ) );
+		$tmp_name = (string) ( $file['tmp_name'] ?? '' );
+		$check    = wp_check_filetype_and_ext( $tmp_name, $name );
+		$allowed  = array( 'image/jpeg', 'image/png', 'image/webp' );
+		if ( 'avatar' === $kind ) {
+			$allowed[] = 'image/gif';
+		}
+
+		if ( empty( $check['type'] ) || ! in_array( $check['type'], $allowed, true ) ) {
+			return new WP_Error( 'image_invalid_type', __( 'Only JPEG, PNG, or WebP images are accepted.', 'buddynext' ), array( 'status' => 422 ) );
+		}
+
+		$stored = ( new \BuddyNext\Media\ImageStorageService() )->store( $tmp_name, $kind, 'space', $space_id );
+		if ( is_wp_error( $stored ) ) {
+			return new WP_Error( 'image_upload_failed', $stored->get_error_message(), array( 'status' => 500 ) );
+		}
+
+		$column = ( 'cover' === $kind ) ? 'cover_image_url' : 'avatar_url';
+		$result = ( new SpaceService() )->update( $space_id, $user_id, array( $column => $stored ) );
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( array( 'status' => 403 ) );
+			return $result;
+		}
+
+		return new WP_REST_Response( array( $column => $stored ), 200 );
+	}
+
+	/**
+	 * Shared space avatar/cover delete logic.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @param string          $kind    'avatar' | 'cover'.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private function handle_space_image_delete( WP_REST_Request $request, string $kind ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$user_id  = get_current_user_id();
+
+		$gate = $this->require_space_manager( $space_id, $user_id );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
+		( new \BuddyNext\Media\ImageStorageService() )->delete( $kind, 'space', $space_id );
+
+		$column = ( 'cover' === $kind ) ? 'cover_image_url' : 'avatar_url';
+		$result = ( new SpaceService() )->update( $space_id, $user_id, array( $column => '' ) );
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( array( 'status' => 403 ) );
+			return $result;
+		}
+
+		return new WP_REST_Response( array( $column => '' ), 200 );
+	}
+
+	/**
+	 * Guard: the current user must be the space owner or a site admin.
+	 *
+	 * @param int $space_id Space being managed.
+	 * @param int $user_id  Acting user.
+	 * @return true|WP_Error
+	 */
+	private function require_space_manager( int $space_id, int $user_id ): true|WP_Error {
+		$space = ( new SpaceService() )->get( $space_id );
+		if ( null === $space ) {
+			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		if ( (int) $space['owner_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+			return new WP_Error( 'forbidden', __( 'You do not have permission to manage this space.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+		return true;
 	}
 
 	// ── Permissions ─────────────────────────────────────────────────────────

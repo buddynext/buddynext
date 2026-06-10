@@ -72,7 +72,11 @@ do_action( 'buddynext_part_space_settings_panel_general_before', $args );
 		<label for="bn_space_icon"><?php esc_html_e( 'Space icon', 'buddynext' ); ?></label>
 		<div class="bn-space-settings__upload">
 			<div class="bn-space-settings__upload-current" aria-hidden="true">
-				<?php echo wp_kses_data( bn_space_category_icon( $bn_space->category_slug ?? '' ) ); ?>
+				<?php if ( ! empty( $bn_space->avatar_url ) ) : ?>
+					<img src="<?php echo esc_url( $bn_space->avatar_url ); ?>" alt="">
+				<?php else : ?>
+					<?php echo wp_kses_data( bn_space_category_icon( $bn_space->category_slug ?? '' ) ); ?>
+				<?php endif; ?>
 			</div>
 			<div class="bn-space-settings__upload-actions">
 				<button type="button" class="bn-btn" data-variant="secondary" data-size="md" id="bn_space_icon">

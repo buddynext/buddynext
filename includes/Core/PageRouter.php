@@ -676,11 +676,9 @@ class PageRouter {
 			case 'spaces':
 				$assets->enqueue( 'spaces' );
 				$assets->enqueue( 'feed' ); // Post cards on space pages use bn-feed.css classes.
-				// Settings + admin sub-routes need wp.media() for the cover-image picker.
+				// Cover/icon uploads on the settings sub-route POST directly to the
+				// REST API (ImageStorageService) — no wp.media / attachment picker.
 				$space_action_v = (string) get_query_var( 'bn_space_action', '' );
-				if ( in_array( $space_action_v, array( 'settings', 'admin' ), true ) ) {
-					wp_enqueue_media();
-				}
 				// Space moderation sub-page reuses the buddynext/moderation store
 				// for its report-action buttons (dismiss/warn/remove/remove-from-
 				// space), so the module must load here too — the spaces store does
