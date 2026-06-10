@@ -844,6 +844,24 @@
 	display: block;
 }
 
+/* Letter-glyph fallback for custom (Pro) reactions that ship no SVG — the
+   reaction's accent colour is set inline on .bn-reaction-icon. Render it as a
+   filled circular badge that fills the 28px slot so it sits cleanly among the
+   SVG emoji instead of as misaligned bare text. */
+.bn-reaction-glyph {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	background: color-mix(in oklab, currentColor 18%, transparent);
+	color: inherit;
+	font-size: 0.8125rem;
+	font-weight: 700;
+	line-height: 1;
+}
+
 /* React trigger button — shows a Lucide heart outline when idle. Once
    the user has reacted, CSS replaces the icon with the colored Fluent
    Emoji matching their reaction via background-image + masking the

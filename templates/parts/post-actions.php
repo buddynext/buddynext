@@ -212,7 +212,8 @@ do_action( 'buddynext_part_post_actions_before', $args );
 	>
 		<?php buddynext_icon( 'message-circle' ); ?>
 		<span class="bn-post-card__action-label"><?php esc_html_e( 'Comment', 'buddynext' ); ?></span>
-		<span class="bn-post-card__action-count" data-wp-text="context.commentCount" data-wp-bind--hidden="!context.commentCount"<?php echo $bn_actions_comment_cnt > 0 ? '' : ' hidden'; ?>><?php echo esc_html( (string) $bn_actions_comment_cnt ); ?></span>
+		<?php // Count chip + aria-label are owned by adjustCommentCount() in feed/store.js (single writer for add + delete). ?>
+		<span class="bn-post-card__action-count"<?php echo $bn_actions_comment_cnt > 0 ? '' : ' hidden'; ?>><?php echo esc_html( (string) $bn_actions_comment_cnt ); ?></span>
 	</button>
 
 	<?php if ( 'share' !== $bn_actions_post_type ) : ?>

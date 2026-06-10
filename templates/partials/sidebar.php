@@ -108,8 +108,14 @@ buddynext_get_template(
 						#<?php echo esc_html( $sbar_tag->slug ); ?>
 					</a>
 					<span class="bn-sbar-row__meta">
-						<?php echo esc_html( number_format_i18n( (int) $sbar_tag->post_count ) ); ?>
-						<?php esc_html_e( 'posts', 'buddynext' ); ?>
+						<?php
+						$sbar_tag_count = (int) $sbar_tag->post_count;
+						printf(
+							/* translators: %s: formatted post count */
+							esc_html( _n( '%s post', '%s posts', $sbar_tag_count, 'buddynext' ) ),
+							esc_html( number_format_i18n( $sbar_tag_count ) )
+						);
+						?>
 					</span>
 				</div>
 			<?php endforeach; ?>

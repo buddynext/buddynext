@@ -570,11 +570,19 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 function adjustCommentCount( postId, delta ) {
 	const card = document.querySelector( 'article[data-post-id="' + postId + '"]' );
 	const btn  = card?.querySelector( '[data-wp-on--click="actions.openComments"]' );
-	const span = btn?.querySelector( '.bn-comment-count' );
-	if ( span ) {
-		const n = Math.max( 0, parseInt( span.textContent || '0', 10 ) + delta );
-		span.textContent = String( n );
+	const span = btn?.querySelector( '.bn-post-card__action-count' );
+	if ( ! span || ! btn ) {
+		return;
 	}
+	// Single source of truth for the comment count: every add (top-level +
+	// reply) and delete routes through here, so it owns the visible chip, its
+	// hidden state, and the button's accessible name in lock-step. (Delete is
+	// a vanilla-JS handler with no Interactivity context, so a reactive
+	// binding could never stay in sync with it.)
+	const n = Math.max( 0, parseInt( span.textContent || '0', 10 ) + delta );
+	span.textContent = String( n );
+	span.hidden = ( 0 === n );
+	btn.setAttribute( 'aria-label', 1 === n ? '1 comment' : n + ' comments' );
 }
 
 /* ── Post card ───────────────────────────────────────────────────────────── */
@@ -1042,7 +1050,6 @@ store( 'buddynext/post-card', {
 						inputEl.value = '';
 					}
 					adjustCommentCount( ctx.postId, 1 );
-					ctx.commentCount = ( ctx.commentCount || 0 ) + 1;
 					if ( window.bnToast ) { window.bnToast( 'Comment added' ); }
 				} else {
 					showInlineError( 'Could not post your comment. Try again.' );
