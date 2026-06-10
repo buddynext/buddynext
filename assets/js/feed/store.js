@@ -1579,6 +1579,15 @@ store( 'buddynext/post-composer', {
 				type:    ctx.composerType || 'text',
 			};
 
+			// When the composer is rendered inside a space, post INTO that space —
+			// the context carries spaceId (composer partial), and the REST
+			// controller reads `space_id`. Without this the post silently landed
+			// in the global feed (space_id null) instead of the space.
+			const composerSpaceId = parseInt( ctx.spaceId, 10 ) || 0;
+			if ( composerSpaceId > 0 ) {
+				body.space_id = composerSpaceId;
+			}
+
 			// Admin announcement: carry the optional auto-expire datetime.
 			if ( ctx.composerType === 'announcement' && ctx.announcementExpiresAt ) {
 				body.announcement_expires_at = ctx.announcementExpiresAt;
