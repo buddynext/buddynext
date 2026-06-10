@@ -143,25 +143,32 @@ do_action( 'buddynext_part_profile_stats_strip_before', $args );
 					<?php
 				endif;
 			endforeach;
-
-			/**
-			 * Extra stat blocks injected by bridge plugins (e.g. Jetonomy discussion count,
-			 * WBGamification points). Each entry must be an array with 'label' and 'value' keys.
-			 *
-			 * @param array[] $extra   Array of ['label' => string, 'value' => string|int].
-			 * @param int     $user_id ID of the profile being viewed.
-			 */
-			$bn_extra_stats = apply_filters( 'buddynext_profile_extra_data', array(), $bn_pf_uid );
-			foreach ( $bn_extra_stats as $bn_extra_stat ) :
-				if ( empty( $bn_extra_stat['label'] ) || ! isset( $bn_extra_stat['value'] ) ) {
-					continue;
-				}
+			?>
+			</div>
+			<?php
+			// Optional, feature-specific stats (gamification points/level/badges,
+			// forum discussions) are not universal to every community, so they render
+			// as a subordinate secondary pill row beneath the four core social stats
+			// rather than competing with them as equal tiles. Absent when no bridge
+			// contributes, keeping the default profile clean for every community.
+			$bn_extra_stats = array_values(
+				array_filter(
+					(array) apply_filters( 'buddynext_profile_extra_data', array(), $bn_pf_uid ),
+					static function ( $s ): bool {
+						return is_array( $s ) && ! empty( $s['label'] ) && isset( $s['value'] );
+					}
+				)
+			);
+			if ( ! empty( $bn_extra_stats ) ) :
 				?>
-				<div class="bn-pf-stat">
-					<div class="bn-pf-stat__value"><?php echo esc_html( (string) $bn_extra_stat['value'] ); ?></div>
-					<div class="bn-pf-stat__label"><?php echo esc_html( $bn_extra_stat['label'] ); ?></div>
+				<div class="bn-pf-stats-extra" role="list">
+					<?php foreach ( $bn_extra_stats as $bn_extra_stat ) : ?>
+						<span class="bn-pf-chip" role="listitem">
+							<span class="bn-pf-chip__value"><?php echo esc_html( (string) $bn_extra_stat['value'] ); ?></span>
+							<span class="bn-pf-chip__label"><?php echo esc_html( (string) $bn_extra_stat['label'] ); ?></span>
+						</span>
+					<?php endforeach; ?>
 				</div>
-			<?php endforeach; ?>
-		</div>
-<?php
+				<?php
+			endif;
 do_action( 'buddynext_part_profile_stats_strip_after', $args );

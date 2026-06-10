@@ -1204,6 +1204,35 @@
 .bn-pf-stat:hover {
 	background: var(--bn-surface);
 }
+/* Optional feature stats (gamification, forum) — subordinate to the core
+   social-stat strip so the profile reads as premium for every community. */
+.bn-pf-stats-extra {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-block-start: 1px solid var(--bn-line);
+	background: var(--bn-canvas);
+}
+.bn-pf-chip {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 4px;
+	padding: 3px var(--bn-s3);
+	border-radius: var(--bn-r-full);
+	background: var(--bn-sunken);
+	font-size: var(--bn-text-xs, 12px);
+	line-height: 1.6;
+	white-space: nowrap;
+}
+.bn-pf-chip__value {
+	font-weight: 600;
+	color: var(--bn-ink-2);
+}
+.bn-pf-chip__label {
+	color: var(--bn-ink-4);
+	text-transform: lowercase;
+}
 .bn-pf-stat--link {
 	cursor: pointer;
 	color: inherit;

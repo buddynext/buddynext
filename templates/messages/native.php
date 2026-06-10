@@ -51,12 +51,13 @@ if ( $active_conv_id <= 0 ) {
 }
 
 // /messages/?to={user_id} — open (or start) a direct conversation with a member.
-// `to`, `recipient`, and the New-message picker all funnel through here; accept
-// every alias so every "Message" entry point across the site lands correctly.
+// `to` (directory/connections), `recipient` (members REST), and `with` (profile
+// hero) are all in use across the site; accept every alias so every "Message"
+// entry point lands correctly.
 $bn_blocked_recipient = 0;
 if ( $active_conv_id <= 0 ) {
 	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-	$bn_to = absint( $_GET['to'] ?? ( $_GET['recipient'] ?? 0 ) );
+	$bn_to = absint( $_GET['to'] ?? ( $_GET['recipient'] ?? ( $_GET['with'] ?? 0 ) ) );
 	if ( $bn_to > 0 ) {
 		$active_conv_id = MessagesData::open_with( $viewer, $bn_to );
 		if ( $active_conv_id <= 0 ) {
