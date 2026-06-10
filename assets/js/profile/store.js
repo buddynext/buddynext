@@ -1009,6 +1009,11 @@ store( 'buddynext/profile', {
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
 
+			// Capture the Interactivity context BEFORE any await — getContext()
+			// only resolves synchronously within the action's initial scope, so
+			// reading it after `await openAvatarCropModal()` throws.
+			var ctx = getContext();
+
 			// Open the in-browser crop modal. User picks the square they
 			// want; we ship the cropped blob to the existing endpoint so
 			// no server-side cropping is needed. Cancel restores the
@@ -1023,7 +1028,6 @@ store( 'buddynext/profile', {
 				var formData = new FormData();
 				formData.append( 'avatar', cropped, 'avatar.jpg' );
 
-				var ctx = getContext();
 				ctx.avatarUploading = true;
 
 				var res  = await fetch( apiUrl( 'buddynext/v1/me/avatar' ), {
@@ -1041,15 +1045,17 @@ store( 'buddynext/profile', {
 			} catch ( err ) {
 				bnToast( 'Upload failed', { tone: 'danger' } );
 			} finally {
-				var ctx2 = getContext();
-				ctx2.avatarUploading = false;
-				event.target.value   = '';
+				ctx.avatarUploading = false;
+				event.target.value  = '';
 			}
 		},
 
 		async handleCoverFileChange( event ) {
 			var file = event.target.files[ 0 ];
 			if ( ! file ) { return; }
+
+			// Capture context before the await (see handleAvatarFileChange).
+			var ctx = getContext();
 
 			// Open the focal-point modal: same pattern as avatar crop
 			// but the output is a {x, y} focal point in percent, not a
@@ -1068,7 +1074,6 @@ store( 'buddynext/profile', {
 				formData.append( 'focal_x', String( focal.x ) );
 				formData.append( 'focal_y', String( focal.y ) );
 
-				var ctx = getContext();
 				ctx.coverUploading = true;
 
 				var res  = await fetch( apiUrl( 'buddynext/v1/me/cover' ), {
@@ -1090,9 +1095,8 @@ store( 'buddynext/profile', {
 			} catch ( err ) {
 				bnToast( 'Upload failed', { tone: 'danger' } );
 			} finally {
-				var ctx2 = getContext();
-				ctx2.coverUploading = false;
-				event.target.value  = '';
+				ctx.coverUploading = false;
+				event.target.value = '';
 			}
 		},
 
