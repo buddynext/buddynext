@@ -93,12 +93,24 @@
 		}
 	}
 
+	// When the active theme drives colour mode (WBcom themes such as Reign set
+	// <html data-bx-mode="light|dark|auto"> and fire `bx:color-mode-change`),
+	// BuddyNext follows it so a single theme toggle switches both the theme and
+	// the BN surface. Falls back to BN's own bn_theme preference when no theme
+	// colour-mode system is present.
+	function themeColorMode() {
+		var m = document.documentElement.getAttribute( 'data-bx-mode' );
+		return THEMES.indexOf( m ) !== -1 ? m : null;
+	}
+	function currentPref() {
+		return themeColorMode() || readThemePref();
+	}
+
 	// Bootstrap: apply saved scale + theme before paint.
 	var initialScale = readScale();
 	applyScale( initialScale );
 
-	var themePref = readThemePref();
-	applyTheme( effectiveFromPref( themePref ) );
+	applyTheme( effectiveFromPref( currentPref() ) );
 
 	// Mark the active segmented-control button. Re-runs on every change so
 	// the Appearance card mirrors current state without explicit binding.
@@ -121,11 +133,19 @@
 		syncPressed();
 	}
 
+	// Follow the theme's colour-mode toggle (Reign + sibling WBcom themes) so
+	// the BN surface flips with it — one control, both layers.
+	document.addEventListener( 'bx:color-mode-change', function ( e ) {
+		var mode = e && e.detail ? e.detail.mode : null;
+		applyTheme( effectiveFromPref( THEMES.indexOf( mode ) !== -1 ? mode : currentPref() ) );
+		syncPressed();
+	} );
+
 	// Auto pref tracks the OS — re-apply when system flips dark/light.
 	try {
 		var mql = window.matchMedia( '(prefers-color-scheme: dark)' );
 		var onSystemChange = function () {
-			if ( 'auto' === readThemePref() ) {
+			if ( 'auto' === currentPref() ) {
 				applyTheme( effectiveFromPref( 'auto' ) );
 			}
 		};
