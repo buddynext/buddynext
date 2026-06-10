@@ -217,6 +217,115 @@ class TokenService {
 	}
 
 	/**
+	 * Host-theme palette adoption maps: BuddyNext base token => host CSS var.
+	 *
+	 * WHY
+	 * ───
+	 * BuddyNext's whole palette flows from a handful of base --bn-* tokens
+	 * (declared in assets/css/bn-base.css). When a supported host theme is
+	 * active we re-point those base tokens at the theme's own colour variables,
+	 * so every BuddyNext surface — cards, buttons, text, borders — adopts the
+	 * host palette with no per-component CSS.
+	 *
+	 * DARK MODE COMES FOR FREE
+	 * ────────────────────────
+	 * We don't map a separate dark set. The host theme already swaps its own
+	 * variables when the visitor changes mode (Reign re-declares every --reign-*
+	 * colour under `:root[data-bx-mode="dark"]`). Because our values are
+	 * `var(<theme-var>, <fallback>)`, each --bn-* token resolves to whatever the
+	 * host variable currently holds — light or dark. font-scale.js mirrors the
+	 * host's mode onto <html data-bn-theme> so BuddyNext's own mode-specific
+	 * component rules stay in sync too.
+	 *
+	 * FALLBACKS
+	 * ─────────
+	 * Each value carries a fallback that mirrors bn-base.css :root (light). It is
+	 * a pure safety net: when the mapped theme is active its variables are always
+	 * defined, so the fallback never resolves. Fallbacks reference a NON-mapped
+	 * --bn-* primitive where one exists (e.g. --bn-accent-500) to avoid drift;
+	 * the few tokens that ARE the primitive carry their literal OKLCH so there is
+	 * no self-referential var() cycle.
+	 *
+	 * EXTENDING
+	 * ─────────
+	 * Add another theme by adding a `get_template()` slug => map entry below, or
+	 * at runtime via the `buddynext_theme_token_map` filter. BuddyX / BuddyX Pro
+	 * share the same structural --bx-* tokens but expose their colours under
+	 * --buddyx-* (a future entry).
+	 *
+	 * @return array<string, array<string, string>> slug => ( --bn-token => value ).
+	 */
+	private function theme_token_maps(): array {
+		return array(
+			// Reign 8.0.0 — the primary WBcom theme. Colour source of truth is
+			// the --reign-* vars (they flip under [data-bx-mode="dark"]).
+			'reign-theme' => array(
+				// Brand / accent.
+				'--bn-accent'      => 'var(--reign-accent-color, var(--bn-accent-500))',
+				'--bn-accent-700'  => 'var(--reign-accent-hover-color, oklch(42% calc(var(--bn-chroma) * 0.9) var(--bn-hue)))',
+				// Surfaces.
+				'--bn-canvas'      => 'var(--reign-site-body-bg-color, oklch(99% 0.002 var(--bn-hue)))',
+				'--bn-surface'     => 'var(--reign-site-sections-bg-color, oklch(100% 0 0))',
+				'--bn-sunken'      => 'var(--reign-site-secondary-bg-color, oklch(97% 0.004 var(--bn-hue)))',
+				// Borders.
+				'--bn-line'        => 'var(--reign-site-border-color, oklch(92% 0.005 var(--bn-hue)))',
+				'--bn-line-faint'  => 'var(--reign-site-hr-color, oklch(95% 0.003 var(--bn-hue)))',
+				// Text.
+				'--bn-ink'         => 'var(--reign-site-headings-color, oklch(20% 0.01 var(--bn-hue)))',
+				'--bn-ink-2'       => 'var(--reign-site-body-text-color, oklch(40% 0.01 var(--bn-hue)))',
+				'--bn-ink-3'       => 'var(--reign-site-alternate-text-color, oklch(58% 0.008 var(--bn-hue)))',
+			),
+		);
+	}
+
+	/**
+	 * Build the host-theme palette-adoption block, or '' when no supported
+	 * theme is active.
+	 *
+	 * Emitted with a single-attribute `[data-bn-theme]` selector — same
+	 * (0,1,0) specificity as the dark block but later in source order, so the
+	 * host palette wins in BOTH light and dark. That is intentional: the host
+	 * theme already carries the correct per-mode colour in its own variables,
+	 * so BuddyNext follows it rather than applying its built-in dark shift.
+	 *
+	 * @return string CSS block (with leading newlines) or empty string.
+	 */
+	private function build_theme_block(): string {
+		$template = (string) get_template();
+
+		$maps = $this->theme_token_maps();
+		$map  = isset( $maps[ $template ] ) ? (array) $maps[ $template ] : array();
+
+		/**
+		 * Filter the active host-theme token map.
+		 *
+		 * Return a `--bn-token => value` array to re-point BuddyNext's base
+		 * tokens at a host theme's variables. Empty array = no adoption (native
+		 * BuddyNext palette). Lets a child theme or bridge add/replace a map for
+		 * a theme BuddyNext doesn't ship support for.
+		 *
+		 * @param array<string, string> $map      Token => value pairs.
+		 * @param string                $template Active theme slug (get_template()).
+		 */
+		$map = (array) apply_filters( 'buddynext_theme_token_map', $map, $template );
+
+		if ( empty( $map ) ) {
+			return '';
+		}
+
+		$declarations = '';
+		foreach ( $map as $property => $value ) {
+			$declarations .= sprintf( "\t%s: %s;\n", (string) $property, (string) $value );
+		}
+
+		return sprintf(
+			"\n\n/* Host-theme palette adoption — %s */\n[data-bn-theme] {\n%s}",
+			$template,
+			$declarations
+		);
+	}
+
+	/**
 	 * Build the :root CSS block as a string.
 	 *
 	 * Applies the buddynext_css_vars filter so themes / bridges can override
@@ -353,15 +462,23 @@ class TokenService {
 		$takeover .= "\t.jt-app *, body.mvs-page * { animation: none !important; }\n";
 		$takeover .= "}\n";
 
+		// When a supported host theme is active, re-point BuddyNext's base
+		// --bn-* tokens at the theme's own colour variables. Emitted AFTER the
+		// dark block (same specificity, later source order) so the host palette
+		// drives both light and dark — see build_theme_block(). Empty string
+		// when no supported theme is active, leaving the native palette intact.
+		$theme_block = $this->build_theme_block();
+
 		// Dark overrides apply under BOTH the v2-canonical [data-bn-theme="dark"]
 		// and the legacy [data-theme="dark"] selectors — the same pair the
 		// --bn-* dark shifts use in assets/css/bn-base.css. Keeping the
 		// selectors in lock-step is what guarantees the legacy aliases re-pin
 		// to dark whenever the --bn-* sources do.
 		return sprintf(
-			":root {\n%s}\n\n[data-bn-theme=\"dark\"],\n[data-theme=\"dark\"] {\n%s}\n\n/* BuddyNext style-guide takeover */\n%s",
+			":root {\n%s}\n\n[data-bn-theme=\"dark\"],\n[data-theme=\"dark\"] {\n%s}%s\n\n/* BuddyNext style-guide takeover */\n%s",
 			$root_declarations,
 			$dark_declarations,
+			$theme_block,
 			$takeover
 		);
 	}
