@@ -32,18 +32,48 @@ function formatBadge( count ) {
 }
 
 /**
- * Adjust the "All" and "Unread" filter-tab count badges by `delta`.
+ * Map a raw notification type (e.g. `bn.post_reacted`) to its filter-tab key.
+ * Mirrors the server-side filter→type map in templates/notifications/index.php
+ * so a single mark-read updates the right type tab too. Returns '' for types
+ * with no dedicated tab.
  *
- * Every notification belongs to both the All and Unread filters, so marking a
- * single one read decrements both unambiguously. The rail bell badge already
- * tracks ctx.unreadCount; this keeps the in-page tab badges in step instead of
- * waiting for a reload. (Type-specific tabs — Mentions/Reactions — are
- * server-computed and refresh on the next load.)
+ * @param {string} type Raw notification type.
+ * @return {string} Filter key, or '' when none.
+ */
+function filterKeyForType( type ) {
+	var map = {
+		'bn.post_reacted': 'reaction',
+		'bn.post_commented': 'comment',
+		'bn.mention': 'mention',
+		'bn.new_follower': 'follow',
+		'bn.connection_accepted': 'follow',
+		'bn.connection_requested': 'follow',
+		'bn.space_invite': 'space',
+		'bn.space_join_requested': 'space',
+		'bn.space_new_post': 'space',
+		'bn.new_message': 'message',
+	};
+	return map[ type ] || '';
+}
+
+/**
+ * Adjust the unread filter-tab count badges by `delta`.
+ *
+ * Every notification belongs to All + Unread, so both always move. When a row
+ * type is supplied, its dedicated tab (Mentions / Reactions / Comments /
+ * Spaces / …) is moved too, so every visible count stays in step without a
+ * reload. The rail bell badge tracks ctx.unreadCount separately.
  *
  * @param {number} delta Amount to add (use -1 when marking one read).
+ * @param {string} [type] Raw notification type, to also move its type tab.
  */
-function adjustUnreadTabBadges( delta ) {
-	[ 'all', 'unread' ].forEach( function ( filter ) {
+function adjustUnreadTabBadges( delta, type ) {
+	var filters = [ 'all', 'unread' ];
+	var typeKey = type ? filterKeyForType( type ) : '';
+	if ( typeKey ) {
+		filters.push( typeKey );
+	}
+	filters.forEach( function ( filter ) {
 		var badge = document.querySelector( '.bn-tab[data-filter="' + filter + '"] .bn-tab__count' );
 		if ( ! badge ) {
 			return;
@@ -167,7 +197,7 @@ store( 'buddynext/notifications', {
 				if ( ctx && ctx.unreadCount > 0 ) {
 					ctx.unreadCount = ctx.unreadCount - 1;
 				}
-				adjustUnreadTabBadges( -1 );
+				adjustUnreadTabBadges( -1, row.dataset.notifType );
 			}
 
 			try {
@@ -186,7 +216,7 @@ store( 'buddynext/notifications', {
 					if ( ctx ) {
 						ctx.unreadCount = previous;
 					}
-					adjustUnreadTabBadges( 1 );
+					adjustUnreadTabBadges( 1, row ? row.dataset.notifType : '' );
 				}
 				toast( 'Could not mark this notification as read.', 'error' );
 				return;
@@ -215,7 +245,7 @@ store( 'buddynext/notifications', {
 				if ( ctx && ctx.unreadCount > 0 ) {
 					ctx.unreadCount = ctx.unreadCount - 1;
 				}
-				adjustUnreadTabBadges( -1 );
+				adjustUnreadTabBadges( -1, row.dataset.notifType );
 				if ( btn ) {
 					var parent = btn.parentElement;
 					btn.remove();
@@ -238,7 +268,7 @@ store( 'buddynext/notifications', {
 					ctx.unreadCount = previous;
 				}
 				if ( wasUnread ) {
-					adjustUnreadTabBadges( 1 );
+					adjustUnreadTabBadges( 1, row ? row.dataset.notifType : '' );
 				}
 				toast( 'Could not mark this notification as read.', 'error' );
 			}
