@@ -113,6 +113,14 @@ class Plugin {
 		$container = Container::instance();
 		self::register_services( $container );
 
+		// Purge a user's social-graph / per-user rows when their account is
+		// deleted (any path: admin, CLI, REST) so no orphans are left behind.
+		( new \BuddyNext\SocialGraph\UserCleanupListener() )->register();
+
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			\WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
+		}
+
 		if ( is_admin() ) {
 			// AdminHub owns the BuddyNext top-level menu and dispatches every
 			// section page to its registered tabs. Boot first so feature
@@ -127,6 +135,7 @@ class Plugin {
 			$container->get( 'admin_hub' )->register();
 			$container->get( 'admin_email_editor' )->register();
 			$container->get( 'setup_wizard' )->init();
+			( new \BuddyNext\Demo\DemoAdmin() )->register();
 			( new PageSetup() )->register();
 
 			// Redirect to setup wizard on first activation.
