@@ -1811,7 +1811,7 @@ button.bn-pf-pill:hover,
 	font-size: var(--text-base);
 	color: var(--text-1);
 	line-height: var(--leading-body);
-	background: var(--bg-subtle);
+	/* Sit on the page canvas like the other hubs — no own --bg-subtle band. */
 	min-height: 60vh;
 	padding: var(--s6) var(--s5);
 	-webkit-font-smoothing: antialiased;
