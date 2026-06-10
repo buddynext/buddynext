@@ -191,16 +191,10 @@ add_action(
  */
 do_action( 'buddynext_profile_before', (int) $user_id );
 
-// Owner action bar: rendered ONLY when the viewer is the profile owner.
-if ( $is_own_profile ) {
-	buddynext_get_template(
-		'partials/profile-actions.php',
-		array(
-			'user_id'        => (int) $user_id,
-			'is_own_profile' => true,
-		)
-	);
-}
+// Owner edit affordances live ON the hero itself (Edit profile + Share in the
+// action cluster, Edit cover on the cover, and the Edit-avatar badge on the
+// avatar) — so the previous standalone Edit Profile / Avatar / Cover toolbar
+// was a redundant duplicate and has been removed.
 
 // --- 7-day deltas for the stat-tile delta chips (v2 prototype pattern) ----
 // Each delta is a count of new rows in the trailing 7 days. Rendered as

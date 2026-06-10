@@ -193,6 +193,14 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 					}
 					?>
 				</span>
+				<?php if ( $bn_pf_is_owner ) : ?>
+					<a class="bn-pf-avatar-edit"
+						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url() . '#avatar' ); ?>"
+						aria-label="<?php esc_attr_e( 'Edit avatar', 'buddynext' ); ?>"
+						title="<?php esc_attr_e( 'Edit avatar', 'buddynext' ); ?>">
+						<?php buddynext_icon( 'edit' ); ?>
+					</a>
+				<?php endif; ?>
 			</div>
 
 			<!-- Identity block -->
@@ -443,7 +451,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						<?php esc_html_e( 'Decline', 'buddynext' ); ?>
 					</button>
 				</span>
-				<button class="bn-btn" data-variant="secondary" data-size="sm"
+				<button class="bn-btn bn-pf-connected" data-variant="secondary" data-state="connected" data-size="sm"
 					data-wp-on--click="actions.disconnectUser"
 					data-wp-bind--hidden="!context.isConnected"
 					<?php echo $bn_pf_is_connected ? '' : 'hidden'; ?>>

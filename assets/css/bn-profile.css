@@ -810,6 +810,44 @@
 	--bn-avatar-presence-border: var(--bn-surface);
 }
 
+/* Owner "Edit avatar" badge — a pencil chip on the avatar (bottom-right),
+   replacing the old standalone Edit-Avatar toolbar button. Mirrors the
+   edit-page avatar button so the affordance feels identical across view +
+   edit. Native title attribute supplies the hover tooltip. */
+.bn-pf-avatar-edit {
+	position: absolute;
+	inset-block-end: var(--bn-s1);
+	inset-inline-end: var(--bn-s1);
+	width: 30px;
+	height: 30px;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-accent);
+	color: var(--bn-accent-fg);
+	border: 2px solid var(--bn-surface);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	text-decoration: none;
+	transition: background var(--bn-dur-fast) var(--bn-ease),
+				transform var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-pf-avatar-edit svg {
+	width: 14px;
+	height: 14px;
+	stroke: currentColor;
+	fill: none;
+}
+.bn-pf-avatar-edit:hover {
+	background: var(--bn-accent-700);
+	transform: scale(1.06);
+}
+.bn-pf-avatar-edit:focus-visible {
+	background: var(--bn-accent-700);
+	box-shadow: var(--bn-ring);
+	outline: none;
+}
+
 .bn-pf-id {
 	padding-block-start: var(--bn-s4);
 	min-width: 0;
@@ -892,6 +930,20 @@
 	flex-wrap: wrap;
 	justify-content: flex-end;
 	align-items: center;
+}
+
+/* Connected (settled) — quiet outline matching the member-card treatment:
+   transparent fill, muted border + text, leading check (already inline in the
+   markup). Reads as a confirmed state, not a CTA; hover hints at disconnect. */
+.bn-pf-actions .bn-pf-connected[data-state="connected"] {
+	background: transparent;
+	color: var(--bn-ink-3);
+	border-color: var(--bn-line);
+}
+.bn-pf-actions .bn-pf-connected[data-state="connected"]:hover {
+	color: var(--bn-danger);
+	border-color: color-mix(in oklab, var(--bn-danger) 35%, var(--bn-line));
+	background: var(--bn-danger-bg);
 }
 
 /* Verified badge — small filled accent circle next to the name. */
@@ -1835,8 +1887,12 @@ button.bn-pf-pill:hover,
 }
 
 .bn-ep-shell {
-	max-width: 1080px;
-	margin-inline: auto;
+	/* Left-align to the main content edge (like the profile view and every
+	   other BN page) instead of centring in the wide main column — centring
+	   left a large dead gap between the nav rail and the form. The cap keeps
+	   form line-length comfortable; the trailing whitespace reads as margin. */
+	max-width: 1180px;
+	margin-inline: 0;
 	padding: var(--bn-s5) var(--bn-s5);
 	display: grid;
 	grid-template-columns: 1fr 300px;
@@ -2031,6 +2087,62 @@ button.bn-pf-pill:hover,
 	color: var(--bn-ink-3);
 	line-height: var(--bn-leading-snug);
 	margin: 0;
+}
+
+/* ── Field head: label (left) + per-field privacy chip (right) ─────────────
+ * The privacy control is a quiet, compact "lock" dropdown that sits on the
+ * label row — NOT a full-width input stacked above the field. Without this
+ * the .bn-input select fell back to width:100% and read as a duplicate box. */
+.bn-ep-field-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s2);
+}
+.bn-ep-field-head .bn-ep-label {
+	min-width: 0;
+}
+.bn-ep-field-vis {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	flex: 0 0 auto;
+	color: var(--bn-ink-3);
+}
+.bn-ep-field-vis__label {
+	display: inline-flex;
+	align-items: center;
+	color: var(--bn-ink-3);
+}
+.bn-ep-vis-lock {
+	width: 13px;
+	height: 13px;
+}
+/* Compact ghost select — overrides the full-width .bn-input it also carries. */
+.bn-ep-field-vis__select.bn-input {
+	width: auto;
+	min-width: 0;
+	height: 26px;
+	padding-block: 0;
+	padding-inline: var(--bn-s2) var(--bn-s2);
+	font-size: var(--bn-text-xs);
+	font-weight: 500;
+	color: var(--bn-ink-2);
+	background-color: transparent;
+	border-color: transparent;
+	border-radius: var(--bn-r-sm);
+	cursor: pointer;
+	transition: background-color var(--bn-dur) var(--bn-ease),
+				border-color var(--bn-dur) var(--bn-ease);
+}
+.bn-ep-field-vis__select.bn-input:hover {
+	background-color: var(--bn-sunken);
+	border-color: var(--bn-line);
+	color: var(--bn-ink);
+}
+.bn-ep-field-vis__select.bn-input:focus-visible {
+	border-color: var(--bn-accent);
+	color: var(--bn-ink);
 }
 
 /* ── Appearance (theme + text-scale) ─────────────────────────────────── */
@@ -2417,72 +2529,9 @@ button.bn-pf-pill:hover,
 	.bn-ep-account-row { flex-direction: column; align-items: flex-start; gap: var(--bn-s2); }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
- * Owner action bar (rendered above the hero by partials/profile-actions.php)
- * v2 tokens only — no host-theme fallbacks.
- * ───────────────────────────────────────────────────────────────────────── */
-.bn-profile-actions-bar {
-	background: var(--bn-surface);
-	border-block-end: 1px solid var(--bn-line);
-	padding-inline: var(--bn-s8);
-}
-.bn-profile-actions-bar-inner {
-	max-width: 1080px;
-	margin-inline: auto;
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s2);
-	height: 48px;
-	overflow-x: auto;
-	scrollbar-width: none;
-	-ms-overflow-style: none;
-}
-.bn-profile-actions-bar-inner::-webkit-scrollbar { display: none; }
-.bn-owner-action {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-s1);
-	padding: var(--bn-s1) var(--bn-s3);
-	min-height: 40px;
-	border-radius: var(--bn-r-md);
-	font-size: var(--bn-text-sm);
-	font-weight: 500;
-	color: var(--bn-ink-2);
-	text-decoration: none;
-	background: var(--bn-sunken);
-	border: 1px solid var(--bn-line);
-	white-space: nowrap;
-	flex-shrink: 0;
-	transition:
-		background var(--bn-dur-fast) var(--bn-ease),
-		color var(--bn-dur-fast) var(--bn-ease),
-		border-color var(--bn-dur-fast) var(--bn-ease);
-}
-.bn-owner-action svg {
-	width: 14px;
-	height: 14px;
-	flex-shrink: 0;
-}
-.bn-owner-action:first-child {
-	color: var(--bn-accent);
-	border-color: var(--bn-accent);
-	background: var(--bn-accent-100);
-}
-.bn-owner-action:hover,
-.bn-owner-action:focus-visible {
-	background: var(--bn-sunken);
-	color: var(--bn-ink);
-	border-color: var(--bn-line-strong);
-}
-.bn-owner-action:first-child:hover,
-.bn-owner-action:first-child:focus-visible {
-	background: var(--bn-accent);
-	color: var(--bn-accent-fg);
-	border-color: var(--bn-accent);
-}
-@media (max-width: 640px) {
-	.bn-profile-actions-bar { padding-inline: var(--bn-s2); }
-}
+/* Owner action bar removed — Edit profile / Share live in the hero action
+   cluster, Edit cover on the cover, Edit avatar as a badge on the avatar
+   (.bn-pf-avatar-edit). The standalone toolbar was a redundant duplicate. */
 
 /* -------------------------------------------------------------------------
  * F6 + F7 + F8: Profile production-grade additions

@@ -144,20 +144,33 @@
 	background-color: var(--bn-accent-100);
 	background-size: cover;
 	background-position: center;
+	/* The tone gradient is built from shared lightness + chroma stops and a
+	   per-tone hue, so light / dark only retune two pairs of vars below — no
+	   per-tone overrides to keep in sync. An uploaded cover image (inline
+	   background-image) overrides this gradient. */
 	--bn-tone-l-start: 80%;
 	--bn-tone-l-end: 55%;
+	--bn-tone-c-start: 0.13;
+	--bn-tone-c-end: 0.18;
+	background-image: linear-gradient(135deg,
+		oklch(var(--bn-tone-l-start) var(--bn-tone-c-start) var(--bn-tone-h, 240)) 0%,
+		oklch(var(--bn-tone-l-end) var(--bn-tone-c-end) var(--bn-tone-h, 240)) 100%);
 }
 [data-theme="dark"] .bn-md-card__cover,
 [data-bn-theme="dark"] .bn-md-card__cover {
-	--bn-tone-l-start: 45%;
-	--bn-tone-l-end: 30%;
+	/* Recede in dark: drop lightness AND chroma so covers read as quiet
+	   tinted bands behind the avatar, not glowing colour blocks. */
+	--bn-tone-l-start: 42%;
+	--bn-tone-l-end: 28%;
+	--bn-tone-c-start: 0.06;
+	--bn-tone-c-end: 0.08;
 }
-.bn-md-card__cover[data-tone="sky"]     { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 240) 0%, oklch(var(--bn-tone-l-end) 0.18 240) 100%); }
-.bn-md-card__cover[data-tone="cyan"]    { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.12 200) 0%, oklch(var(--bn-tone-l-end) 0.16 200) 100%); }
-.bn-md-card__cover[data-tone="emerald"] { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 160) 0%, oklch(var(--bn-tone-l-end) 0.18 160) 100%); }
-.bn-md-card__cover[data-tone="lime"]    { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 130) 0%, oklch(var(--bn-tone-l-end) 0.17 130) 100%); }
-.bn-md-card__cover[data-tone="amber"]   { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 70)  0%, oklch(var(--bn-tone-l-end) 0.18 70)  100%); }
-.bn-md-card__cover[data-tone="coral"]   { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 35)  0%, oklch(var(--bn-tone-l-end) 0.18 35)  100%); }
+.bn-md-card__cover[data-tone="sky"]     { --bn-tone-h: 240; }
+.bn-md-card__cover[data-tone="cyan"]    { --bn-tone-h: 200; }
+.bn-md-card__cover[data-tone="emerald"] { --bn-tone-h: 160; }
+.bn-md-card__cover[data-tone="lime"]    { --bn-tone-h: 130; }
+.bn-md-card__cover[data-tone="amber"]   { --bn-tone-h: 70; }
+.bn-md-card__cover[data-tone="coral"]   { --bn-tone-h: 35; }
 
 /* Avatar overlaps the cover, bottom-left (mirrors .bn-sd-card__emblem). */
 .bn-md-card__avatar-link {
@@ -909,13 +922,14 @@
 .bn-md-card__menu-pop {
 	position: absolute;
 	z-index: 20;
-	inset-block-start: calc(100% + 4px);
+	inset-block-start: calc(100% + 6px);
 	inset-inline-end: 0;
-	min-width: 180px;
+	min-width: 184px;
 	display: flex;
 	flex-direction: column;
-	padding: 6px;
-	border-radius: var(--bn-radius);
+	gap: 2px;
+	padding: var(--bn-s2);
+	border-radius: var(--bn-r-lg, 12px);
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
 	box-shadow: var(--bn-shadow-md, 0 8px 24px rgba(0, 0, 0, 0.12));
@@ -924,21 +938,24 @@
 .bn-md-card__menu-item {
 	display: block;
 	width: 100%;
-	padding-block: 8px;
-	padding-inline: 10px;
+	padding-block: var(--bn-s2);
+	padding-inline: var(--bn-s3);
 	border: 0;
 	background: transparent;
-	color: var(--bn-text);
+	color: var(--bn-ink);
 	text-align: start;
-	font: inherit;
-	font-size: var(--bn-fs-sm);
-	border-radius: 6px;
+	font-family: inherit;
+	font-size: var(--bn-text-sm);
+	font-weight: 500;
+	line-height: 1.4;
+	text-decoration: none;
+	border-radius: var(--bn-r-sm, 6px);
 	cursor: pointer;
 }
 
 .bn-md-card__menu-item:hover,
 .bn-md-card__menu-item:focus-visible {
-	background: var(--bn-line-faint);
+	background: var(--bn-sunken);
 }
 
 .bn-md-card__menu-item:focus-visible {
@@ -969,5 +986,31 @@
 
 .bn-md-card__follow[data-state="following"]:hover::after {
 	content: " " attr(data-hover-label);
+}
+
+/* Connected (accepted) — a settled, low-emphasis outline: transparent fill,
+   muted border + text, leading check. It reads as a confirmed state, not a
+   call-to-action, so it is visually distinct from "Connect" (which keeps the
+   stronger secondary fill). Hover hints at the disconnect affordance.
+   Scoped under .bn-md-card__actions so it wins over .bn-btn[data-variant]. */
+.bn-md-card__actions .bn-md-card__connect-primary[data-state="accepted"] {
+	background: transparent;
+	color: var(--bn-ink-3);
+	border-color: var(--bn-line);
+}
+.bn-md-card__actions .bn-md-card__connect-primary[data-state="accepted"]::before {
+	content: "";
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	margin-inline-end: 5px;
+	background: currentColor;
+	mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3'><polyline points='20 6 9 17 4 12'/></svg>") center / contain no-repeat;
+	-webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3'><polyline points='20 6 9 17 4 12'/></svg>") center / contain no-repeat;
+}
+.bn-md-card__actions .bn-md-card__connect-primary[data-state="accepted"]:hover {
+	color: var(--bn-danger);
+	border-color: color-mix(in oklab, var(--bn-danger) 35%, var(--bn-line));
+	background: var(--bn-danger-bg);
 }
 
