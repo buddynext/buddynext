@@ -105,7 +105,7 @@ class AvatarService {
 			$custom = (string) get_user_meta( $user->ID, 'buddynext_avatar_url', true );
 		}
 		if ( '' !== $custom ) {
-			$args['url']          = $custom;
+			$args['url']          = $this->pick_variation( $custom, $user->ID, $args );
 			$args['found_avatar'] = true;
 			return $args;
 		}
@@ -199,6 +199,46 @@ class AvatarService {
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────
+
+	/**
+	 * Pick the right stored-image variation for the requested avatar size.
+	 *
+	 * The canonical upload URL points at the `full` variation. When a surface
+	 * asks for a small avatar (≤128px — the rail, member cards, comment lists),
+	 * serve the `thumb` variation instead so we don't ship a 512px file where a
+	 * 128px one will do. Only applies to images in our managed per-owner storage
+	 * (ImageStorageService); legacy, external, or plugin-supplied URLs return a
+	 * '' from variation_url() and fall through unchanged.
+	 *
+	 * The thumb URL is stable (no cache-buster of its own), so we carry over the
+	 * `v=` token from the canonical `full` URL — both variations are (re)written
+	 * together on upload, so that token tracks the thumb too and a replacement
+	 * never serves a stale cached thumbnail.
+	 *
+	 * @param string               $canonical Stored avatar URL (the `full` variation).
+	 * @param int                  $user_id   Owner user ID.
+	 * @param array<string, mixed> $args      Avatar args (carries the requested `size`).
+	 * @return string
+	 */
+	private function pick_variation( string $canonical, int $user_id, array $args ): string {
+		$size = isset( $args['size'] ) ? (int) $args['size'] : 96;
+		if ( $size <= 0 || $size > 128 ) {
+			return $canonical;
+		}
+
+		$thumb = ( new \BuddyNext\Media\ImageStorageService() )->variation_url( 'avatar', 'user', $user_id, 'thumb' );
+		if ( '' === $thumb ) {
+			return $canonical;
+		}
+
+		$query = (string) wp_parse_url( $canonical, PHP_URL_QUERY );
+		parse_str( $query, $parsed );
+		if ( ! empty( $parsed['v'] ) ) {
+			$thumb = add_query_arg( 'v', $parsed['v'], $thumb );
+		}
+
+		return $thumb;
+	}
 
 	/**
 	 * Build a data-URI SVG for a user's initials avatar.
