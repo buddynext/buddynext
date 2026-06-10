@@ -216,7 +216,8 @@ do_action( 'buddynext_part_post_actions_before', $args );
 		<span class="bn-post-card__action-count"<?php echo $bn_actions_comment_cnt > 0 ? '' : ' hidden'; ?>><?php echo esc_html( (string) $bn_actions_comment_cnt ); ?></span>
 	</button>
 
-	<?php if ( 'share' !== $bn_actions_post_type ) : ?>
+	<?php // Share is available on every post, including reshares — sharing a
+		// reshare amplifies the original (ShareService flattens the chain). ?>
 	<button
 		type="button"
 		class="bn-post-card__action-btn"
@@ -230,7 +231,6 @@ do_action( 'buddynext_part_post_actions_before', $args );
 		<span class="bn-post-card__action-label"><?php esc_html_e( 'Share', 'buddynext' ); ?></span>
 		<span class="bn-post-card__action-count" data-wp-text="context.shareCount" data-wp-bind--hidden="!context.shareCount"<?php echo $bn_actions_share_cnt > 0 ? '' : ' hidden'; ?>><?php echo esc_html( (string) $bn_actions_share_cnt ); ?></span>
 	</button>
-	<?php endif; ?>
 
 	<?php if ( ! empty( $args['can_bookmark'] ) ) : ?>
 		<button

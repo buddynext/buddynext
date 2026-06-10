@@ -19,6 +19,7 @@ display the 6 canonical BuddyNext reaction types.
 | `wow`   | Astonished face     | `assets/Astonished face/Flat/astonished_face_flat.svg` |
 | `sad`   | Loudly crying face  | `assets/Loudly crying face/Flat/loudly_crying_face_flat.svg` |
 | `angry` | Angry face          | `assets/Angry face/Flat/angry_face_flat.svg` |
+| `celebrate` | Party popper     | `assets/Party popper/Flat/party_popper_flat.svg` |
 
 These six match `ReactionService::REACTION_TYPES`.
 

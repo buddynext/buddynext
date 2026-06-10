@@ -878,7 +878,7 @@ store( 'buddynext/post-card', {
 
 			// Dispatch into the global share-modal store via a custom event.
 			document.dispatchEvent(
-				new CustomEvent( 'bn:open-share-modal', {
+				new CustomEvent( 'bn-open-share-modal', {
 					detail: {
 						postId:    ctx.postId,
 						permalink,
@@ -2011,6 +2011,23 @@ store( 'buddynext/share-modal', {
 		},
 	},
 	actions: {
+		// Opens the modal in response to the post card's `bn-open-share-modal`
+		// document event. Bound via `data-wp-on-document--bn-open-share-modal`
+		// so it runs INSIDE the store — getContext() here is the live, writable
+		// context, unlike a plain document listener which can only mutate the
+		// inert data-wp-context attribute (that left postId stuck at 0, so
+		// repost/quote silently aborted on their `! ctx.postId` guard).
+		receiveOpen( event ) {
+			const detail  = ( event && event.detail ) || {};
+			const ctx     = getContext();
+			ctx.postId    = detail.postId || 0;
+			ctx.permalink = detail.permalink || '';
+			ctx.nonce     = detail.nonce || ctx.nonce;
+			ctx.restUrl   = detail.restUrl || ctx.restUrl;
+			ctx.error     = '';
+			ctx.busy      = false;
+			ctx.open      = true;
+		},
 		close() {
 			const ctx = getContext();
 			ctx.open  = false;
@@ -2092,24 +2109,11 @@ store( 'buddynext/share-modal', {
 	},
 } );
 
-// Bridge: post-card openShare dispatches a CustomEvent; populate share-modal context.
-document.addEventListener( 'bn:open-share-modal', function ( e ) {
-	const detail = e.detail || {};
-	const modal  = document.querySelector( '[data-wp-interactive="buddynext/share-modal"]' );
-	if ( ! modal ) { return; }
-	try {
-		const ctx = JSON.parse( modal.getAttribute( 'data-wp-context' ) || '{}' );
-		ctx.open      = true;
-		ctx.busy      = false;
-		ctx.error     = '';
-		ctx.postId    = detail.postId || 0;
-		ctx.permalink = detail.permalink || '';
-		ctx.nonce     = detail.nonce || ctx.nonce;
-		ctx.restUrl   = detail.restUrl || ctx.restUrl;
-		modal.setAttribute( 'data-wp-context', JSON.stringify( ctx ) );
-		modal.hidden = false;
-	} catch ( _e ) {}
-} );
+// The post-card `openShare` dispatches a `bn-open-share-modal` document event;
+// the share-modal store receives it via its `data-wp-on-document--` directive
+// (actions.receiveOpen), which runs inside the store so it can write the LIVE
+// context. (A plain document listener here could only mutate the inert
+// data-wp-context attribute, leaving the reactive store's postId at 0.)
 
 /* ── Feed filter tabs ────────────────────────────────────────────────────── */
 

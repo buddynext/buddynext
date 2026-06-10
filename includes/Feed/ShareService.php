@@ -31,7 +31,22 @@ class ShareService {
 	public function share( int $user_id, int $post_id, string $content = '' ): int|WP_Error {
 		global $wpdb;
 
+		// If the target is itself a reshare, amplify the ORIGINAL post instead
+		// (flatten the chain). "Sharing a share" shares the root — matching what
+		// members expect and avoiding share-of-a-share nesting. All downstream
+		// logic (duplicate check, privacy inheritance, share_count, feed card)
+		// then operates on the original post.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$root_post_id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT shared_post_id FROM {$wpdb->prefix}bn_posts WHERE id = %d AND type = 'share' LIMIT 1",
+				$post_id
+			)
+		);
+		if ( $root_post_id > 0 ) {
+			$post_id = $root_post_id;
+		}
+
 		$existing = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT id FROM {$wpdb->prefix}bn_shares
