@@ -32,6 +32,29 @@ function formatBadge( count ) {
 }
 
 /**
+ * Adjust the "All" and "Unread" filter-tab count badges by `delta`.
+ *
+ * Every notification belongs to both the All and Unread filters, so marking a
+ * single one read decrements both unambiguously. The rail bell badge already
+ * tracks ctx.unreadCount; this keeps the in-page tab badges in step instead of
+ * waiting for a reload. (Type-specific tabs — Mentions/Reactions — are
+ * server-computed and refresh on the next load.)
+ *
+ * @param {number} delta Amount to add (use -1 when marking one read).
+ */
+function adjustUnreadTabBadges( delta ) {
+	[ 'all', 'unread' ].forEach( function ( filter ) {
+		var badge = document.querySelector( '.bn-tab[data-filter="' + filter + '"] .bn-tab__count' );
+		if ( ! badge ) {
+			return;
+		}
+		var next = Math.max( 0, ( parseInt( badge.textContent, 10 ) || 0 ) + delta );
+		badge.textContent = String( next );
+		badge.hidden = ( 0 === next );
+	} );
+}
+
+/**
  * Minimal toast helper. Uses a global `window.bnToast` when the shell
  * provides one (assets/js/shell/extras.js), otherwise falls back to a
  * console warning so the rollback signal is at least visible to developers.
@@ -144,6 +167,7 @@ store( 'buddynext/notifications', {
 				if ( ctx && ctx.unreadCount > 0 ) {
 					ctx.unreadCount = ctx.unreadCount - 1;
 				}
+				adjustUnreadTabBadges( -1 );
 			}
 
 			try {
@@ -162,6 +186,7 @@ store( 'buddynext/notifications', {
 					if ( ctx ) {
 						ctx.unreadCount = previous;
 					}
+					adjustUnreadTabBadges( 1 );
 				}
 				toast( 'Could not mark this notification as read.', 'error' );
 				return;
@@ -190,6 +215,7 @@ store( 'buddynext/notifications', {
 				if ( ctx && ctx.unreadCount > 0 ) {
 					ctx.unreadCount = ctx.unreadCount - 1;
 				}
+				adjustUnreadTabBadges( -1 );
 				if ( btn ) {
 					var parent = btn.parentElement;
 					btn.remove();
@@ -210,6 +236,9 @@ store( 'buddynext/notifications', {
 			} catch ( _e ) {
 				if ( ctx ) {
 					ctx.unreadCount = previous;
+				}
+				if ( wasUnread ) {
+					adjustUnreadTabBadges( 1 );
 				}
 				toast( 'Could not mark this notification as read.', 'error' );
 			}
