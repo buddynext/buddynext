@@ -2127,8 +2127,24 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-tab:hover {
 	color: var(--bn-ink);
 }
+/* Keep tabs flat in every interaction state — themes (e.g. Astra) give bare
+   <button> a solid fill on :hover/:focus, which would turn the active/clicked
+   tab into a heavy blue block. Tabs are underline-only. */
+.bn-tab:hover,
+.bn-tab:focus,
+.bn-tab:focus-visible,
+.bn-tab:active {
+	background: transparent;
+	box-shadow: none;
+}
+.bn-tab:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: -2px;
+	border-radius: var(--bn-r-sm);
+}
 .bn-tab[aria-selected="true"],
-.bn-tab[data-active] {
+.bn-tab[data-active],
+.bn-tab.is-active {
 	color: var(--bn-ink);
 	border-bottom-color: var(--bn-accent);
 }

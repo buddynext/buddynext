@@ -160,7 +160,25 @@ function buildCard( item ) {
 	};
 	article.setAttribute( 'data-wp-context', JSON.stringify( cardCtx ) );
 
-	// Avatar.
+	// Kebab (secondary actions) — pinned top-right, over the cover. Built first
+	// so it overlays the cover; mirrors templates/parts/member-card.php.
+	if ( item.can_interact ) {
+		article.appendChild( buildKebab( item ) );
+	}
+
+	// Cover banner — brand-safe tone gradient (the member's cover image, when
+	// available, is applied via the inline background). Mirrors the space card.
+	const TONES = [ 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' ];
+	const cover = document.createElement( 'div' );
+	cover.className = 'bn-md-card__cover';
+	cover.setAttribute( 'data-tone', TONES[ Math.abs( parseInt( item.user_id, 10 ) || 0 ) % TONES.length ] );
+	cover.setAttribute( 'aria-hidden', 'true' );
+	if ( item.cover_url ) {
+		cover.style.backgroundImage = "url('" + item.cover_url + "')";
+	}
+	article.appendChild( cover );
+
+	// Avatar — overlaps the cover, bottom-left.
 	const avLink = document.createElement( 'a' );
 	avLink.href = item.profile_url;
 	avLink.className = 'bn-md-card__avatar-link';
@@ -185,21 +203,33 @@ function buildCard( item ) {
 	avLink.appendChild( avSpan );
 	article.appendChild( avLink );
 
-	// Name.
+	// Padded body (everything below the cover).
+	const body = document.createElement( 'div' );
+	body.className = 'bn-md-card__body';
+
+	// Name (+ optional connection-degree chip).
 	const h3 = document.createElement( 'h3' );
 	h3.className = 'bn-md-card__name';
 	const nameLink = document.createElement( 'a' );
 	nameLink.href = item.profile_url;
 	nameLink.textContent = item.display_name;
 	h3.appendChild( nameLink );
-	article.appendChild( h3 );
+	const degree = parseInt( item.degree, 10 ) || 0;
+	if ( degree === 1 || degree === 2 ) {
+		const deg = document.createElement( 'span' );
+		deg.className = 'bn-md-card__degree';
+		deg.setAttribute( 'data-degree', String( degree ) );
+		deg.textContent = degree === 1 ? '1st' : '2nd';
+		h3.appendChild( deg );
+	}
+	body.appendChild( h3 );
 
 	// Handle.
 	if ( item.handle ) {
 		const handle = document.createElement( 'p' );
 		handle.className = 'bn-md-card__handle';
 		handle.textContent = '@' + item.handle;
-		article.appendChild( handle );
+		body.appendChild( handle );
 	}
 
 	// Member type badge.
@@ -208,7 +238,7 @@ function buildCard( item ) {
 		badge.className = 'bn-badge bn-md-card__type';
 		badge.setAttribute( 'data-tone', 'accent' );
 		badge.textContent = item.member_type.name;
-		article.appendChild( badge );
+		body.appendChild( badge );
 	}
 
 	// Bio excerpt.
@@ -216,7 +246,7 @@ function buildCard( item ) {
 		const bio = document.createElement( 'p' );
 		bio.className = 'bn-md-card__bio';
 		bio.textContent = item.bio_excerpt;
-		article.appendChild( bio );
+		body.appendChild( bio );
 	}
 
 	// Mutual count.
@@ -226,10 +256,10 @@ function buildCard( item ) {
 		mu.textContent = item.mutual_count === 1
 			? '1 mutual connection'
 			: item.mutual_count + ' mutual connections';
-		article.appendChild( mu );
+		body.appendChild( mu );
 	}
 
-	// Action row.
+	// Action row (Follow + Connect; kebab lives top-right, not here).
 	const actions = document.createElement( 'div' );
 	actions.className = 'bn-md-card__actions';
 
@@ -292,48 +322,64 @@ function buildCard( item ) {
 			decide.appendChild( b );
 		} );
 		actions.appendChild( decide );
-
-		// Kebab.
-		const menuWrap = document.createElement( 'div' );
-		menuWrap.className = 'bn-md-card__menu-wrap';
-		const menuBtn = document.createElement( 'button' );
-		menuBtn.type = 'button';
-		menuBtn.className = 'bn-md-card__menu';
-		menuBtn.setAttribute( 'aria-label', 'More actions' );
-		menuBtn.setAttribute( 'aria-haspopup', 'true' );
-		menuBtn.setAttribute( 'aria-expanded', 'false' );
-		menuBtn.setAttribute( 'data-wp-on--click', 'actions.toggleCardMenu' );
-		menuBtn.setAttribute( 'data-wp-bind--aria-expanded', 'state.cardMenuExpanded' );
-		menuBtn.appendChild( buildKebabIcon() );
-		menuWrap.appendChild( menuBtn );
-
-		const menuPop = document.createElement( 'div' );
-		menuPop.className = 'bn-md-card__menu-pop';
-		menuPop.setAttribute( 'role', 'menu' );
-		menuPop.setAttribute( 'data-wp-bind--hidden', '!state.cardMenuOpen' );
-		menuPop.hidden = true;
-		[
-			{ label: 'Mute',   action: 'actions.toggleMute', danger: false, textBind: 'state.cardMuteLabel' },
-			{ label: 'Block',  action: 'actions.openBlock',  danger: true },
-			{ label: 'Report', action: 'actions.openReport', danger: true },
-		].forEach( ( cfg ) => {
-			const b = document.createElement( 'button' );
-			b.type = 'button';
-			b.className = 'bn-md-card__menu-item' + ( cfg.danger ? ' bn-md-card__menu-item--danger' : '' );
-			b.setAttribute( 'role', 'menuitem' );
-			b.setAttribute( 'data-wp-on--click', cfg.action );
-			if ( cfg.textBind ) {
-				b.setAttribute( 'data-wp-text', cfg.textBind );
-			}
-			b.textContent = cfg.label;
-			menuPop.appendChild( b );
-		} );
-		menuWrap.appendChild( menuPop );
-		actions.appendChild( menuWrap );
 	}
 
-	article.appendChild( actions );
+	body.appendChild( actions );
+	article.appendChild( body );
 	return article;
+}
+
+/* Kebab (secondary actions) pinned to the card's top-right. Mirrors the
+   markup in templates/parts/member-card.php so server- and client-rendered
+   cards behave identically. */
+function buildKebab( item ) {
+	const menuWrap = document.createElement( 'div' );
+	menuWrap.className = 'bn-md-card__menu-wrap';
+
+	const menuBtn = document.createElement( 'button' );
+	menuBtn.type = 'button';
+	menuBtn.className = 'bn-md-card__menu';
+	menuBtn.setAttribute( 'aria-label', 'More actions' );
+	menuBtn.setAttribute( 'aria-haspopup', 'true' );
+	menuBtn.setAttribute( 'aria-expanded', 'false' );
+	menuBtn.setAttribute( 'data-wp-on--click', 'actions.toggleCardMenu' );
+	menuBtn.setAttribute( 'data-wp-bind--aria-expanded', 'state.cardMenuExpanded' );
+	menuBtn.appendChild( buildKebabIcon() );
+	menuWrap.appendChild( menuBtn );
+
+	const menuPop = document.createElement( 'div' );
+	menuPop.className = 'bn-md-card__menu-pop';
+	menuPop.setAttribute( 'role', 'menu' );
+	menuPop.setAttribute( 'data-wp-bind--hidden', '!state.cardMenuOpen' );
+	menuPop.hidden = true;
+
+	const itemsCfg = [];
+	if ( ( ( item.connection && item.connection.state ) || 'none' ) === 'accepted' && item.messages_url ) {
+		itemsCfg.push( { label: 'Message', action: '', href: item.messages_url } );
+	}
+	itemsCfg.push(
+		{ label: 'Mute',   action: 'actions.toggleMute', danger: false, textBind: 'state.cardMuteLabel' },
+		{ label: 'Block',  action: 'actions.openBlock',  danger: true },
+		{ label: 'Report', action: 'actions.openReport', danger: true }
+	);
+	itemsCfg.forEach( ( cfg ) => {
+		const b = document.createElement( cfg.href ? 'a' : 'button' );
+		if ( cfg.href ) {
+			b.href = cfg.href;
+		} else {
+			b.type = 'button';
+			b.setAttribute( 'data-wp-on--click', cfg.action );
+		}
+		b.className = 'bn-md-card__menu-item' + ( cfg.danger ? ' bn-md-card__menu-item--danger' : '' );
+		b.setAttribute( 'role', 'menuitem' );
+		if ( cfg.textBind ) {
+			b.setAttribute( 'data-wp-text', cfg.textBind );
+		}
+		b.textContent = cfg.label;
+		menuPop.appendChild( b );
+	} );
+	menuWrap.appendChild( menuPop );
+	return menuWrap;
 }
 
 async function refresh( ctx ) {
