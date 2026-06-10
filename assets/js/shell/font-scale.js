@@ -106,11 +106,40 @@
 		return themeColorMode() || readThemePref();
 	}
 
-	// Bootstrap: apply saved scale + theme before paint.
+	// ── Rail collapse ──────────────────────────────────────────────────────
+	// The left nav rail can collapse to an icon-only panel. The choice is saved
+	// in localStorage and stamped on <html data-bn-rail> here (before paint) so
+	// the rail never flashes wide-then-narrow on load.
+	function readRailCollapsed() {
+		try {
+			return '1' === window.localStorage.getItem( 'bn_rail_collapsed' );
+		} catch ( e ) {
+			return false;
+		}
+	}
+	function applyRail( collapsed ) {
+		if ( collapsed ) {
+			document.documentElement.setAttribute( 'data-bn-rail', 'collapsed' );
+		} else {
+			document.documentElement.removeAttribute( 'data-bn-rail' );
+		}
+		// Keep the toggle buttons' accessible state + label in sync.
+		var toggles = document.querySelectorAll( '[data-bn-action="toggle-rail"]' );
+		for ( var i = 0; i < toggles.length; i++ ) {
+			toggles[ i ].setAttribute( 'aria-pressed', collapsed ? 'true' : 'false' );
+			var label = collapsed ? 'Expand navigation' : 'Collapse navigation';
+			toggles[ i ].setAttribute( 'aria-label', label );
+			toggles[ i ].setAttribute( 'title', label );
+		}
+	}
+
+	// Bootstrap: apply saved scale + theme + rail state before paint.
 	var initialScale = readScale();
 	applyScale( initialScale );
 
 	applyTheme( effectiveFromPref( currentPref() ) );
+
+	applyRail( readRailCollapsed() );
 
 	// Mark the active segmented-control button. Re-runs on every change so
 	// the Appearance card mirrors current state without explicit binding.
@@ -197,6 +226,28 @@
 			writeThemePref( next );
 			applyTheme( next );
 			syncPressed();
+			return;
+		}
+
+		var railBtn = e.target.closest( '[data-bn-action="toggle-rail"]' );
+		if ( railBtn ) {
+			var nowCollapsed = 'collapsed' !== document.documentElement.getAttribute( 'data-bn-rail' );
+			try {
+				window.localStorage.setItem( 'bn_rail_collapsed', nowCollapsed ? '1' : '0' );
+			} catch ( err ) {
+				/* storage unavailable — ignore */
+			}
+			applyRail( nowCollapsed );
 		}
 	} );
+
+	// Re-sync the rail toggle's accessible state once the rail markup exists
+	// (the before-paint bootstrap above runs before the rail button renders).
+	if ( document.readyState === 'loading' ) {
+		document.addEventListener( 'DOMContentLoaded', function () {
+			applyRail( readRailCollapsed() );
+		} );
+	} else {
+		applyRail( readRailCollapsed() );
+	}
 }() );

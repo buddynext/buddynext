@@ -223,6 +223,67 @@ body.admin-bar .bn-app__rail {
 	line-height: 1;
 }
 
+/* ── Rail collapse toggle ────────────────────────────────────────────────── */
+.bn-rail__toggle {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	width: 100%;
+	padding: 6px var(--s3, 12px);
+	margin-bottom: var(--s2, 8px);
+	background: transparent;
+	border: 0;
+	border-radius: 8px;
+	color: var(--bn-ink-3, #888);
+	cursor: pointer;
+	transition: background 0.12s, color 0.12s;
+}
+.bn-rail__toggle:hover {
+	background: var(--bn-canvas);
+	color: var(--bn-ink, #222);
+}
+.bn-rail__toggle:focus-visible {
+	outline: 2px solid var(--bn-accent, var(--brand));
+	outline-offset: -2px;
+}
+.bn-rail__toggle .bn-rail__icon {
+	transition: transform 0.18s ease;
+}
+
+/* ── Collapsed → icon-only panel ─────────────────────────────────────────────
+ * Stamped on <html data-bn-rail="collapsed"> (font-scale.js bootstrap). The
+ * rail column shrinks, labels/headings hide, icons centre, and the count badge
+ * becomes a corner dot. Item `title` attributes provide hover tooltips. */
+[data-bn-rail="collapsed"] {
+	--bn-railw: 72px;
+}
+[data-bn-rail="collapsed"] .bn-rail__label,
+[data-bn-rail="collapsed"] .bn-rail__heading {
+	display: none;
+}
+[data-bn-rail="collapsed"] .bn-rail__item {
+	justify-content: center;
+	padding-inline: 0;
+}
+[data-bn-rail="collapsed"] .bn-rail__toggle {
+	justify-content: center;
+}
+[data-bn-rail="collapsed"] .bn-rail__toggle .bn-rail__icon {
+	transform: rotate(180deg);
+}
+[data-bn-rail="collapsed"] .bn-rail__badge {
+	position: absolute;
+	top: 4px;
+	right: 16px;
+	min-width: 9px;
+	width: 9px;
+	height: 9px;
+	padding: 0;
+	font-size: 0;
+	line-height: 0;
+	border-radius: 50%;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
 	.bn-app__shell--with-sidebar {
@@ -230,6 +291,39 @@ body.admin-bar .bn-app__rail {
 	}
 	.bn-app__right {
 		display: none;
+	}
+}
+
+/* Tablet range (between the mobile bottom-bar breakpoint and full desktop):
+ * force the rail to its icon-only panel so it never crowds the content. The
+ * manual toggle is hidden here since the width is driving the state. */
+@media (min-width: 769px) and (max-width: 1024px) {
+	.bn-app__shell,
+	.bn-app__shell--with-sidebar {
+		--bn-railw: 72px;
+	}
+	.bn-rail__label,
+	.bn-rail__heading {
+		display: none;
+	}
+	.bn-rail__item {
+		justify-content: center;
+		padding-inline: 0;
+	}
+	.bn-rail__toggle {
+		display: none;
+	}
+	.bn-rail__badge {
+		position: absolute;
+		top: 4px;
+		right: 16px;
+		min-width: 9px;
+		width: 9px;
+		height: 9px;
+		padding: 0;
+		font-size: 0;
+		line-height: 0;
+		border-radius: 50%;
 	}
 }
 

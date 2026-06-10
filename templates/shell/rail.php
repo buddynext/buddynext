@@ -140,6 +140,18 @@ if ( '' === $bn_rail_active && 'feed' === $hub ) {
 }
 ?>
 <nav class="bn-app__rail" aria-label="<?php esc_attr_e( 'Community navigation', 'buddynext' ); ?>">
+	<?php // Collapse toggle — shrinks the rail to an icon-only panel. State is
+		// persisted in localStorage and stamped on <html data-bn-rail> before
+		// paint by assets/js/shell/font-scale.js. ?>
+	<button
+		type="button"
+		class="bn-rail__toggle"
+		data-bn-action="toggle-rail"
+		aria-label="<?php esc_attr_e( 'Collapse navigation', 'buddynext' ); ?>"
+		title="<?php esc_attr_e( 'Collapse navigation', 'buddynext' ); ?>"
+	>
+		<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'chevron-left' ); ?></span>
+	</button>
 	<div class="bn-rail__group">
 		<?php foreach ( $bn_rail_items as $bn_item ) : ?>
 			<?php
@@ -153,6 +165,7 @@ if ( '' === $bn_rail_active && 'feed' === $hub ) {
 			<a
 				href="<?php echo esc_url( (string) $bn_item['url'] ); ?>"
 				class="bn-rail__item"
+				title="<?php echo esc_attr( (string) $bn_item['label'] ); ?>"
 				<?php echo $bn_is_active ? 'aria-current="page"' : ''; ?>
 			>
 				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( $bn_icon_slug ); ?></span>
@@ -167,7 +180,7 @@ if ( '' === $bn_rail_active && 'feed' === $hub ) {
 	<?php if ( $bn_rail_current_user ) : ?>
 		<div class="bn-rail__group">
 			<div class="bn-rail__heading"><?php esc_html_e( 'You', 'buddynext' ); ?></div>
-			<a href="<?php echo esc_url( PageRouter::profile_url( $bn_rail_current_user ) ); ?>" class="bn-rail__item">
+			<a href="<?php echo esc_url( PageRouter::profile_url( $bn_rail_current_user ) ); ?>" class="bn-rail__item" title="<?php esc_attr_e( 'Profile', 'buddynext' ); ?>">
 				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'user' ); ?></span>
 				<span class="bn-rail__label"><?php esc_html_e( 'Profile', 'buddynext' ); ?></span>
 			</a>
@@ -178,12 +191,13 @@ if ( '' === $bn_rail_active && 'feed' === $hub ) {
 			<a
 				href="<?php echo esc_url( $bn_bookmarks_url ); ?>"
 				class="bn-rail__item"
+				title="<?php esc_attr_e( 'Bookmarks', 'buddynext' ); ?>"
 				<?php echo $bn_bookmarks_active ? 'aria-current="page"' : ''; ?>
 			>
 				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'bookmark' ); ?></span>
 				<span class="bn-rail__label"><?php esc_html_e( 'Bookmarks', 'buddynext' ); ?></span>
 			</a>
-			<a href="<?php echo esc_url( PageRouter::edit_profile_url() ); ?>" class="bn-rail__item">
+			<a href="<?php echo esc_url( PageRouter::edit_profile_url() ); ?>" class="bn-rail__item" title="<?php esc_attr_e( 'Settings', 'buddynext' ); ?>">
 				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'settings' ); ?></span>
 				<span class="bn-rail__label"><?php esc_html_e( 'Settings', 'buddynext' ); ?></span>
 			</a>
