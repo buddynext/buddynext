@@ -710,22 +710,23 @@
 }
 
 .bn-post-card__action-btn {
-	/* Equal-width, centred actions (Facebook pattern): they fill the row and
-	   shrink to fit, so the bar never wraps regardless of card width. */
-	flex: 1 1 0;
+	/* Compact, content-width pill actions — sit together at the start of the
+	   row instead of stretching to equal full-width columns (which left large
+	   dead gaps between the icon+label). */
+	flex: 0 0 auto;
 	min-width: 0;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
-	padding: 8px 6px;
+	padding: 6px 14px;
 	font-size: var(--bn-text-sm);
 	font-family: var(--bn-font-ui);
 	color: var(--bn-ink-3);
 	cursor: pointer;
 	background: transparent;
 	border: 0;
-	border-radius: var(--bn-r-sm);
+	border-radius: var(--bn-r-full);
 	white-space: nowrap;
 	transition: color var(--bn-dur-fast, 120ms) var(--bn-ease, ease), background var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
 }
