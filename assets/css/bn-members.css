@@ -333,15 +333,6 @@
 	flex: 1 1 0;
 }
 
-/* Secondary actions live in a kebab pinned to the card's top-right, out of the
-   button row entirely. */
-.bn-md-card__menu-wrap {
-	position: absolute;
-	inset-block-start: var(--bn-s2);
-	inset-inline-end: var(--bn-s2);
-	z-index: 2;
-}
-
 /* Narrow cards (small screens / dense grid) — stack the two buttons. */
 @media ( max-width: 480px ) {
 	.bn-md-card__actions .bn-btn {
@@ -881,29 +872,33 @@
 }
 
 /* Per-card kebab menu. */
+/* Pinned to the card's top-right, over the cover. */
 .bn-md-card__menu-wrap {
-	position: relative;
-	display: inline-block;
-	margin-inline-start: var(--bn-s1);
+	position: absolute;
+	inset-block-start: var(--bn-s2);
+	inset-inline-end: var(--bn-s2);
+	z-index: 3;
 }
 
 .bn-md-card__menu {
-	width: 32px;
-	height: 32px;
+	width: 30px;
+	height: 30px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	background: transparent;
-	border: 1px solid transparent;
-	border-radius: 8px;
-	color: var(--bn-text-soft);
+	/* Translucent chip so the icon stays legible over any cover gradient. */
+	background: color-mix(in oklab, var(--bn-surface) 78%, transparent);
+	backdrop-filter: blur(4px);
+	border: 1px solid color-mix(in oklab, var(--bn-ink) 8%, transparent);
+	border-radius: var(--bn-r-full, 999px);
+	color: var(--bn-ink-2);
 	cursor: pointer;
 }
 
 .bn-md-card__menu:hover,
 .bn-md-card__menu:focus-visible {
-	background: var(--bn-line-faint);
-	color: var(--bn-text);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
 }
 
 .bn-md-card__menu:focus-visible {
