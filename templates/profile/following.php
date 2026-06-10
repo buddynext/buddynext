@@ -101,66 +101,29 @@ do_action( 'buddynext_profile_following_before', (int) $user_id );
 			<input
 				type="search"
 				class="bn-input bn-connections-search__input"
-				data-bn-filter-cards=".bn-following-card"
+				data-bn-filter-cards=".bn-md-card"
 				placeholder="<?php esc_attr_e( 'Filter by name or handle…', 'buddynext' ); ?>"
 				aria-label="<?php esc_attr_e( 'Filter following list', 'buddynext' ); ?>"
 			>
 		</label>
 	<?php endif; ?>
 
-	<div class="bn-connections-grid bn-following-grid" role="list" aria-label="<?php esc_attr_e( 'Following', 'buddynext' ); ?>">
-		<?php if ( ! empty( $page_ids ) ) : ?>
-			<?php
-			foreach ( $page_ids as $fid ) :
-				$fid    = (int) $fid;
-				$f_user = get_userdata( $fid );
-				if ( ! $f_user ) {
-					continue;
-				}
-				$f_name   = $f_user->display_name;
-				$f_handle = '@' . $f_user->user_nicename;
-				$f_avatar = get_avatar_url( $fid, array( 'size' => 128 ) );
-				$f_url    = PageRouter::profile_url( $fid );
-				$is_fb    = $current_user_id > 0 ? $follow_svc->is_following( $current_user_id, $fid ) : false;
-				?>
-				<article class="bn-member-card bn-following-card" role="listitem">
-					<a href="<?php echo esc_url( $f_url ); ?>" aria-label="<?php echo esc_attr( $f_name ); ?>">
-						<?php if ( $f_avatar ) : ?>
-							<img src="<?php echo esc_url( $f_avatar ); ?>"
-								alt="<?php echo esc_attr( $f_name ); ?>"
-								class="bn-avatar"
-								width="64"
-								height="64"
-								loading="lazy">
-						<?php endif; ?>
-					</a>
-
-					<div class="bn-member-name">
-						<a href="<?php echo esc_url( $f_url ); ?>"><?php echo esc_html( $f_name ); ?></a>
-					</div>
-					<div class="bn-member-handle"><?php echo esc_html( $f_handle ); ?></div>
-
-					<?php if ( $current_user_id > 0 && $current_user_id !== $fid ) : ?>
-						<div class="bn-card-actions">
-							<a href="<?php echo esc_url( $f_url ); ?>" class="bn-btn-view">
-								<?php esc_html_e( 'View', 'buddynext' ); ?>
-							</a>
-							<?php
-							include __DIR__ . '/../partials/connection-button.php';
-							?>
-							<?php if ( $is_fb ) : ?>
-							<span class="bn-badge" data-tone="accent">
-								<?php esc_html_e( 'Following', 'buddynext' ); ?>
-							</span>
-							<?php endif; ?>
-						</div>
-					<?php endif; ?>
-				</article>
-				<?php
-				$user_id = (int) $profile_user->ID;
-			endforeach;
-			?>
-		<?php else : ?>
+	<?php if ( ! empty( $page_ids ) ) : ?>
+		<?php
+		buddynext_get_template(
+			'parts/member-grid.php',
+			array(
+				'members'   => array_values(
+					array_filter(
+						array_map( static fn( $fid ) => get_userdata( (int) $fid ), $page_ids )
+					)
+				),
+				'viewer_id' => $current_user_id,
+			)
+		);
+		?>
+	<?php else : ?>
+		<div class="bn-connections-grid bn-following-grid" role="list">
 			<div class="bn-empty-state">
 				<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
 				<div class="bn-empty-title">
