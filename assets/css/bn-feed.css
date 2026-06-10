@@ -2569,9 +2569,10 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	pointer-events: none;
 	color: var(--bn-text-3);
 }
-/* .bn-explore-search__input extends the .bn-input primitive; only icon
-   inset padding is needed here. */
-.bn-explore-search__input {
+/* Compound .bn-input.<class> selector so the icon-clearing padding beats the
+   .bn-input primitive's `padding` shorthand (equal single-class specificity
+   let the shorthand win by source order → text overlapped the search icon). */
+.bn-input.bn-explore-search__input {
 	width: 100%;
 	padding-inline-start: 44px;
 }

@@ -780,8 +780,29 @@
 
 /* ── Search bar block ───────────────────────────────────────────────── */
 
-.wp-block-buddynext-search-bar {
-	/* Uses .bn-search-wrap + .bn-search-input from bn-search.css */
+.bn-search-input-wrap {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+.bn-search-icon {
+	position: absolute;
+	inset-inline-start: 14px;
+	top: 50%;
+	transform: translateY(-50%);
+	display: inline-flex;
+	pointer-events: none;
+	color: var(--text-3);
+}
+.bn-search-icon svg {
+	width: 18px;
+	height: 18px;
+}
+/* Compound .bn-input.<class> so the icon-clearing padding beats the .bn-input
+   primitive's `padding` shorthand (else the placeholder overlaps the icon). */
+.bn-input.bn-search-input {
+	width: 100%;
+	padding-inline-start: 44px;
 }
 
 /* ── Block titles (widget headings) ─────────────────────────────────── */
