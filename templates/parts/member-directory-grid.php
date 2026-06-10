@@ -102,6 +102,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 			$bn_bio = (string) get_user_meta( $bn_member_id, 'description', true );
 		}
 		$bn_profile_url   = \BuddyNext\Core\PageRouter::profile_url( $bn_member_id );
+		$bn_cover_url     = (string) get_user_meta( $bn_member_id, 'buddynext_cover_url', true );
 		$bn_avatar_url    = (string) get_avatar_url( $bn_member_id, array( 'size' => 96 ) );
 		$bn_is_online     = (bool) $bn_is_online_fn( $bn_member_id );
 		$bn_is_following  = (bool) $bn_is_following_fn( $bn_member_id );
@@ -167,6 +168,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'avatar_tone'       => $bn_avatar_tone,
 				'bio'               => $bn_bio,
 				'profile_url'       => $bn_profile_url,
+				'cover_url'         => $bn_cover_url,
 				'avatar_url'        => $bn_avatar_url,
 				'initials'          => $bn_initials_text,
 				'messages_url'      => $bn_messages_url,

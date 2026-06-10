@@ -123,12 +123,11 @@
 
 /* ── Member card composition (uses .bn-card[data-interactive] from base) ── */
 .bn-md-card {
+	position: relative;
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	gap: var(--bn-s1);
-	padding: var(--bn-s4);
-	text-align: center;
+	padding: 0;
+	text-align: start;
 	transition: transform var(--bn-dur-fast) var(--bn-ease);
 }
 
@@ -136,11 +135,56 @@
 	transform: translateY(-1px);
 }
 
+/* Cover banner — the member's cover image, or a brand-safe tone gradient
+   matching the space cards (mirrors .bn-sd-card__cover). */
+.bn-md-card__cover {
+	height: 76px;
+	width: 100%;
+	border-radius: var(--bn-r-lg) var(--bn-r-lg) 0 0;
+	background-color: var(--bn-accent-100);
+	background-size: cover;
+	background-position: center;
+	--bn-tone-l-start: 80%;
+	--bn-tone-l-end: 55%;
+}
+[data-theme="dark"] .bn-md-card__cover,
+[data-bn-theme="dark"] .bn-md-card__cover {
+	--bn-tone-l-start: 45%;
+	--bn-tone-l-end: 30%;
+}
+.bn-md-card__cover[data-tone="sky"]     { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 240) 0%, oklch(var(--bn-tone-l-end) 0.18 240) 100%); }
+.bn-md-card__cover[data-tone="cyan"]    { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.12 200) 0%, oklch(var(--bn-tone-l-end) 0.16 200) 100%); }
+.bn-md-card__cover[data-tone="emerald"] { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 160) 0%, oklch(var(--bn-tone-l-end) 0.18 160) 100%); }
+.bn-md-card__cover[data-tone="lime"]    { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 130) 0%, oklch(var(--bn-tone-l-end) 0.17 130) 100%); }
+.bn-md-card__cover[data-tone="amber"]   { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 70)  0%, oklch(var(--bn-tone-l-end) 0.18 70)  100%); }
+.bn-md-card__cover[data-tone="coral"]   { background-image: linear-gradient(135deg, oklch(var(--bn-tone-l-start) 0.13 35)  0%, oklch(var(--bn-tone-l-end) 0.18 35)  100%); }
+
+/* Avatar overlaps the cover, bottom-left (mirrors .bn-sd-card__emblem). */
 .bn-md-card__avatar-link {
+	position: absolute;
+	inset-block-start: 46px;
+	inset-inline-start: var(--bn-s4);
 	display: inline-block;
-	margin-block-end: var(--bn-s2);
 	text-decoration: none;
 	color: inherit;
+	z-index: 1;
+}
+.bn-md-card__avatar-link .bn-avatar {
+	width: 60px;
+	height: 60px;
+	font-size: var(--bn-text-lg);
+	border: 3px solid var(--bn-surface);
+	box-shadow: var(--bn-shadow-sm);
+}
+
+/* Padded content below the cover; top padding clears the overlapping avatar. */
+.bn-md-card__body {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--bn-s1);
+	padding: 40px var(--bn-s4) var(--bn-s4);
+	flex: 1;
 }
 
 .bn-md-card__avatar {
@@ -256,49 +300,54 @@
 	margin-block-start: var(--bn-s1);
 }
 
+/* Two equal-width action buttons share ONE row on desktop (no wasted space);
+   they stack to two rows only on small screens. */
 .bn-md-card__actions {
 	display: flex;
 	gap: var(--bn-s2);
 	inline-size: 100%;
 	margin-block-start: auto;
 	padding-block-start: var(--bn-s3);
-	justify-content: center;
 	flex-wrap: wrap;
 }
 
 .bn-md-card__actions .bn-btn {
-	flex: 1 1 auto;
-	min-block-size: 40px;
-}
-
-.bn-md-card__actions .bn-btn[data-variant="ghost"] {
-	flex: 0 0 auto;
-	min-inline-size: 40px;
-}
-
-/* Reserve width for the widest label across all states so the button
-   doesn't grow on click (Follow → Following adds 74px of text + icon,
-   Connect → Requested/Connected adds a few characters). Without this
-   min-inline-size the card layout shifts on every state change.
-   Selectors are scoped under .bn-md-card__actions to outrank the
-   generic `.bn-md-card__actions .bn-btn` flex rule on specificity. */
-/* Primary action (Follow/Following) always fills the first row; the secondary
-   (Connect/Connected) + kebab share the second row. A fixed 2-row structure
-   means every card's actions line up regardless of relationship state. */
-.bn-md-card__actions .bn-md-card__follow {
-	flex: 1 1 100%;
+	flex: 1 1 0;
+	min-block-size: 38px;
 	min-inline-size: 0;
 }
 
+.bn-md-card__actions .bn-md-card__follow,
 .bn-md-card__actions .bn-md-card__connect-primary {
 	flex: 1 1 0;
 	min-inline-size: 0;
 }
-/* Keep the secondary row (Connect/Connected + message + kebab) on ONE line so
-   every card has the same 2-row action block (primary row + secondary row) and
-   the buttons line up across the grid. Icons stay compact, the button shrinks. */
-.bn-md-card__actions .bn-md-card__msg,
-.bn-md-card__actions .bn-md-card__menu-wrap { flex: 0 0 auto; }
+
+/* Accept / Decline (pending-received) — the pair fills the row, each half. */
+.bn-md-card__connect-decide {
+	display: flex;
+	gap: var(--bn-s2);
+	flex: 1 1 100%;
+}
+.bn-md-card__connect-decide .bn-btn {
+	flex: 1 1 0;
+}
+
+/* Secondary actions live in a kebab pinned to the card's top-right, out of the
+   button row entirely. */
+.bn-md-card__menu-wrap {
+	position: absolute;
+	inset-block-start: var(--bn-s2);
+	inset-inline-end: var(--bn-s2);
+	z-index: 2;
+}
+
+/* Narrow cards (small screens / dense grid) — stack the two buttons. */
+@media ( max-width: 480px ) {
+	.bn-md-card__actions .bn-btn {
+		flex: 1 1 100%;
+	}
+}
 
 /* ── Sidebar widgets (rendered via parts/sidebar-card.php) ────────────────
  * Two cards: online-now list (avatars + names) and by-type counts. */

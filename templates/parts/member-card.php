@@ -59,6 +59,7 @@ $args = array(
 	'avatar_tone'       => isset( $avatar_tone ) ? (string) $avatar_tone : 'accent',
 	'bio'               => isset( $bio ) ? (string) $bio : '',
 	'profile_url'       => isset( $profile_url ) ? (string) $profile_url : '',
+	'cover_url'         => isset( $cover_url ) ? (string) $cover_url : '',
 	'avatar_url'        => isset( $avatar_url ) ? (string) $avatar_url : '',
 	'initials'          => isset( $initials ) ? (string) $initials : '',
 	'messages_url'      => isset( $messages_url ) ? (string) $messages_url : '',
@@ -104,7 +105,21 @@ $bn_type_label    = (string) $args['member_type_label'];
 $bn_avatar_tone   = (string) $args['avatar_tone'];
 $bn_bio           = (string) $args['bio'];
 $bn_profile_url   = (string) $args['profile_url'];
+$bn_cover_url     = (string) $args['cover_url'];
 $bn_avatar_url    = (string) $args['avatar_url'];
+
+// Cover tone — same brand-safe blue→green→warm gradient set the space cards
+// use. Deterministic per member; filterable so a site can force a uniform
+// cover or its own scheme later. The member's uploaded cover image overrides.
+$bn_card_tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
+$bn_card_tone  = $bn_card_tones[ $bn_member_id % count( $bn_card_tones ) ];
+/**
+ * Filter the member-card cover tone (sky|cyan|emerald|lime|amber|coral).
+ *
+ * @param string $tone      Deterministic default tone.
+ * @param int    $member_id Member ID.
+ */
+$bn_card_tone = (string) apply_filters( 'buddynext_member_card_cover_tone', $bn_card_tone, $bn_member_id );
 $bn_initials_text = (string) $args['initials'];
 $bn_messages_url  = (string) $args['messages_url'];
 
@@ -131,6 +146,56 @@ do_action( 'buddynext_part_member_card_before', $args );
 	data-user-id="<?php echo esc_attr( (string) $bn_member_id ); ?>"
 	data-wp-context="<?php echo esc_attr( (string) $bn_card_ctx ); ?>"
 >
+
+	<?php // Secondary actions — kebab menu pinned top-right (Message / Mute / Block / Report). ?>
+	<?php if ( $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id ) : ?>
+		<div class="bn-md-card__menu-wrap">
+			<button
+				type="button"
+				class="bn-md-card__menu"
+				aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member display name */ __( 'More actions for %s', 'buddynext' ), $bn_display_name ) ); ?>"
+				aria-haspopup="true"
+				aria-expanded="false"
+				data-wp-on--click="actions.toggleCardMenu"
+				data-wp-bind--aria-expanded="state.cardMenuExpanded"
+			><?php buddynext_icon( 'more-horizontal' ); ?></button>
+			<div
+				class="bn-md-card__menu-pop"
+				role="menu"
+				data-wp-bind--hidden="!state.cardMenuOpen"
+				hidden
+			>
+				<?php if ( 'accepted' === $bn_conn_status && '' !== $bn_messages_url ) : ?>
+					<a
+						class="bn-md-card__menu-item"
+						role="menuitem"
+						href="<?php echo esc_url( $bn_messages_url ); ?>"
+					><?php esc_html_e( 'Message', 'buddynext' ); ?></a>
+				<?php endif; ?>
+				<button
+					type="button"
+					class="bn-md-card__menu-item"
+					role="menuitem"
+					data-wp-on--click="actions.toggleMute"
+					data-wp-text="state.cardMuteLabel"
+				><?php echo esc_html( $bn_is_muted ? __( 'Unmute', 'buddynext' ) : __( 'Mute', 'buddynext' ) ); ?></button>
+				<button
+					type="button"
+					class="bn-md-card__menu-item bn-md-card__menu-item--danger"
+					role="menuitem"
+					data-wp-on--click="actions.openBlock"
+				><?php esc_html_e( 'Block', 'buddynext' ); ?></button>
+				<button
+					type="button"
+					class="bn-md-card__menu-item bn-md-card__menu-item--danger"
+					role="menuitem"
+					data-wp-on--click="actions.openReport"
+				><?php esc_html_e( 'Report', 'buddynext' ); ?></button>
+			</div>
+		</div>
+	<?php endif; ?>
+
+	<div class="bn-md-card__cover" data-tone="<?php echo esc_attr( $bn_card_tone ); ?>"<?php echo '' !== $bn_cover_url ? ' style="background-image:url(\'' . esc_url( $bn_cover_url ) . '\')"' : ''; ?> aria-hidden="true"></div>
 
 	<a href="<?php echo esc_url( $bn_profile_url ); ?>" class="bn-md-card__avatar-link" tabindex="-1" aria-hidden="true">
 		<span
@@ -159,6 +224,8 @@ do_action( 'buddynext_part_member_card_before', $args );
 			?>
 		</span>
 	</a>
+
+	<div class="bn-md-card__body">
 
 	<?php // Identity group: `display:contents` in grid (no layout effect), a flex column in list view. ?>
 	<div class="bn-md-card__identity">
@@ -316,58 +383,10 @@ do_action( 'buddynext_part_member_card_before', $args );
 				><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
 			</span>
 
-			<?php if ( 'accepted' === $bn_conn_status ) : ?>
-				<a
-					class="bn-btn"
-					data-variant="ghost"
-					data-size="sm"
-					href="<?php echo esc_url( $bn_messages_url ); ?>"
-					aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member display name */ __( 'Message %s', 'buddynext' ), $bn_display_name ) ); ?>"
-				>
-					<?php buddynext_icon( 'message-circle' ); ?>
-				</a>
-			<?php endif; ?>
-
-			<?php // Kebab menu — Mute / Block / Report. ?>
-			<div class="bn-md-card__menu-wrap">
-				<button
-					type="button"
-					class="bn-md-card__menu"
-					aria-label="<?php echo esc_attr( sprintf( /* translators: %s: member display name */ __( 'More actions for %s', 'buddynext' ), $bn_display_name ) ); ?>"
-					aria-haspopup="true"
-					aria-expanded="false"
-					data-wp-on--click="actions.toggleCardMenu"
-					data-wp-bind--aria-expanded="state.cardMenuExpanded"
-				><?php buddynext_icon( 'more-horizontal' ); ?></button>
-				<div
-					class="bn-md-card__menu-pop"
-					role="menu"
-					data-wp-bind--hidden="!state.cardMenuOpen"
-					hidden
-				>
-					<button
-						type="button"
-						class="bn-md-card__menu-item"
-						role="menuitem"
-						data-wp-on--click="actions.toggleMute"
-						data-wp-text="state.cardMuteLabel"
-					><?php echo esc_html( $bn_is_muted ? __( 'Unmute', 'buddynext' ) : __( 'Mute', 'buddynext' ) ); ?></button>
-					<button
-						type="button"
-						class="bn-md-card__menu-item bn-md-card__menu-item--danger"
-						role="menuitem"
-						data-wp-on--click="actions.openBlock"
-					><?php esc_html_e( 'Block', 'buddynext' ); ?></button>
-					<button
-						type="button"
-						class="bn-md-card__menu-item bn-md-card__menu-item--danger"
-						role="menuitem"
-						data-wp-on--click="actions.openReport"
-					><?php esc_html_e( 'Report', 'buddynext' ); ?></button>
-				</div>
-			</div>
 		<?php endif; ?>
 	</div>
+
+	</div><!-- /.bn-md-card__body -->
 
 </article>
 <?php

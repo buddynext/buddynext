@@ -34,15 +34,19 @@ class AvatarService {
 	 *
 	 * @var string[]
 	 */
+	// Brand-safe initials-avatar tones — the same blue → green → warm sweep the
+	// space covers use, with a neutral slate. Purple/violet/pink/rose are
+	// deliberately excluded (BN reads those as the synthetic "AI" palette).
+	// White initials read cleanly on each.
 	private const COLOURS = array(
-		'#0073aa',
-		'#059669',
-		'#7c3aed',
-		'#ea580c',
-		'#db2777',
-		'#0d9488',
-		'#dc2626',
-		'#d97706',
+		'#1c7ed6',
+		'#0c8599',
+		'#099268',
+		'#2f9e44',
+		'#66a80f',
+		'#f08c00',
+		'#e8590c',
+		'#495057',
 	);
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
@@ -129,6 +133,18 @@ class AvatarService {
 		$args['found_avatar'] = true;
 
 		return $args;
+	}
+
+	/**
+	 * The deterministic palette tone (hex) for a user — the same colour their
+	 * initials avatar uses. Reusable for cohesive accents (e.g. a member-card
+	 * cover fallback tinted to match the avatar).
+	 *
+	 * @param int $user_id User ID.
+	 * @return string Hex colour.
+	 */
+	public static function tone_for( int $user_id ): string {
+		return self::COLOURS[ $user_id % count( self::COLOURS ) ];
 	}
 
 	// ── Public helpers ────────────────────────────────────────────────────────
