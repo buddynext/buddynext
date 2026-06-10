@@ -80,9 +80,19 @@ $bn_ep_init     = (string) $args['initials'];
 do_action( 'buddynext_part_profile_edit_hero_before', $args );
 ?>
 <section class="<?php echo esc_attr( $bn_class ); ?>">
-	<div class="bn-pf-cover<?php echo '' !== $bn_ep_cover ? ' bn-pf-cover--has-image' : ''; ?>"
-		<?php if ( '' !== $bn_ep_cover ) : ?>
-		style="background-image:url('<?php echo esc_url( $bn_ep_cover ); ?>');"<?php endif; ?>>
+	<?php
+	// Same reposition contract as the public hero (object-position + scale).
+	$bn_ep_focal = (array) get_user_meta( $args['profile_user_id'], 'buddynext_cover_focal', true );
+	$bn_ep_fx    = isset( $bn_ep_focal['x'] ) ? max( 0.0, min( 100.0, (float) $bn_ep_focal['x'] ) ) : 50.0;
+	$bn_ep_fy    = isset( $bn_ep_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_ep_focal['y'] ) ) : 50.0;
+	$bn_ep_zoom  = isset( $bn_ep_focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $bn_ep_focal['zoom'] ) ) : 1.0;
+	?>
+	<div class="bn-pf-cover<?php echo '' !== $bn_ep_cover ? ' bn-pf-cover--has-image' : ''; ?>">
+		<img class="bn-pf-cover__img"
+			data-bn-cover-preview
+			src="<?php echo esc_url( $bn_ep_cover ); ?>"
+			alt=""
+			style="object-position:<?php echo esc_attr( (string) $bn_ep_fx ); ?>% <?php echo esc_attr( (string) $bn_ep_fy ); ?>%;transform:scale(<?php echo esc_attr( (string) $bn_ep_zoom ); ?>);<?php echo '' === $bn_ep_cover ? 'display:none;' : ''; ?>" />
 		<button class="bn-pf-cover__edit bn-ep-cover-btn"
 			type="button"
 			data-wp-on--click="actions.triggerCoverUpload">

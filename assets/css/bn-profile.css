@@ -736,6 +736,19 @@
 	background-size: cover;
 	background-position: center;
 }
+/* Cover image layer — object-fit:cover keeps it responsive at the fixed hero
+   height, object-position pans, transform:scale zooms (set inline from the
+   stored reposition). transform-origin centre so zoom grows from the middle. */
+.bn-pf-cover__img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: 50% 50%;
+	transform-origin: center;
+	z-index: 0;
+}
 .bn-pf-cover::after {
 	content: '';
 	position: absolute;
@@ -1019,33 +1032,29 @@
 	width: 100%;
 }
 
-/* Cover focal-point stage — 16:9 preview with a draggable crosshair
-   that the user places on the part of the photo they want kept
-   visible at narrow viewports. */
-.bn-cover-focal-stage {
+/* Cover reposition stage — a frame at the hero's proportions holding the
+   live <img> preview. Drag to pan (object-position), scroll/slider to zoom
+   (transform:scale) — the same display contract as the rendered hero cover,
+   so the modal is true WYSIWYG. */
+.bn-cover-repos-stage {
 	position: relative;
-	cursor: crosshair;
+	overflow: hidden;
+	cursor: grab;
 	border-radius: 8px;
 	touch-action: none;
 	background-color: var(--bn-sunken, #f3f4f6);
 }
-.bn-cover-focal-crosshair {
+.bn-cover-repos-stage:active { cursor: grabbing; }
+.bn-cover-repos-img {
 	position: absolute;
-	width: 24px;
-	height: 24px;
-	margin-inline-start: -12px;
-	margin-block-start: -12px;
-	border-radius: 50%;
-	border: 2px solid #fff;
-	box-shadow: 0 0 0 2px var(--bn-accent, #2563eb), 0 0 12px rgba(0, 0, 0, 0.4);
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: 50% 50%;
+	transform-origin: center;
 	pointer-events: none;
-}
-.bn-cover-focal-hint {
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3, #6b7280);
-	max-width: 480px;
-	margin: 0;
-	text-align: center;
+	user-select: none;
 }
 
 /* Followers/Following filter input — appears above the card grid

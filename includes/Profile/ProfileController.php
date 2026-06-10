@@ -1219,20 +1219,24 @@ class ProfileController {
 
 		update_user_meta( $user_id, 'buddynext_cover_url', esc_url_raw( $cover_stored ) );
 
-		// Optional focal point — sent as `focal_x` / `focal_y` form fields
-		// (percent 0–100). Stored as `buddynext_cover_focal` user meta and
-		// applied as `background-position` by templates/parts/profile-hero.php.
+		// Reposition data — `focal_x`/`focal_y` (object-position percent 0–100)
+		// and `focal_zoom` (scale factor 1–3). Stored as `buddynext_cover_focal`
+		// user meta and applied by templates/parts/profile-hero.php to the cover
+		// <img> via object-position + transform:scale (non-destructive).
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$focal_x_raw = isset( $_POST['focal_x'] ) ? (float) wp_unslash( (string) $_POST['focal_x'] ) : -1;
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$focal_y_raw = isset( $_POST['focal_y'] ) ? (float) wp_unslash( (string) $_POST['focal_y'] ) : -1;
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$focal_zoom_raw = isset( $_POST['focal_zoom'] ) ? (float) wp_unslash( (string) $_POST['focal_zoom'] ) : 1.0;
 		if ( $focal_x_raw >= 0 && $focal_x_raw <= 100 && $focal_y_raw >= 0 && $focal_y_raw <= 100 ) {
 			update_user_meta(
 				$user_id,
 				'buddynext_cover_focal',
 				array(
-					'x' => round( $focal_x_raw, 2 ),
-					'y' => round( $focal_y_raw, 2 ),
+					'x'    => round( $focal_x_raw, 2 ),
+					'y'    => round( $focal_y_raw, 2 ),
+					'zoom' => round( max( 1.0, min( 3.0, $focal_zoom_raw ) ), 3 ),
 				)
 			);
 		}
@@ -1241,9 +1245,10 @@ class ProfileController {
 
 		return new WP_REST_Response(
 			array(
-				'cover_url' => $cover_stored,
-				'focal_x'   => isset( $focal['x'] ) ? (float) $focal['x'] : 50.0,
-				'focal_y'   => isset( $focal['y'] ) ? (float) $focal['y'] : 50.0,
+				'cover_url'  => $cover_stored,
+				'focal_x'    => isset( $focal['x'] ) ? (float) $focal['x'] : 50.0,
+				'focal_y'    => isset( $focal['y'] ) ? (float) $focal['y'] : 50.0,
+				'focal_zoom' => isset( $focal['zoom'] ) ? (float) $focal['zoom'] : 1.0,
 			),
 			200
 		);

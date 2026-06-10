@@ -217,19 +217,24 @@ function renderCropModal( img, resolve ) {
 }
 
 /*
-   Cover focal-point modal — shows the picked cover photo at a 16:9
-   preview ratio and lets the user drag a crosshair to mark the
-   focal point (the centre of attention). Result is {x, y} in
-   percent, sent alongside the upload so profile-hero.php can apply
-   it as background-position.
+   Cover reposition modal — LinkedIn-style. Shows the picked cover in a
+   frame at the hero's display proportions and lets the user DRAG to
+   reposition (pan) and ZOOM with a slider/wheel. The result is non
+   destructive: {x, y, zoom} where x/y are object-position percentages
+   and zoom is a scale factor. profile-hero.php applies them to an
+   <img class="bn-pf-cover__img"> via object-position + transform:scale,
+   so the same source stays sharp and responsive at any viewport width
+   (a fixed-ratio baked crop would mis-fit the responsive cover height).
+
+   No external library: object-fit:cover + pointer events + a range input.
    ---------------------------------------------------------------- */
-async function openCoverFocalModal( file ) {
+async function openCoverReposModal( file ) {
 	return new Promise( ( resolve ) => {
 		const url = URL.createObjectURL( file );
 		const img = new Image();
 		img.onload = () => {
 			URL.revokeObjectURL( url );
-			renderCoverFocalModal( img, resolve );
+			renderCoverReposModal( img, resolve );
 		};
 		img.onerror = () => {
 			URL.revokeObjectURL( url );
@@ -239,64 +244,88 @@ async function openCoverFocalModal( file ) {
 	} );
 }
 
-function renderCoverFocalModal( img, resolve ) {
+function renderCoverReposModal( img, resolve ) {
 	const W = 480;
-	const H = Math.round( W * 9 / 16 );
+	const H = 150; // ~3.2:1 — representative of the desktop hero cover.
 
 	const overlay = document.createElement( 'div' );
 	overlay.className = 'bn-avatar-crop-overlay';
 	overlay.setAttribute( 'role', 'dialog' );
 	overlay.setAttribute( 'aria-modal', 'true' );
-	overlay.setAttribute( 'aria-label', 'Set cover focal point' );
+	overlay.setAttribute( 'aria-label', 'Reposition cover photo' );
 
 	const panel = document.createElement( 'div' );
 	panel.className = 'bn-avatar-crop-panel';
 
 	const title = document.createElement( 'h2' );
 	title.className = 'bn-avatar-crop-title';
-	title.textContent = 'Click to set the focal point';
+	title.textContent = 'Drag to reposition · scroll or use the slider to zoom';
 	panel.appendChild( title );
 
 	const stage = document.createElement( 'div' );
-	stage.className = 'bn-cover-focal-stage';
+	stage.className = 'bn-cover-repos-stage';
 	stage.style.width  = W + 'px';
 	stage.style.height = H + 'px';
-	stage.style.backgroundImage = `url("${ img.src }")`;
-	stage.style.backgroundSize  = 'cover';
-	stage.style.backgroundPosition = '50% 50%';
 
-	const crosshair = document.createElement( 'span' );
-	crosshair.className = 'bn-cover-focal-crosshair';
-	crosshair.style.insetInlineStart = '50%';
-	crosshair.style.insetBlockStart  = '50%';
-	stage.appendChild( crosshair );
+	// The preview <img> uses the same display contract as the hero, so the
+	// modal is true WYSIWYG: object-fit cover + object-position (pan) + scale.
+	const preview = document.createElement( 'img' );
+	preview.className = 'bn-cover-repos-img';
+	preview.src = img.src;
+	preview.alt = '';
+	stage.appendChild( preview );
 	panel.appendChild( stage );
 
-	const focal = { x: 50, y: 50 };
-	const setFocal = ( clientX, clientY ) => {
-		const r = stage.getBoundingClientRect();
-		focal.x = Math.max( 0, Math.min( 100, ( ( clientX - r.left ) / r.width  ) * 100 ) );
-		focal.y = Math.max( 0, Math.min( 100, ( ( clientY - r.top  ) / r.height ) * 100 ) );
-		stage.style.backgroundPosition = `${ focal.x }% ${ focal.y }%`;
-		crosshair.style.insetInlineStart = focal.x + '%';
-		crosshair.style.insetBlockStart  = focal.y + '%';
+	const pos = { x: 50, y: 50, zoom: 1 };
+	const apply3 = () => {
+		preview.style.objectPosition = `${ pos.x }% ${ pos.y }%`;
+		preview.style.transform      = `scale(${ pos.zoom })`;
 	};
+	apply3();
+
+	// Pointer drag → pan. Natural direction: dragging the image right reveals
+	// its left side (object-position-x decreases). Sensitivity is scaled down a
+	// touch so a full-frame drag doesn't slam to the edge instantly.
 	let dragging = false;
+	let lastX = 0;
+	let lastY = 0;
 	stage.addEventListener( 'pointerdown', ( e ) => {
 		dragging = true;
+		lastX = e.clientX;
+		lastY = e.clientY;
 		stage.setPointerCapture( e.pointerId );
-		setFocal( e.clientX, e.clientY );
 	} );
 	stage.addEventListener( 'pointermove', ( e ) => {
-		if ( dragging ) { setFocal( e.clientX, e.clientY ); }
+		if ( ! dragging ) { return; }
+		pos.x = Math.max( 0, Math.min( 100, pos.x - ( ( e.clientX - lastX ) / W ) * 100 ) );
+		pos.y = Math.max( 0, Math.min( 100, pos.y - ( ( e.clientY - lastY ) / H ) * 100 ) );
+		lastX = e.clientX;
+		lastY = e.clientY;
+		apply3();
 	} );
 	stage.addEventListener( 'pointerup',     () => { dragging = false; } );
 	stage.addEventListener( 'pointercancel', () => { dragging = false; } );
 
-	const hint = document.createElement( 'p' );
-	hint.className = 'bn-cover-focal-hint';
-	hint.textContent = 'On narrow screens we crop around this point so the part you care about stays visible.';
-	panel.appendChild( hint );
+	const setZoom = ( z ) => {
+		pos.zoom = Math.max( 1, Math.min( 3, z ) );
+		slider.value = String( Math.round( pos.zoom * 100 ) );
+		apply3();
+	};
+
+	stage.addEventListener( 'wheel', ( e ) => {
+		e.preventDefault();
+		setZoom( pos.zoom * ( e.deltaY < 0 ? 1.05 : 0.95 ) );
+	}, { passive: false } );
+
+	const slider = document.createElement( 'input' );
+	slider.type  = 'range';
+	slider.min   = '100';
+	slider.max   = '300';
+	slider.value = '100';
+	slider.className = 'bn-avatar-crop-zoom';
+	slider.setAttribute( 'aria-label', 'Zoom' );
+	slider.addEventListener( 'input', () => setZoom( parseInt( slider.value, 10 ) / 100 ) );
+	panel.appendChild( slider );
 
 	const actions = document.createElement( 'div' );
 	actions.className = 'bn-avatar-crop-actions';
@@ -321,7 +350,7 @@ function renderCoverFocalModal( img, resolve ) {
 	};
 
 	cancel.addEventListener( 'click', () => cleanup( null ) );
-	apply.addEventListener( 'click', () => cleanup( { x: focal.x, y: focal.y } ) );
+	apply.addEventListener( 'click', () => cleanup( { x: pos.x, y: pos.y, zoom: pos.zoom } ) );
 	overlay.addEventListener( 'click', ( e ) => {
 		if ( e.target === overlay ) { cleanup( null ); }
 	} );
@@ -1057,22 +1086,23 @@ store( 'buddynext/profile', {
 			// Capture context before the await (see handleAvatarFileChange).
 			var ctx = getContext();
 
-			// Open the focal-point modal: same pattern as avatar crop
-			// but the output is a {x, y} focal point in percent, not a
-			// cropped blob. The raw file uploads as-is; the focal point
-			// is sent as a separate POST and applied to the cover render
-			// via `background-position`.
+			// Open the reposition modal: the user pans + zooms the cover
+			// (LinkedIn-style). The raw file uploads as-is; the chosen
+			// position {x, y} and zoom are sent alongside and applied to the
+			// cover render via object-position + transform:scale — kept
+			// non-destructive so the source stays responsive at any width.
 			try {
-				var focal = await openCoverFocalModal( file );
-				if ( ! focal ) {
+				var repos = await openCoverReposModal( file );
+				if ( ! repos ) {
 					event.target.value = '';
 					return;
 				}
 
 				var formData = new FormData();
 				formData.append( 'avatar', file );
-				formData.append( 'focal_x', String( focal.x ) );
-				formData.append( 'focal_y', String( focal.y ) );
+				formData.append( 'focal_x', String( repos.x ) );
+				formData.append( 'focal_y', String( repos.y ) );
+				formData.append( 'focal_zoom', String( repos.zoom ) );
 
 				ctx.coverUploading = true;
 
@@ -1083,10 +1113,20 @@ store( 'buddynext/profile', {
 				} );
 				var data = await res.json();
 				if ( res.ok && data.cover_url ) {
-					ctx.coverUrl = data.cover_url;
-					if ( focal ) {
-						ctx.coverFocalX = focal.x;
-						ctx.coverFocalY = focal.y;
+					ctx.coverUrl    = data.cover_url;
+					ctx.coverFocalX = repos.x;
+					ctx.coverFocalY = repos.y;
+					ctx.coverZoom   = repos.zoom;
+					// Live-refresh the edit-page cover preview (the <img> is not
+					// reactively bound — it is a one-off hero preview).
+					var coverImg = document.querySelector( '[data-bn-cover-preview]' );
+					if ( coverImg ) {
+						coverImg.src = data.cover_url;
+						coverImg.style.display = '';
+						coverImg.style.objectPosition = repos.x + '% ' + repos.y + '%';
+						coverImg.style.transform = 'scale(' + repos.zoom + ')';
+						var wrap = coverImg.closest( '.bn-pf-cover' );
+						if ( wrap ) { wrap.classList.add( 'bn-pf-cover--has-image' ); }
 					}
 					bnToast( 'Cover updated', { tone: 'success' } );
 				} else {
