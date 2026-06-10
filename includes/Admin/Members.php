@@ -519,11 +519,14 @@ class Members extends AdminPageBase {
 				require_once ABSPATH . 'wp-admin/includes/file.php';
 			}
 
-			$overrides = array( 'test_form' => false );
-			$uploaded  = wp_handle_upload( $_FILES['bn_avatar'], $overrides );
+			// Organized, per-owner WebP storage (uploads/bn-avatars/{id}/) — same
+			// path the front-end avatar upload uses; no attachments, no orphans.
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+			$avatar_tmp = isset( $_FILES['bn_avatar']['tmp_name'] ) ? (string) $_FILES['bn_avatar']['tmp_name'] : '';
+			$uploaded   = ( new \BuddyNext\Media\ImageStorageService() )->store( $avatar_tmp, 'avatar', 'user', (int) $user_id );
 
-			if ( isset( $uploaded['url'] ) && ! isset( $uploaded['error'] ) ) {
-				update_user_meta( $user_id, 'bn_avatar', esc_url_raw( $uploaded['url'] ) );
+			if ( ! is_wp_error( $uploaded ) ) {
+				update_user_meta( $user_id, 'bn_avatar', esc_url_raw( $uploaded ) );
 				\BuddyNext\Core\Plugin::bust_avatar_cache( $user_id );
 				wp_cache_delete( "profile_{$user_id}_viewer_owner", 'buddynext_profiles' );
 				wp_cache_delete( "profile_{$user_id}_viewer_follower", 'buddynext_profiles' );
@@ -551,15 +554,13 @@ class Members extends AdminPageBase {
 				exit;
 			}
 
-			if ( ! function_exists( 'wp_handle_upload' ) ) {
-				require_once ABSPATH . 'wp-admin/includes/file.php';
-			}
+			// Organized, per-owner WebP storage (uploads/bn-covers/{id}/).
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+			$cover_tmp      = isset( $_FILES['bn_cover']['tmp_name'] ) ? (string) $_FILES['bn_cover']['tmp_name'] : '';
+			$cover_uploaded = ( new \BuddyNext\Media\ImageStorageService() )->store( $cover_tmp, 'cover', 'user', (int) $user_id );
 
-			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$cover_uploaded = wp_handle_upload( $_FILES['bn_cover'], array( 'test_form' => false ) );
-
-			if ( isset( $cover_uploaded['url'] ) && ! isset( $cover_uploaded['error'] ) ) {
-				update_user_meta( $user_id, 'buddynext_cover_url', esc_url_raw( $cover_uploaded['url'] ) );
+			if ( ! is_wp_error( $cover_uploaded ) ) {
+				update_user_meta( $user_id, 'buddynext_cover_url', esc_url_raw( $cover_uploaded ) );
 			}
 		}
 
