@@ -71,19 +71,40 @@ $bn_class   = trim(
 	)
 );
 
-$bn_members         = (array) $args['members'];
-$bn_viewer_id       = (int) $args['viewer_id'];
-$bn_tones           = (array) $args['avatar_tones'];
-$bn_type_map        = (array) $args['type_map'];
-$bn_messages_base   = (string) $args['messages_base'];
-$bn_initials_fn     = $args['initials_fn'];
-$bn_is_online_fn    = $args['is_online_fn'];
-$bn_is_following_fn = $args['is_following_fn'];
-$bn_mutual_fn       = $args['mutual_ids_fn'];
+$bn_members       = (array) $args['members'];
+$bn_viewer_id     = (int) $args['viewer_id'];
+$bn_messages_base = '' !== (string) $args['messages_base'] ? (string) $args['messages_base'] : \BuddyNext\Core\PageRouter::messages_url();
 
-if ( null === $bn_initials_fn || null === $bn_is_online_fn || null === $bn_is_following_fn || null === $bn_mutual_fn ) {
-	return;
+// Per-member state is read straight from the relevant services here, so a
+// caller only needs to pass `members` (+ optionally `viewer_id`). Callers that
+// already have cached lookups (the directory) may still pass their own
+// callables/maps to override. Centralising the wiring keeps every call site
+// small and consistent.
+$bn_tones = ! empty( $args['avatar_tones'] )
+	? (array) $args['avatar_tones']
+	: array( 'accent', 'success', 'jetonomy', 'media', 'events', 'warn', 'danger', 'info' );
+
+$bn_type_map = (array) $args['type_map'];
+if ( empty( $bn_type_map ) && function_exists( 'buddynext_service' ) ) {
+	foreach ( (array) buddynext_service( 'member_types' )->get_all_with_counts() as $bn_mt ) {
+		if ( isset( $bn_mt['slug'] ) ) {
+			$bn_type_map[ (string) $bn_mt['slug'] ] = $bn_mt;
+		}
+	}
 }
+
+$bn_initials_fn = is_callable( $args['initials_fn'] ) ? $args['initials_fn'] : static function ( string $name ): string {
+	$parts = array_filter( explode( ' ', trim( $name ) ) );
+	if ( count( $parts ) >= 2 ) {
+		return mb_strtoupper( mb_substr( (string) reset( $parts ), 0, 1 ) . mb_substr( (string) end( $parts ), 0, 1 ) );
+	}
+	return mb_strtoupper( mb_substr( $name, 0, 2 ) );
+};
+$bn_is_online_fn    = is_callable( $args['is_online_fn'] ) ? $args['is_online_fn'] : static fn( int $uid ): bool => (bool) buddynext_service( 'blocks' )->is_user_online( $bn_viewer_id, $uid );
+$bn_is_following_fn = is_callable( $args['is_following_fn'] ) ? $args['is_following_fn'] : static fn( int $uid ): bool => $bn_viewer_id > 0 && (bool) buddynext_service( 'follows' )->is_following( $bn_viewer_id, $uid );
+$bn_mutual_fn       = is_callable( $args['mutual_ids_fn'] ) ? $args['mutual_ids_fn'] : static function ( int $a, int $b ): array {
+	return ( $a > 0 && $b > 0 && $a !== $b ) ? (array) buddynext_service( 'connections' )->mutual_connections( $a, $b ) : array();
+};
 
 do_action( 'buddynext_part_member_directory_grid_before', $args );
 ?>
