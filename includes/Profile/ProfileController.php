@@ -1201,21 +1201,23 @@ class ProfileController {
 			);
 		}
 
-		if ( ! function_exists( 'wp_handle_upload' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-		}
-
-		$result = wp_handle_upload( $file_data, array( 'test_form' => false ) );
-
-		if ( isset( $result['error'] ) ) {
+		// Store as organized, per-owner WebP variations (uploads/bn-covers/{id}/)
+		// — no attachment rows, no orphans on replace. See ImageStorageService.
+		$cover_stored = ( new \BuddyNext\Media\ImageStorageService() )->store(
+			(string) $file_data['tmp_name'],
+			'cover',
+			'user',
+			$user_id
+		);
+		if ( is_wp_error( $cover_stored ) ) {
 			return new WP_Error(
 				'cover_upload_failed',
-				$result['error'],
+				$cover_stored->get_error_message(),
 				array( 'status' => 500 )
 			);
 		}
 
-		update_user_meta( $user_id, 'buddynext_cover_url', esc_url_raw( $result['url'] ) );
+		update_user_meta( $user_id, 'buddynext_cover_url', esc_url_raw( $cover_stored ) );
 
 		// Optional focal point — sent as `focal_x` / `focal_y` form fields
 		// (percent 0–100). Stored as `buddynext_cover_focal` user meta and
@@ -1239,7 +1241,7 @@ class ProfileController {
 
 		return new WP_REST_Response(
 			array(
-				'cover_url' => $result['url'],
+				'cover_url' => $cover_stored,
 				'focal_x'   => isset( $focal['x'] ) ? (float) $focal['x'] : 50.0,
 				'focal_y'   => isset( $focal['y'] ) ? (float) $focal['y'] : 50.0,
 			),
@@ -1313,23 +1315,26 @@ class ProfileController {
 			);
 		}
 
-		if ( ! function_exists( 'wp_handle_upload' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-		}
-
-		$result = wp_handle_upload( $file_data, array( 'test_form' => false ) );
-
-		if ( isset( $result['error'] ) ) {
+		// Store as organized, per-owner WebP variations (uploads/bn-avatars/{id}/)
+		// instead of a wp_handle_upload() file in uploads/YYYY/MM — no
+		// attachment rows, no orphans on replace. See Media\ImageStorageService.
+		$stored = ( new \BuddyNext\Media\ImageStorageService() )->store(
+			(string) $file_data['tmp_name'],
+			'avatar',
+			'user',
+			$user_id
+		);
+		if ( is_wp_error( $stored ) ) {
 			return new WP_Error(
 				'avatar_upload_failed',
-				$result['error'],
+				$stored->get_error_message(),
 				array( 'status' => 500 )
 			);
 		}
 
-		buddynext_service( 'profiles' )->update_avatar( $user_id, esc_url_raw( $result['url'] ) );
+		buddynext_service( 'profiles' )->update_avatar( $user_id, esc_url_raw( $stored ) );
 
-		return new WP_REST_Response( array( 'avatar_url' => $result['url'] ), 200 );
+		return new WP_REST_Response( array( 'avatar_url' => $stored ), 200 );
 	}
 
 	/**
