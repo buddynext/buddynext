@@ -74,15 +74,15 @@ $bn_pf_uid = (int) $args['profile_user_id'];
 
 do_action( 'buddynext_part_profile_stats_strip_before', $args );
 ?>
-		<!-- Stats strip -->
-		<div class="<?php echo esc_attr( $bn_class ); ?>">
+		<!-- Stats: one pill row. Core social pills lead (emphasized); optional
+		     feature pills (gamification, forum, any plugin) follow, muted. -->
+		<div class="bn-pf-pills" role="list">
 			<?php
 			foreach ( (array) $args['stats'] as $bn_stat ) :
-				if ( ! is_array( $bn_stat ) ) {
+				if ( ! is_array( $bn_stat ) || '' === ( $bn_stat['label'] ?? '' ) ) {
 					continue;
 				}
-				$bn_slug     = isset( $bn_stat['slug'] ) ? (string) $bn_stat['slug'] : '';
-				$bn_label    = isset( $bn_stat['label'] ) ? (string) $bn_stat['label'] : '';
+				$bn_label    = (string) $bn_stat['label'];
 				$bn_value    = isset( $bn_stat['value'] ) ? (string) $bn_stat['value'] : '';
 				$bn_href     = isset( $bn_stat['href'] ) ? (string) $bn_stat['href'] : '';
 				$bn_aria     = isset( $bn_stat['aria_label'] ) ? (string) $bn_stat['aria_label'] : '';
@@ -90,85 +90,63 @@ do_action( 'buddynext_part_profile_stats_strip_before', $args );
 				$bn_wp_on    = isset( $bn_stat['wp_on_click'] ) ? (string) $bn_stat['wp_on_click'] : '';
 				$bn_data_tab = isset( $bn_stat['data_tab'] ) ? (string) $bn_stat['data_tab'] : '';
 				$bn_delta    = isset( $bn_stat['delta'] ) ? trim( (string) $bn_stat['delta'] ) : '';
-				$bn_trend    = isset( $bn_stat['trend'] ) && in_array( (string) $bn_stat['trend'], array( 'up', 'down', 'flat' ), true )
-					? (string) $bn_stat['trend']
-					: 'flat';
+				$bn_trend    = isset( $bn_stat['trend'] ) && in_array( (string) $bn_stat['trend'], array( 'up', 'down', 'flat' ), true ) ? (string) $bn_stat['trend'] : 'flat';
 
-				if ( '' === $bn_label ) {
-					continue;
-				}
-
-				// Build the optional delta chip once so each tile-shape branch
-				// below stays focused on its anchor/button/div structure.
-				$bn_delta_html = '';
-				if ( '' !== $bn_delta ) {
-					$bn_delta_html = sprintf(
-						'<span class="bn-pf-stat__delta" data-trend="%1$s">%2$s</span>',
-						esc_attr( $bn_trend ),
-						esc_html( $bn_delta )
-					);
-				}
+				$bn_delta_html = '' !== $bn_delta
+					? sprintf( '<span class="bn-pf-pill__delta" data-trend="%1$s">%2$s</span>', esc_attr( $bn_trend ), esc_html( $bn_delta ) )
+					: '';
+				$bn_val_attr = '' !== $bn_wp_text ? ' data-wp-text="' . esc_attr( $bn_wp_text ) . '"' : '';
 
 				if ( '' !== $bn_wp_on ) :
-					// Button tile (sets a Tab via interactivity).
 					?>
-					<button type="button"
-						class="bn-pf-stat bn-pf-stat--link"
-						data-wp-on--click="<?php echo esc_attr( $bn_wp_on ); ?>"
-						<?php
-						if ( '' !== $bn_data_tab ) :
-							?>
-							data-tab="<?php echo esc_attr( $bn_data_tab ); ?>"<?php endif; ?>
-						<?php
-						if ( '' !== $bn_aria ) :
-							?>
-							aria-label="<?php echo esc_attr( $bn_aria ); ?>"<?php endif; ?>>
-						<div class="bn-pf-stat__value"><?php echo esc_html( $bn_value ); ?></div>
-						<div class="bn-pf-stat__label"><?php echo esc_html( $bn_label ); ?></div>
-						<?php echo $bn_delta_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped via sprintf above. ?>
+					<button type="button" class="bn-pf-pill bn-pf-pill--primary" data-wp-on--click="<?php echo esc_attr( $bn_wp_on ); ?>"<?php echo '' !== $bn_data_tab ? ' data-tab="' . esc_attr( $bn_data_tab ) . '"' : ''; ?><?php echo '' !== $bn_aria ? ' aria-label="' . esc_attr( $bn_aria ) . '"' : ''; ?>>
+						<span class="bn-pf-pill__value"><?php echo esc_html( $bn_value ); ?></span>
+						<span class="bn-pf-pill__label"><?php echo esc_html( $bn_label ); ?></span>
+						<?php echo $bn_delta_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped. ?>
 					</button>
 				<?php elseif ( '' !== $bn_href ) : ?>
-					<a class="bn-pf-stat bn-pf-stat--link"
-						href="<?php echo esc_url( $bn_href ); ?>">
-						<div class="bn-pf-stat__value"<?php echo '' !== $bn_wp_text ? ' data-wp-text="' . esc_attr( $bn_wp_text ) . '"' : ''; ?>><?php echo esc_html( $bn_value ); ?></div>
-						<div class="bn-pf-stat__label"><?php echo esc_html( $bn_label ); ?></div>
-						<?php echo $bn_delta_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped via sprintf above. ?>
+					<a class="bn-pf-pill bn-pf-pill--primary" href="<?php echo esc_url( $bn_href ); ?>">
+						<span class="bn-pf-pill__value"<?php echo $bn_val_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- attr pre-escaped. ?>><?php echo esc_html( $bn_value ); ?></span>
+						<span class="bn-pf-pill__label"><?php echo esc_html( $bn_label ); ?></span>
+						<?php echo $bn_delta_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped. ?>
 					</a>
 				<?php else : ?>
-					<div class="bn-pf-stat">
-						<div class="bn-pf-stat__value"><?php echo esc_html( $bn_value ); ?></div>
-						<div class="bn-pf-stat__label"><?php echo esc_html( $bn_label ); ?></div>
-						<?php echo $bn_delta_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped via sprintf above. ?>
-					</div>
+					<span class="bn-pf-pill bn-pf-pill--primary" role="listitem">
+						<span class="bn-pf-pill__value"><?php echo esc_html( $bn_value ); ?></span>
+						<span class="bn-pf-pill__label"><?php echo esc_html( $bn_label ); ?></span>
+						<?php echo $bn_delta_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped. ?>
+					</span>
 					<?php
 				endif;
 			endforeach;
-			?>
-			</div>
-			<?php
-			// Optional, feature-specific stats (gamification points/level/badges,
-			// forum discussions) are not universal to every community, so they render
-			// as a subordinate secondary pill row beneath the four core social stats
-			// rather than competing with them as equal tiles. Absent when no bridge
-			// contributes, keeping the default profile clean for every community.
+
+			/**
+			 * Optional, feature-specific stat pills (gamification points/level/
+			 * badges, forum discussions, or any plugin). The single extension hook
+			 * for adding a profile stat pill. Each entry is
+			 * ['label' => string, 'value' => string|int]. Rendered muted so the
+			 * core social pills lead; absent entirely when nothing is contributed.
+			 *
+			 * @param array[] $extra   Array of ['label' => string, 'value' => string|int].
+			 * @param int     $user_id ID of the profile being viewed.
+			 */
 			$bn_extra_stats = array_values(
 				array_filter(
 					(array) apply_filters( 'buddynext_profile_extra_data', array(), $bn_pf_uid ),
-					static function ( $s ): bool {
-						return is_array( $s ) && ! empty( $s['label'] ) && isset( $s['value'] );
+					static function ( $stat ): bool {
+						return is_array( $stat ) && ! empty( $stat['label'] ) && isset( $stat['value'] ) && '' !== (string) $stat['value'];
 					}
 				)
 			);
-			if ( ! empty( $bn_extra_stats ) ) :
+			foreach ( $bn_extra_stats as $bn_extra_stat ) :
 				?>
-				<div class="bn-pf-stats-extra" role="list">
-					<?php foreach ( $bn_extra_stats as $bn_extra_stat ) : ?>
-						<span class="bn-pf-chip" role="listitem">
-							<span class="bn-pf-chip__value"><?php echo esc_html( (string) $bn_extra_stat['value'] ); ?></span>
-							<span class="bn-pf-chip__label"><?php echo esc_html( (string) $bn_extra_stat['label'] ); ?></span>
-						</span>
-					<?php endforeach; ?>
-				</div>
+				<span class="bn-pf-pill bn-pf-pill--muted" role="listitem">
+					<span class="bn-pf-pill__value"><?php echo esc_html( (string) $bn_extra_stat['value'] ); ?></span>
+					<span class="bn-pf-pill__label"><?php echo esc_html( (string) $bn_extra_stat['label'] ); ?></span>
+				</span>
 				<?php
-			endif;
+			endforeach;
+			?>
+		</div>
+<?php
 do_action( 'buddynext_part_profile_stats_strip_after', $args );

@@ -302,12 +302,18 @@ if ( $has_jt_tab ) {
 		'label' => __( 'Discussions', 'buddynext' ),
 	);
 }
+// Deep-link the active tab from the route action so /members/{slug}/media/
+// opens the Media tab. Falls back to Posts for actions without a tab.
+$bn_pf_action     = (string) get_query_var( 'bn_profile_action', '' );
+$bn_pf_tab_slugs  = array_column( $bn_pf_tabs, 'slug' );
+$bn_pf_active_tab = in_array( $bn_pf_action, $bn_pf_tab_slugs, true ) ? $bn_pf_action : 'posts';
+
 $bn_pf_ctx = array(
 	'userId'             => $user_id,
 	'profileUserId'      => $user_id,
 	'displayName'        => $display_name,
 	'peopleUrl'          => \BuddyNext\Core\PageRouter::people_url(),
-	'activeTab'          => 'posts',
+	'activeTab'          => $bn_pf_active_tab,
 	'isFollowing'        => $is_following,
 	'isConnected'        => $is_connected,
 	'connectionPending'  => $connection_pending,

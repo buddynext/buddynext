@@ -361,6 +361,10 @@ class PageRouter {
 				$hub_title = '' !== $profile_name
 					? sprintf( /* translators: %s: member display name */ __( 'Following · %s', 'buddynext' ), $profile_name )
 					: __( 'Following', 'buddynext' );
+			} elseif ( 'profile/connections.php' === $template ) {
+				$hub_title = '' !== $profile_name
+					? sprintf( /* translators: %s: member display name */ __( 'Connections · %s', 'buddynext' ), $profile_name )
+					: __( 'Connections', 'buddynext' );
 			}
 		}
 
@@ -842,11 +846,10 @@ class PageRouter {
 							return 'profile/followers.php';
 						case 'following':
 							return 'profile/following.php';
-						case 'media':
-							return 'profile/media.php';
-						case 'badges':
-							return 'profile/badges.php';
 						default:
+							// `media` (and any other profile action without a
+							// dedicated template) opens the profile view; view.php
+							// deep-links the matching tab from bn_profile_action.
 							return 'profile/view.php';
 					}
 				}
