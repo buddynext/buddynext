@@ -149,102 +149,48 @@ do_action( 'buddynext_profile_connections_before', isset( $user_id ) ? (int) $us
 		</a>
 	</div>
 
-	<!-- Connections grid -->
-	<div
-		class="bn-connections-grid"
-		role="list"
-		aria-label="<?php esc_attr_e( 'Connections', 'buddynext' ); ?>"
-	>
-		<?php if ( ! empty( $connections ) ) : ?>
-			<?php foreach ( $connections as $connection ) : ?>
+	<!-- Connections grid — unified member cards (cover + actions). -->
+	<?php if ( ! empty( $connections ) ) : ?>
+		<?php
+		buddynext_get_template(
+			'parts/member-grid.php',
+			array(
+				'members'   => array_values(
+					array_filter(
+						array_map( static fn( $c ) => get_userdata( (int) $c->ID ), $connections )
+					)
+				),
+				'viewer_id' => $current_user_id,
+			)
+		);
+		?>
+	<?php else : ?>
+		<div class="bn-empty-state">
+			<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
+			<div class="bn-empty-title">
 				<?php
-				$conn_id     = (int) $connection->ID;
-				$conn_name   = $connection->display_name;
-				$conn_handle = '@' . $connection->user_nicename;
-				$conn_avatar = get_avatar_url( $conn_id, array( 'size' => 128 ) );
-				$conn_colour = $bn_conn_colours[ $conn_id % count( $bn_conn_colours ) ];
-				$conn_inits  = bn_connections_initials( $conn_name );
-				$conn_url    = PageRouter::profile_url( $conn_id );
-				// Open (or start) a native DM with this connection — /messages/?to={id}
-				// find-or-creates the conversation and opens it.
-				$msg_url     = add_query_arg( 'to', $conn_id, PageRouter::messages_url() );
+				if ( $is_own_profile ) {
+					esc_html_e( 'No connections yet', 'buddynext' );
+				} else {
+					esc_html_e( 'No connections to show', 'buddynext' );
+				}
 				?>
-				<article class="bn-member-card" role="listitem">
-					<a href="<?php echo esc_url( $conn_url ); ?>" aria-label="<?php echo esc_attr( $conn_name ); ?>">
-						<?php if ( $conn_avatar ) : ?>
-							<img
-								src="<?php echo esc_url( $conn_avatar ); ?>"
-								alt="<?php echo esc_attr( $conn_name ); ?>"
-								class="bn-avatar"
-								width="64"
-								height="64"
-								loading="lazy"
-							>
-						<?php else : ?>
-							<div
-								class="bn-avatar"
-								style="background:<?php echo esc_attr( $conn_colour ); ?>;"
-								aria-hidden="true"
-							><?php echo esc_html( $conn_inits ); ?></div>
-						<?php endif; ?>
-					</a>
-
-					<div class="bn-member-name">
-						<a href="<?php echo esc_url( $conn_url ); ?>"><?php echo esc_html( $conn_name ); ?></a>
-					</div>
-					<div class="bn-member-handle"><?php echo esc_html( $conn_handle ); ?></div>
-
-					<div class="bn-connected-badge" aria-label="<?php esc_attr_e( 'Connected', 'buddynext' ); ?>">
-						<?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Connected', 'buddynext' ); ?>
-					</div>
-
-					<div class="bn-card-actions">
-						<a href="<?php echo esc_url( $conn_url ); ?>" class="bn-btn-view">
-							<?php esc_html_e( 'View', 'buddynext' ); ?>
-						</a>
-						<?php if ( is_user_logged_in() && $current_user_id !== $conn_id ) : ?>
-							<a
-								href="<?php echo esc_url( $msg_url ); ?>"
-								class="bn-btn-message"
-								aria-label="
-								<?php
-									/* translators: %s: member name */
-									printf( esc_attr__( 'Message %s', 'buddynext' ), esc_attr( $conn_name ) );
-								?>
-								"
-							><?php buddynext_icon( 'message-circle' ); ?></a>
-						<?php endif; ?>
-					</div>
-				</article>
-			<?php endforeach; ?>
-		<?php else : ?>
-			<div class="bn-empty-state">
-				<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
-				<div class="bn-empty-title">
-					<?php
-					if ( $is_own_profile ) {
-						esc_html_e( 'No connections yet', 'buddynext' );
-					} else {
-						esc_html_e( 'No connections to show', 'buddynext' );
-					}
-					?>
-				</div>
-				<p class="bn-empty-text">
-					<?php
-					if ( $is_own_profile ) {
-						esc_html_e( 'Connect with other members to see them here.', 'buddynext' );
-					} else {
-						printf(
-							/* translators: %s: member display name */
-							esc_html__( "%s hasn't made any connections public yet.", 'buddynext' ),
-							esc_html( $profile_user->display_name )
-						);
-					}
-					?>
-				</p>
 			</div>
-		<?php endif; ?>
-	</div>
+			<p class="bn-empty-text">
+				<?php
+				if ( $is_own_profile ) {
+					esc_html_e( 'Connect with other members to see them here.', 'buddynext' );
+				} else {
+					printf(
+						/* translators: %s: member display name */
+						esc_html__( "%s hasn't made any connections public yet.", 'buddynext' ),
+						esc_html( $profile_user->display_name )
+					);
+				}
+				?>
+			</p>
+		</div>
+	<?php endif; ?>
 
 	<?php
 	buddynext_get_template(
