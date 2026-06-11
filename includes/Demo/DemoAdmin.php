@@ -14,10 +14,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Demo;
 
-use BuddyNext\Admin\AdminHub;
-
 /**
- * Registers the Demo Data tab and its admin-post actions.
+ * Registers the Demo Data admin-post actions and renders its Tools section.
  */
 class DemoAdmin {
 
@@ -29,22 +27,14 @@ class DemoAdmin {
 	public function register(): void {
 		add_action( 'admin_post_bn_demo_seed', array( $this, 'handle_seed' ) );
 		add_action( 'admin_post_bn_demo_cleanup', array( $this, 'handle_cleanup' ) );
-
-		AdminHub::register_tab(
-			'settings',
-			'demo-data',
-			__( 'Demo Data', 'buddynext' ),
-			array( $this, 'render_page' ),
-			array( 'group' => __( 'Advanced', 'buddynext' ) )
-		);
 	}
 
 	/**
-	 * Render the Demo Data tab.
+	 * Render the Demo Data section (embedded inside Settings → Tools).
 	 *
 	 * @return void
 	 */
-	public function render_page(): void {
+	public function render_section(): void {
 		$service = new DemoDataService();
 		$seeded  = $service->is_seeded();
 		$summary = $service->summary();
@@ -146,7 +136,7 @@ class DemoAdmin {
 			add_query_arg(
 				array(
 					'page'    => 'buddynext',
-					'tab'     => 'demo-data',
+					'tab'     => 'tools',
 					'bn_demo' => $status,
 				),
 				admin_url( 'admin.php' )

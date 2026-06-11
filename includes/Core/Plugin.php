@@ -136,6 +136,7 @@ class Plugin {
 			$container->get( 'admin_email_editor' )->register();
 			$container->get( 'setup_wizard' )->init();
 			( new \BuddyNext\Demo\DemoAdmin() )->register();
+			( new \BuddyNext\Admin\ToolsTab() )->register();
 			( new \BuddyNext\Admin\ModerationQueue() )->register();
 			( new PageSetup() )->register();
 
