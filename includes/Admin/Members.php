@@ -870,10 +870,14 @@ class Members extends AdminPageBase {
 			<?php endforeach; ?>
 		</div>
 
-		<div class="bn-table-wrap bn-members-table-wrap">
+		<div class="bn-settings-section bn-members-table-wrap">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Members', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
 			<form method="get"
 				action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>"
-				class="bn-members-filter"
+				class="bn-members-filter bn-admin-hub__form-bare"
 				role="search">
 				<input type="hidden" name="page" value="buddynext-members">
 				<?php if ( 'all' !== $status ) : ?>
@@ -1053,7 +1057,8 @@ class Members extends AdminPageBase {
 					<?php endfor; ?>
 				</nav>
 			<?php endif; ?>
-		</div>
+			</div><!-- .bn-ss-body -->
+		</div><!-- .bn-settings-section -->
 
 		<?php $this->render_confirm_modal(); ?>
 		<?php
