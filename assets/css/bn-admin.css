@@ -1865,3 +1865,16 @@ button.bn-btn-danger:hover {
 	display: inline-block;
 	margin: 0;
 }
+
+/* ── Roles & Capabilities matrix ────────────────────────────────────────── */
+.bn-roles-group {
+	margin: 20px 0 6px;
+	font-size: 13px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #475569;
+}
+.bn-roles-table { max-width: 720px; }
+.bn-roles-table td { vertical-align: middle; }
+.bn-roles-table select { min-width: 200px; }

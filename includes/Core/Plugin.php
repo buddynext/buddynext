@@ -117,6 +117,18 @@ class Plugin {
 		// deleted (any path: admin, CLI, REST) so no orphans are left behind.
 		( new \BuddyNext\SocialGraph\UserCleanupListener() )->register();
 
+		// Apply the admin-editable capability → required-role overrides on top of
+		// PermissionService's defaults. Registered front + admin (the gate must
+		// change everywhere, not just in wp-admin) via the native role-map filter
+		// the Roles & Capabilities editor writes (option bn_role_map_overrides).
+		add_filter(
+			'buddynext_role_map',
+			static function ( array $map ): array {
+				$overrides = get_option( 'bn_role_map_overrides', array() );
+				return is_array( $overrides ) && ! empty( $overrides ) ? array_merge( $map, $overrides ) : $map;
+			}
+		);
+
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
 		}
@@ -137,6 +149,7 @@ class Plugin {
 			$container->get( 'setup_wizard' )->init();
 			( new \BuddyNext\Demo\DemoAdmin() )->register();
 			( new \BuddyNext\Admin\ToolsTab() )->register();
+			( new \BuddyNext\Admin\RolesTab() )->register();
 			( new \BuddyNext\Admin\ModerationQueue() )->register();
 			( new PageSetup() )->register();
 
