@@ -40,11 +40,14 @@ class Appearance {
 	}
 
 	/**
-	 * Override the accent / brand tokens from the saved colour.
+	 * Recolour the accent palette from the saved brand colour.
 	 *
-	 * Only the accent + brand family is touched; the rest of the OKLCH scale is
-	 * left intact. Hover/light shades are derived with color-mix() (already used
-	 * across the BuddyNext stylesheets) so they track the chosen hue.
+	 * The token system is hue-driven: the entire OKLCH accent scale
+	 * (--bn-accent-50…900, and --bn-accent = --bn-accent-500) derives from
+	 * --bn-hue / --bn-chroma (see assets/css/bn-base.css — "whitelabel rebrand
+	 * only flips --bn-hue"). So we convert the picked hex to OKLCH and drive
+	 * those two knobs, which recolours every shade cohesively — primary buttons,
+	 * hovers and tints included — rather than just the base accent token.
 	 *
 	 * @param array<string,string> $vars Token map.
 	 * @return array<string,string>
@@ -55,12 +58,56 @@ class Appearance {
 			return $vars;
 		}
 
-		$vars['--bn-accent']   = $hex;
-		$vars['--brand']       = $hex;
-		$vars['--brand-hover'] = sprintf( 'color-mix(in oklch, %s 88%%, black)', $hex );
-		$vars['--brand-light'] = sprintf( 'color-mix(in oklch, %s 15%%, white)', $hex );
+		list( $hue, $chroma ) = $this->hex_to_oklch_hc( $hex );
+
+		$vars['--bn-hue']        = (string) $hue;
+		$vars['--bn-accent-hue'] = (string) $hue;
+		// Keep chroma within the design's tasteful range so a very saturated pick
+		// can't blow out the neutrals that also borrow --bn-hue at low chroma.
+		$vars['--bn-chroma'] = (string) max( 0.05, min( 0.19, $chroma ) );
 
 		return $vars;
+	}
+
+	/**
+	 * Convert a #rrggbb colour to its OKLCH hue (degrees) and chroma.
+	 *
+	 * Standard sRGB → linear → OKLab → OKLCH path (Björn Ottosson's matrices).
+	 *
+	 * @param string $hex #rrggbb (already validated).
+	 * @return array{0:float,1:float} [hue 0–360, chroma].
+	 */
+	private function hex_to_oklch_hc( string $hex ): array {
+		$hex = ltrim( $hex, '#' );
+		if ( 3 === strlen( $hex ) ) {
+			$hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+		}
+		$to_linear = static function ( float $c ): float {
+			$c /= 255;
+			return $c <= 0.04045 ? $c / 12.92 : pow( ( $c + 0.055 ) / 1.055, 2.4 );
+		};
+		$r = $to_linear( (float) hexdec( substr( $hex, 0, 2 ) ) );
+		$g = $to_linear( (float) hexdec( substr( $hex, 2, 2 ) ) );
+		$b = $to_linear( (float) hexdec( substr( $hex, 4, 2 ) ) );
+
+		$l = 0.4122214708 * $r + 0.5363325363 * $g + 0.0514459929 * $b;
+		$m = 0.2119034982 * $r + 0.6806995451 * $g + 0.1073969566 * $b;
+		$s = 0.0883024619 * $r + 0.2817188376 * $g + 0.6299787005 * $b;
+
+		$l_ = $l ** ( 1 / 3 );
+		$m_ = $m ** ( 1 / 3 );
+		$s_ = $s ** ( 1 / 3 );
+
+		$oa = 1.9779984951 * $l_ - 2.4285922050 * $m_ + 0.4505937099 * $s_;
+		$ob = 0.0259040371 * $l_ + 0.7827717662 * $m_ - 0.8086757660 * $s_;
+
+		$chroma = sqrt( $oa * $oa + $ob * $ob );
+		$hue    = atan2( $ob, $oa ) * 180 / M_PI;
+		if ( $hue < 0 ) {
+			$hue += 360;
+		}
+
+		return array( round( $hue, 1 ), round( $chroma, 3 ) );
 	}
 
 	/**
