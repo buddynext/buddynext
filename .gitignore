@@ -31,3 +31,14 @@ node_modules/
 tests/e2e/_report/
 tests/e2e/_results/
 playwright/.cache/
+
+# Ad-hoc verification screenshots written into the repo dir by Playwright MCP
+# (the server CWD is the symlinked plugin dir). Never commit these.
+/a-*.png
+/aud-*.png
+/mig-*.png
+/ux-*.png
+/walk-*.png
+/mod-reports*.png
+/cover-test*.png
+/*.playwright-mcp/
