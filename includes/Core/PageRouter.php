@@ -651,11 +651,13 @@ class PageRouter {
 				if ( ! empty( $context['user_id'] ) ) {
 					$assets->enqueue( 'profile' );
 					$assets->enqueue( 'feed' ); // Post cards on profile use bn-feed.css classes.
-					// Connections / followers / following render the shared member
-					// cards (parts/member-card.php), styled in bn-members.css.
-					if ( in_array( (string) get_query_var( 'bn_profile_action', '' ), array( 'connections', 'followers', 'following' ), true ) ) {
-						$assets->enqueue( 'members' );
-					}
+					// Followers / Following / Connections render as in-page tabs in
+					// the profile shell (parts/member-grid.php, server-rendered and
+					// toggled client-side), so the shared member cards are always in
+					// the DOM. Always load bn-members.css (grid + card-action styling)
+					// and the @buddynext/members store (card follow/connect + overflow
+					// menus) so the panels are never unstyled.
+					$assets->enqueue( 'members' );
 				} else {
 					$assets->enqueue( 'members' );
 				}
