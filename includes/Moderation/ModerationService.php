@@ -854,6 +854,90 @@ class ModerationService {
 	}
 
 	/**
+	 * List every currently-active suspension (not lifted, not expired).
+	 *
+	 * Powers the admin moderation queue's Suspensions panel. Newest first.
+	 *
+	 * @param int $limit Max rows. Default 100.
+	 * @return array<int,array<string,mixed>> Active suspension rows.
+	 */
+	public function get_active_suspensions( int $limit = 100 ): array {
+		global $wpdb;
+		$limit = max( 1, min( 500, $limit ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, user_id, suspended_by, reason, duration_days, hide_posts, expires_at, created_at
+				 FROM {$wpdb->prefix}bn_user_suspensions
+				 WHERE lifted_at IS NULL
+				   AND (expires_at IS NULL OR expires_at > NOW())
+				 ORDER BY id DESC
+				 LIMIT %d",
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map(
+			static function ( array $row ): array {
+				return array(
+					'id'            => (int) $row['id'],
+					'user_id'       => (int) $row['user_id'],
+					'suspended_by'  => (int) $row['suspended_by'],
+					'reason'        => (string) ( $row['reason'] ?? '' ),
+					'duration_days' => null !== $row['duration_days'] ? (int) $row['duration_days'] : null,
+					'hide_posts'    => (bool) $row['hide_posts'],
+					'expires_at'    => $row['expires_at'],
+					'created_at'    => $row['created_at'],
+				);
+			},
+			(array) $rows
+		);
+	}
+
+	/**
+	 * List pending appeals awaiting an admin decision. Powers the admin
+	 * moderation queue's Appeals panel. Oldest first (FIFO review order).
+	 *
+	 * @param int $limit Max rows. Default 100.
+	 * @return array<int,array<string,mixed>> Pending appeal rows.
+	 */
+	public function get_pending_appeals( int $limit = 100 ): array {
+		global $wpdb;
+		$limit = max( 1, min( 500, $limit ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, suspension_id, user_id, message, status, created_at
+				 FROM {$wpdb->prefix}bn_appeals
+				 WHERE status = 'pending'
+				 ORDER BY id ASC
+				 LIMIT %d",
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map(
+			static function ( array $row ): array {
+				return array(
+					'id'            => (int) $row['id'],
+					'suspension_id' => (int) $row['suspension_id'],
+					'user_id'       => (int) $row['user_id'],
+					'message'       => (string) ( $row['message'] ?? '' ),
+					'status'        => (string) $row['status'],
+					'created_at'    => $row['created_at'],
+				);
+			},
+			(array) $rows
+		);
+	}
+
+	/**
 	 * Submit an appeal against a suspension.
 	 *
 	 * Only the suspended user may appeal. The suspension must exist and currently
