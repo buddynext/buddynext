@@ -42,6 +42,9 @@ class Settings extends AdminPageBase {
 		// Registration.
 		'buddynext_reg_mode'                   => array( 'string', 'sanitize_key', 'open' ),
 		'buddynext_email_verify'               => array( 'boolean', 'rest_sanitize_boolean', false ),
+		'buddynext_reg_spam_protection'        => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_reg_challenge'              => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_reg_rate_limit'             => array( 'integer', 'absint', 5 ),
 		'buddynext_allowed_domains'            => array( 'string', 'sanitize_textarea_field', '' ),
 
 		// Social.
@@ -689,6 +692,33 @@ class Settings extends AdminPageBase {
 			__( 'Require email verification', 'buddynext' ),
 			__( 'New registrations must verify their email before accessing the community.', 'buddynext' ),
 			(bool) get_option( 'buddynext_email_verify', false )
+		);
+
+		$this->close_section();
+
+		$this->open_section( __( 'Spam &amp; Abuse Protection', 'buddynext' ) );
+
+		$this->render_toggle_row(
+			'buddynext_reg_spam_protection',
+			__( 'Protect the sign-up form', 'buddynext' ),
+			__( 'In-house, no third-party service: a per-IP rate limit, a honeypot field, and a time-trap that rejects implausibly fast or forged submissions. On by default.', 'buddynext' ),
+			(bool) get_option( 'buddynext_reg_spam_protection', true )
+		);
+
+		$this->render_toggle_row(
+			'buddynext_reg_challenge',
+			__( 'Show a human-verification question', 'buddynext' ),
+			__( 'Adds an accessible "what is three plus five?" question to the sign-up form, verified with a signed token. No images, no cookies, no external captcha. Requires spam protection to be on.', 'buddynext' ),
+			(bool) get_option( 'buddynext_reg_challenge', true )
+		);
+
+		$this->render_number_row(
+			'buddynext_reg_rate_limit',
+			__( 'Sign-ups per hour per IP', 'buddynext' ),
+			(int) get_option( 'buddynext_reg_rate_limit', 5 ),
+			__( 'Maximum sign-up attempts allowed from one IP address per hour. Set to 0 to disable the rate limit.', 'buddynext' ),
+			0,
+			100
 		);
 
 		$this->close_section();

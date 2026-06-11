@@ -10,16 +10,24 @@
  * Layers (in order):
  *   1. Admin bypass            — never block a logged-in user who can create users.
  *   2. Per-IP rate limit       — hard stop on hammering (filterable threshold).
- *   3. Captcha                 — Turnstile / reCAPTCHA when configured (opt-in).
+ *   3. Human check             — in-house, accessibility-friendly arithmetic
+ *                                challenge verified with a signed token; no
+ *                                third-party service, no cookies (opt-in via
+ *                                Settings → Registration).
  *   4. Score                   — honeypot, time-trap, disposable email + the
  *                                buddynext_registration_spam_score filter.
  *
+ * Options (Settings → Registration):
+ *   buddynext_reg_spam_protection ('1'|'')  master switch, default on
+ *   buddynext_reg_challenge       ('1'|'')  show the human-check question, default on
+ *
  * Hooks:
- *   filter buddynext_spam_protection_enabled (bool)
- *   filter buddynext_register_rate_limit     (int, per hour per IP)
- *   filter buddynext_registration_spam_score (int $score, array $ctx)
- *   filter buddynext_disposable_domains       (string[])
- *   action buddynext_registration_blocked     (array $ctx, int $score)
+ *   filter buddynext_spam_protection_enabled  (bool)
+ *   filter buddynext_registration_challenge_enabled (bool)
+ *   filter buddynext_register_rate_limit      (int, per hour per IP)
+ *   filter buddynext_registration_spam_score  (int $score, array $ctx)
+ *   filter buddynext_disposable_domains        (string[])
+ *   action buddynext_registration_blocked      (array $ctx, int $score)
  *
  * @package BuddyNext\Auth
  */
@@ -37,20 +45,24 @@ defined( 'ABSPATH' ) || exit;
  */
 class RegistrationGuard {
 
-	private const RATE_PREFIX = 'bn_reg_rl_';
-	private const RATE_MAX    = 5;
-	private const MIN_SECONDS = 2;
-	private const TOKEN_TTL   = 3600;
-	private const OPTION      = 'buddynext_registration_captcha';
+	private const RATE_PREFIX    = 'bn_reg_rl_';
+	private const RATE_MAX       = 5;
+	private const MIN_SECONDS    = 2;
+	private const TOKEN_TTL      = 3600;
+	private const OPT_PROTECTION = 'buddynext_reg_spam_protection';
+	private const OPT_CHALLENGE  = 'buddynext_reg_challenge';
 
 	/**
 	 * Evaluate a registration attempt.
 	 *
-	 * @param array<string, mixed> $ctx email, user_login, ip, honeypot, token, captcha_token.
+	 * @param array<string, mixed> $ctx email, user_login, ip, honeypot, token,
+	 *                                  challenge_token, challenge_answer.
 	 * @return true|WP_Error True to allow, WP_Error (with a user-safe message) to block.
 	 */
 	public function check( array $ctx ): bool|WP_Error {
-		if ( ! (bool) apply_filters( 'buddynext_spam_protection_enabled', true ) ) {
+		// Master switch — default on, admin can disable in Settings → Registration.
+		$enabled = (bool) get_option( self::OPT_PROTECTION, true );
+		if ( ! (bool) apply_filters( 'buddynext_spam_protection_enabled', $enabled ) ) {
 			return true;
 		}
 
@@ -61,8 +73,9 @@ class RegistrationGuard {
 
 		$ip = isset( $ctx['ip'] ) ? (string) $ctx['ip'] : '';
 
-		// 2) Rate limit — hard stop on hammering.
-		$max = (int) apply_filters( 'buddynext_register_rate_limit', self::RATE_MAX );
+		// 2) Rate limit — hard stop on hammering. Admin-set in Settings →
+		// Registration; the filter still overrides for code-level control.
+		$max = (int) apply_filters( 'buddynext_register_rate_limit', (int) get_option( 'buddynext_reg_rate_limit', self::RATE_MAX ) );
 		if ( $max > 0 && '' !== $ip ) {
 			$key = self::RATE_PREFIX . md5( $ip );
 			if ( (int) get_transient( $key ) >= $max ) {
@@ -70,11 +83,14 @@ class RegistrationGuard {
 			}
 		}
 
-		// 3) Captcha — only when configured (opt-in).
-		$cap = self::captcha_settings();
-		if ( '' !== $cap['provider'] && '' !== $cap['secret'] ) {
-			if ( ! $this->verify_captcha( $cap, (string) ( $ctx['captcha_token'] ?? '' ), $ip ) ) {
-				return new WP_Error( 'bn_reg_captcha', __( 'Please complete the verification challenge and try again.', 'buddynext' ) );
+		// 3) Human check — in-house arithmetic challenge (opt-in).
+		if ( self::challenge_enabled() ) {
+			$ok = self::verify_challenge(
+				(string) ( $ctx['challenge_token'] ?? '' ),
+				(string) ( $ctx['challenge_answer'] ?? '' )
+			);
+			if ( ! $ok ) {
+				return new WP_Error( 'bn_reg_challenge', __( 'That answer was not correct. Please solve the verification question and try again.', 'buddynext' ) );
 			}
 		}
 
@@ -201,56 +217,110 @@ class RegistrationGuard {
 	}
 
 	/**
-	 * Captcha settings ([provider, site_key, secret]).
+	 * Whether the human-check question should be shown and enforced.
 	 *
-	 * @return array{provider:string, site_key:string, secret:string}
+	 * On by default, but only when the master spam-protection switch is also on —
+	 * so the sign-up form never shows a question the guard would not enforce. An
+	 * admin can switch the question off on its own in Settings → Registration
+	 * (the other in-house signals — honeypot, time-trap, rate limit — stay on).
+	 * The template and the guard both call this, so they always agree.
+	 *
+	 * @return bool
 	 */
-	public static function captcha_settings(): array {
-		$o = get_option( self::OPTION, array() );
-		$o = is_array( $o ) ? $o : array();
+	public static function challenge_enabled(): bool {
+		if ( ! (bool) get_option( self::OPT_PROTECTION, true ) ) {
+			return false;
+		}
+		$on = (bool) get_option( self::OPT_CHALLENGE, true );
+		return (bool) apply_filters( 'buddynext_registration_challenge_enabled', $on );
+	}
+
+	/**
+	 * Issue a fresh human-check question and its signed token.
+	 *
+	 * A small randomised arithmetic question whose operands are rendered as
+	 * words ("three plus five") so it is accessible to screen readers and not
+	 * trivially scraped, while the answer is a single number. The expected
+	 * answer is never sent to the client: it is folded into an HMAC, so the
+	 * token is self-verifying with no server-side state.
+	 *
+	 * @return array{question:string, token:string} Display question and hidden token.
+	 */
+	public static function issue_challenge(): array {
+		$a = wp_rand( 1, 9 );
+		$b = wp_rand( 1, 9 );
+
+		$question = sprintf(
+			/* translators: 1: first number as a word, 2: second number as a word. */
+			__( 'What is %1$s plus %2$s?', 'buddynext' ),
+			self::number_word( $a ),
+			self::number_word( $b )
+		);
+
 		return array(
-			'provider' => isset( $o['provider'] ) ? sanitize_key( (string) $o['provider'] ) : '',
-			'site_key' => isset( $o['site_key'] ) ? (string) $o['site_key'] : '',
-			'secret'   => isset( $o['secret'] ) ? (string) $o['secret'] : '',
+			'question' => $question,
+			'token'    => self::sign_answer( (string) ( $a + $b ) ),
 		);
 	}
 
 	/**
-	 * Verify a captcha token against the configured provider.
+	 * Verify a submitted answer against its signed challenge token.
 	 *
-	 * @param array{provider:string, site_key:string, secret:string} $cap   Settings.
-	 * @param string                                                 $token Client token.
-	 * @param string                                                 $ip    Remote IP.
+	 * Recomputes the HMAC from the *submitted* answer: it matches only when the
+	 * submitted number equals the one signed at issue time, and the token is
+	 * within its TTL. The expected answer is never compared in the clear.
+	 *
+	 * @param string $token  Token from issue_challenge().
+	 * @param string $answer User-supplied answer.
 	 * @return bool
 	 */
-	private function verify_captcha( array $cap, string $token, string $ip ): bool {
-		if ( '' === $token ) {
+	public static function verify_challenge( string $token, string $answer ): bool {
+		$raw = base64_decode( $token, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+		if ( false === $raw || false === strpos( $raw, '|' ) ) {
 			return false;
 		}
-		$endpoints = array(
-			'turnstile' => 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-			'recaptcha' => 'https://www.google.com/recaptcha/api/siteverify',
-		);
-		$url       = $endpoints[ $cap['provider'] ] ?? '';
-		if ( '' === $url ) {
+		list( $ts, $sig ) = explode( '|', $raw, 2 );
+		if ( time() - (int) $ts > self::TOKEN_TTL ) {
 			return false;
 		}
 
-		$res = wp_remote_post(
-			$url,
-			array(
-				'timeout' => 10,
-				'body'    => array(
-					'secret'   => $cap['secret'],
-					'response' => $token,
-					'remoteip' => $ip,
-				),
-			)
+		// Normalise to the bare integer the question asks for.
+		$normalised = (string) (int) preg_replace( '/[^0-9-]/', '', $answer );
+		$expected   = hash_hmac( 'sha256', $normalised . '|' . $ts, wp_salt( 'nonce' ) );
+
+		return hash_equals( $expected, (string) $sig );
+	}
+
+	/**
+	 * Sign an answer into a base64 `ts|hmac` token (the answer stays server-side).
+	 *
+	 * @param string $answer Canonical (integer-string) answer.
+	 * @return string
+	 */
+	private static function sign_answer( string $answer ): string {
+		$ts  = (string) time();
+		$sig = hash_hmac( 'sha256', $answer . '|' . $ts, wp_salt( 'nonce' ) );
+		return base64_encode( $ts . '|' . $sig ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+	}
+
+	/**
+	 * Render a single digit (1–9) as its English word for the question text.
+	 *
+	 * @param int $n Number 1–9.
+	 * @return string
+	 */
+	private static function number_word( int $n ): string {
+		$words = array(
+			1 => __( 'one', 'buddynext' ),
+			2 => __( 'two', 'buddynext' ),
+			3 => __( 'three', 'buddynext' ),
+			4 => __( 'four', 'buddynext' ),
+			5 => __( 'five', 'buddynext' ),
+			6 => __( 'six', 'buddynext' ),
+			7 => __( 'seven', 'buddynext' ),
+			8 => __( 'eight', 'buddynext' ),
+			9 => __( 'nine', 'buddynext' ),
 		);
-		if ( is_wp_error( $res ) ) {
-			return false;
-		}
-		$body = json_decode( (string) wp_remote_retrieve_body( $res ), true );
-		return is_array( $body ) && ! empty( $body['success'] );
+		return $words[ $n ] ?? (string) $n;
 	}
 }

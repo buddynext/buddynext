@@ -284,9 +284,9 @@ class AuthController {
 
 		return new WP_REST_Response(
 			array(
-				'saved'    => true,
-				'pending'  => $candidate,
-				'message'  => __( 'Check your inbox to confirm.', 'buddynext' ),
+				'saved'   => true,
+				'pending' => $candidate,
+				'message' => __( 'Check your inbox to confirm.', 'buddynext' ),
 			),
 			200
 		);
@@ -434,6 +434,39 @@ class AuthController {
 				)
 			);
 			return $err;
+		}
+
+		// Spam / abuse gate (rate limit, honeypot, time-trap, human check).
+		// Runs on well-formed input so humans see field validation first, then
+		// the guard only gates real attempts before we create the account.
+		$ip   = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
+		$gate = ( new RegistrationGuard() )->check(
+			array(
+				'email'            => $email,
+				'user_login'       => $user_login,
+				'ip'               => $ip,
+				'honeypot'         => (string) $request->get_param( RegistrationGuard::honeypot_field() ),
+				'token'            => (string) $request->get_param( 'reg_token' ),
+				'challenge_token'  => (string) $request->get_param( 'challenge_token' ),
+				'challenge_answer' => (string) $request->get_param( 'challenge_answer' ),
+			)
+		);
+		if ( is_wp_error( $gate ) ) {
+			$code   = $gate->get_error_code();
+			$status = ( 'bn_reg_rate' === $code ) ? 429 : 422;
+			// Surface the human-check failure inline on its field; other guard
+			// rejections (rate limit, spam score) are deliberately top-level only.
+			$fields = ( 'bn_reg_challenge' === $code )
+				? array( 'challenge' => $gate->get_error_message() )
+				: array();
+			return new WP_Error(
+				'rest_registration_failed',
+				$gate->get_error_message(),
+				array(
+					'status' => $status,
+					'fields' => $fields,
+				)
+			);
 		}
 
 		$user_id = wp_create_user( $user_login, $password, $email );
@@ -599,7 +632,13 @@ class AuthController {
 		}
 
 		if ( ! get_user_meta( $user_id, 'bn_pending_approval', true ) ) {
-			return new WP_REST_Response( array( 'approved' => true, 'already' => true ), 200 );
+			return new WP_REST_Response(
+				array(
+					'approved' => true,
+					'already'  => true,
+				),
+				200
+			);
 		}
 
 		delete_user_meta( $user_id, 'bn_pending_approval' );

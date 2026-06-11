@@ -62,9 +62,14 @@ store( 'buddynext/auth-signup', {
 			const c = ctx();
 			return ( c.fieldErrors && c.fieldErrors.terms_agreed ) || '';
 		},
+		get challengeError() {
+			const c = ctx();
+			return ( c.fieldErrors && c.fieldErrors.challenge ) || '';
+		},
 		get emailInvalid() { return !! this.emailError; },
 		get usernameInvalid() { return !! this.usernameError; },
 		get passwordInvalid() { return !! this.passwordError; },
+		get challengeInvalid() { return !! this.challengeError; },
 		get submitDisabled() {
 			const c = ctx();
 			if ( c.submitting ) { return true; }
@@ -72,6 +77,7 @@ store( 'buddynext/auth-signup', {
 			if ( ! ( c.email || '' ).trim() ) { return true; }
 			if ( ! ( c.userLogin || '' ).trim() ) { return true; }
 			if ( ! ( c.password || '' ) ) { return true; }
+			if ( c.challengeEnabled && ! ( c.challengeAnswer || '' ).trim() ) { return true; }
 			return false;
 		},
 	},
@@ -120,6 +126,19 @@ store( 'buddynext/auth-signup', {
 				c.fieldErrors = next;
 			}
 		},
+		setChallengeAnswer( event ) {
+			const c = ctx();
+			c.challengeAnswer = event && event.target ? String( event.target.value || '' ) : '';
+			if ( c.fieldErrors && c.fieldErrors.challenge ) {
+				const next = Object.assign( {}, c.fieldErrors );
+				delete next.challenge;
+				c.fieldErrors = next;
+			}
+		},
+		setHoneypot( event ) {
+			const c = ctx();
+			c.honeypot = event && event.target ? String( event.target.value || '' ) : '';
+		},
 		* submitSignup( event ) {
 			if ( event && typeof event.preventDefault === 'function' ) {
 				event.preventDefault();
@@ -130,14 +149,22 @@ store( 'buddynext/auth-signup', {
 			c.error = '';
 			c.fieldErrors = {};
 			try {
+				const body = {
+					email:           c.email || '',
+					user_login:      c.userLogin || '',
+					password:        c.password || '',
+					terms_agreed:    !! c.termsAgreed,
+					reg_token:       c.regToken || '',
+					challenge_token: c.challengeToken || '',
+					challenge_answer: c.challengeAnswer || '',
+				};
+				// Honeypot under its server-issued (rotatable) field name.
+				if ( c.honeypotName ) {
+					body[ c.honeypotName ] = c.honeypot || '';
+				}
 				const r = yield rest( c, 'auth/register', {
 					method: 'POST',
-					body:   JSON.stringify( {
-						email:        c.email || '',
-						user_login:   c.userLogin || '',
-						password:     c.password || '',
-						terms_agreed: !! c.termsAgreed,
-					} ),
+					body:   JSON.stringify( body ),
 				} );
 				const data = yield r.json();
 				if ( ! r.ok || ! ( data && data.success ) ) {

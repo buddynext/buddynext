@@ -21,6 +21,18 @@ $rest_nonce  = wp_create_nonce( 'wp_rest' );
 $login_url   = \BuddyNext\Core\PageRouter::auth_url();
 $terms_url   = get_privacy_policy_url() ? get_privacy_policy_url() : home_url( '/terms/' );
 $privacy_url = get_privacy_policy_url() ? get_privacy_policy_url() : home_url( '/privacy/' );
+
+// In-house spam guard fields (no third-party captcha): a signed time-trap
+// token, a rotating honeypot field name, and an optional human-check question.
+$bn_honeypot_name = \BuddyNext\Auth\RegistrationGuard::honeypot_field();
+$bn_reg_token     = \BuddyNext\Auth\RegistrationGuard::issue_token();
+$bn_challenge_on  = \BuddyNext\Auth\RegistrationGuard::challenge_enabled();
+$bn_challenge     = $bn_challenge_on
+	? \BuddyNext\Auth\RegistrationGuard::issue_challenge()
+	: array(
+		'question' => '',
+		'token'    => '',
+	);
 ?>
 
 <div class="bn-auth-page">
@@ -42,6 +54,12 @@ $privacy_url = get_privacy_policy_url() ? get_privacy_policy_url() : home_url( '
 				'fieldErrors'      => array(),
 				'restNonce'        => $rest_nonce,
 				'restUrl'          => $rest_root,
+				'honeypotName'     => $bn_honeypot_name,
+				'honeypot'         => '',
+				'regToken'         => $bn_reg_token,
+				'challengeEnabled' => (bool) $bn_challenge_on,
+				'challengeToken'   => (string) $bn_challenge['token'],
+				'challengeAnswer'  => '',
 			)
 		);
 		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -170,6 +188,42 @@ $privacy_url = get_privacy_policy_url() ? get_privacy_policy_url() : home_url( '
 						<span class="bn-auth-field__msg"
 							data-wp-bind--hidden="!state.termsError"
 							data-wp-text="state.termsError"></span>
+					</div>
+
+					<?php if ( $bn_challenge_on ) : ?>
+						<div class="bn-auth-field">
+							<label class="bn-auth-label" for="bn-signup-challenge">
+								<?php echo esc_html( (string) $bn_challenge['question'] ); ?>
+							</label>
+							<input class="bn-input"
+								type="text"
+								id="bn-signup-challenge"
+								name="challenge_answer"
+								inputmode="numeric"
+								autocomplete="off"
+								required
+								aria-describedby="bn-signup-challenge-hint"
+								data-wp-bind--disabled="state.submitting"
+								data-wp-bind--aria-invalid="state.challengeInvalid"
+								data-wp-on--input="actions.setChallengeAnswer" />
+							<span class="bn-auth-hint" id="bn-signup-challenge-hint">
+								<?php esc_html_e( 'A quick check to keep out automated sign-ups.', 'buddynext' ); ?>
+							</span>
+							<span class="bn-auth-field__msg"
+								data-wp-bind--hidden="!state.challengeError"
+								data-wp-text="state.challengeError"></span>
+						</div>
+					<?php endif; ?>
+
+					<?php /* Honeypot: hidden from people, irresistible to bots. */ ?>
+					<div class="bn-auth-hp" aria-hidden="true">
+						<label for="bn-signup-<?php echo esc_attr( $bn_honeypot_name ); ?>"><?php esc_html_e( 'Leave this field empty', 'buddynext' ); ?></label>
+						<input type="text"
+							id="bn-signup-<?php echo esc_attr( $bn_honeypot_name ); ?>"
+							name="<?php echo esc_attr( $bn_honeypot_name ); ?>"
+							tabindex="-1"
+							autocomplete="off"
+							data-wp-on--input="actions.setHoneypot" />
 					</div>
 
 					<button class="bn-btn"

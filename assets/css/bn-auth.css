@@ -151,6 +151,19 @@
 	min-height: 0;
 }
 
+/*
+ * Honeypot — taken out of the visual + a11y tree without display:none or
+ * [hidden] (which well-behaved bots skip). Kept in the layout flow but pushed
+ * off-screen and made non-interactive so real users never see or tab into it.
+ */
+.bn-auth-hp {
+	position: absolute;
+	left: -9999px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
 .bn-auth-field__msg[data-tone="success"] {
 	color: var(--bn-success);
 }

@@ -252,11 +252,6 @@
             "severity": "warning"
         },
         {
-            "id": "option-read-never-written:buddynext_registration_captcha",
-            "reason": "TRACKED FEATURE GAP (not drift): RegistrationGuard reads captcha provider/site_key/secret but there is no admin field, no front-end widget, and no caller passes captcha_token. The opt-in guard (provider && secret) never enforces on the empty default, so behaviour is unaffected. Needs a full build (admin UI + front-end widget + POST wiring) before it does anything; baselined so the audit gates on NEW drift.",
-            "severity": "error"
-        },
-        {
             "id": "option-read-never-written:buddynext_slug_login",
             "reason": "Auth-hub sub-route slug read with a fixed sensible default (login / signup / verify-email). Only the hub base slug (buddynext_slug_auth) is admin-configurable; sub-routes use defaults plus a code-level update_option() override seam by design \u2014 no admin field intended. False positive.",
             "severity": "error"
@@ -365,6 +360,21 @@
             "id": "hook-consumed-never-fired:buddynext_index_embedding",
             "reason": "Async/extension-point action \u2014 fired via wp_schedule_single_event, by bridge code, by Pro tooling, or by external content indexers; no synchronous in-scope firing by design. False positive.",
             "severity": "error"
+        },
+        {
+            "id": "option-read-never-written:buddynext_reg_spam_protection",
+            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+            "severity": "warning"
+        },
+        {
+            "id": "option-read-never-written:buddynext_reg_challenge",
+            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+            "severity": "warning"
+        },
+        {
+            "id": "option-read-never-written:buddynext_reg_rate_limit",
+            "reason": "Persisted via the WordPress Settings API \u2014 registered in Settings::register_settings() (SETTINGS_MAP) and written by core options.php on the 'buddynext' option group. No literal update_option() exists for the scanner to match the read against. False positive.",
+            "severity": "warning"
         }
     ]
 }
