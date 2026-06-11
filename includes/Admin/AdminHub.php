@@ -360,9 +360,14 @@ class AdminHub {
 	 * @return void
 	 */
 	public function build_menu(): void {
+		// White-label: the wp-admin menu title can be renamed to the site's own
+		// community name via Settings → Appearance (option buddynext_white_label).
+		$bn_label = (string) get_option( 'buddynext_white_label', '' );
+		$bn_label = '' !== trim( $bn_label ) ? $bn_label : __( 'BuddyNext', 'buddynext' );
+
 		add_menu_page(
-			__( 'BuddyNext', 'buddynext' ),
-			__( 'BuddyNext', 'buddynext' ),
+			$bn_label,
+			$bn_label,
 			'manage_options',
 			self::TOP_SLUG,
 			array( $this, 'render_section' ),

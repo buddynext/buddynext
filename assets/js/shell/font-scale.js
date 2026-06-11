@@ -56,11 +56,16 @@
 	var THEMES = [ 'light', 'dark', 'auto' ];
 
 	function readThemePref() {
+		// Site default (set in Settings → Appearance) applies until the visitor
+		// makes their own choice; falls back to 'auto' when unset.
+		var fallback = ( 'light' === window.bnThemeDefault || 'dark' === window.bnThemeDefault )
+			? window.bnThemeDefault
+			: 'auto';
 		try {
-			var t = window.localStorage.getItem( 'bn_theme' ) || 'auto';
+			var t = window.localStorage.getItem( 'bn_theme' ) || fallback;
 			return THEMES.indexOf( t ) !== -1 ? t : 'auto';
 		} catch ( e ) {
-			return 'auto';
+			return fallback;
 		}
 	}
 

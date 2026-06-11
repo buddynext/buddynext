@@ -129,6 +129,10 @@ class Plugin {
 			}
 		);
 
+		// Apply admin Appearance options on the front-end (accent colour, default
+		// theme, custom CSS). Registered everywhere — branding is not admin-only.
+		( new \BuddyNext\Theme\Appearance() )->register();
+
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
 		}
@@ -148,6 +152,7 @@ class Plugin {
 			$container->get( 'admin_email_editor' )->register();
 			$container->get( 'setup_wizard' )->init();
 			( new \BuddyNext\Demo\DemoAdmin() )->register();
+			( new \BuddyNext\Admin\AppearanceTab() )->register();
 			( new \BuddyNext\Admin\ToolsTab() )->register();
 			( new \BuddyNext\Admin\RolesTab() )->register();
 			( new \BuddyNext\Admin\Insights() )->register();

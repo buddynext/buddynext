@@ -258,7 +258,8 @@ body.admin-bar .bn-app__rail {
 	--bn-railw: 72px;
 }
 [data-bn-rail="collapsed"] .bn-rail__label,
-[data-bn-rail="collapsed"] .bn-rail__heading {
+[data-bn-rail="collapsed"] .bn-rail__heading,
+[data-bn-rail="collapsed"] .bn-rail__brand-name {
 	display: none;
 }
 [data-bn-rail="collapsed"] .bn-rail__item {
@@ -441,3 +442,32 @@ body.admin-bar .bn-app__rail {
 @media (max-width: 640px) {
 	.bn-notif-dropdown { width: calc(100vw - 16px); right: -60px; }
 }
+
+/* ── Community brand (rail top) ─────────────────────────────────────────── */
+.bn-rail__brand {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 40px;
+	padding: 4px 8px;
+	margin-bottom: 8px;
+	text-decoration: none;
+	color: var(--bn-ink, inherit);
+	font-weight: 700;
+	font-size: var(--bn-text-md, 15px);
+	overflow: hidden;
+}
+.bn-rail__logo {
+	max-height: 32px;
+	max-width: 100%;
+	width: auto;
+	object-fit: contain;
+	display: block;
+}
+.bn-rail__brand-name {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+[data-bn-rail="collapsed"] .bn-rail__brand { justify-content: center; padding-inline: 0; }
+[data-bn-rail="collapsed"] .bn-rail__logo { max-height: 28px; }
