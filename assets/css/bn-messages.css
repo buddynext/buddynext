@@ -26,15 +26,6 @@
 	width: 100%;
 }
 
-.bn-dm-card {
-	padding: 0;
-	overflow: hidden;
-	height: calc(100vh - var(--bn-topbar-h) - var(--bn-s8));
-	min-height: 480px;
-	display: flex;
-	flex-direction: column;
-}
-
 /*
  * The messages two-pane. The markup is `.bn-split.bn-dm`, so the override must
  * target that exact pair — NOT `.bn-dm-split` (no element ever carries it). The
@@ -45,14 +36,17 @@
 .bn-split.bn-dm {
 	flex: 1;
 	/*
-	 * The parent (.bn-app__main) is a block box with a definite height, so
-	 * flex:1 alone never stretches this pane — it collapses to content height
-	 * and leaves the messaging UI floating at the top. Claim the full height so
-	 * the rail and thread fill the screen and scroll independently, like a real
-	 * messenger.
+	 * Anchor the two-pane to the viewport so the rail list and thread body
+	 * scroll INTERNALLY and the composer / "New message" footer stay in view —
+	 * a real messenger, no whole-page scroll. The plugin renders inside the
+	 * active theme's chrome (admin bar + theme header), whose combined height
+	 * varies, so `--bn-msg-chrome` is measured per-load by callbacks.fitViewport
+	 * (messages store) and supplied as the exact top offset. The 200px fallback
+	 * only applies for the brief moment before hydration.
 	 */
-	height: 100%;
-	min-height: 0;
+	height: calc(100dvh - var(--bn-msg-chrome, 200px));
+	overflow: hidden;
+	min-height: 480px;
 	border: 0;
 	border-radius: 0;
 	background: transparent;

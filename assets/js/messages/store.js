@@ -15,7 +15,7 @@
  * @package BuddyNext
  */
 
-import { store, getContext } from '@wordpress/interactivity';
+import { store, getContext, getElement } from '@wordpress/interactivity';
 
 /**
  * Build the request headers for an mvs/v1 call.
@@ -1124,6 +1124,30 @@ const { actions } = store( 'buddynext/messages', {
 		},
 	},
 	callbacks: {
+		// Anchor the messages two-pane to the viewport. The plugin renders inside
+		// the active theme's chrome (admin bar + theme header) of variable height,
+		// so 100vh-based CSS overflows. Measure the root's actual top offset and
+		// feed it to the CSS height formula as --bn-msg-chrome, keeping the rail
+		// list + thread body as the only scrollers (composer / compose CTA stay
+		// in view). Re-measures on resize.
+		fitViewport() {
+			const { ref } = getElement();
+			if ( ! ref ) {
+				return;
+			}
+			const sync = () => {
+				const top  = Math.round( ref.getBoundingClientRect().top + window.scrollY );
+				// Include the content column's bottom padding so nothing sits below
+				// the pane (the page never scrolls), and on mobile that padding is
+				// the bottom-nav clearance (88px) — keeping the composer above it.
+				const main = ref.closest( '.bn-app__main' );
+				const padB = main ? ( parseInt( getComputedStyle( main ).paddingBottom, 10 ) || 0 ) : 0;
+				ref.style.setProperty( '--bn-msg-chrome', ( top + padB ) + 'px' );
+			};
+			sync();
+			window.addEventListener( 'resize', sync, { passive: true } );
+		},
+
 		// Mark the open thread read on mount, then poll for new messages.
 		*initThread() {
 			const ctx    = getContext();

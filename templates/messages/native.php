@@ -126,6 +126,7 @@ $bn_ctx = wp_json_encode(
 	data-bn-main-edge="true"
 	data-wp-interactive="buddynext/messages"
 	data-wp-context='<?php echo esc_attr( (string) $bn_ctx ); ?>'
+	data-wp-init="callbacks.fitViewport"
 >
 	<?php
 	buddynext_get_template(
