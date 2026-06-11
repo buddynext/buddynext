@@ -225,8 +225,11 @@ class MemberTypesManager {
 		<?php endif; ?>
 
 		<?php /* ── Create / Edit form ── */ ?>
-		<div class="bn-type-form">
-			<h3><?php echo $edit_type ? esc_html__( 'Edit Member Type', 'buddynext' ) : esc_html__( 'Add Member Type', 'buddynext' ); ?></h3>
+		<div class="bn-settings-section">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php echo $edit_type ? esc_html__( 'Edit Member Type', 'buddynext' ) : esc_html__( 'Add Member Type', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<?php wp_nonce_field( 'bn_save_member_type' ); ?>
 				<input type="hidden" name="action"  value="bn_save_member_type">
@@ -319,17 +322,21 @@ class MemberTypesManager {
 					<?php endif; ?>
 				</div>
 			</form>
-		</div>
+			</div><!-- .bn-ss-body -->
+		</div><!-- .bn-settings-section -->
 
 		<?php /* ── Types list ── */ ?>
 		<?php if ( empty( $types ) ) : ?>
-			<p class="bn-type-empty"><?php esc_html_e( 'No member types defined yet. Add your first type above.', 'buddynext' ); ?></p>
+			<div class="bn-settings-section"><div class="bn-ss-body">
+				<p class="bn-type-empty"><?php esc_html_e( 'No member types defined yet. Add your first type above.', 'buddynext' ); ?></p>
+			</div></div>
 		<?php else : ?>
-			<div class="bn-data-table">
-				<div class="bn-table-header">
-					<strong class="bn-type-th-strong"><?php esc_html_e( 'Defined Types', 'buddynext' ); ?></strong>
-					<span class="bn-badge bn-type-list-count"><?php echo esc_html( (string) count( $types ) ); ?></span>
+			<div class="bn-settings-section">
+				<div class="bn-ss-header">
+					<span class="bn-ss-title"><?php esc_html_e( 'Defined Types', 'buddynext' ); ?></span>
+					<span class="bn-ss-count"><?php echo esc_html( (string) count( $types ) ); ?></span>
 				</div>
+				<div class="bn-ss-body">
 				<table class="bn-table">
 					<thead>
 						<tr>
@@ -410,7 +417,8 @@ class MemberTypesManager {
 					<?php endforeach; ?>
 					</tbody>
 				</table>
-			</div>
+				</div><!-- .bn-ss-body -->
+			</div><!-- .bn-settings-section -->
 		<?php endif; ?>
 		<?php
 	}
