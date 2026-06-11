@@ -2150,9 +2150,9 @@ store( 'buddynext/feed-tabs', {
  * The explore template binds chips to actions.setFilter and the search input
  * to actions.onSearch under the buddynext/feed namespace. These wire facet
  * clicks to the search results page so chips actually filter, and the search
- * input routes to /search/?q=… on submit.
+ * input routes to /activity/search/?q=… on submit.
  */
-const BN_SEARCH_PATH = '/search/';
+const BN_SEARCH_PATH = '/activity/search/';
 
 store( 'buddynext/feed', {
 	actions: {
