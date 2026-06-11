@@ -42,3 +42,7 @@ playwright/.cache/
 /mod-reports*.png
 /cover-test*.png
 /*.playwright-mcp/
+/s-*.png
+/r-*.png
+/icons*.png
+/*-screenshot*.png
