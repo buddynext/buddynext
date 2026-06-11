@@ -118,8 +118,8 @@ do_action( 'buddynext_part_dm_thread_header_before', $args );
 			<?php endif; ?>
 		</span>
 		<span class="bn-dm-pane__identity-text">
-			<span class="bn-dm-pane__identity-name"><?php echo esc_html( $name ); ?></span>
-			<span class="bn-dm-pane__identity-status<?php echo ( ! $is_group && $online ) ? ' is-online' : ''; ?>">
+			<span class="bn-dm-pane__identity-name"<?php echo $is_group ? ' data-wp-text="state.headerGroupName"' : ''; ?>><?php echo esc_html( $name ); ?></span>
+			<span class="bn-dm-pane__identity-status<?php echo ( ! $is_group && $online ) ? ' is-online' : ''; ?>"<?php echo $is_group ? ' data-wp-text="state.headerGroupStatus"' : ''; ?>>
 				<?php
 				if ( $is_group ) {
 					echo esc_html( $group_sub );
@@ -132,6 +132,14 @@ do_action( 'buddynext_part_dm_thread_header_before', $args );
 	</<?php echo esc_attr( $bn_id_tag ); ?>>
 
 	<div class="bn-dm-pane__actions" role="toolbar" aria-label="<?php esc_attr_e( 'Conversation actions', 'buddynext' ); ?>">
+		<?php if ( $is_group ) : ?>
+			<span class="bn-tooltip-trigger">
+				<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Group members', 'buddynext' ); ?>" data-wp-on--click="actions.openGroupPanel">
+					<?php buddynext_icon( 'users' ); ?>
+				</button>
+				<span class="bn-tooltip" data-pos="bottom"><?php esc_html_e( 'Members', 'buddynext' ); ?></span>
+			</span>
+		<?php endif; ?>
 		<span class="bn-tooltip-trigger">
 			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Search messages', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'search' ); ?>

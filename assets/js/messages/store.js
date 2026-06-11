@@ -183,6 +183,57 @@ function buildComposeResult( member ) {
 }
 
 /**
+ * Map a mvs-pro group participant list into the enriched roster shape the
+ * members panel renders (mirrors MessagesData::roster on the PHP side).
+ *
+ * @param {Array}  participants Engine participants ({ id|user_id, role, display_name }).
+ * @param {number} userId       Viewing user id.
+ * @param {Object} i18n         Localised labels.
+ * @return {{ viewerIsAdmin: boolean, members: Array }}
+ */
+function mapGroupMembers( participants, userId, i18n ) {
+	const list = Array.isArray( participants ) ? participants : [];
+	const uid  = parseInt( userId, 10 );
+	const me   = list.find( ( p ) => parseInt( p.id != null ? p.id : p.user_id, 10 ) === uid );
+	const viewerIsAdmin = !! me && me.role === 'admin';
+	const members = list.map( ( p ) => {
+		const id      = parseInt( p.id != null ? p.id : p.user_id, 10 ) || 0;
+		const isAdmin = p.role === 'admin';
+		const isSelf  = id === uid;
+		return {
+			id,
+			name: p.display_name || p.name || '',
+			role: p.role || 'member',
+			role_label: isAdmin ? ( i18n.roleAdmin || 'Admin' ) : ( i18n.roleMember || 'Member' ),
+			role_action_label: isAdmin ? ( i18n.makeMember || 'Make member' ) : ( i18n.makeAdmin || 'Make admin' ),
+			is_admin: isAdmin,
+			is_self: isSelf,
+			can_manage: viewerIsAdmin && ! isSelf,
+		};
+	} );
+	return { viewerIsAdmin, members };
+}
+
+/**
+ * Update the live group context (roster, admin flag, member count) from a
+ * mvs-pro group response shape.
+ *
+ * @param {Object} ctx  Interactivity context.
+ * @param {Object} data Group shape ({ participants, member_count }).
+ * @return {boolean} True when applied.
+ */
+function applyGroupShape( ctx, data ) {
+	if ( ! data || ! Array.isArray( data.participants ) ) {
+		return false;
+	}
+	const mapped = mapGroupMembers( data.participants, ctx.userId, ctx.i18n || {} );
+	ctx.activeMembers = mapped.members;
+	ctx.activeIsAdmin = mapped.viewerIsAdmin;
+	ctx.memberCount = data.member_count || mapped.members.length;
+	return true;
+}
+
+/**
  * Normalise a message's media into { type, thumbnail, url, title }, or null.
  * Handles the local optimistic shape (msg.media), mvs media_share, and the
  * legacy WP attachment shape.
@@ -448,6 +499,12 @@ const { actions } = store( 'buddynext/messages', {
 		get createGroupDisabled() {
 			const ctx = getContext();
 			return !! ctx.groupBusy || ( ctx.groupMembers || [] ).length < 1;
+		},
+		// Live group thread-header values (kept in sync by the members panel).
+		get headerGroupName() { return getContext().activeGroupName || ''; },
+		get headerGroupStatus() {
+			const n = parseInt( getContext().memberCount, 10 ) || 0;
+			return n === 1 ? '1 member' : n + ' members';
 		},
 	},
 	actions: {
@@ -854,6 +911,137 @@ const { actions } = store( 'buddynext/messages', {
 			} catch ( _e ) {
 				ctx.groupBusy = false;
 				bnToast( ( ctx.i18n && ctx.i18n.groupCreateFailed ) || 'Could not create the group.', { tone: 'danger' } );
+			}
+		},
+
+		// ── Group members panel (manage) ──────────────────────────────────────
+		openGroupPanel() {
+			getContext().groupPanelOpen = true;
+		},
+		closeGroupPanel() {
+			getContext().groupPanelOpen = false;
+		},
+		onGroupNameInput( event ) {
+			getContext().activeGroupName = String( event.target.value || '' );
+		},
+		*groupApi( method, path, body ) {
+			const ctx = getContext();
+			const opts = { method, headers: headers( ctx ) };
+			if ( body ) { opts.body = JSON.stringify( body ); }
+			const res  = yield fetch( ctx.mvsProRest + '/groups/' + ctx.activeConvId + path, opts );
+			const data = yield res.json();
+			return { ok: res.ok, data };
+		},
+		*renameGroup() {
+			const ctx = getContext();
+			if ( ctx.groupBusy ) { return; }
+			ctx.groupBusy = true;
+			try {
+				const r = yield actions.groupApi( 'PUT', '', { title: String( ctx.activeGroupName || '' ).trim() } );
+				ctx.groupBusy = false;
+				if ( r.ok ) { applyGroupShape( ctx, r.data ); bnToast( 'Group renamed.', { tone: 'success' } ); }
+				else { bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } ); }
+			} catch ( _e ) {
+				ctx.groupBusy = false;
+				bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
+			}
+		},
+		*toggleMemberRole( event ) {
+			const btn = event.target.closest( '[data-id]' );
+			if ( ! btn ) { return; }
+			const ctx  = getContext();
+			if ( ctx.groupBusy ) { return; }
+			const id   = parseInt( btn.dataset.id, 10 ) || 0;
+			const next = btn.dataset.role === 'admin' ? 'member' : 'admin';
+			ctx.groupBusy = true;
+			try {
+				const r = yield actions.groupApi( 'PUT', '/participants/' + id + '/role', { role: next } );
+				ctx.groupBusy = false;
+				if ( r.ok ) { applyGroupShape( ctx, r.data ); }
+				else { bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } ); }
+			} catch ( _e ) {
+				ctx.groupBusy = false;
+				bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
+			}
+		},
+		*removeMember( event ) {
+			const btn = event.target.closest( '[data-id]' );
+			if ( ! btn ) { return; }
+			const ctx = getContext();
+			if ( ctx.groupBusy ) { return; }
+			const id  = parseInt( btn.dataset.id, 10 ) || 0;
+			ctx.groupBusy = true;
+			try {
+				const r = yield actions.groupApi( 'DELETE', '/participants/' + id, null );
+				ctx.groupBusy = false;
+				if ( r.ok ) { applyGroupShape( ctx, r.data ); }
+				else { bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } ); }
+			} catch ( _e ) {
+				ctx.groupBusy = false;
+				bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
+			}
+		},
+		onGroupAddSearch( event ) {
+			const ctx  = getContext();
+			const term = ( event.target.value || '' ).trim();
+			const list = document.querySelector( '.bn-dm-group__add-results' );
+			if ( ! list ) { return; }
+			clearTimeout( composeSearchTimer );
+			if ( '' === term ) { list.replaceChildren(); return; }
+			composeSearchTimer = setTimeout( async () => {
+				try {
+					const url = ctx.bnRest + '/members?per_page=8&search=' + encodeURIComponent( term );
+					const res = await fetch( url, { headers: headers( ctx ) } );
+					if ( ! res.ok ) { return; }
+					const data = await res.json();
+					const have = new Set( ( ctx.activeMembers || [] ).map( ( m ) => parseInt( m.id, 10 ) ) );
+					const members = ( data && data.items ? data.items : [] ).filter(
+						( m ) => ! have.has( parseInt( m.user_id, 10 ) )
+					);
+					list.replaceChildren( ...members.map( buildComposeResult ) );
+				} catch ( _e ) {}
+			}, 250 );
+		},
+		*onGroupAddResultClick( event ) {
+			const row = event.target.closest( '[data-user-id]' );
+			if ( ! row ) { return; }
+			const ctx = getContext();
+			if ( ctx.groupBusy ) { return; }
+			const uid = parseInt( row.dataset.userId, 10 ) || 0;
+			if ( ! uid ) { return; }
+			ctx.groupBusy = true;
+			try {
+				const r = yield actions.groupApi( 'POST', '/participants', { user_id: uid } );
+				ctx.groupBusy = false;
+				if ( r.ok ) {
+					applyGroupShape( ctx, r.data );
+					const search = document.getElementById( 'bn-dm-group-add' );
+					if ( search ) { search.value = ''; }
+					const list = document.querySelector( '.bn-dm-group__add-results' );
+					if ( list ) { list.replaceChildren(); }
+				} else {
+					bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				ctx.groupBusy = false;
+				bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
+			}
+		},
+		*leaveGroup() {
+			const ctx = getContext();
+			if ( ctx.groupBusy ) { return; }
+			// eslint-disable-next-line no-alert
+			if ( ! window.confirm( ( ctx.i18n && ctx.i18n.groupLeaveConfirm ) || 'Leave this group?' ) ) { return; }
+			ctx.groupBusy = true;
+			try {
+				yield fetch( ctx.mvsProRest + '/groups/' + ctx.activeConvId + '/leave', {
+					method: 'POST',
+					headers: headers( ctx ),
+				} );
+				window.location.href = ctx.messagesUrl || '/messages/';
+			} catch ( _e ) {
+				ctx.groupBusy = false;
+				bnToast( ( ctx.i18n && ctx.i18n.groupActionFailed ) || 'Something went wrong.', { tone: 'danger' } );
 			}
 		},
 		onComposeSearch( event ) {

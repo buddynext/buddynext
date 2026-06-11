@@ -87,6 +87,13 @@ $bn_ctx = wp_json_encode(
 		'groupMembers'      => array(),
 		'groupBusy'         => false,
 		'activeConvId'      => $thread ? (int) $thread['conversation_id'] : 0,
+		'activeIsGroup'     => $thread ? ! empty( $thread['is_group'] ) : false,
+		'activeIsAdmin'     => $thread ? ! empty( $thread['is_admin'] ) : false,
+		'activeGroupName'   => $thread ? (string) $thread['display_name'] : '',
+		'activeMembers'     => ( $thread && ! empty( $thread['is_group'] ) ) ? $thread['participants'] : array(),
+		'memberCount'       => $thread ? (int) ( $thread['member_count'] ?? 0 ) : 0,
+		'groupPanelOpen'    => false,
+		'groupAddOpen'      => false,
 		'replyToId'         => 0,
 		'replyToText'       => '',
 		'confirmOpen'       => false,
@@ -103,6 +110,13 @@ $bn_ctx = wp_json_encode(
 			'composeNewMessage' => __( 'New message', 'buddynext' ),
 			'composeNewGroup'   => __( 'New group', 'buddynext' ),
 			'groupCreateFailed' => __( 'Could not create the group. Please try again.', 'buddynext' ),
+			'groupActionFailed' => __( 'Something went wrong. Please try again.', 'buddynext' ),
+			'groupLeaveConfirm' => __( 'Leave this group? You will stop receiving its messages.', 'buddynext' ),
+			'groupLeft'         => __( 'You left the group.', 'buddynext' ),
+			'roleAdmin'         => __( 'Admin', 'buddynext' ),
+			'roleMember'        => __( 'Member', 'buddynext' ),
+			'makeAdmin'         => __( 'Make admin', 'buddynext' ),
+			'makeMember'        => __( 'Make member', 'buddynext' ),
 		),
 	)
 );
@@ -214,6 +228,12 @@ $bn_ctx = wp_json_encode(
 	<?php buddynext_get_template( 'parts/dm-delete-modal.php' ); ?>
 
 	<?php buddynext_get_template( 'parts/dm-compose-modal.php' ); ?>
+
+	<?php
+	if ( MessagesData::groups_enabled() ) {
+		buddynext_get_template( 'parts/dm-group-panel.php' );
+	}
+	?>
 
 	<?php buddynext_get_template( 'parts/dm-media-modal.php' ); ?>
 

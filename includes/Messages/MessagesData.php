@@ -96,26 +96,35 @@ class MessagesData {
 	}
 
 	/**
-	 * Active-participant roster for a group thread header (id, name, role,
-	 * presence, and whether it is the viewer).
+	 * Active-participant roster for a group thread header / members panel (id,
+	 * name, role + labels, presence, and the per-row manage flags).
 	 *
-	 * @param mixed $conv   Conversation row.
-	 * @param int   $viewer Viewing user ID.
+	 * @param mixed $conv            Conversation row.
+	 * @param int   $viewer          Viewing user ID.
+	 * @param bool  $viewer_is_admin Whether the viewer is an admin of the group.
 	 * @return array<int,array<string,mixed>>
 	 */
-	private static function roster( $conv, int $viewer ): array {
+	private static function roster( $conv, int $viewer, bool $viewer_is_admin ): array {
 		$out = array();
 		foreach ( (array) self::val( $conv, 'participants', array() ) as $p ) {
 			if ( 'active' !== (string) self::val( $p, 'status', 'active' ) ) {
 				continue;
 			}
-			$uid   = (int) self::val( $p, 'id', 0 );
-			$out[] = array(
-				'id'        => $uid,
-				'name'      => (string) self::val( $p, 'display_name', '' ),
-				'role'      => (string) self::val( $p, 'role', 'member' ),
-				'is_online' => ! empty( self::val( $p, 'is_online', false ) ),
-				'is_self'   => ( $uid === $viewer ),
+			$uid     = (int) self::val( $p, 'id', 0 );
+			$role    = (string) self::val( $p, 'role', 'member' );
+			$is_self = ( $uid === $viewer );
+			$out[]   = array(
+				'id'                => $uid,
+				'name'              => (string) self::val( $p, 'display_name', '' ),
+				'role'              => $role,
+				'role_label'        => 'admin' === $role ? __( 'Admin', 'buddynext' ) : __( 'Member', 'buddynext' ),
+				'role_action_label' => 'admin' === $role ? __( 'Make member', 'buddynext' ) : __( 'Make admin', 'buddynext' ),
+				'is_admin'          => 'admin' === $role,
+				'is_online'         => ! empty( self::val( $p, 'is_online', false ) ),
+				'is_self'           => $is_self,
+				// A group admin manages everyone but themselves (leaving is the
+				// self path); non-admins manage no-one.
+				'can_manage'        => ( $viewer_is_admin && ! $is_self ),
 			);
 		}
 		return $out;
@@ -350,14 +359,15 @@ class MessagesData {
 			);
 		}
 
-		$is_group = self::is_group( $conv );
+		$is_group     = self::is_group( $conv );
+		$viewer_admin = $is_group && self::viewer_is_admin( $conv, $viewer );
 
 		return array(
 			'conversation_id' => (int) self::val( $conv, 'id', 0 ),
 			'is_group'        => $is_group,
 			'member_count'    => $is_group ? self::active_count( $conv ) : 0,
-			'participants'    => $is_group ? self::roster( $conv, $viewer ) : array(),
-			'is_admin'        => $is_group ? self::viewer_is_admin( $conv, $viewer ) : false,
+			'participants'    => $is_group ? self::roster( $conv, $viewer, $viewer_admin ) : array(),
+			'is_admin'        => $viewer_admin,
 			'other_user_id'   => ( ! $is_group && $other ) ? (int) self::val( $other, 'id', 0 ) : 0,
 			'display_name'    => $is_group
 				? self::group_label( $conv, $viewer )
