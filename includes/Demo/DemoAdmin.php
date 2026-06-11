@@ -105,6 +105,7 @@ class DemoAdmin {
 		check_admin_referer( 'bn_demo_seed' );
 
 		( new DemoDataService() )->seed();
+		\BuddyNext\Admin\Insights::flush();
 
 		$this->redirect_back( 'seeded' );
 	}
@@ -121,6 +122,7 @@ class DemoAdmin {
 		check_admin_referer( 'bn_demo_cleanup' );
 
 		( new DemoDataService() )->cleanup();
+		\BuddyNext\Admin\Insights::flush();
 
 		$this->redirect_back( 'cleaned' );
 	}

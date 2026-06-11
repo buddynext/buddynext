@@ -1878,3 +1878,41 @@ button.bn-btn-danger:hover {
 .bn-roles-table { max-width: 720px; }
 .bn-roles-table td { vertical-align: middle; }
 .bn-roles-table select { min-width: 200px; }
+
+/* ── Insights (Growth section + dashboard widget) ───────────────────────── */
+.bn-insights-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+	gap: 12px;
+}
+.bn-insight-card {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 16px;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	background: #fff;
+}
+.bn-insight-value { font-size: 28px; font-weight: 700; line-height: 1.1; color: #0f172a; }
+.bn-insight-label { font-size: 13px; color: #475569; }
+.bn-insight-sub { font-size: 12px; color: #16a34a; }
+.bn-spark {
+	display: flex;
+	align-items: flex-end;
+	gap: 6px;
+	height: 90px;
+	padding-top: 4px;
+}
+.bn-spark__bar {
+	flex: 1 1 0;
+	min-height: 2px;
+	border-radius: 3px 3px 0 0;
+	background: var(--bn-accent, #2563eb);
+	opacity: 0.85;
+}
+.bn-spark__bar:hover { opacity: 1; }
+.bn-insights-widget { margin: 0 0 8px; }
+.bn-insights-widget li { margin: 0 0 6px; }
+.bn-insights-widget strong { font-size: 16px; }
+.bn-insights-delta { color: #16a34a; font-size: 12px; margin-inline-start: 4px; }

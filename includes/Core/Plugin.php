@@ -150,6 +150,7 @@ class Plugin {
 			( new \BuddyNext\Demo\DemoAdmin() )->register();
 			( new \BuddyNext\Admin\ToolsTab() )->register();
 			( new \BuddyNext\Admin\RolesTab() )->register();
+			( new \BuddyNext\Admin\Insights() )->register();
 			( new \BuddyNext\Admin\ModerationQueue() )->register();
 			( new PageSetup() )->register();
 
