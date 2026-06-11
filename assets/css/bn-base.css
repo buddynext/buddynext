@@ -2129,28 +2129,17 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	text-decoration: none;
 }
 /* Hover / focus / active read as a soft SAME-TONE highlight (accent at low
-   opacity) — never a heavy theme fill and never a box. The parent theme adds a
-   1px border to bare <button> on hover/focus; force the border to bottom-only
-   (the underline) so that border can never draw a box around the tab. The
-   `.bn-tabs` prefix keeps this ahead of the theme regardless of load order. */
+   opacity) — never a heavy fill and never a box. Keyboard focus adds a clean
+   accent underline (inset shadow, no layout shift). */
 .bn-tabs .bn-tab:hover,
 .bn-tabs .bn-tab:focus,
-.bn-tabs .bn-tab:focus-visible,
 .bn-tabs .bn-tab:active {
 	color: var(--bn-ink);
 	background: color-mix(in oklab, var(--bn-accent) 8%, transparent);
-	border-width: 0 0 2px;
-	border-top-color: transparent;
-	border-inline-color: transparent;
-}
-/* Non-keyboard interaction carries no shadow; keyboard focus adds a clean accent
-   underline (inset shadow, no layout shift) — never a rounded box. */
-.bn-tabs .bn-tab:hover,
-.bn-tabs .bn-tab:focus,
-.bn-tabs .bn-tab:active {
-	box-shadow: none;
 }
 .bn-tabs .bn-tab:focus-visible {
+	color: var(--bn-ink);
+	background: color-mix(in oklab, var(--bn-accent) 8%, transparent);
 	outline: none;
 	box-shadow: inset 0 -2px 0 0 var(--bn-accent);
 }

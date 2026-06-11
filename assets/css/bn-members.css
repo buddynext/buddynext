@@ -1093,12 +1093,3 @@
 }
 
 
-/* ── Hover/focus geometry stability (parent-theme defense) ──────────────────
- * The active parent theme adds a 1px border to bare <button>/<a> on hover/
- * focus, which grows these borderless controls by 2px and shoves their
- * row-mates around. Reserve the border transparently at rest so a theme
- * border only recolours them, never resizes them. */
-.bn-md-card__menu-item {
-	border: 1px solid transparent;
-	box-sizing: border-box;
-}

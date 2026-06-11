@@ -1941,11 +1941,7 @@
 .bn-composer__tool {
 	width: 32px;
 	height: 32px;
-	/* Reserve the border so the active theme's hover/focus border (1px on bare
-	   <button>) only recolours it instead of growing the control by 2px and
-	   shoving the neighbouring tools — the "jumpy on hover" bug. */
-	border: 1px solid transparent;
-	box-sizing: border-box;
+	border: none;
 	background: transparent;
 	border-radius: var(--r-md);
 	display: inline-flex;
@@ -1960,31 +1956,6 @@
 .bn-composer__tool .bn-icon,
 .bn-composer__tool svg { width: 18px; height: 18px; }
 
-/* ── Hover/focus geometry stability (parent-theme defense) ──────────────────
- * The active parent theme (Astra/BuddyX) injects a 1px border onto bare
- * <button> at :hover / :focus. These borderless feed + composer controls live
- * in tight rows, so that 1px would grow them by 2px and shove their row-mates
- * sideways — the "jumpy on hover" bug. Reserve the border transparently at rest
- * (with border-box) so a theme border only RECOLOURS them, never resizes. */
-.bn-post-card__action-btn,
-.bn-post-card__emoji-btn,
-.bn-post-card__reactors-trigger,
-.bn-post-card__menu,
-.bn-post-card__menu-item,
-.bn-post-card__ann-dismiss,
-.bn-announcement__dismiss,
-.bn-comment__react-option,
-.bn-comment__reply-cancel,
-.bn-comment__report-btn,
-.bn-composer__draft-discard,
-.bn-composer__media-remove,
-.bn-composer__poll-close,
-.bn-composer__schedule-clear,
-.bn-composer__privacy-opt,
-.bn-composer__typeahead-item {
-	border: 1px solid transparent;
-	box-sizing: border-box;
-}
 
 .bn-composer__spacer { flex: 1; }
 

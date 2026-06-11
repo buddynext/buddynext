@@ -1565,14 +1565,3 @@
 	padding-top: var(--bn-s3, 12px);
 }
 
-/* ── Hover/focus geometry stability (parent-theme defense) ──────────────────
- * The active parent theme adds a 1px border to bare <button>/<a> on hover/
- * focus, which grows these borderless controls by 2px and shoves their
- * row-mates around. Reserve the border transparently at rest so a theme
- * border only recolours them, never resizes them. */
-.bn-dm-msg__react-opt,
-.bn-dm-emoji-pop__item,
-.bn-dm-compose__chip-x {
-	border: 1px solid transparent;
-	box-sizing: border-box;
-}
