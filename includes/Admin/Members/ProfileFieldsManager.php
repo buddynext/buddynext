@@ -1140,11 +1140,11 @@ class ProfileFieldsManager {
 			$is_last_grp  = ( $group_count - 1 === $gi );
 			$panel_id     = 'bn-pf-panel-' . $gid;
 			?>
-			<div class="bn-pf-card">
+			<div class="bn-settings-section bn-pf-card">
 
 				<!-- Group header -->
-				<div class="bn-pf-card-head">
-					<span class="bn-pf-group-name"><?php echo esc_html( $group['label'] ); ?></span>
+				<div class="bn-ss-header bn-pf-card-head">
+					<span class="bn-ss-title bn-pf-group-name"><?php echo esc_html( $group['label'] ); ?></span>
 
 					<div class="bn-pf-meta">
 						<?php if ( $is_system ) : ?>
@@ -1221,8 +1221,9 @@ class ProfileFieldsManager {
 							</form>
 						<?php endif; ?>
 					</div><!-- .bn-pf-head-actions -->
-				</div><!-- .bn-pf-card-head -->
+				</div><!-- .bn-ss-header / .bn-pf-card-head -->
 
+				<div class="bn-ss-body bn-pf-card-body">
 				<!-- Fields table -->
 				<?php if ( ! empty( $group['fields'] ) ) : ?>
 					<table class="bn-pf-table">
@@ -1559,7 +1560,8 @@ class ProfileFieldsManager {
 					</form>
 				</div><!-- .bn-pf-af-panel -->
 
-			</div><!-- .bn-pf-card -->
+			</div><!-- .bn-ss-body / .bn-pf-card-body -->
+			</div><!-- .bn-settings-section / .bn-pf-card -->
 		<?php endforeach; ?>
 
 		<!-- Add Group -->
