@@ -976,6 +976,9 @@ class Members extends AdminPageBase {
 											admin_url( 'admin.php' )
 										);
 										?>
+										<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::profile_url( absint( $member['id'] ) ) ); ?>" class="bn-btn" data-variant="ghost" data-size="sm" target="_blank" rel="noopener">
+											<?php esc_html_e( 'View', 'buddynext' ); ?>
+										</a>
 										<a href="<?php echo esc_url( $edit_url ); ?>" class="bn-btn" data-variant="ghost" data-size="sm">
 											<?php esc_html_e( 'Edit', 'buddynext' ); ?>
 										</a>

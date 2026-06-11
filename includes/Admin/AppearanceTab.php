@@ -63,7 +63,7 @@ class AppearanceTab {
 			'dark'  => __( 'Dark', 'buddynext' ),
 		);
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data" class="bn-admin-hub__form-bare">
 			<input type="hidden" name="action" value="bn_appearance_save">
 			<?php wp_nonce_field( 'bn_appearance_save' ); ?>
 

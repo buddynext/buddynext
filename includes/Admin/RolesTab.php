@@ -112,7 +112,7 @@ class RolesTab {
 
 		$current = PermissionService::get_role_map();
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-admin-hub__form-bare">
 			<input type="hidden" name="action" value="bn_roles_save">
 			<?php wp_nonce_field( 'bn_roles_save' ); ?>
 

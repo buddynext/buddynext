@@ -287,21 +287,27 @@ class Spaces extends AdminPageBase {
 									<td><?php echo esc_html( (string) $space['member_count'] ); ?></td>
 									<td><?php echo esc_html( (string) $created ); ?></td>
 									<td>
-										<form method="post"
-												action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-												class="bn-delete-space-form">
-											<?php wp_nonce_field( 'bn_delete_space' ); ?>
-											<input type="hidden" name="action" value="bn_delete_space">
-											<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
-											<button type="submit"
-													class="bn-btn"
-													data-variant="danger"
-													data-size="sm"
-													data-bn-delete-space-trigger
-													data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
-												<?php esc_html_e( 'Delete', 'buddynext' ); ?>
-											</button>
-										</form>
+										<div class="bn-row-actions">
+											<a href="<?php echo esc_url( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ); ?>"
+													class="bn-btn" data-variant="ghost" data-size="sm" target="_blank" rel="noopener">
+												<?php esc_html_e( 'View', 'buddynext' ); ?>
+											</a>
+											<form method="post"
+													action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+													class="bn-delete-space-form">
+												<?php wp_nonce_field( 'bn_delete_space' ); ?>
+												<input type="hidden" name="action" value="bn_delete_space">
+												<input type="hidden" name="space_id" value="<?php echo esc_attr( (string) $space['id'] ); ?>">
+												<button type="submit"
+														class="bn-btn"
+														data-variant="danger"
+														data-size="sm"
+														data-bn-delete-space-trigger
+														data-space-name="<?php echo esc_attr( (string) $space['name'] ); ?>">
+													<?php esc_html_e( 'Delete', 'buddynext' ); ?>
+												</button>
+											</form>
+										</div>
 									</td>
 								</tr>
 							<?php endforeach; ?>

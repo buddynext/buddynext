@@ -314,6 +314,38 @@
 	margin: 0;
 }
 
+/* ── Auto-card corrections ────────────────────────────────────────────────
+ *
+ * The auto-card above is for un-migrated bare Pro forms. Two cases must NOT
+ * get a card, or they look like stray boxes / double containers:
+ *
+ *   1. Action forms — a form whose only controls are buttons (Export, Delete,
+ *      a lone Save). They carry no field inputs, so we detect "no real field"
+ *      via :has() and strip the chrome, laying them out inline instead.
+ *   2. Forms inside our .bn-settings-section card vocabulary — the section is
+ *      already the card; a second card is the "double container" bug.
+ * ───────────────────────────────────────────────────────────────────────── */
+.bn-admin-hub__main form:not(.bn-admin-hub__picker):not(:has(.form-table)):not(:has(textarea)):not(:has(select)):not(:has(input[type="text"])):not(:has(input[type="email"])):not(:has(input[type="url"])):not(:has(input[type="number"])):not(:has(input[type="search"])):not(:has(input[type="password"])):not(:has(input[type="checkbox"])):not(:has(input[type="radio"])):not(:has(input[type="file"])):not(:has(input[type="color"])),
+.bn-admin-hub__main--wide form:not(.bn-admin-hub__picker):not(:has(.form-table)):not(:has(textarea)):not(:has(select)):not(:has(input[type="text"])):not(:has(input[type="email"])):not(:has(input[type="url"])):not(:has(input[type="number"])):not(:has(input[type="search"])):not(:has(input[type="password"])):not(:has(input[type="checkbox"])):not(:has(input[type="radio"])):not(:has(input[type="file"])):not(:has(input[type="color"])) {
+	background: none;
+	border: 0;
+	box-shadow: none;
+	padding: 0;
+	margin: 0 6px 6px 0;
+	display: inline-block;
+	vertical-align: top;
+}
+
+/* Forms inside our card sections already have card chrome — no second card. */
+.bn-admin-hub__main .bn-settings-section form,
+.bn-admin-hub__main--wide .bn-settings-section form {
+	background: none;
+	border: 0;
+	box-shadow: none;
+	padding: 0;
+	margin: 0;
+}
+
 /* WP default form-table cell padding is tight — bump for readability. */
 .bn-admin-hub__main .form-table th,
 .bn-admin-hub__main .form-table td,
