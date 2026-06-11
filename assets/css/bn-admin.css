@@ -1963,3 +1963,51 @@ button.bn-btn-danger:hover {
 }
 .bn-pf-hook-rows:empty,
 .bn-pf-hook-rows tbody:empty { display: none; }
+
+/* Reactions enable palette (Settings → Social). Stacked under its label, the
+   reaction toggles wrap as compact chips instead of being flung to the far
+   right by the toggle-row layout. */
+.bn-reaction-field .bn-tl-title {
+	display: block;
+	font-weight: var(--bn-a-fw-semibold);
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-1);
+}
+.bn-reaction-field .bn-tl-desc {
+	display: block;
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-2);
+	margin-bottom: var(--bn-a-s3);
+}
+.bn-reaction-palette {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-a-s2);
+}
+.bn-reaction-palette__item {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px 6px 8px;
+	border: 1px solid var(--bn-a-border);
+	border-radius: 999px;
+	background: var(--bn-a-bg);
+	cursor: pointer;
+	font-size: var(--bn-a-text-sm);
+	user-select: none;
+	transition: border-color 0.12s, background 0.12s;
+}
+.bn-reaction-palette__item:hover {
+	border-color: var(--bn-a-text-3);
+	background: var(--bn-a-bg-subtle);
+}
+.bn-reaction-palette__item:has(input:checked) {
+	border-color: var(--bn-accent);
+	background: color-mix(in oklch, var(--bn-accent) 8%, var(--bn-a-bg));
+}
+.bn-reaction-palette__emoji {
+	width: 20px;
+	height: 20px;
+	display: inline-block;
+	vertical-align: middle;
+}

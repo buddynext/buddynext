@@ -844,11 +844,9 @@ class Settings extends AdminPageBase {
 		$bn_all_reactions     = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
 		$bn_enabled_reactions = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
 		?>
-		<div class="bn-toggle-row">
-			<div class="bn-tl-label">
-				<span class="bn-tl-title"><?php esc_html_e( 'Reactions', 'buddynext' ); ?></span>
-				<span class="bn-tl-desc"><?php esc_html_e( 'Choose which reactions members can use on posts and comments. At least one is always kept.', 'buddynext' ); ?></span>
-			</div>
+		<div class="bn-field bn-reaction-field">
+			<span class="bn-tl-title"><?php esc_html_e( 'Reactions', 'buddynext' ); ?></span>
+			<span class="bn-tl-desc"><?php esc_html_e( 'Choose which reactions members can use on posts and comments. At least one is always kept.', 'buddynext' ); ?></span>
 			<div class="bn-reaction-palette">
 				<?php foreach ( $bn_all_reactions as $bn_reaction ) : ?>
 					<label class="bn-reaction-palette__item">
