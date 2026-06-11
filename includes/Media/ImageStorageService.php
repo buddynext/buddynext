@@ -7,7 +7,7 @@
  * Member and space avatars/covers are NOT WordPress attachments (no
  * wp_posts / wp_postmeta rows) — at 100k members that would bloat core tables.
  * Each image is a plain file whose URL is stored in usermeta
- * (`buddynext_avatar_url` / `buddynext_cover_url`) or the bn_spaces columns.
+ * (`bn_avatar` / `buddynext_cover_url`) or the bn_spaces columns.
  *
  * LAYOUT
  * ──────

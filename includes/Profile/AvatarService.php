@@ -100,9 +100,14 @@ class AvatarService {
 		}
 
 		// ── 1. User's own custom upload always takes precedence ────────────────
+		// Canonical local-upload key is `bn_avatar` (written by ProfileService,
+		// the member admin, and the demo seeder; read by get_avatar_url()).
+		// Must match that key so uploaded avatars also surface through WordPress
+		// core get_avatar() contexts (comments, admin user list, REST), not just
+		// BuddyNext's own templates. The filter remains the external override seam.
 		$custom = (string) apply_filters( 'buddynext_avatar_url', '', $user->ID );
 		if ( '' === $custom ) {
-			$custom = (string) get_user_meta( $user->ID, 'buddynext_avatar_url', true );
+			$custom = (string) get_user_meta( $user->ID, 'bn_avatar', true );
 		}
 		if ( '' !== $custom ) {
 			$args['url']          = $this->pick_variation( $custom, $user->ID, $args );

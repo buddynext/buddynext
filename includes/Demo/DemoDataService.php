@@ -504,11 +504,12 @@ class DemoDataService {
 			return;
 		}
 		if ( 'user' === $owner ) {
-			$meta_key = ( 'avatar' === $kind ) ? 'buddynext_avatar_url' : 'buddynext_cover_url';
+			// Write the canonical key for each kind: avatars live under `bn_avatar`,
+			// covers under `buddynext_cover_url` — the same keys the profile upload
+			// flow and renderers use, so seeded media resolves identically to real
+			// uploads (no demo-only dual-key shim).
+			$meta_key = ( 'avatar' === $kind ) ? 'bn_avatar' : 'buddynext_cover_url';
 			update_user_meta( $id, $meta_key, esc_url_raw( $stored ) );
-			if ( 'avatar' === $kind ) {
-				update_user_meta( $id, 'bn_avatar', esc_url_raw( $stored ) );
-			}
 		}
 	}
 }
