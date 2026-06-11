@@ -52,6 +52,19 @@ $connection_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM 
 $post_count       = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published'", $user_id ) );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+// --- Social-graph member lists for the in-page Followers / Following /
+// Connections tabs (rendered inside the same profile shell, not as separate
+// bare pages). Capped for the panel; the count chip shows the true total.
+$bn_pf_ids_to_users   = static function ( array $ids ): array {
+	return array_values( array_filter( array_map( static fn( $id ) => get_userdata( (int) $id ), $ids ) ) );
+};
+$bn_follow_svc        = buddynext_service( 'follows' );
+$bn_conn_svc          = buddynext_service( 'connections' );
+$follower_users       = $bn_pf_ids_to_users( array_slice( $bn_follow_svc->followers( $user_id ), 0, 60 ) );
+$following_users      = $bn_pf_ids_to_users( array_slice( $bn_follow_svc->following( $user_id ), 0, 60 ) );
+$connection_users     = $bn_pf_ids_to_users( $bn_conn_svc->connections( $user_id, 60, 0 ) );
+$pending_follow_users = $is_own_profile ? $bn_pf_ids_to_users( $bn_follow_svc->pending_followers( $user_id ) ) : array();
+
 // --- Social graph state (viewer vs. this profile) -------------------------
 $is_following        = false;
 $is_connected        = false;
@@ -77,8 +90,8 @@ if ( ! $is_own_profile && $current_user_id ) {
 	// "2nd-degree" label only fires when there's an actual mutual
 	// connection, not just a follow. ConnectionService::connection_degree
 	// returns 1 (direct), 2 (shared mutual), or 3 (no shared mutual).
-	$degree              = buddynext_service( 'connections' )->connection_degree( $current_user_id, $user_id );
-	$degree_badge        = 1 === $degree ? '1st' : ( 2 === $degree ? '2nd' : '3rd+' );
+	$degree       = buddynext_service( 'connections' )->connection_degree( $current_user_id, $user_id );
+	$degree_badge = 1 === $degree ? '1st' : ( 2 === $degree ? '2nd' : '3rd+' );
 }
 
 $mutual_count = ( ! $is_own_profile && $current_user_id ) ? count( buddynext_service( 'connections' )->mutual_connections( $current_user_id, $user_id ) ) : 0;
@@ -201,7 +214,7 @@ do_action( 'buddynext_profile_before', (int) $user_id );
 // `+N` next to the stat value when > 0. All four COUNT queries are
 // index-only scans on (user_id, created_at) and run once per profile view.
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$post_delta_7d       = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
+$post_delta_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
 // status='approved' so pending follow-requests (S2 private-account
 // gate) don't bump the absolute count, keeping this delta consistent
 // with FollowService::follower_count / following_count.
@@ -210,11 +223,12 @@ $following_delta_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FR
 $connection_delta_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_connections WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id, $user_id ) );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-// Format a 7-day delta as `+N` chip text. Negative deltas would arrive
-// from un-follows / connection removals — currently those don't carry a
-// `created_at` semantic so we render only positive deltas, and only when
-// non-zero.
-$bn_delta_chip = static fn( int $n ): array => $n > 0
+// Format a 7-day "+N this week" growth chip. Rendered only for a genuine
+// PARTIAL gain (0 < n < total): when every item is new this week (n === total,
+// e.g. a brand-new account or freshly-seeded data) the chip would just repeat
+// the count — "2 Followers +2" — so it is suppressed. Negative deltas (un-
+// follows) carry no created_at semantic, so only positive deltas are shown.
+$bn_delta_chip = static fn( int $n, int $total ): array => ( $n > 0 && $n < $total )
 	? array(
 		'delta' => '+' . $n,
 		'trend' => 'up',
@@ -232,35 +246,41 @@ $bn_pf_stats = array(
 			'data_tab'    => 'posts',
 			'aria_label'  => __( 'Show posts', 'buddynext' ),
 		),
-		$bn_delta_chip( $post_delta_7d )
+		$bn_delta_chip( $post_delta_7d, $post_count )
 	),
 	array_merge(
 		array(
-			'slug'    => 'followers',
-			'label'   => __( 'Followers', 'buddynext' ),
-			'value'   => $format_count( $follower_count ),
-			'href'    => \BuddyNext\Core\PageRouter::followers_url( (int) $user_id ),
-			'wp_text' => 'context.followerCount',
+			'slug'        => 'followers',
+			'label'       => __( 'Followers', 'buddynext' ),
+			'value'       => $format_count( $follower_count ),
+			'href'        => \BuddyNext\Core\PageRouter::followers_url( (int) $user_id ),
+			'wp_on_click' => 'actions.setTab',
+			'data_tab'    => 'followers',
+			'wp_text'     => 'context.followerCount',
 		),
-		$bn_delta_chip( $follower_delta_7d )
+		$bn_delta_chip( $follower_delta_7d, $follower_count )
 	),
 	array_merge(
 		array(
-			'slug'  => 'following',
-			'label' => __( 'Following', 'buddynext' ),
-			'value' => $format_count( $following_count ),
-			'href'  => \BuddyNext\Core\PageRouter::following_url( (int) $user_id ),
+			'slug'        => 'following',
+			'label'       => __( 'Following', 'buddynext' ),
+			'value'       => $format_count( $following_count ),
+			'href'        => \BuddyNext\Core\PageRouter::following_url( (int) $user_id ),
+			'wp_on_click' => 'actions.setTab',
+			'data_tab'    => 'following',
 		),
-		$bn_delta_chip( $following_delta_7d )
+		$bn_delta_chip( $following_delta_7d, $following_count )
 	),
 	array_merge(
 		array(
-			'slug'  => 'connections',
-			'label' => __( 'Connections', 'buddynext' ),
-			'value' => $format_count( $connection_count ),
-			'href'  => \BuddyNext\Core\PageRouter::connections_url( (int) $user_id ),
+			'slug'        => 'connections',
+			'label'       => __( 'Connections', 'buddynext' ),
+			'value'       => $format_count( $connection_count ),
+			'href'        => \BuddyNext\Core\PageRouter::connections_url( (int) $user_id ),
+			'wp_on_click' => 'actions.setTab',
+			'data_tab'    => 'connections',
 		),
-		$bn_delta_chip( $connection_delta_7d )
+		$bn_delta_chip( $connection_delta_7d, $connection_count )
 	),
 );
 
@@ -288,6 +308,21 @@ $bn_pf_tabs       = array(
 		'slug'  => 'likes',
 		'label' => __( 'Likes', 'buddynext' ),
 		'count' => $bn_tab_count_for( $like_count ),
+	),
+	array(
+		'slug'  => 'followers',
+		'label' => __( 'Followers', 'buddynext' ),
+		'count' => $bn_tab_count_for( $follower_count ),
+	),
+	array(
+		'slug'  => 'following',
+		'label' => __( 'Following', 'buddynext' ),
+		'count' => $bn_tab_count_for( $following_count ),
+	),
+	array(
+		'slug'  => 'connections',
+		'label' => __( 'Connections', 'buddynext' ),
+		'count' => $bn_tab_count_for( $connection_count ),
 	),
 );
 if ( $has_jt_tab ) {
@@ -386,7 +421,7 @@ $bn_pf_ctx = array(
 	 * Keys/groups the hero + about-cards already surface prominently are
 	 * skipped to avoid visible duplication; everything else renders below.
 	 */
-	$bn_pf_hero_keys = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
+	$bn_pf_hero_keys   = array( 'headline', 'bio', 'pronouns', 'location', 'website' );
 	$bn_pf_skip_groups = array( 'work_experience', 'education', 'social_links' );
 
 	$bn_pf_detail_sections = array();
@@ -415,8 +450,8 @@ $bn_pf_ctx = array(
 					if ( '' === $bn_pf_val ) {
 						continue;
 					}
-					$bn_pf_label   = isset( $bn_pf_field['label'] ) ? (string) $bn_pf_field['label'] : '';
-					$bn_pf_display = \BuddyNext\Profile\FieldType::render_display( $bn_pf_field, $bn_pf_field['value'] ?? '' );
+					$bn_pf_label       = isset( $bn_pf_field['label'] ) ? (string) $bn_pf_field['label'] : '';
+					$bn_pf_display     = \BuddyNext\Profile\FieldType::render_display( $bn_pf_field, $bn_pf_field['value'] ?? '' );
 					$bn_pf_entry_rows .= '<div class="bn-pf-detail"><dt class="bn-pf-detail__label">' . esc_html( $bn_pf_label ) . '</dt><dd class="bn-pf-detail__value">' . $bn_pf_display . '</dd></div>';
 				}
 				if ( '' !== $bn_pf_entry_rows ) {
@@ -488,17 +523,21 @@ $bn_pf_ctx = array(
 	buddynext_get_template(
 		'parts/profile-tab-panel.php',
 		array(
-			'active_tab'       => 'posts',
-			'profile_user_id'  => (int) $user_id,
-			'viewer_id'        => (int) $current_user_id,
-			'is_owner'         => (bool) $is_own_profile,
-			'display_name'     => (string) $display_name,
-			'recent_posts'     => is_array( $recent_posts ) ? $recent_posts : array(),
-			'user_replies'     => is_array( $user_replies ) ? $user_replies : array(),
-			'user_media'       => is_array( $user_media ) ? $user_media : array(),
-			'user_likes'       => is_array( $user_likes ) ? $user_likes : array(),
-			'jt_discussions'   => is_array( $jt_discussions ) ? $jt_discussions : array(),
-			'show_discussions' => (bool) $show_discussions,
+			'active_tab'           => 'posts',
+			'profile_user_id'      => (int) $user_id,
+			'viewer_id'            => (int) $current_user_id,
+			'is_owner'             => (bool) $is_own_profile,
+			'display_name'         => (string) $display_name,
+			'recent_posts'         => is_array( $recent_posts ) ? $recent_posts : array(),
+			'user_replies'         => is_array( $user_replies ) ? $user_replies : array(),
+			'user_media'           => is_array( $user_media ) ? $user_media : array(),
+			'user_likes'           => is_array( $user_likes ) ? $user_likes : array(),
+			'jt_discussions'       => is_array( $jt_discussions ) ? $jt_discussions : array(),
+			'show_discussions'     => (bool) $show_discussions,
+			'follower_users'       => $follower_users,
+			'following_users'      => $following_users,
+			'connection_users'     => $connection_users,
+			'pending_follow_users' => $pending_follow_users,
 		)
 	);
 

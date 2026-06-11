@@ -353,18 +353,6 @@ class PageRouter {
 				$hub_title = '' !== $profile_name
 					? sprintf( /* translators: %s: member display name */ __( '%s · Profile', 'buddynext' ), $profile_name )
 					: __( 'Profile', 'buddynext' );
-			} elseif ( 'profile/followers.php' === $template ) {
-				$hub_title = '' !== $profile_name
-					? sprintf( /* translators: %s: member display name */ __( 'Followers · %s', 'buddynext' ), $profile_name )
-					: __( 'Followers', 'buddynext' );
-			} elseif ( 'profile/following.php' === $template ) {
-				$hub_title = '' !== $profile_name
-					? sprintf( /* translators: %s: member display name */ __( 'Following · %s', 'buddynext' ), $profile_name )
-					: __( 'Following', 'buddynext' );
-			} elseif ( 'profile/connections.php' === $template ) {
-				$hub_title = '' !== $profile_name
-					? sprintf( /* translators: %s: member display name */ __( 'Connections · %s', 'buddynext' ), $profile_name )
-					: __( 'Connections', 'buddynext' );
 			}
 		}
 
@@ -843,12 +831,6 @@ class PageRouter {
 					switch ( $profile_action ) {
 						case 'edit':
 							return 'profile/edit.php';
-						case 'connections':
-							return 'profile/connections.php';
-						case 'followers':
-							return 'profile/followers.php';
-						case 'following':
-							return 'profile/following.php';
 						default:
 							// `media` (and any other profile action without a
 							// dedicated template) opens the profile view; view.php

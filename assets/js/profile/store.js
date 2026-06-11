@@ -613,7 +613,7 @@ function syncDirtyAttr( dirty ) {
 
 /* -- Tab URL sync ------------------------------------------------------- */
 
-var BN_VALID_TABS = [ 'posts', 'replies', 'media', 'likes', 'discussions' ];
+var BN_VALID_TABS = [ 'posts', 'replies', 'media', 'likes', 'followers', 'following', 'connections', 'discussions' ];
 
 function applyTabId( tabId ) {
 	if ( ! tabId || BN_VALID_TABS.indexOf( tabId ) === -1 ) {
@@ -646,8 +646,13 @@ function pushTabToUrl( tabId ) {
 
 function applyTabFromUrl() {
 	var params = new URLSearchParams( window.location.search );
-	var tab    = params.get( 'tab' ) || 'posts';
-	applyTabId( tab );
+	var tab    = params.get( 'tab' );
+	if ( ! tab ) {
+		// No ?tab= override — honour the server-rendered active tab so path-based
+		// deep links (e.g. /members/x/followers/) open the right in-page tab.
+		try { tab = getContext().activeTab; } catch ( _e ) {}
+	}
+	applyTabId( tab || 'posts' );
 }
 
 /* -- Store ------------------------------------------------------------- */
@@ -693,6 +698,10 @@ store( 'buddynext/profile', {
 		setTab( event ) {
 			const tab    = event.target.closest( '[data-tab]' );
 			if ( ! tab ) { return; }
+			// Preserve "open in new tab" for modified/middle clicks on stat-chip
+			// links; a plain left-click switches the panel in place (no reload).
+			if ( event && ( event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1 ) ) { return; }
+			if ( event && typeof event.preventDefault === 'function' ) { event.preventDefault(); }
 			const tabId  = tab.dataset.tab;
 			applyTabId( tabId );
 			pushTabToUrl( tabId );

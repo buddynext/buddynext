@@ -38,18 +38,22 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $args = array(
-	'active_tab'       => isset( $active_tab ) ? (string) $active_tab : 'posts',
-	'profile_user_id'  => isset( $profile_user_id ) ? (int) $profile_user_id : 0,
-	'viewer_id'        => isset( $viewer_id ) ? (int) $viewer_id : 0,
-	'is_owner'         => isset( $is_owner ) ? (bool) $is_owner : false,
-	'display_name'     => isset( $display_name ) ? (string) $display_name : '',
-	'recent_posts'     => isset( $recent_posts ) && is_array( $recent_posts ) ? $recent_posts : array(),
-	'user_replies'     => isset( $user_replies ) && is_array( $user_replies ) ? $user_replies : array(),
-	'user_media'       => isset( $user_media ) && is_array( $user_media ) ? $user_media : array(),
-	'user_likes'       => isset( $user_likes ) && is_array( $user_likes ) ? $user_likes : array(),
-	'jt_discussions'   => isset( $jt_discussions ) && is_array( $jt_discussions ) ? $jt_discussions : array(),
-	'show_discussions' => isset( $show_discussions ) ? (bool) $show_discussions : false,
-	'classes'          => isset( $classes ) ? (array) $classes : array(),
+	'active_tab'           => isset( $active_tab ) ? (string) $active_tab : 'posts',
+	'profile_user_id'      => isset( $profile_user_id ) ? (int) $profile_user_id : 0,
+	'viewer_id'            => isset( $viewer_id ) ? (int) $viewer_id : 0,
+	'is_owner'             => isset( $is_owner ) ? (bool) $is_owner : false,
+	'display_name'         => isset( $display_name ) ? (string) $display_name : '',
+	'recent_posts'         => isset( $recent_posts ) && is_array( $recent_posts ) ? $recent_posts : array(),
+	'user_replies'         => isset( $user_replies ) && is_array( $user_replies ) ? $user_replies : array(),
+	'user_media'           => isset( $user_media ) && is_array( $user_media ) ? $user_media : array(),
+	'user_likes'           => isset( $user_likes ) && is_array( $user_likes ) ? $user_likes : array(),
+	'jt_discussions'       => isset( $jt_discussions ) && is_array( $jt_discussions ) ? $jt_discussions : array(),
+	'show_discussions'     => isset( $show_discussions ) ? (bool) $show_discussions : false,
+	'follower_users'       => isset( $follower_users ) && is_array( $follower_users ) ? $follower_users : array(),
+	'following_users'      => isset( $following_users ) && is_array( $following_users ) ? $following_users : array(),
+	'connection_users'     => isset( $connection_users ) && is_array( $connection_users ) ? $connection_users : array(),
+	'pending_follow_users' => isset( $pending_follow_users ) && is_array( $pending_follow_users ) ? $pending_follow_users : array(),
+	'classes'              => isset( $classes ) ? (array) $classes : array(),
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -72,15 +76,19 @@ $bn_class   = trim(
 	)
 );
 
-$bn_pf_uid       = (int) $args['profile_user_id'];
-$bn_pf_viewer    = (int) $args['viewer_id'];
-$bn_pf_is_owner  = (bool) $args['is_owner'];
-$bn_pf_name      = (string) $args['display_name'];
-$bn_recent_posts = (array) $args['recent_posts'];
-$bn_user_replies = (array) $args['user_replies'];
-$bn_user_media   = (array) $args['user_media'];
-$bn_user_likes   = (array) $args['user_likes'];
-$bn_jt_disc      = (array) $args['jt_discussions'];
+$bn_pf_uid          = (int) $args['profile_user_id'];
+$bn_pf_viewer       = (int) $args['viewer_id'];
+$bn_pf_is_owner     = (bool) $args['is_owner'];
+$bn_pf_name         = (string) $args['display_name'];
+$bn_recent_posts    = (array) $args['recent_posts'];
+$bn_user_replies    = (array) $args['user_replies'];
+$bn_user_media      = (array) $args['user_media'];
+$bn_user_likes      = (array) $args['user_likes'];
+$bn_jt_disc         = (array) $args['jt_discussions'];
+$bn_followers       = (array) $args['follower_users'];
+$bn_following       = (array) $args['following_users'];
+$bn_connections     = (array) $args['connection_users'];
+$bn_pending_follows = (array) $args['pending_follow_users'];
 
 do_action( 'buddynext_part_profile_tab_panel_before', $args );
 ?>
@@ -150,7 +158,7 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 				// MediaRenderer::gallery() emits lightbox-bound tiles, video,
 				// and audio. No WPMediaVerse markup/JS — BuddyNext owns the UX.
 				if ( ! empty( $bn_user_media ) ) {
-					echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', (array) $bn_user_media ) ); // phpcs:ignore WordPress.Security.EscapingOutput.OutputNotEscaped
+					echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', (array) $bn_user_media ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer emits pre-sanitized markup.
 				} else {
 					?>
 					<div class="bn-empty-state"><?php esc_html_e( 'No media uploaded yet.', 'buddynext' ); ?></div>
@@ -205,6 +213,140 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 				<?php endif; ?>
 			</div>
 			<?php endif; ?>
+
+			<!-- Followers tab content -->
+			<div class="bn-profile-tab-panel bn-pf-people-panel" data-tab-panel="followers" hidden>
+				<?php if ( ! empty( $bn_pending_follows ) ) : ?>
+					<section class="bn-follow-requests" aria-label="<?php esc_attr_e( 'Pending follow requests', 'buddynext' ); ?>">
+						<header class="bn-follow-requests__head">
+							<h3 class="bn-follow-requests__title">
+								<?php
+								printf(
+									/* translators: %d: number of pending follow requests */
+									esc_html( _n( 'Pending request', 'Pending requests', count( $bn_pending_follows ), 'buddynext' ) ) . ' <span class="bn-follow-requests__count">%d</span>',
+									(int) count( $bn_pending_follows )
+								);
+								?>
+							</h3>
+							<p class="bn-follow-requests__sub"><?php esc_html_e( 'Your account is private. Approve who can follow you.', 'buddynext' ); ?></p>
+						</header>
+						<ul class="bn-follow-requests__list" role="list">
+							<?php
+							foreach ( $bn_pending_follows as $bn_req_user ) :
+								if ( ! $bn_req_user instanceof WP_User ) {
+									continue;
+								}
+								$bn_req_id  = (int) $bn_req_user->ID;
+								$bn_req_url = \BuddyNext\Core\PageRouter::profile_url( $bn_req_id );
+								$bn_req_ctx = wp_json_encode(
+									array(
+										'followerId' => $bn_req_id,
+										'targetName' => $bn_req_user->user_nicename,
+										'hidden'     => false,
+										'busy'       => false,
+										'restUrl'    => rest_url( 'buddynext/v1' ),
+										'nonce'      => wp_create_nonce( 'wp_rest' ),
+									)
+								);
+								?>
+								<li class="bn-follow-requests__row" data-wp-interactive="buddynext/follow-requests" data-wp-context='<?php echo esc_attr( (string) $bn_req_ctx ); ?>' data-wp-bind--hidden="state.rowHidden">
+									<a href="<?php echo esc_url( $bn_req_url ); ?>" class="bn-follow-requests__avatar" aria-hidden="true" tabindex="-1">
+										<img src="<?php echo esc_url( get_avatar_url( $bn_req_id, array( 'size' => 96 ) ) ); ?>" alt="" loading="lazy" />
+									</a>
+									<div class="bn-follow-requests__id">
+										<a href="<?php echo esc_url( $bn_req_url ); ?>" class="bn-follow-requests__name"><?php echo esc_html( $bn_req_user->display_name ); ?></a>
+										<span class="bn-follow-requests__handle">@<?php echo esc_html( $bn_req_user->user_nicename ); ?></span>
+									</div>
+									<div class="bn-follow-requests__actions">
+										<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-wp-on--click="actions.reject"><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
+										<button type="button" class="bn-btn" data-variant="primary" data-size="sm" data-wp-on--click="actions.approve"><?php esc_html_e( 'Approve', 'buddynext' ); ?></button>
+									</div>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+					</section>
+				<?php endif; ?>
+				<?php if ( ! empty( $bn_followers ) ) : ?>
+					<?php
+					buddynext_get_template(
+						'parts/member-grid.php',
+						array(
+							'members'   => $bn_followers,
+							'viewer_id' => $bn_pf_viewer,
+						)
+					);
+					?>
+				<?php else : ?>
+					<div class="bn-empty-state">
+						<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
+						<div class="bn-empty-title">
+							<?php
+							echo esc_html(
+								$bn_pf_is_owner
+									? __( 'No followers yet', 'buddynext' )
+									: sprintf( /* translators: %s: member name */ __( '%s has no followers yet.', 'buddynext' ), $bn_pf_name )
+							);
+							?>
+						</div>
+					</div>
+				<?php endif; ?>
+			</div>
+
+			<!-- Following tab content -->
+			<div class="bn-profile-tab-panel bn-pf-people-panel" data-tab-panel="following" hidden>
+				<?php if ( ! empty( $bn_following ) ) : ?>
+					<?php
+					buddynext_get_template(
+						'parts/member-grid.php',
+						array(
+							'members'   => $bn_following,
+							'viewer_id' => $bn_pf_viewer,
+						)
+					);
+					?>
+				<?php else : ?>
+					<div class="bn-empty-state">
+						<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'user-plus' ); ?></div>
+						<div class="bn-empty-title">
+							<?php
+							echo esc_html(
+								$bn_pf_is_owner
+									? __( 'You are not following anyone yet', 'buddynext' )
+									: sprintf( /* translators: %s: member name */ __( '%s is not following anyone yet.', 'buddynext' ), $bn_pf_name )
+							);
+							?>
+						</div>
+					</div>
+				<?php endif; ?>
+			</div>
+
+			<!-- Connections tab content -->
+			<div class="bn-profile-tab-panel bn-pf-people-panel" data-tab-panel="connections" hidden>
+				<?php if ( ! empty( $bn_connections ) ) : ?>
+					<?php
+					buddynext_get_template(
+						'parts/member-grid.php',
+						array(
+							'members'   => $bn_connections,
+							'viewer_id' => $bn_pf_viewer,
+						)
+					);
+					?>
+				<?php else : ?>
+					<div class="bn-empty-state">
+						<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'users' ); ?></div>
+						<div class="bn-empty-title">
+							<?php
+							echo esc_html(
+								$bn_pf_is_owner
+									? __( 'No connections yet', 'buddynext' )
+									: sprintf( /* translators: %s: member name */ __( '%s has no connections yet.', 'buddynext' ), $bn_pf_name )
+							);
+							?>
+						</div>
+					</div>
+				<?php endif; ?>
+			</div>
 
 		</div><!-- /.bn-pf-tab-content -->
 <?php
