@@ -336,9 +336,13 @@
 	vertical-align: top;
 }
 
-/* Forms inside our card sections already have card chrome — no second card. */
-.bn-admin-hub__main .bn-settings-section form,
-.bn-admin-hub__main--wide .bn-settings-section form {
+/* Forms inside ANY admin card wrapper already sit in a card — never give them
+   a second one (the "double container" bug). Covers every card vocabulary in
+   use: .bn-settings-section (Settings + new screens), .bn-card / .bn-admin-section
+   (Invites, legacy), .bn-pf-card / .bn-pf-af-panel (Profile Fields, Member Types),
+   .bn-table-wrap (Members, Spaces). */
+.bn-admin-hub .bn-admin-hub__main :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) form,
+.bn-admin-hub .bn-admin-hub__main--wide :is(.bn-settings-section, .bn-card, .bn-admin-section, .bn-pf-card, .bn-pf-af-panel, .bn-table-wrap) form {
 	background: none;
 	border: 0;
 	box-shadow: none;
