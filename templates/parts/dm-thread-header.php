@@ -139,24 +139,19 @@ do_action( 'buddynext_part_dm_thread_header_before', $args );
 				</button>
 				<span class="bn-tooltip" data-pos="bottom"><?php esc_html_e( 'Members', 'buddynext' ); ?></span>
 			</span>
+		<?php elseif ( '' !== $profile_url ) : ?>
+			<span class="bn-tooltip-trigger">
+				<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $profile_url ); ?>" aria-label="<?php esc_attr_e( 'View profile', 'buddynext' ); ?>">
+					<?php buddynext_icon( 'user' ); ?>
+				</a>
+				<span class="bn-tooltip" data-pos="bottom"><?php esc_html_e( 'Profile', 'buddynext' ); ?></span>
+			</span>
 		<?php endif; ?>
-		<span class="bn-tooltip-trigger">
-			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Search messages', 'buddynext' ); ?>">
-				<?php buddynext_icon( 'search' ); ?>
-			</button>
-			<span class="bn-tooltip" data-pos="bottom"><?php esc_html_e( 'Search', 'buddynext' ); ?></span>
-		</span>
 		<span class="bn-tooltip-trigger">
 			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'Delete conversation', 'buddynext' ); ?>" data-wp-on--click="actions.openDeleteConfirm">
 				<?php buddynext_icon( 'trash' ); ?>
 			</button>
 			<span class="bn-tooltip" data-pos="bottom"><?php esc_html_e( 'Delete', 'buddynext' ); ?></span>
-		</span>
-		<span class="bn-tooltip-trigger">
-			<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" aria-label="<?php esc_attr_e( 'More options', 'buddynext' ); ?>" data-wp-on--click="actions.openThreadOptions">
-				<?php buddynext_icon( 'more-horizontal' ); ?>
-			</button>
-			<span class="bn-tooltip" data-pos="bottom"><?php esc_html_e( 'More', 'buddynext' ); ?></span>
 		</span>
 	</div>
 </header>

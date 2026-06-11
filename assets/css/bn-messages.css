@@ -443,6 +443,7 @@
 	flex-direction: column;
 	gap: 4px;
 	min-width: 0;
+	position: relative;
 }
 
 .bn-dm-msg.is-mine .bn-dm-msg__content {
@@ -483,12 +484,38 @@
 	color: var(--bn-accent-fg);
 }
 
+/*
+ * Time + read receipt sit beside the bubble and fade in on hover — Messenger
+ * style — instead of stacking under every message (which cluttered the thread
+ * and pushed the sender avatar into a detached row below the bubble). The day
+ * divider gives at-a-glance date context.
+ */
 .bn-dm-msg__meta {
+	position: absolute;
+	top: calc(100% + 2px);
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
 	font-size: var(--bn-text-2xs);
 	color: var(--bn-ink-4);
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--bn-dur-fast) var(--bn-ease);
+}
+
+.bn-dm-msg:not(.is-mine) .bn-dm-msg__meta {
+	left: 4px;
+}
+
+.bn-dm-msg.is-mine .bn-dm-msg__meta {
+	right: 4px;
+	flex-direction: row-reverse;
+}
+
+.bn-dm-msg:hover .bn-dm-msg__meta,
+.bn-dm-msg:focus-within .bn-dm-msg__meta {
+	opacity: 1;
 }
 
 .bn-dm-msg__time {
@@ -552,16 +579,36 @@
 }
 
 /* ── Per-message hover action bar (reply + react) ────────────────────────── */
+/*
+ * Hover action toolbar (react / reply / more) floats in the gutter beside the
+ * bubble — out of flow, so it neither reserves space below every message nor
+ * pushes the sender avatar into a detached row. Messenger-style.
+ */
 .bn-dm-msg__actions {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
 	display: inline-flex;
+	align-items: center;
 	gap: var(--bn-s1);
-	margin-top: 2px;
 	opacity: 0;
+	pointer-events: none;
 	transition: opacity var(--bn-dur-fast) var(--bn-ease);
 }
 
+.bn-dm-msg:not(.is-mine) .bn-dm-msg__actions {
+	left: calc(100% + var(--bn-s2));
+}
+
 .bn-dm-msg.is-mine .bn-dm-msg__actions {
+	right: calc(100% + var(--bn-s2));
 	justify-content: flex-end;
+}
+
+.bn-dm-msg:hover .bn-dm-msg__actions,
+.bn-dm-msg:focus-within .bn-dm-msg__actions,
+.bn-dm-msg__react-wrap.is-open .bn-dm-msg__actions {
+	pointer-events: auto;
 }
 
 .bn-dm-msg:hover .bn-dm-msg__actions,

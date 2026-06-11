@@ -677,10 +677,6 @@ const { actions } = store( 'buddynext/messages', {
 			} catch ( _e ) {}
 			window.location.href = ctx.messagesUrl || '?';
 		},
-		openThreadOptions() {
-			// Surfaces the delete confirm for now; richer thread options are Pro.
-			getContext().confirmOpen = true;
-		},
 
 		// ── Rail search / tabs (progressive enhancement over server links) ───────
 		onPanelSearchInput( event ) {
