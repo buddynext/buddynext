@@ -363,23 +363,20 @@ class JetonomyBridge {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		// Carry the tab hint so the stat pill jumps to the in-page Discussions
+		// tab on click (same affordance as the core Posts/Followers stats),
+		// instead of sitting as dead static text next to a clickable tab. The
+		// Discussions tab is present whenever this bridge is booted.
 		$extra[] = array(
-			'label' => __( 'Discussions', 'buddynext' ),
-			'value' => $count,
+			'label'       => __( 'Discussions', 'buddynext' ),
+			'value'       => $count,
+			'wp_on_click' => 'actions.setTab',
+			'data_tab'    => 'discussions',
 		);
 
 		return $extra;
 	}
 
-	/**
-	 * Inject Discussion context nav items (Home / Search / Leaderboard).
-	 *
-	 * Only fires when the main nav section is "discussions".
-	 *
-	 * @param array  $items   Existing context nav items.
-	 * @param string $section Current active section.
-	 * @return array
-	 */
 	/**
 	 * Create a BuddyNext notification when someone replies to a Jetonomy discussion.
 	 *
@@ -428,6 +425,15 @@ class JetonomyBridge {
 		);
 	}
 
+	/**
+	 * Inject Discussion context nav items (Home / Search / Leaderboard).
+	 *
+	 * Only fires when the main nav section is "discussions".
+	 *
+	 * @param array  $items   Existing context nav items.
+	 * @param string $section Current active section.
+	 * @return array
+	 */
 	public function inject_discussion_context_nav( array $items, string $section ): array {
 		if ( 'discussions' !== $section ) {
 			return $items;

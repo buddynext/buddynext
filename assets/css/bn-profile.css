@@ -1217,6 +1217,17 @@
 .bn-pf-completeness:hover {
 	background: color-mix(in oklab, var(--bn-accent) 16%, transparent);
 }
+/* De-duplicate the completeness indicator. The right-sidebar "Profile Strength"
+   widget (ring + % + actionable task list) is the canonical module, but it is
+   display:none below 1025px (see .bn-app__right in bn-shell.css). So show this
+   hero chip ONLY where the sidebar widget is hidden: it is the mobile/tablet
+   fallback, and on desktop the sidebar widget owns completeness — no redundant
+   pair on one screen. */
+@media (min-width: 1025px) {
+	.bn-pf-completeness {
+		display: none;
+	}
+}
 .bn-pf-completeness__ring {
 	position: relative;
 	width: 24px;

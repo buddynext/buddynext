@@ -75,7 +75,7 @@ $bn_pf_uid = (int) $args['profile_user_id'];
 do_action( 'buddynext_part_profile_stats_strip_before', $args );
 ?>
 		<!-- Stats: one pill row. Core social pills lead (emphasized); optional
-		     feature pills (gamification, forum, any plugin) follow, muted. -->
+			feature pills (gamification, forum, any plugin) follow, muted. -->
 		<div class="bn-pf-pills" role="list">
 			<?php
 			foreach ( (array) $args['stats'] as $bn_stat ) :
@@ -95,10 +95,21 @@ do_action( 'buddynext_part_profile_stats_strip_before', $args );
 				$bn_delta_html = '' !== $bn_delta
 					? sprintf( '<span class="bn-pf-pill__delta" data-trend="%1$s">%2$s</span>', esc_attr( $bn_trend ), esc_html( $bn_delta ) )
 					: '';
-				$bn_val_attr = '' !== $bn_wp_text ? ' data-wp-text="' . esc_attr( $bn_wp_text ) . '"' : '';
+				$bn_val_attr   = '' !== $bn_wp_text ? ' data-wp-text="' . esc_attr( $bn_wp_text ) . '"' : '';
 
-				if ( '' !== $bn_wp_on ) :
+				if ( '' !== $bn_wp_on && '' !== $bn_href ) :
+					// Stat maps to a tab AND has a standalone URL (followers/following/
+					// connections). Render a real link carrying the tab handler: a plain
+					// click switches the in-page tab (setTab preventDefaults), while a
+					// modifier / middle click falls through to the href so the standalone
+					// list opens in a new tab — the Twitter/LinkedIn stat affordance.
 					?>
+					<a class="bn-pf-pill bn-pf-pill--primary" href="<?php echo esc_url( $bn_href ); ?>" data-wp-on--click="<?php echo esc_attr( $bn_wp_on ); ?>"<?php echo '' !== $bn_data_tab ? ' data-tab="' . esc_attr( $bn_data_tab ) . '"' : ''; ?><?php echo '' !== $bn_aria ? ' aria-label="' . esc_attr( $bn_aria ) . '"' : ''; ?>>
+						<span class="bn-pf-pill__value"<?php echo $bn_val_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- attr pre-escaped. ?>><?php echo esc_html( $bn_value ); ?></span>
+						<span class="bn-pf-pill__label"><?php echo esc_html( $bn_label ); ?></span>
+						<?php echo $bn_delta_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped. ?>
+					</a>
+				<?php elseif ( '' !== $bn_wp_on ) : ?>
 					<button type="button" class="bn-pf-pill bn-pf-pill--primary" data-wp-on--click="<?php echo esc_attr( $bn_wp_on ); ?>"<?php echo '' !== $bn_data_tab ? ' data-tab="' . esc_attr( $bn_data_tab ) . '"' : ''; ?><?php echo '' !== $bn_aria ? ' aria-label="' . esc_attr( $bn_aria ) . '"' : ''; ?>>
 						<span class="bn-pf-pill__value"><?php echo esc_html( $bn_value ); ?></span>
 						<span class="bn-pf-pill__label"><?php echo esc_html( $bn_label ); ?></span>
@@ -139,12 +150,27 @@ do_action( 'buddynext_part_profile_stats_strip_before', $args );
 				)
 			);
 			foreach ( $bn_extra_stats as $bn_extra_stat ) :
-				?>
-				<span class="bn-pf-pill bn-pf-pill--muted" role="listitem">
-					<span class="bn-pf-pill__value"><?php echo esc_html( (string) $bn_extra_stat['value'] ); ?></span>
-					<span class="bn-pf-pill__label"><?php echo esc_html( (string) $bn_extra_stat['label'] ); ?></span>
-				</span>
-				<?php
+				$bn_xs_value = (string) $bn_extra_stat['value'];
+				$bn_xs_label = (string) $bn_extra_stat['label'];
+				// A feature stat that maps to a profile tab (e.g. Discussions) carries
+				// `wp_on_click` + `data_tab` so it jumps to that tab on click — same
+				// affordance as the core Posts/Followers stats. Feature stats with no
+				// matching tab (gamification Points / Level) stay static text.
+				$bn_xs_on  = isset( $bn_extra_stat['wp_on_click'] ) ? (string) $bn_extra_stat['wp_on_click'] : '';
+				$bn_xs_tab = isset( $bn_extra_stat['data_tab'] ) ? (string) $bn_extra_stat['data_tab'] : '';
+				if ( '' !== $bn_xs_on ) :
+					?>
+					<button type="button" class="bn-pf-pill bn-pf-pill--muted" data-wp-on--click="<?php echo esc_attr( $bn_xs_on ); ?>"<?php echo '' !== $bn_xs_tab ? ' data-tab="' . esc_attr( $bn_xs_tab ) . '"' : ''; ?>>
+						<span class="bn-pf-pill__value"><?php echo esc_html( $bn_xs_value ); ?></span>
+						<span class="bn-pf-pill__label"><?php echo esc_html( $bn_xs_label ); ?></span>
+					</button>
+				<?php else : ?>
+					<span class="bn-pf-pill bn-pf-pill--muted" role="listitem">
+						<span class="bn-pf-pill__value"><?php echo esc_html( $bn_xs_value ); ?></span>
+						<span class="bn-pf-pill__label"><?php echo esc_html( $bn_xs_label ); ?></span>
+					</span>
+					<?php
+				endif;
 			endforeach;
 			?>
 		</div>

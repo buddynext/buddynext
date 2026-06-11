@@ -326,9 +326,12 @@ $bn_pf_tabs       = array(
 	),
 );
 if ( $has_jt_tab ) {
+	// Count chip mirrors every other tab (show when > 0). The Discussions panel
+	// renders the same fetched set (capped at 20), so the badge matches its body.
 	$bn_pf_tabs[] = array(
 		'slug'  => 'discussions',
 		'label' => __( 'Discussions', 'buddynext' ),
+		'count' => $bn_tab_count_for( count( $jt_discussions ) ),
 	);
 }
 // Deep-link the active tab from the route action so /members/{slug}/media/
