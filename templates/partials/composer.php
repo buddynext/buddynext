@@ -392,8 +392,10 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 					type="button"
 					data-wp-on--click="actions.discardDraft"
 					data-wp-bind--hidden="state.draftDiscardHidden"
+					aria-label="<?php esc_attr_e( 'Discard draft', 'buddynext' ); ?>"
+					title="<?php esc_attr_e( 'Discard draft', 'buddynext' ); ?>"
 					hidden>
-					<?php esc_html_e( 'Discard draft', 'buddynext' ); ?>
+					<?php buddynext_icon( 'trash' ); ?>
 				</button>
 			</div>
 

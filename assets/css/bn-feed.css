@@ -2038,21 +2038,24 @@
 }
 
 .bn-composer__draft-discard {
-	background: transparent;
-	border: 0;
+	/* Icon button, matching the toolbar tools (32px square) instead of a text
+	 * link — consistent with the other composer controls, with a tooltip via
+	 * the title/aria-label. (border reserved by the geometry-stability rule.) */
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
 	padding: 0;
-	font-size: var(--bn-text-xs);
-	color: var(--bn-accent);
+	background: transparent;
+	color: var(--text-3);
 	cursor: pointer;
-	text-decoration: underline;
-	/* Match the toolbar control height (32px), NOT the 40px tap target — a
-	 * taller control grows the centered tools row and makes the composer jump
-	 * when the draft toggles. The adjacent tool buttons are 32px too, so this
-	 * keeps the row baseline consistent and layout-stable. */
-	min-height: 32px;
+	border-radius: var(--r-md);
+	transition: background 0.12s, color 0.12s;
 }
-
-.bn-composer__draft-discard:hover { color: var(--bn-danger); }
+.bn-composer__draft-discard .bn-icon,
+.bn-composer__draft-discard svg { width: 18px; height: 18px; }
+.bn-composer__draft-discard:hover { background: var(--bg-hover); color: var(--bn-danger); }
 .bn-composer__draft-discard[hidden] { display: none; }
 
 .bn-composer__media-preview {
