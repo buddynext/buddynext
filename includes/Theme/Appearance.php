@@ -34,39 +34,85 @@ class Appearance {
 	 * @return void
 	 */
 	public function register(): void {
-		add_filter( 'buddynext_css_vars', array( $this, 'apply_accent' ) );
+		// Priority 22 so the accent override is appended to bn-base AFTER
+		// TokenService::attach_tokens() (priority 20) — which emits the :root
+		// tokens AND the host-theme adoption block. Later source order lets an
+		// explicitly-set BN accent win over the active theme's palette.
+		add_action( 'wp_enqueue_scripts', array( $this, 'attach_accent' ), 22 );
 		add_action( 'wp_enqueue_scripts', array( $this, 'seed_default_theme' ), 21 );
 		add_action( 'wp_head', array( $this, 'print_custom_css' ), 99 );
 	}
 
 	/**
-	 * Recolour the accent palette from the saved brand colour.
-	 *
-	 * The token system is hue-driven: the entire OKLCH accent scale
-	 * (--bn-accent-50…900, and --bn-accent = --bn-accent-500) derives from
-	 * --bn-hue / --bn-chroma (see assets/css/bn-base.css — "whitelabel rebrand
-	 * only flips --bn-hue"). So we convert the picked hex to OKLCH and drive
-	 * those two knobs, which recolours every shade cohesively — primary buttons,
-	 * hovers and tints included — rather than just the base accent token.
-	 *
-	 * @param array<string,string> $vars Token map.
-	 * @return array<string,string>
+	 * The legacy default brand colour. A stored value equal to this is treated
+	 * as "not set" — the accent stays opt-in, so saving unrelated settings (or
+	 * completing setup without changing the swatch) never recolours a site that
+	 * relies on its theme's palette.
 	 */
-	public function apply_accent( array $vars ): array {
+	private const DEFAULT_BRAND = '#0073aa';
+
+	/**
+	 * Recolour the accent palette from the admin's brand colour, winning over
+	 * the active host theme when explicitly set (opt-in).
+	 *
+	 * The token system is hue-driven: the whole OKLCH accent scale derives from
+	 * --bn-hue / --bn-chroma (bn-base.css — "whitelabel rebrand only flips
+	 * --bn-hue"). We drive those so every shade recolours, AND pin the base
+	 * --bn-accent / --bn-accent-700 / --brand family that a host-theme adoption
+	 * block (e.g. Reign) re-points — emitted here AFTER that block (priority 22)
+	 * so the admin's colour wins. Left empty / at the legacy default, nothing is
+	 * emitted and the theme's palette stands.
+	 *
+	 * @return void
+	 */
+	public function attach_accent(): void {
 		$hex = sanitize_hex_color( (string) get_option( 'buddynext_brand_color', '' ) );
-		if ( ! $hex ) {
-			return $vars;
+		// Opt-in: empty or the legacy default = inherit the theme/native palette.
+		if ( ! $hex || strtolower( $hex ) === self::DEFAULT_BRAND ) {
+			return;
 		}
 
 		list( $hue, $chroma ) = $this->hex_to_oklch_hc( $hex );
+		$chroma = max( 0.05, min( 0.19, $chroma ) );
 
-		$vars['--bn-hue']        = (string) $hue;
-		$vars['--bn-accent-hue'] = (string) $hue;
-		// Keep chroma within the design's tasteful range so a very saturated pick
-		// can't blow out the neutrals that also borrow --bn-hue at low chroma.
-		$vars['--bn-chroma'] = (string) max( 0.05, min( 0.19, $chroma ) );
+		// `:root, [data-bn-theme]` matches <html> with the same (0,1,0) specificity
+		// as the theme block; appended later, so it wins. Drive the hue/chroma for
+		// the scale and pin the theme-remapped accent/brand tokens to the picked
+		// colour (hover/light derived with color-mix, already used site-wide).
+		$css = sprintf(
+			':root,[data-bn-theme]{--bn-hue:%1$s;--bn-accent-hue:%1$s;--bn-chroma:%2$s;'
+			. '--bn-accent:%3$s;--bn-accent-700:color-mix(in oklch,%3$s 80%%,black);'
+			. '--brand:%3$s;--brand-hover:color-mix(in oklch,%3$s 86%%,black);'
+			. '--brand-light:color-mix(in oklch,%3$s 14%%,white);}',
+			$hue,
+			$chroma,
+			$hex
+		);
 
-		return $vars;
+		// Some BuddyNext components (e.g. .bn-btn--primary) read the host theme's
+		// own --wp--preset--color--primary directly. Override it — but only inside
+		// the .bn-app surface, so the host theme's header/footer chrome keeps its
+		// palette while the community UI follows the admin accent.
+		$css .= sprintf(
+			'.bn-app{--wp--preset--color--primary:%1$s;'
+			. '--wp--preset--color--primary-hover:color-mix(in oklch,%1$s 86%%,black);'
+			. '--wp--preset--color--primary-light:color-mix(in oklch,%1$s 14%%,white);}',
+			$hex
+		);
+
+		// Some host themes (e.g. Reign) restyle BuddyNext primary buttons with
+		// their own hard-coded brand colour, beating the token-based rule. Reassert
+		// the admin accent on BN primary buttons inside the community surface only.
+		$css .= sprintf(
+			'.bn-app .bn-btn--primary,.bn-app .bn-btn[data-variant="primary"]{'
+			. 'background-color:%1$s!important;border-color:%1$s!important;color:#fff!important;}'
+			. '.bn-app .bn-btn--primary:hover,.bn-app .bn-btn[data-variant="primary"]:hover{'
+			. 'background-color:color-mix(in oklch,%1$s 86%%,black)!important;'
+			. 'border-color:color-mix(in oklch,%1$s 86%%,black)!important;}',
+			$hex
+		);
+
+		wp_add_inline_style( 'bn-base', $css );
 	}
 
 	/**
