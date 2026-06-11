@@ -281,8 +281,9 @@ Restricted-access state · header · stats grid (urgent / pending / resolved / t
 ---
 
 ## Confirmed fixes already shipped this session
-- Profile people-tabs: `bn-members` assets always enqueued on the profile view → grid + card actions render (commit `968e84e`).
-- Profile Followers/Following/Connections → in-page tabs (commit `4e65f55`).
+- **Profile (#1) — COMPLETE.** People-tabs `bn-members` assets always enqueued (`968e84e`); Followers/Following/Connections → in-page tabs (`4e65f55`); completeness de-dup + stat affordances + Discussions stat/tab + tab badges + JetonomyBridge doc fix (`d5867c8`); guest Follow CTA (`e66dcae`). Walked own/other/guest, desktop + 390px, light + dark. Dark mode confirmed working via the real toggle.
+- **Members directory (#2) — COMPLETE.** List view rebuilt as a real compact people-list row (`995ea1c`, was just stretched grid cards); search clear (×) button (`25491d6`). All filters (search/type/online/sort/relation) verified functional, 0 console errors. List-view-dead and dark-broken suspicions both disproved by verifying. Desktop + 390px + light/dark.
+- **Activity feed (#3) — WALKED, no fix needed.** Composer is well-built: all 5 tools carry aria-label + title (Image / Poll / Pin date+location / Schedule / Announcement), a Discard-draft button exists, char counter + labeled privacy chip. Renders clean desktop + 390px; React picker opens; 0 console errors. Plan ⚠ items were not real breaks (discard exists; infinite-scroll/tz are minor-by-design). Mature surface, meets expectation.
 - Messages: thread layout, header declutter, mobile single-column, hover-reveal meta.
 
 ## Next confirmed work queue (P0, profile)
