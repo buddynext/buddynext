@@ -2780,3 +2780,56 @@ button.bn-pf-pill:hover,
 	}
 	.bn-pf-about-card { padding: var(--bn-s4); }
 }
+
+/* ── Two-factor authentication panel (Account section) ─────────────────────── */
+.bn-2fa-stage {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s3);
+}
+
+.bn-2fa-desc {
+	margin: 0;
+	color: var(--bn-ink-2);
+	font-size: var(--bn-text-sm, 0.875rem);
+	line-height: 1.5;
+}
+
+.bn-2fa-secret {
+	display: inline-block;
+	font-family: var(--bn-font-mono);
+	font-size: 1.05rem;
+	letter-spacing: 0.18em;
+	padding: var(--bn-s2) var(--bn-s3);
+	background: var(--bn-surface-2, var(--bn-canvas));
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-radius, 8px);
+	word-break: break-all;
+	user-select: all;
+}
+
+.bn-2fa-codes {
+	list-style: none;
+	margin: 0;
+	padding: var(--bn-s3);
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: var(--bn-s2);
+	background: var(--bn-surface-2, var(--bn-canvas));
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-radius, 8px);
+}
+
+.bn-2fa-codes li {
+	font-family: var(--bn-font-mono);
+	font-size: 1rem;
+	letter-spacing: 0.08em;
+	color: var(--bn-ink-1);
+	text-align: center;
+}
+
+@media ( max-width: 640px ) {
+	.bn-2fa-codes {
+		grid-template-columns: 1fr;
+	}
+}

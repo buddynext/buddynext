@@ -164,6 +164,27 @@
 	overflow: hidden;
 }
 
+/* Link-styled button (e.g. "Email me a code instead" on the 2FA step). */
+.bn-auth-linkbtn {
+	background: none;
+	border: 0;
+	padding: 0;
+	font: inherit;
+	color: var(--bn-accent, #2563eb);
+	cursor: pointer;
+	text-decoration: underline;
+}
+
+.bn-auth-linkbtn:hover {
+	text-decoration: none;
+}
+
+.bn-auth-linkbtn:disabled {
+	color: var(--bn-ink-3);
+	cursor: default;
+	text-decoration: none;
+}
+
 .bn-auth-field__msg[data-tone="success"] {
 	color: var(--bn-success);
 }
@@ -249,6 +270,12 @@
 /* Tab-content visibility (login vs register) */
 .bn-auth-panel { display: none; }
 .bn-auth-panel[data-active] { display: block; }
+
+/* Two-step verification step on the login card: a class on the card swaps the
+ * credentials panel out for the 2FA panel (SSR-safe — no data-active needed). */
+.bn-2fa-loginpanel { display: none; }
+.bn-auth-card.bn-2fa-active .bn-auth-panel[data-active] { display: none; }
+.bn-auth-card.bn-2fa-active .bn-2fa-loginpanel { display: block; }
 
 /* ── Verify-page card content ───────────────────────────────────────── */
 

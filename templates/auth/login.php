@@ -55,6 +55,7 @@ $signup_url = home_url( '/' . (string) get_option( 'buddynext_slug_signup', 'sig
 <div class="bn-auth-page">
 	<div class="bn-auth-card"
 		data-variant="login"
+		data-wp-class--bn-2fa-active="state.twofaStep"
 		data-wp-interactive="buddynext/auth-login"
 		<?php
 		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -68,6 +69,12 @@ $signup_url = home_url( '/' . (string) get_option( 'buddynext_slug_signup', 'sig
 				'restNonce'  => $rest_nonce,
 				'restUrl'    => $rest_root,
 				'redirectTo' => esc_url_raw( $redirect_to ),
+				'twofaStep'  => false,
+				'twofaToken' => '',
+				'twofaCode'  => '',
+				'twofaError' => '',
+				'emailHint'  => '',
+				'emailSent'  => false,
 			)
 		);
 		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -180,6 +187,61 @@ $signup_url = home_url( '/' . (string) get_option( 'buddynext_slug_signup', 'sig
 					<a href="<?php echo esc_url( $signup_url ); ?>">
 						<?php esc_html_e( 'Create an account', 'buddynext' ); ?>
 					</a>
+				</div>
+			</section>
+
+			<!-- Two-step verification panel (shown only after a 2FA-enabled password check) -->
+			<section class="bn-auth-panel bn-2fa-loginpanel">
+				<h1 class="bn-auth-title"><?php esc_html_e( 'Two-step verification', 'buddynext' ); ?></h1>
+				<p class="bn-auth-sub"><?php esc_html_e( 'Enter the 6-digit code from your authenticator app.', 'buddynext' ); ?></p>
+
+				<div class="bn-auth-field__msg" role="alert" aria-live="polite"
+					data-wp-bind--hidden="!state.twofaError"
+					data-wp-text="state.twofaError"></div>
+
+				<form class="bn-auth-form"
+					novalidate
+					data-wp-on--submit="actions.submitTwoFactor">
+
+					<div class="bn-auth-field">
+						<label class="bn-auth-label" for="bn-login-2fa-code">
+							<?php esc_html_e( 'Verification code', 'buddynext' ); ?>
+						</label>
+						<input class="bn-input"
+							type="text"
+							id="bn-login-2fa-code"
+							name="code"
+							inputmode="numeric"
+							autocomplete="one-time-code"
+							maxlength="9"
+							placeholder="123456"
+							required
+							data-wp-bind--disabled="state.submitting"
+							data-wp-on--input="actions.setTwofaCode" />
+						<span class="bn-auth-hint">
+							<?php esc_html_e( 'Lost your device? Enter one of your backup codes instead.', 'buddynext' ); ?>
+						</span>
+					</div>
+
+					<button class="bn-btn"
+						data-variant="primary"
+						data-size="lg"
+						data-full
+						type="submit"
+						data-wp-bind--disabled="state.twofaDisabled">
+						<span data-wp-bind--hidden="state.submitting"><?php esc_html_e( 'Verify and sign in', 'buddynext' ); ?></span>
+						<span data-wp-bind--hidden="!state.submitting"><?php esc_html_e( 'Verifying...', 'buddynext' ); ?></span>
+						<?php buddynext_icon( 'arrow-right' ); ?>
+					</button>
+				</form>
+
+				<div class="bn-auth-foot">
+					<button type="button" class="bn-auth-linkbtn"
+						data-wp-bind--disabled="state.emailSent"
+						data-wp-on--click="actions.sendEmailCode">
+						<span data-wp-bind--hidden="state.emailSent"><?php esc_html_e( 'Email me a code instead', 'buddynext' ); ?></span>
+						<span data-wp-bind--hidden="!state.emailSent" data-wp-text="state.emailHintText"></span>
+					</button>
 				</div>
 			</section>
 		</div>

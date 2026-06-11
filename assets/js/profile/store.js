@@ -657,6 +657,15 @@ store( 'buddynext/profile', {
 		get muteLabel()     { return getContext().isMuted      ? 'Unmute'     : 'Mute'; },
 		get restrictLabel() { return getContext().isRestricted ? 'Unrestrict' : 'Restrict'; },
 		get blockLabel()    { return getContext().isBlocked    ? 'Unblock'    : 'Block'; },
+		/* Two-factor stage visibility (mutually exclusive). */
+		get twofaShowStart()  { const c = getContext(); return ! c.twofaEnabled && c.twofaStage === 'idle'; },
+		get twofaShowSetup()  { return getContext().twofaStage === 'setup'; },
+		get twofaShowBackup() { return getContext().twofaStage === 'backup'; },
+		get twofaShowManage() { const c = getContext(); return !! c.twofaEnabled && c.twofaStage === 'idle'; },
+		get twofaBackupText() {
+			const n = Number( getContext().twofaBackupRemaining ) || 0;
+			return n === 1 ? '1 backup code left.' : n + ' backup codes left.';
+		},
 	},
 	callbacks: {
 		/* Init for the edit page: register the beforeunload guard once. */
@@ -1576,6 +1585,143 @@ store( 'buddynext/profile', {
 				bnToast( 'Could not sign out everywhere. Try again.', { tone: 'danger' } );
 			} finally {
 				ctx.signOutSubmitting = false;
+			}
+		},
+
+		/* -- Two-factor authentication ---------------------------------- */
+		toggleTwofaPanel() {
+			const ctx = getContext();
+			ctx.twofaPanelOpen = ! ctx.twofaPanelOpen;
+		},
+		setTwofaCode( event ) {
+			getContext().twofaCode = event && event.target ? String( event.target.value || '' ) : '';
+			getContext().twofaError = '';
+		},
+		setTwofaPassword( event ) {
+			getContext().twofaPassword = event && event.target ? String( event.target.value || '' ) : '';
+			getContext().twofaError = '';
+		},
+		async startTwofaSetup() {
+			const ctx = getContext();
+			if ( ctx.twofaBusy ) { return; }
+			ctx.twofaBusy = true;
+			ctx.twofaError = '';
+			try {
+				const res = await fetch( apiUrl( 'buddynext/v1/account/2fa/setup' ), {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+				} );
+				const json = await res.json();
+				if ( res.ok && json && json.success ) {
+					ctx.twofaSecret = json.secret || '';
+					ctx.twofaUri = json.otpauth_uri || '';
+					ctx.twofaCode = '';
+					ctx.twofaStage = 'setup';
+				} else {
+					bnToast( ( json && json.message ) || 'Could not start setup. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not start setup. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.twofaBusy = false;
+			}
+		},
+		async confirmTwofa() {
+			const ctx = getContext();
+			if ( ctx.twofaBusy ) { return; }
+			ctx.twofaBusy = true;
+			ctx.twofaError = '';
+			try {
+				const res = await fetch( apiUrl( 'buddynext/v1/account/2fa/confirm' ), {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+					body:    JSON.stringify( { code: ctx.twofaCode || '' } ),
+				} );
+				const json = await res.json();
+				if ( res.ok && json && json.success ) {
+					ctx.twofaBackupCodes = json.backup_codes || [];
+					ctx.twofaBackupRemaining = ctx.twofaBackupCodes.length;
+					ctx.twofaEnabled = true;
+					ctx.twofaSecret = '';
+					ctx.twofaUri = '';
+					ctx.twofaCode = '';
+					ctx.twofaStage = 'backup';
+				} else {
+					ctx.twofaError = ( json && json.message ) || 'That code did not match.';
+				}
+			} catch ( _e ) {
+				ctx.twofaError = 'Something went wrong. Try again.';
+			} finally {
+				ctx.twofaBusy = false;
+			}
+		},
+		finishTwofa() {
+			const ctx = getContext();
+			ctx.twofaBackupCodes = [];
+			ctx.twofaStage = 'idle';
+			bnToast( 'Two-factor authentication is on.', { tone: 'success' } );
+		},
+		cancelTwofa() {
+			const ctx = getContext();
+			ctx.twofaStage = 'idle';
+			ctx.twofaSecret = '';
+			ctx.twofaUri = '';
+			ctx.twofaCode = '';
+			ctx.twofaError = '';
+		},
+		async regenerateBackup() {
+			const ctx = getContext();
+			if ( ctx.twofaBusy ) { return; }
+			if ( ! ( ctx.twofaPassword || '' ) ) { ctx.twofaError = 'Enter your password.'; return; }
+			ctx.twofaBusy = true;
+			ctx.twofaError = '';
+			try {
+				const res = await fetch( apiUrl( 'buddynext/v1/account/2fa/backup' ), {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+					body:    JSON.stringify( { password: ctx.twofaPassword || '' } ),
+				} );
+				const json = await res.json();
+				if ( res.ok && json && json.success ) {
+					ctx.twofaBackupCodes = json.backup_codes || [];
+					ctx.twofaBackupRemaining = ctx.twofaBackupCodes.length;
+					ctx.twofaPassword = '';
+					ctx.twofaStage = 'backup';
+				} else {
+					ctx.twofaError = ( json && json.message ) || 'Could not regenerate codes.';
+				}
+			} catch ( _e ) {
+				ctx.twofaError = 'Something went wrong. Try again.';
+			} finally {
+				ctx.twofaBusy = false;
+			}
+		},
+		async disableTwofa() {
+			const ctx = getContext();
+			if ( ctx.twofaBusy ) { return; }
+			if ( ! ( ctx.twofaPassword || '' ) ) { ctx.twofaError = 'Enter your password.'; return; }
+			ctx.twofaBusy = true;
+			ctx.twofaError = '';
+			try {
+				const res = await fetch( apiUrl( 'buddynext/v1/account/2fa/disable' ), {
+					method:  'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
+					body:    JSON.stringify( { password: ctx.twofaPassword || '' } ),
+				} );
+				const json = await res.json();
+				if ( res.ok && json && json.success ) {
+					ctx.twofaEnabled = false;
+					ctx.twofaBackupRemaining = 0;
+					ctx.twofaPassword = '';
+					ctx.twofaStage = 'idle';
+					bnToast( 'Two-factor authentication is off.', { tone: 'success' } );
+				} else {
+					ctx.twofaError = ( json && json.message ) || 'Could not turn off two-factor.';
+				}
+			} catch ( _e ) {
+				ctx.twofaError = 'Something went wrong. Try again.';
+			} finally {
+				ctx.twofaBusy = false;
 			}
 		},
 	},

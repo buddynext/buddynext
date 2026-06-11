@@ -40,6 +40,19 @@ store( 'buddynext/auth-login', {
 			const p = String( c.password || '' );
 			return u.length === 0 || p.length === 0;
 		},
+		get twofaStep() { return !! ctx().twofaStep; },
+		get twofaError() { return ctx().twofaError || ''; },
+		get emailSent() { return !! ctx().emailSent; },
+		get emailHintText() {
+			const c = ctx();
+			return c.emailHint
+				? 'Code sent to ' + c.emailHint
+				: 'Code sent — check your email';
+		},
+		get twofaDisabled() {
+			const c = ctx();
+			return !! c.submitting || String( c.twofaCode || '' ).trim().length === 0;
+		},
 	},
 	actions: {
 		setUser( event ) {
@@ -79,11 +92,69 @@ store( 'buddynext/auth-login', {
 					c.submitting = false;
 					return;
 				}
+				// 2FA-enabled accounts: no session yet — switch to the code step.
+				if ( data.twofa_required ) {
+					c.twofaStep = true;
+					c.twofaToken = data.twofa_token || '';
+					c.emailHint = data.email_hint || '';
+					c.error = '';
+					c.submitting = false;
+					return;
+				}
 				toast( 'Signed in.', 'success' );
 				window.location.href = ( data && data.redirect_to ) || c.redirectTo || '/activity/';
 			} catch ( _e ) {
 				c.error = 'Something went wrong. Please try again.';
 				c.submitting = false;
+			}
+		},
+		setTwofaCode( event ) {
+			const c = ctx();
+			c.twofaCode = event && event.target ? String( event.target.value || '' ) : '';
+			if ( c.twofaError ) { c.twofaError = ''; }
+		},
+		* submitTwoFactor( event ) {
+			if ( event && typeof event.preventDefault === 'function' ) {
+				event.preventDefault();
+			}
+			const c = ctx();
+			if ( c.submitting ) { return; }
+			c.submitting = true;
+			c.twofaError = '';
+			try {
+				const r = yield rest( c, 'auth/2fa', {
+					method: 'POST',
+					body:   JSON.stringify( {
+						twofa_token: c.twofaToken || '',
+						code:        c.twofaCode || '',
+						redirect_to: c.redirectTo || '',
+					} ),
+				} );
+				const data = yield r.json();
+				if ( ! r.ok || ! ( data && data.success ) ) {
+					c.twofaError = ( data && data.message ) || 'That code was not correct.';
+					c.submitting = false;
+					return;
+				}
+				toast( 'Signed in.', 'success' );
+				window.location.href = ( data && data.redirect_to ) || c.redirectTo || '/activity/';
+			} catch ( _e ) {
+				c.twofaError = 'Something went wrong. Please try again.';
+				c.submitting = false;
+			}
+		},
+		* sendEmailCode() {
+			const c = ctx();
+			if ( c.emailSent ) { return; }
+			try {
+				yield rest( c, 'auth/2fa/email-code', {
+					method: 'POST',
+					body:   JSON.stringify( { twofa_token: c.twofaToken || '' } ),
+				} );
+				c.emailSent = true;
+				toast( 'If your session is still valid, a code is on its way.', 'info' );
+			} catch ( _e ) {
+				toast( 'Could not send the code. Try your authenticator app.', 'error' );
 			}
 		},
 	},

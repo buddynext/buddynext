@@ -56,6 +56,42 @@ class AuthController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/auth/2fa',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'verify_two_factor' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'twofa_token' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+					'code'        => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/2fa/email-code',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'send_two_factor_email' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'twofa_token' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/auth/register',
 			array(
 				'methods'             => 'POST',
@@ -332,13 +368,12 @@ class AuthController {
 			);
 		}
 
-		$creds = array(
-			'user_login'    => is_email( $user_input ) ? $this->resolve_login_for_email( $user_input ) : $user_input,
-			'user_password' => $password,
-			'remember'      => $remember,
-		);
+		$login = is_email( $user_input ) ? $this->resolve_login_for_email( $user_input ) : $user_input;
 
-		$user = wp_signon( $creds, is_ssl() );
+		// Verify the password (runs the full authenticate chain, including the
+		// pending-approval gate) WITHOUT setting an auth cookie yet — so a 2FA
+		// challenge can be interposed before the session is actually created.
+		$user = wp_authenticate( $login, $password );
 
 		if ( is_wp_error( $user ) ) {
 			return new WP_Error(
@@ -353,6 +388,25 @@ class AuthController {
 			$redirect_to = \BuddyNext\Core\PageRouter::activity_url();
 		}
 
+		// Two-factor gate (optional, per-user). When on, hold the session and
+		// hand back a one-time challenge ticket; the cookie is only set once a
+		// code verifies at /auth/2fa.
+		if ( TwoFactorService::is_enabled( (int) $user->ID ) ) {
+			$token = TwoFactorService::issue_login_challenge( (int) $user->ID, $remember );
+			return new WP_REST_Response(
+				array(
+					'success'        => true,
+					'twofa_required' => true,
+					'twofa_token'    => $token,
+					'email_hint'     => $this->mask_email( (string) $user->user_email ),
+					'redirect_to'    => esc_url_raw( $redirect_to ),
+				),
+				200
+			);
+		}
+
+		$this->complete_login( $user, $remember );
+
 		return new WP_REST_Response(
 			array(
 				'success'     => true,
@@ -361,6 +415,121 @@ class AuthController {
 			),
 			200
 		);
+	}
+
+	/**
+	 * POST /auth/2fa — complete a two-factor sign-in by verifying a code.
+	 *
+	 * Accepts a TOTP code, an emailed one-time code, or a single-use backup code.
+	 * The challenge ticket is consumed only on success, so a mistyped code can be
+	 * retried until the ticket expires.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function verify_two_factor( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$token = (string) $request->get_param( 'twofa_token' );
+		$code  = (string) $request->get_param( 'code' );
+
+		$ticket = TwoFactorService::peek_login_challenge( $token );
+		if ( null === $ticket ) {
+			return new WP_Error(
+				'rest_2fa_expired',
+				__( 'Your sign-in session expired. Please enter your password again.', 'buddynext' ),
+				array( 'status' => 401 )
+			);
+		}
+
+		if ( ! TwoFactorService::verify_login_code( $ticket['user'], $code ) ) {
+			return new WP_Error(
+				'rest_2fa_failed',
+				__( 'That code was not correct. Try again, or use a backup code.', 'buddynext' ),
+				array(
+					'status' => 422,
+					'fields' => array( 'code' => __( 'Incorrect or expired code.', 'buddynext' ) ),
+				)
+			);
+		}
+
+		TwoFactorService::consume_login_challenge( $token );
+
+		$user = get_userdata( $ticket['user'] );
+		if ( ! $user ) {
+			return new WP_Error( 'rest_2fa_failed', __( 'Account not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$this->complete_login( $user, $ticket['remember'] );
+
+		$redirect_to = (string) $request->get_param( 'redirect_to' );
+		if ( '' === $redirect_to ) {
+			$redirect_to = \BuddyNext\Core\PageRouter::activity_url();
+		}
+
+		return new WP_REST_Response(
+			array(
+				'success'     => true,
+				'user_id'     => (int) $user->ID,
+				'redirect_to' => esc_url_raw( $redirect_to ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * POST /auth/2fa/email-code — email a one-time fallback code to the user
+	 * holding a valid challenge ticket. The response is deliberately generic so
+	 * it never reveals whether the ticket or address is valid.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public function send_two_factor_email( WP_REST_Request $request ): WP_REST_Response {
+		$token  = (string) $request->get_param( 'twofa_token' );
+		$ticket = TwoFactorService::peek_login_challenge( $token );
+		if ( null !== $ticket ) {
+			TwoFactorService::send_email_code( $ticket['user'] );
+		}
+		return new WP_REST_Response(
+			array(
+				'success' => true,
+				'message' => __( 'If your session is still valid, a code is on its way to your email.', 'buddynext' ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Complete sign-in for a verified user: set the current user, issue the auth
+	 * cookie, and fire wp_login (the tail of wp_signon, split out so a 2FA step
+	 * can run between password verification and session creation).
+	 *
+	 * @param \WP_User $user     Verified user.
+	 * @param bool     $remember Persistent cookie.
+	 * @return void
+	 */
+	private function complete_login( \WP_User $user, bool $remember ): void {
+		wp_set_current_user( $user->ID );
+		wp_set_auth_cookie( $user->ID, $remember, is_ssl() );
+		/** This action is documented in wp-includes/user.php (wp_signon). */
+		do_action( 'wp_login', $user->user_login, $user );
+	}
+
+	/**
+	 * Mask an email for a privacy-safe hint (e.g. "a***e@example.com").
+	 *
+	 * @param string $email Email address.
+	 * @return string
+	 */
+	private function mask_email( string $email ): string {
+		$at = strpos( $email, '@' );
+		if ( false === $at || $at < 1 ) {
+			return '';
+		}
+		$name   = substr( $email, 0, $at );
+		$domain = substr( $email, $at );
+		$first  = substr( $name, 0, 1 );
+		$last   = strlen( $name ) > 1 ? substr( $name, -1 ) : '';
+		return $first . '***' . $last . $domain;
 	}
 
 	/**

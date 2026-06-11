@@ -64,8 +64,8 @@ $cover_url  = (string) get_user_meta( $user_id, 'buddynext_cover_url', true );
 // Load profile through service — reads from bn_profile_values.
 // As owner ($user_id === $user_id) ProfileService returns EVERY group/field
 // (no visibility gating) so the edit form can render the full field set.
-$service = buddynext_service( 'profiles' );
-$profile = $service->get_profile( $user_id, $user_id );
+$service   = buddynext_service( 'profiles' );
+$profile   = $service->get_profile( $user_id, $user_id );
 $bn_groups = isset( $profile['groups'] ) && is_array( $profile['groups'] ) ? $profile['groups'] : array();
 
 // Build flat key=>value map for the lightweight sidebar/preview vars only.
@@ -117,7 +117,7 @@ $bn_vis_labels = array(
 	'connections' => __( 'Connections', 'buddynext' ),
 	'private'     => __( 'Only me', 'buddynext' ),
 );
-$bn_vis_rank = array(
+$bn_vis_rank   = array(
 	'public'      => 0,
 	'followers'   => 1,
 	'connections' => 2,
@@ -211,11 +211,11 @@ $privacy_visibility_options = array(
 	'connections' => __( 'My connections', 'buddynext' ),
 	'private'     => __( 'Only me', 'buddynext' ),
 );
-$privacy_follow_options = array(
+$privacy_follow_options     = array(
 	'everyone' => __( 'Everyone', 'buddynext' ),
 	'nobody'   => __( 'Nobody', 'buddynext' ),
 );
-$privacy_connect_options = array(
+$privacy_connect_options    = array(
 	'everyone'  => __( 'Everyone', 'buddynext' ),
 	'followers' => __( 'My followers', 'buddynext' ),
 	'nobody'    => __( 'Nobody', 'buddynext' ),
@@ -238,20 +238,23 @@ $privacy_search_indexable  = '0' !== (string) get_user_meta( $user_id, 'bn_priva
 // `bn_pro_hide_profile_views` is the canonical Pro-shared key (Pro P5.3 reads
 // it to opt the viewer out of the who-viewed-your-profile widget). Free can
 // save it too so the toggle stays consistent across plans.
-$privacy_hide_views     = '1' === (string) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true );
+$privacy_hide_views      = '1' === (string) get_user_meta( $user_id, 'bn_pro_hide_profile_views', true );
 $privacy_account_private = (bool) get_user_meta( $user_id, 'bn_account_private', true );
+
+// Two-factor status for the Account section (opt-in, off by default).
+$twofa_enabled = \BuddyNext\Auth\TwoFactorService::is_enabled( $user_id );
 
 // Profile-view / follow / connect gates. Read through PrivacyService so the
 // stored value (and its default fallback) match exactly what the enforcement
 // reads back. Degrade to the documented defaults if the service is absent.
-$privacy_service           = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+$privacy_service            = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
 $privacy_profile_visibility = ( $privacy_service && method_exists( $privacy_service, 'get_preference' ) )
 	? (string) $privacy_service->get_preference( $user_id, 'profile_visibility' )
 	: 'public';
-$privacy_who_can_follow = ( $privacy_service && method_exists( $privacy_service, 'get_preference' ) )
+$privacy_who_can_follow     = ( $privacy_service && method_exists( $privacy_service, 'get_preference' ) )
 	? (string) $privacy_service->get_preference( $user_id, 'who_can_follow' )
 	: 'everyone';
-$privacy_who_can_connect = ( $privacy_service && method_exists( $privacy_service, 'get_preference' ) )
+$privacy_who_can_connect    = ( $privacy_service && method_exists( $privacy_service, 'get_preference' ) )
 	? (string) $privacy_service->get_preference( $user_id, 'who_can_connect' )
 	: 'everyone';
 
@@ -347,6 +350,17 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 			'passwordStrength'         => 0,
 			'passwordStrengthLabel'    => '',
 			'signOutSubmitting'        => false,
+			'twofaEnabled'             => $twofa_enabled,
+			'twofaBackupRemaining'     => \BuddyNext\Auth\TwoFactorService::backup_codes_remaining( $user_id ),
+			'twofaStage'               => 'idle',
+			'twofaSecret'              => '',
+			'twofaUri'                 => '',
+			'twofaCode'                => '',
+			'twofaPassword'            => '',
+			'twofaError'               => '',
+			'twofaBusy'                => false,
+			'twofaBackupCodes'         => array(),
+			'twofaPanelOpen'           => false,
 		)
 	);
 	// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -416,7 +430,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					// Repeater group: render each saved entry's sub-fields via
 					// the engine, plus ONE per-entry privacy lock that reuses
 					// the existing `group_key[n][_visibility]` save contract.
-					$bn_entries = isset( $bn_group['entries'] ) && is_array( $bn_group['entries'] ) ? $bn_group['entries'] : array();
+					$bn_entries  = isset( $bn_group['entries'] ) && is_array( $bn_group['entries'] ) ? $bn_group['entries'] : array();
 					$bn_gdefault = $bn_vis_norm( $bn_group['visibility'] ?? 'public', 'public' );
 
 					$bn_rep_html = '<div class="bn-ep-card-body" id="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_gkey ) . '-entries' ) . '">';
@@ -507,7 +521,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						$bn_field['field_visibility'] ?? ( $bn_field['visibility'] ?? $bn_gvis_default ),
 						$bn_gvis_default
 					);
-					$bn_current = $bn_vis_norm(
+					$bn_current       = $bn_vis_norm(
 						$bn_field['entry_visibility'] ?? ( $bn_field['effective_visibility'] ?? $bn_admin_default ),
 						$bn_admin_default
 					);
@@ -546,7 +560,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				array( 'select', 'bn_privacy_see_email', __( 'Who can see my email', 'buddynext' ), $privacy_see_email, 'bn-ep-privacy-email', '', $privacy_audiences ),
 				array( 'select', 'bn_privacy_dm', __( 'Who can direct-message me', 'buddynext' ), $privacy_dm, 'bn-ep-privacy-dm', '', $privacy_audiences ),
 				array( 'select', 'bn_privacy_mention', __( 'Who can @mention me in posts', 'buddynext' ), $privacy_mention, 'bn-ep-privacy-mention', '', $privacy_audiences ),
-				array( 'toggle', 'bn_account_private', __( 'Private account', 'buddynext' ), $privacy_account_private, 'bn-ep-privacy-private-lbl', __( "Only approved followers see your posts. New follows arrive as requests you can accept or decline.", 'buddynext' ), array() ),
+				array( 'toggle', 'bn_account_private', __( 'Private account', 'buddynext' ), $privacy_account_private, 'bn-ep-privacy-private-lbl', __( 'Only approved followers see your posts. New follows arrive as requests you can accept or decline.', 'buddynext' ), array() ),
 				array( 'toggle', 'bn_privacy_show_in_directory', __( 'Show me in the member directory', 'buddynext' ), $privacy_show_in_directory, 'bn-ep-privacy-dir-lbl', __( 'Turn off to hide from /members/.', 'buddynext' ), array() ),
 				array( 'toggle', 'bn_privacy_search_indexable', __( 'Show my profile to search engines', 'buddynext' ), $privacy_search_indexable, 'bn-ep-privacy-search-lbl', __( 'When off, your profile carries noindex.', 'buddynext' ), array() ),
 				array( 'toggle', 'bn_pro_hide_profile_views', __( 'Hide my profile views', 'buddynext' ), $privacy_hide_views, 'bn-ep-privacy-views-lbl', __( 'When on, your visits to other profiles are not recorded.', 'buddynext' ), array() ),
@@ -632,7 +646,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 				if ( ! empty( $bn_social_labels ) && $bn_social_any ) {
 					$bn_sc_html = '';
 					foreach ( $bn_social_labels as $bn_sp_id => $bn_sp_label ) {
-						$bn_linked  = ! empty( $bn_social_linked[ $bn_sp_id ] );
+						$bn_linked   = ! empty( $bn_social_linked[ $bn_sp_id ] );
 						$bn_sc_html .= '<div class="bn-social-link" data-provider="' . esc_attr( $bn_sp_id ) . '">';
 						$bn_sc_html .= '<span class="bn-social-link__name">' . esc_html( $bn_sp_label ) . '</span>';
 						if ( $bn_linked ) {
@@ -670,7 +684,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					if ( ! $u ) {
 						return '';
 					}
-					$avatar       = (string) get_avatar_url( $target_id, array( 'size' => 40 ) );
+					$avatar = (string) get_avatar_url( $target_id, array( 'size' => 40 ) );
 					if ( 'block' === $action ) {
 						$action_label = __( 'Unblock', 'buddynext' );
 					} elseif ( 'restrict' === $action ) {
@@ -948,6 +962,75 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 							'cta_action'               => 'actions.openPasswordChange',
 							'inline_form_html'         => $pw_inline,
 							'inline_form_visible_when' => 'context.passwordChangeOpen',
+						)
+					);
+
+					// Two-factor authentication row (optional, opt-in). The inline
+					// panel is a small reactive state machine: set-up → confirm →
+					// backup codes, or manage (regenerate / turn off) when already on.
+					ob_start();
+					?>
+					<div class="bn-2fa">
+						<?php /* Stage: not enrolled — offer set-up. */ ?>
+						<div class="bn-2fa-stage" data-wp-bind--hidden="!state.twofaShowStart">
+							<p class="bn-2fa-desc"><?php esc_html_e( 'Use an authenticator app (Google Authenticator, Authy, 1Password, …) to generate a one-time code at sign-in. Backup codes cover you if you lose your device.', 'buddynext' ); ?></p>
+							<button type="button" class="bn-btn" data-variant="primary" data-size="sm" data-wp-on--click="actions.startTwofaSetup" data-wp-bind--disabled="context.twofaBusy"><?php esc_html_e( 'Set up two-factor authentication', 'buddynext' ); ?></button>
+						</div>
+
+						<?php /* Stage: enrolling — show secret + confirm a code. */ ?>
+						<div class="bn-2fa-stage" data-wp-bind--hidden="!state.twofaShowSetup">
+							<p class="bn-2fa-desc"><?php esc_html_e( 'In your authenticator app, add an account by entering this setup key:', 'buddynext' ); ?></p>
+							<code class="bn-2fa-secret" data-wp-text="context.twofaSecret"></code>
+							<p class="bn-2fa-desc"><a data-wp-bind--href="context.twofaUri"><?php esc_html_e( 'Or tap here on your phone to add it automatically.', 'buddynext' ); ?></a></p>
+							<div class="bn-ep-field bn-ep-field--full">
+								<label class="bn-ep-label" for="bn-2fa-confirm-code"><?php esc_html_e( 'Enter the 6-digit code to confirm', 'buddynext' ); ?></label>
+								<input class="bn-input" type="text" id="bn-2fa-confirm-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-wp-on--input="actions.setTwofaCode" data-wp-bind--value="context.twofaCode" />
+								<span class="bn-ep-field-error" role="alert" data-wp-text="context.twofaError" data-wp-bind--hidden="!context.twofaError"></span>
+							</div>
+							<div class="bn-ep-account-form-actions">
+								<button type="button" class="bn-btn" data-variant="primary" data-size="sm" data-wp-on--click="actions.confirmTwofa" data-wp-bind--disabled="context.twofaBusy"><?php esc_html_e( 'Verify and turn on', 'buddynext' ); ?></button>
+								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-wp-on--click="actions.cancelTwofa"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+							</div>
+						</div>
+
+						<?php /* Stage: show one-time backup codes. */ ?>
+						<div class="bn-2fa-stage" data-wp-bind--hidden="!state.twofaShowBackup">
+							<p class="bn-2fa-desc"><strong><?php esc_html_e( 'Save your backup codes.', 'buddynext' ); ?></strong> <?php esc_html_e( 'Each works once if you cannot use your authenticator. Store them somewhere safe — they will not be shown again.', 'buddynext' ); ?></p>
+							<ul class="bn-2fa-codes">
+								<template data-wp-each="context.twofaBackupCodes">
+									<li data-wp-text="context.item"></li>
+								</template>
+							</ul>
+							<button type="button" class="bn-btn" data-variant="primary" data-size="sm" data-wp-on--click="actions.finishTwofa"><?php esc_html_e( 'I have saved my codes', 'buddynext' ); ?></button>
+						</div>
+
+						<?php /* Stage: enabled — manage. */ ?>
+						<div class="bn-2fa-stage" data-wp-bind--hidden="!state.twofaShowManage">
+							<p class="bn-2fa-desc"><?php esc_html_e( 'Two-factor authentication is on.', 'buddynext' ); ?> <span data-wp-text="state.twofaBackupText"></span></p>
+							<div class="bn-ep-field bn-ep-field--full">
+								<label class="bn-ep-label" for="bn-2fa-password"><?php esc_html_e( 'Confirm your password to change these settings', 'buddynext' ); ?></label>
+								<input class="bn-input" type="password" id="bn-2fa-password" autocomplete="current-password" data-wp-on--input="actions.setTwofaPassword" data-wp-bind--value="context.twofaPassword" />
+								<span class="bn-ep-field-error" role="alert" data-wp-text="context.twofaError" data-wp-bind--hidden="!context.twofaError"></span>
+							</div>
+							<div class="bn-ep-account-form-actions">
+								<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-wp-on--click="actions.regenerateBackup" data-wp-bind--disabled="context.twofaBusy"><?php esc_html_e( 'Regenerate backup codes', 'buddynext' ); ?></button>
+								<button type="button" class="bn-btn" data-variant="danger" data-size="sm" data-wp-on--click="actions.disableTwofa" data-wp-bind--disabled="context.twofaBusy"><?php esc_html_e( 'Turn off', 'buddynext' ); ?></button>
+							</div>
+						</div>
+					</div>
+					<?php
+					$twofa_inline = (string) ob_get_clean();
+
+					buddynext_get_template(
+						'parts/profile-edit-account-row.php',
+						array(
+							'row_id'                   => 'twofa',
+							'label'                    => __( 'Two-factor authentication', 'buddynext' ),
+							'value'                    => __( 'Require a one-time code at sign-in, in addition to your password.', 'buddynext' ),
+							'cta_label'                => __( 'Manage', 'buddynext' ),
+							'cta_action'               => 'actions.toggleTwofaPanel',
+							'inline_form_html'         => $twofa_inline,
+							'inline_form_visible_when' => 'context.twofaPanelOpen',
 						)
 					);
 
