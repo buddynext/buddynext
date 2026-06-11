@@ -411,6 +411,7 @@ async function refresh( ctx ) {
 
 const memberStore = store( 'buddynext/members', {
 	state: {
+		get hasSearch()     { return ( getContext().search || '' ).length > 0; },
 		get isListView()    { return readView() === 'list'; },
 		get isGridPressed() { return readView() === 'grid' ? 'true' : 'false'; },
 		get isListPressed() { return readView() === 'list' ? 'true' : 'false'; },
@@ -493,6 +494,19 @@ const memberStore = store( 'buddynext/members', {
 				syncUrl( ctx );
 				refresh( ctx );
 			}, SEARCH_DEBOUNCE_MS );
+		},
+
+		clearSearch() {
+			const ctx = getContext();
+			ctx.search    = '';
+			ctx.searching = false;
+			clearTimeout( searchTimer );
+			document.querySelectorAll( '.bn-md-strip__search-input' ).forEach( ( inp ) => {
+				inp.value = '';
+				inp.focus();
+			} );
+			syncUrl( ctx );
+			refresh( ctx );
 		},
 
 		selectSort( event ) {

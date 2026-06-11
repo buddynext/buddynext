@@ -762,11 +762,49 @@
 
 .bn-md-strip__search-input {
 	flex: 1 1 100%;
+	/* Room on the right for the clear (×) button. */
+	padding-inline-end: 32px;
+}
+/* Suppress the browser's native search clear so we don't show two ×'s. */
+.bn-md-strip__search-input::-webkit-search-cancel-button {
+	-webkit-appearance: none;
+	appearance: none;
+}
+
+/* Clear (×) button — shown only while there's a term (store toggles hidden). */
+.bn-md-strip__search-clear {
+	position: absolute;
+	inset-inline-end: 6px;
+	inset-block-start: 50%;
+	transform: translateY(-50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 22px;
+	block-size: 22px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--bn-r-full, 999px);
+	background: transparent;
+	color: var(--bn-ink-3);
+	cursor: pointer;
+	transition: background var(--bn-dur-fast) var(--bn-ease), color var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-md-strip__search-clear:hover,
+.bn-md-strip__search-clear:focus-visible {
+	background: var(--bn-sunken);
+	color: var(--bn-ink);
+	outline: none;
+}
+.bn-md-strip__search-clear svg {
+	inline-size: 15px;
+	block-size: 15px;
 }
 
 .bn-md-strip__searching {
 	position: absolute;
-	inset-inline-end: 10px;
+	/* Sit left of the clear button. */
+	inset-inline-end: 32px;
 	font-size: var(--bn-fs-xs);
 	color: var(--bn-text-soft);
 	pointer-events: none;

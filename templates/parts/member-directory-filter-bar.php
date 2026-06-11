@@ -157,6 +157,14 @@ do_action( 'buddynext_part_member_directory_filter_bar_before', $args );
 				aria-label="<?php esc_attr_e( 'Search members', 'buddynext' ); ?>"
 				data-wp-on--input="actions.handleSearchInput"
 			>
+			<button
+				type="button"
+				class="bn-md-strip__search-clear"
+				aria-label="<?php esc_attr_e( 'Clear search', 'buddynext' ); ?>"
+				data-wp-on--click="actions.clearSearch"
+				data-wp-bind--hidden="!state.hasSearch"
+				<?php echo '' === $bn_search ? 'hidden' : ''; ?>
+			><?php buddynext_icon( 'x' ); ?></button>
 			<span
 				class="bn-md-strip__searching"
 				aria-hidden="true"
