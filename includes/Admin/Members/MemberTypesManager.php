@@ -230,7 +230,7 @@ class MemberTypesManager {
 				<span class="bn-ss-title"><?php echo $edit_type ? esc_html__( 'Edit Member Type', 'buddynext' ) : esc_html__( 'Add Member Type', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-type-create-form">
 				<?php wp_nonce_field( 'bn_save_member_type' ); ?>
 				<input type="hidden" name="action"  value="bn_save_member_type">
 				<input type="hidden" name="edit_id" value="<?php echo $edit_type ? esc_attr( (string) $edit_type['id'] ) : '0'; ?>">

@@ -1467,3 +1467,10 @@
 	min-width: 200px;
 }
 
+
+/* Add/Edit Member Type form — cap to a readable width so the 2-col fields
+   don't sprawl across the full-width card. Fields fill their columns via the
+   global .bn-field rule (bn-admin.css). */
+.bn-type-create-form {
+	max-width: 940px;
+}

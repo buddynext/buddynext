@@ -313,6 +313,23 @@
 	color: var(--bn-a-text-1);
 }
 
+/* In the label-above-input .bn-field pattern, text inputs / textareas / selects
+   fill their column (so they don't sit tiny in a wide grid cell). Number and
+   colour inputs keep their natural compact size. An inline max-width (Settings
+   render_*_row) still caps the final width. */
+.bn-field > input.bn-text-input:not([type="number"]):not([type="color"]),
+.bn-field > textarea.bn-text-input,
+.bn-field > select,
+.bn-field > .bn-color-row + input,
+.bn-field input.bn-input:not([type="number"]):not([type="color"]),
+.bn-field textarea.bn-textarea {
+	width: 100%;
+	box-sizing: border-box;
+}
+.bn-field > input[type="number"] {
+	width: 120px;
+}
+
 /* Icon slot inside a bn-btn (used by Settings → Registration → Manage invitations). */
 .bn-btn .bn-btn__icon {
 	width: 14px;
