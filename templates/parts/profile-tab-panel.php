@@ -39,6 +39,7 @@ defined( 'ABSPATH' ) || exit;
 
 $args = array(
 	'active_tab'           => isset( $active_tab ) ? (string) $active_tab : 'posts',
+	'about_html'           => isset( $about_html ) ? (string) $about_html : '',
 	'profile_user_id'      => isset( $profile_user_id ) ? (int) $profile_user_id : 0,
 	'viewer_id'            => isset( $viewer_id ) ? (int) $viewer_id : 0,
 	'is_owner'             => isset( $is_owner ) ? (bool) $is_owner : false,
@@ -80,6 +81,7 @@ $bn_pf_uid          = (int) $args['profile_user_id'];
 $bn_pf_viewer       = (int) $args['viewer_id'];
 $bn_pf_is_owner     = (bool) $args['is_owner'];
 $bn_pf_name         = (string) $args['display_name'];
+$bn_pf_about_html   = (string) $args['about_html'];
 $bn_recent_posts    = (array) $args['recent_posts'];
 $bn_user_replies    = (array) $args['user_replies'];
 $bn_user_media      = (array) $args['user_media'];
@@ -130,6 +132,13 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 				</div>
 			<?php endif; ?>
 			</div><!-- /.bn-profile-posts-panel -->
+
+			<!-- About tab content — profile details, moved out of the always-on column. -->
+			<?php if ( '' !== $bn_pf_about_html ) : ?>
+			<div class="bn-profile-tab-panel bn-pf-about-panel" data-tab-panel="about" hidden>
+				<?php echo $bn_pf_about_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-rendered about-cards markup; escaped at source by the FieldType engine + esc_html(). ?>
+			</div>
+			<?php endif; ?>
 
 			<!-- Replies tab content -->
 			<div class="bn-profile-tab-panel" data-tab-panel="replies" hidden>

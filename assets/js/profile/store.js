@@ -613,7 +613,7 @@ function syncDirtyAttr( dirty ) {
 
 /* -- Tab URL sync ------------------------------------------------------- */
 
-var BN_VALID_TABS = [ 'posts', 'replies', 'media', 'likes', 'followers', 'following', 'connections', 'discussions' ];
+var BN_VALID_TABS = [ 'posts', 'about', 'replies', 'media', 'likes', 'followers', 'following', 'connections', 'discussions' ];
 
 function applyTabId( tabId ) {
 	if ( ! tabId || BN_VALID_TABS.indexOf( tabId ) === -1 ) {

@@ -400,6 +400,11 @@ $bn_pf_ctx = array(
 		)
 	);
 
+	// Buffer the about-cards + generic detail sections and move them into a
+	// dedicated "About" tab below, instead of stacking this metadata above the
+	// tab bar where it sat on top of EVERY tab (Posts, Replies, Media, …).
+	ob_start();
+
 	buddynext_get_template(
 		'partials/profile-about-cards.php',
 		array(
@@ -513,6 +518,24 @@ $bn_pf_ctx = array(
 		<?php
 	endforeach;
 
+	// Pull the buffered about content; when it has anything, surface a dedicated
+	// "About" tab right after Posts (the Facebook/LinkedIn placement) so the
+	// metadata is one click away instead of permanently above every tab.
+	$bn_pf_about_html = trim( (string) ob_get_clean() );
+	if ( '' !== $bn_pf_about_html ) {
+		array_splice(
+			$bn_pf_tabs,
+			1,
+			0,
+			array(
+				array(
+					'slug'  => 'about',
+					'label' => __( 'About', 'buddynext' ),
+				),
+			)
+		);
+	}
+
 	buddynext_get_template(
 		'parts/profile-tab-bar.php',
 		array(
@@ -527,6 +550,7 @@ $bn_pf_ctx = array(
 		'parts/profile-tab-panel.php',
 		array(
 			'active_tab'           => 'posts',
+			'about_html'           => $bn_pf_about_html,
 			'profile_user_id'      => (int) $user_id,
 			'viewer_id'            => (int) $current_user_id,
 			'is_owner'             => (bool) $is_own_profile,
