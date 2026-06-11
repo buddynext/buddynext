@@ -213,7 +213,17 @@ do_action( 'buddynext_part_dm_rail_before', $args );
 
 		<?php if ( empty( $pinned ) && empty( $recent ) ) : ?>
 			<div class="bn-dm-rail__empty">
-				<?php esc_html_e( 'No conversations yet.', 'buddynext' ); ?>
+				<?php
+				// Tab-aware empty copy — "No conversations yet" reads wrong under the
+				// Unread / Requests filters.
+				if ( 'requests' === $tab_active ) {
+					esc_html_e( 'No message requests.', 'buddynext' );
+				} elseif ( 'unread' === $tab_active ) {
+					esc_html_e( 'No unread messages.', 'buddynext' );
+				} else {
+					esc_html_e( 'No conversations yet.', 'buddynext' );
+				}
+				?>
 			</div>
 		<?php endif; ?>
 
