@@ -2102,45 +2102,55 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-tabs {
 	display: flex;
 	border-bottom: 1px solid var(--bn-line);
-	gap: var(--bn-s5);
+	gap: var(--bn-s1);
 	margin: 0;
 }
-.bn-tabs[data-density="compact"] { gap: var(--bn-s3); }
+.bn-tabs[data-density="compact"] { gap: 2px; }
 
 .bn-tab {
-	padding: var(--bn-s3) 0;
+	/* Inline padding gives the same-tone hover/active highlight room to read as
+	   a soft pill; the rounded TOP + flat bottom keeps the active underline. */
+	padding: var(--bn-s2) var(--bn-s3);
 	font-size: var(--bn-text-sm);
 	font-weight: 550;
 	color: var(--bn-ink-3);
 	border: none;
 	border-bottom: 2px solid transparent;
 	margin-bottom: -1px;
+	border-radius: var(--bn-r-sm) var(--bn-r-sm) 0 0;
 	background: transparent;
 	cursor: pointer;
 	transition: color var(--bn-dur-fast) var(--bn-ease),
+				background var(--bn-dur-fast) var(--bn-ease),
 				border-color var(--bn-dur-fast) var(--bn-ease);
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
 	text-decoration: none;
 }
-.bn-tab:hover {
+/* Hover / focus / active read as a soft SAME-TONE highlight (accent at low
+   opacity) — never a heavy theme fill and never a box. The parent theme adds a
+   1px border to bare <button> on hover/focus; force the border to bottom-only
+   (the underline) so that border can never draw a box around the tab. The
+   `.bn-tabs` prefix keeps this ahead of the theme regardless of load order. */
+.bn-tabs .bn-tab:hover,
+.bn-tabs .bn-tab:focus,
+.bn-tabs .bn-tab:focus-visible,
+.bn-tabs .bn-tab:active {
 	color: var(--bn-ink);
+	background: color-mix(in oklab, var(--bn-accent) 8%, transparent);
+	border-width: 0 0 2px;
+	border-top-color: transparent;
+	border-inline-color: transparent;
 }
-/* Keep tabs flat in every interaction state — themes (e.g. Astra) give bare
-   <button> a solid fill on :hover/:focus, which would turn the active/clicked
-   tab into a heavy blue block. Tabs are underline-only. */
-.bn-tab:hover,
-.bn-tab:focus,
-.bn-tab:focus-visible,
-.bn-tab:active {
-	background: transparent;
+/* Non-keyboard interaction carries no shadow; keyboard focus adds a clean accent
+   underline (inset shadow, no layout shift) — never a rounded box. */
+.bn-tabs .bn-tab:hover,
+.bn-tabs .bn-tab:focus,
+.bn-tabs .bn-tab:active {
 	box-shadow: none;
 }
-/* Keyboard focus = a clean accent underline (an inset shadow so it never shifts
-   layout), NOT a rounded box hugging the whole tab — the box read as a separate
-   "container" that jumped from tab to tab. Mouse clicks never show it. */
-.bn-tab:focus-visible {
+.bn-tabs .bn-tab:focus-visible {
 	outline: none;
 	box-shadow: inset 0 -2px 0 0 var(--bn-accent);
 }
@@ -2149,6 +2159,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-tab.is-active {
 	color: var(--bn-ink);
 	border-bottom-color: var(--bn-accent);
+	background: color-mix(in oklab, var(--bn-accent) 12%, transparent);
 }
 .bn-tab__count {
 	font-size: var(--bn-text-2xs);
@@ -2630,15 +2641,4 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		min-width: 44px;
 		min-height: 44px;
 	}
-}
-
-/* ── Hover/focus geometry stability (parent-theme defense) ──────────────────
- * The active parent theme adds a 1px border to bare <button>/<a> on hover/
- * focus, which grows these borderless controls by 2px and shoves their
- * row-mates around. Reserve the border transparently at rest so a theme
- * border only recolours them, never resizes them. */
-.bn-mobile-nav__item,
-.bn-modal__close {
-	border: 1px solid transparent;
-	box-sizing: border-box;
 }
