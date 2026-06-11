@@ -83,42 +83,82 @@
 	gap: var(--bn-s2);
 }
 
-.bn-md-grid.is-list .bn-md-card {
-	flex-direction: row;
-	align-items: center;
-	column-gap: var(--bn-s3);
-	row-gap: var(--bn-s1);
-	flex-wrap: wrap;
-	text-align: start;
-}
+/* The compact horizontal row is a desktop/tablet affordance. Below 481px the
+   directory grid is already single-column, so list view keeps the full member
+   card there (the row would clip avatar + identity + two actions + kebab). */
+@media (min-width: 481px) {
+	/* Compact horizontal rows: avatar left, identity (grows), actions right — a
+	   scannable people list (LinkedIn pattern). The grid card's cover banner and
+	   absolutely-positioned overlapping avatar are reset to a plain inline row so
+	   the row reads as one line per member, not a stack of full-bleed cards. */
+	.bn-md-grid.is-list .bn-md-card {
+		flex-direction: row;
+		align-items: center;
+		column-gap: var(--bn-s3);
+		padding: var(--bn-s3) var(--bn-s4);
+		/* Reserve room on the right so the action buttons never sit under the
+		   absolute kebab (kebab is 30px wide at inset-inline-end: --bn-s2). */
+		padding-inline-end: calc(var(--bn-s2) + 30px + var(--bn-s3));
+	}
 
-.bn-md-grid.is-list .bn-md-card__avatar-link {
-	flex: 0 0 auto;
-	margin-block-end: 0;
-}
+	/* No cover band in list view. */
+	.bn-md-grid.is-list .bn-md-card__cover {
+		display: none;
+	}
 
-.bn-md-grid.is-list .bn-md-card__avatar {
-	inline-size: 52px;
-	block-size: 52px;
-}
+	/* Avatar rejoins the flow as the row's leading element. */
+	.bn-md-grid.is-list .bn-md-card__avatar-link {
+		position: static;
+		inset: auto;
+		flex: 0 0 auto;
+		margin: 0;
+	}
+	.bn-md-grid.is-list .bn-md-card__avatar-link .bn-avatar {
+		width: 48px;
+		height: 48px;
+	}
 
-.bn-md-grid.is-list .bn-md-card__identity {
-	display: flex;
-	flex: 1 1 auto;
-	flex-direction: column;
-	gap: 2px;
-	min-inline-size: 0;
-}
+	/* Body becomes the horizontal track holding identity + actions. */
+	.bn-md-grid.is-list .bn-md-card__body {
+		flex-direction: row;
+		align-items: center;
+		column-gap: var(--bn-s3);
+		padding: 0;
+		flex: 1 1 auto;
+		min-inline-size: 0;
+	}
+	.bn-md-grid.is-list .bn-md-card__identity {
+		flex: 1 1 auto;
+		min-inline-size: 0;
+	}
+	.bn-md-grid.is-list .bn-md-card__actions {
+		flex: 0 0 auto;
+		inline-size: auto;
+		margin-inline-start: auto;
+		margin-block-start: 0;
+		padding-block-start: 0;
+		flex-wrap: nowrap;
+	}
+	/* Compact, auto-width action buttons in a row — they must not stretch to fill
+	   the row the way the grid card's equal-width pair does. */
+	.bn-md-grid.is-list .bn-md-card__actions .bn-btn,
+	.bn-md-grid.is-list .bn-md-card__actions .bn-md-card__follow,
+	.bn-md-grid.is-list .bn-md-card__actions .bn-md-card__connect-primary {
+		flex: 0 0 auto;
+		inline-size: auto;
+	}
 
-.bn-md-grid.is-list .bn-md-card__actions {
-	flex: 0 0 auto;
-	margin-inline-start: auto;
-}
+	/* Compact rows drop the bulkier card extras. */
+	.bn-md-grid.is-list .bn-md-card__bio,
+	.bn-md-grid.is-list .bn-md-card__mutual {
+		display: none;
+	}
 
-/* Compact rows drop the bulkier card extras. */
-.bn-md-grid.is-list .bn-md-card__bio,
-.bn-md-grid.is-list .bn-md-card__mutual {
-	display: none;
+	/* Center the kebab on the row's right edge (it's absolute top-right by default). */
+	.bn-md-grid.is-list .bn-md-card__menu-wrap {
+		inset-block-start: 50%;
+		transform: translateY(-50%);
+	}
 }
 
 /* ── Member card composition (uses .bn-card[data-interactive] from base) ── */
