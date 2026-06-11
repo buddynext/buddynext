@@ -42,6 +42,8 @@ $args = array(
 	'avatar_html'   => isset( $avatar_html ) ? (string) $avatar_html : '',
 	'profile_url'   => isset( $profile_url ) ? (string) $profile_url : '',
 	'back_url'      => isset( $back_url ) ? (string) $back_url : '',
+	'is_group'      => isset( $is_group ) ? (bool) $is_group : false,
+	'member_count'  => isset( $member_count ) ? (int) $member_count : 0,
 	'classes'       => isset( $classes ) ? (array) $classes : array(),
 );
 
@@ -77,6 +79,10 @@ $profile_url = (string) $args['profile_url'];
 $back_url    = (string) $args['back_url'];
 $online      = (bool) $args['is_online'];
 $presence    = $online ? 'online' : 'offline';
+$is_group    = (bool) $args['is_group'];
+$members     = (int) $args['member_count'];
+/* translators: %d: number of group members. */
+$group_sub = sprintf( _n( '%d member', '%d members', $members, 'buddynext' ), $members );
 
 do_action( 'buddynext_part_dm_thread_header_before', $args );
 ?>
@@ -85,9 +91,12 @@ do_action( 'buddynext_part_dm_thread_header_before', $args );
 		<?php buddynext_icon( 'chevron-left' ); ?>
 	</a>
 
-	<a href="<?php echo esc_url( $profile_url ); ?>" class="bn-dm-pane__identity">
-		<span class="bn-avatar bn-dm-avatar bn-dm-tone-<?php echo (int) $tone; ?>" data-size="md" data-presence="<?php echo esc_attr( $presence ); ?>" aria-hidden="true">
-			<?php if ( false !== strpos( $avatar_html, 'src=' ) ) : ?>
+	<?php $bn_id_tag = $is_group ? 'div' : 'a'; ?>
+	<<?php echo esc_attr( $bn_id_tag ); ?> <?php echo $is_group ? '' : 'href="' . esc_url( $profile_url ) . '"'; ?> class="bn-dm-pane__identity">
+		<span class="bn-avatar bn-dm-avatar<?php echo $is_group ? ' bn-dm-avatar--group' : ' bn-dm-tone-' . (int) $tone; ?>" data-size="md"<?php echo $is_group ? '' : ' data-presence="' . esc_attr( $presence ) . '"'; ?> aria-hidden="true">
+			<?php if ( $is_group ) : ?>
+				<?php buddynext_icon( 'users' ); ?>
+			<?php elseif ( false !== strpos( $avatar_html, 'src=' ) ) : ?>
 				<?php
 				echo wp_kses(
 					$avatar_html,
@@ -110,11 +119,17 @@ do_action( 'buddynext_part_dm_thread_header_before', $args );
 		</span>
 		<span class="bn-dm-pane__identity-text">
 			<span class="bn-dm-pane__identity-name"><?php echo esc_html( $name ); ?></span>
-			<span class="bn-dm-pane__identity-status<?php echo $online ? ' is-online' : ''; ?>">
-				<?php echo esc_html( $online ? __( 'Online now', 'buddynext' ) : __( 'Offline', 'buddynext' ) ); ?>
+			<span class="bn-dm-pane__identity-status<?php echo ( ! $is_group && $online ) ? ' is-online' : ''; ?>">
+				<?php
+				if ( $is_group ) {
+					echo esc_html( $group_sub );
+				} else {
+					echo esc_html( $online ? __( 'Online now', 'buddynext' ) : __( 'Offline', 'buddynext' ) );
+				}
+				?>
 			</span>
 		</span>
-	</a>
+	</<?php echo esc_attr( $bn_id_tag ); ?>>
 
 	<div class="bn-dm-pane__actions" role="toolbar" aria-label="<?php esc_attr_e( 'Conversation actions', 'buddynext' ); ?>">
 		<span class="bn-tooltip-trigger">

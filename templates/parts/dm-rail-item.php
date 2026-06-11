@@ -69,6 +69,8 @@ $c_initials  = (string) $initials_call( $c_name );
 $c_tone      = (int) $tone_call( $c_uid );
 $c_typing    = ! empty( $conv['other_user_typing'] );
 $c_pinned    = ! empty( $conv['is_pinned'] );
+$c_is_group  = ! empty( $conv['is_group'] );
+$c_members   = absint( $conv['member_count'] ?? 0 );
 $c_url       = add_query_arg(
 	array(
 		'conversation' => $c_id,
@@ -113,8 +115,10 @@ do_action( 'buddynext_part_dm_rail_item_before', $args );
 	<?php endif; ?>
 	data-conv-id="<?php echo esc_attr( (string) $c_id ); ?>"
 >
-	<span class="bn-avatar bn-dm-avatar" data-size="md" data-presence="<?php echo esc_attr( $presence ); ?>" aria-hidden="true">
-		<?php if ( false !== strpos( $c_av_html, 'src=' ) ) : ?>
+	<span class="bn-avatar bn-dm-avatar<?php echo $c_is_group ? ' bn-dm-avatar--group' : ''; ?>" data-size="md"<?php echo $c_is_group ? '' : ' data-presence="' . esc_attr( $presence ) . '"'; ?> aria-hidden="true">
+		<?php if ( $c_is_group ) : ?>
+			<?php buddynext_icon( 'users' ); ?>
+		<?php elseif ( false !== strpos( $c_av_html, 'src=' ) ) : ?>
 			<?php
 			echo wp_kses(
 				$c_av_html,
@@ -144,7 +148,16 @@ do_action( 'buddynext_part_dm_rail_item_before', $args );
 			</time>
 		</span>
 		<span class="bn-dm-rail__item-preview<?php echo $c_typing ? ' is-typing' : ''; ?>">
-			<?php echo esc_html( $c_typing ? __( 'Typing…', 'buddynext' ) : $c_preview ); ?>
+			<?php
+			if ( $c_typing ) {
+				echo esc_html__( 'Typing…', 'buddynext' );
+			} elseif ( '' !== $c_preview ) {
+				echo esc_html( $c_preview );
+			} elseif ( $c_is_group ) {
+				/* translators: %d: number of group members. */
+				echo esc_html( sprintf( _n( '%d member', '%d members', $c_members, 'buddynext' ), $c_members ) );
+			}
+			?>
 		</span>
 	</span>
 

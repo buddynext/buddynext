@@ -39,6 +39,105 @@ class MessagesData {
 	}
 
 	/**
+	 * Whether group conversations are available — i.e. WPMediaVerse Pro (which
+	 * REST-exposes the group lifecycle at mvs-pro/v1/groups) is active. Group
+	 * chat is a Pro capability; the BN UI hides every group affordance when this
+	 * is false, so the feature degrades cleanly to 1-to-1 DMs.
+	 *
+	 * @return bool
+	 */
+	public static function groups_enabled(): bool {
+		return class_exists( '\WPMediaVersePro\Groups\GroupController' );
+	}
+
+	/**
+	 * Is this conversation row a group (vs a 1-to-1 direct message)?
+	 *
+	 * @param mixed $conv Conversation row.
+	 * @return bool
+	 */
+	private static function is_group( $conv ): bool {
+		return 'group' === (string) self::val( $conv, 'type', 'direct' );
+	}
+
+	/**
+	 * A human label for a group: its admin-set title, or a comma-joined list of
+	 * the other members' names as a sensible fallback when untitled.
+	 *
+	 * @param mixed $conv   Conversation row.
+	 * @param int   $viewer Viewing user ID.
+	 * @return string
+	 */
+	private static function group_label( $conv, int $viewer ): string {
+		$title = trim( (string) self::val( $conv, 'title', '' ) );
+		if ( '' !== $title ) {
+			return $title;
+		}
+		$names = array();
+		foreach ( (array) self::val( $conv, 'participants', array() ) as $p ) {
+			if ( (int) self::val( $p, 'id', 0 ) === $viewer ) {
+				continue;
+			}
+			$name = trim( (string) self::val( $p, 'display_name', '' ) );
+			if ( '' !== $name ) {
+				$names[] = $name;
+			}
+		}
+		if ( empty( $names ) ) {
+			return __( 'Group', 'buddynext' );
+		}
+		$shown = array_slice( $names, 0, 3 );
+		$label = implode( ', ', $shown );
+		if ( count( $names ) > 3 ) {
+			/* translators: 1: comma-separated member names, 2: count of remaining members. */
+			$label = sprintf( __( '%1$s +%2$d', 'buddynext' ), $label, count( $names ) - 3 );
+		}
+		return $label;
+	}
+
+	/**
+	 * Active-participant roster for a group thread header (id, name, role,
+	 * presence, and whether it is the viewer).
+	 *
+	 * @param mixed $conv   Conversation row.
+	 * @param int   $viewer Viewing user ID.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private static function roster( $conv, int $viewer ): array {
+		$out = array();
+		foreach ( (array) self::val( $conv, 'participants', array() ) as $p ) {
+			if ( 'active' !== (string) self::val( $p, 'status', 'active' ) ) {
+				continue;
+			}
+			$uid   = (int) self::val( $p, 'id', 0 );
+			$out[] = array(
+				'id'        => $uid,
+				'name'      => (string) self::val( $p, 'display_name', '' ),
+				'role'      => (string) self::val( $p, 'role', 'member' ),
+				'is_online' => ! empty( self::val( $p, 'is_online', false ) ),
+				'is_self'   => ( $uid === $viewer ),
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Count of active participants in a conversation.
+	 *
+	 * @param mixed $conv Conversation row.
+	 * @return int
+	 */
+	private static function active_count( $conv ): int {
+		$n = 0;
+		foreach ( (array) self::val( $conv, 'participants', array() ) as $p ) {
+			if ( 'active' === (string) self::val( $p, 'status', 'active' ) ) {
+				++$n;
+			}
+		}
+		return $n;
+	}
+
+	/**
 	 * The messaging service, or null.
 	 *
 	 * @return object|null
@@ -95,17 +194,36 @@ class MessagesData {
 	 * @return array<string,mixed>
 	 */
 	private static function map_conversation( $conv, int $viewer ): array {
-		$other = self::other_participant( $conv, $viewer );
-
-		return array(
+		$base = array(
 			'id'                   => (int) self::val( $conv, 'id', 0 ),
-			'other_user_id'        => $other ? (int) self::val( $other, 'id', 0 ) : 0,
-			'other_user_name'      => $other ? (string) self::val( $other, 'display_name', '' ) : __( 'Conversation', 'buddynext' ),
 			'last_message_preview' => (string) self::val( $conv, 'last_message_preview', '' ),
 			'last_message_at'      => (string) self::val( $conv, 'last_activity_at', '' ),
 			'unread_count'         => (int) self::val( $conv, 'unread_count', 0 ),
 			'other_user_typing'    => false,
 			'is_pinned'            => ! empty( self::val( $conv, 'is_pinned', false ) ),
+		);
+
+		if ( self::is_group( $conv ) ) {
+			return array_merge(
+				$base,
+				array(
+					'is_group'        => true,
+					'member_count'    => self::active_count( $conv ),
+					'other_user_id'   => 0,
+					'other_user_name' => self::group_label( $conv, $viewer ),
+				)
+			);
+		}
+
+		$other = self::other_participant( $conv, $viewer );
+
+		return array_merge(
+			$base,
+			array(
+				'is_group'        => false,
+				'other_user_id'   => $other ? (int) self::val( $other, 'id', 0 ) : 0,
+				'other_user_name' => $other ? (string) self::val( $other, 'display_name', '' ) : __( 'Conversation', 'buddynext' ),
+			)
 		);
 	}
 
@@ -163,10 +281,10 @@ class MessagesData {
 			return null;
 		}
 
-		$other        = self::other_participant( $conv, $viewer );
-		$other_read   = $other && ! empty( $other->last_read_at ) ? strtotime( (string) $other->last_read_at ) : 0;
-		$rows         = (array) $svc->get_messages( $conv_id, $viewer, 0, 50 );
-		$messages     = array();
+		$other      = self::other_participant( $conv, $viewer );
+		$other_read = $other && ! empty( $other->last_read_at ) ? strtotime( (string) $other->last_read_at ) : 0;
+		$rows       = (array) $svc->get_messages( $conv_id, $viewer, 0, 50 );
+		$messages   = array();
 
 		// A conversation is a "message request" for the viewer when their own
 		// participant status is still pending acceptance.
@@ -194,9 +312,9 @@ class MessagesData {
 				);
 			}
 
-			$created    = strtotime( (string) self::val( $m, 'created_at', '' ) );
-			$parent     = self::val( $m, 'parent_preview', null );
-			$sender_id  = (int) self::val( $m, 'sender_id', 0 );
+			$created   = strtotime( (string) self::val( $m, 'created_at', '' ) );
+			$parent    = self::val( $m, 'parent_preview', null );
+			$sender_id = (int) self::val( $m, 'sender_id', 0 );
 
 			// Private media shared into the DM (mvs media_share), mapped to a
 			// compact shape the bubble renders. WP-attachment fallback kept for
@@ -232,15 +350,39 @@ class MessagesData {
 			);
 		}
 
+		$is_group = self::is_group( $conv );
+
 		return array(
 			'conversation_id' => (int) self::val( $conv, 'id', 0 ),
-			'other_user_id'   => $other ? (int) self::val( $other, 'id', 0 ) : 0,
-			'display_name'    => $other ? (string) self::val( $other, 'display_name', '' ) : __( 'Conversation', 'buddynext' ),
-			'is_online'       => $other ? ! empty( self::val( $other, 'is_online', false ) ) : false,
+			'is_group'        => $is_group,
+			'member_count'    => $is_group ? self::active_count( $conv ) : 0,
+			'participants'    => $is_group ? self::roster( $conv, $viewer ) : array(),
+			'is_admin'        => $is_group ? self::viewer_is_admin( $conv, $viewer ) : false,
+			'other_user_id'   => ( ! $is_group && $other ) ? (int) self::val( $other, 'id', 0 ) : 0,
+			'display_name'    => $is_group
+				? self::group_label( $conv, $viewer )
+				: ( $other ? (string) self::val( $other, 'display_name', '' ) : __( 'Conversation', 'buddynext' ) ),
+			'is_online'       => ( ! $is_group && $other ) ? ! empty( self::val( $other, 'is_online', false ) ) : false,
 			'avatar_html'     => '',
 			'is_request'      => $is_request,
 			'messages'        => $messages,
 		);
+	}
+
+	/**
+	 * Whether the viewer is an admin of a group conversation.
+	 *
+	 * @param mixed $conv   Conversation row.
+	 * @param int   $viewer Viewing user ID.
+	 * @return bool
+	 */
+	private static function viewer_is_admin( $conv, int $viewer ): bool {
+		foreach ( (array) self::val( $conv, 'participants', array() ) as $p ) {
+			if ( (int) self::val( $p, 'id', 0 ) === $viewer ) {
+				return 'admin' === (string) self::val( $p, 'role', 'member' );
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -272,7 +414,8 @@ class MessagesData {
 	public static function helpers(): array {
 		return array(
 			'initials_fn' => static function ( $name ): string {
-				$parts = preg_split( '/\s+/', trim( (string) $name ) ) ?: array();
+				$split = preg_split( '/\s+/', trim( (string) $name ) );
+				$parts = is_array( $split ) ? $split : array();
 				$ini   = strtoupper( (string) ( $parts[0][0] ?? '' ) . (string) ( isset( $parts[1] ) ? ( $parts[1][0] ?? '' ) : '' ) );
 
 				return '' !== $ini ? $ini : 'U';

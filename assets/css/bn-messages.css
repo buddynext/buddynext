@@ -1301,3 +1301,83 @@
 	.bn-msg-shell:not([data-active-conv]) .bn-msg-thread,
 	.bn-msg-shell:not([data-active-conv]) .bn-msg-empty { display: none; }
 }
+
+/* ── Group chat ────────────────────────────────────────────────────────────── */
+/* Group avatar glyph (rail rows + thread header) in place of a person photo. */
+.bn-dm-avatar--group {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--bn-accent-100, var(--bn-surface-2, #eef2ff));
+	color: var(--bn-accent, #4f46e5);
+}
+.bn-dm-avatar--group .bn-icon {
+	width: 55%;
+	height: 55%;
+}
+
+/* Compose modal: mode switch (Direct / New group). */
+.bn-dm-compose__modes {
+	display: flex;
+	gap: var(--bn-s2, 8px);
+	margin-bottom: var(--bn-s3, 12px);
+}
+.bn-dm-compose__mode {
+	flex: 1;
+	padding: var(--bn-s2, 8px);
+	border: 1px solid var(--bn-line, #e5e7eb);
+	border-radius: var(--bn-radius, 8px);
+	background: transparent;
+	color: var(--bn-ink-2, #4b5563);
+	font: inherit;
+	cursor: pointer;
+}
+.bn-dm-compose__mode.is-active {
+	border-color: var(--bn-accent, #4f46e5);
+	background: var(--bn-accent-100, #eef2ff);
+	color: var(--bn-accent-700, var(--bn-accent, #4338ca));
+	font-weight: 600;
+}
+
+/* Compose modal: group name + selected-member chips. */
+.bn-dm-compose__group {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2, 8px);
+	margin-bottom: var(--bn-s3, 12px);
+}
+.bn-dm-compose__chips {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2, 8px);
+}
+.bn-dm-compose__chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 6px 4px 10px;
+	background: var(--bn-surface-2, #f3f4f6);
+	border-radius: 999px;
+	font-size: var(--bn-text-sm, 0.875rem);
+}
+.bn-dm-compose__chip-x {
+	border: 0;
+	background: var(--bn-line, #e5e7eb);
+	color: var(--bn-ink-2, #4b5563);
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	line-height: 1;
+	cursor: pointer;
+	font-size: 14px;
+}
+.bn-dm-compose__chip-x:hover { background: var(--bn-danger, #dc2626); color: #fff; }
+
+.bn-dm-compose__group-actions {
+	margin-top: var(--bn-s3, 12px);
+	display: flex;
+	justify-content: flex-end;
+}

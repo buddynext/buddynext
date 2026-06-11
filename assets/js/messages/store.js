@@ -151,6 +151,7 @@ function buildComposeResult( member ) {
 	li.setAttribute( 'role', 'option' );
 	li.tabIndex = 0;
 	li.dataset.userId = String( member.user_id || 0 );
+	li.dataset.userName = member.display_name || '';
 
 	const avatar = document.createElement( 'span' );
 	avatar.className = 'bn-avatar';
@@ -432,6 +433,23 @@ function buildReactionChip( msgEl, slug ) {
 }
 
 const { actions } = store( 'buddynext/messages', {
+	state: {
+		// ── Compose modal (DM ↔ group) ────────────────────────────────────────
+		get composeIsGroup() { return getContext().composeMode === 'group'; },
+		get composeIsDm() { return getContext().composeMode !== 'group'; },
+		get composeTitle() {
+			const ctx = getContext();
+			const i18n = ctx.i18n || {};
+			return ctx.composeMode === 'group'
+				? ( i18n.composeNewGroup || 'New group' )
+				: ( i18n.composeNewMessage || 'New message' );
+		},
+		get groupHasNoMembers() { return ( getContext().groupMembers || [] ).length === 0; },
+		get createGroupDisabled() {
+			const ctx = getContext();
+			return !! ctx.groupBusy || ( ctx.groupMembers || [] ).length < 1;
+		},
+	},
 	actions: {
 		// ── Composer ──────────────────────────────────────────────────────────
 		onMessageInput( event ) {
@@ -795,6 +813,49 @@ const { actions } = store( 'buddynext/messages', {
 		closeCompose() {
 			getContext().composeOpen = false;
 		},
+		setComposeDm() {
+			getContext().composeMode = 'dm';
+		},
+		setComposeGroup() {
+			getContext().composeMode = 'group';
+		},
+		setGroupName( event ) {
+			getContext().groupName = String( event.target.value || '' );
+		},
+		removeGroupMember( event ) {
+			const btn = event.target.closest( '[data-id]' );
+			if ( ! btn ) { return; }
+			const id  = parseInt( btn.dataset.id, 10 ) || 0;
+			const ctx = getContext();
+			ctx.groupMembers = ( ctx.groupMembers || [] ).filter( ( m ) => parseInt( m.id, 10 ) !== id );
+		},
+		*createGroup() {
+			const ctx     = getContext();
+			const members = ( ctx.groupMembers || [] ).map( ( m ) => parseInt( m.id, 10 ) ).filter( Boolean );
+			if ( ctx.groupBusy || members.length < 1 ) { return; }
+			ctx.groupBusy = true;
+			try {
+				const res = yield fetch( ctx.mvsProRest + '/groups', {
+					method: 'POST',
+					headers: headers( ctx ),
+					body: JSON.stringify( {
+						title: String( ctx.groupName || '' ).trim(),
+						participant_ids: members,
+					} ),
+				} );
+				const data = yield res.json();
+				if ( res.ok && data && data.id ) {
+					const base = ctx.messagesUrl || '?';
+					window.location.href = base + ( base.indexOf( '?' ) === -1 ? '?' : '&' ) + 'conversation=' + data.id;
+					return;
+				}
+				ctx.groupBusy = false;
+				bnToast( ( ctx.i18n && ctx.i18n.groupCreateFailed ) || 'Could not create the group.', { tone: 'danger' } );
+			} catch ( _e ) {
+				ctx.groupBusy = false;
+				bnToast( ( ctx.i18n && ctx.i18n.groupCreateFailed ) || 'Could not create the group.', { tone: 'danger' } );
+			}
+		},
 		onComposeSearch( event ) {
 			const ctx  = getContext();
 			const term = ( event.target.value || '' ).trim();
@@ -839,7 +900,26 @@ const { actions } = store( 'buddynext/messages', {
 			if ( ! uid ) {
 				return;
 			}
-			const ctx  = getContext();
+			const ctx = getContext();
+
+			// Group mode: collect the member as a chip instead of navigating.
+			if ( ctx.composeMode === 'group' ) {
+				const existing = ( ctx.groupMembers || [] ).some( ( m ) => parseInt( m.id, 10 ) === uid );
+				if ( ! existing ) {
+					ctx.groupMembers = [ ...( ctx.groupMembers || [] ), { id: uid, name: row.dataset.userName || '' } ];
+				}
+				const search = document.getElementById( 'bn-dm-compose-search' );
+				if ( search ) {
+					search.value = '';
+					search.focus();
+				}
+				const list = document.querySelector( '.bn-dm-compose__results' );
+				if ( list ) {
+					list.replaceChildren( composeMessage( ( ctx.i18n && ctx.i18n.composeHint ) || '' ) );
+				}
+				return;
+			}
+
 			const base = ctx.messagesUrl || '?';
 			window.location.href = base + ( base.indexOf( '?' ) === -1 ? '?' : '&' ) + 'to=' + uid;
 		},

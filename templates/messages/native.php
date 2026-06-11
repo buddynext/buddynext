@@ -75,25 +75,34 @@ $messages_url = PageRouter::messages_url();
 
 $bn_ctx = wp_json_encode(
 	array(
-		'mvsRest'      => esc_url_raw( rest_url( 'mvs/v1' ) ),
-		'bnRest'       => esc_url_raw( rest_url( 'buddynext/v1' ) ),
-		'nonce'        => wp_create_nonce( 'wp_rest' ),
-		'userId'       => $viewer,
-		'composeOpen'  => false,
-		'activeConvId' => $thread ? (int) $thread['conversation_id'] : 0,
-		'replyToId'    => 0,
-		'replyToText'  => '',
-		'confirmOpen'      => false,
+		'mvsRest'           => esc_url_raw( rest_url( 'mvs/v1' ) ),
+		'mvsProRest'        => esc_url_raw( rest_url( 'mvs-pro/v1' ) ),
+		'groupsEnabled'     => MessagesData::groups_enabled(),
+		'bnRest'            => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+		'nonce'             => wp_create_nonce( 'wp_rest' ),
+		'userId'            => $viewer,
+		'composeOpen'       => false,
+		'composeMode'       => 'dm',
+		'groupName'         => '',
+		'groupMembers'      => array(),
+		'groupBusy'         => false,
+		'activeConvId'      => $thread ? (int) $thread['conversation_id'] : 0,
+		'replyToId'         => 0,
+		'replyToText'       => '',
+		'confirmOpen'       => false,
 		'attachmentVisible' => false,
-		'mediaPickerOpen'  => false,
-		'attachmentId'     => 0,
-		'attachmentName'   => '',
+		'mediaPickerOpen'   => false,
+		'attachmentId'      => 0,
+		'attachmentName'    => '',
 		'attachmentPreview' => '',
-		'messagesUrl'  => $messages_url,
-		'i18n'         => array(
-			'composeHint' => __( 'Type a name to find someone to message.', 'buddynext' ),
-			'composeNone' => __( 'No members found.', 'buddynext' ),
-			'mediaEmpty'  => __( 'No photos yet — upload one to share.', 'buddynext' ),
+		'messagesUrl'       => $messages_url,
+		'i18n'              => array(
+			'composeHint'       => __( 'Type a name to find someone to message.', 'buddynext' ),
+			'composeNone'       => __( 'No members found.', 'buddynext' ),
+			'mediaEmpty'        => __( 'No photos yet — upload one to share.', 'buddynext' ),
+			'composeNewMessage' => __( 'New message', 'buddynext' ),
+			'composeNewGroup'   => __( 'New group', 'buddynext' ),
+			'groupCreateFailed' => __( 'Could not create the group. Please try again.', 'buddynext' ),
 		),
 	)
 );
@@ -141,6 +150,8 @@ $bn_ctx = wp_json_encode(
 						'avatar_html'   => $thread['avatar_html'],
 						'profile_url'   => $thread['other_user_id'] ? PageRouter::profile_url( $thread['other_user_id'] ) : '',
 						'back_url'      => $messages_url,
+						'is_group'      => ! empty( $thread['is_group'] ),
+						'member_count'  => (int) ( $thread['member_count'] ?? 0 ),
 					)
 				);
 
