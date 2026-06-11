@@ -335,3 +335,15 @@ body.bn-lightbox-open { overflow: hidden; }
 	.bn-lightbox__media { max-height: 50vh; }
 	.bn-lightbox__panel { flex: 1 1 auto; width: 100%; max-width: none; border-inline-start: 0; border-block-start: 1px solid var( --bn-line, oklch( 92% 0.005 0 ) ); }
 }
+
+/* ── Hover/focus geometry stability (parent-theme defense) ──────────────────
+ * The active parent theme adds a 1px border to bare <button>/<a> on hover/
+ * focus, which grows these borderless controls by 2px and shoves their
+ * row-mates around. Reserve the border transparently at rest so a theme
+ * border only recolours them, never resizes them. */
+.bn-lightbox__nav,
+.bn-lightbox__close,
+.bn-lightbox__action {
+	border: 1px solid transparent;
+	box-sizing: border-box;
+}

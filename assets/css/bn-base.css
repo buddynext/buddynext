@@ -2137,10 +2137,12 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	background: transparent;
 	box-shadow: none;
 }
+/* Keyboard focus = a clean accent underline (an inset shadow so it never shifts
+   layout), NOT a rounded box hugging the whole tab — the box read as a separate
+   "container" that jumped from tab to tab. Mouse clicks never show it. */
 .bn-tab:focus-visible {
-	outline: 2px solid var(--bn-accent);
-	outline-offset: -2px;
-	border-radius: var(--bn-r-sm);
+	outline: none;
+	box-shadow: inset 0 -2px 0 0 var(--bn-accent);
 }
 .bn-tab[aria-selected="true"],
 .bn-tab[data-active],
@@ -2628,4 +2630,15 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		min-width: 44px;
 		min-height: 44px;
 	}
+}
+
+/* ── Hover/focus geometry stability (parent-theme defense) ──────────────────
+ * The active parent theme adds a 1px border to bare <button>/<a> on hover/
+ * focus, which grows these borderless controls by 2px and shoves their
+ * row-mates around. Reserve the border transparently at rest so a theme
+ * border only recolours them, never resizes them. */
+.bn-mobile-nav__item,
+.bn-modal__close {
+	border: 1px solid transparent;
+	box-sizing: border-box;
 }
