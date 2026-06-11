@@ -40,3 +40,13 @@ If Pro adds a reaction type via the `buddynext_reaction_types` filter:
 2. Drop the Flat variant SVG into this directory, renamed to match the
    reaction slug (e.g. `celebrate.svg`).
 3. The helper resolves the slug → file automatically. No code change.
+
+## Custom-reaction picker set
+
+The additional emoji in this folder (fire, rocket, clap, hundred, trophy,
+thinking, eyes, star-struck, etc.) are also Microsoft Fluent Emoji (Flat,
+32×32) from the same [microsoft/fluentui-emoji](https://github.com/microsoft/fluentui-emoji)
+source and license (MIT code / CC-BY 4.0 assets). They populate the Pro
+custom-reactions picker (Settings → Reactions) so every reaction — default or
+custom — is one consistent Fluent set. Drop more Flat-style SVGs here to expand
+the picker's choices.

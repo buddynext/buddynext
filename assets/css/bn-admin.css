@@ -2011,3 +2011,45 @@ button.bn-btn-danger:hover {
 	display: inline-block;
 	vertical-align: middle;
 }
+
+/* Custom-reaction emoji picker (Pro Reactions tab). A grid of Fluent emoji
+   tiles; the selected tile gets an accent ring. Visual, so admins see exactly
+   what they're adding instead of typing a hex colour. */
+.bn-cr-emoji-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+	gap: 8px;
+	margin-top: 8px;
+	max-width: 760px;
+}
+.bn-cr-emoji-tile {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	padding: 10px 6px;
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-r-md, 8px);
+	background: var(--bn-a-bg);
+	cursor: pointer;
+	text-align: center;
+	transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.bn-cr-emoji-tile:hover { border-color: var(--bn-a-text-3); background: var(--bn-a-bg-subtle); }
+.bn-cr-emoji-tile input { position: absolute; opacity: 0; pointer-events: none; }
+.bn-cr-emoji-tile:has(input:checked) {
+	border-color: var(--bn-accent);
+	box-shadow: 0 0 0 1px var(--bn-accent);
+	background: color-mix(in oklch, var(--bn-accent) 8%, var(--bn-a-bg));
+}
+.bn-cr-emoji-tile__img { width: 28px; height: 28px; }
+.bn-cr-emoji-tile__name {
+	font-size: 11px;
+	color: var(--bn-a-text-2);
+	line-height: 1.2;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
+}
+.bn-cr-emoji-tile:has(input:checked) .bn-cr-emoji-tile__name { color: var(--bn-a-text-1); font-weight: 600; }

@@ -142,6 +142,28 @@ class IconService {
 	}
 
 	/**
+	 * List the slugs of every vendored emoji (the basenames of the SVGs in
+	 * assets/emoji/). Used by the custom-reactions picker so admins choose a
+	 * real Fluent emoji rather than a raw colour. Sorted alphabetically.
+	 *
+	 * @return string[] Emoji slugs, e.g. ['angry','celebrate','check', …].
+	 */
+	public static function available_emoji_slugs(): array {
+		$files = glob( self::emoji_dir() . '*.svg' );
+		if ( ! is_array( $files ) ) {
+			return array();
+		}
+		$slugs = array_map(
+			static function ( string $path ): string {
+				return basename( $path, '.svg' );
+			},
+			$files
+		);
+		sort( $slugs );
+		return $slugs;
+	}
+
+	/**
 	 * Load an SVG icon, sanitize it, and return the safe HTML string.
 	 *
 	 * Returns an empty string when the named icon does not exist on disk.
