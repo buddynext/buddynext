@@ -35,14 +35,49 @@
 	flex-direction: column;
 }
 
-.bn-dm-split {
+/*
+ * The messages two-pane. The markup is `.bn-split.bn-dm`, so the override must
+ * target that exact pair — NOT `.bn-dm-split` (no element ever carries it). The
+ * generic .bn-split grid is `var(--bn-railw) 1fr`, which ties the conversation
+ * rail to the shell nav-rail width (72px when the left nav is collapsed); a DM
+ * rail must be a fixed, readable width of its own.
+ */
+.bn-split.bn-dm {
 	flex: 1;
+	/*
+	 * The parent (.bn-app__main) is a block box with a definite height, so
+	 * flex:1 alone never stretches this pane — it collapses to content height
+	 * and leaves the messaging UI floating at the top. Claim the full height so
+	 * the rail and thread fill the screen and scroll independently, like a real
+	 * messenger.
+	 */
+	height: 100%;
 	min-height: 0;
 	border: 0;
 	border-radius: 0;
 	background: transparent;
 	grid-template-columns: 320px minmax(0, 1fr);
 	gap: 0;
+}
+
+/*
+ * Thread pane fills its column and lays its children out as a flex column so
+ * the header + composer stay fixed while the message log (.bn-dm-pane__body,
+ * flex:1) takes the remaining space and scrolls. Without this the inner wrapper
+ * is a plain block, the log collapses to content height, and the composer
+ * floats mid-pane instead of sitting at the bottom.
+ */
+.bn-dm-thread {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.bn-dm-thread__inner {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
 }
 
 /* ── Conversation rail ────────────────────────────────────────────────────── */
@@ -737,9 +772,10 @@
 	white-space: nowrap;
 }
 
-/* ── Delete-confirm + compose modals ─────────────────────────────────────── */
+/* ── Delete-confirm + compose + group modals ─────────────────────────────── */
 .bn-dm-confirm.is-hidden,
-.bn-dm-compose.is-hidden {
+.bn-dm-compose.is-hidden,
+.bn-dm-group.is-hidden {
 	display: none;
 }
 
@@ -1038,29 +1074,69 @@
 }
 
 /* ── Mobile (≤768px) — collapse split to single pane per v2 ──────────────── */
+/*
+ * Mobile: collapse the two-pane to a single column. The list (rail) shows by
+ * default; opening a conversation adds .is-thread-open on the container, which
+ * swaps the rail out for the thread and reveals the back button. (The previous
+ * rules here targeted .bn-dm-card / .bn-dm-split / .bn-dm-shell.is-thread-active
+ * — classes the rendered markup never had, so mobile never collapsed.)
+ */
 @media (max-width: 768px) {
-	.bn-dm-card {
-		height: calc(100vh - var(--bn-topbar-h));
-		border-radius: 0;
-		border-inline: none;
+	/*
+	 * Drop the two-column grid for a single flex column. A display:none grid
+	 * item still reserves its track, which left the thread sized to the old
+	 * 320px rail track and overflowing the viewport; flex sidesteps that — the
+	 * one visible pane simply takes the full width.
+	 */
+	.bn-split.bn-dm {
+		display: flex;
+		flex-direction: column;
 	}
 
-	.bn-dm-split {
-		grid-template-columns: 1fr;
+	.bn-split.bn-dm .bn-dm-rail,
+	.bn-split.bn-dm .bn-dm-thread {
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
 	}
 
-	/* Show rail when no thread active. */
-	.bn-dm-shell:not(.is-thread-active) .bn-dm-pane {
+	/* List view (no conversation open): show the rail, hide the empty thread. */
+	.bn-split.bn-dm:not(.is-thread-open) .bn-dm-thread {
 		display: none;
 	}
 
-	/* Show thread + back button when thread active. */
-	.bn-dm-shell.is-thread-active .bn-dm-rail {
+	/* Thread view: hide the rail, show the thread full-width + the back button. */
+	.bn-split.bn-dm.is-thread-open .bn-dm-rail {
 		display: none;
 	}
 
-	.bn-dm-shell.is-thread-active .bn-dm-pane__back {
+	.bn-split.bn-dm.is-thread-open .bn-dm-pane__back {
 		display: inline-flex;
+	}
+
+	/*
+	 * Tighten the thread header on mobile so the contact name actually has room.
+	 * At full padding/gap the three action buttons + back + avatar consumed the
+	 * whole 312px width, squeezing the name to a single clipped letter.
+	 */
+	.bn-dm-pane__head {
+		gap: var(--bn-s1);
+		padding-inline: var(--bn-s3);
+	}
+
+	.bn-dm-pane__actions {
+		gap: 0;
+	}
+
+	.bn-dm-pane__actions .bn-btn {
+		padding-inline: var(--bn-s2);
+	}
+}
+
+/* The back button is only meaningful on mobile (desktop shows both panes). */
+@media (min-width: 769px) {
+	.bn-dm-pane__back {
+		display: none;
 	}
 }
 
