@@ -249,74 +249,68 @@ class InviteManager {
 			</div>
 		<?php endif; ?>
 
-			<div class="bn-card" style="max-width:540px;margin-bottom:var(--s6);">
-				<h3><?php esc_html_e( 'Invite a Member', 'buddynext' ); ?></h3>
-				<p class="description">
-					<?php esc_html_e( 'Send a single invitation by email.', 'buddynext' ); ?>
-				</p>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-					<?php wp_nonce_field( 'bn_single_invite' ); ?>
-					<input type="hidden" name="action" value="bn_single_invite">
-					<table class="form-table" role="presentation">
-						<tr>
-							<th scope="row">
-								<label for="bn_invite_email"><?php esc_html_e( 'Email', 'buddynext' ); ?></label>
-							</th>
-							<td>
-								<input type="email" id="bn_invite_email" name="bn_invite_email" class="regular-text" required>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row">
-								<label for="bn_invite_first_name"><?php esc_html_e( 'First name', 'buddynext' ); ?></label>
-							</th>
-							<td>
-								<input type="text" id="bn_invite_first_name" name="bn_invite_first_name" class="regular-text">
-							</td>
-						</tr>
-					</table>
-					<?php submit_button( __( 'Send Invitation', 'buddynext' ), 'primary', 'submit', false ); ?>
-				</form>
+			<div class="bn-settings-section" style="max-width:620px;">
+				<div class="bn-ss-header">
+					<span class="bn-ss-title"><?php esc_html_e( 'Invite a Member', 'buddynext' ); ?></span>
+				</div>
+				<div class="bn-ss-body">
+					<p class="bn-av-section-desc"><?php esc_html_e( 'Send a single invitation by email.', 'buddynext' ); ?></p>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<?php wp_nonce_field( 'bn_single_invite' ); ?>
+						<input type="hidden" name="action" value="bn_single_invite">
+						<div class="bn-field">
+							<label for="bn_invite_email"><?php esc_html_e( 'Email', 'buddynext' ); ?></label>
+							<input type="email" id="bn_invite_email" name="bn_invite_email" class="bn-text-input regular-text" required>
+						</div>
+						<div class="bn-field">
+							<label for="bn_invite_first_name"><?php esc_html_e( 'First name', 'buddynext' ); ?></label>
+							<input type="text" id="bn_invite_first_name" name="bn_invite_first_name" class="bn-text-input regular-text">
+						</div>
+						<?php submit_button( __( 'Send Invitation', 'buddynext' ), 'primary', 'submit', false ); ?>
+					</form>
+				</div>
 			</div>
 
-			<div class="bn-card" style="max-width:540px;margin-bottom:var(--s6);">
-				<h3><?php esc_html_e( 'Send Bulk Invitations', 'buddynext' ); ?></h3>
-				<p class="description">
-					<?php esc_html_e( 'Upload a CSV file. Each row: email, first_name (first_name is optional). Up to 500 rows per upload.', 'buddynext' ); ?>
-				</p>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
-					<?php wp_nonce_field( 'bn_bulk_invite' ); ?>
-					<input type="hidden" name="action" value="bn_bulk_invite">
-					<table class="form-table" role="presentation">
-						<tr>
-							<th scope="row">
-								<label for="bn_invite_csv"><?php esc_html_e( 'CSV File', 'buddynext' ); ?></label>
-							</th>
-							<td>
-								<input type="file" id="bn_invite_csv" name="bn_invite_csv" accept=".csv,text/csv" required>
-							</td>
-						</tr>
-					</table>
-					<?php submit_button( __( 'Send Invitations', 'buddynext' ), 'primary', 'submit', false ); ?>
-				</form>
+			<div class="bn-settings-section" style="max-width:620px;">
+				<div class="bn-ss-header">
+					<span class="bn-ss-title"><?php esc_html_e( 'Send Bulk Invitations', 'buddynext' ); ?></span>
+				</div>
+				<div class="bn-ss-body">
+					<p class="bn-av-section-desc"><?php esc_html_e( 'Upload a CSV file. Each row: email, first_name (first_name is optional). Up to 500 rows per upload.', 'buddynext' ); ?></p>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
+						<?php wp_nonce_field( 'bn_bulk_invite' ); ?>
+						<input type="hidden" name="action" value="bn_bulk_invite">
+						<div class="bn-field">
+							<label for="bn_invite_csv"><?php esc_html_e( 'CSV File', 'buddynext' ); ?></label>
+							<input type="file" id="bn_invite_csv" name="bn_invite_csv" accept=".csv,text/csv" required>
+						</div>
+						<?php submit_button( __( 'Send Invitations', 'buddynext' ), 'primary', 'submit', false ); ?>
+					</form>
+				</div>
 			</div>
 
-			<h3><?php esc_html_e( 'Pending Invitations', 'buddynext' ); ?></h3>
-
-			<?php if ( empty( $invites ) ) : ?>
-				<p><?php esc_html_e( 'No pending invitations.', 'buddynext' ); ?></p>
-			<?php else : ?>
-				<table class="wp-list-table widefat fixed striped">
-					<thead>
-						<tr>
-							<th><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
-							<th><?php esc_html_e( 'First Name', 'buddynext' ); ?></th>
-							<th><?php esc_html_e( 'Sent', 'buddynext' ); ?></th>
-							<th><?php esc_html_e( 'Expires', 'buddynext' ); ?></th>
-							<th><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
-						</tr>
-					</thead>
-					<tbody>
+			<div class="bn-settings-section">
+				<div class="bn-ss-header">
+					<span class="bn-ss-title"><?php esc_html_e( 'Pending Invitations', 'buddynext' ); ?></span>
+					<?php if ( ! empty( $invites ) ) : ?>
+						<span class="bn-ss-count"><?php echo esc_html( (string) count( $invites ) ); ?></span>
+					<?php endif; ?>
+				</div>
+				<div class="bn-ss-body">
+				<?php if ( empty( $invites ) ) : ?>
+					<p><?php esc_html_e( 'No pending invitations.', 'buddynext' ); ?></p>
+				<?php else : ?>
+					<table class="widefat striped">
+						<thead>
+							<tr>
+								<th><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
+								<th><?php esc_html_e( 'First Name', 'buddynext' ); ?></th>
+								<th><?php esc_html_e( 'Sent', 'buddynext' ); ?></th>
+								<th><?php esc_html_e( 'Expires', 'buddynext' ); ?></th>
+								<th><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
 					<?php foreach ( $invites as $invite ) : ?>
 						<tr>
 							<td><?php echo esc_html( (string) $invite['email'] ); ?></td>
@@ -355,9 +349,11 @@ class InviteManager {
 					<?php endforeach; ?>
 					</tbody>
 				</table>
-			<?php endif; ?>
+				<?php endif; ?>
+				</div><!-- .bn-ss-body -->
+			</div><!-- .bn-settings-section -->
 
-		</div>
+		</div><!-- .bn-admin-section -->
 		<?php
 	}
 }
