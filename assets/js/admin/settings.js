@@ -218,13 +218,44 @@
 		}
 	}
 
+	/**
+	 * Copy-to-clipboard for the social-login redirect URIs (and any
+	 * [data-bn-copy] button pointing at an input id). Falls back to select+focus
+	 * when the async clipboard API is unavailable.
+	 */
+	function initCopyButtons() {
+		document.addEventListener( 'click', function ( e ) {
+			var btn = e.target.closest ? e.target.closest( '[data-bn-copy]' ) : null;
+			if ( ! btn ) { return; }
+			e.preventDefault();
+			var input = document.getElementById( btn.getAttribute( 'data-bn-copy' ) );
+			if ( ! input ) { return; }
+			var done = function () {
+				if ( ! btn.getAttribute( 'data-label' ) ) { btn.setAttribute( 'data-label', btn.textContent ); }
+				btn.textContent = 'Copied';
+				setTimeout( function () { btn.textContent = btn.getAttribute( 'data-label' ); }, 1600 );
+			};
+			input.focus();
+			input.select();
+			if ( navigator.clipboard && navigator.clipboard.writeText ) {
+				navigator.clipboard.writeText( input.value ).then( done ).catch( function () {
+					try { document.execCommand( 'copy' ); done(); } catch ( _e ) {}
+				} );
+			} else {
+				try { document.execCommand( 'copy' ); done(); } catch ( _e ) {}
+			}
+		} );
+	}
+
 	if ( document.readyState === 'loading' ) {
 		document.addEventListener( 'DOMContentLoaded', function () {
 			initSettingsSearch();
 			initWebhookManager();
+			initCopyButtons();
 		} );
 	} else {
 		initSettingsSearch();
 		initWebhookManager();
+		initCopyButtons();
 	}
 } )();

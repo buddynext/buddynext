@@ -761,48 +761,107 @@ class Settings extends AdminPageBase {
 
 		// ── Social login (OAuth2) ──────────────────────────────────────────
 		$this->open_section( __( 'Social Login', 'buddynext' ) );
-		$social    = (array) get_option( 'buddynext_social_login', array() );
-		$providers = array(
-			'google'   => __( 'Google', 'buddynext' ),
-			'facebook' => __( 'Facebook', 'buddynext' ),
-		);
-		foreach ( $providers as $pid => $plabel ) {
-			$cfg     = isset( $social[ $pid ] ) && is_array( $social[ $pid ] ) ? $social[ $pid ] : array();
-			$enabled = ! empty( $cfg['enabled'] );
-			$cid     = isset( $cfg['client_id'] ) ? (string) $cfg['client_id'] : '';
-			$secret  = isset( $cfg['client_secret'] ) ? (string) $cfg['client_secret'] : '';
-			$cb      = \BuddyNext\Auth\SocialLogin::callback_url( $pid );
-			?>
-			<fieldset class="bn-field bn-social-provider">
-				<legend class="bn-field-label"><?php echo esc_html( $plabel ); ?></legend>
-				<label class="bn-toggle-inline">
-					<input type="checkbox"
-						name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][enabled]' ); ?>"
-						value="1" <?php checked( $enabled ); ?> />
-					<?php esc_html_e( 'Enable', 'buddynext' ); ?>
-				</label>
-				<input type="text" class="bn-input"
-					name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][client_id]' ); ?>"
-					value="<?php echo esc_attr( $cid ); ?>"
-					placeholder="<?php esc_attr_e( 'Client ID', 'buddynext' ); ?>"
-					autocomplete="off" />
-				<input type="password" class="bn-input"
-					name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][client_secret]' ); ?>"
-					value="<?php echo esc_attr( $secret ); ?>"
-					placeholder="<?php esc_attr_e( 'Client Secret', 'buddynext' ); ?>"
-					autocomplete="off" />
-				<span class="bn-field-hint">
-					<?php esc_html_e( 'Authorized redirect URI:', 'buddynext' ); ?>
-					<code class="bn-ep-code"><?php echo esc_html( $cb ); ?></code>
-				</span>
-			</fieldset>
-			<?php
-		}
+		$social = (array) get_option( 'buddynext_social_login', array() );
 		?>
-		<p class="bn-field-hint">
-			<?php esc_html_e( 'Create an OAuth app in each provider\'s developer console, paste its Client ID + Secret, and register the redirect URI shown. Buttons appear on the login + signup screens once enabled.', 'buddynext' ); ?>
+		<p class="bn-field-hint bn-social-intro">
+			<?php esc_html_e( 'Let people sign in with an account they already have. For each network you want, create a free "developer app" on their site, paste the two keys it gives you (a Client ID and a Client Secret), and copy the redirect link below back into their app. Once enabled, a button appears on your Login and Sign-up screens. No coding required.', 'buddynext' ); ?>
 		</p>
 		<?php
+		foreach ( \BuddyNext\Auth\SocialLogin::get_providers() as $pid => $def ) {
+			$cfg      = isset( $social[ $pid ] ) && is_array( $social[ $pid ] ) ? $social[ $pid ] : array();
+			$enabled  = ! empty( $cfg['enabled'] );
+			$cid      = isset( $cfg['client_id'] ) ? (string) $cfg['client_id'] : '';
+			$secret   = isset( $cfg['client_secret'] ) ? (string) $cfg['client_secret'] : '';
+			$has_keys = '' !== $cid && '' !== $secret;
+			$cb       = \BuddyNext\Auth\SocialLogin::callback_url( $pid );
+			$label    = (string) ( $def['label'] ?? ucfirst( $pid ) );
+			$icon     = (string) ( $def['icon'] ?? 'globe' );
+			$console  = (string) ( $def['console_url'] ?? '' );
+			$steps    = isset( $def['setup_steps'] ) && is_array( $def['setup_steps'] ) ? $def['setup_steps'] : array();
+			$cb_id    = 'bn-redir-' . sanitize_key( $pid );
+
+			if ( $enabled && $has_keys ) {
+				$status_class = 'is-ready';
+				$status_text  = __( 'Active', 'buddynext' );
+			} elseif ( $has_keys ) {
+				$status_class = 'is-paused';
+				$status_text  = __( 'Configured (off)', 'buddynext' );
+			} else {
+				$status_class = 'is-empty';
+				$status_text  = __( 'Not set up', 'buddynext' );
+			}
+			?>
+			<div class="bn-social-card">
+				<div class="bn-social-card__head">
+					<span class="bn-social-card__icon"><?php echo \BuddyNext\Core\IconService::render( $icon ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-sanitized via wp_kses(). ?></span>
+					<span class="bn-social-card__name"><?php echo esc_html( $label ); ?></span>
+					<span class="bn-social-card__status <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $status_text ); ?></span>
+					<label class="bn-toggle-inline bn-social-card__toggle">
+						<input type="checkbox"
+							name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][enabled]' ); ?>"
+							value="1" <?php checked( $enabled ); ?> />
+						<?php esc_html_e( 'Show this button', 'buddynext' ); ?>
+					</label>
+				</div>
+
+				<div class="bn-social-card__body">
+					<div class="bn-field">
+						<label for="<?php echo esc_attr( 'bn-cid-' . $pid ); ?>"><?php esc_html_e( 'Client ID', 'buddynext' ); ?></label>
+						<input type="text" class="bn-input" id="<?php echo esc_attr( 'bn-cid-' . $pid ); ?>"
+							name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][client_id]' ); ?>"
+							value="<?php echo esc_attr( $cid ); ?>"
+							placeholder="<?php esc_attr_e( 'Paste the Client ID here', 'buddynext' ); ?>"
+							autocomplete="off" spellcheck="false" />
+					</div>
+					<div class="bn-field">
+						<label for="<?php echo esc_attr( 'bn-sec-' . $pid ); ?>"><?php esc_html_e( 'Client Secret', 'buddynext' ); ?></label>
+						<input type="password" class="bn-input" id="<?php echo esc_attr( 'bn-sec-' . $pid ); ?>"
+							name="<?php echo esc_attr( 'buddynext_social_login[' . $pid . '][client_secret]' ); ?>"
+							value="<?php echo esc_attr( $secret ); ?>"
+							placeholder="<?php esc_attr_e( 'Paste the Client Secret here', 'buddynext' ); ?>"
+							autocomplete="off" spellcheck="false" />
+					</div>
+					<div class="bn-field">
+						<label for="<?php echo esc_attr( $cb_id ); ?>">
+							<?php
+							/* translators: %s: provider name (e.g. Google). */
+							echo esc_html( sprintf( __( 'Redirect link (paste this into %s)', 'buddynext' ), $label ) );
+							?>
+						</label>
+						<div class="bn-copy-row">
+							<input type="text" class="bn-input" id="<?php echo esc_attr( $cb_id ); ?>" value="<?php echo esc_attr( $cb ); ?>" readonly onfocus="this.select()" />
+							<button type="button" class="bn-btn bn-copy-btn" data-variant="secondary" data-size="sm" data-bn-copy="<?php echo esc_attr( $cb_id ); ?>"><?php esc_html_e( 'Copy', 'buddynext' ); ?></button>
+						</div>
+					</div>
+
+					<?php if ( ! empty( $steps ) ) : ?>
+						<details class="bn-social-help">
+							<summary>
+								<?php
+								/* translators: %s: provider name. */
+								echo esc_html( sprintf( __( 'How to get your %s keys', 'buddynext' ), $label ) );
+								?>
+							</summary>
+							<ol class="bn-social-help__steps">
+								<?php foreach ( $steps as $step ) : ?>
+									<li><?php echo esc_html( (string) $step ); ?></li>
+								<?php endforeach; ?>
+							</ol>
+							<?php if ( '' !== $console ) : ?>
+								<a class="bn-btn" data-variant="secondary" data-size="sm" href="<?php echo esc_url( $console ); ?>" target="_blank" rel="noopener noreferrer">
+									<?php
+									/* translators: %s: provider name. */
+									echo esc_html( sprintf( __( 'Open the %s developer site', 'buddynext' ), $label ) );
+									?>
+									<?php buddynext_icon( 'external-link', 'bn-btn__icon' ); ?>
+								</a>
+							<?php endif; ?>
+						</details>
+					<?php endif; ?>
+				</div>
+			</div>
+			<?php
+		}
 		$this->close_section();
 	}
 

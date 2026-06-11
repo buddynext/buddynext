@@ -2053,3 +2053,99 @@ button.bn-btn-danger:hover {
 	max-width: 100%;
 }
 .bn-cr-emoji-tile:has(input:checked) .bn-cr-emoji-tile__name { color: var(--bn-a-text-1); font-weight: 600; }
+
+/* ── Social login provider cards (Settings → Registration) ─────────────────── */
+.bn-social-intro {
+	max-width: 760px;
+	margin-bottom: var(--bn-a-s4);
+}
+
+.bn-social-card {
+	border: 1px solid var(--bn-a-border);
+	border-radius: var(--bn-a-radius, 10px);
+	background: var(--bn-a-bg);
+	margin-bottom: var(--bn-a-s4);
+	overflow: hidden;
+}
+
+.bn-social-card__head {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-a-s3);
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	background: var(--bn-a-bg-subtle);
+	border-bottom: 1px solid var(--bn-a-border-soft);
+}
+
+.bn-social-card__icon {
+	display: inline-flex;
+	font-size: 22px;
+	line-height: 0;
+}
+
+.bn-social-card__name {
+	font-weight: var(--bn-a-fw-bold, 600);
+	color: var(--bn-a-text-1);
+}
+
+.bn-social-card__status {
+	font-size: var(--bn-a-text-3, 0.78rem);
+	padding: 2px 10px;
+	border-radius: 999px;
+	font-weight: 600;
+}
+.bn-social-card__status.is-ready  { background: var(--bn-a-green-bg); color: var(--bn-a-green); }
+.bn-social-card__status.is-paused { background: var(--bn-a-amber-bg); color: var(--bn-a-amber); }
+.bn-social-card__status.is-empty  { background: var(--bn-a-bg-hover); color: var(--bn-a-text-3); }
+
+.bn-social-card__toggle {
+	margin-left: auto;
+	white-space: nowrap;
+}
+
+.bn-social-card__body {
+	padding: var(--bn-a-s4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-a-s3);
+}
+
+.bn-copy-row {
+	display: flex;
+	gap: var(--bn-a-s2);
+	align-items: stretch;
+}
+.bn-copy-row .bn-input {
+	flex: 1;
+	font-family: var(--bn-a-font-mono, monospace);
+	font-size: var(--bn-a-text-3, 0.8rem);
+}
+.bn-copy-btn { white-space: nowrap; }
+
+.bn-social-help {
+	margin-top: var(--bn-a-s1);
+	border-top: 1px dashed var(--bn-a-border-soft);
+	padding-top: var(--bn-a-s3);
+}
+.bn-social-help > summary {
+	cursor: pointer;
+	font-weight: 600;
+	color: var(--bn-a-brand);
+	list-style: none;
+}
+.bn-social-help > summary::-webkit-details-marker { display: none; }
+.bn-social-help > summary::before { content: "▸ "; }
+.bn-social-help[open] > summary::before { content: "▾ "; }
+.bn-social-help__steps {
+	margin: var(--bn-a-s3) 0;
+	padding-left: var(--bn-a-s5);
+	color: var(--bn-a-text-2);
+	line-height: 1.6;
+}
+.bn-social-help__steps li { margin-bottom: var(--bn-a-s2); }
+
+@media ( max-width: 640px ) {
+	.bn-social-card__head { flex-wrap: wrap; }
+	.bn-social-card__toggle { margin-left: 0; width: 100%; }
+	.bn-copy-row { flex-direction: column; }
+}

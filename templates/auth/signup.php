@@ -24,6 +24,10 @@ $privacy_url = get_privacy_policy_url() ? get_privacy_policy_url() : home_url( '
 
 // In-house spam guard fields (no third-party captcha): a signed time-trap
 // token, a rotating honeypot field name, and an optional human-check question.
+// Social sign-in providers (same seam the login screen uses); shown when the
+// admin has enabled and configured at least one provider.
+$social_providers = (array) apply_filters( 'buddynext_auth_social_providers', array() );
+
 $bn_honeypot_name = \BuddyNext\Auth\RegistrationGuard::honeypot_field();
 $bn_reg_token     = \BuddyNext\Auth\RegistrationGuard::issue_token();
 $bn_challenge_on  = \BuddyNext\Auth\RegistrationGuard::challenge_enabled();
@@ -237,6 +241,34 @@ $bn_challenge     = $bn_challenge_on
 						<?php buddynext_icon( 'arrow-right' ); ?>
 					</button>
 				</form>
+
+				<?php if ( ! empty( $social_providers ) ) : ?>
+					<div class="bn-auth-divider"><?php esc_html_e( 'or sign up with', 'buddynext' ); ?></div>
+					<div class="bn-auth-social">
+						<?php
+						foreach ( $social_providers as $provider ) :
+							$pid    = isset( $provider['id'] ) ? sanitize_key( $provider['id'] ) : '';
+							$plabel = isset( $provider['label'] ) ? (string) $provider['label'] : '';
+							$picon  = isset( $provider['icon'] ) ? sanitize_key( $provider['icon'] ) : 'globe';
+							$purl   = isset( $provider['url'] ) ? esc_url_raw( $provider['url'] ) : '';
+							if ( '' === $pid || '' === $purl ) {
+								continue;
+							}
+							?>
+							<a class="bn-btn" data-variant="secondary" data-size="lg"
+								href="<?php echo esc_url( $purl ); ?>"
+								aria-label="
+								<?php
+								/* translators: %s: provider name (e.g. Google). */
+								echo esc_attr( sprintf( __( 'Continue with %s', 'buddynext' ), $plabel ) );
+								?>
+								">
+								<?php buddynext_icon( $picon ); ?>
+								<span><?php echo esc_html( $plabel ); ?></span>
+							</a>
+						<?php endforeach; ?>
+					</div>
+				<?php endif; ?>
 
 				<div class="bn-auth-foot">
 					<?php esc_html_e( 'Already have an account?', 'buddynext' ); ?>

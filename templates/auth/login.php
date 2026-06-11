@@ -39,6 +39,12 @@ if ( isset( $_GET['registration'] ) && 'disabled' === sanitize_key( $_GET['regis
 	$login_error = __( 'Registration is currently closed. Please sign in with an existing account.', 'buddynext' );
 }
 
+// Social sign-in failures (and the approval / takeover-guard notices) are
+// passed back here by SocialLogin::bail().
+if ( isset( $_GET['bn_social_error'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$login_error = sanitize_text_field( wp_unslash( (string) $_GET['bn_social_error'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+}
+
 $redirect_to = isset( $_GET['redirect_to'] ) ? sanitize_url( wp_unslash( $_GET['redirect_to'] ) ) : \BuddyNext\Core\PageRouter::activity_url(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 /**

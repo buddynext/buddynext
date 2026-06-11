@@ -86,31 +86,96 @@ class SocialLogin {
 	private static function provider_defaults(): array {
 		return array(
 			'google'   => array(
-				'label'     => 'Google',
-				'icon'      => 'globe',
-				'authorize' => 'https://accounts.google.com/o/oauth2/v2/auth',
-				'token'     => 'https://oauth2.googleapis.com/token',
-				'userinfo'  => 'https://openidconnect.googleapis.com/v1/userinfo',
-				'scope'     => 'openid email profile',
-				'map'       => array(
+				'label'       => 'Google',
+				'icon'        => 'google',
+				'authorize'   => 'https://accounts.google.com/o/oauth2/v2/auth',
+				'token'       => 'https://oauth2.googleapis.com/token',
+				'userinfo'    => 'https://openidconnect.googleapis.com/v1/userinfo',
+				'scope'       => 'openid email profile',
+				'map'         => array(
 					'id'       => 'sub',
 					'email'    => 'email',
 					'verified' => 'email_verified',
 					'name'     => 'name',
+					'picture'  => 'picture',
+				),
+				'console_url' => 'https://console.cloud.google.com/apis/credentials',
+				'setup_steps' => array(
+					__( 'Open Google Cloud Console and pick (or create) a project.', 'buddynext' ),
+					__( 'Go to "APIs & Services" → "OAuth consent screen" and fill in your app name and support email.', 'buddynext' ),
+					__( 'Go to "Credentials" → "Create credentials" → "OAuth client ID" → choose "Web application".', 'buddynext' ),
+					__( 'Under "Authorized redirect URIs" paste the redirect URI shown below, then click Create.', 'buddynext' ),
+					__( 'Copy the Client ID and Client secret it shows you and paste them here.', 'buddynext' ),
 				),
 			),
 			'facebook' => array(
-				'label'     => 'Facebook',
-				'icon'      => 'users',
-				'authorize' => 'https://www.facebook.com/v19.0/dialog/oauth',
-				'token'     => 'https://graph.facebook.com/v19.0/oauth/access_token',
-				'userinfo'  => 'https://graph.facebook.com/me?fields=id,name,email',
-				'scope'     => 'email public_profile',
-				'map'       => array(
+				'label'       => 'Facebook',
+				'icon'        => 'facebook',
+				'authorize'   => 'https://www.facebook.com/v19.0/dialog/oauth',
+				'token'       => 'https://graph.facebook.com/v19.0/oauth/access_token',
+				'userinfo'    => 'https://graph.facebook.com/me?fields=id,name,email,picture.width(192)',
+				'scope'       => 'email public_profile',
+				'map'         => array(
 					'id'       => 'id',
 					'email'    => 'email',
 					'verified' => null,
 					'name'     => 'name',
+					'picture'  => 'picture.data.url',
+				),
+				// Facebook does not return a per-response verified flag, but its
+				// platform only exposes confirmed primary emails, so the address
+				// can be trusted for account linking.
+				'trust_email' => true,
+				'console_url' => 'https://developers.facebook.com/apps/',
+				'setup_steps' => array(
+					__( 'Open Facebook for Developers and click "Create App" (choose the "Authenticate and request data from users" use case).', 'buddynext' ),
+					__( 'In the app, add the "Facebook Login" product.', 'buddynext' ),
+					__( 'Under Facebook Login → Settings, paste the redirect URI shown below into "Valid OAuth Redirect URIs".', 'buddynext' ),
+					__( 'Open Settings → Basic and copy the "App ID" (Client ID) and "App Secret" (Client Secret) here.', 'buddynext' ),
+					__( 'Switch the app to "Live" mode so anyone can sign in.', 'buddynext' ),
+				),
+			),
+			'github'   => array(
+				'label'          => 'GitHub',
+				'icon'           => 'github',
+				'authorize'      => 'https://github.com/login/oauth/authorize',
+				'token'          => 'https://github.com/login/oauth/access_token',
+				'userinfo'       => 'https://api.github.com/user',
+				'email_endpoint' => 'https://api.github.com/user/emails',
+				'scope'          => 'read:user user:email',
+				'map'            => array(
+					'id'      => 'id',
+					'email'   => 'email',
+					'name'    => 'name',
+					'picture' => 'avatar_url',
+				),
+				'console_url'    => 'https://github.com/settings/developers',
+				'setup_steps'    => array(
+					__( 'Open GitHub → Settings → Developer settings → "OAuth Apps" → "New OAuth App".', 'buddynext' ),
+					__( 'Set the "Authorization callback URL" to the redirect URI shown below.', 'buddynext' ),
+					__( 'Click "Register application".', 'buddynext' ),
+					__( 'Copy the "Client ID", then click "Generate a new client secret" and copy that too.', 'buddynext' ),
+				),
+			),
+			'discord'  => array(
+				'label'       => 'Discord',
+				'icon'        => 'discord',
+				'authorize'   => 'https://discord.com/api/oauth2/authorize',
+				'token'       => 'https://discord.com/api/oauth2/token',
+				'userinfo'    => 'https://discord.com/api/users/@me',
+				'scope'       => 'identify email',
+				'map'         => array(
+					'id'       => 'id',
+					'email'    => 'email',
+					'verified' => 'verified',
+					'name'     => 'global_name',
+					'picture'  => null,
+				),
+				'console_url' => 'https://discord.com/developers/applications',
+				'setup_steps' => array(
+					__( 'Open the Discord Developer Portal and click "New Application".', 'buddynext' ),
+					__( 'Open the "OAuth2" tab and copy the "Client ID" and "Client Secret" here.', 'buddynext' ),
+					__( 'Still on OAuth2, under "Redirects", add the redirect URI shown below and save.', 'buddynext' ),
 				),
 			),
 		);
@@ -369,7 +434,7 @@ class SocialLogin {
 
 		$profile = $this->fetch_profile( $id, $token );
 		if ( empty( $profile['email'] ) ) {
-			$this->bail( __( 'No verified email was returned by the provider.', 'buddynext' ) );
+			$this->bail( __( 'No email address was returned by the provider, so we could not sign you in.', 'buddynext' ) );
 		}
 
 		$user_id = $this->resolve_user( $id, $profile );
@@ -419,60 +484,135 @@ class SocialLogin {
 	}
 
 	/**
-	 * Fetch the user's profile (id, email, name) from the provider.
+	 * Fetch the user's profile from the provider.
+	 *
+	 * Returns the canonical id, email, display name, avatar URL, and crucially
+	 * whether the provider asserts the email is VERIFIED — the account-resolution
+	 * step only merges into an existing local account when that is true, which is
+	 * the difference between safe sign-in and email-based account takeover.
 	 *
 	 * @param string $id    Provider id.
 	 * @param string $token Access token.
-	 * @return array{id:string,email:string,name:string}
+	 * @return array{id:string,email:string,name:string,picture:string,email_verified:bool}
 	 */
 	private function fetch_profile( string $id, string $token ): array {
-		$defs = self::get_providers();
-		$map  = (array) $defs[ $id ]['map'];
+		$defs  = self::get_providers();
+		$def   = (array) $defs[ $id ];
+		$map   = (array) $def['map'];
+		$empty = array(
+			'id'             => '',
+			'email'          => '',
+			'name'           => '',
+			'picture'        => '',
+			'email_verified' => false,
+		);
 
+		$d = $this->api_get_json( (string) $def['userinfo'], $token );
+		if ( null === $d ) {
+			return $empty;
+		}
+
+		$email    = sanitize_email( (string) $this->claim( $d, (string) ( $map['email'] ?? '' ) ) );
+		$verified = false;
+
+		// GitHub keeps email on a separate endpoint and only there reports which
+		// address is primary AND verified — read it from the horse's mouth.
+		if ( '' === $email && ! empty( $def['email_endpoint'] ) ) {
+			$emails = $this->api_get_json( (string) $def['email_endpoint'], $token );
+			if ( is_array( $emails ) ) {
+				foreach ( $emails as $row ) {
+					if ( ! empty( $row['primary'] ) && ! empty( $row['verified'] ) && ! empty( $row['email'] ) ) {
+						$email    = sanitize_email( (string) $row['email'] );
+						$verified = true;
+						break;
+					}
+				}
+			}
+		} else {
+			// Inline verified claim (Google: email_verified, Discord: verified),
+			// or a provider explicitly flagged as always returning trusted emails
+			// (Facebook). Unknown/custom providers stay UNtrusted by default — the
+			// safe stance against email-based account takeover.
+			$verified_key = $map['verified'] ?? null;
+			if ( null !== $verified_key ) {
+				$verified = filter_var( $this->claim( $d, (string) $verified_key ), FILTER_VALIDATE_BOOLEAN );
+			} elseif ( ! empty( $def['trust_email'] ) ) {
+				$verified = true;
+			}
+		}
+
+		return array(
+			'id'             => (string) $this->claim( $d, (string) ( $map['id'] ?? '' ) ),
+			'email'          => $email,
+			'name'           => sanitize_text_field( (string) $this->claim( $d, (string) ( $map['name'] ?? '' ) ) ),
+			'picture'        => esc_url_raw( (string) $this->claim( $d, (string) ( $map['picture'] ?? '' ) ) ),
+			'email_verified' => (bool) $verified,
+		);
+	}
+
+	/**
+	 * GET a Bearer-authenticated JSON endpoint and decode it.
+	 *
+	 * @param string $url   Endpoint.
+	 * @param string $token Access token.
+	 * @return array<mixed>|null Decoded array, or null on transport failure.
+	 */
+	private function api_get_json( string $url, string $token ): ?array {
 		$res = wp_remote_get(
-			(string) $defs[ $id ]['userinfo'],
+			$url,
 			array(
 				'timeout' => 15,
 				'headers' => array(
 					'Authorization' => 'Bearer ' . $token,
 					'Accept'        => 'application/json',
+					// GitHub (and good manners) require a User-Agent.
+					'User-Agent'    => 'BuddyNext',
 				),
 			)
 		);
 		if ( is_wp_error( $res ) ) {
-			return array(
-				'id'    => '',
-				'email' => '',
-				'name'  => '',
-			);
+			return null;
 		}
-
 		$d = json_decode( (string) wp_remote_retrieve_body( $res ), true );
-		$d = is_array( $d ) ? $d : array();
-
-		// A provider that reports an explicit unverified email is rejected.
-		$verified_key = $map['verified'] ?? null;
-		if ( null !== $verified_key && isset( $d[ $verified_key ] ) && ! filter_var( $d[ $verified_key ], FILTER_VALIDATE_BOOLEAN ) ) {
-			return array(
-				'id'    => '',
-				'email' => '',
-				'name'  => '',
-			);
-		}
-
-		return array(
-			'id'    => (string) ( $d[ $map['id'] ] ?? '' ),
-			'email' => sanitize_email( (string) ( $d[ $map['email'] ] ?? '' ) ),
-			'name'  => sanitize_text_field( (string) ( $d[ $map['name'] ] ?? '' ) ),
-		);
+		return is_array( $d ) ? $d : null;
 	}
 
 	/**
-	 * Match an existing account by social id or email, or create one.
+	 * Read a possibly-nested claim from a decoded payload using a dotted path
+	 * (e.g. "picture.data.url" for Facebook). Returns '' when absent.
 	 *
-	 * @param string                                    $id      Provider id.
-	 * @param array{id:string,email:string,name:string} $profile Provider profile.
-	 * @return int|\WP_Error User id, or error when registration is closed.
+	 * @param array<mixed> $data Decoded payload.
+	 * @param string       $path Dotted claim path.
+	 * @return mixed
+	 */
+	private function claim( array $data, string $path ) {
+		if ( '' === $path ) {
+			return '';
+		}
+		$node = $data;
+		foreach ( explode( '.', $path ) as $segment ) {
+			if ( is_array( $node ) && array_key_exists( $segment, $node ) ) {
+				$node = $node[ $segment ];
+			} else {
+				return '';
+			}
+		}
+		return is_scalar( $node ) ? $node : '';
+	}
+
+	/**
+	 * Match an existing account by social id or verified email, or create one.
+	 *
+	 * Security: an unlinked provider identity is merged into an EXISTING local
+	 * account only when the provider asserts the email is verified — otherwise an
+	 * attacker who registered a provider account under someone else's address
+	 * could take over that local account (the classic social-login takeover, e.g.
+	 * Nextend CVE-2024-9893). Unverified emails can still create a brand-new
+	 * account (nothing to take over), but never silently adopt an existing one.
+	 *
+	 * @param string                                                                       $id      Provider id.
+	 * @param array{id:string,email:string,name:string,picture:string,email_verified:bool} $profile Provider profile.
+	 * @return int|\WP_Error User id, or error (closed / pending / takeover-guard).
 	 */
 	private function resolve_user( string $id, array $profile ) {
 		$meta_key = 'bn_social_' . $id . '_id';
@@ -508,15 +648,26 @@ class SocialLogin {
 			return $owner;
 		}
 
-		// 2) Existing account with the same verified email — link + log in.
+		// 2) An account already uses this email. Only auto-link when the provider
+		// verified the address; otherwise send them to sign in and link manually.
 		$existing = get_user_by( 'email', $profile['email'] );
 		if ( $existing instanceof \WP_User ) {
+			if ( ! $profile['email_verified'] ) {
+				return new \WP_Error(
+					'bn_social_unverified',
+					__( 'An account already uses this email. Please sign in with your password, then link this account from your profile settings.', 'buddynext' )
+				);
+			}
 			update_user_meta( $existing->ID, $meta_key, $profile['id'] );
 			return (int) $existing->ID;
 		}
 
-		// 3) New email — only create when registration is open.
-		if ( 'open' !== (string) get_option( 'buddynext_reg_mode', 'open' ) ) {
+		// 3) No existing account — create one, honouring the registration policy.
+		$reg_mode = (string) get_option( 'buddynext_reg_mode', 'open' );
+		if ( 'invite' === $reg_mode ) {
+			return new \WP_Error( 'bn_reg_invite', __( 'This community is invite-only, so a new account could not be created.', 'buddynext' ) );
+		}
+		if ( ! (bool) get_option( 'users_can_register', true ) ) {
 			return new \WP_Error( 'bn_reg_closed', __( 'Registration is closed, so a new account could not be created.', 'buddynext' ) );
 		}
 
@@ -525,6 +676,7 @@ class SocialLogin {
 		if ( is_wp_error( $user_id ) ) {
 			return $user_id;
 		}
+		$user_id = (int) $user_id;
 
 		if ( '' !== $profile['name'] ) {
 			wp_update_user(
@@ -534,20 +686,37 @@ class SocialLogin {
 				)
 			);
 		}
-		update_user_meta( (int) $user_id, $meta_key, $profile['id'] );
-		// Social emails are provider-verified — mark BN email verification satisfied.
-		update_user_meta( (int) $user_id, 'bn_email_verified', 1 );
+		update_user_meta( $user_id, $meta_key, $profile['id'] );
+
+		// A verified provider email satisfies BuddyNext's own email check.
+		if ( $profile['email_verified'] ) {
+			update_user_meta( $user_id, 'bn_email_verified', 1 );
+		}
+
+		// Adopt the provider avatar when the member has none yet.
+		if ( '' !== $profile['picture'] && '' === (string) get_user_meta( $user_id, 'bn_avatar', true ) ) {
+			update_user_meta( $user_id, 'bn_avatar', esc_url_raw( $profile['picture'] ) );
+		}
 
 		/**
 		 * Fires after a social login creates a new BuddyNext account.
 		 *
 		 * @param int    $user_id  New user id.
 		 * @param string $provider Provider id.
-		 * @param array  $profile  Provider profile (id, email, name).
+		 * @param array  $profile  Provider profile (id, email, name, picture).
 		 */
-		do_action( 'buddynext_social_user_created', (int) $user_id, $id, $profile );
+		do_action( 'buddynext_social_user_created', $user_id, $id, $profile );
 
-		return (int) $user_id;
+		// Admin-approval mode: the account exists but stays pending — do not log
+		// the user in (mirrors the email/password registration flow).
+		if ( 'approval' === $reg_mode ) {
+			update_user_meta( $user_id, 'bn_pending_approval', '1' );
+			/** This action is documented in AuthController::register(). */
+			do_action( 'buddynext_registration_pending', $user_id, $profile['email'] );
+			return new \WP_Error( 'bn_social_pending', __( 'Your account was created and is awaiting administrator approval.', 'buddynext' ) );
+		}
+
+		return $user_id;
 	}
 
 	/**
