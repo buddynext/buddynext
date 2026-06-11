@@ -313,20 +313,32 @@
 	color: var(--bn-a-text-1);
 }
 
-/* In the label-above-input .bn-field pattern, text inputs / textareas / selects
-   fill their column (so they don't sit tiny in a wide grid cell). Number and
-   colour inputs keep their natural compact size. An inline max-width (Settings
-   render_*_row) still caps the final width. */
-.bn-field > input.bn-text-input:not([type="number"]):not([type="color"]),
-.bn-field > textarea.bn-text-input,
-.bn-field > select,
-.bn-field > .bn-color-row + input,
-.bn-field input.bn-input:not([type="number"]):not([type="color"]),
-.bn-field textarea.bn-textarea {
+/* Form-control sizing inside admin section cards (.bn-ss-body).
+ *
+ * The cards are full-width, so a bare input would either sit tiny at its content
+ * size or sprawl edge-to-edge. Make text inputs / selects fill their container
+ * but cap at a readable width, and give textareas a wider cap. Number and colour
+ * inputs keep their natural compact size. Settings' inline max-widths
+ * (render_*_row) still win where set. */
+.bn-ss-body input.bn-text-input:not([type="number"]):not([type="color"]),
+.bn-ss-body input.bn-input:not([type="number"]):not([type="color"]),
+.bn-ss-body input[type="email"].regular-text,
+.bn-ss-body input[type="url"].regular-text,
+.bn-ss-body select.bn-select,
+.bn-ss-body select.bn-select-input,
+.bn-ss-body select:not([multiple]) {
 	width: 100%;
+	max-width: 560px;
 	box-sizing: border-box;
 }
-.bn-field > input[type="number"] {
+.bn-ss-body textarea.bn-text-input,
+.bn-ss-body textarea.bn-textarea,
+.bn-ss-body textarea.bn-input {
+	width: 100%;
+	max-width: 760px;
+	box-sizing: border-box;
+}
+.bn-ss-body input[type="number"] {
 	width: 120px;
 }
 

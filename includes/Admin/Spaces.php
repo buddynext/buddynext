@@ -478,29 +478,27 @@ class Spaces extends AdminPageBase {
 			<div class="bn-ss-body">
 			<form method="post" class="bn-cat-create-form">
 				<?php wp_nonce_field( 'bn_cat_create', 'bn_cat_create_nonce' ); ?>
-				<p>
-					<label for="bn_cat_name"><strong><?php esc_html_e( 'Name', 'buddynext' ); ?></strong></label><br>
-					<input type="text" id="bn_cat_name" name="cat_name" class="bn-input" required maxlength="64" style="min-width:280px">
-				</p>
-				<p>
-					<label for="bn_cat_slug"><strong><?php esc_html_e( 'Slug (optional)', 'buddynext' ); ?></strong></label><br>
-					<input type="text" id="bn_cat_slug" name="cat_slug" class="bn-input" maxlength="64" style="min-width:280px">
-					<span class="description"><?php esc_html_e( 'Lowercase letters, numbers, and hyphens. Auto-generated when empty.', 'buddynext' ); ?></span>
-				</p>
-				<p>
-					<label for="bn_cat_description"><strong><?php esc_html_e( 'Description', 'buddynext' ); ?></strong></label><br>
-					<textarea id="bn_cat_description" name="cat_description" class="bn-textarea" rows="2" style="min-width:280px"></textarea>
-				</p>
-				<p>
-					<label for="bn_cat_sort_order"><strong><?php esc_html_e( 'Sort order', 'buddynext' ); ?></strong></label><br>
-					<input type="number" id="bn_cat_sort_order" name="cat_sort_order" class="bn-input" value="0" min="0" max="999" style="inline-size:120px">
-					<span class="description"><?php esc_html_e( 'Lower numbers appear first.', 'buddynext' ); ?></span>
-				</p>
-				<p>
-					<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
-						<?php esc_html_e( 'Create category', 'buddynext' ); ?>
-					</button>
-				</p>
+				<div class="bn-field">
+					<label for="bn_cat_name"><?php esc_html_e( 'Name', 'buddynext' ); ?></label>
+					<input type="text" id="bn_cat_name" name="cat_name" class="bn-input" required maxlength="64">
+				</div>
+				<div class="bn-field">
+					<label for="bn_cat_slug"><?php esc_html_e( 'Slug (optional)', 'buddynext' ); ?></label>
+					<input type="text" id="bn_cat_slug" name="cat_slug" class="bn-input" maxlength="64">
+					<span class="bn-field-hint"><?php esc_html_e( 'Lowercase letters, numbers, and hyphens. Auto-generated when empty.', 'buddynext' ); ?></span>
+				</div>
+				<div class="bn-field">
+					<label for="bn_cat_description"><?php esc_html_e( 'Description', 'buddynext' ); ?></label>
+					<textarea id="bn_cat_description" name="cat_description" class="bn-textarea" rows="2"></textarea>
+				</div>
+				<div class="bn-field">
+					<label for="bn_cat_sort_order"><?php esc_html_e( 'Sort order', 'buddynext' ); ?></label>
+					<input type="number" id="bn_cat_sort_order" name="cat_sort_order" class="bn-input" value="0" min="0" max="999">
+					<span class="bn-field-hint"><?php esc_html_e( 'Lower numbers appear first.', 'buddynext' ); ?></span>
+				</div>
+				<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
+					<?php esc_html_e( 'Create category', 'buddynext' ); ?>
+				</button>
 			</form>
 			</div><!-- .bn-ss-body -->
 		</div><!-- .bn-settings-section -->
