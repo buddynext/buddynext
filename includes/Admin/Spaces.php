@@ -183,9 +183,10 @@ class Spaces extends AdminPageBase {
 			</div>
 		</div>
 
-		<div class="bn-table-wrap">
-			<div class="bn-table-header">
-				<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" role="search">
+		<div class="bn-settings-section">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Spaces', 'buddynext' ); ?></span>
+				<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" role="search" class="bn-admin-hub__form-bare">
 					<input type="hidden" name="page" value="buddynext-spaces">
 					<?php if ( '' !== $type ) : ?>
 						<input type="hidden" name="type" value="<?php echo esc_attr( $type ); ?>">
@@ -200,7 +201,8 @@ class Spaces extends AdminPageBase {
 							value="<?php echo esc_attr( $search ); ?>"
 							placeholder="<?php esc_attr_e( 'Search spaces…', 'buddynext' ); ?>">
 				</form>
-
+			</div>
+			<div class="bn-ss-body">
 				<div class="bn-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Filter spaces by visibility', 'buddynext' ); ?>">
 					<a href="<?php echo esc_url( add_query_arg( 's', $search, $base_url ) ); ?>"
 						class="bn-tab"
@@ -233,7 +235,6 @@ class Spaces extends AdminPageBase {
 						</a>
 					<?php endforeach; ?>
 				</div>
-			</div>
 
 			<div class="bn-table-wrap__scroll">
 				<table class="bn-table">
@@ -337,7 +338,8 @@ class Spaces extends AdminPageBase {
 					<?php endfor; ?>
 				</nav>
 			<?php endif; ?>
-		</div>
+			</div><!-- .bn-ss-body -->
+		</div><!-- .bn-settings-section -->
 
 		<?php $this->render_delete_modal(); ?>
 		<?php
@@ -422,7 +424,11 @@ class Spaces extends AdminPageBase {
 			 ORDER BY c.sort_order ASC, c.name ASC"
 		);
 		?>
-		<div class="bn-table-wrap">
+		<div class="bn-settings-section">
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Categories', 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-ss-body">
 			<div class="bn-table-wrap__scroll">
 				<table class="bn-table">
 					<thead>
@@ -464,11 +470,12 @@ class Spaces extends AdminPageBase {
 						<?php endif; ?>
 					</tbody>
 				</table>
-			</div>
-		</div>
+			</div><!-- .bn-ss-body -->
+		</div><!-- .bn-settings-section -->
 
-		<div class="bn-card" style="margin-block-start:var(--bn-s4,16px);padding:var(--bn-s5,20px)">
-			<h2 style="margin-block-start:0"><?php esc_html_e( 'Add a category', 'buddynext' ); ?></h2>
+		<div class="bn-settings-section">
+			<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Add a category', 'buddynext' ); ?></span></div>
+			<div class="bn-ss-body">
 			<form method="post" class="bn-cat-create-form">
 				<?php wp_nonce_field( 'bn_cat_create', 'bn_cat_create_nonce' ); ?>
 				<p>
@@ -495,7 +502,8 @@ class Spaces extends AdminPageBase {
 					</button>
 				</p>
 			</form>
-		</div>
+			</div><!-- .bn-ss-body -->
+		</div><!-- .bn-settings-section -->
 		<?php
 	}
 
