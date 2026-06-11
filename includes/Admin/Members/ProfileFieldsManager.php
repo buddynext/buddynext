@@ -1412,8 +1412,14 @@ class ProfileFieldsManager {
 											 * @param string               $type  Field type slug.
 											 * @param array<string, mixed> $field Existing field row.
 											 */
-											do_action( 'buddynext_profile_field_type_options', (string) $field['type'], $field );
+											// Contained in a table: the buddynext_profile_field_type_options
+											// contract emits <tr><td> rows (Pro's AdvancedFieldsAdmin), which
+											// are invalid in this div-based panel and would foster-parent out,
+											// breaking the panel. The wrapper keeps the rows valid + contained.
 											?>
+											<table class="bn-pf-hook-rows"><tbody>
+												<?php do_action( 'buddynext_profile_field_type_options', (string) $field['type'], $field ); ?>
+											</tbody></table>
 											<!-- Date display config (shown for date / daterange types) -->
 											<div id="bn-ef-date-<?php echo absint( $fid ); ?>" class="bn-pf-opts-wrap" style="<?php echo $is_date_type ? '' : 'display:none;'; ?>">
 												<label for="bn-ef-date-d-<?php echo absint( $fid ); ?>">
@@ -1512,7 +1518,13 @@ class ProfileFieldsManager {
 						 * @param string               $type  Field type slug ('' for new fields, no preselected type).
 						 * @param array<string, mixed> $field Empty array for new fields.
 						 */
-						do_action( 'buddynext_profile_field_type_options', '', array() );
+						// Contained in a table (see the matching note in the edit panel):
+						// the hook contract emits <tr><td> rows, invalid in this div panel.
+						?>
+						<table class="bn-pf-hook-rows"><tbody>
+							<?php do_action( 'buddynext_profile_field_type_options', '', array() ); ?>
+						</tbody></table>
+						<?php
 						?>
 						<!-- Date display config -->
 						<div id="bn-af-date-<?php echo absint( $gid ); ?>" class="bn-pf-opts-wrap" style="display:none;">

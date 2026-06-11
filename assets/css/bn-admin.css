@@ -1916,3 +1916,21 @@ button.bn-btn-danger:hover {
 .bn-insights-widget li { margin: 0 0 6px; }
 .bn-insights-widget strong { font-size: 16px; }
 .bn-insights-delta { color: #16a34a; font-size: 12px; margin-inline-start: 4px; }
+
+/* Container for buddynext_profile_field_type_options hook rows (Pro emits
+   <tr><td>). Seamless so it blends into the field panel, not a boxed table. */
+.bn-pf-hook-rows {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 0;
+	background: none;
+	border: 0;
+	box-shadow: none;
+}
+.bn-pf-hook-rows td {
+	padding: 4px 8px 4px 0;
+	border: 0;
+	vertical-align: top;
+}
+.bn-pf-hook-rows:empty,
+.bn-pf-hook-rows tbody:empty { display: none; }
