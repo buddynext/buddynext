@@ -19,32 +19,6 @@ namespace BuddyNext\Admin\Members;
 class ProfileFieldsManager {
 
 	/**
-	 * Allowed field types for profile fields.
-	 *
-	 * Use field_types() instead of this constant where you need the filterable
-	 * list — Pro extends the available types via buddynext_profile_field_types.
-	 *
-	 * @var string[]
-	 */
-	private const FIELD_TYPES = array(
-		'text',
-		'textarea',
-		'email',
-		'phone',
-		'url',
-		'social',
-		'number',
-		'date',
-		'daterange',
-		'select',
-		'multiselect',
-		'radio',
-		'checkbox',
-		'toggle',
-		'rating',
-	);
-
-	/**
 	 * Return the full field-type matrix the admin editor offers.
 	 *
 	 * The single source of truth is BuddyNext\Profile\FieldType::types()
@@ -227,16 +201,6 @@ class ProfileFieldsManager {
 		}
 		return $slugs;
 	}
-
-	/**
-	 * Field types that require an options list (stored as JSON array).
-	 *
-	 * Kept for backward compatibility; choice_types() derives the live list
-	 * from the FieldType matrix.
-	 *
-	 * @var string[]
-	 */
-	private const CHOICE_TYPES = array( 'select', 'multiselect', 'radio', 'checkbox' );
 
 	/**
 	 * Field types that require date display configuration.

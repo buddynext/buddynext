@@ -429,7 +429,21 @@ class MemberDirectoryService {
 		}
 
 		$blocks = buddynext_service( 'blocks' );
-		$items  = array_map(
+
+		// Prime the user + usermeta caches for the whole page in two queries so
+		// the per-row get_avatar_url() (user/email lookup), get_user_meta()
+		// (bio) and is_user_online() (last-active meta) below are cache hits
+		// rather than an N+1 across the page.
+		$row_ids = array_values( array_filter( array_map( static fn( $r ) => (int) $r['ID'], $rows ) ) );
+		if ( $row_ids ) {
+			cache_users( $row_ids );
+			update_meta_cache( 'user', $row_ids );
+			// Warm the viewer→peer restrict cache so the per-row is_user_online()
+			// guard below resolves from cache instead of one query per member.
+			$blocks->prime_restricted_cache( $viewer_id, $row_ids );
+		}
+
+		$items = array_map(
 			static function ( $r ) use ( $mutual_counts, $viewer_id, $blocks ) {
 				$uid = (int) $r['ID'];
 				$bio = get_user_meta( $uid, 'bn_field_bio', true );

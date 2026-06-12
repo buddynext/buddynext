@@ -189,29 +189,36 @@
 						setStatus( 'Network error.', true );
 					} );
 				} else if ( rmBtn ) {
-					if ( ! window.confirm( 'Remove this webhook endpoint? This cannot be undone.' ) ) {
-						return;
-					}
-					var rmId = rmBtn.dataset.bnWebhookRemove;
-					var row  = rmBtn.closest( '[data-bn-webhook-row]' );
-					rmBtn.disabled = true;
-					setStatus( 'Removing…' );
-					fetch( restUrl + '/' + rmId, {
-						method: 'DELETE',
-						headers: { 'X-WP-Nonce': restNonce },
-					} )
-					.then( function ( r ) {
-						rmBtn.disabled = false;
-						if ( r.ok ) {
-							if ( row ) { row.remove(); }
-							setStatus( 'Removed.' );
-						} else {
-							setStatus( 'Remove failed.', true );
+					window.bnConfirm( {
+						title: 'Remove webhook',
+						message: 'Remove this webhook endpoint? This cannot be undone.',
+						tone: 'danger',
+						okLabel: 'Remove',
+					} ).then( function ( ok ) {
+						if ( ! ok ) {
+							return;
 						}
-					} )
-					.catch( function () {
-						rmBtn.disabled = false;
-						setStatus( 'Network error.', true );
+						var rmId = rmBtn.dataset.bnWebhookRemove;
+						var row  = rmBtn.closest( '[data-bn-webhook-row]' );
+						rmBtn.disabled = true;
+						setStatus( 'Removing…' );
+						fetch( restUrl + '/' + rmId, {
+							method: 'DELETE',
+							headers: { 'X-WP-Nonce': restNonce },
+						} )
+						.then( function ( r ) {
+							rmBtn.disabled = false;
+							if ( r.ok ) {
+								if ( row ) { row.remove(); }
+								setStatus( 'Removed.' );
+							} else {
+								setStatus( 'Remove failed.', true );
+							}
+						} )
+						.catch( function () {
+							rmBtn.disabled = false;
+							setStatus( 'Network error.', true );
+						} );
 					} );
 				}
 			} );

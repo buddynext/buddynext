@@ -16,6 +16,7 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
+import { bnConfirm } from '../shell/dialog.js';
 
 /**
  * Build the request headers for an mvs/v1 call.
@@ -1026,8 +1027,13 @@ const { actions } = store( 'buddynext/messages', {
 		*leaveGroup() {
 			const ctx = getContext();
 			if ( ctx.groupBusy ) { return; }
-			// eslint-disable-next-line no-alert
-			if ( ! window.confirm( ( ctx.i18n && ctx.i18n.groupLeaveConfirm ) || 'Leave this group?' ) ) { return; }
+			const ok = yield bnConfirm( {
+				title: ( ctx.i18n && ctx.i18n.groupLeaveConfirm ) || 'Leave this group?',
+				body: ( ctx.i18n && ctx.i18n.groupLeaveBody ) || 'You will stop receiving messages from this conversation.',
+				confirmLabel: ( ctx.i18n && ctx.i18n.groupLeaveOk ) || 'Leave',
+				tone: 'danger',
+			} );
+			if ( ! ok ) { return; }
 			ctx.groupBusy = true;
 			try {
 				yield fetch( ctx.mvsProRest + '/groups/' + ctx.activeConvId + '/leave', {

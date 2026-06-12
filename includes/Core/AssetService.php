@@ -375,6 +375,7 @@ class AssetService {
 			'@buddynext/profile',
 			'@buddynext/members',
 			'@buddynext/social-buttons',
+			'@buddynext/messages',
 		);
 
 		foreach ( $feature_modules as $id => $path ) {

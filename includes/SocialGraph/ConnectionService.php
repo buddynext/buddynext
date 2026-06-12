@@ -381,6 +381,54 @@ class ConnectionService {
 	}
 
 	/**
+	 * Resolve the viewer↔peer connection status for many peers in one query.
+	 *
+	 * Avoids the N+1 that calling status() per peer would produce on a member
+	 * directory page. Also primes the per-pair object cache so a later status()
+	 * call for any of these peers is a cache hit.
+	 *
+	 * @param int   $viewer_id Viewer user ID.
+	 * @param int[] $peer_ids  Peer user IDs on the current page.
+	 * @return array<int, string> Peer-ID keyed status map (peers with no row are omitted).
+	 */
+	public function statuses_for( int $viewer_id, array $peer_ids ): array {
+		$peer_ids = array_values( array_unique( array_filter( array_map( 'intval', $peer_ids ) ) ) );
+		if ( $viewer_id <= 0 || ! $peer_ids ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ', ', array_fill( 0, count( $peer_ids ), '%d' ) );
+		$params       = array_merge( array( $viewer_id ), $peer_ids, array( $viewer_id ), $peer_ids );
+
+		// $placeholders is a generated list of %d for an int array; every value is
+		// bound through $wpdb->prepare() below, so the interpolation is safe.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT requester_id, recipient_id, status
+				 FROM {$wpdb->prefix}bn_connections
+				 WHERE ( requester_id = %d AND recipient_id IN ( {$placeholders} ) )
+				    OR ( recipient_id = %d AND requester_id IN ( {$placeholders} ) )",
+				$params
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$map = array();
+		foreach ( (array) $rows as $row ) {
+			$peer         = ( (int) $row->requester_id === $viewer_id ) ? (int) $row->recipient_id : (int) $row->requester_id;
+			$map[ $peer ] = (string) $row->status;
+			$low          = min( $viewer_id, $peer );
+			$high         = max( $viewer_id, $peer );
+			wp_cache_set( "status_{$low}_{$high}", (string) $row->status, self::CACHE_GROUP, self::CACHE_TTL );
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Return a paginated list of user IDs the given user is connected with (accepted only).
 	 *
 	 * @param int $user_id The user.

@@ -20,6 +20,8 @@ namespace BuddyNext\Admin;
 
 /**
  * Central admin menu + tab dispatcher.
+ *
+ * @phpstan-type BnAdminTab array{label:string, render:callable, cap:string, position:int, layout:string, badge:callable|null, icon:string, group:string, order:int}
  */
 class AdminHub {
 
@@ -42,12 +44,31 @@ class AdminHub {
 	 * @var array<string, array{slug:string, label:string, top?:bool}>
 	 */
 	private const DEFAULT_SECTIONS = array(
-		'settings'     => array( 'slug' => 'buddynext',              'label' => 'Settings',     'top' => true ),
-		'members'      => array( 'slug' => 'buddynext-members',      'label' => 'Members' ),
-		'spaces'       => array( 'slug' => 'buddynext-spaces',       'label' => 'Spaces' ),
-		'moderation'   => array( 'slug' => 'buddynext-moderation',   'label' => 'Moderation' ),
-		'growth'       => array( 'slug' => 'buddynext-growth',       'label' => 'Growth' ),
-		'monetization' => array( 'slug' => 'buddynext-monetization', 'label' => 'Monetization' ),
+		'settings'     => array(
+			'slug'  => 'buddynext',
+			'label' => 'Settings',
+			'top'   => true,
+		),
+		'members'      => array(
+			'slug'  => 'buddynext-members',
+			'label' => 'Members',
+		),
+		'spaces'       => array(
+			'slug'  => 'buddynext-spaces',
+			'label' => 'Spaces',
+		),
+		'moderation'   => array(
+			'slug'  => 'buddynext-moderation',
+			'label' => 'Moderation',
+		),
+		'growth'       => array(
+			'slug'  => 'buddynext-growth',
+			'label' => 'Growth',
+		),
+		'monetization' => array(
+			'slug'  => 'buddynext-monetization',
+			'label' => 'Monetization',
+		),
 	);
 
 	/**
@@ -62,7 +83,7 @@ class AdminHub {
 	/**
 	 * Tab registry. Keyed by section then tab slug.
 	 *
-	 * @var array<string, array<string, array{label:string, render:callable, cap:string}>>
+	 * @var array<string, array<string, BnAdminTab>>
 	 */
 	private static array $tabs = array();
 
@@ -207,11 +228,11 @@ class AdminHub {
 	 *
 	 * Back-compat: passing a capability string as the 5th arg still works.
 	 *
-	 * @param string                                                         $section Section key.
-	 * @param string                                                         $slug    Tab slug — URL `?tab=` value.
-	 * @param string                                                         $label   Visible tab label (already translated).
-	 * @param callable                                                       $render  Render callback for the tab body.
-	 * @param array{cap?:string,position?:int,badge?:callable,icon?:string,group?:string,layout?:string}|string|null   $args    Extension args, or capability string.
+	 * @param string                                                                                                 $section Section key.
+	 * @param string                                                                                                 $slug    Tab slug — URL `?tab=` value.
+	 * @param string                                                                                                 $label   Visible tab label (already translated).
+	 * @param callable                                                                                               $render  Render callback for the tab body.
+	 * @param array{cap?:string,position?:int,badge?:callable,icon?:string,group?:string,layout?:string}|string|null $args    Extension args, or capability string.
 	 * @return void
 	 */
 	public static function register_tab( string $section, string $slug, string $label, callable $render, array|string|null $args = null ): void {
@@ -312,7 +333,7 @@ class AdminHub {
 	 * Return a section's tabs, sorted by `position` then registration order.
 	 *
 	 * @param string $section Section key.
-	 * @return array<string, array{label:string,render:callable,cap:string,position:int,badge:?callable,order:int}>
+	 * @return array<string, BnAdminTab>
 	 */
 	public static function get_tabs( string $section ): array {
 		$tabs = self::$tabs[ $section ] ?? array();
@@ -471,9 +492,9 @@ class AdminHub {
 	 * jump to another tab without losing the editor's full horizontal
 	 * room. Pure HTML <select> — no JS dependency.
 	 *
-	 * @param string                                                         $page_slug Section page slug.
-	 * @param array<string, array{label:string,layout?:string,cap:string}>  $tabs      Tab registry slice.
-	 * @param string                                                         $active    Active tab slug.
+	 * @param string                                                       $page_slug Section page slug.
+	 * @param array<string, array{label:string,layout?:string,cap:string}> $tabs      Tab registry slice.
+	 * @param string                                                       $active    Active tab slug.
 	 * @return void
 	 */
 	private function render_wide_picker( string $page_slug, array $tabs, string $active ): void {
@@ -487,8 +508,10 @@ class AdminHub {
 				class="bn-admin-hub__picker-select"
 				data-bn-navigate-on-change
 			>
-				<?php foreach ( $tabs as $slug => $tab ) :
-					if ( ! current_user_can( $tab['cap'] ) ) { continue; }
+				<?php
+				foreach ( $tabs as $slug => $tab ) :
+					if ( ! current_user_can( $tab['cap'] ) ) {
+						continue; }
 					$url = add_query_arg(
 						array(
 							'page' => $page_slug,
@@ -525,10 +548,10 @@ class AdminHub {
 	 * pattern). Scales cleanly when a section grows past 6-7 tabs; the
 	 * horizontal version overflows.
 	 *
-	 * @param string                                                                                                                       $page_slug      Section page slug.
-	 * @param string                                                                                                                       $section_label  Section label for the sidebar header.
-	 * @param array<string, array{label:string, render:callable, cap:string, position:int, badge:?callable, order:int}>                    $tabs           Sorted tabs.
-	 * @param string                                                                                                                       $active         Active tab slug.
+	 * @param string                    $page_slug      Section page slug.
+	 * @param string                    $section_label  Section label for the sidebar header.
+	 * @param array<string, BnAdminTab> $tabs           Sorted tabs.
+	 * @param string                    $active         Active tab slug.
 	 * @return void
 	 */
 	private function render_sidebar( string $page_slug, string $section_label, array $tabs, string $active ): void {
@@ -577,11 +600,13 @@ class AdminHub {
 						$count = (int) call_user_func( $tab['badge'] );
 						if ( $count > 0 ) {
 							$display    = $count > 99 ? '99+' : (string) $count;
-							$badge_html = ' <span class="bn-admin-hub__sidebar-badge" aria-label="' . esc_attr( sprintf(
+							$badge_html = ' <span class="bn-admin-hub__sidebar-badge" aria-label="' . esc_attr(
+								sprintf(
 								/* translators: %d: pending item count */
-								_n( '%d pending', '%d pending', $count, 'buddynext' ),
-								$count
-							) ) . '">' . esc_html( $display ) . '</span>';
+									_n( '%d pending', '%d pending', $count, 'buddynext' ),
+									$count
+								)
+							) . '">' . esc_html( $display ) . '</span>';
 						}
 					}
 

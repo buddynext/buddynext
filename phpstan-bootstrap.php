@@ -86,3 +86,62 @@ if ( ! function_exists( 'buddynext_get_template' ) ) {
 	 */
 	function buddynext_get_template( string $relative, array $variables = array() ): void {}
 }
+
+if ( ! function_exists( 'buddynext_space_url' ) ) {
+	/**
+	 * Return the public URL for a single space by slug.
+	 *
+	 * Defined in buddynext.php (root file, outside the analysed includes/ tree).
+	 *
+	 * @param string $slug Space slug.
+	 * @return string
+	 */
+	function buddynext_space_url( string $slug ): string {
+		return '';
+	}
+}
+
+// WP-CLI is only present in CLI context (DemoCommand). A minimal stub lets
+// PHPStan resolve the static command logger calls without the wp-cli stubs
+// package. Loaded only by phpstan.neon bootstrapFiles — never at runtime.
+if ( ! class_exists( 'WP_CLI' ) ) {
+	/**
+	 * Minimal WP-CLI stub for static analysis.
+	 */
+	class WP_CLI { // phpcs:ignore
+		/**
+		 * Register a CLI command. WP-CLI accepts a closure, a callable array,
+		 * a class name, or a command-object instance.
+		 *
+		 * @param string              $name     Command name.
+		 * @param mixed               $callable Command handler.
+		 * @param array<string,mixed> $args     Optional args.
+		 * @return void
+		 */
+		public static function add_command( string $name, $callable, array $args = array() ): void {}
+
+		/**
+		 * Print an informational line.
+		 *
+		 * @param string $message Message.
+		 * @return void
+		 */
+		public static function log( string $message ): void {}
+
+		/**
+		 * Print a success line.
+		 *
+		 * @param string $message Message.
+		 * @return void
+		 */
+		public static function success( string $message ): void {}
+
+		/**
+		 * Print a warning line.
+		 *
+		 * @param string $message Message.
+		 * @return void
+		 */
+		public static function warning( string $message ): void {}
+	}
+}

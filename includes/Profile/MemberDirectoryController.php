@@ -162,9 +162,35 @@ class MemberDirectoryController {
 		// Member-type filtering is applied inside list_members() (via the
 		// bn_member_type usermeta) so pagination and totals stay correct.
 
+		$rows = (array) $page['items'];
+
+		// Prime per-row lookups in bulk to avoid an N+1 across the page. One
+		// query each primes the user cache (get_user_by), the usermeta cache
+		// (member_type), the viewer's following set, the viewer↔peer connection
+		// statuses, and the viewer's block relationships.
+		$page_ids = array_values(
+			array_filter(
+				array_map( static fn( $row ) => (int) ( $row['user_id'] ?? 0 ), $rows )
+			)
+		);
+
+		$following_set   = array();
+		$connection_map  = array();
+		$blocked_either  = array();
+		if ( $page_ids ) {
+			cache_users( $page_ids );
+			update_meta_cache( 'user', $page_ids );
+
+			if ( $viewer_id > 0 ) {
+				$following_set  = array_fill_keys( buddynext_service( 'follows' )->following( $viewer_id ), true );
+				$connection_map = buddynext_service( 'connections' )->statuses_for( $viewer_id, $page_ids );
+				$blocked_either = buddynext_service( 'blocks' )->blocking_either_map( $viewer_id, $page_ids );
+			}
+		}
+
 		$items = array_map(
-			fn( $row ) => $this->shape_item( $row, $viewer_id ),
-			(array) $page['items']
+			fn( $row ) => $this->shape_item( $row, $viewer_id, $following_set, $connection_map, $blocked_either ),
+			$rows
 		);
 
 		return new WP_REST_Response(
@@ -179,18 +205,19 @@ class MemberDirectoryController {
 	/**
 	 * Shape a service item into the client-facing payload.
 	 *
-	 * @param array<string, mixed> $row       Raw service row.
-	 * @param int                  $viewer_id Current viewer.
+	 * @param array<string, mixed> $row            Raw service row.
+	 * @param int                  $viewer_id      Current viewer.
+	 * @param array<int, true>     $following_set  Viewer→followed lookup (uid keyed).
+	 * @param array<int, string>   $connection_map Viewer↔peer status, peer-uid keyed.
+	 * @param array<int, true>     $blocked_either Peers in a block relationship with the viewer.
 	 * @return array<string, mixed>
 	 */
-	private function shape_item( array $row, int $viewer_id ): array {
+	private function shape_item( array $row, int $viewer_id, array $following_set = array(), array $connection_map = array(), array $blocked_either = array() ): array {
 		$uid          = (int) ( $row['user_id'] ?? 0 );
 		$display_name = (string) ( $row['display_name'] ?? '' );
 		$user         = get_user_by( 'id', $uid );
 		$login        = $user instanceof \WP_User ? (string) $user->user_login : '';
 		$bio          = (string) ( $row['bio'] ?? '' );
-
-		$blocks = buddynext_service( 'blocks' );
 
 		$type_slug = (string) get_user_meta( $uid, 'bn_member_type', true );
 		$type_name = '';
@@ -202,7 +229,8 @@ class MemberDirectoryController {
 			}
 		}
 
-		// Follow / connection state — derived once per row.
+		// Follow / connection state — read from the page-level maps primed in
+		// list_members(), so no per-row query is issued here.
 		$is_following = false;
 		$conn_status  = null;
 		$is_self      = ( $viewer_id === $uid );
@@ -210,15 +238,13 @@ class MemberDirectoryController {
 		$can_interact = ( $viewer_id > 0 && ! $is_self );
 
 		if ( $can_interact ) {
-			$follows      = buddynext_service( 'follows' );
-			$conns        = buddynext_service( 'connections' );
-			$is_following = $follows->is_following( $viewer_id, $uid );
-			$conn_status  = $conns->status( $viewer_id, $uid );
+			$is_following = isset( $following_set[ $uid ] );
+			$conn_status  = $connection_map[ $uid ] ?? null;
 			$messages_url = add_query_arg( array( 'recipient' => $uid ), PageRouter::messages_url() );
 		}
 
 		// Skip rows where viewer has blocked the user or vice-versa.
-		if ( $viewer_id > 0 && $blocks->is_blocking_either( $viewer_id, $uid ) ) {
+		if ( $viewer_id > 0 && isset( $blocked_either[ $uid ] ) ) {
 			$is_following = false;
 			$conn_status  = null;
 		}

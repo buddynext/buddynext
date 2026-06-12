@@ -473,6 +473,81 @@ class BlockService {
 	}
 
 	/**
+	 * Warm the per-pair is_restricted() object cache for a whole page of peers
+	 * using a single restricted_users() lookup.
+	 *
+	 * Callers such as is_user_online() check is_restricted() with a viewer↔peer
+	 * cache key; without priming each distinct peer is a cache miss and a query.
+	 * Calling this once before a row loop turns that N+1 into one query.
+	 *
+	 * @param int   $viewer_id Viewer user ID.
+	 * @param int[] $peer_ids  Peer user IDs on the current page.
+	 * @return void
+	 */
+	public function prime_restricted_cache( int $viewer_id, array $peer_ids ): void {
+		$peer_ids = array_values( array_unique( array_filter( array_map( 'intval', $peer_ids ) ) ) );
+		if ( $viewer_id <= 0 || ! $peer_ids ) {
+			return;
+		}
+
+		$restricted = array_fill_keys( $this->restricted_users( $viewer_id ), true );
+		foreach ( $peer_ids as $peer ) {
+			wp_cache_set(
+				"is_restricted_{$viewer_id}_{$peer}",
+				isset( $restricted[ $peer ] ) ? 1 : 0,
+				self::CACHE_GROUP,
+				self::CACHE_TTL
+			);
+		}
+	}
+
+	/**
+	 * Resolve, in one query, which of the given peers are in a block
+	 * relationship with the viewer (in either direction).
+	 *
+	 * Avoids the N+1 that calling is_blocking_either() per peer would produce
+	 * on a member directory page.
+	 *
+	 * @param int   $viewer_id Viewer user ID.
+	 * @param int[] $peer_ids  Peer user IDs on the current page.
+	 * @return array<int, true> Peer-ID keyed map of peers blocked either way.
+	 */
+	public function blocking_either_map( int $viewer_id, array $peer_ids ): array {
+		$peer_ids = array_values( array_unique( array_filter( array_map( 'intval', $peer_ids ) ) ) );
+		if ( $viewer_id <= 0 || ! $peer_ids ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ', ', array_fill( 0, count( $peer_ids ), '%d' ) );
+		$params       = array_merge( array( $viewer_id ), $peer_ids, array( $viewer_id ), $peer_ids );
+
+		// $placeholders is a generated list of %d for an int array; every value is
+		// bound through $wpdb->prepare() below, so the interpolation is safe.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT blocker_id, blocked_id
+				 FROM {$wpdb->prefix}bn_blocks
+				 WHERE type = 'block'
+				   AND ( ( blocker_id = %d AND blocked_id IN ( {$placeholders} ) )
+				      OR ( blocked_id = %d AND blocker_id IN ( {$placeholders} ) ) )",
+				$params
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$map = array();
+		foreach ( (array) $rows as $row ) {
+			$peer         = ( (int) $row->blocker_id === $viewer_id ) ? (int) $row->blocked_id : (int) $row->blocker_id;
+			$map[ $peer ] = true;
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Return the list of user IDs muted by the given user.
 	 *
 	 * @param int $user_id The muting user.
