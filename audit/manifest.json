@@ -1369,11 +1369,11 @@
     },
     {
       "name": "bn_follows",
-      "purpose": "Unilateral follow graph (follower \u2192 followee)"
+      "purpose": "Unilateral follow graph (follower → followee)"
     },
     {
       "name": "bn_hashtag_follows",
-      "purpose": "User \u2192 hashtag follow subscriptions"
+      "purpose": "User → hashtag follow subscriptions"
     },
     {
       "name": "bn_hashtags",
@@ -5784,6 +5784,15 @@
       "args_count": 1,
       "where": "templates/parts/sidebar-this-week-stats.php:39",
       "consumed_by": []
+    },
+    {
+      "name": "buddynext_admin_license_tab_content",
+      "type": "action",
+      "args_count": 0,
+      "where": "includes/Admin/Settings.php:219",
+      "consumed_by": [
+        "buddynext-pro"
+      ]
     }
   ],
   "capabilities": [
@@ -6086,19 +6095,19 @@
     {
       "hook": "buddynext_trending_hashtags",
       "schedule": "buddynext_30min",
-      "handler": "CronScheduler \u2192 HashtagService",
+      "handler": "CronScheduler → HashtagService",
       "purpose": "Refresh trending hashtag scores every 30 minutes"
     },
     {
       "hook": "buddynext_recount_stats",
       "schedule": "buddynext_5min",
-      "handler": "CronScheduler \u2192 CounterService",
+      "handler": "CronScheduler → CounterService",
       "purpose": "Recount denormalised counters every 5 minutes"
     },
     {
       "hook": "buddynext_publish_scheduled",
       "schedule": "buddynext_1min",
-      "handler": "CronScheduler \u2192 PostService",
+      "handler": "CronScheduler → PostService",
       "purpose": "Publish scheduled posts every 1 minute"
     },
     {
@@ -6122,7 +6131,7 @@
     {
       "hook": "buddynext_reindex_all_cron",
       "schedule": "single",
-      "handler": "Plugin \u2192 SearchService::reindex_all_cron",
+      "handler": "Plugin → SearchService::reindex_all_cron",
       "purpose": "One-time full search reindex after activation when Action Scheduler is absent"
     },
     {
