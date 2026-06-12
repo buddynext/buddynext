@@ -151,6 +151,23 @@ class Settings extends AdminPageBase {
 				$args
 			);
 		}
+
+		// License tab — registered only while Pro is active. The free
+		// plugin's own key is preset and managed automatically, so without
+		// Pro there is nothing for the admin to manage here. The license
+		// form posts directly and is handled on admin_init by its owner,
+		// so this tab renders outside the options.php form wrapper.
+		if ( defined( 'BUDDYNEXTPRO_VERSION' ) ) {
+			AdminHub::register_tab(
+				'settings',
+				'license',
+				__( 'License', 'buddynext' ),
+				function (): void {
+					$this->render_license_tab();
+				},
+				array( 'group' => __( 'Advanced', 'buddynext' ) )
+			);
+		}
 	}
 
 	/**
@@ -178,6 +195,28 @@ class Settings extends AdminPageBase {
 			<?php $this->render_save_bar(); ?>
 		</form>
 		<?php
+	}
+
+	/**
+	 * Render the License tab.
+	 *
+	 * The free plugin's key is preset and managed automatically, so the tab
+	 * only hosts content contributed by Pro (and any future add-on) via the
+	 * action below. License state authorises update downloads only — it
+	 * never gates functionality.
+	 *
+	 * @return void
+	 */
+	private function render_license_tab(): void {
+		?>
+		<p class="bn-admin-hub__subtitle"><?php esc_html_e( 'Manage license keys for automatic plugin updates.', 'buddynext' ); ?></p>
+		<?php
+		/**
+		 * Fires inside the Settings > License tab.
+		 *
+		 * BuddyNext Pro hooks this to render its license activation form.
+		 */
+		do_action( 'buddynext_admin_license_tab_content' );
 	}
 
 	/**

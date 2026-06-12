@@ -3,7 +3,7 @@
         'name' => 'wbcom-designs/buddynext',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => '2fea39a945105dbae0cab35421a502546cfd6400',
+        'reference' => 'b0229c817798bbfc1066e30d424581a52d1babd1',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'wbcom-designs/buddynext' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => '2fea39a945105dbae0cab35421a502546cfd6400',
+            'reference' => 'b0229c817798bbfc1066e30d424581a52d1babd1',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

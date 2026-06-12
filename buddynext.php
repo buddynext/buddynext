@@ -40,6 +40,86 @@ register_deactivation_hook(
 
 add_action( 'plugins_loaded', array( \BuddyNext\Core\Plugin::class, 'init' ), 15 );
 
+// ---------------------------------------------------------------------------
+// EDD Software Licensing SDK — automatic updates for free and Pro.
+//
+// The SDK is vendored at libs/edd-sl-sdk and is the single source of truth
+// for the whole product family: BuddyNext Pro registers its own product on
+// the same registry hook and requires this same file (require_once makes the
+// double load safe). The free product ships with a preset, unlimited-
+// activation key so updates work with zero customer setup. License state
+// never gates functionality — it only authorises update downloads.
+// ---------------------------------------------------------------------------
+
+add_action(
+	'edd_sl_sdk_registry',
+	static function ( $registry ): void {
+		$registry->register(
+			array(
+				'id'      => 'buddynext',
+				'url'     => 'https://wbcomdesigns.com',
+				'item_id' => 1664401,
+				'version' => BUDDYNEXT_VERSION,
+				'file'    => BUDDYNEXT_FILE,
+				'license' => 'buddynext9a3c7e1d5f2b8a4c6e0d9b7f1a2c8e55',
+			)
+		);
+	}
+);
+
+if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' ) ) {
+	require_once BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php';
+}
+
+// Activate the preset key against the store once per site so update
+// downloads are authorised. Admin-only; retries on the next admin load
+// until the store confirms the activation.
+add_action(
+	'admin_init',
+	static function (): void {
+		$preset_key = 'buddynext9a3c7e1d5f2b8a4c6e0d9b7f1a2c8e55';
+		$option     = 'buddynext_license_key';
+		$activated  = 'buddynext_preset_activated';
+
+		// Already activated for this domain — skip.
+		if ( get_option( $activated ) ) {
+			return;
+		}
+
+		// Store the key so the SDK can find it.
+		update_option( $option, $preset_key, false );
+
+		// Activate with the EDD store.
+		$response = wp_remote_post(
+			'https://wbcomdesigns.com',
+			array(
+				'timeout' => 15,
+				'body'    => array(
+					'edd_action' => 'activate_license',
+					'license'    => $preset_key,
+					'item_id'    => 1664401,
+					'url'        => home_url(),
+				),
+			)
+		);
+
+		if ( ! is_wp_error( $response ) ) {
+			$body = json_decode( wp_remote_retrieve_body( $response ), true );
+			if ( 'valid' === ( $body['license'] ?? '' ) ) {
+				update_option( $activated, 1, false );
+				update_option(
+					$option . '_allow_tracking',
+					array(
+						'allowed'   => true,
+						'timestamp' => time(),
+					),
+					false
+				);
+			}
+		}
+	}
+);
+
 /**
  * Check whether a user holds a BuddyNext capability.
  *
