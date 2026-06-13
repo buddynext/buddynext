@@ -1143,10 +1143,10 @@ class SpaceMemberService {
 			array(
 				'space_id'  => $space_id,
 				'user_id'   => $user_id,
-				'banned_by' => $banned_by > 0 ? $banned_by : null,
+				'banned_by' => max( 0, $banned_by ),
 				'reason'    => sanitize_textarea_field( $reason ),
 			),
-			array( '%d', '%d', $banned_by > 0 ? '%d' : 'NULL', '%s' )
+			array( '%d', '%d', '%d', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -1224,6 +1224,36 @@ class SpaceMemberService {
 		do_action( 'buddynext_space_user_unbanned', $space_id, $user_id );
 
 		return (bool) $deleted;
+	}
+
+	/**
+	 * List active bans for a space, oldest first.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $limit    Max rows (scale contract: capped at 50).
+	 * @return array<int,array<string,mixed>> Ban rows.
+	 */
+	public function get_space_bans( int $space_id, int $limit = 50 ): array {
+		global $wpdb;
+
+		if ( $space_id <= 0 ) {
+			return array();
+		}
+
+		$limit = max( 1, min( 50, $limit ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_space_bans WHERE space_id = %d ORDER BY created_at ASC, user_id ASC LIMIT %d",
+				$space_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
 	}
 
 	/**

@@ -1329,21 +1329,11 @@ class ModerationController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function list_space_bans( WP_REST_Request $request ): WP_REST_Response {
-		global $wpdb;
-
 		$space_id = (int) $request->get_param( 'id' );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$items = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_space_bans WHERE space_id = %d ORDER BY id ASC",
-				$space_id
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$items = ( new SpaceMemberService() )->get_space_bans( $space_id );
 
-		return new WP_REST_Response( array( 'items' => $items ?? array() ), 200 );
+		return new WP_REST_Response( array( 'items' => $items ), 200 );
 	}
 
 	/**
