@@ -668,6 +668,11 @@ A phase is Done when ALL of:
 
 | Date | Phase | Type | Description |
 |------|-------|------|-------------|
+| 2026-06-14 | feed-flow | refactor | bn_posts counter writes (comment/reaction/share) + author lookups consolidated onto PostService::increment_counter/decrement_counter/get_author_id; routed from Comment/Reaction services + WPMediaVerse bridge |
+| 2026-06-14 | feed-flow | fix | Counter decrement used GREATEST(0, col-1) which underflows UNSIGNED columns; now GREATEST(1, col)-1 |
+| 2026-06-14 | feed-flow | refactor | FeedController announcement reads/writes moved to PostService::get_announcement/end_announcement (FeedController is $wpdb-free) |
+| 2026-06-14 | feed-flow | refactor | 8 Feed/Comments/Reactions controllers extend REST/BaseRestController; require_moderator promoted to base |
+| 2026-06-14 | feed-flow | feature | PostService gains set_schedule/clear_schedule/mark_published/get_posts_by_status; Pro scheduled-posts writes route through it (no direct bn_posts writes from Pro) |
 | 2026-06-13 | moderation-flow | refactor | ModerationController is now fully $wpdb-free — content-warning, appeals-list, and space-ban-list reads moved into ModerationService / SpaceMemberService |
 | 2026-06-13 | moderation-flow | feature | Added REST/BaseRestController (shared require_auth/require_admin); ModerationController extends it |
 | 2026-06-13 | moderation-flow | feature | Added app-readiness read endpoints: GET /me/appeals, /users/{id}/warnings, /users/{id}/shadow-ban, /users/{id}/suspensions |
