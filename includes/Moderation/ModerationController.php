@@ -425,6 +425,75 @@ class ModerationController extends BaseRestController {
 			)
 		);
 
+		// App-readiness read endpoints. WordPress merges multiple
+		// register_rest_route() calls on the same path, so the GET methods below
+		// sit alongside the existing POST/DELETE handlers without replacing them.
+
+		// The current user's own appeals (any status).
+		register_rest_route(
+			'buddynext/v1',
+			'/me/appeals',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'list_my_appeals' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		// Warning history for a user (admin only).
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/warnings',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'list_user_warnings' ),
+				'permission_callback' => array( $this, 'require_admin' ),
+				'args'                => array(
+					'id' => array(
+						'required' => true,
+						'type'     => 'integer',
+						'minimum'  => 1,
+					),
+				),
+			)
+		);
+
+		// Shadow-ban status for a user (admin only).
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/shadow-ban',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_shadow_ban_status' ),
+				'permission_callback' => array( $this, 'require_admin' ),
+				'args'                => array(
+					'id' => array(
+						'required' => true,
+						'type'     => 'integer',
+						'minimum'  => 1,
+					),
+				),
+			)
+		);
+
+		// Active suspensions for a user (admin only).
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/suspensions',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'list_user_suspensions' ),
+				'permission_callback' => array( $this, 'require_admin' ),
+				'args'                => array(
+					'id' => array(
+						'required' => true,
+						'type'     => 'integer',
+						'minimum'  => 1,
+					),
+				),
+			)
+		);
+
 		// List pending appeals (admin only).
 		// WordPress merges multiple register_rest_route() calls on the same path —
 		// GET is added alongside the existing POST without replacing it.
@@ -1248,6 +1317,61 @@ class ModerationController extends BaseRestController {
 			),
 			200
 		);
+	}
+
+	/**
+	 * GET /me/appeals — the current user's own appeals (any status).
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function list_my_appeals(): WP_REST_Response {
+		$appeals = ( new ModerationService() )->get_user_appeals( get_current_user_id() );
+
+		return new WP_REST_Response( $appeals, 200 );
+	}
+
+	/**
+	 * GET /users/{id}/warnings — warning history for a user (admin only).
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function list_user_warnings( WP_REST_Request $request ): WP_REST_Response {
+		$user_id  = (int) $request->get_param( 'id' );
+		$warnings = ( new ModerationService() )->get_warnings( $user_id );
+
+		return new WP_REST_Response( $warnings, 200 );
+	}
+
+	/**
+	 * GET /users/{id}/shadow-ban — shadow-ban status for a user (admin only).
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function get_shadow_ban_status( WP_REST_Request $request ): WP_REST_Response {
+		$user_id = (int) $request->get_param( 'id' );
+
+		return new WP_REST_Response(
+			array(
+				'user_id'       => $user_id,
+				'shadow_banned' => ( new ModerationService() )->is_shadow_banned( $user_id ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * GET /users/{id}/suspensions — active suspensions for a user (admin only).
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function list_user_suspensions( WP_REST_Request $request ): WP_REST_Response {
+		$user_id     = (int) $request->get_param( 'id' );
+		$suspensions = ( new ModerationService() )->get_user_suspensions( $user_id );
+
+		return new WP_REST_Response( $suspensions, 200 );
 	}
 
 	/**

@@ -1031,6 +1031,104 @@ class ModerationService {
 	}
 
 	/**
+	 * List a user's own appeals (any status), newest first.
+	 *
+	 * @param int $user_id User id.
+	 * @param int $limit   Max rows (capped at 50).
+	 * @return array<int,array<string,mixed>> Appeal rows.
+	 */
+	public function get_user_appeals( int $user_id, int $limit = 50 ): array {
+		global $wpdb;
+
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		$limit = max( 1, min( 50, $limit ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, suspension_id, user_id, message, status, created_at
+				 FROM {$wpdb->prefix}bn_appeals
+				 WHERE user_id = %d
+				 ORDER BY created_at DESC
+				 LIMIT %d",
+				$user_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * List warning-log entries for a user, newest first.
+	 *
+	 * @param int $user_id User id.
+	 * @param int $limit   Max rows (capped at 50).
+	 * @return array<int,array<string,mixed>> Warning rows from bn_mod_log.
+	 */
+	public function get_warnings( int $user_id, int $limit = 50 ): array {
+		global $wpdb;
+
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		$limit = max( 1, min( 50, $limit ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, actor_id, action, note, created_at
+				 FROM {$wpdb->prefix}bn_mod_log
+				 WHERE target_user_id = %d AND action IN ( 'warn', 'warned' )
+				 ORDER BY created_at DESC
+				 LIMIT %d",
+				$user_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * List a single user's active (unlifted) suspensions, newest first.
+	 *
+	 * @param int $user_id User id.
+	 * @return array<int,array<string,mixed>> Suspension rows.
+	 */
+	public function get_user_suspensions( int $user_id ): array {
+		global $wpdb;
+
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, user_id, suspended_by, reason, duration_days, hide_posts, expires_at, created_at
+				 FROM {$wpdb->prefix}bn_user_suspensions
+				 WHERE user_id = %d AND lifted_at IS NULL
+				 ORDER BY created_at DESC
+				 LIMIT 50",
+				$user_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
 	 * Submit an appeal against a suspension.
 	 *
 	 * Only the suspended user may appeal. The suspension must exist and currently
