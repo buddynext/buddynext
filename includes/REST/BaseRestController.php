@@ -58,4 +58,16 @@ abstract class BaseRestController {
 
 		return true;
 	}
+
+	/**
+	 * Require a community moderator (currently site managers).
+	 *
+	 * Distinct method name so moderator-gated routes read clearly and can gain
+	 * space-moderator semantics later without touching every controller.
+	 *
+	 * @return true|WP_Error
+	 */
+	public function require_moderator(): true|WP_Error {
+		return $this->require_admin();
+	}
 }

@@ -23,11 +23,12 @@ use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_REST_Server;
+use BuddyNext\REST\BaseRestController;
 
 /**
  * Handles comment CRUD and listing over REST.
  */
-class CommentController {
+class CommentController extends BaseRestController {
 
 	/**
 	 * Register the controller's routes.
@@ -424,29 +425,4 @@ class CommentController {
 	 *
 	 * @return bool|WP_Error
 	 */
-	public function require_auth(): bool|WP_Error {
-		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
-		}
-		return true;
-	}
-
-	/**
-	 * Require the user to have moderator (manage_options) capability.
-	 *
-	 * Pinning a comment is a moderator action that surfaces a single comment
-	 * above the chronological list. CommentService::pin() also enforces this,
-	 * but rejecting at the route level prevents leaking 200/400 ambiguity.
-	 *
-	 * @return bool|WP_Error
-	 */
-	public function require_moderator(): bool|WP_Error {
-		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
-		}
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return new WP_Error( 'rest_forbidden', __( 'You do not have permission to perform this action.', 'buddynext' ), array( 'status' => 403 ) );
-		}
-		return true;
-	}
 }

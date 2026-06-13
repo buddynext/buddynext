@@ -25,11 +25,12 @@ use BuddyNext\Spaces\SpaceService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
+use BuddyNext\REST\BaseRestController;
 
 /**
  * Serves home, explore, and profile feeds over REST.
  */
-class FeedController {
+class FeedController extends BaseRestController {
 
 	/**
 	 * Register the controller's routes.
@@ -463,17 +464,6 @@ class FeedController {
 	 *
 	 * @return true|WP_Error
 	 */
-	public function require_auth(): true|WP_Error {
-		if ( ! is_user_logged_in() ) {
-			return new WP_Error(
-				'rest_not_logged_in',
-				__( 'You must be logged in.', 'buddynext' ),
-				array( 'status' => 401 )
-			);
-		}
-
-		return true;
-	}
 
 	/**
 	 * Resolve the active feed service.

@@ -18,11 +18,12 @@ use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_REST_Server;
+use BuddyNext\REST\BaseRestController;
 
 /**
  * Handles reaction toggle and count reads over REST.
  */
-class ReactionController {
+class ReactionController extends BaseRestController {
 
 	/**
 	 * Register the controller's routes.
@@ -197,10 +198,4 @@ class ReactionController {
 	 *
 	 * @return bool|WP_Error
 	 */
-	public function require_auth(): bool|WP_Error {
-		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
-		}
-		return true;
-	}
 }

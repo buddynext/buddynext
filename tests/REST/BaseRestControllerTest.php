@@ -51,4 +51,12 @@ class BaseRestControllerTest extends \WP_UnitTestCase {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 		$this->assertTrue( $this->controller->require_admin() );
 	}
+
+	public function test_require_moderator_gates_on_manage_options(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+		$this->assertInstanceOf( WP_Error::class, $this->controller->require_moderator() );
+
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$this->assertTrue( $this->controller->require_moderator() );
+	}
 }

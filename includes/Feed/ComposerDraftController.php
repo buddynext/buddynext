@@ -29,11 +29,12 @@ use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_REST_Server;
+use BuddyNext\REST\BaseRestController;
 
 /**
  * Stores composer drafts on usermeta so they can sync across the viewer's devices.
  */
-class ComposerDraftController {
+class ComposerDraftController extends BaseRestController {
 
 	/**
 	 * User-meta key under which the latest draft payload is stored.
@@ -134,10 +135,4 @@ class ComposerDraftController {
 	 *
 	 * @return bool|WP_Error
 	 */
-	public function require_auth(): bool|WP_Error {
-		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
-		}
-		return true;
-	}
 }

@@ -18,11 +18,12 @@ use BuddyNext\Feed\ShareService;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
+use BuddyNext\REST\BaseRestController;
 
 /**
  * Handles post share and unshare.
  */
-class ShareController {
+class ShareController extends BaseRestController {
 
 	/**
 	 * Register the controller's routes.
@@ -134,15 +135,4 @@ class ShareController {
 	 *
 	 * @return true|WP_Error
 	 */
-	public function require_auth(): true|WP_Error {
-		if ( ! is_user_logged_in() ) {
-			return new WP_Error(
-				'rest_not_logged_in',
-				__( 'You must be logged in.', 'buddynext' ),
-				array( 'status' => 401 )
-			);
-		}
-
-		return true;
-	}
 }
