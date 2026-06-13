@@ -991,8 +991,6 @@ class ModerationController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function set_content_warning( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		global $wpdb;
-
 		$post_id       = absint( $request->get_param( 'id' ) );
 		$has_warning   = (bool) $request->get_param( 'content_warning' );
 		$warning_type  = sanitize_key( (string) ( $request->get_param( 'content_warning_type' ) ?? 'nsfw' ) );
@@ -1006,34 +1004,13 @@ class ModerationController extends BaseRestController {
 			);
 		}
 
-		// Confirm the post exists in bn_posts.
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$exists = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
-				$post_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$result = ( new ModerationService() )->set_post_content_warning( $post_id, $has_warning, $warning_type );
 
-		if ( null === $exists ) {
+		if ( null === $result ) {
 			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$updated = $wpdb->update(
-			$wpdb->prefix . 'bn_posts',
-			array(
-				'content_warning'      => $has_warning ? 1 : 0,
-				'content_warning_type' => $warning_type,
-			),
-			array( 'id' => $post_id ),
-			array( '%d', '%s' ),
-			array( '%d' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		if ( false === $updated ) {
+		if ( false === $result ) {
 			return new WP_Error(
 				'db_error',
 				__( 'Failed to update content warning.', 'buddynext' ),
@@ -1421,42 +1398,22 @@ class ModerationController extends BaseRestController {
 	 * Return the content warning state for a post.
 	 *
 	 * Public — anyone may check whether a post carries a content warning before
-	 * deciding whether to view it. Returns has_warning, warning_type, and
-	 * warning_text from bn_posts. Returns 404 when the post does not exist.
+	 * deciding whether to view it. Returns has_warning and warning_type via
+	 * ModerationService. Returns 404 when the post does not exist.
 	 *
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_content_warning( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		global $wpdb;
-
 		$post_id = absint( $request->get_param( 'id' ) );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT content_warning, content_warning_type, content_warning_text
-				 FROM {$wpdb->prefix}bn_posts
-				 WHERE id = %d
-				 LIMIT 1",
-				$post_id
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$warning = ( new ModerationService() )->get_post_content_warning( $post_id );
 
-		if ( null === $row ) {
+		if ( null === $warning ) {
 			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		return new WP_REST_Response(
-			array(
-				'has_warning'  => (bool) $row['content_warning'],
-				'warning_type' => (string) ( $row['content_warning_type'] ?? '' ),
-				'warning_text' => (string) ( $row['content_warning_text'] ?? '' ),
-			),
-			200
-		);
+		return new WP_REST_Response( $warning, 200 );
 	}
 
 	/**

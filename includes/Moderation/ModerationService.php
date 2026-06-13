@@ -314,6 +314,81 @@ class ModerationService {
 	}
 
 	/**
+	 * Read a post's content-warning state.
+	 *
+	 * @param int $post_id Post id.
+	 * @return array{has_warning:bool,warning_type:string}|null Null when the post does not exist.
+	 */
+	public function get_post_content_warning( int $post_id ): ?array {
+		global $wpdb;
+
+		if ( $post_id <= 0 ) {
+			return null;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT content_warning, content_warning_type
+				 FROM {$wpdb->prefix}bn_posts
+				 WHERE id = %d
+				 LIMIT 1",
+				$post_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( null === $row ) {
+			return null;
+		}
+
+		return array(
+			'has_warning'  => (bool) $row['content_warning'],
+			'warning_type' => (string) ( $row['content_warning_type'] ?? '' ),
+		);
+	}
+
+	/**
+	 * Set or clear a post's content warning.
+	 *
+	 * @param int    $post_id      Post id.
+	 * @param bool   $has_warning  Whether the post carries a warning.
+	 * @param string $warning_type Warning type slug (caller validates against the allowed set).
+	 * @return bool|null True on success, false on DB error, null when the post does not exist.
+	 */
+	public function set_post_content_warning( int $post_id, bool $has_warning, string $warning_type ): ?bool {
+		global $wpdb;
+
+		if ( $post_id <= 0 ) {
+			return null;
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$exists = $wpdb->get_var(
+			$wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1", $post_id )
+		);
+
+		if ( null === $exists ) {
+			return null;
+		}
+
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'content_warning'      => $has_warning ? 1 : 0,
+				'content_warning_type' => sanitize_key( $warning_type ),
+			),
+			array( 'id' => $post_id ),
+			array( '%d', '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return false !== $updated;
+	}
+
+	/**
 	 * Issue a formal strike against a user.
 	 *
 	 * @param int    $user_id   User receiving the strike.
