@@ -309,23 +309,10 @@ class FeedController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function dismiss_announcement( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		global $wpdb;
-
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$exists = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$wpdb->prefix}bn_posts
-				 WHERE id = %d AND is_announcement = 1 AND type = 'announcement'
-				 LIMIT 1",
-				$post_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		if ( null === $exists ) {
+		if ( null === buddynext_service( 'post_service' )->get_announcement( $post_id ) ) {
 			return new WP_Error(
 				'not_found',
 				__( 'Announcement not found.', 'buddynext' ),
@@ -354,23 +341,9 @@ class FeedController {
 			);
 		}
 
-		global $wpdb;
 		$post_id = (int) $request->get_param( 'id' );
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$updated = $wpdb->update(
-			$wpdb->prefix . 'bn_posts',
-			array( 'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ) ),
-			array(
-				'id'              => $post_id,
-				'is_announcement' => 1,
-			),
-			array( '%s' ),
-			array( '%d', '%d' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		if ( ! $updated ) {
+		if ( ! buddynext_service( 'post_service' )->end_announcement( $post_id ) ) {
 			return new WP_Error(
 				'not_found',
 				__( 'Announcement not found.', 'buddynext' ),

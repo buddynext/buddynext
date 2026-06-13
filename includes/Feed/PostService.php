@@ -612,6 +612,63 @@ class PostService {
 	}
 
 	/**
+	 * Fetch an active announcement post, or null if the id is not an announcement.
+	 *
+	 * @param int $post_id Post id.
+	 * @return array<string,mixed>|null
+	 */
+	public function get_announcement( int $post_id ): ?array {
+		if ( $post_id <= 0 ) {
+			return null;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_posts WHERE id = %d AND is_announcement = 1 AND type = 'announcement' LIMIT 1",
+				$post_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $row ?: null;
+	}
+
+	/**
+	 * End an announcement by expiring its site pin now. Returns true if a row changed.
+	 *
+	 * @param int $post_id Post id.
+	 * @return bool
+	 */
+	public function end_announcement( int $post_id ): bool {
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ) ),
+			array(
+				'id'              => $post_id,
+				'is_announcement' => 1,
+			),
+			array( '%s' ),
+			array( '%d', '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( $updated ) {
+			wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+		}
+
+		return (bool) $updated;
+	}
+
+	/**
 	 * Resolve the safeguard service from the container.
 	 *
 	 * Returns the container-bound instance when the helper is available,
