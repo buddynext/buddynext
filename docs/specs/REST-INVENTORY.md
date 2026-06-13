@@ -51,6 +51,7 @@ one path = one schema = one documented handler.
 | `/hashtags/trending` | GET | public | [Hashtags/HashtagController.php:37](../../includes/Hashtags/HashtagController.php#L37) |
 | `/invites/import-csv` | POST |  | [Onboarding/InviteController.php:28](../../includes/Onboarding/InviteController.php#L28) |
 | `/me/appeals` | POST | $this->require_auth() | [Moderation/ModerationController.php:400](../../includes/Moderation/ModerationController.php#L400) |
+| `/me/appeals` | GET | $this->require_auth() | [Moderation/ModerationController.php](../../includes/Moderation/ModerationController.php) |
 | `/me/avatar` | POST | $this->require_auth() | [Profile/ProfileController.php:124](../../includes/Profile/ProfileController.php#L124) |
 | `/me/blocked` | GET |  | [SocialGraph/BlockController.php:67](../../includes/SocialGraph/BlockController.php#L67) |
 | `/me/bookmarks` | GET |  | [Feed/BookmarkController.php:48](../../includes/Feed/BookmarkController.php#L48) |
@@ -138,12 +139,16 @@ one path = one schema = one documented handler.
 | `/users/(?P<id>[\d]+)/profile` | GET |  | [Profile/ProfileController.php:50](../../includes/Profile/ProfileController.php#L50) |
 | `/users/(?P<id>[\d]+)/profile` | PUT | $this->require_admin() | [Profile/ProfileController.php:60](../../includes/Profile/ProfileController.php#L60) |
 | `/users/(?P<id>[\d]+)/shadow-ban` | POST | $this->require_admin() | [Moderation/ModerationController.php:332](../../includes/Moderation/ModerationController.php#L332) |
+| `/users/(?P<id>[\d]+)/shadow-ban` | GET | $this->require_admin() | [Moderation/ModerationController.php](../../includes/Moderation/ModerationController.php) |
+| `/users/(?P<id>[\d]+)/shadow-ban` | DELETE | $this->require_admin() | [Moderation/ModerationController.php](../../includes/Moderation/ModerationController.php) |
 | `/users/(?P<id>[\d]+)/strikes` | GET | $this->require_admin() | [Moderation/ModerationController.php:176](../../includes/Moderation/ModerationController.php#L176) |
 | `/users/(?P<id>[\d]+)/strikes/(?P<sid>[\d]+)/reverse` | POST |  | [Moderation/ModerationController.php:213](../../includes/Moderation/ModerationController.php#L213) |
 | `/users/(?P<id>[\d]+)/suspend` | POST | $this->require_admin() | [Moderation/ModerationController.php:224](../../includes/Moderation/ModerationController.php#L224) |
 | `/users/(?P<id>[\d]+)/suspend` | DELETE | $this->require_admin() | [Moderation/ModerationController.php:364](../../includes/Moderation/ModerationController.php#L364) |
 | `/users/(?P<id>[\d]+)/suspension` | GET | $this->require_admin() | [Moderation/ModerationController.php:382](../../includes/Moderation/ModerationController.php#L382) |
+| `/users/(?P<id>[\d]+)/suspensions` | GET | $this->require_admin() | [Moderation/ModerationController.php](../../includes/Moderation/ModerationController.php) |
 | `/users/(?P<id>[\d]+)/warn` | POST | $this->require_admin() | [Moderation/ModerationController.php:309](../../includes/Moderation/ModerationController.php#L309) |
+| `/users/(?P<id>[\d]+)/warnings` | GET | $this->require_admin() | [Moderation/ModerationController.php](../../includes/Moderation/ModerationController.php) |
 | `/webhook/access` | POST |  | [Outbound/AccessWebhookController.php:42](../../includes/Outbound/AccessWebhookController.php#L42) |
 | `/webhooks` | GET | $this->require_admin() | [Outbound/OutboundWebhookController.php:50](../../includes/Outbound/OutboundWebhookController.php#L50) |
 | `/webhooks/(?P<id>[\d]+)` | DELETE | $this->require_admin() | [Outbound/OutboundWebhookController.php:89](../../includes/Outbound/OutboundWebhookController.php#L89) |

@@ -668,6 +668,12 @@ A phase is Done when ALL of:
 
 | Date | Phase | Type | Description |
 |------|-------|------|-------------|
+| 2026-06-13 | moderation-flow | refactor | ModerationController is now fully $wpdb-free — content-warning, appeals-list, and space-ban-list reads moved into ModerationService / SpaceMemberService |
+| 2026-06-13 | moderation-flow | feature | Added REST/BaseRestController (shared require_auth/require_admin); ModerationController extends it |
+| 2026-06-13 | moderation-flow | feature | Added app-readiness read endpoints: GET /me/appeals, /users/{id}/warnings, /users/{id}/shadow-ban, /users/{id}/suspensions |
+| 2026-06-13 | moderation-flow | fix | GET /posts/{id}/content-warning read a phantom content_warning_text column (404'd every post); removed it |
+| 2026-06-13 | moderation-flow | fix | GET /spaces/{id}/bans ordered by a non-existent id column (returned empty); order by created_at. ban_from_space() stored null into NOT NULL banned_by; store 0 |
+| 2026-06-13 | moderation-flow | refactor | Consolidated log_warning() into warn(); Pro BulkModAdmin reads the queue via ModerationService::get_queue() instead of raw SQL |
 | 2026-03-21 | — | docs | Created CLAUDE.md — project instructions |
 | 2026-03-21 | 6 | feature | Created EmailSender — template fetch, placeholder render, HMAC unsub, send log |
 | 2026-03-21 | 6 | feature | Created EmailDispatchListener — hooks notification_created, handles ?bn_unsub= requests |
