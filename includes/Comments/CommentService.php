@@ -596,6 +596,12 @@ class CommentService {
 			return $cached;
 		}
 
+		// SCALE-CONTRACT: this list uses OFFSET, which the contract discourages for
+		// deep pagination. It is acceptable here and intentionally not converted to
+		// cursor pagination: comment threads are bounded (the page result is cached
+		// and the frontend loads only the first page — store.js never sends a page
+		// param), so OFFSET depth stays shallow. Revisit if threaded "load more"
+		// pagination ships in the UI.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
