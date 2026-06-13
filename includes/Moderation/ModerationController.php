@@ -1233,37 +1233,18 @@ class ModerationController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function list_appeals( WP_REST_Request $request ): WP_REST_Response {
-		global $wpdb;
-
 		$per_page = absint( $request->get_param( 'per_page' ) );
 		$page     = absint( $request->get_param( 'page' ) );
+		$per_page = $per_page > 0 ? min( $per_page, 50 ) : 20;
+		$page     = max( 1, $page );
 		$offset   = ( $page - 1 ) * $per_page;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$items = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_appeals
-				 WHERE status = 'pending'
-				 ORDER BY created_at ASC
-				 LIMIT %d OFFSET %d",
-				$per_page,
-				$offset
-			),
-			ARRAY_A
-		);
-
-		$total = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_appeals WHERE status = %s",
-				'pending'
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$service = new ModerationService();
 
 		return new WP_REST_Response(
 			array(
-				'items' => $items ?? array(),
-				'total' => $total,
+				'items' => $service->get_pending_appeals( $per_page, $offset ),
+				'total' => $service->count_pending_appeals(),
 			),
 			200
 		);

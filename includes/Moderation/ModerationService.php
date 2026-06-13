@@ -976,12 +976,14 @@ class ModerationService {
 	 * List pending appeals awaiting an admin decision. Powers the admin
 	 * moderation queue's Appeals panel. Oldest first (FIFO review order).
 	 *
-	 * @param int $limit Max rows. Default 100.
+	 * @param int $limit  Max rows. Default 100.
+	 * @param int $offset Row offset for pagination. Default 0.
 	 * @return array<int,array<string,mixed>> Pending appeal rows.
 	 */
-	public function get_pending_appeals( int $limit = 100 ): array {
+	public function get_pending_appeals( int $limit = 100, int $offset = 0 ): array {
 		global $wpdb;
-		$limit = max( 1, min( 500, $limit ) );
+		$limit  = max( 1, min( 500, $limit ) );
+		$offset = max( 0, $offset );
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
@@ -990,8 +992,9 @@ class ModerationService {
 				 FROM {$wpdb->prefix}bn_appeals
 				 WHERE status = 'pending'
 				 ORDER BY id ASC
-				 LIMIT %d",
-				$limit
+				 LIMIT %d OFFSET %d",
+				$limit,
+				$offset
 			),
 			ARRAY_A
 		);
@@ -1010,6 +1013,21 @@ class ModerationService {
 			},
 			(array) $rows
 		);
+	}
+
+	/**
+	 * Count pending appeals awaiting an admin decision.
+	 *
+	 * @return int
+	 */
+	public function count_pending_appeals(): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_appeals WHERE status = %s", 'pending' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**
