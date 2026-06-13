@@ -73,6 +73,22 @@ class ModerationReadEndpointsTest extends \WP_Test_REST_TestCase {
 		$this->assertTrue( $response->get_data()['shadow_banned'] );
 	}
 
+	public function test_rest_warn_user_creates_retrievable_warning(): void {
+		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
+		$user  = self::factory()->user->create();
+		wp_set_current_user( $admin );
+
+		$warn = new WP_REST_Request( 'POST', "/buddynext/v1/users/{$user}/warn" );
+		$warn->set_param( 'message', 'Final warning' );
+		$warn_response = rest_do_request( $warn );
+		$this->assertContains( $warn_response->get_status(), array( 200, 201 ) );
+
+		$list = rest_do_request( new WP_REST_Request( 'GET', "/buddynext/v1/users/{$user}/warnings" ) );
+		$this->assertSame( 200, $list->get_status() );
+		$this->assertNotEmpty( $list->get_data() );
+		$this->assertSame( 'Final warning', $list->get_data()[0]['note'] );
+	}
+
 	public function test_user_suspensions_for_admin(): void {
 		$admin = self::factory()->user->create( array( 'role' => 'administrator' ) );
 		$user  = self::factory()->user->create();

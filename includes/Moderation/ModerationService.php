@@ -1521,59 +1521,6 @@ class ModerationService {
 	}
 
 	/**
-	 * Insert a warning entry into the moderation log.
-	 *
-	 * Writes object_type='user', action='warned' to bn_mod_log and fires
-	 * buddynext_user_warned so event listeners can dispatch the warning email.
-	 * Callers are responsible for capability checks before calling this method.
-	 *
-	 * @param int    $user_id   User receiving the warning.
-	 * @param string $message   Warning message text.
-	 * @param int    $warned_by Actor ID (0 = system).
-	 * @return bool|WP_Error True on success or WP_Error on DB failure.
-	 */
-	public function log_warning( int $user_id, string $message, int $warned_by = 0 ): bool|WP_Error {
-		if ( $user_id <= 0 ) {
-			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ) );
-		}
-
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$inserted = $wpdb->insert(
-			$wpdb->prefix . 'bn_mod_log',
-			array(
-				'object_type'    => 'user',
-				'object_id'      => $user_id,
-				'action'         => 'warned',
-				'note'           => sanitize_textarea_field( $message ),
-				'actor_id'       => $warned_by > 0 ? $warned_by : null,
-				'target_user_id' => $user_id,
-			),
-			array( '%s', '%d', '%s', '%s', $warned_by > 0 ? '%d' : 'NULL', '%d' )
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		if ( false === $inserted || '' !== $wpdb->last_error ) {
-			return new WP_Error( 'db_error', $wpdb->last_error );
-		}
-
-		/**
-		 * Fires after a warning is issued to a user.
-		 *
-		 * Canonical signature ( user_id, by_user_id, reason ) — matches the
-		 * buddynext_user_suspended convention and the Pro analytics listener.
-		 *
-		 * @param int    $user_id    Warned user.
-		 * @param int    $warned_by  Actor user ID (0 = system).
-		 * @param string $message    Warning message / reason.
-		 */
-		do_action( 'buddynext_user_warned', $user_id, $warned_by, $message );
-
-		return true;
-	}
-
-	/**
 	 * Insert an appeal record into `bn_appeals`.
 	 *
 	 * This variant does not require a suspension_id — it records a general

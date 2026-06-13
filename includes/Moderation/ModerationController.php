@@ -1164,7 +1164,7 @@ class ModerationController extends BaseRestController {
 		$message  = (string) ( $request->get_param( 'message' ) ?? '' );
 		$actor_id = get_current_user_id();
 
-		$result = ( new ModerationService() )->log_warning( $user_id, $message, $actor_id );
+		$result = ( new ModerationService() )->warn( $user_id, $actor_id, $message );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );
