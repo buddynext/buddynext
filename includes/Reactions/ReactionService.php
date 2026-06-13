@@ -61,13 +61,7 @@ class ReactionService {
 			$this->invalidate_cache( $object_type, $object_id, $user_id );
 
 			if ( 'post' === $object_type ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->query(
-					$wpdb->prepare(
-						"UPDATE {$wpdb->prefix}bn_posts SET reaction_count = reaction_count + 1 WHERE id = %d",
-						$object_id
-					)
-				);
+				buddynext_service( 'post_service' )->increment_counter( $object_id, 'reaction_count' );
 			}
 
 			/**
@@ -81,13 +75,7 @@ class ReactionService {
 			do_action( 'buddynext_reaction_added', $object_type, $object_id, $user_id, $emoji );
 
 			if ( 'post' === $object_type ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$author_id = (int) $wpdb->get_var(
-					$wpdb->prepare(
-						"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d",
-						$object_id
-					)
-				);
+				$author_id = buddynext_service( 'post_service' )->get_author_id( $object_id );
 
 				if ( $author_id > 0 && $author_id !== $user_id ) {
 					/**
@@ -144,13 +132,7 @@ class ReactionService {
 
 		if ( $wpdb->rows_affected > 0 ) {
 			if ( 'post' === $object_type ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->query(
-					$wpdb->prepare(
-						"UPDATE {$wpdb->prefix}bn_posts SET reaction_count = GREATEST(0, reaction_count - 1) WHERE id = %d",
-						$object_id
-					)
-				);
+				buddynext_service( 'post_service' )->decrement_counter( $object_id, 'reaction_count' );
 			}
 
 			/**

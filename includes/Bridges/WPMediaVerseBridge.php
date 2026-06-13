@@ -406,14 +406,10 @@ class WPMediaVerseBridge {
 			)
 		);
 
-		// Increment comment count on the bn_posts row.
-		$wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_posts SET comment_count = comment_count + 1 WHERE id = %d",
-				$bn_post_id
-			)
-		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// Increment comment count on the bn_posts row.
+		buddynext_service( 'post_service' )->increment_counter( $bn_post_id, 'comment_count' );
 
 		// Fire BuddyNext hook so notifications/webhooks pick it up. Use the
 		// canonical 4-arg signature (comment_id, object_type, object_id, user_id)

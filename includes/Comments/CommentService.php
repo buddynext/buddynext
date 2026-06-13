@@ -114,13 +114,7 @@ class CommentService {
 		$this->bust_cache( $object_type, $object_id );
 
 		if ( 'post' === $object_type ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_posts SET comment_count = comment_count + 1 WHERE id = %d",
-					$object_id
-				)
-			);
+			buddynext_service( 'post_service' )->increment_counter( $object_id, 'comment_count' );
 		}
 
 		/**
@@ -134,13 +128,7 @@ class CommentService {
 		do_action( 'buddynext_comment_created', $comment_id, $object_type, $object_id, $user_id );
 
 		if ( 'post' === $object_type ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$author_id = (int) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d",
-					$object_id
-				)
-			);
+			$author_id = buddynext_service( 'post_service' )->get_author_id( $object_id );
 
 			if ( $author_id > 0 && $author_id !== $user_id ) {
 				/**
@@ -315,13 +303,7 @@ class CommentService {
 		$this->bust_cache( $comment['object_type'], (int) $comment['object_id'] );
 
 		if ( 'post' === $comment['object_type'] ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_posts SET comment_count = GREATEST(0, comment_count - 1) WHERE id = %d",
-					(int) $comment['object_id']
-				)
-			);
+			buddynext_service( 'post_service' )->decrement_counter( (int) $comment['object_id'], 'comment_count' );
 		}
 
 		/**

@@ -530,31 +530,85 @@ class PostService {
 	 * @param int $delta   +1 or -1.
 	 */
 	public function adjust_share_count( int $post_id, int $delta ): void {
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		if ( $delta > 0 ) {
-			$wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_posts
-					 SET share_count = share_count + 1
-					 WHERE id = %d",
-					$post_id
-				)
-			);
+			$this->increment_counter( $post_id, 'share_count' );
 		} else {
-			$wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_posts
-					 SET share_count = GREATEST(0, share_count - 1)
-					 WHERE id = %d",
-					$post_id
-				)
-			);
+			$this->decrement_counter( $post_id, 'share_count' );
 		}
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Counter columns on bn_posts that may be incremented/decremented.
+	 *
+	 * @var string[]
+	 */
+	private const COUNTER_COLUMNS = array( 'comment_count', 'reaction_count', 'share_count' );
+
+	/**
+	 * Increment a bn_posts counter column by 1 and bust the post cache.
+	 *
+	 * Single home for the denormalised engagement counters — callers in
+	 * CommentService, ReactionService and the WPMediaVerse bridge route here
+	 * instead of writing bn_posts directly.
+	 *
+	 * @param int    $post_id Post id.
+	 * @param string $column  One of self::COUNTER_COLUMNS.
+	 */
+	public function increment_counter( int $post_id, string $column ): void {
+		if ( $post_id <= 0 || ! in_array( $column, self::COUNTER_COLUMNS, true ) ) {
+			return;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			$wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET {$column} = {$column} + 1 WHERE id = %d", $post_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+	}
+
+	/**
+	 * Decrement a bn_posts counter column by 1 (never below zero) and bust cache.
+	 *
+	 * @param int    $post_id Post id.
+	 * @param string $column  One of self::COUNTER_COLUMNS.
+	 */
+	public function decrement_counter( int $post_id, string $column ): void {
+		if ( $post_id <= 0 || ! in_array( $column, self::COUNTER_COLUMNS, true ) ) {
+			return;
+		}
+
+		global $wpdb;
+		// GREATEST(1, col) - 1 floors at zero WITHOUT underflowing the UNSIGNED
+		// column (col - 1 when col is 0 wraps to a huge value on unsigned).
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			$wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET {$column} = GREATEST(1, {$column}) - 1 WHERE id = %d", $post_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+	}
+
+	/**
+	 * Return a post's author id, or 0 if the post does not exist.
+	 *
+	 * @param int $post_id Post id.
+	 * @return int
+	 */
+	public function get_author_id( int $post_id ): int {
+		if ( $post_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT user_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**
