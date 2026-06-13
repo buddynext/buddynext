@@ -612,6 +612,131 @@ class PostService {
 	}
 
 	/**
+	 * Schedule a post: set status='scheduled' and the future scheduled_at.
+	 *
+	 * Owns the bn_posts status/scheduled_at write so the Pro scheduled-posts
+	 * feature does not reach into Free's table directly. Callers do their own
+	 * ownership/validation checks first.
+	 *
+	 * @param int    $post_id      Post id.
+	 * @param string $scheduled_at UTC datetime (Y-m-d H:i:s).
+	 * @return bool
+	 */
+	public function set_schedule( int $post_id, string $scheduled_at ): bool {
+		if ( $post_id <= 0 || '' === $scheduled_at ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'status'       => 'scheduled',
+				'scheduled_at' => $scheduled_at,
+			),
+			array( 'id' => $post_id ),
+			array( '%s', '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		return false !== $updated;
+	}
+
+	/**
+	 * Cancel a schedule: revert status to 'draft' and clear scheduled_at.
+	 *
+	 * @param int $post_id Post id.
+	 * @return bool
+	 */
+	public function clear_schedule( int $post_id ): bool {
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'status'       => 'draft',
+				'scheduled_at' => null,
+			),
+			array( 'id' => $post_id ),
+			array( '%s', '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		return false !== $updated;
+	}
+
+	/**
+	 * Publish a (scheduled) post: set status='published'.
+	 *
+	 * @param int $post_id Post id.
+	 * @return bool
+	 */
+	public function mark_published( int $post_id ): bool {
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'status' => 'published' ),
+			array( 'id' => $post_id ),
+			array( '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		return false !== $updated;
+	}
+
+	/**
+	 * List posts in a given status, oldest scheduled first (capped per scale contract).
+	 *
+	 * @param string $status Post status (e.g. 'scheduled').
+	 * @param int    $limit  Max rows.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function get_posts_by_status( string $status, int $limit = 50 ): array {
+		$status = sanitize_key( $status );
+		if ( '' === $status ) {
+			return array();
+		}
+		$limit = max( 1, min( 100, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, user_id, space_id, type, content, privacy, status, scheduled_at, created_at
+				 FROM {$wpdb->prefix}bn_posts
+				 WHERE status = %s
+				 ORDER BY scheduled_at ASC
+				 LIMIT %d",
+				$status,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
 	 * Fetch an active announcement post, or null if the id is not an announcement.
 	 *
 	 * @param int $post_id Post id.
