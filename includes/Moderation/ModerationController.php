@@ -36,6 +36,7 @@ namespace BuddyNext\Moderation;
 
 use BuddyNext\Moderation\ModerationLogService;
 use BuddyNext\Moderation\ModerationService;
+use BuddyNext\REST\BaseRestController;
 use BuddyNext\Spaces\SpaceMemberService;
 use WP_Error;
 use WP_REST_Request;
@@ -45,7 +46,7 @@ use WP_REST_Server;
 /**
  * Handles report submission, queue actions, and strike management.
  */
-class ModerationController {
+class ModerationController extends BaseRestController {
 
 	/**
 	 * Register the controller's routes.
@@ -1048,33 +1049,6 @@ class ModerationController {
 			),
 			200
 		);
-	}
-
-	/**
-	 * Require the user to be logged in.
-	 *
-	 * @return bool|WP_Error
-	 */
-	public function require_auth(): bool|WP_Error {
-		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
-		}
-		return true;
-	}
-
-	/**
-	 * Require manage_options capability.
-	 *
-	 * @return bool|WP_Error
-	 */
-	public function require_admin(): bool|WP_Error {
-		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
-		}
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return new WP_Error( 'rest_forbidden', __( 'Admins only.', 'buddynext' ), array( 'status' => 403 ) );
-		}
-		return true;
 	}
 
 	/**
