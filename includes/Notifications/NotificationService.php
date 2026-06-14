@@ -348,20 +348,7 @@ class NotificationService {
 			$rows = array_slice( $rows, 0, $per_page );
 		}
 
-		$items = array_map(
-			fn( $r ) => array(
-				'id'          => (int) $r['id'],
-				'sender_id'   => isset( $r['sender_id'] ) ? (int) $r['sender_id'] : null,
-				'type'        => $r['type'],
-				'object_type' => $r['object_type'],
-				'object_id'   => isset( $r['object_id'] ) ? (int) $r['object_id'] : null,
-				'group_key'   => $r['group_key'],
-				'group_count' => (int) $r['group_count'],
-				'is_read'     => (bool) $r['is_read'],
-				'created_at'  => $r['created_at'],
-			),
-			$rows
-		);
+		$items = array_map( array( $this, 'hydrate' ), $rows );
 
 		$next_cursor = null;
 		if ( $has_more && ! empty( $rows ) ) {
@@ -372,6 +359,51 @@ class NotificationService {
 		return array(
 			'items'       => $items,
 			'next_cursor' => $next_cursor,
+		);
+	}
+
+	/**
+	 * Fetch a single notification by id in the canonical hydrated shape, or null.
+	 *
+	 * Lets consumers (e.g. the Pro push dispatcher) read a notification row
+	 * without querying bn_notifications directly.
+	 *
+	 * @param int $id Notification id.
+	 * @return array<string,mixed>|null
+	 */
+	public function get( int $id ): ?array {
+		if ( $id <= 0 ) {
+			return null;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare( "SELECT * FROM {$wpdb->prefix}bn_notifications WHERE id = %d", $id ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $row ) ? $this->hydrate( $row ) : null;
+	}
+
+	/**
+	 * Map a raw bn_notifications row into the canonical notification shape.
+	 *
+	 * @param array<string,mixed> $r Raw row.
+	 * @return array<string,mixed>
+	 */
+	private function hydrate( array $r ): array {
+		return array(
+			'id'          => (int) $r['id'],
+			'sender_id'   => isset( $r['sender_id'] ) ? (int) $r['sender_id'] : null,
+			'type'        => $r['type'],
+			'object_type' => $r['object_type'],
+			'object_id'   => isset( $r['object_id'] ) ? (int) $r['object_id'] : null,
+			'group_key'   => $r['group_key'],
+			'group_count' => (int) $r['group_count'],
+			'is_read'     => (bool) $r['is_read'],
+			'created_at'  => $r['created_at'],
 		);
 	}
 
