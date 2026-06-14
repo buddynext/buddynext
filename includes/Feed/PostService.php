@@ -429,6 +429,36 @@ class PostService {
 	}
 
 	/**
+	 * Whether a feed card already exists for a content type + external link.
+	 *
+	 * Lets integration bridges stay idempotent — publish one activity per
+	 * external object even if the partner hook fires more than once.
+	 *
+	 * @param string $type     Post type marker (e.g. 'link').
+	 * @param string $link_url Canonical link the card points at.
+	 * @return bool
+	 */
+	public function exists_by_link( string $type, string $link_url ): bool {
+		if ( '' === $type || '' === $link_url ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$found = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_posts WHERE type = %s AND link_url = %s LIMIT 1",
+				$type,
+				$link_url
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $found > 0;
+	}
+
+	/**
 	 * Delete feed cards matching a content type and external link.
 	 *
 	 * Used by integration bridges (e.g. Career Board) to remove the feed card
