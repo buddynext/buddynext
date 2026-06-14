@@ -106,6 +106,97 @@ class FollowController extends BaseRestController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/follow-requests/count',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'follow_requests_count' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/follow/status',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'follow_status' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'id' => array(
+						'required' => true,
+						'type'     => 'integer',
+						'minimum'  => 1,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/account-type',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'account_type' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'id' => array(
+						'required' => true,
+						'type'     => 'integer',
+						'minimum'  => 1,
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * GET /users/{id}/follow/status — the current user's follow state for a target.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function follow_status( WP_REST_Request $request ): WP_REST_Response {
+		$me      = get_current_user_id();
+		$target  = (int) $request['id'];
+		$follows = buddynext_service( 'follows' );
+
+		return new WP_REST_Response(
+			array(
+				'is_following' => $follows->is_following( $me, $target ),
+				'is_pending'   => $follows->has_pending_request( $me, $target ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * GET /users/{id}/account-type — whether the target account is private (public).
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function account_type( WP_REST_Request $request ): WP_REST_Response {
+		$target = (int) $request['id'];
+
+		return new WP_REST_Response(
+			array( 'is_private' => buddynext_service( 'follows' )->is_private_account( $target ) ),
+			200
+		);
+	}
+
+	/**
+	 * GET /me/follow-requests/count — pending inbound follow-request count.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function follow_requests_count(): WP_REST_Response {
+		return new WP_REST_Response(
+			array( 'count' => buddynext_service( 'follows' )->pending_followers_count( get_current_user_id() ) ),
+			200
+		);
 	}
 
 	/**

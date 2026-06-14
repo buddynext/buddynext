@@ -87,6 +87,64 @@ class ConnectionController extends BaseRestController {
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
 		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/connection/status',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'connection_status' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'id' => array(
+						'required' => true,
+						'type'     => 'integer',
+						'minimum'  => 1,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/mutual-connections',
+			array(
+				'methods'             => \WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'mutual_connections' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'id' => array(
+						'required' => true,
+						'type'     => 'integer',
+						'minimum'  => 1,
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * GET /users/{id}/connection/status — the current user's connection status with a peer.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function connection_status( WP_REST_Request $request ): WP_REST_Response {
+		$status = buddynext_service( 'connections' )->status( get_current_user_id(), (int) $request['id'] );
+
+		return new WP_REST_Response( array( 'status' => $status ), 200 );
+	}
+
+	/**
+	 * GET /users/{id}/mutual-connections — ids connected to both the viewer and the peer.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function mutual_connections( WP_REST_Request $request ): WP_REST_Response {
+		$ids = buddynext_service( 'connections' )->mutual_connections( get_current_user_id(), (int) $request['id'] );
+
+		return new WP_REST_Response( array( 'ids' => array_map( 'intval', $ids ) ), 200 );
 	}
 
 	/**
