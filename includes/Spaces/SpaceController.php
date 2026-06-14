@@ -759,17 +759,7 @@ class SpaceController extends BaseRestController {
 		$members = new SpaceMemberService();
 
 		// Enforce space ban at the REST layer before any join path executes.
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$is_banned = (bool) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_bans WHERE space_id = %d AND user_id = %d",
-				$space_id,
-				$user_id
-			)
-		);
-
-		if ( $is_banned ) {
+		if ( $members->is_banned_from_space( $space_id, $user_id ) ) {
 			return new WP_Error(
 				'space_banned',
 				__( 'You have been banned from this space.', 'buddynext' ),
@@ -1044,69 +1034,11 @@ class SpaceController extends BaseRestController {
 		$reason_param = $request->get_param( 'reason' );
 		$reason       = null !== $reason_param ? sanitize_textarea_field( (string) $reason_param ) : '';
 
-		global $wpdb;
+		$result = ( new SpaceMemberService() )->ban_from_space( $space_id, $ban_user_id, $actor_id, $reason );
 
-		// Write hard ban row (INSERT IGNORE — idempotent if already banned).
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_bans (space_id, user_id, banned_by, reason)
-				 VALUES (%d, %d, %d, %s)",
-				$space_id,
-				$ban_user_id,
-				$actor_id,
-				$reason
-			)
-		);
-
-		// Remove the user from active membership, decrementing the count only
-		// when they were previously an active member.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$was_active = (bool) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members
-				 WHERE space_id = %d AND user_id = %d AND status = 'active'",
-				$space_id,
-				$ban_user_id
-			)
-		);
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_space_members',
-			array(
-				'space_id' => $space_id,
-				'user_id'  => $ban_user_id,
-			),
-			array( '%d', '%d' )
-		);
-
-		if ( $was_active ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->query(
-				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_spaces
-					 SET member_count = GREATEST( member_count - 1, 0 )
-					 WHERE id = %d",
-					$space_id
-				)
-			);
+		if ( is_wp_error( $result ) ) {
+			return $result;
 		}
-
-		wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
-		wp_cache_delete( "members_{$space_id}", 'buddynext_spaces' );
-		wp_cache_delete( "role_{$space_id}_{$ban_user_id}", 'buddynext_space_members' );
-		wp_cache_delete( "status_{$space_id}_{$ban_user_id}", 'buddynext_space_members' );
-
-		/**
-		 * Fires after a user is banned from a space via the REST ban endpoint.
-		 *
-		 * @param int    $space_id    Space ID.
-		 * @param int    $ban_user_id User who was banned.
-		 * @param int    $actor_id    User who performed the ban.
-		 * @param string $reason      Ban reason (may be empty).
-		 */
-		do_action( 'buddynext_space_user_banned', $space_id, $ban_user_id, $actor_id, $reason );
 
 		return new WP_REST_Response( array( 'banned' => true ), 200 );
 	}
@@ -1151,29 +1083,7 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_space_bans',
-			array(
-				'space_id' => $space_id,
-				'user_id'  => $ban_user_id,
-			),
-			array( '%d', '%d' )
-		);
-
-		wp_cache_delete( "role_{$space_id}_{$ban_user_id}", 'buddynext_space_members' );
-		wp_cache_delete( "status_{$space_id}_{$ban_user_id}", 'buddynext_space_members' );
-
-		/**
-		 * Fires after a space ban is lifted via the REST unban endpoint.
-		 *
-		 * @param int $space_id    Space ID.
-		 * @param int $ban_user_id User who was unbanned.
-		 * @param int $actor_id    User who lifted the ban.
-		 */
-		do_action( 'buddynext_space_user_unbanned', $space_id, $ban_user_id, $actor_id );
+		( new SpaceMemberService() )->unban_from_space( $space_id, $ban_user_id );
 
 		return new WP_REST_Response( array( 'unbanned' => true ), 200 );
 	}
@@ -1228,38 +1138,9 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'cannot_remove_owner', __( 'The space owner cannot be removed.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
-		// Use leave() to cleanly remove and decrement count.
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
-			$wpdb->prefix . 'bn_space_members',
-			array(
-				'space_id' => $space_id,
-				'user_id'  => $target_id,
-			),
-			array( '%d', '%d' )
-		);
-
-		// Decrement member count.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
-			$wpdb->prepare(
-				"UPDATE {$wpdb->prefix}bn_spaces SET member_count = GREATEST( member_count - 1, 0 ) WHERE id = %d",
-				$space_id
-			)
-		);
-
-		wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
-		wp_cache_delete( "members_{$space_id}", 'buddynext_spaces' );
-
-		/**
-		 * Fires after a moderator removes a member from a space.
-		 *
-		 * @param int $space_id     Space ID.
-		 * @param int $user_id      User who was removed.
-		 * @param int $by_user_id   User who performed the removal.
-		 */
-		do_action( 'buddynext_space_member_removed', $space_id, $target_id, $actor_id );
+		if ( ! $service->remove( $space_id, $target_id, $actor_id ) ) {
+			return new WP_Error( 'remove_failed', __( 'Could not remove the member.', 'buddynext' ), array( 'status' => 400 ) );
+		}
 
 		return new WP_REST_Response( array( 'removed' => true ), 200 );
 	}
@@ -1295,25 +1176,7 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'not_a_member', __( 'The new owner must be an active member of the space.', 'buddynext' ), array( 'status' => 422 ) );
 		}
 
-		global $wpdb;
-
-		// Demote current owner to member.
-		$member_service->change_role( $space_id, $current_user, 'member', $current_user );
-
-		// Promote new owner.
-		$member_service->change_role( $space_id, $new_owner_id, 'owner', $current_user );
-
-		// Update bn_spaces.owner_id — change_role alone does not do this.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update(
-			$wpdb->prefix . 'bn_spaces',
-			array( 'owner_id' => $new_owner_id ),
-			array( 'id' => $space_id ),
-			array( '%d' ),
-			array( '%d' )
-		);
-
-		wp_cache_delete( "space_{$space_id}", 'buddynext_spaces' );
+		( new SpaceService() )->transfer_ownership( $space_id, $new_owner_id, $current_user );
 
 		return new WP_REST_Response(
 			array(

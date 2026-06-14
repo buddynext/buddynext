@@ -780,7 +780,7 @@ class SpaceMemberService {
 	 *
 	 * Only the space owner, a moderator, or a site admin may remove members.
 	 * The owner of a space cannot be removed. On success the member_count is
-	 * decremented and the `buddynext_member_removed_from_space` action fires.
+	 * decremented and the `buddynext_space_member_removed` action fires.
 	 *
 	 * @param int $space_id       Space ID.
 	 * @param int $user_id        User to remove.
@@ -829,11 +829,14 @@ class SpaceMemberService {
 		/**
 		 * Fires after a member is forcefully removed from a space.
 		 *
+		 * Canonical removal hook (also fired by ban()); consumed by the sidebar
+		 * widget cache buster. Replaces the orphan buddynext_member_removed_from_space.
+		 *
 		 * @param int $space_id       Space ID.
 		 * @param int $user_id        Removed user.
 		 * @param int $acting_user_id User who performed the removal.
 		 */
-		do_action( 'buddynext_member_removed_from_space', $space_id, $user_id, $acting_user_id );
+		do_action( 'buddynext_space_member_removed', $space_id, $user_id, $acting_user_id );
 
 		return true;
 	}

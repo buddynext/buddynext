@@ -337,6 +337,40 @@ class SpaceService {
 	}
 
 	/**
+	 * Transfer space ownership to an existing member.
+	 *
+	 * Owns the bn_spaces.owner_id write (change_role alone does not touch it) so
+	 * the REST controller does not query the table directly. Callers validate
+	 * permission and that the new owner is a member before calling.
+	 *
+	 * @param int $space_id     Space id.
+	 * @param int $new_owner_id Member who becomes the owner.
+	 * @param int $actor_id     Current owner performing the transfer.
+	 * @return void
+	 */
+	public function transfer_ownership( int $space_id, int $new_owner_id, int $actor_id ): void {
+		$members = new SpaceMemberService();
+
+		// Demote the current owner, promote the new owner (same order the
+		// controller used previously).
+		$members->change_role( $space_id, $actor_id, 'member', $actor_id );
+		$members->change_role( $space_id, $new_owner_id, 'owner', $actor_id );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_spaces',
+			array( 'owner_id' => $new_owner_id ),
+			array( 'id' => $space_id ),
+			array( '%d' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+	}
+
+	/**
 	 * Delete a space.
 	 *
 	 * Only the owner (or manage_options) may delete. Also removes all
