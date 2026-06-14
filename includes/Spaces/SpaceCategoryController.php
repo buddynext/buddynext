@@ -69,14 +69,43 @@ class SpaceCategoryController extends BaseRestController {
 			'buddynext/v1',
 			'/space-categories/(?P<id>[\d]+)',
 			array(
-				'methods'             => WP_REST_Server::DELETABLE,
-				'callback'            => array( $this, 'delete_category' ),
-				'permission_callback' => array( $this, 'require_manage_options' ),
-				'args'                => array(
-					'id' => array(
-						'required'          => true,
-						'type'              => 'integer',
-						'sanitize_callback' => 'absint',
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => array( $this, 'update_category' ),
+					'permission_callback' => array( $this, 'require_manage_options' ),
+					'args'                => array(
+						'id'          => array(
+							'required'          => true,
+							'type'              => 'integer',
+							'sanitize_callback' => 'absint',
+						),
+						'name'        => array(
+							'required'          => false,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_text_field',
+						),
+						'description' => array(
+							'required'          => false,
+							'type'              => 'string',
+							'sanitize_callback' => 'sanitize_textarea_field',
+						),
+						'sort_order'  => array(
+							'required'          => false,
+							'type'              => 'integer',
+							'sanitize_callback' => 'absint',
+						),
+					),
+				),
+				array(
+					'methods'             => WP_REST_Server::DELETABLE,
+					'callback'            => array( $this, 'delete_category' ),
+					'permission_callback' => array( $this, 'require_manage_options' ),
+					'args'                => array(
+						'id' => array(
+							'required'          => true,
+							'type'              => 'integer',
+							'sanitize_callback' => 'absint',
+						),
 					),
 				),
 			)
@@ -185,6 +214,80 @@ class SpaceCategoryController extends BaseRestController {
 				'sort_order'  => $sort_order,
 			),
 			201
+		);
+	}
+
+	/**
+	 * Update a space category (name, description, sort_order).
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function update_category( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		global $wpdb;
+
+		$id    = (int) $request->get_param( 'id' );
+		$table = $wpdb->prefix . 'bn_space_categories';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$current = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, name, slug, description, sort_order FROM {$table} WHERE id = %d", $id ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			ARRAY_A
+		);
+
+		if ( null === $current ) {
+			return new WP_Error( 'not_found', __( 'Category not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		$data    = array();
+		$formats = array();
+
+		if ( null !== $request->get_param( 'name' ) ) {
+			$name = (string) $request->get_param( 'name' );
+			$slug = sanitize_title( $name );
+
+			if ( '' === $slug ) {
+				return new WP_Error( 'invalid_name', __( 'Category name produced an empty slug.', 'buddynext' ), array( 'status' => 422 ) );
+			}
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+			$clash = $wpdb->get_var(
+				$wpdb->prepare( "SELECT id FROM {$table} WHERE slug = %s AND id <> %d LIMIT 1", $slug, $id ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			);
+			if ( null !== $clash ) {
+				return new WP_Error( 'slug_conflict', __( 'A category with that slug already exists.', 'buddynext' ), array( 'status' => 409 ) );
+			}
+
+			$data['name']    = $name;
+			$data['slug']    = $slug;
+			$formats[]       = '%s';
+			$formats[]       = '%s';
+		}
+
+		if ( null !== $request->get_param( 'description' ) ) {
+			$data['description'] = (string) $request->get_param( 'description' );
+			$formats[]           = '%s';
+		}
+
+		if ( null !== $request->get_param( 'sort_order' ) ) {
+			$data['sort_order'] = (int) $request->get_param( 'sort_order' );
+			$formats[]          = '%d';
+		}
+
+		if ( ! empty( $data ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update( $table, $data, array( 'id' => $id ), $formats, array( '%d' ) );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'id'          => $id,
+				'name'        => $data['name'] ?? $current['name'],
+				'slug'        => $data['slug'] ?? $current['slug'],
+				'description' => $data['description'] ?? $current['description'],
+				'sort_order'  => (int) ( $data['sort_order'] ?? $current['sort_order'] ),
+			),
+			200
 		);
 	}
 

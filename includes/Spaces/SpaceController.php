@@ -132,6 +132,16 @@ class SpaceController extends BaseRestController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/join/cancel',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'cancel_join_request' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/spaces/(?P<id>[\d]+)/invite',
 			array(
 				'methods'             => 'POST',
@@ -831,6 +841,24 @@ class SpaceController extends BaseRestController {
 			),
 			200
 		);
+	}
+
+	/**
+	 * Cancel the current user's pending join request.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function cancel_join_request( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$result   = ( new SpaceMemberService() )->cancel_request( $space_id, get_current_user_id() );
+
+		if ( is_wp_error( $result ) ) {
+			$result->add_data( array( 'status' => 400 ) );
+			return $result;
+		}
+
+		return new WP_REST_Response( array( 'cancelled' => true ), 200 );
 	}
 
 	/**
