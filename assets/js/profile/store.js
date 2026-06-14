@@ -613,10 +613,24 @@ function syncDirtyAttr( dirty ) {
 
 /* -- Tab URL sync ------------------------------------------------------- */
 
-var BN_VALID_TABS = [ 'posts', 'about', 'replies', 'media', 'likes', 'followers', 'following', 'connections', 'discussions' ];
+// Valid tabs are whatever the server actually rendered — so integration tabs
+// (portfolio, …) and core tabs all work without a hardcoded list to maintain.
+function bnValidTabs() {
+	var slugs = [];
+	document.querySelectorAll( '.bn-pf-tabs .bn-tab' ).forEach( function ( t ) {
+		if ( t.dataset.tab ) { slugs.push( t.dataset.tab ); }
+	} );
+	return slugs.length ? slugs : [ 'posts' ];
+}
+
+function bnProfileBase() {
+	var base = '';
+	try { base = getContext().profileBaseUrl || ''; } catch ( _e ) {}
+	return base.replace( /\/+$/, '' );
+}
 
 function applyTabId( tabId ) {
-	if ( ! tabId || BN_VALID_TABS.indexOf( tabId ) === -1 ) {
+	if ( ! tabId || bnValidTabs().indexOf( tabId ) === -1 ) {
 		tabId = 'posts';
 	}
 	document.querySelectorAll( '.bn-pf-tabs .bn-tab' ).forEach( function ( t ) {
@@ -633,24 +647,31 @@ function applyTabId( tabId ) {
 	}
 }
 
+// Pretty URLs only: push /members/{slug}/{tab}/ (base for 'posts'), never ?tab=.
 function pushTabToUrl( tabId ) {
 	if ( ! window.history || typeof window.history.pushState !== 'function' ) { return; }
-	var url = new URL( window.location.href );
-	if ( tabId && tabId !== 'posts' ) {
-		url.searchParams.set( 'tab', tabId );
-	} else {
-		url.searchParams.delete( 'tab' );
-	}
-	window.history.pushState( { bnTab: tabId }, '', url.toString() );
+	var base = bnProfileBase();
+	if ( ! base ) { return; }
+	var url = ( tabId && tabId !== 'posts' ) ? base + '/' + tabId + '/' : base + '/';
+	window.history.pushState( { bnTab: tabId }, '', url );
 }
 
 function applyTabFromUrl() {
-	var params = new URLSearchParams( window.location.search );
-	var tab    = params.get( 'tab' );
+	var tab = '';
+	// Read the active tab from the path segment after the profile base
+	// (/members/{slug}/{tab}/) so deep links + Back/Forward work.
+	var base = bnProfileBase();
+	if ( base ) {
+		try {
+			var basePath = new URL( base, window.location.origin ).pathname.replace( /\/+$/, '' );
+			var path     = window.location.pathname.replace( /\/+$/, '' );
+			if ( path.indexOf( basePath ) === 0 ) {
+				tab = path.slice( basePath.length ).replace( /^\/+/, '' ).split( '/' )[ 0 ] || '';
+			}
+		} catch ( _e ) {}
+	}
 	if ( ! tab ) {
-		// No ?tab= override — honour the server-rendered active tab so path-based
-		// deep links (e.g. /members/x/followers/) open the right in-page tab.
-		try { tab = getContext().activeTab; } catch ( _e ) {}
+		try { tab = getContext().activeTab; } catch ( _e2 ) {}
 	}
 	applyTabId( tab || 'posts' );
 }

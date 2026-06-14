@@ -345,6 +345,7 @@ $bn_pf_ctx = array(
 	'profileUserId'      => $user_id,
 	'displayName'        => $display_name,
 	'peopleUrl'          => \BuddyNext\Core\PageRouter::people_url(),
+	'profileBaseUrl'     => \BuddyNext\Core\PageRouter::profile_url( (int) $user_id ),
 	'activeTab'          => $bn_pf_active_tab,
 	'isFollowing'        => $is_following,
 	'isConnected'        => $is_connected,

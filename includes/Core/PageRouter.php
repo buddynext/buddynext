@@ -89,7 +89,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-06-09-oauth-social-routes';
+	private const ROUTER_VERSION = '2026-06-14-pretty-profile-tabs';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -1019,34 +1019,16 @@ class PageRouter {
 	private function register_people_rules(): void {
 		$p = self::hub_slug( 'buddynext_slug_people', 'members' );
 
+		// Generic profile sub-route: ANY tab slug becomes a pretty URL
+		// (/members/{slug}/{tab}/). Replaces the per-action rules so core tabs
+		// (edit, connections, followers, following, media, badges, replies,
+		// likes, about, discussions) AND integration tabs (portfolio, …) all
+		// deep-link without a ?tab= query arg. resolve_hub_template() sends
+		// 'edit' to the edit template; every other action renders the profile
+		// view, which activates the matching tab from bn_profile_action.
 		add_rewrite_rule(
-			'^' . preg_quote( $p, '/' ) . '/([^/]+)/edit/?$',
-			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=edit',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $p, '/' ) . '/([^/]+)/connections/?$',
-			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=connections',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $p, '/' ) . '/([^/]+)/followers/?$',
-			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=followers',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $p, '/' ) . '/([^/]+)/following/?$',
-			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=following',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $p, '/' ) . '/([^/]+)/media/?$',
-			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=media',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $p, '/' ) . '/([^/]+)/badges/?$',
-			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=badges',
+			'^' . preg_quote( $p, '/' ) . '/([^/]+)/([^/]+)/?$',
+			'index.php?bn_hub=people&bn_user_slug=$matches[1]&bn_profile_action=$matches[2]',
 			'top'
 		);
 		add_rewrite_rule(
