@@ -1,16 +1,24 @@
-# BuddyNext — Native Integration Program
+# BuddyNext — Native Integration Program (TIER-1 native rebuild ONLY)
 
-**Status:** ✅ CURRENT / VALID — this is the locked *HOW* for every integration. Not
-superseded by the packaging lock; the two are complementary (this = how to integrate;
-`2026-06-14-pro-packaging-lock.md` = which tier each integration lives in). Confirmed
-2026-06-14: native-rebuild of messaging/forums is the correct, standing approach —
-exactly as already shipped for messages + group messages.
-**Owner direction (2026-06-09, reaffirmed 2026-06-14):** every integration is
-API-level only; no 2nd-party screens; no link-outs to a partner's UI; BN pages load
-only BN assets; partner data is rendered with BN's own native, consistent components
-on BN URLs for one uniform 1-to-1 experience — never jumping between plugins.
-**New-integration rule:** every new integration's native surface is built **in
-BuddyNext Pro** (Free keeps only the 3 core integrations' native surfaces).
+> ⚠️ **SCOPE (corrected 2026-06-14):** This playbook is the *rare exception*, NOT the
+> default. It applies ONLY to **Tier-1 core community primitives** where letting the
+> partner render its own UI would give members a confusing **double screen** (e.g.
+> two message inboxes). The proven, intended case is **WPMediaVerse messaging** →
+> BN-native messages (done).
+>
+> **It does NOT apply to application-layer business apps** (Career Board, Learnomy,
+> Eventonomy, Listora, WPConnectPress). Those use the **community-layer model**: BN
+> adds profile + activity (+ possible space) touchpoints ON TOP of the standalone
+> plugin and **never takes over its screens or touches its core**. See
+> `WORKFLOW.yaml` → integration_law (tier_2) and `plan/integrations/<n>-<name>.md`.
+>
+> If you are not rebuilding a core primitive to kill a double-screen, you are in the
+> wrong doc — go to the per-integration plan.
+
+**Owner direction (the Tier-1 case only):** the rebuilt primitive is API-level only;
+no 2nd-party screen for that primitive; partner data rendered with BN's own native
+components so members see ONE inbox/feed, not two. Messaging is the canonical (and so
+far only confirmed) Tier-1 rebuild.
 
 ---
 

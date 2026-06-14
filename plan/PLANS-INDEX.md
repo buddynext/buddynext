@@ -57,19 +57,24 @@ its own BN URL. "Their own page" = its own BN section/URL, never the partner's s
 
 ## 3. PENDING — the build queue (see `WORKFLOW.yaml` for order/detail)
 
+**Integration model (corrected 2026-06-14):** BuddyNext adds a **community layer ON TOP**
+of standalone plugins — profile + activity (+ possible space) — and **never takes over
+their screens or touches their core**. The native-rebuild playbook
+(`native-integration-program.md`) is a **Tier-1 exception** for core primitives only
+(messaging, done). Business apps are all **Tier-2 community layer**.
+
 | # | Task | Tier | Tracked in |
 |---|---|---|---|
-| 0 | **CareerBoardBridge → Pro** (the "application-layer move", one-bridge change) | Free→Pro | WORKFLOW.yaml · packaging-lock |
-| 1 | June 20 gating/positioning lock (4 bridges ship; 3 declared "coming in Pro") | — | packaging-lock checklist |
-| 2 | Native jobs surface `includes/Jobs/` (Career Board API) | Pro | native-integration Phase 2 |
-| 3 | Native forums `includes/Discussions/` (Jetonomy API) | Pro (core bridge in Free) | native-integration Phase 4 |
-| 4 | BN-native gap UIs (reactions palette, invites, approval-queue tab, announcements) | Free | native-integration Phase 1 |
-| 5 | Sweep: zero embeds / foreign assets across all bridges | — | native-integration Phase 5 |
-| 6 | LearnomyBridge (courses) → native course surface in Pro | Pro | packaging-lock build order #1 |
-| 7 | ListoraBridge (directory) → native in Pro | Pro | build order #2 |
-| 8 | EventonomyBridge (events) → native in Pro | Pro | build order #3 |
-| 9 | WPConnectPressBridge (video) → native in Pro | Pro | build order #4 |
-| 10 | AI / Abilities surface (`wp-abilities/v1`) across the suite | Free read · Pro agent runtime | packaging-lock AI section |
+| 0 | CareerBoardBridge → Pro + correct guard/signatures | Pro | ✅ DONE |
+| 1 | **Career Board community layer** — activity on job/resume post + profile jobs/resumes tab | Pro · Tier 2 | `integrations/01-career-board.md` |
+| 2 | June 20 gating/positioning lock | — | packaging-lock checklist |
+| 3 | BN-native gap UIs (reactions palette, invites, approval-queue tab, announcements) | Free | — |
+| 4 | Jetonomy (forums) community layer — confirm Tier-1 vs Tier-2 first | Free (core bridge) | per-integration plan |
+| 5 | Learnomy (courses) community layer — profile + activity | Pro · Tier 2 | per-integration plan |
+| 6 | WB Listora (directory) community layer — profile + activity | Pro · Tier 2 | per-integration plan |
+| 7 | Eventonomy (events) community layer — profile + activity | Pro · Tier 2 | per-integration plan |
+| 8 | WPConnectPress (video) community layer — profile + activity | Pro · Tier 2 | per-integration plan |
+| 9 | AI / Abilities surface (`wp-abilities/v1`) across the suite | Free read · Pro runtime | packaging-lock AI section |
 
 ## 4. REFERENCE — specs & contracts (consult, don't execute)
 

@@ -1,91 +1,90 @@
-# Integration #1 — Career Board (Jobs)
+# Integration #1 — Career Board (Jobs + Resumes)
 
-**Status:** 🔒 LOCKED 2026-06-14 (one integration at a time; this is the per-integration locked plan, not the general concept). BM-1 cleared to execute.
-**Tier:** Pro (jobs = a business app). **Plugin:** WP Career Board (free + pro, live v1.0.2).
-
-**Locked decisions:**
-1. **June 20 ship:** BM-1 (bridge → Pro + guard/signature fixes) ships now. Native jobs surface (NS-*) declared "Jobs — coming in Pro."
-2. **Native surface placement:** top-level `/jobs/` section **+** profile tab (employer postings / candidate applications).
-3. **Feed cards:** job postings keep appearing as activity-feed cards.
-4. **Tier-aware:** light up Career Board **Pro** features when present (same model as the 3 core bridges).
-**Law:** first-party → addon ships data/logic only; BuddyNext owns the entire jobs presentation centrally on BN URLs. (`WORKFLOW.yaml` integration_law · `native-integration-program.md`.)
+**Status:** 🔒 Model locked 2026-06-14. **Tier:** Pro (application-layer integration).
+**Plugin:** WP Career Board (free + pro, live). Standalone — keeps ALL its own pages.
 
 ---
 
-## A. Verified API surface (sourced from the installed plugin, 2026-06-14)
+## The model — BuddyNext adds a community layer ON TOP of the standalone plugin
 
-**Guard (the real bug):** the bridge checks `wcb_get_job()` + `WCB_Career_Board` — **neither exists anywhere** in free or pro. Real always-present bootstrap: **`wcb_run()`** (also `wcb_rest()`, `wcb_page_url()`). Correct guard = `function_exists( 'wcb_run' )`.
+BuddyNext does **not** replace, rebuild, or take over Career Board's UI. Career Board
+keeps its own `/jobs/` directory, single-job pages, resume pages, dashboards, and all
+core features — **untouched**. BuddyNext's integration is a thin **community layer**
+that drives engagement around that plugin:
 
-**Events — REAL signatures (grepped from `wp-career-board` source) vs. what the bridge assumed:**
-| Hook | REAL `do_action` signature | Bridge assumed | Status |
-|---|---|---|---|
-| `wcb_job_created` | `($job_id, $request)` — 2 args, 2nd is `WP_REST_Request` | `($job_id, array $job_data, int $user_id)` | 🔴 BUG — fix handler |
-| `wcb_job_expired` | `($job_id)` | `($job_id)` | ✅ matches |
-| `wcb_application_submitted` | `($app_id, $job_id, $candidate_id)` (candidate 0 = guest) | same | ✅ matches |
-| `wcb_application_status_changed` | `($app_id, $old, $new)` — 3 args, NO candidate | `(…, int $candidate_id)` — 4 | 🔴 BUG — resolve candidate |
-| `wcb_application_withdrawn` | `($app_id, $job_id, $candidate_id)` — 3 args, NO employer | `(…, int $employer_id)` — 4 | 🔴 BUG — resolve employer |
+1. **Profile** — a member's BuddyNext profile shows the **jobs they've posted** and the
+   **resumes they've posted**, each linking out to Career Board's own page.
+2. **Activity** — when a member **posts a new job (or resume)**, BuddyNext publishes an
+   **activity** to the feed → engagement.
+3. **Space (possible/later)** — surface jobs in a space context if a community wants it.
+4. **Notifications** — Career Board application events become BuddyNext notifications.
 
-**Data model (for resolving the missing IDs):**
-- Application = a post; candidate stored as **`post_author`** AND meta **`_wcb_candidate_id`** (0 = guest). → candidate = `(int) get_post_meta( $app_id, '_wcb_candidate_id', true )`.
-- Employer = the job post's **`post_author`** → `(int) get_post_field( 'post_author', $job_id )`.
-- Job for search index → read `post_title` / `post_content` / `post_author` from `get_post( $job_id )` (ignore the `$request`).
+### Hard rules (apply to EVERY application-layer integration)
+- **Never take over the partner's screens** or routes. No top-level BN section that
+  replaces their directory. No making their CPT headless.
+- **Never touch a plugin's core feature** unless explicitly asked.
+- Integration touchpoints are **profile + activity (+ possible space)** only.
+- Link **out to the partner's own pages** — they own that UX.
 
-> The existing Free test "passes" only because it feeds the bridge the *assumed* args — it encodes the bug. Rewrite the tests to fire the REAL signatures.
-
-**REST (data source for the native surface):** namespace **`wcb/v1`** — `boards`, `boards/{id}/stages`, `credits/checkout|webhook`, `employers/{id}/credits`, `fields/groups`, plus resume/notification routes. Job-listing read routes to be enumerated in Task NS-1 below.
-
-**CPTs:** `wcb_resume` confirmed; the job CPT is registered via constant (not a literal) — confirm exact slug in NS-1.
-
----
-
-## B. Scope — two deliverables, both land in Pro
-
-### B1. Bridge move + guard fix (small, ships first)
-Move the event/notification/search wiring out of Free into Pro and correct the guard.
-
-### B2. Native jobs surface — `includes/Jobs/` in Pro (the real value)
-A BN-owned jobs hub/tab consuming `wcb/v1`, rendered with BN components on a BN URL. Career Board ships **data only**; BuddyNext owns markup/CSS/UX. Pattern = `includes/Media/` (Client → Domain → Renderer → Assets → Surface). No 2nd-party screens, no link-outs to Career Board's own pages.
+> **The one exception (don't generalise from it):** WPMediaVerse messaging was a
+> deliberate *takeover* (BN-native messages) so members never see two message screens —
+> the "integrated BN model" for a **core** community primitive. Application-layer
+> business apps (Career Board, Learnomy, Eventonomy, Listora, WPConnectPress) get the
+> community-layer treatment above, **not** a takeover. See `WORKFLOW.yaml` integration_law.
 
 ---
 
-## C. Build tasks (TDD; each verified before the next)
+## Status
 
-### Task BM-1 — Move bridge to Pro + fix guard · ✅ DONE 2026-06-14
-> Shipped: bridge in `buddynext-pro/includes/Bridges/CareerBoardBridge.php` (guard `wcb_run`, all 3 signature bugs fixed), registered on the `buddynext_load_bridges` seam in Pro `Core\Plugin::wire_extensions()`; removed from Free `Core\Plugin` + bridge file deleted; `PostService::delete_by_link()` added so the bridge never touches `bn_posts` directly; test ported to `buddynext-pro/tests/Bridges/CareerBoardBridgeTest.php` (5 tests, real signatures, incl. guest-skip) — green. phpcs clean, php -l clean.
+| Touchpoint | What | Status |
+|---|---|---|
+| **Bridge — notifications** | `wcb_application_submitted/status_changed/withdrawn` → BN notifications (employer/candidate). Guards on `WCB_VERSION`. | ✅ DONE (Pro, committed) |
+| **Bridge — search** | `wcb_job_created` → index job in `bn_search_index` (jobs findable in BN search). | ✅ DONE (Pro, committed) |
+| **Activity on post** | `wcb_job_created` / resume-created → publish a BN activity (feed card) for engagement. `wcb_job_expired` already removes its card via `PostService::delete_by_link`. | ⏳ TODO |
+| **Profile — jobs** | Profile section/tab listing the member's posted jobs (link to Career Board). Uses `buddynext_part_profile_tab_bar_args`. | ⏳ TODO |
+| **Profile — resumes** | Same for the member's posted resumes (`wcb_resume`). | ⏳ TODO |
+| **Space** | Jobs in a space context. | 🔮 Possible/later |
 
-**Files:**
-- Create: `buddynext-pro/includes/Bridges/CareerBoardBridge.php` (namespace `BuddyNextPro\Bridges`; logic identical; uses Free's `BuddyNext\Notifications\NotificationService` + `BuddyNext\Search\SearchService`).
-- Modify guard: `if ( ! function_exists( 'wcb_run' ) ) { return; }` (drop the dead `wcb_get_job`/`WCB_Career_Board` checks).
-- Register in Pro: in `BuddyNextPro\Core\Plugin` (boots `plugins_loaded:20`) `add_action( 'buddynext_load_bridges', fn() => ( new CareerBoardBridge() )->init() )` — fires at Free's `:25` seam.
-- Remove from Free: `includes/Core/Plugin.php` line 41 (`use ... CareerBoardBridge;`) + line 355 (`( new CareerBoardBridge() )->init();`); delete `includes/Bridges/CareerBoardBridge.php`.
-- Move test: `tests/Bridges/CareerBoardBridgeTest.php` → `buddynext-pro/tests/Bridges/CareerBoardBridgeTest.php` (namespace `BuddyNextPro\Tests\Bridges`; update `use`).
-- Re-verify each hook's arg signature against the Career Board source; fix any handler that mismatches.
-
-**Verify:** Free active alone → no Career Board references, boots clean. Pro active → bridge loads only when `wcb_run` exists; the moved `CareerBoardBridgeTest` passes (free CB plugin active).
-
-### Task NS-1 — Map the native jobs data (no UI yet) · ✅ DONE 2026-06-14
-**Job CPT:** `wcb_job` (`modules/jobs/class-jobs-module.php:42`, `public:true`, `show_in_rest:true`). Meta registered `modules/jobs/class-jobs-meta.php:40-69` (`show_in_rest:true`).
-**REST surface (`wcb/v1`, cookie + `X-WP-Nonce`):**
-- `GET /wcb/v1/jobs` — list (filters/pagination via query args)
-- `GET /wcb/v1/jobs/{id}` — single
-- `POST /wcb/v1/jobs` · `PUT /wcb/v1/jobs/{id}` · `DELETE /wcb/v1/jobs/{id}` — author/admin
-- `POST /wcb/v1/jobs/{id}/bookmark` — save/unsave
-- `GET /wcb/v1/jobs/{id}/applications` — employer view of applicants
-- `POST /wcb/v1/jobs/{id}/apply` — candidate apply
-- (related, from earlier audit) `GET /wcb/v1/employers/{id}/credits`, `GET /wcb/v1/fields/groups`
-
-**`Jobs/JobsClient.php` read contract (NS-2):** `list( array $args )` → job rows; `get( int $id )` → single; `applications_for( int $job_id, int $employer_id )`; `bookmark_state( int $job_id, int $user_id )`. Surface placement (locked): top-level `/jobs/` hub + profile tab (employer postings / candidate applications). Feed cards kept (existing `job_post` card type). Career Board renders nothing on BN routes — BN owns the markup/CSS/JS; if a field the surface needs isn't in `wcb/v1`, add it to Career Board's API, not UI to the addon.
-
-### Task NS-2..NS-n — Native jobs surface
-`includes/Jobs/` (Pro): Client → domain (BN privacy/visibility gating) → renderer (BN-native cards/hub) → assets (BN JS talking to `wcb/v1`) → surface (BN route/tab). Browser-verified (incl. 390px), keep search indexing, zero foreign assets. Detailed steps locked after NS-1.
+**Reverted (the mess, 2026-06-14):** a top-level `/jobs/` BN route, BN-native job
+list/single templates, a JS store, and a filter that made Career Board headless
+(suppressed its archive). All deleted; Free's hub-extension seams reverted; Career
+Board's `/jobs/` restored. That was a takeover — wrong for an application-layer integration.
 
 ---
 
-## D. Open decisions to LOCK (discuss before coding)
+## Verified Career Board API (still valid reference)
 
-1. **Ship split for June 20:** land BM-1 (bridge move + guard fix) now; declare the native jobs surface (NS-*) as "Jobs — coming in Pro"? Or hold the whole integration until NS-* is native-complete?
-2. **Jobs surface placement:** a top-level BN section (`/jobs/`), a profile tab, or a Space tab — or more than one?
-3. **Free vs Pro of Career Board:** the bridge guards on `wcb_run` (present in both). Confirm we light up Career Board **Pro** features when present (tier-aware), same as the core bridges.
-4. **Feed cards:** keep job postings appearing as feed cards (current `on_job_expired` implies a `job_post` card exists), or jobs-section-only?
+**Guard:** `defined( 'WCB_VERSION' )` — the only reliable runtime signal. (`wcb_run()`
+exists only in Career Board's test helper; `wcb_get_job`/`WCB_Career_Board` don't exist.)
 
-**Nothing in Section C gets executed until D is locked.**
+**Events (real signatures, from `wp-career-board` source):**
+| Hook | Signature | Use |
+|---|---|---|
+| `wcb_job_created` | `($job_id, $request)` — 2nd is `WP_REST_Request` | activity + search (read fields from the post) |
+| `wcb_job_expired` | `($job_id)` | remove the activity card |
+| `wcb_application_submitted` | `($app_id, $job_id, $candidate_id)` (0 = guest) | notify employer |
+| `wcb_application_status_changed` | `($app_id, $old, $new)` | notify candidate (resolve via `_wcb_candidate_id` meta) |
+| `wcb_application_withdrawn` | `($app_id, $job_id, $candidate_id)` | notify employer (resolve via job `post_author`) |
+
+**Data:** job CPT `wcb_job`, resume CPT `wcb_resume`; both `post_author` = the member.
+Job meta: `_wcb_company_name`, `_wcb_salary_min/max/currency`, `_wcb_remote`, `_wcb_deadline`.
+Member's posted jobs/resumes = `WP_Query( post_type, author => member_id )`. Permalinks
+are Career Board's own pages (link out, don't embed).
+
+---
+
+## Build tasks (TODO — light, no takeover)
+
+### Task A — Activity on job/resume post · Pro (bridge)
+Extend `CareerBoardBridge::on_job_created` to publish a BN activity (author = employer,
+text = "posted a new job: {title}", link = job permalink, card type `job_post`) so it
+appears in the feed. Add a resume listener for the same. Reuse `PostService` (no raw SQL).
+Verify: posting a job creates a feed activity; expiry removes it.
+
+### Task B — Profile jobs + resumes · Pro
+Add a "Jobs" (and resumes) profile tab via `buddynext_part_profile_tab_bar_args`; render
+a BN-native panel listing the member's posted jobs/resumes with links to Career Board.
+Count badge from `WP_Query`. Verify on a profile with seeded jobs, desktop + 390px.
+
+### Task C — Space (later) · Pro
+Only if a community wants a space-scoped job board. Same light pattern.
