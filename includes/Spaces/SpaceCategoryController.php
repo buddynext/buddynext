@@ -14,6 +14,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Spaces;
 
+use BuddyNext\REST\BaseRestController;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -22,7 +23,7 @@ use WP_REST_Server;
 /**
  * Handles space category CRUD over REST.
  */
-class SpaceCategoryController {
+class SpaceCategoryController extends BaseRestController {
 
 	/**
 	 * Register the controller's routes.

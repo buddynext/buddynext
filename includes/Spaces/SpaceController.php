@@ -28,6 +28,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Spaces;
 
+use BuddyNext\REST\BaseRestController;
 use BuddyNext\Spaces\SpaceMemberService;
 use BuddyNext\Spaces\SpaceService;
 use WP_Error;
@@ -37,7 +38,7 @@ use WP_REST_Response;
 /**
  * Handles space lifecycle and membership over REST.
  */
-class SpaceController {
+class SpaceController extends BaseRestController {
 
 	/**
 	 * Register the controller's routes.
@@ -1484,25 +1485,6 @@ class SpaceController {
 		if ( (int) $space['owner_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to manage this space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
-		return true;
-	}
-
-	// ── Permissions ─────────────────────────────────────────────────────────
-
-	/**
-	 * Permission callback: require an authenticated user.
-	 *
-	 * @return true|WP_Error
-	 */
-	public function require_auth(): true|WP_Error {
-		if ( ! is_user_logged_in() ) {
-			return new WP_Error(
-				'rest_not_logged_in',
-				__( 'You must be logged in.', 'buddynext' ),
-				array( 'status' => 401 )
-			);
-		}
-
 		return true;
 	}
 }
