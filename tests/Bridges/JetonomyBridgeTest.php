@@ -42,7 +42,7 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		);
 		$wpdb->query(
 			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}jt_spaces (
-				id BIGINT UNSIGNED NOT NULL,
+				id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 				slug VARCHAR(200) NOT NULL DEFAULT '',
 				PRIMARY KEY (id)
 			) DEFAULT CHARSET=utf8mb4"
@@ -179,6 +179,43 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $count );
 	}
 
+	public function test_provision_space_forum_is_idempotent_and_links(): void {
+		$owner    = self::factory()->user->create();
+		$space_id = ( new \BuddyNext\Spaces\SpaceService() )->create( $owner, array( 'name' => 'Design', 'slug' => 'design' ) );
+		$this->assertIsInt( $space_id );
+
+		$forum_id = $this->bridge->provision_space_forum( $space_id );
+		$this->assertGreaterThan( 0, $forum_id );
+		$this->assertSame( $forum_id, (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id' ) );
+
+		// Idempotent: a second call returns the same forum, creates no new jt_space.
+		global $wpdb;
+		$before = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}jt_spaces" );
+		$again  = $this->bridge->provision_space_forum( $space_id );
+		$after  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}jt_spaces" );
+		$this->assertSame( $forum_id, $again );
+		$this->assertSame( $before, $after );
+	}
+
+	public function test_space_tab_always_shows_with_provision_url_until_linked(): void {
+		$space_id = 4242;
+
+		// No forum yet → tab present, points at the on-demand provision trigger.
+		$tabs = $this->bridge->inject_space_forum_tab( array(), $space_id );
+		$this->assertArrayHasKey( 'discussions', $tabs );
+		$this->assertStringContainsString( 'bn_provision_forum=' . $space_id, $tabs['discussions']['url'] );
+
+		// Linked → tab points straight at the forum.
+		$this->seed_jt_space( 0, 'design-forum' ); // auto id
+		global $wpdb;
+		$forum_id = (int) $wpdb->insert_id;
+		update_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', $forum_id );
+
+		$tabs = $this->bridge->inject_space_forum_tab( array(), $space_id );
+		$this->assertStringContainsString( '/s/design-forum/', $tabs['discussions']['url'] );
+		$this->assertStringNotContainsString( 'bn_provision_forum', $tabs['discussions']['url'] );
+	}
+
 	public function test_register_hook_is_idempotent(): void {
 		global $wpdb;
 
@@ -197,5 +234,29 @@ class JetonomyBridgeTest extends \WP_UnitTestCase {
 		);
 
 		$this->assertSame( 1, $count );
+	}
+}
+
+namespace Jetonomy\Models;
+
+if ( ! class_exists( __NAMESPACE__ . '\\Space' ) ) {
+	/**
+	 * Test stub for Jetonomy's Space model — Jetonomy is not loaded in BN tests.
+	 * create() inserts a row into the shadow jt_spaces table and returns its id.
+	 */
+	class Space {
+		/**
+		 * Create a forum space.
+		 *
+		 * @param array<string,mixed> $data        Space data (slug, title, ...).
+		 * @param int|null            $owner_id    Creator user id.
+		 * @return int New jt_spaces id.
+		 */
+		public static function create( array $data, ?int $owner_id = null ): int {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->insert( $wpdb->prefix . 'jt_spaces', array( 'slug' => (string) ( $data['slug'] ?? '' ) ), array( '%s' ) );
+			return (int) $wpdb->insert_id;
+		}
 	}
 }

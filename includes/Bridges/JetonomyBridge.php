@@ -70,6 +70,13 @@ class JetonomyBridge {
 
 		// Inject a Discussions stat block into BuddyNext user profiles.
 		add_filter( 'buddynext_profile_extra_data', array( $this, 'inject_profile_discussion_count' ), 10, 2 );
+
+		// On-demand space forum: provision + redirect when a member first opens a
+		// forumless space's Discussions tab (web).
+		add_action( 'template_redirect', array( $this, 'maybe_provision_and_redirect' ) );
+
+		// App coverage: REST to provision/fetch a space's forum URL.
+		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 	}
 
 	/**
@@ -301,11 +308,12 @@ class JetonomyBridge {
 	}
 
 	/**
-	 * Inject a Forum tab into BuddyNext space navigation when a Jetonomy forum is linked.
+	 * Inject a Discussions tab into BuddyNext space navigation (always shown).
 	 *
-	 * Reads the `bn_space_{space_id}_jetonomy_forum_id` option (set via Space Settings).
-	 * When non-zero, fetches the Jetonomy space slug from jt_spaces and appends an
-	 * external-link tab pointing to the forum URL.
+	 * If the space already has a linked Jetonomy forum, the tab links straight to
+	 * it. Otherwise the tab points at the on-demand provision trigger, so the
+	 * forum is created + linked the first time a member opens Discussions (no
+	 * empty forums, no admin friction).
 	 *
 	 * Hooked on: buddynext_space_tabs( array $tabs, int $space_id )
 	 *
@@ -314,35 +322,154 @@ class JetonomyBridge {
 	 * @return array<string, string|array<string,string>>
 	 */
 	public function inject_space_forum_tab( array $tabs, int $space_id ): array {
+		$forum_url = $this->space_forum_url( $space_id );
+
+		$tabs['discussions'] = array(
+			'label' => __( 'Discussions', 'buddynext' ),
+			'url'   => '' !== $forum_url
+				? $forum_url
+				: add_query_arg( 'bn_provision_forum', $space_id, home_url( '/spaces/' ) ),
+		);
+
+		return $tabs;
+	}
+
+	/**
+	 * Resolve the public URL of a BuddyNext space's linked Jetonomy forum.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return string Forum URL, or '' when no forum is linked yet.
+	 */
+	private function space_forum_url( int $space_id ): string {
 		$forum_id = (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', 0 );
-		if ( 0 === $forum_id ) {
-			return $tabs;
+		if ( $forum_id <= 0 ) {
+			return '';
 		}
 
 		global $wpdb;
-
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$jt_slug = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT slug FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1",
-				$forum_id
-			)
+		$jt_slug = (string) $wpdb->get_var(
+			$wpdb->prepare( "SELECT slug FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1", $forum_id )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		if ( null === $jt_slug ) {
-			return $tabs;
+		if ( '' === $jt_slug ) {
+			return '';
 		}
 
 		$settings  = get_option( 'jetonomy_settings', array() );
 		$base_slug = isset( $settings['base_slug'] ) ? (string) $settings['base_slug'] : 'community';
 
-		$tabs['discussions'] = array(
-			'label' => __( 'Discussions', 'buddynext' ),
-			'url'   => home_url( '/' . $base_slug . '/s/' . rawurlencode( (string) $jt_slug ) . '/' ),
+		return home_url( '/' . $base_slug . '/s/' . rawurlencode( $jt_slug ) . '/' );
+	}
+
+	/**
+	 * Provision (once) a Jetonomy forum for a BuddyNext space and link it.
+	 *
+	 * Idempotent: returns the existing forum id when already linked. Creates a
+	 * paired jt_space named after the BN space (Jetonomy's Space::create) and
+	 * stores the `bn_space_{id}_jetonomy_forum_id` link option.
+	 *
+	 * @param int $space_id BuddyNext space ID.
+	 * @return int Jetonomy forum (jt_spaces) id, or 0 on failure.
+	 */
+	public function provision_space_forum( int $space_id ): int {
+		$existing = (int) get_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', 0 );
+		if ( $existing > 0 ) {
+			return $existing;
+		}
+
+		if ( ! class_exists( '\Jetonomy\Models\Space' ) ) {
+			return 0;
+		}
+
+		$space = ( new \BuddyNext\Spaces\SpaceService() )->get( $space_id );
+		if ( null === $space ) {
+			return 0;
+		}
+
+		$forum_id = (int) \Jetonomy\Models\Space::create(
+			array(
+				'title'      => (string) ( $space['name'] ?? '' ),
+				'slug'       => (string) ( $space['slug'] ?? '' ),
+				'visibility' => 'public',
+				'status'     => 'active',
+			),
+			(int) ( $space['owner_id'] ?? 0 )
 		);
 
-		return $tabs;
+		if ( $forum_id > 0 ) {
+			update_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', $forum_id, false );
+		}
+
+		return $forum_id;
+	}
+
+	/**
+	 * On-demand web flow: provision the forum for `?bn_provision_forum={space}` and
+	 * redirect to it. Fired on template_redirect.
+	 *
+	 * @return void
+	 */
+	public function maybe_provision_and_redirect(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only provision trigger from a tab link.
+		$space_id = isset( $_GET['bn_provision_forum'] ) ? absint( wp_unslash( $_GET['bn_provision_forum'] ) ) : 0;
+		if ( $space_id <= 0 || ! is_user_logged_in() ) {
+			return;
+		}
+
+		$this->provision_space_forum( $space_id );
+		$url = $this->space_forum_url( $space_id );
+		if ( '' !== $url ) {
+			wp_safe_redirect( $url );
+			exit;
+		}
+	}
+
+	/**
+	 * Register the space-forum REST route (app coverage).
+	 *
+	 * @return void
+	 */
+	public function register_rest_routes(): void {
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>\d+)/forum',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'rest_provision_forum' ),
+				'permission_callback' => static function () {
+					return is_user_logged_in()
+						? true
+						: new \WP_Error( 'rest_not_logged_in', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
+				},
+				'args'                => array(
+					'id' => array(
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * REST: provision (or fetch) a space's forum and return its URL — for the app.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response
+	 */
+	public function rest_provision_forum( \WP_REST_Request $request ): \WP_REST_Response {
+		$space_id = (int) $request['id'];
+		$forum_id = $this->provision_space_forum( $space_id );
+
+		return new \WP_REST_Response(
+			array(
+				'forum_id'  => $forum_id,
+				'forum_url' => $forum_id > 0 ? $this->space_forum_url( $space_id ) : '',
+			),
+			200
+		);
 	}
 
 	/**
