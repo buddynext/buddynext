@@ -352,10 +352,7 @@ class NotificationController extends BaseRestController {
 	 */
 	public function get_notification_channels(): WP_REST_Response {
 		$user_id = get_current_user_id();
-		$stored  = get_user_meta( $user_id, 'bn_channel_prefs', true );
-		if ( ! is_array( $stored ) ) {
-			$stored = array();
-		}
+		$stored  = ( new NotificationPrefService() )->get_channel_prefs( $user_id );
 
 		$push_available = class_exists( '\\BuddyNextPro\\Push\\PushDispatcher' );
 
@@ -393,18 +390,7 @@ class NotificationController extends BaseRestController {
 			);
 		}
 
-		$current = get_user_meta( $user_id, 'bn_channel_prefs', true );
-		if ( ! is_array( $current ) ) {
-			$current = array();
-		}
-
-		foreach ( array( 'in_app', 'email', 'push', 'sound' ) as $key ) {
-			if ( array_key_exists( $key, $body ) ) {
-				$current[ $key ] = (bool) $body[ $key ];
-			}
-		}
-
-		update_user_meta( $user_id, 'bn_channel_prefs', $current );
+		( new NotificationPrefService() )->set_channel_prefs( $user_id, $body );
 
 		return $this->get_notification_channels();
 	}
@@ -419,32 +405,7 @@ class NotificationController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function list_space_notification_prefs(): WP_REST_Response {
-		global $wpdb;
-
-		$user_id = get_current_user_id();
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT s.id AS space_id, s.name, s.slug, COALESCE( NULLIF( sm.notification_pref, '' ), 'all' ) AS pref
-				 FROM {$wpdb->prefix}bn_spaces s
-				 INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'
-				 ORDER BY s.name ASC",
-				$user_id
-			),
-			ARRAY_A
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		$items = array();
-		foreach ( (array) $rows as $row ) {
-			$items[] = array(
-				'space_id' => (int) $row['space_id'],
-				'name'     => (string) $row['name'],
-				'slug'     => (string) $row['slug'],
-				'pref'     => (string) $row['pref'],
-			);
-		}
+		$items = ( new NotificationPrefService() )->list_space_notification_prefs( get_current_user_id() );
 
 		return new WP_REST_Response( array( 'items' => $items ), 200 );
 	}

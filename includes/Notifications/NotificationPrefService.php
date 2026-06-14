@@ -260,4 +260,75 @@ class NotificationPrefService {
 
 		return ( false !== $updated && $updated > 0 );
 	}
+
+	/**
+	 * Read a user's stored notification channel toggles (raw usermeta map).
+	 *
+	 * Returns whatever is stored in bn_channel_prefs; callers apply presentation
+	 * defaults (e.g. the push toggle depends on whether the Pro push module is
+	 * loaded).
+	 *
+	 * @param int $user_id User id.
+	 * @return array<string,mixed>
+	 */
+	public function get_channel_prefs( int $user_id ): array {
+		$stored = get_user_meta( $user_id, 'bn_channel_prefs', true );
+
+		return is_array( $stored ) ? $stored : array();
+	}
+
+	/**
+	 * Update a user's notification channel toggles (partial — only provided keys change).
+	 *
+	 * @param int                 $user_id  User id.
+	 * @param array<string,mixed> $channels Subset of in_app/email/push/sound.
+	 * @return void
+	 */
+	public function set_channel_prefs( int $user_id, array $channels ): void {
+		$current = get_user_meta( $user_id, 'bn_channel_prefs', true );
+		$current = is_array( $current ) ? $current : array();
+
+		foreach ( array( 'in_app', 'email', 'push', 'sound' ) as $key ) {
+			if ( array_key_exists( $key, $channels ) ) {
+				$current[ $key ] = (bool) $channels[ $key ];
+			}
+		}
+
+		update_user_meta( $user_id, 'bn_channel_prefs', $current );
+	}
+
+	/**
+	 * List a user's per-space notification prefs (active memberships only).
+	 *
+	 * @param int $user_id User id.
+	 * @return array<int,array{space_id:int,name:string,slug:string,pref:string}>
+	 */
+	public function list_space_notification_prefs( int $user_id ): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT s.id AS space_id, s.name, s.slug, COALESCE( NULLIF( sm.notification_pref, '' ), 'all' ) AS pref
+				 FROM {$wpdb->prefix}bn_spaces s
+				 INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id AND sm.user_id = %d AND sm.status = 'active'
+				 ORDER BY s.name ASC",
+				$user_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map(
+			static function ( array $row ): array {
+				return array(
+					'space_id' => (int) $row['space_id'],
+					'name'     => (string) $row['name'],
+					'slug'     => (string) $row['slug'],
+					'pref'     => (string) $row['pref'],
+				);
+			},
+			(array) $rows
+		);
+	}
 }
