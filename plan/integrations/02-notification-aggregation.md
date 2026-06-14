@@ -16,9 +16,14 @@ messages, courses, events — in one place, using BN's existing notification sys
 
 | Plugin | Store / menu | Mirror seam | Events |
 |---|---|---|---|
-| Jetonomy | `jt_notifications` + REST + menu | ✅ `jetonomy_notification_created` action | replies, mentions, votes, … |
-| WPMediaVerse | messaging | `mvs_message_sent` (+ media events) | new message, … |
+| Jetonomy | `jt_notifications` + REST + menu | ⚠️ `jetonomy_notification_created` (IDs only, no message/link) | replies, mentions, votes, … |
+| WPMediaVerse | `mvs_notifications` + REST (`/notifications`, `/count`, `/read`) + `NotificationService` | ⚠️ `mvs_notification_created` (IDs only, no message/link) | follow, reaction, comment, mention, favorite, message |
 | Career Board | `wcb_notifications` + `wcb/v1/notifications` + bell | ❌ no creation hook | application submitted/status, job approved/rejected/expired |
+
+All three need a hook change to carry the **rendered message + link** (they render at
+display time). Cards filed for all three (below). BN today only takes `mvs_message_sent`;
+once `mvs_notification_created` carries message+link, BN aggregates ALL of WPMediaVerse's
+social notifications, not just messages.
 
 Existing BN aggregation is **partial**: `jt.discussion_reply` only (Jetonomy),
 `mvs_message_sent` (messages). Career Board: none. This plan makes it complete + consistent.
@@ -95,9 +100,10 @@ its own menu to BN once BN is the canonical center — out of scope here, never 
 4. WPMediaVerse: fold messages (`mvs_message_sent`) into `SuiteNotifications` for consistency (optional — already works).
 5. Browser-verify BN's `/notifications/` shows jobs + discussions + messages together, toggleable in prefs.
 
-## Cards filed
+## Cards filed (all three Wbcom notification plugins)
 - **Career Board** → Triage, card **9994152495** — add `wcb_notification_created` (free + pro).
 - **Jetonomy** → Triage, card **9994156006** — extend `jetonomy_notification_created` to pass message + link.
+- **WPMediaVerse** → Triage, card **9994157067** — extend `mvs_notification_created` to pass message + link (reuse `format_notification()`).
 
 ## Locked decisions (2026-06-14)
 - **Coexistence:** ACCEPT — BN aggregates; partner menus keep working in their own
