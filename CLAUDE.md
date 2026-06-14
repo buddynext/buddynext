@@ -668,6 +668,9 @@ A phase is Done when ALL of:
 
 | Date | Phase | Type | Description |
 |------|-------|------|-------------|
+| 2026-06-14 | social-graph-flow | refactor | FollowController, ConnectionController, BlockController extend REST/BaseRestController |
+| 2026-06-14 | social-graph-flow | feature | Added relationship-inspection endpoints: GET /users/{id}/follow/status, /connection/status, /mutual-connections, /account-type, /me/follow-requests/count (bulk-status endpoints deferred — directory returns relationship data server-side) |
+| 2026-06-14 | social-graph-flow | docs | Documented that Pro FunnelService reads Free analytics tables (incl. bn_follows) directly by design (read-only funnel aggregates, not routed through services) |
 | 2026-06-14 | spaces-flow | refactor | SpaceController is now $wpdb-free: ban/unban/remove delegate to SpaceMemberService, transfer to new SpaceService::transfer_ownership, join ban-check to is_banned_from_space |
 | 2026-06-14 | spaces-flow | fix | Reconciled the removal hook: SpaceMemberService::remove() fires the canonical buddynext_space_member_removed (consumed by WidgetListener), not the orphan buddynext_member_removed_from_space; controller no longer double-fires ban/unban/remove hooks |
 | 2026-06-14 | spaces-flow | refactor | SpaceController + SpaceCategoryController extend REST/BaseRestController |

@@ -130,6 +130,11 @@ one path = one schema = one documented handler.
 | `/users/(?P<id>[\d]+)/connect` | POST | $this->require_auth() | [SocialGraph/ConnectionController.php:33](../../includes/SocialGraph/ConnectionController.php#L33) |
 | `/users/(?P<id>[\d]+)/connect/accept` | POST |  | [SocialGraph/ConnectionController.php:50](../../includes/SocialGraph/ConnectionController.php#L50) |
 | `/users/(?P<id>[\d]+)/connect/decline` | POST |  | [SocialGraph/ConnectionController.php:60](../../includes/SocialGraph/ConnectionController.php#L60) |
+| `/users/(?P<id>[\d]+)/connection/status` | GET | $this->require_auth() | [SocialGraph/ConnectionController.php](../../includes/SocialGraph/ConnectionController.php) |
+| `/users/(?P<id>[\d]+)/mutual-connections` | GET | $this->require_auth() | [SocialGraph/ConnectionController.php](../../includes/SocialGraph/ConnectionController.php) |
+| `/users/(?P<id>[\d]+)/account-type` | GET | public | [SocialGraph/FollowController.php](../../includes/SocialGraph/FollowController.php) |
+| `/users/(?P<id>[\d]+)/follow/status` | GET | $this->require_auth() | [SocialGraph/FollowController.php](../../includes/SocialGraph/FollowController.php) |
+| `/me/follow-requests/count` | GET | $this->require_auth() | [SocialGraph/FollowController.php](../../includes/SocialGraph/FollowController.php) |
 | `/users/(?P<id>[\d]+)/cover` | POST | $this->require_admin() | [Profile/ProfileController.php:93](../../includes/Profile/ProfileController.php#L93) |
 | `/users/(?P<id>[\d]+)/feed` | GET |  | [Feed/FeedController.php:58](../../includes/Feed/FeedController.php#L58) |
 | `/users/(?P<id>[\d]+)/follow` | POST | $this->require_auth() | [SocialGraph/FollowController.php:32](../../includes/SocialGraph/FollowController.php#L32) |
