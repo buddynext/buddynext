@@ -63,8 +63,18 @@ A BN-owned jobs hub/tab consuming `wcb/v1`, rendered with BN components on a BN 
 
 **Verify:** Free active alone → no Career Board references, boots clean. Pro active → bridge loads only when `wcb_run` exists; the moved `CareerBoardBridgeTest` passes (free CB plugin active).
 
-### Task NS-1 — Map the native jobs data (no UI yet)
-Enumerate `wcb/v1` job-listing read routes + the job CPT slug; define the `Jobs/JobsClient.php` read contract (list, single, employer, apply-state). Output: a short data-contract appended here. No rendering.
+### Task NS-1 — Map the native jobs data (no UI yet) · ✅ DONE 2026-06-14
+**Job CPT:** `wcb_job` (`modules/jobs/class-jobs-module.php:42`, `public:true`, `show_in_rest:true`). Meta registered `modules/jobs/class-jobs-meta.php:40-69` (`show_in_rest:true`).
+**REST surface (`wcb/v1`, cookie + `X-WP-Nonce`):**
+- `GET /wcb/v1/jobs` — list (filters/pagination via query args)
+- `GET /wcb/v1/jobs/{id}` — single
+- `POST /wcb/v1/jobs` · `PUT /wcb/v1/jobs/{id}` · `DELETE /wcb/v1/jobs/{id}` — author/admin
+- `POST /wcb/v1/jobs/{id}/bookmark` — save/unsave
+- `GET /wcb/v1/jobs/{id}/applications` — employer view of applicants
+- `POST /wcb/v1/jobs/{id}/apply` — candidate apply
+- (related, from earlier audit) `GET /wcb/v1/employers/{id}/credits`, `GET /wcb/v1/fields/groups`
+
+**`Jobs/JobsClient.php` read contract (NS-2):** `list( array $args )` → job rows; `get( int $id )` → single; `applications_for( int $job_id, int $employer_id )`; `bookmark_state( int $job_id, int $user_id )`. Surface placement (locked): top-level `/jobs/` hub + profile tab (employer postings / candidate applications). Feed cards kept (existing `job_post` card type). Career Board renders nothing on BN routes — BN owns the markup/CSS/JS; if a field the surface needs isn't in `wcb/v1`, add it to Career Board's API, not UI to the addon.
 
 ### Task NS-2..NS-n — Native jobs surface
 `includes/Jobs/` (Pro): Client → domain (BN privacy/visibility gating) → renderer (BN-native cards/hub) → assets (BN JS talking to `wcb/v1`) → surface (BN route/tab). Browser-verified (incl. 390px), keep search indexing, zero foreign assets. Detailed steps locked after NS-1.
