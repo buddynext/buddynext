@@ -662,10 +662,27 @@ class NotificationMessageService {
 			);
 		}
 
-		return $map[ $type ] ?? array(
-			'icon'  => 'bell',
-			'tone'  => 'info',
-			'label' => __( 'Notification', 'buddynext' ),
+		if ( isset( $map[ $type ] ) ) {
+			return $map[ $type ];
+		}
+
+		/**
+		 * Icon/tone/label for a notification type Free does not know about.
+		 *
+		 * Powers BuddyNext's centralised notification center: integration
+		 * notifications (type `suite.*`) supply their icon through this filter.
+		 *
+		 * @param array<string,string> $meta Default meta (bell icon).
+		 * @param string               $type Notification type slug.
+		 */
+		return (array) apply_filters(
+			'buddynext_notification_meta',
+			array(
+				'icon'  => 'bell',
+				'tone'  => 'info',
+				'label' => __( 'Notification', 'buddynext' ),
+			),
+			$type
 		);
 	}
 
@@ -747,8 +764,23 @@ class NotificationMessageService {
 				return PageRouter::activity_url();
 
 			case 'bn.test':
-			default:
 				return '';
+
+			default:
+				/**
+				 * Deep-link URL for a notification type Free does not know about.
+				 *
+				 * Powers BuddyNext's centralised notification center: integration
+				 * notifications (type `suite.*`, mirrored from partner plugins via
+				 * a Pro bridge) supply their own URL through this filter.
+				 *
+				 * @param string $url       Default empty string.
+				 * @param string $type      Notification type slug.
+				 * @param int    $actor_id  Actor user ID.
+				 * @param int    $object_id Object ID.
+				 * @param array  $data      Decoded data payload.
+				 */
+				return (string) apply_filters( 'buddynext_notification_url', '', $type, $actor_id, $object_id, $data );
 		}
 	}
 
