@@ -38,12 +38,14 @@ that drives engagement around that plugin:
 
 | Touchpoint | What | Status |
 |---|---|---|
-| **Bridge — notifications** | `wcb_application_submitted/status_changed/withdrawn` → BN notifications (employer/candidate). Guards on `WCB_VERSION`. | ✅ DONE (Pro, committed) |
-| **Bridge — search** | `wcb_job_created` → index job in `bn_search_index` (jobs findable in BN search). | ✅ DONE (Pro, committed) |
-| **Activity on post** | `wcb_job_created` / resume-created → publish a BN activity (feed card) for engagement. `wcb_job_expired` already removes its card via `PostService::delete_by_link`. | ⏳ TODO |
-| **Profile — jobs** | Profile section/tab listing the member's posted jobs (link to Career Board). Uses `buddynext_part_profile_tab_bar_args`. | ⏳ TODO |
-| **Profile — resumes** | Same for the member's posted resumes (`wcb_resume`). | ⏳ TODO |
+| **Notifications** | **Deferred to Career Board — BN does NOT create them.** CB owns application/job notifications via its own in-app bell (`wcb_notifications` + `wcb/v1/notifications`, when CB Pro is active) + emails. Duplicating would double-notify. (Confirmed against CB's `audit/manifest.json`.) | ✅ DECIDED (defer) |
+| **Activity on post** | `wcb_job_created` → BN feed activity + `bn_search_index`; `wcb_job_expired` removes it. `wcbp_resume_published` → "open to work" activity (public resumes only). Idempotent via `SuiteActivity`/`PostService::exists_by_link`. | ✅ DONE (Pro, committed) |
+| **Search** | `wcb_job_created` → index job in `bn_search_index` (findable in BN search). | ✅ DONE |
+| **Profile — jobs** | Portfolio panel: member's jobs → each job's CB page; "View all" → member's CB company page; owner-only "Manage" → employer dashboard. | ✅ DONE (Pro, committed) |
+| **Profile — resumes** | Portfolio panel: member's PUBLIC resume(s) → each resume's own `/resume/{slug}` page (gated on `is_post_type_viewable`); owner-only "Manage" → candidate dashboard. | ✅ DONE (Pro, committed) |
 | **Space** | Jobs in a space context. | 🔮 Possible/later |
+
+> **Manifest-first lesson (2026-06-14):** always read the partner plugin's `audit/manifest.json` before integrating. It listed CB Pro's notification bell + REST feed (don't duplicate) and the `wcbp_resume_published` hook (resume activity) — both initially missed by ad-hoc code grep.
 
 **Reverted (the mess, 2026-06-14):** a top-level `/jobs/` BN route, BN-native job
 list/single templates, a JS store, and a filter that made Career Board headless
