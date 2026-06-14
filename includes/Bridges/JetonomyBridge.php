@@ -4,17 +4,14 @@
  *
  * Routes Jetonomy events into BuddyNext surfaces:
  *
- * ALWAYS-ON:
- * - Discussion created → bn_search_index (type: discussion)
- * - Discussion created → @mention parsing → buddynext_user_mentioned action
- * - Discussion deleted → removes entry from bn_search_index
- * - Discussion deleted → removes feed card from bn_posts (when feed sync is active)
+ * - Discussion created → bn_search_index (type: discussion) + @mention parsing
+ * - Discussion created → BN feed activity (engagement; link card to Jetonomy,
+ *   via Feed\IntegrationActivity; filter buddynext_jetonomy_discussion_activity)
+ * - Discussion deleted → removes the search entry + the feed activity
  * - Reply notifications are handled by JetonomyBridgeListener (jetonomy_after_create_reply)
- * - Unified nav: BuddyNext subnav injected on all Jetonomy pages (jetonomy_before_content)
- * - Unified nav: Jetonomy's own community nav suppressed (jetonomy_show_community_nav → false)
- *
- * OPT-IN (admin toggle buddynext_jetonomy_feed_sync, default off):
- * - Discussion created → bn_posts entry (type: forum_post)
+ * - Unified nav: BuddyNext subnav injected on all Jetonomy pages (jetonomy_before_content);
+ *   Jetonomy's own community nav suppressed (jetonomy_show_community_nav → false)
+ * - Space Discussions tab (linked or on-demand forum) + profile Discussions count
  *
  * @package BuddyNext\Bridges
  */
@@ -24,6 +21,7 @@ declare( strict_types=1 );
 namespace BuddyNext\Bridges;
 
 use BuddyNext\Search\SearchService;
+use BuddyNext\Feed\IntegrationActivity;
 
 /**
  * Jetonomy ↔ BuddyNext integration layer.
@@ -128,26 +126,16 @@ class JetonomyBridge {
 			}
 		}
 
-		// Opt-in: push a forum_post card into bn_posts when the site-wide feed
-		// sync option is explicitly enabled. Default off per spec to avoid reply
-		// fragmentation and feed noise.
-		if ( get_option( 'buddynext_jetonomy_feed_sync', false ) ) {
-			$link_url = get_permalink( $post_id );
-
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->insert(
-				$wpdb->prefix . 'bn_posts',
-				array(
-					'user_id'  => $author_id,
-					'type'     => 'forum_post',
-					'content'  => wp_trim_words( $content, 55, '...' ),
-					'link_url' => $link_url ? $link_url : null,
-					'privacy'  => 'public',
-					'status'   => 'published',
-				),
-				array( '%d', '%s', '%s', '%s', '%s', '%s' )
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Engagement: publish a feed activity (a link card to the discussion on
+		// Jetonomy). Filterable to disable per site/post. Goes through the shared
+		// IntegrationActivity helper → bn_posts (type link) → the feed REST, so
+		// the app gets it too. Replaces the old raw-SQL forum_post sync that used
+		// an invalid feed type and a wrong get_permalink() on a jt_posts id.
+		if ( (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
+			$url = $this->discussion_url( $post_id, $space_id );
+			if ( '' !== $url ) {
+				IntegrationActivity::publish( $author_id, __( 'started a discussion', 'buddynext' ), $url, $title );
+			}
 		}
 
 		/**
@@ -170,17 +158,17 @@ class JetonomyBridge {
 	 *
 	 * Hooked on: jetonomy_post_deleted( int $post_id, int $space_id, int $user_id )
 	 *
-	 * Deletes the bn_search_index entry and, when feed sync is active,
-	 * removes the linked forum_post card from bn_posts.
+	 * Deletes the bn_search_index entry and the discussion's feed activity.
 	 *
-	 * @param int $post_id   Jetonomy discussion ID.
-	 * @param int $_space_id Jetonomy space ID (unused — kept for hook signature).
-	 * @param int $_user_id  User who deleted the discussion (unused — kept for hook signature).
+	 * @param int $post_id  Jetonomy discussion ID.
+	 * @param int $space_id Jetonomy space ID (used to rebuild the discussion URL).
+	 * @param int $_user_id User who deleted the discussion (unused — kept for hook signature).
 	 */
-	public function on_post_deleted( int $post_id, int $_space_id, int $_user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- hook signature requires all 3 args.
+	public function on_post_deleted( int $post_id, int $space_id, int $_user_id ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $_user_id kept for the hook signature.
 		global $wpdb;
 
-		// Always-on: remove from search index.
+		// Remove from search index. Jetonomy "delete" is a soft-delete (status →
+		// trash), so the jt_posts/jt_spaces rows still exist and the URL resolves.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_search_index',
@@ -190,22 +178,40 @@ class JetonomyBridge {
 			),
 			array( '%s', '%d' )
 		);
-
-		// Opt-in: remove the feed card only when feed sync was active.
-		if ( get_option( 'buddynext_jetonomy_feed_sync', false ) ) {
-			$link_url = get_permalink( $post_id );
-			if ( $link_url ) {
-				$wpdb->delete(
-					$wpdb->prefix . 'bn_posts',
-					array(
-						'type'     => 'forum_post',
-						'link_url' => $link_url,
-					),
-					array( '%s', '%s' )
-				);
-			}
-		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// Remove the feed activity for this discussion.
+		$url = $this->discussion_url( $post_id, $space_id );
+		if ( '' !== $url ) {
+			IntegrationActivity::remove( $url );
+		}
+	}
+
+	/**
+	 * Build the public URL of a Jetonomy discussion (`base/s/{space}/t/{post}/`).
+	 *
+	 * Reads the post + space slugs from jt_posts/jt_spaces (Jetonomy fires the
+	 * create/delete hooks with ids only). Returns '' when either slug is missing.
+	 *
+	 * @param int $post_id  jt_posts id.
+	 * @param int $space_id jt_spaces id.
+	 * @return string
+	 */
+	private function discussion_url( int $post_id, int $space_id ): string {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$post_slug  = (string) $wpdb->get_var( $wpdb->prepare( "SELECT slug FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1", $post_id ) );
+		$space_slug = (string) $wpdb->get_var( $wpdb->prepare( "SELECT slug FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1", $space_id ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( '' === $post_slug || '' === $space_slug ) {
+			return '';
+		}
+
+		$base = function_exists( 'Jetonomy\base_url' ) ? (string) \Jetonomy\base_url() : home_url( '/community' );
+
+		return rtrim( $base, '/' ) . '/s/' . rawurlencode( $space_slug ) . '/t/' . rawurlencode( $post_slug ) . '/';
 	}
 
 	/**
