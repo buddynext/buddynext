@@ -34,6 +34,7 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Profile;
 
+use BuddyNext\REST\BaseRestController;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -41,7 +42,7 @@ use WP_REST_Response;
 /**
  * Handles profile reads and writes over REST.
  */
-class ProfileController {
+class ProfileController extends BaseRestController {
 
 	/**
 	 * Register the controller's routes.
@@ -1340,39 +1341,5 @@ class ProfileController {
 		buddynext_service( 'profiles' )->update_avatar( $user_id, esc_url_raw( $stored ) );
 
 		return new WP_REST_Response( array( 'avatar_url' => $stored ), 200 );
-	}
-
-	/**
-	 * Permission callback: require manage_options capability.
-	 *
-	 * @return true|WP_Error
-	 */
-	public function require_admin(): true|WP_Error {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return new WP_Error(
-				'rest_forbidden',
-				__( 'Admins only.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
-		}
-
-		return true;
-	}
-
-	/**
-	 * Permission callback: require an authenticated user.
-	 *
-	 * @return true|WP_Error
-	 */
-	public function require_auth(): true|WP_Error {
-		if ( ! is_user_logged_in() ) {
-			return new WP_Error(
-				'rest_not_logged_in',
-				__( 'You must be logged in.', 'buddynext' ),
-				array( 'status' => 401 )
-			);
-		}
-
-		return true;
 	}
 }

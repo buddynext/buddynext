@@ -19,6 +19,7 @@ declare( strict_types=1 );
 namespace BuddyNext\MemberTypes;
 
 use BuddyNext\MemberTypes\MemberTypeService;
+use BuddyNext\REST\BaseRestController;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -26,7 +27,7 @@ use WP_REST_Response;
 /**
  * Handles member type reads and writes over REST.
  */
-class MemberTypeController {
+class MemberTypeController extends BaseRestController {
 
 	/**
 	 * Constructor.
@@ -331,19 +332,6 @@ class MemberTypeController {
 	}
 
 	// ── Permission callbacks ──────────────────────────────────────────────────
-
-	/**
-	 * Require manage_options capability.
-	 *
-	 * @return bool|WP_Error
-	 */
-	public function require_admin(): bool|WP_Error {
-		if ( current_user_can( 'manage_options' ) ) {
-			return true;
-		}
-
-		return new WP_Error( 'forbidden', __( 'You do not have permission to manage member types.', 'buddynext' ), array( 'status' => 403 ) );
-	}
 
 	/**
 	 * Permission check for PUT /users/{id}/member-type.

@@ -33,6 +33,7 @@ use BuddyNext\Core\PageRouter;
 use BuddyNext\MemberTypes\MemberTypeService;
 use BuddyNext\SocialGraph\BlockService;
 use BuddyNext\SocialGraph\ConnectionService;
+use BuddyNext\REST\BaseRestController;
 use BuddyNext\SocialGraph\FollowService;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -40,7 +41,7 @@ use WP_REST_Response;
 /**
  * Handles directory reads over REST.
  */
-class MemberDirectoryController {
+class MemberDirectoryController extends BaseRestController {
 
 	/**
 	 * Register routes.
