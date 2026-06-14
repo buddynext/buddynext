@@ -21,6 +21,7 @@ use BuddyNext\Notifications\NotificationMessageService;
 use BuddyNext\Notifications\NotificationPrefCatalogue;
 use BuddyNext\Notifications\NotificationPrefService;
 use BuddyNext\Notifications\NotificationService;
+use BuddyNext\REST\BaseRestController;
 use BuddyNext\Spaces\SpaceMemberService;
 use WP_Error;
 use WP_REST_Request;
@@ -29,7 +30,7 @@ use WP_REST_Response;
 /**
  * Handles notification reads and state changes over REST.
  */
-class NotificationController {
+class NotificationController extends BaseRestController {
 
 	/**
 	 * Register the controller's routes.
@@ -506,22 +507,5 @@ class NotificationController {
 			),
 			200
 		);
-	}
-
-	/**
-	 * Permission callback: require an authenticated user.
-	 *
-	 * @return true|WP_Error
-	 */
-	public function require_auth(): true|WP_Error {
-		if ( ! is_user_logged_in() ) {
-			return new WP_Error(
-				'rest_not_logged_in',
-				__( 'You must be logged in.', 'buddynext' ),
-				array( 'status' => 401 )
-			);
-		}
-
-		return true;
 	}
 }
