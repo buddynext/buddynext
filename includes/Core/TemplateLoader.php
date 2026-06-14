@@ -63,18 +63,6 @@ class TemplateLoader {
 			return $default;
 		}
 
-		// 4. Additional template roots — e.g. BuddyNext Pro supplying a native
-		// surface (/jobs/, /courses/). Each root is an absolute directory.
-		// Checked after Free's own templates so Free stays authoritative for
-		// its templates; theme overrides (steps 1-2) still win for everyone.
-		$roots = (array) apply_filters( 'buddynext_template_paths', array() );
-		foreach ( $roots as $root ) {
-			$candidate = rtrim( (string) $root, '/' ) . '/' . $relative;
-			if ( file_exists( $candidate ) ) {
-				return $candidate;
-			}
-		}
-
 		return null;
 	}
 

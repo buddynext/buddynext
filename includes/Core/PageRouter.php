@@ -730,18 +730,6 @@ class PageRouter {
 				$assets->enqueue( 'onboarding' );
 				break;
 		}
-
-		/**
-		 * Enqueue assets for a hub Free does not know about.
-		 *
-		 * Pro plugins that own a native surface (e.g. /jobs/) enqueue their
-		 * bundle and inject partner-REST config here. Fires after the core
-		 * shell assets so the Pro hub's scripts can depend on them.
-		 *
-		 * @param string               $hub     The active bn_hub value.
-		 * @param array<string, mixed> $context Template context for the hub.
-		 */
-		do_action( 'buddynext_enqueue_hub_assets', $hub, $context );
 	}
 
 	/**
@@ -801,16 +789,7 @@ class PageRouter {
 				break;
 		}
 
-		/**
-		 * Build the template context for a hub Free does not know about.
-		 *
-		 * Pro plugins that own a native surface via `buddynext_hub_template`
-		 * supply their template's context here (e.g. the jobs list payload).
-		 *
-		 * @param array<string,mixed> $context Context array (empty for unknown hubs).
-		 * @param string              $hub     The active bn_hub value.
-		 */
-		return (array) apply_filters( 'buddynext_hub_context', $context, $hub );
+		return $context;
 	}
 
 	/**
@@ -919,17 +898,7 @@ class PageRouter {
 				return 'onboarding/index.php';
 
 			default:
-				/**
-				 * Resolve the template for a hub Free does not know about.
-				 *
-				 * Lets a Pro plugin own a native top-level surface (e.g. /jobs/,
-				 * /courses/) by mapping its bn_hub value to a relative template
-				 * path. Return null to let WordPress handle the request normally.
-				 *
-				 * @param string|null $template Relative template path, or null.
-				 * @param string      $hub      The unrecognised bn_hub value.
-				 */
-				return apply_filters( 'buddynext_hub_template', null, $hub );
+				return null;
 		}
 	}
 
