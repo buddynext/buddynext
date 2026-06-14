@@ -183,6 +183,28 @@ class ProfileService {
 	}
 
 	/**
+	 * Resolve a field's key by its numeric id. Empty string when not found.
+	 *
+	 * Lets extensions (e.g. Pro advanced field types) map a field id to its key
+	 * without querying bn_profile_fields directly.
+	 *
+	 * @param int $field_id Field id.
+	 * @return string
+	 */
+	public function get_field_key( int $field_id ): string {
+		if ( $field_id <= 0 ) {
+			return '';
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (string) $wpdb->get_var(
+			$wpdb->prepare( "SELECT field_key FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $field_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
 	 * Create a new profile group.
 	 *
 	 * @param array $data Group data: group_key, label, type, visibility, sort_order.
