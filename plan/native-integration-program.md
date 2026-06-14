@@ -1,14 +1,35 @@
 # BuddyNext — Native Integration Program
 
-**Status:** planning (locked architecture; phased build pending go-ahead)
-**Owner direction (2026-06-09):** every integration is API-level only; no 2nd-party
-screens; BN pages load only BN assets; partner data is rendered with BN's own
-native, consistent components for one uniform 1-to-1 experience — never jumping
-between plugins.
+**Status:** ✅ CURRENT / VALID — this is the locked *HOW* for every integration. Not
+superseded by the packaging lock; the two are complementary (this = how to integrate;
+`2026-06-14-pro-packaging-lock.md` = which tier each integration lives in). Confirmed
+2026-06-14: native-rebuild of messaging/forums is the correct, standing approach —
+exactly as already shipped for messages + group messages.
+**Owner direction (2026-06-09, reaffirmed 2026-06-14):** every integration is
+API-level only; no 2nd-party screens; no link-outs to a partner's UI; BN pages load
+only BN assets; partner data is rendered with BN's own native, consistent components
+on BN URLs for one uniform 1-to-1 experience — never jumping between plugins.
+**New-integration rule:** every new integration's native surface is built **in
+BuddyNext Pro** (Free keeps only the 3 core integrations' native surfaces).
 
 ---
 
 ## 1. Locked architecture
+
+**All app integration happens at the BuddyNext level** — BN is the integration layer.
+The split between our own products and 3rd parties is **ownership of polish**, not where
+the integration lives:
+
+- **Third-party developers** can integrate at the BN level via the extension mechanism
+  (bridges / hooks / filters / REST seams). BN exposes the seams; the outside dev owns
+  their own polish. A fine, supported path — for them.
+- **Our own suite products** (WPMediaVerse, Jetonomy, Learnomy, Career Board, Listora,
+  Eventonomy, WPConnectPress, Gamification) are polished **as part of the system from day 1.**
+  The addon ships **data/logic only — zero UI, zero CSS, zero JS** on BN routes. **BuddyNext
+  owns the entire presentation layer centrally** — one place to style and polish. We
+  **never** tune CSS in 10 addon-plugin locations to make a surface look right. **BN overs
+  all itself.** If the addon's API lacks something the native surface needs, we add it to
+  the addon's API — never UI to the addon.
 
 **BuddyNext is the single native UI layer for the community. Every partner plugin
 is a headless data/API provider.** BN consumes partner data via the partner's API
@@ -60,7 +81,12 @@ announcements composer mode. All BN-native; independent of the bridge work.
 - New `includes/Jobs/` package (Client → domain → renderer → assets) consuming the
   Career Board API; native BN jobs hub/tab; keep search indexing. No partner screens.
 
-### Phase 3 — Messaging → native (from WPMediaVerse) · 🔴 large · IN PROGRESS
+### Phase 3 — Messaging → native (from WPMediaVerse) · 🔴 large · ✅ DONE
+> Shipped: `includes/Messages/MessagesData.php` + full `assets/js/messages/store.js`
+> (1193 lines) + native `dm-*` partials (rail, thread, composer, group-panel,
+> media/delete modals — DM **and** group chat). The `buddynext_render_messages`
+> embed is removed; `/messages/` renders natively from `mvs/v1`. This is the
+> reference build the remaining native integrations copy.
 **Discovery:** MVS exposes a full `mvs/v1` messaging REST API
 (`MessagingController`): `GET/POST /conversations`, `GET/PATCH/DELETE
 /conversations/{id}`, `GET/POST /conversations/{id}/messages`,

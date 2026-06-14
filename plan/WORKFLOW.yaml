@@ -1,0 +1,185 @@
+// BuddyNext — Execution Workflow (fast-path source of truth)
+// Locked: 2026-06-14  ·  Release: 2026-06-20
+// Read with: PLANS-INDEX.md (map) · 2026-06-14-pro-packaging-lock.md (tier) · native-integration-program.md (how)
+// Format note: YAML-ish for human scanning; the laws/queue are the contract, not the syntax.
+
+meta:
+  product: BuddyNext (free) + BuddyNext Pro
+  thesis: "Mother of all — the nervous system that fuses the live Wbcom suite into one
+           AI-powered, monetizable community. Pro is the integration hub: the answer to 'why Pro'."
+  branches: "free + pro both on master/main — NO release branches"
+  version_policy: "pre-release — NEVER bump version strings anywhere"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LAW 1 — Tier model (locked)
+# ─────────────────────────────────────────────────────────────────────────────
+tiers:
+  free:
+    is: "a complete community OS"
+    has: [feed, spaces, profiles, social-graph, comments, reactions, moderation,
+           notifications, member-directory, basic-search, "100% REST", "AI-ready ability surface"]
+    core_integrations:   # mandatory floor — native surfaces live in FREE
+      - WPMediaVerse      # media upload + DM/messages (native, DONE)
+      - Jetonomy          # forums / Q&A (bridge in free; native forums surface PENDING)
+      - WB-Gamification   # points / badges / engagement
+    theme: BuddyX
+    tier_aware: "core bridges light up the sibling's Pro features when its Pro is installed;
+                 the bridge detects tier, never gates the sibling's own upsell"
+  pro:
+    is: "the application layer — community as a business"
+    business_integrations: [Career-Board, Learnomy, WB-Listora, Eventonomy,
+                            WPConnectPress, MediaShield, WP-Sell-Services, ProjectFlow]
+    plus: [money-rails, "wbcom-credits-sdk (one wallet)", "AI/agent runtime", automation,
+           analytics, push-FCM, realtime-Soketi, "power versions of free features"]
+    boot: "plugins_loaded:20 — consumes Free's events/REST/abilities"
+  business:
+    is: "your own branded AI-powered network"
+    has: [branded-native-app, full-white-label, custom-domain, SSO, advanced-roles,
+          audit-log, member-CRM, multi-community, "WPConnectPress at scale"]
+
+bridges:
+  in_free:  [WPMediaVerseBridge, JetonomyBridge, GamificationBridge, BuddyXBridge]
+  in_pro:   [CareerBoardBridge]                 # the one bridge that moves Free→Pro for launch
+  build_in_pro_new: [LearnomyBridge, ListoraBridge, EventonomyBridge, WPConnectPressBridge]
+
+governing_principle: "Raise the ceiling, don't lower the floor. Free is a COMPLETE
+                      community; Pro is ahead (integrations + money + AI), never withholding basics."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LAW 2 — Integration law (locked, reaffirmed 2026-06-14)
+# Every integration obeys ALL of these. No exceptions.
+# ─────────────────────────────────────────────────────────────────────────────
+integration_law:
+  where: "ALL app integration happens AT THE BUDDYNEXT LEVEL — BN is the integration layer.
+          The difference between our own products and 3rd parties is OWNERSHIP OF POLISH, not where it lives."
+
+  third_party:   # external developers integrating with BN
+    principle: "Can integrate at the BN level via the extension mechanism (bridges / hooks / filters / REST seams)."
+    rules:
+      - "BN exposes the seams; the 3rd-party developer is responsible for their own polish/UI."
+      - "This is the open door for outside devs — a fine, supported path for THEM."
+
+  first_party:   # OUR OWN suite products: WPMediaVerse, Jetonomy, Learnomy, Career Board, Listora, Eventonomy, WPConnectPress, Gamification
+    principle: "Also integrated at the BN level — but polished as PART OF THE SYSTEM from DAY 1.
+               Not a bolt-on the member can feel. BN owns the whole presentation; we never tune CSS per-addon."
+    rules:
+      - "The addon ships DATA/LOGIC ONLY — zero UI, zero CSS, zero JS shipped to BN routes. A pure headless API/data provider."
+      - "BuddyNext OWNS the entire presentation layer: markup, components, CSS, UX — one central system."
+      - "ONE place to style and polish. NEVER edit CSS in 10 addon-plugin locations to make a surface look right — BN overs all itself."
+      - "Every section is uniform because it is literally BN's own UI, not the addon's screen wrapped."
+      - "First-party native surfaces are built in BuddyNext PRO (only the 3 core surfaces — media, messages, forums — live in Free)."
+      - "If the addon's API is missing something the native surface needs, ADD it to the addon's API (we own it) — never add UI to the addon."
+
+  shared:        # applies to both classes
+    - "API-level only: no embedded 2nd-party screens inside BN pages."
+    - "No link-outs that jump the member from a BN section to a partner plugin's UI."
+    - "No foreign CSS/JS on BN routes (enforced by includes/Core/AssetIsolation.php)."
+
+  reference_pattern: "includes/Media/ (Client → Domain → Renderer → Assets → Surface) — addon = data, BN = everything seen"
+  proven_builds: ["media in feed (includes/Media/)",
+                  "messages + group chat (includes/Messages/ + dm-* partials + store.js) — DONE"]
+  how_doc: "plan/native-integration-program.md"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LAW 3 — Engineering contracts (every task must satisfy)
+# ─────────────────────────────────────────────────────────────────────────────
+contracts:
+  rest_frontend:  "100% REST, no admin-ajax — bin/check-rest-boundary.sh"
+  scale:          "LIMIT on lists, cursor not OFFSET, no COUNT(*) in renders, cached counters"
+  layering:       "controller (thin, no raw $wpdb) → service (owns DB) → BaseRestController auth"
+  lockstep:       "Free + Pro reconciled together; Pro never reaches into Free tables with raw SQL"
+  three_entry:    "every data store reachable via frontend + admin + REST"
+  tdd:            "failing test → minimal impl → green → commit, per task"
+  ui:             "no emoji in markup (use buddynext_icon); responsive verified at 390px;
+                   browser-verify every UI item via Playwright MCP before marking done"
+  no_file_splits: "large cohesive files are fine (3000 lines OK); split only to cut concepts/dups"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BUILD QUEUE — do in order; each ships verified (code + two-role browser walk) before next
+# ─────────────────────────────────────────────────────────────────────────────
+queue:
+
+  - id: 0
+    title: "CareerBoardBridge → Pro (application-layer move)"
+    why: "Jobs = a business app; only this one bridge moves for launch."
+    do:
+      - "Move includes/Bridges/CareerBoardBridge.php from free → pro."
+      - "Register it in Pro boot (plugins_loaded:20), de-register from Free boot."
+      - "Fix the dead guard: wcb_get_job / WCB_Career_Board don't exist in the real plugin;
+         correct to the actual Career Board API + hook signatures."
+      - "Free still exposes events/REST/abilities; Pro consumes them."
+    verify: "Free active alone = no jobs bridge errors; Pro active = bridge loads, jobs data reachable."
+    tier: Free→Pro
+    status: NEXT
+
+  - id: 1
+    title: "June 20 gating + positioning lock"
+    do:
+      - "Every built Pro feature correctly fenced behind Pro."
+      - "Every future Pro item shows 'coming in Pro', never 'missing'."
+      - "4 bridges ship: Jetonomy, Career Board, Gamification, WPMediaVerse."
+      - "3 declared roadmap: Learnomy, Eventonomy, WPConnectPress."
+      - "Verify Free still ships every basic capability (no basics cut)."
+    tier: "—"
+    status: PENDING
+
+  - id: 2
+    title: "Native jobs surface — includes/Jobs/ (Career Board API)"
+    pattern: "copy includes/Media/ — Client → domain → renderer → assets; native BN jobs hub/tab"
+    rule: "no partner screens; keep search indexing"
+    tier: Pro
+    status: PENDING
+
+  - id: 3
+    title: "Native forums — includes/Discussions/ (Jetonomy API)"
+    do:
+      - "Remove shell-wrap (jetonomy_before/after_content), jetonomy_show_community_nav→false."
+      - "New includes/Discussions/ package; BN-native discussion list/thread on BN URLs."
+      - "Keep (API-level): search indexing, reply notifications, rail link, space forum tab,
+         hashtag cross-link, profile count."
+    note: "Jetonomy bridge stays in Free (core); the native forums surface is the build."
+    tier: "Free (core integration)"
+    status: PENDING
+
+  - id: 4
+    title: "BN-native gap UIs (Phase 1)"
+    do: [reactions-palette-setting, "invites single+revoke", "approval-queue Members tab",
+         "announcements composer mode"]
+    tier: Free
+    status: PENDING
+
+  - id: 5
+    title: "Sweep (Phase 5)"
+    do: "audit every bridge surface: zero embedded screens, zero foreign assets, consistent BN components"
+    tier: "—"
+    status: PENDING
+
+  # Post-launch, revenue-first — each = new bridge IN PRO + native surface IN PRO
+  - id: 6
+    title: "LearnomyBridge + native courses surface (sell courses)"
+    tier: Pro
+    status: ROADMAP
+  - id: 7
+    title: "ListoraBridge + native directory surface (paid listings)"
+    tier: Pro
+    status: ROADMAP
+  - id: 8
+    title: "EventonomyBridge + native events surface (tickets)"
+    tier: Pro
+    status: ROADMAP
+  - id: 9
+    title: "WPConnectPressBridge + native video surface (Zoom/Meet)"
+    tier: Pro
+    status: ROADMAP
+  - id: 10
+    title: "AI / Abilities surface across the suite (wp-abilities/v1)"
+    split: "Free = AI-ready (read + basic act) · Pro = AI-driven (agent runtime)"
+    needs: "WP 6.9+ for core Abilities API, else feature-plugin/package — pin min-WP"
+    tier: "Free read · Pro runtime"
+    status: ROADMAP
+
+done_do_not_repeat:
+  - "6 flow refactors (moderation, feed+comments, profile, spaces, social-graph, notifications)"
+  - "Native media (includes/Media/) + native messaging & group chat (includes/Messages/)"
+  - "Asset isolation (includes/Core/AssetIsolation.php)"
+  - "Q1 foundation plans (2026-03-*)"
