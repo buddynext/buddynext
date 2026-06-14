@@ -123,6 +123,7 @@ one path = one schema = one documented handler.
 | `/spaces/(?P<id>[\d]+)/pending-requests` | GET |  | [Spaces/SpaceController.php:95](../../includes/Spaces/SpaceController.php#L95) |
 | `/spaces/(?P<id>[\d]+)/transfer-ownership` | POST |  | [Spaces/SpaceController.php:221](../../includes/Spaces/SpaceController.php#L221) |
 | `/users/(?P<id>[\d]+)/avatar` | POST | $this->require_admin() | [Profile/ProfileController.php:77](../../includes/Profile/ProfileController.php#L77) |
+| `/users/(?P<id>[\d]+)/avatar` | DELETE | $this->require_admin() | [Profile/ProfileController.php](../../includes/Profile/ProfileController.php) |
 | `/users/(?P<id>[\d]+)/block` | POST | $this->require_auth() | [SocialGraph/BlockController.php:33](../../includes/SocialGraph/BlockController.php#L33) |
 | `/users/(?P<id>[\d]+)/connect` | POST | $this->require_auth() | [SocialGraph/ConnectionController.php:33](../../includes/SocialGraph/ConnectionController.php#L33) |
 | `/users/(?P<id>[\d]+)/connect/accept` | POST |  | [SocialGraph/ConnectionController.php:50](../../includes/SocialGraph/ConnectionController.php#L50) |

@@ -668,6 +668,10 @@ A phase is Done when ALL of:
 
 | Date | Phase | Type | Description |
 |------|-------|------|-------------|
+| 2026-06-14 | profile-flow | refactor | ProfileController, MemberTypeController, MemberDirectoryController extend REST/BaseRestController (local require_auth/require_admin removed; MemberType keeps can_set_user_type) |
+| 2026-06-14 | profile-flow | feature | Added DELETE /users/{id}/avatar (admin) — closes the admin avatar-removal gap |
+| 2026-06-14 | profile-flow | feature | Added ProfileService::get_field_key; Pro AdvancedFieldRenderer resolves field keys through it instead of querying bn_profile_fields directly |
+| 2026-06-14 | profile-flow | note | Deferred: no post-upload cover focal-point adjustment endpoint (focal set on upload only); low priority |
 | 2026-06-14 | feed-flow | refactor | bn_posts counter writes (comment/reaction/share) + author lookups consolidated onto PostService::increment_counter/decrement_counter/get_author_id; routed from Comment/Reaction services + WPMediaVerse bridge |
 | 2026-06-14 | feed-flow | fix | Counter decrement used GREATEST(0, col-1) which underflows UNSIGNED columns; now GREATEST(1, col)-1 |
 | 2026-06-14 | feed-flow | refactor | FeedController announcement reads/writes moved to PostService::get_announcement/end_announcement (FeedController is $wpdb-free) |
