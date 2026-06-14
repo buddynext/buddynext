@@ -31,8 +31,14 @@ event_type, id)`. BN has ONE generic listener that mirrors any of them into
 `bn_notifications` (via `SuiteNotifications`). One source of truth per notification —
 BN never re-derives or guesses partner wording, so it can never drift.
 
-**Where the hook is missing, we ADD it to our own plugin** (not a BN-side workaround):
-- **Jetonomy** — already fires `jetonomy_notification_created` ✅. Wire BN's listener.
+**Where the hook is missing OR incomplete, we ADD/extend it in our own plugin** (not a
+BN-side workaround). The standard contract: `<plugin>_notification_created` must carry the
+**rendered message + link** (these plugins render at display time, so there's no stored
+text to mirror — the partner must render + pass it).
+- **Jetonomy** — fires `jetonomy_notification_created` but passes only IDs
+  (`notification_id, user_id, type, object_type, object_id`), not message+link.
+  **Card filed** (Jetonomy → Triage, card 9994156006) to append `$message, $link`. Wire
+  BN's listener once shipped.
 - **Career Board** — has NO creation hook. **Basecamp card filed** (WP Career Board →
   Triage, card 9994152495; CB dev 1.4.3) to add `wcb_notification_created` in free + pro
   at the point CB creates a notification (Pro bell `NotificationsBellModule::insert()`,
@@ -81,14 +87,17 @@ dashboard menu. That's acceptable: BN is the hub they live in; the partner menu 
 in-dashboard view. **Future option (Basecamp, partner-side):** a partner toggle to defer
 its own menu to BN once BN is the canonical center — out of scope here, never a unilateral BN change.
 
-## Build order (after lock)
+## Build order
 
-1. Free: add `buddynext_notification_url` + `buddynext_notification_meta` seams (symmetric to the existing message filter). TDD.
-2. Pro: `Suite\SuiteNotifications` (push + 3 render filters for `suite.*` + catalogue). TDD.
-3. Jetonomy listener (clean mirror via `jetonomy_notification_created`). TDD + verify in BN center.
-4. Career Board listener (event-derived, 5 events). TDD + verify.
-5. WPMediaVerse: fold messages into SuiteNotifications (optional).
-6. Browser-verify BN's `/notifications/` shows jobs + discussions + messages together, toggleable in prefs.
+1. ✅ **DONE** — Free: `buddynext_notification_url` + `buddynext_notification_meta` seams (symmetric to the existing message filter).
+2. ✅ **DONE** — Pro: `Suite\SuiteNotifications` (`push()` + 3 data-driven render filters for `suite.*` + per-source prefs catalogue, `can_email=false`). 5 tests.
+3. ⏳ **BLOCKED on partner hooks** — thin per-plugin listeners: Jetonomy (card 9994156006), Career Board (card 9994152495). Each is `add_action( '<plugin>_notification_created', fn → SuiteNotifications::push() )` + a `register_source()`. Lands the moment each hook ships message+link.
+4. WPMediaVerse: fold messages (`mvs_message_sent`) into `SuiteNotifications` for consistency (optional — already works).
+5. Browser-verify BN's `/notifications/` shows jobs + discussions + messages together, toggleable in prefs.
+
+## Cards filed
+- **Career Board** → Triage, card **9994152495** — add `wcb_notification_created` (free + pro).
+- **Jetonomy** → Triage, card **9994156006** — extend `jetonomy_notification_created` to pass message + link.
 
 ## Locked decisions (2026-06-14)
 - **Coexistence:** ACCEPT — BN aggregates; partner menus keep working in their own
