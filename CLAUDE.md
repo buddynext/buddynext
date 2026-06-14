@@ -451,6 +451,26 @@ wp_register_ability( 'buddynext-post-in-feed', [ 'label' => 'Post in Feed' ] );
 
 ---
 
+## Licensing & Updates (EDD SL SDK)
+
+The EDD Software Licensing SDK is vendored at `libs/edd-sl-sdk/` (committed, ships in the zip). It is the **single source of truth for the whole product family**: Pro requires the same file from Free's path and registers its own product on the same `edd_sl_sdk_registry` hook. Never copy the SDK into Pro.
+
+| | Free | Pro |
+|---|---|---|
+| EDD store | https://wbcomdesigns.com | https://wbcomdesigns.com |
+| Item ID | **1664401** | **1664402** |
+| License key | Preset `buddynext9a3c7e1d5f2b8a4c6e0d9b7f1a2c8e55` (lifetime, unlimited activations) — auto-activated on `admin_init`, stored in `buddynext_license_key`; `buddynext_preset_activated` marks success | Customer's paid key — entered in Settings > License, stored in `buddynext-pro_license_key` |
+
+**Rules (owner decisions, 2026-06-12):**
+
+1. **License gates updates ONLY. Never gate functionality on license state.**
+2. Wiring lives at the bottom of `buddynext.php`: registry registration + SDK require + preset auto-activation. Pro's side lives in `buddynext-pro.php` + `includes/License/` in the Pro repo.
+3. The Settings > License tab (`includes/Admin/Settings.php::render_license_tab()`) registers only while Pro is active and fires `buddynext_admin_license_tab_content` for Pro's activate/deactivate form. It renders OUTSIDE the options.php form wrapper — the license form posts directly and is handled on `admin_init` by Pro.
+4. Option names follow the SDK convention `{registry id}_license_key` / `{registry id}_license` (`buddynext_*` for free, `buddynext-pro_*` for Pro).
+5. Composer production deps stay bundled in `vendor/` (committed); vendored SDKs live in `libs/` — both ship in the repo so customers never run a build command.
+
+---
+
 ## Database Tables
 
 28 `bn_*` tables. All created in `Installer::run()` via `dbDelta()`.
@@ -693,6 +713,7 @@ A phase is Done when ALL of:
 | 2026-06-13 | moderation-flow | fix | GET /posts/{id}/content-warning read a phantom content_warning_text column (404'd every post); removed it |
 | 2026-06-13 | moderation-flow | fix | GET /spaces/{id}/bans ordered by a non-existent id column (returned empty); order by created_at. ban_from_space() stored null into NOT NULL banned_by; store 0 |
 | 2026-06-13 | moderation-flow | refactor | Consolidated log_warning() into warn(); Pro BulkModAdmin reads the queue via ModerationService::get_queue() instead of raw SQL |
+| 2026-06-12 | — | feature | Licensing: vendored EDD SL SDK at libs/edd-sl-sdk (family-wide single source); registered item 1664401 with preset auto-activated key in buddynext.php; Settings > License tab (Pro-only, fires buddynext_admin_license_tab_content); updates only — no feature gating |
 | 2026-03-21 | — | docs | Created CLAUDE.md — project instructions |
 | 2026-03-21 | 6 | feature | Created EmailSender — template fetch, placeholder render, HMAC unsub, send log |
 | 2026-03-21 | 6 | feature | Created EmailDispatchListener — hooks notification_created, handles ?bn_unsub= requests |
