@@ -668,6 +668,8 @@ A phase is Done when ALL of:
 
 | Date | Phase | Type | Description |
 |------|-------|------|-------------|
+| 2026-06-14 | notifications-flow | refactor | NotificationController extends REST/BaseRestController and is now $wpdb/usermeta-free (channel + space-pref data access moved into NotificationPrefService::get_channel_prefs/set_channel_prefs/list_space_notification_prefs) |
+| 2026-06-14 | notifications-flow | feature | Added NotificationService::get (canonical hydrated row); Pro PushDispatcher reads it instead of querying bn_notifications directly |
 | 2026-06-14 | social-graph-flow | refactor | FollowController, ConnectionController, BlockController extend REST/BaseRestController |
 | 2026-06-14 | social-graph-flow | feature | Added relationship-inspection endpoints: GET /users/{id}/follow/status, /connection/status, /mutual-connections, /account-type, /me/follow-requests/count (bulk-status endpoints deferred — directory returns relationship data server-side) |
 | 2026-06-14 | social-graph-flow | docs | Documented that Pro FunnelService reads Free analytics tables (incl. bn_follows) directly by design (read-only funnel aggregates, not routed through services) |
