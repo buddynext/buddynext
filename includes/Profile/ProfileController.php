@@ -91,6 +91,23 @@ class ProfileController extends BaseRestController {
 			)
 		);
 
+		// DELETE merges onto the same path as the POST above.
+		register_rest_route(
+			'buddynext/v1',
+			'/users/(?P<id>[\d]+)/avatar',
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( $this, 'admin_delete_avatar' ),
+				'permission_callback' => array( $this, 'require_admin' ),
+				'args'                => array(
+					'id' => array(
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			'buddynext/v1',
 			'/users/(?P<id>[\d]+)/cover',
@@ -1081,6 +1098,30 @@ class ProfileController extends BaseRestController {
 		}
 
 		return $this->handle_avatar_upload( $user_id );
+	}
+
+	/**
+	 * DELETE /users/{id}/avatar — remove any user's avatar (admin only).
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function admin_delete_avatar( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$user_id = (int) $request->get_param( 'id' );
+
+		if ( ! get_userdata( $user_id ) ) {
+			return new WP_Error( 'user_not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		buddynext_service( 'profiles' )->delete_avatar( $user_id );
+
+		return new WP_REST_Response(
+			array(
+				'deleted' => true,
+				'user_id' => $user_id,
+			),
+			200
+		);
 	}
 
 	/**
