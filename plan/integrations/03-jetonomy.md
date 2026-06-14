@@ -38,13 +38,13 @@ Jetonomy owns: `jt_spaces` (forums), `jt_posts` (discussions), `jt_replies`,
 
 ## Build tasks (TDD; each verified)
 
-### Task A — Activity on new discussion · Pro/bridge
+### Task A — Activity on new discussion · ✅ DONE
 `jetonomy_after_create_post( $post_id, $space_id )` → `SuiteActivity::publish( author,
 'started a discussion', $discussion_url, $title )`. Read author/title from `jt_posts`
 (the hook passes only ids, like the search handler already does). Delete on post-delete.
 Verify: starting a discussion creates a feed activity; deleting removes it.
 
-### Task B — On-demand space forum · Pro/bridge
+### Task B — On-demand space forum · ✅ DONE (+ REST: POST buddynext/v1/spaces/{id}/forum)
 When the space Discussions tab is opened and no `bn_space_{id}_jetonomy_forum_id` exists,
 lazily create a paired `jt_space` (Jetonomy space-create API / `jetonomy_after_create_space`)
 named after the BN space, store the option, then render. Keep the manual Space-Settings
