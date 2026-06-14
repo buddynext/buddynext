@@ -4,6 +4,22 @@
 plugin (see `WORKFLOW.yaml` integration_law). This doc defines the **shared surfaces**
 each integration plugs into so that N integrations never cost N profile tabs.
 
+## App coverage (REST-first) — non-negotiable
+
+BuddyNext ships a native app, so **every surface is REST-first: data via REST, web +
+app both render from it.** No server-rendered-only feature. One data source, two surfaces.
+
+| Surface | Data source | App endpoint |
+|---|---|---|
+| Activity / feed | `bn_posts` (via `IntegrationActivity`) | existing feed REST ✅ |
+| Notifications | `bn_notifications` (via `SuiteNotifications`) | existing notifications REST ✅ |
+| Portfolio panels | `SuiteProfile::panels()` (= `buddynext_member_suite_panels`) | `GET buddynext-pro/v1/members/{id}/portfolio` ✅ |
+| Profile stats tiles | `buddynext_profile_extra_data` | served with the profile REST ✅ |
+
+**Rule for every new integration touchpoint:** build the REST endpoint in the same
+change as the web render, both reading the same provider/service. A web tab without an
+app endpoint is incomplete.
+
 ## The rule that prevents tab explosion
 
 > Integrations do **not** add their own profile tabs, routes, or screens. They register
