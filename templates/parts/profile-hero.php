@@ -261,11 +261,13 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 					<?php if ( $bn_pf_pronouns ) : ?>
 						<span class="bn-pf-pronouns">(<?php echo esc_html( $bn_pf_pronouns ); ?>)</span>
 					<?php endif; ?>
-					<?php if ( $bn_pf_headline ) : ?>
-						<span class="bn-pf-headline-sep" aria-hidden="true">&middot;</span>
-						<span class="bn-pf-headline"><?php echo esc_html( $bn_pf_headline ); ?></span>
-					<?php endif; ?>
 				</div>
+				<?php
+				// Headline is intentionally not shown in the hero — the bio below
+				// is the tagline, and a separate headline next to the handle just
+				// wasted space. The field is kept in profile edit so it can return
+				// later as a dedicated tagline (X/LinkedIn style) without data loss.
+				?>
 
 				<?php if ( $bn_pf_bio ) : ?>
 					<div class="bn-pf-bio"><?php echo wp_kses_post( $bn_pf_bio ); ?></div>
