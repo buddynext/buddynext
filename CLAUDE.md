@@ -668,6 +668,11 @@ A phase is Done when ALL of:
 
 | Date | Phase | Type | Description |
 |------|-------|------|-------------|
+| 2026-06-14 | spaces-flow | refactor | SpaceController is now $wpdb-free: ban/unban/remove delegate to SpaceMemberService, transfer to new SpaceService::transfer_ownership, join ban-check to is_banned_from_space |
+| 2026-06-14 | spaces-flow | fix | Reconciled the removal hook: SpaceMemberService::remove() fires the canonical buddynext_space_member_removed (consumed by WidgetListener), not the orphan buddynext_member_removed_from_space; controller no longer double-fires ban/unban/remove hooks |
+| 2026-06-14 | spaces-flow | refactor | SpaceController + SpaceCategoryController extend REST/BaseRestController |
+| 2026-06-14 | spaces-flow | feature | Added PUT /space-categories/{id} (edit category) and POST /spaces/{id}/join/cancel (withdraw pending request) |
+| 2026-06-14 | spaces-flow | refactor | Pro BrandService + RealtimeAssets read bn_spaces via Free SpaceService (get/get_by_slug); PaywallIntegration required_ability read kept (Pro-only column, documented) |
 | 2026-06-14 | profile-flow | refactor | ProfileController, MemberTypeController, MemberDirectoryController extend REST/BaseRestController (local require_auth/require_admin removed; MemberType keeps can_set_user_type) |
 | 2026-06-14 | profile-flow | feature | Added DELETE /users/{id}/avatar (admin) — closes the admin avatar-removal gap |
 | 2026-06-14 | profile-flow | feature | Added ProfileService::get_field_key; Pro AdvancedFieldRenderer resolves field keys through it instead of querying bn_profile_fields directly |

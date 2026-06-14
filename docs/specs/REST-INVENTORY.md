@@ -103,6 +103,7 @@ one path = one schema = one documented handler.
 | `/search` | GET | public | [Search/SearchController.php:31](../../includes/Search/SearchController.php#L31) |
 | `/search/members` | GET | public | [Search/SearchController.php:66](../../includes/Search/SearchController.php#L66) |
 | `/space-categories` | GET | public | [Spaces/SpaceCategoryController.php:31](../../includes/Spaces/SpaceCategoryController.php#L31) |
+| `/space-categories/(?P<id>[\d]+)` | PUT/PATCH | $this->require_manage_options() | [Spaces/SpaceCategoryController.php](../../includes/Spaces/SpaceCategoryController.php) |
 | `/space-categories/(?P<id>[\d]+)` | DELETE | $this->require_manage_options() | [Spaces/SpaceCategoryController.php:67](../../includes/Spaces/SpaceCategoryController.php#L67) |
 | `/spaces` | GET | public | [Spaces/SpaceController.php:46](../../includes/Spaces/SpaceController.php#L46) |
 | `/spaces/(?P<id>[\d]+)` | GET | public | [Spaces/SpaceController.php:63](../../includes/Spaces/SpaceController.php#L63) |
@@ -114,6 +115,7 @@ one path = one schema = one documented handler.
 | `/spaces/(?P<id>[\d]+)/feed` | GET |  | [Feed/FeedController.php:68](../../includes/Feed/FeedController.php#L68) |
 | `/spaces/(?P<id>[\d]+)/invite` | POST |  | [Spaces/SpaceController.php:132](../../includes/Spaces/SpaceController.php#L132) |
 | `/spaces/(?P<id>[\d]+)/join` | POST | $this->require_auth() | [Spaces/SpaceController.php:105](../../includes/Spaces/SpaceController.php#L105) |
+| `/spaces/(?P<id>[\d]+)/join/cancel` | POST | $this->require_auth() | [Spaces/SpaceController.php](../../includes/Spaces/SpaceController.php) |
 | `/spaces/(?P<id>[\d]+)/leave` | POST |  | [Spaces/SpaceController.php:122](../../includes/Spaces/SpaceController.php#L122) |
 | `/spaces/(?P<id>[\d]+)/members` | GET |  | [Spaces/SpaceController.php:85](../../includes/Spaces/SpaceController.php#L85) |
 | `/spaces/(?P<id>[\d]+)/members/(?P<user_id>[\d]+)` | DELETE |  | [Spaces/SpaceController.php:211](../../includes/Spaces/SpaceController.php#L211) |
