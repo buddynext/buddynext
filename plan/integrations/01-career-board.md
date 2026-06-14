@@ -38,7 +38,7 @@ that drives engagement around that plugin:
 
 | Touchpoint | What | Status |
 |---|---|---|
-| **Notifications** | **Deferred to Career Board — BN does NOT create them.** CB owns application/job notifications via its own in-app bell (`wcb_notifications` + `wcb/v1/notifications`, when CB Pro is active) + emails. Duplicating would double-notify. (Confirmed against CB's `audit/manifest.json`.) | ✅ DECIDED (defer) |
+| **Notifications** | **Aggregate into BN's central center** (per `02-notification-aggregation.md`). CB has no notification-created hook, so a Basecamp card (CB 1.4.3, card 9994152495) requests `wcb_notification_created`; BN clean-mirrors it (like Jetonomy). CB's own bell keeps working (coexist). No event-derived fallback. | ⏳ BLOCKED on CB hook |
 | **Activity on post** | `wcb_job_created` → BN feed activity + `bn_search_index`; `wcb_job_expired` removes it. `wcbp_resume_published` → "open to work" activity (public resumes only). Idempotent via `SuiteActivity`/`PostService::exists_by_link`. | ✅ DONE (Pro, committed) |
 | **Search** | `wcb_job_created` → index job in `bn_search_index` (findable in BN search). | ✅ DONE |
 | **Profile — jobs** | Portfolio panel: member's jobs → each job's CB page; "View all" → member's CB company page; owner-only "Manage" → employer dashboard. | ✅ DONE (Pro, committed) |
