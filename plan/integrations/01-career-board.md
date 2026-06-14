@@ -73,18 +73,42 @@ are Career Board's own pages (link out, don't embed).
 
 ---
 
-## Build tasks (TODO — light, no takeover)
+## The social layer (decided 2026-06-14)
 
-### Task A — Activity on job/resume post · Pro (bridge)
-Extend `CareerBoardBridge::on_job_created` to publish a BN activity (author = employer,
-text = "posted a new job: {title}", link = job permalink, card type `job_post`) so it
-appears in the feed. Add a resume listener for the same. Reuse `PostService` (no raw SQL).
-Verify: posting a job creates a feed activity; expiry removes it.
+Career Board wires into the **shared surfaces** from `00-social-layer-architecture.md` —
+**no Jobs tab, no Resumes tab**, no takeover. All four signals approved:
 
-### Task B — Profile jobs + resumes · Pro
-Add a "Jobs" (and resumes) profile tab via `buddynext_part_profile_tab_bar_args`; render
-a BN-native panel listing the member's posted jobs/resumes with links to Career Board.
-Count badge from `WP_Query`. Verify on a profile with seeded jobs, desktop + 390px.
+| Signal | Surface | How |
+|---|---|---|
+| Activity on new job post | **Feed** | `wcb_job_created` → `SuiteActivity::publish()` ("posted a new job: {title}", links to the job). `wcb_job_expired` removes the card. |
+| Jobs on profile | **Portfolio tab** | `buddynext_member_suite_panels` → a `cb_jobs` panel listing the member's posted jobs, linking out to Career Board. |
+| Resume / "Open to work" | **Portfolio tab** | a `cb_resume` panel, **gated on the member's resume visibility** (sensitive — only when they've made it public / open-to-work). |
+| Application notifications | **Notifications** | ✅ already in `CareerBoardBridge` (employer on apply, candidate on status). |
 
-### Task C — Space (later) · Pro
-Only if a community wants a space-scoped job board. Same light pattern.
+Optional add-on: a lightweight stats-strip tile ("3 jobs posted") via `buddynext_profile_extra_data`.
+
+## Build tasks (TDD; build the shared infra first, then CB plugs in)
+
+### Task A — Shared infra (build once) · Pro
+Per `00-social-layer-architecture.md`: `includes/Suite/SuiteProfile.php` (Portfolio tab +
+`buddynext_member_suite_panels` provider API + `templates/suite/portfolio.php`) and
+`includes/Suite/SuiteActivity.php` (feed-activity helper over `PostService`). Tests: panels
+aggregate + sort by priority; tab hidden when no panels; activity helper creates a card.
+**First confirm** the profile-tab panel-render mechanism (see that doc's open note).
+
+### Task B — Career Board provider · Pro
+`includes/Integrations/CareerBoard/CareerBoardSocial.php`: register the `cb_jobs` panel
+(member's `wcb_job` by author, link to Career Board) and the `cb_resume` panel gated on
+resume visibility. Test: provider returns the member's jobs; resume panel hidden when not public.
+
+### Task C — Activity on post · Pro
+In the CB social module (or bridge), `wcb_job_created` → `SuiteActivity::publish()`; add the
+resume-created listener. Verify: posting a job creates a feed activity; expiry removes it.
+
+### Task D — Verify · Pro
+Browser: a seeded member's profile shows ONE Portfolio tab with Jobs (+ Resume if public)
+sections linking to Career Board; posting a job creates a feed activity. Desktop + 390px,
+light + dark. Confirm Career Board's own pages are untouched.
+
+### Later — Space
+A space-scoped job board only if a community wants it. Same shared-surface pattern.
