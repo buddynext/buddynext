@@ -38,7 +38,6 @@ use BuddyNext\Moderation\SafeguardService;
 use BuddyNext\Feed\ShareService;
 use BuddyNext\Blocks\BlockRegistrar;
 use BuddyNext\Bridges\BuddyXBridge;
-use BuddyNext\Bridges\CareerBoardBridge;
 use BuddyNext\Bridges\GamificationBridge;
 use BuddyNext\Bridges\GamificationBridgeListener;
 use BuddyNext\Bridges\JetonomyBridge;
@@ -352,7 +351,8 @@ class Plugin {
 				( new WPMediaVerseBridge() )->init();
 				( new GamificationBridge() )->init();
 				( new JetonomyBridge() )->init();
-				( new CareerBoardBridge() )->init();
+				// CareerBoardBridge moved to BuddyNext Pro (jobs = application layer).
+				// Pro registers it on this same `buddynext_load_bridges` seam.
 
 				// Bridge-specific notification listeners — each guards via class_exists
 				// internally and bails when the paired plugin is not active.

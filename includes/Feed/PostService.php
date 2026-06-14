@@ -429,6 +429,40 @@ class PostService {
 	}
 
 	/**
+	 * Delete feed cards matching a content type and external link.
+	 *
+	 * Used by integration bridges (e.g. Career Board) to remove the feed card
+	 * for an external object — a job posting, listing, etc. — when that object
+	 * is removed or expires upstream. Keeps raw `bn_posts` access inside the
+	 * service layer so bridges (including Pro bridges) never query Free tables
+	 * directly.
+	 *
+	 * @param string $type     Post type marker (e.g. 'job_post').
+	 * @param string $link_url Canonical link the card points at.
+	 * @return int Number of rows deleted.
+	 */
+	public function delete_by_link( string $type, string $link_url ): int {
+		if ( '' === $type || '' === $link_url ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$deleted = (int) $wpdb->delete(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'type'     => $type,
+				'link_url' => $link_url,
+			),
+			array( '%s', '%s' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return $deleted;
+	}
+
+	/**
 	 * Pin a post to the author's profile.
 	 *
 	 * @param int      $post_id  Post to pin.

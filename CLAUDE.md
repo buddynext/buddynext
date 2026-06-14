@@ -688,6 +688,8 @@ A phase is Done when ALL of:
 
 | Date | Phase | Type | Description |
 |------|-------|------|-------------|
+| 2026-06-14 | career-board-int | refactor | CareerBoardBridge moved Free→Pro (jobs = application layer); Free no longer registers it. Pro registers it on the buddynext_load_bridges seam. Added PostService::delete_by_link so the bridge never queries bn_posts directly. |
+| 2026-06-14 | career-board-int | fix | Career Board bridge corrected to real hook signatures (verified against wp-career-board source): guard on wcb_run (was nonexistent wcb_get_job/WCB_Career_Board); on_job_created reads from the job post (hook passes WP_REST_Request, not an array); status_changed/withdrawn resolve candidate (_wcb_candidate_id meta) and employer (job post_author) since the hooks omit them. |
 | 2026-06-14 | notifications-flow | refactor | NotificationController extends REST/BaseRestController and is now $wpdb/usermeta-free (channel + space-pref data access moved into NotificationPrefService::get_channel_prefs/set_channel_prefs/list_space_notification_prefs) |
 | 2026-06-14 | notifications-flow | feature | Added NotificationService::get (canonical hydrated row); Pro PushDispatcher reads it instead of querying bn_notifications directly |
 | 2026-06-14 | social-graph-flow | refactor | FollowController, ConnectionController, BlockController extend REST/BaseRestController |

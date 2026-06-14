@@ -59,15 +59,9 @@ if ( ! function_exists( 'wb_gamification_badge_awarded' ) ) {
 	/** Stub: WBGamification badge_awarded function. */
 	function wb_gamification_badge_awarded(): void {}
 }
-if ( ! function_exists( 'wcb_get_job' ) ) {
-	/** Stub: Career Board wcb_get_job function. */
-	function wcb_get_job(): void {}
-}
 // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound
 
-if ( ! class_exists( 'WCB_Career_Board' ) ) {
-	class_alias( BuddyNext_Test_Addon_Stub::class, 'WCB_Career_Board' );
-}
+// Career Board stubs removed — CareerBoardBridge moved to BuddyNext Pro.
 if ( ! class_exists( 'Jetonomy\Core\Plugin' ) ) {
 	class_alias( BuddyNext_Test_Addon_Stub::class, 'Jetonomy\Core\Plugin' );
 }
