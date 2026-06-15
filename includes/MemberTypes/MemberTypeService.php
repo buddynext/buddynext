@@ -342,7 +342,11 @@ class MemberTypeService {
 		$cache_key = 'bn_member_type_' . $user_id;
 		$cached    = $this->cache->get( $cache_key );
 
-		if ( false !== $cached ) {
+		// CacheService::get() returns null (not false) on a miss, and set() only
+		// ever stores an array or the 'none' sentinel — never null — so a real
+		// cache hit is `null !== $cached`. Checking `false !==` treated every
+		// miss (null) as a hit and returned null without reading usermeta/the DB.
+		if ( null !== $cached ) {
 			// Cache stores the type array or the string 'none' to avoid repeated DB hits.
 			return 'none' === $cached ? null : $cached;
 		}
