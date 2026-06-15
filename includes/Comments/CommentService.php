@@ -127,6 +127,27 @@ class CommentService {
 		 */
 		do_action( 'buddynext_comment_created', $comment_id, $object_type, $object_id, $user_id );
 
+		// Parse @username mentions in the comment and notify each mentioned user.
+		// Mirrors PostService's mention handling; for a comment the deep link is
+		// the post the comment is on, so the existing bn.mention listener
+		// (object_id = post id) resolves correctly with no signature change.
+		if ( 'post' === $object_type ) {
+			preg_match_all( '/@([a-zA-Z0-9_-]+)/u', $content, $bn_mention_matches );
+			$bn_notified = array();
+			foreach ( $bn_mention_matches[1] as $bn_raw_username ) {
+				$bn_username = sanitize_user( $bn_raw_username, true );
+				if ( '' === $bn_username || isset( $bn_notified[ $bn_username ] ) ) {
+					continue;
+				}
+				$bn_notified[ $bn_username ] = true;
+				$bn_mentioned = get_user_by( 'login', $bn_username );
+				if ( $bn_mentioned instanceof \WP_User && $bn_mentioned->ID !== $user_id ) {
+					/** This action is documented in includes/Feed/PostService.php */
+					do_action( 'buddynext_user_mentioned', $bn_mentioned->ID, $user_id, $object_id );
+				}
+			}
+		}
+
 		if ( 'post' === $object_type ) {
 			$author_id = buddynext_service( 'post_service' )->get_author_id( $object_id );
 
