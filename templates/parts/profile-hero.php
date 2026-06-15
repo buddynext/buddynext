@@ -466,11 +466,13 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 					<span><?php esc_html_e( 'Connected', 'buddynext' ); ?></span>
 				</button>
 
-				<a href="<?php echo esc_url( add_query_arg( 'with', $bn_pf_uid, \BuddyNext\Core\PageRouter::messages_url() ) ); ?>"
-					class="bn-btn" data-variant="secondary" data-size="sm">
-					<?php buddynext_icon( 'message-circle' ); ?>
-					<span><?php esc_html_e( 'Message', 'buddynext' ); ?></span>
-				</a>
+				<?php if ( \BuddyNext\Messages\MessagesData::entry_enabled() ) : ?>
+					<a href="<?php echo esc_url( add_query_arg( 'with', $bn_pf_uid, \BuddyNext\Core\PageRouter::messages_url() ) ); ?>"
+						class="bn-btn" data-variant="secondary" data-size="sm">
+						<?php buddynext_icon( 'message-circle' ); ?>
+						<span><?php esc_html_e( 'Message', 'buddynext' ); ?></span>
+					</a>
+				<?php endif; ?>
 
 				<!-- Share profile popover -->
 				<div class="bn-share-menu-wrap" data-wp-class--is-open="context.shareMenuOpen">

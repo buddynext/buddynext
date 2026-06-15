@@ -165,7 +165,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 				data-wp-bind--hidden="!state.cardMenuOpen"
 				hidden
 			>
-				<?php if ( 'accepted' === $bn_conn_status && '' !== $bn_messages_url ) : ?>
+				<?php if ( 'accepted' === $bn_conn_status && '' !== $bn_messages_url && \BuddyNext\Messages\MessagesData::entry_enabled() ) : ?>
 					<a
 						class="bn-md-card__menu-item"
 						role="menuitem"

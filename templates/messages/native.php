@@ -28,12 +28,19 @@ if ( ! MessagesData::available() ) :
 		<div class="bn-card bn-dm-dep-notice" role="status">
 			<div class="bn-dm-dep-notice__head">
 				<span class="bn-dm-dep-notice__icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
-				<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Dependency required', 'buddynext' ); ?></span>
+				<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Unavailable', 'buddynext' ); ?></span>
 			</div>
-			<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Direct messaging requires WPMediaVerse', 'buddynext' ); ?></h2>
-			<p class="bn-dm-dep-notice__body">
-				<?php esc_html_e( 'Install and activate the WPMediaVerse plugin to enable direct messaging in BuddyNext.', 'buddynext' ); ?>
-			</p>
+			<?php if ( current_user_can( 'manage_options' ) ) : ?>
+				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Direct messaging requires WPMediaVerse', 'buddynext' ); ?></h2>
+				<p class="bn-dm-dep-notice__body">
+					<?php esc_html_e( 'Install and activate the WPMediaVerse plugin to enable direct messaging in BuddyNext. (This notice is only shown to administrators.)', 'buddynext' ); ?>
+				</p>
+			<?php else : ?>
+				<h2 class="bn-dm-dep-notice__title"><?php esc_html_e( 'Messaging isn’t available right now', 'buddynext' ); ?></h2>
+				<p class="bn-dm-dep-notice__body">
+					<?php esc_html_e( 'Direct messaging is currently unavailable on this community. Please check back later.', 'buddynext' ); ?>
+				</p>
+			<?php endif; ?>
 		</div>
 	</div>
 	<?php

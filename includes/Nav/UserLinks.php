@@ -130,11 +130,12 @@ final class UserLinks {
 			),
 		);
 
-		// Drop the Messages item when the site owner has turned direct messaging
-		// off (buddynext_enable_dm). The catalogue is the single source of truth
-		// for the header dropdown, the menu metabox, and the menu resolver, so
-		// removing it here hides messaging everywhere those consumers read.
-		if ( ! \BuddyNext\Messages\MessagesData::dm_enabled() ) {
+		// Drop the Messages item when messaging is not a usable entry point —
+		// either the site owner turned direct messaging off (buddynext_enable_dm)
+		// OR the WPMediaVerse engine that backs it is not active. The catalogue is
+		// the single source of truth for the header dropdown, the menu metabox,
+		// and the menu resolver, so removing it here hides messaging everywhere.
+		if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
 			$items = array_values(
 				array_filter(
 					$items,
