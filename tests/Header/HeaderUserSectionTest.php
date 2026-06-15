@@ -86,9 +86,10 @@ class HeaderUserSectionTest extends \WP_UnitTestCase {
 		$this->assertStringContainsString( 'maya-lin', $html );
 		// Display name shown in the dropdown head.
 		$this->assertStringContainsString( 'Maya Lin', $html );
-		// Quick links present.
-		$this->assertStringContainsString( 'View Profile', $html );
+		// User-specific account links present.
+		$this->assertStringContainsString( 'My Profile', $html );
 		$this->assertStringContainsString( 'Edit Profile', $html );
+		$this->assertStringContainsString( 'Settings', $html );
 		// Log out item with the real logout URL.
 		$this->assertStringContainsString( 'is-logout', $html );
 		$this->assertStringContainsString( 'Log Out', $html );
@@ -118,7 +119,7 @@ class HeaderUserSectionTest extends \WP_UnitTestCase {
 		// The injected real menu item replaces the defaults...
 		$this->assertStringContainsString( 'Dashboard', $html );
 		$this->assertStringContainsString( 'https://example.org/dashboard/', $html );
-		$this->assertStringNotContainsString( 'View Profile', $html );
+		$this->assertStringNotContainsString( 'My Profile', $html );
 		// ...but Log Out is always appended by the section, never lost.
 		$this->assertStringContainsString( 'Log Out', $html );
 		$this->assertStringContainsString( 'is-logout', $html );

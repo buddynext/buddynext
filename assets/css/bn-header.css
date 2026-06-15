@@ -16,14 +16,17 @@
 	gap: var(--bn-s2, 0.5rem);
 }
 
-/* ── Icon buttons (bell, messages) ──────────────────────────────────────── */
-.bn-header-user-section .bn-block-notification-bell,
+/* ── Icon buttons (bell, messages) ──────────────────────────────────────────
+   Targeted by component class (not via .bn-header-user-section) so they style
+   identically whether rendered as the wrapped block/shortcode or dropped into a
+   theme header one piece at a time (e.g. Reign's per-icon template parts). */
+.bn-block-notification-bell,
 .bn-header-msg {
 	position: relative;
 	display: inline-flex;
 }
 
-.bn-header-user-section .bn-notification-bell-link,
+.bn-notification-bell-link,
 .bn-header-msg {
 	display: inline-flex;
 	align-items: center;
@@ -37,20 +40,20 @@
 		color var(--bn-dur-fast, 0.12s) var(--bn-ease, ease);
 }
 
-.bn-header-user-section .bn-notification-bell-link:hover,
-.bn-header-user-section .bn-notification-bell-link:focus-visible,
+.bn-notification-bell-link:hover,
+.bn-notification-bell-link:focus-visible,
 .bn-header-msg:hover,
 .bn-header-msg:focus-visible {
 	background: var(--bn-sunken, #f1f5f9);
 	color: var(--bn-ink, #0f172a);
 }
 
-.bn-header-user-section .bn-notification-bell-icon,
+.bn-notification-bell-icon,
 .bn-header-msg__icon {
 	display: inline-flex;
 }
 
-.bn-header-user-section .bn-notification-bell-icon svg,
+.bn-notification-bell-icon svg,
 .bn-header-msg__icon svg,
 .bn-header-user__item-icon svg,
 .bn-header-user__caret svg {
@@ -58,11 +61,26 @@
 	height: 20px;
 }
 
-/* The bell's own badge primitive sits top-right; pin it to the icon button. */
-.bn-header-user-section .bn-block-notification-bell .bn-notification-badge {
+/* Notification count: a corner badge over the bell's top-right (like every
+   social app), not an inline pill beside it. The surface-coloured ring cuts the
+   badge out from the icon. */
+.bn-block-notification-bell .bn-notification-badge {
 	position: absolute;
-	top: 2px;
-	right: 2px;
+	top: 1px;
+	right: 1px;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	border-radius: var(--bn-r-full, 999px);
+	border: 2px solid var(--bn-surface, #fff);
+	font-size: var(--bn-text-2xs, 0.6875rem);
+	font-weight: var(--bn-fw-semibold, 600);
+	line-height: 1;
+	pointer-events: none;
 }
 
 /* ── User: avatar + caret + dropdown ────────────────────────────────────── */

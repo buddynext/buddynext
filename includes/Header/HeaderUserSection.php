@@ -21,6 +21,7 @@ namespace BuddyNext\Header;
 
 use BuddyNext\Core\PageRouter;
 use BuddyNext\Messages\MessagesData;
+use BuddyNext\Nav\UserLinks;
 
 /**
  * Renders BuddyNext's header user section.
@@ -124,52 +125,41 @@ final class HeaderUserSection {
 	}
 
 	/**
-	 * The dropdown quick links (full set), each only when its URL resolves.
+	 * The dropdown quick links — a user-specific account menu for the member
+	 * who is logged in (their own profile, settings, and activity).
 	 *
-	 * The list is filterable so a theme or integration can present a real,
-	 * site-controlled menu instead of (or alongside) these defaults — e.g. the
-	 * Reign compatibility layer feeds in the site's assigned "User Profile" nav
-	 * menu. Log Out is appended separately by user_menu() and is never part of
-	 * this list, so a filter can never accidentally drop it.
+	 * Every URL points at the CURRENT member: "My Profile" → their profile,
+	 * "Edit Profile" → their edit screen, "Settings" → their settings, etc. The
+	 * list is filterable so a theme or integration can present a site-controlled
+	 * menu instead — and any URL it returns is still resolved per-user via the
+	 * `#bn-*` tokens (see resolve_user_url()), so an admin's custom menu stays
+	 * specific to whoever is logged in. Log Out is appended separately by
+	 * user_menu() and is never part of this list.
 	 *
 	 * @param int $user_id Member.
 	 * @return array<int,array{label:string,url:string,icon:string}>
 	 */
 	private static function links( int $user_id ): array {
-		$candidates = array(
-			array(
-				'label' => __( 'View Profile', 'buddynext' ),
-				'url'   => PageRouter::profile_url( $user_id ),
-				'icon'  => 'user',
-			),
-			array(
-				'label' => __( 'Edit Profile', 'buddynext' ),
-				'url'   => PageRouter::edit_profile_url( $user_id ),
-				'icon'  => 'settings',
-			),
-			array(
-				'label' => __( 'Messages', 'buddynext' ),
-				'url'   => PageRouter::messages_url(),
-				'icon'  => 'messages-square',
-			),
-			array(
-				'label' => __( 'Notifications', 'buddynext' ),
-				'url'   => PageRouter::notifications_url(),
-				'icon'  => 'bell',
-			),
-			array(
-				'label' => __( 'Bookmarks', 'buddynext' ),
-				'url'   => PageRouter::bookmarks_url(),
-				'icon'  => 'bookmark',
-			),
-			array(
-				'label' => __( 'Spaces', 'buddynext' ),
-				'url'   => PageRouter::spaces_url(),
-				'icon'  => 'grid',
-			),
-		);
+		// Build the curated defaults from the shared catalogue (logged-in items,
+		// minus Log Out which user_menu() appends separately), resolved to the
+		// current member. One source of truth shared with the WP nav-menu items.
+		$candidates = array();
+		foreach ( UserLinks::items( UserLinks::LOGGEDIN ) as $item ) {
+			if ( '#bn-logout' === $item['token'] ) {
+				continue;
+			}
+			$url = UserLinks::resolve( $item['token'], $user_id );
+			if ( '' === $url ) {
+				continue;
+			}
+			$candidates[] = array(
+				'label' => $item['label'],
+				'url'   => $url,
+				'icon'  => $item['icon'],
+			);
+		}
 
-		$links = array_values( array_filter( $candidates, static fn( array $l ): bool => '' !== (string) $l['url'] ) );
+		$links = $candidates;
 
 		/**
 		 * Filters the BuddyNext header dropdown quick links.
@@ -183,21 +173,50 @@ final class HeaderUserSection {
 		 */
 		$links = (array) apply_filters( 'buddynext_header_user_menu_links', $links, $user_id );
 
-		// Normalize so a misbehaving filter can never break the markup: keep only
-		// well-formed rows that have a label and a non-empty URL.
+		// Normalize so a misbehaving filter can never break the markup, and
+		// resolve any `#bn-*` user token to the current member's URL so every
+		// row is specific to whoever is logged in (even admin-built menus).
 		$clean = array();
 		foreach ( $links as $link ) {
 			if ( ! is_array( $link ) || empty( $link['url'] ) || ! isset( $link['label'] ) || '' === (string) $link['label'] ) {
 				continue;
 			}
+			$url = self::resolve_user_url( (string) $link['url'], $user_id );
+			if ( '' === $url ) {
+				continue;
+			}
 			$clean[] = array(
 				'label' => (string) $link['label'],
-				'url'   => (string) $link['url'],
+				'url'   => $url,
 				'icon'  => isset( $link['icon'] ) ? (string) $link['icon'] : '',
 			);
 		}
 
 		return $clean;
+	}
+
+	/**
+	 * Resolve a `#bn-*` user token to the current member's URL.
+	 *
+	 * Lets a theme's menu (e.g. a Reign "User Profile" custom link) target the
+	 * logged-in member: a Custom Link whose URL is a BuddyNext token becomes that
+	 * member's own page, so the same menu is correct for every user. Non-token
+	 * URLs pass through unchanged. The dropdown only renders for logged-in
+	 * members, so logged-out tokens (Log In / Register) are dropped here.
+	 *
+	 * @param string $url     The raw link URL (possibly a token).
+	 * @param int    $user_id The current member.
+	 * @return string Resolved URL ('' when the token resolves to nothing or does
+	 *                not belong in a logged-in menu).
+	 */
+	private static function resolve_user_url( string $url, int $user_id ): string {
+		if ( ! UserLinks::is_token( $url ) ) {
+			return $url;
+		}
+		if ( UserLinks::LOGGEDOUT === UserLinks::visibility( $url ) ) {
+			return '';
+		}
+		return UserLinks::resolve( $url, $user_id );
 	}
 
 	/**

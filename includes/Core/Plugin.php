@@ -156,6 +156,9 @@ class Plugin {
 			( new \BuddyNext\Admin\RolesTab() )->register();
 			( new \BuddyNext\Admin\Insights() )->register();
 			( new \BuddyNext\Admin\ModerationQueue() )->register();
+			// "BuddyNext" metabox on Appearance → Menus — add per-member account
+			// and auth links to any WordPress menu (resolved by MenuRenderer).
+			( new \BuddyNext\Admin\NavMenuMetabox() )->register();
 			( new PageSetup() )->register();
 
 			// Redirect to setup wizard on first activation.
@@ -303,6 +306,10 @@ class Plugin {
 
 		// Register Gutenberg blocks and block patterns.
 		( new BlockRegistrar() )->init();
+
+		// Resolve BuddyNext `#bn-*` menu items to the current member in any WP
+		// menu (and hide items that do not match the visitor's login state).
+		( new \BuddyNext\Nav\MenuRenderer() )->register();
 
 		// Register URL rewrite rules for pretty profile URLs.
 		( new PageRouter() )->init();
