@@ -143,6 +143,23 @@ final class UserLinks {
 			);
 		}
 
+		// Drop the Spaces item when the site owner has disabled the Spaces feature
+		// (FeatureRegistry 'spaces', default-on — the authoritative toggle). The
+		// /spaces/ route is already guarded in PageRouter::dispatch_hub_template();
+		// removing it from this catalogue hides the nav link everywhere the
+		// catalogue feeds (header dropdown, menu metabox, menu resolver) so the
+		// hub is neither linked nor reachable when off.
+		if ( function_exists( 'buddynext_service' )
+			&& ! buddynext_service( 'features' )->is_enabled( 'spaces' )
+		) {
+			$items = array_values(
+				array_filter(
+					$items,
+					static fn( array $item ): bool => '#bn-spaces' !== ( $item['token'] ?? '' )
+				)
+			);
+		}
+
 		/**
 		 * Filters the BuddyNext user/auth menu catalogue.
 		 *

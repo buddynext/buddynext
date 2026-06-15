@@ -198,6 +198,9 @@ function buildCard( item ) {
 	article.setAttribute( 'role', 'listitem' );
 	article.dataset.userId = String( item.user_id );
 
+	// Pull REST settings off the root directory context so JS-built cards call
+	// the same BuddyNext endpoints + nonce the server-rendered cards use.
+	const rootCtx = getModalSettings();
 	const cardCtx = {
 		userId:      item.user_id,
 		displayName: item.display_name,
@@ -205,6 +208,8 @@ function buildCard( item ) {
 		connection:  ( item.connection && item.connection.state ) || 'none',
 		menuOpen:    false,
 		isMuted:     false,
+		restUrl:     rootCtx.restUrl,
+		restNonce:   rootCtx.restNonce,
 	};
 	article.setAttribute( 'data-wp-context', JSON.stringify( cardCtx ) );
 
@@ -255,6 +260,13 @@ function buildCard( item ) {
 	const body = document.createElement( 'div' );
 	body.className = 'bn-md-card__body';
 
+	// Identity group — name + handle. The server template (member-card.php) wraps
+	// these in .bn-md-card__identity (display:contents in grid, a flex column in
+	// list view). JS-built cards must mirror it or list-view alignment breaks
+	// after a tab/filter switch re-renders the grid.
+	const identity = document.createElement( 'div' );
+	identity.className = 'bn-md-card__identity';
+
 	// Name (+ optional connection-degree chip).
 	const h3 = document.createElement( 'h3' );
 	h3.className = 'bn-md-card__name';
@@ -270,15 +282,17 @@ function buildCard( item ) {
 		deg.textContent = degree === 1 ? '1st' : '2nd';
 		h3.appendChild( deg );
 	}
-	body.appendChild( h3 );
+	identity.appendChild( h3 );
 
 	// Handle.
 	if ( item.handle ) {
 		const handle = document.createElement( 'p' );
 		handle.className = 'bn-md-card__handle';
 		handle.textContent = '@' + item.handle;
-		body.appendChild( handle );
+		identity.appendChild( handle );
 	}
+
+	body.appendChild( identity );
 
 	// Member type badge.
 	if ( item.member_type && item.member_type.name ) {
@@ -374,7 +388,176 @@ function buildCard( item ) {
 
 	body.appendChild( actions );
 	article.appendChild( body );
+
+	// The WP Interactivity API only hydrates directives (data-wp-on--*,
+	// data-wp-bind--*) on markup present at its initial scan. Cards rebuilt here
+	// after a filter/tab switch are injected straight into the DOM and are never
+	// hydrated, so their data-wp-on--click attributes are inert — Follow/Connect
+	// silently stop working after the first tab change. Wire real listeners on
+	// these JS-built cards so they behave identically to the server-rendered
+	// ones, driving the same REST endpoints against the card's own context.
+	wireCardListeners( article, cardCtx, item );
+
 	return article;
+}
+
+/* Attach direct event listeners + state-driven label/variant updates to a
+ * JS-built member card. Mirrors the Interactivity store's card actions, but
+ * operates on the card's own plain-object context (not a getContext() proxy,
+ * which does not exist for dynamically-inserted nodes). */
+function wireCardListeners( article, cardCtx, item ) {
+	const followBtn  = article.querySelector( '.bn-md-card__follow' );
+	const connectBtn = article.querySelector( '.bn-md-card__connect-primary' );
+	const decideWrap = article.querySelector( '.bn-md-card__connect-decide' );
+
+	const name = cardCtx.displayName || 'member';
+
+	function paintFollow() {
+		if ( ! followBtn ) { return; }
+		followBtn.textContent = cardCtx.isFollowing ? 'Following' : 'Follow';
+		followBtn.setAttribute( 'data-variant', cardCtx.isFollowing ? 'secondary' : 'primary' );
+		followBtn.setAttribute( 'data-state', cardCtx.isFollowing ? 'following' : 'unfollowed' );
+	}
+
+	function paintConnect() {
+		const s = cardCtx.connection || 'none';
+		if ( connectBtn ) {
+			const showPrimary = s === 'none' || s === 'pending-sent' || s === 'accepted';
+			connectBtn.hidden = ! showPrimary;
+			connectBtn.textContent = s === 'accepted' ? 'Connected' : ( s === 'pending-sent' ? 'Requested' : 'Connect' );
+			connectBtn.setAttribute( 'data-variant', s === 'pending-sent' ? 'ghost' : 'secondary' );
+			connectBtn.setAttribute( 'data-state', s );
+		}
+		if ( decideWrap ) {
+			decideWrap.hidden = s !== 'pending-received';
+		}
+	}
+
+	if ( followBtn ) {
+		followBtn.addEventListener( 'click', async () => {
+			const was = !! cardCtx.isFollowing;
+			cardCtx.isFollowing = ! was;
+			paintFollow();
+			try {
+				const res = await fetch( apiUrl( cardCtx, '/users/' + cardCtx.userId + '/follow' ), {
+					method:  was ? 'DELETE' : 'POST',
+					headers: { 'X-WP-Nonce': restNonce( cardCtx ) },
+				} );
+				if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
+				bnToast( was ? 'Unfollowed @' + name : 'Now following @' + name, { tone: 'success' } );
+			} catch ( _e ) {
+				cardCtx.isFollowing = was;
+				paintFollow();
+				bnToast(
+					was ? 'Could not unfollow @' + name + '. Try again.' : 'Could not follow @' + name + '. Try again.',
+					{ tone: 'danger' }
+				);
+			}
+		} );
+	}
+
+	if ( connectBtn ) {
+		connectBtn.addEventListener( 'click', async () => {
+			const cur = cardCtx.connection || 'none';
+			if ( cur === 'pending-received' ) { return; }
+			const endpoint = apiUrl( cardCtx, '/users/' + cardCtx.userId + '/connect' );
+			if ( cur === 'none' ) {
+				cardCtx.connection = 'pending-sent'; paintConnect();
+				try {
+					const res = await fetch( endpoint, { method: 'POST', headers: { 'X-WP-Nonce': restNonce( cardCtx ) } } );
+					if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
+					bnToast( 'Connection request sent to @' + name, { tone: 'success' } );
+				} catch ( _e ) {
+					cardCtx.connection = 'none'; paintConnect();
+					bnToast( 'Could not send request to @' + name + '. Try again.', { tone: 'danger' } );
+				}
+				return;
+			}
+			if ( cur === 'pending-sent' || cur === 'accepted' ) {
+				const prev = cur;
+				cardCtx.connection = 'none'; paintConnect();
+				try {
+					const res = await fetch( endpoint, { method: 'DELETE', headers: { 'X-WP-Nonce': restNonce( cardCtx ) } } );
+					if ( ! res.ok ) { throw new Error( 'connect_remove_failed_' + res.status ); }
+					bnToast( prev === 'accepted' ? 'Disconnected from @' + name : 'Request to @' + name + ' withdrawn', { tone: 'info' } );
+				} catch ( _e ) {
+					cardCtx.connection = prev; paintConnect();
+					bnToast( 'Could not update connection. Try again.', { tone: 'danger' } );
+				}
+			}
+		} );
+	}
+
+	if ( decideWrap ) {
+		const btns = decideWrap.querySelectorAll( '.bn-btn' );
+		// Order matches buildCard(): [0] Accept, [1] Decline.
+		const decide = async ( accept ) => {
+			const prev = cardCtx.connection;
+			cardCtx.connection = accept ? 'accepted' : 'none';
+			paintConnect();
+			try {
+				const res = await fetch(
+					apiUrl( cardCtx, '/users/' + cardCtx.userId + '/connect/' + ( accept ? 'accept' : 'decline' ) ),
+					{ method: 'POST', headers: { 'X-WP-Nonce': restNonce( cardCtx ) } }
+				);
+				if ( ! res.ok ) { throw new Error( 'decide_failed_' + res.status ); }
+				bnToast( accept ? 'Connected with @' + name : 'Request from @' + name + ' declined', { tone: accept ? 'success' : 'info' } );
+			} catch ( _e ) {
+				cardCtx.connection = prev; paintConnect();
+				bnToast( accept ? 'Could not accept request. Try again.' : 'Could not decline request. Try again.', { tone: 'danger' } );
+			}
+		};
+		if ( btns[ 0 ] ) { btns[ 0 ].addEventListener( 'click', () => decide( true ) ); }
+		if ( btns[ 1 ] ) { btns[ 1 ].addEventListener( 'click', () => decide( false ) ); }
+	}
+
+	// Kebab menu (Mute / Block / Report) — same hydration gap as the action row.
+	wireCardKebab( article, cardCtx, item );
+}
+
+/* Wire the kebab toggle + Mute/Block/Report items on a JS-built card. */
+function wireCardKebab( article, cardCtx, item ) {
+	const menuBtn = article.querySelector( '.bn-md-card__menu' );
+	const menuPop = article.querySelector( '.bn-md-card__menu-pop' );
+	if ( menuBtn && menuPop ) {
+		menuBtn.addEventListener( 'click', ( ev ) => {
+			ev.stopPropagation();
+			const open = menuPop.hidden;
+			menuPop.hidden = ! open;
+			menuBtn.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+		} );
+	}
+	const name = cardCtx.displayName || '';
+	article.querySelectorAll( '.bn-md-card__menu-item' ).forEach( ( el ) => {
+		if ( el.tagName === 'A' ) { return; } // Message link — native navigation.
+		const label = ( el.textContent || '' ).trim();
+		el.addEventListener( 'click', async ( ev ) => {
+			ev.preventDefault();
+			if ( menuPop ) { menuPop.hidden = true; }
+			if ( menuBtn ) { menuBtn.setAttribute( 'aria-expanded', 'false' ); }
+			if ( /^Mute$|^Unmute$/.test( label ) ) {
+				const was = !! cardCtx.isMuted;
+				cardCtx.isMuted = ! was;
+				el.textContent = cardCtx.isMuted ? 'Unmute' : 'Mute';
+				try {
+					const res = await fetch( apiUrl( cardCtx, '/users/' + cardCtx.userId + '/mute' ), {
+						method:  was ? 'DELETE' : 'POST',
+						headers: { 'X-WP-Nonce': restNonce( cardCtx ) },
+					} );
+					if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
+					bnToast( was ? 'Unmuted @' + name : 'Muted @' + name, { tone: 'success' } );
+				} catch ( _e ) {
+					cardCtx.isMuted = was;
+					el.textContent = cardCtx.isMuted ? 'Unmute' : 'Mute';
+					bnToast( 'Could not update mute state. Try again.', { tone: 'danger' } );
+				}
+			} else if ( label === 'Block' ) {
+				openBlockModal( cardCtx.userId, cardCtx.displayName );
+			} else if ( label === 'Report' ) {
+				openReportModal( 'user', cardCtx.userId, cardCtx.displayName );
+			}
+		} );
+	} );
 }
 
 /* Kebab (secondary actions) pinned to the card's top-right. Mirrors the

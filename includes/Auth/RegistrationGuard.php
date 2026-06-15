@@ -94,6 +94,13 @@ class RegistrationGuard {
 			}
 		}
 
+		// 3.5) Allowed email domains — when the admin has configured an allowlist
+		// in Settings → Registration, only addresses on those domains may register.
+		// Empty allowlist = allow all domains (the documented default behaviour).
+		if ( ! $this->domain_allowed( (string) ( $ctx['email'] ?? '' ) ) ) {
+			return new WP_Error( 'bn_reg_domain', __( 'Only users from allowed email domains may register.', 'buddynext' ) );
+		}
+
 		// 4) Score-based signals.
 		$score = 0;
 		if ( ! empty( $ctx['honeypot'] ) ) {
@@ -176,6 +183,52 @@ class RegistrationGuard {
 		}
 		$elapsed = time() - (int) $ts;
 		return $elapsed < self::MIN_SECONDS || $elapsed > self::TOKEN_TTL;
+	}
+
+	/**
+	 * Is the email's domain permitted by the admin allowlist?
+	 *
+	 * Reads `buddynext_allowed_domains` (one domain per line, as rendered in
+	 * Settings → Registration). When the option is blank the allowlist is
+	 * inactive and every domain is permitted. When it is non-empty, only emails
+	 * whose domain matches an entry (case-insensitive) are allowed.
+	 *
+	 * @param string $email Email address being registered.
+	 * @return bool True when the domain is allowed (or no allowlist is set).
+	 */
+	private function domain_allowed( string $email ): bool {
+		$raw = trim( (string) get_option( 'buddynext_allowed_domains', '' ) );
+		if ( '' === $raw ) {
+			return true; // No allowlist configured — allow all domains.
+		}
+
+		$allowed = array();
+		foreach ( preg_split( '/[\r\n,]+/', $raw ) ?: array() as $line ) {
+			$line = strtolower( trim( (string) $line ) );
+			$line = ltrim( $line, '@' ); // Tolerate "@example.com" entries.
+			if ( '' !== $line ) {
+				$allowed[] = $line;
+			}
+		}
+
+		/**
+		 * Filter the registration allowed-domain list.
+		 *
+		 * @param string[] $allowed Lowercase, normalised domains.
+		 * @param string   $email   Email being evaluated.
+		 */
+		$allowed = (array) apply_filters( 'buddynext_registration_allowed_domains', $allowed, $email );
+		if ( empty( $allowed ) ) {
+			return true; // Allowlist resolved to nothing — fail open, allow all.
+		}
+
+		$at = strrpos( $email, '@' );
+		if ( false === $at ) {
+			return false; // No parseable domain cannot match a configured allowlist.
+		}
+		$domain = strtolower( substr( $email, $at + 1 ) );
+
+		return in_array( $domain, $allowed, true );
 	}
 
 	/**

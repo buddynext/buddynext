@@ -156,11 +156,20 @@ class EmailSender {
 		$subject = $this->render( $subject_src, $user_id, $data );
 		$body    = $this->render( $body_src, $user_id, $data );
 
+		$headers = array( 'Content-Type: text/html; charset=UTF-8' );
+
+		// Reply-To sender identity (Settings → Email). Applied as a header so it
+		// survives any wp_mail_from override and is per-message.
+		$reply_to = sanitize_email( (string) get_option( 'buddynext_email_reply_to', '' ) );
+		if ( '' !== $reply_to && is_email( $reply_to ) ) {
+			$headers[] = 'Reply-To: ' . $reply_to;
+		}
+
 		$payload = array(
 			'to'      => $user->user_email,
 			'subject' => $subject,
 			'body'    => $this->wrap_email_html( $body, $subject ),
-			'headers' => array( 'Content-Type: text/html; charset=UTF-8' ),
+			'headers' => $headers,
 		);
 
 		/**
@@ -184,12 +193,41 @@ class EmailSender {
 			return;
 		}
 
+		// Sender identity (Settings → Email). Apply the configured From name and
+		// From address via the wp_mail_* filters only for this dispatch, then
+		// detach so we never affect unrelated mail (password resets, etc.).
+		$from_name    = sanitize_text_field( (string) get_option( 'buddynext_email_from_name', '' ) );
+		$from_address = sanitize_email( (string) get_option( 'buddynext_email_from_address', '' ) );
+
+		$name_filter = null;
+		if ( '' !== $from_name ) {
+			$name_filter = static function () use ( $from_name ) {
+				return $from_name;
+			};
+			add_filter( 'wp_mail_from_name', $name_filter );
+		}
+
+		$address_filter = null;
+		if ( '' !== $from_address && is_email( $from_address ) ) {
+			$address_filter = static function () use ( $from_address ) {
+				return $from_address;
+			};
+			add_filter( 'wp_mail_from', $address_filter );
+		}
+
 		wp_mail(
 			$payload['to'],
 			$payload['subject'],
 			$payload['body'],
 			$payload['headers']
 		);
+
+		if ( null !== $name_filter ) {
+			remove_filter( 'wp_mail_from_name', $name_filter );
+		}
+		if ( null !== $address_filter ) {
+			remove_filter( 'wp_mail_from', $address_filter );
+		}
 
 		$this->log_sent( $user_id, $notification_type );
 	}
@@ -248,6 +286,14 @@ class EmailSender {
 		$name_esc  = esc_html( $site_name );
 		$year      = esc_html( gmdate( 'Y' ) );
 
+		// Footer text (Settings → Email). When the admin has set a custom footer
+		// it replaces the default copyright line; otherwise fall back to the
+		// standard "© {year} {site} ..." attribution.
+		$custom_footer = trim( (string) get_option( 'buddynext_email_footer_text', '' ) );
+		$footer_html   = '' !== $custom_footer
+			? nl2br( esc_html( $custom_footer ) )
+			: esc_html( sprintf( /* translators: 1: year, 2: site name. */ __( '© %1$s %2$s. All rights reserved.', 'buddynext' ), $year, $site_name ) );
+
 		return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
 			. '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
 			. '<title>' . esc_html( $subject ) . '</title></head>'
@@ -268,7 +314,7 @@ class EmailSender {
 			. '</td></tr>'
 			// Footer.
 			. '<tr><td style="padding:20px 32px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">'
-			. esc_html( sprintf( /* translators: 1: year, 2: site name. */ __( '© %1$s %2$s. All rights reserved.', 'buddynext' ), $year, $site_name ) )
+			. $footer_html
 			. '<br><a href="' . $site_url . '" style="color:#6b7280;">' . $site_url . '</a>'
 			. '</td></tr>'
 			. '</table></td></tr></table></body></html>';
