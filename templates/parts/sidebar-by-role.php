@@ -51,8 +51,14 @@ $args = array(
 $args = (array) apply_filters( 'buddynext_part_sidebar_by_role_args', $args );
 
 // ── Source the counts.
+// Role rows need count_users()'s per-role breakdown, but the headline "Members"
+// total should match the directory's filtered count (excludes suspended/
+// shadow-banned) when the caller passes it — otherwise the panel shows a
+// different total than the directory header on the same screen.
 $bn_counts       = count_users();
-$bn_total        = isset( $bn_counts['total_users'] ) ? (int) $bn_counts['total_users'] : 0;
+$bn_total        = isset( $directory_total )
+	? (int) $directory_total
+	: ( isset( $bn_counts['total_users'] ) ? (int) $bn_counts['total_users'] : 0 );
 $bn_avail        = isset( $bn_counts['avail_roles'] ) && is_array( $bn_counts['avail_roles'] ) ? $bn_counts['avail_roles'] : array();
 $bn_admin_count  = (int) ( $bn_avail['administrator'] ?? 0 );
 $bn_editor_count = (int) ( $bn_avail['editor'] ?? 0 );

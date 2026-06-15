@@ -368,8 +368,11 @@ $bn_online_rows = $wpdb->get_results(
 // callbacks below.
 add_action(
 	'buddynext_right_sidebar',
-	static function (): void {
-		buddynext_get_template( 'parts/sidebar-by-role.php' );
+	static function () use ( $total_users ): void {
+		// Pass the directory's filtered total so the sidebar's "Members" row
+		// matches the header count (both exclude suspended/shadow-banned),
+		// instead of diverging from raw count_users().
+		buddynext_get_template( 'parts/sidebar-by-role.php', array( 'directory_total' => $total_users ) );
 	}
 );
 
