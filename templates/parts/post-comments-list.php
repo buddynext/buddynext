@@ -68,11 +68,20 @@ do_action( 'buddynext_part_post_comments_list_before', $args );
 // comment-builder JS reads this attribute to render reaction
 // pickers without round-tripping to PHP per node.
 $bn_emoji_base = plugins_url( 'assets/emoji/', dirname( __DIR__, 1 ) );
+
+// Reactions are a site-owner-toggleable feature (Settings → Features, default on).
+// Expose its state to the comment-builder JS so per-comment React controls are
+// suppressed when the owner disables it (the REST toggle path enforces the same
+// gate). "1" when on, "0" when off.
+$bn_reactions_enabled = ! function_exists( 'buddynext_service' )
+	|| ! is_object( buddynext_service( 'features' ) )
+	|| buddynext_service( 'features' )->is_enabled( 'reactions' );
 ?>
 <div
 	class="<?php echo esc_attr( $bn_class ); ?>"
 	data-comment-list="<?php echo absint( $args['bn_post_id'] ); ?>"
 	data-emoji-base="<?php echo esc_attr( trailingslashit( $bn_emoji_base ) ); ?>"
+	data-reactions-enabled="<?php echo $bn_reactions_enabled ? '1' : '0'; ?>"
 ></div>
 <?php
 do_action( 'buddynext_part_post_comments_list_after', $args );

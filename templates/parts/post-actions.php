@@ -15,7 +15,8 @@
  * @var string      $bn_post_type    Post type slug (used to suppress Share on re-shares).
  * @var string|null $user_reaction   The viewer's current reaction (null|like|love|haha|wow|sad|angry).
  * @var bool        $is_bookmarked   Whether the viewer has bookmarked the post.
- * @var bool        $can_react       Whether the viewer can react.
+ * @var bool        $can_react       Whether the viewer can react (login + the
+ *                                   site-owner Reactions feature toggle).
  * @var bool        $can_comment     Whether the viewer can comment.
  * @var bool        $can_share       Whether the viewer can share.
  * @var bool        $can_bookmark    Whether the viewer can bookmark.
@@ -85,6 +86,13 @@ do_action( 'buddynext_part_post_actions_before', $args );
 ?>
 <div class="<?php echo esc_attr( $bn_class ); ?>" role="toolbar" aria-label="<?php esc_attr_e( 'Post actions', 'buddynext' ); ?>">
 
+	<?php
+	// React control is gated on the site-owner Reactions feature toggle (folded
+	// into can_react upstream). When the feature is disabled the React button and
+	// emoji picker are removed entirely — not just no-op — and the REST toggle
+	// path enforces the same gate.
+	if ( ! empty( $args['can_react'] ) ) :
+		?>
 	<div class="bn-post-card__react-wrap">
 		<button
 			type="button"
@@ -197,6 +205,7 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			<?php endforeach; ?>
 		</div>
 	</div>
+	<?php endif; ?>
 
 	<?php
 	// Comment button is gated on the site-owner Comments feature toggle. When the

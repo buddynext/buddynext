@@ -218,7 +218,15 @@ $can_edit     = $is_own_post || $is_admin;
 $can_delete   = $is_own_post || $is_admin;
 $can_pin      = $is_own_post || $is_admin;
 $can_report   = ( $current_user_id > 0 && ! $is_own_post );
-$can_react    = ( $current_user_id > 0 );
+
+// Reactions are a site-owner-toggleable feature (Settings → Features, default on).
+// When the owner disables it the React button + emoji picker and the engagement
+// reaction-summary chips must not render — the canonical flag is the
+// FeatureRegistry 'reactions' feature (the REST toggle path enforces the same gate).
+$bn_reactions_enabled = ! function_exists( 'buddynext_service' )
+	|| ! is_object( buddynext_service( 'features' ) )
+	|| buddynext_service( 'features' )->is_enabled( 'reactions' );
+$can_react    = ( $current_user_id > 0 && $bn_reactions_enabled );
 
 // Comments are a site-owner-toggleable feature (Settings → Features, default on).
 // When the owner disables it the Comment button, the comment composer, and the
@@ -269,7 +277,7 @@ if ( 'poll' === $bn_post_type && ! empty( $poll_options ) ) {
 
 // ── User's existing reaction ───────────────────────────────────────────────────
 $my_reaction_type = null;
-if ( $current_user_id > 0 ) {
+if ( $current_user_id > 0 && $bn_reactions_enabled ) {
 	$my_reaction_type = buddynext_service( 'reactions' )->get_user_reaction( $current_user_id, 'post', $bn_post_id );
 }
 
@@ -503,16 +511,21 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		)
 	);
 
-	buddynext_get_template(
-		'parts/post-reaction-summary.php',
-		array(
-			'reaction_count' => $reaction_count,
-			'comment_count'  => $comment_count,
-			'share_count'    => $share_count,
-			'top_reactions'  => $top_reactions,
-			'bn_post_id'     => $bn_post_id,
-		)
-	);
+	// The reaction-summary chip strip shows existing reactions; suppress it when
+	// the site owner has disabled the Reactions feature so no reaction surface
+	// remains on the card.
+	if ( $bn_reactions_enabled ) {
+		buddynext_get_template(
+			'parts/post-reaction-summary.php',
+			array(
+				'reaction_count' => $reaction_count,
+				'comment_count'  => $comment_count,
+				'share_count'    => $share_count,
+				'top_reactions'  => $top_reactions,
+				'bn_post_id'     => $bn_post_id,
+			)
+		);
+	}
 
 	buddynext_get_template(
 		'parts/post-actions.php',

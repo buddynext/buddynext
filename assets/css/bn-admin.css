@@ -2020,6 +2020,18 @@ button.bn-btn-danger:hover {
 	display: inline-block;
 	vertical-align: middle;
 }
+/* When the master Reactions feature is off (Settings → Features), the "which
+   emoji" palette has no effect, so it is rendered disabled with an explanatory
+   note. Dim it and block pointer interaction so it reads as inert. */
+.bn-reaction-field.is-disabled .bn-reaction-palette {
+	opacity: 0.55;
+	pointer-events: none;
+}
+.bn-reaction-field__off-note {
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-2);
+	margin: 0 0 var(--bn-a-s3);
+}
 
 /* Custom-reaction emoji picker (Pro Reactions tab). A grid of Fluent emoji
    tiles; the selected tile gets an accent ring. Visual, so admins see exactly

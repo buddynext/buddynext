@@ -171,7 +171,13 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	// .bn-comment-list[data-emoji-base] attribute (set by
 	// templates/parts/post-comments-list.php).
 	let reactBtn = null;
-	if ( ! comment.is_deleted ) {
+	// Reactions are a site-owner feature toggle (Settings → Features). When the
+	// owner disables it the comment list carries data-reactions-enabled="0" and
+	// no per-comment React control renders — matching the post-card gate and the
+	// REST toggle 403.
+	const bnReactList    = document.querySelector( `.bn-comment-list[data-comment-list="${ postId }"]` );
+	const bnReactionsOn  = ! bnReactList || bnReactList.dataset.reactionsEnabled !== '0';
+	if ( ! comment.is_deleted && bnReactionsOn ) {
 		// Resolve the colored Fluent Emoji vendor base via the comment-list
 		// container keyed by postId. wrap.closest() can't be used here
 		// because the wrap is not yet attached to the DOM at this point.

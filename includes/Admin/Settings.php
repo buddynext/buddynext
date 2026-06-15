@@ -970,12 +970,24 @@ class Settings extends AdminPageBase {
 		);
 
 		// Reaction palette — which of the canonical reactions members may use.
-		$bn_all_reactions     = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
-		$bn_enabled_reactions = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
+		// This "which six emoji" control only has meaning while the Reactions
+		// feature itself is enabled (Settings → Features). When that master toggle
+		// is off, the whole reaction surface is removed front-end + REST, so the
+		// palette is disabled here with a pointer to the feature toggle.
+		$bn_all_reactions       = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
+		$bn_enabled_reactions   = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
+		$bn_features            = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
+		$bn_reactions_on        = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'reactions' );
+		$bn_reaction_field_class = $bn_reactions_on ? 'bn-field bn-reaction-field' : 'bn-field bn-reaction-field is-disabled';
 		?>
-		<div class="bn-field bn-reaction-field">
+		<div class="<?php echo esc_attr( $bn_reaction_field_class ); ?>">
 			<span class="bn-tl-title"><?php esc_html_e( 'Reactions', 'buddynext' ); ?></span>
 			<span class="bn-tl-desc"><?php esc_html_e( 'Choose which reactions members can use on posts and comments. At least one is always kept.', 'buddynext' ); ?></span>
+			<?php if ( ! $bn_reactions_on ) : ?>
+				<p class="bn-field-note bn-reaction-field__off-note">
+					<?php esc_html_e( 'Reactions are turned off under Settings → Features. Enable the Reactions feature there to choose which emoji members can use.', 'buddynext' ); ?>
+				</p>
+			<?php endif; ?>
 			<div class="bn-reaction-palette">
 				<?php foreach ( $bn_all_reactions as $bn_reaction ) : ?>
 					<label class="bn-reaction-palette__item">
@@ -984,6 +996,7 @@ class Settings extends AdminPageBase {
 							name="buddynext_enabled_reactions[]"
 							value="<?php echo esc_attr( $bn_reaction ); ?>"
 							<?php checked( in_array( $bn_reaction, $bn_enabled_reactions, true ) ); ?>
+							<?php disabled( ! $bn_reactions_on ); ?>
 						>
 						<?php
 						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService emoji markup is wp_kses'd.

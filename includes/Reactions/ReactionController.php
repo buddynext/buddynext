@@ -115,7 +115,12 @@ class ReactionController extends BaseRestController {
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response
 	 */
-	public function toggle( WP_REST_Request $request ): WP_REST_Response {
+	public function toggle( WP_REST_Request $request ) {
+		$gate = $this->reactions_enabled_gate();
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
 		$service     = new ReactionService();
 		$user_id     = get_current_user_id();
 		$object_type = (string) $request->get_param( 'object_type' );
@@ -134,6 +139,31 @@ class ReactionController extends BaseRestController {
 			),
 			200
 		);
+	}
+
+	/**
+	 * Block reaction writes when the site owner has disabled the Reactions feature.
+	 *
+	 * The canonical on/off switch is the FeatureRegistry 'reactions' feature
+	 * (Settings → Features, default on). When it is off the frontend removes the
+	 * React button + emoji picker and the reaction-summary chips; this enforces the
+	 * same gate on the API so toggles cannot be driven directly. The count/list
+	 * reads (GET) stay readable. Returns a 403 WP_Error when disabled, true otherwise.
+	 *
+	 * @return true|WP_Error
+	 */
+	private function reactions_enabled_gate() {
+		$features = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
+
+		if ( is_object( $features ) && method_exists( $features, 'is_enabled' ) && ! $features->is_enabled( 'reactions' ) ) {
+			return new WP_Error(
+				'reactions_disabled',
+				__( 'Reactions are turned off on this community.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return true;
 	}
 
 	/**
