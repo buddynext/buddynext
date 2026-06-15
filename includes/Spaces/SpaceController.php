@@ -445,18 +445,23 @@ class SpaceController extends BaseRestController {
 			'order'    => $order,
 		);
 
+		// Viewer context drives secret-space visibility: site admins see every
+		// space; other viewers see unlisted spaces only when they own them or
+		// hold an active membership. Mirrors templates/spaces/directory.php.
+		$viewer            = get_current_user_id();
+		$args['viewer']    = $viewer;
+		$args['is_admin']  = current_user_can( 'manage_options' );
+
 		$type_param = $request->get_param( 'type' );
 		if ( null !== $type_param && '' !== (string) $type_param ) {
 			$type_value = sanitize_key( (string) $type_param );
 			if ( SpaceTypeRegistry::instance()->is_valid( $type_value ) ) {
 				$args['type'] = $type_value;
-				// Restrict unlisted (secret-equivalent) listing to the viewer's own memberships.
-				if ( ! SpaceTypeRegistry::instance()->is_listed( $type_value ) ) {
-					$viewer = get_current_user_id();
-					if ( 0 === $viewer ) {
-						return new WP_REST_Response( array(), 200 );
-					}
-					$args['member'] = $viewer;
+				// Secret-type chip: anonymous viewers get nothing; admins see all
+				// (handled by is_admin in the service); members/owners are scoped
+				// to their own spaces by the service via the viewer arg.
+				if ( ! SpaceTypeRegistry::instance()->is_listed( $type_value ) && 0 === $viewer ) {
+					return new WP_REST_Response( array(), 200 );
 				}
 			}
 		}
@@ -477,7 +482,96 @@ class SpaceController extends BaseRestController {
 			$spaces = ( new SpaceService() )->list_spaces( $args );
 		}
 
+		$spaces = $this->enrich_directory_rows( (array) $spaces, $viewer );
+
 		return new WP_REST_Response( $spaces, 200 );
+	}
+
+	/**
+	 * Enrich directory rows with the category label/slug and the viewer's
+	 * membership state, so the reactive JS card builder can render the same
+	 * card as templates/spaces/directory.php (category line, membership-aware
+	 * CTA) instead of a stripped-down "always Join" card.
+	 *
+	 * @param array $rows      Hydrated space rows from the service.
+	 * @param int   $viewer_id Current viewer user ID (0 when logged out).
+	 * @return array Rows with category_name, category_slug and membership_* keys.
+	 */
+	private function enrich_directory_rows( array $rows, int $viewer_id ): array {
+		if ( empty( $rows ) ) {
+			return $rows;
+		}
+
+		global $wpdb;
+
+		$space_ids = array_map( static fn( $r ) => (int) ( $r['id'] ?? 0 ), $rows );
+		$space_ids = array_values( array_filter( $space_ids ) );
+		if ( empty( $space_ids ) ) {
+			return $rows;
+		}
+
+		$id_in = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+
+		// Category name/slug per space.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$cat_rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT s.id AS space_id, c.name AS category_name, c.slug AS category_slug
+				 FROM {$wpdb->prefix}bn_spaces s
+				 LEFT JOIN {$wpdb->prefix}bn_space_categories c ON c.id = s.category_id
+				 WHERE s.id IN ( {$id_in} )",
+				...$space_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$cat_map = array();
+		foreach ( (array) $cat_rows as $cr ) {
+			$cat_map[ (int) $cr->space_id ] = array(
+				'category_name' => $cr->category_name,
+				'category_slug' => $cr->category_slug,
+			);
+		}
+
+		// Viewer membership per space.
+		$member_map = array();
+		if ( $viewer_id > 0 ) {
+			$m_args = array_merge( array( $viewer_id ), $space_ids );
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$m_rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT space_id, role, status FROM {$wpdb->prefix}bn_space_members
+					 WHERE user_id = %d AND space_id IN ( {$id_in} )",
+					...$m_args
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			foreach ( (array) $m_rows as $mr ) {
+				$member_map[ (int) $mr->space_id ] = array(
+					'role'   => (string) $mr->role,
+					'status' => (string) $mr->status,
+				);
+			}
+		}
+
+		$tones = array( 'sky', 'cyan', 'emerald', 'lime', 'amber', 'coral' );
+
+		foreach ( $rows as &$row ) {
+			$sid                  = (int) ( $row['id'] ?? 0 );
+			$row['category_name'] = $cat_map[ $sid ]['category_name'] ?? null;
+			$row['category_slug'] = $cat_map[ $sid ]['category_slug'] ?? null;
+			$row['cover_tone']    = $tones[ $sid % count( $tones ) ];
+			$row['type_label']    = SpaceService::type_label( (string) ( $row['type'] ?? 'open' ) );
+			$row['type_tone']     = SpaceTypeRegistry::instance()->tone( (string) ( $row['type'] ?? 'open' ) );
+			$row['join_method']   = SpaceTypeRegistry::instance()->join_method( (string) ( $row['type'] ?? 'open' ) );
+
+			$membership                  = $member_map[ $sid ] ?? null;
+			$row['membership_role']      = $membership['role'] ?? '';
+			$row['membership_status']    = $membership['status'] ?? '';
+		}
+		unset( $row );
+
+		return $rows;
 	}
 
 	/**
@@ -872,10 +966,30 @@ class SpaceController extends BaseRestController {
 		$inviter_id      = get_current_user_id();
 		$invited_user_id = absint( $request->get_param( 'user_id' ) );
 
+		// Allow invite by username or email when no numeric user_id is supplied,
+		// so the hero Invite modal can mirror the settings-panel invite form.
+		if ( 0 === $invited_user_id ) {
+			$identifier = sanitize_text_field( (string) ( $request->get_param( 'identifier' ) ?? '' ) );
+			if ( '' !== $identifier ) {
+				$invited_user = is_email( $identifier )
+					? get_user_by( 'email', $identifier )
+					: get_user_by( 'login', $identifier );
+				if ( $invited_user instanceof \WP_User ) {
+					$invited_user_id = (int) $invited_user->ID;
+				} else {
+					return new WP_Error(
+						'user_not_found',
+						__( 'No user found with that username or email.', 'buddynext' ),
+						array( 'status' => 404 )
+					);
+				}
+			}
+		}
+
 		if ( 0 === $invited_user_id ) {
 			return new WP_Error(
 				'missing_user_id',
-				__( 'A user_id parameter is required.', 'buddynext' ),
+				__( 'A user_id or identifier parameter is required.', 'buddynext' ),
 				array( 'status' => 400 )
 			);
 		}

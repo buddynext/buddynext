@@ -1378,6 +1378,87 @@ var storeInstance = store( 'buddynext/spaces', {
 		 */
 		openInviteModal: function () {
 			openSpaceModal( 'invite-member' );
+			var input = document.querySelector( '[data-bn-invite-identifier]' );
+			if ( input ) {
+				input.value = '';
+				input.focus();
+			}
+			var err = document.querySelector( '[data-bn-invite-error]' );
+			if ( err ) {
+				err.textContent = '';
+				err.setAttribute( 'hidden', '' );
+			}
+		},
+
+		/**
+		 * Submit the invite modal: resolve the typed username/email and POST
+		 * to /spaces/{id}/invite. Mirrors the settings-panel invite form.
+		 *
+		 * @param {Event} event Click on the modal's submit button.
+		 */
+		inviteMember: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var modal = document.querySelector( '[data-bn-modal="invite-member"]' );
+			if ( ! modal ) { return; }
+			var spaceId    = modal.getAttribute( 'data-bn-space-id' );
+			var input      = modal.querySelector( '[data-bn-invite-identifier]' );
+			var identifier = input ? input.value.trim() : '';
+			var errEl      = modal.querySelector( '[data-bn-invite-error]' );
+
+			if ( ! spaceId || '' === identifier ) {
+				if ( errEl ) {
+					errEl.textContent = __i18n( 'Enter a username or email address.' );
+					errEl.removeAttribute( 'hidden' );
+				}
+				return;
+			}
+
+			btn.disabled = true;
+			if ( errEl ) {
+				errEl.textContent = '';
+				errEl.setAttribute( 'hidden', '' );
+			}
+
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/invite' ), {
+					method:  'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-WP-Nonce':   resolveNonce(),
+					},
+					body: JSON.stringify( { identifier: identifier } ),
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Invitation sent.' ), 'success' ); }
+					closeAllSpaceModals();
+				} else {
+					var data = await res.json().catch( function () { return {}; } );
+					if ( errEl ) {
+						errEl.textContent = ( data && data.message ) || __i18n( 'Could not send the invitation.' );
+						errEl.removeAttribute( 'hidden' );
+					}
+					btn.disabled = false;
+				}
+			} catch ( _e ) {
+				if ( errEl ) {
+					errEl.textContent = __i18n( 'Could not send the invitation.' );
+					errEl.removeAttribute( 'hidden' );
+				}
+				btn.disabled = false;
+			}
+		},
+
+		/**
+		 * Submit the invite modal when Enter is pressed in the identifier field.
+		 *
+		 * @param {Event} event Keydown event from the identifier input.
+		 */
+		inviteMemberKeydown: function ( event ) {
+			if ( ! event || 'Enter' !== event.key ) { return; }
+			event.preventDefault();
+			var submit = document.querySelector( '[data-bn-modal="invite-member"] [data-bn-invite-submit]' );
+			if ( submit ) { submit.click(); }
 		},
 
 		/* ── Directory: reactive filter / sort / search ────────────────── */
@@ -1633,18 +1714,12 @@ function buildSpaceCard( row ) {
 	var type        = row.type || 'open';
 	var spaceId     = row.id;
 
-	var privacyLabel;
-	var privacyTone;
-	if ( 'open' === type ) {
-		privacyLabel = __i18n( 'Public' );
-		privacyTone  = 'info';
-	} else if ( 'private' === type ) {
-		privacyLabel = __i18n( 'Private' );
-		privacyTone  = 'warn';
-	} else {
-		privacyLabel = __i18n( 'Invite-only' );
-		privacyTone  = 'danger';
-	}
+	// Privacy label/tone come from the server (type_label/type_tone) so the
+	// reactive card matches the SSR card exactly, including custom space types.
+	var privacyLabel = row.type_label || __i18n( 'Public' );
+	var privacyTone  = row.type_tone || ( 'open' === type ? 'info' : ( 'private' === type ? 'warn' : 'danger' ) );
+
+	var coverTone = row.cover_tone || 'sky';
 
 	var baseUrl = ( window.bnSpaces && window.bnSpaces.spaceUrlBase )
 		? window.bnSpaces.spaceUrlBase.replace( '__slug__', slug )
@@ -1653,20 +1728,50 @@ function buildSpaceCard( row ) {
 	var article = document.createElement( 'article' );
 	article.className = 'bn-card bn-sd-card';
 	article.setAttribute( 'role', 'listitem' );
-	article.dataset.spaceId    = String( spaceId );
+	article.setAttribute( 'aria-label', name + ' (' + privacyLabel + ')' );
+	article.dataset.spaceId     = String( spaceId );
 	article.dataset.interactive = '';
 
+	// ── Cover (+ optional image) + emblem ──────────────────────────────
 	var coverLink = document.createElement( 'a' );
 	coverLink.href = baseUrl;
 	coverLink.setAttribute( 'tabindex', '-1' );
 	coverLink.setAttribute( 'aria-hidden', 'true' );
 	coverLink.className = 'bn-sd-card__cover-link';
+
 	var cover = document.createElement( 'div' );
-	cover.className = 'bn-sd-card__cover';
-	cover.dataset.tone = 'sky';
+	cover.className   = 'bn-sd-card__cover';
+	cover.dataset.tone = coverTone;
+	if ( row.cover_image_url ) {
+		var coverImg = document.createElement( 'img' );
+		coverImg.src     = row.cover_image_url;
+		coverImg.alt     = '';
+		coverImg.loading = 'lazy';
+		cover.appendChild( coverImg );
+	}
+
+	// Emblem fallback chain: avatar image → category-icon (cloned from an
+	// existing SSR card when available) → first-letter glyph. Never empty.
+	var emblem = document.createElement( 'div' );
+	emblem.className = 'bn-sd-card__emblem';
+	emblem.setAttribute( 'aria-hidden', 'true' );
+	if ( row.avatar_url ) {
+		var avImg = document.createElement( 'img' );
+		avImg.src     = row.avatar_url;
+		avImg.alt     = '';
+		avImg.loading = 'lazy';
+		emblem.appendChild( avImg );
+	} else {
+		var letter = document.createElement( 'span' );
+		letter.className   = 'bn-sd-card__emblem-letter';
+		letter.textContent = ( name.charAt( 0 ) || '' ).toUpperCase();
+		emblem.appendChild( letter );
+	}
+	cover.appendChild( emblem );
 	coverLink.appendChild( cover );
 	article.appendChild( coverLink );
 
+	// ── Body ───────────────────────────────────────────────────────────
 	var body = document.createElement( 'div' );
 	body.className = 'bn-sd-card__body';
 
@@ -1675,7 +1780,8 @@ function buildSpaceCard( row ) {
 	nameLink.className = 'bn-sd-card__name-link';
 	var h2 = document.createElement( 'h2' );
 	h2.className = 'bn-sd-card__name';
-	h2.appendChild( document.createTextNode( name + ' ' ) );
+	h2.setAttribute( 'aria-label', name + ' (' + privacyLabel + ')' );
+	h2.appendChild( document.createTextNode( name ) );
 	var badge = document.createElement( 'span' );
 	badge.className = 'bn-badge';
 	badge.dataset.tone = privacyTone;
@@ -1683,6 +1789,16 @@ function buildSpaceCard( row ) {
 	h2.appendChild( badge );
 	nameLink.appendChild( h2 );
 	body.appendChild( nameLink );
+
+	// Category line (icon cloned from a live SSR card if one exists).
+	if ( row.category_name ) {
+		var cat = document.createElement( 'div' );
+		cat.className = 'bn-sd-card__category';
+		var refIcon = document.querySelector( '.bn-sd-card__category svg' );
+		if ( refIcon ) { cat.appendChild( refIcon.cloneNode( true ) ); }
+		cat.appendChild( document.createTextNode( ' ' + row.category_name ) );
+		body.appendChild( cat );
+	}
 
 	if ( description ) {
 		var desc = document.createElement( 'p' );
@@ -1695,28 +1811,70 @@ function buildSpaceCard( row ) {
 	stats.className = 'bn-sd-card__stats';
 	var stat = document.createElement( 'span' );
 	stat.className   = 'bn-sd-card__stat';
+	/* translators: %s: member count. */
 	stat.textContent = memberCount + ' ' + __i18n( 'members' );
 	stats.appendChild( stat );
 	body.appendChild( stats );
 
+	// ── Foot: membership-aware CTA, mirroring directory.php ────────────
+	var role        = row.membership_role || '';
+	var status      = row.membership_status || '';
+	var isAdminMod  = ( 'active' === status ) && ( 'owner' === role || 'admin' === role || 'moderator' === role );
+	var isMember    = ( 'active' === status );
+	var isPending   = ( 'pending' === status );
+	var joinMethod  = row.join_method || ( 'open' === type ? 'direct' : 'request' );
+
 	var foot = document.createElement( 'div' );
 	foot.className = 'bn-sd-card__foot';
-	var actionBtn = document.createElement( 'button' );
-	actionBtn.className     = 'bn-btn';
-	actionBtn.dataset.size  = 'sm';
-	actionBtn.dataset.spaceId = String( spaceId );
-	if ( 'open' === type ) {
-		actionBtn.dataset.variant      = 'primary';
-		actionBtn.dataset.currentState = 'join';
-		actionBtn.dataset.wpOnClick    = 'actions.joinSpace';
-		actionBtn.textContent          = __i18n( 'Join' );
+
+	var ctaEl;
+	if ( isAdminMod ) {
+		ctaEl = document.createElement( 'a' );
+		ctaEl.href = baseUrl + 'settings/';
+		ctaEl.className = 'bn-btn';
+		ctaEl.dataset.variant = 'secondary';
+		ctaEl.dataset.size    = 'sm';
+		ctaEl.textContent     = __i18n( 'Manage' );
+	} else if ( isMember ) {
+		ctaEl = document.createElement( 'button' );
+		ctaEl.className = 'bn-btn';
+		ctaEl.dataset.variant      = 'secondary';
+		ctaEl.dataset.size         = 'sm';
+		ctaEl.dataset.currentState = 'joined';
+		ctaEl.dataset.wpOnClick    = 'actions.leaveSpace';
+		ctaEl.dataset.spaceId      = String( spaceId );
+		ctaEl.setAttribute( 'aria-label', __i18n( 'Joined - click to leave' ) );
+		ctaEl.textContent = __i18n( 'Joined' );
+	} else if ( isPending ) {
+		ctaEl = document.createElement( 'button' );
+		ctaEl.className = 'bn-btn';
+		ctaEl.dataset.variant      = 'ghost';
+		ctaEl.dataset.size         = 'sm';
+		ctaEl.dataset.currentState = 'pending';
+		ctaEl.dataset.wpOnClick    = 'actions.cancelJoinRequest';
+		ctaEl.dataset.spaceId      = String( spaceId );
+		ctaEl.setAttribute( 'aria-label', __i18n( 'Request pending - click to cancel' ) );
+		ctaEl.textContent = __i18n( 'Requested' );
+	} else if ( 'direct' === joinMethod ) {
+		ctaEl = document.createElement( 'button' );
+		ctaEl.className = 'bn-btn';
+		ctaEl.dataset.variant      = 'primary';
+		ctaEl.dataset.size         = 'sm';
+		ctaEl.dataset.currentState = 'join';
+		ctaEl.dataset.wpOnClick    = 'actions.joinSpace';
+		ctaEl.dataset.spaceId      = String( spaceId );
+		ctaEl.textContent = __i18n( 'Join' );
 	} else {
-		actionBtn.dataset.variant      = 'secondary';
-		actionBtn.dataset.currentState = 'request';
-		actionBtn.dataset.wpOnClick    = 'actions.requestJoin';
-		actionBtn.textContent          = __i18n( 'Request to join' );
+		ctaEl = document.createElement( 'button' );
+		ctaEl.className = 'bn-btn';
+		ctaEl.dataset.variant      = 'secondary';
+		ctaEl.dataset.size         = 'sm';
+		ctaEl.dataset.currentState = 'request';
+		ctaEl.dataset.wpOnClick    = 'actions.requestJoin';
+		ctaEl.dataset.spaceId      = String( spaceId );
+		ctaEl.textContent = __i18n( 'Request to join' );
 	}
-	foot.appendChild( actionBtn );
+	foot.appendChild( ctaEl );
 	body.appendChild( foot );
 
 	article.appendChild( body );

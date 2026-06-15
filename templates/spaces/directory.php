@@ -61,11 +61,31 @@ $categories = $wpdb->get_results(
 
 // ── Build main spaces query ────────────────────────────────────────────────────
 
-$bn_unlisted = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->unlisted_keys();
-$where_parts = $bn_unlisted
-	? array( 's.type NOT IN ( ' . implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $bn_unlisted ) ) . ' )' )
-	: array( '1=1' );
-$query_args  = array();
+$bn_is_site_admin = current_user_can( 'manage_options' );
+$bn_unlisted      = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->unlisted_keys();
+$query_args       = array();
+
+if ( $bn_unlisted && ! $bn_is_site_admin ) {
+	// Hide unlisted (secret-equivalent) spaces from the directory, EXCEPT the
+	// viewer's own — a space they own, or one where they hold an active
+	// membership (which includes the owner row written at creation). Site
+	// admins skip this exclusion entirely (clause not added). Others' secret
+	// spaces stay hidden for non-members.
+	$bn_unlisted_in = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $bn_unlisted ) );
+	if ( $current_user_id > 0 ) {
+		$where_parts  = array(
+			'( s.type NOT IN ( ' . $bn_unlisted_in . ' )'
+			. ' OR s.owner_id = %d'
+			. ' OR s.id IN ( SELECT space_id FROM ' . $wpdb->prefix . "bn_space_members WHERE user_id = %d AND status = 'active' ) )",
+		);
+		$query_args[] = $current_user_id;
+		$query_args[] = $current_user_id;
+	} else {
+		$where_parts = array( 's.type NOT IN ( ' . $bn_unlisted_in . ' )' );
+	}
+} else {
+	$where_parts = array( '1=1' );
+}
 
 if ( ! empty( $bn_search ) ) {
 	$where_parts[] = '( s.name LIKE %s OR s.description LIKE %s )';
@@ -84,10 +104,16 @@ if ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_valid( $bn_visibility )
 	// exclusion above. When one is explicitly requested via the chip, restrict to
 	// the viewer's own active memberships so it stays usable for invitees.
 	if ( ! \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_listed( $bn_visibility ) ) {
-		$where_parts   = array( 's.type = %s' );
-		$query_args    = array( $bn_visibility );
-		$where_parts[] = 's.id IN ( SELECT space_id FROM ' . $wpdb->prefix . "bn_space_members WHERE user_id = %d AND status = 'active' )";
-		$query_args[]  = $current_user_id;
+		$where_parts = array( 's.type = %s' );
+		$query_args  = array( $bn_visibility );
+		// Secret-type chip: site admins see every space of this type; everyone
+		// else is restricted to spaces they own or actively belong to, so
+		// others' secret spaces stay hidden.
+		if ( ! $bn_is_site_admin ) {
+			$where_parts[] = '( s.owner_id = %d OR s.id IN ( SELECT space_id FROM ' . $wpdb->prefix . "bn_space_members WHERE user_id = %d AND status = 'active' ) )";
+			$query_args[]  = $current_user_id;
+			$query_args[]  = $current_user_id;
+		}
 		if ( ! empty( $bn_search ) ) {
 			$where_parts[] = '( s.name LIKE %s OR s.description LIKE %s )';
 			$like          = '%' . $wpdb->esc_like( $bn_search ) . '%';

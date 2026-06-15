@@ -376,7 +376,11 @@ class Spaces extends AdminPageBase {
 		) {
 			$name = sanitize_text_field( wp_unslash( $_POST['cat_name'] ?? '' ) );
 			if ( '' !== $name ) {
-				$slug = sanitize_title( wp_unslash( $_POST['cat_slug'] ?? $name ) );
+				// The form always submits cat_slug (often empty), so `?? $name`
+				// never fires — derive the slug from the name when no explicit
+				// slug was typed, otherwise a blank slug was stored/skipped.
+				$raw_slug = trim( (string) wp_unslash( $_POST['cat_slug'] ?? '' ) );
+				$slug     = sanitize_title( '' !== $raw_slug ? $raw_slug : $name );
 				$desc = sanitize_textarea_field( wp_unslash( $_POST['cat_description'] ?? '' ) );
 				$ord  = absint( wp_unslash( $_POST['cat_sort_order'] ?? 0 ) );
 

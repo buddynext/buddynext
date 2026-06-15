@@ -450,6 +450,8 @@ class SpaceService {
 		$type        = isset( $args['type'] ) ? sanitize_key( (string) $args['type'] ) : '';
 		$category_id = isset( $args['category_id'] ) ? absint( $args['category_id'] ) : 0;
 		$member_id   = isset( $args['member'] ) ? absint( $args['member'] ) : 0;
+		$viewer_id   = isset( $args['viewer'] ) ? absint( $args['viewer'] ) : 0;
+		$is_admin    = ! empty( $args['is_admin'] );
 
 		$allowed_orderby = array( 'member_count', 'name', 'created_at' );
 		$raw_orderby     = isset( $args['orderby'] ) ? (string) $args['orderby'] : 'member_count';
@@ -459,17 +461,45 @@ class SpaceService {
 		$params = array();
 		$where  = array();
 
+		// Visibility scope for unlisted (secret-equivalent) spaces. Site admins
+		// see all; other viewers see only secret spaces they own or actively
+		// belong to. Owner/membership rows live in bn_space_members; ownership is
+		// also denormalised onto bn_spaces.owner_id. Mirrors directory.php.
+		// The unprefixed branch below selects from bn_spaces with no alias, so
+		// the subquery references bare column names.
+		$members_table = $wpdb->prefix . 'bn_space_members';
+
 		if ( '' !== $type ) {
 			$where[]  = 'type = %s';
 			$params[] = $type;
+
+			// Secret-type chip: when not a site admin, restrict to the viewer's
+			// own spaces so others' secret spaces stay hidden.
+			if ( ! $is_admin && ! SpaceTypeRegistry::instance()->is_listed( $type ) && $member_id <= 0 ) {
+				if ( $viewer_id > 0 ) {
+					$where[]  = "( owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+					$params[] = $viewer_id;
+					$params[] = $viewer_id;
+				} else {
+					// No viewer context: no secret spaces are visible.
+					$where[] = '1=0';
+				}
+			}
 		} elseif ( 0 === $member_id ) {
-			// Exclude unlisted (secret-equivalent) types from the public directory.
-			// When a member filter is set the user can see their own such spaces.
+			// Exclude unlisted (secret-equivalent) types from the public
+			// directory, EXCEPT the viewer's own (owned or active membership).
+			// Site admins skip the exclusion entirely.
 			$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
-			if ( $unlisted ) {
+			if ( $unlisted && ! $is_admin ) {
 				// Slugs are sanitize_key()'d in the registry, so safe to interpolate.
 				$placeholders = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
-				$where[]      = "type NOT IN ( {$placeholders} )";
+				if ( $viewer_id > 0 ) {
+					$where[]  = "( type NOT IN ( {$placeholders} ) OR owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+					$params[] = $viewer_id;
+					$params[] = $viewer_id;
+				} else {
+					$where[] = "type NOT IN ( {$placeholders} )";
+				}
 			}
 		}
 
@@ -513,26 +543,48 @@ class SpaceService {
 	/**
 	 * Search spaces by name or description.
 	 *
-	 * Secret spaces are always excluded from search results.
+	 * Secret spaces are excluded from search results, EXCEPT the viewer's own
+	 * (owned or active membership). Site admins (is_admin arg) see all matches.
 	 *
 	 * @param string               $term Search term.
-	 * @param array<string, mixed> $args Optional per_page / page.
+	 * @param array<string, mixed> $args Optional per_page / page / viewer / is_admin.
 	 * @return array[]
 	 */
 	public function search( string $term, array $args = array() ): array {
 		global $wpdb;
 
-		$like     = '%' . $wpdb->esc_like( $term ) . '%';
-		$per_page = max( 1, min( 100, absint( $args['per_page'] ?? 12 ) ) );
-		$page     = max( 1, absint( $args['page'] ?? 1 ) );
-		$offset   = ( $page - 1 ) * $per_page;
+		$like      = '%' . $wpdb->esc_like( $term ) . '%';
+		$per_page  = max( 1, min( 100, absint( $args['per_page'] ?? 12 ) ) );
+		$page      = max( 1, absint( $args['page'] ?? 1 ) );
+		$offset    = ( $page - 1 ) * $per_page;
+		$viewer_id = isset( $args['viewer'] ) ? absint( $args['viewer'] ) : 0;
+		$is_admin  = ! empty( $args['is_admin'] );
+
+		$params = array();
 
 		// Exclude unlisted (secret-equivalent) types from search. Slugs are
 		// sanitize_key()'d in the registry, so the IN list is safe to interpolate.
-		$unlisted    = SpaceTypeRegistry::instance()->unlisted_keys();
-		$exclude_sql = $unlisted
-			? 'type NOT IN ( ' . implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) ) . ' )'
-			: '1=1';
+		// Site admins see all; other viewers also see secret spaces they own or
+		// actively belong to. Mirrors list_spaces() / directory.php.
+		$unlisted = SpaceTypeRegistry::instance()->unlisted_keys();
+		if ( ! $unlisted || $is_admin ) {
+			$exclude_sql = '1=1';
+		} else {
+			$placeholders  = implode( ', ', array_map( static fn( $t ) => "'" . $t . "'", $unlisted ) );
+			$members_table = $wpdb->prefix . 'bn_space_members';
+			if ( $viewer_id > 0 ) {
+				$exclude_sql = "( type NOT IN ( {$placeholders} ) OR owner_id = %d OR id IN ( SELECT space_id FROM {$members_table} WHERE user_id = %d AND status = 'active' ) )";
+				$params[]    = $viewer_id;
+				$params[]    = $viewer_id;
+			} else {
+				$exclude_sql = "type NOT IN ( {$placeholders} )";
+			}
+		}
+
+		$params[] = $like;
+		$params[] = $like;
+		$params[] = $per_page;
+		$params[] = $offset;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
@@ -541,10 +593,7 @@ class SpaceService {
 				 WHERE {$exclude_sql} AND (name LIKE %s OR description LIKE %s)
 				 ORDER BY member_count DESC
 				 LIMIT %d OFFSET %d",
-				$like,
-				$like,
-				$per_page,
-				$offset
+				...$params
 			),
 			ARRAY_A
 		);

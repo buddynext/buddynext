@@ -263,5 +263,76 @@ do_action( 'buddynext_part_space_hero_before', $args );
 	);
 	?>
 </section>
+
+<?php if ( $bn_is_owner ) : ?>
+	<?php
+	/*
+	 * Invite-member modal. The hero "Invite" button dispatches
+	 * actions.openInviteModal -> openSpaceModal('invite-member'), which needs a
+	 * [data-bn-modal="invite-member"] element on the page or it silently no-ops.
+	 * Owner/mod-only, matching the button's own gate above. Submits to
+	 * POST /buddynext/v1/spaces/{id}/invite with a username/email identifier,
+	 * mirroring the settings-panel invite form.
+	 */
+	?>
+	<div
+		class="bn-modal-backdrop"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="bn-invite-member-title"
+		hidden
+		data-bn-modal="invite-member"
+		data-bn-space-id="<?php echo esc_attr( (string) $bn_space_id ); ?>"
+	>
+		<div class="bn-modal__panel" data-size="sm">
+			<header class="bn-modal__head">
+				<h2 class="bn-modal__title" id="bn-invite-member-title">
+					<?php esc_html_e( 'Invite a member', 'buddynext' ); ?>
+				</h2>
+				<button
+					type="button"
+					class="bn-modal__close"
+					aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>"
+					data-bn-modal-close
+				><?php buddynext_icon( 'x' ); ?></button>
+			</header>
+
+			<div class="bn-modal__body">
+				<p><?php esc_html_e( 'Enter a username or email address to send an invitation to join this space.', 'buddynext' ); ?></p>
+				<label class="bn-sr-only" for="bn-invite-identifier">
+					<?php esc_html_e( 'Username or email address', 'buddynext' ); ?>
+				</label>
+				<input
+					type="text"
+					id="bn-invite-identifier"
+					class="bn-input"
+					autocomplete="off"
+					placeholder="<?php esc_attr_e( 'Username or email address', 'buddynext' ); ?>"
+					data-bn-invite-identifier
+					data-wp-on--keydown="actions.inviteMemberKeydown"
+				>
+				<p class="bn-modal__error" data-bn-invite-error hidden></p>
+			</div>
+
+			<div class="bn-modal__foot">
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="ghost"
+					data-size="md"
+					data-bn-modal-close
+				><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+				<button
+					type="button"
+					class="bn-btn"
+					data-variant="primary"
+					data-size="md"
+					data-bn-invite-submit
+					data-wp-on--click="actions.inviteMember"
+				><?php esc_html_e( 'Send invite', 'buddynext' ); ?></button>
+			</div>
+		</div>
+	</div>
+<?php endif; ?>
 <?php
 do_action( 'buddynext_part_space_hero_after', $args );

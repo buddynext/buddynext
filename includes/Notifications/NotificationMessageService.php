@@ -751,9 +751,23 @@ class NotificationMessageService {
 					? add_query_arg( 'post_id', $object_id, PageRouter::activity_url() )
 					: PageRouter::activity_url();
 
+			case 'bn.space_join_requested':
+				// A pending join request opens the space moderation page on the
+				// "pending" tab, where the owner/mod approves or declines it —
+				// not the space home page. PageRouter::space_url() falls back to
+				// the spaces hub when the space is missing, so only append the
+				// moderation segment when a real space URL resolved.
+				if ( $object_id <= 0 ) {
+					return PageRouter::spaces_url();
+				}
+				$space_link = PageRouter::space_url( $object_id );
+				if ( PageRouter::spaces_url() === $space_link ) {
+					return $space_link;
+				}
+				return add_query_arg( 'bn_mtab', 'pending', $space_link . 'moderation/' );
+
 			case 'bn.space_join':
 			case 'bn.space_invite':
-			case 'bn.space_join_requested':
 			case 'bn.space_request_approved':
 			case 'bn.space_join_approved':
 			case 'bn.space_join_declined':
