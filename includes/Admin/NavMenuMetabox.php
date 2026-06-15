@@ -27,6 +27,37 @@ final class NavMenuMetabox {
 	 */
 	public function register(): void {
 		add_action( 'load-nav-menus.php', array( $this, 'add_metabox' ) );
+		// Defensive guard for a WP 7.0 core regression: nav-menu.js uses the
+		// `columns` global from common.js but does not declare `common` as a
+		// dependency, so on some builds common.js loads after nav-menu.js and
+		// Appearance → Menus throws "columns is not defined", breaking the
+		// menu-item checkboxes our metabox renders into. Add the missing
+		// dependency ourselves (no-op once core declares it). Priority 1 so it
+		// runs before nav-menu is printed.
+		add_action( 'admin_enqueue_scripts', array( $this, 'ensure_nav_menu_common_dep' ), 1 );
+	}
+
+	/**
+	 * Ensure `common` is a dependency of the core `nav-menu` script.
+	 *
+	 * Forces common.js (which defines the `columns` global nav-menu.js relies
+	 * on) to load before nav-menu.js, working around the WP 7.0 missing-deps
+	 * regression. Forward-compatible: skips when core already declares it.
+	 *
+	 * @param string $hook_suffix Current admin page hook suffix.
+	 * @return void
+	 */
+	public function ensure_nav_menu_common_dep( string $hook_suffix ): void {
+		if ( 'nav-menus.php' !== $hook_suffix ) {
+			return;
+		}
+		$nav_menu = wp_scripts()->query( 'nav-menu', 'registered' );
+		if ( $nav_menu instanceof \_WP_Dependency
+			&& is_array( $nav_menu->deps )
+			&& ! in_array( 'common', $nav_menu->deps, true )
+		) {
+			$nav_menu->deps[] = 'common';
+		}
 	}
 
 	/**
