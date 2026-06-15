@@ -313,12 +313,16 @@
 }
 
 /* ── Dark mode ──
- * Triggered by either [data-bn-theme="dark"] (v2 canonical) or the legacy
- * [data-theme="dark"] (existing templates). Templates will migrate to the
- * v2 attribute in a follow-up sweep.
+ * Triggered by [data-bn-theme="dark"] (v2 canonical), the legacy
+ * [data-theme="dark"] (existing templates), or [data-bx-mode="dark"] — the
+ * attribute the Wbcom sibling themes (BuddyX, BuddyX Pro, Reign) set on <html>
+ * via their color-mode toggle. Mapping the theme toggle into BN's token system
+ * keeps every BN surface (blocks, header chrome, dropdowns) dark when the host
+ * theme is dark, so the suite stays visually consistent.
  * ──────────────────────────────────────────────────────────────────── */
 [data-bn-theme="dark"],
-[data-theme="dark"] {
+[data-theme="dark"],
+[data-bx-mode="dark"] {
 	--bn-canvas:   oklch(15% 0.008 var(--bn-hue));
 	--bn-surface:  oklch(19% 0.01  var(--bn-hue));
 	--bn-raised:   oklch(22% 0.012 var(--bn-hue));

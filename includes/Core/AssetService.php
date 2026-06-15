@@ -101,6 +101,14 @@ class AssetService {
 	public function enqueue_global_tokens(): void {
 		if ( ! is_admin() ) {
 			wp_enqueue_style( 'bn-base' );
+
+			// Header user section (bell + messages + avatar dropdown) is chrome
+			// that can render in ANY theme's header — via the block, the shortcode,
+			// or a per-theme auto-place shim — so its CSS loads site-wide, but
+			// only for logged-in visitors (the section renders nothing otherwise).
+			if ( is_user_logged_in() ) {
+				wp_enqueue_style( 'bn-header' );
+			}
 		}
 	}
 
@@ -307,6 +315,7 @@ class AssetService {
 			'bn-moderation',
 			'bn-connections',
 			'bn-space-members',
+			'bn-header',
 		);
 
 		foreach ( $feature_styles as $handle ) {

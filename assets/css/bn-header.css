@@ -1,0 +1,221 @@
+/**
+ * BuddyNext header user section — bell + messages + avatar dropdown.
+ *
+ * Self-contained header chrome for ANY theme (Reign, BuddyX, BuddyX-Pro) via the
+ * `buddynext/header-user-menu` block, the `[buddynext_user_menu]` shortcode, or a
+ * per-theme auto-place shim. Zero JavaScript: the dropdown opens on hover and on
+ * keyboard/touch focus (`:focus-within`); unread counts are server-rendered.
+ *
+ * Uses the global BuddyNext OKLCH tokens (loaded site-wide via bn-base) and the
+ * shared .bn-avatar / .bn-badge primitives. Loaded only for logged-in visitors.
+ */
+
+.bn-header-user-section {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s2, 0.5rem);
+}
+
+/* ── Icon buttons (bell, messages) ──────────────────────────────────────── */
+.bn-header-user-section .bn-block-notification-bell,
+.bn-header-msg {
+	position: relative;
+	display: inline-flex;
+}
+
+.bn-header-user-section .bn-notification-bell-link,
+.bn-header-msg {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	border-radius: var(--bn-r-full, 999px);
+	color: var(--bn-ink-2, #475569);
+	background: transparent;
+	transition: background var(--bn-dur-fast, 0.12s) var(--bn-ease, ease),
+		color var(--bn-dur-fast, 0.12s) var(--bn-ease, ease);
+}
+
+.bn-header-user-section .bn-notification-bell-link:hover,
+.bn-header-user-section .bn-notification-bell-link:focus-visible,
+.bn-header-msg:hover,
+.bn-header-msg:focus-visible {
+	background: var(--bn-sunken, #f1f5f9);
+	color: var(--bn-ink, #0f172a);
+}
+
+.bn-header-user-section .bn-notification-bell-icon,
+.bn-header-msg__icon {
+	display: inline-flex;
+}
+
+.bn-header-user-section .bn-notification-bell-icon svg,
+.bn-header-msg__icon svg,
+.bn-header-user__item-icon svg,
+.bn-header-user__caret svg {
+	width: 20px;
+	height: 20px;
+}
+
+/* The bell's own badge primitive sits top-right; pin it to the icon button. */
+.bn-header-user-section .bn-block-notification-bell .bn-notification-badge {
+	position: absolute;
+	top: 2px;
+	right: 2px;
+}
+
+/* ── User: avatar + caret + dropdown ────────────────────────────────────── */
+.bn-header-user {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+}
+
+.bn-header-user__avatar {
+	display: inline-flex;
+	border-radius: var(--bn-r-full, 999px);
+	line-height: 0;
+}
+
+.bn-header-user__avatar:focus-visible {
+	outline: 2px solid var(--bn-accent, #2563eb);
+	outline-offset: 2px;
+}
+
+.bn-header-user__img {
+	width: 36px;
+	height: 36px;
+	border-radius: var(--bn-r-full, 999px);
+	object-fit: cover;
+	display: block;
+}
+
+.bn-header-user__caret {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	margin-left: 2px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--bn-r-full, 999px);
+	background: transparent;
+	color: var(--bn-ink-3, #64748b);
+	cursor: pointer;
+	transition: color var(--bn-dur-fast, 0.12s) var(--bn-ease, ease),
+		transform var(--bn-dur-fast, 0.12s) var(--bn-ease, ease);
+}
+
+.bn-header-user__caret:hover,
+.bn-header-user__caret:focus-visible {
+	color: var(--bn-ink, #0f172a);
+}
+
+/* ── The dropdown (CSS-only reveal) ─────────────────────────────────────── */
+.bn-header-user__dropdown {
+	position: absolute;
+	top: calc(100% + var(--bn-s2, 0.5rem));
+	right: 0;
+	z-index: 1000;
+	min-width: 224px;
+	padding: var(--bn-s2, 0.5rem);
+	background: var(--bn-surface, #fff);
+	border: 1px solid var(--bn-line, #e2e8f0);
+	border-radius: var(--bn-r-lg, 0.75rem);
+	box-shadow: var(--bn-shadow-lg, 0 12px 32px rgba(15, 23, 42, 0.16));
+	opacity: 0;
+	visibility: hidden;
+	transform: translateY(-4px);
+	transition: opacity var(--bn-dur-fast, 0.12s) var(--bn-ease, ease),
+		transform var(--bn-dur-fast, 0.12s) var(--bn-ease, ease),
+		visibility var(--bn-dur-fast, 0.12s) var(--bn-ease, ease);
+}
+
+/* Open on hover (pointer) and on focus-within (keyboard / touch). Rotate the
+   caret to signal the open state. No JavaScript. */
+.bn-header-user:hover .bn-header-user__dropdown,
+.bn-header-user:focus-within .bn-header-user__dropdown {
+	opacity: 1;
+	visibility: visible;
+	transform: translateY(0);
+}
+
+.bn-header-user:hover .bn-header-user__caret,
+.bn-header-user:focus-within .bn-header-user__caret {
+	transform: rotate(180deg);
+}
+
+.bn-header-user__head {
+	padding: var(--bn-s2, 0.5rem) var(--bn-s3, 0.75rem) var(--bn-s3, 0.75rem);
+	margin-bottom: var(--bn-s1, 0.25rem);
+	border-bottom: 1px solid var(--bn-line-faint, #eef2f6);
+}
+
+.bn-header-user__name {
+	font-weight: var(--bn-fw-semibold, 600);
+	font-size: var(--bn-text-sm, 0.875rem);
+	color: var(--bn-ink, #0f172a);
+}
+
+.bn-header-user__item {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3, 0.75rem);
+	padding: var(--bn-s2, 0.5rem) var(--bn-s3, 0.75rem);
+	border-radius: var(--bn-r-md, 0.5rem);
+	color: var(--bn-ink-2, #334155);
+	font-size: var(--bn-text-sm, 0.875rem);
+	text-decoration: none;
+	transition: background var(--bn-dur-fast, 0.12s) var(--bn-ease, ease),
+		color var(--bn-dur-fast, 0.12s) var(--bn-ease, ease);
+}
+
+.bn-header-user__item:hover,
+.bn-header-user__item:focus-visible {
+	background: var(--bn-sunken, #f1f5f9);
+	color: var(--bn-ink, #0f172a);
+}
+
+.bn-header-user__item-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	/* Reserve the icon column so injected menu items without an icon still
+	   align their labels with the icon'd defaults. */
+	width: 20px;
+	flex-shrink: 0;
+	color: var(--bn-ink-3, #64748b);
+}
+
+.bn-header-user__item.is-logout {
+	margin-top: var(--bn-s1, 0.25rem);
+	border-top: 1px solid var(--bn-line-faint, #eef2f6);
+	border-radius: 0 0 var(--bn-r-md, 0.5rem) var(--bn-r-md, 0.5rem);
+	color: var(--bn-danger, #dc2626);
+}
+
+.bn-header-user__item.is-logout .bn-header-user__item-icon {
+	color: var(--bn-danger, #dc2626);
+}
+
+.bn-header-user__item.is-logout:hover,
+.bn-header-user__item.is-logout:focus-visible {
+	background: var(--bn-danger-bg, #fef2f2);
+	color: var(--bn-danger, #dc2626);
+}
+
+/* ── Mobile (<= 640px) ──────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+	.bn-header-user-section {
+		gap: var(--bn-s1, 0.25rem);
+	}
+
+	/* Hover-open is unreliable on touch; the dropdown opens via focus-within
+	   (tapping the caret). Anchor it to the screen edge so it never overflows. */
+	.bn-header-user__dropdown {
+		right: 0;
+		min-width: min(260px, calc(100vw - 1.5rem));
+	}
+}

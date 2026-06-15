@@ -12,14 +12,14 @@ namespace BuddyNext\Tests\Blocks;
 use BuddyNext\Blocks\BlockRegistrar;
 
 /**
- * Verifies all 17 BuddyNext blocks and 4 block patterns are correctly registered.
+ * Verifies all 18 BuddyNext blocks and 4 block patterns are correctly registered.
  *
  * @covers \BuddyNext\Blocks\BlockRegistrar
  */
 class BlockRegistrarTest extends \WP_UnitTestCase {
 
 	/**
-	 * All 17 free-tier block names (namespace/slug).
+	 * All 18 free-tier block names (namespace/slug).
 	 *
 	 * @var string[]
 	 */
@@ -45,6 +45,7 @@ class BlockRegistrarTest extends \WP_UnitTestCase {
 		'buddynext/registration-form',
 		'buddynext/login-form',
 		'buddynext/notification-bell',
+		'buddynext/header-user-menu',
 		'buddynext/search-bar',
 	);
 
@@ -75,7 +76,7 @@ class BlockRegistrarTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Data provider: all 17 block names.
+	 * Data provider: all 18 block names.
 	 *
 	 * @return array<string, array{string}>
 	 */

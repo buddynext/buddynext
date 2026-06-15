@@ -2,7 +2,7 @@
 /**
  * Gutenberg block and pattern registration.
  *
- * Registers all 17 free-tier BuddyNext blocks (server-rendered, dynamic)
+ * Registers all 18 free-tier BuddyNext blocks (server-rendered, dynamic)
  * and the 4 pre-built block patterns.
  *
  * Each block lives in blocks/bn-{slug}/block.json. Render callbacks are
@@ -77,7 +77,7 @@ class BlockRegistrar {
 	}
 
 	/**
-	 * Register all 17 dynamic blocks.
+	 * Register all 18 dynamic blocks.
 	 *
 	 * The shared editor script (blocks.js) uses `wp.serverSideRender` to render
 	 * live SSR previews inside the block editor. That component ships as the
@@ -129,6 +129,7 @@ class BlockRegistrar {
 			'bn-registration-form'      => array( $this, 'render_registration_form' ),
 			'bn-login-form'             => array( $this, 'render_login_form' ),
 			'bn-notification-bell'      => array( $this, 'render_notification_bell' ),
+			'bn-header-user-menu'       => array( $this, 'render_header_user_menu' ),
 			'bn-search-bar'             => array( $this, 'render_search_bar' ),
 		);
 
@@ -465,6 +466,21 @@ class BlockRegistrar {
 	public function render_notification_bell( array $attributes ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- required by register_block_type signature.
 		ob_start();
 		buddynext_get_template( 'blocks/notification-bell.php', array() );
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Render the Header User Menu block (bell + messages + avatar dropdown).
+	 *
+	 * Logged-in header chrome usable as a block-based widget in any theme's
+	 * header. Renders nothing for logged-out visitors.
+	 *
+	 * @param array<string, mixed> $attributes Block attributes.
+	 * @return string
+	 */
+	public function render_header_user_menu( array $attributes ): string { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- required by register_block_type signature.
+		ob_start();
+		buddynext_get_template( 'blocks/header-user-menu.php', array() );
 		return (string) ob_get_clean();
 	}
 

@@ -323,6 +323,63 @@ function buddynext_emoji( string $slug, string $css_class = '', ?string $alt = n
 }
 
 /**
+ * Echo the BuddyNext notification bell (icon + server-rendered unread badge).
+ *
+ * Header chrome for any theme. Renders nothing for logged-out visitors. Use in
+ * a classic theme's header where a notifications icon belongs.
+ *
+ * @return void
+ */
+function buddynext_header_notification_bell(): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup is built from escaped pieces inside HeaderUserSection.
+	echo \BuddyNext\Header\HeaderUserSection::notification_bell();
+}
+
+/**
+ * Echo the BuddyNext messages icon → the member's messages inbox.
+ *
+ * Renders nothing when the messages feature is unavailable or the visitor is
+ * logged out.
+ *
+ * @return void
+ */
+function buddynext_header_messages_bell(): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup is built from escaped pieces inside HeaderUserSection.
+	echo \BuddyNext\Header\HeaderUserSection::messages_link();
+}
+
+/**
+ * Echo the BuddyNext avatar + profile dropdown (quick links + log out).
+ *
+ * The avatar links to the member's profile; a CSS-only dropdown exposes the
+ * quick links and log out. Renders nothing for logged-out visitors.
+ *
+ * @return void
+ */
+function buddynext_header_user_menu(): void {
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup is built from escaped pieces inside HeaderUserSection.
+	echo \BuddyNext\Header\HeaderUserSection::user_menu();
+}
+
+/**
+ * Return the full BuddyNext header user section (bell + messages + avatar menu).
+ *
+ * Used by the `[buddynext_user_menu]` shortcode and the header-user-menu block.
+ *
+ * @return string Safe HTML (empty for logged-out visitors).
+ */
+function buddynext_header_user_section(): string {
+	return \BuddyNext\Header\HeaderUserSection::render();
+}
+
+add_shortcode(
+	'buddynext_user_menu',
+	static function (): string {
+		return buddynext_header_user_section();
+	}
+);
+
+/**
  * Return a Microsoft Fluent reaction emoji `<img>` tag as a string.
  *
  * Same as buddynext_emoji() but returns the markup instead of echoing it.
