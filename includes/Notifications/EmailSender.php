@@ -159,7 +159,7 @@ class EmailSender {
 		$payload = array(
 			'to'      => $user->user_email,
 			'subject' => $subject,
-			'body'    => '<html><body>' . $body . '</body></html>',
+			'body'    => $this->wrap_email_html( $body, $subject ),
 			'headers' => array( 'Content-Type: text/html; charset=UTF-8' ),
 		);
 
@@ -206,6 +206,74 @@ class EmailSender {
 	 * @param array  $data      Notification data — keys become additional placeholders.
 	 * @return string Rendered string with placeholders replaced.
 	 */
+	/**
+	 * Wrap a rendered template body in the branded HTML email shell.
+	 *
+	 * send_now() previously emitted the bare `<html><body>$body</body></html>`,
+	 * so notification emails arrived as unstyled plain text with no header,
+	 * footer, or branding. This wraps every email in a responsive, inline-styled
+	 * shell (table layout for client compatibility) carrying the site name and a
+	 * footer, using the admin's brand colour for the header accent.
+	 *
+	 * @param string $body    Rendered (token-replaced) template body HTML.
+	 * @param string $subject Rendered subject, used as the preheader/title.
+	 * @return string Full branded HTML document.
+	 */
+	private function wrap_email_html( string $body, string $subject = '' ): string {
+		$site_name = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+		$site_url  = esc_url( home_url( '/' ) );
+		$brand     = (string) get_option( 'buddynext_brand_color', '#0073aa' );
+		if ( ! preg_match( '/^#[0-9a-fA-F]{3,8}$/', $brand ) ) {
+			$brand = '#0073aa';
+		}
+
+		/**
+		 * Filter the BuddyNext notification email shell.
+		 *
+		 * Return a string containing the literal token `{{email_body}}` where the
+		 * rendered body should be injected to fully replace the default shell.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param string $shell   Default shell HTML (contains {{email_body}}).
+		 * @param string $body    Rendered body HTML.
+		 * @param string $subject Rendered subject.
+		 */
+		$shell = (string) apply_filters( 'buddynext_email_shell', '', $body, $subject );
+		if ( '' !== $shell && false !== strpos( $shell, '{{email_body}}' ) ) {
+			return str_replace( '{{email_body}}', $body, $shell );
+		}
+
+		$brand_esc = esc_attr( $brand );
+		$name_esc  = esc_html( $site_name );
+		$year      = esc_html( gmdate( 'Y' ) );
+
+		return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+			. '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+			. '<title>' . esc_html( $subject ) . '</title></head>'
+			. '<body style="margin:0;padding:0;background:#f3f4f6;'
+			. '-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">'
+			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">'
+			. '<tr><td align="center">'
+			. '<table role="presentation" width="600" cellpadding="0" cellspacing="0" '
+			. 'style="width:600px;max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;'
+			. 'box-shadow:0 1px 3px rgba(0,0,0,0.08);">'
+			// Header.
+			. '<tr><td style="background:' . $brand_esc . ';padding:20px 32px;">'
+			. '<a href="' . $site_url . '" style="color:#ffffff;text-decoration:none;font-size:20px;font-weight:700;">'
+			. $name_esc . '</a></td></tr>'
+			// Body.
+			. '<tr><td style="padding:28px 32px;color:#1f2937;font-size:15px;line-height:1.6;">'
+			. $body
+			. '</td></tr>'
+			// Footer.
+			. '<tr><td style="padding:20px 32px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">'
+			. esc_html( sprintf( /* translators: 1: year, 2: site name. */ __( '© %1$s %2$s. All rights reserved.', 'buddynext' ), $year, $site_name ) )
+			. '<br><a href="' . $site_url . '" style="color:#6b7280;">' . $site_url . '</a>'
+			. '</td></tr>'
+			. '</table></td></tr></table></body></html>';
+	}
+
 	private function render( string $template, int $user_id, array $data ): string {
 		$notification_type = (string) ( $data['type'] ?? '' );
 
