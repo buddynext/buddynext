@@ -68,6 +68,7 @@ use BuddyNext\Auth\VerificationListener;
 use BuddyNext\Auth\VerificationService;
 use BuddyNext\Outbound\OutboundWebhookService;
 use BuddyNext\Onboarding\OnboardingListener;
+use BuddyNext\Privacy\PrivacyTools;
 use BuddyNext\Outbound\OutboundWebhookListener;
 use BuddyNext\Realtime\TransportFactory;
 use BuddyNext\SocialGraph\BlockService;
@@ -286,6 +287,11 @@ class Plugin {
 
 		// Wire onboarding nudge scheduling and cron handlers.
 		( new OnboardingListener() )->register();
+
+		// Wire the WordPress Privacy Tools integration so Tools → Export/Erase
+		// Personal Data covers BuddyNext's custom tables and bn_* user meta.
+		// Registered unconditionally — admin GDPR/CCPA compliance must always work.
+		( new PrivacyTools() )->register();
 
 		// Wire per-session + per-day engagement pulses (streak driver
 		// for gamification plugins). Idempotent within a session window
