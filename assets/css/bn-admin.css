@@ -1878,8 +1878,8 @@ button.bn-btn-danger:hover {
 	padding: 1px 8px;
 	margin-inline-start: 8px;
 	border-radius: 999px;
-	background: #e2e8f0;
-	color: #1e293b;
+	background: var(--bn-sunken, #e2e8f0);
+	color: var(--bn-ink, #1e293b);
 	font-size: 12px;
 	font-weight: 600;
 	text-align: center;
@@ -1902,7 +1902,7 @@ button.bn-btn-danger:hover {
 	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
-	color: #475569;
+	color: var(--bn-ink-2, #475569);
 }
 .bn-roles-table { max-width: 720px; }
 .bn-roles-table td { vertical-align: middle; }
@@ -1919,13 +1919,13 @@ button.bn-btn-danger:hover {
 	flex-direction: column;
 	gap: 2px;
 	padding: 16px;
-	border: 1px solid #e2e8f0;
+	border: 1px solid var(--bn-line, #e2e8f0);
 	border-radius: 8px;
-	background: #fff;
+	background: var(--bn-surface, #fff);
 }
-.bn-insight-value { font-size: 28px; font-weight: 700; line-height: 1.1; color: #0f172a; }
-.bn-insight-label { font-size: 13px; color: #475569; }
-.bn-insight-sub { font-size: 12px; color: #16a34a; }
+.bn-insight-value { font-size: 28px; font-weight: 700; line-height: 1.1; color: var(--bn-ink, #0f172a); }
+.bn-insight-label { font-size: 13px; color: var(--bn-ink-2, #475569); }
+.bn-insight-sub { font-size: 12px; color: var(--bn-success, #16a34a); }
 .bn-spark {
 	display: flex;
 	align-items: flex-end;
@@ -1944,7 +1944,7 @@ button.bn-btn-danger:hover {
 .bn-insights-widget { margin: 0 0 8px; }
 .bn-insights-widget li { margin: 0 0 6px; }
 .bn-insights-widget strong { font-size: 16px; }
-.bn-insights-delta { color: #16a34a; font-size: 12px; margin-inline-start: 4px; }
+.bn-insights-delta { color: var(--bn-success, #16a34a); font-size: 12px; margin-inline-start: 4px; }
 
 /* Container for buddynext_profile_field_type_options hook rows (Pro emits
    <tr><td>). Seamless so it blends into the field panel, not a boxed table. */
