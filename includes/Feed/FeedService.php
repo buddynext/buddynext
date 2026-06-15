@@ -365,6 +365,13 @@ class FeedService {
 
 			case 'for-you':
 			default:
+				// "For You" is the blended discovery feed (vs. the strict "Following"
+				// tab): the viewer's follows, own posts, joined spaces and followed
+				// hashtags, PLUS public community activity so the feed isn't empty for
+				// users who follow no one. The public catch-all is scoped to non-space
+				// posts and posts in open spaces only — private/secret space posts are
+				// reached solely through the joined-spaces branch, never leaked here.
+				// Block/mute/excluded filtering is applied by the caller on top.
 				$sql    = "(
 					user_id IN (
 						SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d
@@ -382,6 +389,16 @@ class FeedService {
 					  AND ph.hashtag_id IN (
 						SELECT hf.hashtag_id FROM {$wpdb->prefix}bn_hashtag_follows hf
 						WHERE hf.user_id = %d
+					)
+				)
+				OR (
+					privacy = 'public'
+					AND (
+						space_id IS NULL
+						OR space_id = 0
+						OR space_id IN (
+							SELECT id FROM {$wpdb->prefix}bn_spaces WHERE type = 'open'
+						)
 					)
 				)";
 				$params = array( $user_id, $user_id, $user_id, $user_id );

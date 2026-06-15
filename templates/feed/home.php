@@ -226,6 +226,16 @@ if ( ! $feed_service_filtered ) :
 							  WHERE hf.user_id = %d
 						   )
 				  )
+				   OR (
+						p.privacy = 'public'
+						AND (
+							p.space_id IS NULL
+							OR p.space_id = 0
+							OR p.space_id IN (
+								SELECT s.id FROM {$spaces_table} s WHERE s.type = 'open'
+							)
+						)
+					  )
 				)
 			{$exclusion_sql}
 			{$cursor_sql}
