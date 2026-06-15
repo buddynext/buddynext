@@ -1463,7 +1463,10 @@ class NavManager extends AdminPageBase {
 				'icon'        => 'tab-people',
 				'description' => __( 'Page that renders the member directory and individual profile URLs.', 'buddynext' ),
 				'capability'  => 'read',
-				'hidden'      => true,
+				// Visible by default: the left rail shows Members as a core nav
+				// item, so it must default to on (otherwise saving the nav form
+				// would hide Members from the rail). Owners can still toggle it.
+				'hidden'      => false,
 			),
 			array(
 				'slug'        => 'auth',
