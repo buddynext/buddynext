@@ -125,7 +125,7 @@ $total_pages = (int) ceil( $total_spaces / $bn_per_page );
 
 // Fetch spaces.
 // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$data_base = "SELECT s.id, s.name, s.slug, s.description, s.type, s.cover_image_url, s.member_count, s.created_at,
+$data_base = "SELECT s.id, s.name, s.slug, s.description, s.type, s.cover_image_url, s.avatar_url, s.member_count, s.created_at,
 	c.name AS category_name, c.slug AS category_slug
 	FROM {$wpdb->prefix}bn_spaces s
 	{$join_sql}
