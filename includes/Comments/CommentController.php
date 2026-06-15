@@ -194,6 +194,7 @@ class CommentController extends BaseRestController {
 		$created['author_avatar_url'] = (string) get_avatar_url( $created['user_id'], array( 'size' => 40 ) );
 		$created['like_count']        = 0;
 		$created['viewer_liked']      = false;
+		$created['viewer_reaction']   = null;
 		$created['can_edit']          = true;
 		$created['can_delete']        = true;
 		$created['can_pin']           = user_can( $user_id, 'manage_options' );
@@ -265,6 +266,11 @@ class CommentController extends BaseRestController {
 			$comment['viewer_liked']      = $viewer_id > 0
 				? $reactions->has_reacted( $viewer_id, 'comment', (int) $comment['id'] )
 				: false;
+			// Carry the specific emoji the viewer reacted with so the client can
+			// render the right icon instead of always falling back to 'like'.
+			$comment['viewer_reaction']   = $viewer_id > 0
+				? $reactions->get_user_emoji( $viewer_id, 'comment', (int) $comment['id'] )
+				: null;
 			$comment['can_edit']          = $viewer_id > 0
 				&& ( (int) $comment['user_id'] === $viewer_id || user_can( $viewer_id, 'manage_options' ) );
 			$comment['can_delete']        = $comment['can_edit'];
@@ -286,8 +292,9 @@ class CommentController extends BaseRestController {
 				$comment['can_edit']     = false;
 				$comment['can_delete']   = false;
 				$comment['can_pin']      = false;
-				$comment['like_count']   = 0;
-				$comment['viewer_liked'] = false;
+				$comment['like_count']      = 0;
+				$comment['viewer_liked']    = false;
+				$comment['viewer_reaction'] = null;
 			}
 
 			return $comment;

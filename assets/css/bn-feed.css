@@ -1439,7 +1439,10 @@
 .bn-comment__pin-btn:hover { color: var(--bn-accent); }
 .bn-comment__report-btn:hover { color: var(--bn-danger); }
 
-.bn-comment__like-btn[data-reaction] {
+/* Only style the reacted state when data-reaction holds an actual emoji —
+   the JS sets data-reaction="" (empty but present) on un-reacted comments,
+   which a bare [data-reaction] would wrongly match. */
+.bn-comment__like-btn[data-reaction]:not([data-reaction=""]) {
 	color: var(--bn-accent);
 	font-weight: 600;
 }
