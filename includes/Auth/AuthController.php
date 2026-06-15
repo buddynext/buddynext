@@ -688,7 +688,19 @@ class AuthController {
 		wp_set_current_user( (int) $user_id );
 		wp_set_auth_cookie( (int) $user_id, false, is_ssl() );
 
-		$redirect_to = \BuddyNext\Core\PageRouter::onboarding_url();
+		// Send the new member to the welcome wizard when onboarding is enabled
+		// (FeatureRegistry — the canonical toggle); otherwise land them on the
+		// activity feed. Email verification, when enabled, takes precedence so
+		// the account is confirmed before anything else. Members who arrive by
+		// other paths (admin-created, social login) are caught by the
+		// OnboardingListener template_redirect gate.
+		$onboarding_on = function_exists( 'buddynext_service' )
+			&& buddynext_service( 'features' )->is_enabled( 'onboarding' );
+
+		$redirect_to = $onboarding_on
+			? \BuddyNext\Core\PageRouter::onboarding_url()
+			: \BuddyNext\Core\PageRouter::activity_url();
+
 		if ( get_option( 'buddynext_email_verify' ) ) {
 			$redirect_to = \BuddyNext\Core\PageRouter::hub_url(
 				'buddynext_slug_auth',

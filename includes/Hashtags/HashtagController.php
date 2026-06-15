@@ -7,10 +7,11 @@
  *   GET    /hashtags/autocomplete      — prefix-search suggestions (public)
  *   POST   /hashtags/{slug}/follow     — follow a hashtag (authenticated)
  *   DELETE /hashtags/{slug}/follow     — unfollow a hashtag (authenticated)
+ *   GET    /hashtags/{slug}/feed       — paginated public posts for a hashtag (public)
  *   GET    /hashtags/{slug}            — look up a hashtag by slug (public)
  *
- * Literal-path routes (trending, autocomplete, follow) are registered before
- * the /{slug} wildcard to prevent them being captured by the slug regex.
+ * Literal-path routes (trending, autocomplete, follow, feed) are registered
+ * before the /{slug} wildcard to prevent them being captured by the slug regex.
  *
  * @package BuddyNext\Hashtags
  */
@@ -112,6 +113,36 @@ class HashtagController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/hashtags/(?P<slug>[a-zA-Z0-9_-]+)/feed',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_feed' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'slug'     => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'per_page' => array(
+						'required'          => false,
+						'type'              => 'integer',
+						'default'           => 20,
+						'minimum'           => 1,
+						'maximum'           => 50,
+						'sanitize_callback' => 'absint',
+					),
+					'cursor'   => array(
+						'required'          => false,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/hashtags/(?P<slug>[a-zA-Z0-9_-]+)',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -193,6 +224,34 @@ class HashtagController {
 		$service->unfollow( get_current_user_id(), $hashtag['id'] );
 
 		return new WP_REST_Response( array( 'following' => false ), 200 );
+	}
+
+	/**
+	 * Return paginated public posts for a hashtag.
+	 *
+	 * Delegates to HashtagService::get_feed(), which surfaces only public,
+	 * published posts using keyset cursor pagination. The response mirrors the
+	 * service contract: items, next_cursor, and the hashtag metadata.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_feed( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$slug = (string) $request->get_param( 'slug' );
+		$args = array( 'per_page' => (int) $request->get_param( 'per_page' ) );
+
+		$cursor = (string) $request->get_param( 'cursor' );
+		if ( '' !== $cursor ) {
+			$args['cursor'] = $cursor;
+		}
+
+		$result = ( new HashtagService() )->get_feed( $slug, $args );
+
+		if ( null === $result['hashtag'] ) {
+			return new WP_Error( 'not_found', __( 'Hashtag not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response( $result, 200 );
 	}
 
 	/**
