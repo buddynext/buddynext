@@ -1805,6 +1805,31 @@ store( 'buddynext/post-composer', {
 			ctx.privacyOpen = false;
 		},
 	},
+	callbacks: {
+		// Re-apply a restored draft into the LIVE store once Interactivity has
+		// hydrated. restoreDraftsOnLoad() patches the data-wp-context attribute
+		// on DOMContentLoaded, but if Interactivity hydrates first the live
+		// context keeps draftStatus='' (and the textarea binding wins), so the
+		// "Draft restored" status never appears. Running here via data-wp-init
+		// (post-hydration) sets the live context directly, so the status +
+		// restored content are reliable regardless of hydration ordering.
+		restoreDraft() {
+			const ctx = getContext();
+			const userId = parseInt( ctx.userId, 10 );
+			if ( ! ( userId > 0 ) ) {
+				return;
+			}
+			const draft = readDraft( userId );
+			if ( ! draft || ! draft.content ) {
+				return;
+			}
+			ctx.content      = draft.content;
+			ctx.composerType = draft.composerType || ctx.composerType;
+			ctx.privacy      = draft.privacy || ctx.privacy;
+			ctx.hasDraft     = true;
+			ctx.draftStatus  = 'Draft restored';
+		},
+	},
 } );
 
 /* ── Announcement ────────────────────────────────────────────────────────── */

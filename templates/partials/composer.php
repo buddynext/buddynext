@@ -81,6 +81,7 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 ?>
 <div class="bn-composer"
 	data-wp-interactive="buddynext/post-composer"
+	data-wp-init="callbacks.restoreDraft"
 	data-wp-context='
 	<?php
 	echo esc_attr(
@@ -386,7 +387,7 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				role="status"
 				aria-live="polite"
 				hidden>
-				<span class="bn-composer__draft-status" data-wp-text="state.draftStatus"></span>
+				<span class="bn-composer__draft-status" data-wp-text="context.draftStatus"></span>
 				<button
 					class="bn-composer__draft-discard"
 					type="button"

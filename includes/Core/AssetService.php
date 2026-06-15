@@ -340,8 +340,6 @@ class AssetService {
 	 * @return void
 	 */
 	public function register_script_modules(): void {
-		$v = self::VERSION;
-
 		// Shared shell modules — used as dependencies by feature stores.
 		// `@buddynext/shell-dialog` exposes bnConfirm/bnPrompt/bnToast for
 		// stores that need accessible replacements for window.confirm/prompt.
@@ -349,7 +347,7 @@ class AssetService {
 			'@buddynext/shell-dialog',
 			$this->assets_url . 'js/shell/dialog.js',
 			array(),
-			$v
+			$this->module_version( 'js/shell/dialog.js' )
 		);
 
 		$feature_modules = array(
@@ -397,9 +395,33 @@ class AssetService {
 				$id,
 				$this->assets_url . 'js/' . $path . '.js',
 				$deps,
-				$v
+				$this->module_version( 'js/' . $path . '.js' )
 			);
 		}
+	}
+
+	/**
+	 * Compute an mtime-based version string for a script module.
+	 *
+	 * Script modules are registered via wp_register_script_module() and emitted
+	 * through the import-map, so they never pass through the script_loader_src
+	 * filter that version_by_mtime() hooks. Without this, module JS edits keep
+	 * the fixed BUDDYNEXT_VERSION query arg and stay cached in the browser. This
+	 * mirrors version_by_mtime() so module edits also always reach the browser.
+	 *
+	 * @param string $relative Asset-relative path (e.g. 'js/feed/store.js').
+	 * @return string Version string (base version plus file mtime when readable).
+	 */
+	private function module_version( string $relative ): string {
+		$base = (string) self::VERSION;
+		if ( ! defined( 'BUDDYNEXT_DIR' ) ) {
+			return $base;
+		}
+		$path = constant( 'BUDDYNEXT_DIR' ) . 'assets/' . ltrim( $relative, '/' );
+		if ( is_file( $path ) ) {
+			return $base . '.' . (string) filemtime( $path );
+		}
+		return $base;
 	}
 
 	/**
