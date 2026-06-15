@@ -320,6 +320,38 @@ class PageRouter {
 		$wp_query->is_singular = true;
 		$wp_query->is_archive  = false;
 		$wp_query->is_paged    = false;
+
+		// Because we present the hub as singular (is_singular = true), the theme's
+		// header runs WP's singular code path — body_class() reads $post->ID /
+		// post_type / post_parent off the global $post. On these virtual routes
+		// there is no backing post, so without a stub the global $post is null and
+		// WP emits "Attempt to read property ... on null" warnings from
+		// post-template.php on every hub page. Prime a lightweight virtual WP_Post
+		// (and point the query's queried object at it) so every singular-path
+		// consumer has a valid object to read. Mirrors how BuddyPress stubs a
+		// dummy post for its component pages.
+		$virtual_post = new \WP_Post(
+			(object) array(
+				'ID'             => 0,
+				'post_author'    => 0,
+				'post_title'     => '',
+				'post_name'      => $hub,
+				'post_type'      => 'page',
+				'post_status'    => 'publish',
+				'post_parent'    => 0,
+				'comment_status' => 'closed',
+				'ping_status'    => 'closed',
+				'filter'         => 'raw',
+			)
+		);
+		$GLOBALS['post']            = $virtual_post;
+		$wp_query->post             = $virtual_post;
+		$wp_query->posts            = array( $virtual_post );
+		$wp_query->queried_object   = $virtual_post;
+		$wp_query->queried_object_id = 0;
+		$wp_query->post_count       = 1;
+		$wp_query->found_posts      = 1;
+
 		status_header( 200 );
 
 		// Set the document <title> via the standard wp_title parts filter.

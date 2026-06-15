@@ -74,6 +74,25 @@ class OnboardingListener implements ListenerInterface {
 			return;
 		}
 
+		// Grandfather the existing community. The wizard is for *new* members; it
+		// must never retroactively trap members who were already on the site when
+		// onboarding was switched on (admin, demo accounts, the whole back catalog
+		// of registrations). We record the moment the gate first becomes live and
+		// only redirect members who registered at or after it. Anyone older is
+		// treated as already settled in.
+		$gate_since = (int) get_option( 'buddynext_onboarding_gate_since', 0 );
+		if ( 0 === $gate_since ) {
+			$gate_since = time();
+			// Autoload so the very next request sees it without a fresh DB read.
+			update_option( 'buddynext_onboarding_gate_since', $gate_since );
+		}
+
+		$user_obj   = get_userdata( $user_id );
+		$registered = $user_obj ? (int) strtotime( (string) $user_obj->user_registered . ' UTC' ) : 0;
+		if ( $registered > 0 && $registered < $gate_since ) {
+			return;
+		}
+
 		// Never redirect when the member is already on the onboarding wizard or
 		// inside the auth flow (login / signup / email verify), to avoid loops.
 		$hub = (string) get_query_var( 'bn_hub', '' );
