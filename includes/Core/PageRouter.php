@@ -141,10 +141,57 @@ class PageRouter {
 	 *
 	 * @return void
 	 */
+
+	/**
+	 * Resolve the hub slug when a BuddyNext hub page is the static front page.
+	 *
+	 * Returns '' unless the request is the front page, the site shows a static
+	 * page on front, and that page is one assigned to a BuddyNext hub via the
+	 * buddynext_page_* options. Lets "/" render the assigned hub (Activity,
+	 * Members, Spaces, …) instead of an empty page.
+	 *
+	 * @return string Hub slug (a bn_hub value), or '' when not applicable.
+	 */
+	private function hub_for_front_page(): string {
+		if ( ! is_front_page() || 'page' !== (string) get_option( 'show_on_front' ) ) {
+			return '';
+		}
+		$front_id = (int) get_option( 'page_on_front' );
+		if ( $front_id <= 0 ) {
+			return '';
+		}
+
+		// buddynext_page_* option → bn_hub slug.
+		$map = array(
+			'buddynext_page_activity'      => 'feed',
+			'buddynext_page_explore'       => 'feed',
+			'buddynext_page_people'        => 'people',
+			'buddynext_page_spaces'        => 'spaces',
+			'buddynext_page_messages'      => 'messages',
+			'buddynext_page_notifications' => 'notifications',
+		);
+		foreach ( $map as $option => $slug ) {
+			if ( $front_id === (int) get_option( $option ) ) {
+				return $slug;
+			}
+		}
+
+		return '';
+	}
+
 	public function dispatch_hub_template(): void {
 		$hub = (string) get_query_var( 'bn_hub', '' );
 		if ( '' === $hub ) {
-			return;
+			// When a BuddyNext hub page is set as the WordPress static front
+			// page, the rewrite rules don't fire for "/", so bn_hub is never
+			// populated and the hub would render blank. Detect that case and
+			// resolve the hub from the assigned page so the homepage renders the
+			// hub (e.g. Activity) instead of an empty page.
+			$hub = $this->hub_for_front_page();
+			if ( '' === $hub ) {
+				return;
+			}
+			set_query_var( 'bn_hub', $hub );
 		}
 
 		// Feature guard: a hub whose feature the admin has disabled must not
