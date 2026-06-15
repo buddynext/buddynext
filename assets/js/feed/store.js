@@ -13,6 +13,22 @@ function timeAgo( dateStr ) {
 }
 
 /**
+ * Escape a string for safe interpolation into innerHTML. Used where a string
+ * (e.g. a user display name) has to go through innerHTML rather than
+ * textContent — escaping the five HTML-significant characters prevents the
+ * value from being parsed as markup.
+ *
+ * @param {string} str Raw value.
+ * @return {string} HTML-escaped value.
+ */
+function escapeHtml( str ) {
+	return String( str == null ? '' : str ).replace(
+		/[&<>"']/g,
+		( ch ) => ( { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ ch ] )
+	);
+}
+
+/**
  * Maximum visual nesting depth. Replies deeper than this are flattened
  * to depth = MAX_DEPTH with an "@parent" mention prefix injected by the
  * server so the conversation stays readable on narrow screens.
@@ -1463,9 +1479,22 @@ store( 'buddynext/post-composer', {
 									const thumb = document.createElement( 'div' );
 									thumb.className = 'bn-composer__media-thumb';
 									thumb.dataset.mediaId = mediaId;
-									thumb.innerHTML = '<img src="' + thumbUrl + '" alt="" width="80" height="80" loading="lazy">'
-										+ '<button class="bn-composer__media-remove" type="button" data-media-id="' + mediaId + '">&times;</button>';
-									thumb.querySelector( '.bn-composer__media-remove' ).addEventListener( 'click', function () {
+									// Build the preview via DOM rather than string-concatenated
+									// innerHTML: setting .src assigns thumbUrl as data (never parsed
+									// as markup), so a URL/id can't break out of the attribute.
+									const thumbImg = document.createElement( 'img' );
+									thumbImg.src = thumbUrl;
+									thumbImg.alt = '';
+									thumbImg.width = 80;
+									thumbImg.height = 80;
+									thumbImg.loading = 'lazy';
+									const thumbRemove = document.createElement( 'button' );
+									thumbRemove.className = 'bn-composer__media-remove';
+									thumbRemove.type = 'button';
+									thumbRemove.dataset.mediaId = mediaId;
+									thumbRemove.textContent = '×';
+									thumb.append( thumbImg, thumbRemove );
+									thumbRemove.addEventListener( 'click', function () {
 										_mediaState.ids = _mediaState.ids.filter( ( id ) => id !== mediaId );
 										_mediaState.previews = _mediaState.previews.filter( ( p ) => p.id !== mediaId );
 										thumb.remove();
@@ -2417,10 +2446,15 @@ function attachMentionHashtagTypeahead( textarea ) {
 			dropdown.setAttribute( 'role', 'listbox' );
 			textarea.parentElement.appendChild( dropdown );
 		}
+		// s.label is a member display name / hashtag (user-controlled), so it
+		// MUST be HTML-escaped before going into innerHTML — otherwise a display
+		// name like `<img src=x onerror=...>` would execute in the typeahead of
+		// anyone who @-mentions that member (stored XSS). activeKind is "@"/"#"
+		// but is escaped too for belt-and-braces.
 		dropdown.innerHTML = suggestions.map( ( s, i ) => `
 			<button type="button" role="option" class="bn-composer__typeahead-item" data-i="${ i }"
 					aria-selected="${ i === activeIndex ? 'true' : 'false' }">
-				<span class="bn-composer__typeahead-prefix">${ activeKind }</span>${ s.label }
+				<span class="bn-composer__typeahead-prefix">${ escapeHtml( activeKind ) }</span>${ escapeHtml( s.label ) }
 			</button>
 		` ).join( '' );
 		dropdown.querySelectorAll( '.bn-composer__typeahead-item' ).forEach( ( btn ) => {
