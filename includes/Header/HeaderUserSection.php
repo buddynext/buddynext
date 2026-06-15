@@ -29,13 +29,19 @@ use BuddyNext\Nav\UserLinks;
 final class HeaderUserSection {
 
 	/**
-	 * Render the full section (bell + messages + avatar dropdown).
+	 * Render the full section.
 	 *
-	 * @return string Safe HTML (empty for logged-out visitors).
+	 * Logged in → notification bell + messages icon + avatar dropdown. Logged out
+	 * → Log In / Register, so the section is useful to EVERY visitor in any theme
+	 * (the per-piece helpers below stay logged-in-only for themes that render
+	 * their own guest links). Returns '' only when there is genuinely nothing to
+	 * show (e.g. logged out with registration closed and no login surface).
+	 *
+	 * @return string Safe HTML.
 	 */
 	public static function render(): string {
 		if ( ! is_user_logged_in() ) {
-			return '';
+			return self::guest_section();
 		}
 
 		return '<div class="bn-header-user-section">'
@@ -43,6 +49,33 @@ final class HeaderUserSection {
 			. self::messages_link()
 			. self::user_menu()
 			. '</div>';
+	}
+
+	/**
+	 * Logged-out section: Log In + Register (Register only when registration is
+	 * open). Drives the block / shortcode / widget for guests so a theme that
+	 * places the section once serves both members and visitors.
+	 *
+	 * @return string Safe HTML ('' for logged-in users or when no auth link
+	 *                resolves).
+	 */
+	public static function guest_section(): string {
+		if ( is_user_logged_in() ) {
+			return '';
+		}
+
+		$links = '';
+		foreach ( UserLinks::items( UserLinks::LOGGEDOUT ) as $item ) {
+			$url = UserLinks::resolve( $item['token'], 0 );
+			if ( '' === $url ) {
+				continue;
+			}
+			$primary = '#bn-register' === $item['token'] ? ' bn-header-auth--primary' : '';
+			$links  .= '<a class="bn-header-auth' . $primary . '" href="' . esc_url( $url ) . '">'
+				. esc_html( $item['label'] ) . '</a>';
+		}
+
+		return '' === $links ? '' : '<div class="bn-header-user-section bn-header-user-section--guest">' . $links . '</div>';
 	}
 
 	/**

@@ -16,6 +16,38 @@
 	gap: var(--bn-s2, 0.5rem);
 }
 
+/* ── Logged-out: Log In / Register ──────────────────────────────────────── */
+.bn-header-auth {
+	display: inline-flex;
+	align-items: center;
+	height: 36px;
+	padding: 0 var(--bn-s4, 1rem);
+	border-radius: var(--bn-r-md, 0.5rem);
+	font-size: var(--bn-text-sm, 0.875rem);
+	font-weight: var(--bn-fw-semibold, 600);
+	color: var(--bn-ink-2, #334155);
+	text-decoration: none;
+	transition: background var(--bn-dur-fast, 0.12s) var(--bn-ease, ease),
+		color var(--bn-dur-fast, 0.12s) var(--bn-ease, ease);
+}
+
+.bn-header-auth:hover,
+.bn-header-auth:focus-visible {
+	background: var(--bn-sunken, #f1f5f9);
+	color: var(--bn-ink, #0f172a);
+}
+
+.bn-header-auth--primary {
+	background: var(--bn-accent, #2563eb);
+	color: var(--bn-accent-fg, #fff);
+}
+
+.bn-header-auth--primary:hover,
+.bn-header-auth--primary:focus-visible {
+	background: var(--bn-accent-600, #1d4ed8);
+	color: var(--bn-accent-fg, #fff);
+}
+
 /* ── Icon buttons (bell, messages) ──────────────────────────────────────────
    Targeted by component class (not via .bn-header-user-section) so they style
    identically whether rendered as the wrapped block/shortcode or dropped into a

@@ -279,7 +279,7 @@ final class UserLinks {
 			case '#bn-login':
 				return self::auth_url_or( 'wp_login_url' );
 			case '#bn-register':
-				return self::auth_url_or( 'wp_registration_url' );
+				return self::register_url();
 			default:
 				return null;
 		}
@@ -300,5 +300,23 @@ final class UserLinks {
 			return $auth;
 		}
 		return (string) call_user_func( $fallback );
+	}
+
+	/**
+	 * The registration URL, or '' when registration is closed.
+	 *
+	 * The BuddyNext auth hub owns its own registration policy, so when it is
+	 * configured the Register link always points there. Otherwise we only offer
+	 * Register when WordPress registration is open — so the item is hidden
+	 * everywhere (header guest area + menus) rather than leading to a dead end.
+	 *
+	 * @return string
+	 */
+	private static function register_url(): string {
+		$auth = PageRouter::auth_url();
+		if ( '' !== $auth ) {
+			return $auth;
+		}
+		return get_option( 'users_can_register' ) ? wp_registration_url() : '';
 	}
 }

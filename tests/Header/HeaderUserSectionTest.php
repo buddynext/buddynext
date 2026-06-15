@@ -41,11 +41,16 @@ class HeaderUserSectionTest extends \WP_UnitTestCase {
 	}
 
 	/**
-	 * Logged-out visitors get nothing from any renderer.
+	 * Logged-out visitors get the guest section (Log In), never the member one;
+	 * the per-piece member helpers stay empty so themes can place their own.
 	 */
-	public function test_render_is_empty_for_logged_out_visitor(): void {
+	public function test_logged_out_shows_guest_section_not_member_section(): void {
 		wp_set_current_user( 0 );
-		$this->assertSame( '', HeaderUserSection::render() );
+		$html = HeaderUserSection::render();
+		$this->assertStringContainsString( 'bn-header-user-section--guest', $html );
+		$this->assertStringContainsString( 'Log In', $html );
+		$this->assertStringNotContainsString( 'bn-header-user__dropdown', $html );
+		// Per-piece member helpers remain logged-in-only.
 		$this->assertSame( '', HeaderUserSection::user_menu() );
 		$this->assertSame( '', HeaderUserSection::notification_bell() );
 		$this->assertSame( '', HeaderUserSection::messages_link() );
