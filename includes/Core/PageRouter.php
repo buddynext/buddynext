@@ -273,8 +273,18 @@ class PageRouter {
 		// full-width layout. Same technique BuddyPress uses for component
 		// pages without cluttering the site owner's Pages list.
 		global $wp_query;
-		$wp_query->is_404  = false;
-		$wp_query->is_page = true;
+		$wp_query->is_404     = false;
+		$wp_query->is_page    = true;
+		// Present every hub page as a singular page, on page 1 AND when paginated
+		// (?paged=2). Without this, paged>1 flips the underlying query to
+		// non-home/non-singular, so themes (e.g. Reign) fall through to their
+		// generic page-header branch and render a sub-header on page 2 only —
+		// the inconsistency QA saw on the members directory. is_home /
+		// is_front_page are intentionally left untouched so a hub set as the
+		// static front page still resolves correctly.
+		$wp_query->is_singular = true;
+		$wp_query->is_archive  = false;
+		$wp_query->is_paged    = false;
 		status_header( 200 );
 
 		// Set the document <title> via the standard wp_title parts filter.
