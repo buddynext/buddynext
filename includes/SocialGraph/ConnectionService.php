@@ -456,6 +456,7 @@ class ConnectionService {
 				 FROM {$wpdb->prefix}bn_connections
 				 WHERE ( requester_id = %d OR recipient_id = %d )
 				   AND status = 'accepted'
+				 ORDER BY created_at DESC, id DESC
 				 LIMIT %d OFFSET %d",
 				$user_id,
 				$user_id,
