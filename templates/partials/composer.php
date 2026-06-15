@@ -473,16 +473,22 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 
 	</div>
 
+	<?php
+	// Event modal renders INSIDE the composer's Interactivity root so it shares
+	// the same buddynext/post-composer context (eventOpen lives there). As a
+	// sibling island it had its own empty context and never received the
+	// openEvent() state change, so the modal stayed hidden — keep it nested.
+	buddynext_get_template(
+		'partials/composer-event-modal.php',
+		array(
+			'composer_user_id' => $composer_user_id,
+		)
+	);
+	?>
+
 </div>
 
 <?php
-buddynext_get_template(
-	'partials/composer-event-modal.php',
-	array(
-		'composer_user_id' => $composer_user_id,
-	)
-);
-
 /**
  * Composer-after sub-template injection point. Pro / 3rd-party plugins
  * render their own composer modals (AI helper, voice room, etc.) here.

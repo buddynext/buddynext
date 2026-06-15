@@ -198,6 +198,13 @@ do_action( 'buddynext_part_post_actions_before', $args );
 		</div>
 	</div>
 
+	<?php
+	// Comment button is gated on the site-owner Comments feature toggle. When the
+	// feature is disabled the control is removed entirely (not just no-op) so the
+	// thread cannot be opened; the comment composer and REST write paths enforce
+	// the same gate.
+	if ( ! empty( $args['can_comment'] ) ) :
+		?>
 	<button
 		type="button"
 		class="bn-post-card__action-btn"
@@ -215,6 +222,9 @@ do_action( 'buddynext_part_post_actions_before', $args );
 		<?php // Count chip + aria-label are owned by adjustCommentCount() in feed/store.js (single writer for add + delete). ?>
 		<span class="bn-post-card__action-count"<?php echo $bn_actions_comment_cnt > 0 ? '' : ' hidden'; ?>><?php echo esc_html( (string) $bn_actions_comment_cnt ); ?></span>
 	</button>
+		<?php
+	endif;
+	?>
 
 	<?php
 	// Share is available on every post, including reshares — sharing a reshare

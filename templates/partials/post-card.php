@@ -219,7 +219,15 @@ $can_delete   = $is_own_post || $is_admin;
 $can_pin      = $is_own_post || $is_admin;
 $can_report   = ( $current_user_id > 0 && ! $is_own_post );
 $can_react    = ( $current_user_id > 0 );
-$can_comment  = ( $current_user_id > 0 );
+
+// Comments are a site-owner-toggleable feature (Settings → Features, default on).
+// When the owner disables it the Comment button, the comment composer, and the
+// thread expand region must not render — the canonical flag is the FeatureRegistry
+// 'comments' feature (the REST write paths enforce the same gate).
+$bn_comments_enabled = ! function_exists( 'buddynext_service' )
+	|| ! is_object( buddynext_service( 'features' ) )
+	|| buddynext_service( 'features' )->is_enabled( 'comments' );
+$can_comment  = ( $current_user_id > 0 && $bn_comments_enabled );
 
 // Re-shares and bookmarks are site-owner toggles (BuddyNext → Social). When the
 // owner disables a feature the corresponding action control must disappear, not
@@ -525,6 +533,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 	?>
 
 	<!-- Comments expand region -->
+	<?php if ( $bn_comments_enabled ) : ?>
 	<div
 		class="bn-post-card__comments"
 		hidden
@@ -555,5 +564,6 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		}
 		?>
 	</div>
+	<?php endif; ?>
 
 </article>

@@ -169,6 +169,11 @@ class CommentController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function create( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$gate = $this->comments_enabled_gate();
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
 		$service     = new CommentService();
 		$user_id     = get_current_user_id();
 		$object_type = (string) ( $request->get_param( 'object_type' ) ?? '' );
@@ -322,6 +327,11 @@ class CommentController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function update( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$gate = $this->comments_enabled_gate();
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
 		$service    = new CommentService();
 		$comment_id = (int) $request->get_param( 'id' );
 		$user_id    = get_current_user_id();
@@ -425,6 +435,31 @@ class CommentController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( array( 'pinned' => false ), 200 );
+	}
+
+	/**
+	 * Block comment writes when the site owner has disabled the Comments feature.
+	 *
+	 * The canonical on/off switch is the FeatureRegistry 'comments' feature
+	 * (Settings → Features, default on). When it is off the frontend hides the
+	 * comment button + composer; this enforces the same gate on the API so writes
+	 * cannot be driven directly. The comment LIST (GET) stays readable. Returns a
+	 * 403 WP_Error when disabled, true otherwise.
+	 *
+	 * @return true|WP_Error
+	 */
+	private function comments_enabled_gate() {
+		$features = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
+
+		if ( is_object( $features ) && method_exists( $features, 'is_enabled' ) && ! $features->is_enabled( 'comments' ) ) {
+			return new WP_Error(
+				'comments_disabled',
+				__( 'Comments are turned off on this community.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return true;
 	}
 
 	/**

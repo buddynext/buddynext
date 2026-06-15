@@ -1579,6 +1579,9 @@ store( 'buddynext/post-composer', {
 		get isNotAnnouncement() {
 			try { return getContext().composerType !== 'announcement'; } catch ( _e ) { return true; }
 		},
+		get eventOpen() {
+			try { return !! getContext().eventOpen; } catch ( _e ) { return false; }
+		},
 		get hasMedia() {
 			try { return ( getContext().mediaIds || [] ).length > 0; } catch ( _e ) { return false; }
 		},

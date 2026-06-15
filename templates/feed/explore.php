@@ -394,6 +394,18 @@ do_action( 'buddynext_feed_explore_before', $current_user_id );
 			<?php endif; ?>
 
 	</div><!-- /.bn-explore-content -->
+
+	<?php
+	// Share modal — explore post cards carry Share buttons (actions.openShare),
+	// but openShare dispatches the bn-open-share-modal event to a modal that must
+	// exist in the page DOM. home/bookmarks/single-post render it; explore omitted
+	// it, so Share did nothing here. One shared modal per page is enough.
+	buddynext_get_template(
+		'partials/share-modal.php',
+		array( 'current_user_id' => $current_user_id )
+	);
+	?>
+
 	<?php
 	/**
 	 * Fires after the explore feed inner content.

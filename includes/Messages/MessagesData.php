@@ -55,6 +55,25 @@ class MessagesData {
 	}
 
 	/**
+	 * Whether a member-facing messaging entry point (profile Message button,
+	 * Messages nav item, directory/space "Message" actions, the /messages/ hub)
+	 * should render at all.
+	 *
+	 * Combines the two independent gates so every entry point asks one question:
+	 *  - dm_enabled():  the site owner's on/off intent (buddynext_enable_dm).
+	 *  - available():   the WPMediaVerse engine is actually present.
+	 *
+	 * When this returns false the entry point must be HIDDEN — not rendered and
+	 * then 404'd, and never with an "install the plugin" notice (that is an admin
+	 * concern; community members should not see installation instructions).
+	 *
+	 * @return bool
+	 */
+	public static function entry_enabled(): bool {
+		return self::dm_enabled() && self::available();
+	}
+
+	/**
 	 * Whether group conversations are available — i.e. WPMediaVerse Pro (which
 	 * REST-exposes the group lifecycle at mvs-pro/v1/groups) is active. Group
 	 * chat is a Pro capability; the BN UI hides every group affordance when this

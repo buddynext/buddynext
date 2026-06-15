@@ -2790,23 +2790,19 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 .bn-filter-chip.active { background: var(--brand); border-color: var(--brand); color: #fff; }
 .bn-filter-chip:hover:not(.active) { border-color: var(--brand); color: var(--brand); }
 
-/* Masonry grid — column count follows container width, not viewport,
-   so the 3-up layout doesn't squeeze cards into 214px when the right
-   sidebar is present (main column ~620px at 1200px viewport). */
-/* Pinterest-style masonry. CSS Grid stretches cards to equal row heights
-   (leaving trailing whitespace under short posts), so the explore grid uses
-   CSS multi-column instead: each card keeps its natural height and packs into
-   as many ~260px columns as fit. break-inside keeps a card whole; the bottom
-   margin is the vertical gutter (column-gap only spaces columns). */
+/* Explore feed = a vertical LIST, not a masonry grid. CSS multi-column
+   (column-width) re-flows every card across columns whenever a child changes
+   height at runtime — so expanding a post's comment thread reshuffled and
+   misaligned the whole grid. A single-column flex stack (matching .bn-feed-list)
+   lets each card grow its comments freely with no re-flow. */
 .bn-explore-grid {
-	column-width: 260px;
-	column-gap: 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
 }
 .bn-explore-grid > .bn-post-card {
 	width: 100%;
-	margin: 0 0 14px;
-	break-inside: avoid;
-	-webkit-column-break-inside: avoid;
+	margin: 0;
 }
 
 /* Explore cover thumbnail — full-width image at the top of an explore
