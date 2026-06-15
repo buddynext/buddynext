@@ -498,7 +498,7 @@ class Installer {
 				user_id           BIGINT(20) UNSIGNED NOT NULL,
 				role              ENUM('owner','moderator','member') NOT NULL DEFAULT 'member',
 				status            ENUM('active','pending','invited','banned') NOT NULL DEFAULT 'active',
-				notification_pref ENUM('all','mentions','none') NOT NULL DEFAULT 'all',
+				notification_pref ENUM('all','mentions_only','none') NOT NULL DEFAULT 'all',
 				joined_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY       (space_id, user_id),
 				KEY               user_role (user_id, role),
@@ -939,6 +939,27 @@ class Installer {
 
 		if ( is_string( $post_status_enum ) && false === strpos( $post_status_enum, "'scheduled'" ) ) {
 			$wpdb->query( "ALTER TABLE `{$p}bn_posts` MODIFY COLUMN `status` ENUM('published','draft','pending','scheduled','deleted') NOT NULL DEFAULT 'published'" );
+		}
+
+		// ── bn_space_members — align notification_pref ENUM with the app value ──
+		// The REST API, JS store and UI all use 'mentions_only', but the column
+		// was ENUM('all','mentions','none') so MySQL coerced 'mentions_only' to ''
+		// and the per-space "Mentions only" preference silently never saved.
+		$space_pref_enum = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COLUMN_TYPE
+				   FROM INFORMATION_SCHEMA.COLUMNS
+				  WHERE TABLE_SCHEMA = DATABASE()
+				    AND TABLE_NAME   = %s
+				    AND COLUMN_NAME  = 'notification_pref'",
+				"{$p}bn_space_members"
+			)
+		);
+
+		if ( is_string( $space_pref_enum ) && false === strpos( $space_pref_enum, "'mentions_only'" ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_space_members` MODIFY COLUMN `notification_pref` ENUM('all','mentions_only','none') NOT NULL DEFAULT 'all'" );
+			// Repair rows MySQL coerced to '' when the old ENUM rejected 'mentions_only'.
+			$wpdb->query( "UPDATE `{$p}bn_space_members` SET `notification_pref` = 'all' WHERE `notification_pref` NOT IN ('all','mentions_only','none')" );
 		}
 
 		// ── bn_profile_fields — widen `type` from a restrictive ENUM to VARCHAR ──
