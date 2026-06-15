@@ -140,7 +140,11 @@ class NavManager extends AdminPageBase {
 	 * @return void
 	 */
 	public function enqueue_assets( string $hook_suffix ): void {
-		if ( 'buddynext_page_buddynext-nav' !== $hook_suffix ) {
+		// Navigation is a tab inside the Settings hub (page=buddynext,
+		// tab=navigation), not a standalone page — gate on that, not the old
+		// `buddynext_page_buddynext-nav` hook suffix (which never matches now, so
+		// the reorder/slug JS silently failed to load).
+		if ( ! AdminHub::is_active( 'settings', 'navigation' ) ) {
 			return;
 		}
 
@@ -180,22 +184,6 @@ class NavManager extends AdminPageBase {
 					'slugBlock' => __( 'This slug is reserved or used by another hub', 'buddynext' ),
 				),
 			)
-		);
-	}
-
-	/**
-	 * Add the Nav Manager submenu under the BuddyNext top-level menu.
-	 *
-	 * @return void
-	 */
-	public function add_submenu(): void {
-		add_submenu_page(
-			'buddynext',
-			__( 'Navigation', 'buddynext' ),
-			__( 'Navigation', 'buddynext' ),
-			'manage_options',
-			'buddynext-nav',
-			array( $this, 'render_page' )
 		);
 	}
 
@@ -1227,7 +1215,7 @@ class NavManager extends AdminPageBase {
 			}
 			if ( in_array( $page_id, $seen_pages, true ) ) {
 				wp_safe_redirect(
-					add_query_arg( 'bn_notice', 'page_conflict', admin_url( 'admin.php?page=buddynext-nav' ) )
+					add_query_arg( 'bn_notice', 'page_conflict', admin_url( 'admin.php?page=buddynext&tab=navigation' ) )
 				);
 				exit;
 			}
@@ -1304,7 +1292,7 @@ class NavManager extends AdminPageBase {
 		}
 
 		wp_safe_redirect(
-			add_query_arg( 'bn_notice', 'saved', admin_url( 'admin.php?page=buddynext-nav' ) )
+			add_query_arg( 'bn_notice', 'saved', admin_url( 'admin.php?page=buddynext&tab=navigation' ) )
 		);
 		exit;
 	}
