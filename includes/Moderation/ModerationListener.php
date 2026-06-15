@@ -65,12 +65,26 @@ class ModerationListener implements ListenerInterface {
 			)
 		);
 
-		// Enforce configurable strike thresholds.
-		$warn_threshold    = (int) get_option( 'buddynext_strike_warn_threshold', 2 );
-		$suspend_threshold = (int) get_option( 'buddynext_strike_suspend_threshold', 5 );
-		$active_strikes    = buddynext_service( 'moderation' )->get_active_strike_count( $user_id );
+		// Enforce configurable strike thresholds. Escalation, strongest first:
+		// permanent ban → suspension → warning. The permanent-ban tier is opt-in
+		// (0 = disabled) and is a permanent suspension with the member's content
+		// hidden, which is meaningfully stronger than the plain suspend tier
+		// (indefinite but content-visible) — so the "Strikes before permanent
+		// ban" setting actually does something distinct.
+		$warn_threshold      = (int) get_option( 'buddynext_strike_warn_threshold', 2 );
+		$suspend_threshold   = (int) get_option( 'buddynext_strike_suspend_threshold', 5 );
+		$perma_ban_threshold = (int) get_option( 'buddynext_strike_perma_ban_threshold', 0 );
+		$active_strikes      = buddynext_service( 'moderation' )->get_active_strike_count( $user_id );
 
-		if ( $active_strikes >= $suspend_threshold ) {
+		if ( $perma_ban_threshold > 0 && $active_strikes >= $perma_ban_threshold ) {
+			buddynext_service( 'moderation' )->suspend(
+				$user_id,
+				__( 'Automatic permanent ban: strike threshold reached.', 'buddynext' ),
+				0,    // duration_days = 0 → permanent (expires_at NULL).
+				true, // hide the banned member's content.
+				$actor_id
+			);
+		} elseif ( $active_strikes >= $suspend_threshold ) {
 			buddynext_service( 'admin_members' )->suspend_member( $user_id );
 		} elseif ( $active_strikes >= $warn_threshold ) {
 			buddynext_service( 'notifications' )->create(
