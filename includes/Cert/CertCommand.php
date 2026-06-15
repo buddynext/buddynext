@@ -31,14 +31,16 @@ class CertCommand {
 	 * [<check>]
 	 * : Which check to run. One of: contract, boot. Omit to run all.
 	 *
-	 * [--json]
-	 * : Emit the ledger as JSON instead of a human summary.
+	 * [--porcelain]
+	 * : Emit the ledger as machine-readable JSON instead of a human summary.
+	 * (Named --porcelain, not --json: WP-CLI reserves --json for its own
+	 * formatter and rejects it as an unknown --format parameter.)
 	 *
 	 * ## EXAMPLES
 	 *
 	 *     wp buddynext cert
 	 *     wp buddynext cert contract
-	 *     wp buddynext cert --json
+	 *     wp buddynext cert --porcelain
 	 *
 	 * @when after_wp_load
 	 *
@@ -54,7 +56,7 @@ class CertCommand {
 
 		$result = ( new CertRunner() )->run( $checks );
 
-		if ( isset( $assoc_args['json'] ) ) {
+		if ( isset( $assoc_args['porcelain'] ) ) {
 			\WP_CLI::line( (string) wp_json_encode( $result, JSON_PRETTY_PRINT ) );
 			if ( ! $result['ok'] ) {
 				\WP_CLI::halt( 1 );
