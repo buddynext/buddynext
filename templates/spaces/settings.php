@@ -95,7 +95,9 @@ $settings_tab = isset( $_GET['bn_stab'] ) ? sanitize_key( wp_unslash( $_GET['bn_
 
 $save_notice = '';
 
-$request_method = isset( $_SERVER['REQUEST_METHOD'] ) ? sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : '';
+// sanitize_key() lowercases, so uppercase the result before comparing against
+// 'POST' — otherwise every POST handler below is skipped and saves are dropped.
+$request_method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : '';
 if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) {
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_settings_nonce'] ) ), 'bn_space_settings_' . $space_id ) ) {
 		$save_notice = 'error';
@@ -619,7 +621,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 		$bn_wrap_form = in_array( $settings_tab, array( 'general', 'privacy', 'integrations' ), true );
 		if ( $bn_wrap_form ) :
 			?>
-			<form method="post" action="" enctype="multipart/form-data" class="bn-space-settings__form">
+			<form method="post" action="" enctype="multipart/form-data" class="bn-space-settings__form" data-bn-settings-general-form data-space-id="<?php echo esc_attr( (string) $space_id ); ?>">
 				<?php wp_nonce_field( 'bn_space_settings_' . $space_id, 'bn_space_settings_nonce' ); ?>
 				<?php
 		endif;
