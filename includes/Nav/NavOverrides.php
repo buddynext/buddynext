@@ -49,6 +49,7 @@ final class NavOverrides {
 		add_filter( 'buddynext_rail_items', array( $this, 'apply_rail' ), 20, 2 );
 		add_filter( 'buddynext_part_profile_tab_bar_args', array( $this, 'apply_profile_tabs' ), 20 );
 		add_filter( 'buddynext_space_tabs', array( $this, 'apply_space_tabs' ), 20, 2 );
+		add_filter( 'buddynext_mobile_nav_items', array( $this, 'apply_mobile_items' ), 20, 2 );
 	}
 
 	/**
@@ -219,5 +220,47 @@ final class NavOverrides {
 		unset( $cfg );
 
 		return $ordered;
+	}
+
+	/**
+	 * Apply mobile-scope overrides to the curated bottom-bar items.
+	 *
+	 * Deliberately honours only hidden + label (not order): the bottom bar is a
+	 * fixed 5-slot strip whose centre Create button must stay centred, so
+	 * reordering is intentionally not applied. Only slots whose slug the mobile
+	 * admin scope controls (feed/spaces/notifications) are affected; the Create
+	 * and Profile shortcuts have no override and always render.
+	 *
+	 * @param mixed  $items  Bar item definitions.
+	 * @param string $active Active section key (unused).
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function apply_mobile_items( $items, $active = '' ): array {
+		$items = (array) $items;
+		$overrides = $this->overrides( 'mobile' );
+		if ( empty( $overrides ) ) {
+			return $items;
+		}
+
+		foreach ( $items as &$item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+			$key = sanitize_key( (string) ( $item['key'] ?? '' ) );
+			if ( '' === $key || ! isset( $overrides[ $key ] ) ) {
+				continue;
+			}
+			$ov = (array) $overrides[ $key ];
+
+			if ( ! empty( $ov['hidden'] ) ) {
+				$item['show'] = false;
+			}
+			if ( isset( $ov['label'] ) && '' !== (string) $ov['label'] ) {
+				$item['label'] = sanitize_text_field( (string) $ov['label'] );
+			}
+		}
+		unset( $item );
+
+		return $items;
 	}
 }
