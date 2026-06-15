@@ -495,8 +495,17 @@ select.bn-text-input:focus {
  * a single, correct track + thumb everywhere, instead of two competing
  * pseudo-element thumbs (one from base, one from admin).
  */
-.bn-toggle.on { background: var(--bn-accent); }
-.bn-toggle.on::before { transform: translateX(18px); }
+/*
+ * The settings template renders the checkbox INSIDE the .bn-toggle label
+ * (screen-reader-only) with no JS to add the .on class, so the visual never
+ * reflected the checked state. Drive the active state straight from the nested
+ * checkbox with :has() — pure CSS, correct on load, no flash. The legacy .on
+ * class is kept for any JS-driven toggles elsewhere.
+ */
+.bn-toggle.on,
+.bn-toggle:has( input[type="checkbox"]:checked ) { background: var(--bn-accent); }
+.bn-toggle.on::before,
+.bn-toggle:has( input[type="checkbox"]:checked )::before { transform: translateX(18px); }
 
 /* Make sure the hidden checkbox inside the label stays clipped. */
 .bn-toggle .screen-reader-text {
