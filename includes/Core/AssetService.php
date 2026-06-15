@@ -316,6 +316,7 @@ class AssetService {
 			'bn-connections',
 			'bn-space-members',
 			'bn-header',
+			'bn-settings',
 		);
 
 		foreach ( $feature_styles as $handle ) {

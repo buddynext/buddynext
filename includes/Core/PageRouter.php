@@ -702,7 +702,16 @@ class PageRouter {
 				$notif_section = (string) get_query_var( 'bn_notif_section', '' );
 				if ( 'prefs' === $notif_section ) {
 					$assets->enqueue( 'notification-prefs' );
+					// The prefs page is the Settings hub's "Notifications" tab.
+					wp_enqueue_style( 'bn-settings' );
 				}
+				break;
+
+			case 'settings':
+				// Relocated account/privacy/appearance sections reuse the profile
+				// editor's `.bn-ep-*` styles, plus the shared settings-tab chrome.
+				$assets->enqueue( 'profile' );
+				$assets->enqueue( 'settings' );
 				break;
 
 			case 'auth':
@@ -879,6 +888,13 @@ class PageRouter {
 				}
 				return 'notifications/index.php';
 
+			case 'settings':
+				$settings_section = (string) get_query_var( 'bn_settings_section', '' );
+				if ( ! in_array( $settings_section, array( 'appearance' ), true ) ) {
+					$settings_section = 'appearance';
+				}
+				return 'settings/' . $settings_section . '.php';
+
 			case 'auth':
 				$auth_action = (string) get_query_var( 'bn_auth_action', '' );
 				switch ( $auth_action ) {
@@ -926,6 +942,7 @@ class PageRouter {
 		add_rewrite_tag( '%bn_member_type%', '([a-z0-9-]+)' );
 		add_rewrite_tag( '%bn_auth_action%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_notif_section%', '([a-z-]+)' );
+		add_rewrite_tag( '%bn_settings_section%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_post_id%', '([0-9]+)' );
 		add_rewrite_tag( '%bn_feed_section%', '([a-z-]+)' );
 
@@ -936,6 +953,7 @@ class PageRouter {
 		$this->register_spaces_rules();
 		$this->register_messages_rules();
 		$this->register_notifications_rules();
+		$this->register_settings_rules();
 		$this->register_auth_rules();
 		$this->register_moderation_rules();
 		$this->register_onboarding_rules();
@@ -1144,6 +1162,37 @@ class PageRouter {
 		add_rewrite_rule(
 			'^' . preg_quote( $n, '/' ) . '/?$',
 			'index.php?bn_hub=notifications',
+			'top'
+		);
+	}
+
+	/**
+	 * Register the Settings hub rewrite rules.
+	 *
+	 * The Settings hub is a tabbed home for per-user account/privacy/appearance
+	 * preferences. Notifications keep their own canonical route
+	 * (`/settings/notifications/`, registered above) and render as the
+	 * Notifications tab. `/settings/` defaults to the Account tab.
+	 *
+	 * @return void
+	 */
+	private function register_settings_rules(): void {
+		// Sections that have migrated into the hub. Account + Privacy still live
+		// on the profile editor (their controls are bound to its save flow) and
+		// will move here in a later pass; the tab strip only links what is ready.
+		foreach ( array( 'appearance' ) as $section ) {
+			add_rewrite_rule(
+				'^settings/' . $section . '/?$',
+				'index.php?bn_hub=settings&bn_settings_section=' . $section,
+				'top'
+			);
+		}
+
+		// `/settings/` lands on the Notifications tab (its canonical route is
+		// /settings/notifications/, registered with the notifications hub).
+		add_rewrite_rule(
+			'^settings/?$',
+			'index.php?bn_hub=notifications&bn_notif_section=prefs',
 			'top'
 		);
 	}
@@ -1607,6 +1656,26 @@ class PageRouter {
 	 */
 	public static function notification_prefs_url(): string {
 		return trailingslashit( home_url( '/settings/notifications' ) );
+	}
+
+	/**
+	 * Return a Settings hub URL.
+	 *
+	 * `/settings/` (default → Account), or `/settings/{section}/` for a specific
+	 * tab. Notifications resolve to the canonical notification_prefs_url().
+	 *
+	 * @param string $section '', 'account', 'notifications', 'privacy', 'appearance'.
+	 * @return string Absolute trailing-slashed URL.
+	 */
+	public static function settings_url( string $section = '' ): string {
+		$section = sanitize_key( $section );
+		if ( 'notifications' === $section ) {
+			return self::notification_prefs_url();
+		}
+		if ( '' === $section || 'account' === $section ) {
+			return trailingslashit( home_url( '/settings' ) );
+		}
+		return trailingslashit( home_url( '/settings/' . $section ) );
 	}
 
 	/**

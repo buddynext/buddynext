@@ -179,6 +179,39 @@ class PageRouterTest extends \WP_UnitTestCase {
 	}
 
 	/**
+	 * settings_url() resolves the hub base, sections, and the notifications alias.
+	 *
+	 * @return void
+	 */
+	public function test_settings_url_resolves_sections(): void {
+		$this->assertStringContainsString( '/settings/', PageRouter::settings_url() );
+		// Account is the hub default → bare /settings/.
+		$this->assertSame( PageRouter::settings_url(), PageRouter::settings_url( 'account' ) );
+		$this->assertStringContainsString( '/settings/appearance/', PageRouter::settings_url( 'appearance' ) );
+		// Notifications keeps its canonical route.
+		$this->assertSame( PageRouter::notification_prefs_url(), PageRouter::settings_url( 'notifications' ) );
+	}
+
+	/**
+	 * The Appearance section rewrite rule targets the settings hub.
+	 *
+	 * @return void
+	 */
+	public function test_settings_appearance_rewrite_rule_targets_settings_hub(): void {
+		global $wp_rewrite;
+		$rules = $wp_rewrite->wp_rewrite_rules();
+		$found = false;
+		foreach ( $rules as $target ) {
+			if ( str_contains( $target, 'bn_settings_section=appearance' ) ) {
+				$found = true;
+				$this->assertStringContainsString( 'bn_hub=settings', $target );
+				break;
+			}
+		}
+		$this->assertTrue( $found, 'Expected /settings/appearance/ rewrite rule targeting bn_hub=settings' );
+	}
+
+	/**
 	 * Single-post rewrite rule resolves /p/{id}/ to bn_hub=post.
 	 *
 	 * @return void

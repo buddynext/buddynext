@@ -156,6 +156,11 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 	data-wp-context='<?php echo esc_attr( (string) $initial_context ); ?>'
 	data-wp-init="callbacks.init">
 
+	<?php
+	// Settings hub chrome — this page is the "Notifications" tab.
+	buddynext_get_template( 'parts/settings-nav.php', array( 'bn_settings_active' => 'notifications' ) );
+	?>
+
 	<header class="bn-section-head">
 		<div class="bn-section-head__lead">
 			<div class="bn-section-head__text">

@@ -273,7 +273,7 @@ final class UserLinks {
 			case '#bn-spaces':
 				return PageRouter::spaces_url();
 			case '#bn-settings':
-				return PageRouter::notification_prefs_url();
+				return PageRouter::settings_url();
 			case '#bn-logout':
 				return wp_logout_url( home_url( '/' ) );
 			case '#bn-login':
