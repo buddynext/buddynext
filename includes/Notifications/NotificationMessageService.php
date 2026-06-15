@@ -702,8 +702,15 @@ class NotificationMessageService {
 	 */
 	private function url_for( string $type, int $actor_id, int $object_id, array $data ): string {
 		switch ( $type ) {
-			case 'bn.new_follower':
 			case 'bn.connection_requested':
+				// A received request: open the RECIPIENT's own connections tab
+				// (where the pending request is reviewed/accepted), not the
+				// requester's profile. The recipient is the user viewing the
+				// notification.
+				$me = get_current_user_id();
+				return $me > 0 ? PageRouter::connections_url( $me ) : '';
+
+			case 'bn.new_follower':
 			case 'bn.connection_accepted':
 			case 'bn.connection_declined':
 				return $actor_id > 0 ? PageRouter::profile_url( $actor_id ) : '';
