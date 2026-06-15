@@ -204,9 +204,17 @@
 }
 
 .bn-header-user__name {
+	display: inline-block;
 	font-weight: var(--bn-fw-semibold, 600);
 	font-size: var(--bn-text-sm, 0.875rem);
 	color: var(--bn-ink, #0f172a);
+	text-decoration: none;
+}
+
+.bn-header-user__name:hover,
+.bn-header-user__name:focus-visible {
+	color: var(--bn-accent, #2563eb);
+	text-decoration: underline;
 }
 
 .bn-header-user__item {

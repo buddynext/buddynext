@@ -140,7 +140,7 @@ final class HeaderUserSection {
 		$html .= '<button type="button" class="bn-header-user__caret" aria-haspopup="true" aria-label="' . esc_attr__( 'Open profile menu', 'buddynext' ) . '">'
 			. self::icon( 'chevron-down' ) . '</button>';
 		$html .= '<div class="bn-header-user__dropdown" role="menu">';
-		$html .= '<div class="bn-header-user__head"><span class="bn-header-user__name">' . esc_html( $user->display_name ) . '</span></div>';
+		$html .= '<div class="bn-header-user__head"><a class="bn-header-user__name" href="' . esc_url( $profile_url ) . '" role="menuitem">' . esc_html( $user->display_name ) . '</a></div>';
 
 		foreach ( self::links( $user_id ) as $link ) {
 			$html .= '<a class="bn-header-user__item" role="menuitem" href="' . esc_url( $link['url'] ) . '">'

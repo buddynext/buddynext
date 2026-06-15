@@ -89,8 +89,12 @@ class HeaderUserSectionTest extends \WP_UnitTestCase {
 
 		// Avatar links to the member's profile.
 		$this->assertStringContainsString( 'maya-lin', $html );
-		// Display name shown in the dropdown head.
-		$this->assertStringContainsString( 'Maya Lin', $html );
+		// Display name shown in the dropdown head — and is a link to the
+		// member's profile (clicking your name should open your profile).
+		$this->assertMatchesRegularExpression(
+			'#<a class="bn-header-user__name" href="[^"]*maya-lin[^"]*"[^>]*>Maya Lin</a>#',
+			$html
+		);
 		// User-specific account links present.
 		$this->assertStringContainsString( 'My Profile', $html );
 		$this->assertStringContainsString( 'Edit Profile', $html );
