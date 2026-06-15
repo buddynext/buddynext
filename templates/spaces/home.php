@@ -256,12 +256,25 @@ $bn_media_count = (int) $wpdb->get_var(
 // is admin/mod; everyone else gets 0 so the count chip never leaks
 // the queue size to non-moderators.
 $bn_mod_count = 0;
+// Pending join requests waiting on an owner/mod decision. Surfaced alongside
+// reports so the Moderation tab badge and summary reflect everything the
+// moderator still needs to action — otherwise join requests are invisible at
+// the space level (only reachable by opening the full queue and switching tabs).
+$bn_pending_count = 0;
 if ( ! empty( $is_admin_mod ) ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	$bn_mod_count = (int) $wpdb->get_var(
 		$wpdb->prepare(
 			"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports
 			 WHERE space_id = %d AND status IN ( 'pending', 'escalated' )",
+			$space_id
+		)
+	);
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$bn_pending_count = (int) $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT COUNT(*) FROM {$wpdb->prefix}bn_space_members
+			 WHERE space_id = %d AND status = 'pending'",
 			$space_id
 		)
 	);
@@ -567,7 +580,7 @@ $bn_nav_tabs = array(
 if ( $is_admin_mod ) {
 	$bn_nav_tabs['moderation'] = array(
 		'label' => __( 'Moderation', 'buddynext' ),
-		'count' => (int) $bn_mod_count,
+		'count' => (int) $bn_mod_count + (int) $bn_pending_count,
 	);
 }
 
@@ -754,6 +767,16 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 						</a>
 					</p>
 				</header>
+				<div class="bn-sh-moderation__stats">
+					<a class="bn-sh-moderation__stat" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'pending', buddynext_space_moderation_url( $space->slug ) ) ); ?>">
+						<span class="bn-sh-moderation__stat-num"><?php echo esc_html( number_format_i18n( (int) $bn_pending_count ) ); ?></span>
+						<span class="bn-sh-moderation__stat-label"><?php esc_html_e( 'Pending join requests', 'buddynext' ); ?></span>
+					</a>
+					<a class="bn-sh-moderation__stat" href="<?php echo esc_url( add_query_arg( 'bn_mtab', 'reports', buddynext_space_moderation_url( $space->slug ) ) ); ?>">
+						<span class="bn-sh-moderation__stat-num"><?php echo esc_html( number_format_i18n( (int) $bn_mod_count ) ); ?></span>
+						<span class="bn-sh-moderation__stat-label"><?php esc_html_e( 'Reported posts', 'buddynext' ); ?></span>
+					</a>
+				</div>
 			</div>
 
 		<?php elseif ( 'about' === $active_tab ) : ?>

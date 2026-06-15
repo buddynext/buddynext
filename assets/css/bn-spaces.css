@@ -2351,6 +2351,49 @@ a.bn-sh-statpill:focus-visible {
 	padding: var(--bn-s4);
 }
 
+.bn-sh-moderation__stats {
+	display: flex;
+	gap: var(--bn-s3);
+	margin-top: var(--bn-s4);
+}
+
+.bn-sh-moderation__stat {
+	flex: 1 1 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	padding: var(--bn-s3) var(--bn-s4);
+	border: 1px solid var(--bn-border, #e5e7eb);
+	border-radius: var(--bn-radius-md, 12px);
+	background: var(--bn-surface-soft, #f9fafb);
+	text-decoration: none;
+	transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.bn-sh-moderation__stat:hover,
+.bn-sh-moderation__stat:focus-visible {
+	border-color: var(--bn-accent, #5b8def);
+	background: var(--bn-accent-100, #eaf1fe);
+}
+
+.bn-sh-moderation__stat-num {
+	font-size: var(--bn-text-xl);
+	font-weight: 700;
+	line-height: 1.1;
+	color: var(--bn-text, #111827);
+}
+
+.bn-sh-moderation__stat-label {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-text-muted, #6b7280);
+}
+
+@media (max-width: 640px) {
+	.bn-sh-moderation__stats {
+		flex-direction: column;
+	}
+}
+
 .bn-sh-about__desc {
 	line-height: 1.6;
 }
