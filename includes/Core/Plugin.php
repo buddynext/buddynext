@@ -145,6 +145,7 @@ class Plugin {
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
+			\WP_CLI::add_command( 'buddynext cert', new \BuddyNext\Cert\CertCommand() );
 		}
 
 		if ( is_admin() ) {

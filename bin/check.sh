@@ -134,6 +134,21 @@ if [ "$SKIP_AUDIT" = 0 ]; then
 	fi
 fi
 
+# 6. Functional certification (behaviour, not shape) — needs a live WP site.
+# Set BN_WP_PATH to the WordPress root the plugin is active on; without it the
+# behavioural gate is skipped (the static checks above still ran). This is the
+# only gate that proves toggles actually enforce and routes don't fatal.
+section "Functional certification (wp buddynext cert)"
+if [ -n "${BN_WP_PATH:-}" ] && command -v wp >/dev/null 2>&1; then
+	if wp --path="$BN_WP_PATH" buddynext cert 2>/dev/null; then
+		ok "functional certification passed"
+	else
+		fail "functional certification failed — run: wp --path=\"$BN_WP_PATH\" buddynext cert"
+	fi
+else
+	note "skipped — set BN_WP_PATH to the WordPress root to run the behavioural gate"
+fi
+
 # Summary
 echo
 if [ "$EXIT" = 0 ]; then

@@ -44,3 +44,4 @@ playwright/.cache/
 /r-*.png
 /icons*.png
 /*-screenshot*.png
+audit/cert-ledger.json

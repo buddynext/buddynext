@@ -1,0 +1,45 @@
+{
+  "_comment": "Functional-certification oracles. Each entry tells CertRunner how to PROVE a setting actually gates behavior: flip it, dispatch the route, assert the feature-disabled error code appears when OFF and is absent when ON. Data-independent — the gate fires before any row lookup. This is the only hand-authored file; everything else is derived from audit/manifest.json. Grow it via `wp buddynext cert learn` — every new bug becomes a permanent row here.",
+  "contract": [
+    {
+      "id": "reactions",
+      "kind": "feature",
+      "route": "/buddynext/v1/reactions/toggle",
+      "method": "POST",
+      "params": { "object_type": "post", "object_id": 1, "emoji": "like" },
+      "off_code": "reactions_disabled"
+    },
+    {
+      "id": "comments",
+      "kind": "feature",
+      "route": "/buddynext/v1/comments",
+      "method": "POST",
+      "params": { "object_type": "post", "object_id": 1, "content": "cert probe" },
+      "off_code": "comments_disabled"
+    },
+    {
+      "id": "buddynext_allow_shares",
+      "kind": "option",
+      "route": "/buddynext/v1/posts/1/share",
+      "method": "POST",
+      "params": {},
+      "off_code": "shares_disabled"
+    },
+    {
+      "id": "buddynext_allow_bookmarks",
+      "kind": "option",
+      "route": "/buddynext/v1/posts/1/bookmark",
+      "method": "POST",
+      "params": {},
+      "off_code": "bookmarks_disabled"
+    },
+    {
+      "id": "buddynext_allow_polls",
+      "kind": "option",
+      "route": "/buddynext/v1/posts",
+      "method": "POST",
+      "params": { "type": "poll", "content": "cert probe" },
+      "off_code": "polls_disabled"
+    }
+  ]
+}
