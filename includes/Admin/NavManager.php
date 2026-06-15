@@ -381,45 +381,66 @@ class NavManager extends AdminPageBase {
 	 * @return array<int, array<string, mixed>>
 	 */
 	private function default_profile_tabs(): array {
+		// Slugs MUST match the tabs the profile template actually renders
+		// (templates/profile/view.php → buddynext_part_profile_tab_bar_args), so
+		// the front-end applier (Nav\NavOverrides::apply_profile) can map saved
+		// overrides onto real tabs. The Discussions tab is bridge-injected
+		// (Jetonomy) and is left to that bridge.
 		return array(
 			array(
-				'slug'        => 'about',
-				'label'       => __( 'About', 'buddynext' ),
+				'slug'        => 'posts',
+				'label'       => __( 'Posts', 'buddynext' ),
 				'order'       => 10,
-				'icon'        => 'tab-about',
-				'description' => __( 'Bio, location, and profile fields', 'buddynext' ),
-				'capability'  => 'read',
-			),
-			array(
-				'slug'        => 'activity',
-				'label'       => __( 'Activity', 'buddynext' ),
-				'order'       => 20,
 				'icon'        => 'tab-feed',
 				'description' => __( 'Member\'s public posts', 'buddynext' ),
 				'capability'  => 'read',
 			),
 			array(
-				'slug'        => 'connections',
-				'label'       => __( 'Connections', 'buddynext' ),
-				'order'       => 30,
-				'icon'        => 'tab-connections',
-				'description' => __( 'Followers and following', 'buddynext' ),
+				'slug'        => 'replies',
+				'label'       => __( 'Replies', 'buddynext' ),
+				'order'       => 20,
+				'icon'        => 'tab-feed',
+				'description' => __( 'Comments and replies the member has posted', 'buddynext' ),
 				'capability'  => 'read',
 			),
 			array(
 				'slug'        => 'media',
 				'label'       => __( 'Media', 'buddynext' ),
-				'order'       => 40,
+				'order'       => 30,
 				'icon'        => 'tab-media',
 				'description' => __( 'Photos and videos shared by this member', 'buddynext' ),
 				'capability'  => 'read',
 			),
 			array(
-				'slug'        => 'badges',
-				'label'       => __( 'Badges', 'buddynext' ),
+				'slug'        => 'likes',
+				'label'       => __( 'Likes', 'buddynext' ),
+				'order'       => 40,
+				'icon'        => 'tab-feed',
+				'description' => __( 'Posts the member has liked', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'followers',
+				'label'       => __( 'Followers', 'buddynext' ),
 				'order'       => 50,
-				'icon'        => 'tab-badges',
-				'description' => __( 'Earned badges and achievements', 'buddynext' ),
+				'icon'        => 'tab-connections',
+				'description' => __( 'Members following this member', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'following',
+				'label'       => __( 'Following', 'buddynext' ),
+				'order'       => 60,
+				'icon'        => 'tab-connections',
+				'description' => __( 'Members this member follows', 'buddynext' ),
+				'capability'  => 'read',
+			),
+			array(
+				'slug'        => 'connections',
+				'label'       => __( 'Connections', 'buddynext' ),
+				'order'       => 70,
+				'icon'        => 'tab-connections',
+				'description' => __( 'Mutual connections', 'buddynext' ),
 				'capability'  => 'read',
 			),
 		);

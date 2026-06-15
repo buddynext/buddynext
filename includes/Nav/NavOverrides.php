@@ -47,6 +47,7 @@ final class NavOverrides {
 	public function register(): void {
 		// Run late (20) so admin overrides win over bridge-injected items.
 		add_filter( 'buddynext_rail_items', array( $this, 'apply_rail' ), 20, 2 );
+		add_filter( 'buddynext_part_profile_tab_bar_args', array( $this, 'apply_profile_tabs' ), 20 );
 	}
 
 	/**
@@ -111,5 +112,57 @@ final class NavOverrides {
 		);
 
 		return $items;
+	}
+
+	/**
+	 * Apply profile-scope overrides to the profile tab bar.
+	 *
+	 * The profile tab bar (templates/parts/profile-tab-bar.php) receives an
+	 * $args array whose `tabs` list is `[ slug, label, count?, href?, icon? ]`.
+	 * There is no `show` flag, so a hidden tab is removed from the list; labels
+	 * and order are applied the same way as the rail.
+	 *
+	 * @param mixed $args Profile tab-bar args.
+	 * @return array<string,mixed>
+	 */
+	public function apply_profile_tabs( $args ): array {
+		$args = (array) $args;
+		$overrides = $this->overrides( 'profile' );
+		if ( empty( $overrides ) || empty( $args['tabs'] ) || ! is_array( $args['tabs'] ) ) {
+			return $args;
+		}
+
+		$tabs  = array();
+		$index = 0;
+		foreach ( (array) $args['tabs'] as $tab ) {
+			if ( ! is_array( $tab ) ) {
+				continue;
+			}
+			$tab['order'] = isset( $tab['order'] ) ? (int) $tab['order'] : ( ++$index * 10 );
+
+			$slug = sanitize_key( (string) ( $tab['slug'] ?? '' ) );
+			if ( '' !== $slug && isset( $overrides[ $slug ] ) ) {
+				$ov = (array) $overrides[ $slug ];
+
+				if ( ! empty( $ov['hidden'] ) ) {
+					continue; // Drop hidden tabs — the tab bar has no show flag.
+				}
+				if ( isset( $ov['label'] ) && '' !== (string) $ov['label'] ) {
+					$tab['label'] = sanitize_text_field( (string) $ov['label'] );
+				}
+				if ( isset( $ov['order'] ) ) {
+					$tab['order'] = max( 1, (int) $ov['order'] );
+				}
+			}
+			$tabs[] = $tab;
+		}
+
+		usort(
+			$tabs,
+			static fn( array $a, array $b ): int => ( (int) ( $a['order'] ?? 10 ) ) <=> ( (int) ( $b['order'] ?? 10 ) )
+		);
+
+		$args['tabs'] = $tabs;
+		return $args;
 	}
 }
