@@ -41,6 +41,31 @@ class Appearance {
 		add_action( 'wp_enqueue_scripts', array( $this, 'attach_accent' ), 22 );
 		add_action( 'wp_enqueue_scripts', array( $this, 'seed_default_theme' ), 21 );
 		add_action( 'wp_head', array( $this, 'print_custom_css' ), 99 );
+
+		// On BuddyNext hub pages, BN renders its own full-width shell with a left
+		// rail, so suppress the Reign theme's "Left Panel" menu location to avoid
+		// two overlapping left navs. Scoped to BN hub pages only — the theme panel
+		// is untouched on blog, regular pages, and everything else.
+		add_filter( 'theme_mod_reign_left_panel_gloabl_setting', array( $this, 'suppress_theme_left_panel_on_hub' ) );
+	}
+
+	/**
+	 * Disable the Reign "Left Panel" menu location on BuddyNext hub pages.
+	 *
+	 * BuddyNext owns its own navigation (the .bn-app__rail) and bursts to full
+	 * width, so a theme-level fixed left panel would overlap it. Returning a
+	 * falsy global setting makes Reign's reign-panel.php bail before render. Only
+	 * applies when a bn_hub query var is set (i.e. a BuddyNext route); off-hub
+	 * pages keep the theme's configured panel.
+	 *
+	 * @param mixed $value Stored reign_left_panel_gloabl_setting value.
+	 * @return mixed False on a BN hub page, the original value otherwise.
+	 */
+	public function suppress_theme_left_panel_on_hub( $value ) {
+		if ( '' !== (string) get_query_var( 'bn_hub' ) ) {
+			return false;
+		}
+		return $value;
 	}
 
 	/**
