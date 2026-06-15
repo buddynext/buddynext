@@ -39,6 +39,35 @@ class HashtagService {
 	}
 
 	/**
+	 * Parse the buddynext_banned_hashtags option into a list of normalized slugs.
+	 *
+	 * The option is a newline-separated textarea string, so the previous
+	 * `(array) get_option(...)` cast produced a single-element array containing
+	 * the whole blob — meaning the ban check only ever matched when exactly one
+	 * tag was configured. Split on newlines and normalize each entry the same way
+	 * tags themselves are (strip a leading #, sanitize_key) so matching is
+	 * case-insensitive and #-agnostic.
+	 *
+	 * @return array<int,string> Normalized banned slugs.
+	 */
+	private function banned_hashtag_slugs(): array {
+		$raw = (string) get_option( 'buddynext_banned_hashtags', '' );
+		if ( '' === trim( $raw ) ) {
+			return array();
+		}
+
+		$slugs = array();
+		foreach ( preg_split( '/[\r\n]+/', $raw ) ?: array() as $line ) {
+			$slug = sanitize_key( ltrim( trim( (string) $line ), '#' ) );
+			if ( '' !== $slug ) {
+				$slugs[] = $slug;
+			}
+		}
+
+		return array_values( array_unique( $slugs ) );
+	}
+
+	/**
 	 * Ensure a hashtag exists and return its ID (spec-named registration method).
 	 *
 	 * If the hashtag already exists the existing row ID is returned. If not, a
@@ -54,7 +83,7 @@ class HashtagService {
 			return 0;
 		}
 
-		$banned = (array) get_option( 'buddynext_banned_hashtags', array() );
+		$banned = $this->banned_hashtag_slugs();
 		if ( in_array( $slug, $banned, true ) ) {
 			return 0;
 		}
@@ -247,7 +276,7 @@ class HashtagService {
 		$slugs = array_map( 'strtolower', $matches[1] );
 		$slugs = array_values( array_unique( $slugs ) );
 
-		$banned = (array) get_option( 'buddynext_banned_hashtags', array() );
+		$banned = $this->banned_hashtag_slugs();
 		if ( ! empty( $banned ) ) {
 			$slugs = array_values( array_diff( $slugs, $banned ) );
 		}
