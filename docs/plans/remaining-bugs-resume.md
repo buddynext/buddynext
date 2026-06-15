@@ -1,13 +1,16 @@
 # BuddyNext Bugs — Resume Plan (remaining cross-lane cards)
 
-> STATUS (updated): DONE — Card 1 (9996403088 message gating, 8595685),
-> Card 2 (9996476016 social 7 settings, 4245363), Card 4 (9996426090 comment
-> @mention, 6684924). NOT DONE — Card 3 (9996533162 BuddyPanel overlap): cannot
-> reproduce locally (Reign BuddyPanel does not render on BN pages — it's
-> BuddyPress-dependent and BN replaces BuddyPress). Needs the repro config from
-> QA before applying a scoped `body.<reign-panel-class> .bn-app` offset in
-> assets/css/bn-shell.css; do NOT ship a blind CSS change (would risk the normal
-> full-width layout). Card commented asking for the setup.
+> STATUS: ALL FOUR DONE & shipped to Ready for Testing.
+> - 9996403088 message gating — 8595685
+> - 9996476016 social 7 settings — 4245363
+> - 9996426090 comment @mention — 6684924
+> - 9996533162 Reign left-panel overlap — 0d0ee25 (the "panel" is Reign's
+>   "Left Panel" MENU LOCATION, not the v4 header. Fix: filter
+>   theme_mod_reign_left_panel_gloabl_setting -> false on bn_hub pages in
+>   includes/Theme/Appearance.php, so Reign's reign-panel.php bails on BN pages
+>   only; reproduced by assigning a menu to the `panel-menu` location).
+>
+> This plan's queue is cleared. The sections below are kept for reference.
 
 
 Basecamp project 47683682. Bugs column 9990191646 → Ready for Testing 9990094424.
