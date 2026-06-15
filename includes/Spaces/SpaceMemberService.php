@@ -587,7 +587,7 @@ class SpaceMemberService {
 	/**
 	 * Allowed notification preferences for a space membership.
 	 */
-	private const NOTIFICATION_PREFS = array( 'all', 'mentions', 'none' );
+	private const NOTIFICATION_PREFS = array( 'all', 'mentions_only', 'none' );
 
 	/**
 	 * Set the per-space notification preference for an active member.
@@ -598,7 +598,7 @@ class SpaceMemberService {
 	 *
 	 * @param int    $space_id Space ID.
 	 * @param int    $user_id  User changing their own preference.
-	 * @param string $pref     One of 'all', 'mentions', 'none'.
+	 * @param string $pref     One of 'all', 'mentions_only', 'none'.
 	 * @return true|WP_Error
 	 */
 	public function set_notification_pref( int $space_id, int $user_id, string $pref ): true|WP_Error {
@@ -638,7 +638,7 @@ class SpaceMemberService {
 		 *
 		 * @param int    $space_id Space ID.
 		 * @param int    $user_id  User who changed the preference.
-		 * @param string $pref     New preference ('all', 'mentions', 'none').
+		 * @param string $pref     New preference ('all', 'mentions_only', 'none').
 		 */
 		do_action( 'buddynext_space_notification_pref_updated', $space_id, $user_id, $pref );
 

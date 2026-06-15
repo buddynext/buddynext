@@ -168,9 +168,9 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					<ul class="bn-sh-notif__list" role="listbox" hidden data-bn-notif-list>
 						<?php
 						$bn_notif_options = array(
-							'all'      => __( 'All activity', 'buddynext' ),
-							'mentions' => __( 'Mentions only', 'buddynext' ),
-							'none'     => __( 'None', 'buddynext' ),
+							'all'           => __( 'All activity', 'buddynext' ),
+							'mentions_only' => __( 'Mentions only', 'buddynext' ),
+							'none'          => __( 'None', 'buddynext' ),
 						);
 						foreach ( $bn_notif_options as $bn_pref_val => $bn_pref_label ) :
 							?>

@@ -941,10 +941,12 @@ class Installer {
 			$wpdb->query( "ALTER TABLE `{$p}bn_posts` MODIFY COLUMN `status` ENUM('published','draft','pending','scheduled','deleted') NOT NULL DEFAULT 'published'" );
 		}
 
-		// ── bn_space_members — align notification_pref ENUM with the app value ──
-		// The REST API, JS store and UI all use 'mentions_only', but the column
-		// was ENUM('all','mentions','none') so MySQL coerced 'mentions_only' to ''
-		// and the per-space "Mentions only" preference silently never saved.
+		// ── bn_space_members — canonicalise notification_pref to 'mentions_only' ─
+		// 'mentions_only' is the single canonical value used by every surface —
+		// the notifications REST API + JS store + prefs UI, AND (since the fix)
+		// the space-settings path (SpaceMemberService). The column was originally
+		// ENUM('all','mentions','none'); align it to ('all','mentions_only','none')
+		// while preserving any existing 'mentions' rows as 'mentions_only'.
 		$space_pref_enum = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COLUMN_TYPE
@@ -957,9 +959,16 @@ class Installer {
 		);
 
 		if ( is_string( $space_pref_enum ) && false === strpos( $space_pref_enum, "'mentions_only'" ) ) {
+			// Widen to a superset first so the old 'mentions' value stays valid
+			// long enough to be remapped (a direct narrow would coerce it to '').
+			$wpdb->query( "ALTER TABLE `{$p}bn_space_members` MODIFY COLUMN `notification_pref` ENUM('all','mentions','mentions_only','none') NOT NULL DEFAULT 'all'" );
+			$wpdb->query( "UPDATE `{$p}bn_space_members` SET `notification_pref` = 'mentions_only' WHERE `notification_pref` = 'mentions'" );
+			// Narrow to the canonical set and repair any stray coerced rows.
 			$wpdb->query( "ALTER TABLE `{$p}bn_space_members` MODIFY COLUMN `notification_pref` ENUM('all','mentions_only','none') NOT NULL DEFAULT 'all'" );
-			// Repair rows MySQL coerced to '' when the old ENUM rejected 'mentions_only'.
 			$wpdb->query( "UPDATE `{$p}bn_space_members` SET `notification_pref` = 'all' WHERE `notification_pref` NOT IN ('all','mentions_only','none')" );
+
+			// Per-space default-pref options use the same vocabulary.
+			$wpdb->query( "UPDATE `{$wpdb->options}` SET option_value = 'mentions_only' WHERE option_name LIKE 'bn\\_space\\_%\\_default\\_notification\\_pref' AND option_value = 'mentions'" );
 		}
 
 		// ── bn_profile_fields — widen `type` from a restrictive ENUM to VARCHAR ──

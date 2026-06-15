@@ -9,7 +9,7 @@
  *
  * @var object $space                  Required. Space row.
  * @var array  $notification_settings  Required. Bundle:
- *   - `default_notification_pref` (string) 'all'|'mentions'|'none'
+ *   - `default_notification_pref` (string) 'all'|'mentions_only'|'none'
  *   - `space_id`                  (int)
  *   - `space_url`                 (string) Cancel-link URL.
  * @var array  $classes                Optional. Extra CSS classes appended to `.bn-card`.
@@ -84,7 +84,7 @@ do_action( 'buddynext_part_space_settings_panel_notifications_before', $args );
 				<option value="all" <?php selected( $bn_default_notification_pref, 'all' ); ?>>
 					<?php esc_html_e( 'All activity', 'buddynext' ); ?>
 				</option>
-				<option value="mentions" <?php selected( $bn_default_notification_pref, 'mentions' ); ?>>
+				<option value="mentions_only" <?php selected( $bn_default_notification_pref, 'mentions_only' ); ?>>
 					<?php esc_html_e( 'Mentions only', 'buddynext' ); ?>
 				</option>
 				<option value="none" <?php selected( $bn_default_notification_pref, 'none' ); ?>>

@@ -235,7 +235,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_notifications_nonce']
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_notifications_nonce'] ) ), 'bn_space_notifications_' . $space_id ) ) {
 		$save_notice = 'error';
 	} else {
-		$allowed_prefs = array( 'all', 'mentions', 'none' );
+		$allowed_prefs = array( 'all', 'mentions_only', 'none' );
 		$pref_value    = isset( $_POST['default_notification_pref'] )
 			? sanitize_key( wp_unslash( $_POST['default_notification_pref'] ) )
 			: 'all';
