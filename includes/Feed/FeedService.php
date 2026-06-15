@@ -232,9 +232,9 @@ class FeedService {
 		 * @param int    $user_id    Viewing user ID.
 		 * @param array  $query_args Resolved query args after buddynext_feed_query_args.
 		 */
-		$order_by = (string) apply_filters( 'buddynext_feed_order_by', 'created_at DESC, id DESC', $user_id, $query_args );
+		$order_by = (string) apply_filters( 'buddynext_feed_order_by', 'is_pinned DESC, created_at DESC, id DESC', $user_id, $query_args );
 		if ( '' === $order_by ) {
-			$order_by = 'created_at DESC, id DESC';
+			$order_by = 'is_pinned DESC, created_at DESC, id DESC';
 		}
 
 		// Source-blend WHERE built per filter. All branches use subqueries — no

@@ -218,10 +218,14 @@ $can_edit     = $is_own_post || $is_admin;
 $can_delete   = $is_own_post || $is_admin;
 $can_pin      = $is_own_post || $is_admin;
 $can_report   = ( $current_user_id > 0 && ! $is_own_post );
-$can_bookmark = ( $current_user_id > 0 );
 $can_react    = ( $current_user_id > 0 );
 $can_comment  = ( $current_user_id > 0 );
-$can_share    = ( $current_user_id > 0 );
+
+// Re-shares and bookmarks are site-owner toggles (BuddyNext → Social). When the
+// owner disables a feature the corresponding action control must disappear, not
+// just no-op — both default ON when the option is unset.
+$can_share    = ( $current_user_id > 0 && (bool) get_option( 'buddynext_allow_shares', true ) );
+$can_bookmark = ( $current_user_id > 0 && (bool) get_option( 'buddynext_allow_bookmarks', true ) );
 
 // ── Nonces — all REST calls use the wp_rest nonce ──────────────────────────────
 $rest_nonce     = $current_user_id > 0 ? wp_create_nonce( 'wp_rest' ) : '';

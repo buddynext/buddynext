@@ -61,6 +61,12 @@ $composer_placeholder = $composer_space
 
 $composer_has_pro = defined( 'BUDDYNEXTPRO_VERSION' );
 
+// Media uploads route through WPMediaVerse. When the engine is absent the Image
+// affordance must not render — otherwise pickMedia() POSTs to a non-existent
+// mvs/v1 route and 404s. BN degrades gracefully: no button, no console error.
+$composer_media_enabled = class_exists( '\BuddyNext\Media\MediaClient' )
+	&& \BuddyNext\Media\MediaClient::available();
+
 /** Sanitized partial arguments. @var array<string,mixed> $args */
 $args = (array) apply_filters(
 	'buddynext_part_composer_args',
@@ -110,6 +116,13 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				'announcementExpiresAt' => '',
 				'draftStatus'    => '',
 				'hasDraft'       => false,
+				'linkPreviewEnabled' => (bool) get_option( 'buddynext_enable_link_preview', true ),
+				'linkUrl'        => '',
+				'linkTitle'      => '',
+				'linkDesc'       => '',
+				'linkThumb'      => '',
+				'linkMeta'       => null,
+				'mediaEnabled'   => $composer_media_enabled,
 			)
 		)
 	);
@@ -175,6 +188,35 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				</div>
 			</template>
 		</div>
+
+		<?php if ( (bool) get_option( 'buddynext_enable_link_preview', true ) ) : ?>
+		<div class="bn-composer__link-preview"
+			hidden
+			data-wp-bind--hidden="!state.hasLinkPreview">
+			<a class="bn-composer__link-card"
+				data-wp-bind--href="context.linkUrl"
+				target="_blank"
+				rel="noopener noreferrer">
+				<span class="bn-composer__link-thumb"
+					hidden
+					data-wp-bind--hidden="!state.hasLinkThumb">
+					<img data-wp-bind--src="context.linkThumb" alt="" loading="lazy">
+				</span>
+				<span class="bn-composer__link-info">
+					<strong class="bn-composer__link-title" data-wp-text="context.linkTitle"></strong>
+					<small class="bn-composer__link-desc" data-wp-text="context.linkDesc"></small>
+					<span class="bn-composer__link-domain" data-wp-text="state.linkDomain"></span>
+				</span>
+			</a>
+			<button type="button"
+				class="bn-composer__link-remove"
+				data-wp-on--click="actions.removeLinkPreview"
+				aria-label="<?php esc_attr_e( 'Remove link preview', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Remove link preview', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'x' ); ?>
+			</button>
+		</div>
+		<?php endif; ?>
 
 		<div class="bn-composer__poll-options"
 			hidden
@@ -253,6 +295,7 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 
 		<div class="bn-composer__tools">
 
+			<?php if ( $composer_media_enabled ) : ?>
 			<button class="bn-composer__tool"
 				type="button"
 				data-wp-on--click="actions.pickMedia"
@@ -260,7 +303,9 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				title="<?php esc_attr_e( 'Image', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'image' ); ?>
 			</button>
+			<?php endif; ?>
 
+			<?php if ( (bool) get_option( 'buddynext_allow_polls', true ) ) : ?>
 			<button class="bn-composer__tool"
 				type="button"
 				data-wp-bind--aria-pressed="state.isPoll"
@@ -269,6 +314,19 @@ $default_privacy = $composer_space ? 'space_members' : 'public';
 				title="<?php esc_attr_e( 'Poll', 'buddynext' ); ?>">
 				<?php buddynext_icon( 'bar-chart-2' ); ?>
 			</button>
+			<?php endif; ?>
+
+			<?php if ( (bool) get_option( 'buddynext_enable_emoji_picker', true ) ) : ?>
+			<button class="bn-composer__tool bn-emoji-trigger"
+				type="button"
+				data-bn-emoji-target=".bn-composer__prompt"
+				aria-label="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>"
+				aria-haspopup="true"
+				aria-expanded="false"
+				title="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>">
+				<?php buddynext_icon( 'smile' ); ?>
+			</button>
+			<?php endif; ?>
 
 			<button class="bn-composer__tool"
 				type="button"

@@ -1,5 +1,5 @@
 /* BuddyNext — Feed Interactivity API store. */
-import { store, getContext } from '@wordpress/interactivity';
+import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnConfirm, bnPrompt, bnReportDialog, bnToast } from '../shell/dialog.js';
 
 /* ── Comment helpers (vanilla DOM — outside WP Interactivity API scope) ── */
@@ -248,7 +248,16 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			} else {
 				opt.textContent = REACTION_LABELS[ type ];
 			}
-			opt.addEventListener( 'click', () => sendReaction( type ) );
+			// Keyboard activation only: mouse/touch selection is handled by the
+			// picker-level 'pointerdown' listener below (so the choice lands before
+			// any blur-driven close). `e.detail === 0` distinguishes a keyboard
+			// Enter/Space click from a synthetic pointer click, avoiding a
+			// double-toggle on pointer devices.
+			opt.addEventListener( 'click', ( e ) => {
+				if ( 0 === e.detail ) {
+					sendReaction( type );
+				}
+			} );
 			picker.appendChild( opt );
 		} );
 
@@ -258,16 +267,49 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		let hoverTimer = null;
 		const openPicker  = () => { clearTimeout( hoverTimer ); picker.hidden = false; };
 		const closePicker = () => { hoverTimer = setTimeout( () => { picker.hidden = true; }, 200 ); };
+		// Hover reveal for pointer devices. Touch devices never fire these, so the
+		// click handler below also opens the picker — otherwise the six specific
+		// reactions would be unreachable on mobile (only a default like worked).
 		wrapBtn.addEventListener( 'mouseenter', openPicker );
 		wrapBtn.addEventListener( 'mouseleave', closePicker );
 		wrapBtn.addEventListener( 'focusin', openPicker );
 		wrapBtn.addEventListener( 'focusout', closePicker );
 
-		// Bare click on the react button = toggle like (no picker open).
+		// Click on the React button:
+		//   • picker already open  → quick-toggle a default like / clear current.
+		//   • picker closed (touch or no-hover) → open it so the user can pick one
+		//     of the six reactions. A second click then quick-toggles.
 		reactBtn.addEventListener( 'click', ( e ) => {
-			if ( ! picker.hidden ) { return; }
 			e.preventDefault();
+			if ( picker.hidden ) {
+				if ( currentUserId <= 0 ) {
+					sendReaction( 'like' ); // surfaces the sign-in toast.
+					return;
+				}
+				openPicker();
+				return;
+			}
 			sendReaction( reactBtn.dataset.reaction ? null : 'like' );
+		} );
+
+		// Selecting an emoji must fire even if a blur/leave would otherwise hide the
+		// picker first — pointerdown lands before the close timer, so the choice is
+		// never swallowed. (The per-option 'click' binding above still covers
+		// keyboard activation.)
+		picker.addEventListener( 'pointerdown', ( e ) => {
+			const opt = e.target.closest( '.bn-comment__react-option' );
+			if ( ! opt ) { return; }
+			e.preventDefault();
+			clearTimeout( hoverTimer );
+			sendReaction( opt.dataset.reaction );
+		} );
+
+		// Close the picker when focus/pointer moves elsewhere on the page so an
+		// opened-by-click picker (touch) does not get stuck open.
+		document.addEventListener( 'click', ( e ) => {
+			if ( ! picker.hidden && ! wrapBtn.contains( e.target ) ) {
+				picker.hidden = true;
+			}
 		} );
 
 		async function sendReaction( type ) {
@@ -348,6 +390,36 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			cancelBtn.className = 'bn-comment__reply-cancel';
 			cancelBtn.textContent = 'Cancel';
 			editForm.appendChild( ta );
+			// Emoji insert — shown only when the site-owner emoji picker is
+			// enabled (signalled by the composer's option-gated trigger being
+			// present on the page). The shared initEmojiPicker() handler wires
+			// the click + insertion into this specific editor's textarea.
+			if ( document.querySelector( '.bn-composer .bn-emoji-trigger' ) ) {
+				const taField = 'bn-comment-edit-' + comment.id;
+				ta.dataset.bnEmojiField = taField;
+				const emojiBtn = document.createElement( 'button' );
+				emojiBtn.type = 'button';
+				emojiBtn.className = 'bn-emoji-trigger bn-comment__emoji-trigger';
+				emojiBtn.dataset.bnEmojiTarget = '[data-bn-emoji-field="' + taField + '"]';
+				emojiBtn.setAttribute( 'aria-label', 'Insert emoji' );
+				emojiBtn.setAttribute( 'aria-haspopup', 'true' );
+				emojiBtn.setAttribute( 'aria-expanded', 'false' );
+				emojiBtn.title = 'Insert emoji';
+				// Reuse the bundled "grin" SVG glyph as the trigger face so no
+				// emoji character is hardcoded; falls back to a text label.
+				const emojiBase = bnEmojiAssetBase();
+				if ( emojiBase ) {
+					const gi = document.createElement( 'img' );
+					gi.src = emojiBase + 'grin.svg';
+					gi.alt = '';
+					gi.width = 18;
+					gi.height = 18;
+					emojiBtn.appendChild( gi );
+				} else {
+					emojiBtn.textContent = 'Emoji';
+				}
+				editForm.appendChild( emojiBtn );
+			}
 			editForm.appendChild( saveBtn );
 			editForm.appendChild( cancelBtn );
 			para.hidden = true;
@@ -952,10 +1024,116 @@ store( 'buddynext/post-card', {
 				bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
 			}
 		},
-		editPost() {
-			const ctx = getContext();
-			window.location.href = ctx.restUrl.replace( '/wp-json/buddynext/v1', '' )
-				+ '/activity/?edit=' + ctx.postId;
+		* editPost() {
+			const ctx     = getContext();
+			const element = getElement();
+			const card    = element && element.ref ? element.ref.closest( '.bn-post-card' ) : null;
+			if ( ! card ) {
+				return;
+			}
+
+			// One editor at a time per card.
+			if ( card.querySelector( '.bn-post-card__edit-form' ) ) {
+				return;
+			}
+
+			const contentEl = card.querySelector( '.bn-post-card__content' );
+			if ( ! contentEl ) {
+				bnToast( 'This post cannot be edited.', { tone: 'info' } );
+				return;
+			}
+
+			// Pull the raw (unformatted) content so the editor shows exactly what the
+			// author typed — the rendered node has nl2br/mention/hashtag markup baked in.
+			let rawContent = '';
+			try {
+				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId, {
+					headers: { 'X-WP-Nonce': ctx.reactNonce },
+				} );
+				if ( res.ok ) {
+					const data = yield res.json();
+					rawContent = ( data && typeof data.content === 'string' ) ? data.content : '';
+				}
+			} catch ( _e ) {
+				// Fall back to the visible text if the fetch fails.
+			}
+			if ( '' === rawContent ) {
+				rawContent = ( contentEl.textContent || '' ).trim();
+			}
+
+			const form = document.createElement( 'div' );
+			form.className = 'bn-post-card__edit-form';
+
+			const ta = document.createElement( 'textarea' );
+			ta.className = 'bn-post-card__edit-input';
+			ta.rows = 3;
+			ta.value = rawContent;
+			ta.setAttribute( 'aria-label', 'Edit post content' );
+
+			const bar = document.createElement( 'div' );
+			bar.className = 'bn-post-card__edit-actions';
+
+			const saveBtn = document.createElement( 'button' );
+			saveBtn.type = 'button';
+			saveBtn.className = 'bn-btn';
+			saveBtn.dataset.variant = 'primary';
+			saveBtn.dataset.size = 'sm';
+			saveBtn.textContent = 'Save';
+
+			const cancelBtn = document.createElement( 'button' );
+			cancelBtn.type = 'button';
+			cancelBtn.className = 'bn-btn';
+			cancelBtn.dataset.variant = 'ghost';
+			cancelBtn.dataset.size = 'sm';
+			cancelBtn.textContent = 'Cancel';
+
+			bar.appendChild( saveBtn );
+			bar.appendChild( cancelBtn );
+			form.appendChild( ta );
+			form.appendChild( bar );
+
+			contentEl.hidden = true;
+			contentEl.parentNode.insertBefore( form, contentEl.nextSibling );
+			ta.focus();
+
+			const teardown = () => {
+				form.remove();
+				contentEl.hidden = false;
+			};
+			cancelBtn.addEventListener( 'click', teardown );
+
+			saveBtn.addEventListener( 'click', async () => {
+				const next = ta.value.trim();
+				if ( '' === next ) {
+					bnToast( 'Post content cannot be empty.', { tone: 'info' } );
+					return;
+				}
+				saveBtn.disabled = true;
+				try {
+					const res = await fetch( ctx.restUrl + '/posts/' + ctx.postId, {
+						method:  'PUT',
+						headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.reactNonce },
+						body:    JSON.stringify( { content: next } ),
+					} );
+					if ( ! res.ok ) {
+						throw new Error( 'update failed' );
+					}
+					// Reflect the saved text immediately (line breaks preserved). Full
+					// mention/hashtag formatting re-applies on the next page load.
+					contentEl.textContent = next;
+					if ( ! card.querySelector( '.bn-post-card__edited' ) ) {
+						const mark = document.createElement( 'span' );
+						mark.className = 'bn-post-card__edited';
+						mark.textContent = ' (edited)';
+						contentEl.appendChild( mark );
+					}
+					teardown();
+					bnToast( 'Post updated', { tone: 'success' } );
+				} catch ( _e ) {
+					saveBtn.disabled = false;
+					bnToast( 'Could not update the post. Try again.', { tone: 'danger' } );
+				}
+			} );
 		},
 		* pinPost() {
 			const ctx  = getContext();
@@ -1132,6 +1310,74 @@ store( 'buddynext/post-card', {
 // Module-level media state — shared between native event handler and store actions.
 // WP Interactivity API getContext() doesn't work in native addEventListener callbacks.
 const _mediaState = { ids: [], previews: [] };
+
+/* ── Link preview detection ──────────────────────────────────────────────
+ * As the user types, the first http(s) URL in the composer is detected and
+ * its Open Graph card fetched (debounced) from buddynext/v1/link-preview.
+ * The result is stored on the composer context so the preview card renders
+ * and link_url/link_meta ride along in the submit payload. A dismissed URL
+ * is remembered so it isn't re-fetched on the next keystroke.
+ */
+const _linkPreviewState = { url: '', dismissed: '', timer: null };
+const LINK_PREVIEW_DEBOUNCE_MS = 700;
+const URL_RE = /(https?:\/\/[^\s<>"']+)/i;
+
+function detectFirstUrl( text ) {
+	const m = URL_RE.exec( String( text || '' ) );
+	if ( ! m ) { return ''; }
+	// Trim trailing punctuation that is unlikely to be part of the URL.
+	return m[ 1 ].replace( /[.,;:!?)\]]+$/, '' );
+}
+
+function maybeDetectLink( ctx ) {
+	// Respect the site-owner toggle exposed on the composer context.
+	if ( ! ctx.linkPreviewEnabled ) { return; }
+
+	const url = detectFirstUrl( ctx.content );
+
+	// No URL anymore → clear any shown card (unless it was manually dismissed).
+	if ( ! url ) {
+		if ( ctx.linkUrl ) {
+			ctx.linkUrl = ''; ctx.linkTitle = ''; ctx.linkDesc = ''; ctx.linkThumb = ''; ctx.linkMeta = null;
+		}
+		_linkPreviewState.url = '';
+		return;
+	}
+
+	// Same URL already previewed or explicitly dismissed → nothing to do.
+	if ( url === ctx.linkUrl || url === _linkPreviewState.dismissed || url === _linkPreviewState.url ) {
+		return;
+	}
+
+	_linkPreviewState.url = url;
+	clearTimeout( _linkPreviewState.timer );
+	_linkPreviewState.timer = setTimeout( async () => {
+		// Bail if the URL changed again during the debounce window.
+		if ( detectFirstUrl( ctx.content ) !== url ) { return; }
+		try {
+			const base = ctx.restUrl || '';
+			const res  = await fetch(
+				base + '/link-preview?url=' + encodeURIComponent( url ),
+				{ headers: { 'X-WP-Nonce': ctx.restNonce } }
+			);
+			if ( ! res.ok ) { return; }
+			const data = await res.json();
+			// Only render a card if the URL is still the active one.
+			if ( detectFirstUrl( ctx.content ) !== url ) { return; }
+			ctx.linkUrl   = url;
+			ctx.linkTitle = data.title || '';
+			ctx.linkDesc  = data.description || '';
+			ctx.linkThumb = data.thumbnail || '';
+			ctx.linkMeta  = {
+				title:       data.title || '',
+				description: data.description || '',
+				thumbnail:   data.thumbnail || '',
+			};
+		} catch ( _e ) {
+			// Network/preview failure degrades silently — the URL still posts as text.
+		}
+	}, LINK_PREVIEW_DEBOUNCE_MS );
+}
 
 const PRIVACY_LABELS = {
 	public:    'Everyone',
@@ -1342,6 +1588,19 @@ store( 'buddynext/post-composer', {
 		get mediaUploading() {
 			try { return !! getContext().mediaUploading; } catch ( _e ) { return false; }
 		},
+		get hasLinkPreview() {
+			try { return !! ( getContext().linkUrl || '' ); } catch ( _e ) { return false; }
+		},
+		get hasLinkThumb() {
+			try { return !! ( getContext().linkThumb || '' ); } catch ( _e ) { return false; }
+		},
+		get linkDomain() {
+			try {
+				const u = getContext().linkUrl || '';
+				if ( ! u ) { return ''; }
+				return new URL( u ).hostname.replace( /^www\./, '' );
+			} catch ( _e ) { return ''; }
+		},
 		get errorMessage() {
 			try { return getContext().errorMessage || ''; } catch ( _e ) { return ''; }
 		},
@@ -1421,6 +1680,15 @@ store( 'buddynext/post-composer', {
 			const ctxData = JSON.parse( composerEl.getAttribute( 'data-wp-context' ) || '{}' );
 			const mvsBase = ctxData.mvsRestBase || ( ctxData.restUrl || '' ).replace( '/buddynext/v1', '/mvs/v1' );
 			const nonce   = ctxData.restNonce || '';
+
+			// Defensive guard: uploads route through WPMediaVerse. The Image button
+			// is only rendered when the engine is active (server-side check in
+			// composer.php), but if pickMedia is reached while disabled, degrade
+			// gracefully instead of POSTing to a non-existent mvs/v1 route.
+			if ( false === ctxData.mediaEnabled ) {
+				bnToast( 'Image uploads are not available on this site.', { tone: 'info' } );
+				return;
+			}
 
 			// Wire the change handler natively — WP Interactivity API directives
 			// don't reliably fire on hidden inputs triggered via .click().
@@ -1504,8 +1772,22 @@ store( 'buddynext/post-composer', {
 									} );
 									previewArea.appendChild( thumb );
 								}
+							} else {
+								// Non-2xx: surface the real status instead of silently
+								// swallowing it. 404 = WPMediaVerse route missing (engine
+								// inactive); other codes carry their own number.
+								// eslint-disable-next-line no-console
+								console.error( '[BuddyNext] Media upload failed:', res.status, mvsBase + '/media' );
+								bnToast(
+									404 === res.status
+										? 'Image uploads are unavailable (media engine not active).'
+										: 'Could not upload ' + ( file.name || 'image' ) + ' (error ' + res.status + ').',
+									{ tone: 'danger' }
+								);
 							}
-						} catch ( _e ) {
+						} catch ( err ) {
+							// eslint-disable-next-line no-console
+							console.error( '[BuddyNext] Media upload error:', err );
 							bnToast( 'Could not upload ' + ( file.name || 'image' ) + '. Try a smaller file.', { tone: 'danger' } );
 						}
 					}
@@ -1577,6 +1859,18 @@ store( 'buddynext/post-composer', {
 			const ctx     = getContext();
 			ctx.content   = event.target.value;
 			scheduleDraftSave( ctx );
+			maybeDetectLink( ctx );
+		},
+		removeLinkPreview() {
+			const ctx = getContext();
+			// User dismissed the card — clear it and remember the URL so we don't
+			// immediately re-fetch the same link on the next keystroke.
+			_linkPreviewState.dismissed = ctx.linkUrl || '';
+			ctx.linkUrl   = '';
+			ctx.linkTitle = '';
+			ctx.linkDesc  = '';
+			ctx.linkThumb = '';
+			ctx.linkMeta  = null;
 		},
 		discardDraft() {
 			const ctx = getContext();
@@ -1644,6 +1938,20 @@ store( 'buddynext/post-composer', {
 					return;
 				}
 				body.options = options.map( ( o ) => o.label );
+			}
+
+			// Link preview: when a card was resolved for a URL in the content,
+			// carry link_url + link_meta so the post stores and renders the
+			// preview. PostService also auto-fetches when link_url is set but
+			// link_meta is empty, so a dismissed card still posts as plain text.
+			if ( ctx.linkUrl ) {
+				body.link_url = ctx.linkUrl;
+				if ( ctx.linkMeta ) {
+					body.link_meta = ctx.linkMeta;
+				}
+				if ( body.type === 'text' ) {
+					body.type = 'link';
+				}
 			}
 
 			// Scheduled posts: when a future publish datetime is set, send it as a
@@ -2930,4 +3238,142 @@ if ( document.readyState === 'loading' ) {
 	document.addEventListener( 'DOMContentLoaded', initReactorsPopover );
 } else {
 	initReactorsPopover();
+}
+
+/* ── Emoji insert picker (composer + comment editor) ─────────────────────
+ * Inserts a Unicode emoji at the caret of a target textarea/input. The
+ * trigger is any `.bn-emoji-trigger[data-bn-emoji-target]` (a CSS selector
+ * resolved relative to the trigger's nearest composer/comment container, or
+ * the document). Gated server-side by buddynext_enable_emoji_picker — when
+ * the option is off the trigger button is never rendered.
+ *
+ * The slug→character map lives here in the data layer (NOT in PHP markup) so
+ * no emoji characters are hardcoded in templates. Glyphs render from the
+ * bundled SVGs for cross-platform consistency, mirroring the reaction picker.
+ */
+const BN_EMOJI_MAP = {
+	grin: '😀', haha: '😂', rofl: '🤣', wink: '😉', hearteyes: '😍',
+	starstruck: '🤩', cool: '😎', thinking: '🤔', mindblown: '🤯',
+	partyface: '🥳', pleading: '🥺', cry: '😢', sad: '😞', angry: '😠',
+	like: '👍', thumbsdown: '👎', love: '❤️', fire: '🔥', hundred: '💯',
+	clap: '👏', raisedhands: '🙌', pray: '🙏', muscle: '💪', peace: '✌️',
+	eyes: '👀', wow: '😮', celebrate: '🎉', sparkles: '✨', star: '⭐',
+	rocket: '🚀', trophy: '🏆', gift: '🎁', check: '✅',
+};
+
+function bnEmojiAssetBase() {
+	const link = document.querySelector( '[data-emoji-base]' );
+	if ( link && link.dataset.emojiBase ) { return link.dataset.emojiBase; }
+	// Derive from a known plugin script src as a fallback.
+	const s = document.querySelector( 'script[src*="/buddynext/assets/"]' );
+	if ( s ) { return s.src.replace( /assets\/.*$/, 'assets/emoji/' ); }
+	return '';
+}
+
+function bnInsertAtCaret( field, text ) {
+	if ( ! field ) { return; }
+	field.focus();
+	const start = typeof field.selectionStart === 'number' ? field.selectionStart : field.value.length;
+	const end   = typeof field.selectionEnd === 'number' ? field.selectionEnd : field.value.length;
+	const before = field.value.slice( 0, start );
+	const after  = field.value.slice( end );
+	field.value = before + text + after;
+	const caret = start + text.length;
+	field.setSelectionRange( caret, caret );
+	// Notify any listeners (draft autosave, link detection, char counter).
+	field.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+}
+
+function initEmojiPicker() {
+	let panel = null;
+	let activeTrigger = null;
+
+	const closePanel = () => {
+		if ( panel ) { panel.hidden = true; }
+		if ( activeTrigger ) { activeTrigger.setAttribute( 'aria-expanded', 'false' ); }
+		activeTrigger = null;
+	};
+
+	const buildPanel = () => {
+		const base = bnEmojiAssetBase();
+		const p = document.createElement( 'div' );
+		p.className = 'bn-emoji-popover';
+		p.setAttribute( 'role', 'menu' );
+		p.setAttribute( 'aria-label', 'Insert emoji' );
+		p.hidden = true;
+		Object.keys( BN_EMOJI_MAP ).forEach( ( slug ) => {
+			const btn = document.createElement( 'button' );
+			btn.type = 'button';
+			btn.className = 'bn-emoji-popover__option';
+			btn.dataset.emojiChar = BN_EMOJI_MAP[ slug ];
+			btn.setAttribute( 'aria-label', slug );
+			btn.title = slug;
+			if ( base ) {
+				const img = document.createElement( 'img' );
+				img.src = base + slug + '.svg';
+				img.alt = '';
+				img.width = 22;
+				img.height = 22;
+				btn.appendChild( img );
+			} else {
+				btn.textContent = BN_EMOJI_MAP[ slug ];
+			}
+			p.appendChild( btn );
+		} );
+		document.body.appendChild( p );
+		return p;
+	};
+
+	const resolveTarget = ( trigger ) => {
+		const sel = trigger.dataset.bnEmojiTarget;
+		if ( ! sel ) { return null; }
+		// Prefer a match within the nearest composer / comment container so
+		// multiple composers on a page each target their own field.
+		const scope = trigger.closest( '.bn-composer, .bn-comment__edit-form, .bn-comment-form, form, .bn-post-card' );
+		return ( scope && scope.querySelector( sel ) ) || document.querySelector( sel );
+	};
+
+	document.addEventListener( 'click', ( e ) => {
+		const option = e.target.closest( '.bn-emoji-popover__option' );
+		if ( option && panel && ! panel.hidden && activeTrigger ) {
+			e.preventDefault();
+			bnInsertAtCaret( resolveTarget( activeTrigger ), option.dataset.emojiChar );
+			closePanel();
+			return;
+		}
+
+		const trigger = e.target.closest( '.bn-emoji-trigger' );
+		if ( ! trigger ) {
+			if ( panel && ! panel.hidden && ! e.target.closest( '.bn-emoji-popover' ) ) {
+				closePanel();
+			}
+			return;
+		}
+		e.preventDefault();
+		if ( ! panel ) { panel = buildPanel(); }
+		if ( activeTrigger === trigger && ! panel.hidden ) {
+			closePanel();
+			return;
+		}
+		activeTrigger = trigger;
+		trigger.setAttribute( 'aria-expanded', 'true' );
+		// Position the panel under the trigger.
+		const r = trigger.getBoundingClientRect();
+		panel.style.position = 'absolute';
+		panel.style.top  = ( window.scrollY + r.bottom + 6 ) + 'px';
+		panel.style.left = ( window.scrollX + r.left ) + 'px';
+		panel.hidden = false;
+	} );
+
+	document.addEventListener( 'keydown', ( e ) => {
+		if ( e.key === 'Escape' ) { closePanel(); }
+	} );
+	window.addEventListener( 'resize', closePanel );
+	window.addEventListener( 'scroll', closePanel, true );
+}
+
+if ( document.readyState === 'loading' ) {
+	document.addEventListener( 'DOMContentLoaded', initEmojiPicker );
+} else {
+	initEmojiPicker();
 }

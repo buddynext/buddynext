@@ -98,7 +98,8 @@ class PostService {
 		if ( 'announcement' === $type && ! user_can( $user_id, 'manage_options' ) ) {
 			return new WP_Error(
 				'forbidden',
-				__( 'Only administrators can create announcements.', 'buddynext' )
+				__( 'Only administrators can create announcements.', 'buddynext' ),
+				array( 'status' => 403 )
 			);
 		}
 
@@ -1081,6 +1082,30 @@ class PostService {
 			),
 			(array) $rows
 		);
+	}
+
+	/**
+	 * Public accessor for Open Graph metadata extraction.
+	 *
+	 * Wraps the private fetch_og_meta() so the REST controller can build a live
+	 * link-preview card while the user is composing — without exposing the
+	 * private static directly. Returns the same shape (title/description/thumbnail),
+	 * with empty strings when the URL is unreachable or carries no OG tags.
+	 *
+	 * @param string $url URL to fetch.
+	 * @return array{title: string, description: string, thumbnail: string}
+	 */
+	public function og_meta( string $url ): array {
+		$url = esc_url_raw( $url );
+		if ( '' === $url ) {
+			return array(
+				'title'       => '',
+				'description' => '',
+				'thumbnail'   => '',
+			);
+		}
+
+		return self::fetch_og_meta( $url );
 	}
 
 	/**

@@ -70,6 +70,23 @@ class PostController extends BaseRestController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/link-preview',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'link_preview' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'url' => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'esc_url_raw',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/posts/(?P<id>[\d]+)/pin',
 			array(
 				array(
@@ -129,6 +146,53 @@ class PostController extends BaseRestController {
 		$post = $service->get( $result );
 
 		return new WP_REST_Response( $post, 201 );
+	}
+
+	/**
+	 * Return Open Graph metadata for a URL so the composer can render a live
+	 * link-preview card before the post is submitted.
+	 *
+	 * Gated on the site-owner `buddynext_enable_link_preview` toggle (default on)
+	 * so disabling previews disables both the fetch and the rendered card. Returns
+	 * a flat { url, title, description, thumbnail } payload; empty strings when the
+	 * URL is unreachable or carries no OG tags.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function link_preview( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		if ( ! (bool) get_option( 'buddynext_enable_link_preview', true ) ) {
+			return new WP_Error(
+				'link_preview_disabled',
+				__( 'Link previews are disabled.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$url = esc_url_raw( (string) ( $request->get_param( 'url' ) ?? '' ) );
+		if ( '' === $url || ! wp_http_validate_url( $url ) ) {
+			return new WP_Error(
+				'invalid_url',
+				__( 'A valid URL is required.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$service = function_exists( 'buddynext_service' )
+			? buddynext_service( 'post_service' )
+			: new PostService();
+
+		$meta = $service->og_meta( $url );
+
+		return new WP_REST_Response(
+			array(
+				'url'         => $url,
+				'title'       => (string) ( $meta['title'] ?? '' ),
+				'description' => (string) ( $meta['description'] ?? '' ),
+				'thumbnail'   => (string) ( $meta['thumbnail'] ?? '' ),
+			),
+			200
+		);
 	}
 
 	/**

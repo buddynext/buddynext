@@ -1528,6 +1528,45 @@
 	padding: var(--bn-s1) var(--bn-s3);
 }
 
+/* Inline post editor — opened from the post card kebab → Edit. Pre-filled
+   textarea + Save/Cancel, replacing the rendered content in place. */
+.bn-post-card__edit-form {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+	margin-block: var(--bn-s2);
+}
+
+.bn-post-card__edit-input {
+	width: 100%;
+	box-sizing: border-box;
+	resize: vertical;
+	min-height: calc(var(--bn-tap, 40px) * 2);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-surface);
+	color: var(--bn-text);
+	font: inherit;
+	line-height: 1.5;
+}
+
+.bn-post-card__edit-input:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: 1px;
+}
+
+.bn-post-card__edit-actions {
+	display: flex;
+	gap: var(--bn-s2);
+	flex-wrap: wrap;
+}
+
+.bn-post-card__edited {
+	color: var(--bn-text-subtle, var(--bn-muted, inherit));
+	font-size: 0.85em;
+}
+
 /* Comment loading skeleton (three rows while the thread fetches). */
 .bn-comment-skeleton {
 	display: flex;
@@ -2088,6 +2127,132 @@
 	justify-content: center;
 }
 .bn-composer__media-remove:hover { background: var(--red); }
+
+/* Composer link preview — live OG card shown while typing a URL. Mirrors the
+   in-feed post link card, with a dismiss affordance. */
+.bn-composer__link-preview {
+	position: relative;
+	display: flex;
+	align-items: stretch;
+	gap: var(--s2);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	overflow: hidden;
+	background: var(--bg-subtle, var(--surface));
+}
+.bn-composer__link-card {
+	display: flex;
+	gap: var(--s2);
+	align-items: stretch;
+	flex: 1;
+	min-width: 0;
+	text-decoration: none;
+	color: inherit;
+}
+.bn-composer__link-thumb {
+	flex-shrink: 0;
+	width: 96px;
+	min-height: 72px;
+	overflow: hidden;
+	background: var(--border);
+}
+.bn-composer__link-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bn-composer__link-info {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: var(--s2);
+	min-width: 0;
+}
+.bn-composer__link-title {
+	font-weight: 600;
+	line-height: 1.3;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+.bn-composer__link-desc {
+	color: var(--text-muted, var(--muted));
+	line-height: 1.4;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+.bn-composer__link-domain {
+	color: var(--text-muted, var(--muted));
+	font-size: 0.8em;
+}
+.bn-composer__link-remove {
+	flex-shrink: 0;
+	align-self: flex-start;
+	margin: var(--s1);
+	width: 24px;
+	height: 24px;
+	border: none;
+	border-radius: var(--r-full);
+	background: rgba(0, 0, 0, 0.55);
+	color: var(--text-on-brand);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.bn-composer__link-remove:hover { background: var(--red); }
+.bn-composer__link-remove svg { width: 14px; height: 14px; }
+
+@media (max-width: 640px) {
+	.bn-composer__link-thumb { width: 72px; }
+}
+
+/* Emoji insert picker — popover of bundled glyph buttons, appended to
+   <body> and positioned under the trigger by initEmojiPicker(). */
+.bn-emoji-popover {
+	display: grid;
+	grid-template-columns: repeat(8, 1fr);
+	gap: 2px;
+	max-width: 320px;
+	max-height: 260px;
+	overflow-y: auto;
+	padding: var(--s2);
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+	z-index: 1100;
+}
+.bn-emoji-popover[hidden] { display: none; }
+.bn-emoji-popover__option {
+	background: transparent;
+	border: 0;
+	cursor: pointer;
+	line-height: 0;
+	padding: 4px;
+	border-radius: var(--r-md);
+	min-width: 32px;
+	min-height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: transform 150ms ease, background 150ms ease;
+}
+.bn-emoji-popover__option:hover { transform: scale(1.2); background: var(--bg-hover, rgba(0,0,0,0.05)); }
+.bn-emoji-popover__option:focus-visible { outline: 2px solid var(--bn-accent, var(--accent)); outline-offset: 1px; }
+.bn-emoji-popover__option img { width: 22px; height: 22px; display: block; max-width: none; }
+.bn-comment__emoji-trigger {
+	background: transparent;
+	border: 0;
+	cursor: pointer;
+	padding: 2px 4px;
+	line-height: 0;
+	align-self: center;
+}
+.bn-comment__emoji-trigger img { width: 18px; height: 18px; display: block; }
+
+@media (max-width: 640px) {
+	.bn-emoji-popover { grid-template-columns: repeat(6, 1fr); max-width: 260px; }
+}
 
 .bn-composer__poll-options {
 	display: flex;
