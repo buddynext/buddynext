@@ -1364,56 +1364,79 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_tab_integrations(): void {
-		$addons = array(
-			array(
-				'slug'   => 'wpmediaverse',
-				'label'  => 'WPMediaVerse',
-				'desc'   => __( 'Social media engine — powers direct messaging, media feeds, and avatar sync.', 'buddynext' ),
-				'active' => class_exists( 'WPMediaVerse\\Core\\Plugin' ),
-				'url'    => admin_url( 'plugins.php?s=wpmediaverse' ),
-			),
-			array(
-				'slug'   => 'jetonomy',
-				'label'  => 'Jetonomy',
-				'desc'   => __( 'Forum platform — discussion threads and structured Q&A bridged into the activity feed.', 'buddynext' ),
-				'active' => class_exists( 'Jetonomy\\Plugin' ),
-				'url'    => admin_url( 'plugins.php?s=jetonomy' ),
-			),
-			array(
-				'slug'   => 'wb-gamification',
-				'label'  => 'WBGamification',
-				'desc'   => __( 'Points, badges, and leaderboards synced with BuddyNext activity events.', 'buddynext' ),
-				'active' => function_exists( 'wb_gam_submit_event' ),
-				'url'    => admin_url( 'plugins.php?s=wb-gamification' ),
-			),
-			array(
-				'slug'   => 'career-board',
-				'label'  => 'Career Board',
-				'desc'   => __( 'Job listings surfaced as feed cards; applications notify the hiring team.', 'buddynext' ),
-				'active' => class_exists( 'WP_Career_Board\\Plugin' ),
-				'url'    => admin_url( 'plugins.php?s=career-board' ),
-			),
-		);
+		// Source the addon registry from the IntegrationHub so this status list and
+		// the dedicated Integrations admin page stay in lockstep — one source of
+		// truth for plugin_file + active state — instead of a second hand-kept list
+		// with its own class_exists() probes.
+		$container = \BuddyNext\Core\Container::instance();
+		$hub       = $container->has( 'admin_hub' ) ? $container->get( 'admin_hub' ) : null;
+		$addons    = ( is_object( $hub ) && method_exists( $hub, 'get_addons' ) ) ? $hub->get_addons() : array();
+
+		if ( ! function_exists( 'get_plugins' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		$installed_files = array_keys( get_plugins() );
 
 		$this->open_section( __( 'Addon Status', 'buddynext' ) );
 		?>
 		<div class="bn-addon-list">
-			<?php foreach ( $addons as $addon ) : ?>
-			<div class="bn-addon-row" data-status="<?php echo $addon['active'] ? 'active' : 'inactive'; ?>">
+			<?php
+			foreach ( $addons as $addon ) :
+				$bn_active       = ! empty( $addon['active'] );
+				$bn_label        = (string) ( $addon['label'] ?? '' );
+				$bn_desc         = (string) ( $addon['description'] ?? ( $addon['desc'] ?? '' ) );
+				$bn_plugin_file  = (string) ( $addon['plugin_file'] ?? '' );
+				$bn_get_url      = (string) ( $addon['url'] ?? '' );
+				$bn_is_installed = '' !== $bn_plugin_file && in_array( $bn_plugin_file, $installed_files, true );
+
+				// State-aware action. These first-party plugins are not in the
+				// wp.org directory, so the old "plugins.php?s=<slug>" link only
+				// searched the installed-plugins list and showed "No plugins found"
+				// when absent. Resolve to a real action instead:
+				//  • installed but inactive → one-click Activate (nonce'd, cap-checked).
+				//  • not installed, has a product URL → "Get Plugin" (opens external).
+				//  • not installed, no URL → "Install" → the Add Plugins upload screen
+				//    where the admin uploads the downloaded ZIP.
+				$bn_action_url   = '';
+				$bn_action_label = '';
+				$bn_action_ext   = false;
+				$bn_action_title = '';
+				if ( ! $bn_active ) {
+					if ( $bn_is_installed && current_user_can( 'activate_plugins' ) ) {
+						$bn_action_url   = wp_nonce_url(
+							self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $bn_plugin_file ) . '&plugin_status=all' ),
+							'activate-plugin_' . $bn_plugin_file
+						);
+						$bn_action_label = __( 'Activate', 'buddynext' );
+					} elseif ( '' !== $bn_get_url ) {
+						$bn_action_url   = $bn_get_url;
+						$bn_action_label = __( 'Get Plugin', 'buddynext' );
+						$bn_action_ext   = true;
+					} elseif ( current_user_can( 'install_plugins' ) ) {
+						$bn_action_url   = self_admin_url( 'plugin-install.php?tab=upload' );
+						$bn_action_label = __( 'Install', 'buddynext' );
+						$bn_action_title = __( 'Upload the plugin ZIP to install it.', 'buddynext' );
+					}
+				}
+				?>
+			<div class="bn-addon-row" data-status="<?php echo $bn_active ? 'active' : 'inactive'; ?>">
 				<span class="bn-addon-row__status">
-					<?php if ( $addon['active'] ) : ?>
+					<?php if ( $bn_active ) : ?>
 						<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 					<?php else : ?>
 						<span class="bn-badge"><?php esc_html_e( 'Inactive', 'buddynext' ); ?></span>
 					<?php endif; ?>
 				</span>
 				<div class="bn-addon-row__meta">
-					<strong class="bn-addon-row__label"><?php echo esc_html( $addon['label'] ); ?></strong>
-					<p class="bn-addon-row__desc"><?php echo esc_html( $addon['desc'] ); ?></p>
+					<strong class="bn-addon-row__label"><?php echo esc_html( $bn_label ); ?></strong>
+					<p class="bn-addon-row__desc"><?php echo esc_html( $bn_desc ); ?></p>
 				</div>
-				<?php if ( ! $addon['active'] ) : ?>
-				<a href="<?php echo esc_url( $addon['url'] ); ?>" class="bn-addon-row__action">
-					<?php esc_html_e( 'Install', 'buddynext' ); ?>
+				<?php if ( '' !== $bn_action_url ) : ?>
+				<a href="<?php echo esc_url( $bn_action_url ); ?>"
+					class="bn-addon-row__action"
+					<?php echo '' !== $bn_action_title ? 'title="' . esc_attr( $bn_action_title ) . '" ' : ''; ?>
+					<?php echo $bn_action_ext ? 'target="_blank" rel="noopener noreferrer"' : ''; ?>>
+					<?php echo esc_html( $bn_action_label ); ?>
 				</a>
 				<?php endif; ?>
 			</div>
