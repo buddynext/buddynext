@@ -2277,6 +2277,11 @@ document.addEventListener( 'keydown', function ( event ) {
 	var spaceId     = generalForm ? generalForm.getAttribute( 'data-space-id' ) : null;
 	if ( ! spaceId ) { return; }
 
+	// This IIFE runs outside the Interactivity store, so resolveNonce() can't
+	// read ctx.restNonce and wpApiSettings isn't enqueued here — the form
+	// carries a fresh wp_rest nonce we use for every cover/icon REST call.
+	var imageNonce = ( generalForm.getAttribute( 'data-rest-nonce' ) ) || resolveNonce();
+
 	// A throwaway file input drives the OS picker; we never keep a value in it.
 	function pickFile( onChosen ) {
 		var picker = document.createElement( 'input' );
@@ -2297,7 +2302,7 @@ document.addEventListener( 'keydown', function ( event ) {
 		body.append( 'image', file );
 		return fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/' + kind ), {
 			method:  'POST',
-			headers: { 'X-WP-Nonce': resolveNonce() },
+			headers: { 'X-WP-Nonce': imageNonce },
 			body:    body,
 		} );
 	}
@@ -2305,7 +2310,7 @@ document.addEventListener( 'keydown', function ( event ) {
 	function deleteImage( kind ) {
 		return fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/' + kind ), {
 			method:  'DELETE',
-			headers: { 'X-WP-Nonce': resolveNonce() },
+			headers: { 'X-WP-Nonce': imageNonce },
 		} );
 	}
 
@@ -2379,7 +2384,9 @@ document.addEventListener( 'keydown', function ( event ) {
 	(function () {
 		var btn = document.getElementById( 'bn_space_icon' );
 		if ( ! btn ) { return; }
-		var current = document.querySelector( '.bn-space-settings__upload-current' );
+		var current   = document.querySelector( '.bn-space-settings__upload-current' );
+		var removeBtn = document.querySelector( '[data-bn-icon-remove]' );
+		var fallback  = document.querySelector( '.bn-space-settings__upload-fallback' );
 
 		btn.addEventListener( 'click', function ( e ) {
 			e.preventDefault();
@@ -2397,6 +2404,7 @@ document.addEventListener( 'keydown', function ( event ) {
 						img.alt = '';
 						current.appendChild( img );
 					}
+					if ( removeBtn ) { removeBtn.hidden = false; }
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Icon updated.' ), 'success' ); }
 				} ).catch( function () {
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not upload icon.' ), 'danger' ); }
@@ -2406,5 +2414,28 @@ document.addEventListener( 'keydown', function ( event ) {
 				} );
 			} );
 		} );
+
+		// Remove the uploaded icon and restore the category-icon fallback.
+		if ( removeBtn ) {
+			removeBtn.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				removeBtn.disabled = true;
+				deleteImage( 'avatar' ).then( function ( res ) {
+					if ( ! res.ok ) { return Promise.reject( res ); }
+					if ( current ) {
+						current.innerHTML = '';
+						if ( fallback && fallback.content ) {
+							current.appendChild( fallback.content.cloneNode( true ) );
+						}
+					}
+					removeBtn.hidden = true;
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Icon removed.' ), 'success' ); }
+				} ).catch( function () {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not remove icon.' ), 'danger' ); }
+				} ).finally( function () {
+					removeBtn.disabled = false;
+				} );
+			} );
+		}
 	})();
 })();
