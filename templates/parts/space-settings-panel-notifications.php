@@ -97,14 +97,7 @@ do_action( 'buddynext_part_space_settings_panel_notifications_before', $args );
 		</div>
 	</div>
 
-	<div class="bn-space-settings__save-row">
-		<a href="<?php echo esc_url( $bn_space_url ); ?>" class="bn-btn" data-variant="ghost" data-size="md">
-			<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
-		</a>
-		<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
-			<?php esc_html_e( 'Save changes', 'buddynext' ); ?>
-		</button>
-	</div>
+	<?php // Save is handled by the shared sticky save bar in templates/spaces/settings.php. ?>
 </form>
 <?php
 do_action( 'buddynext_part_space_settings_panel_notifications_after', $args );

@@ -647,10 +647,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 
 		if ( $bn_wrap_form ) :
 			?>
-				<div class="bn-space-settings__save-row">
-					<a href="<?php echo esc_url( $space_url ); ?>" class="bn-btn" data-variant="ghost" data-size="md"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></a>
-					<button type="submit" class="bn-btn" data-variant="primary" data-size="md"><?php esc_html_e( 'Save changes', 'buddynext' ); ?></button>
-				</div>
+				<?php // Save is handled by the shared sticky save bar below. ?>
 			</form>
 			<?php
 		endif;
