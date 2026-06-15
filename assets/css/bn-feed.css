@@ -32,7 +32,9 @@
 .bn-feed-stack {
 	display: flex;
 	flex-direction: column;
-	gap: var(--bn-s4);
+	/* 20px between cards: the 1px --bn-line border on a light surface reads as
+	   cramped at 16px, so give the feed a touch more premium breathing room. */
+	gap: var(--bn-s5);
 }
 
 /* ── Post card (v2 pattern) ─────────────────────────────────────────────────────
@@ -141,13 +143,14 @@
 	min-width: 0;
 }
 
-/* Byline Follow — rendered below the author meta (inside the author block) so
-   it never steals width from the byline and force the name/handle/time into a
-   vertical stack on narrow cards. A compact pill, left-aligned under the meta. */
+/* Byline Follow — a compact pill pinned to the right of the head row, beside
+   the options kebab (LinkedIn/X/Facebook pattern). The author block (flex:1)
+   absorbs the remaining width, so this never forces a dead extra row beneath
+   the card head. flex-shrink:0 so the pill keeps its size on narrow cards. */
 .bn-post-card__follow {
 	display: inline-flex;
 	align-items: center;
-	margin-block-start: var(--bn-s2);
+	flex-shrink: 0;
 }
 .bn-post-card__follow .bn-follow-btn,
 .bn-post-card__follow .bn-btn {
@@ -1129,6 +1132,18 @@
    inner-template overrides here only tweak content rhythm at small widths. */
 @media (max-width: 640px) {
 	.bn-feed-stack { gap: var(--bn-s3); }
+
+	/* On narrow cards the head row can't fit avatar + byline + Follow pill, so
+	   let it wrap: the byline (author block, flex:1) keeps the full first row
+	   with the kebab pinned right, and the Follow pill drops to its own row
+	   below — avoiding a squeezed, vertically-stacked byline while still
+	   keeping Follow out of the byline's width on wider screens. */
+	.bn-post-card__head { flex-wrap: wrap; }
+	.bn-post-card__follow {
+		order: 99;
+		flex-basis: 100%;
+		margin-block-start: var(--bn-s2);
+	}
 
 	.bn-composer { padding: var(--bn-s3); }
 

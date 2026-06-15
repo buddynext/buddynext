@@ -208,28 +208,30 @@ do_action( 'buddynext_part_post_byline_before', $args );
 			<?php endif; ?>
 		</div>
 
-		<?php
-		// Inline Follow — rendered below the byline meta (inside the author
-		// block) so it never competes for the head row's width and squeeze the
-		// author info into a vertical stack on narrow cards (explore grid).
-		// Self-guards self / guest / blocked; known state avoids a re-query.
-		if ( ! empty( $args['show_follow'] ) && (int) $args['author_id'] > 0 ) :
-			?>
-			<div class="bn-post-card__follow">
-				<?php
-				buddynext_get_template(
-					'partials/follow-button.php',
-					array(
-						'user_id'         => (int) $args['author_id'],
-						'known_following' => false,
-					)
-				);
-				?>
-			</div>
-			<?php
-		endif;
-		?>
 	</div>
+
+	<?php
+	// Inline Follow — pinned to the right of the head row, beside the options
+	// kebab (the LinkedIn/X/Facebook pattern). The author block (flex:1) absorbs
+	// the remaining width, so the byline wraps within its own column instead of
+	// pushing Follow onto a dead extra row beneath the card head. Self-guards
+	// self / guest / blocked; known state avoids a re-query.
+	if ( ! empty( $args['show_follow'] ) && (int) $args['author_id'] > 0 ) :
+		?>
+		<div class="bn-post-card__follow">
+			<?php
+			buddynext_get_template(
+				'partials/follow-button.php',
+				array(
+					'user_id'         => (int) $args['author_id'],
+					'known_following' => false,
+				)
+			);
+			?>
+		</div>
+		<?php
+	endif;
+	?>
 
 	<?php buddynext_get_template( 'parts/post-options-menu.php', (array) $args['options_menu_args'] ); ?>
 </header>
