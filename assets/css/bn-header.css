@@ -120,10 +120,15 @@
 	position: relative;
 	display: inline-flex;
 	align-items: center;
+	/* Never let the host theme's header (e.g. Reign's narrow
+	   .reign-user-toggler at mobile) squeeze the control — that clipped the
+	   avatar to an 8px-wide teal sliver at 390px. */
+	flex-shrink: 0;
 }
 
 .bn-header-user__avatar {
 	display: inline-flex;
+	flex-shrink: 0;
 	border-radius: var(--bn-r-full, 999px);
 	line-height: 0;
 }
@@ -136,6 +141,8 @@
 .bn-header-user__img {
 	width: 36px;
 	height: 36px;
+	min-width: 36px;
+	flex-shrink: 0;
 	border-radius: var(--bn-r-full, 999px);
 	object-fit: cover;
 	display: block;
