@@ -45,3 +45,4 @@ playwright/.cache/
 /icons*.png
 /*-screenshot*.png
 audit/cert-ledger.json
+.cert.json
