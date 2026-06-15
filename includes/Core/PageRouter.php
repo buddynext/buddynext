@@ -147,6 +147,18 @@ class PageRouter {
 			return;
 		}
 
+		// Feature guard: a hub whose feature the admin has disabled must not
+		// render. Spaces is the toggleable hub (FeatureRegistry 'spaces',
+		// default-on) — when it is off, send visitors to the activity hub
+		// rather than showing a hub the site has turned off.
+		if ( 'spaces' === $hub
+			&& function_exists( 'buddynext_service' )
+			&& ! buddynext_service( 'features' )->is_enabled( 'spaces' )
+		) {
+			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
+			exit;
+		}
+
 		$template = $this->resolve_hub_template( $hub );
 		if ( null === $template ) {
 			return;

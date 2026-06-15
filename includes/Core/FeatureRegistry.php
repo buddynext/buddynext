@@ -69,7 +69,7 @@ class FeatureRegistry {
 			// ── MANDATORY — always on, cannot be disabled ────────────────
 			'feed'          => array( 'slug' => 'feed', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
 			'profile'       => array( 'slug' => 'profile', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
-			'spaces'        => array( 'slug' => 'spaces', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
+			'spaces'        => array( 'slug' => 'spaces', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'community', 'depends_on' => array() ),
 			'social_graph'  => array( 'slug' => 'social_graph', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
 			'notifications' => array( 'slug' => 'notifications', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
 			'auth'          => array( 'slug' => 'auth', 'tier' => self::TIER_MANDATORY, 'group' => 'core', 'depends_on' => array() ),
