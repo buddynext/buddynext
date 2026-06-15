@@ -206,13 +206,18 @@ class FollowService {
 
 		$this->invalidate_follow_cache( $follower_id, $following_id );
 
-		/**
-		 * Fires after a follow relationship is removed.
-		 *
-		 * @param int $follower_id  ID of the unfollowing user.
-		 * @param int $following_id ID of the user being unfollowed.
-		 */
-		do_action( 'buddynext_user_unfollowed', $follower_id, $following_id );
+		if ( $deleted ) {
+			/**
+			 * Fires after a follow relationship is removed.
+			 *
+			 * Only fires when a row was actually deleted, so listeners
+			 * (notifications, webhooks, email) never run for a no-op unfollow.
+			 *
+			 * @param int $follower_id  ID of the unfollowing user.
+			 * @param int $following_id ID of the user being unfollowed.
+			 */
+			do_action( 'buddynext_user_unfollowed', $follower_id, $following_id );
+		}
 
 		return $deleted;
 	}
