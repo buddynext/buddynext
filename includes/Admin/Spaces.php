@@ -643,6 +643,7 @@ class Spaces extends AdminPageBase {
 			$spaces[] = array(
 				'id'           => (int) $row->id,
 				'name'         => $row->name,
+				'slug'         => (string) $row->slug,
 				'owner_id'     => (int) $row->owner_id,
 				'member_count' => (int) $row->member_count,
 				'type'         => $row->type,
