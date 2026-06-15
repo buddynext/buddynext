@@ -110,6 +110,54 @@ function syncUrl( ctx ) {
 	} catch ( _e ) { /* history not available — soft-fail */ }
 }
 
+/* Reconcile the server numbered pager with the live filtered total. Without this
+ * the pager keeps the unfiltered page count, so a filter (e.g. "online only")
+ * that shrinks the set to one page would still offer pages 2..N that are empty —
+ * confusing. After every filtered fetch we rebuild it from json.total: hide it
+ * when everything fits on one page, otherwise show page 1 active with links that
+ * reload the (now filter-aware) server. Built with DOM nodes — no innerHTML. */
+function syncPager( total ) {
+	const nav = document.querySelector( '.bn-pagination' );
+	if ( ! nav ) { return; }
+
+	const perPage = 20;
+	const pages   = Math.max( 1, Math.ceil( ( Number( total ) || 0 ) / perPage ) );
+
+	while ( nav.firstChild ) { nav.removeChild( nav.firstChild ); }
+
+	if ( pages <= 1 ) { nav.hidden = true; return; }
+	nav.hidden = false;
+
+	// A filter change resets to page 1; links carry the current filters (already
+	// written to the URL by syncUrl) plus the target page.
+	const hrefFor = ( n ) => {
+		const u = new URL( window.location.href );
+		u.searchParams.set( 'paged', String( n ) );
+		return u.pathname + u.search;
+	};
+	const linkBtn = ( n, label ) => {
+		const a = document.createElement( 'a' );
+		a.className   = 'bn-page-btn';
+		a.href        = hrefFor( n );
+		a.textContent = ( label != null ) ? label : String( n );
+		return a;
+	};
+	const span = ( cls, text, current ) => {
+		const s = document.createElement( 'span' );
+		s.className   = 'bn-page-btn ' + cls;
+		s.textContent = text;
+		if ( current ) { s.setAttribute( 'aria-current', 'page' ); }
+		return s;
+	};
+
+	nav.appendChild( span( 'current', '1', true ) );
+	const near = Math.min( 3, pages );
+	for ( let n = 2; n <= near; n++ ) { nav.appendChild( linkBtn( n ) ); }
+	if ( pages > near + 1 ) { nav.appendChild( span( 'dots', '…', false ) ); }
+	if ( pages > near )     { nav.appendChild( linkBtn( pages ) ); }
+	nav.appendChild( linkBtn( 2, 'Next »' ) );
+}
+
 /* Build a kebab-icon SVG using DOM nodes (no innerHTML). */
 function buildKebabIcon() {
 	const svgNs = 'http://www.w3.org/2000/svg';
@@ -398,6 +446,8 @@ async function refresh( ctx ) {
 		renderGrid( items );
 		ctx.isEmpty = items.length === 0;
 		ctx.totalLabel = ( json.total || 0 ) + '';
+		// Keep the numbered pager honest about the filtered total.
+		syncPager( json.total );
 	} catch ( _e ) {
 		ctx.hasError = true;
 		ctx.error    = 'Could not load members. Check your connection and try again.';

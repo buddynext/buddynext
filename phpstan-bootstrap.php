@@ -26,6 +26,86 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin global helpers — stubs so PHPStan can resolve calls in includes/.
+// WB Gamification (optional partner plugin) — declared so static analysis knows
+// the read/submit API the GamificationBridge + Achievements tab consume. Each is
+// guarded; the real plugin's functions win at runtime.
+if ( ! function_exists( 'wb_gam_submit_event' ) ) {
+	/**
+	 * Submit a gamification event.
+	 *
+	 * @param int    $user_id   User.
+	 * @param string $action_id Action slug.
+	 * @param array  $context   Context metadata.
+	 * @return bool
+	 */
+	function wb_gam_submit_event( int $user_id, string $action_id, array $context = array() ): bool {
+		return true;
+	}
+}
+if ( ! function_exists( 'wb_gam_register_action' ) ) {
+	/**
+	 * Register a gamification action.
+	 *
+	 * @param array $args Action definition.
+	 * @return void
+	 */
+	function wb_gam_register_action( array $args ): void {}
+}
+if ( ! function_exists( 'wb_gam_get_actions' ) ) {
+	/**
+	 * Registered gamification actions.
+	 *
+	 * @return array<string,mixed>
+	 */
+	function wb_gam_get_actions(): array {
+		return array();
+	}
+}
+if ( ! function_exists( 'wb_gam_get_user_points' ) ) {
+	/**
+	 * A user's total points.
+	 *
+	 * @param int $user_id User.
+	 * @return int
+	 */
+	function wb_gam_get_user_points( int $user_id ): int {
+		return 0;
+	}
+}
+if ( ! function_exists( 'wb_gam_get_user_level' ) ) {
+	/**
+	 * A user's level row, or null.
+	 *
+	 * @param int $user_id User.
+	 * @return array<string,mixed>|null
+	 */
+	function wb_gam_get_user_level( int $user_id ): ?array {
+		return null;
+	}
+}
+if ( ! function_exists( 'wb_gam_get_user_badges' ) ) {
+	/**
+	 * A user's earned badges.
+	 *
+	 * @param int $user_id User.
+	 * @return array<int,array<string,mixed>>
+	 */
+	function wb_gam_get_user_badges( int $user_id ): array {
+		return array();
+	}
+}
+if ( ! function_exists( 'wb_gam_get_user_streak' ) ) {
+	/**
+	 * A user's streak data.
+	 *
+	 * @param int $user_id User.
+	 * @return array<string,mixed>
+	 */
+	function wb_gam_get_user_streak( int $user_id ): array {
+		return array();
+	}
+}
+
 if ( ! function_exists( 'buddynext_service' ) ) {
 	/**
 	 * Resolve a service from the BuddyNext DI container.

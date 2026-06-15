@@ -346,11 +346,6 @@ class NotificationPrefCatalogue {
 			),
 		);
 
-		// Enforce slug + group invariants on every entry.
-		foreach ( $catalogue as $slug => $entry ) {
-			$catalogue[ $slug ]['slug'] = $slug;
-		}
-
 		/**
 		 * Filter the notification-pref catalogue.
 		 *
@@ -366,7 +361,34 @@ class NotificationPrefCatalogue {
 		 */
 		$catalogue = (array) apply_filters( 'buddynext_notification_prefs_catalogue', $catalogue );
 
+		// Enforce the slug invariant on every entry, INCLUDING bridge/Pro additions
+		// registered through the filter above (which would otherwise miss it).
+		foreach ( $catalogue as $slug => $entry ) {
+			if ( is_array( $entry ) ) {
+				$catalogue[ $slug ]['slug'] = $slug;
+			}
+		}
+
 		return $catalogue;
+	}
+
+	/**
+	 * Whether a notification type is allowed to produce a transactional email.
+	 *
+	 * Authoritative gate so BuddyNext never emails on behalf of an integration:
+	 * mirrored/aggregated partner types register `can_email = false` (the partner
+	 * owns its own emails). Unknown types keep the legacy default (true) so core
+	 * behaviour is unchanged.
+	 *
+	 * @param string $type Notification type slug.
+	 * @return bool
+	 */
+	public function can_email( string $type ): bool {
+		$catalogue = $this->all();
+		if ( ! isset( $catalogue[ $type ] ) ) {
+			return true;
+		}
+		return (bool) ( $catalogue[ $type ]['can_email'] ?? true );
 	}
 
 	/**

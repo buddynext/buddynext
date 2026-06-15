@@ -80,7 +80,7 @@ $bn_offset = ( $bn_paged - 1 ) * $bn_per_page;
 $count_sql   = "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications AS n WHERE n.recipient_id = %d" . $filter_sql;
 $total_count = (int) $wpdb->get_var( $wpdb->prepare( $count_sql, $current_user_id ) );
 
-$base_sql = "SELECT n.id, n.type, n.sender_id, n.object_id, n.object_type, n.group_key, n.group_count, n.is_read, n.created_at
+$base_sql = "SELECT n.id, n.type, n.sender_id, n.object_id, n.object_type, n.group_key, n.group_count, n.is_read, n.created_at, n.data
 	 FROM {$wpdb->prefix}bn_notifications AS n
 	 WHERE n.recipient_id = %d"
 	. $filter_sql .

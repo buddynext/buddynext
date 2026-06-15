@@ -2,7 +2,18 @@
 /**
  * Jetonomy bridge listener.
  *
- * Creates BuddyNext notifications when Jetonomy forum events occur.
+ * Mirrors EVERY Jetonomy notification (replies, mentions, accepted answers,
+ * join requests, votes, …) into BuddyNext's central notification center so a
+ * member sees them all in `/notifications/`.
+ *
+ * Jetonomy 1.5.0 fires one central hook for every notification it creates:
+ *   do_action( 'jetonomy_notification_created', int $notification_id,
+ *       int $user_id, string $type, string $object_type, int $object_id,
+ *       string $message, string $url );
+ * carrying a ready message + deep link, so BN mirrors data-driven — no per-type
+ * copy to maintain. The `jt.*` types render straight from the stored data via the
+ * three Free notification seams. Jetonomy keeps its own notification UI; BN
+ * mirrors alongside it (the partner owns its emails — BN never double-emails).
  *
  * @package BuddyNext\Bridges
  */
@@ -14,91 +25,180 @@ namespace BuddyNext\Bridges;
 use BuddyNext\Contracts\ListenerInterface;
 
 /**
- * Listens for Jetonomy forum events and routes them into BuddyNext notifications.
+ * Mirrors Jetonomy notifications into BuddyNext's central center.
  */
 class JetonomyBridgeListener implements ListenerInterface {
 
 	/**
-	 * Register Jetonomy event hooks.
+	 * Single BN type all Jetonomy notifications mirror into — one prefs toggle for
+	 * the source, like SuiteNotifications' per-source type.
+	 */
+	private const TYPE = 'jt.notification';
+
+	/**
+	 * Register the Jetonomy notification mirror + the data-driven render seams +
+	 * the prefs-catalogue entry (which marks it collect-only, never email).
 	 *
-	 * Bails immediately when Jetonomy is not active so no hooks are registered
-	 * on sites that do not use the forum plugin.
+	 * Bails when Jetonomy is not active so nothing is registered on sites that
+	 * do not use the forum plugin.
 	 */
 	public function register(): void {
-		if ( ! class_exists( 'Jetonomy\Core\Plugin' ) ) {
+		// Guard on the real Jetonomy bootstrap class (matches JetonomyBridge); the
+		// old 'Jetonomy\Core\Plugin' guard never existed, so the listener silently
+		// never registered on a live site.
+		if ( ! class_exists( 'Jetonomy\Jetonomy' ) ) {
 			return;
 		}
 
-		// jetonomy_after_create_reply fires ($reply_id, $post_id) — 2 args only.
-		// The replier's user ID is fetched from jt_replies inside the callback.
-		add_action( 'jetonomy_after_create_reply', array( $this, 'on_jetonomy_reply' ), 10, 2 );
+		add_action( 'jetonomy_notification_created', array( $this, 'on_notification' ), 10, 7 );
+
+		// Render the mirrored type straight from its stored message/url.
+		add_filter( 'buddynext_notification_message', array( $this, 'filter_message' ), 10, 5 );
+		add_filter( 'buddynext_notification_url', array( $this, 'filter_url' ), 10, 5 );
+		add_filter( 'buddynext_notification_meta', array( $this, 'filter_meta' ), 10, 2 );
+
+		// Collect-only: Jetonomy owns its own emails, so BN never emails this type.
+		add_filter( 'buddynext_notification_prefs_catalogue', array( $this, 'filter_catalogue' ) );
 	}
 
 	/**
-	 * Notify the Jetonomy post author when someone replies to their post.
+	 * Register the mirrored-Discussions notification in the prefs catalogue with
+	 * `can_email = false` so BuddyNext only displays it — Jetonomy sends its emails.
 	 *
-	 * Hooked on: jetonomy_after_create_reply( int $reply_id, int $post_id )
-	 *
-	 * Note: Jetonomy fires only 2 args — reply_id and post_id. The replier's
-	 * user ID and the post author are both fetched from the DB to avoid relying
-	 * on a wider hook signature.
-	 *
-	 * @param int $reply_id ID of the new reply (jt_replies.id).
-	 * @param int $post_id  ID of the Jetonomy post that received the reply.
+	 * @param array<string,array<string,mixed>> $catalogue Incoming catalogue.
+	 * @return array<string,array<string,mixed>>
 	 */
-	public function on_jetonomy_reply( int $reply_id, int $post_id ): void {
-		if ( ! function_exists( 'buddynext_service' ) ) {
-			return;
-		}
-
-		global $wpdb;
-
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$reply_author_id = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT author_id FROM {$wpdb->prefix}jt_replies WHERE id = %d LIMIT 1",
-				$reply_id
-			)
+	public function filter_catalogue( array $catalogue ): array {
+		$catalogue[ self::TYPE ] = array(
+			'label'              => __( 'Discussions', 'buddynext' ),
+			'description'        => __( 'Replies, mentions, and answers from the forums.', 'buddynext' ),
+			'group'              => 'social',
+			'default_on_site'    => true,
+			'default_email_freq' => 'off',
+			'can_email'          => false,
 		);
+		return $catalogue;
+	}
 
-		$post_author_id = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT author_id FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1",
-				$post_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-		// Skip when IDs couldn't be resolved or the replier is the post author.
-		if ( 0 === $reply_author_id || 0 === $post_author_id || $reply_author_id === $post_author_id ) {
+	/**
+	 * Mirror a Jetonomy notification into BN's center.
+	 *
+	 * @param int    $notification_id Jetonomy notification row id (unused).
+	 * @param int    $user_id         Recipient.
+	 * @param string $type            Jetonomy type (reply, mention, accepted_answer, …).
+	 * @param string $object_type     'post' | 'reply' | 'user' | 'space' | ''.
+	 * @param int    $object_id       Related object id.
+	 * @param string $message         Ready-to-display message.
+	 * @param string $url             Deep link to the content.
+	 */
+	public function on_notification( int $notification_id, int $user_id, string $type, string $object_type, int $object_id, string $message, string $url ): void {
+		if ( $user_id <= 0 || '' === $message || ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}
 
-		if ( $this->is_blocked( $post_author_id, $reply_author_id ) ) {
+		// Honour BN blocks when the actor is resolvable from the object — so a
+		// blocked member's forum activity never notifies you in BN.
+		$actor_id = $this->resolve_actor( $object_type, $object_id );
+		if ( $actor_id > 0 && $this->is_blocked( $user_id, $actor_id ) ) {
 			return;
 		}
+
+		$slug = sanitize_key( $type );
 
 		buddynext_service( 'notifications' )->create(
 			array(
-				'recipient_id' => $post_author_id,
-				'sender_id'    => $reply_author_id,
-				'type'         => 'jt.discussion_reply',
-				'object_type'  => 'jetonomy_post',
-				'object_id'    => $post_id,
-				'group_key'    => 'jt_reply_' . $post_id,
-				'data'         => array( 'reply_id' => $reply_id ),
+				'recipient_id' => $user_id,
+				'sender_id'    => $actor_id > 0 ? $actor_id : null,
+				'type'         => self::TYPE,
+				'object_type'  => '' !== $object_type ? $object_type : 'jetonomy',
+				'object_id'    => $object_id,
+				// Dedupe re-fired events (keep the Jetonomy subtype so distinct
+				// events on the same object never collapse).
+				'group_key'    => 'jt_' . $slug . '_' . $object_id,
+				'data'         => array(
+					'message' => $message,
+					'url'     => $url,
+				),
 			)
 		);
 	}
 
 	/**
-	 * Check whether either user has blocked the other.
+	 * Message text for any jt.* type — straight from the stored data.
 	 *
-	 * Returns true when a block record exists in either direction, meaning
-	 * the notification should be suppressed.
+	 * @param string $message    Incoming message.
+	 * @param string $type       Notification type.
+	 * @param string $actor_name Actor name (unused for mirrored types).
+	 * @param int    $object_id  Object id (unused).
+	 * @param array  $data       Decoded row data.
+	 * @return string
+	 */
+	public function filter_message( $message, string $type, string $actor_name, int $object_id, array $data ) {
+		return $this->is_jetonomy( $type ) ? (string) ( $data['message'] ?? $message ) : $message;
+	}
+
+	/**
+	 * Deep-link URL for any jt.* type.
+	 *
+	 * @param string $url       Incoming url.
+	 * @param string $type      Notification type.
+	 * @param int    $actor_id  Actor id (unused).
+	 * @param int    $object_id Object id (unused).
+	 * @param array  $data      Decoded row data.
+	 * @return string
+	 */
+	public function filter_url( $url, string $type, int $actor_id, int $object_id, array $data ) {
+		return $this->is_jetonomy( $type ) ? (string) ( $data['url'] ?? $url ) : $url;
+	}
+
+	/**
+	 * Icon/tone/label for any jt.* type.
+	 *
+	 * @param array<string,string> $meta Incoming meta.
+	 * @param string               $type Notification type.
+	 * @return array<string,string>
+	 */
+	public function filter_meta( array $meta, string $type ): array {
+		if ( ! $this->is_jetonomy( $type ) ) {
+			return $meta;
+		}
+		return array(
+			'icon'  => 'messages-square',
+			'tone'  => 'info',
+			'label' => __( 'Discussions', 'buddynext' ),
+		);
+	}
+
+	/**
+	 * Resolve the acting user for a Jetonomy object, or 0 when not applicable.
+	 *
+	 * @param string $object_type Object type from the hook.
+	 * @param int    $object_id   Object id.
+	 * @return int
+	 */
+	private function resolve_actor( string $object_type, int $object_id ): int {
+		if ( $object_id <= 0 ) {
+			return 0;
+		}
+		global $wpdb;
+		$table = '';
+		if ( 'reply' === $object_type ) {
+			$table = $wpdb->prefix . 'jt_replies';
+		} elseif ( 'post' === $object_type ) {
+			$table = $wpdb->prefix . 'jt_posts';
+		}
+		if ( '' === $table ) {
+			return 0;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT author_id FROM {$table} WHERE id = %d LIMIT 1", $object_id ) );
+	}
+
+	/**
+	 * Whether either user has blocked the other.
 	 *
 	 * @param int $recipient_id Notification recipient.
-	 * @param int $sender_id    User triggering the event.
+	 * @param int $sender_id    Acting user.
 	 * @return bool
 	 */
 	private function is_blocked( int $recipient_id, int $sender_id ): bool {
@@ -120,5 +220,15 @@ class JetonomyBridgeListener implements ListenerInterface {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return null !== $blocked;
+	}
+
+	/**
+	 * Whether a notification type is the mirrored Jetonomy type.
+	 *
+	 * @param string $type Notification type.
+	 * @return bool
+	 */
+	private function is_jetonomy( string $type ): bool {
+		return self::TYPE === $type;
 	}
 }

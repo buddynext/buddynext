@@ -116,4 +116,43 @@ class WBGamificationBridgeTest extends \WP_UnitTestCase {
 
 		$this->assertSame( 'bn_connected', $fired_type );
 	}
+
+	public function test_credential_badge_awarded_posts_feed_activity(): void {
+		global $wpdb;
+		$user = self::factory()->user->create();
+
+		do_action(
+			'wb_gam_badge_awarded',
+			$user,
+			array( 'name' => 'Top Contributor', 'is_credential' => 1 ),
+			'top-contributor'
+		);
+
+		$url      = home_url( 'gamification/badge/top-contributor/' . $user . '/share/' );
+		$activity = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'link' AND link_url = %s",
+				$user,
+				$url
+			)
+		);
+		$this->assertSame( 1, $activity );
+	}
+
+	public function test_non_credential_badge_posts_no_activity(): void {
+		global $wpdb;
+		$user = self::factory()->user->create();
+
+		do_action(
+			'wb_gam_badge_awarded',
+			$user,
+			array( 'name' => 'First Login', 'is_credential' => 0 ),
+			'first-login'
+		);
+
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND type = 'link'", $user )
+		);
+		$this->assertSame( 0, $count, 'only credential badges broadcast to the feed' );
+	}
 }

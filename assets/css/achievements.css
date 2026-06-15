@@ -1,0 +1,185 @@
+/**
+ * BuddyNext — Achievements profile tab (gamification badges + standing).
+ *
+ * Core-integration surface (its own tab, not Portfolio). BuddyNext OKLCH tokens
+ * only; reuses the shared .bn-card / .bn-link primitives. Responsive to 390px.
+ */
+
+.bn-achievements {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+/* Standing strip: points / level / streak. */
+.bn-achievements__standing {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+}
+
+.bn-achievements__stat {
+	flex: 1 1 auto;
+	min-width: 96px;
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	padding: 0.85rem 1rem;
+	border: 1px solid var(--bn-border);
+	border-radius: var(--bn-radius-md);
+	background: var(--bn-surface);
+}
+
+.bn-achievements__stat-value {
+	font-size: var(--bn-text-xl);
+	font-weight: var(--bn-fw-bold);
+	color: var(--bn-ink);
+	line-height: 1.1;
+}
+
+.bn-achievements__stat-label {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+/* Badge panel. */
+.bn-achievements__panel {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	padding: 1.1rem;
+}
+
+.bn-achievements__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	flex-wrap: wrap;
+}
+
+.bn-achievements__title {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	margin: 0;
+	font-size: var(--bn-text-lg);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+}
+
+.bn-achievements__title svg {
+	width: 1.1rem;
+	height: 1.1rem;
+	color: var(--bn-ink-3);
+}
+
+/* Count chip — matches BN's .bn-tab__count pill. */
+.bn-achievements__count {
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink-3);
+	background: var(--bn-sunken);
+	padding: 1px 6px;
+	border-radius: var(--bn-r-full);
+}
+
+.bn-achievements__cta {
+	font-size: var(--bn-text-sm);
+	white-space: nowrap;
+}
+
+.bn-achievements__empty {
+	margin: 0;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
+}
+
+/* Badge grid. */
+.bn-achievements__grid {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+	gap: 0.85rem;
+}
+
+.bn-achievements__badge-link {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.85rem 0.5rem;
+	border: 1px solid var(--bn-border);
+	border-radius: var(--bn-radius-md);
+	text-decoration: none;
+	color: inherit;
+	text-align: center;
+	transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+a.bn-achievements__badge-link:hover,
+a.bn-achievements__badge-link:focus-visible {
+	border-color: var(--bn-accent);
+	transform: translateY(-2px);
+	outline: none;
+}
+
+/* Credential badges get a subtle accent ring — they are the real achievements. */
+.bn-achievements__badge.is-credential .bn-achievements__badge-link {
+	border-color: var(--bn-accent-300);
+	background: var(--bn-accent-soft);
+}
+
+.bn-achievements__badge-medal {
+	width: 56px;
+	height: 56px;
+	border-radius: 50%;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--bn-surface-soft);
+}
+
+.bn-achievements__badge.is-credential .bn-achievements__badge-medal {
+	background: var(--bn-surface);
+}
+
+.bn-achievements__badge-medal img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.bn-achievements__badge-medal svg {
+	width: 1.6rem;
+	height: 1.6rem;
+	color: var(--bn-accent);
+}
+
+.bn-achievements__badge-name {
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink);
+	line-height: 1.25;
+}
+
+.bn-achievements__badge-date {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-4);
+}
+
+@media (max-width: 640px) {
+	.bn-achievements__grid {
+		grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+		gap: 0.6rem;
+	}
+
+	.bn-achievements__badge-medal {
+		width: 48px;
+		height: 48px;
+	}
+}

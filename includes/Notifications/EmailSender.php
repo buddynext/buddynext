@@ -26,12 +26,21 @@ class EmailSender {
 	private NotificationPrefService $pref_service;
 
 	/**
+	 * Notification pref catalogue (authoritative can_email gate).
+	 *
+	 * @var NotificationPrefCatalogue
+	 */
+	private NotificationPrefCatalogue $catalogue;
+
+	/**
 	 * Constructor.
 	 *
-	 * @param NotificationPrefService $pref_service Notification preference service.
+	 * @param NotificationPrefService   $pref_service Notification preference service.
+	 * @param NotificationPrefCatalogue $catalogue    Pref catalogue (can_email gate).
 	 */
-	public function __construct( NotificationPrefService $pref_service ) {
+	public function __construct( NotificationPrefService $pref_service, NotificationPrefCatalogue $catalogue ) {
 		$this->pref_service = $pref_service;
+		$this->catalogue    = $catalogue;
 	}
 
 	/**
@@ -49,6 +58,13 @@ class EmailSender {
 	 */
 	public function send( int $user_id, string $notification_type, array $data ): void {
 		if ( $user_id <= 0 || '' === $notification_type ) {
+			return;
+		}
+
+		// Authoritative gate: never email a type the catalogue marks can_email=false.
+		// Mirrored partner notifications (suite.*, jt.*) set this so BuddyNext only
+		// collects/displays them — the partner plugin owns its own emails.
+		if ( ! $this->catalogue->can_email( $notification_type ) ) {
 			return;
 		}
 
@@ -102,6 +118,12 @@ class EmailSender {
 	 * @return void
 	 */
 	public function send_now( int $user_id, string $notification_type, array $data ): void {
+		// Defense-in-depth: honour the can_email gate here too (in case this is
+		// ever invoked outside the send() path).
+		if ( '' !== $notification_type && ! $this->catalogue->can_email( $notification_type ) ) {
+			return;
+		}
+
 		$template = $this->get_template( $notification_type );
 
 		// Composed-email path: campaign and drip-step senders author the subject

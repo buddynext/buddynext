@@ -143,23 +143,36 @@ class Plugin {
 			// methods find the hub already initialised.
 			AdminHub::instance()->init();
 
-			$container->get( 'admin_settings' )->register();
-			$container->get( 'admin_members' )->register();
-			$container->get( 'admin_spaces' )->register();
-			$container->get( 'admin_nav' )->register();
-			$container->get( 'admin_hub' )->register();
-			$container->get( 'admin_email_editor' )->register();
-			$container->get( 'setup_wizard' )->init();
-			( new \BuddyNext\Demo\DemoAdmin() )->register();
-			( new \BuddyNext\Admin\AppearanceTab() )->register();
-			( new \BuddyNext\Admin\ToolsTab() )->register();
-			( new \BuddyNext\Admin\RolesTab() )->register();
-			( new \BuddyNext\Admin\Insights() )->register();
-			( new \BuddyNext\Admin\ModerationQueue() )->register();
-			// "BuddyNext" metabox on Appearance → Menus — add per-member account
-			// and auth links to any WordPress menu (resolved by MenuRenderer).
-			( new \BuddyNext\Admin\NavMenuMetabox() )->register();
-			( new PageSetup() )->register();
+			// Admin pages call AdminHub::register_tab() with __() labels in their
+			// register() methods. Defer registration to `init` so those labels are
+			// not evaluated before the textdomain is available (WP 6.7+'s
+			// _load_textdomain_just_in_time notice). Every page here only attaches
+			// admin_* hooks (admin_menu, admin_init, admin_post_*,
+			// admin_enqueue_scripts), all of which fire after init, so the menus
+			// and handlers are in place before they are needed.
+			add_action(
+				'init',
+				static function () use ( $container ): void {
+					$container->get( 'admin_settings' )->register();
+					$container->get( 'admin_members' )->register();
+					$container->get( 'admin_spaces' )->register();
+					$container->get( 'admin_nav' )->register();
+					$container->get( 'admin_hub' )->register();
+					$container->get( 'admin_email_editor' )->register();
+					$container->get( 'setup_wizard' )->init();
+					( new \BuddyNext\Demo\DemoAdmin() )->register();
+					( new \BuddyNext\Admin\AppearanceTab() )->register();
+					( new \BuddyNext\Admin\ToolsTab() )->register();
+					( new \BuddyNext\Admin\RolesTab() )->register();
+					( new \BuddyNext\Admin\Insights() )->register();
+					( new \BuddyNext\Admin\ModerationQueue() )->register();
+					// "BuddyNext" metabox on Appearance → Menus — add per-member
+					// account and auth links to any WordPress menu (resolved by
+					// MenuRenderer).
+					( new \BuddyNext\Admin\NavMenuMetabox() )->register();
+					( new PageSetup() )->register();
+				}
+			);
 
 			// Redirect to setup wizard on first activation.
 			add_action(
@@ -365,6 +378,10 @@ class Plugin {
 				// internally and bails when the paired plugin is not active.
 				( new GamificationBridgeListener() )->register();
 				( new JetonomyBridgeListener() )->register();
+
+				// Gamification is a core integration: its own prominent Achievements
+				// profile tab (badge grid + standing), guarded on wb-gamification.
+				( new \BuddyNext\Profile\GamificationAchievements() )->register();
 			}
 		);
 
@@ -729,7 +746,7 @@ class Plugin {
 		$container->bind( 'notification_pref_catalogue', fn() => new \BuddyNext\Notifications\NotificationPrefCatalogue() );
 		$container->bind(
 			'email_sender',
-			fn( $c ) => new EmailSender( $c->get( 'notification_prefs' ) )
+			fn( $c ) => new EmailSender( $c->get( 'notification_prefs' ), $c->get( 'notification_pref_catalogue' ) )
 		);
 		$container->bind( 'reactions', fn() => new ReactionService() );
 		$container->bind( 'comments', fn() => new CommentService() );

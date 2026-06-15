@@ -40,6 +40,15 @@ register_deactivation_hook(
 
 add_action( 'plugins_loaded', array( \BuddyNext\Core\Plugin::class, 'init' ), 15 );
 
+// Load translations on init (WP 6.7+ wants textdomains loaded at init or later).
+// The Domain Path header points at /languages; .mo files drop in there per locale.
+add_action(
+	'init',
+	static function (): void {
+		load_plugin_textdomain( 'buddynext', false, dirname( BUDDYNEXT_BASENAME ) . '/languages' );
+	}
+);
+
 // ---------------------------------------------------------------------------
 // EDD Software Licensing SDK — automatic updates for free and Pro.
 //

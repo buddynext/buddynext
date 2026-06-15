@@ -50,11 +50,27 @@ lazily create a paired `jt_space` (Jetonomy space-create API / `jetonomy_after_c
 named after the BN space, store the option, then render. Keep the manual Space-Settings
 override. Verify: opening Discussions on a forumless space provisions one once; reopening reuses it.
 
-### Task C — Notifications → aggregation · Pro
-Once `jetonomy_notification_created` carries message+link (card 9994156006), replace the
-bespoke `jt.discussion_reply` with a `SuiteNotifications` listener (`register_source(
-'jetonomy', 'Discussions', 'messages-square' )`). Then ALL Jetonomy notifications (replies,
-mentions, votes, join-requests) land in BN's center. **Blocked on the card.**
+### Task C — Notifications → aggregation · ✅ DONE (2026-06-14, jetonomy 1.5.0-dev)
+Card 9994156006 shipped: Jetonomy 1.5.0 fires the central
+`jetonomy_notification_created( $notif_id, $user_id, $type, $object_type, $object_id,
+$message, $url )` for EVERY notification (replies, mentions, accepted answers, votes,
+join-requests). `JetonomyBridgeListener` (Free — Jetonomy is a core integration, so it stays
+Free, not Pro `SuiteNotifications`) now mirrors them all into BN's center as a single
+`jt.notification` type, data-driven (message + url), icon `messages-square`, label
+"Discussions". Replaced the bespoke `jt.discussion_reply` reply-only handler. Honours BN
+blocks when the actor resolves from the object.
+
+**Collect-only (no double email):** registered in the prefs catalogue with `can_email=false`.
+Required making `can_email` authoritative — `EmailSender` now skips any type the catalogue
+marks `can_email=false` (it was previously ignored, so BN was emailing mirrored partner
+notifications). This now also gates `suite.*` (Learnomy) correctly.
+
+**Two render bugs fixed along the way:** (1) the listener guarded on the non-existent
+`Jetonomy\Core\Plugin` so it never registered live — fixed to `Jetonomy\Jetonomy`;
+(2) the server notifications page SELECT omitted `n.data`, so data-driven notifications
+(jt.* AND suite.*) rendered the "Notification (type)" fallback — added `n.data` + a native
+`data['message']`/`data['url']` fallback in `NotificationMessageService`. Verified live:
+firing the hook collects a notification rendering the real message + thread link.
 
 ### Task D — Verify · keep existing
 Search index, rail nav, hashtag cross-link, profile count tile + Discussions tab, space

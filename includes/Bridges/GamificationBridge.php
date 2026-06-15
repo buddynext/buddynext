@@ -17,8 +17,10 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Bridges;
 
+use BuddyNext\Feed\IntegrationActivity;
+
 /**
- * wb-gamification ↔ BuddyNext event bridge.
+ * WB Gamification ↔ BuddyNext event bridge.
  */
 class GamificationBridge {
 
@@ -90,7 +92,7 @@ class GamificationBridge {
 	/**
 	 * Inert hook the catalogue actions auto-bind to.
 	 *
-	 * wb-gamification's Registry::register_action() mandates a real hook +
+	 * WB Gamification's Registry::register_action() mandates a real hook +
 	 * user_callback and auto-hooks it. BuddyNext submits manually instead, so
 	 * the actions bind to this hook which BuddyNext never fires. This keeps
 	 * registration valid (admins get configurable point rows) while ensuring
@@ -131,6 +133,57 @@ class GamificationBridge {
 		// seam (same path JetonomyBridge uses). Read-only — wb-gamification owns
 		// the values; BuddyNext only exposes them as profile stat tiles.
 		add_filter( 'buddynext_profile_extra_data', array( $this, 'inject_profile_gamification' ), 10, 2 );
+
+		// Broadcast credential badges to the feed (social proof). The user-facing
+		// notification is handled separately by GamificationBridgeListener; this is
+		// the public engagement surface. Gated to credential badges so tiny
+		// participation badges never spam the feed.
+		add_action( 'wb_gam_badge_awarded', array( $this, 'on_badge_awarded_activity' ), 10, 3 );
+	}
+
+	/**
+	 * Post a feed activity when a member earns a CREDENTIAL badge.
+	 *
+	 * Real hook: `wb_gam_badge_awarded( int $user_id, array $def, string $badge_id )`.
+	 * `$def` is the badge definition row (carries `name` + `is_credential`). Links
+	 * to the badge's public share page. Idempotent per share URL via
+	 * IntegrationActivity, so a re-award never duplicates the card.
+	 *
+	 * @param int    $user_id  Member who earned the badge.
+	 * @param array  $def      Badge definition row.
+	 * @param string $badge_id Badge slug.
+	 */
+	public function on_badge_awarded_activity( int $user_id, array $def, string $badge_id ): void {
+		if ( $user_id <= 0 || empty( $def['is_credential'] ) ) {
+			return;
+		}
+
+		$name = isset( $def['name'] ) ? (string) $def['name'] : '';
+		if ( '' === $name ) {
+			return;
+		}
+
+		IntegrationActivity::publish(
+			$user_id,
+			/* translators: %s: badge name. */
+			sprintf( __( 'earned the %s badge', 'buddynext' ), $name ),
+			$this->badge_share_url( $badge_id, $user_id ),
+			$name
+		);
+	}
+
+	/**
+	 * Public share URL for a badge.
+	 *
+	 * Mirrors WB Gamification's `\WBGam\Engine\BadgeSharePage::get_share_url()` —
+	 * the canonical share-page rewrite (`gamification/badge/{id}/{uid}/share/`).
+	 *
+	 * @param string $badge_id Badge slug.
+	 * @param int    $user_id  Member.
+	 * @return string
+	 */
+	private function badge_share_url( string $badge_id, int $user_id ): string {
+		return home_url( 'gamification/badge/' . $badge_id . '/' . $user_id . '/share/' );
 	}
 
 	/**
@@ -165,7 +218,7 @@ class GamificationBridge {
 
 		if ( function_exists( 'wb_gam_get_user_badges' ) ) {
 			$badges = wb_gam_get_user_badges( $user_id );
-			if ( is_array( $badges ) && ! empty( $badges ) ) {
+			if ( ! empty( $badges ) ) {
 				$extra[] = array(
 					'label' => __( 'Badges', 'buddynext' ),
 					'value' => count( $badges ),

@@ -1,5 +1,15 @@
 parameters:
     ignoreErrors:
+        # GamificationAchievements reads the member's leaderboard rank from WB
+        # Gamification's LeaderboardEngine, guarded with is_callable(). The engine
+        # has no wb_gam_* wrapper, and WB Gamification is an external plugin (not a
+        # Composer dependency), so PHPStan cannot see the class. Correct at runtime;
+        # the guard is intentional.
+        -
+            message: "#^Call to static method get_user_rank\\(\\) on an unknown class WBGam\\\\Engine\\\\LeaderboardEngine\\.$#"
+            path: includes/Profile/GamificationAchievements.php
+            count: 1
+
         # MediaClient guards every WPMediaVerse call with class_exists() +
         # method_exists() and resolves \WPMediaVerse\Core\Plugin::container()
         # only when present. WPMediaVerse is an external plugin (not a Composer

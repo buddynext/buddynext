@@ -53,6 +53,7 @@ $bn_per_page     = 20;
 $search_term     = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );          // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $orderby_raw     = sanitize_key( $_GET['orderby'] ?? 'registered' );                // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $relation_raw    = sanitize_key( $_GET['relation'] ?? 'all' );                      // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_online_only  = ( '1' === sanitize_key( wp_unslash( $_GET['online'] ?? '' ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 // Accept type slug from the pretty URL rewrite (/members/{slug}/) or a ?type= query arg.
 $type_slug_filter = sanitize_key( (string) get_query_var( 'bn_member_type', '' ) );
@@ -129,8 +130,18 @@ $bn_dir_shadow_banned_ids = $wpdb->get_col(
 );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
+// Exclude suspended + shadow-banned users, and the viewer themselves — the REST
+// path (MemberDirectoryService) excludes the viewer, so the server render must
+// match or a hard reload would list you while the live/filtered view does not.
 $bn_dir_excluded_ids = array_unique(
-	array_map( 'intval', array_merge( $bn_dir_suspended_ids, $bn_dir_shadow_banned_ids ) )
+	array_map(
+		'intval',
+		array_merge(
+			$bn_dir_suspended_ids,
+			$bn_dir_shadow_banned_ids,
+			$current_user_id > 0 ? array( $current_user_id ) : array()
+		)
+	)
 );
 
 $user_query_args = array(
@@ -202,6 +213,33 @@ if ( null !== $bn_search_ids ) {
 		$user_query_args['include'] = empty( $bn_intersect ) ? array( 0 ) : $bn_intersect;
 	} else {
 		$user_query_args['include'] = $bn_search_ids;
+	}
+}
+
+// Online-only filter — restrict to users active within the last 5 minutes,
+// applied to `include` (most-restrictive wins) exactly like search/relation so
+// the rendered members AND the pagination total reflect it. Without this the
+// pager would offer pages that the client-side online filter then empties.
+if ( $bn_online_only ) {
+	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$bn_online_ids = $wpdb->get_col(
+		$wpdb->prepare(
+			"SELECT user_id FROM {$wpdb->usermeta}
+			 WHERE meta_key = 'bn_last_active'
+			   AND CAST( meta_value AS UNSIGNED ) > %d",
+			time() - 300
+		)
+	);
+	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$bn_online_ids = array_map( 'intval', (array) $bn_online_ids );
+
+	if ( empty( $bn_online_ids ) ) {
+		$user_query_args['include'] = array( 0 );
+	} elseif ( isset( $user_query_args['include'] ) && is_array( $user_query_args['include'] ) ) {
+		$bn_online_intersect        = array_values( array_intersect( $user_query_args['include'], $bn_online_ids ) );
+		$user_query_args['include'] = empty( $bn_online_intersect ) ? array( 0 ) : $bn_online_intersect;
+	} else {
+		$user_query_args['include'] = $bn_online_ids;
 	}
 }
 
@@ -514,6 +552,7 @@ if ( $current_user_id > 0 ) {
 			'current_search'  => $search_term,
 			'current_sort'    => $bn_initial_sort,
 			'current_type'    => $type_slug_filter,
+			'current_online'  => $bn_online_only,
 			'current_url'     => $bn_directory_url,
 			'relation_tabs'   => $bn_relation_tabs,
 			'active_relation' => $bn_relation,

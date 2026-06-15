@@ -164,6 +164,19 @@ class IconService {
 	}
 
 	/**
+	 * Whether an icon SVG exists on disk for the given slug.
+	 *
+	 * Lets callers (e.g. integration panels) validate an icon up front and fall
+	 * back to a known-good default instead of silently rendering a blank.
+	 *
+	 * @param string $name Icon slug — filename without the .svg extension.
+	 * @return bool
+	 */
+	public static function has( string $name ): bool {
+		return '' !== $name && file_exists( self::icons_dir() . sanitize_file_name( $name ) . '.svg' );
+	}
+
+	/**
 	 * Load an SVG icon, sanitize it, and return the safe HTML string.
 	 *
 	 * Returns an empty string when the named icon does not exist on disk.

@@ -367,6 +367,12 @@ class NotificationMessageService {
 				if ( '' !== $filtered ) {
 					return $filtered;
 				}
+				// Native data-driven fallback: any aggregated/mirrored notification
+				// that stores a ready message (suite.*, jt.*, …) renders it even when
+				// the originating bridge's render filter is not loaded in this request.
+				if ( ! empty( $data['message'] ) ) {
+					return (string) $data['message'];
+				}
 				return sprintf(
 					/* translators: %s: notification type slug — only seen in development. */
 					__( 'Notification (%s)', 'buddynext' ),
@@ -780,7 +786,13 @@ class NotificationMessageService {
 				 * @param int    $object_id Object ID.
 				 * @param array  $data      Decoded data payload.
 				 */
-				return (string) apply_filters( 'buddynext_notification_url', '', $type, $actor_id, $object_id, $data );
+				$filtered_url = (string) apply_filters( 'buddynext_notification_url', '', $type, $actor_id, $object_id, $data );
+				if ( '' !== $filtered_url ) {
+					return $filtered_url;
+				}
+				// Native data-driven fallback (see resolve_message): use the stored
+				// deep link for mirrored notifications.
+				return (string) ( $data['url'] ?? '' );
 		}
 	}
 
