@@ -180,8 +180,9 @@ class AssetIsolation {
 	 */
 	private function read_private( object $obj, string $name ) {
 		try {
+			// No setAccessible() call: it has been a no-op since PHP 8.1 (the
+			// plugin requires 8.2+) and is deprecated as of PHP 8.5.
 			$prop = new \ReflectionProperty( $obj, $name );
-			$prop->setAccessible( true );
 
 			return $prop->getValue( $obj );
 		} catch ( \ReflectionException $e ) {
