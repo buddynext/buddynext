@@ -132,6 +132,12 @@ class Plugin {
 		// theme, custom CSS). Registered everywhere — branding is not admin-only.
 		( new \BuddyNext\Theme\Appearance() )->register();
 
+		// Apply Settings → Navigation overrides (hidden/label/order) to the
+		// front-end nav renderers. NavManager (the admin UI) only runs in
+		// wp-admin, so this front-end applier is what actually makes those saved
+		// settings take effect.
+		( new \BuddyNext\Nav\NavOverrides() )->register();
+
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
 		}
