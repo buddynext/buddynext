@@ -27,11 +27,6 @@ class EmailEditor {
 	// ── Constants ─────────────────────────────────────────────────────────────
 
 	/**
-	 * Admin menu slug.
-	 */
-	private const MENU_SLUG = 'buddynext-email-editor';
-
-	/**
 	 * Nonce action for save / test / reset operations.
 	 */
 	private const NONCE_ACTION = 'buddynext_email_editor';
@@ -64,18 +59,27 @@ class EmailEditor {
 	}
 
 	/**
-	 * Add the Email Editor as a submenu under the main BuddyNext menu.
+	 * Build a URL to the Email Templates editor inside the Settings hub.
 	 *
-	 * @return void
+	 * The editor lives as the Settings → "Email Templates" tab (registered via
+	 * AdminHub::register_tab in register()), not a standalone admin page, so the
+	 * rail links and post-action redirects must target the hub tab. Pointing
+	 * them at a standalone page slug produced WordPress's "Sorry, you are not
+	 * allowed to access this page" error because that page is never registered.
+	 *
+	 * @param array<string,string> $args Extra query args (e.g. template, updated).
+	 * @return string Admin URL for the Email Templates tab.
 	 */
-	public function add_submenu(): void {
-		add_submenu_page(
-			'buddynext',
-			__( 'Email Templates', 'buddynext' ),
-			__( 'Email Templates', 'buddynext' ),
-			'manage_options',
-			self::MENU_SLUG,
-			array( $this, 'render_page' )
+	private function hub_url( array $args = array() ): string {
+		return add_query_arg(
+			array_merge(
+				array(
+					'page' => 'buddynext',
+					'tab'  => 'templates',
+				),
+				$args
+			),
+			admin_url( 'admin.php' )
 		);
 	}
 
@@ -426,13 +430,11 @@ class EmailEditor {
 
 		$saved = $this->save( $slug, $subject, $preview_text, $body_html, $enabled );
 
-		$redirect = add_query_arg(
+		$redirect = $this->hub_url(
 			array(
-				'page'     => self::MENU_SLUG,
 				'template' => $slug,
 				'updated'  => $saved ? '1' : '0',
-			),
-			admin_url( 'admin.php' )
+			)
 		);
 
 		wp_safe_redirect( $redirect );
@@ -454,13 +456,11 @@ class EmailEditor {
 		$slug = $this->sanitize_template_type( sanitize_text_field( wp_unslash( $_POST['template_slug'] ?? '' ) ) );
 		$sent = $this->send_test( $slug );
 
-		$redirect = add_query_arg(
+		$redirect = $this->hub_url(
 			array(
-				'page'     => self::MENU_SLUG,
 				'template' => $slug,
 				'tested'   => $sent ? '1' : '0',
-			),
-			admin_url( 'admin.php' )
+			)
 		);
 
 		wp_safe_redirect( $redirect );
@@ -487,13 +487,11 @@ class EmailEditor {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete( $table, array( 'type' => $slug ), array( '%s' ) );
 
-		$redirect = add_query_arg(
+		$redirect = $this->hub_url(
 			array(
-				'page'     => self::MENU_SLUG,
 				'template' => $slug,
 				'reset'    => '1',
-			),
-			admin_url( 'admin.php' )
+			)
 		);
 
 		wp_safe_redirect( $redirect );
@@ -654,13 +652,7 @@ class EmailEditor {
 						$row       = $this->get_saved( $slug );
 						$is_on     = $row ? (bool) $row->enabled : true;
 						$is_active = ( $slug === $active_slug );
-						$item_url  = add_query_arg(
-							array(
-								'page'     => self::MENU_SLUG,
-								'template' => $slug,
-							),
-							admin_url( 'admin.php' )
-						);
+						$item_url  = $this->hub_url( array( 'template' => $slug ) );
 						?>
 						<a
 							href="<?php echo esc_url( $item_url ); ?>"
