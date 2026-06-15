@@ -609,6 +609,7 @@ class ProfileService {
 					f.label        AS field_label,
 					f.type         AS field_type,
 					f.options,
+					f.is_required  AS field_is_required,
 					f.visibility   AS field_visibility,
 					f.sort_order   AS field_sort_order,
 					v.entry_index,
@@ -687,6 +688,7 @@ class ProfileService {
 				'label'            => $row['field_label'],
 				'type'             => $row['field_type'],
 				'options'          => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+				'is_required'      => (bool) ( $row['field_is_required'] ?? false ),
 				'sort_order'       => (int) $row['field_sort_order'],
 				'value'            => $row['value'],
 				// Visibility surfaced so the edit-form privacy selector can show

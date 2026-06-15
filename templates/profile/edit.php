@@ -427,9 +427,27 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						$bn_inp_id . '-vis'
 					);
 
-					$bn_body_html .= '<div class="' . esc_attr( $bn_field_cls ) . '">';
-					$bn_body_html .= '<div class="bn-ep-field-head"><label class="bn-ep-label" for="' . esc_attr( $bn_inp_id ) . '">' . esc_html( $bn_label ) . '</label>' . $bn_privacy_html . '</div>';
+					// Required marker on the label (mirrors the hero's display-name field).
+					$bn_is_required = ! empty( $bn_field['is_required'] );
+					$bn_req_mark    = $bn_is_required
+						? ' <span class="bn-ep-required" aria-hidden="true">*</span>'
+						: '';
+
+					// Per-field inline error slot — reactively shown by the
+					// buddynext/profile Interactivity store, which writes
+					// context.errors[ field_key ] both on client-side required
+					// validation (store.js saveProfile) and on a 422 from the
+					// server. Keyed by the field_key so JS and PHP agree.
+					$bn_err_id   = 'bn-ep-error-' . esc_attr( $bn_fkey );
+					$bn_err_html = '<span class="bn-ep-field-error" id="' . $bn_err_id . '" role="alert"'
+						. ' data-wp-text="context.errors.' . esc_attr( $bn_fkey ) . '"'
+						. ' data-wp-bind--hidden="!context.errors.' . esc_attr( $bn_fkey ) . '"></span>';
+
+					$bn_body_html .= '<div class="' . esc_attr( $bn_field_cls ) . '"'
+						. ' data-wp-class--bn-ep-field--error="!!context.errors.' . esc_attr( $bn_fkey ) . '">';
+					$bn_body_html .= '<div class="bn-ep-field-head"><label class="bn-ep-label" for="' . esc_attr( $bn_inp_id ) . '">' . esc_html( $bn_label ) . $bn_req_mark . '</label>' . $bn_privacy_html . '</div>';
 					$bn_body_html .= $bn_control;
+					$bn_body_html .= $bn_err_html;
 					$bn_body_html .= '</div>';
 				}
 

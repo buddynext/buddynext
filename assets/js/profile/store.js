@@ -202,7 +202,19 @@ function renderCropModal( img, resolve ) {
 			img.width * scale * ratio,
 			img.height * scale * ratio
 		);
-		out.toBlob( ( blob ) => cleanup( blob ), 'image/jpeg', 0.9 );
+		// toBlob can yield null if the browser fails to encode (rare, but real).
+		// Surface it as an error instead of silently resolving null (which the
+		// caller treats as a cancel), so the user knows the crop did not apply.
+		out.toBlob( ( blob ) => {
+			if ( ! blob ) {
+				if ( typeof window !== 'undefined' && typeof window.bnToast === 'function' ) {
+					window.bnToast( 'Could not process the image. Try a different file.', { tone: 'danger' } );
+				}
+				cleanup( null );
+				return;
+			}
+			cleanup( blob );
+		}, 'image/jpeg', 0.9 );
 	} );
 
 	const onKey = ( e ) => {
@@ -377,6 +389,16 @@ function collectFlatData( wrap ) {
 	return data;
 }
 
+/* Map a repeater group key to its rendered DOM container id. The edit
+   template builds the id as `bn-ep-{group-with-dashes}-entries`
+   (templates/profile/edit.php), e.g. `education` -> `bn-ep-education-entries`
+   and `work_experience` -> `bn-ep-work-experience-entries`. Keeping this in one
+   place prevents the JS and PHP from drifting (a stale short id like
+   `bn-ep-edu-entries` silently dropped the section from the save payload). */
+function repeaterContainerId( group ) {
+	return 'bn-ep-' + String( group ).replace( /_/g, '-' ) + '-entries';
+}
+
 /* Collect repeater entries from a container by data-entry-index children. */
 function collectRepeaterEntries( containerId ) {
 	var container = document.getElementById( containerId );
@@ -405,13 +427,37 @@ function buildPayload( ctx ) {
 	if ( Array.isArray( ctx.interests ) ) {
 		data.interests = ctx.interests.join( ',' );
 	}
-	if ( document.getElementById( 'bn-ep-work-entries' ) ) {
-		data.work_experience = collectRepeaterEntries( 'bn-ep-work-entries' );
+	var workContainerId = repeaterContainerId( 'work_experience' );
+	if ( document.getElementById( workContainerId ) ) {
+		data.work_experience = collectRepeaterEntries( workContainerId );
 	}
-	if ( document.getElementById( 'bn-ep-edu-entries' ) ) {
-		data.education = collectRepeaterEntries( 'bn-ep-edu-entries' );
+	var eduContainerId = repeaterContainerId( 'education' );
+	if ( document.getElementById( eduContainerId ) ) {
+		data.education = collectRepeaterEntries( eduContainerId );
 	}
 	return data;
+}
+
+/* Human label for a required control, for the inline error message. Prefers the
+   associated <label>, falling back to the field's name. */
+function requiredLabelFor( el ) {
+	var label = '';
+	if ( el.id ) {
+		var byFor = document.querySelector( 'label[for="' + el.id + '"]' );
+		if ( byFor ) { label = byFor.textContent || ''; }
+	}
+	if ( ! label ) {
+		var wrapLabel = el.closest( '.bn-ep-field, .bn-ep-hero-field' );
+		if ( wrapLabel ) {
+			var lbl = wrapLabel.querySelector( 'label' );
+			if ( lbl ) { label = lbl.textContent || ''; }
+		}
+	}
+	label = label.replace( /\*/g, '' ).trim();
+	if ( ! label ) {
+		label = ( el.getAttribute( 'name' ) || 'This field' ).replace( /_/g, ' ' );
+	}
+	return label;
 }
 
 /* Validate a single URL value client-side (matches PHP wp_http_validate_url). */
@@ -509,24 +555,29 @@ function renumberEntries( containerId ) {
 function buildEntryNode( group, index ) {
 	var groupConfig = {
 		work_experience: {
-			containerId: 'bn-ep-work-entries',
+			containerId: repeaterContainerId( 'work_experience' ),
 			removeLabel: 'Remove this position',
+			/* Field keys MUST match the bn_profile_fields definitions for this
+			   group, or the server (ProfileService) silently ignores values for
+			   unknown keys — the same class of bug that dropped whole sections. */
 			fields: [
-				{ key: 'work_company',     label: 'Company',     type: 'text',     placeholder: 'Company name' },
-				{ key: 'work_title',       label: 'Job Title',   type: 'text',     placeholder: 'Your role' },
-				{ key: 'work_location',    label: 'Location',    type: 'text',     placeholder: 'City or Remote' },
-				{ key: 'work_daterange',   label: 'Date Range',  type: 'text',     placeholder: 'e.g. Jan 2020 to Present' },
-				{ key: 'work_description', label: 'Description', type: 'textarea', placeholder: 'Brief description of your role', fullWidth: true },
+				{ key: 'work_company',     label: 'Company',          type: 'text',     placeholder: 'Company name' },
+				{ key: 'work_title',       label: 'Job Title',        type: 'text',     placeholder: 'Your role' },
+				{ key: 'work_location',    label: 'Location',          type: 'text',     placeholder: 'City or Remote' },
+				{ key: 'work_start_date',  label: 'Start Date',        type: 'date' },
+				{ key: 'work_end_date',    label: 'End Date',          type: 'date' },
+				{ key: 'work_description', label: 'Description',        type: 'textarea', placeholder: 'Brief description of your role', fullWidth: true },
 			],
 		},
 		education: {
-			containerId: 'bn-ep-edu-entries',
+			containerId: repeaterContainerId( 'education' ),
 			removeLabel: 'Remove this entry',
 			fields: [
-				{ key: 'edu_institution', label: 'Institution',    type: 'text', placeholder: 'School or University' },
-				{ key: 'edu_degree',      label: 'Degree',         type: 'text', placeholder: 'e.g. Bachelor of Science' },
-				{ key: 'edu_field',       label: 'Field of Study', type: 'text', placeholder: 'e.g. Computer Science' },
-				{ key: 'edu_daterange',   label: 'Date Range',     type: 'text', placeholder: 'e.g. 2016 to 2020' },
+				{ key: 'edu_institution', label: 'Institution',    type: 'text',   placeholder: 'School or University' },
+				{ key: 'edu_degree',      label: 'Degree',         type: 'text',   placeholder: 'e.g. Bachelor of Science' },
+				{ key: 'edu_field',       label: 'Field of Study', type: 'text',   placeholder: 'e.g. Computer Science' },
+				{ key: 'edu_start_year',  label: 'Start Year',     type: 'number', placeholder: 'e.g. 2016' },
+				{ key: 'edu_end_year',    label: 'End Year',       type: 'number', placeholder: 'e.g. 2020' },
 			],
 		},
 	};
@@ -898,21 +949,44 @@ store( 'buddynext/profile', {
 
 			// Run a client-side pass so we don't bother the server with obviously bad payloads.
 			var errors = {};
-			var nameInput = document.getElementById( 'bn-ep-name' );
-			if ( nameInput && ( nameInput.value || '' ).trim() === '' ) {
-				errors.display_name = 'Display name is required.';
-				nameInput.focus();
-			}
+			var firstInvalid = null;
+
+			// Required-field check across EVERY rendered required control (display
+			// name + any admin-marked custom field). The control's `name` is the
+			// field_key the server validates against, and the edit template renders
+			// a matching context.errors[ field_key ] inline-error slot, so this
+			// paints a per-field error next to the offending control instead of
+			// only a generic toast. Repeater sub-fields (name="group[i][key]") are
+			// skipped here; the server validates those per entry.
+			var formEl = document.querySelector( '.bn-ep-form-shell' );
+			var scope  = formEl || document;
+			scope.querySelectorAll( '[required]' ).forEach( function ( el ) {
+				var key = el.getAttribute( 'name' ) || '';
+				if ( ! key || /\[\d+\]\[/.test( key ) ) { return; }
+				var empty = ( el.type === 'checkbox' )
+					? ! el.checked
+					: ( el.value || '' ).trim() === '';
+				if ( empty ) {
+					errors[ key ] = requiredLabelFor( el ) + ' is required.';
+					if ( ! firstInvalid ) { firstInvalid = el; }
+				}
+			} );
+
 			[ 'website', 'social_twitter', 'social_linkedin', 'social_github', 'social_instagram', 'social_youtube' ].forEach( function ( fname ) {
 				var el = document.querySelector( '[name="' + fname + '"]' );
 				if ( ! el ) { return; }
 				var v = ( el.value || '' ).trim();
 				if ( v !== '' && ! isValidUrlClient( v ) ) {
 					errors[ fname ] = 'Enter a valid URL (https://example.com).';
+					if ( ! firstInvalid ) { firstInvalid = el; }
 				}
 			} );
+
 			if ( Object.keys( errors ).length > 0 ) {
 				ctx.errors = errors;
+				if ( firstInvalid && typeof firstInvalid.focus === 'function' ) {
+					firstInvalid.focus();
+				}
 				bnToast( 'Some fields need attention', { tone: 'danger' } );
 				return;
 			}
@@ -1010,13 +1084,7 @@ store( 'buddynext/profile', {
 			var group = btn ? btn.dataset.group : null;
 			if ( ! group ) { return; }
 
-			var containerMap = {
-				work_experience: 'bn-ep-work-entries',
-				education:       'bn-ep-edu-entries',
-			};
-			var containerId = containerMap[ group ];
-			if ( ! containerId ) { return; }
-
+			var containerId = repeaterContainerId( group );
 			var container = document.getElementById( containerId );
 			if ( ! container ) { return; }
 
@@ -1033,11 +1101,7 @@ store( 'buddynext/profile', {
 			if ( ! btn ) { return; }
 
 			var group = btn.dataset.group;
-			var containerMap = {
-				work_experience: 'bn-ep-work-entries',
-				education:       'bn-ep-edu-entries',
-			};
-			var containerId = containerMap[ group ];
+			var containerId = group ? repeaterContainerId( group ) : '';
 
 			var entryEl = btn.closest( '.bn-ep-repeater-entry' );
 			if ( entryEl ) { entryEl.remove(); }
@@ -1109,9 +1173,16 @@ store( 'buddynext/profile', {
 
 				ctx.avatarUploading = true;
 
+				// Use the nonce captured BEFORE the await. nonce() calls
+				// getContext() afresh, but getContext() only resolves in the
+				// action's synchronous initial scope — calling it after
+				// `await openAvatarCropModal()` yields an empty nonce, which the
+				// REST API rejects with 403 (rest_cookie_invalid_nonce) and the
+				// upload surfaces as "Upload failed". ctx was captured up-front
+				// for exactly this reason.
 				var res  = await fetch( apiUrl( 'buddynext/v1/me/avatar' ), {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': nonce() },
+					headers: { 'X-WP-Nonce': ctx.restNonce },
 					body:    formData,
 				} );
 				var data = await res.json();
@@ -1156,9 +1227,11 @@ store( 'buddynext/profile', {
 
 				ctx.coverUploading = true;
 
+				// Captured nonce — nonce() (getContext post-await) returns empty
+				// and 403s. See handleAvatarFileChange for the full rationale.
 				var res  = await fetch( apiUrl( 'buddynext/v1/me/cover' ), {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': nonce() },
+					headers: { 'X-WP-Nonce': ctx.restNonce },
 					body:    formData,
 				} );
 				var data = await res.json();

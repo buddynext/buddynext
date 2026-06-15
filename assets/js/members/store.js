@@ -927,8 +927,12 @@ function openReportModal( targetType, targetId, displayName ) {
 }
 
 function bindOnce( el, flag, fn ) {
-	if ( el.dataset[ flag ] === '1' ) { return; }
-	el.dataset[ flag ] = '1';
+	// Use setAttribute, not dataset[flag]: dataset keys containing a hyphen
+	// followed by a lowercase letter (e.g. 'report-bound') throw a SyntaxError,
+	// which previously aborted before the modal's submit listener was attached.
+	var attr = 'data-bn-' + flag;
+	if ( el.getAttribute( attr ) === '1' ) { return; }
+	el.setAttribute( attr, '1' );
 	fn();
 }
 

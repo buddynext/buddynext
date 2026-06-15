@@ -1907,15 +1907,17 @@ button.bn-pf-pill:hover,
 }
 
 .bn-ep-shell {
-	/* Left-align to the main content edge (like the profile view and every
-	   other BN page) instead of centring in the wide main column — centring
-	   left a large dead gap between the nav rail and the form. The cap keeps
-	   form line-length comfortable; the trailing whitespace reads as margin. */
-	max-width: 1180px;
+	/* Fill the full main content column — identical to the profile VIEW page
+	   (.bn-pf-stack has no max-width and spans .bn-app__main 100%). A previous
+	   1180px cap left a large dead gap on wide screens (the form pinned left
+	   while the right half sat empty), which read as the layout "shifting to
+	   the left". The 1fr form column now grows with the column; the fixed
+	   300px preview rail keeps the form line-length comfortable on its own. */
+	width: 100%;
 	margin-inline: 0;
 	padding: var(--bn-s5) var(--bn-s5);
 	display: grid;
-	grid-template-columns: 1fr 300px;
+	grid-template-columns: minmax(0, 1fr) 300px;
 	gap: var(--bn-s4);
 	align-items: start;
 }
@@ -2579,6 +2581,15 @@ button.bn-pf-pill:hover,
 .bn-input--error:focus-visible {
 	outline-color: var(--bn-danger);
 	box-shadow: 0 0 0 3px var(--bn-danger-100, rgba(220, 38, 38, 0.12));
+}
+/* Field wrapper flagged invalid by the store (context.errors[ key ]). The
+   dynamic FieldType controls don't carry .bn-input--error, so colour their
+   control here for the same red-border affordance as the hero name field. */
+.bn-ep-field--error .bn-input,
+.bn-ep-field--error .bn-textarea,
+.bn-ep-field--error .bn-field-textarea {
+	border-color: var(--bn-danger) !important;
+	background-color: var(--bn-danger-50, rgba(220, 38, 38, 0.04));
 }
 .bn-ep-save-status[hidden] { display: none !important; }
 .bn-ep-save-status--dirty {
