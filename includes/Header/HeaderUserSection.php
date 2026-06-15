@@ -101,7 +101,7 @@ final class HeaderUserSection {
 	 * @return string
 	 */
 	public static function messages_link(): string {
-		if ( ! is_user_logged_in() || ! MessagesData::available() ) {
+		if ( ! is_user_logged_in() || ! MessagesData::dm_enabled() || ! MessagesData::available() ) {
 			return '';
 		}
 		$url = PageRouter::messages_url();

@@ -653,6 +653,12 @@ class AuthController {
 			( new \BuddyNext\Onboarding\InviteService() )->mark_registered( (int) $invite['id'] );
 		}
 
+		// Seed the new member's DM-privacy preference from the site default
+		// (buddynext_default_dm_access). Members can change it later in their own
+		// privacy settings; we only set it here, when no explicit value exists,
+		// so the site owner's default applies to fresh accounts.
+		self::seed_default_dm_access( (int) $user_id );
+
 		// Always issue a verification token so the new user receives a
 		// confirmation email. When buddynext_email_verify is OFF the link
 		// is informational (the account is already usable); when ON the
@@ -761,6 +767,42 @@ class AuthController {
 		$verified = $svc->is_verified( $user_id );
 
 		return new WP_REST_Response( array( 'verified' => $verified ), 200 );
+	}
+
+	/**
+	 * Apply the site-default DM-privacy preference to a new account.
+	 *
+	 * Reads buddynext_default_dm_access (Settings → General → Direct Messaging)
+	 * and writes it to the member's bn_privacy_dm meta — the same key the
+	 * privacy settings screen and the messaging layer read. Only sets the value
+	 * when the member has no explicit preference yet, so a member who later
+	 * changes their privacy is never overwritten, and re-running registration
+	 * flows stays idempotent.
+	 *
+	 * The site default is validated against the canonical audience vocabulary
+	 * (everyone / members / connections / nobody) so a stale or filtered option
+	 * value can never seed an invalid preference.
+	 *
+	 * @param int $user_id New user ID.
+	 * @return void
+	 */
+	public static function seed_default_dm_access( int $user_id ): void {
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		// Don't clobber an explicit preference (e.g. set during onboarding).
+		if ( '' !== (string) get_user_meta( $user_id, 'bn_privacy_dm', true ) ) {
+			return;
+		}
+
+		$default   = (string) get_option( 'buddynext_default_dm_access', 'everyone' );
+		$audiences = array( 'everyone', 'members', 'connections', 'nobody' );
+		if ( ! in_array( $default, $audiences, true ) ) {
+			$default = 'everyone';
+		}
+
+		update_user_meta( $user_id, 'bn_privacy_dm', $default );
 	}
 
 	/**

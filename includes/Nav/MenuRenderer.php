@@ -40,6 +40,24 @@ final class MenuRenderer {
 			return array();
 		}
 
+		// Community-nav injection toggle. When the site owner turns
+		// "Show BuddyNext community navigation" off
+		// (buddynext_enable_community_nav, default on), BuddyNext stops placing
+		// its community items into the host theme's menus: drop every BN token
+		// item and leave the theme's own menu exactly as authored. Non-BN items
+		// always pass through. Default-on keeps the established behaviour.
+		if ( ! (bool) get_option( 'buddynext_enable_community_nav', true ) ) {
+			return array_values(
+				array_filter(
+					$items,
+					static function ( $item ): bool {
+						$url = isset( $item->url ) ? (string) $item->url : '';
+						return ! UserLinks::is_token( $url );
+					}
+				)
+			);
+		}
+
 		$user_id   = get_current_user_id();
 		$logged_in = $user_id > 0;
 		$out       = array();

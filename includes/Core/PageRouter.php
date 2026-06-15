@@ -206,6 +206,32 @@ class PageRouter {
 			exit;
 		}
 
+		// Public-explore guard: the explore feed (/activity/explore/) is guest-
+		// readable by default. When the site owner turns "Public explore feed"
+		// off (buddynext_public_explore), explore becomes members-only — send
+		// logged-out visitors to the auth page. Logged-in members are never
+		// affected. Mirrors the FeedController::require_public_explore REST gate.
+		if ( 'feed' === $hub
+			&& 'explore' === (string) get_query_var( 'bn_activity_action', '' )
+			&& ! is_user_logged_in()
+			&& ! (bool) get_option( 'buddynext_public_explore', true )
+		) {
+			wp_safe_redirect( self::auth_url() );
+			exit;
+		}
+
+		// Direct-messaging guard: when the site owner turns DMs off
+		// (buddynext_enable_dm), the /messages/ route is dead — bounce any
+		// visitor to the activity hub rather than render a hub the community has
+		// turned off. The nav entry points hide themselves via
+		// MessagesData::dm_enabled(); this blocks direct URL access too.
+		if ( 'messages' === $hub
+			&& ! \BuddyNext\Messages\MessagesData::dm_enabled()
+		) {
+			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
+			exit;
+		}
+
 		$template = $this->resolve_hub_template( $hub );
 		if ( null === $template ) {
 			return;
@@ -244,10 +270,19 @@ class PageRouter {
 		// gated surface to BN's auth page (not WP's wp-login.php).
 		if ( ! is_user_logged_in() ) {
 			$feed_section          = (string) get_query_var( 'bn_feed_section', '' );
+			$activity_action       = (string) get_query_var( 'bn_activity_action', '' );
 			$guarded_feed_sections = array( '', 'home', 'bookmarks', 'saved' );
-			$needs_login           =
+
+			// The explore feed shares the 'feed' hub with an empty feed_section,
+			// so it would otherwise be swept up by the guarded-section check
+			// below. Its guest access is governed solely by the public-explore
+			// guard above (buddynext_public_explore) — exempt it here so that,
+			// when explore is public, guests actually reach it.
+			$is_explore = ( 'feed' === $hub && 'explore' === $activity_action );
+
+			$needs_login =
 				in_array( $hub, array( 'messages', 'notifications', 'onboarding' ), true )
-				|| ( 'feed' === $hub && in_array( $feed_section, $guarded_feed_sections, true ) );
+				|| ( 'feed' === $hub && ! $is_explore && in_array( $feed_section, $guarded_feed_sections, true ) );
 
 			if ( $needs_login ) {
 				wp_safe_redirect( self::auth_url() );

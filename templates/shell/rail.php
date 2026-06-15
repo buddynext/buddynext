@@ -109,7 +109,7 @@ $bn_rail_items = array(
 		'url'   => PageRouter::messages_url(),
 		'icon'  => 'message-circle',
 		'badge' => $bn_unread_messages,
-		'show'  => (bool) $bn_rail_current_user,
+		'show'  => (bool) $bn_rail_current_user && \BuddyNext\Messages\MessagesData::dm_enabled(),
 	),
 );
 

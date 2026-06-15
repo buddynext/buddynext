@@ -37,7 +37,7 @@ class Settings extends AdminPageBase {
 		'buddynext_public_explore'             => array( 'boolean', 'rest_sanitize_boolean', true ),
 		'buddynext_enable_dm'                  => array( 'boolean', 'rest_sanitize_boolean', true ),
 		'buddynext_default_dm_access'          => array( 'string', 'sanitize_key', 'everyone' ),
-		'buddynext_show_onboarding'            => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_enable_community_nav'       => array( 'boolean', 'rest_sanitize_boolean', true ),
 
 		// Registration.
 		'buddynext_reg_mode'                   => array( 'string', 'sanitize_key', 'open' ),
@@ -57,7 +57,6 @@ class Settings extends AdminPageBase {
 		'buddynext_post_edit_window'           => array( 'integer', 'absint', 60 ),
 
 		// Spaces.
-		'buddynext_enable_spaces'              => array( 'boolean', 'rest_sanitize_boolean', true ),
 		'buddynext_space_creation_role'        => array( 'string', 'sanitize_key', 'member' ),
 		'buddynext_space_max_sub_spaces'       => array( 'integer', 'absint', 0 ),
 
@@ -583,21 +582,22 @@ class Settings extends AdminPageBase {
 			(string) get_option( 'buddynext_default_dm_access', 'everyone' ),
 			array(
 				'everyone'    => __( 'Everyone', 'buddynext' ),
+				'members'     => __( 'Members only', 'buddynext' ),
 				'connections' => __( 'Connections only', 'buddynext' ),
-				'followers'   => __( 'Followers only', 'buddynext' ),
+				'nobody'      => __( 'No one', 'buddynext' ),
 			),
-			__( 'Default setting applied to new accounts. Members can override this in their own privacy settings.', 'buddynext' )
+			__( 'Default privacy applied to new accounts. Members can override this in their own privacy settings.', 'buddynext' )
 		);
 
 		$this->close_section();
 
-		$this->open_section( __( 'Onboarding', 'buddynext' ) );
+		$this->open_section( __( 'Navigation', 'buddynext' ) );
 
 		$this->render_toggle_row(
-			'buddynext_show_onboarding',
-			__( 'Show onboarding wizard to new members', 'buddynext' ),
-			__( 'Guides new members through setting up their profile, following people, and joining spaces after first login.', 'buddynext' ),
-			(bool) get_option( 'buddynext_show_onboarding', true )
+			'buddynext_enable_community_nav',
+			__( 'Show BuddyNext community navigation', 'buddynext' ),
+			__( 'Automatically place the BuddyNext community navigation into your theme. Turn this off to hide it and use your theme\'s own menu instead.', 'buddynext' ),
+			(bool) get_option( 'buddynext_enable_community_nav', true )
 		);
 
 		$this->close_section();
@@ -1007,13 +1007,9 @@ class Settings extends AdminPageBase {
 	private function render_tab_spaces(): void {
 		$this->open_section( __( 'Space Settings', 'buddynext' ) );
 
-		$this->render_toggle_row(
-			'buddynext_enable_spaces',
-			__( 'Enable Spaces', 'buddynext' ),
-			__( 'Spaces let members form communities within your community. Disable to hide the Spaces hub entirely.', 'buddynext' ),
-			(bool) get_option( 'buddynext_enable_spaces', true )
-		);
-
+		// The on/off switch for the Spaces hub lives on the Features tab
+		// (FeatureRegistry 'spaces'), which is the single source of truth and
+		// already route-guards the hub. No duplicate toggle here.
 		$this->render_select_row(
 			'buddynext_space_creation_role',
 			__( 'Who can create spaces', 'buddynext' ),

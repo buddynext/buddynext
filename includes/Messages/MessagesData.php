@@ -39,6 +39,22 @@ class MessagesData {
 	}
 
 	/**
+	 * Whether direct messaging is turned on for this community.
+	 *
+	 * The site owner can disable DMs entirely via Settings → General → Direct
+	 * Messaging (buddynext_enable_dm, default true). This is the canonical
+	 * on/off switch every BN-side messaging entry point consults — the rail
+	 * item, header icon, user-menu link, and the /messages/ route. It is the
+	 * admin intent gate; whether the WPMediaVerse engine is actually present is
+	 * a separate concern handled by available().
+	 *
+	 * @return bool
+	 */
+	public static function dm_enabled(): bool {
+		return (bool) get_option( 'buddynext_enable_dm', true );
+	}
+
+	/**
 	 * Whether group conversations are available — i.e. WPMediaVerse Pro (which
 	 * REST-exposes the group lifecycle at mvs-pro/v1/groups) is active. Group
 	 * chat is a Pro capability; the BN UI hides every group affordance when this

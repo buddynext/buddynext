@@ -93,7 +93,7 @@ class FeedController extends BaseRestController {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'explore_feed' ),
-				'permission_callback' => '__return_true',
+				'permission_callback' => array( $this, 'require_public_explore' ),
 			)
 		);
 
@@ -141,7 +141,7 @@ class FeedController extends BaseRestController {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'explore_feed_page' ),
-				'permission_callback' => '__return_true',
+				'permission_callback' => array( $this, 'require_public_explore' ),
 			)
 		);
 
@@ -163,6 +163,33 @@ class FeedController extends BaseRestController {
 				'callback'            => array( $this, 'end_announcement' ),
 				'permission_callback' => array( $this, 'require_auth' ),
 			)
+		);
+	}
+
+	/**
+	 * Permission gate for the explore feed.
+	 *
+	 * Logged-in members can always read explore. Guests can read it only when
+	 * the site owner has left "Public explore feed" on
+	 * (buddynext_public_explore, default true). When that option is off, the
+	 * explore feed becomes a members-only surface and guests get a 401 — the
+	 * REST mirror of the PageRouter redirect that gates the /explore/ page.
+	 *
+	 * @return true|WP_Error
+	 */
+	public function require_public_explore(): true|WP_Error {
+		if ( is_user_logged_in() ) {
+			return true;
+		}
+
+		if ( (bool) get_option( 'buddynext_public_explore', true ) ) {
+			return true;
+		}
+
+		return new WP_Error(
+			'rest_explore_members_only',
+			__( 'The explore feed is available to members only.', 'buddynext' ),
+			array( 'status' => 401 )
 		);
 	}
 

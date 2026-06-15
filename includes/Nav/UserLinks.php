@@ -130,6 +130,19 @@ final class UserLinks {
 			),
 		);
 
+		// Drop the Messages item when the site owner has turned direct messaging
+		// off (buddynext_enable_dm). The catalogue is the single source of truth
+		// for the header dropdown, the menu metabox, and the menu resolver, so
+		// removing it here hides messaging everywhere those consumers read.
+		if ( ! \BuddyNext\Messages\MessagesData::dm_enabled() ) {
+			$items = array_values(
+				array_filter(
+					$items,
+					static fn( array $item ): bool => '#bn-messages' !== ( $item['token'] ?? '' )
+				)
+			);
+		}
+
 		/**
 		 * Filters the BuddyNext user/auth menu catalogue.
 		 *
