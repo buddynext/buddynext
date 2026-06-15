@@ -119,6 +119,28 @@ class AdminHub {
 		// permission check (`get_plugin_page_hook()`) walks that array
 		// to validate page access, and removing the entry returns a 403.
 		add_action( 'admin_head', array( $this, 'inject_empty_li_hide_css' ) );
+		// Keep BuddyNext's own admin screens clean: clear the admin-notice hooks
+		// so unrelated nags (the host theme's TGMPA "recommended plugins" notice,
+		// other plugins' "set up" notices, etc.) don't crowd the settings UI. The
+		// Hub renders its own save/status feedback, so it doesn't rely on the
+		// core notice stream. Scoped strictly to Hub screens via is_hub_screen().
+		add_action( 'in_admin_header', array( $this, 'suppress_foreign_admin_notices' ), 1 );
+	}
+
+	/**
+	 * Clear admin notices on BuddyNext's own admin screens.
+	 *
+	 * @return void
+	 */
+	public function suppress_foreign_admin_notices(): void {
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen instanceof \WP_Screen || ! $this->is_hub_screen( (string) $screen->id ) ) {
+			return;
+		}
+
+		remove_all_actions( 'admin_notices' );
+		remove_all_actions( 'all_admin_notices' );
+		remove_all_actions( 'user_admin_notices' );
 	}
 
 	/**
