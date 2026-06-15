@@ -166,6 +166,23 @@ class FeatureRegistry {
 	 * @return void
 	 */
 	public function persist( array $state ): void {
+		update_option( self::OPTION_KEY, $this->clean_state( $state ), false );
+	}
+
+	/**
+	 * Apply tier rules to a raw slug=>bool map and return the storable subset —
+	 * mandatory features dropped (they cannot be toggled off), values coerced to
+	 * bool, unknown slugs ignored.
+	 *
+	 * Pure: does NOT write the option. Used both by persist() (which then writes)
+	 * and by the Settings API sanitize callback, which must only RETURN the value
+	 * to store — writing the option there would re-enter the sanitize callback
+	 * and recurse until memory is exhausted.
+	 *
+	 * @param array<string,bool> $state Map of slug => bool.
+	 * @return array<string,bool>
+	 */
+	public function clean_state( array $state ): array {
 		$cleaned = array();
 		foreach ( $this->catalog() as $slug => $feature ) {
 			if ( self::TIER_MANDATORY === $feature['tier'] ) {
@@ -175,7 +192,7 @@ class FeatureRegistry {
 				$cleaned[ $slug ] = (bool) $state[ $slug ];
 			}
 		}
-		update_option( self::OPTION_KEY, $cleaned, false );
+		return $cleaned;
 	}
 
 	/**

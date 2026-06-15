@@ -419,14 +419,15 @@ class Settings extends AdminPageBase {
 				$cleaned[ $slug ] = ! empty( $on );
 			}
 		}
-		// Route through FeatureRegistry::persist() so tier rules apply.
+		// Apply the registry's tier rules (drop mandatory slugs) and RETURN the
+		// result — the Settings API persists whatever we return. We must NOT call
+		// persist()/update_option() here: this runs as the sanitize_callback for
+		// the buddynext_features option, so writing the option again re-enters
+		// this callback and recurses until the request exhausts memory.
 		if ( function_exists( 'buddynext_service' ) ) {
 			$container = \BuddyNext\Core\Container::instance();
 			if ( $container->has( 'features' ) ) {
-				$container->get( 'features' )->persist( $cleaned );
-				// Re-read after persist so the option reflects only
-				// non-mandatory slugs that survived the registry filter.
-				return (array) get_option( 'buddynext_features', array() );
+				return $container->get( 'features' )->clean_state( $cleaned );
 			}
 		}
 		return $cleaned;
