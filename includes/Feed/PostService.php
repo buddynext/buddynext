@@ -80,6 +80,13 @@ class PostService {
 		}
 
 		if ( 'poll' === $type ) {
+			if ( ! (bool) get_option( 'buddynext_allow_polls', true ) ) {
+				return new WP_Error(
+					'polls_disabled',
+					__( 'Polls are disabled on this community.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
 			$options = $data['options'] ?? array();
 			if ( ! is_array( $options ) || count( $options ) < 2 ) {
 				return new WP_Error(
@@ -195,7 +202,7 @@ class PostService {
 				'media_ids'            => $media_ids,
 				'link_url'             => $data['link_url'] ?? null,
 				'link_meta'            => $link_meta,
-				'privacy'              => $data['privacy'] ?? 'public',
+				'privacy'              => $data['privacy'] ?? (string) get_option( 'buddynext_default_post_privacy', 'public' ),
 				'status'               => $status,
 				'content_warning'      => ! empty( $data['content_warning'] ) ? 1 : 0,
 				'content_warning_type' => $data['content_warning_type'] ?? null,
@@ -320,6 +327,23 @@ class PostService {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
 			return $ownership;
+		}
+
+		// Enforce the post edit window (buddynext_post_edit_window, minutes): once
+		// a post is older than the window a non-admin can no longer edit it.
+		// 0 = unlimited.
+		$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
+		if ( $edit_window > 0 && ! user_can( $user_id, 'manage_options' ) ) {
+			global $wpdb;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$created_at = $wpdb->get_var( $wpdb->prepare( "SELECT created_at FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id ) );
+			if ( $created_at && ( time() - strtotime( (string) $created_at . ' UTC' ) ) > $edit_window * MINUTE_IN_SECONDS ) {
+				return new WP_Error(
+					'edit_window_closed',
+					__( 'The time window for editing this post has passed.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
 		}
 
 		/**

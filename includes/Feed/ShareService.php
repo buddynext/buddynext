@@ -29,6 +29,14 @@ class ShareService {
 	 * @return int|WP_Error Share row ID on success; WP_Error('already_shared') on duplicate.
 	 */
 	public function share( int $user_id, int $post_id, string $content = '' ): int|WP_Error {
+		if ( ! (bool) get_option( 'buddynext_allow_shares', true ) ) {
+			return new WP_Error(
+				'shares_disabled',
+				__( 'Sharing is disabled on this community.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		global $wpdb;
 
 		// If the target is itself a reshare, amplify the ORIGINAL post instead
