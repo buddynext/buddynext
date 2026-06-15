@@ -1,6 +1,7 @@
 # BuddyNext Bugs — Resume Plan (remaining cross-lane cards)
 
-> STATUS: ALL FOUR DONE & shipped to Ready for Testing.
+> STATUS: BUGS COLUMN (9990191646) FULLY CLEARED — empty as of 2026-06-15.
+> Cross-lane four (this plan):
 > - 9996403088 message gating — 8595685
 > - 9996476016 social 7 settings — 4245363
 > - 9996426090 comment @mention — 6684924
@@ -9,6 +10,14 @@
 >   theme_mod_reign_left_panel_gloabl_setting -> false on bn_hub pages in
 >   includes/Theme/Appearance.php, so Reign's reign-panel.php bails on BN pages
 >   only; reproduced by assigning a menu to the `panel-menu` location).
+> Final two:
+> - 9996287963 Reactions dead feature switch — c4cf41e (keep TIER_DEFAULT_ON,
+>   enforce: $can_react folds in is_enabled('reactions'); summary chips +
+>   comment React (data-reactions-enabled) gated; POST /reactions/toggle 403s;
+>   admin "which emoji" palette disabled with a note when the master toggle is off).
+> - 9996526187 Integrations "Install" → dead plugins.php?s= search — e4b6663
+>   (source addons from IntegrationHub registry; state-aware action:
+>   Activate / Get Plugin / Install→upload screen).
 >
 > This plan's queue is cleared. The sections below are kept for reference.
 
