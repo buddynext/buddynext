@@ -212,7 +212,16 @@ do_action( 'buddynext_feed_explore_before', $current_user_id );
 				<?php buddynext_icon( 'search' ); ?> <?php esc_html_e( 'Explore', 'buddynext' ); ?>
 			</h1>
 			<p class="bn-explore-sub">
-				<?php esc_html_e( 'Discover posts, people, and spaces from the community', 'buddynext' ); ?>
+				<?php
+				// Use the admin-configured community description when set; fall
+				// back to the generic tagline otherwise.
+				$bn_community_desc = trim( (string) get_option( 'buddynext_description', '' ) );
+				if ( '' !== $bn_community_desc ) {
+					echo esc_html( $bn_community_desc );
+				} else {
+					esc_html_e( 'Discover posts, people, and spaces from the community', 'buddynext' );
+				}
+				?>
 			</p>
 		</div>
 
