@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/activity-feed",
 	"title": "Activity Feed",
+	"icon": "rss",
 	"category": "buddynext",
 	"description": "Displays the community activity feed. Scope to home, profile, space, or explore.",
 	"keywords": [ "buddynext", "feed", "activity", "social" ],

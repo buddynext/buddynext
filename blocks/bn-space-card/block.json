@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/space-card",
 	"title": "Space Card",
+	"icon": "id-alt",
 	"category": "buddynext",
 	"description": "Single space card for featured space callouts.",
 	"keywords": [ "buddynext", "space", "card", "featured" ],

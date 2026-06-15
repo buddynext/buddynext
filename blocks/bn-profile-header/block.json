@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/profile-header",
 	"title": "Profile Header",
+	"icon": "cover-image",
 	"category": "buddynext",
 	"description": "User profile header with avatar, cover photo, name, bio, social links, and follow/connect buttons.",
 	"keywords": [ "buddynext", "profile", "header", "user" ],

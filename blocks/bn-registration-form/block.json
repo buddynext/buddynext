@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/registration-form",
 	"title": "Registration Form",
+	"icon": "forms",
 	"category": "buddynext",
 	"description": "Signup form embeddable on any page.",
 	"keywords": [ "buddynext", "registration", "signup", "form" ],

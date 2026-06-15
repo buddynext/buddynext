@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/follow-button",
 	"title": "Follow Button",
+	"icon": "plus",
 	"category": "buddynext",
 	"description": "Standalone follow/unfollow button for any user.",
 	"keywords": [ "buddynext", "follow", "button", "user" ],

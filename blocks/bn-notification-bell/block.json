@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/notification-bell",
 	"title": "Notification Bell",
+	"icon": "bell",
 	"category": "buddynext",
 	"description": "Bell icon with unread notification count for custom header areas.",
 	"keywords": [ "buddynext", "notifications", "bell", "header" ],

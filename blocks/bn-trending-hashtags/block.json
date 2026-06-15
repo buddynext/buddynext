@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/trending-hashtags",
 	"title": "Trending Hashtags",
+	"icon": "tag",
 	"category": "buddynext",
 	"description": "Displays trending hashtags as a list or tag cloud.",
 	"keywords": [ "buddynext", "hashtags", "trending", "topics" ],

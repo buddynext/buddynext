@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/login-form",
 	"title": "Login Form",
+	"icon": "lock",
 	"category": "buddynext",
 	"description": "Login form wrapping WordPress native authentication.",
 	"keywords": [ "buddynext", "login", "form", "auth" ],

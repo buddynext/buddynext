@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/space-directory",
 	"title": "Space Directory",
+	"icon": "networking",
 	"category": "buddynext",
 	"description": "Filterable grid of community spaces, filterable by category and membership.",
 	"keywords": [ "buddynext", "spaces", "directory", "community" ],

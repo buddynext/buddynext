@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/member-directory",
 	"title": "Member Directory",
+	"icon": "groups",
 	"category": "buddynext",
 	"description": "Full filterable member grid or list with search and filters.",
 	"keywords": [ "buddynext", "members", "directory", "people" ],

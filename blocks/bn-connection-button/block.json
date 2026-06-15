@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/connection-button",
 	"title": "Connection Button",
+	"icon": "networking",
 	"category": "buddynext",
 	"description": "Standalone connect/disconnect button for any user.",
 	"keywords": [ "buddynext", "connection", "button", "user" ],

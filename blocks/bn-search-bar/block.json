@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/search-bar",
 	"title": "Search Bar",
+	"icon": "search",
 	"category": "buddynext",
 	"description": "Unified BuddyNext search input that opens grouped results.",
 	"keywords": [ "buddynext", "search", "bar", "unified" ],

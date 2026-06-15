@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/post-composer",
 	"title": "Post Composer",
+	"icon": "edit",
 	"category": "buddynext",
 	"description": "Post creation box — what's on your mind.",
 	"keywords": [ "buddynext", "post", "composer", "create" ],

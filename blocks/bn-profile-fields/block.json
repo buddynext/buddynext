@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/profile-fields",
 	"title": "Profile Fields",
+	"icon": "forms",
 	"category": "buddynext",
 	"description": "Renders a profile field group such as basic info, work experience, or education.",
 	"keywords": [ "buddynext", "profile", "fields", "info" ],

@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/my-spaces",
 	"title": "My Spaces",
+	"icon": "groups",
 	"category": "buddynext",
 	"description": "Lists the spaces the current user is a member of.",
 	"keywords": [ "buddynext", "spaces", "my-spaces", "membership" ],

@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/profile-completion-bar",
 	"title": "Profile Completion Bar",
+	"icon": "chart-bar",
 	"category": "buddynext",
 	"description": "Profile completion progress bar with prompt cards for incomplete sections.",
 	"keywords": [ "buddynext", "profile", "completion", "progress" ],

@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/header-user-menu",
 	"title": "Header User Menu",
+	"icon": "menu",
 	"category": "buddynext",
 	"description": "Logged-in header section: notification bell, messages icon, and avatar with a profile dropdown + log out. Works as a block-based widget in any theme's header.",
 	"keywords": [ "buddynext", "header", "user", "menu", "avatar", "notifications", "messages" ],

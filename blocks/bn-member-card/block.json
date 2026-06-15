@@ -3,6 +3,7 @@
 	"apiVersion": 3,
 	"name": "buddynext/member-card",
 	"title": "Member Card",
+	"icon": "id",
 	"category": "buddynext",
 	"description": "Single user card with avatar, name, and follow button. Ideal for widgets and sidebars.",
 	"keywords": [ "buddynext", "member", "card", "user", "widget" ],
