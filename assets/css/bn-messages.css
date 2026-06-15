@@ -565,6 +565,8 @@
 	width: 14px;
 	height: 14px;
 	vertical-align: -2px;
+	max-width: none;
+	flex-shrink: 0;
 }
 
 .bn-dm-msg__reaction-count {
@@ -680,6 +682,8 @@
 .bn-dm-msg__react-opt .bn-emoji {
 	width: 20px;
 	height: 20px;
+	max-width: none;
+	flex-shrink: 0;
 }
 
 /* ── Typing indicator ────────────────────────────────────────────────────── */

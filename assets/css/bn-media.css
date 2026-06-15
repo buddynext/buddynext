@@ -274,7 +274,7 @@ body.bn-lightbox-open { overflow: hidden; }
 	border-color: var( --bn-accent, oklch( 58% 0.13 264 ) );
 	background: color-mix( in oklch, var( --bn-accent, oklch( 58% 0.13 264 ) ) 16%, transparent );
 }
-.bn-lightbox__reaction-emoji { width: 20px; height: 20px; display: block; }
+.bn-lightbox__reaction-emoji { width: 20px; height: 20px; display: block; max-width: none; flex-shrink: 0; }
 .bn-lightbox__reaction-count { font-size: var( --bn-text-xs, 0.75rem ); font-weight: 600; color: var( --bn-ink-2, oklch( 40% 0.01 0 ) ); }
 
 /* Action row. */

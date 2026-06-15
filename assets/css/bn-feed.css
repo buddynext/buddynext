@@ -839,12 +839,18 @@
 	display: inline-flex;
 	width: 28px;
 	height: 28px;
+	/* Never let the flex picker compress the emoji to 0. */
+	flex: 0 0 auto;
 }
 .bn-reaction-icon img,
 .bn-reaction-icon svg {
 	width: 28px;
 	height: 28px;
 	display: block;
+	/* Defend against host themes whose global `img { max-width: 100% }`
+	   collapses the emoji inside the flex picker — BN owns its own sizing. */
+	max-width: none;
+	flex-shrink: 0;
 }
 
 /* Letter-glyph fallback for custom (Pro) reactions that ship no SVG — the
@@ -1498,6 +1504,9 @@
 	width: 24px;
 	height: 24px;
 	display: block;
+	/* Same theme-proofing as the post reaction picker. */
+	max-width: none;
+	flex-shrink: 0;
 }
 
 .bn-comment__edit-form {
