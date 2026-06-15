@@ -174,6 +174,8 @@ abstract class AdminPageBase {
 				<span class="bn-tl-desc"><?php echo esc_html( $desc ); ?></span>
 			</div>
 			<label class="bn-toggle<?php echo $value ? ' on' : ''; ?>">
+				<?php // Hidden 0 before the checkbox: an unchecked checkbox is never POSTed, so without this the Settings API skips update_option() and the old value persists. When checked, the checkbox's "1" comes later in the body and wins. ?>
+				<input type="hidden" name="<?php echo esc_attr( $option_name ); ?>" value="0">
 				<input type="checkbox"
 						id="<?php echo esc_attr( $input_id ); ?>"
 						name="<?php echo esc_attr( $option_name ); ?>"
