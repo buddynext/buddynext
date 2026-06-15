@@ -48,6 +48,7 @@ final class NavOverrides {
 		// Run late (20) so admin overrides win over bridge-injected items.
 		add_filter( 'buddynext_rail_items', array( $this, 'apply_rail' ), 20, 2 );
 		add_filter( 'buddynext_part_profile_tab_bar_args', array( $this, 'apply_profile_tabs' ), 20 );
+		add_filter( 'buddynext_space_tabs', array( $this, 'apply_space_tabs' ), 20, 2 );
 	}
 
 	/**
@@ -164,5 +165,59 @@ final class NavOverrides {
 
 		$args['tabs'] = $tabs;
 		return $args;
+	}
+
+	/**
+	 * Apply space-scope overrides to the space detail tab bar.
+	 *
+	 * The buddynext_space_tabs filter passes an associative map keyed by slug
+	 * (slug => { label, count, … }). Hidden tabs are unset, labels replaced, and
+	 * order applied via a key-preserving sort.
+	 *
+	 * @param mixed $tabs     Associative tab map.
+	 * @param int   $space_id Space ID (unused).
+	 * @return array<string,mixed>
+	 */
+	public function apply_space_tabs( $tabs, $space_id = 0 ): array {
+		$tabs = (array) $tabs;
+		$overrides = $this->overrides( 'space' );
+		if ( empty( $overrides ) || empty( $tabs ) ) {
+			return $tabs;
+		}
+
+		$ordered = array();
+		$index   = 0;
+		foreach ( $tabs as $slug => $cfg ) {
+			$cfg = (array) $cfg;
+			$key = sanitize_key( (string) $slug );
+			$cfg['_bn_order'] = ++$index * 10;
+
+			if ( '' !== $key && isset( $overrides[ $key ] ) ) {
+				$ov = (array) $overrides[ $key ];
+				if ( ! empty( $ov['hidden'] ) ) {
+					continue; // Drop hidden tabs.
+				}
+				if ( isset( $ov['label'] ) && '' !== (string) $ov['label'] ) {
+					$cfg['label'] = sanitize_text_field( (string) $ov['label'] );
+				}
+				if ( isset( $ov['order'] ) ) {
+					$cfg['_bn_order'] = max( 1, (int) $ov['order'] );
+				}
+			}
+			$ordered[ $slug ] = $cfg;
+		}
+
+		uasort(
+			$ordered,
+			static fn( array $a, array $b ): int => ( (int) ( $a['_bn_order'] ?? 10 ) ) <=> ( (int) ( $b['_bn_order'] ?? 10 ) )
+		);
+
+		// Strip the internal sort key so it never leaks into the renderer.
+		foreach ( $ordered as &$cfg ) {
+			unset( $cfg['_bn_order'] );
+		}
+		unset( $cfg );
+
+		return $ordered;
 	}
 }
