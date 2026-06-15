@@ -191,10 +191,23 @@ class CertRunner {
 	 * @return array<int,array<string,mixed>>
 	 */
 	private function boot(): array {
-		$rows      = array();
-		$endpoints = isset( $this->manifest['rest']['endpoints'] ) && is_array( $this->manifest['rest']['endpoints'] )
-			? $this->manifest['rest']['endpoints']
-			: array();
+		$rows = array();
+		// Manifest v3 (scanner) stores routes under features.restRoutes with a separate
+		// namespace; the legacy onboard format used rest.endpoints with the full route.
+		// Support both so cert keeps working across the manifest migration.
+		$endpoints = array();
+		if ( isset( $this->manifest['features']['restRoutes'] ) && is_array( $this->manifest['features']['restRoutes'] ) ) {
+			foreach ( $this->manifest['features']['restRoutes'] as $r ) {
+				$ns    = isset( $r['namespace'] ) ? trim( (string) $r['namespace'], '/' ) : '';
+				$route = isset( $r['route'] ) ? '/' . ltrim( (string) $r['route'], '/' ) : '';
+				$endpoints[] = array(
+					'methods' => isset( $r['methods'] ) ? $r['methods'] : array(),
+					'route'   => '/' . $ns . $route,
+				);
+			}
+		} elseif ( isset( $this->manifest['rest']['endpoints'] ) && is_array( $this->manifest['rest']['endpoints'] ) ) {
+			$endpoints = $this->manifest['rest']['endpoints'];
+		}
 
 		foreach ( $endpoints as $e ) {
 			$methods = isset( $e['methods'] ) && is_array( $e['methods'] ) ? $e['methods'] : array();
