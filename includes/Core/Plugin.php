@@ -596,6 +596,10 @@ class Plugin {
 	 * added to the menu via the standard "Add to Menu" button.
 	 */
 	public function render_nav_menu_meta_box(): void {
+		// WP core exposes the active menu id as a global, not a function — the
+		// "Add to Menu" button is disabled until a menu is selected.
+		global $nav_menu_selected_id;
+
 		$pages = array(
 			array(
 				'title' => __( 'Feed', 'buddynext' ),
@@ -686,7 +690,7 @@ class Plugin {
 					</label>
 				</span>
 				<span class="add-to-menu">
-					<input type="submit"<?php wp_nav_menu_disabled_check( nav_menu_selected_id() ); ?> class="button-secondary submit-add-to-menu right" value="<?php esc_attr_e( 'Add to Menu', 'buddynext' ); ?>" name="add-buddynext-pages-menu-item" id="submit-buddynext-pages">
+					<input type="submit"<?php wp_nav_menu_disabled_check( $nav_menu_selected_id ); ?> class="button-secondary submit-add-to-menu right" value="<?php esc_attr_e( 'Add to Menu', 'buddynext' ); ?>" name="add-buddynext-pages-menu-item" id="submit-buddynext-pages">
 				</span>
 			</p>
 		</div>
