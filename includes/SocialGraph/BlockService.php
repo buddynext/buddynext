@@ -101,13 +101,18 @@ class BlockService {
 
 		$this->invalidate_block_cache( $blocker_id, $blocked_id );
 
-		/**
-		 * Fires after a user is unblocked.
-		 *
-		 * @param int $blocker_id ID of the user removing the block.
-		 * @param int $blocked_id ID of the previously blocked user.
-		 */
-		do_action( 'buddynext_unblock', $blocker_id, $blocked_id );
+		if ( $wpdb->rows_affected > 0 ) {
+			/**
+			 * Fires after a user is unblocked.
+			 *
+			 * Only fires when a block row was actually removed, so listeners
+			 * never run for a no-op unblock.
+			 *
+			 * @param int $blocker_id ID of the user removing the block.
+			 * @param int $blocked_id ID of the previously blocked user.
+			 */
+			do_action( 'buddynext_unblock', $blocker_id, $blocked_id );
+		}
 	}
 
 	/**
@@ -144,13 +149,19 @@ class BlockService {
 
 		$this->invalidate_block_cache( $muter_id, $muted_id );
 
-		/**
-		 * Fires after a user mutes another.
-		 *
-		 * @param int $muter_id User doing the muting.
-		 * @param int $muted_id User being muted.
-		 */
-		do_action( 'buddynext_mute', $muter_id, $muted_id );
+		if ( $wpdb->rows_affected > 0 ) {
+			/**
+			 * Fires after a user mutes another.
+			 *
+			 * Only fires when a new mute row was inserted (INSERT IGNORE is a
+			 * no-op when a block/mute already exists), so listeners never run
+			 * for a no-op mute.
+			 *
+			 * @param int $muter_id User doing the muting.
+			 * @param int $muted_id User being muted.
+			 */
+			do_action( 'buddynext_mute', $muter_id, $muted_id );
+		}
 
 		return true;
 	}
@@ -177,13 +188,18 @@ class BlockService {
 
 		$this->invalidate_block_cache( $muter_id, $muted_id );
 
-		/**
-		 * Fires after a mute relationship is removed.
-		 *
-		 * @param int $muter_id User removing the mute.
-		 * @param int $muted_id Previously muted user.
-		 */
-		do_action( 'buddynext_unmute', $muter_id, $muted_id );
+		if ( $wpdb->rows_affected > 0 ) {
+			/**
+			 * Fires after a mute relationship is removed.
+			 *
+			 * Only fires when a mute row was actually removed, so listeners
+			 * never run for a no-op unmute.
+			 *
+			 * @param int $muter_id User removing the mute.
+			 * @param int $muted_id Previously muted user.
+			 */
+			do_action( 'buddynext_unmute', $muter_id, $muted_id );
+		}
 	}
 
 	/**
@@ -221,13 +237,19 @@ class BlockService {
 
 		$this->invalidate_block_cache( $actor_id, $target_id );
 
-		/**
-		 * Fires after a user restricts another.
-		 *
-		 * @param int $actor_id  Actor doing the restricting.
-		 * @param int $target_id User being restricted.
-		 */
-		do_action( 'buddynext_user_restricted', $actor_id, $target_id );
+		if ( $wpdb->rows_affected > 0 ) {
+			/**
+			 * Fires after a user restricts another.
+			 *
+			 * Only fires when a new restrict row was inserted (INSERT IGNORE is
+			 * a no-op when a block/restrict already exists), so listeners never
+			 * run for a no-op restrict.
+			 *
+			 * @param int $actor_id  Actor doing the restricting.
+			 * @param int $target_id User being restricted.
+			 */
+			do_action( 'buddynext_user_restricted', $actor_id, $target_id );
+		}
 
 		return true;
 	}
@@ -254,13 +276,18 @@ class BlockService {
 
 		$this->invalidate_block_cache( $actor_id, $target_id );
 
-		/**
-		 * Fires after a restrict relationship is removed.
-		 *
-		 * @param int $actor_id  Actor.
-		 * @param int $target_id Target.
-		 */
-		do_action( 'buddynext_user_unrestricted', $actor_id, $target_id );
+		if ( $wpdb->rows_affected > 0 ) {
+			/**
+			 * Fires after a restrict relationship is removed.
+			 *
+			 * Only fires when a restrict row was actually removed, so listeners
+			 * never run for a no-op unrestrict.
+			 *
+			 * @param int $actor_id  Actor.
+			 * @param int $target_id Target.
+			 */
+			do_action( 'buddynext_user_unrestricted', $actor_id, $target_id );
+		}
 	}
 
 	/**
