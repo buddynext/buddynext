@@ -344,7 +344,7 @@ do_action( 'buddynext_feed_explore_before', $current_user_id );
 						<p class="bn-feed-empty__text">
 							<?php esc_html_e( 'Be the first to post and start the conversation.', 'buddynext' ); ?>
 						</p>
-						<a href="<?php echo esc_url( PageRouter::activity_url() ); ?>"
+						<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::activity_url() ); ?>"
 							class="bn-btn bn-feed-empty__cta"
 							data-variant="primary">
 							<?php esc_html_e( 'Go to your feed', 'buddynext' ); ?>
