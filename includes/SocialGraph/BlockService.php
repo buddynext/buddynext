@@ -575,6 +575,67 @@ class BlockService {
 	}
 
 	/**
+	 * Resolve every directed block/mute/restrict state for one pair in a
+	 * single query.
+	 *
+	 * The profile view needs is_blocked, is_muted and is_restricted for the
+	 * same (blocker → blocked) direction. Calling has_blocked() / is_muted() /
+	 * is_restricted() separately fires three round-trips; this collapses them
+	 * to one SELECT that returns whichever of the three type rows exist, then
+	 * primes the per-type object cache so a later single-type check is a hit.
+	 *
+	 * @param int $blocker_id ID of the acting user (viewer).
+	 * @param int $blocked_id ID of the target user (profile being viewed).
+	 * @return array{block:bool, mute:bool, restrict:bool}
+	 */
+	public function directed_block_types( int $blocker_id, int $blocked_id ): array {
+		$state = array(
+			'block'    => false,
+			'mute'     => false,
+			'restrict' => false,
+		);
+
+		if ( $blocker_id <= 0 || $blocked_id <= 0 ) {
+			return $state;
+		}
+
+		$cache_key = "directed_types_{$blocker_id}_{$blocked_id}";
+		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$types = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT type
+				 FROM {$wpdb->prefix}bn_blocks
+				 WHERE blocker_id = %d AND blocked_id = %d
+				   AND type IN ( 'block', 'mute', 'restrict' )",
+				$blocker_id,
+				$blocked_id
+			)
+		);
+
+		foreach ( (array) $types as $type ) {
+			if ( isset( $state[ $type ] ) ) {
+				$state[ $type ] = true;
+			}
+		}
+
+		// Prime the per-type object cache so any later has_blocked() /
+		// is_muted() / is_restricted() call for this pair is a cache hit.
+		wp_cache_set( "is_blocked_{$blocker_id}_{$blocked_id}", $state['block'] ? 1 : 0, self::CACHE_GROUP, self::CACHE_TTL );
+		wp_cache_set( "is_muted_{$blocker_id}_{$blocked_id}", $state['mute'] ? 1 : 0, self::CACHE_GROUP, self::CACHE_TTL );
+		wp_cache_set( "is_restricted_{$blocker_id}_{$blocked_id}", $state['restrict'] ? 1 : 0, self::CACHE_GROUP, self::CACHE_TTL );
+		wp_cache_set( $cache_key, $state, self::CACHE_GROUP, self::CACHE_TTL );
+
+		return $state;
+	}
+
+	/**
 	 * Return the list of user IDs muted by the given user.
 	 *
 	 * @param int $user_id The muting user.
@@ -657,6 +718,7 @@ class BlockService {
 		wp_cache_delete( "is_blocked_{$user_a}_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "is_muted_{$user_a}_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "is_restricted_{$user_a}_{$user_b}", self::CACHE_GROUP );
+		wp_cache_delete( "directed_types_{$user_a}_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "blocked_users_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "muted_users_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "restricted_users_{$user_a}", self::CACHE_GROUP );
@@ -665,6 +727,7 @@ class BlockService {
 		wp_cache_delete( "is_blocked_{$user_b}_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "is_muted_{$user_b}_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "is_restricted_{$user_b}_{$user_a}", self::CACHE_GROUP );
+		wp_cache_delete( "directed_types_{$user_b}_{$user_a}", self::CACHE_GROUP );
 		wp_cache_delete( "blocked_users_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "muted_users_{$user_b}", self::CACHE_GROUP );
 		wp_cache_delete( "restricted_users_{$user_b}", self::CACHE_GROUP );

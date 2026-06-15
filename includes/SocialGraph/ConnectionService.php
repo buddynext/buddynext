@@ -348,21 +348,40 @@ class ConnectionService {
 	 * @return string|null One of 'pending', 'accepted', 'declined', 'withdrawn', or null.
 	 */
 	public function status( int $user_a, int $user_b ): ?string {
+		$row = $this->pair_row( $user_a, $user_b );
+
+		return $row ? (string) $row->status : null;
+	}
+
+	/**
+	 * Return the single connection row for a pair, in one cache-backed query.
+	 *
+	 * Unlike status(), this preserves the row's direction (requester_id /
+	 * recipient_id) so a caller can distinguish a pending request the viewer
+	 * SENT from one they RECEIVED without firing a second query. The profile
+	 * view uses this to resolve is_connected, connection_pending and
+	 * connection_received from a single round-trip.
+	 *
+	 * @param int $user_a First user.
+	 * @param int $user_b Second user.
+	 * @return object|null Row with requester_id, recipient_id, status — or null if no row exists.
+	 */
+	public function pair_row( int $user_a, int $user_b ): ?object {
 		global $wpdb;
 
 		$low       = min( $user_a, $user_b );
 		$high      = max( $user_a, $user_b );
-		$cache_key = "status_{$low}_{$high}";
+		$cache_key = "pair_row_{$low}_{$high}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return '' === $cached ? null : (string) $cached;
+			return '' === $cached ? null : $cached;
 		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$result = $wpdb->get_var(
+		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT status
+				"SELECT requester_id, recipient_id, status
 				 FROM {$wpdb->prefix}bn_connections
 				 WHERE ( requester_id = %d AND recipient_id = %d )
 				    OR ( requester_id = %d AND recipient_id = %d )
@@ -375,9 +394,9 @@ class ConnectionService {
 		);
 
 		// Cache empty string as sentinel for "no row found" to distinguish from cache miss (false).
-		wp_cache_set( $cache_key, null !== $result ? $result : '', self::CACHE_GROUP, self::CACHE_TTL );
+		wp_cache_set( $cache_key, null !== $row ? $row : '', self::CACHE_GROUP, self::CACHE_TTL );
 
-		return $result;
+		return $row;
 	}
 
 	/**
@@ -422,7 +441,9 @@ class ConnectionService {
 			$map[ $peer ] = (string) $row->status;
 			$low          = min( $viewer_id, $peer );
 			$high         = max( $viewer_id, $peer );
-			wp_cache_set( "status_{$low}_{$high}", (string) $row->status, self::CACHE_GROUP, self::CACHE_TTL );
+			// Prime the per-pair cache that status() / pair_row() read, so a
+			// later single-pair lookup for any of these peers is a cache hit.
+			wp_cache_set( "pair_row_{$low}_{$high}", $row, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
 		return $map;

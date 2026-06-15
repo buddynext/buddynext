@@ -76,15 +76,23 @@ $is_restricted       = false;
 $degree_badge        = '';
 
 if ( ! $is_own_profile && $current_user_id ) {
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$is_following        = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND following_id = %d", $current_user_id, $user_id ) );
-	$is_connected        = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_connections WHERE ( ( requester_id = %d AND recipient_id = %d ) OR ( requester_id = %d AND recipient_id = %d ) ) AND status = 'accepted'", $current_user_id, $user_id, $user_id, $current_user_id ) );
-	$connection_pending  = ! $is_connected && (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_connections WHERE requester_id = %d AND recipient_id = %d AND status = 'pending'", $current_user_id, $user_id ) );
-	$connection_received = ! $is_connected && ! $connection_pending && (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_connections WHERE requester_id = %d AND recipient_id = %d AND status = 'pending'", $user_id, $current_user_id ) );
-	$is_blocked          = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d AND blocked_id = %d AND type = 'block' LIMIT 1", $current_user_id, $user_id ) );
-	$is_muted            = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d AND blocked_id = %d AND type = 'mute' LIMIT 1", $current_user_id, $user_id ) );
-	$is_restricted       = (bool) $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d AND blocked_id = %d AND type = 'restrict' LIMIT 1", $current_user_id, $user_id ) );
-	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	// Relationship state (viewer → this profile). Previously seven separate
+	// uncached $wpdb->get_var() round-trips; now three cache-backed service
+	// calls: one for the follow edge, one connection row (direction-aware, so
+	// pending-sent vs pending-received is resolved without a second query),
+	// and one batched block/mute/restrict lookup. See HIGH-02 / HIGH-05.
+	$is_following = buddynext_service( 'follows' )->is_following( $current_user_id, $user_id );
+
+	$bn_conn_row        = $bn_conn_svc->pair_row( $current_user_id, $user_id );
+	$bn_conn_status     = $bn_conn_row ? (string) $bn_conn_row->status : '';
+	$is_connected       = 'accepted' === $bn_conn_status;
+	$connection_pending = 'pending' === $bn_conn_status && (int) $bn_conn_row->requester_id === $current_user_id;
+	$connection_received = 'pending' === $bn_conn_status && (int) $bn_conn_row->requester_id === $user_id;
+
+	$bn_block_state = buddynext_service( 'blocks' )->directed_block_types( $current_user_id, $user_id );
+	$is_blocked     = $bn_block_state['block'];
+	$is_muted       = $bn_block_state['mute'];
+	$is_restricted  = $bn_block_state['restrict'];
 
 	// LinkedIn-style degree badge — uses the connections service so the
 	// "2nd-degree" label only fires when there's an actual mutual
