@@ -117,6 +117,10 @@ class Plugin {
 		// deleted (any path: admin, CLI, REST) so no orphans are left behind.
 		( new \BuddyNext\SocialGraph\UserCleanupListener() )->register();
 
+		// Enforce per-space "who can post" + "require approval" at post-save time
+		// (the composer gate alone is bypassable via REST).
+		( new \BuddyNext\Spaces\SpacePostGuard() )->register();
+
 		// Apply the admin-editable capability → required-role overrides on top of
 		// PermissionService's defaults. Registered front + admin (the gate must
 		// change everywhere, not just in wp-admin) via the native role-map filter

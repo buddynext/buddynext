@@ -882,8 +882,22 @@ class SpaceController extends BaseRestController {
 			}
 		}
 
+		// Join routing is driven by the space TYPE (open=direct, private=request,
+		// secret=invite) AND the per-space "Require approval to join" permission
+		// option. When a direct-join (open) space has require_join_approval
+		// enabled, the join is downgraded to a pending request so the owner/mod
+		// must approve it — matching the Permissions panel toggle.
+		$join_method = (string) SpaceTypeRegistry::instance()->join_method( (string) $space['type'] );
+
+		if (
+			'direct' === $join_method
+			&& (bool) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 )
+		) {
+			$join_method = 'request';
+		}
+
 		// Request-to-join types: submit a join request.
-		if ( 'request' === SpaceTypeRegistry::instance()->join_method( (string) $space['type'] ) ) {
+		if ( 'request' === $join_method ) {
 			$current_status = $members->get_status( $space_id, $user_id );
 
 			// If already an active member or has a pending request, treat as success.

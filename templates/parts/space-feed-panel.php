@@ -15,6 +15,7 @@
  * @var int         $space_id       Required. Current space ID.
  * @var int         $viewer_id      Optional. Current user ID. Default 0.
  * @var bool        $is_member      Optional. Viewer is an active member. Default false.
+ * @var bool        $can_post       Optional. Viewer's role satisfies the "Who can post" gate. Default = is_member.
  * @var bool        $is_guest       Optional. Viewer is logged out. Default false.
  * @var bool        $is_pending     Optional. Viewer has pending join request. Default false.
  * @var array       $posts          Optional. List of post arrays for the feed. Default [].
@@ -42,6 +43,9 @@ $args = array(
 	'space_id'     => isset( $space_id ) ? (int) $space_id : 0,
 	'viewer_id'    => isset( $viewer_id ) ? (int) $viewer_id : 0,
 	'is_member'    => isset( $is_member ) ? (bool) $is_member : false,
+	// Default can_post to is_member so callers that don't pass it keep the
+	// pre-existing behaviour (every active member sees the composer).
+	'can_post'     => isset( $can_post ) ? (bool) $can_post : ( isset( $is_member ) ? (bool) $is_member : false ),
 	'is_guest'     => isset( $is_guest ) ? (bool) $is_guest : false,
 	'is_pending'   => isset( $is_pending ) ? (bool) $is_pending : false,
 	'posts'        => isset( $posts ) && is_array( $posts ) ? $posts : array(),
@@ -65,6 +69,7 @@ $bn_space      = $args['space'];
 $bn_space_id   = (int) $args['space_id'];
 $bn_viewer_id  = (int) $args['viewer_id'];
 $bn_is_member  = (bool) $args['is_member'];
+$bn_can_post   = (bool) $args['can_post'];
 $bn_is_guest   = (bool) $args['is_guest'];
 $bn_is_pending = (bool) $args['is_pending'];
 $bn_posts      = (array) $args['posts'];
@@ -92,7 +97,7 @@ if ( '' !== $bn_wrap_class ) {
 }
 ?>
 
-<?php if ( $bn_is_member && $bn_user ) : ?>
+<?php if ( $bn_is_member && $bn_user && $bn_can_post ) : ?>
 	<?php
 	buddynext_get_template(
 		'partials/composer.php',
@@ -102,6 +107,14 @@ if ( '' !== $bn_wrap_class ) {
 		)
 	);
 	?>
+<?php elseif ( $bn_is_member && ! $bn_can_post ) : ?>
+	<div class="bn-card bn-sh-guest-cta">
+		<div class="bn-sh-guest-cta__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>
+		<div class="bn-sh-guest-cta__copy">
+			<p class="bn-sh-guest-cta__title"><?php esc_html_e( 'Posting is restricted', 'buddynext' ); ?></p>
+			<p class="bn-sh-guest-cta__lede"><?php esc_html_e( 'Only the space owner and moderators can post here. You can still react and reply.', 'buddynext' ); ?></p>
+		</div>
+	</div>
 <?php elseif ( $bn_is_guest ) : ?>
 	<div class="bn-card bn-sh-guest-cta">
 		<div class="bn-sh-guest-cta__icon" aria-hidden="true"><?php buddynext_icon( 'log-in' ); ?></div>

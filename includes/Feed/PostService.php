@@ -166,6 +166,16 @@ class PostService {
 
 		$status = $data['status'] ?? 'published';
 
+		// A post created with a future scheduled_at is scheduled, not live — flip
+		// it so it is not published immediately (a held 'pending' post keeps its
+		// status: moderation must clear it before it can go live/scheduled).
+		if ( 'published' === $status
+			&& ! empty( $data['scheduled_at'] )
+			&& strtotime( (string) $data['scheduled_at'] ) > time()
+		) {
+			$status = 'scheduled';
+		}
+
 		// Announcements may carry an optional expiry (UTC). active_announcement()
 		// honours it: NULL = pinned until dismissed, a past time = no longer pinned.
 		$pin_expires = null;

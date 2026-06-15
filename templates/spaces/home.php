@@ -141,6 +141,27 @@ $is_admin_mod = $membership && 'active' === $membership->status && in_array( $me
 $is_pending   = $membership && 'pending' === $membership->status;
 $is_guest     = ( 0 === (int) $current_user_id );
 
+// Posting permission (Permissions panel → "Who can post"): members | mods | owner.
+// A site admin, or any member whose role meets the configured threshold, may post.
+// This drives whether the composer is rendered in the feed panel; the REST
+// endpoint enforces the same rule server-side so the gate is not bypassable.
+$bn_member_role  = ( $membership && 'active' === $membership->status ) ? (string) $membership->role : '';
+$bn_who_can_post = (string) get_option( 'bn_space_' . $space_id . '_who_can_post', 'members' );
+$bn_role_rank    = array(
+	'member'    => 1,
+	'moderator' => 2,
+	'owner'     => 3,
+);
+$bn_required_rank = array(
+	'members' => 1,
+	'mods'    => 2,
+	'owner'   => 3,
+);
+$bn_can_post = $is_member && (
+	current_user_can( 'manage_options' )
+	|| ( $bn_role_rank[ $bn_member_role ] ?? 0 ) >= ( $bn_required_rank[ $bn_who_can_post ] ?? 1 )
+);
+
 // Secret spaces are leak-proof: a logged-out visitor (or any non-member who
 // isn't a site admin) reaches the canonical 404 surface so we never confirm
 // the slug exists. Mirrors the visibility gate enforced by
@@ -173,6 +194,7 @@ if ( ! $gate_feed ) {
 			INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 			LEFT JOIN {$wpdb->usermeta} um ON um.user_id = p.user_id AND um.meta_key = 'buddynext_avatar_url'
 			WHERE p.space_id = %d AND p.is_pinned = 1 AND p.status = 'published'
+				AND ( p.scheduled_at IS NULL OR p.scheduled_at <= NOW() )
 			ORDER BY p.created_at DESC LIMIT 1",
 			$space_id
 		)
@@ -190,6 +212,7 @@ if ( ! $gate_feed ) {
 			INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 			LEFT JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = p.space_id AND sm.user_id = p.user_id
 			WHERE p.space_id = %d AND p.is_pinned = 0 AND p.status = 'published'
+				AND ( p.scheduled_at IS NULL OR p.scheduled_at <= NOW() )
 			ORDER BY p.created_at DESC
 			LIMIT 20",
 			$space_id
@@ -222,6 +245,7 @@ $top_contributors = $wpdb->get_results(
 		FROM {$wpdb->prefix}bn_posts p
 		INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 		WHERE p.space_id = %d AND p.status = 'published'
+			AND ( p.scheduled_at IS NULL OR p.scheduled_at <= NOW() )
 		GROUP BY p.user_id
 		ORDER BY post_count DESC
 		LIMIT 3",
@@ -234,7 +258,7 @@ $top_contributors = $wpdb->get_results(
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $bn_post_count = (int) $wpdb->get_var(
 	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published'",
+		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= NOW() )",
 		$space_id
 	)
 );
@@ -244,7 +268,7 @@ $bn_post_count = (int) $wpdb->get_var(
 $bn_media_count = (int) $wpdb->get_var(
 	$wpdb->prepare(
 		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-		 WHERE space_id = %d AND status = 'published'
+		 WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= NOW() )
 		   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''",
 		$space_id
 	)
@@ -283,7 +307,7 @@ if ( ! empty( $is_admin_mod ) ) {
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $bn_active_count = (int) $wpdb->get_var(
 	$wpdb->prepare(
-		"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published' AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
+		"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= NOW() ) AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
 		$space_id
 	)
 );
@@ -707,7 +731,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$bn_space_media_rows = $wpdb->get_col(
 					$wpdb->prepare(
-						"SELECT media_ids FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND media_ids IS NOT NULL AND media_ids != '' AND status = 'published' ORDER BY created_at DESC LIMIT 60",
+						"SELECT media_ids FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND media_ids IS NOT NULL AND media_ids != '' AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= NOW() ) ORDER BY created_at DESC LIMIT 60",
 						$space_id
 					)
 				);
@@ -805,6 +829,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 					'space_id'     => $space_id,
 					'viewer_id'    => $current_user_id,
 					'is_member'    => $is_member,
+					'can_post'     => $bn_can_post,
 					'is_guest'     => $is_guest,
 					'is_pending'   => $is_pending,
 					'posts'        => $feed_posts,
