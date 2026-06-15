@@ -197,6 +197,10 @@ if ( '' === $bn_rail_active && 'feed' === $hub ) {
 				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'user' ); ?></span>
 				<span class="bn-rail__label"><?php esc_html_e( 'Profile', 'buddynext' ); ?></span>
 			</a>
+			<a href="<?php echo esc_url( PageRouter::edit_profile_url( $bn_rail_current_user ) ); ?>" class="bn-rail__item" title="<?php esc_attr_e( 'Edit Profile', 'buddynext' ); ?>">
+				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'edit' ); ?></span>
+				<span class="bn-rail__label"><?php esc_html_e( 'Edit Profile', 'buddynext' ); ?></span>
+			</a>
 			<?php
 			$bn_bookmarks_url    = PageRouter::bookmarks_url();
 			$bn_bookmarks_active = ( 'feed' === $hub && 'bookmarks' === (string) get_query_var( 'bn_feed_section', '' ) );
@@ -210,7 +214,8 @@ if ( '' === $bn_rail_active && 'feed' === $hub ) {
 				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'bookmark' ); ?></span>
 				<span class="bn-rail__label"><?php esc_html_e( 'Bookmarks', 'buddynext' ); ?></span>
 			</a>
-			<a href="<?php echo esc_url( PageRouter::edit_profile_url() ); ?>" class="bn-rail__item" title="<?php esc_attr_e( 'Settings', 'buddynext' ); ?>">
+			<a href="<?php echo esc_url( PageRouter::settings_url() ); ?>" class="bn-rail__item" title="<?php esc_attr_e( 'Settings', 'buddynext' ); ?>"
+				<?php echo ( 'settings' === $hub || ( 'notifications' === $hub && 'prefs' === (string) get_query_var( 'bn_notif_section', '' ) ) ) ? 'aria-current="page"' : ''; ?>>
 				<span class="bn-rail__icon" aria-hidden="true"><?php buddynext_icon( 'settings' ); ?></span>
 				<span class="bn-rail__label"><?php esc_html_e( 'Settings', 'buddynext' ); ?></span>
 			</a>

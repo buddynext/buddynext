@@ -262,9 +262,15 @@
 	outline-offset: 2px;
 }
 
+/* Selected segment: a raised "pill" on the sunken track — matches the
+   Appearance text-size control (.bn-ep-segmented) so both Settings tabs read
+   the same. Avoids the flat accent fill + the undefined --bn-accent-contrast
+   that left the active label low-contrast. */
 .bn-prefs-chip[aria-pressed="true"] {
-	background: var(--bn-accent);
-	color: var(--bn-accent-contrast);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-semibold);
+	box-shadow: var(--bn-shadow-sm);
 }
 
 /* ── Section 3: Spaces ────────────────────────────────────────────────── */

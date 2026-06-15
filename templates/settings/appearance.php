@@ -18,21 +18,14 @@ if ( ! is_user_logged_in() ) {
 	return;
 }
 
+// NOTE: No light/dark theme control here. Dark mode is owned by the active
+// theme (BuddyX / BuddyX Pro / Reign expose their own color-mode toggle, which
+// BuddyNext follows via the [data-bx-mode="dark"] token bridge). A second BN
+// theme switch would only fight the theme's, so we keep just the BN-specific
+// text-size preference.
 ob_start();
 ?>
 <div class="bn-ep-appearance">
-	<div class="bn-ep-field bn-ep-field--full">
-		<span class="bn-ep-label" id="bn-ep-theme-lbl"><?php esc_html_e( 'Theme', 'buddynext' ); ?></span>
-		<div class="bn-ep-segmented" role="group" aria-labelledby="bn-ep-theme-lbl">
-			<button type="button" class="bn-btn bn-ep-segmented__btn" data-variant="ghost" data-size="sm"
-				data-bn-action="set-theme" data-theme="light"><?php esc_html_e( 'Light', 'buddynext' ); ?></button>
-			<button type="button" class="bn-btn bn-ep-segmented__btn" data-variant="ghost" data-size="sm"
-				data-bn-action="set-theme" data-theme="dark"><?php esc_html_e( 'Dark', 'buddynext' ); ?></button>
-			<button type="button" class="bn-btn bn-ep-segmented__btn" data-variant="ghost" data-size="sm"
-				data-bn-action="set-theme" data-theme="auto"><?php esc_html_e( 'Auto', 'buddynext' ); ?></button>
-		</div>
-		<p class="bn-ep-field-help"><?php esc_html_e( 'Auto follows your system setting and switches when it changes.', 'buddynext' ); ?></p>
-	</div>
 	<div class="bn-ep-field bn-ep-field--full">
 		<span class="bn-ep-label" id="bn-ep-textscale-lbl"><?php esc_html_e( 'Text size', 'buddynext' ); ?></span>
 		<div class="bn-ep-segmented" role="group" aria-labelledby="bn-ep-textscale-lbl">
@@ -43,6 +36,7 @@ ob_start();
 			<button type="button" class="bn-btn bn-ep-segmented__btn" data-variant="ghost" data-size="sm"
 				data-bn-action="set-font-scale" data-scale="120">A++</button>
 		</div>
+		<p class="bn-ep-field-help"><?php esc_html_e( 'Scales BuddyNext text on this device. Light or dark mode is set by your theme.', 'buddynext' ); ?></p>
 	</div>
 </div>
 <?php

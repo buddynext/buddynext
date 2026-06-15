@@ -157,24 +157,11 @@ do_action( 'buddynext_notification_prefs_before', $current_user_id );
 	data-wp-init="callbacks.init">
 
 	<?php
-	// Settings hub chrome — this page is the "Notifications" tab.
+	// Settings hub chrome — this page is the "Notifications" tab. The hub header
+	// (Settings + tabs) replaces a second page title; the active tab already
+	// says where you are, so no redundant "Notification preferences" heading.
 	buddynext_get_template( 'parts/settings-nav.php', array( 'bn_settings_active' => 'notifications' ) );
 	?>
-
-	<header class="bn-section-head">
-		<div class="bn-section-head__lead">
-			<div class="bn-section-head__text">
-				<h1 class="bn-section-head__title"><?php esc_html_e( 'Notification preferences', 'buddynext' ); ?></h1>
-				<p class="bn-section-head__sub"><?php esc_html_e( 'Choose what triggers a notification, where it shows up, and how often you hear about it.', 'buddynext' ); ?></p>
-			</div>
-		</div>
-		<div class="bn-section-head__actions">
-			<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( PageRouter::notifications_url() ); ?>">
-				<?php buddynext_icon( 'chevron-left' ); ?>
-				<?php esc_html_e( 'Back to notifications', 'buddynext' ); ?>
-			</a>
-		</div>
-	</header>
 
 	<!-- Section 1: Channels -->
 	<section class="bn-card bn-prefs-card" data-v2 aria-labelledby="bn-prefs-channels-title">

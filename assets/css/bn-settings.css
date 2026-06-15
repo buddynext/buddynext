@@ -8,8 +8,12 @@
  * shared `.bn-tabs` / `.bn-tab` primitive from bn-base.css.
  */
 
-.bn-settings {
-	max-width: var(--bn-content-max, 880px);
+/* One centered column shared by every Settings tab so they read consistently.
+   The notification matrix needs room, so use the wide content measure; the
+   notifications page (its own interactive wrapper) opts into the same width. */
+.bn-settings,
+.bn-notif-prefs {
+	max-width: var(--bn-content-wide, 1080px);
 	margin-inline: auto;
 }
 
