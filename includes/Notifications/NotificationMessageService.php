@@ -700,14 +700,39 @@ class NotificationMessageService {
 	 * @param int    $object_id Object ID (post / space / etc.).
 	 * @param array  $data      Decoded data payload.
 	 */
-	private function url_for( string $type, int $actor_id, int $object_id, array $data ): string {
+	/**
+	 * Resolve the deep-link URL for a notification email's call-to-action.
+	 *
+	 * Email runs outside any request session, so the recipient is passed in
+	 * explicitly to resolve "me"-relative links (e.g. a received connection
+	 * request opens the recipient's own connections tab). actor_id / object_id
+	 * come from the same data payload the notification was dispatched with.
+	 *
+	 * @param string $type         Notification type slug (e.g. 'bn.new_follower').
+	 * @param int    $recipient_id Email recipient user ID.
+	 * @param array  $data         Notification data payload (sender_id, object_id, ...).
+	 * @return string Absolute deep-link URL, or '' when none resolves.
+	 */
+	public function email_action_url( string $type, int $recipient_id, array $data ): string {
+		$actor_id  = isset( $data['sender_id'] ) ? (int) $data['sender_id'] : 0;
+		$object_id = isset( $data['object_id'] ) ? (int) $data['object_id'] : 0;
+		return $this->url_for( $type, $actor_id, $object_id, $data, $recipient_id );
+	}
+
+	private function url_for( string $type, int $actor_id, int $object_id, array $data, int $viewer_id = 0 ): string {
+		// "Me"-relative deep links (a received request, your own moderation
+		// record, your badge) resolve against the viewer. In-app rendering runs
+		// as the recipient so get_current_user_id() is right; email/cron has no
+		// current user, so the caller passes the recipient explicitly.
+		$viewer_id = $viewer_id > 0 ? $viewer_id : get_current_user_id();
+
 		switch ( $type ) {
 			case 'bn.connection_requested':
 				// A received request: open the RECIPIENT's own connections tab
 				// (where the pending request is reviewed/accepted), not the
 				// requester's profile. The recipient is the user viewing the
 				// notification.
-				$me = get_current_user_id();
+				$me = $viewer_id;
 				return $me > 0 ? PageRouter::connections_url( $me ) : '';
 
 			case 'bn.new_follower':
@@ -761,12 +786,12 @@ class NotificationMessageService {
 			case 'bn.appeal_submitted':
 			case 'bn.appeal_resolved':
 			case 'bn.report_resolved':
-				$me = get_current_user_id();
+				$me = $viewer_id;
 				return $me > 0 ? PageRouter::profile_url( $me ) : '';
 
 			case 'bn.badge_awarded':
 			case 'bn.level_up':
-				$me = get_current_user_id();
+				$me = $viewer_id;
 				return $me > 0 ? PageRouter::profile_url( $me ) : '';
 
 			case 'bn.onboarding_nudge':

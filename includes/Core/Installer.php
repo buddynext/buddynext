@@ -50,6 +50,7 @@ class Installer {
 
 		self::maybe_alter_tables( $wpdb->prefix );
 		self::seed_email_templates( $wpdb->prefix );
+		self::migrate_email_action_links( $wpdb->prefix );
 		self::seed_default_profile_groups_and_fields( $wpdb->prefix );
 
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
@@ -86,61 +87,61 @@ class Installer {
 				'type'         => 'bn.new_follower',
 				'subject'      => 'Someone followed you on {{site_name}}',
 				'preview_text' => 'You have a new follower',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new follower on {{site_name}}. <a href="{{site_url}}">See who it is.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new follower on {{site_name}}. <a href="{{action_url}}">See who it is.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.connection_requested',
 				'subject'      => 'New connection request on {{site_name}}',
 				'preview_text' => 'Someone wants to connect with you',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new connection request on {{site_name}}. <a href="{{site_url}}">View the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new connection request on {{site_name}}. <a href="{{action_url}}">View the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.connection_accepted',
 				'subject'      => 'Connection accepted on {{site_name}}',
 				'preview_text' => 'You are now connected',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your connection request was accepted on {{site_name}}. <a href="{{site_url}}">View your connections.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your connection request was accepted on {{site_name}}. <a href="{{action_url}}">View your connections.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.mention',
 				'subject'      => 'You were mentioned on {{site_name}}',
 				'preview_text' => 'Someone mentioned you in a post',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You were mentioned in a post on {{site_name}}. <a href="{{site_url}}">See the post.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You were mentioned in a post on {{site_name}}. <a href="{{action_url}}">See the post.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.post_reacted',
 				'subject'      => 'Someone reacted to your post on {{site_name}}',
 				'preview_text' => 'New reaction on your post',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post received a reaction on {{site_name}}. <a href="{{site_url}}">See the reactions.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post received a reaction on {{site_name}}. <a href="{{action_url}}">See the reactions.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.post_commented',
 				'subject'      => 'New comment on your post — {{site_name}}',
 				'preview_text' => 'Someone commented on your post',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post received a new comment on {{site_name}}. <a href="{{site_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post received a new comment on {{site_name}}. <a href="{{action_url}}">View the comment.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.post_shared',
 				'subject'      => 'Your post was shared on {{site_name}}',
 				'preview_text' => 'Someone shared your post',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post was shared on {{site_name}}. <a href="{{site_url}}">View the share.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your post was shared on {{site_name}}. <a href="{{action_url}}">View the share.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.space_invite',
 				'subject'      => 'You have been invited to a space on {{site_name}}',
 				'preview_text' => 'Join this community space',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You have been invited to join a space on {{site_name}}. <a href="{{site_url}}">View the invitation.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You have been invited to join a space on {{site_name}}. <a href="{{action_url}}">View the invitation.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.space_join_requested',
 				'subject'      => 'New join request for your space — {{site_name}}',
 				'preview_text' => 'A member wants to join your space',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>A new member has requested to join your space on {{site_name}}. <a href="{{site_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>A new member has requested to join your space on {{site_name}}. <a href="{{action_url}}">Review the request.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.space_request_approved',
 				'subject'      => 'Your space join request was approved — {{site_name}}',
 				'preview_text' => 'Welcome to the space',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your request to join a space on {{site_name}} has been approved. <a href="{{site_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your request to join a space on {{site_name}} has been approved. <a href="{{action_url}}">Visit the space.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.strike_issued',
@@ -152,19 +153,19 @@ class Installer {
 				'type'         => 'bn.badge_awarded',
 				'subject'      => 'You earned a badge on {{site_name}}!',
 				'preview_text' => 'Congratulations on your new badge',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Congratulations! You earned a new badge on {{site_name}}. <a href="{{site_url}}">View your profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Congratulations! You earned a new badge on {{site_name}}. <a href="{{action_url}}">View your profile.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.level_up',
 				'subject'      => 'You levelled up on {{site_name}}!',
 				'preview_text' => 'Your community level increased',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>You have reached a new level on {{site_name}}. <a href="{{site_url}}">See your new level.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You have reached a new level on {{site_name}}. <a href="{{action_url}}">See your new level.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.jetonomy_reply',
 				'subject'      => 'New reply to your discussion — {{site_name}}',
 				'preview_text' => 'Someone replied to your discussion',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Your discussion received a new reply on {{site_name}}. <a href="{{site_url}}">View the reply.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your discussion received a new reply on {{site_name}}. <a href="{{action_url}}">View the reply.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.strike_warning',
@@ -188,13 +189,13 @@ class Installer {
 				'type'         => 'bn.daily_digest',
 				'subject'      => 'Your daily digest from {{site_name}}',
 				'preview_text' => 'Here\'s what happened on {{site_name}} today',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Here\'s a summary of your notifications from today on <a href="{{site_url}}">{{site_name}}</a>:</p>{{notification_list}}<p><a href="{{unsubscribe_url}}">Unsubscribe from digest emails</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Here\'s a summary of your notifications from today on <a href="{{action_url}}">{{site_name}}</a>:</p>{{notification_list}}<p><a href="{{unsubscribe_url}}">Unsubscribe from digest emails</a></p>',
 			),
 			array(
 				'type'         => 'bn.weekly_digest',
 				'subject'      => 'Your weekly digest from {{site_name}}',
 				'preview_text' => 'Here\'s your weekly round-up from {{site_name}}',
-				'body_html'    => '<p>Hi {{user_name}},</p><p>Here\'s a summary of your notifications from this week on <a href="{{site_url}}">{{site_name}}</a>:</p>{{notification_list}}<p><a href="{{unsubscribe_url}}">Unsubscribe from digest emails</a></p>',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Here\'s a summary of your notifications from this week on <a href="{{action_url}}">{{site_name}}</a>:</p>{{notification_list}}<p><a href="{{unsubscribe_url}}">Unsubscribe from digest emails</a></p>',
 			),
 			array(
 				'type'         => 'bn.bulk_invite',
@@ -225,6 +226,38 @@ class Installer {
 			);
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Point existing notification email CTA links at the deep-link token.
+	 *
+	 * Older installs seeded every notification template's call-to-action as
+	 * <a href="{{site_url}}"> — which always landed on the home page instead of
+	 * the relevant profile / request / post. EmailSender now resolves
+	 * {{action_url}} per type, so rewrite the link href in place. Only the href
+	 * token is touched (admin copy edits are preserved) and the 'welcome'
+	 * template is left alone (its {{site_url}} link is intentional). Idempotent:
+	 * once rewritten there is nothing left to match.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function migrate_email_action_links( string $p ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE `{$p}bn_email_templates`
+				 SET body_html = REPLACE( body_html, %s, %s )
+				 WHERE type <> %s
+				   AND body_html LIKE %s",
+				'href="{{site_url}}"',
+				'href="{{action_url}}"',
+				'welcome',
+				'%href="{{site_url}}"%'
+			)
+		);
 	}
 
 	/**

@@ -212,9 +212,19 @@ class EmailSender {
 		$actor_id   = isset( $data['sender_id'] ) ? (int) $data['sender_id'] : 0;
 		$actor_name = $actor_id > 0 ? $this->get_display_name( $actor_id ) : '';
 
+		// Deep link for the email's call-to-action ("See who it is", "View the
+		// request", "See the post"). Resolved per notification type against the
+		// recipient; falls back to the site home when no specific target exists
+		// so the link is never empty.
+		$action_url = ( new NotificationMessageService() )->email_action_url( $notification_type, $user_id, $data );
+		if ( '' === $action_url ) {
+			$action_url = home_url( '/' );
+		}
+
 		$tokens = array(
 			'{{site_name}}'            => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
 			'{{site_url}}'             => esc_url( home_url( '/' ) ),
+			'{{action_url}}'           => esc_url( $action_url ),
 			'{{user_name}}'            => $this->get_display_name( $user_id ),
 			'{{actor_name}}'           => $actor_name,
 			'{{notification_message}}' => (string) ( $data['message'] ?? '' ),
