@@ -890,8 +890,8 @@ class PageRouter {
 
 			case 'settings':
 				$settings_section = (string) get_query_var( 'bn_settings_section', '' );
-				if ( ! in_array( $settings_section, array( 'appearance' ), true ) ) {
-					$settings_section = 'appearance';
+				if ( ! in_array( $settings_section, array( 'account', 'privacy', 'appearance' ), true ) ) {
+					$settings_section = 'account';
 				}
 				return 'settings/' . $settings_section . '.php';
 
@@ -1177,10 +1177,7 @@ class PageRouter {
 	 * @return void
 	 */
 	private function register_settings_rules(): void {
-		// Sections that have migrated into the hub. Account + Privacy still live
-		// on the profile editor (their controls are bound to its save flow) and
-		// will move here in a later pass; the tab strip only links what is ready.
-		foreach ( array( 'appearance' ) as $section ) {
+		foreach ( array( 'account', 'privacy', 'appearance' ) as $section ) {
 			add_rewrite_rule(
 				'^settings/' . $section . '/?$',
 				'index.php?bn_hub=settings&bn_settings_section=' . $section,
@@ -1188,11 +1185,10 @@ class PageRouter {
 			);
 		}
 
-		// `/settings/` lands on the Notifications tab (its canonical route is
-		// /settings/notifications/, registered with the notifications hub).
+		// `/settings/` lands on the Account tab.
 		add_rewrite_rule(
 			'^settings/?$',
-			'index.php?bn_hub=notifications&bn_notif_section=prefs',
+			'index.php?bn_hub=settings&bn_settings_section=account',
 			'top'
 		);
 	}

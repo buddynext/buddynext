@@ -393,13 +393,24 @@ function collectRepeaterEntries( containerId ) {
 	return entries;
 }
 
-/* Build full save payload: flat fields + repeater groups. */
+/* Build save payload: flat fields + the section groups that are actually on the
+   page. The buddynext/profile store now drives partial surfaces too (the Privacy
+   settings tab renders only its own fields), so interests / work / education are
+   included ONLY when their UI is present — otherwise a partial save would send
+   empty values and wipe sections the page never rendered. The REST endpoint
+   updates just the keys it receives. */
 function buildPayload( ctx ) {
 	var wrap = document.querySelector( '[data-wp-interactive="buddynext/profile"]' );
 	var data = collectFlatData( wrap );
-	data.interests       = ctx.interests.join( ',' );
-	data.work_experience = collectRepeaterEntries( 'bn-ep-work-entries' );
-	data.education       = collectRepeaterEntries( 'bn-ep-edu-entries' );
+	if ( Array.isArray( ctx.interests ) ) {
+		data.interests = ctx.interests.join( ',' );
+	}
+	if ( document.getElementById( 'bn-ep-work-entries' ) ) {
+		data.work_experience = collectRepeaterEntries( 'bn-ep-work-entries' );
+	}
+	if ( document.getElementById( 'bn-ep-edu-entries' ) ) {
+		data.education = collectRepeaterEntries( 'bn-ep-edu-entries' );
+	}
 	return data;
 }
 

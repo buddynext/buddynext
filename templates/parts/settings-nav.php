@@ -17,10 +17,10 @@ use BuddyNext\Core\PageRouter;
 
 $bn_settings_active = isset( $bn_settings_active ) ? (string) $bn_settings_active : 'account';
 
-// Only sections that have fully migrated into the hub are linked. Account +
-// Privacy remain on the profile editor until their save flow is moved here.
 $bn_settings_tabs = array(
+	'account'       => __( 'Account', 'buddynext' ),
 	'notifications' => __( 'Notifications', 'buddynext' ),
+	'privacy'       => __( 'Privacy', 'buddynext' ),
 	'appearance'    => __( 'Appearance', 'buddynext' ),
 );
 ?>
