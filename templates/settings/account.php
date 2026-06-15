@@ -99,7 +99,7 @@ $profile_url   = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 			outside any form — this page has none.
 		-->
 		<div class="bn-modal-backdrop bn-ep-delete-backdrop" role="dialog" aria-modal="true"
-			aria-labelledby="bn-ep-delete-title" data-wp-bind--hidden="!context.deleteOpen">
+			aria-labelledby="bn-ep-delete-title" hidden data-wp-bind--hidden="!context.deleteOpen">
 			<div class="bn-modal__panel" data-tone="danger" data-size="sm">
 				<header class="bn-modal__head">
 					<h2 class="bn-modal__title" id="bn-ep-delete-title"><?php esc_html_e( 'Delete account?', 'buddynext' ); ?></h2>

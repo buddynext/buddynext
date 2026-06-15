@@ -24,6 +24,7 @@ $display_name = isset( $display_name ) ? (string) $display_name : '';
 	role="dialog"
 	aria-modal="true"
 	aria-labelledby="bn-pf-block-title"
+	hidden
 	data-wp-bind--hidden="!context.blockConfirmOpen">
 	<div class="bn-modal__panel" data-tone="danger" data-size="sm">
 		<header class="bn-modal__head">

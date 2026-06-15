@@ -33,6 +33,7 @@ $reasons = array(
 	role="dialog"
 	aria-modal="true"
 	aria-labelledby="bn-pf-report-title"
+	hidden
 	data-wp-bind--hidden="!context.reportOpen">
 	<div class="bn-modal__panel" data-size="sm">
 		<header class="bn-modal__head">
