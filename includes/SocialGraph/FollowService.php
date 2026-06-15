@@ -458,9 +458,13 @@ class FollowService {
 	 * Candidates are users followed by people the given user already follows,
 	 * excluding the requesting user and accounts they already follow.
 	 *
-	 * Each second-degree lookup re-uses the cache-backed following() method,
-	 * keeping DB load low. This also avoids MySQL's "Can't reopen table"
-	 * restriction on TEMPORARY tables (used by the WP test suite).
+	 * The viewer's own following list comes from the cache-backed following()
+	 * (one query, usually cached). The second-degree lookup is then a single
+	 * query that scans bn_follows once — `follower_id IN (friends)` minus the
+	 * exclusion set — instead of one following() call per friend. This removes
+	 * the old N+1 (1 + one query per followed user) while keeping the query to
+	 * a single table reference, so it stays clear of MySQL's "Can't reopen
+	 * table" restriction on the WP test suite's tables.
 	 *
 	 * @param int $user_id The user requesting suggestions.
 	 * @return int[]
@@ -472,14 +476,28 @@ class FollowService {
 			return array();
 		}
 
-		$candidates = array();
-		foreach ( $following as $friend_id ) {
-			foreach ( $this->following( $friend_id ) as $candidate_id ) {
-				$candidates[] = $candidate_id;
-			}
-		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_follows';
 
-		return array_values( array_diff( array_unique( $candidates ), $following, array( $user_id ) ) );
+		// Already-followed accounts + self are excluded from the candidate set.
+		$exclude        = array_merge( $following, array( $user_id ) );
+		$friends_ph     = implode( ', ', array_fill( 0, count( $following ), '%d' ) );
+		$exclude_ph     = implode( ', ', array_fill( 0, count( $exclude ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT following_id
+				 FROM {$table}
+				 WHERE follower_id IN ({$friends_ph})
+				   AND status = 'approved'
+				   AND following_id NOT IN ({$exclude_ph})",
+				array_merge( $following, $exclude )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array_map( 'intval', (array) $rows );
 	}
 
 	/**
