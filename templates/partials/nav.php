@@ -122,6 +122,13 @@ if ( $bn_nav_current_user ) :
 	// Nav\NavOverrides::apply_mobile_items(). The centre Create button and the
 	// Profile shortcut are not nav tabs, so they are never overridable, and the
 	// slot order is fixed (the centre Create button must stay centred).
+	// Hide the Spaces slot when the feature is off (the Spaces page itself is
+	// already guarded by PageRouter), so the bottom bar never links to a
+	// disabled surface.
+	$bn_spaces_enabled = ! function_exists( 'buddynext_service' )
+		|| ! is_object( buddynext_service( 'features' ) )
+		|| buddynext_service( 'features' )->is_enabled( 'spaces' );
+
 	$bn_mobile_items = array(
 		array(
 			'key'   => 'feed',
@@ -135,7 +142,7 @@ if ( $bn_nav_current_user ) :
 			'url'   => $bn_nav_urls['spaces'],
 			'icon'  => 'hash',
 			'label' => __( 'Spaces', 'buddynext' ),
-			'show'  => true,
+			'show'  => $bn_spaces_enabled,
 		),
 		array(
 			'key'   => 'create',

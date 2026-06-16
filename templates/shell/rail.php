@@ -66,6 +66,13 @@ if ( $bn_rail_current_user ) {
 	}
 }
 
+// The Spaces page itself is already guarded (PageRouter redirects when the
+// feature is off); hide its rail entry too so the nav doesn't link to a
+// disabled surface.
+$bn_spaces_enabled = ! function_exists( 'buddynext_service' )
+	|| ! is_object( buddynext_service( 'features' ) )
+	|| buddynext_service( 'features' )->is_enabled( 'spaces' );
+
 $bn_rail_items = array(
 	array(
 		'key'   => 'feed',
@@ -93,7 +100,7 @@ $bn_rail_items = array(
 		'label' => __( 'Spaces', 'buddynext' ),
 		'url'   => PageRouter::spaces_url(),
 		'icon'  => 'hash',
-		'show'  => true,
+		'show'  => $bn_spaces_enabled,
 	),
 	array(
 		'key'   => 'notifications',
