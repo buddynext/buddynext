@@ -41,9 +41,16 @@ global $wpdb;
 // Sanitize query input.
 $raw_query = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( $_GET['q'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
+// Respect the Hashtags feature: with it off, search exposes no hashtag tab,
+// runs no hashtag query, and a bookmarked ?type=hashtags URL falls back to All.
+$bn_hashtags_on = buddynext_feature_enabled( 'hashtags' );
+
 // Allowed tabs.
 $allowed_tabs = array( 'all', 'members', 'posts', 'spaces', 'hashtags', 'media' );
-$active_tab   = isset( $_GET['type'] ) ? sanitize_key( wp_unslash( $_GET['type'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+if ( ! $bn_hashtags_on ) {
+	$allowed_tabs = array_values( array_diff( $allowed_tabs, array( 'hashtags' ) ) );
+}
+$active_tab = isset( $_GET['type'] ) ? sanitize_key( wp_unslash( $_GET['type'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 // Accept legacy "people" alias from older bookmarks.
 if ( 'people' === $active_tab ) {
 	$active_tab = 'members';
@@ -203,8 +210,9 @@ if ( '' !== $raw_query ) {
 		$total_counts['spaces'] = (int) ( $bn_res['total'] ?? count( $results_spaces ) );
 	}
 
-	// Hashtags: name match via bn_hashtags slug.
-	{
+	// Hashtags: name match via bn_hashtags slug. Skipped when the feature is off
+	// ($results_hashtags + total stay at their empty defaults).
+	if ( $bn_hashtags_on ) {
 		$tag_q    = ltrim( $raw_query, '#' );
 		$like_tag = '%' . $wpdb->esc_like( $tag_q ) . '%';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -353,6 +361,9 @@ $type_tabs = array(
 		'count' => $total_counts['media'],
 	),
 );
+if ( ! $bn_hashtags_on ) {
+	unset( $type_tabs['hashtags'] );
+}
 ?>
 
 <?php
@@ -495,7 +506,7 @@ $bn_search_ctx = array(
 
 				<!-- Hashtags section -->
 				<?php
-				if ( 'all' === $active_tab || 'hashtags' === $active_tab ) {
+				if ( $bn_hashtags_on && ( 'all' === $active_tab || 'hashtags' === $active_tab ) ) {
 					buddynext_get_template(
 						'parts/search-result-section-hashtags.php',
 						array(
