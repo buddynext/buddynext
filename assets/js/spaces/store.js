@@ -1018,7 +1018,8 @@ var storeInstance = store( 'buddynext/spaces', {
 		},
 
 		/**
-		 * Ban a member via POST /spaces/{id}/ban/{user}.
+		 * Ban a member via POST /spaces/{id}/bans (canonical plural route;
+		 * user_id travels in the JSON body).
 		 *
 		 * @param {Event} event Click on a `[data-bn-member-ban]` button.
 		 */
@@ -1032,9 +1033,13 @@ var storeInstance = store( 'buddynext/spaces', {
 			if ( row ) { row.style.opacity = '0.4'; }
 			btn.disabled = true;
 			try {
-				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/ban/' + userId ), {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/bans' ), {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': resolveNonce() },
+					headers: {
+						'X-WP-Nonce':   resolveNonce(),
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify( { user_id: parseInt( userId, 10 ) } ),
 				} );
 				if ( res.ok ) {
 					if ( row ) { row.parentNode && row.parentNode.removeChild( row ); }

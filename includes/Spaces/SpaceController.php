@@ -14,7 +14,10 @@
  *   POST   /spaces/{id}/leave                   — leave a space (auth required)
  *   POST   /spaces/{id}/invite                  — invite a user (owner/mod only)
  *   POST   /spaces/{id}/approve-request         — approve a pending request (owner/mod only)
- *   POST   /spaces/{id}/ban                     — ban a member (owner/mod only)
+ *
+ * Space bans live on the canonical plural routes in ModerationController
+ * (POST/GET /spaces/{id}/bans, DELETE /spaces/{id}/bans/{user_id}); the old
+ * singular /ban routes that duplicated them were removed.
  *
  * Join semantics by space type:
  *   Open    → status='active' immediately, returns {joined: true}
@@ -179,33 +182,6 @@ class SpaceController extends BaseRestController {
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'approve_request' ),
 				'permission_callback' => array( $this, 'require_auth' ),
-			)
-		);
-
-		register_rest_route(
-			'buddynext/v1',
-			'/spaces/(?P<id>[\d]+)/ban',
-			array(
-				'methods'             => 'POST',
-				'callback'            => array( $this, 'ban_member' ),
-				'permission_callback' => array( $this, 'require_auth' ),
-			)
-		);
-
-		register_rest_route(
-			'buddynext/v1',
-			'/spaces/(?P<id>[\d]+)/ban/(?P<user_id>[\d]+)',
-			array(
-				array(
-					'methods'             => 'POST',
-					'callback'            => array( $this, 'ban_user' ),
-					'permission_callback' => array( $this, 'require_auth' ),
-				),
-				array(
-					'methods'             => 'DELETE',
-					'callback'            => array( $this, 'unban_user' ),
-					'permission_callback' => array( $this, 'require_auth' ),
-				),
 			)
 		);
 
@@ -1106,142 +1082,6 @@ class SpaceController extends BaseRestController {
 		}
 
 		return new WP_REST_Response( array( 'declined' => true ), 200 );
-	}
-
-	/**
-	 * Ban a member from a space.
-	 *
-	 * @param WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function ban_member( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$space_id = (int) $request->get_param( 'id' );
-		$actor_id = get_current_user_id();
-		$user_id  = absint( $request->get_param( 'user_id' ) );
-
-		if ( 0 === $user_id ) {
-			return new WP_Error(
-				'missing_user_id',
-				__( 'A user_id parameter is required.', 'buddynext' ),
-				array( 'status' => 400 )
-			);
-		}
-
-		$space = ( new SpaceService() )->get( $space_id );
-
-		if ( null === $space ) {
-			return new WP_Error(
-				'space_not_found',
-				__( 'Space not found.', 'buddynext' ),
-				array( 'status' => 404 )
-			);
-		}
-
-		$result = ( new SpaceMemberService() )->ban( $space_id, $actor_id, $user_id );
-
-		if ( is_wp_error( $result ) ) {
-			$result->add_data( array( 'status' => 403 ) );
-			return $result;
-		}
-
-		return new WP_REST_Response( array( 'banned' => true ), 200 );
-	}
-
-	/**
-	 * Ban a user from a space via POST /spaces/{id}/ban/{user_id}.
-	 *
-	 * Requires buddynext-moderate-space on the acting user. Inserts a hard ban
-	 * row into bn_space_bans and removes any active membership row.
-	 *
-	 * @param WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function ban_user( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$space_id    = (int) $request->get_param( 'id' );
-		$ban_user_id = (int) $request->get_param( 'user_id' );
-		$actor_id    = get_current_user_id();
-
-		if ( 0 === $ban_user_id ) {
-			return new WP_Error(
-				'missing_user_id',
-				__( 'A valid user_id is required.', 'buddynext' ),
-				array( 'status' => 400 )
-			);
-		}
-
-		$space = ( new SpaceService() )->get( $space_id );
-
-		if ( null === $space ) {
-			return new WP_Error(
-				'space_not_found',
-				__( 'Space not found.', 'buddynext' ),
-				array( 'status' => 404 )
-			);
-		}
-
-		if ( ! buddynext_can( $actor_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) ) ) {
-			return new WP_Error(
-				'rest_forbidden',
-				__( 'You do not have permission to moderate this space.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
-		}
-
-		$reason_param = $request->get_param( 'reason' );
-		$reason       = null !== $reason_param ? sanitize_textarea_field( (string) $reason_param ) : '';
-
-		$result = ( new SpaceMemberService() )->ban_from_space( $space_id, $ban_user_id, $actor_id, $reason );
-
-		if ( is_wp_error( $result ) ) {
-			return $result;
-		}
-
-		return new WP_REST_Response( array( 'banned' => true ), 200 );
-	}
-
-	/**
-	 * Unban a user from a space via DELETE /spaces/{id}/ban/{user_id}.
-	 *
-	 * Requires buddynext-moderate-space on the acting user. Removes the hard
-	 * ban row from bn_space_bans; does not reinstate membership.
-	 *
-	 * @param WP_REST_Request $request Incoming request.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function unban_user( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$space_id    = (int) $request->get_param( 'id' );
-		$ban_user_id = (int) $request->get_param( 'user_id' );
-		$actor_id    = get_current_user_id();
-
-		if ( 0 === $ban_user_id ) {
-			return new WP_Error(
-				'missing_user_id',
-				__( 'A valid user_id is required.', 'buddynext' ),
-				array( 'status' => 400 )
-			);
-		}
-
-		$space = ( new SpaceService() )->get( $space_id );
-
-		if ( null === $space ) {
-			return new WP_Error(
-				'space_not_found',
-				__( 'Space not found.', 'buddynext' ),
-				array( 'status' => 404 )
-			);
-		}
-
-		if ( ! buddynext_can( $actor_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) ) ) {
-			return new WP_Error(
-				'rest_forbidden',
-				__( 'You do not have permission to moderate this space.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
-		}
-
-		( new SpaceMemberService() )->unban_from_space( $space_id, $ban_user_id );
-
-		return new WP_REST_Response( array( 'unbanned' => true ), 200 );
 	}
 
 	/**
