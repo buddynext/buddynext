@@ -1866,6 +1866,15 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-avatar[data-presence="dnd"]::after     { background: var(--bn-danger); }
 .bn-avatar[data-presence="offline"]::after { background: var(--bn-ink-4); }
 
+/* The presence dot sits on the avatar's bottom-right edge, so the avatar's
+   circular overflow clip (base .bn-avatar, [data-size], and .bn-md-card__avatar
+   all set overflow:hidden) cut off the dot's inner half. Opt presence avatars
+   out of the clip and round the image itself so it stays circular. This
+   [data-presence] rule outranks .bn-md-card__avatar and, by source order,
+   .bn-avatar[data-size]. */
+.bn-avatar[data-presence] { overflow: visible; }
+.bn-avatar[data-presence] img { border-radius: var(--r-full); }
+
 /* ── Card — v2 attribute API ────────────────────────────────────────── */
 .bn-card[data-v2],
 .bn-card[data-interactive] {
