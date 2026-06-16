@@ -753,6 +753,15 @@ class AuthController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function resend_verification(): WP_REST_Response|WP_Error {
+		// Email Verification feature off: the endpoint has nothing to do.
+		if ( ! buddynext_feature_enabled( 'verification' ) ) {
+			return new WP_Error(
+				'buddynext_verification_disabled',
+				__( 'Email verification is not enabled on this community.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		$user_id = get_current_user_id();
 		$svc     = new VerificationService();
 		$result  = $svc->resend( $user_id );
@@ -774,11 +783,30 @@ class AuthController {
 	 * @return WP_REST_Response
 	 */
 	public function verification_status(): WP_REST_Response {
+		// Email Verification feature off: there is no "unverified" state, so the
+		// caller should treat every account as cleared rather than gating on a
+		// subsystem the owner disabled.
+		if ( ! buddynext_feature_enabled( 'verification' ) ) {
+			return new WP_REST_Response(
+				array(
+					'verified' => true,
+					'enabled'  => false,
+				),
+				200
+			);
+		}
+
 		$user_id  = get_current_user_id();
 		$svc      = new VerificationService();
 		$verified = $svc->is_verified( $user_id );
 
-		return new WP_REST_Response( array( 'verified' => $verified ), 200 );
+		return new WP_REST_Response(
+			array(
+				'verified' => $verified,
+				'enabled'  => true,
+			),
+			200
+		);
 	}
 
 	/**

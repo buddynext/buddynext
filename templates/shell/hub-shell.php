@@ -48,9 +48,16 @@ ob_start();
 buddynext_get_template( (string) $inner_template, $context );
 $bn_main_html = (string) ob_get_clean();
 
-$show_right_sidebar = ! empty( $show_right_sidebar )
-	|| ! empty( $context['show_right_sidebar'] )
-	|| has_action( 'buddynext_right_sidebar' );
+// The right sidebar belongs to the toggleable Sidebar feature (FeatureRegistry
+// 'sidebar', default-on). When the owner turns it off the whole right column is
+// suppressed here — without this gate has_action() stays true (widgets register
+// unconditionally) and the column renders empty cards + empty-state messages.
+$show_right_sidebar = buddynext_feature_enabled( 'sidebar' )
+	&& (
+		! empty( $show_right_sidebar )
+		|| ! empty( $context['show_right_sidebar'] )
+		|| has_action( 'buddynext_right_sidebar' )
+	);
 
 $bn_shell_classes = 'bn-app__shell';
 if ( $show_right_sidebar ) {

@@ -49,13 +49,33 @@ class VerificationListener implements ListenerInterface {
 	}
 
 	/**
+	 * Whether the Email Verification feature is active.
+	 *
+	 * The FeatureRegistry 'verification' toggle is the master switch: when the
+	 * owner turns it off the entire verification subsystem is inert, regardless
+	 * of the buddynext_email_verify sub-setting (which Settings only surfaces
+	 * while this feature is on). Gating every entry point on this one accessor
+	 * keeps the contract in a single place.
+	 *
+	 * @return bool
+	 */
+	private function feature_active(): bool {
+		return buddynext_feature_enabled( 'verification' );
+	}
+
+	/**
 	 * Create and send a verification token when a new user registers.
 	 *
-	 * Only fires when the buddynext_email_verify setting is enabled.
+	 * Only fires when the Email Verification feature is on AND the
+	 * buddynext_email_verify setting is enabled.
 	 *
 	 * @param int $user_id Newly registered WordPress user ID.
 	 */
 	public function on_user_register( int $user_id ): void {
+		if ( ! $this->feature_active() ) {
+			return;
+		}
+
 		if ( ! (bool) get_option( 'buddynext_email_verify', false ) ) {
 			return;
 		}
@@ -71,6 +91,12 @@ class VerificationListener implements ListenerInterface {
 	 */
 	public function handle_verify_request(): void {
 		if ( ! isset( $_GET['bn_verify'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
+		}
+
+		// Feature off: no token should exist; ignore the request rather than
+		// processing it against a disabled subsystem.
+		if ( ! $this->feature_active() ) {
 			return;
 		}
 
@@ -109,6 +135,11 @@ class VerificationListener implements ListenerInterface {
 	 */
 	public function send_verification_email( int $user_id, string $verify_url ): void {
 		global $wpdb;
+
+		// Feature off: never dispatch a verification email.
+		if ( ! $this->feature_active() ) {
+			return;
+		}
 
 		$user = get_userdata( $user_id );
 		if ( false === $user || '' === $user->user_email ) {
