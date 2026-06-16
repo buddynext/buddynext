@@ -588,6 +588,14 @@ class FeedService {
 	 * @return array|null Hydrated post array or null.
 	 */
 	public function active_announcement( int $user_id ): ?array {
+		// Single enforcement point for the Announcements feature. Every consumer
+		// (home-feed prepend, REST feed payload) flows through here, so gating it
+		// once means no announcement surfaces anywhere when the site owner turns
+		// the feature off — no per-template guards needed.
+		if ( ! buddynext_feature_enabled( 'announcements' ) ) {
+			return null;
+		}
+
 		global $wpdb;
 
 		$dismissed = self::dismissed_announcement_ids( $user_id );

@@ -906,8 +906,7 @@ class Settings extends AdminPageBase {
 		// Email Verification feature is enabled on the Features tab. When the
 		// feature is off, hide the toggle (it would be saved but silently ignored)
 		// and point the admin to where the master switch lives.
-		$bn_features        = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
-		$bn_verification_on = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'verification' );
+		$bn_verification_on = buddynext_feature_enabled( 'verification' );
 		if ( $bn_verification_on ) {
 			$this->render_toggle_row(
 				'buddynext_email_verify',

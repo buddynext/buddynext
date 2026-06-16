@@ -337,6 +337,16 @@ class FeedController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function dismiss_announcement( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		// Announcements feature gate — when off, no announcement is surfaced, so a
+		// dismiss request can only be stale; treat it as not found.
+		if ( ! buddynext_feature_enabled( 'announcements' ) ) {
+			return new WP_Error(
+				'feature_disabled',
+				__( 'Announcements are disabled.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 

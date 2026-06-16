@@ -189,6 +189,34 @@ function buddynext_service( string $key ): mixed {
 }
 
 /**
+ * Whether a community feature toggle is enabled.
+ *
+ * Single, defensive accessor for the FeatureRegistry so enforcement points
+ * (controllers, services, templates) don't each repeat the
+ * is_object()/method_exists()/is_enabled() guard. Returns $fallback (enabled by
+ * default) when the container isn't booted yet or the registry is unavailable,
+ * matching the fail-open behaviour of the inline checks it replaces.
+ *
+ * @param string $slug     Feature slug (e.g. 'announcements', 'hashtags', 'verification').
+ * @param bool   $fallback Result when the registry can't be resolved. Default true.
+ * @return bool
+ */
+function buddynext_feature_enabled( string $slug, bool $fallback = true ): bool {
+	if ( ! did_action( 'buddynext_loaded' ) ) {
+		return $fallback;
+	}
+	try {
+		$features = buddynext_service( 'features' );
+	} catch ( \Throwable $e ) {
+		return $fallback;
+	}
+	if ( ! is_object( $features ) || ! method_exists( $features, 'is_enabled' ) ) {
+		return $fallback;
+	}
+	return (bool) $features->is_enabled( $slug );
+}
+
+/**
  * Render a BuddyNext template, with theme-override support.
  *
  * Delegates to the TemplateLoader service which checks child-theme, parent-theme,
