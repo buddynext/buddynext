@@ -209,8 +209,14 @@ class PostService {
 				'scheduled_at'         => $data['scheduled_at'] ?? null,
 				'is_announcement'      => 'announcement' === $type ? 1 : 0,
 				'site_pin_expires_at'  => $pin_expires,
+				// Write created_at explicitly in UTC instead of relying on MySQL's
+				// DEFAULT CURRENT_TIMESTAMP (server-local). The relative-time
+				// renderers read it with strtotime(), which treats a bare datetime
+				// as UTC — a local-time default produced a negative diff that the
+				// "< 60s" branch caught, so every same-day post showed "just now".
+				'created_at'           => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%s' )
+			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
