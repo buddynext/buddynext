@@ -1226,12 +1226,12 @@ class ModerationService {
 		/**
 		 * Fires after an appeal is submitted.
 		 *
-		 * @param int    $appeal_id   Appeal ID.
 		 * @param int    $user_id     User who submitted the appeal.
+		 * @param int    $appeal_id   Appeal ID.
 		 * @param string $target_type Type of the appealed object ('suspension').
 		 * @param int    $target_id   ID of the appealed object.
 		 */
-		do_action( 'buddynext_appeal_submitted', $appeal_id, $user_id, 'suspension', $suspension_id );
+		do_action( 'buddynext_appeal_submitted', $user_id, $appeal_id, 'suspension', $suspension_id );
 
 		return $appeal_id;
 	}
