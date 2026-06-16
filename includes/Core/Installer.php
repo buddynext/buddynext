@@ -823,6 +823,7 @@ class Installer {
 				id         BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 				email      VARCHAR(200) NOT NULL,
 				first_name VARCHAR(100) DEFAULT NULL,
+				space_id   BIGINT(20) UNSIGNED NULL DEFAULT NULL,
 				token      VARCHAR(64) NOT NULL,
 				status     ENUM('pending','registered','bounced') NOT NULL DEFAULT 'pending',
 				expires_at DATETIME NOT NULL,
@@ -1090,6 +1091,21 @@ class Installer {
 		}
 		if ( is_array( $appeals_cols ) && ! in_array( 'resolved_by', $appeals_cols, true ) ) {
 			$wpdb->query( "ALTER TABLE `{$p}bn_appeals` ADD COLUMN `resolved_by` BIGINT(20) UNSIGNED NULL DEFAULT NULL AFTER `admin_note`" );
+		}
+
+		// bn_invites.space_id — links an email invite to a specific space so the
+		// new account is dropped into that space after registration (null = a
+		// plain site-onboarding invite).
+		$invites_cols = $wpdb->get_col(
+			$wpdb->prepare(
+				'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+				WHERE TABLE_SCHEMA = DATABASE()
+				AND TABLE_NAME = %s',
+				$p . 'bn_invites'
+			)
+		);
+		if ( is_array( $invites_cols ) && ! in_array( 'space_id', $invites_cols, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$p}bn_invites` ADD COLUMN `space_id` BIGINT(20) UNSIGNED NULL DEFAULT NULL AFTER `first_name`" );
 		}
 
 		$wpdb->suppress_errors( false );

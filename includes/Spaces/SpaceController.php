@@ -1007,6 +1007,33 @@ class SpaceController extends BaseRestController {
 					: get_user_by( 'login', $identifier );
 				if ( $invited_user instanceof \WP_User ) {
 					$invited_user_id = (int) $invited_user->ID;
+				} elseif ( is_email( $identifier ) ) {
+					// No account yet: send a space-linked email invitation. On
+					// registration the new account is dropped straight into this
+					// space (see AuthController::register), so the invite link is
+					// not a dead end for people who aren't members yet.
+					$space = ( new SpaceService() )->get( $space_id );
+					if ( null === $space ) {
+						return new WP_Error(
+							'space_not_found',
+							__( 'Space not found.', 'buddynext' ),
+							array( 'status' => 404 )
+						);
+					}
+					if ( ! ( new SpaceMemberService() )->can_invite( $space_id, $inviter_id ) ) {
+						return new WP_Error(
+							'forbidden',
+							__( 'Only the space owner or a moderator can invite members.', 'buddynext' ),
+							array( 'status' => 403 )
+						);
+					}
+					( new \BuddyNext\Onboarding\InviteService() )->create(
+						$identifier,
+						'',
+						\BuddyNext\Onboarding\InviteService::DEFAULT_TTL_DAYS,
+						$space_id
+					);
+					return new WP_REST_Response( array( 'email_invited' => true ), 200 );
 				} else {
 					return new WP_Error(
 						'user_not_found',

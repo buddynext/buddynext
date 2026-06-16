@@ -550,11 +550,13 @@ class AuthController {
 		// Registration policy: open | invite | approval (Settings → Registration).
 		$reg_mode = (string) get_option( 'buddynext_reg_mode', 'open' );
 
-		// Invite-only: a valid, unexpired, unredeemed invitation token is required.
-		$invite = null;
+		// Resolve any invitation token up front, in every registration mode: an
+		// invite-only community requires it, but a space invitation link also
+		// carries one in open/approval mode so the new account can be dropped into
+		// the space it was invited to (see the space_id handling after creation).
+		$token  = sanitize_text_field( (string) $request->get_param( 'invite' ) );
+		$invite = '' !== $token ? ( new \BuddyNext\Onboarding\InviteService() )->get_by_token( $token ) : null;
 		if ( 'invite' === $reg_mode ) {
-			$token  = sanitize_text_field( (string) $request->get_param( 'invite' ) );
-			$invite = '' !== $token ? ( new \BuddyNext\Onboarding\InviteService() )->get_by_token( $token ) : null;
 			if ( null === $invite ) {
 				return new WP_Error(
 					'rest_invite_required',
@@ -651,6 +653,15 @@ class AuthController {
 		// Redeem the invitation now that the account exists.
 		if ( null !== $invite ) {
 			( new \BuddyNext\Onboarding\InviteService() )->mark_registered( (int) $invite['id'] );
+
+			// Space-linked invite: the person clicked "Accept invitation" in a
+			// space invite email, so drop the new account straight into that
+			// space as an active member — the link lands them inside it instead
+			// of on a generic feed.
+			$invite_space_id = isset( $invite['space_id'] ) ? (int) $invite['space_id'] : 0;
+			if ( $invite_space_id > 0 ) {
+				( new \BuddyNext\Spaces\SpaceMemberService() )->join( $invite_space_id, (int) $user_id );
+			}
 		}
 
 		// Seed the new member's DM-privacy preference from the site default

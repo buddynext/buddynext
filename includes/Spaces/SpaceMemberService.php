@@ -226,23 +226,29 @@ class SpaceMemberService {
 	}
 
 	/**
-	 * Invite a user to a secret (or any) space (status='invited').
+	 * Whether a user may invite members to a space (owner, moderator, or admin).
 	 *
-	 * Only the owner or a moderator may invite. If the user is already an
-	 * active member the call is a no-op.
+	 * @param int $space_id   Space ID.
+	 * @param int $inviter_id User who would send the invitation.
+	 * @return bool
+	 */
+	public function can_invite( int $space_id, int $inviter_id ): bool {
+		$inviter_role = $this->get_role( $space_id, $inviter_id );
+
+		return in_array( $inviter_role, array( 'owner', 'moderator' ), true )
+			|| user_can( $inviter_id, 'manage_options' );
+	}
+
+	/**
+	 * Invite an existing member to a space (status='invited').
 	 *
-	 * @param int $space_id         Space ID.
-	 * @param int $inviter_id       User sending the invitation.
-	 * @param int $invited_user_id  User being invited.
+	 * @param int $space_id        Space to invite into.
+	 * @param int $inviter_id      Acting user (must be owner/mod or admin).
+	 * @param int $invited_user_id User being invited.
 	 * @return true|WP_Error
 	 */
 	public function invite( int $space_id, int $inviter_id, int $invited_user_id ): true|WP_Error {
-		$inviter_role = $this->get_role( $space_id, $inviter_id );
-
-		if (
-			! in_array( $inviter_role, array( 'owner', 'moderator' ), true )
-			&& ! user_can( $inviter_id, 'manage_options' )
-		) {
+		if ( ! $this->can_invite( $space_id, $inviter_id ) ) {
 			return new WP_Error(
 				'forbidden',
 				__( 'Only the space owner or a moderator can invite members.', 'buddynext' )

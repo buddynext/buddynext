@@ -27,7 +27,7 @@ class InviteService {
 	/**
 	 * Default invite TTL in days.
 	 */
-	private const DEFAULT_TTL_DAYS = 7;
+	public const DEFAULT_TTL_DAYS = 7;
 
 	/**
 	 * Create a new invite record.
@@ -37,7 +37,7 @@ class InviteService {
 	 * @param int    $ttl_days   Token lifetime in days. Negative values create an already-expired invite (useful in tests).
 	 * @return int  New invite ID.
 	 */
-	public function create( string $email, string $first_name = '', int $ttl_days = self::DEFAULT_TTL_DAYS ): int {
+	public function create( string $email, string $first_name = '', int $ttl_days = self::DEFAULT_TTL_DAYS, int $space_id = 0 ): int {
 		global $wpdb;
 
 		$token      = $this->generate_token();
@@ -48,11 +48,12 @@ class InviteService {
 			array(
 				'email'      => sanitize_email( $email ),
 				'first_name' => sanitize_text_field( $first_name ),
+				'space_id'   => $space_id > 0 ? $space_id : null,
 				'token'      => $token,
 				'status'     => 'pending',
 				'expires_at' => $expires_at,
 			),
-			array( '%s', '%s', '%s', '%s', '%s' )
+			array( '%s', '%s', $space_id > 0 ? '%d' : null, '%s', '%s', '%s' )
 		);
 
 		$invite_id = (int) $wpdb->insert_id;
