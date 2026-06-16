@@ -76,6 +76,14 @@ add_action(
 	}
 );
 
+// Action Scheduler — bundled so async background work (search reindex, space
+// fan-out, async notifications) runs on a standalone install with nothing else
+// active. Self-arbitrates: if another active plugin ships a newer copy, that one
+// wins. Must load no later than plugins_loaded, so require it here at plugin load.
+if ( file_exists( BUDDYNEXT_DIR . 'libs/action-scheduler/action-scheduler.php' ) ) {
+	require_once BUDDYNEXT_DIR . 'libs/action-scheduler/action-scheduler.php';
+}
+
 if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' ) ) {
 	require_once BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php';
 }
