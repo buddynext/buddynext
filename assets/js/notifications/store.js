@@ -313,6 +313,104 @@ store( 'buddynext/notifications', {
 			}
 		},
 
+		// Accept a space invitation straight from its notification. POSTs to the
+		// space join endpoint (which promotes the 'invited' row to active), marks
+		// the notification read, and follows the notification link to the space.
+		acceptSpaceInvite: async function ( event ) {
+			var ctx     = getContext();
+			var btn     = event.target.closest( '[data-object-id]' );
+			var row     = event.target.closest( '.bn-notif-row' );
+			if ( ! btn || ! row || ! ctx ) { return; }
+			event.stopPropagation();
+
+			var spaceId = btn.dataset.objectId;
+			var notifId = btn.dataset.notifId;
+			if ( ! spaceId ) { return; }
+
+			var buttons = row.querySelectorAll( '.bn-notif-row__actions button' );
+			for ( var i = 0; i < buttons.length; i++ ) { buttons[ i ].disabled = true; }
+
+			// restUrl is the notifications collection (…/buddynext/v1/me/notifications);
+			// reduce it to the buddynext/v1 root to reach the spaces endpoints.
+			var apiBase = ctx.restUrl.replace( /(\/buddynext\/v1)\/.*$/, '$1' );
+
+			try {
+				var res  = await fetch( apiBase + '/spaces/' + spaceId + '/join', {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.nonce },
+				} );
+				var data = await res.json();
+
+				if ( res.ok && data.joined ) {
+					if ( notifId ) {
+						fetch( ctx.restUrl + '/' + notifId + '/read', { method: 'POST', headers: { 'X-WP-Nonce': ctx.nonce } } );
+						if ( row.classList.contains( 'bn-notif-row--unread' ) ) {
+							row.classList.remove( 'bn-notif-row--unread' );
+							if ( ctx.unreadCount > 0 ) { ctx.unreadCount = ctx.unreadCount - 1; }
+							adjustUnreadTabBadges( -1, row.dataset.notifType );
+						}
+					}
+					toast( 'Invitation accepted — you have joined the space.', 'success' );
+					if ( row.dataset.notifLink ) {
+						window.location.href = row.dataset.notifLink;
+					} else {
+						row.remove();
+					}
+				} else {
+					for ( var j = 0; j < buttons.length; j++ ) { buttons[ j ].disabled = false; }
+					toast( ( data && data.message ) || 'Could not accept the invitation.', 'error' );
+				}
+			} catch ( _e ) {
+				for ( var k = 0; k < buttons.length; k++ ) { buttons[ k ].disabled = false; }
+				toast( 'Network error. Try again.', 'error' );
+			}
+		},
+
+		// Decline a space invitation from its notification. POSTs to the space
+		// leave endpoint (removes the 'invited' row), marks the notification read,
+		// and removes the row.
+		declineSpaceInvite: async function ( event ) {
+			var ctx     = getContext();
+			var btn     = event.target.closest( '[data-object-id]' );
+			var row     = event.target.closest( '.bn-notif-row' );
+			if ( ! btn || ! row || ! ctx ) { return; }
+			event.stopPropagation();
+
+			var spaceId = btn.dataset.objectId;
+			var notifId = btn.dataset.notifId;
+			if ( ! spaceId ) { return; }
+
+			var buttons = row.querySelectorAll( '.bn-notif-row__actions button' );
+			for ( var i = 0; i < buttons.length; i++ ) { buttons[ i ].disabled = true; }
+
+			var apiBase = ctx.restUrl.replace( /(\/buddynext\/v1)\/.*$/, '$1' );
+
+			try {
+				var res = await fetch( apiBase + '/spaces/' + spaceId + '/leave', {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctx.nonce },
+				} );
+
+				if ( res.ok ) {
+					if ( notifId ) {
+						fetch( ctx.restUrl + '/' + notifId + '/read', { method: 'POST', headers: { 'X-WP-Nonce': ctx.nonce } } );
+						if ( row.classList.contains( 'bn-notif-row--unread' ) && ctx.unreadCount > 0 ) {
+							ctx.unreadCount = ctx.unreadCount - 1;
+							adjustUnreadTabBadges( -1, row.dataset.notifType );
+						}
+					}
+					toast( 'Invitation declined.', 'info' );
+					row.remove();
+				} else {
+					for ( var j = 0; j < buttons.length; j++ ) { buttons[ j ].disabled = false; }
+					toast( 'Could not decline the invitation.', 'error' );
+				}
+			} catch ( _e ) {
+				for ( var k = 0; k < buttons.length; k++ ) { buttons[ k ].disabled = false; }
+				toast( 'Network error. Try again.', 'error' );
+			}
+		},
+
 		openAndMark: async function ( event ) {
 			// Anchor's native navigation handles the URL; we only need to
 			// fire the mark-as-read request so the badge updates before
