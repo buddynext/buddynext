@@ -512,7 +512,31 @@ class SpaceService {
 
 		global $wpdb;
 
-		// Remove all members first.
+		// Delete the space's posts first — while membership still exists, so the
+		// deleter's space-moderation authority resolves in PostService::delete().
+		// Routing each post through PostService::delete() cascades its child rows
+		// (reactions, comments, bookmarks, shares, hashtags, poll data, feed
+		// items, reports) instead of orphaning them.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$post_ids = (array) $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->prefix}bn_posts WHERE space_id = %d", $space_id ) );
+
+		if ( $post_ids ) {
+			$post_service = buddynext_service( 'post_service' );
+			foreach ( $post_ids as $post_id ) {
+				$post_service->delete( (int) $post_id, $user_id );
+			}
+		}
+
+		// Remove the moderation rows that reference this space directly so they
+		// are not left pointing at a space that no longer exists.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $wpdb->prefix . 'bn_space_bans', array( 'space_id' => $space_id ), array( '%d' ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $wpdb->prefix . 'bn_reports', array( 'space_id' => $space_id ), array( '%d' ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->delete( $wpdb->prefix . 'bn_mod_log', array( 'space_id' => $space_id ), array( '%d' ) );
+
+		// Remove all members.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
 			$wpdb->prefix . 'bn_space_members',
