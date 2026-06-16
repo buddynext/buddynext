@@ -37,11 +37,6 @@ class CronService {
 	 */
 	private const PUBLISH_BATCH = 100;
 
-	/**
-	 * Days before read notifications are pruned.
-	 */
-	private const NOTIF_PRUNE_DAYS = 90;
-
 	// ── Daily digest ──────────────────────────────────────────────────────────
 
 	/**
@@ -145,14 +140,22 @@ class CronService {
 	// ── Notification pruning ──────────────────────────────────────────────────
 
 	/**
-	 * Delete read notifications older than NOTIF_PRUNE_DAYS days.
+	 * Delete read notifications older than the configured data-retention window.
 	 *
-	 * Runs weekly. Only removes rows where is_read = 1 to preserve unread
-	 * notifications regardless of age.
+	 * Runs weekly. The window is the Privacy → "Data Retention Days" setting
+	 * (buddynext_data_retention_days, default 365). A value of 0 (or less)
+	 * disables pruning so read notifications are kept indefinitely. Only rows
+	 * where is_read = 1 are removed; unread notifications are preserved
+	 * regardless of age.
 	 *
 	 * @return void
 	 */
 	public function handle_cleanup_notifications(): void {
+		$retention_days = (int) get_option( 'buddynext_data_retention_days', 365 );
+		if ( $retention_days <= 0 ) {
+			return;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -161,7 +164,7 @@ class CronService {
 				"DELETE FROM {$wpdb->prefix}bn_notifications
 				  WHERE is_read = 1
 				    AND created_at < DATE_SUB( NOW(), INTERVAL %d DAY )",
-				self::NOTIF_PRUNE_DAYS
+				$retention_days
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
