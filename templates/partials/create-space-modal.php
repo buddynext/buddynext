@@ -33,6 +33,9 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $bn_csm_categories = isset( $categories ) && is_array( $categories ) ? $categories : array();
+// Root spaces the current user manages — eligible parents for a sub-space.
+// Empty (field hidden) unless the render site supplies them.
+$bn_csm_parents = isset( $parent_spaces ) && is_array( $parent_spaces ) ? $parent_spaces : array();
 ?>
 <div
 	class="bn-modal-backdrop"
@@ -140,6 +143,29 @@ $bn_csm_categories = isset( $categories ) && is_array( $categories ) ? $categori
 						<?php endforeach; ?>
 					</select>
 					<p class="bn-create-space-form__error" data-bn-error-for="category_id" hidden></p>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( ! empty( $bn_csm_parents ) ) : ?>
+				<div class="bn-create-space-form__field">
+					<label for="bn-create-space-parent">
+						<?php esc_html_e( 'Parent space', 'buddynext' ); ?>
+					</label>
+					<select
+						id="bn-create-space-parent"
+						name="parent_id"
+						class="bn-select"
+					>
+						<option value="0">
+							<?php esc_html_e( '— None (top-level space) —', 'buddynext' ); ?>
+						</option>
+						<?php foreach ( $bn_csm_parents as $bn_csm_parent ) : ?>
+							<option value="<?php echo esc_attr( (string) $bn_csm_parent->id ); ?>">
+								<?php echo esc_html( $bn_csm_parent->name ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+					<p class="bn-create-space-form__error" data-bn-error-for="parent_id" hidden></p>
 				</div>
 			<?php endif; ?>
 

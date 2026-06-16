@@ -763,10 +763,21 @@ $bn_subtitle = sprintf(
 
 	<?php if ( current_user_can( 'read' ) ) : ?>
 		<?php
+		global $wpdb;
+		// Root spaces the viewer owns — the only spaces they may nest a sub-space
+		// under. Empty for most users, so the modal's parent field stays hidden.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$bn_create_parent_spaces = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, name FROM {$wpdb->prefix}bn_spaces WHERE owner_id = %d AND parent_id IS NULL ORDER BY name ASC LIMIT 100",
+				get_current_user_id()
+			)
+		);
 		buddynext_get_template(
 			'partials/create-space-modal.php',
 			array(
-				'categories' => $categories,
+				'categories'    => $categories,
+				'parent_spaces' => $bn_create_parent_spaces,
 			)
 		);
 		?>

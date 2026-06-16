@@ -1730,6 +1730,8 @@ var storeInstance = store( 'buddynext/spaces', {
 				description: description.trim(),
 			};
 			if ( categoryId ) { payload.category_id = parseInt( categoryId, 10 ); }
+			var bnParentEl = form.querySelector( '[name="parent_id"]' );
+			if ( bnParentEl && parseInt( bnParentEl.value || '0', 10 ) > 0 ) { payload.parent_id = parseInt( bnParentEl.value, 10 ); }
 
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/spaces' ), {

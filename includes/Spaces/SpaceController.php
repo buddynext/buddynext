@@ -617,8 +617,21 @@ class SpaceController extends BaseRestController {
 		$type        = sanitize_key( (string) ( $request->get_param( 'type' ) ?? 'open' ) );
 		$description = sanitize_textarea_field( (string) ( $request->get_param( 'description' ) ?? '' ) );
 		$category_id = absint( $request->get_param( 'category_id' ) );
+		$parent_id   = absint( $request->get_param( 'parent_id' ) );
 
 		$validation_errors = array();
+
+		// Sub-space: the new space nests under a parent. Only someone who manages
+		// the parent may add a sub-space to it; SpaceService::create() then
+		// enforces the two-level depth limit and the per-space max-sub-spaces cap.
+		if ( $parent_id > 0 ) {
+			$parent_space = ( new SpaceService() )->get( $parent_id );
+			if ( null === $parent_space ) {
+				$validation_errors['parent_id'] = __( 'The selected parent space does not exist.', 'buddynext' );
+			} elseif ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $parent_id ) ) ) {
+				$validation_errors['parent_id'] = __( 'You can only add a sub-space to a space you manage.', 'buddynext' );
+			}
+		}
 
 		if ( '' === $name ) {
 			$validation_errors['name'] = __( 'A name is required.', 'buddynext' );
@@ -660,6 +673,9 @@ class SpaceController extends BaseRestController {
 		);
 		if ( $category_id > 0 ) {
 			$data['category_id'] = $category_id;
+		}
+		if ( $parent_id > 0 ) {
+			$data['parent_id'] = $parent_id;
 		}
 
 		$result = ( new SpaceService() )->create( $user_id, $data );
