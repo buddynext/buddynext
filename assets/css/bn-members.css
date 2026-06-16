@@ -1045,6 +1045,23 @@
 	color: var(--bn-danger);
 }
 
+/* List view: the translucent chip (tuned for legibility over a cover gradient)
+   washes out on a plain row, so the trigger looks invisible. Make it a solid,
+   clearly-bordered icon button in list view. */
+.bn-md-grid.is-list .bn-md-card__menu {
+	background: var(--bn-surface);
+	backdrop-filter: none;
+	border-color: var(--bn-line);
+	color: var(--bn-ink-2);
+}
+
+/* When a card's menu is open, raise that card above its siblings. Each
+   .bn-md-card is position:relative (its own stacking context), so without this
+   the dropdown is painted under the following row instead of overlaying it. */
+.bn-md-card:has( .bn-md-card__menu[aria-expanded="true"] ) {
+	z-index: 5;
+}
+
 .bn-md-card__connect-decide {
 	display: inline-flex;
 	gap: 4px;
