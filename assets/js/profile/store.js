@@ -245,8 +245,10 @@ async function openCoverReposModal( file ) {
 		const url = URL.createObjectURL( file );
 		const img = new Image();
 		img.onload = () => {
-			URL.revokeObjectURL( url );
-			renderCoverReposModal( img, resolve );
+			// Keep the object URL alive: the modal's preview <img> uses it as its
+			// src. Revoking here (before render) left the crop preview blank.
+			// The URL is revoked in the modal's cleanup() when it closes.
+			renderCoverReposModal( url, resolve );
 		};
 		img.onerror = () => {
 			URL.revokeObjectURL( url );
@@ -256,7 +258,7 @@ async function openCoverReposModal( file ) {
 	} );
 }
 
-function renderCoverReposModal( img, resolve ) {
+function renderCoverReposModal( url, resolve ) {
 	const W = 480;
 	const H = 150; // ~3.2:1 — representative of the desktop hero cover.
 
@@ -283,7 +285,7 @@ function renderCoverReposModal( img, resolve ) {
 	// modal is true WYSIWYG: object-fit cover + object-position (pan) + scale.
 	const preview = document.createElement( 'img' );
 	preview.className = 'bn-cover-repos-img';
-	preview.src = img.src;
+	preview.src = url;
 	preview.alt = '';
 	stage.appendChild( preview );
 	panel.appendChild( stage );
@@ -358,6 +360,7 @@ function renderCoverReposModal( img, resolve ) {
 	const cleanup = ( value ) => {
 		overlay.remove();
 		document.removeEventListener( 'keydown', onKey );
+		URL.revokeObjectURL( url );
 		resolve( value );
 	};
 
