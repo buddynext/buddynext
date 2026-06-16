@@ -855,6 +855,11 @@ class PageRouter {
 			'restNotifsReadUrl' => esc_url_raw( rest_url( 'buddynext/v1/me/notifications/read-all' ) ),
 			'restUserUrl'       => esc_url_raw( rest_url( 'buddynext/v1/users/' ) ),
 			'feedUrl'           => self::activity_url(),
+			// Soft chime played by notifications/store.js maybePlaySound() when the
+			// member has the "Play a sound" channel enabled. The asset previously
+			// did not exist and this key was never injected, so the sound channel
+			// was a dead toggle.
+			'notifSoundUrl'     => defined( 'BUDDYNEXT_URL' ) ? esc_url_raw( BUDDYNEXT_URL . 'assets/sounds/notif.wav' ) : '',
 			'navUrls'           => array(
 				'feed'          => self::activity_url(),
 				'members'       => self::people_url(),
