@@ -200,7 +200,7 @@ if ( ! $feed_service_filtered ) :
 				p.edited_at, p.created_at, p.updated_at
 		   FROM {$posts_table} p
 		  WHERE p.status = 'published'
-			AND (p.scheduled_at IS NULL OR p.scheduled_at <= NOW())
+			AND (p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP())
 			AND (
 				  p.user_id = %d
 			   OR (

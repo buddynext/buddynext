@@ -336,7 +336,7 @@ class CronService {
 				"SELECT id, user_id, type
 				   FROM {$wpdb->prefix}bn_posts
 				  WHERE status = 'scheduled'
-				    AND scheduled_at <= NOW()
+				    AND scheduled_at <= UTC_TIMESTAMP()
 				  LIMIT %d",
 				self::PUBLISH_BATCH
 			),

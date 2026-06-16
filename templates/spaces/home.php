@@ -195,7 +195,7 @@ if ( ! $gate_feed ) {
 			INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 			LEFT JOIN {$wpdb->usermeta} um ON um.user_id = p.user_id AND um.meta_key = 'buddynext_avatar_url'
 			WHERE p.space_id = %d AND p.is_pinned = 1 AND p.status = 'published'
-				AND ( p.scheduled_at IS NULL OR p.scheduled_at <= NOW() )
+				AND ( p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP() )
 			ORDER BY p.created_at DESC LIMIT 1",
 			$space_id
 		)
@@ -213,7 +213,7 @@ if ( ! $gate_feed ) {
 			INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 			LEFT JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = p.space_id AND sm.user_id = p.user_id
 			WHERE p.space_id = %d AND p.is_pinned = 0 AND p.status = 'published'
-				AND ( p.scheduled_at IS NULL OR p.scheduled_at <= NOW() )
+				AND ( p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP() )
 			ORDER BY p.created_at DESC
 			LIMIT 20",
 			$space_id
@@ -246,7 +246,7 @@ $top_contributors = $wpdb->get_results(
 		FROM {$wpdb->prefix}bn_posts p
 		INNER JOIN {$wpdb->users} u ON u.ID = p.user_id
 		WHERE p.space_id = %d AND p.status = 'published'
-			AND ( p.scheduled_at IS NULL OR p.scheduled_at <= NOW() )
+			AND ( p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP() )
 		GROUP BY p.user_id
 		ORDER BY post_count DESC
 		LIMIT 3",
@@ -259,7 +259,7 @@ $top_contributors = $wpdb->get_results(
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $bn_post_count = (int) $wpdb->get_var(
 	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= NOW() )",
+		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP() )",
 		$space_id
 	)
 );
@@ -269,7 +269,7 @@ $bn_post_count = (int) $wpdb->get_var(
 $bn_media_count = (int) $wpdb->get_var(
 	$wpdb->prepare(
 		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-		 WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= NOW() )
+		 WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP() )
 		   AND media_ids IS NOT NULL AND media_ids != '[]' AND media_ids != ''",
 		$space_id
 	)
@@ -308,7 +308,7 @@ if ( ! empty( $is_admin_mod ) ) {
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 $bn_active_count = (int) $wpdb->get_var(
 	$wpdb->prepare(
-		"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= NOW() ) AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
+		"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP() ) AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
 		$space_id
 	)
 );
@@ -770,7 +770,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 				$bn_space_media_rows = $wpdb->get_col(
 					$wpdb->prepare(
-						"SELECT media_ids FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND media_ids IS NOT NULL AND media_ids != '' AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= NOW() ) ORDER BY created_at DESC LIMIT 60",
+						"SELECT media_ids FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND media_ids IS NOT NULL AND media_ids != '' AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP() ) ORDER BY created_at DESC LIMIT 60",
 						$space_id
 					)
 				);

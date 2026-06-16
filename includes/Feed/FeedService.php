@@ -248,7 +248,7 @@ class FeedService {
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE status = 'published'
-			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   AND ({$source_where})
 			   {$excluded_where}
 			   {$block_mute_where}
@@ -451,7 +451,7 @@ class FeedService {
 				$wpdb->prepare(
 					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
 					 WHERE status = 'published'
-					   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+					   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 					   AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
 					   AND ({$source_where})
 					   {$excluded_where}
@@ -510,7 +510,7 @@ class FeedService {
 				"SELECT COUNT(*) AS new_count, COALESCE(MAX(id), %d) AS newest_id
 				 FROM {$wpdb->prefix}bn_posts
 				 WHERE status = 'published'
-				   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+				   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 				   AND id > %d
 				   AND user_id <> %d
 				   AND ({$source_where})
@@ -697,7 +697,7 @@ class FeedService {
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE user_id = %d
 			   {$privacy_clause}
-			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
@@ -810,7 +810,7 @@ class FeedService {
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE space_id = %d
 			   AND status = 'published'
-			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
@@ -894,7 +894,7 @@ class FeedService {
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE privacy = 'public'
-			   AND (scheduled_at IS NULL OR scheduled_at <= NOW())
+			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
 			   {$block_mute_where}
 			   {$cursor_where}
