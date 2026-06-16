@@ -108,6 +108,42 @@ final class NavOverrides {
 		}
 		unset( $item );
 
+		// Append admin-created custom tabs. NavManager stores these in the same
+		// overrides option flagged custom => true (label + url + capability), and
+		// the admin list already surfaces them via get_tabs_for_scope(). The rail
+		// previously only mutated existing items, so a custom tab never reached the
+		// front end — add each as a new rail link here.
+		$existing_keys = array();
+		foreach ( $items as $existing ) {
+			$existing_keys[ sanitize_key( (string) ( $existing['key'] ?? '' ) ) ] = true;
+		}
+		$fallback_order = ( count( $items ) + 1 ) * 10;
+		foreach ( $overrides as $slug => $ov ) {
+			$ov   = (array) $ov;
+			$slug = sanitize_key( (string) $slug );
+			if ( '' === $slug || empty( $ov['custom'] ) || ! empty( $ov['hidden'] ) || isset( $existing_keys[ $slug ] ) ) {
+				continue;
+			}
+			$url = esc_url_raw( (string) ( $ov['url'] ?? '' ) );
+			if ( '' === $url ) {
+				continue;
+			}
+			// Honour the configured capability (default 'read' = any logged-in user).
+			$cap = sanitize_key( (string) ( $ov['capability'] ?? 'read' ) );
+			if ( '' !== $cap && ! current_user_can( $cap ) ) {
+				continue;
+			}
+			$items[]         = array(
+				'key'   => $slug,
+				'label' => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
+				'url'   => $url,
+				'icon'  => 'link',
+				'show'  => true,
+				'order' => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : $fallback_order,
+			);
+			$fallback_order += 10;
+		}
+
 		usort(
 			$items,
 			static fn( array $a, array $b ): int => ( (int) ( $a['order'] ?? 10 ) ) <=> ( (int) ( $b['order'] ?? 10 ) )
