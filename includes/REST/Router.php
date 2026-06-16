@@ -97,6 +97,7 @@ class Router {
 		}
 		( new SlugCheckController() )->register_routes();
 		( new RealtimeController() )->register_routes();
+		( new \BuddyNext\Integrations\CompanionController() )->register_routes();
 
 		/**
 		 * Fires after all BuddyNext core REST routes are registered.

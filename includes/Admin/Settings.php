@@ -1364,84 +1364,101 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_tab_integrations(): void {
-		// Source the addon registry from the IntegrationHub so this status list and
-		// the dedicated Integrations admin page stay in lockstep — one source of
-		// truth for plugin_file + active state — instead of a second hand-kept list
-		// with its own class_exists() probes.
-		$container = \BuddyNext\Core\Container::instance();
-		$hub       = $container->has( 'admin_hub' ) ? $container->get( 'admin_hub' ) : null;
-		$addons    = ( is_object( $hub ) && method_exists( $hub, 'get_addons' ) ) ? $hub->get_addons() : array();
-
-		if ( ! function_exists( 'get_plugins' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/plugin.php';
-		}
-		$installed_files = array_keys( get_plugins() );
+		// Companion catalog — one declarative source of truth (CompanionRegistry).
+		// Each row resolves to a real, state-aware action: Active features show
+		// "Installed"; installed-but-inactive get a one-click Activate; not-installed
+		// get a one-click "Install free" that pulls the plugin straight from the EDD
+		// store (CompanionInstaller, install_plugins-gated). No more dead upload links.
+		$companions  = \BuddyNext\Integrations\CompanionRegistry::all();
+		$can_install = current_user_can( 'install_plugins' );
+		$can_activate = current_user_can( 'activate_plugins' );
 
 		$this->open_section( __( 'Addon Status', 'buddynext' ) );
 		?>
-		<div class="bn-addon-list">
+		<div class="bn-addon-list"
+			data-bn-companions
+			data-rest="<?php echo esc_url( rest_url( 'buddynext/v1/companions/install' ) ); ?>"
+			data-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>">
 			<?php
-			foreach ( $addons as $addon ) :
-				$bn_active       = ! empty( $addon['active'] );
-				$bn_label        = (string) ( $addon['label'] ?? '' );
-				$bn_desc         = (string) ( $addon['description'] ?? ( $addon['desc'] ?? '' ) );
-				$bn_plugin_file  = (string) ( $addon['plugin_file'] ?? '' );
-				$bn_get_url      = (string) ( $addon['url'] ?? '' );
-				$bn_is_installed = '' !== $bn_plugin_file && in_array( $bn_plugin_file, $installed_files, true );
-
-				// State-aware action. These first-party plugins are not in the
-				// wp.org directory, so the old "plugins.php?s=<slug>" link only
-				// searched the installed-plugins list and showed "No plugins found"
-				// when absent. Resolve to a real action instead:
-				//  • installed but inactive → one-click Activate (nonce'd, cap-checked).
-				//  • not installed, has a product URL → "Get Plugin" (opens external).
-				//  • not installed, no URL → "Install" → the Add Plugins upload screen
-				//    where the admin uploads the downloaded ZIP.
-				$bn_action_url   = '';
-				$bn_action_label = '';
-				$bn_action_ext   = false;
-				$bn_action_title = '';
-				if ( ! $bn_active ) {
-					if ( $bn_is_installed && current_user_can( 'activate_plugins' ) ) {
-						$bn_action_url   = wp_nonce_url(
-							self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $bn_plugin_file ) . '&plugin_status=all' ),
-							'activate-plugin_' . $bn_plugin_file
-						);
-						$bn_action_label = __( 'Activate', 'buddynext' );
-					} elseif ( '' !== $bn_get_url ) {
-						$bn_action_url   = $bn_get_url;
-						$bn_action_label = __( 'Get Plugin', 'buddynext' );
-						$bn_action_ext   = true;
-					} elseif ( current_user_can( 'install_plugins' ) ) {
-						$bn_action_url   = self_admin_url( 'plugin-install.php?tab=upload' );
-						$bn_action_label = __( 'Install', 'buddynext' );
-						$bn_action_title = __( 'Upload the plugin ZIP to install it.', 'buddynext' );
-					}
-				}
+			foreach ( $companions as $bn_slug => $bn_c ) :
+				$bn_status   = \BuddyNext\Integrations\CompanionRegistry::status( (string) $bn_slug );
+				$bn_label    = (string) ( $bn_c['label'] ?? '' );
+				$bn_why      = (string) ( $bn_c['why'] ?? '' );
+				$bn_store    = (string) ( $bn_c['store_url'] ?? '' );
+				$bn_basename = (string) ( $bn_c['free']['basename'] ?? '' );
 				?>
-			<div class="bn-addon-row" data-status="<?php echo $bn_active ? 'active' : 'inactive'; ?>">
+			<div class="bn-addon-row" data-status="<?php echo esc_attr( $bn_status ); ?>" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
 				<span class="bn-addon-row__status">
-					<?php if ( $bn_active ) : ?>
+					<?php if ( 'active' === $bn_status ) : ?>
 						<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
-					<?php else : ?>
+					<?php elseif ( 'inactive' === $bn_status ) : ?>
 						<span class="bn-badge"><?php esc_html_e( 'Inactive', 'buddynext' ); ?></span>
+					<?php else : ?>
+						<span class="bn-badge"><?php esc_html_e( 'Not installed', 'buddynext' ); ?></span>
 					<?php endif; ?>
 				</span>
 				<div class="bn-addon-row__meta">
 					<strong class="bn-addon-row__label"><?php echo esc_html( $bn_label ); ?></strong>
-					<p class="bn-addon-row__desc"><?php echo esc_html( $bn_desc ); ?></p>
+					<p class="bn-addon-row__desc"><?php echo esc_html( $bn_why ); ?></p>
+					<span class="bn-companion-msg" role="status" aria-live="polite"></span>
 				</div>
-				<?php if ( '' !== $bn_action_url ) : ?>
-				<a href="<?php echo esc_url( $bn_action_url ); ?>"
-					class="bn-addon-row__action"
-					<?php echo '' !== $bn_action_title ? 'title="' . esc_attr( $bn_action_title ) . '" ' : ''; ?>
-					<?php echo $bn_action_ext ? 'target="_blank" rel="noopener noreferrer"' : ''; ?>>
-					<?php echo esc_html( $bn_action_label ); ?>
-				</a>
-				<?php endif; ?>
+				<span class="bn-addon-row__actions">
+					<?php if ( 'active' === $bn_status ) : ?>
+						<span class="bn-badge" data-tone="muted"><?php esc_html_e( 'Installed', 'buddynext' ); ?></span>
+					<?php elseif ( 'inactive' === $bn_status && $can_activate && '' !== $bn_basename ) : ?>
+						<a href="<?php echo esc_url( wp_nonce_url( self_admin_url( 'plugins.php?action=activate&plugin=' . rawurlencode( $bn_basename ) . '&plugin_status=all' ), 'activate-plugin_' . $bn_basename ) ); ?>"
+							class="bn-addon-row__action"><?php esc_html_e( 'Activate', 'buddynext' ); ?></a>
+					<?php elseif ( 'not_installed' === $bn_status && $can_install ) : ?>
+						<button type="button" class="bn-addon-row__action bn-companion-install" data-slug="<?php echo esc_attr( $bn_slug ); ?>">
+							<?php esc_html_e( 'Install free', 'buddynext' ); ?>
+						</button>
+					<?php endif; ?>
+					<?php if ( '' !== $bn_store ) : ?>
+						<a href="<?php echo esc_url( $bn_store ); ?>" class="bn-addon-row__action bn-addon-row__action--ghost"
+							target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Get Pro', 'buddynext' ); ?></a>
+					<?php endif; ?>
+				</span>
 			</div>
 			<?php endforeach; ?>
 		</div>
+		<script>
+		( function () {
+			var list = document.querySelector( '[data-bn-companions]' );
+			if ( ! list ) { return; }
+			var endpoint = list.getAttribute( 'data-rest' );
+			var nonce    = list.getAttribute( 'data-nonce' );
+			list.querySelectorAll( '.bn-companion-install' ).forEach( function ( btn ) {
+				btn.addEventListener( 'click', function () {
+					var row = btn.closest( '.bn-addon-row' );
+					var msg = row ? row.querySelector( '.bn-companion-msg' ) : null;
+					var orig = btn.textContent;
+					btn.disabled = true;
+					btn.textContent = <?php echo wp_json_encode( __( 'Installing…', 'buddynext' ) ); ?>;
+					if ( msg ) { msg.textContent = ''; }
+					fetch( endpoint, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+						body: JSON.stringify( { slug: btn.getAttribute( 'data-slug' ) } )
+					} ).then( function ( r ) {
+						return r.json().then( function ( d ) { return { ok: r.ok, d: d }; } );
+					} ).then( function ( res ) {
+						if ( res.ok ) {
+							btn.textContent = <?php echo wp_json_encode( __( 'Installed — reloading…', 'buddynext' ) ); ?>;
+							window.location.reload();
+						} else {
+							btn.disabled = false;
+							btn.textContent = orig;
+							if ( msg ) { msg.textContent = ( res.d && res.d.message ) ? res.d.message : <?php echo wp_json_encode( __( 'Install failed.', 'buddynext' ) ); ?>; }
+						}
+					} ).catch( function () {
+						btn.disabled = false;
+						btn.textContent = orig;
+						if ( msg ) { msg.textContent = <?php echo wp_json_encode( __( 'Install failed — network error.', 'buddynext' ) ); ?>; }
+					} );
+				} );
+			} );
+		}() );
+		</script>
 		<?php
 		$this->close_section();
 

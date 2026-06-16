@@ -985,6 +985,17 @@
       },
       {
         "namespace": "buddynext/v1",
+        "route": "/companions/install",
+        "methods": [
+          "CREATABLE"
+        ],
+        "permissionCallback": "closure",
+        "file": "includes/Integrations/CompanionController.php",
+        "line": 35,
+        "requestArgs": []
+      },
+      {
+        "namespace": "buddynext/v1",
         "route": "/member-types",
         "methods": [
           "GET"
@@ -4383,7 +4394,7 @@
         "readAt": [
           {
             "file": "includes/Admin/Settings.php",
-            "line": 1454,
+            "line": 1471,
             "kind": "read",
             "enforces": false
           }
@@ -5705,6 +5716,10 @@
       },
       {
         "hook": "buddynext_header_user_menu_links",
+        "listeners": []
+      },
+      {
+        "hook": "buddynext_companions",
         "listeners": []
       },
       {
@@ -15667,7 +15682,7 @@
           "type": "filter",
           "hookName": "buddynext_outbound_webhook_limit",
           "file": "includes/Admin/Settings.php",
-          "line": 1502
+          "line": 1519
         },
         {
           "type": "action",
@@ -16252,6 +16267,12 @@
           "line": 207
         },
         {
+          "type": "filter",
+          "hookName": "buddynext_companions",
+          "file": "includes/Integrations/CompanionRegistry.php",
+          "line": 50
+        },
+        {
           "type": "action",
           "hookName": "buddynext_image_stored",
           "file": "includes/Media/ImageStorageService.php",
@@ -16705,7 +16726,7 @@
           "type": "action",
           "hookName": "buddynext_rest_routes_registered",
           "file": "includes/REST/Router.php",
-          "line": 107
+          "line": 108
         },
         {
           "type": "action",
@@ -23744,10 +23765,10 @@
     ]
   },
   "stats": {
-    "phpFiles": 354,
+    "phpFiles": 357,
     "jsFiles": 41,
     "cssFiles": 29,
-    "totalLines": 126857
+    "totalLines": 127409
   },
   "generated": {
     "generator": "wp-plugin-qa scanner",
@@ -24187,6 +24208,15 @@
         "permission": "__return_true",
         "gated_by": null,
         "file": "includes/Hashtags/HashtagController.php:144"
+      },
+      {
+        "route": "/buddynext/v1/companions/install",
+        "methods": [
+          "CREATABLE"
+        ],
+        "permission": "closure",
+        "gated_by": null,
+        "file": "includes/Integrations/CompanionController.php:35"
       },
       {
         "route": "/buddynext/v1/member-types",
@@ -25442,7 +25472,7 @@
     {
       "hook": "buddynext_outbound_webhook_limit",
       "type": "filter",
-      "file": "includes/Admin/Settings.php:1502"
+      "file": "includes/Admin/Settings.php:1519"
     },
     {
       "hook": "buddynext_space_deleted",
@@ -25930,6 +25960,11 @@
       "file": "includes/Header/HeaderUserSection.php:207"
     },
     {
+      "hook": "buddynext_companions",
+      "type": "filter",
+      "file": "includes/Integrations/CompanionRegistry.php:50"
+    },
+    {
       "hook": "buddynext_image_stored",
       "type": "action",
       "file": "includes/Media/ImageStorageService.php:130"
@@ -26307,7 +26342,7 @@
     {
       "hook": "buddynext_rest_routes_registered",
       "type": "action",
-      "file": "includes/REST/Router.php:107"
+      "file": "includes/REST/Router.php:108"
     },
     {
       "hook": "buddynext_reaction_added",
