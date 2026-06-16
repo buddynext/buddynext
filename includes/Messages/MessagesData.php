@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
  * Native messaging data layer.
  *
@@ -155,7 +155,7 @@ class MessagesData {
 				'role_label'        => 'admin' === $role ? __( 'Admin', 'buddynext' ) : __( 'Member', 'buddynext' ),
 				'role_action_label' => 'admin' === $role ? __( 'Make member', 'buddynext' ) : __( 'Make admin', 'buddynext' ),
 				'is_admin'          => 'admin' === $role,
-				'is_online'         => ! empty( self::val( $p, 'is_online', false ) ),
+				'is_online'         => ! empty( self::val( $p, 'is_online', false ) ) || self::is_online( $viewer, $uid ),
 				'is_self'           => $is_self,
 				// A group admin manages everyone but themselves (leaving is the
 				// self path); non-admins manage no-one.
@@ -190,6 +190,25 @@ class MessagesData {
 		$svc = MediaClient::messaging();
 
 		return is_object( $svc ) ? $svc : null;
+	}
+
+	/**
+	 * Whether a user is online, from the canonical presence reader.
+	 *
+	 * Delegates to BlockService::is_user_online() (bn_last_active within the
+	 * 300s window, block-aware) — the same source the member directory,
+	 * profile and member cards use, so presence is consistent across surfaces.
+	 *
+	 * @param int $viewer  Viewing user ID.
+	 * @param int $user_id User whose presence is being resolved.
+	 * @return bool
+	 */
+	private static function is_online( int $viewer, int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		$blocks = buddynext_service( 'blocks' );
+		return is_object( $blocks ) ? (bool) $blocks->is_user_online( $viewer, $user_id ) : false;
 	}
 
 	/**
@@ -407,7 +426,7 @@ class MessagesData {
 			'display_name'    => $is_group
 				? self::group_label( $conv, $viewer )
 				: ( $other ? (string) self::val( $other, 'display_name', '' ) : __( 'Conversation', 'buddynext' ) ),
-			'is_online'       => ( ! $is_group && $other ) ? ! empty( self::val( $other, 'is_online', false ) ) : false,
+			'is_online'       => ( ! $is_group && $other ) ? ( ! empty( self::val( $other, 'is_online', false ) ) || self::is_online( $viewer, (int) self::val( $other, 'id', 0 ) ) ) : false,
 			'avatar_html'     => '',
 			'is_request'      => $is_request,
 			'messages'        => $messages,
@@ -454,9 +473,10 @@ class MessagesData {
 	/**
 	 * The helper callables the dm-* partials require.
 	 *
+	 * @param int $viewer Viewing user ID (used to resolve recipient presence).
 	 * @return array{initials_fn:callable,tone_fn:callable,relative_fn:callable,online_fn:callable}
 	 */
-	public static function helpers(): array {
+	public static function helpers( int $viewer = 0 ): array {
 		return array(
 			'initials_fn' => static function ( $name ): string {
 				$split = preg_split( '/\s+/', trim( (string) $name ) );
@@ -477,10 +497,13 @@ class MessagesData {
 				/* translators: %s: human-readable time difference, e.g. "5 mins". */
 				return sprintf( __( '%s ago', 'buddynext' ), human_time_diff( $ts, time() ) );
 			},
-			// Server-render presence is best-effort false; the poll updates
-			// online state live. Kept as a seam so a presence map can wire in.
-			'online_fn'   => static function ( $user_id ): bool {
-				return false;
+			// Presence is resolved from the canonical reader the rest of the
+			// product uses (BlockService::is_user_online → bn_last_active), so
+			// the conversation rail matches the member directory, profile and
+			// member cards. The seam previously returned a hardcoded false, so
+			// every recipient appeared permanently offline in Messages.
+			'online_fn'   => static function ( $user_id ) use ( $viewer ): bool {
+				return self::is_online( $viewer, (int) $user_id );
 			},
 		);
 	}

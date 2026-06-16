@@ -75,7 +75,7 @@ if ( $active_conv_id <= 0 ) {
 	}
 }
 
-$helpers      = MessagesData::helpers();
+$helpers      = MessagesData::helpers( $viewer );
 $convs        = MessagesData::conversations( $viewer, $active_tab );
 $thread       = $active_conv_id > 0 ? MessagesData::thread( $active_conv_id, $viewer ) : null;
 $messages_url = PageRouter::messages_url();
