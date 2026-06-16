@@ -42,8 +42,9 @@ $args = array(
 	'username'        => isset( $username ) ? (string) $username : '',
 	'avatar_url'      => isset( $avatar_url ) ? (string) $avatar_url : '',
 	'cover_url'       => isset( $cover_url ) ? (string) $cover_url : '',
-	'initials'        => isset( $initials ) ? (string) $initials : '',
-	'classes'         => isset( $classes ) ? (array) $classes : array(),
+	'initials'          => isset( $initials ) ? (string) $initials : '',
+	'has_custom_avatar' => isset( $has_custom_avatar ) ? (bool) $has_custom_avatar : false,
+	'classes'           => isset( $classes ) ? (array) $classes : array(),
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -76,6 +77,7 @@ $bn_ep_login    = (string) $args['username'];
 $bn_ep_avatar   = (string) $args['avatar_url'];
 $bn_ep_cover    = (string) $args['cover_url'];
 $bn_ep_init     = (string) $args['initials'];
+$bn_ep_has_avatar = (bool) $args['has_custom_avatar'];
 
 do_action( 'buddynext_part_profile_edit_hero_before', $args );
 ?>
@@ -103,7 +105,7 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 
 	<div class="bn-pf-head bn-ep-hero-head">
 		<div class="bn-pf-avatar-wrap bn-ep-avatar-wrap">
-			<span class="bn-avatar" data-size="2xl">
+			<span class="bn-avatar bn-ep-avatar-preview" data-size="2xl" data-bn-initials="<?php echo esc_attr( $bn_ep_init ); ?>">
 				<?php if ( '' !== $bn_ep_avatar ) : ?>
 					<img src="<?php echo esc_url( $bn_ep_avatar ); ?>"
 						alt="<?php echo esc_attr( $bn_ep_name ); ?>" />
@@ -116,6 +118,15 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 				aria-label="<?php esc_attr_e( 'Change profile photo', 'buddynext' ); ?>"
 				data-wp-on--click="actions.triggerAvatarUpload">
 				<?php buddynext_icon( 'edit' ); ?>
+			</button>
+			<button class="bn-ep-avatar-remove"
+				type="button"
+				data-bn-avatar-remove
+				aria-label="<?php esc_attr_e( 'Remove profile photo', 'buddynext' ); ?>"
+				title="<?php esc_attr_e( 'Remove profile photo', 'buddynext' ); ?>"
+				<?php echo $bn_ep_has_avatar ? '' : 'hidden'; ?>
+				data-wp-on--click="actions.removeAvatar">
+				<?php buddynext_icon( 'trash' ); ?>
 			</button>
 		</div>
 

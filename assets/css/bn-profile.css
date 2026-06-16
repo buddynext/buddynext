@@ -1989,6 +1989,39 @@ button.bn-pf-pill:hover,
 .bn-ep-avatar-btn:focus-visible { background: var(--bn-accent-700); }
 .bn-ep-avatar-btn:focus-visible { box-shadow: var(--bn-ring); outline: none; }
 
+/* Remove-photo control — mirrors the edit pencil at the avatar's bottom-left,
+   so the two controls flank the avatar without disturbing the hero layout. */
+.bn-ep-avatar-remove {
+	position: absolute;
+	inset-block-end: var(--bn-s1);
+	inset-inline-start: var(--bn-s1);
+	width: 32px;
+	height: 32px;
+	border-radius: var(--bn-r-full);
+	background: var(--bn-surface);
+	color: var(--bn-danger);
+	border: 2px solid var(--bn-surface);
+	box-shadow: var(--bn-shadow-sm);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background var(--bn-dur-fast) var(--bn-ease), color var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-ep-avatar-remove svg {
+	width: 14px;
+	height: 14px;
+	stroke: currentColor;
+	fill: none;
+}
+.bn-ep-avatar-remove:hover,
+.bn-ep-avatar-remove:focus-visible {
+	background: var(--bn-danger);
+	color: var(--bn-accent-fg);
+}
+.bn-ep-avatar-remove:focus-visible { box-shadow: var(--bn-ring); outline: none; }
+.bn-ep-avatar-remove[hidden] { display: none; }
+
 .bn-ep-cover-btn {
 	cursor: pointer;
 }

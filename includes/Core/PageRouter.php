@@ -896,8 +896,13 @@ class PageRouter {
 				break;
 
 			case 'people':
-				// Single-profile view vs. member directory.
-				if ( ! empty( $context['user_id'] ) ) {
+				// Single-profile view/edit vs. member directory. Gate on the
+				// user-slug query var, not $context['user_id'] — the own-profile
+				// edit route (/members/{slug}/edit/) resolves to the current user
+				// and leaves $context['user_id'] empty, which previously dropped
+				// bn-profile.css and left the entire edit hero (.bn-ep-* avatar,
+				// cover, and field chrome) unstyled.
+				if ( '' !== (string) get_query_var( 'bn_user_slug', '' ) ) {
 					$assets->enqueue( 'profile' );
 					$assets->enqueue( 'feed' ); // Post cards on profile use bn-feed.css classes.
 					// Followers / Following / Connections render as in-page tabs in

@@ -61,6 +61,11 @@ if ( ! $initials ) {
 $avatar_url = get_avatar_url( $user_id, array( 'size' => 192 ) );
 $cover_url  = (string) get_user_meta( $user_id, 'buddynext_cover_url', true );
 
+// Whether the user has a *custom* uploaded avatar (vs the generated initials /
+// Gravatar fallback). Drives the "Remove photo" control — there is nothing to
+// remove when the avatar is the auto fallback.
+$has_custom_avatar = '' !== (string) get_user_meta( $user_id, 'bn_avatar', true );
+
 // Load profile through service — reads from bn_profile_values.
 // As owner ($user_id === $user_id) ProfileService returns EVERY group/field
 // (no visibility gating) so the edit form can render the full field set.
@@ -295,9 +300,10 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 					'display_name'    => $display_name,
 					'headline'        => $headline,
 					'username'        => $user_login_str,
-					'avatar_url'      => $avatar_url,
-					'cover_url'       => $cover_url,
-					'initials'        => $initials,
+					'avatar_url'        => $avatar_url,
+					'cover_url'         => $cover_url,
+					'initials'          => $initials,
+					'has_custom_avatar' => $has_custom_avatar,
 				)
 			);
 

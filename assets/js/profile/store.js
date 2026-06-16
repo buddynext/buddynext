@@ -15,6 +15,35 @@ function nonce() {
 	return getContext().restNonce || '';
 }
 
+/**
+ * Swap the hero avatar preview between a custom photo and the initials
+ * fallback. The preview <img>/initials are server-rendered, not reactively
+ * bound, so upload + remove update it imperatively. Pass an empty url to
+ * revert to the initials read from data-bn-initials.
+ */
+function setAvatarPreview( url ) {
+	var box = document.querySelector( '.bn-ep-avatar-preview' );
+	if ( ! box ) { return; }
+	if ( url ) {
+		var img = box.querySelector( 'img' );
+		if ( ! img ) {
+			box.textContent = '';
+			img = document.createElement( 'img' );
+			box.appendChild( img );
+		}
+		img.src = url;
+		img.alt = '';
+	} else {
+		box.textContent = box.getAttribute( 'data-bn-initials' ) || '';
+	}
+}
+
+/** Show/hide the "Remove photo" control based on whether a custom avatar exists. */
+function toggleAvatarRemove( show ) {
+	var btn = document.querySelector( '[data-bn-avatar-remove]' );
+	if ( btn ) { btn.hidden = ! show; }
+}
+
 /*
    Avatar crop modal — opens a centred dialog with the selected image
    on a canvas. User drags the image to position it under a circular
@@ -1242,6 +1271,10 @@ store( 'buddynext/profile', {
 				var data = await res.json();
 				if ( res.ok && data.avatar_url ) {
 					ctx.avatarUrl = data.avatar_url;
+					// Live-refresh the (non-reactive) hero preview and reveal the
+					// Remove control now that a custom photo exists.
+					setAvatarPreview( data.avatar_url );
+					toggleAvatarRemove( true );
 					bnToast( 'Avatar updated', { tone: 'success' } );
 				} else {
 					bnToast( ( data && data.message ) || 'Upload failed', { tone: 'danger' } );
@@ -1251,6 +1284,35 @@ store( 'buddynext/profile', {
 			} finally {
 				ctx.avatarUploading = false;
 				event.target.value  = '';
+			}
+		},
+
+		async removeAvatar() {
+			var ctx = getContext();
+
+			var ok = await bnConfirm( {
+				title: 'Remove profile photo?',
+				body: 'Your photo will be replaced with your initials. You can upload a new one any time.',
+				confirmLabel: 'Remove',
+				tone: 'danger',
+			} );
+			if ( ! ok ) { return; }
+
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/me/avatar' ), {
+					method:  'DELETE',
+					headers: { 'X-WP-Nonce': ctx.restNonce },
+				} );
+				if ( res.ok ) {
+					ctx.avatarUrl = '';
+					setAvatarPreview( '' ); // revert to initials
+					toggleAvatarRemove( false );
+					bnToast( 'Profile photo removed', { tone: 'success' } );
+				} else {
+					bnToast( 'Could not remove your photo. Try again.', { tone: 'danger' } );
+				}
+			} catch ( err ) {
+				bnToast( 'Could not remove your photo. Try again.', { tone: 'danger' } );
 			}
 		},
 
