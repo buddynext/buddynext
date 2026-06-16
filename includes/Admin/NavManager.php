@@ -1228,6 +1228,12 @@ class NavManager extends AdminPageBase {
 			$scope_visible = (array) ( $raw_visible[ $scope ] ?? array() );
 			$visible_slugs = array_map( 'sanitize_key', array_keys( $scope_visible ) );
 
+			// Previously-stored overrides. A custom tab submitted as an existing
+			// config row carries no 'custom'/'url' field, so carry both forward
+			// from here — otherwise the rebuilt override loses its custom marker
+			// and get_tabs_for_scope() drops the tab on the next render.
+			$existing = (array) get_option( $option_key, array() );
+
 			$overrides = array();
 
 			foreach ( $scope_config as $slug => $cfg ) {
@@ -1259,6 +1265,13 @@ class NavManager extends AdminPageBase {
 					'login_required' => ! empty( $cfg['login_required'] ),
 					'guest_label'    => sanitize_text_field( (string) ( $cfg['guest_label'] ?? '' ) ),
 				);
+
+				// Preserve the custom-tab identity (and its destination URL) that
+				// the config row does not resubmit, so re-saving keeps the tab.
+				if ( ! empty( $existing[ $slug ]['custom'] ) ) {
+					$overrides[ $slug ]['custom'] = true;
+					$overrides[ $slug ]['url']    = esc_url_raw( (string) ( $cfg['url'] ?? $existing[ $slug ]['url'] ?? '' ) );
+				}
 			}
 
 			// Merge in any new custom tab submitted for this scope.
