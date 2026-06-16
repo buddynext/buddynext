@@ -145,6 +145,11 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 	if ( comment.is_deleted ) {
 		para.textContent  = 'This comment was deleted.';
 		para.dataset.placeholder = '1';
+	} else if ( comment.content_html ) {
+		// Server-formatted + sanitized markup (escaped user text with @mention
+		// and #hashtag links baked in) — mirrors how post bodies render. Falls
+		// back to plain text if an older response omits content_html.
+		para.innerHTML = comment.content_html;
 	} else {
 		para.textContent = comment.content;
 	}
@@ -2937,6 +2942,8 @@ function attachMentionHashtagTypeahead( textarea ) {
 	let activeKind = null; // '@' or '#'
 	let activeStart = -1;
 	let fetchAbort = null;
+	let suggestTimer = null;
+	const SUGGEST_DEBOUNCE_MS = 200;
 	const REST_BASE = ( window.wpApiSettings?.root || '/wp-json/' ) + 'buddynext/v1';
 
 	const closeDropdown = () => {
@@ -2956,17 +2963,33 @@ function attachMentionHashtagTypeahead( textarea ) {
 			dropdown.setAttribute( 'role', 'listbox' );
 			textarea.parentElement.appendChild( dropdown );
 		}
-		// s.label is a member display name / hashtag (user-controlled), so it
-		// MUST be HTML-escaped before going into innerHTML — otherwise a display
-		// name like `<img src=x onerror=...>` would execute in the typeahead of
-		// anyone who @-mentions that member (stored XSS). activeKind is "@"/"#"
-		// but is escaped too for belt-and-braces.
-		dropdown.innerHTML = suggestions.map( ( s, i ) => `
+		// s.label / s.handle are user-controlled (member display name + login,
+		// or hashtag) so they MUST be HTML-escaped before going into innerHTML —
+		// otherwise a name like `<img src=x onerror=...>` would execute in the
+		// typeahead of anyone who @-mentions that member (stored XSS). avatar is a
+		// WP avatar URL but is escaped for the attribute context too.
+		const isMember = '@' === activeKind;
+		dropdown.innerHTML = suggestions.map( ( s, i ) => {
+			const avatarHtml = isMember && s.avatar
+				? `<img class="bn-composer__typeahead-avatar" src="${ escapeHtml( s.avatar ) }" alt="" width="28" height="28" loading="lazy">`
+				: '';
+			const handleHtml = isMember && s.handle
+				? `<span class="bn-composer__typeahead-handle">@${ escapeHtml( s.handle ) }</span>`
+				: '';
+			// Hashtags keep the "#" prefix on the name; members lead with the
+			// display name (the handle shows on its own line below).
+			const namePrefix = isMember ? '' : escapeHtml( activeKind );
+			return `
 			<button type="button" role="option" class="bn-composer__typeahead-item" data-i="${ i }"
 					aria-selected="${ i === activeIndex ? 'true' : 'false' }">
-				<span class="bn-composer__typeahead-prefix">${ escapeHtml( activeKind ) }</span>${ escapeHtml( s.label ) }
+				${ avatarHtml }
+				<span class="bn-composer__typeahead-text">
+					<span class="bn-composer__typeahead-name">${ namePrefix }${ escapeHtml( s.label ) }</span>
+					${ handleHtml }
+				</span>
 			</button>
-		` ).join( '' );
+		`;
+		} ).join( '' );
 		dropdown.querySelectorAll( '.bn-composer__typeahead-item' ).forEach( ( btn ) => {
 			btn.addEventListener( 'mousedown', ( e ) => {
 				e.preventDefault();
@@ -3001,41 +3024,57 @@ function attachMentionHashtagTypeahead( textarea ) {
 			const data = await r.json();
 			if ( kind === '@' ) {
 				const items = Array.isArray( data.items ) ? data.items : [];
-				return items.slice( 0, 5 ).map( ( m ) => ( {
-					token: m.handle || m.user_login || m.username || '',
-					label: m.display_name || m.handle || '',
-				} ) ).filter( s => s.token );
+				return items.slice( 0, 5 ).map( ( m ) => {
+					const handle = m.handle || m.user_login || m.username || '';
+					return {
+						token:  handle,
+						label:  m.display_name || handle,
+						handle,
+						avatar: m.avatar_url || '',
+					};
+				} ).filter( s => s.token );
 			}
 			const items = Array.isArray( data ) ? data : ( data.items || [] );
 			return items.slice( 0, 5 ).map( ( h ) => ( {
-				token: h.slug || h.name || '',
-				label: h.slug || h.name || '',
+				token:  h.slug || h.name || '',
+				label:  h.slug || h.name || '',
+				handle: '',
+				avatar: '',
 			} ) ).filter( s => s.token );
 		} catch ( _e ) {
 			return [];
 		}
 	};
 
-	textarea.addEventListener( 'input', async () => {
+	textarea.addEventListener( 'input', () => {
 		const value = textarea.value;
 		const cursorPos = textarea.selectionStart;
 		// Walk back from the cursor to find an unterminated @ or # token.
 		let i = cursorPos - 1;
 		while ( i >= 0 && /[a-zA-Z0-9_-]/.test( value[ i ] ) ) { i--; }
-		if ( i < 0 ) { closeDropdown(); return; }
+		// Token-detection runs synchronously so the dropdown closes instantly when
+		// there is no active token; only the network search is debounced.
+		const bail = () => { clearTimeout( suggestTimer ); closeDropdown(); };
+		if ( i < 0 ) { bail(); return; }
 		const trigger = value[ i ];
-		if ( trigger !== '@' && trigger !== '#' ) { closeDropdown(); return; }
+		if ( trigger !== '@' && trigger !== '#' ) { bail(); return; }
 		// Boundary: the char before the trigger must not be word-like.
-		if ( i > 0 && /[a-zA-Z0-9_]/.test( value[ i - 1 ] ) ) { closeDropdown(); return; }
+		if ( i > 0 && /[a-zA-Z0-9_]/.test( value[ i - 1 ] ) ) { bail(); return; }
 		const token = value.slice( i + 1, cursorPos );
-		if ( token.length < 2 ) { closeDropdown(); return; }
+		if ( token.length < 2 ) { bail(); return; }
 		activeKind = trigger;
 		activeStart = i;
-		const results = await fetchSuggestions( trigger, token );
-		if ( results.length === 0 ) { closeDropdown(); return; }
-		suggestions = results;
-		activeIndex = 0;
-		renderDropdown();
+		// Debounce the suggestion fetch so a fast typist fires one request after a
+		// short pause instead of one per keystroke (the in-flight request is also
+		// aborted in fetchSuggestions). ~200ms is below the perceptible-lag bar.
+		clearTimeout( suggestTimer );
+		suggestTimer = setTimeout( async () => {
+			const results = await fetchSuggestions( trigger, token );
+			if ( results.length === 0 ) { closeDropdown(); return; }
+			suggestions = results;
+			activeIndex = 0;
+			renderDropdown();
+		}, SUGGEST_DEBOUNCE_MS );
 	} );
 
 	textarea.addEventListener( 'keydown', ( e ) => {

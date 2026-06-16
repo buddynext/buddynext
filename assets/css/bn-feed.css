@@ -1861,7 +1861,9 @@
 	overflow: hidden;
 }
 .bn-composer__typeahead-item {
-	display: block;
+	display: flex;
+	align-items: center;
+	gap: var(--s2, 8px);
 	width: 100%;
 	padding: 8px 12px;
 	background: transparent;
@@ -1880,6 +1882,36 @@
 	color: var(--bn-accent);
 	font-weight: 600;
 	margin-inline-end: 2px;
+}
+.bn-composer__typeahead-avatar {
+	flex: 0 0 auto;
+	width: 28px;
+	height: 28px;
+	border-radius: var(--r-full, 9999px);
+	object-fit: cover;
+}
+.bn-composer__typeahead-text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	line-height: var(--leading-tight, 1.2);
+}
+.bn-composer__typeahead-name {
+	font-weight: var(--fw-medium, 500);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.bn-composer__typeahead-handle {
+	font-size: var(--text-xs);
+	color: var(--text-2);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.bn-composer__typeahead-item:hover .bn-composer__typeahead-handle,
+.bn-composer__typeahead-item[aria-selected="true"] .bn-composer__typeahead-handle {
+	color: inherit;
 }
 
 /* Markdown inline code rendered by buddynext_format_content. */

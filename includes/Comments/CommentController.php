@@ -302,6 +302,12 @@ class CommentController extends BaseRestController {
 				$comment['viewer_reaction'] = null;
 			}
 
+			// Display-ready HTML: escapes the user content, then linkifies
+			// @mentions and #hashtags via the same formatter the post body uses,
+			// so the client renders comment bodies with markup instead of raw
+			// text. The raw `content` field is kept for the edit textarea.
+			$comment['content_html'] = buddynext_format_content( (string) $comment['content'] );
+
 			return $comment;
 		};
 
