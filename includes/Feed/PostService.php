@@ -1029,7 +1029,10 @@ class PostService {
 			return new WP_Error( 'post_not_found', __( 'Post not found.', 'buddynext' ) );
 		}
 
-		if ( (int) $post['user_id'] !== $user_id ) {
+		// The post owner may manage their own post; a site admin
+		// (manage_options) may manage any member's post — same admin escape
+		// hatch already used for announcement creation and the edit window.
+		if ( (int) $post['user_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
 			return new WP_Error(
 				'not_post_owner',
 				__( 'You are not the owner of this post.', 'buddynext' )
