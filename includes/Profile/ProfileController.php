@@ -471,6 +471,141 @@ class ProfileController extends BaseRestController {
 				),
 			)
 		);
+
+		// Member self-service privacy: export my data / delete my account.
+		register_rest_route(
+			'buddynext/v1',
+			'/me/data-export',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'export_my_data' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/me/account',
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( $this, 'delete_my_account' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+			)
+		);
+	}
+
+	/**
+	 * GET /me/data-export — return the current member's own data for download.
+	 *
+	 * Gated by the Privacy → "Allow data export" setting. Reuses the existing
+	 * PrivacyTools exporter (the same data WordPress's personal-data export uses),
+	 * walked to completion across its pages.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function export_my_data(): WP_REST_Response|WP_Error {
+		if ( ! (bool) get_option( 'buddynext_allow_data_export', true ) ) {
+			return new WP_Error(
+				'export_disabled',
+				__( 'Data export is not available on this community.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$user    = wp_get_current_user();
+		$privacy = new \BuddyNext\Privacy\PrivacyTools();
+		$items   = array();
+		$page    = 1;
+		do {
+			$result = $privacy->export( $user->user_email, $page );
+			if ( ! empty( $result['data'] ) && is_array( $result['data'] ) ) {
+				$items = array_merge( $items, $result['data'] );
+			}
+			$done = ! isset( $result['done'] ) || (bool) $result['done'];
+			++$page;
+		} while ( ! $done && $page < 100 );
+
+		return new WP_REST_Response(
+			array(
+				'generated_at' => current_time( 'mysql', true ),
+				'user'         => array(
+					'id'           => (int) $user->ID,
+					'username'     => $user->user_login,
+					'email'        => $user->user_email,
+					'display_name' => $user->display_name,
+					'registered'   => $user->user_registered,
+				),
+				'items'        => $items,
+			),
+			200
+		);
+	}
+
+	/**
+	 * DELETE /me/account — let a member delete their own account.
+	 *
+	 * Gated by the Privacy → "Allow account deletion" setting. Scrubs the
+	 * member's BuddyNext data via the existing privacy eraser, then removes the
+	 * WP account. The "Anonymize on delete" setting controls whether any
+	 * remaining WP-authored content is reassigned to a neutral author (kept,
+	 * de-identified) or deleted with the account. Administrators cannot self-delete.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function delete_my_account(): WP_REST_Response|WP_Error {
+		if ( ! (bool) get_option( 'buddynext_allow_account_deletion', true ) ) {
+			return new WP_Error(
+				'deletion_disabled',
+				__( 'Account deletion is not available on this community.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$user_id = get_current_user_id();
+		$user    = get_userdata( $user_id );
+		if ( ! $user ) {
+			return new WP_Error( 'no_user', __( 'No account found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		// Never let an administrator self-delete through this member-facing route.
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return new WP_Error(
+				'admin_cannot_self_delete',
+				__( 'Administrators cannot delete their own account here.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$anonymize = (bool) get_option( 'buddynext_anonymize_on_delete', true );
+
+		// Erase the member's BuddyNext data (follows, connections, blocks, prefs,
+		// posts, comments) via the existing eraser, paginated to completion.
+		$privacy = new \BuddyNext\Privacy\PrivacyTools();
+		$page    = 1;
+		do {
+			$result = $privacy->erase( $user->user_email, $page );
+			$done   = ! isset( $result['done'] ) || (bool) $result['done'];
+			++$page;
+		} while ( ! $done && $page < 100 );
+
+		// Remove the WP account. When anonymising, reassign any remaining authored
+		// content to the site's first administrator instead of deleting it.
+		require_once ABSPATH . 'wp-admin/includes/user.php';
+		$reassign = null;
+		if ( $anonymize ) {
+			$admins   = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => array( 'ID' ) ) );
+			$reassign = ! empty( $admins ) ? (int) $admins[0]->ID : null;
+		}
+		wp_delete_user( $user_id, $reassign );
+
+		// The session is now invalid; tell the client to send the user home.
+		return new WP_REST_Response(
+			array(
+				'deleted'     => true,
+				'redirect_to' => home_url( '/' ),
+			),
+			200
+		);
 	}
 
 	/**

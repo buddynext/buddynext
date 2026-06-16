@@ -1,6 +1,6 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnToast } from '../shell/dialog.js';
+import { bnToast, bnConfirm } from '../shell/dialog.js';
 
 /* -- Shared helpers ----------------------------------------------------- */
 
@@ -770,6 +770,66 @@ store( 'buddynext/profile', {
 		},
 	},
 	actions: {
+
+		/* Export the current member's own data as a downloadable JSON file.
+		 * GET buddynext/v1/me/data-export (gated by the Privacy setting). */
+		exportMyData: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( btn ) { btn.disabled = true; }
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/me/data-export' ), {
+					headers: { 'X-WP-Nonce': nonce() },
+				} );
+				if ( ! res.ok ) { throw new Error( 'http_' + res.status ); }
+				var data = await res.json();
+				var blob = new Blob( [ JSON.stringify( data, null, 2 ) ], { type: 'application/json' } );
+				var url  = URL.createObjectURL( blob );
+				var a    = document.createElement( 'a' );
+				a.href     = url;
+				a.download = 'my-data-export.json';
+				document.body.appendChild( a );
+				a.click();
+				document.body.removeChild( a );
+				URL.revokeObjectURL( url );
+				bnToast( 'Your data export has downloaded.', 'success' );
+			} catch ( _e ) {
+				bnToast( 'Could not export your data. Please try again.', 'danger' );
+			} finally {
+				if ( btn ) { btn.disabled = false; }
+			}
+		},
+
+		/* Delete the current member's own account after a confirm modal.
+		 * DELETE buddynext/v1/me/account (gated by the Privacy setting). */
+		deleteMyAccount: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+
+			var ok = await bnConfirm( {
+				title:        'Delete your account?',
+				message:      'This permanently deletes your account and removes your data. This cannot be undone.',
+				confirmLabel: 'Delete my account',
+				tone:         'danger',
+			} );
+			if ( ! ok ) { return; }
+
+			if ( btn ) { btn.disabled = true; }
+			try {
+				var res  = await fetch( apiUrl( 'buddynext/v1/me/account' ), {
+					method:  'DELETE',
+					headers: { 'X-WP-Nonce': nonce() },
+				} );
+				var data = await res.json();
+				if ( res.ok && data.deleted ) {
+					window.location.href = data.redirect_to || '/';
+				} else {
+					if ( btn ) { btn.disabled = false; }
+					bnToast( ( data && data.message ) || 'Could not delete your account.', 'danger' );
+				}
+			} catch ( _e ) {
+				if ( btn ) { btn.disabled = false; }
+				bnToast( 'Could not delete your account. Please try again.', 'danger' );
+			}
+		},
 
 		/* Profile tab switching - Posts / Replies / Media / Likes
 		 *

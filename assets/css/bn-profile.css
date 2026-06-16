@@ -2856,3 +2856,41 @@ button.bn-pf-pill:hover,
 	}
 }
 
+
+/* ── Your data section (export / delete account) ──────────────────────────── */
+.bn-ep-data-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s4);
+	flex-wrap: wrap;
+	padding-block: var(--bn-s3);
+	border-block-end: 1px solid var(--bn-line-faint);
+}
+
+.bn-ep-data-row:last-child {
+	border-block-end: 0;
+}
+
+.bn-ep-data-row__text {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s1);
+	flex: 1 1 16rem;
+}
+
+.bn-ep-data-row__text strong {
+	color: var(--bn-ink);
+	font-weight: var(--bn-fw-medium);
+}
+
+.bn-ep-data-row__text span {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-3);
+}
+
+@media (max-width: 640px) {
+	.bn-ep-data-row .bn-btn {
+		width: 100%;
+	}
+}

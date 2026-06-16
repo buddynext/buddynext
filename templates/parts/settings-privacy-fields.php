@@ -141,3 +141,48 @@ buddynext_get_template(
 		'body_html'    => $privacy_html,
 	)
 );
+
+// ── Your data: self-service export + account deletion ───────────────────────
+// Each control is gated by its Settings → Privacy option; the section is hidden
+// entirely when both are off.
+$bn_allow_export   = (bool) get_option( 'buddynext_allow_data_export', true );
+$bn_allow_deletion = (bool) get_option( 'buddynext_allow_account_deletion', true );
+
+if ( $bn_allow_export || $bn_allow_deletion ) {
+	$data_html = '';
+
+	if ( $bn_allow_export ) {
+		$data_html .= '<div class="bn-ep-data-row">'
+			. '<div class="bn-ep-data-row__text">'
+			. '<strong>' . esc_html__( 'Export my data', 'buddynext' ) . '</strong>'
+			. '<span>' . esc_html__( 'Download a copy of your profile, activity, and connections as a JSON file.', 'buddynext' ) . '</span>'
+			. '</div>'
+			. '<button type="button" class="bn-btn" data-variant="secondary" data-size="sm" data-wp-on--click="actions.exportMyData">'
+			. esc_html__( 'Export', 'buddynext' )
+			. '</button>'
+			. '</div>';
+	}
+
+	if ( $bn_allow_deletion ) {
+		$data_html .= '<div class="bn-ep-data-row">'
+			. '<div class="bn-ep-data-row__text">'
+			. '<strong>' . esc_html__( 'Delete my account', 'buddynext' ) . '</strong>'
+			. '<span>' . esc_html__( 'Permanently delete your account and remove your data. This cannot be undone.', 'buddynext' ) . '</span>'
+			. '</div>'
+			. '<button type="button" class="bn-btn" data-variant="danger" data-size="sm" data-wp-on--click="actions.deleteMyAccount">'
+			. esc_html__( 'Delete account', 'buddynext' )
+			. '</button>'
+			. '</div>';
+	}
+
+	buddynext_get_template(
+		'parts/profile-edit-section.php',
+		array(
+			'title'        => __( 'Your data', 'buddynext' ),
+			'subtitle'     => __( 'Export your information or delete your account.', 'buddynext' ),
+			'title_id'     => 'bn-ep-data-title',
+			'body_classes' => array( 'bn-ep-data-body' ),
+			'body_html'    => $data_html,
+		)
+	);
+}
