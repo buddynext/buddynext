@@ -143,10 +143,6 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 			<!-- Replies tab content -->
 			<div class="bn-profile-tab-panel" data-tab-panel="replies" hidden>
 				<?php if ( $bn_user_replies ) : ?>
-<<<<<<< Updated upstream
-					<?php foreach ( $bn_user_replies as $reply ) : ?>
-					<a class="bn-reply-card bn-reply-card--link" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::post_url( (int) $reply->object_id ) ); ?>">
-=======
 					<?php
 					foreach ( $bn_user_replies as $reply ) :
 						// Link each reply back to the activity it was posted on
@@ -155,7 +151,6 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 						$bn_reply_url = \BuddyNext\Core\PageRouter::post_url( (int) $reply->object_id );
 						?>
 					<a class="bn-reply-card bn-reply-card--link" href="<?php echo esc_url( $bn_reply_url ); ?>">
->>>>>>> Stashed changes
 						<div class="bn-reply-card__meta">
 							<?php buddynext_icon( 'message-circle' ); ?>
 							<span><?php echo esc_html( sprintf( /* translators: %s: author name */ __( 'Replied to %s', 'buddynext' ), $reply->post_author_name ) ); ?></span>
