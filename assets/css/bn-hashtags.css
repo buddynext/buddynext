@@ -480,6 +480,21 @@ a.bn-hashtag:hover {
 	min-width: 0;
 }
 
+/* Shared sidebar-widget label. The hashtag sidebar partials reference this
+ * class but it was never defined, so the titles fell through to the theme's
+ * ~32px heading. Match the design-system sidebar label (the space-home
+ * "ABOUT THIS SPACE" treatment, .bn-sh-about__section-title): small-caps,
+ * token-driven so it is dark-mode safe. */
+.bn-sidebar-widget__title {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink);
+	text-transform: uppercase;
+	letter-spacing: var(--bn-ls-wide);
+	margin: 0 0 var(--bn-s2);
+}
+
 /* About list (definition list of meta rows). */
 .bn-hashtag-about {
 	display: flex;
