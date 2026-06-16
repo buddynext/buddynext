@@ -339,7 +339,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 				class="bn-btn"
 				data-variant="secondary"
 				data-size="sm"
-				href="<?php echo esc_url( admin_url( 'profile.php' ) ); ?>"
+				href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url( $bn_member_id ) ); ?>"
 			>
 				<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
 			</a>
