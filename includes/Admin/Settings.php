@@ -39,7 +39,7 @@ class Settings extends AdminPageBase {
 	private const SETTINGS_MAP = array(
 		// General.
 		'buddynext_site_name'                  => array( 'string', 'sanitize_text_field' ),
-		'buddynext_brand_color'                => array( 'string', 'sanitize_hex_color' ),
+		'buddynext_brand_color'                => array( 'string', array( self::class, 'sanitize_brand_color' ) ),
 		'buddynext_description'                => array( 'string', 'sanitize_textarea_field' ),
 		'buddynext_public_explore'             => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_enable_dm'                  => array( 'boolean', 'rest_sanitize_boolean' ),
@@ -192,6 +192,13 @@ class Settings extends AdminPageBase {
 			echo '<p>' . esc_html__( 'Unknown settings tab.', 'buddynext' ) . '</p>';
 			return;
 		}
+
+		// Settings API success notice — options.php redirects back here with
+		// ?settings-updated=true after a save; surface the confirmation.
+		if ( isset( $_GET['settings-updated'] ) && 'true' === sanitize_text_field( wp_unslash( $_GET['settings-updated'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			add_settings_error( 'buddynext_messages', 'buddynext_settings_saved', __( 'Settings saved.', 'buddynext' ), 'updated' );
+		}
+		settings_errors( 'buddynext_messages' );
 		?>
 		<p class="bn-admin-hub__subtitle"><?php echo esc_html( $this->get_tab_subtitle( $slug ) ); ?></p>
 
@@ -311,6 +318,22 @@ class Settings extends AdminPageBase {
 			'buddynext',
 			array( $this, 'render_page' )
 		);
+	}
+
+	/**
+	 * Sanitize the brand colour, falling back to the default when empty/invalid.
+	 *
+	 * An empty submission makes sanitize_hex_color() return '', which would
+	 * persist as an empty option and wipe the brand colour (read sites only
+	 * fall back to the default when the option is absent, not when it is ''),
+	 * so clearing the field permanently broke the colour. Reset to the
+	 * documented default instead.
+	 *
+	 * @param mixed $value Raw submitted value.
+	 * @return string Valid hex colour, or the default '#0073aa'.
+	 */
+	public static function sanitize_brand_color( $value ): string {
+		return sanitize_hex_color( (string) $value ) ?: '#0073aa';
 	}
 
 	/**
