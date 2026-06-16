@@ -150,11 +150,12 @@
 	--bn-avatar-presence-border: var(--bn-surface);
 
 	/* Font weight */
-	--bn-fw-normal:    400;
-	--bn-fw-medium:    500;
-	--bn-fw-semibold:  600;
-	--bn-fw-bold:      700;
-	--bn-fw-extrabold: 800;
+	--bn-fw-normal:          400;
+	--bn-fw-medium:          500;
+	--bn-fw-medium-semibold: 550; /* Inter variable-font weight between medium and semibold. */
+	--bn-fw-semibold:        600;
+	--bn-fw-bold:            700;
+	--bn-fw-extrabold:       800;
 
 	/* Letter spacing */
 	--bn-ls-tight:  -0.02em;
@@ -1714,7 +1715,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border-radius: var(--bn-r-md);
 	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-sm);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	letter-spacing: -0.005em;
 	border: 1px solid transparent;
 	transition: background var(--bn-dur) var(--bn-ease),
@@ -1812,11 +1813,13 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-badge {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
-	padding: 2px 8px;
-	height: 20px;
+	gap: var(--bn-s1);
+	/* Fixed height + align-items:center handle vertical centring, so the old
+	   off-grid 2px vertical padding was inert — drop it and keep the 8px sides. */
+	padding: 0 var(--bn-s2);
+	height: var(--bn-s5);
 	font-size: var(--bn-text-2xs);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	border-radius: var(--bn-r-full);
 	background: var(--bn-sunken);
 	color: var(--bn-ink-2);
@@ -2012,7 +2015,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-toggle-row__label {
 	font-size: var(--bn-text-sm);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	color: var(--bn-ink);
 }
 .bn-toggle-row__desc {
@@ -2137,7 +2140,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	   a soft pill; the rounded TOP + flat bottom keeps the active underline. */
 	padding: var(--bn-s2) var(--bn-s3);
 	font-size: var(--bn-text-sm);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	color: var(--bn-ink-3);
 	border: none;
 	border-bottom: 2px solid transparent;
@@ -2261,7 +2264,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	align-items: center;
 	gap: 4px;
 	font-size: var(--bn-text-xs);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	margin-top: 2px;
 }
 .bn-stat__delta[data-trend="up"]   { color: var(--bn-success); }
@@ -2508,7 +2511,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 }
 .bn-split__rail-item-title {
 	font-size: var(--bn-text-sm);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	color: var(--bn-ink);
 	white-space: nowrap;
 	overflow: hidden;
@@ -2553,7 +2556,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	align-items: center;
 	gap: var(--bn-s2);
 	font-size: var(--bn-text-xs);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	color: var(--bn-ink-3);
 }
 .bn-stepper__dot {

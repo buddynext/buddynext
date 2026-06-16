@@ -2544,7 +2544,7 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	margin-bottom: -1px;
 	border-bottom: 2px solid transparent;
 	font-size: var(--bn-text-sm);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	color: var(--bn-ink-3);
 	text-decoration: none;
 	transition: color var(--bn-dur-fast) var(--bn-ease), border-color var(--bn-dur-fast) var(--bn-ease);

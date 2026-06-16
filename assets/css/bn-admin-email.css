@@ -130,7 +130,7 @@
 }
 .bn-email-editor__label {
 	font-size: var(--bn-text-sm);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	color: var(--bn-ink);
 }
 .bn-email-editor__hint {
@@ -151,7 +151,7 @@
 }
 .bn-email-editor__tokens-title {
 	font-size: var(--bn-text-sm);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	color: var(--bn-ink);
 	margin-bottom: var(--bn-s2);
 }

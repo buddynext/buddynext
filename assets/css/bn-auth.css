@@ -135,7 +135,7 @@
 
 .bn-auth-label {
 	font-size: var(--bn-text-sm);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	color: var(--bn-ink);
 }
 
@@ -208,7 +208,7 @@
 
 .bn-auth-foot a {
 	color: var(--bn-accent);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	text-decoration: none;
 }
 
@@ -458,7 +458,7 @@
 .bn-auth-wp-login-wrap #loginform label {
 	display: block;
 	font-size: var(--bn-text-sm);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	color: var(--bn-ink);
 	margin-bottom: 6px;
 }
@@ -514,7 +514,7 @@
 	border-radius: var(--bn-r-md);
 	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-base);
-	font-weight: 550;
+	font-weight: var(--bn-fw-medium-semibold);
 	letter-spacing: -0.005em;
 	cursor: pointer;
 	transition: background var(--bn-dur) var(--bn-ease);
