@@ -38,25 +38,25 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $args = array(
-	'active_tab'           => isset( $active_tab ) ? (string) $active_tab : 'posts',
-	'about_html'           => isset( $about_html ) ? (string) $about_html : '',
-	'profile_user_id'      => isset( $profile_user_id ) ? (int) $profile_user_id : 0,
-	'viewer_id'            => isset( $viewer_id ) ? (int) $viewer_id : 0,
-	'is_owner'             => isset( $is_owner ) ? (bool) $is_owner : false,
-	'display_name'         => isset( $display_name ) ? (string) $display_name : '',
-	'recent_posts'         => isset( $recent_posts ) && is_array( $recent_posts ) ? $recent_posts : array(),
-	'scheduled_posts'      => isset( $scheduled_posts ) && is_array( $scheduled_posts ) ? $scheduled_posts : array(),
-	'user_replies'         => isset( $user_replies ) && is_array( $user_replies ) ? $user_replies : array(),
-	'user_media'           => isset( $user_media ) && is_array( $user_media ) ? $user_media : array(),
-	'user_likes'           => isset( $user_likes ) && is_array( $user_likes ) ? $user_likes : array(),
-	'jt_discussions'       => isset( $jt_discussions ) && is_array( $jt_discussions ) ? $jt_discussions : array(),
-	'show_discussions'     => isset( $show_discussions ) ? (bool) $show_discussions : false,
-	'follower_users'       => isset( $follower_users ) && is_array( $follower_users ) ? $follower_users : array(),
-	'following_users'      => isset( $following_users ) && is_array( $following_users ) ? $following_users : array(),
-	'connection_users'     => isset( $connection_users ) && is_array( $connection_users ) ? $connection_users : array(),
-	'pending_follow_users' => isset( $pending_follow_users ) && is_array( $pending_follow_users ) ? $pending_follow_users : array(),
+	'active_tab'               => isset( $active_tab ) ? (string) $active_tab : 'posts',
+	'about_html'               => isset( $about_html ) ? (string) $about_html : '',
+	'profile_user_id'          => isset( $profile_user_id ) ? (int) $profile_user_id : 0,
+	'viewer_id'                => isset( $viewer_id ) ? (int) $viewer_id : 0,
+	'is_owner'                 => isset( $is_owner ) ? (bool) $is_owner : false,
+	'display_name'             => isset( $display_name ) ? (string) $display_name : '',
+	'recent_posts'             => isset( $recent_posts ) && is_array( $recent_posts ) ? $recent_posts : array(),
+	'scheduled_posts'          => isset( $scheduled_posts ) && is_array( $scheduled_posts ) ? $scheduled_posts : array(),
+	'user_replies'             => isset( $user_replies ) && is_array( $user_replies ) ? $user_replies : array(),
+	'user_media'               => isset( $user_media ) && is_array( $user_media ) ? $user_media : array(),
+	'user_likes'               => isset( $user_likes ) && is_array( $user_likes ) ? $user_likes : array(),
+	'jt_discussions'           => isset( $jt_discussions ) && is_array( $jt_discussions ) ? $jt_discussions : array(),
+	'show_discussions'         => isset( $show_discussions ) ? (bool) $show_discussions : false,
+	'follower_users'           => isset( $follower_users ) && is_array( $follower_users ) ? $follower_users : array(),
+	'following_users'          => isset( $following_users ) && is_array( $following_users ) ? $following_users : array(),
+	'connection_users'         => isset( $connection_users ) && is_array( $connection_users ) ? $connection_users : array(),
+	'pending_follow_users'     => isset( $pending_follow_users ) && is_array( $pending_follow_users ) ? $pending_follow_users : array(),
 	'pending_connection_users' => isset( $pending_connection_users ) && is_array( $pending_connection_users ) ? $pending_connection_users : array(),
-	'classes'              => isset( $classes ) ? (array) $classes : array(),
+	'classes'                  => isset( $classes ) ? (array) $classes : array(),
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -79,21 +79,21 @@ $bn_class   = trim(
 	)
 );
 
-$bn_pf_uid          = (int) $args['profile_user_id'];
-$bn_pf_viewer       = (int) $args['viewer_id'];
-$bn_pf_is_owner     = (bool) $args['is_owner'];
-$bn_pf_name         = (string) $args['display_name'];
-$bn_pf_about_html   = (string) $args['about_html'];
-$bn_recent_posts    = (array) $args['recent_posts'];
-$bn_scheduled_posts = (array) $args['scheduled_posts'];
-$bn_user_replies    = (array) $args['user_replies'];
-$bn_user_media      = (array) $args['user_media'];
-$bn_user_likes      = (array) $args['user_likes'];
-$bn_jt_disc         = (array) $args['jt_discussions'];
-$bn_followers       = (array) $args['follower_users'];
-$bn_following       = (array) $args['following_users'];
-$bn_connections     = (array) $args['connection_users'];
-$bn_pending_follows = (array) $args['pending_follow_users'];
+$bn_pf_uid              = (int) $args['profile_user_id'];
+$bn_pf_viewer           = (int) $args['viewer_id'];
+$bn_pf_is_owner         = (bool) $args['is_owner'];
+$bn_pf_name             = (string) $args['display_name'];
+$bn_pf_about_html       = (string) $args['about_html'];
+$bn_recent_posts        = (array) $args['recent_posts'];
+$bn_scheduled_posts     = (array) $args['scheduled_posts'];
+$bn_user_replies        = (array) $args['user_replies'];
+$bn_user_media          = (array) $args['user_media'];
+$bn_user_likes          = (array) $args['user_likes'];
+$bn_jt_disc             = (array) $args['jt_discussions'];
+$bn_followers           = (array) $args['follower_users'];
+$bn_following           = (array) $args['following_users'];
+$bn_connections         = (array) $args['connection_users'];
+$bn_pending_follows     = (array) $args['pending_follow_users'];
 $bn_pending_connections = (array) $args['pending_connection_users'];
 
 do_action( 'buddynext_part_profile_tab_panel_before', $args );
@@ -135,17 +135,20 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 				?>
 			<?php else : ?>
 				<div class="bn-empty-state">
-					<?php
-					echo esc_html(
-						$bn_pf_is_owner
-							? __( 'You have not posted anything yet.', 'buddynext' )
-							: sprintf(
-								/* translators: %s: member display name */
-								__( '%s has not posted anything yet.', 'buddynext' ),
-								$bn_pf_name
-							)
-					);
-					?>
+					<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'edit' ); ?></div>
+					<div class="bn-empty-title">
+						<?php
+						echo esc_html(
+							$bn_pf_is_owner
+								? __( 'You have not posted anything yet.', 'buddynext' )
+								: sprintf(
+									/* translators: %s: member display name */
+									__( '%s has not posted anything yet.', 'buddynext' ),
+									$bn_pf_name
+								)
+						);
+						?>
+					</div>
 				</div>
 			<?php endif; ?>
 			</div><!-- /.bn-profile-posts-panel -->
@@ -171,7 +174,8 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 					?>
 				<?php else : ?>
 					<div class="bn-empty-state">
-						<?php esc_html_e( 'You have no scheduled posts.', 'buddynext' ); ?>
+						<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'clock' ); ?></div>
+						<div class="bn-empty-title"><?php esc_html_e( 'You have no scheduled posts.', 'buddynext' ); ?></div>
 					</div>
 				<?php endif; ?>
 			</div><!-- /.bn-profile-scheduled-panel -->
@@ -205,7 +209,10 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 					</a>
 					<?php endforeach; ?>
 				<?php else : ?>
-					<div class="bn-empty-state"><?php esc_html_e( 'No replies yet.', 'buddynext' ); ?></div>
+					<div class="bn-empty-state">
+						<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></div>
+						<div class="bn-empty-title"><?php esc_html_e( 'No replies yet.', 'buddynext' ); ?></div>
+					</div>
 				<?php endif; ?>
 			</div>
 
@@ -220,7 +227,10 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 					echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', (array) $bn_user_media ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer emits pre-sanitized markup.
 				} else {
 					?>
-					<div class="bn-empty-state"><?php esc_html_e( 'No media uploaded yet.', 'buddynext' ); ?></div>
+					<div class="bn-empty-state">
+						<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'image' ); ?></div>
+						<div class="bn-empty-title"><?php esc_html_e( 'No media uploaded yet.', 'buddynext' ); ?></div>
+					</div>
 					<?php
 				}
 				?>
@@ -249,7 +259,10 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 					}
 					?>
 				<?php else : ?>
-					<div class="bn-empty-state"><?php esc_html_e( 'No liked posts yet.', 'buddynext' ); ?></div>
+					<div class="bn-empty-state">
+						<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'heart' ); ?></div>
+						<div class="bn-empty-title"><?php esc_html_e( 'No liked posts yet.', 'buddynext' ); ?></div>
+					</div>
 				<?php endif; ?>
 			</div>
 
@@ -277,7 +290,10 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 					</a>
 					<?php endforeach; ?>
 				<?php else : ?>
-					<div class="bn-empty-state"><?php esc_html_e( 'No discussions yet.', 'buddynext' ); ?></div>
+					<div class="bn-empty-state">
+						<div class="bn-empty-icon" aria-hidden="true"><?php buddynext_icon( 'messages-square' ); ?></div>
+						<div class="bn-empty-title"><?php esc_html_e( 'No discussions yet.', 'buddynext' ); ?></div>
+					</div>
 				<?php endif; ?>
 			</div>
 			<?php endif; ?>
