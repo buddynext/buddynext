@@ -258,7 +258,7 @@
 .bn-auth-strength {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: var(--bn-s1);
 }
 
 .bn-auth-strength__label {

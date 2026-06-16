@@ -215,7 +215,7 @@
 .bn-sd-card__category {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--bn-s1);
 	margin-block-start: 4px;
 	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
@@ -849,7 +849,7 @@ a.bn-sh-statpill:focus-visible {
 .bn-sh-side-member__id:hover .bn-sh-side-member__name { color: var(--bn-accent); }
 .bn-sh-side-mod__msg {
 	flex-shrink: 0;
-	padding: 4px;
+	padding: var(--bn-s1);
 	width: 28px;
 	height: 28px;
 	display: inline-flex;
@@ -2760,7 +2760,7 @@ a.bn-sh-statpill:focus-visible {
 	.bn-modal-backdrop[data-bn-modal="delete-space"] .bn-modal__panel {
 		max-inline-size: calc(100vw - 32px);
 		inline-size: calc(100vw - 32px);
-		margin-inline: 16px;
+		margin-inline: var(--bn-s4);
 	}
 
 	/* Cover preview height taper. */
