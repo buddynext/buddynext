@@ -115,7 +115,7 @@ function swapButtonState( btn, newState ) {
 	// the button shows a clean label (Joined / Requested / Join / Request to join).
 	btn.textContent = labelMap[ newState ];
 
-	btn.dataset.wpOnClick    = 'actions.' + actionMap[ newState ];
+	btn.setAttribute( 'data-wp-on--click', 'actions.' + actionMap[ newState ] );
 	btn.dataset.currentState = newState;
 	btn.disabled             = false;
 }
@@ -418,9 +418,13 @@ var storeInstance = store( 'buddynext/spaces', {
 				} else if ( btn ) {
 					btn.textContent = origText;
 					btn.disabled    = false;
+					if ( window.bnToast ) {
+						window.bnToast( ( data && data.message ) || __i18n( 'Could not join this space.' ), 'danger' );
+					}
 				}
 			} catch ( _e ) {
 				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Network error.' ), 'danger' ); }
 			}
 		},
 
@@ -1912,7 +1916,7 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.variant      = 'secondary';
 		ctaEl.dataset.size         = 'sm';
 		ctaEl.dataset.currentState = 'joined';
-		ctaEl.dataset.wpOnClick    = 'actions.leaveSpace';
+		ctaEl.setAttribute( 'data-wp-on--click', 'actions.leaveSpace' );
 		ctaEl.dataset.spaceId      = String( spaceId );
 		ctaEl.setAttribute( 'aria-label', __i18n( 'Joined - click to leave' ) );
 		ctaEl.textContent = __i18n( 'Joined' );
@@ -1922,7 +1926,7 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.variant      = 'ghost';
 		ctaEl.dataset.size         = 'sm';
 		ctaEl.dataset.currentState = 'pending';
-		ctaEl.dataset.wpOnClick    = 'actions.cancelJoinRequest';
+		ctaEl.setAttribute( 'data-wp-on--click', 'actions.cancelJoinRequest' );
 		ctaEl.dataset.spaceId      = String( spaceId );
 		ctaEl.setAttribute( 'aria-label', __i18n( 'Request pending - click to cancel' ) );
 		ctaEl.textContent = __i18n( 'Requested' );
@@ -1932,7 +1936,7 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.variant      = 'primary';
 		ctaEl.dataset.size         = 'sm';
 		ctaEl.dataset.currentState = 'join';
-		ctaEl.dataset.wpOnClick    = 'actions.joinSpace';
+		ctaEl.setAttribute( 'data-wp-on--click', 'actions.joinSpace' );
 		ctaEl.dataset.spaceId      = String( spaceId );
 		ctaEl.textContent = __i18n( 'Join' );
 	} else {
@@ -1941,7 +1945,7 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.variant      = 'secondary';
 		ctaEl.dataset.size         = 'sm';
 		ctaEl.dataset.currentState = 'request';
-		ctaEl.dataset.wpOnClick    = 'actions.requestJoin';
+		ctaEl.setAttribute( 'data-wp-on--click', 'actions.requestJoin' );
 		ctaEl.dataset.spaceId      = String( spaceId );
 		ctaEl.textContent = __i18n( 'Request to join' );
 	}
