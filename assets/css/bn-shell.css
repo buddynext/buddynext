@@ -98,6 +98,15 @@ body.admin-bar .bn-app {
 	}
 }
 
+/* Register the rail width as an animatable <length> so the grid track that
+   consumes it can transition smoothly instead of snapping — plain CSS custom
+   properties are not interpolable, but an @property-registered one is. */
+@property --bn-railw {
+	syntax: '<length>';
+	inherits: true;
+	initial-value: 260px;
+}
+
 /* ── Two/three-column shell — full-viewport, rail anchored to viewport edge ── */
 .bn-app__shell {
 	display: grid;
@@ -109,6 +118,16 @@ body.admin-bar .bn-app {
 	padding: 0;
 	flex: 1 1 auto;
 	min-height: 0;
+	/* Animate the rail track on collapse/expand: --bn-railw is @property-
+	   registered above, so interpolating it re-runs grid-template-columns each
+	   frame for a smooth slide instead of an instant snap. */
+	transition: --bn-railw 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bn-app__shell {
+		transition: none;
+	}
 }
 
 .bn-app__shell--with-sidebar {
@@ -285,13 +304,33 @@ body.admin-bar .bn-app__rail {
  * Stamped on <html data-bn-rail="collapsed"> (font-scale.js bootstrap). The
  * rail column shrinks, labels/headings hide, icons centre, and the count badge
  * becomes a corner dot. Item `title` attributes provide hover tooltips. */
+/* Labels fade + collapse rather than display:none (which cannot animate), so
+   they disappear in step with the rail slide. */
+.bn-rail__label,
+.bn-rail__heading,
+.bn-rail__brand-name {
+	transition: opacity 0.15s ease;
+}
 [data-bn-rail="collapsed"] {
 	--bn-railw: 72px;
 }
 [data-bn-rail="collapsed"] .bn-rail__label,
 [data-bn-rail="collapsed"] .bn-rail__heading,
 [data-bn-rail="collapsed"] .bn-rail__brand-name {
-	display: none;
+	opacity: 0;
+	width: 0;
+	min-width: 0;
+	flex: 0 0 0;
+	margin: 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	.bn-rail__label,
+	.bn-rail__heading,
+	.bn-rail__brand-name {
+		transition: none;
+	}
 }
 [data-bn-rail="collapsed"] .bn-rail__item {
 	justify-content: center;

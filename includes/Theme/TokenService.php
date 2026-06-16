@@ -263,10 +263,29 @@ class TokenService {
 				// Brand / accent.
 				'--bn-accent'      => 'var(--reign-accent-color, var(--bn-accent-500))',
 				'--bn-accent-700'  => 'var(--reign-accent-hover-color, oklch(42% calc(var(--bn-chroma) * 0.9) var(--bn-hue)))',
+				// Brand accent SCALE — derive every step from the theme accent
+				// (--bn-accent-500 → --reign-accent-color) mixed with the
+				// theme-following surface (lighter steps) / ink (darker steps).
+				// Previously these were left to BuddyNext's internal --bn-hue, so
+				// the scale stayed blue when the Reign accent was changed and did
+				// not follow the host palette. --bn-accent-500 references Reign with
+				// a literal fallback so there is no var() cycle with --bn-accent.
+				'--bn-accent-500'  => 'var(--reign-accent-color, oklch(58% var(--bn-chroma) var(--bn-hue)))',
+				'--bn-accent-50'   => 'color-mix(in oklch, var(--bn-accent-500) 6%, var(--bn-surface))',
+				'--bn-accent-100'  => 'color-mix(in oklch, var(--bn-accent-500) 12%, var(--bn-surface))',
+				'--bn-accent-200'  => 'color-mix(in oklch, var(--bn-accent-500) 24%, var(--bn-surface))',
+				'--bn-accent-300'  => 'color-mix(in oklch, var(--bn-accent-500) 40%, var(--bn-surface))',
+				'--bn-accent-400'  => 'color-mix(in oklch, var(--bn-accent-500) 65%, var(--bn-surface))',
+				'--bn-accent-600'  => 'color-mix(in oklch, var(--bn-accent-500) 85%, var(--bn-ink))',
+				'--bn-accent-800'  => 'color-mix(in oklch, var(--bn-accent-500) 68%, var(--bn-ink))',
+				'--bn-accent-900'  => 'color-mix(in oklch, var(--bn-accent-500) 52%, var(--bn-ink))',
 				// Surfaces.
 				'--bn-canvas'      => 'var(--reign-site-body-bg-color, oklch(99% 0.002 var(--bn-hue)))',
 				'--bn-surface'     => 'var(--reign-site-sections-bg-color, oklch(100% 0 0))',
 				'--bn-sunken'      => 'var(--reign-site-secondary-bg-color, oklch(97% 0.004 var(--bn-hue)))',
+				// Elevated surface — derive from the theme surface so it tracks the
+				// host palette and mode instead of BuddyNext's internal tint.
+				'--bn-raised'      => 'color-mix(in oklch, var(--bn-surface) 94%, var(--bn-ink))',
 				// Borders.
 				'--bn-line'        => 'var(--reign-site-border-color, oklch(92% 0.005 var(--bn-hue)))',
 				'--bn-line-faint'  => 'var(--reign-site-hr-color, oklch(95% 0.003 var(--bn-hue)))',
