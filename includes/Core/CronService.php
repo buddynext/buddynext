@@ -194,6 +194,42 @@ class CronService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
+	// ── Activity-log pruning ──────────────────────────────────────────────────
+
+	/**
+	 * Delete activity-log rows older than the configured data-retention window.
+	 *
+	 * Runs weekly. Driven by the Privacy → "Activity log retention (days)"
+	 * setting (buddynext_data_retention_days, default 365); 0 (or less) disables
+	 * pruning so the log is kept indefinitely. Deletes in batches of 1,000 with a
+	 * per-run cap so a large bn_activity_log never locks the table or times the
+	 * cron out — any remainder is cleared on the next weekly run.
+	 *
+	 * @return void
+	 */
+	public function handle_cleanup_activity_log(): void {
+		$retention_days = (int) get_option( 'buddynext_data_retention_days', 365 );
+		if ( $retention_days <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		$cutoff      = gmdate( 'Y-m-d H:i:s', time() - ( $retention_days * DAY_IN_SECONDS ) );
+		$max_batches = 50; // up to 50k rows per weekly run.
+
+		do {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$deleted = $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$wpdb->prefix}bn_activity_log WHERE created_at < %s LIMIT 1000",
+					$cutoff
+				)
+			);
+			--$max_batches;
+		} while ( $deleted > 0 && $max_batches > 0 );
+	}
+
 	// ── Trending hashtags ─────────────────────────────────────────────────────
 
 	/**

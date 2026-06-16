@@ -50,6 +50,11 @@ class CronScheduler {
 	public const JOB_CLEANUP_NOTIFICATIONS = 'buddynext_cleanup_notifications';
 
 	/**
+	 * Weekly activity-log pruning job hook (honours the data-retention window).
+	 */
+	public const JOB_CLEANUP_ACTIVITY_LOG = 'buddynext_cleanup_activity_log';
+
+	/**
 	 * Trending hashtags refresh job hook.
 	 */
 	public const JOB_TRENDING_HASHTAGS = 'buddynext_trending_hashtags';
@@ -81,6 +86,7 @@ class CronScheduler {
 		add_action( self::JOB_WEEKLY_DIGEST, array( $handlers, 'handle_weekly_digest' ) );
 		add_action( self::JOB_CLEANUP_TOKENS, array( $handlers, 'handle_cleanup_tokens' ) );
 		add_action( self::JOB_CLEANUP_NOTIFICATIONS, array( $handlers, 'handle_cleanup_notifications' ) );
+		add_action( self::JOB_CLEANUP_ACTIVITY_LOG, array( $handlers, 'handle_cleanup_activity_log' ) );
 		add_action( self::JOB_TRENDING_HASHTAGS, array( $handlers, 'handle_trending_hashtags' ) );
 		add_action( self::JOB_RECOUNT_STATS, array( $handlers, 'handle_recount_stats' ) );
 		add_action( self::JOB_PUBLISH_SCHEDULED, array( $handlers, 'handle_publish_scheduled' ) );
@@ -130,6 +136,7 @@ class CronScheduler {
 		$this->maybe_schedule( self::JOB_WEEKLY_DIGEST, 'weekly' );
 		$this->maybe_schedule( self::JOB_CLEANUP_TOKENS, 'daily' );
 		$this->maybe_schedule( self::JOB_CLEANUP_NOTIFICATIONS, 'weekly' );
+		$this->maybe_schedule( self::JOB_CLEANUP_ACTIVITY_LOG, 'weekly' );
 		$this->maybe_schedule( self::JOB_TRENDING_HASHTAGS, 'buddynext_30min' );
 		$this->maybe_schedule( self::JOB_RECOUNT_STATS, 'buddynext_5min' );
 		$this->maybe_schedule( self::JOB_PUBLISH_SCHEDULED, 'buddynext_1min' );
@@ -146,6 +153,7 @@ class CronScheduler {
 			self::JOB_WEEKLY_DIGEST,
 			self::JOB_CLEANUP_TOKENS,
 			self::JOB_CLEANUP_NOTIFICATIONS,
+			self::JOB_CLEANUP_ACTIVITY_LOG,
 			self::JOB_TRENDING_HASHTAGS,
 			self::JOB_RECOUNT_STATS,
 			self::JOB_PUBLISH_SCHEDULED,
