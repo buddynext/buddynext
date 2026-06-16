@@ -8373,9 +8373,7 @@
         ],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "spaces",
@@ -8458,11 +8456,7 @@
         "templates": [],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "api",
-          "frontend",
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "notifications",
@@ -8496,9 +8490,7 @@
         ],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "auth",
@@ -8523,9 +8515,7 @@
         ],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "search",
@@ -8548,9 +8538,7 @@
         ],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "moderation",
@@ -8563,10 +8551,7 @@
         ],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "api",
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "hashtags",
@@ -8652,10 +8637,7 @@
         ],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "api",
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "onboarding",
@@ -8681,11 +8663,7 @@
         "templates": [],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "api",
-          "frontend",
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "announcements",
@@ -8697,10 +8675,7 @@
         "templates": [],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "frontend",
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "gamification",
@@ -8711,10 +8686,7 @@
         ],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "api",
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "jetonomy",
@@ -8726,10 +8698,7 @@
           "jetonomy_settings"
         ],
         "adminPages": [],
-        "missingLayers": [
-          "api",
-          "frontend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "wpmediaverse",
@@ -8738,11 +8707,7 @@
         "templates": [],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "api",
-          "frontend",
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "career_board",
@@ -8751,11 +8716,7 @@
         "templates": [],
         "options": [],
         "adminPages": [],
-        "missingLayers": [
-          "api",
-          "frontend",
-          "backend"
-        ]
+        "missingLayers": []
       },
       {
         "slug": "webhooks",

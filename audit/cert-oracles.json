@@ -40,6 +40,14 @@
       "method": "POST",
       "params": { "type": "poll", "content": "cert probe" },
       "off_code": "polls_disabled"
+    },
+    {
+      "id": "buddynext_enable_link_preview",
+      "kind": "option",
+      "route": "/buddynext/v1/link-preview",
+      "method": "GET",
+      "params": { "url": "https://example.com" },
+      "off_code": "link_preview_disabled"
     }
   ]
 }
