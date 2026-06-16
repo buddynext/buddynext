@@ -944,6 +944,56 @@ store( 'buddynext/post-card', {
 			const ctx      = getContext();
 			ctx.optionsOpen = ! ctx.optionsOpen;
 		},
+		/**
+		 * Dismiss this card's open popovers (reaction picker, options menu) when
+		 * a click lands outside their trigger/popover. Bound to the document via
+		 * data-wp-on-document--click on the card root, so it also closes a picker
+		 * left open on another card when the viewer interacts elsewhere. Scoped to
+		 * the current card through getElement().ref so each card only governs its
+		 * own popovers.
+		 *
+		 * @param {MouseEvent} event The document click event.
+		 */
+		closePopups( event ) {
+			const ctx = getContext();
+			if ( ! ctx || ( ! ctx.reactionPickerOpen && ! ctx.optionsOpen ) ) {
+				return;
+			}
+			const ref = getElement()?.ref || null;
+			if ( ! ref ) {
+				return;
+			}
+			if ( ctx.reactionPickerOpen ) {
+				const reactWrap = ref.querySelector( '.bn-post-card__react-wrap' );
+				if ( ! reactWrap || ! reactWrap.contains( event.target ) ) {
+					ctx.reactionPickerOpen = false;
+				}
+			}
+			if ( ctx.optionsOpen ) {
+				const menuWrap = ref.querySelector( '.bn-post-card__menu-wrap' );
+				if ( ! menuWrap || ! menuWrap.contains( event.target ) ) {
+					ctx.optionsOpen = false;
+				}
+			}
+		},
+		/**
+		 * Close this card's open popovers on the Escape key (keyboard a11y for the
+		 * reaction picker toolbar and the options menu). Bound via
+		 * data-wp-on-document--keydown on the card root.
+		 *
+		 * @param {KeyboardEvent} event The document keydown event.
+		 */
+		closePopupsOnEscape( event ) {
+			if ( 'Escape' !== event.key ) {
+				return;
+			}
+			const ctx = getContext();
+			if ( ! ctx ) {
+				return;
+			}
+			ctx.reactionPickerOpen = false;
+			ctx.optionsOpen        = false;
+		},
 		* deletePost() {
 			const ctx = getContext();
 			const ok = yield bnConfirm( {

@@ -336,6 +336,8 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 	class="<?php echo esc_attr( $card_class_attr ); ?>"
 	data-wp-interactive="buddynext/post-card"
 	data-wp-init="callbacks.initPostCard"
+	data-wp-on-document--click="actions.closePopups"
+	data-wp-on-document--keydown="actions.closePopupsOnEscape"
 	data-wp-context='
 	<?php
 		echo wp_json_encode(
