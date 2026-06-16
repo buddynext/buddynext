@@ -42,8 +42,18 @@ $user_meta_table = $wpdb->usermeta;
 
 $bn_per_page = 15;
 
+// The Spaces filter tab + its feed only make sense while the Spaces feature is
+// enabled; when the owner turns it off we drop the tab and treat a stale
+// ?filter=spaces as the default so the activity page has no dead Spaces UI.
+$bn_spaces_on = function_exists( 'buddynext_service' )
+	&& is_object( buddynext_service( 'features' ) )
+	&& buddynext_service( 'features' )->is_enabled( 'spaces' );
+
 // Filter tab — for-you (default) | following | spaces | network.
-$allowed_filters = array( 'for-you', 'following', 'spaces', 'network' );
+$allowed_filters = array( 'for-you', 'following', 'network' );
+if ( $bn_spaces_on ) {
+	$allowed_filters[] = 'spaces';
+}
 $raw_filter      = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'for-you'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $bn_filter       = in_array( $raw_filter, $allowed_filters, true ) ? $raw_filter : 'for-you';
 
@@ -379,6 +389,10 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 				'count' => (int) $bn_tab_counts['network'],
 			),
 		);
+		// Hide the Spaces tab when the feature is disabled (mirrors $allowed_filters).
+		if ( ! $bn_spaces_on ) {
+			unset( $filter_tabs['spaces'] );
+		}
 		foreach ( $filter_tabs as $tab_slug => $tab_meta ) :
 			$is_active = $tab_slug === $bn_filter;
 			$tab_url   = add_query_arg( 'filter', $tab_slug, PageRouter::activity_url() );

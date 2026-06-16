@@ -43,10 +43,18 @@ $bn_sidebar_widgets = function_exists( 'buddynext_service' ) && \BuddyNext\Core\
 	? buddynext_service( 'sidebar_widgets' )
 	: null;
 
+// Spaces widgets are only relevant when the Spaces feature is enabled; when the
+// site owner turns it off the "Your Spaces" card is hidden entirely (and its
+// query skipped) so the activity sidebar doesn't render dead links to /spaces/
+// (which the router redirects back to /activity/).
+$bn_spaces_on = function_exists( 'buddynext_service' )
+	&& is_object( buddynext_service( 'features' ) )
+	&& buddynext_service( 'features' )->is_enabled( 'spaces' );
+
 if ( null !== $bn_sidebar_widgets ) {
 	$sbar_trending  = $bn_sidebar_widgets->trending_hashtags( 5 );
 	$sbar_suggested = $bn_sidebar_widgets->suggested_follows( $sidebar_user_id, 3 );
-	$sbar_spaces    = $bn_sidebar_widgets->joined_spaces( $sidebar_user_id, 4 );
+	$sbar_spaces    = $bn_spaces_on ? $bn_sidebar_widgets->joined_spaces( $sidebar_user_id, 4 ) : array();
 } else {
 	// Plug-and-play fallback — sidebar feature disabled or service unavailable.
 	$sbar_trending  = array();
@@ -178,6 +186,7 @@ buddynext_get_template(
 	</div>
 </div>
 
+<?php if ( $bn_spaces_on ) : ?>
 <div class="bn-sidebar-card">
 	<div class="bn-sidebar-card__header">
 		<?php echo esc_html( $sidebar_user_id ? __( 'Your Spaces', 'buddynext' ) : __( 'Discover Spaces', 'buddynext' ) ); ?>
@@ -226,3 +235,4 @@ buddynext_get_template(
 		<?php endif; ?>
 	</div>
 </div>
+<?php endif; /* $bn_spaces_on */ ?>
