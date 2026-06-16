@@ -1321,7 +1321,10 @@ class ProfileController extends BaseRestController {
 	 * Shared cover upload logic.
 	 *
 	 * Validates the uploaded file, moves it to the uploads directory via the
-	 * WordPress upload handler, and stores the resulting URL in usermeta.
+	 * WordPress upload handler, and stores the resulting URL in usermeta. The
+	 * file is read from the `cover` field when present, falling back to the
+	 * `avatar` field that the bundled web editor currently posts under, so both
+	 * the canonical key and the existing client work.
 	 *
 	 * @param int $user_id Target user ID.
 	 * @return WP_REST_Response|WP_Error
@@ -1332,9 +1335,13 @@ class ProfileController extends BaseRestController {
 		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		 * phpcs:disable WordPress.Security.ValidatedSanitizedInput.MissingUnslash
 		 */
-		$cover_file = isset( $_FILES['avatar'] ) && is_array( $_FILES['avatar'] )
-			? $_FILES['avatar']
-			: array();
+		if ( isset( $_FILES['cover'] ) && is_array( $_FILES['cover'] ) ) {
+			$cover_file = $_FILES['cover'];
+		} elseif ( isset( $_FILES['avatar'] ) && is_array( $_FILES['avatar'] ) ) {
+			$cover_file = $_FILES['avatar'];
+		} else {
+			$cover_file = array();
+		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.MissingUnslash
