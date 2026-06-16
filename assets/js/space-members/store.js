@@ -1,6 +1,6 @@
 /* BuddyNext — Space Members Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnConfirm } from '../shell/dialog.js';
+import { bnConfirm, bnToast } from '../shell/dialog.js';
 
 store( 'buddynext/space-members', {
 	actions: {
@@ -16,12 +16,18 @@ store( 'buddynext/space-members', {
 			} );
 			if ( ! ok ) { return; }
 			try {
-				yield fetch( ctx.restUrl + 'spaces/' + ctx.spaceId + '/members/' + btn.dataset.userId, {
+				const res = yield fetch( ctx.restUrl + '/spaces/' + ctx.spaceId + '/members/' + btn.dataset.userId, {
 					method: 'DELETE',
 					headers: { 'X-WP-Nonce': ctx.restNonce },
 				} );
-				window.location.reload();
-			} catch ( _e ) {}
+				if ( res.ok ) {
+					window.location.reload();
+				} else {
+					bnToast( 'Could not remove member. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not remove member. Try again.', { tone: 'danger' } );
+			}
 		},
 
 		* changeRole( event ) {
@@ -30,13 +36,19 @@ store( 'buddynext/space-members', {
 			const role = event.target.dataset.role || 'member';
 			if ( ! btn || ! ctx.restNonce || ! ctx.spaceId ) { return; }
 			try {
-				yield fetch( ctx.restUrl + 'spaces/' + ctx.spaceId + '/members/' + btn.dataset.userId, {
+				const res = yield fetch( ctx.restUrl + '/spaces/' + ctx.spaceId + '/members/' + btn.dataset.userId + '/role', {
 					method: 'PUT',
 					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
 					body: JSON.stringify( { role: role } ),
 				} );
-				window.location.reload();
-			} catch ( _e ) {}
+				if ( res.ok ) {
+					window.location.reload();
+				} else {
+					bnToast( 'Could not update role. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not update role. Try again.', { tone: 'danger' } );
+			}
 		},
 	},
 } );

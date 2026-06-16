@@ -110,6 +110,15 @@ $total_pages   = (int) ceil( $total_members / $bn_per_page );
 // ── Current viewer ──────────────────────────────────────────────────────────────
 $current_user_id = get_current_user_id();
 
+// ── Viewer management capability (mirrors SpaceController permissions) ────────────
+// Remove member: owner/moderator or site admin. Change role: owner or site admin only.
+$bn_viewer_role   = $current_user_id > 0
+	? ( new \BuddyNext\Spaces\SpaceMemberService() )->get_role( $space_id, $current_user_id )
+	: '';
+$bn_is_site_admin = current_user_can( 'manage_options' );
+$bn_can_remove    = $current_user_id > 0 && ( in_array( $bn_viewer_role, array( 'owner', 'moderator' ), true ) || $bn_is_site_admin );
+$bn_can_set_role  = $current_user_id > 0 && ( 'owner' === $bn_viewer_role || $bn_is_site_admin );
+
 /**
  * Return initials from a display name.
  */
@@ -183,9 +192,9 @@ $mem_privacy = array(
 	echo esc_attr(
 		wp_json_encode(
 			array(
-				'spaceId' => absint( $space_id ),
-				'restUrl' => rest_url( 'buddynext/v1' ),
-				'nonce'   => wp_create_nonce( 'wp_rest' ),
+				'spaceId'   => absint( $space_id ),
+				'restUrl'   => rest_url( 'buddynext/v1' ),
+				'restNonce' => wp_create_nonce( 'wp_rest' ),
 			)
 		)
 	);
@@ -364,6 +373,16 @@ $mem_privacy = array(
 								?>
 								"
 							><?php buddynext_icon( 'message-circle' ); ?> <?php esc_html_e( 'Message', 'buddynext' ); ?></a>
+						<?php endif; ?>
+						<?php if ( $current_user_id !== $member_id && 'owner' !== $member_role && ( $bn_can_remove || $bn_can_set_role ) ) : ?>
+							<?php if ( $bn_can_set_role && 'moderator' === $member_role ) : ?>
+								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-role="member" data-wp-on--click="actions.changeRole"><?php esc_html_e( 'Make member', 'buddynext' ); ?></button>
+							<?php elseif ( $bn_can_set_role ) : ?>
+								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-role="moderator" data-wp-on--click="actions.changeRole"><?php esc_html_e( 'Make moderator', 'buddynext' ); ?></button>
+							<?php endif; ?>
+							<?php if ( $bn_can_remove ) : ?>
+								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-wp-on--click="actions.removeMember" aria-label="<?php /* translators: %s: member name */ printf( esc_attr__( 'Remove %s', 'buddynext' ), esc_attr( $member_name ) ); ?>"><?php buddynext_icon( 'user-minus' ); ?> <?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
+							<?php endif; ?>
 						<?php endif; ?>
 					</div>
 				</article>
