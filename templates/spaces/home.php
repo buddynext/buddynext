@@ -301,14 +301,6 @@ if ( ! empty( $is_admin_mod ) ) {
 	);
 }
 
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$bn_active_count = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}bn_posts WHERE space_id = %d AND status = 'published' AND ( scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP() ) AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)",
-		$space_id
-	)
-);
-
 $active_tab       = isset( $_GET['bn_tab'] ) ? sanitize_key( wp_unslash( $_GET['bn_tab'] ) ) : 'feed'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $member_count_fmt = number_format_i18n( (int) $space->member_count );
 
@@ -651,27 +643,33 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 
 	<!-- Hero -->
 	<?php
-	$bn_hero_stats = array(
-		array(
+	// Header stats. Counts at zero are not shown — an empty "0 Posts" promotes
+	// emptiness and adds no information. Visibility (Open/Private) is already
+	// rendered as a badge next to the space name, so it is not repeated here.
+	// "Active 7d" was dropped: it measured only members who posted in 7 days,
+	// which has no real-world precedent and reads 0 for healthy lurking spaces.
+	$bn_hero_stats = array();
+
+	if ( (int) $space->member_count > 0 ) {
+		$bn_hero_stats[] = array(
 			'label' => __( 'Members', 'buddynext' ),
 			'value' => $member_count_fmt,
 			'icon'  => 'users',
-		),
-		array(
+		);
+	}
+
+	if ( $bn_post_count > 0 ) {
+		$bn_hero_stats[] = array(
 			'label' => __( 'Posts', 'buddynext' ),
 			'value' => number_format_i18n( $bn_post_count ),
 			'icon'  => 'message-circle',
-		),
-		array(
-			'label' => __( 'Active 7d', 'buddynext' ),
-			'value' => number_format_i18n( $bn_active_count ),
-			'icon'  => 'activity',
-		),
-		array(
-			'label' => __( 'Created', 'buddynext' ),
-			'value' => ! empty( $space->created_at ) ? buddynext_date_local( (string) $space->created_at, 'M Y' ) : '—',
-			'icon'  => 'calendar',
-		),
+		);
+	}
+
+	$bn_hero_stats[] = array(
+		'label' => __( 'Created', 'buddynext' ),
+		'value' => ! empty( $space->created_at ) ? buddynext_date_local( (string) $space->created_at, 'M Y' ) : '—',
+		'icon'  => 'calendar',
 	);
 	buddynext_get_template(
 		'parts/space-hero.php',

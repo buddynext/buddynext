@@ -476,35 +476,45 @@
 .bn-sh-statrow {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--bn-s2);
+	align-items: baseline;
+	gap: 0;
 	padding-inline: var(--bn-s6);
 	padding-block: var(--bn-s3) var(--bn-s4);
 	border-block-start: 1px solid var(--bn-line-faint);
 }
+/* Passive metadata, not buttons: flat inline text with middot separators so it
+ * never reads as a clickable chip. Matches how Reddit / Discord / LinkedIn
+ * present community header stats. */
 .bn-sh-statpill {
 	display: inline-flex;
 	align-items: baseline;
 	gap: 5px;
-	padding: 5px var(--bn-s3);
-	border-radius: var(--bn-r-full);
-	background: var(--bn-sunken);
+	padding: 0;
+	background: none;
+	border: 0;
+	border-radius: 0;
 	color: var(--bn-ink-2);
 	font: inherit;
-	border: 0;
+	font-size: var(--bn-text-sm);
 	text-decoration: none;
 	white-space: nowrap;
-	line-height: 1.4;
-	transition: background var(--bn-dur-fast) var(--bn-ease);
+	line-height: 1.5;
 }
+.bn-sh-statpill + .bn-sh-statpill::before {
+	content: "\00B7";
+	margin-inline: var(--bn-s2);
+	color: var(--bn-ink-4);
+	font-weight: 400;
+}
+/* Only the genuinely-linked stats get an interactive cue (underline on hover). */
 a.bn-sh-statpill:hover,
 a.bn-sh-statpill:focus-visible {
-	background: var(--bn-line);
 	outline: none;
+	text-decoration: underline;
+	text-underline-offset: 2px;
 }
 .bn-sh-statpill__value {
-	font-weight: 700;
-	font-size: var(--bn-text-md, 15px);
+	font-weight: var(--bn-fw-semibold, 600);
 	color: var(--bn-ink);
 }
 .bn-sh-statpill__label {
@@ -2398,6 +2408,9 @@ a.bn-sh-statpill:focus-visible {
 	flex-wrap: wrap;
 	gap: var(--bn-s2);
 	margin-block-end: var(--bn-s3);
+	/* These are pill chips, not an underline tab strip — drop the .bn-tabs
+	 * bottom border so the line doesn't cut through the rounded chips. */
+	border-bottom: 0;
 }
 
 .bn-sh-members__grid {
@@ -2435,6 +2448,11 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-sh-members__actions {
 	margin-top: var(--bn-s2);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s2);
+	flex-wrap: wrap;
 }
 
 .bn-sh-moderation {

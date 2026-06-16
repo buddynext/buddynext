@@ -71,10 +71,13 @@ $bn_rail_items = array(
 		'icon'  => 'home',
 		'show'  => true,
 	),
-	// Explore is intentionally omitted from the rail: it is the Activity hub's
-	// Home/Explore sub-tab (templates/feed/home.php), so a rail row would point
-	// at the same surface. A site can re-add it via the buddynext_rail_items
-	// filter below.
+	array(
+		'key'   => 'explore',
+		'label' => __( 'Explore', 'buddynext' ),
+		'url'   => PageRouter::explore_url(),
+		'icon'  => 'globe',
+		'show'  => true,
+	),
 	array(
 		'key'   => 'people',
 		'label' => __( 'Members', 'buddynext' ),
@@ -131,6 +134,12 @@ foreach ( $bn_rail_items as $bn_item ) {
 }
 if ( '' === $bn_rail_active && 'feed' === $hub ) {
 	$bn_rail_active = 'feed';
+}
+// Explore shares the feed hub but is the public/discovery feed (distinct from the
+// personal Activity feed), so it owns the rail's active state on /activity/explore/
+// instead of the Activity row.
+if ( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_action', '' ) ) {
+	$bn_rail_active = 'explore';
 }
 ?>
 <nav class="bn-app__rail" aria-label="<?php esc_attr_e( 'Community navigation', 'buddynext' ); ?>">
