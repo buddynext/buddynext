@@ -206,6 +206,18 @@ class PageRouter {
 			exit;
 		}
 
+		// Onboarding is a toggleable hub (FeatureRegistry 'onboarding',
+		// default-on). When the owner turns it off, direct visits to the
+		// onboarding page must not render it — send them to the activity hub,
+		// mirroring the Spaces guard above.
+		if ( 'onboarding' === $hub
+			&& function_exists( 'buddynext_service' )
+			&& ! buddynext_service( 'features' )->is_enabled( 'onboarding' )
+		) {
+			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
+			exit;
+		}
+
 		// Public-explore guard: the explore feed (/activity/explore/) is guest-
 		// readable by default. When the site owner turns "Public explore feed"
 		// off (buddynext_public_explore), explore becomes members-only — send
