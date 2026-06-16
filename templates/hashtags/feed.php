@@ -129,7 +129,7 @@ if ( ! $hashtag_not_found ) {
 				        p.reaction_count, p.comment_count, p.share_count
 				FROM {$posts_table} p
 				INNER JOIN {$post_hashtags_tbl} ph ON ph.post_id = p.id
-				INNER JOIN {$wpdb->prefix}bn_follows f ON f.followed_id = p.user_id AND f.follower_id = %d
+				INNER JOIN {$wpdb->prefix}bn_follows f ON f.following_id = p.user_id AND f.follower_id = %d
 				WHERE ph.hashtag_id = %d
 				  AND p.status = 'published'
 				  AND p.privacy = 'public'
