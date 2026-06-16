@@ -405,7 +405,53 @@ class FeedService {
 				break;
 		}
 
+		// Honour each space's "Push space posts to activity feed" toggle: a space
+		// the owner opted out of (bn_space_{id}_push_to_feed = 0) must not surface
+		// in the home feed through ANY branch. Non-space posts are unaffected.
+		$excluded_spaces = $this->feed_excluded_space_ids();
+		if ( ! empty( $excluded_spaces ) ) {
+			$id_list = implode( ',', array_map( 'absint', $excluded_spaces ) );
+			$sql     = "( {$sql} ) AND ( space_id IS NULL OR space_id = 0 OR space_id NOT IN ( {$id_list} ) )";
+		}
+
 		return array( $sql, $params );
+	}
+
+	/**
+	 * Space IDs whose owner disabled "Push space posts to activity feed".
+	 *
+	 * Reads the per-space bn_space_{id}_push_to_feed options (default 1 = push)
+	 * and returns the IDs explicitly set to 0. Cached per request — the home feed
+	 * builds its source clause once, and the result set (opted-out spaces) is
+	 * small. The option_name LIKE is anchored on the bn_space_ prefix so the
+	 * options index is usable.
+	 *
+	 * @return int[] Space IDs to exclude from the home feed.
+	 */
+	private function feed_excluded_space_ids(): array {
+		static $ids = null;
+		if ( null !== $ids ) {
+			return $ids;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$names = $wpdb->get_col(
+			"SELECT option_name FROM {$wpdb->options}
+			 WHERE option_name LIKE 'bn\\_space\\_%\\_push\\_to\\_feed'
+			   AND option_value = '0'"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$ids = array();
+		foreach ( (array) $names as $name ) {
+			if ( preg_match( '/^bn_space_(\d+)_push_to_feed$/', (string) $name, $m ) ) {
+				$ids[] = (int) $m[1];
+			}
+		}
+
+		return $ids;
 	}
 
 	/**
