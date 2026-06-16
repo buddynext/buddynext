@@ -1801,7 +1801,9 @@
 	font-size: var(--text-base);
 	color: var(--text-1);
 	resize: none;
-	padding: 6px 0;
+	/* Horizontal padding so the cursor/text don't sit flush against the
+	   left edge — matches the composer's --s4 visual rhythm. */
+	padding: 6px var(--s4);
 	line-height: 1.5;
 	outline: none;
 }
