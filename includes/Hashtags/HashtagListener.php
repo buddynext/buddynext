@@ -54,6 +54,9 @@ class HashtagListener implements ListenerInterface {
 		// Native BuddyNext feed posts.
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
 
+		// Post deletion — drop the post's hashtag links and decrement post_count.
+		add_action( 'buddynext_post_deleted', array( $this, 'on_post_deleted' ), 10, 2 );
+
 		// Bridge entry point — fired by WPMediaVerse, Jetonomy, Career Board bridges.
 		add_action( 'buddynext_index_hashtags', array( $this, 'on_index_hashtags' ), 10, 3 );
 
@@ -79,6 +82,22 @@ class HashtagListener implements ListenerInterface {
 		}
 
 		$this->dispatch( 'buddynext_async_index_hashtags', array( 'post', $post_id, '' ) );
+	}
+
+	/**
+	 * Handle buddynext_post_deleted — remove the post's hashtag links.
+	 *
+	 * Runs synchronously because the post row is already gone by the time this
+	 * fires, so there is no content to fetch. Syncing with an empty slug list
+	 * deletes the post's bn_post_hashtags pivot rows and recomputes (decrements)
+	 * post_count on each previously linked hashtag.
+	 *
+	 * @param int $post_id Deleted post ID.
+	 * @param int $user_id Author user ID (unused, kept for hook arity).
+	 * @return void
+	 */
+	public function on_post_deleted( int $post_id, int $user_id ): void {
+		$this->service->sync( 'post', $post_id, array() );
 	}
 
 	/**
