@@ -148,6 +148,26 @@ class ModerationService {
 		 */
 		do_action( 'buddynext_report_created', $report_id, sanitize_key( $object_type ), $object_id, $reporter_id );
 
+		// Auto-hide: once a post accrues enough distinct reports, pull it out of
+		// public view into the moderation queue. Enforces the Settings →
+		// Moderation → "Auto-Hide Threshold" setting (0 = disabled). Reuses the
+		// existing 'pending' status (the moderation-hold state) — no new flag.
+		if ( 'post' === sanitize_key( $object_type ) ) {
+			$auto_hide_threshold = (int) get_option( 'buddynext_auto_hide_threshold', 5 );
+			if ( $auto_hide_threshold > 0 ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$report_total = (int) $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports WHERE object_type = 'post' AND object_id = %d",
+						$object_id
+					)
+				);
+				if ( $report_total >= $auto_hide_threshold ) {
+					$this->auto_hide_post( $object_id );
+				}
+			}
+		}
+
 		/**
 		 * Filter the list of automated actions to apply after a report is inserted.
 		 *
@@ -201,6 +221,37 @@ class ModerationService {
 		}
 
 		return $report_id;
+	}
+
+	/**
+	 * Auto-hide a reported post by moving it to the 'pending' moderation state.
+	 *
+	 * Only flips a currently 'published' post (never touches drafts, scheduled,
+	 * or already-removed posts), so the public feed stops showing it while the
+	 * moderation queue retains the open reports for a human decision.
+	 *
+	 * @param int $post_id Post to hide.
+	 * @return void
+	 */
+	private function auto_hide_post( int $post_id ): void {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$updated = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET status = 'pending' WHERE id = %d AND status = 'published'",
+				$post_id
+			)
+		);
+
+		if ( $updated > 0 ) {
+			/**
+			 * Fires when a post is auto-hidden after reaching the report threshold.
+			 *
+			 * @param int $post_id The post that was hidden.
+			 */
+			do_action( 'buddynext_post_auto_hidden', $post_id );
+		}
 	}
 
 	/**
