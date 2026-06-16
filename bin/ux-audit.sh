@@ -9,13 +9,17 @@ PLUGIN_DIR="${1:-$PWD}"
 PLUGIN_NAME="$(basename "$PLUGIN_DIR")"
 PREFIX="${PREFIX:-$(echo "$PLUGIN_NAME" | cut -c1-3)}"
 
-# Skip vendored / built / tests
+# Skip vendored / built / tests / docs. docs/ holds the v2 design-prototype
+# HTML mockups (docs/v2 Plans/) — dev-only reference that never ships in the
+# release zip (see bin/build-release.sh allowlist), so its standalone inline
+# handlers are not production code and must not register as block violations.
 FIND_EXCLUDES=(
     -not -path "*/vendor/*"
     -not -path "*/node_modules/*"
     -not -path "*/dist/*"
     -not -path "*/build/*"
     -not -path "*/tests/*"
+    -not -path "*/docs/*"
     -not -path "*/.git/*"
 )
 
@@ -86,7 +90,8 @@ while IFS=: read -r file line _; do
     BLOCK_COUNT=$((BLOCK_COUNT+1))
 done < <(find "$PLUGIN_DIR" -name '*.js' -not -name '*.min.js' "${FIND_EXCLUDES[@]}" -print0 2>/dev/null \
          | xargs -0 grep -nE 'window\.(alert|confirm|prompt)\s*\(|^\s*(alert|confirm|prompt)\s*\(' 2>/dev/null \
-         | grep -v 'eslint-disable' || true)
+         | grep -v 'eslint-disable' \
+         | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|#)' || true)
 
 # ── F10: display:none on theme sidebar/widgets ──
 while IFS=: read -r file line _; do

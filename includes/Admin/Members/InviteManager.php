@@ -361,7 +361,7 @@ class InviteManager {
 								?>
 								<a href="<?php echo esc_url( $resend_url ); ?>"><?php esc_html_e( 'Resend', 'buddynext' ); ?></a>
 								&nbsp;|&nbsp;
-								<a href="<?php echo esc_url( $revoke_url ); ?>" class="bn-text-danger" onclick="return confirm('<?php echo esc_js( __( 'Revoke this invitation? The link will stop working.', 'buddynext' ) ); ?>');"><?php esc_html_e( 'Revoke', 'buddynext' ); ?></a>
+								<a href="<?php echo esc_url( $revoke_url ); ?>" class="bn-text-danger" data-bn-confirm="<?php esc_attr_e( 'Revoke this invitation? The link will stop working.', 'buddynext' ); ?>" data-bn-confirm-tone="danger"><?php esc_html_e( 'Revoke', 'buddynext' ); ?></a>
 							</td>
 						</tr>
 					<?php endforeach; ?>

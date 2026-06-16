@@ -254,15 +254,68 @@
 		} );
 	}
 
+	// ─── Companion installer ──────────────────────────────────────────────
+	// Wires the [data-bn-companions] add-on list (rendered by
+	// Settings::render_tab_integrations) to the companions/install REST route.
+	// Endpoint, nonce, and i18n strings come from data-* attributes on the list
+	// so this file stays free of server-rendered values.
+	function initCompanions() {
+		var list = document.querySelector( '[data-bn-companions]' );
+		if ( ! list ) {
+			return;
+		}
+		var endpoint = list.getAttribute( 'data-rest' );
+		var nonce    = list.getAttribute( 'data-nonce' );
+		var i18n     = {
+			installing: list.getAttribute( 'data-i18n-installing' ) || 'Installing…',
+			installed:  list.getAttribute( 'data-i18n-installed' ) || 'Installed — reloading…',
+			failed:     list.getAttribute( 'data-i18n-failed' ) || 'Install failed.',
+			network:    list.getAttribute( 'data-i18n-network' ) || 'Install failed — network error.'
+		};
+
+		list.querySelectorAll( '.bn-companion-install' ).forEach( function ( btn ) {
+			btn.addEventListener( 'click', function () {
+				var row  = btn.closest( '.bn-addon-row' );
+				var msg  = row ? row.querySelector( '.bn-companion-msg' ) : null;
+				var orig = btn.textContent;
+				btn.disabled    = true;
+				btn.textContent = i18n.installing;
+				if ( msg ) { msg.textContent = ''; }
+				fetch( endpoint, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
+					body: JSON.stringify( { slug: btn.getAttribute( 'data-slug' ) } )
+				} ).then( function ( r ) {
+					return r.json().then( function ( d ) { return { ok: r.ok, d: d }; } );
+				} ).then( function ( res ) {
+					if ( res.ok ) {
+						btn.textContent = i18n.installed;
+						window.location.reload();
+					} else {
+						btn.disabled    = false;
+						btn.textContent = orig;
+						if ( msg ) { msg.textContent = ( res.d && res.d.message ) ? res.d.message : i18n.failed; }
+					}
+				} ).catch( function () {
+					btn.disabled    = false;
+					btn.textContent = orig;
+					if ( msg ) { msg.textContent = i18n.network; }
+				} );
+			} );
+		} );
+	}
+
 	if ( document.readyState === 'loading' ) {
 		document.addEventListener( 'DOMContentLoaded', function () {
 			initSettingsSearch();
 			initWebhookManager();
 			initCopyButtons();
+			initCompanions();
 		} );
 	} else {
 		initSettingsSearch();
 		initWebhookManager();
 		initCopyButtons();
+		initCompanions();
 	}
 } )();

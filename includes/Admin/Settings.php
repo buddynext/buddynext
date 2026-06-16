@@ -1570,7 +1570,11 @@ class Settings extends AdminPageBase {
 		<div class="bn-addon-list"
 			data-bn-companions
 			data-rest="<?php echo esc_url( rest_url( 'buddynext/v1/companions/install' ) ); ?>"
-			data-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>">
+			data-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+			data-i18n-installing="<?php esc_attr_e( 'Installing…', 'buddynext' ); ?>"
+			data-i18n-installed="<?php esc_attr_e( 'Installed — reloading…', 'buddynext' ); ?>"
+			data-i18n-failed="<?php esc_attr_e( 'Install failed.', 'buddynext' ); ?>"
+			data-i18n-network="<?php esc_attr_e( 'Install failed — network error.', 'buddynext' ); ?>">
 			<?php
 			foreach ( $companions as $bn_slug => $bn_c ) :
 				$bn_status   = \BuddyNext\Integrations\CompanionRegistry::status( (string) $bn_slug );
@@ -1613,45 +1617,10 @@ class Settings extends AdminPageBase {
 			</div>
 			<?php endforeach; ?>
 		</div>
-		<script>
-		( function () {
-			var list = document.querySelector( '[data-bn-companions]' );
-			if ( ! list ) { return; }
-			var endpoint = list.getAttribute( 'data-rest' );
-			var nonce    = list.getAttribute( 'data-nonce' );
-			list.querySelectorAll( '.bn-companion-install' ).forEach( function ( btn ) {
-				btn.addEventListener( 'click', function () {
-					var row = btn.closest( '.bn-addon-row' );
-					var msg = row ? row.querySelector( '.bn-companion-msg' ) : null;
-					var orig = btn.textContent;
-					btn.disabled = true;
-					btn.textContent = <?php echo wp_json_encode( __( 'Installing…', 'buddynext' ) ); ?>;
-					if ( msg ) { msg.textContent = ''; }
-					fetch( endpoint, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce },
-						body: JSON.stringify( { slug: btn.getAttribute( 'data-slug' ) } )
-					} ).then( function ( r ) {
-						return r.json().then( function ( d ) { return { ok: r.ok, d: d }; } );
-					} ).then( function ( res ) {
-						if ( res.ok ) {
-							btn.textContent = <?php echo wp_json_encode( __( 'Installed — reloading…', 'buddynext' ) ); ?>;
-							window.location.reload();
-						} else {
-							btn.disabled = false;
-							btn.textContent = orig;
-							if ( msg ) { msg.textContent = ( res.d && res.d.message ) ? res.d.message : <?php echo wp_json_encode( __( 'Install failed.', 'buddynext' ) ); ?>; }
-						}
-					} ).catch( function () {
-						btn.disabled = false;
-						btn.textContent = orig;
-						if ( msg ) { msg.textContent = <?php echo wp_json_encode( __( 'Install failed — network error.', 'buddynext' ) ); ?>; }
-					} );
-				} );
-			} );
-		}() );
-		</script>
 		<?php
+		// The companion installer behaviour lives in assets/js/admin/settings.js
+		// (initCompanions), wired to the data-* attributes on [data-bn-companions]
+		// above. No inline script — see the UX-audit F2 rule.
 		$this->close_section();
 
 		$this->open_section( __( 'Jetonomy Settings', 'buddynext' ) );

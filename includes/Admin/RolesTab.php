@@ -157,7 +157,8 @@ class RolesTab {
 					<p>
 						<?php submit_button( __( 'Save permissions', 'buddynext' ), 'primary', 'submit', false ); ?>
 						<button type="submit" name="bn_reset" value="1" class="button"
-							onclick="return confirm('<?php echo esc_js( __( 'Reset every capability to its default role?', 'buddynext' ) ); ?>');">
+							data-bn-confirm="<?php esc_attr_e( 'Reset every capability to its default role?', 'buddynext' ); ?>"
+							data-bn-confirm-tone="warning">
 							<?php esc_html_e( 'Reset to defaults', 'buddynext' ); ?>
 						</button>
 					</p>

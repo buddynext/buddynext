@@ -32,7 +32,31 @@ class CookieConsentService {
 		if ( ! (bool) get_option( 'buddynext_cookie_consent', false ) ) {
 			return;
 		}
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'wp_footer', array( $this, 'render' ) );
+	}
+
+	/**
+	 * Enqueue the banner behaviour script on the front end.
+	 *
+	 * Only loads when the banner will actually render (the visitor has not yet
+	 * acknowledged it), so returning visitors pay no JS cost. The script is in
+	 * assets/js/privacy/cookie-consent.js — no inline script (UX-audit F2 rule).
+	 *
+	 * @return void
+	 */
+	public function enqueue_assets(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only cookie presence check, no state change.
+		if ( isset( $_COOKIE[ self::COOKIE ] ) ) {
+			return;
+		}
+		wp_enqueue_script(
+			'bn-cookie-consent',
+			BUDDYNEXT_URL . 'assets/js/privacy/cookie-consent.js',
+			array(),
+			BUDDYNEXT_VERSION,
+			true
+		);
 	}
 
 	/**
@@ -53,7 +77,7 @@ class CookieConsentService {
 		$accept_label  = __( 'Got it', 'buddynext' );
 		$policy_label  = __( 'Privacy policy', 'buddynext' );
 		?>
-		<div class="bn-cookie-consent" role="region" aria-label="<?php esc_attr_e( 'Cookie notice', 'buddynext' ); ?>" data-bn-cookie-consent hidden>
+		<div class="bn-cookie-consent" role="region" aria-label="<?php esc_attr_e( 'Cookie notice', 'buddynext' ); ?>" data-bn-cookie-consent data-cookie-name="<?php echo esc_attr( self::COOKIE ); ?>" hidden>
 			<p class="bn-cookie-consent__text">
 				<?php echo esc_html( $message ); ?>
 				<?php if ( '' !== $privacy_url ) : ?>
@@ -64,22 +88,9 @@ class CookieConsentService {
 				<?php echo esc_html( $accept_label ); ?>
 			</button>
 		</div>
-		<script>
-			( function () {
-				var el = document.querySelector( '[data-bn-cookie-consent]' );
-				if ( ! el ) { return; }
-				if ( document.cookie.indexOf( '<?php echo esc_js( self::COOKIE ); ?>=' ) !== -1 ) {
-					el.parentNode && el.parentNode.removeChild( el );
-					return;
-				}
-				el.hidden = false;
-				var btn = el.querySelector( '[data-bn-cookie-accept]' );
-				btn && btn.addEventListener( 'click', function () {
-					document.cookie = '<?php echo esc_js( self::COOKIE ); ?>=1; max-age=' + ( 60 * 60 * 24 * 365 ) + '; path=/; samesite=lax';
-					el.parentNode && el.parentNode.removeChild( el );
-				} );
-			}() );
-		</script>
 		<?php
+		// Reveal + accept behaviour lives in assets/js/privacy/cookie-consent.js
+		// (enqueued by enqueue_assets), reading the cookie name from the
+		// data-cookie-name attribute above. No inline script — UX-audit F2 rule.
 	}
 }

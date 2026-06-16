@@ -199,7 +199,7 @@ class ApprovalManager {
 							<td>
 								<a href="<?php echo esc_url( $approve_url ); ?>"><?php esc_html_e( 'Approve', 'buddynext' ); ?></a>
 								&nbsp;|&nbsp;
-								<a href="<?php echo esc_url( $reject_url ); ?>" class="bn-text-danger" onclick="return confirm('<?php echo esc_js( __( 'Reject and permanently delete this pending account?', 'buddynext' ) ); ?>');"><?php esc_html_e( 'Reject', 'buddynext' ); ?></a>
+								<a href="<?php echo esc_url( $reject_url ); ?>" class="bn-text-danger" data-bn-confirm="<?php esc_attr_e( 'Reject and permanently delete this pending account?', 'buddynext' ); ?>" data-bn-confirm-tone="danger"><?php esc_html_e( 'Reject', 'buddynext' ); ?></a>
 							</td>
 						</tr>
 					<?php endforeach; ?>

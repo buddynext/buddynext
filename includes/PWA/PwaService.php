@@ -39,7 +39,7 @@ class PwaService {
 	 */
 	public function init(): void {
 		add_action( 'wp_head', array( $this, 'output_manifest_link' ) );
-		add_action( 'wp_footer', array( $this, 'output_sw_registration' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_sw_registration' ) );
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 	}
 
@@ -78,26 +78,24 @@ class PwaService {
 	}
 
 	/**
-	 * Emit the small client bootstrap that registers the service worker.
+	 * Enqueue the client bootstrap that registers the service worker.
 	 *
-	 * Runs in wp_footer so the script lands after the page body. The SW
-	 * is served from /wp-json/buddynext/v1/pwa/sw with a
-	 * Service-Worker-Allowed: / header (set in rest_service_worker())
-	 * so the browser accepts the site-wide scope override.
+	 * The behaviour lives in assets/js/pwa/sw-register.js (no inline script —
+	 * see the UX-audit F2 rule); the SW URL is passed via wp_localize_script.
+	 * The SW is served from /wp-json/buddynext/v1/pwa/sw with a
+	 * Service-Worker-Allowed: / header (set in rest_service_worker()) so the
+	 * browser accepts the site-wide scope override.
 	 *
-	 * Gated by an opt-in filter so a site can disable PWA without
-	 * unhooking the whole service:
+	 * Gated by an opt-in filter so a site can disable PWA without unhooking
+	 * the whole service:
 	 *   add_filter( 'buddynext_pwa_register_sw', '__return_false' );
 	 *
-	 * Skips when:
-	 *   - The site is loaded over an insecure origin (SW requires HTTPS,
-	 *     except on localhost which the browser handles).
-	 *   - The visitor is in the WP admin (the manifest only applies to
-	 *     the front-end community surface).
+	 * Skips in the WP admin (the manifest only applies to the front-end
+	 * community surface).
 	 *
 	 * @return void
 	 */
-	public function output_sw_registration(): void {
+	public function enqueue_sw_registration(): void {
 		if ( is_admin() ) {
 			return;
 		}
@@ -109,25 +107,19 @@ class PwaService {
 		if ( ! apply_filters( 'buddynext_pwa_register_sw', true ) ) {
 			return;
 		}
-		$sw_url = rest_url( self::REST_NAMESPACE . '/pwa/sw' );
-		?>
-		<script>
-		( function () {
-			if ( ! ( 'serviceWorker' in navigator ) ) {
-				return;
-			}
-			window.addEventListener( 'load', function () {
-				navigator.serviceWorker.register(
-					<?php echo wp_json_encode( esc_url_raw( $sw_url ) ); ?>,
-					{ scope: '/' }
-				).catch( function () {
-					// Registration failures are non-fatal — the site keeps
-					// working without offline support.
-				} );
-			} );
-		} )();
-		</script>
-		<?php
+
+		wp_enqueue_script(
+			'bn-pwa-sw',
+			BUDDYNEXT_URL . 'assets/js/pwa/sw-register.js',
+			array(),
+			BUDDYNEXT_VERSION,
+			true
+		);
+		wp_localize_script(
+			'bn-pwa-sw',
+			'bnPwaSw',
+			array( 'swUrl' => esc_url_raw( rest_url( self::REST_NAMESPACE . '/pwa/sw' ) ) )
+		);
 	}
 
 	// ── Manifest ──────────────────────────────────────────────────────────────
