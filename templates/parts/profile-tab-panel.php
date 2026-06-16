@@ -144,7 +144,7 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 			<div class="bn-profile-tab-panel" data-tab-panel="replies" hidden>
 				<?php if ( $bn_user_replies ) : ?>
 					<?php foreach ( $bn_user_replies as $reply ) : ?>
-					<div class="bn-reply-card">
+					<a class="bn-reply-card bn-reply-card--link" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::post_url( (int) $reply->object_id ) ); ?>">
 						<div class="bn-reply-card__meta">
 							<?php buddynext_icon( 'message-circle' ); ?>
 							<span><?php echo esc_html( sprintf( /* translators: %s: author name */ __( 'Replied to %s', 'buddynext' ), $reply->post_author_name ) ); ?></span>
@@ -152,7 +152,7 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 						</div>
 						<div class="bn-reply-card__content"><?php echo wp_kses_post( wp_trim_words( $reply->content, 30 ) ); ?></div>
 						<div class="bn-reply-card__context"><?php echo wp_kses_post( wp_trim_words( $reply->post_content, 15 ) ); ?></div>
-					</div>
+					</a>
 					<?php endforeach; ?>
 				<?php else : ?>
 					<div class="bn-empty-state"><?php esc_html_e( 'No replies yet.', 'buddynext' ); ?></div>
