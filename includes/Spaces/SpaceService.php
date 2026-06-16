@@ -280,7 +280,7 @@ class SpaceService {
 			return new WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ) );
 		}
 
-		if ( $space['owner_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to update this space.', 'buddynext' ) );
 		}
 
@@ -402,7 +402,7 @@ class SpaceService {
 		if ( null === $space ) {
 			return new WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
-		if ( $space['owner_id'] !== $actor_id && ! user_can( $actor_id, 'manage_options' ) ) {
+		if ( ! buddynext_service( 'permissions' )->can( $actor_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to archive this space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 		if ( ! empty( $space['is_archived'] ) === $archived ) {
@@ -506,7 +506,7 @@ class SpaceService {
 			return new WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ) );
 		}
 
-		if ( $space['owner_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to delete this space.', 'buddynext' ) );
 		}
 

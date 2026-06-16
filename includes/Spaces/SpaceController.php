@@ -371,7 +371,7 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		if ( $space['owner_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'Only the space owner can change permissions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -1254,7 +1254,7 @@ class SpaceController extends BaseRestController {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		if ( $space['owner_id'] !== $current_user && ! user_can( $current_user, 'manage_options' ) ) {
+		if ( ! buddynext_service( 'permissions' )->can( $current_user, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'Only the space owner can transfer ownership.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -1465,7 +1465,7 @@ class SpaceController extends BaseRestController {
 		if ( null === $space ) {
 			return new WP_Error( 'space_not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
-		if ( (int) $space['owner_id'] !== $user_id && ! user_can( $user_id, 'manage_options' ) ) {
+		if ( ! buddynext_service( 'permissions' )->can( $user_id, 'buddynext-manage-space', array( 'space_id' => $space_id ) ) ) {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to manage this space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 		return true;
