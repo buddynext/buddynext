@@ -308,7 +308,7 @@ class Settings extends AdminPageBase {
 			'manage_options',
 			'buddynext',
 			array( $this, 'render_page' ),
-			'dashicons-groups',
+			'dashicons-networking',
 			30
 		);
 

@@ -421,7 +421,10 @@ class AdminHub {
 			'manage_options',
 			self::TOP_SLUG,
 			array( $this, 'render_section' ),
-			'dashicons-groups',
+			// Distinct from Jetonomy's dashicons-groups so the two menus are not
+			// confused in the wp-admin sidebar; the network glyph reads as the
+			// social-graph platform.
+			'dashicons-networking',
 			30
 		);
 
