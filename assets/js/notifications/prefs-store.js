@@ -230,7 +230,8 @@ store( 'buddynext/notification-prefs', {
 				! ctx.initialChannels ||
 				ctx.channels.in_app !== ctx.initialChannels.in_app ||
 				ctx.channels.email  !== ctx.initialChannels.email ||
-				ctx.channels.push   !== ctx.initialChannels.push
+				ctx.channels.push   !== ctx.initialChannels.push   ||
+				ctx.channels.sound  !== ctx.initialChannels.sound
 			);
 
 			var ok = true;
