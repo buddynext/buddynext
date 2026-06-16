@@ -431,7 +431,7 @@ do_action( 'buddynext_moderation_queue_before' );
 				if ( 'user' === $obj_type ) {
 					$offender_user = get_userdata( $obj_id );
 					$offender_name = $offender_user ? $offender_user->display_name : __( 'Unknown user', 'buddynext' );
-					$joined_date   = $offender_user ? human_time_diff( (int) strtotime( $offender_user->user_registered ), time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
+					$joined_date   = $offender_user ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( (int) strtotime( $offender_user->user_registered ), time() ) ) : '';
 				} else {
 					$offender_name = __( 'Reported content', 'buddynext' );
 					$joined_date   = '';
@@ -472,7 +472,7 @@ do_action( 'buddynext_moderation_queue_before' );
 
 				// Time ago + ISO datetime.
 				$created_ts   = $created_at ? (int) strtotime( $created_at ) : 0;
-				$time_diff    = $created_ts ? human_time_diff( $created_ts, time() ) . ' ' . __( 'ago', 'buddynext' ) : '';
+				$time_diff    = $created_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( $created_ts, time() ) ) : '';
 				$iso_datetime = $created_ts ? gmdate( DATE_ATOM, $created_ts ) : '';
 
 				// Reporter avatar initials.

@@ -88,7 +88,7 @@ if ( ! function_exists( 'bn_sh_time_diff' ) ) {
 	 * @return string Localized time diff.
 	 */
 	function bn_sh_time_diff( string $datetime ): string {
-		return human_time_diff( strtotime( $datetime ), time() ) . ' ' . __( 'ago', 'buddynext' );
+		return sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $datetime ), time() ) );
 	}
 }
 
