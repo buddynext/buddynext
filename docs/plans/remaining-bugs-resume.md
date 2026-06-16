@@ -1,96 +1,90 @@
-# BuddyNext Bugs — Resume Plan (remaining cross-lane cards)
+# BuddyNext Bugs — Resume Plan
 
-> STATUS: BUGS COLUMN (9990191646) FULLY CLEARED — empty as of 2026-06-15.
-> Cross-lane four (this plan):
-> - 9996403088 message gating — 8595685
-> - 9996476016 social 7 settings — 4245363
-> - 9996426090 comment @mention — 6684924
-> - 9996533162 Reign left-panel overlap — 0d0ee25 (the "panel" is Reign's
->   "Left Panel" MENU LOCATION, not the v4 header. Fix: filter
->   theme_mod_reign_left_panel_gloabl_setting -> false on bn_hub pages in
->   includes/Theme/Appearance.php, so Reign's reign-panel.php bails on BN pages
->   only; reproduced by assigning a menu to the `panel-menu` location).
-> Final two:
-> - 9996287963 Reactions dead feature switch — c4cf41e (keep TIER_DEFAULT_ON,
->   enforce: $can_react folds in is_enabled('reactions'); summary chips +
->   comment React (data-reactions-enabled) gated; POST /reactions/toggle 403s;
->   admin "which emoji" palette disabled with a note when the master toggle is off).
-> - 9996526187 Integrations "Install" → dead plugins.php?s= search — e4b6663
->   (source addons from IntegrationHub registry; state-aware action:
->   Activate / Get Plugin / Install→upload screen).
+> STATUS: Bugs column (9990191646) has **24 open cards** as of 2026-06-16 — a fresh
+> batch loaded after the previous queue was cleared. **Basecamp bugs are priority 1:
+> clear this column before resuming the parked non-bug threads (bottom of file).**
 >
-> This plan's queue is cleared. The sections below are kept for reference.
+> Snapshot of the prior cleared wave (for reference, all DONE → Ready for Testing):
+> message gating 8595685 · social-7 settings 4245363 · comment @mention 6684924 ·
+> Reign left-panel 0d0ee25 · reactions dead switch c4cf41e · integrations install e4b6663.
 
+Basecamp project **47683682**. Bugs column **9990191646** → Ready for Testing **9990094424**.
+Scope: **Bugs column ONLY** (Possible Bug / other columns out of scope).
+Repos: free `/Users/vapvarun/dev/repos/buddynext` · pro `/Users/vapvarun/dev/repos/buddynext-pro`
+(free is live via symlink to the Local site at
+`/Users/vapvarun/Local Sites/buddynext-dev/app/public`). Branch: **master** (no release branches).
 
-Basecamp project 47683682. Bugs column 9990191646 → Ready for Testing 9990094424.
-Repo: this repo (free; live via symlink to the Local site at
-/Users/vapvarun/Local Sites/buddynext-dev/app/public).
+## Per-card workflow (non-negotiable)
+1. **Re-verify root cause vs current code** — grep ALL surfaces; the card title may be wrong or
+   already fixed. Don't "fix" a correct guard.
+2. **Fix** in place (refactor, don't stack overrides).
+3. **Verify MYSELF** — browser at 390px light + dark for any UI; `wp eval`/DB for backend;
+   Mailpit `http://localhost:10010` for email. Code-quality passing != feature done.
+4. **Commit + push** to master.
+5. **Comment the card** with the fix summary + commit ref.
+6. **Move card -> Ready for Testing (9990094424).**
 
-Per-card workflow: re-verify root cause → fix → verify MYSELF (browser 390px light/dark;
-wp eval/DB; Mailpit http://localhost:10010) → commit+push (master) → comment the card with
-fix+commit ref → move to Ready for Testing (9990094424). BN owns its own UX.
 Local verify: `?autologin=1` (admin user 1; autologin SKIPS when already logged in — to test
-another user, log out first or use wp eval). Lint: `php -l` (filter imagick/opcache/Zend),
-`node --check`. Do the 4 in order; each is independent.
+another user, log out first or use `wp eval`). Lint: `php -l` (filter imagick/opcache/Zend),
+`node --check`. Versions stay in lockstep at **0.4.0-beta1** (free+pro) — never bump.
 
 ---
 
-## 1. Card 9996403088 — Message feature / "install plugin" nag when WPMediaVerse absent
-ROOT CAUSE: messaging entry points render unconditionally; `templates/messages/native.php`
-(~L25-41) shows an end-user "install the plugin" notice. Single gate already exists:
-`MessagesData::entry_enabled()` = `dm_enabled() && available()` (includes/Messages/MessagesData.php).
-FIX: gate every messaging entry on `MessagesData::entry_enabled()`:
-- includes/Nav/UserLinks.php — `#bn-messages` catalogue entry (mirror the existing spaces/DM
-  drop-filter pattern in that file; it currently checks only dm_enabled).
-- templates/parts/profile-hero.php (~L469 Message button), templates/parts/member-card.php,
-  templates/parts/member-directory-grid.php, templates/directory/members.php, templates/spaces/members.php.
-- templates/messages/native.php:25-41 — replace the install notice with a member-appropriate
-  "Messaging isn't available right now." (no install nag to end users).
-VERIFY: WPMediaVerse IS active locally; to test absent state, `wp plugin deactivate wpmediaverse`
-(reactivate after) or unit-check entry_enabled() returns false when available() is false.
+## Cluster A — Moderation (5)
+- **9999965041** Permission Error Displayed After Removing a User from the Moderator Role.
+- **9999962752** [Free] WORK INTAKE — `PUT /appeals/{id}/approve` and `/deny` return 200 success
+  for **non-existent appeal IDs** (should 404). Contract-audit finding.
+- **9999962684** [Free] WORK INTAKE — `GET /users/{id}/suspension` returns **already-lifted**
+  suspensions as still active.
+- **9999957860** Pre-moderated posts are NOT added to the moderation queue.
+- **9999960712** [Medium] Moderation: Auto-Hide Threshold setting **not enforced**.
 
-## 2. Card 9996476016 — Social tab: 7 settings stored but never consumed
-None duplicate a FeatureRegistry feature → WIRE all 7 (don't remove). Targets:
-- buddynext_default_post_privacy → includes/Feed/PostService.php::create() (privacy hardcoded
-  ~L187 'public') + composer default.
-- buddynext_allow_polls → reject type=poll in PostService/PollController when off (composer
-  already gates the tool).
-- buddynext_allow_shares → ShareService REST guard (`$can_share` already reads it, post-card.php:227).
-- buddynext_allow_bookmarks → BookmarkService REST guard (`$can_bookmark` post-card.php:228).
-- buddynext_enable_link_preview → guard the OG fetch in PostService::create() (~L159-161 / og_meta).
-- buddynext_enable_emoji_picker → composer already gates the Insert-emoji button (confirm).
-- buddynext_post_edit_window → PostService::update() reject edits older than the window (mins)
-  for non-admins.
-VERIFY per option: set option → perform action → confirm effect (DB/REST/browser).
+## Cluster B — Spaces (6)
+- **9999965028** Spaces Filter: no proper user message when there are **no filter results**.
+- **9999925717** Decline actions FAIL on Space join requests.
+- **9999922539** Approve actions FAIL on Space join requests. (likely shares root cause w/ above)
+- **9999916913** Archive Space action MISSING from the Danger Zone section.
+- **9999960647** [Medium] Spaces: Max Sub-Spaces setting **not enforced**.
+- **9999960594** [Medium] Spaces: Creation Role setting **not enforced**.
 
-## 3. Card 9996533162 — BuddyPanel menu overlaps BN left sidebar
-ROOT CAUSE: theme's fixed BuddyPanel vs BN shell left rail / 100vw burst-out, both in
-assets/css/bn-shell.css (`.bn-app { left:50%; margin-left:-50vw }` burst + `.bn-app__rail`).
-FIX (BN-side): offset BN's burst-out / rail by the BuddyPanel width, or add clearance / z-index,
-so they don't overlap. Scope to bn-shell.css. Verify with the Reign/BuddyX BuddyPanel visible,
-desktop + 390px, light + dark.
+## Cluster C — Privacy / settings enforcement (4)
+- **9999961041** [Medium] Privacy: Data Export / Account Deletion gates **missing** (3 settings).
+- **9999960948** [Medium] Privacy: Data Retention Days **not enforced** (hardcoded 90).
+- **9999960878** [Medium] Privacy: Cookie Consent Banner **not implemented**.
+- **9999960808** [Medium] Privacy: Google Indexing setting **not applied**.
 
-## 4. Card 9996426090 — @mention notification not triggered (COMMENTS only)
-ROOT CAUSE (per Varun's card comment): @mention in POSTS works (PostService::create() fires
-`buddynext_user_mentioned` → NotificationListener::on_user_mentioned, hardcodes object_type
-'post'). COMMENTS have NO mention parsing.
-FIX (together):
-- includes/Comments/CommentService.php::create() — parse @mentions from the comment body
-  (mirror the post-side parser) and fire `buddynext_user_mentioned` with comment context.
-- includes/Notifications/NotificationListener.php::on_user_mentioned() — accept an object_type
-  param (currently hardcodes 'post') so comment mentions deep-link to the comment's post.
-VERIFY: comment "@someuser ..." on a post → that user gets a bn.mention notification; notif URL
-resolves (NotificationMessageService::url_for handles bn.mention via post_id).
+## Cluster D — Notifications / Email / Integrations (4)
+- **9999961137** [Medium] Notifications: Default prefs **not applied at registration** (6 settings).
+  (overlaps the Settings-IA notif work — check `bn_notification_prefs` seeding on user_register.)
+- **9999961306** [Low] Notifications: Digest Frequency setting **vestigial** (read never enforced).
+- **9999961236** [Medium] Email Editor: missing table-existence check (guard before query).
+- **9999961353** [Low] Integrations: Jetonomy Feed Sync setting **stale** (saved, not applied).
+
+## Cluster E — CSS / design tokens (2)  — both touch `assets/css/bn-shell.css`
+- **9999965005** bn-shell.css Bug 1 — hardcoded font sizes (11/14/10/12/13px).
+- **9999918448** bn-shell.css — hardcoded px/hex/font-family violate the design-token golden rule.
+  (Do these two together; replace raw values with OKLCH/token vars. No AI-gradient colors.)
+
+## Cluster F — Core / misc (3)
+- **9999955355** Guest users cannot access Activity & Explore page even when the setting is enabled.
+- **9999920529** [Free] Textdomain loaded before `init` triggers debug notice in WP 6.7+
+  (load `buddynext` textdomain on `init`; mirror the Pro fix already in `buddynext-pro.php`).
+- **9999911666** Edit Profile: cover-image upload & country-field update issues.
+
+**Suggested order:** F (quick correctness: textdomain, guest access) -> E (mechanical token pass) ->
+B (Spaces, shared root causes) -> A (Moderation) -> C (Privacy gates) -> D (notif/email/integrations).
+Each card is independent; re-verify root cause before touching code.
 
 ---
 
-## Session gotchas (don't re-break)
-- Feature option leftovers: agents sometimes save '' which is NOT the registered default (true).
-  If a feature looks off, `wp option delete <opt>` so get_option falls back to the default.
-- PageRouter hub pages set is_singular=true + prime a virtual WP_Post (commit 3189567) — keep it;
-  prevents theme body_class() warnings + the page-2 subheader bug.
-- Onboarding gate grandfathers members registered before buddynext_onboarding_gate_since — don't
-  change to redirect-all.
-- SpacePostGuard (includes/Spaces/SpacePostGuard.php, registered in Plugin.php) enforces
-  who_can_post (403) + require_post_approval (pending) on buddynext_post_before_save.
-- PostService::create() flips status to 'scheduled' for a future scheduled_at (pending wins).
+## PARKED — non-bug threads (resume only AFTER the Bugs column is clear)
+These are in-flight but explicitly lower priority than Basecamp bugs:
+1. **Settings hub IA — finish (#24):** structural work landed (hub routing, tab shell, 8 sections
+   relocated out of profile-edit, notif de-dup, In-app/Email column UX). Remaining: PageRouter
+   route test, browser verify desktop+390px light/dark, commit. Plan:
+   `~/.claude/plans/distributed-spinning-penguin.md`.
+2. **QA MCP manifest v2 — rest enrich (#35):** capture each REST route's `requestArgs` + `gatedBy`
+   (cap/setting) in the manifest generator.
+3. **QA MCP manifest v2 — hooks<->listeners extractor (#36):** map `do_action`/`apply_filters` emit
+   points to their listeners so the engine flags unwired hooks.
+   (#35/#36 spec: `~/.mcp-servers/wp-plugin-qa-mcp-server/docs/superpowers/specs/2026-06-15-functionality-self-correction-redesign.md`)
