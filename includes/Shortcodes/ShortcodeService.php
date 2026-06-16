@@ -150,7 +150,7 @@ class ShortcodeService {
 	 *   members    → spaces/members.php
 	 *   settings   → spaces/settings.php
 	 *   moderation → spaces/moderation.php
-	 *   admin      → community-admin.php
+	 *   admin      → spaces/admin.php
 	 *   (default)  → spaces/home.php
 	 *
 	 * @param array<string, mixed>|string $_atts Shortcode attributes (unused).
@@ -177,7 +177,7 @@ class ShortcodeService {
 				return $this->capture( 'spaces/moderation.php', array( 'space_id' => $space_id ) );
 
 			case 'admin':
-				return $this->capture( 'community-admin.php', array( 'space_id' => $space_id ) );
+				return $this->capture( 'spaces/admin.php', array( 'space_id' => $space_id ) );
 
 			default:
 				return $this->capture( 'spaces/home.php', array( 'space_id' => $space_id ) );
