@@ -219,7 +219,8 @@ abstract class AdminPageBase {
 				</label>
 				<span class="bn-tl-desc"><?php echo esc_html( $desc ); ?></span>
 			</div>
-			<label class="bn-toggle<?php echo $value ? ' on' : ''; ?>">
+			<label class="bn-toggle">
+				<?php // The active (ON) state is driven purely by the nested checkbox via CSS `.bn-toggle:has(:checked)` — no hardcoded `.on` class, which previously stuck the visual ON after unchecking because nothing removed it client-side. ?>
 				<?php // Hidden 0 before the checkbox: an unchecked checkbox is never POSTed, so without this the Settings API skips update_option() and the old value persists. When checked, the checkbox's "1" comes later in the body and wins. ?>
 				<input type="hidden" name="<?php echo esc_attr( $option_name ); ?>" value="0">
 				<input type="checkbox"
