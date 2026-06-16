@@ -453,7 +453,11 @@ foreach ( $builtin_tabs as $bn_t ) {
 
 		<div class="bn-sh-inner">
 			<div class="bn-sh-avatar" aria-hidden="true">
-				<?php echo wp_kses_data( bn_space_category_icon( $space->category_slug ?? '' ) ); ?>
+				<?php if ( ! empty( $space->avatar_url ) ) : ?>
+					<img src="<?php echo esc_url( $space->avatar_url ); ?>" alt="">
+				<?php else : ?>
+					<?php echo wp_kses( bn_space_category_icon( $space->category_slug ?? '' ), \BuddyNext\Core\IconService::allowed_tags() ); ?>
+				<?php endif; ?>
 			</div>
 
 			<div class="bn-sh-info">
