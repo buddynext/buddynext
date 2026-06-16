@@ -41,7 +41,7 @@ if ( ! $is_own_profile && ! current_user_can( 'manage_options' )
 
 // --- Identity + counts ----------------------------------------------------
 $avatar_url   = (string) get_avatar_url( $user_id, array( 'size' => 96 ) );
-$cover_url    = (string) get_user_meta( $user_id, 'buddynext_cover_url', true );
+$cover_url    = buddynext_user_cover_url( $user_id );
 $display_name = $profile_user->display_name;
 $joined       = gmdate( 'M Y', strtotime( $profile_user->user_registered ) );
 

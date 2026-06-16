@@ -213,6 +213,26 @@ function buddynext_get_template( string $relative, array $vars = array() ): void
 }
 
 /**
+ * Resolve the cover image URL to show for a user.
+ *
+ * Priority:
+ *   1. The user's own uploaded cover (buddynext_cover_url usermeta).
+ *   2. The site-wide default cover (bn_default_cover_url option, set in
+ *      BuddyNext > Members > Avatar & Cover).
+ *   3. Empty string — callers fall back to the tonal gradient.
+ *
+ * @param int $user_id User ID.
+ * @return string Cover URL or '' when neither a custom nor a default cover exists.
+ */
+function buddynext_user_cover_url( int $user_id ): string {
+	$cover = (string) get_user_meta( $user_id, 'buddynext_cover_url', true );
+	if ( '' !== $cover ) {
+		return $cover;
+	}
+	return (string) get_option( 'bn_default_cover_url', '' );
+}
+
+/**
  * Return the canonical URL for a single space by its slug.
  *
  * Thin procedural wrapper around PageRouter::spaces_url() so templates do not
