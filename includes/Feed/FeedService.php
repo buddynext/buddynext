@@ -136,6 +136,42 @@ class FeedService {
 	}
 
 	/**
+	 * Up to $cap of the viewer's accepted-connection user IDs, for connections-
+	 * first feed weighting (the spec's free "connections-first" ordering).
+	 *
+	 * Deliberately bounded: one indexed query capped at $cap, so the home-feed
+	 * ORDER BY never builds an unbounded IN-list. Beyond the cap the weighting is
+	 * simply incomplete (those connections rank chronologically) — the feed never
+	 * does per-row work. Returns ints only, safe to embed in SQL.
+	 *
+	 * @param int $user_id Viewer ID.
+	 * @param int $cap     Maximum IDs to return.
+	 * @return int[]
+	 */
+	private function connection_ids_capped( int $user_id, int $cap = 500 ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT CASE WHEN requester_id = %d THEN recipient_id ELSE requester_id END
+				 FROM {$wpdb->prefix}bn_connections
+				 WHERE status = 'accepted' AND ( requester_id = %d OR recipient_id = %d )
+				 LIMIT %d",
+				$user_id,
+				$user_id,
+				$user_id,
+				$cap
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
+	}
+
+	/**
 	 * Allowed home-feed filter slugs.
 	 *
 	 * @var string[]
@@ -232,9 +268,24 @@ class FeedService {
 		 * @param int    $user_id    Viewing user ID.
 		 * @param array  $query_args Resolved query args after buddynext_feed_query_args.
 		 */
-		$order_by = (string) apply_filters( 'buddynext_feed_order_by', 'is_pinned DESC, created_at DESC, id DESC', $user_id, $query_args );
+		// Connections-first weighting on the blended "For you" feed (the free
+		// ordering the spec calls for): rank posts from the viewer's connections
+		// above the rest, then chronological. IDs are capped + absint'd, so the
+		// CASE stays index-safe and carries no user data. Other filters
+		// (following / spaces / network) keep the plain chronological order.
+		$default_order_by = 'is_pinned DESC, created_at DESC, id DESC';
+		if ( 'for-you' === $filter && $user_id > 0 ) {
+			$bn_conn_ids = $this->connection_ids_capped( $user_id );
+			if ( ! empty( $bn_conn_ids ) ) {
+				$default_order_by = 'is_pinned DESC, CASE WHEN user_id IN ('
+					. implode( ',', $bn_conn_ids )
+					. ') THEN 0 ELSE 1 END ASC, created_at DESC, id DESC';
+			}
+		}
+
+		$order_by = (string) apply_filters( 'buddynext_feed_order_by', $default_order_by, $user_id, $query_args );
 		if ( '' === $order_by ) {
-			$order_by = 'is_pinned DESC, created_at DESC, id DESC';
+			$order_by = $default_order_by;
 		}
 
 		// Source-blend WHERE built per filter. All branches use subqueries — no
