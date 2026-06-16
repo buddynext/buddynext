@@ -21,8 +21,15 @@
 
 declare(strict_types=1);
 
-// Registration allowed?
-$registration_open = (bool) get_option( 'users_can_register' );
+// Only advertise "Create an account" when registration is actually reachable.
+// Two independent gates, both enforced by PageRouter/AuthController on /signup/:
+//   - users_can_register (WP core) — the master on/off; when off, /signup/
+//     redirects to login?registration=disabled.
+//   - buddynext_reg_mode — invite-only has no public signup (invitees arrive
+//     via their invite link straight to /signup/?invite=TOKEN).
+// Linking when either gate is closed would send visitors to a dead end.
+$registration_open = (bool) get_option( 'users_can_register' )
+	&& 'invite' !== (string) get_option( 'buddynext_reg_mode', 'open' );
 
 // Pre-fill from query params (e.g. ?login=failed redirect).
 $login_error = '';
@@ -199,12 +206,14 @@ $signup_url = home_url( '/' . (string) get_option( 'buddynext_slug_signup', 'sig
 					</div>
 				<?php endif; ?>
 
-				<div class="bn-auth-foot">
-					<?php esc_html_e( 'New here?', 'buddynext' ); ?>
-					<a href="<?php echo esc_url( $signup_url ); ?>">
-						<?php esc_html_e( 'Create an account', 'buddynext' ); ?>
-					</a>
-				</div>
+				<?php if ( $registration_open ) : ?>
+					<div class="bn-auth-foot">
+						<?php esc_html_e( 'New here?', 'buddynext' ); ?>
+						<a href="<?php echo esc_url( $signup_url ); ?>">
+							<?php esc_html_e( 'Create an account', 'buddynext' ); ?>
+						</a>
+					</div>
+				<?php endif; ?>
 			</section>
 
 			<!-- Two-step verification panel (shown only after a 2FA-enabled password check) -->
