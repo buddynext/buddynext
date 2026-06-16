@@ -96,14 +96,10 @@
 	z-index: 1;
 	display: flex;
 	flex-direction: column;
-	justify-content: space-between;
+	justify-content: center;
 	gap: var(--bn-s6);
 	width: 100%;
 	height: 100%;
-}
-
-.bn-auth-aside__brand {
-	flex: 0 0 auto;
 }
 
 /* Featured quote — the visual centre of the panel. The compound selector beats
@@ -146,27 +142,6 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--bn-s2);
-}
-
-.bn-auth-aside__mark {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 48px;
-	height: 48px;
-	border-radius: var(--bn-r-md);
-	background: rgba(255, 255, 255, 0.16);
-}
-
-.bn-auth-aside__mark .bn-icon {
-	width: 28px;
-	height: 28px;
-}
-
-.bn-auth-aside__logo-img {
-	max-width: 160px;
-	height: auto;
-	display: block;
 }
 
 .bn-auth-aside__heading {
@@ -782,11 +757,6 @@
 	.bn-auth-aside {
 		min-height: 28vh;
 		padding: var(--bn-s6);
-	}
-
-	.bn-auth-aside__mark {
-		width: 40px;
-		height: 40px;
 	}
 }
 
