@@ -646,6 +646,15 @@ a.bn-hashtag:hover {
 	font-size: var(--bn-text-sm);
 }
 
+.bn-hashtag-pager {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3);
+	padding: var(--bn-s4) 0 var(--bn-s2);
+}
+.bn-hashtag-pager [rel="next"] { margin-inline-start: auto; }
+
 /* ────────────────────────────────────────────────────────────────────────
  * 10. Responsive — 1024 / 640 breakpoints
  *     The hub-shell already collapses the outer 2-col grid; these rules

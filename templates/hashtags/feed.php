@@ -93,6 +93,13 @@ if ( ! $hashtag_not_found ) {
 	// ── Feed posts for this hashtag ────────────────────────────────────────
 	$limit = absint( $args['limit'] ?? 10 );
 
+		// Pagination — LIMIT + OFFSET keyed off ?paged, fetching one extra row to
+		// detect whether a further page exists (no separate COUNT(*) needed).
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$bn_paged  = max( 1, absint( $_GET['paged'] ?? 1 ) );
+		$bn_offset = ( $bn_paged - 1 ) * $limit;
+		$bn_fetch  = $limit + 1;
+
 	if ( 'top' === $bn_sort ) {
 		// Top of last 7 days, by engagement.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -107,9 +114,10 @@ if ( ! $hashtag_not_found ) {
 				  AND p.privacy = 'public'
 				  AND p.created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )
 				ORDER BY (p.reaction_count + p.comment_count * 2) DESC, p.created_at DESC
-				LIMIT %d",
+				LIMIT %d OFFSET %d",
 				(int) $hashtag->id,
-				$limit
+				$bn_fetch,
+				$bn_offset
 			)
 		); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	} elseif ( 'following' === $bn_sort && $is_logged_in ) {
@@ -126,10 +134,11 @@ if ( ! $hashtag_not_found ) {
 				  AND p.status = 'published'
 				  AND p.privacy = 'public'
 				ORDER BY p.created_at DESC
-				LIMIT %d",
+				LIMIT %d OFFSET %d",
 				$current_user_id,
 				(int) $hashtag->id,
-				$limit
+				$bn_fetch,
+				$bn_offset
 			)
 		); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	} else {
@@ -145,11 +154,18 @@ if ( ! $hashtag_not_found ) {
 				  AND p.status = 'published'
 				  AND p.privacy = 'public'
 				ORDER BY p.created_at DESC
-				LIMIT %d",
+				LIMIT %d OFFSET %d",
 				(int) $hashtag->id,
-				$limit
+				$bn_fetch,
+				$bn_offset
 			)
 		); // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+		// Detect a further page from the probe row, then trim to the page size.
+		$bn_has_more = count( $hashtag_posts ) > $limit;
+	if ( $bn_has_more ) {
+		$hashtag_posts = array_slice( $hashtag_posts, 0, $limit );
 	}
 
 	// ── Related hashtags ───────────────────────────────────────────────────
@@ -321,9 +337,34 @@ else :
 			}
 			?>
 
-			<div class="bn-load-more" data-wp-bind--hidden="!state.hasMore" aria-live="polite">
-				<?php esc_html_e( 'Loading more posts…', 'buddynext' ); ?>
-			</div>
+			<?php
+			// Server-rendered prev/next pager (LIMIT + OFFSET keyset off ?paged). The
+			// previous JS "Load more" stub bound to state.hasMore, which never
+			// existed, so pagination was dead. $bn_paged/$bn_has_more are set in the
+			// feed-query block above; guard defensively for the not-found path.
+			$bn_pg_cur   = isset( $bn_paged ) ? (int) $bn_paged : 1;
+			$bn_pg_more  = ! empty( $bn_has_more );
+			$bn_pg_base  = \BuddyNext\Core\PageRouter::hashtag_feed_url( $hashtag_slug );
+			$bn_pg_extra = ( isset( $bn_sort ) && '' !== (string) $bn_sort && 'latest' !== $bn_sort ) ? array( 'sort' => $bn_sort ) : array();
+			if ( $bn_pg_cur > 1 || $bn_pg_more ) :
+				?>
+				<nav class="bn-hashtag-pager" aria-label="<?php esc_attr_e( 'Hashtag feed pagination', 'buddynext' ); ?>">
+					<?php if ( $bn_pg_cur > 1 ) : ?>
+						<a class="bn-btn" data-variant="secondary" data-size="md" rel="prev"
+							href="<?php echo esc_url( add_query_arg( array_merge( $bn_pg_extra, array( 'paged' => $bn_pg_cur - 1 ) ), $bn_pg_base ) ); ?>">
+							<?php esc_html_e( 'Previous', 'buddynext' ); ?>
+						</a>
+					<?php endif; ?>
+					<?php if ( $bn_pg_more ) : ?>
+						<a class="bn-btn" data-variant="secondary" data-size="md" rel="next"
+							href="<?php echo esc_url( add_query_arg( array_merge( $bn_pg_extra, array( 'paged' => $bn_pg_cur + 1 ) ), $bn_pg_base ) ); ?>">
+							<?php esc_html_e( 'Next', 'buddynext' ); ?>
+						</a>
+					<?php endif; ?>
+				</nav>
+				<?php
+			endif;
+			?>
 		</main>
 
 		<!-- ── Sidebar (hashtag-specific) ── -->
