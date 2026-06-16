@@ -1949,6 +1949,11 @@ function buildSpaceCard( row ) {
 		ctaEl.dataset.spaceId      = String( spaceId );
 		ctaEl.textContent = __i18n( 'Request to join' );
 	}
+	// This card is created after initial hydration, so its
+	// data-wp-on--click directive is inert (the Interactivity API only binds
+	// directives present in the server-rendered HTML). Mark the CTA so the
+	// delegated click handler in the wiring section dispatches it instead.
+	ctaEl.setAttribute( 'data-bn-dyn', '1' );
 	foot.appendChild( ctaEl );
 	body.appendChild( foot );
 
@@ -2093,6 +2098,31 @@ function closeSortPopover() {
 }
 
 /* ── Wiring: reactive listeners on the spaces directory ─────────────── */
+
+/*
+ * Delegated dispatch for dynamically-rebuilt directory cards.
+ *
+ * Filtering by tab/search replaces the server-rendered card grid with cards
+ * built in JS (buildSpaceCard), whose data-wp-on--click directives the
+ * Interactivity API never binds — directives only hydrate from the initial
+ * server HTML. Without this, Join / Leave / Request / Cancel buttons on
+ * filtered results are inert. Bound once at module load (delegation works for
+ * nodes added later), and reads the action name fresh on every click so a
+ * state-swapped button (Join -> Joined/Leave) dispatches the correct action.
+ * Server-rendered cards lack the data-bn-dyn marker, so they continue to run
+ * through the Interactivity API with no double-binding.
+ */
+document.addEventListener( 'click', function ( event ) {
+	var btn = ( event.target && event.target.closest )
+		? event.target.closest( 'button[data-bn-dyn][data-wp-on--click]' )
+		: null;
+	if ( ! btn ) { return; }
+	var name = ( btn.getAttribute( 'data-wp-on--click' ) || '' ).replace( /^actions\./, '' );
+	if ( ! name || ! storeInstance || ! storeInstance.actions || typeof storeInstance.actions[ name ] !== 'function' ) {
+		return;
+	}
+	storeInstance.actions[ name ]( event );
+} );
 
 document.addEventListener( 'DOMContentLoaded', function () {
 	var searchInput = document.querySelector( 'input[name="bn_search"]' );
