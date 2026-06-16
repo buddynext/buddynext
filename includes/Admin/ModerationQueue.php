@@ -76,7 +76,7 @@ class ModerationQueue {
 		$queue   = $service->get_queue( array( 'per_page' => 50 ) );
 		$items   = $queue['items'] ?? array();
 		?>
-		<div class="bn-settings-section">
+		<div class="bn-settings-section bn-mod-queue" data-mod-queue>
 			<div class="bn-ss-header">
 				<span class="bn-ss-title"><?php esc_html_e( 'Report queue', 'buddynext' ); ?></span>
 				<span class="bn-ss-count"><?php echo esc_html( (string) ( $queue['total'] ?? 0 ) ); ?></span>

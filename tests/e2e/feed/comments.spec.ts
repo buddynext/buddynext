@@ -35,7 +35,11 @@ test.describe('feed / comments', () => {
             await commentBtn.click();
         }
 
-        const input = page.locator(sel.commentInput).first();
+        // Scope the input + submit to THIS card — there is one (hidden) comment
+        // form per post in the DOM, so a global `.first()` can resolve the input
+        // and the submit button to two different cards (one collapsed), making
+        // the submit invisible and silently falling through to a no-op.
+        const input = firstCard.locator(sel.commentInput).first();
         if (!(await input.isVisible().catch(() => false))) {
             softSkip(testInfo, 'Comment input not yet exposed in build.');
             return;
@@ -46,15 +50,15 @@ test.describe('feed / comments', () => {
         await input.fill(body);
 
         // No <form> wraps the comment input — there's a dedicated submit
-        // button bound to actions.submitComment.
-        const submitBtn = page.locator('.bn-comment-form__submit, [data-wp-on--click="actions.submitComment"]').first();
-        if (await submitBtn.isVisible().catch(() => false)) {
-            await submitBtn.click();
-        } else {
-            await input.press('Enter');
-        }
+        // button bound to actions.submitComment. Match ONLY that binding: the
+        // per-comment reply forms reuse the `.bn-comment-form__submit` class but
+        // carry no submitComment binding, and they render (hidden) above the
+        // post-level form, so a class match would resolve to a hidden reply button.
+        const submitBtn = firstCard.locator('[data-wp-on--click="actions.submitComment"]').first();
+        await expect(submitBtn).toBeVisible({ timeout: 5_000 });
+        await submitBtn.click();
 
-        const newComment = page.locator(sel.commentList).filter({ hasText: body }).first();
+        const newComment = firstCard.locator(sel.commentList).filter({ hasText: body }).first();
         await expect(newComment).toBeVisible({ timeout: 8_000 });
     });
 });

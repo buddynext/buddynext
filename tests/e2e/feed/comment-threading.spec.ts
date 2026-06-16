@@ -90,8 +90,14 @@ test.describe('feed / comment threading', () => {
         await input.fill(`edit me ${stamp}`);
         await page.locator('[data-wp-on--click="actions.submitComment"]').first().click();
 
-        const card = page.locator('.bn-comment-card', { hasText: `edit me ${stamp}` }).first();
-        await expect(card).toBeVisible({ timeout: 8_000 });
+        const seedCard = page.locator('.bn-comment-card', { hasText: `edit me ${stamp}` }).first();
+        await expect(seedCard).toBeVisible({ timeout: 8_000 });
+
+        // Pin the card by its stable comment id BEFORE editing — a successful
+        // edit rewrites the visible text to `edited ${stamp}`, so a card locator
+        // filtered on the original `edit me ${stamp}` text would stop matching.
+        const commentId = await seedCard.getAttribute('data-comment-id');
+        const card = page.locator(`.bn-comment-card[data-comment-id="${commentId}"]`);
 
         await card.locator('.bn-comment__edit-btn').click();
         const editTa = card.locator('.bn-comment__edit-form textarea');

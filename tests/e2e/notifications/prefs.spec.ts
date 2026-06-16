@@ -19,7 +19,11 @@ test.describe('notifications / preferences', () => {
             return;
         }
 
-        await expect(page.getByRole('heading', { name: /notification preferences/i, level: 1 })).toBeVisible();
+        // The prefs page lives inside the shared Settings hub: the H1 is
+        // "Settings" and the active tab marks this as the Notifications section
+        // (the design deliberately avoids a redundant per-section page title).
+        await expect(page.getByRole('heading', { name: /^settings$/i, level: 1 })).toBeVisible();
+        await expect(page.locator('.bn-settings-tabs .bn-tab.is-active')).toHaveText(/notifications/i);
 
         // Channels section.
         await expect(page.locator('input[data-channel="in_app"]')).toBeVisible();

@@ -209,6 +209,9 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 		reactBtn.type = 'button';
 		reactBtn.className = 'bn-comment__like-btn';
 		reactBtn.dataset.reaction = comment.viewer_liked ? ( comment.viewer_reaction || 'like' ) : '';
+		// Explicit binary state hook ("0"/"1") — distinct from aria-pressed so the
+		// liked state is always a defined attribute, never an empty string.
+		reactBtn.dataset.liked = comment.viewer_liked ? '1' : '0';
 		reactBtn.setAttribute( 'aria-pressed', comment.viewer_liked ? 'true' : 'false' );
 
 		const reactIcon = document.createElement( 'span' );
@@ -328,6 +331,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			const next = ( null === type || prev === type ) ? '' : type;
 			// Optimistic UI.
 			reactBtn.dataset.reaction = next;
+			reactBtn.dataset.liked = next ? '1' : '0';
 			reactBtn.setAttribute( 'aria-pressed', next ? 'true' : 'false' );
 			setReactionIcon( reactIcon, next );
 			reactLabel.textContent = next ? ( REACTION_LABELS[ next ] || 'React' ) : 'React';
@@ -351,6 +355,7 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			} catch ( _e ) {
 				// Rollback to prev.
 				reactBtn.dataset.reaction = prev;
+				reactBtn.dataset.liked = prev ? '1' : '0';
 				reactBtn.setAttribute( 'aria-pressed', prev ? 'true' : 'false' );
 				setReactionIcon( reactIcon, prev );
 				reactLabel.textContent = prev ? ( REACTION_LABELS[ prev ] || 'React' ) : 'React';

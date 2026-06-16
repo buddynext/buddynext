@@ -18,7 +18,11 @@ test.describe('auth / signup', () => {
     test('shows registration form on /signup/', async ({ page }) => {
         await page.goto(urls.signup, { waitUntil: 'domcontentloaded' });
 
-        const usernameInput = page.locator(sel.signupUser).or(page.locator(sel.loginUser));
+        // Gate strictly on the SIGNUP form. Falling back to the login field
+        // would let this pass when registration is closed (the shared auth hub
+        // shows the login form at /signup/), only to fail on the missing
+        // #bn-signup-email assertion below. Absent signup form => fixme.
+        const usernameInput = page.locator(sel.signupUser).or(page.locator(sel.signupEmail));
         const formVisible = await usernameInput.first().isVisible().catch(() => false);
 
         if (!formVisible) {
@@ -37,7 +41,11 @@ test.describe('auth / signup', () => {
     test('submitting registration form lands on verify-or-onboarding state', async ({ page }) => {
         await page.goto(urls.signup, { waitUntil: 'domcontentloaded' });
 
-        const usernameInput = page.locator(sel.signupUser).or(page.locator(sel.loginUser));
+        // Gate strictly on the SIGNUP form. Falling back to the login field
+        // would let this pass when registration is closed (the shared auth hub
+        // shows the login form at /signup/), only to fail on the missing
+        // #bn-signup-email assertion below. Absent signup form => fixme.
+        const usernameInput = page.locator(sel.signupUser).or(page.locator(sel.signupEmail));
         const formVisible = await usernameInput.first().isVisible().catch(() => false);
 
         if (!formVisible) {
