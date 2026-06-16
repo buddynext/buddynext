@@ -70,14 +70,21 @@ if ( $pending_sent ) {
 
 $nonce = wp_create_nonce( 'wp_rest' );
 
+// The connection store builds its toasts as "@" . targetName, so pass the
+// @handle (user_nicename). Without it the store falls back to "#<id>" and
+// toasts read "Connected with #8" instead of "Connected with @jane".
+$bn_conn_user = get_userdata( $user_id );
+$bn_conn_name = $bn_conn_user ? $bn_conn_user->user_nicename : '';
+
 // Build the WP Interactivity API context object (esc_attr-escaped JSON string).
 $context_attr = esc_attr(
 	(string) wp_json_encode(
 		array(
-			'userId'  => $user_id,
-			'status'  => $ctx_status,
-			'nonce'   => $nonce,
-			'restUrl' => rest_url( 'buddynext/v1' ),
+			'userId'     => $user_id,
+			'targetName' => $bn_conn_name,
+			'status'     => $ctx_status,
+			'nonce'      => $nonce,
+			'restUrl'    => rest_url( 'buddynext/v1' ),
 		)
 	)
 );

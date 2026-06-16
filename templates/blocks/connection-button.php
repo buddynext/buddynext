@@ -58,12 +58,18 @@ if ( $pending_sent ) {
 	$ctx_status = '';
 }
 
+// Pass the @handle (user_nicename) so toasts read "Connected with @jane"
+// rather than the "#<id>" fallback the connection store uses when absent.
+$bn_cb_user = get_userdata( $user_id );
+$bn_cb_name = $bn_cb_user ? $bn_cb_user->user_nicename : '';
+
 $context_json = (string) wp_json_encode(
 	array(
-		'userId'  => $user_id,
-		'status'  => $ctx_status,
-		'nonce'   => wp_create_nonce( 'wp_rest' ),
-		'restUrl' => rest_url( 'buddynext/v1' ),
+		'userId'     => $user_id,
+		'targetName' => $bn_cb_name,
+		'status'     => $ctx_status,
+		'nonce'      => wp_create_nonce( 'wp_rest' ),
+		'restUrl'    => rest_url( 'buddynext/v1' ),
 	)
 );
 ?>

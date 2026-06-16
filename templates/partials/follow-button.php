@@ -51,11 +51,18 @@ $private_follow = isset( $private_follow ) ? (bool) $private_follow : $follows->
 $is_following   = isset( $known_following ) ? (bool) $known_following : $follows->is_following( $viewer_id, $user_id );
 $is_pending     = ! $is_following && $follows->has_pending_request( $viewer_id, $user_id );
 
+// The follow store builds its toasts as "@" . targetName, so pass the @handle
+// (user_nicename). Without it the store falls back to "#<id>" and toasts read
+// "Now following #8" instead of "Now following @jane".
+$target_user = get_userdata( $user_id );
+$target_name = $target_user ? $target_user->user_nicename : '';
+
 // Build the WP Interactivity API context object (esc_attr-escaped JSON string).
 $context_attr = esc_attr(
 	(string) wp_json_encode(
 		array(
 			'userId'        => $user_id,
+			'targetName'    => $target_name,
 			'isFollowing'   => $is_following,
 			'isPending'     => $is_pending,
 			'privateFollow' => $private_follow,

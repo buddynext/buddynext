@@ -24,9 +24,15 @@ if ( ! $user_id || ! $viewer_id || $viewer_id === $user_id ) {
 
 $is_following = buddynext_service( 'follows' )->is_following( $viewer_id, $user_id );
 
+// Pass the @handle (user_nicename) so toasts read "Now following @jane" rather
+// than the "#<id>" fallback the follow store uses when targetName is absent.
+$bn_fb_user = get_userdata( $user_id );
+$bn_fb_name = $bn_fb_user ? $bn_fb_user->user_nicename : '';
+
 $context_json = (string) wp_json_encode(
 	array(
 		'userId'      => $user_id,
+		'targetName'  => $bn_fb_name,
 		'isFollowing' => $is_following,
 		'nonce'       => wp_create_nonce( 'wp_rest' ),
 		'restUrl'     => rest_url( 'buddynext/v1' ),
