@@ -22,6 +22,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Core;
 
+use BuddyNext\Notifications\EmailSender;
+
 /**
  * Implements all BuddyNext WP-Cron job callbacks.
  */
@@ -550,11 +552,14 @@ class CronService {
 		$subject = str_replace( array_keys( $tokens ), array_values( $tokens ), (string) $template->subject );
 		$body    = str_replace( array_keys( $tokens ), array_values( $tokens ), (string) $template->body_html );
 
-		return wp_mail(
+		// Route through EmailSender's shared identity helper so the digest
+		// carries the same From name/address + Reply-To as every other
+		// BuddyNext email (Settings → Email), instead of wp_mail()'s defaults.
+		return EmailSender::send_with_identity(
 			$user->user_email,
 			$subject,
 			'<html><body>' . $body . '</body></html>',
-			array( 'Content-Type: text/html; charset=UTF-8' )
+			EmailSender::build_identity_headers()
 		);
 	}
 

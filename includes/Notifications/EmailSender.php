@@ -156,14 +156,7 @@ class EmailSender {
 		$subject = $this->render( $subject_src, $user_id, $data );
 		$body    = $this->render( $body_src, $user_id, $data );
 
-		$headers = array( 'Content-Type: text/html; charset=UTF-8' );
-
-		// Reply-To sender identity (Settings → Email). Applied as a header so it
-		// survives any wp_mail_from override and is per-message.
-		$reply_to = sanitize_email( (string) get_option( 'buddynext_email_reply_to', '' ) );
-		if ( '' !== $reply_to && is_email( $reply_to ) ) {
-			$headers[] = 'Reply-To: ' . $reply_to;
-		}
+		$headers = self::build_identity_headers();
 
 		$payload = array(
 			'to'      => $user->user_email,
@@ -193,9 +186,60 @@ class EmailSender {
 			return;
 		}
 
-		// Sender identity (Settings → Email). Apply the configured From name and
-		// From address via the wp_mail_* filters only for this dispatch, then
-		// detach so we never affect unrelated mail (password resets, etc.).
+		self::send_with_identity(
+			$payload['to'],
+			$payload['subject'],
+			$payload['body'],
+			(array) $payload['headers']
+		);
+
+		$this->log_sent( $user_id, $notification_type );
+	}
+
+	/**
+	 * Build the BuddyNext email headers (Content-Type + Reply-To identity).
+	 *
+	 * The configured Reply-To (Settings → Email) is applied as a header so it
+	 * survives any wp_mail_from override and is per-message. Shared by every
+	 * BuddyNext outbound email — template notifications and the digest cron —
+	 * so the sender identity stays consistent across all of them.
+	 *
+	 * @param array<int, string> $extra_headers Optional additional headers.
+	 * @return array<int, string> Header lines for wp_mail().
+	 */
+	public static function build_identity_headers( array $extra_headers = array() ): array {
+		$headers = array( 'Content-Type: text/html; charset=UTF-8' );
+
+		$reply_to = sanitize_email( (string) get_option( 'buddynext_email_reply_to', '' ) );
+		if ( '' !== $reply_to && is_email( $reply_to ) ) {
+			$headers[] = 'Reply-To: ' . $reply_to;
+		}
+
+		foreach ( $extra_headers as $header ) {
+			if ( is_string( $header ) && '' !== $header ) {
+				$headers[] = $header;
+			}
+		}
+
+		return $headers;
+	}
+
+	/**
+	 * Dispatch an email through wp_mail() with the BuddyNext sender identity.
+	 *
+	 * Applies the configured From name and From address (Settings → Email) via
+	 * the wp_mail_* filters for the duration of this single dispatch only, then
+	 * detaches them so unrelated mail (password resets, etc.) is never affected.
+	 * Every BuddyNext outbound email routes through here so the From/Reply-To
+	 * identity is identical for template notifications and the digest cron.
+	 *
+	 * @param string             $to      Recipient email address.
+	 * @param string             $subject Email subject.
+	 * @param string             $body    Email body (HTML).
+	 * @param array<int, string> $headers Header lines (use build_identity_headers()).
+	 * @return bool True when wp_mail() reports success.
+	 */
+	public static function send_with_identity( string $to, string $subject, string $body, array $headers ): bool {
 		$from_name    = sanitize_text_field( (string) get_option( 'buddynext_email_from_name', '' ) );
 		$from_address = sanitize_email( (string) get_option( 'buddynext_email_from_address', '' ) );
 
@@ -215,12 +259,7 @@ class EmailSender {
 			add_filter( 'wp_mail_from', $address_filter );
 		}
 
-		wp_mail(
-			$payload['to'],
-			$payload['subject'],
-			$payload['body'],
-			$payload['headers']
-		);
+		$sent = wp_mail( $to, $subject, $body, $headers );
 
 		if ( null !== $name_filter ) {
 			remove_filter( 'wp_mail_from_name', $name_filter );
@@ -229,7 +268,7 @@ class EmailSender {
 			remove_filter( 'wp_mail_from', $address_filter );
 		}
 
-		$this->log_sent( $user_id, $notification_type );
+		return $sent;
 	}
 
 	/**
