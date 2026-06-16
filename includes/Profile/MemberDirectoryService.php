@@ -63,6 +63,7 @@ class MemberDirectoryService {
 		$member_type       = isset( $filters['member_type'] ) ? sanitize_key( (string) $filters['member_type'] ) : '';
 		$space_id          = isset( $filters['space_id'] ) ? (int) $filters['space_id'] : 0;
 		$connection_status = isset( $filters['connection_status'] ) ? (string) $filters['connection_status'] : 'everyone';
+		$relation          = isset( $filters['relation'] ) ? (string) $filters['relation'] : '';
 		$online_only       = ! empty( $filters['online_only'] );
 		$sort              = isset( $filters['sort'] ) ? (string) $filters['sort'] : 'newest';
 
@@ -150,6 +151,17 @@ class MemberDirectoryService {
 				     OR (bcon.recipient_id = %d AND bcon.requester_id = u.ID)
 				 )",
 				$viewer_id,
+				$viewer_id
+			);
+		}
+
+		// Following filter JOIN — restrict to users the viewer follows. Applied as
+		// a native JOIN (not a post-query filter) so the COUNT/total and cursor
+		// reflect only followed users.
+		if ( 'following' === $relation && $viewer_id > 0 ) {
+			$joins[] = $wpdb->prepare(
+				"INNER JOIN {$wpdb->prefix}bn_follows bfol
+				 ON bfol.follower_id = %d AND bfol.following_id = u.ID",
 				$viewer_id
 			);
 		}

@@ -138,6 +138,14 @@ class MemberDirectoryController extends BaseRestController {
 			$filters['connection_status'] = 'connections';
 		}
 
+		// Following filter is applied natively inside list_members() (JOIN on
+		// bn_follows) so the COUNT/total and cursor reflect only followed users —
+		// previously it was post-filtered here, leaving total unfiltered and
+		// producing phantom empty pages.
+		if ( 'following' === $relation ) {
+			$filters['relation'] = 'following';
+		}
+
 		if ( '' !== $type_slug ) {
 			$filters['member_type'] = $type_slug;
 		}
@@ -146,22 +154,8 @@ class MemberDirectoryController extends BaseRestController {
 
 		$page = $directory->list_members( $viewer_id, '' === $cursor ? null : $cursor, $per_page, $filters );
 
-		// Resolve following filter post-query (the service only supports connection filtering today).
-		if ( 'following' === $relation && $viewer_id > 0 ) {
-			$follows       = buddynext_service( 'follows' );
-			$followed_ids  = $follows->following( $viewer_id );
-			$page['items'] = array_values(
-				array_filter(
-					(array) $page['items'],
-					static function ( $row ) use ( $followed_ids ) {
-						return in_array( (int) $row['user_id'], $followed_ids, true );
-					}
-				)
-			);
-		}
-
-		// Member-type filtering is applied inside list_members() (via the
-		// bn_member_type usermeta) so pagination and totals stay correct.
+		// Member-type + following + connection filtering are all applied inside
+		// list_members() so pagination and totals stay correct.
 
 		$rows = (array) $page['items'];
 
