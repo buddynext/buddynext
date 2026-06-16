@@ -874,6 +874,20 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
+		// A standing invitation: accepting it joins directly, regardless of the
+		// space's normal join method. Without this, an invited user on a
+		// request-to-join (private) space would be routed through request_join()
+		// and stay 'invited' instead of becoming a member. join() promotes the
+		// existing 'invited' row to 'active'.
+		if ( 'invited' === $members->get_status( $space_id, $user_id ) ) {
+			$result = $members->join( $space_id, $user_id );
+			if ( is_wp_error( $result ) ) {
+				$result->add_data( array( 'status' => 400 ) );
+				return $result;
+			}
+			return new WP_REST_Response( array( 'joined' => true ), 200 );
+		}
+
 		// Invite-only types: require a standing invitation.
 		if ( 'invite' === SpaceTypeRegistry::instance()->join_method( (string) $space['type'] ) ) {
 			if ( 'invited' !== $members->get_status( $space_id, $user_id ) ) {

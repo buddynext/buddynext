@@ -139,6 +139,7 @@ if ( $current_user_id ) {
 $is_member    = $membership && 'active' === $membership->status;
 $is_admin_mod = $membership && 'active' === $membership->status && in_array( $membership->role, array( 'owner', 'moderator' ), true );
 $is_pending   = $membership && 'pending' === $membership->status;
+$is_invited   = $membership && 'invited' === $membership->status;
 $is_guest     = ( 0 === (int) $current_user_id );
 
 // Posting permission (Permissions panel → "Who can post"): members | mods | owner.
@@ -666,6 +667,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 			'is_member'       => $is_member,
 			'is_owner'        => $is_admin_mod,
 			'is_pending'      => $is_pending,
+			'is_invited'      => $is_invited,
 			'is_guest'        => $is_guest,
 			'privacy_label'   => $privacy_label,
 			'privacy_tone'    => $privacy_tone,
@@ -677,6 +679,24 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 	);
 	?>
 
+	<?php if ( $is_invited ) : ?>
+		<!-- Pending space invitation for the current user -->
+		<div class="bn-card bn-sh-invite" role="region" aria-label="<?php esc_attr_e( 'Space invitation', 'buddynext' ); ?>">
+			<div class="bn-sh-invite__text">
+				<span class="bn-sh-invite__icon" aria-hidden="true"><?php buddynext_icon( 'bell' ); ?></span>
+				<span><?php esc_html_e( "You've been invited to join this space.", 'buddynext' ); ?></span>
+			</div>
+			<div class="bn-sh-invite__actions">
+				<button class="bn-btn" data-variant="primary" data-size="sm" data-wp-on--click="actions.acceptInvite">
+					<?php esc_html_e( 'Accept', 'buddynext' ); ?>
+				</button>
+				<button class="bn-btn" data-variant="ghost" data-size="sm" data-wp-on--click="actions.declineInvite">
+					<?php esc_html_e( 'Decline', 'buddynext' ); ?>
+				</button>
+			</div>
+		</div>
+	<?php endif; ?>
+
 	<!-- Tab body -->
 	<div class="bn-sh-body">
 		<?php if ( $gate_feed ) : ?>
@@ -685,9 +705,15 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 				<div class="bn-sh-gate__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>
 				<h2 class="bn-sh-gate__title"><?php esc_html_e( 'This is a private space', 'buddynext' ); ?></h2>
 				<p class="bn-sh-gate__lede">
-					<?php esc_html_e( 'Join to read posts and participate in discussions.', 'buddynext' ); ?>
+					<?php
+					echo $is_invited
+						? esc_html__( 'Accept the invitation above to read posts and participate.', 'buddynext' )
+						: esc_html__( 'Join to read posts and participate in discussions.', 'buddynext' );
+					?>
 				</p>
-				<?php if ( $is_guest ) : ?>
+				<?php if ( $is_invited ) : ?>
+					<?php // The invitation banner above owns Accept/Decline; the gate shows no join CTA. ?>
+				<?php elseif ( $is_guest ) : ?>
 					<a
 						href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() . '?redirect_to=' . rawurlencode( buddynext_space_url( $space->slug ) ) ); ?>"
 						class="bn-btn"

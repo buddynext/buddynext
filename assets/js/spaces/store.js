@@ -425,6 +425,72 @@ var storeInstance = store( 'buddynext/spaces', {
 		},
 
 		/**
+		 * Accept a pending space invitation. POSTs to /spaces/{id}/join, which
+		 * promotes the invited membership row to active (same endpoint a normal
+		 * join uses). Reloads on success so the full member view renders.
+		 */
+		acceptInvite: async function ( event ) {
+			var btn     = event && event.target && event.target.closest( 'button' );
+			var spaceId = resolveSpaceId( btn );
+			if ( ! spaceId ) { return; }
+
+			var origText = btn ? btn.textContent : '';
+			if ( btn ) { btn.disabled = true; btn.textContent = '…'; }
+
+			try {
+				var res  = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/join' ), {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': resolveNonce() },
+				} );
+				var data = await res.json();
+
+				if ( res.ok && data.joined ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Invitation accepted.' ), 'success' ); }
+					window.location.reload();
+				} else if ( btn ) {
+					btn.textContent = origText;
+					btn.disabled    = false;
+					if ( window.bnToast ) {
+						window.bnToast( ( data && data.message ) || __i18n( 'Could not accept the invitation.' ), 'danger' );
+					}
+				}
+			} catch ( _e ) {
+				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+			}
+		},
+
+		/**
+		 * Decline a pending space invitation. POSTs to /spaces/{id}/leave, which
+		 * removes the invited membership row. Reloads on success.
+		 */
+		declineInvite: async function ( event ) {
+			var btn     = event && event.target && event.target.closest( 'button' );
+			var spaceId = resolveSpaceId( btn );
+			if ( ! spaceId ) { return; }
+
+			var origText = btn ? btn.textContent : '';
+			if ( btn ) { btn.disabled = true; btn.textContent = '…'; }
+
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/leave' ), {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': resolveNonce() },
+				} );
+
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Invitation declined.' ), 'info' ); }
+					window.location.reload();
+				} else if ( btn ) {
+					btn.textContent = origText;
+					btn.disabled    = false;
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not decline the invitation.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				if ( btn ) { btn.textContent = origText; btn.disabled = false; }
+			}
+		},
+
+		/**
 		 * Request to join a private or invite-only space.
 		 * The endpoint returns { pending: true } on success.
 		 */

@@ -53,6 +53,7 @@ $args = array(
 	'is_member'       => isset( $is_member ) ? (bool) $is_member : false,
 	'is_owner'        => isset( $is_owner ) ? (bool) $is_owner : false,
 	'is_pending'      => isset( $is_pending ) ? (bool) $is_pending : false,
+	'is_invited'      => isset( $is_invited ) ? (bool) $is_invited : false,
 	'is_guest'        => isset( $is_guest ) ? (bool) $is_guest : false,
 	'privacy_label'   => isset( $privacy_label ) ? (string) $privacy_label : '',
 	'privacy_tone'    => isset( $privacy_tone ) ? (string) $privacy_tone : 'info',
@@ -92,6 +93,7 @@ $bn_space_id      = (int) $args['space_id'];
 $bn_is_member     = (bool) $args['is_member'];
 $bn_is_owner      = (bool) $args['is_owner'];
 $bn_is_pending    = (bool) $args['is_pending'];
+$bn_is_invited    = (bool) $args['is_invited'];
 $bn_is_guest      = (bool) $args['is_guest'];
 $bn_privacy_label = (string) $args['privacy_label'];
 $bn_privacy_tone  = (string) $args['privacy_tone'];
@@ -222,6 +224,9 @@ do_action( 'buddynext_part_space_hero_before', $args );
 					data-current-state="pending"
 					data-wp-on--click="actions.cancelJoinRequest"
 				><?php esc_html_e( 'Request pending', 'buddynext' ); ?></button>
+
+			<?php elseif ( $bn_is_invited ) : ?>
+				<?php // Invited: the invitation banner on the space home owns Accept/Decline, so the hero shows no join CTA. ?>
 
 			<?php elseif ( 'open' === $bn_space->type ) : ?>
 				<button
