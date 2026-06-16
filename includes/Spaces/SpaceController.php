@@ -422,9 +422,9 @@ class SpaceController extends BaseRestController {
 		// Viewer context drives secret-space visibility: site admins see every
 		// space; other viewers see unlisted spaces only when they own them or
 		// hold an active membership. Mirrors templates/spaces/directory.php.
-		$viewer            = get_current_user_id();
-		$args['viewer']    = $viewer;
-		$args['is_admin']  = current_user_can( 'manage_options' );
+		$viewer           = get_current_user_id();
+		$args['viewer']   = $viewer;
+		$args['is_admin'] = current_user_can( 'manage_options' );
 
 		$type_param = $request->get_param( 'type' );
 		if ( null !== $type_param && '' !== (string) $type_param ) {
@@ -539,9 +539,9 @@ class SpaceController extends BaseRestController {
 			$row['type_tone']     = SpaceTypeRegistry::instance()->tone( (string) ( $row['type'] ?? 'open' ) );
 			$row['join_method']   = SpaceTypeRegistry::instance()->join_method( (string) ( $row['type'] ?? 'open' ) );
 
-			$membership                  = $member_map[ $sid ] ?? null;
-			$row['membership_role']      = $membership['role'] ?? '';
-			$row['membership_status']    = $membership['status'] ?? '';
+			$membership               = $member_map[ $sid ] ?? null;
+			$row['membership_role']   = $membership['role'] ?? '';
+			$row['membership_status'] = $membership['status'] ?? '';
 		}
 		unset( $row );
 

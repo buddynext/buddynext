@@ -440,7 +440,18 @@ foreach ( $builtin_tabs as $bn_t ) {
 	class="bn-space-settings"
 	data-wp-interactive="buddynext/spaces"
 	data-space-id="<?php echo esc_attr( (string) $space_id ); ?>"
-	data-wp-context='<?php echo esc_attr( wp_json_encode( array( 'restNonce' => wp_create_nonce( 'wp_rest' ), 'restUrl' => rest_url( 'buddynext/v1' ) ) ) ); ?>'
+	data-wp-context='
+	<?php
+	echo esc_attr(
+		wp_json_encode(
+			array(
+				'restNonce' => wp_create_nonce( 'wp_rest' ),
+				'restUrl'   => rest_url( 'buddynext/v1' ),
+			)
+		)
+	);
+	?>
+	'
 >
 
 	<!-- Space header (mirrors space-home hero shape) -->
@@ -539,7 +550,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 				array(
 					'space'            => $space,
 					'privacy_settings' => array(
-						'allow_member_posts'    => $allow_member_posts,
+						'allow_member_posts' => $allow_member_posts,
 					),
 				),
 			),

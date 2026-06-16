@@ -42,10 +42,10 @@ if ( ! $bn_space ) {
 	return;
 }
 
-$bn_settings              = (array) $args['moderation_settings'];
-$bn_space_id              = isset( $bn_settings['space_id'] ) ? (int) $bn_settings['space_id'] : 0;
-$bn_space_url             = isset( $bn_settings['space_url'] ) ? (string) $bn_settings['space_url'] : '';
-$bn_banned_words          = isset( $bn_settings['banned_words'] ) ? (string) $bn_settings['banned_words'] : '';
+$bn_settings     = (array) $args['moderation_settings'];
+$bn_space_id     = isset( $bn_settings['space_id'] ) ? (int) $bn_settings['space_id'] : 0;
+$bn_space_url    = isset( $bn_settings['space_url'] ) ? (string) $bn_settings['space_url'] : '';
+$bn_banned_words = isset( $bn_settings['banned_words'] ) ? (string) $bn_settings['banned_words'] : '';
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
