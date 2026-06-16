@@ -447,6 +447,36 @@ class PostService {
 		);
 		$wpdb->delete( $wpdb->prefix . 'bn_shares', array( 'post_id' => $post_id ), array( '%d' ) );
 		$wpdb->delete( $wpdb->prefix . 'bn_bookmarks', array( 'post_id' => $post_id ), array( '%d' ) );
+
+		// Cascade the remaining post references so no orphan rows survive a delete.
+		$wpdb->delete( $wpdb->prefix . 'bn_post_hashtags', array( 'post_id' => $post_id ), array( '%d' ) );
+		$wpdb->delete( $wpdb->prefix . 'bn_feed_items', array( 'post_id' => $post_id ), array( '%d' ) );
+		$wpdb->delete( $wpdb->prefix . 'bn_announcement_dismissals', array( 'post_id' => $post_id ), array( '%d' ) );
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_notifications',
+			array(
+				'object_type' => 'post',
+				'object_id'   => $post_id,
+			),
+			array( '%s', '%d' )
+		);
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_reports',
+			array(
+				'object_type' => 'post',
+				'object_id'   => $post_id,
+			),
+			array( '%s', '%d' )
+		);
+		$wpdb->delete(
+			$wpdb->prefix . 'bn_mod_log',
+			array(
+				'object_type' => 'post',
+				'object_id'   => $post_id,
+			),
+			array( '%s', '%d' )
+		);
+
 		$wpdb->delete( $wpdb->prefix . 'bn_posts', array( 'id' => $post_id ), array( '%d' ) );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
