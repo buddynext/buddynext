@@ -89,7 +89,7 @@ class PageRouter {
 	 * Version sentinel for rewrite rule set. Bump when register_rewrites()
 	 * emits a new rule so deploys auto-flush.
 	 */
-	private const ROUTER_VERSION = '2026-06-14-pretty-profile-tabs';
+	private const ROUTER_VERSION = '2026-06-17-legacy-search-redirect';
 
 	// ── Request filter ────────────────────────────────────────────────────────
 
@@ -180,6 +180,15 @@ class PageRouter {
 	}
 
 	public function dispatch_hub_template(): void {
+		// Legacy /search/ → canonical /activity/search/ (301), preserving ?q=.
+		if ( '' !== (string) get_query_var( 'bn_legacy_search', '' ) ) {
+			$q = isset( $_GET['q'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				? sanitize_text_field( wp_unslash( $_GET['q'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				: '';
+			wp_safe_redirect( self::search_url( $q ), 301 );
+			exit;
+		}
+
 		$hub = (string) get_query_var( 'bn_hub', '' );
 		if ( '' === $hub ) {
 			// When a BuddyNext hub page is set as the WordPress static front
@@ -1226,6 +1235,7 @@ class PageRouter {
 		add_rewrite_tag( '%bn_settings_section%', '([a-z-]+)' );
 		add_rewrite_tag( '%bn_post_id%', '([0-9]+)' );
 		add_rewrite_tag( '%bn_feed_section%', '([a-z-]+)' );
+		add_rewrite_tag( '%bn_legacy_search%', '([01])' );
 
 		$this->register_activity_rules();
 		$this->register_post_rules();
@@ -1271,6 +1281,16 @@ class PageRouter {
 		add_rewrite_rule(
 			'^' . preg_quote( $a, '/' ) . '/?$',
 			'index.php?bn_hub=feed',
+			'top'
+		);
+
+		// Legacy /search/ → canonical /activity/search/. Search lives under the
+		// activity hub; this bare top-level rule catches bookmarks and hand-added
+		// nav-menu links so they 301 to the real surface instead of 404ing. The
+		// redirect (with ?q= preserved) is issued in dispatch_hub_template().
+		add_rewrite_rule(
+			'^search/?$',
+			'index.php?bn_legacy_search=1',
 			'top'
 		);
 	}
