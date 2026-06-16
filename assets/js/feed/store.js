@@ -970,12 +970,33 @@ store( 'buddynext/post-card', {
 			const btn       = event && event.target ? event.target.closest( '[data-post-id]' ) : null;
 			const permalink = btn ? ( btn.getAttribute( 'data-post-permalink' ) || '' ) : '';
 
+			// Pull a lightweight preview (author + excerpt) from the source card
+			// so the repost modal shows what is being shared. The clicked button
+			// lives inside its post-card article — read the byline + body text
+			// straight from the DOM rather than threading more data through PHP.
+			let author  = '';
+			let excerpt = '';
+			const card  = btn ? btn.closest( '[data-wp-interactive="buddynext/post-card"]' ) : null;
+			if ( card ) {
+				const nameEl = card.querySelector( '.bn-post-card__author-name' );
+				author = nameEl ? ( nameEl.textContent || '' ).trim() : '';
+				const contentEl = card.querySelector( '.bn-post-card__content' );
+				if ( contentEl ) {
+					excerpt = ( contentEl.textContent || '' ).trim().replace( /\s+/g, ' ' );
+					if ( excerpt.length > 160 ) {
+						excerpt = excerpt.slice( 0, 159 ).trimEnd() + '\u2026';
+					}
+				}
+			}
+
 			// Dispatch into the global share-modal store via a custom event.
 			document.dispatchEvent(
 				new CustomEvent( 'bn-open-share-modal', {
 					detail: {
 						postId:    ctx.postId,
 						permalink,
+						author,
+						excerpt,
 						nonce:     ctx.shareNonce,
 						restUrl:   ctx.restUrl,
 					},
@@ -2419,6 +2440,21 @@ store( 'buddynext/share-modal', {
 		get hasNoError() {
 			try { return ! ( getContext().error || '' ); } catch ( _e ) { return true; }
 		},
+		get author() {
+			try { return getContext().author || ''; } catch ( _e ) { return ''; }
+		},
+		get excerpt() {
+			try { return getContext().excerpt || ''; } catch ( _e ) { return ''; }
+		},
+		get hasNoPreview() {
+			try {
+				const ctx = getContext();
+				return ! ( ctx.author || ctx.excerpt );
+			} catch ( _e ) { return true; }
+		},
+		get repostLabel() {
+			try { return getContext().busy ? 'Reposting…' : 'Repost'; } catch ( _e ) { return 'Repost'; }
+		},
 	},
 	actions: {
 		// Opens the modal in response to the post card's `bn-open-share-modal`
@@ -2426,23 +2462,34 @@ store( 'buddynext/share-modal', {
 		// so it runs INSIDE the store — getContext() here is the live, writable
 		// context, unlike a plain document listener which can only mutate the
 		// inert data-wp-context attribute (that left postId stuck at 0, so
-		// repost/quote silently aborted on their `! ctx.postId` guard).
+		// repost silently aborted on its `! ctx.postId` guard).
 		receiveOpen( event ) {
 			const detail  = ( event && event.detail ) || {};
 			const ctx     = getContext();
 			ctx.postId    = detail.postId || 0;
 			ctx.permalink = detail.permalink || '';
+			ctx.author    = detail.author || '';
+			ctx.excerpt   = detail.excerpt || '';
 			ctx.nonce     = detail.nonce || ctx.nonce;
 			ctx.restUrl   = detail.restUrl || ctx.restUrl;
+			ctx.note      = '';
 			ctx.error     = '';
 			ctx.busy      = false;
 			ctx.open      = true;
+			// Clear any leftover text from a previous open (the textarea is
+			// input-only, so resetting ctx.note alone leaves the old value on
+			// screen).
+			document.querySelectorAll( '.bn-share-modal .bn-share-modal__note' ).forEach( function ( ta ) { ta.value = ''; } );
 		},
 		close() {
 			const ctx = getContext();
 			ctx.open  = false;
 			ctx.busy  = false;
 			ctx.error = '';
+		},
+		onNoteInput( event ) {
+			const ctx = getContext();
+			ctx.note  = event && event.target ? event.target.value : '';
 		},
 		* repost() {
 			const ctx = getContext();
@@ -2452,22 +2499,18 @@ store( 'buddynext/share-modal', {
 			try {
 				const res = yield fetch( ctx.restUrl + '/posts/' + ctx.postId + '/share', {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.nonce },
+					body:    JSON.stringify( { content: ( ctx.note || '' ).trim() } ),
 				} );
 				if ( res.ok ) {
 					if ( window.bnToast ) { window.bnToast( 'Reposted', 'success' ); }
-					// Bump the source card's share count via DOM lookup.
-					const card = document.querySelector( '[data-post-id="' + ctx.postId + '"]' );
-					if ( card ) {
-						const labelEl = card.querySelector( '[data-wp-text="state.shareLabel"]' );
-						if ( labelEl ) {
-							const match = ( labelEl.textContent || '' ).match( /(\d+)/ );
-							const count = match ? parseInt( match[ 1 ], 10 ) + 1 : 1;
-							labelEl.textContent = 'Shared · ' + count;
-						}
-					}
-					ctx.open  = false;
-					ctx.busy  = false;
+					ctx.open = false;
+					ctx.busy = false;
+					ctx.note = '';
+					// Reload so the new repost card appears in the feed — the same
+					// server-rendered-source-of-truth pattern the composer uses after
+					// publishing (see docs/specs/UI-CONTRACT.md).
+					setTimeout( function () { window.location.reload(); }, 500 );
 					return;
 				}
 				ctx.error = 'Could not repost. Try again.';
@@ -2476,22 +2519,6 @@ store( 'buddynext/share-modal', {
 				ctx.error = 'Network error. Try again.';
 				ctx.busy  = false;
 			}
-		},
-		quote() {
-			const ctx = getContext();
-			if ( ! ctx.postId ) { return; }
-			// Pre-fill the composer with a quote of the source post and focus it.
-			const composer = document.querySelector( '[data-wp-interactive="buddynext/post-composer"]' );
-			if ( composer ) {
-				const ta = composer.querySelector( '.bn-composer__prompt' );
-				if ( ta ) {
-					ta.value = ( ta.value ? ta.value + '\n\n' : '' ) + ctx.permalink + '\n';
-					ta.dispatchEvent( new Event( 'input', { bubbles: true } ) );
-					ta.focus();
-				}
-				composer.scrollIntoView( { behavior: 'smooth', block: 'start' } );
-			}
-			ctx.open = false;
 		},
 		* copyLink() {
 			const ctx = getContext();

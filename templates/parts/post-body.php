@@ -131,7 +131,7 @@ do_action( 'buddynext_part_post_body_before', $args );
 			// shares this path (mixed photo/video/audio) — BuddyNext owns the
 			// UX, so there is no MediaVerse-side hydration.
 			if ( ! empty( $bn_body_media_ids ) ) {
-				echo \BuddyNext\Media\MediaRenderer::grid( array_map( 'absint', (array) $bn_body_media_ids ) ); // phpcs:ignore WordPress.Security.EscapingOutput.OutputNotEscaped
+				echo \BuddyNext\Media\MediaRenderer::grid( array_map( 'absint', (array) $bn_body_media_ids ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer escapes all URLs/attributes internally.
 			}
 			?>
 
@@ -269,14 +269,15 @@ do_action( 'buddynext_part_post_body_before', $args );
 		<?php endif; ?>
 		<?php if ( null !== $bn_shared_post ) : ?>
 			<?php
-			$orig_author   = get_userdata( (int) ( $bn_shared_post['user_id'] ?? 0 ) );
-			$orig_name     = $orig_author ? esc_html( $orig_author->display_name ) : esc_html__( 'Community Member', 'buddynext' );
-			$orig_username = $orig_author ? esc_html( $orig_author->user_nicename ) : '';
-			$orig_avatar   = get_avatar_url( (int) ( $bn_shared_post['user_id'] ?? 0 ), array( 'size' => 40 ) );
-			$orig_time     = bn_post_card_relative_time( $bn_shared_post['created_at'] ?? '' );
-			$orig_content  = $bn_shared_post['content'] ?? '';
-			$orig_post_url = PageRouter::profile_url( (int) ( $bn_shared_post['user_id'] ?? 0 ) );
-			$orig_parts    = array_filter( explode( ' ', trim( (string) $orig_name ) ) );
+			$orig_author         = get_userdata( (int) ( $bn_shared_post['user_id'] ?? 0 ) );
+			$orig_name           = $orig_author ? esc_html( $orig_author->display_name ) : esc_html__( 'Community Member', 'buddynext' );
+			$orig_username       = $orig_author ? esc_html( $orig_author->user_nicename ) : '';
+			$orig_avatar         = get_avatar_url( (int) ( $bn_shared_post['user_id'] ?? 0 ), array( 'size' => 40 ) );
+			$orig_time           = bn_post_card_relative_time( $bn_shared_post['created_at'] ?? '' );
+			$orig_content        = $bn_shared_post['content'] ?? '';
+			$orig_post_url       = PageRouter::profile_url( (int) ( $bn_shared_post['user_id'] ?? 0 ) );
+				$orig_single_url = PageRouter::post_url( (int) ( $bn_shared_post['id'] ?? 0 ) );
+			$orig_parts          = array_filter( explode( ' ', trim( (string) $orig_name ) ) );
 			if ( count( $orig_parts ) >= 2 ) {
 				$orig_initials = strtoupper( substr( (string) reset( $orig_parts ), 0, 1 ) . substr( (string) end( $orig_parts ), 0, 1 ) );
 			} else {
@@ -305,11 +306,14 @@ do_action( 'buddynext_part_post_body_before', $args );
 						</span>
 					</div>
 				</div>
-				<?php if ( ! empty( $orig_content ) ) : ?>
-					<div class="bn-post-card__shared-content"><?php echo wp_kses_post( nl2br( wp_trim_words( $orig_content, 60 ) ) ); ?></div>
-				<?php else : ?>
-					<p class="bn-post-card__shared-empty"><?php esc_html_e( '[No text content]', 'buddynext' ); ?></p>
-				<?php endif; ?>
+				<a class="bn-post-card__shared-content-link" href="<?php echo esc_url( $orig_single_url ); ?>">
+					<?php if ( ! empty( $orig_content ) ) : ?>
+						<span class="bn-post-card__shared-content"><?php echo wp_kses_post( nl2br( wp_trim_words( $orig_content, 60 ) ) ); ?></span>
+					<?php else : ?>
+						<span class="bn-post-card__shared-empty"><?php esc_html_e( '[No text content]', 'buddynext' ); ?></span>
+					<?php endif; ?>
+					<span class="bn-post-card__shared-viewlink"><?php esc_html_e( 'View activity', 'buddynext' ); ?></span>
+				</a>
 			</blockquote>
 		<?php else : ?>
 			<div class="bn-post-card__shared-missing">

@@ -35,6 +35,9 @@ $share_modal_nonce = wp_create_nonce( 'wp_rest' );
 				'open'      => false,
 				'postId'    => 0,
 				'permalink' => '',
+				'author'    => '',
+				'excerpt'   => '',
+				'note'      => '',
 				'busy'      => false,
 				'error'     => '',
 				'restUrl'   => rest_url( 'buddynext/v1' ),
@@ -54,7 +57,7 @@ $share_modal_nonce = wp_create_nonce( 'wp_rest' );
 		data-size="sm">
 		<div class="bn-modal__head">
 			<h2 class="bn-modal__title" id="bn-share-modal-title">
-				<?php esc_html_e( 'Share this post', 'buddynext' ); ?>
+				<?php esc_html_e( 'Share post', 'buddynext' ); ?>
 			</h2>
 			<button
 				type="button"
@@ -65,48 +68,43 @@ $share_modal_nonce = wp_create_nonce( 'wp_rest' );
 			</button>
 		</div>
 		<div class="bn-modal__body bn-share-modal__body">
-			<button type="button"
-				class="bn-share-modal__option"
-				data-wp-on--click="actions.repost"
-				data-wp-bind--disabled="state.busy">
-				<span class="bn-share-modal__option-icon" aria-hidden="true">
+			<div class="bn-share-modal__preview" hidden data-wp-bind--hidden="state.hasNoPreview">
+				<span class="bn-share-modal__preview-author" data-wp-text="state.author"></span>
+				<span class="bn-share-modal__preview-excerpt" data-wp-text="state.excerpt"></span>
+			</div>
+			<textarea
+				class="bn-share-modal__note"
+				rows="3"
+				placeholder="<?php esc_attr_e( 'Add a comment (optional)', 'buddynext' ); ?>"
+				aria-label="<?php esc_attr_e( 'Add a comment (optional)', 'buddynext' ); ?>"
+				data-wp-on--input="actions.onNoteInput"
+				data-wp-bind--disabled="state.busy"></textarea>
+			<div class="bn-share-modal__actions">
+				<button type="button"
+					class="bn-btn bn-share-modal__repost"
+					data-variant="primary"
+					data-size="md"
+					data-wp-on--click="actions.repost"
+					data-wp-bind--disabled="state.busy">
 					<?php buddynext_icon( 'share' ); ?>
-				</span>
-				<span class="bn-share-modal__option-text">
-					<strong><?php esc_html_e( 'Repost', 'buddynext' ); ?></strong>
-					<small><?php esc_html_e( 'Share this post to your feed.', 'buddynext' ); ?></small>
-				</span>
-			</button>
-			<button type="button"
-				class="bn-share-modal__option"
-				data-wp-on--click="actions.quote"
-				data-wp-bind--disabled="state.busy">
-				<span class="bn-share-modal__option-icon" aria-hidden="true">
-					<?php buddynext_icon( 'edit' ); ?>
-				</span>
-				<span class="bn-share-modal__option-text">
-					<strong><?php esc_html_e( 'Quote', 'buddynext' ); ?></strong>
-					<small><?php esc_html_e( 'Compose a new post with this one quoted.', 'buddynext' ); ?></small>
-				</span>
-			</button>
-			<button type="button"
-				class="bn-share-modal__option"
-				data-wp-on--click="actions.copyLink"
-				data-wp-bind--disabled="state.busy">
-				<span class="bn-share-modal__option-icon" aria-hidden="true">
+					<span data-wp-text="state.repostLabel"><?php esc_html_e( 'Repost', 'buddynext' ); ?></span>
+				</button>
+				<button type="button"
+					class="bn-btn bn-share-modal__copy"
+					data-variant="ghost"
+					data-size="md"
+					data-wp-on--click="actions.copyLink"
+					data-wp-bind--disabled="state.busy">
 					<?php buddynext_icon( 'link' ); ?>
-				</span>
-				<span class="bn-share-modal__option-text">
-					<strong><?php esc_html_e( 'Copy link', 'buddynext' ); ?></strong>
-					<small><?php esc_html_e( 'Copy a direct link to the post.', 'buddynext' ); ?></small>
-				</span>
-			</button>
+					<span><?php esc_html_e( 'Copy link', 'buddynext' ); ?></span>
+				</button>
+			</div>
 			<p class="bn-share-modal__error"
 				role="alert"
 				hidden
 				data-wp-bind--hidden="state.hasNoError">
 				<span data-wp-text="state.error"></span>
 			</p>
-		</div>
+			</div>
 	</div>
 </div>
