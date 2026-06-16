@@ -48,6 +48,7 @@ if ( empty( $bn_post ) || empty( $bn_post['id'] ) ) {
 // ── Post meta ──────────────────────────────────────────────────────────────────
 $bn_post_id      = absint( $bn_post['id'] );
 $bn_post_type    = $bn_post['type'] ?? 'text';
+$bn_space_id     = absint( $bn_post['space_id'] ?? 0 );
 $post_author_id  = absint( $bn_post['user_id'] ?? 0 );
 $post_content    = wp_specialchars_decode( $bn_post['content'] ?? '', ENT_QUOTES );
 $post_privacy    = $bn_post['privacy'] ?? 'public';
@@ -344,6 +345,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		echo wp_json_encode(
 			array(
 				'postId'            => $bn_post_id,
+				'spaceId'           => $bn_space_id,
 				'authorId'          => $post_author_id,
 				'currentUserId'     => $current_user_id,
 				'postType'          => $bn_post_type,

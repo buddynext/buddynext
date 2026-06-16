@@ -83,6 +83,13 @@ class ModerationController extends BaseRestController {
 							'default'           => '',
 							'sanitize_callback' => 'sanitize_textarea_field',
 						),
+						'space_id'    => array(
+							'required'          => false,
+							'type'              => 'integer',
+							'default'           => 0,
+							'minimum'           => 0,
+							'sanitize_callback' => 'absint',
+						),
 					),
 				),
 				array(
@@ -691,7 +698,7 @@ class ModerationController extends BaseRestController {
 			(string) ( $request->get_param( 'object_type' ) ?? '' ),
 			(int) $request->get_param( 'object_id' ),
 			(string) ( $request->get_param( 'reason' ) ?? 'other' ),
-			0,
+			(int) $request->get_param( 'space_id' ),
 			(string) ( $request->get_param( 'notes' ) ?? '' )
 		);
 

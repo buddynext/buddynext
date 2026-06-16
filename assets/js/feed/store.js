@@ -1019,6 +1019,9 @@ store( 'buddynext/post-card', {
 						object_id:   ctx.postId,
 						reason:      result.reason,
 						notes:       result.notes,
+						// Tag the report with the post's space so space moderators
+						// see it in their scoped queue (0 = global feed).
+						space_id:    parseInt( ctx.spaceId, 10 ) || 0,
 					} ),
 				} );
 				if ( res.ok || res.status === 201 ) {
