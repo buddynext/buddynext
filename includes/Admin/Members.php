@@ -37,7 +37,9 @@ class Members extends AdminPageBase {
 		add_action( 'admin_post_bn_suspend_member', array( $this, 'handle_suspend' ) );
 		add_action( 'admin_post_bn_unsuspend_member', array( $this, 'handle_unsuspend' ) );
 		add_action( 'admin_post_bn_save_member_profile', array( $this, 'handle_save_member_profile' ) );
-		add_action( 'wp_login', array( $this, 'handle_last_login' ), 10, 2 );
+		// NB: the wp_login -> handle_last_login listener is wired unconditionally
+		// in Plugin::boot(), not here — register() only runs in admin, but logins
+		// happen in non-admin contexts (REST, wp-login.php, social login).
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
 		AdminHub::register_tab(

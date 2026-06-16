@@ -148,6 +148,19 @@ class Plugin {
 			\WP_CLI::add_command( 'buddynext cert', new \BuddyNext\Cert\CertCommand() );
 		}
 
+		// Record last-login time on every login. This MUST be wired
+		// unconditionally: logins happen via REST (/auth/login), wp-login.php,
+		// and social login — all non-admin contexts where the admin-only
+		// Members::register() does not run. Hooking it here (outside is_admin)
+		// is what makes the admin Members list show a real last-login instead
+		// of always "Never".
+		add_action(
+			'wp_login',
+			array( $container->get( 'admin_members' ), 'handle_last_login' ),
+			10,
+			2
+		);
+
 		if ( is_admin() ) {
 			// AdminHub owns the BuddyNext top-level menu and dispatches every
 			// section page to its registered tabs. Boot first so feature

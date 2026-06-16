@@ -445,6 +445,12 @@ class SocialLogin {
 		wp_set_current_user( (int) $user_id );
 		wp_set_auth_cookie( (int) $user_id, true, is_ssl() );
 
+		$user = get_user_by( 'id', (int) $user_id );
+		if ( $user instanceof \WP_User ) {
+			/** This action is documented in wp-includes/user.php (wp_signon). */
+			do_action( 'wp_login', $user->user_login, $user );
+		}
+
 		$dest = ! empty( $stored['redirect_to'] ) ? (string) $stored['redirect_to'] : home_url( '/' );
 		wp_safe_redirect( $dest );
 		exit;
