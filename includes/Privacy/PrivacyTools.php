@@ -226,7 +226,15 @@ class PrivacyTools implements ListenerInterface {
 				continue;
 			}
 
-			$value = maybe_unserialize( $row['meta_value'] );
+			// Do NOT use maybe_unserialize(): usermeta values can be
+			// attacker-influenced, and unserializing a crafted object payload
+			// risks PHP object injection. allowed_classes => false deserializes
+			// arrays (so they still export as structured JSON) but never
+			// instantiates an object gadget.
+			$value = $row['meta_value'];
+			if ( is_serialized( $value ) ) {
+				$value = @unserialize( $value, array( 'allowed_classes' => false ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			}
 			if ( is_array( $value ) || is_object( $value ) ) {
 				$value = wp_json_encode( $value );
 			}

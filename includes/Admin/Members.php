@@ -671,11 +671,16 @@ class Members extends AdminPageBase {
 		 * Fires after BuddyNext has finished saving a member's profile from the admin.
 		 * Use this to save additional custom field values.
 		 *
-		 * @param int      $user_id   User ID that was saved.
-		 * @param \WP_User $wp_user   WP_User object.
-		 * @param array    $post_data Raw $_POST data (already nonce-verified).
+		 * Receives the sanitized BuddyNext profile fields (the same map persisted
+		 * via ProfileService::save_profile), NOT the raw $_POST — listeners get the
+		 * data they need without unrelated/core/third-party POST fields leaking to
+		 * every hooked callback (least privilege).
+		 *
+		 * @param int      $user_id      User ID that was saved.
+		 * @param \WP_User $wp_user      WP_User object.
+		 * @param array    $profile_data Sanitized BuddyNext profile field map.
 		 */
-		do_action( 'buddynext_admin_member_profile_saved', $user_id, $wp_user, $_POST );
+		do_action( 'buddynext_admin_member_profile_saved', $user_id, $wp_user, $profile_data );
 
 		wp_safe_redirect(
 			add_query_arg( 'saved', '1', $redirect_url )

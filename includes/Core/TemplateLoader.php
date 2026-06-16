@@ -92,8 +92,22 @@ class TemplateLoader {
 		 */
 		do_action( 'buddynext_before_template', $path, $relative );
 
-		// phpcs:ignore WordPress.PHP.DontExtract.extract_extract
-		extract( $variables, EXTR_SKIP );
+		// Bring the passed variables into the template scope WITHOUT extract().
+		// Callers are internal (developer-controlled), but we still guard: only
+		// string keys that are valid PHP identifiers are imported, and the
+		// method's own locals ($path, $relative, $variables) cannot be shadowed.
+		// This keeps templates statically analysable and rejects any stray /
+		// numeric / collision-prone keys.
+		$bn_reserved = array( 'path', 'relative', 'variables', 'bn_reserved', 'bn_key', 'bn_value' );
+		foreach ( $variables as $bn_key => $bn_value ) {
+			if ( ! is_string( $bn_key )
+				|| in_array( $bn_key, $bn_reserved, true )
+				|| ! preg_match( '/^[a-zA-Z_][a-zA-Z0-9_]*$/', $bn_key ) ) {
+				continue;
+			}
+			$$bn_key = $bn_value;
+		}
+		unset( $bn_reserved, $bn_key, $bn_value );
 		include $path;
 
 		/**
