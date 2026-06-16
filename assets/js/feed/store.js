@@ -39,6 +39,13 @@ function escapeHtml( str ) {
 // infinite nesting). Server enforces the same cap during list().
 const COMMENT_MAX_DEPTH = 5;
 
+// The reaction picker is anchored to its post card and opens upward, so when
+// the card scrolls up under the sticky header an open picker overlaps the
+// header. Track the open picker's context and dismiss it on scroll (the
+// behaviour every major feed uses for reaction poppers). One is open at a time.
+let bnOpenReactionCtx     = null;
+let bnReactionScrollBound = false;
+
 /**
  * Build a comment DOM node using safe DOM methods (no innerHTML for user content).
  *
@@ -906,6 +913,23 @@ store( 'buddynext/post-card', {
 		toggleReactionPicker() {
 			const ctx              = getContext();
 			ctx.reactionPickerOpen = ! ctx.reactionPickerOpen;
+
+			// Remember which picker is open and dismiss it on scroll so it never
+			// floats over the sticky header once its card scrolls away.
+			bnOpenReactionCtx = ctx.reactionPickerOpen ? ctx : null;
+			if ( ! bnReactionScrollBound ) {
+				bnReactionScrollBound = true;
+				window.addEventListener(
+					'scroll',
+					() => {
+						if ( bnOpenReactionCtx ) {
+							bnOpenReactionCtx.reactionPickerOpen = false;
+							bnOpenReactionCtx = null;
+						}
+					},
+					{ passive: true }
+				);
+			}
 		},
 		* setReaction( event ) {
 			const ctx  = getContext();
