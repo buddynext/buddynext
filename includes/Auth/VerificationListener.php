@@ -228,6 +228,35 @@ class VerificationListener implements ListenerInterface {
 		$display_name = '' !== $user->display_name ? $user->display_name : $user->user_login;
 		$site_name    = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
 
+		// Prefer the admin-editable, branded template (sibling of email_verify),
+		// falling back to plain text when no template row exists. The message goes
+		// to the CANDIDATE inbox, so it is sent via EmailSender::send_with_identity()
+		// (correct From/Reply-To) rather than EmailSender::send(), which targets the
+		// account's CURRENT address.
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$template = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT subject, body_html, enabled FROM {$wpdb->prefix}bn_email_templates WHERE type = %s LIMIT 1",
+				'email_change_confirm'
+			)
+		);
+
+		if ( null !== $template && (bool) $template->enabled ) {
+			$tokens  = array( '{{user_name}}', '{{site_name}}', '{{site_url}}', '{{verify_url}}' );
+			$replace = array( $display_name, $site_name, esc_url( home_url( '/' ) ), esc_url_raw( $verify_url ) );
+			$subject = str_replace( $tokens, $replace, (string) $template->subject );
+			$body    = str_replace( $tokens, $replace, (string) $template->body_html );
+
+			\BuddyNext\Notifications\EmailSender::send_with_identity(
+				$candidate,
+				$subject,
+				'<html><body>' . $body . '</body></html>',
+				array( 'Content-Type: text/html; charset=UTF-8' )
+			);
+			return;
+		}
+
 		$subject = sprintf(
 			/* translators: %s: site name */
 			__( 'Confirm your new email address on %s', 'buddynext' ),
@@ -245,7 +274,7 @@ class VerificationListener implements ListenerInterface {
 			esc_url_raw( $verify_url )
 		);
 
-		wp_mail( $candidate, $subject, $body );
+		\BuddyNext\Notifications\EmailSender::send_with_identity( $candidate, $subject, $body, array() );
 	}
 
 	/**

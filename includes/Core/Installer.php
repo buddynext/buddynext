@@ -109,6 +109,12 @@ class Installer {
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Please verify your email address by clicking the link below:</p><p><a href="{{verify_url}}">Verify my email</a></p><p>This link expires in 24 hours.</p>',
 			),
 			array(
+				'type'         => 'email_change_confirm',
+				'subject'      => 'Confirm your new email address — {{site_name}}',
+				'preview_text' => 'Confirm the email change on your account',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You asked to change the email address on your {{site_name}} account to this inbox. Confirm the change by clicking the link below:</p><p><a href="{{verify_url}}">Confirm my new email</a></p><p>This link expires in 24 hours. If you did not request this, ignore this email and your address stays the same.</p>',
+			),
+			array(
 				'type'         => 'welcome',
 				'subject'      => 'Welcome to {{site_name}}!',
 				'preview_text' => 'Your community account is ready',
