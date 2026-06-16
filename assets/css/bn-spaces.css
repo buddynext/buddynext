@@ -835,7 +835,8 @@ a.bn-sh-statpill:focus-visible {
 .bn-sh-side-mod {
 	gap: var(--bn-s2);
 }
-.bn-sh-side-mod__id {
+.bn-sh-side-mod__id,
+.bn-sh-side-member__id {
 	display: flex;
 	align-items: center;
 	gap: var(--bn-s2);
@@ -844,7 +845,8 @@ a.bn-sh-statpill:focus-visible {
 	text-decoration: none;
 	color: inherit;
 }
-.bn-sh-side-mod__id:hover .bn-sh-side-member__name { color: var(--bn-accent); }
+.bn-sh-side-mod__id:hover .bn-sh-side-member__name,
+.bn-sh-side-member__id:hover .bn-sh-side-member__name { color: var(--bn-accent); }
 .bn-sh-side-mod__msg {
 	flex-shrink: 0;
 	padding: 4px;

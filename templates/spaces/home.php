@@ -487,16 +487,19 @@ add_action(
 					$bn_uid   = (int) $bn_m->user_id;
 					$bn_mname = $bn_m->display_name ?? __( 'Member', 'buddynext' );
 					$bn_init  = bn_sh_initials( $bn_mname );
+					$bn_murl  = \BuddyNext\Core\PageRouter::profile_url( $bn_uid );
 					?>
 					<li class="bn-sh-side-member">
-						<span class="bn-avatar bn-sh-side-member__avatar"
-							data-size="sm"
-							style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_uid ) ); ?>;color:#fff;"
-							aria-hidden="true"
-						><?php echo esc_html( $bn_init ); ?></span>
-						<span class="bn-sh-side-member__name">
-							<?php echo esc_html( $bn_mname ); ?>
-						</span>
+						<a class="bn-sh-side-member__id" href="<?php echo esc_url( $bn_murl ); ?>">
+							<span class="bn-avatar bn-sh-side-member__avatar"
+								data-size="sm"
+								style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_uid ) ); ?>;color:#fff;"
+								aria-hidden="true"
+							><?php echo esc_html( $bn_init ); ?></span>
+							<span class="bn-sh-side-member__name">
+								<?php echo esc_html( $bn_mname ); ?>
+							</span>
+						</a>
 					</li>
 				<?php endforeach; ?>
 			</ul>
@@ -526,15 +529,18 @@ add_action(
 					$bn_cuid  = (int) $bn_c->user_id;
 					$bn_cname = $bn_c->display_name ?? __( 'Member', 'buddynext' );
 					$bn_cinit = bn_sh_initials( $bn_cname );
+					$bn_curl  = \BuddyNext\Core\PageRouter::profile_url( $bn_cuid );
 					?>
 					<li class="bn-sh-side-member">
 						<span class="bn-sh-side-member__rank"><?php echo esc_html( (string) ( $bn_rank + 1 ) ); ?></span>
-						<span class="bn-avatar bn-sh-side-member__avatar"
-							data-size="sm"
-							style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_cuid ) ); ?>;color:#fff;"
-							aria-hidden="true"
-						><?php echo esc_html( $bn_cinit ); ?></span>
-						<span class="bn-sh-side-member__name"><?php echo esc_html( $bn_cname ); ?></span>
+						<a class="bn-sh-side-member__id" href="<?php echo esc_url( $bn_curl ); ?>">
+							<span class="bn-avatar bn-sh-side-member__avatar"
+								data-size="sm"
+								style="background:<?php echo esc_attr( bn_sh_avatar_color( $bn_cuid ) ); ?>;color:#fff;"
+								aria-hidden="true"
+							><?php echo esc_html( $bn_cinit ); ?></span>
+							<span class="bn-sh-side-member__name"><?php echo esc_html( $bn_cname ); ?></span>
+						</a>
 						<span class="bn-sh-side-member__count">
 							<?php
 							// translators: %d: post count.
