@@ -379,7 +379,7 @@ class Spaces extends AdminPageBase {
 				// The form always submits cat_slug (often empty), so `?? $name`
 				// never fires — derive the slug from the name when no explicit
 				// slug was typed, otherwise a blank slug was stored/skipped.
-				$raw_slug = trim( (string) wp_unslash( $_POST['cat_slug'] ?? '' ) );
+				$raw_slug = sanitize_text_field( wp_unslash( $_POST['cat_slug'] ?? '' ) );
 				$slug     = sanitize_title( '' !== $raw_slug ? $raw_slug : $name );
 				$desc = sanitize_textarea_field( wp_unslash( $_POST['cat_description'] ?? '' ) );
 				$ord  = absint( wp_unslash( $_POST['cat_sort_order'] ?? 0 ) );
@@ -403,6 +403,41 @@ class Spaces extends AdminPageBase {
 			}
 		}
 
+		// Handle POST: update (edit) category. Mirrors the create branch with a
+		// uniqueness check that excludes the row being edited.
+		if ( isset( $_POST['bn_cat_update_nonce'] )
+			&& wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_cat_update_nonce'] ) ), 'bn_cat_update' )
+			&& current_user_can( 'manage_options' )
+		) {
+			$cat_id = absint( wp_unslash( $_POST['cat_id'] ?? 0 ) );
+			$name   = sanitize_text_field( wp_unslash( $_POST['cat_name'] ?? '' ) );
+			if ( $cat_id > 0 && '' !== $name ) {
+				$raw_slug = sanitize_text_field( wp_unslash( $_POST['cat_slug'] ?? '' ) );
+				$slug     = sanitize_title( '' !== $raw_slug ? $raw_slug : $name );
+				$desc     = sanitize_textarea_field( wp_unslash( $_POST['cat_description'] ?? '' ) );
+				$ord      = absint( wp_unslash( $_POST['cat_sort_order'] ?? 0 ) );
+
+				// Slug must stay unique, but the row keeps its own slug.
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$clash = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE slug = %s AND id <> %d", $slug, $cat_id ) );
+				if ( ! $clash ) {
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+					$wpdb->update(
+						$table,
+						array(
+							'name'        => $name,
+							'slug'        => $slug,
+							'description' => $desc,
+							'sort_order'  => $ord,
+						),
+						array( 'id' => $cat_id ),
+						array( '%s', '%s', '%s', '%d' ),
+						array( '%d' )
+					);
+				}
+			}
+		}
+
 		// Handle POST: delete category.
 		if ( isset( $_POST['bn_cat_delete_nonce'] )
 			&& wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_cat_delete_nonce'] ) ), 'bn_cat_delete' )
@@ -418,6 +453,16 @@ class Spaces extends AdminPageBase {
 			}
 		}
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		// Edit mode: when ?edit_cat=ID is present, pre-fill the form below for
+		// that row (the Edit link in the Actions column sets it).
+		$bn_edit_cat = null;
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$bn_edit_id = isset( $_GET['edit_cat'] ) ? absint( wp_unslash( $_GET['edit_cat'] ) ) : 0;
+		if ( $bn_edit_id > 0 ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$bn_edit_cat = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, slug, description, sort_order FROM {$table} WHERE id = %d", $bn_edit_id ) );
+		}
 
 		// $table is the bn_space_categories table name, derived from $wpdb->prefix — never untrusted.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
@@ -455,6 +500,9 @@ class Spaces extends AdminPageBase {
 									<td><?php echo esc_html( (string) $cat->space_count ); ?></td>
 									<td><?php echo esc_html( (string) $cat->sort_order ); ?></td>
 									<td>
+										<a class="bn-btn" data-variant="ghost" data-size="sm"
+											href="<?php echo esc_url( add_query_arg( 'edit_cat', (int) $cat->id ) . '#bn-cat-form' ); ?>"
+										><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
 										<form method="post" style="display:inline" data-bn-cat-delete-form>
 											<?php wp_nonce_field( 'bn_cat_delete', 'bn_cat_delete_nonce' ); ?>
 											<input type="hidden" name="cat_id" value="<?php echo esc_attr( (string) $cat->id ); ?>">
@@ -477,32 +525,53 @@ class Spaces extends AdminPageBase {
 			</div><!-- .bn-ss-body -->
 		</div><!-- .bn-settings-section -->
 
-		<div class="bn-settings-section">
-			<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Add a category', 'buddynext' ); ?></span></div>
+		<?php
+		// The single form below creates a new category, or — when an Edit link
+		// set ?edit_cat — edits the selected one (pre-filled, different nonce).
+		$bn_cat_edit_mode = ( null !== $bn_edit_cat );
+		$bn_cat_name_val  = $bn_cat_edit_mode ? (string) $bn_edit_cat->name : '';
+		$bn_cat_slug_val  = $bn_cat_edit_mode ? (string) $bn_edit_cat->slug : '';
+		$bn_cat_desc_val  = $bn_cat_edit_mode ? (string) $bn_edit_cat->description : '';
+		$bn_cat_ord_val   = $bn_cat_edit_mode ? (int) $bn_edit_cat->sort_order : 0;
+		?>
+		<div class="bn-settings-section" id="bn-cat-form">
+			<div class="bn-ss-header"><span class="bn-ss-title">
+				<?php echo esc_html( $bn_cat_edit_mode ? __( 'Edit category', 'buddynext' ) : __( 'Add a category', 'buddynext' ) ); ?>
+			</span></div>
 			<div class="bn-ss-body">
 			<form method="post" class="bn-cat-create-form">
-				<?php wp_nonce_field( 'bn_cat_create', 'bn_cat_create_nonce' ); ?>
+				<?php if ( $bn_cat_edit_mode ) : ?>
+					<?php wp_nonce_field( 'bn_cat_update', 'bn_cat_update_nonce' ); ?>
+					<input type="hidden" name="cat_id" value="<?php echo esc_attr( (string) $bn_edit_cat->id ); ?>">
+				<?php else : ?>
+					<?php wp_nonce_field( 'bn_cat_create', 'bn_cat_create_nonce' ); ?>
+				<?php endif; ?>
 				<div class="bn-field">
 					<label for="bn_cat_name"><?php esc_html_e( 'Name', 'buddynext' ); ?></label>
-					<input type="text" id="bn_cat_name" name="cat_name" class="bn-input" required maxlength="64">
+					<input type="text" id="bn_cat_name" name="cat_name" class="bn-input" required maxlength="64" value="<?php echo esc_attr( $bn_cat_name_val ); ?>">
 				</div>
 				<div class="bn-field">
 					<label for="bn_cat_slug"><?php esc_html_e( 'Slug (optional)', 'buddynext' ); ?></label>
-					<input type="text" id="bn_cat_slug" name="cat_slug" class="bn-input" maxlength="64">
+					<input type="text" id="bn_cat_slug" name="cat_slug" class="bn-input" maxlength="64" value="<?php echo esc_attr( $bn_cat_slug_val ); ?>">
 					<span class="bn-field-hint"><?php esc_html_e( 'Lowercase letters, numbers, and hyphens. Auto-generated when empty.', 'buddynext' ); ?></span>
 				</div>
 				<div class="bn-field">
 					<label for="bn_cat_description"><?php esc_html_e( 'Description', 'buddynext' ); ?></label>
-					<textarea id="bn_cat_description" name="cat_description" class="bn-textarea" rows="2"></textarea>
+					<textarea id="bn_cat_description" name="cat_description" class="bn-textarea" rows="2"><?php echo esc_textarea( $bn_cat_desc_val ); ?></textarea>
 				</div>
 				<div class="bn-field">
 					<label for="bn_cat_sort_order"><?php esc_html_e( 'Sort order', 'buddynext' ); ?></label>
-					<input type="number" id="bn_cat_sort_order" name="cat_sort_order" class="bn-input" value="0" min="0" max="999">
+					<input type="number" id="bn_cat_sort_order" name="cat_sort_order" class="bn-input" value="<?php echo esc_attr( (string) $bn_cat_ord_val ); ?>" min="0" max="999">
 					<span class="bn-field-hint"><?php esc_html_e( 'Lower numbers appear first.', 'buddynext' ); ?></span>
 				</div>
 				<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
-					<?php esc_html_e( 'Create category', 'buddynext' ); ?>
+					<?php echo esc_html( $bn_cat_edit_mode ? __( 'Save changes', 'buddynext' ) : __( 'Create category', 'buddynext' ) ); ?>
 				</button>
+				<?php if ( $bn_cat_edit_mode ) : ?>
+					<a class="bn-btn" data-variant="ghost" data-size="md" href="<?php echo esc_url( remove_query_arg( 'edit_cat' ) ); ?>">
+						<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
+					</a>
+				<?php endif; ?>
 			</form>
 			</div><!-- .bn-ss-body -->
 		</div><!-- .bn-settings-section -->
