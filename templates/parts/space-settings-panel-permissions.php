@@ -53,7 +53,6 @@ $bn_who_can_post          = isset( $bn_settings['who_can_post'] ) ? (string) $bn
 $bn_who_can_invite        = isset( $bn_settings['who_can_invite'] ) ? (string) $bn_settings['who_can_invite'] : 'mods';
 $bn_allow_member_posts    = ! empty( $bn_settings['allow_member_posts'] );
 $bn_require_join_approval = ! empty( $bn_settings['require_join_approval'] );
-$bn_require_post_approval = ! empty( $bn_settings['require_post_approval'] );
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
@@ -141,16 +140,6 @@ do_action( 'buddynext_part_space_settings_panel_permissions_before', $args );
 			</label>
 		</div>
 
-		<div class="bn-toggle-row">
-			<div class="bn-toggle-row__copy">
-				<div class="bn-toggle-row__label"><?php esc_html_e( 'Pre-moderate posts', 'buddynext' ); ?></div>
-				<div class="bn-toggle-row__desc"><?php esc_html_e( 'New posts go to a moderation queue before appearing publicly.', 'buddynext' ); ?></div>
-			</div>
-			<label class="bn-space-settings__toggle-shell">
-				<input type="checkbox" class="bn-space-settings__toggle-input" name="require_post_approval" value="1" <?php checked( $bn_require_post_approval ); ?>>
-				<span class="bn-toggle" aria-hidden="true"></span>
-			</label>
-		</div>
 	</div>
 
 	<?php // Save is handled by the shared sticky save bar in templates/spaces/settings.php. ?>

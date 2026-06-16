@@ -41,7 +41,6 @@ if ( ! $bn_space ) {
 }
 
 $bn_allow_member_posts    = ! empty( $args['privacy_settings']['allow_member_posts'] );
-$bn_require_post_approval = ! empty( $args['privacy_settings']['require_post_approval'] );
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-space-settings__panel' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
@@ -94,16 +93,6 @@ do_action( 'buddynext_part_space_settings_panel_privacy_before', $args );
 		</label>
 	</div>
 
-	<div class="bn-toggle-row">
-		<div class="bn-toggle-row__copy">
-			<div class="bn-toggle-row__label"><?php esc_html_e( 'Require post approval', 'buddynext' ); ?></div>
-			<div class="bn-toggle-row__desc"><?php esc_html_e( 'New member posts go to the moderation queue before appearing publicly.', 'buddynext' ); ?></div>
-		</div>
-		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Require post approval', 'buddynext' ); ?>">
-			<input type="checkbox" class="bn-space-settings__toggle-input" name="require_post_approval" value="1" <?php checked( $bn_require_post_approval ); ?>>
-			<span class="bn-toggle" aria-hidden="true"></span>
-		</label>
-	</div>
 </div>
 <?php
 do_action( 'buddynext_part_space_settings_panel_privacy_after', $args );

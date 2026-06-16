@@ -125,7 +125,6 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 			$update_data['type'] = sanitize_key( wp_unslash( $_POST['space_type'] ) );
 		}
 		update_option( 'bn_space_' . $space_id . '_allow_member_posts', isset( $_POST['allow_member_posts'] ) ? 1 : 0 );
-		update_option( 'bn_space_' . $space_id . '_require_post_approval', isset( $_POST['require_post_approval'] ) ? 1 : 0 );
 		update_option( 'bn_space_' . $space_id . '_push_to_feed', isset( $_POST['push_to_feed'] ) ? 1 : 0 );
 		update_option( 'bn_space_' . $space_id . '_mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? 1 : 0 );
 		if ( isset( $_POST['jetonomy_forum_id'] ) ) {
@@ -164,7 +163,6 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_permissions_nonce'] )
 		$save_notice = 'error';
 	} else {
 		update_option( 'bn_space_' . $space_id . '_allow_member_posts', isset( $_POST['allow_member_posts'] ) ? 1 : 0 );
-		update_option( 'bn_space_' . $space_id . '_require_post_approval', isset( $_POST['require_post_approval'] ) ? 1 : 0 );
 		update_option( 'bn_space_' . $space_id . '_require_join_approval', isset( $_POST['require_join_approval'] ) ? 1 : 0 );
 		$bn_who_post = isset( $_POST['who_can_post'] ) ? sanitize_key( wp_unslash( $_POST['who_can_post'] ) ) : 'members';
 		if ( ! in_array( $bn_who_post, array( 'members', 'mods', 'owner' ), true ) ) {
@@ -320,7 +318,6 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_members_nonce'] ) ) {
 }
 
 $allow_member_posts    = (bool) get_option( 'bn_space_' . $space_id . '_allow_member_posts', 1 );
-$require_post_approval = (bool) get_option( 'bn_space_' . $space_id . '_require_post_approval', 0 );
 $require_join_approval = (bool) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 );
 $push_to_feed          = (bool) get_option( 'bn_space_' . $space_id . '_push_to_feed', 1 );
 $mvs_media_tab         = (bool) get_option( 'bn_space_' . $space_id . '_mvs_media_tab', 0 );
@@ -535,7 +532,6 @@ foreach ( $builtin_tabs as $bn_t ) {
 					'space'            => $space,
 					'privacy_settings' => array(
 						'allow_member_posts'    => $allow_member_posts,
-						'require_post_approval' => $require_post_approval,
 					),
 				),
 			),
@@ -561,7 +557,6 @@ foreach ( $builtin_tabs as $bn_t ) {
 						'who_can_invite'        => $who_can_invite,
 						'allow_member_posts'    => $allow_member_posts,
 						'require_join_approval' => $require_join_approval,
-						'require_post_approval' => $require_post_approval,
 					),
 				),
 			),
