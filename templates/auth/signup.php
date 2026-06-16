@@ -166,7 +166,8 @@ if ( 'invite' === $bn_reg_mode ) {
 						<label class="bn-auth-label" for="bn-signup-password">
 							<?php esc_html_e( 'Password', 'buddynext' ); ?>
 						</label>
-						<input class="bn-input"
+						<div class="bn-auth-pw">
+						<input class="bn-input bn-auth-pw__input"
 							type="password"
 							id="bn-signup-password"
 							name="password"
@@ -177,6 +178,16 @@ if ( 'invite' === $bn_reg_mode ) {
 							data-wp-bind--disabled="state.submitting"
 							data-wp-bind--aria-invalid="state.passwordInvalid"
 							data-wp-on--input="actions.setPassword" />
+						<button type="button" class="bn-auth-pw__toggle"
+							data-bn-pw-toggle
+							aria-controls="bn-signup-password"
+							aria-pressed="false"
+							aria-label="<?php esc_attr_e( 'Show password', 'buddynext' ); ?>"
+							data-show-label="<?php esc_attr_e( 'Show', 'buddynext' ); ?>"
+							data-hide-label="<?php esc_attr_e( 'Hide', 'buddynext' ); ?>"
+							data-show-aria="<?php esc_attr_e( 'Show password', 'buddynext' ); ?>"
+							data-hide-aria="<?php esc_attr_e( 'Hide password', 'buddynext' ); ?>"><?php esc_html_e( 'Show', 'buddynext' ); ?></button>
+						</div>
 						<div class="bn-auth-strength" id="bn-signup-password-meter" aria-live="polite">
 							<div class="bn-progress"
 								role="progressbar"

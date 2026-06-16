@@ -124,14 +124,25 @@ $signup_url = home_url( '/' . (string) get_option( 'buddynext_slug_signup', 'sig
 						<label class="bn-auth-label" for="bn-login-password">
 							<?php esc_html_e( 'Password', 'buddynext' ); ?>
 						</label>
-						<input class="bn-input"
-							type="password"
-							id="bn-login-password"
-							name="password"
-							autocomplete="current-password"
-							required
-							data-wp-bind--disabled="state.submitting"
-							data-wp-on--input="actions.setPassword" />
+						<div class="bn-auth-pw">
+							<input class="bn-input bn-auth-pw__input"
+								type="password"
+								id="bn-login-password"
+								name="password"
+								autocomplete="current-password"
+								required
+								data-wp-bind--disabled="state.submitting"
+								data-wp-on--input="actions.setPassword" />
+							<button type="button" class="bn-auth-pw__toggle"
+								data-bn-pw-toggle
+								aria-controls="bn-login-password"
+								aria-pressed="false"
+								aria-label="<?php esc_attr_e( 'Show password', 'buddynext' ); ?>"
+								data-show-label="<?php esc_attr_e( 'Show', 'buddynext' ); ?>"
+								data-hide-label="<?php esc_attr_e( 'Hide', 'buddynext' ); ?>"
+								data-show-aria="<?php esc_attr_e( 'Show password', 'buddynext' ); ?>"
+								data-hide-aria="<?php esc_attr_e( 'Hide password', 'buddynext' ); ?>"><?php esc_html_e( 'Show', 'buddynext' ); ?></button>
+						</div>
 					</div>
 
 					<div class="bn-auth-field bn-auth-field--check">

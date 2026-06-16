@@ -71,3 +71,37 @@ store( 'buddynext/auth', {
 		},
 	},
 } );
+
+/*
+ * Password show/hide toggle.
+ *
+ * Store-independent and delegated so the one handler serves both the login and
+ * signup screens (both load this module). The button finds its input via the
+ * enclosing .bn-auth-pw wrapper, falling back to aria-controls. Labels/aria are
+ * read from data-* attributes so they stay translatable. Bound once.
+ */
+if ( typeof document !== 'undefined' && ! document.__bnPwToggleBound ) {
+	document.addEventListener( 'click', function ( ev ) {
+		var btn = ( ev.target && ev.target.closest ) ? ev.target.closest( '[data-bn-pw-toggle]' ) : null;
+		if ( ! btn ) { return; }
+		ev.preventDefault();
+
+		var wrap  = btn.closest( '.bn-auth-pw' );
+		var input = wrap ? wrap.querySelector( 'input' ) : null;
+		if ( ! input ) {
+			var id = btn.getAttribute( 'aria-controls' );
+			input  = id ? document.getElementById( id ) : null;
+		}
+		if ( ! input ) { return; }
+
+		var show   = input.type === 'password';
+		input.type = show ? 'text' : 'password';
+		btn.setAttribute( 'aria-pressed', show ? 'true' : 'false' );
+		btn.textContent = show
+			? ( btn.getAttribute( 'data-hide-label' ) || 'Hide' )
+			: ( btn.getAttribute( 'data-show-label' ) || 'Show' );
+		var aria = show ? btn.getAttribute( 'data-hide-aria' ) : btn.getAttribute( 'data-show-aria' );
+		if ( aria ) { btn.setAttribute( 'aria-label', aria ); }
+	} );
+	document.__bnPwToggleBound = true;
+}

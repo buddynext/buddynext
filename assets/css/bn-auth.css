@@ -614,3 +614,34 @@
 	margin: var(--bn-s3) auto;
 	display: inline-flex;
 }
+
+/* Password show/hide toggle — the button sits inside the input on the trailing
+   edge; the input reserves room so typed text never runs under it. */
+.bn-auth-pw {
+	position: relative;
+}
+.bn-auth-pw__input {
+	padding-inline-end: 4.5rem;
+}
+.bn-auth-pw__toggle {
+	position: absolute;
+	inset-block-start: 50%;
+	inset-inline-end: var(--bn-s2, 8px);
+	transform: translateY(-50%);
+	padding: var(--bn-s1, 4px) var(--bn-s2, 8px);
+	border: 0;
+	background: transparent;
+	color: var(--bn-accent, #2563eb);
+	font: inherit;
+	font-size: var(--bn-text-sm, 0.875rem);
+	font-weight: 600;
+	cursor: pointer;
+	border-radius: var(--bn-r-sm, 6px);
+}
+.bn-auth-pw__toggle:hover {
+	text-decoration: underline;
+}
+.bn-auth-pw__toggle:focus-visible {
+	outline: none;
+	box-shadow: var(--bn-ring);
+}
