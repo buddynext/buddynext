@@ -23,6 +23,33 @@ class Installer {
 	private const MU_PLUGIN_SLUG = 'buddynext-isolation.php';
 
 	/**
+	 * Database schema revision. BUMP THIS whenever the schema changes (new table,
+	 * new/changed column) so existing installs run the migration on the next
+	 * admin load without needing a deactivate/reactivate. Tracked separately from
+	 * the (release-locked) plugin version in the buddynext_schema_version option.
+	 *
+	 * 2 — added bn_invites.space_id (space-linked email invitations).
+	 */
+	private const SCHEMA_VERSION = 2;
+
+	/**
+	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
+	 *
+	 * Hooked on admin_init so a plain plugin update (no reactivation) still picks
+	 * up column/table changes. Cheap no-op once the versions match.
+	 *
+	 * @return void
+	 */
+	public static function maybe_upgrade(): void {
+		if ( (int) get_option( 'buddynext_schema_version', 0 ) === self::SCHEMA_VERSION ) {
+			return;
+		}
+
+		self::run();
+		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
+	}
+
+	/**
 	 * Run the installer.
 	 *
 	 * Called on register_activation_hook and on manual version upgrades.
@@ -54,6 +81,7 @@ class Installer {
 		self::seed_default_profile_groups_and_fields( $wpdb->prefix );
 
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
+		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 
 		self::create_hub_pages();
 		self::install_mu_plugin();

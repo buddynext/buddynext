@@ -88,6 +88,10 @@ if ( file_exists( BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php' ) ) {
 	require_once BUDDYNEXT_DIR . 'libs/edd-sl-sdk/edd-sl-sdk.php';
 }
 
+// Apply pending DB schema upgrades on a plain plugin update (no deactivate/
+// reactivate needed). Cheap no-op once the stored schema revision matches.
+add_action( 'admin_init', array( \BuddyNext\Core\Installer::class, 'maybe_upgrade' ) );
+
 // Activate the preset key against the store once per site so update
 // downloads are authorised. Admin-only; retries on the next admin load
 // until the store confirms the activation.
