@@ -73,7 +73,11 @@ class JetonomyBridge {
 
 		// On-demand space forum: provision + redirect when a member first opens a
 		// forumless space's Discussions tab (web).
-		add_action( 'template_redirect', array( $this, 'maybe_provision_and_redirect' ) );
+		// Priority 5 so the on-demand forum provision/redirect runs before
+		// PageRouter::dispatch_hub_template (template_redirect:10) renders the
+		// spaces directory and exits — otherwise the Discussions tab URL
+		// (/spaces/?bn_provision_forum=N) shows the directory instead.
+		add_action( 'template_redirect', array( $this, 'maybe_provision_and_redirect' ), 5 );
 
 		// App coverage: REST to provision/fetch a space's forum URL.
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
