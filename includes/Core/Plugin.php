@@ -143,6 +143,9 @@ class Plugin {
 		// settings take effect.
 		( new \BuddyNext\Nav\NavOverrides() )->register();
 
+		// Front-end cookie-consent banner (no-op unless the Privacy setting is on).
+		( new \BuddyNext\Privacy\CookieConsentService() )->register();
+
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'buddynext demo', new \BuddyNext\Demo\DemoCommand() );
 			\WP_CLI::add_command( 'buddynext cert', new \BuddyNext\Cert\CertCommand() );

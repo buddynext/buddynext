@@ -2635,3 +2635,49 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 		min-height: 44px;
 	}
 }
+
+/* ── Cookie consent banner (Privacy → Cookie Consent) ─────────────────────── */
+.bn-cookie-consent {
+	position: fixed;
+	inset-inline: var(--bn-s4);
+	inset-block-end: var(--bn-s4);
+	z-index: 9990;
+	margin-inline: auto;
+	max-width: 44rem;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s4);
+	flex-wrap: wrap;
+	padding: var(--bn-s3) var(--bn-s4);
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-lg);
+	box-shadow: var(--bn-shadow-lg, var(--bn-shadow-md, none));
+}
+
+.bn-cookie-consent__text {
+	margin: 0;
+	flex: 1 1 16rem;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+}
+
+.bn-cookie-consent__link {
+	color: var(--bn-accent);
+	text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+	.bn-cookie-consent {
+		inset-inline: var(--bn-s2);
+		inset-block-end: var(--bn-s2);
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.bn-cookie-consent .bn-btn {
+		width: 100%;
+	}
+}
