@@ -2160,14 +2160,22 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	/* Inline padding gives the same-tone hover/active highlight room to read as
 	   a soft pill; the rounded TOP + flat bottom keeps the active underline. */
 	padding: var(--bn-s2) var(--bn-s3);
+	/* Normalise font + metrics so an <a> tab and a <button> tab render
+	   IDENTICALLY. Without this, a <button class="bn-tab"> falls back to the
+	   UA button font + line-height and sits at a different height/baseline than
+	   its <a> siblings - the "jumpy / misaligned" tab bar. */
+	font-family: var(--bn-font-ui);
 	font-size: var(--bn-text-sm);
 	font-weight: var(--bn-fw-medium-semibold);
+	line-height: var(--bn-leading-tight);
 	color: var(--bn-ink-3);
 	border: none;
 	border-bottom: 2px solid transparent;
 	margin-bottom: -1px;
 	border-radius: var(--bn-r-sm) var(--bn-r-sm) 0 0;
 	background: transparent;
+	-webkit-appearance: none;
+	appearance: none;
 	cursor: pointer;
 	transition: color var(--bn-dur-fast) var(--bn-ease),
 				background var(--bn-dur-fast) var(--bn-ease),
