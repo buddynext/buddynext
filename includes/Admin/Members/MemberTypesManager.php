@@ -345,7 +345,7 @@ class MemberTypesManager {
 							<th><?php esc_html_e( 'Members', 'buddynext' ); ?></th>
 							<th><?php esc_html_e( 'Directory', 'buddynext' ); ?></th>
 							<th><?php esc_html_e( 'Self-Select', 'buddynext' ); ?></th>
-							<th></th>
+							<th><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
