@@ -65,27 +65,10 @@
 		} );
 		updatePreview();
 
-		// "More" menu toggles (single-open).
-		document.querySelectorAll( '.bn-more-btn' ).forEach( function ( btn ) {
-			btn.addEventListener( 'click', function ( e ) {
-				e.stopPropagation();
-				var menu = btn.closest( '.bn-more-menu' );
-				if ( ! menu ) {
-					return;
-				}
-				document.querySelectorAll( '.bn-more-menu.open' ).forEach( function ( m ) {
-					if ( m !== menu ) {
-						m.classList.remove( 'open' );
-					}
-				} );
-				menu.classList.toggle( 'open' );
-			} );
-		} );
-		document.addEventListener( 'click', function () {
-			document.querySelectorAll( '.bn-more-menu.open' ).forEach( function ( m ) {
-				m.classList.remove( 'open' );
-			} );
-		} );
+		// Row "more" menu open/close is handled by the shared members.js
+		// (bn-admin-members) bundle, enqueued on every Members admin tab.
+		// Binding the same .bn-more-btn click here double-toggled the menu
+		// shut on the member-types tab, so it is intentionally not repeated.
 	}
 
 	// Delegated confirm handler for destructive form submits.
