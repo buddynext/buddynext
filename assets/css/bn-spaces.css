@@ -524,7 +524,11 @@ a.bn-sh-statpill:focus-visible {
 	padding-inline: var(--bn-s6);
 	border-block-start: 1px solid var(--bn-line);
 	overflow-x: auto;
-	scrollbar-width: thin;
+	scrollbar-width: none; /* hide scrollbar on desktop; row still scrolls */
+}
+
+.bn-tabs.bn-sh-hero__tabs::-webkit-scrollbar {
+	display: none;
 }
 
 /* Body (tab content) */
@@ -998,6 +1002,11 @@ a.bn-sh-statpill:focus-visible {
 	padding-inline: var(--bn-s6);
 	border-block-start: 1px solid var(--bn-line);
 	overflow-x: auto;
+	scrollbar-width: none; /* hide scrollbar on desktop; row still scrolls */
+}
+
+.bn-tabs.bn-sh-tabs::-webkit-scrollbar {
+	display: none;
 }
 
 /* ── Space media tab ─────────────────────────────────────────────────── */
