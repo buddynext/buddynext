@@ -62,7 +62,22 @@ class InviteManager {
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$tmp_path = (string) $_FILES['bn_invite_csv']['tmp_name'];
-		$handle   = fopen( $tmp_path, 'r' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
+
+		// Validate MIME type from the file's own bytes — finfo is the reliable
+		// server-side check. Mirrors the REST path (InviteController) so both
+		// upload entry points enforce the same allow-list.
+		$finfo    = finfo_open( FILEINFO_MIME_TYPE );
+		$detected = $finfo ? (string) finfo_file( $finfo, $tmp_path ) : '';
+		if ( $finfo ) {
+			finfo_close( $finfo );
+		}
+		$allowed_mime_types = array( 'text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel' );
+		if ( '' !== $detected && ! in_array( $detected, $allowed_mime_types, true ) ) {
+			wp_safe_redirect( add_query_arg( 'bn_notice', 'bad_type', $redirect ) );
+			exit;
+		}
+
+		$handle = fopen( $tmp_path, 'r' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
 
 		if ( false === $handle ) {
 			wp_safe_redirect( add_query_arg( 'bn_notice', 'bad_file', $redirect ) );
@@ -221,6 +236,9 @@ class InviteManager {
 						break;
 					case 'bad_file':
 						esc_html_e( 'Could not read the uploaded file.', 'buddynext' );
+						break;
+					case 'bad_type':
+						esc_html_e( 'The uploaded file must be a CSV.', 'buddynext' );
 						break;
 					case 'bad_invite':
 						esc_html_e( 'Invalid invite ID.', 'buddynext' );
