@@ -329,7 +329,7 @@
 }
 
 .bn-post-card__menu-item:hover { background: var(--bn-sunken); }
-.bn-post-card__menu-item:focus-visible { outline: 2px solid var(--bn-accent) inset; }
+.bn-post-card__menu-item:focus-visible { outline: 2px solid transparent; box-shadow: inset 0 0 0 2px var(--bn-accent); }
 .bn-post-card__menu-item--danger { color: var(--bn-danger); }
 .bn-post-card__menu-item--danger:hover { background: var(--bn-danger-bg); }
 
@@ -2086,7 +2086,7 @@
 	transition: background 0.12s, color 0.12s;
 }
 .bn-composer__tool:hover { background: var(--bg-hover); color: var(--brand); }
-.bn-composer__tool:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.bn-composer__tool:focus-visible { outline: 2px solid transparent; outline-offset: 2px; box-shadow: var(--bn-ring); }
 .bn-composer__tool .bn-icon,
 .bn-composer__tool svg { width: 18px; height: 18px; }
 
@@ -2306,7 +2306,7 @@
 	transition: transform 150ms ease, background 150ms ease;
 }
 .bn-emoji-popover__option:hover { transform: scale(1.2); background: var(--bg-hover, rgba(0,0,0,0.05)); }
-.bn-emoji-popover__option:focus-visible { outline: 2px solid var(--bn-accent, var(--accent)); outline-offset: 1px; }
+.bn-emoji-popover__option:focus-visible { outline: 2px solid transparent; box-shadow: inset 0 0 0 2px var(--bn-accent); }
 .bn-emoji-popover__option img { width: 22px; height: 22px; display: block; max-width: none; }
 .bn-comment__emoji-trigger {
 	background: transparent;
