@@ -588,6 +588,10 @@ class PageRouter {
 			$this->maybe_register_single_post_meta( (int) ( $context['post_id'] ?? 0 ) );
 		}
 
+		// Community description (Settings → General) as the page meta description
+		// on every BN hub — the help text promises it appears "in meta tags".
+		$this->maybe_register_community_meta_description();
+
 		do_action( 'buddynext_before_hub', $hub, $template );
 
 		// htmx partial swap: when request has HX-Request header, return only
@@ -730,6 +734,54 @@ class PageRouter {
 		}
 
 		\BuddyNext\Feed\SinglePostMeta::emit_for_post( $post );
+	}
+
+	/**
+	 * Emit the community description as the page <meta name="description"> on
+	 * BN hubs, fulfilling the Settings → General help text ("shown on the
+	 * community landing page and in meta tags").
+	 *
+	 * Skips when the owner left the description blank, and when a major SEO
+	 * plugin is active (Yoast, Rank Math, AIOSEO, SEOPress, The SEO Framework)
+	 * so we never emit a duplicate meta description alongside the plugin's own.
+	 * Filterable via `buddynext_meta_description` for full per-site control.
+	 *
+	 * @return void
+	 */
+	private function maybe_register_community_meta_description(): void {
+		$description = trim( (string) get_option( 'buddynext_description', '' ) );
+
+		/**
+		 * Filter the BuddyNext community meta description.
+		 *
+		 * Return an empty string to suppress the tag entirely.
+		 *
+		 * @param string $description Community description (Settings → General).
+		 */
+		$description = (string) apply_filters( 'buddynext_meta_description', $description );
+		if ( '' === $description ) {
+			return;
+		}
+
+		// Defer to an active SEO plugin — emitting our own tag would duplicate
+		// the head meta description.
+		if (
+			defined( 'WPSEO_VERSION' )              // Yoast SEO.
+			|| class_exists( 'RankMath' )           // Rank Math.
+			|| defined( 'AIOSEO_VERSION' )          // All in One SEO.
+			|| defined( 'SEOPRESS_VERSION' )        // SEOPress.
+			|| defined( 'THE_SEO_FRAMEWORK_VERSION' ) // The SEO Framework.
+		) {
+			return;
+		}
+
+		add_action(
+			'wp_head',
+			static function () use ( $description ): void {
+				echo '<meta name="description" content="' . esc_attr( $description ) . '">' . "\n";
+			},
+			1
+		);
 	}
 
 	/**
