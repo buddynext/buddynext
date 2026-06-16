@@ -34,6 +34,61 @@ class NotificationPrefService {
 	private const VALID_FREQ = array( 'immediate', 'daily', 'weekly', 'off' );
 
 	/**
+	 * Map of notification type slug → the Settings → Notifications "default"
+	 * option that governs its initial on_site state. When a user has no explicit
+	 * pref row for one of these types, the site owner's default applies instead
+	 * of a blanket "on". Types not listed here fall back to the catalogue's own
+	 * default_on_site.
+	 */
+	private const ADMIN_DEFAULT_OPTION = array(
+		'bn.new_follower'         => 'buddynext_notif_default_follow',
+		'bn.connection_requested' => 'buddynext_notif_default_connection',
+		'bn.connection_accepted'  => 'buddynext_notif_default_connection',
+		'bn.post_reacted'         => 'buddynext_notif_default_reaction',
+		'bn.post_commented'       => 'buddynext_notif_default_comment',
+		'bn.mention'              => 'buddynext_notif_default_mention',
+		'bn.space_join_requested' => 'buddynext_notif_default_space_join',
+	);
+
+	/**
+	 * Catalogue instance (lazy), used to source per-type default_on_site /
+	 * default_email_freq when a user has no explicit pref row.
+	 *
+	 * @var NotificationPrefCatalogue|null
+	 */
+	private ?NotificationPrefCatalogue $catalogue = null;
+
+	/**
+	 * Resolve the implicit (no-row) default for a notification type.
+	 *
+	 * Starts from the catalogue's per-type default, then lets the site owner's
+	 * Settings → Notifications default override the on_site channel for the
+	 * primary social/feed/space types.
+	 *
+	 * @param string $type Notification type key.
+	 * @return array{on_site: bool, email_freq: string}
+	 */
+	private function default_pref( string $type ): array {
+		if ( null === $this->catalogue ) {
+			$this->catalogue = new NotificationPrefCatalogue();
+		}
+		$catalogue = $this->catalogue->all();
+		$entry     = $catalogue[ $type ] ?? array();
+
+		$on_site    = isset( $entry['default_on_site'] ) ? (bool) $entry['default_on_site'] : true;
+		$email_freq = isset( $entry['default_email_freq'] ) ? (string) $entry['default_email_freq'] : 'immediate';
+
+		if ( isset( self::ADMIN_DEFAULT_OPTION[ $type ] ) ) {
+			$on_site = (bool) get_option( self::ADMIN_DEFAULT_OPTION[ $type ], true );
+		}
+
+		return array(
+			'on_site'    => $on_site,
+			'email_freq' => $email_freq,
+		);
+	}
+
+	/**
 	 * Return the notification preference for a user and type.
 	 *
 	 * Returns defaults if no row exists.
@@ -68,10 +123,7 @@ class NotificationPrefService {
 				'on_site'    => (bool) $row['on_site'],
 				'email_freq' => $row['email_freq'],
 			)
-			: array(
-				'on_site'    => true,
-				'email_freq' => 'immediate',
-			);
+			: $this->default_pref( sanitize_text_field( $type ) );
 
 		wp_cache_set( $cache_key, $pref, self::CACHE_GROUP, self::CACHE_TTL );
 
