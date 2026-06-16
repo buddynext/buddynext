@@ -59,7 +59,7 @@ $bn_actions = '';
 if ( $bn_viewer_id > 0 ) {
 	$bn_actions = sprintf(
 		'<a class="bn-btn" data-variant="secondary" data-size="md" href="%1$s"><span>%2$s</span></a>',
-		esc_url( admin_url( 'profile.php' ) ),
+		esc_url( \BuddyNext\Core\PageRouter::edit_profile_url( $bn_viewer_id ) ),
 		esc_html__( 'Edit profile', 'buddynext' )
 	);
 }
