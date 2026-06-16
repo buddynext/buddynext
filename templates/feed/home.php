@@ -406,8 +406,13 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 				data-wp-on--click="actions.setFilter"
 			>
 				<span class="bn-feed-filter-tab__label"><?php echo esc_html( $tab_meta['label'] ); ?></span>
-				<?php if ( $tab_meta['count'] > 0 ) : ?>
-					<span class="bn-feed-filter-tab__count"><?php echo esc_html( number_format_i18n( $tab_meta['count'] ) ); ?></span>
+				<?php
+				if ( $tab_meta['count'] > 0 ) :
+					// Cap the badge so a primary feed tab never shows a noisy 4-digit
+					// total (e.g. "3,014"); premium feeds cap count chips at 99+.
+					$bn_count_label = $tab_meta['count'] > 99 ? '99+' : number_format_i18n( $tab_meta['count'] );
+					?>
+					<span class="bn-feed-filter-tab__count"><?php echo esc_html( $bn_count_label ); ?></span>
 				<?php endif; ?>
 			</a>
 		<?php endforeach; ?>
