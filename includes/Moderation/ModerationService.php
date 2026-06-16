@@ -685,15 +685,38 @@ class ModerationService {
 
 		// $where_sql contains only hardcoded literals and validated enum values — no raw user data.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		// Consolidate every report for the same content into one queue row:
+		// GROUP BY object_type,object_id and aggregate the count / distinct
+		// reporters / reasons so admins act once per piece of content instead of
+		// once per report. (One user can only report a given object once, so
+		// report_count == reporter_count, but both are exposed for clarity.)
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}bn_reports {$where_sql} ORDER BY created_at DESC LIMIT %d OFFSET %d",
+				"SELECT MAX(id) AS id,
+				        MAX(reporter_id) AS reporter_id,
+				        object_type, object_id,
+				        MAX(space_id) AS space_id,
+				        MAX(reason) AS reason,
+				        MAX(notes) AS notes,
+				        MAX(status) AS status,
+				        COUNT(*) AS report_count,
+				        COUNT(DISTINCT reporter_id) AS reporter_count,
+				        GROUP_CONCAT(DISTINCT reason ORDER BY reason SEPARATOR ', ') AS reasons,
+				        MAX(resolved_by) AS resolved_by,
+				        MAX(resolved_at) AS resolved_at,
+				        MAX(created_at) AS created_at
+				 FROM {$wpdb->prefix}bn_reports {$where_sql}
+				 GROUP BY object_type, object_id
+				 ORDER BY MAX(created_at) DESC
+				 LIMIT %d OFFSET %d",
 				...$list_params
 			),
 			ARRAY_A
 		);
 
-		$count_sql = "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reports {$where_sql}";
+		// Count distinct content groups, not raw report rows, so pagination
+		// matches the consolidated list.
+		$count_sql = "SELECT COUNT(*) FROM ( SELECT 1 FROM {$wpdb->prefix}bn_reports {$where_sql} GROUP BY object_type, object_id ) AS bn_grouped_reports";
 		if ( empty( $count_params ) ) {
 			$total = (int) $wpdb->get_var( $count_sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		} else {
@@ -1308,28 +1331,42 @@ class ModerationService {
 
 		global $wpdb;
 
+		// The queue consolidates every report for one piece of content into a
+		// single row (GROUP BY object_type,object_id in get_queue), so a single
+		// action must clear ALL of that content's open reports — otherwise the
+		// siblings stay pending and the item reappears. Resolve the report's
+		// target, then cascade the status to all its pending/escalated reports.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$updated = $wpdb->update(
-			$wpdb->prefix . 'bn_reports',
-			array(
-				'status'      => $status,
-				'resolved_by' => $actor_id,
-				'resolved_at' => current_time( 'mysql' ),
+		$target = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT object_type, object_id FROM {$wpdb->prefix}bn_reports WHERE id = %d",
+				$report_id
 			),
-			array( 'id' => $report_id ),
-			array( '%s', '%d', '%s' ),
-			array( '%d' )
+			ARRAY_A
+		);
+
+		if ( ! $target ) {
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return new WP_Error( 'report_not_found', __( 'Report not found.', 'buddynext' ) );
+		}
+
+		$updated = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_reports
+				 SET status = %s, resolved_by = %d, resolved_at = %s
+				 WHERE object_type = %s AND object_id = %d AND status IN ('pending','escalated')",
+				$status,
+				$actor_id,
+				current_time( 'mysql' ),
+				(string) $target['object_type'],
+				(int) $target['object_id']
+			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// $wpdb->update returns false on SQL error, int (rows affected) otherwise.
-		// 0 affected means the report ID didn't exist — return WP_Error so callers
-		// (especially Pro's BulkModService) don't claim phantom successes.
+		// $wpdb->query returns false on SQL error, int (rows affected) otherwise.
 		if ( false === $updated ) {
 			return new WP_Error( 'db_error', __( 'Database error updating report status.', 'buddynext' ) );
-		}
-		if ( 0 === $updated ) {
-			return new WP_Error( 'report_not_found', __( 'Report not found.', 'buddynext' ) );
 		}
 
 		return true;
@@ -1342,17 +1379,28 @@ class ModerationService {
 	 * @return array
 	 */
 	private function hydrate_report( array $row ): array {
+		// report_count / reporter_count / reasons are present on consolidated
+		// queue rows (get_queue) and absent on single-row reads — default them
+		// so both callers get a stable shape.
+		$report_count = isset( $row['report_count'] ) ? (int) $row['report_count'] : 1;
+		$reasons      = isset( $row['reasons'] ) && '' !== (string) $row['reasons']
+			? array_values( array_unique( array_map( 'trim', explode( ',', (string) $row['reasons'] ) ) ) )
+			: array_filter( array( (string) ( $row['reason'] ?? '' ) ) );
+
 		return array(
-			'id'          => (int) $row['id'],
-			'reporter_id' => (int) $row['reporter_id'],
-			'object_type' => $row['object_type'],
-			'object_id'   => (int) $row['object_id'],
-			'reason'      => $row['reason'],
-			'notes'       => $row['notes'],
-			'status'      => $row['status'],
-			'resolved_by' => isset( $row['resolved_by'] ) ? (int) $row['resolved_by'] : null,
-			'resolved_at' => $row['resolved_at'],
-			'created_at'  => $row['created_at'],
+			'id'             => (int) $row['id'],
+			'reporter_id'    => (int) $row['reporter_id'],
+			'object_type'    => $row['object_type'],
+			'object_id'      => (int) $row['object_id'],
+			'reason'         => $row['reason'],
+			'reasons'        => array_values( $reasons ),
+			'report_count'   => $report_count,
+			'reporter_count' => isset( $row['reporter_count'] ) ? (int) $row['reporter_count'] : $report_count,
+			'notes'          => $row['notes'],
+			'status'         => $row['status'],
+			'resolved_by'    => isset( $row['resolved_by'] ) ? (int) $row['resolved_by'] : null,
+			'resolved_at'    => $row['resolved_at'],
+			'created_at'     => $row['created_at'],
 		);
 	}
 

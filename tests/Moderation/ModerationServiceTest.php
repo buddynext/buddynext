@@ -166,7 +166,7 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 		$this->assertSame( 0, $this->service->get_active_strike_count( $this->user_id ) );
 	}
 
-	public function test_get_queue_returns_pending_reports(): void {
+	public function test_get_queue_consolidates_reports_for_same_content(): void {
 		$other = self::factory()->user->create();
 		$this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
 		$this->service->report( $other, 'post', $this->post_id, 'harassment' );
@@ -175,21 +175,40 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 
 		$this->assertArrayHasKey( 'items', $result );
 		$this->assertArrayHasKey( 'total', $result );
-		$this->assertCount( 2, $result['items'] );
-		$this->assertSame( 2, $result['total'] );
+		// Two users reporting the same post produce ONE consolidated queue item.
+		$this->assertCount( 1, $result['items'] );
+		$this->assertSame( 1, $result['total'] );
+		$this->assertSame( 2, $result['items'][0]['report_count'] );
+		$this->assertSame( 2, $result['items'][0]['reporter_count'] );
+		$this->assertContains( 'spam', $result['items'][0]['reasons'] );
+		$this->assertContains( 'harassment', $result['items'][0]['reasons'] );
 	}
 
-	public function test_get_queue_excludes_non_pending(): void {
+	public function test_dismiss_clears_every_report_for_the_content(): void {
 		$other      = self::factory()->user->create();
 		$report_id  = $this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
 		$this->service->report( $other, 'post', $this->post_id, 'harassment' );
 
-		// Dismiss one — should not appear in queue.
+		// Acting on the consolidated item cascades to every report for the
+		// content, so the post leaves the queue entirely (no orphan siblings).
 		$this->service->dismiss( $report_id, $this->admin_id );
 
 		$result = $this->service->get_queue();
 
+		$this->assertSame( 0, $result['total'] );
+	}
+
+	public function test_get_queue_excludes_non_pending(): void {
+		// Two distinct pieces of content; dismissing one must not hide the other.
+		$report_a = $this->service->report( $this->user_id, 'post', $this->post_id, 'spam' );
+		$this->service->report( $this->user_id, 'user', 99, 'harassment' );
+
+		$this->service->dismiss( $report_a, $this->admin_id );
+
+		$result = $this->service->get_queue();
+
 		$this->assertSame( 1, $result['total'] );
+		$this->assertSame( 'user', $result['items'][0]['object_type'] );
 	}
 
 	public function test_get_queue_filters_by_object_type(): void {

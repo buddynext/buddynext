@@ -132,8 +132,34 @@ class ModerationQueue {
 					<p class="description"><?php echo esc_html( (string) $report['notes'] ); ?></p>
 				<?php endif; ?>
 			</td>
-			<td><?php echo esc_html( self::REASON_LABELS[ $reason ] ?? ucfirst( $reason ) ); ?></td>
-			<td><?php echo esc_html( $reporter ? $reporter->display_name : __( '(unknown)', 'buddynext' ) ); ?></td>
+			<td>
+				<?php
+				// Consolidated rows carry every distinct reason; fall back to the
+				// single reason for legacy/single-row reads.
+				$bn_reasons = ( ! empty( $report['reasons'] ) && is_array( $report['reasons'] ) ) ? $report['reasons'] : array( $reason );
+				$bn_labels  = array_map(
+					static function ( $r ) {
+						return self::REASON_LABELS[ $r ] ?? ucfirst( (string) $r );
+					},
+					$bn_reasons
+				);
+				echo esc_html( implode( ', ', $bn_labels ) );
+				?>
+			</td>
+			<td>
+				<?php
+				$bn_report_count = (int) ( $report['report_count'] ?? 1 );
+				if ( $bn_report_count > 1 ) {
+					printf(
+						/* translators: %d: number of users who reported this content */
+						esc_html( _n( 'Reported by %d user', 'Reported by %d users', $bn_report_count, 'buddynext' ) ),
+						(int) $bn_report_count
+					);
+				} else {
+					echo esc_html( $reporter ? $reporter->display_name : __( '(unknown)', 'buddynext' ) );
+				}
+				?>
+			</td>
 			<td><?php echo esc_html( $this->ago( (string) ( $report['created_at'] ?? '' ) ) ); ?></td>
 			<td>
 				<div class="bn-mod-actions">
