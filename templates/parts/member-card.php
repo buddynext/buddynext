@@ -106,6 +106,20 @@ $bn_avatar_tone   = (string) $args['avatar_tone'];
 $bn_bio           = (string) $args['bio'];
 $bn_profile_url   = (string) $args['profile_url'];
 $bn_cover_url     = (string) $args['cover_url'];
+
+// Honour the member's who_can_follow preference so the Follow button is hidden
+// when they accept no follows (and the viewer is not already a follower).
+// Directory scale: this checks the cached who_can_follow usermeta (primed by the
+// member query) rather than the full PrivacyService::can_follow(), which would
+// add a per-card bn_blocks query (N+1 across a large directory). Block
+// enforcement stays server-side in FollowService::follow(); the single-render
+// profile hero + follow-button partial use the full can_follow().
+$bn_can_follow = true;
+if ( $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id ) {
+	$bn_privacy    = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+	$bn_can_follow = ! $bn_privacy || ! method_exists( $bn_privacy, 'get_preference' )
+		|| 'everyone' === $bn_privacy->get_preference( $bn_member_id, 'who_can_follow' );
+}
 $bn_avatar_url    = (string) $args['avatar_url'];
 
 // Cover tone — same brand-safe blue→green→warm gradient set the space cards
@@ -330,6 +344,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 				<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
 			</a>
 		<?php else : ?>
+			<?php if ( $bn_can_follow || $bn_is_following ) : ?>
 			<button
 				type="button"
 				class="bn-btn bn-md-card__follow"
@@ -339,6 +354,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 				data-wp-text="state.cardFollowLabel"
 				data-wp-on--click="actions.toggleFollow"
 			><?php echo $bn_is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?></button>
+			<?php endif; ?>
 
 			<?php // Connection control — 5-state, reactive. ?>
 			<button

@@ -44,6 +44,15 @@ if ( buddynext_service( 'blocks' )->is_blocking_either( $viewer_id, $user_id ) )
 	return;
 }
 
+// Privacy guard — render nothing when the target does not accept follows from
+// this viewer (who_can_follow = 'nobody'). FollowService enforces the same rule
+// server-side; hiding the button keeps the UI honest instead of surfacing a
+// generic error only after the click.
+$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+if ( $privacy && method_exists( $privacy, 'can_follow' ) && ! $privacy->can_follow( $viewer_id, $user_id ) ) {
+	return;
+}
+
 $follows        = buddynext_service( 'follows' );
 $private_follow = isset( $private_follow ) ? (bool) $private_follow : $follows->is_private_account( $user_id );
 // Callers that already know the follow state (e.g. a feed loop that resolved

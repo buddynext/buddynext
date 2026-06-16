@@ -136,6 +136,18 @@ $bn_pf_is_connected  = (bool) $args['is_connected'];
 $bn_pf_conn_pending  = (bool) $args['connection_pending'];
 $bn_pf_conn_received = (bool) $args['connection_received'];
 
+// Honour the target's who_can_follow preference: the Follow toggle is hidden
+// when the viewer may not follow (and is not already a follower). FollowService
+// enforces the same rule server-side; gating the button keeps it from appearing
+// only to 403 on click. Already-following viewers keep the toggle so they can
+// still unfollow.
+$bn_pf_can_follow = true;
+if ( $bn_pf_viewer && ! $bn_pf_is_owner ) {
+	$bn_pf_privacy    = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+	$bn_pf_can_follow = ! $bn_pf_privacy || ! method_exists( $bn_pf_privacy, 'can_follow' )
+		|| (bool) $bn_pf_privacy->can_follow( $bn_pf_viewer, $bn_pf_uid );
+}
+
 do_action( 'buddynext_part_profile_hero_before', $args );
 ?>
 	<!-- Hero card: cover + identity + stats -->
@@ -421,6 +433,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 			<!-- Action buttons — shown for other users only; owners see the bar above -->
 			<?php if ( ! $bn_pf_is_owner && $bn_pf_viewer ) : ?>
 			<div class="bn-pf-actions">
+				<?php if ( $bn_pf_can_follow || $bn_pf_is_following ) : ?>
 				<button class="bn-btn" data-variant="primary" data-size="sm"
 					data-wp-on--click="actions.follow"
 					data-wp-bind--hidden="context.isFollowing"
@@ -433,6 +446,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 					<?php echo $bn_pf_is_following ? '' : 'hidden'; ?>>
 					<?php esc_html_e( 'Following', 'buddynext' ); ?>
 				</button>
+				<?php endif; ?>
 
 				<button class="bn-btn" data-variant="secondary" data-size="sm"
 					data-wp-on--click="actions.connect"
