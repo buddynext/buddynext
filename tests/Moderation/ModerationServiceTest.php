@@ -411,10 +411,11 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 	 */
 	public function test_submit_appeal_fires_hook(): void {
 		$captured = null;
+		// The hook fires ($user_id, $appeal_id, ...) at both call sites.
 		add_action(
 			'buddynext_appeal_submitted',
-			function ( int $appeal_id, int $user_id ) use ( &$captured ): void {
-				$captured = array( $appeal_id, $user_id );
+			function ( int $user_id, int $appeal_id ) use ( &$captured ): void {
+				$captured = array( $user_id, $appeal_id );
 			},
 			10,
 			2
@@ -423,7 +424,7 @@ class ModerationServiceTest extends \WP_UnitTestCase {
 		$suspension_id = $this->service->suspend_user( $this->user_id, $this->admin_id, 'test', array() );
 		$appeal_id     = $this->service->submit_appeal( $this->user_id, $suspension_id, 'Please reconsider.' );
 
-		$this->assertSame( array( $appeal_id, $this->user_id ), $captured );
+		$this->assertSame( array( $this->user_id, $appeal_id ), $captured );
 	}
 
 	/**
