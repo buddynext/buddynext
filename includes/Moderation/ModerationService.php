@@ -688,8 +688,8 @@ class ModerationService {
 		// Consolidate every report for the same content into one queue row:
 		// GROUP BY object_type,object_id and aggregate the count / distinct
 		// reporters / reasons so admins act once per piece of content instead of
-		// once per report. (One user can only report a given object once, so
-		// report_count == reporter_count, but both are exposed for clarity.)
+		// once per report. One user can only report a given object once, so
+		// report_count equals reporter_count, but both are exposed for clarity.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT MAX(id) AS id,
