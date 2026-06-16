@@ -444,7 +444,7 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 						. ' data-wp-bind--hidden="!context.errors.' . esc_attr( $bn_fkey ) . '"></span>';
 
 					$bn_body_html .= '<div class="' . esc_attr( $bn_field_cls ) . '"'
-						. ' data-wp-class--bn-ep-field--error="!!context.errors.' . esc_attr( $bn_fkey ) . '">';
+						. ' data-wp-class--bn-ep-field--error="context.errors.' . esc_attr( $bn_fkey ) . '">';
 					$bn_body_html .= '<div class="bn-ep-field-head"><label class="bn-ep-label" for="' . esc_attr( $bn_inp_id ) . '">' . esc_html( $bn_label ) . $bn_req_mark . '</label>' . $bn_privacy_html . '</div>';
 					$bn_body_html .= $bn_control;
 					$bn_body_html .= $bn_err_html;

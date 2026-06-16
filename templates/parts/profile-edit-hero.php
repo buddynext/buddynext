@@ -134,7 +134,7 @@ do_action( 'buddynext_part_profile_edit_hero_before', $args );
 					required
 					aria-required="true"
 					aria-describedby="bn-ep-error-display_name"
-					data-wp-class--bn-input--error="!!context.errors.display_name"
+					data-wp-class--bn-input--error="context.errors.display_name"
 					data-wp-on--blur="actions.validateField" />
 				<span class="bn-ep-field-error"
 					id="bn-ep-error-display_name"

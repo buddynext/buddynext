@@ -192,7 +192,7 @@ do_action( 'buddynext_part_profile_field_before', $args );
 				required aria-required="true"<?php endif; ?>
 			<?php if ( $bn_validate ) : ?>
 				aria-describedby="<?php echo esc_attr( $bn_error_id ); ?>"
-				data-wp-class--bn-input--error="!!context.errors.<?php echo esc_attr( $bn_error_key ); ?>"
+				data-wp-class--bn-input--error="context.errors.<?php echo esc_attr( $bn_error_key ); ?>"
 				data-wp-on--blur="actions.validateField"
 			<?php elseif ( '' !== $bn_hint ) : ?>
 				aria-describedby="<?php echo esc_attr( $bn_hint_id ); ?>"
