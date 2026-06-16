@@ -479,6 +479,15 @@ class BlockService {
 	 * @return bool
 	 */
 	public function is_blocking_either( int $user_a, int $user_b ): bool {
+		// The same viewer/author pair is checked repeatedly across follow and
+		// connection buttons in one feed render. Memoise per request, keyed by
+		// the unordered pair (the check is symmetric).
+		static $cache = array();
+		$key = $user_a < $user_b ? "{$user_a}:{$user_b}" : "{$user_b}:{$user_a}";
+		if ( isset( $cache[ $key ] ) ) {
+			return $cache[ $key ];
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -496,7 +505,9 @@ class BlockService {
 			)
 		);
 
-		return $count > 0;
+		$cache[ $key ] = $count > 0;
+
+		return $cache[ $key ];
 	}
 
 	/**

@@ -263,10 +263,18 @@ class FollowService {
 	 * @return bool
 	 */
 	public function has_pending_request( int $follower_id, int $following_id ): bool {
+		// follow-button.php calls this for each distinct user across the feed and
+		// sidebar; memoise per request, keyed by the directed pair.
+		static $cache = array();
+		$key = "{$follower_id}:{$following_id}";
+		if ( isset( $cache[ $key ] ) ) {
+			return $cache[ $key ];
+		}
+
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		return (bool) $wpdb->get_var(
+		$cache[ $key ] = (bool) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT 1
 				 FROM {$wpdb->prefix}bn_follows
@@ -276,6 +284,8 @@ class FollowService {
 				$following_id
 			)
 		);
+
+		return $cache[ $key ];
 	}
 
 	/**

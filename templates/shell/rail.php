@@ -30,20 +30,10 @@ $bn_unread_messages   = 0;
 if ( $bn_rail_current_user ) {
 	global $wpdb;
 
-	$notif_cache_key = "bn_unread_notifs_{$bn_rail_current_user}";
-	$cached_notifs   = wp_cache_get( $notif_cache_key, 'buddynext_nav' );
-	if ( false === $cached_notifs ) {
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$cached_notifs = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND is_read = 0",
-				$bn_rail_current_user
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		wp_cache_set( $notif_cache_key, $cached_notifs, 'buddynext_nav', 60 );
-	}
-	$bn_unread_notifs = (int) $cached_notifs;
+	// Single source of truth for the unread count. NotificationService caches
+	// the result, so the rail and the notification bell share one query instead
+	// of running parallel raw-SQL and service paths.
+	$bn_unread_notifs = (int) buddynext_service( 'notifications' )->unread_count( $bn_rail_current_user );
 
 	if ( class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) {
 		$msg_cache_key = "bn_unread_msgs_{$bn_rail_current_user}";
