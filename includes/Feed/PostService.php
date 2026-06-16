@@ -420,7 +420,12 @@ class PostService {
 	public function delete( int $post_id, int $user_id ): true|WP_Error {
 		$ownership = $this->assert_owner( $post_id, $user_id );
 		if ( is_wp_error( $ownership ) ) {
-			return $ownership;
+			// Owners delete their own posts; site admins and space moderators
+			// may remove another member's post as a moderation action. Any
+			// other error (e.g. a missing post) is returned unchanged.
+			if ( 'not_post_owner' !== $ownership->get_error_code() || ! $this->can_moderate_post( $post_id, $user_id ) ) {
+				return $ownership;
+			}
 		}
 
 		global $wpdb;
@@ -1040,6 +1045,41 @@ class PostService {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Whether a user may moderate (remove) a post they do not own.
+	 *
+	 * Site admins can remove any post; a space owner or moderator can remove
+	 * posts inside the space they moderate (resolved through PermissionService,
+	 * which also honours moderator scoping). Global (non-space) posts are
+	 * admin-only.
+	 *
+	 * @param int $post_id Post ID.
+	 * @param int $user_id Acting user ID.
+	 * @return bool
+	 */
+	private function can_moderate_post( int $post_id, int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+
+		$post     = $this->get( $post_id );
+		$space_id = $post ? (int) ( $post['space_id'] ?? 0 ) : 0;
+
+		if ( $space_id > 0 && function_exists( 'buddynext_service' ) ) {
+			return (bool) buddynext_service( 'permissions' )->can(
+				$user_id,
+				'buddynext-moderate-space',
+				array( 'space_id' => $space_id )
+			);
+		}
+
+		return false;
 	}
 
 	/**
