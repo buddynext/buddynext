@@ -81,6 +81,7 @@ class Installer {
 		self::maybe_alter_tables( $wpdb->prefix );
 		self::seed_email_templates( $wpdb->prefix );
 		self::migrate_email_action_links( $wpdb->prefix );
+		self::migrate_post_timestamps_to_utc( $wpdb->prefix );
 		self::seed_default_profile_groups_and_fields( $wpdb->prefix );
 
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
@@ -307,6 +308,40 @@ class Installer {
 				'%href="{{site_url}}"%'
 			)
 		);
+	}
+
+	/**
+	 * Convert legacy bn_posts.created_at values from server-local time to UTC.
+	 *
+	 * Rows created before the UTC fix (PostService::create now writes
+	 * current_time('mysql', true)) relied on MySQL's DEFAULT CURRENT_TIMESTAMP,
+	 * which stores server-local time. The relative-time renderers read the value
+	 * as UTC, so on any host where MySQL's timezone differs from UTC every
+	 * same-day post showed "just now". This shifts the legacy rows into UTC once
+	 * so historical posts read correctly alongside new ones.
+	 *
+	 * Runs a single time, gated by an option flag. The offset is derived from
+	 * NOW() vs UTC_TIMESTAMP() so it works even when the named-timezone tables
+	 * are not loaded (CONVERT_TZ with 'SYSTEM' would return NULL there).
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function migrate_post_timestamps_to_utc( string $p ): void {
+		if ( get_option( 'buddynext_posts_created_at_utc_migrated' ) ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query(
+			"UPDATE `{$p}bn_posts`
+			 SET created_at = DATE_SUB( created_at, INTERVAL TIMESTAMPDIFF( SECOND, UTC_TIMESTAMP(), NOW() ) SECOND )
+			 WHERE created_at IS NOT NULL"
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		update_option( 'buddynext_posts_created_at_utc_migrated', 1, false );
 	}
 
 	/**
