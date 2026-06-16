@@ -1,12 +1,33 @@
 # BuddyNext Bugs — Resume Plan
 
-> STATUS: Bugs column (9990191646) has **24 open cards** as of 2026-06-16 — a fresh
-> batch loaded after the previous queue was cleared. **Basecamp bugs are priority 1:
-> clear this column before resuming the parked non-bug threads (bottom of file).**
+> STATUS (2026-06-16, live loop): QA is actively filing — the Bugs column keeps
+> growing (24 → 51 open during this session). **Basecamp bugs are priority 1.**
+> Loop driver: official `basecamp` CLI (homebrew, account 5798509). Read the Bugs
+> column → fix at code level (NO guessing) → self-verify (php -l/node --check,
+> `wp eval`, Mailpit, browser at 390px for UI) → commit+push master → comment card
+> with SHA → move to Ready for Testing (9990094424). Treat odd/low-value QA cards
+> with expert judgment (some are false positives — document and move on).
 >
-> Snapshot of the prior cleared wave (for reference, all DONE → Ready for Testing):
-> message gating 8595685 · social-7 settings 4245363 · comment @mention 6684924 ·
-> Reign left-panel 0d0ee25 · reactions dead switch c4cf41e · integrations install e4b6663.
+> CLEARED this session (15, all → Ready for Testing):
+> textdomain JIT 947223e (verified pre-fixed) · register_setting defaults + inline
+> default b8fb404 · sanitization false-positive (no-change) · UNSIGNED underflow ×5
+> 7ec580f · Critical SSRF + OG DOMXPath 39fd84a · object-injection + extract() +
+> $_POST leak 0eb52e4 · verification-email-when-disabled 96d14b4 · EmailEditor table
+> guard ba73403 · pending-approval badge bfeb299 · dual /ban routes 37bf58e ·
+> last-login (2 bugs) fb005bd.
+>
+> NEXT (need seeded browser repro, batch together): Spaces approve/decline join
+> (9999922539/9999925717), invitation join/decline (9999976771/9999978396), ban
+> "Security Check Failed" (9999968304 — ban now routes through canonical /bans),
+> cross-icon (9999974098), cover-photo (9999998354), member autocomplete (9999985066),
+> Spaces directory Join-after-filter (9999988832), guest Activity/Explore (9999955355).
+> Code-level remaining: settings-enforcement cluster (auto-hide/max-sub-spaces/
+> creation-role/google-indexing/cookie-consent/data-export/retention/notif-defaults),
+> digest-frequency + jetonomy-sync vestigial, appeals 404 (9999962752), suspension
+> already-lifted (9999962684), moderation-log REST (9999987490), bn-shell.css tokens.
+>
+> Prior cleared wave (reference): message gating 8595685 · social-7 settings 4245363
+> · comment @mention 6684924 · Reign left-panel 0d0ee25 · reactions c4cf41e · integrations e4b6663.
 
 Basecamp project **47683682**. Bugs column **9990191646** → Ready for Testing **9990094424**.
 Scope: **Bugs column ONLY** (Possible Bug / other columns out of scope).
