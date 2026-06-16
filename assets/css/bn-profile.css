@@ -713,7 +713,10 @@
 
 /* ── Hero card ─────────────────────────────────────────────────────────── */
 .bn-pf-hero {
-	overflow: hidden;
+	/* No overflow:hidden here — it would clip the absolutely-positioned
+	   More-Options dropdown (.bn-more-menu) that opens below the action row.
+	   The cover band (.bn-pf-cover) carries its own overflow:hidden for the
+	   cover image, so corner clipping is unaffected. */
 	padding: 0;
 }
 
