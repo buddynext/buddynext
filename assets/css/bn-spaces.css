@@ -128,7 +128,10 @@
 	position: relative;
 	height: 80px;
 	width: 100%;
-	overflow: hidden;
+	/* No overflow:hidden — the emblem (.bn-sd-card__emblem) is anchored to this
+	   cover and intentionally overhangs its bottom edge by var(--bn-s6). The
+	   card's own overflow:hidden still rounds the cover's top corners, so the
+	   gradient/image stays clipped to the card radius. */
 	background: var(--bn-accent-100);
 }
 
@@ -2703,7 +2706,9 @@ a.bn-sh-statpill:focus-visible {
 @media (max-width: 480px) {
 	/* Directory cards already 1col at 768; tighten card padding + stats. */
 	.bn-sd-card { padding: 0; }
-	.bn-sd-card__body { padding: var(--bn-s3); gap: var(--bn-s2); }
+	/* Keep the top padding large enough to clear the emblem's overhang
+	   (var(--bn-s6)); only the side/bottom padding tightens on small screens. */
+	.bn-sd-card__body { padding: var(--bn-s8) var(--bn-s3) var(--bn-s3); gap: var(--bn-s2); }
 
 	/* Filter row stacks: chips above, sort below. */
 	.bn-sd-filter-row {
