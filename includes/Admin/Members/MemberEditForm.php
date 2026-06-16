@@ -219,6 +219,9 @@ class MemberEditForm {
 								<input type="checkbox" id="bn-remove-avatar" name="bn_remove_avatar" value="1">
 								<?php esc_html_e( 'Remove current photo', 'buddynext' ); ?>
 							</label>
+							<p class="bn-edit-remove-note" id="bn-remove-avatar-note" role="status" hidden>
+								<?php esc_html_e( 'This profile photo will be removed when you save.', 'buddynext' ); ?>
+							</p>
 						<?php else : ?>
 							<div class="bn-avatar bn-avatar-initials bn-avatar-placeholder <?php echo esc_attr( MemberDisplay::get_avatar_color( $user_id ) ); ?>" aria-hidden="true">
 								<?php echo esc_html( MemberDisplay::get_initials( $wp_user->display_name ) ); ?>
@@ -245,6 +248,9 @@ class MemberEditForm {
 								<input type="checkbox" id="bn-remove-cover" name="bn_remove_cover" value="1">
 								<?php esc_html_e( 'Remove current cover', 'buddynext' ); ?>
 							</label>
+							<p class="bn-edit-remove-note" id="bn-remove-cover-note" role="status" hidden>
+								<?php esc_html_e( 'This cover photo will be removed when you save.', 'buddynext' ); ?>
+							</p>
 						<?php else : ?>
 							<p class="bn-edit-empty"><?php esc_html_e( 'No cover photo set.', 'buddynext' ); ?></p>
 						<?php endif; ?>

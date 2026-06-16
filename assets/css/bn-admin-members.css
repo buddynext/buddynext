@@ -345,6 +345,19 @@
 	margin-bottom: var(--bn-s2);
 }
 
+/* Pending-removal feedback: the preview dims while "Remove" is ticked, and the
+   note explains the change applies on save (members.js toggles both). */
+.bn-edit-media--removing {
+	opacity: 0.35;
+	filter: grayscale(1);
+}
+
+.bn-edit-remove-note {
+	font-size: var(--bn-text-xs);
+	color: var(--bn-danger);
+	margin: 0 0 var(--bn-s2);
+}
+
 .bn-edit-empty {
 	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-3);

@@ -321,6 +321,36 @@
 		} );
 	}
 
+	/**
+	 * Give the avatar/cover "Remove" toggles immediate visual feedback.
+	 *
+	 * Removal applies on save (the checkbox is read server-side), but until
+	 * then the preview stayed fully rendered, so ticking the box looked inert.
+	 * Dim the preview and reveal the pending-removal note while it is checked.
+	 */
+	function initRemoveMediaToggles() {
+		var toggles = [
+			{ box: 'bn-remove-avatar', preview: '.bn-avatar-preview', note: 'bn-remove-avatar-note' },
+			{ box: 'bn-remove-cover', preview: '.bn-cover-preview', note: 'bn-remove-cover-note' }
+		];
+		toggles.forEach( function ( t ) {
+			var box     = document.getElementById( t.box );
+			var preview = document.querySelector( t.preview );
+			var note    = document.getElementById( t.note );
+			if ( ! box || ! preview ) {
+				return;
+			}
+			function sync() {
+				preview.classList.toggle( 'bn-edit-media--removing', box.checked );
+				if ( note ) {
+					note.hidden = ! box.checked;
+				}
+			}
+			box.addEventListener( 'change', sync );
+			sync();
+		} );
+	}
+
 	function ready( fn ) {
 		if ( 'loading' === document.readyState ) {
 			document.addEventListener( 'DOMContentLoaded', fn );
@@ -335,5 +365,6 @@
 		initEditTabs();
 		initRepeaters();
 		initProfileFieldBuilder();
+		initRemoveMediaToggles();
 	} );
 }() );
