@@ -91,7 +91,11 @@ class JetonomyBridgeListener implements ListenerInterface {
 	 * @param string $message         Ready-to-display message.
 	 * @param string $url             Deep link to the content.
 	 */
-	public function on_notification( int $notification_id, int $user_id, string $type, string $object_type, int $object_id, string $message, string $url ): void {
+	public function on_notification( int $notification_id, int $user_id, string $type, string $object_type, int $object_id, string $message = '', string $url = '' ): void {
+		// $message and $url are optional: current Jetonomy fires this hook with 7
+		// args (message + deep link appended), but older/other firing sites pass
+		// only 5. Defaulting them avoids the ArgumentCountError that 500'd reply
+		// creation, while still honouring the real values when they are supplied.
 		if ( $user_id <= 0 || '' === $message || ! function_exists( 'buddynext_service' ) ) {
 			return;
 		}

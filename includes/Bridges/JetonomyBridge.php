@@ -124,12 +124,16 @@ class JetonomyBridge {
 				/**
 				 * Fires when a user is @mentioned in a Jetonomy forum post.
 				 *
-				 * @param int    $mentioned_user_id ID of the user who was mentioned.
-				 * @param int    $author_id         ID of the user who wrote the post.
-				 * @param string $context           Context slug identifying the mention source.
-				 * @param int    $post_id           Jetonomy post ID containing the mention.
+				 * Matches NotificationListener::on_user_mentioned( int, int, int ):
+				 * the third argument is the context id (the post the mention is in),
+				 * not a context slug — passing a string here threw a TypeError and
+				 * 500'd the reply/post request.
+				 *
+				 * @param int $mentioned_user_id ID of the user who was mentioned.
+				 * @param int $mentioner_id      ID of the user who wrote the post.
+				 * @param int $context_id        Jetonomy post ID containing the mention.
 				 */
-				do_action( 'buddynext_user_mentioned', $mentioned_user->ID, $author_id, 'jetonomy_post', $post_id );
+				do_action( 'buddynext_user_mentioned', $mentioned_user->ID, $author_id, $post_id );
 			}
 		}
 
