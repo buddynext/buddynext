@@ -52,6 +52,10 @@ class CronService {
 	 * @return void
 	 */
 	public function handle_daily_digest(): void {
+		if ( $this->digests_disabled() ) {
+			return;
+		}
+
 		$template = $this->get_email_template( 'bn.daily_digest' );
 		if ( null === $template || ! (bool) $template->enabled ) {
 			return;
@@ -92,6 +96,10 @@ class CronService {
 	 * @return void
 	 */
 	public function handle_weekly_digest(): void {
+		if ( $this->digests_disabled() ) {
+			return;
+		}
+
 		$template = $this->get_email_template( 'bn.weekly_digest' );
 		if ( null === $template || ! (bool) $template->enabled ) {
 			return;
@@ -117,6 +125,20 @@ class CronService {
 				$this->log_digest( $user_id, 'bn.weekly_digest' );
 			}
 		}
+	}
+
+	/**
+	 * Whether digest emails are switched off site-wide.
+	 *
+	 * The Settings → Notifications → "Digest frequency" master switch
+	 * (buddynext_digest_frequency). 'never' disables every digest run; any other
+	 * value leaves digests on, with each user's own email_freq deciding whether
+	 * they receive the daily or weekly digest.
+	 *
+	 * @return bool
+	 */
+	private function digests_disabled(): bool {
+		return 'never' === (string) get_option( 'buddynext_digest_frequency', 'weekly' );
 	}
 
 	// ── Token cleanup ─────────────────────────────────────────────────────────
