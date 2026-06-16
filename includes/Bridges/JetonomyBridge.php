@@ -134,11 +134,14 @@ class JetonomyBridge {
 		}
 
 		// Engagement: publish a feed activity (a link card to the discussion on
-		// Jetonomy). Filterable to disable per site/post. Goes through the shared
-		// IntegrationActivity helper → bn_posts (type link) → the feed REST, so
-		// the app gets it too. Replaces the old raw-SQL forum_post sync that used
-		// an invalid feed type and a wrong get_permalink() on a jt_posts id.
-		if ( (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
+		// Jetonomy). Gated by the Integrations → "Jetonomy Feed Sync" setting
+		// (the site-wide master switch), then filterable to disable per site/post.
+		// Goes through the shared IntegrationActivity helper → bn_posts (type link)
+		// → the feed REST, so the app gets it too. Replaces the old raw-SQL
+		// forum_post sync that used an invalid feed type and a wrong
+		// get_permalink() on a jt_posts id.
+		if ( (bool) get_option( 'buddynext_jetonomy_feed_sync', false )
+			&& (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
 			$url = $this->discussion_url( $post_id, $space_id );
 			if ( '' !== $url ) {
 				IntegrationActivity::publish( $author_id, __( 'started a discussion', 'buddynext' ), $url, $title );
