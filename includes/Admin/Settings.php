@@ -902,12 +902,35 @@ class Settings extends AdminPageBase {
 			__( 'Controls who can create a new account on your community.', 'buddynext' )
 		);
 
-		$this->render_toggle_row(
-			'buddynext_email_verify',
-			__( 'Require email verification', 'buddynext' ),
-			__( 'New registrations must verify their email before accessing the community.', 'buddynext' ),
-			(bool) get_option( 'buddynext_email_verify', false )
-		);
+		// The "Require email verification" sub-toggle only has any effect when the
+		// Email Verification feature is enabled on the Features tab. When the
+		// feature is off, hide the toggle (it would be saved but silently ignored)
+		// and point the admin to where the master switch lives.
+		$bn_features        = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
+		$bn_verification_on = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'verification' );
+		if ( $bn_verification_on ) {
+			$this->render_toggle_row(
+				'buddynext_email_verify',
+				__( 'Require email verification', 'buddynext' ),
+				__( 'New registrations must verify their email before accessing the community.', 'buddynext' ),
+				(bool) get_option( 'buddynext_email_verify', false )
+			);
+		} else {
+			$bn_features_url = add_query_arg(
+				array(
+					'page' => 'buddynext',
+					'tab'  => 'features',
+				),
+				admin_url( 'admin.php' )
+			);
+			echo '<p class="bn-field-hint">' . wp_kses_post(
+				sprintf(
+					/* translators: %s: link to the Features settings tab */
+					__( 'Email verification is turned off under %s. Enable the Email Verification feature there to require it for new registrations.', 'buddynext' ),
+					'<a href="' . esc_url( $bn_features_url ) . '">' . esc_html__( 'Features', 'buddynext' ) . '</a>'
+				)
+			) . '</p>';
+		}
 
 		$this->close_section();
 
