@@ -80,6 +80,7 @@ class Installer {
 
 		self::seed_email_templates( $wpdb->prefix );
 		self::seed_default_profile_groups_and_fields( $wpdb->prefix );
+		self::seed_default_space( $wpdb->prefix );
 
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
@@ -273,6 +274,77 @@ class Installer {
 			);
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Seed one starter "Open Discussion" space on a fresh install.
+	 *
+	 * A fresh site otherwise has zero spaces, so the Spaces directory is empty
+	 * and the feature looks broken on first run. Seed a single open space owned
+	 * by the first administrator, with that admin as its active owner-member.
+	 *
+	 * Only runs when no spaces exist, so it never re-creates a space an admin
+	 * later removed (no persistent flag needed — the empty-table check is the
+	 * gate).
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function seed_default_space( string $p ): void {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$existing_spaces = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$p}bn_spaces`" );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $existing_spaces > 0 ) {
+			return;
+		}
+
+		$admins = get_users(
+			array(
+				'role'    => 'administrator',
+				'number'  => 1,
+				'orderby' => 'ID',
+				'order'   => 'ASC',
+				'fields'  => 'ID',
+			)
+		);
+		$owner  = (int) ( $admins[0] ?? 0 );
+		if ( $owner <= 0 ) {
+			return;
+		}
+
+		$now = current_time( 'mysql', true );
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$p . 'bn_spaces',
+			array(
+				'name'         => 'Open Discussion',
+				'slug'         => 'open-discussion',
+				'description'  => 'A community space for open conversation.',
+				'type'         => 'open',
+				'owner_id'     => $owner,
+				'member_count' => 1,
+				'created_at'   => $now,
+			),
+			array( '%s', '%s', '%s', '%s', '%d', '%d', '%s' )
+		);
+
+		$space_id = (int) $wpdb->insert_id;
+		if ( $space_id > 0 ) {
+			$wpdb->insert(
+				$p . 'bn_space_members',
+				array(
+					'space_id'  => $space_id,
+					'user_id'   => $owner,
+					'role'      => 'owner',
+					'status'    => 'active',
+					'joined_at' => $now,
+				),
+				array( '%d', '%d', '%s', '%s', '%s' )
+			);
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	/**
