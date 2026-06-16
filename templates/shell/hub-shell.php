@@ -56,12 +56,22 @@ $bn_shell_classes = 'bn-app__shell';
 if ( $show_right_sidebar ) {
 	$bn_shell_classes .= ' bn-app__shell--with-sidebar';
 }
+
+// "Show community navigation" toggle (Settings → default on). When off, the
+// owner has opted to drive navigation entirely from the host theme menus, so
+// BuddyNext renders neither the left rail nor the mobile bottom tab bar.
+$bn_community_nav = buddynext_community_nav_enabled();
+if ( ! $bn_community_nav ) {
+	$bn_shell_classes .= ' bn-app__shell--no-nav';
+}
 ?>
 <div class="bn-app" id="bn-app" data-bn-hub="<?php echo esc_attr( $hub ); ?>">
 
 	<div class="<?php echo esc_attr( $bn_shell_classes ); ?>">
 
-		<?php buddynext_get_template( 'shell/rail.php', array( 'hub' => $hub ) ); ?>
+		<?php if ( $bn_community_nav ) : ?>
+			<?php buddynext_get_template( 'shell/rail.php', array( 'hub' => $hub ) ); ?>
+		<?php endif; ?>
 
 		<main class="bn-app__main" id="bn-main-content" tabindex="-1">
 			<?php
@@ -76,6 +86,8 @@ if ( $show_right_sidebar ) {
 
 	</div>
 
-	<?php buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => '' ) ); ?>
+	<?php if ( $bn_community_nav ) : ?>
+		<?php buddynext_get_template( 'partials/nav.php', array( 'bn_nav_active' => '' ) ); ?>
+	<?php endif; ?>
 
 </div>

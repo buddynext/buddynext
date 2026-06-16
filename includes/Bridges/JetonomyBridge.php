@@ -291,7 +291,11 @@ class JetonomyBridge {
 
 		wp_enqueue_style( 'bn-base' );
 
-		buddynext_get_template( 'partials/nav.php' );
+		// Honour the "Show community navigation" setting — when off, BuddyNext
+		// adds no nav chrome to host-plugin pages.
+		if ( function_exists( 'buddynext_community_nav_enabled' ) && buddynext_community_nav_enabled() ) {
+			buddynext_get_template( 'partials/nav.php' );
+		}
 		echo '<div class="bn-jt-content">';
 	}
 

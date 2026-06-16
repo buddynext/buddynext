@@ -323,6 +323,21 @@ function buddynext_get_icon( string $name, string $css_class = '' ): string {
 }
 
 /**
+ * Whether the site owner has the BuddyNext community navigation enabled.
+ *
+ * Controlled by the "Show community navigation" setting
+ * (buddynext_enable_community_nav, default on). When off, BuddyNext stops
+ * rendering its own navigation chrome (hub-shell left rail, mobile tab bar,
+ * bridge-added nav items) and the MenuRenderer also stops injecting BN items
+ * into the host theme menus.
+ *
+ * @return bool True when community navigation should render.
+ */
+function buddynext_community_nav_enabled(): bool {
+	return (bool) get_option( 'buddynext_enable_community_nav', true );
+}
+
+/**
  * Echo a Microsoft Fluent reaction emoji inline.
  *
  * Reads the SVG from `assets/emoji/<slug>.svg` and emits an `<img>` tag
