@@ -308,15 +308,16 @@ $mem_privacy = array(
 				$member_url    = PageRouter::profile_url( $member_id );
 				$role_meta     = bn_space_role_meta( $member_role );
 
-				// Format joined date.
+				// Format joined date. joined_at is stored in UTC; convert to the
+				// site's configured timezone for display via get_date_from_gmt().
 				$joined_formatted = '';
 				if ( ! empty( $member->joined_at ) ) {
-					$joined_ts        = strtotime( $member->joined_at );
-					$joined_formatted = $joined_ts
+					$joined_local     = get_date_from_gmt( (string) $member->joined_at, (string) get_option( 'date_format' ) );
+					$joined_formatted = '' !== $joined_local
 						? sprintf(
 							/* translators: %s: human-readable date */
 							__( 'Joined %s', 'buddynext' ),
-							date_i18n( get_option( 'date_format' ), $joined_ts )
+							$joined_local
 						)
 						: '';
 				}

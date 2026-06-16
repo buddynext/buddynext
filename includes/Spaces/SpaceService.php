@@ -208,11 +208,12 @@ class SpaceService {
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_space_members',
 			array(
-				'space_id' => $space_id,
-				'user_id'  => $owner_id,
-				'role'     => 'owner',
+				'space_id'  => $space_id,
+				'user_id'   => $owner_id,
+				'role'      => 'owner',
+				'joined_at' => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s' )
+			array( '%d', '%d', '%s', '%s' )
 		);
 
 		/**

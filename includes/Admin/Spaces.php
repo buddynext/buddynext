@@ -257,10 +257,11 @@ class Spaces extends AdminPageBase {
 						<?php else : ?>
 							<?php foreach ( $spaces as $space ) : ?>
 								<?php
+								// created_at is stored in UTC; convert to the site timezone
+								// for display (mysql2date would print the raw UTC value).
 								$owner    = get_userdata( $space['owner_id'] );
-								$created  = mysql2date( (string) get_option( 'date_format' ), (string) $space['created_at'] );
+								$created  = get_date_from_gmt( (string) $space['created_at'], (string) get_option( 'date_format' ) );
 								$type_key = sanitize_key( (string) $space['type'] );
-
 								$tone     = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( $type_key );
 								?>
 								<tr>
@@ -384,8 +385,8 @@ class Spaces extends AdminPageBase {
 				// slug was typed, otherwise a blank slug was stored/skipped.
 				$raw_slug = sanitize_text_field( wp_unslash( $_POST['cat_slug'] ?? '' ) );
 				$slug     = sanitize_title( '' !== $raw_slug ? $raw_slug : $name );
-				$desc = sanitize_textarea_field( wp_unslash( $_POST['cat_description'] ?? '' ) );
-				$ord  = absint( wp_unslash( $_POST['cat_sort_order'] ?? 0 ) );
+				$desc     = sanitize_textarea_field( wp_unslash( $_POST['cat_description'] ?? '' ) );
+				$ord      = absint( wp_unslash( $_POST['cat_sort_order'] ?? 0 ) );
 
 				// Ensure unique slug.
 				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
