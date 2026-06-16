@@ -563,7 +563,9 @@ class Settings extends AdminPageBase {
 		if ( ! is_array( $raw ) ) {
 			return $out;
 		}
-		foreach ( array( 'google', 'facebook' ) as $id ) {
+		// Iterate the same provider list the form renders (get_providers()) so a
+		// provider can never be dropped on save by drifting from a hardcoded list.
+		foreach ( array_keys( \BuddyNext\Auth\SocialLogin::get_providers() ) as $id ) {
 			$p          = isset( $raw[ $id ] ) && is_array( $raw[ $id ] ) ? $raw[ $id ] : array();
 			$out[ $id ] = array(
 				'enabled'       => ! empty( $p['enabled'] ),
