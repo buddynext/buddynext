@@ -1870,6 +1870,17 @@ button.bn-btn-danger:hover {
 	.bn-feature-row { flex-direction: column; }
 	.bn-feature-row__toggle { align-self: flex-end; }
 }
+/* Webhook "Events to forward" rows — each checkbox label sits on its own line
+   but only spans its own content width, so clicking whitespace beside it no
+   longer toggles the checkbox (was display:block, full fieldset width). */
+.bn-webhook-event-row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	width: fit-content;
+	margin-bottom: var(--bn-s1);
+}
+
 /* Endpoint row code element — the URL inside the webhook table. */
 .bn-ep-code {
 	font-family: var(--bn-font-mono, ui-monospace, SFMono-Regular, monospace);

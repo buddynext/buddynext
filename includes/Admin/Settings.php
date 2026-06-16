@@ -1837,7 +1837,7 @@ class Settings extends AdminPageBase {
 			<fieldset class="bn-field" <?php echo $at_limit ? 'disabled' : ''; ?>>
 				<legend><?php esc_html_e( 'Events to forward', 'buddynext' ); ?></legend>
 				<?php foreach ( $catalogue as $slug => $label ) : ?>
-					<label style="display:block;margin-bottom:4px;">
+					<label class="bn-webhook-event-row">
 						<input type="checkbox"
 							value="<?php echo esc_attr( $slug ); ?>"
 							data-bn-webhook-event
