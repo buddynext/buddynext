@@ -328,10 +328,12 @@
 	transition: background var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
 }
 
-.bn-post-card__menu-item:hover { background: var(--bn-sunken); }
+.bn-post-card__menu-item:hover,
+.bn-post-card__menu-item:focus { background: var(--bn-sunken); color: var(--bn-ink); }
 .bn-post-card__menu-item:focus-visible { outline: 2px solid transparent; box-shadow: inset 0 0 0 2px var(--bn-accent); }
 .bn-post-card__menu-item--danger { color: var(--bn-danger); }
-.bn-post-card__menu-item--danger:hover { background: var(--bn-danger-bg); }
+.bn-post-card__menu-item--danger:hover,
+.bn-post-card__menu-item--danger:focus { background: var(--bn-danger-bg); color: var(--bn-danger); }
 
 /* Content warning overlay — replaces the body until the user clicks "Show anyway". */
 .bn-post-card__cw-overlay {
@@ -749,9 +751,14 @@
 	stroke-width: 1.75;
 }
 
-.bn-post-card__action-btn:hover {
+.bn-post-card__action-btn:hover,
+.bn-post-card__action-btn:focus {
 	color: var(--bn-accent);
 	background: var(--bn-sunken);
+	/* Lock geometry so the host theme's button:hover/:focus (border / padding)
+	   can't resize the pill and shift the row — that was the hover glitch. */
+	padding: 6px 14px;
+	border: 0;
 }
 
 .bn-post-card__action-btn:focus-visible {
