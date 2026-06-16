@@ -89,6 +89,14 @@ abstract class AdminPageBase {
 	/**
 	 * Render a horizontal tab bar.
 	 *
+	 * Each tab carries the full WAI-ARIA tab semantics: a stable `id`
+	 * (`bn-tab-{slug}`), `aria-selected` reflecting the active state, and
+	 * `aria-controls` pointing at its panel (`bn-panel-{slug}`). The matching
+	 * panel wrapper is emitted by open_tab_panel() / close_tab_panel() around
+	 * the active tab's content so screen readers announce the active tab and
+	 * its associated region. Tabs are links (full page reload), so no JS
+	 * roving-tabindex is needed.
+	 *
 	 * @param array<string, string> $tabs       Slug → label map.
 	 * @param string                $active_tab Currently active tab slug.
 	 * @param string                $base_url   Base URL for ?tab= links.
@@ -97,14 +105,52 @@ abstract class AdminPageBase {
 	protected function render_tab_bar( array $tabs, string $active_tab, string $base_url ): void {
 		?>
 		<div class="bn-admin-tabs" role="tablist">
-			<?php foreach ( $tabs as $slug => $label ) : ?>
+			<?php
+			foreach ( $tabs as $slug => $label ) :
+				$is_active = ( $slug === $active_tab );
+				?>
 				<a href="<?php echo esc_url( add_query_arg( 'tab', $slug, $base_url ) ); ?>"
-					class="bn-atab<?php echo $slug === $active_tab ? ' active' : ''; ?>"
-					role="tab">
+					class="bn-atab<?php echo $is_active ? ' active' : ''; ?>"
+					id="bn-tab-<?php echo esc_attr( $slug ); ?>"
+					role="tab"
+					aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
+					aria-controls="bn-panel-<?php echo esc_attr( $slug ); ?>">
 					<?php echo esc_html( $label ); ?>
 				</a>
 			<?php endforeach; ?>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Open the active tab's content panel.
+	 *
+	 * Wraps the active tab's body in a `role="tabpanel"` region linked back to
+	 * its tab via `aria-labelledby="bn-tab-{slug}"`. `tabindex="0"` makes the
+	 * panel keyboard-focusable per the WAI-ARIA tabs pattern. Must be closed
+	 * with a matching close_tab_panel() call.
+	 *
+	 * @param string $active_tab Currently active tab slug.
+	 * @return void
+	 */
+	protected function open_tab_panel( string $active_tab ): void {
+		?>
+		<div class="bn-admin-tabpanel"
+			id="bn-panel-<?php echo esc_attr( $active_tab ); ?>"
+			role="tabpanel"
+			aria-labelledby="bn-tab-<?php echo esc_attr( $active_tab ); ?>"
+			tabindex="0">
+		<?php
+	}
+
+	/**
+	 * Close the active tab's content panel opened by open_tab_panel().
+	 *
+	 * @return void
+	 */
+	protected function close_tab_panel(): void {
+		?>
+		</div><!-- .bn-admin-tabpanel -->
 		<?php
 	}
 

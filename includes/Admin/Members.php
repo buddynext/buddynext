@@ -749,6 +749,7 @@ class Members extends AdminPageBase {
 		}
 
 		$this->render_tab_bar( $bn_tabs, $active_tab, $base_url );
+		$this->open_tab_panel( $active_tab );
 
 		if ( 'profile-fields' === $active_tab ) {
 			( new \BuddyNext\Admin\Members\ProfileFieldsManager() )->render_profile_fields_tab();
@@ -763,6 +764,8 @@ class Members extends AdminPageBase {
 		} else {
 			$this->render_members_tab();
 		}
+
+		$this->close_tab_panel();
 	}
 
 	// ── Tab renderers ──────────────────────────────────────────────────────────

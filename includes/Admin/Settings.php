@@ -516,6 +516,7 @@ class Settings extends AdminPageBase {
 		</div>
 		<?php
 		$this->render_tab_bar( $tabs, $active_tab, $base_url );
+		$this->open_tab_panel( $active_tab );
 		?>
 		<form method="post" action="options.php">
 			<?php settings_fields( 'buddynext' ); ?>
@@ -523,6 +524,7 @@ class Settings extends AdminPageBase {
 			<?php $this->render_save_bar(); ?>
 		</form>
 		<?php
+		$this->close_tab_panel();
 	}
 
 	// ── Tab renderers ─────────────────────────────────────────────────────────
