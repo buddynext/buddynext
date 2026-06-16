@@ -1616,6 +1616,18 @@ class ModerationService {
 			ARRAY_A
 		);
 
+		// The appeal must exist. Without this guard, $wpdb->update() below returns
+		// 0 (no rows matched) which the false-only error check treats as success,
+		// so the endpoint returned 200 and fired buddynext_appeal_resolved with
+		// user_id=0 for a non-existent appeal. Bail with 404 instead.
+		if ( null === $appeal ) {
+			return new WP_Error(
+				'appeal_not_found',
+				__( 'Appeal not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		$user_id       = isset( $appeal['user_id'] ) ? (int) $appeal['user_id'] : 0;
 		$suspension_id = isset( $appeal['suspension_id'] ) ? (int) $appeal['suspension_id'] : 0;
 
