@@ -83,7 +83,7 @@ $args = (array) apply_filters(
 
 do_action( 'buddynext_part_composer_before', $args );
 
-$default_privacy = $composer_space ? 'space_members' : 'public';
+$default_privacy = $composer_space ? 'space_members' : (string) get_option( 'buddynext_default_post_privacy', 'public' );
 ?>
 <div class="bn-composer"
 	data-wp-interactive="buddynext/post-composer"

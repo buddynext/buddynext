@@ -1591,6 +1591,9 @@ store( 'buddynext/post-composer', {
 		get eventOpen() {
 			try { return !! getContext().eventOpen; } catch ( _e ) { return false; }
 		},
+		get privacyOpen() {
+			try { return !! getContext().privacyOpen; } catch ( _e ) { return false; }
+		},
 		get hasMedia() {
 			try { return ( getContext().mediaIds || [] ).length > 0; } catch ( _e ) { return false; }
 		},

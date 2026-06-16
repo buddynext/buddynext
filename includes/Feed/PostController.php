@@ -115,7 +115,7 @@ class PostController extends BaseRestController {
 		$data = array(
 			'type'                 => sanitize_key( $request->get_param( 'type' ) ?? 'text' ),
 			'content'              => wp_kses_post( (string) ( $request->get_param( 'content' ) ?? '' ) ),
-			'privacy'              => sanitize_key( $request->get_param( 'privacy' ) ?? 'public' ),
+			'privacy'              => null !== $request->get_param( 'privacy' ) ? sanitize_key( (string) $request->get_param( 'privacy' ) ) : null,
 			'space_id'             => $request->get_param( 'space_id' ) ? (int) $request->get_param( 'space_id' ) : null,
 			'media_ids'            => $request->get_param( 'media_ids' ),
 			'link_url'             => $this->parse_link_url( $request ),
