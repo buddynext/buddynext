@@ -317,19 +317,42 @@ class DemoDataService {
 				'author' => $author_id,
 			);
 
-			// 1–3 comments from other members.
-			$comment_count = 1 + ( $i % 3 );
-			for ( $c = 0; $c < $comment_count; $c++ ) {
-				$commenter = $user_ids[ ( $i + $c + 1 ) % count( $user_ids ) ];
+			// Engagement varies per post so Top/Active sorts have something to
+			// rank: most posts get a few, some are busy, a couple are quiet —
+			// reactions are capped at the member count (one reaction per member).
+			$bn_nu        = count( $user_ids );
+			$bn_busy      = ( 0 === $i % 4 );
+			$bn_quiet     = ( 0 === $i % 5 );
+			$bn_comment_n = $bn_quiet ? 0 : ( $bn_busy ? 4 : 1 + ( $i % 2 ) );
+			$bn_react_n   = $bn_quiet ? 0 : min( $bn_nu, $bn_busy ? 6 : 2 + ( $i % 3 ) );
+
+			for ( $c = 0; $c < $bn_comment_n; $c++ ) {
+				$commenter = $user_ids[ ( $i + $c + 1 ) % $bn_nu ];
 				$comments->create( $commenter, 'post', $post_id, self::COMMENTS[ ( $i + $c ) % count( self::COMMENTS ) ] );
 			}
-
-			// A spread of reactions from several members.
-			$react_count = 2 + ( $i % 4 );
-			for ( $r = 0; $r < $react_count; $r++ ) {
-				$reactor = $user_ids[ ( $i + $r + 2 ) % count( $user_ids ) ];
+			for ( $r = 0; $r < $bn_react_n; $r++ ) {
+				$reactor = $user_ids[ ( $i + $r + 2 ) % $bn_nu ];
 				$reactions->react( $reactor, 'post', $post_id, self::REACTIONS[ ( $i + $r ) % count( self::REACTIONS ) ] );
 			}
+
+			// Spread posts across the last ~30 days, and set last_activity_at so
+			// "Latest" and "Active" orderings differ: busy posts read as recently
+			// active; quiet ones stay at their post time. Active offset is never
+			// larger than the post age, so last_activity_at >= created_at.
+			global $wpdb;
+			$bn_age_min      = ( $i * 211 ) % 43200;
+			$bn_active_min   = $bn_busy ? min( $bn_age_min, ( $i * 37 ) % 720 ) : $bn_age_min;
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->update(
+				$wpdb->prefix . 'bn_posts',
+				array(
+					'created_at'       => gmdate( 'Y-m-d H:i:s', time() - $bn_age_min * 60 ),
+					'last_activity_at' => gmdate( 'Y-m-d H:i:s', time() - $bn_active_min * 60 ),
+				),
+				array( 'id' => $post_id ),
+				array( '%s', '%s' ),
+				array( '%d' )
+			);
 		}
 		$say( sprintf( 'Created %d posts.', count( $post_ids ) ) );
 
