@@ -155,7 +155,8 @@ class CommentService {
 				}
 				$bn_notified[ $bn_username ] = true;
 				$bn_mentioned                = get_user_by( 'login', $bn_username );
-				if ( $bn_mentioned instanceof \WP_User && $bn_mentioned->ID !== $user_id ) {
+				if ( $bn_mentioned instanceof \WP_User && $bn_mentioned->ID !== $user_id
+					&& $this->mention_allowed( $user_id, (int) $bn_mentioned->ID ) ) {
 					/** This action is documented in includes/Feed/PostService.php */
 					do_action( 'buddynext_user_mentioned', $bn_mentioned->ID, $user_id, $object_id );
 				}
@@ -182,6 +183,24 @@ class CommentService {
 		}
 
 		return $comment_id;
+	}
+
+	/**
+	 * Whether an actor may @mention a target, honouring the target's
+	 * `bn_privacy_mention` audience preference. Mirrors PostService so a comment
+	 * mention obeys the same gate as a post mention. Fails open if the privacy
+	 * service is unavailable.
+	 *
+	 * @param int $actor_id  Comment author.
+	 * @param int $target_id Mentioned user.
+	 * @return bool
+	 */
+	private function mention_allowed( int $actor_id, int $target_id ): bool {
+		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+		if ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) {
+			return $privacy->can_mention( $actor_id, $target_id );
+		}
+		return true;
 	}
 
 	/**

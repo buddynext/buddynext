@@ -263,7 +263,8 @@ class PostService {
 			foreach ( $mention_matches[1] as $raw_username ) {
 				$username       = sanitize_user( (string) $raw_username, true );
 				$mentioned_user = get_user_by( 'login', $username );
-				if ( $mentioned_user instanceof \WP_User && $mentioned_user->ID !== $user_id ) {
+				if ( $mentioned_user instanceof \WP_User && $mentioned_user->ID !== $user_id
+					&& $this->mention_allowed( $user_id, (int) $mentioned_user->ID ) ) {
 					/**
 					 * Fires when a user is @mentioned in a BuddyNext post.
 					 *
@@ -277,6 +278,23 @@ class PostService {
 		}
 
 		return $post_id;
+	}
+
+	/**
+	 * Whether an actor may @mention a target, honouring the target's
+	 * `bn_privacy_mention` audience preference (everyone / members /
+	 * connections / nobody). Fails open if the privacy service is unavailable.
+	 *
+	 * @param int $actor_id  Author writing the mention.
+	 * @param int $target_id Mentioned user.
+	 * @return bool
+	 */
+	private function mention_allowed( int $actor_id, int $target_id ): bool {
+		$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+		if ( $privacy instanceof \BuddyNext\SocialGraph\PrivacyService ) {
+			return $privacy->can_mention( $actor_id, $target_id );
+		}
+		return true;
 	}
 
 	/**

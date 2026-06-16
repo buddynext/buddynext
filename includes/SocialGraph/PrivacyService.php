@@ -171,6 +171,40 @@ class PrivacyService {
 	}
 
 	/**
+	 * Check whether an actor may @mention a target user (i.e. trigger the
+	 * mention notification + link). Honours the target's `bn_privacy_mention`
+	 * audience preference:
+	 *   - 'everyone'    — anyone may mention them (default).
+	 *   - 'members'     — any logged-in member may (every poster qualifies).
+	 *   - 'connections' — only accepted connections may.
+	 *   - 'nobody'      — no one may.
+	 * Blocked actors are always denied.
+	 *
+	 * @param int $actor_id  ID of the user writing the mention.
+	 * @param int $target_id ID of the mentioned user.
+	 * @return bool
+	 */
+	public function can_mention( int $actor_id, int $target_id ): bool {
+		if ( $actor_id === $target_id ) {
+			return true;
+		}
+		if ( $this->blocks->is_blocked( $target_id, $actor_id ) ) {
+			return false;
+		}
+
+		switch ( $this->get_preference( $target_id, 'mention' ) ) {
+			case 'nobody':
+				return false;
+			case 'connections':
+				return $this->connections->are_connected( $actor_id, $target_id );
+			case 'members':
+			case 'everyone':
+			default:
+				return true;
+		}
+	}
+
+	/**
 	 * Check whether a viewer can view a user's profile.
 	 *
 	 * Users can always view their own profile. Otherwise:
