@@ -93,7 +93,8 @@ $settings_tab = isset( $_GET['bn_stab'] ) ? sanitize_key( wp_unslash( $_GET['bn_
 
 // ── Handle saved settings (POST) ─────────────────────────────────────────────
 
-$save_notice = '';
+$save_notice        = '';
+$save_error_message = '';
 
 // sanitize_key() lowercases, so uppercase the result before comparing against
 // 'POST' — otherwise every POST handler below is skipped and saves are dropped.
@@ -292,8 +293,11 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_members_nonce'] ) ) {
 				$remove_result = $member_service->remove( $space_id, $target_user, $acting_user_id );
 				$save_notice   = ( ! is_wp_error( $remove_result ) ) ? 'success' : 'error';
 			} elseif ( $target_user && 'ban' === $member_action ) {
-				$ban_result  = $member_service->ban( $space_id, $target_user, $acting_user_id );
+				$ban_result  = $member_service->ban( $space_id, $acting_user_id, $target_user );
 				$save_notice = ( ! is_wp_error( $ban_result ) ) ? 'success' : 'error';
+				if ( is_wp_error( $ban_result ) ) {
+					$save_error_message = $ban_result->get_error_message();
+				}
 			} elseif ( 'invite' === $member_action ) {
 				$invite_identifier = isset( $_POST['invite_identifier'] ) ? sanitize_text_field( wp_unslash( $_POST['invite_identifier'] ) ) : '';
 				if ( $invite_identifier ) {
@@ -303,6 +307,9 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_members_nonce'] ) ) {
 					if ( $invite_user ) {
 						$invite_result = $member_service->invite( $space_id, $acting_user_id, $invite_user->ID );
 						$save_notice   = ( ! is_wp_error( $invite_result ) ) ? 'success' : 'error';
+						if ( is_wp_error( $invite_result ) ) {
+							$save_error_message = $invite_result->get_error_message();
+						}
 					} else {
 						$save_notice = 'error';
 					}
@@ -347,8 +354,8 @@ $settings_base = buddynext_space_settings_url( $space->slug ?? '' );
 
 // Privacy badge tone for the hero. Labels resolve via SpaceService::type_label()
 // so the wording stays in lockstep with the directory + space home + Pro tabs.
-$privacy_tone     = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( (string) ( $space->type ?? 'open' ) );
-$privacy_label    = \BuddyNext\Spaces\SpaceService::type_label( (string) ( $space->type ?? 'open' ) );
+$privacy_tone  = \BuddyNext\Spaces\SpaceTypeRegistry::instance()->tone( (string) ( $space->type ?? 'open' ) );
+$privacy_label = \BuddyNext\Spaces\SpaceService::type_label( (string) ( $space->type ?? 'open' ) );
 
 // ── Tab registry ─────────────────────────────────────────────────────────────
 // Built-in tabs. Row shape `{ slug, label, icon, cap, panel }` is the seam
@@ -498,7 +505,13 @@ foreach ( $builtin_tabs as $bn_t ) {
 		<?php elseif ( 'error' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="danger" role="alert">
 				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'alert-triangle' ); ?></span>
-				<?php esc_html_e( 'Security check failed. Please try again.', 'buddynext' ); ?>
+				<?php
+				if ( '' !== $save_error_message ) {
+					echo esc_html( $save_error_message );
+				} else {
+					esc_html_e( 'Security check failed. Please try again.', 'buddynext' );
+				}
+				?>
 			</div>
 		<?php endif; ?>
 
