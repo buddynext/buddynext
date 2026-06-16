@@ -66,7 +66,7 @@ class WPMediaVerseBridge {
 		// NOTE: BuddyNext consumes WPMediaVerse at the REST/API level ONLY and
 		// owns 100% of its own UX — WPMediaVerse JS/CSS is never enqueued on
 		// BuddyNext pages. (The former enqueue_lightbox() loaded a now-removed
-		// mvs asset and 404'd; BN renders its own media + lightbox.)
+		// mvs asset and 404'd; BN renders its own media + lightbox).
 
 		// Sync MVS lightbox comments → BuddyNext activity comments.
 		// When a user comments on a photo via the lightbox, create a matching
@@ -408,7 +408,8 @@ class WPMediaVerseBridge {
 				'content'     => wp_kses_post( $comment->comment_content ),
 				'parent_id'   => 0,
 				'created_at'  => $now,
-			)
+			),
+			array( '%s', '%d', '%d', '%s', '%d', '%s' )
 		);
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

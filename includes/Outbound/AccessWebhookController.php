@@ -330,7 +330,8 @@ class AccessWebhookController {
 				'user_id' => $user_id,
 				'payload' => wp_json_encode( $body ),
 				'status'  => $status,
-			)
+			),
+			array( '%s', '%s', '%d', '%s', '%s' )
 		);
 	}
 }

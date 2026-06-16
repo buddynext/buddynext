@@ -774,7 +774,7 @@ class ModerationService {
 				'hide_posts'    => $hide_posts,
 				'expires_at'    => $expires_at,
 			),
-			array( '%d', '%d', '%s', $duration_days ? '%d' : 'NULL', '%d', $expires_at ? '%s' : 'NULL' )
+			array( '%d', '%d', '%s', '%d', '%d', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -1449,7 +1449,7 @@ class ModerationService {
 				'expires_at'   => $expires_at,
 				'hide_posts'   => $hide_content ? 1 : 0,
 			),
-			array( '%d', $suspended_by > 0 ? '%d' : 'NULL', '%s', $expires_at ? '%s' : 'NULL', '%d' )
+			array( '%d', '%d', '%s', '%s', '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -1691,7 +1691,7 @@ class ModerationService {
 				'resolved_at' => current_time( 'mysql' ),
 			),
 			array( 'id' => $appeal_id ),
-			array( '%s', '%s', $resolved_by > 0 ? '%d' : 'NULL', '%s' ),
+			array( '%s', '%s', '%d', '%s' ),
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
