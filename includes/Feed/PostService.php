@@ -228,8 +228,12 @@ class PostService {
 				// as UTC — a local-time default produced a negative diff that the
 				// "< 60s" branch caught, so every same-day post showed "just now".
 				'created_at'           => current_time( 'mysql', true ),
+				// Seed last_activity_at to the post's own time so a brand-new post
+				// sorts correctly in the "Active" feed before it receives any
+				// engagement. Bumped to NOW() on each reaction/comment/share.
+				'last_activity_at'     => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%s', '%s', '%s' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
@@ -731,9 +735,16 @@ class PostService {
 		}
 
 		global $wpdb;
+		// A new reaction/comment/share marks the post as freshly active — bump
+		// last_activity_at so the "Active" feed surfaces it. Decrement does not
+		// (removing engagement is not activity).
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query(
-			$wpdb->prepare( "UPDATE {$wpdb->prefix}bn_posts SET {$column} = {$column} + 1 WHERE id = %d", $post_id )
+			$wpdb->prepare(
+				"UPDATE {$wpdb->prefix}bn_posts SET {$column} = {$column} + 1, last_activity_at = %s WHERE id = %d",
+				current_time( 'mysql', true ),
+				$post_id
+			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 

@@ -526,6 +526,7 @@ class Installer {
 				site_pin_expires_at  DATETIME DEFAULT NULL,
 				edited_at           DATETIME DEFAULT NULL,
 				scheduled_at        DATETIME DEFAULT NULL,
+				last_activity_at    DATETIME DEFAULT NULL,
 				created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY         (id),
@@ -533,6 +534,7 @@ class Installer {
 				KEY                 space_feed (space_id, status, created_at),
 				KEY                 announcement_feed (is_announcement, status, created_at),
 				KEY                 explore (privacy, created_at),
+				KEY                 active_feed (privacy, status, last_activity_at),
 				KEY                 scheduled (scheduled_at),
 				KEY                 shared_post (shared_post_id)
 			) {$cs};",
