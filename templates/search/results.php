@@ -168,37 +168,43 @@ if ( '' !== $raw_query ) {
 	 * @return \stdClass
 	 */
 	$bn_to_row = static function ( array $item ): \stdClass {
-		$row             = new \stdClass();
-		$row->object_id  = (int) ( $item['object_id'] ?? 0 );
-		$row->author_id  = (int) ( $item['author_id'] ?? 0 );
+		$row            = new \stdClass();
+		$row->object_id = (int) ( $item['object_id'] ?? 0 );
+		$row->author_id = (int) ( $item['author_id'] ?? 0 );
 		// Members index their searchable text in `content`; fall back to the
 		// title so the snippet is never empty.
-		$content         = (string) ( $item['content'] ?? '' );
-		$row->content    = '' !== $content ? $content : (string) ( $item['title'] ?? '' );
-		$row->title      = (string) ( $item['title'] ?? '' );
+		$content      = (string) ( $item['content'] ?? '' );
+		$row->content = '' !== $content ? $content : (string) ( $item['title'] ?? '' );
+		$row->title   = (string) ( $item['title'] ?? '' );
 		return $row;
 	};
 
-	if ( 'all' === $active_tab || 'members' === $active_tab ) {
+	// Every tab's count badge is rendered on every result page, so all type
+	// counts must be computed regardless of which tab is active — otherwise
+	// switching from "All" to a single tab zeroes the other badges. Each block
+	// is scoped so its temp vars stay local; the matching $results_* set is only
+	// rendered when its tab is active. The per-type fetch is limit-5/12, so the
+	// cost matches what the "All" tab already runs.
+	{
 		$bn_res                  = $bn_search_service->search( $raw_query, 'user', 5, 1, $viewer_id );
 		$results_members         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
 		$total_counts['members'] = (int) ( $bn_res['total'] ?? count( $results_members ) );
 	}
 
-	if ( 'all' === $active_tab || 'posts' === $active_tab ) {
+	{
 		$bn_res                = $bn_search_service->search( $raw_query, 'post', 5, 1, $viewer_id );
 		$results_posts         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
 		$total_counts['posts'] = (int) ( $bn_res['total'] ?? count( $results_posts ) );
 	}
 
-	if ( 'all' === $active_tab || 'spaces' === $active_tab ) {
+	{
 		$bn_res                 = $bn_search_service->search( $raw_query, 'space', 5, 1, $viewer_id );
 		$results_spaces         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
 		$total_counts['spaces'] = (int) ( $bn_res['total'] ?? count( $results_spaces ) );
 	}
 
 	// Hashtags: name match via bn_hashtags slug.
-	if ( 'all' === $active_tab || 'hashtags' === $active_tab ) {
+	{
 		$tag_q    = ltrim( $raw_query, '#' );
 		$like_tag = '%' . $wpdb->esc_like( $tag_q ) . '%';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -219,19 +225,19 @@ if ( '' !== $raw_query ) {
 	// Media: posts that have media_ids and match the query. Kept as a dedicated
 	// query because the unified index does not model the bn_posts.media_ids
 	// join. Self-contained: builds its own date window + boolean query.
-	if ( 'all' === $active_tab || 'media' === $active_tab ) {
+	{
 		$media_date_sql = '';
-		switch ( $date_filter ) {
-			case 'week':
-				$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
-				break;
-			case 'month':
-				$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 MONTH )';
-				break;
-			case 'year':
-				$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 YEAR )';
-				break;
-		}
+	switch ( $date_filter ) {
+		case 'week':
+			$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
+			break;
+		case 'month':
+			$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 MONTH )';
+			break;
+		case 'year':
+			$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 YEAR )';
+			break;
+	}
 		$media_order_sql = 'recent' === $sort_by
 			? 'ORDER BY s.updated_at DESC'
 			: 'ORDER BY MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE ) DESC';
@@ -643,7 +649,8 @@ $bn_search_ctx = array(
 								<span class="bn-search-aside__label"><?php esc_html_e( 'Membership tier', 'buddynext' ); ?></span>
 								<select class="bn-input" id="bn-adv-tier" name="tier_slug">
 									<option value=""><?php esc_html_e( 'Any tier', 'buddynext' ); ?></option>
-									<?php foreach ( $adv_tiers as $bn_tier ) :
+									<?php
+									foreach ( $adv_tiers as $bn_tier ) :
 										$tslug  = isset( $bn_tier['slug'] ) ? (string) $bn_tier['slug'] : '';
 										$tlabel = isset( $bn_tier['label'] ) ? (string) $bn_tier['label'] : $tslug;
 										if ( '' === $tslug ) {
@@ -663,7 +670,8 @@ $bn_search_ctx = array(
 								<span class="bn-search-aside__label"><?php esc_html_e( 'Member of space', 'buddynext' ); ?></span>
 								<select class="bn-input" id="bn-adv-space" name="space_id">
 									<option value="0"><?php esc_html_e( 'Any space', 'buddynext' ); ?></option>
-									<?php foreach ( $adv_spaces as $bn_space ) :
+									<?php
+									foreach ( $adv_spaces as $bn_space ) :
 										$sid    = isset( $bn_space['id'] ) ? (int) $bn_space['id'] : 0;
 										$slabel = isset( $bn_space['label'] ) ? (string) $bn_space['label'] : (string) $sid;
 										if ( $sid <= 0 ) {
@@ -683,7 +691,8 @@ $bn_search_ctx = array(
 								<span class="bn-search-aside__label"><?php esc_html_e( 'Member label', 'buddynext' ); ?></span>
 								<select class="bn-input" id="bn-adv-label" name="member_label">
 									<option value=""><?php esc_html_e( 'Any label', 'buddynext' ); ?></option>
-									<?php foreach ( $adv_labels as $bn_label ) :
+									<?php
+									foreach ( $adv_labels as $bn_label ) :
 										$lslug  = isset( $bn_label['slug'] ) ? (string) $bn_label['slug'] : '';
 										$llabel = isset( $bn_label['label'] ) ? (string) $bn_label['label'] : $lslug;
 										if ( '' === $lslug ) {
