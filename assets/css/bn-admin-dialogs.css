@@ -122,7 +122,10 @@
 .bn-dialog__ok[data-tone="warning"] {
 	background: var(--bn-warn, oklch(70% 0.18 75));
 	border-color: var(--bn-warn, oklch(70% 0.18 75));
-	color: #1a1a1a;
+	/* Intentionally mode-invariant: --bn-warn stays a light amber in both light
+	   and dark, so the label must stay dark for contrast. Derived from the warn
+	   token (warm, near-black) rather than a raw hex. */
+	color: color-mix(in oklch, var(--bn-warn) 22%, oklch(16% 0 0));
 }
 
 .bn-dialog__cancel:focus-visible,

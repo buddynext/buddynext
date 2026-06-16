@@ -987,7 +987,7 @@
 .bn-avatar-crop-overlay {
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.6);
+	background: var(--bn-overlay);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -2696,6 +2696,16 @@ button.bn-pf-pill:hover,
 .bn-pf-social-chip[data-social="social_github"]    { color: var(--bn-ink); }
 .bn-pf-social-chip[data-social="social_instagram"] { color: #e1306c; }
 .bn-pf-social-chip[data-social="social_youtube"]   { color: #ff0000; }
+
+/* Brand colours are fixed by definition, but the darker ones (LinkedIn,
+   Twitter) lose contrast on a dark surface — lift their lightness in dark mode
+   so the icon stays legible without abandoning the brand hue. github already
+   follows --bn-ink and needs no adjustment. */
+[data-bn-theme="dark"] .bn-pf-social-chip[data-social^="social_"]:not([data-social="social_github"]),
+[data-theme="dark"] .bn-pf-social-chip[data-social^="social_"]:not([data-social="social_github"]),
+[data-bx-mode="dark"] .bn-pf-social-chip[data-social^="social_"]:not([data-social="social_github"]) {
+	filter: brightness(1.35) saturate(1.05);
+}
 
 .bn-pf-about-card {
 	padding: var(--bn-s5);

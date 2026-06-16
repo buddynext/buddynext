@@ -714,16 +714,18 @@
 
 .bn-md-pill__count {
 	min-width: 1.5em;
-	padding-inline: 6px;
-	border-radius: 999px;
-	background: rgba(0, 0, 0, 0.06);
+	padding-inline: var(--bn-s2);
+	border-radius: var(--bn-r-full);
+	/* Subtle ink wash that follows the theme: a faint dark tint in light mode,
+	   a faint light tint in dark mode (rgba(0,0,0,.06) was invisible on dark). */
+	background: color-mix(in oklch, var(--bn-ink) 8%, transparent);
 	font-size: var(--bn-fs-xs);
 	font-weight: 600;
 	text-align: center;
 }
 
 .bn-md-pill.is-active .bn-md-pill__count {
-	background: rgba(255, 255, 255, 0.2);
+	background: color-mix(in oklch, var(--bn-accent-fg) 22%, transparent);
 }
 
 /* Reactive filter strip — no Apply button. */

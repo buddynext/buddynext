@@ -129,6 +129,11 @@
 	--bn-shadow-lg: 0 8px 16px oklch(0% 0 0 / 0.06), 0 24px 48px oklch(0% 0 0 / 0.08);
 	--bn-ring:      0 0 0 3px oklch(58% var(--bn-chroma) var(--bn-hue) / 0.18);
 
+	/* Scrim/backdrop behind modals and overlays. Mode-aware: a plain dark
+	   rgba scrim is nearly invisible over an already-dark page, so the dark
+	   block below raises the opacity. */
+	--bn-overlay: oklch(0% 0 0 / 0.45);
+
 	/* Motion */
 	--bn-ease:     cubic-bezier(0.2, 0.8, 0.2, 1);
 	--bn-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -365,6 +370,9 @@
 	--bn-shadow-md: 0 2px 4px oklch(0% 0 0 / 0.3), 0 8px 16px oklch(0% 0 0 / 0.4);
 	--bn-shadow-lg: 0 8px 16px oklch(0% 0 0 / 0.4), 0 24px 48px oklch(0% 0 0 / 0.5);
 	--bn-ring:      0 0 0 3px oklch(72% var(--bn-chroma) var(--bn-hue) / 0.3);
+
+	/* Heavier scrim so the modal/backdrop separation stays visible on a dark page. */
+	--bn-overlay: oklch(0% 0 0 / 0.66);
 }
 
 /* Auto from system preference */
@@ -763,7 +771,7 @@
 	position: fixed;
 	inset: 0;
 	z-index: 10000;
-	background: rgba(0, 0, 0, 0.4);
+	background: var(--bn-overlay);
 	display: flex;
 	align-items: flex-start;
 	justify-content: center;

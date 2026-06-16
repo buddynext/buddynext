@@ -2185,7 +2185,7 @@
 	height: 20px;
 	border: none;
 	border-radius: var(--r-full);
-	background: rgba(0, 0, 0, 0.6);
+	background: var(--bn-overlay);
 	color: var(--text-on-brand);
 	font-size: 14px;
 	line-height: 1;
@@ -2260,7 +2260,7 @@
 	height: 24px;
 	border: none;
 	border-radius: var(--r-full);
-	background: rgba(0, 0, 0, 0.55);
+	background: var(--bn-overlay);
 	color: var(--text-on-brand);
 	cursor: pointer;
 	display: flex;
