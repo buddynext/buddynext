@@ -449,10 +449,14 @@ class FeedService {
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQL.NotPrepared
 			$count = (int) $wpdb->get_var(
 				$wpdb->prepare(
+					// Count the content actually available in each tab. The 24-hour
+					// window that was here only counted last-day posts, so tabs
+					// with no recent-but-existing content (Following / Spaces /
+					// Network) showed no badge while the tab still rendered older
+					// posts — the count must match what the feed shows.
 					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
 					 WHERE status = 'published'
 					   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
-					   AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
 					   AND ({$source_where})
 					   {$excluded_where}
 					   {$block_mute_where}", // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
