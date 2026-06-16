@@ -205,7 +205,7 @@ class Settings extends AdminPageBase {
 		<p class="bn-admin-hub__subtitle"><?php echo esc_html( $this->get_tab_subtitle( $slug ) ); ?></p>
 
 		<form method="post" action="options.php" class="bn-settings-form">
-			<?php settings_fields( 'buddynext' ); ?>
+			<?php settings_fields( 'buddynext_' . $slug ); ?>
 			<?php $this->$method(); ?>
 			<?php $this->render_save_bar(); ?>
 		</form>
@@ -365,10 +365,126 @@ class Settings extends AdminPageBase {
 	}
 
 	/**
+	 * Which settings tab owns each option.
+	 *
+	 * Every tab registers its options under its OWN option group
+	 * ("buddynext_{tab}") and its form submits that same group, so saving one
+	 * tab only ever processes that tab's options. Previously every option shared
+	 * the single "buddynext" group, so options.php iterated all of them on every
+	 * save and null-sanitized the ones not on the active tab — silently wiping
+	 * other tabs' values. This map is the single source of truth for the
+	 * option→group assignment; a new option MUST be added to the tab that
+	 * renders it (option_group() falls back to "buddynext" for anything missing).
+	 *
+	 * @var array<string, string[]>
+	 */
+	private const TAB_OPTIONS = array(
+		'general'       => array(
+			'buddynext_site_name',
+			'buddynext_brand_color',
+			'buddynext_description',
+			'buddynext_public_explore',
+			'buddynext_enable_dm',
+			'buddynext_default_dm_access',
+			'buddynext_enable_community_nav',
+		),
+		'features'      => array(
+			'buddynext_features',
+		),
+		'registration'  => array(
+			'buddynext_reg_mode',
+			'buddynext_email_verify',
+			'buddynext_reg_spam_protection',
+			'buddynext_reg_challenge',
+			'buddynext_reg_rate_limit',
+			'buddynext_allowed_domains',
+			'buddynext_social_login',
+		),
+		'social'        => array(
+			'buddynext_default_post_privacy',
+			'buddynext_allow_polls',
+			'buddynext_allow_shares',
+			'buddynext_allow_bookmarks',
+			'buddynext_enable_link_preview',
+			'buddynext_enable_emoji_picker',
+			'buddynext_post_edit_window',
+			'buddynext_enabled_reactions',
+		),
+		'spaces'        => array(
+			'buddynext_space_creation_role',
+			'buddynext_space_max_sub_spaces',
+		),
+		'moderation'    => array(
+			'buddynext_banned_words',
+			'buddynext_banned_hashtags',
+			'buddynext_blocked_domains',
+			'buddynext_blocked_ips',
+			'buddynext_post_rate_limit',
+			'buddynext_duplicate_post_window',
+			'buddynext_new_member_post_threshold',
+			'buddynext_auto_hide_threshold',
+			'buddynext_mod_queue_alert_threshold',
+			'buddynext_strike_warn_threshold',
+			'buddynext_strike_suspend_threshold',
+			'buddynext_strike_perma_ban_threshold',
+		),
+		'notifications' => array(
+			'buddynext_notif_default_follow',
+			'buddynext_notif_default_connection',
+			'buddynext_notif_default_reaction',
+			'buddynext_notif_default_comment',
+			'buddynext_notif_default_mention',
+			'buddynext_notif_default_space_join',
+			'buddynext_digest_frequency',
+			'buddynext_admin_alert_email',
+		),
+		'email'         => array(
+			'buddynext_email_from_name',
+			'buddynext_email_from_address',
+			'buddynext_email_reply_to',
+			'buddynext_email_footer_text',
+		),
+		'privacy'       => array(
+			'buddynext_cookie_consent',
+			'buddynext_google_indexing',
+			'buddynext_allow_data_export',
+			'buddynext_allow_account_deletion',
+			'buddynext_anonymize_on_delete',
+			'buddynext_data_retention_days',
+		),
+		'integrations'  => array(
+			'buddynext_jetonomy_feed_sync',
+		),
+		'webhooks'      => array(
+			'buddynext_webhook_secret',
+		),
+	);
+
+	/**
+	 * Resolve the option group (settings-tab scope) an option belongs to.
+	 *
+	 * Returns "buddynext_{tab}" when the option is mapped in TAB_OPTIONS, or the
+	 * legacy "buddynext" group as a safe fallback for any unmapped option.
+	 *
+	 * @param string $option Option name.
+	 * @return string Settings group / option_page name.
+	 */
+	public static function option_group( string $option ): string {
+		foreach ( self::TAB_OPTIONS as $tab => $options ) {
+			if ( in_array( $option, $options, true ) ) {
+				return 'buddynext_' . $tab;
+			}
+		}
+
+		return 'buddynext';
+	}
+
+	/**
 	 * Register all settings with the WordPress Settings API.
 	 *
-	 * Registering options here ensures sanitize_callback is applied on save
-	 * even though rendering is handled manually via render_content().
+	 * Each option is registered under its tab's own group (see TAB_OPTIONS) so a
+	 * save only touches the active tab's options. Registering here also ensures
+	 * the sanitize_callback runs on save even though rendering is manual.
 	 *
 	 * @return void
 	 */
@@ -376,7 +492,7 @@ class Settings extends AdminPageBase {
 		foreach ( self::SETTINGS_MAP as $option => $config ) {
 			list( $type, $sanitize ) = $config;
 			register_setting(
-				'buddynext',
+				self::option_group( $option ),
 				$option,
 				array(
 					'type'              => $type,
@@ -389,7 +505,7 @@ class Settings extends AdminPageBase {
 		// Mandatory features are filtered out by the registry; only
 		// default_on + opt_in feature states land in the option.
 		register_setting(
-			'buddynext',
+			'buddynext_features',
 			'buddynext_features',
 			array(
 				'type'              => 'array',
@@ -400,7 +516,7 @@ class Settings extends AdminPageBase {
 
 		// Social login (OAuth2) per-provider credentials.
 		register_setting(
-			'buddynext',
+			'buddynext_registration',
 			'buddynext_social_login',
 			array(
 				'type'              => 'array',
@@ -411,7 +527,7 @@ class Settings extends AdminPageBase {
 
 		// Reaction palette — owner-chosen subset of the canonical six reactions.
 		register_setting(
-			'buddynext',
+			'buddynext_social',
 			'buddynext_enabled_reactions',
 			array(
 				'type'              => 'array',
@@ -570,7 +686,7 @@ class Settings extends AdminPageBase {
 		$this->open_tab_panel( $active_tab );
 		?>
 		<form method="post" action="options.php">
-			<?php settings_fields( 'buddynext' ); ?>
+			<?php settings_fields( 'buddynext_' . $active_tab ); ?>
 			<?php $this->{'render_tab_' . $active_tab}(); ?>
 			<?php $this->render_save_bar(); ?>
 		</form>
