@@ -424,6 +424,18 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 								</span>
 							</button>
 						</li>
+						<li role="option" data-wp-bind--aria-selected="state.isPrivacyConnections">
+							<button type="button"
+								class="bn-composer__privacy-opt"
+								data-privacy="connections"
+								data-wp-on--click="actions.setPrivacy">
+								<?php buddynext_icon( 'user-check' ); ?>
+								<span class="bn-composer__privacy-opt-label">
+									<strong><?php esc_html_e( 'Connections', 'buddynext' ); ?></strong>
+									<small><?php esc_html_e( 'Only your accepted connections.', 'buddynext' ); ?></small>
+								</span>
+							</button>
+						</li>
 						<li role="option" data-wp-bind--aria-selected="state.isPrivacyPrivate">
 							<button type="button"
 								class="bn-composer__privacy-opt"

@@ -1419,9 +1419,10 @@ function maybeDetectLink( ctx ) {
 }
 
 const PRIVACY_LABELS = {
-	public:    'Everyone',
-	followers: 'Followers',
-	private:   'Only me',
+	public:      'Everyone',
+	followers:   'Followers',
+	connections: 'Connections',
+	private:     'Only me',
 	space_members: 'Space members',
 };
 
@@ -1675,6 +1676,9 @@ store( 'buddynext/post-composer', {
 		},
 		get isPrivacyFollowers() {
 			try { return getContext().privacy === 'followers'; } catch ( _e ) { return false; }
+		},
+		get isPrivacyConnections() {
+			try { return getContext().privacy === 'connections'; } catch ( _e ) { return false; }
 		},
 		get isPrivacyPrivate() {
 			try { return getContext().privacy === 'private'; } catch ( _e ) { return false; }
