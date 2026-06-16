@@ -89,11 +89,14 @@ $context_attr = esc_attr(
 >
 	<button
 		type="button"
-		class="bn-btn bn-btn--sm bn-follow-btn"
+		class="bn-btn bn-follow-btn"
+		data-size="sm"
+		data-variant="<?php echo esc_attr( $is_following ? 'secondary' : 'primary' ); ?>"
 		data-action="bn-toggle-follow"
 		data-user-id="<?php echo absint( $user_id ); ?>"
 		data-wp-on--click="actions.toggleFollow"
 		data-wp-bind--class="state.buttonClass"
+		data-wp-bind--data-variant="state.followVariant"
 		data-wp-bind--data-state="state.btnState"
 		data-wp-bind--aria-pressed="state.ariaPressed"
 		data-wp-bind--aria-label="state.ariaLabel"

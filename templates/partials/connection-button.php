@@ -103,7 +103,9 @@ $context_attr = esc_attr(
 	>
 		<button
 			type="button"
-			class="bn-btn bn-btn--sm bn-accept"
+			class="bn-btn bn-accept"
+			data-variant="primary"
+			data-size="sm"
 			data-wp-on--click="actions.acceptRequest"
 			data-wp-bind--hidden="!state.showAcceptDecline"
 			data-action="bn-accept-connect"
@@ -114,7 +116,9 @@ $context_attr = esc_attr(
 		</button>
 		<button
 			type="button"
-			class="bn-btn bn-btn--sm bn-decline"
+			class="bn-btn bn-decline"
+			data-variant="ghost"
+			data-size="sm"
 			data-wp-on--click="actions.declineRequest"
 			data-wp-bind--hidden="!state.showAcceptDecline"
 			data-action="bn-decline-connect"
@@ -127,7 +131,9 @@ $context_attr = esc_attr(
 
 	<button
 		type="button"
-		class="bn-btn bn-btn--sm bn-btn--secondary bn-connected"
+		class="bn-btn bn-connected"
+		data-variant="secondary"
+		data-size="sm"
 		data-wp-on--click="actions.disconnect"
 		data-action="bn-toggle-connect"
 		data-user-id="<?php echo absint( $user_id ); ?>"
@@ -139,7 +145,9 @@ $context_attr = esc_attr(
 
 	<button
 		type="button"
-		class="bn-btn bn-btn--sm bn-btn--secondary bn-pending"
+		class="bn-btn bn-pending"
+		data-variant="secondary"
+		data-size="sm"
 		data-wp-on--click="actions.withdrawRequest"
 		data-action="bn-toggle-connect"
 		data-user-id="<?php echo absint( $user_id ); ?>"
@@ -151,7 +159,9 @@ $context_attr = esc_attr(
 
 	<button
 		type="button"
-		class="bn-btn bn-btn--sm bn-btn--primary"
+		class="bn-btn"
+		data-variant="primary"
+		data-size="sm"
 		data-wp-on--click="actions.sendRequest"
 		data-action="bn-toggle-connect"
 		data-user-id="<?php echo absint( $user_id ); ?>"

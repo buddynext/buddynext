@@ -61,14 +61,22 @@ function followAriaLabel( ctx ) {
 	return 'Follow this user';
 }
 
+// v2 buttons are styled via the .bn-btn base class + data-variant / data-size
+// attributes; the legacy bn-btn--sm/--primary/--secondary/--ghost modifier
+// classes were removed in the token cleanup, so the look now rides on
+// data-variant (see followVariant) and a static data-size. The class only
+// carries the base + a state hook for any per-state custom styling.
 function followClass( ctx ) {
-	if ( ctx.isPending ) {
-		return 'bn-btn bn-btn--sm bn-btn--ghost bn-follow-btn';
+	if ( ctx.isFollowing && ! ctx.isPending ) {
+		return 'bn-btn bn-following bn-follow-btn';
 	}
-	if ( ctx.isFollowing ) {
-		return 'bn-btn bn-btn--sm bn-btn--secondary bn-following bn-follow-btn';
-	}
-	return 'bn-btn bn-btn--sm bn-btn--primary bn-follow-btn';
+	return 'bn-btn bn-follow-btn';
+}
+
+function followVariant( ctx ) {
+	if ( ctx.isPending )   { return 'ghost'; }
+	if ( ctx.isFollowing ) { return 'secondary'; }
+	return 'primary';
 }
 
 /* -- Follow button store ----------------------------------------------- */
@@ -80,6 +88,7 @@ store( 'buddynext/follow-button', {
 		get ariaPressed()  { return followAriaPressed( getContext() ); },
 		get ariaLabel()    { return followAriaLabel( getContext() ); },
 		get buttonClass()  { return followClass( getContext() ); },
+		get followVariant() { return followVariant( getContext() ); },
 	},
 	actions: {
 		async toggleFollow() {
