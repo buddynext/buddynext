@@ -9,6 +9,7 @@
 	"keywords": [ "buddynext", "feed", "activity", "social" ],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
+	"viewScriptModule": "@buddynext/feed",
 	"style": "file:../../assets/css/blocks.css",
 	"supports": {
 		"color": { "background": true, "text": true },
