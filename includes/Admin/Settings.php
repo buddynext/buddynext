@@ -1704,6 +1704,27 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_webhook_endpoints(): void {
+		// The webhook CRUD REST routes only register when the opt-in webhooks
+		// feature is enabled (Router gates them on is_enabled('webhooks')).
+		// Rendering the endpoint manager when the feature is off would surface
+		// Register/Test/Remove/Log buttons whose fetches all 404. Show a pointer
+		// to the Features tab instead; the shared-secret field above stays.
+		$bn_features = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
+		$webhooks_on = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'webhooks' );
+
+		if ( ! $webhooks_on ) {
+			$this->open_section( __( 'Registered endpoints', 'buddynext' ) );
+			$features_url = admin_url( 'admin.php?page=buddynext&tab=features' );
+			echo '<div class="bn-card"><p class="bn-field-hint">';
+			printf(
+				/* translators: %s: link to the Features settings tab. */
+				esc_html__( 'Webhooks are turned off. Enable the Webhooks feature in %s to register and manage endpoints.', 'buddynext' ),
+				'<a href="' . esc_url( $features_url ) . '">' . esc_html__( 'Settings → Features', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+			);
+			echo '</p></div>';
+			return;
+		}
+
 		$webhooks = function_exists( 'buddynext_service' )
 			? (array) buddynext_service( 'webhooks' )->list_all()
 			: array();
