@@ -1701,13 +1701,26 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
  * legacy padding-based button — opt-in per surface.
  * ════════════════════════════════════════════════════════════════════════ */
 
-/* ── Focus ring (shared by inputs + buttons) ─────────────────────────── */
-.bn-wrap :focus-visible,
+/* ── Focus ring — ONE forced, shape-aware box ring for the whole UI ──────
+ * Every focusable element gets the same soft accent halo (--bn-ring), only
+ * on keyboard/programmatic focus (:focus-visible), never on mouse click.
+ * The transparent outline is the Windows High-Contrast / forced-colors
+ * fallback (where box-shadow is dropped) so focus is never invisible.
+ * Components must NOT roll their own outline — they inherit this. The only
+ * intentional exceptions are surfaces inside an overflow-scroll container
+ * that would clip an outset ring (e.g. .bn-tab), which use an inset ring,
+ * and dark media surfaces that need a high-contrast white ring. */
+.bn-app :focus-visible {
+	outline: 2px solid transparent;
+	outline-offset: 2px;
+	box-shadow: var(--bn-ring);
+}
 .bn-btn:focus-visible,
 .bn-input:focus-visible,
 .bn-textarea:focus-visible,
 .bn-select:focus-visible {
-	outline: none;
+	outline: 2px solid transparent;
+	outline-offset: 2px;
 	box-shadow: var(--bn-ring);
 	border-color: var(--bn-accent);
 }
@@ -2173,11 +2186,17 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink);
 	background: color-mix(in oklab, var(--bn-accent) 8%, transparent);
 }
+/* Tabs live in an overflow-x:auto strip, which clips an outset ring, so the
+   focus ring is INSET here — same accent, same intent as --bn-ring, just drawn
+   inside the tab so it can never be clipped. Transparent outline = forced-colors
+   fallback. */
 .bn-tabs .bn-tab:focus-visible {
 	color: var(--bn-ink);
 	background: color-mix(in oklab, var(--bn-accent) 8%, transparent);
-	outline: none;
-	box-shadow: inset 0 -2px 0 0 var(--bn-accent);
+	outline: 2px solid transparent;
+	outline-offset: -2px;
+	box-shadow: inset 0 0 0 2px var(--bn-accent);
+	border-radius: var(--bn-r-sm);
 }
 .bn-tab[aria-selected="true"],
 .bn-tab[data-active],
