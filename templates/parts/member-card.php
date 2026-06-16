@@ -145,6 +145,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 	role="listitem"
 	data-user-id="<?php echo esc_attr( (string) $bn_member_id ); ?>"
 	data-wp-context="<?php echo esc_attr( (string) $bn_card_ctx ); ?>"
+	data-wp-on-document--click="actions.closeCardMenuOnOutside"
 >
 
 	<?php // Secondary actions — kebab menu pinned top-right (Message / Mute / Block / Report). ?>

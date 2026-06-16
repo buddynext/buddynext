@@ -13,7 +13,7 @@
  * back the optimistic UI plus shows a danger toast on REST 4xx/5xx.
  */
 
-import { store, getContext } from '@wordpress/interactivity';
+import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast } from '../shell/dialog.js';
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -197,6 +197,11 @@ function buildCard( item ) {
 	article.className = 'bn-card bn-md-card';
 	article.setAttribute( 'role', 'listitem' );
 	article.dataset.userId = String( item.user_id );
+	// Mark as imperatively-wired: these dynamically-appended cards are not
+	// hydrated by the Interactivity API (hydration gap), so their kebab is
+	// driven via pop.hidden and the imperative outside-click closer in init().
+	// The marker keeps that closer off the hydrated server-rendered cards.
+	article.dataset.bnImperative = '1';
 
 	// Pull REST settings off the root directory context so JS-built cards call
 	// the same BuddyNext endpoints + nonce the server-rendered cards use.
@@ -696,7 +701,14 @@ const memberStore = store( 'buddynext/members', {
 			if ( typeof document !== 'undefined' && ! document.__bnMembersOutsideBound ) {
 				document.addEventListener( 'click', ( ev ) => {
 					if ( ! ev.target ) { return; }
-					document.querySelectorAll( '.bn-md-card[data-user-id]' ).forEach( ( card ) => {
+					// JS-BUILT cards only (data-bn-imperative): these are not hydrated
+					// by the Interactivity API (see the hydration-gap note in
+					// wireCardKebab), so their kebab is driven imperatively via
+					// pop.hidden. Server-rendered cards are hydrated and close through
+					// the closeCardMenuOnOutside action instead — touching pop.hidden
+					// on them here would bypass the reactive binding and desync
+					// state.cardMenuOpen (the "blink"/stuck-menu bug).
+					document.querySelectorAll( '.bn-md-card[data-user-id][data-bn-imperative]' ).forEach( ( card ) => {
 						const wrap = card.querySelector( '.bn-md-card__menu-wrap' );
 						if ( ! wrap || wrap.contains( ev.target ) ) { return; }
 						const pop = wrap.querySelector( '.bn-md-card__menu-pop' );
@@ -953,6 +965,26 @@ const memberStore = store( 'buddynext/members', {
 			}
 			const ctx = getContext();
 			ctx.menuOpen = ! ctx.menuOpen;
+		},
+
+		/**
+		 * Close THIS (server-rendered, hydrated) card's kebab menu when a click
+		 * lands outside its menu wrapper. Bound via data-wp-on-document--click on
+		 * the card root so the close goes through the same reactive state as the
+		 * open (single source of truth), instead of the imperative pop.hidden path
+		 * that JS-built cards use. Scoped to the current card via getElement().ref.
+		 *
+		 * @param {MouseEvent} event The document click event.
+		 */
+		closeCardMenuOnOutside( event ) {
+			const ctx = getContext();
+			if ( ! ctx || ! ctx.menuOpen ) { return; }
+			const ref = getElement()?.ref || null;
+			if ( ! ref ) { return; }
+			const wrap = ref.querySelector( '.bn-md-card__menu-wrap' );
+			if ( ! wrap || ! wrap.contains( event.target ) ) {
+				ctx.menuOpen = false;
+			}
 		},
 
 		async toggleMute() {
