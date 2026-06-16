@@ -174,6 +174,7 @@ class ToolsTab {
 	 */
 	public function handle_recount(): void {
 		$this->guard( 'bn_tools_recount' );
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() via check_admin_referer().
 		$what    = isset( $_POST['what'] ) ? sanitize_key( wp_unslash( (string) $_POST['what'] ) ) : '';
 		$counter = new CounterService();
 		global $wpdb;
@@ -246,12 +247,27 @@ class ToolsTab {
 	public function handle_import(): void {
 		$this->guard( 'bn_tools_import' );
 
-		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() via check_admin_referer(); tmp_name read as-is for finfo/upload checks.
 		$tmp = isset( $_FILES['bn_settings_file']['tmp_name'] ) ? (string) $_FILES['bn_settings_file']['tmp_name'] : '';
 		$err = isset( $_FILES['bn_settings_file']['error'] ) ? (int) $_FILES['bn_settings_file']['error'] : UPLOAD_ERR_NO_FILE;
-		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.NonceVerification.Missing
 
 		if ( UPLOAD_ERR_OK !== $err || '' === $tmp || ! is_uploaded_file( $tmp ) ) {
+			$this->redirect_back( 'import_failed' );
+		}
+
+		// Validate the upload's MIME type before reading it. finfo inspects the
+		// file's own bytes, so a renamed binary cannot pass as a settings export
+		// (the browser-sent type is never trusted). The JSON structure is still
+		// validated below — this is defence in depth, matching the CSV-invite
+		// import guard in InviteController.
+		$finfo    = finfo_open( FILEINFO_MIME_TYPE );
+		$detected = $finfo ? (string) finfo_file( $finfo, $tmp ) : '';
+		if ( $finfo ) {
+			finfo_close( $finfo );
+		}
+		$allowed_mime = array( 'application/json', 'text/json', 'text/plain' );
+		if ( '' !== $detected && ! in_array( $detected, $allowed_mime, true ) ) {
 			$this->redirect_back( 'import_failed' );
 		}
 
