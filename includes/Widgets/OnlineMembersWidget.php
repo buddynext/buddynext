@@ -57,7 +57,7 @@ class OnlineMembersWidget extends \WP_Widget {
 		foreach ( $users as $user ) {
 			printf(
 				'<li><a href="%s">%s</a></li>',
-				esc_url( get_author_posts_url( $user->ID ) ),
+				esc_url( \BuddyNext\Core\PageRouter::profile_url( $user->ID ) ),
 				esc_html( $user->display_name )
 			);
 		}

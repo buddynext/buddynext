@@ -157,9 +157,10 @@ do_action( 'buddynext_part_space_members_panel_before', $args );
 					'moderator' => __( 'Moderator', 'buddynext' ),
 					default     => __( 'Member', 'buddynext' ),
 				};
-				$bn_fm_profile = function_exists( 'buddynext_member_url' )
-					? buddynext_member_url( $bn_fm_uid )
-					: get_author_posts_url( $bn_fm_uid );
+				// Canonical BuddyNext profile permalink (/members/{slug}/). The old
+				// get_author_posts_url() fallback pointed at the WP author archive,
+				// which 404s on a BuddyNext community.
+				$bn_fm_profile = \BuddyNext\Core\PageRouter::profile_url( $bn_fm_uid );
 	?>
 				<li class="bn-sh-members__card" role="listitem">
 					<a href="<?php echo esc_url( $bn_fm_profile ); ?>" class="bn-sh-members__avatar-link">

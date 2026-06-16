@@ -149,13 +149,9 @@ do_action( 'buddynext_part_search_result_section_members_before', $args );
 					)
 				);
 			}
-			$profile_url = '';
-			if ( function_exists( 'bp_core_get_user_domain' ) ) {
-				$profile_url = (string) bp_core_get_user_domain( $pid );
-			}
-			if ( '' === $profile_url ) {
-				$profile_url = (string) get_author_posts_url( $pid );
-			}
+			// BuddyNext-native profile permalink. BuddyNext is the BuddyPress
+			// successor and runs with BP inactive, so no bp_* fallback belongs here.
+			$profile_url = (string) \BuddyNext\Core\PageRouter::profile_url( $pid );
 			?>
 			<article class="bn-card bn-search-row bn-search-row--member" data-interactive>
 				<a class="bn-search-row__link" href="<?php echo esc_url( $profile_url ); ?>">

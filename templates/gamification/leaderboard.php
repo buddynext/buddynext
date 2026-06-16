@@ -338,7 +338,7 @@ $updated_iso = gmdate( 'c' );
 				$handle        = $user_data && ! empty( $user_data->user_login ) ? '@' . $user_data->user_login : '';
 				$avatar_url    = (string) ( $row['avatar_url'] ?? '' );
 				$pts_formatted = number_format_i18n( (int) ( $row['points'] ?? 0 ) );
-				$profile_url   = $user_data ? get_author_posts_url( $uid ) : '#';
+				$profile_url   = $user_data ? \BuddyNext\Core\PageRouter::profile_url( $uid ) : '#';
 				$tone          = $rank_tone( $rank );
 				$delta         = (int) ( $rank_changes[ $uid ] ?? 0 );
 				$trend         = ( 0 === $delta ) ? 'flat' : ( $delta > 0 ? 'up' : 'down' );
