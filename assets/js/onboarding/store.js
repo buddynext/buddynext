@@ -101,6 +101,9 @@ store( 'buddynext/onboarding', {
 			const dn = String( ctx().displayName || '' ).trim();
 			return dn ? dn.charAt( 0 ).toUpperCase() : '?';
 		},
+		get previewAvatar() {
+			return String( ctx().avatarUrl || '' );
+		},
 	},
 	actions: {
 		nextStep() {
@@ -327,6 +330,8 @@ store( 'buddynext/onboarding', {
 					if ( data && data.avatar_url ) {
 						const img = document.querySelector( '.bn-ob-avatar img' );
 						if ( img ) { img.setAttribute( 'src', data.avatar_url ); }
+						// Drive the live preview card avatar reactively (state.previewAvatar).
+						c.avatarUrl = data.avatar_url;
 					}
 					toast( 'Profile photo updated.', 'success' );
 				} )

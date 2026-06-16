@@ -49,7 +49,10 @@ foreach ( array_slice( $name_parts, 0, 2 ) as $part ) {
 $initials = ! empty( $initials ) ? $initials : mb_strtoupper( mb_substr( $current_login, 0, 2 ) );
 
 $avatar_url = get_avatar_url( $ob_user_id, array( 'size' => 100 ) );
-$bio        = (string) get_user_meta( $ob_user_id, 'bn_bio', true );
+// Custom uploaded avatar only (empty for the generated initials fallback) — the
+// live preview shows the photo when set, the initial otherwise.
+$custom_avatar = (string) get_user_meta( $ob_user_id, 'bn_avatar', true );
+$bio           = (string) get_user_meta( $ob_user_id, 'bn_bio', true );
 $saved_step = max( 1, (int) get_user_meta( $ob_user_id, 'bn_onboarding_step', true ) );
 // Dev-only: ?_step=N (with redo) lets the user jump to a specific step
 // for testing. Requires ?redo=1 to opt in so a stray bookmarked link
@@ -155,6 +158,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			'displayNameDirty'  => false,
 			'userLogin'           => $current_slug,
 			'bio'               => $bio,
+			'avatarUrl'           => $custom_avatar,
 			'usernameAvailable'   => true,
 			'usernameChecking'    => false,
 			'usernameStatusLabel' => '',
@@ -616,7 +620,12 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 				<div class="bn-ob-preview-card">
 					<div class="bn-ob-preview-card__head">
 						<div class="bn-ob-preview-card__avatar" aria-hidden="true">
-							<span data-wp-text="state.previewInitial"><?php echo esc_html( strtoupper( substr( (string) $display_name, 0, 1 ) ) ?: '?' ); ?></span>
+							<img class="bn-ob-preview-card__avatar-img"
+								data-wp-bind--src="state.previewAvatar"
+								data-wp-bind--hidden="!state.previewAvatar"
+								<?php echo '' !== $custom_avatar ? 'src="' . esc_url( $custom_avatar ) . '"' : 'hidden'; ?>
+								alt="" />
+							<span data-wp-bind--hidden="state.previewAvatar" data-wp-text="state.previewInitial"><?php echo esc_html( strtoupper( substr( (string) $display_name, 0, 1 ) ) ?: '?' ); ?></span>
 						</div>
 						<div class="bn-ob-preview-card__id">
 							<div class="bn-ob-preview-card__name" data-wp-text="state.previewName">
