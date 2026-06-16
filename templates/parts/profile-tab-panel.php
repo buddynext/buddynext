@@ -198,16 +198,25 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 			<!-- Likes tab content -->
 			<div class="bn-profile-tab-panel" data-tab-panel="likes" hidden>
 				<?php if ( $bn_user_likes ) : ?>
-					<?php foreach ( $bn_user_likes as $liked ) : ?>
-					<div class="bn-like-card">
-						<div class="bn-like-card__meta">
-							<?php buddynext_icon( 'heart' ); ?>
-							<span><?php echo esc_html( sprintf( /* translators: %s: author name */ __( 'Liked %s\'s post', 'buddynext' ), $liked->post_author_name ) ); ?></span>
-							<span class="bn-like-card__time"><?php echo esc_html( human_time_diff( strtotime( $liked->created_at ) ) . ' ' . __( 'ago', 'buddynext' ) ); ?></span>
-						</div>
-						<div class="bn-like-card__content"><?php echo wp_kses_post( wp_trim_words( $liked->content, 30 ) ); ?></div>
-					</div>
-					<?php endforeach; ?>
+					<?php
+					// Render each liked post through the full post-card partial so the
+					// Likes tab shows it exactly as in the feed — media, link previews,
+					// reactions and all — instead of a text-only summary card.
+					foreach ( $bn_user_likes as $liked_arr ) {
+						$liked_arr = (array) $liked_arr;
+						if ( isset( $liked_arr['media_ids'] ) && is_string( $liked_arr['media_ids'] ) ) {
+							$liked_arr['media_ids'] = json_decode( $liked_arr['media_ids'], true );
+						}
+						buddynext_get_template(
+							'partials/post-card.php',
+							array(
+								'post'            => $liked_arr,
+								'current_user_id' => $bn_pf_viewer,
+								'context'         => 'profile',
+							)
+						);
+					}
+					?>
 				<?php else : ?>
 					<div class="bn-empty-state"><?php esc_html_e( 'No liked posts yet.', 'buddynext' ); ?></div>
 				<?php endif; ?>
