@@ -361,6 +361,13 @@ class NotificationPrefCatalogue {
 		 */
 		$catalogue = (array) apply_filters( 'buddynext_notification_prefs_catalogue', $catalogue );
 
+		// Direct-message notifications require the WPMediaVerse messaging engine.
+		// When it is absent no bn.new_message is ever generated, so drop the pref
+		// entirely rather than show a dead toggle in Settings -> Notifications.
+		if ( ! \BuddyNext\Messages\MessagesData::available() ) {
+			unset( $catalogue['bn.new_message'] );
+		}
+
 		// Enforce the slug invariant on every entry, INCLUDING bridge/Pro additions
 		// registered through the filter above (which would otherwise miss it).
 		foreach ( $catalogue as $slug => $entry ) {
