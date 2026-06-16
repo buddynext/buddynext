@@ -202,7 +202,7 @@ do_action( 'buddynext_feed_explore_before', $current_user_id );
 <div
 	class="bn-feed-stack bn-explore"
 	data-wp-interactive="buddynext/feed"
-	data-wp-context='{"scope":"explore","sort":"trending","filter":"all","page":1}'
+	data-wp-context='{"scope":"explore","sort":"trending","filter":"all","page":1,"guestBannerDismissed":false}'
 >
 	<div class="bn-explore-content">
 
@@ -230,8 +230,17 @@ do_action( 'buddynext_feed_explore_before', $current_user_id );
 			<div
 				class="bn-guest-banner"
 				role="banner"
+				data-wp-init="callbacks.initGuestBanner"
 				data-wp-bind--hidden="state.guestBannerDismissed"
 			>
+				<button
+					type="button"
+					class="bn-guest-banner__dismiss"
+					aria-label="<?php esc_attr_e( 'Dismiss', 'buddynext' ); ?>"
+					data-wp-on--click="actions.dismissGuestBanner"
+				>
+					<?php buddynext_icon( 'x' ); ?>
+				</button>
 				<h3><?php esc_html_e( 'Join the community', 'buddynext' ); ?></h3>
 				<p>
 					<?php esc_html_e( "You're browsing as a guest. Create an account to post, follow people, and join spaces.", 'buddynext' ); ?>

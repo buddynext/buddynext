@@ -2765,12 +2765,32 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 
 /* Guest banner */
 .bn-guest-banner {
+	position: relative;
 	background: linear-gradient(135deg, var(--brand), var(--brand-hover));
 	color: #fff;
 	border-radius: var(--r-lg);
 	padding: var(--s5);
 	margin-bottom: var(--s5);
 }
+.bn-guest-banner__dismiss {
+	position: absolute;
+	inset-block-start: var(--s3);
+	inset-inline-end: var(--s3);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--r-full);
+	background: rgba(255, 255, 255, 0.16);
+	color: inherit;
+	cursor: pointer;
+	transition: background var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-guest-banner__dismiss:hover { background: rgba(255, 255, 255, 0.28); }
+.bn-guest-banner__dismiss .bn-icon { width: 16px; height: 16px; }
 .bn-guest-banner h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--fw-bold); margin-bottom: var(--s1); }
 .bn-guest-banner p  { font-size: var(--text-sm); opacity: 0.85; margin-bottom: var(--s4); line-height: 1.6; }
 .bn-banner-btns     { display: flex; gap: var(--bn-s2); flex-wrap: wrap; }

@@ -2587,6 +2587,11 @@ store( 'buddynext/feed-tabs', {
 const BN_SEARCH_PATH = '/activity/search/';
 
 store( 'buddynext/feed', {
+	state: {
+		get guestBannerDismissed() {
+			try { return !! getContext().guestBannerDismissed; } catch ( _e ) { return false; }
+		},
+	},
 	actions: {
 		setFilter( event ) {
 			if ( event && event.preventDefault ) { event.preventDefault(); }
@@ -2651,6 +2656,33 @@ store( 'buddynext/feed', {
 			const target_url = new URL( window.location.origin + BN_SEARCH_PATH );
 			target_url.searchParams.set( 'q', q );
 			window.location.href = target_url.toString();
+		},
+
+		/**
+		 * Dismiss the guest join banner for the rest of the session.
+		 *
+		 * Persisted in sessionStorage so the banner stays hidden across page
+		 * loads until the browsing session ends (re-shows in a new session).
+		 */
+		dismissGuestBanner( event ) {
+			if ( event && event.preventDefault ) { event.preventDefault(); }
+			try {
+				getContext().guestBannerDismissed = true;
+				window.sessionStorage.setItem( 'bnGuestBannerDismissed', '1' );
+			} catch ( _e ) {}
+		},
+	},
+	callbacks: {
+		/**
+		 * Restore a prior dismissal on load so the banner does not flash back
+		 * after a navigation within the same session.
+		 */
+		initGuestBanner() {
+			try {
+				if ( '1' === window.sessionStorage.getItem( 'bnGuestBannerDismissed' ) ) {
+					getContext().guestBannerDismissed = true;
+				}
+			} catch ( _e ) {}
 		},
 	},
 } );
