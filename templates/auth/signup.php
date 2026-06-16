@@ -37,6 +37,38 @@ $bn_challenge     = $bn_challenge_on
 		'question' => '',
 		'token'    => '',
 	);
+
+// Invite-only mode: the REST submit already 403s without a valid invite, but
+// the form should not even render — show an invite-required notice unless the
+// visitor arrived with a valid, unconsumed invitation token. Mirrors the
+// AuthController::register() gate so the two never disagree.
+$bn_reg_mode = (string) get_option( 'buddynext_reg_mode', 'open' );
+if ( 'invite' === $bn_reg_mode ) {
+	$bn_invite_token = isset( $_GET['invite'] ) ? sanitize_text_field( wp_unslash( $_GET['invite'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	$bn_invite       = '' !== $bn_invite_token ? ( new \BuddyNext\Onboarding\InviteService() )->get_by_token( $bn_invite_token ) : null;
+	if ( null === $bn_invite ) {
+		?>
+		<div class="bn-auth-page">
+			<div class="bn-auth-card" data-variant="register">
+				<div class="bn-auth-hero" aria-hidden="true">
+					<span class="bn-auth-hero__logo"><?php buddynext_icon( 'home' ); ?></span>
+					<span class="bn-auth-hero__wordmark">Buddy<span>Next</span></span>
+				</div>
+				<div class="bn-auth-body">
+					<section class="bn-auth-panel" data-active>
+						<h1 class="bn-auth-title"><?php esc_html_e( 'Registration is invite-only', 'buddynext' ); ?></h1>
+						<p class="bn-auth-sub"><?php esc_html_e( 'This community is invite-only. You need a valid invitation link to create an account.', 'buddynext' ); ?></p>
+						<a class="bn-btn" data-variant="primary" data-size="lg" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::auth_url() ); ?>">
+							<?php esc_html_e( 'Back to sign in', 'buddynext' ); ?>
+						</a>
+					</section>
+				</div>
+			</div>
+		</div>
+		<?php
+		return;
+	}
+}
 ?>
 
 <div class="bn-auth-page">
