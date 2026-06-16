@@ -156,6 +156,30 @@ class SpaceService {
 					__( 'Spaces may only be nested two levels deep.', 'buddynext' )
 				);
 			}
+
+			// Enforce the configured per-parent sub-space cap (Settings → Spaces →
+			// "Max Sub-Spaces"). 0 = unlimited.
+			$max_sub = (int) get_option( 'buddynext_space_max_sub_spaces', 0 );
+			if ( $max_sub > 0 ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$existing_sub = (int) $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces WHERE parent_id = %d",
+						$parent_id
+					)
+				);
+				if ( $existing_sub >= $max_sub ) {
+					return new WP_Error(
+						'max_sub_spaces_exceeded',
+						sprintf(
+							/* translators: %d: maximum number of sub-spaces allowed per parent. */
+							__( 'This space already has the maximum of %d sub-spaces.', 'buddynext' ),
+							$max_sub
+						),
+						array( 'status' => 422 )
+					);
+				}
+			}
 		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
