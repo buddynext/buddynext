@@ -103,6 +103,69 @@ class ModerationLogService {
 	}
 
 	/**
+	 * Return a paginated slice of the moderation log, newest first, with
+	 * optional filters. Powers the admin-only GET /moderation/log REST route.
+	 *
+	 * @param array $args {
+	 *     Optional query args.
+	 *     @type int    $user_id  Filter to entries targeting this user (0 = all).
+	 *     @type string $action   Filter to a single action slug ('' = all).
+	 *     @type int    $per_page Rows per page (1-100, default 20).
+	 *     @type int    $page     1-based page number (default 1).
+	 * }
+	 * @return array{items: array[], total: int, page: int, per_page: int}
+	 */
+	public function get_log( array $args = array() ): array {
+		global $wpdb;
+
+		$user_id  = isset( $args['user_id'] ) ? (int) $args['user_id'] : 0;
+		$action   = isset( $args['action'] ) ? sanitize_key( (string) $args['action'] ) : '';
+		$per_page = isset( $args['per_page'] ) ? max( 1, min( 100, (int) $args['per_page'] ) ) : 20;
+		$page     = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
+		$offset   = ( $page - 1 ) * $per_page;
+
+		$where  = array( '1=1' );
+		$params = array();
+		if ( $user_id > 0 ) {
+			$where[]  = 'target_user_id = %d';
+			$params[] = $user_id;
+		}
+		if ( '' !== $action ) {
+			$where[]  = 'action = %s';
+			$params[] = $action;
+		}
+		$where_sql = implode( ' AND ', $where );
+
+		// The WHERE fragments are built from literal column conditions only; every
+		// runtime value is passed through $wpdb->prepare(). The placeholder count
+		// is dynamic (depends on which filters are active), which the static sniff
+		// cannot verify — hence the placeholder-sniff suppressions below.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		$total = (int) $wpdb->get_var(
+			$params
+				? $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_mod_log WHERE {$where_sql}", $params )
+				: "SELECT COUNT(*) FROM {$wpdb->prefix}bn_mod_log WHERE {$where_sql}"
+		);
+
+		$query_params = array_merge( $params, array( $per_page, $offset ) );
+		$rows         = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_mod_log WHERE {$where_sql} ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d",
+				$query_params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+
+		return array(
+			'items'    => array_map( array( $this, 'hydrate' ), (array) $rows ),
+			'total'    => $total,
+			'page'     => $page,
+			'per_page' => $per_page,
+		);
+	}
+
+	/**
 	 * Hydrate a raw log row.
 	 *
 	 * @param array $row ARRAY_A row.

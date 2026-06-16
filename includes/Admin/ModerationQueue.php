@@ -39,13 +39,13 @@ class ModerationQueue {
 	 * @var array<string,string>
 	 */
 	private const REASON_LABELS = array(
-		'spam'          => 'Spam',
-		'harassment'    => 'Harassment',
+		'spam'           => 'Spam',
+		'harassment'     => 'Harassment',
 		'misinformation' => 'Misinformation',
-		'inappropriate' => 'Inappropriate',
-		'fake'          => 'Fake / scam',
-		'impersonation' => 'Impersonation',
-		'other'         => 'Other',
+		'inappropriate'  => 'Inappropriate',
+		'fake'           => 'Fake / scam',
+		'impersonation'  => 'Impersonation',
+		'other'          => 'Other',
 	);
 
 	/**
@@ -124,7 +124,16 @@ class ModerationQueue {
 		?>
 		<tr>
 			<td>
-				<strong><?php echo esc_html( ucfirst( $object_type ) ); ?> #<?php echo esc_html( (string) $object_id ); ?></strong>
+				<?php
+				$bn_view_url = $this->object_view_url( $object_type, $object_id );
+				$bn_label    = sprintf( '%s #%d', ucfirst( $object_type ), $object_id );
+				?>
+				<strong><?php echo esc_html( $bn_label ); ?></strong>
+				<?php if ( '' !== $bn_view_url ) : ?>
+					<a class="bn-mod-view-link" href="<?php echo esc_url( $bn_view_url ); ?>" target="_blank" rel="noopener">
+						<?php esc_html_e( 'View content', 'buddynext' ); ?>
+					</a>
+				<?php endif; ?>
 				<?php if ( $escalated ) : ?>
 					<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Escalated', 'buddynext' ); ?></span>
 				<?php endif; ?>
@@ -447,11 +456,11 @@ class ModerationQueue {
 	/**
 	 * Render a tiny inline admin-post form carrying one action.
 	 *
-	 * @param string               $action  admin-post action (also the nonce).
-	 * @param array<string,mixed>  $fields  Hidden field name => value.
-	 * @param string               $label   Button label.
-	 * @param string               $variant Button class hint.
-	 * @param string               $confirm Optional confirm() prompt.
+	 * @param string              $action  admin-post action (also the nonce).
+	 * @param array<string,mixed> $fields  Hidden field name => value.
+	 * @param string              $label   Button label.
+	 * @param string              $variant Button class hint.
+	 * @param string              $confirm Optional confirm() prompt.
 	 * @return void
 	 */
 	private function action_form( string $action, array $fields, string $label, string $variant, string $confirm ): void {
@@ -463,7 +472,10 @@ class ModerationQueue {
 		}
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-mod-action-form"
-			<?php if ( '' !== $confirm ) : ?>onsubmit="return confirm('<?php echo esc_js( $confirm ); ?>');"<?php endif; ?>>
+			<?php
+			if ( '' !== $confirm ) :
+				?>
+				onsubmit="return confirm('<?php echo esc_js( $confirm ); ?>');"<?php endif; ?>>
 			<input type="hidden" name="action" value="<?php echo esc_attr( $action ); ?>">
 			<?php wp_nonce_field( $action ); ?>
 			<?php foreach ( $fields as $name => $value ) : ?>
@@ -551,6 +563,39 @@ class ModerationQueue {
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		return 0;
+	}
+
+	/**
+	 * Resolve a front-end URL for the reported object so a moderator can open
+	 * and review the actual content (post permalink, the comment's parent post,
+	 * or the reported member's profile). Returns '' when no URL applies.
+	 *
+	 * @param string $object_type Reported object type (post|comment|user).
+	 * @param int    $object_id   Reported object ID.
+	 * @return string
+	 */
+	private function object_view_url( string $object_type, int $object_id ): string {
+		if ( $object_id <= 0 ) {
+			return '';
+		}
+
+		if ( 'post' === $object_type ) {
+			return \BuddyNext\Core\PageRouter::post_url( $object_id );
+		}
+		if ( 'user' === $object_type ) {
+			return \BuddyNext\Core\PageRouter::profile_url( $object_id );
+		}
+		if ( 'comment' === $object_type ) {
+			global $wpdb;
+			// A comment has no standalone page — deep-link to its parent post.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$post_id = (int) $wpdb->get_var(
+				$wpdb->prepare( "SELECT object_id FROM {$wpdb->prefix}bn_comments WHERE id = %d AND object_type = 'post'", $object_id )
+			);
+			return $post_id > 0 ? \BuddyNext\Core\PageRouter::post_url( $post_id ) : '';
+		}
+
+		return '';
 	}
 
 	/**

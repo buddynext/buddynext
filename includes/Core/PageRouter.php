@@ -750,8 +750,13 @@ class PageRouter {
 		}
 
 		// Author suspension / shadow-ban gate (admins + the author see through).
+		// Read suspension via the canonical ModerationService::is_suspended()
+		// (the bn_user_suspensions table) rather than the bn_suspended usermeta —
+		// the meta is only set by the admin-panel path, so strike-threshold
+		// auto-suspensions (which write only the suspensions row) were leaking
+		// through this gate.
 		if ( $author_id > 0 && $author_id !== $viewer_id && ! user_can( $viewer_id, 'manage_options' ) ) {
-			$author_suspended = (bool) get_user_meta( $author_id, 'bn_suspended', true );
+			$author_suspended = buddynext_service( 'moderation' )->is_suspended( $author_id );
 			$author_shadow    = (bool) get_user_meta( $author_id, 'bn_shadow_banned', true );
 			if ( $author_suspended || $author_shadow ) {
 				return;

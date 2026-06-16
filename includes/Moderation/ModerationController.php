@@ -149,6 +149,43 @@ class ModerationController extends BaseRestController {
 			)
 		);
 
+		// Moderation audit log — admin-only read access to the append-only
+		// bn_mod_log trail. The log was previously write-only over REST.
+		register_rest_route(
+			'buddynext/v1',
+			'/moderation/log',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_moderation_log' ),
+				'permission_callback' => array( $this, 'require_admin' ),
+				'args'                => array(
+					'user_id'  => array(
+						'type'              => 'integer',
+						'required'          => false,
+						'sanitize_callback' => 'absint',
+					),
+					'action'   => array(
+						'type'              => 'string',
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 20,
+						'minimum'           => 1,
+						'maximum'           => 100,
+						'sanitize_callback' => 'absint',
+					),
+					'page'     => array(
+						'type'              => 'integer',
+						'default'           => 1,
+						'minimum'           => 1,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
 		// Report actions.
 		register_rest_route(
 			'buddynext/v1',
@@ -729,6 +766,29 @@ class ModerationController extends BaseRestController {
 			),
 			200
 		);
+	}
+
+	/**
+	 * GET /moderation/log — read the moderation audit trail (admin only).
+	 *
+	 * Returns a paginated, newest-first slice of bn_mod_log with optional
+	 * user_id and action filters. The log is append-only; this is read access
+	 * to the trail the spec promised but never exposed over REST.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function get_moderation_log( WP_REST_Request $request ): WP_REST_Response {
+		$result = ( new ModerationLogService() )->get_log(
+			array(
+				'user_id'  => (int) $request->get_param( 'user_id' ),
+				'action'   => (string) ( $request->get_param( 'action' ) ?? '' ),
+				'per_page' => (int) $request->get_param( 'per_page' ),
+				'page'     => (int) $request->get_param( 'page' ),
+			)
+		);
+
+		return new WP_REST_Response( $result, 200 );
 	}
 
 	/**

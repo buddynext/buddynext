@@ -1665,7 +1665,13 @@ store( 'buddynext/profile', {
 						notes:       ctx.reportNotes  || '',
 					} ),
 				} );
-				if ( ! res.ok && res.status !== 201 ) { throw new Error( 'report_failed' ); }
+				if ( ! res.ok && res.status !== 201 ) {
+					// Surface the server's reason — e.g. the 409 "You have already
+					// reported this member." — rather than a generic retry message.
+					var data = await res.json().catch( function () { return {}; } );
+					bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
+					return;
+				}
 				ctx.reportOpen = false;
 				bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
 			} catch ( _e ) {

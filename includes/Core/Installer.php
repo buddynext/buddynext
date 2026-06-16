@@ -29,8 +29,11 @@ class Installer {
 	 * the (release-locked) plugin version in the buddynext_schema_version option.
 	 *
 	 * 2 — added bn_invites.space_id (space-linked email invitations).
+	 * 3 — seed moderation email templates bn.unsuspension_confirmation +
+	 *     bn.new_report (back-fills existing installs via the idempotent
+	 *     INSERT IGNORE seeder; no schema change).
 	 */
-	private const SCHEMA_VERSION = 2;
+	private const SCHEMA_VERSION = 3;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -212,6 +215,18 @@ class Installer {
 				'subject'      => 'Your appeal has been reviewed — {{site_name}}',
 				'preview_text' => 'Your moderation appeal has been resolved',
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your appeal on {{site_name}} has been reviewed and <strong>{{decision}}</strong>.</p><p>If you have questions about this decision, please contact our moderation team.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'         => 'bn.unsuspension_confirmation',
+				'subject'      => 'Your account suspension has been lifted — {{site_name}}',
+				'preview_text' => 'Welcome back — your suspension has been lifted',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Good news — your account suspension on {{site_name}} has been lifted. You can post and interact with the community again.</p><p>Please review our community guidelines to keep your account in good standing.</p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'         => 'bn.new_report',
+				'subject'      => 'New content report awaiting review — {{site_name}}',
+				'preview_text' => 'A member reported content for moderation',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>A new report was filed on {{site_name}} and is waiting in the moderation queue.</p><p><a href="{{action_url}}">Review the moderation queue &rarr;</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
 				'type'         => 'bn.daily_digest',

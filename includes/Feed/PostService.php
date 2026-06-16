@@ -138,14 +138,17 @@ class PostService {
 		);
 		$flag_reason = '';
 		if ( is_wp_error( $safeguard_result ) ) {
-			if ( 'pending_review' === $safeguard_result->get_error_code() ) {
-				// New-member gate: save the post but hold it for moderation review.
-				$data['status'] = 'pending';
-			} elseif ( $this->is_flag_error( $safeguard_result ) ) {
-				// severity=flag rule (e.g. bnpro_keyword_flagged / bnpro_link_flagged,
-				// HTTP 202): the post is allowed through and published, but a system
-				// report is filed below so reviewers can act on it. Distinct from a
-				// hard block (422), which still rejects via the else branch.
+			if ( 'pending_review' === $safeguard_result->get_error_code() || $this->is_flag_error( $safeguard_result ) ) {
+				// Reactive moderation (FB / LinkedIn model — members post freely, no
+				// pre-publish approval queue). The new-member gate and duplicate-
+				// content holds (pending_review) are treated exactly like a
+				// severity=flag rule (e.g. bnpro_keyword_flagged, HTTP 202): the post
+				// PUBLISHES and a system report is filed below so it surfaces in the
+				// moderation queue for review. Previously pending_review set the post
+				// to 'pending' status, which hid it with no review surface — the post
+				// was held invisibly and never reached the queue, so a moderator could
+				// neither see nor approve it. A hard block (422) still rejects outright
+				// via the else branch.
 				$flag_reason = (string) $safeguard_result->get_error_message();
 			} else {
 				// Hard block (422), suspension, rate limit, etc. — reject outright.

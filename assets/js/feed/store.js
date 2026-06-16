@@ -578,7 +578,10 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				if ( res.ok || res.status === 201 ) {
 					bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
 				} else {
-					bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
+					// Surface the server's reason (e.g. the 409 "already reported"
+					// message) instead of a generic failure the user reads as "retry".
+					const data = await res.json().catch( () => ( {} ) );
+					bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
 				}
 			} catch ( _e ) {
 				bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
@@ -1108,7 +1111,10 @@ store( 'buddynext/post-card', {
 				if ( res.ok || res.status === 201 ) {
 					bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
 				} else {
-					bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );
+					// Surface the server's reason (e.g. the 409 "already reported"
+					// message) instead of a generic failure.
+					const data = yield res.json().catch( () => ( {} ) );
+					bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
 				}
 			} catch ( _e ) {
 				bnToast( 'Could not submit report. Try again.', { tone: 'danger' } );

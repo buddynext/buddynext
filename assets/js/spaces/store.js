@@ -935,6 +935,17 @@ var storeInstance = store( 'buddynext/spaces', {
 							'X-WP-Nonce':   resolveNonce(),
 						},
 						body: JSON.stringify( { object_type: 'post', object_id: parseInt( postId, 10 ) } ),
+					} ).then( function ( res ) {
+						if ( res.ok || res.status === 201 ) {
+							if ( window.bnToast ) { window.bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } ); }
+							return;
+						}
+						// Surface the server's reason (e.g. 409 already reported).
+						return res.json().then( function ( data ) {
+							if ( window.bnToast ) { window.bnToast( ( data && data.message ) || 'Could not submit report. Try again.', { tone: 'danger' } ); }
+						} );
+					} ).catch( function () {
+						if ( window.bnToast ) { window.bnToast( 'Could not submit report. Try again.', { tone: 'danger' } ); }
 					} );
 				} );
 

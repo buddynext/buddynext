@@ -223,7 +223,9 @@ class BookmarkController extends BaseRestController {
 			}
 
 			if ( $author_id !== $viewer && ! user_can( $viewer, 'manage_options' ) ) {
-				$suspended = (bool) get_user_meta( $author_id, 'bn_suspended', true );
+				// Canonical suspension check (bn_user_suspensions) — not the
+				// bn_suspended usermeta, which auto-suspensions don't set.
+				$suspended = buddynext_service( 'moderation' )->is_suspended( $author_id );
 				$shadow    = (bool) get_user_meta( $author_id, 'bn_shadow_banned', true );
 				if ( $suspended || $shadow ) {
 					continue;

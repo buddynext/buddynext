@@ -102,7 +102,10 @@ class ModerationService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( null !== $existing ) {
-			return new WP_Error( 'already_reported', __( 'You have already reported this content.', 'buddynext' ) );
+			$already_message = 'user' === sanitize_key( $object_type )
+				? __( 'You have already reported this member.', 'buddynext' )
+				: __( 'You have already reported this content.', 'buddynext' );
+			return new WP_Error( 'already_reported', $already_message );
 		}
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

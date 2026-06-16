@@ -32,6 +32,7 @@ class ModerationListener implements ListenerInterface {
 		add_action( 'buddynext_content_removed', array( $this, 'on_content_removed' ), 10, 3 );
 		add_action( 'buddynext_user_unsuspended', array( $this, 'on_user_unsuspended' ), 10, 1 );
 		add_action( 'buddynext_appeal_submitted', array( $this, 'on_appeal_submitted' ), 10, 2 );
+		add_action( 'buddynext_report_created', array( $this, 'on_report_created' ), 10, 4 );
 		add_action( 'buddynext_user_shadow_banned', array( $this, 'on_user_shadow_banned' ), 10, 1 );
 		add_action( 'buddynext_user_shadow_ban_removed', array( $this, 'on_user_shadow_ban_removed' ), 10, 1 );
 		add_action( 'buddynext_daily_queue_check', array( $this, 'on_daily_queue_check' ), 10, 0 );
@@ -85,7 +86,19 @@ class ModerationListener implements ListenerInterface {
 				$actor_id
 			);
 		} elseif ( $active_strikes >= $suspend_threshold ) {
-			buddynext_service( 'admin_members' )->suspend_member( $user_id );
+			// Route through the canonical suspension method so the strike-issuing
+			// admin is recorded as the actor (admin_members->suspend_member() used
+			// get_current_user_id(), which is wrong/0 in a cron or async strike
+			// context) and the suspension reason + bn.member_suspended email carry
+			// real context. Indefinite, content stays visible — distinct from the
+			// perma-ban tier above which hides content.
+			buddynext_service( 'moderation' )->suspend(
+				$user_id,
+				__( 'Automatic suspension: strike threshold reached.', 'buddynext' ),
+				0,
+				false,
+				$actor_id
+			);
 		} elseif ( $active_strikes >= $warn_threshold ) {
 			buddynext_service( 'notifications' )->create(
 				array(
@@ -371,6 +384,103 @@ class ModerationListener implements ListenerInterface {
 						'user_id'   => $user_id,
 						'appeal_id' => $appeal_id,
 					),
+				)
+			);
+		}
+	}
+
+	/**
+	 * Notify moderators the moment a new report is filed.
+	 *
+	 * Fires from buddynext_report_created — previously unsubscribed, so reports
+	 * sat unseen until an admin happened to open the queue. Sends an in-app
+	 * notification (and a bn.new_report email, subject to each recipient's email
+	 * frequency preference) to every site administrator, plus the owners and
+	 * moderators of the space when the report is space-scoped. The reporter is
+	 * never notified about their own report.
+	 *
+	 * @param int    $report_id   New report ID.
+	 * @param string $object_type Reported object type (post|comment|user).
+	 * @param int    $object_id   Reported object ID.
+	 * @param int    $reporter_id User who filed the report.
+	 */
+	public function on_report_created( int $report_id, string $object_type, int $object_id, int $reporter_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// Resolve the report's space (if any) so space-scoped reports also reach
+		// that space's owners/moderators, not only site admins.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$space_id = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_reports WHERE id = %d", $report_id )
+		);
+
+		// Deduplicated recipient set keyed by user ID.
+		$recipients = array();
+		foreach ( (array) get_users(
+			array(
+				'role'   => 'administrator',
+				'fields' => 'ID',
+			)
+		) as $admin_id ) {
+			$recipients[ (int) $admin_id ] = true;
+		}
+		if ( $space_id > 0 ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$space_mods = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT user_id FROM {$wpdb->prefix}bn_space_members
+					 WHERE space_id = %d AND status = 'active' AND role IN ( 'owner', 'moderator' )",
+					$space_id
+				)
+			);
+			foreach ( (array) $space_mods as $mod_id ) {
+				$recipients[ (int) $mod_id ] = true;
+			}
+		}
+
+		unset( $recipients[ $reporter_id ] );
+		if ( empty( $recipients ) ) {
+			return;
+		}
+
+		$queue_url     = admin_url( 'admin.php?page=buddynext-moderation' );
+		$notifications = buddynext_service( 'notifications' );
+		$email_sender  = buddynext_service( 'email_sender' );
+
+		$message = sprintf(
+			/* translators: 1: object type (post/comment/user), 2: object id */
+			__( 'New report filed on %1$s #%2$d — review the moderation queue.', 'buddynext' ),
+			$object_type,
+			$object_id
+		);
+
+		foreach ( array_keys( $recipients ) as $recipient_id ) {
+			$notifications->create(
+				array(
+					'recipient_id' => $recipient_id,
+					'sender_id'    => $reporter_id,
+					'type'         => 'bn.new_report',
+					'object_type'  => $object_type,
+					'object_id'    => $object_id,
+					'group_key'    => 'report_created_' . $report_id,
+					'data'         => array(
+						'message' => $message,
+						'url'     => $queue_url,
+					),
+				)
+			);
+
+			$email_sender->send(
+				$recipient_id,
+				'bn.new_report',
+				array(
+					'object_type' => $object_type,
+					'object_id'   => $object_id,
+					'action_url'  => $queue_url,
 				)
 			);
 		}
