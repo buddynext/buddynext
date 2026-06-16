@@ -988,7 +988,9 @@ class SpaceMemberService {
 	/**
 	 * Increment or decrement the member_count on the space row.
 	 *
-	 * Uses GREATEST(0, ...) to prevent negative counts on unexpected decrements.
+	 * Uses GREATEST(1, member_count) - 1 to floor at zero WITHOUT underflowing
+	 * the UNSIGNED column (member_count - 1 on a 0 value would wrap to ~1.8e19
+	 * before GREATEST sees it).
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $delta    +1 to increment, -1 to decrement.
@@ -1007,7 +1009,7 @@ class SpaceMemberService {
 		} else {
 			$wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_spaces SET member_count = GREATEST(0, member_count - 1) WHERE id = %d",
+					"UPDATE {$wpdb->prefix}bn_spaces SET member_count = GREATEST(1, member_count) - 1 WHERE id = %d",
 					$space_id
 				)
 			);

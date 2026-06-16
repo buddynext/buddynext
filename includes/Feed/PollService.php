@@ -102,7 +102,7 @@ class PollService {
 			$wpdb->query(
 				$wpdb->prepare(
 					"UPDATE {$wpdb->prefix}bn_poll_options
-					 SET vote_count = GREATEST(0, vote_count - 1)
+					 SET vote_count = GREATEST(1, vote_count) - 1
 					 WHERE id = %d",
 					(int) $existing_option_id
 				)

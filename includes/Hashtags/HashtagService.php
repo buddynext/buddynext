@@ -475,7 +475,7 @@ class HashtagService {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$wpdb->prefix}bn_hashtags SET follower_count = GREATEST(follower_count - 1, 0) WHERE id = %d",
+					"UPDATE {$wpdb->prefix}bn_hashtags SET follower_count = GREATEST(1, follower_count) - 1 WHERE id = %d",
 					$hashtag_id
 				)
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

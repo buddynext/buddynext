@@ -851,7 +851,7 @@ class PrivacyTools implements ListenerInterface {
 		foreach ( $active_space_ids as $space_id ) {
 			$wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$p}bn_spaces SET member_count = GREATEST(0, member_count - 1) WHERE id = %d",
+					"UPDATE {$p}bn_spaces SET member_count = GREATEST(1, member_count) - 1 WHERE id = %d",
 					(int) $space_id
 				)
 			);
