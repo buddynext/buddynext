@@ -16,7 +16,7 @@
  * Layout:
  *   .bn-app                       — 100vw burst-out wrapper (escapes theme containers)
  *   .bn-app__shell                — two-column grid (rail / main)
- *   .bn-app__shell--with-sidebar  — three-column grid (rail / main / 320px right)
+ *   .bn-app__shell--with-sidebar  — three-column grid (rail / main / right)
  *   .bn-app__rail                 — left navigation column
  *   .bn-app__main                 — primary content column
  *   .bn-app__right                — optional right sidebar column
@@ -26,6 +26,26 @@
  *
  * @package BuddyNext
  */
+
+/* ── Component tokens ──────────────────────────────────────────────────────
+ * Shell-local geometry that has no global design-system token. These alias or
+ * derive from the global scale where one exists, and define a clearly-named
+ * component token only for genuinely off-grid shell geometry (icon glyph size,
+ * count-badge pill size, the right-sidebar width, the notification dropdown
+ * panel, the mobile bottom-bar clearance). No raw colour/typography lives here
+ * — those always reference the global --bn-* tokens. */
+:root {
+	--bn-shell-sidebar-w:       320px;
+	--bn-rail-icon-size:        18px;
+	--bn-rail-badge-size:       18px;
+	--bn-rail-badge-dot-size:   9px;
+	--bn-notif-dropdown-w:      360px;
+	--bn-notif-dropdown-maxh:   440px;
+	--bn-notif-avatar-size:     36px;
+	--bn-rail-logo-maxh:        32px;
+	--bn-rail-logo-maxh-sm:     28px;
+	--bn-mobile-nav-clearance:  88px;
+}
 
 /* ── Full-width burst-out — .bn-app escapes the theme container ────────────
  *
@@ -81,7 +101,7 @@ body.admin-bar .bn-app {
 /* ── Two/three-column shell — full-viewport, rail anchored to viewport edge ── */
 .bn-app__shell {
 	display: grid;
-	grid-template-columns: var(--bn-railw, 260px) minmax(0, 1fr);
+	grid-template-columns: var(--bn-railw) minmax(0, 1fr);
 	gap: 0;
 	width: 100%;
 	max-width: none;
@@ -92,13 +112,13 @@ body.admin-bar .bn-app {
 }
 
 .bn-app__shell--with-sidebar {
-	grid-template-columns: var(--bn-railw, 260px) minmax(0, 1fr) 320px;
+	grid-template-columns: var(--bn-railw) minmax(0, 1fr) var(--bn-shell-sidebar-w);
 }
 
 .bn-app__main {
 	min-width: 0;
-	padding-block: var(--bn-s5, 20px);
-	padding-inline: var(--bn-s6, 24px);
+	padding-block: var(--bn-s5);
+	padding-inline: var(--bn-s6);
 }
 
 /* Main column flows at full available width. Hub templates own their
@@ -112,18 +132,18 @@ body.admin-bar .bn-app {
 }
 
 .bn-app__right {
-	padding: var(--bn-s5, 20px);
-	border-inline-start: 1px solid var(--bn-line, #e8e8e5);
+	padding: var(--bn-s5);
+	border-inline-start: 1px solid var(--bn-line);
 	background: var(--bn-canvas);
 	display: flex;
 	flex-direction: column;
-	gap: var(--bn-s4, 16px);
+	gap: var(--bn-s4);
 }
 
 /* ── Left rail ───────────────────────────────────────────────────────────── */
 .bn-app__rail {
-	border-right: 1px solid var(--bn-line, #e8e8e5);
-	padding: var(--s5, 20px) var(--s2, 8px);
+	border-right: 1px solid var(--bn-line);
+	padding: var(--bn-s5) var(--bn-s2);
 	position: sticky;
 	top: 0;
 	align-self: start;
@@ -149,29 +169,29 @@ body.admin-bar .bn-app__rail {
 .bn-rail__group {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
-	margin-bottom: var(--s4, 16px);
+	gap: calc(var(--bn-s1) / 2);
+	margin-bottom: var(--bn-s4);
 }
 
 .bn-rail__heading {
-	padding: var(--s2, 8px) var(--s3, 12px) 4px;
-	font-size: 11px;
-	font-weight: 700;
-	letter-spacing: 0.04em;
+	padding: var(--bn-s2) var(--bn-s3) var(--bn-s1);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-bold);
+	letter-spacing: var(--bn-ls-wide);
 	text-transform: uppercase;
-	color: var(--bn-ink-3, #888);
+	color: var(--bn-ink-3);
 }
 
 .bn-rail__item {
 	display: flex;
 	align-items: center;
-	gap: var(--s3, 12px);
-	padding: 8px var(--s3, 12px);
-	min-height: 40px;
-	border-radius: 8px;
-	font-size: 14px;
-	font-weight: 500;
-	color: var(--bn-ink-2, #555);
+	gap: var(--bn-s3);
+	padding: var(--bn-s2) var(--bn-s3);
+	min-height: var(--bn-s10);
+	border-radius: var(--bn-r-sm);
+	font-size: var(--bn-text-base);
+	font-weight: var(--bn-fw-medium);
+	color: var(--bn-ink-2);
 	text-decoration: none;
 	transition: background 0.12s, color 0.12s;
 	position: relative;
@@ -179,7 +199,7 @@ body.admin-bar .bn-app__rail {
 
 .bn-rail__item:hover {
 	background: var(--bn-canvas);
-	color: var(--bn-ink, #222);
+	color: var(--bn-ink);
 }
 
 .bn-rail__item:focus-visible {
@@ -190,12 +210,12 @@ body.admin-bar .bn-app__rail {
 .bn-rail__item[aria-current="page"] {
 	background: var(--bn-canvas);
 	color: var(--bn-accent, var(--brand));
-	font-weight: 600;
+	font-weight: var(--bn-fw-semibold);
 }
 
 .bn-rail__icon {
-	width: 18px;
-	height: 18px;
+	width: var(--bn-rail-icon-size);
+	height: var(--bn-rail-icon-size);
 	flex-shrink: 0;
 	stroke: currentColor;
 }
@@ -209,14 +229,14 @@ body.admin-bar .bn-app__rail {
 }
 
 .bn-rail__badge {
-	background: var(--red, #dc2626);
-	color: #fff;
-	font-size: 10px;
-	font-weight: 700;
-	min-width: 18px;
-	height: 18px;
-	padding: 0 5px;
-	border-radius: 9px;
+	background: var(--bn-danger);
+	color: var(--bn-accent-fg);
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-bold);
+	min-width: var(--bn-rail-badge-size);
+	height: var(--bn-rail-badge-size);
+	padding: 0 var(--bn-s1);
+	border-radius: var(--bn-r-full);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -229,18 +249,18 @@ body.admin-bar .bn-app__rail {
 	align-items: center;
 	justify-content: flex-end;
 	width: 100%;
-	padding: 6px var(--s3, 12px);
-	margin-bottom: var(--s2, 8px);
+	padding: var(--bn-s2) var(--bn-s3);
+	margin-bottom: var(--bn-s2);
 	background: transparent;
 	border: 0;
-	border-radius: 8px;
-	color: var(--bn-ink-3, #888);
+	border-radius: var(--bn-r-sm);
+	color: var(--bn-ink-3);
 	cursor: pointer;
 	transition: background 0.12s, color 0.12s;
 }
 .bn-rail__toggle:hover {
 	background: var(--bn-canvas);
-	color: var(--bn-ink, #222);
+	color: var(--bn-ink);
 }
 .bn-rail__toggle:focus-visible {
 	outline: 2px solid var(--bn-accent, var(--brand));
@@ -274,21 +294,21 @@ body.admin-bar .bn-app__rail {
 }
 [data-bn-rail="collapsed"] .bn-rail__badge {
 	position: absolute;
-	top: 4px;
-	right: 16px;
-	min-width: 9px;
-	width: 9px;
-	height: 9px;
+	top: var(--bn-s1);
+	right: var(--bn-s4);
+	min-width: var(--bn-rail-badge-dot-size);
+	width: var(--bn-rail-badge-dot-size);
+	height: var(--bn-rail-badge-dot-size);
 	padding: 0;
 	font-size: 0;
 	line-height: 0;
-	border-radius: 50%;
+	border-radius: var(--bn-r-full);
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
 	.bn-app__shell--with-sidebar {
-		grid-template-columns: var(--bn-railw, 260px) minmax(0, 1fr);
+		grid-template-columns: var(--bn-railw) minmax(0, 1fr);
 	}
 	.bn-app__right {
 		display: none;
@@ -316,15 +336,15 @@ body.admin-bar .bn-app__rail {
 	}
 	.bn-rail__badge {
 		position: absolute;
-		top: 4px;
-		right: 16px;
-		min-width: 9px;
-		width: 9px;
-		height: 9px;
+		top: var(--bn-s1);
+		right: var(--bn-s4);
+		min-width: var(--bn-rail-badge-dot-size);
+		width: var(--bn-rail-badge-dot-size);
+		height: var(--bn-rail-badge-dot-size);
 		padding: 0;
 		font-size: 0;
 		line-height: 0;
-		border-radius: 50%;
+		border-radius: var(--bn-r-full);
 	}
 }
 
@@ -337,7 +357,7 @@ body.admin-bar .bn-app__rail {
 		display: none;
 	}
 	.bn-app__main {
-		padding-bottom: 88px; /* clear .bn-mobile-nav bottom bar */
+		padding-bottom: var(--bn-mobile-nav-clearance); /* clear .bn-mobile-nav bottom bar */
 	}
 }
 
@@ -345,14 +365,14 @@ body.admin-bar .bn-app__rail {
 .bn-nav-notif-wrap { position: relative; }
 .bn-notif-dropdown {
 	position: absolute;
-	top: calc(100% + 8px);
+	top: calc(100% + var(--bn-s2));
 	right: 0;
-	width: 360px;
-	max-height: 440px;
+	width: var(--bn-notif-dropdown-w);
+	max-height: var(--bn-notif-dropdown-maxh);
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-line, #e8e8e5);
-	border-radius: 12px;
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	box-shadow: var(--bn-shadow-lg);
 	z-index: 220;
 	display: flex;
 	flex-direction: column;
@@ -367,49 +387,49 @@ body.admin-bar .bn-app__rail {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 12px 16px;
-	border-bottom: 1px solid var(--bn-line-soft, #f1f1ee);
+	padding: var(--bn-s3) var(--bn-s4);
+	border-bottom: 1px solid var(--bn-line-faint);
 }
 .bn-notif-dropdown__title {
-	font-weight: 700;
-	font-size: 14px;
-	color: var(--bn-ink, #37352f);
+	font-weight: var(--bn-fw-bold);
+	font-size: var(--bn-text-base);
+	color: var(--bn-ink);
 }
 .bn-notif-dropdown__mark-read {
 	background: none;
 	border: none;
 	color: var(--bn-accent, var(--brand));
-	font-size: 12px;
-	font-weight: 600;
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold);
 	cursor: pointer;
 	font-family: inherit;
 }
 .bn-notif-dropdown__mark-read:hover { text-decoration: underline; }
 .bn-notif-dropdown__list { flex: 1; overflow-y: auto; }
 .bn-notif-dropdown__loading {
-	padding: 24px;
+	padding: var(--bn-s6);
 	text-align: center;
-	color: var(--bn-ink-3, #999);
-	font-size: 13px;
+	color: var(--bn-ink-3);
+	font-size: var(--bn-text-sm);
 }
 .bn-notif-dropdown__item {
 	display: flex;
-	gap: 10px;
-	padding: 10px 16px;
+	gap: var(--bn-s2);
+	padding: var(--bn-s2) var(--bn-s4);
 	cursor: pointer;
 	transition: background 0.1s;
 }
 .bn-notif-dropdown__item:hover { background: var(--bn-canvas); }
-.bn-notif-dropdown__item--unread { background: var(--bn-accent-tint, rgba(0, 115, 170, 0.08)); }
+.bn-notif-dropdown__item--unread { background: var(--bn-accent-100); }
 .bn-notif-dropdown__avatar {
-	width: 36px;
-	height: 36px;
-	border-radius: 50%;
+	width: var(--bn-notif-avatar-size);
+	height: var(--bn-notif-avatar-size);
+	border-radius: var(--bn-r-full);
 	flex-shrink: 0;
-	background: var(--bn-accent-tint, rgba(0, 115, 170, 0.15));
+	background: var(--bn-accent-100);
 	color: var(--bn-accent, var(--brand));
-	font-size: 13px;
-	font-weight: 700;
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-bold);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -418,47 +438,47 @@ body.admin-bar .bn-app__rail {
 .bn-notif-dropdown__avatar img { width: 100%; height: 100%; object-fit: cover; }
 .bn-notif-dropdown__body { flex: 1; min-width: 0; }
 .bn-notif-dropdown__text {
-	font-size: 13px;
-	color: var(--bn-ink, #37352f);
-	line-height: 1.4;
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink);
+	line-height: var(--bn-leading-snug);
 }
-.bn-notif-dropdown__text strong { font-weight: 600; }
+.bn-notif-dropdown__text strong { font-weight: var(--bn-fw-semibold); }
 .bn-notif-dropdown__time {
-	font-size: 11px;
-	color: var(--bn-ink-3, #999);
-	margin-top: 2px;
+	font-size: var(--bn-text-2xs);
+	color: var(--bn-ink-3);
+	margin-top: calc(var(--bn-s1) / 2);
 }
 .bn-notif-dropdown__see-all {
 	display: block;
 	text-align: center;
-	padding: 10px;
-	font-size: 13px;
-	font-weight: 600;
+	padding: var(--bn-s2);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-accent, var(--brand));
 	text-decoration: none;
-	border-top: 1px solid var(--bn-line-soft, #f1f1ee);
+	border-top: 1px solid var(--bn-line-faint);
 }
 .bn-notif-dropdown__see-all:hover { background: var(--bn-canvas); }
 @media (max-width: 640px) {
-	.bn-notif-dropdown { width: calc(100vw - 16px); right: -60px; }
+	.bn-notif-dropdown { width: calc(100vw - var(--bn-s4)); right: -60px; }
 }
 
 /* ── Community brand (rail top) ─────────────────────────────────────────── */
 .bn-rail__brand {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	min-height: 40px;
-	padding: 4px 8px;
-	margin-bottom: 8px;
+	gap: var(--bn-s2);
+	min-height: var(--bn-s10);
+	padding: var(--bn-s1) var(--bn-s2);
+	margin-bottom: var(--bn-s2);
 	text-decoration: none;
 	color: var(--bn-ink, inherit);
-	font-weight: 700;
-	font-size: var(--bn-text-md, 15px);
+	font-weight: var(--bn-fw-bold);
+	font-size: var(--bn-text-md);
 	overflow: hidden;
 }
 .bn-rail__logo {
-	max-height: 32px;
+	max-height: var(--bn-rail-logo-maxh);
 	max-width: 100%;
 	width: auto;
 	object-fit: contain;
@@ -470,5 +490,4 @@ body.admin-bar .bn-app__rail {
 	text-overflow: ellipsis;
 }
 [data-bn-rail="collapsed"] .bn-rail__brand { justify-content: center; padding-inline: 0; }
-[data-bn-rail="collapsed"] .bn-rail__logo { max-height: 28px; }
-
+[data-bn-rail="collapsed"] .bn-rail__logo { max-height: var(--bn-rail-logo-maxh-sm); }
