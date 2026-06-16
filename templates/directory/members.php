@@ -467,7 +467,7 @@ if ( ! empty( $dir_types ) ) {
 					<?php
 					$bn_type_slug   = (string) $bn_type['slug'];
 					$bn_type_name   = (string) $bn_type['name'];
-					$bn_type_count  = isset( $bn_type['count'] ) ? (int) $bn_type['count'] : 0;
+					$bn_type_count  = isset( $bn_type['member_count'] ) ? (int) $bn_type['member_count'] : ( isset( $bn_type['count'] ) ? (int) $bn_type['count'] : 0 );
 					$bn_type_url    = PageRouter::member_type_url( $bn_type_slug );
 					$bn_type_active = ( $bn_type_slug === $type_slug_filter );
 					?>
