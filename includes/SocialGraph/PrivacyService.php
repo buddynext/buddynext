@@ -143,7 +143,7 @@ class PrivacyService {
 	 * Denied when:
 	 *   - The target has blocked the actor.
 	 *   - The target's who_can_connect preference is 'nobody'.
-	 *   - The preference is 'followers' and the target does not follow the actor.
+	 *   - The preference is 'followers' and the actor does not follow the target.
 	 *
 	 * @param int $actor_id  ID of the user sending the request.
 	 * @param int $target_id ID of the user receiving the request.
@@ -161,8 +161,10 @@ class PrivacyService {
 		}
 
 		if ( 'followers' === $preference ) {
-			// "followers" means: the target must already follow the actor back (target follows actor).
-			return $this->follows->is_following( $target_id, $actor_id );
+			// "followers" means: only people who follow the target may connect, so
+			// the actor must already follow the target. is_following($follower,
+			// $following) is true when arg1 follows arg2 → ($actor_id, $target_id).
+			return $this->follows->is_following( $actor_id, $target_id );
 		}
 
 		return false;
