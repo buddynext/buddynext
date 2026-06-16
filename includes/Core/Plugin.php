@@ -263,6 +263,9 @@ class Plugin {
 		// Wire email verification hooks.
 		( new VerificationListener( $container->get( 'verification' ) ) )->register();
 
+		// Wire admin-approval registration emails (pending / approved / rejected).
+		( new \BuddyNext\Auth\RegistrationEmailListener() )->register();
+
 		// Social login (OAuth2) — registers configured providers into the
 		// buddynext_auth_social_providers seam + handles the OAuth round-trip.
 		( new \BuddyNext\Auth\SocialLogin() )->register();
