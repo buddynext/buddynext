@@ -707,7 +707,7 @@ class AuthController {
 			? \BuddyNext\Core\PageRouter::onboarding_url()
 			: \BuddyNext\Core\PageRouter::activity_url();
 
-		if ( get_option( 'buddynext_email_verify' ) ) {
+		if ( get_option( 'buddynext_email_verify', false ) ) {
 			$redirect_to = \BuddyNext\Core\PageRouter::hub_url(
 				'buddynext_slug_auth',
 				'buddynext_page_auth'

@@ -25,82 +25,89 @@ class Settings extends AdminPageBase {
 
 	/**
 	 * All settings registered by this class.
-	 * Format: option_name => [ type, sanitize_callback, default ].
+	 * Format: option_name => [ type, sanitize_callback ].
 	 *
-	 * @var array<string, array{string, callable|string, mixed}>
+	 * Defaults are intentionally NOT carried here. WordPress only honours a
+	 * register_setting() 'default' for get_option() reads while the setting is
+	 * registered (admin_init), and every read site already passes its own
+	 * inline get_option( $option, $fallback ) default — so a 'default' column
+	 * here would just be a second, drift-prone copy. The inline fallbacks at
+	 * the read sites are the single source of truth.
+	 *
+	 * @var array<string, array{string, callable|string}>
 	 */
 	private const SETTINGS_MAP = array(
 		// General.
-		'buddynext_site_name'                  => array( 'string', 'sanitize_text_field', '' ),
-		'buddynext_brand_color'                => array( 'string', 'sanitize_hex_color', '#0073aa' ),
-		'buddynext_description'                => array( 'string', 'sanitize_textarea_field', '' ),
-		'buddynext_public_explore'             => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_enable_dm'                  => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_default_dm_access'          => array( 'string', 'sanitize_key', 'everyone' ),
-		'buddynext_enable_community_nav'       => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_site_name'                  => array( 'string', 'sanitize_text_field' ),
+		'buddynext_brand_color'                => array( 'string', 'sanitize_hex_color' ),
+		'buddynext_description'                => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_public_explore'             => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_enable_dm'                  => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_default_dm_access'          => array( 'string', 'sanitize_key' ),
+		'buddynext_enable_community_nav'       => array( 'boolean', 'rest_sanitize_boolean' ),
 
 		// Registration.
-		'buddynext_reg_mode'                   => array( 'string', 'sanitize_key', 'open' ),
-		'buddynext_email_verify'               => array( 'boolean', 'rest_sanitize_boolean', false ),
-		'buddynext_reg_spam_protection'        => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_reg_challenge'              => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_reg_rate_limit'             => array( 'integer', 'absint', 5 ),
-		'buddynext_allowed_domains'            => array( 'string', 'sanitize_textarea_field', '' ),
+		'buddynext_reg_mode'                   => array( 'string', 'sanitize_key' ),
+		'buddynext_email_verify'               => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_reg_spam_protection'        => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_reg_challenge'              => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_reg_rate_limit'             => array( 'integer', 'absint' ),
+		'buddynext_allowed_domains'            => array( 'string', 'sanitize_textarea_field' ),
 
 		// Social.
-		'buddynext_default_post_privacy'       => array( 'string', 'sanitize_key', 'public' ),
-		'buddynext_allow_polls'                => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_allow_shares'               => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_allow_bookmarks'            => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_enable_link_preview'        => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_enable_emoji_picker'        => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_post_edit_window'           => array( 'integer', 'absint', 60 ),
+		'buddynext_default_post_privacy'       => array( 'string', 'sanitize_key' ),
+		'buddynext_allow_polls'                => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_allow_shares'               => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_allow_bookmarks'            => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_enable_link_preview'        => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_enable_emoji_picker'        => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_post_edit_window'           => array( 'integer', 'absint' ),
 
 		// Spaces.
-		'buddynext_space_creation_role'        => array( 'string', 'sanitize_key', 'member' ),
-		'buddynext_space_max_sub_spaces'       => array( 'integer', 'absint', 0 ),
+		'buddynext_space_creation_role'        => array( 'string', 'sanitize_key' ),
+		'buddynext_space_max_sub_spaces'       => array( 'integer', 'absint' ),
 
 		// Moderation.
-		'buddynext_auto_hide_threshold'        => array( 'integer', 'absint', 5 ),
-		'buddynext_strike_warn_threshold'      => array( 'integer', 'absint', 2 ),
-		'buddynext_strike_suspend_threshold'   => array( 'integer', 'absint', 5 ),
-		'buddynext_strike_perma_ban_threshold' => array( 'integer', 'absint', 0 ),
-		'buddynext_mod_queue_alert_threshold'  => array( 'integer', 'absint', 20 ),
-		'buddynext_banned_words'               => array( 'string', 'sanitize_textarea_field', '' ),
-		'buddynext_blocked_domains'            => array( 'string', 'sanitize_textarea_field', '' ),
-		'buddynext_banned_hashtags'            => array( 'string', 'sanitize_textarea_field', '' ),
-		'buddynext_post_rate_limit'            => array( 'integer', 'absint', 10 ),
-		'buddynext_new_member_post_threshold'  => array( 'integer', 'absint', 0 ),
+		'buddynext_auto_hide_threshold'        => array( 'integer', 'absint' ),
+		'buddynext_strike_warn_threshold'      => array( 'integer', 'absint' ),
+		'buddynext_strike_suspend_threshold'   => array( 'integer', 'absint' ),
+		'buddynext_strike_perma_ban_threshold' => array( 'integer', 'absint' ),
+		'buddynext_mod_queue_alert_threshold'  => array( 'integer', 'absint' ),
+		'buddynext_banned_words'               => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_blocked_domains'            => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_banned_hashtags'            => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_post_rate_limit'            => array( 'integer', 'absint' ),
+		'buddynext_new_member_post_threshold'  => array( 'integer', 'absint' ),
 
 		// Notifications.
-		'buddynext_notif_default_follow'       => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_notif_default_connection'   => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_notif_default_reaction'     => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_notif_default_comment'      => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_notif_default_mention'      => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_notif_default_space_join'   => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_digest_frequency'           => array( 'string', 'sanitize_key', 'weekly' ),
-		'buddynext_admin_alert_email'          => array( 'string', 'sanitize_email', '' ),
+		'buddynext_notif_default_follow'       => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_notif_default_connection'   => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_notif_default_reaction'     => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_notif_default_comment'      => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_notif_default_mention'      => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_notif_default_space_join'   => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_digest_frequency'           => array( 'string', 'sanitize_key' ),
+		'buddynext_admin_alert_email'          => array( 'string', 'sanitize_email' ),
 
 		// Email.
-		'buddynext_email_from_name'            => array( 'string', 'sanitize_text_field', '' ),
-		'buddynext_email_from_address'         => array( 'string', 'sanitize_email', '' ),
-		'buddynext_email_reply_to'             => array( 'string', 'sanitize_email', '' ),
-		'buddynext_email_footer_text'          => array( 'string', 'sanitize_textarea_field', '' ),
+		'buddynext_email_from_name'            => array( 'string', 'sanitize_text_field' ),
+		'buddynext_email_from_address'         => array( 'string', 'sanitize_email' ),
+		'buddynext_email_reply_to'             => array( 'string', 'sanitize_email' ),
+		'buddynext_email_footer_text'          => array( 'string', 'sanitize_textarea_field' ),
 
 		// Integrations.
-		'buddynext_jetonomy_feed_sync'         => array( 'boolean', 'rest_sanitize_boolean', false ),
+		'buddynext_jetonomy_feed_sync'         => array( 'boolean', 'rest_sanitize_boolean' ),
 
 		// Privacy & Data.
-		'buddynext_google_indexing'            => array( 'string', 'sanitize_key', 'public_posts' ),
-		'buddynext_cookie_consent'             => array( 'boolean', 'rest_sanitize_boolean', false ),
-		'buddynext_data_retention_days'        => array( 'integer', 'absint', 365 ),
-		'buddynext_allow_data_export'          => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_allow_account_deletion'     => array( 'boolean', 'rest_sanitize_boolean', true ),
-		'buddynext_anonymize_on_delete'        => array( 'boolean', 'rest_sanitize_boolean', true ),
+		'buddynext_google_indexing'            => array( 'string', 'sanitize_key' ),
+		'buddynext_cookie_consent'             => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_data_retention_days'        => array( 'integer', 'absint' ),
+		'buddynext_allow_data_export'          => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_allow_account_deletion'     => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_anonymize_on_delete'        => array( 'boolean', 'rest_sanitize_boolean' ),
 
 		// Webhooks.
-		'buddynext_webhook_secret'             => array( 'string', 'sanitize_text_field', '' ),
+		'buddynext_webhook_secret'             => array( 'string', 'sanitize_text_field' ),
 	);
 
 	// ── Boot ──────────────────────────────────────────────────────────────────
@@ -316,14 +323,13 @@ class Settings extends AdminPageBase {
 	 */
 	public function register_settings(): void {
 		foreach ( self::SETTINGS_MAP as $option => $config ) {
-			list( $type, $sanitize, $default ) = $config;
+			list( $type, $sanitize ) = $config;
 			register_setting(
 				'buddynext',
 				$option,
 				array(
 					'type'              => $type,
 					'sanitize_callback' => $sanitize,
-					'default'           => $default,
 				)
 			);
 		}
