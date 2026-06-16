@@ -31,7 +31,7 @@ class PermissionService {
 	 *
 	 * Space-scoped capabilities (buddynext-moderate-space, buddynext-manage-space)
 	 * bypass the generic role-map path and are resolved by dedicated methods that
-	 * query bn_space_members and bn_space_privileges directly.
+	 * query bn_space_members directly.
 	 *
 	 * @var array<string, string|null>
 	 */
@@ -181,12 +181,10 @@ class PermissionService {
 	/**
 	 * Determine whether a user may moderate a specific space.
 	 *
-	 * A user can moderate a space when they are:
-	 * - the space owner (role = 'owner'), OR
-	 * - a space moderator (role = 'moderator') AND either:
-	 *     a) bn_space_privileges has no row for this user AND scoped_mod = 0
-	 *        (global moderator, not restricted to any specific space), OR
-	 *     b) bn_space_privileges has a row WHERE space_id = $space_id AND scoped_mod = 1.
+	 * A user can moderate a space when they are the space owner or a space
+	 * moderator. Both roles are resolved per-space from bn_space_members for
+	 * this space_id, so holding either role here is sufficient authority — the
+	 * role assignment is itself the scoping mechanism.
 	 *
 	 * @param int $user_id  WordPress user ID.
 	 * @param int $space_id Space ID.
@@ -195,15 +193,7 @@ class PermissionService {
 	private function can_moderate_space( int $user_id, int $space_id ): bool {
 		$role = $this->get_space_role( $user_id, $space_id );
 
-		if ( 'owner' === $role ) {
-			return true;
-		}
-
-		if ( 'moderator' !== $role ) {
-			return false;
-		}
-
-		return $this->mod_scope_allows( $user_id, $space_id );
+		return in_array( $role, array( 'owner', 'moderator' ), true );
 	}
 
 	/**
@@ -217,57 +207,6 @@ class PermissionService {
 	 */
 	private function can_manage_space( int $user_id, int $space_id ): bool {
 		return 'owner' === $this->get_space_role( $user_id, $space_id );
-	}
-
-	/**
-	 * Check whether a space moderator's privilege scope allows them to act in a given space.
-	 *
-	 * Rules (evaluated against bn_space_privileges):
-	 * - No privilege row at all → global moderator, unrestricted → allowed.
-	 * - Has a row with scoped_mod = 0 → globally restricted away → denied.
-	 * - Has a row with scoped_mod = 1 AND space_id matches → scoped in → allowed.
-	 * - Has a row but space_id does not match → scoped elsewhere → denied.
-	 *
-	 * If the bn_space_privileges table does not exist yet (pre-migration), falls back
-	 * to allowing all moderators (no restriction applied).
-	 *
-	 * @param int $user_id  WordPress user ID.
-	 * @param int $space_id Space ID.
-	 * @return bool
-	 */
-	private function mod_scope_allows( int $user_id, int $space_id ): bool {
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$table_exists = (bool) $wpdb->get_var(
-			$wpdb->prepare(
-				'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = %s AND table_name = %s',
-				DB_NAME,
-				$wpdb->prefix . 'bn_space_privileges'
-			)
-		);
-
-		if ( ! $table_exists ) {
-			// Table not yet created — treat moderator as unrestricted.
-			return true;
-		}
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT space_id, scoped_mod FROM {$wpdb->prefix}bn_space_privileges WHERE user_id = %d LIMIT 1",
-				$user_id
-			),
-			ARRAY_A
-		);
-
-		if ( null === $row ) {
-			// No privilege row — global moderator, unrestricted.
-			return true;
-		}
-
-		// Row exists: allow only when scoped_mod = 1 and space_id matches.
-		return ( 1 === (int) $row['scoped_mod'] && (int) $row['space_id'] === $space_id );
 	}
 
 	/**

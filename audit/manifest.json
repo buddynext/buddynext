@@ -9058,11 +9058,6 @@
         "tableSuffix": "bn_outbound_webhook_log",
         "file": "includes/Core/Installer.php",
         "line": 929
-      },
-      {
-        "tableSuffix": "bn_space_privileges",
-        "file": "includes/Core/PermissionService.php",
-        "line": 246
       }
     ],
     "templates": [
@@ -25358,8 +25353,7 @@
     "bn_member_types",
     "bn_member_type_assignments",
     "bn_outbound_webhooks",
-    "bn_outbound_webhook_log",
-    "bn_space_privileges"
+    "bn_outbound_webhook_log"
   ],
   "hooks_fired": [
     {
