@@ -59,7 +59,7 @@ class SpaceController extends BaseRestController {
 				array(
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'create_space' ),
-					'permission_callback' => array( $this, 'require_auth' ),
+					'permission_callback' => array( $this, 'require_space_creation_role' ),
 				),
 			)
 		);
@@ -548,6 +548,33 @@ class SpaceController extends BaseRestController {
 		unset( $row );
 
 		return $rows;
+	}
+
+	/**
+	 * Permission gate for space creation.
+	 *
+	 * Enforces the Settings → Spaces → "Who can create spaces" setting
+	 * (buddynext_space_creation_role): 'member' = any logged-in user, 'admin' =
+	 * site administrators only. Defaults to 'member'.
+	 *
+	 * @return true|WP_Error
+	 */
+	public function require_space_creation_role(): true|WP_Error {
+		$auth = $this->require_auth();
+		if ( is_wp_error( $auth ) ) {
+			return $auth;
+		}
+
+		$role = (string) get_option( 'buddynext_space_creation_role', 'member' );
+		if ( 'admin' === $role && ! current_user_can( 'manage_options' ) ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'Only administrators can create spaces on this community.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return true;
 	}
 
 	/**
