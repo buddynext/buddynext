@@ -980,6 +980,33 @@
 /* .bn-feed-empty__cta uses the .bn-btn[data-variant="primary"] primitive. */
 
 /* Explore grid empty state — replaces the prior inline styles on a bare div. */
+/* Explore sort control (Top / Latest / Active) — flat text links, not buttons. */
+.bn-explore-sort {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+	margin: var(--bn-s2) 0 var(--bn-s4);
+	font-size: var(--bn-text-sm);
+}
+.bn-explore-sort__label {
+	color: var(--bn-text-3);
+	font-weight: var(--fw-medium, 500);
+}
+.bn-explore-sort__link {
+	color: var(--bn-text-2, var(--bn-ink-2));
+	text-decoration: none;
+	padding-bottom: 2px;
+	border-bottom: 2px solid transparent;
+}
+.bn-explore-sort__link:hover {
+	color: var(--bn-ink, var(--bn-text-1));
+}
+.bn-explore-sort__link.active {
+	color: var(--brand, var(--bn-accent));
+	font-weight: var(--fw-semibold, 600);
+	border-bottom-color: var(--brand, var(--bn-accent));
+}
+
 .bn-explore-empty {
 	grid-column: 1 / -1;
 	text-align: center;

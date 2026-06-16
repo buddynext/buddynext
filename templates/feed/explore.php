@@ -80,6 +80,26 @@ if ( 'media' === $explore_filter ) {
 	$explore_filter_sql = " AND ( p.media_ids IS NULL OR p.media_ids = '' OR p.media_ids = '[]' )";
 }
 
+// Sort control. Each clause is a static fragment selected by a validated key —
+// no user input is interpolated. All three are index-friendly: 'latest' and
+// 'active' read straight off an index (created_at / active_feed), 'top' ranks by
+// the denormalised engagement counters.
+$explore_sort = isset( $_GET['sort'] ) ? sanitize_key( wp_unslash( $_GET['sort'] ) ) : 'top'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+if ( ! in_array( $explore_sort, array( 'top', 'latest', 'active' ), true ) ) {
+	$explore_sort = 'top';
+}
+switch ( $explore_sort ) {
+	case 'latest':
+		$explore_order_sql = 'p.created_at DESC, p.id DESC';
+		break;
+	case 'active':
+		$explore_order_sql = 'p.last_activity_at DESC, p.id DESC';
+		break;
+	default:
+		$explore_order_sql = '( p.reaction_count + p.comment_count * 2 + p.share_count * 3 ) DESC, p.created_at DESC, p.id DESC';
+		break;
+}
+
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 $grid_posts = $wpdb->get_results(
 	$wpdb->prepare(
@@ -91,7 +111,7 @@ $grid_posts = $wpdb->get_results(
 		    {$explore_excl_sql}
 		    {$explore_filter_sql}
 		    {$explore_cursor_sql}
-		  ORDER BY (p.reaction_count + p.comment_count * 2 + p.share_count * 3) DESC, p.created_at DESC, p.id DESC
+		  ORDER BY {$explore_order_sql}
 		  LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$bn_explore_per_page + 1
 	)
@@ -310,6 +330,25 @@ $bn_explore_context = (string) wp_json_encode(
 					>#<?php echo esc_html( $chip_tag->slug ); ?></button>
 				<?php endforeach; ?>
 			<?php endif; ?>
+		</div>
+
+		<!-- Sort control (server-rendered: Top / Latest / Active) -->
+		<div class="bn-explore-sort" role="group" aria-label="<?php esc_attr_e( 'Sort posts', 'buddynext' ); ?>">
+			<span class="bn-explore-sort__label"><?php esc_html_e( 'Sort', 'buddynext' ); ?></span>
+			<?php
+			$bn_explore_sorts = array(
+				'top'    => __( 'Top', 'buddynext' ),
+				'latest' => __( 'Latest', 'buddynext' ),
+				'active' => __( 'Active', 'buddynext' ),
+			);
+			foreach ( $bn_explore_sorts as $bn_sk => $bn_slabel ) :
+				$bn_s_active = ( $explore_sort === $bn_sk );
+				$bn_s_url    = esc_url( add_query_arg( 'sort', $bn_sk, remove_query_arg( 'cursor' ) ) );
+				?>
+				<a class="bn-explore-sort__link<?php echo $bn_s_active ? ' active' : ''; ?>"
+					href="<?php echo $bn_s_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_url() applied above. ?>"
+					<?php echo $bn_s_active ? 'aria-current="page"' : ''; ?>><?php echo esc_html( $bn_slabel ); ?></a>
+			<?php endforeach; ?>
 		</div>
 
 		<!-- Post grid -->
