@@ -49,11 +49,9 @@ if ( 'invite' === $bn_reg_mode ) {
 	if ( null === $bn_invite ) {
 		?>
 		<div class="bn-auth-page">
+			<div class="bn-auth-shell" data-panel="<?php echo (bool) get_option( 'buddynext_auth_panel_show', true ) ? 'on' : 'off'; ?>">
+			<?php buddynext_get_template( 'auth/parts/auth-aside.php', array() ); ?>
 			<div class="bn-auth-card" data-variant="register">
-				<div class="bn-auth-hero" aria-hidden="true">
-					<span class="bn-auth-hero__logo"><?php buddynext_icon( 'home' ); ?></span>
-					<span class="bn-auth-hero__wordmark">Buddy<span>Next</span></span>
-				</div>
 				<div class="bn-auth-body">
 					<section class="bn-auth-panel" data-active>
 						<h1 class="bn-auth-title"><?php esc_html_e( 'Registration is invite-only', 'buddynext' ); ?></h1>
@@ -64,6 +62,7 @@ if ( 'invite' === $bn_reg_mode ) {
 					</section>
 				</div>
 			</div>
+			</div>
 		</div>
 		<?php
 		return;
@@ -72,6 +71,8 @@ if ( 'invite' === $bn_reg_mode ) {
 ?>
 
 <div class="bn-auth-page">
+	<div class="bn-auth-shell" data-panel="<?php echo (bool) get_option( 'buddynext_auth_panel_show', true ) ? 'on' : 'off'; ?>">
+	<?php buddynext_get_template( 'auth/parts/auth-aside.php', array() ); ?>
 	<div class="bn-auth-card"
 		data-variant="register"
 		data-wp-interactive="buddynext/auth-signup"
@@ -102,13 +103,9 @@ if ( 'invite' === $bn_reg_mode ) {
 		?>
 		>
 
-		<div class="bn-auth-hero" aria-hidden="true">
-			<span class="bn-auth-hero__logo"><?php buddynext_icon( 'home' ); ?></span>
-			<span class="bn-auth-hero__wordmark">Buddy<span>Next</span></span>
-		</div>
-
 		<div class="bn-auth-body">
 			<section class="bn-auth-panel" data-active>
+				<?php buddynext_get_template( 'auth/parts/auth-form-logo.php', array() ); ?>
 				<h1 class="bn-auth-title"><?php esc_html_e( 'Join the community', 'buddynext' ); ?></h1>
 				<p class="bn-auth-sub"><?php esc_html_e( 'Free forever. No credit card required.', 'buddynext' ); ?></p>
 
@@ -321,5 +318,6 @@ if ( 'invite' === $bn_reg_mode ) {
 				</div>
 			</section>
 		</div>
+	</div>
 	</div>
 </div>

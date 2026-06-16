@@ -34,11 +34,10 @@ store( 'buddynext/auth-login', {
 		get error() { return ctx().error || ''; },
 		get submitting() { return !! ctx().submitting; },
 		get submitDisabled() {
-			const c = ctx();
-			if ( c.submitting ) { return true; }
-			const u = String( c.user || '' ).trim();
-			const p = String( c.password || '' );
-			return u.length === 0 || p.length === 0;
+			// Only disabled while a request is in flight. The button stays full
+			// strength at rest (premium pattern) and empty fields are caught on
+			// click in submitLogin() with an inline message — never grey it out.
+			return !! ctx().submitting;
 		},
 		get twofaStep() { return !! ctx().twofaStep; },
 		get twofaError() { return ctx().twofaError || ''; },
@@ -73,6 +72,11 @@ store( 'buddynext/auth-login', {
 			}
 			const c = ctx();
 			if ( c.submitting ) { return; }
+			// Validate on click instead of disabling the button up front.
+			if ( String( c.user || '' ).trim().length === 0 || String( c.password || '' ).length === 0 ) {
+				c.error = 'Enter your email and password to sign in.';
+				return;
+			}
 			c.submitting = true;
 			c.error = '';
 			try {

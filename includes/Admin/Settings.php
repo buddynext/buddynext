@@ -52,6 +52,12 @@ class Settings extends AdminPageBase {
 		'buddynext_reg_spam_protection'        => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_reg_challenge'              => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_reg_rate_limit'             => array( 'integer', 'absint' ),
+		// Login & sign-up split-panel branding (plug-and-play: blank falls back to site identity).
+		'buddynext_auth_panel_show'            => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_auth_panel_heading'         => array( 'string', 'sanitize_text_field' ),
+		'buddynext_auth_panel_tagline'         => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_auth_panel_quote'           => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_auth_panel_image'           => array( 'string', 'esc_url_raw' ),
 		'buddynext_allowed_domains'            => array( 'string', 'sanitize_textarea_field' ),
 
 		// Social.
@@ -397,6 +403,11 @@ class Settings extends AdminPageBase {
 			'buddynext_reg_spam_protection',
 			'buddynext_reg_challenge',
 			'buddynext_reg_rate_limit',
+			'buddynext_auth_panel_show',
+			'buddynext_auth_panel_heading',
+			'buddynext_auth_panel_tagline',
+			'buddynext_auth_panel_quote',
+			'buddynext_auth_panel_image',
 			'buddynext_allowed_domains',
 			'buddynext_social_login',
 		),
@@ -932,6 +943,50 @@ class Settings extends AdminPageBase {
 				)
 			) . '</p>';
 		}
+
+		$this->close_section();
+
+		$this->open_section( __( 'Login &amp; Sign-up Panel', 'buddynext' ) );
+
+		$this->render_toggle_row(
+			'buddynext_auth_panel_show',
+			__( 'Show the branding panel', 'buddynext' ),
+			__( 'Displays a branded side panel next to the login and sign-up forms. Turn off for a centered form only.', 'buddynext' ),
+			(bool) get_option( 'buddynext_auth_panel_show', true )
+		);
+
+		// Fields are pre-filled with the product-level defaults (the same values
+		// the live panel uses, via buddynext_auth_panel_value) so nothing is ever
+		// blank — a plug-and-play setup the owner can simply edit.
+		$this->render_text_row(
+			'buddynext_auth_panel_heading',
+			__( 'Panel heading', 'buddynext' ),
+			buddynext_auth_panel_value( 'buddynext_auth_panel_heading' ),
+			__( 'Shown large on the branding panel. Defaults to your site title.', 'buddynext' )
+		);
+
+		$this->render_textarea_row(
+			'buddynext_auth_panel_tagline',
+			__( 'Panel tagline', 'buddynext' ),
+			buddynext_auth_panel_value( 'buddynext_auth_panel_tagline' ),
+			__( 'A short line beneath the heading. Defaults to your site tagline.', 'buddynext' ),
+			2
+		);
+
+		$this->render_textarea_row(
+			'buddynext_auth_panel_quote',
+			__( 'Featured quote', 'buddynext' ),
+			buddynext_auth_panel_value( 'buddynext_auth_panel_quote' ),
+			__( 'A short quote shown prominently on the panel (e.g. a welcome line or member testimonial).', 'buddynext' ),
+			3
+		);
+
+		$this->render_text_row(
+			'buddynext_auth_panel_image',
+			__( 'Panel banner image URL', 'buddynext' ),
+			buddynext_auth_panel_value( 'buddynext_auth_panel_image' ),
+			__( 'A full-bleed banner image behind the panel. Defaults to the built-in network-textured gradient.', 'buddynext' )
+		);
 
 		$this->close_section();
 

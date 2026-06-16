@@ -71,14 +71,10 @@ store( 'buddynext/auth-signup', {
 		get passwordInvalid() { return !! this.passwordError; },
 		get challengeInvalid() { return !! this.challengeError; },
 		get submitDisabled() {
-			const c = ctx();
-			if ( c.submitting ) { return true; }
-			if ( ! c.termsAgreed ) { return true; }
-			if ( ! ( c.email || '' ).trim() ) { return true; }
-			if ( ! ( c.userLogin || '' ).trim() ) { return true; }
-			if ( ! ( c.password || '' ) ) { return true; }
-			if ( c.challengeEnabled && ! ( c.challengeAnswer || '' ).trim() ) { return true; }
-			return false;
+			// Only disabled while submitting — the button stays full strength at
+			// rest and required fields/terms are validated on click in
+			// submitSignup() with inline messages (matches the login surface).
+			return !! ctx().submitting;
 		},
 	},
 	actions: {
@@ -145,6 +141,19 @@ store( 'buddynext/auth-signup', {
 			}
 			const c = ctx();
 			if ( c.submitting ) { return; }
+			// Validate on click rather than disabling the button up front.
+			if ( ! ( c.email || '' ).trim() || ! ( c.userLogin || '' ).trim() || ! ( c.password || '' ) ) {
+				c.error = 'Please fill in your email, username, and password.';
+				return;
+			}
+			if ( ! c.termsAgreed ) {
+				c.error = 'Please agree to the Terms of Service and Privacy Policy to continue.';
+				return;
+			}
+			if ( c.challengeEnabled && ! ( c.challengeAnswer || '' ).trim() ) {
+				c.error = 'Please answer the verification question.';
+				return;
+			}
 			c.submitting = true;
 			c.error = '';
 			c.fieldErrors = {};

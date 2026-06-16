@@ -22,11 +22,10 @@
 declare(strict_types=1);
 
 // Only advertise "Create an account" when registration is actually reachable.
-// Two independent gates, both enforced by PageRouter/AuthController on /signup/:
-//   - users_can_register (WP core) — the master on/off; when off, /signup/
-//     redirects to login?registration=disabled.
-//   - buddynext_reg_mode — invite-only has no public signup (invitees arrive
-//     via their invite link straight to /signup/?invite=TOKEN).
+// Two independent gates, both enforced by PageRouter/AuthController on /signup/.
+// users_can_register (WP core) is the master on/off; when off, /signup/
+// redirects to login?registration=disabled. buddynext_reg_mode invite-only has
+// no public signup (invitees arrive via their invite link, /signup/?invite=).
 // Linking when either gate is closed would send visitors to a dead end.
 $registration_open = (bool) get_option( 'users_can_register' )
 	&& 'invite' !== (string) get_option( 'buddynext_reg_mode', 'open' );
@@ -66,6 +65,8 @@ $rest_nonce = wp_create_nonce( 'wp_rest' );
 $signup_url = home_url( '/' . (string) get_option( 'buddynext_slug_signup', 'signup' ) . '/' );
 ?>
 <div class="bn-auth-page">
+	<div class="bn-auth-shell" data-panel="<?php echo (bool) get_option( 'buddynext_auth_panel_show', true ) ? 'on' : 'off'; ?>">
+	<?php buddynext_get_template( 'auth/parts/auth-aside.php', array() ); ?>
 	<div class="bn-auth-card"
 		data-variant="login"
 		data-wp-class--bn-2fa-active="state.twofaStep"
@@ -94,14 +95,9 @@ $signup_url = home_url( '/' . (string) get_option( 'buddynext_slug_signup', 'sig
 		?>
 		>
 
-		<!-- Brand gradient hero -->
-		<div class="bn-auth-hero" aria-hidden="true">
-			<span class="bn-auth-hero__logo"><?php buddynext_icon( 'home' ); ?></span>
-			<span class="bn-auth-hero__wordmark">Buddy<span>Next</span></span>
-		</div>
-
 		<div class="bn-auth-body">
 			<section class="bn-auth-panel" data-active>
+				<?php buddynext_get_template( 'auth/parts/auth-form-logo.php', array() ); ?>
 				<h1 class="bn-auth-title"><?php esc_html_e( 'Welcome back', 'buddynext' ); ?></h1>
 				<p class="bn-auth-sub"><?php esc_html_e( 'Sign in to your account to continue.', 'buddynext' ); ?></p>
 
@@ -271,5 +267,6 @@ $signup_url = home_url( '/' . (string) get_option( 'buddynext_slug_signup', 'sig
 				</div>
 			</section>
 		</div>
+	</div>
 	</div>
 </div>

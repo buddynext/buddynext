@@ -217,6 +217,44 @@ function buddynext_feature_enabled( string $slug, bool $fallback = true ): bool 
 }
 
 /**
+ * Product-level default values for the login / sign-up branding panel.
+ *
+ * Single source of truth so the admin Settings fields and the front-end auth
+ * surfaces always agree — the same defaults are wired to both, which is what
+ * makes a fresh install feel plug-and-play (no blank fields, no empty panel).
+ * Dynamic defaults (heading, tagline) follow the site's own identity.
+ *
+ * @return array<string,string> Option name => default value.
+ */
+function buddynext_auth_panel_defaults(): array {
+	$tagline = wp_specialchars_decode( (string) get_bloginfo( 'description' ), ENT_QUOTES );
+
+	return array(
+		'buddynext_auth_panel_heading' => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+		'buddynext_auth_panel_tagline' => '' !== trim( $tagline ) ? $tagline : __( 'Next-generation community for WordPress.', 'buddynext' ),
+		'buddynext_auth_panel_quote'   => __( 'Join the conversation, build real connections, and grow in a community that is truly yours.', 'buddynext' ),
+		'buddynext_auth_panel_image'   => BUDDYNEXT_URL . 'assets/images/auth-cover.svg',
+	);
+}
+
+/**
+ * The effective value for a login / sign-up panel field: the admin's saved value
+ * when set, otherwise the product-level default. Used by both the Settings UI
+ * and the auth templates so neither is ever empty.
+ *
+ * @param string $key Option name (a key of buddynext_auth_panel_defaults()).
+ * @return string
+ */
+function buddynext_auth_panel_value( string $key ): string {
+	$value = (string) get_option( $key, '' );
+	if ( '' !== trim( $value ) ) {
+		return $value;
+	}
+	$defaults = buddynext_auth_panel_defaults();
+	return (string) ( $defaults[ $key ] ?? '' );
+}
+
+/**
  * Render a BuddyNext template, with theme-override support.
  *
  * Delegates to the TemplateLoader service which checks child-theme, parent-theme,

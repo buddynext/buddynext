@@ -49,6 +49,175 @@
 	text-align: center;
 }
 
+/* ── Split-panel shell (brand aside + form) ────────────────────────────
+ * Wraps the auth surfaces (login / signup / verify) in a two-column card:
+ * a branded gradient/image aside next to the form column. Admin-configurable
+ * via Settings → Registration → "Login & Sign-up Panel"; falls back to site
+ * identity so it is branded out of the box. data-panel="off" → single column. */
+.bn-auth-shell {
+	display: flex;
+	width: 100%;
+	/* Height comes from the stretch chain off .bn-app--auth (which is sized to
+	 * the viewport minus the theme chrome) — never a hard 100vh, which would
+	 * overflow below the kept header/footer and force a page scroll. */
+	min-height: 0;
+	background: var(--bn-surface);
+	overflow: hidden;
+}
+
+/* Panel off → no image side; the form centers on the full canvas. */
+.bn-auth-shell[data-panel="off"] {
+	justify-content: center;
+}
+
+/* The aside: gradient by default, or a full-bleed image when configured. */
+.bn-auth-aside {
+	flex: 0 0 56%;
+	position: relative;
+	display: flex;
+	align-items: stretch;
+	background: linear-gradient(150deg, var(--auth-grad-from) 0%, var(--auth-grad-via) 55%, var(--auth-grad-to) 100%);
+	color: #fff;
+	padding: var(--bn-s12) var(--bn-s10);
+	overflow: hidden;
+}
+
+/* Cover photo + a brand-tinted scrim so overlaid text stays legible on any image. */
+.bn-auth-aside[data-has-image] {
+	background-image:
+		linear-gradient(165deg, color-mix(in oklab, var(--auth-grad-from) 62%, transparent) 0%, color-mix(in oklab, var(--auth-grad-to) 72%, transparent) 100%),
+		var(--bn-auth-aside-image);
+	background-size: cover, cover;
+	background-position: center, center;
+}
+
+.bn-auth-aside__inner {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: var(--bn-s6);
+	width: 100%;
+	height: 100%;
+}
+
+.bn-auth-aside__brand {
+	flex: 0 0 auto;
+}
+
+/* Featured quote — the visual centre of the panel. The compound selector beats
+ * host-theme `blockquote` rules (background / border / italic / dark text) that
+ * would otherwise bleed in. */
+.bn-auth-aside blockquote.bn-auth-aside__quote {
+	position: relative;
+	margin: 0;
+	padding: var(--bn-s8) 0 0;
+	background: transparent;
+	border: 0;
+	box-shadow: none;
+	quotes: none;
+	color: #fff;
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-2xl);
+	font-style: normal;
+	font-weight: 600;
+	line-height: 1.4;
+	letter-spacing: -0.01em;
+	max-width: 24ch;
+}
+
+.bn-auth-aside blockquote.bn-auth-aside__quote::after {
+	content: none;
+}
+
+.bn-auth-aside__quote::before {
+	content: "\201C";
+	position: absolute;
+	top: -0.15em;
+	left: -0.04em;
+	font-size: 4.5rem;
+	line-height: 1;
+	opacity: 0.35;
+}
+
+.bn-auth-aside__foot {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s2);
+}
+
+.bn-auth-aside__mark {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	border-radius: var(--bn-r-md);
+	background: rgba(255, 255, 255, 0.16);
+}
+
+.bn-auth-aside__mark .bn-icon {
+	width: 28px;
+	height: 28px;
+}
+
+.bn-auth-aside__logo-img {
+	max-width: 160px;
+	height: auto;
+	display: block;
+}
+
+.bn-auth-aside__heading {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-3xl, 1.875rem);
+	font-weight: 800;
+	line-height: 1.15;
+	letter-spacing: -0.02em;
+	margin: 0;
+	color: inherit;
+	overflow-wrap: anywhere;
+}
+
+.bn-auth-aside__tagline {
+	font-size: var(--bn-text-base);
+	line-height: 1.55;
+	margin: 0;
+	color: inherit;
+	opacity: 0.9;
+	max-width: 34ch;
+}
+
+/* Form column: the existing card/verify-card drops its own chrome inside the
+ * shell so the shell owns the border, radius, and shadow. */
+.bn-auth-shell .bn-auth-card,
+.bn-auth-shell .bn-verify-card {
+	flex: 1 1 auto;
+	max-width: none;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	background: transparent;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
+/* Keep the form readable: cap its measure and center it in the form column. */
+.bn-auth-shell .bn-auth-body,
+.bn-auth-shell .bn-verify-body {
+	width: 100%;
+	max-width: 400px;
+	margin-inline: auto;
+	padding: var(--bn-s8) var(--bn-s8);
+}
+
+/* The old top gradient strip is redundant once the aside carries the brand. */
+.bn-auth-shell .bn-auth-hero {
+	display: none;
+}
+
 /* Gradient hero strip (logo + brand) sits above the card body. */
 .bn-auth-hero {
 	background: linear-gradient(135deg, var(--auth-grad-from) 0%, var(--auth-grad-via) 60%, var(--auth-grad-to) 100%);
@@ -90,6 +259,19 @@
 
 .bn-auth-body[data-align="center"] {
 	text-align: center;
+}
+
+/* Form-side brand logo (above the title) for a branded login/signup. */
+.bn-auth-formlogo {
+	margin: 0 0 var(--bn-s5);
+}
+
+.bn-auth-formlogo img {
+	display: block;
+	width: auto;
+	height: auto;
+	max-width: 200px;
+	max-height: 46px;
 }
 
 .bn-auth-title {
@@ -566,6 +748,48 @@
 	}
 }
 
+/* ── Split-panel shell responsive ──────────────────────────────────────
+ * Tablet and down: stack the aside above the form as a compact brand band. */
+@media (max-width: 860px) {
+	.bn-auth-shell {
+		flex-direction: column;
+		min-height: 0;
+	}
+
+	.bn-auth-aside {
+		flex: 0 0 auto;
+		min-height: 36vh;
+		align-items: flex-end;
+		padding: var(--bn-s8) var(--bn-s6) var(--bn-s6);
+	}
+
+	.bn-auth-aside__heading {
+		font-size: var(--bn-text-2xl);
+	}
+
+	.bn-auth-aside__tagline {
+		max-width: none;
+	}
+
+	.bn-auth-shell .bn-auth-body,
+	.bn-auth-shell .bn-verify-body {
+		max-width: 440px;
+		padding: var(--bn-s6);
+	}
+}
+
+@media (max-width: 640px) {
+	.bn-auth-aside {
+		min-height: 28vh;
+		padding: var(--bn-s6);
+	}
+
+	.bn-auth-aside__mark {
+		width: 40px;
+		height: 40px;
+	}
+}
+
 /* ── Auth shell: slim centered column ──────────────────────────────────── */
 .bn-app--auth {
 	min-height: 100vh;
@@ -579,6 +803,39 @@
 	width: 100%;
 	max-width: 480px;
 }
+
+/* Full-canvas auth (login / signup / verify only — NOT onboarding, which shares
+ * the .bn-app--auth shell but keeps its centered wizard column). The split shell
+ * fills the viewport edge-to-edge between the theme header and footer. */
+body.bn-hub-auth .bn-app--auth {
+	/* .bn-app is a flex COLUMN; the inner wrapper grows to fill it. Height is
+	 * sized by the theme's sticky-footer flex chain (see Reign's BN compat),
+	 * which makes the content area EXACTLY viewport - header - footer — no magic
+	 * numbers, no page scroll. Falls back to a sensible floor on themes that do
+	 * not provide the chain. */
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: flex-start;
+	padding: 0;
+	flex: 1 0 auto;
+	min-height: 70vh;
+}
+body.bn-hub-auth .bn-app--auth .bn-auth {
+	flex: 1 1 auto;
+	max-width: none;
+	display: flex;
+	align-items: stretch;
+}
+body.bn-hub-auth .bn-auth-page {
+	min-height: 0;
+	padding: 0;
+	align-items: stretch;
+	flex: 1;
+}
+
+/* NOTE: the host theme's own content-wrapper padding (e.g. Reign's
+ * .site-content) is zeroed by the theme's BuddyNext compat layer, not here —
+ * the theme owns that markup. See reign-buddynext-functions.php. */
 
 /* Inline field error message + check row */
 .bn-auth-field--check {
