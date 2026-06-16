@@ -56,6 +56,32 @@ class NotificationService {
 
 		$recipient_id = (int) $data['recipient_id'];
 		$group_key    = isset( $data['group_key'] ) ? sanitize_text_field( $data['group_key'] ) : null;
+		$type         = sanitize_text_field( $data['type'] ?? '' );
+
+		// Respect the recipient's in-app notification preferences before creating
+		// (or merging into) any row. The per-type 'on_site' pref (Settings ->
+		// Notifications) and the master in-app channel toggle are the user/admin
+		// opt-out; previously create() inserted unconditionally and only the email
+		// channel consulted prefs, so disabling an in-app type had no effect.
+		// Unknown/system types default to on_site = true (NotificationPrefService::
+		// default_pref), so critical notices are never suppressed; the
+		// buddynext_notification_force_on_site filter lets a caller force-send.
+		if ( '' !== $type && ! (bool) apply_filters( 'buddynext_notification_force_on_site', false, $recipient_id, $type, $data ) ) {
+			$prefs = function_exists( 'buddynext_service' ) ? buddynext_service( 'notification_prefs' ) : null;
+			if ( is_object( $prefs ) && method_exists( $prefs, 'get_pref' ) ) {
+				$pref = (array) $prefs->get_pref( $recipient_id, $type );
+				if ( empty( $pref['on_site'] ) ) {
+					return 0;
+				}
+				if ( method_exists( $prefs, 'get_channel_prefs' ) ) {
+					$channels = (array) $prefs->get_channel_prefs( $recipient_id );
+					// in_app defaults ON; suppress only when explicitly disabled.
+					if ( array_key_exists( 'in_app', $channels ) && empty( $channels['in_app'] ) ) {
+						return 0;
+					}
+				}
+			}
+		}
 
 		// Attempt to merge into an existing unread group row within the 24-hour window.
 		if ( null !== $group_key && '' !== $group_key ) {
