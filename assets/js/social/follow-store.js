@@ -177,6 +177,57 @@ store( 'buddynext/follow-requests', {
 	},
 } );
 
+/* -- Connection-request inbox store ------------------------------------ */
+/* Drives the per-row Accept / Decline buttons on the Connections tab
+ * pending connection-requests section (templates/parts/profile-tab-panel.php).
+ * Each row is its own context with a requesterId — the store hides the row
+ * after a successful action and emits a toast either way. Mirrors the
+ * follow-requests inbox, hitting the connection accept/decline endpoints. */
+
+store( 'buddynext/connection-requests', {
+	state: {
+		get rowHidden() { return !! getContext().hidden; },
+	},
+	actions: {
+		async accept() {
+			const ctx = getContext();
+			if ( ctx.busy || ctx.hidden ) { return; }
+			ctx.busy = true;
+			try {
+				const res = await fetch( apiUrl( ctx, '/users/' + ctx.requesterId + '/connect/accept' ), {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				} );
+				if ( ! res.ok ) { throw new Error( 'accept_failed_' + res.status ); }
+				ctx.hidden = true;
+				bnToast( 'Connected with @' + ( ctx.targetName || ctx.requesterId ), { tone: 'success' } );
+			} catch ( _e ) {
+				bnToast( 'Could not accept request. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.busy = false;
+			}
+		},
+		async decline() {
+			const ctx = getContext();
+			if ( ctx.busy || ctx.hidden ) { return; }
+			ctx.busy = true;
+			try {
+				const res = await fetch( apiUrl( ctx, '/users/' + ctx.requesterId + '/connect/decline' ), {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+				} );
+				if ( ! res.ok ) { throw new Error( 'decline_failed_' + res.status ); }
+				ctx.hidden = true;
+				bnToast( 'Request from @' + ( ctx.targetName || ctx.requesterId ) + ' declined', { tone: 'info' } );
+			} catch ( _e ) {
+				bnToast( 'Could not decline request. Try again.', { tone: 'danger' } );
+			} finally {
+				ctx.busy = false;
+			}
+		},
+	},
+} );
+
 /* -- Connection button store ------------------------------------------ */
 
 function connectionLabel( ctx ) {

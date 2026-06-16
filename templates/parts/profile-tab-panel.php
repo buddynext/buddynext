@@ -54,6 +54,7 @@ $args = array(
 	'following_users'      => isset( $following_users ) && is_array( $following_users ) ? $following_users : array(),
 	'connection_users'     => isset( $connection_users ) && is_array( $connection_users ) ? $connection_users : array(),
 	'pending_follow_users' => isset( $pending_follow_users ) && is_array( $pending_follow_users ) ? $pending_follow_users : array(),
+	'pending_connection_users' => isset( $pending_connection_users ) && is_array( $pending_connection_users ) ? $pending_connection_users : array(),
 	'classes'              => isset( $classes ) ? (array) $classes : array(),
 );
 
@@ -91,6 +92,7 @@ $bn_followers       = (array) $args['follower_users'];
 $bn_following       = (array) $args['following_users'];
 $bn_connections     = (array) $args['connection_users'];
 $bn_pending_follows = (array) $args['pending_follow_users'];
+$bn_pending_connections = (array) $args['pending_connection_users'];
 
 do_action( 'buddynext_part_profile_tab_panel_before', $args );
 ?>
@@ -359,6 +361,56 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 
 			<!-- Connections tab content -->
 			<div class="bn-profile-tab-panel bn-pf-people-panel" data-tab-panel="connections" hidden>
+				<?php if ( ! empty( $bn_pending_connections ) ) : ?>
+					<section class="bn-follow-requests" aria-label="<?php esc_attr_e( 'Pending connection requests', 'buddynext' ); ?>">
+						<header class="bn-follow-requests__head">
+							<h3 class="bn-follow-requests__title">
+								<?php
+								printf(
+									/* translators: %d: number of pending connection requests */
+									esc_html( _n( 'Connection request', 'Connection requests', count( $bn_pending_connections ), 'buddynext' ) ) . ' <span class="bn-follow-requests__count">%d</span>',
+									(int) count( $bn_pending_connections )
+								);
+								?>
+							</h3>
+							<p class="bn-follow-requests__sub"><?php esc_html_e( 'People who want to connect with you. Accept to connect.', 'buddynext' ); ?></p>
+						</header>
+						<ul class="bn-follow-requests__list" role="list">
+							<?php
+							foreach ( $bn_pending_connections as $bn_creq_user ) :
+								if ( ! $bn_creq_user instanceof WP_User ) {
+									continue;
+								}
+								$bn_creq_id  = (int) $bn_creq_user->ID;
+								$bn_creq_url = \BuddyNext\Core\PageRouter::profile_url( $bn_creq_id );
+								$bn_creq_ctx = wp_json_encode(
+									array(
+										'requesterId' => $bn_creq_id,
+										'targetName'  => $bn_creq_user->user_nicename,
+										'hidden'      => false,
+										'busy'        => false,
+										'restUrl'     => rest_url( 'buddynext/v1' ),
+										'nonce'       => wp_create_nonce( 'wp_rest' ),
+									)
+								);
+								?>
+								<li class="bn-follow-requests__row" data-wp-interactive="buddynext/connection-requests" data-wp-context='<?php echo esc_attr( (string) $bn_creq_ctx ); ?>' data-wp-bind--hidden="state.rowHidden">
+									<a href="<?php echo esc_url( $bn_creq_url ); ?>" class="bn-follow-requests__avatar" aria-hidden="true" tabindex="-1">
+										<img src="<?php echo esc_url( get_avatar_url( $bn_creq_id, array( 'size' => 96 ) ) ); ?>" alt="" loading="lazy" />
+									</a>
+									<div class="bn-follow-requests__id">
+										<a href="<?php echo esc_url( $bn_creq_url ); ?>" class="bn-follow-requests__name"><?php echo esc_html( $bn_creq_user->display_name ); ?></a>
+										<span class="bn-follow-requests__handle">@<?php echo esc_html( $bn_creq_user->user_nicename ); ?></span>
+									</div>
+									<div class="bn-follow-requests__actions">
+										<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-wp-on--click="actions.decline"><?php esc_html_e( 'Decline', 'buddynext' ); ?></button>
+										<button type="button" class="bn-btn" data-variant="primary" data-size="sm" data-wp-on--click="actions.accept"><?php esc_html_e( 'Accept', 'buddynext' ); ?></button>
+									</div>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+					</section>
+				<?php endif; ?>
 				<?php if ( ! empty( $bn_connections ) ) : ?>
 					<?php
 					buddynext_get_template(

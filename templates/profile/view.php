@@ -64,6 +64,9 @@ $follower_users       = $bn_pf_ids_to_users( array_slice( $bn_follow_svc->follow
 $following_users      = $bn_pf_ids_to_users( array_slice( $bn_follow_svc->following( $user_id ), 0, 60 ) );
 $connection_users     = $bn_pf_ids_to_users( $bn_conn_svc->connections( $user_id, 60, 0 ) );
 $pending_follow_users = $is_own_profile ? $bn_pf_ids_to_users( $bn_follow_svc->pending_followers( $user_id ) ) : array();
+// Incoming connection (friend) requests — owner-only; the requester accepts/declines
+// from the Connections tab. Mirrors the pending-follow-requests inbox.
+$pending_connection_users = $is_own_profile ? $bn_pf_ids_to_users( $bn_conn_svc->pending_received( $user_id, 60, 0 ) ) : array();
 
 // --- Social graph state (viewer vs. this profile) -------------------------
 $is_following        = false;
@@ -574,6 +577,7 @@ $bn_pf_ctx = array(
 			'following_users'      => $following_users,
 			'connection_users'     => $connection_users,
 			'pending_follow_users' => $pending_follow_users,
+			'pending_connection_users' => $pending_connection_users,
 		)
 	);
 
