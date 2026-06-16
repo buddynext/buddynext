@@ -491,10 +491,15 @@ class AdminHub {
 			call_user_func( $active['render'] );
 			echo '</main>';
 		} elseif ( count( $tabs ) > 1 ) {
-			// Sidebar layout: vertical nav + body.
+			// Sidebar layout: vertical nav + body. The body is the tabpanel for
+			// the sidebar tablist, linked back to the active tab via
+			// aria-labelledby so screen readers associate the two.
 			echo '<div class="bn-admin-hub__layout">';
 			$this->render_sidebar( $section['slug'], $section['label'], $tabs, $active_slug );
-			echo '<main class="bn-admin-hub__main">';
+			printf(
+				'<main class="bn-admin-hub__main" id="bn-admin-hub-panel" role="tabpanel" aria-labelledby="%s" tabindex="0">',
+				esc_attr( 'bn-hubtab-' . $active_slug )
+			);
 			call_user_func( $active['render'] );
 			echo '</main>';
 			echo '</div>';
@@ -646,9 +651,10 @@ class AdminHub {
 					}
 
 					printf(
-						'<a class="bn-admin-hub__sidebar-link%s" href="%s" role="tab" aria-selected="%s"%s>%s<span class="bn-admin-hub__sidebar-label">%s</span>%s</a>',
+						'<a class="bn-admin-hub__sidebar-link%s" href="%s" id="bn-hubtab-%s" role="tab" aria-selected="%s" aria-controls="bn-admin-hub-panel"%s>%s<span class="bn-admin-hub__sidebar-label">%s</span>%s</a>',
 						$is_active ? ' is-active' : '',
 						esc_url( $url ),
+						esc_attr( $slug ),
 						$is_active ? 'true' : 'false',
 						$is_active ? ' data-active="true"' : '',
 						$icon_html, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService wp_kses'd.
