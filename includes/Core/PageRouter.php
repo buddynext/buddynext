@@ -281,7 +281,7 @@ class PageRouter {
 			$is_explore = ( 'feed' === $hub && 'explore' === $activity_action );
 
 			$needs_login =
-				in_array( $hub, array( 'messages', 'notifications', 'onboarding' ), true )
+				in_array( $hub, array( 'messages', 'notifications', 'onboarding', 'settings' ), true )
 				|| ( 'feed' === $hub && ! $is_explore && in_array( $feed_section, $guarded_feed_sections, true ) );
 
 			if ( $needs_login ) {
