@@ -215,6 +215,7 @@ class Members extends AdminPageBase {
 				'display'     => $user->display_name,
 				'registered'  => $user->user_registered,
 				'suspended'   => isset( $suspended_set[ $user->ID ] ),
+				'pending_approval' => (bool) get_user_meta( $user->ID, 'bn_pending_approval', true ),
 				'role'        => ( (array) $user->roles )[0] ?? 'subscriber',
 				'last_active' => (int) get_user_meta( $user->ID, 'bn_last_active', true ),
 				'last_login'  => (int) get_user_meta( $user->ID, 'bn_last_login', true ),
@@ -945,6 +946,8 @@ class Members extends AdminPageBase {
 								<td>
 									<?php if ( $member['suspended'] ) : ?>
 										<span class="bn-badge" data-tone="danger"><?php esc_html_e( 'Suspended', 'buddynext' ); ?></span>
+									<?php elseif ( ! empty( $member['pending_approval'] ) ) : ?>
+										<span class="bn-badge" data-tone="warn"><?php esc_html_e( 'Pending Approval', 'buddynext' ); ?></span>
 									<?php else : ?>
 										<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Active', 'buddynext' ); ?></span>
 									<?php endif; ?>
