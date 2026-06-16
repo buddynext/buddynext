@@ -1525,6 +1525,15 @@ button.bn-pf-pill:hover,
 	font-size: var(--bn-text-sm);
 }
 
+/* Profile activity (Posts) tab — stack the composer + post cards with the same
+   vertical rhythm as the home feed (.bn-feed-list). Without this the cards
+   render flush against each other with no gap. */
+.bn-profile-posts-panel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+
 /* ── Sidebar widgets ──────────────────────────────────────────────────── */
 .bn-widget {
 	background: var(--bn-surface);
