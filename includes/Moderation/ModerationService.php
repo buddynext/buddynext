@@ -1369,6 +1369,36 @@ class ModerationService {
 			return new WP_Error( 'db_error', __( 'Database error updating report status.', 'buddynext' ) );
 		}
 
+		// Lift an auto-hide once the reports are cleared. auto_hide_post() flips a
+		// 'published' post to 'pending' when the report threshold is hit; resolving
+		// or dismissing all of its open reports means a human has cleared it, so it
+		// should reappear in the feed. The status = 'pending' guard restores ONLY
+		// the auto-hide state — content taken down via remove_content() is
+		// 'deleted' (ModerationListener::on_content_removed) and is left untouched.
+		if ( 'post' === (string) $target['object_type'] && in_array( $status, array( 'resolved', 'dismissed' ), true ) ) {
+			$restore_post_id = (int) $target['object_id'];
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$restored = $wpdb->query(
+				$wpdb->prepare(
+					"UPDATE {$wpdb->prefix}bn_posts SET status = 'published' WHERE id = %d AND status = 'pending'",
+					$restore_post_id
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+			if ( $restored > 0 ) {
+				wp_cache_delete( "post_{$restore_post_id}", 'buddynext_posts' );
+				/**
+				 * Fires when an auto-hidden post is restored after its reports are cleared.
+				 *
+				 * @param int $post_id  The restored post.
+				 * @param int $actor_id Moderator who cleared the reports.
+				 */
+				do_action( 'buddynext_post_restored', $restore_post_id, $actor_id );
+			}
+		}
+
 		return true;
 	}
 
