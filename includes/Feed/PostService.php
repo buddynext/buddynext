@@ -1158,11 +1158,23 @@ class PostService {
 			'thumbnail'   => '',
 		);
 
+		// SSRF guard. The URL is user-supplied (post content / link meta), so we
+		// must not let it point the server at internal hosts. url_is_safe_for_fetch()
+		// rejects non-http(s) schemes and any host that resolves into a private or
+		// reserved range — including link-local 169.254.0.0/16, which covers cloud
+		// metadata endpoints (e.g. 169.254.169.254) that wp_http_validate_url() does
+		// NOT block on its own.
+		if ( ! self::url_is_safe_for_fetch( $url ) ) {
+			return $meta;
+		}
+
 		$response = wp_remote_get(
 			$url,
 			array(
-				'timeout'    => 5,
-				'user-agent' => 'BuddyNext/1.0 (Link Preview)',
+				'timeout'             => 5,
+				'user-agent'          => 'BuddyNext/1.0 (Link Preview)',
+				'reject_unsafe_urls'  => true,
+				'limit_response_size' => 2 * MB_IN_BYTES,
 			)
 		);
 
@@ -1171,29 +1183,127 @@ class PostService {
 		}
 
 		$body = wp_remote_retrieve_body( $response );
-		if ( empty( $body ) ) {
+		if ( '' === $body ) {
 			return $meta;
 		}
 
-		// Extract og:title.
-		if ( preg_match( '/<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']|<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']/', $body, $m ) ) {
-			$meta['title'] = html_entity_decode( trim( $m[1] ? $m[1] : $m[2] ), ENT_QUOTES, 'UTF-8' );
-		} elseif ( preg_match( '/<title[^>]*>([^<]+)<\/title>/i', $body, $m ) ) {
-			$meta['title'] = html_entity_decode( trim( $m[1] ), ENT_QUOTES, 'UTF-8' );
+		// Parse with DOMDocument/DOMXPath so extraction is robust to attribute
+		// order, quote style, self-closing slashes, and extra attributes — the
+		// hand-rolled regex only matched two of the many valid orderings.
+		$xpath = self::html_xpath( $body );
+		if ( null === $xpath ) {
+			return $meta;
 		}
 
-		// Extract og:description.
-		if ( preg_match( '/<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']|<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:description["\']/', $body, $m ) ) {
-			$meta['description'] = html_entity_decode( trim( $m[1] ? $m[1] : $m[2] ), ENT_QUOTES, 'UTF-8' );
-		} elseif ( preg_match( '/<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)["\']/', $body, $m ) ) {
-			$meta['description'] = html_entity_decode( trim( $m[1] ), ENT_QUOTES, 'UTF-8' );
+		$title = self::xpath_first( $xpath, '//meta[@property="og:title"]/@content' );
+		if ( '' === $title ) {
+			$node  = $xpath->query( '//title' )->item( 0 );
+			$title = $node ? $node->textContent : '';
 		}
+		$meta['title'] = html_entity_decode( trim( $title ), ENT_QUOTES, 'UTF-8' );
 
-		// Extract og:image.
-		if ( preg_match( '/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']|<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']/', $body, $m ) ) {
-			$meta['thumbnail'] = esc_url_raw( trim( $m[1] ? $m[1] : $m[2] ) );
+		$description = self::xpath_first( $xpath, '//meta[@property="og:description"]/@content' );
+		if ( '' === $description ) {
+			$description = self::xpath_first( $xpath, '//meta[@name="description"]/@content' );
 		}
+		$meta['description'] = html_entity_decode( trim( $description ), ENT_QUOTES, 'UTF-8' );
+
+		$image             = self::xpath_first( $xpath, '//meta[@property="og:image"]/@content' );
+		$meta['thumbnail'] = esc_url_raw( trim( $image ) );
 
 		return $meta;
+	}
+
+	/**
+	 * Decide whether a user-supplied URL is safe for the server to fetch.
+	 *
+	 * Blocks SSRF by requiring an http/https scheme and resolving the host to
+	 * its IP(s), rejecting any that fall in a private (RFC1918) or reserved
+	 * range. FILTER_FLAG_NO_RES_RANGE covers loopback (127/8, ::1), link-local
+	 * (169.254/16 — cloud metadata), and other reserved blocks; NO_PRIV_RANGE
+	 * covers 10/8, 172.16/12, 192.168/16 and fc00::/7. Unresolvable hosts are
+	 * rejected too. (TOCTOU/DNS-rebinding is mitigated further by passing
+	 * reject_unsafe_urls to wp_remote_get.)
+	 *
+	 * @param string $url URL to validate.
+	 * @return bool True when the URL is a public http(s) destination.
+	 */
+	private static function url_is_safe_for_fetch( string $url ): bool {
+		$parts = wp_parse_url( $url );
+		if ( empty( $parts['scheme'] ) || ! in_array( strtolower( $parts['scheme'] ), array( 'http', 'https' ), true ) ) {
+			return false;
+		}
+		if ( empty( $parts['host'] ) ) {
+			return false;
+		}
+
+		$host = $parts['host'];
+		$ips  = array();
+
+		if ( filter_var( $host, FILTER_VALIDATE_IP ) ) {
+			$ips[] = $host;
+		} else {
+			foreach ( (array) @dns_get_record( $host, DNS_A | DNS_AAAA ) as $record ) {
+				if ( ! empty( $record['ip'] ) ) {
+					$ips[] = $record['ip'];
+				}
+				if ( ! empty( $record['ipv6'] ) ) {
+					$ips[] = $record['ipv6'];
+				}
+			}
+			if ( empty( $ips ) ) {
+				$resolved = gethostbyname( $host );
+				if ( $resolved && $resolved !== $host ) {
+					$ips[] = $resolved;
+				}
+			}
+		}
+
+		if ( empty( $ips ) ) {
+			return false;
+		}
+
+		foreach ( $ips as $ip ) {
+			if ( ! filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Build a DOMXPath over an HTML body, suppressing libxml parse warnings.
+	 *
+	 * @param string $body Raw HTML.
+	 * @return \DOMXPath|null Null when DOM is unavailable or the body won't parse.
+	 */
+	private static function html_xpath( string $body ): ?\DOMXPath {
+		if ( ! class_exists( '\DOMDocument' ) ) {
+			return null;
+		}
+		$dom  = new \DOMDocument();
+		$prev = libxml_use_internal_errors( true );
+		// The XML encoding hint forces UTF-8 so multibyte content is not mangled.
+		$loaded = $dom->loadHTML( '<?xml encoding="UTF-8">' . $body, LIBXML_NOERROR | LIBXML_NOWARNING );
+		libxml_clear_errors();
+		libxml_use_internal_errors( $prev );
+
+		return $loaded ? new \DOMXPath( $dom ) : null;
+	}
+
+	/**
+	 * Return the value of the first node matching an XPath query, or ''.
+	 *
+	 * @param \DOMXPath $xpath Document XPath.
+	 * @param string    $query XPath expression.
+	 * @return string
+	 */
+	private static function xpath_first( \DOMXPath $xpath, string $query ): string {
+		$nodes = $xpath->query( $query );
+		if ( false === $nodes || 0 === $nodes->length ) {
+			return '';
+		}
+		return (string) $nodes->item( 0 )->nodeValue;
 	}
 }
