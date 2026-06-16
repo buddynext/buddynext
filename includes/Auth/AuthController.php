@@ -659,11 +659,12 @@ class AuthController {
 		// so the site owner's default applies to fresh accounts.
 		self::seed_default_dm_access( (int) $user_id );
 
-		// Always issue a verification token so the new user receives a
-		// confirmation email. When buddynext_email_verify is OFF the link
-		// is informational (the account is already usable); when ON the
-		// user must click it before BN treats them as verified.
-		( new VerificationService() )->create_token( (int) $user_id );
+		// Email verification is handled by VerificationListener::on_user_register,
+		// which wp_create_user() above already triggered via the user_register
+		// hook. That listener is gated on the buddynext_email_verify setting, so
+		// it sends the verification email only when verification is required.
+		// Do NOT create a token here as well: when the setting is OFF it would
+		// send an unwanted email, and when ON it would send a duplicate.
 
 		// Approval mode: hold the account for an administrator. The login gate
 		// (wp_authenticate_user) blocks sign-in until the flag is cleared, so we
