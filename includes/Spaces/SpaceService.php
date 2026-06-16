@@ -364,6 +364,97 @@ class SpaceService {
 	}
 
 	/**
+	 * Archive a space. An archived space stays viewable to its members but
+	 * accepts no new activity — posts, comments and joins are refused at their
+	 * write entry points, which read is_archived() below. Owner or site admin
+	 * only.
+	 *
+	 * @param int $space_id Space to archive.
+	 * @param int $actor_id Acting user (owner or admin).
+	 * @return true|WP_Error
+	 */
+	public function archive( int $space_id, int $actor_id ): true|WP_Error {
+		return $this->set_archived( $space_id, $actor_id, true );
+	}
+
+	/**
+	 * Restore an archived space to active. Owner or site admin only.
+	 *
+	 * @param int $space_id Space to restore.
+	 * @param int $actor_id Acting user (owner or admin).
+	 * @return true|WP_Error
+	 */
+	public function unarchive( int $space_id, int $actor_id ): true|WP_Error {
+		return $this->set_archived( $space_id, $actor_id, false );
+	}
+
+	/**
+	 * Toggle the archived flag with a permission check, cache bust and hook.
+	 *
+	 * @param int  $space_id Space ID.
+	 * @param int  $actor_id Acting user.
+	 * @param bool $archived Target state.
+	 * @return true|WP_Error
+	 */
+	private function set_archived( int $space_id, int $actor_id, bool $archived ): true|WP_Error {
+		$space = $this->get( $space_id );
+		if ( null === $space ) {
+			return new WP_Error( 'not_found', __( 'Space not found.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+		if ( $space['owner_id'] !== $actor_id && ! user_can( $actor_id, 'manage_options' ) ) {
+			return new WP_Error( 'forbidden', __( 'You do not have permission to archive this space.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+		if ( ! empty( $space['is_archived'] ) === $archived ) {
+			return true; // Already in the requested state.
+		}
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->update(
+			$wpdb->prefix . 'bn_spaces',
+			array(
+				'is_archived' => $archived ? 1 : 0,
+				'archived_at' => $archived ? current_time( 'mysql', true ) : null,
+			),
+			array( 'id' => $space_id ),
+			array( '%d', '%s' ),
+			array( '%d' )
+		);
+
+		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+		if ( isset( $space['slug'] ) && '' !== $space['slug'] ) {
+			wp_cache_delete( "space_slug_{$space['slug']}", self::CACHE_GROUP );
+		}
+
+		/**
+		 * Fires after a space is archived or unarchived.
+		 *
+		 * @param int $space_id Space ID.
+		 * @param int $actor_id User who changed the state.
+		 */
+		do_action( $archived ? 'buddynext_space_archived' : 'buddynext_space_unarchived', $space_id, $actor_id );
+
+		return true;
+	}
+
+	/**
+	 * Whether a space is archived. Reads the wp_cache-backed space row, so the
+	 * read-only guards on the post/comment/join paths add no extra query when
+	 * the space is already loaded.
+	 *
+	 * @param int $space_id Space ID (0 = not in a space → never archived).
+	 * @return bool
+	 */
+	public function is_archived( int $space_id ): bool {
+		$space_id = (int) $space_id;
+		if ( $space_id <= 0 ) {
+			return false;
+		}
+		$space = $this->get( $space_id );
+		return null !== $space && ! empty( $space['is_archived'] );
+	}
+
+	/**
 	 * Transfer space ownership to an existing member.
 	 *
 	 * Owns the bn_spaces.owner_id write (change_role alone does not touch it) so
@@ -665,6 +756,8 @@ class SpaceService {
 			'avatar_url'      => $row['avatar_url'] ?? null,
 			'cover_image_url' => $row['cover_image_url'] ?? null,
 			'rules'           => $row['rules'] ?? null,
+			'is_archived'     => ! empty( $row['is_archived'] ),
+			'archived_at'     => $row['archived_at'] ?? null,
 			'created_at'      => $row['created_at'],
 		);
 	}

@@ -267,6 +267,9 @@ class Spaces extends AdminPageBase {
 									<td>
 										<div class="bn-space-row-info">
 											<strong><?php echo esc_html( (string) $space['name'] ); ?></strong>
+											<?php if ( ! empty( $space['is_archived'] ) ) : ?>
+												<span class="bn-badge" data-tone="warning"><?php esc_html_e( 'Archived', 'buddynext' ); ?></span>
+											<?php endif; ?>
 											<?php if ( $owner ) : ?>
 												<span class="bn-row-meta">
 													<?php
@@ -720,6 +723,7 @@ class Spaces extends AdminPageBase {
 				'owner_id'     => (int) $row->owner_id,
 				'member_count' => (int) $row->member_count,
 				'type'         => $row->type,
+				'is_archived'  => ! empty( $row->is_archived ),
 				'created_at'   => $row->created_at,
 			);
 		}

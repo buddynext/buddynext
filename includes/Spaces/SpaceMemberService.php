@@ -60,6 +60,15 @@ class SpaceMemberService {
 		// Pro's gated-space gate) receive the actual required_ability + type.
 		$space = $this->load_space_row( $space_id );
 
+		// An archived space is read-only — it accepts no new members or requests.
+		if ( ! empty( $space['is_archived'] ) ) {
+			return new WP_Error(
+				'space_archived',
+				__( 'This space is archived and is not accepting new members.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		/**
 		 * Filter whether the user is permitted to join a space.
 		 *
@@ -160,6 +169,15 @@ class SpaceMemberService {
 	public function request_join( int $space_id, int $user_id ): true|WP_Error {
 		// Pre-load space row so listeners receive the actual required_ability + type.
 		$space = $this->load_space_row( $space_id );
+
+		// An archived space is read-only — it accepts no new members or requests.
+		if ( ! empty( $space['is_archived'] ) ) {
+			return new WP_Error(
+				'space_archived',
+				__( 'This space is archived and is not accepting new members.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
 
 		/**
 		 * Filter whether the user is permitted to request membership in a space.

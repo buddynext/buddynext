@@ -152,6 +152,13 @@ $bn_can_post = $is_member && (
 	|| ( $bn_role_rank[ $bn_member_role ] ?? 0 ) >= ( $bn_required_rank[ $bn_who_can_post ] ?? 1 )
 );
 
+// An archived space is read-only: no composer for anyone (mirrors the
+// PostService/CommentService/join guards). A banner explains the state.
+$bn_space_archived = ! empty( $space->is_archived );
+if ( $bn_space_archived ) {
+	$bn_can_post = false;
+}
+
 // Secret spaces are leak-proof: a logged-out visitor (or any non-member who
 // isn't a site admin) reaches the canonical 404 surface so we never confirm
 // the slug exists. Mirrors the visibility gate enforced by
@@ -854,6 +861,12 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 			?>
 
 		<?php else : ?>
+
+			<?php if ( $bn_space_archived ) : ?>
+				<div class="bn-notice" role="status">
+					<?php esc_html_e( 'This space is archived. You can still read past activity, but new posts, comments, and joins are disabled.', 'buddynext' ); ?>
+				</div>
+			<?php endif; ?>
 
 			<?php
 			buddynext_get_template(

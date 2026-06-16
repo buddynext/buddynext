@@ -110,6 +110,16 @@ class PostService {
 			);
 		}
 
+		// An archived space is read-only — refuse new posts targeting it.
+		$target_space_id = (int) ( $data['space_id'] ?? 0 );
+		if ( $target_space_id > 0 && buddynext_service( 'spaces' )->is_archived( $target_space_id ) ) {
+			return new WP_Error(
+				'space_archived',
+				__( 'This space is archived and no longer accepts new posts.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		// Suspended users are locked out of all content creation (spec 09-moderation:
 		// "Suspend — locked out… cannot post/comment/react"). Gate before any DB write.
 		if ( $this->is_author_suspended( $user_id ) ) {

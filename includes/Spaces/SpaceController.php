@@ -226,6 +226,25 @@ class SpaceController extends BaseRestController {
 			)
 		);
 
+		// Archive (POST) / restore (DELETE) a space. The owner/admin check lives
+		// in SpaceService::archive(); auth is required to reach it.
+		register_rest_route(
+			'buddynext/v1',
+			'/spaces/(?P<id>[\d]+)/archive',
+			array(
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( $this, 'archive_space' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+				array(
+					'methods'             => 'DELETE',
+					'callback'            => array( $this, 'unarchive_space' ),
+					'permission_callback' => array( $this, 'require_auth' ),
+				),
+			)
+		);
+
 		// Per-space notification preference for the current user.
 		register_rest_route(
 			'buddynext/v1',
@@ -1255,6 +1274,37 @@ class SpaceController extends BaseRestController {
 			),
 			200
 		);
+	}
+
+	/**
+	 * Archive a space (owner/admin). Members keep read access; new activity is
+	 * refused (see the read-only guards in PostService/CommentService/join).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function archive_space( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$result   = ( new SpaceService() )->archive( $space_id, get_current_user_id() );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+		return new WP_REST_Response( array( 'archived' => true ), 200 );
+	}
+
+	/**
+	 * Restore an archived space to active (owner/admin).
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function unarchive_space( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$space_id = (int) $request->get_param( 'id' );
+		$result   = ( new SpaceService() )->unarchive( $space_id, get_current_user_id() );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+		return new WP_REST_Response( array( 'archived' => false ), 200 );
 	}
 
 	// ── Images ──────────────────────────────────────────────────────────────

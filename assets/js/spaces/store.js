@@ -1346,6 +1346,37 @@ var storeInstance = store( 'buddynext/spaces', {
 			openSpaceModal( 'archive-space' );
 		},
 
+		/**
+		 * Confirm archiving the space. POSTs to /spaces/{id}/archive (owner/admin
+		 * enforced server-side) and reloads so the space renders in its read-only
+		 * state. Bound to the archive modal's confirm button.
+		 *
+		 * @param {Event} event Click event from the confirm button (carries data-space-id).
+		 */
+		archiveSpace: async function ( event ) {
+			var btn = event && event.target && event.target.closest( 'button' );
+			if ( ! btn ) { return; }
+			var spaceId = btn.getAttribute( 'data-space-id' );
+			if ( ! spaceId ) { return; }
+			btn.disabled = true;
+			try {
+				var res = await fetch( apiUrl( 'buddynext/v1/spaces/' + spaceId + '/archive' ), {
+					method:  'POST',
+					headers: { 'X-WP-Nonce': resolveNonce() },
+				} );
+				if ( res.ok ) {
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Space archived.' ), 'success' ); }
+					setTimeout( function () { window.location.reload(); }, 500 );
+				} else {
+					btn.disabled = false;
+					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not archive the space. Try again.' ), 'danger' ); }
+				}
+			} catch ( _e ) {
+				btn.disabled = false;
+				if ( window.bnToast ) { window.bnToast( __i18n( 'Could not archive the space. Try again.' ), 'danger' ); }
+			}
+		},
+
 		/* ── Space home: notification pref + tab switch ──────────────────── */
 
 		/**

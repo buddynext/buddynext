@@ -547,11 +547,14 @@ class Installer {
 				required_ability   VARCHAR(64) NULL DEFAULT NULL,
 				accent_color       VARCHAR(16) NULL DEFAULT NULL,
 				description_layout VARCHAR(32) NULL DEFAULT 'standard',
+				is_archived        TINYINT(1) NOT NULL DEFAULT 0,
+				archived_at        DATETIME NULL DEFAULT NULL,
 				created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY        (id),
 				UNIQUE KEY         slug (slug),
 				KEY                owner (owner_id),
-				KEY                category (category_id)
+				KEY                category (category_id),
+				KEY                is_archived (is_archived)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_space_members (

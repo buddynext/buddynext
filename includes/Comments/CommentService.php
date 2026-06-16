@@ -106,6 +106,19 @@ class CommentService {
 
 		global $wpdb;
 
+		// A comment inherits its post's space; an archived space is read-only.
+		if ( 'post' === $object_type && $object_id > 0 ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$bn_post_space = (int) $wpdb->get_var( $wpdb->prepare( "SELECT space_id FROM {$wpdb->prefix}bn_posts WHERE id = %d", $object_id ) );
+			if ( $bn_post_space > 0 && buddynext_service( 'spaces' )->is_archived( $bn_post_space ) ) {
+				return new WP_Error(
+					'space_archived',
+					__( 'This space is archived and no longer accepts new comments.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+		}
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_comments',
