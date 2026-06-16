@@ -2148,6 +2148,13 @@ store( 'buddynext/post-composer', {
 					event_at: scheduledAt,
 				},
 			};
+			// Carry the space context so a scheduled event lands in the space feed
+			// (space feeds query WHERE space_id = %d). Mirrors submit(); without it
+			// the event is created with space_id null and only shows globally.
+			const eventSpaceId = parseInt( ctx.spaceId, 10 ) || 0;
+			if ( eventSpaceId > 0 ) {
+				body.space_id = eventSpaceId;
+			}
 			try {
 				const res = yield fetch( ctx.restUrl + '/posts', {
 					method:  'POST',
@@ -2189,6 +2196,13 @@ store( 'buddynext/post-composer', {
 					duration:     parseInt( fields.duration || '30', 10 ),
 				},
 			};
+			// Carry the space context so a scheduled voice room lands in the space
+			// feed (mirrors submit() / submitEvent()); otherwise space_id is null
+			// and it only shows in the global feed.
+			const voiceSpaceId = parseInt( ctx.spaceId, 10 ) || 0;
+			if ( voiceSpaceId > 0 ) {
+				body.space_id = voiceSpaceId;
+			}
 			try {
 				const res = yield fetch( ctx.restUrl + '/posts', {
 					method:  'POST',
