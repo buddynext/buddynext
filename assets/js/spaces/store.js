@@ -2170,7 +2170,170 @@ document.addEventListener( 'click', function ( event ) {
 	storeInstance.actions[ name ]( event );
 } );
 
+/**
+ * Escape a string for safe innerHTML insertion (member names/handles are
+ * user-controlled, so they must be escaped before going into the dropdown).
+ *
+ * @param {*} str Raw value.
+ * @return {string} HTML-escaped value.
+ */
+function bnInviteEscape( str ) {
+	return String( null == str ? '' : str ).replace( /[&<>"']/g, function ( c ) {
+		return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ c ];
+	} );
+}
+
+/**
+ * Wire a member typeahead onto an invite-identifier input. Suggests existing
+ * members via the same GET /members?search= endpoint the composer @-mention
+ * uses; selecting one fills the input with the @handle and the sibling hidden
+ * target_user_id. Non-members are invited by typing a full email — no
+ * suggestions are shown for addresses, and the existing submit path resolves
+ * them by email. Keys are handled in the capture phase so the dropdown preempts
+ * the hero modal's Interactivity keydown when it is open.
+ *
+ * @param {HTMLInputElement} input Invite identifier input.
+ */
+function attachInviteTypeahead( input ) {
+	if ( input.dataset.bnInviteEnhanced ) {
+		return;
+	}
+	input.dataset.bnInviteEnhanced = '1';
+	input.setAttribute( 'autocomplete', 'off' );
+
+	var restBase = ( window.wpApiSettings && window.wpApiSettings.root || '/wp-json/' ) + 'buddynext/v1';
+	var wrap     = input.parentElement;
+	if ( wrap && 'static' === getComputedStyle( wrap ).position ) {
+		wrap.style.position = 'relative';
+	}
+	var hidden   = input.form ? input.form.querySelector( 'input[name="target_user_id"]' ) : null;
+	var dropdown = null;
+	var items    = [];
+	var active   = 0;
+	var timer    = null;
+	var abort    = null;
+
+	function close() {
+		if ( dropdown ) {
+			dropdown.remove();
+			dropdown = null;
+		}
+		items  = [];
+		active = 0;
+	}
+
+	function render() {
+		if ( ! dropdown ) {
+			dropdown = document.createElement( 'div' );
+			dropdown.className = 'bn-composer__typeahead';
+			dropdown.setAttribute( 'role', 'listbox' );
+			( wrap || input.parentElement ).appendChild( dropdown );
+		}
+		dropdown.innerHTML = items.map( function ( m, i ) {
+			var avatar = m.avatar
+				? '<img class="bn-composer__typeahead-avatar" src="' + bnInviteEscape( m.avatar ) + '" alt="" width="28" height="28" loading="lazy">'
+				: '';
+			var handle = m.handle
+				? '<span class="bn-composer__typeahead-handle">@' + bnInviteEscape( m.handle ) + '</span>'
+				: '';
+			return '<button type="button" role="option" class="bn-composer__typeahead-item" data-i="' + i + '" aria-selected="' + ( i === active ? 'true' : 'false' ) + '">' +
+				avatar +
+				'<span class="bn-composer__typeahead-text"><span class="bn-composer__typeahead-name">' + bnInviteEscape( m.label ) + '</span>' + handle + '</span>' +
+				'</button>';
+		} ).join( '' );
+		dropdown.querySelectorAll( '.bn-composer__typeahead-item' ).forEach( function ( btn ) {
+			btn.addEventListener( 'mousedown', function ( e ) {
+				e.preventDefault();
+				select( parseInt( btn.dataset.i, 10 ) );
+			} );
+		} );
+	}
+
+	function select( i ) {
+		var m = items[ i ];
+		if ( ! m ) {
+			return;
+		}
+		input.value = m.handle || m.label;
+		if ( hidden ) {
+			hidden.value = m.id || 0;
+		}
+		close();
+		input.focus();
+	}
+
+	function search( q ) {
+		if ( abort ) {
+			abort.abort();
+		}
+		abort = new AbortController();
+		fetch( restBase + '/members?search=' + encodeURIComponent( q ) + '&per_page=6', { signal: abort.signal, credentials: 'include' } )
+			.then( function ( r ) { return r.json(); } )
+			.then( function ( data ) {
+				var rows = data && Array.isArray( data.items ) ? data.items : [];
+				items = rows.map( function ( m ) {
+					var handle = m.handle || m.user_login || m.username || '';
+					return { id: m.id || m.user_id || 0, handle: handle, label: m.display_name || handle, avatar: m.avatar_url || '' };
+				} ).filter( function ( m ) { return m.handle || m.label; } );
+				active = 0;
+				if ( items.length ) { render(); } else { close(); }
+			} )
+			.catch( function () {} );
+	}
+
+	input.addEventListener( 'input', function () {
+		if ( hidden ) {
+			hidden.value = '0'; // Typing invalidates a prior selection.
+		}
+		var q = input.value.trim();
+		clearTimeout( timer );
+		// Skip suggestions for email addresses — non-members are invited by email.
+		if ( q.length < 2 || -1 !== q.indexOf( '@' ) ) {
+			close();
+			return;
+		}
+		timer = setTimeout( function () { search( q ); }, 200 );
+	} );
+
+	input.addEventListener( 'keydown', function ( e ) {
+		if ( ! dropdown || ! items.length ) {
+			return;
+		}
+		if ( 'ArrowDown' === e.key ) {
+			e.preventDefault(); e.stopImmediatePropagation();
+			active = ( active + 1 ) % items.length; render();
+		} else if ( 'ArrowUp' === e.key ) {
+			e.preventDefault(); e.stopImmediatePropagation();
+			active = ( active - 1 + items.length ) % items.length; render();
+		} else if ( 'Enter' === e.key ) {
+			e.preventDefault(); e.stopImmediatePropagation();
+			select( active );
+		} else if ( 'Escape' === e.key ) {
+			close();
+		}
+	}, true );
+
+	document.addEventListener( 'click', function ( e ) {
+		if ( dropdown && ! dropdown.contains( e.target ) && e.target !== input ) {
+			close();
+		}
+	} );
+}
+
+/**
+ * Attach the invite typeahead to the settings-panel form input and the hero
+ * invite-modal input (both are present only on space pages).
+ */
+function initInviteTypeahead() {
+	[
+		document.getElementById( 'bn_invite_identifier' ),
+		document.getElementById( 'bn-invite-identifier' ),
+	].filter( Boolean ).forEach( attachInviteTypeahead );
+}
+
 document.addEventListener( 'DOMContentLoaded', function () {
+	initInviteTypeahead();
+
 	var searchInput = document.querySelector( 'input[name="bn_search"]' );
 	if ( searchInput ) {
 		searchInput.addEventListener( 'input', function () {

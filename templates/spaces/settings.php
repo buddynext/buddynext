@@ -309,7 +309,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_members_nonce'] ) ) {
 						: get_user_by( 'login', $invite_identifier );
 					if ( $invite_user ) {
 						$invite_result = $member_service->invite( $space_id, $acting_user_id, $invite_user->ID );
-						$save_notice   = ( ! is_wp_error( $invite_result ) ) ? 'success' : 'error';
+						$save_notice   = ( ! is_wp_error( $invite_result ) ) ? 'invite_sent' : 'error';
 						if ( is_wp_error( $invite_result ) ) {
 							$save_error_message = $invite_result->get_error_message();
 						}
@@ -514,7 +514,12 @@ foreach ( $builtin_tabs as $bn_t ) {
 	<!-- Content shell -->
 	<div class="bn-space-settings__shell">
 
-		<?php if ( 'success' === $save_notice ) : ?>
+		<?php if ( 'invite_sent' === $save_notice ) : ?>
+			<div class="bn-card bn-space-settings__notice" data-tone="success" role="status">
+				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
+				<?php esc_html_e( 'Invitation sent successfully.', 'buddynext' ); ?>
+			</div>
+		<?php elseif ( 'success' === $save_notice ) : ?>
 			<div class="bn-card bn-space-settings__notice" data-tone="success" role="status">
 				<span class="bn-space-settings__notice-icon" aria-hidden="true"><?php buddynext_icon( 'check-circle' ); ?></span>
 				<?php esc_html_e( 'Changes saved successfully.', 'buddynext' ); ?>
