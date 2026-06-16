@@ -552,9 +552,9 @@ function wireCardKebab( article, cardCtx, item ) {
 					bnToast( 'Could not update mute state. Try again.', { tone: 'danger' } );
 				}
 			} else if ( label === 'Block' ) {
-				openBlockModal( cardCtx.userId, cardCtx.displayName );
+				openBlockModal( cardCtx.userId, cardCtx.displayName, el );
 			} else if ( label === 'Report' ) {
-				openReportModal( 'user', cardCtx.userId, cardCtx.displayName );
+				openReportModal( 'user', cardCtx.userId, cardCtx.displayName, el );
 			}
 		} );
 	} );
@@ -981,16 +981,19 @@ const memberStore = store( 'buddynext/members', {
 		 * already in the page (rendered by members.php); we toggle
 		 * `hidden` on the backdrop and wire submit / cancel handlers. */
 
-		openBlock() {
+		openBlock( event ) {
 			const ctx = getContext();
 			ctx.menuOpen = false;
-			openBlockModal( ctx.userId, ctx.displayName );
+			// Pass the trigger so the modal in THIS grid (tab panel) opens — a
+			// global lookup would grab the first grid's modal, often in a
+			// hidden tab. See findNearestModal().
+			openBlockModal( ctx.userId, ctx.displayName, event && event.target );
 		},
 
-		openReport() {
+		openReport( event ) {
 			const ctx = getContext();
 			ctx.menuOpen = false;
-			openReportModal( 'user', ctx.userId, ctx.displayName );
+			openReportModal( 'user', ctx.userId, ctx.displayName, event && event.target );
 		},
 	},
 } );
@@ -1008,8 +1011,33 @@ function getModalSettings() {
 	}
 }
 
-function openBlockModal( userId, displayName ) {
-	const modal = document.querySelector( '.bn-pf-block-backdrop' );
+/**
+ * Find the modal backdrop nearest the element that triggered it.
+ *
+ * The block/report modals ship inside member-grid.php, so a page with several
+ * member grids — e.g. the profile Followers / Following / Connections tabs —
+ * renders one backdrop per grid. A global document.querySelector always returns
+ * the first, which usually lives in a hidden tab panel, so un-hiding it shows
+ * nothing and Block / Report appear dead on every other grid. Walk up from the
+ * trigger to the closest ancestor that actually contains a matching backdrop,
+ * falling back to the first in the document if the trigger is detached.
+ *
+ * @param {Element} originEl Element that triggered the modal (the kebab item).
+ * @param {string}  selector Backdrop selector.
+ * @return {Element|null} The nearest matching backdrop.
+ */
+function findNearestModal( originEl, selector ) {
+	let node = ( originEl && 1 === originEl.nodeType ) ? originEl : null;
+	while ( node ) {
+		const found = node.querySelector ? node.querySelector( selector ) : null;
+		if ( found ) { return found; }
+		node = node.parentElement;
+	}
+	return document.querySelector( selector );
+}
+
+function openBlockModal( userId, displayName, originEl ) {
+	const modal = findNearestModal( originEl, '.bn-pf-block-backdrop' );
 	if ( ! modal ) { return; }
 	modal.dataset.targetId   = String( userId );
 	modal.dataset.targetName = String( displayName || '' );
@@ -1054,8 +1082,8 @@ function openBlockModal( userId, displayName ) {
 	} );
 }
 
-function openReportModal( targetType, targetId, displayName ) {
-	const modal = document.querySelector( '.bn-pf-report-backdrop' );
+function openReportModal( targetType, targetId, displayName, originEl ) {
+	const modal = findNearestModal( originEl, '.bn-pf-report-backdrop' );
 	if ( ! modal ) { return; }
 	modal.dataset.targetType = String( targetType || 'user' );
 	modal.dataset.targetId   = String( targetId || 0 );
