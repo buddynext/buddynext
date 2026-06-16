@@ -492,6 +492,30 @@ class PageRouter {
 			}
 		}
 
+		// Site-wide search-engine indexing policy (Settings → Privacy → "Allow
+		// search engines to index"). Only ever ADDS noindex so it composes with
+		// the per-profile/space privacy opt-outs below; it never forces a page to
+		// be indexable. 'all' = public hubs indexable, 'public_posts' = only the
+		// feed/posts, 'none' = noindex every BuddyNext page. Private hubs
+		// (messages/notifications/auth/onboarding) are never indexable.
+		$indexing   = (string) get_option( 'buddynext_google_indexing', 'public_posts' );
+		$is_posts   = ( 'feed' === $hub || 'activity' === $hub );
+		$is_public  = ( $is_posts || 'people' === $hub || 'spaces' === $hub );
+		$force_noindex = ( 'none' === $indexing )
+			|| ( 'public_posts' === $indexing && ! $is_posts )
+			|| ( 'all' === $indexing && ! $is_public );
+		if ( $force_noindex ) {
+			add_filter(
+				'wp_robots',
+				static function ( array $robots ): array {
+					$robots['noindex']  = true;
+					$robots['nofollow'] = true;
+					unset( $robots['index'], $robots['follow'] );
+					return $robots;
+				}
+			);
+		}
+
 		// Per-profile search-engine opt-out. Members are indexable by default;
 		// only an explicit '0' on bn_privacy_search_indexable opts out. Runs
 		// here (before get_header()/wp_head) so the wp_robots filter applies.
