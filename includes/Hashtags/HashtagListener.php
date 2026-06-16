@@ -76,6 +76,13 @@ class HashtagListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_post_created( int $post_id, int $user_id, string $type ): void {
+		// Hashtags feature off: do not index. A #word in the post stays as plain
+		// text (PostService stores content verbatim), it is just never processed,
+		// linked, or counted while the feature is disabled.
+		if ( ! buddynext_feature_enabled( 'hashtags' ) ) {
+			return;
+		}
+
 		// Only text-based post types carry hashtaggable content.
 		if ( ! in_array( $type, array( 'text', 'link', 'announcement', 'activity' ), true ) ) {
 			return;
@@ -109,6 +116,12 @@ class HashtagListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function on_index_hashtags( string $object_type, int $object_id, string $content ): void {
+		// Hashtags feature off: bridge content (media, discussions, jobs) is not
+		// indexed either.
+		if ( ! buddynext_feature_enabled( 'hashtags' ) ) {
+			return;
+		}
+
 		$this->dispatch( 'buddynext_async_index_hashtags', array( $object_type, $object_id, $content ) );
 	}
 
@@ -124,6 +137,13 @@ class HashtagListener implements ListenerInterface {
 	 * @return void
 	 */
 	public function async_index_hashtags( string $object_type, int $object_id, string $content ): void {
+		// Authoritative guard: covers already-queued jobs and any direct callers
+		// of this worker hook, so no extraction/sync/signal happens while the
+		// Hashtags feature is off.
+		if ( ! buddynext_feature_enabled( 'hashtags' ) ) {
+			return;
+		}
+
 		if ( 'post' === $object_type && '' === $content ) {
 			global $wpdb;
 
