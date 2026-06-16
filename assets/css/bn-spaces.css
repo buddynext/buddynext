@@ -855,7 +855,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-sh-side-member__avatar {
 	flex-shrink: 0;
-	color: #fff;
+	color: var( --bn-accent-fg, #fff );
 	font-weight: var(--bn-fw-bold);
 }
 

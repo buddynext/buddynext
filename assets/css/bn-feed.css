@@ -2013,7 +2013,7 @@
 	margin: 0 auto 12px;
 	padding: 8px 16px;
 	background: var(--bn-accent, #3b82f6);
-	color: #fff;
+	color: var( --bn-accent-fg, #fff );
 	border: 0;
 	border-radius: var(--bn-r-full, 999px);
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
@@ -2769,7 +2769,7 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 .bn-guest-banner {
 	position: relative;
 	background: linear-gradient(135deg, var(--brand), var(--brand-hover));
-	color: #fff;
+	color: var( --bn-accent-fg, #fff );
 	border-radius: var(--r-lg);
 	padding: var(--s5);
 	margin-bottom: var(--s5);
@@ -2842,7 +2842,7 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	font-family: var(--font-body);
 	transition: border-color 0.1s, color 0.1s;
 }
-.bn-filter-chip.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.bn-filter-chip.active { background: var(--brand); border-color: var(--brand); color: var( --bn-accent-fg, #fff ); }
 .bn-filter-chip:hover:not(.active) { border-color: var(--brand); color: var(--brand); }
 
 /* Explore feed = a vertical LIST, not a masonry grid. CSS multi-column
@@ -2913,7 +2913,7 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 .bn-card-author-time { font-size: var(--text-2xs); color: var(--text-3); }
 .bn-explore .avatar {
 	border-radius: 50%;
-	color: #fff;
+	color: var( --bn-accent-fg, #fff );
 	font-weight: var(--fw-bold);
 	display: flex;
 	align-items: center;
@@ -3007,7 +3007,7 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	background: var(--surface);
 	font-family: var(--font-body);
 }
-.bn-btn-join:hover { background: var(--brand); color: #fff; }
+.bn-btn-join:hover { background: var(--brand); color: var( --bn-accent-fg, #fff ); }
 
 /* ── Explore dark mode ── */
 [data-theme="dark"] .bn-explore-card { background: var(--surface); border-color: var(--border); }

@@ -116,7 +116,7 @@
 .bn-dialog__ok[data-tone="danger"] {
 	background: var(--bn-danger, oklch(58% 0.20 25));
 	border-color: var(--bn-danger, oklch(58% 0.20 25));
-	color: #fff;
+	color: var( --bn-accent-fg, #fff );
 }
 
 .bn-dialog__ok[data-tone="warning"] {

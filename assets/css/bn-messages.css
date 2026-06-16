@@ -1495,7 +1495,7 @@
 	cursor: pointer;
 	font-size: 14px;
 }
-.bn-dm-compose__chip-x:hover { background: var(--bn-danger, #dc2626); color: #fff; }
+.bn-dm-compose__chip-x:hover { background: var(--bn-danger, #dc2626); color: var( --bn-accent-fg, #fff ); }
 
 .bn-dm-compose__group-actions {
 	margin-top: var(--bn-s3, 12px);
