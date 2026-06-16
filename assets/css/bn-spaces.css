@@ -676,10 +676,18 @@ a.bn-sh-statpill:focus-visible {
 	gap: var(--bn-s3);
 }
 
-.bn-sh-about__title {
+/* Shared section-title treatment for every space tab panel (About, Members,
+ * Moderation, Media) so each tab opens consistently — no jarring size jump
+ * between tabs. Members/Moderation titles previously had no rule and inherited
+ * the theme's oversized default <h2>. */
+.bn-sh-about__title,
+.bn-sh-members__title,
+.bn-sh-moderation__title,
+.bn-sh-media__title {
 	font-family: var(--bn-font-display);
-	font-size: var(--bn-text-lg);
+	font-size: var(--bn-text-xl);
 	font-weight: var(--bn-fw-bold);
+	line-height: 1.3;
 	color: var(--bn-ink);
 	margin: 0;
 }

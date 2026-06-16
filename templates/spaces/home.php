@@ -824,7 +824,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 
 			<div class="bn-card bn-sh-moderation">
 				<header>
-					<h2><?php esc_html_e( 'Moderation', 'buddynext' ); ?></h2>
+					<h2 class="bn-sh-moderation__title"><?php esc_html_e( 'Moderation', 'buddynext' ); ?></h2>
 					<p>
 						<?php esc_html_e( 'Manage pending join requests and reported posts.', 'buddynext' ); ?>
 						<a href="<?php echo esc_url( buddynext_space_moderation_url( $space->slug ) ); ?>" class="bn-link">
