@@ -62,7 +62,16 @@ if ( ! $space_id ) {
 // ── Permission gate ───────────────────────────────────────────────────────────
 
 if ( ! buddynext_can( get_current_user_id(), 'buddynext-spaces/manage-settings', array( 'space_id' => $space_id ) ) ) {
-	wp_die( esc_html__( 'You do not have permission to manage this space.', 'buddynext' ) );
+	// A demoted moderator may still hold this URL — render a friendly in-shell
+	// notice with a way back instead of a bare wp_die() white screen.
+	printf(
+		'<div class="bn-empty-state bn-space-no-access"><div class="bn-empty-title">%1$s</div><p class="bn-empty-text">%2$s</p><a class="bn-btn" data-variant="primary" href="%3$s">%4$s</a></div>',
+		esc_html__( 'You no longer manage this space', 'buddynext' ),
+		esc_html__( 'Your access to manage this space has changed. You can still view and take part in it.', 'buddynext' ),
+		esc_url( \BuddyNext\Core\PageRouter::space_url( $space_id ) ),
+		esc_html__( 'Back to space', 'buddynext' )
+	);
+	return;
 }
 
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
