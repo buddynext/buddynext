@@ -129,10 +129,11 @@ class SpaceMemberService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status)
-					 VALUES (%d, %d, 'member', 'active')",
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, joined_at)
+					 VALUES (%d, %d, 'member', 'active', %s)",
 					$space_id,
-					$user_id
+					$user_id,
+					current_time( 'mysql', true )
 				)
 			);
 
@@ -223,10 +224,11 @@ class SpaceMemberService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status)
-				 VALUES (%d, %d, 'member', 'pending')",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, joined_at)
+				 VALUES (%d, %d, 'member', 'pending', %s)",
 				$space_id,
-				$user_id
+				$user_id,
+				current_time( 'mysql', true )
 			)
 		);
 
@@ -297,10 +299,11 @@ class SpaceMemberService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status)
-					 VALUES (%d, %d, 'member', 'invited')",
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, joined_at)
+					 VALUES (%d, %d, 'member', 'invited', %s)",
 					$space_id,
-					$invited_user_id
+					$invited_user_id,
+					current_time( 'mysql', true )
 				)
 			);
 		}
@@ -507,10 +510,11 @@ class SpaceMemberService {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status)
-					 VALUES (%d, %d, 'member', 'banned')",
+					"INSERT IGNORE INTO {$wpdb->prefix}bn_space_members (space_id, user_id, role, status, joined_at)
+					 VALUES (%d, %d, 'member', 'banned', %s)",
 					$space_id,
-					$user_id
+					$user_id,
+					current_time( 'mysql', true )
 				)
 			);
 		}
