@@ -22421,18 +22421,6 @@
       },
       {
         "selector": "document",
-        "event": "input",
-        "file": "assets/js/connections/store.js",
-        "line": 63
-      },
-      {
-        "selector": "document",
-        "event": "DOMContentLoaded",
-        "file": "assets/js/connections/store.js",
-        "line": 69
-      },
-      {
-        "selector": "document",
         "event": "click",
         "file": "assets/js/feed/store.js",
         "line": 262

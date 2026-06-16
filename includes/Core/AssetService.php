@@ -314,7 +314,6 @@ class AssetService {
 			'bn-gamification',
 			'bn-moderation',
 			'bn-connections',
-			'bn-space-members',
 			'bn-header',
 			'bn-settings',
 		);
@@ -367,7 +366,6 @@ class AssetService {
 			'@buddynext/onboarding'         => 'onboarding/store',
 			'@buddynext/gamification'       => 'gamification/store',
 			'@buddynext/moderation'         => 'moderation/store',
-			'@buddynext/connections'        => 'connections/store',
 			'@buddynext/space-members'      => 'space-members/store',
 			'@buddynext/social-buttons'     => 'social/follow-store',
 		);
@@ -377,7 +375,6 @@ class AssetService {
 		// correct import-map entry and the browser fetches it as a module.
 		$shell_dialog_consumers = array(
 			'@buddynext/feed',
-			'@buddynext/connections',
 			'@buddynext/moderation',
 			'@buddynext/space-members',
 			'@buddynext/profile',
@@ -437,6 +434,12 @@ class AssetService {
 	public function enqueue( string $feature ): void {
 		$slug   = sanitize_key( $feature );
 		$handle = 'bn-' . $slug;
+		// Route assets are enqueued on template_redirect, before the styles are
+		// registered on wp_enqueue_scripts, so we must enqueue by handle
+		// unconditionally and let WordPress resolve it at print time. Features
+		// that ship only an Interactivity module and reuse another feature's
+		// stylesheet (e.g. space-members → bn-spaces) simply have no registered
+		// bn-<slug> handle, so this enqueue is a harmless no-op for them.
 		wp_enqueue_style( $handle );
 		wp_enqueue_script_module( '@buddynext/' . $slug );
 	}

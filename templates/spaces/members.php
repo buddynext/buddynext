@@ -353,6 +353,12 @@ $mem_privacy = array(
 						<div class="bn-space-members__card-joined"><?php echo esc_html( $joined_formatted ); ?></div>
 					<?php endif; ?>
 
+					<?php
+					// Can the viewer manage this member (set role / remove)? These
+					// secondary actions live behind the overflow kebab so the card
+					// shows at most two primary actions (View + Message).
+					$bn_can_manage = ( $current_user_id !== $member_id && 'owner' !== $member_role && ( $bn_can_remove || $bn_can_set_role ) );
+					?>
 					<div class="bn-space-members__card-actions">
 						<a
 							href="<?php echo esc_url( $member_url ); ?>"
@@ -374,15 +380,43 @@ $mem_privacy = array(
 								"
 							><?php buddynext_icon( 'message-circle' ); ?> <?php esc_html_e( 'Message', 'buddynext' ); ?></a>
 						<?php endif; ?>
-						<?php if ( $current_user_id !== $member_id && 'owner' !== $member_role && ( $bn_can_remove || $bn_can_set_role ) ) : ?>
-							<?php if ( $bn_can_set_role && 'moderator' === $member_role ) : ?>
-								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-role="member" data-wp-on--click="actions.changeRole"><?php esc_html_e( 'Make member', 'buddynext' ); ?></button>
-							<?php elseif ( $bn_can_set_role ) : ?>
-								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-role="moderator" data-wp-on--click="actions.changeRole"><?php esc_html_e( 'Make moderator', 'buddynext' ); ?></button>
-							<?php endif; ?>
-							<?php if ( $bn_can_remove ) : ?>
-								<button type="button" class="bn-btn" data-variant="ghost" data-size="sm" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-wp-on--click="actions.removeMember" aria-label="<?php /* translators: %s: member name */ printf( esc_attr__( 'Remove %s', 'buddynext' ), esc_attr( $member_name ) ); ?>"><?php buddynext_icon( 'user-minus' ); ?> <?php esc_html_e( 'Remove', 'buddynext' ); ?></button>
-							<?php endif; ?>
+
+						<?php if ( $bn_can_manage ) : ?>
+							<div
+								class="bn-space-members__menu-wrap"
+								data-wp-context='{"menuOpen":false}'
+								data-wp-on-document--click="actions.closeMenuOnOutside"
+							>
+								<button
+									type="button"
+									class="bn-space-members__menu"
+									aria-haspopup="true"
+									aria-expanded="false"
+									aria-label="
+									<?php
+										/* translators: %s: member name */
+										printf( esc_attr__( 'More actions for %s', 'buddynext' ), esc_attr( $member_name ) );
+									?>
+									"
+									data-wp-on--click="actions.toggleMenu"
+									data-wp-bind--aria-expanded="state.menuExpanded"
+								><?php buddynext_icon( 'more-horizontal' ); ?></button>
+								<div
+									class="bn-space-members__menu-pop"
+									role="menu"
+									data-wp-bind--hidden="!state.menuOpen"
+									hidden
+								>
+									<?php if ( $bn_can_set_role && 'moderator' === $member_role ) : ?>
+										<button type="button" class="bn-space-members__menu-item" role="menuitem" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-role="member" data-wp-on--click="actions.changeRole"><?php esc_html_e( 'Make member', 'buddynext' ); ?></button>
+									<?php elseif ( $bn_can_set_role ) : ?>
+										<button type="button" class="bn-space-members__menu-item" role="menuitem" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-role="moderator" data-wp-on--click="actions.changeRole"><?php esc_html_e( 'Make moderator', 'buddynext' ); ?></button>
+									<?php endif; ?>
+									<?php if ( $bn_can_remove ) : ?>
+										<button type="button" class="bn-space-members__menu-item bn-space-members__menu-item--danger" role="menuitem" data-user-id="<?php echo esc_attr( (string) $member_id ); ?>" data-wp-on--click="actions.removeMember"><?php esc_html_e( 'Remove from space', 'buddynext' ); ?></button>
+									<?php endif; ?>
+								</div>
+							</div>
 						<?php endif; ?>
 					</div>
 				</article>

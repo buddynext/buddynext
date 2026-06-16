@@ -82,9 +82,11 @@ $page_title = $is_own_profile
  */
 do_action( 'buddynext_profile_followers_before', (int) $user_id );
 ?>
-<div class="bn-connections bn-followers"
-	data-wp-interactive="buddynext/connections"
-	data-wp-context='{"userId":<?php echo absint( $user_id ); ?>,"restUrl":"<?php echo esc_js( rest_url( 'buddynext/v1' ) ); ?>","restNonce":"<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>"}'>
+<?php
+// Member cards are rendered by parts/member-grid.php (its own
+// `buddynext/members` island), so this page needs no interactive wrapper.
+?>
+<div class="bn-connections bn-followers">
 
 	<!-- Header -->
 	<div class="bn-connections-header">
@@ -120,22 +122,26 @@ do_action( 'buddynext_profile_followers_before', (int) $user_id );
 			</header>
 
 			<ul class="bn-follow-requests__list" role="list">
-				<?php foreach ( $pending_ids as $req_id ) :
+				<?php
+				foreach ( $pending_ids as $req_id ) :
 					$req_id   = (int) $req_id;
 					$req_user = get_userdata( $req_id );
-					if ( ! $req_user ) { continue; }
+					if ( ! $req_user ) {
+						continue; }
 					$req_name   = $req_user->display_name;
 					$req_handle = '@' . $req_user->user_nicename;
 					$req_avatar = get_avatar_url( $req_id, array( 'size' => 96 ) );
 					$req_url    = PageRouter::profile_url( $req_id );
-					$req_ctx    = wp_json_encode( array(
-						'followerId' => $req_id,
-						'targetName' => $req_user->user_nicename,
-						'hidden'     => false,
-						'busy'       => false,
-						'restUrl'    => rest_url( 'buddynext/v1' ),
-						'nonce'      => wp_create_nonce( 'wp_rest' ),
-					) );
+					$req_ctx    = wp_json_encode(
+						array(
+							'followerId' => $req_id,
+							'targetName' => $req_user->user_nicename,
+							'hidden'     => false,
+							'busy'       => false,
+							'restUrl'    => rest_url( 'buddynext/v1' ),
+							'nonce'      => wp_create_nonce( 'wp_rest' ),
+						)
+					);
 					?>
 					<li class="bn-follow-requests__row"
 						data-wp-interactive="buddynext/follow-requests"
@@ -165,19 +171,6 @@ do_action( 'buddynext_profile_followers_before', (int) $user_id );
 				<?php endforeach; ?>
 			</ul>
 		</section>
-	<?php endif; ?>
-
-	<?php if ( $total > 5 ) : ?>
-		<label class="bn-connections-search">
-			<span class="screen-reader-text"><?php esc_html_e( 'Filter followers', 'buddynext' ); ?></span>
-			<input
-				type="search"
-				class="bn-input bn-connections-search__input"
-				data-bn-filter-cards=".bn-follower-card"
-				placeholder="<?php esc_attr_e( 'Filter by name or handle…', 'buddynext' ); ?>"
-				aria-label="<?php esc_attr_e( 'Filter followers', 'buddynext' ); ?>"
-			>
-		</label>
 	<?php endif; ?>
 
 	<!-- Grid -->

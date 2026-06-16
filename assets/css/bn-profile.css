@@ -1057,18 +1057,6 @@
 	user-select: none;
 }
 
-/* Followers/Following filter input — appears above the card grid
-   when the list has > 5 entries (gated server-side). Plain search
-   styling matching the other .bn-input controls. */
-.bn-connections-search {
-	display: block;
-	margin: 0 0 16px;
-	max-width: 420px;
-}
-.bn-connections-search__input {
-	width: 100%;
-}
-
 /* Pending follow-request inbox — only the owner sees this. One row per
    requester, with Decline / Approve buttons that hide the row on success
    via the buddynext/follow-requests Interactivity store. */

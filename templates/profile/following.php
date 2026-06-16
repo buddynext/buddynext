@@ -76,9 +76,11 @@ $page_title = $is_own_profile
  */
 do_action( 'buddynext_profile_following_before', (int) $user_id );
 ?>
-<div class="bn-connections bn-following"
-	data-wp-interactive="buddynext/connections"
-	data-wp-context='{"userId":<?php echo absint( $user_id ); ?>,"restUrl":"<?php echo esc_js( rest_url( 'buddynext/v1' ) ); ?>","restNonce":"<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>"}'>
+<?php
+// Member cards are rendered by parts/member-grid.php (its own
+// `buddynext/members` island), so this page needs no interactive wrapper.
+?>
+<div class="bn-connections bn-following">
 
 	<div class="bn-connections-header">
 		<h1 class="bn-connections-title"><?php echo esc_html( $page_title ); ?></h1>
@@ -94,19 +96,6 @@ do_action( 'buddynext_profile_following_before', (int) $user_id );
 			<?php buddynext_icon( 'chevron-left' ); ?> <?php esc_html_e( 'Back to profile', 'buddynext' ); ?>
 		</a>
 	</div>
-
-	<?php if ( $total > 5 ) : ?>
-		<label class="bn-connections-search">
-			<span class="screen-reader-text"><?php esc_html_e( 'Filter following list', 'buddynext' ); ?></span>
-			<input
-				type="search"
-				class="bn-input bn-connections-search__input"
-				data-bn-filter-cards=".bn-md-card"
-				placeholder="<?php esc_attr_e( 'Filter by name or handle…', 'buddynext' ); ?>"
-				aria-label="<?php esc_attr_e( 'Filter following list', 'buddynext' ); ?>"
-			>
-		</label>
-	<?php endif; ?>
 
 	<?php if ( ! empty( $page_ids ) ) : ?>
 		<?php

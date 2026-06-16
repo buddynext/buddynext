@@ -115,11 +115,12 @@ if ( ! function_exists( 'bn_connections_initials' ) ) {
  */
 do_action( 'buddynext_profile_connections_before', isset( $user_id ) ? (int) $user_id : 0 );
 ?>
-<div
-	class="bn-connections"
-	data-wp-interactive="buddynext/connections"
-	data-wp-context='{"userId":<?php echo absint( $user_id ); ?>,"restUrl":"<?php echo esc_js( rest_url( 'buddynext/v1' ) ); ?>","restNonce":"<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>"}'
->
+<?php
+// The member cards below are rendered by parts/member-grid.php, which is its
+// own `buddynext/members` Interactivity island (Follow / Connect / Message /
+// kebab). This page therefore needs no interactive wrapper of its own.
+?>
+<div class="bn-connections">
 
 	<!-- Header -->
 	<div class="bn-connections-header">
