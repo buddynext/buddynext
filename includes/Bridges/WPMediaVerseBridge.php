@@ -414,8 +414,13 @@ class WPMediaVerseBridge {
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
-		// Increment comment count on the bn_posts row.
-		buddynext_service( 'post_service' )->increment_counter( $bn_post_id, 'comment_count' );
+		// Increment comment count on the bn_posts row. Guard the service lookup
+		// the same way the rest of this bridge does (e.g. the blocks check above):
+		// a null container/key must skip the counter, not fatal the sync.
+		$post_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'post_service' ) : null;
+		if ( $post_service ) {
+			$post_service->increment_counter( $bn_post_id, 'comment_count' );
+		}
 
 		// Fire BuddyNext hook so notifications/webhooks pick it up. Use the
 		// canonical 4-arg signature (comment_id, object_type, object_id, user_id)
