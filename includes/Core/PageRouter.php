@@ -218,6 +218,19 @@ class PageRouter {
 			exit;
 		}
 
+		// Hashtag guard: the hashtag feed (/activity/hashtag/{tag}/) belongs to
+		// the toggleable Hashtags feature (FeatureRegistry 'hashtags',
+		// default-on). When the owner turns it off, the per-tag feed must not
+		// render — send visitors to the activity hub.
+		if ( 'feed' === $hub
+			&& 'hashtag' === (string) get_query_var( 'bn_activity_action', '' )
+			&& function_exists( 'buddynext_service' )
+			&& ! buddynext_service( 'features' )->is_enabled( 'hashtags' )
+		) {
+			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
+			exit;
+		}
+
 		// Public-explore guard: the explore feed (/activity/explore/) is guest-
 		// readable by default. When the site owner turns "Public explore feed"
 		// off (buddynext_public_explore), explore becomes members-only — send
