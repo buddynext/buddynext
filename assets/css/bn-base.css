@@ -2156,6 +2156,35 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-tabs::-webkit-scrollbar { display: none; }
 .bn-tabs[data-density="compact"] { gap: 2px; }
 
+/* Overflow affordance: when the strip scrolls, fade ONLY the edge that has
+   hidden tabs beyond it, so it is discoverable there are more tabs (esp. on
+   mobile) without faded edges appearing when nothing is hidden. Scroll-driven,
+   no JS; progressive enhancement - browsers without scroll() timelines just
+   keep the plain hidden-scrollbar strip. */
+@supports (animation-timeline: scroll()) {
+	.bn-tabs {
+		animation: bn-tabs-edge-fade linear both;
+		animation-timeline: scroll(self inline);
+	}
+	@keyframes bn-tabs-edge-fade {
+		/* scroll start: nothing hidden left, tabs hidden right -> right fade only */
+		0% {
+			-webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - var(--bn-s8)), transparent 100%);
+			mask-image: linear-gradient(to right, #000 0, #000 calc(100% - var(--bn-s8)), transparent 100%);
+		}
+		/* mid scroll: tabs hidden on both sides -> both edges fade */
+		1%, 99% {
+			-webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--bn-s8), #000 calc(100% - var(--bn-s8)), transparent 100%);
+			mask-image: linear-gradient(to right, transparent 0, #000 var(--bn-s8), #000 calc(100% - var(--bn-s8)), transparent 100%);
+		}
+		/* scroll end: nothing hidden right, tabs hidden left -> left fade only */
+		100% {
+			-webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--bn-s8), #000 100%);
+			mask-image: linear-gradient(to right, transparent 0, #000 var(--bn-s8), #000 100%);
+		}
+	}
+}
+
 .bn-tab {
 	/* Inline padding gives the same-tone hover/active highlight room to read as
 	   a soft pill; the rounded TOP + flat bottom keeps the active underline. */
