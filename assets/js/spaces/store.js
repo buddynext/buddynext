@@ -2017,6 +2017,10 @@ async function executeSpacesFilter() {
 	if ( state.q ) { params.set( 'search', state.q ); }
 	if ( state.type ) { params.set( 'type', state.type ); }
 	if ( state.sort ) { params.set( 'orderby', state.sort ); }
+	// Preserve the "My Spaces" scope across reactive type/sort/search filtering
+	// so the chip composes with the others (read from the URL the chip set).
+	var bnScopeMine = 'mine' === ( new URLSearchParams( window.location.search ).get( 'bn_scope' ) || '' );
+	if ( bnScopeMine ) { params.set( 'mine', '1' ); }
 	params.set( 'per_page', '18' );
 
 	try {

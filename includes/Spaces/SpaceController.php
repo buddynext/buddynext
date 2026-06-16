@@ -444,6 +444,14 @@ class SpaceController extends BaseRestController {
 			$args['category_id'] = absint( $request->get_param( 'category_id' ) );
 		}
 
+		// "My Spaces" scope — restrict to spaces the viewer owns or actively
+		// belongs to. The service's `member` arg INNER JOINs active memberships
+		// (which include the owner row written at creation). Logged-in only.
+		$mine_param = $request->get_param( 'mine' );
+		if ( $viewer > 0 && null !== $mine_param && in_array( (string) $mine_param, array( '1', 'true', 'yes' ), true ) ) {
+			$args['member'] = $viewer;
+		}
+
 		$search_param = null !== $request->get_param( 'search' )
 			? sanitize_text_field( (string) $request->get_param( 'search' ) )
 			: ( null !== $request->get_param( 'q' )

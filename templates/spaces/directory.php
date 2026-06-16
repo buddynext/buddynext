@@ -130,6 +130,16 @@ if ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_valid( $bn_visibility )
 	}
 }
 
+// "My Spaces" scope — restrict the grid to spaces the viewer owns or actively
+// belongs to. Reuses the same owner/active-membership predicate as the secret
+// branch above; ignored for guests (no "mine" to scope to).
+$bn_scope = isset( $_GET['bn_scope'] ) ? sanitize_key( wp_unslash( $_GET['bn_scope'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+if ( 'mine' === $bn_scope && $current_user_id > 0 ) {
+	$where_parts[] = '( s.owner_id = %d OR s.id IN ( SELECT space_id FROM ' . $wpdb->prefix . "bn_space_members WHERE user_id = %d AND status = 'active' ) )";
+	$query_args[]  = $current_user_id;
+	$query_args[]  = $current_user_id;
+}
+
 $where_sql = implode( ' AND ', $where_parts );
 
 $join_sql = ! empty( $bn_cat_slug )
@@ -455,7 +465,25 @@ $bn_subtitle = sprintf(
 	?>
 
 	<div class="bn-sd-filter-row">
-		<nav class="bn-tabs bn-sd-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter by type', 'buddynext' ); ?>" data-bn-type-chips>
+		<nav class="bn-tabs bn-sd-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter spaces', 'buddynext' ); ?>" data-bn-type-chips>
+			<?php if ( $current_user_id > 0 ) : ?>
+				<?php
+				// "My Spaces" is a scope toggle (owned + joined), distinct from the
+				// type chips — a full-reload link that the server scopes; the
+				// reactive type/sort filtering preserves it (see store.js). No
+				// data-bn-type-chip attribute, so setType leaves it untouched.
+				$bn_scope_active = ( 'mine' === $bn_scope );
+				$bn_scope_href   = $bn_scope_active
+					? remove_query_arg( array( 'bn_scope', 'bn_page' ) )
+					: remove_query_arg( 'bn_page', add_query_arg( 'bn_scope', 'mine' ) );
+				?>
+				<a
+					class="bn-tab bn-sd-chip"
+					role="tab"
+					href="<?php echo esc_url( $bn_scope_href ); ?>"
+					aria-selected="<?php echo $bn_scope_active ? 'true' : 'false'; ?>"
+				><?php esc_html_e( 'My Spaces', 'buddynext' ); ?></a>
+			<?php endif; ?>
 			<?php foreach ( $bn_type_chips as $bn_type_val => $bn_type_label ) : ?>
 				<button
 					type="button"

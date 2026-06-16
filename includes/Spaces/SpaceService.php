@@ -586,8 +586,18 @@ class SpaceService {
 		$offset    = ( $page - 1 ) * $per_page;
 		$viewer_id = isset( $args['viewer'] ) ? absint( $args['viewer'] ) : 0;
 		$is_admin  = ! empty( $args['is_admin'] );
+		$member_id = isset( $args['member'] ) ? absint( $args['member'] ) : 0;
 
 		$params = array();
+
+		// "My Spaces" scope — restrict to spaces the searcher owns or actively
+		// belongs to (mirrors list_spaces()'s `member` arg) so search composes
+		// with the directory's My Spaces filter.
+		$mine_sql = '1=1';
+		if ( $member_id > 0 ) {
+			$mine_members = $wpdb->prefix . 'bn_space_members';
+			$mine_sql     = "( owner_id = %d OR id IN ( SELECT space_id FROM {$mine_members} WHERE user_id = %d AND status = 'active' ) )";
+		}
 
 		// Exclude unlisted (secret-equivalent) types from search. Slugs are
 		// sanitize_key()'d in the registry, so the IN list is safe to interpolate.
@@ -608,6 +618,12 @@ class SpaceService {
 			}
 		}
 
+		// Mine-scope placeholders follow the exclude-scope ones, before the LIKEs.
+		if ( $member_id > 0 ) {
+			$params[] = $member_id;
+			$params[] = $member_id;
+		}
+
 		$params[] = $like;
 		$params[] = $like;
 		$params[] = $per_page;
@@ -617,7 +633,7 @@ class SpaceService {
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT * FROM {$wpdb->prefix}bn_spaces
-				 WHERE {$exclude_sql} AND (name LIKE %s OR description LIKE %s)
+				 WHERE {$exclude_sql} AND {$mine_sql} AND (name LIKE %s OR description LIKE %s)
 				 ORDER BY member_count DESC
 				 LIMIT %d OFFSET %d",
 				...$params
