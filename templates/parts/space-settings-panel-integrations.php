@@ -80,7 +80,7 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 				<?php esc_html_e( 'Linked forum', 'buddynext' ); ?>
 			</div>
 			<div class="bn-toggle-row__desc"><?php esc_html_e( 'Link a Jetonomy forum to show a Forum tab in this space.', 'buddynext' ); ?></div>
-			<?php if ( class_exists( 'Jetonomy\\Core\\Plugin' ) ) : ?>
+			<?php if ( class_exists( 'Jetonomy\\Jetonomy' ) ) : ?>
 				<div class="bn-space-settings__inline-select">
 					<label class="bn-sr-only" for="bn_jetonomy_forum_id">
 						<?php esc_html_e( 'Linked Jetonomy forum', 'buddynext' ); ?>
@@ -115,11 +115,18 @@ do_action( 'buddynext_part_space_settings_panel_integrations_before', $args );
 				<?php esc_html_e( 'Media tab', 'buddynext' ); ?>
 			</div>
 			<div class="bn-toggle-row__desc"><?php esc_html_e( 'Show a Media tab for uploading and sharing files in this space.', 'buddynext' ); ?></div>
+			<?php if ( ! class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) : ?>
+				<p class="bn-space-settings__hint">
+					<?php esc_html_e( 'WPMediaVerse is not active on this site.', 'buddynext' ); ?>
+				</p>
+			<?php endif; ?>
 		</div>
-		<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Media tab', 'buddynext' ); ?>">
-			<input type="checkbox" class="bn-space-settings__toggle-input" name="mvs_media_tab" value="1" <?php checked( $bn_mvs_media_tab ); ?>>
-			<span class="bn-toggle" aria-hidden="true"></span>
-		</label>
+		<?php if ( class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) : ?>
+			<label class="bn-space-settings__toggle-shell" aria-label="<?php esc_attr_e( 'Enable Media tab', 'buddynext' ); ?>">
+				<input type="checkbox" class="bn-space-settings__toggle-input" name="mvs_media_tab" value="1" <?php checked( $bn_mvs_media_tab ); ?>>
+				<span class="bn-toggle" aria-hidden="true"></span>
+			</label>
+		<?php endif; ?>
 	</div>
 </div>
 <?php
