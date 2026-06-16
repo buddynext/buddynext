@@ -90,9 +90,32 @@ if ( $reaction_count > 0 && $bn_post_id > 0 ) {
 		);
 	}
 }
-$media_ids    = is_array( $bn_post['media_ids'] ?? null ) ? $bn_post['media_ids'] : array();
+/**
+ * Normalise a JSON-or-array column into an array.
+ *
+ * bn_posts stores media_ids and link_meta as JSON strings. Some callers decode
+ * them before rendering, the feed query does not — so accept either and decode
+ * a string here, otherwise a posted link preview rendered as an empty shell
+ * (title/description/thumbnail all missing).
+ *
+ * @param mixed $value Raw column value (JSON string or already-decoded array).
+ * @return array<mixed>
+ */
+if ( ! function_exists( 'bn_post_card_to_array' ) ) {
+	function bn_post_card_to_array( $value ): array {
+		if ( is_array( $value ) ) {
+			return $value;
+		}
+		if ( is_string( $value ) && '' !== $value ) {
+			$decoded = json_decode( $value, true );
+			return is_array( $decoded ) ? $decoded : array();
+		}
+		return array();
+	}
+}
+$media_ids    = bn_post_card_to_array( $bn_post['media_ids'] ?? null );
 $link_url     = $bn_post['link_url'] ?? '';
-$link_meta    = is_array( $bn_post['link_meta'] ?? null ) ? $bn_post['link_meta'] : array();
+$link_meta    = bn_post_card_to_array( $bn_post['link_meta'] ?? null );
 $poll_options = is_array( $bn_post['poll_options'] ?? null ) ? $bn_post['poll_options'] : array();
 
 // Content warning.
