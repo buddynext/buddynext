@@ -302,6 +302,42 @@ class EmailEditor {
 	}
 
 	/**
+	 * Whether the bn_email_templates table exists.
+	 *
+	 * Guards the save/reset/test handlers: if activation failed, the table was
+	 * dropped, or a DB restore was incomplete, the table can be missing — in
+	 * which case the write operations would silently fail with no admin feedback.
+	 *
+	 * @return bool
+	 */
+	private function table_exists(): bool {
+		global $wpdb;
+		$table = $wpdb->prefix . 'bn_email_templates';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+	}
+
+	/**
+	 * Bail with a clear admin message when the templates table is missing,
+	 * rather than letting a save/reset/test silently no-op.
+	 *
+	 * @return void
+	 */
+	private function ensure_table_or_die(): void {
+		if ( $this->table_exists() ) {
+			return;
+		}
+		wp_die(
+			esc_html__( 'The BuddyNext email templates table is missing. Please deactivate and reactivate BuddyNext to recreate it, then try again.', 'buddynext' ),
+			esc_html__( 'Database table missing', 'buddynext' ),
+			array(
+				'back_link' => true,
+				'response'  => 500,
+			)
+		);
+	}
+
+	/**
 	 * Save template fields to bn_email_templates (upsert).
 	 *
 	 * @param string $type         Template type identifier.
@@ -422,6 +458,8 @@ class EmailEditor {
 
 		check_admin_referer( self::NONCE_ACTION );
 
+		$this->ensure_table_or_die();
+
 		$slug         = $this->sanitize_template_type( sanitize_text_field( wp_unslash( $_POST['template_slug'] ?? '' ) ) );
 		$subject      = sanitize_text_field( wp_unslash( $_POST['subject'] ?? '' ) );
 		$preview_text = sanitize_text_field( wp_unslash( $_POST['preview_text'] ?? '' ) );
@@ -453,6 +491,8 @@ class EmailEditor {
 
 		check_admin_referer( self::NONCE_ACTION );
 
+		$this->ensure_table_or_die();
+
 		$slug = $this->sanitize_template_type( sanitize_text_field( wp_unslash( $_POST['template_slug'] ?? '' ) ) );
 		$sent = $this->send_test( $slug );
 
@@ -480,6 +520,8 @@ class EmailEditor {
 		}
 
 		check_admin_referer( self::NONCE_ACTION );
+
+		$this->ensure_table_or_die();
 
 		global $wpdb;
 		$slug  = $this->sanitize_template_type( sanitize_text_field( wp_unslash( $_POST['template_slug'] ?? '' ) ) );
