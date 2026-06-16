@@ -873,7 +873,24 @@ store( 'buddynext/profile', {
 				);
 				return;
 			}
-			window.prompt( 'Copy this URL:', url );
+			// Last-resort fallback (no Web Share, no async clipboard): copy via a
+			// temporary off-screen textarea + execCommand — never a native prompt().
+			try {
+				const ta = document.createElement( 'textarea' );
+				ta.value = url;
+				ta.setAttribute( 'readonly', '' );
+				ta.style.position = 'absolute';
+				ta.style.left     = '-9999px';
+				document.body.appendChild( ta );
+				ta.select();
+				const ok = document.execCommand( 'copy' );
+				document.body.removeChild( ta );
+				if ( toast ) {
+					toast( ok ? 'Profile link copied' : ( 'Copy this link: ' + url ), { tone: ok ? 'info' : 'danger' } );
+				}
+			} catch ( _e ) {
+				if ( toast ) { toast( 'Copy this link: ' + url, { tone: 'danger' } ); }
+			}
 		},
 
 		/* Mark form as dirty on any user input. */
