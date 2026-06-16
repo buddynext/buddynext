@@ -2645,6 +2645,7 @@ store( 'buddynext/feed', {
 	actions: {
 		setFilter( event ) {
 			if ( event && event.preventDefault ) { event.preventDefault(); }
+			const ctx    = getContext();
 			const target = event && event.target ? event.target.closest( '[data-filter]' ) : null;
 			const filter = target ? target.getAttribute( 'data-filter' ) : '';
 			if ( ! filter ) { return; }
@@ -2657,29 +2658,34 @@ store( 'buddynext/feed', {
 				return;
 			}
 
-			// "All" stays on explore with no facet narrowing.
-			if ( 'all' === filter ) {
-				const url = new URL( window.location.href );
-				url.searchParams.delete( 'type' );
-				url.searchParams.delete( 'q' );
-				url.searchParams.delete( 'cursor' );
-				window.location.href = url.toString();
+			// People and Spaces have fully-featured directories (search, sort,
+			// pagination). Send those chips there rather than routing to an empty
+			// search facet. The URLs are resolved server-side into the context so
+			// custom hub slugs are honoured.
+			if ( 'people' === filter || 'members' === filter ) {
+				if ( ctx && ctx.peopleUrl ) { window.location.href = ctx.peopleUrl; }
+				return;
+			}
+			if ( 'spaces' === filter ) {
+				if ( ctx && ctx.spacesUrl ) { window.location.href = ctx.spacesUrl; }
 				return;
 			}
 
-			// Route the rest (people/posts/spaces/media/members/hashtags) to
-			// the unified search results page with the chosen facet.
-			const typeAlias = {
-				people: 'members',
-				posts:  'posts',
-				spaces: 'spaces',
-				media:  'media',
-			};
-			const tab = typeAlias[ filter ] || filter;
-
-			const target_url = new URL( window.location.origin + BN_SEARCH_PATH );
-			target_url.searchParams.set( 'type', tab );
-			window.location.href = target_url.toString();
+			// Post-grid facets (all / posts / media) stay on the explore page and
+			// reload it with ?filter= so the server-rendered grid stays the single
+			// source of truth (see docs/specs/UI-CONTRACT.md). 'all' clears the
+			// facet. Legacy ?type=/?q= params are dropped so no stale search state
+			// leaks onto the explore URL.
+			const url = new URL( window.location.href );
+			url.searchParams.delete( 'cursor' );
+			url.searchParams.delete( 'type' );
+			url.searchParams.delete( 'q' );
+			if ( 'all' === filter ) {
+				url.searchParams.delete( 'filter' );
+			} else {
+				url.searchParams.set( 'filter', filter );
+			}
+			window.location.href = url.toString();
 		},
 
 		/**

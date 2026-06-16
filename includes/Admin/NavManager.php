@@ -1408,9 +1408,11 @@ class NavManager extends AdminPageBase {
 	/**
 	 * Return the built-in BuddyNext main navigation tabs.
 	 *
-	 * These match the five core rows shown in admin-nav-manager.html.
-	 * The 'explore' tab shares the activity page (uses #explore anchor);
-	 * it therefore has no PAGE_OPTIONS entry.
+	 * Explore is intentionally absent: it is reached as the Activity hub's
+	 * Home/Explore sub-tab (templates/feed/home.php), so a separate main-nav
+	 * row would be a duplicate entry to the same surface. A site that wants it
+	 * in the main nav can re-add it via the buddynext_nav_tabs filter. The
+	 * mobile bottom nav keeps its Explore tab (it has no sub-tab row).
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
@@ -1422,14 +1424,6 @@ class NavManager extends AdminPageBase {
 				'order'       => 10,
 				'icon'        => 'tab-feed',
 				'description' => __( 'Main community feed', 'buddynext' ),
-				'capability'  => 'read',
-			),
-			array(
-				'slug'        => 'explore',
-				'label'       => __( 'Explore', 'buddynext' ),
-				'order'       => 20,
-				'icon'        => 'tab-explore',
-				'description' => __( 'Discover public content', 'buddynext' ),
 				'capability'  => 'read',
 			),
 			array(

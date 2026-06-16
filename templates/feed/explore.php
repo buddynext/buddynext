@@ -63,6 +63,23 @@ if ( ! empty( $explore_excluded ) ) {
 	// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 }
 
+// Content-type facet for the post grid. The People and Spaces chips navigate to
+// the member/space directories (handled in the store), so only the post-grid
+// facets resolve here: 'media' = posts that carry attachments, 'posts' = posts
+// without, 'all' = everything. Unknown values fall back to 'all'. The fragments
+// below are static (no user input is interpolated — the validated key only
+// selects which constant clause to use).
+$explore_filter = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+if ( ! in_array( $explore_filter, array( 'all', 'posts', 'media' ), true ) ) {
+	$explore_filter = 'all';
+}
+$explore_filter_sql = '';
+if ( 'media' === $explore_filter ) {
+	$explore_filter_sql = " AND p.media_ids IS NOT NULL AND p.media_ids <> '' AND p.media_ids <> '[]'";
+} elseif ( 'posts' === $explore_filter ) {
+	$explore_filter_sql = " AND ( p.media_ids IS NULL OR p.media_ids = '' OR p.media_ids = '[]' )";
+}
+
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 $grid_posts = $wpdb->get_results(
 	$wpdb->prepare(
@@ -72,6 +89,7 @@ $grid_posts = $wpdb->get_results(
 		  WHERE p.status = 'published'
 		    AND p.privacy = 'public'
 		    {$explore_excl_sql}
+		    {$explore_filter_sql}
 		    {$explore_cursor_sql}
 		  ORDER BY (p.reaction_count + p.comment_count * 2 + p.share_count * 3) DESC, p.created_at DESC, p.id DESC
 		  LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -164,11 +182,26 @@ add_action(
  * @param int $current_user_id Current user ID.
  */
 do_action( 'buddynext_feed_explore_before', $current_user_id );
+
+// Interactivity context for the explore surface. The People/Spaces chips read
+// peopleUrl/spacesUrl (resolved here so custom hub slugs are honoured) instead
+// of hardcoding /members/ and /spaces/ in the store.
+$bn_explore_context = (string) wp_json_encode(
+	array(
+		'scope'                => 'explore',
+		'sort'                 => 'trending',
+		'filter'               => $explore_filter,
+		'page'                 => 1,
+		'guestBannerDismissed' => false,
+		'peopleUrl'            => \BuddyNext\Core\PageRouter::people_url(),
+		'spacesUrl'            => \BuddyNext\Core\PageRouter::spaces_url(),
+	)
+);
 ?>
 <div
 	class="bn-feed-stack bn-explore"
 	data-wp-interactive="buddynext/feed"
-	data-wp-context='{"scope":"explore","sort":"trending","filter":"all","page":1,"guestBannerDismissed":false}'
+	data-wp-context='<?php echo esc_attr( $bn_explore_context ); ?>'
 >
 	<div class="bn-explore-content">
 
@@ -253,7 +286,9 @@ do_action( 'buddynext_feed_explore_before', $current_user_id );
 				'media'  => __( 'Media', 'buddynext' ),
 			);
 			foreach ( $filters as $filter_key => $filter_label ) :
-				$is_active = ( 'all' === $filter_key );
+				// People/Spaces chips navigate to their directories, so only the
+				// in-page grid facets (all/posts/media) reflect an active state.
+				$is_active = ( $explore_filter === $filter_key );
 				?>
 				<button
 					class="bn-filter-chip<?php echo $is_active ? ' active' : ''; ?>"

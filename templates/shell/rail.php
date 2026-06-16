@@ -81,13 +81,10 @@ $bn_rail_items = array(
 		'icon'  => 'home',
 		'show'  => true,
 	),
-	array(
-		'key'   => 'explore',
-		'label' => __( 'Explore', 'buddynext' ),
-		'url'   => PageRouter::explore_url(),
-		'icon'  => 'globe',
-		'show'  => true,
-	),
+	// Explore is intentionally omitted from the rail: it is the Activity hub's
+	// Home/Explore sub-tab (templates/feed/home.php), so a rail row would point
+	// at the same surface. A site can re-add it via the buddynext_rail_items
+	// filter below.
 	array(
 		'key'   => 'people',
 		'label' => __( 'Members', 'buddynext' ),
