@@ -287,7 +287,7 @@ class SetupWizard {
 				break;
 
 			case 6:
-				$page_keys  = array( 'feed', 'members', 'profile', 'spaces' );
+				$page_keys  = array( 'feed', 'members', 'spaces' );
 				$page_slugs = array();
 				foreach ( $page_keys as $pk ) {
 					if ( isset( $_POST[ 'page_create_' . $pk ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified above
@@ -911,34 +911,38 @@ class SetupWizard {
 	/**
 	 * Step 5: Create community pages.
 	 *
-	 * Shows 4 core pages (Feed, Members, Profile, Spaces) with editable slugs.
+	 * Shows the core hub pages (Feed, Members, Spaces) with editable slugs.
 	 * Pages that already exist are shown with a "Created" badge and are skipped
 	 * on form submission.
 	 *
 	 * @return void
 	 */
 	private function render_step_pages(): void {
+		// Canonical hub definitions — the option key, slug, and shortcode MUST
+		// match Installer::create_hub_pages() so the wizard detects pages the
+		// installer already created and never produces a duplicate (e.g. a
+		// second "Members" page slugged members-2). Profile is intentionally
+		// absent: profiles render at the pretty /members/{slug}/ route, not a
+		// standalone page (there is no buddynext_page_profile reader or
+		// [buddynext_profile] shortcode).
 		$page_defs = array(
 			'feed'    => array(
 				'title'        => __( 'Community Feed', 'buddynext' ),
-				'default_slug' => 'community-feed',
-				'shortcode'    => '[buddynext_feed]',
+				'option'       => 'buddynext_page_activity',
+				'default_slug' => 'activity',
+				'shortcode'    => '[buddynext_activity]',
 				'desc'         => __( 'Main activity stream for your community.', 'buddynext' ),
 			),
 			'members' => array(
 				'title'        => __( 'Members', 'buddynext' ),
+				'option'       => 'buddynext_page_people',
 				'default_slug' => 'members',
-				'shortcode'    => '[buddynext_members]',
+				'shortcode'    => '[buddynext_people]',
 				'desc'         => __( 'Browse and search community members.', 'buddynext' ),
-			),
-			'profile' => array(
-				'title'        => __( 'Member Profile', 'buddynext' ),
-				'default_slug' => 'profile',
-				'shortcode'    => '[buddynext_profile]',
-				'desc'         => __( 'Individual member profile page. Append ?user_id=X to view any member.', 'buddynext' ),
 			),
 			'spaces'  => array(
 				'title'        => __( 'Spaces', 'buddynext' ),
+				'option'       => 'buddynext_page_spaces',
 				'default_slug' => 'spaces',
 				'shortcode'    => '[buddynext_spaces]',
 				'desc'         => __( 'Browse and join community spaces.', 'buddynext' ),
@@ -955,7 +959,7 @@ class SetupWizard {
 		<ul class="bn-wizard__pages" role="list">
 			<?php
 			foreach ( $page_defs as $key => $def ) :
-				$option_key  = 'buddynext_page_' . $key;
+				$option_key  = (string) $def['option'];
 				$existing_id = (int) get_option( $option_key, 0 );
 				$exists      = $existing_id > 0 && 'publish' === get_post_status( $existing_id );
 				$slug_value  = $exists ? (string) get_post_field( 'post_name', $existing_id ) : $def['default_slug'];
@@ -1173,28 +1177,40 @@ class SetupWizard {
 	 *
 	 * For each key in $pages, inserts a published WP page with the corresponding
 	 * BuddyNext shortcode. Skips pages that already exist (option set + published).
-	 * Stores the new page ID in wp_options as buddynext_page_{key}.
+	 * Page ID + slug are stored under the canonical option keys shared with
+	 * Installer::create_hub_pages() (buddynext_page_activity / _people / _spaces),
+	 * so a page the installer already created is reused rather than duplicated.
 	 *
 	 * @param array<string, string> $pages Map of page key → desired slug.
 	 * @return void
 	 */
 	private function create_community_pages( array $pages ): void {
+		// Canonical hub definitions — option key, slug option, shortcode, and
+		// default slug MUST match Installer::create_hub_pages(). The shortcodes
+		// are the ones ShortcodeService actually registers ([buddynext_activity]
+		// /_people/_spaces); the legacy [buddynext_feed]/[buddynext_members]
+		// were never registered and rendered as literal text.
 		$definitions = array(
 			'feed'    => array(
-				'title'     => __( 'Community Feed', 'buddynext' ),
-				'shortcode' => '[buddynext_feed]',
+				'title'        => __( 'Community Feed', 'buddynext' ),
+				'option'       => 'buddynext_page_activity',
+				'slug_option'  => 'buddynext_slug_activity',
+				'shortcode'    => '[buddynext_activity]',
+				'default_slug' => 'activity',
 			),
 			'members' => array(
-				'title'     => __( 'Members', 'buddynext' ),
-				'shortcode' => '[buddynext_members]',
-			),
-			'profile' => array(
-				'title'     => __( 'Member Profile', 'buddynext' ),
-				'shortcode' => '[buddynext_profile]',
+				'title'        => __( 'Members', 'buddynext' ),
+				'option'       => 'buddynext_page_people',
+				'slug_option'  => 'buddynext_slug_people',
+				'shortcode'    => '[buddynext_people]',
+				'default_slug' => 'members',
 			),
 			'spaces'  => array(
-				'title'     => __( 'Spaces', 'buddynext' ),
-				'shortcode' => '[buddynext_spaces]',
+				'title'        => __( 'Spaces', 'buddynext' ),
+				'option'       => 'buddynext_page_spaces',
+				'slug_option'  => 'buddynext_slug_spaces',
+				'shortcode'    => '[buddynext_spaces]',
+				'default_slug' => 'spaces',
 			),
 		);
 
@@ -1203,16 +1219,18 @@ class SetupWizard {
 				continue;
 			}
 
-			$option_key  = 'buddynext_page_' . $key;
+			$def         = $definitions[ $key ];
+			$option_key  = (string) $def['option'];
 			$existing_id = (int) get_option( $option_key, 0 );
 
-			// Skip if the page already exists and is published.
+			// Skip if the page already exists and is published — whether the
+			// installer or a previous wizard run created it (both store the
+			// same canonical option key).
 			if ( $existing_id > 0 && 'publish' === get_post_status( $existing_id ) ) {
 				continue;
 			}
 
-			$def     = $definitions[ $key ];
-			$slug    = '' !== $slug ? sanitize_title( $slug ) : $key;
+			$slug    = '' !== $slug ? sanitize_title( $slug ) : (string) $def['default_slug'];
 			$post_id = wp_insert_post(
 				array(
 					'post_title'   => $def['title'],
@@ -1227,10 +1245,11 @@ class SetupWizard {
 
 			if ( ! is_wp_error( $post_id ) ) {
 				update_option( $option_key, $post_id );
+				update_option( (string) $def['slug_option'], $slug );
 			}
 		}
 
-		// Flush rewrite rules so pretty profile URLs work immediately.
+		// Flush rewrite rules so pretty hub URLs work immediately.
 		flush_rewrite_rules( false );
 	}
 }
