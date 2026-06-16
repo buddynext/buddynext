@@ -163,6 +163,14 @@ $recent_posts = $wpdb->get_results( $wpdb->prepare( "SELECT id, type, user_id, c
 $user_replies = $wpdb->get_results( $wpdb->prepare( "SELECT c.id, c.content, c.created_at, c.object_id, p.content AS post_content, p.type AS post_type, u.display_name AS post_author_name FROM {$wpdb->prefix}bn_comments c INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post' INNER JOIN {$wpdb->users} u ON u.ID = p.user_id WHERE c.user_id = %d ORDER BY c.created_at DESC LIMIT 20", $user_id ) );
 $user_likes   = $wpdb->get_results( $wpdb->prepare( "SELECT p.id, p.type, p.user_id, p.content, p.privacy, p.media_ids, p.reaction_count, p.comment_count, p.share_count, p.is_pinned, p.is_announcement, p.content_warning, p.content_warning_type, p.shared_post_id, p.link_meta, p.created_at FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post' WHERE r.user_id = %d AND p.status = 'published' ORDER BY r.created_at DESC LIMIT 20", $user_id ), ARRAY_A );
 
+// Scheduled posts are private to the author, so the tab + its data are owner-only.
+$scheduled_posts = array();
+$scheduled_count = 0;
+if ( $is_own_profile ) {
+	$scheduled_posts = $wpdb->get_results( $wpdb->prepare( "SELECT id, type, user_id, content, privacy, media_ids, reaction_count, comment_count, share_count, is_pinned, is_announcement, content_warning, content_warning_type, shared_post_id, link_meta, scheduled_at, created_at FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'scheduled' ORDER BY scheduled_at ASC LIMIT 20", $user_id ), ARRAY_A );
+	$scheduled_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'scheduled'", $user_id ) );
+}
+
 // True totals for the tab-bar count chips (limited result sets above only
 // surface the most-recent N rows for rendering — we want the full counts
 // for the badges so the UI matches what a deep-scroll would reveal).
@@ -336,6 +344,21 @@ $bn_pf_tabs       = array(
 		'count' => $bn_tab_count_for( $connection_count ),
 	),
 );
+// Owner-only Scheduled tab, placed right after Posts for prominence.
+if ( $is_own_profile ) {
+	array_splice(
+		$bn_pf_tabs,
+		1,
+		0,
+		array(
+			array(
+				'slug'  => 'scheduled',
+				'label' => __( 'Scheduled', 'buddynext' ),
+				'count' => $bn_tab_count_for( $scheduled_count ),
+			),
+		)
+	);
+}
 if ( $has_jt_tab ) {
 	// Count chip mirrors every other tab (show when > 0). The Discussions panel
 	// renders the same fetched set (capped at 20), so the badge matches its body.
@@ -568,6 +591,7 @@ $bn_pf_ctx = array(
 			'is_owner'             => (bool) $is_own_profile,
 			'display_name'         => (string) $display_name,
 			'recent_posts'         => is_array( $recent_posts ) ? $recent_posts : array(),
+			'scheduled_posts'      => is_array( $scheduled_posts ) ? $scheduled_posts : array(),
 			'user_replies'         => is_array( $user_replies ) ? $user_replies : array(),
 			'user_media'           => is_array( $user_media ) ? $user_media : array(),
 			'user_likes'           => is_array( $user_likes ) ? $user_likes : array(),

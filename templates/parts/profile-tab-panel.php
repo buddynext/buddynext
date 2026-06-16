@@ -45,6 +45,7 @@ $args = array(
 	'is_owner'             => isset( $is_owner ) ? (bool) $is_owner : false,
 	'display_name'         => isset( $display_name ) ? (string) $display_name : '',
 	'recent_posts'         => isset( $recent_posts ) && is_array( $recent_posts ) ? $recent_posts : array(),
+	'scheduled_posts'      => isset( $scheduled_posts ) && is_array( $scheduled_posts ) ? $scheduled_posts : array(),
 	'user_replies'         => isset( $user_replies ) && is_array( $user_replies ) ? $user_replies : array(),
 	'user_media'           => isset( $user_media ) && is_array( $user_media ) ? $user_media : array(),
 	'user_likes'           => isset( $user_likes ) && is_array( $user_likes ) ? $user_likes : array(),
@@ -84,6 +85,7 @@ $bn_pf_is_owner     = (bool) $args['is_owner'];
 $bn_pf_name         = (string) $args['display_name'];
 $bn_pf_about_html   = (string) $args['about_html'];
 $bn_recent_posts    = (array) $args['recent_posts'];
+$bn_scheduled_posts = (array) $args['scheduled_posts'];
 $bn_user_replies    = (array) $args['user_replies'];
 $bn_user_media      = (array) $args['user_media'];
 $bn_user_likes      = (array) $args['user_likes'];
@@ -147,6 +149,33 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 				</div>
 			<?php endif; ?>
 			</div><!-- /.bn-profile-posts-panel -->
+
+			<!-- Scheduled tab content — owner-only; the member's queued future posts. -->
+			<?php if ( $bn_pf_is_owner ) : ?>
+			<div class="bn-profile-tab-panel bn-profile-scheduled-panel" data-tab-panel="scheduled" hidden>
+				<?php if ( $bn_scheduled_posts ) : ?>
+					<?php
+					foreach ( $bn_scheduled_posts as $bn_sched_post ) {
+						if ( isset( $bn_sched_post['media_ids'] ) && is_string( $bn_sched_post['media_ids'] ) ) {
+							$bn_sched_post['media_ids'] = json_decode( $bn_sched_post['media_ids'], true );
+						}
+						buddynext_get_template(
+							'partials/post-card.php',
+							array(
+								'post'            => $bn_sched_post,
+								'current_user_id' => $bn_pf_viewer,
+								'context'         => 'profile',
+							)
+						);
+					}
+					?>
+				<?php else : ?>
+					<div class="bn-empty-state">
+						<?php esc_html_e( 'You have no scheduled posts.', 'buddynext' ); ?>
+					</div>
+				<?php endif; ?>
+			</div><!-- /.bn-profile-scheduled-panel -->
+			<?php endif; ?>
 
 			<!-- About tab content — profile details, moved out of the always-on column. -->
 			<?php if ( '' !== $bn_pf_about_html ) : ?>
