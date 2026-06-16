@@ -84,7 +84,7 @@ do_action( 'buddynext_profile_followers_before', (int) $user_id );
 ?>
 <div class="bn-connections bn-followers"
 	data-wp-interactive="buddynext/connections"
-	data-wp-context='{"userId":<?php echo absint( $user_id ); ?>,"restUrl":"<?php echo esc_js( rest_url( 'buddynext/v1' ) ); ?>","nonce":"<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>"}'>
+	data-wp-context='{"userId":<?php echo absint( $user_id ); ?>,"restUrl":"<?php echo esc_js( rest_url( 'buddynext/v1' ) ); ?>","restNonce":"<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>"}'>
 
 	<!-- Header -->
 	<div class="bn-connections-header">

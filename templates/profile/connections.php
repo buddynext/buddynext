@@ -118,7 +118,7 @@ do_action( 'buddynext_profile_connections_before', isset( $user_id ) ? (int) $us
 <div
 	class="bn-connections"
 	data-wp-interactive="buddynext/connections"
-	data-wp-context='{"userId":<?php echo absint( $user_id ); ?>,"restUrl":"<?php echo esc_js( rest_url( 'buddynext/v1' ) ); ?>","nonce":"<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>"}'
+	data-wp-context='{"userId":<?php echo absint( $user_id ); ?>,"restUrl":"<?php echo esc_js( rest_url( 'buddynext/v1' ) ); ?>","restNonce":"<?php echo esc_js( wp_create_nonce( 'wp_rest' ) ); ?>"}'
 >
 
 	<!-- Header -->
