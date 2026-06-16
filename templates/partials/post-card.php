@@ -211,7 +211,21 @@ if (
 	$byline_show_follow = ! $GLOBALS['bn_byline_follow_memo'][ $bn_follow_key ];
 }
 $is_admin     = ( $current_user_id > 0 && user_can( $current_user_id, 'manage_options' ) );
-$can_edit     = $is_own_post || $is_admin;
+
+// The Edit affordance must respect the same window the REST update path enforces
+// (PostService::update): a non-admin author may only edit within
+// buddynext_post_edit_window minutes of posting. Hiding the menu item once the
+// window closes keeps the UI honest instead of showing Edit and failing with a
+// 403 on click. 0 = unlimited; admins are exempt (mirrors the server check).
+$within_edit_window = true;
+if ( ! $is_admin ) {
+	$edit_window = (int) get_option( 'buddynext_post_edit_window', 60 );
+	if ( $edit_window > 0 && '' !== (string) $created_at ) {
+		$created_ts         = (int) strtotime( (string) $created_at . ' UTC' );
+		$within_edit_window = $created_ts > 0 && ( time() - $created_ts ) <= $edit_window * MINUTE_IN_SECONDS;
+	}
+}
+$can_edit     = ( $is_own_post && $within_edit_window ) || $is_admin;
 $can_delete   = $is_own_post || $is_admin;
 $can_pin      = $is_own_post || $is_admin;
 $can_report   = ( $current_user_id > 0 && ! $is_own_post );
