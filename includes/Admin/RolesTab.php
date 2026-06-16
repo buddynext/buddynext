@@ -47,13 +47,15 @@ class RolesTab {
 			'buddynext-feed/pin-post'        => 'Pin posts',
 			'buddynext-feed/delete-any-post' => "Delete anyone's post",
 		),
+		// 'buddynext-spaces/manage-settings' and '…/delete' are intentionally
+		// omitted: they are inherently owner-scoped (SpaceService::update()/
+		// delete() gate on the space owner_id and never consult the role map),
+		// so exposing them here produced dead toggles that saved but did nothing.
 		'Spaces' => array(
-			'buddynext-spaces/create'          => 'Create spaces',
-			'buddynext-spaces/join'            => 'Join spaces',
-			'buddynext-spaces/post'            => 'Post in spaces',
-			'buddynext-spaces/moderate'        => 'Moderate spaces',
-			'buddynext-spaces/manage-settings' => 'Manage space settings',
-			'buddynext-spaces/delete'          => 'Delete spaces',
+			'buddynext-spaces/create'   => 'Create spaces',
+			'buddynext-spaces/join'     => 'Join spaces',
+			'buddynext-spaces/post'     => 'Post in spaces',
+			'buddynext-spaces/moderate' => 'Moderate spaces',
 		),
 		'Connections' => array(
 			'buddynext-connections/follow'  => 'Follow members',
