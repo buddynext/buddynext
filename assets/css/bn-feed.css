@@ -2911,15 +2911,16 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 .bn-filter-chip.active { background: var(--brand); border-color: var(--brand); color: var( --bn-accent-fg, #fff ); }
 .bn-filter-chip:hover:not(.active) { border-color: var(--brand); color: var(--brand); }
 
-/* Explore feed = a vertical LIST, not a masonry grid. CSS multi-column
-   (column-width) re-flows every card across columns whenever a child changes
-   height at runtime — so expanding a post's comment thread reshuffled and
-   misaligned the whole grid. A single-column flex stack (matching .bn-feed-list)
-   lets each card grow its comments freely with no re-flow. */
+/* Explore = the v2 masonry-style discovery grid: CSS Grid, auto-fill columns +
+   align-items:start so cards keep their natural height and top-align. (The
+   earlier vertical-list workaround was a reaction to CSS *multi-column* reflow
+   on comment-expand — but CSS Grid keeps each card in its own cell and never
+   reshuffles columns when one grows, so the grid stays stable.) */
 .bn-explore-grid {
-	display: flex;
-	flex-direction: column;
-	gap: 14px;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: var(--bn-s4);
+	align-items: start;
 }
 .bn-explore-grid > .bn-post-card {
 	width: 100%;
