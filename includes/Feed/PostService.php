@@ -908,14 +908,22 @@ class PostService {
 
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Clear is_announcement so the post stops rendering the announcement
+		// banner/End button on its post card (post-card.php gates only on
+		// is_announcement). site_pin_expires_at is also stamped so any expiry-
+		// based reads settle immediately; the feed-prepend queries already honour
+		// both. The post itself stays in the feed as a normal post.
 		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_posts',
-			array( 'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ) ),
+			array(
+				'is_announcement'     => 0,
+				'site_pin_expires_at' => gmdate( 'Y-m-d H:i:s' ),
+			),
 			array(
 				'id'              => $post_id,
 				'is_announcement' => 1,
 			),
-			array( '%s' ),
+			array( '%d', '%s' ),
 			array( '%d', '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

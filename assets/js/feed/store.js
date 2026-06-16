@@ -1304,12 +1304,21 @@ store( 'buddynext/post-card', {
 		* endAnnouncement() {
 			const ctx = getContext();
 			try {
-				yield fetch( ctx.restUrl + '/feed/announcements/' + ctx.postId + '/end', {
+				const res = yield fetch( ctx.restUrl + '/feed/announcements/' + ctx.postId + '/end', {
 					method:  'POST',
 					headers: { 'X-WP-Nonce': ctx.dismissNonce },
 				} );
-			} catch ( _e ) {}
-			document.querySelector( '.bn-post-card--announcement' )?.remove();
+				// Only drop the banner once the server confirms the end —
+				// removing it on a 403/404/500 gave a false sense of success.
+				if ( res.ok ) {
+					document.querySelector( '.bn-post-card--announcement' )?.remove();
+					bnToast( 'Announcement ended', { tone: 'success' } );
+				} else {
+					bnToast( 'Could not end the announcement. Try again.', { tone: 'danger' } );
+				}
+			} catch ( _e ) {
+				bnToast( 'Could not end the announcement. Try again.', { tone: 'danger' } );
+			}
 		},
 	},
 } );
