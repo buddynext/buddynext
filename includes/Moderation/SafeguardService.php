@@ -3,10 +3,12 @@
  * Content safeguard service.
  *
  * Enforces automated content rules before a post is saved:
- *   1. Banned word filter    — newline-separated list in option bn_banned_words.
- *   2. Blocked domain filter — newline-separated list in option bn_blocked_domains.
- *   3. Post rate limit       — max posts per minute per user via DB count.
- *   4. New-member gate       — holds posts for review until user reaches threshold.
+ *   1. Blocked IP filter     — admin IP blocklist in option buddynext_blocked_ips.
+ *   2. Banned word filter    — newline-separated list in option bn_banned_words.
+ *   3. Blocked domain filter — newline-separated list in option bn_blocked_domains.
+ *   4. Post rate limit       — max posts per minute per user via DB count.
+ *   5. Duplicate content     — holds repeated identical posts within a window.
+ *   6. New-member gate       — holds posts for review until user reaches threshold.
  *
  * All thresholds are stored as WordPress options so admins can change them
  * without a code deploy.
@@ -38,6 +40,12 @@ class SafeguardService {
 	 * @return true|WP_Error True when all checks pass; WP_Error on first failure.
 	 */
 	public function check( int $user_id, string $content, string $url = '' ): true|WP_Error {
+		// Cheapest, hardest stop first: a blocklisted IP never reaches content checks.
+		$ip = $this->check_blocked_ip();
+		if ( is_wp_error( $ip ) ) {
+			return $ip;
+		}
+
 		$banned = $this->check_banned_words( $content );
 		if ( is_wp_error( $banned ) ) {
 			return $banned;
@@ -51,6 +59,11 @@ class SafeguardService {
 		$rate = $this->check_rate_limit( $user_id );
 		if ( is_wp_error( $rate ) ) {
 			return $rate;
+		}
+
+		$dupe = $this->check_duplicate_content( $user_id, $content );
+		if ( is_wp_error( $dupe ) ) {
+			return $dupe;
 		}
 
 		$gate = $this->check_new_member_gate( $user_id );
@@ -221,6 +234,128 @@ class SafeguardService {
 			return new WP_Error(
 				'pending_review',
 				__( 'Your post has been submitted for review.', 'buddynext' ),
+				array( 'status' => 202 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Resolve the requester's client IP, validated.
+	 *
+	 * Reads REMOTE_ADDR by default. Sites behind a proxy/CDN can map the real
+	 * client address (e.g. from X-Forwarded-For) via the `buddynext_client_ip`
+	 * filter. Returns '' when no valid IP can be resolved so callers fail open.
+	 *
+	 * @return string A valid IPv4/IPv6 address, or '' when none.
+	 */
+	public static function client_ip(): string {
+		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
+
+		/**
+		 * Filter the resolved client IP.
+		 *
+		 * Proxy/CDN deployments can substitute the forwarded client address here.
+		 *
+		 * @since 1.0.0
+		 *
+		 * @param string $ip Raw REMOTE_ADDR (sanitised).
+		 */
+		$ip = (string) apply_filters( 'buddynext_client_ip', $ip );
+
+		return false !== filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+	}
+
+	/**
+	 * Whether an IP is on the admin blocklist (option buddynext_blocked_ips).
+	 *
+	 * The option is a newline/comma-separated list of exact IP addresses,
+	 * matching the existing banned-words / blocked-domains safeguard pattern.
+	 * Exposed publicly so comment creation can reuse the same gate without
+	 * running the full post-content check chain. The parsed list is cached for
+	 * the request.
+	 *
+	 * @param string $ip Client IP (already validated; '' is never blocked).
+	 * @return bool
+	 */
+	public function ip_is_blocked( string $ip ): bool {
+		if ( '' === $ip ) {
+			return false;
+		}
+
+		static $list = null;
+		if ( null === $list ) {
+			$raw   = (string) get_option( 'buddynext_blocked_ips', '' );
+			$parts = preg_split( '/[\r\n,]+/', $raw );
+			$list  = array_values( array_filter( array_map( 'trim', is_array( $parts ) ? $parts : array() ) ) );
+		}
+
+		if ( empty( $list ) ) {
+			return false;
+		}
+
+		return in_array( $ip, $list, true );
+	}
+
+	/**
+	 * Block the request when the client IP is on the admin blocklist.
+	 *
+	 * @return true|WP_Error
+	 */
+	private function check_blocked_ip(): true|WP_Error {
+		if ( $this->ip_is_blocked( self::client_ip() ) ) {
+			return new WP_Error(
+				'blocked_ip',
+				__( 'Posting from your network is not allowed.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Hold a post for review when it duplicates a recent post by the same user.
+	 *
+	 * Reads option buddynext_duplicate_post_window (minutes, default 0 = off).
+	 * When the user has already posted identical content within the window, a
+	 * non-fatal pending_review error is returned so the caller saves the post as
+	 * pending (auto-flag) rather than discarding it. Scoped by user_id (indexed)
+	 * and a short time window, so the compared row set is tiny.
+	 *
+	 * @param int    $user_id Author user ID.
+	 * @param string $content Post content to inspect.
+	 * @return true|WP_Error
+	 */
+	private function check_duplicate_content( int $user_id, string $content ): true|WP_Error {
+		$window  = (int) get_option( 'buddynext_duplicate_post_window', 0 );
+		$trimmed = trim( $content );
+
+		if ( $window <= 0 || '' === $trimmed ) {
+			return true;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+				 WHERE user_id = %d
+				   AND content = %s
+				   AND created_at >= DATE_SUB( NOW(), INTERVAL %d MINUTE )",
+				$user_id,
+				$trimmed,
+				$window
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( $count > 0 ) {
+			return new WP_Error(
+				'pending_review',
+				__( 'This looks like a duplicate of a recent post and has been submitted for review.', 'buddynext' ),
 				array( 'status' => 202 )
 			);
 		}

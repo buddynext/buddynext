@@ -26128,6 +26128,11 @@
       "file": "includes/Moderation/SafeguardService.php:75"
     },
     {
+      "hook": "buddynext_client_ip",
+      "type": "filter",
+      "file": "includes/Moderation/SafeguardService.php:265"
+    },
+    {
       "hook": "buddynext_user_links",
       "type": "filter",
       "file": "includes/Nav/UserLinks.php:173"

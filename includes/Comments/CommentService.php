@@ -15,6 +15,7 @@ namespace BuddyNext\Comments;
 
 use WP_Error;
 use BuddyNext\Moderation\ModerationService;
+use BuddyNext\Moderation\SafeguardService;
 
 /**
  * Handles comment CRUD and listing.
@@ -59,6 +60,15 @@ class CommentService {
 			return new WP_Error(
 				'forbidden',
 				__( 'Your account is suspended and cannot post comments.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		// Block-listed IPs cannot comment (same admin blocklist that gates posting).
+		if ( buddynext_service( 'safeguard' )->ip_is_blocked( SafeguardService::client_ip() ) ) {
+			return new WP_Error(
+				'blocked_ip',
+				__( 'Commenting from your network is not allowed.', 'buddynext' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -140,7 +150,7 @@ class CommentService {
 					continue;
 				}
 				$bn_notified[ $bn_username ] = true;
-				$bn_mentioned = get_user_by( 'login', $bn_username );
+				$bn_mentioned                = get_user_by( 'login', $bn_username );
 				if ( $bn_mentioned instanceof \WP_User && $bn_mentioned->ID !== $user_id ) {
 					/** This action is documented in includes/Feed/PostService.php */
 					do_action( 'buddynext_user_mentioned', $bn_mentioned->ID, $user_id, $object_id );
@@ -462,9 +472,12 @@ class CommentService {
 		$is_admin = $viewer_id > 0 && user_can( $viewer_id, 'manage_options' );
 
 		$should_hide = static function ( int $author_id ) use ( $restricted_ids, $viewer_id, $is_owner, $is_admin ): bool {
-			if ( empty( $restricted_ids ) ) { return false; }
-			if ( $author_id === $viewer_id ) { return false; }     // never hide a comment from its own author
-			if ( $is_owner || $is_admin )    { return false; }     // owner + admins moderate
+			if ( empty( $restricted_ids ) ) {
+				return false; }
+			if ( $author_id === $viewer_id ) {
+				return false; }     // never hide a comment from its own author
+			if ( $is_owner || $is_admin ) {
+				return false; }     // owner + admins moderate
 			return in_array( $author_id, $restricted_ids, true );
 		};
 
@@ -507,7 +520,8 @@ class CommentService {
 		// at any nesting depth either.
 		$children_by_parent = array();
 		foreach ( $descendants as $row ) {
-			if ( $should_hide( (int) $row['user_id'] ) ) { continue; }
+			if ( $should_hide( (int) $row['user_id'] ) ) {
+				continue; }
 			$children_by_parent[ (int) $row['parent_id'] ][] = $this->hydrate( $row );
 		}
 

@@ -75,9 +75,11 @@ class Settings extends AdminPageBase {
 		'buddynext_mod_queue_alert_threshold'  => array( 'integer', 'absint' ),
 		'buddynext_banned_words'               => array( 'string', 'sanitize_textarea_field' ),
 		'buddynext_blocked_domains'            => array( 'string', 'sanitize_textarea_field' ),
+		'buddynext_blocked_ips'                => array( 'string', array( self::class, 'sanitize_ip_list' ) ),
 		'buddynext_banned_hashtags'            => array( 'string', 'sanitize_textarea_field' ),
 		'buddynext_post_rate_limit'            => array( 'integer', 'absint' ),
 		'buddynext_new_member_post_threshold'  => array( 'integer', 'absint' ),
+		'buddynext_duplicate_post_window'      => array( 'integer', 'absint' ),
 
 		// Notifications.
 		'buddynext_notif_default_follow'       => array( 'boolean', 'rest_sanitize_boolean' ),
@@ -333,7 +335,33 @@ class Settings extends AdminPageBase {
 	 * @return string Valid hex colour, or the default '#0073aa'.
 	 */
 	public static function sanitize_brand_color( $value ): string {
-		return sanitize_hex_color( (string) $value ) ?: '#0073aa';
+		$hex = sanitize_hex_color( (string) $value );
+		return '' !== (string) $hex ? (string) $hex : '#0073aa';
+	}
+
+	/**
+	 * Sanitize the blocked-IP list: keep one valid IP per line, drop the rest.
+	 *
+	 * Accepts newline- or comma-separated input (as typed in the textarea),
+	 * validates each entry with FILTER_VALIDATE_IP (IPv4 or IPv6), de-duplicates,
+	 * and returns a clean newline-separated list. Invalid entries are silently
+	 * dropped so the stored option only ever contains real addresses the
+	 * enforcement check can match.
+	 *
+	 * @param mixed $value Raw submitted value.
+	 * @return string Newline-separated list of valid IP addresses.
+	 */
+	public static function sanitize_ip_list( $value ): string {
+		$parts = preg_split( '/[\r\n,]+/', (string) $value );
+		$out   = array();
+		foreach ( is_array( $parts ) ? $parts : array() as $line ) {
+			$ip = trim( (string) $line );
+			if ( '' !== $ip && false !== filter_var( $ip, FILTER_VALIDATE_IP ) && ! in_array( $ip, $out, true ) ) {
+				$out[] = $ip;
+			}
+		}
+
+		return implode( "\n", $out );
 	}
 
 	/**
@@ -1005,10 +1033,10 @@ class Settings extends AdminPageBase {
 		// feature itself is enabled (Settings → Features). When that master toggle
 		// is off, the whole reaction surface is removed front-end + REST, so the
 		// palette is disabled here with a pointer to the feature toggle.
-		$bn_all_reactions       = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
-		$bn_enabled_reactions   = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
-		$bn_features            = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
-		$bn_reactions_on        = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'reactions' );
+		$bn_all_reactions        = \BuddyNext\Reactions\ReactionService::REACTION_TYPES;
+		$bn_enabled_reactions    = (array) get_option( 'buddynext_enabled_reactions', $bn_all_reactions );
+		$bn_features             = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
+		$bn_reactions_on         = ! is_object( $bn_features ) || ! method_exists( $bn_features, 'is_enabled' ) || $bn_features->is_enabled( 'reactions' );
 		$bn_reaction_field_class = $bn_reactions_on ? 'bn-field bn-reaction-field' : 'bn-field bn-reaction-field is-disabled';
 		?>
 		<div class="<?php echo esc_attr( $bn_reaction_field_class ); ?>">
@@ -1159,11 +1187,28 @@ class Settings extends AdminPageBase {
 			480
 		);
 
+		$this->render_textarea_row(
+			'buddynext_blocked_ips',
+			__( 'Blocked IP addresses', 'buddynext' ),
+			(string) get_option( 'buddynext_blocked_ips', '' ),
+			__( 'One IP address per line (IPv4 or IPv6). Members posting or commenting from these addresses are blocked. Invalid entries are dropped on save.', 'buddynext' ),
+			4,
+			480
+		);
+
 		$this->render_number_row(
 			'buddynext_post_rate_limit',
 			__( 'Post rate limit (per minute)', 'buddynext' ),
 			(int) get_option( 'buddynext_post_rate_limit', 10 ),
 			__( 'Maximum number of posts a member can create per minute. Set to 0 to disable rate limiting.', 'buddynext' ),
+			0
+		);
+
+		$this->render_number_row(
+			'buddynext_duplicate_post_window',
+			__( 'Duplicate post window (minutes)', 'buddynext' ),
+			(int) get_option( 'buddynext_duplicate_post_window', 0 ),
+			__( 'Hold a post for review when the member has already posted identical content within this many minutes. Set to 0 to disable.', 'buddynext' ),
 			0
 		);
 
@@ -1400,8 +1445,8 @@ class Settings extends AdminPageBase {
 		// "Installed"; installed-but-inactive get a one-click Activate; not-installed
 		// get a one-click "Install free" that pulls the plugin straight from the EDD
 		// store (CompanionInstaller, install_plugins-gated). No more dead upload links.
-		$companions  = \BuddyNext\Integrations\CompanionRegistry::all();
-		$can_install = current_user_can( 'install_plugins' );
+		$companions   = \BuddyNext\Integrations\CompanionRegistry::all();
+		$can_install  = current_user_can( 'install_plugins' );
 		$can_activate = current_user_can( 'activate_plugins' );
 
 		$this->open_section( __( 'Addon Status', 'buddynext' ) );
