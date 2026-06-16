@@ -159,7 +159,7 @@ if ( '' !== $bn_wrap_class ) {
 				/* translators: 1: author display name, 2: time ago label. */
 				esc_html__( 'Pinned by %1$s · %2$s', 'buddynext' ),
 				esc_html( $bn_pinned->author_name ?? __( 'Admin', 'buddynext' ) ),
-				esc_html( bn_sh_time_diff( $bn_pinned->created_at ) )
+				esc_html( buddynext_time_ago( (string) $bn_pinned->created_at ) )
 			);
 			?>
 		</p>

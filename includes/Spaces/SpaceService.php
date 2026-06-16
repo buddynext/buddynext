@@ -194,8 +194,11 @@ class SpaceService {
 				'type'         => $type,
 				'owner_id'     => $owner_id,
 				'member_count' => 1,
+				// UTC write so the "Created" date localizes correctly via
+				// buddynext_date_local() under any site timezone.
+				'created_at'   => current_time( 'mysql', true ),
 			),
-			array( '%s', '%s', '%s', '%d', '%d', '%s', '%d', '%d' )
+			array( '%s', '%s', '%s', '%d', '%d', '%s', '%d', '%d', '%s' )
 		);
 
 		$space_id = (int) $wpdb->insert_id;

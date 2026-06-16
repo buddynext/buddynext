@@ -93,11 +93,12 @@ class HashtagService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT INTO {$wpdb->prefix}bn_hashtags (name, slug)
-				 VALUES (%s, %s)
+				"INSERT INTO {$wpdb->prefix}bn_hashtags (name, slug, created_at)
+				 VALUES (%s, %s, %s)
 				 ON DUPLICATE KEY UPDATE name = VALUES(name)",
 				$slug,
-				$slug
+				$slug,
+				current_time( 'mysql', true )
 			)
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		);

@@ -471,7 +471,7 @@ do_action( 'buddynext_moderation_queue_before' );
 				}
 
 				// Time ago + ISO datetime.
-				$created_ts   = $created_at ? (int) strtotime( $created_at ) : 0;
+				$created_ts   = $created_at ? (int) strtotime( $created_at . ' UTC' ) : 0;
 				$time_diff    = $created_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( $created_ts, time() ) ) : '';
 				$iso_datetime = $created_ts ? gmdate( DATE_ATOM, $created_ts ) : '';
 

@@ -169,7 +169,7 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 						<div class="bn-reply-card__meta">
 							<?php buddynext_icon( 'message-circle' ); ?>
 							<span><?php echo esc_html( sprintf( /* translators: %s: author name */ __( 'Replied to %s', 'buddynext' ), $reply->post_author_name ) ); ?></span>
-							<span class="bn-reply-card__time"><?php echo esc_html( sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $reply->created_at ) ) ) ); ?></span>
+							<span class="bn-reply-card__time"><?php echo buddynext_time_ago( (string) $reply->created_at ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_time_ago() returns esc_html()'d output. ?></span>
 						</div>
 						<div class="bn-reply-card__content"><?php echo wp_kses_post( wp_trim_words( $reply->content, 30 ) ); ?></div>
 						<div class="bn-reply-card__context"><?php echo wp_kses_post( wp_trim_words( $reply->post_content, 15 ) ); ?></div>

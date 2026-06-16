@@ -520,7 +520,7 @@ $posts_pct_abs = abs( $posts_pct );
 							$rpt_count    = (int) ( $rpt->reporter_count ?? 1 );
 							$rpt_severity = bn_report_severity( $rpt_count );
 							$rpt_reason   = ucfirst( (string) ( $rpt->reason ?? __( 'Report', 'buddynext' ) ) );
-							$rpt_ts       = isset( $rpt->created_at ) ? (int) strtotime( (string) $rpt->created_at ) : 0;
+							$rpt_ts       = isset( $rpt->created_at ) ? (int) strtotime( (string) $rpt->created_at . ' UTC' ) : 0;
 							$rpt_iso      = $rpt_ts ? gmdate( DATE_ATOM, $rpt_ts ) : '';
 							$rpt_time     = $rpt_ts ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( $rpt_ts, time() ) ) : '';
 							++$displayed;

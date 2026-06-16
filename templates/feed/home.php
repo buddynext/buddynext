@@ -280,40 +280,6 @@ if ( function_exists( 'buddynext_service' ) ) {
 $rest_nonce  = wp_create_nonce( 'wp_rest' );
 $explore_url = PageRouter::explore_url();
 
-/**
- * Format a UTC timestamp as a human-readable relative time label.
- *
- * @param string $datetime MySQL datetime string.
- * @return string Escaped, translated relative time.
- */
-if ( ! function_exists( 'bn_home_relative_time' ) ) {
-	/**
-	 * Format a UTC timestamp as a human-readable relative time label.
-	 *
-	 * @param string $datetime MySQL datetime string.
-	 * @return string Escaped, translated relative time.
-	 */
-	function bn_home_relative_time( string $datetime ): string {
-		$diff = time() - (int) strtotime( $datetime );
-		if ( $diff < 60 ) {
-			return esc_html__( 'just now', 'buddynext' );
-		}
-		if ( $diff < 3600 ) {
-			$mins = (int) round( $diff / 60 );
-			/* translators: %d: number of minutes */
-			return esc_html( sprintf( _n( '%dm ago', '%dm ago', $mins, 'buddynext' ), $mins ) );
-		}
-		if ( $diff < 86400 ) {
-			$hours = (int) round( $diff / 3600 );
-			/* translators: %d: number of hours */
-			return esc_html( sprintf( _n( '%dh ago', '%dh ago', $hours, 'buddynext' ), $hours ) );
-		}
-		$days = (int) round( $diff / 86400 );
-		/* translators: %d: number of days */
-		return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
-	}
-}
-
 // ── Right sidebar widgets ────────────────────────────────────────────────
 // Register sidebar widget callbacks on the shared hub-shell action. The shell
 // detects via has_action() (after this template's output buffer flushes) and

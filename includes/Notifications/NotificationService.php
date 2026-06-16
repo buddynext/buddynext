@@ -64,7 +64,7 @@ class NotificationService {
 				$wpdb->prepare(
 					"SELECT id FROM {$wpdb->prefix}bn_notifications
 					 WHERE recipient_id = %d AND group_key = %s AND is_read = 0
-					   AND created_at >= NOW() - INTERVAL 24 HOUR
+					   AND created_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
 					 LIMIT 1",
 					$recipient_id,
 					$group_key
@@ -76,7 +76,7 @@ class NotificationService {
 				$wpdb->query(
 					$wpdb->prepare(
 						"UPDATE {$wpdb->prefix}bn_notifications
-						 SET sender_id = %d, group_count = group_count + 1, created_at = NOW()
+						 SET sender_id = %d, group_count = group_count + 1, created_at = UTC_TIMESTAMP()
 						 WHERE id = %d",
 						(int) ( $data['sender_id'] ?? 0 ),
 						(int) $existing_id
@@ -147,8 +147,11 @@ class NotificationService {
 				'group_count'  => 1,
 				'data'         => isset( $data['data'] ) ? wp_json_encode( $data['data'] ) : null,
 				'is_read'      => 0,
+				// UTC write (not the column's local-time default) so the bell's
+				// relative times are correct on any server timezone.
+				'created_at'   => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%s', '%d', '%s', '%d', '%s', '%d' )
+			array( '%d', '%d', '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%s' )
 		);
 
 		wp_cache_delete( "unread_{$recipient_id}", self::CACHE_GROUP );

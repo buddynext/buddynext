@@ -119,40 +119,6 @@ $rest_nonce = wp_create_nonce( 'wp_rest' );
 $avatar_colours = array( 'av-brand', 'av-green', 'av-purple', 'av-orange', 'av-pink', 'av-jt', 'av-mvs' );
 
 /**
- * Format a UTC timestamp as a human-readable relative time label.
- *
- * @param string $datetime MySQL datetime string.
- * @return string Escaped, translated relative time.
- */
-if ( ! function_exists( 'bn_explore_relative_time' ) ) {
-	/**
-	 * Format a UTC timestamp as a human-readable relative time label.
-	 *
-	 * @param string $datetime MySQL datetime string.
-	 * @return string Escaped, translated relative time.
-	 */
-	function bn_explore_relative_time( string $datetime ): string {
-		$diff = time() - (int) strtotime( $datetime );
-		if ( $diff < 60 ) {
-			return esc_html__( 'just now', 'buddynext' );
-		}
-		if ( $diff < 3600 ) {
-			$mins = (int) round( $diff / 60 );
-			/* translators: %d: number of minutes */
-			return esc_html( sprintf( _n( '%dm ago', '%dm ago', $mins, 'buddynext' ), $mins ) );
-		}
-		if ( $diff < 86400 ) {
-			$hours = (int) round( $diff / 3600 );
-			/* translators: %d: number of hours */
-			return esc_html( sprintf( _n( '%dh ago', '%dh ago', $hours, 'buddynext' ), $hours ) );
-		}
-		$days = (int) round( $diff / 86400 );
-		/* translators: %d: number of days */
-		return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
-	}
-}
-
-/**
  * Truncate post content to a maximum character count, appending an ellipsis.
  *
  * @param string $content    Raw text content.

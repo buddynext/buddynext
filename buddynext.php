@@ -514,3 +514,78 @@ function buddynext_format_content( string $content ): string {
 
 	return $escaped;
 }
+
+/**
+ * Render a UTC datetime as a compact, localized "time ago" label.
+ *
+ * BuddyNext stores every user-facing timestamp in UTC (current_time('mysql', true)
+ * on write). Relative durations are timezone-independent, so this anchors the
+ * stored value to UTC and measures the gap to the current instant: the result is
+ * identical on every server regardless of its PHP timezone. The site's WordPress
+ * timezone selection governs only absolute dates — see buddynext_date_local().
+ *
+ * Canonical helper for every "X ago" surface (feed, comments, notifications,
+ * spaces, profile, search); the previous per-template copies are removed.
+ *
+ * @param string $gmt_datetime A 'Y-m-d H:i:s' datetime stored in UTC.
+ * @return string Escaped relative-time label (e.g. "3h ago"), or '' when empty/invalid.
+ */
+function buddynext_time_ago( string $gmt_datetime ): string {
+	if ( '' === trim( $gmt_datetime ) ) {
+		return '';
+	}
+
+	$timestamp = strtotime( $gmt_datetime . ' UTC' );
+	if ( false === $timestamp ) {
+		return '';
+	}
+
+	$diff = time() - $timestamp;
+	if ( $diff < 0 ) {
+		$diff = 0;
+	}
+
+	if ( $diff < MINUTE_IN_SECONDS ) {
+		return esc_html__( 'just now', 'buddynext' );
+	}
+
+	if ( $diff < HOUR_IN_SECONDS ) {
+		$mins = (int) round( $diff / MINUTE_IN_SECONDS );
+		/* translators: %d: number of minutes. */
+		return esc_html( sprintf( _n( '%dm ago', '%dm ago', $mins, 'buddynext' ), $mins ) );
+	}
+
+	if ( $diff < DAY_IN_SECONDS ) {
+		$hours = (int) round( $diff / HOUR_IN_SECONDS );
+		/* translators: %d: number of hours. */
+		return esc_html( sprintf( _n( '%dh ago', '%dh ago', $hours, 'buddynext' ), $hours ) );
+	}
+
+	$days = (int) round( $diff / DAY_IN_SECONDS );
+	/* translators: %d: number of days. */
+	return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
+}
+
+/**
+ * Format a UTC datetime as an absolute date in the site's configured timezone.
+ *
+ * Honours the WordPress Settings > General timezone selection uniformly: the
+ * stored value is UTC and get_date_from_gmt() converts it to site-local time
+ * before formatting. Use this for calendar-style displays ("Joined June 2026");
+ * use buddynext_time_ago() for "X ago" durations.
+ *
+ * @param string $gmt_datetime A 'Y-m-d H:i:s' datetime stored in UTC.
+ * @param string $format       PHP date format. Defaults to the site date_format option.
+ * @return string Escaped localized date string, or '' when empty/invalid.
+ */
+function buddynext_date_local( string $gmt_datetime, string $format = '' ): string {
+	if ( '' === trim( $gmt_datetime ) ) {
+		return '';
+	}
+
+	if ( '' === $format ) {
+		$format = (string) get_option( 'date_format', 'F j, Y' );
+	}
+
+	return esc_html( get_date_from_gmt( $gmt_datetime, $format ) );
+}

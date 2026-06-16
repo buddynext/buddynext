@@ -46,12 +46,13 @@ class ReactionService {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query(
 			$wpdb->prepare(
-				"INSERT IGNORE INTO {$wpdb->prefix}bn_reactions (user_id, object_type, object_id, emoji)
-				 VALUES (%d, %s, %d, %s)",
+				"INSERT IGNORE INTO {$wpdb->prefix}bn_reactions (user_id, object_type, object_id, emoji, created_at)
+				 VALUES (%d, %s, %d, %s, %s)",
 				$user_id,
 				sanitize_key( $object_type ),
 				$object_id,
-				sanitize_key( $emoji )
+				sanitize_key( $emoji ),
+				current_time( 'mysql', true )
 			)
 		);
 

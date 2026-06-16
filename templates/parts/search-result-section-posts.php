@@ -140,7 +140,7 @@ do_action( 'buddynext_part_search_result_section_posts_before', $args );
 			$author_user  = $author_id ? get_userdata( $author_id ) : null;
 			$author_name  = $author_user ? $author_user->display_name : __( 'Unknown', 'buddynext' );
 			$author_inits = $bn_initials_fn( $author_name );
-			$post_age     = $bn_post_row ? sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( (int) strtotime( (string) $bn_post_row->created_at ), time() ) ) : '';
+			$post_age     = $bn_post_row ? buddynext_time_ago( (string) $bn_post_row->created_at ) : '';
 			$reactions    = $bn_post_row ? (int) $bn_post_row->reaction_count : 0;
 			$comments_c   = $bn_post_row ? (int) $bn_post_row->comment_count : 0;
 			$shares_c     = $bn_post_row ? (int) $bn_post_row->share_count : 0;
@@ -155,7 +155,7 @@ do_action( 'buddynext_part_search_result_section_posts_before', $args );
 					</span>
 					<span class="bn-search-row__author"><?php echo esc_html( $author_name ); ?></span>
 					<?php if ( '' !== $post_age ) : ?>
-						<span class="bn-search-row__time">&middot; <?php echo esc_html( $post_age ); ?></span>
+						<span class="bn-search-row__time">&middot; <?php echo $post_age; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_time_ago() returns esc_html()'d output. ?></span>
 					<?php endif; ?>
 					<span class="bn-badge" data-tone="info"><?php esc_html_e( 'Post', 'buddynext' ); ?></span>
 				</header>

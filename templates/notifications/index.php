@@ -192,7 +192,9 @@ $groups       = array(
 	'older'     => array(),
 );
 foreach ( $rows ?? array() as $row ) {
-	$row_ts = strtotime( $row->created_at );
+	// created_at is stored in UTC; anchor the parse to UTC so the day grouping
+	// matches the UTC midnight boundaries computed above.
+	$row_ts = (int) strtotime( $row->created_at . ' UTC' );
 	if ( $row_ts >= $today_ts ) {
 		$groups['today'][] = $row;
 	} elseif ( $row_ts >= $yesterday_ts ) {
@@ -254,29 +256,16 @@ $render_avatar = static function ( int $actor_id ) use ( $actor_data ): void {
 };
 
 /**
- * Human-readable time difference suitable for display inside <time>.
+ * Human-readable time difference for the <time> label.
  *
- * @param string $created_at MySQL datetime string.
- * @return string e.g. "2 min".
+ * Thin adapter over the canonical buddynext_time_ago() helper (UTC-anchored)
+ * so render_row can keep receiving a callable. Returns esc_html()'d output.
+ *
+ * @param string $created_at UTC MySQL datetime string.
+ * @return string e.g. "2m ago".
  */
 $time_ago = static function ( string $created_at ): string {
-	$diff = time() - (int) strtotime( $created_at );
-	if ( $diff < 60 ) {
-		return __( 'just now', 'buddynext' );
-	}
-	if ( $diff < 3600 ) {
-		$m = (int) round( $diff / 60 );
-		/* translators: %d is the number of minutes. */
-		return sprintf( _n( '%d min', '%d min', $m, 'buddynext' ), $m );
-	}
-	if ( $diff < 86400 ) {
-		$h = (int) round( $diff / 3600 );
-		/* translators: %d is the number of hours. */
-		return sprintf( _n( '%dh', '%dh', $h, 'buddynext' ), $h );
-	}
-	$d = (int) round( $diff / 86400 );
-	/* translators: %d is the number of days. */
-	return sprintf( _n( '%dd', '%dd', $d, 'buddynext' ), $d );
+	return buddynext_time_ago( $created_at );
 };
 
 $mark_all_nonce = wp_create_nonce( 'wp_rest' );

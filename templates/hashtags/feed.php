@@ -260,7 +260,7 @@ else :
 	// ── First-use date label ─────────────────────────────────────────────────
 	$first_used_label = '';
 	if ( null !== $hashtag && $hashtag->created_at ) {
-		$first_used_label = date_i18n( get_option( 'date_format' ), (int) strtotime( $hashtag->created_at ) );
+		$first_used_label = buddynext_date_local( (string) $hashtag->created_at );
 	}
 
 	$post_count_total = absint( $hashtag->post_count );

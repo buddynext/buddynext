@@ -134,7 +134,7 @@ do_action( 'buddynext_part_space_about_panel_before', $args );
 		<?php if ( ! empty( $bn_space->created_at ) ) : ?>
 			<div>
 				<dt><?php esc_html_e( 'Created', 'buddynext' ); ?></dt>
-				<dd><?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $bn_space->created_at ) ) ); ?></dd>
+				<dd><?php echo buddynext_date_local( (string) $bn_space->created_at ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_date_local() returns esc_html()'d output. ?></dd>
 			</div>
 		<?php endif; ?>
 		<div>

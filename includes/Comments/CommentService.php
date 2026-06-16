@@ -115,8 +115,12 @@ class CommentService {
 				'object_id'   => $object_id,
 				'parent_id'   => $parent_id,
 				'content'     => $content,
+				// Store in UTC instead of relying on the column's local-time
+				// DEFAULT CURRENT_TIMESTAMP, so relative times render correctly
+				// regardless of the MySQL/PHP timezone (see buddynext_time_ago()).
+				'created_at'  => current_time( 'mysql', true ),
 			),
-			array( '%d', '%s', '%d', '%d', '%s' )
+			array( '%d', '%s', '%d', '%d', '%s', '%s' )
 		);
 
 		$comment_id = (int) $wpdb->insert_id;

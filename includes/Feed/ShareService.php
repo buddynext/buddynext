@@ -98,11 +98,13 @@ class ShareService {
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_shares',
 			array(
-				'user_id' => $user_id,
-				'post_id' => $post_id,
-				'content' => $content,
+				'user_id'    => $user_id,
+				'post_id'    => $post_id,
+				'content'    => $content,
+				// UTC write so share history relative times are timezone-correct.
+				'created_at' => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s' )
+			array( '%d', '%d', '%s', '%s' )
 		);
 
 		$share_id = (int) $wpdb->insert_id;
@@ -128,8 +130,11 @@ class ShareService {
 				'content'        => $content,
 				'privacy'        => $privacy,
 				'status'         => 'published',
+				// UTC write so the share card's feed timestamp is correct (mirrors
+				// PostService::create()); the local-time default rendered "just now".
+				'created_at'     => current_time( 'mysql', true ),
 			),
-			array( '%d', '%d', '%s', '%s', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s', '%s', '%s', '%s' )
 		);
 
 		$feed_post_id = (int) $wpdb->insert_id;

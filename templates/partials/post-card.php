@@ -159,35 +159,8 @@ $member_type_slug  = get_user_meta( $post_author_id, 'bn_member_type', true );
 $member_type_label = $member_type_slug ? get_user_meta( $post_author_id, 'bn_member_type_label', true ) : '';
 
 // ── Timestamps ─────────────────────────────────────────────────────────────────
-if ( ! function_exists( 'bn_post_card_relative_time' ) ) :
-	/**
-	 * Return a human-readable relative time string for a datetime.
-	 *
-	 * @param string $datetime MySQL datetime string.
-	 * @return string
-	 */
-	function bn_post_card_relative_time( string $datetime ): string {
-		$diff = time() - (int) strtotime( $datetime );
-		if ( $diff < 60 ) {
-			return esc_html__( 'just now', 'buddynext' );
-		}
-		if ( $diff < 3600 ) {
-			$mins = (int) round( $diff / 60 );
-			/* translators: %d: number of minutes */
-			return esc_html( sprintf( _n( '%dm ago', '%dm ago', $mins, 'buddynext' ), $mins ) );
-		}
-		if ( $diff < 86400 ) {
-			$hours = (int) round( $diff / 3600 );
-			/* translators: %d: number of hours */
-			return esc_html( sprintf( _n( '%dh ago', '%dh ago', $hours, 'buddynext' ), $hours ) );
-		}
-		$days = (int) round( $diff / 86400 );
-		/* translators: %d: number of days */
-		return esc_html( sprintf( _n( '%dd ago', '%dd ago', $days, 'buddynext' ), $days ) );
-	}
-endif;
-
-$post_time    = bn_post_card_relative_time( $created_at );
+// Relative times come from the canonical buddynext_time_ago() helper (UTC-anchored).
+$post_time    = buddynext_time_ago( $created_at );
 $edited_label = $edited_at ? esc_html__( '(edited)', 'buddynext' ) : '';
 
 // ── Permissions ────────────────────────────────────────────────────────────────

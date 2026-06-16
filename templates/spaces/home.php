@@ -80,17 +80,6 @@ if ( ! function_exists( 'bn_sh_avatar_color' ) ) {
 	}
 }
 
-if ( ! function_exists( 'bn_sh_time_diff' ) ) {
-	/**
-	 * Human-readable time diff label (e.g. "3h ago").
-	 *
-	 * @param string $datetime MySQL datetime string.
-	 * @return string Localized time diff.
-	 */
-	function bn_sh_time_diff( string $datetime ): string {
-		return sprintf( /* translators: %s: human-readable time difference, e.g. "3 hours" */ __( '%s ago', 'buddynext' ), human_time_diff( strtotime( $datetime ), time() ) );
-	}
-}
 
 global $wpdb;
 
@@ -383,7 +372,7 @@ add_action(
 					<?php buddynext_icon( 'calendar' ); ?>
 					<?php
 					// translators: %s is the formatted date.
-					printf( esc_html__( 'Created %s', 'buddynext' ), esc_html( date_i18n( get_option( 'date_format' ), strtotime( $bn_s['space']->created_at ) ) ) );
+					printf( esc_html__( 'Created %s', 'buddynext' ), buddynext_date_local( (string) $bn_s['space']->created_at ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_date_local() returns esc_html()'d output.
 					?>
 				</span>
 			<?php endif; ?>
@@ -667,7 +656,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 		),
 		array(
 			'label' => __( 'Created', 'buddynext' ),
-			'value' => ! empty( $space->created_at ) ? date_i18n( 'M Y', strtotime( $space->created_at ) ) : '—',
+			'value' => ! empty( $space->created_at ) ? buddynext_date_local( (string) $space->created_at, 'M Y' ) : '—',
 			'icon'  => 'calendar',
 		),
 	);
