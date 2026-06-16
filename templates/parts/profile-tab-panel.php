@@ -99,6 +99,19 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 
 			<!-- Posts list (default tab) -->
 			<div class="bn-profile-posts-panel" data-tab-panel="posts">
+			<?php if ( $bn_pf_is_owner ) : ?>
+				<?php
+				// Profile owner can post directly from their activity tab — the same
+				// composer the home feed uses (self-contained Interactivity context).
+				buddynext_get_template(
+					'partials/composer.php',
+					array(
+						'space_id'        => null,
+						'current_user_id' => $bn_pf_viewer,
+					)
+				);
+				?>
+			<?php endif; ?>
 			<?php if ( $bn_recent_posts ) : ?>
 				<?php
 				foreach ( $bn_recent_posts as $post_arr ) {
