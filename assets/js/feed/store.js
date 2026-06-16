@@ -1986,10 +1986,25 @@ store( 'buddynext/post-composer', {
 				if ( res.ok ) {
 					const userId = parseInt( ctx.userId, 10 );
 					if ( userId > 0 ) {
+						// Cancel any pending debounced draft save first — otherwise
+						// it fires after clearDraft() and re-writes the draft, so the
+						// content reappears in the composer after the reload.
+						const draftKey = String( userId );
+						if ( _draftTimers.has( draftKey ) ) {
+							clearTimeout( _draftTimers.get( draftKey ) );
+							_draftTimers.delete( draftKey );
+						}
 						clearDraft( userId );
 					}
+					// Empty the composer right away. The prompt textarea is
+					// input-only (no data-wp-bind--value), so resetting ctx.content
+					// alone leaves the typed text on screen — and the browser would
+					// restore it on reload. Clear both so the field is visibly empty
+					// and a duplicate submit is not invited.
+					ctx.content     = '';
 					ctx.hasDraft    = false;
 					setDraftStatus( ctx, '', false );
+					document.querySelectorAll( '[data-wp-interactive="buddynext/post-composer"] .bn-composer__prompt' ).forEach( function ( ta ) { ta.value = ''; } );
 					if ( window.bnToast ) {
 						window.bnToast( body.scheduled_at ? 'Post scheduled' : 'Post published', 'success' );
 					}
