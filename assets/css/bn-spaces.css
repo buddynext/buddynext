@@ -519,16 +519,10 @@ a.bn-sh-statpill:focus-visible {
 	color: var(--bn-ink-4);
 }
 
-/* Tabs strip inside the hero */
+/* Tabs strip inside the hero — overflow/scrollbar inherited from base .bn-tabs */
 .bn-tabs.bn-sh-hero__tabs {
 	padding-inline: var(--bn-s6);
 	border-block-start: 1px solid var(--bn-line);
-	overflow-x: auto;
-	scrollbar-width: none; /* hide scrollbar on desktop; row still scrolls */
-}
-
-.bn-tabs.bn-sh-hero__tabs::-webkit-scrollbar {
-	display: none;
 }
 
 /* Body (tab content) */
@@ -1001,12 +995,6 @@ a.bn-sh-statpill:focus-visible {
 .bn-tabs.bn-sh-tabs {
 	padding-inline: var(--bn-s6);
 	border-block-start: 1px solid var(--bn-line);
-	overflow-x: auto;
-	scrollbar-width: none; /* hide scrollbar on desktop; row still scrolls */
-}
-
-.bn-tabs.bn-sh-tabs::-webkit-scrollbar {
-	display: none;
 }
 
 /* ── Space media tab ─────────────────────────────────────────────────── */

@@ -703,13 +703,5 @@ a.bn-hashtag:hover {
 	.bn-hashtag-notfound {
 		padding: var(--bn-s8) var(--bn-s4);
 	}
-
-	.bn-hashtag-tabs {
-		overflow-x: auto;
-		scrollbar-width: none;
-	}
-
-	.bn-hashtag-tabs::-webkit-scrollbar {
-		display: none;
-	}
+	/* .bn-hashtag-tabs overflow/scrollbar inherited from base .bn-tabs (all widths). */
 }

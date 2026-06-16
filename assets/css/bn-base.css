@@ -2108,7 +2108,14 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border-bottom: 1px solid var(--bn-line);
 	gap: var(--bn-s1);
 	margin: 0;
+	/* Single source of truth: a tab strip scrolls horizontally when it
+	   overflows, with the scrollbar hidden on every platform. Feature tab
+	   variants that carry .bn-tabs inherit this; standalone tab classes that
+	   do not use .bn-tabs (e.g. .bn-mod-filterbar__tabs) keep their own. */
+	overflow-x: auto;
+	scrollbar-width: none;
 }
+.bn-tabs::-webkit-scrollbar { display: none; }
 .bn-tabs[data-density="compact"] { gap: 2px; }
 
 .bn-tab {

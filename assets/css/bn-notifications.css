@@ -29,14 +29,7 @@
 	color: var(--bn-ink);
 }
 
-/* ── Filter tabs - extends .bn-tabs primitive ─────────────────────────── */
-
-.bn-notif-tabs {
-	overflow-x: auto;
-	scrollbar-width: none;
-}
-
-.bn-notif-tabs::-webkit-scrollbar { display: none; }
+/* ── Filter tabs - overflow/scrollbar inherited from base .bn-tabs ─────── */
 
 /* ── Group section ────────────────────────────────────────────────────── */
 
