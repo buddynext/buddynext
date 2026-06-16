@@ -2,7 +2,7 @@
   "header": {
     "name": "BuddyNext",
     "slug": "buddynext",
-    "version": "0.3.0-beta1",
+    "version": "0.4.0-beta1",
     "textDomain": "buddynext",
     "domainPath": "/languages",
     "requiresWP": "6.9",
