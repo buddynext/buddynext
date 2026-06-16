@@ -97,8 +97,6 @@ foreach ( $bn_groups as $grp ) {
 $headline      = $fv['headline'] ?? '';
 $bio           = $fv['bio'] ?? '';
 $location      = $fv['location'] ?? '';
-$interests_str = $fv['interests'] ?? '';
-$interests     = array_filter( array_map( 'trim', explode( ',', $interests_str ) ) );
 
 /*
  * ── Field-level privacy helpers ────────────────────────────────────────────
@@ -239,15 +237,15 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 	echo wp_interactivity_data_wp_context(
 		array(
 			// Profile-only context: account / slug / privacy / 2FA state moved to
-			// the Settings hub. saveProfile reads interests + work/edu repeaters
-			// (guarded in store.js) and the flat field inputs that are on the page.
+			// the Settings hub. saveProfile reads the work/edu repeaters (guarded
+			// in store.js) and the flat field inputs that are on the page (every
+			// dynamic profile field, including Skills / Interests, is a flat input).
 			'userId'      => $user_id,
 			'restNonce'   => $rest_nonce,
 			'saved'       => false,
 			'saving'      => false,
 			'isDirty'     => false,
 			'errors'      => (object) array(),
-			'interests'   => array_values( $interests ),
 			'profileUrl'  => $profile_url,
 			'workEntries' => array_values( $work_entries ),
 			'eduEntries'  => array_values( $edu_entries ),

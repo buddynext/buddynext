@@ -420,16 +420,14 @@ function collectRepeaterEntries( containerId ) {
 
 /* Build save payload: flat fields + the section groups that are actually on the
    page. The buddynext/profile store now drives partial surfaces too (the Privacy
-   settings tab renders only its own fields), so interests / work / education are
+   settings tab renders only its own fields), so the work / education repeaters are
    included ONLY when their UI is present — otherwise a partial save would send
-   empty values and wipe sections the page never rendered. The REST endpoint
-   updates just the keys it receives. */
+   empty values and wipe sections the page never rendered. Every dynamic profile
+   field (including Skills / Interests) is a flat input picked up by
+   collectFlatData. The REST endpoint updates just the keys it receives. */
 function buildPayload( ctx ) {
 	var wrap = document.querySelector( '[data-wp-interactive="buddynext/profile"]' );
 	var data = collectFlatData( wrap );
-	if ( Array.isArray( ctx.interests ) ) {
-		data.interests = ctx.interests.join( ',' );
-	}
 	var workContainerId = repeaterContainerId( 'work_experience' );
 	if ( document.getElementById( workContainerId ) ) {
 		data.work_experience = collectRepeaterEntries( workContainerId );
@@ -1188,30 +1186,6 @@ store( 'buddynext/profile', {
 			if ( containerId ) { renumberEntries( containerId ); }
 			getContext().isDirty = true;
 			syncDirtyAttr( true );
-		},
-
-		addInterestOnEnter( event ) {
-			if ( event.key !== 'Enter' ) { return; }
-			event.preventDefault();
-			var ctx = getContext();
-			var val = event.target.value.trim();
-			if ( val && ctx.interests.indexOf( val ) === -1 ) {
-				ctx.interests = ctx.interests.concat( [ val ] );
-				ctx.isDirty   = true;
-				syncDirtyAttr( true );
-			}
-			event.target.value = '';
-		},
-
-		removeInterest( event ) {
-			var ctx      = getContext();
-			var btn      = event.target.closest( '[data-interest]' );
-			var interest = btn ? btn.dataset.interest : null;
-			if ( interest ) {
-				ctx.interests = ctx.interests.filter( function ( i ) { return i !== interest; } );
-				ctx.isDirty   = true;
-				syncDirtyAttr( true );
-			}
 		},
 
 		focusTagInput() {
