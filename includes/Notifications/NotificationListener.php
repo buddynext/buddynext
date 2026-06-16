@@ -551,11 +551,26 @@ class NotificationListener implements ListenerInterface {
 			return;
 		}
 
-		// Fan-out can span tens of thousands of members; never load + loop the
-		// whole roster inside the posting request. Hand the entire fan-out to a
-		// single background action that pages through members in bounded,
-		// keyset batches (each batch re-enqueues the next from the last user_id).
-		// Fall back to an inline keyset loop only when Action Scheduler is absent.
+		// Always notify the first bounded batch INLINE, then hand any remainder
+		// to the background fan-out. This guarantees delivery for normal-sized
+		// spaces (<= SPACE_FANOUT_BATCH members) without depending on an Action
+		// Scheduler worker actually running: AS is frequently present (bundled
+		// with WooCommerce) yet its queue can sit undrained when wp-cron is
+		// disabled or stalled, which previously meant members got no
+		// notification at all. The first batch is the same bounded keyset query
+		// the async worker uses, so the posting request cost is capped.
+		$batch         = $this->fan_out_space_post_batch( $post_id, $space_id, $user_id, 0, self::SPACE_FANOUT_BATCH );
+		$after_user_id = (int) $batch['last_user_id'];
+		$has_more      = ( self::SPACE_FANOUT_BATCH === $batch['count'] && $after_user_id > 0 );
+
+		if ( ! $has_more ) {
+			return;
+		}
+
+		// More members remain. Page the rest through a background action
+		// (keyset-resumed from the last user_id) so a large roster never loops
+		// inside the posting request. Fall back to inline draining only when
+		// Action Scheduler is absent.
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action(
 				'buddynext_async_space_post_fanout',
@@ -563,19 +578,18 @@ class NotificationListener implements ListenerInterface {
 					'post_id'       => $post_id,
 					'space_id'      => $space_id,
 					'author_id'     => $user_id,
-					'after_user_id' => 0,
+					'after_user_id' => $after_user_id,
 				),
 				'buddynext'
 			);
 			return;
 		}
 
-		// AS-absent (local/test): drain every batch inline so all members are
-		// notified, still bounded to SPACE_FANOUT_BATCH rows per query.
-		$after_user_id = 0;
+		// AS-absent (local/test): drain the remaining batches inline so all
+		// members are notified, still bounded to SPACE_FANOUT_BATCH rows per query.
 		do {
 			$batch         = $this->fan_out_space_post_batch( $post_id, $space_id, $user_id, $after_user_id, self::SPACE_FANOUT_BATCH );
-			$after_user_id = $batch['last_user_id'];
+			$after_user_id = (int) $batch['last_user_id'];
 		} while ( self::SPACE_FANOUT_BATCH === $batch['count'] && $after_user_id > 0 );
 	}
 
@@ -740,15 +754,15 @@ class NotificationListener implements ListenerInterface {
 		// Type-aware suppression so notifications are filtered the way each
 		// relationship semantically intends:
 		//
-		//   - block:    bidirectional. Suppress in either direction so the
-		//               two users never see each other's events.
-		//   - mute:     unidirectional. The muter (= recipient) silenced
-		//               the muted user. The muted user's notifications
-		//               from the muter still fire — mute is one-way.
-		//   - restrict: unidirectional. Same rule as mute, with the added
-		//               point that the restricted user MUST keep getting
-		//               notifs from the restrictor, otherwise they'd
-		//               detect they've been restricted.
+		// - block:    bidirectional. Suppress in either direction so the
+		// two users never see each other's events.
+		// - mute:     unidirectional. The muter (= recipient) silenced
+		// the muted user. The muted user's notifications
+		// from the muter still fire — mute is one-way.
+		// - restrict: unidirectional. Same rule as mute, with the added
+		// point that the restricted user MUST keep getting
+		// notifs from the restrictor, otherwise they'd
+		// detect they've been restricted.
 		//
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_var(
