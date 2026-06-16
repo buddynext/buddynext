@@ -358,7 +358,6 @@ class SpaceController extends BaseRestController {
 
 		$bools = array(
 			'allow_member_posts'    => 'allow_member_posts',
-			'require_post_approval' => 'require_post_approval',
 			'require_join_approval' => 'require_join_approval',
 		);
 		foreach ( $bools as $key => $opt ) {
@@ -371,7 +370,6 @@ class SpaceController extends BaseRestController {
 		return new WP_REST_Response(
 			array(
 				'allow_member_posts'    => (int) get_option( 'bn_space_' . $space_id . '_allow_member_posts', 1 ),
-				'require_post_approval' => (int) get_option( 'bn_space_' . $space_id . '_require_post_approval', 0 ),
 				'require_join_approval' => (int) get_option( 'bn_space_' . $space_id . '_require_join_approval', 0 ),
 			),
 			200

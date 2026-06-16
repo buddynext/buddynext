@@ -228,11 +228,7 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_moderation_nonce'] ) 
 	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_space_moderation_nonce'] ) ), 'bn_space_moderation_' . $space_id ) ) {
 		$save_notice = 'error';
 	} else {
-		update_option(
-			'bn_space_' . $space_id . '_require_post_approval',
-			isset( $_POST['require_post_approval'] ) ? 1 : 0
-		);
-
+		// No post pre-approval: members post freely, moderation is reactive.
 		$raw_banned_words = isset( $_POST['banned_words'] ) ? sanitize_textarea_field( wp_unslash( $_POST['banned_words'] ) ) : '';
 		update_option( 'bn_space_' . $space_id . '_banned_words', $raw_banned_words );
 		$save_notice = 'success';
@@ -335,8 +331,7 @@ $who_can_post          = (string) get_option( 'bn_space_' . $space_id . '_who_ca
 $who_can_invite        = (string) get_option( 'bn_space_' . $space_id . '_who_can_invite', 'mods' );
 
 // Moderation options.
-$mod_require_approval = (bool) get_option( 'bn_space_' . $space_id . '_require_post_approval', 0 );
-$mod_banned_words     = (string) get_option( 'bn_space_' . $space_id . '_banned_words', '' );
+$mod_banned_words = (string) get_option( 'bn_space_' . $space_id . '_banned_words', '' );
 
 // Notifications option.
 $default_notification_pref = (string) get_option( 'bn_space_' . $space_id . '_default_notification_pref', 'all' );
@@ -578,10 +573,9 @@ foreach ( $builtin_tabs as $bn_t ) {
 				array(
 					'space'               => $space,
 					'moderation_settings' => array(
-						'space_id'              => $space_id,
-						'space_url'             => $space_url,
-						'require_post_approval' => $mod_require_approval,
-						'banned_words'          => $mod_banned_words,
+						'space_id'     => $space_id,
+						'space_url'    => $space_url,
+						'banned_words' => $mod_banned_words,
 					),
 				),
 			),

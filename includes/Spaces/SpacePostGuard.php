@@ -2,15 +2,16 @@
 /**
  * Enforce per-space posting rules at the point a post is saved.
  *
- * The space settings panels persist "Who can post" (who_can_post) and
- * "Pre-moderate posts / require approval" (require_post_approval) as
- * bn_space_{id}_* options, but nothing applied them on the server when a post
- * was created — the composer gate alone was bypassable via the REST API. This
- * listener hooks the buddynext_post_before_save filter so the rules hold for
+ * The space settings panel persists "Who can post" (who_can_post) as a
+ * bn_space_{id}_* option, but nothing applied it on the server when a post was
+ * created — the composer gate alone was bypassable via the REST API. This
+ * listener hooks the buddynext_post_before_save filter so the rule holds for
  * every create path:
  *   - who_can_post: a 403 when the author's space role is below the threshold.
- *   - require_post_approval: non owner/mod posts are held as 'pending' (the
- *     space moderation queue surfaces and approves them).
+ *
+ * There is deliberately no pre-publish approval gate: like every mainstream
+ * social platform, members post freely and moderation is reactive (report →
+ * review → remove), never editorial sign-off that holds posts in a queue.
  *
  * @package BuddyNext\Spaces
  */
@@ -63,7 +64,6 @@ class SpacePostGuard {
 		$role          = ( 'active' === $members->get_status( $space_id, $user_id ) )
 			? (string) $members->get_role( $space_id, $user_id )
 			: '';
-		$is_owner_mod  = in_array( $role, array( 'owner', 'moderator' ), true );
 		$is_site_admin = user_can( $user_id, 'manage_options' );
 
 		// "Who can post" threshold: members | mods | owner.
@@ -88,13 +88,9 @@ class SpacePostGuard {
 			}
 		}
 
-		// Pre-moderation: hold non owner/mod posts for approval.
-		if ( ! $is_owner_mod && ! $is_site_admin
-			&& (bool) get_option( 'bn_space_' . $space_id . '_require_post_approval', 0 )
-		) {
-			$data['status'] = 'pending';
-		}
-
+		// No pre-publish approval gate: members post freely (FB / LinkedIn
+		// model) and moderation is reactive — problematic posts are reported and
+		// removed via the moderation queue, never held for editorial sign-off.
 		return $data;
 	}
 }
