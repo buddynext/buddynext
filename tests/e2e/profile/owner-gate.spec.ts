@@ -2,27 +2,27 @@ import { test, expect } from '../_fixtures/auth.fixture';
 import { urls } from '../_fixtures/selectors';
 
 /**
- * Regression spec for A1 — the owner action bar (Edit Profile / Edit Avatar
- * / Edit Cover) must NOT render on other members' profiles, even for admin
- * viewers. The links unconditionally point at the viewer's own edit URL via
- * get_edit_profile_url(), so rendering them on someone else's profile leaks
- * unrelated UI.
+ * Regression spec for A1 — the owner-only profile actions (Edit Profile link +
+ * the cover-edit pencil) must NOT render on other members' profiles, even for
+ * admin viewers, since the edit link unconditionally targets the viewer's own
+ * edit URL via get_edit_profile_url() and would leak unrelated UI.
+ *
+ * v2: the action bar is `.bn-pf-actions` and renders on every profile, but with
+ * different buttons — owner gets an "Edit profile" link (href -> /edit/), other
+ * viewers get Follow / Connect / Message. The owner marker is therefore the
+ * edit link inside the bar (`.bn-pf-actions a[href*="/edit/"]`) plus the cover
+ * pencil (`.bn-pf-cover__edit`), not a dedicated `.bn-profile-actions-bar`.
  */
 test.describe('profile / owner gate', () => {
-    test('Edit Profile / Avatar / Cover do NOT render on a non-owner profile', async ({ authenticatedPage: page }) => {
+    test('Edit Profile / cover pencil do NOT render on a non-owner profile', async ({ authenticatedPage: page }) => {
         const otherMember = process.env.BN_TEST_OTHER_USER ?? 'member1';
         await page.goto(urls.member(otherMember));
         await expect(page.locator('.bn-pf-hero').first()).toBeVisible({ timeout: 5_000 });
 
-        // The owner action bar partial.
-        await expect(page.locator('.bn-profile-actions-bar')).toHaveCount(0);
+        // No owner Edit-profile link in the action bar on someone else's profile.
+        await expect(page.locator('.bn-pf-actions a[href*="/edit/"]')).toHaveCount(0);
 
-        // The individual action buttons.
-        await expect(page.locator('.bn-owner-action--edit_profile')).toHaveCount(0);
-        await expect(page.locator('.bn-owner-action--edit_avatar')).toHaveCount(0);
-        await expect(page.locator('.bn-owner-action--edit_cover')).toHaveCount(0);
-
-        // Cover edit pencil (only owner gets this in templates/profile/view.php).
+        // No cover-edit pencil (owner-only in templates/profile/view.php).
         await expect(page.locator('.bn-pf-cover__edit')).toHaveCount(0);
     });
 
@@ -30,7 +30,7 @@ test.describe('profile / owner gate', () => {
         const user = process.env.BN_TEST_USER ?? 'varundubey';
         await page.goto(urls.member(user));
         await expect(page.locator('.bn-pf-hero').first()).toBeVisible({ timeout: 5_000 });
-        await expect(page.locator('.bn-profile-actions-bar')).toBeVisible();
-        await expect(page.locator('.bn-owner-action--edit_profile')).toBeVisible();
+        await expect(page.locator('.bn-pf-actions').first()).toBeVisible();
+        await expect(page.locator('.bn-pf-actions a[href*="/edit/"]').first()).toBeVisible();
     });
 });
