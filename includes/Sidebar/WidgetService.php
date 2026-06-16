@@ -44,6 +44,13 @@ class WidgetService {
 	 * @return array<int,object>
 	 */
 	public function trending_hashtags( int $limit = 5 ): array {
+		// Respect the Hashtags feature: when the owner turns it off the trending
+		// widget has no data and its renderers (which hide on an empty list) drop
+		// out, so the sidebar carries no hashtag surface in a community that
+		// disabled hashtags.
+		if ( ! buddynext_feature_enabled( 'hashtags' ) ) {
+			return array();
+		}
 		$limit = max( 1, min( $limit, 20 ) );
 		return (array) $this->cache->get(
 			'trending:' . $limit,

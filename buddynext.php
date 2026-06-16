@@ -527,15 +527,20 @@ function buddynext_format_content( string $content ): string {
 	$escaped = preg_replace( '/(?<![\w])_([^_\n]+)_(?![\w])/u', '<em>$1</em>', $escaped );
 
 	// Replace #hashtag with a link (word boundary; allow hyphens and underscores).
-	$escaped = preg_replace_callback(
-		'/#([a-zA-Z0-9_-]+)/u',
-		static function ( array $m ): string {
-			$slug = sanitize_title( $m[1] );
-			$url  = home_url( '/activity/hashtag/' . $slug . '/' );
-			return '<a href="' . esc_url( $url ) . '" class="bn-hashtag">#' . esc_html( $m[1] ) . '</a>';
-		},
-		$escaped
-	);
+	// Single chokepoint for the Hashtags feature: when the owner turns it off, the
+	// tag stays as plain text everywhere this formatter runs (feed posts +
+	// comments) — no clickable hashtags leak into a community that disabled them.
+	if ( buddynext_feature_enabled( 'hashtags' ) ) {
+		$escaped = preg_replace_callback(
+			'/#([a-zA-Z0-9_-]+)/u',
+			static function ( array $m ): string {
+				$slug = sanitize_title( $m[1] );
+				$url  = home_url( '/activity/hashtag/' . $slug . '/' );
+				return '<a href="' . esc_url( $url ) . '" class="bn-hashtag">#' . esc_html( $m[1] ) . '</a>';
+			},
+			$escaped
+		);
+	}
 
 	// Replace @username with a link to the member profile.
 	$escaped = preg_replace_callback(
