@@ -104,15 +104,19 @@ class ApprovalManager {
 			exit;
 		}
 
-		require_once ABSPATH . 'wp-admin/includes/user.php';
-		wp_delete_user( $user_id );
-
 		/**
-		 * Fires when an administrator rejects (deletes) a pending registration.
+		 * Fires when an administrator rejects a pending registration.
+		 *
+		 * Fired BEFORE wp_delete_user() so listeners (e.g. the rejection email)
+		 * can still resolve the user's email/display name via get_userdata();
+		 * after deletion that lookup returns false and the email never sends.
 		 *
 		 * @param int $user_id Rejected user ID.
 		 */
 		do_action( 'buddynext_member_rejected', $user_id );
+
+		require_once ABSPATH . 'wp-admin/includes/user.php';
+		wp_delete_user( $user_id );
 
 		wp_safe_redirect( add_query_arg( 'bn_notice', 'rejected', $redirect ) );
 		exit;
