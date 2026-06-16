@@ -630,6 +630,20 @@ class ProfileController extends BaseRestController {
 
 		$profile['completion'] = $service->get_completion_score( $profile_user_id );
 
+		// Social-graph + post counts and bio — consumed by the member hover card,
+		// member directory, and native app profile header. Computed at the REST
+		// layer (not the cached profile payload) so follow/post changes are
+		// reflected immediately via FollowService's own cache.
+		$follows = buddynext_service( 'follows' );
+		if ( $follows instanceof \BuddyNext\SocialGraph\FollowService ) {
+			$profile['follower_count']  = $follows->follower_count( $profile_user_id );
+			$profile['following_count'] = $follows->following_count( $profile_user_id );
+		}
+		$profile['post_count'] = $this->user_post_count( $profile_user_id );
+		if ( ! isset( $profile['bio'] ) ) {
+			$profile['bio'] = (string) get_user_meta( $profile_user_id, 'bn_field_bio', true );
+		}
+
 		/**
 		 * Fires after a user's profile is loaded and the response is built.
 		 *
@@ -1288,7 +1302,7 @@ class ProfileController extends BaseRestController {
 			return new WP_Error( 'not_found', __( 'User not found.', 'buddynext' ), array( 'status' => 404 ) );
 		}
 
-		delete_user_meta( $user_id, 'buddynext_cover_url' );
+		$this->purge_user_cover( $user_id );
 
 		return new WP_REST_Response( array( 'deleted' => true ), 200 );
 	}
@@ -1311,10 +1325,45 @@ class ProfileController extends BaseRestController {
 	 * @return WP_REST_Response
 	 */
 	public function delete_cover(): WP_REST_Response {
-		$user_id = get_current_user_id();
-		delete_user_meta( $user_id, 'buddynext_cover_url' );
+		$this->purge_user_cover( get_current_user_id() );
 
 		return new WP_REST_Response( array( 'deleted' => true ), 200 );
+	}
+
+	/**
+	 * Fully remove a user's cover photo: usermeta URL, the stored focal point,
+	 * and the image variations on disk.
+	 *
+	 * Deleting only the `buddynext_cover_url` usermeta would leave the
+	 * uploads/bn-covers/{user_id}/ files orphaned forever and keep a stale
+	 * `buddynext_cover_focal` object-position that profile-hero.php would apply
+	 * to the next uploaded cover.
+	 *
+	 * @param int $user_id Target user ID.
+	 * @return void
+	 */
+	private function purge_user_cover( int $user_id ): void {
+		delete_user_meta( $user_id, 'buddynext_cover_url' );
+		delete_user_meta( $user_id, 'buddynext_cover_focal' );
+		( new \BuddyNext\Media\ImageStorageService() )->delete( 'cover', 'user', $user_id );
+	}
+
+	/**
+	 * Count a user's authored posts (top-level activity).
+	 *
+	 * @param int $user_id Target user ID.
+	 * @return int
+	 */
+	private function user_post_count( int $user_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d",
+				$user_id
+			)
+		);
 	}
 
 	/**

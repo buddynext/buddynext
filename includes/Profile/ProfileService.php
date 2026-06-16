@@ -1553,7 +1553,6 @@ class ProfileService {
 		update_user_meta( $user_id, 'bn_avatar', $url );
 		// Bust profile cache — avatar URL is embedded in cached profile payload.
 		$this->bust_profile_cache( $user_id );
-		\BuddyNext\Core\Plugin::bust_avatar_cache( $user_id );
 	}
 
 	/**
@@ -1564,8 +1563,10 @@ class ProfileService {
 	 */
 	public function delete_avatar( int $user_id ): void {
 		delete_user_meta( $user_id, 'bn_avatar' );
+		// Remove the stored image variations from disk — usermeta alone would
+		// leave the uploads/bn-avatars/{user_id}/ files orphaned forever.
+		( new \BuddyNext\Media\ImageStorageService() )->delete( 'avatar', 'user', $user_id );
 		$this->bust_profile_cache( $user_id );
-		\BuddyNext\Core\Plugin::bust_avatar_cache( $user_id );
 	}
 
 	/**

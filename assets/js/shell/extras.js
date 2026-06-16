@@ -306,6 +306,9 @@
 				var av = document.createElement( 'div' );
 				av.className = 'bn-hover-card__avatar';
 				av.textContent = initials;
+				// Keep a handle so the profile fetch below can swap the initials
+				// for the real avatar image once it resolves.
+				var avatarBox = av;
 				var info = document.createElement( 'div' );
 				var nm = document.createElement( 'div' );
 				nm.className = 'bn-hover-card__name';
@@ -344,9 +347,20 @@
 				card.hidden = false;
 
 				if ( data.restUserUrl ) {
-					fetch( data.restUserUrl + userId, {
+					// Canonical profile route is /users/{id}/profile — the bare
+					// /users/{id} returns 404, so avatar/bio/stats never loaded.
+					fetch( data.restUserUrl + userId + '/profile', {
 						headers: { 'X-WP-Nonce': nonce }
 					} ).then( function ( r ) { return r.json(); } ).then( function ( u ) {
+						// Swap the initials placeholder for the real avatar image.
+						if ( u && u.avatar_url ) {
+							var img = document.createElement( 'img' );
+							img.src = u.avatar_url;
+							img.alt = '';
+							img.loading = 'lazy';
+							avatarBox.textContent = '';
+							avatarBox.appendChild( img );
+						}
 						stats.textContent = '';
 						var pairs = [
 							[ 'Posts', u.post_count || 0 ],

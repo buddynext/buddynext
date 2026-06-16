@@ -834,24 +834,36 @@ class PageRouter {
 		wp_enqueue_script_module( '@buddynext/social-buttons' );
 
 		// Localize REST endpoints + nav URLs for shell/extras.js.
-		wp_localize_script(
-			'bn-shell-extras',
-			'bnShellData',
-			array(
-				'restNonce'         => wp_create_nonce( 'wp_rest' ),
-				'restSearchUrl'     => esc_url_raw( rest_url( 'buddynext/v1/search' ) ),
-				'restNotifsUrl'     => esc_url_raw( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ),
-				'restNotifsReadUrl' => esc_url_raw( rest_url( 'buddynext/v1/me/notifications/read-all' ) ),
-				'restUserUrl'       => esc_url_raw( rest_url( 'buddynext/v1/users/' ) ),
-				'feedUrl'           => self::activity_url(),
-				'navUrls'           => array(
-					'feed'          => self::activity_url(),
-					'members'       => self::people_url(),
-					'spaces'        => self::spaces_url(),
-					'notifications' => self::notifications_url(),
-					'messages'      => self::messages_url(),
-				),
-			)
+		//
+		// This method runs at template_redirect, which fires BEFORE the
+		// wp_enqueue_scripts hook where bn-shell-extras is registered (priority
+		// 10). Attaching localized data to an unregistered handle is a silent
+		// no-op (WP_Dependencies::add_data() bails when the handle is unknown),
+		// so a direct wp_localize_script() here would drop window.bnShellData
+		// entirely — and with it the hover card, search overlay, and notif
+		// dropdown all lose their REST config. Defer the attach to
+		// wp_enqueue_scripts (priority 20), once the handle exists.
+		$bn_shell_data = array(
+			'restNonce'         => wp_create_nonce( 'wp_rest' ),
+			'restSearchUrl'     => esc_url_raw( rest_url( 'buddynext/v1/search' ) ),
+			'restNotifsUrl'     => esc_url_raw( rest_url( 'buddynext/v1/me/notifications?per_page=5' ) ),
+			'restNotifsReadUrl' => esc_url_raw( rest_url( 'buddynext/v1/me/notifications/read-all' ) ),
+			'restUserUrl'       => esc_url_raw( rest_url( 'buddynext/v1/users/' ) ),
+			'feedUrl'           => self::activity_url(),
+			'navUrls'           => array(
+				'feed'          => self::activity_url(),
+				'members'       => self::people_url(),
+				'spaces'        => self::spaces_url(),
+				'notifications' => self::notifications_url(),
+				'messages'      => self::messages_url(),
+			),
+		);
+		add_action(
+			'wp_enqueue_scripts',
+			static function () use ( $bn_shell_data ): void {
+				wp_localize_script( 'bn-shell-extras', 'bnShellData', $bn_shell_data );
+			},
+			20
 		);
 
 		switch ( $hub ) {
@@ -922,18 +934,28 @@ class PageRouter {
 				}
 				// Localize the spaces URL base + i18n so the spaces store can
 				// rebuild URLs without reloading the page (reactive directory,
-				// create-space redirect target).
-				wp_add_inline_script(
-					'bn-shell-extras',
-					'window.bnSpaces = window.bnSpaces || ' . wp_json_encode(
-						array(
-							'spaceUrlBase' => esc_url_raw( self::spaces_url() . '__slug__/' ),
-							'directoryUrl' => esc_url_raw( self::spaces_url() ),
-							'restNonce'    => wp_create_nonce( 'wp_rest' ),
-							'restUrl'      => esc_url_raw( rest_url( 'buddynext/v1' ) ),
-						)
-					) . ';',
-					'before'
+				// create-space redirect target). Deferred to wp_enqueue_scripts
+				// for the same reason as bnShellData above — bn-shell-extras is
+				// not registered yet at template_redirect, so an inline script
+				// attached now would be dropped.
+				$bn_spaces_data = wp_json_encode(
+					array(
+						'spaceUrlBase' => esc_url_raw( self::spaces_url() . '__slug__/' ),
+						'directoryUrl' => esc_url_raw( self::spaces_url() ),
+						'restNonce'    => wp_create_nonce( 'wp_rest' ),
+						'restUrl'      => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+					)
+				);
+				add_action(
+					'wp_enqueue_scripts',
+					static function () use ( $bn_spaces_data ): void {
+						wp_add_inline_script(
+							'bn-shell-extras',
+							'window.bnSpaces = window.bnSpaces || ' . $bn_spaces_data . ';',
+							'before'
+						);
+					},
+					20
 				);
 				break;
 

@@ -497,7 +497,9 @@ class Members extends AdminPageBase {
 		// Handle avatar removal.
 		if ( ! empty( $_POST['bn_remove_avatar'] ) ) {
 			delete_user_meta( $user_id, 'bn_avatar' );
-			\BuddyNext\Core\Plugin::bust_avatar_cache( $user_id );
+			// Drop the stored image variations too — usermeta alone orphans the
+			// uploads/bn-avatars/{user_id}/ files on disk.
+			( new \BuddyNext\Media\ImageStorageService() )->delete( 'avatar', 'user', (int) $user_id );
 			wp_cache_delete( "profile_{$user_id}_viewer_owner", 'buddynext_profiles' );
 			wp_cache_delete( "profile_{$user_id}_viewer_follower", 'buddynext_profiles' );
 			wp_cache_delete( "profile_{$user_id}_viewer_public", 'buddynext_profiles' );
@@ -530,7 +532,6 @@ class Members extends AdminPageBase {
 
 			if ( ! is_wp_error( $uploaded ) ) {
 				update_user_meta( $user_id, 'bn_avatar', esc_url_raw( $uploaded ) );
-				\BuddyNext\Core\Plugin::bust_avatar_cache( $user_id );
 				wp_cache_delete( "profile_{$user_id}_viewer_owner", 'buddynext_profiles' );
 				wp_cache_delete( "profile_{$user_id}_viewer_follower", 'buddynext_profiles' );
 				wp_cache_delete( "profile_{$user_id}_viewer_public", 'buddynext_profiles' );
@@ -540,6 +541,8 @@ class Members extends AdminPageBase {
 		// Handle cover photo removal.
 		if ( ! empty( $_POST['bn_remove_cover'] ) ) {
 			delete_user_meta( $user_id, 'buddynext_cover_url' );
+			delete_user_meta( $user_id, 'buddynext_cover_focal' );
+			( new \BuddyNext\Media\ImageStorageService() )->delete( 'cover', 'user', (int) $user_id );
 		}
 
 		// Handle cover photo upload.
