@@ -561,6 +561,11 @@ class AdminHub {
 		echo '<header class="bn-admin-hub__header">';
 		echo '<h1 class="bn-admin-hub__title">' . esc_html__( $label, 'buddynext' ) . '</h1>'; // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText
 		echo '</header>';
+		// WordPress core hoists admin notices to just after the first <h1>, which
+		// here lands them inside the flex header and squishes them to a sliver.
+		// This marker tells core to place notices after the header instead, so
+		// they render full-width in the content column (invisible via core CSS).
+		echo '<hr class="wp-header-end" />';
 	}
 
 	/**
