@@ -1528,6 +1528,19 @@
 	padding: var(--bn-s1) var(--bn-s3);
 }
 
+/* Reply-form submit reuses .bn-comment-form__submit (the circular icon button)
+   but carries a text label ("Reply"), which the 40x40 icon sizing clipped and
+   left misaligned next to the text Cancel link. Match the edit-form override so
+   it renders as a normal text button aligned with Cancel. */
+.bn-comment__reply-form .bn-comment-form__submit {
+	align-self: flex-start;
+	width: auto;
+	height: auto;
+	min-height: var(--bn-tap, 40px);
+	border-radius: var(--bn-r-md);
+	padding: var(--bn-s1) var(--bn-s3);
+}
+
 /* Inline post editor — opened from the post card kebab → Edit. Pre-filled
    textarea + Save/Cancel, replacing the rendered content in place. */
 .bn-post-card__edit-form {
