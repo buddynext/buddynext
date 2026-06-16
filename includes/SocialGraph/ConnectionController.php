@@ -157,6 +157,14 @@ class ConnectionController extends BaseRestController {
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
 
+		if ( ! get_userdata( $target_id ) ) {
+			return new WP_Error(
+				'buddynext_user_not_found',
+				__( 'User not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		if ( buddynext_service( 'blocks' )->is_blocking_either( $current_id, $target_id ) ) {
 			return new WP_Error(
 				'buddynext_blocked',

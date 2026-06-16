@@ -122,7 +122,16 @@ class BlockController extends BaseRestController {
 	public function block( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
-		$result     = buddynext_service( 'blocks' )->block( $current_id, $target_id );
+
+		if ( ! get_userdata( $target_id ) ) {
+			return new WP_Error(
+				'buddynext_user_not_found',
+				__( 'User not found.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$result = buddynext_service( 'blocks' )->block( $current_id, $target_id );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 400 ) );
