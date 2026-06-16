@@ -131,7 +131,7 @@ do_action( 'buddynext_part_filter_strip_before', $args );
 					<?php endif; ?>
 					<span class="bn-tab__label"><?php echo esc_html( $bn_label ); ?></span>
 					<?php if ( '' !== $bn_count ) : ?>
-						<span class="bn-badge" data-tone="neutral"><?php echo esc_html( $bn_count ); ?></span>
+						<span class="bn-tab__count"><?php echo esc_html( $bn_count ); ?></span>
 					<?php endif; ?>
 				</<?php echo esc_html( $bn_tab_tag ); ?>>
 			<?php endforeach; ?>
