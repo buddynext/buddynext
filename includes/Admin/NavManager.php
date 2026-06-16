@@ -125,7 +125,7 @@ class NavManager extends AdminPageBase {
 			array( $this, 'render_page' ),
 			array(
 				'group'  => __( 'Advanced', 'buddynext' ),
-				'layout' => 'wide', // list-detail editor needs edge-to-edge room
+				'layout' => 'wide', // List-detail editor needs edge-to-edge room.
 			)
 		);
 	}
@@ -823,7 +823,7 @@ class NavManager extends AdminPageBase {
 							name="bn_nav_visible[<?php echo esc_attr( $scope ); ?>][<?php echo esc_attr( $slug ); ?>]"
 							value="1"
 							<?php checked( ! $hidden ); ?>>
-					<span class="bn-toggle<?php echo ! $hidden ? ' bn-toggle-on' : ''; ?>"
+					<span class="bn-toggle"
 							role="switch"
 							aria-checked="<?php echo $hidden ? 'false' : 'true'; ?>"
 							aria-hidden="true"></span>

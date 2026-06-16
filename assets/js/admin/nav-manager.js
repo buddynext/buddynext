@@ -123,7 +123,6 @@
 			if ( this.checked ) {
 				if ( toggle ) {
 					toggle.setAttribute( 'aria-checked', 'true' );
-					toggle.classList.add( 'bn-toggle-on' );
 				}
 				if ( row ) {
 					row.removeAttribute( 'data-row-hidden' );
@@ -131,7 +130,6 @@
 			} else {
 				if ( toggle ) {
 					toggle.setAttribute( 'aria-checked', 'false' );
-					toggle.classList.remove( 'bn-toggle-on' );
 				}
 				if ( row ) {
 					row.setAttribute( 'data-row-hidden', '' );

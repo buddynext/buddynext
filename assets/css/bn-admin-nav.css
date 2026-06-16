@@ -143,7 +143,10 @@
 	border: 1px solid var(--bn-a-border);
 	border-radius: var(--bn-a-r-md);
 	margin-bottom: var(--bn-a-s4);
-	overflow: hidden;
+	/* Must stay visible: overflow:hidden clips the jQuery UI Sortable drag
+	   helper when a nav row is dragged past the section edge. The header and
+	   list are inset, so the rounded corners need no clipping. */
+	overflow: visible;
 }
 
 .bn-nav-section-header {
@@ -205,6 +208,16 @@
 .bn-nav-list .bn-drag-row[data-row-hidden] {
 	opacity: 0.55;
 	background: var(--bn-a-bg-subtle);
+}
+
+/* Visibility toggle — the label wraps the screen-reader-only checkbox and the
+   .bn-toggle visual track. aria-checked (kept in sync by nav-manager.js) is
+   the single source of the on/off state; the wrapper just aligns the control
+   inside the .bn-drag-row__actions flex row. */
+.bn-toggle-wrap {
+	display: inline-flex;
+	align-items: center;
+	cursor: pointer;
 }
 
 .bn-nav-row-icon {
