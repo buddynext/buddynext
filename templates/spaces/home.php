@@ -584,6 +584,11 @@ do_action( 'buddynext_space_home_before', $space_id, $current_user_id );
 // Tab entries use the array shape so the count chip (v2 prototype pattern)
 // surfaces under each label. `count` is the integer rendered inside
 // `<span class="bn-tab__count">` by `parts/space-tab-bar.php`.
+// Media tab only when WPMediaVerse is active AND the space owner enabled it
+// (Settings > Integrations > "WPMediaVerse Media"). Mirrors the option the
+// settings page writes/reads, bn_space_{id}_mvs_media_tab (default off).
+$bn_media_tab_on = \BuddyNext\Media\MediaClient::available() && (bool) get_option( 'bn_space_' . $space->id . '_mvs_media_tab', 0 );
+
 $bn_nav_tabs = array(
 	'feed'    => array(
 		'label' => __( 'Feed', 'buddynext' ),
@@ -593,13 +598,21 @@ $bn_nav_tabs = array(
 		'label' => __( 'Members', 'buddynext' ),
 		'count' => (int) $space->member_count,
 	),
-	'media'   => array(
+);
+
+if ( $bn_media_tab_on ) {
+	$bn_nav_tabs['media'] = array(
 		'label' => __( 'Media', 'buddynext' ),
 		'count' => (int) $bn_media_count,
-	),
-	'about'   => array(
-		'label' => __( 'About', 'buddynext' ),
-	),
+	);
+} elseif ( 'media' === $active_tab ) {
+	// Direct ?bn_tab=media URL while the media tab is disabled — fall back to Feed
+	// so the gallery body branch never renders for a hidden tab.
+	$active_tab = 'feed';
+}
+
+$bn_nav_tabs['about'] = array(
+	'label' => __( 'About', 'buddynext' ),
 );
 
 if ( $is_admin_mod ) {
