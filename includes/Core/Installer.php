@@ -498,7 +498,7 @@ class Installer {
 				type       ENUM('block','mute','restrict') NOT NULL DEFAULT 'block',
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (blocker_id, blocked_id),
-				KEY         blocked (blocked_id),
+				KEY         blocked_type (blocked_id, type),
 				KEY         blocker_type (blocker_id, type)
 			) {$cs};",
 
@@ -530,7 +530,7 @@ class Installer {
 				created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 				PRIMARY KEY         (id),
-				KEY                 user_feed (user_id, created_at),
+				KEY                 user_feed (user_id, status, created_at),
 				KEY                 space_feed (space_id, status, created_at),
 				KEY                 announcement_feed (is_announcement, status, created_at),
 				KEY                 explore (privacy, created_at),
@@ -553,7 +553,7 @@ class Installer {
 				content    TEXT DEFAULT NULL,
 				created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY (id),
-				KEY         user_shares (user_id),
+				UNIQUE KEY  user_post (user_id, post_id),
 				KEY         post_shares (post_id)
 			) {$cs};",
 
