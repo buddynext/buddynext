@@ -954,7 +954,9 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function shadow_ban( int $user_id, int $actor_id, string $reason = '' ): true|WP_Error {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		// Authorise the declared actor, not whoever happens to be the current
+		// user — the method takes an explicit $actor_id and must check that.
+		if ( ! user_can( $actor_id, 'manage_options' ) ) {
 			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -980,7 +982,8 @@ class ModerationService {
 	 * @return true|WP_Error
 	 */
 	public function unshadow_ban( int $user_id, int $actor_id ): true|WP_Error {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		// Authorise the declared actor, not the current user (see shadow_ban).
+		if ( ! user_can( $actor_id, 'manage_options' ) ) {
 			return new WP_Error( 'buddynext_forbidden', __( 'Insufficient permissions.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
@@ -1567,9 +1570,14 @@ class ModerationService {
 		/**
 		 * Fires after a user is shadow-banned.
 		 *
-		 * @param int $user_id Shadow-banned user ID.
+		 * Same (user_id, actor_id, reason) signature as shadow_ban(); this path
+		 * has no explicit actor, so actor_id is 0 (system) and reason is empty.
+		 *
+		 * @param int    $user_id  Shadow-banned user ID.
+		 * @param int    $actor_id Moderator user ID (0 = system).
+		 * @param string $reason   Reason for shadow-ban.
 		 */
-		do_action( 'buddynext_user_shadow_banned', $user_id );
+		do_action( 'buddynext_user_shadow_banned', $user_id, 0, '' );
 
 		return false !== $result;
 	}
@@ -1590,9 +1598,13 @@ class ModerationService {
 		/**
 		 * Fires after a shadow-ban is removed from a user.
 		 *
-		 * @param int $user_id User ID.
+		 * Same (user_id, actor_id) signature as unshadow_ban(); this path has no
+		 * explicit actor, so actor_id is 0 (system).
+		 *
+		 * @param int $user_id  User ID.
+		 * @param int $actor_id Moderator user ID (0 = system).
 		 */
-		do_action( 'buddynext_user_shadow_ban_removed', $user_id );
+		do_action( 'buddynext_user_shadow_ban_removed', $user_id, 0 );
 
 		return true;
 	}
@@ -1824,10 +1836,15 @@ class ModerationService {
 		/**
 		 * Fires after an appeal is submitted.
 		 *
-		 * @param int $user_id   User who submitted the appeal.
-		 * @param int $insert_id Inserted appeal ID.
+		 * Same (user_id, appeal_id, type, related_id) signature as the other
+		 * appeal-submit path; create_appeal only handles suspension appeals.
+		 *
+		 * @param int    $user_id   User who submitted the appeal.
+		 * @param int    $appeal_id Inserted appeal ID.
+		 * @param string $type      Appeal subject type.
+		 * @param int    $related_id Related record ID (the suspension).
 		 */
-		do_action( 'buddynext_appeal_submitted', $user_id, $insert_id );
+		do_action( 'buddynext_appeal_submitted', $user_id, $insert_id, 'suspension', $suspension_id );
 
 		return $insert_id;
 	}
@@ -1971,22 +1988,26 @@ class ModerationService {
 	 * Spec alias: issue a strike against a user.
 	 *
 	 * Delegates to issue_strike() — included so callers can use the spec
-	 * method name `strike()` as documented in the moderation spec.
+	 * method name `strike()`. Parameter order matches issue_strike()
+	 * ($user_id, $actor_id) so the alias can't silently swap the two when called
+	 * positionally.
 	 *
-	 * @param int    $actor_id Admin issuing the strike.
 	 * @param int    $user_id  User receiving the strike.
+	 * @param int    $actor_id Admin issuing the strike.
 	 * @param string $reason   Reason for the strike.
 	 * @return int|WP_Error Strike ID or WP_Error.
 	 */
-	public function strike( int $actor_id, int $user_id, string $reason = '' ): int|WP_Error {
+	public function strike( int $user_id, int $actor_id, string $reason = '' ): int|WP_Error {
 		return $this->issue_strike( $user_id, $actor_id, $reason );
 	}
 
 	/**
 	 * Spec alias: remove the shadow-ban from a user.
 	 *
-	 * Delegates to remove_shadow_ban() — included so callers can use the spec
-	 * method name `shadow_unban()` as documented in the moderation spec.
+	 * Delegates to unshadow_ban() (not the actor-less remove_shadow_ban) so the
+	 * acting moderator is carried into the buddynext_user_shadow_ban_removed hook
+	 * — otherwise $actor_id was accepted and silently dropped, leaving no audit
+	 * trail of who lifted the shadow-ban.
 	 *
 	 * @param int $actor_id Moderator performing the action.
 	 * @param int $user_id  User to unshadow-ban.
@@ -1997,6 +2018,6 @@ class ModerationService {
 			return false;
 		}
 
-		return $this->remove_shadow_ban( $user_id );
+		return ! is_wp_error( $this->unshadow_ban( $user_id, $actor_id ) );
 	}
 }
