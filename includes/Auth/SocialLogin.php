@@ -694,9 +694,11 @@ class SocialLogin {
 		}
 		update_user_meta( $user_id, $meta_key, $profile['id'] );
 
-		// A verified provider email satisfies BuddyNext's own email check.
+		// A verified provider email satisfies BuddyNext's own email check. Use the
+		// canonical key VerificationService reads/writes (buddynext_email_verified),
+		// so social-login members are recognised as verified everywhere.
 		if ( $profile['email_verified'] ) {
-			update_user_meta( $user_id, 'bn_email_verified', 1 );
+			update_user_meta( $user_id, 'buddynext_email_verified', 1 );
 		}
 
 		// Adopt the provider avatar when the member has none yet.
