@@ -751,35 +751,19 @@ class Spaces extends AdminPageBase {
 	/**
 	 * Permanently delete a space and all its associated data.
 	 *
-	 * Fires buddynext_space_deleted after the row is removed.
+	 * Delegates to SpaceService::delete() — the single cleanup routine — so the
+	 * admin path cascades the space's posts (and their reactions/comments/
+	 * bookmarks/shares/hashtags/poll/feed rows) and clears bn_space_bans /
+	 * bn_reports / bn_mod_log / bn_space_members, instead of deleting only the
+	 * space + member rows and orphaning everything else. The admin_post handler
+	 * has already gated on manage_options, which the service's permission check
+	 * also honours. SpaceService::delete() fires buddynext_space_deleted itself.
 	 *
 	 * @param int $space_id bn_spaces.id.
 	 * @return void
 	 */
 	public function delete_space( int $space_id ): void {
-		global $wpdb;
-
-		$wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$wpdb->prefix . 'bn_spaces',
-			array( 'id' => $space_id ),
-			array( '%d' )
-		);
-
-		// Remove member associations.
-		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$wpdb->prefix}bn_space_members'" ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-				$wpdb->prefix . 'bn_space_members',
-				array( 'space_id' => $space_id ),
-				array( '%d' )
-			);
-		}
-
-		/**
-		 * Fires after a space is deleted.
-		 *
-		 * @param int $space_id The deleted space ID.
-		 */
-		do_action( 'buddynext_space_deleted', $space_id );
+		buddynext_service( 'spaces' )->delete( $space_id, get_current_user_id() );
 	}
 
 	// ── Admin-post handlers ────────────────────────────────────────────────────
