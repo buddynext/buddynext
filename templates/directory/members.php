@@ -181,16 +181,37 @@ if ( $current_user_id > 0 && 'all' !== $bn_relation ) {
 	}
 }
 
+// Member-directory visibility: hide anyone who opted out of the directory
+// (usermeta bn_privacy_show_in_directory = '0'). Default-visible, so we match
+// users WITHOUT the meta or with any value other than '0'. This must run on the
+// initial server render too — not only the REST pagination path
+// (MemberDirectoryService) — or opted-out members leak onto the first page load.
+$bn_meta_query = array(
+	'relation' => 'AND',
+	array(
+		'relation' => 'OR',
+		array(
+			'key'     => 'bn_privacy_show_in_directory',
+			'compare' => 'NOT EXISTS',
+		),
+		array(
+			'key'     => 'bn_privacy_show_in_directory',
+			'value'   => '0',
+			'compare' => '!=',
+		),
+	),
+);
+
 // Filter by member type via denormalised usermeta (write-through cache — no JOIN needed).
 if ( '' !== $type_slug_filter ) {
-	$user_query_args['meta_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-		array(
-			'key'     => 'bn_member_type',
-			'value'   => $type_slug_filter,
-			'compare' => '=',
-		),
+	$bn_meta_query[] = array(
+		'key'     => 'bn_member_type',
+		'value'   => $type_slug_filter,
+		'compare' => '=',
 	);
 }
+
+$user_query_args['meta_query'] = $bn_meta_query; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 
 // Apply the resolved search IDs to `include`, intersecting with any relation
 // constraint already set above (most-restrictive wins).

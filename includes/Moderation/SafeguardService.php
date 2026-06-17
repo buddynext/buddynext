@@ -177,6 +177,21 @@ class SafeguardService {
 			return true;
 		}
 
+		// Trusted roles are exempt — site admins (and community moderators) post
+		// announcements/bulk content legitimately and should not hit the
+		// member-facing flood limit. Filterable for custom exemption rules.
+		$exempt = user_can( $user_id, 'manage_options' )
+			|| buddynext_can( $user_id, 'buddynext-moderation/review-queue' );
+		/**
+		 * Filter whether a user is exempt from the post rate limit.
+		 *
+		 * @param bool $exempt  Whether the user is exempt.
+		 * @param int  $user_id User being checked.
+		 */
+		if ( (bool) apply_filters( 'buddynext_rate_limit_exempt', $exempt, $user_id ) ) {
+			return true;
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

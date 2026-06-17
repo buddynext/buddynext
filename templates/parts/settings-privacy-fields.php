@@ -113,8 +113,14 @@ $privacy_rows = array(
 	array( 'toggle', 'bn_account_private', __( 'Private account', 'buddynext' ), $privacy_account_private, 'bn-ep-privacy-private-lbl', __( 'Only approved followers see your posts. New follows arrive as requests you can accept or decline.', 'buddynext' ), array() ),
 	array( 'toggle', 'bn_privacy_show_in_directory', __( 'Show me in the member directory', 'buddynext' ), $privacy_show_in_directory, 'bn-ep-privacy-dir-lbl', __( 'Turn off to hide from /members/.', 'buddynext' ), array() ),
 	array( 'toggle', 'bn_privacy_search_indexable', __( 'Show my profile to search engines', 'buddynext' ), $privacy_search_indexable, 'bn-ep-privacy-search-lbl', __( 'When off, your profile carries noindex.', 'buddynext' ), array() ),
-	array( 'toggle', 'bn_pro_hide_profile_views', __( 'Hide my profile views', 'buddynext' ), $privacy_hide_views, 'bn-ep-privacy-views-lbl', __( 'When on, your visits to other profiles are not recorded.', 'buddynext' ), array() ),
 );
+
+// "Hide my profile views" only does something when Pro's profile-view tracking
+// is active (Pro P5.3 reads bn_pro_hide_profile_views). Surfacing it in a
+// Free-only install is a dead toggle, so gate it on Pro being present.
+if ( defined( 'BUDDYNEXTPRO_VERSION' ) ) {
+	$privacy_rows[] = array( 'toggle', 'bn_pro_hide_profile_views', __( 'Hide my profile views', 'buddynext' ), $privacy_hide_views, 'bn-ep-privacy-views-lbl', __( 'When on, your visits to other profiles are not recorded.', 'buddynext' ), array() );
+}
 $privacy_html = '';
 foreach ( $privacy_rows as $r ) {
 	$is_select     = 'select' === $r[0];
