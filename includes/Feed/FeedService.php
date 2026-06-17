@@ -83,12 +83,19 @@ class FeedService {
 	 *
 	 * The fragment is always prefixed with AND so it can be appended directly
 	 * to an existing WHERE clause. It uses two NOT IN subqueries:
-	 *  1. Active suspension rows in bn_user_suspensions.
+	 *  1. Active suspension rows in bn_user_suspensions (hide_posts = 1).
 	 *  2. Users whose bn_shadow_banned usermeta = '1'.
+	 *
+	 * Moderators (manage_options) get no exclusion — they must see suspended and
+	 * shadow-banned authors' posts in the feed to review them; hiding that
+	 * content from a moderator defeats moderation.
 	 *
 	 * @return string Raw SQL fragment — no user-supplied data, safe to embed.
 	 */
 	private function excluded_users_where(): string {
+		if ( current_user_can( 'manage_options' ) ) {
+			return '';
+		}
 		// Delegate to the one canonical moderation-exclusion builder so the feed
 		// and follow suggestions exclude the same suspended/shadow-banned set.
 		return buddynext_service( 'moderation' )->moderation_exclude_sql( 'user_id' );
