@@ -544,9 +544,9 @@
 	line-height: 1.2;
 }
 .bn-ob-person__meta {
-	font-family: var(--bn-font-mono, var(--bn-font-ui));
-	font-size: 10px;
-	color: var(--bn-ink-4);
+	font-family: var(--bn-font-ui);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
 	margin-top: 2px;
 }
 .bn-ob-person__cta {
@@ -830,7 +830,7 @@
 	color: var(--bn-ink-3);
 	flex-shrink: 0;
 }
-.bn-wizard__step-marker .bn-icon { width: 12px; height: 12px; }
+.bn-wizard__step-marker .bn-icon { width: 12px; height: 12px; display: block; }
 .bn-wizard__step[data-state="done"] .bn-wizard__step-marker {
 	background: var(--bn-accent);
 	border-color: var(--bn-accent);
