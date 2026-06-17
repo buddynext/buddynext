@@ -120,6 +120,14 @@ class EmailEditor {
 					'preview' => "You're now connected with {{connector_name}}!",
 					'body'    => "Hi {{recipient_name}},\n\n<strong>{{connector_name}}</strong> accepted your connection request on {{site_name}}.\n\n<a href=\"{{profile_url}}\">View their profile →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from this type of email.",
 				),
+				'bn.connection_declined'  => array(
+					'name'    => __( 'Connection Declined', 'buddynext' ),
+					'trigger' => __( 'When a connection request is not accepted', 'buddynext' ),
+					'tokens'  => array( '{{recipient_name}}', '{{site_name}}', '{{site_url}}', '{{unsubscribe_url}}' ),
+					'subject' => 'An update on your connection request on {{site_name}}',
+					'preview' => 'An update on your connection request.',
+					'body'    => "Hi {{recipient_name}},\n\nYour recent connection request on {{site_name}} wasn't accepted. No worries — there are plenty of other members to connect with.\n\n<a href=\"{{site_url}}\">Explore the community →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a> from this type of email.",
+				),
 				'bn.mention'              => array(
 					'name'    => __( 'Mention', 'buddynext' ),
 					'trigger' => __( "When you're @mentioned", 'buddynext' ),

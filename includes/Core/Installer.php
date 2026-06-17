@@ -236,6 +236,12 @@ class Installer {
 				'body_html'    => '<p>Hi {{user_name}},</p><p>Your connection request was accepted on {{site_name}}. <a href="{{action_url}}">View your connections.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
 			),
 			array(
+				'type'         => 'bn.connection_declined',
+				'subject'      => 'An update on your connection request on {{site_name}}',
+				'preview_text' => 'An update on your connection request',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Your recent connection request on {{site_name}} was not accepted. There are plenty of other members to connect with. <a href="{{site_url}}">Explore the community.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
 				'type'         => 'bn.mention',
 				'subject'      => 'You were mentioned on {{site_name}}',
 				'preview_text' => 'Someone mentioned you in a post',
