@@ -116,6 +116,13 @@ class NotificationMessageService {
 					$actor_name
 				);
 
+			case 'bn.follow_requested':
+				return sprintf(
+					/* translators: %s: actor display name. */
+					__( '%s requested to follow you.', 'buddynext' ),
+					$actor_name
+				);
+
 			case 'bn.connection_requested':
 				return sprintf(
 					/* translators: %s: actor display name. */
@@ -298,6 +305,9 @@ class NotificationMessageService {
 
 			case 'bn.report_resolved':
 				return __( 'Your report was reviewed. Thank you for keeping the community safe.', 'buddynext' );
+
+			case 'bn.new_report':
+				return __( 'New content was reported and is awaiting review.', 'buddynext' );
 
 			case 'bn.post_approved':
 				return __( 'Your post was approved and is now live.', 'buddynext' );
@@ -499,6 +509,11 @@ class NotificationMessageService {
 					'tone'  => 'info',
 					'label' => __( 'New follower', 'buddynext' ),
 				),
+				'bn.follow_requested'       => array(
+					'icon'  => 'user-plus',
+					'tone'  => 'info',
+					'label' => __( 'Follow request', 'buddynext' ),
+				),
 				'bn.connection_requested'   => array(
 					'icon'  => 'user-check',
 					'tone'  => 'info',
@@ -639,6 +654,11 @@ class NotificationMessageService {
 					'tone'  => 'success',
 					'label' => __( 'Report resolved', 'buddynext' ),
 				),
+				'bn.new_report'             => array(
+					'icon'  => 'flag',
+					'tone'  => 'warning',
+					'label' => __( 'New report', 'buddynext' ),
+				),
 				'bn.badge_awarded'          => array(
 					'icon'  => 'award',
 					'tone'  => 'warn',
@@ -764,6 +784,7 @@ class NotificationMessageService {
 				return $me > 0 ? PageRouter::connections_url( $me ) : '';
 
 			case 'bn.new_follower':
+			case 'bn.follow_requested':
 			case 'bn.connection_accepted':
 			case 'bn.connection_declined':
 				return $actor_id > 0 ? PageRouter::profile_url( $actor_id ) : '';
@@ -839,6 +860,10 @@ class NotificationMessageService {
 			case 'bn.report_resolved':
 				$me = $viewer_id;
 				return $me > 0 ? PageRouter::profile_url( $me ) : '';
+
+			case 'bn.new_report':
+				// Moderator-facing — send them to the community moderation surface.
+				return PageRouter::community_admin_url();
 
 			case 'bn.badge_awarded':
 			case 'bn.level_up':
