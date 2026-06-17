@@ -382,6 +382,10 @@ class ModerationService {
 	/**
 	 * Return all reports for a given object.
 	 *
+	 * @internal Performs NO capability check — reporter identities are sensitive.
+	 *           Callers MUST gate access first; the only REST caller is behind
+	 *           ModerationController::require_admin.
+	 *
 	 * @param string $object_type Object type.
 	 * @param int    $object_id   Object ID.
 	 * @return array[]
@@ -443,6 +447,9 @@ class ModerationService {
 
 	/**
 	 * Set or clear a post's content warning.
+	 *
+	 * @internal Performs NO capability check. Callers MUST gate first; the only
+	 *           REST caller is behind ModerationController::require_admin.
 	 *
 	 * @param int    $post_id      Post id.
 	 * @param bool   $has_warning  Whether the post carries a warning.
@@ -695,6 +702,10 @@ class ModerationService {
 	 *                       this list. Used by space-scoped moderators who must only see reports
 	 *                       originating from spaces they manage. An empty array means no filter
 	 *                       (site admins see everything).
+	 *
+	 * @internal Performs NO capability check. Callers MUST gate first; the REST
+	 *           caller is behind ModerationController::require_queue_access, which
+	 *           also supplies space_ids for space-scoped moderators.
 	 *
 	 * @param array<string, mixed> $args Query arguments.
 	 * @return array{items: array[], total: int}
