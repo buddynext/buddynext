@@ -50,12 +50,14 @@ class WPMediaVerseBridge {
 		// Notify media owner when someone favourites their content.
 		add_action( 'mvs_favorite_toggled', array( $this, 'on_favorite_toggled' ), 10, 3 );
 
-		// Unified nav: inject "Media" link into the BuddyNext left rail.
+		// Unified nav: inject "Media" link into the BuddyNext left rail. This adds
+		// a link to the media surface on BuddyNext's OWN pages — it does not alter
+		// any WPMediaVerse page.
 		add_filter( 'buddynext_rail_items', array( $this, 'inject_media_nav_item' ) );
 
-		// Shell wrapping: BuddyNext hub shell + sidebar on all WPMediaVerse pages.
-		add_action( 'mvs_before_content', array( $this, 'open_hub_shell' ) );
-		add_action( 'mvs_after_content', array( $this, 'close_hub_shell' ) );
+		// WPMediaVerse pages (e.g. /explore-media/) render as the plugin's own
+		// default — BuddyNext does not wrap them in its hub shell or inject its
+		// sidebar, per the owner rule that BN must not touch MediaVerse pages.
 
 		// NOTE: /messages/ is now a fully NATIVE BuddyNext surface (templates/
 		// messages/native.php + the buddynext/messages store) consuming the engine
@@ -111,37 +113,6 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Render the BuddyNext subnav on WPMediaVerse pages.
-	 *
-	 * Hooked on mvs_before_content (fired by all MVS templates after
-	 * get_header). Bails silently when BuddyNext is not fully booted.
-	 */
-	/**
-	 * Open the BuddyNext hub shell on WPMediaVerse pages.
-	 *
-	 * Renders BuddyNext nav + opens the hub-shell grid container. The
-	 * close_hub_shell() method on mvs_after_content renders the sidebar
-	 * and closes the grid.
-	 *
-	 * @return void
-	 */
-	public function open_hub_shell(): void {
-		if ( ! function_exists( 'buddynext_get_template' ) || ! did_action( 'buddynext_loaded' ) ) {
-			return;
-		}
-
-		// Ensure BuddyNext base CSS is loaded (hub shell grid, sidebar, nav styles).
-		wp_enqueue_style( 'bn-base' );
-
-		// Honour the "Show community navigation" setting — when off, BuddyNext
-		// adds no nav chrome to host-plugin pages.
-		if ( function_exists( 'buddynext_community_nav_enabled' ) && buddynext_community_nav_enabled() ) {
-			buddynext_get_template( 'partials/nav.php' );
-		}
-		echo '<div class="bn-hub-shell"><div class="bn-mvs-content">';
-	}
-
-	/**
 	 * Enqueue MVS lightbox JS + CSS on BuddyNext pages.
 	 *
 	 * This enables the Instagram-style lightbox (reactions, comments, favorites,
@@ -187,21 +158,6 @@ class WPMediaVerseBridge {
 				MVS_VERSION
 			);
 		}
-	}
-
-	/**
-	 * Close the BuddyNext hub shell + render community sidebar.
-	 *
-	 * @return void
-	 */
-	public function close_hub_shell(): void {
-		if ( ! function_exists( 'buddynext_get_template' ) || ! did_action( 'buddynext_loaded' ) ) {
-			return;
-		}
-
-		echo '</div>'; // .bn-mvs-content
-		buddynext_get_template( 'partials/sidebar.php' );
-		echo '</div>'; // .bn-hub-shell
 	}
 
 	/**

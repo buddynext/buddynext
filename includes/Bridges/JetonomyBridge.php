@@ -55,12 +55,10 @@ class JetonomyBridge {
 		// Level 2 context nav: Discussion sub-pages (Home / Search / Leaderboard).
 		add_filter( 'buddynext_context_nav', array( $this, 'inject_discussion_context_nav' ), 10, 2 );
 
-		// Unified nav: inject BuddyNext nav above Jetonomy content, suppress
-		// Jetonomy's own nav. Jetonomy keeps its own sidebar — no hub shell
-		// wrapper (avoids double-sidebar overlap).
-		add_action( 'jetonomy_before_content', array( $this, 'open_hub_shell' ), 5 );
-		add_action( 'jetonomy_after_content', array( $this, 'close_hub_shell' ) );
-		add_filter( 'jetonomy_show_community_nav', '__return_false' );
+		// Jetonomy pages (e.g. /community/) render as the plugin's own default —
+		// BuddyNext does not inject its nav/wrapper or suppress Jetonomy's own
+		// navigation. (Owner rule: BN must not touch Jetonomy pages.) The link
+		// INTO discussions lives on BuddyNext's own rail (inject_discussions_nav_item).
 
 		// Cross-plugin notifications: JT reply → BN notification for post author.
 		add_action( 'jetonomy_after_create_reply', array( $this, 'notify_discussion_reply' ), 10, 2 );
@@ -303,59 +301,6 @@ class JetonomyBridge {
 		);
 
 		return $items;
-	}
-
-	/**
-	 * Render the BuddyNext subnav on Jetonomy pages.
-	 *
-	 * Fired early (priority 5) on jetonomy_before_content so the unified nav
-	 * appears before Jetonomy's header partial. Jetonomy's own community nav is
-	 * suppressed via the jetonomy_show_community_nav → false filter, making
-	 * BuddyNext the sole navigation across both plugin surfaces.
-	 *
-	 * Bails silently when BuddyNext is not yet fully booted (e.g. during cron)
-	 * so no output is generated before headers are sent.
-	 *
-	 * Hooked on: jetonomy_before_content( array $data )
-	 */
-	/**
-	 * Open the BuddyNext wrapper on Jetonomy pages.
-	 *
-	 * Renders BuddyNext nav but does NOT wrap in bn-hub-shell. Jetonomy
-	 * manages its own two-column layout (.jt-two-col) with its own sidebar,
-	 * so adding BuddyNext's 1fr+300px hub shell would create a double-sidebar
-	 * overlap. We only inject the nav and a thin content wrapper.
-	 *
-	 * @return void
-	 */
-	public function open_hub_shell(): void {
-		if ( ! function_exists( 'buddynext_get_template' ) || ! did_action( 'buddynext_loaded' ) ) {
-			return;
-		}
-
-		wp_enqueue_style( 'bn-base' );
-
-		// Honour the "Show community navigation" setting — when off, BuddyNext
-		// adds no nav chrome to host-plugin pages.
-		if ( function_exists( 'buddynext_community_nav_enabled' ) && buddynext_community_nav_enabled() ) {
-			buddynext_get_template( 'partials/nav.php' );
-		}
-		echo '<div class="bn-jt-content">';
-	}
-
-	/**
-	 * Close the Jetonomy content wrapper.
-	 *
-	 * No BuddyNext sidebar — Jetonomy's own sidebar handles the right column.
-	 *
-	 * @return void
-	 */
-	public function close_hub_shell(): void {
-		if ( ! function_exists( 'buddynext_get_template' ) || ! did_action( 'buddynext_loaded' ) ) {
-			return;
-		}
-
-		echo '</div>'; // .bn-jt-content
 	}
 
 	/**
