@@ -127,6 +127,15 @@ if ( $current_user_id ) {
 
 $is_member    = $membership && 'active' === $membership->status;
 $is_admin_mod = $membership && 'active' === $membership->status && in_array( $membership->role, array( 'owner', 'moderator' ), true );
+
+// Whether the viewer may moderate THIS space. Resolves through the role map
+// (buddynext-spaces/moderate) so the Roles & Capabilities toggle governs it:
+// space owners/moderators, role-granted members, and site admins all pass.
+// Drives the moderation tab/counts/panel below — the moderation page itself
+// (templates/spaces/moderation.php) already uses this same capability, so the
+// tab and the page now agree instead of the tab being hidden by a role check.
+$can_moderate = $current_user_id > 0
+	&& buddynext_can( $current_user_id, 'buddynext-spaces/moderate', array( 'space_id' => $space_id ) );
 $is_pending   = $membership && 'pending' === $membership->status;
 $is_invited   = $membership && 'invited' === $membership->status;
 $is_guest     = ( 0 === (int) $current_user_id );
@@ -135,9 +144,9 @@ $is_guest     = ( 0 === (int) $current_user_id );
 // A site admin, or any member whose role meets the configured threshold, may post.
 // This drives whether the composer is rendered in the feed panel; the REST
 // endpoint enforces the same rule server-side so the gate is not bypassable.
-$bn_member_role  = ( $membership && 'active' === $membership->status ) ? (string) $membership->role : '';
-$bn_who_can_post = (string) get_option( 'bn_space_' . $space_id . '_who_can_post', 'members' );
-$bn_role_rank    = array(
+$bn_member_role   = ( $membership && 'active' === $membership->status ) ? (string) $membership->role : '';
+$bn_who_can_post  = (string) get_option( 'bn_space_' . $space_id . '_who_can_post', 'members' );
+$bn_role_rank     = array(
 	'member'    => 1,
 	'moderator' => 2,
 	'owner'     => 3,
@@ -147,7 +156,7 @@ $bn_required_rank = array(
 	'mods'    => 2,
 	'owner'   => 3,
 );
-$bn_can_post = $is_member && (
+$bn_can_post      = $is_member && (
 	current_user_can( 'manage_options' )
 	|| ( $bn_role_rank[ $bn_member_role ] ?? 0 ) >= ( $bn_required_rank[ $bn_who_can_post ] ?? 1 )
 );
@@ -282,7 +291,7 @@ $bn_mod_count = 0;
 // moderator still needs to action — otherwise join requests are invisible at
 // the space level (only reachable by opening the full queue and switching tabs).
 $bn_pending_count = 0;
-if ( ! empty( $is_admin_mod ) ) {
+if ( $can_moderate ) {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	$bn_mod_count = (int) $wpdb->get_var(
 		$wpdb->prepare(
@@ -420,12 +429,12 @@ add_action(
 			// Card 2: Moderators. DMs are owned by WPMediaVerse, so only offer
 			// the Message action when that dependency is present (same signal
 			// the messages hub uses); otherwise the row links to the profile.
-			if ( ! empty( $bn_mods ) ) {
-				$bn_msgs_on = \BuddyNext\Messages\MessagesData::available();
-				ob_start();
-				?>
+		if ( ! empty( $bn_mods ) ) {
+			$bn_msgs_on = \BuddyNext\Messages\MessagesData::available();
+			ob_start();
+			?>
 				<ul class="bn-sh-side-members">
-					<?php foreach ( $bn_mods as $bn_mod ) : ?>
+				<?php foreach ( $bn_mods as $bn_mod ) : ?>
 						<?php
 						$bn_mod_uid   = (int) $bn_mod->user_id;
 						$bn_mod_name  = $bn_mod->display_name ?? __( 'Member', 'buddynext' );
@@ -474,7 +483,7 @@ add_action(
 						'body_html'  => $bn_mods_html,
 					)
 				);
-			}
+		}
 
 			// Card 3: Members preview (regular members only — mods sit in the card above).
 		if ( ! empty( $bn_regulars ) ) {
@@ -609,7 +618,7 @@ $bn_nav_tabs['about'] = array(
 	'label' => __( 'About', 'buddynext' ),
 );
 
-if ( $is_admin_mod ) {
+if ( $can_moderate ) {
 	$bn_nav_tabs['moderation'] = array(
 		'label' => __( 'Moderation', 'buddynext' ),
 		'count' => (int) $bn_mod_count + (int) $bn_pending_count,
@@ -787,7 +796,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 			}
 			?>
 			<?php if ( ! empty( $space_media_ids ) ) : ?>
-				<?php echo \BuddyNext\Media\MediaRenderer::gallery( $space_media_ids ); // phpcs:ignore WordPress.Security.EscapingOutput.OutputNotEscaped ?>
+				<?php echo \BuddyNext\Media\MediaRenderer::gallery( $space_media_ids ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer::gallery() returns escaped markup. ?>
 			<?php else : ?>
 				<?php
 				buddynext_get_template(
@@ -818,7 +827,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 			);
 			?>
 
-		<?php elseif ( 'moderation' === $active_tab && $is_admin_mod ) : ?>
+		<?php elseif ( 'moderation' === $active_tab && $can_moderate ) : ?>
 
 			<div class="bn-card bn-sh-moderation">
 				<header>
