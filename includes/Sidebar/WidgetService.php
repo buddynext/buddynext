@@ -96,33 +96,72 @@ class WidgetService {
 			WidgetCache::TTL_USER,
 			static function () use ( $user_id, $limit ): array {
 				global $wpdb;
-				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$rows = $wpdb->get_results(
+
+				// Prefer the friends-of-friends suggestions — the same algorithm the
+				// GET /follow-suggestions REST endpoint serves (FollowService::
+				// suggestions(), which already excludes self, current follows and
+				// suspended/shadow-banned users) — so the web widget and the app
+				// share one source. Backfill with a random discovery pool when the
+				// graph is too sparse to fill the slots.
+				$candidate_ids = array();
+				$follow_svc    = buddynext_service( 'follows' );
+				if ( is_object( $follow_svc ) && method_exists( $follow_svc, 'suggestions' ) ) {
+					$candidate_ids = array_slice( array_map( 'intval', (array) $follow_svc->suggestions( $user_id ) ), 0, $limit );
+				}
+
+				if ( count( $candidate_ids ) < $limit ) {
+					$need       = $limit - count( $candidate_ids );
+					$exclude    = array_merge( array( $user_id ), $candidate_ids );
+					$exclude_ph = implode( ',', array_fill( 0, count( $exclude ), '%d' ) );
+					// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$fill_ids = $wpdb->get_col(
+						$wpdb->prepare(
+							'SELECT u.ID
+							 FROM ' . $wpdb->users . ' u
+							 WHERE u.ID NOT IN (' . $exclude_ph . ')
+							   AND NOT EXISTS (
+								   SELECT 1 FROM ' . $wpdb->prefix . 'bn_follows f
+								   WHERE f.follower_id = %d AND f.following_id = u.ID
+							   )
+							   AND NOT EXISTS (
+								   SELECT 1 FROM ' . $wpdb->prefix . 'bn_blocks bl
+								   WHERE ( bl.blocker_id = %d AND bl.blocked_id = u.ID )
+									  OR ( bl.blocker_id = u.ID AND bl.blocked_id = %d )
+							   )
+							 ORDER BY RAND()
+							 LIMIT %d',
+							array_merge( $exclude, array( $user_id, $user_id, $user_id, $need ) )
+						)
+					);
+					// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					$candidate_ids = array_merge( $candidate_ids, array_map( 'intval', (array) $fill_ids ) );
+				}
+
+				if ( empty( $candidate_ids ) ) {
+					return array();
+				}
+
+				// Hydrate display fields, preserving candidate order (FoF first).
+				$ids_ph = implode( ',', array_fill( 0, count( $candidate_ids ), '%d' ) );
+				// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$hydrated = $wpdb->get_results(
 					$wpdb->prepare(
-						'SELECT u.ID, u.display_name, u.user_login
-						 FROM ' . $wpdb->users . ' u
-						 WHERE u.ID != %d
-						   AND NOT EXISTS (
-							   SELECT 1 FROM ' . $wpdb->prefix . 'bn_follows f
-							   WHERE f.follower_id = %d AND f.following_id = u.ID
-						   )
-						   AND NOT EXISTS (
-							   SELECT 1 FROM ' . $wpdb->prefix . 'bn_blocks bl
-							   WHERE ( bl.blocker_id = %d AND bl.blocked_id = u.ID )
-								  OR ( bl.blocker_id = u.ID AND bl.blocked_id = %d )
-						   )
-						 ORDER BY RAND()
-						 LIMIT %d',
-						$user_id,
-						$user_id,
-						$user_id,
-						$user_id,
-						$limit
+						'SELECT u.ID, u.display_name, u.user_login FROM ' . $wpdb->users . ' u WHERE u.ID IN (' . $ids_ph . ')',
+						$candidate_ids
 					)
 				);
-				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-				$rows = is_array( $rows ) ? $rows : array();
+				$by_id = array();
+				foreach ( (array) $hydrated as $h ) {
+					$by_id[ (int) $h->ID ] = $h;
+				}
+				$rows = array();
+				foreach ( $candidate_ids as $cid ) {
+					if ( isset( $by_id[ $cid ] ) ) {
+						$rows[] = $by_id[ $cid ];
+					}
+				}
 
 				// Hydrate follow_status per row — unfollowed | requested | following.
 				// Since we just filtered out current follows, "following" can still
