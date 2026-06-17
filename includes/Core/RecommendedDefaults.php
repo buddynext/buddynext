@@ -48,6 +48,8 @@ class RecommendedDefaults {
 		'buddynext_allow_bookmarks'            => true,
 		'buddynext_enable_link_preview'        => true,
 		'buddynext_enable_emoji_picker'        => true,
+		// Integrations — surface Jetonomy discussions in the feed out of the box.
+		'buddynext_jetonomy_feed_sync'       => '1',
 		// Notifications on by default for every new member.
 		'buddynext_notif_default_follow'       => true,
 		'buddynext_notif_default_connection'   => true,

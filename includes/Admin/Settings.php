@@ -110,7 +110,7 @@ class Settings extends AdminPageBase {
 		'buddynext_email_footer_text'          => array( 'string', 'sanitize_textarea_field' ),
 
 		// Integrations.
-		'buddynext_jetonomy_feed_sync'         => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_jetonomy_feed_sync'         => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
 
 		// Privacy & Data.
 		'buddynext_google_indexing'            => array( 'string', 'sanitize_key' ),
@@ -2023,8 +2023,8 @@ class Settings extends AdminPageBase {
 		$this->render_toggle_row(
 			'buddynext_jetonomy_feed_sync',
 			__( 'Surface new Jetonomy discussions in activity feed', 'buddynext' ),
-			__( 'When enabled, new Jetonomy forum posts appear as feed cards in the BuddyNext activity feed. Default off. Can be overridden per space.', 'buddynext' ),
-			(bool) get_option( 'buddynext_jetonomy_feed_sync', false )
+			__( 'When enabled, new Jetonomy forum posts appear as feed cards in the BuddyNext activity feed. On by default. Can be overridden per space.', 'buddynext' ),
+			'0' !== (string) get_option( 'buddynext_jetonomy_feed_sync', '1' )
 		);
 
 		$this->close_section();

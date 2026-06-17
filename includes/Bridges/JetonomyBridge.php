@@ -151,7 +151,7 @@ class JetonomyBridge {
 		$is_public_discussion = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status );
 
 		if ( $is_public_discussion
-			&& (bool) get_option( 'buddynext_jetonomy_feed_sync', true )
+			&& '0' !== (string) get_option( 'buddynext_jetonomy_feed_sync', '1' )
 			&& (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
 			$url = $this->discussion_url( $post_id, $space_id );
 			if ( '' !== $url ) {

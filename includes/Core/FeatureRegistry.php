@@ -85,11 +85,14 @@ class FeatureRegistry {
 			'verification'  => array( 'slug' => 'verification', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'community', 'depends_on' => array( 'auth' ) ),
 			'announcements' => array( 'slug' => 'announcements', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'community', 'depends_on' => array( 'feed' ) ),
 
+			// ── Bridges — default-on so an installed integration works out of the
+			// box (each bridge still self-guards via class_exists when its partner
+			// plugin is absent); toggling the feature off now actually disables it.
+			'gamification'  => array( 'slug' => 'gamification', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'bridges', 'depends_on' => array() ),
+			'jetonomy'      => array( 'slug' => 'jetonomy', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'bridges', 'depends_on' => array( 'feed' ) ),
+			'wpmediaverse'  => array( 'slug' => 'wpmediaverse', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'bridges', 'depends_on' => array() ),
+			'career_board'  => array( 'slug' => 'career_board', 'tier' => self::TIER_DEFAULT_ON, 'group' => 'bridges', 'depends_on' => array( 'feed' ) ),
 			// ── OPT-IN — off by default ───────────────────────────────────
-			'gamification'  => array( 'slug' => 'gamification', 'tier' => self::TIER_OPT_IN, 'group' => 'bridges', 'depends_on' => array() ),
-			'jetonomy'      => array( 'slug' => 'jetonomy', 'tier' => self::TIER_OPT_IN, 'group' => 'bridges', 'depends_on' => array( 'feed' ) ),
-			'wpmediaverse'  => array( 'slug' => 'wpmediaverse', 'tier' => self::TIER_OPT_IN, 'group' => 'bridges', 'depends_on' => array() ),
-			'career_board'  => array( 'slug' => 'career_board', 'tier' => self::TIER_OPT_IN, 'group' => 'bridges', 'depends_on' => array( 'feed' ) ),
 			'webhooks'      => array( 'slug' => 'webhooks', 'tier' => self::TIER_OPT_IN, 'group' => 'integrations', 'depends_on' => array() ),
 		);
 

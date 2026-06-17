@@ -390,21 +390,27 @@ class Plugin {
 		add_action(
 			'buddynext_load_bridges',
 			function (): void {
+				// BuddyX is a theme bridge, not a togglable feature — always wire it.
 				( new BuddyXBridge() )->init();
-				( new WPMediaVerseBridge() )->init();
-				( new GamificationBridge() )->init();
-				( new JetonomyBridge() )->init();
-				// CareerBoardBridge moved to BuddyNext Pro (jobs = application layer).
-				// Pro registers it on this same `buddynext_load_bridges` seam.
 
-				// Bridge-specific notification listeners — each guards via class_exists
-				// internally and bails when the paired plugin is not active.
-				( new GamificationBridgeListener() )->register();
-				( new JetonomyBridgeListener() )->register();
-
-				// Gamification is a core integration: its own prominent Achievements
-				// profile tab (badge grid + standing), guarded on wb-gamification.
-				( new \BuddyNext\Profile\GamificationAchievements() )->register();
+				// Each integration bridge is gated on its Platform → Features toggle
+				// (default-on; the bridge still self-guards via class_exists when the
+				// partner plugin is absent), so turning a bridge off actually
+				// disables it. CareerBoardBridge lives in Pro and gates itself on
+				// the 'career_board' feature on this same seam.
+				if ( buddynext_feature_enabled( 'wpmediaverse' ) ) {
+					( new WPMediaVerseBridge() )->init();
+				}
+				if ( buddynext_feature_enabled( 'gamification' ) ) {
+					( new GamificationBridge() )->init();
+					( new GamificationBridgeListener() )->register();
+					// Gamification's Achievements profile tab (badge grid + standing).
+					( new \BuddyNext\Profile\GamificationAchievements() )->register();
+				}
+				if ( buddynext_feature_enabled( 'jetonomy' ) ) {
+					( new JetonomyBridge() )->init();
+					( new JetonomyBridgeListener() )->register();
+				}
 			}
 		);
 
