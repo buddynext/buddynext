@@ -1080,13 +1080,28 @@ button.bn-btn-danger:hover {
    Pagination
    -------------------------------------------------------------------------- */
 
+/* Pagination bar: "Showing X-Y of N" summary on the left, windowed page
+   links on the right. The summary shows even on a single page. */
+.bn-pagination-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: var(--bn-a-s2);
+	padding: var(--bn-a-s3) var(--bn-a-s4);
+	border-top: 1px solid var(--bn-a-border-soft);
+}
+
+.bn-pagination-summary {
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-text-3);
+}
+
 .bn-pagination {
 	display: flex;
 	align-items: center;
 	gap: var(--bn-a-s1);
-	padding: var(--bn-a-s3) var(--bn-a-s4);
-	border-top: 1px solid var(--bn-a-border-soft);
-	justify-content: center;
+	justify-content: flex-end;
 }
 
 .bn-page-link {
@@ -1105,8 +1120,25 @@ button.bn-btn-danger:hover {
 	border-color: var(--bn-a-brand);
 }
 
-.bn-page-link:hover:not(.current) {
+.bn-page-link:hover:not(.current):not(.is-disabled) {
 	background: var(--bn-a-bg-hover);
+}
+
+.bn-page-link--nav {
+	font-weight: var(--bn-a-fw-medium);
+}
+
+.bn-page-link.is-disabled {
+	color: var(--bn-a-text-3);
+	background: var(--bn-a-bg-subtle);
+	cursor: default;
+	opacity: 0.6;
+}
+
+.bn-page-ellipsis {
+	padding: 0 var(--bn-a-s1);
+	color: var(--bn-a-text-3);
+	font-size: var(--bn-a-text-xs);
 }
 
 /* --------------------------------------------------------------------------

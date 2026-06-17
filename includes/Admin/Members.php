@@ -859,7 +859,8 @@ class Members extends AdminPageBase {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Member unsuspended.', 'buddynext' ) . '</p></div>';
 		}
 
-		// Build filter link URLs for the v2 .bn-tabs strip.
+		// Build status-filter chip URLs. Counts live in the KPI cards above, so
+		// the chips carry labels only — no duplicated numbers.
 		$base      = admin_url( 'admin.php?page=buddynext-members' );
 		$s_all     = '' !== $search ? add_query_arg( 's', rawurlencode( $search ), $base ) : $base;
 		$s_role    = '' !== $role_filter ? add_query_arg( 'role', $role_filter, $s_all ) : $s_all;
@@ -867,17 +868,14 @@ class Members extends AdminPageBase {
 			'all'       => array(
 				'url'   => $s_role,
 				'label' => __( 'All', 'buddynext' ),
-				'count' => $this->get_member_count(),
 			),
 			'active'    => array(
 				'url'   => add_query_arg( 'status', 'active', $s_role ),
 				'label' => __( 'Active', 'buddynext' ),
-				'count' => $active_count,
 			),
 			'suspended' => array(
 				'url'   => add_query_arg( 'status', 'suspended', $s_role ),
 				'label' => __( 'Suspended', 'buddynext' ),
-				'count' => $suspended_count,
 			),
 		);
 		?>
@@ -907,7 +905,6 @@ class Members extends AdminPageBase {
 					class="bn-segment__item<?php echo $is_active ? ' is-active' : ''; ?>"
 					aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>">
 					<?php echo esc_html( $link['label'] ); ?>
-					<span class="bn-segment__count"><?php echo esc_html( number_format_i18n( $link['count'] ) ); ?></span>
 				</a>
 			<?php endforeach; ?>
 		</div>
@@ -1080,31 +1077,29 @@ class Members extends AdminPageBase {
 				<?php endif; ?>
 			</div>
 
-			<?php if ( $pages > 1 ) : ?>
-				<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Members pagination', 'buddynext' ); ?>">
-					<?php for ( $i = 1; $i <= $pages; $i++ ) : ?>
-						<?php
-						$paged_url = add_query_arg(
-							array_filter(
-								array(
-									'page'   => 'buddynext-members',
-									'paged'  => $i > 1 ? $i : false,
-									's'      => '' !== $search ? $search : false,
-									'status' => 'all' !== $status ? $status : false,
-									'role'   => '' !== $role_filter ? $role_filter : false,
-								)
-							),
-							admin_url( 'admin.php' )
-						);
-						?>
-						<a href="<?php echo esc_url( $paged_url ); ?>"
-							class="bn-page-link<?php echo $i === $page ? ' current' : ''; ?>"
-							<?php echo $i === $page ? 'aria-current="page"' : ''; ?>>
-							<?php echo esc_html( (string) $i ); ?>
-						</a>
-					<?php endfor; ?>
-				</nav>
-			<?php endif; ?>
+			<?php
+			$this->render_pagination(
+				$page,
+				(int) $pages,
+				(int) $total,
+				self::DEFAULT_PER_PAGE,
+				static function ( int $p ) use ( $search, $status, $role_filter ): string {
+					return add_query_arg(
+						array_filter(
+							array(
+								'page'   => 'buddynext-members',
+								'paged'  => $p > 1 ? $p : false,
+								's'      => '' !== $search ? $search : false,
+								'status' => 'all' !== $status ? $status : false,
+								'role'   => '' !== $role_filter ? $role_filter : false,
+							)
+						),
+						admin_url( 'admin.php' )
+					);
+				},
+				__( 'Members pagination', 'buddynext' )
+			);
+			?>
 			</div><!-- .bn-ss-body -->
 		</div><!-- .bn-settings-section -->
 

@@ -448,6 +448,125 @@ abstract class AdminPageBase {
 		<?php
 	}
 
+	// ── Pagination ───────────────────────────────────────────────────────────
+
+	/**
+	 * Render a windowed paginator: a "Showing X-Y of N" summary plus Prev /
+	 * first / window(current +/-2) / last / Next links. Replaces the naive
+	 * "print every page number" loop so a list with thousands of rows shows a
+	 * handful of links instead of hundreds — the big-site readiness baseline.
+	 *
+	 * The caller supplies a URL builder so each list keeps its own query args
+	 * (search, status, type, role, etc.).
+	 *
+	 * @param int      $current     Current page (1-based).
+	 * @param int      $total_pages Total number of pages.
+	 * @param int      $total_items Total row count (for the summary).
+	 * @param int      $per_page    Rows per page (for the summary).
+	 * @param callable $url_for     fn( int $page ): string — page URL.
+	 * @param string   $label       Accessible nav label.
+	 * @return void
+	 */
+	protected function render_pagination(
+		int $current,
+		int $total_pages,
+		int $total_items,
+		int $per_page,
+		callable $url_for,
+		string $label = ''
+	): void {
+		if ( '' === $label ) {
+			$label = __( 'Pagination', 'buddynext' );
+		}
+
+		$current = max( 1, min( $current, max( 1, $total_pages ) ) );
+
+		// Always show the range summary, even on a single page — it answers
+		// "how many are there?" at a glance.
+		$first_row = $total_items > 0 ? ( ( $current - 1 ) * $per_page ) + 1 : 0;
+		$last_row  = min( $current * $per_page, $total_items );
+		?>
+		<div class="bn-pagination-bar">
+			<span class="bn-pagination-summary">
+				<?php
+				printf(
+					/* translators: 1: first row number, 2: last row number, 3: total rows. */
+					esc_html__( 'Showing %1$s-%2$s of %3$s', 'buddynext' ),
+					esc_html( number_format_i18n( $first_row ) ),
+					esc_html( number_format_i18n( $last_row ) ),
+					esc_html( number_format_i18n( $total_items ) )
+				);
+				?>
+			</span>
+
+			<?php if ( $total_pages > 1 ) : ?>
+				<nav class="bn-pagination" aria-label="<?php echo esc_attr( $label ); ?>">
+					<?php
+					// Build a compact page window: 1 … (cur-2 … cur+2) … last.
+					$window  = 2;
+					$pages   = array();
+					$pages[] = 1;
+					for ( $p = $current - $window; $p <= $current + $window; $p++ ) {
+						if ( $p > 1 && $p < $total_pages ) {
+							$pages[] = $p;
+						}
+					}
+					if ( $total_pages > 1 ) {
+						$pages[] = $total_pages;
+					}
+					$pages = array_values( array_unique( $pages ) );
+
+					// Prev.
+					if ( $current > 1 ) :
+						?>
+						<a href="<?php echo esc_url( $url_for( $current - 1 ) ); ?>"
+							class="bn-page-link bn-page-link--nav" rel="prev">
+							<?php esc_html_e( 'Prev', 'buddynext' ); ?>
+						</a>
+						<?php
+					else :
+						?>
+						<span class="bn-page-link bn-page-link--nav is-disabled" aria-disabled="true"><?php esc_html_e( 'Prev', 'buddynext' ); ?></span>
+						<?php
+					endif;
+
+					$prev_page = 0;
+					foreach ( $pages as $p ) :
+						if ( $prev_page && $p - $prev_page > 1 ) :
+							?>
+							<span class="bn-page-ellipsis" aria-hidden="true">&hellip;</span>
+							<?php
+						endif;
+						?>
+						<a href="<?php echo esc_url( $url_for( $p ) ); ?>"
+							class="bn-page-link<?php echo $p === $current ? ' current' : ''; ?>"
+							<?php echo $p === $current ? 'aria-current="page"' : ''; ?>>
+							<?php echo esc_html( number_format_i18n( $p ) ); ?>
+						</a>
+						<?php
+						$prev_page = $p;
+					endforeach;
+
+					// Next.
+					if ( $current < $total_pages ) :
+						?>
+						<a href="<?php echo esc_url( $url_for( $current + 1 ) ); ?>"
+							class="bn-page-link bn-page-link--nav" rel="next">
+							<?php esc_html_e( 'Next', 'buddynext' ); ?>
+						</a>
+						<?php
+					else :
+						?>
+						<span class="bn-page-link bn-page-link--nav is-disabled" aria-disabled="true"><?php esc_html_e( 'Next', 'buddynext' ); ?></span>
+						<?php
+					endif;
+					?>
+				</nav>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
 	// ── Shared CSS ─────────────────────────────────────────────────────────────
 
 	/**

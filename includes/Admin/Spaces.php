@@ -337,27 +337,27 @@ class Spaces extends AdminPageBase {
 				</table>
 			</div>
 
-			<?php if ( $pages > 1 ) : ?>
-				<nav class="bn-pagination" aria-label="<?php esc_attr_e( 'Spaces pagination', 'buddynext' ); ?>">
-					<?php for ( $i = 1; $i <= $pages; $i++ ) : ?>
-						<?php
-						$page_url = add_query_arg(
+			<?php
+			$this->render_pagination(
+				$page,
+				(int) $pages,
+				(int) $total,
+				self::DEFAULT_PER_PAGE,
+				static function ( int $p ) use ( $search, $type, $base_url ): string {
+					return add_query_arg(
+						array_filter(
 							array(
-								'paged' => $i,
-								's'     => $search,
-								'type'  => $type,
-							),
-							$base_url
-						);
-						?>
-						<a href="<?php echo esc_url( $page_url ); ?>"
-							class="bn-page-link<?php echo $i === $page ? ' current' : ''; ?>"
-							<?php echo $i === $page ? 'aria-current="page"' : ''; ?>>
-							<?php echo esc_html( (string) $i ); ?>
-						</a>
-					<?php endfor; ?>
-				</nav>
-			<?php endif; ?>
+								'paged' => $p > 1 ? $p : false,
+								's'     => '' !== $search ? $search : false,
+								'type'  => '' !== $type ? $type : false,
+							)
+						),
+						$base_url
+					);
+				},
+				__( 'Spaces pagination', 'buddynext' )
+			);
+			?>
 			</div><!-- .bn-ss-body -->
 		</div><!-- .bn-settings-section -->
 
