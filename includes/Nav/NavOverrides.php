@@ -311,8 +311,8 @@ final class NavOverrides {
 		$ordered = array();
 		$index   = 0;
 		foreach ( $tabs as $slug => $cfg ) {
-			$cfg              = (array) $cfg;
-			$key              = sanitize_key( (string) $slug );
+			$cfg = (array) $cfg;
+			$key = sanitize_key( (string) $slug );
 			++$index;
 			$cfg['_bn_order'] = $index * 10;
 
@@ -409,6 +409,36 @@ final class NavOverrides {
 			}
 		}
 		unset( $item );
+
+		// Append admin-created custom tabs as overflow entries. The bottom bar is
+		// a fixed 5-slot strip (centre Create must stay centred), so custom tabs do
+		// not get their own slot — nav.php surfaces them, with Profile, in a "More"
+		// sheet opened from the 5th slot. Each carries overflow => true.
+		$existing_keys = array();
+		foreach ( $items as $existing_item ) {
+			if ( is_array( $existing_item ) ) {
+				$existing_keys[ sanitize_key( (string) ( $existing_item['key'] ?? '' ) ) ] = true;
+			}
+		}
+		foreach ( $overrides as $slug => $ov ) {
+			$ov   = (array) $ov;
+			$slug = sanitize_key( (string) $slug );
+			if ( '' === $slug || empty( $ov['custom'] ) || ! empty( $ov['hidden'] ) || isset( $existing_keys[ $slug ] ) || $this->tab_denied( $ov ) ) {
+				continue;
+			}
+			$url = esc_url_raw( (string) ( $ov['url'] ?? '' ) );
+			if ( '' === $url ) {
+				continue;
+			}
+			$items[] = array(
+				'key'      => $slug,
+				'url'      => $url,
+				'icon'     => 'link',
+				'label'    => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
+				'show'     => true,
+				'overflow' => true,
+			);
+		}
 
 		return $items;
 	}
