@@ -134,6 +134,17 @@ BuddyNext targets premium UX on par with Notion, Asana, LinkedIn, and Facebook. 
 - **55+ icons already in `assets/icons/`** — check before creating a new one.
 - `IconService::render()` returns `wp_kses()`-sanitized markup — always safe to echo.
 
+### 6. Subsystem-First — Build the Inventory Matrix Before Coding
+
+Most "we missed it" bugs are not hard bugs — they are **cells in a grid nobody enumerated**. Before changing any subsystem (email, auth, notifications, settings, routing, any list/grid/data method), build the inventory FIRST, then write code that fills every cell. Symptom-by-symptom fixing across turns is patchwork; if you catch yourself touching the same subsystem a third time, stop and build the matrix.
+
+1. **Enumerate by grep, never from memory.** List every surface / entry point (rows) and every contract (columns). The miss is always the row or column nobody wrote down.
+   - *Rows* must include **every entry point for the same feature**, not just the obvious one — e.g. a password reset fires from the REST endpoint **and** `wp-login.php` **and** programmatic `retrieve_password()`; an email sends from a notification, a cron digest, an admin test, and a live trigger.
+   - *Columns* are the contracts each row must satisfy — e.g. for email: branded `brand_wrap` shell, From/Reply-To identity, links built via `PageRouter::*_url()` (not hand-rolled query args), the **setting read path** (empty-string option vs absent option), and **preview matches the real send**.
+2. **Trace each contract end-to-end, both directions.** Every setting: *set → stored → read → applied*. Every link: *builder → route → resolves?*. Run `/wp-contract-audit` — "read never applied", "saved but not used", "key mismatch" are exactly what it catches. This is also where the `audit/manifest.json` inventory pays off (reuse, don't re-grep).
+3. **Write "Definition of Done" as a checklist from the grid BEFORE coding.** Code fills cells; it does not chase whatever was last visible in the browser.
+4. **One verification pass hits every cell** — not just the happy path. Always include: the empty-option / fresh-install site, the **secondary** entry point, the admin preview, and a real end-to-end send (Mailpit at `http://localhost:10030/` for email). The big-site checklist in the user's global CLAUDE.md is the data-layer version of this same rule.
+
 ---
 
 ## File Placement Rules — Where Every New File Goes
