@@ -644,6 +644,14 @@ class ProfileController extends BaseRestController {
 		if ( $follows instanceof \BuddyNext\SocialGraph\FollowService ) {
 			$profile['follower_count']  = $follows->follower_count( $profile_user_id );
 			$profile['following_count'] = $follows->following_count( $profile_user_id );
+			// Viewer relationship — consumed by the hover card so its Follow button
+			// mirrors the post-card / profile-hero state instead of always reading
+			// "Follow". Computed here (not in the cached profile payload) so it stays
+			// current with FollowService's own cache after a follow/unfollow.
+			$profile['is_self']      = ( $viewer_id === $profile_user_id );
+			$profile['is_following'] = ( $viewer_id && ! $profile['is_self'] )
+				? $follows->is_following( $viewer_id, $profile_user_id )
+				: false;
 		}
 		$profile['post_count'] = $this->user_post_count( $profile_user_id );
 		if ( ! isset( $profile['bio'] ) ) {
