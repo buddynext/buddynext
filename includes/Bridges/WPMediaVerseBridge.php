@@ -161,7 +161,16 @@ class WPMediaVerseBridge {
 	}
 
 	/**
-	 * Return false if the sender is blocked by the recipient.
+	 * Gate a DM send against the recipient's block list AND DM-access preference.
+	 *
+	 * BuddyNext layers this on top of MediaVerse's own DM controls via the same
+	 * mvs_can_send_message filter — either side can deny, neither overrides the
+	 * other. Enforces:
+	 *   - recipient has blocked the sender → deny;
+	 *   - recipient's "who can DM me" preference (bn_privacy_dm, seeded on
+	 *     registration from buddynext_default_dm_access, falling back to that
+	 *     option when unset): everyone | members | connections | nobody.
+	 * Site admins (manage_options) bypass so staff can always reach members.
 	 *
 	 * Hooked on: mvs_can_send_message (int $sender_id, int $recipient_id)
 	 *
@@ -175,21 +184,39 @@ class WPMediaVerseBridge {
 			return false;
 		}
 
-		global $wpdb;
+		// Staff can always reach anyone.
+		if ( user_can( $sender_id, 'manage_options' ) ) {
+			return true;
+		}
 
-		// Check whether recipient has blocked sender.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$block = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT blocker_id FROM {$wpdb->prefix}bn_blocks
-				 WHERE blocker_id = %d AND blocked_id = %d AND type = 'block'
-				 LIMIT 1",
-				$recipient_id,
-				$sender_id
-			)
-		);
+		// Recipient blocked sender → deny. Routed through the BlockService model
+		// (the data-access API), never a raw query from this bridge.
+		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
+		if ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
+			&& $blocks->has_blocked( $recipient_id, $sender_id ) ) {
+			return false;
+		}
 
-		return null === $block;
+		// Recipient's DM-access preference. Empty = inherit the site default.
+		$pref = (string) get_user_meta( $recipient_id, 'bn_privacy_dm', true );
+		if ( '' === $pref ) {
+			$pref = (string) get_option( 'buddynext_default_dm_access', 'everyone' );
+		}
+
+		switch ( $pref ) {
+			case 'nobody':
+				return false;
+			case 'connections':
+				$conn = function_exists( 'buddynext_service' ) ? buddynext_service( 'connections' ) : null;
+				return is_object( $conn )
+					&& method_exists( $conn, 'are_connected' )
+					&& $conn->are_connected( $sender_id, $recipient_id );
+			case 'members':
+				return $sender_id > 0;
+			case 'everyone':
+			default:
+				return true;
+		}
 	}
 
 	/**
