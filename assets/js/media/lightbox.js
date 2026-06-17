@@ -139,6 +139,16 @@
 			}
 		} ).catch( function () {} );
 
+		// Favorite status — reflect the real state on open (the reset above is
+		// just the optimistic default until this resolves).
+		if ( panel.favorite ) {
+			api( '/media/' + id + '/favorite' ).then( function ( r ) {
+				if ( current === id && r && typeof r.favorited !== 'undefined' ) {
+					panel.favorite.setAttribute( 'aria-pressed', r.favorited ? 'true' : 'false' );
+				}
+			} ).catch( function () {} );
+		}
+
 		// Reactions.
 		api( '/media/' + id + '/reactions' ).then( function ( r ) {
 			if ( current === id ) { applyReactions( r ); }
@@ -227,10 +237,41 @@
 		var url = window.location.href;
 		if ( navigator.share ) {
 			navigator.share( { url: url } ).catch( function () {} );
-		} else if ( navigator.clipboard ) {
-			navigator.clipboard.writeText( url ).then( function () {
-				if ( window.bnToast ) { window.bnToast( 'Link copied', 'success' ); }
-			} ).catch( function () {} );
+			return;
+		}
+		// navigator.clipboard is only defined in a secure context (HTTPS /
+		// localhost). On plain http it is undefined, which left Share doing
+		// nothing — fall back to a temporary textarea + execCommand('copy').
+		copyToClipboard( url );
+	}
+
+	function copyToClipboard( text ) {
+		var done = function () {
+			if ( window.bnToast ) { window.bnToast( 'Link copied', 'success' ); }
+		};
+		if ( navigator.clipboard && window.isSecureContext ) {
+			navigator.clipboard.writeText( text ).then( done ).catch( function () { legacyCopy( text, done ); } );
+		} else {
+			legacyCopy( text, done );
+		}
+	}
+
+	function legacyCopy( text, done ) {
+		try {
+			var ta = document.createElement( 'textarea' );
+			ta.value = text;
+			ta.setAttribute( 'readonly', '' );
+			ta.style.position = 'fixed';
+			ta.style.top = '-1000px';
+			ta.style.opacity = '0';
+			document.body.appendChild( ta );
+			ta.select();
+			var ok = document.execCommand( 'copy' );
+			document.body.removeChild( ta );
+			if ( ok && done ) { done(); }
+			else if ( ! ok ) { window.prompt( 'Copy this link:', text ); }
+		} catch ( e ) {
+			window.prompt( 'Copy this link:', text );
 		}
 	}
 

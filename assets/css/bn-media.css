@@ -295,9 +295,21 @@ body.bn-lightbox-open { overflow: hidden; }
 	cursor: pointer;
 	transition: background 0.12s ease, color 0.12s ease;
 }
-.bn-lightbox__action:hover { background: var( --bn-sunken, oklch( 97% 0.004 0 ) ); }
+/* Set background AND color/border on hover so a theme's generic
+   `button:hover { background:accent; color:#fff; border:accent }` (e.g. Reign)
+   can't bleed white text + an accent border onto the light hover surface — that
+   made the label "mix" into the background. The dedicated class outranks the
+   bare button selector, no !important needed. */
+.bn-lightbox__action:hover {
+	background: var( --bn-sunken, oklch( 97% 0.004 0 ) );
+	color: var( --bn-ink-2, oklch( 40% 0.01 0 ) );
+	border: 0;
+}
 .bn-lightbox__action svg { width: 20px; height: 20px; }
-.bn-lightbox__action[aria-pressed="true"] { color: var( --bn-accent, oklch( 58% 0.13 264 ) ); }
+/* Pressed (favorited) state — declared after :hover so the accent colour holds
+   even while hovered. */
+.bn-lightbox__action[aria-pressed="true"],
+.bn-lightbox__action[aria-pressed="true"]:hover { color: var( --bn-accent, oklch( 58% 0.13 264 ) ); }
 
 /* Comments. */
 .bn-lightbox__comments { display: flex; flex-direction: column; gap: var( --bn-s3, 12px ); }

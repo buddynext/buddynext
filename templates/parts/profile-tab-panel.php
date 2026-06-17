@@ -224,7 +224,12 @@ do_action( 'buddynext_part_profile_tab_panel_before', $args );
 				// MediaRenderer::gallery() emits lightbox-bound tiles, video,
 				// and audio. No WPMediaVerse markup/JS — BuddyNext owns the UX.
 				if ( ! empty( $bn_user_media ) ) {
+					// Frame the gallery in a card so the Media tab matches the other
+					// profile tabs (Posts/Likes render framed cards); the bare tile
+					// grid alone read as unstyled "naked" content.
+					echo '<div class="bn-card bn-profile-media-card">';
 					echo \BuddyNext\Media\MediaRenderer::gallery( array_map( 'absint', (array) $bn_user_media ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- MediaRenderer emits pre-sanitized markup.
+					echo '</div>';
 				} else {
 					?>
 					<div class="bn-empty-state">
