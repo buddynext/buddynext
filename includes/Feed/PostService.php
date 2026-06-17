@@ -1142,6 +1142,40 @@ class PostService {
 	}
 
 	/**
+	 * List a member's OWN posts that are held for pre-moderation approval, so the
+	 * author can see what is waiting (the front-end "pending review" surface).
+	 * Newest first.
+	 *
+	 * @param int $user_id Author user id.
+	 * @param int $limit   Max rows (1-100).
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function get_pending_by_author( int $user_id, int $limit = 50 ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+		$limit = max( 1, min( 100, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, space_id, type, content, link_url, created_at
+				 FROM {$wpdb->prefix}bn_posts
+				 WHERE user_id = %d AND status = 'pending'
+				 ORDER BY created_at DESC
+				 LIMIT %d",
+				$user_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
 	 * List posts in a given status, oldest scheduled first (capped per scale contract).
 	 *
 	 * @param string $status Post status (e.g. 'scheduled').

@@ -70,6 +70,25 @@ class PostController extends BaseRestController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/me/pending-posts',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'my_pending_posts' ),
+				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => array(
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 20,
+						'minimum'           => 1,
+						'maximum'           => 100,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/link-preview',
 			array(
 				'methods'             => 'GET',
@@ -167,6 +186,28 @@ class PostController extends BaseRestController {
 		$post = $service->get( $result );
 
 		return new WP_REST_Response( $post, 201 );
+	}
+
+	/**
+	 * GET /me/pending-posts — the current member's own posts held for approval,
+	 * so the front end can show a "waiting for review" surface. Members only ever
+	 * see their own held posts here.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return WP_REST_Response
+	 */
+	public function my_pending_posts( WP_REST_Request $request ): WP_REST_Response {
+		$user_id  = get_current_user_id();
+		$per_page = absint( $request->get_param( 'per_page' ) );
+		$items    = ( new PostService() )->get_pending_by_author( $user_id, $per_page );
+
+		return new WP_REST_Response(
+			array(
+				'items' => $items,
+				'total' => count( $items ),
+			),
+			200
+		);
 	}
 
 	/**

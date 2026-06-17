@@ -498,7 +498,7 @@
 					return;
 				}
 				ctx.submitting = true;
-				yield window.fetch(
+				var res = yield window.fetch(
 					( window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '' )
 					+ '/buddynext/v1/posts',
 					{
@@ -514,8 +514,27 @@
 						} ),
 					}
 				);
+
+				var data = {};
+				try {
+					data = yield res.json();
+				} catch ( e ) {
+					data = {};
+				}
+
 				ctx.content    = '';
 				ctx.submitting = false;
+
+				// A held (pre-moderated) post is not live yet — reloading would hide
+				// it and leave the author confused. Tell them it is awaiting review
+				// instead of reloading into a feed that does not show their post.
+				if ( res && res.ok && data && 'pending' === data.status ) {
+					if ( typeof window.bnToast === 'function' ) {
+						window.bnToast( 'Your post was submitted and is awaiting approval by a moderator.', { tone: 'info' } );
+					}
+					return;
+				}
+
 				window.location.reload();
 			},
 			setPrivacy: function () {

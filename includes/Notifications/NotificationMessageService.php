@@ -299,6 +299,20 @@ class NotificationMessageService {
 			case 'bn.report_resolved':
 				return __( 'Your report was reviewed. Thank you for keeping the community safe.', 'buddynext' );
 
+			case 'bn.post_approved':
+				return __( 'Your post was approved and is now live.', 'buddynext' );
+
+			case 'bn.post_rejected':
+				$reason = isset( $data['reason'] ) ? (string) $data['reason'] : '';
+				if ( '' !== $reason ) {
+					return sprintf(
+						/* translators: %s: moderator's reason for rejecting the post. */
+						__( 'Your post was not approved: %s', 'buddynext' ),
+						$reason
+					);
+				}
+				return __( 'Your post was not approved by the moderators.', 'buddynext' );
+
 			case 'bn.badge_awarded':
 				$badge = isset( $data['badge'] ) ? (string) $data['badge'] : '';
 				if ( '' !== $badge ) {
@@ -754,6 +768,10 @@ class NotificationMessageService {
 			case 'bn.connection_declined':
 				return $actor_id > 0 ? PageRouter::profile_url( $actor_id ) : '';
 
+			case 'bn.post_rejected':
+				// The rejected post is gone — send the author to their feed.
+				return PageRouter::activity_url();
+
 			case 'bn.post_reacted':
 			case 'bn.post_commented':
 			case 'bn.comment_reply':
@@ -761,6 +779,7 @@ class NotificationMessageService {
 			case 'bn.mention':
 			case 'bn.bookmark_milestone':
 			case 'bn.space_new_post':
+			case 'bn.post_approved':
 				// object_id is a bn_posts row id — deep-link to the canonical
 				// single-post permalink (/p/{id}/), not the generic feed. The
 				// activity hub ignores a ?post_id= query arg, so the old form

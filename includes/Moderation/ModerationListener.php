@@ -37,6 +37,11 @@ class ModerationListener implements ListenerInterface {
 		add_action( 'buddynext_user_shadow_ban_removed', array( $this, 'on_user_shadow_ban_removed' ), 10, 1 );
 		add_action( 'buddynext_daily_queue_check', array( $this, 'on_daily_queue_check' ), 10, 0 );
 
+		// Pre-moderation decisions — tell the author when their held post is
+		// approved (now live) or rejected, so they are never left guessing.
+		add_action( 'buddynext_post_approved', array( $this, 'on_post_approved' ), 10, 2 );
+		add_action( 'buddynext_post_rejected', array( $this, 'on_post_rejected' ), 10, 3 );
+
 		// Schedule daily moderation queue alert if not already registered.
 		if ( ! wp_next_scheduled( 'buddynext_daily_queue_check' ) ) {
 			wp_schedule_event( time(), 'daily', 'buddynext_daily_queue_check' );
@@ -214,6 +219,56 @@ class ModerationListener implements ListenerInterface {
 			$user_id,
 			'bn.appeal_resolved',
 			array( 'status' => $decision )
+		);
+	}
+
+	/**
+	 * Notify the author when their held (pre-moderated) post is approved and is
+	 * now live. The notification deep-links to the published post.
+	 *
+	 * @param int $post_id   Approved post ID.
+	 * @param int $author_id Post author user ID.
+	 * @return void
+	 */
+	public function on_post_approved( int $post_id, int $author_id ): void {
+		if ( ! function_exists( 'buddynext_service' ) || $author_id <= 0 ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $author_id,
+				'sender_id'    => 0,
+				'type'         => 'bn.post_approved',
+				'object_type'  => 'post',
+				'object_id'    => $post_id,
+			)
+		);
+	}
+
+	/**
+	 * Notify the author when their held (pre-moderated) post is rejected, with
+	 * the moderator's reason when one was given.
+	 *
+	 * @param int    $post_id   Rejected post ID.
+	 * @param int    $author_id Post author user ID.
+	 * @param string $reason    Optional reason for the rejection.
+	 * @return void
+	 */
+	public function on_post_rejected( int $post_id, int $author_id, string $reason = '' ): void {
+		if ( ! function_exists( 'buddynext_service' ) || $author_id <= 0 ) {
+			return;
+		}
+
+		buddynext_service( 'notifications' )->create(
+			array(
+				'recipient_id' => $author_id,
+				'sender_id'    => 0,
+				'type'         => 'bn.post_rejected',
+				'object_type'  => 'post',
+				'object_id'    => $post_id,
+				'data'         => array( 'reason' => $reason ),
+			)
 		);
 	}
 
