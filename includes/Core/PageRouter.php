@@ -888,6 +888,12 @@ class PageRouter {
 		switch ( $hub ) {
 			case 'feed':
 				$assets->enqueue( 'feed' );
+				// Explore is BuddyNext's signature discovery surface — its own
+				// stylesheet (bn-explore.css) so the masonry grid + varied cards
+				// evolve independently of the activity feed (bn-feed.css).
+				if ( 'explore' === (string) get_query_var( 'bn_activity_action', '' ) ) {
+					wp_enqueue_style( 'bn-explore' );
+				}
 				// Hashtag feed additionally needs the hashtag store module.
 				if ( 'hashtag' === (string) get_query_var( 'bn_activity_action', '' ) ) {
 					$assets->enqueue( 'hashtags' );

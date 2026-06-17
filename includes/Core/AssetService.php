@@ -301,6 +301,7 @@ class AssetService {
 		// ── Feature CSS (each depends on the base) ─────────────────────────────
 		$feature_styles = array(
 			'bn-feed',
+			'bn-explore',
 			'bn-profile',
 			'bn-spaces',
 			'bn-members',
