@@ -7,8 +7,8 @@
  * can reference them by constant rather than bare string.
  *
  * Jobs defined (matches spec 19 Action Scheduler table):
- *   buddynext_daily_digest         — daily  08:00 UTC
- *   buddynext_weekly_digest        — weekly Monday 08:00 UTC
+ *   buddynext_daily_digest         — daily (first run at activation time, then every 24h)
+ *   buddynext_weekly_digest        — weekly (first run at activation time, then every 7 days)
  *   buddynext_cleanup_tokens       — daily
  *   buddynext_cleanup_notifications— weekly (prune 90-day-old read rows)
  *   buddynext_trending_hashtags    — every 30 min

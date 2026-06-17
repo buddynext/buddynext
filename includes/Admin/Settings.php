@@ -1794,7 +1794,7 @@ class Settings extends AdminPageBase {
 			array(
 				'never'  => __( 'Disabled — no digest emails', 'buddynext' ),
 				'daily'  => __( 'Daily', 'buddynext' ),
-				'weekly' => __( 'Weekly (Sunday)', 'buddynext' ),
+				'weekly' => __( 'Weekly', 'buddynext' ),
 			),
 			__( 'How often BuddyNext sends a digest of unread notifications. Individual users can opt out.', 'buddynext' )
 		);
