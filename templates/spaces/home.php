@@ -887,6 +887,16 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 		<?php endif; ?>
 	</div>
 
+	<?php
+	// Share modal — the space feed renders post cards whose Share action
+	// dispatches bn-open-share-modal, but without this include there is no modal
+	// island to receive it, so Share did nothing inside a space.
+	buddynext_get_template(
+		'partials/share-modal.php',
+		array( 'current_user_id' => $current_user_id )
+	);
+	?>
+
 </div>
 <?php
 /**
