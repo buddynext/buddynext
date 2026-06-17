@@ -92,7 +92,15 @@ class Insights {
 				<?php $this->render_spark( $m['signups_14d'] ); ?>
 			</div>
 		</div>
+
 		<?php
+		/**
+		 * Fires at the end of the Insights tab body. Pro hooks this to render its
+		 * full analytics suite (Overview / Cohorts / Funnel / Profile views) below
+		 * the Free at-a-glance summary, so the two live in one tab instead of a
+		 * separate Analytics tab plus a ghost legacy page.
+		 */
+		do_action( 'buddynext_insights_after' );
 	}
 
 	/**

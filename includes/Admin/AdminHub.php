@@ -179,14 +179,12 @@ class AdminHub {
 			'position' => 20,
 		),
 
-		// Engagement — interaction + measurement.
+		// Engagement — interaction + measurement. Insights is the single
+		// measurement tab; Pro injects its analytics suite into it via the
+		// buddynext_insights_after action (no separate Analytics tab).
 		'growth:insights'            => array(
 			'section'  => 'engagement',
 			'position' => 10,
-		),
-		'growth:analytics'           => array(
-			'section'  => 'engagement',
-			'position' => 15,
 		),
 		'settings:social'            => array(
 			'section'  => 'engagement',
