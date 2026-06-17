@@ -41,7 +41,7 @@ class Spaces extends AdminPageBase {
 			__( 'Directory', 'buddynext' ),
 			array( $this, 'render_page' ),
 			array(
-				'subtitle' => __( 'Manage all spaces, categories, and integrations.', 'buddynext' ),
+				'subtitle' => __( 'Manage all spaces and categories.', 'buddynext' ),
 			)
 		);
 	}
@@ -108,7 +108,7 @@ class Spaces extends AdminPageBase {
 	 * @return string
 	 */
 	protected function get_subtitle(): string {
-		return __( 'Manage all spaces, categories, and integrations.', 'buddynext' );
+		return __( 'Manage all spaces and categories.', 'buddynext' );
 	}
 
 	/**
@@ -312,6 +312,11 @@ class Spaces extends AdminPageBase {
 											<a href="<?php echo esc_url( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ); ?>"
 													class="bn-btn" data-variant="ghost" data-size="sm" target="_blank" rel="noopener">
 												<?php esc_html_e( 'View', 'buddynext' ); ?>
+											</a>
+											<?php // Manage links to the space's own settings screen — site admins pass its manage-settings capability, so this is the admin edit surface (rename, type, category, cover, who-can-post, transfer ownership). ?>
+											<a href="<?php echo esc_url( trailingslashit( buddynext_space_url( (string) ( $space['slug'] ?? '' ) ) ) . 'settings/' ); ?>"
+													class="bn-btn" data-variant="secondary" data-size="sm">
+												<?php esc_html_e( 'Manage', 'buddynext' ); ?>
 											</a>
 											<form method="post"
 													action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
