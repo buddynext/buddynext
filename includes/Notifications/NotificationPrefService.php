@@ -79,7 +79,16 @@ class NotificationPrefService {
 		$email_freq = isset( $entry['default_email_freq'] ) ? (string) $entry['default_email_freq'] : 'immediate';
 
 		if ( isset( self::ADMIN_DEFAULT_OPTION[ $type ] ) ) {
-			$on_site = (bool) get_option( self::ADMIN_DEFAULT_OPTION[ $type ], true );
+			// Only let the site-owner default override the catalogue default when
+			// the option actually holds a value. The option can exist as an empty
+			// string (e.g. a checkbox that was never given a real boolean on save);
+			// casting '' to (bool) would read as "off" and silently suppress the
+			// type - notably @mentions, which every comparable platform delivers
+			// by default. Empty/unset falls back to the catalogue default.
+			$admin_val = get_option( self::ADMIN_DEFAULT_OPTION[ $type ], null );
+			if ( null !== $admin_val && '' !== $admin_val ) {
+				$on_site = (bool) $admin_val;
+			}
 		}
 
 		return array(
