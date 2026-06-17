@@ -524,6 +524,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				'thumb'  => $link_thumb,
 				'domain' => $link_domain,
 			),
+			'link_meta'         => $link_meta,
 			'poll_data'         => array(
 				'options'            => $poll_options,
 				'total_votes'        => $poll_total_votes,

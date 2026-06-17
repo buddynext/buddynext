@@ -647,6 +647,81 @@
 	color: var(--bn-ink-3);
 }
 
+/* Event activity card — date pill + title + date/time + location. Mirrors the
+   v2 "This week" event rows, sized up for the in-feed body. */
+.bn-post-card__event {
+	display: flex;
+	gap: var(--bn-s3);
+	align-items: center;
+	border: 1px solid var(--bn-line);
+	border-inline-start: 3px solid var(--bn-events);
+	border-radius: var(--bn-r-md);
+	padding: var(--bn-s3);
+	background: var(--bn-events-bg);
+}
+
+.bn-post-card__event-date {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	flex-shrink: 0;
+	text-align: center;
+}
+
+.bn-post-card__event-month {
+	font-size: var(--bn-text-2xs);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-events);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.bn-post-card__event-day {
+	font-family: var(--bn-font-display);
+	font-size: var(--bn-text-2xl);
+	font-weight: var(--bn-fw-semibold);
+	line-height: 1;
+	color: var(--bn-ink);
+}
+
+.bn-post-card__event-date--tbd .bn-post-card__event-icon {
+	display: inline-flex;
+	color: var(--bn-events);
+}
+
+.bn-post-card__event-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.bn-post-card__event-title {
+	font-size: var(--bn-text-base);
+	font-weight: var(--bn-fw-semibold);
+	line-height: 1.3;
+	color: var(--bn-ink);
+}
+
+.bn-post-card__event-meta {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
+	margin-top: 2px;
+}
+
+.bn-post-card__event-meta-icon {
+	display: inline-flex;
+	flex-shrink: 0;
+}
+
+.bn-post-card__event-meta-icon svg {
+	width: 13px;
+	height: 13px;
+}
+
 .bn-post-card__bridge-icon svg {
 	width: 20px;
 	height: 20px;

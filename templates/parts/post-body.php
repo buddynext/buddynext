@@ -17,6 +17,8 @@
  * @var string      $post_content         Decoded post content (pre-format).
  * @var array       $link_preview         Pre-resolved link-preview fields:
  *                                        { url, title, desc, thumb, domain }.
+ * @var array       $link_meta            Decoded link_meta JSON (used by the event
+ *                                        branch: { title, location, event_at }).
  * @var array       $poll_data            Pre-resolved poll fields:
  *                                        { options, total_votes, my_voted_option_id }.
  * @var array       $media_attachments    Pre-resolved media attachment ids.
@@ -46,6 +48,7 @@ $args = array(
 	'bn_post_type'      => isset( $bn_post_type ) ? (string) $bn_post_type : 'text',
 	'post_content'      => isset( $post_content ) ? (string) $post_content : '',
 	'link_preview'      => isset( $link_preview ) && is_array( $link_preview ) ? $link_preview : array(),
+	'link_meta'         => isset( $link_meta ) && is_array( $link_meta ) ? $link_meta : array(),
 	'poll_data'         => isset( $poll_data ) && is_array( $poll_data ) ? $poll_data : array(),
 	'media_attachments' => isset( $media_attachments ) && is_array( $media_attachments ) ? $media_attachments : array(),
 	'is_pinned'         => ! empty( $is_pinned ),
@@ -334,6 +337,19 @@ do_action( 'buddynext_part_post_body_before', $args );
 				<p><?php esc_html_e( 'Original post is no longer available.', 'buddynext' ); ?></p>
 			</div>
 		<?php endif; ?>
+
+	<?php elseif ( 'event' === $bn_body_post_type ) : ?>
+		<?php
+		$bn_event_meta = is_array( $args['link_meta'] ) ? $args['link_meta'] : array();
+		buddynext_get_template(
+			'parts/post-event.php',
+			array(
+				'bn_post_id'   => (int) $args['bn_post_id'],
+				'link_meta'    => $bn_event_meta,
+				'post_content' => $bn_body_content,
+			)
+		);
+		?>
 
 	<?php else : ?>
 		<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>
