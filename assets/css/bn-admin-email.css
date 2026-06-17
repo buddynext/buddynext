@@ -188,42 +188,17 @@
 	text-transform: lowercase;
 }
 
-/* Preview panel — email-frame card. */
+/* Preview panel — renders the real branded shell in an isolated iframe so the
+   preview is byte-identical to a genuine send (one uniform header + footer). */
 .bn-email-editor__preview-frame {
-	max-width: 640px;
+	display: block;
+	width: 100%;
+	max-width: 680px;
+	min-height: 560px;
 	margin-inline: auto;
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
-	overflow: hidden;
-}
-.bn-email-editor__preview-head {
-	padding: var(--bn-s5);
-	background: var(--bn-accent);
-	color: var(--bn-accent-fg);
-	text-align: center;
-}
-.bn-email-editor__preview-logo {
-	font-family: var(--bn-font-display);
-	font-size: var(--bn-text-lg);
-	font-weight: 700;
-	letter-spacing: -0.01em;
-}
-.bn-email-editor__preview-body {
-	padding: var(--bn-s6) var(--bn-s5);
-	font-size: var(--bn-text-sm);
-	line-height: 1.6;
-	color: var(--bn-ink);
-	white-space: pre-wrap;
-	word-break: break-word;
-}
-.bn-email-editor__preview-foot {
-	padding: var(--bn-s3) var(--bn-s5);
-	background: var(--bn-sunken);
-	border-top: 1px solid var(--bn-line-faint);
-	font-size: var(--bn-text-xs);
-	color: var(--bn-ink-3);
-	text-align: center;
 }
 
 /* Save bar at the bottom of the form panel. */

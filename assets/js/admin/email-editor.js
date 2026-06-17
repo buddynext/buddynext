@@ -23,7 +23,32 @@
 
 	var body = root.querySelector( '#bn-body' );
 	var plain = root.querySelector( '#bn-plain' );
-	var previewBody = root.querySelector( '[data-bn-preview-body]' );
+	var subjectInput = root.querySelector( '#bn-subject' );
+	var previewFrame = root.querySelector( '[data-bn-preview-iframe]' );
+	var previewCfg = window.bnEmailEditorPreview || { shell: '{{BNBODY}}', sample: {} };
+
+	// Replace {{token}} occurrences with sample values so the preview reads as a
+	// real, ready-to-send email — never raw placeholders. Known tokens use the
+	// localized sample map; any leftover *_name / *_url / other token still gets a
+	// sensible humanized stand-in so nothing renders as "{{...}}".
+	function fillTokens( str ) {
+		if ( ! str ) {
+			return '';
+		}
+		return String( str ).replace( /\{\{\s*([a-z0-9_]+)\s*\}\}/gi, function ( match, key ) {
+			var lower = key.toLowerCase();
+			if ( Object.prototype.hasOwnProperty.call( previewCfg.sample, lower ) ) {
+				return previewCfg.sample[ lower ];
+			}
+			if ( /_url$/.test( lower ) ) {
+				return '#';
+			}
+			if ( /_name$/.test( lower ) ) {
+				return 'Jordan Lee';
+			}
+			return lower.replace( /_/g, ' ' );
+		} );
+	}
 
 	/* ── Tab switching ──────────────────────────────────────────────── */
 	var tabs = root.querySelectorAll( '[role="tab"][data-bn-tab]' );
@@ -76,14 +101,18 @@
 	}
 
 	function syncPreview() {
-		if ( ! previewBody || ! body ) {
+		if ( ! previewFrame || ! body ) {
 			return;
 		}
-		// Live admin preview of HTML body content authored by manage_options
-		// users. The server sanitizes via wp_kses_post() on save; this client
-		// render only reflects what the admin is typing right now.
-		var sanitized = body.value;
-		previewBody.innerHTML = sanitized; // eslint-disable-line no-unsanitized/property
+		// Render the authored body inside the REAL branded shell (same header +
+		// footer as a genuine send), with sample tokens filled. The server still
+		// sanitizes via wp_kses_post() on save; this is a faithful live preview.
+		var subject = subjectInput ? fillTokens( subjectInput.value ) : '';
+		var bodyHtml = fillTokens( body.value );
+		var html = String( previewCfg.shell )
+			.replace( '{{BNSUBJECT}}', subject )
+			.replace( '{{BNBODY}}', bodyHtml );
+		previewFrame.setAttribute( 'srcdoc', html );
 	}
 
 	if ( body ) {
@@ -93,6 +122,10 @@
 				plain.value = stripHtml( body.value );
 			}
 		} );
+	}
+
+	if ( subjectInput ) {
+		subjectInput.addEventListener( 'input', syncPreview );
 	}
 
 	/* ── Token picker — insert at caret ─────────────────────────────── */

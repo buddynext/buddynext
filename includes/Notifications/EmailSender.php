@@ -197,6 +197,63 @@ class EmailSender {
 	}
 
 	/**
+	 * Resolve the effective From name for every BuddyNext email.
+	 *
+	 * Falls back to the site name when Settings → Email leaves it blank, so the
+	 * sender is always branded (never the bare WordPress default) and the admin
+	 * field can surface the same effective value instead of an empty box.
+	 *
+	 * @return string
+	 */
+	public static function from_name(): string {
+		$name = sanitize_text_field( (string) get_option( 'buddynext_email_from_name', '' ) );
+		if ( '' === $name ) {
+			$name = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
+		}
+		// Let the admin type {{site_name}} etc. so the From name can track the site.
+		return self::apply_global_tokens( $name );
+	}
+
+	/**
+	 * Resolve the effective From address for every BuddyNext email.
+	 *
+	 * Falls back to the site admin email when Settings → Email leaves it blank.
+	 *
+	 * @return string
+	 */
+	public static function from_address(): string {
+		$address = sanitize_email( (string) get_option( 'buddynext_email_from_address', '' ) );
+		if ( '' === $address || ! is_email( $address ) ) {
+			$address = sanitize_email( (string) get_option( 'admin_email', '' ) );
+		}
+		return $address;
+	}
+
+	/**
+	 * Resolve site-wide merge tags in admin-authored email chrome (footer text,
+	 * From name). These are the placeholders that don't depend on a recipient, so
+	 * they can be filled anywhere — including settings the admin types by hand.
+	 *
+	 * Supported: {{site_name}}, {{site_url}}, {{current_year}}.
+	 *
+	 * @param string $text Text possibly containing site-wide tokens.
+	 * @return string
+	 */
+	public static function apply_global_tokens( string $text ): string {
+		if ( false === strpos( $text, '{{' ) ) {
+			return $text;
+		}
+		return strtr(
+			$text,
+			array(
+				'{{site_name}}'    => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+				'{{site_url}}'     => home_url( '/' ),
+				'{{current_year}}' => gmdate( 'Y' ),
+			)
+		);
+	}
+
+	/**
 	 * Build the BuddyNext email headers (Content-Type + Reply-To identity).
 	 *
 	 * The configured Reply-To (Settings → Email) is applied as a header so it
@@ -240,8 +297,11 @@ class EmailSender {
 	 * @return bool True when wp_mail() reports success.
 	 */
 	public static function send_with_identity( string $to, string $subject, string $body, array $headers ): bool {
-		$from_name    = sanitize_text_field( (string) get_option( 'buddynext_email_from_name', '' ) );
-		$from_address = sanitize_email( (string) get_option( 'buddynext_email_from_address', '' ) );
+		// Always branded: resolvers fall back to the site name / admin email when
+		// the owner hasn't set a custom identity, so no BuddyNext email ever sends
+		// as the bare WordPress default.
+		$from_name    = self::from_name();
+		$from_address = self::from_address();
 
 		$name_filter = null;
 		if ( '' !== $from_name ) {
@@ -257,6 +317,33 @@ class EmailSender {
 				return $from_address;
 			};
 			add_filter( 'wp_mail_from', $address_filter );
+		}
+
+		// Make this the authoritative identity path: ensure the HTML Content-Type
+		// and the configured Reply-To are present on EVERY send, even when a caller
+		// passed only a bare Content-Type header (so the Reply-To setting is wired
+		// into all email, not just the ones that call build_identity_headers()).
+		$has_ctype    = false;
+		$has_reply_to = false;
+		foreach ( $headers as $header ) {
+			if ( ! is_string( $header ) ) {
+				continue;
+			}
+			if ( 0 === stripos( $header, 'content-type:' ) ) {
+				$has_ctype = true;
+			}
+			if ( 0 === stripos( $header, 'reply-to:' ) ) {
+				$has_reply_to = true;
+			}
+		}
+		if ( ! $has_ctype ) {
+			$headers[] = 'Content-Type: text/html; charset=UTF-8';
+		}
+		if ( ! $has_reply_to ) {
+			$reply_to = sanitize_email( (string) get_option( 'buddynext_email_reply_to', '' ) );
+			if ( '' !== $reply_to && is_email( $reply_to ) ) {
+				$headers[] = 'Reply-To: ' . $reply_to;
+			}
 		}
 
 		$sent = wp_mail( $to, $subject, $body, $headers );
@@ -341,6 +428,7 @@ class EmailSender {
 
 		// Footer: custom footer text (Settings → Email) or the default © line.
 		$custom_footer = trim( (string) get_option( 'buddynext_email_footer_text', '' ) );
+		$custom_footer = self::apply_global_tokens( $custom_footer );
 		$footer_html   = '' !== $custom_footer
 			? nl2br( esc_html( $custom_footer ) )
 			: esc_html( sprintf( /* translators: 1: year, 2: site name. */ __( '© %1$s %2$s. All rights reserved.', 'buddynext' ), $year, $site_name ) );

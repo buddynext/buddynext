@@ -966,25 +966,11 @@ class EmailEditor {
 						data-bn-panel="preview"
 						hidden
 					>
-						<div class="bn-email-editor__preview-frame">
-							<div class="bn-email-editor__preview-head">
-								<div class="bn-email-editor__preview-logo">
-									<?php echo esc_html( get_bloginfo( 'name' ) ); ?>
-								</div>
-							</div>
-							<div class="bn-email-editor__preview-body" data-bn-preview-body>
-								<?php echo wp_kses_post( $body_html ); ?>
-							</div>
-							<div class="bn-email-editor__preview-foot">
-								<?php
-								printf(
-									/* translators: %s: site name */
-									esc_html__( 'Sent by %s - Powered by BuddyNext', 'buddynext' ),
-									esc_html( get_bloginfo( 'name' ) )
-								);
-								?>
-							</div>
-						</div>
+						<iframe
+							class="bn-email-editor__preview-frame"
+							title="<?php esc_attr_e( 'Email preview', 'buddynext' ); ?>"
+							data-bn-preview-iframe
+						></iframe>
 					</div>
 
 				</div><!-- .bn-split__pane-body -->

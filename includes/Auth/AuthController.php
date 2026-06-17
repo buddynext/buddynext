@@ -915,12 +915,16 @@ class AuthController {
 		);
 
 		$headers      = array( 'Content-Type: text/html; charset=UTF-8' );
-		$from_name    = sanitize_text_field( (string) get_option( 'buddynext_email_from_name', '' ) );
-		$from_address = sanitize_email( (string) get_option( 'buddynext_email_from_address', '' ) );
+		$from_name    = \BuddyNext\Notifications\EmailSender::from_name();
+		$from_address = \BuddyNext\Notifications\EmailSender::from_address();
 		if ( '' !== $from_address && is_email( $from_address ) ) {
 			$headers[] = '' !== $from_name
 				? sprintf( 'From: %s <%s>', $from_name, $from_address )
 				: 'From: ' . $from_address;
+		}
+		$reply_to = sanitize_email( (string) get_option( 'buddynext_email_reply_to', '' ) );
+		if ( '' !== $reply_to && is_email( $reply_to ) ) {
+			$headers[] = 'Reply-To: ' . $reply_to;
 		}
 
 		$defaults['subject'] = $subject;

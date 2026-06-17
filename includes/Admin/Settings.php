@@ -1824,19 +1824,22 @@ class Settings extends AdminPageBase {
 	private function render_tab_email(): void {
 		$this->open_section( __( 'Sender Identity', 'buddynext' ) );
 
+		// Surface the EFFECTIVE values (resolvers fall back to site name / admin
+		// email) so the fields are never blank and show exactly what every email
+		// will actually use.
 		$this->render_text_row(
 			'buddynext_email_from_name',
 			__( 'From name', 'buddynext' ),
-			(string) get_option( 'buddynext_email_from_name', get_bloginfo( 'name' ) ),
-			__( 'Display name shown in the "From:" field of all community emails.', 'buddynext' ),
+			\BuddyNext\Notifications\EmailSender::from_name(),
+			__( 'Display name shown in the "From:" field of all community emails. Defaults to your site name.', 'buddynext' ),
 			300
 		);
 
 		$this->render_text_row(
 			'buddynext_email_from_address',
 			__( 'From address', 'buddynext' ),
-			(string) get_option( 'buddynext_email_from_address', get_option( 'admin_email', '' ) ),
-			__( 'Sending address for all BuddyNext system emails. Must be a verified domain.', 'buddynext' ),
+			\BuddyNext\Notifications\EmailSender::from_address(),
+			__( 'Sending address for all BuddyNext system emails. Defaults to your admin email; use a verified domain for best deliverability.', 'buddynext' ),
 			300
 		);
 
@@ -1844,7 +1847,7 @@ class Settings extends AdminPageBase {
 			'buddynext_email_reply_to',
 			__( 'Reply-To address', 'buddynext' ),
 			(string) get_option( 'buddynext_email_reply_to', '' ),
-			__( 'Optional. If set, replies to community emails go here instead of the From address.', 'buddynext' ),
+			__( 'Optional. If set, replies to community emails go here instead of the From address. Applied to every BuddyNext email.', 'buddynext' ),
 			300
 		);
 
@@ -1856,7 +1859,7 @@ class Settings extends AdminPageBase {
 			'buddynext_email_footer_text',
 			__( 'Footer text', 'buddynext' ),
 			(string) get_option( 'buddynext_email_footer_text', '' ),
-			__( 'Appended to the bottom of every BuddyNext email. Supports plain text only.', 'buddynext' ),
+			__( 'Appended to the bottom of every BuddyNext email. Plain text, plus the placeholders {{site_name}}, {{site_url}}, and {{current_year}}.', 'buddynext' ),
 			3,
 			540
 		);

@@ -221,6 +221,35 @@ class AssetService {
 				self::VERSION,
 				true
 			);
+
+			// Pass the REAL branded shell + sample merge-tag values so the editor
+			// preview is byte-identical to a genuine send (one uniform header +
+			// footer) and never shows raw {{tokens}}.
+			wp_localize_script(
+				'bn-email-editor',
+				'bnEmailEditorPreview',
+				array(
+					'shell'  => \BuddyNext\Notifications\EmailSender::brand_wrap( '{{BNBODY}}', '{{BNSUBJECT}}' ),
+					'sample' => array(
+						'site_name'       => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
+						'site_url'        => home_url( '/' ),
+						'user_name'       => __( 'Alex Rivera', 'buddynext' ),
+						'first_name'      => __( 'Alex', 'buddynext' ),
+						'user_email'      => 'alex@example.com',
+						'actor_name'      => __( 'Jordan Lee', 'buddynext' ),
+						'follower_name'   => __( 'Jordan Lee', 'buddynext' ),
+						'connector_name'  => __( 'Jordan Lee', 'buddynext' ),
+						'mentioner_name'  => __( 'Jordan Lee', 'buddynext' ),
+						'reactor_name'    => __( 'Jordan Lee', 'buddynext' ),
+						'commenter_name'  => __( 'Jordan Lee', 'buddynext' ),
+						'sharer_name'     => __( 'Jordan Lee', 'buddynext' ),
+						'login_url'       => class_exists( \BuddyNext\Core\PageRouter::class ) ? \BuddyNext\Core\PageRouter::auth_url() : home_url( '/' ),
+						'action_url'      => home_url( '/' ),
+						'unsubscribe_url' => '#',
+						'current_year'    => gmdate( 'Y' ),
+					),
+				)
+			);
 		}
 
 		// Navigation Manager — wherever the 'navigation' tab is routed.
