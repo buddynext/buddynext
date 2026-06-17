@@ -28,6 +28,15 @@ use BuddyNext\Notifications\NotificationService;
 class WPMediaVerseBridge {
 
 	/**
+	 * Re-entrancy guard for the two-way follow mirror: true while this bridge is
+	 * propagating a follow/unfollow into the other store, so the reciprocal
+	 * action it triggers there is ignored instead of looping back.
+	 *
+	 * @var bool
+	 */
+	private bool $mirroring_follow = false;
+
+	/**
 	 * Attach all hooks.
 	 *
 	 * Called from Plugin::init() via buddynext_load_bridges action.
@@ -55,6 +64,21 @@ class WPMediaVerseBridge {
 
 		// Notify media owner when someone favourites their content.
 		add_action( 'mvs_favorite_toggled', array( $this, 'on_favorite_toggled' ), 10, 3 );
+
+		// Keep the WPMediaVerse follow graph (mvs_follows) and BuddyNext's
+		// (bn_follows) in sync both ways. MVS profiles and BN profiles otherwise
+		// show divergent follow state for the same pair. A re-entrancy guard plus
+		// an is_following() short-circuit prevents the mirror from looping.
+		add_action( 'mvs_user_followed', array( $this, 'mirror_mvs_follow' ), 10, 2 );
+		add_action( 'mvs_user_unfollowed', array( $this, 'mirror_mvs_unfollow' ), 10, 2 );
+		add_action( 'buddynext_user_followed', array( $this, 'mirror_bn_follow' ), 10, 2 );
+		add_action( 'buddynext_user_unfollowed', array( $this, 'mirror_bn_unfollow' ), 10, 2 );
+
+		// The MVS profile "Message" button dispatches a mvs-open-conversation JS
+		// event whose only native listener (the MVS chat panel) is suppressed
+		// while BN owns /messages/. Enqueue a tiny listener that routes the click
+		// to BN's native conversation instead.
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_message_bridge' ) );
 
 		// Unified nav: inject "Media" link into the BuddyNext left rail. This adds
 		// a link to the media surface on BuddyNext's OWN pages — it does not alter
@@ -243,6 +267,154 @@ class WPMediaVerseBridge {
 
 		$profile = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 		return '' !== $profile ? $profile : $url;
+	}
+
+	/**
+	 * Resolve the WPMediaVerse follow service, or null when unavailable.
+	 *
+	 * @return object|null
+	 */
+	private function mvs_follows(): ?object {
+		if ( ! class_exists( '\WPMediaVerse\Core\Plugin' ) ) {
+			return null;
+		}
+		$container = \WPMediaVerse\Core\Plugin::container();
+		if ( ! is_object( $container ) || ! $container->has( 'follows' ) ) {
+			return null;
+		}
+		$svc = $container->get( 'follows' );
+		return is_object( $svc ) ? $svc : null;
+	}
+
+	/**
+	 * Resolve BuddyNext's follow service, or null when unavailable.
+	 *
+	 * @return object|null
+	 */
+	private function bn_follows(): ?object {
+		if ( ! function_exists( 'buddynext_service' ) ) {
+			return null;
+		}
+		$svc = buddynext_service( 'follows' );
+		return is_object( $svc ) ? $svc : null;
+	}
+
+	/**
+	 * Mirror a follow created on a WPMediaVerse profile into bn_follows.
+	 *
+	 * @param int $follower_id  User who followed.
+	 * @param int $following_id User being followed.
+	 * @return void
+	 */
+	public function mirror_mvs_follow( int $follower_id, int $following_id ): void {
+		if ( $this->mirroring_follow ) {
+			return;
+		}
+		$bn = $this->bn_follows();
+		if ( null === $bn || ! method_exists( $bn, 'follow' ) || ! method_exists( $bn, 'is_following' ) ) {
+			return;
+		}
+		if ( $bn->is_following( $follower_id, $following_id ) ) {
+			return;
+		}
+		$this->mirroring_follow = true;
+		$bn->follow( $follower_id, $following_id );
+		$this->mirroring_follow = false;
+	}
+
+	/**
+	 * Mirror an unfollow on a WPMediaVerse profile into bn_follows.
+	 *
+	 * @param int $follower_id  User who unfollowed.
+	 * @param int $following_id User being unfollowed.
+	 * @return void
+	 */
+	public function mirror_mvs_unfollow( int $follower_id, int $following_id ): void {
+		if ( $this->mirroring_follow ) {
+			return;
+		}
+		$bn = $this->bn_follows();
+		if ( null === $bn || ! method_exists( $bn, 'unfollow' ) || ! method_exists( $bn, 'is_following' ) ) {
+			return;
+		}
+		if ( ! $bn->is_following( $follower_id, $following_id ) ) {
+			return;
+		}
+		$this->mirroring_follow = true;
+		$bn->unfollow( $follower_id, $following_id );
+		$this->mirroring_follow = false;
+	}
+
+	/**
+	 * Mirror a BuddyNext follow into the WPMediaVerse follow graph.
+	 *
+	 * @param int $follower_id  User who followed.
+	 * @param int $following_id User being followed.
+	 * @return void
+	 */
+	public function mirror_bn_follow( int $follower_id, int $following_id ): void {
+		if ( $this->mirroring_follow ) {
+			return;
+		}
+		$mvs = $this->mvs_follows();
+		if ( null === $mvs || ! method_exists( $mvs, 'follow' ) || ! method_exists( $mvs, 'is_following' ) ) {
+			return;
+		}
+		if ( $mvs->is_following( $follower_id, $following_id ) ) {
+			return;
+		}
+		$this->mirroring_follow = true;
+		$mvs->follow( $follower_id, $following_id );
+		$this->mirroring_follow = false;
+	}
+
+	/**
+	 * Mirror a BuddyNext unfollow into the WPMediaVerse follow graph.
+	 *
+	 * @param int $follower_id  User who unfollowed.
+	 * @param int $following_id User being unfollowed.
+	 * @return void
+	 */
+	public function mirror_bn_unfollow( int $follower_id, int $following_id ): void {
+		if ( $this->mirroring_follow ) {
+			return;
+		}
+		$mvs = $this->mvs_follows();
+		if ( null === $mvs || ! method_exists( $mvs, 'unfollow' ) || ! method_exists( $mvs, 'is_following' ) ) {
+			return;
+		}
+		if ( ! $mvs->is_following( $follower_id, $following_id ) ) {
+			return;
+		}
+		$this->mirroring_follow = true;
+		$mvs->unfollow( $follower_id, $following_id );
+		$this->mirroring_follow = false;
+	}
+
+	/**
+	 * Enqueue the listener that routes the MVS profile "Message" button to
+	 * BuddyNext's native conversation. Loaded for logged-in visitors only (the
+	 * button never renders for guests or on your own profile).
+	 *
+	 * @return void
+	 */
+	public function enqueue_message_bridge(): void {
+		if ( ! is_user_logged_in() ) {
+			return;
+		}
+
+		$handle = 'bn-mvs-message-bridge';
+		wp_register_script( $handle, '', array(), '1.0.0', array( 'in_footer' => true ) );
+		wp_enqueue_script( $handle );
+
+		$messages_url = \BuddyNext\Core\PageRouter::messages_url();
+		$inline       = 'document.addEventListener("mvs-open-conversation",function(e){'
+			. 'var u=e&&e.detail&&parseInt(e.detail.userId,10);'
+			. 'if(!u){return;}'
+			. 'var b=' . wp_json_encode( $messages_url ) . ';'
+			. 'window.location.href=b+(b.indexOf("?")===-1?"?":"&")+"to="+u;'
+			. '});';
+		wp_add_inline_script( $handle, $inline );
 	}
 
 	/**
