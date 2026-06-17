@@ -853,21 +853,21 @@ class SpaceService {
 	 */
 	private function hydrate( array $row ): array {
 		return array(
-			'id'              => (int) $row['id'],
-			'name'            => $row['name'],
-			'slug'            => $row['slug'],
-			'description'     => $row['description'],
+			'id'              => (int) ( $row['id'] ?? 0 ),
+			'name'            => $row['name'] ?? '',
+			'slug'            => $row['slug'] ?? '',
+			'description'     => $row['description'] ?? '',
 			'category_id'     => isset( $row['category_id'] ) ? (int) $row['category_id'] : null,
 			'parent_id'       => isset( $row['parent_id'] ) ? (int) $row['parent_id'] : null,
-			'type'            => $row['type'],
-			'owner_id'        => (int) $row['owner_id'],
-			'member_count'    => (int) $row['member_count'],
+			'type'            => $row['type'] ?? 'open',
+			'owner_id'        => (int) ( $row['owner_id'] ?? 0 ),
+			'member_count'    => (int) ( $row['member_count'] ?? 0 ),
 			'avatar_url'      => $row['avatar_url'] ?? null,
 			'cover_image_url' => $row['cover_image_url'] ?? null,
 			'rules'           => $row['rules'] ?? null,
 			'is_archived'     => ! empty( $row['is_archived'] ),
 			'archived_at'     => $row['archived_at'] ?? null,
-			'created_at'      => $row['created_at'],
+			'created_at'      => $row['created_at'] ?? '',
 		);
 	}
 }
