@@ -329,32 +329,32 @@ class BlockService {
 	 * @param int $user_id The restricting user.
 	 * @return int[]
 	 */
-	public function restricted_users( int $user_id ): array {
+	public function restricted_users( int $user_id, int $limit = 0, int $offset = 0 ): array {
 		global $wpdb;
 
 		$cache_key = "restricted_users_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return (array) $cached;
+			$result = (array) $cached;
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$rows = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT blocked_id
+					 FROM {$wpdb->prefix}bn_blocks
+					 WHERE blocker_id = %d AND type = 'restrict'
+					 ORDER BY created_at DESC",
+					$user_id
+				)
+			);
+
+			$result = array_map( 'intval', (array) $rows );
+
+			wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT blocked_id
-				 FROM {$wpdb->prefix}bn_blocks
-				 WHERE blocker_id = %d AND type = 'restrict'
-				 ORDER BY created_at DESC",
-				$user_id
-			)
-		);
-
-		$result = array_map( 'intval', (array) $rows );
-
-		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
-
-		return $result;
+		return $limit > 0 ? array_slice( $result, max( 0, $offset ), $limit ) : $result;
 	}
 
 	/**
@@ -652,32 +652,34 @@ class BlockService {
 	 * @param int $user_id The muting user.
 	 * @return int[]
 	 */
-	public function muted_users( int $user_id ): array {
+	public function muted_users( int $user_id, int $limit = 0, int $offset = 0 ): array {
 		global $wpdb;
 
 		$cache_key = "muted_users_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return (array) $cached;
+			$result = (array) $cached;
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$rows = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT blocked_id
+					 FROM {$wpdb->prefix}bn_blocks
+					 WHERE blocker_id = %d AND type = 'mute'
+					 ORDER BY created_at DESC",
+					$user_id
+				)
+			);
+
+			$result = array_map( 'intval', (array) $rows );
+
+			wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT blocked_id
-				 FROM {$wpdb->prefix}bn_blocks
-				 WHERE blocker_id = %d AND type = 'mute'
-				 ORDER BY created_at DESC",
-				$user_id
-			)
-		);
-
-		$result = array_map( 'intval', (array) $rows );
-
-		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
-
-		return $result;
+		// The full list stays cached (feed exclusion needs all of it); a bounded
+		// caller gets a slice without re-querying.
+		return $limit > 0 ? array_slice( $result, max( 0, $offset ), $limit ) : $result;
 	}
 
 	/**
@@ -686,32 +688,32 @@ class BlockService {
 	 * @param int $user_id The blocking user.
 	 * @return int[]
 	 */
-	public function blocked_users( int $user_id ): array {
+	public function blocked_users( int $user_id, int $limit = 0, int $offset = 0 ): array {
 		global $wpdb;
 
 		$cache_key = "blocked_users_{$user_id}";
 		$cached    = wp_cache_get( $cache_key, self::CACHE_GROUP );
 
 		if ( false !== $cached ) {
-			return (array) $cached;
+			$result = (array) $cached;
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$rows = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT blocked_id
+					 FROM {$wpdb->prefix}bn_blocks
+					 WHERE blocker_id = %d AND type = 'block'
+					 ORDER BY created_at DESC",
+					$user_id
+				)
+			);
+
+			$result = array_map( 'intval', (array) $rows );
+
+			wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT blocked_id
-				 FROM {$wpdb->prefix}bn_blocks
-				 WHERE blocker_id = %d AND type = 'block'
-				 ORDER BY created_at DESC",
-				$user_id
-			)
-		);
-
-		$result = array_map( 'intval', (array) $rows );
-
-		wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
-
-		return $result;
+		return $limit > 0 ? array_slice( $result, max( 0, $offset ), $limit ) : $result;
 	}
 
 	/**

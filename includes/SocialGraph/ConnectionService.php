@@ -625,8 +625,12 @@ class ConnectionService {
 	 * @return int[]
 	 */
 	public function mutual_connections( int $user_a, int $user_b ): array {
-		$connections_a = $this->connections( $user_a );
-		$connections_b = $this->connections( $user_b );
+		// Fetch each user's FULL connection list (connections() defaults to the
+		// first 20), otherwise the intersection silently misses mutuals beyond
+		// page 1 for anyone with more than 20 connections. connection_count() is
+		// cache-backed, so this stays a bounded, accurate query.
+		$connections_a = $this->connections( $user_a, max( 1, $this->connection_count( $user_a ) ) );
+		$connections_b = $this->connections( $user_b, max( 1, $this->connection_count( $user_b ) ) );
 
 		return array_values( array_intersect( $connections_a, $connections_b ) );
 	}
