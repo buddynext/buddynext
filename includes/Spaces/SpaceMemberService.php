@@ -1181,6 +1181,15 @@ class SpaceMemberService {
 			return new WP_Error( 'invalid_args', __( 'Invalid space or user ID.', 'buddynext' ) );
 		}
 
+		// Defense-in-depth: an actor-initiated ban must come from someone who can
+		// moderate the space (owner / moderator / site admin). $banned_by === 0 is
+		// a system ban (automated moderation) and is exempt. The REST route also
+		// gates this, but the service primitive must not be bypassable by any
+		// other / future caller.
+		if ( $banned_by > 0 && ! buddynext_service( 'permissions' )->can( $banned_by, 'buddynext-moderate-space', array( 'space_id' => $space_id ) ) ) {
+			return new WP_Error( 'forbidden', __( 'You do not have permission to ban members from this space.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1235,15 +1244,23 @@ class SpaceMemberService {
 	/**
 	 * Remove a ban from a user for a given space by deleting the bn_space_bans row.
 	 *
-	 * Callers are responsible for capability checks before calling this method.
+	 * Self-guards when an actor is supplied: an actor-initiated unban must come
+	 * from someone who can moderate the space. $actor_id === 0 is a system unban
+	 * and is exempt.
 	 *
 	 * @param int $space_id Space ID.
 	 * @param int $user_id  User to unban.
-	 * @return bool True if the ban row was deleted, false if no row existed.
+	 * @param int $actor_id Acting user (0 = system).
+	 * @return bool|WP_Error True if a row was deleted, false if none existed,
+	 *                       WP_Error when the actor lacks permission.
 	 */
-	public function unban_from_space( int $space_id, int $user_id ): bool {
+	public function unban_from_space( int $space_id, int $user_id, int $actor_id = 0 ): bool|WP_Error {
 		if ( $space_id <= 0 || $user_id <= 0 ) {
 			return false;
+		}
+
+		if ( $actor_id > 0 && ! buddynext_service( 'permissions' )->can( $actor_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) ) ) {
+			return new WP_Error( 'forbidden', __( 'You do not have permission to unban members from this space.', 'buddynext' ), array( 'status' => 403 ) );
 		}
 
 		global $wpdb;

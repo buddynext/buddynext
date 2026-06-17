@@ -1582,13 +1582,16 @@ class ModerationController extends BaseRestController {
 	 * Lift a space ban.
 	 *
 	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
-	public function unban_from_space( WP_REST_Request $request ): WP_REST_Response {
+	public function unban_from_space( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$space_id = (int) $request->get_param( 'id' );
 		$user_id  = (int) $request->get_param( 'user_id' );
 
-		( new SpaceMemberService() )->unban_from_space( $space_id, $user_id );
+		$result = ( new SpaceMemberService() )->unban_from_space( $space_id, $user_id, get_current_user_id() );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
 
 		return new WP_REST_Response(
 			array(
