@@ -299,12 +299,22 @@ function buildCard( item ) {
 
 	body.appendChild( identity );
 
-	// Member type badge.
+	// Member type badge — mirrors the server member-card.php: optional SVG icon
+	// (server-sanitised via MemberTypeService::render_icon_svg) before the name.
 	if ( item.member_type && item.member_type.name ) {
 		const badge = document.createElement( 'span' );
 		badge.className = 'bn-badge bn-md-card__type';
 		badge.setAttribute( 'data-tone', 'accent' );
-		badge.textContent = item.member_type.name;
+		if ( item.member_type.icon_svg ) {
+			const iconWrap = document.createElement( 'span' );
+			iconWrap.className = 'bn-type-badge__icon';
+			iconWrap.setAttribute( 'aria-hidden', 'true' );
+			// icon_svg is wp_kses-filtered server-side (strict SVG allowlist), so
+			// assigning it as markup here is safe.
+			iconWrap.innerHTML = item.member_type.icon_svg;
+			badge.appendChild( iconWrap );
+		}
+		badge.appendChild( document.createTextNode( item.member_type.name ) );
 		body.appendChild( badge );
 	}
 

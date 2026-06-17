@@ -216,11 +216,16 @@ class MemberDirectoryController extends BaseRestController {
 
 		$type_slug = (string) get_user_meta( $uid, 'bn_member_type', true );
 		$type_name = '';
+		$type_icon = '';
 		if ( '' !== $type_slug ) {
 			$types = buddynext_service( 'member_types' );
 			$type  = $types->get_by_slug( $type_slug );
 			if ( null !== $type ) {
 				$type_name = (string) $type['name'];
+				// Re-sanitised on output so the JS card can render the badge icon
+				// (the directory grid re-renders client-side) exactly like the
+				// server member-card.php.
+				$type_icon = MemberTypeService::render_icon_svg( (string) ( $type['icon_svg'] ?? '' ) );
 			}
 		}
 
@@ -277,8 +282,9 @@ class MemberDirectoryController extends BaseRestController {
 			'follower_count' => (int) ( $row['follower_count'] ?? 0 ),
 			'mutual_count'   => (int) ( $row['mutual_connection_count'] ?? 0 ),
 			'member_type'    => array(
-				'slug' => $type_slug,
-				'name' => $type_name,
+				'slug'     => $type_slug,
+				'name'     => $type_name,
+				'icon_svg' => $type_icon,
 			),
 			'is_self'        => $is_self,
 			'can_interact'   => $can_interact,

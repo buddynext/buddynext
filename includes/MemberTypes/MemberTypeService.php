@@ -581,7 +581,7 @@ class MemberTypeService {
 			'description' => sanitize_textarea_field( (string) ( $data['description'] ?? '' ) ),
 			'color'       => $color,
 			'text_color'  => $text_color,
-			'icon_svg'    => wp_kses( (string) ( $data['icon_svg'] ?? '' ), $this->allowed_svg_tags() ),
+			'icon_svg'    => wp_kses( (string) ( $data['icon_svg'] ?? '' ), self::allowed_svg_tags() ),
 			'sort_order'  => (int) ( $data['sort_order'] ?? 0 ),
 			'show_in_dir' => ! empty( $data['show_in_dir'] ),
 			'self_select' => ! empty( $data['self_select'] ),
@@ -593,7 +593,7 @@ class MemberTypeService {
 	 *
 	 * @return array<string, array<string, bool>>
 	 */
-	private function allowed_svg_tags(): array {
+	private static function allowed_svg_tags(): array {
 		return array(
 			'svg'      => array(
 				'xmlns'           => true,
@@ -650,6 +650,27 @@ class MemberTypeService {
 				'stroke' => true,
 			),
 		);
+	}
+
+	/**
+	 * Sanitise a member-type icon SVG for safe frontend output.
+	 *
+	 * The stored value is already wp_kses-filtered on save, but frontend
+	 * surfaces (profile hero, member cards, directory grid) re-filter on output
+	 * as defense-in-depth so an admin-supplied SVG can never inject markup the
+	 * allowlist forbids. Returns '' for an empty/whitespace string so callers
+	 * can render nothing without a separate guard. The result is already
+	 * escaped (wp_kses), so callers echo it directly.
+	 *
+	 * @param string $svg Raw stored icon SVG.
+	 * @return string Sanitised SVG markup, or '' when blank.
+	 */
+	public static function render_icon_svg( string $svg ): string {
+		$svg = trim( $svg );
+		if ( '' === $svg ) {
+			return '';
+		}
+		return wp_kses( $svg, self::allowed_svg_tags() );
 	}
 
 	/**

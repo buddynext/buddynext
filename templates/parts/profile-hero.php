@@ -252,11 +252,21 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						</span>
 					<?php endif; ?>
 					<?php if ( $bn_pf_member_type ) : ?>
+						<?php $bn_pf_type_icon = \BuddyNext\MemberTypes\MemberTypeService::render_icon_svg( (string) ( $bn_pf_member_type['icon_svg'] ?? '' ) ); ?>
 						<span
 							class="bn-badge bn-pf-type-badge"
 							data-tone="accent"
 							style="background:<?php echo esc_attr( $bn_pf_member_type['color'] ); ?>;color:<?php echo esc_attr( $bn_pf_member_type['text_color'] ); ?>;"
-						><?php echo esc_html( $bn_pf_member_type['name'] ); ?></span>
+						>
+						<?php
+						if ( '' !== $bn_pf_type_icon ) :
+							?>
+							<span class="bn-type-badge__icon" aria-hidden="true"><?php echo $bn_pf_type_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses-sanitized by MemberTypeService::render_icon_svg(). ?></span>
+							<?php
+						endif;
+						echo esc_html( $bn_pf_member_type['name'] );
+						?>
+						</span>
 					<?php endif; ?>
 					<?php
 					$bn_pf_is_verified = (bool) get_user_meta( $bn_pf_uid, 'buddynext_email_verified', true );

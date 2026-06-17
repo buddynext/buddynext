@@ -1856,6 +1856,11 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 .bn-badge[data-tone="events"]   { background: var(--bn-events-bg); color: var(--bn-events); border-color: transparent; }
 .bn-badge[data-tone="paid"]     { background: var(--bn-paid-bg); color: var(--bn-paid); border-color: transparent; }
 
+/* Member-type badge icon (admin-supplied SVG) — inherits the badge's currentColor
+   and sits inline before the label via the badge's own flex gap. */
+.bn-type-badge__icon { display: inline-flex; align-items: center; }
+.bn-type-badge__icon svg { width: 12px; height: 12px; display: block; }
+
 /* ── Avatar — v2 size + presence attribute API ──────────────────────── */
 .bn-avatar[data-size] {
 	position: relative;
