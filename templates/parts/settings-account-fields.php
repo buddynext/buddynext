@@ -64,11 +64,11 @@ $profile_email_raw = wp_get_current_user()->user_email;
 						data-wp-on--input="actions.checkSlug" />
 					<span class="bn-ep-slug-indicator"
 						id="bn-ep-slug-status"
-						data-wp-bind--hidden="context.slugChecking || context.slugAvailable === null"
-						data-wp-class--bn-ep-slug-ok="context.slugAvailable === true"
-						data-wp-class--bn-ep-slug-err="context.slugAvailable === false">
-						<span data-wp-bind--hidden="!context.slugAvailable"><?php buddynext_icon( 'check' ); ?></span>
-						<span data-wp-bind--hidden="context.slugAvailable !== false"><?php esc_html_e( 'Taken', 'buddynext' ); ?></span>
+						data-wp-bind--hidden="state.slugStatusHidden"
+						data-wp-class--bn-ep-slug-ok="state.slugIsOk"
+						data-wp-class--bn-ep-slug-err="state.slugIsTaken">
+						<span data-wp-bind--hidden="!state.slugIsOk"><?php buddynext_icon( 'check' ); ?></span>
+						<span data-wp-bind--hidden="!state.slugIsTaken"><?php esc_html_e( 'Taken', 'buddynext' ); ?></span>
 					</span>
 				</div>
 				<button class="bn-btn"
@@ -76,7 +76,7 @@ $profile_email_raw = wp_get_current_user()->user_email;
 					data-variant="secondary"
 					data-size="md"
 					data-wp-on--click="actions.saveSlug"
-					data-wp-bind--disabled="!context.slugAvailable || context.slugSaving">
+					data-wp-bind--disabled="state.slugSaveDisabled">
 					<span data-wp-bind--hidden="context.slugSaved"><?php esc_html_e( 'Update URL', 'buddynext' ); ?></span>
 					<span data-wp-bind--hidden="!context.slugSaved"><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Saved', 'buddynext' ); ?></span>
 				</button>

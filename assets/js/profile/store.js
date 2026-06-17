@@ -784,6 +784,14 @@ store( 'buddynext/profile', {
 			const n = Number( getContext().twofaBackupRemaining ) || 0;
 			return n === 1 ? '1 backup code left.' : n + ' backup codes left.';
 		},
+		/* Profile-URL slug availability. WP Interactivity only resolves a single
+		 * property path (optionally prefixed with !), not compound expressions
+		 * (||, ===, !==), so the slug indicator's comparisons must live here as
+		 * derived state and be referenced as state.* in the template. */
+		get slugStatusHidden() { const c = getContext(); return c.slugChecking || c.slugAvailable === null; },
+		get slugIsOk()         { return getContext().slugAvailable === true; },
+		get slugIsTaken()      { return getContext().slugAvailable === false; },
+		get slugSaveDisabled() { const c = getContext(); return ! c.slugAvailable || c.slugSaving; },
 	},
 	callbacks: {
 		/* Init for the edit page: register the beforeunload guard once. */
