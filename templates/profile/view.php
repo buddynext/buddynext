@@ -378,6 +378,19 @@ if ( $has_jt_tab ) {
 		'count' => $bn_tab_count_for( count( $jt_discussions ) ),
 	);
 }
+// Drop the Media tab when the media engine (WPMediaVerse) is inactive. The media
+// data above is already gated on MediaClient::available(), so an ungated tab would
+// only ever show "No media uploaded yet." Removing it here also drops 'media' from
+// the deep-link slug list below, so /members/{slug}/media/ falls back to Posts.
+if ( ! \BuddyNext\Media\MediaClient::available() ) {
+	$bn_pf_tabs = array_values(
+		array_filter(
+			$bn_pf_tabs,
+			static fn( $bn_tab ) => 'media' !== ( $bn_tab['slug'] ?? '' )
+		)
+	);
+}
+
 // Deep-link the active tab from the route action so /members/{slug}/media/
 // opens the Media tab. Falls back to Posts for actions without a tab.
 $bn_pf_action     = (string) get_query_var( 'bn_profile_action', '' );
