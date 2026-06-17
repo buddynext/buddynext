@@ -410,7 +410,10 @@ class JetonomyBridge {
 	public function maybe_provision_and_redirect(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only provision trigger from a tab link.
 		$space_id = isset( $_GET['bn_provision_forum'] ) ? absint( wp_unslash( $_GET['bn_provision_forum'] ) ) : 0;
-		if ( $space_id <= 0 || ! is_user_logged_in() ) {
+		// Provisioning mutates the space (creates its forum), so it must be gated
+		// to the space's owner/moderator (or a site admin) — not any logged-in
+		// user, who could otherwise provision a forum on any space by id.
+		if ( ! $this->can_provision_forum( $space_id, get_current_user_id() ) ) {
 			return;
 		}
 
@@ -420,6 +423,41 @@ class JetonomyBridge {
 			wp_safe_redirect( $url );
 			exit;
 		}
+	}
+
+	/**
+	 * Whether a user may provision (create) a space's forum.
+	 *
+	 * Gated on buddynext-moderate-space (space owner/moderator, plus site admins
+	 * via the manage_options passthrough) so provisioning — which mutates the
+	 * space — cannot be triggered by an arbitrary logged-in user.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $user_id  Acting user ID.
+	 * @return bool
+	 */
+	private function can_provision_forum( int $space_id, int $user_id ): bool {
+		if ( $space_id <= 0 || $user_id <= 0 ) {
+			return false;
+		}
+		return (bool) buddynext_service( 'permissions' )->can( $user_id, 'buddynext-moderate-space', array( 'space_id' => $space_id ) );
+	}
+
+	/**
+	 * REST permission gate for POST /spaces/{id}/forum.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return true|\WP_Error
+	 */
+	public function rest_provision_permission( \WP_REST_Request $request ) {
+		if ( ! is_user_logged_in() ) {
+			return new \WP_Error( 'rest_not_logged_in', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
+		}
+		$space_id = (int) $request['id'];
+		if ( ! $this->can_provision_forum( $space_id, get_current_user_id() ) ) {
+			return new \WP_Error( 'rest_forbidden', __( 'You do not have permission to set up this space forum.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+		return true;
 	}
 
 	/**
@@ -434,11 +472,7 @@ class JetonomyBridge {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'rest_provision_forum' ),
-				'permission_callback' => static function () {
-					return is_user_logged_in()
-						? true
-						: new \WP_Error( 'rest_not_logged_in', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
-				},
+				'permission_callback' => array( $this, 'rest_provision_permission' ),
 				'args'                => array(
 					'id' => array(
 						'required'          => true,
