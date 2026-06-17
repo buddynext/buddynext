@@ -142,6 +142,14 @@ class FeatureRegistry {
 			}
 		}
 
+		// External-plugin dependency unmet → forced off. A bridge feature cannot
+		// be on when the partner plugin it wraps is absent (the bridge self-guards
+		// at hook time too, so this just makes the resolved state consistent and
+		// lets Settings → Features render the toggle as unavailable).
+		if ( ! $this->presence_met( $slug ) ) {
+			return false;
+		}
+
 		// Tier default.
 		$default = ( self::TIER_DEFAULT_ON === $feature['tier'] );
 
@@ -160,6 +168,50 @@ class FeatureRegistry {
 		 * @param array  $feature  Feature catalog entry.
 		 */
 		return (bool) apply_filters( "buddynext_feature_{$slug}", $default, $feature );
+	}
+
+	/**
+	 * Whether the external plugin a bridge feature wraps is active.
+	 *
+	 * Bridge features (group 'bridges') depend on a third-party plugin; the
+	 * toggle is meaningless and the feature inoperable when that plugin is
+	 * absent. Returns true for every feature without an external dependency, so
+	 * only the four bridges are gated. The checks mirror the bridge classes'
+	 * own class_exists/function_exists/defined guards.
+	 *
+	 * @param string $slug Feature slug.
+	 * @return bool
+	 */
+	public function presence_met( string $slug ): bool {
+		switch ( $slug ) {
+			case 'wpmediaverse':
+				return class_exists( 'WPMediaVerse\\Core\\Plugin' );
+			case 'jetonomy':
+				return class_exists( 'Jetonomy\\Jetonomy' );
+			case 'gamification':
+				return function_exists( 'wb_gam_submit_event' );
+			case 'career_board':
+				return defined( 'WCB_VERSION' );
+			default:
+				return true;
+		}
+	}
+
+	/**
+	 * Human-readable name of the plugin a bridge feature requires, for the
+	 * "Requires the X plugin" notice. Empty string for non-bridge features.
+	 *
+	 * @param string $slug Feature slug.
+	 * @return string
+	 */
+	public function required_plugin_name( string $slug ): string {
+		$names = array(
+			'wpmediaverse' => 'WPMediaVerse',
+			'jetonomy'     => 'Jetonomy',
+			'gamification' => 'WBGamification',
+			'career_board' => 'Career Board',
+		);
+		return $names[ $slug ] ?? '';
 	}
 
 	/**
@@ -218,6 +270,11 @@ class FeatureRegistry {
 			if ( ! isset( $feature['description'] ) ) {
 				$feature['description'] = $labels[ $slug ]['description'] ?? '';
 			}
+			// Surface external-plugin availability so the Features UI can render a
+			// bridge toggle disabled (with a "Requires X" notice) when its partner
+			// plugin is absent.
+			$feature['presence_met']     = $this->presence_met( $slug );
+			$feature['required_plugin']  = $this->required_plugin_name( $slug );
 			$out[ $feature['group'] ][] = $feature;
 		}
 		return $out;

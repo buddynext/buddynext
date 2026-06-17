@@ -1709,6 +1709,13 @@ button.bn-btn-danger:hover {
 	outline-offset: 2px;
 }
 
+/* Bridge feature whose required plugin is inactive: the toggle is disabled and
+   shown muted so the owner sees it cannot be configured until the plugin is on. */
+.bn-toggle-label input[type="checkbox"]:disabled + .bn-toggle--inline {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
 @media (max-width: 640px) {
 	.bn-feature-row { flex-direction: column; }
 	.bn-feature-row__toggle { align-self: flex-end; }

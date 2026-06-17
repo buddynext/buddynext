@@ -1079,6 +1079,14 @@ class Settings extends AdminPageBase {
 				$current      = $registry->is_enabled( $slug );
 				$is_locked    = $is_mandatory;
 
+				// Bridge features whose partner plugin is absent: the toggle is
+				// inoperable, so render it disabled with a "Requires X" notice
+				// instead of a configurable switch.
+				$required_plugin = (string) ( $feature['required_plugin'] ?? '' );
+				$dep_missing     = '' !== $required_plugin
+					&& array_key_exists( 'presence_met', $feature )
+					&& ! $feature['presence_met'];
+
 				$badge_label = $is_mandatory
 					? __( 'Always on', 'buddynext' )
 					: ( \BuddyNext\Core\FeatureRegistry::TIER_DEFAULT_ON === $tier
@@ -1095,7 +1103,17 @@ class Settings extends AdminPageBase {
 							<span class="bn-badge" data-tone="<?php echo esc_attr( $badge_tone ); ?>"><?php echo esc_html( $badge_label ); ?></span>
 						</div>
 						<p class="bn-feature-row__desc"><?php echo esc_html( $feature['description'] ); ?></p>
-						<?php if ( ! empty( $feature['depends_on'] ) ) : ?>
+						<?php if ( $dep_missing ) : ?>
+							<p class="bn-feature-row__deps">
+								<?php
+								printf(
+									/* translators: %s: required plugin name */
+									esc_html__( 'Requires the %s plugin — install and activate it to enable this integration.', 'buddynext' ),
+									esc_html( $required_plugin )
+								);
+								?>
+							</p>
+						<?php elseif ( ! empty( $feature['depends_on'] ) ) : ?>
 							<p class="bn-feature-row__deps">
 								<?php
 								printf(
@@ -1112,6 +1130,28 @@ class Settings extends AdminPageBase {
 							<span class="bn-feature-row__locked" aria-label="<?php esc_attr_e( 'This feature is always on and cannot be disabled.', 'buddynext' ); ?>">
 								<?php buddynext_icon( 'lock' ); ?>
 							</span>
+						<?php elseif ( $dep_missing ) : ?>
+							<?php
+							// Re-post the stored value untouched so saving while the
+							// plugin is absent never strands the feature off — when the
+							// plugin returns, the owner's prior intent (or the tier
+							// default) resolves normally.
+							if ( array_key_exists( $slug, $state ) ) :
+								?>
+								<input
+									type="hidden"
+									name="buddynext_features[<?php echo esc_attr( $slug ); ?>]"
+									value="<?php echo $state[ $slug ] ? '1' : '0'; ?>">
+							<?php endif; ?>
+							<label class="bn-toggle-label" title="<?php echo esc_attr( sprintf( /* translators: %s: required plugin name */ __( 'Requires the %s plugin', 'buddynext' ), $required_plugin ) ); ?>">
+								<input
+									type="checkbox"
+									value="1"
+									disabled
+									role="switch"
+									aria-label="<?php echo esc_attr( sprintf( /* translators: %s: feature label */ __( '%s (unavailable — required plugin not active)', 'buddynext' ), $feature['label'] ) ); ?>">
+								<span class="bn-toggle--inline"></span>
+							</label>
 						<?php else : ?>
 							<label class="bn-toggle-label">
 								<input
