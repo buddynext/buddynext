@@ -32,6 +32,10 @@ class SearchIndexListener implements ListenerInterface {
 	public function register(): void {
 		// Lifecycle hooks — dispatch to async or inline.
 		add_action( 'buddynext_index_user', array( $this, 'on_index_user' ), 10, 1 );
+		// Index a member at registration. Profile edits fire buddynext_index_user,
+		// but a member who never edits their profile would otherwise never be
+		// indexed and stay unsearchable in the members directory / global search.
+		add_action( 'user_register', array( $this, 'on_index_user' ), 20, 1 );
 		add_action( 'buddynext_post_created', array( $this, 'on_post_created' ), 10, 3 );
 		add_action( 'buddynext_post_deleted', array( $this, 'on_post_deleted' ), 10, 1 );
 		add_action( 'buddynext_space_created', array( $this, 'on_space_created' ), 10, 2 );
