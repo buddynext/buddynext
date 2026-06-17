@@ -30,7 +30,7 @@
 
 .bn-prefs-card__title {
 	margin: 0;
-	font-size: var(--bn-fs-md);
+	font-size: var(--bn-text-md);
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink);
 	display: flex;
@@ -41,7 +41,7 @@
 .bn-prefs-card__sub {
 	margin: 0;
 	color: var(--bn-ink-3);
-	font-size: var(--bn-fs-sm);
+	font-size: var(--bn-text-sm);
 	line-height: var(--bn-lh-normal);
 }
 
@@ -105,12 +105,12 @@
 .bn-prefs-channel__label {
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink);
-	font-size: var(--bn-fs-sm);
+	font-size: var(--bn-text-sm);
 }
 
 .bn-prefs-channel__sub {
 	color: var(--bn-ink-3);
-	font-size: var(--bn-fs-xs);
+	font-size: var(--bn-text-xs);
 }
 
 /* ── Section 2: Activity types ────────────────────────────────────────── */
@@ -151,12 +151,12 @@
 .bn-prefs-group__title {
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink);
-	font-size: var(--bn-fs-sm);
+	font-size: var(--bn-text-sm);
 }
 
 .bn-prefs-group__count {
 	color: var(--bn-ink-3);
-	font-size: var(--bn-fs-xs);
+	font-size: var(--bn-text-xs);
 }
 
 .bn-prefs-group__body {
@@ -186,13 +186,13 @@
 .bn-prefs-row__label {
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink);
-	font-size: var(--bn-fs-sm);
+	font-size: var(--bn-text-sm);
 }
 
 .bn-prefs-row__desc {
 	margin: 0;
 	color: var(--bn-ink-3);
-	font-size: var(--bn-fs-xs);
+	font-size: var(--bn-text-xs);
 	line-height: var(--bn-lh-normal);
 }
 
@@ -206,7 +206,7 @@
 
 .bn-prefs-row__no-email {
 	color: var(--bn-ink-3);
-	font-size: var(--bn-fs-xs);
+	font-size: var(--bn-text-xs);
 }
 
 .bn-prefs-toggle {
@@ -223,7 +223,7 @@
 }
 
 .bn-prefs-toggle__label {
-	font-size: var(--bn-fs-xs);
+	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-2);
 }
 
@@ -246,7 +246,7 @@
 	color: var(--bn-ink-2);
 	padding: var(--bn-s1) var(--bn-s3);
 	border-radius: var(--bn-radius-sm);
-	font-size: var(--bn-fs-xs);
+	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-medium);
 	cursor: pointer;
 	transition: background-color 120ms ease, color 120ms ease;
@@ -316,12 +316,12 @@
 	justify-content: center;
 	font-weight: var(--bn-fw-semibold);
 	color: var(--bn-ink-2);
-	font-size: var(--bn-fs-sm);
+	font-size: var(--bn-text-sm);
 }
 
 .bn-prefs-space__name {
 	font-weight: var(--bn-fw-semibold);
-	font-size: var(--bn-fs-sm);
+	font-size: var(--bn-text-sm);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -341,13 +341,13 @@
 }
 
 .bn-prefs-quiet__label {
-	font-size: var(--bn-fs-xs);
+	font-size: var(--bn-text-xs);
 	color: var(--bn-ink-3);
 	font-weight: var(--bn-fw-medium);
 }
 
 .bn-prefs-quiet__tz {
-	font-size: var(--bn-fs-sm);
+	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-2);
 }
 

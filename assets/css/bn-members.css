@@ -757,8 +757,8 @@
 	position: absolute;
 	/* Sit left of the clear button. */
 	inset-inline-end: 32px;
-	font-size: var(--bn-fs-xs);
-	color: var(--bn-text-soft);
+	font-size: var(--bn-text-xs);
+	color: var(--bn-ink-3);
 	pointer-events: none;
 }
 
@@ -849,7 +849,7 @@
 	align-items: center;
 	gap: var(--bn-s2);
 	padding: var(--bn-s4);
-	border-radius: var(--bn-radius-lg);
+	border-radius: var(--bn-r-lg);
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line-faint);
 }
@@ -895,16 +895,16 @@
 	align-items: center;
 	gap: var(--bn-s3);
 	padding: var(--bn-s6) var(--bn-s4);
-	border-radius: var(--bn-radius-lg);
+	border-radius: var(--bn-r-lg);
 	background: var(--bn-surface);
-	border: 1px solid var(--bn-danger-soft, var(--bn-line));
-	color: var(--bn-text);
+	border: 1px solid var(--bn-danger-bg);
+	color: var(--bn-ink);
 	text-align: center;
 }
 
 .bn-md-error__copy {
 	margin: 0;
-	color: var(--bn-text-soft);
+	color: var(--bn-ink-3);
 }
 
 /* Empty-state action row. */

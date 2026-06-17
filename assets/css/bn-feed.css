@@ -1638,7 +1638,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-md);
 	background: var(--bn-surface);
-	color: var(--bn-text);
+	color: var(--bn-ink);
 	font: inherit;
 	line-height: 1.5;
 }
@@ -1710,7 +1710,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	gap: var(--bn-s2);
 	align-items: center;
 	padding: var(--bn-s2) var(--bn-s3);
-	background: var(--bn-danger-soft, rgba(220, 38, 38, 0.08));
+	background: var(--bn-danger-bg);
 	color: var(--bn-danger);
 	border-radius: var(--bn-r-md);
 	font-size: var(--bn-text-sm);
@@ -2740,9 +2740,9 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	width: 100%;
 	height: 100%;
 	background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-	animation: bn-shimmer 1.5s infinite;
+	animation: bn-shimmer-slide 1.5s infinite;
 }
-@keyframes bn-shimmer { to { left: 100%; } }
+@keyframes bn-shimmer-slide { to { left: 100%; } }
 .bn-skeleton-card {
 	padding: var(--bn-s4);
 	margin-bottom: var(--bn-s3);
@@ -2821,8 +2821,8 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
    next_cursor. Quiet, single line — not a CTA. */
 .bn-feed-end {
 	text-align: center;
-	padding: var(--bn-s5) 0 var(--bn-s7);
-	color: var(--bn-text-muted, var(--text-2));
+	padding: var(--bn-s5) 0 var(--bn-s6);
+	color: var(--bn-ink-3);
 	font-size: var(--text-sm);
 }
 .bn-feed-end__text {
@@ -2835,7 +2835,7 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 .bn-load-more__spinner-text {
 	display: block;
 	margin-top: var(--bn-s2);
-	color: var(--bn-text-muted, var(--text-2));
+	color: var(--bn-ink-3);
 	font-size: var(--text-sm);
 }
 
@@ -2863,7 +2863,7 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 }
 .bn-single-post__breadcrumb {
 	font-size: var(--text-sm);
-	color: var(--bn-text-muted, var(--text-2));
+	color: var(--bn-ink-3);
 }
 .bn-single-post__crumbs {
 	display: flex;
@@ -2875,7 +2875,7 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	align-items: center;
 }
 .bn-single-post__crumbs a {
-	color: var(--bn-text-muted, var(--text-2));
+	color: var(--bn-ink-3);
 	text-decoration: none;
 }
 .bn-single-post__crumbs a:hover,
@@ -2896,7 +2896,7 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	margin: 0 0 var(--bn-s2);
 }
 .bn-single-post__thread-hint {
-	color: var(--bn-text-muted, var(--text-2));
+	color: var(--bn-ink-3);
 	font-size: var(--text-sm);
 	margin: 0 0 var(--bn-s4);
 }
@@ -2915,7 +2915,7 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	color: var(--bn-text-1, var(--text-1));
 }
 .bn-bookmarks__lead {
-	color: var(--bn-text-muted, var(--text-2));
+	color: var(--bn-ink-3);
 	margin: 0;
 	font-size: var(--text-sm);
 }
