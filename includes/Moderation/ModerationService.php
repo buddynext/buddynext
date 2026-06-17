@@ -998,6 +998,37 @@ class ModerationService {
 	}
 
 	/**
+	 * Build a SQL fragment that excludes suspended and shadow-banned users.
+	 *
+	 * The single canonical moderation-exclusion builder, keyed on a caller-named
+	 * ID column so any surface (feed, follow suggestions, …) excludes the same
+	 * set the same way. Prefixed with AND so it appends directly to a WHERE
+	 * clause; uses two NOT IN subqueries (active suspensions + bn_shadow_banned
+	 * usermeta). The column name is caller-supplied code (never user input) and
+	 * is hard-sanitised to word characters to keep the fragment injection-safe.
+	 *
+	 * @param string $column ID column to filter (e.g. 'user_id', 'following_id').
+	 * @return string Raw SQL fragment — safe to embed.
+	 */
+	public function moderation_exclude_sql( string $column = 'user_id' ): string {
+		global $wpdb;
+
+		$column = preg_replace( '/[^a-zA-Z0-9_]/', '', $column );
+		if ( '' === $column ) {
+			$column = 'user_id';
+		}
+
+		return "AND {$column} NOT IN (
+			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
+			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+			  )
+			  AND {$column} NOT IN (
+			    SELECT user_id FROM {$wpdb->usermeta}
+			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
+			  )";
+	}
+
+	/**
 	 * Get the active suspension record for a user.
 	 *
 	 * Returns the full suspension row so callers can read the reason,

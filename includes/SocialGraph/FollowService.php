@@ -494,6 +494,13 @@ class FollowService {
 		$friends_ph     = implode( ', ', array_fill( 0, count( $following ), '%d' ) );
 		$exclude_ph     = implode( ', ', array_fill( 0, count( $exclude ), '%d' ) );
 
+		// Suspended + shadow-banned users must not surface here either — every
+		// other discovery surface (feed, directory) applies the same canonical
+		// moderation exclusion, so friend-of-friend suggestions follow suit.
+		// Private accounts ARE intentionally suggestible: bn_account_private
+		// gates activity visibility, not discoverability.
+		$moderation_where = buddynext_service( 'moderation' )->moderation_exclude_sql( 'following_id' );
+
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_col(
 			$wpdb->prepare(
@@ -501,7 +508,8 @@ class FollowService {
 				 FROM {$table}
 				 WHERE follower_id IN ({$friends_ph})
 				   AND status = 'approved'
-				   AND following_id NOT IN ({$exclude_ph})",
+				   AND following_id NOT IN ({$exclude_ph})
+				   {$moderation_where}",
 				array_merge( $following, $exclude )
 			)
 		);

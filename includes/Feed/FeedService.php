@@ -89,15 +89,9 @@ class FeedService {
 	 * @return string Raw SQL fragment — no user-supplied data, safe to embed.
 	 */
 	private function excluded_users_where(): string {
-		global $wpdb;
-		return "AND user_id NOT IN (
-			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
-			  )
-			  AND user_id NOT IN (
-			    SELECT user_id FROM {$wpdb->usermeta}
-			    WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'
-			  )";
+		// Delegate to the one canonical moderation-exclusion builder so the feed
+		// and follow suggestions exclude the same suspended/shadow-banned set.
+		return buddynext_service( 'moderation' )->moderation_exclude_sql( 'user_id' );
 	}
 
 	/**
