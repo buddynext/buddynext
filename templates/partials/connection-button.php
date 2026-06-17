@@ -68,6 +68,16 @@ if ( $pending_sent ) {
 	$ctx_status = '';
 }
 
+// Honour the target's who_can_connect privacy: do not offer a fresh Connect
+// request when they forbid it (nobody, or followers-and-viewer-isn't). Existing
+// Pending/Connected/Accept-Decline states still render. Block + full preference
+// logic live in PrivacyService::can_connect(); the server also re-checks on send.
+$bn_can_connect = true;
+$bn_privacy_svc = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+if ( $bn_privacy_svc && method_exists( $bn_privacy_svc, 'can_connect' ) ) {
+	$bn_can_connect = (bool) $bn_privacy_svc->can_connect( $viewer_id, $user_id );
+}
+
 $nonce = wp_create_nonce( 'wp_rest' );
 
 // The connection store builds its toasts as "@" . targetName, so pass the
@@ -157,6 +167,7 @@ $context_attr = esc_attr(
 		<?php esc_html_e( 'Pending', 'buddynext' ); ?>
 	</button>
 
+	<?php if ( $bn_can_connect || '' !== $ctx_status ) : ?>
 	<button
 		type="button"
 		class="bn-btn"
@@ -170,5 +181,6 @@ $context_attr = esc_attr(
 	>
 		<?php esc_html_e( 'Connect', 'buddynext' ); ?>
 	</button>
+	<?php endif; ?>
 </div>
 <?php // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped ?>

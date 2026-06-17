@@ -81,8 +81,8 @@ class MemberDirectoryController extends BaseRestController {
 						'default'           => '',
 					),
 					'online'      => array(
-						'type'              => 'boolean',
-						'default'           => false,
+						'type'    => 'boolean',
+						'default' => false,
 					),
 					'cursor'      => array(
 						'type'    => 'string',
@@ -169,9 +169,9 @@ class MemberDirectoryController extends BaseRestController {
 			)
 		);
 
-		$following_set   = array();
-		$connection_map  = array();
-		$blocked_either  = array();
+		$following_set  = array();
+		$connection_map = array();
+		$blocked_either = array();
 		if ( $page_ids ) {
 			cache_users( $page_ids );
 			update_meta_cache( 'user', $page_ids );
@@ -239,9 +239,30 @@ class MemberDirectoryController extends BaseRestController {
 		}
 
 		// Skip rows where viewer has blocked the user or vice-versa.
-		if ( $viewer_id > 0 && isset( $blocked_either[ $uid ] ) ) {
+		$is_blocked_pair = ( $viewer_id > 0 && isset( $blocked_either[ $uid ] ) );
+		if ( $is_blocked_pair ) {
 			$is_following = false;
 			$conn_status  = null;
+		}
+
+		// Privacy-gated affordances — mirror PrivacyService::can_follow/can_connect
+		// so the JS-rendered card hides the same CTAs the server template does
+		// (who_can_follow 'nobody' or who_can_connect 'nobody'/'followers' must not
+		// offer an action the target forbids). Reads the page-primed usermeta, so
+		// no per-row query is added.
+		$can_follow  = false;
+		$can_connect = false;
+		if ( $can_interact && ! $is_blocked_pair ) {
+			$privacy = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+			if ( $privacy && method_exists( $privacy, 'get_preference' ) ) {
+				$can_follow   = 'everyone' === $privacy->get_preference( $uid, 'who_can_follow' );
+				$connect_pref = $privacy->get_preference( $uid, 'who_can_connect' );
+				$can_connect  = 'everyone' === $connect_pref
+					|| ( 'followers' === $connect_pref && $is_following );
+			} else {
+				$can_follow  = true;
+				$can_connect = true;
+			}
 		}
 
 		return array(
@@ -261,6 +282,8 @@ class MemberDirectoryController extends BaseRestController {
 			),
 			'is_self'        => $is_self,
 			'can_interact'   => $can_interact,
+			'can_follow'     => $can_follow,
+			'can_connect'    => $can_connect,
 			'is_following'   => $is_following,
 			'connection'     => $this->shape_connection_state( $viewer_id, $uid, $conn_status ),
 		);

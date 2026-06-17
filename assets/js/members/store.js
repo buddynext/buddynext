@@ -339,36 +339,44 @@ function buildCard( item ) {
 		view.textContent = item.is_self ? 'Edit profile' : 'View profile';
 		actions.appendChild( view );
 	} else {
-		// Follow.
-		const follow = document.createElement( 'button' );
-		follow.type = 'button';
-		follow.className = 'bn-btn bn-md-card__follow';
-		follow.setAttribute( 'data-size', 'sm' );
-		follow.setAttribute( 'data-wp-bind--data-variant', 'state.cardFollowVariant' );
-		follow.setAttribute( 'data-wp-bind--data-state',    'state.cardFollowState' );
-		follow.setAttribute( 'data-wp-text',                'state.cardFollowLabel' );
-		follow.setAttribute( 'data-wp-on--click',           'actions.toggleFollow' );
-		follow.textContent = item.is_following ? 'Following' : 'Follow';
-		actions.appendChild( follow );
-
-		// Connect primary.
-		const cs = ( item.connection && item.connection.state ) || 'none';
-		const conn = document.createElement( 'button' );
-		conn.type = 'button';
-		conn.className = 'bn-btn bn-md-card__connect-primary';
-		conn.setAttribute( 'data-size', 'sm' );
-		conn.setAttribute( 'data-wp-bind--hidden',         '!state.cardShowConnect' );
-		conn.setAttribute( 'data-wp-bind--data-variant',   'state.cardConnectVariant' );
-		conn.setAttribute( 'data-wp-bind--data-state',     'state.cardConnectState' );
-		conn.setAttribute( 'data-wp-text',                 'state.cardConnectLabel' );
-		conn.setAttribute( 'data-wp-on--click',            'actions.toggleConnection' );
-		if ( cs === 'accepted' )           { conn.textContent = 'Connected'; }
-		else if ( cs === 'pending-sent' )  { conn.textContent = 'Requested'; }
-		else                                { conn.textContent = 'Connect'; }
-		if ( ! [ 'none', 'pending-sent', 'accepted' ].includes( cs ) ) {
-			conn.hidden = true;
+		// Follow — gated on the target's who_can_follow privacy (mirrors the
+		// server member-card.php $bn_can_follow gate); an existing Following
+		// state still shows so the user can unfollow.
+		if ( item.can_follow || item.is_following ) {
+			const follow = document.createElement( 'button' );
+			follow.type = 'button';
+			follow.className = 'bn-btn bn-md-card__follow';
+			follow.setAttribute( 'data-size', 'sm' );
+			follow.setAttribute( 'data-wp-bind--data-variant', 'state.cardFollowVariant' );
+			follow.setAttribute( 'data-wp-bind--data-state',    'state.cardFollowState' );
+			follow.setAttribute( 'data-wp-text',                'state.cardFollowLabel' );
+			follow.setAttribute( 'data-wp-on--click',           'actions.toggleFollow' );
+			follow.textContent = item.is_following ? 'Following' : 'Follow';
+			actions.appendChild( follow );
 		}
-		actions.appendChild( conn );
+
+		// Connect primary — gated on who_can_connect (mirrors the server gate);
+		// an existing Requested/Connected state still shows even if the target
+		// later restricts new requests.
+		const cs = ( item.connection && item.connection.state ) || 'none';
+		if ( item.can_connect || [ 'pending-sent', 'accepted' ].includes( cs ) ) {
+			const conn = document.createElement( 'button' );
+			conn.type = 'button';
+			conn.className = 'bn-btn bn-md-card__connect-primary';
+			conn.setAttribute( 'data-size', 'sm' );
+			conn.setAttribute( 'data-wp-bind--hidden',         '!state.cardShowConnect' );
+			conn.setAttribute( 'data-wp-bind--data-variant',   'state.cardConnectVariant' );
+			conn.setAttribute( 'data-wp-bind--data-state',     'state.cardConnectState' );
+			conn.setAttribute( 'data-wp-text',                 'state.cardConnectLabel' );
+			conn.setAttribute( 'data-wp-on--click',            'actions.toggleConnection' );
+			if ( cs === 'accepted' )           { conn.textContent = 'Connected'; }
+			else if ( cs === 'pending-sent' )  { conn.textContent = 'Requested'; }
+			else                                { conn.textContent = 'Connect'; }
+			if ( ! [ 'none', 'pending-sent', 'accepted' ].includes( cs ) ) {
+				conn.hidden = true;
+			}
+			actions.appendChild( conn );
+		}
 
 		// Accept/decline pair for pending-received.
 		const decide = document.createElement( 'span' );
