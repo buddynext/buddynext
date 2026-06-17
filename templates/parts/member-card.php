@@ -115,12 +115,23 @@ $bn_cover_url     = (string) $args['cover_url'];
 // enforcement stays server-side in FollowService::follow(); the single-render
 // profile hero + follow-button partial use the full can_follow().
 $bn_can_follow = true;
+// Mirror who_can_connect (everyone | followers | nobody) so the Connect CTA is
+// not offered when the target forbids it. Reads the page-primed usermeta like
+// the follow gate above (no extra query); 'followers' resolves via the viewer's
+// existing follow relationship ($bn_is_following). Block enforcement + the full
+// PrivacyService::can_connect() still run server-side in ConnectionService.
+$bn_can_connect = true;
 if ( $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id ) {
 	$bn_privacy    = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
 	$bn_can_follow = ! $bn_privacy || ! method_exists( $bn_privacy, 'get_preference' )
 		|| 'everyone' === $bn_privacy->get_preference( $bn_member_id, 'who_can_follow' );
+	if ( $bn_privacy && method_exists( $bn_privacy, 'get_preference' ) ) {
+		$bn_connect_pref = $bn_privacy->get_preference( $bn_member_id, 'who_can_connect' );
+		$bn_can_connect  = 'everyone' === $bn_connect_pref
+			|| ( 'followers' === $bn_connect_pref && $bn_is_following );
+	}
 }
-$bn_avatar_url    = (string) $args['avatar_url'];
+$bn_avatar_url = (string) $args['avatar_url'];
 
 // Cover tone — same brand-safe blue→green→warm gradient set the space cards
 // use. Deterministic per member; filterable so a site can force a uniform
@@ -133,7 +144,7 @@ $bn_card_tone  = $bn_card_tones[ $bn_member_id % count( $bn_card_tones ) ];
  * @param string $tone      Deterministic default tone.
  * @param int    $member_id Member ID.
  */
-$bn_card_tone = (string) apply_filters( 'buddynext_member_card_cover_tone', $bn_card_tone, $bn_member_id );
+$bn_card_tone     = (string) apply_filters( 'buddynext_member_card_cover_tone', $bn_card_tone, $bn_member_id );
 $bn_initials_text = (string) $args['initials'];
 $bn_messages_url  = (string) $args['messages_url'];
 
@@ -357,6 +368,7 @@ do_action( 'buddynext_part_member_card_before', $args );
 			<?php endif; ?>
 
 			<?php // Connection control — 5-state, reactive. ?>
+			<?php if ( $bn_can_connect || in_array( $bn_conn_state, array( 'pending-sent', 'accepted' ), true ) ) : ?>
 			<button
 				type="button"
 				class="bn-btn bn-md-card__connect-primary"
@@ -368,16 +380,17 @@ do_action( 'buddynext_part_member_card_before', $args );
 				data-wp-on--click="actions.toggleConnection"
 				<?php echo in_array( $bn_conn_state, array( 'none', 'pending-sent', 'accepted' ), true ) ? '' : 'hidden'; ?>
 			>
-			<?php
-			if ( 'accepted' === $bn_conn_state ) {
-				esc_html_e( 'Connected', 'buddynext' );
-			} elseif ( 'pending-sent' === $bn_conn_state ) {
-				esc_html_e( 'Requested', 'buddynext' );
-			} else {
-				esc_html_e( 'Connect', 'buddynext' );
-			}
-			?>
+				<?php
+				if ( 'accepted' === $bn_conn_state ) {
+					esc_html_e( 'Connected', 'buddynext' );
+				} elseif ( 'pending-sent' === $bn_conn_state ) {
+					esc_html_e( 'Requested', 'buddynext' );
+				} else {
+					esc_html_e( 'Connect', 'buddynext' );
+				}
+				?>
 			</button>
+			<?php endif; ?>
 
 			<span
 				class="bn-md-card__connect-decide"

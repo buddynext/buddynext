@@ -142,10 +142,16 @@ $bn_pf_conn_received = (bool) $args['connection_received'];
 // only to 403 on click. Already-following viewers keep the toggle so they can
 // still unfollow.
 $bn_pf_can_follow = true;
+// Same rule for connection requests (who_can_connect): hide the Connect CTA when
+// the viewer may not send a request, unless a pending/accepted relationship
+// already exists. ConnectionService enforces this server-side too.
+$bn_pf_can_connect = true;
 if ( $bn_pf_viewer && ! $bn_pf_is_owner ) {
-	$bn_pf_privacy    = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
-	$bn_pf_can_follow = ! $bn_pf_privacy || ! method_exists( $bn_pf_privacy, 'can_follow' )
+	$bn_pf_privacy     = function_exists( 'buddynext_service' ) ? buddynext_service( 'privacy' ) : null;
+	$bn_pf_can_follow  = ! $bn_pf_privacy || ! method_exists( $bn_pf_privacy, 'can_follow' )
 		|| (bool) $bn_pf_privacy->can_follow( $bn_pf_viewer, $bn_pf_uid );
+	$bn_pf_can_connect = ! $bn_pf_privacy || ! method_exists( $bn_pf_privacy, 'can_connect' )
+		|| (bool) $bn_pf_privacy->can_connect( $bn_pf_viewer, $bn_pf_uid );
 }
 
 do_action( 'buddynext_part_profile_hero_before', $args );
@@ -159,10 +165,10 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 		// is non-destructive — the source image stays sharp and the cover stays
 		// responsive at any viewport width (the hero height is fixed, so a baked
 		// fixed-ratio crop would mis-fit; object-fit:cover adapts).
-		$bn_pf_focal = (array) get_user_meta( $bn_pf_uid, 'buddynext_cover_focal', true );
-		$bn_pf_fx    = isset( $bn_pf_focal['x'] ) ? max( 0.0, min( 100.0, (float) $bn_pf_focal['x'] ) ) : 50.0;
-		$bn_pf_fy    = isset( $bn_pf_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_pf_focal['y'] ) ) : 50.0;
-		$bn_pf_zoom  = isset( $bn_pf_focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $bn_pf_focal['zoom'] ) ) : 1.0;
+		$bn_pf_focal     = (array) get_user_meta( $bn_pf_uid, 'buddynext_cover_focal', true );
+		$bn_pf_fx        = isset( $bn_pf_focal['x'] ) ? max( 0.0, min( 100.0, (float) $bn_pf_focal['x'] ) ) : 50.0;
+		$bn_pf_fy        = isset( $bn_pf_focal['y'] ) ? max( 0.0, min( 100.0, (float) $bn_pf_focal['y'] ) ) : 50.0;
+		$bn_pf_zoom      = isset( $bn_pf_focal['zoom'] ) ? max( 1.0, min( 3.0, (float) $bn_pf_focal['zoom'] ) ) : 1.0;
 		$bn_pf_img_style = sprintf(
 			'object-position:%s%% %s%%;transform:scale(%s);',
 			esc_attr( (string) $bn_pf_fx ),
@@ -224,7 +230,8 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 			<div class="bn-pf-id">
 				<div class="bn-pf-name-row">
 					<h1 class="bn-pf-name"><?php echo esc_html( $bn_pf_name ); ?></h1>
-					<?php if ( $bn_pf_degree ) :
+					<?php
+					if ( $bn_pf_degree ) :
 						$bn_pf_degree_title = '';
 						if ( '1st' === $bn_pf_degree ) {
 							$bn_pf_degree_title = __( 'Directly connected to you.', 'buddynext' );
@@ -448,12 +455,14 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				</button>
 				<?php endif; ?>
 
+				<?php if ( $bn_pf_can_connect || $bn_pf_is_connected || $bn_pf_conn_pending || $bn_pf_conn_received ) : ?>
 				<button class="bn-btn" data-variant="secondary" data-size="sm"
 					data-wp-on--click="actions.connect"
 					data-wp-bind--hidden="!context.showConnect"
 					<?php echo ( $bn_pf_is_connected || $bn_pf_conn_pending || $bn_pf_conn_received ) ? 'hidden' : ''; ?>>
 					<?php esc_html_e( 'Connect', 'buddynext' ); ?>
 				</button>
+				<?php endif; ?>
 				<button class="bn-btn" data-variant="secondary" data-size="sm"
 					data-wp-on--click="actions.withdrawRequest"
 					data-wp-bind--hidden="!context.connectionPending"
@@ -554,7 +563,7 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 				</div>
 			</div>
 			<?php elseif ( ! $bn_pf_is_owner ) : ?>
-			<?php // Logged-out guest: a single Follow CTA routed through login that returns to this profile (mirrors the member-directory guest pattern) so the hero is never action-less. ?>
+				<?php // Logged-out guest: a single Follow CTA routed through login that returns to this profile (mirrors the member-directory guest pattern) so the hero is never action-less. ?>
 			<div class="bn-pf-actions">
 				<a class="bn-btn" data-variant="primary" data-size="sm"
 					href="<?php echo esc_url( wp_login_url( \BuddyNext\Core\PageRouter::profile_url( $bn_pf_uid ) ) ); ?>">
