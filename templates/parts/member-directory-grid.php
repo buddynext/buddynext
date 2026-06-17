@@ -71,6 +71,11 @@ $bn_class   = trim(
 	)
 );
 
+// Owner-configurable desktop column count (Settings > General > Member directory).
+// 'auto' keeps the responsive auto-fill; 2/3/4 cap the desktop row via [data-cols].
+$bn_md_cols = (string) get_option( 'buddynext_member_dir_columns', 'auto' );
+$bn_md_cols = in_array( $bn_md_cols, array( '2', '3', '4' ), true ) ? $bn_md_cols : 'auto';
+
 $bn_members       = (array) $args['members'];
 $bn_viewer_id     = (int) $args['viewer_id'];
 $bn_messages_base = '' !== (string) $args['messages_base'] ? (string) $args['messages_base'] : \BuddyNext\Core\PageRouter::messages_url();
@@ -111,6 +116,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 <div
 	class="<?php echo esc_attr( $bn_class ); ?>"
 	role="list"
+	<?php echo 'auto' !== $bn_md_cols ? 'data-cols="' . esc_attr( $bn_md_cols ) . '"' : ''; ?>
 	data-wp-bind--hidden="state.gridHidden"
 	<?php echo empty( $bn_members ) ? 'hidden' : ''; ?>
 >
