@@ -44,9 +44,6 @@ if ( ! $user ) {
 $follow_svc      = buddynext_service( 'follows' );
 $follower_count  = $follow_svc->follower_count( $user_id );
 $following_count = $follow_svc->following_count( $user_id );
-$is_following    = $viewer_id && $viewer_id !== $user_id
-	? $follow_svc->is_following( $viewer_id, $user_id )
-	: false;
 
 $bio_fields = array_filter( $profile['fields'] ?? array(), static fn( $f ) => 'bio' === ( $f['field_key'] ?? '' ) );
 $bio_field  = reset( $bio_fields );
@@ -91,19 +88,13 @@ $avatar_url = (string) get_avatar_url( $user_id, array( 'size' => 144 ) );
 		<?php if ( $show_actions ) : ?>
 			<?php if ( $viewer_id && $viewer_id !== $user_id ) : ?>
 				<div class="bn-profile-header__actions">
-					<button
-						type="button"
-						class="bn-btn bn-profile-header__follow<?php echo $is_following ? ' bn-following' : ''; ?>"
-						data-variant="<?php echo $is_following ? 'secondary' : 'primary'; ?>"
-						data-size="sm"
-						data-action="bn-toggle-follow"
-						data-user-id="<?php echo absint( $user_id ); ?>"
-						data-nonce="<?php echo esc_attr( wp_create_nonce( 'buddynext_follow_' . $user_id ) ); ?>"
-						aria-pressed="<?php echo $is_following ? 'true' : 'false'; ?>"
-						aria-label="<?php echo $is_following ? esc_attr__( 'Unfollow user', 'buddynext' ) : esc_attr__( 'Follow user', 'buddynext' ); ?>"
-					>
-						<?php echo $is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
-					</button>
+					<?php
+					// Reuse the canonical Interactivity-API follow button — the only
+					// correctly hydrated implementation — instead of a bespoke
+					// data-action button no JS binds. Hydrated off-hub via the block's
+					// @buddynext/social-buttons viewScriptModule.
+					buddynext_get_template( 'blocks/follow-button.php', array( 'user_id' => $user_id ) );
+					?>
 				</div>
 			<?php elseif ( $viewer_id === $user_id ) : ?>
 				<div class="bn-profile-header__actions">

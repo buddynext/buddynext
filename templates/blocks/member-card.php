@@ -28,9 +28,6 @@ if ( ! $user ) {
 
 $viewer_id      = get_current_user_id();
 $follower_count = buddynext_service( 'follows' )->follower_count( $user_id );
-$is_following   = $viewer_id && $viewer_id !== $user_id
-	? buddynext_service( 'follows' )->is_following( $viewer_id, $user_id )
-	: false;
 
 $avatar_url  = (string) get_avatar_url( $user_id, array( 'size' => 96 ) );
 $profile_url = \BuddyNext\Core\PageRouter::profile_url( $user_id );
@@ -70,17 +67,13 @@ $profile_url = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 
 	<?php if ( $viewer_id && $viewer_id !== $user_id ) : ?>
 		<div class="bn-md-card__actions">
-			<button
-				type="button"
-				class="bn-btn bn-md-card__follow"
-				data-variant="<?php echo $is_following ? 'secondary' : 'primary'; ?>"
-				data-size="sm"
-				data-action="bn-toggle-follow"
-				data-user-id="<?php echo absint( $user_id ); ?>"
-				data-nonce="<?php echo esc_attr( wp_create_nonce( 'buddynext_follow_' . $user_id ) ); ?>"
-			>
-				<?php echo $is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
-			</button>
+			<?php
+			// Reuse the canonical Interactivity-API follow button — the only
+			// correctly hydrated implementation — instead of a bespoke
+			// data-action button no JS binds. Hydrated off-hub via the block's
+			// @buddynext/social-buttons viewScriptModule.
+			buddynext_get_template( 'blocks/follow-button.php', array( 'user_id' => $user_id ) );
+			?>
 		</div>
 	<?php endif; ?>
 </div>
