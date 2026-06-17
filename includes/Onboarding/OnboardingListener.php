@@ -135,8 +135,17 @@ class OnboardingListener implements ListenerInterface {
 	 * @param int $user_id Newly registered user ID.
 	 */
 	public function on_user_register_schedule_nudges( int $user_id ): void {
-		wp_schedule_single_event( time() + DAY_IN_SECONDS, 'bn_onboarding_nudge_24h', array( $user_id ) );
-		wp_schedule_single_event( time() + ( 3 * DAY_IN_SECONDS ), 'bn_onboarding_nudge_72h', array( $user_id ) );
+		// Guard against duplicate scheduling: user_register can fire more than
+		// once per user (re-registration flows, importers, repeated calls), and
+		// each unguarded schedule queued another nudge — observed stacking 79x and
+		// sending that many emails. Only schedule when no event for this exact
+		// user is already pending.
+		if ( ! wp_next_scheduled( 'bn_onboarding_nudge_24h', array( $user_id ) ) ) {
+			wp_schedule_single_event( time() + DAY_IN_SECONDS, 'bn_onboarding_nudge_24h', array( $user_id ) );
+		}
+		if ( ! wp_next_scheduled( 'bn_onboarding_nudge_72h', array( $user_id ) ) ) {
+			wp_schedule_single_event( time() + ( 3 * DAY_IN_SECONDS ), 'bn_onboarding_nudge_72h', array( $user_id ) );
+		}
 	}
 
 	/**
