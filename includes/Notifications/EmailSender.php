@@ -418,14 +418,32 @@ class EmailSender {
 			$action_url = home_url( '/' );
 		}
 
+		// Personalisation tokens. first_name/user_email come from the recipient
+		// account; login_url/current_year are site-wide. These join the existing
+		// set so the email composer can offer a consistent CMS-like token list
+		// that actually resolves at send time.
+		$recipient   = get_userdata( $user_id );
+		$display_name = $this->get_display_name( $user_id );
+		$first_name  = '';
+		if ( $recipient ) {
+			$first_name = (string) get_user_meta( $user_id, 'first_name', true );
+			if ( '' === $first_name ) {
+				$first_name = trim( (string) strtok( $display_name, ' ' ) );
+			}
+		}
+
 		$tokens = array(
 			'{{site_name}}'            => wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES ),
 			'{{site_url}}'             => esc_url( home_url( '/' ) ),
+			'{{login_url}}'            => esc_url( \BuddyNext\Core\PageRouter::auth_url() ),
 			'{{action_url}}'           => esc_url( $action_url ),
-			'{{user_name}}'            => $this->get_display_name( $user_id ),
+			'{{user_name}}'            => $display_name,
+			'{{first_name}}'           => '' !== $first_name ? $first_name : $display_name,
+			'{{user_email}}'           => $recipient ? (string) $recipient->user_email : '',
 			'{{actor_name}}'           => $actor_name,
 			'{{notification_message}}' => (string) ( $data['message'] ?? '' ),
 			'{{unsubscribe_url}}'      => $this->unsubscribe_url( $user_id, $notification_type ),
+			'{{current_year}}'         => gmdate( 'Y' ),
 		);
 
 		foreach ( $data as $key => $value ) {
