@@ -370,19 +370,44 @@ class WPMediaVerseBridge {
 
 		global $wpdb;
 
-		// Find the BuddyNext post that has this media_id in its media_ids JSON array.
+		// Find the BuddyNext post that has this media_id in its media_ids JSON
+		// array. JSON_CONTAINS does an exact array-element match — a LIKE '%5%'
+		// matched 5, 50, 51, 15… (false positives). JSON_VALID guards rows whose
+		// media_ids is NULL/empty/non-JSON so the function can't error on them.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$bn_post_id = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT id FROM {$wpdb->prefix}bn_posts
-				 WHERE media_ids LIKE %s AND status = 'published'
+				 WHERE media_ids IS NOT NULL AND media_ids <> ''
+				   AND JSON_VALID(media_ids) AND JSON_CONTAINS(media_ids, %s)
+				   AND status = 'published'
 				 ORDER BY created_at DESC LIMIT 1",
-				'%' . $wpdb->esc_like( (string) $media_id ) . '%'
+				(string) $media_id
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		if ( ! $bn_post_id ) {
+			return;
+		}
+
+		// Dedup: this hook can re-fire for the same lightbox comment (re-saves,
+		// repeated sync passes). Without a guard each fire inserted another
+		// bn_comments row, double-counting and re-notifying. Skip if an identical
+		// comment (same post + author + body) already exists.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$existing = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_comments
+				 WHERE object_type = 'post' AND object_id = %d AND user_id = %d AND content = %s
+				 LIMIT 1",
+				$bn_post_id,
+				$user_id,
+				wp_kses_post( $comment->comment_content )
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $existing > 0 ) {
 			return;
 		}
 
