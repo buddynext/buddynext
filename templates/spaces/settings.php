@@ -133,11 +133,23 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_settings_nonce'] ) ) 
 		if ( isset( $_POST['space_type'] ) && \BuddyNext\Spaces\SpaceTypeRegistry::instance()->is_valid( sanitize_key( (string) wp_unslash( $_POST['space_type'] ) ) ) ) {
 			$update_data['type'] = sanitize_key( wp_unslash( $_POST['space_type'] ) );
 		}
-		update_option( 'bn_space_' . $space_id . '_allow_member_posts', isset( $_POST['allow_member_posts'] ) ? 1 : 0 );
-		update_option( 'bn_space_' . $space_id . '_push_to_feed', isset( $_POST['push_to_feed'] ) ? 1 : 0 );
-		update_option( 'bn_space_' . $space_id . '_mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? 1 : 0 );
-		if ( isset( $_POST['jetonomy_forum_id'] ) ) {
-			update_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', absint( $_POST['jetonomy_forum_id'] ) );
+		// general / privacy / integrations share this one nonce + form, but only
+		// the active sub-tab's panel (and thus its fields) is in the POST. Writing
+		// every checkbox unconditionally forced the OTHER tabs' options to 0 on
+		// each save (a checkbox absent from the request reads as unchecked). Gate
+		// each option to the sub-tab that actually owns and renders it.
+		$bn_subtab = isset( $_POST['bn_settings_subtab'] ) ? sanitize_key( wp_unslash( $_POST['bn_settings_subtab'] ) ) : 'general';
+
+		if ( 'privacy' === $bn_subtab ) {
+			update_option( 'bn_space_' . $space_id . '_allow_member_posts', isset( $_POST['allow_member_posts'] ) ? 1 : 0 );
+		}
+
+		if ( 'integrations' === $bn_subtab ) {
+			update_option( 'bn_space_' . $space_id . '_push_to_feed', isset( $_POST['push_to_feed'] ) ? 1 : 0 );
+			update_option( 'bn_space_' . $space_id . '_mvs_media_tab', isset( $_POST['mvs_media_tab'] ) ? 1 : 0 );
+			if ( isset( $_POST['jetonomy_forum_id'] ) ) {
+				update_option( 'bn_space_' . $space_id . '_jetonomy_forum_id', absint( $_POST['jetonomy_forum_id'] ) );
+			}
 		}
 
 		if ( ! empty( $update_data ) ) {
@@ -655,6 +667,7 @@ foreach ( $builtin_tabs as $bn_t ) {
 			?>
 			<form method="post" action="" enctype="multipart/form-data" class="bn-space-settings__form" data-bn-settings-general-form data-space-id="<?php echo esc_attr( (string) $space_id ); ?>" data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>">
 				<?php wp_nonce_field( 'bn_space_settings_' . $space_id, 'bn_space_settings_nonce' ); ?>
+				<input type="hidden" name="bn_settings_subtab" value="<?php echo esc_attr( $settings_tab ); ?>" />
 				<?php
 		endif;
 
