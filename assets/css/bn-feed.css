@@ -774,11 +774,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	font-weight: 600;
 	color: var(--bn-ink-2);
 	border: 1px solid transparent;
-	transition: border-color var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
-}
-
-.bn-post-card__summary-chip:hover {
-	border-color: var(--bn-accent);
+	transition: background-color var(--bn-dur-fast, 120ms) var(--bn-ease, ease), border-color var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
 }
 
 .bn-post-card__summary-chip svg {
@@ -2065,6 +2061,13 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 }
 .bn-post-card__reactors-trigger:hover {
 	background: var(--bn-sunken, color-mix(in oklab, var(--bn-accent) 6%, transparent));
+}
+/* On hover the trigger shows one unified pill: dissolve each chip's own
+   background + border so they merge cleanly instead of stacking a grey blob
+   behind bordered chips (the previous double hover effect). */
+.bn-post-card__reactors-trigger:hover .bn-post-card__summary-chip {
+	background: transparent;
+	border-color: transparent;
 }
 .bn-post-card__reactors-trigger:focus-visible {
 	outline: 2px solid var(--bn-accent);
