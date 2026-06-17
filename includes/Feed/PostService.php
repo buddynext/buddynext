@@ -135,7 +135,7 @@ class PostService {
 			(string) ( $data['content'] ?? '' ),
 			(string) ( $data['link_url'] ?? '' )
 		);
-		$flag_reason = '';
+		$flag_reason      = '';
 		if ( is_wp_error( $safeguard_result ) ) {
 			if ( 'pending_review' === $safeguard_result->get_error_code() || $this->is_flag_error( $safeguard_result ) ) {
 				// Reactive moderation (FB / LinkedIn model — members post freely, no
@@ -193,6 +193,16 @@ class PostService {
 			&& strtotime( (string) $data['scheduled_at'] ) > time()
 		) {
 			$status = 'scheduled';
+		}
+
+		// Pre-moderation: hold the post for approval when the community's rules
+		// apply. Held posts get status='pending' — kept out of every feed (feeds
+		// filter status='published') with no live side-effects until a moderator
+		// approves. Off by default; only fires when an owner opts in.
+		if ( 'published' === $status
+			&& ( new \BuddyNext\Moderation\PreModerationService() )->should_hold( $user_id, $data )
+		) {
+			$status = 'pending';
 		}
 
 		// Announcements may carry an optional expiry (UTC). active_announcement()
@@ -254,8 +264,35 @@ class PostService {
 			$this->insert_poll_options( $post_id, $data['options'], (string) ( $data['poll_end_date'] ?? '' ) );
 		}
 
+		// Live side-effects fire only for a published post. A held ('pending')
+		// post — like a future 'scheduled' one — stays fully dormant: no feed
+		// fan-out, notifications, search indexing, hashtags, webhooks, or realtime
+		// until it goes live. The hook re-fires on approval (approve_pending) /
+		// scheduled publish, so the live edge is the right one.
+		if ( 'published' === $status && $post_id > 0 ) {
+			$this->run_post_published_effects( $post_id, $user_id, $type, $data, $flag_reason );
+		}
+
+		return $post_id;
+	}
+
+	/**
+	 * Run the side-effects that should happen only when a post is actually live:
+	 * the buddynext_post_created fan-out, the auto-moderation flag report, and
+	 *
+	 * @mention notifications. Called from create() for an immediately-published
+	 * post and from approve_pending() when a held post is approved.
+	 *
+	 * @param int                  $post_id     Post ID.
+	 * @param int                  $user_id     Author user ID.
+	 * @param string               $type        Post type.
+	 * @param array<string, mixed> $data        Post data (content, space_id).
+	 * @param string               $flag_reason Auto-moderation flag reason, or ''.
+	 * @return void
+	 */
+	private function run_post_published_effects( int $post_id, int $user_id, string $type, array $data, string $flag_reason = '' ): void {
 		/**
-		 * Fires after a new post is created.
+		 * Fires after a new post goes live.
 		 *
 		 * @param int    $post_id Post ID.
 		 * @param int    $user_id Author user ID.
@@ -268,7 +305,7 @@ class PostService {
 		// 0 marks it as system-generated; the flag message is preserved as notes.
 		// ModerationService::report() also fans out buddynext_moderation_auto_actions,
 		// so threshold-based auto-actions can still fire on the auto-flag.
-		if ( '' !== $flag_reason && $post_id > 0 ) {
+		if ( '' !== $flag_reason ) {
 			$this->report_flagged_post( $post_id, $flag_reason, (int) ( $data['space_id'] ?? 0 ) );
 		}
 
@@ -292,8 +329,6 @@ class PostService {
 				}
 			}
 		}
-
-		return $post_id;
 	}
 
 	/**
@@ -912,6 +947,198 @@ class PostService {
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 
 		return false !== $updated;
+	}
+
+	/**
+	 * Approve a held ('pending') post: publish it now and run the live
+	 * side-effects (feed fan-out, notifications, indexing, mentions) that were
+	 * deferred at creation. The post is timestamped to the approval moment so it
+	 * surfaces as fresh content rather than being buried at its authored time.
+	 *
+	 * @param int $post_id Post id.
+	 * @return bool True when a pending post was approved.
+	 */
+	public function approve_pending( int $post_id ): bool {
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT user_id, space_id, type, content, link_url, status FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
+				$post_id
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $row ) || 'pending' !== ( $row['status'] ?? '' ) ) {
+			return false;
+		}
+
+		$now     = current_time( 'mysql', true );
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array(
+				'status'           => 'published',
+				'created_at'       => $now,
+				'last_activity_at' => $now,
+			),
+			array( 'id' => $post_id ),
+			array( '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false === $updated ) {
+			return false;
+		}
+
+		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		$author = (int) $row['user_id'];
+		$type   = (string) $row['type'];
+		$this->run_post_published_effects(
+			$post_id,
+			$author,
+			$type,
+			array(
+				'content'  => (string) ( $row['content'] ?? '' ),
+				'space_id' => (int) ( $row['space_id'] ?? 0 ),
+				'link_url' => $row['link_url'] ?? null,
+			)
+		);
+
+		/**
+		 * Fires when a held post is approved by a moderator.
+		 *
+		 * @param int $post_id Post id.
+		 * @param int $author  Author user id.
+		 */
+		do_action( 'buddynext_post_approved', $post_id, $author );
+
+		return true;
+	}
+
+	/**
+	 * Reject a held ('pending') post: soft-delete it (status='deleted') so it
+	 * never goes live, and announce the decision for notification + audit.
+	 *
+	 * @param int    $post_id Post id.
+	 * @param string $reason  Optional reason shown to the author.
+	 * @return bool True when a pending post was rejected.
+	 */
+	public function reject_pending( int $post_id, string $reason = '' ): bool {
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT user_id, status FROM {$wpdb->prefix}bn_posts WHERE id = %d LIMIT 1",
+				$post_id
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $row ) || 'pending' !== ( $row['status'] ?? '' ) ) {
+			return false;
+		}
+
+		$updated = $wpdb->update(
+			$wpdb->prefix . 'bn_posts',
+			array( 'status' => 'deleted' ),
+			array( 'id' => $post_id ),
+			array( '%s' ),
+			array( '%d' )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false === $updated ) {
+			return false;
+		}
+
+		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+
+		/**
+		 * Fires when a held post is rejected by a moderator.
+		 *
+		 * @param int    $post_id Post id.
+		 * @param int    $author  Author user id.
+		 * @param string $reason  Optional reason.
+		 */
+		do_action( 'buddynext_post_rejected', $post_id, (int) $row['user_id'], $reason );
+
+		return true;
+	}
+
+	/**
+	 * Count posts awaiting pre-moderation approval, optionally scoped to a set
+	 * of spaces (for space-scoped moderators). Uses COUNT(*) — never list-then-count.
+	 *
+	 * @param array<int,int> $space_ids Limit to these space ids (empty = all).
+	 * @return int
+	 */
+	public function count_pending( array $space_ids = array() ): int {
+		global $wpdb;
+		$space_ids = array_values( array_filter( array_map( 'absint', $space_ids ) ) );
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( empty( $space_ids ) ) {
+			return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE status = 'pending'" );
+		}
+		$placeholders = implode( ',', array_fill( 0, count( $space_ids ), '%d' ) );
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE status = 'pending' AND space_id IN ($placeholders)",
+				$space_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * List posts awaiting pre-moderation approval (oldest first), hydrated with
+	 * author + space for the review queue. Paginated per the scale contract.
+	 *
+	 * @param int            $limit     Max rows (1-100).
+	 * @param int            $offset    Offset for pagination.
+	 * @param array<int,int> $space_ids Limit to these space ids (empty = all).
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function get_pending_for_review( int $limit = 50, int $offset = 0, array $space_ids = array() ): array {
+		$limit     = max( 1, min( 100, $limit ) );
+		$offset    = max( 0, $offset );
+		$space_ids = array_values( array_filter( array_map( 'absint', $space_ids ) ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$space_sql = '';
+		$params    = array();
+		if ( ! empty( $space_ids ) ) {
+			$space_sql = ' AND p.space_id IN (' . implode( ',', array_fill( 0, count( $space_ids ), '%d' ) ) . ')';
+			$params    = $space_ids;
+		}
+		$params[] = $limit;
+		$params[] = $offset;
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.id, p.user_id, p.space_id, p.type, p.content, p.link_url, p.created_at,
+				        u.display_name AS author_name, s.name AS space_name
+				 FROM {$wpdb->prefix}bn_posts p
+				 LEFT JOIN {$wpdb->users} u ON u.ID = p.user_id
+				 LEFT JOIN {$wpdb->prefix}bn_spaces s ON s.id = p.space_id
+				 WHERE p.status = 'pending'{$space_sql}
+				 ORDER BY p.created_at ASC
+				 LIMIT %d OFFSET %d",
+				$params
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return is_array( $rows ) ? $rows : array();
 	}
 
 	/**

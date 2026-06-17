@@ -92,6 +92,8 @@ class Settings extends AdminPageBase {
 		'buddynext_post_rate_limit'            => array( 'integer', 'absint' ),
 		'buddynext_new_member_post_threshold'  => array( 'integer', 'absint' ),
 		'buddynext_duplicate_post_window'      => array( 'integer', 'absint' ),
+		'buddynext_premod_mode'                => array( 'string', 'sanitize_key' ),
+		'buddynext_premod_new_member_count'    => array( 'integer', 'absint' ),
 
 		// Notifications.
 		'buddynext_notif_default_follow'       => array( 'boolean', 'rest_sanitize_boolean' ),
@@ -149,7 +151,7 @@ class Settings extends AdminPageBase {
 			'spaces'        => __( 'Settings', 'buddynext' ),
 			'notifications' => __( 'Notifications', 'buddynext' ),
 			'email'         => __( 'Email', 'buddynext' ),
-			'moderation'    => __( 'Filters & Limits', 'buddynext' ),
+			'moderation'    => __( 'Controls', 'buddynext' ),
 			'integrations'  => __( 'Integrations', 'buddynext' ),
 			'privacy'       => __( 'Privacy & Data', 'buddynext' ),
 			'webhooks'      => __( 'Webhooks', 'buddynext' ),
@@ -658,6 +660,8 @@ class Settings extends AdminPageBase {
 			'buddynext_space_default_category',
 		),
 		'moderation'    => array(
+			'buddynext_premod_mode',
+			'buddynext_premod_new_member_count',
 			'buddynext_banned_words',
 			'buddynext_banned_hashtags',
 			'buddynext_blocked_domains',
@@ -1617,6 +1621,31 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_tab_moderation(): void {
+		$this->open_section( __( 'Post Approval (Pre-Moderation)', 'buddynext' ) );
+
+		$this->render_select_row(
+			'buddynext_premod_mode',
+			__( 'Hold posts for approval', 'buddynext' ),
+			(string) get_option( 'buddynext_premod_mode', 'off' ),
+			array(
+				'off'         => __( 'Off — every member posts instantly (recommended)', 'buddynext' ),
+				'new_members' => __( 'New members only — hold their first posts until approved', 'buddynext' ),
+				'links'       => __( 'Posts with links — hold anything containing a URL', 'buddynext' ),
+				'all'         => __( 'Everything — hold every post until a moderator approves', 'buddynext' ),
+			),
+			__( 'Held posts wait in the Moderation > Pending queue and never appear in feeds until approved. Off by default — a community grows by welcoming people, so only turn this up if you start seeing spam. Admins and moderators are never held.', 'buddynext' )
+		);
+
+		$this->render_number_row(
+			'buddynext_premod_new_member_count',
+			__( 'New-member posts to review', 'buddynext' ),
+			(int) get_option( 'buddynext_premod_new_member_count', 1 ),
+			__( 'When holding "New members only", review this many of a member\'s first posts before they post freely. Used only by the New members mode.', 'buddynext' ),
+			1
+		);
+
+		$this->close_section();
+
 		$this->open_section( __( 'Auto-Moderation Thresholds', 'buddynext' ) );
 
 		$this->render_number_row(

@@ -57,7 +57,13 @@ class ModerationQueue {
 		add_action( 'admin_post_bn_mod_report_action', array( $this, 'handle_report_action' ) );
 		add_action( 'admin_post_bn_mod_user_action', array( $this, 'handle_user_action' ) );
 		add_action( 'admin_post_bn_mod_appeal_action', array( $this, 'handle_appeal_action' ) );
+		add_action( 'admin_post_bn_mod_premod_action', array( $this, 'handle_premod_action' ) );
 
+		// Pending approval queue first — it is proactive (clear held posts so they
+		// go live) rather than reactive like reports. Hidden by AdminHub when the
+		// pre-moderation feature is off, but the tab itself always registers so a
+		// held post is never stranded.
+		AdminHub::register_tab( 'moderation', 'pending', __( 'Pending', 'buddynext' ), array( $this, 'render_pending' ), array( 'position' => 5 ) );
 		AdminHub::register_tab( 'moderation', 'reports', __( 'Reports', 'buddynext' ), array( $this, 'render_reports' ), array( 'position' => 10 ) );
 		AdminHub::register_tab( 'moderation', 'suspensions', __( 'Suspensions', 'buddynext' ), array( $this, 'render_suspensions' ), array( 'position' => 20 ) );
 		AdminHub::register_tab( 'moderation', 'appeals', __( 'Appeals', 'buddynext' ), array( $this, 'render_appeals' ), array( 'position' => 30 ) );
@@ -84,6 +90,23 @@ class ModerationQueue {
 			<div class="bn-ss-body">
 				<?php if ( empty( $items ) ) : ?>
 					<p><?php esc_html_e( 'Nothing to review. The queue is clear.', 'buddynext' ); ?></p>
+					<?php
+					$this->sample_preview(
+						array(
+							__( 'Reported content', 'buddynext' ),
+							__( 'Reason', 'buddynext' ),
+							__( 'Reporter', 'buddynext' ),
+							__( 'When', 'buddynext' ),
+							__( 'Actions', 'buddynext' ),
+						),
+						array(
+							array( __( 'Post: "Buy followers cheap"', 'buddynext' ), __( 'Spam', 'buddynext' ), __( 'Sample Reporter', 'buddynext' ), __( '1 hour ago', 'buddynext' ), __( 'Dismiss / Resolve', 'buddynext' ) ),
+							array( __( 'Comment on "Weekly check-in"', 'buddynext' ), __( 'Harassment', 'buddynext' ), __( 'Concerned Member', 'buddynext' ), __( '3 hours ago', 'buddynext' ), __( 'Dismiss / Resolve', 'buddynext' ) ),
+							array( __( 'Post: "Miracle cure, no proof"', 'buddynext' ), __( 'Misinformation', 'buddynext' ), __( 'Fact Checker', 'buddynext' ), __( '6 hours ago', 'buddynext' ), __( 'Dismiss / Resolve', 'buddynext' ) ),
+							array( __( 'Profile of "Admin Team"', 'buddynext' ), __( 'Impersonation', 'buddynext' ), __( 'Real Person', 'buddynext' ), __( '1 day ago', 'buddynext' ), __( 'Dismiss / Resolve', 'buddynext' ) ),
+						)
+					);
+					?>
 				<?php else : ?>
 				<table class="widefat striped">
 					<thead>
@@ -104,6 +127,129 @@ class ModerationQueue {
 				<?php endif; ?>
 			</div>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Render the pre-moderation Pending tab: posts held for approval, oldest
+	 * first, each with Approve / Reject. When the feature is off and the queue is
+	 * empty, it tells the owner where to switch it on.
+	 *
+	 * @return void
+	 */
+	public function render_pending(): void {
+		$this->maybe_notice();
+		$service = new \BuddyNext\Feed\PostService();
+		$total   = $service->count_pending();
+		$items   = $total > 0 ? $service->get_pending_for_review( 50 ) : array();
+		$mode    = \BuddyNext\Moderation\PreModerationService::mode();
+		?>
+		<div class="bn-settings-section bn-mod-queue" data-mod-queue>
+			<div class="bn-ss-header">
+				<span class="bn-ss-title"><?php esc_html_e( 'Posts awaiting approval', 'buddynext' ); ?></span>
+				<span class="bn-ss-count"><?php echo esc_html( (string) $total ); ?></span>
+			</div>
+			<div class="bn-ss-body">
+				<?php if ( empty( $items ) ) : ?>
+					<p>
+						<?php
+						if ( 'off' === $mode ) {
+							printf(
+								/* translators: %s: settings link */
+								esc_html__( 'Pre-moderation is off, so posts go live instantly. Turn it on under %s if you need to approve posts before they appear.', 'buddynext' ),
+								'<a href="' . esc_url( admin_url( 'admin.php?page=buddynext-moderation&tab=moderation' ) ) . '">' . esc_html__( 'Moderation > Controls', 'buddynext' ) . '</a>'
+							);
+						} else {
+							esc_html_e( 'Nothing waiting. All held posts have been reviewed.', 'buddynext' );
+						}
+						?>
+					</p>
+					<?php
+					$this->sample_preview(
+						array(
+							__( 'Post', 'buddynext' ),
+							__( 'Author', 'buddynext' ),
+							__( 'Space', 'buddynext' ),
+							__( 'Held', 'buddynext' ),
+							__( 'Actions', 'buddynext' ),
+						),
+						array(
+							array( __( 'Check out my new portfolio site', 'buddynext' ), __( 'Sample Member', 'buddynext' ), __( 'Photography', 'buddynext' ), __( '2 hours ago', 'buddynext' ), __( 'Approve / Reject', 'buddynext' ) ),
+							array( __( 'Has anyone tried the new feature yet?', 'buddynext' ), __( 'New Joiner', 'buddynext' ), __( 'General', 'buddynext' ), __( '5 hours ago', 'buddynext' ), __( 'Approve / Reject', 'buddynext' ) ),
+							array( __( 'Big sale, visit my shop now', 'buddynext' ), __( 'Spammy Sam', 'buddynext' ), __( 'Main feed', 'buddynext' ), __( '1 day ago', 'buddynext' ), __( 'Approve / Reject', 'buddynext' ) ),
+							array( __( 'Loving this community so far', 'buddynext' ), __( 'Quiet Riley', 'buddynext' ), __( 'Introductions', 'buddynext' ), __( '1 day ago', 'buddynext' ), __( 'Approve / Reject', 'buddynext' ) ),
+							array( __( 'Sharing a helpful link about onboarding', 'buddynext' ), __( 'Helpful Hana', 'buddynext' ), __( 'Resources', 'buddynext' ), __( '2 days ago', 'buddynext' ), __( 'Approve / Reject', 'buddynext' ) ),
+						)
+					);
+					?>
+				<?php else : ?>
+				<table class="widefat striped">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Post', 'buddynext' ); ?></th>
+							<th><?php esc_html_e( 'Author', 'buddynext' ); ?></th>
+							<th><?php esc_html_e( 'Space', 'buddynext' ); ?></th>
+							<th><?php esc_html_e( 'Held', 'buddynext' ); ?></th>
+							<th><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $items as $row ) : ?>
+							<?php $this->render_pending_row( $row ); ?>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+				<?php endif; ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render one held-post row with Approve / Reject controls.
+	 *
+	 * @param array<string,mixed> $row Hydrated pending post.
+	 * @return void
+	 */
+	private function render_pending_row( array $row ): void {
+		$post_id = (int) ( $row['id'] ?? 0 );
+		$author  = (string) ( $row['author_name'] ?? '' );
+		$space   = (string) ( $row['space_name'] ?? '' );
+		$excerpt = wp_trim_words( wp_strip_all_tags( (string) ( $row['content'] ?? '' ) ), 24, '…' );
+		if ( '' === $excerpt && ! empty( $row['link_url'] ) ) {
+			$excerpt = (string) $row['link_url'];
+		}
+		?>
+		<tr>
+			<td><?php echo esc_html( '' !== $excerpt ? $excerpt : sprintf( '%s #%d', esc_html__( 'Post', 'buddynext' ), $post_id ) ); ?></td>
+			<td><?php echo esc_html( '' !== $author ? $author : __( 'Unknown', 'buddynext' ) ); ?></td>
+			<td><?php echo esc_html( '' !== $space ? $space : __( 'Main feed', 'buddynext' ) ); ?></td>
+			<td><?php echo esc_html( $this->ago( (string) ( $row['created_at'] ?? '' ) ) ); ?></td>
+			<td>
+				<?php
+				$this->action_form(
+					'bn_mod_premod_action',
+					array(
+						'post_id' => $post_id,
+						'op'      => 'approve',
+					),
+					__( 'Approve', 'buddynext' ),
+					'primary',
+					''
+				);
+				$this->action_form(
+					'bn_mod_premod_action',
+					array(
+						'post_id' => $post_id,
+						'op'      => 'reject',
+					),
+					__( 'Reject', 'buddynext' ),
+					'delete',
+					__( 'Reject and delete this post?', 'buddynext' )
+				);
+				?>
+			</td>
+		</tr>
 		<?php
 	}
 
@@ -209,6 +355,22 @@ class ModerationQueue {
 			<div class="bn-ss-body">
 				<?php if ( empty( $suspensions ) ) : ?>
 					<p><?php esc_html_e( 'No members are currently suspended.', 'buddynext' ); ?></p>
+					<?php
+					$this->sample_preview(
+						array(
+							__( 'Member', 'buddynext' ),
+							__( 'Reason', 'buddynext' ),
+							__( 'Expires', 'buddynext' ),
+							__( 'Actions', 'buddynext' ),
+						),
+						array(
+							array( __( 'Sample Member', 'buddynext' ), __( 'Repeated spam', 'buddynext' ), __( 'in 3 days', 'buddynext' ), __( 'Lift suspension', 'buddynext' ) ),
+							array( __( 'Rule Breaker', 'buddynext' ), __( 'Harassment', 'buddynext' ), __( 'in 7 days', 'buddynext' ), __( 'Lift suspension', 'buddynext' ) ),
+							array( __( 'Test Account', 'buddynext' ), __( 'Ban evasion', 'buddynext' ), __( 'Permanent', 'buddynext' ), __( 'Lift suspension', 'buddynext' ) ),
+							array( __( 'Cooled Off', 'buddynext' ), __( 'Off-topic flooding', 'buddynext' ), __( 'in 1 day', 'buddynext' ), __( 'Lift suspension', 'buddynext' ) ),
+						)
+					);
+					?>
 				<?php else : ?>
 				<table class="widefat striped">
 					<thead>
@@ -255,6 +417,22 @@ class ModerationQueue {
 			<div class="bn-ss-body">
 				<?php if ( empty( $appeals ) ) : ?>
 					<p><?php esc_html_e( 'No appeals are waiting for review.', 'buddynext' ); ?></p>
+					<?php
+					$this->sample_preview(
+						array(
+							__( 'Member', 'buddynext' ),
+							__( 'Appeal', 'buddynext' ),
+							__( 'When', 'buddynext' ),
+							__( 'Decision', 'buddynext' ),
+						),
+						array(
+							array( __( 'Sample Member', 'buddynext' ), __( 'I believe this was a misunderstanding', 'buddynext' ), __( '2 hours ago', 'buddynext' ), __( 'Approve / Deny', 'buddynext' ) ),
+							array( __( 'Second Chance', 'buddynext' ), __( 'I have read the guidelines now', 'buddynext' ), __( '1 day ago', 'buddynext' ), __( 'Approve / Deny', 'buddynext' ) ),
+							array( __( 'Honest Mistake', 'buddynext' ), __( 'My account was compromised at the time', 'buddynext' ), __( '2 days ago', 'buddynext' ), __( 'Approve / Deny', 'buddynext' ) ),
+							array( __( 'Patient Pat', 'buddynext' ), __( 'Requesting a review of my suspension', 'buddynext' ), __( '3 days ago', 'buddynext' ), __( 'Approve / Deny', 'buddynext' ) ),
+						)
+					);
+					?>
 				<?php else : ?>
 				<table class="widefat striped">
 					<thead>
@@ -371,7 +549,66 @@ class ModerationQueue {
 		$this->redirect_back( 'appeals' );
 	}
 
+	/**
+	 * Approve or reject a held ('pending') post from the Pending queue.
+	 *
+	 * @return void
+	 */
+	public function handle_premod_action(): void {
+		$this->guard( 'bn_mod_premod_action' ); // Verifies the nonce via check_admin_referer().
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified in guard() above.
+		$post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified in guard() above.
+		$op = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( (string) $_POST['op'] ) ) : '';
+		$service = new \BuddyNext\Feed\PostService();
+
+		if ( 'approve' === $op ) {
+			$service->approve_pending( $post_id );
+		} elseif ( 'reject' === $op ) {
+			$service->reject_pending( $post_id );
+		}
+
+		$this->redirect_back( 'pending' );
+	}
+
 	// ── Small render + flow helpers ─────────────────────────────────────────
+
+	/**
+	 * Render a dimmed "sample data" preview beneath an empty queue so an owner
+	 * can see what the tab will show once there is activity. The rows are clearly
+	 * labelled as illustrative, are inert (no working actions), and are hidden
+	 * from assistive tech since they carry no real records.
+	 *
+	 * @param array<int,string>            $columns Column headers.
+	 * @param array<int,array<int,string>> $rows    Sample rows; cells align to columns.
+	 * @return void
+	 */
+	private function sample_preview( array $columns, array $rows ): void {
+		?>
+		<div class="bn-mod-preview" aria-hidden="true">
+			<span class="bn-mod-preview__badge"><?php esc_html_e( 'Sample preview — example only, not real data. This is how the tab looks once there is activity.', 'buddynext' ); ?></span>
+			<table class="widefat striped bn-mod-preview__table">
+				<thead>
+					<tr>
+						<?php foreach ( $columns as $col ) : ?>
+							<th><?php echo esc_html( (string) $col ); ?></th>
+						<?php endforeach; ?>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ( $rows as $row ) : ?>
+						<tr>
+							<?php foreach ( $row as $cell ) : ?>
+								<td><?php echo esc_html( (string) $cell ); ?></td>
+							<?php endforeach; ?>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		</div>
+		<?php
+	}
 
 	/**
 	 * Render a single-button report-action form.
@@ -539,7 +776,7 @@ class ModerationQueue {
 	private function current_tab(): string {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : 'reports';
-		return in_array( $tab, array( 'reports', 'suspensions', 'appeals' ), true ) ? $tab : 'reports';
+		return in_array( $tab, array( 'pending', 'reports', 'suspensions', 'appeals' ), true ) ? $tab : 'reports';
 	}
 
 	/**

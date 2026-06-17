@@ -1749,6 +1749,29 @@ button.bn-btn-danger:hover {
 	margin: 0;
 }
 
+/* Empty-state "sample data" preview — dimmed, inert illustration of what a
+   moderation tab shows once it has live data. */
+.bn-mod-preview {
+	margin-top: var(--bn-s4);
+	opacity: 0.5;
+	pointer-events: none;
+	user-select: none;
+}
+.bn-mod-preview__badge {
+	display: inline-block;
+	margin-bottom: var(--bn-s2);
+	padding: var(--bn-s1) var(--bn-s3);
+	font-size: var(--bn-text-xs);
+	font-weight: 600;
+	color: var(--bn-ink-2);
+	background: var(--bn-sunken);
+	border: 1px dashed var(--bn-line);
+	border-radius: var(--bn-r-full);
+}
+.bn-mod-preview__table {
+	filter: grayscale(0.35);
+}
+
 /* ── Roles & Capabilities matrix ────────────────────────────────────────── */
 .bn-roles-group {
 	margin: 20px 0 6px;

@@ -149,6 +149,71 @@ class ModerationController extends BaseRestController {
 			)
 		);
 
+		// Pre-moderation (approval) queue: list held posts + approve/reject. Same
+		// queue-access gate as reports (site admins see all; space moderators see
+		// their spaces). This is the REST face of the admin Pending tab.
+		register_rest_route(
+			'buddynext/v1',
+			'/moderation/pending',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_pending' ),
+				'permission_callback' => array( $this, 'require_queue_access' ),
+				'args'                => array(
+					'per_page' => array(
+						'type'              => 'integer',
+						'default'           => 20,
+						'minimum'           => 1,
+						'maximum'           => 100,
+						'sanitize_callback' => 'absint',
+					),
+					'page'     => array(
+						'type'              => 'integer',
+						'default'           => 1,
+						'minimum'           => 1,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/posts/(?P<id>\d+)/approve',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'approve_post' ),
+				'permission_callback' => array( $this, 'require_queue_access' ),
+				'args'                => array(
+					'id' => array(
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/posts/(?P<id>\d+)/reject',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'reject_post' ),
+				'permission_callback' => array( $this, 'require_queue_access' ),
+				'args'                => array(
+					'id'     => array(
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
+					'reason' => array(
+						'type'              => 'string',
+						'required'          => false,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
+			)
+		);
+
 		// Moderation audit log — admin-only read access to the append-only
 		// bn_mod_log trail. The log was previously write-only over REST.
 		register_rest_route(
@@ -1002,6 +1067,110 @@ class ModerationController extends BaseRestController {
 		$result = $service->get_queue( $args );
 
 		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * GET /moderation/pending — posts held for pre-moderation approval. Site
+	 * admins see all; space moderators see only their spaces.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public function get_pending( WP_REST_Request $request ): WP_REST_Response {
+		$posts    = new \BuddyNext\Feed\PostService();
+		$per_page = absint( $request->get_param( 'per_page' ) );
+		$page     = max( 1, absint( $request->get_param( 'page' ) ) );
+		$offset   = ( $page - 1 ) * $per_page;
+
+		$space_ids = array();
+		if ( ! current_user_can( 'manage_options' ) ) {
+			$space_ids = ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'items'    => $posts->get_pending_for_review( $per_page, $offset, $space_ids ),
+				'total'    => $posts->count_pending( $space_ids ),
+				'page'     => $page,
+				'per_page' => $per_page,
+			),
+			200
+		);
+	}
+
+	/**
+	 * POST /posts/{id}/approve — publish a held post.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function approve_post( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$post_id = absint( $request['id'] );
+		$scope   = $this->guard_pending_scope( $post_id );
+		if ( is_wp_error( $scope ) ) {
+			return $scope;
+		}
+
+		if ( ! ( new \BuddyNext\Feed\PostService() )->approve_pending( $post_id ) ) {
+			return new WP_Error( 'bn_premod_not_pending', __( 'This post is not awaiting approval.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'success' => true,
+				'post_id' => $post_id,
+				'status'  => 'published',
+			),
+			200
+		);
+	}
+
+	/**
+	 * POST /posts/{id}/reject — reject (soft-delete) a held post.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function reject_post( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$post_id = absint( $request['id'] );
+		$scope   = $this->guard_pending_scope( $post_id );
+		if ( is_wp_error( $scope ) ) {
+			return $scope;
+		}
+
+		$reason = sanitize_text_field( (string) $request->get_param( 'reason' ) );
+		if ( ! ( new \BuddyNext\Feed\PostService() )->reject_pending( $post_id, $reason ) ) {
+			return new WP_Error( 'bn_premod_not_pending', __( 'This post is not awaiting approval.', 'buddynext' ), array( 'status' => 404 ) );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'success' => true,
+				'post_id' => $post_id,
+				'status'  => 'rejected',
+			),
+			200
+		);
+	}
+
+	/**
+	 * Ensure the current user may moderate the given pending post: site admins
+	 * always may; space moderators only within their moderated spaces.
+	 *
+	 * @param int $post_id Post id.
+	 * @return true|WP_Error
+	 */
+	private function guard_pending_scope( int $post_id ) {
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+		$post     = ( new \BuddyNext\Feed\PostService() )->get( $post_id );
+		$space_id = (int) ( $post['space_id'] ?? 0 );
+		$allowed  = array_map( 'intval', ( new ModerationService() )->get_moderated_space_ids( get_current_user_id() ) );
+		if ( $space_id <= 0 || ! in_array( $space_id, $allowed, true ) ) {
+			return new WP_Error( 'bn_forbidden', __( 'You cannot moderate this post.', 'buddynext' ), array( 'status' => 403 ) );
+		}
+		return true;
 	}
 
 	/**

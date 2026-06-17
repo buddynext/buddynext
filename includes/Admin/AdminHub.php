@@ -241,26 +241,30 @@ class AdminHub {
 			'position' => 40,
 		),
 
-		// Moderation — queue + filters.
-		'moderation:reports'         => array(
+		// Moderation — controls first (they drive everything), then the queues.
+		'settings:moderation'        => array(
 			'section'  => 'moderation',
 			'position' => 10,
 		),
-		'moderation:suspensions'     => array(
+		'moderation:pending'         => array(
 			'section'  => 'moderation',
 			'position' => 20,
 		),
-		'moderation:appeals'         => array(
+		'moderation:reports'         => array(
 			'section'  => 'moderation',
 			'position' => 30,
 		),
-		'settings:moderation'        => array(
+		'moderation:suspensions'     => array(
 			'section'  => 'moderation',
 			'position' => 40,
 		),
-		'moderation:bulk'            => array(
+		'moderation:appeals'         => array(
 			'section'  => 'moderation',
 			'position' => 50,
+		),
+		'moderation:bulk'            => array(
+			'section'  => 'moderation',
+			'position' => 60,
 		),
 
 		// Auto-Moderation (Pro). Hidden in free.
