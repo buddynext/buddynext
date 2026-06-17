@@ -437,6 +437,11 @@
 /* ── Verify-page card content ───────────────────────────────────────── */
 
 .bn-verify-page {
+	/* Fill the auth wrapper. .bn-verify-page is the full-canvas centring frame,
+	   but it sits inside the flex .bn-auth shell; without an explicit width it
+	   shrinks to its card's content and lands flush-left, so its own
+	   justify-content:center had no room to centre the card. */
+	width: 100%;
 	min-height: 100vh;
 	background: var(--bn-canvas);
 	display: flex;
