@@ -54,7 +54,7 @@ class BlockService {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
+		$result = $wpdb->query(
 			$wpdb->prepare(
 				"INSERT INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type)
 				 VALUES (%d, %d, 'block')
@@ -63,6 +63,12 @@ class BlockService {
 				$blocked_id
 			)
 		);
+
+		// A failed write must surface as an error, not a false success — otherwise
+		// we would bust the cache and fire buddynext_block while no row was stored.
+		if ( false === $result ) {
+			return new WP_Error( 'block_failed', __( 'Could not block this user. Please try again.', 'buddynext' ) );
+		}
 
 		$this->invalidate_block_cache( $blocker_id, $blocked_id );
 
@@ -138,7 +144,7 @@ class BlockService {
 
 		// INSERT IGNORE preserves an existing block row — mute never downgrades a block.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
+		$result = $wpdb->query(
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type)
 				 VALUES (%d, %d, 'mute')",
@@ -146,6 +152,11 @@ class BlockService {
 				$muted_id
 			)
 		);
+
+		// Surface a failed write instead of reporting a false success.
+		if ( false === $result ) {
+			return new WP_Error( 'mute_failed', __( 'Could not mute this user. Please try again.', 'buddynext' ) );
+		}
 
 		$this->invalidate_block_cache( $muter_id, $muted_id );
 
@@ -226,7 +237,7 @@ class BlockService {
 
 		// INSERT IGNORE preserves an existing block — restrict never downgrades.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query(
+		$result = $wpdb->query(
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->prefix}bn_blocks (blocker_id, blocked_id, type)
 				 VALUES (%d, %d, 'restrict')",
@@ -234,6 +245,11 @@ class BlockService {
 				$target_id
 			)
 		);
+
+		// Surface a failed write instead of reporting a false success.
+		if ( false === $result ) {
+			return new WP_Error( 'restrict_failed', __( 'Could not restrict this user. Please try again.', 'buddynext' ) );
+		}
 
 		$this->invalidate_block_cache( $actor_id, $target_id );
 
