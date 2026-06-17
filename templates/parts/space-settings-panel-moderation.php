@@ -9,7 +9,6 @@
  *
  * @var object $space               Required. Space row.
  * @var array  $moderation_settings Required. Bundle:
- *   - `require_post_approval` (bool)
  *   - `banned_words`          (string)
  *   - `space_id`              (int)
  *   - `space_url`             (string) Cancel-link URL.

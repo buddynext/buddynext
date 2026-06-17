@@ -37,7 +37,7 @@ class SpacePostGuard {
 	}
 
 	/**
-	 * Apply who_can_post + require_post_approval to a space post on create.
+	 * Apply who_can_post access control to a space post on create.
 	 *
 	 * @param mixed    $data    Post data array, or a WP_Error from an earlier listener.
 	 * @param int      $user_id Author user ID.

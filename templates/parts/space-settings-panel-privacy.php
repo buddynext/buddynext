@@ -10,7 +10,6 @@
  * @var object $space            Required. Space row (from `bn_spaces`).
  * @var array  $privacy_settings Required. Bundle:
  *   - `allow_member_posts`    (bool)
- *   - `require_post_approval` (bool)
  * @var array  $classes          Optional. Extra CSS classes appended to `.bn-card`.
  *
  * Fires:

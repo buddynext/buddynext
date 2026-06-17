@@ -14,7 +14,6 @@
  *   - `who_can_invite`        (string) 'members'|'mods'|'owner'
  *   - `allow_member_posts`    (bool)
  *   - `require_join_approval` (bool)
- *   - `require_post_approval` (bool)
  *   - `space_id`              (int)
  *   - `space_url`             (string) Cancel-link URL.
  * @var array  $classes              Optional. Extra CSS classes appended to `.bn-card`.

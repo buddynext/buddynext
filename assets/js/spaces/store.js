@@ -1324,7 +1324,6 @@ var storeInstance = store( 'buddynext/spaces', {
 
 			var payload = {
 				allow_member_posts:    ( form.querySelector( '[name="allow_member_posts"]' ) || {} ).checked ? 1 : 0,
-				require_post_approval: ( form.querySelector( '[name="require_post_approval"]' ) || {} ).checked ? 1 : 0,
 				require_join_approval: ( form.querySelector( '[name="require_join_approval"]' ) || {} ).checked ? 1 : 0,
 			};
 

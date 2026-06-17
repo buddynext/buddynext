@@ -356,7 +356,6 @@ class SpaceController extends BaseRestController {
 	 *
 	 * Permissions stored as wp_options under bn_space_<id>_<key>:
 	 *   - allow_member_posts
-	 *   - require_post_approval
 	 *   - require_join_approval
 	 *
 	 * @param WP_REST_Request $request Incoming request.
