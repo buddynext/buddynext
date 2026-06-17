@@ -39,20 +39,16 @@ $bn_pf_get_fv     = isset( $get_fv ) && is_callable( $get_fv ) ? $get_fv : $bn_p
 $bn_pf_entryfv    = isset( $entry_fv ) && is_callable( $entry_fv ) ? $entry_fv : $bn_pf_noop_entry;
 
 if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
-	$c_pct      = (int) $bn_pf_comp['percent'];
-	$c_complete = 100 === $c_pct;
-	$edit_url   = \BuddyNext\Core\PageRouter::edit_profile_url();
+	$edit_url = \BuddyNext\Core\PageRouter::edit_profile_url();
 	?>
 	<?php
-	// Circular completion gauge (v2 prototype). The percentage is the overall
-	// flat-field score from ProfileService::get_completion_score(); the
-	// checklist below is a curated high-value subset (same pattern as the v2
-	// mock, which shows 6 tasks against an 82% ring). "N to go" counts the
-	// unchecked curated tasks, not the full field set.
-	$bn_ring_circ   = 150.80; // 2·π·r, r = 24 (matches the SVG below)
-	$bn_ring_pct    = max( 0, min( 100, $c_pct ) );
-	$bn_ring_offset = $bn_ring_circ * ( 1 - ( $bn_ring_pct / 100 ) );
-
+	// Profile Strength widget (v2 prototype). The checklist is a curated set of
+	// high-value profile actions, and the ring reflects how many of THESE the
+	// member has completed — so finishing every listed task always lands on
+	// 100% / "All set". The service-wide get_completion_score() counts every
+	// flat field and still drives REST + gamification, but driving the ring off
+	// it left the widget stuck below 100% with all visible tasks done, giving
+	// the member no way to see which hidden field was missing.
 	$bn_pf_tasks = array(
 		array(
 			'label' => __( 'Add a bio', 'buddynext' ),
@@ -79,14 +75,22 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 			'done'  => ! empty( $bn_pf_social ),
 		),
 	);
-	$bn_pf_togo = count(
+
+	$bn_pf_total = count( $bn_pf_tasks );
+	$bn_pf_done  = count(
 		array_filter(
 			$bn_pf_tasks,
 			static function ( $t ) {
-				return empty( $t['done'] );
+				return ! empty( $t['done'] );
 			}
 		)
 	);
+	$bn_pf_togo  = $bn_pf_total - $bn_pf_done;
+	$c_complete  = $bn_pf_total > 0 && $bn_pf_done === $bn_pf_total;
+
+	$bn_ring_circ   = 150.80; // 2·π·r, r = 24 (matches the SVG below)
+	$bn_ring_pct    = $bn_pf_total > 0 ? (int) round( ( $bn_pf_done / $bn_pf_total ) * 100 ) : 0;
+	$bn_ring_offset = $bn_ring_circ * ( 1 - ( $bn_ring_pct / 100 ) );
 	?>
 	<div class="bn-widget">
 		<div class="bn-widget-title"><?php esc_html_e( 'Profile Strength', 'buddynext' ); ?></div>
