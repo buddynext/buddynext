@@ -98,7 +98,7 @@ class ConnectionService {
 		}
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-		$wpdb->insert(
+		$inserted = $wpdb->insert(
 			$wpdb->prefix . 'bn_connections',
 			array(
 				'requester_id' => $requester_id,
@@ -108,6 +108,16 @@ class ConnectionService {
 			),
 			array( '%d', '%d', '%s', '%s' )
 		);
+
+		// Surface a write failure instead of reporting success with a 0 id (which
+		// would also fire buddynext_connection_requested for a row that never
+		// existed). $wpdb->insert() returns false on error.
+		if ( false === $inserted ) {
+			return new WP_Error(
+				'db_error',
+				__( 'The connection request could not be saved. Please try again.', 'buddynext' )
+			);
+		}
 
 		$connection_id = (int) $wpdb->insert_id;
 		$this->invalidate_connection_cache();
