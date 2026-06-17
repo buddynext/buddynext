@@ -1,348 +1,408 @@
 /*
- * BuddyNext — Explore stylesheet
+ * BuddyNext — Explore stylesheet (community heartbeat)
  *
- * The Explore page is BuddyNext's signature discovery surface (its masonry-grid
- * "showbiz"). Its styles live here, split out of bn-feed.css, so the discovery
- * grid + varied cards evolve independently of the activity feed and never
- * conflict with it. Enqueued only on /activity/explore/ (PageRouter, action
- * 'explore'). Composes the global tokens + primitives from bn-base.css.
+ * Explore is BuddyNext's signature discovery surface: a masonry-style grid of
+ * varied, compact, click-through cards (the .ec-card family) that blends new
+ * members, new spaces, hot discussions, popular posts and media into one
+ * "what's going on" view, plus a discovery aside. Split out of bn-feed.css so
+ * it evolves independently and never bleeds into the activity feed. Enqueued
+ * only on /activity/explore/ (PageRouter, action 'explore'). Composes the
+ * global tokens + primitives from bn-base.css.
  */
 
-/* ── Explore page ────────────────────────────────────────────────────────── */
+/* ── Component-specific tokens (decorative; allowed in :root) ─────────────── */
+:root {
+	--bn-ec-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+	--bn-ec-shadow-hover: 0 6px 20px rgba(16, 24, 40, 0.10);
+	--bn-ec-transition: 0.14s ease;
+
+	/* Decorative cover tones (the v2 explore gradients). */
+	--bn-tone-violet: linear-gradient(135deg, #ddd6fe, #a78bfa);
+	--bn-tone-amber: linear-gradient(135deg, #fde68a, #f59e0b);
+	--bn-tone-emerald: linear-gradient(135deg, #a7f3d0, #10b981);
+	--bn-tone-rose: linear-gradient(135deg, #fecdd3, #f43f5e);
+	--bn-tone-sky: linear-gradient(135deg, #bae6fd, #0ea5e9);
+}
+
+/* ── Explore page shell ──────────────────────────────────────────────────── */
 .bn-explore {
 	font-family: var(--font-body);
 	font-size: var(--text-base);
 	line-height: var(--leading-body);
 	color: var(--text-1);
-	/* No own background — sit on the page canvas like every other hub
-	   (Members, Spaces). A --bg-subtle fill here read as an "extra" grey
-	   band that broke the page-to-page rhythm. */
 	-webkit-font-smoothing: antialiased;
 }
 .bn-explore-content { min-width: 0; }
-.bn-explore-page-header { margin-bottom: var(--s5); }
-.bn-explore-title {
-	font-family: var(--font-display);
-	font-size: var(--text-2xl);
-	font-weight: var(--fw-extrabold);
-	color: var(--text-1);
-	letter-spacing: -0.5px;
-}
-.bn-explore-sub { font-size: var(--text-sm); color: var(--text-2); margin-top: var(--s1); }
 
-/* Guest banner */
+/* ── Hero: community pulse + search ──────────────────────────────────────── */
+.bn-explore-hero {
+	position: relative;
+	overflow: hidden;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	padding: var(--s6);
+	margin-bottom: var(--s5);
+}
+.bn-explore-hero::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(60% 100% at 100% 0%, var(--brand-light), transparent 70%),
+		radial-gradient(40% 80% at 0% 100%, var(--jetonomy-bg), transparent 70%);
+	opacity: 0.6;
+	pointer-events: none;
+}
+.bn-explore-hero > * { position: relative; }
+.bn-explore-hero__eyebrow {
+	font-family: var(--font-mono, var(--font-body));
+	font-size: var(--text-xs);
+	text-transform: uppercase;
+	letter-spacing: var(--ls-wider, 0.08em);
+	color: var(--text-3);
+	margin-bottom: var(--s2);
+}
+.bn-explore-hero__title {
+	font-family: var(--font-display);
+	font-size: var(--text-3xl);
+	font-weight: var(--fw-bold);
+	color: var(--text-1);
+	letter-spacing: var(--ls-tight, -0.02em);
+	line-height: var(--leading-tight);
+	margin-bottom: var(--s4);
+}
+.bn-explore-hero__search {
+	display: flex;
+	align-items: center;
+	gap: var(--s3);
+	max-width: 540px;
+	background: var(--bg);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	padding: 12px var(--s4);
+	color: var(--text-3);
+	transition: border-color var(--bn-ec-transition);
+}
+.bn-explore-hero__search:focus-within { border-color: var(--brand); }
+.bn-explore-hero__search-icon { display: inline-flex; flex-shrink: 0; }
+.bn-explore-hero__search-icon svg { width: 18px; height: 18px; }
+.bn-explore-hero__search-input {
+	flex: 1;
+	border: 0;
+	background: transparent;
+	font-family: var(--font-body);
+	font-size: var(--text-base);
+	color: var(--text-1);
+}
+.bn-explore-hero__search-input:focus { outline: none; }
+.bn-explore-hero__search-input::placeholder { color: var(--text-3); }
+
+/* ── Guest banner ────────────────────────────────────────────────────────── */
 .bn-guest-banner {
 	position: relative;
 	background: linear-gradient(135deg, var(--brand), var(--brand-hover));
-	color: var( --bn-accent-fg, #fff );
+	color: var(--bn-accent-fg, #fff);
 	border-radius: var(--r-lg);
 	padding: var(--s5);
 	margin-bottom: var(--s5);
 }
-.bn-guest-banner__dismiss {
-	position: absolute;
-	inset-block-start: var(--s3);
-	inset-inline-end: var(--s3);
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 28px;
-	height: 28px;
-	padding: 0;
-	border: 0;
-	border-radius: var(--r-full);
-	background: rgba(255, 255, 255, 0.16);
-	color: inherit;
-	cursor: pointer;
-	transition: background var(--bn-dur-fast) var(--bn-ease);
-}
-.bn-guest-banner__dismiss:hover { background: rgba(255, 255, 255, 0.28); }
-.bn-guest-banner__dismiss .bn-icon { width: 16px; height: 16px; }
 .bn-guest-banner h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--fw-bold); margin-bottom: var(--s1); }
-.bn-guest-banner p  { font-size: var(--text-sm); opacity: 0.85; margin-bottom: var(--s4); line-height: 1.6; }
-.bn-banner-btns     { display: flex; gap: var(--bn-s2); flex-wrap: wrap; }
-/* Guest banner buttons use the .bn-btn[data-variant] primitive directly;
-   the on-coloured-background variants need a light-surface override. */
-.bn-guest-banner .bn-btn[data-variant="primary"] {
-	background: var(--bn-canvas);
-	color: var(--bn-accent);
-}
-.bn-guest-banner .bn-btn[data-variant="primary"]:hover { background: var(--bn-sunken); }
-.bn-guest-banner .bn-btn[data-variant="ghost"] {
-	color: var(--bn-canvas);
-	border-color: var(--bn-line-faint);
-	background: transparent;
-}
-.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: var(--bn-line-faint); }
+.bn-guest-banner p  { font-size: var(--text-sm); opacity: 0.9; margin-bottom: var(--s4); line-height: 1.6; }
+.bn-banner-btns     { display: flex; gap: var(--s2); flex-wrap: wrap; }
+.bn-guest-banner .bn-btn[data-variant="primary"] { background: var(--bg); color: var(--brand); }
+.bn-guest-banner .bn-btn[data-variant="primary"]:hover { background: var(--bg-subtle); }
+.bn-guest-banner .bn-btn[data-variant="ghost"] { color: var(--bg); border-color: rgba(255, 255, 255, 0.5); background: transparent; }
+.bn-guest-banner .bn-btn[data-variant="ghost"]:hover { background: rgba(255, 255, 255, 0.15); }
 
-/* Search bar */
-.bn-explore-search { position: relative; margin-bottom: var(--s5); }
-.bn-explore-search-icon {
-	position: absolute;
-	inset-inline-start: 14px;
-	top: 50%;
-	transform: translateY(-50%);
-	pointer-events: none;
-	color: var(--bn-text-3);
+/* ── Filter row (in-page entity-type filters) ────────────────────────────── */
+.bn-explore-filters {
+	display: flex;
+	gap: var(--s2);
+	margin-bottom: var(--s5);
+	flex-wrap: wrap;
 }
-/* Compound .bn-input.<class> selector so the icon-clearing padding beats the
-   .bn-input primitive's `padding` shorthand (equal single-class specificity
-   let the shorthand win by source order → text overlapped the search icon). */
-.bn-input.bn-explore-search__input {
-	width: 100%;
-	padding-inline-start: 44px;
-}
-
-/* Filter chips */
-.bn-filter-row { display: flex; gap: var(--s2); margin-bottom: var(--s5); flex-wrap: wrap; }
-.bn-filter-chip {
+.bn-explore-filter {
 	padding: 6px 14px;
 	border-radius: var(--r-full);
-	border: 1.5px solid var(--border);
+	border: 1px solid var(--border);
 	background: var(--surface);
+	font-size: var(--text-sm);
+	font-weight: var(--fw-semibold);
+	color: var(--text-2);
+	text-decoration: none;
+	transition: all var(--bn-ec-transition);
+}
+.bn-explore-filter:hover { background: var(--bg-hover); color: var(--text-1); }
+.bn-explore-filter.is-active {
+	background: var(--text-1);
+	color: var(--bg);
+	border-color: var(--text-1);
+}
+
+/* ── Masonry discovery grid ──────────────────────────────────────────────────
+ * True masonry via CSS multi-column: cards pack tightly top-to-bottom with no
+ * vertical gaps ("no empty rooms"), and the column count is container-driven
+ * (column-width is a minimum), collapsing to one column on narrow screens. The
+ * cards are static click-through teasers, so the old multi-column reflow caveat
+ * (comment-expand reshuffling columns) no longer applies. break-inside keeps a
+ * card from splitting across a column boundary. */
+.bn-explore-grid {
+	column-width: 250px;
+	column-gap: var(--s4);
+}
+.bn-explore-grid > .ec-card {
+	width: 100%;
+	margin: 0 0 var(--s4);
+	break-inside: avoid;
+}
+
+/* ── Card base (.ec-card) ────────────────────────────────────────────────── */
+.ec-card {
+	display: flex;
+	flex-direction: column;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-lg);
+	overflow: hidden;
+	box-shadow: var(--bn-ec-shadow);
+	transition: transform var(--bn-ec-transition), border-color var(--bn-ec-transition), box-shadow var(--bn-ec-transition);
+}
+.ec-card:hover {
+	transform: translateY(-2px);
+	border-color: var(--text-3);
+	box-shadow: var(--bn-ec-shadow-hover);
+}
+/* span-2 / span-tall are no-ops in the multi-column masonry (kept on the markup
+   for a future grid mode); the quote card stays a normal-width highlight. */
+
+/* Cover image block */
+.ec-img {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	aspect-ratio: 16 / 10;
+	overflow: hidden;
+	background: var(--bn-tone-violet);
+	color: rgba(255, 255, 255, 0.9);
+	text-decoration: none;
+}
+.ec-img[data-tone="violet"]  { background: var(--bn-tone-violet); }
+.ec-img[data-tone="amber"]   { background: var(--bn-tone-amber); }
+.ec-img[data-tone="emerald"] { background: var(--bn-tone-emerald); }
+.ec-img[data-tone="rose"]    { background: var(--bn-tone-rose); }
+.ec-img[data-tone="sky"]     { background: var(--bn-tone-sky); }
+.ec-img img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--bn-ec-transition); }
+.ec-card:hover .ec-img img { transform: scale(1.03); }
+.ec-img-glyph { display: inline-flex; }
+.ec-img-glyph svg { width: 32px; height: 32px; opacity: 0.9; }
+
+/* Body */
+.ec-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s2);
+	flex: 1;
+	padding: var(--s4);
+	text-decoration: none;
+	color: inherit;
+}
+a.ec-body:hover .ec-title { color: var(--brand); }
+.ec-kicker {
+	font-family: var(--font-mono, var(--font-body));
+	font-size: var(--text-2xs);
+	text-transform: uppercase;
+	letter-spacing: var(--ls-wide, 0.04em);
+	color: var(--text-3);
+}
+.ec-title {
+	display: block;
+	font-size: var(--text-base);
+	font-weight: var(--fw-semibold);
+	color: var(--text-1);
+	line-height: var(--leading-snug);
+	text-decoration: none;
+}
+a.ec-title:hover { color: var(--brand); }
+.ec-text {
+	font-size: var(--text-sm);
+	color: var(--text-2);
+	line-height: var(--leading-normal);
+}
+
+/* Foot (byline + stats) */
+.ec-foot {
+	display: flex;
+	align-items: center;
+	gap: var(--s2);
+	margin-top: auto;
+	padding: var(--s3) var(--s4);
+	border-top: 1px solid var(--border-soft);
+	font-size: var(--text-xs);
+	color: var(--text-3);
+}
+.ec-body + .ec-foot { padding-top: var(--s3); }
+.ec-foot-author { display: inline-flex; align-items: center; gap: var(--s2); text-decoration: none; color: var(--text-2); min-width: 0; }
+.ec-foot-author .name { font-weight: var(--fw-medium); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec-foot-author:hover .name { color: var(--brand); }
+.ec-foot .stats { margin-left: auto; display: inline-flex; gap: var(--s3); flex-shrink: 0; }
+.ec-foot .stats span { display: inline-flex; align-items: center; gap: 3px; }
+.ec-foot .stats svg { width: 13px; height: 13px; }
+.ec-foot-meta { color: var(--text-3); }
+
+/* ── Quote card ──────────────────────────────────────────────────────────── */
+.ec-card.is-quote { background: var(--text-1); color: var(--bg); border-color: var(--text-1); }
+.ec-card.is-quote .ec-quote {
+	display: flex;
+	align-items: center;
+	flex: 1;
+	padding: var(--s5);
+	font-family: var(--font-display);
+	font-size: var(--text-xl);
+	font-weight: var(--fw-medium);
+	line-height: var(--leading-snug);
+	color: var(--bg);
+	text-decoration: none;
+}
+.ec-card.is-quote .ec-foot { border-color: rgba(255, 255, 255, 0.14); }
+.ec-card.is-quote .ec-foot-author,
+.ec-card.is-quote .ec-foot-author .name { color: rgba(255, 255, 255, 0.85); }
+.ec-card.is-quote .stats { color: rgba(255, 255, 255, 0.6); }
+
+/* ── Forum / discussion card ─────────────────────────────────────────────── */
+.ec-card.is-forum { background: var(--jetonomy-bg); border-color: var(--jetonomy-border); }
+.ec-card.is-forum .ec-kicker { color: var(--jetonomy); }
+.ec-thread-meta {
+	display: flex;
+	flex-direction: column;
+	gap: var(--s1);
+	margin-top: var(--s2);
+	font-size: var(--text-xs);
+	color: var(--text-3);
+}
+.ec-thread-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.ec-thread-meta svg { width: 13px; height: 13px; }
+.ec-foot--forum { justify-content: flex-start; }
+.ec-open-thread {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
 	font-size: var(--text-xs);
 	font-weight: var(--fw-semibold);
-	cursor: pointer;
-	color: var(--text-1);
-	font-family: var(--font-body);
-	transition: border-color 0.1s, color 0.1s;
+	color: var(--jetonomy);
+	text-decoration: none;
 }
-.bn-filter-chip.active { background: var(--brand); border-color: var(--brand); color: var( --bn-accent-fg, #fff ); }
-.bn-filter-chip:hover:not(.active) { border-color: var(--brand); color: var(--brand); }
+.ec-open-thread:hover { text-decoration: underline; }
 
-/* Explore = the v2 masonry-style discovery grid: CSS Grid, auto-fill columns +
-   align-items:start so cards keep their natural height and top-align. (The
-   earlier vertical-list workaround was a reaction to CSS *multi-column* reflow
-   on comment-expand — but CSS Grid keeps each card in its own cell and never
-   reshuffles columns when one grows, so the grid stays stable.) */
-.bn-explore-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-	gap: var(--bn-s4);
-	align-items: start;
-}
-.bn-explore-grid > .bn-post-card {
-	width: 100%;
-	margin: 0;
-}
-
-/* Explore cover thumbnail — full-width image at the top of an explore
-   card when the post has media or a link-OG thumbnail. Rendered as a
-   negative-margin block so it bleeds to the card edges and feels like
-   the visual hero rather than padded content. */
-.bn-explore-grid .bn-post-card__cover {
-	display: block;
-	margin: calc(var(--bn-s4) * -1) calc(var(--bn-s4) * -1) var(--bn-s3);
-	overflow: hidden;
-	border-radius: var(--bn-r-lg) var(--bn-r-lg) 0 0;
-	background: linear-gradient(135deg, var(--bn-accent-bg, rgba(0,0,0,0.04)), var(--bn-sunken, rgba(0,0,0,0.02)));
-}
-.bn-explore-grid .bn-post-card__cover img {
-	display: block;
-	inline-size: 100%;
-	block-size: 180px;
-	object-fit: cover;
-	transition: transform var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
-}
-.bn-explore-grid .bn-post-card__cover:hover img {
-	transform: scale(1.03);
-}
-
-/* Explore post card */
-.bn-explore-card {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	overflow: hidden;
-}
-.bn-card-img {
-	width: 100%;
-	object-fit: cover;
-	background: linear-gradient(135deg, var(--brand-light), var(--jetonomy-bg));
+/* ── Member card ─────────────────────────────────────────────────────────── */
+.ec-card--member .ec-member-link {
 	display: flex;
+	flex-direction: column;
 	align-items: center;
-	justify-content: center;
-	color: var(--text-3);
-	font-size: var(--text-xs);
-}
-.bn-card-img.h180 { height: 180px; }
-.bn-card-img.h120 { height: 120px; }
-.bn-card-img.h220 { height: 220px; }
-.bn-card-body  { padding: var(--s3); }
-.bn-card-author {
-	display: flex;
-	align-items: center;
-	gap: var(--s2);
-	margin-bottom: var(--s2);
-}
-.bn-card-author-name { font-weight: var(--fw-semibold); font-size: var(--text-xs); color: var(--text-1); }
-.bn-card-author-time { font-size: var(--text-2xs); color: var(--text-3); }
-.bn-explore .avatar {
-	border-radius: 50%;
-	color: var( --bn-accent-fg, #fff );
-	font-weight: var(--fw-bold);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	letter-spacing: 0.02em;
-	overflow: hidden;
-}
-.bn-explore .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-.bn-explore .avatar.xs  { width: 26px; height: 26px; font-size: var(--text-2xs); }
-.bn-card-text {
-	font-size: var(--text-xs);
-	color: var(--text-2);
-	line-height: 1.5;
-	margin-bottom: var(--s2);
-}
-.bn-card-hashtag { color: var(--brand); font-weight: var(--fw-medium); text-decoration: none; }
-.bn-card-hashtag:hover { text-decoration: underline; }
-.bn-card-stats { display: flex; gap: var(--s3); font-size: var(--text-xs); color: var(--text-3); }
-.bn-card-stat  { display: flex; align-items: center; gap: 3px; }
-
-/* Explore sidebar widgets */
-.bn-widget {
-	background: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: var(--r-lg);
-	padding: var(--s4);
-}
-.bn-widget-title {
-	font-size: var(--text-sm);
-	font-weight: var(--fw-bold);
-	color: var(--text-1);
-	margin-bottom: var(--s3);
-}
-.bn-trending-tag {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 7px 0;
-	border-bottom: 1px solid var(--border-soft);
-	cursor: pointer;
-}
-.bn-trending-tag:last-child { border-bottom: none; }
-.bn-tag-name  { color: var(--brand); font-weight: var(--fw-semibold); font-size: var(--text-sm); text-decoration: none; }
-.bn-tag-name:hover { text-decoration: underline; }
-.bn-tag-count { color: var(--text-3); font-size: var(--text-xs); }
-.bn-cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
-.bn-cat-pill {
-	background: var(--bg-subtle);
-	border-radius: var(--r-sm);
-	padding: var(--s2) var(--s3);
-	font-size: var(--text-xs);
-	font-weight: var(--fw-medium);
-	cursor: pointer;
 	text-align: center;
-	color: var(--text-1);
-	border: 1px solid var(--border-soft);
+	gap: var(--s1);
+	padding: var(--s5) var(--s4) var(--s3);
+	text-decoration: none;
+	color: inherit;
 }
-.bn-cat-pill:hover { background: var(--brand-light); color: var(--brand); }
-.bn-space-entry {
+.ec-card--member .ec-member-name { font-size: var(--text-base); font-weight: var(--fw-semibold); color: var(--text-1); margin-top: var(--s2); }
+.ec-card--member .ec-member-link:hover .ec-member-name { color: var(--brand); }
+.ec-card--member .ec-member-handle { font-size: var(--text-xs); color: var(--text-3); }
+.ec-card--member .ec-member-meta { font-size: var(--text-xs); color: var(--text-2); margin-top: var(--s1); }
+.ec-foot--actions { justify-content: center; gap: var(--s2); border-top: 1px solid var(--border-soft); }
+.ec-card--member .ec-foot--actions { padding: var(--s3) var(--s4) var(--s4); }
+.ec-card--member .bn-follow-btn-wrap,
+.ec-card--member .ec-foot--actions .bn-btn { flex: 1; }
+.ec-card--member .bn-follow-btn { width: 100%; }
+
+/* Larger avatar for the member card (bn-avatar primitive has no xl by default). */
+.bn-explore .bn-avatar[data-size="xl"] { width: 64px; height: 64px; font-size: var(--text-xl); }
+.bn-explore .bn-avatar[data-size="xl"] img { width: 64px; height: 64px; }
+
+/* ── Space card ──────────────────────────────────────────────────────────── */
+.ec-card--space .ec-img { aspect-ratio: 16 / 9; }
+.ec-card--space .ec-foot--actions { justify-content: space-between; }
+.ec-card--space .ec-foot--actions .bn-btn { flex: 0 0 auto; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Explore aside — the heartbeat sidebar (trending / people / browse).
+ * Rendered inside the shared parts/sidebar-card.php wrapper.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+/* Trending tags */
+.bn-ex-trend { list-style: none; margin: 0; padding: 0; }
+.bn-ex-trend__row {
 	display: flex;
 	align-items: center;
-	gap: var(--s2);
-	cursor: pointer;
+	gap: var(--s3);
 	padding: var(--s2) 0;
 	border-bottom: 1px solid var(--border-soft);
 }
-.bn-space-entry:last-of-type { border-bottom: none; }
-.bn-space-icon {
-	width: 32px;
-	height: 32px;
-	border-radius: var(--r-sm);
-	background: var(--brand-light);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	font-size: var(--text-lg);
-}
-.bn-space-info  { flex: 1; min-width: 0; }
-.bn-space-name  { font-weight: var(--fw-semibold); font-size: var(--text-xs); color: var(--text-1); }
-.bn-space-meta  { font-size: var(--text-2xs); color: var(--text-3); }
-.bn-btn-join {
-	padding: 4px 10px;
-	border-radius: 12px;
-	border: 1.5px solid var(--brand);
-	color: var(--brand);
-	font-size: var(--text-xs);
-	font-weight: var(--fw-semibold);
-	cursor: pointer;
-	background: var(--surface);
-	font-family: var(--font-body);
-}
-.bn-btn-join:hover { background: var(--brand); color: var( --bn-accent-fg, #fff ); }
-
-/* ── Explore dark mode ── */
-[data-theme="dark"] .bn-explore-card { background: var(--surface); border-color: var(--border); }
-[data-theme="dark"] .bn-widget        { background: var(--surface); border-color: var(--border); }
-[data-theme="dark"] .bn-card-text     { color: var(--text-2); }
-[data-theme="dark"] .bn-filter-chip   { background: var(--surface); color: var(--text-1); border-color: var(--border); }
-[data-theme="dark"] .bn-btn-join      { background: var(--surface); }
-
-/* ── Explore mobile responsive ──
-   Grid sizing is container-driven (auto-fill minmax above), so column
-   count adjusts automatically. Only the typography + filter chip
-   density need explicit mobile tightening. */
-@media (max-width: 640px) {
-	.bn-filter-row      { gap: var(--s1); }
-	.bn-filter-chip     { font-size: var(--text-xs); padding: var(--s1) var(--s3); }
-	.bn-explore-title   { font-size: var(--text-xl); }
-}
-
-/* Explore grid empty state — replaces the prior inline styles on a bare div. */
-/* Explore sort control (Top / Latest / Active) — flat text links, not buttons. */
-.bn-explore-sort {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s3);
-	margin: var(--bn-s2) 0 var(--bn-s4);
-	font-size: var(--bn-text-sm);
-}
-.bn-explore-sort__label {
-	color: var(--bn-text-3);
-	font-weight: var(--fw-medium, 500);
-}
-.bn-explore-sort__link {
-	color: var(--bn-text-2, var(--bn-ink-2));
-	text-decoration: none;
-	padding-bottom: 2px;
-	border-bottom: 2px solid transparent;
-}
-.bn-explore-sort__link:hover {
-	color: var(--bn-ink, var(--bn-text-1));
-}
-.bn-explore-sort__link.active {
-	color: var(--brand, var(--bn-accent));
-	font-weight: var(--fw-semibold, 600);
-	border-bottom-color: var(--brand, var(--bn-accent));
-}
-
-.bn-explore-empty {
-	grid-column: 1 / -1;
+.bn-ex-trend__row:last-child { border-bottom: 0; }
+.bn-ex-trend__rank {
+	font-family: var(--font-display);
+	font-size: var(--text-base);
+	font-weight: var(--fw-extrabold);
+	color: var(--text-3);
+	width: 18px;
 	text-align: center;
-	padding: var(--bn-s8) var(--bn-s4);
-	color: var(--bn-text-3);
+	flex-shrink: 0;
 }
-.bn-explore-empty__icon {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	margin-bottom: var(--bn-s3);
-	color: var(--bn-text-3);
+.bn-ex-trend__info { flex: 1; min-width: 0; text-decoration: none; }
+.bn-ex-trend__tag { display: block; font-size: var(--text-sm); font-weight: var(--fw-semibold); color: var(--text-1); }
+.bn-ex-trend__info:hover .bn-ex-trend__tag { color: var(--brand); }
+.bn-ex-trend__stat { display: block; font-size: var(--text-xs); color: var(--text-3); margin-top: 1px; }
+
+/* People to discover */
+.bn-ex-people { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s3); }
+.bn-ex-person { display: flex; align-items: center; gap: var(--s2); }
+.bn-ex-person__id { display: flex; align-items: center; gap: var(--s2); flex: 1; min-width: 0; text-decoration: none; color: inherit; }
+.bn-ex-person__text { min-width: 0; }
+.bn-ex-person__name { display: block; font-size: var(--text-sm); font-weight: var(--fw-semibold); color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bn-ex-person__id:hover .bn-ex-person__name { color: var(--brand); }
+.bn-ex-person__meta { display: block; font-size: var(--text-xs); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Browse by category */
+.bn-ex-cats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.bn-ex-cat {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: var(--s2) var(--s3);
+	background: var(--bg-subtle);
+	border: 1px solid var(--border-soft);
+	border-radius: var(--r-md);
+	text-decoration: none;
 }
-.bn-explore-empty__icon svg { width: 32px; height: 32px; }
-.bn-explore-empty__title {
-	font-size: var(--bn-text-base);
-	font-weight: var(--fw-semibold);
-	color: var(--bn-text-2);
-}
-.bn-explore-empty__text {
-	font-size: var(--bn-text-sm);
-	margin-top: var(--bn-s2);
-	margin-bottom: 0;
+.bn-ex-cat:hover { background: var(--bg); border-color: var(--border); }
+.bn-ex-cat__name { font-size: var(--text-xs); font-weight: var(--fw-semibold); color: var(--text-1); }
+.bn-ex-cat__count { font-family: var(--font-mono, var(--font-body)); font-size: var(--text-2xs); color: var(--text-3); }
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.bn-explore-empty {
+	column-span: all;
+	text-align: center;
+	padding: var(--s10) var(--s4);
 }
 
-.bn-explore .bn-post-card__action-label { display: none; }
+/* ── Dark mode ───────────────────────────────────────────────────────────── */
+[data-theme="dark"] .ec-card.is-quote { background: var(--bg-hover); border-color: var(--border); }
+[data-theme="dark"] .ec-card.is-quote .ec-quote { color: var(--text-1); }
+[data-theme="dark"] .ec-card.is-quote .ec-foot-author,
+[data-theme="dark"] .ec-card.is-quote .ec-foot-author .name { color: var(--text-2); }
+[data-theme="dark"] .ec-card.is-forum { background: rgba(167, 139, 250, 0.08); border-color: rgba(167, 139, 250, 0.2); }
+[data-theme="dark"] .bn-explore-filter.is-active { background: var(--text-1); color: var(--bg); }
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+	.bn-explore-hero { padding: var(--s4); }
+	.bn-explore-hero__title { font-size: var(--text-2xl); }
+	/* column-width already collapses to one column on narrow screens. */
+	.bn-explore-grid { column-gap: var(--s3); }
+	.bn-explore-grid > .ec-card { margin-bottom: var(--s3); }
+	.bn-explore-filters { gap: var(--s1); overflow-x: auto; flex-wrap: nowrap; padding-bottom: var(--s1); }
+	.bn-explore-filter { white-space: nowrap; }
+	.bn-ex-cats { grid-template-columns: 1fr; }
+}

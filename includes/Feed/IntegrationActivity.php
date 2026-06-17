@@ -33,25 +33,31 @@ class IntegrationActivity {
 	 * @param string $content    Feed text, e.g. "started a discussion".
 	 * @param string $link_url   The partner page the card links to.
 	 * @param string $link_title Title shown on the card (the content's title).
+	 * @param string $type       Post type to record. Defaults to 'link'. Pass a
+	 *                           specific type (e.g. 'discussion', 'job', 'event')
+	 *                           so discovery surfaces can classify + filter the
+	 *                           card by what it represents instead of a generic
+	 *                           link. Must be a PostService::ALLOWED_TYPES value.
 	 * @return int|\WP_Error Post id (0 when an identical card already exists), or WP_Error.
 	 */
-	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '' ) {
+	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link' ) {
 		if ( $member_id <= 0 || '' === $link_url ) {
 			return new \WP_Error( 'invalid_activity', 'member id and link url are required' );
 		}
 
+		$type    = '' !== $type ? $type : 'link';
 		$service = new PostService();
 
 		// Idempotent: one activity card per partner page, even if the partner
-		// hook fires more than once.
-		if ( $service->exists_by_link( 'link', $link_url ) ) {
+		// hook fires more than once. Match on the same type the card is stored as.
+		if ( $service->exists_by_link( $type, $link_url ) ) {
 			return 0;
 		}
 
 		return $service->create(
 			$member_id,
 			array(
-				'type'      => 'link',
+				'type'      => $type,
 				'content'   => $content,
 				'link_url'  => $link_url,
 				'link_meta' => array(
@@ -68,12 +74,14 @@ class IntegrationActivity {
 	 * Remove the activity card for a partner page (e.g. when the content is deleted).
 	 *
 	 * @param string $link_url The partner page the card linked to.
+	 * @param string $type     Post type the card was stored as. Defaults to 'link';
+	 *                         pass the same type used at publish() time.
 	 * @return int Rows removed.
 	 */
-	public static function remove( string $link_url ): int {
+	public static function remove( string $link_url, string $type = 'link' ): int {
 		if ( '' === $link_url ) {
 			return 0;
 		}
-		return ( new PostService() )->delete_by_link( 'link', $link_url );
+		return ( new PostService() )->delete_by_link( '' !== $type ? $type : 'link', $link_url );
 	}
 }

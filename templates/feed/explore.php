@@ -1,15 +1,21 @@
 <?php
 /**
- * BuddyNext explore feed template.
+ * BuddyNext Explore — the community heartbeat.
  *
- * Renders the public explore / discovery feed: a masonry-style three-column
- * grid of recent public posts, a search bar, content-type filter chips, a
- * trending topics sidebar and a spaces sidebar. Accessible to guests and
- * logged-in users alike. Guests see a dismissable join banner.
+ * Explore is not a post feed: it is a single "what's going on" discovery
+ * surface that blends everything new across the community — new members, new
+ * spaces, hot discussions, popular posts and shared media — into one masonry
+ * grid. The filter row narrows the same grid by entity type
+ * (All / Members / Spaces / Posts / Discussions / Media) in place; it never
+ * navigates away to the directories.
+ *
+ * All data comes from BuddyNext\Feed\ExploreService::deck() so this first paint
+ * and every infinitely-scrolled page render from one source of truth. The
+ * compact, click-through cards are rendered by partials/explore-card.php.
  *
  * Overridable: copy to {theme}/buddynext/feed/explore.php
  *
- * REST endpoint: GET buddynext/v1/feed?scope=explore&sort=trending|recent|top
+ * REST endpoint (infinite scroll): GET buddynext/v1/feed/explore/page?filter=&cursor=
  *
  * @package BuddyNext
  * @since   1.0.0
@@ -19,179 +25,39 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-global $wpdb;
+use BuddyNext\Feed\ExploreService;
 
 // ── Current user context ───────────────────────────────────────────────────
 $current_user_id = get_current_user_id();
 $is_guest        = ( 0 === $current_user_id );
 
-// ── Grid posts (public, sorted by trending score) ─────────────────────────
-$bn_explore_per_page = 12;
-$posts_table         = $wpdb->prefix . 'bn_posts';
-$user_meta_table     = $wpdb->usermeta;
-
-// Cursor-based pagination: cursor encodes last-seen created_at|id.
-$explore_raw_cursor = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$explore_cursor_sql = '';
-if ( $explore_raw_cursor ) {
-	$decoded = base64_decode( $explore_raw_cursor, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
-	if ( $decoded && 2 === count( explode( '|', $decoded ) ) ) {
-		list( $cursor_dt, $cursor_id ) = explode( '|', $decoded, 2 );
-		$cursor_id                     = absint( $cursor_id );
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-		$explore_cursor_sql = $wpdb->prepare( ' AND (p.created_at < %s OR (p.created_at = %s AND p.id < %d))', $cursor_dt, $cursor_dt, $cursor_id );
-	}
-}
-
-// Suspended / shadow-banned exclusion — mirrors FeedService::excluded_users_where().
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$explore_suspended = $wpdb->get_col(
-	"SELECT user_id FROM {$user_meta_table} WHERE meta_key = 'bn_suspended' AND meta_value = '1'"
-);
-$explore_shadow    = $wpdb->get_col(
-	"SELECT user_id FROM {$user_meta_table} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'"
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-$explore_excluded = array_unique( array_map( 'intval', array_merge( $explore_suspended ?? array(), $explore_shadow ?? array() ) ) );
-$explore_excl_sql = '';
-if ( ! empty( $explore_excluded ) ) {
-	$excl_placeholders = implode( ',', array_fill( 0, count( $explore_excluded ), '%d' ) );
-	// $excl_placeholders is built via array_fill('%d') — only integers, safe to interpolate.
-	// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-	$explore_excl_sql = $wpdb->prepare( " AND p.user_id NOT IN ({$excl_placeholders})", $explore_excluded );
-	// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-}
-
-// Content-type facet for the post grid. The People and Spaces chips navigate to
-// the member/space directories (handled in the store), so only the post-grid
-// facets resolve here: 'media' = posts that carry attachments, 'posts' = posts
-// without, 'all' = everything. Unknown values fall back to 'all'. The fragments
-// below are static (no user input is interpolated — the validated key only
-// selects which constant clause to use).
+// ── Active filter facet ────────────────────────────────────────────────────
 $explore_filter = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-if ( ! in_array( $explore_filter, array( 'all', 'posts', 'media' ), true ) ) {
+if ( ! in_array( $explore_filter, ExploreService::FILTERS, true ) ) {
 	$explore_filter = 'all';
 }
-$explore_filter_sql = '';
-if ( 'media' === $explore_filter ) {
-	$explore_filter_sql = " AND p.media_ids IS NOT NULL AND p.media_ids <> '' AND p.media_ids <> '[]'";
-} elseif ( 'posts' === $explore_filter ) {
-	$explore_filter_sql = " AND ( p.media_ids IS NULL OR p.media_ids = '' OR p.media_ids = '[]' )";
-}
 
-// Sort control. Each clause is a static fragment selected by a validated key —
-// no user input is interpolated. All three are index-friendly: 'latest' and
-// 'active' read straight off an index (created_at / active_feed), 'top' ranks by
-// the denormalised engagement counters.
-$explore_sort = isset( $_GET['sort'] ) ? sanitize_key( wp_unslash( $_GET['sort'] ) ) : 'top'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-if ( ! in_array( $explore_sort, array( 'top', 'latest', 'active' ), true ) ) {
-	$explore_sort = 'top';
-}
-switch ( $explore_sort ) {
-	case 'latest':
-		$explore_order_sql = 'p.created_at DESC, p.id DESC';
-		break;
-	case 'active':
-		$explore_order_sql = 'p.last_activity_at DESC, p.id DESC';
-		break;
-	default:
-		$explore_order_sql = '( p.reaction_count + p.comment_count * 2 + p.share_count * 3 ) DESC, p.created_at DESC, p.id DESC';
-		break;
-}
+// ── First-page cursor (deep links / no-JS pagination) ──────────────────────
+$explore_cursor = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$grid_posts = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT p.id, p.user_id, p.content, p.type, p.media_ids, p.link_url, p.link_meta,
-		        p.created_at, p.reaction_count, p.comment_count, p.share_count
-		   FROM {$posts_table} p
-		  WHERE p.status = 'published'
-		    AND p.privacy = 'public'
-		    {$explore_excl_sql}
-		    {$explore_filter_sql}
-		    {$explore_cursor_sql}
-		  ORDER BY {$explore_order_sql}
-		  LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$bn_explore_per_page + 1
-	)
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-$explore_has_more = count( $grid_posts ) > $bn_explore_per_page;
-if ( $explore_has_more ) {
-	array_pop( $grid_posts );
-}
-$explore_next_cursor = '';
-if ( $explore_has_more && ! empty( $grid_posts ) ) {
-	$last_explore        = end( $grid_posts );
-	$explore_next_cursor = base64_encode( $last_explore->created_at . '|' . $last_explore->id ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
-}
-
-// ── Trending hashtags ──────────────────────────────────────────────────────
-$hashtags_table = $wpdb->prefix . 'bn_hashtags';
-
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$trending_tags = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT slug, post_count FROM {$hashtags_table} WHERE post_count > 0 ORDER BY post_count DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		6
-	)
-);
-
-// ── Popular spaces ─────────────────────────────────────────────────────────
-$spaces_table = $wpdb->prefix . 'bn_spaces';
-
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$popular_spaces = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT id, name, avatar_url, member_count FROM {$spaces_table} WHERE type = 'open' ORDER BY member_count DESC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		3
-	)
-);
+// ── Build the discovery deck (single source of truth) ──────────────────────
+$bn_explore_per_page = 12;
+$bn_explore_service  = new ExploreService();
+$bn_deck             = $bn_explore_service->deck( $explore_filter, '' !== $explore_cursor ? $explore_cursor : null, $bn_explore_per_page );
+$bn_cards            = (array) ( $bn_deck['items'] ?? array() );
+$bn_next_cursor      = $bn_deck['next_cursor'] ?? null;
+$bn_pulse            = $bn_explore_service->pulse();
 
 // ── REST nonce ─────────────────────────────────────────────────────────────
 $rest_nonce = wp_create_nonce( 'wp_rest' );
 
-// ── Avatar colour palette (deterministic by user ID) ──────────────────────
-$avatar_colours = array( 'av-brand', 'av-green', 'av-purple', 'av-orange', 'av-pink', 'av-jt', 'av-mvs' );
-
-/**
- * Truncate post content to a maximum character count, appending an ellipsis.
- *
- * @param string $content    Raw text content.
- * @param int    $max_length Maximum character count before truncation.
- * @return string Escaped, possibly truncated text.
- */
-if ( ! function_exists( 'bn_excerpt' ) ) {
-	/**
-	 * Truncate post content to a maximum character count, appending an ellipsis.
-	 *
-	 * @param string $content    Raw text content.
-	 * @param int    $max_length Maximum character count before truncation.
-	 * @return string Escaped, possibly truncated text.
-	 */
-	function bn_excerpt( string $content, int $max_length = 140 ): string {
-		$plain = wp_strip_all_tags( $content );
-		if ( mb_strlen( $plain ) > $max_length ) {
-			$plain = mb_substr( $plain, 0, $max_length ) . '...';
-		}
-		return esc_html( $plain );
-	}
-}
-?>
-<?php
-// ── Right sidebar widgets ────────────────────────────────────────────────
-// Match home.php pattern. Register the action so the shell auto-renders
-// the right column via has_action() detection.
+// ── Right sidebar: the explore-specific "heartbeat" aside ──────────────────
 add_action(
 	'buddynext_right_sidebar',
 	static function () use ( $current_user_id ) {
 		buddynext_get_template(
-			'partials/sidebar.php',
-			array(
-				'sidebar_user_id' => $current_user_id,
-			)
+			'feed/parts/explore-aside.php',
+			array( 'current_user_id' => $current_user_id )
 		);
 	}
 );
@@ -203,259 +69,184 @@ add_action(
  */
 do_action( 'buddynext_feed_explore_before', $current_user_id );
 
-// Interactivity context for the explore surface. The People/Spaces chips read
-// peopleUrl/spacesUrl (resolved here so custom hub slugs are honoured) instead
-// of hardcoding /members/ and /spaces/ in the store.
-$bn_explore_context = (string) wp_json_encode(
-	array(
-		'scope'                => 'explore',
-		'sort'                 => 'trending',
-		'filter'               => $explore_filter,
-		'page'                 => 1,
-		'guestBannerDismissed' => false,
-		'peopleUrl'            => \BuddyNext\Core\PageRouter::people_url(),
-		'spacesUrl'            => \BuddyNext\Core\PageRouter::spaces_url(),
-	)
+// Filter facets — labels + the entity each surfaces.
+$bn_explore_filters = array(
+	'all'         => __( 'All', 'buddynext' ),
+	'members'     => __( 'Members', 'buddynext' ),
+	'spaces'      => __( 'Spaces', 'buddynext' ),
+	'posts'       => __( 'Posts', 'buddynext' ),
+	'discussions' => __( 'Discussions', 'buddynext' ),
+	'media'       => __( 'Media', 'buddynext' ),
 );
 ?>
-<div
-	class="bn-feed-stack bn-explore"
-	data-wp-interactive="buddynext/feed"
-	data-wp-context='<?php echo esc_attr( $bn_explore_context ); ?>'
->
+<div class="bn-feed-stack bn-explore" data-wp-interactive="buddynext/feed">
 	<div class="bn-explore-content">
 
-		<!-- Page header -->
-		<div class="bn-explore-page-header">
-			<h1 class="bn-explore-title">
-				<?php buddynext_icon( 'search' ); ?> <?php esc_html_e( 'Explore', 'buddynext' ); ?>
-			</h1>
-			<p class="bn-explore-sub">
+		<!-- Hero: community pulse + search -->
+		<section class="bn-explore-hero">
+			<div class="bn-explore-hero__eyebrow">
 				<?php
-				// Use the admin-configured community description when set; fall
-				// back to the generic tagline otherwise.
+				printf(
+					/* translators: 1: member count, 2: space count, 3: post count. */
+					esc_html__( 'Explore · %1$s members · %2$s spaces · %3$s posts', 'buddynext' ),
+					esc_html( number_format_i18n( (int) $bn_pulse['members'] ) ),
+					esc_html( number_format_i18n( (int) $bn_pulse['spaces'] ) ),
+					esc_html( number_format_i18n( (int) $bn_pulse['posts'] ) )
+				);
+				?>
+			</div>
+			<h1 class="bn-explore-hero__title">
+				<?php
 				$bn_community_desc = trim( (string) get_option( 'buddynext_description', '' ) );
 				if ( '' !== $bn_community_desc ) {
 					echo esc_html( $bn_community_desc );
 				} else {
-					esc_html_e( 'Discover posts, people, and spaces from the community', 'buddynext' );
+					esc_html_e( "What's happening in the community", 'buddynext' );
 				}
 				?>
-			</p>
-		</div>
+			</h1>
+			<div class="bn-explore-hero__search" role="search">
+				<span class="bn-explore-hero__search-icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></span>
+				<label for="bn-explore-search-input" class="screen-reader-text">
+					<?php esc_html_e( 'Search the community', 'buddynext' ); ?>
+				</label>
+				<input
+					id="bn-explore-search-input"
+					class="bn-explore-hero__search-input"
+					type="search"
+					placeholder="<?php esc_attr_e( 'Search posts, people, spaces, hashtags…', 'buddynext' ); ?>"
+					autocomplete="off"
+				>
+			</div>
+		</section>
 
 		<!-- Guest join banner -->
 		<?php if ( $is_guest ) : ?>
-			<div
-				class="bn-guest-banner"
-				role="banner"
-				data-wp-init="callbacks.initGuestBanner"
-				data-wp-bind--hidden="state.guestBannerDismissed"
-			>
-				<button
-					type="button"
-					class="bn-guest-banner__dismiss"
-					aria-label="<?php esc_attr_e( 'Dismiss', 'buddynext' ); ?>"
-					data-wp-on--click="actions.dismissGuestBanner"
-				>
-					<?php buddynext_icon( 'x' ); ?>
-				</button>
+			<div class="bn-guest-banner" role="banner">
 				<h3><?php esc_html_e( 'Join the community', 'buddynext' ); ?></h3>
 				<p>
 					<?php esc_html_e( "You're browsing as a guest. Create an account to post, follow people, and join spaces.", 'buddynext' ); ?>
 				</p>
 				<div class="bn-banner-btns">
-					<a
-						href="<?php echo esc_url( wp_registration_url() ); ?>"
-						class="bn-btn"
-						data-variant="primary"
-					><?php esc_html_e( 'Sign up free', 'buddynext' ); ?></a>
-					<a
-						href="<?php echo esc_url( wp_login_url( get_permalink() ) ); ?>"
-						class="bn-btn"
-						data-variant="ghost"
-					><?php esc_html_e( 'Log in', 'buddynext' ); ?></a>
+					<a href="<?php echo esc_url( wp_registration_url() ); ?>" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Sign up free', 'buddynext' ); ?></a>
+					<a href="<?php echo esc_url( wp_login_url( get_permalink() ) ); ?>" class="bn-btn" data-variant="ghost"><?php esc_html_e( 'Log in', 'buddynext' ); ?></a>
 				</div>
 			</div>
 		<?php endif; ?>
 
-		<!-- Search bar -->
-		<div class="bn-explore-search" role="search">
-			<span class="bn-explore-search-icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></span>
-			<label for="bn-explore-search-input" class="screen-reader-text">
-				<?php esc_html_e( 'Search the community', 'buddynext' ); ?>
-			</label>
-			<input
-				id="bn-explore-search-input"
-				class="bn-input bn-explore-search__input"
-				type="search"
-				placeholder="<?php esc_attr_e( 'Search posts, people, spaces, hashtags...', 'buddynext' ); ?>"
-				autocomplete="off"
-				data-wp-on--input="actions.onSearch"
-			>
-		</div>
-
-		<!-- Filter chips -->
-		<div class="bn-filter-row" role="group" aria-label="<?php esc_attr_e( 'Content type filter', 'buddynext' ); ?>">
+		<!-- Filter row: in-page entity-type filters -->
+		<div class="bn-explore-filters" role="group" aria-label="<?php esc_attr_e( 'Filter what to explore', 'buddynext' ); ?>">
 			<?php
-			$filters = array(
-				'all'    => __( 'All', 'buddynext' ),
-				'people' => __( 'People', 'buddynext' ),
-				'posts'  => __( 'Posts', 'buddynext' ),
-				'spaces' => __( 'Spaces', 'buddynext' ),
-				'media'  => __( 'Media', 'buddynext' ),
-			);
-			foreach ( $filters as $filter_key => $filter_label ) :
-				// People/Spaces chips navigate to their directories, so only the
-				// in-page grid facets (all/posts/media) reflect an active state.
-				$is_active = ( $explore_filter === $filter_key );
+			foreach ( $bn_explore_filters as $bn_fkey => $bn_flabel ) :
+				$bn_active = ( $explore_filter === $bn_fkey );
+				$bn_furl   = 'all' === $bn_fkey
+					? esc_url( remove_query_arg( array( 'filter', 'cursor' ) ) )
+					: esc_url( add_query_arg( 'filter', $bn_fkey, remove_query_arg( 'cursor' ) ) );
 				?>
-				<button
-					class="bn-filter-chip<?php echo $is_active ? ' active' : ''; ?>"
-					type="button"
-					data-filter="<?php echo esc_attr( $filter_key ); ?>"
-					data-wp-on--click="actions.setFilter"
-					aria-pressed="<?php echo $is_active ? 'true' : 'false'; ?>"
-				><?php echo esc_html( $filter_label ); ?></button>
-			<?php endforeach; ?>
-
-			<?php if ( ! empty( $trending_tags ) ) : ?>
-				<?php foreach ( array_slice( $trending_tags, 0, 3 ) as $chip_tag ) : ?>
-					<button
-						class="bn-filter-chip"
-						type="button"
-						data-filter="tag:<?php echo esc_attr( $chip_tag->slug ); ?>"
-						data-wp-on--click="actions.setFilter"
-						aria-pressed="false"
-					>#<?php echo esc_html( $chip_tag->slug ); ?></button>
-				<?php endforeach; ?>
-			<?php endif; ?>
-		</div>
-
-		<!-- Sort control (server-rendered: Top / Latest / Active) -->
-		<div class="bn-explore-sort" role="group" aria-label="<?php esc_attr_e( 'Sort posts', 'buddynext' ); ?>">
-			<span class="bn-explore-sort__label"><?php esc_html_e( 'Sort', 'buddynext' ); ?></span>
-			<?php
-			$bn_explore_sorts = array(
-				'top'    => __( 'Top', 'buddynext' ),
-				'latest' => __( 'Latest', 'buddynext' ),
-				'active' => __( 'Active', 'buddynext' ),
-			);
-			foreach ( $bn_explore_sorts as $bn_sk => $bn_slabel ) :
-				$bn_s_active = ( $explore_sort === $bn_sk );
-				$bn_s_url    = esc_url( add_query_arg( 'sort', $bn_sk, remove_query_arg( 'cursor' ) ) );
-				?>
-				<a class="bn-explore-sort__link<?php echo $bn_s_active ? ' active' : ''; ?>"
-					href="<?php echo $bn_s_url; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_url() applied above. ?>"
-					<?php echo $bn_s_active ? 'aria-current="page"' : ''; ?>><?php echo esc_html( $bn_slabel ); ?></a>
+				<a
+					class="bn-explore-filter<?php echo $bn_active ? ' is-active' : ''; ?>"
+					href="<?php echo $bn_furl; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_url() applied above. ?>"
+					<?php echo $bn_active ? 'aria-current="page"' : ''; ?>
+				><?php echo esc_html( $bn_flabel ); ?></a>
 			<?php endforeach; ?>
 		</div>
 
-		<!-- Post grid -->
+		<!-- Masonry discovery grid -->
+		<div class="bn-explore-grid" role="feed" aria-label="<?php esc_attr_e( 'Explore', 'buddynext' ); ?>">
+			<?php if ( ! empty( $bn_cards ) ) : ?>
+				<?php
+				foreach ( $bn_cards as $bn_card ) :
+					buddynext_get_template(
+						'partials/explore-card.php',
+						array(
+							'card'            => $bn_card,
+							'current_user_id' => $current_user_id,
+						)
+					);
+				endforeach;
 
-			<!-- Main masonry grid -->
-			<div class="bn-explore-grid" role="feed" aria-label="<?php esc_attr_e( 'Explore posts', 'buddynext' ); ?>">
-
-				<?php if ( ! empty( $grid_posts ) ) : ?>
-					<?php foreach ( $grid_posts as $card ) : ?>
-						<?php
-						// Normalise stdClass row to array for the post-card partial.
-						$explore_post = array(
-							'id'                   => (int) $card->id,
-							'user_id'              => (int) $card->user_id,
-							'type'                 => $card->type ?? 'text',
-							'content'              => $card->content ?? '',
-							'privacy'              => 'public',
-							'space_id'             => null,
-							'media_ids'            => isset( $card->media_ids ) ? json_decode( (string) $card->media_ids, true ) : null,
-							'link_url'             => $card->link_url ?? null,
-							'link_meta'            => isset( $card->link_meta ) ? json_decode( (string) $card->link_meta, true ) : null,
-							'poll_options'         => array(),
-							'is_pinned'            => 0,
-							'is_announcement'      => 0,
-							'content_warning'      => false,
-							'content_warning_type' => null,
-							'reaction_count'       => absint( $card->reaction_count ?? 0 ),
-							'comment_count'        => absint( $card->comment_count ?? 0 ),
-							'share_count'          => absint( $card->share_count ?? 0 ),
-							'edited_at'            => null,
-							'created_at'           => $card->created_at ?? '',
-							'updated_at'           => null,
-						);
-						buddynext_get_template(
-							'partials/post-card.php',
-							array(
-								'post'            => $explore_post,
-								'current_user_id' => $current_user_id,
-								'context'         => 'explore',
-							)
-						);
-						?>
-					<?php endforeach; ?>
-				<?php else : ?>
-					<!-- Empty state — shown when no public posts exist yet -->
-					<div class="bn-feed-empty bn-explore-empty" role="status">
-						<div class="bn-feed-empty__icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></div>
-						<div class="bn-feed-empty__title">
-							<?php esc_html_e( 'Nothing trending right now', 'buddynext' ); ?>
-						</div>
-						<p class="bn-feed-empty__text">
-							<?php esc_html_e( 'Be the first to post and start the conversation.', 'buddynext' ); ?>
-						</p>
-						<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::activity_url() ); ?>"
-							class="bn-btn bn-feed-empty__cta"
-							data-variant="primary">
-							<?php esc_html_e( 'Go to your feed', 'buddynext' ); ?>
-							<span aria-hidden="true">&rarr;</span>
-						</a>
-					</div>
-				<?php endif; ?>
-			</div>
-
-			<?php if ( $explore_has_more && $explore_next_cursor ) : ?>
-				<div
-					class="bn-load-more"
-					data-bn-infinite-feed="explore"
-					data-bn-feed-target=".bn-explore-grid"
-					data-next-cursor="<?php echo esc_attr( $explore_next_cursor ); ?>"
-					data-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1/feed/explore/page' ) ); ?>"
-					data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
-					data-per-page="<?php echo esc_attr( (string) $bn_explore_per_page ); ?>"
-				>
-					<div class="bn-load-more__spinner" hidden aria-live="polite">
-						<span class="bn-skeleton bn-load-more__spinner-line"></span>
-						<span class="bn-load-more__spinner-text"><?php esc_html_e( 'Loading more posts…', 'buddynext' ); ?></span>
-					</div>
-					<noscript>
-						<a
-							href="<?php echo esc_url( add_query_arg( 'cursor', $explore_next_cursor ) ); ?>"
-							class="bn-btn bn-load-more__btn"
-							data-variant="secondary"
-						>
-							<?php esc_html_e( 'Load more', 'buddynext' ); ?>
-						</a>
-					</noscript>
-				</div>
+				/**
+				 * Fires after the explore grid cards on the first paint.
+				 *
+				 * Pro can append community-pulse / AI-digest cards here without
+				 * the free build fabricating data.
+				 *
+				 * @since 1.6.0
+				 *
+				 * @param string $explore_filter Active filter facet.
+				 * @param int    $current_user_id Viewing user ID.
+				 */
+				do_action( 'buddynext_explore_grid_cards', $explore_filter, $current_user_id );
+				?>
 			<?php else : ?>
-				<div class="bn-feed-end" role="status">
-					<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
+				<div class="bn-feed-empty bn-explore-empty" role="status">
+					<div class="bn-feed-empty__icon" aria-hidden="true"><?php buddynext_icon( 'search' ); ?></div>
+					<div class="bn-feed-empty__title">
+						<?php
+						switch ( $explore_filter ) {
+							case 'members':
+								esc_html_e( 'No new members to show yet', 'buddynext' );
+								break;
+							case 'spaces':
+								esc_html_e( 'No spaces to show yet', 'buddynext' );
+								break;
+							case 'discussions':
+								esc_html_e( 'No discussions yet', 'buddynext' );
+								break;
+							case 'media':
+								esc_html_e( 'No media shared yet', 'buddynext' );
+								break;
+							default:
+								esc_html_e( 'Nothing here yet', 'buddynext' );
+								break;
+						}
+						?>
+					</div>
+					<p class="bn-feed-empty__text">
+						<?php esc_html_e( 'Be the first to post and start the conversation.', 'buddynext' ); ?>
+					</p>
+					<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::activity_url() ); ?>" class="bn-btn bn-feed-empty__cta" data-variant="primary">
+						<?php esc_html_e( 'Go to your feed', 'buddynext' ); ?>
+						<span aria-hidden="true">&rarr;</span>
+					</a>
 				</div>
 			<?php endif; ?>
+		</div>
+
+		<!-- Infinite scroll / load more -->
+		<?php if ( $bn_next_cursor ) : ?>
+			<div
+				class="bn-load-more"
+				data-bn-infinite-feed="explore"
+				data-bn-feed-target=".bn-explore-grid"
+				data-next-cursor="<?php echo esc_attr( (string) $bn_next_cursor ); ?>"
+				data-filter="<?php echo esc_attr( $explore_filter ); ?>"
+				data-rest-url="<?php echo esc_url( rest_url( 'buddynext/v1/feed/explore/page' ) ); ?>"
+				data-rest-nonce="<?php echo esc_attr( $rest_nonce ); ?>"
+				data-per-page="<?php echo esc_attr( (string) $bn_explore_per_page ); ?>"
+			>
+				<div class="bn-load-more__spinner" hidden aria-live="polite">
+					<span class="bn-skeleton bn-load-more__spinner-line"></span>
+					<span class="bn-load-more__spinner-text"><?php esc_html_e( 'Loading more…', 'buddynext' ); ?></span>
+				</div>
+				<noscript>
+					<a href="<?php echo esc_url( add_query_arg( 'cursor', (string) $bn_next_cursor ) ); ?>" class="bn-btn bn-load-more__btn" data-variant="secondary">
+						<?php esc_html_e( 'Load more', 'buddynext' ); ?>
+					</a>
+				</noscript>
+			</div>
+		<?php elseif ( ! empty( $bn_cards ) ) : ?>
+			<div class="bn-feed-end" role="status">
+				<span class="bn-feed-end__text"><?php esc_html_e( "You've reached the end.", 'buddynext' ); ?></span>
+			</div>
+		<?php endif; ?>
 
 	</div><!-- /.bn-explore-content -->
 
 	<?php
-	// Share modal — explore post cards carry Share buttons (actions.openShare),
-	// but openShare dispatches the bn-open-share-modal event to a modal that must
-	// exist in the page DOM. home/bookmarks/single-post render it; explore omitted
-	// it, so Share did nothing here. One shared modal per page is enough.
-	buddynext_get_template(
-		'partials/share-modal.php',
-		array( 'current_user_id' => $current_user_id )
-	);
-	?>
+	// Share modal is referenced by post cards in other contexts; explore cards
+	// are click-through teasers, so it is intentionally omitted here.
 
-	<?php
 	/**
 	 * Fires after the explore feed inner content.
 	 *
@@ -473,6 +264,7 @@ $bn_explore_context = (string) wp_json_encode(
 			'restNonce' => $rest_nonce,
 			'userId'    => $current_user_id,
 			'isGuest'   => $is_guest,
+			'searchUrl' => esc_url_raw( \BuddyNext\Core\PageRouter::activity_url() ),
 		)
 	);
 	?>

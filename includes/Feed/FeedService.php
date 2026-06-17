@@ -984,11 +984,16 @@ class FeedService {
 	/**
 	 * Return the public explore feed (all public posts, newest first).
 	 *
-	 * @param string|null $cursor   Pagination cursor.
-	 * @param int         $per_page Posts per page.
+	 * @param string|null $cursor      Pagination cursor.
+	 * @param int         $per_page    Posts per page.
+	 * @param string      $post_filter Sub-type facet: 'all' (default), 'media'
+	 *                                 (posts with attachments), 'discussions'
+	 *                                 (forum posts), or 'posts' (text/link, no
+	 *                                 media, no forum). Unknown values fall back
+	 *                                 to 'all'.
 	 * @return array{items: array[], next_cursor: string|null}
 	 */
-	public function explore_feed( ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT ): array {
+	public function explore_feed( ?string $cursor = null, int $per_page = self::DEFAULT_LIMIT, string $post_filter = 'all' ): array {
 		global $wpdb;
 
 		$per_page       = min( $per_page, 50 );
@@ -998,7 +1003,22 @@ class FeedService {
 
 		[ $block_mute_where, $block_mute_params ] = $this->viewer_block_mute_where( $viewer_id );
 
-		// $cursor_where and $excluded_where contain only table/column names — no user data, safe.
+		// Sub-type facet. Each clause is a static fragment selected by a
+		// validated key — no user input is interpolated.
+		$filter_where = '';
+		switch ( $post_filter ) {
+			case 'media':
+				$filter_where = " AND media_ids IS NOT NULL AND media_ids <> '' AND media_ids <> '[]'";
+				break;
+			case 'discussions':
+				$filter_where = " AND type IN ('discussion','forum_post','forum')";
+				break;
+			case 'posts':
+				$filter_where = " AND type NOT IN ('discussion','forum_post','forum') AND ( media_ids IS NULL OR media_ids = '' OR media_ids = '[]' )";
+				break;
+		}
+
+		// $cursor_where, $excluded_where and $filter_where contain only table/column names — no user data, safe.
 		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
@@ -1006,6 +1026,7 @@ class FeedService {
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   {$excluded_where}
 			   {$block_mute_where}
+			   {$filter_where}
 			   {$cursor_where}
 			 ORDER BY created_at DESC, id DESC
 			 LIMIT %d",

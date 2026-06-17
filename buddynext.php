@@ -680,3 +680,82 @@ function buddynext_date_local( string $gmt_datetime, string $format = '' ): stri
 
 	return esc_html( get_date_from_gmt( $gmt_datetime, $format ) );
 }
+
+/**
+ * Classify a post row into an explore discovery-card "kind".
+ *
+ * The Explore grid renders varied, compact card treatments instead of the
+ * uniform interactive post card. This pure function maps a (hydrated or raw)
+ * post row to one of the visual treatments so the SSR template and the REST
+ * pagination endpoint stay byte-for-byte consistent — both classify through
+ * here, never by ad-hoc inline checks.
+ *
+ * Returned kinds (all real-data driven — no fabricated card types):
+ *   - 'post-media' : carries at least one media attachment → image card.
+ *   - 'post-forum' : a Jetonomy forum_post → tinted, taller thread card.
+ *   - 'post-quote' : short, text-only, high-engagement → pull-quote card.
+ *   - 'post-text'  : everything else → plain text card.
+ *
+ * Thresholds are filterable so site owners can tune what counts as a "quote"
+ * card without touching the template.
+ *
+ * @since 1.6.0
+ *
+ * @param array<string,mixed> $post A post row with at least type / content /
+ *                                  media_ids and the denormalised engagement
+ *                                  counters (reaction_count, comment_count).
+ * @return string One of: post-media, post-forum, post-quote, post-text.
+ */
+function buddynext_explore_card_kind( array $post ): string {
+	$type      = (string) ( $post['type'] ?? 'text' );
+	$media_ids = $post['media_ids'] ?? null;
+
+	// Media wins first: anything with an attachment reads best as an image card.
+	$has_media = false;
+	if ( is_array( $media_ids ) ) {
+		$has_media = ! empty( $media_ids );
+	} elseif ( is_string( $media_ids ) ) {
+		$trimmed   = trim( $media_ids );
+		$has_media = '' !== $trimmed && '[]' !== $trimmed;
+	}
+	if ( $has_media || 'image' === $type || 'video' === $type ) {
+		return 'post-media';
+	}
+
+	// Discussion / forum posts (e.g. the Jetonomy bridge publishes synced
+	// threads as type 'discussion') get the tinted thread treatment.
+	if ( 'discussion' === $type || 'forum_post' === $type || 'forum' === $type ) {
+		return 'post-forum';
+	}
+
+	/**
+	 * Filter the engagement + length thresholds that promote a plain text post
+	 * to the pull-quote treatment.
+	 *
+	 * @since 1.6.0
+	 *
+	 * @param array{max_chars:int,min_engagement:int} $thresholds Quote-card gate.
+	 */
+	$thresholds = (array) apply_filters(
+		'buddynext_explore_quote_thresholds',
+		array(
+			'max_chars'      => 180,
+			'min_engagement' => 3,
+		)
+	);
+
+	$plain      = trim( wp_strip_all_tags( (string) ( $post['content'] ?? '' ) ) );
+	$engagement = (int) ( $post['reaction_count'] ?? 0 )
+		+ ( (int) ( $post['comment_count'] ?? 0 ) * 2 )
+		+ ( (int) ( $post['share_count'] ?? 0 ) * 3 );
+
+	if (
+		'' !== $plain
+		&& mb_strlen( $plain ) <= (int) $thresholds['max_chars']
+		&& $engagement >= (int) $thresholds['min_engagement']
+	) {
+		return 'post-quote';
+	}
+
+	return 'post-text';
+}

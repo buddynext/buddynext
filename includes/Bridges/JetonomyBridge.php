@@ -152,7 +152,7 @@ class JetonomyBridge {
 			&& (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
 			$url = $this->discussion_url( $post_id, $space_id );
 			if ( '' !== $url ) {
-				IntegrationActivity::publish( $author_id, __( 'started a discussion', 'buddynext' ), $url, $title );
+				IntegrationActivity::publish( $author_id, __( 'started a discussion', 'buddynext' ), $url, $title, 'discussion' );
 			}
 		}
 
@@ -201,7 +201,7 @@ class JetonomyBridge {
 		// Remove the feed activity for this discussion.
 		$url = $this->discussion_url( $post_id, $space_id );
 		if ( '' !== $url ) {
-			IntegrationActivity::remove( $url );
+			IntegrationActivity::remove( $url, 'discussion' );
 		}
 	}
 

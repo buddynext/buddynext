@@ -441,18 +441,52 @@ class FeedController extends BaseRestController {
 		$user_id  = get_current_user_id();
 		$cursor   = $request->get_param( 'cursor' ) ? (string) $request->get_param( 'cursor' ) : null;
 		$per_page = $request->get_param( 'per_page' ) ? (int) $request->get_param( 'per_page' ) : 12;
+		$filter   = $request->get_param( 'filter' ) ? sanitize_key( (string) $request->get_param( 'filter' ) ) : 'all';
+		if ( ! in_array( $filter, ExploreService::FILTERS, true ) ) {
+			$filter = 'all';
+		}
 
-		$result = $this->feed_service()->explore_feed( $cursor, $per_page );
-		$html   = $this->render_items_html( (array) ( $result['items'] ?? array() ), $user_id, 'explore' );
+		$result = ( new ExploreService( $this->feed_service() ) )->deck( $filter, $cursor, $per_page );
+		$cards  = (array) ( $result['items'] ?? array() );
+		$html   = $this->render_explore_cards_html( $cards, $user_id );
 
 		return new WP_REST_Response(
 			array(
 				'html'        => $html,
 				'next_cursor' => $result['next_cursor'] ?? null,
-				'count'       => count( (array) ( $result['items'] ?? array() ) ),
+				'count'       => count( $cards ),
 			),
 			200
 		);
+	}
+
+	/**
+	 * Render a list of Explore discovery cards to a single HTML string.
+	 *
+	 * Mirrors the SSR loop in templates/feed/explore.php so appended pages match
+	 * the first paint byte-for-byte: each normalized card payload is delegated to
+	 * partials/explore-card.php inside an output buffer.
+	 *
+	 * @param array<int,array<string,mixed>> $cards  Normalized card payloads from ExploreService.
+	 * @param int                            $viewer Viewing user ID (0 for guests).
+	 * @return string HTML markup ready to inject into the explore grid container.
+	 */
+	private function render_explore_cards_html( array $cards, int $viewer ): string {
+		if ( empty( $cards ) || ! function_exists( 'buddynext_get_template' ) ) {
+			return '';
+		}
+
+		ob_start();
+		foreach ( $cards as $card ) {
+			buddynext_get_template(
+				'partials/explore-card.php',
+				array(
+					'card'            => $card,
+					'current_user_id' => $viewer,
+				)
+			);
+		}
+		return (string) ob_get_clean();
 	}
 
 	/**
