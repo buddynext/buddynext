@@ -69,11 +69,21 @@ class CompanionController extends BaseRestController {
 			return $result;
 		}
 
+		// Hand the front-end somewhere to send the admin after install so the
+		// companion's own setup flow runs, instead of stranding them on the
+		// integrations list. Falls back to the Plugins screen when the companion
+		// declares no setup_url.
+		$entry     = (array) ( CompanionRegistry::get( $slug ) ?? array() );
+		$setup_url = isset( $entry['setup_url'] ) && '' !== (string) $entry['setup_url']
+			? admin_url( (string) $entry['setup_url'] )
+			: admin_url( 'plugins.php' );
+
 		return new WP_REST_Response(
 			array(
-				'installed' => true,
-				'slug'      => $slug,
-				'status'    => CompanionRegistry::status( $slug ),
+				'installed'    => true,
+				'slug'         => $slug,
+				'status'       => CompanionRegistry::status( $slug ),
+				'redirect_url' => esc_url_raw( $setup_url ),
 			),
 			200
 		);

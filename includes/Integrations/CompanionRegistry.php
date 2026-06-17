@@ -89,7 +89,11 @@ final class CompanionRegistry {
 				'wp-career-board' => array(
 					'label'     => 'Career Board',
 					'why'       => __( 'Job listings and applicant management.', 'buddynext' ),
-					'detect'    => static fn(): bool => class_exists( '\\WP_Career_Board\\Plugin' ),
+					// Probe WCB_VERSION (defined when Career Board loads) + its real
+					// class \WCB\Core\Plugin. The old \WP_Career_Board\Plugin class
+					// never existed, so detect() always returned false and the card
+					// showed "Activate" even when the plugin was active.
+					'detect'    => static fn(): bool => defined( 'WCB_VERSION' ) || class_exists( '\\WCB\\Core\\Plugin' ),
 					'free'      => array(
 						'item_id'  => 1659888,
 						'key'      => 'wbcomfree5b8c1e7a9d3f2a4c6e0d1b7f9c2a6e00',
@@ -97,6 +101,9 @@ final class CompanionRegistry {
 					),
 					'store_url' => 'https://wbcomdesigns.com/downloads/wp-career-board/',
 					'unlocks'   => __( 'Job posts as activity cards in the feed.', 'buddynext' ),
+					// Where to send the admin after a one-click install so they can
+					// finish setup, instead of leaving them on the integrations screen.
+					'setup_url' => 'admin.php?page=wpcb-settings',
 				),
 				'learnomy'        => array(
 					'label'     => 'Learnomy',
