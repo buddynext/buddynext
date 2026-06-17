@@ -89,6 +89,34 @@ class SafeguardService {
 	}
 
 	/**
+	 * Run only the content-based safeguards: banned words + blocked domains.
+	 *
+	 * Used when re-scanning EDITED content. The rate-limit, duplicate-content and
+	 * new-member gates in check() are create-time concerns that must not fire on
+	 * an edit, but banned words and blocked links must still be caught — otherwise
+	 * editing is a blind spot. The buddynext_safeguard_check filter still runs so
+	 * Pro keyword/ML blocklists apply to edits too.
+	 *
+	 * @param string $content Content to inspect.
+	 * @param string $url     Optional attached URL.
+	 * @param int    $user_id Author user ID (passed to the filter).
+	 * @return true|WP_Error
+	 */
+	public function check_content( string $content, string $url = '', int $user_id = 0 ): true|WP_Error {
+		$banned = $this->check_banned_words( $content );
+		if ( is_wp_error( $banned ) ) {
+			return $banned;
+		}
+
+		$domain = $this->check_blocked_domain( $url );
+		if ( is_wp_error( $domain ) ) {
+			return $domain;
+		}
+
+		return apply_filters( 'buddynext_safeguard_check', true, $user_id, $content, $url );
+	}
+
+	/**
 	 * Check whether $content contains a banned word or phrase.
 	 *
 	 * Reads option buddynext_banned_words (newline-separated). Matching is

@@ -386,6 +386,22 @@ class PostService {
 			}
 		}
 
+		// Re-scan edited content through the content safeguards (banned words +
+		// blocked links + Pro keyword hooks). create() runs the full safeguard
+		// suite; update() previously ran none, so an edit could slip banned words
+		// or a blocked link past moderation. Only the content checks apply here —
+		// rate-limit / duplicate / new-member gates are create-time concerns.
+		if ( isset( $data['content'] ) || isset( $data['link_url'] ) ) {
+			$edit_scan = $this->get_safeguard()->check_content(
+				(string) ( $data['content'] ?? '' ),
+				(string) ( $data['link_url'] ?? '' ),
+				$user_id
+			);
+			if ( is_wp_error( $edit_scan ) ) {
+				return $edit_scan;
+			}
+		}
+
 		/**
 		 * Filter post data before it is written on update.
 		 *
