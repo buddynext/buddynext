@@ -265,8 +265,14 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 <?php if ( $bn_pf_spaces ) : ?>
 <div class="bn-widget">
 	<div class="bn-widget-title"><?php esc_html_e( 'Member of', 'buddynext' ); ?></div>
-	<?php foreach ( $bn_pf_spaces as $space ) : ?>
-		<div class="bn-space-row">
+	<?php
+	foreach ( $bn_pf_spaces as $space ) :
+		$bn_space_slug = isset( $space->slug ) ? (string) $space->slug : '';
+		$bn_space_url  = '' !== $bn_space_slug
+			? \BuddyNext\Core\PageRouter::spaces_url() . rawurlencode( $bn_space_slug ) . '/'
+			: \BuddyNext\Core\PageRouter::space_url( (int) ( $space->id ?? 0 ) );
+		?>
+		<a class="bn-space-row" href="<?php echo esc_url( $bn_space_url ); ?>">
 			<div class="bn-space-icon">
 				<?php buddynext_icon( 'home' ); ?>
 			</div>
@@ -274,7 +280,7 @@ if ( $bn_pf_is_own && null !== $bn_pf_comp ) :
 				<div class="bn-space-name"><?php echo esc_html( $space->name ); ?></div>
 				<div class="bn-space-role"><?php echo esc_html( ucfirst( (string) $space->role ) ); ?></div>
 			</div>
-		</div>
+		</a>
 	<?php endforeach; ?>
 </div>
 <?php endif; ?>

@@ -1601,6 +1601,14 @@ button.bn-pf-pill:hover,
 .bn-space-row + .bn-space-row {
 	border-block-start: 1px solid var(--bn-line);
 }
+a.bn-space-row {
+	color: inherit;
+	text-decoration: none;
+	border-radius: var(--bn-r-sm);
+}
+a.bn-space-row:hover .bn-space-name {
+	color: var(--bn-accent);
+}
 .bn-space-icon {
 	width: 32px;
 	height: 32px;

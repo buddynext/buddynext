@@ -224,7 +224,7 @@ if ( $show_discussions ) {
 
 // --- Spaces, interests, completion, presence ------------------------------
 // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$member_spaces = $wpdb->get_results( $wpdb->prepare( "SELECT s.id, s.name, sm.role FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id WHERE sm.user_id = %d AND sm.status = 'active' ORDER BY sm.joined_at DESC LIMIT 5", $user_id ) );
+$member_spaces = $wpdb->get_results( $wpdb->prepare( "SELECT s.id, s.name, s.slug, sm.role FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id WHERE sm.user_id = %d AND sm.status = 'active' ORDER BY sm.joined_at DESC LIMIT 5", $user_id ) );
 
 $interests    = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'interests' ) ) ) );
 $completion   = $is_own_profile ? $profile_svc->get_completion_score( $user_id ) : null;
