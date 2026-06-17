@@ -691,6 +691,29 @@ class ModerationService {
 	}
 
 	/**
+	 * Fetch a single report row by id, or null when it does not exist.
+	 *
+	 * @param int $report_id Report id.
+	 * @return array<string,mixed>|null
+	 */
+	public function get_report( int $report_id ): ?array {
+		if ( $report_id <= 0 ) {
+			return null;
+		}
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT id, reporter_id, object_type, object_id, reason, status, space_id, created_at FROM {$wpdb->prefix}bn_reports WHERE id = %d LIMIT 1",
+				$report_id
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return is_array( $row ) ? $row : null;
+	}
+
+	/**
 	 * Return a paginated list of pending reports.
 	 *
 	 * Supported args:
