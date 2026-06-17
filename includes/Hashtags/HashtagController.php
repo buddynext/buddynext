@@ -41,7 +41,7 @@ class HashtagController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_trending' ),
-				'permission_callback' => '__return_true',
+				'permission_callback' => array( $this, 'require_hashtags_enabled' ),
 				'args'                => array(
 					'limit' => array(
 						'required'          => false,
@@ -61,7 +61,7 @@ class HashtagController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'autocomplete' ),
-				'permission_callback' => '__return_true',
+				'permission_callback' => array( $this, 'require_hashtags_enabled' ),
 				'args'                => array(
 					'q'     => array(
 						'required'          => true,
@@ -87,7 +87,7 @@ class HashtagController {
 				array(
 					'methods'             => WP_REST_Server::CREATABLE,
 					'callback'            => array( $this, 'follow' ),
-					'permission_callback' => 'is_user_logged_in',
+					'permission_callback' => array( $this, 'require_hashtags_enabled_auth' ),
 					'args'                => array(
 						'slug' => array(
 							'required'          => true,
@@ -99,7 +99,7 @@ class HashtagController {
 				array(
 					'methods'             => WP_REST_Server::DELETABLE,
 					'callback'            => array( $this, 'unfollow' ),
-					'permission_callback' => 'is_user_logged_in',
+					'permission_callback' => array( $this, 'require_hashtags_enabled_auth' ),
 					'args'                => array(
 						'slug' => array(
 							'required'          => true,
@@ -117,7 +117,7 @@ class HashtagController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_feed' ),
-				'permission_callback' => '__return_true',
+				'permission_callback' => array( $this, 'require_hashtags_enabled' ),
 				'args'                => array(
 					'slug'     => array(
 						'required'          => true,
@@ -147,7 +147,7 @@ class HashtagController {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_by_slug' ),
-				'permission_callback' => '__return_true',
+				'permission_callback' => array( $this, 'require_hashtags_enabled' ),
 				'args'                => array(
 					'slug' => array(
 						'required'          => true,
@@ -157,6 +157,41 @@ class HashtagController {
 				),
 			)
 		);
+	}
+
+	/**
+	 * Permission gate: the Hashtags feature must be enabled.
+	 *
+	 * Mirrors ReactionController's gate so toggling Settings > Features >
+	 * Hashtags off actually disables the REST API (it previously had no effect).
+	 *
+	 * @return true|\WP_Error
+	 */
+	public function require_hashtags_enabled() {
+		$features = function_exists( 'buddynext_service' ) ? buddynext_service( 'features' ) : null;
+
+		if ( is_object( $features ) && method_exists( $features, 'is_enabled' ) && ! $features->is_enabled( 'hashtags' ) ) {
+			return new \WP_Error(
+				'hashtags_disabled',
+				__( 'Hashtags are turned off on this community.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Permission gate for write routes: logged in AND the Hashtags feature on.
+	 *
+	 * @return true|\WP_Error
+	 */
+	public function require_hashtags_enabled_auth() {
+		if ( ! is_user_logged_in() ) {
+			return new \WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'buddynext' ), array( 'status' => 401 ) );
+		}
+
+		return $this->require_hashtags_enabled();
 	}
 
 	/**
