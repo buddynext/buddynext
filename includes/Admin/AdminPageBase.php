@@ -281,6 +281,47 @@ abstract class AdminPageBase {
 	}
 
 	/**
+	 * Render a labelled masked input field for secrets (API keys, tokens).
+	 *
+	 * Identical to render_text_row() but emits type="password" so the value is
+	 * masked on screen and never rendered in clear text — the right control for
+	 * any credential (e.g. a Stripe secret key). autocomplete is disabled so the
+	 * browser's password manager does not offer to store or autofill it.
+	 *
+	 * @param string $option_name WP option name.
+	 * @param string $label       Field label.
+	 * @param string $value       Current value.
+	 * @param string $hint        Optional hint text beneath the input.
+	 * @param int    $max_width   Input max-width in px. Default 400.
+	 * @return void
+	 */
+	protected function render_password_row(
+		string $option_name,
+		string $label,
+		string $value,
+		string $hint = '',
+		int $max_width = 400
+	): void {
+		$input_id = 'bn-field-' . sanitize_key( $option_name );
+		?>
+		<div class="bn-field">
+			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
+			<input type="password"
+					id="<?php echo esc_attr( $input_id ); ?>"
+					name="<?php echo esc_attr( $option_name ); ?>"
+					value="<?php echo esc_attr( $value ); ?>"
+					class="bn-text-input regular-text"
+					autocomplete="off"
+					spellcheck="false"
+					style="max-width:<?php echo absint( $max_width ); ?>px">
+			<?php if ( '' !== $hint ) : ?>
+				<span class="bn-field-hint"><?php echo esc_html( $hint ); ?></span>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render a colour field — a native swatch picker paired with a hex text
 	 * input, kept in sync by assets/js/admin/settings.js. The text input is
 	 * canonical (it carries the option name and is what posts/saves); the
