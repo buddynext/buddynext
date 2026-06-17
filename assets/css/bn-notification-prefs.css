@@ -56,13 +56,15 @@
 
 .bn-prefs-channel {
 	display: grid;
-	grid-template-columns: auto 1fr;
+	/* Selectable-card layout: icon top-left, checkbox top-right, label + sub
+	   spanning the row below — a clearer hierarchy than the old single inline row. */
+	grid-template-columns: 1fr auto;
 	grid-template-areas:
-		"check  icon  body";
-	grid-template-columns: auto auto 1fr;
-	align-items: center;
+		"icon  check"
+		"body  body";
+	align-items: start;
 	gap: var(--bn-s3);
-	padding: var(--bn-s3);
+	padding: var(--bn-s4);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-radius-md);
 	background: var(--bn-surface);
@@ -70,7 +72,14 @@
 	transition: border-color 120ms ease, background-color 120ms ease;
 }
 
-.bn-prefs-channel:hover { border-color: var(--bn-accent-200); }
+/* Hover + selected share one treatment: accent border with a faint accent wash,
+   applied smoothly. The whole <label> is the click target (native), so the box
+   toggles from anywhere. :has() lifts the selected card without extra markup. */
+.bn-prefs-channel:hover { border-color: var(--bn-accent-200); background: var(--bn-sunken); }
+.bn-prefs-channel:has( input:checked ) {
+	border-color: var(--bn-accent);
+	background: var(--bn-accent-50, var(--bn-surface));
+}
 
 .bn-prefs-channel input[type="checkbox"] {
 	grid-area: check;
@@ -82,9 +91,11 @@
 
 .bn-prefs-channel__icon {
 	grid-area: icon;
-	color: var(--bn-ink-3);
-	inline-size: 20px;
-	block-size: 20px;
+	color: var(--bn-accent);
+	inline-size: 36px;
+	block-size: 36px;
+	border-radius: var(--bn-radius-md);
+	background: var(--bn-accent-50, var(--bn-sunken));
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -242,19 +253,32 @@
 	-webkit-appearance: none;
 	appearance: none;
 	background: transparent;
-	border: none;
+	/* A transparent 1px border (not `none`) reserves the box so the segment
+	   never shifts, and — paired with the scoped overrides below — neutralises
+	   the host theme's button:hover border that otherwise flashed a stray blue
+	   outline on hover/active. */
+	border: 1px solid transparent;
 	color: var(--bn-ink-2);
 	padding: var(--bn-s1) var(--bn-s3);
 	border-radius: var(--bn-radius-sm);
 	font-size: var(--bn-text-xs);
 	font-weight: var(--bn-fw-medium);
 	cursor: pointer;
-	transition: background-color 120ms ease, color 120ms ease;
+	transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
 .bn-prefs-chip:hover {
 	background: var(--bn-surface);
 	color: var(--bn-ink);
+}
+
+/* Scoped (0,2,x) so they outrank the theme's `button:hover`/`:focus` border —
+   the segment keeps its own flat/raised look in every state, no theme outline. */
+.bn-prefs-freq .bn-prefs-chip:hover,
+.bn-prefs-freq .bn-prefs-chip:focus,
+.bn-prefs-freq .bn-prefs-chip:active,
+.bn-prefs-freq .bn-prefs-chip[aria-pressed="true"] {
+	border-color: transparent;
 }
 
 .bn-prefs-chip:focus-visible {
