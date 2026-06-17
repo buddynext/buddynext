@@ -1597,6 +1597,16 @@ class ModerationController extends BaseRestController {
 			return $result;
 		}
 
+		// A false return means no active ban was lifted (no such ban, or invalid
+		// ids) — don't report a successful unban that never happened.
+		if ( false === $result ) {
+			return new WP_Error(
+				'ban_not_found',
+				__( 'No active ban was found to lift for this member.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		return new WP_REST_Response(
 			array(
 				'banned'   => false,

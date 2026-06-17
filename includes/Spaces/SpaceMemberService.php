@@ -1276,6 +1276,12 @@ class SpaceMemberService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		// No row removed (no active ban, or a DB error): report failure rather than
+		// busting cache and firing the unbanned hook for a no-op.
+		if ( empty( $deleted ) ) {
+			return false;
+		}
+
 		$this->invalidate_cache( $space_id, $user_id );
 
 		/**
@@ -1286,7 +1292,7 @@ class SpaceMemberService {
 		 */
 		do_action( 'buddynext_space_user_unbanned', $space_id, $user_id );
 
-		return (bool) $deleted;
+		return true;
 	}
 
 	/**

@@ -585,7 +585,25 @@ class ModerationService {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update(
+		// A missing or already-reversed strike must not report success. Confirm an
+		// active row exists first, otherwise the caller got 200 {"reversed":true}
+		// while nothing changed.
+		$active = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_user_strikes WHERE id = %d AND is_reversed = 0",
+				$strike_id
+			)
+		);
+		if ( 0 === $active ) {
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			return new WP_Error(
+				'strike_not_found',
+				__( 'That strike does not exist or has already been reversed.', 'buddynext' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_user_strikes',
 			array(
 				'is_reversed' => 1,
@@ -597,6 +615,14 @@ class ModerationService {
 			array( '%d' )
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		if ( false === $updated ) {
+			return new WP_Error(
+				'strike_reverse_failed',
+				__( 'Could not reverse the strike. Please try again.', 'buddynext' ),
+				array( 'status' => 500 )
+			);
+		}
 
 		return true;
 	}
@@ -1007,6 +1033,12 @@ class ModerationService {
 	 * usermeta). The column name is caller-supplied code (never user input) and
 	 * is hard-sanitised to word characters to keep the fragment injection-safe.
 	 *
+	 * Suspensions are gated on hide_posts = 1: a suspension hides the user's
+	 * content only when the moderator opted into it. A hide_posts = 0 suspension
+	 * is an action restriction (the user can't post/comment) that leaves their
+	 * existing content and discoverability intact. Shadow-ban always hides
+	 * content — that is its whole purpose.
+	 *
 	 * @param string $column ID column to filter (e.g. 'user_id', 'following_id').
 	 * @return string Raw SQL fragment — safe to embed.
 	 */
@@ -1020,7 +1052,7 @@ class ModerationService {
 
 		return "AND {$column} NOT IN (
 			    SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-			    WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+			    WHERE lifted_at IS NULL AND hide_posts = 1 AND (expires_at IS NULL OR expires_at > NOW())
 			  )
 			  AND {$column} NOT IN (
 			    SELECT user_id FROM {$wpdb->usermeta}
@@ -1639,11 +1671,18 @@ class ModerationService {
 
 		global $wpdb;
 
+		// Soft-lift (set lifted_at) rather than DELETE — the suspension row is the
+		// moderation audit trail (who/why/when), and hard-deleting it destroyed
+		// that history. Mirrors unsuspend_user(); lifted_by = 0 marks a system or
+		// capability-gated lift where no specific actor was threaded in.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$deleted = $wpdb->query(
+		$lifted = $wpdb->query(
 			$wpdb->prepare(
-				"DELETE FROM {$wpdb->prefix}bn_user_suspensions
-				 WHERE user_id = %d AND (expires_at IS NULL OR expires_at > NOW())",
+				"UPDATE {$wpdb->prefix}bn_user_suspensions
+				 SET lifted_at = %s, lifted_by = %d
+				 WHERE user_id = %d AND lifted_at IS NULL",
+				current_time( 'mysql' ),
+				0,
 				$user_id
 			)
 		);
@@ -1656,7 +1695,7 @@ class ModerationService {
 		 */
 		do_action( 'buddynext_user_unsuspended', $user_id );
 
-		return (bool) $deleted;
+		return ! empty( $lifted );
 	}
 
 	/**
