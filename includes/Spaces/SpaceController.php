@@ -589,16 +589,11 @@ class SpaceController extends BaseRestController {
 			return $auth;
 		}
 
-		$role = (string) get_option( 'buddynext_space_creation_role', 'member' );
-		if ( 'admin' === $role && ! current_user_can( 'manage_options' ) ) {
-			return new WP_Error(
-				'rest_forbidden',
-				__( 'Only administrators can create spaces on this community.', 'buddynext' ),
-				array( 'status' => 403 )
-			);
-		}
-
-		return true;
+		// Single source of truth: the role map (Roles & Capabilities tab). The
+		// legacy buddynext_space_creation_role option is folded into the map in
+		// PermissionService::get_role_map(), so an existing "admins only" setting
+		// is preserved while the Roles tab toggle now actually governs creation.
+		return $this->require_cap( 'buddynext-spaces/create' );
 	}
 
 	/**
@@ -903,7 +898,14 @@ class SpaceController extends BaseRestController {
 	public function join_space( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$space_id = (int) $request->get_param( 'id' );
 		$user_id  = get_current_user_id();
-		$space    = ( new SpaceService() )->get( $space_id );
+
+		// Role-map enforcement (space-banned users are hard-denied inside can()).
+		$gate = $this->require_cap( 'buddynext-spaces/join', array( 'space_id' => $space_id ) );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
+		$space = ( new SpaceService() )->get( $space_id );
 
 		if ( null === $space ) {
 			return new WP_Error(

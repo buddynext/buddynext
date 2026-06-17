@@ -730,6 +730,10 @@ class ModerationController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function submit_report( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$gate = $this->require_cap( 'buddynext-moderation/report' );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
 		$result = ( new ModerationService() )->report(
 			get_current_user_id(),
 			(string) ( $request->get_param( 'object_type' ) ?? '' ),

@@ -206,6 +206,10 @@ class FollowController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function follow( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$gate = $this->require_cap( 'buddynext-connections/follow' );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
 		$target_id  = (int) $request->get_param( 'id' );
 		$current_id = get_current_user_id();
 

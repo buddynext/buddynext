@@ -82,7 +82,17 @@ class PermissionService {
 	 */
 	public static function get_role_map(): array {
 		if ( null === self::$role_map_cache ) {
-			self::$role_map_cache = (array) apply_filters( 'buddynext_role_map', self::ROLE_MAP );
+			$map = self::ROLE_MAP;
+
+			// Fold the legacy Spaces-tab "who can create spaces" option into the
+			// role map so it composes with the Roles & Capabilities tab instead of
+			// fighting it. An existing "admins only" choice is preserved; the
+			// default ('member') leaves the map default untouched.
+			if ( 'admin' === (string) get_option( 'buddynext_space_creation_role', 'member' ) ) {
+				$map['buddynext-spaces/create'] = 'admin';
+			}
+
+			self::$role_map_cache = (array) apply_filters( 'buddynext_role_map', $map );
 		}
 
 		return self::$role_map_cache;

@@ -110,13 +110,32 @@ class PostController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function create_post( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$user_id = get_current_user_id();
+		$user_id  = get_current_user_id();
+		$space_id = $request->get_param( 'space_id' ) ? (int) $request->get_param( 'space_id' ) : null;
+
+		// Role-map enforcement. Posting inside a space is governed by the
+		// space-post capability (with space context); a feed post by the
+		// create-post capability. Scheduling additionally requires schedule-post.
+		if ( $space_id ) {
+			$gate = $this->require_cap( 'buddynext-spaces/post', array( 'space_id' => $space_id ) );
+		} else {
+			$gate = $this->require_cap( 'buddynext-feed/create-post' );
+		}
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+		if ( $request->get_param( 'scheduled_at' ) ) {
+			$sched_gate = $this->require_cap( 'buddynext-feed/schedule-post' );
+			if ( is_wp_error( $sched_gate ) ) {
+				return $sched_gate;
+			}
+		}
 
 		$data = array(
 			'type'                 => sanitize_key( $request->get_param( 'type' ) ?? 'text' ),
 			'content'              => wp_kses_post( (string) ( $request->get_param( 'content' ) ?? '' ) ),
 			'privacy'              => null !== $request->get_param( 'privacy' ) ? sanitize_key( (string) $request->get_param( 'privacy' ) ) : null,
-			'space_id'             => $request->get_param( 'space_id' ) ? (int) $request->get_param( 'space_id' ) : null,
+			'space_id'             => $space_id,
 			'media_ids'            => $request->get_param( 'media_ids' ),
 			'link_url'             => $this->parse_link_url( $request ),
 			'link_meta'            => $request->get_param( 'link_meta' ),
@@ -327,7 +346,19 @@ class PostController extends BaseRestController {
 	public function delete_post( WP_REST_Request $request ): WP_REST_Response|WP_Error {
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
-		$result  = ( new PostService() )->delete( $post_id, $user_id );
+		$service = new PostService();
+
+		// Deleting someone else's post requires the delete-any-post capability;
+		// deleting your own is always allowed (delete-own-post, member default).
+		$author_id = (int) $service->get_author_id( $post_id );
+		if ( $author_id > 0 && $author_id !== $user_id ) {
+			$gate = $this->require_cap( 'buddynext-feed/delete-any-post' );
+			if ( is_wp_error( $gate ) ) {
+				return $gate;
+			}
+		}
+
+		$result = $service->delete( $post_id, $user_id );
 
 		if ( is_wp_error( $result ) ) {
 			$result->add_data( array( 'status' => 403 ) );
@@ -344,6 +375,10 @@ class PostController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function pin_post( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$gate = $this->require_cap( 'buddynext-feed/pin-post' );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 		$result  = ( new PostService() )->pin( $post_id, $user_id );
@@ -363,6 +398,10 @@ class PostController extends BaseRestController {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function unpin_post( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$gate = $this->require_cap( 'buddynext-feed/pin-post' );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
 		$post_id = (int) $request->get_param( 'id' );
 		$user_id = get_current_user_id();
 		$result  = ( new PostService() )->unpin( $post_id, $user_id );

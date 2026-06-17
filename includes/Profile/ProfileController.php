@@ -64,7 +64,7 @@ class ProfileController extends BaseRestController {
 			array(
 				'methods'             => 'PUT',
 				'callback'            => array( $this, 'admin_update_profile' ),
-				'permission_callback' => array( $this, 'require_admin' ),
+				'permission_callback' => array( $this, 'require_edit_any_profile' ),
 				'args'                => array(
 					'id' => array(
 						'required'          => true,
@@ -694,6 +694,24 @@ class ProfileController extends BaseRestController {
 		$profile['completion'] = $service->get_completion_score( $user_id );
 
 		return new WP_REST_Response( $profile, 200 );
+	}
+
+	/**
+	 * Permission callback: editing anyone's profile (admin route).
+	 *
+	 * Resolves through the role map so a non-admin community role granted the
+	 * edit-any capability on the Roles & Capabilities tab can use it; site
+	 * admins always pass. Defaults to admins only.
+	 *
+	 * @return true|WP_Error
+	 */
+	public function require_edit_any_profile(): true|WP_Error {
+		$auth = $this->require_auth();
+		if ( is_wp_error( $auth ) ) {
+			return $auth;
+		}
+
+		return $this->require_cap( 'buddynext-profile/edit-any' );
 	}
 
 	/**
