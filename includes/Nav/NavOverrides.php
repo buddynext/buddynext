@@ -248,6 +248,39 @@ final class NavOverrides {
 			$tabs[] = $tab;
 		}
 
+		// Append admin-created custom tabs (mirrors apply_rail). NavManager stores
+		// these in the same overrides option flagged custom => true; the profile tab
+		// bar renders a tab carrying `href` as a plain link, so the custom tab now
+		// reaches the front end instead of only showing in the admin list.
+		$existing_slugs = array();
+		foreach ( $tabs as $existing_tab ) {
+			$existing_slugs[ sanitize_key( (string) ( $existing_tab['slug'] ?? '' ) ) ] = true;
+		}
+		$fallback_order = ( count( $tabs ) + 1 ) * 10;
+		foreach ( $overrides as $slug => $ov ) {
+			$ov   = (array) $ov;
+			$slug = sanitize_key( (string) $slug );
+			if ( '' === $slug || empty( $ov['custom'] ) || ! empty( $ov['hidden'] ) || isset( $existing_slugs[ $slug ] ) ) {
+				continue;
+			}
+			$url = esc_url_raw( (string) ( $ov['url'] ?? '' ) );
+			if ( '' === $url ) {
+				continue;
+			}
+			$cap = sanitize_key( (string) ( $ov['capability'] ?? 'read' ) );
+			if ( '' !== $cap && ! current_user_can( $cap ) ) {
+				continue;
+			}
+			$tabs[]          = array(
+				'slug'  => $slug,
+				'label' => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
+				'href'  => $url,
+				'icon'  => 'link',
+				'order' => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : $fallback_order,
+			);
+			$fallback_order += 10;
+		}
+
 		usort(
 			$tabs,
 			static fn( array $a, array $b ): int => ( (int) ( $a['order'] ?? 10 ) ) <=> ( (int) ( $b['order'] ?? 10 ) )
@@ -296,6 +329,32 @@ final class NavOverrides {
 				}
 			}
 			$ordered[ $slug ] = $cfg;
+		}
+
+		// Append admin-created custom tabs (mirrors apply_rail). The space tab bar
+		// renders a map entry carrying `url` as a plain link, so the custom tab now
+		// reaches the front end instead of only showing in the admin list.
+		$fallback_order = ( count( $ordered ) + 1 ) * 10;
+		foreach ( $overrides as $slug => $ov ) {
+			$ov  = (array) $ov;
+			$key = sanitize_key( (string) $slug );
+			if ( '' === $key || empty( $ov['custom'] ) || ! empty( $ov['hidden'] ) || isset( $ordered[ $key ] ) ) {
+				continue;
+			}
+			$url = esc_url_raw( (string) ( $ov['url'] ?? '' ) );
+			if ( '' === $url ) {
+				continue;
+			}
+			$cap = sanitize_key( (string) ( $ov['capability'] ?? 'read' ) );
+			if ( '' !== $cap && ! current_user_can( $cap ) ) {
+				continue;
+			}
+			$ordered[ $key ] = array(
+				'label'     => sanitize_text_field( (string) ( $ov['label'] ?? $key ) ),
+				'url'       => $url,
+				'_bn_order' => isset( $ov['order'] ) ? max( 1, (int) $ov['order'] ) : $fallback_order,
+			);
+			$fallback_order += 10;
 		}
 
 		uasort(
