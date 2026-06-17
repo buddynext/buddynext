@@ -427,7 +427,19 @@ class MessagesData {
 				? self::group_label( $conv, $viewer )
 				: ( $other ? (string) self::val( $other, 'display_name', '' ) : __( 'Conversation', 'buddynext' ) ),
 			'is_online'       => ( ! $is_group && $other ) ? ( ! empty( self::val( $other, 'is_online', false ) ) || self::is_online( $viewer, (int) self::val( $other, 'id', 0 ) ) ) : false,
-			'avatar_html'     => '',
+			// Real avatar markup for the other user, mirroring the rail list
+			// (dm-rail-item.php) so the header, bubbles, and typing indicator show
+			// the SAME image the conversation list does instead of initials. Groups
+			// keep '' (the header renders the group icon).
+			'avatar_html'     => ( ! $is_group && $other )
+				? get_avatar(
+					(int) self::val( $other, 'id', 0 ),
+					40,
+					'',
+					(string) self::val( $other, 'display_name', '' ),
+					array( 'force_display' => true )
+				)
+				: '',
 			'is_request'      => $is_request,
 			'messages'        => $messages,
 		);

@@ -182,11 +182,12 @@ $bn_ctx = wp_json_encode(
 				buddynext_get_template(
 					'parts/dm-thread-messages.php',
 					array(
-						'messages'        => $thread['messages'],
-						'current_user_id' => $viewer,
-						'thread_tone'     => $bn_tone,
-						'thread_initials' => $bn_initials,
-						'aria_label'      => __( 'Conversation messages', 'buddynext' ),
+						'messages'           => $thread['messages'],
+						'current_user_id'    => $viewer,
+						'thread_tone'        => $bn_tone,
+						'thread_initials'    => $bn_initials,
+						'thread_avatar_html' => $thread['avatar_html'],
+						'aria_label'         => __( 'Conversation messages', 'buddynext' ),
 					)
 				);
 

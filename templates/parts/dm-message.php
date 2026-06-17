@@ -12,9 +12,12 @@
  *
  * @var array  $message         Required. MVS message row.
  * @var int    $current_user_id Required. Viewing user ID.
- * @var int    $thread_tone     Optional. Avatar tone slot 1..8 for the other user. Default 1.
- * @var string $thread_initials Optional. Two-character initials for the other user. Default ''.
- * @var array  $classes         Optional. Extra CSS classes on the message wrapper.
+ * @var int    $thread_tone        Optional. Avatar tone slot 1..8 for the other user. Default 1.
+ * @var string $thread_initials    Optional. Two-character initials for the other user. Default ''.
+ * @var string $thread_avatar_html Optional. The other user's get_avatar() markup; rendered in the
+ *                                 bubble avatar when it carries a real image (matching the thread
+ *                                 header), else falls back to initials. Default ''.
+ * @var array  $classes            Optional. Extra CSS classes on the message wrapper.
  *
  * Fires:
  *   - do_action( 'buddynext_part_dm_message_before', $args )
@@ -30,11 +33,12 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $args = array(
-	'message'         => isset( $message ) ? (array) $message : array(),
-	'current_user_id' => isset( $current_user_id ) ? (int) $current_user_id : 0,
-	'thread_tone'     => isset( $thread_tone ) ? (int) $thread_tone : 1,
-	'thread_initials' => isset( $thread_initials ) ? (string) $thread_initials : '',
-	'classes'         => isset( $classes ) ? (array) $classes : array(),
+	'message'            => isset( $message ) ? (array) $message : array(),
+	'current_user_id'    => isset( $current_user_id ) ? (int) $current_user_id : 0,
+	'thread_tone'        => isset( $thread_tone ) ? (int) $thread_tone : 1,
+	'thread_initials'    => isset( $thread_initials ) ? (string) $thread_initials : '',
+	'thread_avatar_html' => isset( $thread_avatar_html ) ? (string) $thread_avatar_html : '',
+	'classes'            => isset( $classes ) ? (array) $classes : array(),
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -48,6 +52,7 @@ $msg         = (array) $args['message'];
 $viewer      = (int) $args['current_user_id'];
 $th_tone     = (int) $args['thread_tone'];
 $th_initials = (string) $args['thread_initials'];
+$th_avatar   = (string) $args['thread_avatar_html'];
 
 $msg_id      = absint( $msg['id'] ?? 0 );
 $msg_body    = wp_kses(
@@ -95,7 +100,28 @@ do_action( 'buddynext_part_dm_message_before', $args );
 <div class="<?php echo esc_attr( $bn_class ); ?>" data-msg-id="<?php echo esc_attr( (string) $msg_id ); ?>">
 	<?php if ( ! $is_mine ) : ?>
 		<span class="bn-avatar bn-dm-avatar bn-dm-tone-<?php echo (int) $th_tone; ?>" data-size="sm" aria-hidden="true">
-			<span class="bn-avatar__initials"><?php echo esc_html( $th_initials ); ?></span>
+			<?php if ( false !== strpos( $th_avatar, 'src=' ) ) : ?>
+				<?php
+				// Same real-image branch the thread header uses, so the recipient
+				// shows one consistent avatar across header, list, and every bubble.
+				echo wp_kses(
+					$th_avatar,
+					array(
+						'img' => array(
+							'src'      => true,
+							'class'    => true,
+							'alt'      => true,
+							'width'    => true,
+							'height'   => true,
+							'loading'  => true,
+							'decoding' => true,
+						),
+					)
+				);
+				?>
+			<?php else : ?>
+				<span class="bn-avatar__initials"><?php echo esc_html( $th_initials ); ?></span>
+			<?php endif; ?>
 		</span>
 	<?php endif; ?>
 
