@@ -1772,6 +1772,38 @@ button.bn-btn-danger:hover {
 	filter: grayscale(0.35);
 }
 
+/* AI connector status — shown on AI admin screens. Green when a provider is
+   connected via the core Settings > Connectors page, amber otherwise. */
+.bn-ai-status {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+	margin-bottom: var(--bn-s4);
+	padding: var(--bn-s2) var(--bn-s3);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+	font-size: var(--bn-text-sm);
+	color: var(--bn-ink-2);
+}
+.bn-ai-status__dot {
+	width: 10px;
+	height: 10px;
+	border-radius: var(--bn-r-full);
+	flex: none;
+	background: var(--bn-warn);
+}
+.bn-ai-status.is-connected .bn-ai-status__dot {
+	background: var(--bn-success);
+}
+.bn-ai-status.is-connected {
+	background: var(--bn-success-bg);
+	border-color: var(--bn-success);
+}
+.bn-ai-status__text a {
+	margin-inline-start: var(--bn-s1);
+}
+
 /* ── Roles & Capabilities matrix ────────────────────────────────────────── */
 .bn-roles-group {
 	margin: 20px 0 6px;
