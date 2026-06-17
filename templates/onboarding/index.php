@@ -63,7 +63,7 @@ if ( isset( $_GET['redo'] ) && isset( $_GET['_step'] ) ) { // phpcs:ignore WordP
 
 // Recommended spaces (step 2) — pull from bn_spaces.
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-$recommended_spaces = $wpdb->get_results( "SELECT id, name, member_count, description FROM {$wpdb->prefix}bn_spaces ORDER BY member_count DESC LIMIT 6" );
+$recommended_spaces = $wpdb->get_results( "SELECT id, name, member_count, description, avatar_url FROM {$wpdb->prefix}bn_spaces ORDER BY member_count DESC LIMIT 6" );
 // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 
 // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -359,7 +359,12 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 								<span class="bn-avatar bn-ob-space-avatar"
 									data-size="md"
 									aria-hidden="true">
-									<?php buddynext_icon( 'home' ); ?>
+									<?php if ( ! empty( $space->avatar_url ) ) : ?>
+										<img src="<?php echo esc_url( (string) $space->avatar_url ); ?>"
+											alt="<?php echo esc_attr( (string) $space->name ); ?>" loading="lazy" />
+									<?php else : ?>
+										<?php buddynext_icon( 'home' ); ?>
+									<?php endif; ?>
 								</span>
 								<div class="bn-ob-space-card__meta">
 									<h3 class="bn-ob-space-card__name"><?php echo esc_html( $space->name ); ?></h3>
