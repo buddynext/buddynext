@@ -164,9 +164,12 @@ class OutboundWebhookService {
 	public function list_all(): array {
 		global $wpdb;
 
+		// Never expose the per-endpoint HMAC secret in a list response — it would
+		// let an admin-scoped reader forge signed deliveries. Return a boolean
+		// has_secret flag instead of the raw value (the secret is write-only).
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
-			"SELECT id, label, url, secret, events, is_active, created_at, updated_at
+			"SELECT id, label, url, ( secret <> '' ) AS has_secret, events, is_active, created_at, updated_at
 			   FROM {$wpdb->prefix}bn_outbound_webhooks
 			  ORDER BY id ASC",
 			ARRAY_A
@@ -178,8 +181,9 @@ class OutboundWebhookService {
 		}
 
 		foreach ( $rows as &$row ) {
-			$decoded       = json_decode( (string) ( $row['events'] ?? 'null' ), true );
-			$row['events'] = is_array( $decoded ) ? $decoded : array();
+			$decoded           = json_decode( (string) ( $row['events'] ?? 'null' ), true );
+			$row['events']     = is_array( $decoded ) ? $decoded : array();
+			$row['has_secret'] = ! empty( $row['has_secret'] );
 		}
 		unset( $row );
 
@@ -417,6 +421,12 @@ class OutboundWebhookService {
 
 		$signature = 'sha256=' . hash_hmac( 'sha256', $body, $secret );
 
+		// Stable delivery id so consumers can dedup retries: a cron retry re-sends
+		// the identical stored envelope, so hashing (webhook id + body) yields the
+		// same X-BuddyNext-Delivery on every attempt of the same logical delivery,
+		// while distinct events (different event/timestamp in the body) differ.
+		$delivery_id = hash( 'sha256', $webhook_id . '|' . $body );
+
 		$response = wp_remote_post(
 			$url,
 			array(
@@ -426,6 +436,7 @@ class OutboundWebhookService {
 					'Content-Type'          => 'application/json',
 					'X-BuddyNext-Signature' => $signature,
 					'X-BuddyNext-Event'     => $event_slug,
+					'X-BuddyNext-Delivery'  => $delivery_id,
 				),
 				'body'     => $body,
 			)
