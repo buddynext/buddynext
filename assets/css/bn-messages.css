@@ -458,6 +458,10 @@
 	gap: var(--bn-s2);
 	align-items: flex-end;
 	max-width: 75%;
+	/* Positioned so the hovered row can lift above the next one — the absolute
+	   timestamp overflows below the bubble and was being painted over by the
+	   following consecutive message. */
+	position: relative;
 }
 
 .bn-dm-msg.is-mine {
@@ -543,6 +547,29 @@
 .bn-dm-msg:hover .bn-dm-msg__meta,
 .bn-dm-msg:focus-within .bn-dm-msg__meta {
 	opacity: 1;
+}
+
+/* Lift the hovered/focused row above the following message so its timestamp,
+   which overflows into the inter-message gap, is never occluded by the next
+   consecutive bubble. */
+.bn-dm-msg:hover,
+.bn-dm-msg:focus-within {
+	z-index: 2;
+}
+
+/* Touch devices never fire :hover, so the absolute hover-only timestamp would
+   be permanently invisible. Show it inline (in flow) on coarse pointers so
+   every message's time is readable without a hover target. */
+@media (hover: none) {
+	.bn-dm-msg__meta {
+		position: static;
+		opacity: 1;
+		pointer-events: auto;
+		margin-top: 2px;
+	}
+	.bn-dm-msg.is-mine .bn-dm-msg__meta {
+		justify-content: flex-end;
+	}
 }
 
 .bn-dm-msg__time {
