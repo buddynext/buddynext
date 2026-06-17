@@ -413,6 +413,11 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 			cancelBtn.className = 'bn-comment__reply-cancel';
 			cancelBtn.textContent = 'Cancel';
 			editForm.appendChild( ta );
+			// Footer action row so the emoji trigger + Save + Cancel sit on one
+			// line instead of each stretching full-width down the column (the
+			// edit-form is flex-direction:column, so bare children stretch).
+			const editActions = document.createElement( 'div' );
+			editActions.className = 'bn-comment__edit-actions';
 			// Emoji insert — shown only when the site-owner emoji picker is
 			// enabled (signalled by the composer's option-gated trigger being
 			// present on the page). The shared initEmojiPicker() handler wires
@@ -441,10 +446,11 @@ function buildCommentNode( comment, currentUserId, postId, restUrl, nonce, depth
 				} else {
 					emojiBtn.textContent = 'Emoji';
 				}
-				editForm.appendChild( emojiBtn );
+				editActions.appendChild( emojiBtn );
 			}
-			editForm.appendChild( saveBtn );
-			editForm.appendChild( cancelBtn );
+			editActions.appendChild( saveBtn );
+			editActions.appendChild( cancelBtn );
+			editForm.appendChild( editActions );
 			para.hidden = true;
 			body.insertBefore( editForm, actions );
 			ta.focus();

@@ -87,6 +87,20 @@ do_action( 'buddynext_part_post_comment_form_before', $args );
 		data-comment-input="<?php echo absint( $bn_cf_post_id ); ?>"
 		rows="1"
 	></textarea>
+	<?php if ( (bool) get_option( 'buddynext_enable_emoji_picker', true ) ) : ?>
+		<?php // Same option-gated picker the composer offers; the setting promises the comment editor too. The shared initEmojiPicker() binds any .bn-emoji-trigger and inserts into the target resolved within this .bn-comment-form. ?>
+		<button
+			type="button"
+			class="bn-emoji-trigger bn-comment__emoji-trigger bn-comment-form__emoji"
+			data-bn-emoji-target=".bn-comment-form__input"
+			aria-label="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>"
+			aria-haspopup="true"
+			aria-expanded="false"
+			title="<?php esc_attr_e( 'Insert emoji', 'buddynext' ); ?>"
+		>
+			<?php buddynext_icon( 'smile' ); ?>
+		</button>
+	<?php endif; ?>
 	<button
 		type="button"
 		class="bn-btn bn-comment-form__submit"
