@@ -1054,6 +1054,11 @@ store( 'buddynext/profile', {
 			var sel    = event.target;
 			var userId = sel.getAttribute( 'data-user-id' );
 			if ( ! userId ) { return; }
+			// This select auto-saves on change, so it must NOT mark the manual-save
+			// form dirty — otherwise the unsaved-changes guard fires right after a
+			// successful save. Stop the change bubbling to the form's markDirty
+			// listener; genuine edits to other fields still set the dirty flag.
+			if ( event && typeof event.stopPropagation === 'function' ) { event.stopPropagation(); }
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/users/' + userId + '/member-type' ), {
 					method:  'PUT',
