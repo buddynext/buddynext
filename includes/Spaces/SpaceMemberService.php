@@ -909,6 +909,19 @@ class SpaceMemberService {
 
 		$this->invalidate_cache( $space_id, $target_id );
 
+		/**
+		 * Fires after a space member's role changes.
+		 *
+		 * The only SpaceMemberService mutation that previously fired no hook, so
+		 * webhooks / notifications could not react to a promotion or demotion.
+		 *
+		 * @param int    $space_id  Space ID.
+		 * @param int    $target_id Member whose role changed.
+		 * @param string $new_role  The new role slug.
+		 * @param int    $actor_id  User who performed the change.
+		 */
+		do_action( 'buddynext_space_role_changed', $space_id, $target_id, $new_role, $actor_id );
+
 		return true;
 	}
 

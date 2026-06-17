@@ -143,7 +143,7 @@ class ReactionService {
 			 * @param int    $object_id   Object ID.
 			 * @param int    $user_id     User who removed their reaction.
 			 */
-			do_action( 'buddynext_reaction_removed', $object_type, $object_id, $user_id );
+			do_action( 'buddynext_reaction_removed', $object_type, $object_id, $user_id, $emoji );
 		}
 
 		$this->invalidate_cache( $object_type, $object_id, $user_id );

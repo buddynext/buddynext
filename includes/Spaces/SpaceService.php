@@ -487,6 +487,19 @@ class SpaceService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		wp_cache_delete( "space_{$space_id}", self::CACHE_GROUP );
+
+		/**
+		 * Fires after a space's ownership is transferred.
+		 *
+		 * The whole transfer chain was previously silent (change_role fired no
+		 * hook either), so no webhook / notification could observe this major
+		 * domain event.
+		 *
+		 * @param int $space_id     Space whose ownership moved.
+		 * @param int $new_owner_id The new owner.
+		 * @param int $actor_id     User who performed the transfer.
+		 */
+		do_action( 'buddynext_space_ownership_transferred', $space_id, $new_owner_id, $actor_id );
 	}
 
 	/**
