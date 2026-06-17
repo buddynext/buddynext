@@ -891,6 +891,12 @@
 	border: 1px solid var(--bn-a-border);
 }
 
+/* Inline single-control forms in the field table (Required toggle, Visible-to
+   select, delete). Zero margin so they sit flush inside the table cell. */
+.bn-pf-inline-form {
+	margin: 0;
+}
+
 .bn-pf-req-wrap {
 	display: flex;
 	align-items: center;

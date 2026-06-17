@@ -87,6 +87,7 @@ class ProfileService {
 				f.options,
 				f.is_required,
 				f.is_searchable,
+				f.show_on_register,
 				f.visibility   AS field_visibility,
 				f.sort_order   AS field_sort_order
 			FROM {$wpdb->prefix}bn_profile_groups g
@@ -116,16 +117,17 @@ class ProfileService {
 
 			if ( null !== $row['field_id'] ) {
 				$groups[ $gid ]['fields'][] = array(
-					'id'            => (int) $row['field_id'],
-					'group_id'      => $gid,
-					'field_key'     => $row['field_key'],
-					'label'         => $row['field_label'],
-					'type'          => $row['field_type'],
-					'options'       => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
-					'is_required'   => (bool) $row['is_required'],
-					'is_searchable' => (bool) $row['is_searchable'],
-					'visibility'    => $row['field_visibility'] ?? 'public',
-					'sort_order'    => (int) $row['field_sort_order'],
+					'id'               => (int) $row['field_id'],
+					'group_id'         => $gid,
+					'field_key'        => $row['field_key'],
+					'label'            => $row['field_label'],
+					'type'             => $row['field_type'],
+					'options'          => isset( $row['options'] ) ? json_decode( $row['options'], true ) : null,
+					'is_required'      => (bool) $row['is_required'],
+					'is_searchable'    => (bool) $row['is_searchable'],
+					'show_on_register' => (bool) ( $row['show_on_register'] ?? false ),
+					'visibility'       => $row['field_visibility'] ?? 'public',
+					'sort_order'       => (int) $row['field_sort_order'],
 				);
 			}
 		}
@@ -134,7 +136,116 @@ class ProfileService {
 
 		wp_cache_set( 'all_fields', $result, self::CACHE_GROUP, self::CACHE_TTL );
 
-		return $result;
+		return $this->filter_fields( $result );
+	}
+
+	/**
+	 * Apply the runtime field-registration filter to the DB-derived group tree.
+	 *
+	 * Lets addons inject virtual groups/fields in code (no DB write) via
+	 * `buddynext_profile_fields`. Runs on every call — the DB rows are what get
+	 * cached, filters layer on top so a plugin loading/unloading is reflected
+	 * immediately. Every injected field is normalized so a malformed filter
+	 * cannot break the editor or the signup form.
+	 *
+	 * @param array<int, array<string, mixed>> $groups DB-derived group tree.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function filter_fields( array $groups ): array {
+		/**
+		 * Filter the full profile group + field tree.
+		 *
+		 * Each group is an array with a `fields` array. Addons may add groups or
+		 * push fields onto an existing group's `fields`. See
+		 * normalize_field_row() for the per-field shape that is enforced.
+		 *
+		 * @param array<int, array<string, mixed>> $groups Group tree (each with a `fields` list).
+		 */
+		$groups = (array) apply_filters( 'buddynext_profile_fields', $groups );
+
+		// Normalize every field row so downstream code (editor, signup, save) can
+		// trust the shape regardless of what a third-party filter supplied.
+		foreach ( $groups as $gi => $group ) {
+			if ( ! is_array( $group ) ) {
+				unset( $groups[ $gi ] );
+				continue;
+			}
+			$fields = isset( $group['fields'] ) && is_array( $group['fields'] ) ? $group['fields'] : array();
+			$clean  = array();
+			foreach ( $fields as $field ) {
+				$norm = $this->normalize_field_row( is_array( $field ) ? $field : array(), (int) ( $group['id'] ?? 0 ) );
+				if ( null !== $norm ) {
+					$clean[] = $norm;
+				}
+			}
+			$groups[ $gi ]['fields'] = $clean;
+		}
+
+		return array_values( $groups );
+	}
+
+	/**
+	 * Coerce a field row to the canonical shape. Returns null when the row lacks
+	 * the minimum identity (a field_key + label), so a broken filter entry is
+	 * dropped rather than rendered.
+	 *
+	 * @param array<string, mixed> $field    Raw field row (DB- or filter-sourced).
+	 * @param int                  $group_id Owning group id.
+	 * @return array<string, mixed>|null
+	 */
+	private function normalize_field_row( array $field, int $group_id ): ?array {
+		$field_key = sanitize_key( (string) ( $field['field_key'] ?? '' ) );
+		$label     = sanitize_text_field( (string) ( $field['label'] ?? '' ) );
+		if ( '' === $field_key || '' === $label ) {
+			return null;
+		}
+
+		$visibility = (string) ( $field['visibility'] ?? 'public' );
+		if ( ! in_array( $visibility, array( 'public', 'followers', 'connections', 'private' ), true ) ) {
+			$visibility = 'public';
+		}
+
+		return array(
+			'id'               => (int) ( $field['id'] ?? 0 ),
+			'group_id'         => (int) ( $field['group_id'] ?? $group_id ),
+			'field_key'        => $field_key,
+			'label'            => $label,
+			'type'             => sanitize_key( (string) ( $field['type'] ?? 'text' ) ),
+			'options'          => $field['options'] ?? null,
+			'is_required'      => ! empty( $field['is_required'] ),
+			'is_searchable'    => ! empty( $field['is_searchable'] ),
+			'show_on_register' => ! empty( $field['show_on_register'] ),
+			'visibility'       => $visibility,
+			'sort_order'       => (int) ( $field['sort_order'] ?? 0 ),
+			'is_virtual'       => empty( $field['id'] ),
+		);
+	}
+
+	/**
+	 * Return the flat fields an owner has opted into the registration form,
+	 * each decorated with its group_key, ordered by group then field sort order.
+	 *
+	 * Repeater-group fields are excluded — a signup form is single-entry by
+	 * nature, so multi-entry groups never surface there.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function get_registration_fields(): array {
+		$reg = array();
+		foreach ( $this->get_fields() as $group ) {
+			if ( 'repeater' === ( $group['type'] ?? '' ) ) {
+				continue;
+			}
+			foreach ( $group['fields'] as $field ) {
+				if ( empty( $field['show_on_register'] ) ) {
+					continue;
+				}
+				$field['group_key'] = $group['group_key'] ?? '';
+				$reg[]              = $field;
+			}
+		}
+
+		return $reg;
 	}
 
 	/**
@@ -179,7 +290,15 @@ class ProfileService {
 
 		wp_cache_set( 'all_groups', $groups, self::CACHE_GROUP, self::CACHE_TTL );
 
-		return $groups;
+		/**
+		 * Filter the profile group list (no fields). Lets addons register a
+		 * virtual group in code. Runs on every call so it layers on top of the
+		 * cached DB rows. The richer group+field tree is filterable via
+		 * `buddynext_profile_fields` in get_fields().
+		 *
+		 * @param array<int, array<string, mixed>> $groups Group rows.
+		 */
+		return (array) apply_filters( 'buddynext_profile_groups', $groups );
 	}
 
 	/**

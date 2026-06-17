@@ -36,7 +36,7 @@ class Installer {
 	 *     for parity with bn_member_types (unified taxonomy editor). Applied to
 	 *     existing installs via the idempotent column ALTER in maybe_alter_tables().
 	 */
-	private const SCHEMA_VERSION = 4;
+	private const SCHEMA_VERSION = 5;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -132,27 +132,34 @@ class Installer {
 	private static function maybe_alter_tables( string $p ): void {
 		global $wpdb;
 
-		$table = $p . 'bn_space_categories';
-
-		// Schema-parity columns for the unified taxonomy editor (v4). Categories
-		// gain colour/icon/directory-visibility to match bn_member_types.
-		$columns = array(
-			'color'       => "ADD COLUMN color VARCHAR(7) NOT NULL DEFAULT '#0073aa'",
-			'text_color'  => "ADD COLUMN text_color VARCHAR(7) NOT NULL DEFAULT '#ffffff'",
-			'icon_svg'    => 'ADD COLUMN icon_svg MEDIUMTEXT NULL',
-			'show_in_dir' => 'ADD COLUMN show_in_dir TINYINT(1) NOT NULL DEFAULT 1',
+		// Per-table additive column back-fills. Each clause is a hardcoded
+		// constant; table names are built from $wpdb->prefix — no untrusted input.
+		$table_columns = array(
+			// Schema-parity columns for the unified taxonomy editor (v4).
+			// Categories gain colour/icon/directory-visibility to match bn_member_types.
+			'bn_space_categories' => array(
+				'color'       => "ADD COLUMN color VARCHAR(7) NOT NULL DEFAULT '#0073aa'",
+				'text_color'  => "ADD COLUMN text_color VARCHAR(7) NOT NULL DEFAULT '#ffffff'",
+				'icon_svg'    => 'ADD COLUMN icon_svg MEDIUMTEXT NULL',
+				'show_in_dir' => 'ADD COLUMN show_in_dir TINYINT(1) NOT NULL DEFAULT 1',
+			),
+			// v5: a flat field can be surfaced on the registration form.
+			'bn_profile_fields'   => array(
+				'show_on_register' => 'ADD COLUMN show_on_register TINYINT(1) NOT NULL DEFAULT 0',
+			),
 		);
 
 		$wpdb->suppress_errors( true );
-		foreach ( $columns as $column => $clause ) {
-			if ( self::column_exists( $table, $column ) ) {
-				continue;
-			}
+		foreach ( $table_columns as $table_slug => $columns ) {
+			$table = $p . $table_slug;
+			foreach ( $columns as $column => $clause ) {
+				if ( self::column_exists( $table, $column ) ) {
+					continue;
+				}
 
-			// Column name + clause are hardcoded constants above; $table is built
-			// from $wpdb->prefix. Nothing here is untrusted input.
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$wpdb->query( "ALTER TABLE `{$table}` {$clause}" );
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$wpdb->query( "ALTER TABLE `{$table}` {$clause}" );
+			}
 		}
 		$wpdb->suppress_errors( false );
 	}
@@ -948,6 +955,7 @@ class Installer {
 				options       JSON DEFAULT NULL,
 				is_required   TINYINT(1) NOT NULL DEFAULT 0,
 				is_searchable TINYINT(1) NOT NULL DEFAULT 0,
+				show_on_register TINYINT(1) NOT NULL DEFAULT 0,
 				visibility    ENUM('public','followers','connections','private') NOT NULL DEFAULT 'public',
 				sort_order    INT NOT NULL DEFAULT 0,
 				PRIMARY KEY   (id),

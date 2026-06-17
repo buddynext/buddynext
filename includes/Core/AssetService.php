@@ -380,6 +380,7 @@ class AssetService {
 			'@buddynext/auth-login'         => 'auth/login-store',
 			'@buddynext/auth-signup'        => 'auth/signup-store',
 			'@buddynext/auth-verify'        => 'auth/verify-store',
+			'@buddynext/auth-reset'         => 'auth/reset-store',
 			'@buddynext/onboarding'         => 'onboarding/store',
 			'@buddynext/gamification'       => 'gamification/store',
 			'@buddynext/moderation'         => 'moderation/store',

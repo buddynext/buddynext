@@ -202,6 +202,62 @@ if ( 'invite' === $bn_reg_mode ) {
 							data-wp-text="state.passwordError"></span>
 					</div>
 
+					<?php
+					// Custom profile fields the owner opted into the registration form
+					// (Profile Fields -> "Ask on registration") plus any registered
+					// programmatically via buddynext_register_profile_field(). Rendered
+					// through the field-type engine; collected + validated server-side
+					// in AuthController::register(). The signup store forwards every
+					// [name^="bn_field_"] input in the form to the REST body.
+					$bn_reg_fields = array();
+					if ( function_exists( 'buddynext_service' ) ) {
+						try {
+							$bn_pf_service = buddynext_service( 'profiles' );
+							if ( is_object( $bn_pf_service ) && method_exists( $bn_pf_service, 'get_registration_fields' ) ) {
+								$bn_reg_fields = $bn_pf_service->get_registration_fields();
+							}
+						} catch ( \Throwable $bn_e ) {
+							$bn_reg_fields = array();
+						}
+					}
+					foreach ( $bn_reg_fields as $bn_reg_field ) :
+						$bn_rf_key   = (string) $bn_reg_field['field_key'];
+						$bn_rf_id    = 'bn-signup-field-' . sanitize_html_class( $bn_rf_key );
+						$bn_rf_name  = 'bn_field_' . $bn_rf_key;
+						$bn_rf_req   = ! empty( $bn_reg_field['is_required'] );
+						$bn_rf_input = \BuddyNext\Profile\FieldType::render_input( $bn_reg_field, '', $bn_rf_name );
+						// Tag the rendered control so the store can find + forward it,
+						// and carry id/required for label association + native validation.
+						$bn_rf_input = str_replace(
+							'<input ',
+							'<input id="' . esc_attr( $bn_rf_id ) . '" data-bn-reg-field ' . ( $bn_rf_req ? 'required ' : '' ),
+							$bn_rf_input
+						);
+						$bn_rf_input = str_replace(
+							array( '<select ', '<textarea ' ),
+							array(
+								'<select id="' . esc_attr( $bn_rf_id ) . '" data-bn-reg-field ' . ( $bn_rf_req ? 'required ' : '' ),
+								'<textarea id="' . esc_attr( $bn_rf_id ) . '" data-bn-reg-field ' . ( $bn_rf_req ? 'required ' : '' ),
+							),
+							$bn_rf_input
+						);
+						?>
+						<div class="bn-auth-field">
+							<label class="bn-auth-label" for="<?php echo esc_attr( $bn_rf_id ); ?>">
+								<?php echo esc_html( (string) $bn_reg_field['label'] ); ?>
+								<?php if ( $bn_rf_req ) : ?>
+									<span class="bn-auth-required" aria-hidden="true">*</span>
+								<?php endif; ?>
+							</label>
+							<?php
+							// FieldType::render_input returns escaped, type-safe markup.
+							// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
+							echo $bn_rf_input;
+							// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+							?>
+						</div>
+					<?php endforeach; ?>
+
 					<div class="bn-auth-field bn-auth-field--check">
 						<label class="bn-auth-check">
 							<input type="checkbox"

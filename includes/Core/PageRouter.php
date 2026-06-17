@@ -342,8 +342,8 @@ class PageRouter {
 		// full-width layout. Same technique BuddyPress uses for component
 		// pages without cluttering the site owner's Pages list.
 		global $wp_query;
-		$wp_query->is_404     = false;
-		$wp_query->is_page    = true;
+		$wp_query->is_404  = false;
+		$wp_query->is_page = true;
 		// Present every hub page as a singular page, on page 1 AND when paginated
 		// (?paged=2). Without this, paged>1 flips the underlying query to
 		// non-home/non-singular, so themes (e.g. Reign) fall through to their
@@ -364,7 +364,7 @@ class PageRouter {
 		// (and point the query's queried object at it) so every singular-path
 		// consumer has a valid object to read. Mirrors how BuddyPress stubs a
 		// dummy post for its component pages.
-		$virtual_post = new \WP_Post(
+		$virtual_post                = new \WP_Post(
 			(object) array(
 				'ID'             => 0,
 				'post_author'    => 0,
@@ -378,13 +378,13 @@ class PageRouter {
 				'filter'         => 'raw',
 			)
 		);
-		$GLOBALS['post']            = $virtual_post;
-		$wp_query->post             = $virtual_post;
-		$wp_query->posts            = array( $virtual_post );
-		$wp_query->queried_object   = $virtual_post;
+		$GLOBALS['post']             = $virtual_post;
+		$wp_query->post              = $virtual_post;
+		$wp_query->posts             = array( $virtual_post );
+		$wp_query->queried_object    = $virtual_post;
 		$wp_query->queried_object_id = 0;
-		$wp_query->post_count       = 1;
-		$wp_query->found_posts      = 1;
+		$wp_query->post_count        = 1;
+		$wp_query->found_posts       = 1;
 
 		status_header( 200 );
 
@@ -532,9 +532,9 @@ class PageRouter {
 		// be indexable. 'all' = public hubs indexable, 'public_posts' = only the
 		// feed/posts, 'none' = noindex every BuddyNext page. Private hubs
 		// (messages/notifications/auth/onboarding) are never indexable.
-		$indexing   = (string) get_option( 'buddynext_google_indexing', 'public_posts' );
-		$is_posts   = ( 'feed' === $hub || 'activity' === $hub );
-		$is_public  = ( $is_posts || 'people' === $hub || 'spaces' === $hub );
+		$indexing      = (string) get_option( 'buddynext_google_indexing', 'public_posts' );
+		$is_posts      = ( 'feed' === $hub || 'activity' === $hub );
+		$is_public     = ( $is_posts || 'people' === $hub || 'spaces' === $hub );
 		$force_noindex = ( 'none' === $indexing )
 			|| ( 'public_posts' === $indexing && ! $is_posts )
 			|| ( 'all' === $indexing && ! $is_public );
@@ -1020,6 +1020,9 @@ class PageRouter {
 					case 'verify':
 						wp_enqueue_script_module( '@buddynext/auth-verify' );
 						break;
+					case 'reset':
+						wp_enqueue_script_module( '@buddynext/auth-reset' );
+						break;
 					case 'login':
 					default:
 						wp_enqueue_script_module( '@buddynext/auth-login' );
@@ -1202,6 +1205,8 @@ class PageRouter {
 						return 'auth/signup.php';
 					case 'verify':
 						return 'auth/verify.php';
+					case 'reset':
+						return 'auth/reset.php';
 					case 'login':
 					default:
 						return 'auth/login.php';
@@ -1524,28 +1529,38 @@ class PageRouter {
 	/**
 	 * Register Auth hub rewrite rules.
 	 *
-	 * Single rule — the auth hub has no sub-endpoints.
+	 * One auth namespace, one slug: login is the hub root and signup + verify
+	 * are sub-routes beneath it, so renaming the auth slug moves all three
+	 * together and the admin "Login / Register" mapping is truthful. URLs:
+	 *   /{auth}/         -> login
+	 *   /{auth}/signup/  -> register
+	 *   /{auth}/verify/  -> verify email
 	 *
 	 * @return void
 	 */
 	private function register_auth_rules(): void {
-		$a      = self::hub_slug( 'buddynext_slug_auth', 'login' );
-		$signup = (string) get_option( 'buddynext_slug_signup', 'signup' );
-		$verify = (string) get_option( 'buddynext_slug_verify', 'verify-email' );
+		$a = self::hub_slug( 'buddynext_slug_auth', 'login' );
 
+		// Sub-routes first (more specific), bare hub last. The `$` anchors mean
+		// they never overlap, but ordering keeps intent clear.
 		add_rewrite_rule(
-			'^' . preg_quote( $a, '/' ) . '/?$',
-			'index.php?bn_hub=auth&bn_auth_action=login',
-			'top'
-		);
-		add_rewrite_rule(
-			'^' . preg_quote( $signup, '/' ) . '/?$',
+			'^' . preg_quote( $a, '/' ) . '/signup/?$',
 			'index.php?bn_hub=auth&bn_auth_action=signup',
 			'top'
 		);
 		add_rewrite_rule(
-			'^' . preg_quote( $verify, '/' ) . '/?$',
+			'^' . preg_quote( $a, '/' ) . '/verify/?$',
 			'index.php?bn_hub=auth&bn_auth_action=verify',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $a, '/' ) . '/reset/?$',
+			'index.php?bn_hub=auth&bn_auth_action=reset',
+			'top'
+		);
+		add_rewrite_rule(
+			'^' . preg_quote( $a, '/' ) . '/?$',
+			'index.php?bn_hub=auth&bn_auth_action=login',
 			'top'
 		);
 	}
@@ -1992,6 +2007,55 @@ class PageRouter {
 	 */
 	public static function auth_url(): string {
 		return self::hub_url( 'buddynext_slug_auth', 'buddynext_page_auth' );
+	}
+
+	/**
+	 * Return the registration (signup) URL — a sub-route of the auth hub.
+	 *
+	 * @return string
+	 */
+	public static function signup_url(): string {
+		/**
+		 * Filter the registration URL.
+		 *
+		 * @param string $url Default {auth}/signup/ URL.
+		 */
+		return (string) apply_filters( 'buddynext_signup_url', trailingslashit( self::auth_url() ) . 'signup/' );
+	}
+
+	/**
+	 * Return the email-verification screen URL — a sub-route of the auth hub.
+	 *
+	 * This is the status screen the verification + email-change flows redirect
+	 * to. The tokenized link inside the verification email is separate (it rides
+	 * a query var on home_url so it works regardless of this slug).
+	 *
+	 * @return string
+	 */
+	public static function verify_url(): string {
+		/**
+		 * Filter the email-verification screen URL.
+		 *
+		 * @param string $url Default {auth}/verify/ URL.
+		 */
+		return (string) apply_filters( 'buddynext_verify_url', trailingslashit( self::auth_url() ) . 'verify/' );
+	}
+
+	/**
+	 * Return the password-reset URL — a sub-route of the auth hub.
+	 *
+	 * Serves both steps: the request form (no query args) and the
+	 * set-new-password form (reached with ?key=...&login=... from the email).
+	 *
+	 * @return string
+	 */
+	public static function reset_url(): string {
+		/**
+		 * Filter the password-reset URL.
+		 *
+		 * @param string $url Default {auth}/reset/ URL.
+		 */
+		return (string) apply_filters( 'buddynext_reset_url', trailingslashit( self::auth_url() ) . 'reset/' );
 	}
 
 	/**

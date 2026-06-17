@@ -139,6 +139,9 @@ store( 'buddynext/auth-signup', {
 			if ( event && typeof event.preventDefault === 'function' ) {
 				event.preventDefault();
 			}
+			// The submit event fires on the <form>, so event.target is the form —
+			// use it to collect any custom registration fields below.
+			const regForm = event && event.target ? event.target : null;
 			const c = ctx();
 			if ( c.submitting ) { return; }
 			// Validate on click rather than disabling the button up front.
@@ -170,6 +173,26 @@ store( 'buddynext/auth-signup', {
 				// Honeypot under its server-issued (rotatable) field name.
 				if ( c.honeypotName ) {
 					body[ c.honeypotName ] = c.honeypot || '';
+				}
+				// Forward any custom registration profile fields (rendered server-
+				// side, tagged data-bn-reg-field). Keeps the store generic: it does
+				// not need to know each field up front.
+				if ( regForm && regForm.querySelectorAll ) {
+					const regEls = regForm.querySelectorAll( '[data-bn-reg-field]' );
+					regEls.forEach( function ( el ) {
+						const name = el.getAttribute( 'name' );
+						if ( ! name ) { return; }
+						if ( 'checkbox' === el.type ) {
+							body[ name ] = el.checked ? ( el.value || '1' ) : '';
+						} else if ( el.multiple ) {
+							body[ name ] = Array.prototype.map.call(
+								el.selectedOptions || [],
+								function ( o ) { return o.value; }
+							);
+						} else {
+							body[ name ] = el.value || '';
+						}
+					} );
 				}
 				const r = yield rest( c, 'auth/register', {
 					method: 'POST',

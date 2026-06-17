@@ -103,7 +103,7 @@ class VerificationListener implements ListenerInterface {
 		$token  = sanitize_text_field( wp_unslash( $_GET['bn_verify'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$result = $this->svc->verify( $token );
 
-		$verify_page = home_url( '/' . (string) get_option( 'buddynext_slug_verify', 'verify-email' ) . '/' );
+		$verify_page = \BuddyNext\Core\PageRouter::verify_url();
 
 		if ( is_wp_error( $result ) ) {
 			wp_safe_redirect( add_query_arg( 'bn_verified', '0', $verify_page ) );
@@ -323,7 +323,7 @@ class VerificationListener implements ListenerInterface {
 
 		$token       = sanitize_text_field( wp_unslash( $_GET['bn_verify_email'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$transient   = '' === $token ? false : get_transient( 'bn_email_change_' . $token );
-		$verify_page = home_url( '/' . (string) get_option( 'buddynext_slug_verify', 'verify-email' ) . '/' );
+		$verify_page = \BuddyNext\Core\PageRouter::verify_url();
 
 		if ( ! is_array( $transient ) || empty( $transient['user_id'] ) || empty( $transient['candidate'] ) ) {
 			wp_safe_redirect( add_query_arg( 'bn_email_changed', '0', $verify_page ) );

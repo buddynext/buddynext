@@ -62,7 +62,7 @@ $social_providers = (array) apply_filters( 'buddynext_auth_social_providers', ar
 
 $rest_root  = esc_url_raw( rest_url( 'buddynext/v1/' ) );
 $rest_nonce = wp_create_nonce( 'wp_rest' );
-$signup_url = home_url( '/' . (string) get_option( 'buddynext_slug_signup', 'signup' ) . '/' );
+$signup_url = \BuddyNext\Core\PageRouter::signup_url();
 ?>
 <div class="bn-auth-page">
 	<div class="bn-auth-shell" data-panel="<?php echo (bool) get_option( 'buddynext_auth_panel_show', true ) ? 'on' : 'off'; ?>">
@@ -157,7 +157,7 @@ $signup_url = home_url( '/' . (string) get_option( 'buddynext_slug_signup', 'sig
 								data-wp-on--change="actions.toggleRemember" />
 							<span><?php esc_html_e( 'Remember me', 'buddynext' ); ?></span>
 						</label>
-						<a class="bn-auth-link" href="<?php echo esc_url( wp_lostpassword_url( $redirect_to ) ); ?>">
+						<a class="bn-auth-link" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::reset_url() ); ?>">
 							<?php esc_html_e( 'Forgot password?', 'buddynext' ); ?>
 						</a>
 					</div>

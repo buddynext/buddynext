@@ -837,8 +837,9 @@ class ProfileFieldsManager {
 				: $pro_opts;
 		}
 
-		$is_required   = isset( $_POST['is_required'] ) ? 1 : 0;
-		$is_searchable = ( isset( $_POST['is_searchable'] ) && in_array( $type, self::searchable_capable_types(), true ) ) ? 1 : 0;
+		$is_required      = isset( $_POST['is_required'] ) ? 1 : 0;
+		$is_searchable    = ( isset( $_POST['is_searchable'] ) && in_array( $type, self::searchable_capable_types(), true ) ) ? 1 : 0;
+		$show_on_register = isset( $_POST['show_on_register'] ) ? 1 : 0;
 
 		if ( '' === $label ) {
 			wp_safe_redirect(
@@ -858,15 +859,16 @@ class ProfileFieldsManager {
 		$wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$wpdb->prefix . 'bn_profile_fields',
 			array(
-				'label'         => $label,
-				'type'          => $type,
-				'options'       => null !== $parsed_opts ? wp_json_encode( $parsed_opts ) : null,
-				'is_required'   => $is_required,
-				'is_searchable' => $is_searchable,
-				'visibility'    => $visibility,
+				'label'            => $label,
+				'type'             => $type,
+				'options'          => null !== $parsed_opts ? wp_json_encode( $parsed_opts ) : null,
+				'is_required'      => $is_required,
+				'is_searchable'    => $is_searchable,
+				'show_on_register' => $show_on_register,
+				'visibility'       => $visibility,
 			),
 			array( 'id' => $field_id ),
-			array( '%s', '%s', '%s', '%d', '%d', '%s' ),
+			array( '%s', '%s', '%s', '%d', '%d', '%d', '%s' ),
 			array( '%d' )
 		);
 
@@ -1120,7 +1122,7 @@ class ProfileFieldsManager {
 						</span>
 
 						<!-- Inline group visibility -->
-						<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="margin:0;">
+						<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
 							<input type="hidden" name="action" value="bn_update_profile_group">
 							<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 							<?php wp_nonce_field( 'bn_update_profile_group_' . $gid ); ?>
@@ -1148,7 +1150,7 @@ class ProfileFieldsManager {
 
 					<div class="bn-pf-head-actions">
 						<?php if ( ! $is_first_grp ) : ?>
-							<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="margin:0;">
+							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
 								<input type="hidden" name="action" value="bn_reorder_group">
 								<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 								<input type="hidden" name="direction" value="up">
@@ -1158,7 +1160,7 @@ class ProfileFieldsManager {
 						<?php endif; ?>
 
 						<?php if ( ! $is_last_grp ) : ?>
-							<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="margin:0;">
+							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
 								<input type="hidden" name="action" value="bn_reorder_group">
 								<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 								<input type="hidden" name="direction" value="down">
@@ -1175,7 +1177,7 @@ class ProfileFieldsManager {
 
 						<?php if ( ! $is_system ) : ?>
 							<?php $del_nonce = wp_create_nonce( 'bn_delete_profile_group_' . $gid ); ?>
-							<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="margin:0;" class="bn-del-form">
+							<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form">
 								<input type="hidden" name="action" value="bn_delete_profile_group">
 								<input type="hidden" name="group_id" value="<?php echo absint( $gid ); ?>">
 								<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( $del_nonce ); ?>">
@@ -1217,7 +1219,7 @@ class ProfileFieldsManager {
 								<td>
 									<div class="bn-pf-order-cell">
 										<?php if ( ! $is_first_fld ) : ?>
-											<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="margin:0;">
+											<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
 												<input type="hidden" name="action" value="bn_reorder_field">
 												<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
 												<input type="hidden" name="direction" value="up">
@@ -1226,7 +1228,7 @@ class ProfileFieldsManager {
 											</form>
 										<?php endif; ?>
 										<?php if ( ! $is_last_fld ) : ?>
-											<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="margin:0;">
+											<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
 												<input type="hidden" name="action" value="bn_reorder_field">
 												<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
 												<input type="hidden" name="direction" value="down">
@@ -1245,7 +1247,7 @@ class ProfileFieldsManager {
 
 								<!-- Required inline toggle -->
 								<td>
-									<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="margin:0;">
+									<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
 										<input type="hidden" name="action" value="bn_update_profile_field">
 										<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
 										<input type="hidden" name="attr" value="is_required">
@@ -1264,7 +1266,7 @@ class ProfileFieldsManager {
 
 								<!-- Visibility per-field -->
 								<td>
-									<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="margin:0;">
+									<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form">
 										<input type="hidden" name="action" value="bn_update_profile_field">
 										<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
 										<input type="hidden" name="attr" value="visibility">
@@ -1285,7 +1287,7 @@ class ProfileFieldsManager {
 										<button type="button" class="bn-pf-edit-btn"
 											data-bn-pf-toggle-edit="bn-ef-row-<?php echo absint( $fid ); ?>"
 											title="<?php esc_attr_e( 'Edit field', 'buddynext' ); ?>"><?php buddynext_icon( 'edit' ); ?></button>
-										<form method="post" action="<?php echo esc_url( $post_url ); ?>" style="margin:0;" class="bn-del-form">
+										<form method="post" action="<?php echo esc_url( $post_url ); ?>" class="bn-pf-inline-form bn-del-form">
 											<input type="hidden" name="action" value="bn_delete_profile_field">
 											<input type="hidden" name="field_id" value="<?php echo absint( $fid ); ?>">
 											<?php wp_nonce_field( 'bn_delete_profile_field_' . $fid ); ?>
@@ -1406,6 +1408,13 @@ class ProfileFieldsManager {
 												<input type="checkbox" id="bn-ef-search-c-<?php echo absint( $fid ); ?>" name="is_searchable" value="1" <?php checked( $field_searchable ); ?>>
 												<label for="bn-ef-search-c-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Searchable in the member directory', 'buddynext' ); ?></label>
 											</div>
+											<?php // Registration form opt-in. Single-entry groups only — a signup form cannot collect repeating entries. ?>
+											<?php if ( 'repeater' !== $group['type'] ) : ?>
+												<div class="bn-pf-af-req-row">
+													<input type="checkbox" id="bn-ef-reg-<?php echo absint( $fid ); ?>" name="show_on_register" value="1" <?php checked( ! empty( $field['show_on_register'] ) ); ?>>
+													<label for="bn-ef-reg-<?php echo absint( $fid ); ?>"><?php esc_html_e( 'Ask for this on the registration form', 'buddynext' ); ?></label>
+												</div>
+											<?php endif; ?>
 											<div class="bn-pf-af-actions">
 												<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Changes', 'buddynext' ); ?></button>
 												<button type="button" class="button" data-bn-pf-toggle-edit="<?php echo esc_attr( $edit_panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>

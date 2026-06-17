@@ -217,6 +217,80 @@ function buddynext_feature_enabled( string $slug, bool $fallback = true ): bool 
 }
 
 /**
+ * Register a profile field programmatically (no database write).
+ *
+ * The field is injected into the live group/field tree via the
+ * `buddynext_profile_fields` filter, so it appears in the profile editor, on
+ * the profile, and — when `show_on_register` is true — on the registration
+ * form, without an admin creating it by hand. Call this on `buddynext_loaded`
+ * or `init`.
+ *
+ * Because a programmatic field has no `bn_profile_fields` row, its submitted
+ * value is stored to usermeta (`bn_field_{field_key}`) on save rather than the
+ * `bn_profile_values` table — addons needing custom storage can hook
+ * `buddynext_registration_fields_saved`.
+ *
+ * @param array $args {
+ *     Field definition.
+ *
+ *     @type string $field_key        Required. Unique kebab/snake key.
+ *     @type string $label            Required. Human label.
+ *     @type string $type             Field type slug. Default 'text'.
+ *     @type string $group_key        Group to attach to (created if absent). Default 'details'.
+ *     @type string $group_label      Label when the group is created. Optional.
+ *     @type bool   $is_required      Whether the field is required. Default false.
+ *     @type bool   $show_on_register Surface on the registration form. Default false.
+ *     @type string $visibility       public|followers|connections|private. Default 'public'.
+ *     @type array  $options          Choices for select/radio/checkbox types. Optional.
+ * }
+ * @return void
+ */
+function buddynext_register_profile_field( array $args ): void {
+	static $registry = array();
+	static $hooked   = false;
+
+	$registry[] = $args;
+
+	if ( $hooked ) {
+		return;
+	}
+	$hooked = true;
+
+	add_filter(
+		'buddynext_profile_fields',
+		static function ( array $groups ) use ( &$registry ): array {
+			foreach ( $registry as $field ) {
+				$group_key = sanitize_key( (string) ( $field['group_key'] ?? 'details' ) );
+
+				$attached = false;
+				foreach ( $groups as $gi => $group ) {
+					if ( ( $group['group_key'] ?? '' ) === $group_key ) {
+						$groups[ $gi ]['fields'][] = $field;
+						$attached                  = true;
+						break;
+					}
+				}
+
+				if ( ! $attached ) {
+					$groups[] = array(
+						'id'         => 0,
+						'group_key'  => $group_key,
+						'label'      => (string) ( $field['group_label'] ?? ucwords( str_replace( array( '_', '-' ), ' ', $group_key ) ) ),
+						'type'       => 'flat',
+						'visibility' => 'public',
+						'is_system'  => false,
+						'sort_order' => 99,
+						'fields'     => array( $field ),
+					);
+				}
+			}
+
+			return $groups;
+		}
+	);
+}
+
+/**
  * Effective default registration mode when the owner has not set one.
  *
  * Per owner decision, BuddyNext does not impose its own opinion on a fresh

@@ -346,6 +346,30 @@
 	color: var(--bn-success);
 }
 
+/* Success notice block (e.g. "reset link sent" on the password-reset screen). */
+.bn-auth-notice {
+	font-size: var(--bn-text-sm);
+	color: var(--bn-success);
+	background: var(--bn-success-bg, rgba(22, 163, 74, 0.08));
+	border: 1px solid var(--bn-success);
+	border-radius: var(--bn-radius-md, 8px);
+	padding: var(--bn-s3, 12px) var(--bn-s4, 16px);
+	margin-block-end: var(--bn-s4, 16px);
+}
+
+/* Required-field asterisk on registration profile fields. */
+.bn-auth-required {
+	color: var(--bn-danger);
+	margin-inline-start: 2px;
+}
+
+/* Secondary action row under an auth form (e.g. "Back to sign in"). */
+.bn-auth-alt {
+	margin-block-start: var(--bn-s4, 16px);
+	font-size: var(--bn-text-sm);
+	text-align: center;
+}
+
 /* Full-width button helper for auth + block forms. */
 .bn-auth-card .bn-btn[data-full],
 .bn-block-login-form .bn-btn[data-full],

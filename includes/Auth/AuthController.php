@@ -125,6 +125,46 @@ class AuthController {
 
 		register_rest_route(
 			'buddynext/v1',
+			'/auth/lost-password',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'lost_password' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'user_login' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
+			'/auth/reset-password',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'reset_password' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'key'      => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+					'login'    => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+					'password' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'buddynext/v1',
 			'/auth/approve/(?P<id>[\d]+)',
 			array(
 				'methods'             => 'POST',
@@ -595,6 +635,41 @@ class AuthController {
 			$errors['password'] = __( 'Password must be at least 8 characters.', 'buddynext' );
 		}
 
+		// Custom profile fields the owner opted into the registration form. Each
+		// is sanitised through the field-type engine and required ones are
+		// enforced here, so their errors join the same inline envelope as the
+		// core fields (and the account is never created on a bad submission).
+		$reg_fields  = array();
+		$reg_values  = array();
+		$profile_svc = null;
+		try {
+			$profile_svc = buddynext_service( 'profiles' );
+		} catch ( \Throwable $e ) {
+			$profile_svc = null;
+		}
+		if ( is_object( $profile_svc ) && method_exists( $profile_svc, 'get_registration_fields' ) ) {
+			$reg_fields = $profile_svc->get_registration_fields();
+			foreach ( $reg_fields as $reg_field ) {
+				$field_key = (string) $reg_field['field_key'];
+				$raw       = $request->get_param( 'bn_field_' . $field_key );
+				$value     = \BuddyNext\Profile\FieldType::sanitize( $reg_field, null === $raw ? '' : $raw );
+
+				if ( is_wp_error( $value ) ) {
+					$errors[ 'bn_field_' . $field_key ] = $value->get_error_message();
+					continue;
+				}
+
+				$is_empty = ( '' === $value || null === $value || array() === $value );
+				if ( ! empty( $reg_field['is_required'] ) && $is_empty ) {
+					/* translators: %s: profile field label. */
+					$errors[ 'bn_field_' . $field_key ] = sprintf( __( '%s is required.', 'buddynext' ), $reg_field['label'] );
+					continue;
+				}
+
+				$reg_values[ $field_key ] = $value;
+			}
+		}
+
 		if ( ! empty( $errors ) ) {
 			$err = new WP_Error(
 				'rest_registration_failed',
@@ -669,6 +744,12 @@ class AuthController {
 		// privacy settings; we only set it here, when no explicit value exists,
 		// so the site owner's default applies to fresh accounts.
 		self::seed_default_dm_access( (int) $user_id );
+
+		// Persist any registration profile-field values collected + validated
+		// above. DB-backed fields go through save_profile (bn_profile_values +
+		// searchable usermeta); programmatic (virtual) fields with no row are
+		// stored to usermeta so their value is not lost.
+		self::save_registration_fields( (int) $user_id, $reg_fields, $reg_values, $profile_svc );
 
 		// Email verification is handled by VerificationListener::on_user_register,
 		// which wp_create_user() above already triggered via the user_register
@@ -745,6 +826,116 @@ class AuthController {
 	private function resolve_login_for_email( string $email ): string {
 		$user = get_user_by( 'email', $email );
 		return $user ? $user->user_login : $email;
+	}
+
+	/**
+	 * POST /auth/lost-password — request a password-reset link.
+	 *
+	 * Drives WordPress core retrieve_password() so the secure reset key and
+	 * delivery are owned by core; BuddyNext only provides the branded screen.
+	 * The reset email's link is rewritten to the branded /{auth}/reset/ screen
+	 * via the retrieve_password_message filter (registered in register()).
+	 *
+	 * Always returns the same generic success message whether or not the
+	 * account exists — no account enumeration.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public function lost_password( WP_REST_Request $request ): WP_REST_Response {
+		$login = sanitize_text_field( (string) $request->get_param( 'user_login' ) );
+
+		$generic = new WP_REST_Response(
+			array(
+				'success' => true,
+				'message' => __( 'If an account matches that email or username, we have sent a link to reset its password.', 'buddynext' ),
+			),
+			200
+		);
+
+		if ( '' === $login ) {
+			return $generic;
+		}
+
+		// Brand the reset link inside core's email to our /{auth}/reset/ screen
+		// for just this request. Scoped here (added then removed) so it never
+		// leaks into unrelated retrieve_password() calls.
+		$brand_link = static function ( $message, $key, $user_login ) {
+			$url = add_query_arg(
+				array(
+					'key'   => rawurlencode( (string) $key ),
+					'login' => rawurlencode( (string) $user_login ),
+				),
+				\BuddyNext\Core\PageRouter::reset_url()
+			);
+
+			return sprintf(
+				/* translators: 1: site name, 2: username, 3: reset URL. */
+				__( "Someone requested a password reset for your %1\$s account (%2\$s).\n\nIf this was you, set a new password here:\n%3\$s\n\nIf it wasn't, you can ignore this email and your password will stay the same.", 'buddynext' ),
+				wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES ),
+				$user_login,
+				$url
+			);
+		};
+
+		add_filter( 'retrieve_password_message', $brand_link, 10, 3 );
+
+		// retrieve_password() accepts a login or email; it sends the reset email
+		// when the account exists and returns true, or a WP_Error otherwise. We
+		// swallow the result so the response never reveals which.
+		retrieve_password( $login );
+
+		remove_filter( 'retrieve_password_message', $brand_link, 10 );
+
+		return $generic;
+	}
+
+	/**
+	 * POST /auth/reset-password — set a new password from a reset key.
+	 *
+	 * Validates the key with WordPress core check_password_reset_key() and
+	 * commits via reset_password(), so the security model is core's. The branded
+	 * screen at /{auth}/reset/?key=...&login=... posts here.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function reset_password( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+		$key      = sanitize_text_field( (string) $request->get_param( 'key' ) );
+		$login    = sanitize_text_field( (string) $request->get_param( 'login' ) );
+		$password = (string) $request->get_param( 'password' );
+
+		if ( strlen( $password ) < 8 ) {
+			return new WP_Error(
+				'rest_reset_failed',
+				__( 'Please correct the errors below.', 'buddynext' ),
+				array(
+					'status' => 422,
+					'fields' => array( 'password' => __( 'Password must be at least 8 characters.', 'buddynext' ) ),
+				)
+			);
+		}
+
+		$user = check_password_reset_key( $key, $login );
+
+		if ( is_wp_error( $user ) ) {
+			return new WP_Error(
+				'rest_reset_invalid',
+				__( 'This password-reset link has expired or is invalid. Please request a new one.', 'buddynext' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		reset_password( $user, $password );
+
+		return new WP_REST_Response(
+			array(
+				'success'     => true,
+				'message'     => __( 'Your password has been reset. You can now sign in.', 'buddynext' ),
+				'redirect_to' => \BuddyNext\Core\PageRouter::auth_url(),
+			),
+			200
+		);
 	}
 
 	/**
@@ -843,6 +1034,56 @@ class AuthController {
 		}
 
 		update_user_meta( $user_id, 'bn_privacy_dm', $default );
+	}
+
+	/**
+	 * Persist registration profile-field values onto a freshly created account.
+	 *
+	 * DB-backed fields (those with a bn_profile_fields row) are written via
+	 * ProfileService::save_profile so they land in bn_profile_values and the
+	 * searchable usermeta mirror. Programmatic/virtual fields (id 0, registered
+	 * via buddynext_register_profile_field) have no row, so their value is stored
+	 * to usermeta as bn_field_{key}. Addons can take over storage entirely on the
+	 * buddynext_registration_fields_saved action.
+	 *
+	 * @param int                             $user_id     New user id.
+	 * @param array<int, array<string,mixed>> $reg_fields The registration field defs.
+	 * @param array<string, mixed>            $reg_values  field_key => sanitised value.
+	 * @param object|null                     $profile_svc Resolved ProfileService (or null).
+	 * @return void
+	 */
+	private static function save_registration_fields( int $user_id, array $reg_fields, array $reg_values, $profile_svc ): void {
+		if ( $user_id <= 0 || empty( $reg_fields ) ) {
+			return;
+		}
+
+		$db_values = array();
+		foreach ( $reg_fields as $reg_field ) {
+			$field_key = (string) $reg_field['field_key'];
+			if ( ! array_key_exists( $field_key, $reg_values ) ) {
+				continue;
+			}
+
+			if ( (int) ( $reg_field['id'] ?? 0 ) > 0 ) {
+				$db_values[ $field_key ] = $reg_values[ $field_key ];
+			} else {
+				// Virtual (programmatic) field: no table row to write to.
+				update_user_meta( $user_id, 'bn_field_' . $field_key, $reg_values[ $field_key ] );
+			}
+		}
+
+		if ( ! empty( $db_values ) && is_object( $profile_svc ) && method_exists( $profile_svc, 'save_profile' ) ) {
+			$profile_svc->save_profile( $user_id, $db_values );
+		}
+
+		/**
+		 * Fires after registration profile-field values are saved to a new account.
+		 *
+		 * @param int                  $user_id    New user id.
+		 * @param array<string, mixed> $reg_values field_key => sanitised value.
+		 * @param array                $reg_fields The registration field definitions.
+		 */
+		do_action( 'buddynext_registration_fields_saved', $user_id, $reg_values, $reg_fields );
 	}
 
 	/**

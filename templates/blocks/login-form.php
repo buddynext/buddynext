@@ -57,7 +57,7 @@ if ( ! $redirect_url ) {
 				<input type="checkbox" name="rememberme" value="forever">
 				<?php esc_html_e( 'Remember me', 'buddynext' ); ?>
 			</label>
-			<a href="<?php echo esc_url( wp_lostpassword_url() ); ?>">
+			<a href="<?php echo esc_url( \BuddyNext\Core\PageRouter::reset_url() ); ?>">
 				<?php esc_html_e( 'Forgot password?', 'buddynext' ); ?>
 			</a>
 		</div>
