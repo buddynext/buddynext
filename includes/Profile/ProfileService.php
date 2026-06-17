@@ -1093,6 +1093,14 @@ class ProfileService {
 	public function delete_field( int $id ): void {
 		global $wpdb;
 
+		// Capture the field key before removing the definition so its search-
+		// mirror usermeta (bn_field_{key}, written by sync_search_mirror) can be
+		// purged across every user — otherwise stale mirrors linger and can leak
+		// into search results.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$field_key = (string) $wpdb->get_var( $wpdb->prepare( "SELECT field_key FROM {$wpdb->prefix}bn_profile_fields WHERE id = %d", $id ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
 		// Delete stored values for this field across all users.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->delete(
@@ -1111,6 +1119,12 @@ class ProfileService {
 		);
 
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		// Purge the search-mirror usermeta for this field across all users.
+		if ( '' !== $field_key ) {
+			delete_metadata( 'user', 0, 'bn_field_' . $field_key, '', true );
+		}
+
 		wp_cache_delete( 'all_fields', self::CACHE_GROUP );
 	}
 
@@ -1276,7 +1290,7 @@ class ProfileService {
 	 * @return array[] Each element: id, group_id, group_type, field_key, type,
 	 *                 options, is_required, is_searchable, visibility, group_visibility.
 	 */
-	private function get_flat_fields(): array {
+	public function get_flat_fields(): array {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1287,6 +1301,7 @@ class ProfileService {
 				g.type       AS group_type,
 				g.visibility AS group_visibility,
 				f.field_key,
+				f.label,
 				f.type,
 				f.options,
 				f.is_required,
@@ -1308,6 +1323,7 @@ class ProfileService {
 					'group_type'       => $row['group_type'],
 					'group_visibility' => $row['group_visibility'] ?? 'public',
 					'field_key'        => $row['field_key'],
+					'label'            => $row['label'] ?? $row['field_key'],
 					'type'             => $row['type'],
 					'options'          => isset( $row['options'] ) ? json_decode( (string) $row['options'], true ) : null,
 					'is_required'      => (bool) $row['is_required'],
@@ -1336,7 +1352,19 @@ class ProfileService {
 			'private'     => 3,
 		);
 
-		return $ranks[ $visibility ] ?? 0;
+		// An unknown value silently ranking as public would leak a field that was
+		// meant to be restricted. Surface it (the safe rank stays the MOST
+		// restrictive, not public) so a bad ENUM is caught instead of hidden.
+		if ( ! isset( $ranks[ $visibility ] ) ) {
+			_doing_it_wrong(
+				__METHOD__,
+				esc_html( sprintf( 'Unknown profile-field visibility "%s"; treating as private.', $visibility ) ),
+				'1.0.0'
+			);
+			return 3;
+		}
+
+		return $ranks[ $visibility ];
 	}
 
 	/**
@@ -1523,8 +1551,8 @@ class ProfileService {
 		$labels = array();
 		foreach ( $options as $opt_key => $opt_val ) {
 			if ( is_array( $opt_val ) ) {
-				$slug             = (string) ( $opt_val['value'] ?? $opt_val['slug'] ?? $opt_key );
-				$labels[ $slug ]  = (string) ( $opt_val['label'] ?? $opt_val['value'] ?? $slug );
+				$slug            = (string) ( $opt_val['value'] ?? $opt_val['slug'] ?? $opt_key );
+				$labels[ $slug ] = (string) ( $opt_val['label'] ?? $opt_val['value'] ?? $slug );
 			} else {
 				$labels[ (string) $opt_key ] = (string) $opt_val;
 			}

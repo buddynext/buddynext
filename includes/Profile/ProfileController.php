@@ -593,7 +593,13 @@ class ProfileController extends BaseRestController {
 		require_once ABSPATH . 'wp-admin/includes/user.php';
 		$reassign = null;
 		if ( $anonymize ) {
-			$admins   = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => array( 'ID' ) ) );
+			$admins   = get_users(
+				array(
+					'role'   => 'administrator',
+					'number' => 1,
+					'fields' => array( 'ID' ),
+				)
+			);
 			$reassign = ! empty( $admins ) ? (int) $admins[0]->ID : null;
 		}
 		wp_delete_user( $user_id, $reassign );
@@ -740,12 +746,12 @@ class ProfileController extends BaseRestController {
 		// Profile-view / follow / connect gates. Each meta key accepts only the
 		// vocabulary its PrivacyService gate honours (can_view_profile /
 		// can_follow / can_connect); the validator above rejects anything else.
-		$gate_keys     = array(
+		$gate_keys = array(
 			'bn_privacy_profile_visibility' => array( 'public', 'followers', 'connections', 'private' ),
 			'bn_privacy_who_can_follow'     => array( 'everyone', 'nobody' ),
 			'bn_privacy_who_can_connect'    => array( 'everyone', 'followers', 'nobody' ),
 		);
-		$bool_keys     = array(
+		$bool_keys = array(
 			'bn_account_private',
 			'bn_privacy_show_in_directory',
 			'bn_privacy_search_indexable',
@@ -893,6 +899,57 @@ class ProfileController extends BaseRestController {
 			$gval = sanitize_key( (string) $data[ $gate_key ] );
 			if ( ! in_array( $gval, $allowed, true ) ) {
 				$errors[ $gate_key ] = __( 'Choose a valid privacy option.', 'buddynext' );
+			}
+		}
+
+		// Validate the dynamic profile fields against their definitions. Enforce
+		// is_required and run the field-type sanitiser/validator HERE so an
+		// invalid or missing-required value returns a 422 the form can map to an
+		// inline error — previously save_profile() dropped such values with a
+		// bare `continue` and still returned 200 {"saved":true}.
+		$profiles    = function_exists( 'buddynext_service' ) ? buddynext_service( 'profiles' ) : null;
+		$flat_fields = ( $profiles instanceof \BuddyNext\Profile\ProfileService ) ? $profiles->get_flat_fields() : array();
+		foreach ( $flat_fields as $field_def ) {
+			$fkey = (string) ( $field_def['field_key'] ?? '' );
+			if ( '' === $fkey || isset( $errors[ $fkey ] ) ) {
+				continue;
+			}
+
+			$present  = array_key_exists( $fkey, $data );
+			$raw      = $present ? $data[ $fkey ] : null;
+			$is_empty = ( null === $raw
+				|| ( is_string( $raw ) && '' === trim( $raw ) )
+				|| ( is_array( $raw ) && array() === $raw ) );
+
+			// Required: only flagged when the field is submitted empty (an omitted
+			// field is a partial update, not a cleared one).
+			if ( ! empty( $field_def['is_required'] ) && $present && $is_empty ) {
+				/* translators: %s: profile field label. */
+				$errors[ $fkey ] = sprintf( __( '%s is required.', 'buddynext' ), (string) ( $field_def['label'] ?? $fkey ) );
+				continue;
+			}
+
+			if ( ! $present || $is_empty ) {
+				continue;
+			}
+
+			// Surface field-type sanitise/validate failures instead of silently
+			// discarding the value during save.
+			$sanitized = \BuddyNext\Profile\FieldType::sanitize( $field_def, $raw );
+			if ( is_wp_error( $sanitized ) ) {
+				$errors[ $fkey ] = $sanitized->get_error_message();
+				continue;
+			}
+			$validation = apply_filters(
+				'buddynext_profile_field_validate',
+				true,
+				(string) ( $field_def['type'] ?? 'text' ),
+				(string) $sanitized,
+				$field_def,
+				get_current_user_id()
+			);
+			if ( is_wp_error( $validation ) ) {
+				$errors[ $fkey ] = $validation->get_error_message();
 			}
 		}
 
@@ -1411,6 +1468,20 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
+		// Reject oversized pixel dimensions even when the byte size passes — a
+		// highly compressed huge image can exhaust memory during thumbnail/WebP
+		// conversion.
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		$cover_tmp  = (string) ( $cover_file['tmp_name'] ?? '' );
+		$cover_dims = ( '' !== $cover_tmp && is_readable( $cover_tmp ) ) ? @getimagesize( $cover_tmp ) : false; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		if ( is_array( $cover_dims ) && ( (int) $cover_dims[0] > 1920 || (int) $cover_dims[1] > 1080 ) ) {
+			return new WP_Error(
+				'cover_dimensions',
+				__( 'Cover image must be at most 1920×1080 pixels.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
 		$file_data = array(
 			'name'     => sanitize_file_name( (string) ( $cover_file['name'] ?? '' ) ),
 			'type'     => (string) ( $cover_file['type'] ?? '' ),
@@ -1526,6 +1597,20 @@ class ProfileController extends BaseRestController {
 			return new WP_Error(
 				'avatar_too_large',
 				__( 'File must be under 2MB.', 'buddynext' ),
+				array( 'status' => 422 )
+			);
+		}
+
+		// Reject oversized pixel dimensions even when the byte size passes — a
+		// highly compressed huge image can exhaust memory during thumbnail/WebP
+		// conversion.
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		$avatar_tmp  = (string) ( $avatar_file['tmp_name'] ?? '' );
+		$avatar_dims = ( '' !== $avatar_tmp && is_readable( $avatar_tmp ) ) ? @getimagesize( $avatar_tmp ) : false; // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		if ( is_array( $avatar_dims ) && ( (int) $avatar_dims[0] > 1024 || (int) $avatar_dims[1] > 1024 ) ) {
+			return new WP_Error(
+				'avatar_dimensions',
+				__( 'Avatar image must be at most 1024×1024 pixels.', 'buddynext' ),
 				array( 'status' => 422 )
 			);
 		}
