@@ -119,7 +119,7 @@ do_action( 'buddynext_part_space_about_panel_before', $args );
 					href="<?php echo esc_url( add_query_arg( 'bn_cat', $bn_space->category_slug, PageRouter::spaces_url() ) ); ?>"
 					class="bn-tab bn-sd-chip"
 				>
-					<span class="bn-sd-chip__icon" aria-hidden="true"><?php echo wp_kses_data( bn_space_category_icon( $bn_space->category_slug ) ); ?></span>
+					<span class="bn-sd-chip__icon" aria-hidden="true"><?php echo bn_space_category_icon( $bn_space->category_slug ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
 					<?php echo esc_html( $bn_space->category_name ); ?>
 				</a>
 			</div>

@@ -263,7 +263,7 @@ add_action(
 					<li>
 						<a href="<?php echo esc_url( add_query_arg( 'bn_cat', $bn_cat_item->slug ) ); ?>"
 							class="bn-sd-side-row<?php echo ( $bn_cat_item->slug === $bn_cat_slug ) ? ' is-active' : ''; ?>">
-							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo wp_kses_data( bn_space_category_icon( $bn_cat_item->slug ) ); ?></span>
+							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_category_icon( $bn_cat_item->slug ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
 							<span><?php echo esc_html( $bn_cat_item->name ); ?></span>
 						</a>
 					</li>
@@ -308,7 +308,7 @@ add_action(
 					<?php foreach ( $bn_my_spaces as $bn_ms ) : ?>
 						<li>
 							<a href="<?php echo esc_url( buddynext_space_url( $bn_ms->slug ) ); ?>" class="bn-sd-side-row">
-								<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo wp_kses_data( bn_space_category_icon( $bn_ms->category_slug ?? '' ) ); ?></span>
+								<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_category_icon( $bn_ms->category_slug ?? '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
 								<span><?php echo esc_html( $bn_ms->name ); ?></span>
 							</a>
 						</li>
@@ -351,7 +351,7 @@ add_action(
 				<?php foreach ( $bn_featured as $bn_f ) : ?>
 					<li>
 						<a href="<?php echo esc_url( buddynext_space_url( $bn_f->slug ) ); ?>" class="bn-sd-side-row">
-							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo wp_kses_data( bn_space_category_icon( $bn_f->category_slug ?? '' ) ); ?></span>
+							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_category_icon( $bn_f->category_slug ?? '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
 							<span class="bn-sd-side-row__main">
 								<span><?php echo esc_html( $bn_f->name ); ?></span>
 								<span class="bn-sd-side-row__meta"><?php echo esc_html( number_format_i18n( (int) $bn_f->member_count ) ); ?> <?php esc_html_e( 'members', 'buddynext' ); ?></span>
