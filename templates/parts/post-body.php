@@ -94,6 +94,7 @@ $bn_body_poll      = (array) $args['poll_data'];
 $bn_poll_options   = isset( $bn_body_poll['options'] ) && is_array( $bn_body_poll['options'] ) ? $bn_body_poll['options'] : array();
 $bn_poll_total     = isset( $bn_body_poll['total_votes'] ) ? absint( $bn_body_poll['total_votes'] ) : 0;
 $bn_poll_my_vote   = isset( $bn_body_poll['my_voted_option_id'] ) ? absint( $bn_body_poll['my_voted_option_id'] ) : 0;
+$bn_poll_closed    = ! empty( $bn_body_poll['closed'] );
 $bn_shared_post    = is_array( $args['shared_post'] ) ? $args['shared_post'] : null;
 
 do_action( 'buddynext_part_post_body_before', $args );
@@ -210,10 +211,14 @@ do_action( 'buddynext_part_post_body_before', $args );
 					?>
 					<button
 						type="button"
-						class="bn-post-card__poll-option<?php echo $opt_voted ? ' is-voted' : ''; ?>"
+						class="bn-post-card__poll-option<?php echo $opt_voted ? ' is-voted' : ''; ?><?php echo $bn_poll_closed ? ' is-closed' : ''; ?>"
+						<?php if ( ! $bn_poll_closed ) : ?>
 						data-wp-context='<?php echo wp_json_encode( array( 'optionId' => $opt_id ) ); ?>'
 						data-wp-bind--class="state.pollOptionBtnClass"
 						data-wp-on--click="actions.votePoll"
+						<?php else : ?>
+						disabled
+						<?php endif; ?>
 						data-option-id="<?php echo absint( $opt_id ); ?>"
 						aria-label="<?php echo esc_attr( sprintf( '%s — %d%%', $opt_text, $opt_pct ) ); ?>"
 					>
@@ -240,6 +245,12 @@ do_action( 'buddynext_part_post_body_before', $args );
 					echo esc_html( sprintf( _n( '%d vote', '%d votes', $bn_poll_total, 'buddynext' ), $bn_poll_total ) );
 					?>
 				</p>
+				<?php if ( $bn_poll_closed ) : ?>
+					<p class="bn-post-card__poll-closed">
+						<?php buddynext_icon( 'lock' ); ?>
+						<span><?php esc_html_e( 'Poll closed', 'buddynext' ); ?></span>
+					</p>
+				<?php endif; ?>
 			</div>
 		<?php endif; ?>
 

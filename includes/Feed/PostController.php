@@ -140,6 +140,8 @@ class PostController extends BaseRestController {
 			'link_url'             => $this->parse_link_url( $request ),
 			'link_meta'            => $request->get_param( 'link_meta' ),
 			'options'              => $request->get_param( 'options' ),
+			// Optional poll deadline (UTC datetime); only honoured for type=poll.
+			'poll_end_date'        => $request->get_param( 'poll_end_date' ),
 			'content_warning'      => (bool) $request->get_param( 'content_warning' ),
 			'content_warning_type' => $this->sanitize_warning_type( $request->get_param( 'content_warning_type' ) ),
 			'scheduled_at'         => $request->get_param( 'scheduled_at' ),

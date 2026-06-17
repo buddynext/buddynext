@@ -243,6 +243,13 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			<input type="text" class="bn-composer__poll-option"
 				placeholder="<?php esc_attr_e( 'Option 4 (optional)', 'buddynext' ); ?>"
 				aria-label="<?php esc_attr_e( 'Poll option 4', 'buddynext' ); ?>">
+			<label class="bn-composer__poll-end-label" for="bn-composer-poll-end">
+				<?php esc_html_e( 'Poll ends (optional)', 'buddynext' ); ?>
+			</label>
+			<input type="datetime-local"
+				id="bn-composer-poll-end"
+				class="bn-input bn-composer__poll-end-input"
+				aria-label="<?php esc_attr_e( 'Poll end date and time', 'buddynext' ); ?>">
 		</div>
 
 		<div class="bn-composer__schedule"

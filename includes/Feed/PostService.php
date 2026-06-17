@@ -251,7 +251,7 @@ class PostService {
 		}
 
 		if ( 'poll' === $type ) {
-			$this->insert_poll_options( $post_id, $data['options'] );
+			$this->insert_poll_options( $post_id, $data['options'], (string) ( $data['poll_end_date'] ?? '' ) );
 		}
 
 		/**
@@ -1140,11 +1140,20 @@ class PostService {
 	/**
 	 * Insert poll options for a new poll post.
 	 *
-	 * @param int      $post_id Post ID.
-	 * @param string[] $options Option texts (ordered as provided).
+	 * @param int      $post_id  Post ID.
+	 * @param string[] $options  Option texts (ordered as provided).
+	 * @param string   $end_date Optional UTC "Y-m-d H:i:s" deadline; stored on
+	 *                           every option row (poll-level value) so vote() and
+	 *                           the renderer can read it without a separate table.
+	 *                           Empty string = no deadline (open indefinitely).
 	 */
-	private function insert_poll_options( int $post_id, array $options ): void {
+	private function insert_poll_options( int $post_id, array $options, string $end_date = '' ): void {
 		global $wpdb;
+
+		// Accept only a valid "Y-m-d H:i:s" deadline; anything else stores NULL.
+		$end_value = ( '' !== $end_date && preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $end_date ) )
+			? $end_date
+			: null;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		foreach ( array_values( $options ) as $i => $raw ) {
@@ -1164,8 +1173,9 @@ class PostService {
 					'option_text'   => $text,
 					'display_order' => $i,
 					'vote_count'    => 0,
+					'end_date'      => $end_value,
 				),
-				array( '%d', '%s', '%d', '%d' )
+				array( '%d', '%s', '%d', '%d', '%s' )
 			);
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -1225,7 +1235,7 @@ class PostService {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, option_text, display_order, vote_count
+				"SELECT id, option_text, display_order, vote_count, end_date
 				 FROM {$wpdb->prefix}bn_poll_options
 				 WHERE post_id = %d
 				 ORDER BY display_order ASC",
@@ -1241,6 +1251,7 @@ class PostService {
 				'option_text'   => $r['option_text'],
 				'display_order' => (int) $r['display_order'],
 				'vote_count'    => (int) $r['vote_count'],
+				'end_date'      => $r['end_date'] ?? null,
 			),
 			(array) $rows
 		);

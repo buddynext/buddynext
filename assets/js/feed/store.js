@@ -2120,6 +2120,15 @@ store( 'buddynext/post-composer', {
 					return;
 				}
 				body.options = options.map( ( o ) => o.label );
+
+				// Optional poll deadline → UTC "Y-m-d H:i:s" (same conversion as
+				// scheduled posts). After this moment the server rejects new votes
+				// and the card renders a closed state.
+				const endInput = document.querySelector( '.bn-composer__poll-end-input' );
+				const endRaw   = endInput ? endInput.value.trim() : '';
+				if ( endRaw ) {
+					body.poll_end_date = toUtcSqlDatetime( endRaw );
+				}
 			}
 
 			// Link preview: when a card was resolved for a URL in the content,

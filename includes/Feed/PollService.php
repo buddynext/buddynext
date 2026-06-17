@@ -54,6 +54,26 @@ class PollService {
 			);
 		}
 
+		// Reject votes once the poll's deadline has passed. end_date is stored on
+		// the option rows (the same poll-level value on each); compare the max
+		// against the DB's UTC clock, matching how the deadline is stored (UTC).
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$is_closed = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_poll_options
+				 WHERE post_id = %d AND end_date IS NOT NULL AND end_date <= UTC_TIMESTAMP()",
+				$post_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $is_closed > 0 ) {
+			return new WP_Error(
+				'poll_closed',
+				__( 'This poll has closed and is no longer accepting votes.', 'buddynext' ),
+				array( 'status' => 403 )
+			);
+		}
+
 		/**
 		 * Filter poll-vote data before it is written.
 		 *

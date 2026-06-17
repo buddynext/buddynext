@@ -267,7 +267,16 @@ $poll_nonce     = ( 'poll' === $bn_post_type && $current_user_id > 0 ) ? $rest_n
 $poll_total_votes   = 0;
 $poll_options_ctx   = array();
 $my_voted_option_id = 0;
+$poll_closed        = false;
+$poll_end_date      = '';
 if ( 'poll' === $bn_post_type && ! empty( $poll_options ) ) {
+	// Poll deadline lives on the option rows (same value on each). Closed when
+	// that UTC deadline is in the past — voting is then disabled in the UI and
+	// rejected by PollService::vote().
+	$poll_end_date = (string) ( $poll_options[0]['end_date'] ?? '' );
+	if ( '' !== $poll_end_date ) {
+		$poll_closed = strtotime( $poll_end_date . ' UTC' ) <= time();
+	}
 	foreach ( $poll_options as $opt ) {
 		$poll_total_votes += absint( $opt['vote_count'] );
 	}
@@ -529,6 +538,8 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				'options'            => $poll_options,
 				'total_votes'        => $poll_total_votes,
 				'my_voted_option_id' => $my_voted_option_id,
+				'closed'             => $poll_closed,
+				'end_date'           => $poll_end_date,
 			),
 			'media_attachments' => $media_ids,
 			'is_pinned'         => $is_pinned,
