@@ -41,7 +41,14 @@ if ( ! $is_own_profile && ! current_user_can( 'manage_options' )
 	&& ! buddynext_service( 'privacy' )->can_view_profile( $current_user_id, $user_id )
 ) {
 	?>
-	<div class="bn-profile-private"><p><?php esc_html_e( 'This profile is private.', 'buddynext' ); ?></p></div>
+		<div class="bn-card bn-profile-private bn-empty-state">
+			<div class="bn-empty-state__icon" aria-hidden="true"><?php buddynext_icon( 'lock' ); ?></div>
+			<h2 class="bn-empty-state__title"><?php echo esc_html( $profile_user->display_name ); ?></h2>
+			<p class="bn-empty-state__text"><?php esc_html_e( 'This profile is private.', 'buddynext' ); ?></p>
+			<?php if ( 0 === $current_user_id ) : ?>
+				<p class="bn-empty-state__text"><?php esc_html_e( 'Log in to see if you can view it.', 'buddynext' ); ?></p>
+			<?php endif; ?>
+		</div>
 	<?php
 	return;
 }

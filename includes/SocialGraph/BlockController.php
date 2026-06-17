@@ -198,13 +198,32 @@ class BlockController extends BaseRestController {
 	}
 
 	/**
+	 * Resolve [limit, offset] from a request's per_page/page params.
+	 *
+	 * per_page defaults to 50 and is capped at 100; page is 1-based. Keeps the
+	 * three relationship-list endpoints from returning an unbounded set on a
+	 * member with thousands of blocks/mutes.
+	 *
+	 * @param WP_REST_Request $request Incoming request.
+	 * @return array{0:int,1:int} [limit, offset]
+	 */
+	private function list_window( WP_REST_Request $request ): array {
+		$per_page = absint( $request->get_param( 'per_page' ) );
+		$per_page = $per_page > 0 ? min( $per_page, 100 ) : 50;
+		$page     = max( 1, absint( $request->get_param( 'page' ) ) );
+		return array( $per_page, ( $page - 1 ) * $per_page );
+	}
+
+	/**
 	 * Return the list of users blocked by the current user.
 	 *
+	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
-	public function get_blocked(): WP_REST_Response {
-		$current_id = get_current_user_id();
-		$blocked    = buddynext_service( 'blocks' )->blocked_users( $current_id );
+	public function get_blocked( WP_REST_Request $request ): WP_REST_Response {
+		$current_id        = get_current_user_id();
+		[ $limit, $offset ] = $this->list_window( $request );
+		$blocked           = buddynext_service( 'blocks' )->blocked_users( $current_id, $limit, $offset );
 
 		return new WP_REST_Response( array( 'ids' => $blocked ), 200 );
 	}
@@ -212,11 +231,13 @@ class BlockController extends BaseRestController {
 	/**
 	 * Return the list of users muted by the current user.
 	 *
+	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
-	public function get_muted(): WP_REST_Response {
-		$current_id = get_current_user_id();
-		$muted      = buddynext_service( 'blocks' )->muted_users( $current_id );
+	public function get_muted( WP_REST_Request $request ): WP_REST_Response {
+		$current_id        = get_current_user_id();
+		[ $limit, $offset ] = $this->list_window( $request );
+		$muted             = buddynext_service( 'blocks' )->muted_users( $current_id, $limit, $offset );
 
 		return new WP_REST_Response( array( 'ids' => $muted ), 200 );
 	}
@@ -268,11 +289,13 @@ class BlockController extends BaseRestController {
 	/**
 	 * Return the list of users restricted by the current user.
 	 *
+	 * @param WP_REST_Request $request Incoming request.
 	 * @return WP_REST_Response
 	 */
-	public function get_restricted(): WP_REST_Response {
-		$current_id = get_current_user_id();
-		$restricted = buddynext_service( 'blocks' )->restricted_users( $current_id );
+	public function get_restricted( WP_REST_Request $request ): WP_REST_Response {
+		$current_id        = get_current_user_id();
+		[ $limit, $offset ] = $this->list_window( $request );
+		$restricted        = buddynext_service( 'blocks' )->restricted_users( $current_id, $limit, $offset );
 
 		return new WP_REST_Response( array( 'ids' => $restricted ), 200 );
 	}

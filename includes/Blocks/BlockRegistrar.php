@@ -532,12 +532,14 @@ class BlockRegistrar {
 	 * @return string
 	 */
 	private function pattern_member_profile(): string {
+		// Wrap the body in a core wp:group — there is no core "wp:tabs" block, so
+		// the old markup tripped an invalid-block warning and rendered raw.
 		return '<!-- wp:buddynext/profile-header /-->'
-			. '<!-- wp:tabs -->'
+			. '<!-- wp:group {"className":"bn-member-profile-body"} --><div class="wp-block-group bn-member-profile-body">'
 			. '<!-- wp:buddynext/activity-feed {"scope":"profile"} /-->'
 			. '<!-- wp:buddynext/profile-fields /-->'
 			. '<!-- wp:buddynext/profile-completion-bar /-->'
-			. '<!-- /wp:tabs -->';
+			. '</div><!-- /wp:group -->';
 	}
 
 	/**
