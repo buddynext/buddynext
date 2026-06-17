@@ -25,7 +25,12 @@ if ( '' === $placeholder ) {
 }
 $user_id    = get_current_user_id();
 $avatar_url = (string) get_avatar_url( $user_id, array( 'size' => 72 ) );
-$nonce      = wp_create_nonce( 'buddynext_post' );
+
+// The real composer is the modal on the activity feed. This block is a
+// placement-anywhere entry point (sidebars, landing pages), so its trigger
+// links to the feed surface rather than relying on a data-action that no JS
+// binds and a composer modal that does not exist off the feed.
+$compose_url = \BuddyNext\Core\PageRouter::activity_url();
 ?>
 <div class="bn-card bn-block-post-composer">
 	<span class="bn-avatar bn-block-post-composer__avatar" data-size="md" aria-hidden="true">
@@ -41,14 +46,12 @@ $nonce      = wp_create_nonce( 'buddynext_post' );
 		<?php endif; ?>
 	</span>
 	<div class="bn-composer-input-wrap">
-		<button
-			type="button"
+		<a
+			href="<?php echo esc_url( $compose_url ); ?>"
 			class="bn-input bn-composer-trigger"
-			data-action="bn-open-composer"
-			data-nonce="<?php echo esc_attr( $nonce ); ?>"
 			aria-label="<?php echo esc_attr( $placeholder ); ?>"
 		>
 			<?php echo esc_html( $placeholder ); ?>
-		</button>
+		</a>
 	</div>
 </div>

@@ -59,7 +59,11 @@ $bn_cover_tone = bn_space_cover_tone( (int) $space_id );
 $bn_space_url  = \BuddyNext\Core\PageRouter::space_url( (int) $space_id );
 $bn_count      = absint( $space['member_count'] ?? 0 );
 ?>
-<article class="bn-card bn-sd-card" data-interactive data-space-id="<?php echo absint( $space_id ); ?>">
+<article class="bn-card bn-sd-card"
+	data-interactive
+	data-space-id="<?php echo absint( $space_id ); ?>"
+	data-wp-interactive="buddynext/spaces"
+	data-wp-context='<?php echo esc_attr( (string) wp_json_encode( array( 'restNonce' => wp_create_nonce( 'wp_rest' ), 'restUrl' => rest_url( 'buddynext/v1' ) ) ) ); ?>'>
 	<a href="<?php echo esc_url( $bn_space_url ); ?>" tabindex="-1" aria-hidden="true" class="bn-sd-card__cover-link">
 		<div class="bn-sd-card__cover" data-tone="<?php echo esc_attr( $bn_cover_tone ); ?>">
 			<?php if ( ! empty( $space['cover_image_url'] ) ) : ?>
@@ -101,13 +105,13 @@ $bn_count      = absint( $space['member_count'] ?? 0 );
 			<?php $bn_is_request = 'request' === \BuddyNext\Spaces\SpaceTypeRegistry::instance()->join_method( (string) $bn_type ); ?>
 			<div class="bn-sd-card__foot">
 				<button
+					type="button"
 					class="bn-btn"
 					data-variant="primary"
 					data-size="sm"
 					data-current-state="<?php echo $bn_is_request ? 'request' : 'join'; ?>"
-					data-action="bn-join-space"
 					data-space-id="<?php echo absint( $space_id ); ?>"
-					data-nonce="<?php echo esc_attr( wp_create_nonce( 'buddynext_join_space_' . $space_id ) ); ?>"
+					data-wp-on--click="actions.joinSpace"
 				>
 					<?php echo $bn_is_request ? esc_html__( 'Request to join', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
 				</button>

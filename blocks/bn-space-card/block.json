@@ -9,6 +9,7 @@
 	"keywords": [ "buddynext", "space", "card", "featured" ],
 	"textdomain": "buddynext",
 	"editorScript": "buddynext-blocks-editor",
+	"viewScriptModule": "@buddynext/spaces",
 	"style": "file:../../assets/css/blocks.css",
 	"supports": {
 		"color": { "background": true, "text": true },
