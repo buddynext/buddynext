@@ -213,8 +213,12 @@ class Appearance {
 		if ( '' === trim( $css ) ) {
 			return;
 		}
-		// Defang a stray closing tag; everything else is CSS, output verbatim.
-		$css = str_ireplace( '</style', '', $css );
-		echo "\n<style id=\"bn-custom-css\">\n" . $css . "\n</style>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSS, closing tag stripped above; admin-only field.
+		// Defang every form of a </style> break-out (the only XSS vector when
+		// emitting verbatim CSS in a <style> block): str_ireplace('</style')
+		// missed whitespace variants like `</ style>` and `< /style>` that
+		// browsers still parse as a closing tag. A regex covers them all without
+		// touching valid CSS (which never contains `</style`).
+		$css = (string) preg_replace( '#<\s*/\s*style#i', '', $css );
+		echo "\n<style id=\"bn-custom-css\">\n" . $css . "\n</style>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- CSS, every </style> break-out form stripped above; admin-only field.
 	}
 }

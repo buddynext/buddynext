@@ -633,16 +633,30 @@ class PostService {
 		global $wpdb;
 
 		if ( $pin_limit > 0 ) {
-			$pin_where = null === $space_id ? 'AND space_id IS NULL' : $wpdb->prepare( 'AND space_id = %d', $space_id );
-			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$pinned_count = (int) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
-					 WHERE user_id = %d AND is_pinned = 1 {$pin_where}",
-					$user_id
-				)
-			);
-			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// Single prepare per branch — the previous code prepared the space_id
+			// clause and then interpolated that already-prepared string into a
+			// second prepare(), a double-prepare pattern that can mangle values
+			// and masks SQLi review. Thread $space_id straight into one prepare.
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			if ( null === $space_id ) {
+				$pinned_count = (int) $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+						 WHERE user_id = %d AND is_pinned = 1 AND space_id IS NULL",
+						$user_id
+					)
+				);
+			} else {
+				$pinned_count = (int) $wpdb->get_var(
+					$wpdb->prepare(
+						"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts
+						 WHERE user_id = %d AND is_pinned = 1 AND space_id = %d",
+						$user_id,
+						$space_id
+					)
+				);
+			}
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			if ( $pinned_count >= $pin_limit ) {
 				return new WP_Error(

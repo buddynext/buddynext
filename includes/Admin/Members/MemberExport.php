@@ -39,7 +39,10 @@ class MemberExport {
 
 		check_admin_referer( 'bn_export_members' );
 
-		$filename = 'buddynext-members-' . gmdate( 'Y-m-d' ) . '.csv';
+		// sanitize_file_name() defends the header even though the name is composed
+		// only from a constant + gmdate today — so no header-injection vector can
+		// be introduced by a future edit that folds in a dynamic value.
+		$filename = sanitize_file_name( 'buddynext-members-' . gmdate( 'Y-m-d' ) . '.csv' );
 
 		header( 'Content-Type: text/csv; charset=UTF-8' );
 		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
