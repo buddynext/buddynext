@@ -2519,9 +2519,13 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-composer__privacy-caret .bn-icon { width: 12px; height: 12px; }
 .bn-composer__privacy-pop {
 	position: absolute;
-	bottom: calc(100% + 6px);
+	/* Open downward (below the chip, into the feed) rather than upward: the
+	   composer sits at the top of the feed, so an upward popup slid behind the
+	   theme's sticky header (higher stacking context) and clipped the options.
+	   Downward keeps the full menu in the content area, clear of the header. */
+	top: calc(100% + 6px);
 	right: 0;
-	z-index: 50;
+	z-index: 60;
 	min-width: 260px;
 	margin: 0;
 	padding: 6px;
