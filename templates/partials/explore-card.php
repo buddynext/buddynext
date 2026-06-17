@@ -203,6 +203,20 @@ $bn_shares    = (int) ( $bn_post['share_count'] ?? 0 );
 $bn_created   = (string) ( $bn_post['created_at'] ?? '' );
 $bn_plain     = trim( wp_strip_all_tags( (string) ( $bn_post['content'] ?? '' ) ) );
 
+// Link/discussion posts (e.g. a synced Jetonomy topic) carry the real headline
+// in link_meta['title'] while content is just the activity verb ("started a
+// discussion"). Prefer that title for the card headline; fall back to content.
+$bn_link_meta = $bn_post['link_meta'] ?? null;
+if ( is_string( $bn_link_meta ) && '' !== $bn_link_meta ) {
+	$bn_link_meta = json_decode( $bn_link_meta, true );
+}
+$bn_link_title = is_array( $bn_link_meta ) ? trim( (string) ( $bn_link_meta['title'] ?? '' ) ) : '';
+$bn_link_desc  = is_array( $bn_link_meta ) ? trim( (string) ( $bn_link_meta['description'] ?? '' ) ) : '';
+$bn_headline   = '' !== $bn_link_title ? $bn_link_title : $bn_plain;
+// Body excerpt: prefer a real link/discussion excerpt, else the post content
+// (but never the bare activity verb that link posts store as content).
+$bn_excerpt = '' !== $bn_link_desc ? $bn_link_desc : ( '' !== $bn_link_title ? '' : $bn_plain );
+
 // Kicker: first hashtag if present, else generic.
 $bn_kicker = '';
 if ( ! empty( $bn_card['hashtag'] ) ) {
@@ -246,19 +260,6 @@ $bn_render_foot = static function ( string $av, string $tone, string $name, stri
 	<?php
 };
 
-// ── post-quote: dark pull-quote card (short, high-engagement text) ──────────
-if ( 'post-quote' === $bn_kind ) :
-	?>
-	<article class="ec-card is-quote span-2" data-kind="post-quote">
-		<a class="ec-quote" href="<?php echo esc_url( $bn_purl ); ?>">
-			<?php echo esc_html( wp_trim_words( $bn_plain, 32, '…' ) ); ?>
-		</a>
-		<?php $bn_render_foot( $bn_av, $bn_atone, $bn_aname, $bn_aurl, $bn_reactions, $bn_comments ); ?>
-	</article>
-	<?php
-	return;
-endif;
-
 // ── post-forum: tinted, taller discussion/thread card ───────────────────────
 if ( 'post-forum' === $bn_kind ) :
 	?>
@@ -267,9 +268,9 @@ if ( 'post-forum' === $bn_kind ) :
 			<div class="ec-kicker">
 				<?php echo '' !== $bn_kicker ? esc_html( __( 'Discussion · ', 'buddynext' ) . $bn_kicker ) : esc_html__( 'Discussion', 'buddynext' ); ?>
 			</div>
-			<div class="ec-title"><?php echo esc_html( wp_trim_words( $bn_plain, 14, '…' ) ); ?></div>
-			<?php if ( mb_strlen( $bn_plain ) > 60 ) : ?>
-				<div class="ec-text"><?php echo esc_html( wp_trim_words( $bn_plain, 34, '…' ) ); ?></div>
+			<div class="ec-title"><?php echo esc_html( wp_trim_words( $bn_headline, 16, '…' ) ); ?></div>
+			<?php if ( '' !== $bn_excerpt ) : ?>
+				<div class="ec-text"><?php echo esc_html( wp_trim_words( $bn_excerpt, 28, '…' ) ); ?></div>
 			<?php endif; ?>
 			<div class="ec-thread-meta">
 				<span><?php buddynext_icon( 'user' ); ?><?php echo esc_html( $bn_aname ); ?></span>
@@ -327,8 +328,8 @@ if ( 'post-media' === $bn_kind ) :
 			<?php if ( '' !== $bn_kicker ) : ?>
 				<div class="ec-kicker"><?php echo esc_html( $bn_kicker ); ?></div>
 			<?php endif; ?>
-			<?php if ( '' !== $bn_plain ) : ?>
-				<a class="ec-title" href="<?php echo esc_url( $bn_purl ); ?>"><?php echo esc_html( wp_trim_words( $bn_plain, 16, '…' ) ); ?></a>
+			<?php if ( '' !== $bn_headline ) : ?>
+				<a class="ec-title" href="<?php echo esc_url( $bn_purl ); ?>"><?php echo esc_html( wp_trim_words( $bn_headline, 16, '…' ) ); ?></a>
 			<?php endif; ?>
 			<?php $bn_render_foot( $bn_av, $bn_atone, $bn_aname, $bn_aurl, $bn_reactions, $bn_comments ); ?>
 		</div>
@@ -344,7 +345,7 @@ endif;
 		<?php if ( '' !== $bn_kicker ) : ?>
 			<div class="ec-kicker"><?php echo esc_html( $bn_kicker ); ?></div>
 		<?php endif; ?>
-		<div class="ec-title"><?php echo esc_html( wp_trim_words( $bn_plain, 24, '…' ) ); ?></div>
+		<div class="ec-title"><?php echo esc_html( wp_trim_words( $bn_headline, 24, '…' ) ); ?></div>
 	</a>
 	<?php $bn_render_foot( $bn_av, $bn_atone, $bn_aname, $bn_aurl, $bn_reactions, $bn_comments ); ?>
 </article>

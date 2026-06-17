@@ -38,9 +38,12 @@ class IntegrationActivity {
 	 *                           so discovery surfaces can classify + filter the
 	 *                           card by what it represents instead of a generic
 	 *                           link. Must be a PostService::ALLOWED_TYPES value.
+	 * @param string $excerpt    Optional short excerpt of the partner content,
+	 *                           stored in link_meta['description'] so the card can
+	 *                           show a title + preview instead of just a verb.
 	 * @return int|\WP_Error Post id (0 when an identical card already exists), or WP_Error.
 	 */
-	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link' ) {
+	public static function publish( int $member_id, string $content, string $link_url, string $link_title = '', string $type = 'link', string $excerpt = '' ) {
 		if ( $member_id <= 0 || '' === $link_url ) {
 			return new \WP_Error( 'invalid_activity', 'member id and link url are required' );
 		}
@@ -59,10 +62,15 @@ class IntegrationActivity {
 			array(
 				'type'      => $type,
 				'content'   => $content,
+				// Integration activities link OUT to a public partner page (a
+				// public Jetonomy discussion, a job posting, etc.), so they are
+				// inherently public. Set it explicitly rather than inheriting the
+				// site's default-post-privacy option, which may be blank.
+				'privacy'   => 'public',
 				'link_url'  => $link_url,
 				'link_meta' => array(
 					'title'       => $link_title,
-					'description' => '',
+					'description' => $excerpt,
 					'image'       => '',
 					'url'         => $link_url,
 				),

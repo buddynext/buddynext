@@ -146,7 +146,7 @@ else :
 			<header class="bn-card-bridge__source">
 				<span class="bn-badge" data-tone="jetonomy">
 					<?php buddynext_icon( 'message-circle' ); ?>
-					<?php esc_html_e( 'Jetonomy Discussion', 'buddynext' ); ?>
+					<?php esc_html_e( 'Discussion', 'buddynext' ); ?>
 				</span>
 			</header>
 			<div class="bn-card-bridge__head">

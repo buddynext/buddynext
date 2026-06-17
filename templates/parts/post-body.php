@@ -246,11 +246,24 @@ do_action( 'buddynext_part_post_body_before', $args );
 		</div>
 
 	<?php elseif ( 'discussion' === $bn_body_post_type ) : ?>
-		<div class="bn-post-card__bridge-card bn-post-card__bridge-card--jetonomy">
+		<?php
+		// Show the discussion topic title (carried in link_meta) and link to the
+		// thread — not the activity verb. The source label stays generic; the
+		// underlying discussion engine is never named on the front end.
+		$bn_disc_title = '' !== $bn_link_title ? $bn_link_title : wp_trim_words( wp_strip_all_tags( $bn_body_content ), 14 );
+		?>
+		<div class="bn-post-card__bridge-card bn-post-card__bridge-card--discussion">
 			<span class="bn-post-card__bridge-icon" aria-hidden="true"><?php buddynext_icon( 'message-circle' ); ?></span>
 			<div class="bn-post-card__bridge-content">
-				<span class="bn-post-card__bridge-source">Jetonomy</span>
-				<p class="bn-post-card__bridge-text"><?php echo wp_kses_post( wp_trim_words( $bn_body_content, 20 ) ); ?></p>
+				<span class="bn-post-card__bridge-source"><?php esc_html_e( 'Discussion', 'buddynext' ); ?></span>
+				<?php if ( '' !== $bn_link_url ) : ?>
+					<a class="bn-post-card__bridge-title" href="<?php echo esc_url( $bn_link_url ); ?>"><?php echo esc_html( $bn_disc_title ); ?></a>
+				<?php else : ?>
+					<span class="bn-post-card__bridge-title"><?php echo esc_html( $bn_disc_title ); ?></span>
+				<?php endif; ?>
+				<?php if ( '' !== $bn_link_desc ) : ?>
+					<p class="bn-post-card__bridge-text"><?php echo esc_html( $bn_link_desc ); ?></p>
+				<?php endif; ?>
 			</div>
 		</div>
 

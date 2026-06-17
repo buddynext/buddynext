@@ -102,7 +102,7 @@ class JetonomyBridge {
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$post = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT author_id, title, content_plain FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1",
+				"SELECT author_id, title, content_plain, is_private, status FROM {$wpdb->prefix}jt_posts WHERE id = %d LIMIT 1",
 				$post_id
 			)
 		);
@@ -141,18 +141,24 @@ class JetonomyBridge {
 			}
 		}
 
-		// Engagement: publish a feed activity (a link card to the discussion on
-		// Jetonomy). Gated by the Integrations → "Jetonomy Feed Sync" setting
-		// (the site-wide master switch), then filterable to disable per site/post.
-		// Goes through the shared IntegrationActivity helper → bn_posts (type link)
-		// → the feed REST, so the app gets it too. Replaces the old raw-SQL
-		// forum_post sync that used an invalid feed type and a wrong
-		// get_permalink() on a jt_posts id.
-		if ( (bool) get_option( 'buddynext_jetonomy_feed_sync', false )
+		// Single source of truth: a Jetonomy topic in a connected PUBLIC space
+		// becomes a `discussion` activity in bn_posts, so the feed + Explore show
+		// it like any other activity (one feed, one data source). Sync is ON by
+		// default whenever Jetonomy is active (this bridge only loads then), and
+		// the owner can still flip it off via Integrations → "Jetonomy Feed Sync".
+		//
+		// Privacy gate: only PUBLIC spaces, public (non-private) topics, and
+		// published posts produce a public activity — a private/secret space or a
+		// private topic must never leak into the public heartbeat.
+		$is_public_discussion = $this->is_public_discussion( $space_id, (int) $post->is_private, (string) $post->status );
+
+		if ( $is_public_discussion
+			&& (bool) get_option( 'buddynext_jetonomy_feed_sync', true )
 			&& (bool) apply_filters( 'buddynext_jetonomy_discussion_activity', true, $post_id ) ) {
 			$url = $this->discussion_url( $post_id, $space_id );
 			if ( '' !== $url ) {
-				IntegrationActivity::publish( $author_id, __( 'started a discussion', 'buddynext' ), $url, $title, 'discussion' );
+				$excerpt = wp_trim_words( wp_strip_all_tags( $content ), 30, '…' );
+				IntegrationActivity::publish( $author_id, __( 'started a discussion', 'buddynext' ), $url, $title, 'discussion', $excerpt );
 			}
 		}
 
@@ -203,6 +209,36 @@ class JetonomyBridge {
 		if ( '' !== $url ) {
 			IntegrationActivity::remove( $url, 'discussion' );
 		}
+	}
+
+	/**
+	 * Whether a Jetonomy topic should surface as a PUBLIC BuddyNext activity.
+	 *
+	 * True only when the topic is published, not flagged private, and lives in a
+	 * space whose Jetonomy visibility is `public`. Private/secret spaces and
+	 * private topics return false so they never leak into the public feed/Explore.
+	 *
+	 * @param int    $space_id         Jetonomy space ID.
+	 * @param int    $is_private_topic jt_posts.is_private (1 = private).
+	 * @param string $status           jt_posts.status (expects 'publish').
+	 * @return bool
+	 */
+	private function is_public_discussion( int $space_id, int $is_private_topic, string $status ): bool {
+		if ( 0 !== $is_private_topic ) {
+			return false;
+		}
+		if ( '' !== $status && 'publish' !== $status ) {
+			return false;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$visibility = (string) $wpdb->get_var(
+			$wpdb->prepare( "SELECT visibility FROM {$wpdb->prefix}jt_spaces WHERE id = %d LIMIT 1", $space_id )
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return 'public' === $visibility;
 	}
 
 	/**

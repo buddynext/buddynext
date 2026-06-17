@@ -632,10 +632,6 @@
 	background: var(--bn-sunken);
 }
 
-.bn-post-card__bridge-card--jetonomy {
-	border-inline-start: 3px solid var(--bn-jetonomy);
-}
-
 .bn-post-card__bridge-card--job {
 	border-inline-start: 3px solid var(--bn-accent);
 }
@@ -661,14 +657,20 @@
 	margin-block-end: 3px;
 }
 
-.bn-post-card__bridge-card--jetonomy .bn-post-card__bridge-source {
-	color: var(--bn-jetonomy);
+.bn-post-card__bridge-title {
+	display: block;
+	font-size: var(--bn-text-base);
+	font-weight: 600;
+	color: var(--bn-ink);
+	line-height: 1.35;
+	text-decoration: none;
 }
+a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 
 .bn-post-card__bridge-text {
 	font-size: var(--bn-text-sm);
 	color: var(--bn-ink-2);
-	margin: 0;
+	margin: var(--bn-s1) 0 0;
 	line-height: 1.5;
 }
 

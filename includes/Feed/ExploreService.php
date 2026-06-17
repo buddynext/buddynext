@@ -400,39 +400,16 @@ class ExploreService {
 		}
 		$hashtags = $this->first_hashtags_map( $ids );
 
-		/**
-		 * Cap how many pull-quote cards appear per page. The quote treatment is a
-		 * highlight (large, dark, span-2); without a cap a community of short
-		 * posts renders as a monotonous wall of dark cards. Extra qualifying
-		 * posts fall back to the lighter text card so the grid keeps its rhythm.
-		 *
-		 * @since 1.6.0
-		 *
-		 * @param int $max Maximum quote cards per page.
-		 */
-		$quote_cap   = (int) apply_filters( 'buddynext_explore_quote_cap', 3 );
-		$quote_count = 0;
-
 		$cards = array();
 		foreach ( $posts as $post ) {
 			if ( ! is_array( $post ) ) {
 				continue;
 			}
-			$pid  = (int) ( $post['id'] ?? 0 );
-			$kind = function_exists( 'buddynext_explore_card_kind' )
-				? buddynext_explore_card_kind( $post )
-				: 'post-text';
-
-			if ( 'post-quote' === $kind ) {
-				if ( $quote_count >= $quote_cap ) {
-					$kind = 'post-text';
-				} else {
-					++$quote_count;
-				}
-			}
-
+			$pid     = (int) ( $post['id'] ?? 0 );
 			$cards[] = array(
-				'kind'    => $kind,
+				'kind'    => function_exists( 'buddynext_explore_card_kind' )
+					? buddynext_explore_card_kind( $post )
+					: 'post-text',
 				'post'    => $post,
 				'hashtag' => $hashtags[ $pid ] ?? '',
 			);

@@ -136,6 +136,22 @@ $bn_author_label   = $bn_post_author ? $bn_post_author->display_name : __( 'Comm
 $bn_author_url     = $bn_post_author_id > 0 ? PageRouter::profile_url( $bn_post_author_id ) : PageRouter::activity_url();
 
 $bn_rest_nonce = wp_create_nonce( 'wp_rest' );
+
+// Register the right sidebar so the single-post page wears the same shell as the
+// activity feed (left rail + main + sidebar). The shell detects this via
+// has_action() after this template's buffer flushes, so it must be registered
+// before any output.
+add_action(
+	'buddynext_right_sidebar',
+	static function () use ( $bn_viewer_id ) {
+		buddynext_get_template(
+			'partials/sidebar.php',
+			array(
+				'sidebar_user_id' => $bn_viewer_id,
+			)
+		);
+	}
+);
 ?>
 <article class="bn-single-post"
 	data-bn-rest-nonce="<?php echo esc_attr( $bn_rest_nonce ); ?>"

@@ -252,25 +252,6 @@ a.ec-title:hover { color: var(--brand); }
 .ec-foot .stats svg { width: 13px; height: 13px; }
 .ec-foot-meta { color: var(--text-3); }
 
-/* ── Quote card ──────────────────────────────────────────────────────────── */
-.ec-card.is-quote { background: var(--text-1); color: var(--bg); border-color: var(--text-1); }
-.ec-card.is-quote .ec-quote {
-	display: flex;
-	align-items: center;
-	flex: 1;
-	padding: var(--s5);
-	font-family: var(--font-display);
-	font-size: var(--text-xl);
-	font-weight: var(--fw-medium);
-	line-height: var(--leading-snug);
-	color: var(--bg);
-	text-decoration: none;
-}
-.ec-card.is-quote .ec-foot { border-color: rgba(255, 255, 255, 0.14); }
-.ec-card.is-quote .ec-foot-author,
-.ec-card.is-quote .ec-foot-author .name { color: rgba(255, 255, 255, 0.85); }
-.ec-card.is-quote .stats { color: rgba(255, 255, 255, 0.6); }
-
 /* ── Forum / discussion card ─────────────────────────────────────────────── */
 .ec-card.is-forum { background: var(--jetonomy-bg); border-color: var(--jetonomy-border); }
 .ec-card.is-forum .ec-kicker { color: var(--jetonomy); }
@@ -388,10 +369,6 @@ a.ec-title:hover { color: var(--brand); }
 }
 
 /* ── Dark mode ───────────────────────────────────────────────────────────── */
-[data-theme="dark"] .ec-card.is-quote { background: var(--bg-hover); border-color: var(--border); }
-[data-theme="dark"] .ec-card.is-quote .ec-quote { color: var(--text-1); }
-[data-theme="dark"] .ec-card.is-quote .ec-foot-author,
-[data-theme="dark"] .ec-card.is-quote .ec-foot-author .name { color: var(--text-2); }
 [data-theme="dark"] .ec-card.is-forum { background: rgba(167, 139, 250, 0.08); border-color: rgba(167, 139, 250, 0.2); }
 [data-theme="dark"] .bn-explore-filter.is-active { background: var(--text-1); color: var(--bg); }
 
