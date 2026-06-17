@@ -945,27 +945,57 @@ class SpaceMemberService {
 	}
 
 	/**
-	 * Return all active members of a space with their roles.
+	 * Build the "exclude blocked users" SQL fragment for member queries.
+	 *
+	 * Returns a prepared ` AND sm.user_id NOT IN (...)` clause, or '' when no
+	 * viewer is supplied. Shared by get_members() and count_members() so the
+	 * count always matches the paginated rows.
+	 *
+	 * @param int $viewer_id Viewing user ID.
+	 * @return string
+	 */
+	private function member_block_where( int $viewer_id ): string {
+		if ( $viewer_id <= 0 ) {
+			return '';
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return $wpdb->prepare(
+			" AND sm.user_id NOT IN (
+			      SELECT blocked_id  FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d
+			      UNION
+			      SELECT blocker_id  FROM {$wpdb->prefix}bn_blocks WHERE blocked_id  = %d
+			  )",
+			$viewer_id,
+			$viewer_id
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Return active members of a space with their roles.
+	 *
+	 * Pagination is opt-in: pass $limit > 0 to bound the result with LIMIT/OFFSET
+	 * (a large space would otherwise load its full roster into memory). The
+	 * default $limit = 0 preserves the original unbounded behaviour for existing
+	 * callers. Use count_members() for the matching total.
 	 *
 	 * @param int $space_id  Space ID.
 	 * @param int $viewer_id Viewing user ID; when non-zero, blocked users are excluded.
+	 * @param int $limit     Max rows to return; 0 = no limit.
+	 * @param int $offset    Row offset (applied only when $limit > 0).
 	 * @return array[] Each item: user_id, role, joined_at.
 	 */
-	public function get_members( int $space_id, int $viewer_id = 0 ): array {
+	public function get_members( int $space_id, int $viewer_id = 0, int $limit = 0, int $offset = 0 ): array {
 		global $wpdb;
 
-		$block_where = '';
-		if ( $viewer_id > 0 ) {
+		$block_where = $this->member_block_where( $viewer_id );
+
+		$limit_sql = '';
+		if ( $limit > 0 ) {
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$block_where = $wpdb->prepare(
-				" AND sm.user_id NOT IN (
-				      SELECT blocked_id  FROM {$wpdb->prefix}bn_blocks WHERE blocker_id = %d
-				      UNION
-				      SELECT blocker_id  FROM {$wpdb->prefix}bn_blocks WHERE blocked_id  = %d
-				  )",
-				$viewer_id,
-				$viewer_id
-			);
+			$limit_sql = $wpdb->prepare( ' LIMIT %d OFFSET %d', $limit, max( 0, $offset ) );
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 
@@ -976,7 +1006,7 @@ class SpaceMemberService {
 				 FROM {$wpdb->prefix}bn_space_members sm
 				 WHERE sm.space_id = %d AND sm.status = 'active'
 				   {$block_where}
-				 ORDER BY sm.joined_at ASC",
+				 ORDER BY sm.joined_at ASC{$limit_sql}",
 				$space_id
 			),
 			ARRAY_A
@@ -994,26 +1024,65 @@ class SpaceMemberService {
 	}
 
 	/**
-	 * Return all pending join requests for a space.
+	 * Count active members of a space (respecting the same block filter as
+	 * get_members()), without loading the rows. Powers paginated totals.
 	 *
-	 * @param int $space_id Space ID.
-	 * @return array[] Each item: user_id, joined_at (request date).
+	 * @param int $space_id  Space ID.
+	 * @param int $viewer_id Viewing user ID; when non-zero, blocked users are excluded.
+	 * @return int
 	 */
-	public function get_pending_requests( int $space_id ): array {
+	public function count_members( int $space_id, int $viewer_id = 0 ): int {
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$block_where = $this->member_block_where( $viewer_id );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*)
+				 FROM {$wpdb->prefix}bn_space_members sm
+				 WHERE sm.space_id = %d AND sm.status = 'active'
+				   {$block_where}",
+				$space_id
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	}
+
+	/**
+	 * Return pending join requests for a space.
+	 *
+	 * Pagination is opt-in (see get_members()): $limit = 0 keeps the original
+	 * unbounded behaviour; pass $limit > 0 for LIMIT/OFFSET. Use
+	 * count_pending_requests() for the matching total.
+	 *
+	 * @param int $space_id Space ID.
+	 * @param int $limit    Max rows to return; 0 = no limit.
+	 * @param int $offset   Row offset (applied only when $limit > 0).
+	 * @return array[] Each item: user_id, requested_at (request date).
+	 */
+	public function get_pending_requests( int $space_id, int $limit = 0, int $offset = 0 ): array {
+		global $wpdb;
+
+		$limit_sql = '';
+		if ( $limit > 0 ) {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$limit_sql = $wpdb->prepare( ' LIMIT %d OFFSET %d', $limit, max( 0, $offset ) );
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT user_id, joined_at
 				 FROM {$wpdb->prefix}bn_space_members
 				 WHERE space_id = %d AND status = 'pending'
-				 ORDER BY joined_at ASC",
+				 ORDER BY joined_at ASC{$limit_sql}",
 				$space_id
 			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return array_map(
 			fn( $r ) => array(
@@ -1022,6 +1091,27 @@ class SpaceMemberService {
 			),
 			(array) $rows
 		);
+	}
+
+	/**
+	 * Count pending join requests for a space without loading the rows.
+	 *
+	 * @param int $space_id Space ID.
+	 * @return int
+	 */
+	public function count_pending_requests( int $space_id ): int {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*)
+				 FROM {$wpdb->prefix}bn_space_members
+				 WHERE space_id = %d AND status = 'pending'",
+				$space_id
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
 	// ── Helpers ─────────────────────────────────────────────────────────────

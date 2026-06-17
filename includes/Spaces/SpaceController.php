@@ -93,6 +93,7 @@ class SpaceController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_space_members' ),
 				'permission_callback' => '__return_true',
+				'args'                => $this->member_pagination_args(),
 			)
 		);
 
@@ -103,6 +104,7 @@ class SpaceController extends BaseRestController {
 				'methods'             => 'GET',
 				'callback'            => array( $this, 'get_pending_requests' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				'args'                => $this->member_pagination_args(),
 			)
 		);
 
@@ -811,6 +813,27 @@ class SpaceController extends BaseRestController {
 	// ── Membership ──────────────────────────────────────────────────────────
 
 	/**
+	 * Shared optional pagination args for the members + pending-requests routes.
+	 * Both default to unbounded (per_page omitted) for backward compatibility.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function member_pagination_args(): array {
+		return array(
+			'page'     => array(
+				'type'    => 'integer',
+				'default' => 1,
+				'minimum' => 1,
+			),
+			'per_page' => array(
+				'type'    => 'integer',
+				'minimum' => 1,
+				'maximum' => 100,
+			),
+		);
+	}
+
+	/**
 	 * List active members of a space.
 	 *
 	 * @param WP_REST_Request $request Incoming request.
@@ -830,6 +853,7 @@ class SpaceController extends BaseRestController {
 		}
 
 		// Hidden (secret-equivalent) spaces: only active members and site admins may see the roster.
+		// Pagination args are declared via member_pagination_args() on the routes.
 		if ( SpaceTypeRegistry::instance()->is_hidden_from_non_members( (string) $space['type'] ) && ! user_can( $viewer_id, 'manage_options' ) ) {
 			$member_service = new SpaceMemberService();
 			if ( 'active' !== $member_service->get_status( $space_id, $viewer_id ) ) {
@@ -841,9 +865,28 @@ class SpaceController extends BaseRestController {
 			}
 		}
 
-		$members = ( new SpaceMemberService() )->get_members( $space_id, $viewer_id );
+		// Pagination is opt-in: with no per_page the full roster is returned
+		// (backward-compatible). A paginating client passes page/per_page and
+		// reads the total from the X-WP-Total header — the response body stays a
+		// bare members array.
+		$member_service = new SpaceMemberService();
+		$per_page       = (int) $request->get_param( 'per_page' );
+		$page           = max( 1, (int) $request->get_param( 'page' ) );
 
-		return new WP_REST_Response( $members, 200 );
+		if ( $per_page > 0 ) {
+			$per_page = min( 100, $per_page );
+			$members  = $member_service->get_members( $space_id, $viewer_id, $per_page, ( $page - 1 ) * $per_page );
+			$total    = $member_service->count_members( $space_id, $viewer_id );
+		} else {
+			$members = $member_service->get_members( $space_id, $viewer_id );
+			$total   = count( $members );
+		}
+
+		$response = new WP_REST_Response( $members, 200 );
+		$response->header( 'X-WP-Total', (string) $total );
+		$response->header( 'X-WP-TotalPages', (string) ( $per_page > 0 ? (int) ceil( $total / $per_page ) : 1 ) );
+
+		return $response;
 	}
 
 	/**
@@ -878,12 +921,25 @@ class SpaceController extends BaseRestController {
 			);
 		}
 
-		$requests = $member_service->get_pending_requests( $space_id );
+		// Opt-in pagination: per_page bounds the query and 'total' reports the
+		// full count (not the page size). Without per_page the original
+		// unbounded list is returned.
+		$per_page = (int) $request->get_param( 'per_page' );
+		$page     = max( 1, (int) $request->get_param( 'page' ) );
+
+		if ( $per_page > 0 ) {
+			$per_page = min( 100, $per_page );
+			$requests = $member_service->get_pending_requests( $space_id, $per_page, ( $page - 1 ) * $per_page );
+			$total    = $member_service->count_pending_requests( $space_id );
+		} else {
+			$requests = $member_service->get_pending_requests( $space_id );
+			$total    = count( $requests );
+		}
 
 		return new WP_REST_Response(
 			array(
 				'items' => $requests,
-				'total' => count( $requests ),
+				'total' => $total,
 			),
 			200
 		);

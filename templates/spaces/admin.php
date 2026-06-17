@@ -64,7 +64,7 @@ if ( ! buddynext_can( $bn_current_user_id, 'buddynext-spaces/manage-settings', a
 
 // ── At-a-glance counts ──────────────────────────────────────────────────────────
 $bn_member_count  = ( new SpaceMemberService() )->member_count( $space_id );
-$bn_pending_count = count( ( new SpaceMemberService() )->get_pending_requests( $space_id ) );
+$bn_pending_count = ( new SpaceMemberService() )->count_pending_requests( $space_id );
 // get_queue() always scopes to open reports (status IN pending,escalated) and
 // returns a COUNT(*) total; per_page=1 keeps the row fetch minimal since we only
 // need the count here.
