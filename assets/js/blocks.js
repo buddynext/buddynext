@@ -131,6 +131,7 @@
 		{ name: 'buddynext/login-form',             label: 'Login Form',             ssr: false },
 		{ name: 'buddynext/notification-bell',      label: 'Notification Bell',      ssr: false },
 		{ name: 'buddynext/search-bar',             label: 'Search Bar',             ssr: false },
+		{ name: 'buddynext/header-user-menu',       label: 'Header User Menu',       ssr: true  },
 	];
 
 	blockDefs.forEach( function ( def ) {

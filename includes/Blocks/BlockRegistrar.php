@@ -105,6 +105,19 @@ class BlockRegistrar {
 				BUDDYNEXT_VERSION,
 				true
 			);
+
+			// blocks.js reads window.bnBlocks (restUrl / nonce / searchUrl) for the
+			// editor previews' REST calls; without it those calls had no nonce and
+			// 403'd. Localise it onto the editor script.
+			wp_localize_script(
+				'buddynext-blocks-editor',
+				'bnBlocks',
+				array(
+					'restUrl'   => esc_url_raw( rest_url( 'buddynext/v1' ) ),
+					'nonce'     => wp_create_nonce( 'wp_rest' ),
+					'searchUrl' => esc_url_raw( rest_url( 'buddynext/v1/search' ) ),
+				)
+			);
 		}
 
 		$blocks = array(
