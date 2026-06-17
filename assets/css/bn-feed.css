@@ -335,6 +335,11 @@
 .bn-post-card__menu-item--danger:hover,
 .bn-post-card__menu-item--danger:focus { background: var(--bn-danger-bg); color: var(--bn-danger); }
 
+/* Already-reported status — a non-interactive confirmation, not an action. */
+.bn-post-card__menu-item--reported { color: var(--bn-ink-3); cursor: default; }
+.bn-post-card__menu-item--reported:hover,
+.bn-post-card__menu-item--reported:focus { background: transparent; color: var(--bn-ink-3); }
+
 /* Content warning overlay — replaces the body until the user clicks "Show anyway". */
 .bn-post-card__cw-overlay {
 	display: flex;
