@@ -103,7 +103,7 @@ if ( $bn_nav_current_user ) :
 		)
 	);
 	?>
-<?php
+	<?php
 	// Curated 5-slot bottom bar. Kept data-driven so Settings → Navigation
 	// (mobile scope) can hide/relabel the slots whose slug it controls
 	// (feed/spaces/notifications) via the buddynext_mobile_nav_items filter —
@@ -164,40 +164,114 @@ if ( $bn_nav_current_user ) :
 	 * @param string                         $active Active section key.
 	 */
 	$bn_mobile_items = (array) apply_filters( 'buddynext_mobile_nav_items', $bn_mobile_items, $bn_nav_active );
+
+	// Split the visible bar slots from any "overflow" entries (admin-created
+	// custom tabs flagged by NavOverrides::apply_mobile_items). The bar is a fixed
+	// 5-slot strip with a centred Create button, so custom tabs never get their own
+	// slot: when present, the Profile slot folds into a "More" sheet and a "More"
+	// toggle takes the 5th slot. With no custom tabs the bar is unchanged.
+	$bn_bar_items      = array();
+	$bn_overflow_items = array();
+	foreach ( $bn_mobile_items as $bn_m_item ) {
+		if ( ! is_array( $bn_m_item ) || empty( $bn_m_item['show'] ) ) {
+			continue;
+		}
+		if ( ! empty( $bn_m_item['overflow'] ) ) {
+			$bn_overflow_items[] = $bn_m_item;
+		} else {
+			$bn_bar_items[] = $bn_m_item;
+		}
+	}
+	if ( $bn_overflow_items ) {
+		foreach ( $bn_bar_items as $bn_i => $bn_it ) {
+			if ( 'profile' === (string) ( $bn_it['key'] ?? '' ) ) {
+				array_unshift( $bn_overflow_items, $bn_it );
+				unset( $bn_bar_items[ $bn_i ] );
+				break;
+			}
+		}
+		$bn_bar_items   = array_values( $bn_bar_items );
+		$bn_bar_items[] = array(
+			'key'   => 'more',
+			'type'  => 'more',
+			'icon'  => 'more-horizontal',
+			'label' => __( 'More', 'buddynext' ),
+			'show'  => true,
+		);
+	}
 	?>
 <nav class="bn-mobile-nav"
 	aria-label="<?php esc_attr_e( 'Mobile navigation', 'buddynext' ); ?>"
 	data-wp-interactive="buddynext/notifications"
 	data-wp-context='<?php echo esc_attr( (string) $bn_nav_context ); ?>'>
 	<?php
-	foreach ( $bn_mobile_items as $bn_m_item ) :
-		if ( ! is_array( $bn_m_item ) || empty( $bn_m_item['show'] ) ) {
-			continue;
-		}
+	foreach ( $bn_bar_items as $bn_m_item ) :
 		$bn_m_key    = (string) ( $bn_m_item['key'] ?? '' );
 		$bn_m_create = isset( $bn_m_item['type'] ) && 'create' === $bn_m_item['type'];
+		$bn_m_more   = isset( $bn_m_item['type'] ) && 'more' === $bn_m_item['type'];
 		$bn_m_badge  = ! empty( $bn_m_item['badge'] );
-		$bn_m_active = ! $bn_m_create && '' !== $bn_m_key && $bn_m_key === $bn_nav_active;
+		$bn_m_active = ! $bn_m_create && ! $bn_m_more && '' !== $bn_m_key && $bn_m_key === $bn_nav_active;
 		$bn_m_class  = 'bn-mobile-nav__item'
 			. ( $bn_m_create ? ' bn-mobile-nav__item--create' : '' )
+			. ( $bn_m_more ? ' bn-mobile-nav__item--more' : '' )
 			. ( $bn_m_active ? ' bn-mobile-nav__item--active' : '' );
-		?>
-		<a href="<?php echo esc_url( (string) ( $bn_m_item['url'] ?? '#' ) ); ?>"
-			class="<?php echo esc_attr( $bn_m_class ); ?>"
-			<?php echo $bn_m_create ? 'aria-label="' . esc_attr( (string) $bn_m_item['label'] ) . '"' : ''; ?>>
-			<?php buddynext_icon( (string) ( $bn_m_item['icon'] ?? 'home' ) ); ?>
-			<?php if ( $bn_m_badge ) : ?>
-				<span class="bn-mobile-nav__badge"
-					data-wp-bind--hidden="state.badgeHidden"
-					data-wp-text="state.unreadLabel"
-					<?php echo 0 === $bn_unread_notifs ? 'hidden' : ''; ?>>
-					<?php echo esc_html( $bn_badge_label ); ?>
-				</span>
-			<?php endif; ?>
-			<?php if ( ! $bn_m_create ) : ?>
-				<span><?php echo esc_html( (string) ( $bn_m_item['label'] ?? '' ) ); ?></span>
-			<?php endif; ?>
-		</a>
-	<?php endforeach; ?>
+
+		if ( $bn_m_more ) :
+			?>
+			<button type="button"
+				class="<?php echo esc_attr( $bn_m_class ); ?>"
+				aria-haspopup="true"
+				aria-expanded="false"
+				aria-controls="bn-mobile-more"
+				data-bn-more-toggle>
+				<?php buddynext_icon( 'more-horizontal' ); ?>
+				<span><?php echo esc_html( (string) $bn_m_item['label'] ); ?></span>
+			</button>
+			<?php
+		else :
+			?>
+			<a href="<?php echo esc_url( (string) ( $bn_m_item['url'] ?? '#' ) ); ?>"
+				class="<?php echo esc_attr( $bn_m_class ); ?>"
+				<?php echo $bn_m_create ? 'aria-label="' . esc_attr( (string) $bn_m_item['label'] ) . '"' : ''; ?>>
+				<?php buddynext_icon( (string) ( $bn_m_item['icon'] ?? 'home' ) ); ?>
+				<?php if ( $bn_m_badge ) : ?>
+					<span class="bn-mobile-nav__badge"
+						data-wp-bind--hidden="state.badgeHidden"
+						data-wp-text="state.unreadLabel"
+						<?php echo 0 === $bn_unread_notifs ? 'hidden' : ''; ?>>
+						<?php echo esc_html( $bn_badge_label ); ?>
+					</span>
+				<?php endif; ?>
+				<?php if ( ! $bn_m_create ) : ?>
+					<span><?php echo esc_html( (string) ( $bn_m_item['label'] ?? '' ) ); ?></span>
+				<?php endif; ?>
+			</a>
+			<?php
+		endif;
+	endforeach;
+	?>
 </nav>
+	<?php if ( $bn_overflow_items ) : ?>
+	<div class="bn-mobile-more-backdrop" data-bn-more-close hidden></div>
+	<div class="bn-mobile-more" id="bn-mobile-more" role="dialog" aria-modal="true"
+		aria-label="<?php esc_attr_e( 'More navigation', 'buddynext' ); ?>" hidden>
+		<div class="bn-mobile-more__head">
+			<span class="bn-mobile-more__title"><?php esc_html_e( 'More', 'buddynext' ); ?></span>
+			<button type="button" class="bn-mobile-more__close"
+				aria-label="<?php esc_attr_e( 'Close', 'buddynext' ); ?>" data-bn-more-close>
+				<?php buddynext_icon( 'x' ); ?>
+			</button>
+		</div>
+		<ul class="bn-mobile-more__list">
+			<?php foreach ( $bn_overflow_items as $bn_ov ) : ?>
+				<li>
+					<a class="bn-mobile-more__link" href="<?php echo esc_url( (string) ( $bn_ov['url'] ?? '#' ) ); ?>">
+						<?php buddynext_icon( (string) ( $bn_ov['icon'] ?? 'link' ) ); ?>
+						<span><?php echo esc_html( (string) ( $bn_ov['label'] ?? '' ) ); ?></span>
+					</a>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+	</div>
+	<?php endif; ?>
 <?php endif; ?>

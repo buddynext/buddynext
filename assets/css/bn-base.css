@@ -745,6 +745,88 @@
 		padding: 0 3px;
 		line-height: 1;
 	}
+	/* "More" overflow sheet — opened from the 5th bar slot when admin-created
+	   custom tabs exist. Folds the Profile shortcut + custom tabs into a
+	   bottom sheet so the fixed 5-slot bar (centre Create) stays intact. */
+	.bn-mobile-more-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 9600;
+		background: rgba(0, 0, 0, 0.4);
+		animation: bn-more-fade 0.18s ease;
+	}
+	.bn-mobile-more-backdrop[hidden] { display: none; }
+	.bn-mobile-more {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 9700;
+		background: var(--surface);
+		border-top-left-radius: var(--r-lg);
+		border-top-right-radius: var(--r-lg);
+		box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.18);
+		padding: var(--s2) var(--s4) calc(var(--s4) + env(safe-area-inset-bottom, 0px));
+		animation: bn-more-slide-up 0.22s ease;
+	}
+	.bn-mobile-more[hidden] { display: none; }
+	.bn-mobile-more__head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--s2) 0 var(--s3);
+		border-bottom: 1px solid var(--border-soft);
+	}
+	.bn-mobile-more__title {
+		font-family: var(--font-display);
+		font-size: var(--text-base);
+		font-weight: var(--fw-semibold);
+		color: var(--text-1);
+	}
+	.bn-mobile-more__close {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		border: none;
+		border-radius: var(--r-full);
+		background: var(--bg-subtle);
+		color: var(--text-2);
+		cursor: pointer;
+	}
+	.bn-mobile-more__close svg { width: 18px; height: 18px; }
+	.bn-mobile-more__list {
+		list-style: none;
+		margin: 0;
+		padding: var(--s2) 0 0;
+	}
+	.bn-mobile-more__link {
+		display: flex;
+		align-items: center;
+		gap: var(--s3);
+		padding: var(--s3) var(--s1);
+		font-size: var(--text-md);
+		color: var(--text-1);
+		text-decoration: none;
+		border-radius: var(--r-md);
+	}
+	.bn-mobile-more__link:hover,
+	.bn-mobile-more__link:focus { background: var(--bg-hover); }
+	.bn-mobile-more__link svg {
+		width: 20px;
+		height: 20px;
+		stroke: var(--text-2);
+		flex: 0 0 auto;
+	}
+	@keyframes bn-more-fade {
+		from { opacity: 0; }
+		to   { opacity: 1; }
+	}
+	@keyframes bn-more-slide-up {
+		from { transform: translateY(100%); }
+		to   { transform: translateY(0); }
+	}
 	/* Add bottom padding to page content so it doesn't hide behind the nav */
 	.bn-hub-shell,
 	.bn-profile-container { padding-bottom: 72px; }
