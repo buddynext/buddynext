@@ -45,12 +45,24 @@ $cover_url    = buddynext_user_cover_url( $user_id );
 $display_name = $profile_user->display_name;
 $joined       = gmdate( 'M Y', strtotime( $profile_user->user_registered ) );
 
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$follower_count   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d", $user_id ) );
-$following_count  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d", $user_id ) );
-$connection_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_connections WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted'", $user_id, $user_id ) );
-$post_count       = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published'", $user_id ) );
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+$bn_follow_svc = buddynext_service( 'follows' );
+$bn_conn_svc   = buddynext_service( 'connections' );
+
+// Counts come from the cache-backed service methods (one wp_cache lookup each,
+// shared with every other surface) rather than per-view uncached COUNT()s. The
+// service counts also filter status correctly — follower/following count only
+// 'approved' edges, where the old raw query also counted pending requests.
+$follower_count   = $bn_follow_svc->follower_count( $user_id );
+$following_count  = $bn_follow_svc->following_count( $user_id );
+$connection_count = $bn_conn_svc->connection_count( $user_id );
+
+// Published-post count is a single index-covered COUNT (the bn_posts user_feed
+// key on (user_id, status, created_at) serves it). It is intentionally not
+// cached: a user post count changes across nine create/delete/status-change
+// write paths, so a cache would need invalidation in all of them and risk a
+// stale count — not worth it for one cheap indexed query.
+// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+$post_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published'", $user_id ) );
 
 // --- Social-graph member lists for the in-page Followers / Following /
 // Connections tabs (rendered inside the same profile shell, not as separate
@@ -58,8 +70,6 @@ $post_count       = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM 
 $bn_pf_ids_to_users   = static function ( array $ids ): array {
 	return array_values( array_filter( array_map( static fn( $id ) => get_userdata( (int) $id ), $ids ) ) );
 };
-$bn_follow_svc        = buddynext_service( 'follows' );
-$bn_conn_svc          = buddynext_service( 'connections' );
 $follower_users       = $bn_pf_ids_to_users( array_slice( $bn_follow_svc->followers( $user_id ), 0, 60 ) );
 $following_users      = $bn_pf_ids_to_users( array_slice( $bn_follow_svc->following( $user_id ), 0, 60 ) );
 $connection_users     = $bn_pf_ids_to_users( $bn_conn_svc->connections( $user_id, 60, 0 ) );
