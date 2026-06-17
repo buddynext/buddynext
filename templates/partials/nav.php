@@ -55,27 +55,15 @@ if ( empty( $bn_nav_active ) ) {
 	$bn_nav_active = isset( $bn_map[ $bn_hub_var ] ) ? $bn_map[ $bn_hub_var ] : '';
 }
 
-// ── Unread notifications count (cached 60 s per user) ───────────────────────
+// ── Unread notifications count ──────────────────────────────────────────────
+// Read through NotificationService::unread_count() — the one cache-backed
+// source the bell / rail / title also use. nav.php previously ran its own raw
+// COUNT under a separate cache key (buddynext_nav), so the unread count was
+// queried twice on every hub render.
 $bn_nav_current_user = get_current_user_id();
-$bn_unread_notifs    = 0;
-
-if ( $bn_nav_current_user ) {
-	global $wpdb;
-	$notif_cache_key = "bn_unread_notifs_{$bn_nav_current_user}";
-	$cached_notifs   = wp_cache_get( $notif_cache_key, 'buddynext_nav' );
-	if ( false === $cached_notifs ) {
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$cached_notifs = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND is_read = 0",
-				$bn_nav_current_user
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		wp_cache_set( $notif_cache_key, $cached_notifs, 'buddynext_nav', 60 );
-	}
-	$bn_unread_notifs = (int) $cached_notifs;
-}
+$bn_unread_notifs    = $bn_nav_current_user
+	? (int) buddynext_service( 'notifications' )->unread_count( $bn_nav_current_user )
+	: 0;
 
 /**
  * Level 2 Context Nav — per-section sub-navigation.
