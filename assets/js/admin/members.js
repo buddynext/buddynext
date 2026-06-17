@@ -65,6 +65,8 @@
 		var bodyEl    = modal.querySelector( '[data-bn-confirm-body]' );
 		var confirmEl = modal.querySelector( '[data-bn-confirm-accept]' );
 		var cancelEls = modal.querySelectorAll( '[data-bn-confirm-cancel]' );
+		var reasonWrap  = modal.querySelector( '[data-bn-confirm-reason-wrap]' );
+		var reasonField = modal.querySelector( '[data-bn-confirm-reason-field]' );
 
 		var pendingForm = null;
 
@@ -76,6 +78,14 @@
 			if ( titleEl ) { titleEl.textContent = title; }
 			if ( bodyEl )  { bodyEl.textContent = body; }
 			if ( confirmEl && label ) { confirmEl.textContent = label; }
+			// Optional reason field — shown only for forms that opt in
+			// (data-bn-confirm-reason). Reset on every open so a prior entry
+			// doesn't leak into the next action.
+			if ( reasonWrap ) {
+				var wantsReason = form.getAttribute( 'data-bn-confirm-reason' ) === '1';
+				reasonWrap.hidden = ! wantsReason;
+				if ( reasonField ) { reasonField.value = ''; }
+			}
 			backdrop.hidden = false;
 			if ( confirmEl ) {
 				window.setTimeout( function () { confirmEl.focus(); }, 0 );
@@ -100,6 +110,18 @@
 		if ( confirmEl ) {
 			confirmEl.addEventListener( 'click', function () {
 				if ( pendingForm ) {
+					// Carry the optional reason into the submitting form as a hidden
+					// field so the server handler can persist it.
+					if ( reasonWrap && ! reasonWrap.hidden && reasonField ) {
+						var hidden = pendingForm.querySelector( 'input[name="reason"]' );
+						if ( ! hidden ) {
+							hidden = document.createElement( 'input' );
+							hidden.type = 'hidden';
+							hidden.name = 'reason';
+							pendingForm.appendChild( hidden );
+						}
+						hidden.value = reasonField.value;
+					}
 					pendingForm.dataset.bnConfirmed = '1';
 					pendingForm.submit();
 				}

@@ -280,7 +280,7 @@ class Members extends AdminPageBase {
 	 * @param int $user_id WordPress user ID.
 	 * @return void
 	 */
-	public function suspend_member( int $user_id ): void {
+	public function suspend_member( int $user_id, string $reason = '' ): void {
 		update_user_meta( $user_id, 'bn_suspended', '1' );
 
 		global $wpdb;
@@ -290,7 +290,7 @@ class Members extends AdminPageBase {
 			array(
 				'user_id'      => $user_id,
 				'suspended_by' => get_current_user_id(),
-				'reason'       => '',
+				'reason'       => $reason,
 				'hide_posts'   => 0,
 			),
 			array( '%d', '%d', '%s', '%d' )
@@ -308,7 +308,7 @@ class Members extends AdminPageBase {
 		 * @param string $reason      Reason string (empty for panel suspensions).
 		 * @param null   $expires_at  NULL = indefinite suspension.
 		 */
-		do_action( 'buddynext_user_suspended', $user_id, $actor_id, '', null );
+		do_action( 'buddynext_user_suspended', $user_id, $actor_id, $reason, null );
 
 		/**
 		 * Legacy hook — kept for backwards compatibility with third-party listeners.
@@ -415,8 +415,9 @@ class Members extends AdminPageBase {
 		check_admin_referer( 'bn_suspend_member' );
 
 		$user_id = absint( wp_unslash( $_POST['user_id'] ?? 0 ) );
+		$reason  = isset( $_POST['reason'] ) ? sanitize_textarea_field( wp_unslash( $_POST['reason'] ) ) : '';
 		if ( $user_id > 0 ) {
-			$this->suspend_member( $user_id );
+			$this->suspend_member( $user_id, $reason );
 		}
 
 		wp_safe_redirect(
@@ -1050,13 +1051,9 @@ class Members extends AdminPageBase {
 													<form method="post"
 														action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 														data-bn-confirm="1"
+														data-bn-confirm-reason="1"
 														data-bn-confirm-title="<?php esc_attr_e( 'Suspend this member?', 'buddynext' ); ?>"
-														data-bn-confirm-body="
-														<?php
-															/* translators: %s: member display name */
-															echo esc_attr( sprintf( __( 'Suspend %s? They will lose posting access until the suspension is lifted.', 'buddynext' ), $member['display'] ) );
-														?>
-														"
+														data-bn-confirm-body="<?php /* translators: %s: member display name */ echo esc_attr( sprintf( __( 'Suspend %s? They will lose posting access until the suspension is lifted.', 'buddynext' ), $member['display'] ) ); ?>"
 														data-bn-confirm-label="<?php esc_attr_e( 'Suspend member', 'buddynext' ); ?>">
 														<input type="hidden" name="action" value="bn_suspend_member">
 														<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">
@@ -1129,6 +1126,10 @@ class Members extends AdminPageBase {
 				</div>
 				<div class="bn-modal__body" data-bn-confirm-body>
 					<?php esc_html_e( 'Are you sure?', 'buddynext' ); ?>
+				</div>
+				<div class="bn-field bn-modal__reason" data-bn-confirm-reason-wrap hidden>
+					<label class="bn-label" for="bn-members-confirm-reason"><?php esc_html_e( 'Reason (optional, shown in the moderation log)', 'buddynext' ); ?></label>
+					<textarea id="bn-members-confirm-reason" class="bn-textarea" rows="3" data-bn-confirm-reason-field></textarea>
 				</div>
 				<div class="bn-modal__foot">
 					<button type="button" class="bn-btn" data-variant="ghost" data-bn-confirm-cancel>
