@@ -52,6 +52,15 @@ if ( 0 === (int) $args['bn_post_id'] ) {
 	return;
 }
 
+// Suppress the whole control (kebab + dropdown) when no action qualifies for
+// this viewer/post. A three-dot toggle that opens an empty menu reads as
+// "the menu doesn't open" — so when Edit/Pin/Report/Delete all gate out (e.g. a
+// viewer with no rights over a tool/service-generated activity), render nothing
+// rather than a dead affordance.
+if ( empty( $args['can_edit'] ) && empty( $args['can_pin'] ) && empty( $args['can_report'] ) && empty( $args['can_delete'] ) ) {
+	return;
+}
+
 $bn_classes = array_merge( array( 'bn-post-card__menu-wrap' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */
 $bn_classes = (array) apply_filters( 'buddynext_part_post_options_menu_classes', $bn_classes, $args );
