@@ -312,7 +312,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 			</button>
 			<?php endif; ?>
 
-			<?php if ( (bool) get_option( 'buddynext_allow_polls', true ) ) : ?>
+			<?php if ( '0' !== (string) get_option( 'buddynext_allow_polls', '1' ) ) : ?>
 			<button class="bn-composer__tool"
 				type="button"
 				data-wp-bind--aria-pressed="state.isPoll"

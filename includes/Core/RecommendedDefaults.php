@@ -43,9 +43,9 @@ class RecommendedDefaults {
 		'buddynext_default_dm_access'          => 'members',
 		// Activity feed engagement surfaces.
 		'buddynext_default_post_privacy'       => 'public',
-		'buddynext_allow_polls'                => true,
-		'buddynext_allow_shares'               => true,
-		'buddynext_allow_bookmarks'            => true,
+		'buddynext_allow_polls'                => '1',
+		'buddynext_allow_shares'               => '1',
+		'buddynext_allow_bookmarks'            => '1',
 		'buddynext_enable_link_preview'        => true,
 		'buddynext_enable_emoji_picker'        => true,
 		// Integrations — surface Jetonomy discussions in the feed out of the box.

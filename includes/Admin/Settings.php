@@ -63,9 +63,9 @@ class Settings extends AdminPageBase {
 
 		// Social.
 		'buddynext_default_post_privacy'       => array( 'string', 'sanitize_key' ),
-		'buddynext_allow_polls'                => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_allow_shares'               => array( 'boolean', 'rest_sanitize_boolean' ),
-		'buddynext_allow_bookmarks'            => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_allow_polls'                => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
+		'buddynext_allow_shares'               => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
+		'buddynext_allow_bookmarks'            => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
 		'buddynext_enable_link_preview'        => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_enable_emoji_picker'        => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_post_edit_window'           => array( 'integer', 'absint' ),
@@ -1434,21 +1434,21 @@ class Settings extends AdminPageBase {
 			'buddynext_allow_polls',
 			__( 'Allow polls', 'buddynext' ),
 			__( 'Members can attach a poll to their posts.', 'buddynext' ),
-			(bool) get_option( 'buddynext_allow_polls', true )
+			'0' !== (string) get_option( 'buddynext_allow_polls', '1' )
 		);
 
 		$this->render_toggle_row(
 			'buddynext_allow_shares',
 			__( 'Allow re-shares', 'buddynext' ),
 			__( 'Members can share other members\' posts to their own feed.', 'buddynext' ),
-			(bool) get_option( 'buddynext_allow_shares', true )
+			'0' !== (string) get_option( 'buddynext_allow_shares', '1' )
 		);
 
 		$this->render_toggle_row(
 			'buddynext_allow_bookmarks',
 			__( 'Allow bookmarks', 'buddynext' ),
 			__( 'Members can save posts to a private bookmarks list.', 'buddynext' ),
-			(bool) get_option( 'buddynext_allow_bookmarks', true )
+			'0' !== (string) get_option( 'buddynext_allow_bookmarks', '1' )
 		);
 
 		$this->render_toggle_row(
