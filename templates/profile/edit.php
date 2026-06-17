@@ -59,7 +59,11 @@ if ( ! $initials ) {
 }
 
 $avatar_url = get_avatar_url( $user_id, array( 'size' => 192 ) );
-$cover_url  = (string) get_user_meta( $user_id, 'buddynext_cover_url', true );
+// Resolve through the shared helper (uploaded cover -> site default -> '') so the
+// edit screen matches what the profile view + directory show; reading the raw
+// usermeta here left a user with no upload looking at the bare gradient even when
+// a site-wide default cover is configured.
+$cover_url  = (string) buddynext_user_cover_url( $user_id );
 
 // Whether the user has a *custom* uploaded avatar (vs the generated initials /
 // Gravatar fallback). Drives the "Remove photo" control — there is nothing to
