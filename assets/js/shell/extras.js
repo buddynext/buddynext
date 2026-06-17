@@ -329,6 +329,27 @@
 		} );
 	}() );
 
+	// ── Horizontal tab strips: wheel-to-scroll ─────────────────────────────
+	// .bn-tabs strips scroll horizontally when they overflow (CSS overflow-x:
+	// auto) and a scroll-driven edge fade hints there is more. But a mouse wheel
+	// only scrolls vertically, so desktop mouse users could not reach tabs past
+	// the fade (keyboard users already get auto-scroll on focus, trackpad users
+	// get native horizontal scroll). Translate vertical wheel intent into
+	// horizontal scroll while the strip can still move; release to the page at
+	// the ends so the surrounding scroll never feels stuck.
+	document.addEventListener( 'wheel', function ( e ) {
+		var strip = e.target.closest && e.target.closest( '.bn-tabs' );
+		if ( ! strip ) return;
+		if ( strip.scrollWidth <= strip.clientWidth ) return;
+		// Defer to genuine horizontal intent (trackpad) — only remap vertical.
+		if ( Math.abs( e.deltaY ) <= Math.abs( e.deltaX ) ) return;
+		var atStart = strip.scrollLeft <= 0;
+		var atEnd   = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 1;
+		if ( ( e.deltaY < 0 && atStart ) || ( e.deltaY > 0 && atEnd ) ) return;
+		strip.scrollLeft += e.deltaY;
+		e.preventDefault();
+	}, { passive: false } );
+
 	// ── User hover card ────────────────────────────────────────────────────
 	( function () {
 		var card = null;
