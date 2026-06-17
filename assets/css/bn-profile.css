@@ -864,6 +864,15 @@
 	outline: none;
 }
 
+/* On the owner's own avatar the edit pencil sits bottom-right, where the
+   presence dot (.bn-avatar[data-presence]::after) also renders — they collide.
+   Move the dot to the top-right corner when the edit affordance is present so
+   both stay legible. */
+.bn-pf-avatar-wrap:has( .bn-pf-avatar-edit ) .bn-avatar[data-presence]::after {
+	top: 0;
+	bottom: auto;
+}
+
 .bn-pf-id {
 	padding-block-start: var(--bn-s4);
 	min-width: 0;
