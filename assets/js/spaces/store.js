@@ -2813,6 +2813,25 @@ document.addEventListener( 'keydown', function ( event ) {
 				if ( empty ) { empty.hidden = false; }
 				if ( removeBtn ) { removeBtn.hidden = true; }
 			}
+
+			// Keep the page header cover in sync with the form preview so the change
+			// is visible immediately, without a reload. The header markup carries an
+			// <img> only when a cover is set (templates/spaces/settings.php).
+			var headerCover = document.querySelector( '.bn-sh-cover' );
+			if ( headerCover ) {
+				var headerImg = headerCover.querySelector( 'img' );
+				if ( url ) {
+					if ( ! headerImg ) {
+						headerImg = document.createElement( 'img' );
+						headerImg.alt = '';
+						headerImg.loading = 'lazy';
+						headerCover.appendChild( headerImg );
+					}
+					headerImg.src = url;
+				} else if ( headerImg ) {
+					headerImg.remove();
+				}
+			}
 		}
 
 		function choose() {
