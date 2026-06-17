@@ -25,6 +25,21 @@
 
 	// ── Toast helper ───────────────────────────────────────────────────────
 	window.bnToast = function ( msg, type ) {
+		// Accept a tone string — bnToast(msg, 'success') — or an options object —
+		// bnToast(msg, { tone }). Map to one of the four real toast classes
+		// (error/success/info/warning); 'danger'/'warn' are aliases that would
+		// otherwise emit undefined classes and render neutral.
+		var tone = ( 'string' === typeof type ) ? type : ( type && type.tone ) || '';
+		var cls  = '';
+		if ( 'success' === tone ) {
+			cls = 'bn-toast--success';
+		} else if ( 'danger' === tone || 'error' === tone ) {
+			cls = 'bn-toast--error';
+		} else if ( 'warn' === tone || 'warning' === tone ) {
+			cls = 'bn-toast--warning';
+		} else if ( 'info' === tone ) {
+			cls = 'bn-toast--info';
+		}
 		var c = document.querySelector( '.bn-toast-container' );
 		if ( ! c ) {
 			c = document.createElement( 'div' );
@@ -32,7 +47,7 @@
 			document.body.appendChild( c );
 		}
 		var t = document.createElement( 'div' );
-		t.className = 'bn-toast' + ( type ? ' bn-toast--' + type : '' );
+		t.className = 'bn-toast' + ( cls ? ' ' + cls : '' );
 		t.textContent = msg;
 		c.appendChild( t );
 		setTimeout( function () { t.remove(); }, 3000 );

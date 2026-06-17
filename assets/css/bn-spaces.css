@@ -2098,7 +2098,7 @@ a.bn-sh-statpill:focus-visible {
 	.bn-sh-hero__emblem {
 		width: 72px;
 		height: 72px;
-		margin-block-start: calc(-1 * var(--bn-s7));
+		margin-block-start: calc(-1 * var(--bn-s6));
 	}
 
 	.bn-sh-hero__emblem svg {
@@ -2344,7 +2344,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-create-space-form__hint {
 	font-size: 12px;
-	color: var(--bn-text-muted, #6b7280);
+	color: var(--bn-ink-3);
 	margin: 0;
 }
 
@@ -2497,12 +2497,12 @@ a.bn-sh-statpill:focus-visible {
 	font-size: var(--bn-text-xl);
 	font-weight: 700;
 	line-height: 1.1;
-	color: var(--bn-text, #111827);
+	color: var(--bn-ink);
 }
 
 .bn-sh-moderation__stat-label {
 	font-size: var(--bn-text-xs);
-	color: var(--bn-text-muted, #6b7280);
+	color: var(--bn-ink-3);
 }
 
 @media (max-width: 640px) {
@@ -2544,7 +2544,7 @@ a.bn-sh-statpill:focus-visible {
 
 .bn-space-settings__upsell-desc {
 	margin: 0 0 var(--bn-s3);
-	color: var(--bn-text-muted, #6b7280);
+	color: var(--bn-ink-3);
 }
 
 .bn-modal__error {
@@ -2607,11 +2607,11 @@ a.bn-sh-statpill:focus-visible {
 }
 
 .bn-space-settings__savebar-status--dirty {
-	color: var(--bn-text);
+	color: var(--bn-ink);
 }
 
 .bn-space-settings__savebar-status--saving {
-	color: var(--bn-text-muted, #6b7280);
+	color: var(--bn-ink-3);
 }
 
 .bn-space-settings__savebar-status--saved {
@@ -2630,7 +2630,7 @@ a.bn-sh-statpill:focus-visible {
 	height: 12px;
 	border-radius: 50%;
 	border: 2px solid var(--bn-line);
-	border-block-start-color: var(--bn-text);
+	border-block-start-color: var(--bn-ink);
 	animation: bn-space-settings-savebar-spin 0.8s linear infinite;
 }
 

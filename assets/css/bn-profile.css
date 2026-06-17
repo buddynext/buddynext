@@ -2888,7 +2888,7 @@ button.bn-pf-pill:hover,
 	padding: var(--bn-s2) var(--bn-s3);
 	background: var(--bn-surface-2, var(--bn-canvas));
 	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-radius, 8px);
+	border-radius: var(--bn-r-md);
 	word-break: break-all;
 	user-select: all;
 }
@@ -2902,7 +2902,7 @@ button.bn-pf-pill:hover,
 	gap: var(--bn-s2);
 	background: var(--bn-surface-2, var(--bn-canvas));
 	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-radius, 8px);
+	border-radius: var(--bn-r-md);
 }
 
 .bn-2fa-codes li {

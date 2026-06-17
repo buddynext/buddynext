@@ -379,7 +379,10 @@ export function bnReportDialog( opts ) {
  * @return {void}
  */
 export function bnToast( message, opts ) {
-	const cfg     = opts || {};
+	// Accept either a tone string — bnToast(msg, 'success') — or an options
+	// object — bnToast(msg, { tone, timeout }). Both call styles exist across
+	// the app, so normalise here instead of forcing one at every call site.
+	const cfg     = ( 'string' === typeof opts ) ? { tone: opts } : ( opts || {} );
 	const tone    = cfg.tone || 'info';
 	const timeout = typeof cfg.timeout === 'number' ? cfg.timeout : 3000;
 
@@ -392,10 +395,15 @@ export function bnToast( message, opts ) {
 
 	const toast = document.createElement( 'div' );
 	toast.className = 'bn-toast';
-	if ( tone === 'success' ) {
+	// Map tone to one of the four real toast classes (error/success/info/warning).
+	if ( 'success' === tone ) {
 		toast.classList.add( 'bn-toast--success' );
-	} else if ( tone === 'danger' || tone === 'warn' ) {
+	} else if ( 'danger' === tone || 'error' === tone ) {
 		toast.classList.add( 'bn-toast--error' );
+	} else if ( 'warn' === tone || 'warning' === tone ) {
+		toast.classList.add( 'bn-toast--warning' );
+	} else if ( 'info' === tone ) {
+		toast.classList.add( 'bn-toast--info' );
 	}
 	toast.setAttribute( 'role', 'status' );
 	toast.setAttribute( 'aria-live', 'polite' );
