@@ -796,12 +796,13 @@ class NavManager extends AdminPageBase {
 				'capability'  => 'read',
 			),
 			array(
-				'slug'        => 'messages',
-				'label'       => __( 'Messages', 'buddynext' ),
-				'order'       => 50,
-				'icon'        => 'tab-messages',
-				'description' => __( 'Direct messages badge', 'buddynext' ),
-				'capability'  => 'read',
+				'slug'            => 'messages',
+				'label'           => __( 'Messages', 'buddynext' ),
+				'order'           => 50,
+				'icon'            => 'tab-messages',
+				'description'     => __( 'Direct messages badge', 'buddynext' ),
+				'capability'      => 'read',
+				'requires_plugin' => 'WPMediaVerse',
 			),
 		);
 	}
@@ -1044,12 +1045,19 @@ class NavManager extends AdminPageBase {
 		$hidden  = ! empty( $tab['hidden'] );
 		$is_core = empty( $tab['custom'] );
 		$row_id  = 'bn-row-' . $scope . '-' . $slug;
+
+		// A tab that depends on another plugin (e.g. Messages → WPMediaVerse) is
+		// rendered disabled with an explanatory note when that plugin is not
+		// active — the option is unavailable, so the owner cannot configure it.
+		$requires    = (string) ( $tab['requires_plugin'] ?? '' );
+		$dep_missing = '' !== $requires && ! \BuddyNext\Messages\MessagesData::available();
 		?>
 		<li class="bn-drag-row"
 			data-slug="<?php echo esc_attr( $slug ); ?>"
 			data-scope="<?php echo esc_attr( $scope ); ?>"
 			id="<?php echo esc_attr( $row_id ); ?>"
-			<?php echo $hidden ? 'data-row-hidden' : ''; ?>>
+			<?php echo $hidden ? 'data-row-hidden' : ''; ?>
+			<?php echo $dep_missing ? ' data-row-dependency' : ''; ?>>
 
 			<input type="hidden"
 					name="bn_nav_slug[<?php echo esc_attr( $scope ); ?>][<?php echo esc_attr( (string) $idx ); ?>]"
@@ -1076,8 +1084,35 @@ class NavManager extends AdminPageBase {
 					<?php else : ?>
 						<span class="bn-badge" data-tone="accent"><?php esc_html_e( 'Custom', 'buddynext' ); ?></span>
 					<?php endif; ?>
+					<?php if ( $dep_missing ) : ?>
+						<span class="bn-badge" data-tone="warn">
+							<?php
+							echo esc_html(
+								sprintf(
+									/* translators: %s: required plugin name */
+									__( 'Requires %s', 'buddynext' ),
+									$requires
+								)
+							);
+							?>
+						</span>
+					<?php endif; ?>
 				</div>
-				<div class="bn-nav-row-desc"><?php echo esc_html( (string) ( $tab['description'] ?? '' ) ); ?></div>
+				<div class="bn-nav-row-desc">
+					<?php
+					if ( $dep_missing ) {
+						echo esc_html(
+							sprintf(
+								/* translators: %s: required plugin name */
+								__( 'Unavailable — install and activate the %s plugin to enable messaging.', 'buddynext' ),
+								$requires
+							)
+						);
+					} else {
+						echo esc_html( (string) ( $tab['description'] ?? '' ) );
+					}
+					?>
+				</div>
 			</div>
 
 			<div class="bn-drag-row__actions">
@@ -1090,16 +1125,26 @@ class NavManager extends AdminPageBase {
 					echo $this->svg( 'icon-config' );
 					?>
 				</button>
+				<?php
+				$toggle_title = $dep_missing
+					? sprintf(
+						/* translators: %s: required plugin name */
+						__( 'Requires the %s plugin', 'buddynext' ),
+						$requires
+					)
+					: ( $hidden ? __( 'Hidden, click to show', 'buddynext' ) : __( 'Visible, click to hide', 'buddynext' ) );
+				?>
 				<label class="bn-toggle-wrap"
-						title="<?php echo $hidden ? esc_attr__( 'Hidden, click to show', 'buddynext' ) : esc_attr__( 'Visible, click to hide', 'buddynext' ); ?>">
+						title="<?php echo esc_attr( $toggle_title ); ?>">
 					<input type="checkbox"
 							class="bn-toggle-input screen-reader-text"
 							name="bn_nav_visible[<?php echo esc_attr( $scope ); ?>][<?php echo esc_attr( $slug ); ?>]"
 							value="1"
-							<?php checked( ! $hidden ); ?>>
+							<?php checked( ! $hidden && ! $dep_missing ); ?>
+							<?php disabled( $dep_missing ); ?>>
 					<span class="bn-toggle"
 							role="switch"
-							aria-checked="<?php echo $hidden ? 'false' : 'true'; ?>"
+							aria-checked="<?php echo ( $hidden || $dep_missing ) ? 'false' : 'true'; ?>"
 							aria-hidden="true"></span>
 					<span class="screen-reader-text">
 						<?php echo $hidden ? esc_html__( 'Show tab', 'buddynext' ) : esc_html__( 'Hide tab', 'buddynext' ); ?>
@@ -1410,11 +1455,26 @@ class NavManager extends AdminPageBase {
 
 			$overrides = array();
 
+			// Whether the messaging engine (WPMediaVerse) is active. When it is
+			// not, the Messages row renders disabled and its visibility toggle is
+			// not posted — so deriving hidden from the absent toggle would wrongly
+			// persist hidden=true and keep Messages hidden even after the plugin
+			// is reactivated. Carry the prior override forward untouched instead.
+			$messaging_available = \BuddyNext\Messages\MessagesData::available();
+
 			foreach ( $scope_config as $slug => $cfg ) {
 				$slug = sanitize_key( (string) $slug );
 				if ( '' === $slug ) {
 					continue;
 				}
+
+				if ( 'messages' === $slug && ! $messaging_available ) {
+					if ( isset( $existing[ $slug ] ) ) {
+						$overrides[ $slug ] = (array) $existing[ $slug ];
+					}
+					continue;
+				}
+
 				$cfg = (array) $cfg;
 
 				$overrides[ $slug ] = array(
@@ -1609,12 +1669,13 @@ class NavManager extends AdminPageBase {
 				'capability'  => 'read',
 			),
 			array(
-				'slug'        => 'messages',
-				'label'       => __( 'Messages', 'buddynext' ),
-				'order'       => 40,
-				'icon'        => 'tab-messages',
-				'description' => __( 'Direct messages', 'buddynext' ),
-				'capability'  => 'read',
+				'slug'            => 'messages',
+				'label'           => __( 'Messages', 'buddynext' ),
+				'order'           => 40,
+				'icon'            => 'tab-messages',
+				'description'     => __( 'Direct messages', 'buddynext' ),
+				'capability'      => 'read',
+				'requires_plugin' => 'WPMediaVerse',
 			),
 			array(
 				'slug'        => 'notifications',
