@@ -31,11 +31,29 @@ $user_id = get_current_user_id();
 if ( class_exists( '\BuddyNext\Auth\SocialLogin' ) ) {
 	$bn_social_labels = \BuddyNext\Auth\SocialLogin::labels();
 	$bn_social_linked = \BuddyNext\Auth\SocialLogin::linked_for( $user_id );
-	$bn_social_any    = ! empty( (array) apply_filters( 'buddynext_auth_social_providers', array() ) ) || array_filter( $bn_social_linked );
+
+	// Ready (enabled + credentialed) provider ids, from the same seam the auth
+	// flow uses. Only these may render a Connect button — otherwise an unconfigured
+	// provider is a dead-end ("That sign-in method is not available.").
+	$bn_ready_ids = array();
+	foreach ( (array) apply_filters( 'buddynext_auth_social_providers', array() ) as $bn_ready_provider ) {
+		if ( is_array( $bn_ready_provider ) && isset( $bn_ready_provider['id'] ) ) {
+			$bn_ready_ids[ (string) $bn_ready_provider['id'] ] = true;
+		}
+	}
+
+	$bn_social_any = ! empty( $bn_ready_ids ) || array_filter( $bn_social_linked );
 	if ( ! empty( $bn_social_labels ) && $bn_social_any ) {
 		$bn_sc_html = '';
 		foreach ( $bn_social_labels as $bn_sp_id => $bn_sp_label ) {
-			$bn_linked   = ! empty( $bn_social_linked[ $bn_sp_id ] );
+			$bn_linked = ! empty( $bn_social_linked[ $bn_sp_id ] );
+
+			// Show a provider only when the member has it linked (always) or it is
+			// configured + ready to connect. Skip unconfigured, unlinked providers.
+			if ( ! $bn_linked && ! isset( $bn_ready_ids[ $bn_sp_id ] ) ) {
+				continue;
+			}
+
 			$bn_sc_html .= '<div class="bn-social-link" data-provider="' . esc_attr( $bn_sp_id ) . '">';
 			$bn_sc_html .= '<span class="bn-social-link__name">' . esc_html( $bn_sp_label ) . '</span>';
 			if ( $bn_linked ) {
