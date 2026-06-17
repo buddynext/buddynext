@@ -57,7 +57,11 @@ class IntegrationHub extends AdminPageBase {
 			'addons',
 			__( 'Addons', 'buddynext' ),
 			array( $this, 'render_page' ),
-			array( 'group' => __( 'Advanced', 'buddynext' ) )
+			array(
+				'group'    => __( 'Advanced', 'buddynext' ),
+				'subtitle' => $this->get_subtitle(),
+				'action'   => $this->build_stat_pills_html(),
+			)
 		);
 	}
 
@@ -98,49 +102,68 @@ class IntegrationHub extends AdminPageBase {
 	}
 
 	/**
-	 * Override page header to add integration stat pills.
+	 * Render only the page body.
+	 *
+	 * AdminHub paints the section H1 and the standardized sub-header bar
+	 * (subtitle + the addon stat pills, supplied via register_tab()), so this
+	 * screen must not reprint either. We override the base render_page() to skip
+	 * its subtitle paragraph and emit the body alone.
 	 *
 	 * @return void
 	 */
-	protected function render_page_header(): void {
-		// AdminHub owns the section H1. Render the subtitle + the addon stat
-		// pills as a strip directly below it.
+	public function render_page(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to view this page.', 'buddynext' ) );
+		}
+
+		$this->render_content();
+	}
+
+	/**
+	 * Build the integration status pills for the AdminHub sub-header action slot.
+	 *
+	 * Returns pre-built, fully escaped HTML — the Header API prints the `action`
+	 * string verbatim, so every value is escaped here before it leaves.
+	 *
+	 * @return string
+	 */
+	private function build_stat_pills_html(): string {
 		$addons       = $this->get_addons();
 		$active_count = count( array_filter( $addons, fn( array $a ) => $a['active'] ) );
 		$avail_count  = count( array_filter( $addons, fn( array $a ) => ! $a['active'] ) );
+
+		ob_start();
 		?>
-		<div class="bn-admin-hub__sub-row">
-			<p class="bn-admin-hub__subtitle"><?php echo esc_html( $this->get_subtitle() ); ?></p>
-			<div class="bn-ih-stats" aria-label="<?php esc_attr_e( 'Integration status summary', 'buddynext' ); ?>">
-				<?php if ( $active_count > 0 ) : ?>
-					<span class="bn-badge" data-tone="success">
-						<?php
-						echo esc_html(
-							sprintf(
-								/* translators: %d: number of active integrations */
-								_n( '%d Active', '%d Active', $active_count, 'buddynext' ),
-								$active_count
-							)
-						);
-						?>
-					</span>
-				<?php endif; ?>
-				<?php if ( $avail_count > 0 ) : ?>
-					<span class="bn-badge" data-tone="info">
-						<?php
-						echo esc_html(
-							sprintf(
-								/* translators: %d: number of not-installed integrations */
-								_n( '%d Not Installed', '%d Not Installed', $avail_count, 'buddynext' ),
-								$avail_count
-							)
-						);
-						?>
-					</span>
-				<?php endif; ?>
-			</div>
+		<div class="bn-ih-stats" aria-label="<?php esc_attr_e( 'Integration status summary', 'buddynext' ); ?>">
+			<?php if ( $active_count > 0 ) : ?>
+				<span class="bn-badge" data-tone="success">
+					<?php
+					echo esc_html(
+						sprintf(
+							/* translators: %d: number of active integrations */
+							_n( '%d Active', '%d Active', $active_count, 'buddynext' ),
+							$active_count
+						)
+					);
+					?>
+				</span>
+			<?php endif; ?>
+			<?php if ( $avail_count > 0 ) : ?>
+				<span class="bn-badge" data-tone="info">
+					<?php
+					echo esc_html(
+						sprintf(
+							/* translators: %d: number of not-installed integrations */
+							_n( '%d Not Installed', '%d Not Installed', $avail_count, 'buddynext' ),
+							$avail_count
+						)
+					);
+					?>
+				</span>
+			<?php endif; ?>
 		</div>
 		<?php
+		return (string) ob_get_clean();
 	}
 
 	// ── render_content ────────────────────────────────────────────────────────
@@ -263,7 +286,7 @@ class IntegrationHub extends AdminPageBase {
 			<?php endif; ?>
 
 			<div class="bn-addon-footer">
-				<a href="<?php echo esc_url( admin_url( 'admin.php?page=buddynext' ) ); ?>"
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=buddynext-platform&tab=integrations' ) ); ?>"
 					class="bn-btn"
 					data-variant="secondary"
 					data-size="md">

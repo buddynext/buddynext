@@ -110,6 +110,36 @@ class SpaceService {
 	}
 
 	/**
+	 * Space categories as an id => name map, ordered for admin pickers.
+	 *
+	 * @return array<int, string>
+	 */
+	public function get_categories(): array {
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results( "SELECT id, name FROM {$wpdb->prefix}bn_space_categories ORDER BY sort_order ASC, name ASC" );
+		$out  = array();
+		foreach ( (array) $rows as $row ) {
+			$out[ (int) $row->id ] = (string) $row->name;
+		}
+		return $out;
+	}
+
+	/**
+	 * Space categories as full hydrated rows, ordered for admin/directory use.
+	 *
+	 * Unlike get_categories() (id => name map), this returns the complete row
+	 * for each category — including colour, text colour, icon and directory
+	 * visibility — so the unified taxonomy editor and the front-end directory
+	 * can paint category colour.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function get_categories_full(): array {
+		return ( new SpaceCategoryService() )->get_all();
+	}
+
+	/**
 	 * Create a new space.
 	 *
 	 * @param int   $owner_id Creator/owner user ID.
@@ -137,12 +167,47 @@ class SpaceService {
 			return new WP_Error( 'slug_taken', __( 'This slug is already taken.', 'buddynext' ) );
 		}
 
-		$req_type = (string) ( $data['type'] ?? 'open' );
+		// Per-member space cap (Settings → Spaces → "Max spaces per member").
+		// 0 = unlimited. Admins are exempt so site operators are never blocked.
+		$max_per_member = (int) get_option( 'buddynext_space_max_per_member', 0 );
+		if ( $max_per_member > 0 && ! user_can( $owner_id, 'manage_options' ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$owned = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces WHERE owner_id = %d AND is_archived = 0",
+					$owner_id
+				)
+			);
+			if ( $owned >= $max_per_member ) {
+				return new WP_Error(
+					'max_spaces_per_member',
+					sprintf(
+						/* translators: %d: maximum number of spaces a member can create. */
+						__( 'You have reached the maximum of %d spaces.', 'buddynext' ),
+						$max_per_member
+					),
+					array( 'status' => 422 )
+				);
+			}
+		}
+
+		// Default visibility for new spaces (Settings → Spaces → New-space defaults).
+		$req_type = (string) ( $data['type'] ?? get_option( 'buddynext_space_default_type', 'open' ) );
 		$type     = SpaceTypeRegistry::instance()->is_valid( $req_type ) ? $req_type : 'open';
 
 		// Enforce two-level sub-space depth limit.
 		$parent_id = isset( $data['parent_id'] ) ? (int) $data['parent_id'] : null;
 		if ( null !== $parent_id && $parent_id > 0 ) {
+			// Sub-spaces can be switched off entirely (Settings → Spaces). Stored
+			// as the string flag '1'/'0' so the off-state persists reliably.
+			if ( '0' === (string) get_option( 'buddynext_space_allow_sub', '1' ) ) {
+				return new WP_Error(
+					'sub_spaces_disabled',
+					__( 'Sub-spaces are disabled on this community.', 'buddynext' ),
+					array( 'status' => 403 )
+				);
+			}
+
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$grandparent = $wpdb->get_var(
 				$wpdb->prepare(
@@ -182,6 +247,12 @@ class SpaceService {
 			}
 		}
 
+		// Fall back to the configured default category when none is chosen.
+		$category_id = ( isset( $data['category_id'] ) && (int) $data['category_id'] > 0 )
+			? (int) $data['category_id']
+			: (int) get_option( 'buddynext_space_default_category', 0 );
+		$category_id = $category_id > 0 ? $category_id : null;
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->insert(
 			$wpdb->prefix . 'bn_spaces',
@@ -189,7 +260,7 @@ class SpaceService {
 				'name'         => sanitize_text_field( $data['name'] ?? '' ),
 				'slug'         => $slug,
 				'description'  => isset( $data['description'] ) ? sanitize_textarea_field( $data['description'] ) : null,
-				'category_id'  => isset( $data['category_id'] ) ? (int) $data['category_id'] : null,
+				'category_id'  => $category_id,
 				'parent_id'    => $parent_id,
 				'type'         => $type,
 				'owner_id'     => $owner_id,

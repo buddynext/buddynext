@@ -2,21 +2,24 @@
    5. MEMBERS ADMIN (Phase 4 — v2 primitive layer)
    ========================================================================== */
 
-/* List page: action row + filter strip. */
-.bn-members-toolbar {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-s3);
-	flex-wrap: wrap;
+/* List page: status filter segment.
+   Export CSV moved to AdminHub's standardized sub-header action slot;
+   All/Active/Suspended is a segment filter (shared .bn-segment primitive),
+   not navigation. */
+.bn-members-segment {
 	margin-bottom: var(--bn-s4);
 }
 
-.bn-members-toolbar__spacer {
-	flex: 1;
+/* Count badge inside a segment item — mirrors the segment's active accent. */
+.bn-segment__count {
+	font-variant-numeric: tabular-nums;
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-3);
 }
 
-.bn-members-tabs {
-	margin-bottom: var(--bn-s4);
+.bn-segment__item.is-active .bn-segment__count,
+.bn-segment__item[aria-selected="true"] .bn-segment__count {
+	color: inherit;
 }
 
 /* Filter form inside the table wrap. */
@@ -491,10 +494,6 @@
 	.bn-members-filter .bn-select {
 		width: 100%;
 	}
-
-	.bn-members-toolbar__spacer {
-		display: none;
-	}
 }
 
 
@@ -601,25 +600,8 @@
 	font-size: var(--bn-a-text-xs);
 }
 
-.bn-color-row {
-	display: flex;
-	align-items: center;
-	gap: var(--bn-a-s2);
-}
-
-.bn-color-row input[type="color"] {
-	width: 36px;
-	height: 36px;
-	border: 1px solid var(--bn-a-border);
-	border-radius: var(--bn-a-r-sm);
-	padding: 2px;
-	cursor: pointer;
-	background: none;
-}
-
-.bn-color-row .bn-field-hint {
-	margin: 0;
-}
+/* .bn-color-row / swatch / hex now live in bn-admin.css (shared across every
+   admin screen). Kept out of here to avoid a duplicate definition. */
 
 .bn-type-actions {
 	display: flex;

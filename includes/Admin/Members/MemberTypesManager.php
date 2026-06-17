@@ -30,46 +30,6 @@ class MemberTypesManager {
 		add_action( 'admin_post_bn_delete_member_type', array( $this, 'handle_delete' ) );
 		add_action( 'admin_post_bn_assign_member_type', array( $this, 'handle_assign' ) );
 		add_action( 'buddynext_after_edit_member_form', array( $this, 'render_member_type_field' ), 10, 1 );
-		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
-	}
-
-	/**
-	 * Enqueue the Member Types tab JS on the Members admin page.
-	 *
-	 * Loads only when the active tab is "member-types".
-	 *
-	 * @param string $hook_suffix Hook suffix for the current admin page.
-	 * @return void
-	 */
-	public function enqueue_assets( string $hook_suffix ): void {
-		if ( false === strpos( $hook_suffix, 'buddynext-members' ) ) {
-			return;
-		}
-
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$tab = sanitize_key( wp_unslash( $_GET['tab'] ?? '' ) );
-		if ( 'member-types' !== $tab ) {
-			return;
-		}
-
-		wp_enqueue_script(
-			'bn-member-types',
-			BUDDYNEXT_URL . 'assets/js/admin/member-types.js',
-			array(),
-			BUDDYNEXT_VERSION,
-			true
-		);
-
-		wp_localize_script(
-			'bn-member-types',
-			'bnMemberTypesL10n',
-			array(
-				'previewLabel' => __( 'Preview', 'buddynext' ),
-				'confirmTitle' => __( 'Delete member type?', 'buddynext' ),
-				'confirm'      => __( 'Delete', 'buddynext' ),
-				'cancel'       => __( 'Cancel', 'buddynext' ),
-			)
-		);
 	}
 
 	// ── Save handler ──────────────────────────────────────────────────────────
@@ -224,106 +184,34 @@ class MemberTypesManager {
 			</div>
 		<?php endif; ?>
 
-		<?php /* ── Create / Edit form ── */ ?>
-		<div class="bn-settings-section">
-			<div class="bn-ss-header">
-				<span class="bn-ss-title"><?php echo $edit_type ? esc_html__( 'Edit Member Type', 'buddynext' ) : esc_html__( 'Add Member Type', 'buddynext' ); ?></span>
-			</div>
-			<div class="bn-ss-body">
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-type-create-form">
-				<?php wp_nonce_field( 'bn_save_member_type' ); ?>
-				<input type="hidden" name="action"  value="bn_save_member_type">
-				<input type="hidden" name="edit_id" value="<?php echo $edit_type ? esc_attr( (string) $edit_type['id'] ) : '0'; ?>">
-
-				<div class="bn-type-grid">
-					<div class="bn-field bn-field--narrow">
-						<label class="bn-label" for="bn-type-name"><?php esc_html_e( 'Name', 'buddynext' ); ?></label>
-						<input type="text" id="bn-type-name" name="name"
-							value="<?php echo $edit_type ? esc_attr( $edit_type['name'] ) : ''; ?>"
-							class="bn-text-input"
-							placeholder="<?php esc_attr_e( 'e.g. Alumni', 'buddynext' ); ?>" required>
-					</div>
-					<div class="bn-field bn-field--narrower">
-						<label class="bn-label" for="bn-type-slug"><?php esc_html_e( 'Slug', 'buddynext' ); ?></label>
-						<input type="text" id="bn-type-slug" name="slug"
-							value="<?php echo $edit_type ? esc_attr( $edit_type['slug'] ) : ''; ?>"
-							class="bn-text-input"
-							placeholder="<?php esc_attr_e( 'e.g. alumni', 'buddynext' ); ?>"
-							pattern="[a-z0-9-]+" required>
-						<span class="bn-field-hint"><?php esc_html_e( 'Lowercase letters, numbers and hyphens only.', 'buddynext' ); ?></span>
-					</div>
-				</div>
-
-				<div class="bn-field bn-type-full bn-field--wide">
-					<label class="bn-label" for="bn-type-desc"><?php esc_html_e( 'Description', 'buddynext' ); ?></label>
-					<textarea id="bn-type-desc" name="description" rows="2"
-						class="bn-text-input"><?php echo $edit_type ? esc_textarea( $edit_type['description'] ) : ''; ?></textarea>
-				</div>
-
-				<div class="bn-type-grid-3">
-					<div class="bn-field bn-field--inline">
-						<label class="bn-label" for="bn-type-color"><?php esc_html_e( 'Badge Background', 'buddynext' ); ?></label>
-						<div class="bn-color-row">
-							<input type="color" id="bn-type-color" name="color"
-								value="<?php echo $edit_type ? esc_attr( $edit_type['color'] ) : '#0073aa'; ?>">
-							<span class="bn-field-hint"><?php esc_html_e( 'Background colour', 'buddynext' ); ?></span>
-						</div>
-					</div>
-					<div class="bn-field bn-field--inline">
-						<label class="bn-label" for="bn-type-text-color"><?php esc_html_e( 'Badge Text', 'buddynext' ); ?></label>
-						<div class="bn-color-row">
-							<input type="color" id="bn-type-text-color" name="text_color"
-								value="<?php echo $edit_type ? esc_attr( $edit_type['text_color'] ) : '#ffffff'; ?>">
-							<span class="bn-field-hint"><?php esc_html_e( 'Text colour', 'buddynext' ); ?></span>
-						</div>
-					</div>
-					<div class="bn-field bn-field--inline">
-						<label class="bn-label"><?php esc_html_e( 'Live Preview', 'buddynext' ); ?></label>
-						<span id="bn-badge-preview" class="bn-type-badge-preview"
-							style="background:<?php echo $edit_type ? esc_attr( $edit_type['color'] ) : '#0073aa'; ?>;color:<?php echo $edit_type ? esc_attr( $edit_type['text_color'] ) : '#ffffff'; ?>">
-							<span class="bn-badge-label"><?php echo $edit_type ? esc_html( $edit_type['name'] ) : esc_html__( 'Preview', 'buddynext' ); ?></span>
-						</span>
-					</div>
-				</div>
-
-				<div class="bn-field bn-field--wide">
-					<label class="bn-label" for="bn-type-icon"><?php esc_html_e( 'Icon SVG', 'buddynext' ); ?></label>
-					<textarea id="bn-type-icon" name="icon_svg" rows="3"
-						class="bn-text-input bn-pf-opts-textarea"
-						placeholder="<?php esc_attr_e( 'Paste an inline SVG here (optional)', 'buddynext' ); ?>"><?php echo $edit_type ? esc_textarea( $edit_type['icon_svg'] ) : ''; ?></textarea>
-					<span class="bn-field-hint"><?php esc_html_e( 'Paste a complete <svg> element. 24x24 viewBox recommended. Uses currentColor for theme compatibility.', 'buddynext' ); ?></span>
-				</div>
-
-				<div class="bn-type-grid">
-					<div class="bn-field bn-field--sort">
-						<label class="bn-label" for="bn-type-sort"><?php esc_html_e( 'Sort Order', 'buddynext' ); ?></label>
-						<input type="number" id="bn-type-sort" name="sort_order"
-							value="<?php echo $edit_type ? esc_attr( (string) $edit_type['sort_order'] ) : '0'; ?>"
-							min="0" class="bn-text-input">
-					</div>
-					<div class="bn-field bn-field-checks">
-						<label class="bn-check-row">
-							<input type="checkbox" name="show_in_dir" value="1"
-								<?php checked( $edit_type ? (bool) $edit_type['show_in_dir'] : true ); ?>>
-							<?php esc_html_e( 'Show as directory filter tab', 'buddynext' ); ?>
-						</label>
-						<label class="bn-check-row">
-							<input type="checkbox" name="self_select" value="1"
-								<?php checked( $edit_type ? (bool) $edit_type['self_select'] : false ); ?>>
-							<?php esc_html_e( 'Allow members to self-assign', 'buddynext' ); ?>
-						</label>
-					</div>
-				</div>
-
-				<div class="bn-type-actions">
-					<?php submit_button( $edit_type ? __( 'Update Type', 'buddynext' ) : __( 'Add Type', 'buddynext' ), 'primary bn-btn-save', 'submit', false ); ?>
-					<?php if ( $edit_type ) : ?>
-						<a href="<?php echo esc_url( $base_url ); ?>" class="bn-btn"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></a>
-					<?php endif; ?>
-				</div>
-			</form>
-			</div><!-- .bn-ss-body -->
-		</div><!-- .bn-settings-section -->
+		<?php /* ── Create / Edit form (shared taxonomy editor) ── */ ?>
+		<?php
+		buddynext_get_template(
+			'parts/taxonomy-editor.php',
+			array(
+				'entity'   => 'member-type',
+				'title'    => $edit_type ? __( 'Edit Member Type', 'buddynext' ) : __( 'Add Member Type', 'buddynext' ),
+				'action'   => 'bn_save_member_type',
+				'nonce'    => 'bn_save_member_type',
+				'edit'     => $edit_type,
+				'hidden'   => array( 'edit_id' => $edit_type ? (string) $edit_type['id'] : '0' ),
+				'toggles'  => array(
+					array(
+						'name'    => 'show_in_dir',
+						'label'   => __( 'Show as directory filter tab', 'buddynext' ),
+						'default' => true,
+					),
+					array(
+						'name'    => 'self_select',
+						'label'   => __( 'Allow members to self-assign', 'buddynext' ),
+						'default' => false,
+					),
+				),
+				'supports' => array( 'has_icon' => true ),
+				'cancel'   => $base_url,
+			)
+		);
+		?>
 
 		<?php /* ── Types list ── */ ?>
 		<?php if ( empty( $types ) ) : ?>

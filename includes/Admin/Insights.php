@@ -40,7 +40,10 @@ class Insights {
 			'insights',
 			__( 'Insights', 'buddynext' ),
 			array( $this, 'render_page' ),
-			array( 'position' => 10 )
+			array(
+				'position' => 10,
+				'subtitle' => __( 'At-a-glance community metrics, computed from your own data.', 'buddynext' ),
+			)
 		);
 
 		add_action(
@@ -109,7 +112,7 @@ class Insights {
 			<li><strong><?php echo esc_html( number_format_i18n( $m['spaces_total'] ) ); ?></strong> <?php esc_html_e( 'spaces', 'buddynext' ); ?></li>
 		</ul>
 		<p>
-			<a href="<?php echo esc_url( admin_url( 'admin.php?page=buddynext-growth&tab=insights' ) ); ?>">
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=buddynext-engagement&tab=insights' ) ); ?>">
 				<?php esc_html_e( 'View all insights →', 'buddynext' ); ?>
 			</a>
 		</p>
@@ -165,7 +168,7 @@ class Insights {
 
 		$signups = array();
 		for ( $i = 13; $i >= 0; $i-- ) {
-			$day            = gmdate( 'Y-m-d', $now - $i * DAY_IN_SECONDS );
+			$day             = gmdate( 'Y-m-d', $now - $i * DAY_IN_SECONDS );
 			$signups[ $day ] = isset( $rows[ $day ] ) ? (int) $rows[ $day ]->c : 0;
 		}
 

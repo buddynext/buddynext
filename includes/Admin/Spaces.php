@@ -31,13 +31,18 @@ class Spaces extends AdminPageBase {
 	 */
 	public function register(): void {
 		add_action( 'admin_post_bn_delete_space', array( $this, 'handle_delete' ) );
+		add_action( 'admin_post_bn_save_space_category', array( $this, 'handle_save_category' ) );
+		add_action( 'admin_post_bn_delete_space_category', array( $this, 'handle_delete_category' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
 		AdminHub::register_tab(
 			'spaces',
 			'directory',
 			__( 'Directory', 'buddynext' ),
-			array( $this, 'render_page' )
+			array( $this, 'render_page' ),
+			array(
+				'subtitle' => __( 'Manage all spaces, categories, and integrations.', 'buddynext' ),
+			)
 		);
 	}
 
@@ -103,7 +108,20 @@ class Spaces extends AdminPageBase {
 	 * @return string
 	 */
 	protected function get_subtitle(): string {
-		return __( 'Manage all spaces, categories, and integrations', 'buddynext' );
+		return __( 'Manage all spaces, categories, and integrations.', 'buddynext' );
+	}
+
+	/**
+	 * Suppress the in-body subtitle paragraph.
+	 *
+	 * AdminHub renders this screen's subtitle in the standardized sub-header
+	 * bar via the `subtitle` arg passed to register_tab(), so the base class's
+	 * in-body subtitle paragraph must not duplicate it.
+	 *
+	 * @return void
+	 */
+	protected function render_page_header(): void {
+		// Subtitle is emitted by AdminHub's sub-header bar; nothing to render here.
 	}
 
 	/**
@@ -203,13 +221,12 @@ class Spaces extends AdminPageBase {
 				</form>
 			</div>
 			<div class="bn-ss-body">
-				<div class="bn-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Filter spaces by visibility', 'buddynext' ); ?>">
+				<div class="bn-segment" role="group" aria-label="<?php esc_attr_e( 'Filter spaces by visibility', 'buddynext' ); ?>">
 					<a href="<?php echo esc_url( add_query_arg( 's', $search, $base_url ) ); ?>"
-						class="bn-tab"
-						role="tab"
+						class="bn-segment__item<?php echo '' === $type ? ' is-active' : ''; ?>"
 						aria-selected="<?php echo '' === $type ? 'true' : 'false'; ?>">
 						<?php esc_html_e( 'All', 'buddynext' ); ?>
-						<span class="bn-tab__count">(<?php echo esc_html( (string) $counts['total'] ); ?>)</span>
+						<span class="bn-segment__count">(<?php echo esc_html( (string) $counts['total'] ); ?>)</span>
 					</a>
 					<?php
 					$type_labels = array(
@@ -227,11 +244,10 @@ class Spaces extends AdminPageBase {
 						);
 						?>
 						<a href="<?php echo esc_url( $tab_url ); ?>"
-							class="bn-tab"
-							role="tab"
+							class="bn-segment__item<?php echo $type === $t_slug ? ' is-active' : ''; ?>"
 							aria-selected="<?php echo $type === $t_slug ? 'true' : 'false'; ?>">
 							<?php echo esc_html( $t_label ); ?>
-							<span class="bn-tab__count">(<?php echo esc_html( (string) ( $counts[ $t_slug ] ?? 0 ) ); ?>)</span>
+							<span class="bn-segment__count">(<?php echo esc_html( (string) ( $counts[ $t_slug ] ?? 0 ) ); ?>)</span>
 						</a>
 					<?php endforeach; ?>
 				</div>
@@ -369,113 +385,25 @@ class Spaces extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_categories_subtab(): void {
-		global $wpdb;
-		$table = $wpdb->prefix . 'bn_space_categories';
+		$service = new \BuddyNext\Spaces\SpaceCategoryService();
 
-		// Handle POST: create category.
-		// phpcs:disable WordPress.Security.NonceVerification.Missing
-		if ( isset( $_POST['bn_cat_create_nonce'] )
-			&& wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_cat_create_nonce'] ) ), 'bn_cat_create' )
-			&& current_user_can( 'manage_options' )
-		) {
-			$name = sanitize_text_field( wp_unslash( $_POST['cat_name'] ?? '' ) );
-			if ( '' !== $name ) {
-				// The form always submits cat_slug (often empty), so `?? $name`
-				// never fires — derive the slug from the name when no explicit
-				// slug was typed, otherwise a blank slug was stored/skipped.
-				$raw_slug = sanitize_text_field( wp_unslash( $_POST['cat_slug'] ?? '' ) );
-				$slug     = sanitize_title( '' !== $raw_slug ? $raw_slug : $name );
-				$desc     = sanitize_textarea_field( wp_unslash( $_POST['cat_description'] ?? '' ) );
-				$ord      = absint( wp_unslash( $_POST['cat_sort_order'] ?? 0 ) );
-
-				// Ensure unique slug.
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE slug = %s", $slug ) );
-				if ( ! $exists ) {
-					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$wpdb->insert(
-						$table,
-						array(
-							'name'        => $name,
-							'slug'        => $slug,
-							'description' => $desc,
-							'sort_order'  => $ord,
-						),
-						array( '%s', '%s', '%s', '%d' )
-					);
-				}
-			}
-		}
-
-		// Handle POST: update (edit) category. Mirrors the create branch with a
-		// uniqueness check that excludes the row being edited.
-		if ( isset( $_POST['bn_cat_update_nonce'] )
-			&& wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_cat_update_nonce'] ) ), 'bn_cat_update' )
-			&& current_user_can( 'manage_options' )
-		) {
-			$cat_id = absint( wp_unslash( $_POST['cat_id'] ?? 0 ) );
-			$name   = sanitize_text_field( wp_unslash( $_POST['cat_name'] ?? '' ) );
-			if ( $cat_id > 0 && '' !== $name ) {
-				$raw_slug = sanitize_text_field( wp_unslash( $_POST['cat_slug'] ?? '' ) );
-				$slug     = sanitize_title( '' !== $raw_slug ? $raw_slug : $name );
-				$desc     = sanitize_textarea_field( wp_unslash( $_POST['cat_description'] ?? '' ) );
-				$ord      = absint( wp_unslash( $_POST['cat_sort_order'] ?? 0 ) );
-
-				// Slug must stay unique, but the row keeps its own slug.
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$clash = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE slug = %s AND id <> %d", $slug, $cat_id ) );
-				if ( ! $clash ) {
-					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-					$wpdb->update(
-						$table,
-						array(
-							'name'        => $name,
-							'slug'        => $slug,
-							'description' => $desc,
-							'sort_order'  => $ord,
-						),
-						array( 'id' => $cat_id ),
-						array( '%s', '%s', '%s', '%d' ),
-						array( '%d' )
-					);
-				}
-			}
-		}
-
-		// Handle POST: delete category.
-		if ( isset( $_POST['bn_cat_delete_nonce'] )
-			&& wp_verify_nonce( sanitize_key( wp_unslash( $_POST['bn_cat_delete_nonce'] ) ), 'bn_cat_delete' )
-			&& current_user_can( 'manage_options' )
-		) {
-			$cat_id = absint( wp_unslash( $_POST['cat_id'] ?? 0 ) );
-			if ( $cat_id > 0 ) {
-				// Null out category_id on spaces using this category so we don't FK-orphan.
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->update( $wpdb->prefix . 'bn_spaces', array( 'category_id' => null ), array( 'category_id' => $cat_id ), array( '%d' ), array( '%d' ) );
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-				$wpdb->delete( $table, array( 'id' => $cat_id ), array( '%d' ) );
-			}
-		}
-		// phpcs:enable WordPress.Security.NonceVerification.Missing
-
-		// Edit mode: when ?edit_cat=ID is present, pre-fill the form below for
-		// that row (the Edit link in the Actions column sets it).
-		$bn_edit_cat = null;
+		// Flash message after a save/delete (handlers redirect back here).
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$bn_edit_id = isset( $_GET['edit_cat'] ) ? absint( wp_unslash( $_GET['edit_cat'] ) ) : 0;
-		if ( $bn_edit_id > 0 ) {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$bn_edit_cat = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, slug, description, sort_order FROM {$table} WHERE id = %d", $bn_edit_id ) );
+		$cat_msg = sanitize_key( wp_unslash( $_GET['cat_msg'] ?? '' ) );
+		if ( 'saved' === $cat_msg ) {
+			echo '<div class="bn-notice bn-notice-success">' . esc_html__( 'Category saved.', 'buddynext' ) . '</div>';
+		} elseif ( 'deleted' === $cat_msg ) {
+			echo '<div class="bn-notice bn-notice-success">' . esc_html__( 'Category deleted.', 'buddynext' ) . '</div>';
+		} elseif ( 'error' === $cat_msg ) {
+			echo '<div class="bn-notice bn-notice-error">' . esc_html__( 'Could not save category. Check that the name is set and the slug is unique.', 'buddynext' ) . '</div>';
 		}
 
-		// $table is the bn_space_categories table name, derived from $wpdb->prefix — never untrusted.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
-		$cats = $wpdb->get_results(
-			"SELECT c.id, c.name, c.slug, c.description, c.sort_order,
-				(SELECT COUNT(*) FROM {$wpdb->prefix}bn_spaces s WHERE s.category_id = c.id) AS space_count
-			 FROM {$wpdb->prefix}bn_space_categories c
-			 ORDER BY c.sort_order ASC, c.name ASC"
-		);
+		// Edit mode: when ?edit_cat=ID is present, pre-fill the editor for that row.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$bn_edit_id  = isset( $_GET['edit_cat'] ) ? absint( wp_unslash( $_GET['edit_cat'] ) ) : 0;
+		$bn_edit_cat = $bn_edit_id > 0 ? $service->get_by_id( $bn_edit_id ) : null;
+
+		$cats = $service->get_all_with_counts();
 		?>
 		<div class="bn-settings-section">
 			<div class="bn-ss-header">
@@ -486,30 +414,48 @@ class Spaces extends AdminPageBase {
 				<table class="bn-table">
 					<thead>
 						<tr>
-							<th scope="col"><?php esc_html_e( 'Name', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Category', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Slug', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Spaces', 'buddynext' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Directory', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Sort', 'buddynext' ); ?></th>
 							<th scope="col"><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
 						<?php if ( empty( $cats ) ) : ?>
-							<tr><td colspan="5"><p class="description"><?php esc_html_e( 'No categories yet. Create one below.', 'buddynext' ); ?></p></td></tr>
+							<tr><td colspan="6"><p class="description"><?php esc_html_e( 'No categories yet. Create one below.', 'buddynext' ); ?></p></td></tr>
 						<?php else : ?>
-							<?php foreach ( (array) $cats as $cat ) : ?>
+							<?php foreach ( $cats as $cat ) : ?>
 								<tr>
-									<td><strong><?php echo esc_html( (string) $cat->name ); ?></strong></td>
-									<td><code><?php echo esc_html( (string) $cat->slug ); ?></code></td>
-									<td><?php echo esc_html( (string) $cat->space_count ); ?></td>
-									<td><?php echo esc_html( (string) $cat->sort_order ); ?></td>
+									<td>
+										<span class="bn-tax-badge-preview"
+											style="background:<?php echo esc_attr( (string) $cat['color'] ); ?>;color:<?php echo esc_attr( (string) $cat['text_color'] ); ?>">
+											<?php if ( '' !== (string) $cat['icon_svg'] ) : ?>
+												<?php echo $cat['icon_svg']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- sanitized via wp_kses on save. ?>
+											<?php endif; ?>
+											<span class="bn-tax-badge-label"><?php echo esc_html( (string) $cat['name'] ); ?></span>
+										</span>
+									</td>
+									<td><code><?php echo esc_html( (string) $cat['slug'] ); ?></code></td>
+									<td><?php echo esc_html( (string) $cat['space_count'] ); ?></td>
+									<td>
+										<?php if ( ! empty( $cat['show_in_dir'] ) ) : ?>
+											<span class="bn-badge bn-badge-active"><?php esc_html_e( 'Yes', 'buddynext' ); ?></span>
+										<?php else : ?>
+											<span class="bn-badge bn-badge-private"><?php esc_html_e( 'No', 'buddynext' ); ?></span>
+										<?php endif; ?>
+									</td>
+									<td><?php echo esc_html( (string) $cat['sort_order'] ); ?></td>
 									<td>
 										<a class="bn-btn" data-variant="ghost" data-size="sm"
-											href="<?php echo esc_url( add_query_arg( 'edit_cat', (int) $cat->id ) . '#bn-cat-form' ); ?>"
+											href="<?php echo esc_url( add_query_arg( 'edit_cat', (int) $cat['id'] ) . '#bn-cat-form' ); ?>"
 										><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
-										<form method="post" style="display:inline" data-bn-cat-delete-form>
-											<?php wp_nonce_field( 'bn_cat_delete', 'bn_cat_delete_nonce' ); ?>
-											<input type="hidden" name="cat_id" value="<?php echo esc_attr( (string) $cat->id ); ?>">
+										<form method="post" class="bn-cat-delete-form" data-bn-cat-delete-form
+											action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+											<?php wp_nonce_field( 'bn_delete_space_category' ); ?>
+											<input type="hidden" name="action" value="bn_delete_space_category">
+											<input type="hidden" name="cat_id" value="<?php echo esc_attr( (string) $cat['id'] ); ?>">
 											<button type="submit"
 												class="bn-btn"
 												data-variant="danger"
@@ -526,60 +472,114 @@ class Spaces extends AdminPageBase {
 						<?php endif; ?>
 					</tbody>
 				</table>
+			</div><!-- .bn-table-wrap__scroll -->
 			</div><!-- .bn-ss-body -->
 		</div><!-- .bn-settings-section -->
 
 		<?php
-		// The single form below creates a new category, or — when an Edit link
-		// set ?edit_cat — edits the selected one (pre-filled, different nonce).
-		$bn_cat_edit_mode = ( null !== $bn_edit_cat );
-		$bn_cat_name_val  = $bn_cat_edit_mode ? (string) $bn_edit_cat->name : '';
-		$bn_cat_slug_val  = $bn_cat_edit_mode ? (string) $bn_edit_cat->slug : '';
-		$bn_cat_desc_val  = $bn_cat_edit_mode ? (string) $bn_edit_cat->description : '';
-		$bn_cat_ord_val   = $bn_cat_edit_mode ? (int) $bn_edit_cat->sort_order : 0;
+		// Shared taxonomy editor — creates a new category, or edits the selected
+		// one when an Edit link set ?edit_cat.
 		?>
-		<div class="bn-settings-section" id="bn-cat-form">
-			<div class="bn-ss-header"><span class="bn-ss-title">
-				<?php echo esc_html( $bn_cat_edit_mode ? __( 'Edit category', 'buddynext' ) : __( 'Add a category', 'buddynext' ) ); ?>
-			</span></div>
-			<div class="bn-ss-body">
-			<form method="post" class="bn-cat-create-form">
-				<?php if ( $bn_cat_edit_mode ) : ?>
-					<?php wp_nonce_field( 'bn_cat_update', 'bn_cat_update_nonce' ); ?>
-					<input type="hidden" name="cat_id" value="<?php echo esc_attr( (string) $bn_edit_cat->id ); ?>">
-				<?php else : ?>
-					<?php wp_nonce_field( 'bn_cat_create', 'bn_cat_create_nonce' ); ?>
-				<?php endif; ?>
-				<div class="bn-field">
-					<label for="bn_cat_name"><?php esc_html_e( 'Name', 'buddynext' ); ?></label>
-					<input type="text" id="bn_cat_name" name="cat_name" class="bn-input" required maxlength="64" value="<?php echo esc_attr( $bn_cat_name_val ); ?>">
-				</div>
-				<div class="bn-field">
-					<label for="bn_cat_slug"><?php esc_html_e( 'Slug (optional)', 'buddynext' ); ?></label>
-					<input type="text" id="bn_cat_slug" name="cat_slug" class="bn-input" maxlength="64" value="<?php echo esc_attr( $bn_cat_slug_val ); ?>">
-					<span class="bn-field-hint"><?php esc_html_e( 'Lowercase letters, numbers, and hyphens. Auto-generated when empty.', 'buddynext' ); ?></span>
-				</div>
-				<div class="bn-field">
-					<label for="bn_cat_description"><?php esc_html_e( 'Description', 'buddynext' ); ?></label>
-					<textarea id="bn_cat_description" name="cat_description" class="bn-textarea" rows="2"><?php echo esc_textarea( $bn_cat_desc_val ); ?></textarea>
-				</div>
-				<div class="bn-field">
-					<label for="bn_cat_sort_order"><?php esc_html_e( 'Sort order', 'buddynext' ); ?></label>
-					<input type="number" id="bn_cat_sort_order" name="cat_sort_order" class="bn-input" value="<?php echo esc_attr( (string) $bn_cat_ord_val ); ?>" min="0" max="999">
-					<span class="bn-field-hint"><?php esc_html_e( 'Lower numbers appear first.', 'buddynext' ); ?></span>
-				</div>
-				<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
-					<?php echo esc_html( $bn_cat_edit_mode ? __( 'Save changes', 'buddynext' ) : __( 'Create category', 'buddynext' ) ); ?>
-				</button>
-				<?php if ( $bn_cat_edit_mode ) : ?>
-					<a class="bn-btn" data-variant="ghost" data-size="md" href="<?php echo esc_url( remove_query_arg( 'edit_cat' ) ); ?>">
-						<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
-					</a>
-				<?php endif; ?>
-			</form>
-			</div><!-- .bn-ss-body -->
-		</div><!-- .bn-settings-section -->
+		<div id="bn-cat-form">
+			<?php
+			buddynext_get_template(
+				'parts/taxonomy-editor.php',
+				array(
+					'entity'   => 'space-category',
+					'title'    => $bn_edit_cat ? __( 'Edit category', 'buddynext' ) : __( 'Add a category', 'buddynext' ),
+					'action'   => 'bn_save_space_category',
+					'nonce'    => 'bn_save_space_category',
+					'edit'     => $bn_edit_cat,
+					'hidden'   => array( 'cat_id' => $bn_edit_cat ? (string) $bn_edit_cat['id'] : '0' ),
+					'toggles'  => array(
+						array(
+							'name'    => 'show_in_dir',
+							'label'   => __( 'Show in the spaces directory', 'buddynext' ),
+							'default' => true,
+						),
+					),
+					'supports' => array( 'has_icon' => true ),
+					'cancel'   => remove_query_arg( 'edit_cat' ),
+				)
+			);
+			?>
+		</div>
 		<?php
+	}
+
+	/**
+	 * Handle the create / update space-category form submission.
+	 *
+	 * Routes through SpaceCategoryService (single owner of the category table)
+	 * so the admin screen holds no inline $wpdb logic.
+	 *
+	 * @return void
+	 */
+	public function handle_save_category(): void {
+		check_admin_referer( 'bn_save_space_category' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage categories.', 'buddynext' ), 403 );
+		}
+
+		$service = new \BuddyNext\Spaces\SpaceCategoryService();
+
+		// Shared editor field names; SpaceCategoryService::validate() sanitises.
+		$data = array(
+			'name'        => sanitize_text_field( wp_unslash( $_POST['name'] ?? '' ) ),
+			'slug'        => sanitize_text_field( wp_unslash( $_POST['slug'] ?? '' ) ),
+			'description' => sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) ),
+			'color'       => sanitize_text_field( wp_unslash( $_POST['color'] ?? '#0073aa' ) ),
+			'text_color'  => sanitize_text_field( wp_unslash( $_POST['text_color'] ?? '' ) ),
+			'icon_svg'    => (string) wp_unslash( $_POST['icon_svg'] ?? '' ), // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- SVG is sanitised via wp_kses inside SpaceCategoryService::validate().
+			'sort_order'  => absint( wp_unslash( $_POST['sort_order'] ?? 0 ) ),
+			'show_in_dir' => ! empty( $_POST['show_in_dir'] ),
+		);
+
+		$cat_id = absint( wp_unslash( $_POST['cat_id'] ?? 0 ) );
+		$result = $cat_id > 0 ? $service->update( $cat_id, $data ) : $service->create( $data );
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'    => 'buddynext-spaces',
+					'subtab'  => 'categories',
+					'cat_msg' => is_wp_error( $result ) ? 'error' : 'saved',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Handle the delete space-category form submission.
+	 *
+	 * @return void
+	 */
+	public function handle_delete_category(): void {
+		check_admin_referer( 'bn_delete_space_category' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage categories.', 'buddynext' ), 403 );
+		}
+
+		$cat_id = absint( wp_unslash( $_POST['cat_id'] ?? 0 ) );
+		if ( $cat_id > 0 ) {
+			( new \BuddyNext\Spaces\SpaceCategoryService() )->delete( $cat_id );
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'    => 'buddynext-spaces',
+					'subtab'  => 'categories',
+					'cat_msg' => 'deleted',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
 	}
 
 	/**

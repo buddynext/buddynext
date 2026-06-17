@@ -52,8 +52,9 @@ class EmailEditor {
 			__( 'Email Templates', 'buddynext' ),
 			array( $this, 'render_page' ),
 			array(
-				'group'  => __( 'Advanced', 'buddynext' ),
-				'layout' => 'wide', // split-pane editor needs edge-to-edge room
+				'group'    => __( 'Advanced', 'buddynext' ),
+				'layout'   => 'wide', // split-pane editor needs edge-to-edge room.
+				'subtitle' => __( 'Edit, enable, and test the transactional emails BuddyNext sends to members.', 'buddynext' ),
 			)
 		);
 	}
@@ -74,7 +75,7 @@ class EmailEditor {
 		return add_query_arg(
 			array_merge(
 				array(
-					'page' => 'buddynext',
+					'page' => 'buddynext-notifications',
 					'tab'  => 'templates',
 				),
 				$args
@@ -629,9 +630,9 @@ class EmailEditor {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$updated = isset( $_GET['updated'] ) ? absint( $_GET['updated'] ) : null;
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$tested  = isset( $_GET['tested'] )  ? absint( $_GET['tested'] )  : null;
+		$tested = isset( $_GET['tested'] ) ? absint( $_GET['tested'] ) : null;
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$reset   = isset( $_GET['reset'] )   ? absint( $_GET['reset'] )   : null;
+		$reset = isset( $_GET['reset'] ) ? absint( $_GET['reset'] ) : null;
 
 		$plain_body = trim( wp_strip_all_tags( $body_html ) );
 		$admin_post = admin_url( 'admin-post.php' );

@@ -1,0 +1,165 @@
+/* bn-admin-taxonomy.css — shared taxonomy editor (Member Types + Space Categories).
+ *
+ * Powers templates/parts/taxonomy-editor.php: a compact create/edit form where
+ * Name + Colour + live badge preview are primary and everything else lives in a
+ * collapsed <details> drawer. Token-driven only; depends on bn-admin/bn-base for
+ * the --bn-* token source.
+ */
+
+:root {
+	--bn-tax-gap: var(--bn-s4);
+}
+
+/* Layout grid — Name takes the lead, Colour sits beside it. */
+.bn-tax-editor {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-tax-gap);
+}
+
+.bn-tax-primary {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: var(--bn-tax-gap);
+	align-items: end;
+}
+
+.bn-tax-name,
+.bn-tax-desc {
+	min-width: 0;
+}
+
+/* Colour row: swatch + live badge preview. */
+.bn-tax-colour-row {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+}
+
+.bn-tax-swatch {
+	inline-size: var(--bn-s10);
+	block-size: var(--bn-s8);
+	padding: 0;
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-sm);
+	background: var(--bn-surface);
+	cursor: pointer;
+}
+
+/* Live badge preview pill. */
+.bn-tax-badge-preview {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--bn-s1);
+	padding-block: var(--bn-s1);
+	padding-inline: var(--bn-s3);
+	border-radius: var(--bn-r-full);
+	font-size: var(--bn-text-xs);
+	font-weight: var(--bn-fw-semibold);
+	line-height: var(--bn-leading-tight);
+	white-space: nowrap;
+	max-inline-size: 16em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.bn-tax-badge-preview svg {
+	inline-size: 1em;
+	block-size: 1em;
+}
+
+/* Advanced drawer (<details>). */
+.bn-tax-advanced {
+	border: 1px solid var(--bn-line-faint);
+	border-radius: var(--bn-r-md);
+	background: var(--bn-sunken);
+}
+
+.bn-tax-advanced__summary {
+	cursor: pointer;
+	padding-block: var(--bn-s3);
+	padding-inline: var(--bn-s4);
+	font-size: var(--bn-text-sm);
+	font-weight: var(--bn-fw-semibold);
+	color: var(--bn-ink-2);
+	list-style: none;
+	user-select: none;
+}
+
+.bn-tax-advanced__summary::-webkit-details-marker {
+	display: none;
+}
+
+.bn-tax-advanced__summary::before {
+	content: "";
+	display: inline-block;
+	inline-size: 0;
+	block-size: 0;
+	margin-inline-end: var(--bn-s2);
+	border-block-start: 0.4em solid currentColor;
+	border-inline-start: 0.35em solid transparent;
+	border-inline-end: 0.35em solid transparent;
+	transform: rotate(-90deg);
+	transition: transform 0.15s ease;
+	vertical-align: middle;
+}
+
+.bn-tax-advanced[open] > .bn-tax-advanced__summary::before {
+	transform: rotate(0deg);
+}
+
+.bn-tax-advanced__summary:focus-visible {
+	outline: 2px solid var(--bn-accent);
+	outline-offset: -2px;
+	border-radius: var(--bn-r-md);
+}
+
+.bn-tax-advanced__body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-tax-gap);
+	padding-block-end: var(--bn-s4);
+	padding-inline: var(--bn-s4);
+	border-block-start: 1px solid var(--bn-line-faint);
+	padding-block-start: var(--bn-s4);
+}
+
+.bn-tax-adv-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--bn-tax-gap);
+}
+
+.bn-tax-sort {
+	max-inline-size: 12em;
+}
+
+.bn-tax-icon-textarea {
+	font-family: var(--bn-font-mono);
+	font-size: var(--bn-text-xs);
+}
+
+/* Toggles + actions. */
+.bn-tax-toggles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s4);
+}
+
+.bn-tax-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s3);
+}
+
+/* Mobile: stack the primary row and the advanced grid. */
+@media (max-width: 640px) {
+	.bn-tax-primary,
+	.bn-tax-adv-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.bn-tax-sort {
+		max-inline-size: none;
+	}
+}

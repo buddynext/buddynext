@@ -173,10 +173,6 @@ class AssetService {
 			true
 		);
 
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only screen detection.
-		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : '';
-		// phpcs:enable WordPress.Security.NonceVerification.Recommended
-
 		// Members admin (Members + Member Types + Profile Fields + Avatar
 		// Settings + Member Type Field). Lives at ?page=buddynext-members.
 		if ( false !== strpos( $hook_suffix, 'buddynext-members' ) ) {
@@ -188,10 +184,30 @@ class AssetService {
 			);
 		}
 
-		// Email Templates editor: only on Settings → Email Templates tab
-		// (Hub slug 'templates'). The hook suffix for the top-level BuddyNext
-		// page is "toplevel_page_buddynext".
-		if ( 'toplevel_page_buddynext' === $hook_suffix && 'templates' === $active_tab ) {
+		// Shared taxonomy editor (Member Types tab + Spaces > Categories subtab).
+		// Both surfaces render templates/parts/taxonomy-editor.php, so the editor
+		// CSS + live-preview JS load on either page.
+		if ( false !== strpos( $hook_suffix, 'buddynext-members' )
+			|| false !== strpos( $hook_suffix, 'buddynext-spaces' ) ) {
+			wp_enqueue_style(
+				'bn-admin-taxonomy',
+				$this->assets_url . 'css/bn-admin-taxonomy.css',
+				array( 'bn-admin' ),
+				self::VERSION
+			);
+			wp_enqueue_script(
+				'bn-admin-taxonomy',
+				$this->assets_url . 'js/admin/taxonomy-editor.js',
+				array(),
+				self::VERSION,
+				true
+			);
+		}
+
+		// Email Templates editor — wherever the central placement map routes the
+		// 'templates' tab (Notifications section). Gating on the tab slug keeps
+		// its assets attached no matter which section owns it.
+		if ( \BuddyNext\Admin\AdminHub::is_tab_active( 'templates' ) ) {
 			wp_enqueue_style(
 				'bn-admin-email',
 				$this->assets_url . 'css/bn-admin-email.css',
@@ -207,8 +223,8 @@ class AssetService {
 			);
 		}
 
-		// Navigation Manager: only on Settings → Navigation tab.
-		if ( 'toplevel_page_buddynext' === $hook_suffix && 'navigation' === $active_tab ) {
+		// Navigation Manager — wherever the 'navigation' tab is routed.
+		if ( \BuddyNext\Admin\AdminHub::is_tab_active( 'navigation' ) ) {
 			wp_enqueue_style(
 				'bn-admin-nav',
 				$this->assets_url . 'css/bn-admin-nav.css',

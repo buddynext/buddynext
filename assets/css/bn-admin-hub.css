@@ -1,21 +1,20 @@
 /* ────────────────────────────────────────────────────────────────────────
- * BuddyNext — Admin Hub chrome (vertical sidebar layout)
+ * BuddyNext — Admin Hub chrome (horizontal tab strip)
  *
  * Painted by includes/Admin/AdminHub.php which owns every BuddyNext
  * section page (?page=buddynext, ?page=buddynext-members, etc.).
  *
- * Two-column layout per skill rule F5 (jetonomy pattern):
+ * Layout:
  *   .bn-admin-hub
  *     .bn-admin-hub__header         (page H1)
- *     .bn-admin-hub__layout         (flex container)
- *       .bn-admin-hub__sidebar      (sticky 220px nav rail)
- *       .bn-admin-hub__main         (tab body)
+ *     .bn-admin-hub__tabs           (horizontal tab strip)
+ *     .bn-admin-hub__main--full     (full-width tab body)
  *
- * Single-tab sections skip the layout/sidebar entirely and render the
- * body inside .bn-admin-hub__body.
+ * Sections are capped at a few tabs, so the strip stays on one row and the
+ * body uses the full content width (no wasted left column). Single-tab
+ * sections skip the strip and render the body inside .bn-admin-hub__body.
  *
- * Chrome stays neutral: accent only on the active sidebar item + badge.
- * No `color-mix` against accent for decorative panels — token-driven.
+ * Chrome stays neutral: accent only on the active tab + badge. Token-driven.
  *
  * Loaded only on Hub-owned pages by AdminHub::enqueue_assets().
  * ──────────────────────────────────────────────────────────────────────── */
@@ -43,158 +42,71 @@
 	padding: 0;
 }
 
-/* ── Layout (flex: sidebar + main) ──────────────────────────────────── */
+/* ── Section tab strip (horizontal) ──────────────────────────────────── */
 
-.bn-admin-hub__layout {
+.bn-admin-hub__tabs {
 	display: flex;
-	align-items: flex-start;
-	gap: var(--bn-s4, 16px);
-	margin-top: 0;
-}
-
-/* ── Sidebar ─────────────────────────────────────────────────────────── */
-
-.bn-admin-hub__sidebar {
-	width: 220px;
-	flex-shrink: 0;
-	background: var(--bn-surface);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-md, 8px);
-	box-shadow: var(--bn-shadow-sm);
-	position: sticky;
-	top: var(--bn-s5, 24px);
-	overflow: hidden;
-	max-height: calc(100vh - 64px);
-	overflow-y: auto;
-}
-
-.bn-admin-hub__sidebar-head {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	padding: var(--bn-s3, 12px) var(--bn-s4, 16px);
+	flex-wrap: wrap;
+	gap: var(--bn-s1, 4px);
+	margin: 0 0 var(--bn-s4, 16px);
 	border-bottom: 1px solid var(--bn-line);
 }
-.bn-admin-hub__sidebar-brand-icon {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	color: var(--bn-accent);
-}
-.bn-admin-hub__sidebar-brand-icon .bn-icon {
-	width: 22px;
-	height: 22px;
-}
-.bn-admin-hub__sidebar-brand-text {
-	display: flex;
-	flex-direction: column;
-	gap: 1px;
-	min-width: 0;
-}
-.bn-admin-hub__sidebar-brand-name {
-	font-size: 13px;
-	font-weight: var(--bn-fw-bold, 700);
-	color: var(--bn-ink);
-	line-height: 1.2;
-}
-.bn-admin-hub__sidebar-section {
-	font-family: var(--bn-font-mono, var(--bn-font-ui));
-	font-size: 11px;
-	font-weight: var(--bn-fw-semibold, 600);
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	color: var(--bn-ink-3);
-}
 
-.bn-admin-hub__sidebar-nav {
-	padding: 6px;
-	display: flex;
-	flex-direction: column;
-	gap: 1px;
-}
-
-.bn-admin-hub__sidebar-link {
-	/* WP admin's default `box-sizing: content-box` makes padding accumulate
-	   on top of min-height, inflating each row to ~52px. Force border-box
-	   so min-height is the actual rendered height — 34px is tight enough
-	   that 14+ items fit on screen without scroll, still tap-friendly. */
+.bn-admin-hub__tab {
 	box-sizing: border-box;
-	display: flex;
+	display: inline-flex;
 	align-items: center;
 	gap: 8px;
-	padding: 4px 10px;
-	min-height: 32px;
-	border-radius: 6px;
+	padding: 10px 14px;
+	margin-bottom: -1px;
+	border: 0;
+	border-bottom: 2px solid transparent;
+	background: none;
 	font-size: var(--bn-text-sm, 13px);
-	font-weight: 500;
-	line-height: 1.35;
+	font-weight: var(--bn-fw-medium, 500);
+	line-height: 1.2;
 	color: var(--bn-ink-2);
 	text-decoration: none;
-	transition: background var(--bn-dur-fast, 120ms) var(--bn-ease, ease),
-		color var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
+	transition: color var(--bn-dur-fast, 120ms) var(--bn-ease, ease),
+		border-color var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
 }
-.bn-admin-hub__sidebar-link:hover {
-	background: var(--bn-sunken);
+.bn-admin-hub__tab:hover {
 	color: var(--bn-ink);
 }
-.bn-admin-hub__sidebar-link:focus-visible {
+.bn-admin-hub__tab:focus-visible {
 	outline: none;
 	box-shadow: 0 0 0 2px color-mix(in oklch, var(--bn-accent) 45%, transparent);
+	border-radius: var(--bn-r-sm, 4px);
 	color: var(--bn-ink);
 }
-.bn-admin-hub__sidebar-link.is-active {
-	background: var(--bn-accent-50, var(--bn-sunken));
+.bn-admin-hub__tab.is-active {
 	color: var(--bn-accent);
+	border-bottom-color: var(--bn-accent);
 	font-weight: var(--bn-fw-semibold, 600);
 }
-.bn-admin-hub__sidebar-link.is-active:hover {
-	background: var(--bn-accent-50, var(--bn-sunken));
-}
 
-.bn-admin-hub__sidebar-icon {
+.bn-admin-hub__tab-icon {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 18px;
-	height: 18px;
+	width: 16px;
+	height: 16px;
 	flex-shrink: 0;
 	color: var(--bn-ink-3);
 	transition: color var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
 }
-.bn-admin-hub__sidebar-icon .bn-icon {
+.bn-admin-hub__tab-icon .bn-icon {
 	width: 16px;
 	height: 16px;
 }
-.bn-admin-hub__sidebar-link:hover .bn-admin-hub__sidebar-icon { color: var(--bn-ink-2); }
-.bn-admin-hub__sidebar-link.is-active .bn-admin-hub__sidebar-icon { color: var(--bn-accent); }
+.bn-admin-hub__tab:hover .bn-admin-hub__tab-icon { color: var(--bn-ink-2); }
+.bn-admin-hub__tab.is-active .bn-admin-hub__tab-icon { color: var(--bn-accent); }
 
-.bn-admin-hub__sidebar-label {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
+.bn-admin-hub__tab-label {
 	white-space: nowrap;
 }
 
-/* Group eyebrow — separates clusters within a section's nav. */
-.bn-admin-hub__sidebar-group {
-	padding: 14px 10px 4px;
-	font-family: var(--bn-font-mono, var(--bn-font-ui));
-	font-size: 10px;
-	font-weight: var(--bn-fw-semibold, 600);
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
-	color: var(--bn-ink-4, var(--bn-ink-3));
-}
-.bn-admin-hub__sidebar-group:first-child { padding-top: 6px; }
-.bn-admin-hub__sidebar-divider {
-	height: 1px;
-	background: var(--bn-line);
-	margin: 8px 4px;
-}
-
-.bn-admin-hub__sidebar-badge {
+.bn-admin-hub__tab-badge {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -210,16 +122,14 @@
 	line-height: 1;
 	flex-shrink: 0;
 }
-.bn-admin-hub__sidebar-link.is-active .bn-admin-hub__sidebar-badge {
-	background: var(--bn-accent);
-	color: var(--bn-accent-fg, #fff);
-}
 
 /* ── Main content area ───────────────────────────────────────────────── */
 
 .bn-admin-hub__main {
-	flex: 1;
 	min-width: 0;
+}
+.bn-admin-hub__main--full {
+	width: 100%;
 }
 
 /* Subtitle paragraph emitted by render methods */
@@ -228,6 +138,107 @@
 	font-size: var(--bn-text-sm, 14px);
 	color: var(--bn-ink-2, #4b5563);
 	line-height: 1.5;
+}
+
+/* ── Standardized sub-header bar ──────────────────────────────────────────
+ *
+ * Emitted by AdminHub::render_subhead() right under the tab strip when the
+ * active tab declares a subtitle and/or a primary action. One consistent bar
+ * on every screen: subtitle left, action(s) right. Reuses .bn-admin-hub__subtitle
+ * for the text (its bottom margin is zeroed here so the bar controls rhythm).
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.bn-admin-hub__subhead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--bn-s3, 12px);
+	flex-wrap: wrap;
+	margin: 0 0 var(--bn-s4, 16px);
+}
+.bn-admin-hub__subhead .bn-admin-hub__subtitle {
+	margin: 0;
+}
+.bn-admin-hub__subhead-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2, 8px);
+	margin-inline-start: auto;
+}
+
+/* ── Shared segmented control (range / segment filters) ───────────────────
+ *
+ * For range or segment filters (7/30/90, All/Active) — NOT navigation. A single
+ * rounded pill-group on a subtle track; the active item is filled with a soft
+ * accent so it reads as a "selected segment", visually distinct from the
+ * underline section tabs (which carry navigation). Token-driven + dark-safe.
+ *
+ * Markup:
+ *   <div class="bn-segment" role="group" aria-label="Range">
+ *     <a class="bn-segment__item is-active" aria-selected="true" ...>30 days</a>
+ *     <a class="bn-segment__item" ...>90 days</a>
+ *   </div>
+ * Items may be <a> or <button>. Active state: .is-active OR [aria-selected="true"].
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.bn-segment {
+	display: inline-flex;
+	align-items: stretch;
+	gap: var(--bn-s1, 4px);
+	padding: var(--bn-s1, 4px);
+	background: var(--bn-sunken);
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-full, 9999px);
+}
+
+.bn-segment__item {
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--bn-s1, 4px);
+	padding: 6px 14px;
+	border: 0;
+	background: none;
+	border-radius: var(--bn-r-full, 9999px);
+	font-size: var(--bn-text-sm, 13px);
+	font-weight: var(--bn-fw-medium, 500);
+	line-height: 1.2;
+	color: var(--bn-ink-2);
+	text-decoration: none;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: color var(--bn-dur-fast, 120ms) var(--bn-ease, ease),
+		background-color var(--bn-dur-fast, 120ms) var(--bn-ease, ease);
+}
+.bn-segment__item:hover {
+	color: var(--bn-ink);
+	background: var(--bn-surface);
+}
+.bn-segment__item:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px color-mix(in oklch, var(--bn-accent) 45%, transparent);
+}
+.bn-segment__item.is-active,
+.bn-segment__item[aria-selected="true"] {
+	color: var(--bn-accent-700);
+	background: var(--bn-accent-100);
+	font-weight: var(--bn-fw-semibold, 600);
+}
+.bn-segment__item.is-active:hover,
+.bn-segment__item[aria-selected="true"]:hover {
+	color: var(--bn-accent-700);
+	background: var(--bn-accent-100);
+}
+
+[data-bn-theme="dark"] .bn-segment__item.is-active,
+[data-theme="dark"] .bn-segment__item.is-active,
+[data-bx-mode="dark"] .bn-segment__item.is-active,
+[data-bn-theme="dark"] .bn-segment__item[aria-selected="true"],
+[data-theme="dark"] .bn-segment__item[aria-selected="true"],
+[data-bx-mode="dark"] .bn-segment__item[aria-selected="true"] {
+	color: var(--bn-accent-200);
+	background: color-mix(in oklch, var(--bn-accent) 22%, transparent);
 }
 
 .bn-admin-hub__sub-row {
@@ -240,8 +251,36 @@
 }
 .bn-admin-hub__sub-row .bn-admin-hub__subtitle { margin: 0; }
 
-/* Single-tab section fallback (no sidebar) */
+/* Single-tab section fallback (no tab strip) */
 .bn-admin-hub__body { margin-top: 0; }
+
+/* ── Recommended-defaults prompt (General tab) ───────────────────────── */
+
+.bn-recommended-card {
+	margin: 0 0 var(--bn-s4, 16px);
+	padding: var(--bn-s4, 16px) var(--bn-s5, 20px);
+	background: var(--bn-accent-50, var(--bn-sunken));
+	border: 1px solid var(--bn-line);
+	border-radius: var(--bn-r-md, 8px);
+}
+.bn-recommended-card__title {
+	margin: 0 0 var(--bn-s2, 8px);
+	font-size: var(--bn-text-md, 15px);
+	font-weight: var(--bn-fw-semibold, 600);
+	color: var(--bn-ink);
+}
+.bn-recommended-card__text {
+	margin: 0 0 var(--bn-s3, 12px);
+	font-size: var(--bn-text-sm, 13px);
+	color: var(--bn-ink-2);
+	line-height: 1.5;
+}
+.bn-recommended-card__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2, 8px);
+	margin: 0;
+}
 
 /* ── Auto-card pattern ────────────────────────────────────────────────
  *
@@ -409,69 +448,27 @@
 	max-width: none;
 }
 
-.bn-admin-hub__picker {
-	display: inline-flex;
-	align-items: center;
-	gap: 8px;
-	margin: 0 0 var(--bn-s4, 16px);
-	padding: 8px 12px;
-	background: var(--bn-surface);
-	border: 1px solid var(--bn-line);
-	border-radius: var(--bn-r-md, 6px);
-	box-shadow: var(--bn-shadow-sm);
-}
-.bn-admin-hub__picker-label {
-	font-family: var(--bn-font-mono, var(--bn-font-ui));
-	font-size: 11px;
-	font-weight: var(--bn-fw-semibold, 600);
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	color: var(--bn-ink-3);
-}
-.bn-admin-hub__picker-select {
-	border: 0;
-	background: transparent;
-	font: inherit;
-	font-size: var(--bn-text-sm, 13px);
-	font-weight: var(--bn-fw-semibold, 600);
-	color: var(--bn-ink);
-	padding: 4px 22px 4px 6px;
-	cursor: pointer;
-	min-width: 160px;
-}
-.bn-admin-hub__picker-select:focus-visible {
-	outline: 2px solid color-mix(in oklch, var(--bn-accent) 45%, transparent);
-	outline-offset: 2px;
-	border-radius: 4px;
-}
-
 .bn-admin-hub__main--wide {
 	display: block;
 	width: 100%;
 	min-width: 0;
 }
 
-/* ── Mobile — sidebar collapses to top horizontal scroller ───────────── */
+/* Stat-card rows need breathing room before the panel/table that follows, so
+   the boxes never butt up against each other. */
+.bn-admin-hub .bn-stat-grid {
+	margin-bottom: var(--bn-s4, 16px);
+}
+
+/* ── Mobile — tab strip becomes a horizontal scroller ────────────────── */
 
 @media (max-width: 782px) {
-	.bn-admin-hub__layout {
-		flex-direction: column;
-		gap: var(--bn-s3, 12px);
-	}
-	.bn-admin-hub__sidebar {
-		width: 100%;
-		position: static;
-		max-height: none;
+	.bn-admin-hub__tabs {
+		flex-wrap: nowrap;
 		overflow-x: auto;
 		overflow-y: hidden;
 	}
-	.bn-admin-hub__sidebar-nav {
-		flex-direction: row;
-		flex-wrap: nowrap;
-		padding: 8px;
-	}
-	.bn-admin-hub__sidebar-link {
+	.bn-admin-hub__tab {
 		flex-shrink: 0;
-		padding: 8px 12px;
 	}
 }

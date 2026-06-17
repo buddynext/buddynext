@@ -21,7 +21,7 @@ namespace BuddyNext\Admin;
 /**
  * Central admin menu + tab dispatcher.
  *
- * @phpstan-type BnAdminTab array{label:string, render:callable, cap:string, position:int, layout:string, badge:callable|null, icon:string, group:string, order:int}
+ * @phpstan-type BnAdminTab array{label:string, render:callable, cap:string, position:int, layout:string, badge:callable|null, icon:string, group:string, order:int, subtitle:string, action:string}
  */
 class AdminHub {
 
@@ -44,30 +44,257 @@ class AdminHub {
 	 * @var array<string, array{slug:string, label:string, top?:bool}>
 	 */
 	private const DEFAULT_SECTIONS = array(
-		'settings'     => array(
+		'settings'      => array(
 			'slug'  => 'buddynext',
 			'label' => 'Settings',
 			'top'   => true,
 		),
-		'members'      => array(
+		'platform'      => array(
+			'slug'  => 'buddynext-platform',
+			'label' => 'Platform',
+		),
+		'members'       => array(
 			'slug'  => 'buddynext-members',
 			'label' => 'Members',
 		),
-		'spaces'       => array(
+		'spaces'        => array(
 			'slug'  => 'buddynext-spaces',
 			'label' => 'Spaces',
 		),
-		'moderation'   => array(
+		'engagement'    => array(
+			'slug'  => 'buddynext-engagement',
+			'label' => 'Engagement',
+		),
+		'notifications' => array(
+			'slug'  => 'buddynext-notifications',
+			'label' => 'Notifications',
+		),
+		'realtime'      => array(
+			'slug'  => 'buddynext-realtime',
+			'label' => 'Realtime & Push',
+		),
+		'campaigns'     => array(
+			'slug'  => 'buddynext-campaigns',
+			'label' => 'Campaigns',
+		),
+		'moderation'    => array(
 			'slug'  => 'buddynext-moderation',
 			'label' => 'Moderation',
 		),
-		'growth'       => array(
-			'slug'  => 'buddynext-growth',
-			'label' => 'Growth',
+		'automod'       => array(
+			'slug'  => 'buddynext-automod',
+			'label' => 'Auto-Moderation',
 		),
-		'monetization' => array(
+		'monetization'  => array(
 			'slug'  => 'buddynext-monetization',
 			'label' => 'Monetization',
+		),
+		'upgrade'       => array(
+			'slug'  => 'buddynext-upgrade',
+			'label' => 'Upgrade',
+		),
+	);
+
+	/**
+	 * Canonical tab placement — the single source of truth for the admin
+	 * information architecture. Keyed by the tab's *origin* `section:slug`
+	 * (the section a registrar passes to `register_tab()`), each rule moves
+	 * the tab to its final `section` and sets its sidebar `position`.
+	 *
+	 * This lets every admin class — free and Pro — keep registering against
+	 * its own domain section while the hub arranges the final layout in one
+	 * place. No section exceeds five tabs, so no screen overwhelms the owner.
+	 *
+	 * A site can relocate, reorder, or hide any tab from a mu-plugin via the
+	 * `bn_admin_hub_tab_placement` filter — `array( 'hidden' => true )` drops
+	 * a tab, a different `section`/`position` moves it — without touching code.
+	 *
+	 * @var array<string, array{section?:string, position?:int, group?:string, hidden?:bool}>
+	 */
+	private const TAB_PLACEMENT = array(
+		// Settings — identity & look.
+		'settings:general'           => array(
+			'section'  => 'settings',
+			'position' => 10,
+		),
+		'settings:appearance'        => array(
+			'section'  => 'settings',
+			'position' => 20,
+		),
+		'settings:navigation'        => array(
+			'section'  => 'settings',
+			'position' => 30,
+		),
+		// White-label is retired from the IA. Hidden here so the Pro tab never
+		// surfaces; the underlying subsystem is slated for full removal.
+		'settings:white-label'       => array( 'hidden' => true ),
+
+		// Platform — capabilities, extensibility, maintenance.
+		'settings:features'          => array(
+			'section'  => 'platform',
+			'position' => 10,
+		),
+		'settings:integrations'      => array(
+			'section'  => 'platform',
+			'position' => 20,
+		),
+		'settings:addons'            => array(
+			'section'  => 'platform',
+			'position' => 30,
+		),
+		'settings:tools'             => array(
+			'section'  => 'platform',
+			'position' => 40,
+		),
+		'settings:webhooks'          => array(
+			'section'  => 'platform',
+			'position' => 50,
+		),
+
+		// Members — roster, access, registration.
+		'members:directory'          => array(
+			'section'  => 'members',
+			'position' => 10,
+		),
+		'members:labels'             => array(
+			'section'  => 'members',
+			'position' => 15,
+		),
+		'settings:registration'      => array(
+			'section'  => 'members',
+			'position' => 20,
+		),
+		'settings:roles'             => array(
+			'section'  => 'members',
+			'position' => 30,
+		),
+		'settings:privacy'           => array(
+			'section'  => 'members',
+			'position' => 40,
+		),
+
+		// Spaces.
+		'spaces:directory'           => array(
+			'section'  => 'spaces',
+			'position' => 10,
+		),
+		'settings:spaces'            => array(
+			'section'  => 'spaces',
+			'position' => 20,
+		),
+
+		// Engagement — interaction + measurement.
+		'growth:insights'            => array(
+			'section'  => 'engagement',
+			'position' => 10,
+		),
+		'growth:analytics'           => array(
+			'section'  => 'engagement',
+			'position' => 15,
+		),
+		'settings:social'            => array(
+			'section'  => 'engagement',
+			'position' => 20,
+		),
+		'settings:reactions'         => array(
+			'section'  => 'engagement',
+			'position' => 30,
+		),
+
+		// Notifications — delivery + templates.
+		'settings:notifications'     => array(
+			'section'  => 'notifications',
+			'position' => 10,
+		),
+		'settings:email'             => array(
+			'section'  => 'notifications',
+			'position' => 20,
+		),
+		'settings:templates'         => array(
+			'section'  => 'notifications',
+			'position' => 30,
+		),
+
+		// Realtime & Push (Pro). Hidden in free (no tabs register).
+		'settings:realtime'          => array(
+			'section'  => 'realtime',
+			'position' => 10,
+		),
+		'settings:push'              => array(
+			'section'  => 'realtime',
+			'position' => 20,
+		),
+		'settings:push-prefs'        => array(
+			'section'  => 'realtime',
+			'position' => 30,
+		),
+
+		// Campaigns (Pro). Hidden in free.
+		'growth:broadcasts'          => array(
+			'section'  => 'campaigns',
+			'position' => 10,
+		),
+		'growth:drip'                => array(
+			'section'  => 'campaigns',
+			'position' => 20,
+		),
+		'growth:scheduled'           => array(
+			'section'  => 'campaigns',
+			'position' => 30,
+		),
+		'growth:ai-feed'             => array(
+			'section'  => 'campaigns',
+			'position' => 40,
+		),
+
+		// Moderation — queue + filters.
+		'moderation:reports'         => array(
+			'section'  => 'moderation',
+			'position' => 10,
+		),
+		'moderation:suspensions'     => array(
+			'section'  => 'moderation',
+			'position' => 20,
+		),
+		'moderation:appeals'         => array(
+			'section'  => 'moderation',
+			'position' => 30,
+		),
+		'settings:moderation'        => array(
+			'section'  => 'moderation',
+			'position' => 40,
+		),
+		'moderation:bulk'            => array(
+			'section'  => 'moderation',
+			'position' => 50,
+		),
+
+		// Auto-Moderation (Pro). Hidden in free.
+		'moderation:rules'           => array(
+			'section'  => 'automod',
+			'position' => 10,
+		),
+		'moderation:ai'              => array(
+			'section'  => 'automod',
+			'position' => 20,
+		),
+
+		// Monetization (Pro). Hidden in free.
+		'monetization:tiers'         => array(
+			'section'  => 'monetization',
+			'position' => 10,
+		),
+		'monetization:subscriptions' => array(
+			'section'  => 'monetization',
+			'position' => 20,
+		),
+		'monetization:stripe'        => array(
+			'section'  => 'monetization',
+			'position' => 30,
+		),
+		'settings:license'           => array(
+			'section'  => 'monetization',
+			'position' => 40,
 		),
 	);
 
@@ -79,6 +306,13 @@ class AdminHub {
 	 * @var array<string, array{slug:string, label:string, top?:bool}>|null
 	 */
 	private static ?array $sections_cache = null;
+
+	/**
+	 * Cached resolved tab-placement map (TAB_PLACEMENT + filter overrides).
+	 *
+	 * @var array<string, array{section?:string, position?:int, group?:string, hidden?:bool}>|null
+	 */
+	private static ?array $placement_cache = null;
 
 	/**
 	 * Tab registry. Keyed by section then tab slug.
@@ -134,7 +368,7 @@ class AdminHub {
 	 */
 	public function suppress_foreign_admin_notices(): void {
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( ! $screen instanceof \WP_Screen || ! $this->is_hub_screen( (string) $screen->id ) ) {
+		if ( ! $screen instanceof \WP_Screen || ! self::is_hub_screen( (string) $screen->id ) ) {
 			return;
 		}
 
@@ -166,7 +400,7 @@ class AdminHub {
 	 * @return void
 	 */
 	public function enqueue_assets( string $hook_suffix ): void {
-		if ( ! $this->is_hub_screen( $hook_suffix ) ) {
+		if ( ! self::is_hub_screen( $hook_suffix ) ) {
 			return;
 		}
 		$version    = defined( 'BUDDYNEXT_VERSION' ) ? (string) constant( 'BUDDYNEXT_VERSION' ) : '1.0.0';
@@ -185,7 +419,7 @@ class AdminHub {
 	 * @param string $hook_suffix Hook suffix from admin_enqueue_scripts.
 	 * @return bool
 	 */
-	private function is_hub_screen( string $hook_suffix ): bool {
+	public static function is_hub_screen( string $hook_suffix ): bool {
 		if ( 'toplevel_page_' . self::TOP_SLUG === $hook_suffix ) {
 			return true;
 		}
@@ -195,6 +429,40 @@ class AdminHub {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Whether a tab is the active tab on the current hub screen — regardless of
+	 * which section the tab now lives in.
+	 *
+	 * Registrars gate their page-specific assets on this so a tab keeps its
+	 * CSS/JS no matter where the central placement map sends it. They reference
+	 * only the tab slug, never a hardcoded page/section, so a future move never
+	 * silently drops assets.
+	 *
+	 * @param string $slug Tab slug.
+	 * @return bool
+	 */
+	public static function is_tab_active( string $slug ): bool {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only screen detection.
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( (string) $_GET['page'] ) ) : '';
+		if ( '' === $page ) {
+			return false;
+		}
+		$section_key = self::instance()->section_from_slug( $page );
+		if ( null === $section_key ) {
+			return false;
+		}
+		$tabs = self::get_tabs( $section_key );
+		if ( empty( $tabs ) ) {
+			return false;
+		}
+		$active = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		if ( '' === $active || ! isset( $tabs[ $active ] ) ) {
+			$active = (string) array_key_first( $tabs );
+		}
+		return $active === $slug;
 	}
 
 	// ── Section / Tab API ────────────────────────────────────────────────────
@@ -232,6 +500,35 @@ class AdminHub {
 	}
 
 	/**
+	 * Resolved tab-placement map (defaults + `bn_admin_hub_tab_placement`).
+	 *
+	 * The map is keyed by a tab's origin `section:slug` and decides the final
+	 * section, sidebar position, and visibility of every tab. A site can move,
+	 * reorder, or hide any tab from a mu-plugin:
+	 *
+	 *     add_filter( 'bn_admin_hub_tab_placement', function ( $map ) {
+	 *         $map['settings:webhooks']['hidden'] = true;          // hide a tab
+	 *         $map['settings:social']['section']  = 'notifications'; // move a tab
+	 *         return $map;
+	 *     } );
+	 *
+	 * @return array<string, array{section?:string, position?:int, group?:string, hidden?:bool}>
+	 */
+	private static function tab_placement(): array {
+		if ( null !== self::$placement_cache ) {
+			return self::$placement_cache;
+		}
+		/**
+		 * Filter the admin-hub tab-placement map.
+		 *
+		 * @param array $map Origin `section:slug` → { section?, position?, group?, hidden? }.
+		 */
+		$filtered              = apply_filters( 'bn_admin_hub_tab_placement', self::TAB_PLACEMENT );
+		self::$placement_cache = is_array( $filtered ) ? $filtered : self::TAB_PLACEMENT;
+		return self::$placement_cache;
+	}
+
+	/**
 	 * Contribute a tab to a section.
 	 *
 	 * Call from a feature's `register()` method (or any code that runs before
@@ -247,24 +544,52 @@ class AdminHub {
 	 *  - `layout`   string    'sidebar' (default) — body renders next to the section sidebar.
 	 *                         'wide' — body renders edge-to-edge with a slim section-tab picker at top.
 	 *                                  Use for list-detail editors that need horizontal room.
+	 *  - `subtitle` string    One-line description shown in the standardized sub-header bar
+	 *                         below the tab strip. Escaped with esc_html on render.
+	 *  - `action`   string    Pre-built, already-escaped HTML for the sub-header's right side
+	 *                         (e.g. an Export CSV form/button). Printed verbatim — the screen
+	 *                         that supplies it is responsible for escaping every value inside.
 	 *
 	 * Back-compat: passing a capability string as the 5th arg still works.
 	 *
-	 * @param string                                                                                                 $section Section key.
-	 * @param string                                                                                                 $slug    Tab slug — URL `?tab=` value.
-	 * @param string                                                                                                 $label   Visible tab label (already translated).
-	 * @param callable                                                                                               $render  Render callback for the tab body.
-	 * @param array{cap?:string,position?:int,badge?:callable,icon?:string,group?:string,layout?:string}|string|null $args    Extension args, or capability string.
+	 * @param string                                                                                                                                 $section Section key.
+	 * @param string                                                                                                                                 $slug    Tab slug — URL `?tab=` value.
+	 * @param string                                                                                                                                 $label   Visible tab label (already translated).
+	 * @param callable                                                                                                                               $render  Render callback for the tab body.
+	 * @param array{cap?:string,position?:int,badge?:callable,icon?:string,group?:string,layout?:string,subtitle?:string,action?:string}|string|null $args    Extension args, or capability string.
 	 * @return void
 	 */
 	public static function register_tab( string $section, string $slug, string $label, callable $render, array|string|null $args = null ): void {
-		if ( ! isset( self::sections()[ $section ] ) ) {
-			return;
-		}
 		if ( is_string( $args ) ) {
 			$args = array( 'cap' => $args );
 		}
 		$args = is_array( $args ) ? $args : array();
+
+		// Apply the canonical IA placement. The map relocates the tab to its
+		// final section and sets its sidebar position, so every registrar can
+		// keep passing its own domain section while the hub arranges the final
+		// layout in one place. `hidden` drops the tab entirely.
+		$placement = self::tab_placement();
+		$rule      = $placement[ $section . ':' . $slug ] ?? null;
+		if ( is_array( $rule ) ) {
+			if ( ! empty( $rule['hidden'] ) ) {
+				return;
+			}
+			if ( isset( $rule['section'] ) ) {
+				$section = (string) $rule['section'];
+			}
+			if ( isset( $rule['position'] ) ) {
+				$args['position'] = (int) $rule['position'];
+			}
+			// The map owns grouping: clear any registrar-supplied group unless
+			// the rule sets one, so legacy "Advanced" eyebrows don't leak into
+			// the flat, capped sections.
+			$args['group'] = isset( $rule['group'] ) ? (string) $rule['group'] : '';
+		}
+
+		if ( ! isset( self::sections()[ $section ] ) ) {
+			return;
+		}
 
 		self::$tabs[ $section ][ $slug ] = array(
 			'label'    => $label,
@@ -276,6 +601,8 @@ class AdminHub {
 			'icon'     => isset( $args['icon'] ) ? (string) $args['icon'] : self::default_icon_for( $slug ),
 			'group'    => isset( $args['group'] ) ? (string) $args['group'] : '',
 			'order'    => count( self::$tabs[ $section ] ?? array() ),
+			'subtitle' => isset( $args['subtitle'] ) ? (string) $args['subtitle'] : '',
+			'action'   => isset( $args['action'] ) ? (string) $args['action'] : '',
 		);
 	}
 
@@ -300,7 +627,7 @@ class AdminHub {
 			$cached = apply_filters(
 				'bn_admin_hub_default_icon_map',
 				array(
-					// Settings section
+					// Settings section.
 					'general'       => 'settings',
 					'features'      => 'sparkles',
 					'registration'  => 'user',
@@ -323,24 +650,24 @@ class AdminHub {
 					'push-prefs'    => 'bell',
 					'realtime'      => 'zap',
 					'white-label'   => 'palette',
-					// Members section
+					// Members section.
 					'directory'     => 'users',
 					'labels'        => 'hash',
-					// Moderation section
+					// Moderation section.
 					'rules'         => 'shield',
 					'ai'            => 'sparkles',
 					'bulk'          => 'check-double',
 					'reports'       => 'flag',
 					'suspensions'   => 'ban',
 					'appeals'       => 'message-circle',
-					// Growth section
+					// Engagement / Campaigns section.
 					'analytics'     => 'bar-chart',
 					'insights'      => 'trending',
 					'broadcasts'    => 'megaphone',
 					'drip'          => 'mail',
 					'scheduled'     => 'clock',
 					'ai-feed'       => 'sparkles',
-					// Monetization section
+					// Monetization section.
 					'tiers'         => 'crown',
 					'subscriptions' => 'crown',
 					'paywall'       => 'lock',
@@ -410,10 +737,7 @@ class AdminHub {
 	 * @return void
 	 */
 	public function build_menu(): void {
-		// White-label: the wp-admin menu title can be renamed to the site's own
-		// community name via Settings → Appearance (option buddynext_white_label).
-		$bn_label = (string) get_option( 'buddynext_white_label', '' );
-		$bn_label = '' !== trim( $bn_label ) ? $bn_label : __( 'BuddyNext', 'buddynext' );
+		$bn_label = __( 'BuddyNext', 'buddynext' );
 
 		add_menu_page(
 			$bn_label,
@@ -434,8 +758,8 @@ class AdminHub {
 			}
 			add_submenu_page(
 				self::TOP_SLUG,
-				__( $section['label'], 'buddynext' ),
-				__( $section['label'], 'buddynext' ),
+				__( $section['label'], 'buddynext' ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- section labels are first-party literals defined in DEFAULT_SECTIONS.
+				__( $section['label'], 'buddynext' ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralText -- section labels are first-party literals defined in DEFAULT_SECTIONS.
 				'manage_options',
 				$section['slug'],
 				array( $this, 'render_section' )
@@ -487,76 +811,26 @@ class AdminHub {
 		echo '<div class="wrap bn-admin-hub' . ( $is_wide ? ' is-wide' : '' ) . '" data-section="' . esc_attr( $section_key ) . '">';
 		$this->render_header( $section['label'] );
 
-		if ( $is_wide ) {
-			// Wide layout: slim section-tab picker at top, edge-to-edge body.
-			$this->render_wide_picker( $section['slug'], $tabs, $active_slug );
-			echo '<main class="bn-admin-hub__main bn-admin-hub__main--wide">';
-			call_user_func( $active['render'] );
-			echo '</main>';
-		} elseif ( count( $tabs ) > 1 ) {
-			// Sidebar layout: vertical nav + body. The body is the tabpanel for
-			// the sidebar tablist, linked back to the active tab via
-			// aria-labelledby so screen readers associate the two.
-			echo '<div class="bn-admin-hub__layout">';
-			$this->render_sidebar( $section['slug'], $section['label'], $tabs, $active_slug );
+		// Every multi-tab section — wide editors included — uses the same
+		// horizontal tab strip above a full-width body, so the chrome is
+		// identical everywhere. Wide editors only differ in body width.
+		$main_classes = 'bn-admin-hub__main ' . ( $is_wide ? 'bn-admin-hub__main--wide' : 'bn-admin-hub__main--full' );
+		if ( count( $tabs ) > 1 ) {
+			$this->render_tabstrip( $section['slug'], $tabs, $active_slug );
+			$this->render_subhead( $active );
 			printf(
-				'<main class="bn-admin-hub__main" id="bn-admin-hub-panel" role="tabpanel" aria-labelledby="%s" tabindex="0">',
+				'<main class="%s" id="bn-admin-hub-panel" role="tabpanel" aria-labelledby="%s" tabindex="0">',
+				esc_attr( $main_classes ),
 				esc_attr( 'bn-hubtab-' . $active_slug )
 			);
-			call_user_func( $active['render'] );
-			echo '</main>';
-			echo '</div>';
 		} else {
-			// Single-tab section — body only.
-			echo '<div class="bn-admin-hub__body">';
-			call_user_func( $active['render'] );
-			echo '</div>';
+			// Single-tab section — body only, no strip.
+			$this->render_subhead( $active );
+			printf( '<main class="%s">', esc_attr( $main_classes ) );
 		}
+		call_user_func( $active['render'] );
+		echo '</main>';
 		echo '</div>';
-	}
-
-	/**
-	 * Render the top picker for wide-layout tabs.
-	 *
-	 * A compact dropdown listing every tab in the section, so admins can
-	 * jump to another tab without losing the editor's full horizontal
-	 * room. Pure HTML <select> — no JS dependency.
-	 *
-	 * @param string                                                       $page_slug Section page slug.
-	 * @param array<string, array{label:string,layout?:string,cap:string}> $tabs      Tab registry slice.
-	 * @param string                                                       $active    Active tab slug.
-	 * @return void
-	 */
-	private function render_wide_picker( string $page_slug, array $tabs, string $active ): void {
-		?>
-		<nav class="bn-admin-hub__picker" aria-label="<?php esc_attr_e( 'Section tabs', 'buddynext' ); ?>">
-			<label class="bn-admin-hub__picker-label" for="bn-hub-picker">
-				<?php esc_html_e( 'Section:', 'buddynext' ); ?>
-			</label>
-			<select
-				id="bn-hub-picker"
-				class="bn-admin-hub__picker-select"
-				data-bn-navigate-on-change
-			>
-				<?php
-				foreach ( $tabs as $slug => $tab ) :
-					if ( ! current_user_can( $tab['cap'] ) ) {
-						continue; }
-					$url = add_query_arg(
-						array(
-							'page' => $page_slug,
-							'tab'  => $slug,
-						),
-						admin_url( 'admin.php' )
-					);
-					?>
-					<option value="<?php echo esc_url( $url ); ?>" <?php selected( $slug, $active ); ?>>
-						<?php echo esc_html( $tab['label'] ); ?>
-					</option>
-				<?php endforeach; ?>
-			</select>
-		</nav>
-		<?php
 	}
 
 	/**
@@ -577,97 +851,103 @@ class AdminHub {
 	}
 
 	/**
-	 * Render the section sidebar — vertical nav listing every tab.
+	 * Render the standardized sub-header bar for the active tab.
 	 *
-	 * Replaces the previous horizontal tab strip per skill rule F5 (jetonomy
-	 * pattern). Scales cleanly when a section grows past 6-7 tabs; the
-	 * horizontal version overflows.
+	 * One consistent bar across every screen: the tab's one-line subtitle on the
+	 * left, its primary action (e.g. an "Export CSV" form/button) on the right.
+	 * Rendered only when the active tab declares a `subtitle` or an `action`, so
+	 * screens that need neither stay clean. This is the single place a screen
+	 * gets a subtitle or a header action — screens must not print their own.
 	 *
-	 * @param string                    $page_slug      Section page slug.
-	 * @param string                    $section_label  Section label for the sidebar header.
-	 * @param array<string, BnAdminTab> $tabs           Sorted tabs.
-	 * @param string                    $active         Active tab slug.
+	 * @param array<string, mixed> $tab Active tab record.
 	 * @return void
 	 */
-	private function render_sidebar( string $page_slug, string $section_label, array $tabs, string $active ): void {
+	private function render_subhead( array $tab ): void {
+		$subtitle = isset( $tab['subtitle'] ) ? (string) $tab['subtitle'] : '';
+		$action   = isset( $tab['action'] ) ? (string) $tab['action'] : '';
+		if ( '' === $subtitle && '' === $action ) {
+			return;
+		}
+
+		echo '<div class="bn-admin-hub__subhead">';
+		if ( '' !== $subtitle ) {
+			echo '<p class="bn-admin-hub__subtitle">' . esc_html( $subtitle ) . '</p>';
+		}
+		if ( '' !== $action ) {
+			// $action is trusted, pre-built HTML supplied by the registering screen
+			// (e.g. an Export CSV form). The screen is contractually responsible for
+			// escaping every value inside it before passing it to register_tab().
+			echo '<div class="bn-admin-hub__subhead-actions">' . $action . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- trusted pre-escaped HTML by Header API contract.
+		}
+		echo '</div>';
+	}
+
+	/**
+	 * Render the section tab strip — a horizontal nav listing every tab.
+	 *
+	 * Sections are capped at a few tabs, so a horizontal strip reads cleanly and
+	 * uses the full content width (a vertical rail would waste the left column).
+	 * Flat by design — no group eyebrows — since the cap keeps each list short.
+	 *
+	 * @param string                    $page_slug Section page slug.
+	 * @param array<string, BnAdminTab> $tabs      Sorted tabs.
+	 * @param string                    $active    Active tab slug.
+	 * @return void
+	 */
+	private function render_tabstrip( string $page_slug, array $tabs, string $active ): void {
 		?>
-		<aside class="bn-admin-hub__sidebar" aria-label="<?php esc_attr_e( 'Section navigation', 'buddynext' ); ?>">
-			<header class="bn-admin-hub__sidebar-head">
-				<span class="bn-admin-hub__sidebar-brand-icon" aria-hidden="true">
-					<?php echo \BuddyNext\Core\IconService::render( 'users' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd. ?>
-				</span>
-				<div class="bn-admin-hub__sidebar-brand-text">
-					<span class="bn-admin-hub__sidebar-brand-name">BuddyNext</span>
-					<span class="bn-admin-hub__sidebar-section"><?php echo esc_html( $section_label ); ?></span>
-				</div>
-			</header>
-			<nav class="bn-admin-hub__sidebar-nav" role="tablist">
-				<?php
-				$current_group = null;
-				foreach ( $tabs as $slug => $tab ) {
-					if ( ! current_user_can( $tab['cap'] ) ) {
-						continue;
-					}
-
-					// Render group eyebrow when the group changes.
-					$group = (string) ( $tab['group'] ?? '' );
-					if ( $group !== $current_group ) {
-						if ( '' !== $group ) {
-							echo '<div class="bn-admin-hub__sidebar-group">' . esc_html( $group ) . '</div>';
-						} elseif ( null !== $current_group && '' !== $current_group ) {
-							// Coming back to ungrouped after a group — visual divider.
-							echo '<div class="bn-admin-hub__sidebar-divider" aria-hidden="true"></div>';
-						}
-						$current_group = $group;
-					}
-
-					$is_active = ( $slug === $active );
-					$url       = add_query_arg(
-						array(
-							'page' => $page_slug,
-							'tab'  => $slug,
-						),
-						admin_url( 'admin.php' )
-					);
-
-					$badge_html = '';
-					if ( ! empty( $tab['badge'] ) && is_callable( $tab['badge'] ) ) {
-						$count = (int) call_user_func( $tab['badge'] );
-						if ( $count > 0 ) {
-							$display    = $count > 99 ? '99+' : (string) $count;
-							$badge_html = ' <span class="bn-admin-hub__sidebar-badge" aria-label="' . esc_attr(
-								sprintf(
-								/* translators: %d: pending item count */
-									_n( '%d pending', '%d pending', $count, 'buddynext' ),
-									$count
-								)
-							) . '">' . esc_html( $display ) . '</span>';
-						}
-					}
-
-					$icon_html = '';
-					if ( ! empty( $tab['icon'] ) ) {
-						$svg = \BuddyNext\Core\IconService::render( (string) $tab['icon'] );
-						if ( '' !== $svg ) {
-							$icon_html = '<span class="bn-admin-hub__sidebar-icon" aria-hidden="true">' . $svg . '</span>';
-						}
-					}
-
-					printf(
-						'<a class="bn-admin-hub__sidebar-link%s" href="%s" id="bn-hubtab-%s" role="tab" aria-selected="%s" aria-controls="bn-admin-hub-panel"%s>%s<span class="bn-admin-hub__sidebar-label">%s</span>%s</a>',
-						$is_active ? ' is-active' : '',
-						esc_url( $url ),
-						esc_attr( $slug ),
-						$is_active ? 'true' : 'false',
-						$is_active ? ' data-active="true"' : '',
-						$icon_html, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService wp_kses'd.
-						esc_html( $tab['label'] ),
-						$badge_html // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above; only digits/"99+" inside.
-					);
+		<nav class="bn-admin-hub__tabs" role="tablist" aria-label="<?php esc_attr_e( 'Section tabs', 'buddynext' ); ?>">
+			<?php
+			foreach ( $tabs as $slug => $tab ) {
+				if ( ! current_user_can( $tab['cap'] ) ) {
+					continue;
 				}
-				?>
-			</nav>
-		</aside>
+
+				$is_active = ( $slug === $active );
+				$url       = add_query_arg(
+					array(
+						'page' => $page_slug,
+						'tab'  => $slug,
+					),
+					admin_url( 'admin.php' )
+				);
+
+				$badge_html = '';
+				if ( ! empty( $tab['badge'] ) && is_callable( $tab['badge'] ) ) {
+					$count = (int) call_user_func( $tab['badge'] );
+					if ( $count > 0 ) {
+						$display    = $count > 99 ? '99+' : (string) $count;
+						$badge_html = ' <span class="bn-admin-hub__tab-badge" aria-label="' . esc_attr(
+							sprintf(
+							/* translators: %d: pending item count */
+								_n( '%d pending', '%d pending', $count, 'buddynext' ),
+								$count
+							)
+						) . '">' . esc_html( $display ) . '</span>';
+					}
+				}
+
+				$icon_html = '';
+				if ( ! empty( $tab['icon'] ) ) {
+					$svg = \BuddyNext\Core\IconService::render( (string) $tab['icon'] );
+					if ( '' !== $svg ) {
+						$icon_html = '<span class="bn-admin-hub__tab-icon" aria-hidden="true">' . $svg . '</span>';
+					}
+				}
+
+				printf(
+					'<a class="bn-admin-hub__tab%s" href="%s" id="bn-hubtab-%s" role="tab" aria-selected="%s" aria-controls="bn-admin-hub-panel">%s<span class="bn-admin-hub__tab-label">%s</span>%s</a>',
+					$is_active ? ' is-active' : '',
+					esc_url( $url ),
+					esc_attr( $slug ),
+					$is_active ? 'true' : 'false',
+					$icon_html, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService wp_kses'd.
+					esc_html( $tab['label'] ),
+					$badge_html // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped above; only digits/"99+" inside.
+				);
+			}
+			?>
+		</nav>
 		<?php
 	}
 

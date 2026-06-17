@@ -1,13 +1,16 @@
 <?php // phpcs:disable WordPress.Files.FileName.NotHyphenatedLowercase,WordPress.Files.FileName.InvalidClassFileName -- PSR-4 naming used throughout this plugin.
 /**
- * Hub slug option setup.
+ * Hub page/route setup (no-op placeholder).
  *
- * BuddyNext uses virtual pages — no backing WordPress pages are created.
- * All hub URLs are handled by PageRouter rewrite rules and rendered via
- * dispatch_hub_template() at template_redirect.
+ * Hub URLs are slug-routed: each hub is reachable at a configurable slug
+ * (buddynext_slug_*) via PageRouter rewrite rules, rendered by
+ * dispatch_hub_template() at template_redirect. A hub MAY also be backed by a
+ * real WordPress page (buddynext_page_*) — created by Installer::create_hub_pages()
+ * on activation, or on demand from the admin Pages & URLs tab (NavManager) — but
+ * the backing page is optional and is never the canonical URL source.
  *
- * This class is retained for forward-compatibility (admin settings panels
- * may reference it) but performs no page creation.
+ * Page creation therefore lives in Installer + NavManager, not here. This class
+ * is retained only because other code references it; it performs no work.
  *
  * @package BuddyNext\Core
  * @since   1.0.0

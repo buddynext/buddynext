@@ -7,8 +7,6 @@
  *
  *   Logo          — shown at the top of the navigation rail; links home.
  *   Default theme — light / dark / auto for first-time visitors.
- *   Admin label   — white-label the wp-admin "BuddyNext" menu to the site's
- *                   own name (option read by AdminHub::build_menu()).
  *   Custom CSS    — injected on the front-end after the token block.
  *
  * The options are stored here; Theme\Appearance applies the front-end ones.
@@ -55,7 +53,6 @@ class AppearanceTab {
 
 		$logo    = (string) get_option( 'buddynext_logo_url', '' );
 		$theme   = (string) get_option( 'buddynext_default_theme', 'auto' );
-		$label   = (string) get_option( 'buddynext_white_label', '' );
 		$css     = (string) get_option( 'buddynext_custom_css', '' );
 		$themes  = array(
 			'auto'  => __( 'Auto (follow the visitor’s device)', 'buddynext' ),
@@ -96,15 +93,6 @@ class AppearanceTab {
 			</div>
 
 			<div class="bn-settings-section">
-				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Admin menu label', 'buddynext' ); ?></span></div>
-				<div class="bn-ss-body">
-					<p class="bn-av-section-desc"><?php esc_html_e( 'Rename the “BuddyNext” menu in wp-admin to your community’s name. Leave empty to keep “BuddyNext”.', 'buddynext' ); ?></p>
-					<input type="text" name="bn_white_label" class="bn-input regular-text" maxlength="40"
-						value="<?php echo esc_attr( $label ); ?>" placeholder="BuddyNext">
-				</div>
-			</div>
-
-			<div class="bn-settings-section">
 				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Custom CSS', 'buddynext' ); ?></span></div>
 				<div class="bn-ss-body">
 					<p class="bn-av-section-desc"><?php esc_html_e( 'Injected on community pages after the theme styles. Use the BuddyNext token variables (e.g. var(--bn-accent)) where you can.', 'buddynext' ); ?></p>
@@ -131,10 +119,6 @@ class AppearanceTab {
 		// Default theme.
 		$theme = isset( $_POST['bn_default_theme'] ) ? sanitize_key( wp_unslash( (string) $_POST['bn_default_theme'] ) ) : 'auto';
 		update_option( 'buddynext_default_theme', in_array( $theme, array( 'auto', 'light', 'dark' ), true ) ? $theme : 'auto' );
-
-		// White-label admin menu label.
-		$label = isset( $_POST['bn_white_label'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['bn_white_label'] ) ) : '';
-		update_option( 'buddynext_white_label', $label );
 
 		// Custom CSS — stored verbatim (manage_options); neutralised on output.
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
@@ -173,9 +157,9 @@ class AppearanceTab {
 	 * @return string|null URL on success, null on failure.
 	 */
 	private function handle_logo_upload(): ?string {
-		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.NonceVerification.Missing -- nonce verified by check_admin_referer() in handle_save() before this runs.
 		$file = isset( $_FILES['bn_logo_file'] ) && is_array( $_FILES['bn_logo_file'] ) ? $_FILES['bn_logo_file'] : array();
-		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
+		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash, WordPress.Security.NonceVerification.Missing
 
 		if ( UPLOAD_ERR_OK !== (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE ) ) {
 			return null;

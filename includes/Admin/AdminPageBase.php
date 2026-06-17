@@ -269,6 +269,52 @@ abstract class AdminPageBase {
 	}
 
 	/**
+	 * Render a colour field — a native swatch picker paired with a hex text
+	 * input, kept in sync by assets/js/admin/settings.js. The text input is
+	 * canonical (it carries the option name and is what posts/saves); the
+	 * swatch is just the picker. Self-descriptive so owners know exactly what
+	 * the colour drives.
+	 *
+	 * @param string $option_name WP option name.
+	 * @param string $label       Field label.
+	 * @param string $value       Current hex value (e.g. #0073aa).
+	 * @param string $hint        Optional hint text beneath the field.
+	 * @return void
+	 */
+	protected function render_color_row(
+		string $option_name,
+		string $label,
+		string $value,
+		string $hint = ''
+	): void {
+		$input_id = 'bn-field-' . sanitize_key( $option_name );
+		$value    = '' !== $value ? $value : '#0073aa';
+		?>
+		<div class="bn-field bn-color-field">
+			<label for="<?php echo esc_attr( $input_id ); ?>"><?php echo esc_html( $label ); ?></label>
+			<div class="bn-color-row">
+				<input type="color"
+						class="bn-color-swatch"
+						value="<?php echo esc_attr( $value ); ?>"
+						data-bn-color-for="<?php echo esc_attr( $input_id ); ?>"
+						aria-label="<?php /* translators: %s: field label. */ echo esc_attr( sprintf( __( '%s picker', 'buddynext' ), $label ) ); ?>">
+				<input type="text"
+						id="<?php echo esc_attr( $input_id ); ?>"
+						name="<?php echo esc_attr( $option_name ); ?>"
+						value="<?php echo esc_attr( $value ); ?>"
+						class="bn-text-input bn-color-hex"
+						maxlength="7"
+						pattern="#?[0-9a-fA-F]{6}"
+						spellcheck="false">
+			</div>
+			<?php if ( '' !== $hint ) : ?>
+				<span class="bn-field-hint"><?php echo esc_html( $hint ); ?></span>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render a labelled textarea field.
 	 *
 	 * @param string $option_name WP option name.

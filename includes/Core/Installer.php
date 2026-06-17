@@ -32,8 +32,11 @@ class Installer {
 	 * 3 — seed moderation email templates bn.unsuspension_confirmation +
 	 *     bn.new_report (back-fills existing installs via the idempotent
 	 *     INSERT IGNORE seeder; no schema change).
+	 * 4 — added bn_space_categories.color / text_color / icon_svg / show_in_dir
+	 *     for parity with bn_member_types (unified taxonomy editor). Applied to
+	 *     existing installs via the idempotent column ALTER in maybe_alter_tables().
 	 */
-	private const SCHEMA_VERSION = 3;
+	private const SCHEMA_VERSION = 4;
 
 	/**
 	 * Run the schema migration when the stored revision is behind SCHEMA_VERSION.
@@ -60,6 +63,11 @@ class Installer {
 	public static function run(): void {
 		global $wpdb;
 
+		// Detect a brand-new install before the version is stamped below, so the
+		// recommended first-run defaults seed only on a genuinely fresh site —
+		// never on an upgrade or reactivation.
+		$is_fresh_install = false === get_option( 'buddynext_db_version', false );
+
 		$charset = $wpdb->get_charset_collate();
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -71,6 +79,12 @@ class Installer {
 			dbDelta( $sql );
 		}
 		$wpdb->suppress_errors( false );
+
+		// Idempotent column back-fills for existing installs. dbDelta handles
+		// most additive changes, but enum/charset edge cases on older MySQL can
+		// silently skip new columns — so we guard each add with an
+		// INFORMATION_SCHEMA existence check. Safe to run on every activation.
+		self::maybe_alter_tables( $wpdb->prefix );
 
 		// FULLTEXT cannot be created via dbDelta on temporary tables (test suite).
 		// Add it separately and suppress errors so tests pass without FULLTEXT.
@@ -85,10 +99,87 @@ class Installer {
 		update_option( 'buddynext_db_version', BUDDYNEXT_VERSION );
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 
+		// Fresh install: give the new community the full experience on day one
+		// (discovery, DM, engagement surfaces, default notifications, baseline
+		// spam protection). add_option never clobbers an existing value. Starter
+		// space categories + member types are seeded once so the directory is not
+		// empty out of the box; the owner can rename or delete them freely, and
+		// the fresh-install guard means deleted ones never come back.
+		if ( $is_fresh_install ) {
+			RecommendedDefaults::seed();
+			self::seed_starter_space_categories( $wpdb->prefix );
+			self::seed_starter_member_types( $wpdb->prefix );
+		}
+
 		self::create_hub_pages();
 		self::install_mu_plugin();
 
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
+	}
+
+	/**
+	 * Apply idempotent column additions to existing tables.
+	 *
+	 * Each ALTER is guarded by an INFORMATION_SCHEMA column-existence check so
+	 * the routine is safe to run on every activation/upgrade without erroring
+	 * on installs that already have the column. New columns are added here (not
+	 * relied on through dbDelta alone) because dbDelta cannot always alter a
+	 * pre-existing table reliably across MySQL/MariaDB versions.
+	 *
+	 * @param string $p Table prefix.
+	 * @return void
+	 */
+	private static function maybe_alter_tables( string $p ): void {
+		global $wpdb;
+
+		$table = $p . 'bn_space_categories';
+
+		// Schema-parity columns for the unified taxonomy editor (v4). Categories
+		// gain colour/icon/directory-visibility to match bn_member_types.
+		$columns = array(
+			'color'       => "ADD COLUMN color VARCHAR(7) NOT NULL DEFAULT '#0073aa'",
+			'text_color'  => "ADD COLUMN text_color VARCHAR(7) NOT NULL DEFAULT '#ffffff'",
+			'icon_svg'    => 'ADD COLUMN icon_svg MEDIUMTEXT NULL',
+			'show_in_dir' => 'ADD COLUMN show_in_dir TINYINT(1) NOT NULL DEFAULT 1',
+		);
+
+		$wpdb->suppress_errors( true );
+		foreach ( $columns as $column => $clause ) {
+			if ( self::column_exists( $table, $column ) ) {
+				continue;
+			}
+
+			// Column name + clause are hardcoded constants above; $table is built
+			// from $wpdb->prefix. Nothing here is untrusted input.
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( "ALTER TABLE `{$table}` {$clause}" );
+		}
+		$wpdb->suppress_errors( false );
+	}
+
+	/**
+	 * Whether a column exists on a table, via INFORMATION_SCHEMA.
+	 *
+	 * @param string $table  Fully-prefixed table name.
+	 * @param string $column Column name to check.
+	 * @return bool
+	 */
+	private static function column_exists( string $table, string $column ): bool {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$found = $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+				 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s
+				 LIMIT 1',
+				DB_NAME,
+				$table,
+				$column
+			)
+		);
+
+		return null !== $found;
 	}
 
 	/**
@@ -274,6 +365,73 @@ class Installer {
 			);
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Seed a couple of generic, deletable space categories so the Spaces
+	 * directory has filing buckets from day one. Fresh-install only, so deleted
+	 * categories never reappear.
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function seed_starter_space_categories( string $p ): void {
+		global $wpdb;
+
+		$categories = array(
+			array( 'General', 'general' ),
+			array( 'Announcements', 'announcements' ),
+			array( 'Introductions', 'introductions' ),
+		);
+
+		$order = 0;
+		foreach ( $categories as $cat ) {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO {$p}bn_space_categories (name, slug, sort_order) VALUES (%s, %s, %d)",
+					$cat[0],
+					$cat[1],
+					$order
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$order += 10;
+		}
+	}
+
+	/**
+	 * Seed a couple of generic, deletable member types so the directory has
+	 * editorial labels to use from day one. Fresh-install only.
+	 *
+	 * @param string $p Table prefix.
+	 */
+	private static function seed_starter_member_types( string $p ): void {
+		global $wpdb;
+
+		$types = array(
+			// slug, name, color, self_select.
+			array( 'contributor', 'Contributor', '#0073aa', 1 ),
+			array( 'staff', 'Staff', '#5b21b6', 0 ),
+		);
+
+		$order = 0;
+		foreach ( $types as $type ) {
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query(
+				$wpdb->prepare(
+					"INSERT IGNORE INTO {$p}bn_member_types (slug, name, color, text_color, sort_order, show_in_dir, self_select) VALUES (%s, %s, %s, %s, %d, %d, %d)",
+					$type[0],
+					$type[1],
+					$type[2],
+					'#ffffff',
+					$order,
+					1,
+					$type[3]
+				)
+			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$order += 10;
+		}
 	}
 
 	/**
@@ -635,6 +793,10 @@ class Installer {
 				name        VARCHAR(100) NOT NULL,
 				slug        VARCHAR(100) NOT NULL,
 				description TEXT DEFAULT NULL,
+				color       VARCHAR(7) NOT NULL DEFAULT '#0073aa',
+				text_color  VARCHAR(7) NOT NULL DEFAULT '#ffffff',
+				icon_svg    MEDIUMTEXT NULL,
+				show_in_dir TINYINT(1) NOT NULL DEFAULT 1,
 				sort_order  INT NOT NULL DEFAULT 0,
 				PRIMARY KEY (id),
 				UNIQUE KEY  slug (slug)

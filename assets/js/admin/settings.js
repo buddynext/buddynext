@@ -305,17 +305,43 @@
 		} );
 	}
 
+	/**
+	 * Keep each colour swatch (input[type=color]) in sync with its paired hex
+	 * text field so picking a colour updates the hex and typing a valid hex
+	 * updates the swatch. The text field is canonical (it saves).
+	 */
+	function initColorFields() {
+		var swatches = document.querySelectorAll( 'input[type="color"][data-bn-color-for]' );
+		Array.prototype.forEach.call( swatches, function ( swatch ) {
+			var target = document.getElementById( swatch.getAttribute( 'data-bn-color-for' ) );
+			if ( ! target ) {
+				return;
+			}
+			swatch.addEventListener( 'input', function () {
+				target.value = swatch.value;
+			} );
+			target.addEventListener( 'input', function () {
+				var v = target.value.trim();
+				if ( /^#?[0-9a-fA-F]{6}$/.test( v ) ) {
+					swatch.value = '#' === v.charAt( 0 ) ? v : '#' + v;
+				}
+			} );
+		} );
+	}
+
 	if ( document.readyState === 'loading' ) {
 		document.addEventListener( 'DOMContentLoaded', function () {
 			initSettingsSearch();
 			initWebhookManager();
 			initCopyButtons();
 			initCompanions();
+			initColorFields();
 		} );
 	} else {
 		initSettingsSearch();
 		initWebhookManager();
 		initCopyButtons();
 		initCompanions();
+		initColorFields();
 	}
 } )();

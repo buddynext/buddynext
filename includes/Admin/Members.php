@@ -46,7 +46,11 @@ class Members extends AdminPageBase {
 			'members',
 			'directory',
 			__( 'Directory', 'buddynext' ),
-			array( $this, 'render_page' )
+			array( $this, 'render_page' ),
+			array(
+				'subtitle' => __( 'Manage your community members', 'buddynext' ),
+				'action'   => $this->build_export_action(),
+			)
 		);
 
 		( new \BuddyNext\Admin\Members\ProfileFieldsManager() )->register();
@@ -211,17 +215,17 @@ class Members extends AdminPageBase {
 		$members = array();
 		foreach ( $user_query->get_results() as $user ) {
 			$members[] = array(
-				'id'          => $user->ID,
-				'login'       => $user->user_login,
-				'email'       => $user->user_email,
-				'display'     => $user->display_name,
-				'registered'  => $user->user_registered,
-				'suspended'   => isset( $suspended_set[ $user->ID ] ),
+				'id'               => $user->ID,
+				'login'            => $user->user_login,
+				'email'            => $user->user_email,
+				'display'          => $user->display_name,
+				'registered'       => $user->user_registered,
+				'suspended'        => isset( $suspended_set[ $user->ID ] ),
 				'pending_approval' => (bool) get_user_meta( $user->ID, 'bn_pending_approval', true ),
-				'role'        => ( (array) $user->roles )[0] ?? 'subscriber',
-				'last_active' => (int) get_user_meta( $user->ID, 'bn_last_active', true ),
-				'last_login'  => (int) get_user_meta( $user->ID, 'bn_last_login', true ),
-				'post_count'  => 0,
+				'role'             => ( (array) $user->roles )[0] ?? 'subscriber',
+				'last_active'      => (int) get_user_meta( $user->ID, 'bn_last_active', true ),
+				'last_login'       => (int) get_user_meta( $user->ID, 'bn_last_login', true ),
+				'post_count'       => 0,
 			);
 		}
 
@@ -715,6 +719,41 @@ class Members extends AdminPageBase {
 	}
 
 	/**
+	 * Suppress the base subtitle paragraph.
+	 *
+	 * AdminHub now renders the subtitle and the Export CSV action in its
+	 * standardized sub-header bar (declared via register_tab). Printing the
+	 * base subtitle here too would duplicate it, so this is intentionally empty.
+	 *
+	 * @return void
+	 */
+	protected function render_page_header(): void {
+		// Subtitle is owned by AdminHub's sub-header bar — see register().
+	}
+
+	/**
+	 * Build the Export CSV form for AdminHub's sub-header action slot.
+	 *
+	 * Returns trusted, fully-escaped HTML printed verbatim by AdminHub per the
+	 * Header API contract — every dynamic value is escaped here.
+	 *
+	 * @return string
+	 */
+	private function build_export_action(): string {
+		ob_start();
+		?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<input type="hidden" name="action" value="bn_export_members">
+			<?php wp_nonce_field( 'bn_export_members' ); ?>
+			<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
+				<?php esc_html_e( 'Export CSV', 'buddynext' ); ?>
+			</button>
+		</form>
+		<?php
+		return (string) ob_get_clean();
+	}
+
+	/**
 	 * Render the members page with tab routing.
 	 *
 	 * Routes to the member edit view when ?view=edit-member, otherwise
@@ -747,7 +786,7 @@ class Members extends AdminPageBase {
 			'invites'         => __( 'Invites', 'buddynext' ),
 		);
 		// Pending-approval queue is only relevant while registration is gated by approval.
-		if ( 'approval' === get_option( 'buddynext_reg_mode', 'open' ) ) {
+		if ( 'approval' === get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ) ) {
 			$bn_tabs['pending'] = __( 'Pending', 'buddynext' );
 		}
 
@@ -821,9 +860,9 @@ class Members extends AdminPageBase {
 		}
 
 		// Build filter link URLs for the v2 .bn-tabs strip.
-		$base    = admin_url( 'admin.php?page=buddynext-members' );
-		$s_all   = '' !== $search ? add_query_arg( 's', rawurlencode( $search ), $base ) : $base;
-		$s_role  = '' !== $role_filter ? add_query_arg( 'role', $role_filter, $s_all ) : $s_all;
+		$base      = admin_url( 'admin.php?page=buddynext-members' );
+		$s_all     = '' !== $search ? add_query_arg( 's', rawurlencode( $search ), $base ) : $base;
+		$s_role    = '' !== $role_filter ? add_query_arg( 'role', $role_filter, $s_all ) : $s_all;
 		$tab_links = array(
 			'all'       => array(
 				'url'   => $s_role,
@@ -861,25 +900,14 @@ class Members extends AdminPageBase {
 			</div>
 		</div>
 
-		<div class="bn-members-toolbar">
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<input type="hidden" name="action" value="bn_export_members">
-				<?php wp_nonce_field( 'bn_export_members' ); ?>
-				<button type="submit" class="bn-btn" data-variant="secondary" data-size="sm">
-					<?php esc_html_e( 'Export CSV', 'buddynext' ); ?>
-				</button>
-			</form>
-			<div class="bn-members-toolbar__spacer" aria-hidden="true"></div>
-		</div>
-
-		<div class="bn-tabs bn-members-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Filter members by status', 'buddynext' ); ?>">
+		<div class="bn-segment bn-members-segment" role="group" aria-label="<?php esc_attr_e( 'Filter members by status', 'buddynext' ); ?>">
 			<?php foreach ( $tab_links as $key => $link ) : ?>
+				<?php $is_active = ( $status === $key ); ?>
 				<a href="<?php echo esc_url( $link['url'] ); ?>"
-					class="bn-tab"
-					role="tab"
-					aria-selected="<?php echo $status === $key ? 'true' : 'false'; ?>">
+					class="bn-segment__item<?php echo $is_active ? ' is-active' : ''; ?>"
+					aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>">
 					<?php echo esc_html( $link['label'] ); ?>
-					<span class="bn-tab__count"><?php echo esc_html( number_format_i18n( $link['count'] ) ); ?></span>
+					<span class="bn-segment__count"><?php echo esc_html( number_format_i18n( $link['count'] ) ); ?></span>
 				</a>
 			<?php endforeach; ?>
 		</div>
@@ -1003,10 +1031,12 @@ class Members extends AdminPageBase {
 											<?php esc_html_e( 'Edit', 'buddynext' ); ?>
 										</a>
 										<div class="bn-more-menu" data-uid="<?php echo absint( $member['id'] ); ?>">
-											<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="<?php
+											<button type="button" class="bn-more-btn" aria-haspopup="menu" aria-label="
+											<?php
 												/* translators: %s: member display name */
 												echo esc_attr( sprintf( __( 'More actions for %s', 'buddynext' ), $member['display'] ) );
-											?>">
+											?>
+											">
 												<?php echo \BuddyNext\Core\IconService::render( 'more-horizontal' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 											</button>
 											<div class="bn-more-dropdown" role="menu">
@@ -1024,10 +1054,12 @@ class Members extends AdminPageBase {
 														action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
 														data-bn-confirm="1"
 														data-bn-confirm-title="<?php esc_attr_e( 'Suspend this member?', 'buddynext' ); ?>"
-														data-bn-confirm-body="<?php
+														data-bn-confirm-body="
+														<?php
 															/* translators: %s: member display name */
 															echo esc_attr( sprintf( __( 'Suspend %s? They will lose posting access until the suspension is lifted.', 'buddynext' ), $member['display'] ) );
-														?>"
+														?>
+														"
 														data-bn-confirm-label="<?php esc_attr_e( 'Suspend member', 'buddynext' ); ?>">
 														<input type="hidden" name="action" value="bn_suspend_member">
 														<input type="hidden" name="user_id" value="<?php echo absint( $member['id'] ); ?>">

@@ -548,7 +548,7 @@ class AuthController {
 		}
 
 		// Registration policy: open | invite | approval (Settings → Registration).
-		$reg_mode = (string) get_option( 'buddynext_reg_mode', 'open' );
+		$reg_mode = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
 
 		// Resolve any invitation token up front, in every registration mode: an
 		// invite-only community requires it, but a space invitation link also

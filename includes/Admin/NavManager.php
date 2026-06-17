@@ -118,16 +118,294 @@ class NavManager extends AdminPageBase {
 		add_action( 'admin_post_bn_save_nav', array( $this, 'handle_save_nav' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
+		// Primary action lives in the standardized AdminHub sub-header. The button
+		// sits outside #bn-nav-form, so it carries the HTML5 `form` attribute to
+		// still submit that form.
+		$save_action = sprintf(
+			'<button type="submit" form="bn-nav-form" class="bn-btn" data-variant="primary" data-size="md">%s</button>',
+			esc_html__( 'Save Changes', 'buddynext' )
+		);
+
 		AdminHub::register_tab(
 			'settings',
 			'navigation',
 			__( 'Navigation', 'buddynext' ),
 			array( $this, 'render_page' ),
 			array(
-				'group'  => __( 'Advanced', 'buddynext' ),
-				'layout' => 'wide', // List-detail editor needs edge-to-edge room.
+				'group'    => __( 'Advanced', 'buddynext' ),
+				'layout'   => 'wide', // List-detail editor needs edge-to-edge room.
+				'subtitle' => $this->get_subtitle(),
+				'action'   => $save_action,
 			)
 		);
+
+		// Pages & URLs — the single place to set every hub's URL slug (the
+		// canonical route) and, optionally, back it with a WordPress page.
+		add_action( 'admin_post_bn_save_hub_pages', array( $this, 'handle_save_hub_pages' ) );
+
+		AdminHub::register_tab(
+			'settings',
+			'pages',
+			__( 'Pages & URLs', 'buddynext' ),
+			array( $this, 'render_pages_tab' ),
+			array(
+				'position' => 35,
+				'subtitle' => __( 'Set the URL for each community hub. Hubs are virtual routes by default; optionally back one with a WordPress page.', 'buddynext' ),
+			)
+		);
+	}
+
+	/**
+	 * The full hub catalogue for the Pages & URLs tab.
+	 *
+	 * Each hub has a URL slug option (the canonical route) and a page option
+	 * (an optional WordPress page that backs it). Explore is a special case: it
+	 * renders as a view under the Activity feed and has no slug of its own, so
+	 * it exposes only the optional backing-page override.
+	 *
+	 * @return array<string, array<string, string>>
+	 */
+	private function page_hub_catalogue(): array {
+		$catalogue = array(
+			'feed'          => array(
+				'label'    => __( 'Activity feed', 'buddynext' ),
+				'desc'     => __( 'The main community feed — your community home.', 'buddynext' ),
+				'slug_opt' => 'buddynext_slug_activity',
+				'page_opt' => 'buddynext_page_activity',
+				'default'  => 'activity',
+			),
+			'spaces'        => array(
+				'label'    => __( 'Spaces', 'buddynext' ),
+				'desc'     => __( 'Group/community spaces directory.', 'buddynext' ),
+				'slug_opt' => 'buddynext_slug_spaces',
+				'page_opt' => 'buddynext_page_spaces',
+				'default'  => 'spaces',
+			),
+			'people'        => array(
+				'label'    => __( 'Members directory', 'buddynext' ),
+				'desc'     => __( 'Member directory and individual profile URLs.', 'buddynext' ),
+				'slug_opt' => 'buddynext_slug_people',
+				'page_opt' => 'buddynext_page_people',
+				'default'  => 'members',
+			),
+			'messages'      => array(
+				'label'    => __( 'Messages', 'buddynext' ),
+				'desc'     => __( 'Direct messages (requires WPMediaVerse).', 'buddynext' ),
+				'slug_opt' => 'buddynext_slug_messages',
+				'page_opt' => 'buddynext_page_messages',
+				'default'  => 'messages',
+			),
+			'notifications' => array(
+				'label'    => __( 'Notifications', 'buddynext' ),
+				'desc'     => __( 'Activity notifications.', 'buddynext' ),
+				'slug_opt' => 'buddynext_slug_notifications',
+				'page_opt' => 'buddynext_page_notifications',
+				'default'  => 'notifications',
+			),
+			'auth'          => array(
+				'label'    => __( 'Login / Register', 'buddynext' ),
+				'desc'     => __( 'Login, registration, and password-reset forms.', 'buddynext' ),
+				'slug_opt' => 'buddynext_slug_auth',
+				'page_opt' => 'buddynext_page_auth',
+				'default'  => 'login',
+			),
+			'onboarding'    => array(
+				'label'    => __( 'Onboarding', 'buddynext' ),
+				'desc'     => __( 'First-run member setup flow.', 'buddynext' ),
+				'slug_opt' => 'buddynext_slug_onboarding',
+				'page_opt' => 'buddynext_page_onboarding',
+				'default'  => 'onboarding',
+			),
+		);
+
+		/**
+		 * Filter the community-hub catalogue shown on the Pages & URLs tab so
+		 * addons can register their own routable hub (slug + optional backing page).
+		 *
+		 * @param array<string, array<string, string>> $catalogue Hub key => { label, desc, slug_opt, page_opt, default }.
+		 */
+		return (array) apply_filters( 'bn_admin_hub_pages', $catalogue );
+	}
+
+	/**
+	 * Render the Pages & URLs tab: every hub's slug (canonical route) plus an
+	 * optional backing WordPress page. The single place to manage hub URLs.
+	 *
+	 * @return void
+	 */
+	public function render_pages_tab(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice routing.
+		$notice = isset( $_GET['bn_notice'] ) ? sanitize_key( wp_unslash( (string) $_GET['bn_notice'] ) ) : '';
+		if ( 'pages_saved' === $notice ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Pages & URLs saved.', 'buddynext' ) . '</p></div>';
+		} elseif ( 'pages_conflict' === $notice ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__( 'That URL slug is already used by another hub or an existing page. Nothing was saved — change the slug and try again.', 'buddynext' ) . '</p></div>';
+		}
+		?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-settings-form">
+			<input type="hidden" name="action" value="bn_save_hub_pages">
+			<?php wp_nonce_field( 'bn_save_hub_pages' ); ?>
+			<div class="bn-settings-section">
+				<div class="bn-ss-header"><span class="bn-ss-title"><?php esc_html_e( 'Community hubs', 'buddynext' ); ?></span></div>
+				<div class="bn-ss-body">
+					<p class="bn-field-hint">
+						<?php esc_html_e( 'Each hub is reachable at your site URL plus its slug. Hubs are virtual routes — only assign a WordPress page if you want a page-builder layout, a real menu entry, or page-level SEO for that hub.', 'buddynext' ); ?>
+					</p>
+					<table class="bn-table bn-pages-table">
+						<thead>
+							<tr>
+								<th scope="col"><?php esc_html_e( 'Hub', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'URL slug', 'buddynext' ); ?></th>
+								<th scope="col"><?php esc_html_e( 'Backing page (optional)', 'buddynext' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+						<?php
+						foreach ( $this->page_hub_catalogue() as $hub => $cfg ) :
+							$has_slug  = '' !== $cfg['slug_opt'];
+							$slug_val  = $has_slug ? (string) get_option( $cfg['slug_opt'], $cfg['default'] ) : '';
+							$page_val  = (int) get_option( $cfg['page_opt'], 0 );
+							$field_id  = 'bn-hub-' . sanitize_key( $hub );
+							$page_live = ( $page_val > 0 && 'publish' === get_post_status( $page_val ) );
+							?>
+							<tr>
+								<td class="bn-pages-cell--hub">
+									<strong><?php echo esc_html( $cfg['label'] ); ?></strong>
+									<span class="bn-field-hint"><?php echo esc_html( $cfg['desc'] ); ?></span>
+								</td>
+								<td class="bn-pages-cell--slug">
+									<?php if ( $has_slug ) : ?>
+										<input type="text"
+											id="<?php echo esc_attr( $field_id . '-slug' ); ?>"
+											name="bn_hub[<?php echo esc_attr( $hub ); ?>][slug]"
+											value="<?php echo esc_attr( $slug_val ); ?>"
+											class="bn-text-input bn-pages-slug-input"
+											pattern="[a-z0-9-]+"
+											spellcheck="false"
+											placeholder="<?php echo esc_attr( $cfg['default'] ); ?>">
+										<span class="bn-field-hint"><?php echo esc_html( trailingslashit( home_url( '/' . ( '' !== $slug_val ? $slug_val : $cfg['default'] ) ) ) ); ?></span>
+									<?php else : ?>
+										<span class="bn-field-hint"><?php esc_html_e( 'Renders under Activity feed', 'buddynext' ); ?></span>
+									<?php endif; ?>
+								</td>
+								<td class="bn-pages-cell--page">
+									<?php
+									// wp_dropdown_pages() echoes its markup; arg strings escaped here for WPCS.
+									wp_dropdown_pages(
+										array(
+											'name'     => esc_attr( 'bn_hub[' . $hub . '][page_id]' ),
+											'id'       => esc_attr( $field_id . '-page' ),
+											'selected' => absint( $page_val ),
+											'show_option_none' => esc_html__( '— None —', 'buddynext' ),
+											'option_none_value' => '0',
+										)
+									);
+									?>
+									<?php if ( $page_live ) : ?>
+										<span class="bn-field-hint">
+											<a href="<?php echo esc_url( (string) get_permalink( $page_val ) ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'View', 'buddynext' ); ?></a>
+											&nbsp;·&nbsp;
+											<a href="<?php echo esc_url( (string) get_edit_post_link( $page_val ) ); ?>"><?php esc_html_e( 'Edit', 'buddynext' ); ?></a>
+										</span>
+									<?php else : ?>
+										<label class="bn-check-row bn-pages-create">
+											<input type="checkbox" name="bn_hub[<?php echo esc_attr( $hub ); ?>][create]" value="1">
+											<?php esc_html_e( 'Create page', 'buddynext' ); ?>
+										</label>
+									<?php endif; ?>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+						</tbody>
+					</table>
+				</div>
+			</div>
+			<p class="submit"><?php submit_button( __( 'Save Pages & URLs', 'buddynext' ), 'primary', 'submit', false ); ?></p>
+		</form>
+		<?php
+	}
+
+	/**
+	 * Persist the Pages & URLs tab — validates slugs against reserved words,
+	 * each other, and existing non-hub content (aborting the whole save on any
+	 * conflict so the admin never gets a half-applied set), then writes each
+	 * hub's slug + optional page option.
+	 *
+	 * @return void
+	 */
+	public function handle_save_hub_pages(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+		check_admin_referer( 'bn_save_hub_pages' );
+
+		$pages_url = admin_url( 'admin.php?page=buddynext&tab=pages' );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each field sanitized below.
+		$raw       = (array) wp_unslash( $_POST['bn_hub'] ?? array() );
+		$catalogue = $this->page_hub_catalogue();
+		$seen      = array();
+
+		foreach ( $catalogue as $hub => $cfg ) {
+			if ( '' === $cfg['slug_opt'] ) {
+				continue;
+			}
+			$slug = sanitize_title( (string) ( ( (array) ( $raw[ $hub ] ?? array() ) )['slug'] ?? '' ) );
+			if ( '' === $slug ) {
+				$slug = $cfg['default'];
+			}
+			if ( in_array( $slug, self::RESERVED_SLUGS, true ) || isset( $seen[ $slug ] ) ) {
+				wp_safe_redirect( add_query_arg( 'bn_notice', 'pages_conflict', $pages_url ) );
+				exit;
+			}
+			$existing = get_page_by_path( $slug, OBJECT, array( 'page', 'post' ) );
+			if ( $existing instanceof \WP_Post && (int) get_option( $cfg['page_opt'], 0 ) !== (int) $existing->ID ) {
+				wp_safe_redirect( add_query_arg( 'bn_notice', 'pages_conflict', $pages_url ) );
+				exit;
+			}
+			$seen[ $slug ] = $hub;
+		}
+
+		foreach ( $catalogue as $hub => $cfg ) {
+			$hub_data = (array) ( $raw[ $hub ] ?? array() );
+			if ( '' !== $cfg['slug_opt'] ) {
+				$slug = sanitize_title( (string) ( $hub_data['slug'] ?? '' ) );
+				update_option( $cfg['slug_opt'], '' !== $slug ? $slug : $cfg['default'] );
+			}
+
+			$page_id = absint( $hub_data['page_id'] ?? 0 );
+			// "Create a page now" — only when none is selected, so a chosen page
+			// is never silently replaced by a new blank one.
+			if ( 0 === $page_id && ! empty( $hub_data['create'] ) ) {
+				$page_id = $this->create_hub_backing_page( (string) $cfg['label'] );
+			}
+			update_option( $cfg['page_opt'], $page_id );
+		}
+
+		wp_safe_redirect( add_query_arg( 'bn_notice', 'pages_saved', $pages_url ) );
+		exit;
+	}
+
+	/**
+	 * Create a published WordPress page to back a hub and return its ID.
+	 *
+	 * The hub renders through PageRouter regardless of page content, so the page
+	 * is created empty — it exists only to give the hub a real WP page (menus,
+	 * SEO, page-builder). Returns 0 on failure.
+	 *
+	 * @param string $label Hub label, used as the page title.
+	 * @return int New page ID, or 0 on failure.
+	 */
+	private function create_hub_backing_page( string $label ): int {
+		$page_id = wp_insert_post(
+			array(
+				'post_title'   => $label,
+				'post_status'  => 'publish',
+				'post_type'    => 'page',
+				'post_content' => '',
+			),
+			true
+		);
+		return ( $page_id && ! is_wp_error( $page_id ) ) ? (int) $page_id : 0;
 	}
 
 	/**
@@ -549,6 +827,20 @@ class NavManager extends AdminPageBase {
 	}
 
 	/**
+	 * Suppress the base subtitle paragraph.
+	 *
+	 * The subtitle and primary action are rendered by AdminHub's standardized
+	 * sub-header bar (declared via register_tab()'s `subtitle`/`action` args),
+	 * so this screen must not also emit `.bn-admin-hub__subtitle` from the base
+	 * — that would duplicate the subtitle.
+	 *
+	 * @return void
+	 */
+	protected function render_page_header(): void {
+		// Intentionally empty — header subtitle + action live in the AdminHub sub-header.
+	}
+
+	/**
 	 * Render the three-panel navigation manager page.
 	 *
 	 * @return void
@@ -569,12 +861,6 @@ class NavManager extends AdminPageBase {
 				<p><?php esc_html_e( 'Navigation settings saved.', 'buddynext' ); ?></p>
 			</div>
 			<?php
-		} elseif ( 'page_conflict' === $notice ) {
-			?>
-			<div class="notice notice-error is-dismissible">
-				<p><?php esc_html_e( 'Save failed: two or more hubs cannot share the same WordPress page. Please assign a unique page to each hub.', 'buddynext' ); ?></p>
-			</div>
-			<?php
 		}
 		?>
 
@@ -587,16 +873,6 @@ class NavManager extends AdminPageBase {
 				<?php $this->render_scope_sidebar(); ?>
 
 				<div class="bn-nav-main-panel">
-
-					<div class="bn-nav-page-header">
-						<div>
-							<h2 class="bn-nav-page-title"><?php esc_html_e( 'Navigation Manager', 'buddynext' ); ?></h2>
-							<p class="bn-nav-page-desc"><?php esc_html_e( 'Drag to reorder. Toggle to show/hide. Click ⚙ to assign a WordPress page and configure visibility.', 'buddynext' ); ?></p>
-						</div>
-						<button type="submit" class="bn-btn" data-variant="primary" data-size="md">
-							<?php esc_html_e( 'Save Changes', 'buddynext' ); ?>
-						</button>
-					</div>
 
 					<!-- Main Navigation scope panel -->
 					<div class="bn-scope-panel" data-scope-panel="main">
@@ -646,8 +922,6 @@ class NavManager extends AdminPageBase {
 				</div>
 
 			</div><!-- /.bn-three-panel -->
-
-			<?php $this->render_hub_page_assignments(); ?>
 
 		</form>
 		<?php
@@ -836,60 +1110,6 @@ class NavManager extends AdminPageBase {
 		<?php
 	}
 
-	/**
-	 * Render the standalone hub page assignments section.
-	 *
-	 * Shows a simple page-picker row for each hub that has no main-nav tab
-	 * (Member Directory and Login/Register). Conflict validation in
-	 * handle_save_nav() covers these alongside the nav-tab page options.
-	 *
-	 * @return void
-	 */
-	private function render_hub_page_assignments(): void {
-		$hubs = array(
-			'people' => array(
-				'label'       => __( 'Member Directory', 'buddynext' ),
-				'description' => __( 'Page that renders the member directory and individual profile URLs.', 'buddynext' ),
-				'option'      => 'buddynext_page_people',
-			),
-			'auth'   => array(
-				'label'       => __( 'Login / Register', 'buddynext' ),
-				'description' => __( 'Page that renders the login, registration, and password reset forms.', 'buddynext' ),
-				'option'      => 'buddynext_page_auth',
-			),
-		);
-		?>
-		<div class="bn-nav-section">
-			<div class="bn-nav-section-header">
-				<div class="bn-nav-section-title"><?php esc_html_e( 'Hub Page Assignments', 'buddynext' ); ?></div>
-				<div class="bn-nav-section-desc"><?php esc_html_e( 'Assign WordPress pages to the hubs below. These hubs do not appear in the main navigation bar.', 'buddynext' ); ?></div>
-			</div>
-			<div class="bn-hub-pages-list">
-				<?php foreach ( $hubs as $slug => $hub ) : ?>
-				<div class="bn-hub-page-row">
-					<div class="bn-hub-page-info">
-						<span class="bn-hub-page-label"><?php echo esc_html( $hub['label'] ); ?></span>
-						<span class="bn-hub-page-desc"><?php echo esc_html( $hub['description'] ); ?></span>
-					</div>
-					<div class="bn-hub-page-picker">
-						<?php
-						wp_dropdown_pages(
-							array(
-								'name'              => 'bn_nav_config[main][' . esc_attr( $slug ) . '][page_id]',
-								'id'                => 'bn-hub-page-' . esc_attr( $slug ),
-								'selected'          => (int) get_option( $hub['option'], 0 ),
-								'show_option_none'  => esc_html__( '— Select a page —', 'buddynext' ),
-								'option_none_value' => '0',
-							)
-						);
-						?>
-					</div>
-				</div>
-				<?php endforeach; ?>
-			</div>
-		</div>
-		<?php
-	}
 
 	// ── Render: config panels ─────────────────────────────────────────────────
 
@@ -941,10 +1161,10 @@ class NavManager extends AdminPageBase {
 		$login_req   = ! empty( $tab['login_required'] );
 		$guest_label = (string) ( $tab['guest_label'] ?? '' );
 		$is_core     = empty( $tab['custom'] );
-		$page_opt    = ( 'main' === $scope ) ? ( self::PAGE_OPTIONS[ $slug ] ?? '' ) : '';
-		$page_id     = $page_opt ? (int) get_option( $page_opt, 0 ) : 0;
-		$slug_opt    = ( 'main' === $scope ) ? ( self::SLUG_OPTIONS[ $slug ] ?? '' ) : '';
-		$url_slug    = $slug_opt ? (string) get_option( $slug_opt, '' ) : '';
+		// URL slug + backing page are owned by the Pages & URLs tab now, so the
+		// config panel no longer renders them — it covers display only (label,
+		// order, visibility, capability, login, guest label).
+		$has_routing = ( 'main' === $scope ) && ( isset( self::PAGE_OPTIONS[ $slug ] ) || isset( self::SLUG_OPTIONS[ $slug ] ) );
 
 		// Helper: generate scope-namespaced input name for this tab's config.
 		$n = static function ( string $field ) use ( $scope, $slug ): string {
@@ -987,45 +1207,16 @@ class NavManager extends AdminPageBase {
 						class="bn-cf-position-input">
 			</div>
 
-			<?php if ( '' !== $page_opt ) : ?>
+			<?php if ( $has_routing ) : ?>
 			<div class="bn-cf">
-				<label for="bn-cfg-page-<?php echo esc_attr( $slug ); ?>">
-					<?php esc_html_e( 'WordPress Page', 'buddynext' ); ?>
-				</label>
-				<?php
-				// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_dropdown_pages() escapes its own output; $n() returns a sanitized string; $slug is sanitize_key'd; $page_id is absint'd.
-				wp_dropdown_pages(
-					array(
-						'name'              => $n( 'page_id' ),
-						'id'                => 'bn-cfg-page-' . $slug,
-						'selected'          => $page_id,
-						'show_option_none'  => __( '— Auto (installer default) —', 'buddynext' ),
-						'option_none_value' => '0',
-					)
-				);
-				// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
-				?>
 				<span class="bn-cf-hint">
-					<?php esc_html_e( 'The WordPress page that serves this hub. Each page can only be assigned to one hub.', 'buddynext' ); ?>
-				</span>
-			</div>
-			<?php endif; ?>
-
-			<?php if ( '' !== $slug_opt ) : ?>
-			<div class="bn-cf">
-				<label for="bn-cfg-urlslug-<?php echo esc_attr( $slug ); ?>">
-					<?php esc_html_e( 'URL Slug', 'buddynext' ); ?>
-				</label>
-				<input type="text"
-						id="bn-cfg-urlslug-<?php echo esc_attr( $slug ); ?>"
-						name="<?php echo esc_attr( $n( 'url_slug' ) ); ?>"
-						value="<?php echo esc_attr( $url_slug ); ?>"
-						maxlength="80"
-						pattern="[a-z0-9\-]+"
-						title="<?php esc_attr_e( 'Lowercase letters, numbers, and hyphens only.', 'buddynext' ); ?>"
-						class="bn-cf-url-slug-input">
-				<span class="bn-cf-hint">
-					<?php esc_html_e( 'URL path for this hub, e.g. "members" → /members/. Saving flushes rewrite rules automatically.', 'buddynext' ); ?>
+					<?php
+					printf(
+						/* translators: %s: link to the Pages & URLs tab. */
+						wp_kses_post( __( 'This hub\'s URL slug and backing WordPress page are managed in the %s tab.', 'buddynext' ) ),
+						'<a href="' . esc_url( admin_url( 'admin.php?page=buddynext&tab=pages' ) ) . '">' . esc_html__( 'Pages &amp; URLs', 'buddynext' ) . '</a>'
+					);
+					?>
 				</span>
 			</div>
 			<?php endif; ?>
@@ -1203,26 +1394,9 @@ class NavManager extends AdminPageBase {
 		$raw_new_tabs   = (array) wp_unslash( $_POST['bn_new_tab'] ?? array() );
 		// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 
-		// ── 2. Page conflict check (main nav tabs + standalone combined) ──
-		$seen_pages = array();
-
-		$main_config = (array) ( $raw_config_all['main'] ?? array() );
-		foreach ( $main_config as $slug => $cfg ) {
-			$slug    = sanitize_key( (string) $slug );
-			$page_id = absint( ( (array) $cfg )['page_id'] ?? 0 );
-			if ( 0 === $page_id || ! isset( self::PAGE_OPTIONS[ $slug ] ) ) {
-				continue;
-			}
-			if ( in_array( $page_id, $seen_pages, true ) ) {
-				wp_safe_redirect(
-					add_query_arg( 'bn_notice', 'page_conflict', admin_url( 'admin.php?page=buddynext&tab=navigation' ) )
-				);
-				exit;
-			}
-			$seen_pages[] = $page_id;
-		}
-
-		// ── 3. Persist overrides for each scope ───────────────────────────
+		// ── 2. Persist overrides for each scope. URL slug + backing page are no
+		// longer handled here — they live in the Pages & URLs tab
+		// (handle_save_hub_pages), so nav-save only touches display overrides. ──
 		foreach ( self::SCOPE_OPTION_MAP as $scope => $option_key ) {
 			$scope_config  = (array) ( $raw_config_all[ $scope ] ?? array() );
 			$scope_visible = (array) ( $raw_visible[ $scope ] ?? array() );
@@ -1242,19 +1416,6 @@ class NavManager extends AdminPageBase {
 					continue;
 				}
 				$cfg = (array) $cfg;
-
-				// Page assignment for main-scope core hubs only.
-				if ( 'main' === $scope && isset( self::PAGE_OPTIONS[ $slug ] ) ) {
-					update_option( self::PAGE_OPTIONS[ $slug ], absint( $cfg['page_id'] ?? 0 ) );
-				}
-
-				// URL slug for main-scope hubs that have a SLUG_OPTIONS mapping.
-				if ( 'main' === $scope && isset( self::SLUG_OPTIONS[ $slug ] ) ) {
-					$new_url_slug = sanitize_title( (string) ( $cfg['url_slug'] ?? '' ) );
-					if ( '' !== $new_url_slug ) {
-						update_option( self::SLUG_OPTIONS[ $slug ], $new_url_slug );
-					}
-				}
 
 				$overrides[ $slug ] = array(
 					'label'          => sanitize_text_field( (string) ( $cfg['label'] ?? '' ) ),

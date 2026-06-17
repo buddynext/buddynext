@@ -386,8 +386,8 @@ class SetupWizard {
 				<ol class="bn-wizard__steps" aria-label="<?php esc_attr_e( 'Setup steps', 'buddynext' ); ?>">
 					<?php
 					for ( $i = 1; $i <= self::TOTAL_STEPS; $i++ ) :
-						$state       = ( $i === $step ) ? 'active' : ( ( $i < $step ) ? 'done' : 'upcoming' );
-						$label       = isset( $step_labels[ $i ] ) ? (string) $step_labels[ $i ] : (string) $i;
+						$state        = ( $i === $step ) ? 'active' : ( ( $i < $step ) ? 'done' : 'upcoming' );
+						$label        = isset( $step_labels[ $i ] ) ? (string) $step_labels[ $i ] : (string) $i;
 						$current_aria = ( 'active' === $state ) ? ' aria-current="step"' : '';
 						?>
 						<li class="bn-wizard__step" data-state="<?php echo esc_attr( $state ); ?>"<?php echo $current_aria; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- value is a fixed literal. ?>>
@@ -554,13 +554,13 @@ class SetupWizard {
 	 * @return void
 	 */
 	private function render_step_registration(): void {
-		$reg_mode     = (string) get_option( 'buddynext_reg_mode', 'open' );
+		$reg_mode     = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
 		$email_verify = (bool) get_option( 'buddynext_email_verify', false );
 
 		$this->render_step_head(
 			__( 'Who can join your community?', 'buddynext' ),
 			__( 'Pick how new members get in. You can tighten or loosen this any time.', 'buddynext' ),
-			__( 'Editable later in Settings → Registration.', 'buddynext' )
+			__( 'Editable later in Members → Registration & Login.', 'buddynext' )
 		);
 
 		$modes = array(
@@ -584,7 +584,8 @@ class SetupWizard {
 
 		<fieldset class="bn-wizard__options" data-variant="radio">
 			<legend class="bn-wizard__legend"><?php esc_html_e( 'Registration mode', 'buddynext' ); ?></legend>
-			<?php foreach ( $modes as $value => $mode ) :
+			<?php
+			foreach ( $modes as $value => $mode ) :
 				$radio_id = 'bn-wiz-reg-' . sanitize_html_class( $value );
 				$selected = ( $reg_mode === $value );
 				?>
@@ -843,12 +844,13 @@ class SetupWizard {
 		$this->render_step_head(
 			__( 'Which notifications should be on by default?', 'buddynext' ),
 			__( 'These are the starting preferences for every new member. Each member can override their own.', 'buddynext' ),
-			__( 'Editable later in Settings → Notifications.', 'buddynext' )
+			__( 'Editable later in the Notifications section.', 'buddynext' )
 		);
 		?>
 
 		<ul class="bn-wizard__switches" role="list">
-			<?php foreach ( $notifs as $key => $notif ) :
+			<?php
+			foreach ( $notifs as $key => $notif ) :
 				$notif_id = 'bn-wiz-notif-' . sanitize_html_class( $key );
 				?>
 				<li>
@@ -975,7 +977,10 @@ class SetupWizard {
 							value="1"
 							class="bn-wizard__option-input"
 							<?php checked( true ); ?>
-							<?php if ( $exists ) : ?>disabled aria-disabled="true"<?php endif; ?>
+							<?php
+							if ( $exists ) :
+								?>
+								disabled aria-disabled="true"<?php endif; ?>
 						>
 						<span class="bn-wizard__option-mark" aria-hidden="true">
 							<?php echo \BuddyNext\Core\IconService::render( 'check' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd. ?>
@@ -1071,7 +1076,8 @@ class SetupWizard {
 		?>
 
 		<ul class="bn-wizard__addons" role="list">
-			<?php foreach ( $addons as $addon ) :
+			<?php
+			foreach ( $addons as $addon ) :
 				$active = is_plugin_active( $addon['slug'] );
 				?>
 				<li class="bn-wizard__addon" data-state="<?php echo $active ? 'active' : 'inactive'; ?>">

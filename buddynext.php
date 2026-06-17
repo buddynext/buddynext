@@ -217,6 +217,21 @@ function buddynext_feature_enabled( string $slug, bool $fallback = true ): bool 
 }
 
 /**
+ * Effective default registration mode when the owner has not set one.
+ *
+ * Per owner decision, BuddyNext does not impose its own opinion on a fresh
+ * install — it follows WordPress's "Anyone can register" setting: open when
+ * registration is allowed, closed when it is not. Read sites pass this as the
+ * fallback to get_option( 'buddynext_reg_mode', ... ) so the unset state mirrors
+ * WordPress instead of silently forcing "open".
+ *
+ * @return string 'open' or 'closed'.
+ */
+function buddynext_default_reg_mode(): string {
+	return get_option( 'users_can_register' ) ? 'open' : 'closed';
+}
+
+/**
  * Product-level default values for the login / sign-up branding panel.
  *
  * Single source of truth so the admin Settings fields and the front-end auth

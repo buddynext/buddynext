@@ -115,27 +115,6 @@
 	min-width: 0;
 }
 
-.bn-nav-page-header {
-	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
-	margin-bottom: var(--bn-a-s5);
-	gap: var(--bn-a-s4);
-}
-
-.bn-nav-page-title {
-	font-size: var(--bn-a-text-xl);
-	font-weight: var(--bn-a-fw-bold);
-	color: var(--bn-a-text-1);
-	margin: 0 0 var(--bn-a-s1);
-}
-
-.bn-nav-page-desc {
-	font-size: var(--bn-a-text-sm);
-	color: var(--bn-a-text-3);
-	margin: 0;
-}
-
 /* ── Section card ──────────────────────────────────────────────────────── */
 
 .bn-nav-section {
@@ -218,6 +197,26 @@
 	display: inline-flex;
 	align-items: center;
 	cursor: pointer;
+}
+
+/* The accessible <input type="checkbox"> behind the switch is the off-screen
+   state holder; force it fully hidden so the native checkbox never renders as a
+   stray box beside the styled .bn-toggle (some admin resets defeat the core
+   .screen-reader-text clip). aria-checked on .bn-toggle conveys state. */
+.bn-toggle-wrap .bn-toggle-input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	border: 0;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	white-space: nowrap;
+	-webkit-appearance: none;
+	appearance: none;
+	pointer-events: none;
 }
 
 .bn-nav-row-icon {
@@ -428,10 +427,6 @@
 	max-width: 96px;
 }
 
-.bn-cf-url-slug-input {
-	max-width: 220px;
-}
-
 .bn-cf-hint {
 	display: block;
 	font-size: var(--bn-a-text-xs);
@@ -498,70 +493,6 @@
 	color: var(--bn-a-text-2);
 }
 
-/* ── Hub page assignments grid ─────────────────────────────────────────── */
-
-.bn-hub-pages-list {
-	padding: 0;
-	margin: 0;
-}
-
-.bn-hub-page-row {
-	display: grid;
-	grid-template-columns: 1fr 220px;
-	align-items: center;
-	gap: var(--bn-a-s6);
-	padding: var(--bn-a-s4);
-	border-bottom: 1px solid var(--bn-a-border-soft);
-}
-
-.bn-hub-page-row:last-child {
-	border-bottom: none;
-}
-
-.bn-hub-page-info {
-	display: flex;
-	flex-direction: column;
-	gap: 3px;
-	min-width: 0;
-}
-
-.bn-hub-page-label {
-	font-weight: var(--bn-a-fw-semibold);
-	font-size: var(--bn-a-text-sm);
-	color: var(--bn-a-text-1);
-	line-height: 1.4;
-}
-
-.bn-hub-page-desc {
-	font-size: var(--bn-a-text-xs);
-	color: var(--bn-a-text-3);
-	line-height: 1.5;
-}
-
-.bn-hub-page-picker {
-	flex-shrink: 0;
-}
-
-.bn-hub-page-picker select {
-	width: 100%;
-	border: 1px solid var(--bn-a-border);
-	border-radius: var(--bn-a-r-sm);
-	padding: var(--bn-a-s2) var(--bn-a-s2);
-	font-size: var(--bn-a-text-sm);
-	color: var(--bn-a-text-1);
-	background: var(--bn-a-bg);
-	font-family: inherit;
-	box-sizing: border-box;
-	cursor: pointer;
-	line-height: 1.4;
-}
-
-.bn-hub-page-picker select:focus {
-	outline: none;
-	border-color: var(--bn-a-brand);
-	box-shadow: 0 0 0 1px var(--bn-a-brand);
-}
-
 /* ── Mobile-bottom-nav note paragraph ──────────────────────────────────── */
 
 .bn-mobile-note {
@@ -587,18 +518,8 @@
 }
 
 @media screen and (max-width: 640px) {
-	.bn-nav-page-header {
-		flex-direction: column;
-		align-items: stretch;
-	}
-
 	.bn-nav-add-row {
 		flex-direction: column;
-	}
-
-	.bn-hub-page-row {
-		grid-template-columns: 1fr;
-		gap: var(--bn-a-s2);
 	}
 
 	.bn-nav-section-desc {

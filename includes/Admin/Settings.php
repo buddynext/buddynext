@@ -73,6 +73,10 @@ class Settings extends AdminPageBase {
 		// Spaces.
 		'buddynext_space_creation_role'        => array( 'string', 'sanitize_key' ),
 		'buddynext_space_max_sub_spaces'       => array( 'integer', 'absint' ),
+		'buddynext_space_max_per_member'       => array( 'integer', 'absint' ),
+		'buddynext_space_allow_sub'            => array( 'string', array( self::class, 'sanitize_bool_flag' ) ),
+		'buddynext_space_default_type'         => array( 'string', 'sanitize_key' ),
+		'buddynext_space_default_category'     => array( 'integer', 'absint' ),
 		'buddynext_spaces_dir_columns'         => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
 
 		// Moderation.
@@ -130,49 +134,46 @@ class Settings extends AdminPageBase {
 	public function register(): void {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		add_action( 'admin_post_buddynext_apply_recommended', array( $this, 'handle_apply_recommended' ) );
+		add_action( 'admin_post_buddynext_dismiss_recommended', array( $this, 'handle_dismiss_recommended' ) );
 
-		// Each former internal tab of this page becomes its own Hub tab so
-		// the user sees a single, flat tab strip instead of two nested ones.
-		// Order matters — array_key_first() is used as the default tab.
-		// Tabs in display order. `group` clusters Advanced items below a
-		// divider in the sidebar nav so the long list scans cleanly.
+		// Each settings panel registers as its own Hub tab. The labels here are
+		// the canonical wording; AdminHub's central placement map owns which
+		// section each tab lands in and its order, so this class stays agnostic
+		// of the final information architecture.
 		$tabs = array(
-			'general'       => array( 'label' => __( 'General', 'buddynext' ) ),
-			'features'      => array( 'label' => __( 'Features', 'buddynext' ) ),
-			'registration'  => array( 'label' => __( 'Registration', 'buddynext' ) ),
-			'social'        => array( 'label' => __( 'Social', 'buddynext' ) ),
-			'spaces'        => array( 'label' => __( 'Spaces', 'buddynext' ) ),
-			'notifications' => array( 'label' => __( 'Notifications', 'buddynext' ) ),
-			'email'         => array( 'label' => __( 'Email', 'buddynext' ) ),
-			'moderation'    => array( 'label' => __( 'Moderation', 'buddynext' ) ),
-			'integrations'  => array( 'label' => __( 'Integrations', 'buddynext' ) ),
-			'privacy'       => array( 'label' => __( 'Privacy & Data', 'buddynext' ) ),
-			'webhooks'      => array(
-				'label' => __( 'Webhooks', 'buddynext' ),
-				'group' => __( 'Advanced', 'buddynext' ),
-			),
+			'general'       => __( 'General', 'buddynext' ),
+			'features'      => __( 'Features', 'buddynext' ),
+			'registration'  => __( 'Registration & Login', 'buddynext' ),
+			'social'        => __( 'Social', 'buddynext' ),
+			'spaces'        => __( 'Settings', 'buddynext' ),
+			'notifications' => __( 'Notifications', 'buddynext' ),
+			'email'         => __( 'Email', 'buddynext' ),
+			'moderation'    => __( 'Filters & Limits', 'buddynext' ),
+			'integrations'  => __( 'Integrations', 'buddynext' ),
+			'privacy'       => __( 'Privacy & Data', 'buddynext' ),
+			'webhooks'      => __( 'Webhooks', 'buddynext' ),
 		);
-		foreach ( $tabs as $slug => $tab ) {
-			$args = array();
-			if ( isset( $tab['group'] ) ) {
-				$args['group'] = (string) $tab['group'];
-			}
+		foreach ( $tabs as $slug => $label ) {
 			AdminHub::register_tab(
 				'settings',
 				$slug,
-				$tab['label'],
+				$label,
 				function () use ( $slug ): void {
 					$this->render_settings_tab( $slug );
 				},
-				$args
+				array(
+					'subtitle' => $this->get_tab_subtitle( $slug ),
+				)
 			);
 		}
 
-		// License tab — registered only while Pro is active. The free
-		// plugin's own key is preset and managed automatically, so without
-		// Pro there is nothing for the admin to manage here. The license
-		// form posts directly and is handled on admin_init by its owner,
-		// so this tab renders outside the options.php form wrapper.
+		// License tab — registered only while Pro is active, and placed in the
+		// Monetization section by the central map. The free plugin's own key is
+		// preset and managed automatically, so without Pro there is nothing for
+		// the admin to manage here. The license form posts directly and is
+		// handled on admin_init by its owner, so this tab renders outside the
+		// options.php form wrapper.
 		if ( defined( 'BUDDYNEXTPRO_VERSION' ) ) {
 			AdminHub::register_tab(
 				'settings',
@@ -181,7 +182,37 @@ class Settings extends AdminPageBase {
 				function (): void {
 					$this->render_license_tab();
 				},
-				array( 'group' => __( 'Advanced', 'buddynext' ) )
+				array(
+					'subtitle' => __( 'Manage license keys for automatic plugin updates.', 'buddynext' ),
+				)
+			);
+		}
+
+		// Free standalone: surface a Free vs Pro comparison so owners can see
+		// what the Pro upgrade unlocks. Hidden automatically once Pro is active.
+		if ( ! defined( 'BUDDYNEXTPRO_VERSION' ) ) {
+			/**
+			 * Filter the "Upgrade to Pro" destination URL.
+			 *
+			 * @param string $url Product page URL.
+			 */
+			$upgrade_url    = (string) apply_filters( 'buddynext_pro_upgrade_url', 'https://wbcomdesigns.com/downloads/buddynext-pro/' );
+			$upgrade_action = sprintf(
+				'<a class="bn-btn" data-variant="primary" data-size="sm" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
+				esc_url( $upgrade_url ),
+				esc_html__( 'Upgrade to BuddyNext Pro', 'buddynext' )
+			);
+			AdminHub::register_tab(
+				'upgrade',
+				'compare',
+				__( 'Free vs Pro', 'buddynext' ),
+				function (): void {
+					$this->render_upgrade_tab();
+				},
+				array(
+					'subtitle' => __( "You're on BuddyNext Free. Upgrade to Pro to unlock automation, analytics, monetization, and real-time.", 'buddynext' ),
+					'action'   => $upgrade_action,
+				)
 			);
 		}
 	}
@@ -189,9 +220,11 @@ class Settings extends AdminPageBase {
 	/**
 	 * Render one Settings tab inside its options.php form wrapper.
 	 *
-	 * Hub paints the section H1 + tab strip. This method paints the
-	 * subtitle, the search input, the form (using the Settings API), the
-	 * active tab's body, and the save bar.
+	 * Hub paints the section H1 + tab strip + the standardized sub-header bar
+	 * (the tab's subtitle, declared via register_tab()). This method paints
+	 * only the form: the Settings API fields, the active tab's body, and the
+	 * save bar. It must NOT print its own subtitle — that lives in the Hub
+	 * sub-header now, per the unified header contract.
 	 *
 	 * @param string $slug Tab slug.
 	 * @return void
@@ -210,8 +243,6 @@ class Settings extends AdminPageBase {
 		}
 		settings_errors( 'buddynext_messages' );
 		?>
-		<p class="bn-admin-hub__subtitle"><?php echo esc_html( $this->get_tab_subtitle( $slug ) ); ?></p>
-
 		<form method="post" action="options.php" class="bn-settings-form">
 			<?php settings_fields( 'buddynext_' . $slug ); ?>
 			<?php $this->$method(); ?>
@@ -231,15 +262,173 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_license_tab(): void {
-		?>
-		<p class="bn-admin-hub__subtitle"><?php esc_html_e( 'Manage license keys for automatic plugin updates.', 'buddynext' ); ?></p>
-		<?php
+		// The subtitle is rendered by AdminHub's sub-header bar (declared via the
+		// register_tab() 'subtitle' arg), so the body prints only Pro's form.
 		/**
 		 * Fires inside the Settings > License tab.
 		 *
 		 * BuddyNext Pro hooks this to render its license activation form.
 		 */
 		do_action( 'buddynext_admin_license_tab_content' );
+	}
+
+	/**
+	 * Apply the recommended first-run defaults, then dismiss the prompt.
+	 *
+	 * @return void
+	 */
+	public function handle_apply_recommended(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+		check_admin_referer( 'buddynext_apply_recommended' );
+
+		\BuddyNext\Core\RecommendedDefaults::apply();
+		update_option( 'buddynext_recommended_dismissed', '1' );
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'           => 'buddynext',
+					'bn_recommended' => 'applied',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Dismiss the recommended-defaults prompt without applying it.
+	 *
+	 * @return void
+	 */
+	public function handle_dismiss_recommended(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'buddynext' ), 403 );
+		}
+		check_admin_referer( 'buddynext_dismiss_recommended' );
+
+		update_option( 'buddynext_recommended_dismissed', '1' );
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'           => 'buddynext',
+					'bn_recommended' => 'dismissed',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Render the "Recommended for new communities" prompt at the top of the
+	 * General tab. A one-click way to switch on the full community experience
+	 * (discovery, DM, engagement surfaces, default notifications). Hidden once
+	 * applied or dismissed. The buttons are nonce-protected GET links so they
+	 * can live inside the surrounding options.php form without nesting a form.
+	 *
+	 * @return void
+	 */
+	private function render_recommended_prompt(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice routing.
+		$notice = isset( $_GET['bn_recommended'] ) ? sanitize_key( wp_unslash( (string) $_GET['bn_recommended'] ) ) : '';
+		if ( 'applied' === $notice ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Recommended settings applied. Your community is ready to go.', 'buddynext' ) . '</p></div>';
+		}
+
+		if ( get_option( 'buddynext_recommended_dismissed' ) ) {
+			return;
+		}
+
+		$apply_url   = wp_nonce_url( admin_url( 'admin-post.php?action=buddynext_apply_recommended' ), 'buddynext_apply_recommended' );
+		$dismiss_url = wp_nonce_url( admin_url( 'admin-post.php?action=buddynext_dismiss_recommended' ), 'buddynext_dismiss_recommended' );
+		?>
+		<div class="bn-card bn-recommended-card">
+			<h2 class="bn-recommended-card__title"><?php esc_html_e( 'Recommended for new communities', 'buddynext' ); ?></h2>
+			<p class="bn-recommended-card__text">
+				<?php esc_html_e( 'Turn on the full community experience in one click — public discovery, direct messaging, polls, reactions, shares, bookmarks, link previews, emoji, default notifications, and baseline spam protection. You can fine-tune everything afterwards.', 'buddynext' ); ?>
+			</p>
+			<p class="bn-recommended-card__actions">
+				<a class="button button-primary" href="<?php echo esc_url( $apply_url ); ?>"><?php esc_html_e( 'Apply recommended settings', 'buddynext' ); ?></a>
+				<a class="button" href="<?php echo esc_url( $dismiss_url ); ?>"><?php esc_html_e( 'Dismiss', 'buddynext' ); ?></a>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the Free vs Pro comparison (free standalone only).
+	 *
+	 * Shows the site owner exactly what the current install already includes
+	 * and what the Pro upgrade unlocks, so the Pro feature set is discoverable
+	 * even though Pro-only sections stay hidden until Pro is installed.
+	 *
+	 * @return void
+	 */
+	private function render_upgrade_tab(): void {
+		// The subtitle + the "Upgrade to BuddyNext Pro" button are rendered by
+		// AdminHub's sub-header bar (declared via the register_tab() 'subtitle'
+		// and 'action' args), so the body prints only the comparison table.
+
+		// Comparison rows: label + whether the Free plan already includes it.
+		// Pro includes every row. Sourced from docs/specs/features/FREE-VS-PRO.md.
+		$rows = array(
+			array( __( 'Activity feed — posts, polls, reactions, comments, shares, bookmarks', 'buddynext' ), true ),
+			array( __( 'Spaces, member directory, profiles, full-text search', 'buddynext' ), true ),
+			array( __( '1:1 direct messages (via WPMediaVerse)', 'buddynext' ), true ),
+			array( __( 'In-app bell + transactional email notifications', 'buddynext' ), true ),
+			array( __( 'Report queue, strikes, suspensions, appeals', 'buddynext' ), true ),
+			array( __( 'REST API, Gutenberg blocks, 1 outbound webhook', 'buddynext' ), true ),
+			array( __( 'Scheduled & recurring posts, up to 10 pinned posts', 'buddynext' ), false ),
+			array( __( 'Custom reaction emoji set (up to 20)', 'buddynext' ), false ),
+			array( __( 'Broadcast email campaigns + drip welcome sequences', 'buddynext' ), false ),
+			array( __( 'Group DM + real-time delivery, typing, read receipts', 'buddynext' ), false ),
+			array( __( 'Real-time feed updates + online presence', 'buddynext' ), false ),
+			array( __( 'Advanced moderation — keyword/link rules, AI, bulk actions', 'buddynext' ), false ),
+			array( __( 'Site + per-space analytics with CSV export', 'buddynext' ), false ),
+			array( __( 'Private/gated spaces, post approval, paywall, member tiers', 'buddynext' ), false ),
+			array( __( 'Advanced profile fields + custom member labels', 'buddynext' ), false ),
+			array( __( 'AI feed ranking + AI content moderation', 'buddynext' ), false ),
+			array( __( 'Saved searches + advanced filters', 'buddynext' ), false ),
+		);
+		$this->open_section( __( 'Free vs Pro', 'buddynext' ) );
+		?>
+		<table class="bn-table widefat striped">
+			<thead>
+				<tr>
+					<th scope="col"><?php esc_html_e( 'Feature', 'buddynext' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Free', 'buddynext' ); ?></th>
+					<th scope="col"><?php esc_html_e( 'Pro', 'buddynext' ); ?></th>
+				</tr>
+			</thead>
+			<tbody>
+				<?php foreach ( $rows as $row ) : ?>
+					<?php
+					$label    = (string) $row[0];
+					$in_free  = (bool) $row[1];
+					$yes_icon = '<span class="bn-feature-check">' . \BuddyNext\Core\IconService::render( 'check' ) . '</span>';
+					?>
+					<tr>
+						<td><?php echo esc_html( $label ); ?></td>
+						<td>
+							<?php
+							if ( $in_free ) {
+								echo $yes_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd.
+							} else {
+								echo '<span aria-hidden="true">&mdash;</span><span class="screen-reader-text">' . esc_html__( 'Not included', 'buddynext' ) . '</span>';
+							}
+							?>
+						</td>
+						<td><?php echo $yes_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- IconService output is wp_kses'd. ?></td>
+					</tr>
+				<?php endforeach; ?>
+			</tbody>
+		</table>
+		<?php
+		$this->close_section();
 	}
 
 	/**
@@ -285,7 +474,11 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	public function enqueue_assets( string $hook_suffix ): void {
-		if ( 'toplevel_page_buddynext' !== $hook_suffix ) {
+		// The webhook-table CRUD + admin search JS must load wherever this
+		// class's tabs are routed (Webhooks now lives in Platform, Registration
+		// in Members, etc.), so gate on any BuddyNext hub screen rather than a
+		// single hardcoded page.
+		if ( ! AdminHub::is_hub_screen( $hook_suffix ) ) {
 			return;
 		}
 		$plugin_root = dirname( __DIR__, 2 );
@@ -360,6 +553,22 @@ class Settings extends AdminPageBase {
 	public static function sanitize_dir_columns( $value ): string {
 		$value = sanitize_key( (string) $value );
 		return in_array( $value, array( 'auto', '2', '3', '4' ), true ) ? $value : 'auto';
+	}
+
+	/**
+	 * Sanitize a checkbox flag to the string '1' or '0'.
+	 *
+	 * Stored as a string on purpose: a boolean `false` option collides with
+	 * get_option()'s "missing → default" path (a `true` default then reads an
+	 * explicit off-state back as on), so an on-by-default toggle could never be
+	 * switched off. The strings '1'/'0' round-trip exactly, independent of the
+	 * read default, so the toggle persists reliably.
+	 *
+	 * @param mixed $value Raw submitted value.
+	 * @return string '1' or '0'.
+	 */
+	public static function sanitize_bool_flag( $value ): string {
+		return rest_sanitize_boolean( $value ) ? '1' : '0';
 	}
 
 	/**
@@ -441,7 +650,11 @@ class Settings extends AdminPageBase {
 		),
 		'spaces'        => array(
 			'buddynext_space_creation_role',
+			'buddynext_space_max_per_member',
+			'buddynext_space_allow_sub',
 			'buddynext_space_max_sub_spaces',
+			'buddynext_space_default_type',
+			'buddynext_space_default_category',
 			'buddynext_spaces_dir_columns',
 		),
 		'moderation'    => array(
@@ -734,6 +947,8 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_tab_general(): void {
+		$this->render_recommended_prompt();
+
 		$this->open_section( __( 'Community Identity', 'buddynext' ) );
 
 		$this->render_text_row(
@@ -744,12 +959,11 @@ class Settings extends AdminPageBase {
 			360
 		);
 
-		$this->render_text_row(
+		$this->render_color_row(
 			'buddynext_brand_color',
-			__( 'Brand Color', 'buddynext' ),
+			__( 'Brand color', 'buddynext' ),
 			(string) get_option( 'buddynext_brand_color', '#0073aa' ),
-			__( 'Hex color used for buttons, links, and accents throughout the community UI.', 'buddynext' ),
-			140
+			__( 'Your community accent — used for buttons, links, active tabs, and badges across every member-facing screen. Click the swatch to pick, or paste a hex code.', 'buddynext' )
 		);
 
 		$this->render_textarea_row(
@@ -815,12 +1029,12 @@ class Settings extends AdminPageBase {
 
 		$this->close_section();
 
-		$this->open_section( __( 'Navigation', 'buddynext' ) );
+		$this->open_section( __( 'Community menu', 'buddynext' ) );
 
 		$this->render_toggle_row(
 			'buddynext_enable_community_nav',
-			__( 'Show BuddyNext community navigation', 'buddynext' ),
-			__( 'Automatically place the BuddyNext community navigation into your theme. Turn this off to hide it and use your theme\'s own menu instead.', 'buddynext' ),
+			__( 'Auto-place the community menu in your theme', 'buddynext' ),
+			__( 'Drops the Feed / Members / Spaces menu into your theme automatically. Turn off to use your theme\'s own menu instead. To rename, reorder, or hide individual items, use the Navigation tab.', 'buddynext' ),
 			(bool) get_option( 'buddynext_enable_community_nav', true )
 		);
 
@@ -942,7 +1156,7 @@ class Settings extends AdminPageBase {
 		$this->render_select_row(
 			'buddynext_reg_mode',
 			__( 'Registration Mode', 'buddynext' ),
-			(string) get_option( 'buddynext_reg_mode', 'open' ),
+			(string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() ),
 			array(
 				'open'     => __( 'Open — anyone can register', 'buddynext' ),
 				'invite'   => __( 'Invite Only — requires an invitation', 'buddynext' ),
@@ -1275,7 +1489,7 @@ class Settings extends AdminPageBase {
 			<span class="bn-tl-desc"><?php esc_html_e( 'Choose which reactions members can use on posts and comments. At least one is always kept.', 'buddynext' ); ?></span>
 			<?php if ( ! $bn_reactions_on ) : ?>
 				<p class="bn-field-note bn-reaction-field__off-note">
-					<?php esc_html_e( 'Reactions are turned off under Settings → Features. Enable the Reactions feature there to choose which emoji members can use.', 'buddynext' ); ?>
+					<?php esc_html_e( 'Reactions are turned off under Platform → Features. Enable the Reactions feature there to choose which emoji members can use.', 'buddynext' ); ?>
 				</p>
 			<?php endif; ?>
 			<div class="bn-reaction-palette">
@@ -1308,7 +1522,8 @@ class Settings extends AdminPageBase {
 	 * @return void
 	 */
 	private function render_tab_spaces(): void {
-		$this->open_section( __( 'Space Settings', 'buddynext' ) );
+		// ── Creation & limits ──────────────────────────────────────────────
+		$this->open_section( __( 'Creation & limits', 'buddynext' ) );
 
 		// The on/off switch for the Spaces hub lives on the Features tab
 		// (FeatureRegistry 'spaces'), which is the single source of truth and
@@ -1325,12 +1540,64 @@ class Settings extends AdminPageBase {
 		);
 
 		$this->render_number_row(
+			'buddynext_space_max_per_member',
+			__( 'Max spaces per member', 'buddynext' ),
+			(int) get_option( 'buddynext_space_max_per_member', 0 ),
+			__( 'Maximum number of spaces a single member can create. Set to 0 for no limit. Admins are exempt.', 'buddynext' ),
+			0
+		);
+
+		$this->render_toggle_row(
+			'buddynext_space_allow_sub',
+			__( 'Allow sub-spaces', 'buddynext' ),
+			__( 'Let space owners create spaces nested inside their own. Turn off to keep every space top-level.', 'buddynext' ),
+			'0' !== (string) get_option( 'buddynext_space_allow_sub', '1' )
+		);
+
+		$this->render_number_row(
 			'buddynext_space_max_sub_spaces',
 			__( 'Max sub-spaces per space', 'buddynext' ),
 			(int) get_option( 'buddynext_space_max_sub_spaces', 0 ),
 			__( 'Maximum number of sub-spaces a space owner can create inside their space. Set to 0 for no limit.', 'buddynext' ),
 			0
 		);
+
+		$this->close_section();
+
+		// ── New-space defaults ─────────────────────────────────────────────
+		$this->open_section( __( 'New-space defaults', 'buddynext' ) );
+
+		$type_options = array();
+		foreach ( \BuddyNext\Spaces\SpaceTypeRegistry::instance()->all() as $slug => $cfg ) {
+			$type_options[ $slug ] = (string) ( $cfg['label'] ?? ucfirst( $slug ) );
+		}
+		$this->render_select_row(
+			'buddynext_space_default_type',
+			__( 'Default visibility for new spaces', 'buddynext' ),
+			(string) get_option( 'buddynext_space_default_type', 'open' ),
+			$type_options,
+			__( 'The visibility a space starts with when created. Owners can still change it per space.', 'buddynext' )
+		);
+
+		$category_options = array( '0' => __( '— None —', 'buddynext' ) );
+		$spaces_service   = function_exists( 'buddynext_service' ) ? buddynext_service( 'spaces' ) : null;
+		if ( is_object( $spaces_service ) && method_exists( $spaces_service, 'get_categories' ) ) {
+			foreach ( $spaces_service->get_categories() as $cat_id => $cat_name ) {
+				$category_options[ (string) $cat_id ] = $cat_name;
+			}
+		}
+		$this->render_select_row(
+			'buddynext_space_default_category',
+			__( 'Default category for new spaces', 'buddynext' ),
+			(string) (int) get_option( 'buddynext_space_default_category', 0 ),
+			$category_options,
+			__( 'New spaces without a chosen category are filed here. Manage the list under Spaces → Directory → Categories.', 'buddynext' )
+		);
+
+		$this->close_section();
+
+		// ── Directory ──────────────────────────────────────────────────────
+		$this->open_section( __( 'Directory', 'buddynext' ) );
 
 		$this->render_select_row(
 			'buddynext_spaces_dir_columns',
@@ -1811,12 +2078,12 @@ class Settings extends AdminPageBase {
 
 		if ( ! $webhooks_on ) {
 			$this->open_section( __( 'Registered endpoints', 'buddynext' ) );
-			$features_url = admin_url( 'admin.php?page=buddynext&tab=features' );
+			$features_url = admin_url( 'admin.php?page=buddynext-platform&tab=features' );
 			echo '<div class="bn-card"><p class="bn-field-hint">';
 			printf(
 				/* translators: %s: link to the Features settings tab. */
 				esc_html__( 'Webhooks are turned off. Enable the Webhooks feature in %s to register and manage endpoints.', 'buddynext' ),
-				'<a href="' . esc_url( $features_url ) . '">' . esc_html__( 'Settings → Features', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
+				'<a href="' . esc_url( $features_url ) . '">' . esc_html__( 'Platform → Features', 'buddynext' ) . '</a>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the link text is esc_html'd.
 			);
 			echo '</p></div>';
 			return;

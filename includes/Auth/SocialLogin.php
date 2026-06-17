@@ -669,7 +669,7 @@ class SocialLogin {
 		}
 
 		// 3) No existing account — create one, honouring the registration policy.
-		$reg_mode = (string) get_option( 'buddynext_reg_mode', 'open' );
+		$reg_mode = (string) get_option( 'buddynext_reg_mode', buddynext_default_reg_mode() );
 		if ( 'invite' === $reg_mode ) {
 			return new \WP_Error( 'bn_reg_invite', __( 'This community is invite-only, so a new account could not be created.', 'buddynext' ) );
 		}

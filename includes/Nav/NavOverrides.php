@@ -68,6 +68,36 @@ final class NavOverrides {
 	}
 
 	/**
+	 * Whether an override denies the current viewer access to a tab, per its
+	 * visibility / required-capability / login-required settings. Shared by the
+	 * rail + mobile appliers so the gate behaves identically everywhere.
+	 *
+	 * @param array<string,mixed> $ov Override row.
+	 * @return bool
+	 */
+	private function tab_denied( array $ov ): bool {
+		$logged_in = is_user_logged_in();
+
+		$vis = (string) ( $ov['visibility'] ?? 'all' );
+		if ( 'logged_in' === $vis && ! $logged_in ) {
+			return true;
+		}
+		if ( 'admins' === $vis && ! current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+		if ( 'cap' === $vis ) {
+			$cap = sanitize_key( (string) ( $ov['capability'] ?? 'read' ) );
+			if ( '' !== $cap && ! current_user_can( $cap ) ) {
+				return true;
+			}
+		}
+		if ( ! empty( $ov['login_required'] ) && ! $logged_in ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
 	 * Apply main-scope overrides to the left-rail item list.
 	 *
 	 * Each rail item carries a `key` that matches a NavManager main-scope slug
@@ -79,7 +109,7 @@ final class NavOverrides {
 	 * @return array<int,array<string,mixed>>
 	 */
 	public function apply_rail( $items, $hub = '' ): array {
-		$items = (array) $items;
+		$items     = (array) $items;
 		$overrides = $this->overrides( 'main' );
 		if ( empty( $overrides ) ) {
 			return $items;
@@ -88,7 +118,12 @@ final class NavOverrides {
 		$index = 0;
 		foreach ( $items as &$item ) {
 			// Preserve current visual order for items with no saved order.
-			$item['order'] = isset( $item['order'] ) ? (int) $item['order'] : ( ++$index * 10 );
+			if ( isset( $item['order'] ) ) {
+				$item['order'] = (int) $item['order'];
+			} else {
+				++$index;
+				$item['order'] = $index * 10;
+			}
 
 			$key = sanitize_key( (string) ( $item['key'] ?? '' ) );
 			if ( '' === $key || ! isset( $overrides[ $key ] ) ) {
@@ -104,6 +139,19 @@ final class NavOverrides {
 			}
 			if ( isset( $ov['order'] ) ) {
 				$item['order'] = max( 1, (int) $ov['order'] );
+			}
+
+			// Access gate — visibility / capability / login-required. A denied tab
+			// is hidden, unless a guest label is set for logged-out visitors, in
+			// which case it becomes a sign-in call-to-action.
+			if ( $this->tab_denied( $ov ) ) {
+				$guest_label = sanitize_text_field( (string) ( $ov['guest_label'] ?? '' ) );
+				if ( '' !== $guest_label && ! is_user_logged_in() ) {
+					$item['label'] = $guest_label;
+					$item['url']   = trailingslashit( home_url( '/' . (string) get_option( 'buddynext_slug_auth', 'login' ) ) );
+				} else {
+					$item['show'] = false;
+				}
 			}
 		}
 		unset( $item );
@@ -164,7 +212,7 @@ final class NavOverrides {
 	 * @return array<string,mixed>
 	 */
 	public function apply_profile_tabs( $args ): array {
-		$args = (array) $args;
+		$args      = (array) $args;
 		$overrides = $this->overrides( 'profile' );
 		if ( empty( $overrides ) || empty( $args['tabs'] ) || ! is_array( $args['tabs'] ) ) {
 			return $args;
@@ -176,7 +224,12 @@ final class NavOverrides {
 			if ( ! is_array( $tab ) ) {
 				continue;
 			}
-			$tab['order'] = isset( $tab['order'] ) ? (int) $tab['order'] : ( ++$index * 10 );
+			if ( isset( $tab['order'] ) ) {
+				$tab['order'] = (int) $tab['order'];
+			} else {
+				++$index;
+				$tab['order'] = $index * 10;
+			}
 
 			$slug = sanitize_key( (string) ( $tab['slug'] ?? '' ) );
 			if ( '' !== $slug && isset( $overrides[ $slug ] ) ) {
@@ -216,7 +269,7 @@ final class NavOverrides {
 	 * @return array<string,mixed>
 	 */
 	public function apply_space_tabs( $tabs, $space_id = 0 ): array {
-		$tabs = (array) $tabs;
+		$tabs      = (array) $tabs;
 		$overrides = $this->overrides( 'space' );
 		if ( empty( $overrides ) || empty( $tabs ) ) {
 			return $tabs;
@@ -225,9 +278,10 @@ final class NavOverrides {
 		$ordered = array();
 		$index   = 0;
 		foreach ( $tabs as $slug => $cfg ) {
-			$cfg = (array) $cfg;
-			$key = sanitize_key( (string) $slug );
-			$cfg['_bn_order'] = ++$index * 10;
+			$cfg              = (array) $cfg;
+			$key              = sanitize_key( (string) $slug );
+			++$index;
+			$cfg['_bn_order'] = $index * 10;
 
 			if ( '' !== $key && isset( $overrides[ $key ] ) ) {
 				$ov = (array) $overrides[ $key ];
@@ -272,7 +326,7 @@ final class NavOverrides {
 	 * @return array<int,array<string,mixed>>
 	 */
 	public function apply_mobile_items( $items, $active = '' ): array {
-		$items = (array) $items;
+		$items     = (array) $items;
 		$overrides = $this->overrides( 'mobile' );
 		if ( empty( $overrides ) ) {
 			return $items;
@@ -288,7 +342,7 @@ final class NavOverrides {
 			}
 			$ov = (array) $overrides[ $key ];
 
-			if ( ! empty( $ov['hidden'] ) ) {
+			if ( ! empty( $ov['hidden'] ) || $this->tab_denied( $ov ) ) {
 				$item['show'] = false;
 			}
 			if ( isset( $ov['label'] ) && '' !== (string) $ov['label'] ) {
