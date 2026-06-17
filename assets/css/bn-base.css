@@ -2132,6 +2132,22 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	font-size: var(--bn-text-sm);
 	line-height: 1.5;
 }
+
+/* Stacked body — even row spacing for modals that lay out a help line + form
+   fields. Use on bodies whose children would otherwise have no row gap (e.g. the
+   report modal, which reuses the profile-edit .bn-ep-field--full grid cell where
+   the grid modifier is inert). Lives in the primitive layer so it applies on any
+   surface, since bn-profile.css is not enqueued on the members directory. */
+.bn-modal__body--stack {
+	display: flex;
+	flex-direction: column;
+	gap: var(--bn-s4);
+}
+/* Let the flex gap be the single source of row spacing so the help line and
+   fields are evenly separated (the help <p> otherwise adds its own margin). */
+.bn-modal__body--stack > * {
+	margin-block: 0;
+}
 .bn-modal__foot {
 	display: flex;
 	align-items: center;

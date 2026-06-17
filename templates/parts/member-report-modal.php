@@ -112,7 +112,7 @@ do_action( 'buddynext_part_member_report_modal_before', $args );
 				data-wp-on--click="actions.closeReport"
 			><?php buddynext_icon( 'x' ); ?></button>
 		</header>
-		<div class="bn-modal__body">
+		<div class="bn-modal__body bn-modal__body--stack">
 			<p class="bn-modal__help"><?php echo esc_html( $bn_i18n['help'] ); ?></p>
 			<div class="bn-ep-field bn-ep-field--full">
 				<label class="bn-ep-label" for="bn-pf-report-reason"><?php echo esc_html( $bn_i18n['reason_label'] ); ?></label>
