@@ -290,10 +290,12 @@ class Spaces extends AdminPageBase {
 											<?php if ( $owner ) : ?>
 												<span class="bn-row-meta">
 													<?php
+													$bn_owner_label = '' !== (string) $owner->display_name ? $owner->display_name : $owner->user_login;
+													$bn_owner_link  = '<a href="' . esc_url( \BuddyNext\Core\PageRouter::profile_url( (int) $space['owner_id'] ) ) . '">' . esc_html( $bn_owner_label ) . '</a>';
 													printf(
-														/* translators: %s: owner username */
+														/* translators: %s: owner profile link */
 														esc_html__( 'Owner: %s', 'buddynext' ),
-														esc_html( $owner->user_login )
+														$bn_owner_link // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- href is esc_url'd and the label is esc_html'd above.
 													);
 													?>
 												</span>
