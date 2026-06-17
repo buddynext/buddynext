@@ -441,7 +441,7 @@ class ExploreService {
 				   FROM {$wpdb->prefix}bn_post_hashtags ph
 				   JOIN {$wpdb->prefix}bn_hashtags h ON h.id = ph.hashtag_id
 				  WHERE ph.post_id IN ({$placeholders})
-				  ORDER BY ph.post_id ASC, ph.id ASC",
+				  ORDER BY ph.post_id ASC, ph.created_at ASC, ph.hashtag_id ASC",
 				...$post_ids
 			),
 			ARRAY_A
