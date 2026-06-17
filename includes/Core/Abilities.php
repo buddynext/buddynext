@@ -66,8 +66,31 @@ class Abilities {
 	 */
 	public function do_register(): void {
 		foreach ( $this->get_catalog() as $ability ) {
-			wp_register_ability( $ability, array( 'plugin' => 'buddynext' ) );
+			wp_register_ability(
+				$ability,
+				array(
+					'label'  => $this->label_for( $ability ),
+					'plugin' => 'buddynext',
+				)
+			);
 		}
+	}
+
+	/**
+	 * Build a human-readable label for an ability slug, as required by the
+	 * WordPress 6.9+ Abilities API. E.g. 'buddynext-feed/create-post' becomes
+	 * 'Feed: Create post'.
+	 *
+	 * @param string $ability Ability slug.
+	 * @return string
+	 */
+	private function label_for( string $ability ): string {
+		$slug  = str_replace( 'buddynext-', '', $ability );
+		$parts = explode( '/', $slug, 2 );
+		$domain = ucfirst( str_replace( '-', ' ', $parts[0] ) );
+		$action = isset( $parts[1] ) ? ucfirst( str_replace( '-', ' ', $parts[1] ) ) : '';
+
+		return '' !== $action ? $domain . ': ' . $action : $domain;
 	}
 
 	/**
