@@ -500,32 +500,6 @@ class Settings extends AdminPageBase {
 	}
 
 	/**
-	 * Add the top-level BuddyNext menu and the Settings sub-page.
-	 *
-	 * @return void
-	 */
-	public function add_menu(): void {
-		add_menu_page(
-			__( 'BuddyNext', 'buddynext' ),
-			__( 'BuddyNext', 'buddynext' ),
-			'manage_options',
-			'buddynext',
-			array( $this, 'render_page' ),
-			'dashicons-networking',
-			30
-		);
-
-		add_submenu_page(
-			'buddynext',
-			__( 'BuddyNext — Settings', 'buddynext' ),
-			__( 'Settings', 'buddynext' ),
-			'manage_options',
-			'buddynext',
-			array( $this, 'render_page' )
-		);
-	}
-
-	/**
 	 * Sanitize the brand colour, falling back to the default when empty/invalid.
 	 *
 	 * An empty submission makes sanitize_hex_color() return '', which would
