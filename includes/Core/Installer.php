@@ -86,7 +86,6 @@ class Installer {
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 
 		self::create_hub_pages();
-		self::install_mu_plugin();
 
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
 	}
