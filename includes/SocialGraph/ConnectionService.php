@@ -272,12 +272,25 @@ class ConnectionService {
 			);
 		}
 
+		// Guard the delete on status = 'pending' so the withdraw is atomic: if a
+		// concurrent request accepted the connection between the SELECT above and
+		// here, this matches zero rows instead of deleting an accepted connection.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->delete(
+		$deleted = $wpdb->delete(
 			$wpdb->prefix . 'bn_connections',
-			array( 'id' => $connection_id ),
-			array( '%d' )
+			array(
+				'id'     => $connection_id,
+				'status' => 'pending',
+			),
+			array( '%d', '%s' )
 		);
+
+		if ( empty( $deleted ) ) {
+			return new WP_Error(
+				'not_found',
+				__( 'No pending request found.', 'buddynext' )
+			);
+		}
 
 		$this->invalidate_connection_cache();
 
