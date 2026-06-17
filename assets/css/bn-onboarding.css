@@ -688,7 +688,11 @@
 #wpcontent { padding-left: 0 !important; }
 #wpfooter { display: none !important; }
 .bn-wizard-wrap {
-	margin: 0 -20px 0 -20px;
+	/* No negative horizontal margins: the wrap already fills #wpbody-content
+	   edge-to-edge with margin 0. The previous -20px right margin had no admin
+	   padding to cancel and pushed the wrap 20px past the viewport, forcing an
+	   unnecessary horizontal scrollbar on the Setup Wizard. */
+	margin: 0;
 	padding: var(--bn-s5) var(--bn-s4);
 	min-height: calc(100vh - 32px);
 	background: var(--bn-canvas);
@@ -1474,7 +1478,7 @@
 /* ── Mobile ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 720px) {
-	.bn-wizard-wrap { padding: var(--bn-s3) var(--bn-s2); margin: 0 -10px; }
+	.bn-wizard-wrap { padding: var(--bn-s3) var(--bn-s2); margin: 0; }
 	.bn-wizard { border-radius: var(--bn-r-md); }
 	.bn-wizard__header {
 		grid-template-columns: 1fr auto;
