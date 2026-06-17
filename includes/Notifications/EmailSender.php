@@ -156,12 +156,19 @@ class EmailSender {
 		$subject = $this->render( $subject_src, $user_id, $data );
 		$body    = $this->render( $body_src, $user_id, $data );
 
+		// Preview text (inbox preheader): inline data wins, else the template's
+		// configured preview_text. Rendered through the same token replacer.
+		$preview_src = isset( $data['preview_text'] )
+			? (string) $data['preview_text']
+			: ( null !== $template ? (string) ( $template->preview_text ?? '' ) : '' );
+		$preview     = '' !== $preview_src ? $this->render( $preview_src, $user_id, $data ) : '';
+
 		$headers = self::build_identity_headers();
 
 		$payload = array(
 			'to'      => $user->user_email,
 			'subject' => $subject,
-			'body'    => $this->wrap_email_html( $body, $subject ),
+			'body'    => $this->wrap_email_html( $body, $subject, $preview ),
 			'headers' => $headers,
 		);
 
@@ -377,11 +384,12 @@ class EmailSender {
 	 *  - buddynext_email_header_html / buddynext_email_footer_html — replace just
 	 *    the header or footer block (each gets the subject for context).
 	 *
-	 * @param string $body    Rendered (token-replaced) body HTML.
-	 * @param string $subject Rendered subject, used as the title/preheader.
+	 * @param string $body      Rendered (token-replaced) body HTML.
+	 * @param string $subject   Rendered subject, used as the document title.
+	 * @param string $preheader Optional inbox preview text (hidden preheader).
 	 * @return string Full branded HTML document.
 	 */
-	public static function brand_wrap( string $body, string $subject = '' ): string {
+	public static function brand_wrap( string $body, string $subject = '', string $preheader = '' ): string {
 		$site_name = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
 		$site_url  = esc_url( home_url( '/' ) );
 		$brand     = (string) get_option( 'buddynext_brand_color', '#0073aa' );
@@ -442,11 +450,20 @@ class EmailSender {
 		 */
 		$footer_html = (string) apply_filters( 'buddynext_email_footer_html', $footer_html, $subject );
 
+		// Hidden preheader — the inbox preview snippet, taken from the template's
+		// "Preview text" setting. Hidden in the body but surfaced by mail clients.
+		$preheader = trim( $preheader );
+		$preheader_html = '' !== $preheader
+			? '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f3f4f6;opacity:0;">'
+				. esc_html( $preheader ) . '</div>'
+			: '';
+
 		return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
 			. '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
 			. '<title>' . esc_html( $subject ) . '</title></head>'
 			. '<body style="margin:0;padding:0;background:#f3f4f6;'
 			. '-webkit-font-smoothing:antialiased;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;">'
+			. $preheader_html
 			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">'
 			. '<tr><td align="center">'
 			. '<table role="presentation" width="600" cellpadding="0" cellspacing="0" '
@@ -471,12 +488,13 @@ class EmailSender {
 	/**
 	 * Back-compat instance alias for brand_wrap().
 	 *
-	 * @param string $body    Rendered body HTML.
-	 * @param string $subject Rendered subject.
+	 * @param string $body      Rendered body HTML.
+	 * @param string $subject   Rendered subject.
+	 * @param string $preheader Optional inbox preview text.
 	 * @return string
 	 */
-	private function wrap_email_html( string $body, string $subject = '' ): string {
-		return self::brand_wrap( $body, $subject );
+	private function wrap_email_html( string $body, string $subject = '', string $preheader = '' ): string {
+		return self::brand_wrap( $body, $subject, $preheader );
 	}
 
 	/**
@@ -598,7 +616,7 @@ class EmailSender {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT subject, body_html, enabled FROM {$wpdb->prefix}bn_email_templates WHERE type = %s",
+				"SELECT subject, body_html, preview_text, enabled FROM {$wpdb->prefix}bn_email_templates WHERE type = %s",
 				$type
 			)
 		);
