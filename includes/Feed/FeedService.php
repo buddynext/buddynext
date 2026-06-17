@@ -450,6 +450,16 @@ class FeedService {
 				break;
 		}
 
+		// Overarching privacy guard. A 'private' ("Only Me") post is visible only
+		// to its author. Branches like joined-spaces and followed-hashtags match
+		// posts with no per-branch privacy filter, so without this an Only-Me post
+		// would leak into other members' feeds through a shared space or a hashtag
+		// they both follow. Scoped to 'private' only — it must not tighten the
+		// public/followers/connections visibility the other branches already set,
+		// and the author still sees their own Only-Me posts (user_id = %d).
+		$sql      = "( {$sql} ) AND ( privacy <> 'private' OR user_id = %d )";
+		$params[] = $user_id;
+
 		// Honour each space's "Push space posts to activity feed" toggle: a space
 		// the owner opted out of (bn_space_{id}_push_to_feed = 0) must not surface
 		// in the home feed through ANY branch. Non-space posts are unaffected.
