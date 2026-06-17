@@ -314,12 +314,40 @@ class ToolsTab {
 		$out = array();
 		foreach ( (array) $names as $name ) {
 			$name = (string) $name;
-			if ( in_array( $name, $skip, true ) ) {
+			if ( in_array( $name, $skip, true ) || $this->is_sensitive_option( $name ) ) {
 				continue;
 			}
 			$out[ $name ] = get_option( $name );
 		}
 		return $out;
+	}
+
+	/**
+	 * Whether an option holds a secret that must never be written to a settings
+	 * export (license keys, webhook/Stripe secrets, API keys, push credentials).
+	 * Pattern-based so new secret-bearing options are covered automatically.
+	 *
+	 * @param string $name Option name.
+	 * @return bool
+	 */
+	private function is_sensitive_option( string $name ): bool {
+		$needles   = array( 'secret', 'api_key', 'apikey', 'license_key', 'private_key', 'access_token', 'service_account', 'password', '_salt' );
+		$sensitive = false;
+		foreach ( $needles as $needle ) {
+			if ( false !== strpos( $name, $needle ) ) {
+				$sensitive = true;
+				break;
+			}
+		}
+
+		/**
+		 * Filter whether a BuddyNext option is treated as sensitive (excluded from
+		 * the settings export).
+		 *
+		 * @param bool   $sensitive Whether the option is sensitive.
+		 * @param string $name      Option name.
+		 */
+		return (bool) apply_filters( 'buddynext_export_option_is_sensitive', $sensitive, $name );
 	}
 
 	/**
