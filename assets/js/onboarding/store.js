@@ -199,6 +199,7 @@ store( 'buddynext/onboarding', {
 			if ( 'email'  === channel ) { c.channelEmail = value; }
 			if ( 'in_app' === channel ) { c.channelInApp = value; }
 			if ( 'push'   === channel ) { c.channelPush  = value; }
+			if ( 'sound'  === channel ) { c.channelSound = value; }
 		},
 		joinSuggestedSpace( event ) {
 			const c = ctx();
@@ -375,6 +376,7 @@ store( 'buddynext/onboarding', {
 					email:  !! c.channelEmail,
 					in_app: !! c.channelInApp,
 					push:   !! c.channelPush,
+					sound:  !! c.channelSound,
 				} ),
 			} ).catch( () => {} );
 
