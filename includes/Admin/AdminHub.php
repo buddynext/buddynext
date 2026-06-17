@@ -138,10 +138,6 @@ class AdminHub {
 			'section'  => 'platform',
 			'position' => 20,
 		),
-		'settings:addons'            => array(
-			'section'  => 'platform',
-			'position' => 30,
-		),
 		'settings:tools'             => array(
 			'section'  => 'platform',
 			'position' => 40,
@@ -644,7 +640,6 @@ class AdminHub {
 					'webhooks'      => 'share',
 					'navigation'    => 'list',
 					'templates'     => 'mail',
-					'addons'        => 'code',
 					'reactions'     => 'smile',
 					'push'          => 'bell',
 					'push-prefs'    => 'bell',

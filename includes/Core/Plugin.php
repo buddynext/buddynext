@@ -14,7 +14,6 @@ namespace BuddyNext\Core;
 
 use BuddyNext\Admin\AdminHub;
 use BuddyNext\Admin\EmailEditor;
-use BuddyNext\Admin\IntegrationHub;
 use BuddyNext\Admin\Members;
 use BuddyNext\Admin\NavManager;
 use BuddyNext\Admin\Settings;
@@ -175,7 +174,6 @@ class Plugin {
 					$container->get( 'admin_members' )->register();
 					$container->get( 'admin_spaces' )->register();
 					$container->get( 'admin_nav' )->register();
-					$container->get( 'admin_hub' )->register();
 					$container->get( 'admin_email_editor' )->register();
 					$container->get( 'setup_wizard' )->init();
 					( new \BuddyNext\Demo\DemoAdmin() )->register();
@@ -661,7 +659,6 @@ class Plugin {
 		$container->bind( 'admin_members', fn() => new Members() );
 		$container->bind( 'admin_spaces', fn() => new Spaces() );
 		$container->bind( 'admin_nav', fn() => new NavManager() );
-		$container->bind( 'admin_hub', fn() => new IntegrationHub() );
 		$container->bind( 'admin_email_editor', fn() => new EmailEditor() );
 		$container->bind( 'shortcodes', fn() => new ShortcodeService() );
 		$container->bind( 'widgets', fn() => new WidgetService() );

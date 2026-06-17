@@ -1131,7 +1131,7 @@ class Settings extends AdminPageBase {
 									<?php checked( $current, true ); ?>
 									role="switch"
 									aria-label="<?php echo esc_attr( $feature['label'] ); ?>">
-								<span class="bn-toggle bn-toggle--inline"></span>
+								<span class="bn-toggle--inline"></span>
 							</label>
 						<?php endif; ?>
 					</div>
@@ -1960,7 +1960,7 @@ class Settings extends AdminPageBase {
 		$can_install  = current_user_can( 'install_plugins' );
 		$can_activate = current_user_can( 'activate_plugins' );
 
-		$this->open_section( __( 'Addon Status', 'buddynext' ) );
+		$this->open_section( __( 'Companion plugins', 'buddynext' ) );
 		?>
 		<div class="bn-addon-list"
 			data-bn-companions

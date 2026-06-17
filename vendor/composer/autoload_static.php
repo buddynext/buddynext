@@ -14,21 +14,21 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
     );
 
     public static $prefixLengthsPsr4 = array (
-        'S' =>
+        'S' => 
         array (
             'SzepeViktor\\PHPStan\\WordPress\\' => 30,
         ),
-        'P' =>
+        'P' => 
         array (
             'PhpParser\\' => 10,
             'PHPCSStandards\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\' => 57,
         ),
-        'D' =>
+        'D' => 
         array (
             'Doctrine\\Instantiator\\' => 22,
             'DeepCopy\\' => 9,
         ),
-        'B' =>
+        'B' => 
         array (
             'BuddyNext\\Tests\\' => 16,
             'BuddyNext\\' => 10,
@@ -36,31 +36,31 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
     );
 
     public static $prefixDirsPsr4 = array (
-        'SzepeViktor\\PHPStan\\WordPress\\' =>
+        'SzepeViktor\\PHPStan\\WordPress\\' => 
         array (
             0 => __DIR__ . '/..' . '/szepeviktor/phpstan-wordpress/src',
         ),
-        'PhpParser\\' =>
+        'PhpParser\\' => 
         array (
             0 => __DIR__ . '/..' . '/nikic/php-parser/lib/PhpParser',
         ),
-        'PHPCSStandards\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\' =>
+        'PHPCSStandards\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\' => 
         array (
             0 => __DIR__ . '/..' . '/dealerdirect/phpcodesniffer-composer-installer/src',
         ),
-        'Doctrine\\Instantiator\\' =>
+        'Doctrine\\Instantiator\\' => 
         array (
             0 => __DIR__ . '/..' . '/doctrine/instantiator/src/Doctrine/Instantiator',
         ),
-        'DeepCopy\\' =>
+        'DeepCopy\\' => 
         array (
             0 => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy',
         ),
-        'BuddyNext\\Tests\\' =>
+        'BuddyNext\\Tests\\' => 
         array (
             0 => __DIR__ . '/../..' . '/tests',
         ),
-        'BuddyNext\\' =>
+        'BuddyNext\\' => 
         array (
             0 => __DIR__ . '/../..' . '/includes',
         ),
@@ -72,7 +72,6 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Admin\\AppearanceTab' => __DIR__ . '/../..' . '/includes/Admin/AppearanceTab.php',
         'BuddyNext\\Admin\\EmailEditor' => __DIR__ . '/../..' . '/includes/Admin/EmailEditor.php',
         'BuddyNext\\Admin\\Insights' => __DIR__ . '/../..' . '/includes/Admin/Insights.php',
-        'BuddyNext\\Admin\\IntegrationHub' => __DIR__ . '/../..' . '/includes/Admin/IntegrationHub.php',
         'BuddyNext\\Admin\\Members' => __DIR__ . '/../..' . '/includes/Admin/Members.php',
         'BuddyNext\\Admin\\Members\\ApprovalManager' => __DIR__ . '/../..' . '/includes/Admin/Members/ApprovalManager.php',
         'BuddyNext\\Admin\\Members\\AvatarSettings' => __DIR__ . '/../..' . '/includes/Admin/Members/AvatarSettings.php',
@@ -91,6 +90,7 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Admin\\Spaces' => __DIR__ . '/../..' . '/includes/Admin/Spaces.php',
         'BuddyNext\\Admin\\ToolsTab' => __DIR__ . '/../..' . '/includes/Admin/ToolsTab.php',
         'BuddyNext\\Auth\\AuthController' => __DIR__ . '/../..' . '/includes/Auth/AuthController.php',
+        'BuddyNext\\Auth\\RegistrationEmailListener' => __DIR__ . '/../..' . '/includes/Auth/RegistrationEmailListener.php',
         'BuddyNext\\Auth\\RegistrationGuard' => __DIR__ . '/../..' . '/includes/Auth/RegistrationGuard.php',
         'BuddyNext\\Auth\\SocialLogin' => __DIR__ . '/../..' . '/includes/Auth/SocialLogin.php',
         'BuddyNext\\Auth\\TwoFactorController' => __DIR__ . '/../..' . '/includes/Auth/TwoFactorController.php',
@@ -104,6 +104,8 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Bridges\\JetonomyBridge' => __DIR__ . '/../..' . '/includes/Bridges/JetonomyBridge.php',
         'BuddyNext\\Bridges\\JetonomyBridgeListener' => __DIR__ . '/../..' . '/includes/Bridges/JetonomyBridgeListener.php',
         'BuddyNext\\Bridges\\WPMediaVerseBridge' => __DIR__ . '/../..' . '/includes/Bridges/WPMediaVerseBridge.php',
+        'BuddyNext\\Cert\\CertCommand' => __DIR__ . '/../..' . '/includes/Cert/CertCommand.php',
+        'BuddyNext\\Cert\\CertRunner' => __DIR__ . '/../..' . '/includes/Cert/CertRunner.php',
         'BuddyNext\\Comments\\CommentController' => __DIR__ . '/../..' . '/includes/Comments/CommentController.php',
         'BuddyNext\\Comments\\CommentService' => __DIR__ . '/../..' . '/includes/Comments/CommentService.php',
         'BuddyNext\\Contracts\\ListenerInterface' => __DIR__ . '/../..' . '/includes/Contracts/ListenerInterface.php',
@@ -122,6 +124,7 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Core\\PageSetup' => __DIR__ . '/../..' . '/includes/Core/PageSetup.php',
         'BuddyNext\\Core\\PermissionService' => __DIR__ . '/../..' . '/includes/Core/PermissionService.php',
         'BuddyNext\\Core\\Plugin' => __DIR__ . '/../..' . '/includes/Core/Plugin.php',
+        'BuddyNext\\Core\\RecommendedDefaults' => __DIR__ . '/../..' . '/includes/Core/RecommendedDefaults.php',
         'BuddyNext\\Core\\RoleService' => __DIR__ . '/../..' . '/includes/Core/RoleService.php',
         'BuddyNext\\Core\\TemplateLoader' => __DIR__ . '/../..' . '/includes/Core/TemplateLoader.php',
         'BuddyNext\\Demo\\DemoAdmin' => __DIR__ . '/../..' . '/includes/Demo/DemoAdmin.php',
@@ -131,6 +134,7 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Feed\\BookmarkController' => __DIR__ . '/../..' . '/includes/Feed/BookmarkController.php',
         'BuddyNext\\Feed\\BookmarkService' => __DIR__ . '/../..' . '/includes/Feed/BookmarkService.php',
         'BuddyNext\\Feed\\ComposerDraftController' => __DIR__ . '/../..' . '/includes/Feed/ComposerDraftController.php',
+        'BuddyNext\\Feed\\ExploreService' => __DIR__ . '/../..' . '/includes/Feed/ExploreService.php',
         'BuddyNext\\Feed\\FeedCache' => __DIR__ . '/../..' . '/includes/Feed/FeedCache.php',
         'BuddyNext\\Feed\\FeedController' => __DIR__ . '/../..' . '/includes/Feed/FeedController.php',
         'BuddyNext\\Feed\\FeedListener' => __DIR__ . '/../..' . '/includes/Feed/FeedListener.php',
@@ -147,6 +151,9 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Hashtags\\HashtagListener' => __DIR__ . '/../..' . '/includes/Hashtags/HashtagListener.php',
         'BuddyNext\\Hashtags\\HashtagService' => __DIR__ . '/../..' . '/includes/Hashtags/HashtagService.php',
         'BuddyNext\\Header\\HeaderUserSection' => __DIR__ . '/../..' . '/includes/Header/HeaderUserSection.php',
+        'BuddyNext\\Integrations\\CompanionController' => __DIR__ . '/../..' . '/includes/Integrations/CompanionController.php',
+        'BuddyNext\\Integrations\\CompanionInstaller' => __DIR__ . '/../..' . '/includes/Integrations/CompanionInstaller.php',
+        'BuddyNext\\Integrations\\CompanionRegistry' => __DIR__ . '/../..' . '/includes/Integrations/CompanionRegistry.php',
         'BuddyNext\\Media\\Galleries' => __DIR__ . '/../..' . '/includes/Media/Galleries.php',
         'BuddyNext\\Media\\ImageStorageService' => __DIR__ . '/../..' . '/includes/Media/ImageStorageService.php',
         'BuddyNext\\Media\\MediaAssets' => __DIR__ . '/../..' . '/includes/Media/MediaAssets.php',
@@ -163,6 +170,7 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Moderation\\ModerationService' => __DIR__ . '/../..' . '/includes/Moderation/ModerationService.php',
         'BuddyNext\\Moderation\\SafeguardService' => __DIR__ . '/../..' . '/includes/Moderation/SafeguardService.php',
         'BuddyNext\\Nav\\MenuRenderer' => __DIR__ . '/../..' . '/includes/Nav/MenuRenderer.php',
+        'BuddyNext\\Nav\\NavOverrides' => __DIR__ . '/../..' . '/includes/Nav/NavOverrides.php',
         'BuddyNext\\Nav\\UserLinks' => __DIR__ . '/../..' . '/includes/Nav/UserLinks.php',
         'BuddyNext\\Notifications\\EmailDispatchListener' => __DIR__ . '/../..' . '/includes/Notifications/EmailDispatchListener.php',
         'BuddyNext\\Notifications\\EmailSender' => __DIR__ . '/../..' . '/includes/Notifications/EmailSender.php',
@@ -183,6 +191,8 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Outbound\\OutboundWebhookListener' => __DIR__ . '/../..' . '/includes/Outbound/OutboundWebhookListener.php',
         'BuddyNext\\Outbound\\OutboundWebhookService' => __DIR__ . '/../..' . '/includes/Outbound/OutboundWebhookService.php',
         'BuddyNext\\PWA\\PwaService' => __DIR__ . '/../..' . '/includes/PWA/PwaService.php',
+        'BuddyNext\\Privacy\\CookieConsentService' => __DIR__ . '/../..' . '/includes/Privacy/CookieConsentService.php',
+        'BuddyNext\\Privacy\\PrivacyTools' => __DIR__ . '/../..' . '/includes/Privacy/PrivacyTools.php',
         'BuddyNext\\Profile\\AvatarService' => __DIR__ . '/../..' . '/includes/Profile/AvatarService.php',
         'BuddyNext\\Profile\\FieldType' => __DIR__ . '/../..' . '/includes/Profile/FieldType.php',
         'BuddyNext\\Profile\\GamificationAchievements' => __DIR__ . '/../..' . '/includes/Profile/GamificationAchievements.php',
@@ -215,13 +225,14 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\SocialGraph\\PrivacyService' => __DIR__ . '/../..' . '/includes/SocialGraph/PrivacyService.php',
         'BuddyNext\\SocialGraph\\UserCleanupListener' => __DIR__ . '/../..' . '/includes/SocialGraph/UserCleanupListener.php',
         'BuddyNext\\Spaces\\SpaceCategoryController' => __DIR__ . '/../..' . '/includes/Spaces/SpaceCategoryController.php',
+        'BuddyNext\\Spaces\\SpaceCategoryService' => __DIR__ . '/../..' . '/includes/Spaces/SpaceCategoryService.php',
         'BuddyNext\\Spaces\\SpaceController' => __DIR__ . '/../..' . '/includes/Spaces/SpaceController.php',
         'BuddyNext\\Spaces\\SpaceMemberService' => __DIR__ . '/../..' . '/includes/Spaces/SpaceMemberService.php',
+        'BuddyNext\\Spaces\\SpacePostGuard' => __DIR__ . '/../..' . '/includes/Spaces/SpacePostGuard.php',
         'BuddyNext\\Spaces\\SpaceService' => __DIR__ . '/../..' . '/includes/Spaces/SpaceService.php',
         'BuddyNext\\Spaces\\SpaceTypeRegistry' => __DIR__ . '/../..' . '/includes/Spaces/SpaceTypeRegistry.php',
         'BuddyNext\\Support\\Monogram' => __DIR__ . '/../..' . '/includes/Support/Monogram.php',
         'BuddyNext\\Tests\\Admin\\EmailEditorTest' => __DIR__ . '/../..' . '/tests/Admin/EmailEditorTest.php',
-        'BuddyNext\\Tests\\Admin\\IntegrationHubTest' => __DIR__ . '/../..' . '/tests/Admin/IntegrationHubTest.php',
         'BuddyNext\\Tests\\Admin\\MembersTest' => __DIR__ . '/../..' . '/tests/Admin/MembersTest.php',
         'BuddyNext\\Tests\\Admin\\NavManagerTest' => __DIR__ . '/../..' . '/tests/Admin/NavManagerTest.php',
         'BuddyNext\\Tests\\Admin\\SettingsTest' => __DIR__ . '/../..' . '/tests/Admin/SettingsTest.php',
@@ -276,6 +287,8 @@ class ComposerStaticInitc535f1ffe9541d51d4e2f2d8e41d40e7
         'BuddyNext\\Tests\\Moderation\\ModerationLogServiceTest' => __DIR__ . '/../..' . '/tests/Moderation/ModerationLogServiceTest.php',
         'BuddyNext\\Tests\\Moderation\\ModerationReadEndpointsTest' => __DIR__ . '/../..' . '/tests/Moderation/ModerationReadEndpointsTest.php',
         'BuddyNext\\Tests\\Moderation\\ModerationServiceTest' => __DIR__ . '/../..' . '/tests/Moderation/ModerationServiceTest.php',
+        'BuddyNext\\Tests\\Nav\\MenuRendererTest' => __DIR__ . '/../..' . '/tests/Nav/MenuRendererTest.php',
+        'BuddyNext\\Tests\\Nav\\UserLinksTest' => __DIR__ . '/../..' . '/tests/Nav/UserLinksTest.php',
         'BuddyNext\\Tests\\Notifications\\EmailSenderGateTest' => __DIR__ . '/../..' . '/tests/Notifications/EmailSenderGateTest.php',
         'BuddyNext\\Tests\\Notifications\\NotificationControllerTest' => __DIR__ . '/../..' . '/tests/Notifications/NotificationControllerTest.php',
         'BuddyNext\\Tests\\Notifications\\NotificationGetTest' => __DIR__ . '/../..' . '/tests/Notifications/NotificationGetTest.php',

@@ -3,7 +3,7 @@
  * BuddyNext companion registry.
  *
  * A single declarative, filterable catalog of the Wbcom plugins BuddyNext
- * integrates with (WPMediaVerse, Jetonomy, WB Gamification, Career Board). Each
+ * integrates with (MediaVerse, Jetonomy, Gamification, Career Board). Each
  * entry is DATA, not code — Pro and third parties extend the list via the
  * `buddynext_companions` filter. Every UI + integration decision keys off
  * `is_active()` (a runtime capability probe), never a hardcoded plugin path, so
@@ -51,7 +51,7 @@ final class CompanionRegistry {
 			'buddynext_companions',
 			array(
 				'wpmediaverse'    => array(
-					'label'     => 'WPMediaVerse',
+					'label'     => 'MediaVerse',
 					'why'       => __( 'Direct messaging, media galleries, and social feeds.', 'buddynext' ),
 					'detect'    => static fn(): bool => class_exists( '\\WPMediaVerse\\Core\\Plugin' ),
 					'free'      => array(
@@ -75,7 +75,7 @@ final class CompanionRegistry {
 					'unlocks'   => __( 'Forum activity surfaced in the BuddyNext feed.', 'buddynext' ),
 				),
 				'wb-gamification' => array(
-					'label'     => 'WB Gamification',
+					'label'     => 'Gamification',
 					'why'       => __( 'Points, badges, levels, and leaderboards.', 'buddynext' ),
 					'detect'    => static fn(): bool => function_exists( 'wb_gam_submit_event' ) || defined( 'WB_GAM_VERSION' ),
 					'free'      => array(
