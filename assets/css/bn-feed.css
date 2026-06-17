@@ -2322,19 +2322,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	color: var(--text-2);
 	margin: 0;
 }
-.bn-composer__poll-close {
-	background: transparent;
-	border: 0;
-	padding: 2px;
-	border-radius: var(--r-sm);
-	color: var(--text-3);
-	cursor: pointer;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-}
-.bn-composer__poll-close:hover { color: var(--text-1); background: var(--bg-subtle); }
-.bn-composer__poll-close svg { width: 16px; height: 16px; }
+/* Poll-cancel reuses the canonical .bn-modal__close primitive (bn-base.css) so
+   every composer close button shares one size, token set, and hover state. */
 .bn-composer__poll-option {
 	width: 100%;
 	background: var(--bg-subtle);

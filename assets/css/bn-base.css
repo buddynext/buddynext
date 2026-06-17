@@ -2105,6 +2105,9 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	justify-content: center;
 	width: 28px;
 	height: 28px;
+	/* Explicit 0 so the close stays a clean 28x28 icon button even where a theme
+	   or composer button rule would otherwise leak padding onto the <button>. */
+	padding: 0;
 	border-radius: var(--bn-r-sm);
 	color: var(--bn-ink-3);
 	background: transparent;
