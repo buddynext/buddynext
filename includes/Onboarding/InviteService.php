@@ -35,10 +35,33 @@ class InviteService {
 	 * @param string $email      Email address to invite.
 	 * @param string $first_name Recipient first name (optional, for personalisation).
 	 * @param int    $ttl_days   Token lifetime in days. Negative values create an already-expired invite (useful in tests).
-	 * @return int  New invite ID.
+	 * @param int    $space_id   Optional space to drop the new member into on registration (0 = none).
+	 * @return int  New invite ID, or 0 when skipped (existing account / live pending invite / empty email).
 	 */
 	public function create( string $email, string $first_name = '', int $ttl_days = self::DEFAULT_TTL_DAYS, int $space_id = 0 ): int {
 		global $wpdb;
+
+		$email = sanitize_email( $email );
+		if ( '' === $email ) {
+			return 0;
+		}
+
+		// Dedup: skip if the address already has a real account or a live
+		// (non-expired) pending invite. Returning 0 lets callers report a
+		// skip/duplicate instead of silently re-inviting the same person.
+		if ( get_user_by( 'email', $email ) ) {
+			return 0;
+		}
+		$has_pending = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_invites WHERE email = %s AND status = 'pending' AND expires_at > %s",
+				$email,
+				current_time( 'mysql', true )
+			)
+		);
+		if ( $has_pending > 0 ) {
+			return 0;
+		}
 
 		$token      = $this->generate_token();
 		$expires_at = gmdate( 'Y-m-d H:i:s', time() + ( $ttl_days * DAY_IN_SECONDS ) );
@@ -46,14 +69,16 @@ class InviteService {
 		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$wpdb->prefix . 'bn_invites',
 			array(
-				'email'      => sanitize_email( $email ),
+				'email'      => $email,
 				'first_name' => sanitize_text_field( $first_name ),
 				'space_id'   => $space_id > 0 ? $space_id : null,
 				'token'      => $token,
 				'status'     => 'pending',
 				'expires_at' => $expires_at,
 			),
-			array( '%s', '%s', $space_id > 0 ? '%d' : null, '%s', '%s', '%s' )
+			$space_id > 0
+				? array( '%s', '%s', '%d', '%s', '%s', '%s' )
+				: array( '%s', '%s', '%s', '%s', '%s', '%s' )
 		);
 
 		$invite_id = (int) $wpdb->insert_id;
@@ -131,19 +156,84 @@ class InviteService {
 	}
 
 	/**
-	 * Retrieve all pending invites.
+	 * Retrieve all pending invites (back-compat wrapper, unbounded).
+	 *
+	 * Prefer get_invites() for paginated, status-filtered access.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function get_pending(): array {
+		return $this->get_invites( 'pending', 1, 1000 );
+	}
+
+	/**
+	 * Retrieve a paginated, status-filtered page of invites.
+	 *
+	 * @param string $status   'pending' | 'registered' | 'bounced' | 'expired' | 'all'.
+	 * @param int    $page     1-based page number.
+	 * @param int    $per_page Rows per page.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public function get_invites( string $status = 'pending', int $page = 1, int $per_page = 20 ): array {
 		global $wpdb;
 
-		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-			"SELECT * FROM {$wpdb->prefix}bn_invites WHERE status = 'pending' ORDER BY created_at DESC",
+		$page     = max( 1, $page );
+		$per_page = max( 1, $per_page );
+		$offset   = ( $page - 1 ) * $per_page;
+		$where    = $this->status_where( $status );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				// $where is built from a fixed allow-list in status_where(); only LIMIT/OFFSET are bound.
+				"SELECT * FROM {$wpdb->prefix}bn_invites {$where} ORDER BY created_at DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$per_page,
+				$offset
+			),
 			ARRAY_A
 		);
 
 		return ! empty( $rows ) ? $rows : array();
+	}
+
+	/**
+	 * Count invites matching a status filter (for pagination + badges).
+	 *
+	 * @param string $status See get_invites().
+	 * @return int
+	 */
+	public function count_invites( string $status = 'pending' ): int {
+		global $wpdb;
+		$where = $this->status_where( $status );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_invites {$where}" );
+	}
+
+	/**
+	 * Build a safe WHERE clause for a status filter. "expired" is a derived
+	 * state (pending + past expiry); "pending" means live + unexpired.
+	 *
+	 * @param string $status Status filter.
+	 * @return string SQL WHERE clause (may be empty for 'all').
+	 */
+	private function status_where( string $status ): string {
+		global $wpdb;
+		$now = esc_sql( current_time( 'mysql', true ) );
+
+		switch ( $status ) {
+			case 'pending':
+				return "WHERE status = 'pending' AND expires_at > '{$now}'";
+			case 'expired':
+				return "WHERE status = 'pending' AND expires_at <= '{$now}'";
+			case 'registered':
+				return "WHERE status = 'registered'";
+			case 'bounced':
+				return "WHERE status = 'bounced'";
+			case 'all':
+			default:
+				return '';
+		}
 	}
 
 	/**
@@ -183,11 +273,13 @@ class InviteService {
 			ARRAY_A
 		);
 
-		if ( $invite ) {
-			$this->send_invite_email( $invite );
+		if ( ! $invite ) {
+			return false;
 		}
 
-		return true;
+		// Report the real delivery result so the admin notice is honest rather
+		// than always claiming success.
+		return $this->send_invite_email( $invite );
 	}
 
 	/**
@@ -224,15 +316,24 @@ class InviteService {
 			return $summary;
 		}
 
+		// Cap rows processed per upload so a huge file can't run an unbounded
+		// insert + wp_mail loop. Filterable for larger trusted imports.
+		$max_rows  = (int) apply_filters( 'buddynext_invite_csv_max_rows', 500 );
+		$processed = 0;
+
 		try {
 			// Skip header row.
 			fgetcsv( $handle );
 
 			while ( true ) {
+				if ( $processed >= $max_rows ) {
+					break;
+				}
 				$row = fgetcsv( $handle );
 				if ( false === $row ) {
 					break;
 				}
+				++$processed;
 
 				$raw_email = isset( $row[0] ) ? trim( (string) $row[0] ) : '';
 				if ( '' === $raw_email ) {
@@ -302,12 +403,12 @@ class InviteService {
 	 * and dispatches via wp_mail.
 	 *
 	 * @param array<string, mixed> $invite Invite row (must contain 'email', 'first_name', 'token').
-	 * @return void
+	 * @return bool True when the email was handed to wp_mail successfully.
 	 */
-	private function send_invite_email( array $invite ): void {
+	private function send_invite_email( array $invite ): bool {
 		$to = sanitize_email( (string) ( $invite['email'] ?? '' ) );
 		if ( '' === $to ) {
-			return;
+			return false;
 		}
 
 		global $wpdb;
@@ -322,11 +423,14 @@ class InviteService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		if ( ! $tpl ) {
-			return;
+			return false;
 		}
 
 		$first_name = '' !== ( (string) ( $invite['first_name'] ?? '' ) ) ? (string) $invite['first_name'] : __( 'there', 'buddynext' );
-		$invite_url = add_query_arg( 'bn_invite', rawurlencode( (string) ( $invite['token'] ?? '' ) ), wp_registration_url() );
+		// Point the link at the branded registration screen with the token under
+		// the `invite` param the signup form + AuthController actually read (not
+		// wp-login.php / bn_invite, which nothing consumes).
+		$invite_url = add_query_arg( 'invite', rawurlencode( (string) ( $invite['token'] ?? '' ) ), \BuddyNext\Core\PageRouter::signup_url() );
 		$site_name  = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
 
 		$tokens = array(
@@ -338,7 +442,7 @@ class InviteService {
 		$subject = str_replace( array_keys( $tokens ), array_values( $tokens ), (string) $tpl->subject );
 		$body    = str_replace( array_keys( $tokens ), array_values( $tokens ), (string) $tpl->body_html );
 
-		wp_mail(
+		return (bool) wp_mail(
 			$to,
 			$subject,
 			'<html><body>' . $body . '</body></html>',

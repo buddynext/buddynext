@@ -77,37 +77,17 @@ class InviteManager {
 			exit;
 		}
 
-		$handle = fopen( $tmp_path, 'r' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
-
-		if ( false === $handle ) {
-			wp_safe_redirect( add_query_arg( 'bn_notice', 'bad_file', $redirect ) );
-			exit;
-		}
-
-		$service = new InviteService();
-		$sent    = 0;
-		$limit   = 500;
-
-		// phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.FoundInWhileCondition
-		while ( false !== ( $line = fgetcsv( $handle ) ) && $sent < $limit ) {
-			$email = sanitize_email( trim( (string) ( $line[0] ?? '' ) ) );
-			if ( '' === $email ) {
-				continue;
-			}
-			$first_name = sanitize_text_field( trim( (string) ( $line[1] ?? '' ) ) );
-			$invite_id  = $service->create( $email, $first_name );
-			if ( $invite_id > 0 ) {
-				++$sent;
-			}
-		}
-
-		fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+		// Single parser for both entry points (admin tab + REST): the service's
+		// import_from_csv skips the header row, validates + dedups per row, and
+		// returns an {imported, skipped, errors} summary. No duplicate loop here.
+		$summary = ( new InviteService() )->import_from_csv( get_current_user_id(), $tmp_path );
 
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'bn_notice' => 'invited',
-					'bn_sent'   => $sent,
+					'bn_notice'  => 'invited',
+					'bn_sent'    => (int) $summary['imported'],
+					'bn_skipped' => (int) $summary['skipped'],
 				),
 				$redirect
 			)
@@ -204,14 +184,37 @@ class InviteManager {
 	 * @return void
 	 */
 	public function render_invites_tab(): void {
-		$service = new InviteService();
-		$invites = $service->get_pending();
-		$tab_url = admin_url( 'admin.php?page=buddynext-members&tab=invites' );
+		$service  = new InviteService();
+		$tab_url  = admin_url( 'admin.php?page=buddynext-members&tab=invites' );
+		$per_page = 20;
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$notice = sanitize_key( wp_unslash( $_GET['bn_notice'] ?? '' ) );
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$sent = absint( wp_unslash( $_GET['bn_sent'] ?? 0 ) );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$skipped = absint( wp_unslash( $_GET['bn_skipped'] ?? 0 ) );
+
+		// Status filter + pagination — the list must stay usable past a few
+		// thousand invites (big-site checklist).
+		$statuses = array(
+			'pending'    => __( 'Pending', 'buddynext' ),
+			'expired'    => __( 'Expired', 'buddynext' ),
+			'registered' => __( 'Accepted', 'buddynext' ),
+			'bounced'    => __( 'Bounced', 'buddynext' ),
+			'all'        => __( 'All', 'buddynext' ),
+		);
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$status = sanitize_key( wp_unslash( $_GET['inv_status'] ?? 'pending' ) );
+		if ( ! isset( $statuses[ $status ] ) ) {
+			$status = 'pending';
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$paged       = max( 1, absint( wp_unslash( $_GET['paged'] ?? 1 ) ) );
+		$total       = $service->count_invites( $status );
+		$total_pages = (int) ceil( $total / $per_page );
+		$invites     = $service->get_invites( $status, $paged, $per_page );
+		$now_ts      = time();
 
 		?>
 		<div class="bn-admin-section">
@@ -223,9 +226,10 @@ class InviteManager {
 				switch ( $notice ) {
 					case 'invited':
 						printf(
-							/* translators: %d: number of invites sent */
-							esc_html__( '%d invitation(s) sent successfully.', 'buddynext' ),
-							(int) $sent
+							/* translators: 1: number of invites sent, 2: number skipped (duplicate/existing/invalid) */
+							esc_html__( '%1$d invitation(s) sent. %2$d row(s) skipped (already invited, existing member, or invalid).', 'buddynext' ),
+							(int) $sent,
+							(int) $skipped
 						);
 						break;
 					case 'resent':
@@ -309,32 +313,68 @@ class InviteManager {
 
 			<div class="bn-settings-section">
 				<div class="bn-ss-header">
-					<span class="bn-ss-title"><?php esc_html_e( 'Pending Invitations', 'buddynext' ); ?></span>
-					<?php if ( ! empty( $invites ) ) : ?>
-						<span class="bn-ss-count"><?php echo esc_html( (string) count( $invites ) ); ?></span>
-					<?php endif; ?>
+					<span class="bn-ss-title"><?php esc_html_e( 'Invitations', 'buddynext' ); ?></span>
+					<span class="bn-ss-count"><?php echo esc_html( (string) $total ); ?></span>
 				</div>
 				<div class="bn-ss-body">
+
+				<?php // Status filter chips. ?>
+				<div class="bn-segment" role="group" aria-label="<?php esc_attr_e( 'Filter invitations by status', 'buddynext' ); ?>">
+					<?php foreach ( $statuses as $st_key => $st_label ) : ?>
+						<a href="<?php echo esc_url( add_query_arg( array( 'inv_status' => $st_key ), $tab_url ) ); ?>"
+							class="bn-segment__item<?php echo $status === $st_key ? ' is-active' : ''; ?>"
+							aria-selected="<?php echo $status === $st_key ? 'true' : 'false'; ?>">
+							<?php echo esc_html( $st_label ); ?>
+						</a>
+					<?php endforeach; ?>
+				</div>
+
 				<?php if ( empty( $invites ) ) : ?>
-					<p><?php esc_html_e( 'No pending invitations.', 'buddynext' ); ?></p>
+					<p><?php esc_html_e( 'No invitations match this filter.', 'buddynext' ); ?></p>
 				<?php else : ?>
 					<table class="widefat striped">
 						<thead>
 							<tr>
 								<th><?php esc_html_e( 'Email', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'First Name', 'buddynext' ); ?></th>
+								<th><?php esc_html_e( 'Status', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Sent', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Expires', 'buddynext' ); ?></th>
 								<th><?php esc_html_e( 'Actions', 'buddynext' ); ?></th>
 							</tr>
 						</thead>
 						<tbody>
-					<?php foreach ( $invites as $invite ) : ?>
+					<?php
+					foreach ( $invites as $invite ) :
+						$row_status = (string) ( $invite['status'] ?? 'pending' );
+						$exp_ts     = ! empty( $invite['expires_at'] ) ? (int) strtotime( (string) $invite['expires_at'] . ' UTC' ) : 0;
+						$is_expired = ( 'pending' === $row_status && $exp_ts > 0 && $exp_ts <= $now_ts );
+						// Derived, human label + tone for the status badge.
+						if ( 'registered' === $row_status ) {
+							$badge_label = __( 'Accepted', 'buddynext' );
+							$badge_tone  = 'success';
+						} elseif ( 'bounced' === $row_status ) {
+							$badge_label = __( 'Bounced', 'buddynext' );
+							$badge_tone  = 'danger';
+						} elseif ( $is_expired ) {
+							$badge_label = __( 'Expired', 'buddynext' );
+							$badge_tone  = 'muted';
+						} else {
+							$badge_label = __( 'Pending', 'buddynext' );
+							$badge_tone  = 'info';
+						}
+						// Display dates via the shared timezone-aware helper (UTC ->
+						// site timezone, already escaped). strtotime above is only
+						// used for the expiry comparison, not display.
+						$created_disp = buddynext_date_local( (string) ( $invite['created_at'] ?? '' ), 'M j, Y' );
+						$expires_disp = buddynext_date_local( (string) ( $invite['expires_at'] ?? '' ), 'M j, Y' );
+						?>
 						<tr>
 							<td><?php echo esc_html( (string) $invite['email'] ); ?></td>
 							<td><?php echo esc_html( (string) ( $invite['first_name'] ?? '' ) ); ?></td>
-							<td><?php echo esc_html( (string) ( $invite['created_at'] ?? '' ) ); ?></td>
-							<td><?php echo esc_html( (string) ( $invite['expires_at'] ?? '' ) ); ?></td>
+							<td><span class="bn-badge" data-tone="<?php echo esc_attr( $badge_tone ); ?>"><?php echo esc_html( $badge_label ); ?></span></td>
+							<td><?php echo '' !== $created_disp ? $created_disp : esc_html( '—' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_date_local() returns esc_html()'d output. ?></td>
+							<td><?php echo '' !== $expires_disp ? $expires_disp : esc_html( '—' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- buddynext_date_local() returns esc_html()'d output. ?></td>
 							<td>
 								<?php
 								$invite_id  = (int) ( $invite['id'] ?? 0 );
@@ -367,6 +407,24 @@ class InviteManager {
 					<?php endforeach; ?>
 					</tbody>
 				</table>
+					<?php
+					\BuddyNext\Admin\AdminPageBase::render_pagination(
+						$paged,
+						$total_pages,
+						$total,
+						$per_page,
+						static function ( int $p ) use ( $tab_url, $status ): string {
+							return add_query_arg(
+								array(
+									'inv_status' => $status,
+									'paged'      => $p > 1 ? $p : false,
+								),
+								$tab_url
+							);
+						},
+						__( 'Invitations pagination', 'buddynext' )
+					);
+					?>
 				<?php endif; ?>
 				</div><!-- .bn-ss-body -->
 			</div><!-- .bn-settings-section -->

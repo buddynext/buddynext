@@ -267,14 +267,21 @@ class AvatarSettings {
 			. '</svg>'
 		);
 		$preview_src     = '' !== $current_url ? esc_attr( $current_url ) : esc_attr( $placeholder_src );
+		// Dependent section: only takes effect when the avatar style is
+		// "Default Image". avatar-settings.js toggles the inactive state live as
+		// the style radio changes; this is the initial server-rendered state.
+		$is_active       = ( 'default_image' === (string) get_option( 'bn_avatar_style', 'initials' ) );
 		?>
-		<div class="bn-settings-section">
+		<div class="bn-settings-section bn-av-dependent<?php echo $is_active ? '' : ' is-inactive'; ?>" data-bn-avatar-dependent>
 			<div class="bn-ss-header">
 				<span class="bn-ss-title"><?php esc_html_e( 'Default Avatar Image', 'buddynext' ); ?></span>
 			</div>
 			<div class="bn-ss-body">
 				<p class="bn-av-section-desc">
 					<?php esc_html_e( 'Used when style is set to "Default Image". Recommended size: at least 200x200 px.', 'buddynext' ); ?>
+				</p>
+				<p class="bn-av-dependent-note" data-bn-avatar-dependent-note>
+					<?php esc_html_e( 'This image is only shown while the avatar style above is set to "Default Image".', 'buddynext' ); ?>
 				</p>
 				<div class="bn-image-picker">
 					<img id="bn-avatar-preview"
@@ -312,6 +319,19 @@ class AvatarSettings {
 	 * @return void
 	 */
 	private function render_default_cover_section( string $current_url ): void {
+		// Wide placeholder shown when no cover is set. Rendered as the preview img
+		// (not a separate empty div) so the media picker's JS — which targets
+		// #bn-cover-preview — can swap the src on first selection. Mirrors the
+		// avatar section's always-present-img pattern.
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		$placeholder_src = 'data:image/svg+xml;base64,' . base64_encode(
+			'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 72">'
+			. '<rect width="140" height="72" rx="6" fill="#e9ecef"/>'
+			. '<text x="70" y="36" text-anchor="middle" dominant-baseline="central" '
+			. 'font-family="Inter,sans-serif" font-size="11" font-weight="600" fill="#9ca3af">No cover set</text>'
+			. '</svg>'
+		);
+		$preview_src     = '' !== $current_url ? esc_attr( $current_url ) : esc_attr( $placeholder_src );
 		?>
 		<div class="bn-settings-section">
 			<div class="bn-ss-header">
@@ -322,17 +342,11 @@ class AvatarSettings {
 					<?php esc_html_e( 'Shown on profiles that have no cover photo. Recommended: 1200x280 px or wider.', 'buddynext' ); ?>
 				</p>
 				<div class="bn-image-picker">
-					<?php if ( '' !== $current_url ) : ?>
-						<img id="bn-cover-preview"
-							src="<?php echo esc_attr( $current_url ); ?>"
-							alt="<?php esc_attr_e( 'Default cover preview', 'buddynext' ); ?>"
-							class="bn-image-picker-preview bn-cover-preview"
-							width="140" height="72">
-					<?php else : ?>
-						<div class="bn-image-picker-empty">
-							<span class="bn-image-picker-empty-label"><?php esc_html_e( 'No cover set', 'buddynext' ); ?></span>
-						</div>
-					<?php endif; ?>
+					<img id="bn-cover-preview"
+						src="<?php echo $preview_src; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped above ?>"
+						alt="<?php esc_attr_e( 'Default cover preview', 'buddynext' ); ?>"
+						class="bn-image-picker-preview bn-cover-preview"
+						width="140" height="72">
 					<div class="bn-image-picker-controls">
 						<div class="bn-image-picker-actions">
 							<button type="button" id="bn-pick-cover" class="button">

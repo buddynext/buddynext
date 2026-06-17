@@ -36,6 +36,11 @@ class MemberTypeService {
 	 */
 	private const CACHE_TTL = 3600;
 
+	/**
+	 * Object-cache key for get_all_with_counts() (types + per-type member count).
+	 */
+	private const COUNTS_CACHE_KEY = 'bn_member_types_with_counts';
+
 	// ── Constructor ───────────────────────────────────────────────────────────
 
 	/**
@@ -80,6 +85,15 @@ class MemberTypeService {
 	 * @return array<int, array<string, mixed>>
 	 */
 	public function get_all_with_counts(): array {
+		// Cached: this runs on the hot member-directory path (every render). The
+		// GROUP BY scans the whole assignments table, so without a cache it costs
+		// a full-table aggregate per page view at scale. Busted on every type
+		// create/update/delete and every assign/remove (see COUNTS_CACHE_KEY busts).
+		$cached = $this->cache->get( self::COUNTS_CACHE_KEY );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
 		global $wpdb;
 		$types_table       = $wpdb->prefix . 'bn_member_types';
 		$assignments_table = $wpdb->prefix . 'bn_member_type_assignments';
@@ -95,7 +109,10 @@ class MemberTypeService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		return is_array( $rows ) ? $rows : array();
+		$rows = is_array( $rows ) ? $rows : array();
+		$this->cache->set( self::COUNTS_CACHE_KEY, $rows, self::CACHE_TTL );
+
+		return $rows;
 	}
 
 	/**
@@ -194,6 +211,7 @@ class MemberTypeService {
 		$new_id = (int) $wpdb->insert_id;
 
 		$this->cache->delete( 'bn_member_types_all' );
+		$this->cache->delete( self::COUNTS_CACHE_KEY );
 
 		$type_data       = $validated;
 		$type_data['id'] = $new_id;
@@ -260,6 +278,7 @@ class MemberTypeService {
 		}
 
 		$this->cache->delete( 'bn_member_types_all' );
+		$this->cache->delete( self::COUNTS_CACHE_KEY );
 
 		return true;
 	}
@@ -318,6 +337,7 @@ class MemberTypeService {
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$this->cache->delete( 'bn_member_types_all' );
+		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		$this->cache->delete( 'bn_member_type_count_' . $id );
 
 		do_action( 'buddynext_member_type_deleted', $id, $type['slug'] );
@@ -445,6 +465,7 @@ class MemberTypeService {
 		// Bust caches.
 		$this->cache->delete( 'bn_member_type_' . $user_id );
 		$this->cache->delete( 'bn_member_type_count_' . $type_id );
+		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		if ( $previous ) {
 			$this->cache->delete( 'bn_member_type_count_' . $previous['id'] );
 		}
@@ -473,6 +494,7 @@ class MemberTypeService {
 		delete_user_meta( $user_id, 'bn_member_type' );
 
 		$this->cache->delete( 'bn_member_type_' . $user_id );
+		$this->cache->delete( self::COUNTS_CACHE_KEY );
 		if ( $existing ) {
 			$this->cache->delete( 'bn_member_type_count_' . $existing['id'] );
 			do_action( 'buddynext_member_type_removed', $user_id, (string) $existing['slug'] );

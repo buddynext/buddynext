@@ -467,7 +467,7 @@ abstract class AdminPageBase {
 	 * @param string   $label       Accessible nav label.
 	 * @return void
 	 */
-	protected function render_pagination(
+	public static function render_pagination(
 		int $current,
 		int $total_pages,
 		int $total_items,

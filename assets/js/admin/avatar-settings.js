@@ -45,6 +45,16 @@
 			e.preventDefault();
 			openMediaPicker( 'bn_default_cover_url', 'bn-cover-preview' );
 		} );
+
+		// The "Default Avatar Image" section only applies when the avatar style
+		// is "Default Image" — reflect that live so an owner never configures an
+		// image that the chosen style ignores.
+		function syncDependent() {
+			var style = $( 'input[name="bn_avatar_style"]:checked' ).val();
+			$( '[data-bn-avatar-dependent]' ).toggleClass( 'is-inactive', 'default_image' !== style );
+		}
+		$( 'input[name="bn_avatar_style"]' ).on( 'change', syncDependent );
+		syncDependent();
 	} );
 
 	// ── Confirm modal for destructive remove submits ───────────────────────

@@ -1373,6 +1373,26 @@
 	margin: 0 0 var(--bn-a-s4);
 }
 
+/* Dependent section (Default Avatar Image) — dimmed + reduced opacity while
+   the avatar style is not "Default Image", with an explanatory note. */
+.bn-av-dependent.is-inactive {
+	opacity: 0.55;
+}
+
+.bn-av-dependent-note {
+	display: none;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-warn, var(--bn-a-text-2));
+	background: var(--bn-a-warn-bg, var(--bn-a-bg-subtle));
+	border-radius: var(--bn-a-r-sm);
+	padding: var(--bn-a-s2) var(--bn-a-s3);
+	margin: 0 0 var(--bn-a-s3);
+}
+
+.bn-av-dependent.is-inactive .bn-av-dependent-note {
+	display: block;
+}
+
 .bn-image-picker {
 	display: flex;
 	align-items: center;
