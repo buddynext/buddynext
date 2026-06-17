@@ -104,7 +104,6 @@ class OnboardingController {
 				),
 			)
 		);
-
 	}
 
 	/**
@@ -171,7 +170,7 @@ class OnboardingController {
 			return new WP_REST_Response(
 				array(
 					'completed'   => true,
-					'redirect_to' => \BuddyNext\Core\PageRouter::activity_url(),
+					'redirect_to' => \BuddyNext\Core\PageRouter::profile_url( $user_id ),
 				),
 				200
 			);
@@ -233,7 +232,9 @@ class OnboardingController {
 		return new WP_REST_Response(
 			array(
 				'completed'   => true,
-				'redirect_to' => \BuddyNext\Core\PageRouter::activity_url(),
+				// Land the new member on their own profile — the thing they just
+				// built in the wizard — rather than the activity feed.
+				'redirect_to' => \BuddyNext\Core\PageRouter::profile_url( $user_id ),
 			),
 			200
 		);
