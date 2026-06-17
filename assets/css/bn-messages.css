@@ -1467,7 +1467,7 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--bn-accent-100, var(--bn-surface-2, #eef2ff));
+	background: var(--bn-accent-100);
 	color: var(--bn-accent, #4f46e5);
 }
 .bn-dm-avatar--group .bn-icon {
@@ -1518,7 +1518,7 @@
 	align-items: center;
 	gap: 6px;
 	padding: 4px 6px 4px 10px;
-	background: var(--bn-surface-2, #f3f4f6);
+	background: var(--bn-sunken);
 	border-radius: 999px;
 	font-size: var(--bn-text-sm, 0.875rem);
 }
@@ -1605,5 +1605,28 @@
 	justify-content: flex-end;
 	border-top: 1px solid var(--bn-line, #e5e7eb);
 	padding-top: var(--bn-s3, 12px);
+}
+
+/* ── Dark mode ────────────────────────────────────────────────────────────────
+ * The DM surfaces (rail, thread, bubbles, composer, modals) are token-driven and
+ * already adapt — their backgrounds resolve to the flipping --bn-* tokens under
+ * every dark toggle BN supports ([data-bn-theme], [data-theme], [data-bx-mode]).
+ * The one exception is bare form fields: the host theme paints inputs/selects
+ * white with a selector that outranks the .bn-input primitive, so re-assert the
+ * field surface for the DM's inputs under dark mode. Triple-selector to cover
+ * BN's own toggle and the Wbcom sibling-theme (BuddyX/Reign) color-mode toggle.
+ * ──────────────────────────────────────────────────────────────────────────── */
+[data-bn-theme="dark"] .bn-dm .bn-input,
+[data-bn-theme="dark"] .bn-dm .bn-select,
+[data-bn-theme="dark"] .bn-dm-compose__group-name,
+[data-theme="dark"] .bn-dm .bn-input,
+[data-theme="dark"] .bn-dm .bn-select,
+[data-theme="dark"] .bn-dm-compose__group-name,
+[data-bx-mode="dark"] .bn-dm .bn-input,
+[data-bx-mode="dark"] .bn-dm .bn-select,
+[data-bx-mode="dark"] .bn-dm-compose__group-name {
+	background: var(--bn-surface);
+	color: var(--bn-ink);
+	border-color: var(--bn-line-strong);
 }
 
