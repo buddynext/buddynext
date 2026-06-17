@@ -71,6 +71,7 @@ buddynext_get_template(
 	array(
 		'title'         => __( 'Members', 'buddynext' ),
 		'subtitle'      => $bn_subtitle,
+		'title_icon'    => 'users',
 		'heading_level' => 'h1',
 		'actions_html'  => $bn_actions,
 		'classes'       => $bn_classes,

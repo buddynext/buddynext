@@ -66,7 +66,7 @@ $bn_spaces_enabled = ! function_exists( 'buddynext_service' )
 $bn_rail_items = array(
 	array(
 		'key'   => 'feed',
-		'label' => __( 'Activity', 'buddynext' ),
+		'label' => __( 'Feed', 'buddynext' ),
 		'url'   => PageRouter::activity_url(),
 		'icon'  => 'home',
 		'show'  => true,
@@ -143,19 +143,6 @@ if ( 'feed' === $hub && 'explore' === (string) get_query_var( 'bn_activity_actio
 }
 ?>
 <nav class="bn-app__rail" aria-label="<?php esc_attr_e( 'Community navigation', 'buddynext' ); ?>">
-	<?php
-	// Community brand — admin logo (Settings → Appearance) or the community
-	// name. Links home; the name is hidden when the rail is collapsed.
-	$bn_rail_logo  = (string) get_option( 'buddynext_logo_url', '' );
-	$bn_rail_brand = (string) get_option( 'buddynext_site_name', get_bloginfo( 'name' ) );
-	?>
-	<a class="bn-rail__brand" href="<?php echo esc_url( home_url( '/' ) ); ?>" title="<?php echo esc_attr( $bn_rail_brand ); ?>">
-		<?php if ( '' !== $bn_rail_logo ) : ?>
-			<img class="bn-rail__logo" src="<?php echo esc_url( $bn_rail_logo ); ?>" alt="<?php echo esc_attr( $bn_rail_brand ); ?>">
-		<?php else : ?>
-			<span class="bn-rail__brand-name"><?php echo esc_html( $bn_rail_brand ); ?></span>
-		<?php endif; ?>
-	</a>
 	<?php // Collapse toggle — shrinks the rail to an icon-only panel. State is
 		// persisted in localStorage and stamped on <html data-bn-rail> before
 		// paint by assets/js/shell/font-scale.js. ?>

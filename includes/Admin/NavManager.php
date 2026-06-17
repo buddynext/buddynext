@@ -1433,7 +1433,7 @@ class NavManager extends AdminPageBase {
 		return array(
 			array(
 				'slug'        => 'feed',
-				'label'       => __( 'Home Feed', 'buddynext' ),
+				'label'       => __( 'Feed', 'buddynext' ),
 				'order'       => 10,
 				'icon'        => 'tab-feed',
 				'description' => __( 'Main community feed', 'buddynext' ),
@@ -1465,7 +1465,7 @@ class NavManager extends AdminPageBase {
 			),
 			array(
 				'slug'        => 'people',
-				'label'       => __( 'Member Directory', 'buddynext' ),
+				'label'       => __( 'Members', 'buddynext' ),
 				'order'       => 60,
 				'icon'        => 'tab-people',
 				'description' => __( 'Page that renders the member directory and individual profile URLs.', 'buddynext' ),
