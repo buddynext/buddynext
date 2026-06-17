@@ -719,6 +719,20 @@ class NotificationMessageService {
 		return $this->url_for( $type, $actor_id, $object_id, $data, $recipient_id );
 	}
 
+	/**
+	 * Resolve the deep-link URL for a notification type.
+	 *
+	 * Shared by in-app rendering and email/cron sends. "Me"-relative links
+	 * resolve against $viewer_id (the recipient), which email/cron must pass
+	 * explicitly since there is no current user in those contexts.
+	 *
+	 * @param string               $type      Notification type slug (bn.*).
+	 * @param int                  $actor_id  Actor user ID.
+	 * @param int                  $object_id Primary object ID (post, space, conversation, ...).
+	 * @param array<string, mixed> $data      Decoded notification data payload.
+	 * @param int                  $viewer_id Recipient user ID; falls back to current user when 0.
+	 * @return string Absolute URL, or empty string when no target resolves.
+	 */
 	private function url_for( string $type, int $actor_id, int $object_id, array $data, int $viewer_id = 0 ): string {
 		// "Me"-relative deep links (a received request, your own moderation
 		// record, your badge) resolve against the viewer. In-app rendering runs
@@ -747,8 +761,12 @@ class NotificationMessageService {
 			case 'bn.mention':
 			case 'bn.bookmark_milestone':
 			case 'bn.space_new_post':
+				// object_id is a bn_posts row id — deep-link to the canonical
+				// single-post permalink (/p/{id}/), not the generic feed. The
+				// activity hub ignores a ?post_id= query arg, so the old form
+				// silently dropped recipients on their home feed.
 				return $object_id > 0
-					? add_query_arg( 'post_id', $object_id, PageRouter::activity_url() )
+					? PageRouter::post_url( $object_id )
 					: PageRouter::activity_url();
 
 			case 'bn.space_join_requested':
