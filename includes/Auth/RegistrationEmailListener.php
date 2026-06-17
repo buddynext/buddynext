@@ -161,7 +161,7 @@ class RegistrationEmailListener {
 		EmailSender::send_with_identity(
 			$to,
 			$subject,
-			'<html><body><p>' . esc_html( $body ) . '</p></body></html>',
+			EmailSender::brand_wrap( '<p>' . esc_html( $body ) . '</p>', $subject ),
 			EmailSender::build_identity_headers()
 		);
 	}

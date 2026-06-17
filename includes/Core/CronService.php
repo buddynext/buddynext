@@ -594,7 +594,7 @@ class CronService {
 		return EmailSender::send_with_identity(
 			$user->user_email,
 			$subject,
-			'<html><body>' . $body . '</body></html>',
+			EmailSender::brand_wrap( $body, $subject ),
 			EmailSender::build_identity_headers()
 		);
 	}

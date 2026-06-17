@@ -453,11 +453,14 @@ class EmailEditor {
 			return false;
 		}
 
-		return wp_mail(
+		// Route through the shared identity helper + branded shell so the test
+		// mirrors a real send exactly: same From name/address + Reply-To
+		// (Settings → Email) and the same branded wrapper, not wp_mail() defaults.
+		return \BuddyNext\Notifications\EmailSender::send_with_identity(
 			$admin_email,
 			'[Test] ' . $subject,
-			'<html><body>' . nl2br( $body ) . '</body></html>',
-			array( 'Content-Type: text/html; charset=UTF-8' )
+			\BuddyNext\Notifications\EmailSender::brand_wrap( nl2br( $body ), $subject ),
+			\BuddyNext\Notifications\EmailSender::build_identity_headers()
 		);
 	}
 

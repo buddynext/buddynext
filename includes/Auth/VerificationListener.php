@@ -187,7 +187,7 @@ class VerificationListener implements ListenerInterface {
 			wp_mail(
 				$user->user_email,
 				$subject,
-				'<html><body>' . $body . '</body></html>',
+				\BuddyNext\Notifications\EmailSender::brand_wrap( $body, $subject ),
 				array( 'Content-Type: text/html; charset=UTF-8' )
 			);
 
@@ -282,7 +282,7 @@ class VerificationListener implements ListenerInterface {
 			\BuddyNext\Notifications\EmailSender::send_with_identity(
 				$candidate,
 				$subject,
-				'<html><body>' . $body . '</body></html>',
+				\BuddyNext\Notifications\EmailSender::brand_wrap( $body, $subject ),
 				array( 'Content-Type: text/html; charset=UTF-8' )
 			);
 			return;

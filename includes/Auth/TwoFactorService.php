@@ -259,7 +259,14 @@ class TwoFactorService {
 			$minutes
 		);
 
-		return (bool) wp_mail( $user->user_email, $subject, $message );
+		// Wrap in the shared branded shell so the 2FA email matches every other
+		// BuddyNext email (same header/footer + From identity), not a bare message.
+		return \BuddyNext\Notifications\EmailSender::send_with_identity(
+			$user->user_email,
+			$subject,
+			\BuddyNext\Notifications\EmailSender::brand_wrap( wpautop( esc_html( $message ) ), $subject ),
+			\BuddyNext\Notifications\EmailSender::build_identity_headers()
+		);
 	}
 
 	/**

@@ -442,11 +442,13 @@ class InviteService {
 		$subject = str_replace( array_keys( $tokens ), array_values( $tokens ), (string) $tpl->subject );
 		$body    = str_replace( array_keys( $tokens ), array_values( $tokens ), (string) $tpl->body_html );
 
-		return (bool) wp_mail(
+		// Route through the shared identity helper + branded shell so invites
+		// carry the same From/Reply-To and chrome as every other email.
+		return \BuddyNext\Notifications\EmailSender::send_with_identity(
 			$to,
 			$subject,
-			'<html><body>' . $body . '</body></html>',
-			array( 'Content-Type: text/html; charset=UTF-8' )
+			\BuddyNext\Notifications\EmailSender::brand_wrap( $body, $subject ),
+			\BuddyNext\Notifications\EmailSender::build_identity_headers()
 		);
 	}
 }

@@ -272,31 +272,29 @@ class EmailSender {
 	}
 
 	/**
-	 * Render a template string with placeholder replacement.
+	 * Wrap a rendered body in the single, canonical branded email shell.
 	 *
-	 * Replaces standard placeholders {{site_name}}, {{site_url}},
-	 * {{user_name}}, {{unsubscribe_url}}, plus any key from $data
-	 * formatted as {{key_name}}.
+	 * THE one wrapper every BuddyNext email passes through — notifications,
+	 * digests, auth (verify/registration/2FA), invites, campaigns, drip, and the
+	 * admin test send — so all outbound mail is 100% visually consistent. Owners
+	 * author only the content; this supplies the chrome (logo/site header, padded
+	 * body, footer) using the Appearance logo + brand colour + Settings → Email
+	 * footer text.
 	 *
-	 * @param string $template  Raw template string containing placeholders.
-	 * @param int    $user_id   Recipient user ID for personalised tokens.
-	 * @param array  $data      Notification data — keys become additional placeholders.
-	 * @return string Rendered string with placeholders replaced.
-	 */
-	/**
-	 * Wrap a rendered template body in the branded HTML email shell.
+	 * Public + static so any send path can call it without an EmailSender
+	 * instance.
 	 *
-	 * send_now() previously emitted the bare `<html><body>$body</body></html>`,
-	 * so notification emails arrived as unstyled plain text with no header,
-	 * footer, or branding. This wraps every email in a responsive, inline-styled
-	 * shell (table layout for client compatibility) carrying the site name and a
-	 * footer, using the admin's brand colour for the header accent.
+	 * Developer hooks:
+	 *  - buddynext_email_shell  — replace the WHOLE shell (return HTML with the
+	 *    {{email_body}} token where the body goes).
+	 *  - buddynext_email_header_html / buddynext_email_footer_html — replace just
+	 *    the header or footer block (each gets the subject for context).
 	 *
-	 * @param string $body    Rendered (token-replaced) template body HTML.
-	 * @param string $subject Rendered subject, used as the preheader/title.
+	 * @param string $body    Rendered (token-replaced) body HTML.
+	 * @param string $subject Rendered subject, used as the title/preheader.
 	 * @return string Full branded HTML document.
 	 */
-	private function wrap_email_html( string $body, string $subject = '' ): string {
+	public static function brand_wrap( string $body, string $subject = '' ): string {
 		$site_name = wp_specialchars_decode( (string) get_bloginfo( 'name' ), ENT_QUOTES );
 		$site_url  = esc_url( home_url( '/' ) );
 		$brand     = (string) get_option( 'buddynext_brand_color', '#0073aa' );
@@ -305,12 +303,8 @@ class EmailSender {
 		}
 
 		/**
-		 * Filter the BuddyNext notification email shell.
-		 *
-		 * Return a string containing the literal token `{{email_body}}` where the
-		 * rendered body should be injected to fully replace the default shell.
-		 *
-		 * @since 1.0.0
+		 * Filter the BuddyNext email shell. Return HTML containing the literal
+		 * token `{{email_body}}` to fully replace the default shell.
 		 *
 		 * @param string $shell   Default shell HTML (contains {{email_body}}).
 		 * @param string $body    Rendered body HTML.
@@ -322,16 +316,43 @@ class EmailSender {
 		}
 
 		$brand_esc = esc_attr( $brand );
-		$name_esc  = esc_html( $site_name );
 		$year      = esc_html( gmdate( 'Y' ) );
 
-		// Footer text (Settings → Email). When the admin has set a custom footer
-		// it replaces the default copyright line; otherwise fall back to the
-		// standard "© {year} {site} ..." attribution.
+		// Header: the Appearance logo when set (Settings → Appearance), else the
+		// site name as a text wordmark. Both link home.
+		$logo_url = (string) get_option( 'buddynext_logo_url', '' );
+		if ( '' !== $logo_url ) {
+			$header_inner = '<a href="' . $site_url . '" style="display:inline-block;text-decoration:none;">'
+				. '<img src="' . esc_url( $logo_url ) . '" alt="' . esc_attr( $site_name ) . '" '
+				. 'style="max-height:40px;max-width:240px;height:auto;border:0;display:block;"></a>';
+		} else {
+			// No logo: wordmark in the brand colour (readable on the light header).
+			$header_inner = '<a href="' . $site_url . '" style="color:' . $brand_esc . ';text-decoration:none;font-size:20px;font-weight:700;">'
+				. esc_html( $site_name ) . '</a>';
+		}
+
+		/**
+		 * Filter the email header block (inside the coloured header cell).
+		 *
+		 * @param string $header_inner Default header HTML (logo or wordmark link).
+		 * @param string $subject      Rendered subject.
+		 */
+		$header_inner = (string) apply_filters( 'buddynext_email_header_html', $header_inner, $subject );
+
+		// Footer: custom footer text (Settings → Email) or the default © line.
 		$custom_footer = trim( (string) get_option( 'buddynext_email_footer_text', '' ) );
 		$footer_html   = '' !== $custom_footer
 			? nl2br( esc_html( $custom_footer ) )
 			: esc_html( sprintf( /* translators: 1: year, 2: site name. */ __( '© %1$s %2$s. All rights reserved.', 'buddynext' ), $year, $site_name ) );
+		$footer_html  .= '<br><a href="' . $site_url . '" style="color:#6b7280;">' . $site_url . '</a>';
+
+		/**
+		 * Filter the email footer block.
+		 *
+		 * @param string $footer_html Default footer HTML.
+		 * @param string $subject     Rendered subject.
+		 */
+		$footer_html = (string) apply_filters( 'buddynext_email_footer_html', $footer_html, $subject );
 
 		return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
 			. '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
@@ -342,11 +363,12 @@ class EmailSender {
 			. '<tr><td align="center">'
 			. '<table role="presentation" width="600" cellpadding="0" cellspacing="0" '
 			. 'style="width:600px;max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;'
-			. 'box-shadow:0 1px 3px rgba(0,0,0,0.08);">'
-			// Header.
-			. '<tr><td style="background:' . $brand_esc . ';padding:20px 32px;">'
-			. '<a href="' . $site_url . '" style="color:#ffffff;text-decoration:none;font-size:20px;font-weight:700;">'
-			. $name_esc . '</a></td></tr>'
+			. 'box-shadow:0 1px 3px rgba(0,0,0,0.08);border-top:3px solid ' . $brand_esc . ';">'
+			// Header — light background so any logo (light, dark, or transparent)
+			// reads well; a thin brand-colour strip on the card top keeps a touch
+			// of branding without a heavy coloured block behind the logo.
+			. '<tr><td style="background:#ffffff;padding:24px 32px;border-bottom:1px solid #e5e7eb;">'
+			. $header_inner . '</td></tr>'
 			// Body.
 			. '<tr><td style="padding:28px 32px;color:#1f2937;font-size:15px;line-height:1.6;">'
 			. $body
@@ -354,11 +376,33 @@ class EmailSender {
 			// Footer.
 			. '<tr><td style="padding:20px 32px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">'
 			. $footer_html
-			. '<br><a href="' . $site_url . '" style="color:#6b7280;">' . $site_url . '</a>'
 			. '</td></tr>'
 			. '</table></td></tr></table></body></html>';
 	}
 
+	/**
+	 * Back-compat instance alias for brand_wrap().
+	 *
+	 * @param string $body    Rendered body HTML.
+	 * @param string $subject Rendered subject.
+	 * @return string
+	 */
+	private function wrap_email_html( string $body, string $subject = '' ): string {
+		return self::brand_wrap( $body, $subject );
+	}
+
+	/**
+	 * Render a template string with placeholder replacement.
+	 *
+	 * Replaces standard placeholders {{site_name}}, {{site_url}},
+	 * {{user_name}}, {{unsubscribe_url}}, plus any key from $data
+	 * formatted as {{key_name}}.
+	 *
+	 * @param string $template Raw template string containing placeholders.
+	 * @param int    $user_id  Recipient user ID for personalised tokens.
+	 * @param array  $data     Notification data — keys become additional placeholders.
+	 * @return string Rendered string with placeholders replaced.
+	 */
 	private function render( string $template, int $user_id, array $data ): string {
 		$notification_type = (string) ( $data['type'] ?? '' );
 
