@@ -116,6 +116,7 @@ $push_available  = class_exists( '\\BuddyNextPro\\Push\\PushDispatcher' );
 $initial_email   = array_key_exists( 'email', $channel_prefs )  ? (bool) $channel_prefs['email']  : true;
 $initial_in_app  = array_key_exists( 'in_app', $channel_prefs ) ? (bool) $channel_prefs['in_app'] : true;
 $initial_push    = array_key_exists( 'push', $channel_prefs )   ? (bool) $channel_prefs['push']   : $push_available;
+$initial_sound   = array_key_exists( 'sound', $channel_prefs )  ? (bool) $channel_prefs['sound']  : false;
 
 // Step config (label, icon) — V2-aligned set:
 // 1 Profile · 2 Spaces · 3 People · 4 Notifications.
@@ -165,6 +166,7 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 			'channelEmail'        => $initial_email,
 			'channelInApp'        => $initial_in_app,
 			'channelPush'         => $initial_push,
+			'channelSound'        => $initial_sound,
 			'pushAvailable'       => $push_available,
 			'saving'            => false,
 			'error'             => '',
@@ -578,6 +580,19 @@ $activity_url = \BuddyNext\Core\PageRouter::activity_url();
 						class="bn-ob-channel__toggle"
 						data-channel="push"
 						data-wp-bind--checked="context.channelPush"
+						data-wp-on--change="actions.toggleChannel" />
+				</label>
+
+				<label class="bn-ob-channel">
+					<span class="bn-ob-channel__icon" aria-hidden="true"><?php buddynext_icon( 'volume-2' ); ?></span>
+					<span class="bn-ob-channel__body">
+						<span class="bn-ob-channel__name"><?php esc_html_e( 'Sound', 'buddynext' ); ?></span>
+						<span class="bn-ob-channel__hint"><?php esc_html_e( 'Play a short sound when a new notification arrives.', 'buddynext' ); ?></span>
+					</span>
+					<input type="checkbox"
+						class="bn-ob-channel__toggle"
+						data-channel="sound"
+						data-wp-bind--checked="context.channelSound"
 						data-wp-on--change="actions.toggleChannel" />
 				</label>
 			</div>
