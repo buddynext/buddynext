@@ -73,6 +73,13 @@ if ( ! in_array( $sort_by, $allowed_sorts, true ) ) {
 	$sort_by = 'relevant';
 }
 
+// Pagination. The "All" tab shows a fixed 5-row preview per type; a single-type
+// tab shows a fuller page ($bn_per_page) and reads ?spage from $_GET so results
+// 6+ are reachable. Only the active SearchService-backed tab paginates; the
+// other type fetches stay at 5/1 (they only feed the count badges).
+$bn_per_page = 20;
+$bn_spage    = isset( $_GET['spage'] ) ? max( 1, absint( wp_unslash( $_GET['spage'] ) ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
 // Advanced member filters (Pro). Captured here only to (a) reflect the active
 // state back into the controls and (b) build "save current search" payloads.
 // The filtering itself happens inside SearchService::search() — Pro's
@@ -193,19 +200,25 @@ if ( '' !== $raw_query ) {
 	// rendered when its tab is active. The per-type fetch is limit-5/12, so the
 	// cost matches what the "All" tab already runs.
 	{
-		$bn_res                  = $bn_search_service->search( $raw_query, 'user', 5, 1, $viewer_id );
+		$bn_pp_m                 = ( 'members' === $active_tab ) ? $bn_per_page : 5;
+		$bn_pg_m                 = ( 'members' === $active_tab ) ? $bn_spage : 1;
+		$bn_res                  = $bn_search_service->search( $raw_query, 'user', $bn_pp_m, $bn_pg_m, $viewer_id );
 		$results_members         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
 		$total_counts['members'] = (int) ( $bn_res['total'] ?? count( $results_members ) );
 	}
 
 	{
-		$bn_res                = $bn_search_service->search( $raw_query, 'post', 5, 1, $viewer_id );
+		$bn_pp_p               = ( 'posts' === $active_tab ) ? $bn_per_page : 5;
+		$bn_pg_p               = ( 'posts' === $active_tab ) ? $bn_spage : 1;
+		$bn_res                = $bn_search_service->search( $raw_query, 'post', $bn_pp_p, $bn_pg_p, $viewer_id );
 		$results_posts         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
 		$total_counts['posts'] = (int) ( $bn_res['total'] ?? count( $results_posts ) );
 	}
 
 	{
-		$bn_res                 = $bn_search_service->search( $raw_query, 'space', 5, 1, $viewer_id );
+		$bn_pp_s                = ( 'spaces' === $active_tab ) ? $bn_per_page : 5;
+		$bn_pg_s                = ( 'spaces' === $active_tab ) ? $bn_spage : 1;
+		$bn_res                 = $bn_search_service->search( $raw_query, 'space', $bn_pp_s, $bn_pg_s, $viewer_id );
 		$results_spaces         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
 		$total_counts['spaces'] = (int) ( $bn_res['total'] ?? count( $results_spaces ) );
 	}
@@ -534,6 +547,49 @@ $bn_search_ctx = array(
 						)
 					);
 				}
+				?>
+
+				<!-- Pagination (single-type tabs only; "All" shows fixed previews) -->
+				<?php
+				if ( in_array( $active_tab, array( 'members', 'posts', 'spaces' ), true ) ) :
+					$bn_total_active = (int) $total_counts[ $active_tab ];
+					$bn_total_pages  = (int) ceil( $bn_total_active / $bn_per_page );
+					if ( $bn_total_pages > 1 ) :
+						$bn_page_url = static function ( int $page ) use ( $raw_query, $active_tab, $date_filter, $sort_by ): string {
+							return esc_url(
+								add_query_arg(
+									array(
+										'q'     => $raw_query,
+										'type'  => $active_tab,
+										'date'  => $date_filter,
+										'sort'  => $sort_by,
+										'spage' => $page,
+									)
+								)
+							);
+						};
+						?>
+						<nav class="bn-search__pagination" aria-label="<?php esc_attr_e( 'Search results pages', 'buddynext' ); ?>">
+							<?php if ( $bn_spage > 1 ) : ?>
+								<a class="bn-btn bn-search__page-prev" data-variant="ghost" href="<?php echo $bn_page_url( $bn_spage - 1 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>"><?php esc_html_e( 'Previous', 'buddynext' ); ?></a>
+							<?php endif; ?>
+							<span class="bn-search__page-status">
+								<?php
+								printf(
+									/* translators: 1: current page, 2: total pages. */
+									esc_html__( 'Page %1$d of %2$d', 'buddynext' ),
+									(int) min( $bn_spage, $bn_total_pages ),
+									(int) $bn_total_pages
+								);
+								?>
+							</span>
+							<?php if ( $bn_spage < $bn_total_pages ) : ?>
+								<a class="bn-btn bn-search__page-next" data-variant="ghost" href="<?php echo $bn_page_url( $bn_spage + 1 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>"><?php esc_html_e( 'Next', 'buddynext' ); ?></a>
+							<?php endif; ?>
+						</nav>
+						<?php
+					endif;
+				endif;
 				?>
 
 				<!-- No results state -->
