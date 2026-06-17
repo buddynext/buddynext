@@ -366,7 +366,9 @@
 	background: var(--bn-surface);
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg);
-	overflow: hidden;
+	/* visible (not hidden) so the notification-pref dropdown can extend past the
+	   hero; the cover clips itself to the top rounded corners (see below). */
+	overflow: visible;
 }
 
 .bn-sh-hero__cover {
@@ -377,6 +379,10 @@
 		linear-gradient(135deg, var(--bn-accent-100), var(--bn-sunken));
 	position: relative;
 	overflow: hidden;
+	/* Round the top corners here (the hero is now overflow:visible) so the cover
+	   gradient/image still clips to the card's rounded top edge. */
+	border-start-start-radius: var(--bn-r-lg);
+	border-start-end-radius: var(--bn-r-lg);
 }
 
 .bn-sh-hero__cover-tone {
