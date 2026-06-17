@@ -254,13 +254,13 @@ class PageRouter {
 			exit;
 		}
 
-		// Direct-messaging guard: when the site owner turns DMs off
-		// (buddynext_enable_dm), the /messages/ route is dead — bounce any
-		// visitor to the activity hub rather than render a hub the community has
-		// turned off. The nav entry points hide themselves via
-		// MessagesData::dm_enabled(); this blocks direct URL access too.
+		// Direct-messaging guard: the /messages/ route is dead whenever DMs are
+		// off (buddynext_enable_dm) OR the WPMediaVerse engine is absent — bounce
+		// the visitor to the activity hub rather than render an unusable hub. Use
+		// the canonical entry_enabled() gate (dm_enabled && available), the same
+		// one that hides the nav entry points, so the route and the nav agree.
 		if ( 'messages' === $hub
-			&& ! \BuddyNext\Messages\MessagesData::dm_enabled()
+			&& ! \BuddyNext\Messages\MessagesData::entry_enabled()
 		) {
 			wp_safe_redirect( self::hub_url( 'buddynext_slug_activity', 'buddynext_page_activity' ) );
 			exit;

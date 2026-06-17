@@ -361,10 +361,13 @@ class NotificationPrefCatalogue {
 		 */
 		$catalogue = (array) apply_filters( 'buddynext_notification_prefs_catalogue', $catalogue );
 
-		// Direct-message notifications require the WPMediaVerse messaging engine.
-		// When it is absent no bn.new_message is ever generated, so drop the pref
-		// entirely rather than show a dead toggle in Settings -> Notifications.
-		if ( ! \BuddyNext\Messages\MessagesData::available() ) {
+		// Direct-message notifications require DMs to be usable — the WPMediaVerse
+		// engine present AND the site owner's DM switch on. Use the canonical
+		// entry_enabled() gate (not just available()) so the bn.new_message toggle
+		// is dropped when the owner has turned DMs off, not only when the engine
+		// is missing — otherwise it showed a dead toggle whenever the plugin was
+		// active even with DMs disabled.
+		if ( ! \BuddyNext\Messages\MessagesData::entry_enabled() ) {
 			unset( $catalogue['bn.new_message'] );
 		}
 

@@ -302,7 +302,14 @@ class WPMediaVerseBridge {
 			// push to their notification feed. The message still sits in
 			// the WPMV inbox; the recipient can find it manually if they
 			// look, but no signal interrupts them.
-			if ( $blocks && $blocks->is_restricted( $recipient_id, $sender_id ) ) {
+			// Mute is a one-way "stop notifying me about this person": if the
+			// recipient muted the sender, the message still lands in their WPMV
+			// inbox but no bell notification interrupts them — same suppression as
+			// restrict, opposite relationship direction.
+			if ( $blocks
+				&& ( $blocks->is_restricted( $recipient_id, $sender_id )
+					|| $blocks->is_muted( $recipient_id, $sender_id ) )
+			) {
 				continue;
 			}
 
