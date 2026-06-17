@@ -208,14 +208,27 @@ class ConnectionService {
 			);
 		}
 
+		// Guard the UPDATE on status = 'pending' so the decline is atomic: if a
+		// concurrent request accepted/withdrew the row between the SELECT above
+		// and here, this matches zero rows instead of clobbering the new state.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->update(
+		$updated = $wpdb->update(
 			$wpdb->prefix . 'bn_connections',
 			array( 'status' => 'declined' ),
-			array( 'id' => $connection_id ),
+			array(
+				'id'     => $connection_id,
+				'status' => 'pending',
+			),
 			array( '%s' ),
-			array( '%d' )
+			array( '%d', '%s' )
 		);
+
+		if ( empty( $updated ) ) {
+			return new WP_Error(
+				'request_not_found',
+				__( 'No pending connection request was found.', 'buddynext' )
+			);
+		}
 
 		$this->invalidate_connection_cache();
 
