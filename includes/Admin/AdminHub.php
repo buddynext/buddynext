@@ -494,6 +494,47 @@ class AdminHub {
 	}
 
 	/**
+	 * Resolve a section key to its wp-admin `?page=` slug.
+	 *
+	 * Registrars should use this (and {@see tab_url()}) instead of hard-coding a
+	 * section slug, so in-tab links and post-submit redirects land back inside
+	 * the Hub chrome rather than on a registrar's hidden legacy page.
+	 *
+	 * @param string $section Section key (e.g. 'monetization').
+	 * @return string Page slug, or '' if the section is unknown.
+	 */
+	public static function section_slug( string $section ): string {
+		$sections = self::sections();
+		return isset( $sections[ $section ]['slug'] ) ? (string) $sections[ $section ]['slug'] : '';
+	}
+
+	/**
+	 * Build the wp-admin URL for a Hub tab (`?page=<section>&tab=<slug>`), with
+	 * optional extra query args merged in.
+	 *
+	 * @param string               $section Section key (e.g. 'monetization').
+	 * @param string               $tab     Tab slug (e.g. 'subscriptions').
+	 * @param array<string, mixed> $extra   Extra query args to append.
+	 * @return string Absolute admin URL; bare admin.php if the section is unknown.
+	 */
+	public static function tab_url( string $section, string $tab, array $extra = array() ): string {
+		$page_slug = self::section_slug( $section );
+		if ( '' === $page_slug ) {
+			return admin_url( 'admin.php' );
+		}
+
+		$args = array_merge(
+			array(
+				'page' => $page_slug,
+				'tab'  => $tab,
+			),
+			$extra
+		);
+
+		return add_query_arg( $args, admin_url( 'admin.php' ) );
+	}
+
+	/**
 	 * Resolved tab-placement map (defaults + `bn_admin_hub_tab_placement`).
 	 *
 	 * The map is keyed by a tab's origin `section:slug` and decides the final
