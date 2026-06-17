@@ -335,6 +335,11 @@
 		var hoverTimer = null;
 		var leaveTimer = null;
 
+		function hideCard() {
+			clearTimeout( hoverTimer );
+			if ( card ) card.hidden = true;
+		}
+
 		document.addEventListener( 'mouseenter', function ( e ) {
 			if ( ! e.target || ! e.target.closest ) return;
 			var el = e.target.closest( '.bn-hover-user' );
@@ -345,6 +350,9 @@
 				var userId = el.dataset.bnUserId;
 				var name = el.dataset.bnUserName || '';
 				var handle = el.dataset.bnUserHandle || '';
+				// The trigger is the byline anchor, so its href is the canonical
+				// profile link — reused for every actionable element on the card.
+				var profileUrl = el.getAttribute( 'href' ) || '#';
 				if ( ! card ) {
 					card = document.createElement( 'div' );
 					card.className = 'bn-hover-card';
@@ -356,18 +364,23 @@
 				card.textContent = '';
 				var header = document.createElement( 'div' );
 				header.className = 'bn-hover-card__header';
-				var av = document.createElement( 'div' );
+				// Avatar links to the profile so the whole card reads as navigable.
+				var av = document.createElement( 'a' );
 				av.className = 'bn-hover-card__avatar';
+				av.href = profileUrl;
 				av.textContent = initials;
 				// Keep a handle so the profile fetch below can swap the initials
 				// for the real avatar image once it resolves.
 				var avatarBox = av;
 				var info = document.createElement( 'div' );
-				var nm = document.createElement( 'div' );
+				info.className = 'bn-hover-card__info';
+				var nm = document.createElement( 'a' );
 				nm.className = 'bn-hover-card__name';
+				nm.href = profileUrl;
 				nm.textContent = name;
-				var hd = document.createElement( 'div' );
+				var hd = document.createElement( 'a' );
 				hd.className = 'bn-hover-card__handle';
+				hd.href = profileUrl;
 				hd.textContent = handle ? '@' + handle : '';
 				info.appendChild( nm );
 				info.appendChild( hd );
@@ -375,24 +388,40 @@
 				header.appendChild( info );
 				card.appendChild( header );
 
-				var stats = document.createElement( 'div' );
+				// Stats link to the profile too — clicking any counter opens the
+				// user's profile (the card has no dedicated followers/following view).
+				var stats = document.createElement( 'a' );
 				stats.className = 'bn-hover-card__stats';
+				stats.href = profileUrl;
 				card.appendChild( stats );
 
 				var followBtn = document.createElement( 'button' );
 				followBtn.className = 'bn-hover-card__follow';
-				followBtn.textContent = 'Follow';
-				followBtn.onclick = function () {
-					if ( ! data.restUserUrl ) return;
-					fetch( data.restUserUrl + userId + '/follow', {
-						method: 'POST',
-						headers: { 'X-WP-Nonce': nonce }
-					} ).then( function () {
-						followBtn.textContent = 'Following';
-						if ( window.bnToast ) window.bnToast( 'Followed ' + name );
-					} );
-				};
+				followBtn.type = 'button';
+				followBtn.hidden = true; // Revealed once the relationship resolves.
 				card.appendChild( followBtn );
+
+				// Bind the Follow/Following toggle to the current relationship so the
+				// card mirrors the post-card state instead of always reading "Follow".
+				function applyFollowState( following ) {
+					followBtn.hidden = false;
+					followBtn.textContent = following ? 'Following' : 'Follow';
+					followBtn.classList.toggle( 'is-following', !! following );
+					followBtn.onclick = function () {
+						if ( ! data.restUserUrl ) return;
+						var method = following ? 'DELETE' : 'POST';
+						fetch( data.restUserUrl + userId + '/follow', {
+							method: method,
+							headers: { 'X-WP-Nonce': nonce }
+						} ).then( function () {
+							following = ! following;
+							applyFollowState( following );
+							if ( window.bnToast ) {
+								window.bnToast( ( following ? 'Followed ' : 'Unfollowed ' ) + name );
+							}
+						} );
+					};
+				}
 
 				var rect = el.getBoundingClientRect();
 				card.style.top = ( rect.bottom + 8 ) + 'px';
@@ -435,6 +464,11 @@
 							bio.textContent = u.bio.substring( 0, 100 );
 							card.insertBefore( bio, stats );
 						}
+						// Hide the Follow button on the viewer's own card; otherwise
+						// reflect the real relationship.
+						if ( ! u.is_self ) {
+							applyFollowState( !! u.is_following );
+						}
 					} ).catch( function () { /* ignore */ } );
 				}
 			}, 400 );
@@ -444,6 +478,12 @@
 			if ( ! e.target || ! e.target.closest || ! e.target.closest( '.bn-hover-user' ) ) return;
 			clearTimeout( hoverTimer );
 			leaveTimer = setTimeout( function () { if ( card ) card.hidden = true; }, 200 );
+		}, true );
+
+		// Dismiss on scroll — once the page moves the card is anchored to a stale
+		// position and the trigger may be off-screen, so close it immediately.
+		window.addEventListener( 'scroll', function () {
+			if ( card && ! card.hidden ) hideCard();
 		}, true );
 	}() );
 }() );

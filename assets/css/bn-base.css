@@ -954,12 +954,19 @@
 	width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
 	background: var(--brand-light); color: var(--brand); font-size: 18px; font-weight: 700;
 	display: flex; align-items: center; justify-content: center; overflow: hidden;
+	text-decoration: none;
 }
 .bn-hover-card__avatar img { width: 100%; height: 100%; object-fit: cover; }
-.bn-hover-card__name { font-weight: var(--fw-bold); font-size: var(--text-base); color: var(--text-1); }
-.bn-hover-card__handle { font-size: var(--text-xs); color: var(--text-3); }
+.bn-hover-card__info { min-width: 0; }
+.bn-hover-card__name {
+	display: block; font-weight: var(--fw-bold); font-size: var(--text-base);
+	color: var(--text-1); text-decoration: none;
+}
+.bn-hover-card__name:hover { text-decoration: underline; }
+.bn-hover-card__handle { display: block; font-size: var(--text-xs); color: var(--text-3); text-decoration: none; }
+.bn-hover-card__handle:hover { color: var(--text-2); }
 .bn-hover-card__bio { font-size: var(--text-sm); color: var(--text-2); margin-bottom: var(--s3); line-height: 1.4; }
-.bn-hover-card__stats { display: flex; gap: var(--s4); font-size: var(--text-xs); color: var(--text-2); }
+.bn-hover-card__stats { display: flex; gap: var(--s4); font-size: var(--text-xs); color: var(--text-2); text-decoration: none; }
 .bn-hover-card__stat-num { font-weight: var(--fw-bold); color: var(--text-1); }
 .bn-hover-card__follow {
 	margin-top: var(--s3); width: 100%; padding: var(--s2); border: 1px solid var(--brand);
@@ -968,6 +975,10 @@
 	transition: all 0.15s ease;
 }
 .bn-hover-card__follow:hover { background: var(--brand); color: var(--text-on-brand); }
+/* Already-following state mirrors the post-card "Following" affordance: filled,
+   neutral, and reverting to an "Unfollow" cue on hover. */
+.bn-hover-card__follow.is-following { background: var(--brand); color: var(--text-on-brand); }
+.bn-hover-card__follow.is-following:hover { background: var(--red); border-color: var(--red); }
 
 /* ── Box-sizing reset ───────────────────────────────────────────────────── */
 
