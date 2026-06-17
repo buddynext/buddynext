@@ -669,65 +669,6 @@
 
 /* ── Production wiring (Social Graph row 4) ───────────────────────────── */
 
-/* Member-type pill row. */
-.bn-md-pill-row {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--bn-s2);
-	padding-block-end: var(--bn-s3);
-}
-
-.bn-md-pill {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--bn-s1);
-	padding-block: 6px;
-	padding-inline: 12px;
-	border-radius: 999px;
-	border: 1px solid var(--bn-line);
-	background: var(--bn-surface);
-	color: var(--bn-text);
-	font: inherit;
-	font-size: var(--bn-fs-sm);
-	font-weight: 500;
-	line-height: 1;
-	cursor: pointer;
-	transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
-}
-
-.bn-md-pill:hover,
-.bn-md-pill:focus-visible {
-	border-color: var(--bn-accent);
-	color: var(--bn-accent);
-}
-
-.bn-md-pill:focus-visible {
-	outline: none;
-	box-shadow: var(--bn-ring);
-}
-
-.bn-md-pill.is-active {
-	background: var(--bn-accent);
-	border-color: var(--bn-accent);
-	color: var(--bn-accent-fg);
-}
-
-.bn-md-pill__count {
-	min-width: 1.5em;
-	padding-inline: var(--bn-s2);
-	border-radius: var(--bn-r-full);
-	/* Subtle ink wash that follows the theme: a faint dark tint in light mode,
-	   a faint light tint in dark mode (rgba(0,0,0,.06) was invisible on dark). */
-	background: color-mix(in oklch, var(--bn-ink) 8%, transparent);
-	font-size: var(--bn-fs-xs);
-	font-weight: 600;
-	text-align: center;
-}
-
-.bn-md-pill.is-active .bn-md-pill__count {
-	background: color-mix(in oklch, var(--bn-accent-fg) 22%, transparent);
-}
-
 /* Reactive filter strip — no Apply button. */
 .bn-md-strip {
 	display: flex;
