@@ -534,6 +534,14 @@ function wireCardListeners( article, cardCtx, item ) {
 		if ( btns[ 1 ] ) { btns[ 1 ].addEventListener( 'click', () => decide( false ) ); }
 	}
 
+	// Apply the initial styled state. buildCard() only sets the inert
+	// data-wp-bind--data-variant directives (never hydrated on these injected
+	// cards), so without this the Follow/Connect buttons render as bare .bn-btn
+	// with no data-variant — unstyled and visibly misaligned after a tab switch.
+	// paintFollow/paintConnect set the real data-variant/data-state + label.
+	paintFollow();
+	paintConnect();
+
 	// Kebab menu (Mute / Block / Report) — same hydration gap as the action row.
 	wireCardKebab( article, cardCtx, item );
 }
