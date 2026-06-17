@@ -410,6 +410,7 @@ class Settings extends AdminPageBase {
 			'buddynext_enable_dm',
 			'buddynext_default_dm_access',
 			'buddynext_enable_community_nav',
+			'buddynext_member_dir_columns',
 		),
 		'features'      => array(
 			'buddynext_features',
@@ -441,6 +442,7 @@ class Settings extends AdminPageBase {
 		'spaces'        => array(
 			'buddynext_space_creation_role',
 			'buddynext_space_max_sub_spaces',
+			'buddynext_spaces_dir_columns',
 		),
 		'moderation'    => array(
 			'buddynext_banned_words',
