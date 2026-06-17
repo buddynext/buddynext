@@ -88,6 +88,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 <div class="bn-composer"
 	data-wp-interactive="buddynext/post-composer"
 	data-wp-init="callbacks.restoreDraft"
+	data-wp-on-document--click="actions.closePrivacyOnOutside"
 	data-wp-context='
 	<?php
 	echo esc_attr(
@@ -390,7 +391,7 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 						data-wp-bind--aria-expanded="state.privacyOpen"
 						data-wp-on--click="actions.togglePrivacy">
 						<?php esc_html_e( 'Posting to', 'buddynext' ); ?>
-						<strong data-wp-text="state.privacyLabel"><?php esc_html_e( 'Everyone', 'buddynext' ); ?></strong>
+						<strong data-wp-text="state.privacyLabel"><?php esc_html_e( 'Public', 'buddynext' ); ?></strong>
 						<span class="bn-composer__privacy-caret" aria-hidden="true">
 							<?php buddynext_icon( 'chevron-down' ); ?>
 						</span>
