@@ -72,15 +72,52 @@ class FeedCache {
 	 * @return string
 	 */
 	public function home_page_1_key( int $user_id, int $per_page ): string {
-		return 'home:p1:' . $user_id . ':' . $per_page;
+		// The per-user and global version stamps make every page-size variant
+		// of a user's page-1 key invalidatable at once: bumping a version
+		// changes every key derived from it, the object-cache-safe way to
+		// "delete" keys a store cannot wildcard-match.
+		return 'home:p1:' . $user_id . ':' . $per_page
+			. ':u' . $this->user_version( $user_id )
+			. ':g' . $this->global_version();
 	}
 
 	/**
-	 * Invalidate every cached page-1 home feed that mentions this user.
+	 * Per-user feed cache version (defaults to 1, lazily seeded).
 	 *
-	 * Cheap version: bust the writer's own key (their feed always
-	 * contains their post). Other users' feeds tolerate one stale read
-	 * until the 30s TTL.
+	 * @param int $user_id Viewer.
+	 * @return int
+	 */
+	private function user_version( int $user_id ): int {
+		$key   = 'home:ver:' . $user_id;
+		$value = wp_cache_get( $key, self::GROUP_USER );
+		if ( false === $value ) {
+			$value = 1;
+			wp_cache_set( $key, $value, self::GROUP_USER );
+		}
+		return (int) $value;
+	}
+
+	/**
+	 * Global feed cache version (defaults to 1, lazily seeded).
+	 *
+	 * @return int
+	 */
+	private function global_version(): int {
+		$value = wp_cache_get( 'home:gver', self::GROUP_GLOBAL );
+		if ( false === $value ) {
+			$value = 1;
+			wp_cache_set( 'home:gver', $value, self::GROUP_GLOBAL );
+		}
+		return (int) $value;
+	}
+
+	/**
+	 * Invalidate every cached page-1 home feed for this user.
+	 *
+	 * Bumps the user's feed version so ALL page sizes are bypassed at once
+	 * (the old code only busted the two hard-coded sizes 15 and 20, leaving
+	 * custom page sizes stale until the 30s TTL). Superseded entries expire
+	 * naturally via that TTL.
 	 *
 	 * @param int $writer_id User who created the post / triggered the write.
 	 * @return void
@@ -89,20 +126,21 @@ class FeedCache {
 		if ( $writer_id <= 0 ) {
 			return;
 		}
-		wp_cache_delete( $this->home_page_1_key( $writer_id, 20 ), self::GROUP_USER );
-		wp_cache_delete( $this->home_page_1_key( $writer_id, 15 ), self::GROUP_USER );
+		$key = 'home:ver:' . $writer_id;
+		wp_cache_set( $key, ( (int) wp_cache_get( $key, self::GROUP_USER ) ) + 1, self::GROUP_USER );
 	}
 
 	/**
-	 * Invalidate every per-user feed cache (used on cross-cutting events
-	 * like spaces deletion). Currently a no-op stub — bumping the entire
-	 * group via wp_cache_flush_group() is expensive and most stores
-	 * don't implement it. Callers that need group invalidation should
-	 * rely on TTL drift.
+	 * Invalidate every per-user page-1 feed cache immediately (announcements,
+	 * bulk moderation, banned-word changes, spaces deletion).
+	 *
+	 * Bumps the global feed version, which is part of every page-1 key, so all
+	 * users' cached pages are bypassed at once without an (often unsupported)
+	 * wp_cache_flush_group() call.
 	 *
 	 * @return void
 	 */
 	public function invalidate_all_users(): void {
-		// Intentional no-op: rely on 30s TTL drift.
+		wp_cache_set( 'home:gver', ( (int) wp_cache_get( 'home:gver', self::GROUP_GLOBAL ) ) + 1, self::GROUP_GLOBAL );
 	}
 }
