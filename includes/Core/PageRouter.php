@@ -1055,7 +1055,11 @@ class PageRouter {
 			case 'people':
 				$user_slug = (string) get_query_var( 'bn_user_slug', '' );
 				if ( '' !== $user_slug ) {
-					$user               = get_user_by( 'slug', $user_slug );
+					// resolve_user() honours a member's custom bn_profile_slug
+					// (then user-{id}, then user_nicename); get_user_by('slug')
+					// alone only matches user_nicename, so a custom profile URL
+					// would soft-404 to the members directory.
+					$user               = $this->resolve_user( $user_slug );
 					$context['user_id'] = $user instanceof WP_User ? (int) $user->ID : 0;
 				}
 				$context['profile_action'] = (string) get_query_var( 'bn_profile_action', '' );
