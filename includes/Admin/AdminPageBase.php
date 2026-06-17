@@ -202,17 +202,19 @@ abstract class AdminPageBase {
 	 * @param string $title       Toggle label.
 	 * @param string $desc        Short descriptor beneath the label.
 	 * @param bool   $value       Current checked state.
+	 * @param bool   $disabled    Render read-only (e.g. a required plugin is inactive); the option is left untouched on save.
 	 * @return void
 	 */
 	protected function render_toggle_row(
 		string $option_name,
 		string $title,
 		string $desc,
-		bool $value
+		bool $value,
+		bool $disabled = false
 	): void {
 		$input_id = 'bn-toggle-' . sanitize_key( $option_name );
 		?>
-		<div class="bn-toggle-row">
+		<div class="bn-toggle-row<?php echo $disabled ? ' is-disabled' : ''; ?>">
 			<div class="bn-tl-label">
 				<label for="<?php echo esc_attr( $input_id ); ?>" class="bn-tl-title">
 					<?php echo esc_html( $title ); ?>
@@ -221,14 +223,24 @@ abstract class AdminPageBase {
 			</div>
 			<label class="bn-toggle">
 				<?php // The active (ON) state is driven purely by the nested checkbox via CSS `.bn-toggle:has(:checked)` — no hardcoded `.on` class, which previously stuck the visual ON after unchecking because nothing removed it client-side. ?>
-				<?php // Hidden 0 before the checkbox: an unchecked checkbox is never POSTed, so without this the Settings API skips update_option() and the old value persists. When checked, the checkbox's "1" comes later in the body and wins. ?>
-				<input type="hidden" name="<?php echo esc_attr( $option_name ); ?>" value="0">
-				<input type="checkbox"
-						id="<?php echo esc_attr( $input_id ); ?>"
-						name="<?php echo esc_attr( $option_name ); ?>"
-						value="1"
-						class="screen-reader-text"
-						<?php checked( $value ); ?>>
+				<?php if ( $disabled ) : ?>
+					<?php // Disabled (e.g. a required plugin is inactive): render read-only and emit NO hidden 0, so saving the form leaves the stored option untouched rather than silently flipping it off. ?>
+					<input type="checkbox"
+							id="<?php echo esc_attr( $input_id ); ?>"
+							value="1"
+							class="screen-reader-text"
+							disabled
+							<?php checked( $value ); ?>>
+				<?php else : ?>
+					<?php // Hidden 0 before the checkbox: an unchecked checkbox is never POSTed, so without this the Settings API skips update_option() and the old value persists. When checked, the checkbox's "1" comes later in the body and wins. ?>
+					<input type="hidden" name="<?php echo esc_attr( $option_name ); ?>" value="0">
+					<input type="checkbox"
+							id="<?php echo esc_attr( $input_id ); ?>"
+							name="<?php echo esc_attr( $option_name ); ?>"
+							value="1"
+							class="screen-reader-text"
+							<?php checked( $value ); ?>>
+				<?php endif; ?>
 			</label>
 		</div>
 		<?php

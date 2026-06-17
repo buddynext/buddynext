@@ -994,11 +994,17 @@ class Settings extends AdminPageBase {
 
 		$this->open_section( __( 'Direct Messaging', 'buddynext' ) );
 
+		// Direct messaging runs on the WPMediaVerse engine — gate the toggle when
+		// it is not active so owners can't enable a feature that can't function.
+		$bn_dm_available = class_exists( 'WPMediaVerse\\Core\\Plugin' );
 		$this->render_toggle_row(
 			'buddynext_enable_dm',
 			__( 'Enable direct messaging', 'buddynext' ),
-			__( 'Allow members to send private messages. Requires the WPMediaVerse plugin.', 'buddynext' ),
-			(bool) get_option( 'buddynext_enable_dm', true )
+			$bn_dm_available
+				? __( 'Allow members to send private messages. Requires the WPMediaVerse plugin.', 'buddynext' )
+				: __( 'Direct Messaging requires the WPMediaVerse plugin. Install and activate it to enable this feature.', 'buddynext' ),
+			$bn_dm_available && (bool) get_option( 'buddynext_enable_dm', true ),
+			! $bn_dm_available
 		);
 
 		$this->render_select_row(

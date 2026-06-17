@@ -586,6 +586,15 @@ select.bn-text-input:focus {
 	border-bottom: none;
 }
 
+/* A toggle disabled because a required plugin is inactive — reads as unavailable. */
+.bn-toggle-row.is-disabled .bn-tl-title,
+.bn-toggle-row.is-disabled .bn-toggle {
+	opacity: 0.55;
+}
+.bn-toggle-row.is-disabled .bn-toggle {
+	pointer-events: none;
+}
+
 .bn-tl-label {
 	flex: 1;
 }
