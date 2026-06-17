@@ -44,6 +44,12 @@ class WPMediaVerseBridge {
 		// Gate DMs on bn_blocks.
 		add_filter( 'mvs_can_send_message', array( $this, 'check_block' ), 10, 3 );
 
+		// Point WPMediaVerse user-profile links (media grid, lightbox author,
+		// REST author_url) at the BuddyNext member profile. Without this, MVS
+		// falls back to its own /media/@{login}/ URL, which is not a member
+		// profile.
+		add_filter( 'mvs_user_profile_url', array( $this, 'member_profile_url' ), 10, 2 );
+
 		// Route new-message events into bn_notifications.
 		add_action( 'mvs_message_sent', array( $this, 'on_message_sent' ), 10, 4 );
 
@@ -217,6 +223,26 @@ class WPMediaVerseBridge {
 			default:
 				return true;
 		}
+	}
+
+	/**
+	 * Resolve a WPMediaVerse user-profile link to the BuddyNext member profile.
+	 *
+	 * Hooked on: mvs_user_profile_url ($url, $user_id). MVS otherwise falls back
+	 * to home_url('/media/@{login}/'), which is not a member profile. Returns the
+	 * MVS default untouched if the user can't be resolved.
+	 *
+	 * @param string $url     URL resolved so far by MVS.
+	 * @param int    $user_id User whose profile is being linked.
+	 * @return string
+	 */
+	public function member_profile_url( string $url, int $user_id ): string {
+		if ( $user_id <= 0 ) {
+			return $url;
+		}
+
+		$profile = \BuddyNext\Core\PageRouter::profile_url( $user_id );
+		return '' !== $profile ? $profile : $url;
 	}
 
 	/**

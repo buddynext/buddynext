@@ -168,17 +168,28 @@
 		clear( panel.author );
 		var av = m.author_avatar || ( m.author_data && m.author_data.avatar ) || '';
 		var name = m.author_name || ( m.author_data && m.author_data.name ) || '';
+		// The REST API resolves this to the member profile (via BuddyNext's
+		// mvs_user_profile_url filter), so link the author there instead of
+		// leaving the name as plain text / the raw /media/@{login}/ fallback.
+		var url = m.author_url || ( m.author_data && m.author_data.profile_url ) || '';
+
+		var holder = url ? document.createElement( 'a' ) : document.createElement( 'span' );
+		if ( url ) { holder.setAttribute( 'href', url ); }
+		holder.className = 'bn-lightbox__author-link';
+
 		if ( av && /^(https?:)?\//.test( av ) ) {
 			var img = document.createElement( 'img' );
 			img.className = 'bn-lightbox__author-avatar';
 			img.setAttribute( 'src', av );
 			img.setAttribute( 'alt', '' );
-			panel.author.appendChild( img );
+			holder.appendChild( img );
 		}
 		var sp = document.createElement( 'span' );
 		sp.className = 'bn-lightbox__author-name';
 		sp.textContent = name;
-		panel.author.appendChild( sp );
+		holder.appendChild( sp );
+
+		panel.author.appendChild( holder );
 	}
 
 	function resetReactions() {
