@@ -26,8 +26,7 @@
  *
  * Structural composition (Layer 3 parts):
  *   - parts/member-directory-hero.php       — title + subtitle + actions
- *   - parts/member-directory-tabs.php       — member-type pill row
- *   - parts/member-directory-filter-bar.php — relation tabs + search + sort
+ *   - parts/member-directory-filter-bar.php — relation tabs + search + sort + type filter
  *   - parts/member-directory-grid.php       — grid wrapper + member-card loop
  *   - parts/member-card.php                 — single member row (reusable)
  *   - parts/member-block-modal.php          — block confirmation
@@ -85,10 +84,11 @@ add_filter(
 // ── Current user context ──────────────────────────────────────────────────
 $current_user_id = get_current_user_id();
 
-// ── Member types for directory pill tabs and card badges ──────────────────
-// Use get_all_with_counts() so the pill chips can render per-type member
-// counts (v2 prototype pattern). The returned rows include all columns
-// from get_all() plus a `member_count` aggregate.
+// ── Member types for the directory type filter and card badges ────────────
+// Use get_all_with_counts() so the type filter (the "All member types" select
+// in the filter bar) and the right-sidebar "By type" list can show per-type
+// member counts. The returned rows include all columns from get_all() plus a
+// `member_count` aggregate.
 $all_types_raw = buddynext_service( 'member_types' )->get_all_with_counts();
 $dir_types     = array_values( array_filter( $all_types_raw, static fn( $t ) => ! empty( $t['show_in_dir'] ) ) );
 // Flat slug → type data map for O(1) card badge lookup inside the member loop.
@@ -97,19 +97,6 @@ foreach ( $all_types_raw as $t ) {
 	$type_map[ (string) $t['slug'] ] = $t;
 }
 unset( $all_types_raw, $t );
-
-// Build the filter-able pill list expected by parts/member-directory-tabs.php.
-$bn_pill_types = array();
-foreach ( $dir_types as $bn_dir_type ) {
-	$bn_pill_types[] = array(
-		'slug'  => (string) $bn_dir_type['slug'],
-		'label' => (string) $bn_dir_type['name'],
-		'count' => isset( $bn_dir_type['member_count'] )
-			? (int) $bn_dir_type['member_count']
-			: ( isset( $bn_dir_type['count'] ) ? (int) $bn_dir_type['count'] : 0 ),
-	);
-}
-unset( $bn_dir_type );
 
 // ── Fetch users ───────────────────────────────────────────────────────────
 // Resolve user IDs to exclude: active suspensions + shadow-banned users.
