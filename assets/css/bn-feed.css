@@ -2800,6 +2800,29 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 	text-align: center;
 	padding: var(--bn-s5) 0;
 }
+/* "Load more" affordance — a centered pill that reads as a deliberate feed
+   action rather than a generic secondary button. Covers the bookmarks pager,
+   the no-JS fallback link, and the JS retry control (all .bn-load-more__btn).
+   The descendant + [data-variant] selector outranks the .bn-btn[data-variant]
+   primitive so the pill height/radius win regardless of stylesheet order. */
+.bn-load-more .bn-load-more__btn[data-variant] {
+	min-width: 200px;
+	height: 44px;
+	border-radius: var(--bn-r-full, 999px);
+	font-weight: var(--bn-fw-semibold);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+	transition: background var(--bn-dur) var(--bn-ease),
+				border-color var(--bn-dur) var(--bn-ease),
+				color var(--bn-dur) var(--bn-ease),
+				box-shadow var(--bn-dur) var(--bn-ease),
+				transform var(--bn-dur-fast) var(--bn-ease);
+}
+.bn-load-more .bn-load-more__btn[data-variant]:hover {
+	border-color: var(--bn-accent);
+	color: var(--bn-accent);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+	transform: translateY(-1px);
+}
 .bn-load-more__spinner {
 	display: flex;
 	justify-content: center;
