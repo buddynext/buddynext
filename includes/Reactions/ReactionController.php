@@ -223,9 +223,4 @@ class ReactionController extends BaseRestController {
 		);
 	}
 
-	/**
-	 * Require the user to be logged in.
-	 *
-	 * @return bool|WP_Error
-	 */
 }

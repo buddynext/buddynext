@@ -125,6 +125,36 @@ class CommentService {
 
 		global $wpdb;
 
+		// Validate the reply parent and enforce the thread-depth cap. create()
+		// previously accepted any parent_id without checking it existed, matched
+		// this object, or was not soft-deleted (orphan rows that never render),
+		// and ignored MAX_REPLY_DEPTH entirely (only list() folded the display).
+		if ( null !== $parent_id && $parent_id > 0 ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			$bn_parent = $wpdb->get_row( $wpdb->prepare( "SELECT parent_id, object_type, object_id, is_deleted FROM {$wpdb->prefix}bn_comments WHERE id = %d", $parent_id ), ARRAY_A );
+			if ( null === $bn_parent
+				|| 1 === (int) $bn_parent['is_deleted']
+				|| (string) $bn_parent['object_type'] !== $object_type
+				|| (int) $bn_parent['object_id'] !== $object_id
+			) {
+				return new WP_Error( 'invalid_parent', __( 'The comment you are replying to is not available.', 'buddynext' ), array( 'status' => 400 ) );
+			}
+
+			// Walk the ancestor chain to get the parent's depth (1-indexed). A
+			// reply sits one level below, so reject when the parent is already at
+			// the cap. The loop bound also guards against a malformed cycle.
+			$bn_depth  = 1;
+			$bn_cursor = (int) ( $bn_parent['parent_id'] ?? 0 );
+			while ( $bn_cursor > 0 && $bn_depth < self::MAX_REPLY_DEPTH + 2 ) {
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				$bn_cursor = (int) $wpdb->get_var( $wpdb->prepare( "SELECT parent_id FROM {$wpdb->prefix}bn_comments WHERE id = %d", $bn_cursor ) );
+				++$bn_depth;
+			}
+			if ( $bn_depth >= self::MAX_REPLY_DEPTH ) {
+				return new WP_Error( 'reply_too_deep', __( 'This thread has reached its maximum reply depth.', 'buddynext' ), array( 'status' => 400 ) );
+			}
+		}
+
 		// A comment inherits its post's space; an archived space is read-only.
 		if ( 'post' === $object_type && $object_id > 0 ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching

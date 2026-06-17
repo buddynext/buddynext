@@ -267,7 +267,7 @@ class HashtagService {
 		 *
 		 * @param string $pattern Default extraction regex.
 		 */
-		$pattern = (string) apply_filters( 'buddynext_hashtag_pattern', '/#([a-zA-Z][a-zA-Z0-9_]{0,49})/u' );
+		$pattern = (string) apply_filters( 'buddynext_hashtag_pattern', '/#([\p{L}][\p{L}\p{N}_]{0,49})/u' );
 		preg_match_all( $pattern, $content, $matches );
 
 		if ( empty( $matches[1] ) ) {
