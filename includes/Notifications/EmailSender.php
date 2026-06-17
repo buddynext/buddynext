@@ -297,13 +297,14 @@ class EmailSender {
 	 * Every BuddyNext outbound email routes through here so the From/Reply-To
 	 * identity is identical for template notifications and the digest cron.
 	 *
-	 * @param string             $to      Recipient email address.
-	 * @param string             $subject Email subject.
-	 * @param string             $body    Email body (HTML).
-	 * @param array<int, string> $headers Header lines (use build_identity_headers()).
+	 * @param string             $to       Recipient email address.
+	 * @param string             $subject  Email subject.
+	 * @param string             $body     Email body (HTML).
+	 * @param array<int, string> $headers  Header lines (use build_identity_headers()).
+	 * @param string             $log_type Optional bn_email_log type label for this send.
 	 * @return bool True when wp_mail() reports success.
 	 */
-	public static function send_with_identity( string $to, string $subject, string $body, array $headers ): bool {
+	public static function send_with_identity( string $to, string $subject, string $body, array $headers, string $log_type = '' ): bool {
 		// Always branded: resolvers fall back to the site name / admin email when
 		// the owner hasn't set a custom identity, so no BuddyNext email ever sends
 		// as the bare WordPress default.
@@ -362,7 +363,39 @@ class EmailSender {
 			remove_filter( 'wp_mail_from', $address_filter );
 		}
 
+		// Record the send in bn_email_log so identity sends (auth lifecycle,
+		// invites, 2FA, reset, test) appear in the log alongside template emails.
+		if ( $sent ) {
+			self::log_identity_send( $to, '' !== $log_type ? $log_type : 'transactional' );
+		}
+
 		return $sent;
+	}
+
+	/**
+	 * Log an identity send to bn_email_log, resolving the recipient to a user id
+	 * (0 when the address has no matching account).
+	 *
+	 * @param string $to   Recipient email address.
+	 * @param string $type Log type label.
+	 * @return void
+	 */
+	private static function log_identity_send( string $to, string $type ): void {
+		$user    = get_user_by( 'email', $to );
+		$user_id = $user instanceof \WP_User ? (int) $user->ID : 0;
+
+		global $wpdb;
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->insert(
+			$wpdb->prefix . 'bn_email_log',
+			array(
+				'user_id'     => $user_id,
+				'type'        => $type,
+				'digest_date' => null,
+				'sent_at'     => current_time( 'mysql', true ),
+			),
+			array( '%d', '%s', '%s', '%s' )
+		);
 	}
 
 	/**

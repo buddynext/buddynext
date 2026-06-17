@@ -225,9 +225,10 @@ class RegistrationEmailListener {
 	 * @param string $to      Recipient address.
 	 * @param string $subject Subject line.
 	 * @param string $body    Plain message (escaped + wrapped in minimal HTML).
+	 * @param string $type    bn_email_log type label (default 'registration').
 	 * @return void
 	 */
-	private function mail( string $to, string $subject, string $body ): void {
+	private function mail( string $to, string $subject, string $body, string $type = 'registration' ): void {
 		if ( '' === $to || ! is_email( $to ) ) {
 			return;
 		}
@@ -235,7 +236,8 @@ class RegistrationEmailListener {
 			$to,
 			$subject,
 			EmailSender::brand_wrap( '<p>' . esc_html( $body ) . '</p>', $subject ),
-			EmailSender::build_identity_headers()
+			EmailSender::build_identity_headers(),
+			$type
 		);
 	}
 
