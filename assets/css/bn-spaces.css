@@ -110,6 +110,15 @@
 	gap: var(--bn-s4);
 }
 
+/* Owner-set fixed desktop column count (Settings > Spaces > Directory columns).
+   Applies only on desktop (≥1025px); the responsive breakpoints below still step
+   the directory down to 2 then 1 on tablet/mobile. */
+@media (min-width: 1025px) {
+	.bn-sd-grid[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.bn-sd-grid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.bn-sd-grid[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
 /* Space card — sits on `.bn-card[data-interactive]` from base */
 .bn-sd-card {
 	display: flex;

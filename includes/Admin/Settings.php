@@ -45,6 +45,7 @@ class Settings extends AdminPageBase {
 		'buddynext_enable_dm'                  => array( 'boolean', 'rest_sanitize_boolean' ),
 		'buddynext_default_dm_access'          => array( 'string', 'sanitize_key' ),
 		'buddynext_enable_community_nav'       => array( 'boolean', 'rest_sanitize_boolean' ),
+		'buddynext_member_dir_columns'         => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
 
 		// Registration.
 		'buddynext_reg_mode'                   => array( 'string', 'sanitize_key' ),
@@ -72,6 +73,7 @@ class Settings extends AdminPageBase {
 		// Spaces.
 		'buddynext_space_creation_role'        => array( 'string', 'sanitize_key' ),
 		'buddynext_space_max_sub_spaces'       => array( 'integer', 'absint' ),
+		'buddynext_spaces_dir_columns'         => array( 'string', array( self::class, 'sanitize_dir_columns' ) ),
 
 		// Moderation.
 		'buddynext_auto_hide_threshold'        => array( 'integer', 'absint' ),
@@ -343,6 +345,21 @@ class Settings extends AdminPageBase {
 	public static function sanitize_brand_color( $value ): string {
 		$hex = sanitize_hex_color( (string) $value );
 		return '' !== (string) $hex ? (string) $hex : '#0073aa';
+	}
+
+	/**
+	 * Sanitize a directory column-count choice.
+	 *
+	 * Whitelists the supported values: 'auto' (responsive auto-fill, the
+	 * default) or a fixed desktop column count of 2, 3 or 4. Anything else
+	 * falls back to 'auto'.
+	 *
+	 * @param mixed $value Raw submitted value.
+	 * @return string One of 'auto', '2', '3', '4'.
+	 */
+	public static function sanitize_dir_columns( $value ): string {
+		$value = sanitize_key( (string) $value );
+		return in_array( $value, array( 'auto', '2', '3', '4' ), true ) ? $value : 'auto';
 	}
 
 	/**
@@ -775,6 +792,23 @@ class Settings extends AdminPageBase {
 				'nobody'      => __( 'No one', 'buddynext' ),
 			),
 			__( 'Default privacy applied to new accounts. Members can override this in their own privacy settings.', 'buddynext' )
+		);
+
+		$this->close_section();
+
+		$this->open_section( __( 'Member directory', 'buddynext' ) );
+
+		$this->render_select_row(
+			'buddynext_member_dir_columns',
+			__( 'Directory columns (desktop)', 'buddynext' ),
+			(string) get_option( 'buddynext_member_dir_columns', 'auto' ),
+			array(
+				'auto' => __( 'Auto (fit to width)', 'buddynext' ),
+				'2'    => __( '2 columns', 'buddynext' ),
+				'3'    => __( '3 columns', 'buddynext' ),
+				'4'    => __( '4 columns', 'buddynext' ),
+			),
+			__( 'How many member cards per row on desktop. Auto fits as many as the width allows; a fixed value caps the row and still steps down to fewer columns on tablet and mobile.', 'buddynext' )
 		);
 
 		$this->close_section();
@@ -1294,6 +1328,19 @@ class Settings extends AdminPageBase {
 			(int) get_option( 'buddynext_space_max_sub_spaces', 0 ),
 			__( 'Maximum number of sub-spaces a space owner can create inside their space. Set to 0 for no limit.', 'buddynext' ),
 			0
+		);
+
+		$this->render_select_row(
+			'buddynext_spaces_dir_columns',
+			__( 'Directory columns (desktop)', 'buddynext' ),
+			(string) get_option( 'buddynext_spaces_dir_columns', 'auto' ),
+			array(
+				'auto' => __( 'Auto (fit to width)', 'buddynext' ),
+				'2'    => __( '2 columns', 'buddynext' ),
+				'3'    => __( '3 columns', 'buddynext' ),
+				'4'    => __( '4 columns', 'buddynext' ),
+			),
+			__( 'How many space cards per row on desktop in the Spaces directory. Auto fits as many as the width allows; a fixed value caps the row and still steps down on tablet and mobile.', 'buddynext' )
 		);
 
 		$this->close_section();

@@ -53,6 +53,15 @@
 	padding: 0;
 }
 
+/* Owner-set fixed desktop column count (Settings > General > Member directory).
+   Applies only on desktop (≥1025px) so the responsive breakpoints below still
+   step the directory down to 2 then 1 on tablet/mobile; never overrides list view. */
+@media (min-width: 1025px) {
+	.bn-md-grid[data-cols="2"]:not(.is-list) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.bn-md-grid[data-cols="3"]:not(.is-list) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.bn-md-grid[data-cols="4"]:not(.is-list) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
 /* ── View toggle (grid / list) ──────────────────────────────────────────────
  * Buttons live in the filter strip; the directory store (assets/js/members/
  * store.js) toggles aria-pressed + adds .is-list to .bn-md-grid. */
