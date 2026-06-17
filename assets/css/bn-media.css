@@ -144,7 +144,21 @@ body.bn-lightbox-open { overflow: hidden; }
 	inset: 0;
 	background: oklch( 0% 0 0 / 0.9 );
 	border: 0;
+	box-shadow: none;
 	cursor: zoom-out;
+}
+/* The backdrop is a <button>, so the host theme's generic button:hover/:focus
+   styling was repainting it on hover — the overlay appeared to change shade as
+   the cursor moved outside the media. Pin every interaction state to the same
+   dim (specificity beats the theme's `button:hover`) so it stays constant. */
+.bn-lightbox__backdrop:hover,
+.bn-lightbox__backdrop:focus,
+.bn-lightbox__backdrop:focus-visible,
+.bn-lightbox__backdrop:active {
+	background: oklch( 0% 0 0 / 0.9 );
+	border: 0;
+	box-shadow: none;
+	outline: none;
 }
 .bn-lightbox__dialog {
 	position: relative;
