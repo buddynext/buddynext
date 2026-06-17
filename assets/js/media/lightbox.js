@@ -268,10 +268,15 @@
 			ta.select();
 			var ok = document.execCommand( 'copy' );
 			document.body.removeChild( ta );
-			if ( ok && done ) { done(); }
-			else if ( ! ok ) { window.prompt( 'Copy this link:', text ); }
-		} catch ( e ) {
-			window.prompt( 'Copy this link:', text );
+			if ( ok ) {
+				if ( done ) { done(); }
+				return;
+			}
+		} catch ( e ) {}
+		// Last resort (no Clipboard API + execCommand failed): surface the link in
+		// a toast for manual copy. No native prompt() — see the UX-audit F8 rule.
+		if ( window.bnToast ) {
+			window.bnToast( ( I18N.copyManual || 'Copy this link: ' ) + text, 'info' );
 		}
 	}
 
