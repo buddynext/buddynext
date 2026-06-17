@@ -238,6 +238,12 @@ final class NavOverrides {
 				if ( ! empty( $ov['hidden'] ) ) {
 					continue; // Drop hidden tabs — the tab bar has no show flag.
 				}
+				// Honour the visibility / login_required / capability gate the same
+				// way the rail + mobile appliers do — profile tabs previously skipped
+				// this, so a login_required (or role-gated) tab still showed to guests.
+				if ( $this->tab_denied( $ov ) ) {
+					continue;
+				}
 				if ( isset( $ov['label'] ) && '' !== (string) $ov['label'] ) {
 					$tab['label'] = sanitize_text_field( (string) $ov['label'] );
 				}

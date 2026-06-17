@@ -693,7 +693,15 @@ $bn_subtitle = sprintf(
 						</div>
 
 						<div class="bn-sd-card__foot">
-							<?php if ( $is_admin_mod ) : ?>
+							<?php if ( 0 === (int) $current_user_id ) : ?>
+								<a
+									href="<?php echo esc_url( wp_login_url( \BuddyNext\Core\PageRouter::space_url( (int) $space_id ) ) ); ?>"
+									class="bn-btn"
+									data-variant="primary"
+									data-size="sm"
+								><?php esc_html_e( 'Log in to join', 'buddynext' ); ?></a>
+
+							<?php elseif ( $is_admin_mod ) : ?>
 								<a
 									href="<?php echo esc_url( buddynext_space_settings_url( $space->slug ) ); ?>"
 									class="bn-btn"
