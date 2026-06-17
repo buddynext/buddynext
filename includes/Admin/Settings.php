@@ -620,6 +620,7 @@ class Settings extends AdminPageBase {
 			'buddynext_default_dm_access',
 			'buddynext_enable_community_nav',
 			'buddynext_member_dir_columns',
+			'buddynext_spaces_dir_columns',
 		),
 		'features'      => array(
 			'buddynext_features',
@@ -655,7 +656,6 @@ class Settings extends AdminPageBase {
 			'buddynext_space_max_sub_spaces',
 			'buddynext_space_default_type',
 			'buddynext_space_default_category',
-			'buddynext_spaces_dir_columns',
 		),
 		'moderation'    => array(
 			'buddynext_banned_words',
@@ -1012,19 +1012,29 @@ class Settings extends AdminPageBase {
 
 		$this->close_section();
 
-		$this->open_section( __( 'Member directory', 'buddynext' ) );
+		$this->open_section( __( 'Directory columns', 'buddynext' ) );
+
+		$bn_dir_col_choices = array(
+			'auto' => __( 'Auto (fit to width)', 'buddynext' ),
+			'2'    => __( '2 columns', 'buddynext' ),
+			'3'    => __( '3 columns', 'buddynext' ),
+			'4'    => __( '4 columns', 'buddynext' ),
+		);
 
 		$this->render_select_row(
 			'buddynext_member_dir_columns',
-			__( 'Directory columns (desktop)', 'buddynext' ),
-			(string) get_option( 'buddynext_member_dir_columns', 'auto' ),
-			array(
-				'auto' => __( 'Auto (fit to width)', 'buddynext' ),
-				'2'    => __( '2 columns', 'buddynext' ),
-				'3'    => __( '3 columns', 'buddynext' ),
-				'4'    => __( '4 columns', 'buddynext' ),
-			),
-			__( 'How many member cards per row on desktop. Auto fits as many as the width allows; a fixed value caps the row and still steps down to fewer columns on tablet and mobile.', 'buddynext' )
+			__( 'Member directory columns (desktop)', 'buddynext' ),
+			(string) get_option( 'buddynext_member_dir_columns', '3' ),
+			$bn_dir_col_choices,
+			__( 'How many member cards per row on desktop. A fixed value caps the row and still steps down to fewer columns on tablet and mobile; Auto fits as many as the width allows.', 'buddynext' )
+		);
+
+		$this->render_select_row(
+			'buddynext_spaces_dir_columns',
+			__( 'Space directory columns (desktop)', 'buddynext' ),
+			(string) get_option( 'buddynext_spaces_dir_columns', '3' ),
+			$bn_dir_col_choices,
+			__( 'How many space cards per row on desktop in the Spaces directory. A fixed value caps the row and still steps down on tablet and mobile; Auto fits as many as the width allows.', 'buddynext' )
 		);
 
 		$this->close_section();
@@ -1596,23 +1606,9 @@ class Settings extends AdminPageBase {
 
 		$this->close_section();
 
-		// ── Directory ──────────────────────────────────────────────────────
-		$this->open_section( __( 'Directory', 'buddynext' ) );
-
-		$this->render_select_row(
-			'buddynext_spaces_dir_columns',
-			__( 'Directory columns (desktop)', 'buddynext' ),
-			(string) get_option( 'buddynext_spaces_dir_columns', 'auto' ),
-			array(
-				'auto' => __( 'Auto (fit to width)', 'buddynext' ),
-				'2'    => __( '2 columns', 'buddynext' ),
-				'3'    => __( '3 columns', 'buddynext' ),
-				'4'    => __( '4 columns', 'buddynext' ),
-			),
-			__( 'How many space cards per row on desktop in the Spaces directory. Auto fits as many as the width allows; a fixed value caps the row and still steps down on tablet and mobile.', 'buddynext' )
-		);
-
-		$this->close_section();
+		// Directory columns (member + space) live together under
+		// General → Directory columns, so the two layout controls are configured
+		// in one place rather than split across tabs.
 	}
 
 	/**

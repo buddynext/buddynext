@@ -610,7 +610,7 @@ $bn_subtitle = sprintf(
 		<?php
 		// Owner-configurable desktop column count (Settings > Spaces > Directory columns).
 		// 'auto' keeps the responsive auto-fill; 2/3/4 cap the desktop row via [data-cols].
-		$bn_sd_cols = (string) get_option( 'buddynext_spaces_dir_columns', 'auto' );
+		$bn_sd_cols = (string) get_option( 'buddynext_spaces_dir_columns', '3' );
 		$bn_sd_cols = in_array( $bn_sd_cols, array( '2', '3', '4' ), true ) ? $bn_sd_cols : 'auto';
 		?>
 		<div class="bn-sd-grid" role="list" data-bn-sd-grid<?php echo 'auto' !== $bn_sd_cols ? ' data-cols="' . esc_attr( $bn_sd_cols ) . '"' : ''; ?>>
