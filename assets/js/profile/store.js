@@ -510,6 +510,18 @@ function clearErrors( ctx ) {
 	ctx.errors = {};
 }
 
+/* Resolve the profile-save endpoint. When the edit surface is editing another
+   member (data-bn-profile-user on the interactive root, set by edit.php for
+   edit-any holders), save to that user's admin route; otherwise the own
+   /me/profile route. */
+function profileSaveUrl() {
+	var root   = document.querySelector( '[data-wp-interactive="buddynext/profile"]' );
+	var target = root ? parseInt( root.getAttribute( 'data-bn-profile-user' ) || '0', 10 ) : 0;
+	return target > 0
+		? apiUrl( 'buddynext/v1/users/' + target + '/profile' )
+		: apiUrl( 'buddynext/v1/me/profile' );
+}
+
 /* Master save flow - submits all fields, handles 200 / 422 / 5xx. */
 async function doSave( ctx ) {
 	if ( ctx.saving ) { return; }
@@ -518,7 +530,7 @@ async function doSave( ctx ) {
 	clearErrors( ctx );
 
 	try {
-		var res = await fetch( apiUrl( 'buddynext/v1/me/profile' ), {
+		var res = await fetch( profileSaveUrl(), {
 			method:  'PUT',
 			headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
 			body:    JSON.stringify( buildPayload( ctx ) ),
@@ -550,7 +562,7 @@ async function doAutoSave( ctx ) {
 	if ( ctx.saving ) { return; }
 	ctx.saving = true;
 	try {
-		var res = await fetch( apiUrl( 'buddynext/v1/me/profile' ), {
+		var res = await fetch( profileSaveUrl(), {
 			method:  'PUT',
 			headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': nonce() },
 			body:    JSON.stringify( buildPayload( ctx ) ),

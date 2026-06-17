@@ -30,6 +30,13 @@ global $wpdb;
 $current_user_id = get_current_user_id();
 $is_own_profile  = ( $current_user_id === $user_id );
 
+// Whether the viewer may edit this (someone else's) profile — drives the
+// "Edit profile" control in the hero's more-options menu. Resolves through the
+// role map (buddynext-profile/edit-any), so the Roles & Capabilities toggle
+// actually governs it; site admins always pass.
+$bn_can_edit_any = ! $is_own_profile && $current_user_id > 0
+	&& buddynext_can( $current_user_id, 'buddynext-profile/edit-any' );
+
 if ( ! $is_own_profile && ! current_user_can( 'manage_options' )
 	&& ! buddynext_service( 'privacy' )->can_view_profile( $current_user_id, $user_id )
 ) {
@@ -449,6 +456,7 @@ $bn_pf_ctx = array(
 			'member_type'         => is_array( $member_type ) ? $member_type : array(),
 			'social_links'        => is_array( $social_links ) ? $social_links : array(),
 			'is_owner'            => (bool) $is_own_profile,
+			'can_edit_any'        => (bool) $bn_can_edit_any,
 			'is_online'           => (bool) $is_online,
 			'is_following'        => (bool) $is_following,
 			'is_connected'        => (bool) $is_connected,

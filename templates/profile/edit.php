@@ -32,8 +32,10 @@ if ( empty( $user_id ) || ! is_int( $user_id ) ) {
 	$user_id = $current_user_id;
 }
 
-// Only own profile or administrators may edit.
-if ( $user_id !== $current_user_id && ! current_user_can( 'edit_users' ) ) {
+// Only own profile, or a user granted "Edit anyone's profile" (role map —
+// buddynext-profile/edit-any; site admins always pass). Replaces the hard-coded
+// edit_users cap so the Roles & Capabilities toggle actually governs this.
+if ( $user_id !== $current_user_id && ! buddynext_can( $current_user_id, 'buddynext-profile/edit-any' ) ) {
 	wp_die( esc_html__( 'You do not have permission to edit this profile.', 'buddynext' ), 403 );
 }
 
@@ -240,6 +242,10 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 ?>
 <div class="bn-ep-wrap"
 	data-wp-interactive="buddynext/profile"
+	<?php // When editing someone else's profile (edit-any), the store saves to that user's REST route instead of /me/profile. Absent/0 = editing own. ?>
+	<?php if ( $user_id !== $current_user_id ) : ?>
+		data-bn-profile-user="<?php echo absint( $user_id ); ?>"
+	<?php endif; ?>
 	data-wp-init="callbacks.initEditGuard"
 	<?php
 	// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped

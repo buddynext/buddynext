@@ -80,6 +80,7 @@ $args = array(
 	'member_type'         => isset( $member_type ) && is_array( $member_type ) ? $member_type : array(),
 	'social_links'        => isset( $social_links ) && is_array( $social_links ) ? $social_links : array(),
 	'is_owner'            => isset( $is_owner ) ? (bool) $is_owner : false,
+	'can_edit_any'        => isset( $can_edit_any ) ? (bool) $can_edit_any : false,
 	'is_online'           => isset( $is_online ) ? (bool) $is_online : false,
 	'is_following'        => isset( $is_following ) ? (bool) $is_following : false,
 	'is_connected'        => isset( $is_connected ) ? (bool) $is_connected : false,
@@ -130,6 +131,7 @@ $bn_pf_degree        = (string) $args['degree_badge'];
 $bn_pf_member_type   = (array) $args['member_type'];
 $bn_pf_social        = (array) $args['social_links'];
 $bn_pf_is_owner      = (bool) $args['is_owner'];
+$bn_pf_can_edit      = (bool) $args['can_edit_any'];
 $bn_pf_is_online     = (bool) $args['is_online'];
 $bn_pf_is_following  = (bool) $args['is_following'];
 $bn_pf_is_connected  = (bool) $args['is_connected'];
@@ -546,6 +548,12 @@ do_action( 'buddynext_part_profile_hero_before', $args );
 						data-wp-on--click="actions.toggleMoreMenu"
 						data-wp-bind--aria-expanded="context.moreMenuOpen"><?php buddynext_icon( 'more-horizontal' ); ?></button>
 					<div class="bn-more-menu" role="menu">
+							<?php // Edit this member's profile - shown to holders of the "Edit anyone's profile" capability (buddynext-profile/edit-any). ?>
+							<?php if ( $bn_pf_can_edit ) : ?>
+								<a class="bn-more-menu-item" role="menuitem" href="<?php echo esc_url( \BuddyNext\Core\PageRouter::edit_profile_url( $bn_pf_uid ) ); ?>">
+									<?php esc_html_e( 'Edit profile', 'buddynext' ); ?>
+								</a>
+							<?php endif; ?>
 						<button class="bn-more-menu-item"
 							role="menuitem"
 							data-wp-on--click="actions.toggleMute"
