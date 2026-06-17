@@ -854,6 +854,14 @@ class ModerationService {
 			return new WP_Error( 'forbidden', __( 'You do not have permission to suspend users.', 'buddynext' ) );
 		}
 
+		// Don't stack a second active suspension on an already-suspended user —
+		// is_suspended() and the moderation queue would double-count it. A
+		// re-suspend is idempotent: return the existing active suspension's id.
+		$already = $this->get_active_suspension( $user_id );
+		if ( null !== $already ) {
+			return (int) $already['id'];
+		}
+
 		$duration_days = isset( $opts['duration_days'] ) ? absint( $opts['duration_days'] ) : null;
 		$hide_posts    = ! empty( $opts['hide_posts'] ) ? 1 : 0;
 		$expires_at    = null;
@@ -1635,6 +1643,11 @@ class ModerationService {
 	public function suspend( int $user_id, string $reason, int $duration_days, bool $hide_content = false, int $suspended_by = 0 ): bool|WP_Error {
 		if ( $user_id <= 0 ) {
 			return new WP_Error( 'invalid_user', __( 'Invalid user ID.', 'buddynext' ) );
+		}
+
+		// Already actively suspended — don't insert a duplicate active row.
+		if ( null !== $this->get_active_suspension( $user_id ) ) {
+			return true;
 		}
 
 		$expires_at = null;
