@@ -826,9 +826,14 @@
 }
 
 /* Focus ring lives on the parent .bn-dm-composer__row:focus-within so the
- * inner textarea uses an inset zero-spread shadow instead of an outline. */
+ * inner textarea draws nothing of its own. The base .bn-textarea:focus-visible
+ * sets border-color:accent (and out-specifics .bn-dm-composer__input via its
+ * :focus-visible), which made the focused textarea draw a second border INSIDE
+ * the row's border - a nested double box. Reset the border here so only the
+ * row shows a single box on focus. */
 .bn-dm-composer__input:focus-visible {
 	outline: 1px solid transparent;
+	border: none;
 	box-shadow: none;
 }
 
