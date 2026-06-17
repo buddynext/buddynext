@@ -2561,47 +2561,12 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 .bn-composer-modal__upsell-text { margin: 0 0 var(--bn-s4); color: var(--bn-ink-3); }
 
 /* ── Home feed filter tabs ───────────────────────────────────────────────── */
-.bn-feed-filter-tabs {
-	display: flex;
-	gap: var(--bn-s5);
-	border-bottom: 1px solid var(--bn-line);
-	margin: 0;
-	flex-wrap: wrap;
-}
-.bn-feed-filter-tab {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 10px 0;
-	margin-bottom: -1px;
-	border-bottom: 2px solid transparent;
-	font-size: var(--bn-text-sm);
-	font-weight: var(--bn-fw-medium-semibold);
-	color: var(--bn-ink-3);
-	text-decoration: none;
-	transition: color var(--bn-dur-fast) var(--bn-ease), border-color var(--bn-dur-fast) var(--bn-ease);
-}
-.bn-feed-filter-tab:hover { color: var(--bn-ink); }
-.bn-feed-filter-tab[aria-current="true"] {
-	color: var(--bn-ink);
-	border-bottom-color: var(--bn-accent, var(--brand));
-}
-.bn-feed-filter-tab__count {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	min-width: 18px;
-	padding: 1px 6px;
-	font-size: 10px;
-	font-weight: 600;
-	background: var(--bn-sunken);
-	color: var(--bn-ink-3);
-	border-radius: 999px;
-}
-.bn-feed-filter-tab[aria-current="true"] .bn-feed-filter-tab__count {
-	background: color-mix(in oklch, var(--bn-accent, var(--brand)) 16%, var(--bn-surface));
-	color: var(--bn-accent, var(--brand));
-}
+/* The home feed filter tabs now use the shared .bn-tabs/.bn-tab primitive
+   (see templates/feed/home.php) so they match the Home/Explore row and every
+   other tab bar - font, focus ring, active state and overflow scroll-fade are
+   all inherited. The former bespoke .bn-feed-filter-tab* styles were removed to
+   end the duplicate tab language; the .bn-feed-filter-tab class is retained on
+   the element only as a JS hook for the feed-tabs store. */
 
 /* ── Feed skeleton + inline error ─────────────────────────────────────────── */
 .bn-feed-skeleton[hidden] { display: none; }

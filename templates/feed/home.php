@@ -54,8 +54,8 @@ $allowed_filters = array( 'for-you', 'following', 'network' );
 if ( $bn_spaces_on ) {
 	$allowed_filters[] = 'spaces';
 }
-$raw_filter      = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'for-you'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$bn_filter       = in_array( $raw_filter, $allowed_filters, true ) ? $raw_filter : 'for-you';
+$raw_filter = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter'] ) ) : 'for-you'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$bn_filter  = in_array( $raw_filter, $allowed_filters, true ) ? $raw_filter : 'for-you';
 
 // Cursor is base64( "created_at|id" ) — same format as FeedService::encode_cursor().
 // Decode defensively; fall back to no cursor (first page) on any invalid input.
@@ -346,7 +346,10 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 	</div>
 
 	<!-- Home feed filter tabs (For you / Following / Spaces / Network) -->
-	<div class="bn-feed-filter-tabs"
+	<!-- Carries the .bn-tabs/.bn-tab primitive so it matches the Home/Explore row
+		and every other tab bar (font, focus ring, overflow scroll-fade); the
+		.bn-feed-filter-tab* classes + aria-current are kept for the feed-tabs JS. -->
+	<div class="bn-tabs bn-feed-filter-tabs"
 		role="tablist"
 		aria-label="<?php esc_attr_e( 'Filter home feed', 'buddynext' ); ?>"
 		data-wp-interactive="buddynext/feed-tabs"
@@ -398,21 +401,21 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 			$tab_url   = add_query_arg( 'filter', $tab_slug, PageRouter::activity_url() );
 			?>
 			<a
-				class="bn-feed-filter-tab"
+				class="bn-tab bn-feed-filter-tab"
 				role="tab"
 				href="<?php echo esc_url( $tab_url ); ?>"
 				data-filter="<?php echo esc_attr( $tab_slug ); ?>"
 				aria-current="<?php echo $is_active ? 'true' : 'false'; ?>"
 				data-wp-on--click="actions.setFilter"
 			>
-				<span class="bn-feed-filter-tab__label"><?php echo esc_html( $tab_meta['label'] ); ?></span>
+				<span class="bn-tab__label"><?php echo esc_html( $tab_meta['label'] ); ?></span>
 				<?php
 				if ( $tab_meta['count'] > 0 ) :
 					// Cap the badge so a primary feed tab never shows a noisy 4-digit
 					// total (e.g. "3,014"); premium feeds cap count chips at 99+.
 					$bn_count_label = $tab_meta['count'] > 99 ? '99+' : number_format_i18n( $tab_meta['count'] );
 					?>
-					<span class="bn-feed-filter-tab__count"><?php echo esc_html( $bn_count_label ); ?></span>
+					<span class="bn-tab__count"><?php echo esc_html( $bn_count_label ); ?></span>
 				<?php endif; ?>
 			</a>
 		<?php endforeach; ?>

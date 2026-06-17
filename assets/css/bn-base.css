@@ -2236,6 +2236,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	border-radius: var(--bn-r-sm);
 }
 .bn-tab[aria-selected="true"],
+.bn-tab[aria-current="true"],
 .bn-tab[data-active],
 .bn-tab.is-active {
 	color: var(--bn-ink);
@@ -2249,7 +2250,8 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	padding: 1px 6px;
 	border-radius: var(--bn-r-full);
 }
-.bn-tab[aria-selected="true"] .bn-tab__count {
+.bn-tab[aria-selected="true"] .bn-tab__count,
+.bn-tab[aria-current="true"] .bn-tab__count {
 	background: var(--bn-accent-100);
 	color: var(--bn-accent-700);
 }
