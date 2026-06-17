@@ -38,6 +38,18 @@ class OutboundWebhookService {
 	private const MAX_CONSECUTIVE_FAILURES = 3;
 
 	/**
+	 * Transient holding the active-endpoint count, so dispatch() on a site with
+	 * no webhooks costs no query per lifecycle event. Self-heals within the TTL
+	 * and is flushed explicitly on register/delete/auto-deactivate.
+	 */
+	private const ACTIVE_COUNT_CACHE_KEY = 'bn_outbound_webhooks_active_count';
+
+	/**
+	 * Cron hook that performs the (off-request) outbound delivery for one event.
+	 */
+	private const DELIVER_HOOK = 'buddynext_webhook_deliver';
+
+	/**
 	 * Register the five-minute WP-Cron schedule, schedule the retry event, and
 	 * bind the retry handler. Called once during Plugin::init().
 	 */
@@ -48,6 +60,10 @@ class OutboundWebhookService {
 		add_action( 'init', array( $this, 'schedule_cron' ) );
 
 		add_action( 'buddynext_webhook_retry', array( $this, 'retry_failed' ) );
+
+		// Off-request delivery worker: dispatch() queues this single event so the
+		// originating request never blocks on outbound HTTP.
+		add_action( self::DELIVER_HOOK, array( $this, 'run_delivery' ), 10, 2 );
 	}
 
 	/**
@@ -151,6 +167,8 @@ class OutboundWebhookService {
 			);
 		}
 
+		$this->flush_active_cache();
+
 		return (int) $wpdb->insert_id;
 	}
 
@@ -215,6 +233,8 @@ class OutboundWebhookService {
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
+		$this->flush_active_cache();
+
 		return false !== $deleted && $deleted > 0;
 	}
 
@@ -262,33 +282,67 @@ class OutboundWebhookService {
 	}
 
 	/**
-	 * Dispatch an event to all matching active endpoints.
+	 * Queue an event for outbound delivery.
 	 *
-	 * Webhooks with an empty events array receive all events. Webhooks with a
-	 * non-empty events array receive only the events listed.
+	 * Runs inside core lifecycle hooks (post created, follow, …), so it must be
+	 * cheap and non-blocking: it does no per-webhook query and never calls out
+	 * over HTTP. When at least one endpoint is active (cached count) it schedules
+	 * a single-run cron job that performs the event-filtered query and the
+	 * blocking sends off the request. Sites with no webhooks pay nothing.
 	 *
 	 * @param string              $event_slug Event slug, e.g. 'member.registered'.
 	 * @param array<string,mixed> $payload    Event-specific data.
 	 */
 	public function dispatch( string $event_slug, array $payload ): void {
+		if ( $this->active_webhook_count() < 1 ) {
+			return;
+		}
+
+		$args = array( $event_slug, $payload );
+		if ( ! wp_next_scheduled( self::DELIVER_HOOK, $args ) ) {
+			wp_schedule_single_event( time(), self::DELIVER_HOOK, $args );
+		}
+	}
+
+	/**
+	 * Cron worker: deliver one queued event to every subscribed active endpoint.
+	 *
+	 * The subscription match is pushed into SQL (events = all, or JSON_CONTAINS
+	 * the slug) so only relevant endpoints are loaded — not every active row —
+	 * and the blocking HTTP sends happen here, off the originating request.
+	 *
+	 * @param string              $event_slug Event slug.
+	 * @param array<string,mixed> $payload    Event-specific data.
+	 */
+	public function run_delivery( string $event_slug, array $payload ): void {
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$event_json = (string) wp_json_encode( $event_slug );
+
+		// COALESCE/NULLIF normalises legacy NULL/'' event columns to '[]' so
+		// JSON_CONTAINS always receives valid JSON; '[]' means "all events".
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$webhooks = $wpdb->get_results(
-			"SELECT id, url, secret, events
-			   FROM {$wpdb->prefix}bn_outbound_webhooks
-			  WHERE is_active = 1",
+			$wpdb->prepare(
+				"SELECT id, url, secret, events
+				   FROM {$wpdb->prefix}bn_outbound_webhooks
+				  WHERE is_active = 1
+				    AND ( COALESCE( NULLIF( events, '' ), '[]' ) = '[]'
+				          OR JSON_CONTAINS( COALESCE( NULLIF( events, '' ), '[]' ), %s ) )",
+				$event_json
+			),
 			ARRAY_A
 		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		if ( empty( $webhooks ) ) {
 			return;
 		}
 
 		foreach ( $webhooks as $webhook ) {
-			$subscribed = json_decode( (string) ( $webhook['events'] ?? 'null' ), true );
-
+			// Re-affirm the match in PHP — authoritative, and defensive against
+			// any JSON quoting edge case the SQL filter might admit.
+			$subscribed    = json_decode( (string) ( $webhook['events'] ?? 'null' ), true );
 			$matches_all   = ! is_array( $subscribed ) || count( $subscribed ) === 0;
 			$matches_event = is_array( $subscribed ) && in_array( $event_slug, $subscribed, true );
 
@@ -304,6 +358,38 @@ class OutboundWebhookService {
 				$payload
 			);
 		}
+	}
+
+	/**
+	 * Active-endpoint count, cached so dispatch() costs no query on the common
+	 * (no-webhooks) path. Self-heals within the TTL; flushed on register/delete/
+	 * auto-deactivate via flush_active_cache().
+	 *
+	 * @return int
+	 */
+	private function active_webhook_count(): int {
+		$cached = get_transient( self::ACTIVE_COUNT_CACHE_KEY );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_outbound_webhooks WHERE is_active = 1" );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		set_transient( self::ACTIVE_COUNT_CACHE_KEY, $count, HOUR_IN_SECONDS );
+
+		return $count;
+	}
+
+	/**
+	 * Invalidate the cached active-endpoint count. Public so a Pro toggle path
+	 * that flips is_active outside this service can keep the cache honest.
+	 *
+	 * @return void
+	 */
+	public function flush_active_cache(): void {
+		delete_transient( self::ACTIVE_COUNT_CACHE_KEY );
 	}
 
 	/**
@@ -517,6 +603,7 @@ class OutboundWebhookService {
 				array( '%d' ),
 				array( '%d' )
 			);
+			$this->flush_active_cache();
 		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
