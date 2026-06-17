@@ -1587,6 +1587,18 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	padding: var(--bn-s1) var(--bn-s3);
 }
 
+/* Footer row for the edit form so emoji + Save + Cancel align on one line
+   instead of stretching full-width in the column layout. */
+.bn-comment__edit-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--bn-s2);
+}
+
+.bn-comment__edit-actions .bn-comment-form__submit {
+	align-self: center;
+}
+
 /* Reply-form submit reuses .bn-comment-form__submit (the circular icon button)
    but carries a text label ("Reply"), which the 40x40 icon sizing clipped and
    left misaligned next to the text Cancel link. Match the edit-form override so
@@ -2382,7 +2394,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	line-height: 0;
 	align-self: center;
 }
-.bn-comment__emoji-trigger img { width: 18px; height: 18px; display: block; }
+.bn-comment__emoji-trigger img,
+.bn-comment__emoji-trigger svg { width: 18px; height: 18px; display: block; }
 
 @media (max-width: 640px) {
 	.bn-emoji-popover { grid-template-columns: repeat(6, 1fr); max-width: 260px; }
