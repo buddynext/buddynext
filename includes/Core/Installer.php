@@ -355,6 +355,18 @@ class Installer {
 				'preview_text' => 'Complete your onboarding to get the most out of the community',
 				'body_html'    => '<p>Hi {{recipient_name}},</p><p>You\'re almost there! Complete your profile setup on <strong>{{site_name}}</strong> to connect with the community.</p><p><a href="{{onboarding_url}}">Complete your profile &rarr;</a></p>',
 			),
+			array(
+				'type'         => 'bn.new_message',
+				'subject'      => 'New message on {{site_name}}',
+				'preview_text' => 'You have a new direct message',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>You have a new direct message on {{site_name}}. <a href="{{action_url}}">Read it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
+			array(
+				'type'         => 'bn.media_favorited',
+				'subject'      => 'Someone favorited your media on {{site_name}}',
+				'preview_text' => 'Your media received a new favorite',
+				'body_html'    => '<p>Hi {{user_name}},</p><p>Someone favorited your media on {{site_name}}. <a href="{{action_url}}">View it.</a></p><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>',
+			),
 		);
 
 		// Table name is a hardcoded constant — safe to interpolate. Values use prepare().

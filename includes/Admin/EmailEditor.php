@@ -152,6 +152,22 @@ class EmailEditor {
 					'preview' => '{{sharer_name}} shared your post.',
 					'body'    => "Hi {{recipient_name}},\n\n<strong>{{sharer_name}}</strong> shared your post on {{site_name}}.\n\n<a href=\"{{post_url}}\">View post →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
 				),
+				'bn.new_message'          => array(
+					'name'    => __( 'New Message', 'buddynext' ),
+					'trigger' => __( 'When you receive a direct message', 'buddynext' ),
+					'tokens'  => array( '{{recipient_name}}', '{{sender_name}}', '{{action_url}}', '{{site_name}}', '{{unsubscribe_url}}' ),
+					'subject' => 'New message from {{sender_name}} on {{site_name}}',
+					'preview' => '{{sender_name}} sent you a message.',
+					'body'    => "Hi {{recipient_name}},\n\n<strong>{{sender_name}}</strong> sent you a direct message on {{site_name}}.\n\n<a href=\"{{action_url}}\">Read it →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
+				),
+				'bn.media_favorited'      => array(
+					'name'    => __( 'Media Favorited', 'buddynext' ),
+					'trigger' => __( 'When someone favorites your media', 'buddynext' ),
+					'tokens'  => array( '{{recipient_name}}', '{{actor_name}}', '{{action_url}}', '{{site_name}}', '{{unsubscribe_url}}' ),
+					'subject' => '{{actor_name}} favorited your media on {{site_name}}',
+					'preview' => '{{actor_name}} favorited your media.',
+					'body'    => "Hi {{recipient_name}},\n\n<strong>{{actor_name}}</strong> favorited your media on {{site_name}}.\n\n<a href=\"{{action_url}}\">View it →</a>\n\n<a href=\"{{unsubscribe_url}}\">Unsubscribe</a>",
+				),
 			),
 			__( 'Spaces', 'buddynext' )       => array(
 				'bn.space_invite'           => array(
