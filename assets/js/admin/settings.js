@@ -329,6 +329,55 @@
 		} );
 	}
 
+	// ─── Secret fields (Generate / Rotate / Show) ────────────────────────
+	// Wires the webhook shared-secret controls. Copy is handled by the generic
+	// initCopyButtons() above (data-bn-copy). Generation is client-side via the
+	// Web Crypto API — a strong 32-byte secret never leaves the browser until
+	// the owner clicks Save, so we never round-trip a half-formed value.
+	function initSecretFields() {
+		function randomSecret() {
+			var bytes = new Uint8Array( 32 );
+			( window.crypto || window.msCrypto ).getRandomValues( bytes );
+			var hex = '';
+			for ( var i = 0; i < bytes.length; i++ ) {
+				hex += ( '0' + bytes[ i ].toString( 16 ) ).slice( -2 );
+			}
+			return hex;
+		}
+
+		document.addEventListener( 'click', function ( e ) {
+			if ( ! e.target.closest ) { return; }
+
+			var gen = e.target.closest( '[data-bn-secret-generate]' );
+			if ( gen ) {
+				e.preventDefault();
+				var genTarget = document.getElementById( gen.getAttribute( 'data-bn-secret-generate' ) );
+				if ( ! genTarget ) { return; }
+				genTarget.value = randomSecret();
+				genTarget.type  = 'text';
+				var group = gen.closest( '[data-bn-secret-group]' );
+				var msg   = group ? group.querySelector( '[data-bn-secret-msg]' ) : null;
+				var reveal = group ? group.querySelector( '[data-bn-secret-reveal]' ) : null;
+				if ( reveal ) { reveal.textContent = reveal.getAttribute( 'data-hide-label' ) || 'Hide'; reveal.setAttribute( 'aria-pressed', 'true' ); }
+				if ( msg ) { msg.textContent = msg.getAttribute( 'data-generated-label' ) || 'New secret generated. Click Save Settings to apply, then copy it into your receiving service.'; }
+				return;
+			}
+
+			var rev = e.target.closest( '[data-bn-secret-reveal]' );
+			if ( rev ) {
+				e.preventDefault();
+				var revTarget = document.getElementById( rev.getAttribute( 'data-bn-secret-reveal' ) );
+				if ( ! revTarget ) { return; }
+				var show = 'password' === revTarget.type;
+				revTarget.type = show ? 'text' : 'password';
+				rev.textContent = show
+					? ( rev.getAttribute( 'data-hide-label' ) || 'Hide' )
+					: ( rev.getAttribute( 'data-show-label' ) || 'Show' );
+				rev.setAttribute( 'aria-pressed', show ? 'true' : 'false' );
+			}
+		} );
+	}
+
 	if ( document.readyState === 'loading' ) {
 		document.addEventListener( 'DOMContentLoaded', function () {
 			initSettingsSearch();
@@ -336,6 +385,7 @@
 			initCopyButtons();
 			initCompanions();
 			initColorFields();
+			initSecretFields();
 		} );
 	} else {
 		initSettingsSearch();
@@ -343,5 +393,6 @@
 		initCopyButtons();
 		initCompanions();
 		initColorFields();
+		initSecretFields();
 	}
 } )();

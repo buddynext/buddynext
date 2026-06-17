@@ -444,6 +444,35 @@
 	margin-top: var(--bn-a-s1);
 }
 
+/* Input + action buttons on one row (e.g. the webhook secret: Show/Copy/
+   Generate). The text input flexes to fill; the buttons keep their size. */
+.bn-input-group {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: stretch;
+	gap: var(--bn-a-s2);
+}
+
+.bn-input-group > input.bn-text-input {
+	flex: 1 1 280px;
+	min-width: 0;
+}
+
+.bn-input-group > .bn-btn {
+	flex: 0 0 auto;
+}
+
+.bn-secret-msg {
+	display: block;
+	font-size: var(--bn-a-text-xs);
+	color: var(--bn-a-green);
+	margin-top: var(--bn-a-s1);
+}
+
+.bn-secret-msg:empty {
+	display: none;
+}
+
 input.bn-text-input {
 	border: 1px solid var(--bn-a-border) !important;
 	border-radius: var(--bn-a-r-sm) !important;

@@ -2041,18 +2041,43 @@ class Settings extends AdminPageBase {
 	 */
 	private function render_tab_webhooks(): void {
 		$this->open_section( __( 'Webhook Secret', 'buddynext' ) );
+
+		$webhook_secret = (string) get_option( self::OPTION_WEBHOOK_SECRET, '' );
+		$has_secret     = '' !== $webhook_secret;
 		?>
-		<div class="bn-field">
+		<div class="bn-field" data-bn-secret-group>
 			<label for="bn-webhook-secret"><?php esc_html_e( 'Shared Secret', 'buddynext' ); ?></label>
-			<input type="password"
-					id="bn-webhook-secret"
-					name="<?php echo esc_attr( self::OPTION_WEBHOOK_SECRET ); ?>"
-					value="<?php echo esc_attr( (string) get_option( self::OPTION_WEBHOOK_SECRET, '' ) ); ?>"
-					class="bn-text-input regular-text"
-					autocomplete="new-password">
+			<div class="bn-input-group">
+				<input type="password"
+						id="bn-webhook-secret"
+						name="<?php echo esc_attr( self::OPTION_WEBHOOK_SECRET ); ?>"
+						value="<?php echo esc_attr( $webhook_secret ); ?>"
+						class="bn-text-input"
+						autocomplete="new-password"
+						spellcheck="false">
+				<button type="button"
+						class="bn-btn"
+						data-variant="secondary"
+						data-bn-secret-reveal="bn-webhook-secret"
+						data-show-label="<?php esc_attr_e( 'Show', 'buddynext' ); ?>"
+						data-hide-label="<?php esc_attr_e( 'Hide', 'buddynext' ); ?>"
+						aria-pressed="false"><?php esc_html_e( 'Show', 'buddynext' ); ?></button>
+				<button type="button"
+						class="bn-btn"
+						data-variant="secondary"
+						data-bn-copy="bn-webhook-secret"><?php esc_html_e( 'Copy', 'buddynext' ); ?></button>
+				<button type="button"
+						class="bn-btn"
+						data-variant="secondary"
+						data-bn-secret-generate="bn-webhook-secret"
+						data-generated-label="<?php esc_attr_e( 'New secret generated. Click Save Settings to apply, then copy it into your receiving service.', 'buddynext' ); ?>">
+					<?php echo $has_secret ? esc_html__( 'Rotate', 'buddynext' ) : esc_html__( 'Generate', 'buddynext' ); ?>
+				</button>
+			</div>
 			<span class="bn-field-hint">
-				<?php esc_html_e( 'Used to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Leave blank to disable signature verification.', 'buddynext' ); ?>
+				<?php esc_html_e( 'A shared secret BuddyNext uses to sign outgoing webhooks (HMAC-SHA256) and to verify inbound access requests at POST buddynext/v1/webhook/access. Click Generate for a strong secret, copy it into your receiving service (Slack, Zapier, your endpoint), then Save. Rotating invalidates the old value until you update it there. Leave blank to disable signature verification.', 'buddynext' ); ?>
 			</span>
+			<span class="bn-secret-msg" role="status" aria-live="polite" data-bn-secret-msg></span>
 		</div>
 		<?php
 		$this->close_section();
