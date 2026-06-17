@@ -440,7 +440,10 @@ function collectRepeaterEntries( containerId ) {
 		var entry = {};
 		row.querySelectorAll( 'input[name], textarea[name]' ).forEach( function ( el ) {
 			var m = el.name.match( /\[\d+\]\[([^\]]+)\]$/ );
-			if ( m ) { entry[ m[1] ] = el.value; }
+			if ( ! m ) { return; }
+			// Checkboxes (e.g. work_current) store "1" when ticked, "" otherwise —
+			// reading .value alone would always yield "1" regardless of state.
+			entry[ m[1] ] = ( 'checkbox' === el.type ) ? ( el.checked ? '1' : '' ) : el.value;
 		} );
 		entries.push( entry );
 	} );
@@ -595,7 +598,8 @@ function buildEntryNode( group, index ) {
 				{ key: 'work_title',       label: 'Job Title',        type: 'text',     placeholder: 'Your role' },
 				{ key: 'work_location',    label: 'Location',          type: 'text',     placeholder: 'City or Remote' },
 				{ key: 'work_start_date',  label: 'Start Date',        type: 'date' },
-				{ key: 'work_end_date',    label: 'End Date',          type: 'date' },
+				{ key: 'work_end_date',    label: 'End Date',          type: 'date',     endControl: true },
+				{ key: 'work_current',     label: 'Currently Working', type: 'boolean',  currentToggle: 'work_end_date' },
 				{ key: 'work_description', label: 'Description',        type: 'textarea', placeholder: 'Brief description of your role', fullWidth: true },
 			],
 		},
@@ -603,11 +607,12 @@ function buildEntryNode( group, index ) {
 			containerId: repeaterContainerId( 'education' ),
 			removeLabel: 'Remove this entry',
 			fields: [
-				{ key: 'edu_institution', label: 'Institution',    type: 'text',   placeholder: 'School or University' },
-				{ key: 'edu_degree',      label: 'Degree',         type: 'text',   placeholder: 'e.g. Bachelor of Science' },
-				{ key: 'edu_field',       label: 'Field of Study', type: 'text',   placeholder: 'e.g. Computer Science' },
-				{ key: 'edu_start_year',  label: 'Start Year',     type: 'number', placeholder: 'e.g. 2016' },
-				{ key: 'edu_end_year',    label: 'End Year',       type: 'number', placeholder: 'e.g. 2020' },
+				{ key: 'edu_institution', label: 'Institution',         type: 'text',    placeholder: 'School or University' },
+				{ key: 'edu_degree',      label: 'Degree',              type: 'text',    placeholder: 'e.g. Bachelor of Science' },
+				{ key: 'edu_field',       label: 'Field of Study',      type: 'text',    placeholder: 'e.g. Computer Science' },
+				{ key: 'edu_start_year',  label: 'Start Year',          type: 'number',  placeholder: 'e.g. 2016' },
+				{ key: 'edu_end_year',    label: 'End Year',            type: 'number',  placeholder: 'e.g. 2020', endControl: true },
+				{ key: 'edu_current',     label: 'Currently Attending', type: 'boolean', currentToggle: 'edu_end_year' },
 			],
 		},
 	};
@@ -657,6 +662,29 @@ function buildEntryNode( group, index ) {
 			row = null;
 			return;
 		}
+
+		// Boolean ("currently working / attending") renders as a checkbox inline
+		// with its label — matching FieldType::render_input's `boolean` output —
+		// not a bare text box. It takes a full row of its own.
+		if ( 'boolean' === fieldDef.type || 'checkbox' === fieldDef.type ) {
+			var bgrp = document.createElement( 'div' );
+			bgrp.className = 'bn-ep-group bn-ep-group--full';
+			var blabel = document.createElement( 'label' );
+			blabel.className = 'bn-field-checkbox';
+			var cb = document.createElement( 'input' );
+			cb.type  = 'checkbox';
+			cb.name  = group + '[' + index + '][' + fieldDef.key + ']';
+			cb.value = '1';
+			var span = document.createElement( 'span' );
+			span.textContent = fieldDef.label;
+			blabel.appendChild( cb );
+			blabel.appendChild( span );
+			bgrp.appendChild( blabel );
+			entry.appendChild( bgrp );
+			row = null;
+			return;
+		}
+
 		if ( fi % 2 === 0 ) {
 			row = document.createElement( 'div' );
 			row.className = 'bn-ep-repeater-row';
@@ -678,6 +706,56 @@ function buildEntryNode( group, index ) {
 	} );
 
 	return entry;
+}
+
+/* Pair each "currently here / attending" boolean to the end date/year it
+   supersedes. Checking the box marks the role/study as ongoing, so the paired
+   End field is cleared, disabled, and shown as "Present". */
+var CURRENT_TOGGLE_PAIRS = {
+	work_current: 'work_end_date',
+	edu_current:  'edu_end_year',
+};
+
+/* Apply (or release) the "Present" state of a current-status checkbox onto its
+   paired end field within the same repeater entry. Works for both the
+   server-rendered rows and the JS-built ones (matched by name convention). */
+function applyCurrentToggle( checkbox ) {
+	var m = ( checkbox.name || '' ).match( /^([^\[]+)\[(\d+)\]\[([^\]]+)\]$/ );
+	if ( ! m ) { return; }
+	var endKey = CURRENT_TOGGLE_PAIRS[ m[3] ];
+	if ( ! endKey ) { return; }
+	var entry = checkbox.closest( '.bn-ep-repeater-entry' );
+	if ( ! entry ) { return; }
+	var endEl = entry.querySelector( '[name="' + m[1] + '[' + m[2] + '][' + endKey + ']"]' );
+	if ( ! endEl ) { return; }
+	if ( checkbox.checked ) {
+		endEl.value    = '';
+		endEl.disabled = true;
+		endEl.setAttribute( 'placeholder', 'Present' );
+	} else {
+		endEl.disabled = false;
+		endEl.removeAttribute( 'placeholder' );
+	}
+}
+
+/* Bind one delegated change listener on the edit shell so every current-status
+   checkbox — including entries added after load — toggles its paired end field,
+   then run an initial pass for entries the server rendered already checked. */
+function wireCurrentToggles() {
+	var shell = document.querySelector( '[data-wp-interactive="buddynext/profile"]' );
+	if ( ! shell || shell.__bnCurrentTogglesBound ) { return; }
+	shell.addEventListener( 'change', function ( e ) {
+		var t = e.target;
+		if ( t && 'checkbox' === t.type && CURRENT_TOGGLE_PAIRS[ ( ( t.name || '' ).match( /\[([^\]]+)\]$/ ) || [] )[ 1 ] ] ) {
+			applyCurrentToggle( t );
+		}
+	} );
+	shell.querySelectorAll( 'input[type="checkbox"]' ).forEach( function ( cb ) {
+		if ( CURRENT_TOGGLE_PAIRS[ ( ( cb.name || '' ).match( /\[([^\]]+)\]$/ ) || [] )[ 1 ] ] ) {
+			applyCurrentToggle( cb );
+		}
+	} );
+	shell.__bnCurrentTogglesBound = true;
 }
 
 /* Track the beforeunload listener so we can attach once and detach on save. */
@@ -797,6 +875,7 @@ store( 'buddynext/profile', {
 		/* Init for the edit page: register the beforeunload guard once. */
 		initEditGuard() {
 			ensureUnloadGuard();
+			wireCurrentToggles();
 		},
 		/* Init for the view page: read ?tab=... and wire popstate. */
 		initView() {

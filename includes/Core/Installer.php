@@ -575,7 +575,7 @@ class Installer {
 			array( 'work_experience', 'work_location', 'Location', 'text', 0, 0, 3 ),
 			array( 'work_experience', 'work_start_date', 'Start Date', 'date', 0, 0, 4 ),
 			array( 'work_experience', 'work_end_date', 'End Date', 'date', 0, 0, 5 ),
-			array( 'work_experience', 'work_current', 'Currently Working', 'checkbox', 0, 0, 6 ),
+			array( 'work_experience', 'work_current', 'Currently Working', 'boolean', 0, 0, 6 ),
 			array( 'work_experience', 'work_description', 'Description', 'textarea', 0, 0, 7 ),
 
 			// education (repeater).
@@ -584,7 +584,7 @@ class Installer {
 			array( 'education', 'edu_field', 'Field of Study', 'text', 0, 0, 3 ),
 			array( 'education', 'edu_start_year', 'Start Year', 'number', 0, 0, 4 ),
 			array( 'education', 'edu_end_year', 'End Year', 'number', 0, 0, 5 ),
-			array( 'education', 'edu_current', 'Currently Attending', 'checkbox', 0, 0, 6 ),
+			array( 'education', 'edu_current', 'Currently Attending', 'boolean', 0, 0, 6 ),
 
 			// skills (flat).
 			array( 'skills', 'interests', 'Skills / Interests', 'text', 0, 1, 1 ),

@@ -348,11 +348,19 @@ do_action( 'buddynext_profile_edit_before', isset( $user_id ) ? (int) $user_id :
 								continue;
 							}
 							$bn_fkey  = (string) $bn_field['field_key'];
+							$bn_ftype = isset( $bn_field['type'] ) ? (string) $bn_field['type'] : 'text';
 							$bn_name  = $bn_gkey . '[' . $bn_idx_int . '][' . $bn_fkey . ']';
 							$bn_label = isset( $bn_field['label'] ) ? (string) $bn_field['label'] : ucwords( str_replace( '_', ' ', $bn_fkey ) );
 							$bn_ctrl  = \BuddyNext\Profile\FieldType::render_input( $bn_field, $bn_field['value'] ?? '', $bn_name );
 
-							$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label" for="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_fkey ) . '-' . $bn_idx_int ) . '">' . esc_html( $bn_label ) . '</label>' . $bn_ctrl . '</div>';
+							// A boolean's control is already self-labelling (the checkbox
+							// carries its own label), so it gets a full-width row with no
+							// redundant outer label.
+							if ( 'boolean' === $bn_ftype ) {
+								$bn_rep_html .= '<div class="bn-ep-field bn-ep-field--full">' . $bn_ctrl . '</div>';
+							} else {
+								$bn_rep_html .= '<div class="bn-ep-field"><label class="bn-ep-label" for="' . esc_attr( 'bn-ep-' . str_replace( '_', '-', $bn_fkey ) . '-' . $bn_idx_int ) . '">' . esc_html( $bn_label ) . '</label>' . $bn_ctrl . '</div>';
+							}
 						}
 						$bn_rep_html .= '</div>';
 
