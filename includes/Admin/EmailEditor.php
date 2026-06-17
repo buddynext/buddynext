@@ -394,10 +394,11 @@ class EmailEditor {
 	 *
 	 * Replaces all tokens with placeholder values for preview purposes.
 	 *
-	 * @param string $slug Template slug.
+	 * @param string $slug      Template slug.
+	 * @param string $recipient Optional recipient; falls back to the admin email.
 	 * @return bool True if wp_mail() accepted the message.
 	 */
-	public function send_test( string $slug ): bool {
+	public function send_test( string $slug, string $recipient = '' ): bool {
 		$catalogue = $this->get_catalogue();
 		$defaults  = null;
 
@@ -448,8 +449,10 @@ class EmailEditor {
 		$subject = str_replace( array_keys( $placeholders ), array_values( $placeholders ), $subject );
 		$body    = str_replace( array_keys( $placeholders ), array_values( $placeholders ), $body );
 
-		$admin_email = get_option( 'admin_email', '' );
-		if ( '' === $admin_email ) {
+		// Send to the admin's chosen test recipient when given, else the admin email.
+		$recipient = sanitize_email( $recipient );
+		$to        = '' !== $recipient && is_email( $recipient ) ? $recipient : (string) get_option( 'admin_email', '' );
+		if ( '' === $to ) {
 			return false;
 		}
 
@@ -457,7 +460,7 @@ class EmailEditor {
 		// mirrors a real send exactly: same From name/address + Reply-To
 		// (Settings → Email) and the same branded wrapper, not wp_mail() defaults.
 		return \BuddyNext\Notifications\EmailSender::send_with_identity(
-			$admin_email,
+			$to,
 			'[Test] ' . $subject,
 			\BuddyNext\Notifications\EmailSender::brand_wrap( nl2br( $body ), $subject ),
 			\BuddyNext\Notifications\EmailSender::build_identity_headers()
@@ -513,8 +516,9 @@ class EmailEditor {
 
 		$this->ensure_table_or_die();
 
-		$slug = $this->sanitize_template_type( sanitize_text_field( wp_unslash( $_POST['template_slug'] ?? '' ) ) );
-		$sent = $this->send_test( $slug );
+		$slug      = $this->sanitize_template_type( sanitize_text_field( wp_unslash( $_POST['template_slug'] ?? '' ) ) );
+		$recipient = sanitize_email( wp_unslash( $_POST['bn_test_recipient'] ?? '' ) );
+		$sent      = $this->send_test( $slug, $recipient );
 
 		$redirect = $this->hub_url(
 			array(
@@ -1005,13 +1009,19 @@ class EmailEditor {
 				</header>
 				<div class="bn-modal__body">
 					<p>
-						<?php
-						printf(
-							/* translators: %s: admin email address */
-							esc_html__( 'A copy of this template, with sample data, will be sent to %s.', 'buddynext' ),
-							'<strong>' . esc_html( (string) get_option( 'admin_email', '' ) ) . '</strong>'
-						);
-						?>
+						<?php esc_html_e( 'A copy of this template, with sample data, will be sent using your configured From name, address, and Reply-To.', 'buddynext' ); ?>
+					</p>
+					<p class="bn-field">
+						<label for="bn-test-recipient"><?php esc_html_e( 'Send to', 'buddynext' ); ?></label>
+						<input
+							type="email"
+							id="bn-test-recipient"
+							name="bn_test_recipient"
+							class="regular-text"
+							value="<?php echo esc_attr( (string) get_option( 'admin_email', '' ) ); ?>"
+							placeholder="<?php esc_attr_e( 'you@example.com', 'buddynext' ); ?>"
+						>
+						<span class="bn-field-hint"><?php esc_html_e( 'Defaults to the site admin email. Change it to send the test elsewhere.', 'buddynext' ); ?></span>
 					</p>
 					<input type="hidden" name="action" value="buddynext_email_test">
 					<input type="hidden" name="template_slug" value="<?php echo esc_attr( $active_slug ); ?>">
