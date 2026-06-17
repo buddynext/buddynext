@@ -512,12 +512,24 @@ class AdminHub {
 	 * Build the wp-admin URL for a Hub tab (`?page=<section>&tab=<slug>`), with
 	 * optional extra query args merged in.
 	 *
-	 * @param string               $section Section key (e.g. 'monetization').
-	 * @param string               $tab     Tab slug (e.g. 'subscriptions').
+	 * The `$section` argument is the tab's *origin* section (what its registrar
+	 * passed to {@see register_tab()}); this resolves it through the same
+	 * placement map register_tab() uses, so a tab relocated to another section
+	 * (e.g. growth:broadcasts → campaigns) still produces the correct page slug.
+	 *
+	 * @param string               $section Origin section key (e.g. 'growth').
+	 * @param string               $tab     Tab slug (e.g. 'broadcasts').
 	 * @param array<string, mixed> $extra   Extra query args to append.
 	 * @return string Absolute admin URL; bare admin.php if the section is unknown.
 	 */
 	public static function tab_url( string $section, string $tab, array $extra = array() ): string {
+		// Apply the canonical placement so an origin section that the IA map
+		// relocates resolves to the section page the tab actually renders on.
+		$rule = self::tab_placement()[ $section . ':' . $tab ] ?? null;
+		if ( is_array( $rule ) && isset( $rule['section'] ) ) {
+			$section = (string) $rule['section'];
+		}
+
 		$page_slug = self::section_slug( $section );
 		if ( '' === $page_slug ) {
 			return admin_url( 'admin.php' );
