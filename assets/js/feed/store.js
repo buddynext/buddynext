@@ -1509,7 +1509,7 @@ function maybeDetectLink( ctx ) {
 }
 
 const PRIVACY_LABELS = {
-	public:      'Everyone',
+	public:      'Public',
 	followers:   'Followers',
 	connections: 'Connections',
 	private:     'Only me',
@@ -1758,8 +1758,8 @@ store( 'buddynext/post-composer', {
 		get privacyLabel() {
 			try {
 				const ctx = getContext();
-				return PRIVACY_LABELS[ ctx.privacy ] || 'Everyone';
-			} catch ( _e ) { return 'Everyone'; }
+				return PRIVACY_LABELS[ ctx.privacy ] || 'Public';
+			} catch ( _e ) { return 'Public'; }
 		},
 		get isPrivacyPublic() {
 			try { return getContext().privacy === 'public'; } catch ( _e ) { return false; }
@@ -2279,6 +2279,30 @@ store( 'buddynext/post-composer', {
 				ctx.privacy = value;
 			}
 			ctx.privacyOpen = false;
+		},
+		/**
+		 * Dismiss the privacy dropdown when a click lands outside its wrapper —
+		 * including on another composer tool (Poll, Schedule, Event, Media), the
+		 * textarea, or anywhere else on the page. Bound to the document via
+		 * data-wp-on-document--click on the composer root, mirroring the
+		 * post-card closePopups() pattern so the audience selector behaves like a
+		 * standard popover (Facebook/LinkedIn) rather than lingering open.
+		 *
+		 * @param {MouseEvent} event The document click event.
+		 */
+		closePrivacyOnOutside( event ) {
+			const ctx = getContext();
+			if ( ! ctx || ! ctx.privacyOpen ) {
+				return;
+			}
+			const ref = getElement()?.ref || null;
+			if ( ! ref ) {
+				return;
+			}
+			const wrap = ref.querySelector( '.bn-composer__privacy-wrap' );
+			if ( ! wrap || ! wrap.contains( event.target ) ) {
+				ctx.privacyOpen = false;
+			}
 		},
 	},
 	callbacks: {
