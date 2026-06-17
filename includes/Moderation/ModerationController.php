@@ -553,7 +553,9 @@ class ModerationController extends BaseRestController {
 						'type'              => 'integer',
 						'default'           => 20,
 						'minimum'           => 1,
-						'maximum'           => 100,
+						// Matches the handler's hard cap (min($per_page, 50)); the
+						// schema previously advertised 100 it would never honour.
+						'maximum'           => 50,
 						'sanitize_callback' => 'absint',
 					),
 					'page'     => array(

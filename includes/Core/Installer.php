@@ -1062,7 +1062,8 @@ class Installer {
 				KEY            actor (actor_id),
 				KEY            target_user (target_user_id),
 				KEY            created (created_at),
-				KEY            space (space_id)
+				KEY            space (space_id),
+				KEY            object (object_type, object_id)
 			) {$cs};",
 
 			"CREATE TABLE {$p}bn_user_strikes (

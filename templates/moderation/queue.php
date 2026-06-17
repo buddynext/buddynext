@@ -274,7 +274,7 @@ do_action( 'buddynext_moderation_queue_before' );
 		<div class="bn-stat" role="listitem" aria-live="polite">
 			<div class="bn-stat__label"><?php esc_html_e( 'Urgent reports', 'buddynext' ); ?></div>
 			<div class="bn-stat__value"><?php echo esc_html( number_format_i18n( $urgent_count ) ); ?></div>
-			<div class="bn-stat__delta" data-trend="<?php echo $urgent_count > 0 ? 'down' : 'flat'; ?>">
+			<div class="bn-stat__delta" data-trend="<?php echo esc_attr( $urgent_count > 0 ? 'down' : 'flat' ); ?>">
 				<?php echo $urgent_count > 0 ? esc_html__( 'Needs attention', 'buddynext' ) : esc_html__( 'All clear', 'buddynext' ); ?>
 			</div>
 		</div>
