@@ -41,7 +41,7 @@ class CookieConsentService {
 	 *
 	 * Only loads when the banner will actually render (the visitor has not yet
 	 * acknowledged it), so returning visitors pay no JS cost. The script is in
-	 * assets/js/privacy/cookie-consent.js — no inline script (UX-audit F2 rule).
+	 * assets/js/privacy/consent-banner.js — no inline script (UX-audit F2 rule).
 	 *
 	 * @return void
 	 */
@@ -52,7 +52,7 @@ class CookieConsentService {
 		}
 		wp_enqueue_script(
 			'bn-cookie-consent',
-			BUDDYNEXT_URL . 'assets/js/privacy/cookie-consent.js',
+			BUDDYNEXT_URL . 'assets/js/privacy/consent-banner.js',
 			array(),
 			BUDDYNEXT_VERSION,
 			true
@@ -89,7 +89,7 @@ class CookieConsentService {
 			</button>
 		</div>
 		<?php
-		// Reveal + accept behaviour lives in assets/js/privacy/cookie-consent.js
+		// Reveal + accept behaviour lives in assets/js/privacy/consent-banner.js
 		// (enqueued by enqueue_assets), reading the cookie name from the
 		// data-cookie-name attribute above. No inline script — UX-audit F2 rule.
 	}

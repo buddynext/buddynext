@@ -512,7 +512,24 @@ class ProfileController extends BaseRestController {
 			);
 		}
 
-		$user    = wp_get_current_user();
+		$user = wp_get_current_user();
+
+		// Per-user cooldown: a full data export walks every table for the member,
+		// so an unthrottled endpoint is a cheap self-inflicted DoS. Allow one
+		// export per user per window (default 5 min); the transient self-expires.
+		$cooldown = (int) apply_filters( 'buddynext_data_export_cooldown', 5 * MINUTE_IN_SECONDS );
+		if ( $cooldown > 0 ) {
+			$throttle_key = 'bn_data_export_' . (int) $user->ID;
+			if ( false !== get_transient( $throttle_key ) ) {
+				return new WP_Error(
+					'export_rate_limited',
+					__( 'You recently requested an export. Please wait a few minutes before trying again.', 'buddynext' ),
+					array( 'status' => 429 )
+				);
+			}
+			set_transient( $throttle_key, 1, $cooldown );
+		}
+
 		$privacy = new \BuddyNext\Privacy\PrivacyTools();
 		$items   = array();
 		$page    = 1;
