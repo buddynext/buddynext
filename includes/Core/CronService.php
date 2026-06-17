@@ -156,8 +156,11 @@ class CronService {
 	public function handle_cleanup_tokens(): void {
 		global $wpdb;
 
+		// expires_at is written in UTC (VerificationService uses gmdate()), so the
+		// cleanup must compare against UTC_TIMESTAMP(), not the server-local NOW()
+		// — on a non-UTC MySQL server NOW() would delete tokens early or late.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_verify_tokens WHERE expires_at < NOW()" );
+		$wpdb->query( "DELETE FROM {$wpdb->prefix}bn_verify_tokens WHERE expires_at < UTC_TIMESTAMP()" );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 
