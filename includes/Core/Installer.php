@@ -86,6 +86,7 @@ class Installer {
 		update_option( 'buddynext_schema_version', self::SCHEMA_VERSION );
 
 		self::create_hub_pages();
+		self::install_mu_plugin();
 
 		\BuddyNext\Search\SearchService::schedule_reindex_all();
 	}
@@ -1037,6 +1038,39 @@ class Installer {
 	}
 
 	/**
+	 * Write the BuddyNext isolation mu-plugin to wp-content/mu-plugins/.
+	 *
+	 * Skips the write when the file already exists with identical content so
+	 * that repeated activations (e.g. during automated upgrades) are cheap.
+	 *
+	 * @return void
+	 */
+	public static function install_mu_plugin(): void {
+		$dest    = WP_CONTENT_DIR . '/mu-plugins/' . self::MU_PLUGIN_SLUG;
+		$content = self::mu_plugin_content();
+
+		if ( file_exists( $dest ) && file_get_contents( $dest ) === $content ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			return;
+		}
+
+		wp_mkdir_p( WP_CONTENT_DIR . '/mu-plugins/' );
+		file_put_contents( $dest, $content ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+	}
+
+	/**
+	 * Delete the BuddyNext isolation mu-plugin on deactivation.
+	 *
+	 * @return void
+	 */
+	public static function remove_mu_plugin(): void {
+		$dest = WP_CONTENT_DIR . '/mu-plugins/' . self::MU_PLUGIN_SLUG;
+
+		if ( file_exists( $dest ) ) {
+			wp_delete_file( $dest );
+		}
+	}
+
+	/**
 	 * Return the PHP source for the buddynext-isolation mu-plugin.
 	 *
 	 * Kept as a private method so the content is compiled once and can be
@@ -1171,6 +1205,15 @@ if ( buddynext_mu_is_bn_request() ) {
 			);
 
 			if ( ! is_array( $plugins ) ) {
+				return $plugins;
+			}
+
+			// Self-guard: if BuddyNext itself is not active, do nothing. A
+			// mu-plugin left behind after BuddyNext is deactivated must never
+			// strip plugins on /members/, /spaces/ etc. (it matches those paths
+			// by slug and cannot tell BuddyNext is gone) — that would break the
+			// site. With BuddyNext inactive the mu-plugin is inert.
+			if ( ! in_array( 'buddynext/buddynext.php', $plugins, true ) ) {
 				return $plugins;
 			}
 
