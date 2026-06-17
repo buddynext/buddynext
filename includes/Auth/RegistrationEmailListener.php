@@ -49,6 +49,11 @@ class RegistrationEmailListener {
 		// A one-time usermeta guard (bn_welcome_sent) makes it idempotent.
 		add_action( 'user_register', array( $this, 'maybe_welcome_on_register' ), 20 );
 		add_action( 'buddynext_user_verified', array( $this, 'send_welcome' ) );
+
+		// Brand WordPress core's password-reset email on EVERY reset path
+		// (wp-login.php, the BN REST endpoint, programmatic). Scoped to the reset
+		// email's own headers so the HTML content-type never leaks to other mail.
+		add_filter( 'retrieve_password_notification_email', array( AuthController::class, 'brand_reset_notification_email' ), 10, 4 );
 	}
 
 	/**

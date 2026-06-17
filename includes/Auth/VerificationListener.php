@@ -215,10 +215,11 @@ class VerificationListener implements ListenerInterface {
 			esc_url_raw( $verify_url )
 		);
 
-		wp_mail(
+		\BuddyNext\Notifications\EmailSender::send_with_identity(
 			$user->user_email,
 			$subject,
-			$body
+			\BuddyNext\Notifications\EmailSender::brand_wrap( wpautop( make_clickable( esc_html( $body ) ) ), $subject ),
+			array( 'Content-Type: text/html; charset=UTF-8' )
 		);
 	}
 
@@ -305,7 +306,12 @@ class VerificationListener implements ListenerInterface {
 			esc_url_raw( $verify_url )
 		);
 
-		\BuddyNext\Notifications\EmailSender::send_with_identity( $candidate, $subject, $body, array() );
+		\BuddyNext\Notifications\EmailSender::send_with_identity(
+			$candidate,
+			$subject,
+			\BuddyNext\Notifications\EmailSender::brand_wrap( wpautop( make_clickable( esc_html( $body ) ) ), $subject ),
+			array( 'Content-Type: text/html; charset=UTF-8' )
+		);
 	}
 
 	/**

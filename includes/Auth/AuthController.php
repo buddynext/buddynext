@@ -857,73 +857,77 @@ class AuthController {
 			return $generic;
 		}
 
-		// Take over WordPress core's plain-text reset email so it matches every
-		// other BuddyNext email: branded HTML shell (EmailSender::brand_wrap),
-		// the From name/address + the /{auth}/reset/ link. All filters are scoped
-		// to this single retrieve_password() call (added then removed) so nothing
-		// leaks into unrelated core mail.
-		$from_name    = sanitize_text_field( (string) get_option( 'buddynext_email_from_name', '' ) );
-		$from_address = sanitize_email( (string) get_option( 'buddynext_email_from_address', '' ) );
-
-		$brand_message = static function ( $message, $key, $user_login ) {
-			$url = add_query_arg(
-				array(
-					'key'   => rawurlencode( (string) $key ),
-					'login' => rawurlencode( (string) $user_login ),
-				),
-				\BuddyNext\Core\PageRouter::reset_url()
-			);
-
-			$site_name = wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES );
-			$body      = sprintf(
-				/* translators: 1: site name, 2: username, 3: reset URL. */
-				__( '<p>Someone requested a password reset for your %1$s account (<strong>%2$s</strong>).</p><p>If this was you, set a new password using the button below. If it wasn\'t, you can ignore this email and your password will stay the same.</p><p><a href="%3$s" style="display:inline-block;background:#0073aa;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;">Reset my password</a></p><p style="font-size:13px;color:#6b7280;">Or paste this link into your browser:<br>%3$s</p>', 'buddynext' ),
-				esc_html( $site_name ),
-				esc_html( (string) $user_login ),
-				esc_url( $url )
-			);
-
-			return \BuddyNext\Notifications\EmailSender::brand_wrap( $body, __( 'Reset your password', 'buddynext' ) );
-		};
-		$html_type     = static function () {
-			return 'text/html';
-		};
-		$title_filter  = static function () {
-			return sprintf(
-				/* translators: %s: site name. */
-				__( 'Reset your %s password', 'buddynext' ),
-				wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES )
-			);
-		};
-		$name_filter   = static function () use ( $from_name ) {
-			return $from_name;
-		};
-		$addr_filter   = static function () use ( $from_address ) {
-			return $from_address;
-		};
-
-		add_filter( 'retrieve_password_message', $brand_message, 10, 3 );
-		add_filter( 'retrieve_password_title', $title_filter );
-		add_filter( 'wp_mail_content_type', $html_type );
-		if ( '' !== $from_name ) {
-			add_filter( 'wp_mail_from_name', $name_filter );
-		}
-		if ( '' !== $from_address && is_email( $from_address ) ) {
-			add_filter( 'wp_mail_from', $addr_filter );
-		}
-
 		// retrieve_password() accepts a login or email; it sends the reset email
 		// when the account exists and returns true, or a WP_Error otherwise. We
 		// swallow the result so the response never reveals which.
+		//
+		// The email itself is branded globally by brand_reset_notification_email()
+		// (hooked on retrieve_password_notification_email in
+		// RegistrationEmailListener), so resets started here, from wp-login.php, or
+		// programmatically all share the same branded shell, subject, From, and
+		// /{auth}/reset/ link.
 		retrieve_password( $login );
 
-		remove_filter( 'retrieve_password_message', $brand_message, 10 );
-		remove_filter( 'retrieve_password_title', $title_filter );
-		remove_filter( 'wp_mail_content_type', $html_type );
-		remove_filter( 'wp_mail_from_name', $name_filter );
-		remove_filter( 'wp_mail_from', $addr_filter );
-
 		return $generic;
+	}
+
+	/**
+	 * Brand WordPress core's password-reset email for EVERY reset path.
+	 *
+	 * Hooked globally on retrieve_password_notification_email (registered in
+	 * RegistrationEmailListener) so resets initiated from wp-login.php, the BN
+	 * REST endpoint, or programmatically all receive the same branded HTML shell,
+	 * subject, From identity, and /{auth}/reset/ deep link. Setting the HTML
+	 * Content-Type in this email's own headers keeps the change scoped — it never
+	 * leaks into unrelated wp_mail() calls.
+	 *
+	 * @param array<string, mixed> $defaults   Email parts: to, subject, message, headers.
+	 * @param string               $key        Password-reset key.
+	 * @param string               $user_login Username of the account being reset.
+	 * @param \WP_User|mixed       $user_data  User object for the account (unused).
+	 * @return array<string, mixed>
+	 */
+	public static function brand_reset_notification_email( array $defaults, string $key, string $user_login, $user_data = null ): array {
+		unset( $user_data );
+
+		$site_name = wp_specialchars_decode( (string) get_option( 'blogname' ), ENT_QUOTES );
+
+		$url = add_query_arg(
+			array(
+				'key'   => rawurlencode( $key ),
+				'login' => rawurlencode( $user_login ),
+			),
+			\BuddyNext\Core\PageRouter::reset_url()
+		);
+
+		$body = sprintf(
+			/* translators: 1: site name, 2: username, 3: reset URL. */
+			__( '<p>Someone requested a password reset for your %1$s account (<strong>%2$s</strong>).</p><p>If this was you, set a new password using the button below. If it wasn\'t, you can ignore this email and your password will stay the same.</p><p><a href="%3$s" style="display:inline-block;background:#0073aa;color:#ffffff;text-decoration:none;padding:10px 20px;border-radius:6px;font-weight:600;">Reset my password</a></p><p style="font-size:13px;color:#6b7280;">Or paste this link into your browser:<br>%3$s</p>', 'buddynext' ),
+			esc_html( $site_name ),
+			esc_html( $user_login ),
+			esc_url( $url )
+		);
+
+		$subject = sprintf(
+			/* translators: %s: site name. */
+			__( 'Reset your %s password', 'buddynext' ),
+			$site_name
+		);
+
+		$headers      = array( 'Content-Type: text/html; charset=UTF-8' );
+		$from_name    = sanitize_text_field( (string) get_option( 'buddynext_email_from_name', '' ) );
+		$from_address = sanitize_email( (string) get_option( 'buddynext_email_from_address', '' ) );
+		if ( '' !== $from_address && is_email( $from_address ) ) {
+			$headers[] = '' !== $from_name
+				? sprintf( 'From: %s <%s>', $from_name, $from_address )
+				: 'From: ' . $from_address;
+		}
+
+		$defaults['subject'] = $subject;
+		$defaults['message'] = \BuddyNext\Notifications\EmailSender::brand_wrap( $body, $subject );
+		$defaults['headers'] = $headers;
+
+		return $defaults;
 	}
 
 	/**
