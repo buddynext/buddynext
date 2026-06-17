@@ -338,19 +338,6 @@ do_action( 'buddynext_part_post_body_before', $args );
 			</div>
 		<?php endif; ?>
 
-	<?php elseif ( 'event' === $bn_body_post_type ) : ?>
-		<?php
-		$bn_event_meta = is_array( $args['link_meta'] ) ? $args['link_meta'] : array();
-		buddynext_get_template(
-			'parts/post-event.php',
-			array(
-				'bn_post_id'   => (int) $args['bn_post_id'],
-				'link_meta'    => $bn_event_meta,
-				'post_content' => $bn_body_content,
-			)
-		);
-		?>
-
 	<?php else : ?>
 		<div class="bn-post-card__content"><?php echo wp_kses_post( nl2br( buddynext_format_content( $bn_body_content ) ) ); ?></div>
 	<?php endif; ?>

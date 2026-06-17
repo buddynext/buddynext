@@ -1764,9 +1764,6 @@ store( 'buddynext/post-composer', {
 		get isNotAnnouncement() {
 			try { return getContext().composerType !== 'announcement'; } catch ( _e ) { return true; }
 		},
-		get eventOpen() {
-			try { return !! getContext().eventOpen; } catch ( _e ) { return false; }
-		},
 		get privacyOpen() {
 			try { return !! getContext().privacyOpen; } catch ( _e ) { return false; }
 		},
@@ -1798,14 +1795,8 @@ store( 'buddynext/post-composer', {
 		get hasNoError() {
 			try { return ! ( getContext().errorMessage || '' ); } catch ( _e ) { return true; }
 		},
-		get hasNoEventError() {
-			try { return ! ( getContext().eventError || '' ); } catch ( _e ) { return true; }
-		},
 		get hasNoVoiceError() {
 			try { return ! ( getContext().voiceError || '' ); } catch ( _e ) { return true; }
-		},
-		get eventError() {
-			try { return getContext().eventError || ''; } catch ( _e ) { return ''; }
 		},
 		get voiceError() {
 			try { return getContext().voiceError || ''; } catch ( _e ) { return ''; }
@@ -1836,9 +1827,6 @@ store( 'buddynext/post-composer', {
 		},
 		get draftDiscardHidden() {
 			try { return ! getContext().hasDraft; } catch ( _e ) { return true; }
-		},
-		get eventSubmitLabel() {
-			try { return getContext().submitting ? 'Scheduling…' : 'Schedule event'; } catch ( _e ) { return 'Schedule event'; }
 		},
 		get voiceSubmitLabel() {
 			try { return getContext().submitting ? 'Scheduling…' : 'Schedule room'; } catch ( _e ) { return 'Schedule room'; }
@@ -2202,66 +2190,9 @@ store( 'buddynext/post-composer', {
 				ctx.submitting   = false;
 			}
 		},
-		openEvent() {
-			const ctx       = getContext();
-			ctx.eventOpen   = true;
-			ctx.eventError  = '';
-		},
-		closeEvent() {
-			getContext().eventOpen = false;
-		},
 		togglePrivacy() {
 			const ctx        = getContext();
 			ctx.privacyOpen  = ! ctx.privacyOpen;
-		},
-		* submitEvent() {
-			const ctx = getContext();
-			if ( ctx.submitting ) { return; }
-			const fields = {};
-			document.querySelectorAll( '[data-bn-event-field]' ).forEach( ( el ) => {
-				fields[ el.dataset.bnEventField ] = el.value.trim();
-			} );
-			if ( ! fields.title || ! fields.date ) {
-				ctx.eventError = 'Title and date are required.';
-				return;
-			}
-			ctx.eventError = '';
-			ctx.submitting = true;
-			const scheduledAt = fields.date + ( fields.time ? ' ' + fields.time + ':00' : ' 00:00:00' );
-			const body = {
-				type:         'event',
-				content:      ( fields.title + ( fields.description ? '\n\n' + fields.description : '' ) ).trim(),
-				privacy:      ctx.privacy || 'public',
-				link_meta:    {
-					title:    fields.title,
-					location: fields.location,
-					event_at: scheduledAt,
-				},
-			};
-			// Carry the space context so a scheduled event lands in the space feed
-			// (space feeds query WHERE space_id = %d). Mirrors submit(); without it
-			// the event is created with space_id null and only shows globally.
-			const eventSpaceId = parseInt( ctx.spaceId, 10 ) || 0;
-			if ( eventSpaceId > 0 ) {
-				body.space_id = eventSpaceId;
-			}
-			try {
-				const res = yield fetch( ctx.restUrl + '/posts', {
-					method:  'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ctx.restNonce },
-					body:    JSON.stringify( body ),
-				} );
-				if ( res.ok ) {
-					if ( window.bnToast ) { window.bnToast( 'Event scheduled', 'success' ); }
-					setTimeout( () => window.location.reload(), 500 );
-					return;
-				}
-				ctx.eventError = 'Could not schedule the event. Try again.';
-				ctx.submitting = false;
-			} catch ( _e ) {
-				ctx.eventError = 'Network error. Try again.';
-				ctx.submitting = false;
-			}
 		},
 		* submitVoice() {
 			const ctx = getContext();
@@ -2287,8 +2218,8 @@ store( 'buddynext/post-composer', {
 				},
 			};
 			// Carry the space context so a scheduled voice room lands in the space
-			// feed (mirrors submit() / submitEvent()); otherwise space_id is null
-			// and it only shows in the global feed.
+			// feed (mirrors submit()); otherwise space_id is null and it only
+			// shows in the global feed.
 			const voiceSpaceId = parseInt( ctx.spaceId, 10 ) || 0;
 			if ( voiceSpaceId > 0 ) {
 				body.space_id = voiceSpaceId;

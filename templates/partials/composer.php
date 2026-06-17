@@ -5,7 +5,7 @@
  * Always-visible composer matching the docs/v2 Plans/v2/home-feed.html
  * `.composer` block. Avatar + textarea + tools row + chip-style privacy
  * selector + Share button rendered as one block — no collapsed-pill
- * trigger. Five tool affordances: Image, Poll, Event, Voice, AI helper.
+ * trigger. Tool affordances: Image, Poll, Voice, AI helper.
  * State (composer mode, media previews, privacy, submission, errors) is
  * driven by the WP Interactivity API store `buddynext/post-composer`
  * (see assets/js/feed/store.js).
@@ -108,7 +108,6 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 				'mediaPreviews'  => array(),
 				'mediaUploading' => false,
 				'errorMessage'   => '',
-				'eventOpen'      => false,
 				'scheduleOpen'   => false,
 				'scheduledAt'    => '',
 				'hasPro'         => $composer_has_pro,
@@ -331,14 +330,6 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 
 			<button class="bn-composer__tool"
 				type="button"
-				data-wp-on--click="actions.openEvent"
-				aria-label="<?php esc_attr_e( 'Pin a date and location', 'buddynext' ); ?>"
-				title="<?php esc_attr_e( 'Pin a date and location', 'buddynext' ); ?>">
-				<?php buddynext_icon( 'calendar' ); ?>
-			</button>
-
-			<button class="bn-composer__tool"
-				type="button"
 				data-wp-bind--aria-pressed="state.isScheduled"
 				data-wp-on--click="actions.toggleSchedule"
 				aria-label="<?php esc_attr_e( 'Schedule for later', 'buddynext' ); ?>"
@@ -485,19 +476,6 @@ $default_privacy = $composer_space ? 'space_members' : (string) get_option( 'bud
 		</div>
 
 	</div>
-
-	<?php
-	// Event modal renders INSIDE the composer's Interactivity root so it shares
-	// the same buddynext/post-composer context (eventOpen lives there). As a
-	// sibling island it had its own empty context and never received the
-	// openEvent() state change, so the modal stayed hidden — keep it nested.
-	buddynext_get_template(
-		'partials/composer-event-modal.php',
-		array(
-			'composer_user_id' => $composer_user_id,
-		)
-	);
-	?>
 
 </div>
 

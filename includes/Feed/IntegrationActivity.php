@@ -34,7 +34,7 @@ class IntegrationActivity {
 	 * @param string $link_url   The partner page the card links to.
 	 * @param string $link_title Title shown on the card (the content's title).
 	 * @param string $type       Post type to record. Defaults to 'link'. Pass a
-	 *                           specific type (e.g. 'discussion', 'job', 'event')
+	 *                           specific type (e.g. 'discussion', 'job')
 	 *                           so discovery surfaces can classify + filter the
 	 *                           card by what it represents instead of a generic
 	 *                           link. Must be a PostService::ALLOWED_TYPES value.
