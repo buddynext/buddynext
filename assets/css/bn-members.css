@@ -965,7 +965,12 @@
 	box-shadow: var(--bn-shadow-md, 0 8px 24px rgba(0, 0, 0, 0.12));
 }
 
-.bn-md-card__menu-item {
+/* Scoped under the popover so the text color wins over host-theme button/link
+   rules (e.g. Reign/Astra ".entry-content a, button { color:#fff }"), which at
+   single-class specificity would override --bn-ink and leave white-on-white,
+   unreadable menu items. Two-class specificity beats those without !important;
+   color is pinned on base + hover + focus so no theme state can wash it out. */
+.bn-md-card__menu-pop .bn-md-card__menu-item {
 	display: block;
 	width: 100%;
 	padding-block: var(--bn-s2);
@@ -983,17 +988,20 @@
 	cursor: pointer;
 }
 
-.bn-md-card__menu-item:hover,
-.bn-md-card__menu-item:focus-visible {
+.bn-md-card__menu-pop .bn-md-card__menu-item:hover,
+.bn-md-card__menu-pop .bn-md-card__menu-item:focus-visible {
 	background: var(--bn-sunken);
+	color: var(--bn-ink);
 }
 
-.bn-md-card__menu-item:focus-visible {
+.bn-md-card__menu-pop .bn-md-card__menu-item:focus-visible {
 	outline: none;
 	box-shadow: var(--bn-ring);
 }
 
-.bn-md-card__menu-item--danger {
+.bn-md-card__menu-pop .bn-md-card__menu-item--danger,
+.bn-md-card__menu-pop .bn-md-card__menu-item--danger:hover,
+.bn-md-card__menu-pop .bn-md-card__menu-item--danger:focus-visible {
 	color: var(--bn-danger);
 }
 
