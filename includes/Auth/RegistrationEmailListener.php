@@ -40,6 +40,70 @@ class RegistrationEmailListener {
 		add_action( 'buddynext_registration_pending', array( $this, 'on_registration_pending' ), 10, 2 );
 		add_action( 'buddynext_member_approved', array( $this, 'on_member_approved' ) );
 		add_action( 'buddynext_member_rejected', array( $this, 'on_member_rejected' ) );
+
+		// Welcome email — smart timing, sent exactly once per active member:
+		// - verification OFF + non-approval mode → on registration (priority 20,
+		// after VerificationListener so we can read whether a token was made);
+		// - verification ON  → after the member confirms (buddynext_user_verified);
+		// - approval mode    → the on_member_approved email above IS the welcome.
+		// A one-time usermeta guard (bn_welcome_sent) makes it idempotent.
+		add_action( 'user_register', array( $this, 'maybe_welcome_on_register' ), 20 );
+		add_action( 'buddynext_user_verified', array( $this, 'send_welcome' ) );
+	}
+
+	/**
+	 * Send the welcome email on registration when the account is immediately
+	 * usable — i.e. email verification is not required and registration is not
+	 * held for admin approval. The verified + approved paths are handled by
+	 * their own hooks.
+	 *
+	 * @param int $user_id New user ID.
+	 * @return void
+	 */
+	public function maybe_welcome_on_register( int $user_id ): void {
+		$reg_mode = (string) get_option( 'buddynext_reg_mode', function_exists( 'buddynext_default_reg_mode' ) ? buddynext_default_reg_mode() : 'open' );
+		if ( 'approval' === $reg_mode ) {
+			return;
+		}
+		if ( (bool) get_option( 'buddynext_email_verify', false ) ) {
+			return;
+		}
+		$this->send_welcome( $user_id );
+	}
+
+	/**
+	 * Send the branded welcome email once per member (guarded by the
+	 * bn_welcome_sent usermeta flag, so the register/verify/approved paths can
+	 * never double-send).
+	 *
+	 * @param int $user_id Member user ID.
+	 * @return void
+	 */
+	public function send_welcome( int $user_id ): void {
+		$user = get_userdata( $user_id );
+		if ( ! $user ) {
+			return;
+		}
+		if ( '' !== (string) get_user_meta( $user_id, 'bn_welcome_sent', true ) ) {
+			return;
+		}
+
+		$site    = $this->site_name();
+		$subject = sprintf(
+			/* translators: %s: site name */
+			__( 'Welcome to %s', 'buddynext' ),
+			$site
+		);
+		$body = sprintf(
+			/* translators: 1: display name, 2: site name, 3: community URL */
+			__( 'Welcome aboard, %1$s! Your account at %2$s is ready. Jump in, complete your profile, and start connecting with the community: %3$s', 'buddynext' ),
+			$user->display_name,
+			$site,
+			PageRouter::activity_url()
+		);
+
+		$this->mail( (string) $user->user_email, $subject, $body );
+		update_user_meta( $user_id, 'bn_welcome_sent', '1' );
 	}
 
 	/**
@@ -117,6 +181,10 @@ class RegistrationEmailListener {
 			PageRouter::auth_url()
 		);
 		$this->mail( (string) $user->user_email, $subject, $body );
+
+		// This approval email is the welcome in approval mode — mark the guard so
+		// a verify-then-approve combo never sends a second welcome.
+		update_user_meta( $user_id, 'bn_welcome_sent', '1' );
 	}
 
 	/**
