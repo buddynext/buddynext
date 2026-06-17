@@ -886,6 +886,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	white-space: nowrap;
 }
 
+/* Flip downward when the React trigger sits near the top of the viewport, so
+   the upward-opening picker never paints over the sticky header (the JS adds
+   this modifier on open via collision detection). */
+.bn-post-card__emoji-picker--below {
+	inset-block-end: auto;
+	inset-block-start: calc(100% + 8px);
+}
+
 .bn-post-card__emoji-picker[hidden] { display: none; }
 
 /* Each picker button — Facebook-style: hover lifts and scales the

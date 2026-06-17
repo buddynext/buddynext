@@ -804,6 +804,12 @@ store( 'buddynext/post-card', {
 		get showReactionPicker() {
 			try { return !! getContext().reactionPickerOpen; } catch ( _e ) { return false; }
 		},
+		get reactionPickerClass() {
+			const base = 'bn-post-card__emoji-picker';
+			try {
+				return getContext().reactionPickerBelow ? base + ' bn-post-card__emoji-picker--below' : base;
+			} catch ( _e ) { return base; }
+		},
 		get bookmarked() {
 			try { return !! getContext().bookmarked; } catch ( _e ) { return false; }
 		},
@@ -920,8 +926,39 @@ store( 'buddynext/post-card', {
 	},
 	actions: {
 		toggleReactionPicker() {
-			const ctx              = getContext();
-			ctx.reactionPickerOpen = ! ctx.reactionPickerOpen;
+			const ctx     = getContext();
+			const willOpen = ! ctx.reactionPickerOpen;
+
+			// Collision-avoid the sticky header: the picker opens upward by
+			// default, which paints over the fixed header when there isn't room
+			// above the React trigger. Measure the actual sticky/fixed header
+			// (heights vary by theme) and flip the picker to open downward when an
+			// upward picker would cross into that band — standard popper flip.
+			if ( willOpen ) {
+				try {
+					const ref  = getElement()?.ref || null;
+					const rect = ref ? ref.getBoundingClientRect() : null;
+					// Find the top sticky/fixed chrome by probing what paints at the
+					// top edge, so we don't hard-code a header selector or height.
+					let headerBottom = 0;
+					const probe = document.elementsFromPoint
+						? document.elementsFromPoint( Math.round( window.innerWidth / 2 ), 2 )
+						: [];
+					for ( const node of probe ) {
+						const pos = getComputedStyle( node ).position;
+						if ( 'fixed' === pos || 'sticky' === pos ) {
+							headerBottom = Math.max( headerBottom, node.getBoundingClientRect().bottom );
+						}
+					}
+					// Picker is a single row (~52px) plus an 8px gap. Flip below when
+					// an upward picker would not clear the header band.
+					ctx.reactionPickerBelow = !! rect && ( rect.top - 60 ) < ( headerBottom + 4 );
+				} catch ( _e ) {
+					ctx.reactionPickerBelow = false;
+				}
+			}
+
+			ctx.reactionPickerOpen = willOpen;
 
 			// Remember which picker is open and dismiss it on scroll so it never
 			// floats over the sticky header once its card scrolls away.

@@ -118,6 +118,7 @@ do_action( 'buddynext_part_post_actions_before', $args );
 			class="bn-post-card__emoji-picker"
 			role="toolbar"
 			aria-label="<?php esc_attr_e( 'Choose reaction', 'buddynext' ); ?>"
+			data-wp-bind--class="state.reactionPickerClass"
 			data-wp-bind--hidden="!state.showReactionPicker"
 			hidden
 		>
