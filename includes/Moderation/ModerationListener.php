@@ -25,7 +25,11 @@ class ModerationListener implements ListenerInterface {
 	 */
 	public function register(): void {
 		add_action( 'buddynext_strike_issued', array( $this, 'on_strike_issued' ), 10, 3 );
-		add_action( 'buddynext_member_suspended', array( $this, 'on_member_suspended' ), 10, 2 );
+		// Suspension notifications/emails are handled solely by on_user_suspended
+		// (the canonical buddynext_user_suspended hook, which carries the reason +
+		// expiry). The legacy buddynext_member_suspended hook still fires for
+		// external listeners, but we no longer subscribe a second notification
+		// handler to it — that was the source of duplicate suspension emails.
 		add_action( 'buddynext_user_suspended', array( $this, 'on_user_suspended' ), 10, 4 );
 		add_action( 'buddynext_appeal_resolved', array( $this, 'on_appeal_resolved' ), 10, 3 );
 		add_action( 'buddynext_user_warned', array( $this, 'on_user_warned' ), 10, 3 );
@@ -105,7 +109,11 @@ class ModerationListener implements ListenerInterface {
 				$actor_id
 			);
 		} elseif ( $active_strikes >= $warn_threshold ) {
-			buddynext_service( 'notifications' )->create(
+			// The notification create is the single email trigger (EmailDispatch
+			// Listener sends bn.strike_warning on creation). 'count' is top-level
+			// so render() exposes a {{count}} token. Direct send only as a
+			// fallback when the in-app notification was suppressed.
+			$created = buddynext_service( 'notifications' )->create(
 				array(
 					'recipient_id' => $user_id,
 					'sender_id'    => $actor_id,
@@ -113,49 +121,29 @@ class ModerationListener implements ListenerInterface {
 					'object_type'  => 'strike',
 					'object_id'    => $strike_id,
 					'group_key'    => null,
+					'count'        => $active_strikes,
 				)
 			);
 
-			buddynext_service( 'email_sender' )->send(
-				$user_id,
-				'bn.strike_warning',
-				array( 'count' => $active_strikes )
-			);
+			if ( 0 === $created ) {
+				buddynext_service( 'email_sender' )->send(
+					$user_id,
+					'bn.strike_warning',
+					array( 'count' => $active_strikes )
+				);
+			}
 		}
 	}
 
 	/**
-	 * Notify the suspended user by email when their account is suspended.
-	 *
-	 * Creates a bn.member_suspended notification so the EmailDispatchListener
-	 * picks it up and sends the corresponding email template.
-	 *
-	 * @param int $user_id  The suspended user.
-	 * @param int $actor_id Admin who issued the suspension.
-	 */
-	public function on_member_suspended( int $user_id, int $actor_id ): void {
-		if ( ! function_exists( 'buddynext_service' ) ) {
-			return;
-		}
-
-		buddynext_service( 'notifications' )->create(
-			array(
-				'recipient_id' => $user_id,
-				'sender_id'    => $actor_id,
-				'type'         => 'bn.member_suspended',
-				'object_type'  => 'user',
-				'object_id'    => $user_id,
-				'group_key'    => null,
-			)
-		);
-	}
-
-	/**
-	 * Notify and email a user when their account is suspended via the extended hook.
+	 * Notify and email a user when their account is suspended.
 	 *
 	 * Fires from the buddynext_user_suspended action, which carries the full
-	 * suspension context (reason, optional expiry). Creates an in-app notification
-	 * and dispatches a transactional suspension email.
+	 * suspension context (reason, optional expiry). Creates the in-app
+	 * notification; EmailDispatchListener turns that into the bn.member_suspended
+	 * email, so this is the single send path. The direct email is only a fallback
+	 * for when the in-app notification was suppressed (recipient disabled the
+	 * in-app channel) — a suspension is transactional and must still reach them.
 	 *
 	 * @param int         $user_id    The suspended user.
 	 * @param int         $mod_id     Moderator or admin who issued the suspension.
@@ -167,7 +155,12 @@ class ModerationListener implements ListenerInterface {
 			return;
 		}
 
-		buddynext_service( 'notifications' )->create(
+		$expires_label = $expires_at ?? __( 'permanent', 'buddynext' );
+
+		// reason + expires_at are passed as top-level scalars so EmailSender::
+		// render() exposes them as {{reason}} / {{expires_at}} tokens for any
+		// customised template (the default template uses only auto tokens).
+		$created = buddynext_service( 'notifications' )->create(
 			array(
 				'recipient_id' => $user_id,
 				'sender_id'    => $mod_id,
@@ -175,17 +168,21 @@ class ModerationListener implements ListenerInterface {
 				'object_type'  => 'user',
 				'object_id'    => $user_id,
 				'group_key'    => null,
+				'reason'       => $reason,
+				'expires_at'   => $expires_label,
 			)
 		);
 
-		buddynext_service( 'email_sender' )->send(
-			$user_id,
-			'bn.member_suspended',
-			array(
-				'reason'     => $reason,
-				'expires_at' => $expires_at ?? __( 'permanent', 'buddynext' ),
-			)
-		);
+		if ( 0 === $created ) {
+			buddynext_service( 'email_sender' )->send(
+				$user_id,
+				'bn.member_suspended',
+				array(
+					'reason'     => $reason,
+					'expires_at' => $expires_label,
+				)
+			);
+		}
 	}
 
 	/**
@@ -203,7 +200,11 @@ class ModerationListener implements ListenerInterface {
 			return;
 		}
 
-		buddynext_service( 'notifications' )->create(
+		// 'decision' is top-level (not only nested in 'data') so the email's
+		// {{decision}} token resolves — render() exposes scalar top-level keys
+		// only. The notification create is the single email trigger; direct send
+		// is a fallback for a suppressed in-app notification.
+		$created = buddynext_service( 'notifications' )->create(
 			array(
 				'recipient_id' => $user_id,
 				'sender_id'    => 0,
@@ -212,14 +213,17 @@ class ModerationListener implements ListenerInterface {
 				'object_id'    => $appeal_id,
 				'group_key'    => null,
 				'data'         => array( 'decision' => $decision ),
+				'decision'     => $decision,
 			)
 		);
 
-		buddynext_service( 'email_sender' )->send(
-			$user_id,
-			'bn.appeal_resolved',
-			array( 'status' => $decision )
-		);
+		if ( 0 === $created ) {
+			buddynext_service( 'email_sender' )->send(
+				$user_id,
+				'bn.appeal_resolved',
+				array( 'decision' => $decision )
+			);
+		}
 	}
 
 	/**
@@ -299,6 +303,11 @@ class ModerationListener implements ListenerInterface {
 			)
 		);
 
+		// Not duplicated: the bn.user_warned notification has no email template, so
+		// EmailDispatchListener sends nothing for it. The warning email therefore
+		// comes ONLY from this direct send of the bn.strike_warning template — it
+		// must stay unconditional (do not move it behind a create()===0 guard, or
+		// warned members would stop receiving the email entirely).
 		buddynext_service( 'email_sender' )->send(
 			$user_id,
 			'bn.strike_warning',
@@ -514,7 +523,11 @@ class ModerationListener implements ListenerInterface {
 		);
 
 		foreach ( array_keys( $recipients ) as $recipient_id ) {
-			$notifications->create(
+			// 'action_url' is top-level so the email's {{action_url}} token points
+			// at the moderation queue. The notification create is the single email
+			// trigger; direct send only when the in-app notification was
+			// suppressed for that recipient.
+			$created = $notifications->create(
 				array(
 					'recipient_id' => $recipient_id,
 					'sender_id'    => $reporter_id,
@@ -526,18 +539,21 @@ class ModerationListener implements ListenerInterface {
 						'message' => $message,
 						'url'     => $queue_url,
 					),
+					'action_url'   => $queue_url,
 				)
 			);
 
-			$email_sender->send(
-				$recipient_id,
-				'bn.new_report',
-				array(
-					'object_type' => $object_type,
-					'object_id'   => $object_id,
-					'action_url'  => $queue_url,
-				)
-			);
+			if ( 0 === $created ) {
+				$email_sender->send(
+					$recipient_id,
+					'bn.new_report',
+					array(
+						'object_type' => $object_type,
+						'object_id'   => $object_id,
+						'action_url'  => $queue_url,
+					)
+				);
+			}
 		}
 	}
 
