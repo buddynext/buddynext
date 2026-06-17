@@ -807,6 +807,9 @@ store( 'buddynext/post-card', {
 		get optionsOpen() {
 			try { return !! getContext().optionsOpen; } catch ( _e ) { return false; }
 		},
+		get hasReported() {
+			try { return !! getContext().hasReported; } catch ( _e ) { return false; }
+		},
 		get reactionType() {
 			try { return getContext().reactionType || null; } catch ( _e ) { return null; }
 		},
@@ -1133,10 +1136,19 @@ store( 'buddynext/post-card', {
 					} ),
 				} );
 				if ( res.ok || res.status === 201 ) {
+					// Reflect the reported state immediately so the action menu
+					// swaps Report for a disabled "Reported" item without a reload.
+					ctx.hasReported = true;
+					ctx.optionsOpen = false;
 					bnToast( 'Report submitted. Thanks for keeping the community safe.', { tone: 'success' } );
 				} else {
 					// Surface the server's reason (e.g. the 409 "already reported"
-					// message) instead of a generic failure.
+					// message) instead of a generic failure. A 409 means the server
+					// already has this user's report, so reflect that in the UI too.
+					if ( res.status === 409 ) {
+						ctx.hasReported = true;
+						ctx.optionsOpen = false;
+					}
 					const data = yield res.json().catch( () => ( {} ) );
 					bnToast( data.message || 'Could not submit report. Try again.', { tone: 'danger' } );
 				}

@@ -298,6 +298,15 @@ if ( $current_user_id > 0 ) {
 	$is_bookmarked = buddynext_service( 'bookmarks' )->is_bookmarked( $current_user_id, $bn_post_id );
 }
 
+// ── User's report state ────────────────────────────────────────────────────────
+// When the viewer has already reported this post the action menu surfaces a
+// disabled "Reported" item instead of re-offering Report (the server rejects
+// duplicates via a UNIQUE KEY; this keeps the UI honest). Resolved per reportable
+// post via an index seek on that key — same per-viewer pattern as $is_bookmarked,
+// and only when $can_report is already true (logged in + not the author).
+$has_reported = $can_report
+	&& buddynext_service( 'moderation' )->user_has_reported( $current_user_id, 'post', $bn_post_id );
+
 // ── Privacy label ──────────────────────────────────────────────────────────────
 $privacy_labels = array(
 	'public'        => __( 'Public', 'buddynext' ),
@@ -364,6 +373,7 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 				'showContent'       => ! $has_cw,
 				'isPinned'          => $is_pinned,
 				'bookmarked'        => $is_bookmarked,
+				'hasReported'       => $has_reported,
 				'reactionType'      => $my_reaction_type,
 				'reactNonce'        => $react_nonce,
 				'shareNonce'        => $share_nonce,
@@ -478,13 +488,14 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 			'privacy_icon'      => $privacy_icon,
 			'profile_link'      => $profile_link,
 			'options_menu_args' => array(
-				'bn_post'    => $bn_post,
-				'bn_post_id' => $bn_post_id,
-				'can_edit'   => $can_edit,
-				'can_pin'    => $can_pin,
-				'can_report' => $can_report,
-				'can_delete' => $can_delete,
-				'is_pinned'  => $is_pinned,
+				'bn_post'      => $bn_post,
+				'bn_post_id'   => $bn_post_id,
+				'can_edit'     => $can_edit,
+				'can_pin'      => $can_pin,
+				'can_report'   => $can_report,
+				'has_reported' => $has_reported,
+				'can_delete'   => $can_delete,
+				'is_pinned'    => $is_pinned,
 			),
 		)
 	);

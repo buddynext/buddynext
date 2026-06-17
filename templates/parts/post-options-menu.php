@@ -15,6 +15,7 @@
  * @var bool  $can_edit    Whether the viewer can edit the post.
  * @var bool  $can_pin     Whether the viewer can pin/unpin the post.
  * @var bool  $can_report  Whether the viewer can report the post.
+ * @var bool  $has_reported Whether the viewer has already reported the post.
  * @var bool  $can_delete  Whether the viewer can delete the post.
  * @var bool  $is_pinned   Whether the post is currently pinned.
  * @var array $classes     Optional extra CSS classes for the wrap.
@@ -33,14 +34,15 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 $args = array(
-	'bn_post'    => isset( $bn_post ) && is_array( $bn_post ) ? $bn_post : array(),
-	'bn_post_id' => isset( $bn_post_id ) ? absint( $bn_post_id ) : 0,
-	'can_edit'   => ! empty( $can_edit ),
-	'can_pin'    => ! empty( $can_pin ),
-	'can_report' => ! empty( $can_report ),
-	'can_delete' => ! empty( $can_delete ),
-	'is_pinned'  => ! empty( $is_pinned ),
-	'classes'    => isset( $classes ) ? (array) $classes : array(),
+	'bn_post'      => isset( $bn_post ) && is_array( $bn_post ) ? $bn_post : array(),
+	'bn_post_id'   => isset( $bn_post_id ) ? absint( $bn_post_id ) : 0,
+	'can_edit'     => ! empty( $can_edit ),
+	'can_pin'      => ! empty( $can_pin ),
+	'can_report'   => ! empty( $can_report ),
+	'has_reported' => ! empty( $has_reported ),
+	'can_delete'   => ! empty( $can_delete ),
+	'is_pinned'    => ! empty( $is_pinned ),
+	'classes'      => isset( $classes ) ? (array) $classes : array(),
 );
 
 /** Sanitized partial arguments. @var array<string,mixed> $args */
@@ -105,12 +107,22 @@ do_action( 'buddynext_part_post_options_menu_before', $args );
 		<?php endif; ?>
 
 		<?php if ( ! empty( $args['can_report'] ) ) : ?>
+			<?php // Both items are present so the menu can flip Report -> Reported reactively after a report (state.hasReported), with the server-rendered hidden attribute matching the initial state to avoid a flash. ?>
 			<button
 				type="button"
 				class="bn-post-card__menu-item bn-post-card__menu-item--danger"
 				role="menuitem"
 				data-wp-on--click="actions.reportPost"
+				data-wp-bind--hidden="state.hasReported"
+				<?php echo ! empty( $args['has_reported'] ) ? 'hidden' : ''; ?>
 			><?php buddynext_icon( 'alert-triangle' ); ?> <?php esc_html_e( 'Report', 'buddynext' ); ?></button>
+			<span
+				class="bn-post-card__menu-item bn-post-card__menu-item--reported"
+				role="menuitem"
+				aria-disabled="true"
+				data-wp-bind--hidden="!state.hasReported"
+				<?php echo empty( $args['has_reported'] ) ? 'hidden' : ''; ?>
+			><?php buddynext_icon( 'check' ); ?> <?php esc_html_e( 'Reported', 'buddynext' ); ?></span>
 		<?php endif; ?>
 
 		<?php if ( ! empty( $args['can_delete'] ) ) : ?>

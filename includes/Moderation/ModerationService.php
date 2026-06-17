@@ -227,6 +227,44 @@ class ModerationService {
 	}
 
 	/**
+	 * Whether a user has already reported a given object.
+	 *
+	 * Backs the post-card UI so the action menu can surface a "Reported" state
+	 * instead of re-offering the Report action (the DB UNIQUE KEY on
+	 * reporter_id/object_type/object_id already blocks duplicates server-side;
+	 * this lets the UI reflect that). The lookup is a single index seek on that
+	 * UNIQUE KEY, so it is cheap enough to call per reportable post — mirroring
+	 * how the card already resolves per-viewer bookmark state.
+	 *
+	 * @param int    $reporter_id Reporting user (0 returns false).
+	 * @param string $object_type Object type (e.g. 'post', 'comment', 'user').
+	 * @param int    $object_id   Object ID.
+	 * @return bool True when this user has an existing report on the object.
+	 */
+	public function user_has_reported( int $reporter_id, string $object_type, int $object_id ): bool {
+		if ( $reporter_id <= 0 || $object_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$existing = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT id FROM {$wpdb->prefix}bn_reports
+				 WHERE reporter_id = %d AND object_type = %s AND object_id = %d
+				 LIMIT 1",
+				$reporter_id,
+				sanitize_key( $object_type ),
+				$object_id
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return null !== $existing;
+	}
+
+	/**
 	 * Auto-hide a reported post by moving it to the 'pending' moderation state.
 	 *
 	 * Only flips a currently 'published' post (never touches drafts, scheduled,
