@@ -773,6 +773,16 @@ class SpaceController extends BaseRestController {
 		$space_id = (int) $request->get_param( 'id' );
 		$user_id  = get_current_user_id();
 
+		// Route-level ownership gate, matching the avatar/cover handlers' dual
+		// gate. The route's permission_callback only asserts auth, so without
+		// this any logged-in user reaches the handler and is rejected one layer
+		// deeper by SpaceService::delete(); gate here so non-managers are turned
+		// away before any lookup work.
+		$gate = $this->require_space_manager( $space_id, $user_id );
+		if ( is_wp_error( $gate ) ) {
+			return $gate;
+		}
+
 		// Soft gate: when the client passes the X-BN-Confirm-Space-Name header,
 		// it must exactly match the space's current name. This prevents a
 		// stray DELETE from removing a space that the user didn't intend to

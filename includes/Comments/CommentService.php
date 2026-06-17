@@ -73,6 +73,25 @@ class CommentService {
 			);
 		}
 
+		// Per-minute rate limit (option buddynext_comment_rate_limit, default 30;
+		// 0 disables) — comments had no API throttle, so a flood script could
+		// create unlimited rows. Fixed per-minute bucket via a transient: no extra
+		// query, timezone-independent, and the window can't slide open under
+		// steady traffic the way a TTL-reset counter would.
+		$bn_comment_rate_limit = (int) get_option( 'buddynext_comment_rate_limit', 30 );
+		if ( $bn_comment_rate_limit > 0 && $user_id > 0 ) {
+			$bn_rate_bucket = 'bn_comment_rate_' . $user_id . '_' . (int) floor( time() / MINUTE_IN_SECONDS );
+			$bn_rate_count  = (int) get_transient( $bn_rate_bucket );
+			if ( $bn_rate_count >= $bn_comment_rate_limit ) {
+				return new WP_Error(
+					'rate_limited',
+					__( 'You are commenting too quickly. Please wait a moment.', 'buddynext' ),
+					array( 'status' => 429 )
+				);
+			}
+			set_transient( $bn_rate_bucket, $bn_rate_count + 1, 2 * MINUTE_IN_SECONDS );
+		}
+
 		/**
 		 * Filter comment data before it is written on create.
 		 *
