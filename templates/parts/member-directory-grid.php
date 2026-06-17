@@ -98,7 +98,7 @@ if ( empty( $bn_type_map ) && function_exists( 'buddynext_service' ) ) {
 	}
 }
 
-$bn_initials_fn = is_callable( $args['initials_fn'] ) ? $args['initials_fn'] : static function ( string $name ): string {
+$bn_initials_fn     = is_callable( $args['initials_fn'] ) ? $args['initials_fn'] : static function ( string $name ): string {
 	$parts = array_filter( explode( ' ', trim( $name ) ) );
 	if ( count( $parts ) >= 2 ) {
 		return mb_strtoupper( mb_substr( (string) reset( $parts ), 0, 1 ) . mb_substr( (string) end( $parts ), 0, 1 ) );
@@ -128,15 +128,15 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 		if ( '' === $bn_bio ) {
 			$bn_bio = (string) get_user_meta( $bn_member_id, 'description', true );
 		}
-		$bn_profile_url   = \BuddyNext\Core\PageRouter::profile_url( $bn_member_id );
-		$bn_cover_url     = buddynext_user_cover_url( $bn_member_id );
-		$bn_avatar_url    = (string) get_avatar_url( $bn_member_id, array( 'size' => 96 ) );
-		$bn_is_online     = (bool) $bn_is_online_fn( $bn_member_id );
-		$bn_is_following  = (bool) $bn_is_following_fn( $bn_member_id );
+		$bn_profile_url  = \BuddyNext\Core\PageRouter::profile_url( $bn_member_id );
+		$bn_cover_url    = buddynext_user_cover_url( $bn_member_id );
+		$bn_avatar_url   = (string) get_avatar_url( $bn_member_id, array( 'size' => 96 ) );
+		$bn_is_online    = (bool) $bn_is_online_fn( $bn_member_id );
+		$bn_is_following = (bool) $bn_is_following_fn( $bn_member_id );
 		// Single mutual-connections lookup feeds both the count and the
 		// avatar pile — no double query per card.
-		$bn_mutual_ids    = array_values( array_filter( array_map( 'intval', (array) $bn_mutual_fn( $bn_viewer_id, $bn_member_id ) ) ) );
-		$bn_mutual        = count( $bn_mutual_ids );
+		$bn_mutual_ids     = array_values( array_filter( array_map( 'intval', (array) $bn_mutual_fn( $bn_viewer_id, $bn_member_id ) ) ) );
+		$bn_mutual         = count( $bn_mutual_ids );
 		$bn_mutual_avatars = array();
 		foreach ( array_slice( $bn_mutual_ids, 0, 3 ) as $bn_mu_id ) {
 			$bn_mu_user = get_userdata( $bn_mu_id );
@@ -148,12 +148,13 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'avatar_url' => (string) get_avatar_url( $bn_mu_id, array( 'size' => 40 ) ),
 			);
 		}
-		$bn_degree        = $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id
+		$bn_degree     = $bn_viewer_id > 0 && $bn_viewer_id !== $bn_member_id
 			? (int) buddynext_service( 'connections' )->connection_degree( $bn_viewer_id, $bn_member_id )
 			: 0;
-		$bn_type_slug     = (string) get_user_meta( $bn_member_id, 'bn_member_type', true );
-		$bn_type_data     = '' !== $bn_type_slug ? ( $bn_type_map[ $bn_type_slug ] ?? null ) : null;
-		$bn_type_label    = ( is_array( $bn_type_data ) && isset( $bn_type_data['name'] ) ) ? (string) $bn_type_data['name'] : '';
+		$bn_type_slug  = (string) get_user_meta( $bn_member_id, 'bn_member_type', true );
+		$bn_type_data  = '' !== $bn_type_slug ? ( $bn_type_map[ $bn_type_slug ] ?? null ) : null;
+		$bn_type_label = ( is_array( $bn_type_data ) && isset( $bn_type_data['name'] ) ) ? (string) $bn_type_data['name'] : '';
+		$bn_type_icon  = ( is_array( $bn_type_data ) && isset( $bn_type_data['icon_svg'] ) ) ? (string) $bn_type_data['icon_svg'] : '';
 		// Open (or start) a native DM with this member — /messages/?to={id}
 		// find-or-creates the conversation and opens it.
 		$bn_messages_url  = add_query_arg( 'to', $bn_member_id, $bn_messages_base );
@@ -192,6 +193,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 				'degree'            => $bn_degree,
 				'presence'          => $bn_presence_attr,
 				'member_type_label' => $bn_type_label,
+				'member_type_icon'  => $bn_type_icon,
 				'avatar_tone'       => $bn_avatar_tone,
 				'bio'               => $bn_bio,
 				'profile_url'       => $bn_profile_url,

@@ -56,6 +56,7 @@ $args = array(
 	'degree'            => isset( $degree ) ? (int) $degree : 0,
 	'presence'          => isset( $presence ) ? (string) $presence : 'offline',
 	'member_type_label' => isset( $member_type_label ) ? (string) $member_type_label : '',
+	'member_type_icon'  => isset( $member_type_icon ) ? (string) $member_type_icon : '',
 	'avatar_tone'       => isset( $avatar_tone ) ? (string) $avatar_tone : 'accent',
 	'bio'               => isset( $bio ) ? (string) $bio : '',
 	'profile_url'       => isset( $profile_url ) ? (string) $profile_url : '',
@@ -102,6 +103,7 @@ $bn_is_muted      = (bool) $args['is_muted'];
 $bn_mutual        = (int) $args['mutual_count'];
 $bn_presence_attr = (string) $args['presence'];
 $bn_type_label    = (string) $args['member_type_label'];
+$bn_type_icon     = \BuddyNext\MemberTypes\MemberTypeService::render_icon_svg( (string) $args['member_type_icon'] );
 $bn_avatar_tone   = (string) $args['avatar_tone'];
 $bn_bio           = (string) $args['bio'];
 $bn_profile_url   = (string) $args['profile_url'];
@@ -282,6 +284,9 @@ do_action( 'buddynext_part_member_card_before', $args );
 
 	<?php if ( '' !== $bn_type_label ) : ?>
 		<span class="bn-badge bn-md-card__type" data-tone="accent">
+			<?php if ( '' !== $bn_type_icon ) : ?>
+				<span class="bn-type-badge__icon" aria-hidden="true"><?php echo $bn_type_icon; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses-sanitized by MemberTypeService::render_icon_svg(). ?></span>
+			<?php endif; ?>
 			<?php echo esc_html( $bn_type_label ); ?>
 		</span>
 	<?php endif; ?>
