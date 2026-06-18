@@ -1568,14 +1568,18 @@ var storeInstance = store( 'buddynext/spaces', {
 		},
 
 		/**
-		 * Set the type chip and re-apply the filter.
+		 * Select a scope/category chip and re-apply the filter.
 		 *
-		 * @param {Event} event Click event from a `[data-bn-type-chip]`.
+		 * One single-select row: All Spaces / My Spaces / category chips. Lighting
+		 * the clicked chip and clearing every other `[data-bn-scope-chip]` is what
+		 * guarantees exactly one active filter (no "two chips lit" state).
+		 *
+		 * @param {Event} event Click event from a `[data-bn-scope-chip]`.
 		 */
-		setType: function ( event ) {
-			var btn = event && event.target && event.target.closest( '[data-bn-type-chip]' );
+		setScope: function ( event ) {
+			var btn = event && event.target && event.target.closest( '[data-bn-scope-chip]' );
 			if ( ! btn ) { return; }
-			var chips = document.querySelectorAll( '[data-bn-type-chip]' );
+			var chips = document.querySelectorAll( '[data-bn-scope-chip]' );
 			for ( var i = 0; i < chips.length; i++ ) {
 				chips[ i ].setAttribute(
 					'aria-selected',
@@ -1638,23 +1642,14 @@ var storeInstance = store( 'buddynext/spaces', {
 		resetFilters: function () {
 			var searchInput = document.querySelector( 'input[name="bn_search"]' );
 			if ( searchInput ) { searchInput.value = ''; }
-			var chips = document.querySelectorAll( '[data-bn-type-chip]' );
+			// Reset the single-select row back to "All Spaces"; scope and category
+			// are reactive now, so this clears everything without a page reload.
+			var chips = document.querySelectorAll( '[data-bn-scope-chip]' );
 			for ( var i = 0; i < chips.length; i++ ) {
 				chips[ i ].setAttribute(
 					'aria-selected',
-					chips[ i ].getAttribute( 'data-bn-type-chip' ) === '' ? 'true' : 'false'
+					chips[ i ].getAttribute( 'data-bn-scope-chip' ) === 'all' ? 'true' : 'false'
 				);
-			}
-			// Category is URL-driven; drop it so "Reset" truly clears everything.
-			var hadCat = false;
-			try {
-				hadCat = new URLSearchParams( window.location.search ).has( 'bn_cat' );
-			} catch ( e ) {
-				hadCat = false;
-			}
-			if ( hadCat ) {
-				window.location.href = window.location.pathname;
-				return;
 			}
 			applySpacesFilter();
 		},
@@ -1769,28 +1764,25 @@ var bnSpacesFilterAbort = null;
  */
 function readSpacesFilterState() {
 	var search = document.querySelector( 'input[name="bn_search"]' );
-	// Type lives on the active pill (the dropdown was removed in the
-	// directory refactor — one filter home per dimension).
-	var typeChip = document.querySelector( '[data-bn-type-chip][aria-selected="true"]' );
-	var sortEl   = document.querySelector( '[data-bn-sort-trigger]' );
-	var sort     = sortEl && sortEl.getAttribute( 'data-current-sort' );
+	var sortEl = document.querySelector( '[data-bn-sort-trigger]' );
+	var sort   = sortEl && sortEl.getAttribute( 'data-current-sort' );
 	if ( ! sort ) {
 		var selected = document.querySelector( '[data-bn-sort-value][aria-selected="true"]' );
 		sort         = selected ? selected.getAttribute( 'data-bn-sort-value' ) : 'popular';
 	}
-	// Category is sidebar/URL-driven (full navigation), preserved here so
-	// reactive type/search/sort changes keep any active category.
-	var category = '';
-	try {
-		category = new URLSearchParams( window.location.search ).get( 'bn_cat' ) || '';
-	} catch ( e ) {
-		category = '';
-	}
+	// One single-select chip drives scope + category. "mine" maps to the REST
+	// `mine` flag; a category chip carries both its id (REST `category_id`) and
+	// slug (for the shareable URL + the SSR highlight on reload). They are
+	// mutually exclusive — only one chip is ever lit.
+	var scopeChip    = document.querySelector( '[data-bn-scope-chip][aria-selected="true"]' );
+	var scope        = scopeChip ? ( scopeChip.getAttribute( 'data-bn-scope-chip' ) || 'all' ) : 'all';
+	var isCat        = ( 'cat' === scope && scopeChip );
 	return {
-		q:        search ? search.value : '',
-		category: category,
-		type:     typeChip ? ( typeChip.getAttribute( 'data-bn-type-chip' ) || '' ) : '',
-		sort:     sort || 'popular',
+		q:            search ? search.value : '',
+		mine:         ( 'mine' === scope ),
+		categoryId:   isCat ? ( scopeChip.getAttribute( 'data-bn-cat-id' ) || '' ) : '',
+		categorySlug: isCat ? ( scopeChip.getAttribute( 'data-bn-cat-slug' ) || '' ) : '',
+		sort:         sort || 'popular',
 	};
 }
 
@@ -2037,12 +2029,9 @@ async function executeSpacesFilter() {
 
 	var params = new URLSearchParams();
 	if ( state.q ) { params.set( 'search', state.q ); }
-	if ( state.type ) { params.set( 'type', state.type ); }
+	if ( state.mine ) { params.set( 'mine', '1' ); }
+	if ( state.categoryId ) { params.set( 'category_id', state.categoryId ); }
 	if ( state.sort ) { params.set( 'orderby', state.sort ); }
-	// Preserve the "My Spaces" scope across reactive type/sort/search filtering
-	// so the chip composes with the others (read from the URL the chip set).
-	var bnScopeMine = 'mine' === ( new URLSearchParams( window.location.search ).get( 'bn_scope' ) || '' );
-	if ( bnScopeMine ) { params.set( 'mine', '1' ); }
 	params.set( 'per_page', '18' );
 
 	try {
@@ -2089,13 +2078,19 @@ async function executeSpacesFilter() {
 		}
 		setDirectoryUiState( 'ready' );
 
-		// Update URL state without reload for shareable links.
+		// Update URL state without reload for shareable links. Scope + category
+		// are written as bn_scope / bn_cat (slug) so a reload re-renders the same
+		// filtered grid server-side and re-lights the matching chip.
 		try {
 			var url = new URL( window.location.href );
 			if ( state.q ) { url.searchParams.set( 'bn_search', state.q ); }
 			else { url.searchParams.delete( 'bn_search' ); }
-			if ( state.type ) { url.searchParams.set( 'bn_type', state.type ); }
-			else { url.searchParams.delete( 'bn_type' ); }
+			if ( state.mine ) { url.searchParams.set( 'bn_scope', 'mine' ); }
+			else { url.searchParams.delete( 'bn_scope' ); }
+			if ( state.categorySlug ) { url.searchParams.set( 'bn_cat', state.categorySlug ); }
+			else { url.searchParams.delete( 'bn_cat' ); }
+			url.searchParams.delete( 'bn_type' );
+			url.searchParams.delete( 'bn_page' );
 			if ( state.sort && 'popular' !== state.sort ) { url.searchParams.set( 'bn_sort', state.sort ); }
 			else { url.searchParams.delete( 'bn_sort' ); }
 			window.history.replaceState( {}, '', url.toString() );
@@ -2328,8 +2323,8 @@ function initSpacesImperative() {
 			applySpacesFilter();
 		} );
 	}
-	// Type/category dropdowns were removed (type → pills, category →
-	// sidebar). Type pills drive applySpacesFilter via actions.setType.
+	// The scope/category chips drive applySpacesFilter via actions.setScope;
+	// the search box (above) and the sort popover are the other reactive inputs.
 
 	// Suppress the form submit on reactive filter forms so Enter does
 	// not reload the page. Per-form guard so a re-init after a client-side

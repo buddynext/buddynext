@@ -246,44 +246,12 @@ if ( ! function_exists( 'bn_space_category_icon' ) ) {
 // has_action() after the inner buffer flushes and renders the right column.
 add_action(
 	'buddynext_right_sidebar',
-	static function () use ( $categories, $bn_cat_slug, $current_user_id, $wpdb ) {
-		// Card 1: Categories — only when the site actually has categories.
-		// A lone "All categories" row is noise on a category-less install.
-		if ( ! empty( $categories ) ) {
-			ob_start();
-			?>
-			<ul class="bn-sd-side-list">
-				<li>
-					<a href="<?php echo esc_url( remove_query_arg( 'bn_cat' ) ); ?>"
-						class="bn-sd-side-row<?php echo ( '' === $bn_cat_slug ) ? ' is-active' : ''; ?>">
-						<span><?php esc_html_e( 'All categories', 'buddynext' ); ?></span>
-					</a>
-				</li>
-				<?php foreach ( $categories as $bn_cat_item ) : ?>
-					<li>
-						<a href="<?php echo esc_url( add_query_arg( 'bn_cat', $bn_cat_item->slug ) ); ?>"
-							class="bn-sd-side-row<?php echo ( $bn_cat_item->slug === $bn_cat_slug ) ? ' is-active' : ''; ?>">
-							<span class="bn-sd-side-row__icon" aria-hidden="true"><?php echo bn_space_category_icon( $bn_cat_item->slug ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns wp_kses()-sanitized SVG. ?></span>
-							<span><?php echo esc_html( $bn_cat_item->name ); ?></span>
-						</a>
-					</li>
-				<?php endforeach; ?>
-			</ul>
-			<?php
-			$bn_cats_html = (string) ob_get_clean();
+	static function () use ( $current_user_id, $wpdb ) {
+		// Categories are filtered from the primary chip row at the top of the
+		// directory now (single-select scope + category), so the old sidebar
+		// "Categories" card was removed to avoid two places doing the same job.
 
-			buddynext_get_template(
-				'parts/sidebar-card.php',
-				array(
-					'id'         => 'spaces-categories',
-					'title'      => __( 'Categories', 'buddynext' ),
-					'title_icon' => 'hash',
-					'body_html'  => $bn_cats_html,
-				)
-			);
-		}
-
-		// Card 2: Your spaces (members only).
+		// Card: Your spaces (members only).
 		if ( $current_user_id ) {
 			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			$bn_my_spaces = $wpdb->get_results(
@@ -385,15 +353,11 @@ do_action( 'buddynext_spaces_directory_before', $current_user_id );
 
 // ── Render ───────────────────────────────────────────────────────────────────
 
-// Type-filter pills (the single type-filter home; the duplicate dropdown
-// and the orphan category chip-row were removed in the directory refactor).
-$bn_type_chips = array(
-	''        => __( 'All', 'buddynext' ),
-	'open'    => \BuddyNext\Spaces\SpaceService::type_label( 'open' ),
-	'private' => \BuddyNext\Spaces\SpaceService::type_label( 'private' ),
-	'secret'  => \BuddyNext\Spaces\SpaceService::type_label( 'secret' ),
-);
-
+// Primary filter chips are scope + category, not visibility type. A member
+// browses by "all / mine / a topic", the way Facebook, X, and LinkedIn group
+// spaces — open/private/secret is a creator concern, surfaced on each card and
+// in space settings, never as a directory filter. The chips render from
+// $categories (fetched above); the row is built inline below.
 $bn_sort_options = array(
 	'popular'      => __( 'Sort: Popular', 'buddynext' ),
 	'active'       => __( 'Most active', 'buddynext' ),
@@ -465,34 +429,44 @@ $bn_subtitle = sprintf(
 	?>
 
 	<div class="bn-sd-filter-row">
-		<nav class="bn-tabs bn-sd-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter spaces', 'buddynext' ); ?>" data-bn-type-chips>
+		<nav class="bn-tabs bn-sd-chips" role="tablist" aria-label="<?php esc_attr_e( 'Filter spaces', 'buddynext' ); ?>" data-bn-scope-chips>
+			<?php
+			// One single-select row: All Spaces / My Spaces / one chip per
+			// category. Exactly one chip is lit at a time — selecting any chip
+			// clears the rest (actions.setScope), so the directory never shows two
+			// conflicting filters at once. "My Spaces" wins over a stale category
+			// in the URL so the initial highlight is always unambiguous.
+			$bn_is_mine = ( 'mine' === $bn_scope && $current_user_id > 0 );
+			?>
+			<button
+				type="button"
+				class="bn-tab bn-sd-chip"
+				role="tab"
+				aria-selected="<?php echo ( ! $bn_is_mine && '' === $bn_cat_slug ) ? 'true' : 'false'; ?>"
+				data-bn-scope-chip="all"
+				data-wp-on--click="actions.setScope"
+			><?php esc_html_e( 'All Spaces', 'buddynext' ); ?></button>
 			<?php if ( $current_user_id > 0 ) : ?>
-				<?php
-				// "My Spaces" is a scope toggle (owned + joined), distinct from the
-				// type chips — a full-reload link that the server scopes; the
-				// reactive type/sort filtering preserves it (see store.js). No
-				// data-bn-type-chip attribute, so setType leaves it untouched.
-				$bn_scope_active = ( 'mine' === $bn_scope );
-				$bn_scope_href   = $bn_scope_active
-					? remove_query_arg( array( 'bn_scope', 'bn_page' ) )
-					: remove_query_arg( 'bn_page', add_query_arg( 'bn_scope', 'mine' ) );
-				?>
-				<a
-					class="bn-tab bn-sd-chip"
-					role="tab"
-					href="<?php echo esc_url( $bn_scope_href ); ?>"
-					aria-selected="<?php echo $bn_scope_active ? 'true' : 'false'; ?>"
-				><?php esc_html_e( 'My Spaces', 'buddynext' ); ?></a>
-			<?php endif; ?>
-			<?php foreach ( $bn_type_chips as $bn_type_val => $bn_type_label ) : ?>
 				<button
 					type="button"
 					class="bn-tab bn-sd-chip"
 					role="tab"
-					aria-selected="<?php echo ( (string) $bn_type_val === $bn_visibility ) ? 'true' : 'false'; ?>"
-					data-bn-type-chip="<?php echo esc_attr( (string) $bn_type_val ); ?>"
-					data-wp-on--click="actions.setType"
-				><?php echo esc_html( $bn_type_label ); ?></button>
+					aria-selected="<?php echo $bn_is_mine ? 'true' : 'false'; ?>"
+					data-bn-scope-chip="mine"
+					data-wp-on--click="actions.setScope"
+				><?php esc_html_e( 'My Spaces', 'buddynext' ); ?></button>
+			<?php endif; ?>
+			<?php foreach ( $categories as $bn_cat_item ) : ?>
+				<button
+					type="button"
+					class="bn-tab bn-sd-chip"
+					role="tab"
+					aria-selected="<?php echo ( ! $bn_is_mine && $bn_cat_item->slug === $bn_cat_slug ) ? 'true' : 'false'; ?>"
+					data-bn-scope-chip="cat"
+					data-bn-cat-id="<?php echo esc_attr( (string) $bn_cat_item->id ); ?>"
+					data-bn-cat-slug="<?php echo esc_attr( (string) $bn_cat_item->slug ); ?>"
+					data-wp-on--click="actions.setScope"
+				><?php echo esc_html( $bn_cat_item->name ); ?></button>
 			<?php endforeach; ?>
 		</nav>
 
@@ -556,7 +530,7 @@ $bn_subtitle = sprintf(
 	// Distinguish "no spaces in the system at all" (cold-start state) from
 	// "filter returned zero". The cold-start state pitches the Create CTA
 	// instead of a Reset-filters CTA that would no-op.
-	$bn_filters_active = ( '' !== $bn_search ) || ( '' !== $bn_cat_slug ) || ( '' !== $bn_visibility ) || ( 'popular' !== $bn_orderby );
+	$bn_filters_active = ( '' !== $bn_search ) || ( '' !== $bn_cat_slug ) || ( 'mine' === $bn_scope ) || ( 'popular' !== $bn_orderby );
 	?>
 	<?php if ( empty( $spaces ) && ! $bn_filters_active ) : ?>
 
