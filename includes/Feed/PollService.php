@@ -131,6 +131,7 @@ class PollService {
 			// Same option clicked again → toggle off, we're done.
 			if ( (int) $existing_option_id === $option_id ) {
 				// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+				PostService::flush_cache( $post_id );
 				return true;
 			}
 		}
@@ -167,6 +168,8 @@ class PollService {
 		 * @param int $user_id   Voting user.
 		 */
 		do_action( 'buddynext_poll_voted', $post_id, $option_id, $user_id );
+
+		PostService::flush_cache( $post_id );
 
 		return true;
 	}

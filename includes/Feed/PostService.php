@@ -393,6 +393,48 @@ class PostService {
 	}
 
 	/**
+	 * Ensure a post array carries its poll options.
+	 *
+	 * The feed queries select bare `bn_posts` rows and never join poll options,
+	 * so every surface that renders a card from a raw feed row (home feed, hashtag
+	 * feed, REST pagination) has to attach them before handing the post to
+	 * `partials/post-card.php`. That hydration used to be copy-pasted into each
+	 * template; one copy (the hashtag feed) was missing, so polls there rendered
+	 * as plain text. This is the single shared path: type-gated, no-op when the
+	 * options are already present, and instantiated directly (no container) so it
+	 * works on every front-end route regardless of bootstrap order.
+	 *
+	 * @param array<string,mixed> $post Post array (must have 'id' + 'type').
+	 * @return array<string,mixed> The post with 'poll_options' populated for polls.
+	 */
+	/**
+	 * Invalidate the cached copy of a single post.
+	 *
+	 * Exposed so collaborators that mutate a post's denormalised state without
+	 * going through PostService — notably PollService when a vote changes an
+	 * option's vote_count — can drop the stale `get()` cache. Without this the
+	 * feed served stale poll tallies (and, on a persistent object cache, could
+	 * pin an out-of-date options set) until the entry expired.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return void
+	 */
+	public static function flush_cache( int $post_id ): void {
+		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
+	}
+
+	public static function attach_poll_options( array $post ): array {
+		if ( 'poll' !== ( $post['type'] ?? '' ) || ! empty( $post['poll_options'] ) ) {
+			return $post;
+		}
+		$full = ( new self() )->get( (int) ( $post['id'] ?? 0 ) );
+		if ( null !== $full && ! empty( $full['poll_options'] ) ) {
+			$post['poll_options'] = $full['poll_options'];
+		}
+		return $post;
+	}
+
+	/**
 	 * Update an existing post's content or privacy.
 	 *
 	 * Sets edited_at to the current UTC time. Only the post owner may update.

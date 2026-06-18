@@ -106,6 +106,10 @@ if ( ! empty( $bn_posts ) ) :
 			'created_at'           => $post_row->created_at ?? '',
 			'updated_at'           => null,
 		);
+		// Hashtag feeds render poll cards too — hydrate options through the same
+		// shared path as the home/REST feeds (this list previously left
+		// poll_options empty, so polls showed as plain text here).
+		$ht_post = \BuddyNext\Feed\PostService::attach_poll_options( $ht_post );
 		buddynext_get_template(
 			'partials/post-card.php',
 			array(

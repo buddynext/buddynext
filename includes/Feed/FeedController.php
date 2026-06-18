@@ -519,17 +519,9 @@ class FeedController extends BaseRestController {
 			return '';
 		}
 
-		$post_service = new PostService();
-
 		ob_start();
 		foreach ( $items as $item ) {
-			$post = $item;
-			if ( ! isset( $post['poll_options'] ) && 'poll' === ( $post['type'] ?? '' ) ) {
-				$full = $post_service->get( (int) ( $post['id'] ?? 0 ) );
-				if ( null !== $full && ! empty( $full['poll_options'] ) ) {
-					$post['poll_options'] = $full['poll_options'];
-				}
-			}
+			$post = PostService::attach_poll_options( $item );
 
 			buddynext_get_template(
 				'partials/post-card.php',

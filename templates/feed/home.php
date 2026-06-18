@@ -477,13 +477,10 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 					'created_at'           => $row->created_at ?? '',
 					'updated_at'           => $row->updated_at ?? null,
 				);
-				// Hydrate poll options for poll-type posts.
-				if ( 'poll' === $home_post['type'] ) {
-					$hydrated = buddynext_service( 'post_service' )->get( $home_post['id'] );
-					if ( $hydrated && ! empty( $hydrated['poll_options'] ) ) {
-						$home_post['poll_options'] = $hydrated['poll_options'];
-					}
-				}
+				// Hydrate poll options for poll-type posts via the one shared path
+				// (PostService::attach_poll_options) so the home, hashtag, and
+				// REST-pagination feeds can never drift apart again.
+				$home_post = \BuddyNext\Feed\PostService::attach_poll_options( $home_post );
 				buddynext_get_template(
 					'partials/post-card.php',
 					array(
