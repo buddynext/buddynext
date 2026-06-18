@@ -267,9 +267,9 @@ const S = {
   registration:{t:'Registration',s:'How new members join and what they confirm.',i:'userplus',cards:[
     {t:'Sign-up',i:'userplus',d:'Control the join flow.',f:[F.toggle('Open registration','Anyone can create an account.',true),F.toggle('Email verification','Require confirming an email.',true),F.sel('Default role','Role new members get.',['Member','Subscriber'])]}]},
   roles:{t:'Roles & capabilities',s:'Who can post, moderate, and manage spaces.',i:'shield',cards:[
-    {t:'Capabilities',i:'shield',d:'Map community abilities to WordPress roles.',f:[F.sel('Can create spaces','','Members'),F.sel('Can moderate','','Moderators'),F.toggle('Members can invite','',true)]}]},
+    {t:'Capabilities',i:'shield',d:'Map community abilities to WordPress roles.',f:[F.sel('Can create spaces','',['Members','Moderators','Admins only']),F.sel('Can moderate','',['Moderators','Admins']),F.toggle('Members can invite','',true)]}]},
   privacy:{t:'Privacy',s:'Default visibility for profiles, activity, and messaging.',i:'lock',cards:[
-    {t:'Defaults',i:'lock',d:'Members can override their own.',f:[F.sel('Profile visibility','','Members'),F.sel('Who can DM','',['Everyone','Connections only']),F.toggle('Show online status','',true)]}]},
+    {t:'Defaults',i:'lock',d:'Members can override their own.',f:[F.sel('Profile visibility','',['Everyone','Members','Connections']),F.sel('Who can DM','',['Everyone','Connections only']),F.toggle('Show online status','',true)]}]},
   'spaces-settings':{t:'Space settings',s:'Defaults applied to newly created spaces.',i:'cog',cards:[
     {t:'Defaults',i:'grid',d:'',f:[F.sel('Default space privacy','',['Open','Private','Secret']),F.toggle('Allow members to create spaces','',true)]}]},
   social:{t:'Social graph',s:'Follows, connections, and blocking behavior.',i:'spark',cards:[
