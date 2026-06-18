@@ -300,6 +300,7 @@ class FeedService {
 		$sql = $wpdb->prepare(
 			"SELECT * FROM {$wpdb->prefix}bn_posts
 			 WHERE status = 'published'
+			   AND type <> 'announcement'
 			   AND (scheduled_at IS NULL OR scheduled_at <= UTC_TIMESTAMP())
 			   AND ({$source_where})
 			   {$excluded_where}
