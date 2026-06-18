@@ -248,6 +248,8 @@ class Settings extends AdminPageBase {
 		?>
 		<form method="post" action="options.php" class="bn-settings-form">
 			<?php settings_fields( 'buddynext_' . $slug ); ?>
+			<?php // Explicit referer so options.php redirects back to THIS tab after save. WP 6.7+ no longer guarantees settings_fields() emits _wp_http_referer, so without this the redirect drops ?tab= and falls back to General. ?>
+			<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'settings-updated', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">
 			<?php $this->$method(); ?>
 			<?php $this->render_save_bar(); ?>
 		</form>
@@ -912,6 +914,8 @@ class Settings extends AdminPageBase {
 		?>
 		<form method="post" action="options.php">
 			<?php settings_fields( 'buddynext_' . $active_tab ); ?>
+			<?php // Explicit referer so options.php redirects back to THIS tab after save (WP 6.7+ may not emit _wp_http_referer via settings_fields()). ?>
+			<input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( remove_query_arg( 'settings-updated', sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) ) ) ); ?>">
 			<?php $this->{'render_tab_' . $active_tab}(); ?>
 			<?php $this->render_save_bar(); ?>
 		</form>
