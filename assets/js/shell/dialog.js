@@ -320,7 +320,7 @@ export function bnReportDialog( opts ) {
 	notesLabel.style.fontWeight = '600';
 	notesLabel.style.fontSize = '13px';
 	const notes = document.createElement( 'textarea' );
-	notes.className = 'bn-input';
+	notes.className = 'bn-textarea';
 	notes.rows = 3;
 	notes.maxLength = 500;
 	notes.placeholder = 'Tell us more about what you saw…';
