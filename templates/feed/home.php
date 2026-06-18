@@ -162,31 +162,10 @@ if ( $bn_feed_service_obj instanceof FeedService ) {
 		$bn_per_page,
 		$bn_filter
 	);
-	$feed_posts            = array();
-	foreach ( (array) ( $service_result['items'] ?? array() ) as $hydrated ) {
-		$feed_posts[] = (object) array(
-			'id'                   => (int) ( $hydrated['id'] ?? 0 ),
-			'user_id'              => (int) ( $hydrated['user_id'] ?? 0 ),
-			'space_id'             => isset( $hydrated['space_id'] ) ? (int) $hydrated['space_id'] : null,
-			'shared_post_id'       => isset( $hydrated['shared_post_id'] ) ? (int) $hydrated['shared_post_id'] : null,
-			'content'              => (string) ( $hydrated['content'] ?? '' ),
-			'type'                 => (string) ( $hydrated['type'] ?? 'text' ),
-			'privacy'              => (string) ( $hydrated['privacy'] ?? 'public' ),
-			'media_ids'            => isset( $hydrated['media_ids'] ) ? wp_json_encode( $hydrated['media_ids'] ) : null,
-			'link_url'             => $hydrated['link_url'] ?? null,
-			'link_meta'            => isset( $hydrated['link_meta'] ) ? wp_json_encode( $hydrated['link_meta'] ) : null,
-			'is_pinned'            => (int) ( $hydrated['is_pinned'] ?? 0 ),
-			'is_announcement'      => (int) ( $hydrated['is_announcement'] ?? 0 ),
-			'content_warning'      => (int) ( $hydrated['content_warning'] ?? 0 ),
-			'content_warning_type' => $hydrated['content_warning_type'] ?? null,
-			'reaction_count'       => (int) ( $hydrated['reaction_count'] ?? 0 ),
-			'comment_count'        => (int) ( $hydrated['comment_count'] ?? 0 ),
-			'share_count'          => (int) ( $hydrated['share_count'] ?? 0 ),
-			'edited_at'            => $hydrated['edited_at'] ?? null,
-			'created_at'           => (string) ( $hydrated['created_at'] ?? '' ),
-			'updated_at'           => $hydrated['updated_at'] ?? null,
-		);
-	}
+	// home_feed() already returns fully hydrated post arrays (poll options,
+	// decoded media/link meta) keyed exactly as partials/post-card.php expects —
+	// use them as-is instead of round-tripping array → stdClass → array.
+	$feed_posts  = array_values( (array) ( $service_result['items'] ?? array() ) );
 	$next_cursor = (string) ( $service_result['next_cursor'] ?? '' );
 	$has_more    = '' !== $next_cursor;
 }
@@ -262,6 +241,15 @@ if ( ! $feed_service_filtered ) :
 		$last_post   = end( $feed_posts );
 		$next_cursor = base64_encode( $last_post->created_at . '|' . $last_post->id ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 	}
+
+	// Map raw rows to the canonical hydrated post arrays (decoded media/link meta
+	// + poll options) so the render loop gets the same shape as the service path
+	// — no hand-rolled row→array mapping in the template.
+	$bn_fallback_post_service = new \BuddyNext\Feed\PostService();
+	$feed_posts               = array_map(
+		static fn( $bn_row ) => $bn_fallback_post_service->hydrate( (array) $bn_row ),
+		(array) $feed_posts
+	);
 endif; // ! $feed_service_filtered
 
 // ── Tab counts ──────────────────────────────────────────────────────────────
@@ -444,35 +432,10 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 
 	<?php if ( ! empty( $feed_posts ) ) : ?>
 		<div class="bn-feed-list" role="feed" aria-label="<?php esc_attr_e( 'Home feed', 'buddynext' ); ?>">
-			<?php foreach ( $feed_posts as $row ) : ?>
+			<?php foreach ( $feed_posts as $home_post ) : ?>
 				<?php
-				$home_post = array(
-					'id'                   => (int) $row->id,
-					'user_id'              => (int) $row->user_id,
-					'type'                 => $row->type ?? 'text',
-					'content'              => $row->content ?? '',
-					'privacy'              => $row->privacy ?? 'public',
-					'space_id'             => isset( $row->space_id ) ? (int) $row->space_id : null,
-					'shared_post_id'       => isset( $row->shared_post_id ) ? (int) $row->shared_post_id : null,
-					'media_ids'            => isset( $row->media_ids ) ? json_decode( (string) $row->media_ids, true ) : null,
-					'link_url'             => $row->link_url ?? null,
-					'link_meta'            => $row->link_meta ?? null,
-					'poll_options'         => array(),
-					'is_pinned'            => (int) ( $row->is_pinned ?? 0 ),
-					'is_announcement'      => (int) ( $row->is_announcement ?? 0 ),
-					'content_warning'      => (bool) ( $row->content_warning ?? false ),
-					'content_warning_type' => $row->content_warning_type ?? null,
-					'reaction_count'       => absint( $row->reaction_count ?? 0 ),
-					'comment_count'        => absint( $row->comment_count ?? 0 ),
-					'share_count'          => absint( $row->share_count ?? 0 ),
-					'edited_at'            => $row->edited_at ?? null,
-					'created_at'           => $row->created_at ?? '',
-					'updated_at'           => $row->updated_at ?? null,
-				);
-				// Hydrate poll options for poll-type posts via the one shared path
-				// (PostService::attach_poll_options) so the home, hashtag, and
-				// REST-pagination feeds can never drift apart again.
-				$home_post = \BuddyNext\Feed\PostService::attach_poll_options( $home_post );
+				// $feed_posts are already canonical hydrated post arrays (service
+				// path or PostService::hydrate() fallback) — no per-row remapping.
 				buddynext_get_template(
 					'partials/post-card.php',
 					array(

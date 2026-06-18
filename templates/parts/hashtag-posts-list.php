@@ -83,33 +83,13 @@ do_action( 'buddynext_part_hashtag_posts_list_before', $args );
 <div class="<?php echo esc_attr( $bn_class ); ?>" role="feed" aria-label="<?php esc_attr_e( 'Hashtag feed', 'buddynext' ); ?>">
 <?php
 if ( ! empty( $bn_posts ) ) :
+	// Map each row through the canonical PostService::hydrate() — same shape as
+	// the home/REST feeds, with poll options, decoded media + link meta, and
+	// real privacy. The previous hand-rolled array hardcoded privacy=public and
+	// dropped media/link data, so hashtag cards silently differed from the feed.
+	$bn_ht_post_service = new \BuddyNext\Feed\PostService();
 	foreach ( $bn_posts as $post_row ) :
-		$ht_post = array(
-			'id'                   => (int) $post_row->id,
-			'user_id'              => (int) $post_row->user_id,
-			'type'                 => $post_row->type ?? 'text',
-			'content'              => $post_row->content ?? '',
-			'privacy'              => 'public',
-			'space_id'             => null,
-			'media_ids'            => null,
-			'link_url'             => null,
-			'link_meta'            => null,
-			'poll_options'         => array(),
-			'is_pinned'            => 0,
-			'is_announcement'      => 0,
-			'content_warning'      => false,
-			'content_warning_type' => null,
-			'reaction_count'       => absint( $post_row->reaction_count ?? 0 ),
-			'comment_count'        => absint( $post_row->comment_count ?? 0 ),
-			'share_count'          => absint( $post_row->share_count ?? 0 ),
-			'edited_at'            => null,
-			'created_at'           => $post_row->created_at ?? '',
-			'updated_at'           => null,
-		);
-		// Hashtag feeds render poll cards too — hydrate options through the same
-		// shared path as the home/REST feeds (this list previously left
-		// poll_options empty, so polls showed as plain text here).
-		$ht_post = \BuddyNext\Feed\PostService::attach_poll_options( $ht_post );
+		$ht_post = $bn_ht_post_service->hydrate( (array) $post_row );
 		buddynext_get_template(
 			'partials/post-card.php',
 			array(

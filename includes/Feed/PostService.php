@@ -393,21 +393,6 @@ class PostService {
 	}
 
 	/**
-	 * Ensure a post array carries its poll options.
-	 *
-	 * The feed queries select bare `bn_posts` rows and never join poll options,
-	 * so every surface that renders a card from a raw feed row (home feed, hashtag
-	 * feed, REST pagination) has to attach them before handing the post to
-	 * `partials/post-card.php`. That hydration used to be copy-pasted into each
-	 * template; one copy (the hashtag feed) was missing, so polls there rendered
-	 * as plain text. This is the single shared path: type-gated, no-op when the
-	 * options are already present, and instantiated directly (no container) so it
-	 * works on every front-end route regardless of bootstrap order.
-	 *
-	 * @param array<string,mixed> $post Post array (must have 'id' + 'type').
-	 * @return array<string,mixed> The post with 'poll_options' populated for polls.
-	 */
-	/**
 	 * Invalidate the cached copy of a single post.
 	 *
 	 * Exposed so collaborators that mutate a post's denormalised state without
@@ -423,6 +408,21 @@ class PostService {
 		wp_cache_delete( "post_{$post_id}", self::CACHE_GROUP );
 	}
 
+	/**
+	 * Ensure a post array carries its poll options.
+	 *
+	 * The feed queries select bare `bn_posts` rows and never join poll options,
+	 * so every surface that renders a card from a raw feed row (home feed, hashtag
+	 * feed, REST pagination) has to attach them before handing the post to
+	 * `partials/post-card.php`. That hydration used to be copy-pasted into each
+	 * template; one copy (the hashtag feed) was missing, so polls there rendered
+	 * as plain text. This is the single shared path: type-gated, no-op when the
+	 * options are already present, and instantiated directly (no container) so it
+	 * works on every front-end route regardless of bootstrap order.
+	 *
+	 * @param array<string,mixed> $post Post array (must have 'id' + 'type').
+	 * @return array<string,mixed> The post with 'poll_options' populated for polls.
+	 */
 	public static function attach_poll_options( array $post ): array {
 		if ( 'poll' !== ( $post['type'] ?? '' ) || ! empty( $post['poll_options'] ) ) {
 			return $post;
@@ -1615,27 +1615,29 @@ class PostService {
 			'user_id'              => (int) $row['user_id'],
 			'space_id'             => isset( $row['space_id'] ) ? (int) $row['space_id'] : null,
 			'shared_post_id'       => isset( $row['shared_post_id'] ) ? (int) $row['shared_post_id'] : null,
-			'type'                 => $row['type'],
-			'content'              => $row['content'],
+			'type'                 => $row['type'] ?? 'text',
+			'content'              => $row['content'] ?? '',
 			'media_ids'            => isset( $row['media_ids'] ) ? json_decode( (string) $row['media_ids'], true ) : null,
-			'link_url'             => $row['link_url'],
+			'link_url'             => $row['link_url'] ?? null,
 			'link_meta'            => isset( $row['link_meta'] ) ? json_decode( (string) $row['link_meta'], true ) : null,
-			'privacy'              => $row['privacy'],
-			'reaction_count'       => (int) $row['reaction_count'],
-			'comment_count'        => (int) $row['comment_count'],
-			'share_count'          => (int) $row['share_count'],
-			'is_pinned'            => (int) $row['is_pinned'],
-			'is_announcement'      => (int) $row['is_announcement'],
+			'privacy'              => $row['privacy'] ?? 'public',
+			'reaction_count'       => (int) ( $row['reaction_count'] ?? 0 ),
+			'comment_count'        => (int) ( $row['comment_count'] ?? 0 ),
+			'share_count'          => (int) ( $row['share_count'] ?? 0 ),
+			'is_pinned'            => (int) ( $row['is_pinned'] ?? 0 ),
+			'is_announcement'      => (int) ( $row['is_announcement'] ?? 0 ),
 			'content_warning'      => (bool) ( $row['content_warning'] ?? false ),
 			'content_warning_type' => $row['content_warning_type'] ?? null,
-			'site_pin_expires_at'  => $row['site_pin_expires_at'],
-			'edited_at'            => $row['edited_at'],
-			'scheduled_at'         => $row['scheduled_at'],
-			'created_at'           => $row['created_at'],
-			'updated_at'           => $row['updated_at'],
+			// Optional columns — defaulted so hydrate() tolerates partial rows
+			// (feed/hashtag SELECTs that omit them) without an undefined-key notice.
+			'site_pin_expires_at'  => $row['site_pin_expires_at'] ?? null,
+			'edited_at'            => $row['edited_at'] ?? null,
+			'scheduled_at'         => $row['scheduled_at'] ?? null,
+			'created_at'           => $row['created_at'] ?? '',
+			'updated_at'           => $row['updated_at'] ?? null,
 		);
 
-		if ( 'poll' === $row['type'] ) {
+		if ( 'poll' === ( $row['type'] ?? '' ) ) {
 			$post['poll_options'] = $this->fetch_poll_options( (int) $row['id'] );
 		}
 
