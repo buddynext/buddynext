@@ -100,7 +100,10 @@ input[readonly]{color:var(--bn-ink-3);background:var(--bn-canvas)}
 .kpi .ti{width:34px;height:34px;border-radius:var(--bn-r-md);display:grid;place-items:center;background:var(--bn-accent-50);color:var(--bn-accent-600)}
 .kpi .v{font-family:var(--bn-font-display);font-size:28px;font-weight:700;letter-spacing:-.02em}
 .kpi .l{color:var(--bn-ink-3);font-size:var(--bn-text-xs);margin-top:2px}
-.dl-up{font-family:var(--bn-font-mono);font-size:11px;color:var(--bn-success);background:var(--bn-success-bg);padding:2px 7px;border-radius:var(--bn-r-full);font-weight:600}
+.dl-up{display:inline-flex;align-items:center;gap:3px;font-family:var(--bn-font-mono);font-size:11px;color:var(--bn-success);background:var(--bn-success-bg);padding:2px 7px;border-radius:var(--bn-r-full);font-weight:600}
+.dl-up svg{width:12px;height:12px}
+.dl-mut{font-family:var(--bn-font-mono);font-size:11px;color:var(--bn-ink-3);background:var(--bn-canvas);padding:2px 7px;border-radius:var(--bn-r-full);font-weight:600}
+.btn svg.cv,.pgbtn svg{width:14px;height:14px}
 
 /* table (list) */
 .toolbar{display:flex;gap:var(--bn-s2);margin-bottom:var(--bn-s4);align-items:center}
@@ -228,9 +231,17 @@ const I = {
   coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>',
   card:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
   key:'<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.5 12.5 8-8 3 3-3 3"/>',
-  chart:'<path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 4-5"/>'
+  chart:'<path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 4-5"/>',
+  trendup:'<path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/>',
+  chevdown:'<path d="m6 9 6 6 6-6"/>',
+  chevleft:'<path d="m15 18-6-6 6-6"/>',
+  chevright:'<path d="m9 18 6-6-6-6"/>',
+  check:'<path d="m20 6-9 11-5-5"/>',
+  arrowright:'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>'
 };
 const ic = k => '<svg viewBox="0 0 24 24">'+(I[k]||I.cog)+'</svg>';
+// KPI delta: '▲ 12%' -> Lucide trending-up + text; anything else -> neutral pill.
+const deltaHtml = d => !d ? '' : (d.startsWith('▲') ? `<span class="dl-up">${ic('trendup')} ${d.slice(1).trim()}</span>` : `<span class="dl-mut">${d}</span>`);
 
 // Field helpers
 const F = {
@@ -381,7 +392,7 @@ function renderSettings(key){const d=S[key];if(!d)return renderPlaceholder(key);
 function renderPlaceholder(key){return phead(title(key),'This screen follows the standard settings pattern.',key)+card({t:'Settings',i:'cog',d:'',f:[F.toggle('Enabled','',true)]})+savebar();}
 
 function renderOverview(){
-  const k=(l,v,i,d)=>`<div class="kpi"><div class="top"><span class="ti">${ic(i)}</span><span class="dl-up">${d}</span></div><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  const k=(l,v,i,d)=>`<div class="kpi"><div class="top"><span class="ti">${ic(i)}</span>${deltaHtml(d)}</div><div class="v">${v}</div><div class="l">${l}</div></div>`;
   return phead('Overview','Your community at a glance — growth, attention, next steps.','overview')
    +`<div class="kpis">${k('Total members','1,284','users','▲ 12%')}${k('Active spaces','37','grid','▲ 4')}${k('Posts today','412','spark','▲ 8%')}${k('Pending reports','5','flag','review')}</div>`
    +card({t:'Get started',i:'zap',d:'3 of 5 done',f:[F.toggle('Brand your community','Logo + accent set.',true),F.toggle('Invite members','1,284 joined.',true),F.toggle('Set up a payment gateway','Start earning.',false)]})
@@ -420,8 +431,8 @@ const LISTS={
     cols:['When','Moderator','Action','Target','Object','Note'],
     rows:[['1h','Ravi M.','resolve_report','Dan S.','comment #482','spam'],['3h','Admin','suspend_user','Jia L.','—','3 strikes']]},
   'mod-bulk':{t:'Bulk moderation',s:'Select multiple reports or members and act in one pass. Pro.',filters:['Bulk: Dismiss','Bulk: Remove','Bulk: Warn','Bulk: Suspend'],
-    cols:['☐','Reported content','Reason','Reporter','When'],
-    rows:[['☐','Comment by Dan','Spam','Jia L.','1h'],['☐','Post by Sam','Harassment','3 users','3h']]},
+    cols:['<input type="checkbox" aria-label="Select all">','Reported content','Reason','Reporter','When'],
+    rows:[['<input type="checkbox">','Comment by Dan','Spam','Jia L.','1h'],['<input type="checkbox">','Post by Sam','Harassment','3 users','3h']]},
   broadcasts:{t:'Broadcasts',s:'One-off newsletters to member segments.',
     kpis:[['Sent','24','send'],['Scheduled','2','clock'],['Avg. open rate','42%','spark','▲ 3%']],
     filters:['All statuses ▾'],
@@ -446,8 +457,8 @@ const PER_PAGE=20;
 function renderList(key,page=1){
   const cfg = LISTS[key] || {t:title(key),s:'Browse and manage '+title(key).toLowerCase()+'.',cols:['Item','Status'],rows:[['—·Example item','<span class="pill mut">—</span>']]};
   const total = TOTALS[key] != null ? TOTALS[key] : cfg.rows.length;
-  const kpis = cfg.kpis ? `<div class="kpis">${cfg.kpis.map(k=>`<div class="kpi"><div class="top"><span class="ti">${ic(k[2]||'gauge')}</span>${k[3]?`<span class="dl-up">${k[3]}</span>`:''}</div><div class="v">${k[1]}</div><div class="l">${k[0]}</div></div>`).join('')}</div>` : '';
-  const fbtns = (cfg.filters||['All statuses ▾']).map(f=>`<button class="btn gho">${f}</button>`).join('');
+  const kpis = cfg.kpis ? `<div class="kpis">${cfg.kpis.map(k=>`<div class="kpi"><div class="top"><span class="ti">${ic(k[2]||'gauge')}</span>${deltaHtml(k[3])}</div><div class="v">${k[1]}</div><div class="l">${k[0]}</div></div>`).join('')}</div>` : '';
+  const fbtns = (cfg.filters||['All statuses ▾']).map(f=>{const dd=f.endsWith(' ▾');const lbl=dd?f.slice(0,-2):f;return `<button class="btn gho">${lbl}${dd?' <svg class="cv" viewBox="0 0 24 24">'+I.chevdown+'</svg>':''}</button>`;}).join('');
   const toolbar = `<div class="toolbar"><div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Filter ${cfg.t.toLowerCase()}…</div>${fbtns}<div class="sp"></div><button class="btn pri">+ Add</button></div>`;
   return phead(cfg.t,cfg.s,key)+kpis+toolbar+tableCardRaw(cfg.cols,cfg.rows)+renderPager(key,total,page,PER_PAGE);
 }
@@ -471,9 +482,9 @@ function renderPager(key,total,page,per){
     <span class="per">Rows <select onchange="">${[10,20,50,100].map(x=>`<option ${x===per?'selected':''}>${x}</option>`).join('')}</select></span>
     <span class="sp"></span>
     <span class="pgnav">
-      <button class="pgbtn" data-key="${key}" data-page="${page-1}" ${page<=1?'disabled':''} aria-label="Previous page">‹</button>
+      <button class="pgbtn" data-key="${key}" data-page="${page-1}" ${page<=1?'disabled':''} aria-label="Previous page">${ic('chevleft')}</button>
       ${pages>1?pageList(page,pages).map(pbtn).join(''):''}
-      <button class="pgbtn" data-key="${key}" data-page="${page+1}" ${page>=pages?'disabled':''} aria-label="Next page">›</button>
+      <button class="pgbtn" data-key="${key}" data-page="${page+1}" ${page>=pages?'disabled':''} aria-label="Next page">${ic('chevright')}</button>
     </span>
   </div>`;
 }
@@ -488,11 +499,11 @@ function renderEditor(){
    +`</div><div class="meta-card"><h4>Publish</h4><div class="fr"><div class="m"><label>Status</label></div><div class="c"><select><option>Active</option><option>Inactive</option></select></div></div><button class="btn pri" style="width:100%;justify-content:center;margin-top:8px">Save plan</button><button class="btn gho" style="width:100%;justify-content:center;margin-top:8px">Preview checkout</button></div></div>`;
 }
 function renderWizard(){
-  const step=(n,l,st)=>`<div class="step ${st}"><span class="n">${st==='done'?'✓':n}</span>${l}</div>`;
+  const step=(n,l,st)=>`<div class="step ${st}"><span class="n">${st==='done'?ic('check'):n}</span>${l}</div>`;
   return phead('Setup wizard','Five quick steps to a launch-ready community.','wizard')
    +`<div class="steps">${step(1,'Brand','done')}${step(2,'Features','done')}${step(3,'Spaces','on')}${step(4,'Invite','')}${step(5,'Launch','')}</div>`
    +card({t:'Create your first spaces',i:'grid',d:'Spaces are the rooms of your community. Add a few to start.',f:[F.text('Space name','','General'),F.sel('Privacy','',['Open','Private']),F.text('Add another','','Introductions')]})
-   +`<div class="savebar"><div class="sp"></div><button class="btn gho">Back</button><button class="btn pri">Continue →</button></div>`;
+   +`<div class="savebar"><div class="sp"></div><button class="btn gho">Back</button><button class="btn pri">Continue ${ic('arrowright')}</button></div>`;
 }
 
 function title(key){for(const g of GROUPS)for(const[k,l]of g.items)if(k===key)return l;return key;}
