@@ -397,7 +397,7 @@ class ProfileFieldsManager {
 		// conditional trigger, advanced choices) submitted by Pro field types
 		// under bn_field_options[*]. Merged — not overwritten — so a choice
 		// type's core `options` list and Pro's extra keys coexist.
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified via check_admin_referer() above.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified via check_admin_referer() above; sanitized via sanitize_field_options().
 		$pro_opts = $this->sanitize_field_options( isset( $_POST['bn_field_options'] ) ? wp_unslash( $_POST['bn_field_options'] ) : null );
 		if ( null !== $pro_opts ) {
 			$parsed_opts = is_array( $parsed_opts )
@@ -829,7 +829,7 @@ class ProfileFieldsManager {
 		// conditional trigger, advanced choices) submitted by Pro field types
 		// under bn_field_options[*]. Merged — not overwritten — so a choice
 		// type's core `options` list and Pro's extra keys coexist.
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified via check_admin_referer() above.
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- nonce verified via check_admin_referer() above; sanitized via sanitize_field_options().
 		$pro_opts = $this->sanitize_field_options( isset( $_POST['bn_field_options'] ) ? wp_unslash( $_POST['bn_field_options'] ) : null );
 		if ( null !== $pro_opts ) {
 			$parsed_opts = is_array( $parsed_opts )
@@ -1243,7 +1243,7 @@ class ProfileFieldsManager {
 								<td><span class="bn-pf-field-name"><?php echo esc_html( $field['label'] ); ?></span></td>
 
 								<!-- Type -->
-								<td><span class="bn-pf-type-pill"><?php echo esc_html( $type_lbl ); ?></span></td>
+								<td><span class="bn-badge" data-tone="neutral"><?php echo esc_html( $type_lbl ); ?></span></td>
 
 								<!-- Required inline toggle -->
 								<td>
@@ -1416,8 +1416,8 @@ class ProfileFieldsManager {
 												</div>
 											<?php endif; ?>
 											<div class="bn-pf-af-actions">
-												<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Changes', 'buddynext' ); ?></button>
-												<button type="button" class="button" data-bn-pf-toggle-edit="<?php echo esc_attr( $edit_panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+												<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Changes', 'buddynext' ); ?></button>
+												<button type="button" class="bn-btn" data-variant="secondary" data-bn-pf-toggle-edit="<?php echo esc_attr( $edit_panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 											</div>
 										</form>
 									</div>
@@ -1498,8 +1498,6 @@ class ProfileFieldsManager {
 						<table class="bn-pf-hook-rows"><tbody>
 							<?php do_action( 'buddynext_profile_field_type_options', '', array() ); ?>
 						</tbody></table>
-						<?php
-						?>
 						<!-- Date display config -->
 						<div id="bn-af-date-<?php echo absint( $gid ); ?>" class="bn-pf-opts-wrap" style="display:none;">
 							<label for="bn-af-date-d-<?php echo absint( $gid ); ?>">
@@ -1527,8 +1525,8 @@ class ProfileFieldsManager {
 							<label for="bn-af-search-c-<?php echo absint( $gid ); ?>"><?php esc_html_e( 'Searchable in the member directory', 'buddynext' ); ?></label>
 						</div>
 						<div class="bn-pf-af-actions">
-							<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Field', 'buddynext' ); ?></button>
-							<button type="button" class="button" data-bn-pf-toggle="<?php echo esc_attr( $panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
+							<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Field', 'buddynext' ); ?></button>
+							<button type="button" class="bn-btn" data-variant="secondary" data-bn-pf-toggle="<?php echo esc_attr( $panel_id ); ?>"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></button>
 						</div>
 					</form>
 				</div><!-- .bn-pf-af-panel -->
@@ -1575,8 +1573,8 @@ class ProfileFieldsManager {
 							<?php esc_html_e( 'Single entry: one value per field (e.g. bio, headline). Multiple entries: members can add several items (e.g. multiple jobs).', 'buddynext' ); ?>
 						</p>
 						<div class="bn-pf-ag-actions">
-							<button type="submit" class="button button-primary"><?php esc_html_e( 'Create Group', 'buddynext' ); ?></button>
-							<a href="<?php echo esc_url( $base_url ); ?>" class="button"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></a>
+							<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Create Group', 'buddynext' ); ?></button>
+							<a href="<?php echo esc_url( $base_url ); ?>" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Cancel', 'buddynext' ); ?></a>
 						</div>
 					</form>
 				</div>

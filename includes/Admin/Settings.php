@@ -354,8 +354,8 @@ class Settings extends AdminPageBase {
 				<?php esc_html_e( 'Turn on the full community experience in one click — public discovery, direct messaging, polls, reactions, shares, bookmarks, link previews, emoji, default notifications, and baseline spam protection. You can fine-tune everything afterwards.', 'buddynext' ); ?>
 			</p>
 			<p class="bn-recommended-card__actions">
-				<a class="button button-primary" href="<?php echo esc_url( $apply_url ); ?>"><?php esc_html_e( 'Apply recommended settings', 'buddynext' ); ?></a>
-				<a class="button" href="<?php echo esc_url( $dismiss_url ); ?>"><?php esc_html_e( 'Dismiss', 'buddynext' ); ?></a>
+				<a class="bn-btn" data-variant="primary" href="<?php echo esc_url( $apply_url ); ?>"><?php esc_html_e( 'Apply recommended settings', 'buddynext' ); ?></a>
+				<a class="bn-btn" data-variant="secondary" href="<?php echo esc_url( $dismiss_url ); ?>"><?php esc_html_e( 'Dismiss', 'buddynext' ); ?></a>
 			</p>
 		</div>
 		<?php

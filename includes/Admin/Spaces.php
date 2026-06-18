@@ -395,8 +395,9 @@ class Spaces extends AdminPageBase {
 		$service = new \BuddyNext\Spaces\SpaceCategoryService();
 
 		// Flash message after a save/delete (handlers redirect back here).
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only GET display flag; no state change.
 		$cat_msg = sanitize_key( wp_unslash( $_GET['cat_msg'] ?? '' ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		if ( 'saved' === $cat_msg ) {
 			echo '<div class="bn-notice bn-notice-success">' . esc_html__( 'Category saved.', 'buddynext' ) . '</div>';
 		} elseif ( 'deleted' === $cat_msg ) {
@@ -406,8 +407,9 @@ class Spaces extends AdminPageBase {
 		}
 
 		// Edit mode: when ?edit_cat=ID is present, pre-fill the editor for that row.
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$bn_edit_id  = isset( $_GET['edit_cat'] ) ? absint( wp_unslash( $_GET['edit_cat'] ) ) : 0;
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Read-only GET pre-fill selector; no state change.
+		$bn_edit_id = isset( $_GET['edit_cat'] ) ? absint( wp_unslash( $_GET['edit_cat'] ) ) : 0;
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		$bn_edit_cat = $bn_edit_id > 0 ? $service->get_by_id( $bn_edit_id ) : null;
 
 		$cats = $service->get_all_with_counts();
@@ -448,9 +450,9 @@ class Spaces extends AdminPageBase {
 									<td><?php echo esc_html( (string) $cat['space_count'] ); ?></td>
 									<td>
 										<?php if ( ! empty( $cat['show_in_dir'] ) ) : ?>
-											<span class="bn-badge bn-badge-active"><?php esc_html_e( 'Yes', 'buddynext' ); ?></span>
+											<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Yes', 'buddynext' ); ?></span>
 										<?php else : ?>
-											<span class="bn-badge bn-badge-private"><?php esc_html_e( 'No', 'buddynext' ); ?></span>
+											<span class="bn-badge" data-tone="neutral"><?php esc_html_e( 'No', 'buddynext' ); ?></span>
 										<?php endif; ?>
 									</td>
 									<td><?php echo esc_html( (string) $cat['sort_order'] ); ?></td>

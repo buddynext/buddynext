@@ -494,6 +494,31 @@
 	border: 1px solid var(--bn-line);
 	border-radius: var(--bn-r-lg, 12px);
 	box-shadow: var(--bn-shadow-xs, 0 1px 2px rgba( 0, 0, 0, 0.04 ));
+	/* Reserve the scrollbar's space so revealing it on hover never shifts the
+	   nav text sideways. */
+	scrollbar-gutter: stable;
+}
+/* The nav (≈18 links across 5 groups) is taller than most laptop viewports, so
+   the sticky panel scrolls on its own to keep every item reachable. Keep that
+   scrollbar subtle — transparent until the panel is hovered/focused — so there
+   is no permanent grey track in the gutter (Linear/Notion-style overlay). */
+.bn-admin-hub__panel {
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+.bn-admin-hub__panel:hover,
+.bn-admin-hub__panel:focus-within {
+	scrollbar-color: var(--bn-line) transparent;
+}
+.bn-admin-hub__panel::-webkit-scrollbar { width: 8px; }
+.bn-admin-hub__panel::-webkit-scrollbar-track { background: transparent; }
+.bn-admin-hub__panel::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: var(--bn-r-full, 9999px);
+}
+.bn-admin-hub__panel:hover::-webkit-scrollbar-thumb,
+.bn-admin-hub__panel:focus-within::-webkit-scrollbar-thumb {
+	background: var(--bn-line);
 }
 .bn-hub-nav-group { margin-bottom: var(--bn-s3, 12px); }
 .bn-hub-nav-group:last-child { margin-bottom: 0; }

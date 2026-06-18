@@ -51,20 +51,20 @@ class RolesTab {
 		// omitted: they are inherently owner-scoped (SpaceService::update()/
 		// delete() gate on the space owner_id and never consult the role map),
 		// so exposing them here produced dead toggles that saved but did nothing.
-		'Spaces' => array(
+		'Spaces'           => array(
 			'buddynext-spaces/create'   => 'Create spaces',
 			'buddynext-spaces/join'     => 'Join spaces',
 			'buddynext-spaces/post'     => 'Post in spaces',
 			'buddynext-spaces/moderate' => 'Moderate spaces',
 		),
-		'Connections' => array(
+		'Connections'      => array(
 			'buddynext-connections/follow'  => 'Follow members',
 			'buddynext-connections/connect' => 'Send connection requests',
 		),
-		'Profiles' => array(
+		'Profiles'         => array(
 			'buddynext-profile/edit-any' => "Edit anyone's profile",
 		),
-		'Moderation' => array(
+		'Moderation'       => array(
 			'buddynext-moderation/report'       => 'Report content',
 			'buddynext-moderation/review-queue' => 'Review the report queue',
 			'buddynext-moderation/issue-strike' => 'Issue strikes',
@@ -157,8 +157,8 @@ class RolesTab {
 					<?php endforeach; ?>
 
 					<p>
-						<?php submit_button( __( 'Save permissions', 'buddynext' ), 'primary', 'submit', false ); ?>
-						<button type="submit" name="bn_reset" value="1" class="button"
+						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save permissions', 'buddynext' ); ?></button>
+						<button type="submit" name="bn_reset" value="1" class="bn-btn" data-variant="secondary"
 							data-bn-confirm="<?php esc_attr_e( 'Reset every capability to its default role?', 'buddynext' ); ?>"
 							data-bn-confirm-tone="warning">
 							<?php esc_html_e( 'Reset to defaults', 'buddynext' ); ?>
@@ -187,7 +187,7 @@ class RolesTab {
 			$this->redirect_back();
 		}
 
-		$valid_caps  = array();
+		$valid_caps = array();
 		foreach ( self::CATALOG as $caps ) {
 			$valid_caps = array_merge( $valid_caps, array_keys( $caps ) );
 		}

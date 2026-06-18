@@ -288,7 +288,7 @@ class InviteManager {
 							<label for="bn_invite_first_name"><?php esc_html_e( 'First name', 'buddynext' ); ?></label>
 							<input type="text" id="bn_invite_first_name" name="bn_invite_first_name" class="bn-text-input regular-text">
 						</div>
-						<?php submit_button( __( 'Send Invitation', 'buddynext' ), 'primary', 'submit', false ); ?>
+						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Send Invitation', 'buddynext' ); ?></button>
 					</form>
 				</div>
 			</div>
@@ -306,7 +306,7 @@ class InviteManager {
 							<label for="bn_invite_csv"><?php esc_html_e( 'CSV File', 'buddynext' ); ?></label>
 							<input type="file" id="bn_invite_csv" name="bn_invite_csv" accept=".csv,text/csv" required>
 						</div>
-						<?php submit_button( __( 'Send Invitations', 'buddynext' ), 'primary', 'submit', false ); ?>
+						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Send Invitations', 'buddynext' ); ?></button>
 					</form>
 				</div>
 			</div>

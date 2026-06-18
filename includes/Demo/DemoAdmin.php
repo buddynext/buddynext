@@ -75,13 +75,13 @@ class DemoAdmin {
 						onsubmit="return confirm('<?php echo esc_js( __( 'Remove all demo data? This cannot be undone.', 'buddynext' ) ); ?>');">
 						<input type="hidden" name="action" value="bn_demo_cleanup">
 						<?php wp_nonce_field( 'bn_demo_cleanup' ); ?>
-						<?php submit_button( __( 'Remove Demo Data', 'buddynext' ), 'delete bn-btn-danger', 'submit', false ); ?>
+						<button type="submit" class="bn-btn" data-variant="danger"><?php esc_html_e( 'Remove Demo Data', 'buddynext' ); ?></button>
 					</form>
 				<?php else : ?>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<input type="hidden" name="action" value="bn_demo_seed">
 						<?php wp_nonce_field( 'bn_demo_seed' ); ?>
-						<?php submit_button( __( 'Install Demo Data', 'buddynext' ), 'primary', 'submit', false ); ?>
+						<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Install Demo Data', 'buddynext' ); ?></button>
 					</form>
 					<p class="bn-av-section-desc" style="margin-top:8px;">
 						<?php esc_html_e( 'Tip: the same engine is available on the command line via', 'buddynext' ); ?>

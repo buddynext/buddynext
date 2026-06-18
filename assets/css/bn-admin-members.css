@@ -879,17 +879,6 @@
 	color: var(--bn-a-text-1);
 }
 
-.bn-pf-type-pill {
-	display: inline-flex;
-	align-items: center;
-	padding: 3px var(--bn-a-s2);
-	border-radius: var(--bn-a-r-full);
-	font-size: var(--bn-a-text-2xs);
-	font-weight: var(--bn-a-fw-semibold);
-	background: var(--bn-a-bg-subtle);
-	color: var(--bn-a-text-3);
-	border: 1px solid var(--bn-a-border);
-}
 
 /* Inline single-control forms in the field table (Required toggle, Visible-to
    select, delete). Zero margin so they sit flush inside the table cell. */
@@ -1367,11 +1356,8 @@
 	margin-top: 2px;
 }
 
-.bn-av-section-desc {
-	font-size: var(--bn-a-text-sm);
-	color: var(--bn-a-text-2);
-	margin: 0 0 var(--bn-a-s4);
-}
+/* .bn-av-section-desc moved to bn-admin.css (always-loaded) so every admin
+   tab shares the same spacing — see note there. */
 
 /* Dependent section (Default Avatar Image) — dimmed + reduced opacity while
    the avatar style is not "Default Image", with an explanatory note. */

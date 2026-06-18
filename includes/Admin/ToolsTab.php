@@ -192,7 +192,7 @@ class ToolsTab {
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="bn_tools_flush_cache">
 					<?php wp_nonce_field( 'bn_tools_flush_cache' ); ?>
-					<?php submit_button( __( 'Flush BuddyNext cache', 'buddynext' ), 'secondary', 'submit', false ); ?>
+					<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Flush BuddyNext cache', 'buddynext' ); ?></button>
 				</form>
 			</div>
 		</div>
@@ -218,13 +218,13 @@ class ToolsTab {
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<input type="hidden" name="action" value="bn_tools_export">
 						<?php wp_nonce_field( 'bn_tools_export' ); ?>
-						<?php submit_button( __( 'Export settings', 'buddynext' ), 'secondary', 'submit', false ); ?>
+						<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Export settings', 'buddynext' ); ?></button>
 					</form>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
 						<input type="hidden" name="action" value="bn_tools_import">
 						<?php wp_nonce_field( 'bn_tools_import' ); ?>
 						<input type="file" name="bn_settings_file" accept="application/json,.json" required>
-						<?php submit_button( __( 'Import settings', 'buddynext' ), 'secondary', 'submit', false ); ?>
+						<button type="submit" class="bn-btn" data-variant="secondary"><?php esc_html_e( 'Import settings', 'buddynext' ); ?></button>
 					</form>
 				</div>
 			</div>
@@ -430,7 +430,7 @@ class ToolsTab {
 			<input type="hidden" name="action" value="bn_tools_recount">
 			<input type="hidden" name="what" value="<?php echo esc_attr( $what ); ?>">
 			<?php wp_nonce_field( 'bn_tools_recount' ); ?>
-			<button type="submit" class="button"><?php echo esc_html( $label ); ?></button>
+			<button type="submit" class="bn-btn" data-variant="secondary"><?php echo esc_html( $label ); ?></button>
 		</form>
 		<?php
 	}

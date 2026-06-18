@@ -51,10 +51,10 @@ class AppearanceTab {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Appearance saved.', 'buddynext' ) . '</p></div>';
 		}
 
-		$logo    = (string) get_option( 'buddynext_logo_url', '' );
-		$theme   = (string) get_option( 'buddynext_default_theme', 'auto' );
-		$css     = (string) get_option( 'buddynext_custom_css', '' );
-		$themes  = array(
+		$logo   = (string) get_option( 'buddynext_logo_url', '' );
+		$theme  = (string) get_option( 'buddynext_default_theme', 'auto' );
+		$css    = (string) get_option( 'buddynext_custom_css', '' );
+		$themes = array(
 			'auto'  => __( 'Auto (follow the visitor’s device)', 'buddynext' ),
 			'light' => __( 'Light', 'buddynext' ),
 			'dark'  => __( 'Dark', 'buddynext' ),
@@ -100,7 +100,7 @@ class AppearanceTab {
 				</div>
 			</div>
 
-			<p><?php submit_button( __( 'Save appearance', 'buddynext' ), 'primary', 'submit', false ); ?></p>
+			<p><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save appearance', 'buddynext' ); ?></button></p>
 		</form>
 		<?php
 	}

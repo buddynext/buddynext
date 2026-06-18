@@ -184,39 +184,10 @@ class MemberTypesManager {
 			</div>
 		<?php endif; ?>
 
-		<?php /* ── Create / Edit form (shared taxonomy editor) ── */ ?>
-		<?php
-		buddynext_get_template(
-			'parts/taxonomy-editor.php',
-			array(
-				'entity'   => 'member-type',
-				'title'    => $edit_type ? __( 'Edit Member Type', 'buddynext' ) : __( 'Add Member Type', 'buddynext' ),
-				'action'   => 'bn_save_member_type',
-				'nonce'    => 'bn_save_member_type',
-				'edit'     => $edit_type,
-				'hidden'   => array( 'edit_id' => $edit_type ? (string) $edit_type['id'] : '0' ),
-				'toggles'  => array(
-					array(
-						'name'    => 'show_in_dir',
-						'label'   => __( 'Show as directory filter tab', 'buddynext' ),
-						'default' => true,
-					),
-					array(
-						'name'    => 'self_select',
-						'label'   => __( 'Allow members to self-assign', 'buddynext' ),
-						'default' => false,
-					),
-				),
-				'supports' => array( 'has_icon' => true ),
-				'cancel'   => $base_url,
-			)
-		);
-		?>
-
-		<?php /* ── Types list ── */ ?>
+		<?php /* ── Types list (rendered first; the add/edit form is below, matching Spaces → Categories) ── */ ?>
 		<?php if ( empty( $types ) ) : ?>
 			<div class="bn-settings-section"><div class="bn-ss-body">
-				<p class="bn-type-empty"><?php esc_html_e( 'No member types defined yet. Add your first type above.', 'buddynext' ); ?></p>
+				<p class="bn-type-empty"><?php esc_html_e( 'No member types defined yet. Add your first type below.', 'buddynext' ); ?></p>
 			</div></div>
 		<?php else : ?>
 			<div class="bn-settings-section">
@@ -252,16 +223,16 @@ class MemberTypesManager {
 							<td><strong><?php echo esc_html( number_format_i18n( (int) ( $t['member_count'] ?? 0 ) ) ); ?></strong></td>
 							<td>
 								<?php if ( (bool) $t['show_in_dir'] ) : ?>
-									<span class="bn-badge bn-badge-active"><?php esc_html_e( 'Yes', 'buddynext' ); ?></span>
+									<span class="bn-badge" data-tone="success"><?php esc_html_e( 'Yes', 'buddynext' ); ?></span>
 								<?php else : ?>
-									<span class="bn-badge bn-badge-private"><?php esc_html_e( 'No', 'buddynext' ); ?></span>
+									<span class="bn-badge" data-tone="neutral"><?php esc_html_e( 'No', 'buddynext' ); ?></span>
 								<?php endif; ?>
 							</td>
 							<td>
 								<?php if ( (bool) $t['self_select'] ) : ?>
-									<span class="bn-badge bn-badge-active"><?php esc_html_e( 'On', 'buddynext' ); ?></span>
+									<span class="bn-badge" data-tone="success"><?php esc_html_e( 'On', 'buddynext' ); ?></span>
 								<?php else : ?>
-									<span class="bn-badge bn-badge-private"><?php esc_html_e( 'Off', 'buddynext' ); ?></span>
+									<span class="bn-badge" data-tone="neutral"><?php esc_html_e( 'Off', 'buddynext' ); ?></span>
 								<?php endif; ?>
 							</td>
 							<td>
@@ -276,7 +247,7 @@ class MemberTypesManager {
 												'edit_type' => $t['id'],
 											),
 											admin_url( 'admin.php' )
-										)
+										) . '#bn-member-type-form'
 									);
 									?>
 												"
@@ -308,6 +279,37 @@ class MemberTypesManager {
 				</div><!-- .bn-ss-body -->
 			</div><!-- .bn-settings-section -->
 		<?php endif; ?>
+
+		<?php /* ── Create / Edit form (below the list; anchored so the row "Edit" links scroll here — matches Spaces → Categories) ── */ ?>
+		<div id="bn-member-type-form">
+		<?php
+		buddynext_get_template(
+			'parts/taxonomy-editor.php',
+			array(
+				'entity'   => 'member-type',
+				'title'    => $edit_type ? __( 'Edit Member Type', 'buddynext' ) : __( 'Add Member Type', 'buddynext' ),
+				'action'   => 'bn_save_member_type',
+				'nonce'    => 'bn_save_member_type',
+				'edit'     => $edit_type,
+				'hidden'   => array( 'edit_id' => $edit_type ? (string) $edit_type['id'] : '0' ),
+				'toggles'  => array(
+					array(
+						'name'    => 'show_in_dir',
+						'label'   => __( 'Show as directory filter tab', 'buddynext' ),
+						'default' => true,
+					),
+					array(
+						'name'    => 'self_select',
+						'label'   => __( 'Allow members to self-assign', 'buddynext' ),
+						'default' => false,
+					),
+				),
+				'supports' => array( 'has_icon' => true ),
+				'cancel'   => $base_url,
+			)
+		);
+		?>
+		</div>
 		<?php
 	}
 
@@ -344,7 +346,7 @@ class MemberTypesManager {
 						<?php endforeach; ?>
 					</select>
 
-					<?php submit_button( __( 'Save Type', 'buddynext' ), 'secondary', 'submit', false ); ?>
+					<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Type', 'buddynext' ); ?></button>
 
 					<?php if ( $current_type ) : ?>
 						<span class="bn-type-badge-preview"

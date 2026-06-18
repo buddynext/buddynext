@@ -539,9 +539,9 @@ class ModerationQueue {
 								$url = add_query_arg( 'log_page', $i, $base );
 								?>
 								<?php if ( $i === $page ) : ?>
-									<span class="tablenav-pages-navspan button disabled"><?php echo esc_html( (string) $i ); ?></span>
+									<span class="bn-btn" data-variant="secondary" data-size="sm" aria-current="page"><?php echo esc_html( (string) $i ); ?></span>
 								<?php else : ?>
-									<a class="button" href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( (string) $i ); ?></a>
+									<a class="bn-btn" data-variant="ghost" data-size="sm" href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( (string) $i ); ?></a>
 								<?php endif; ?>
 							<?php endfor; ?>
 						</div>
@@ -563,10 +563,12 @@ class ModerationQueue {
 	public function handle_report_action(): void {
 		$this->guard( 'bn_mod_report_action' );
 
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() via check_admin_referer().
 		$report_id = isset( $_POST['report_id'] ) ? absint( wp_unslash( $_POST['report_id'] ) ) : 0;
 		$op        = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( (string) $_POST['op'] ) ) : '';
-		$actor     = get_current_user_id();
-		$service   = new ModerationService();
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		$actor   = get_current_user_id();
+		$service = new ModerationService();
 
 		$result = true;
 		switch ( $op ) {
@@ -607,11 +609,13 @@ class ModerationQueue {
 	public function handle_user_action(): void {
 		$this->guard( 'bn_mod_user_action' );
 
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() via check_admin_referer().
 		$user_id = isset( $_POST['user_id'] ) ? absint( wp_unslash( $_POST['user_id'] ) ) : 0;
 		$op      = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( (string) $_POST['op'] ) ) : '';
 		$actor   = get_current_user_id();
 		$service = new ModerationService();
 		$tab     = isset( $_POST['return_tab'] ) ? sanitize_key( wp_unslash( (string) $_POST['return_tab'] ) ) : 'reports';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 		$result = true;
 		switch ( $op ) {
@@ -646,9 +650,11 @@ class ModerationQueue {
 	public function handle_appeal_action(): void {
 		$this->guard( 'bn_mod_appeal_action' );
 
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() via check_admin_referer().
 		$appeal_id = isset( $_POST['appeal_id'] ) ? absint( wp_unslash( $_POST['appeal_id'] ) ) : 0;
 		$decision  = isset( $_POST['decision'] ) ? sanitize_key( wp_unslash( (string) $_POST['decision'] ) ) : '';
-		$actor     = get_current_user_id();
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		$actor = get_current_user_id();
 
 		$result = in_array( $decision, array( 'approved', 'denied' ), true )
 			? ( new ModerationService() )->resolve_appeal( $appeal_id, $actor, $decision )
@@ -676,10 +682,10 @@ class ModerationQueue {
 	public function handle_premod_action(): void {
 		$this->guard( 'bn_mod_premod_action' ); // Verifies the nonce via check_admin_referer().
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified in guard() above.
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in guard() via check_admin_referer().
 		$post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified in guard() above.
 		$op      = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( (string) $_POST['op'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		$service = new \BuddyNext\Feed\PostService();
 
 		$result    = true;
@@ -828,11 +834,11 @@ class ModerationQueue {
 	 * @return void
 	 */
 	private function action_form( string $action, array $fields, string $label, string $variant, string $confirm ): void {
-		$class = 'button';
+		$data_variant = 'secondary';
 		if ( 'primary' === $variant ) {
-			$class .= ' button-primary';
+			$data_variant = 'primary';
 		} elseif ( 'delete' === $variant ) {
-			$class .= ' bn-btn-danger';
+			$data_variant = 'danger';
 		}
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bn-mod-action-form"
@@ -845,7 +851,7 @@ class ModerationQueue {
 			<?php foreach ( $fields as $name => $value ) : ?>
 				<input type="hidden" name="<?php echo esc_attr( (string) $name ); ?>" value="<?php echo esc_attr( (string) $value ); ?>">
 			<?php endforeach; ?>
-			<button type="submit" class="<?php echo esc_attr( $class ); ?>"><?php echo esc_html( $label ); ?></button>
+			<button type="submit" class="bn-btn" data-variant="<?php echo esc_attr( $data_variant ); ?>"><?php echo esc_html( $label ); ?></button>
 		</form>
 		<?php
 	}
@@ -967,10 +973,11 @@ class ModerationQueue {
 		if ( 'comment' === $object_type ) {
 			global $wpdb;
 			// A comment has no standalone page — deep-link to its parent post.
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off admin deep-link lookup; prepared; not a hot path.
 			$post_id = (int) $wpdb->get_var(
 				$wpdb->prepare( "SELECT object_id FROM {$wpdb->prefix}bn_comments WHERE id = %d AND object_type = 'post'", $object_id )
 			);
+			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 			return $post_id > 0 ? \BuddyNext\Core\PageRouter::post_url( $post_id ) : '';
 		}
 

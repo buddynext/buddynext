@@ -25,6 +25,16 @@
 		return;
 	}
 
+	// The brand-bar "Search" button opens WordPress core's native palette.
+	document.addEventListener( 'click', function ( e ) {
+		if ( e.target.closest( '[data-bn-open-command]' ) ) {
+			e.preventDefault();
+			try {
+				wp.data.dispatch( 'core/commands' ).open();
+			} catch ( err ) {}
+		}
+	} );
+
 	INDEX.forEach( function ( item, i ) {
 		var url = item.url;
 		if ( ! url ) {

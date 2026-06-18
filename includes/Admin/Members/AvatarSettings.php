@@ -179,7 +179,7 @@ class AvatarSettings {
 			<?php $this->render_default_cover_section( $cover_url ); ?>
 
 			<div class="bn-save-bar">
-				<?php submit_button( __( 'Save Avatar Settings', 'buddynext' ), 'primary bn-btn-save', 'submit', false ); ?>
+				<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Avatar Settings', 'buddynext' ); ?></button>
 			</div>
 		</form>
 		<?php
@@ -270,7 +270,7 @@ class AvatarSettings {
 		// Dependent section: only takes effect when the avatar style is
 		// "Default Image". avatar-settings.js toggles the inactive state live as
 		// the style radio changes; this is the initial server-rendered state.
-		$is_active       = ( 'default_image' === (string) get_option( 'bn_avatar_style', 'initials' ) );
+		$is_active = ( 'default_image' === (string) get_option( 'bn_avatar_style', 'initials' ) );
 		?>
 		<div class="bn-settings-section bn-av-dependent<?php echo $is_active ? '' : ' is-inactive'; ?>" data-bn-avatar-dependent>
 			<div class="bn-ss-header">
@@ -291,12 +291,12 @@ class AvatarSettings {
 						width="72" height="72">
 					<div class="bn-image-picker-controls">
 						<div class="bn-image-picker-actions">
-							<button type="button" id="bn-pick-avatar" class="button">
+							<button type="button" id="bn-pick-avatar" class="bn-btn" data-variant="secondary">
 								<?php esc_html_e( 'Select from Media Library', 'buddynext' ); ?>
 							</button>
 							<?php if ( '' !== $current_url ) : ?>
 								<button type="submit" name="bn_remove_default_avatar" value="1"
-									class="button bn-btn-danger"
+									class="bn-btn" data-variant="danger"
 									data-bn-confirm="<?php echo esc_attr__( 'Remove the default avatar?', 'buddynext' ); ?>">
 									<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 								</button>
@@ -349,12 +349,12 @@ class AvatarSettings {
 						width="140" height="72">
 					<div class="bn-image-picker-controls">
 						<div class="bn-image-picker-actions">
-							<button type="button" id="bn-pick-cover" class="button">
+							<button type="button" id="bn-pick-cover" class="bn-btn" data-variant="secondary">
 								<?php esc_html_e( 'Select from Media Library', 'buddynext' ); ?>
 							</button>
 							<?php if ( '' !== $current_url ) : ?>
 								<button type="submit" name="bn_remove_default_cover" value="1"
-									class="button bn-btn-danger"
+									class="bn-btn" data-variant="danger"
 									data-bn-confirm="<?php echo esc_attr__( 'Remove the default cover?', 'buddynext' ); ?>">
 									<?php esc_html_e( 'Remove', 'buddynext' ); ?>
 								</button>

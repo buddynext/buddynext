@@ -87,9 +87,9 @@ class MemberEditForm {
 				</div>
 				<div class="bn-hero-stats">
 					<?php
-					$last_login    = (int) get_user_meta( $user_id, 'bn_last_login', true );
-					$joined        = gmdate( 'M j, Y', strtotime( $wp_user->user_registered ) );
-					$joined_iso    = gmdate( 'c', strtotime( $wp_user->user_registered ) );
+					$last_login     = (int) get_user_meta( $user_id, 'bn_last_login', true );
+					$joined         = gmdate( 'M j, Y', strtotime( $wp_user->user_registered ) );
+					$joined_iso     = gmdate( 'c', strtotime( $wp_user->user_registered ) );
 					$last_login_iso = $last_login > 0 ? gmdate( 'c', $last_login ) : '';
 					?>
 					<span>
@@ -397,7 +397,7 @@ class MemberEditForm {
 			?>
 
 			<div class="bn-save-bar">
-				<?php submit_button( __( 'Save Profile', 'buddynext' ), 'primary bn-btn-save', 'submit', false ); ?>
+				<button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Profile', 'buddynext' ); ?></button>
 			</div>
 		</form>
 		<?php

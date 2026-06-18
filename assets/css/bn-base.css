@@ -1939,6 +1939,7 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-ink-2);
 	border: 1px solid var(--bn-line);
 }
+.bn-badge[data-tone="neutral"]  { background: var(--bn-sunken); color: var(--bn-ink-2); border-color: var(--bn-line); }
 .bn-badge[data-tone="accent"]   { background: var(--bn-accent-100); color: var(--bn-accent-700); border-color: transparent; }
 .bn-badge[data-tone="success"]  { background: var(--bn-success-bg); color: var(--bn-success); border-color: transparent; }
 .bn-badge[data-tone="warn"]     { background: var(--bn-warn-bg); color: var(--bn-warn); border-color: transparent; }

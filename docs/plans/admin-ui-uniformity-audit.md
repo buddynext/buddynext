@@ -37,7 +37,42 @@ expired/cancelled/disabled/failed/removed/suspended → danger ; otherwise neutr
   - Raw user IDs in tables (e.g. Subscriptions shows `539`) → user display name.
 
 ## Fix status
-- Pro admin convergence: IN PROGRESS (4 parallel refactor passes, WPCS-verified).
-- Free minor cleanups (ProfileFieldsManager pill, 2 legacy modifier badges): pending.
-- The shared canonical CSS already exists — this is a markup/class refactor only,
-  presentation-only (no save/query/handler/nonce/option changes).
+- Pro admin convergence: DONE (4 parallel refactor passes, WPCS-verified, committed).
+- Free legacy badges: DONE — `Spaces.php` + `MemberTypesManager.php` Yes/No/On/Off
+  pills and `ProfileFieldsManager` field-type pill all migrated to
+  `bn-badge[data-tone]` (Yes/On → success, No/Off/type → neutral). An explicit
+  `data-tone="neutral"` alias was added to `bn-base.css` so the documented API is
+  real. Role badges (`bn-badge-role-*`, MemberDisplay) intentionally kept — a
+  role-colour taxonomy, not a status divergence.
+- Dead CSS removed: `.bn-badge-active/-suspended/-open/-private/-secret`
+  (bn-admin.css) and `.bn-pf-type-pill` (bn-admin-members.css) — zero remaining
+  references; no duplicate/dead selectors left (verified by sweep).
+- Section-spacing uniformity: `.bn-av-section-desc` was defined only in the
+  page-specific `bn-admin-members.css`, so Tools / Appearance / Roles / Demo (which
+  don't load it) fell back to the browser's default `<p>` margin — the visible
+  "gap" / "two different patterns". Moved into the always-loaded `bn-admin.css`
+  (single definition) so every tab shares identical section spacing.
+- Buttons: DONE — full migration of every Free admin button to the v2
+  `bn-btn[data-variant]` API (primary/secondary/ghost/danger + `data-size="sm"`),
+  including the canonical `render_save_bar()`, the General "recommended" banner,
+  Tools/Appearance/Roles/Demo/Members/Invites/Avatar/ModerationQueue and the
+  ModerationQueue pager + `action_form()` helper. `submit_button()` calls became
+  real `<button type="submit">`; the dropped `name="submit"` is unused (no handler
+  reads it). All JS hooks preserved (`bn-cancel-add-tab`, `data-bn-pf-toggle*`,
+  `#bn-pick-avatar/#bn-pick-cover`) and all multi-submit `name`/`value` keys
+  (`bn_reset`, `bn_remove_default_avatar/cover`) intact. Only WP-native button kept:
+  `NavMenuMetabox` (WP core nav-menu JS depends on `.button.submit-add-to-menu`).
+  Dead `.bn-btn-save` / `input.bn-btn-save.button-primary` CSS removed. bn-base.css
+  legacy `.bn-btn-primary/-secondary/-ghost/-danger` classes kept (frontend uses
+  them via spaces store.js).
+- Member Types tab reordered to match Spaces → Categories: "Defined Types" list
+  first, then the add/edit form below, anchored `#bn-member-type-form` (row Edit
+  links scroll to it).
+- Section spacing: `.bn-av-section-desc` moved to the always-loaded `bn-admin.css`
+  so Tools/Appearance/Roles/Demo no longer fall back to the browser's default
+  `<p>` margin (the "two different patterns" gap). Verified `margin-top: 0`.
+- Nav panel scrollbar made subtle (hover-revealed, `scrollbar-gutter: stable`).
+- All changes presentation-only (no save/query/handler/nonce/option changes).
+  Verified: phpcs 0 errors / 0 warnings on all 14 files; browser-confirmed a
+  Settings-API save ("Settings saved.") and an admin-post action ("flushed")
+  both work end-to-end through the converted buttons.

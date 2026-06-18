@@ -320,7 +320,7 @@ class NavManager extends AdminPageBase {
 					</table>
 				</div>
 			</div>
-			<p class="submit"><?php submit_button( __( 'Save Pages & URLs', 'buddynext' ), 'primary', 'submit', false ); ?></p>
+			<p class="submit"><button type="submit" class="bn-btn" data-variant="primary"><?php esc_html_e( 'Save Pages & URLs', 'buddynext' ); ?></button></p>
 		</form>
 		<?php
 	}
@@ -1491,10 +1491,10 @@ class NavManager extends AdminPageBase {
 						placeholder="<?php esc_attr_e( 'https://...', 'buddynext' ); ?>">
 				</div>
 				<div class="bn-add-tab-inline-actions">
-					<button type="submit" class="button button-primary button-small">
+					<button type="submit" class="bn-btn" data-variant="primary" data-size="sm">
 						<?php esc_html_e( 'Add Tab', 'buddynext' ); ?>
 					</button>
-					<button type="button" class="button button-small bn-cancel-add-tab"
+					<button type="button" class="bn-btn bn-cancel-add-tab" data-variant="secondary" data-size="sm"
 						data-scope="<?php echo esc_attr( $scope ); ?>">
 						<?php esc_html_e( 'Cancel', 'buddynext' ); ?>
 					</button>

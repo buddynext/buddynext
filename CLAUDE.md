@@ -17,6 +17,27 @@ Enterprise-grade social community platform for WordPress (free + pro). Owned by 
 
 ---
 
+## Product Scope & Validity Bar — Judge Every Request Against This
+
+**Model = mainstream social: Facebook, X (Twitter), LinkedIn.** We are NOT building a complex or niche community. If a request adds complexity those platforms don't have, it is out of scope by default. (The UX-parity bar is separately noted under *Premium UX* and *Design System Tokens* — this section is about deciding what is a real defect / in-scope ask in the first place.)
+
+**The bar for whether a bug report, feature ask, or QA card is VALID is two questions — not what QA prefers:**
+
+1. Would a **mass end user (member)** genuinely expect this, or be broken/confused by the current behavior?
+2. Would the **typical site owner** — one of 1000s of installs — expect this fixed or changed?
+
+Those two expectations are the boundary. **QA / tester cards are suggestions to be checked, not verdicts.** A card may be:
+
+- **Invalid** — a subjective nitpick no real member or owner would notice, OR behavior that actually matches what Facebook/X/LinkedIn do (so the current behavior is already correct).
+- **Duplicate** — already filed or already covered by another card/fix.
+- **Not aligned with the plan** — asks for complexity beyond a mainstream-social product.
+
+Only what genuinely falls short of mass end-user / site-owner expectation becomes a real Bug.
+
+**When triaging Possible Bug → Bugs:** verify every code-claim card against the current code (don't trust the report); reject by-design / already-fixed / duplicate cards with concrete evidence (file:line or commit); label each valid bug with a `[Type]` prefix in the title (`[Functional]` / `[UI]` / `[Security]` / `[Data]` / `[Nav]` / `[Perf]` / `[A11y]` …); never over-build beyond what the model platforms do. See also the QA role + "cards are suggestive" guidance in the session memory.
+
+---
+
 ## Developer-Friendly from Day 1 — Boundary Skills + Local Tooling
 
 BuddyNext leans on two canonical skills for engineering standards. They are the source of truth — this file mirrors them where useful but never duplicates their rules.

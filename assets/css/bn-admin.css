@@ -382,6 +382,17 @@
 	padding: var(--bn-a-s5);
 }
 
+/* Section-body intro paragraph. Shared by every admin tab that opens a
+   section with a lead sentence (Tools, Appearance, Roles, Demo, Members).
+   It lives in this always-loaded sheet — not a page-specific one — so every
+   page gets the same tight top spacing instead of the browser's default
+   <p> margin (which read as an inconsistent gap on non-Members tabs). */
+.bn-av-section-desc {
+	font-size: var(--bn-a-text-sm);
+	color: var(--bn-a-text-2);
+	margin: 0 0 var(--bn-a-s4);
+}
+
 /* --------------------------------------------------------------------------
    Form fields
    -------------------------------------------------------------------------- */
@@ -673,22 +684,6 @@ select.bn-text-input:focus {
 	margin-right: auto;
 }
 
-input.bn-btn-save.button-primary {
-	background: var(--bn-a-brand) !important;
-	border-color: var(--bn-a-brand-hover) !important;
-	color: var(--bn-a-bg) !important;
-	padding: var(--bn-a-s2) var(--bn-a-s5) !important;
-	border-radius: var(--bn-a-r-sm) !important;
-	font-size: var(--bn-a-text-sm) !important;
-	font-weight: var(--bn-a-fw-semibold) !important;
-	cursor: pointer !important;
-	box-shadow: none !important;
-}
-
-input.bn-btn-save.button-primary:hover {
-	background: var(--bn-a-brand-hover) !important;
-}
-
 /* --------------------------------------------------------------------------
    Stats cards
    -------------------------------------------------------------------------- */
@@ -814,32 +809,12 @@ table.bn-table tr:hover td {
 	font-weight: var(--bn-a-fw-bold);
 }
 
-.bn-badge-active {
-	background: var(--bn-a-green-bg);
-	color: var(--bn-a-green);
-}
+/* Status tones use the canonical .bn-badge[data-tone] API defined in
+   bn-base.css (success / warn / danger / neutral / info). Admin screens
+   render those directly, so the old standalone status modifiers
+   (.bn-badge-active/-suspended/-open/-private/-secret) are gone. */
 
-.bn-badge-suspended {
-	background: var(--bn-a-red-bg);
-	color: var(--bn-a-red);
-}
-
-.bn-badge-open {
-	background: var(--bn-a-career-bg);
-	color: var(--bn-a-career);
-}
-
-.bn-badge-private {
-	background: var(--bn-a-bg-subtle);
-	color: var(--bn-a-text-2);
-}
-
-.bn-badge-secret {
-	background: var(--bn-a-amber-bg);
-	color: var(--bn-a-amber);
-}
-
-/* Role badges */
+/* Role badges — role-specific colour set, layered on the .bn-badge base. */
 .bn-badge-role-admin {
 	background: var(--bn-a-red-bg);
 	color: var(--bn-a-red);
@@ -1479,10 +1454,6 @@ button.bn-btn-danger:hover {
 	.bn-save-msg {
 		margin-right: 0;
 		text-align: center;
-	}
-
-	input.bn-btn-save.button-primary {
-		width: 100%;
 	}
 }
 
