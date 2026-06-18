@@ -409,6 +409,20 @@ class AdminHub {
 			array( 'bn-base' ),
 			$version
 		);
+
+		// Register every BuddyNext admin screen into WordPress core's native
+		// command palette (Cmd/Ctrl+K) — no competing overlay. Indexed from the
+		// AdminHub registry (Free + standalone), capability-filtered.
+		if ( wp_script_is( 'wp-commands', 'registered' ) ) {
+			wp_enqueue_script(
+				'bn-admin-palette',
+				$assets_url . 'js/admin/command-palette.js',
+				array( 'wp-data', 'wp-commands' ),
+				$version,
+				true
+			);
+			wp_localize_script( 'bn-admin-palette', 'bnNavIndex', AdminNavIndex::build() );
+		}
 	}
 
 	/**
