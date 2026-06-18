@@ -90,6 +90,83 @@ final class MenuRenderer {
 			$out[]     = $item;
 		}
 
+		$this->mark_current_hub( $out );
+
 		return $out;
+	}
+
+	/**
+	 * Add active-state classes to any menu item pointing at the current hub.
+	 *
+	 * BuddyNext hubs are virtual routes, so WordPress's nav-menu walker never
+	 * tags a menu item that links to the current hub with current-menu-item the
+	 * way it does for real pages. Detect the current hub URL and add the active
+	 * classes ourselves so themes can style the active item consistently. Applies
+	 * to every item (resolved BN tokens, Custom Links, or Page items) whose URL
+	 * matches the hub.
+	 *
+	 * @param array<int,object> $items Resolved menu items (modified in place).
+	 * @return void
+	 */
+	private function mark_current_hub( array $items ): void {
+		$current = $this->current_hub_url();
+		if ( '' === $current ) {
+			return;
+		}
+		foreach ( $items as $item ) {
+			$url = isset( $item->url ) ? (string) $item->url : '';
+			if ( '' === $url || ! $this->urls_match( $url, $current ) ) {
+				continue;
+			}
+			$classes = ( isset( $item->classes ) && is_array( $item->classes ) ) ? $item->classes : array();
+			foreach ( array( 'current-menu-item', 'current_page_item' ) as $class ) {
+				if ( ! in_array( $class, $classes, true ) ) {
+					$classes[] = $class;
+				}
+			}
+			$item->classes = $classes;
+			$item->current = true;
+		}
+	}
+
+	/**
+	 * URL of the BuddyNext hub being viewed, or '' when not on a hub.
+	 *
+	 * @return string
+	 */
+	private function current_hub_url(): string {
+		$hub = (string) get_query_var( 'bn_hub', '' );
+		if ( '' === $hub ) {
+			return '';
+		}
+		switch ( $hub ) {
+			case 'feed':
+				return 'explore' === (string) get_query_var( 'bn_activity_action', '' )
+					? \BuddyNext\Core\PageRouter::explore_url()
+					: \BuddyNext\Core\PageRouter::activity_url();
+			case 'people':
+				return \BuddyNext\Core\PageRouter::people_url();
+			case 'spaces':
+				return \BuddyNext\Core\PageRouter::spaces_url();
+			case 'notifications':
+				return \BuddyNext\Core\PageRouter::notifications_url();
+			case 'messages':
+				return \BuddyNext\Core\PageRouter::messages_url();
+			default:
+				return '';
+		}
+	}
+
+	/**
+	 * Whether two URLs resolve to the same path (host + trailing slash agnostic).
+	 *
+	 * @param string $a First URL.
+	 * @param string $b Second URL.
+	 * @return bool
+	 */
+	private function urls_match( string $a, string $b ): bool {
+		$pa = trim( (string) wp_parse_url( $a, PHP_URL_PATH ), '/' );
+		$pb = trim( (string) wp_parse_url( $b, PHP_URL_PATH ), '/' );
+		return '' !== $pa && $pa === $pb;
 	}
 }
