@@ -706,11 +706,22 @@ class MemberTypeService {
 	 * @return void
 	 */
 	private function rewrite_usermeta_slug( int $type_id, string $new_slug ): void {
-		$user_ids = $this->get_user_ids_by_type( $new_slug, 5000, 0 );
+		// Page through every assigned user in batches — a single capped query
+		// silently skipped users beyond the first page, leaving them with the
+		// old slug in bn_member_type usermeta forever. get_user_ids_by_type()
+		// reads the assignment join table (not usermeta), so the result set is
+		// stable while we rewrite usermeta and offset paging cannot drift.
+		$batch  = 5000;
+		$offset = 0;
 
-		foreach ( $user_ids as $user_id ) {
-			update_user_meta( $user_id, 'bn_member_type', $new_slug );
-			$this->cache->delete( 'bn_member_type_' . $user_id );
-		}
+		do {
+			$user_ids = $this->get_user_ids_by_type( $new_slug, $batch, $offset );
+			$found    = count( $user_ids );
+			foreach ( $user_ids as $user_id ) {
+				update_user_meta( $user_id, 'bn_member_type', $new_slug );
+				$this->cache->delete( 'bn_member_type_' . $user_id );
+			}
+			$offset += $batch;
+		} while ( $found === $batch );
 	}
 }
