@@ -716,7 +716,7 @@ $bn_subtitle = sprintf(
 							<?php elseif ( $is_pending ) : ?>
 								<button
 									class="bn-btn"
-									data-variant="ghost"
+									data-variant="secondary"
 									data-size="sm"
 									data-current-state="pending"
 									data-wp-on--click="actions.cancelJoinRequest"

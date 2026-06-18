@@ -68,7 +68,7 @@ function followClass( ctx ) {
 }
 
 function followVariant( ctx ) {
-	if ( ctx.isPending )   { return 'ghost'; }
+	if ( ctx.isPending )   { return 'secondary'; }
 	if ( ctx.isFollowing ) { return 'secondary'; }
 	return 'primary';
 }

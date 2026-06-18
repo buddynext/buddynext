@@ -449,7 +449,7 @@ function wireCardListeners( article, cardCtx, item ) {
 			const showPrimary = s === 'none' || s === 'pending-sent' || s === 'accepted';
 			connectBtn.hidden = ! showPrimary;
 			connectBtn.textContent = s === 'accepted' ? 'Connected' : ( s === 'pending-sent' ? 'Requested' : 'Connect' );
-			connectBtn.setAttribute( 'data-variant', s === 'pending-sent' ? 'ghost' : 'secondary' );
+			connectBtn.setAttribute( 'data-variant', 'secondary' );
 			connectBtn.setAttribute( 'data-state', s );
 		}
 		if ( decideWrap ) {
@@ -720,7 +720,7 @@ const memberStore = store( 'buddynext/members', {
 
 		get cardConnectVariant() {
 			const s = getContext().connection;
-			if ( s === 'pending-sent' ) { return 'ghost'; }
+			if ( s === 'pending-sent' ) { return 'secondary'; }
 			return 'secondary';
 		},
 		get cardConnectState() { return getContext().connection || 'none'; },

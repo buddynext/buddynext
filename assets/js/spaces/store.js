@@ -77,7 +77,7 @@ function swapButtonState( btn, newState ) {
 
 	var variantMap = {
 		joined:  'secondary',
-		pending: 'ghost',
+		pending: 'secondary',
 		join:    'primary',
 		request: 'secondary',
 	};
@@ -1937,7 +1937,7 @@ function buildSpaceCard( row ) {
 	} else if ( isPending ) {
 		ctaEl = document.createElement( 'button' );
 		ctaEl.className = 'bn-btn';
-		ctaEl.dataset.variant      = 'ghost';
+		ctaEl.dataset.variant      = 'secondary';
 		ctaEl.dataset.size         = 'sm';
 		ctaEl.dataset.currentState = 'pending';
 		ctaEl.setAttribute( 'data-wp-on--click', 'actions.cancelJoinRequest' );

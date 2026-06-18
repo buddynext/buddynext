@@ -222,7 +222,7 @@ do_action( 'buddynext_part_space_hero_before', $args );
 			<?php elseif ( $bn_is_pending ) : ?>
 				<button
 					class="bn-btn"
-					data-variant="ghost"
+					data-variant="secondary"
 					data-size="sm"
 					data-current-state="pending"
 					data-wp-on--click="actions.cancelJoinRequest"

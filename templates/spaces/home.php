@@ -747,7 +747,7 @@ $bn_nav_tabs = apply_filters( 'buddynext_space_tabs', $bn_nav_tabs, $space->id )
 				<?php elseif ( $is_pending ) : ?>
 					<button
 						class="bn-btn"
-						data-variant="ghost"
+						data-variant="secondary"
 						data-size="md"
 						data-current-state="pending"
 						data-wp-on--click="actions.cancelJoinRequest"
