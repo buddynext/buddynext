@@ -2921,12 +2921,18 @@ document.addEventListener( 'keydown', function ( event ) {
 			pickFile( function ( file ) {
 				preview.setAttribute( 'aria-busy', 'true' );
 				uploadImage( 'cover', file ).then( function ( res ) {
-					return res.ok ? res.data : Promise.reject( res );
+					if ( ! res.ok ) {
+						// Surface the server's specific reason (image_too_large /
+						// image_invalid_type / image_missing) rather than a generic failure.
+						var msg = ( res.data && res.data.message ) ? res.data.message : __i18n( 'Could not upload cover.' );
+						return Promise.reject( new Error( msg ) );
+					}
+					return res.data;
 				} ).then( function ( data ) {
 					paint( data.cover_image_url || '' );
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Cover updated.' ), 'success' ); }
-				} ).catch( function () {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not upload cover.' ), 'danger' ); }
+				} ).catch( function ( err ) {
+					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : __i18n( 'Could not upload cover.' ), 'danger' ); }
 				} ).finally( function () {
 					preview.removeAttribute( 'aria-busy' );
 				} );
@@ -2943,11 +2949,14 @@ document.addEventListener( 'keydown', function ( event ) {
 				e.preventDefault();
 				removeBtn.disabled = true;
 				deleteImage( 'cover' ).then( function ( res ) {
-					if ( ! res.ok ) { return Promise.reject( res ); }
+					if ( ! res.ok ) {
+						var msg = ( res.data && res.data.message ) ? res.data.message : __i18n( 'Could not remove cover.' );
+						return Promise.reject( new Error( msg ) );
+					}
 					paint( '' );
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Cover removed.' ), 'success' ); }
-				} ).catch( function () {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not remove cover.' ), 'danger' ); }
+				} ).catch( function ( err ) {
+					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : __i18n( 'Could not remove cover.' ), 'danger' ); }
 				} ).finally( function () {
 					removeBtn.disabled = false;
 				} );
@@ -2970,7 +2979,11 @@ document.addEventListener( 'keydown', function ( event ) {
 				var orig = btn.textContent;
 				btn.textContent = __i18n( 'Uploading…' );
 				uploadImage( 'avatar', file ).then( function ( res ) {
-					return res.ok ? res.data : Promise.reject( res );
+					if ( ! res.ok ) {
+						var msg = ( res.data && res.data.message ) ? res.data.message : __i18n( 'Could not upload icon.' );
+						return Promise.reject( new Error( msg ) );
+					}
+					return res.data;
 				} ).then( function ( data ) {
 					if ( current && data.avatar_url ) {
 						current.innerHTML = '';
@@ -2981,8 +2994,8 @@ document.addEventListener( 'keydown', function ( event ) {
 					}
 					if ( removeBtn ) { removeBtn.hidden = false; }
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Icon updated.' ), 'success' ); }
-				} ).catch( function () {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not upload icon.' ), 'danger' ); }
+				} ).catch( function ( err ) {
+					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : __i18n( 'Could not upload icon.' ), 'danger' ); }
 				} ).finally( function () {
 					btn.disabled = false;
 					btn.textContent = orig;
@@ -2996,7 +3009,10 @@ document.addEventListener( 'keydown', function ( event ) {
 				e.preventDefault();
 				removeBtn.disabled = true;
 				deleteImage( 'avatar' ).then( function ( res ) {
-					if ( ! res.ok ) { return Promise.reject( res ); }
+					if ( ! res.ok ) {
+						var msg = ( res.data && res.data.message ) ? res.data.message : __i18n( 'Could not remove icon.' );
+						return Promise.reject( new Error( msg ) );
+					}
 					if ( current ) {
 						current.innerHTML = '';
 						if ( fallback && fallback.content ) {
@@ -3005,8 +3021,8 @@ document.addEventListener( 'keydown', function ( event ) {
 					}
 					removeBtn.hidden = true;
 					if ( window.bnToast ) { window.bnToast( __i18n( 'Icon removed.' ), 'success' ); }
-				} ).catch( function () {
-					if ( window.bnToast ) { window.bnToast( __i18n( 'Could not remove icon.' ), 'danger' ); }
+				} ).catch( function ( err ) {
+					if ( window.bnToast ) { window.bnToast( ( err && err.message ) ? err.message : __i18n( 'Could not remove icon.' ), 'danger' ); }
 				} ).finally( function () {
 					removeBtn.disabled = false;
 				} );
