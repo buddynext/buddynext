@@ -16,6 +16,7 @@
 import { store, getContext, getElement } from '@wordpress/interactivity';
 import { bnToast, bnConnectNoteDialog } from '../shell/dialog.js';
 import { restFetch } from '../shell/rest-client.js';
+import { onNavReady } from '../shell/nav-init.js';
 
 const SEARCH_DEBOUNCE_MS = 250;
 const VIEW_STORAGE_KEY   = 'bn_members_view';
@@ -423,6 +424,12 @@ function buildCard( item ) {
  * operates on the card's own plain-object context (not a getContext() proxy,
  * which does not exist for dynamically-inserted nodes). */
 function wireCardListeners( article, cardCtx, item ) {
+	// Idempotency guard: a card element is wired exactly once. JS-built cards
+	// are fresh nodes, but the guard keeps a re-run (e.g. after a client-side
+	// navigation re-init) from double-binding listeners onto the same element.
+	if ( article.dataset.bnMemberWired === '1' ) { return; }
+	article.dataset.bnMemberWired = '1';
+
 	const followBtn  = article.querySelector( '.bn-md-card__follow' );
 	const connectBtn = article.querySelector( '.bn-md-card__connect-primary' );
 	const decideWrap = article.querySelector( '.bn-md-card__connect-decide' );
@@ -1245,12 +1252,6 @@ function bindOnce( el, flag, fn ) {
 	fn();
 }
 
-if ( typeof document !== 'undefined' ) {
-	if ( document.readyState === 'loading' ) {
-		document.addEventListener( 'DOMContentLoaded', () => { applyViewClass( readView() ); } );
-	} else {
-		applyViewClass( readView() );
-	}
-}
+onNavReady( () => { applyViewClass( readView() ); } );
 
 export default memberStore;

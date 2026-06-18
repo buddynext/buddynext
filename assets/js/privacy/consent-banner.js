@@ -34,6 +34,10 @@
 		}
 	}
 
+	// Inlined nav-init (once) — this file is a classic IIFE, not an ES module,
+	// so it cannot import shell/nav-init.js. The consent banner is a global
+	// chrome surface that persists across client-side navigations, so it binds
+	// on initial load only — equivalent to onNavReady( init, { once: true } ).
 	if ( document.readyState === 'loading' ) {
 		document.addEventListener( 'DOMContentLoaded', init );
 	} else {

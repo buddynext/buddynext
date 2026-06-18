@@ -1,6 +1,7 @@
 /* BuddyNext — Spaces Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
+import { onNavReady } from '../shell/nav-init.js';
 
 /* ── Shared helpers ────────────────────────────────────────────────── */
 
@@ -2317,11 +2318,12 @@ function initInviteTypeahead() {
 	].filter( Boolean ).forEach( attachInviteTypeahead );
 }
 
-document.addEventListener( 'DOMContentLoaded', function () {
+function initSpacesImperative() {
 	initInviteTypeahead();
 
 	var searchInput = document.querySelector( 'input[name="bn_search"]' );
-	if ( searchInput ) {
+	if ( searchInput && ! searchInput.dataset.bnSpaceSearchWired ) {
+		searchInput.dataset.bnSpaceSearchWired = '1';
 		searchInput.addEventListener( 'input', function () {
 			applySpacesFilter();
 		} );
@@ -2330,9 +2332,11 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// sidebar). Type pills drive applySpacesFilter via actions.setType.
 
 	// Suppress the form submit on reactive filter forms so Enter does
-	// not reload the page.
+	// not reload the page. Per-form guard so a re-init after a client-side
+	// navigation can never double-bind the submit listener.
 	var reactiveForm = document.querySelector( '[data-bn-reactive]' );
-	if ( reactiveForm ) {
+	if ( reactiveForm && ! reactiveForm.dataset.bnSpaceFormWired ) {
+		reactiveForm.dataset.bnSpaceFormWired = '1';
 		reactiveForm.addEventListener( 'submit', function ( e ) {
 			e.preventDefault();
 			applySpacesFilter();
@@ -2342,7 +2346,8 @@ document.addEventListener( 'DOMContentLoaded', function () {
 	// Auto-derive slug from name in the create-space modal.
 	var nameInput = document.querySelector( '[data-bn-create-space-name]' );
 	var slugInput = document.querySelector( '[data-bn-create-space-slug]' );
-	if ( nameInput && slugInput ) {
+	if ( nameInput && slugInput && ! nameInput.dataset.bnSpaceSlugWired ) {
+		nameInput.dataset.bnSpaceSlugWired = '1';
 		var slugTouched = false;
 		slugInput.addEventListener( 'input', function () {
 			slugTouched = true;
@@ -2357,33 +2362,41 @@ document.addEventListener( 'DOMContentLoaded', function () {
 		} );
 	}
 
-	// Close sort popover on outside click.
-	document.addEventListener( 'click', function ( e ) {
-		var popover = document.querySelector( '[data-bn-sort-popover]' );
-		if ( ! popover ) { return; }
-		var list = popover.querySelector( '[data-bn-sort-list]' );
-		if ( ! list || list.hasAttribute( 'hidden' ) ) { return; }
-		if ( ! popover.contains( e.target ) ) {
-			closeSortPopover();
-		}
-	} );
+	// Close sort popover on outside click. Document-level singleton — installed
+	// once behind a window flag so re-init never stacks duplicate listeners.
+	if ( ! window.__bnSpaceSortCloseBound ) {
+		window.__bnSpaceSortCloseBound = true;
+		document.addEventListener( 'click', function ( e ) {
+			var popover = document.querySelector( '[data-bn-sort-popover]' );
+			if ( ! popover ) { return; }
+			var list = popover.querySelector( '[data-bn-sort-list]' );
+			if ( ! list || list.hasAttribute( 'hidden' ) ) { return; }
+			if ( ! popover.contains( e.target ) ) {
+				closeSortPopover();
+			}
+		} );
+	}
 
-	// Close notif popover on outside click.
-	document.addEventListener( 'click', function ( e ) {
-		var popover = document.querySelector( '[data-bn-notif-popover]' );
-		if ( ! popover ) { return; }
-		var list = popover.querySelector( '[data-bn-notif-list]' );
-		if ( ! list || list.hasAttribute( 'hidden' ) ) { return; }
-		if ( ! popover.contains( e.target ) ) {
-			list.setAttribute( 'hidden', '' );
-			var trigger = popover.querySelector( '[data-bn-notif-trigger]' );
-			if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
-		}
-	} );
+	// Close notif popover on outside click. Document-level singleton.
+	if ( ! window.__bnSpaceNotifCloseBound ) {
+		window.__bnSpaceNotifCloseBound = true;
+		document.addEventListener( 'click', function ( e ) {
+			var popover = document.querySelector( '[data-bn-notif-popover]' );
+			if ( ! popover ) { return; }
+			var list = popover.querySelector( '[data-bn-notif-list]' );
+			if ( ! list || list.hasAttribute( 'hidden' ) ) { return; }
+			if ( ! popover.contains( e.target ) ) {
+				list.setAttribute( 'hidden', '' );
+				var trigger = popover.querySelector( '[data-bn-notif-trigger]' );
+				if ( trigger ) { trigger.setAttribute( 'aria-expanded', 'false' ); }
+			}
+		} );
+	}
 
 	// Delete-space gate: enable submit only when typed name matches.
 	var gate = document.querySelector( '[data-bn-delete-gate]' );
-	if ( gate ) {
+	if ( gate && ! gate.dataset.bnSpaceGateWired ) {
+		gate.dataset.bnSpaceGateWired = '1';
 		gate.addEventListener( 'input', function () {
 			var modal    = gate.closest( '[data-bn-modal="delete-space-confirm"]' );
 			var submit   = modal ? modal.querySelector( '[data-bn-delete-submit]' ) : null;
@@ -2395,7 +2408,9 @@ document.addEventListener( 'DOMContentLoaded', function () {
 			if ( err ) { err.setAttribute( 'hidden', '' ); err.textContent = ''; }
 		} );
 	}
-} );
+}
+
+onNavReady( initSpacesImperative );
 
 /* ── Delegated UI helpers (modal close + native-confirm bridge) ─────────
  *

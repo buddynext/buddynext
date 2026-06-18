@@ -10,6 +10,7 @@
  */
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
+import { onNavReady } from '../shell/nav-init.js';
 
 // Relation-removal handler for the Muted-list sidecard's Unmute button
 // (Pattern D-15). Side-effect import — installs a single document-level
@@ -108,10 +109,9 @@ function toast( message, tone ) {
  * here — partial-swap reflects the URL change on forward navigation, but
  * the simplest contract is that popstate restores the prior page state
  * from scratch. Attached once per page load. */
-var popstateBound = false;
 function bindPopState() {
-	if ( popstateBound || typeof window === 'undefined' ) { return; }
-	popstateBound = true;
+	if ( typeof window === 'undefined' || window.__bnNotifPopstateBound ) { return; }
+	window.__bnNotifPopstateBound = true;
 	window.addEventListener( 'popstate', function () {
 		// Only respond when our entry pushed the state — other pages on
 		// this site own their own popstate semantics.
@@ -121,11 +121,7 @@ function bindPopState() {
 	} );
 }
 
-if ( typeof window !== 'undefined' && 'complete' === document.readyState ) {
-	bindPopState();
-} else if ( typeof window !== 'undefined' ) {
-	window.addEventListener( 'DOMContentLoaded', bindPopState );
-}
+onNavReady( bindPopState, { once: true } );
 
 store( 'buddynext/notifications', {
 	state: {
@@ -593,8 +589,10 @@ store( 'buddynext/notifications', {
  * window when Soketi pushes a new event; we kick the count refresh
  * immediately so Pro can pre-empt the poll. Free relies on the poll alone.
  */
-( function bootstrapNotifPolling() {
+function bootstrapNotifPolling() {
 	if ( typeof window === 'undefined' || typeof document === 'undefined' ) { return; }
+	if ( window.__bnNotifPollInstalled ) { return; }
+	window.__bnNotifPollInstalled = true;
 
 	var COLD_INTERVAL = 30000;
 	var HOT_INTERVAL  = 5000;
@@ -762,10 +760,8 @@ store( 'buddynext/notifications', {
 	// next 60s of polling runs at 5s cadence.
 	document.addEventListener( 'click', kickHot, { passive: true, capture: true } );
 
-	// Bootstrap when DOM is ready.
-	if ( 'complete' === document.readyState || 'interactive' === document.readyState ) {
-		schedule();
-	} else {
-		window.addEventListener( 'DOMContentLoaded', schedule );
-	}
-} )();
+	// Bootstrap the polling schedule (singleton — installed once above).
+	schedule();
+}
+
+onNavReady( bootstrapNotifPolling, { once: true } );

@@ -1,6 +1,7 @@
 /* BuddyNext — Search Results Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
 import { restFetch } from '../shell/rest-client.js';
+import { onNavReady } from '../shell/nav-init.js';
 
 const { state, actions } = store( 'buddynext/search', {
 	state: {
@@ -208,7 +209,8 @@ function buildRunUrl( ctx, args ) {
    Twitter, GitHub, Slack, Discord.
    ---------------------------------------------------------------- */
 ( function () {
-	if ( typeof document === 'undefined' ) { return; }
+	if ( typeof document === 'undefined' || window.__bnSearchKeydownBound ) { return; }
+	window.__bnSearchKeydownBound = true;
 	document.addEventListener( 'keydown', function ( e ) {
 		if ( e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey ) { return; }
 		var t = e.target;
@@ -275,6 +277,10 @@ function buildRunUrl( ctx, args ) {
 		var hero = document.querySelector( '.bn-search-hero' );
 		if ( ! hero ) { return; }
 
+		// Idempotent: skip if the panel is already built (re-run after a
+		// client-side navigation would otherwise stack duplicate panels).
+		if ( document.querySelector( '.bn-search-recent' ) ) { return; }
+
 		var panel = document.createElement( 'div' );
 		panel.className = 'bn-search-recent';
 		panel.setAttribute( 'role', 'region' );
@@ -308,9 +314,5 @@ function buildRunUrl( ctx, args ) {
 		hero.insertAdjacentElement( 'afterend', panel );
 	}
 
-	if ( document.readyState === 'loading' ) {
-		document.addEventListener( 'DOMContentLoaded', init );
-	} else {
-		init();
-	}
+	onNavReady( init );
 } )();

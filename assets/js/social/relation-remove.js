@@ -22,6 +22,7 @@
  */
 
 import { restFetch } from '../shell/rest-client.js';
+import { onNavReady } from '../shell/nav-init.js';
 
 const INSTALLED = '__bnRelationRemoveInstalled';
 
@@ -77,10 +78,6 @@ function installRelationRemove() {
 	} );
 }
 
-if ( 'loading' === document.readyState ) {
-	document.addEventListener( 'DOMContentLoaded', installRelationRemove );
-} else {
-	installRelationRemove();
-}
+onNavReady( installRelationRemove, { once: true } );
 
 export { installRelationRemove };
