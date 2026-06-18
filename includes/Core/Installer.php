@@ -1357,7 +1357,9 @@ function buddynext_mu_is_bn_request() {
 	$slugs = array_merge( $defaults, $fetched );
 
 	foreach ( $slugs as $slug ) {
-		if ( '' !== $slug && 0 === strpos( $path, $slug ) ) {
+		// Match the first path segment exactly — not a bare prefix — so a page
+		// like /membership/ does not get isolated by the 'members' slug.
+		if ( '' !== $slug && ( $path === $slug || 0 === strpos( $path, $slug . '/' ) ) ) {
 			$result = true;
 			return true;
 		}
@@ -1384,6 +1386,7 @@ if ( buddynext_mu_is_bn_request() ) {
 				'buddynext_isolation_whitelist',
 				array(
 					'buddynext/buddynext.php',
+					'buddynext-pro/buddynext-pro.php',
 					'wpmediaverse/wpmediaverse.php',
 					'wpmediaverse-pro/wpmediaverse-pro.php',
 					'jetonomy/jetonomy.php',
