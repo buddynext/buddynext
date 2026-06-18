@@ -1,5 +1,6 @@
 /* BuddyNext — Search Results Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
+import { restFetch } from '../shell/rest-client.js';
 
 const { state, actions } = store( 'buddynext/search', {
 	state: {
@@ -19,9 +20,10 @@ const { state, actions } = store( 'buddynext/search', {
 			btn.classList.toggle( 'following' );
 			btn.textContent = following ? 'Follow' : 'Following';
 			try {
-				yield fetch( ctx.restUrl + 'users/' + userId + '/follow', {
+				yield restFetch( '/users/' + userId + '/follow', {
 					method: following ? 'DELETE' : 'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+					nonce: ctx.restNonce,
+					toastOnError: false,
 				} );
 			} catch ( _e ) {
 				btn.classList.toggle( 'following' );
@@ -38,9 +40,10 @@ const { state, actions } = store( 'buddynext/search', {
 			btn.classList.toggle( 'joined' );
 			btn.textContent = joined ? 'Join' : 'Joined';
 			try {
-				yield fetch( ctx.restUrl + 'spaces/' + spaceId + '/members', {
+				yield restFetch( '/spaces/' + spaceId + '/members', {
 					method: joined ? 'DELETE' : 'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+					nonce: ctx.restNonce,
+					toastOnError: false,
 				} );
 			} catch ( _e ) {
 				btn.classList.toggle( 'joined' );
@@ -89,16 +92,14 @@ const { state, actions } = store( 'buddynext/search', {
 				return;
 			}
 			try {
-				const res = yield fetch( ctx.savedSearchUrl, {
+				const res = yield restFetch( ctx.savedSearchUrl, {
 					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce': ctx.restNonce,
-					},
-					body: JSON.stringify( {
+					nonce: ctx.restNonce,
+					body: {
 						name,
 						query_args: ctx.currentArgs || {},
-					} ),
+					},
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
 					throw new Error( 'save_failed' );
@@ -123,9 +124,10 @@ const { state, actions } = store( 'buddynext/search', {
 				return;
 			}
 			try {
-				yield fetch( ctx.savedSearchUrl + '/' + id, {
+				yield restFetch( ctx.savedSearchUrl + '/' + id, {
 					method: 'DELETE',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+					nonce: ctx.restNonce,
+					toastOnError: false,
 				} );
 				state.savedSearches = state.savedSearches.filter( function ( s ) {
 					return s.id !== id;
@@ -142,13 +144,14 @@ const { state, actions } = store( 'buddynext/search', {
 				return;
 			}
 			try {
-				const res = yield fetch( ctx.savedSearchUrl, {
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+				const res = yield restFetch( ctx.savedSearchUrl, {
+					nonce: ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
 					return;
 				}
-				const rows = yield res.json();
+				const rows = res.data;
 				if ( ! Array.isArray( rows ) ) {
 					return;
 				}

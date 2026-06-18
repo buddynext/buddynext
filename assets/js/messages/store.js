@@ -16,20 +16,8 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnConfirm } from '../shell/dialog.js';
-
-/**
- * Build the request headers for an mvs/v1 call.
- *
- * @param {Object} ctx Interactivity context.
- * @return {Object} Headers.
- */
-function headers( ctx ) {
-	return {
-		'Content-Type': 'application/json',
-		'X-WP-Nonce': ctx.nonce || '',
-	};
-}
+import { bnConfirm, bnToast } from '../shell/dialog.js';
+import { restFetch } from '../shell/rest-client.js';
 
 /**
  * Append plain text to an element, converting newlines to <br> via real DOM
@@ -428,10 +416,12 @@ function applyReaction( ctx, msgEl, slug ) {
 	if ( mySlug === slug ) {
 		// Toggle my reaction off.
 		removeChip( mineNow );
-		fetch( ctx.mvsRest + '/messages/' + msgId + '/reactions?emoji=' + encodeURIComponent( slug ), {
+		restFetch( '/messages/' + msgId + '/reactions?emoji=' + encodeURIComponent( slug ), {
+			base: ctx.mvsRest,
+			nonce: ctx.nonce,
 			method: 'DELETE',
-			headers: headers( ctx ),
-		} ).catch( () => {} );
+			toastOnError: false,
+		} );
 	} else {
 		// Drop my previous reaction (if any), then add/boost the new one.
 		if ( mineNow ) {
@@ -448,11 +438,13 @@ function applyReaction( ctx, msgEl, slug ) {
 				box.appendChild( chip );
 			}
 		}
-		fetch( ctx.mvsRest + '/messages/' + msgId + '/reactions', {
+		restFetch( '/messages/' + msgId + '/reactions', {
+			base: ctx.mvsRest,
+			nonce: ctx.nonce,
 			method: 'POST',
-			headers: headers( ctx ),
-			body: JSON.stringify( { emoji: slug } ),
-		} ).catch( () => {} );
+			body: { emoji: slug },
+			toastOnError: false,
+		} );
 	}
 
 	box.hidden = ! box.querySelector( '.bn-dm-msg__reaction' );
@@ -567,21 +559,21 @@ const { actions } = store( 'buddynext/messages', {
 			actions.clearAttachment();
 
 			let ok = false;
-			try {
-				const res = yield fetch( ctx.mvsRest + '/conversations/' + convId + '/messages', {
-					method: 'POST',
-					headers: headers( ctx ),
-					body: JSON.stringify( payload ),
-				} );
-				if ( res.ok ) {
-					ok = true;
-					const msg = yield res.json();
-					if ( pendingMedia && ! msg.media && ! msg.media_share ) {
-						msg.media = pendingMedia;
-					}
-					appendMessage( msg, ctx.userId );
+			const res = yield restFetch( '/conversations/' + convId + '/messages', {
+				base: ctx.mvsRest,
+				nonce: ctx.nonce,
+				method: 'POST',
+				body: payload,
+				toastOnError: false,
+			} );
+			if ( res.ok ) {
+				ok = true;
+				const msg = res.data || {};
+				if ( pendingMedia && ! msg.media && ! msg.media_share ) {
+					msg.media = pendingMedia;
 				}
-			} catch ( _e ) {}
+				appendMessage( msg, ctx.userId );
+			}
 
 			if ( ! ok ) {
 				// Restore the composer so the member can retry — no data loss.
@@ -670,12 +662,11 @@ const { actions } = store( 'buddynext/messages', {
 			if ( ! convId ) {
 				return;
 			}
-			try {
-				yield fetch( ctx.mvsRest + '/conversations/' + convId, {
-					method: 'DELETE',
-					headers: headers( ctx ),
-				} );
-			} catch ( _e ) {}
+			yield restFetch( '/conversations/' + convId, {
+				base: ctx.mvsRest,
+				nonce: ctx.nonce,
+				method: 'DELETE',
+			} );
 			window.location.href = ctx.messagesUrl || '?';
 		},
 
@@ -746,14 +737,14 @@ const { actions } = store( 'buddynext/messages', {
 				return;
 			}
 			try {
-				const res = await fetch(
-					ctx.mvsRest + '/media?per_page=24&author=' + ( parseInt( ctx.userId, 10 ) || 0 ),
-					{ headers: headers( ctx ) }
+				const res = await restFetch(
+					'/media?per_page=24&author=' + ( parseInt( ctx.userId, 10 ) || 0 ),
+					{ base: ctx.mvsRest, nonce: ctx.nonce, toastOnError: false }
 				);
 				if ( ! res.ok ) {
 					return;
 				}
-				const data  = await res.json();
+				const data  = res.data;
 				const list  = Array.isArray( data ) ? data : ( data.items || [] );
 				const items = list.filter( ( m ) => ( m.media_type || 'image' ) === 'image' && ( m.thumbnail_url || m.file_url ) );
 				grid.dataset.loaded = '1';
@@ -801,17 +792,19 @@ const { actions } = store( 'buddynext/messages', {
 			fd.append( 'privacy', 'private' ); // DM attachments are private MediaVerse media.
 
 			try {
-				// FormData sets its own multipart Content-Type boundary — send only the nonce.
-				const res = await fetch( ctx.mvsRest + '/media', {
+				// FormData sets its own multipart Content-Type boundary — pass it through untouched.
+				const res = await restFetch( '/media', {
+					base: ctx.mvsRest,
+					nonce: ctx.nonce,
 					method: 'POST',
-					headers: { 'X-WP-Nonce': ctx.nonce || '' },
 					body: fd,
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
 					actions.clearAttachment();
 					return;
 				}
-				const media = await res.json();
+				const media = res.data || {};
 				ctx.attachmentId = parseInt( media.id || media.media_id || 0, 10 ) || 0;
 				const thumb = media.thumbnail || media.thumbnail_url || media.thumb_large || media.source_url || media.file_url || media.url || '';
 				if ( thumb ) {
@@ -846,16 +839,15 @@ const { actions } = store( 'buddynext/messages', {
 			if ( ! convId ) {
 				return;
 			}
-			try {
-				const res = yield fetch( ctx.mvsRest + '/conversations/' + convId + '/accept', {
-					method: 'POST',
-					headers: headers( ctx ),
-				} );
-				if ( res.ok ) {
-					// Reload so the composer replaces the request banner.
-					window.location.href = ctx.messagesUrl + convId + '/';
-				}
-			} catch ( _e ) {}
+			const res = yield restFetch( '/conversations/' + convId + '/accept', {
+				base: ctx.mvsRest,
+				nonce: ctx.nonce,
+				method: 'POST',
+			} );
+			if ( res.ok ) {
+				// Reload so the composer replaces the request banner.
+				window.location.href = ctx.messagesUrl + convId + '/';
+			}
 		},
 		*declineRequest() {
 			const ctx    = getContext();
@@ -863,12 +855,11 @@ const { actions } = store( 'buddynext/messages', {
 			if ( ! convId ) {
 				return;
 			}
-			try {
-				yield fetch( ctx.mvsRest + '/conversations/' + convId + '/decline', {
-					method: 'POST',
-					headers: headers( ctx ),
-				} );
-			} catch ( _e ) {}
+			yield restFetch( '/conversations/' + convId + '/decline', {
+				base: ctx.mvsRest,
+				nonce: ctx.nonce,
+				method: 'POST',
+			} );
 			window.location.href = ctx.messagesUrl || '?';
 		},
 
@@ -908,15 +899,17 @@ const { actions } = store( 'buddynext/messages', {
 			if ( ctx.groupBusy || members.length < 1 ) { return; }
 			ctx.groupBusy = true;
 			try {
-				const res = yield fetch( ctx.mvsProRest + '/groups', {
+				const res = yield restFetch( '/groups', {
+					base: ctx.mvsProRest,
+					nonce: ctx.nonce,
 					method: 'POST',
-					headers: headers( ctx ),
-					body: JSON.stringify( {
+					body: {
 						title: String( ctx.groupName || '' ).trim(),
 						participant_ids: members,
-					} ),
+					},
+					toastOnError: false,
 				} );
-				const data = yield res.json();
+				const data = res.data;
 				if ( res.ok && data && data.id ) {
 					const base = ctx.messagesUrl || '?';
 					window.location.href = base + ( base.indexOf( '?' ) === -1 ? '?' : '&' ) + 'conversation=' + data.id;
@@ -942,11 +935,10 @@ const { actions } = store( 'buddynext/messages', {
 		},
 		*groupApi( method, path, body ) {
 			const ctx = getContext();
-			const opts = { method, headers: headers( ctx ) };
-			if ( body ) { opts.body = JSON.stringify( body ); }
-			const res  = yield fetch( ctx.mvsProRest + '/groups/' + ctx.activeConvId + path, opts );
-			const data = yield res.json();
-			return { ok: res.ok, data };
+			const opts = { base: ctx.mvsProRest, nonce: ctx.nonce, method, toastOnError: false };
+			if ( body ) { opts.body = body; }
+			const res  = yield restFetch( '/groups/' + ctx.activeConvId + path, opts );
+			return { ok: res.ok, data: res.data };
 		},
 		*renameGroup() {
 			const ctx = getContext();
@@ -1006,10 +998,13 @@ const { actions } = store( 'buddynext/messages', {
 			if ( '' === term ) { list.replaceChildren(); return; }
 			composeSearchTimer = setTimeout( async () => {
 				try {
-					const url = ctx.bnRest + '/members?per_page=8&search=' + encodeURIComponent( term );
-					const res = await fetch( url, { headers: headers( ctx ) } );
+					const res = await restFetch( '/members?per_page=8&search=' + encodeURIComponent( term ), {
+						base: ctx.bnRest,
+						nonce: ctx.nonce,
+						toastOnError: false,
+					} );
 					if ( ! res.ok ) { return; }
-					const data = await res.json();
+					const data = res.data;
 					const have = new Set( ( ctx.activeMembers || [] ).map( ( m ) => parseInt( m.id, 10 ) ) );
 					const members = ( data && data.items ? data.items : [] ).filter(
 						( m ) => ! have.has( parseInt( m.user_id, 10 ) )
@@ -1055,9 +1050,11 @@ const { actions } = store( 'buddynext/messages', {
 			if ( ! ok ) { return; }
 			ctx.groupBusy = true;
 			try {
-				yield fetch( ctx.mvsProRest + '/groups/' + ctx.activeConvId + '/leave', {
+				yield restFetch( '/groups/' + ctx.activeConvId + '/leave', {
+					base: ctx.mvsProRest,
+					nonce: ctx.nonce,
 					method: 'POST',
-					headers: headers( ctx ),
+					toastOnError: false,
 				} );
 				window.location.href = ctx.messagesUrl || '/messages/';
 			} catch ( _e ) {
@@ -1083,12 +1080,15 @@ const { actions } = store( 'buddynext/messages', {
 
 			composeSearchTimer = setTimeout( async () => {
 				try {
-					const url = ctx.bnRest + '/members?per_page=8&search=' + encodeURIComponent( term );
-					const res = await fetch( url, { headers: headers( ctx ) } );
+					const res = await restFetch( '/members?per_page=8&search=' + encodeURIComponent( term ), {
+						base: ctx.bnRest,
+						nonce: ctx.nonce,
+						toastOnError: false,
+					} );
 					if ( ! res.ok ) {
 						return;
 					}
-					const data    = await res.json();
+					const data    = res.data;
 					const members = ( data && data.items ? data.items : [] ).filter(
 						( m ) => parseInt( m.user_id, 10 ) !== parseInt( ctx.userId, 10 )
 					);
@@ -1140,12 +1140,12 @@ const { actions } = store( 'buddynext/messages', {
 			if ( ! convId ) {
 				return;
 			}
-			try {
-				yield fetch( ctx.mvsRest + '/conversations/' + convId + '/read', {
-					method: 'POST',
-					headers: headers( ctx ),
-				} );
-			} catch ( _e ) {}
+			yield restFetch( '/conversations/' + convId + '/read', {
+				base: ctx.mvsRest,
+				nonce: ctx.nonce,
+				method: 'POST',
+				toastOnError: false,
+			} );
 		},
 	},
 	callbacks: {
@@ -1189,12 +1189,12 @@ const { actions } = store( 'buddynext/messages', {
 			let since = new Date().toISOString();
 			const poll = async () => {
 				try {
-					const res = await fetch(
-						ctx.mvsRest + '/messages/poll?since=' + encodeURIComponent( since ) + '&conversation_id=' + convId,
-						{ headers: { 'X-WP-Nonce': ctx.nonce || '' } }
+					const res = await restFetch(
+						'/messages/poll?since=' + encodeURIComponent( since ) + '&conversation_id=' + convId,
+						{ base: ctx.mvsRest, nonce: ctx.nonce, toastOnError: false }
 					);
 					if ( res.ok ) {
-						const data = await res.json();
+						const data = res.data || {};
 						( data.messages || [] ).forEach( ( m ) => {
 							if ( parseInt( m.conversation_id, 10 ) === convId ) {
 								appendMessage( m, ctx.userId );

@@ -5,6 +5,7 @@
  */
 import { store, getContext } from '@wordpress/interactivity';
 import { bnConfirm, bnToast } from '../shell/dialog.js';
+import { restFetch } from '../shell/rest-client.js';
 
 store( 'buddynext/moderation', {
 	actions: {
@@ -33,19 +34,17 @@ store( 'buddynext/moderation', {
 		* dismiss() {
 			const ctx = getContext();
 			if ( ! ctx.reportId || ! ctx.restNonce ) { return; }
-			try {
-				// Real route: POST /reports/{id}/dismiss (no body).
-				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId + '/dismiss', {
-					method: 'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-				} );
-				if ( res.ok ) {
-					const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
-					if ( row ) { row.remove(); }
-				} else {
-					bnToast( 'Could not dismiss the report. Try again.', { tone: 'danger' } );
-				}
-			} catch ( _e ) {
+			// Real route: POST /reports/{id}/dismiss (no body).
+			const res = yield restFetch( 'reports/' + ctx.reportId + '/dismiss', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				toastOnError: false,
+			} );
+			if ( res.ok ) {
+				const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
+				if ( row ) { row.remove(); }
+			} else {
 				bnToast( 'Could not dismiss the report. Try again.', { tone: 'danger' } );
 			}
 		},
@@ -60,21 +59,19 @@ store( 'buddynext/moderation', {
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
-			try {
-				// Real route: POST /reports/{id}/remove — soft-removes the
-				// content (status → removed) and resolves the report.
-				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId + '/remove', {
-					method: 'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-				} );
-				if ( res.ok ) {
-					const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
-					if ( row ) { row.remove(); }
-					bnToast( 'Content removed.', { tone: 'success' } );
-				} else {
-					bnToast( 'Could not remove the content. Try again.', { tone: 'danger' } );
-				}
-			} catch ( _e ) {
+			// Real route: POST /reports/{id}/remove — soft-removes the
+			// content (status → removed) and resolves the report.
+			const res = yield restFetch( 'reports/' + ctx.reportId + '/remove', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				toastOnError: false,
+			} );
+			if ( res.ok ) {
+				const row = document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
+				if ( row ) { row.remove(); }
+				bnToast( 'Content removed.', { tone: 'success' } );
+			} else {
 				bnToast( 'Could not remove the content. Try again.', { tone: 'danger' } );
 			}
 		},
@@ -82,34 +79,30 @@ store( 'buddynext/moderation', {
 		* warnUser() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
-			try {
-				// Real route: POST /users/{id}/warn { message } — logs the warning
-				// and notifies the user (no strike penalty).
-				const res = yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/warn', {
-					method: 'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { message: 'Content policy reminder' } ),
-				} );
-				bnToast( res.ok ? 'Warning sent.' : 'Could not warn the user.', { tone: res.ok ? 'success' : 'danger' } );
-			} catch ( _e ) {
-				bnToast( 'Could not warn the user.', { tone: 'danger' } );
-			}
+			// Real route: POST /users/{id}/warn { message } — logs the warning
+			// and notifies the user (no strike penalty).
+			const res = yield restFetch( 'users/' + ctx.userId + '/warn', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				body: { message: 'Content policy reminder' },
+				toastOnError: false,
+			} );
+			bnToast( res.ok ? 'Warning sent.' : 'Could not warn the user.', { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		* strikeUser() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
-			try {
-				// Real route: POST /users/{id}/strikes { reason }.
-				const res = yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/strikes', {
-					method: 'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { reason: 'Strike issued for reported content' } ),
-				} );
-				bnToast( res.ok ? 'Strike issued.' : 'Could not issue a strike.', { tone: res.ok ? 'success' : 'danger' } );
-			} catch ( _e ) {
-				bnToast( 'Could not issue a strike.', { tone: 'danger' } );
-			}
+			// Real route: POST /users/{id}/strikes { reason }.
+			const res = yield restFetch( 'users/' + ctx.userId + '/strikes', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				body: { reason: 'Strike issued for reported content' },
+				toastOnError: false,
+			} );
+			bnToast( res.ok ? 'Strike issued.' : 'Could not issue a strike.', { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		* suspendUser() {
@@ -122,17 +115,15 @@ store( 'buddynext/moderation', {
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
-			try {
-				// Real route: POST /users/{id}/suspend { reason, duration_days, hide_posts }.
-				const res = yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/suspend', {
-					method: 'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { reason: 'Moderation action', duration_days: 7, hide_posts: true } ),
-				} );
-				bnToast( res.ok ? 'User suspended for 7 days.' : 'Could not suspend the user.', { tone: res.ok ? 'success' : 'danger' } );
-			} catch ( _e ) {
-				bnToast( 'Could not suspend the user.', { tone: 'danger' } );
-			}
+			// Real route: POST /users/{id}/suspend { reason, duration_days, hide_posts }.
+			const res = yield restFetch( 'users/' + ctx.userId + '/suspend', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				body: { reason: 'Moderation action', duration_days: 7, hide_posts: true },
+				toastOnError: false,
+			} );
+			bnToast( res.ok ? 'User suspended for 7 days.' : 'Could not suspend the user.', { tone: res.ok ? 'success' : 'danger' } );
 		},
 
 		/* ── Space moderation actions ──────────────────────────────── */
@@ -145,29 +136,29 @@ store( 'buddynext/moderation', {
 		* dismissReport() {
 			const ctx = getContext();
 			if ( ! ctx.reportId || ! ctx.restNonce ) { return; }
-			try {
-				const res = yield fetch( ctx.restUrl + 'reports/' + ctx.reportId + '/dismiss', {
-					method: 'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-				} );
-				if ( res.ok ) {
-					const card = document.querySelector( '.bn-space-mod__report [data-report-id="' + ctx.reportId + '"]' );
-					const row  = ( card && card.closest( '.bn-space-mod__report' ) ) || document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
-					if ( row ) { row.remove(); }
-				}
-			} catch ( _e ) {}
+			const res = yield restFetch( 'reports/' + ctx.reportId + '/dismiss', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				toastOnError: false,
+			} );
+			if ( res.ok ) {
+				const card = document.querySelector( '.bn-space-mod__report [data-report-id="' + ctx.reportId + '"]' );
+				const row  = ( card && card.closest( '.bn-space-mod__report' ) ) || document.querySelector( '[data-report-id="' + ctx.reportId + '"]' );
+				if ( row ) { row.remove(); }
+			}
 		},
 
 		* warnMember() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.restNonce ) { return; }
-			try {
-				yield fetch( ctx.restUrl + 'users/' + ctx.userId + '/warn', {
-					method: 'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { message: 'Space rule violation' } ),
-				} );
-			} catch ( _e ) {}
+			yield restFetch( 'users/' + ctx.userId + '/warn', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'POST',
+				body: { message: 'Space rule violation' },
+				toastOnError: false,
+			} );
 		},
 
 		* removeFromSpace() {
@@ -180,37 +171,37 @@ store( 'buddynext/moderation', {
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
-			try {
-				yield fetch( ctx.restUrl + 'spaces/' + ctx.spaceId + '/members/' + ctx.userId, {
-					method: 'DELETE',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
-				} );
-				window.location.reload();
-			} catch ( _e ) {}
+			yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId, {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'DELETE',
+				toastOnError: false,
+			} );
+			window.location.reload();
 		},
 
 		* approveJoinRequest() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.spaceId || ! ctx.restNonce ) { return; }
-			try {
-				yield fetch( ctx.restUrl + 'spaces/' + ctx.spaceId + '/members/' + ctx.userId + '/approve', {
-					method: 'PUT',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
-				} );
-				window.location.reload();
-			} catch ( _e ) {}
+			yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId + '/approve', {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'PUT',
+				toastOnError: false,
+			} );
+			window.location.reload();
 		},
 
 		* declineJoinRequest() {
 			const ctx = getContext();
 			if ( ! ctx.userId || ! ctx.spaceId || ! ctx.restNonce ) { return; }
-			try {
-				yield fetch( ctx.restUrl + 'spaces/' + ctx.spaceId + '/members/' + ctx.userId, {
-					method: 'DELETE',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
-				} );
-				window.location.reload();
-			} catch ( _e ) {}
+			yield restFetch( 'spaces/' + ctx.spaceId + '/members/' + ctx.userId, {
+				base: ctx.restUrl,
+				nonce: ctx.restNonce,
+				method: 'DELETE',
+				toastOnError: false,
+			} );
+			window.location.reload();
 		},
 	},
 } );

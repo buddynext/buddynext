@@ -5,6 +5,7 @@
  * inline errors without a page reload.
  */
 import { store, getContext } from '@wordpress/interactivity';
+import { restFetch } from '../shell/rest-client.js';
 
 function ctx() {
 	try {
@@ -15,12 +16,17 @@ function ctx() {
 }
 
 function rest( c, path, opts ) {
-	const url     = ( c.restUrl || '/wp-json/buddynext/v1/' ) + String( path ).replace( /^\//, '' );
-	const headers = Object.assign(
-		{ 'X-WP-Nonce': c.restNonce || '', 'Content-Type': 'application/json' },
-		( opts && opts.headers ) || {}
-	);
-	return fetch( url, Object.assign( {}, opts || {}, { headers, credentials: 'same-origin' } ) );
+	opts = opts || {};
+	const init = {
+		base: c.restUrl || '/wp-json/buddynext/v1/',
+		nonce: c.restNonce || '',
+		method: opts.method,
+		toastOnError: false,
+	};
+	if ( typeof opts.body !== 'undefined' ) {
+		init.body = opts.body;
+	}
+	return restFetch( '/' + String( path ).replace( /^\//, '' ), init );
 }
 
 function toast( message, tone ) {
@@ -82,14 +88,14 @@ store( 'buddynext/auth-login', {
 			try {
 				const r = yield rest( c, 'auth/login', {
 					method: 'POST',
-					body:   JSON.stringify( {
+					body:   {
 						user:        c.user || '',
 						password:    c.password || '',
 						remember:    !! c.remember,
 						redirect_to: c.redirectTo || '',
-					} ),
+					},
 				} );
-				const data = yield r.json();
+				const data = r.data;
 				if ( ! r.ok || ! ( data && data.success ) ) {
 					const msg = ( data && data.message ) || 'Invalid email or password.';
 					c.error = msg;
@@ -128,13 +134,13 @@ store( 'buddynext/auth-login', {
 			try {
 				const r = yield rest( c, 'auth/2fa', {
 					method: 'POST',
-					body:   JSON.stringify( {
+					body:   {
 						twofa_token: c.twofaToken || '',
 						code:        c.twofaCode || '',
 						redirect_to: c.redirectTo || '',
-					} ),
+					},
 				} );
-				const data = yield r.json();
+				const data = r.data;
 				if ( ! r.ok || ! ( data && data.success ) ) {
 					c.twofaError = ( data && data.message ) || 'That code was not correct.';
 					c.submitting = false;
@@ -153,7 +159,7 @@ store( 'buddynext/auth-login', {
 			try {
 				yield rest( c, 'auth/2fa/email-code', {
 					method: 'POST',
-					body:   JSON.stringify( { twofa_token: c.twofaToken || '' } ),
+					body:   { twofa_token: c.twofaToken || '' },
 				} );
 				c.emailSent = true;
 				toast( 'If your session is still valid, a code is on its way.', 'info' );

@@ -183,13 +183,11 @@
 				}
 				ctx.loading = true;
 				ctx.page    = ( ctx.page || 1 ) + 1;
-				yield window.fetch(
-					( window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '' )
-					+ '/buddynext/v1/feed?page=' + ctx.page,
+				yield window.buddynextRest.restFetch(
+					'/buddynext/v1/feed?page=' + ctx.page,
 					{
-						headers: {
-							'X-WP-Nonce': window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
-						},
+						base:  window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '',
+						nonce: window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
 					}
 				);
 				ctx.loading = false;
@@ -215,9 +213,10 @@
 			toggleFollow: function* () {
 				var ctx    = getContext();
 				var method = ctx.isFollowing ? 'DELETE' : 'POST';
-				var res    = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/follow', {
-					method:  method,
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res    = yield window.buddynextRest.restFetch( '/users/' + ctx.userId + '/follow', {
+					base:   ctx.restUrl,
+					nonce:  ctx.nonce,
+					method: method,
 				} );
 				if ( res.ok ) {
 					ctx.isFollowing = ! ctx.isFollowing;
@@ -246,9 +245,10 @@
 		actions: {
 			sendRequest: function* () {
 				var ctx = getContext();
-				var res = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/connect', {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res = yield window.buddynextRest.restFetch( '/users/' + ctx.userId + '/connect', {
+					base:   ctx.restUrl,
+					nonce:  ctx.nonce,
+					method: 'POST',
 				} );
 				if ( res.ok ) {
 					ctx.status = 'pending-sent';
@@ -256,9 +256,10 @@
 			},
 			withdrawRequest: function* () {
 				var ctx = getContext();
-				var res = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/connect', {
-					method:  'DELETE',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res = yield window.buddynextRest.restFetch( '/users/' + ctx.userId + '/connect', {
+					base:   ctx.restUrl,
+					nonce:  ctx.nonce,
+					method: 'DELETE',
 				} );
 				if ( res.ok ) {
 					ctx.status = '';
@@ -266,9 +267,10 @@
 			},
 			acceptRequest: function* () {
 				var ctx = getContext();
-				var res = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/connect/accept', {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res = yield window.buddynextRest.restFetch( '/users/' + ctx.userId + '/connect/accept', {
+					base:   ctx.restUrl,
+					nonce:  ctx.nonce,
+					method: 'POST',
 				} );
 				if ( res.ok ) {
 					ctx.status = 'accepted';
@@ -276,9 +278,10 @@
 			},
 			declineRequest: function* () {
 				var ctx = getContext();
-				var res = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/connect/decline', {
-					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res = yield window.buddynextRest.restFetch( '/users/' + ctx.userId + '/connect/decline', {
+					base:   ctx.restUrl,
+					nonce:  ctx.nonce,
+					method: 'POST',
 				} );
 				if ( res.ok ) {
 					ctx.status = '';
@@ -286,9 +289,10 @@
 			},
 			disconnect: function* () {
 				var ctx = getContext();
-				var res = yield window.fetch( ctx.restUrl + '/users/' + ctx.userId + '/connect', {
-					method:  'DELETE',
-					headers: { 'X-WP-Nonce': ctx.nonce },
+				var res = yield window.buddynextRest.restFetch( '/users/' + ctx.userId + '/connect', {
+					base:   ctx.restUrl,
+					nonce:  ctx.nonce,
+					method: 'DELETE',
 				} );
 				if ( res.ok ) {
 					ctx.status = '';
@@ -312,14 +316,12 @@
 			markAllRead: function* () {
 				var ctx     = getContext();
 				ctx.loading = true;
-				yield window.fetch(
-					( window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '' )
-					+ '/buddynext/v1/notifications/mark-all-read',
+				yield window.buddynextRest.restFetch(
+					'/buddynext/v1/notifications/mark-all-read',
 					{
-						method:  'POST',
-						headers: {
-							'X-WP-Nonce': window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
-						},
+						base:   window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '',
+						nonce:  window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
+						method: 'POST',
 					}
 				);
 				ctx.unreadCount = 0;
@@ -431,16 +433,13 @@
 					return;
 				}
 				ctx.loading = true;
-				yield window.fetch(
-					( window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '' )
-					+ '/buddynext/v1/posts/' + ctx.postId + '/react',
+				yield window.buddynextRest.restFetch(
+					'/buddynext/v1/posts/' + ctx.postId + '/react',
 					{
-						method:  'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-WP-Nonce':   window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
-						},
-						body: JSON.stringify( { emoji: ctx.reactionEmoji } ),
+						base:   window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '',
+						nonce:  window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
+						method: 'POST',
+						body:   { emoji: ctx.reactionEmoji },
 					}
 				);
 				ctx.loading = false;
@@ -449,14 +448,12 @@
 				var ctx    = getContext();
 				ctx.loading = true;
 				var method  = ctx.bookmarked ? 'DELETE' : 'POST';
-				yield window.fetch(
-					( window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '' )
-					+ '/buddynext/v1/posts/' + ctx.postId + '/bookmark',
+				yield window.buddynextRest.restFetch(
+					'/buddynext/v1/posts/' + ctx.postId + '/bookmark',
 					{
-						method:  method,
-						headers: {
-							'X-WP-Nonce': window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
-						},
+						base:   window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '',
+						nonce:  window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
+						method: method,
 					}
 				);
 				ctx.bookmarked = ! ctx.bookmarked;
@@ -498,29 +495,21 @@
 					return;
 				}
 				ctx.submitting = true;
-				var res = yield window.fetch(
-					( window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '' )
-					+ '/buddynext/v1/posts',
+				var res = yield window.buddynextRest.restFetch(
+					'/buddynext/v1/posts',
 					{
-						method:  'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-WP-Nonce':   window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
-						},
-						body: JSON.stringify( {
+						base:   window.bnBlocks && window.bnBlocks.restUrl ? window.bnBlocks.restUrl : '',
+						nonce:  window.bnBlocks && window.bnBlocks.nonce ? window.bnBlocks.nonce : '',
+						method: 'POST',
+						body:   {
 							content: ctx.content,
 							privacy: ctx.privacy,
 							type:    ctx.type,
-						} ),
+						},
 					}
 				);
 
-				var data = {};
-				try {
-					data = yield res.json();
-				} catch ( e ) {
-					data = {};
-				}
+				var data = res.data || {};
 
 				ctx.content    = '';
 				ctx.submitting = false;

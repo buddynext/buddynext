@@ -6,6 +6,7 @@
  * the wizard.
  */
 import { store, getContext } from '@wordpress/interactivity';
+import { restFetch } from '../shell/rest-client.js';
 
 // Holds the pending username-availability check timer so a fresh
 // keystroke can cancel the in-flight check before it fires.
@@ -30,13 +31,17 @@ function toast( message, tone ) {
 }
 
 function rest( c, path, opts ) {
-	const url     = ( c.restUrl || '/wp-json/buddynext/v1/' ) + String( path ).replace( /^\//, '' );
-	const headers = Object.assign(
-		{ 'X-WP-Nonce': c.restNonce || '', 'Content-Type': 'application/json' },
-		( opts && opts.headers ) || {}
-	);
-	const init = Object.assign( {}, opts || {}, { headers, credentials: 'same-origin' } );
-	return fetch( url, init );
+	opts = opts || {};
+	const init = {
+		base: c.restUrl || '/wp-json/buddynext/v1/',
+		nonce: c.restNonce || '',
+		method: opts.method,
+		toastOnError: false,
+	};
+	if ( typeof opts.body !== 'undefined' ) {
+		init.body = opts.body;
+	}
+	return restFetch( '/' + String( path ).replace( /^\//, '' ), init );
 }
 
 store( 'buddynext/onboarding', {
@@ -114,10 +119,10 @@ store( 'buddynext/onboarding', {
 				// Persist step server-side (best-effort).
 				rest( c, 'me/onboarding/step', {
 					method: 'POST',
-					body:   JSON.stringify( { step: c.step - 1, data: {
+					body:   { step: c.step - 1, data: {
 						display_name: c.displayName || '',
 						description:  c.bio || '',
-					} } ),
+					} },
 				} ).catch( () => {} );
 			}
 		},
@@ -175,7 +180,7 @@ store( 'buddynext/onboarding', {
 				rest( c, 'profile-slug/check?slug=' + encodeURIComponent( captured ), {
 					method: 'GET',
 				} )
-					.then( ( r ) => r.json() )
+					.then( ( r ) => r.data )
 					.then( ( data ) => {
 						// Discard stale responses if the user kept typing.
 						if ( c.userLogin !== captured ) { return; }
@@ -316,16 +321,16 @@ store( 'buddynext/onboarding', {
 			}
 			const form = new FormData();
 			form.append( 'avatar', file );
-			const url = ( c.restUrl || '/wp-json/buddynext/v1/' ) + 'me/avatar';
-			fetch( url, {
-				method:      'POST',
-				body:        form,
-				credentials: 'same-origin',
-				headers:     { 'X-WP-Nonce': c.restNonce || '' },
+			restFetch( '/me/avatar', {
+				base:  c.restUrl || '/wp-json/buddynext/v1/',
+				nonce: c.restNonce || '',
+				method: 'POST',
+				body:  form,
+				toastOnError: false,
 			} )
 				.then( ( r ) => {
 					if ( ! r.ok ) { throw new Error( 'Upload failed' ); }
-					return r.json();
+					return r.data;
 				} )
 				.then( ( data ) => {
 					if ( data && data.avatar_url ) {
@@ -348,10 +353,10 @@ store( 'buddynext/onboarding', {
 			// Persist step 1 fields first (display_name + bio) via service.
 			rest( c, 'me/profile', {
 				method: 'PUT',
-				body:   JSON.stringify( {
+				body:   {
 					display_name: c.displayName || '',
 					bio:          c.bio || '',
-				} ),
+				},
 			} ).catch( () => {} );
 
 			// Persist the chosen handle if the user changed it. Server-
@@ -362,7 +367,7 @@ store( 'buddynext/onboarding', {
 			if ( slug.length >= 3 ) {
 				rest( c, 'me/profile-slug', {
 					method: 'PUT',
-					body:   JSON.stringify( { slug } ),
+					body:   { slug },
 				} ).catch( () => {} );
 			}
 
@@ -372,24 +377,24 @@ store( 'buddynext/onboarding', {
 			// preferences/.
 			rest( c, 'me/notification-channels', {
 				method: 'PUT',
-				body:   JSON.stringify( {
+				body:   {
 					email:  !! c.channelEmail,
 					in_app: !! c.channelInApp,
 					push:   !! c.channelPush,
 					sound:  !! c.channelSound,
-				} ),
+				},
 			} ).catch( () => {} );
 
 			rest( c, 'me/onboarding/complete', {
 				method: 'POST',
-				body:   JSON.stringify( {
+				body:   {
 					spaces:   c.joinedSpaces || [],
 					user_ids: c.followingUsers || [],
-				} ),
+				},
 			} )
 				.then( ( r ) => {
 					if ( ! r.ok ) { throw new Error( 'Failed' ); }
-					return r.json();
+					return r.data;
 				} )
 				.then( ( data ) => {
 					c.saving = false;

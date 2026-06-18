@@ -1,6 +1,7 @@
 /* BuddyNext — Space Members Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
 import { bnConfirm, bnToast } from '../shell/dialog.js';
+import { restFetch } from '../shell/rest-client.js';
 
 store( 'buddynext/space-members', {
 	state: {
@@ -45,9 +46,10 @@ store( 'buddynext/space-members', {
 			} );
 			if ( ! ok ) { return; }
 			try {
-				const res = yield fetch( ctx.restUrl + '/spaces/' + ctx.spaceId + '/members/' + btn.dataset.userId, {
+				const res = yield restFetch( '/spaces/' + ctx.spaceId + '/members/' + btn.dataset.userId, {
 					method: 'DELETE',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+					nonce: ctx.restNonce,
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					window.location.reload();
@@ -66,10 +68,11 @@ store( 'buddynext/space-members', {
 			if ( ! btn || ! ctx.restNonce || ! ctx.spaceId ) { return; }
 			ctx.menuOpen = false;
 			try {
-				const res = yield fetch( ctx.restUrl + '/spaces/' + ctx.spaceId + '/members/' + btn.dataset.userId + '/role', {
+				const res = yield restFetch( '/spaces/' + ctx.spaceId + '/members/' + btn.dataset.userId + '/role', {
 					method: 'PUT',
-					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
-					body: JSON.stringify( { role: role } ),
+					nonce: ctx.restNonce,
+					body: { role: role },
+					toastOnError: false,
 				} );
 				if ( res.ok ) {
 					window.location.reload();

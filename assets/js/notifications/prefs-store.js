@@ -24,6 +24,7 @@
  * NotificationController endpoints.
  */
 import { store, getContext } from '@wordpress/interactivity';
+import { restFetch } from '../shell/rest-client.js';
 
 const VALID_FREQ = [ 'immediate', 'daily', 'weekly', 'off' ];
 
@@ -199,14 +200,12 @@ store( 'buddynext/notification-prefs', {
 			ctx.spacePrefs = next;
 
 			try {
-				var res = await fetch( ctx.restSpacesUrl, {
-					method:  'POST',
-					credentials: 'same-origin',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce':   ctx.nonce,
-					},
-					body: JSON.stringify( { space_id: spaceId, pref: pref } ),
+				var res = await restFetch( '', {
+					base: ctx.restSpacesUrl,
+					nonce: ctx.nonce,
+					method: 'POST',
+					body: { space_id: spaceId, pref: pref },
+					toastOnError: false,
 				} );
 				if ( ! res.ok ) {
 					throw new Error( 'http_' + res.status );
@@ -238,18 +237,15 @@ store( 'buddynext/notification-prefs', {
 
 			if ( Object.keys( prefsDiff ).length > 0 ) {
 				try {
-					var res = await fetch( ctx.restPrefsUrl, {
-						method:  'PUT',
-						credentials: 'same-origin',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-WP-Nonce':   ctx.nonce,
-						},
-						body: JSON.stringify( prefsDiff ),
+					var res = await restFetch( '', {
+						base: ctx.restPrefsUrl,
+						nonce: ctx.nonce,
+						method: 'PUT',
+						body: prefsDiff,
+						toastOnError: false,
 					} );
 					if ( ! res.ok ) {
-						var err = null;
-						try { err = await res.json(); } catch ( _ee ) {}
+						var err = res.data;
 						if ( err && err.data && err.data.params ) {
 							ctx.errors = err.data.params;
 						}
@@ -262,14 +258,12 @@ store( 'buddynext/notification-prefs', {
 
 			if ( ok && channelsChanged ) {
 				try {
-					var resCh = await fetch( ctx.restChannelsUrl, {
-						method:  'PUT',
-						credentials: 'same-origin',
-						headers: {
-							'Content-Type': 'application/json',
-							'X-WP-Nonce':   ctx.nonce,
-						},
-						body: JSON.stringify( ctx.channels || {} ),
+					var resCh = await restFetch( '', {
+						base: ctx.restChannelsUrl,
+						nonce: ctx.nonce,
+						method: 'PUT',
+						body: ctx.channels || {},
+						toastOnError: false,
 					} );
 					if ( ! resCh.ok ) {
 						throw new Error( 'http_' + resCh.status );

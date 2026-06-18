@@ -64,9 +64,10 @@
 
 		if ( ! isOpen && ! dd.dataset.loaded && data.restNotifsUrl ) {
 			dd.dataset.loaded = '1';
-			fetch( data.restNotifsUrl, {
-				headers: { 'X-WP-Nonce': nonce }
-			} ).then( function ( r ) { return r.json(); } ).then( function ( payload ) {
+			window.buddynextRest.restFetch( data.restNotifsUrl, {
+				nonce: nonce,
+				toastOnError: false
+			} ).then( function ( res ) { if ( ! res.ok ) { throw new Error( 'http' ); } return res.data; } ).then( function ( payload ) {
 				var list = document.getElementById( 'bn-notif-dropdown-list' );
 				if ( ! list ) return;
 				var items = payload.items || payload;
@@ -121,10 +122,12 @@
 
 		var m = e.target.closest && e.target.closest( '[data-bn-action="mark-all-read"]' );
 		if ( m && data.restNotifsReadUrl ) {
-			fetch( data.restNotifsReadUrl, {
+			window.buddynextRest.restFetch( data.restNotifsReadUrl, {
 				method: 'PUT',
-				headers: { 'X-WP-Nonce': nonce }
-			} ).then( function () {
+				nonce: nonce,
+				toastOnError: false
+			} ).then( function ( res ) {
+				if ( ! res.ok ) { return; }
 				var pill = document.querySelector( '.bn-nav-notif-wrap .bn-nav-pill' );
 				if ( pill ) pill.remove();
 				document.querySelectorAll( '.bn-notif-dropdown__item--unread' ).forEach( function ( el ) {
@@ -216,8 +219,8 @@
 			resultsEl.appendChild( loading );
 
 			var url = data.restSearchUrl + '?q=' + encodeURIComponent( q ) + '&per_page=8';
-			fetch( url, { headers: { 'X-WP-Nonce': nonce } } )
-				.then( function ( r ) { return r.json(); } )
+			window.buddynextRest.restFetch( url, { nonce: nonce, toastOnError: false } )
+				.then( function ( res ) { if ( ! res.ok ) { throw new Error( 'http' ); } return res.data; } )
 				.then( function ( payload ) {
 					resultsEl.textContent = '';
 					var items = payload.items || payload.results || payload;
@@ -431,10 +434,12 @@
 					followBtn.onclick = function () {
 						if ( ! data.restUserUrl ) return;
 						var method = following ? 'DELETE' : 'POST';
-						fetch( data.restUserUrl + userId + '/follow', {
+						window.buddynextRest.restFetch( data.restUserUrl + userId + '/follow', {
 							method: method,
-							headers: { 'X-WP-Nonce': nonce }
-						} ).then( function () {
+							nonce: nonce,
+							toastOnError: false
+						} ).then( function ( res ) {
+							if ( ! res.ok ) { return; }
 							following = ! following;
 							applyFollowState( following );
 							if ( window.bnToast ) {
@@ -452,9 +457,10 @@
 				if ( data.restUserUrl ) {
 					// Canonical profile route is /users/{id}/profile — the bare
 					// /users/{id} returns 404, so avatar/bio/stats never loaded.
-					fetch( data.restUserUrl + userId + '/profile', {
-						headers: { 'X-WP-Nonce': nonce }
-					} ).then( function ( r ) { return r.json(); } ).then( function ( u ) {
+					window.buddynextRest.restFetch( data.restUserUrl + userId + '/profile', {
+						nonce: nonce,
+						toastOnError: false
+					} ).then( function ( res ) { if ( ! res.ok ) { throw new Error( 'http' ); } return res.data; } ).then( function ( u ) {
 						// Swap the initials placeholder for the real avatar image.
 						if ( u && u.avatar_url ) {
 							var img = document.createElement( 'img' );
