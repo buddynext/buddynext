@@ -216,20 +216,20 @@ class MessagesData {
 	 * array (the messaging service returns objects for messages but arrays for
 	 * participants — normalise access here).
 	 *
-	 * @param mixed  $row     Object or array.
-	 * @param string $key     Key/property.
-	 * @param mixed  $default Fallback.
+	 * @param mixed  $row      Object or array.
+	 * @param string $key      Key/property.
+	 * @param mixed  $fallback Value to return when the key is absent.
 	 * @return mixed
 	 */
-	private static function val( $row, string $key, $default = '' ) {
+	private static function val( $row, string $key, $fallback = '' ) {
 		if ( is_array( $row ) ) {
-			return $row[ $key ] ?? $default;
+			return $row[ $key ] ?? $fallback;
 		}
 		if ( is_object( $row ) ) {
-			return $row->$key ?? $default;
+			return $row->$key ?? $fallback;
 		}
 
-		return $default;
+		return $fallback;
 	}
 
 	/**
@@ -472,14 +472,43 @@ class MessagesData {
 	 * @return int Conversation ID, or 0.
 	 */
 	public static function open_with( int $viewer, int $other ): int {
+		return self::open_with_result( $viewer, $other )['conversation_id'];
+	}
+
+	/**
+	 * Find or create a direct conversation and return BOTH the ID and the reason.
+	 *
+	 * Same as open_with() but preserves the engine's denial reason so the caller
+	 * can show a reason-aware notice ("blocked" vs "only accepts messages from
+	 * connections" vs "isn't accepting messages") instead of a single generic
+	 * line. The reason mirrors MessagingService::can_message() codes: 'blocked',
+	 * 'dms_disabled', 'mutual_follow_required', 'account_too_new', 'rate_limited',
+	 * or '' when the conversation opened. 'unavailable' covers a missing engine or
+	 * a self/invalid target.
+	 *
+	 * @param int $viewer Viewing user ID.
+	 * @param int $other  Target user ID.
+	 * @return array{conversation_id: int, reason: string}
+	 */
+	public static function open_with_result( int $viewer, int $other ): array {
 		$svc = self::svc();
 		if ( ! $svc || $other <= 0 || $other === $viewer || ! method_exists( $svc, 'find_or_create_conversation' ) ) {
-			return 0;
+			return array(
+				'conversation_id' => 0,
+				'reason'          => 'unavailable',
+			);
 		}
 
-		$result = $svc->find_or_create_conversation( $viewer, $other );
+		$result  = $svc->find_or_create_conversation( $viewer, $other );
+		$conv_id = is_array( $result ) ? (int) ( $result['conversation_id'] ?? 0 ) : 0;
+		// On success the engine returns the participant status (active /
+		// request_pending), not a denial — surface no reason in that case.
+		$status = is_array( $result ) ? (string) ( $result['status'] ?? '' ) : '';
 
-		return is_array( $result ) ? (int) ( $result['conversation_id'] ?? 0 ) : 0;
+		return array(
+			'conversation_id' => $conv_id,
+			'reason'          => $conv_id > 0 ? '' : $status,
+		);
 	}
 
 	/**

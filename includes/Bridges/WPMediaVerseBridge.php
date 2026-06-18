@@ -51,8 +51,12 @@ class WPMediaVerseBridge {
 		// floating chat panel, standalone messages page, and notifications.
 		add_filter( 'mvs_buddynext_active', '__return_true' );
 
-		// Gate DMs on bn_blocks.
+		// Gate DMs on bn_blocks + the recipient's DM-privacy preference.
 		add_filter( 'mvs_can_send_message', array( $this, 'check_block' ), 10, 3 );
+
+		// When that gate denies, report WHY (block vs privacy preference) so the
+		// sender sees an accurate notice instead of a generic "blocked".
+		add_filter( 'mvs_dm_denial_reason', array( $this, 'dm_denial_reason' ), 10, 3 );
 
 		// Point WPMediaVerse user-profile links (media grid, lightbox author,
 		// REST author_url) at the BuddyNext member profile. Without this, MVS
@@ -119,20 +123,18 @@ class WPMediaVerseBridge {
 	 * Fired on buddynext_connection_requested. Only acts when a note is present —
 	 * the note step is opt-in via buddynext_connection_require_note, so a 1-click
 	 * connect carries no note and this is a no-op. The note is written into a
-	 * conversation between the two users; because they are not yet connected, the
-	 * recipient's participant lands as a pending request, so it surfaces under
-	 * their Messages "Requests" tab to accept or decline — it never auto-opens an
-	 * active thread with someone they have not chosen to engage.
+	 * conversation between the two users; the recipient's participant lands as a
+	 * pending request, so it surfaces under their Messages "Requests" tab to accept
+	 * or decline — it never auto-opens an active thread with someone they have not
+	 * chosen to engage.
 	 *
-	 * The recipient's DM access level is forced to "followers" for the duration of
-	 * the conversation lookup so the engine's can_message() returns is_request for
-	 * the not-yet-connected pair (it otherwise keys "request vs active" off the DM
-	 * access setting, which on an "everyone" site would open a normal thread).
-	 * "followers" (not "mutual") is the right force: a non-follower sender resolves
-	 * to allowed + is_request, whereas "mutual" denies a non-follower outright. The
-	 * recipient's own block / "who can DM me" rules still apply via the existing
-	 * mvs_can_send_message gate, so this never bypasses their privacy. The filter
-	 * is removed immediately after, so no other DM send is affected.
+	 * The pending-request status is requested explicitly through the engine's
+	 * find_or_create_conversation( …, [ 'force_request' => true ] ) seam (WPMediaVerse
+	 * 1.7.1+). The engine still enforces every denial first — a hard block, a
+	 * disabled inbox, self, too-new, or the rate limit — so this can never reach a
+	 * member who has shut the sender out; it only changes an otherwise-allowed send
+	 * from an active thread into a request. Falls back to a plain conversation on
+	 * older engine builds that ignore the third argument.
 	 *
 	 * Hooked on: buddynext_connection_requested( int, int, int, string ).
 	 *
@@ -157,16 +159,8 @@ class WPMediaVerseBridge {
 			return;
 		}
 
-		// Force a pending request (not an active thread) for the not-yet-connected
-		// pair, scoped to just the conversation lookup below. "followers" makes a
-		// non-follower sender resolve to allowed + is_request; "mutual" would deny.
-		$force_request = static function (): string {
-			return 'followers';
-		};
-		add_filter( 'mvs_dm_access_level', $force_request, 99 );
-
 		try {
-			$conv    = $svc->find_or_create_conversation( $requester_id, $recipient_id );
+			$conv    = $svc->find_or_create_conversation( $requester_id, $recipient_id, array( 'force_request' => true ) );
 			$conv_id = is_array( $conv ) ? (int) ( $conv['conversation_id'] ?? 0 ) : 0;
 
 			if ( $conv_id > 0 ) {
@@ -177,8 +171,6 @@ class WPMediaVerseBridge {
 			// in-app notification still fires. Never let a messaging-engine error
 			// bubble back into the connect flow.
 			unset( $e );
-		} finally {
-			remove_filter( 'mvs_dm_access_level', $force_request, 99 );
 		}
 	}
 
@@ -322,6 +314,51 @@ class WPMediaVerseBridge {
 			case 'everyone':
 			default:
 				return true;
+		}
+	}
+
+	/**
+	 * Translate a check_block() denial into a specific reason code.
+	 *
+	 * check_block() is a boolean gate, so a denial otherwise surfaces as the
+	 * generic 'blocked'. This mirrors its logic to report the real cause — an
+	 * actual block stays 'blocked', a "nobody" preference becomes 'dms_disabled',
+	 * and a "connections-only" preference becomes 'connections_only' — so the
+	 * sender's notice is accurate. Other causes keep the incoming default.
+	 *
+	 * Hooked on: mvs_dm_denial_reason ( string $reason, int $sender_id, int $recipient_id ).
+	 *
+	 * @param string $reason       Reason resolved so far (default 'blocked').
+	 * @param int    $sender_id    Sender user ID.
+	 * @param int    $recipient_id Recipient user ID.
+	 * @return string
+	 */
+	public function dm_denial_reason( string $reason, int $sender_id, int $recipient_id ): string {
+		// Staff are never denied by check_block, so there is nothing to translate.
+		if ( user_can( $sender_id, 'manage_options' ) ) {
+			return $reason;
+		}
+
+		// A real block keeps the generic 'blocked' reason (same check as check_block).
+		$blocks = function_exists( 'buddynext_service' ) ? buddynext_service( 'blocks' ) : null;
+		if ( is_object( $blocks ) && method_exists( $blocks, 'has_blocked' )
+			&& $blocks->has_blocked( $recipient_id, $sender_id ) ) {
+			return 'blocked';
+		}
+
+		// Otherwise the denial is the recipient's DM-privacy preference.
+		$pref = (string) get_user_meta( $recipient_id, 'bn_privacy_dm', true );
+		if ( '' === $pref ) {
+			$pref = (string) get_option( 'buddynext_default_dm_access', 'everyone' );
+		}
+
+		switch ( $pref ) {
+			case 'nobody':
+				return 'dms_disabled';
+			case 'connections':
+				return 'connections_only';
+			default:
+				return $reason;
 		}
 	}
 
