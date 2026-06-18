@@ -43,6 +43,84 @@ class PostController extends BaseRestController {
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'create_post' ),
 				'permission_callback' => array( $this, 'require_auth' ),
+				// Schema for the create-post payload: gives the REST layer type
+				// validation + sanitisation + self-documentation. Every field is
+				// optional here — PostService::create() owns the business rules
+				// (e.g. content required unless poll/media), so requiredness is not
+				// duplicated. create_post()/PostService still sanitise as
+				// defence-in-depth.
+				// Types are declared (not custom sanitize_callbacks) so the REST
+				// layer validates + coerces by schema uniformly; create_post() /
+				// PostService::create() remain the single sanitisation point.
+				'args'                => array(
+					'type'                    => array(
+						'type'        => 'string',
+						'description' => __( 'Post type slug (text, photo, poll, link, announcement, …).', 'buddynext' ),
+						'required'    => false,
+					),
+					'content'                 => array(
+						'type'        => 'string',
+						'description' => __( 'Post body text.', 'buddynext' ),
+						'required'    => false,
+					),
+					'privacy'                 => array(
+						'type'        => 'string',
+						'description' => __( 'Audience: public, followers, connections, private.', 'buddynext' ),
+						'required'    => false,
+					),
+					'space_id'                => array(
+						'type'        => 'integer',
+						'description' => __( 'Target space ID; 0 or omitted posts to the global feed.', 'buddynext' ),
+						'required'    => false,
+					),
+					'media_ids'               => array(
+						'type'        => 'array',
+						'description' => __( 'Attached media attachment IDs.', 'buddynext' ),
+						'required'    => false,
+						'items'       => array( 'type' => 'integer' ),
+					),
+					'link_url'                => array(
+						'type'        => 'string',
+						'description' => __( 'URL for a link-preview post.', 'buddynext' ),
+						'required'    => false,
+					),
+					'link_meta'               => array(
+						'type'        => 'object',
+						'description' => __( 'Resolved link-preview metadata (title, description, thumbnail).', 'buddynext' ),
+						'required'    => false,
+					),
+					'options'                 => array(
+						'type'        => 'array',
+						'description' => __( 'Poll option labels (type=poll).', 'buddynext' ),
+						'required'    => false,
+						'items'       => array( 'type' => 'string' ),
+					),
+					'poll_end_date'           => array(
+						'type'        => 'string',
+						'description' => __( 'Poll close datetime, UTC Y-m-d H:i:s (type=poll).', 'buddynext' ),
+						'required'    => false,
+					),
+					'content_warning'         => array(
+						'type'        => 'boolean',
+						'description' => __( 'Whether the post carries a content warning.', 'buddynext' ),
+						'required'    => false,
+					),
+					'content_warning_type'    => array(
+						'type'        => 'string',
+						'description' => __( 'Content-warning category (nsfw, spoilers, violence, language).', 'buddynext' ),
+						'required'    => false,
+					),
+					'scheduled_at'            => array(
+						'type'        => 'string',
+						'description' => __( 'Future publish datetime, UTC Y-m-d H:i:s (requires schedule-post capability).', 'buddynext' ),
+						'required'    => false,
+					),
+					'announcement_expires_at' => array(
+						'type'        => 'string',
+						'description' => __( 'Announcement auto-expire datetime, UTC Y-m-d H:i:s (type=announcement).', 'buddynext' ),
+						'required'    => false,
+					),
+				),
 			)
 		);
 
