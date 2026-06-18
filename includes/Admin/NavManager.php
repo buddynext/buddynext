@@ -644,7 +644,10 @@ class NavManager extends AdminPageBase {
 				'slug'        => $slug,
 				'label'       => sanitize_text_field( (string) ( $ov['label'] ?? $slug ) ),
 				'order'       => (int) ( $ov['order'] ?? 99 ),
-				'icon'        => 'tab-custom',
+				// Honour the icon chosen in the picker (persisted by handle_save_nav);
+				// fall back to the generic glyph only when none was saved. Previously
+				// hardcoded to 'tab-custom', so the picker was a no-op for custom tabs.
+				'icon'        => '' !== (string) ( $ov['icon'] ?? '' ) ? sanitize_key( (string) $ov['icon'] ) : 'tab-custom',
 				'description' => sanitize_text_field( (string) ( $ov['description'] ?? '' ) ),
 				'capability'  => sanitize_text_field( (string) ( $ov['capability'] ?? 'read' ) ),
 				'url'         => esc_url_raw( (string) ( $ov['url'] ?? '' ) ),
@@ -1611,6 +1614,7 @@ class NavManager extends AdminPageBase {
 				$overrides[ $new_slug ] = array(
 					'label'          => $new_label,
 					'order'          => 99,
+					'icon'           => 'tab-custom',
 					'hidden'         => false,
 					'visibility'     => 'all',
 					'capability'     => 'read',
