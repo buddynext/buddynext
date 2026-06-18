@@ -1288,6 +1288,30 @@ class NavManager extends AdminPageBase {
 						maxlength="50">
 			</div>
 
+			<?php
+			// Icon picker — the panel header shows the icon, but without this field
+			// the icon was never submitted, so any change reset to the default on
+			// save. The read side (get_tabs / get_tabs_for_scope) already applies a
+			// saved 'icon' override.
+			$bn_icon_choices = $this->available_tab_icons();
+			if ( '' !== $icon && ! in_array( $icon, $bn_icon_choices, true ) ) {
+				array_unshift( $bn_icon_choices, $icon );
+			}
+			?>
+			<div class="bn-cf">
+				<label for="bn-cfg-icon-<?php echo esc_attr( $slug ); ?>">
+					<?php esc_html_e( 'Icon', 'buddynext' ); ?>
+				</label>
+				<select id="bn-cfg-icon-<?php echo esc_attr( $slug ); ?>"
+						name="<?php echo esc_attr( $n( 'icon' ) ); ?>">
+					<?php foreach ( $bn_icon_choices as $bn_icon_slug ) : ?>
+						<option value="<?php echo esc_attr( $bn_icon_slug ); ?>" <?php selected( $icon, $bn_icon_slug ); ?>>
+							<?php echo esc_html( ucwords( str_replace( array( 'tab-', '-', '_' ), array( '', ' ', ' ' ), $bn_icon_slug ) ) ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+			</div>
+
 			<?php if ( 'mobile' !== $scope ) : ?>
 			<div class="bn-cf">
 				<label for="bn-cfg-order-<?php echo esc_attr( $slug ); ?>">
@@ -1553,6 +1577,7 @@ class NavManager extends AdminPageBase {
 
 				$overrides[ $slug ] = array(
 					'label'          => sanitize_text_field( (string) ( $cfg['label'] ?? '' ) ),
+					'icon'           => sanitize_key( (string) ( $cfg['icon'] ?? '' ) ),
 					'order'          => max( 1, absint( $cfg['order'] ?? 10 ) ),
 					'hidden'         => ! in_array( $slug, $visible_slugs, true ),
 					'visibility'     => sanitize_key( (string) ( $cfg['visibility'] ?? 'all' ) ),
@@ -1674,6 +1699,26 @@ class NavManager extends AdminPageBase {
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────
+
+	/**
+	 * Available nav-tab icon slugs, from the bundled admin SVG set.
+	 *
+	 * Globs assets/svg/admin/tab-*.svg so the icon picker stays in sync with the
+	 * shipped glyphs. Returns slugs without the .svg extension, sorted.
+	 *
+	 * @return array<int, string>
+	 */
+	private function available_tab_icons(): array {
+		$icons = array();
+		foreach ( (array) glob( self::SVG_DIR . 'tab-*.svg' ) as $file ) {
+			$slug = basename( (string) $file, '.svg' );
+			if ( '' !== $slug ) {
+				$icons[] = $slug;
+			}
+		}
+		sort( $icons );
+		return $icons;
+	}
 
 	/**
 	 * Return the inline SVG markup for a named admin icon.
