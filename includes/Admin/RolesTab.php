@@ -217,16 +217,11 @@ class RolesTab {
 	 * @return void
 	 */
 	private function redirect_back(): void {
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'     => 'buddynext',
-					'tab'      => 'roles',
-					'bn_roles' => '1',
-				),
-				admin_url( 'admin.php' )
-			)
-		);
+		// Resolve through the canonical placement map: the roles tab is registered
+		// under the 'settings' section but relocated to the Members page
+		// (page=buddynext-members), so a hardcoded page=buddynext landed on the
+		// General tab. tab_url() follows the remap to the page the tab renders on.
+		wp_safe_redirect( AdminHub::tab_url( 'settings', 'roles', array( 'bn_roles' => '1' ) ) );
 		exit;
 	}
 }
