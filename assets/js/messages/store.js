@@ -367,6 +367,24 @@ function closeReactPops() {
 }
 
 /**
+ * Hide the composer emoji picker and detach its outside-click / Esc listeners.
+ *
+ * @param {HTMLElement} pop The .bn-dm-emoji-pop element.
+ * @return {void}
+ */
+function closeEmojiPop( pop ) {
+	if ( ! pop || pop.hidden ) {
+		return;
+	}
+	pop.hidden = true;
+	if ( pop._bnDismiss ) {
+		document.removeEventListener( 'mousedown', pop._bnDismiss, true );
+		document.removeEventListener( 'keydown', pop._bnDismiss, true );
+		pop._bnDismiss = null;
+	}
+}
+
+/**
  * Read/round a reaction chip's count.
  *
  * @param {HTMLElement} chip Chip element.
@@ -762,17 +780,40 @@ const { actions } = store( 'buddynext/messages', {
 				pop.dataset.built = '1';
 				pop.addEventListener( 'click', ( e ) => {
 					if ( e.target.closest( '.bn-dm-emoji-pop__close' ) ) {
-						pop.hidden = true;
+						closeEmojiPop( pop );
 						return;
 					}
 					const opt = e.target.closest( '[data-emoji-char]' );
 					if ( opt ) {
 						insertAtCursor( document.getElementById( 'bn-dm-input' ), opt.dataset.emojiChar );
-						pop.hidden = true;
+						closeEmojiPop( pop );
 					}
 				} );
 			}
-			pop.hidden = ! pop.hidden;
+
+			if ( pop.hidden ) {
+				pop.hidden = false;
+				// Dismiss on outside-click or Esc, like every FB/IG popover. The
+				// listeners are deferred a tick so the opening click itself doesn't
+				// immediately close it, and detached again by closeEmojiPop().
+				pop._bnDismiss = ( e ) => {
+					if ( 'keydown' === e.type ) {
+						if ( 'Escape' === e.key ) {
+							closeEmojiPop( pop );
+						}
+						return;
+					}
+					if ( ! e.target.closest || ! e.target.closest( '.bn-dm-emoji-wrap' ) ) {
+						closeEmojiPop( pop );
+					}
+				};
+				setTimeout( () => {
+					document.addEventListener( 'mousedown', pop._bnDismiss, true );
+					document.addEventListener( 'keydown', pop._bnDismiss, true );
+				}, 0 );
+			} else {
+				closeEmojiPop( pop );
+			}
 		},
 		// Open the "share a photo" picker (your media + upload new).
 		async openMediaPicker() {
