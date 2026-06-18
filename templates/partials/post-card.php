@@ -367,7 +367,8 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 <article
 	class="<?php echo esc_attr( $card_class_attr ); ?>"
 	data-wp-interactive="buddynext/post-card"
-	data-wp-init="callbacks.initPostCard"
+	data-wp-class--bn-post-card--pinned="context.isPinned"
+		data-wp-init="callbacks.initPostCard"
 	data-wp-on-document--click="actions.closePopups"
 	data-wp-on-document--keydown="actions.closePopupsOnEscape"
 	data-wp-context='
@@ -431,8 +432,9 @@ $card_class_attr = implode( ' ', array_map( 'sanitize_html_class', $card_classes
 		</div>
 	<?php endif; ?>
 
-	<?php if ( $is_pinned && ! $is_announcement ) : ?>
-		<div class="bn-post-card__pin-label" aria-label="<?php esc_attr_e( 'Pinned post', 'buddynext' ); ?>">
+	<?php if ( ! $is_announcement ) : ?>
+		<?php // Always in the DOM so the label can appear/disappear reactively when a member pins/unpins without a reload; hidden bound to context.isPinned. ?>
+		<div class="bn-post-card__pin-label" aria-label="<?php esc_attr_e( 'Pinned post', 'buddynext' ); ?>" data-wp-bind--hidden="!context.isPinned"<?php echo $is_pinned ? '' : ' hidden'; ?>>
 			<?php buddynext_icon( 'bookmark' ); ?> <?php esc_html_e( 'Pinned', 'buddynext' ); ?>
 		</div>
 	<?php endif; ?>
