@@ -38,7 +38,6 @@ $follows_table   = $wpdb->prefix . 'bn_follows';
 $hashtags_table  = $wpdb->prefix . 'bn_hashtags';
 $spaces_table    = $wpdb->prefix . 'bn_spaces';
 $space_mem_table = $wpdb->prefix . 'bn_space_members';
-$user_meta_table = $wpdb->usermeta;
 
 $bn_per_page = 15;
 
@@ -75,26 +74,19 @@ if ( '' !== $raw_cursor ) {
 }
 
 // ── Suspended / shadow-banned exclusion ────────────────────────────────────
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$suspended_ids = $wpdb->get_col(
-	"SELECT user_id FROM {$user_meta_table} WHERE meta_key = 'bn_suspended' AND meta_value = '1'"
-);
-$shadow_ids    = $wpdb->get_col(
-	"SELECT user_id FROM {$user_meta_table} WHERE meta_key = 'bn_shadow_banned' AND meta_value = '1'"
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-$excluded_ids = array_unique(
-	array_filter(
-		array_map( 'intval', array_merge( $suspended_ids ?? array(), $shadow_ids ?? array() ) ),
-		fn( int $id ) => $id !== $current_user_id // Viewer can always see their own posts.
-	)
-);
-
+// Delegate to the one canonical moderation-exclusion builder — the same one
+// FeedService uses — so this SSR fallback query excludes exactly the set the
+// paginated feed does (admins see everything; everyone else has hide_posts
+// suspensions + shadow-bans filtered out). The previous inline query read the
+// legacy `bn_suspended` usermeta and over-hid action-only suspensions
+// (hide_posts = 0), so the first page disagreed with page 2. Only used by the
+// fallback branch below; the primary path goes through FeedService directly.
 $exclusion_sql = '';
-if ( ! empty( $excluded_ids ) ) {
-	$placeholders  = implode( ',', array_fill( 0, count( $excluded_ids ), '%d' ) );
-	$exclusion_sql = $wpdb->prepare( " AND p.user_id NOT IN ({$placeholders})", $excluded_ids ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+if ( ! current_user_can( 'manage_options' ) && function_exists( 'buddynext_service' ) ) {
+	$bn_moderation = buddynext_service( 'moderation' );
+	if ( $bn_moderation && method_exists( $bn_moderation, 'moderation_exclude_sql' ) ) {
+		$exclusion_sql = ' ' . $bn_moderation->moderation_exclude_sql( 'p.user_id' );
+	}
 }
 
 // ── Pinned announcement ─────────────────────────────────────────────────────
