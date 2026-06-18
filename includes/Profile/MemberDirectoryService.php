@@ -532,9 +532,15 @@ class MemberDirectoryService {
 
 		global $wpdb;
 
-		$like   = '%' . $wpdb->esc_like( $term ) . '%';
-		$ors    = array( 'u.display_name LIKE %s', 'u.user_login LIKE %s', 'u.user_email LIKE %s' );
-		$params = array( $like, $like, $like );
+		$like = '%' . $wpdb->esc_like( $term ) . '%';
+
+		// Public directory search matches name + username only (plus the opt-in
+		// searchable profile-field mirrors added below) — never user_email.
+		// Searching a public directory by email enables address enumeration,
+		// which is why LinkedIn / X / Facebook don't allow it either. This keeps
+		// the surface identical to list_members() (no divergence).
+		$ors    = array( 'u.display_name LIKE %s', 'u.user_login LIKE %s' );
+		$params = array( $like, $like );
 
 		foreach ( $this->searchable_mirror_keys() as $meta_key ) {
 			$ors[]    = "EXISTS ( SELECT 1 FROM {$wpdb->usermeta} ums WHERE ums.user_id = u.ID AND ums.meta_key = %s AND ums.meta_value LIKE %s )";
