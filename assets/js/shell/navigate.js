@@ -67,22 +67,46 @@ function isDenied( path ) {
 }
 
 /**
- * Re-sync the .active class on persistent nav (rail + mobile bar) after a swap.
- * The server-rendered active state lives outside the region, so it goes stale.
+ * Re-sync the active state on persistent nav (rail + mobile bar) after a swap.
+ * The server-rendered active state lives outside the router region, so it goes
+ * stale on a client-side navigation.
+ *
+ * Updates the REAL markers each nav styles + announces with: the rail's active
+ * item is `aria-current="page"` (.bn-rail__item[aria-current="page"]) and the
+ * mobile bar's is the `--active` modifier class; aria-current also drives the
+ * screen-reader "current page" state. Exactly one link per nav is marked — the
+ * longest path-prefix match — so a sub-route (e.g. /activity/explore/) doesn't
+ * leave two items current. (The previous version toggled an `.is-active` class
+ * no stylesheet reads, so neither the visual state nor aria-current updated.)
  *
  * @return {void}
  */
 function syncActiveNav() {
 	const here = window.location.pathname.replace( /\/+$/, '' );
-	document
-		.querySelectorAll( '.bn-app__rail a, .bn-mobile-nav a' )
-		.forEach( ( a ) => {
+	[ '.bn-app__rail', '.bn-mobile-nav' ].forEach( ( scope ) => {
+		const links = document.querySelectorAll( scope + ' a' );
+		// Pick the single best (longest-prefix) match within this nav.
+		let best = null;
+		let bestLen = -1;
+		links.forEach( ( a ) => {
 			const target = ( a.pathname || '' ).replace( /\/+$/, '' );
-			a.classList.toggle(
-				'is-active',
-				!! target && here.indexOf( target ) === 0
-			);
+			if ( target && here.indexOf( target ) === 0 && target.length > bestLen ) {
+				best = a;
+				bestLen = target.length;
+			}
 		} );
+		links.forEach( ( a ) => {
+			const active = a === best;
+			if ( active ) {
+				a.setAttribute( 'aria-current', 'page' );
+			} else {
+				a.removeAttribute( 'aria-current' );
+			}
+			if ( a.classList.contains( 'bn-mobile-nav__item' ) ) {
+				a.classList.toggle( 'bn-mobile-nav__item--active', active );
+			}
+		} );
+	} );
 }
 
 store( 'buddynext', {
