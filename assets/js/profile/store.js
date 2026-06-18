@@ -530,6 +530,67 @@ function profileResourcePath( segment ) {
 	return target > 0 ? '/users/' + target + '/' + segment : '/me/' + segment;
 }
 
+/* Staged avatar/cover changes held client-side until the master Save.
+   The crop/reposition modal stages the chosen image here and shows a LOCAL
+   preview (object URL) but does NOT upload — so a Cancel/Leave reverts cleanly
+   with nothing persisted. doSave() flushes these after the profile PUT. */
+var _pendingAvatar = null; // { blob }
+var _pendingCover  = null; // { file, x, y, zoom }
+
+/* Persist any staged avatar/cover after a successful profile save. Each upload
+   reuses the captured REST nonce (ctx.restNonce); failures surface a toast but
+   don't fail the overall save (the field data is already persisted). */
+async function flushStagedMedia( ctx ) {
+	if ( _pendingAvatar ) {
+		var avFd = new FormData();
+		avFd.append( 'avatar', _pendingAvatar.blob, 'avatar.jpg' );
+		try {
+			var avRes = await restFetch( profileResourcePath( 'avatar' ), {
+				method:       'POST',
+				nonce:        ctx.restNonce,
+				body:         avFd,
+				toastOnError: false,
+			} );
+			var avData = avRes.data || {};
+			if ( avRes.ok && avData.avatar_url ) {
+				ctx.avatarUrl = avData.avatar_url;
+				setAvatarPreview( avData.avatar_url );
+				toggleAvatarRemove( true );
+			} else {
+				bnToast( ( avData && avData.message ) || 'Avatar could not be saved', { tone: 'danger' } );
+			}
+		} catch ( _e ) {
+			bnToast( 'Avatar could not be saved', { tone: 'danger' } );
+		}
+		_pendingAvatar = null;
+	}
+
+	if ( _pendingCover ) {
+		var cvFd = new FormData();
+		cvFd.append( 'avatar', _pendingCover.file );
+		cvFd.append( 'focal_x', String( _pendingCover.x ) );
+		cvFd.append( 'focal_y', String( _pendingCover.y ) );
+		cvFd.append( 'focal_zoom', String( _pendingCover.zoom ) );
+		try {
+			var cvRes = await restFetch( profileResourcePath( 'cover' ), {
+				method:       'POST',
+				nonce:        ctx.restNonce,
+				body:         cvFd,
+				toastOnError: false,
+			} );
+			var cvData = cvRes.data || {};
+			if ( cvRes.ok && cvData.cover_url ) {
+				ctx.coverUrl = cvData.cover_url;
+			} else {
+				bnToast( ( cvData && cvData.message ) || 'Cover could not be saved', { tone: 'danger' } );
+			}
+		} catch ( _e ) {
+			bnToast( 'Cover could not be saved', { tone: 'danger' } );
+		}
+		_pendingCover = null;
+	}
+}
+
 /* Master save flow - submits all fields, handles 200 / 422 / 5xx. */
 async function doSave( ctx ) {
 	if ( ctx.saving ) { return; }
@@ -548,6 +609,9 @@ async function doSave( ctx ) {
 		var json = res.data || {};
 
 		if ( res.ok ) {
+			// Persist staged avatar/cover now that the field save succeeded, so
+			// they survive reload — and a pre-save Cancel/Leave reverts them.
+			await flushStagedMedia( ctx );
 			ctx.saved   = true;
 			ctx.isDirty = false;
 			bnToast( ( window.bnI18n && window.bnI18n.profileSaved ) || 'Profile saved', { tone: 'success' } );
@@ -1350,10 +1414,10 @@ store( 'buddynext/profile', {
 			// reading it after `await openAvatarCropModal()` throws.
 			var ctx = getContext();
 
-			// Open the in-browser crop modal. User picks the square they
-			// want; we ship the cropped blob to the existing endpoint so
-			// no server-side cropping is needed. Cancel restores the
-			// file input value to empty.
+			// Open the in-browser crop modal. The cropped blob is STAGED here
+			// (not uploaded) and shown as a local preview; it is persisted only
+			// when the member clicks "Save changes" (doSave → flushStagedMedia).
+			// This makes a Cancel/Leave revert cleanly, since nothing was sent.
 			try {
 				var cropped = await openAvatarCropModal( file );
 				if ( ! cropped ) {
@@ -1361,40 +1425,19 @@ store( 'buddynext/profile', {
 					return;
 				}
 
-				var formData = new FormData();
-				formData.append( 'avatar', cropped, 'avatar.jpg' );
-
-				ctx.avatarUploading = true;
-
-				// Use the nonce captured BEFORE the await. nonce() calls
-				// getContext() afresh, but getContext() only resolves in the
-				// action's synchronous initial scope — calling it after
-				// `await openAvatarCropModal()` yields an empty nonce, which the
-				// REST API rejects with 403 (rest_cookie_invalid_nonce) and the
-				// upload surfaces as "Upload failed". ctx was captured up-front
-				// for exactly this reason.
-				var res  = await restFetch( profileResourcePath( 'avatar' ), {
-					method:       'POST',
-					nonce:        ctx.restNonce,
-					body:         formData,
-					toastOnError: false,
-				} );
-				var data = res.data || {};
-				if ( res.ok && data.avatar_url ) {
-					ctx.avatarUrl = data.avatar_url;
-					// Live-refresh the (non-reactive) hero preview and reveal the
-					// Remove control now that a custom photo exists.
-					setAvatarPreview( data.avatar_url );
-					toggleAvatarRemove( true );
-					bnToast( 'Avatar updated', { tone: 'success' } );
-				} else {
-					bnToast( ( data && data.message ) || 'Upload failed', { tone: 'danger' } );
-				}
+				_pendingAvatar = { blob: cropped };
+				// Local object-URL preview — no network. The hero <img> is not
+				// reactively bound, so refresh it directly and reveal Remove.
+				setAvatarPreview( URL.createObjectURL( cropped ) );
+				toggleAvatarRemove( true );
+				// Mark dirty so Save enables and the beforeunload guard arms.
+				ctx.isDirty = true;
+				syncDirtyAttr( true );
+				bnToast( 'Avatar ready — click Save changes to keep it', { tone: 'info' } );
 			} catch ( err ) {
-				bnToast( 'Upload failed', { tone: 'danger' } );
+				bnToast( 'Could not prepare image. Try again.', { tone: 'danger' } );
 			} finally {
-				ctx.avatarUploading = false;
-				event.target.value  = '';
+				event.target.value = '';
 			}
 		},
 
@@ -1408,6 +1451,9 @@ store( 'buddynext/profile', {
 				tone: 'danger',
 			} );
 			if ( ! ok ) { return; }
+
+			// Discard any staged (not-yet-saved) avatar — Remove means "no photo".
+			_pendingAvatar = null;
 
 			try {
 				var res = await restFetch( profileResourcePath( 'avatar' ), {
@@ -1436,10 +1482,9 @@ store( 'buddynext/profile', {
 			var ctx = getContext();
 
 			// Open the reposition modal: the user pans + zooms the cover
-			// (LinkedIn-style). The raw file uploads as-is; the chosen
-			// position {x, y} and zoom are sent alongside and applied to the
-			// cover render via object-position + transform:scale — kept
-			// non-destructive so the source stays responsive at any width.
+			// (LinkedIn-style). The chosen file + position {x, y} + zoom are
+			// STAGED here and previewed locally; they upload only on "Save
+			// changes" (doSave → flushStagedMedia), so Cancel/Leave reverts.
 			try {
 				var repos = await openCoverReposModal( file );
 				if ( ! repos ) {
@@ -1447,47 +1492,29 @@ store( 'buddynext/profile', {
 					return;
 				}
 
-				var formData = new FormData();
-				formData.append( 'avatar', file );
-				formData.append( 'focal_x', String( repos.x ) );
-				formData.append( 'focal_y', String( repos.y ) );
-				formData.append( 'focal_zoom', String( repos.zoom ) );
+				_pendingCover = { file: file, x: repos.x, y: repos.y, zoom: repos.zoom };
+				ctx.coverFocalX = repos.x;
+				ctx.coverFocalY = repos.y;
+				ctx.coverZoom   = repos.zoom;
 
-				ctx.coverUploading = true;
-
-				// Captured nonce — nonce() (getContext post-await) returns empty
-				// and 403s. See handleAvatarFileChange for the full rationale.
-				var res  = await restFetch( profileResourcePath( 'cover' ), {
-					method:       'POST',
-					nonce:        ctx.restNonce,
-					body:         formData,
-					toastOnError: false,
-				} );
-				var data = res.data || {};
-				if ( res.ok && data.cover_url ) {
-					ctx.coverUrl    = data.cover_url;
-					ctx.coverFocalX = repos.x;
-					ctx.coverFocalY = repos.y;
-					ctx.coverZoom   = repos.zoom;
-					// Live-refresh the edit-page cover preview (the <img> is not
-					// reactively bound — it is a one-off hero preview).
-					var coverImg = document.querySelector( '[data-bn-cover-preview]' );
-					if ( coverImg ) {
-						coverImg.src = data.cover_url;
-						coverImg.style.display = '';
-						coverImg.style.objectPosition = repos.x + '% ' + repos.y + '%';
-						coverImg.style.transform = 'scale(' + repos.zoom + ')';
-						var wrap = coverImg.closest( '.bn-pf-cover' );
-						if ( wrap ) { wrap.classList.add( 'bn-pf-cover--has-image' ); }
-					}
-					bnToast( 'Cover updated', { tone: 'success' } );
-				} else {
-					bnToast( ( data && data.message ) || 'Upload failed', { tone: 'danger' } );
+				// Local object-URL preview — no network. The cover <img> is not
+				// reactively bound, so refresh it directly.
+				var coverImg = document.querySelector( '[data-bn-cover-preview]' );
+				if ( coverImg ) {
+					coverImg.src = URL.createObjectURL( file );
+					coverImg.style.display = '';
+					coverImg.style.objectPosition = repos.x + '% ' + repos.y + '%';
+					coverImg.style.transform = 'scale(' + repos.zoom + ')';
+					var wrap = coverImg.closest( '.bn-pf-cover' );
+					if ( wrap ) { wrap.classList.add( 'bn-pf-cover--has-image' ); }
 				}
+				// Mark dirty so Save enables and the beforeunload guard arms.
+				ctx.isDirty = true;
+				syncDirtyAttr( true );
+				bnToast( 'Cover ready — click Save changes to keep it', { tone: 'info' } );
 			} catch ( err ) {
-				bnToast( 'Upload failed', { tone: 'danger' } );
+				bnToast( 'Could not prepare image. Try again.', { tone: 'danger' } );
 			} finally {
-				ctx.coverUploading = false;
 				event.target.value = '';
 			}
 		},
