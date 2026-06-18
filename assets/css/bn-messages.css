@@ -656,12 +656,22 @@
 	transition: opacity var(--bn-dur-fast) var(--bn-ease);
 }
 
+/*
+ * Gapless hover-bridge. The bar abuts the bubble edge (left/right: 100%) and
+ * fills the gutter offset with transparent padding instead of a margin gap, so
+ * the pointer travels bubble → padding → buttons over one continuous hoverable
+ * surface. With a real gap the cursor crossed a dead zone where neither the
+ * bubble nor the actions were hovered, so the bar hid before it could be
+ * clicked (the "no hover-bridge" defect, worst on own/right-aligned messages).
+ */
 .bn-dm-msg:not(.is-mine) .bn-dm-msg__actions {
-	left: calc(100% + var(--bn-s2));
+	left: 100%;
+	padding-inline-start: var(--bn-s2);
 }
 
 .bn-dm-msg.is-mine .bn-dm-msg__actions {
-	right: calc(100% + var(--bn-s2));
+	right: 100%;
+	padding-inline-end: var(--bn-s2);
 	justify-content: flex-end;
 }
 
@@ -722,6 +732,42 @@
 
 .bn-dm-msg__react-wrap.is-open .bn-dm-msg__react-pop {
 	display: flex;
+}
+
+/*
+ * Flip the picker below the trigger when there is not enough room above (the
+ * topmost messages in the log, or a short thread). The .is-down class is set by
+ * the store after measuring available space; default remains upward-opening.
+ */
+.bn-dm-msg__react-wrap.is-down .bn-dm-msg__react-pop {
+	bottom: auto;
+	top: calc(100% + 4px);
+}
+
+/*
+ * Touch devices never fire :hover, so the gutter hover-bar would be unreachable.
+ * Pin it permanently visible just above the bubble (near the sender edge) so a
+ * tap on react/reply always works; positioning above the bubble keeps it from
+ * being pushed off a narrow viewport by the desktop gutter offset.
+ */
+@media (hover: none) {
+	.bn-dm-msg__actions {
+		opacity: 1;
+		pointer-events: auto;
+		top: auto;
+		bottom: 100%;
+		left: auto;
+		right: auto;
+		transform: none;
+		padding: 0;
+		margin-bottom: var(--bn-s1);
+	}
+	.bn-dm-msg:not(.is-mine) .bn-dm-msg__actions {
+		inset-inline-start: var(--bn-s2);
+	}
+	.bn-dm-msg.is-mine .bn-dm-msg__actions {
+		inset-inline-end: var(--bn-s2);
+	}
 }
 
 .bn-dm-msg__react-opt {

@@ -363,7 +363,7 @@ function appendMessage( msg, viewer ) {
  * @return {void}
  */
 function closeReactPops() {
-	document.querySelectorAll( '.bn-dm-msg__react-wrap.is-open' ).forEach( ( w ) => w.classList.remove( 'is-open' ) );
+	document.querySelectorAll( '.bn-dm-msg__react-wrap.is-open, .bn-dm-msg__react-wrap.is-down' ).forEach( ( w ) => w.classList.remove( 'is-open', 'is-down' ) );
 }
 
 /**
@@ -613,6 +613,16 @@ const { actions } = store( 'buddynext/messages', {
 				closeReactPops();
 				if ( wrap && ! open ) {
 					wrap.classList.add( 'is-open' );
+					// Flip the picker below the trigger when there is not enough
+					// room above it inside the scrolling log (topmost messages),
+					// so it never clips at the top of the thread pane.
+					const pop = wrap.querySelector( '.bn-dm-msg__react-pop' );
+					const log = logEl();
+					if ( pop && log ) {
+						const need = pop.offsetHeight + 8;
+						const room = trigger.getBoundingClientRect().top - log.getBoundingClientRect().top;
+						wrap.classList.toggle( 'is-down', room < need );
+					}
 				}
 			} else if ( 'react-pick' === action ) {
 				applyReaction( getContext(), msgEl, trigger.dataset.slug || '' );

@@ -75,8 +75,22 @@ if ( $active_conv_id <= 0 ) {
 	}
 }
 
-$helpers      = MessagesData::helpers( $viewer );
-$convs        = MessagesData::conversations( $viewer, $active_tab );
+$helpers = MessagesData::helpers( $viewer );
+$convs   = MessagesData::conversations( $viewer, $active_tab );
+
+// When the inbox is opened with no explicit conversation (and the member is not
+// trying to reach a blocked/unreachable recipient), auto-open the most recent
+// conversation instead of showing the empty "Your messages" placeholder. The
+// rail is already ordered by last activity, so the first pinned (or, failing
+// that, the first recent) row is the newest thread. With zero conversations
+// both lists are empty, $active_conv_id stays 0, and the empty state still shows.
+if ( $active_conv_id <= 0 && 0 === $bn_blocked_recipient ) {
+	$bn_default_conv = (int) ( $convs['pinned'][0]['id'] ?? ( $convs['recent'][0]['id'] ?? 0 ) );
+	if ( $bn_default_conv > 0 ) {
+		$active_conv_id = $bn_default_conv;
+	}
+}
+
 $thread       = $active_conv_id > 0 ? MessagesData::thread( $active_conv_id, $viewer ) : null;
 $messages_url = PageRouter::messages_url();
 
