@@ -62,65 +62,32 @@ if ( $bn_uid <= 0 ) {
 	return;
 }
 
-global $wpdb;
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-// Notifications received this week + the prior week (for the WoW delta).
-// Each metric goes through a buddynext_user_weekly_* filter so a
-// gamification plugin (wb-gamification) can replace BN's inline COUNT
-// with its canonical value. The default branch runs only when the
-// filter returns null (meaning: nobody overrode it).
-$bn_notifs_7d = apply_filters( 'buddynext_user_weekly_notifications_count', null, $bn_uid );
-if ( null === $bn_notifs_7d ) {
-	$bn_notifs_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
-}
-$bn_notifs_7d = (int) $bn_notifs_7d;
-
-$bn_notifs_prev_7d = apply_filters( 'buddynext_user_weekly_notifications_prev_count', null, $bn_uid );
-if ( null === $bn_notifs_prev_7d ) {
-	$bn_notifs_prev_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 14 DAY ) AND created_at <  DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
-}
-$bn_notifs_prev_7d = (int) $bn_notifs_prev_7d;
-
-$bn_notifs_read_7d = apply_filters( 'buddynext_user_weekly_notifications_read_count', null, $bn_uid );
-if ( null === $bn_notifs_read_7d ) {
-	$bn_notifs_read_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_notifications WHERE recipient_id = %d AND is_read = 1 AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
-}
-$bn_notifs_read_7d = (int) $bn_notifs_read_7d;
-
-$bn_new_followers_7d = apply_filters( 'buddynext_user_weekly_followers_gained', null, $bn_uid );
-if ( null === $bn_new_followers_7d ) {
-	$bn_new_followers_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid ) );
-}
-$bn_new_followers_7d = (int) $bn_new_followers_7d;
-
-$bn_engagement_in_7d = apply_filters( 'buddynext_user_weekly_engagement_received', null, $bn_uid );
-if ( null === $bn_engagement_in_7d ) {
-	$bn_reactions_in_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id WHERE r.object_type = 'post' AND p.user_id = %d AND r.user_id != %d AND r.created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid, $bn_uid ) );
-	$bn_comments_in_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments c INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id WHERE c.object_type = 'post' AND p.user_id = %d AND c.user_id != %d AND c.created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $bn_uid, $bn_uid ) );
-	$bn_engagement_in_7d = $bn_reactions_in_7d + $bn_comments_in_7d;
-}
-$bn_engagement_in_7d = (int) $bn_engagement_in_7d;
-
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-
-// Week-over-week delta percent. Suppressed when prior-week is 0 (we
-// can't divide by zero, and "first week" deltas are misleading).
-$bn_wow_delta_label = '';
-$bn_wow_trend       = 'flat';
-if ( $bn_notifs_prev_7d > 0 ) {
-	$bn_pct = (int) round( ( ( $bn_notifs_7d - $bn_notifs_prev_7d ) / $bn_notifs_prev_7d ) * 100 );
-	if ( 0 !== $bn_pct ) {
-		$bn_wow_delta_label = ( $bn_pct > 0 ? '+' : '' ) . $bn_pct . '%';
-		$bn_wow_trend       = $bn_pct > 0 ? 'up' : 'down';
-	}
+// All metrics + derived labels come from Sidebar\WidgetService::weekly_stats()
+// (cached per-user, keeps the buddynext_user_weekly_* gamification filters) so
+// this template stays SQL-free. The widget service is only bound when the
+// Sidebar feature is enabled; fall back to a zeroed block otherwise.
+$bn_widgets = function_exists( 'buddynext_service' ) ? buddynext_service( 'sidebar_widgets' ) : null;
+if ( is_object( $bn_widgets ) && method_exists( $bn_widgets, 'weekly_stats' ) ) {
+	$bn_stats = $bn_widgets->weekly_stats( $bn_uid );
+} else {
+	$bn_stats = array(
+		'notifications'   => 0,
+		'read'            => 0,
+		'new_followers'   => 0,
+		'engagement'      => 0,
+		'wow_delta_label' => '',
+		'wow_trend'       => 'flat',
+		'read_rate_label' => '',
+	);
 }
 
-// Read-rate as a percent label. 0 when no notifs to read.
-$bn_read_rate_label = '';
-if ( $bn_notifs_7d > 0 ) {
-	$bn_read_rate_label = (int) round( ( $bn_notifs_read_7d / $bn_notifs_7d ) * 100 ) . '%';
-}
+$bn_notifs_7d        = (int) $bn_stats['notifications'];
+$bn_notifs_read_7d   = (int) $bn_stats['read'];
+$bn_new_followers_7d = (int) $bn_stats['new_followers'];
+$bn_engagement_in_7d = (int) $bn_stats['engagement'];
+$bn_wow_delta_label  = (string) $bn_stats['wow_delta_label'];
+$bn_wow_trend        = (string) $bn_stats['wow_trend'];
+$bn_read_rate_label  = (string) $bn_stats['read_rate_label'];
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-sidebar-card', 'bn-this-week-stats' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */

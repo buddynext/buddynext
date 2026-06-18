@@ -180,6 +180,17 @@ class SearchService {
 		$offset     = ( $page - 1 ) * $per_page;
 		$safe_query = sanitize_text_field( $query );
 
+		// The `media` pseudo-type is posts that carry attachments. It reuses the
+		// whole post-search pipeline (FULLTEXT/LIKE seam, block + suspension
+		// exclusions, date window, sort) and only adds a join to bn_posts on a
+		// non-empty media_ids column. Map it to the real `post` object_type and
+		// raise a flag so the SQL builders add that join; the BOOLEAN-MODE + date
+		// logic the template used to own now lives entirely here.
+		$media_only = ( 'media' === $type );
+		if ( $media_only ) {
+			$type = 'post';
+		}
+
 		// SCALE-CONTRACT §1: hard 1000-row ceiling across pagination. Bound the
 		// scanned window so a deep `page` cannot OFFSET past the ceiling. Past
 		// it, $row_limit is 0 (LIMIT 0 → no rows) — there is nothing reachable.
@@ -216,6 +227,12 @@ class SearchService {
 				$block_params = array_merge( $block_params, $restrict_params );
 			}
 		}
+
+		// Media-only join: restrict post results to those that have attachments.
+		// Static SQL — no user data — so it is safe to interpolate alongside the
+		// other fragment strings.
+		$media_join  = $media_only ? " INNER JOIN {$wpdb->prefix}bn_posts mp ON mp.id = si.object_id" : '';
+		$media_where = $media_only ? " AND mp.media_ids IS NOT NULL AND mp.media_ids != ''" : '';
 
 		// Exclude suspended and shadow-banned users' content from all search results.
 		$excluded_where =
@@ -395,9 +412,11 @@ class SearchService {
 					"SELECT COUNT(*) FROM (
 						SELECT 1
 						 FROM {$wpdb->prefix}bn_search_index si
+						 {$media_join}
 						 WHERE si.visibility = 'public'
 						   AND {$search_condition}
 						   {$type_where}
+						   {$media_where}
 						   {$block_where}
 						   {$excluded_where}
 						   {$advanced_where}
@@ -413,9 +432,11 @@ class SearchService {
 					"SELECT si.object_type, si.object_id, si.title, si.content, si.author_id, si.visibility, si.created_at,
 					        MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE) AS relevance
 					 FROM {$wpdb->prefix}bn_search_index si
+					 {$media_join}
 					 WHERE si.visibility = 'public'
 					   AND MATCH(si.title, si.content) AGAINST(%s IN BOOLEAN MODE)
 					   {$type_where}
+					   {$media_where}
 					   {$block_where}
 					   {$excluded_where}
 					   {$advanced_where}
@@ -439,9 +460,11 @@ class SearchService {
 					"SELECT COUNT(*) FROM (
 						SELECT 1
 						 FROM {$wpdb->prefix}bn_search_index si
+						 {$media_join}
 						 WHERE si.visibility = 'public'
 						   AND (si.title LIKE %s OR si.content LIKE %s)
 						   {$type_where}
+						   {$media_where}
 						   {$block_where}
 						   {$excluded_where}
 						   {$advanced_where}
@@ -456,9 +479,11 @@ class SearchService {
 				$wpdb->prepare(
 					"SELECT si.object_type, si.object_id, si.title, si.content, si.author_id, si.visibility, si.created_at
 					 FROM {$wpdb->prefix}bn_search_index si
+					 {$media_join}
 					 WHERE si.visibility = 'public'
 					   AND (si.title LIKE %s OR si.content LIKE %s)
 					   {$type_where}
+					   {$media_where}
 					   {$block_where}
 					   {$excluded_where}
 					   {$advanced_where}
@@ -554,6 +579,162 @@ class SearchService {
 		);
 
 		return $results;
+	}
+
+	/**
+	 * Turn raw search() items into presentation-ready rows for a result section.
+	 *
+	 * The search index only stores object_id / title / content / author_id, so a
+	 * naive section part re-queries the owning table (and the follow / membership
+	 * tables) once per row — an N+1. This method does the enrichment in batch:
+	 * spaces hydrate through SpaceService + a single membership_map; members
+	 * resolve display name / bio / following-state via one following_map; posts
+	 * hydrate through PostService::hydrate(). The section parts then render the
+	 * returned arrays without touching the database.
+	 *
+	 * @param array[] $items     Items from search() (object_id / content / author_id).
+	 * @param string  $type      One of 'user' | 'member', 'post', 'space', 'media'.
+	 * @param int     $viewer_id Viewing user ID (0 = anonymous).
+	 * @return array[] Presentation rows; shape depends on $type (see inline docs).
+	 */
+	public function enrich_results( array $items, string $type, int $viewer_id = 0 ): array {
+		if ( empty( $items ) ) {
+			return array();
+		}
+
+		$object_ids = array_values(
+			array_filter(
+				array_map(
+					static fn( $item ): int => (int) ( $item['object_id'] ?? 0 ),
+					$items
+				)
+			)
+		);
+
+		if ( empty( $object_ids ) ) {
+			return array();
+		}
+
+		switch ( $type ) {
+			case 'user':
+			case 'member':
+				return $this->enrich_members( $object_ids, $viewer_id );
+			case 'space':
+				return $this->enrich_spaces( $object_ids, $viewer_id );
+			case 'post':
+			case 'media':
+				return $this->enrich_posts( $items );
+			default:
+				return array();
+		}
+	}
+
+	/**
+	 * Enrich member result rows: name, initials, bio, following-state in batch.
+	 *
+	 * @param int[] $user_ids  Member user IDs.
+	 * @param int   $viewer_id Viewing user ID.
+	 * @return array[] Each row: id, name, initials, bio, profile_url, is_following, is_self.
+	 */
+	private function enrich_members( array $user_ids, int $viewer_id ): array {
+		$following = ( $viewer_id > 0 )
+			? buddynext_service( 'follows' )->following_map( $viewer_id, $user_ids )
+			: array();
+
+		$rows = array();
+		foreach ( $user_ids as $uid ) {
+			$user = get_userdata( $uid );
+			$name = $user ? $user->display_name : __( 'Unknown', 'buddynext' );
+
+			$rows[] = array(
+				'id'           => $uid,
+				'name'         => $name,
+				'initials'     => \BuddyNext\Profile\AvatarService::initials_for( $name ),
+				'bio'          => (string) get_user_meta( $uid, 'bn_field_bio', true ),
+				'profile_url'  => (string) \BuddyNext\Core\PageRouter::profile_url( $uid ),
+				'is_self'      => ( $uid === $viewer_id ),
+				'is_following' => ! empty( $following[ $uid ] ),
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Enrich space result rows: name, description, member count, membership in batch.
+	 *
+	 * @param int[] $space_ids Space IDs.
+	 * @param int   $viewer_id Viewing user ID.
+	 * @return array[] Each row: id, name, initials, description, member_count, space_url, is_member.
+	 */
+	private function enrich_spaces( array $space_ids, int $viewer_id ): array {
+		$spaces     = buddynext_service( 'spaces' );
+		$membership = ( $viewer_id > 0 )
+			? buddynext_service( 'space_members' )->membership_map( $viewer_id, $space_ids )
+			: array();
+
+		$rows = array();
+		foreach ( $space_ids as $sid ) {
+			$space = $spaces->get( $sid );
+			if ( null === $space ) {
+				continue;
+			}
+			$name = (string) ( $space['name'] ?? '' );
+
+			$rows[] = array(
+				'id'           => $sid,
+				'name'         => $name,
+				'initials'     => \BuddyNext\Profile\AvatarService::initials_for( $name ),
+				'description'  => (string) ( $space['description'] ?? '' ),
+				'member_count' => (int) ( $space['member_count'] ?? 0 ),
+				'space_url'    => (string) \BuddyNext\Core\PageRouter::space_url( $sid ),
+				'is_member'    => isset( $membership[ $sid ] ),
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Enrich post (and media) result rows: author, age, stats, snippet source.
+	 *
+	 * Posts hydrate through PostService::hydrate() so the section part renders the
+	 * canonical post shape rather than a hand-built row. The original search
+	 * `content` is preserved as `snippet_source` so the highlight helper can still
+	 * mark the matched terms.
+	 *
+	 * @param array[] $items search() items (object_id / content / author_id).
+	 * @return array[] Each row: id, author_id, author_name, author_initials, age, reactions, comments, shares, snippet_source.
+	 */
+	private function enrich_posts( array $items ): array {
+		$posts = buddynext_service( 'post_service' );
+
+		$rows = array();
+		foreach ( $items as $item ) {
+			$post_id = (int) ( $item['object_id'] ?? 0 );
+			if ( $post_id <= 0 ) {
+				continue;
+			}
+			$post = $posts->get( $post_id );
+
+			$author_id   = $post ? (int) $post['user_id'] : (int) ( $item['author_id'] ?? 0 );
+			$author_user = $author_id ? get_userdata( $author_id ) : null;
+			$author_name = $author_user ? $author_user->display_name : __( 'Unknown', 'buddynext' );
+
+			$rows[] = array(
+				'id'              => $post_id,
+				'author_id'       => $author_id,
+				'author_name'     => $author_name,
+				'author_initials' => \BuddyNext\Profile\AvatarService::initials_for( $author_name ),
+				'age'             => $post ? buddynext_time_ago( (string) ( $post['created_at'] ?? '' ) ) : '',
+				'reactions'       => $post ? (int) $post['reaction_count'] : 0,
+				'comments'        => $post ? (int) $post['comment_count'] : 0,
+				'shares'          => $post ? (int) $post['share_count'] : 0,
+				'snippet_source'  => (string) ( $item['content'] ?? '' ),
+			);
+		}
+
+		return $rows;
 	}
 
 	/**

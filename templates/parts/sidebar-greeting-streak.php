@@ -113,118 +113,16 @@ $bn_greeting = sprintf( $bn_greeting_tpl, $bn_first_name );
  */
 $bn_greeting = (string) apply_filters( 'buddynext_greeting_string', $bn_greeting, $bn_hour, $bn_user );
 
-// Source the user's active-date set. The default is an inline UNION over
-// bn_posts/bn_comments/bn_reactions — the simplest "did anything social"
-// definition. wb-gamification (or any plugin) can replace it with its
-// own activity definition (post + login + check-in + badge-earn + …)
-// by hooking `buddynext_user_active_dates` and returning the list.
-$bn_active_dates_filter = apply_filters( 'buddynext_user_active_dates', null, $bn_uid, 30 );
-
-if ( is_array( $bn_active_dates_filter ) ) {
-	// Filter took over — trust the returned date list.
-	$bn_active_dates = $bn_active_dates_filter;
-} else {
-	global $wpdb;
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$bn_active_dates = (array) $wpdb->get_col(
-		$wpdb->prepare(
-			"SELECT activity_date FROM (
-			   SELECT DATE(created_at) AS activity_date
-			     FROM {$wpdb->prefix}bn_posts
-			    WHERE user_id = %d AND status = 'published' AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
-			   UNION
-			   SELECT DATE(created_at) AS activity_date
-			     FROM {$wpdb->prefix}bn_comments
-			    WHERE user_id = %d AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
-			   UNION
-			   SELECT DATE(created_at) AS activity_date
-			     FROM {$wpdb->prefix}bn_reactions
-			    WHERE user_id = %d AND created_at >= DATE_SUB( CURDATE(), INTERVAL 30 DAY )
-			 ) AS d
-			 ORDER BY activity_date DESC",
-			$bn_uid,
-			$bn_uid,
-			$bn_uid
-		)
-	);
-	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-}
-
-// Normalize to a lookup map (`'2026-05-25' => true`).
-$bn_active_map = array();
-foreach ( $bn_active_dates as $bn_d ) {
-	$bn_active_map[ (string) $bn_d ] = true;
-}
-
-// Current streak = consecutive trailing days ending today (or yesterday
-// if the user hasn't been active yet today — being inactive on a still-
-// in-progress current day shouldn't break the streak).
-$bn_today_str     = current_time( 'Y-m-d' );
-$bn_yesterday_str = gmdate( 'Y-m-d', strtotime( $bn_today_str . ' -1 day' ) );
-$bn_streak_start  = isset( $bn_active_map[ $bn_today_str ] )
-	? $bn_today_str
-	: ( isset( $bn_active_map[ $bn_yesterday_str ] ) ? $bn_yesterday_str : '' );
-
-$bn_streak = 0;
-if ( '' !== $bn_streak_start ) {
-	$bn_cursor = $bn_streak_start;
-	while ( isset( $bn_active_map[ $bn_cursor ] ) ) {
-		++$bn_streak;
-		$bn_cursor = gmdate( 'Y-m-d', strtotime( $bn_cursor . ' -1 day' ) );
-	}
-}
-
-/**
- * Filter the current streak (consecutive trailing active days) for a
- * user. Default = inline-computed from the date map above. Plugins like
- * wb-gamification that maintain their own canonical streak counter
- * should hook this and return their value so BN's widget stays in sync
- * with the source of truth.
- *
- * @param int $streak  Default-computed streak (0+ days).
- * @param int $user_id User whose streak to compute.
- */
-$bn_streak = (int) apply_filters( 'buddynext_user_activity_streak', $bn_streak, $bn_uid );
-
-// Best streak this month = longest consecutive-day run in the active set
-// restricted to the current calendar month.
-$bn_month_prefix = current_time( 'Y-m' );
-$bn_month_days   = array();
-foreach ( array_keys( $bn_active_map ) as $bn_d ) {
-	if ( 0 === strpos( (string) $bn_d, $bn_month_prefix ) ) {
-		$bn_month_days[] = (string) $bn_d;
-	}
-}
-sort( $bn_month_days );
-$bn_best    = 0;
-$bn_running = 0;
-$bn_prev_d  = '';
-foreach ( $bn_month_days as $bn_d ) {
-	$bn_expected_prev = gmdate( 'Y-m-d', strtotime( $bn_d . ' -1 day' ) );
-	$bn_running       = ( '' !== $bn_prev_d && $bn_prev_d === $bn_expected_prev ) ? ( $bn_running + 1 ) : 1;
-	$bn_best          = max( $bn_best, $bn_running );
-	$bn_prev_d        = $bn_d;
-}
-
-/**
- * Filter the best streak achieved this calendar month.
- *
- * @param int $best    Default-computed best (0+ days).
- * @param int $user_id User whose best-streak to compute.
- */
-$bn_best = (int) apply_filters( 'buddynext_user_activity_best_month_streak', $bn_best, $bn_uid );
-
-// 7-day strip cells, oldest→newest left→right.
-$bn_strip = array();
-for ( $bn_i = 6; $bn_i >= 0; $bn_i-- ) {
-	$bn_date    = gmdate( 'Y-m-d', strtotime( $bn_today_str . ' -' . $bn_i . ' day' ) );
-	$bn_strip[] = array(
-		'date'     => $bn_date,
-		'letter'   => date_i18n( 'D', strtotime( $bn_date ) )[0], // First letter of localized day name.
-		'is_today' => $bn_date === $bn_today_str,
-		'active'   => isset( $bn_active_map[ $bn_date ] ),
-	);
-}
+// Streak summary (current streak, best-this-month, 7-day strip, active-date
+// map) comes from Engagement\StreakService::summary() — the 30-day UNION and
+// the consecutive-day math live there, cached per-user, and it keeps the
+// buddynext_user_active_dates / *_activity_streak / *_best_month_streak
+// gamification filters so wb-gamification (or any plugin) can supply the
+// canonical values. This template stays SQL-free.
+$bn_streak_summary = ( new \BuddyNext\Engagement\StreakService() )->summary( $bn_uid );
+$bn_streak         = (int) $bn_streak_summary['streak'];
+$bn_best           = (int) $bn_streak_summary['best'];
+$bn_strip          = (array) $bn_streak_summary['strip'];
 
 $bn_classes = array_merge( array( 'bn-card', 'bn-sidebar-card', 'bn-greeting-streak' ), array_filter( (array) $args['classes'], 'is_string' ) );
 /** Computed root-class list. @var array<int,string> $bn_classes */

@@ -26,7 +26,6 @@ if ( ! $profile_user ) {
 	return;
 }
 
-global $wpdb;
 $current_user_id = get_current_user_id();
 $is_own_profile  = ( $current_user_id === $user_id );
 
@@ -70,13 +69,11 @@ $follower_count   = $bn_follow_svc->follower_count( $user_id );
 $following_count  = $bn_follow_svc->following_count( $user_id );
 $connection_count = $bn_conn_svc->connection_count( $user_id );
 
-// Published-post count is a single index-covered COUNT (the bn_posts user_feed
-// key on (user_id, status, created_at) serves it). It is intentionally not
-// cached: a user post count changes across nine create/delete/status-change
-// write paths, so a cache would need invalidation in all of them and risk a
-// stale count — not worth it for one cheap indexed query.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$post_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published'", $user_id ) );
+// Published-post count via the service (a single index-covered COUNT on the
+// bn_posts user_feed key), shared with the profile/edit surfaces and the REST
+// controller so every surface agrees.
+$bn_post_svc = buddynext_service( 'post_service' );
+$post_count  = $bn_post_svc->user_post_count( $user_id );
 
 // --- Social-graph member lists for the in-page Followers / Following /
 // Connections tabs (rendered inside the same profile shell, not as separate
@@ -110,10 +107,10 @@ if ( ! $is_own_profile && $current_user_id ) {
 	// and one batched block/mute/restrict lookup. See HIGH-02 / HIGH-05.
 	$is_following = buddynext_service( 'follows' )->is_following( $current_user_id, $user_id );
 
-	$bn_conn_row        = $bn_conn_svc->pair_row( $current_user_id, $user_id );
-	$bn_conn_status     = $bn_conn_row ? (string) $bn_conn_row->status : '';
-	$is_connected       = 'accepted' === $bn_conn_status;
-	$connection_pending = 'pending' === $bn_conn_status && (int) $bn_conn_row->requester_id === $current_user_id;
+	$bn_conn_row         = $bn_conn_svc->pair_row( $current_user_id, $user_id );
+	$bn_conn_status      = $bn_conn_row ? (string) $bn_conn_row->status : '';
+	$is_connected        = 'accepted' === $bn_conn_status;
+	$connection_pending  = 'pending' === $bn_conn_status && (int) $bn_conn_row->requester_id === $current_user_id;
 	$connection_received = 'pending' === $bn_conn_status && (int) $bn_conn_row->requester_id === $user_id;
 
 	$bn_block_state = buddynext_service( 'blocks' )->directed_block_types( $current_user_id, $user_id );
@@ -182,25 +179,41 @@ if ( '' === $profile_slug ) {
 }
 
 // --- Tab-panel data sets --------------------------------------------------
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$recent_posts = $wpdb->get_results( $wpdb->prepare( "SELECT id, type, user_id, content, privacy, media_ids, reaction_count, comment_count, share_count, is_pinned, is_announcement, content_warning, content_warning_type, shared_post_id, link_meta, created_at FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published' ORDER BY created_at DESC LIMIT 10", $user_id ), ARRAY_A );
-$user_replies = $wpdb->get_results( $wpdb->prepare( "SELECT c.id, c.content, c.created_at, c.object_id, p.content AS post_content, p.type AS post_type, u.display_name AS post_author_name FROM {$wpdb->prefix}bn_comments c INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = c.object_id AND c.object_type = 'post' INNER JOIN {$wpdb->users} u ON u.ID = p.user_id WHERE c.user_id = %d ORDER BY c.created_at DESC LIMIT 20", $user_id ) );
-$user_likes   = $wpdb->get_results( $wpdb->prepare( "SELECT p.id, p.type, p.user_id, p.content, p.privacy, p.media_ids, p.reaction_count, p.comment_count, p.share_count, p.is_pinned, p.is_announcement, p.content_warning, p.content_warning_type, p.shared_post_id, p.link_meta, p.created_at FROM {$wpdb->prefix}bn_reactions r INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = r.object_id AND r.object_type = 'post' WHERE r.user_id = %d AND p.status = 'published' ORDER BY r.created_at DESC LIMIT 20", $user_id ), ARRAY_A );
+// All rows come from the service layer (same methods the REST controllers call)
+// — recent posts through the privacy-aware profile feed (canonically hydrated),
+// replies/likes through PostService, so the panels never touch the DB directly.
+//
+// Recent posts: the profile feed applies the private-account gate + per-post
+// privacy, then hydrates each row through PostService::hydrate(). For a
+// non-permitted viewer it returns an empty set, so the Posts panel shows its
+// existing empty-state copy.
+$bn_feed_svc  = buddynext_service( 'feed' );
+$recent_posts = $bn_feed_svc->profile_feed( $user_id, $current_user_id, null, 10 )['items'];
+
+// Replies: service rows are associative; the Replies panel reads them as objects
+// (->object_id / ->content / ->post_author_name), so re-cast to objects here
+// (the panel markup is shared and stays untouched).
+$user_replies = array_map(
+	static fn( array $r ): object => (object) $r,
+	$bn_post_svc->user_replies( $user_id, 20 )
+);
+
+// Likes: already hydrated arrays (post-card consumes arrays).
+$user_likes = $bn_post_svc->user_liked_posts( $user_id, 20 );
 
 // Scheduled posts are private to the author, so the tab + its data are owner-only.
 $scheduled_posts = array();
 $scheduled_count = 0;
 if ( $is_own_profile ) {
-	$scheduled_posts = $wpdb->get_results( $wpdb->prepare( "SELECT id, type, user_id, content, privacy, media_ids, reaction_count, comment_count, share_count, is_pinned, is_announcement, content_warning, content_warning_type, shared_post_id, link_meta, scheduled_at, created_at FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'scheduled' ORDER BY scheduled_at ASC LIMIT 20", $user_id ), ARRAY_A );
-	$scheduled_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'scheduled'", $user_id ) );
+	$scheduled_posts = $bn_post_svc->user_scheduled_posts( $user_id, 20 );
+	$scheduled_count = $bn_post_svc->user_scheduled_count( $user_id );
 }
 
-// True totals for the tab-bar count chips (limited result sets above only
-// surface the most-recent N rows for rendering — we want the full counts
-// for the badges so the UI matches what a deep-scroll would reveal).
-$reply_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_comments WHERE user_id = %d AND object_type = 'post'", $user_id ) );
-$like_count  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_reactions WHERE user_id = %d AND object_type = 'post'", $user_id ) );
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+// True totals for the tab-bar count chips (the limited result sets above only
+// surface the most-recent N rows for rendering — the badges show the full
+// counts so the UI matches what a deep-scroll would reveal).
+$reply_count = $bn_post_svc->reply_count( $user_id );
+$like_count  = $bn_post_svc->reaction_count( $user_id );
 
 // Profile media gallery — resolved from WPMediaVerse at the API level (its
 // media live in mvs_media_index, not wp_posts). $user_media holds ordered
@@ -214,20 +227,22 @@ if ( \BuddyNext\Media\MediaClient::available() ) {
 	$media_count     = \BuddyNext\Media\Galleries::user_media_count( $user_id, $bn_media_viewer );
 }
 
+// Jetonomy discussions — the bridge owns all jt_* table access, so the template
+// never queries the partner's tables directly.
 $jt_discussions   = array();
 $show_discussions = class_exists( 'Jetonomy\Models\Post' );
 $has_jt_tab       = class_exists( 'Jetonomy\Jetonomy' );
 if ( $show_discussions ) {
-	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$jt_discussions = $wpdb->get_results( $wpdb->prepare( "SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at, s.title AS space_name, s.slug AS space_slug FROM {$wpdb->prefix}jt_posts p LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id WHERE p.author_id = %d AND p.status = 'publish' ORDER BY p.created_at DESC LIMIT 20", $user_id ) );
+	$jt_discussions = ( new \BuddyNext\Bridges\JetonomyBridge() )->user_discussions( $user_id, 20 );
 }
 
 // --- Spaces, interests, completion, presence ------------------------------
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$member_spaces = $wpdb->get_results( $wpdb->prepare( "SELECT s.id, s.name, s.slug, sm.role FROM {$wpdb->prefix}bn_spaces s INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id WHERE sm.user_id = %d AND sm.status = 'active' ORDER BY sm.joined_at DESC LIMIT 5", $user_id ) );
+// Member's active spaces (id/name/slug/role) via the membership service, shared
+// with the right-sidebar widget so both surfaces agree.
+$member_spaces = buddynext_service( 'space_members' )->membership_rows( $user_id, 5 );
 
-$interests    = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'interests' ) ) ) );
-$completion   = $is_own_profile ? $profile_svc->get_completion_score( $user_id ) : null;
+$interests  = array_filter( array_map( 'trim', explode( ',', $get_fv( 'skills', 'interests' ) ) ) );
+$completion = $is_own_profile ? $profile_svc->get_completion_score( $user_id ) : null;
 
 // Profile-strength percentage from the SAME 6 curated tasks the strength
 // widget shows (bio, tagline, location, skills, work, linked account) — so the
@@ -246,8 +261,8 @@ $bn_pf_strength_total = count( $bn_pf_strength_tasks );
 $bn_pf_strength_pct   = $bn_pf_strength_total > 0
 	? (int) round( ( count( array_filter( $bn_pf_strength_tasks ) ) / $bn_pf_strength_total ) * 100 )
 	: 0;
-$is_online    = buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
-$format_count = static fn( int $n ): string => $n >= 1000 ? round( $n / 1000, 1 ) . 'k' : (string) $n;
+$is_online            = buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
+$format_count         = static fn( int $n ): string => $n >= 1000 ? round( $n / 1000, 1 ) . 'k' : (string) $n;
 
 // --- Sidebar widget hook (partial holds the markup) -----------------------
 $bn_pf_sidebar_args = compact( 'is_own_profile', 'completion', 'social_links', 'work_entries', 'edu_entries', 'interests', 'member_spaces', 'get_fv', 'entry_fv' );
@@ -271,18 +286,14 @@ do_action( 'buddynext_profile_before', (int) $user_id );
 // was a redundant duplicate and has been removed.
 
 // --- 7-day deltas for the stat-tile delta chips (v2 prototype pattern) ----
-// Each delta is a count of new rows in the trailing 7 days. Rendered as
-// `+N` next to the stat value when > 0. All four COUNT queries are
-// index-only scans on (user_id, created_at) and run once per profile view.
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$post_delta_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
-// status='approved' so pending follow-requests (S2 private-account
-// gate) don't bump the absolute count, keeping this delta consistent
-// with FollowService::follower_count / following_count.
-$follower_delta_7d   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d AND status = 'approved' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
-$following_delta_7d  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND status = 'approved' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id ) );
-$connection_delta_7d = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->prefix}bn_connections WHERE ( requester_id = %d OR recipient_id = %d ) AND status = 'accepted' AND created_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )", $user_id, $user_id ) );
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+// Each delta is a count of new rows in the trailing 7 days, rendered as `+N`
+// next to the stat value when > 0. Served by ProfileService growth helpers
+// (index-only scans), which the follower/following deltas keep status='approved'
+// so the private-account pending-request gate doesn't inflate them.
+$post_delta_7d       = $profile_svc->post_delta_7d( $user_id );
+$follower_delta_7d   = $profile_svc->follower_delta_7d( $user_id );
+$following_delta_7d  = $profile_svc->following_delta_7d( $user_id );
+$connection_delta_7d = $profile_svc->connection_delta_7d( $user_id );
 
 // Format a 7-day "+N this week" growth chip. Rendered only for a genuine
 // PARTIAL gain (0 < n < total): when every item is new this week (n === total,
@@ -371,21 +382,21 @@ $bn_pf_tabs       = array(
 		'count' => $bn_tab_count_for( $like_count ),
 	),
 	array(
-		'slug'  => 'followers',
-		'label' => __( 'Followers', 'buddynext' ),
-		'count' => $bn_tab_count_for( $follower_count ),
+		'slug'   => 'followers',
+		'label'  => __( 'Followers', 'buddynext' ),
+		'count'  => $bn_tab_count_for( $follower_count ),
 		'in_bar' => false,
 	),
 	array(
-		'slug'  => 'following',
-		'label' => __( 'Following', 'buddynext' ),
-		'count' => $bn_tab_count_for( $following_count ),
+		'slug'   => 'following',
+		'label'  => __( 'Following', 'buddynext' ),
+		'count'  => $bn_tab_count_for( $following_count ),
 		'in_bar' => false,
 	),
 	array(
-		'slug'  => 'connections',
-		'label' => __( 'Connections', 'buddynext' ),
-		'count' => $bn_tab_count_for( $connection_count ),
+		'slug'   => 'connections',
+		'label'  => __( 'Connections', 'buddynext' ),
+		'count'  => $bn_tab_count_for( $connection_count ),
 		'in_bar' => false,
 	),
 );
@@ -647,23 +658,23 @@ $bn_pf_ctx = array(
 	buddynext_get_template(
 		'parts/profile-tab-panel.php',
 		array(
-			'active_tab'           => $bn_pf_active_tab,
-			'about_html'           => $bn_pf_about_html,
-			'profile_user_id'      => (int) $user_id,
-			'viewer_id'            => (int) $current_user_id,
-			'is_owner'             => (bool) $is_own_profile,
-			'display_name'         => (string) $display_name,
-			'recent_posts'         => is_array( $recent_posts ) ? $recent_posts : array(),
-			'scheduled_posts'      => is_array( $scheduled_posts ) ? $scheduled_posts : array(),
-			'user_replies'         => is_array( $user_replies ) ? $user_replies : array(),
-			'user_media'           => is_array( $user_media ) ? $user_media : array(),
-			'user_likes'           => is_array( $user_likes ) ? $user_likes : array(),
-			'jt_discussions'       => is_array( $jt_discussions ) ? $jt_discussions : array(),
-			'show_discussions'     => (bool) $show_discussions,
-			'follower_users'       => $follower_users,
-			'following_users'      => $following_users,
-			'connection_users'     => $connection_users,
-			'pending_follow_users' => $pending_follow_users,
+			'active_tab'               => $bn_pf_active_tab,
+			'about_html'               => $bn_pf_about_html,
+			'profile_user_id'          => (int) $user_id,
+			'viewer_id'                => (int) $current_user_id,
+			'is_owner'                 => (bool) $is_own_profile,
+			'display_name'             => (string) $display_name,
+			'recent_posts'             => is_array( $recent_posts ) ? $recent_posts : array(),
+			'scheduled_posts'          => is_array( $scheduled_posts ) ? $scheduled_posts : array(),
+			'user_replies'             => is_array( $user_replies ) ? $user_replies : array(),
+			'user_media'               => is_array( $user_media ) ? $user_media : array(),
+			'user_likes'               => is_array( $user_likes ) ? $user_likes : array(),
+			'jt_discussions'           => is_array( $jt_discussions ) ? $jt_discussions : array(),
+			'show_discussions'         => (bool) $show_discussions,
+			'follower_users'           => $follower_users,
+			'following_users'          => $following_users,
+			'connection_users'         => $connection_users,
+			'pending_follow_users'     => $pending_follow_users,
 			'pending_connection_users' => $pending_connection_users,
 		)
 	);

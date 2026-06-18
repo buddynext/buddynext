@@ -7,11 +7,15 @@
  * a list of `.bn-search-row--space` cards (avatar, title, member count and
  * description meta line, plus a Join / Joined CTA for logged-in viewers).
  *
+ * Presentation only: each row is a pre-enriched array from
+ * SearchService::enrich_results( …, 'space' ) — name, initials, description,
+ * member_count, space_url, is_member — so the part runs no queries.
+ *
  * Used by: templates/search/results.php.
  *
  * @package BuddyNext
  *
- * @var array  $spaces      Optional. Result rows (each exposes `object_id`, `content`). Default [].
+ * @var array  $spaces      Optional. Enriched space rows. Default [].
  * @var int    $viewer_id   Optional. Currently-viewing user ID. Default 0.
  * @var string $query       Optional. Current search query. Default ''.
  * @var string $active_type Optional. Active type tab — drives "See all" visibility. Default 'all'.
@@ -30,8 +34,6 @@
 declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
-
-global $wpdb;
 
 $args = array(
 	'spaces'      => isset( $spaces ) ? (array) $spaces : array(),
@@ -71,20 +73,6 @@ $bn_viewer_id   = (int) $args['viewer_id'];
 $bn_query       = (string) $args['query'];
 $bn_active_type = (string) $args['active_type'];
 $bn_total       = (int) $args['total_count'];
-
-$bn_initials_fn = static function ( string $name ): string {
-	$name = trim( $name );
-	if ( '' === $name ) {
-		return '?';
-	}
-	$first = mb_substr( $name, 0, 1 );
-	$last  = '';
-	$space = strrpos( $name, ' ' );
-	if ( false !== $space ) {
-		$last = mb_substr( $name, $space + 1, 1 );
-	}
-	return strtoupper( $first . $last );
-};
 
 do_action( 'buddynext_part_search_result_section_spaces_before', $args );
 ?>
@@ -126,31 +114,29 @@ do_action( 'buddynext_part_search_result_section_spaces_before', $args );
 	</header>
 
 	<div class="bn-search-results__list">
-		<?php foreach ( $bn_spaces as $space ) : ?>
-			<?php
-			$space_id_int = (int) $space->object_id;
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-			$bn_space_row = $wpdb->get_row( $wpdb->prepare( "SELECT name, description, member_count FROM {$wpdb->prefix}bn_spaces WHERE id = %d", $space_id_int ) );
-			$space_name   = $bn_space_row ? (string) $bn_space_row->name : (string) $space->content;
-			$space_desc   = $bn_space_row ? (string) $bn_space_row->description : '';
-			$member_count = $bn_space_row ? (int) $bn_space_row->member_count : 0;
-			$space_inits  = $bn_initials_fn( $space_name );
-			$is_member    = false;
-			if ( $bn_viewer_id ) {
-				$is_member = (bool) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-					$wpdb->prepare(
-						"SELECT 1 FROM {$wpdb->prefix}bn_space_members WHERE space_id = %d AND user_id = %d",
-						$space_id_int,
-						$bn_viewer_id
+		<?php
+		foreach ( $bn_spaces as $space ) :
+			$space_id_int = (int) ( $space['id'] ?? 0 );
+			$space_name   = (string) ( $space['name'] ?? '' );
+			$space_desc   = (string) ( $space['description'] ?? '' );
+			$member_count = (int) ( $space['member_count'] ?? 0 );
+			$space_inits  = (string) ( $space['initials'] ?? '' );
+			$space_url    = (string) ( $space['space_url'] ?? '' );
+			$is_member    = ! empty( $space['is_member'] );
+			?>
+			<article class="bn-card bn-search-row bn-search-row--space" data-interactive
+				data-wp-context='
+				<?php
+				echo esc_attr(
+					(string) wp_json_encode(
+						array(
+							'spaceId' => $space_id_int,
+							'joined'  => $is_member,
+						)
 					)
 				);
-			}
-			$space_url = '';
-			if ( class_exists( '\\BuddyNext\\Core\\PageRouter' ) ) {
-				$space_url = (string) \BuddyNext\Core\PageRouter::space_url( $space_id_int );
-			}
-			?>
-			<article class="bn-card bn-search-row bn-search-row--space" data-interactive>
+				?>
+									'>
 				<a class="bn-search-row__link" href="<?php echo esc_url( $space_url ); ?>">
 					<span class="bn-avatar" data-size="md" aria-hidden="true">
 						<?php echo esc_html( $space_inits ); ?>
@@ -186,12 +172,13 @@ do_action( 'buddynext_part_search_result_section_spaces_before', $args );
 				<?php if ( $bn_viewer_id ) : ?>
 					<button type="button"
 						class="bn-btn"
+						data-wp-class--joined="context.joined"
 						data-variant="<?php echo $is_member ? 'secondary' : 'primary'; ?>"
 						data-size="sm"
 						data-wp-on--click="actions.toggleSpaceMembership"
-						data-space-id="<?php echo esc_attr( (string) $space_id_int ); ?>"
-						aria-pressed="<?php echo $is_member ? 'true' : 'false'; ?>">
-						<?php echo $is_member ? esc_html__( 'Joined', 'buddynext' ) : esc_html__( 'Join', 'buddynext' ); ?>
+						data-wp-bind--aria-pressed="context.joined">
+						<span data-wp-bind--hidden="context.joined"><?php esc_html_e( 'Join', 'buddynext' ); ?></span>
+						<span data-wp-bind--hidden="!context.joined"><?php esc_html_e( 'Joined', 'buddynext' ); ?></span>
 					</button>
 				<?php endif; ?>
 			</article>

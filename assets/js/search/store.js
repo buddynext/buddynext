@@ -12,43 +12,41 @@ const { state, actions } = store( 'buddynext/search', {
 		},
 	},
 	actions: {
-		* toggleFollow( event ) {
+		/* Follow / unfollow a member. State is single-source on the row's
+		   context (ctx.following); the button label + variant + aria-pressed
+		   all bind to it in the template, so the handler only flips the flag
+		   and reverts it if the REST call fails — no DOM paint loop. */
+		* toggleFollow() {
 			const ctx = getContext();
-			const btn = event.target.closest( '[data-user-id]' );
-			if ( ! btn || ! ctx.restNonce ) { return; }
-			const userId    = btn.dataset.userId;
-			const following = btn.classList.contains( 'following' );
-			btn.classList.toggle( 'following' );
-			btn.textContent = following ? 'Follow' : 'Following';
+			if ( ! ctx.restNonce || ! ctx.userId ) { return; }
+			const wasFollowing = !! ctx.following;
+			ctx.following = ! wasFollowing;
 			try {
-				yield restFetch( '/users/' + userId + '/follow', {
-					method: following ? 'DELETE' : 'POST',
+				yield restFetch( '/users/' + ctx.userId + '/follow', {
+					method: wasFollowing ? 'DELETE' : 'POST',
 					nonce: ctx.restNonce,
 					toastOnError: false,
 				} );
 			} catch ( _e ) {
-				btn.classList.toggle( 'following' );
-				btn.textContent = following ? 'Following' : 'Follow';
+				ctx.following = wasFollowing;
 			}
 		},
 
-		* toggleSpaceMembership( event ) {
+		/* Join / leave a space. Same single-source pattern as toggleFollow:
+		   ctx.joined drives the label / variant / aria-pressed bindings. */
+		* toggleSpaceMembership() {
 			const ctx = getContext();
-			const btn = event.target.closest( '[data-space-id]' );
-			if ( ! btn || ! ctx.restNonce ) { return; }
-			const spaceId = btn.dataset.spaceId;
-			const joined  = btn.classList.contains( 'joined' );
-			btn.classList.toggle( 'joined' );
-			btn.textContent = joined ? 'Join' : 'Joined';
+			if ( ! ctx.restNonce || ! ctx.spaceId ) { return; }
+			const wasJoined = !! ctx.joined;
+			ctx.joined = ! wasJoined;
 			try {
-				yield restFetch( '/spaces/' + spaceId + '/members', {
-					method: joined ? 'DELETE' : 'POST',
+				yield restFetch( '/spaces/' + ctx.spaceId + '/members', {
+					method: wasJoined ? 'DELETE' : 'POST',
 					nonce: ctx.restNonce,
 					toastOnError: false,
 				} );
 			} catch ( _e ) {
-				btn.classList.toggle( 'joined' );
-				btn.textContent = joined ? 'Joined' : 'Join';
+				ctx.joined = wasJoined;
 			}
 		},
 

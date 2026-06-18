@@ -98,13 +98,9 @@ if ( empty( $bn_type_map ) && function_exists( 'buddynext_service' ) ) {
 	}
 }
 
-$bn_initials_fn     = is_callable( $args['initials_fn'] ) ? $args['initials_fn'] : static function ( string $name ): string {
-	$parts = array_filter( explode( ' ', trim( $name ) ) );
-	if ( count( $parts ) >= 2 ) {
-		return mb_strtoupper( mb_substr( (string) reset( $parts ), 0, 1 ) . mb_substr( (string) end( $parts ), 0, 1 ) );
-	}
-	return mb_strtoupper( mb_substr( $name, 0, 2 ) );
-};
+$bn_initials_fn     = is_callable( $args['initials_fn'] )
+	? $args['initials_fn']
+	: static fn( string $name ): string => \BuddyNext\Profile\AvatarService::initials_for( $name );
 $bn_is_online_fn    = is_callable( $args['is_online_fn'] ) ? $args['is_online_fn'] : static fn( int $uid ): bool => (bool) buddynext_service( 'blocks' )->is_user_online( $bn_viewer_id, $uid );
 $bn_is_following_fn = is_callable( $args['is_following_fn'] ) ? $args['is_following_fn'] : static fn( int $uid ): bool => $bn_viewer_id > 0 && (bool) buddynext_service( 'follows' )->is_following( $bn_viewer_id, $uid );
 $bn_mutual_fn       = is_callable( $args['mutual_ids_fn'] ) ? $args['mutual_ids_fn'] : static function ( int $a, int $b ): array {
@@ -118,6 +114,7 @@ do_action( 'buddynext_part_member_directory_grid_before', $args );
 	role="list"
 	<?php echo 'auto' !== $bn_md_cols ? 'data-cols="' . esc_attr( $bn_md_cols ) . '"' : ''; ?>
 	data-wp-bind--hidden="state.gridHidden"
+	data-wp-on--click="actions.onGridClick"
 	<?php echo empty( $bn_members ) ? 'hidden' : ''; ?>
 >
 	<?php foreach ( $bn_members as $bn_member_obj ) : ?>

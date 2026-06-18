@@ -192,26 +192,21 @@ function buildCard( item ) {
 	article.className = 'bn-card bn-md-card';
 	article.setAttribute( 'role', 'listitem' );
 	article.dataset.userId = String( item.user_id );
-	// Mark as imperatively-wired: these dynamically-appended cards are not
-	// hydrated by the Interactivity API (hydration gap), so their kebab is
-	// driven via pop.hidden and the imperative outside-click closer in init().
-	// The marker keeps that closer off the hydrated server-rendered cards.
+	// Mark as imperatively-driven. The Interactivity API only hydrates directives
+	// present at its initial DOM scan, so cards rebuilt here after a filter/tab
+	// switch never hydrate. Instead of the (inert) data-wp-* directives + a
+	// per-card hand-paint we used to set, these cards now carry plain
+	// data-bn-action verbs and their reactive state lives in data-* attributes;
+	// a SINGLE delegated handler (actions.onGridClick) on the hydrated grid
+	// wrapper drives Follow / Connect / kebab for every JS-built card. The
+	// marker scopes the outside-click closer in init() to these cards.
 	article.dataset.bnImperative = '1';
-
-	// Pull REST settings off the root directory context so JS-built cards call
-	// the same BuddyNext endpoints + nonce the server-rendered cards use.
-	const rootCtx = getModalSettings();
-	const cardCtx = {
-		userId:      item.user_id,
-		displayName: item.display_name,
-		isFollowing: !! item.is_following,
-		connection:  ( item.connection && item.connection.state ) || 'none',
-		menuOpen:    false,
-		isMuted:     false,
-		restUrl:     rootCtx.restUrl,
-		restNonce:   rootCtx.restNonce,
-	};
-	article.setAttribute( 'data-wp-context', JSON.stringify( cardCtx ) );
+	// Reactive state for the delegated handler — read/written as data-* so there
+	// is one source of truth per card (no parallel JS object to drift).
+	article.dataset.displayName = item.display_name || '';
+	article.dataset.following   = item.is_following ? '1' : '0';
+	article.dataset.connection  = ( item.connection && item.connection.state ) || 'none';
+	article.dataset.muted       = '0';
 
 	// Kebab (secondary actions) — pinned top-right, over the cover. Built first
 	// so it overlays the cover; mirrors templates/parts/member-card.php.
@@ -346,17 +341,15 @@ function buildCard( item ) {
 	} else {
 		// Follow — gated on the target's who_can_follow privacy (mirrors the
 		// server member-card.php $bn_can_follow gate); an existing Following
-		// state still shows so the user can unfollow.
+		// state still shows so the user can unfollow. The button carries a plain
+		// data-bn-action verb; the delegated onGridClick handler drives it.
 		if ( item.can_follow || item.is_following ) {
 			const follow = document.createElement( 'button' );
 			follow.type = 'button';
 			follow.className = 'bn-btn bn-md-card__follow';
 			follow.setAttribute( 'data-size', 'sm' );
-			follow.setAttribute( 'data-wp-bind--data-variant', 'state.cardFollowVariant' );
-			follow.setAttribute( 'data-wp-bind--data-state',    'state.cardFollowState' );
-			follow.setAttribute( 'data-wp-text',                'state.cardFollowLabel' );
-			follow.setAttribute( 'data-wp-on--click',           'actions.toggleFollow' );
-			follow.textContent = item.is_following ? 'Following' : 'Follow';
+			follow.setAttribute( 'data-bn-action', 'follow' );
+			paintFollowBtn( follow, item.is_following );
 			actions.appendChild( follow );
 		}
 
@@ -369,35 +362,25 @@ function buildCard( item ) {
 			conn.type = 'button';
 			conn.className = 'bn-btn bn-md-card__connect-primary';
 			conn.setAttribute( 'data-size', 'sm' );
-			conn.setAttribute( 'data-wp-bind--hidden',         '!state.cardShowConnect' );
-			conn.setAttribute( 'data-wp-bind--data-variant',   'state.cardConnectVariant' );
-			conn.setAttribute( 'data-wp-bind--data-state',     'state.cardConnectState' );
-			conn.setAttribute( 'data-wp-text',                 'state.cardConnectLabel' );
-			conn.setAttribute( 'data-wp-on--click',            'actions.toggleConnection' );
-			if ( cs === 'accepted' )           { conn.textContent = 'Connected'; }
-			else if ( cs === 'pending-sent' )  { conn.textContent = 'Requested'; }
-			else                                { conn.textContent = 'Connect'; }
-			if ( ! [ 'none', 'pending-sent', 'accepted' ].includes( cs ) ) {
-				conn.hidden = true;
-			}
+			conn.setAttribute( 'data-bn-action', 'connect' );
+			paintConnectBtn( conn, cs );
 			actions.appendChild( conn );
 		}
 
 		// Accept/decline pair for pending-received.
 		const decide = document.createElement( 'span' );
 		decide.className = 'bn-md-card__connect-decide';
-		decide.setAttribute( 'data-wp-bind--hidden', '!state.cardShowReceived' );
-		if ( cs !== 'pending-received' ) { decide.hidden = true; }
+		decide.hidden = cs !== 'pending-received';
 		[
-			{ label: 'Accept',  variant: 'primary', action: 'actions.acceptConnection' },
-			{ label: 'Decline', variant: 'ghost',   action: 'actions.declineConnection' },
+			{ label: 'Accept',  variant: 'primary', verb: 'accept' },
+			{ label: 'Decline', variant: 'ghost',   verb: 'decline' },
 		].forEach( ( cfg ) => {
 			const b = document.createElement( 'button' );
 			b.type = 'button';
 			b.className = 'bn-btn';
 			b.setAttribute( 'data-variant', cfg.variant );
 			b.setAttribute( 'data-size',    'sm' );
-			b.setAttribute( 'data-wp-on--click', cfg.action );
+			b.setAttribute( 'data-bn-action', cfg.verb );
 			b.textContent = cfg.label;
 			decide.appendChild( b );
 		} );
@@ -407,209 +390,162 @@ function buildCard( item ) {
 	body.appendChild( actions );
 	article.appendChild( body );
 
-	// The WP Interactivity API only hydrates directives (data-wp-on--*,
-	// data-wp-bind--*) on markup present at its initial scan. Cards rebuilt here
-	// after a filter/tab switch are injected straight into the DOM and are never
-	// hydrated, so their data-wp-on--click attributes are inert — Follow/Connect
-	// silently stop working after the first tab change. Wire real listeners on
-	// these JS-built cards so they behave identically to the server-rendered
-	// ones, driving the same REST endpoints against the card's own context.
-	wireCardListeners( article, cardCtx, item );
-
 	return article;
 }
 
-/* Attach direct event listeners + state-driven label/variant updates to a
- * JS-built member card. Mirrors the Interactivity store's card actions, but
- * operates on the card's own plain-object context (not a getContext() proxy,
- * which does not exist for dynamically-inserted nodes). */
-function wireCardListeners( article, cardCtx, item ) {
-	// Idempotency guard: a card element is wired exactly once. JS-built cards
-	// are fresh nodes, but the guard keeps a re-run (e.g. after a client-side
-	// navigation re-init) from double-binding listeners onto the same element.
-	if ( article.dataset.bnMemberWired === '1' ) { return; }
-	article.dataset.bnMemberWired = '1';
-
-	const followBtn  = article.querySelector( '.bn-md-card__follow' );
-	const connectBtn = article.querySelector( '.bn-md-card__connect-primary' );
-	const decideWrap = article.querySelector( '.bn-md-card__connect-decide' );
-
-	const name = cardCtx.displayName || 'member';
-
-	function paintFollow() {
-		if ( ! followBtn ) { return; }
-		followBtn.textContent = cardCtx.isFollowing ? 'Following' : 'Follow';
-		followBtn.setAttribute( 'data-variant', cardCtx.isFollowing ? 'secondary' : 'primary' );
-		followBtn.setAttribute( 'data-state', cardCtx.isFollowing ? 'following' : 'unfollowed' );
-	}
-
-	function paintConnect() {
-		const s = cardCtx.connection || 'none';
-		if ( connectBtn ) {
-			const showPrimary = s === 'none' || s === 'pending-sent' || s === 'accepted';
-			connectBtn.hidden = ! showPrimary;
-			connectBtn.textContent = s === 'accepted' ? 'Connected' : ( s === 'pending-sent' ? 'Requested' : 'Connect' );
-			connectBtn.setAttribute( 'data-variant', 'secondary' );
-			connectBtn.setAttribute( 'data-state', s );
-		}
-		if ( decideWrap ) {
-			decideWrap.hidden = s !== 'pending-received';
-		}
-	}
-
-	if ( followBtn ) {
-		followBtn.addEventListener( 'click', async () => {
-			const was = !! cardCtx.isFollowing;
-			cardCtx.isFollowing = ! was;
-			paintFollow();
-			try {
-				const res = await restFetch( '/users/' + cardCtx.userId + '/follow', {
-					method:       was ? 'DELETE' : 'POST',
-					base:         cardCtx.restUrl || undefined,
-					nonce:        restNonce( cardCtx ),
-					toastOnError: false,
-				} );
-				if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
-				bnToast( was ? 'Unfollowed @' + name : 'Now following @' + name, { tone: 'success' } );
-			} catch ( _e ) {
-				cardCtx.isFollowing = was;
-				paintFollow();
-				bnToast(
-					was ? 'Could not unfollow @' + name + '. Try again.' : 'Could not follow @' + name + '. Try again.',
-					{ tone: 'danger' }
-				);
-			}
-		} );
-	}
-
-	if ( connectBtn ) {
-		connectBtn.addEventListener( 'click', async () => {
-			const cur = cardCtx.connection || 'none';
-			if ( cur === 'pending-received' ) { return; }
-			const endpoint = '/users/' + cardCtx.userId + '/connect';
-			if ( cur === 'none' ) {
-				// LinkedIn-style optional note. Cancelling leaves the button as-is.
-				const note = await bnResolveConnectNote( {
-					body: 'Add a personal message to your request to @' + name + ', or send it without one.',
-				} );
-				if ( note === null ) { return; }
-				cardCtx.connection = 'pending-sent'; paintConnect();
-				try {
-					const res = await restFetch( endpoint, {
-						method:       'POST',
-						base:         cardCtx.restUrl || undefined,
-						nonce:        restNonce( cardCtx ),
-						body:         { note: note },
-						toastOnError: false,
-					} );
-					if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
-					bnToast( 'Connection request sent to @' + name, { tone: 'success' } );
-				} catch ( _e ) {
-					cardCtx.connection = 'none'; paintConnect();
-					bnToast( 'Could not send request to @' + name + '. Try again.', { tone: 'danger' } );
-				}
-				return;
-			}
-			if ( cur === 'pending-sent' || cur === 'accepted' ) {
-				const prev = cur;
-				cardCtx.connection = 'none'; paintConnect();
-				try {
-					const res = await restFetch( endpoint, { method: 'DELETE', base: cardCtx.restUrl || undefined, nonce: restNonce( cardCtx ), toastOnError: false } );
-					if ( ! res.ok ) { throw new Error( 'connect_remove_failed_' + res.status ); }
-					bnToast( prev === 'accepted' ? 'Disconnected from @' + name : 'Request to @' + name + ' withdrawn', { tone: 'info' } );
-				} catch ( _e ) {
-					cardCtx.connection = prev; paintConnect();
-					bnToast( 'Could not update connection. Try again.', { tone: 'danger' } );
-				}
-			}
-		} );
-	}
-
-	if ( decideWrap ) {
-		const btns = decideWrap.querySelectorAll( '.bn-btn' );
-		// Order matches buildCard(): [0] Accept, [1] Decline.
-		const decide = async ( accept ) => {
-			const prev = cardCtx.connection;
-			cardCtx.connection = accept ? 'accepted' : 'none';
-			paintConnect();
-			try {
-				const res = await restFetch(
-					'/users/' + cardCtx.userId + '/connect/' + ( accept ? 'accept' : 'decline' ),
-					{ method: 'POST', base: cardCtx.restUrl || undefined, nonce: restNonce( cardCtx ), toastOnError: false }
-				);
-				if ( ! res.ok ) { throw new Error( 'decide_failed_' + res.status ); }
-				bnToast( accept ? 'Connected with @' + name : 'Request from @' + name + ' declined', { tone: accept ? 'success' : 'info' } );
-			} catch ( _e ) {
-				cardCtx.connection = prev; paintConnect();
-				bnToast( accept ? 'Could not accept request. Try again.' : 'Could not decline request. Try again.', { tone: 'danger' } );
-			}
-		};
-		if ( btns[ 0 ] ) { btns[ 0 ].addEventListener( 'click', () => decide( true ) ); }
-		if ( btns[ 1 ] ) { btns[ 1 ].addEventListener( 'click', () => decide( false ) ); }
-	}
-
-	// Apply the initial styled state. buildCard() only sets the inert
-	// data-wp-bind--data-variant directives (never hydrated on these injected
-	// cards), so without this the Follow/Connect buttons render as bare .bn-btn
-	// with no data-variant — unstyled and visibly misaligned after a tab switch.
-	// paintFollow/paintConnect set the real data-variant/data-state + label.
-	paintFollow();
-	paintConnect();
-
-	// Kebab menu (Mute / Block / Report) — same hydration gap as the action row.
-	wireCardKebab( article, cardCtx, item );
+/* Paint a Follow button's label + data-state/variant from a following flag.
+ * Used both for the initial render in buildCard() and after a delegated toggle —
+ * one painter, so server-equivalent styling stays consistent. */
+function paintFollowBtn( btn, isFollowing ) {
+	if ( ! btn ) { return; }
+	btn.textContent = isFollowing ? 'Following' : 'Follow';
+	btn.setAttribute( 'data-variant', isFollowing ? 'secondary' : 'primary' );
+	btn.setAttribute( 'data-state',   isFollowing ? 'following' : 'unfollowed' );
 }
 
-/* Wire the kebab toggle + Mute/Block/Report items on a JS-built card. */
-function wireCardKebab( article, cardCtx, item ) {
-	const menuBtn = article.querySelector( '.bn-md-card__menu' );
-	const menuPop = article.querySelector( '.bn-md-card__menu-pop' );
-	if ( menuBtn && menuPop ) {
-		menuBtn.addEventListener( 'click', ( ev ) => {
-			ev.stopPropagation();
-			const open = menuPop.hidden;
-			menuPop.hidden = ! open;
-			menuBtn.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+/* Paint a Connect primary button (label / visibility / state) from a connection
+ * state. The accept-decline pair visibility is handled by the caller. */
+function paintConnectBtn( btn, state ) {
+	if ( ! btn ) { return; }
+	const s = state || 'none';
+	const showPrimary = s === 'none' || s === 'pending-sent' || s === 'accepted';
+	btn.hidden = ! showPrimary;
+	btn.textContent = s === 'accepted' ? 'Connected' : ( s === 'pending-sent' ? 'Requested' : 'Connect' );
+	btn.setAttribute( 'data-variant', 'secondary' );
+	btn.setAttribute( 'data-state', s );
+}
+
+/* -- Delegated card handlers (drive JS-built cards from onGridClick) ----- *
+ * Each reads/writes the card's data-* state (single source of truth) and
+ * repaints only the acted element — the imperative DOM update appropriate for
+ * runtime nodes the Interactivity API cannot hydrate. Mirrors the server-card
+ * actions (toggleFollow/toggleConnection/…) one-for-one. */
+
+function cardName( card ) {
+	return card.dataset.displayName || 'member';
+}
+
+async function delegatedFollow( card, btn, cfg ) {
+	const uid  = parseInt( card.dataset.userId, 10 ) || 0;
+	const name = cardName( card );
+	const was  = card.dataset.following === '1';
+	card.dataset.following = was ? '0' : '1';
+	paintFollowBtn( btn, ! was );
+	try {
+		const res = await restFetch( '/users/' + uid + '/follow', {
+			method: was ? 'DELETE' : 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false,
 		} );
+		if ( ! res.ok ) { throw new Error( 'follow_failed_' + res.status ); }
+		bnToast( was ? 'Unfollowed @' + name : 'Now following @' + name, { tone: 'success' } );
+	} catch ( _e ) {
+		card.dataset.following = was ? '1' : '0';
+		paintFollowBtn( btn, was );
+		bnToast( was ? 'Could not unfollow @' + name + '. Try again.' : 'Could not follow @' + name + '. Try again.', { tone: 'danger' } );
 	}
-	const name = cardCtx.displayName || '';
-	article.querySelectorAll( '.bn-md-card__menu-item' ).forEach( ( el ) => {
-		if ( el.tagName === 'A' ) { return; } // Message link — native navigation.
-		const label = ( el.textContent || '' ).trim();
-		el.addEventListener( 'click', async ( ev ) => {
-			ev.preventDefault();
-			if ( menuPop ) { menuPop.hidden = true; }
-			if ( menuBtn ) { menuBtn.setAttribute( 'aria-expanded', 'false' ); }
-			if ( /^Mute$|^Unmute$/.test( label ) ) {
-				const was = !! cardCtx.isMuted;
-				cardCtx.isMuted = ! was;
-				el.textContent = cardCtx.isMuted ? 'Unmute' : 'Mute';
-				try {
-					const res = await restFetch( '/users/' + cardCtx.userId + '/mute', {
-						method:       was ? 'DELETE' : 'POST',
-						base:         cardCtx.restUrl || undefined,
-						nonce:        restNonce( cardCtx ),
-						toastOnError: false,
-					} );
-					if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
-					bnToast( was ? 'Unmuted @' + name : 'Muted @' + name, { tone: 'success' } );
-				} catch ( _e ) {
-					cardCtx.isMuted = was;
-					el.textContent = cardCtx.isMuted ? 'Unmute' : 'Mute';
-					bnToast( 'Could not update mute state. Try again.', { tone: 'danger' } );
-				}
-			} else if ( label === 'Block' ) {
-				openBlockModal( cardCtx.userId, cardCtx.displayName, el );
-			} else if ( label === 'Report' ) {
-				openReportModal( 'user', cardCtx.userId, cardCtx.displayName, el );
-			}
+}
+
+async function delegatedConnect( card, btn, cfg ) {
+	const uid  = parseInt( card.dataset.userId, 10 ) || 0;
+	const name = cardName( card );
+	const cur  = card.dataset.connection || 'none';
+	const endpoint = '/users/' + uid + '/connect';
+	if ( cur === 'pending-received' ) { return; }
+
+	if ( cur === 'none' ) {
+		const note = await bnResolveConnectNote( {
+			body: 'Add a personal message to your request to @' + name + ', or send it without one.',
 		} );
-	} );
+		if ( note === null ) { return; }
+		card.dataset.connection = 'pending-sent';
+		paintConnectBtn( btn, 'pending-sent' );
+		try {
+			const res = await restFetch( endpoint, { method: 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, body: { note }, toastOnError: false } );
+			if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
+			bnToast( 'Connection request sent to @' + name, { tone: 'success' } );
+		} catch ( _e ) {
+			card.dataset.connection = 'none';
+			paintConnectBtn( btn, 'none' );
+			bnToast( 'Could not send request to @' + name + '. Try again.', { tone: 'danger' } );
+		}
+		return;
+	}
+
+	if ( cur === 'pending-sent' || cur === 'accepted' ) {
+		card.dataset.connection = 'none';
+		paintConnectBtn( btn, 'none' );
+		try {
+			const res = await restFetch( endpoint, { method: 'DELETE', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false } );
+			if ( ! res.ok ) { throw new Error( 'connect_remove_failed_' + res.status ); }
+			bnToast( cur === 'accepted' ? 'Disconnected from @' + name : 'Request to @' + name + ' withdrawn', { tone: 'info' } );
+		} catch ( _e ) {
+			card.dataset.connection = cur;
+			paintConnectBtn( btn, cur );
+			bnToast( 'Could not update connection. Try again.', { tone: 'danger' } );
+		}
+	}
+}
+
+async function delegatedDecide( card, accept, cfg ) {
+	const uid  = parseInt( card.dataset.userId, 10 ) || 0;
+	const name = cardName( card );
+	const prev = card.dataset.connection || 'pending-received';
+	const decideWrap = card.querySelector( '.bn-md-card__connect-decide' );
+	const primaryBtn = card.querySelector( '.bn-md-card__connect-primary' );
+	card.dataset.connection = accept ? 'accepted' : 'none';
+	if ( decideWrap ) { decideWrap.hidden = true; }
+	if ( primaryBtn ) { paintConnectBtn( primaryBtn, card.dataset.connection ); }
+	try {
+		const res = await restFetch( '/users/' + uid + '/connect/' + ( accept ? 'accept' : 'decline' ),
+			{ method: 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false } );
+		if ( ! res.ok ) { throw new Error( 'decide_failed_' + res.status ); }
+		bnToast( accept ? 'Connected with @' + name : 'Request from @' + name + ' declined', { tone: accept ? 'success' : 'info' } );
+	} catch ( _e ) {
+		card.dataset.connection = prev;
+		if ( decideWrap ) { decideWrap.hidden = prev !== 'pending-received'; }
+		if ( primaryBtn ) { paintConnectBtn( primaryBtn, prev ); }
+		bnToast( accept ? 'Could not accept request. Try again.' : 'Could not decline request. Try again.', { tone: 'danger' } );
+	}
+}
+
+function delegatedKebab( card, btn ) {
+	const pop = card.querySelector( '.bn-md-card__menu-pop' );
+	if ( ! pop ) { return; }
+	const open = pop.hidden;
+	pop.hidden = ! open;
+	btn.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+}
+
+function delegatedCloseKebab( card ) {
+	const pop = card.querySelector( '.bn-md-card__menu-pop' );
+	const btn = card.querySelector( '.bn-md-card__menu' );
+	if ( pop ) { pop.hidden = true; }
+	if ( btn ) { btn.setAttribute( 'aria-expanded', 'false' ); }
+}
+
+async function delegatedMute( card, btn, cfg ) {
+	const uid  = parseInt( card.dataset.userId, 10 ) || 0;
+	const name = cardName( card );
+	const was  = card.dataset.muted === '1';
+	delegatedCloseKebab( card );
+	card.dataset.muted = was ? '0' : '1';
+	btn.textContent = was ? 'Mute' : 'Unmute';
+	try {
+		const res = await restFetch( '/users/' + uid + '/mute', {
+			method: was ? 'DELETE' : 'POST', base: cfg.restUrl || undefined, nonce: cfg.restNonce, toastOnError: false,
+		} );
+		if ( ! res.ok ) { throw new Error( 'mute_failed' ); }
+		bnToast( was ? 'Unmuted @' + name : 'Muted @' + name, { tone: 'success' } );
+	} catch ( _e ) {
+		card.dataset.muted = was ? '1' : '0';
+		btn.textContent = was ? 'Unmute' : 'Mute';
+		bnToast( 'Could not update mute state. Try again.', { tone: 'danger' } );
+	}
 }
 
 /* Kebab (secondary actions) pinned to the card's top-right. Mirrors the
-   markup in templates/parts/member-card.php so server- and client-rendered
-   cards behave identically. */
+   markup in templates/parts/member-card.php. Buttons carry plain data-bn-action
+   verbs; the delegated onGridClick handler drives them (server cards use the
+   hydrated Interactivity actions — both share the same verbs). */
 function buildKebab( item ) {
 	const menuWrap = document.createElement( 'div' );
 	menuWrap.className = 'bn-md-card__menu-wrap';
@@ -620,25 +556,23 @@ function buildKebab( item ) {
 	menuBtn.setAttribute( 'aria-label', 'More actions' );
 	menuBtn.setAttribute( 'aria-haspopup', 'true' );
 	menuBtn.setAttribute( 'aria-expanded', 'false' );
-	menuBtn.setAttribute( 'data-wp-on--click', 'actions.toggleCardMenu' );
-	menuBtn.setAttribute( 'data-wp-bind--aria-expanded', 'state.cardMenuExpanded' );
+	menuBtn.setAttribute( 'data-bn-action', 'kebab' );
 	menuBtn.appendChild( buildKebabIcon() );
 	menuWrap.appendChild( menuBtn );
 
 	const menuPop = document.createElement( 'div' );
 	menuPop.className = 'bn-md-card__menu-pop';
 	menuPop.setAttribute( 'role', 'menu' );
-	menuPop.setAttribute( 'data-wp-bind--hidden', '!state.cardMenuOpen' );
 	menuPop.hidden = true;
 
 	const itemsCfg = [];
 	if ( ( ( item.connection && item.connection.state ) || 'none' ) === 'accepted' && item.messages_url ) {
-		itemsCfg.push( { label: 'Message', action: '', href: item.messages_url } );
+		itemsCfg.push( { label: 'Message', verb: '', href: item.messages_url } );
 	}
 	itemsCfg.push(
-		{ label: 'Mute',   action: 'actions.toggleMute', danger: false, textBind: 'state.cardMuteLabel' },
-		{ label: 'Block',  action: 'actions.openBlock',  danger: true },
-		{ label: 'Report', action: 'actions.openReport', danger: true }
+		{ label: item.is_muted ? 'Unmute' : 'Mute', verb: 'mute', danger: false, mute: true },
+		{ label: 'Block',  verb: 'block',  danger: true },
+		{ label: 'Report', verb: 'report', danger: true }
 	);
 	itemsCfg.forEach( ( cfg ) => {
 		const b = document.createElement( cfg.href ? 'a' : 'button' );
@@ -646,13 +580,10 @@ function buildKebab( item ) {
 			b.href = cfg.href;
 		} else {
 			b.type = 'button';
-			b.setAttribute( 'data-wp-on--click', cfg.action );
+			b.setAttribute( 'data-bn-action', cfg.verb );
 		}
-		b.className = 'bn-md-card__menu-item' + ( cfg.danger ? ' bn-md-card__menu-item--danger' : '' );
+		b.className = 'bn-md-card__menu-item' + ( cfg.danger ? ' bn-md-card__menu-item--danger' : '' ) + ( cfg.mute ? ' bn-md-card__mute' : '' );
 		b.setAttribute( 'role', 'menuitem' );
-		if ( cfg.textBind ) {
-			b.setAttribute( 'data-wp-text', cfg.textBind );
-		}
 		b.textContent = cfg.label;
 		menuPop.appendChild( b );
 	} );
@@ -746,12 +677,12 @@ const memberStore = store( 'buddynext/members', {
 				document.addEventListener( 'click', ( ev ) => {
 					if ( ! ev.target ) { return; }
 					// JS-BUILT cards only (data-bn-imperative): these are not hydrated
-					// by the Interactivity API (see the hydration-gap note in
-					// wireCardKebab), so their kebab is driven imperatively via
-					// pop.hidden. Server-rendered cards are hydrated and close through
-					// the closeCardMenuOnOutside action instead — touching pop.hidden
-					// on them here would bypass the reactive binding and desync
-					// state.cardMenuOpen (the "blink"/stuck-menu bug).
+					// by the Interactivity API (the hydration gap onGridClick handles
+					// via delegated dispatch), so their kebab is driven imperatively
+					// via pop.hidden. Server-rendered cards are hydrated and close
+					// through the closeCardMenuOnOutside action instead — touching
+					// pop.hidden on them here would bypass the reactive binding and
+					// desync state.cardMenuOpen (the "blink"/stuck-menu bug).
 					document.querySelectorAll( '.bn-md-card[data-user-id][data-bn-imperative]' ).forEach( ( card ) => {
 						const wrap = card.querySelector( '.bn-md-card__menu-wrap' );
 						if ( ! wrap || wrap.contains( ev.target ) ) { return; }
@@ -888,7 +819,42 @@ const memberStore = store( 'buddynext/members', {
 			refresh( getContext() );
 		},
 
-		/* -- Card actions ---------------------------------------------- */
+		/* -- Delegated card dispatch (JS-built cards) ------------------ *
+		 * One click handler on the hydrated grid wrapper drives every card
+		 * rebuilt by renderGrid() after a filter/tab change. Those cards are
+		 * appended at runtime, so the Interactivity API never hydrates their
+		 * directives — the same hydration gap buddynext/messages onThreadClick
+		 * solves with delegated dispatch. Buttons carry a data-bn-action verb;
+		 * per-card reactive state lives in data-* on the card (single source of
+		 * truth). Server-rendered cards (initial load) are fully hydrated and
+		 * handle their own clicks through actions.toggleFollow/etc., so this
+		 * delegate early-returns for any card NOT marked data-bn-imperative to
+		 * avoid double-firing. */
+		onGridClick( event ) {
+			const trigger = event.target.closest( '[data-bn-action]' );
+			if ( ! trigger ) { return; }
+			const card = trigger.closest( '.bn-md-card[data-user-id]' );
+			// Only JS-built cards are driven here; hydrated server cards self-handle.
+			if ( ! card || card.dataset.bnImperative !== '1' ) { return; }
+
+			const verb = trigger.dataset.bnAction;
+			const ctx  = getContext();
+			const cfg  = { restUrl: ctx.restUrl, restNonce: restNonce( ctx ) };
+
+			switch ( verb ) {
+				case 'follow':  delegatedFollow( card, trigger, cfg ); break;
+				case 'connect': delegatedConnect( card, trigger, cfg ); break;
+				case 'accept':  delegatedDecide( card, true, cfg ); break;
+				case 'decline': delegatedDecide( card, false, cfg ); break;
+				case 'kebab':   delegatedKebab( card, trigger ); break;
+				case 'mute':    delegatedMute( card, trigger, cfg ); break;
+				case 'block':   delegatedCloseKebab( card ); openBlockModal( parseInt( card.dataset.userId, 10 ) || 0, card.dataset.displayName, trigger ); break;
+				case 'report':  delegatedCloseKebab( card ); openReportModal( 'user', parseInt( card.dataset.userId, 10 ) || 0, card.dataset.displayName, trigger ); break;
+				default: break;
+			}
+		},
+
+		/* -- Card actions (server-rendered, hydrated cards) ------------ */
 
 		async toggleFollow() {
 			const ctx     = getContext();

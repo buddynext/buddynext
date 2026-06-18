@@ -1188,6 +1188,45 @@ class SpaceMemberService {
 	}
 
 	/**
+	 * Return the spaces a user actively belongs to, joined to the space row so
+	 * each result carries the id, name, slug and the member's role.
+	 *
+	 * Powers the profile "Spaces" sidebar/strip, which needs the display fields
+	 * (name/slug) plus the viewer's role per space without a per-row lookup.
+	 * Ordered newest-joined first; capped by $limit.
+	 *
+	 * @param int $user_id Member to look up.
+	 * @param int $limit   Max rows (1-50). Default 5.
+	 * @return object[] Each row: id, name, slug, role.
+	 */
+	public function membership_rows( int $user_id, int $limit = 5 ): array {
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+		$limit = max( 1, min( 50, $limit ) );
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT s.id, s.name, s.slug, sm.role
+				 FROM {$wpdb->prefix}bn_spaces s
+				 INNER JOIN {$wpdb->prefix}bn_space_members sm ON sm.space_id = s.id
+				 WHERE sm.user_id = %d AND sm.status = 'active'
+				 ORDER BY sm.joined_at DESC
+				 LIMIT %d",
+				$user_id,
+				$limit
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
 	 * Count active members of a space (respecting the same block filter as
 	 * get_members()), without loading the rows. Powers paginated totals.
 	 *

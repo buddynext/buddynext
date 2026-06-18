@@ -15,6 +15,8 @@ declare( strict_types=1 );
 
 namespace BuddyNext\Profile;
 
+use BuddyNext\Realtime\PresenceService;
+
 /**
  * Handles paginated member directory reads.
  */
@@ -88,8 +90,8 @@ class MemberDirectoryService {
 			'member_directory',
 			$viewer_id
 		);
-		$per_page = min( (int) ( $query_args['per_page'] ?? $per_page ), 50 );
-		$sort     = (string) ( $query_args['sort'] ?? $sort );
+		$per_page   = min( (int) ( $query_args['per_page'] ?? $per_page ), 50 );
+		$sort       = (string) ( $query_args['sort'] ?? $sort );
 
 		// 'online' sort implies online_only filtering as well.
 		if ( 'online' === $sort ) {
@@ -232,8 +234,8 @@ class MemberDirectoryService {
 				'u.display_name LIKE %s',
 				'u.user_login LIKE %s',
 			);
-			$params[] = $like_search;
-			$params[] = $like_search;
+			$params[]  = $like_search;
+			$params[]  = $like_search;
 
 			// Dynamically OR-match every searchable field's privacy-safe mirror.
 			// One correlated EXISTS per mirror key; the mirror only contains
@@ -246,8 +248,8 @@ class MemberDirectoryService {
 				      AND um_search.meta_key = %s
 				      AND um_search.meta_value LIKE %s
 				  )";
-				$params[] = $meta_key;
-				$params[] = $like_search;
+				$params[]    = $meta_key;
+				$params[]    = $like_search;
 			}
 
 			$where_clauses[] = '(' . implode( ' OR ', $search_or ) . ')';
@@ -344,7 +346,7 @@ class MemberDirectoryService {
 		 * @param int    $viewer_id  Viewing user ID.
 		 * @param array  $query_args Resolved query args from buddynext_member_directory_query_args.
 		 */
-		$order_by = (string) apply_filters(
+		$order_by  = (string) apply_filters(
 			'buddynext_member_directory_order_by',
 			(string) preg_replace( '/^ORDER BY /', '', $order_sql ),
 			$viewer_id,
@@ -513,6 +515,127 @@ class MemberDirectoryService {
 		wp_cache_set( $cache_key, $result, 'buddynext', 60 ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		return $result;
+	}
+
+	/**
+	 * User IDs the directory must exclude from results.
+	 *
+	 * Mirrors the exclusion list_members() applies (active suspensions +
+	 * shadow-banned), so the server-rendered first page (built with a
+	 * WP_User_Query in templates/directory/members.php) hides the exact same
+	 * members the REST/live pipeline does. The suspension gate matches
+	 * list_members() (lifted_at IS NULL + not expired), not the hide_posts
+	 * variant used by moderation_exclude_sql(), so the two surfaces never
+	 * diverge. The viewer is NOT added here — callers append it themselves
+	 * because some surfaces include the viewer.
+	 *
+	 * @return int[] Distinct user IDs to exclude.
+	 */
+	public function excluded_user_ids(): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$suspended = $wpdb->get_col(
+			"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
+			 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())"
+		);
+
+		$shadow_banned = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->usermeta}
+				 WHERE meta_key = %s AND meta_value = '1'",
+				'bn_shadow_banned'
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		return array_values( array_unique( array_map( 'intval', array_merge( (array) $suspended, (array) $shadow_banned ) ) ) );
+	}
+
+	/**
+	 * User IDs active within the online window (last 5 minutes).
+	 *
+	 * Used to apply the "Online only" filter to the server-rendered first page's
+	 * WP_User_Query (include set) so the rendered members AND the pager total
+	 * reflect it, matching the REST online_only filter exactly.
+	 *
+	 * @return int[] Online user IDs.
+	 */
+	public function online_user_ids(): array {
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$wpdb->usermeta}
+				 WHERE meta_key = %s
+				   AND CAST( meta_value AS UNSIGNED ) > %d",
+				PresenceService::META_KEY,
+				time() - 300
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
+	 * Most-recently-active members for the "Online now" sidebar widget.
+	 *
+	 * Returns lightweight rows (ID, display_name, user_login) for users active
+	 * within the online window, newest-active first, capped at $limit. The block
+	 * restrict gate is applied so the viewer never sees a member who blocked
+	 * them. Replaces the raw widget query the directory template carried inline.
+	 *
+	 * @param int $viewer_id Viewing user (block restrict applied for them).
+	 * @param int $limit     Max rows to return.
+	 * @return array<int,array{ID:int,display_name:string,user_login:string}>
+	 */
+	public function online_now( int $viewer_id = 0, int $limit = 6 ): array {
+		global $wpdb;
+
+		$limit = max( 1, min( 50, $limit ) );
+
+		// Over-fetch so block-restricted rows can be dropped while still
+		// returning up to $limit visible members.
+		$fetch = $limit * 3;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT u.ID, u.display_name, u.user_login
+				   FROM {$wpdb->users} u
+				   JOIN {$wpdb->usermeta} um ON um.user_id = u.ID
+				  WHERE um.meta_key = %s
+				    AND CAST( um.meta_value AS UNSIGNED ) >= %d
+				  ORDER BY CAST( um.meta_value AS UNSIGNED ) DESC
+				  LIMIT %d",
+				PresenceService::META_KEY,
+				time() - 300,
+				$fetch
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		$blocks = buddynext_service( 'blocks' );
+		$out    = array();
+
+		foreach ( (array) $rows as $row ) {
+			$uid = (int) $row->ID;
+			if ( $viewer_id > 0 && method_exists( $blocks, 'is_restricted' ) && $blocks->is_restricted( $viewer_id, $uid ) ) {
+				continue;
+			}
+			$out[] = array(
+				'ID'           => $uid,
+				'display_name' => (string) $row->display_name,
+				'user_login'   => (string) $row->user_login,
+			);
+			if ( count( $out ) >= $limit ) {
+				break;
+			}
+		}
+
+		return $out;
 	}
 
 	/**

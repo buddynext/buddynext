@@ -570,6 +570,43 @@ class JetonomyBridge {
 	}
 
 	/**
+	 * List a user's published Jetonomy discussions, newest first, joined to
+	 * their space for the name/slug. Powers the profile "Discussions" tab so the
+	 * template never reaches into jt_* tables itself (the bridge owns that access).
+	 *
+	 * @param int $user_id Discussion author ID.
+	 * @param int $limit   Max rows (1-50). Default 20.
+	 * @return object[] Each row: id, title, slug, reply_count, vote_score, created_at, space_name, space_slug.
+	 */
+	public function user_discussions( int $user_id, int $limit = 20 ): array {
+		$user_id = absint( $user_id );
+		if ( $user_id <= 0 || ! class_exists( 'Jetonomy\Models\Post' ) ) {
+			return array();
+		}
+		$limit = max( 1, min( 50, $limit ) );
+
+		global $wpdb;
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT p.id, p.title, p.slug, p.reply_count, p.vote_score, p.created_at,
+				        s.title AS space_name, s.slug AS space_slug
+				 FROM {$wpdb->prefix}jt_posts p
+				 LEFT JOIN {$wpdb->prefix}jt_spaces s ON s.id = p.space_id
+				 WHERE p.author_id = %d AND p.status = 'publish'
+				 ORDER BY p.created_at DESC
+				 LIMIT %d",
+				$user_id,
+				$limit
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
 	 * Create a BuddyNext notification when someone replies to a Jetonomy discussion.
 	 *
 	 * @param int $reply_id Jetonomy reply ID.
@@ -598,7 +635,7 @@ class JetonomyBridge {
 			return;
 		}
 
-		$replier = get_userdata( $reply_author_id );
+		$replier      = get_userdata( $reply_author_id );
 		$replier_name = $replier ? $replier->display_name : __( 'Someone', 'buddynext' );
 
 		( new \BuddyNext\Notifications\NotificationService() )->create(

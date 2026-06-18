@@ -6,18 +6,20 @@
  * header (title, "shown / total" count, optional "See all" link) followed by
  * a list of compact `.bn-search-row--member` cards for each match.
  *
+ * Presentation only: each row is a pre-enriched array from
+ * SearchService::enrich_results( …, 'user' ) — name, initials, bio,
+ * profile_url, is_following, is_self — so the part runs no queries.
+ *
  * Visual output mirrors the legacy in-template member result list — the
  * compact `.bn-search-row` shell — not the full `.bn-md-card` produced by
- * `parts/member-card.php`. Keeping the compact row preserves the existing
- * byte-identical search markup; see the part's docblock for the data-shape
- * note. Pro/bridges that want the full card can hook
+ * `parts/member-card.php`. Pro/bridges that want the full card can hook
  * `buddynext_part_search_result_section_members_after` to override.
  *
  * Used by: templates/search/results.php.
  *
  * @package BuddyNext
  *
- * @var array  $members      Optional. Result rows (each exposes `object_id`). Default [].
+ * @var array  $members      Optional. Enriched member rows. Default [].
  * @var int    $viewer_id    Optional. Currently-viewing user ID. Default 0.
  * @var string $query        Optional. Current search query. Default ''.
  * @var string $active_type  Optional. Active type tab — drives "See all" visibility. Default 'all'.
@@ -36,8 +38,6 @@
 declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
-
-global $wpdb;
 
 $args = array(
 	'members'     => isset( $members ) ? (array) $members : array(),
@@ -77,20 +77,6 @@ $bn_viewer_id   = (int) $args['viewer_id'];
 $bn_query       = (string) $args['query'];
 $bn_active_type = (string) $args['active_type'];
 $bn_total       = (int) $args['total_count'];
-
-$bn_initials_fn = static function ( string $name ): string {
-	$name = trim( $name );
-	if ( '' === $name ) {
-		return '?';
-	}
-	$first = mb_substr( $name, 0, 1 );
-	$last  = '';
-	$space = strrpos( $name, ' ' );
-	if ( false !== $space ) {
-		$last = mb_substr( $name, $space + 1, 1 );
-	}
-	return strtoupper( $first . $last );
-};
 
 do_action( 'buddynext_part_search_result_section_members_before', $args );
 ?>
@@ -132,28 +118,29 @@ do_action( 'buddynext_part_search_result_section_members_before', $args );
 	</header>
 
 	<div class="bn-search-results__list">
-		<?php foreach ( $bn_members as $person ) : ?>
-			<?php
-			$pid          = (int) $person->object_id;
-			$puser        = get_userdata( $pid );
-			$pname        = $puser ? $puser->display_name : __( 'Unknown', 'buddynext' );
-			$pinits       = $bn_initials_fn( $pname );
-			$bio_raw      = (string) get_user_meta( $pid, 'bn_field_bio', true );
-			$is_following = false;
-			if ( $bn_viewer_id && $bn_viewer_id !== $pid ) {
-				$is_following = (bool) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-					$wpdb->prepare(
-						"SELECT 1 FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d AND following_id = %d",
-						$bn_viewer_id,
-						$pid
+		<?php
+		foreach ( $bn_members as $person ) :
+			$pid          = (int) ( $person['id'] ?? 0 );
+			$pname        = (string) ( $person['name'] ?? '' );
+			$pinits       = (string) ( $person['initials'] ?? '' );
+			$bio_raw      = (string) ( $person['bio'] ?? '' );
+			$profile_url  = (string) ( $person['profile_url'] ?? '' );
+			$is_following = ! empty( $person['is_following'] );
+			$is_self      = ! empty( $person['is_self'] );
+			?>
+			<article class="bn-card bn-search-row bn-search-row--member" data-interactive
+				data-wp-context='
+				<?php
+				echo esc_attr(
+					(string) wp_json_encode(
+						array(
+							'userId'    => $pid,
+							'following' => $is_following,
+						)
 					)
 				);
-			}
-			// BuddyNext-native profile permalink. BuddyNext is the BuddyPress
-			// successor and runs with BP inactive, so no bp_* fallback belongs here.
-			$profile_url = (string) \BuddyNext\Core\PageRouter::profile_url( $pid );
-			?>
-			<article class="bn-card bn-search-row bn-search-row--member" data-interactive>
+				?>
+									'>
 				<a class="bn-search-row__link" href="<?php echo esc_url( $profile_url ); ?>">
 					<span class="bn-avatar" data-size="md" aria-hidden="true">
 						<?php echo esc_html( $pinits ); ?>
@@ -176,15 +163,16 @@ do_action( 'buddynext_part_search_result_section_members_before', $args );
 						<?php endif; ?>
 					</span>
 				</a>
-				<?php if ( $bn_viewer_id && $bn_viewer_id !== $pid ) : ?>
+				<?php if ( $bn_viewer_id && ! $is_self ) : ?>
 					<button type="button"
 						class="bn-btn"
+						data-wp-class--following="context.following"
 						data-variant="<?php echo $is_following ? 'secondary' : 'primary'; ?>"
 						data-size="sm"
 						data-wp-on--click="actions.toggleFollow"
-						data-user-id="<?php echo esc_attr( (string) $pid ); ?>"
-						aria-pressed="<?php echo $is_following ? 'true' : 'false'; ?>">
-						<?php echo $is_following ? esc_html__( 'Following', 'buddynext' ) : esc_html__( 'Follow', 'buddynext' ); ?>
+						data-wp-bind--aria-pressed="context.following">
+						<span data-wp-bind--hidden="context.following"><?php esc_html_e( 'Follow', 'buddynext' ); ?></span>
+						<span data-wp-bind--hidden="!context.following"><?php esc_html_e( 'Following', 'buddynext' ); ?></span>
 					</button>
 				<?php endif; ?>
 			</article>

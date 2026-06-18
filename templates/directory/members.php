@@ -45,6 +45,7 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 
 use BuddyNext\Core\PageRouter;
+use BuddyNext\Profile\AvatarService;
 
 // ── Query parameters ──────────────────────────────────────────────────────
 $bn_current_page = max( 1, absint( get_query_var( 'paged', 1 ) ) );
@@ -99,33 +100,19 @@ foreach ( $all_types_raw as $t ) {
 unset( $all_types_raw, $t );
 
 // ── Fetch users ───────────────────────────────────────────────────────────
-// Resolve user IDs to exclude: active suspensions + shadow-banned users.
-global $wpdb;
+// Resolve user IDs to exclude via the directory service so the server-rendered
+// first page hides exactly the same members (active suspensions + shadow-banned)
+// the REST/live pipeline (MemberDirectoryService::list_members) does — no inline
+// SQL, single source of truth. The viewer is appended here because the REST path
+// also excludes them; matching keeps a hard reload from listing you while the
+// live/filtered view does not.
+$bn_directory_service = buddynext_service( 'member_directory' );
 
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$bn_dir_suspended_ids = $wpdb->get_col(
-	"SELECT user_id FROM {$wpdb->prefix}bn_user_suspensions
-	 WHERE lifted_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())"
-);
-
-$bn_dir_shadow_banned_ids = $wpdb->get_col(
-	$wpdb->prepare(
-		"SELECT user_id FROM {$wpdb->usermeta}
-		 WHERE meta_key = %s AND meta_value = '1'",
-		'bn_shadow_banned'
-	)
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-// Exclude suspended + shadow-banned users, and the viewer themselves — the REST
-// path (MemberDirectoryService) excludes the viewer, so the server render must
-// match or a hard reload would list you while the live/filtered view does not.
 $bn_dir_excluded_ids = array_unique(
 	array_map(
 		'intval',
 		array_merge(
-			$bn_dir_suspended_ids,
-			$bn_dir_shadow_banned_ids,
+			$bn_directory_service->excluded_user_ids(),
 			$current_user_id > 0 ? array( $current_user_id ) : array()
 		)
 	)
@@ -149,7 +136,7 @@ if ( ! empty( $bn_dir_excluded_ids ) ) {
 // field mirror; private/tightened values have no mirror so never match).
 // Applied to `include` below (intersected with any relation constraint).
 if ( '' !== $search_term ) {
-	$bn_search_ids = buddynext_service( 'member_directory' )->matching_user_ids( $search_term );
+	$bn_search_ids = $bn_directory_service->matching_user_ids( $search_term );
 	if ( empty( $bn_search_ids ) ) {
 		$bn_search_ids = array( 0 ); // Term set but nothing matched → force zero results.
 	}
@@ -160,14 +147,9 @@ if ( '' !== $search_term ) {
 // Relation filter (Following / Connections) — only relevant when logged in.
 if ( $current_user_id > 0 && 'all' !== $bn_relation ) {
 	if ( 'following' === $bn_relation ) {
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$relation_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT following_id FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d",
-				$current_user_id
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// Approved follows only — matches list_members()'s following JOIN
+		// (status = 'approved') so the relation tab + its pager total agree.
+		$relation_ids = buddynext_service( 'follows' )->following( $current_user_id );
 	} else {
 		// connections() returns a flat list of accepted peer user IDs.
 		$relation_ids = buddynext_service( 'connections' )->connections( $current_user_id, 500, 0 );
@@ -229,17 +211,7 @@ if ( null !== $bn_search_ids ) {
 // the rendered members AND the pagination total reflect it. Without this the
 // pager would offer pages that the client-side online filter then empties.
 if ( $bn_online_only ) {
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$bn_online_ids = $wpdb->get_col(
-		$wpdb->prepare(
-			"SELECT user_id FROM {$wpdb->usermeta}
-			 WHERE meta_key = 'bn_last_active'
-			   AND CAST( meta_value AS UNSIGNED ) > %d",
-			time() - 300
-		)
-	);
-	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-	$bn_online_ids = array_map( 'intval', (array) $bn_online_ids );
+	$bn_online_ids = $bn_directory_service->online_user_ids();
 
 	if ( empty( $bn_online_ids ) ) {
 		$user_query_args['include'] = array( 0 );
@@ -257,21 +229,10 @@ $total_users = (int) $user_query->get_total();
 $total_pages = (int) ceil( $total_users / max( 1, $bn_per_page ) );
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-// $online_threshold is the unix timestamp boundary used by the
-// raw-SQL "Online now" widget query lower in this file. The
-// per-card $bn_is_online check goes through BlockService so the
-// restrict gate applies; that helper owns the same window internally.
-$online_threshold = time() - 300;
-$bn_is_online     = static function ( int $user_id ) use ( $current_user_id ): bool {
+// Per-card $bn_is_online goes through BlockService so the restrict gate applies;
+// that helper owns the 5-minute window internally.
+$bn_is_online = static function ( int $user_id ) use ( $current_user_id ): bool {
 	return buddynext_service( 'blocks' )->is_user_online( $current_user_id, $user_id );
-};
-
-$bn_initials = static function ( string $name ): string {
-	$parts = array_filter( explode( ' ', $name ) );
-	if ( count( $parts ) >= 2 ) {
-		return mb_strtoupper( mb_substr( (string) reset( $parts ), 0, 1 ) . mb_substr( (string) end( $parts ), 0, 1 ) );
-	}
-	return mb_strtoupper( mb_substr( $name, 0, 2 ) );
 };
 
 $bn_mutual_ids = static function ( int $user_a, int $user_b ): array {
@@ -281,22 +242,15 @@ $bn_mutual_ids = static function ( int $user_a, int $user_b ): array {
 	return buddynext_service( 'connections' )->mutual_connections( $user_a, $user_b );
 };
 
-$bn_is_following = static function ( int $target_user_id ) use ( $current_user_id ): bool {
-	if ( 0 === $current_user_id ) {
-		return false;
-	}
-	global $wpdb;
-	$table = $wpdb->prefix . 'bn_follows';
-	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$exists = $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT 1 FROM {$table} WHERE follower_id = %d AND following_id = %d LIMIT 1",
-			$current_user_id,
-			$target_user_id
-		)
-	);
-	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	return '1' === (string) $exists;
+// Resolve follow-state for every rendered member in ONE batched lookup instead
+// of a SELECT per card (the old per-card N+1). FollowService::following_map()
+// returns a target_id => bool map; the grid reads it with an O(1) isset().
+$bn_member_ids    = array_map( static fn( $m ) => (int) $m->ID, (array) $members );
+$bn_following_map = $current_user_id > 0
+	? buddynext_service( 'follows' )->following_map( $current_user_id, $bn_member_ids )
+	: array();
+$bn_is_following  = static function ( int $target_user_id ) use ( $bn_following_map ): bool {
+	return ! empty( $bn_following_map[ $target_user_id ] );
 };
 
 // ── Page URLs ─────────────────────────────────────────────────────────────
@@ -352,23 +306,9 @@ if ( false === $bn_directory_context ) {
 }
 
 // ── Sidebar widgets — hooked into the shell's right-sidebar slot ──────────
-// Online-now widget: top 6 users with bn_last_active within the threshold.
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$bn_online_rows = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT u.ID, u.display_name, u.user_login
-		   FROM {$wpdb->users} u
-		   JOIN {$wpdb->usermeta} um ON um.user_id = u.ID
-		  WHERE um.meta_key = %s
-			AND CAST(um.meta_value AS UNSIGNED) >= %d
-		  ORDER BY CAST(um.meta_value AS UNSIGNED) DESC
-		  LIMIT %d",
-		'bn_last_active',
-		$online_threshold,
-		6
-	)
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+// Online-now widget: most-recently-active members within the online window,
+// via the directory service (block-restrict aware) — no inline SQL.
+$bn_online_rows = $bn_directory_service->online_now( $current_user_id, 6 );
 
 // "By role" member-summary card — total + admin + moderator + top
 // member-types. Pattern D-4 from the v2 prototype member-directory
@@ -388,15 +328,15 @@ if ( ! empty( $bn_online_rows ) ) {
 	$bn_online_count = (int) count( $bn_online_rows );
 	add_action(
 		'buddynext_right_sidebar',
-		static function () use ( $bn_online_rows, $bn_avatar_tones, $bn_initials, $bn_online_count ) {
+		static function () use ( $bn_online_rows, $bn_avatar_tones, $bn_online_count ) {
 			ob_start();
 			?>
 			<ul class="bn-md-sidebar-list">
 				<?php foreach ( $bn_online_rows as $bn_row ) : ?>
 					<?php
-					$bn_row_id    = (int) $bn_row->ID;
-					$bn_row_name  = (string) $bn_row->display_name;
-					$bn_row_login = (string) $bn_row->user_login;
+					$bn_row_id    = (int) $bn_row['ID'];
+					$bn_row_name  = (string) $bn_row['display_name'];
+					$bn_row_login = (string) $bn_row['user_login'];
 					$bn_row_url   = PageRouter::profile_url( $bn_row_id );
 					$bn_row_av    = (string) get_avatar_url( $bn_row_id, array( 'size' => 56 ) );
 					$bn_row_tone  = $bn_avatar_tones[ $bn_row_id % count( $bn_avatar_tones ) ];
@@ -419,7 +359,7 @@ if ( ! empty( $bn_online_rows ) ) {
 										decoding="async"
 									>
 								<?php else : ?>
-									<?php echo esc_html( $bn_initials( $bn_row_name ) ); ?>
+									<?php echo esc_html( AvatarService::initials_for( $bn_row_name ) ); ?>
 								<?php endif; ?>
 							</span>
 							<span class="bn-md-sidebar-item__text">
@@ -664,7 +604,6 @@ if ( $current_user_id > 0 ) {
 			'avatar_tones'    => $bn_avatar_tones,
 			'type_map'        => $type_map,
 			'messages_base'   => $bn_messages_base,
-			'initials_fn'     => $bn_initials,
 			'is_online_fn'    => $bn_is_online,
 			'is_following_fn' => $bn_is_following,
 			'mutual_ids_fn'   => $bn_mutual_ids,

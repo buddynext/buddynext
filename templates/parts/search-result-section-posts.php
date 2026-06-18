@@ -7,6 +7,11 @@
  * a list of `.bn-search-row--post` cards. Each card carries the author byline,
  * age, the highlighted snippet, and the reaction / comment / share stats.
  *
+ * Presentation only: each row is a pre-enriched array from
+ * SearchService::enrich_results( …, 'post' ) — author_name, author_initials,
+ * age, reactions, comments, shares, snippet_source (raw text the highlight
+ * helper marks) — so the part runs no queries.
+ *
  * The composer supplies the highlight helper via `highlight_fn`; the part
  * falls back to escaped plain text when it is not callable.
  *
@@ -14,7 +19,7 @@
  *
  * @package BuddyNext
  *
- * @var array    $posts        Optional. Result rows (each exposes `object_id`, `content`, `author_id`). Default [].
+ * @var array    $posts        Optional. Enriched post rows. Default [].
  * @var int      $viewer_id    Optional. Currently-viewing user ID. Default 0.
  * @var string   $query        Optional. Current search query. Default ''.
  * @var string   $active_type  Optional. Active type tab — drives "See all" visibility. Default 'all'.
@@ -34,8 +39,6 @@
 declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
-
-global $wpdb;
 
 $args = array(
 	'posts'        => isset( $posts ) ? (array) $posts : array(),
@@ -77,20 +80,6 @@ $bn_active_type  = (string) $args['active_type'];
 $bn_total        = (int) $args['total_count'];
 $bn_highlight_fn = $args['highlight_fn'];
 
-$bn_initials_fn = static function ( string $name ): string {
-	$name = trim( $name );
-	if ( '' === $name ) {
-		return '?';
-	}
-	$first = mb_substr( $name, 0, 1 );
-	$last  = '';
-	$space = strrpos( $name, ' ' );
-	if ( false !== $space ) {
-		$last = mb_substr( $name, $space + 1, 1 );
-	}
-	return strtoupper( $first . $last );
-};
-
 do_action( 'buddynext_part_search_result_section_posts_before', $args );
 ?>
 <section class="<?php echo esc_attr( $bn_class ); ?>" aria-labelledby="bn-search-section-posts">
@@ -131,22 +120,18 @@ do_action( 'buddynext_part_search_result_section_posts_before', $args );
 	</header>
 
 	<div class="bn-search-results__list">
-		<?php foreach ( $bn_posts as $post_item ) : ?>
-			<?php
-			$post_id_int = (int) $post_item->object_id;
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-			$bn_post_row  = $wpdb->get_row( $wpdb->prepare( "SELECT user_id, created_at, reaction_count, comment_count, share_count FROM {$wpdb->prefix}bn_posts WHERE id = %d", $post_id_int ) );
-			$author_id    = $bn_post_row ? (int) $bn_post_row->user_id : (int) $post_item->author_id;
-			$author_user  = $author_id ? get_userdata( $author_id ) : null;
-			$author_name  = $author_user ? $author_user->display_name : __( 'Unknown', 'buddynext' );
-			$author_inits = $bn_initials_fn( $author_name );
-			$post_age     = $bn_post_row ? buddynext_time_ago( (string) $bn_post_row->created_at ) : '';
-			$reactions    = $bn_post_row ? (int) $bn_post_row->reaction_count : 0;
-			$comments_c   = $bn_post_row ? (int) $bn_post_row->comment_count : 0;
-			$shares_c     = $bn_post_row ? (int) $bn_post_row->share_count : 0;
+		<?php
+		foreach ( $bn_posts as $post_item ) :
+			$author_name  = (string) ( $post_item['author_name'] ?? '' );
+			$author_inits = (string) ( $post_item['author_initials'] ?? '' );
+			$post_age     = (string) ( $post_item['age'] ?? '' );
+			$reactions    = (int) ( $post_item['reactions'] ?? 0 );
+			$comments_c   = (int) ( $post_item['comments'] ?? 0 );
+			$shares_c     = (int) ( $post_item['shares'] ?? 0 );
+			$snippet_src  = (string) ( $post_item['snippet_source'] ?? '' );
 			$snippet_html = null !== $bn_highlight_fn
-				? (string) call_user_func( $bn_highlight_fn, (string) $post_item->content, $bn_query )
-				: esc_html( (string) $post_item->content );
+				? (string) call_user_func( $bn_highlight_fn, $snippet_src, $bn_query )
+				: esc_html( $snippet_src );
 			?>
 			<article class="bn-card bn-search-row bn-search-row--post" data-interactive>
 				<header class="bn-search-row__head">

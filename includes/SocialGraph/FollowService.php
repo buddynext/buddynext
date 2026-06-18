@@ -257,6 +257,56 @@ class FollowService {
 	}
 
 	/**
+	 * Resolve approved follow-state for a viewer against many targets at once.
+	 *
+	 * Batches what a per-row is_following() loop would otherwise run, so callers
+	 * rendering a list (search results, member grids) avoid an N+1 of follow
+	 * lookups. Returns a map keyed by target user ID with bool values; targets
+	 * the viewer does not follow are present with `false`.
+	 *
+	 * @param int   $follower_id Viewer doing the following.
+	 * @param int[] $target_ids  Target user IDs to test.
+	 * @return array<int,bool> Map of target_id => is the viewer following them.
+	 */
+	public function following_map( int $follower_id, array $target_ids ): array {
+		$follower_id = absint( $follower_id );
+		$target_ids  = array_values( array_unique( array_filter( array_map( 'absint', $target_ids ) ) ) );
+
+		$map = array();
+		foreach ( $target_ids as $tid ) {
+			$map[ $tid ] = false;
+		}
+
+		if ( $follower_id <= 0 || empty( $target_ids ) ) {
+			return $map;
+		}
+
+		global $wpdb;
+
+		$placeholders = implode( ', ', array_fill( 0, count( $target_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT following_id
+				 FROM {$wpdb->prefix}bn_follows
+				 WHERE follower_id = %d
+				   AND status = 'approved'
+				   AND following_id IN ( {$placeholders} )",
+				$follower_id,
+				...$target_ids
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		foreach ( (array) $rows as $tid ) {
+			$map[ (int) $tid ] = true;
+		}
+
+		return $map;
+	}
+
+	/**
 	 * Return true when the follower has a pending request to the target.
 	 *
 	 * @param int $follower_id Requester.
@@ -267,7 +317,7 @@ class FollowService {
 		// follow-button.php calls this for each distinct user across the feed and
 		// sidebar; memoise per request, keyed by the directed pair.
 		static $cache = array();
-		$key = "{$follower_id}:{$following_id}";
+		$key          = "{$follower_id}:{$following_id}";
 		if ( isset( $cache[ $key ] ) ) {
 			return $cache[ $key ];
 		}
@@ -491,9 +541,9 @@ class FollowService {
 		$table = $wpdb->prefix . 'bn_follows';
 
 		// Already-followed accounts + self are excluded from the candidate set.
-		$exclude        = array_merge( $following, array( $user_id ) );
-		$friends_ph     = implode( ', ', array_fill( 0, count( $following ), '%d' ) );
-		$exclude_ph     = implode( ', ', array_fill( 0, count( $exclude ), '%d' ) );
+		$exclude    = array_merge( $following, array( $user_id ) );
+		$friends_ph = implode( ', ', array_fill( 0, count( $following ), '%d' ) );
+		$exclude_ph = implode( ', ', array_fill( 0, count( $exclude ), '%d' ) );
 
 		// Suspended + shadow-banned users must not surface here either — every
 		// other discovery surface (feed, directory) applies the same canonical

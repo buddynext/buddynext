@@ -291,6 +291,48 @@ class MessagesData {
 	}
 
 	/**
+	 * Total unread direct-message count for a viewer.
+	 *
+	 * The single source for the rail/nav unread DM badge. Reaches the
+	 * WPMediaVerse messaging tables only when that engine is present
+	 * (class_exists guard), and caches the result for 60s in the
+	 * buddynext_nav group so the rail and any other entry point share one
+	 * query per request window instead of running parallel raw-SQL paths
+	 * from the template.
+	 *
+	 * @param int $uid Viewing user ID.
+	 * @return int Unread DM count (0 when messaging is unavailable).
+	 */
+	public static function unread_count( int $uid ): int {
+		if ( $uid <= 0 || ! class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) {
+			return 0;
+		}
+
+		$cache_key = "bn_unread_msgs_{$uid}";
+		$cached    = wp_cache_get( $cache_key, 'buddynext_nav' );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}mvs_conversations c
+				 INNER JOIN {$wpdb->prefix}mvs_conversation_participants cp
+				   ON cp.conversation_id = c.id AND cp.user_id = %d AND cp.status = 'active'
+				 WHERE c.last_activity_at > COALESCE(cp.last_read_at, '1970-01-01')",
+				$uid
+			)
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		wp_cache_set( $cache_key, $count, 'buddynext_nav', 60 );
+
+		return $count;
+	}
+
+	/**
 	 * Conversation lists for the rail, split into pinned/recent with counts.
 	 *
 	 * @param int    $viewer Viewing user ID.

@@ -28,32 +28,15 @@ $bn_unread_notifs     = 0;
 $bn_unread_messages   = 0;
 
 if ( $bn_rail_current_user ) {
-	global $wpdb;
-
 	// Single source of truth for the unread count. NotificationService caches
 	// the result, so the rail and the notification bell share one query instead
 	// of running parallel raw-SQL and service paths.
 	$bn_unread_notifs = (int) buddynext_service( 'notifications' )->unread_count( $bn_rail_current_user );
 
-	if ( class_exists( 'WPMediaVerse\\Core\\Plugin' ) ) {
-		$msg_cache_key = "bn_unread_msgs_{$bn_rail_current_user}";
-		$cached_msgs   = wp_cache_get( $msg_cache_key, 'buddynext_nav' );
-		if ( false === $cached_msgs ) {
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			$cached_msgs = (int) $wpdb->get_var(
-				$wpdb->prepare(
-					"SELECT COUNT(*) FROM {$wpdb->prefix}mvs_conversations c
-					 INNER JOIN {$wpdb->prefix}mvs_conversation_participants cp
-					   ON cp.conversation_id = c.id AND cp.user_id = %d AND cp.status = 'active'
-					 WHERE c.last_activity_at > COALESCE(cp.last_read_at, '1970-01-01')",
-					$bn_rail_current_user
-				)
-			);
-			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-			wp_cache_set( $msg_cache_key, $cached_msgs, 'buddynext_nav', 60 );
-		}
-		$bn_unread_messages = (int) $cached_msgs;
-	}
+	// Unread DM badge. MessagesData::unread_count() keeps the WPMediaVerse
+	// class_exists guard and the 60s cache inside the data layer so the rail
+	// no longer reaches into the mvs_* tables directly.
+	$bn_unread_messages = \BuddyNext\Messages\MessagesData::unread_count( $bn_rail_current_user );
 }
 
 // The Spaces page itself is already guarded (PageRouter redirects when the

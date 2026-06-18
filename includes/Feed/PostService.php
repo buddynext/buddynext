@@ -457,6 +457,57 @@ class PostService {
 	}
 
 	/**
+	 * List a user's own scheduled (future) posts, soonest first, hydrated through
+	 * the canonical mapper. Powers the owner-only profile "Scheduled" tab.
+	 *
+	 * @param int $user_id Author user ID.
+	 * @param int $limit   Max rows (1-50). Default 20.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function user_scheduled_posts( int $user_id, int $limit = 20 ): array {
+		if ( $user_id <= 0 ) {
+			return array();
+		}
+		$limit = max( 1, min( 50, $limit ) );
+
+		global $wpdb;
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM {$wpdb->prefix}bn_posts
+				 WHERE user_id = %d AND status = 'scheduled'
+				 ORDER BY scheduled_at ASC
+				 LIMIT %d",
+				$user_id,
+				$limit
+			),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		return array_map( array( $this, 'hydrate' ), (array) $rows );
+	}
+
+	/**
+	 * Count a user's scheduled posts — the figure the owner-only "Scheduled"
+	 * tab badge shows.
+	 *
+	 * @param int $user_id Author user ID.
+	 * @return int
+	 */
+	public function user_scheduled_count( int $user_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'scheduled'",
+				$user_id
+			)
+		);
+	}
+
+	/**
 	 * List a user's recent replies (post comments), newest first, joined to the
 	 * post they replied on. Powers the profile "Replies" tab.
 	 *
@@ -592,10 +643,10 @@ class PostService {
 			return array();
 		}
 
-		$blocks  = function_exists( 'buddynext_service' )
+		$blocks        = function_exists( 'buddynext_service' )
 			? buddynext_service( 'blocks' )
 			: new \BuddyNext\SocialGraph\BlockService();
-		$follows = function_exists( 'buddynext_service' )
+		$follows       = function_exists( 'buddynext_service' )
 			? buddynext_service( 'follows' )
 			: new \BuddyNext\SocialGraph\FollowService();
 		$spaces        = new \BuddyNext\Spaces\SpaceService();

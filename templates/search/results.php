@@ -6,17 +6,19 @@
  * SearchService::search() so the buddynext_search_query_args seam fires on the
  * rendered page — this is what lets buddynext-pro's advanced member filters
  * (tier / space / label / joined-after / active-within) and the pluggable
- * search driver apply on the web /search surface. Hashtags and Media keep
- * dedicated queries (not modelled by the unified index). Results render with
- * v2 primitives (.bn-input, .bn-tabs, .bn-tab, .bn-card, .bn-badge, .bn-avatar,
- * .bn-kbd) and tokens.
+ * search driver apply on the web /search surface. Media routes through the same
+ * service via its `media` pseudo-type; hashtags resolve through
+ * HashtagService::autocomplete() (they are not held in the unified index).
+ * Result rows are enriched for display by SearchService::enrich_results() so the
+ * section parts run no queries. Results render with v2 primitives (.bn-input,
+ * .bn-tabs, .bn-tab, .bn-card, .bn-badge, .bn-avatar, .bn-kbd) and tokens.
  *
  * Mirrors `docs/v2 Plans/v2/search-results.html`.
  *
  * Composer responsibilities:
  *   - Sanitize query / tab / date / sort + advanced filter input.
- *   - Resolve members / posts / spaces via SearchService::search() and keep
- *     hashtags / media on dedicated queries, respecting viewer blocks +
+ *   - Resolve members / posts / spaces / media via SearchService::search() and
+ *     hashtags via HashtagService::autocomplete(), respecting viewer blocks +
  *     suspended / shadow-banned exclusions (enforced inside SearchService).
  *   - Compute per-tab counts.
  *   - Build the highlight + initials helpers.
@@ -35,8 +37,6 @@ declare( strict_types=1 );
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-
-global $wpdb;
 
 // Sanitize query input.
 $raw_query = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( $_GET['q'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -103,7 +103,7 @@ $adv_active_days = isset( $_GET['active_within_days'] ) ? min( 365, absint( wp_u
 /**
  * Filter the option lists that populate the advanced member-search controls.
  *
- * buddynext-pro hooks this to supply its tier / space / member-label option
+ * BuddyNext Pro hooks this to supply its tier / space / member-label option
  * lists (sourced from its own services). When no provider populates a group,
  * that control is hidden — the page degrades cleanly with Pro inactive.
  *
@@ -137,10 +137,13 @@ $adv_labels  = isset( $adv_options['labels'] ) ? (array) $adv_options['labels'] 
 // only when populated.
 $adv_has_provider = ! empty( $adv_tiers ) || ! empty( $adv_spaces ) || ! empty( $adv_labels );
 
-// Only run queries when there is a search term.
-$results_members  = array();
-$results_posts    = array();
-$results_spaces   = array();
+// Only run queries when there is a search term. Members / posts / spaces are
+// fetched into the raw SearchService result sets below ($bn_res_*) and enriched
+// at render time via SearchService::enrich_results(); hashtags and media keep
+// their own presentation arrays.
+$bn_res_members   = array( 'items' => array() );
+$bn_res_posts     = array( 'items' => array() );
+$bn_res_spaces    = array( 'items' => array() );
 $results_hashtags = array();
 $results_media    = array();
 $total_counts     = array(
@@ -167,10 +170,11 @@ if ( '' !== $raw_query ) {
 	// SearchService reads `date` / `sort` from the same seam args. No params
 	// are passed here beyond the type so there is a single source of truth.
 	//
-	// Hashtags are not held in bn_search_index (they live in bn_hashtags) and
-	// media needs the bn_posts.media_ids join the index does not model, so
-	// those two groups keep their dedicated queries below. The advanced member
-	// filters only target the `user` type, so this split loses nothing.
+	// Hashtags are not held in bn_search_index (they live in bn_hashtags) so they
+	// resolve through HashtagService::autocomplete(). Media now routes through the
+	// same SearchService via its `media` pseudo-type (the media_ids join moved
+	// into the service). The advanced member filters only target the `user` type,
+	// so this split loses nothing.
 	// ------------------------------------------------------------------ //
 	$bn_search_service = function_exists( 'buddynext_service' ) ? buddynext_service( 'search' ) : new \BuddyNext\Search\SearchService();
 
@@ -202,94 +206,47 @@ if ( '' !== $raw_query ) {
 	{
 		$bn_pp_m                 = ( 'members' === $active_tab ) ? $bn_per_page : 5;
 		$bn_pg_m                 = ( 'members' === $active_tab ) ? $bn_spage : 1;
-		$bn_res                  = $bn_search_service->search( $raw_query, 'user', $bn_pp_m, $bn_pg_m, $viewer_id );
-		$results_members         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
-		$total_counts['members'] = (int) ( $bn_res['total'] ?? count( $results_members ) );
+		$bn_res_members          = $bn_search_service->search( $raw_query, 'user', $bn_pp_m, $bn_pg_m, $viewer_id );
+		$total_counts['members'] = (int) ( $bn_res_members['total'] ?? count( (array) ( $bn_res_members['items'] ?? array() ) ) );
 	}
 
 	{
 		$bn_pp_p               = ( 'posts' === $active_tab ) ? $bn_per_page : 5;
 		$bn_pg_p               = ( 'posts' === $active_tab ) ? $bn_spage : 1;
-		$bn_res                = $bn_search_service->search( $raw_query, 'post', $bn_pp_p, $bn_pg_p, $viewer_id );
-		$results_posts         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
-		$total_counts['posts'] = (int) ( $bn_res['total'] ?? count( $results_posts ) );
+		$bn_res_posts          = $bn_search_service->search( $raw_query, 'post', $bn_pp_p, $bn_pg_p, $viewer_id );
+		$total_counts['posts'] = (int) ( $bn_res_posts['total'] ?? count( (array) ( $bn_res_posts['items'] ?? array() ) ) );
 	}
 
 	{
 		$bn_pp_s                = ( 'spaces' === $active_tab ) ? $bn_per_page : 5;
 		$bn_pg_s                = ( 'spaces' === $active_tab ) ? $bn_spage : 1;
-		$bn_res                 = $bn_search_service->search( $raw_query, 'space', $bn_pp_s, $bn_pg_s, $viewer_id );
-		$results_spaces         = array_map( $bn_to_row, (array) ( $bn_res['items'] ?? array() ) );
-		$total_counts['spaces'] = (int) ( $bn_res['total'] ?? count( $results_spaces ) );
+		$bn_res_spaces          = $bn_search_service->search( $raw_query, 'space', $bn_pp_s, $bn_pg_s, $viewer_id );
+		$total_counts['spaces'] = (int) ( $bn_res_spaces['total'] ?? count( (array) ( $bn_res_spaces['items'] ?? array() ) ) );
 	}
 
-	// Hashtags: name match via bn_hashtags slug. Skipped when the feature is off
-	// ($results_hashtags + total stay at their empty defaults).
+	// Hashtags: slug-prefix match via the canonical HashtagService. Skipped when
+	// the feature is off ($results_hashtags + total stay at their empty defaults).
 	if ( $bn_hashtags_on ) {
-		$tag_q    = ltrim( $raw_query, '#' );
-		$like_tag = '%' . $wpdb->esc_like( $tag_q ) . '%';
-		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$results_hashtags = (array) $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT id, slug, post_count
-				 FROM {$wpdb->prefix}bn_hashtags
-				 WHERE slug LIKE %s
-				 ORDER BY post_count DESC, slug ASC
-				 LIMIT 10",
-				$like_tag
-			)
-		);
-		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$bn_hashtag_service       = function_exists( 'buddynext_service' )
+			? buddynext_service( 'hashtags' )
+			: new \BuddyNext\Hashtags\HashtagService();
+		$results_hashtags         = $bn_hashtag_service->autocomplete( ltrim( $raw_query, '#' ), 10 );
 		$total_counts['hashtags'] = count( $results_hashtags );
 	}
 
-	// Media: posts that have media_ids and match the query. Kept as a dedicated
-	// query because the unified index does not model the bn_posts.media_ids
-	// join. Self-contained: builds its own date window + boolean query.
+	// Media: posts that carry attachments, resolved through the same canonical
+	// SearchService as the other types via its `media` pseudo-type (the
+	// BOOLEAN-MODE + media_ids join + date window now live in the service). The
+	// `date` / `sort` selections travel to the seam via $_GET like every other
+	// type, so no params are passed here beyond the type.
 	{
-		$media_date_sql = '';
-	switch ( $date_filter ) {
-		case 'week':
-			$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 7 DAY )';
-			break;
-		case 'month':
-			$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 MONTH )';
-			break;
-		case 'year':
-			$media_date_sql = ' AND s.updated_at >= DATE_SUB( NOW(), INTERVAL 1 YEAR )';
-			break;
-	}
-		$media_order_sql = 'recent' === $sort_by
-			? 'ORDER BY s.updated_at DESC'
-			: 'ORDER BY MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE ) DESC';
-		$media_boolean   = '+' . implode( ' +', array_map( 'trim', explode( ' ', $raw_query ) ) );
-		$media_args      = 'recent' === $sort_by ? array( $media_boolean ) : array( $media_boolean, $media_boolean );
-
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-		$media_sql             = $wpdb->prepare(
-			"SELECT s.object_id, s.content, s.author_id
-			 FROM {$wpdb->prefix}bn_search_index AS s
-			 INNER JOIN {$wpdb->prefix}bn_posts p ON p.id = s.object_id
-			 WHERE s.object_type = 'post'
-			   AND s.visibility = 'public'
-			   AND p.media_ids IS NOT NULL
-			   AND p.media_ids != ''
-			   AND MATCH( s.title, s.content ) AGAINST( %s IN BOOLEAN MODE )
-			   {$media_date_sql}
-			 {$media_order_sql}
-			 LIMIT 12",
-			...$media_args
-		);
-		$results_media         = (array) $wpdb->get_results( $media_sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared
-		$total_counts['media'] = count( $results_media );
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
+		$bn_media_res          = $bn_search_service->search( $raw_query, 'media', 12, 1, $viewer_id );
+		$results_media         = array_map( $bn_to_row, (array) ( $bn_media_res['items'] ?? array() ) );
+		$total_counts['media'] = (int) ( $bn_media_res['total'] ?? count( $results_media ) );
 	}
 
-	$total_counts['all'] = $total_counts['members']
-		+ $total_counts['posts']
-		+ $total_counts['spaces']
-		+ $total_counts['hashtags']
-		+ $total_counts['media'];
+	// phpcs:ignore Squiz.PHP.DisallowMultipleAssignments.Found -- single assignment; sniff mis-fires on the multi-key array_sum.
+	$total_counts['all'] = array_sum( array( $total_counts['members'], $total_counts['posts'], $total_counts['spaces'], $total_counts['hashtags'], $total_counts['media'] ) );
 }
 
 /**
@@ -474,7 +431,7 @@ $bn_search_ctx = array(
 					buddynext_get_template(
 						'parts/search-result-section-members.php',
 						array(
-							'members'     => $results_members,
+							'members'     => $bn_search_service->enrich_results( (array) ( $bn_res_members['items'] ?? array() ), 'user', $current_user_id ),
 							'viewer_id'   => $current_user_id,
 							'query'       => $raw_query,
 							'active_type' => $active_tab,
@@ -490,7 +447,7 @@ $bn_search_ctx = array(
 					buddynext_get_template(
 						'parts/search-result-section-posts.php',
 						array(
-							'posts'        => $results_posts,
+							'posts'        => $bn_search_service->enrich_results( (array) ( $bn_res_posts['items'] ?? array() ), 'post', $current_user_id ),
 							'viewer_id'    => $current_user_id,
 							'query'        => $raw_query,
 							'active_type'  => $active_tab,
@@ -507,7 +464,7 @@ $bn_search_ctx = array(
 					buddynext_get_template(
 						'parts/search-result-section-spaces.php',
 						array(
-							'spaces'      => $results_spaces,
+							'spaces'      => $bn_search_service->enrich_results( (array) ( $bn_res_spaces['items'] ?? array() ), 'space', $current_user_id ),
 							'viewer_id'   => $current_user_id,
 							'query'       => $raw_query,
 							'active_type' => $active_tab,
