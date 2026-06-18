@@ -356,13 +356,14 @@
 .bn-settings-section {
 	background: var(--bn-a-bg);
 	border: 1px solid var(--bn-a-border);
-	border-radius: var(--bn-a-r-md);
-	margin-bottom: var(--bn-a-s4);
+	border-radius: var(--bn-a-r-lg);
+	box-shadow: var(--bn-a-shadow-sm);
+	margin-bottom: var(--bn-a-s5);
 	overflow: hidden;
 }
 
 .bn-ss-header {
-	padding: var(--bn-a-s3) var(--bn-a-s4);
+	padding: var(--bn-a-s4) var(--bn-a-s5);
 	border-bottom: 1px solid var(--bn-a-border-soft);
 	display: flex;
 	align-items: center;
@@ -371,13 +372,14 @@
 }
 
 .bn-ss-title {
+	font-family: var(--bn-a-font-display);
 	font-weight: var(--bn-a-fw-semibold);
-	font-size: var(--bn-a-text-md);
+	font-size: var(--bn-a-text-base);
 	color: var(--bn-a-text-1);
 }
 
 .bn-ss-body {
-	padding: var(--bn-a-s4);
+	padding: var(--bn-a-s5);
 }
 
 /* --------------------------------------------------------------------------
