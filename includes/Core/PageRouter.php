@@ -324,8 +324,19 @@ class PageRouter {
 			// when explore is public, guests actually reach it.
 			$is_explore = ( 'feed' === $hub && 'explore' === $activity_action );
 
+			// Honour the per-tab "Login required" option from Settings → Navigation
+			// (buddynext_nav_overrides, main scope, keyed by hub slug). Hiding the
+			// nav link alone never stopped a guest visiting the hub URL directly, so
+			// the option appeared to do nothing for hubs like Spaces — enforce it at
+			// the route. Explore keeps its own public-explore gate above, so it is
+			// exempt here even if the Feed tab is marked login-required.
+			$nav_overrides  = (array) get_option( 'buddynext_nav_overrides', array() );
+			$hub_override   = isset( $nav_overrides[ $hub ] ) ? (array) $nav_overrides[ $hub ] : array();
+			$override_login = ! empty( $hub_override['login_required'] ) && ! $is_explore;
+
 			$needs_login =
-				in_array( $hub, array( 'messages', 'notifications', 'onboarding', 'settings' ), true )
+				$override_login
+				|| in_array( $hub, array( 'messages', 'notifications', 'onboarding', 'settings' ), true )
 				|| ( 'feed' === $hub && ! $is_explore && in_array( $feed_section, $guarded_feed_sections, true ) );
 
 			if ( $needs_login ) {
