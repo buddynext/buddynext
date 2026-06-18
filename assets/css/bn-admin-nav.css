@@ -200,6 +200,24 @@
 	cursor: not-allowed;
 }
 
+/* Fixed slot indicator (mobile Create / Profile) — a quiet, non-interactive
+   "Always shown" tag that replaces the toggle. It must NOT read as a control:
+   muted text, no pointer, no button chrome, so the owner understands the slot
+   simply cannot be changed. */
+.bn-nav-row-fixed {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 10px;
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--bn-a-text-muted, #646970);
+	background: var(--bn-a-bg-subtle, #f0f0f1);
+	border-radius: 999px;
+	white-space: nowrap;
+	cursor: default;
+	user-select: none;
+}
+
 /* Visibility toggle — the label wraps the screen-reader-only checkbox and the
    .bn-toggle visual track. aria-checked (kept in sync by nav-manager.js) is
    the single source of the on/off state; the wrapper just aligns the control

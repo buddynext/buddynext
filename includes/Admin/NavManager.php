@@ -1158,35 +1158,42 @@ class NavManager extends AdminPageBase {
 					?>
 				</button>
 				<?php endif; ?>
-				<?php
-				if ( $locked ) {
-					$toggle_title = __( 'Fixed slot, always shown', 'buddynext' );
-				} elseif ( $dep_missing ) {
-					$toggle_title = sprintf(
-						/* translators: %s: required plugin name */
-						__( 'Requires the %s plugin', 'buddynext' ),
-						$requires
-					);
-				} else {
-					$toggle_title = $hidden ? __( 'Hidden, click to show', 'buddynext' ) : __( 'Visible, click to hide', 'buddynext' );
-				}
-				?>
-				<label class="bn-toggle-wrap"
-						title="<?php echo esc_attr( $toggle_title ); ?>">
-					<input type="checkbox"
-							class="bn-toggle-input screen-reader-text"
-							name="bn_nav_visible[<?php echo esc_attr( $scope ); ?>][<?php echo esc_attr( $slug ); ?>]"
-							value="1"
-							<?php checked( $locked || ( ! $hidden && ! $dep_missing ) ); ?>
-							<?php disabled( $dep_missing || $locked ); ?>>
-					<span class="bn-toggle"
-							role="switch"
-							aria-checked="<?php echo ( $hidden || $dep_missing ) ? 'false' : 'true'; ?>"
-							aria-hidden="true"></span>
-					<span class="screen-reader-text">
-						<?php echo $hidden ? esc_html__( 'Show tab', 'buddynext' ) : esc_html__( 'Hide tab', 'buddynext' ); ?>
+				<?php if ( $locked ) : ?>
+					<?php
+					// Fixed slot: show a static, non-interactive indicator rather than
+						// a disabled toggle — a greyed-but-on switch reads as actionable
+						// and invites a click that does nothing.
+					?>
+					<span class="bn-nav-row-fixed" title="<?php esc_attr_e( 'This slot is fixed and cannot be hidden or moved.', 'buddynext' ); ?>">
+						<?php esc_html_e( 'Always shown', 'buddynext' ); ?>
 					</span>
-				</label>
+				<?php else : ?>
+					<?php
+					$toggle_title = $dep_missing
+						? sprintf(
+							/* translators: %s: required plugin name */
+							__( 'Requires the %s plugin', 'buddynext' ),
+							$requires
+						)
+						: ( $hidden ? __( 'Hidden, click to show', 'buddynext' ) : __( 'Visible, click to hide', 'buddynext' ) );
+					?>
+					<label class="bn-toggle-wrap"
+							title="<?php echo esc_attr( $toggle_title ); ?>">
+						<input type="checkbox"
+								class="bn-toggle-input screen-reader-text"
+								name="bn_nav_visible[<?php echo esc_attr( $scope ); ?>][<?php echo esc_attr( $slug ); ?>]"
+								value="1"
+								<?php checked( ! $hidden && ! $dep_missing ); ?>
+								<?php disabled( $dep_missing ); ?>>
+						<span class="bn-toggle"
+								role="switch"
+								aria-checked="<?php echo ( $hidden || $dep_missing ) ? 'false' : 'true'; ?>"
+								aria-hidden="true"></span>
+						<span class="screen-reader-text">
+							<?php echo $hidden ? esc_html__( 'Show tab', 'buddynext' ) : esc_html__( 'Hide tab', 'buddynext' ); ?>
+						</span>
+					</label>
+				<?php endif; ?>
 			</div>
 		</li>
 		<?php
