@@ -79,6 +79,35 @@ class JetonomyBridge {
 
 		// App coverage: REST to provision/fetch a space's forum URL.
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
+
+		// Messaging is BuddyNext's native domain. When BN messaging is available,
+		// suppress Jetonomy Pro's private-messaging extension on the front end and
+		// REST: it registers /messages/ rewrite rules + a template_redirect at
+		// priority 1 that hijacks BN's own /messages/ route, which made the Message
+		// action non-functional whenever Jetonomy was active. Filtered at read time
+		// (option_jetonomy_pro_extensions) so nothing is persisted and it reverts
+		// automatically if BN messaging is disabled. Left untouched in wp-admin so
+		// the Jetonomy extensions screen still reflects/saves the real setting.
+		add_filter( 'option_jetonomy_pro_extensions', array( $this, 'suppress_jetonomy_messaging' ) );
+	}
+
+	/**
+	 * Drop Jetonomy Pro's private-messaging extension from the active list when
+	 * BuddyNext messaging is available, so BN owns the /messages/ route.
+	 *
+	 * @param mixed $enabled Stored jetonomy_pro_extensions option value.
+	 * @return mixed Filtered list (array) with 'private-messaging' removed, or the
+	 *               original value untouched in wp-admin / when BN messaging is off.
+	 */
+	public function suppress_jetonomy_messaging( $enabled ) {
+		if ( ! is_array( $enabled ) || is_admin() ) {
+			return $enabled;
+		}
+		if ( ! class_exists( '\BuddyNext\Messages\MessagesData' )
+			|| ! \BuddyNext\Messages\MessagesData::available() ) {
+			return $enabled;
+		}
+		return array_values( array_diff( $enabled, array( 'private-messaging' ) ) );
 	}
 
 	/**
