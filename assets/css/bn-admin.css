@@ -1022,21 +1022,25 @@ table.bn-table tr:hover td {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--bn-a-s2);
-	padding: var(--bn-a-s1) var(--bn-a-s3);
-	border-radius: var(--bn-a-r-sm);
+	padding: var(--bn-a-s2) var(--bn-a-s4);
+	border-radius: var(--bn-a-r-md);
 	font-size: var(--bn-a-text-sm);
-	font-weight: var(--bn-a-fw-medium);
+	font-weight: var(--bn-a-fw-semibold);
 	cursor: pointer;
 	text-decoration: none;
 	border: 1px solid var(--bn-a-border);
 	background: var(--bn-a-bg);
 	color: var(--bn-a-text-1);
-	transition: background var(--bn-a-transition), border-color var(--bn-a-transition), color var(--bn-a-transition);
+	transition: background var(--bn-a-transition), border-color var(--bn-a-transition), color var(--bn-a-transition), box-shadow var(--bn-a-transition);
+}
+
+.bn-btn:hover {
+	background: var(--bn-a-bg-subtle);
 }
 
 .bn-btn:focus-visible {
-	outline: 2px solid var(--bn-a-brand);
-	outline-offset: var(--bn-a-outline-offset);
+	outline: none;
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--bn-a-brand) 25%, transparent);
 }
 
 .bn-btn-primary {
@@ -1054,10 +1058,10 @@ table.bn-table tr:hover td {
 	background: var(--bn-a-bg);
 	border: 1px solid var(--bn-a-border);
 	color: var(--bn-a-text-1);
-	border-radius: var(--bn-a-r-sm);
-	padding: var(--bn-a-s1) var(--bn-a-s3);
+	border-radius: var(--bn-a-r-md);
+	padding: var(--bn-a-s2) var(--bn-a-s4);
 	font-size: var(--bn-a-text-sm);
-	font-weight: var(--bn-a-fw-medium);
+	font-weight: var(--bn-a-fw-semibold);
 	cursor: pointer;
 	font-family: var(--bn-a-font-body);
 }
