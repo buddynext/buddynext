@@ -426,10 +426,13 @@ if ( ! \BuddyNext\Media\MediaClient::available() ) {
 	);
 }
 
-// Deep-link the active tab from the route action so /members/{slug}/media/
-// opens the Media tab. Falls back to Posts for actions without a tab.
+// Deep-link the active tab from the route action so /members/{slug}/media/ opens
+// the Media tab and /members/{slug}/connections/ opens the Connections panel.
+// The connection panels (followers/following/connections) are header-chip tabs,
+// not entries in $bn_pf_tabs, so they're allowed explicitly. Falls back to Posts
+// for actions without a tab.
 $bn_pf_action     = (string) get_query_var( 'bn_profile_action', '' );
-$bn_pf_tab_slugs  = array_column( $bn_pf_tabs, 'slug' );
+$bn_pf_tab_slugs  = array_merge( array_column( $bn_pf_tabs, 'slug' ), array( 'followers', 'following', 'connections' ) );
 $bn_pf_active_tab = in_array( $bn_pf_action, $bn_pf_tab_slugs, true ) ? $bn_pf_action : 'posts';
 
 $bn_pf_ctx = array(
@@ -636,7 +639,7 @@ $bn_pf_ctx = array(
 		array(
 			'profile_user_id' => (int) $user_id,
 			'viewer_id'       => (int) $current_user_id,
-			'active_tab'      => 'posts',
+			'active_tab'      => $bn_pf_active_tab,
 			'tabs'            => $bn_pf_tabs,
 		)
 	);
@@ -644,7 +647,7 @@ $bn_pf_ctx = array(
 	buddynext_get_template(
 		'parts/profile-tab-panel.php',
 		array(
-			'active_tab'           => 'posts',
+			'active_tab'           => $bn_pf_active_tab,
 			'about_html'           => $bn_pf_about_html,
 			'profile_user_id'      => (int) $user_id,
 			'viewer_id'            => (int) $current_user_id,

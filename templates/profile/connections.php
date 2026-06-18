@@ -22,8 +22,6 @@ defined( 'ABSPATH' ) || exit;
 
 use BuddyNext\Core\PageRouter;
 
-global $wpdb;
-
 // ── Context ─────────────────────────────────────────────────────────────────────
 $user_id = isset( $user_id ) ? absint( $user_id ) : 0;
 
@@ -41,72 +39,16 @@ $bn_per_page = 12;
 $bn_paged    = max( 1, absint( get_query_var( 'paged', 1 ) ) );
 $bn_offset   = ( $bn_paged - 1 ) * $bn_per_page;
 
-// ── Fetch accepted connections ──────────────────────────────────────────────────
-$connections_table = $wpdb->prefix . 'bn_connections';
-
-// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$connections = $wpdb->get_results(
-	$wpdb->prepare(
-		"SELECT u.ID, u.display_name, u.user_nicename
-		 FROM {$connections_table} c
-		 JOIN {$wpdb->users} u ON (
-		     (c.requester_id = %d AND u.ID = c.recipient_id)
-		     OR (c.recipient_id = %d AND u.ID = c.requester_id)
-		 )
-		 WHERE c.status = 'accepted'
-		 ORDER BY c.created_at DESC
-		 LIMIT %d OFFSET %d",
-		$user_id,
-		$user_id,
-		$bn_per_page,
-		$bn_offset
-	)
-);
-
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$total_connections = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*)
-		 FROM {$connections_table} c
-		 WHERE c.status = 'accepted'
-		   AND (c.requester_id = %d OR c.recipient_id = %d)",
-		$user_id,
-		$user_id
-	)
-);
-// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-$total_pages = (int) ceil( $total_connections / $bn_per_page );
+// ── Fetch accepted connections (ConnectionService owns the SQL) ──────────────
+// connections() returns an array of the other party's user IDs (accepted only),
+// cached; connection_count() is the matching cached total.
+$connections       = buddynext_service( 'connections' )->connections( $user_id, $bn_per_page, $bn_offset );
+$total_connections = buddynext_service( 'connections' )->connection_count( $user_id );
+$total_pages       = (int) ceil( $total_connections / $bn_per_page );
 
 // ── Current viewer context ──────────────────────────────────────────────────────
 $current_user_id = get_current_user_id();
 $is_own_profile  = ( $current_user_id === $user_id );
-
-// ── Avatar colours ─────────────────────────────────────────────────────────────
-$bn_conn_colours = array( '#0073aa', '#059669', '#7c3aed', '#ea580c', '#db2777', '#0d9488', '#dc2626', '#d97706' );
-
-/**
- * Return initials from a display name.
- *
- * @param string $name Display name.
- * @return string Up to two uppercase characters.
- */
-if ( ! function_exists( 'bn_connections_initials' ) ) {
-	/**
-	 * Return initials from a display name.
-	 *
-	 * @param string $name Display name.
-	 * @return string Up to two uppercase characters.
-	 */
-	function bn_connections_initials( string $name ): string {
-		$parts = array_filter( explode( ' ', trim( $name ) ) );
-		if ( count( $parts ) >= 2 ) {
-			return strtoupper( substr( (string) reset( $parts ), 0, 1 ) . substr( (string) end( $parts ), 0, 1 ) );
-		}
-		return strtoupper( substr( $name, 0, 2 ) );
-	}
-}
 
 /**
  * Fires before the profile connections inner content.
@@ -158,7 +100,7 @@ do_action( 'buddynext_profile_connections_before', isset( $user_id ) ? (int) $us
 			array(
 				'members'   => array_values(
 					array_filter(
-						array_map( static fn( $c ) => get_userdata( (int) $c->ID ), $connections )
+						array_map( static fn( $id ) => get_userdata( (int) $id ), $connections )
 					)
 				),
 				'viewer_id' => $current_user_id,

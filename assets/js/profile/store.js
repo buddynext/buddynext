@@ -807,9 +807,16 @@ function syncDirtyAttr( dirty ) {
 // Valid tabs are whatever the server actually rendered — so integration tabs
 // (portfolio, …) and core tabs all work without a hardcoded list to maintain.
 function bnValidTabs() {
+	// Derive valid tabs from the panels actually present, not just the content
+	// tab-bar (.bn-pf-tabs) — the header-chip tabs (followers / following /
+	// connections) are real [data-tab-panel] targets too. Reading the bar alone
+	// excluded them, so deep-linking /members/{slug}/connections/ fell back to
+	// 'posts' here even though the SSR rendered the connections panel.
 	var slugs = [];
-	document.querySelectorAll( '.bn-pf-tabs .bn-tab' ).forEach( function ( t ) {
-		if ( t.dataset.tab ) { slugs.push( t.dataset.tab ); }
+	document.querySelectorAll( '[data-tab-panel]' ).forEach( function ( p ) {
+		if ( p.dataset.tabPanel && slugs.indexOf( p.dataset.tabPanel ) === -1 ) {
+			slugs.push( p.dataset.tabPanel );
+		}
 	} );
 	return slugs.length ? slugs : [ 'posts' ];
 }
