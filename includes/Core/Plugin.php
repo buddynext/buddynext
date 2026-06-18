@@ -272,6 +272,11 @@ class Plugin {
 		// buddynext_auth_social_providers seam + handles the OAuth round-trip.
 		( new \BuddyNext\Auth\SocialLogin() )->register();
 
+		// Enforce 2FA on WordPress's native sign-in paths (wp-login.php interim
+		// challenge + XML-RPC block) so the second factor cannot be bypassed
+		// outside the BuddyNext REST login flow.
+		( new \BuddyNext\Auth\TwoFactorLoginGuard() )->register();
+
 		// Approval-mode gate: block sign-in for accounts awaiting administrator
 		// approval (set during registration when buddynext_reg_mode = 'approval').
 		add_filter(
