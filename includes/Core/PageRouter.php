@@ -936,13 +936,25 @@ class PageRouter {
 			// assume fixed path segments. Default = client-nav (deny-list, not
 			// allow-list), so new routes are fast by default.
 			'navDeny'            => array(
-				'auth'       => wp_parse_url( self::auth_url(), PHP_URL_PATH ),
-				'signup'     => wp_parse_url( self::signup_url(), PHP_URL_PATH ),
-				'verify'     => wp_parse_url( self::verify_url(), PHP_URL_PATH ),
-				'reset'      => wp_parse_url( self::reset_url(), PHP_URL_PATH ),
-				'onboarding' => wp_parse_url( self::onboarding_url(), PHP_URL_PATH ),
-				'spaces'     => wp_parse_url( self::spaces_url(), PHP_URL_PATH ),
-				'people'     => wp_parse_url( self::people_url(), PHP_URL_PATH ),
+				'auth'        => wp_parse_url( self::auth_url(), PHP_URL_PATH ),
+				'signup'      => wp_parse_url( self::signup_url(), PHP_URL_PATH ),
+				'verify'      => wp_parse_url( self::verify_url(), PHP_URL_PATH ),
+				'reset'       => wp_parse_url( self::reset_url(), PHP_URL_PATH ),
+				'onboarding'  => wp_parse_url( self::onboarding_url(), PHP_URL_PATH ),
+				'spaces'      => wp_parse_url( self::spaces_url(), PHP_URL_PATH ),
+				'people'      => wp_parse_url( self::people_url(), PHP_URL_PATH ),
+				// Partner-plugin surfaces render in their OWN Interactivity router
+				// region (WPMediaVerse, Jetonomy), not buddynext/main, so the BN
+				// router cannot swap them in — they must FULL-LOAD so the partner
+				// plugin's own scripts/styles/router initialise (a client-side swap
+				// would inject region-less HTML and break the page). Both bases are
+				// ADMIN-CONFIGURABLE (WPMediaVerse maps Explore/Dashboard/Upload
+				// pages; Jetonomy has a Community Base URL setting), so resolve them
+				// from each plugin's own config — never hardcode /media/ or
+				// /community/. Arrays: the navigate action full-loads any matching
+				// prefix.
+				'media'       => self::wpmediaverse_deny_paths(),
+				'discussions' => self::jetonomy_deny_paths(),
 			),
 			// Connect-request style. Default false = 1-click connect (Facebook).
 			// When the owner turns on buddynext_connection_require_note, the
@@ -1142,6 +1154,53 @@ class PageRouter {
 				$assets->enqueue( 'onboarding' );
 				break;
 		}
+	}
+
+	/**
+	 * Resolve the WPMediaVerse client-nav deny-list paths.
+	 *
+	 * WPMediaVerse renders its surfaces in its OWN Interactivity router region,
+	 * so links to them must full-load (not client-swap into buddynext/main). The
+	 * landing surfaces are admin-mapped pages (Explore/Dashboard/Upload — options
+	 * mvs_page_explore/dashboard/upload), and media items + member galleries live
+	 * under the /media/ rewrite base. Resolve all of them from config rather than
+	 * hardcoding a slug, so renaming a mapped page still denies it.
+	 *
+	 * @return string[] Path prefixes that must full-load (empty when MVS inactive).
+	 */
+	private static function wpmediaverse_deny_paths(): array {
+		if ( ! class_exists( '\\WPMediaVerse\\Core\\Plugin' ) ) {
+			return array();
+		}
+		$paths = array();
+		foreach ( array( 'mvs_page_explore', 'mvs_page_dashboard', 'mvs_page_upload' ) as $bn_opt ) {
+			$bn_pid = (int) get_option( $bn_opt, 0 );
+			if ( $bn_pid > 0 ) {
+				$bn_path = wp_parse_url( (string) get_permalink( $bn_pid ), PHP_URL_PATH );
+				if ( is_string( $bn_path ) && '' !== $bn_path ) {
+					$paths[] = $bn_path;
+				}
+			}
+		}
+		$paths[] = '/media/';
+		return array_values( array_unique( array_filter( $paths ) ) );
+	}
+
+	/**
+	 * Resolve the Jetonomy client-nav deny-list paths.
+	 *
+	 * Jetonomy renders in its own router region under an admin-configurable
+	 * Community Base URL (default /community/); read it from Jetonomy's own
+	 * base_url() so a renamed base is still denied.
+	 *
+	 * @return string[] Path prefixes that must full-load (empty when Jetonomy inactive).
+	 */
+	private static function jetonomy_deny_paths(): array {
+		if ( ! function_exists( 'Jetonomy\\base_url' ) ) {
+			return array();
+		}
+		$bn_path = wp_parse_url( (string) \Jetonomy\base_url(), PHP_URL_PATH );
+		return ( is_string( $bn_path ) && '' !== $bn_path ) ? array( $bn_path ) : array( '/community/' );
 	}
 
 	/**

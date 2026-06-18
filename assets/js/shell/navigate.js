@@ -26,8 +26,16 @@ import { store } from '@wordpress/interactivity';
  */
 function isDenied( path ) {
 	const deny = ( window.bnShellData && window.bnShellData.navDeny ) || {};
-	const startsWith = ( prefix ) =>
-		prefix && path.indexOf( prefix.replace( /\/+$/, '' ) ) === 0;
+	// A deny entry is a path prefix string, or an array of them (partner plugins
+	// expose several admin-configurable bases — mapped Media pages, Community
+	// base URL). Matches when the current path starts with any.
+	const startsWith = ( prefix ) => {
+		if ( ! prefix ) {
+			return false;
+		}
+		const list = Array.isArray( prefix ) ? prefix : [ prefix ];
+		return list.some( ( p ) => p && path.indexOf( p.replace( /\/+$/, '' ) ) === 0 );
+	};
 
 	// Auth + onboarding: full forms, redirect-after-login, own slim shell.
 	if (
@@ -37,6 +45,14 @@ function isDenied( path ) {
 		startsWith( deny.reset ) ||
 		startsWith( deny.onboarding )
 	) {
+		return true;
+	}
+
+	// Partner-plugin surfaces (Media = WPMediaVerse, Discussions = Jetonomy) render
+	// in their OWN Interactivity router region, not buddynext/main. The BN router
+	// can't swap them, so full-load — the partner plugin's own scripts/styles/router
+	// then initialise. (A client-side swap would inject region-less HTML and break.)
+	if ( startsWith( deny.media ) || startsWith( deny.discussions ) ) {
 		return true;
 	}
 
