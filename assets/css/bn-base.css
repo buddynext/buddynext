@@ -2379,6 +2379,44 @@ html[data-bn-font-scale="120"] { font-size: 120%; }
 	color: var(--bn-accent-700);
 }
 
+/* ── Theme-proof interactive controls ───────────────────────────────────────
+   Host themes (Reign, etc.) style bare <button>/<a> with their own padding +
+   borders at the BASE level (Reign gives every button 10px 20px). That bleeds
+   into BuddyNext's icon buttons / card actions because a bare `.bn-composer__tool`
+   loses specificity to `.theme-wrap button`. The earlier per-component fix only
+   reset padding on :hover, so the base kept the theme's 10px 20px and the icon
+   *shrank* on hover — the "jumpy controls" glitch. The real fix is to own the
+   geometry at the BASE under .bn-app (class+context out-specifies the theme),
+   so base == hover and nothing moves. This is the single place that locks
+   control geometry; add new bare-button controls here rather than re-patching
+   each component's :hover. Colour/background and focus rings stay with the
+   components. (The host theme defines no button:hover transform, so no
+   per-state override is needed — base alone is sufficient and dup-free.) */
+.bn-app .bn-composer__tool {
+	box-sizing: border-box;
+	width: 32px;
+	height: 32px;
+	min-width: 0;
+	min-height: 0;
+	padding: 0;
+	margin: 0;
+	border: 0;
+}
+.bn-app .bn-post-card__action-btn {
+	padding: 6px 14px;
+	margin: 0;
+	border: 0;
+}
+.bn-app .bn-tab {
+	border-top: 0;
+	border-right: 0;
+	border-left: 0;
+	/* Pin the underline edge's width + style (not colour — the active tab sets
+	   border-bottom-color) so a themed border can't reflow the tab row. */
+	border-bottom-width: 2px;
+	border-bottom-style: solid;
+}
+
 /* ── Tooltip ────────────────────────────────────────────────────────── */
 .bn-tooltip {
 	position: absolute;

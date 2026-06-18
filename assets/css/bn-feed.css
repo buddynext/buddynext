@@ -832,10 +832,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-post-card__action-btn:focus {
 	color: var(--bn-accent);
 	background: var(--bn-sunken);
-	/* Lock geometry so the host theme's button:hover/:focus (border / padding)
-	   can't resize the pill and shift the row — that was the hover glitch. */
-	padding: 6px 14px;
-	border: 0;
+	/* Geometry (padding/border) is locked once in bn-base.css under .bn-app
+	   (theme-proof interactive controls) — base == hover, so no per-state lock. */
 }
 
 .bn-post-card__action-btn:focus-visible {
@@ -2198,10 +2196,8 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 .bn-composer__tool:hover {
 	background: var(--bg-hover);
 	color: var(--brand);
-	/* Lock geometry so the host theme's button:hover border/padding can't add a
-	   ring or resize the icon button — mirrors .bn-post-card__action-btn:hover. */
-	border: 0;
-	padding: 0;
+	/* Geometry (size/padding/border) is locked once in bn-base.css under .bn-app
+	   (theme-proof interactive controls) — base == hover, so no per-state lock. */
 }
 .bn-composer__tool:focus-visible { outline: 2px solid transparent; outline-offset: 2px; box-shadow: var(--bn-ring); }
 .bn-composer__tool .bn-icon,
