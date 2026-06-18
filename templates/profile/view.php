@@ -374,16 +374,19 @@ $bn_pf_tabs       = array(
 		'slug'  => 'followers',
 		'label' => __( 'Followers', 'buddynext' ),
 		'count' => $bn_tab_count_for( $follower_count ),
+		'in_bar' => false,
 	),
 	array(
 		'slug'  => 'following',
 		'label' => __( 'Following', 'buddynext' ),
 		'count' => $bn_tab_count_for( $following_count ),
+		'in_bar' => false,
 	),
 	array(
 		'slug'  => 'connections',
 		'label' => __( 'Connections', 'buddynext' ),
 		'count' => $bn_tab_count_for( $connection_count ),
+		'in_bar' => false,
 	),
 );
 // Owner-only Scheduled tab, placed right after Posts for prominence.

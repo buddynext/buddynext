@@ -84,6 +84,12 @@ do_action( 'buddynext_part_profile_tab_bar_before', $args );
 				if ( '' === $bn_tab_slug || '' === $bn_tab_label ) {
 					continue;
 				}
+				// Tabs flagged in_bar=false exist only to render their panel; their
+				// navigation lives elsewhere (e.g. the profile stats strip), so they
+				// are skipped in the bar to avoid duplicate navigation.
+				if ( isset( $bn_tab['in_bar'] ) && false === $bn_tab['in_bar'] ) {
+					continue;
+				}
 				$bn_is_active = ( $bn_active === $bn_tab_slug );
 
 				// Pre-compute the screen-reader-friendly accessible name so
