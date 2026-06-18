@@ -558,3 +558,38 @@ body.admin-bar .bn-app__rail {
 	.bn-notif-dropdown { width: calc(100vw - var(--bn-s4)); right: -60px; }
 }
 
+
+/* ── Community Nav menu (Appearance → Menus → BuddyNext Community Nav) ──────
+ * Rendered atop the hub main column by templates/shell/hub-shell.php when a
+ * menu is assigned to the buddynext-community location. Horizontal, wraps on
+ * small screens, tokens follow the host theme (light/dark). */
+.bn-community-menu {
+	margin-bottom: var(--bn-s4);
+}
+.bn-community-menu__list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--bn-s2);
+	align-items: center;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.bn-community-menu__list > li > a {
+	display: inline-flex;
+	align-items: center;
+	padding: var(--bn-s1) var(--bn-s3);
+	border-radius: var(--bn-r-sm);
+	color: var(--bn-ink-2, inherit);
+	text-decoration: none;
+	font-weight: var(--bn-fw-medium, 500);
+	transition: background 0.12s, color 0.12s;
+}
+.bn-community-menu__list > li > a:hover {
+	background: var(--bn-canvas);
+	color: var(--bn-ink);
+}
+.bn-community-menu__list > li.current-menu-item > a {
+	background: var(--bn-canvas);
+	color: var(--bn-accent, var(--brand));
+}

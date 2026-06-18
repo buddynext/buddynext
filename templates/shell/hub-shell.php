@@ -91,6 +91,28 @@ $bn_region_attrs = $bn_client_nav ? ' data-wp-interactive="buddynext" data-wp-ro
 
 		<main class="bn-app__main" id="bn-main-content" tabindex="-1"<?php echo $bn_region_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal static attribute string, no user data ?>>
 			<?php
+			// Render a menu assigned to the "BuddyNext Community Nav" location. The
+			// location was registered (Plugin::register_nav_menus) but no template
+			// ever output it, so an assigned menu was invisible. Show it as a
+			// community nav bar atop the hub content; only renders when a menu is
+			// actually assigned (no theme fallback).
+			if ( has_nav_menu( 'buddynext-community' ) ) :
+				?>
+				<nav class="bn-community-menu" aria-label="<?php esc_attr_e( 'Community menu', 'buddynext' ); ?>">
+					<?php
+					wp_nav_menu(
+						array(
+							'theme_location' => 'buddynext-community',
+							'container'      => false,
+							'menu_class'     => 'bn-community-menu__list',
+							'depth'          => 1,
+							'fallback_cb'    => false,
+						)
+					);
+					?>
+				</nav>
+				<?php
+			endif;
 			// Trusted: buffered output from buddynext_get_template() — already escaped at point of emit.
 			echo $bn_main_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			?>
