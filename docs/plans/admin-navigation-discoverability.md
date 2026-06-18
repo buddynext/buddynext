@@ -43,6 +43,11 @@
 - **P3** — Deep field-level search (per-field metadata + anchors + highlight-on-arrival).
 - **P4** — Contextual "?" deep-links + dismissible tips; state-aware "recommended next steps".
 
+## Locked decisions (owner, 2026-06-18)
+- **Timing:** QUEUED — build after the membership polish + the cron/AS audit are done. Do not start before then.
+- **v1 search scope:** tabs/sections only (P1). Per-field deep search is P3.
+- (Remaining choices below default to the recommendations.)
+
 ## Open decisions (for owner)
 1. **v1 palette scope:** tabs/sections only (fast to ship) vs tabs + setting fields (more useful, needs field metadata). Recommend tabs-only for P1, fields in P3.
 2. **Guide surface:** a dedicated top-level "Guide" tab vs a panel on the existing dashboard/overview. Recommend a dedicated tab (also the Cmd/K "Help" target).
