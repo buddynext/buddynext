@@ -44,8 +44,6 @@ if ( ! $profile_user ) {
 	wp_die( esc_html__( 'Profile not found.', 'buddynext' ) );
 }
 
-global $wpdb;
-
 $display_name      = $profile_user->display_name;
 $profile_email_raw = $profile_user->user_email;
 $user_login_str    = $profile_user->user_login;
@@ -199,30 +197,13 @@ $bn_privacy_select = static function ( string $name, string $admin_default, stri
 
 $profile_url  = \BuddyNext\Core\PageRouter::profile_url( $user_id );
 
-// Stats for preview widget.
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$post_count = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published'",
-		$user_id
-	)
-);
-
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$follower_count = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE following_id = %d",
-		$user_id
-	)
-);
-
-// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-$following_count = (int) $wpdb->get_var(
-	$wpdb->prepare(
-		"SELECT COUNT(*) FROM {$wpdb->prefix}bn_follows WHERE follower_id = %d",
-		$user_id
-	)
-);
+// Stats for preview widget — read through the services (no SQL here). The
+// follow counts come from FollowService, which filters status = 'approved';
+// the old inline queries omitted that, so private accounts counted pending
+// follow requests as followers.
+$post_count      = ( new \BuddyNext\Feed\PostService() )->user_post_count( $user_id );
+$follower_count  = buddynext_service( 'follows' )->follower_count( $user_id );
+$following_count = buddynext_service( 'follows' )->following_count( $user_id );
 
 $format_count = static function ( int $n ): string {
 	if ( $n >= 1000 ) {

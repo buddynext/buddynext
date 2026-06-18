@@ -435,6 +435,28 @@ class PostService {
 	}
 
 	/**
+	 * Count a user's published posts (the figure profile/edit surfaces show).
+	 *
+	 * Deliberately uncached: the value changes across many write paths (publish,
+	 * delete, moderation removal, scheduled publish) and the query is a single
+	 * indexed COUNT, so a stale cache costs more than the read.
+	 *
+	 * @param int $user_id Author user ID.
+	 * @return int
+	 */
+	public function user_post_count( int $user_id ): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->prefix}bn_posts WHERE user_id = %d AND status = 'published'",
+				$user_id
+			)
+		);
+	}
+
+	/**
 	 * Update an existing post's content or privacy.
 	 *
 	 * Sets edited_at to the current UTC time. Only the post owner may update.
