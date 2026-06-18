@@ -69,18 +69,13 @@ Goal: one observable, retrying queue, runnable off real cron. Scoped deliberatel
   - Pro `BroadcastService` + `DripEnrollmentService` (self-arm on write, self-unschedule when the queue drains). A future phase may move these to AS purely for send-retry observability; not done now to avoid churning working email features pre-beta.
 - **Reactive single events stay native** (`OutboundWebhookService` deliver/retry, `OnboardingListener` 24h/72h nudges, `SearchService` reindex-all): already single-shot + on-demand; native `wp_schedule_single_event` is fine.
 
-### The real performance lever — run the queue off REAL cron (rule 5)
-Moving jobs to AS does NOT by itself reduce in-request work, because AS's own runner is triggered by WP-Cron by default. The win comes from taking cron out of visitor requests entirely. On the QA box and every production site:
+### Fast by default — a GENERAL solution, no site-specific config required
+BuddyNext must be light on a vanilla WordPress install with zero environment changes. We do NOT set, require, or recommend `DISABLE_WP_CRON` — that is a site-wide constant affecting every plugin (WooCommerce, backups, email queues, ...) and silently breaks them all if the owner has not separately wired a real system cron. It is the site owner's server-level decision, never the plugin's. BuddyNext stays fast out of the box because:
 
-```php
-// wp-config.php
-define( 'DISABLE_WP_CRON', true );
-```
-```cron
-# system crontab — every minute, drives BOTH WP-Cron events and the AS queue
-* * * * * cd /path/to/site && wp action-scheduler run --quiet >/dev/null 2>&1
-* * * * * wget -q -O - https://site.test/wp-cron.php?doing_wp_cron >/dev/null 2>&1
-```
-This is the single biggest "fast community" lever — with it, no background job ever executes inside a member's page load. Document for site owners; ensure the QA/prod environment has it. See [[action-scheduler-standard]] rule 6.
+1. **No idle polling** — no recurring job fires unless there is actual work (always-on jobs are daily/weekly; everything else is on-demand or reactive).
+2. **On-demand self-(un)scheduling** — scheduled-post publisher, broadcast, drip arm only when work is created and disarm when the queue drains.
+3. **Action Scheduler is non-blocking by design** — its queue runner processes a bounded batch (default ~25 actions, time-capped) in a separate async loopback request, NOT in the visitor's page-load thread. So even on a default WP-Cron site, members' requests are not doing background work.
+
+`DISABLE_WP_CRON` + a system cron driving `wp action-scheduler run` remains a legitimate OPTIONAL optimisation a site owner may apply at the server level on their own — but it is outside the plugin and must never be a requirement for BuddyNext to be fast.
 
 Also prune AS tables (`actionscheduler_*`) so completed/failed logs don't bloat — AS's built-in retention handles this by default; verify it's on.

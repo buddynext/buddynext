@@ -203,10 +203,10 @@ class CronScheduler {
 	 * Schedule a recurring job, preferring Action Scheduler.
 	 *
 	 * Action Scheduler gives one observable queue (Tools -> Scheduled Actions),
-	 * automatic retries, and a single runner that can be driven off real system
-	 * cron (see DISABLE_WP_CRON guidance in docs/plans/cron-as-audit.md) so jobs
-	 * never execute inside a visitor request. When AS is unavailable the method
-	 * falls back to a native WP-Cron event so the job still runs.
+	 * automatic retries, and a non-blocking runner that processes a bounded batch
+	 * in a separate async request rather than the visitor's page load — fast by
+	 * default with no site configuration required. When AS is unavailable the
+	 * method falls back to a native WP-Cron event so the job still runs.
 	 *
 	 * Idempotent: a no-op once the action/event exists. On an existing install it
 	 * clears the legacy native WP-Cron event before registering the AS action so
