@@ -1206,17 +1206,13 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 @media (max-width: 640px) {
 	.bn-feed-stack { gap: var(--bn-s3); }
 
-	/* On narrow cards the head row can't fit avatar + byline + Follow pill, so
-	   let it wrap: the byline (author block, flex:1) keeps the full first row
-	   with the kebab pinned right, and the Follow pill drops to its own row
-	   below — avoiding a squeezed, vertically-stacked byline while still
-	   keeping Follow out of the byline's width on wider screens. */
 	.bn-post-card__head { flex-wrap: wrap; }
-	.bn-post-card__follow {
-		order: 99;
-		flex-basis: 100%;
-		margin-block-start: var(--bn-s2);
-	}
+	/* Hide the inline per-post Follow on mobile. Repeated on every card it eats a
+	   full row each and clutters a dense feed (Facebook doesn't surface Follow on
+	   every feed post); the action stays available via the post's overflow (···)
+	   menu and the author's profile. Desktop has the width, so it keeps the
+	   inline Follow pill (see .bn-post-card__follow base rule). */
+	.bn-post-card__follow { display: none; }
 
 	/* Facebook-style compact byline on narrow cards: author name on row 1, then
 	   ONE meta line — "Space · time · audience-icon" — on row 2 (never a 3rd
