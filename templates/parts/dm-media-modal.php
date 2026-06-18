@@ -20,7 +20,7 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 ?>
 <div
-	class="bn-modal-backdrop bn-dm-media"
+	class="bn-modal-backdrop bn-dm-media is-hidden"
 	role="dialog"
 	aria-modal="true"
 	aria-labelledby="bn-dm-media-title"

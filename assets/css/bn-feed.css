@@ -1369,7 +1369,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 
 .bn-comment__reply-form {
 	display: flex;
-	align-items: flex-end;
+	align-items: center;
 	gap: var(--bn-s2);
 	margin-block-start: var(--bn-s2);
 }
@@ -1626,7 +1626,7 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
    left misaligned next to the text Cancel link. Match the edit-form override so
    it renders as a normal text button aligned with Cancel. */
 .bn-comment__reply-form .bn-comment-form__submit {
-	align-self: flex-start;
+	align-self: center;
 	width: auto;
 	height: auto;
 	min-height: var(--bn-tap, 40px);
@@ -2195,7 +2195,14 @@ a.bn-post-card__bridge-title:hover { color: var(--bn-accent); }
 	cursor: pointer;
 	transition: background 0.12s, color 0.12s;
 }
-.bn-composer__tool:hover { background: var(--bg-hover); color: var(--brand); }
+.bn-composer__tool:hover {
+	background: var(--bg-hover);
+	color: var(--brand);
+	/* Lock geometry so the host theme's button:hover border/padding can't add a
+	   ring or resize the icon button — mirrors .bn-post-card__action-btn:hover. */
+	border: 0;
+	padding: 0;
+}
 .bn-composer__tool:focus-visible { outline: 2px solid transparent; outline-offset: 2px; box-shadow: var(--bn-ring); }
 .bn-composer__tool .bn-icon,
 .bn-composer__tool svg { width: 18px; height: 18px; }
@@ -2721,6 +2728,8 @@ li[aria-selected="true"] > .bn-composer__privacy-opt { background: var(--bg-hove
 .bn-share-modal__note:disabled { opacity: 0.55; cursor: not-allowed; }
 .bn-share-modal__actions { display: flex; align-items: center; gap: var(--bn-s2); }
 .bn-share-modal__repost { flex: 1; justify-content: center; }
+/* Ghost variant rests at a muted ink; lift the Copy-link label to full ink for AA contrast. */
+.bn-share-modal__copy { color: var(--bn-ink); }
 .bn-share-modal__error { margin: var(--bn-s2) 0 0; color: var(--bn-danger); font-size: var(--bn-text-sm); }
 .bn-share-modal__error[hidden] { display: none; }
 

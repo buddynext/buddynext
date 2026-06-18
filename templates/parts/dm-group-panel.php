@@ -23,7 +23,7 @@ declare( strict_types=1 );
 defined( 'ABSPATH' ) || exit;
 ?>
 <div
-	class="bn-modal-backdrop bn-dm-group"
+	class="bn-modal-backdrop bn-dm-group is-hidden"
 	role="dialog"
 	aria-modal="true"
 	aria-labelledby="bn-dm-group-title"

@@ -824,6 +824,10 @@
 }
 .bn-pf-avatar-wrap .bn-avatar[data-presence] {
 	--bn-avatar-presence-border: var(--bn-surface);
+	overflow: visible;
+}
+.bn-pf-avatar-wrap .bn-avatar[data-presence]::after {
+	z-index: 1;
 }
 
 /* Owner "Edit avatar" badge — a pencil chip on the avatar (bottom-right),
