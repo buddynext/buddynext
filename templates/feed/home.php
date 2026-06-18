@@ -31,14 +31,6 @@ use BuddyNext\Feed\FeedService;
 // Guest gate is enforced upstream in PageRouter::dispatch_hub_template().
 $current_user_id = get_current_user_id();
 
-global $wpdb;
-
-$posts_table     = $wpdb->prefix . 'bn_posts';
-$follows_table   = $wpdb->prefix . 'bn_follows';
-$hashtags_table  = $wpdb->prefix . 'bn_hashtags';
-$spaces_table    = $wpdb->prefix . 'bn_spaces';
-$space_mem_table = $wpdb->prefix . 'bn_space_members';
-
 $bn_per_page = 15;
 
 // The Spaces filter tab + its feed only make sense while the Spaces feature is
@@ -57,200 +49,37 @@ $raw_filter = isset( $_GET['filter'] ) ? sanitize_key( wp_unslash( $_GET['filter
 $bn_filter  = in_array( $raw_filter, $allowed_filters, true ) ? $raw_filter : 'for-you';
 
 // Cursor is base64( "created_at|id" ) — same format as FeedService::encode_cursor().
-// Decode defensively; fall back to no cursor (first page) on any invalid input.
-$raw_cursor     = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-$decoded_cursor = null;
-if ( '' !== $raw_cursor ) {
-	$raw_decoded = base64_decode( $raw_cursor, true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
-	if ( false !== $raw_decoded ) {
-		$cursor_parts = explode( '|', $raw_decoded, 2 );
-		if ( 2 === count( $cursor_parts ) && '' !== $cursor_parts[0] && ctype_digit( $cursor_parts[1] ) ) {
-			$decoded_cursor = array(
-				'created_at' => $cursor_parts[0],
-				'id'         => (int) $cursor_parts[1],
-			);
-		}
-	}
-}
-
-// ── Suspended / shadow-banned exclusion ────────────────────────────────────
-// Delegate to the one canonical moderation-exclusion builder — the same one
-// FeedService uses — so this SSR fallback query excludes exactly the set the
-// paginated feed does (admins see everything; everyone else has hide_posts
-// suspensions + shadow-bans filtered out). The previous inline query read the
-// legacy `bn_suspended` usermeta and over-hid action-only suspensions
-// (hide_posts = 0), so the first page disagreed with page 2. Only used by the
-// fallback branch below; the primary path goes through FeedService directly.
-$exclusion_sql = '';
-if ( ! current_user_can( 'manage_options' ) && function_exists( 'buddynext_service' ) ) {
-	$bn_moderation = buddynext_service( 'moderation' );
-	if ( $bn_moderation && method_exists( $bn_moderation, 'moderation_exclude_sql' ) ) {
-		$exclusion_sql = ' ' . $bn_moderation->moderation_exclude_sql( 'p.user_id' );
-	}
-}
-
-// ── Pinned announcement ─────────────────────────────────────────────────────
-// Dismissals live in user_meta (FeedService::DISMISSED_ANNOUNCEMENTS_META) so
-// the REST dismiss endpoint and PHP render share one source of truth.
-$dismissed_ids = FeedService::dismissed_announcement_ids( $current_user_id );
-$exclude_sql   = '';
-$exclude_args  = array();
-if ( ! empty( $dismissed_ids ) ) {
-	$placeholders = implode( ',', array_fill( 0, count( $dismissed_ids ), '%d' ) );
-	$exclude_sql  = " AND p.id NOT IN ({$placeholders})";
-	$exclude_args = $dismissed_ids;
-}
-
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-$announcement_sql = "SELECT p.id, p.user_id, p.content, p.created_at
-		   FROM {$posts_table} p
-		  WHERE p.type = 'announcement'
-			AND p.is_announcement = 1
-			AND p.status = 'published'
-			AND (p.site_pin_expires_at IS NULL OR p.site_pin_expires_at > NOW()){$exclude_sql}
-		  ORDER BY p.created_at DESC
-		  LIMIT %d";
-$announcement     = $wpdb->get_row(
-	empty( $exclude_args )
-		? $wpdb->prepare( $announcement_sql, 1 )
-		: $wpdb->prepare( $announcement_sql, array_merge( $exclude_args, array( 1 ) ) )
-);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-$show_announcement = null !== $announcement;
+// Opaque pagination cursor — passed straight to FeedService, which owns the
+// keyset decode/encode. Empty string = first page.
+$raw_cursor = isset( $_GET['cursor'] ) ? sanitize_text_field( wp_unslash( $_GET['cursor'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 // ── Home feed posts ─────────────────────────────────────────────────────────
-// Sources:
-// 1. Viewer's own posts (any privacy).
-// 2. Public/followers posts from followed users.
-// 3. Published posts from spaces the viewer has actively joined.
-// 4. Published posts containing a hashtag the viewer follows.
-// Cursor: compound keyset on (created_at DESC, id DESC) — base64("created_at|id").
-// $exclusion_sql is built above via $wpdb->prepare() with %d placeholders — safe.
-$cursor_sql    = '';
-$cursor_params = array();
-if ( null !== $decoded_cursor ) {
-	$cursor_sql    = 'AND (p.created_at < %s OR (p.created_at = %s AND p.id < %d))';
-	$cursor_params = array( $decoded_cursor['created_at'], $decoded_cursor['created_at'], $decoded_cursor['id'] );
-}
-
-$hashtag_follows_table = $wpdb->prefix . 'bn_post_hashtags';
-$ht_follows_table      = $wpdb->prefix . 'bn_hashtag_follows';
-
-// All filters — including the default `for-you` view — route through the
-// container-bound feed service so the SQL stays in one place AND any rebind
-// (notably the Pro AiRankedFeedService, which fires buddynext_feed_query_args /
-// buddynext_feed_order_by) re-ranks the first SSR paint. Previously the
-// `for-you` default ran inline chronological SQL here and bypassed the Pro
-// override entirely, so the AI toggle had no effect on the page a member opens.
-//
-// $feed_service is resolved defensively: if the container is unavailable (e.g.
-// the front-end isolation harness strips the bootstrap), the inline fallback
-// query below serves the chronological feed rather than fataling.
-$feed_service_filtered = false;
-$feed_posts            = array();
-$next_cursor           = '';
-$has_more              = false;
-
+// REST-first: the template runs no feed SQL. Resolve the one FeedService the
+// REST endpoints use, so the SSR first paint and the API agree — including the
+// Pro AI-ranking rebind (buddynext_feed_query_args / buddynext_feed_order_by),
+// suspended/shadow-ban exclusion, cursor pagination, and the pinned-announcement
+// card prepended on the first page. Construct it directly when the container is
+// unavailable (e.g. the isolation harness strips the bootstrap) so the page still
+// renders without inline SQL. home_feed() returns fully hydrated post arrays
+// keyed exactly as partials/post-card.php expects — passed straight to the loop.
 $bn_feed_service_obj = function_exists( 'buddynext_service' ) ? buddynext_service( 'feed' ) : null;
-
-if ( $bn_feed_service_obj instanceof FeedService ) {
-	$feed_service_filtered = true;
-	$service_result        = $bn_feed_service_obj->home_feed(
-		$current_user_id,
-		'' !== $raw_cursor ? $raw_cursor : null,
-		$bn_per_page,
-		$bn_filter
+if ( ! $bn_feed_service_obj instanceof FeedService ) {
+	$bn_feed_service_obj = new FeedService(
+		new \BuddyNext\SocialGraph\FollowService(),
+		new \BuddyNext\Feed\PostService(),
+		null
 	);
-	// home_feed() already returns fully hydrated post arrays (poll options,
-	// decoded media/link meta) keyed exactly as partials/post-card.php expects —
-	// use them as-is instead of round-tripping array → stdClass → array.
-	$feed_posts  = array_values( (array) ( $service_result['items'] ?? array() ) );
-	$next_cursor = (string) ( $service_result['next_cursor'] ?? '' );
-	$has_more    = '' !== $next_cursor;
 }
 
-if ( ! $feed_service_filtered ) :
-// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	$feed_posts = $wpdb->get_results(
-		$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
-			"SELECT p.id, p.user_id, p.space_id, p.shared_post_id, p.content, p.type, p.privacy,
-				p.media_ids, p.link_url, p.link_meta,
-				p.is_pinned, p.is_announcement, p.content_warning, p.content_warning_type,
-				p.reaction_count, p.comment_count, p.share_count,
-				p.edited_at, p.created_at, p.updated_at
-		   FROM {$posts_table} p
-		  WHERE p.status = 'published'
-			AND (p.scheduled_at IS NULL OR p.scheduled_at <= UTC_TIMESTAMP())
-			AND (
-				  p.user_id = %d
-			   OR (
-					p.user_id IN (
-					  SELECT f.following_id
-						FROM {$follows_table} f
-					   WHERE f.follower_id = %d
-					)
-					AND p.privacy IN ('public','followers')
-				  )
-			   OR p.space_id IN (
-					SELECT m.space_id
-					  FROM {$space_mem_table} m
-					 WHERE m.user_id = %d AND m.status = 'active'
-				  )
-			   OR p.id IN (
-					SELECT ph.post_id
-					  FROM {$hashtag_follows_table} ph
-					 WHERE ph.object_type = 'post'
-					   AND ph.hashtag_id IN (
-							 SELECT hf.hashtag_id
-							   FROM {$ht_follows_table} hf
-							  WHERE hf.user_id = %d
-						   )
-				  )
-				   OR (
-						p.privacy = 'public'
-						AND (
-							p.space_id IS NULL
-							OR p.space_id = 0
-							OR p.space_id IN (
-								SELECT s.id FROM {$spaces_table} s WHERE s.type = 'open'
-							)
-						)
-					  )
-				)
-			{$exclusion_sql}
-			{$cursor_sql}
-		  ORDER BY p.created_at DESC, p.id DESC
-		  LIMIT %d",  // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			...array_merge(
-				array( $current_user_id, $current_user_id, $current_user_id, $current_user_id ),
-				$cursor_params,
-				array( $bn_per_page + 1 )
-			)
-		)
-	);
-// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-	$has_more = count( $feed_posts ) > $bn_per_page;
-	if ( $has_more ) {
-		array_pop( $feed_posts );
-	}
-
-	// Encode next cursor as base64("created_at|id") matching FeedService::encode_cursor().
-	if ( $has_more && ! empty( $feed_posts ) ) {
-		$last_post   = end( $feed_posts );
-		$next_cursor = base64_encode( $last_post->created_at . '|' . $last_post->id ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
-	}
-
-	// Map raw rows to the canonical hydrated post arrays (decoded media/link meta
-	// + poll options) so the render loop gets the same shape as the service path
-	// — no hand-rolled row→array mapping in the template.
-	$bn_fallback_post_service = new \BuddyNext\Feed\PostService();
-	$feed_posts               = array_map(
-		static fn( $bn_row ) => $bn_fallback_post_service->hydrate( (array) $bn_row ),
-		(array) $feed_posts
-	);
-endif; // ! $feed_service_filtered
+$service_result = $bn_feed_service_obj->home_feed(
+	$current_user_id,
+	'' !== $raw_cursor ? $raw_cursor : null,
+	$bn_per_page,
+	$bn_filter
+);
+$feed_posts  = array_values( (array) ( $service_result['items'] ?? array() ) );
+$next_cursor = (string) ( $service_result['next_cursor'] ?? '' );
+$has_more    = '' !== $next_cursor;
 
 // ── Tab counts ──────────────────────────────────────────────────────────────
 $bn_tab_counts = array(
@@ -412,23 +241,6 @@ do_action( 'buddynext_feed_home_before', $current_user_id );
 			<?php esc_html_e( 'Retry', 'buddynext' ); ?>
 		</button>
 	</div>
-
-	<?php if ( $show_announcement && $announcement ) : ?>
-		<div class="bn-announcement"
-			data-wp-interactive="buddynext/announcement"
-			data-wp-context='{"announcementId":<?php echo (int) $announcement->id; ?>}'>
-			<span class="bn-announcement__icon" aria-hidden="true"><?php buddynext_icon( 'megaphone' ); ?></span>
-			<div class="bn-announcement__body">
-				<?php echo wp_kses_post( $announcement->content ); ?>
-			</div>
-			<button
-				class="bn-announcement__dismiss"
-				data-wp-on--click="actions.dismiss"
-				aria-label="<?php esc_attr_e( 'Dismiss announcement', 'buddynext' ); ?>">
-				&times;
-			</button>
-		</div>
-	<?php endif; ?>
 
 	<?php if ( ! empty( $feed_posts ) ) : ?>
 		<div class="bn-feed-list" role="feed" aria-label="<?php esc_attr_e( 'Home feed', 'buddynext' ); ?>">
