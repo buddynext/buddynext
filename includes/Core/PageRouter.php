@@ -847,6 +847,12 @@ class PageRouter {
 		// (sidebar widgets, block-rendered buttons, etc.) on every BN hub.
 		wp_enqueue_script_module( '@buddynext/social-buttons' );
 
+		// Client-side navigation action — owns the .bn-app navigate handler and
+		// lazy-loads the Interactivity router. Enqueued on every hub so the
+		// action exists site-wide; inert until the buddynext_client_nav_enabled
+		// rollout switch is flipped (per-surface, after Phase 3 hardening).
+		wp_enqueue_script_module( '@buddynext/navigate' );
+
 		// Localize REST endpoints + nav URLs for shell/extras.js.
 		//
 		// This method runs at template_redirect, which fires BEFORE the
@@ -875,6 +881,29 @@ class PageRouter {
 				'spaces'        => self::spaces_url(),
 				'notifications' => self::notifications_url(),
 				'messages'      => self::messages_url(),
+			),
+			// Rollout master switch for client-side navigation. OFF until the
+			// per-surface init() handlers are made nav-aware (Phase 3) and
+			// browser-verified (Phase 5) — enabling client-nav before a surface
+			// is hardened would let its imperative setup die after a swap (the
+			// exact bug class the standard prevents). The navigate action is
+			// wired and inert until this flips true. Filterable for staged
+			// activation once surfaces are verified.
+			'clientNav'         => (bool) apply_filters( 'buddynext_client_nav_enabled', false ),
+			// Deny-list path prefixes for the client-side navigate action.
+			// Routes matching these full-load instead of client-navigating
+			// (rich editors + security-sensitive flows). Resolved server-side
+			// because hub slugs are admin-configurable — the action cannot
+			// assume fixed path segments. Default = client-nav (deny-list, not
+			// allow-list), so new routes are fast by default.
+			'navDeny'           => array(
+				'auth'       => wp_parse_url( self::auth_url(), PHP_URL_PATH ),
+				'signup'     => wp_parse_url( self::signup_url(), PHP_URL_PATH ),
+				'verify'     => wp_parse_url( self::verify_url(), PHP_URL_PATH ),
+				'reset'      => wp_parse_url( self::reset_url(), PHP_URL_PATH ),
+				'onboarding' => wp_parse_url( self::onboarding_url(), PHP_URL_PATH ),
+				'spaces'     => wp_parse_url( self::spaces_url(), PHP_URL_PATH ),
+				'people'     => wp_parse_url( self::people_url(), PHP_URL_PATH ),
 			),
 		);
 		// Base config for the shared REST client module (@buddynext/rest-client).

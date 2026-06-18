@@ -72,7 +72,7 @@ if ( ! $bn_community_nav ) {
 	$bn_shell_classes .= ' bn-app__shell--no-nav';
 }
 ?>
-<div class="bn-app" id="bn-app" data-bn-hub="<?php echo esc_attr( $hub ); ?>">
+<div class="bn-app" id="bn-app" data-bn-hub="<?php echo esc_attr( $hub ); ?>" data-wp-interactive="buddynext" data-wp-on--click="actions.navigate">
 
 	<div class="<?php echo esc_attr( $bn_shell_classes ); ?>">
 
@@ -80,7 +80,7 @@ if ( ! $bn_community_nav ) {
 			<?php buddynext_get_template( 'shell/rail.php', array( 'hub' => $hub ) ); ?>
 		<?php endif; ?>
 
-		<main class="bn-app__main" id="bn-main-content" tabindex="-1">
+		<main class="bn-app__main" id="bn-main-content" tabindex="-1" data-wp-interactive="buddynext" data-wp-router-region="buddynext/main">
 			<?php
 			// Trusted: buffered output from buddynext_get_template() — already escaped at point of emit.
 			echo $bn_main_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
