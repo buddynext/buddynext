@@ -603,6 +603,19 @@ class ProfileService {
 
 			// A2: write/delete the privacy-safe search mirror.
 			$this->sync_search_mirror( $user_id, $field, $sanitized_val, $entry_visibility );
+
+			// Denormalise the headline into a dedicated bn_headline usermeta key.
+			// Member-list surfaces (onboarding suggestions) LEFT JOIN this key to
+			// avoid resolving bn_profile_values per row. Previously only
+			// DemoDataService wrote it, so real users showed no headline there;
+			// keep it in lockstep with the canonical bn_profile_values row.
+			if ( 'headline' === $key ) {
+				if ( '' !== $sanitized_val ) {
+					update_user_meta( $user_id, 'bn_headline', $sanitized_val );
+				} else {
+					delete_user_meta( $user_id, 'bn_headline' );
+				}
+			}
 		}
 
 		// Handle profile URL slug separately — stored in usermeta, not bn_profile_values.
