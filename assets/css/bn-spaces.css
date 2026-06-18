@@ -415,7 +415,11 @@
 .bn-sh-hero__emblem {
 	width: 96px;
 	height: 96px;
-	margin-block-start: calc(-1 * var(--bn-s9));
+	/* Half-overlap the cover, matching the 96px profile hero avatar
+	   (.bn-pf-avatar-wrap → -s12). --bn-s9 does not exist in the token scale
+	   (s8 then s10), so the old value silently resolved to nothing and the
+	   emblem never pulled up into the cover. */
+	margin-block-start: calc(-1 * var(--bn-s12));
 	background: var(--bn-surface);
 	border: 4px solid var(--bn-surface);
 	border-radius: var(--bn-r-lg);
