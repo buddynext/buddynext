@@ -133,7 +133,8 @@ class PostService {
 		$safeguard_result = $this->get_safeguard()->check(
 			$user_id,
 			(string) ( $data['content'] ?? '' ),
-			(string) ( $data['link_url'] ?? '' )
+			(string) ( $data['link_url'] ?? '' ),
+			$target_space_id
 		);
 		$flag_reason      = '';
 		if ( is_wp_error( $safeguard_result ) ) {
@@ -755,10 +756,16 @@ class PostService {
 		// or a blocked link past moderation. Only the content checks apply here —
 		// rate-limit / duplicate / new-member gates are create-time concerns.
 		if ( isset( $data['content'] ) || isset( $data['link_url'] ) ) {
+			// Resolve the post's space so the per-space banned-word list is enforced
+			// on edits too (get() is cache-backed, so this is cheap).
+			$existing      = $this->get( $post_id );
+			$edit_space_id = $existing ? (int) ( $existing['space_id'] ?? 0 ) : 0;
+
 			$edit_scan = $this->get_safeguard()->check_content(
 				(string) ( $data['content'] ?? '' ),
 				(string) ( $data['link_url'] ?? '' ),
-				$user_id
+				$user_id,
+				$edit_space_id
 			);
 			if ( is_wp_error( $edit_scan ) ) {
 				return $edit_scan;

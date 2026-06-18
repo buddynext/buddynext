@@ -34,19 +34,20 @@ class SafeguardService {
 	 * The pending_review error code is intentionally non-fatal — callers should
 	 * save the post with status='pending' rather than discarding it.
 	 *
-	 * @param int    $user_id Author user ID.
-	 * @param string $content Post content to inspect.
-	 * @param string $url     Optional URL attached to the post (link_url field).
+	 * @param int    $user_id  Author user ID.
+	 * @param string $content  Post content to inspect.
+	 * @param string $url      Optional URL attached to the post (link_url field).
+	 * @param int    $space_id Target space ID (0 = site feed) for the per-space banned-word list.
 	 * @return true|WP_Error True when all checks pass; WP_Error on first failure.
 	 */
-	public function check( int $user_id, string $content, string $url = '' ): true|WP_Error {
+	public function check( int $user_id, string $content, string $url = '', int $space_id = 0 ): true|WP_Error {
 		// Cheapest, hardest stop first: a blocklisted IP never reaches content checks.
 		$ip = $this->check_blocked_ip();
 		if ( is_wp_error( $ip ) ) {
 			return $ip;
 		}
 
-		$banned = $this->check_banned_words( $content );
+		$banned = $this->check_banned_words( $content, $space_id );
 		if ( is_wp_error( $banned ) ) {
 			return $banned;
 		}
@@ -97,13 +98,14 @@ class SafeguardService {
 	 * editing is a blind spot. The buddynext_safeguard_check filter still runs so
 	 * Pro keyword/ML blocklists apply to edits too.
 	 *
-	 * @param string $content Content to inspect.
-	 * @param string $url     Optional attached URL.
-	 * @param int    $user_id Author user ID (passed to the filter).
+	 * @param string $content  Content to inspect.
+	 * @param string $url      Optional attached URL.
+	 * @param int    $user_id  Author user ID (passed to the filter).
+	 * @param int    $space_id Target space ID (0 = site feed) for the per-space banned-word list.
 	 * @return true|WP_Error
 	 */
-	public function check_content( string $content, string $url = '', int $user_id = 0 ): true|WP_Error {
-		$banned = $this->check_banned_words( $content );
+	public function check_content( string $content, string $url = '', int $user_id = 0, int $space_id = 0 ): true|WP_Error {
+		$banned = $this->check_banned_words( $content, $space_id );
 		if ( is_wp_error( $banned ) ) {
 			return $banned;
 		}
@@ -119,14 +121,26 @@ class SafeguardService {
 	/**
 	 * Check whether $content contains a banned word or phrase.
 	 *
-	 * Reads option buddynext_banned_words (newline-separated). Matching is
-	 * case-insensitive; any substring match causes a failure.
+	 * Reads the site-wide list (option buddynext_banned_words) and, when the post
+	 * targets a space, that space's own list (option bn_space_{id}_banned_words —
+	 * written by templates/spaces/settings.php). Both are newline-separated;
+	 * matching is case-insensitive and any substring match fails. Without the
+	 * per-space read the space list was write-only.
 	 *
-	 * @param string $content Post content to inspect.
+	 * @param string $content  Post content to inspect.
+	 * @param int    $space_id Target space ID (0 = site feed; skips per-space list).
 	 * @return true|WP_Error
 	 */
-	private function check_banned_words( string $content ): true|WP_Error {
-		$raw   = (string) get_option( 'buddynext_banned_words', '' );
+	private function check_banned_words( string $content, int $space_id = 0 ): true|WP_Error {
+		$raw = (string) get_option( 'buddynext_banned_words', '' );
+
+		if ( $space_id > 0 ) {
+			$space_raw = (string) get_option( 'bn_space_' . $space_id . '_banned_words', '' );
+			if ( '' !== $space_raw ) {
+				$raw = '' !== $raw ? $raw . "\n" . $space_raw : $space_raw;
+			}
+		}
+
 		$words = array_filter( array_map( 'trim', explode( "\n", $raw ) ) );
 
 		if ( empty( $words ) ) {
