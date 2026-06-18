@@ -1114,6 +1114,10 @@ class SpaceController extends BaseRestController {
 		// so the hero Invite modal can mirror the settings-panel invite form.
 		if ( 0 === $invited_user_id ) {
 			$identifier = sanitize_text_field( (string) ( $request->get_param( 'identifier' ) ?? '' ) );
+			// Accept an @-prefixed username — member mentions use @username across
+			// the platform, so the invite field should too. Emails never carry a
+			// leading @, so this only affects username input.
+			$identifier = ltrim( $identifier, '@' );
 			if ( '' !== $identifier ) {
 				$invited_user = is_email( $identifier )
 					? get_user_by( 'email', $identifier )

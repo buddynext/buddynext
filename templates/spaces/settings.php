@@ -315,6 +315,8 @@ if ( 'POST' === $request_method && isset( $_POST['bn_space_members_nonce'] ) ) {
 				}
 			} elseif ( 'invite' === $member_action ) {
 				$invite_identifier = isset( $_POST['invite_identifier'] ) ? sanitize_text_field( wp_unslash( $_POST['invite_identifier'] ) ) : '';
+				// Accept an @-prefixed username, matching the @username mention format.
+				$invite_identifier = ltrim( $invite_identifier, '@' );
 				if ( $invite_identifier ) {
 					$invite_user = is_email( $invite_identifier )
 						? get_user_by( 'email', $invite_identifier )
