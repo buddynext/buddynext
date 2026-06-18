@@ -181,8 +181,11 @@ class SearchIndexListener implements ListenerInterface {
 			return;
 		}
 
-		$visibility = 'public' === $row['privacy'] ? 'public' : 'private';
 		$author_id  = (int) $row['user_id'];
+		// A private (followers-only) account's posts must never surface in global
+		// search, even when the post's own privacy is 'public' — only followers
+		// see their content, via the feed, not the public index.
+		$visibility = ( 'public' === $row['privacy'] && ! buddynext_service( 'follows' )->is_private_account( $author_id ) ) ? 'public' : 'private';
 		$content    = wp_strip_all_tags( (string) $row['content'] );
 
 		buddynext_service( 'search' )->index(
@@ -300,7 +303,8 @@ class SearchIndexListener implements ListenerInterface {
 			// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 			foreach ( (array) $rows as $row ) {
-				$visibility = 'public' === $row['privacy'] ? 'public' : 'private';
+				$author_id  = (int) $row['user_id'];
+				$visibility = ( 'public' === $row['privacy'] && ! buddynext_service( 'follows' )->is_private_account( $author_id ) ) ? 'public' : 'private';
 				$search_service->index(
 					'post',
 					(int) $row['id'],

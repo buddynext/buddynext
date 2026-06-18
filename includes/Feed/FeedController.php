@@ -311,13 +311,26 @@ class FeedController extends BaseRestController {
 			);
 		}
 
-		if ( 'secret' === ( $space['type'] ?? '' ) ) {
+		// Only OPEN spaces are publicly readable. Private AND secret both require
+		// membership to read posts — previously only 'secret' was gated, so a
+		// private (membership-restricted) space leaked its posts to non-members /
+		// guests. Secret stays fully hidden (404); private exists and is
+		// discoverable, but its posts are members-only (403).
+		$space_type = (string) ( $space['type'] ?? '' );
+		if ( 'open' !== $space_type ) {
 			$is_member = $viewer_id > 0 && ( new SpaceMemberService() )->is_member( $space_id, $viewer_id );
 			if ( ! $is_member && ! user_can( $viewer_id, 'manage_options' ) ) {
+				if ( 'secret' === $space_type ) {
+					return new WP_Error(
+						'space_not_found',
+						__( 'Space not found.', 'buddynext' ),
+						array( 'status' => 404 )
+					);
+				}
 				return new WP_Error(
-					'space_not_found',
-					__( 'Space not found.', 'buddynext' ),
-					array( 'status' => 404 )
+					'space_members_only',
+					__( 'This space is members only. Join to view its posts.', 'buddynext' ),
+					array( 'status' => 403 )
 				);
 			}
 		}
