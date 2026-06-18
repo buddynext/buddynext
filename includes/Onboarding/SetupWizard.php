@@ -1159,22 +1159,23 @@ class SetupWizard {
 			return;
 		}
 
-		global $wpdb;
-
+		// Delegate to the canonical owner of bn_space_categories so the columns,
+		// slug derivation, colour defaults, and duplicate-slug guard stay in one
+		// place. The previous raw insert wrote phantom parent_id/order/created_at
+		// columns and failed silently, so wizard categories were never saved.
+		$service  = new \BuddyNext\Spaces\SpaceCategoryService();
+		$position = 0;
 		foreach ( $names as $name ) {
-			$slug = sanitize_title( $name );
-			$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
-				$wpdb->prefix . 'bn_space_categories',
+			// create() derives the slug, defaults colours, and returns a
+			// slug_conflict WP_Error for an existing category — which is the
+			// expected outcome when the wizard is re-run, so it is ignored.
+			$service->create(
 				array(
-					'name'        => sanitize_text_field( $name ),
-					'slug'        => $slug,
-					'description' => '',
-					'parent_id'   => 0,
-					'order'       => 0,
-					'created_at'  => current_time( 'mysql' ),
-				),
-				array( '%s', '%s', '%s', '%d', '%d', '%s' )
+					'name'       => sanitize_text_field( $name ),
+					'sort_order' => $position,
+				)
 			);
+			++$position;
 		}
 	}
 
