@@ -198,6 +198,19 @@
 /* Inline action buttons receive their visuals from .bn-btn - preserve hit area. */
 .bn-notif-row__actions .bn-btn { pointer-events: auto; min-height: 40px; }
 
+/* Dismiss (×) sits at the right end of the meta line — a compact corner control,
+   never its own stacked row beneath the content. Pushed right with margin-auto
+   and sized down from the inline action buttons so the meta row stays compact. */
+.bn-notif-row__meta { flex-wrap: nowrap; }
+.bn-notif-row__dismiss {
+	margin-inline-start: auto;
+	min-height: 0;
+	block-size: 28px;
+	inline-size: 28px;
+	padding: 0;
+	flex-shrink: 0;
+}
+
 /* ── Empty state ──────────────────────────────────────────────────────── */
 
 .bn-notif-empty {
