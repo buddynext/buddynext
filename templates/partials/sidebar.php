@@ -21,8 +21,6 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
-global $wpdb;
-
 $sidebar_user_id = isset( $sidebar_user_id ) ? absint( $sidebar_user_id ) : get_current_user_id();
 
 /*
