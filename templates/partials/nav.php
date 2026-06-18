@@ -94,14 +94,6 @@ if ( ! empty( $bn_context_items ) ) :
 <?php
 if ( $bn_nav_current_user ) :
 	$bn_badge_label = $bn_unread_notifs > 99 ? '99+' : (string) $bn_unread_notifs;
-	$bn_nav_context = wp_json_encode(
-		array(
-			'unreadCount' => (int) $bn_unread_notifs,
-			'unreadLabel' => $bn_badge_label,
-			'restUrl'     => rest_url( 'buddynext/v1/me/notifications' ),
-			'nonce'       => wp_create_nonce( 'wp_rest' ),
-		)
-	);
 	?>
 	<?php
 	// Curated 5-slot bottom bar. Kept data-driven so Settings → Navigation
@@ -201,9 +193,7 @@ if ( $bn_nav_current_user ) :
 	}
 	?>
 <nav class="bn-mobile-nav"
-	aria-label="<?php esc_attr_e( 'Mobile navigation', 'buddynext' ); ?>"
-	data-wp-interactive="buddynext/notifications"
-	data-wp-context='<?php echo esc_attr( (string) $bn_nav_context ); ?>'>
+	aria-label="<?php esc_attr_e( 'Mobile navigation', 'buddynext' ); ?>">
 	<?php
 	foreach ( $bn_bar_items as $bn_m_item ) :
 		$bn_m_key    = (string) ( $bn_m_item['key'] ?? '' );
@@ -235,9 +225,8 @@ if ( $bn_nav_current_user ) :
 				<?php echo $bn_m_create ? 'aria-label="' . esc_attr( (string) $bn_m_item['label'] ) . '"' : ''; ?>>
 				<?php buddynext_icon( (string) ( $bn_m_item['icon'] ?? 'home' ) ); ?>
 				<?php if ( $bn_m_badge ) : ?>
+					<?php // Server-rendered count, matching the header bell + rail badges. The mobile nav has no notifications Interactivity store loaded on feed/spaces/profile, so binding to state.unreadLabel there wiped the count — the static count re-renders correctly on every hub. ?>
 					<span class="bn-mobile-nav__badge"
-						data-wp-bind--hidden="state.badgeHidden"
-						data-wp-text="state.unreadLabel"
 						<?php echo 0 === $bn_unread_notifs ? 'hidden' : ''; ?>>
 						<?php echo esc_html( $bn_badge_label ); ?>
 					</span>
