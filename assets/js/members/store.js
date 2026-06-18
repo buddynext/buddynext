@@ -14,7 +14,7 @@
  */
 
 import { store, getContext, getElement } from '@wordpress/interactivity';
-import { bnToast } from '../shell/dialog.js';
+import { bnToast, bnConnectNoteDialog } from '../shell/dialog.js';
 
 const SEARCH_DEBOUNCE_MS = 250;
 const VIEW_STORAGE_KEY   = 'bn_members_view';
@@ -485,9 +485,18 @@ function wireCardListeners( article, cardCtx, item ) {
 			if ( cur === 'pending-received' ) { return; }
 			const endpoint = apiUrl( cardCtx, '/users/' + cardCtx.userId + '/connect' );
 			if ( cur === 'none' ) {
+				// LinkedIn-style optional note. Cancelling leaves the button as-is.
+				const note = await bnConnectNoteDialog( {
+					body: 'Add a personal message to your request to @' + name + ', or send it without one.',
+				} );
+				if ( note === null ) { return; }
 				cardCtx.connection = 'pending-sent'; paintConnect();
 				try {
-					const res = await fetch( endpoint, { method: 'POST', headers: { 'X-WP-Nonce': restNonce( cardCtx ) } } );
+					const res = await fetch( endpoint, {
+						method:  'POST',
+						headers: { 'X-WP-Nonce': restNonce( cardCtx ), 'Content-Type': 'application/json' },
+						body:    JSON.stringify( { note: note } ),
+					} );
 					if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
 					bnToast( 'Connection request sent to @' + name, { tone: 'success' } );
 				} catch ( _e ) {
@@ -904,11 +913,17 @@ const memberStore = store( 'buddynext/members', {
 			const name = ctx.displayName || 'member';
 			if ( cur === 'pending-received' ) { return; }
 			if ( cur === 'none' ) {
+				// LinkedIn-style optional note. Cancelling leaves the button as-is.
+				const note = await bnConnectNoteDialog( {
+					body: 'Add a personal message to your request to @' + name + ', or send it without one.',
+				} );
+				if ( note === null ) { return; }
 				ctx.connection = 'pending-sent';
 				try {
 					const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect' ), {
 						method:  'POST',
-						headers: { 'X-WP-Nonce': restNonce( ctx ) },
+						headers: { 'X-WP-Nonce': restNonce( ctx ), 'Content-Type': 'application/json' },
+						body:    JSON.stringify( { note: note } ),
 					} );
 					if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
 					bnToast( 'Connection request sent to @' + name, { tone: 'success' } );

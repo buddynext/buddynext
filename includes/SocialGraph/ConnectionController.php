@@ -39,6 +39,14 @@ class ConnectionController extends BaseRestController {
 					'methods'             => 'POST',
 					'callback'            => array( $this, 'send_request' ),
 					'permission_callback' => array( $this, 'require_auth' ),
+					'args'                => array(
+						'note' => array(
+							'type'              => 'string',
+							'required'          => false,
+							'sanitize_callback' => 'sanitize_textarea_field',
+							'description'       => __( 'Optional message included with the connection request (capped at 280 characters).', 'buddynext' ),
+						),
+					),
 				),
 				array(
 					'methods'             => 'DELETE',

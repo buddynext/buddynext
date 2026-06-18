@@ -1,6 +1,6 @@
 /* BuddyNext - Profile Interactivity API store. */
 import { store, getContext } from '@wordpress/interactivity';
-import { bnToast, bnConfirm } from '../shell/dialog.js';
+import { bnToast, bnConfirm, bnConnectNoteDialog } from '../shell/dialog.js';
 
 /* -- Shared helpers ----------------------------------------------------- */
 
@@ -1527,12 +1527,18 @@ store( 'buddynext/profile', {
 		async connect() {
 			var ctx = getContext();
 			if ( ! ctx.showConnect ) { return; }
+			// LinkedIn-style optional note. Cancelling leaves the CTA untouched.
+			var note = await bnConnectNoteDialog( {
+				body: 'Add a personal message to your connection request, or send it without one.',
+			} );
+			if ( note === null ) { return; }
 			ctx.connectionPending = true;
 			ctx.showConnect       = false;
 			try {
 				var res = await fetch( apiUrl( 'buddynext/v1/users/' + ctx.profileUserId + '/connect' ), {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': ctx.restNonce },
+					headers: { 'X-WP-Nonce': ctx.restNonce, 'Content-Type': 'application/json' },
+					body:    JSON.stringify( { note: note } ),
 				} );
 				if ( ! res.ok ) { throw new Error( 'connect_failed' ); }
 				bnToast( 'Connection request sent', { tone: 'success' } );

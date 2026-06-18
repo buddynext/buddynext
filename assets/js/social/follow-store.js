@@ -24,7 +24,7 @@
  */
 
 import { store, getContext } from '@wordpress/interactivity';
-import { bnToast } from '../shell/dialog.js';
+import { bnToast, bnConnectNoteDialog } from '../shell/dialog.js';
 
 /* -- Helpers ----------------------------------------------------------- */
 
@@ -264,12 +264,27 @@ store( 'buddynext/connection-button', {
 		async sendRequest() {
 			const ctx  = getContext();
 			const name = ctx.targetName || ( '#' + ctx.userId );
+
+			// LinkedIn-style "Add a note" step. The note is optional — confirming
+			// with an empty textarea sends a note-less request; cancelling aborts
+			// without touching state. The server caps the note at 280 chars.
+			const note = await bnConnectNoteDialog( {
+				body: 'Add a personal message to your request to @' + name + ', or send it without one.',
+			} );
+			if ( note === null ) {
+				return; // User cancelled — leave the Connect button untouched.
+			}
+
 			const prev = ctx.status;
 			ctx.status = 'pending-sent';
 			try {
 				const res = await fetch( apiUrl( ctx, '/users/' + ctx.userId + '/connect' ), {
 					method:  'POST',
-					headers: { 'X-WP-Nonce': ctxNonce( ctx ) },
+					headers: {
+						'X-WP-Nonce':   ctxNonce( ctx ),
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify( { note: note } ),
 				} );
 				if ( ! res.ok ) { throw new Error( 'connect_failed_' + res.status ); }
 				bnToast( 'Connection request sent to @' + name, { tone: 'success' } );

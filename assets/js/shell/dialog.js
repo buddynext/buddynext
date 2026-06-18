@@ -369,6 +369,93 @@ export function bnReportDialog( opts ) {
 }
 
 /**
+ * Connection-note dialog — LinkedIn-style "Add a note" before sending a
+ * connection request. Promise-based, mirrors bnPrompt() but adds a 280-char
+ * cap matching ConnectionService::send_request() and a live character counter.
+ * The note is optional: confirming with an empty textarea sends a note-less
+ * request, so this doubles as the "Send without a note" path.
+ *
+ * Resolves to the note string (possibly empty) on submit, `null` on
+ * cancel / close / backdrop / Escape.
+ *
+ * @param {Object} [opts]
+ * @param {string} [opts.title]        Dialog title.
+ * @param {string} [opts.body]         Helper paragraph below the title.
+ * @param {string} [opts.confirmLabel] Submit-button label.
+ * @param {string} [opts.placeholder]  Textarea placeholder.
+ * @return {Promise<string|null>}
+ */
+export function bnConnectNoteDialog( opts ) {
+	const cfg = Object.assign( {
+		title:        'Add a note',
+		body:         'Add a personal message to your connection request, or send it without one.',
+		confirmLabel: 'Send request',
+		cancelLabel:  'Cancel',
+		placeholder:  'e.g. We met at the design meetup — I’d love to stay connected.',
+		tone:         'default',
+	}, opts || {} );
+
+	const MAX = 280;
+
+	const wrap = document.createElement( 'div' );
+	wrap.style.marginTop = '12px';
+
+	const note = document.createElement( 'textarea' );
+	note.className = 'bn-input';
+	note.rows = 3;
+	note.maxLength = MAX;
+	note.placeholder = cfg.placeholder;
+	note.style.width = '100%';
+	note.style.resize = 'vertical';
+
+	const counter = document.createElement( 'div' );
+	counter.style.marginTop = '6px';
+	counter.style.fontSize = '12px';
+	counter.style.textAlign = 'right';
+	counter.style.color = 'var(--bn-ink-soft, #646970)';
+	function syncCounter() {
+		counter.textContent = note.value.length + '/' + MAX;
+	}
+	syncCounter();
+	note.addEventListener( 'input', syncCounter );
+
+	wrap.appendChild( note );
+	wrap.appendChild( counter );
+
+	cfg.extraNode = wrap;
+
+	return new Promise( function ( resolve ) {
+		const trigger = document.activeElement;
+		const frame   = buildModalFrame( cfg );
+		const releaseTrap = trapFocus( frame.panel );
+
+		function close( result ) {
+			document.removeEventListener( 'keydown', onEscape );
+			releaseTrap();
+			frame.backdrop.remove();
+			if ( trigger && typeof trigger.focus === 'function' ) {
+				trigger.focus();
+			}
+			resolve( result );
+		}
+		function onEscape( ev ) {
+			if ( ev.key === 'Escape' ) { ev.preventDefault(); close( null ); }
+		}
+
+		frame.confirmBtn.addEventListener( 'click', function () { close( note.value || '' ); } );
+		frame.cancelBtn.addEventListener( 'click', function () { close( null ); } );
+		frame.closeBtn.addEventListener( 'click', function () { close( null ); } );
+		frame.backdrop.addEventListener( 'click', function ( ev ) {
+			if ( ev.target === frame.backdrop ) { close( null ); }
+		} );
+		document.addEventListener( 'keydown', onEscape );
+
+		document.body.appendChild( frame.backdrop );
+		window.requestAnimationFrame( function () { note.focus(); } );
+	} );
+}
+
+/**
  * Show a transient toast. Auto-dismisses after `timeout` ms (default 3000).
  * Multiple toasts stack inside a single .bn-toast-container.
  *
